@@ -268,13 +268,25 @@ export async function forwardEmail(
   }
 
   const attachments = await Promise.all(
-    message.attachments?.map(async (attachment) => {
+    message.attachments?.map(async (attachment): Promise<Attachment> => {
       const attachmentData = await getGmailAttachment(
         gmail,
         message.id,
         attachment.attachmentId,
       );
+      const contentId = attachment.headers["content-id"]
+        ?.trim()
+        .replace(/^<|>$/g, "");
+      const disposition = attachment.headers["content-disposition"]
+        ?.split(";")[0]
+        .trim()
+        .toLowerCase();
       return {
+        cid: contentId || undefined,
+        contentDisposition:
+          disposition === "inline" || (!disposition && contentId)
+            ? "inline"
+            : "attachment",
         content: Buffer.from(attachmentData.data || "", "base64url"),
         contentType: attachment.mimeType,
         filename: attachment.filename,

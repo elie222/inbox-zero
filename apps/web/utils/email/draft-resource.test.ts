@@ -21,12 +21,20 @@ import {
   updateDraftResource,
   readDraftResource,
   leaseDraftResourceForSend,
+  finishDraftResourceSend,
 } from "./draft-resource";
 
 vi.mock("@/utils/prisma");
-const { providerSend } = vi.hoisted(() => ({ providerSend: vi.fn() }));
+const { providerSend, publishDelivery } = vi.hoisted(() => ({
+  providerSend: vi.fn(),
+  publishDelivery: vi.fn(),
+}));
 vi.mock("@/utils/email/sent-message-open/sent-message-open.server", () => ({
   sendHtmlEmailWithOpenTracking: providerSend,
+}));
+vi.mock("@/utils/upstash", async (original) => ({
+  ...(await original<typeof import("@/utils/upstash")>()),
+  publishToQstashAt: publishDelivery,
 }));
 
 const content = {
@@ -51,9 +59,12 @@ function matches(
   return Object.entries(where).every(([key, value]) => {
     const actual = row[key as keyof EmailDraftResource];
     if (value && typeof value === "object" && !(value instanceof Date)) {
-      const check = value as { in?: unknown[]; lte?: Date };
-      if (check.in) return check.in.includes(actual);
-      if (check.lte) return actual instanceof Date && actual <= check.lte;
+      const check = value as { in?: unknown[]; lte?: Date; not?: unknown };
+      if (check.in && !check.in.includes(actual)) return false;
+      if (check.lte && !(actual instanceof Date && actual <= check.lte))
+        return false;
+      if ("not" in check && actual === check.not) return false;
+      return true;
     }
     return actual === value;
   });
@@ -63,6 +74,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   rows = [];
   schedules = [];
+  publishDelivery.mockResolvedValue(undefined);
   providerSend.mockResolvedValue({ messageId: "sent", threadId: "thread" });
   prisma.emailSendOperation.findUnique.mockResolvedValue(null);
   prisma.emailSendOperation.create.mockImplementation(
@@ -713,8 +725,8 @@ it("reconciles a known sent result after resource completion failed without anot
       logger: createScopedLogger("draft-resource-test"),
       input: sendInput,
     });
-  expect((await execute()).status).toBe("uncertain");
-  expect(rows[0].state).toBe("UNCERTAIN");
+  expect((await execute()).status).toBe("applied");
+  expect(rows[0].state).toBe("READY");
   prisma.emailSendOperation.findUnique.mockResolvedValue(sent as never);
   prisma.emailDraftResource.updateMany.mockImplementation(updateResource);
   expect((await execute()).status).toBe("already_applied");
@@ -929,4 +941,245 @@ it.each([
     (await admitTestSchedule(held, "unknown-operation")).clientMutationId,
   ).toBe("unknown-operation");
   expect(schedules).toHaveLength(1);
+});
+
+it("creates native reply drafts with their authoritative parent message", async () => {
+  await createDraftResource({
+    ...input(),
+    content: {
+      ...content,
+      replyToEmail: { messageId: "parent-message", threadId: "parent-thread" },
+    },
+  });
+  expect(provider.createDraft).toHaveBeenCalledWith(
+    expect.objectContaining({ replyToMessageId: "parent-message" }),
+  );
+});
+it("an uncertain provider save rejects before dispatch and releases desired send ownership without clearing its uncertainty", async () => {
+  await createDraftResource(input());
+  vi.mocked(provider.updateDraft).mockRejectedValueOnce(
+    new Error("lost provider update response"),
+  );
+  await updateDraftResource(input());
+  const leaseId = rows[0].leaseId;
+  const outcome = await executeDurableEmailSend({
+    emailAccountId: "account",
+    provider: "google",
+    getEmailProvider: async () => provider,
+    logger: createScopedLogger("draft-resource-test"),
+    input: {
+      mutationId: "unsent-unknown-save",
+      queuedAt: Date.now(),
+      threadId: null,
+      messageIds: [],
+      email: { ...content, draftResourceKey: "local-draft" },
+    },
+  });
+  expect(outcome.status).toBe("rejected");
+  expect(providerSend).not.toHaveBeenCalled();
+  expect(rows[0]).toMatchObject({
+    owner: "DRAFT",
+    state: "UNCERTAIN",
+    leaseId,
+    providerDraftId: "provider-draft",
+    sendOperationId: null,
+  });
+  await discardDraftResource(input());
+  expect(rows[0]).toMatchObject({
+    owner: "DISCARD",
+    state: "UNCERTAIN",
+    leaseId,
+  });
+  expect(provider.deleteDraft).not.toHaveBeenCalled();
+});
+it("provider setup failure releases a creating draft's desired send owner while preserving the live create lease", async () => {
+  let finish!: (value: { id: string }) => void;
+  vi.mocked(provider.createDraft).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const creating = createDraftResource(input());
+  await vi.waitFor(() => expect(provider.createDraft).toHaveBeenCalledOnce());
+  await claimDraftResourceForSend({
+    accountId: "account",
+    resourceKey: "local-draft",
+    sendOperationId: "failed-setup",
+  });
+  const leaseId = rows[0].leaseId;
+  const outcome = await executeDurableEmailSend({
+    emailAccountId: "account",
+    provider: "google",
+    getEmailProvider: async () => {
+      throw new Error("OAuth unavailable");
+    },
+    logger: createScopedLogger("draft-resource-test"),
+    input: {
+      mutationId: "failed-setup",
+      queuedAt: Date.now(),
+      threadId: null,
+      messageIds: [],
+      email: { ...content, draftResourceKey: "local-draft" },
+    },
+  });
+  expect(outcome.status).toBe("rejected");
+  expect(rows[0]).toMatchObject({
+    owner: "DRAFT",
+    state: "CREATING",
+    leaseId,
+    sendOperationId: null,
+  });
+  finish({ id: "provider-draft" });
+  expect(await creating).toMatchObject({
+    owner: "DRAFT",
+    state: "READY",
+    providerDraftId: "provider-draft",
+  });
+});
+it("discard of a never-created resource consumes locally without provider credentials or provider calls", async () => {
+  await registerDraftResource({
+    accountId: "account",
+    resourceKey: "local-draft",
+  });
+  expect(
+    await discardDraftResource({
+      accountId: "account",
+      resourceKey: "local-draft",
+    }),
+  ).toMatchObject({ owner: "DISCARD", state: "CONSUMED" });
+  expect(provider.createDraft).not.toHaveBeenCalled();
+  expect(provider.deleteDraft).not.toHaveBeenCalled();
+});
+it("a known provider draft stays pending when cleanup has no provider instead of falsely consuming it", async () => {
+  await createDraftResource(input());
+  expect(
+    await discardDraftResource({
+      accountId: "account",
+      resourceKey: "local-draft",
+    }),
+  ).toMatchObject({ owner: "DISCARD", state: "READY", leaseId: null });
+  expect(provider.deleteDraft).not.toHaveBeenCalled();
+});
+it("keeps a durable sent response authoritative while resource reconciliation remains unavailable", async () => {
+  await createDraftResource(input());
+  const sendInput = {
+    mutationId: "known-sent",
+    queuedAt: Date.now(),
+    threadId: null,
+    messageIds: [],
+    email: { ...content, draftResourceKey: "local-draft" },
+  };
+  const hash = createHash("sha256")
+    .update(
+      JSON.stringify({
+        threadId: sendInput.threadId,
+        messageIds: sendInput.messageIds,
+        email: sendInput.email,
+        queuedAt: sendInput.queuedAt,
+      }),
+    )
+    .digest("hex");
+  prisma.emailSendOperation.findUnique.mockResolvedValue({
+    status: "SENT",
+    payloadHash: hash,
+    result: { messageId: "sent" },
+  } as never);
+  prisma.emailDraftResource.updateMany.mockRejectedValueOnce(
+    new Error("resource DB unavailable"),
+  );
+  expect(
+    await executeDurableEmailSend({
+      emailAccountId: "account",
+      provider: "google",
+      getEmailProvider: async () => provider,
+      logger: createScopedLogger("draft-resource-test"),
+      input: sendInput,
+    }),
+  ).toEqual({ status: "already_applied", result: { messageId: "sent" } });
+  expect(providerSend).not.toHaveBeenCalled();
+});
+it("a cancelled concurrent hold does not publish a QStash execution", async () => {
+  await createDraftResource(input());
+  prisma.$queryRaw.mockImplementationOnce(async () => {
+    schedules.push({
+      id: "cancelled-hold",
+      emailAccountId: "account",
+      clientMutationId: "cancelled-operation",
+      status: "CANCELLED",
+      payloadHash: "",
+    } as ScheduledEmail);
+    return [] as never;
+  });
+  expect((await admitTestSchedule(true, "cancelled-operation")).status).toBe(
+    "CANCELLED",
+  );
+  expect(publishDelivery).not.toHaveBeenCalled();
+  expect(rows[0]).toMatchObject({ owner: "DRAFT", sendOperationId: null });
+});
+it("the Prisma predicate fixture requires every provided filter operator", () => {
+  const at = new Date("2026-01-02");
+  const row = { leaseStartedAt: at } as EmailDraftResource;
+  expect(
+    matches(row, { leaseStartedAt: { in: [at], lte: new Date("2026-01-01") } }),
+  ).toBe(false);
+  expect(
+    matches(row, {
+      leaseStartedAt: { in: [at], lte: new Date("2026-01-03"), not: at },
+    }),
+  ).toBe(false);
+  expect(
+    matches(row, { leaseStartedAt: { in: [at], lte: new Date("2026-01-03") } }),
+  ).toBe(true);
+});
+
+it("a durable uncertain delivery keeps its send owner and lease on same-operation replay", async () => {
+  await createDraftResource(input());
+  const lease = await leaseDraftResourceForSend({
+    accountId: "account",
+    resourceKey: "local-draft",
+    sendOperationId: "unknown-delivery",
+  });
+  if (!("leaseId" in lease)) throw new Error("Expected send lease");
+  await finishDraftResourceSend(lease.resource, lease.leaseId, "uncertain");
+  const sendInput = {
+    mutationId: "unknown-delivery",
+    queuedAt: Date.now(),
+    threadId: null,
+    messageIds: [],
+    email: { ...content, draftResourceKey: "local-draft" },
+  };
+  const hash = createHash("sha256")
+    .update(
+      JSON.stringify({
+        threadId: sendInput.threadId,
+        messageIds: sendInput.messageIds,
+        email: sendInput.email,
+        queuedAt: sendInput.queuedAt,
+      }),
+    )
+    .digest("hex");
+  prisma.emailSendOperation.findUnique.mockResolvedValue({
+    status: "UNCERTAIN",
+    payloadHash: hash,
+  } as never);
+  expect(
+    (
+      await executeDurableEmailSend({
+        emailAccountId: "account",
+        provider: "google",
+        getEmailProvider: async () => provider,
+        logger: createScopedLogger("draft-resource-test"),
+        input: sendInput,
+      })
+    ).status,
+  ).toBe("uncertain");
+  expect(rows[0]).toMatchObject({
+    owner: "SEND",
+    state: "UNCERTAIN",
+    leaseId: lease.leaseId,
+    sendOperationId: "unknown-delivery",
+  });
+  expect(prisma.emailSendOperation.deleteMany).not.toHaveBeenCalled();
+  expect(providerSend).not.toHaveBeenCalled();
 });

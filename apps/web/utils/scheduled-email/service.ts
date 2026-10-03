@@ -122,6 +122,7 @@ export async function holdEmailForUndo({
       },
     });
   }
+  if (row.status === "CANCELLED") return row;
   try {
     await publishToQstashAt({
       path: HELD_EMAIL_EXECUTE_PATH,

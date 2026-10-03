@@ -14,6 +14,7 @@ export async function cleanupDraftResources(logger: Logger) {
       id: true,
       emailAccountId: true,
       resourceKey: true,
+      providerDraftId: true,
       emailAccount: { select: { account: { select: { provider: true } } } },
     },
     orderBy: { updatedAt: "asc" },
@@ -23,17 +24,20 @@ export async function cleanupDraftResources(logger: Logger) {
   let errors = 0;
   for (const row of rows) {
     try {
-      const provider = await createEmailProvider({
-        emailAccountId: row.emailAccountId,
-        provider: row.emailAccount.account.provider,
-        logger,
-      });
+      const provider = row.providerDraftId
+        ? await createEmailProvider({
+            emailAccountId: row.emailAccountId,
+            provider: row.emailAccount.account.provider,
+            logger,
+          })
+        : undefined;
       const result = await discardDraftResource({
         accountId: row.emailAccountId,
         resourceKey: row.resourceKey,
         provider,
       });
       if (result.state === "CONSUMED") consumed += 1;
+      else if (result.state === "UNCERTAIN") errors += 1;
     } catch (error) {
       errors += 1;
       logger.error("Could not finish owned draft cleanup", {

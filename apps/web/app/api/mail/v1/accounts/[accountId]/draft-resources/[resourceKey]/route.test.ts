@@ -187,3 +187,34 @@ it("discards only the authenticated keyed resource", async () => {
     }),
   );
 });
+
+it.each([
+  ["POST", POST],
+  ["PUT", PUT],
+  ["DELETE", DELETE],
+] as const)("rejects malformed, absent, and invalid %s bodies before resource writes", async (method, handler) => {
+  for (const body of ["{", "", "null"]) {
+    const response = await handler(
+      new NextRequest(
+        "http://localhost/api/mail/v1/accounts/account/draft-resources/local-key",
+        {
+          method,
+          headers: {
+            "content-type": "application/json",
+            "X-Email-Account-ID": "account",
+          },
+          body,
+        },
+      ),
+      context(),
+    );
+    expect(response.status).toBe(400);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(await response.json()).toMatchObject({
+      error: { code: "invalid", retryable: false },
+    });
+  }
+  expect(createDraftResource).not.toHaveBeenCalled();
+  expect(updateDraftResource).not.toHaveBeenCalled();
+  expect(discardDraftResource).not.toHaveBeenCalled();
+});

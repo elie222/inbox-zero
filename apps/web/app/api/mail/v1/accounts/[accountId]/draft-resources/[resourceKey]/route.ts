@@ -1,3 +1,4 @@
+import { mailHttpErrorResponse } from "@inboxzero/mail-core/protocol/mail-http";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withEmailAccount, withEmailProvider } from "@/utils/middleware";
@@ -65,11 +66,17 @@ export const POST = withEmailProvider(
         protocolVersionFromRequest(request),
       );
     if (mismatch) return mismatch;
-    const body = writeBody.parse(await request.json());
+    const body = writeBody.safeParse(await request.json().catch(() => null));
+    if (!body.success) {
+      return NextResponse.json(
+        mailHttpErrorResponse({ requestId, code: "invalid", retryable: false }),
+        { status: 400, headers },
+      );
+    }
     const row = await createDraftResource({
       accountId,
       resourceKey,
-      ...body,
+      ...body.data,
       provider: request.emailProvider,
     });
     return NextResponse.json(draftResourceResult(row), { headers });
@@ -90,11 +97,17 @@ export const PUT = withEmailProvider(
         protocolVersionFromRequest(request),
       );
     if (mismatch) return mismatch;
-    const body = writeBody.parse(await request.json());
+    const body = writeBody.safeParse(await request.json().catch(() => null));
+    if (!body.success) {
+      return NextResponse.json(
+        mailHttpErrorResponse({ requestId, code: "invalid", retryable: false }),
+        { status: 400, headers },
+      );
+    }
     const row = await updateDraftResource({
       accountId,
       resourceKey,
-      ...body,
+      ...body.data,
       provider: request.emailProvider,
     });
     return NextResponse.json(draftResourceResult(row), { headers });
@@ -115,11 +128,17 @@ export const DELETE = withEmailProvider(
         protocolVersionFromRequest(request),
       );
     if (mismatch) return mismatch;
-    const body = discardBody.parse(await request.json());
+    const body = discardBody.safeParse(await request.json().catch(() => null));
+    if (!body.success) {
+      return NextResponse.json(
+        mailHttpErrorResponse({ requestId, code: "invalid", retryable: false }),
+        { status: 400, headers },
+      );
+    }
     const row = await discardDraftResource({
       accountId,
       resourceKey,
-      ...body,
+      ...body.data,
       provider: request.emailProvider,
     });
     return NextResponse.json(draftResourceResult(row), { headers });

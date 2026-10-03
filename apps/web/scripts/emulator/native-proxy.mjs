@@ -9,7 +9,12 @@ let remaining = 0;
 let dropped = 0;
 const server = createServer(async (request, response) => {
   const chunks = [];
-  for await (const chunk of request) chunks.push(chunk);
+  try {
+    for await (const chunk of request) chunks.push(chunk);
+  } catch {
+    response.destroy();
+    return;
+  }
   const body = Buffer.concat(chunks);
   if (request.url === "/__native-control/response-loss") {
     if (request.method === "POST") {
@@ -78,7 +83,13 @@ const server = createServer(async (request, response) => {
   outgoing.on("error", () => response.destroy());
   outgoing.end(body);
 });
-server.listen(port, "127.0.0.1");
+server.listen(port, "127.0.0.1", () => {
+  console.log(JSON.stringify({ port: server.address().port }));
+});
 for (const signal of ["SIGINT", "SIGTERM"]) {
-  process.once(signal, () => server.close(() => process.exit(0)));
+  process.once(signal, () => {
+    server.close(() => process.exit(0));
+    const forceClose = setTimeout(() => server.closeAllConnections(), 500);
+    forceClose.unref();
+  });
 }

@@ -938,12 +938,13 @@ model EmailDraftResource {
   leaseId             String?
   leaseStartedAt      DateTime?
   canonicalResourceId String?
-  canonicalResource   EmailDraftResource? @relation("DraftResourceAliases", fields: [canonicalResourceId], references: [id], onDelete: Cascade)
+  canonicalResource   EmailDraftResource? @relation("DraftResourceAliases", fields: [canonicalResourceId, emailAccountId], references: [id, emailAccountId], onDelete: Cascade)
   aliases             EmailDraftResource[] @relation("DraftResourceAliases")
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
+  @@unique([id, emailAccountId])
   @@unique([emailAccountId, resourceKey])
   @@unique([emailAccountId, providerDraftId])
   @@index([owner, state, updatedAt])

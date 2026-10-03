@@ -17,6 +17,7 @@ it("isolates account failures and still cleans later owned resources", async () 
   prisma.emailDraftResource.findMany.mockResolvedValue(
     ["first", "second"].map((resourceKey) => ({
       resourceKey,
+      providerDraftId: "provider-draft",
       emailAccountId: resourceKey,
       emailAccount: { account: { provider: "google" } },
     })) as never,
@@ -72,6 +73,7 @@ it("rotates a full failed batch so a later healthy account runs on the next invo
   const pending = Array.from({ length: 101 }, (_, index) => ({
     id: `row-${index}`,
     resourceKey: `key-${index}`,
+    providerDraftId: "provider-draft",
     emailAccountId: index === 100 ? "healthy" : "offline",
     updatedAt: index,
     emailAccount: { account: { provider: "google" } },
@@ -101,5 +103,56 @@ it("rotates a full failed batch so a later healthy account runs on the next invo
   expect((await cleanupDraftResources(logger)).consumed).toBe(1);
   expect(discardDraftResource).toHaveBeenCalledWith(
     expect.objectContaining({ accountId: "healthy", resourceKey: "key-100" }),
+  );
+});
+
+it("counts an uncertain provider deletion as an error", async () => {
+  prisma.emailDraftResource.findMany.mockResolvedValue([
+    {
+      id: "row",
+      resourceKey: "key",
+      emailAccountId: "account",
+      providerDraftId: "remote",
+      emailAccount: { account: { provider: "google" } },
+    },
+  ] as never);
+  vi.mocked(createEmailProvider).mockResolvedValue({ name: "google" } as never);
+  vi.mocked(discardDraftResource).mockResolvedValue({
+    state: "UNCERTAIN",
+  } as never);
+  expect(await cleanupDraftResources(logger)).toEqual({
+    examined: 1,
+    consumed: 0,
+    errors: 1,
+  });
+});
+it("finishes no-ID cleanup without trying unavailable OAuth", async () => {
+  prisma.emailDraftResource.findMany.mockResolvedValue([
+    {
+      id: "row",
+      resourceKey: "key",
+      emailAccountId: "account",
+      providerDraftId: null,
+      emailAccount: { account: { provider: "google" } },
+    },
+  ] as never);
+  vi.mocked(createEmailProvider).mockRejectedValue(
+    new Error("OAuth unavailable"),
+  );
+  vi.mocked(discardDraftResource).mockResolvedValue({
+    state: "CONSUMED",
+  } as never);
+  expect(await cleanupDraftResources(logger)).toEqual({
+    examined: 1,
+    consumed: 1,
+    errors: 0,
+  });
+  expect(createEmailProvider).not.toHaveBeenCalled();
+  expect(discardDraftResource).toHaveBeenCalledWith(
+    expect.objectContaining({
+      accountId: "account",
+      resourceKey: "key",
+      provider: undefined,
+    }),
   );
 });

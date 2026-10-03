@@ -84,6 +84,32 @@ describe("draft cleanup cron route", () => {
     expect(captureExceptionMock).not.toHaveBeenCalled();
   });
 
+  it.each([
+    "ai",
+    "resources",
+  ])("runs the other cleanup when the %s job fails before its account loop", async (failed) => {
+    const error = new Error("Initial database query failed");
+    if (failed === "ai") cleanupDraftsMock.mockRejectedValueOnce(error);
+    else cleanupResourcesMock.mockRejectedValueOnce(error);
+    const response = await GET(
+      new Request("http://localhost:3000/api/cron/draft-cleanup", {
+        headers: { authorization: "Bearer cron-secret" },
+      }),
+    );
+    expect(response.status).toBe(500);
+    expect(cleanupDraftsMock).toHaveBeenCalledOnce();
+    expect(cleanupResourcesMock).toHaveBeenCalledOnce();
+    expect(captureExceptionMock).toHaveBeenCalledWith(error);
+    const result = await response.json();
+    if (failed === "ai")
+      expect(result.draftResources).toEqual({
+        examined: 1,
+        consumed: 1,
+        errors: 0,
+      });
+    else expect(result.deletedDrafts).toBe(2);
+  });
+
   it("rejects POST requests without the cron secret in the body", async () => {
     const response = await POST(
       new Request("http://localhost:3000/api/cron/draft-cleanup", {

@@ -28,9 +28,35 @@ export const POST = withError("cron/draft-cleanup", async (request) => {
 });
 
 async function runDraftCleanup(request: RequestWithLogger) {
-  const result = await cleanupConfiguredAIDrafts({
-    logger: request.logger,
-  });
-  const draftResources = await cleanupDraftResources(request.logger);
-  return NextResponse.json({ ...result, draftResources });
+  const [ai, resources] = await Promise.allSettled([
+    cleanupConfiguredAIDrafts({ logger: request.logger }),
+    cleanupDraftResources(request.logger),
+  ]);
+  for (const [job, result] of [
+    ["aiDrafts", ai],
+    ["draftResources", resources],
+  ] as const) {
+    if (result.status === "rejected") {
+      request.logger.error("Draft cleanup job failed", {
+        job,
+        error: result.reason,
+      });
+      captureException(result.reason);
+    }
+  }
+  return NextResponse.json(
+    {
+      ...(ai.status === "fulfilled"
+        ? ai.value
+        : { error: "AI draft cleanup failed." }),
+      draftResources:
+        resources.status === "fulfilled"
+          ? resources.value
+          : { error: "Draft resource cleanup failed." },
+    },
+    {
+      status:
+        ai.status === "rejected" || resources.status === "rejected" ? 500 : 200,
+    },
+  );
 }

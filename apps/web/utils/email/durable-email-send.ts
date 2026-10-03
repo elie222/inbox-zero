@@ -67,7 +67,12 @@ export async function executeDurableEmailSend({
   }
   if (existing.status === EmailSendOperationStatus.SENT) {
     if (input.email.draftResourceKey)
-      await reconcileSentDraftResource(emailAccountId, input.mutationId);
+      await reconcileSentDraftResource(emailAccountId, input.mutationId).catch(
+        (error) =>
+          logger.error("Known sent draft resource reconciliation is pending", {
+            error,
+          }),
+      );
     return { status: "already_applied" as const, result: existing.result };
   }
   if (existing.status === EmailSendOperationStatus.UNCERTAIN) {
@@ -102,6 +107,11 @@ export async function executeDurableEmailSend({
         sendOperationId: input.mutationId,
       });
       if (claim.status !== "ready" || !("leaseId" in claim)) {
+        if (claim.status === "uncertain")
+          await releaseKnownUnsentDraftResource(
+            emailAccountId,
+            input.mutationId,
+          );
         await prisma.emailSendOperation.deleteMany({
           where: { id: existing.id },
         });
@@ -139,6 +149,10 @@ export async function executeDurableEmailSend({
         draftLease.resource,
         draftLease.leaseId,
         "sent",
+      ).catch((error) =>
+        logger.error("Known sent draft resource completion is pending", {
+          error,
+        }),
       );
     return { status: "applied" as const, result };
   } catch (error) {

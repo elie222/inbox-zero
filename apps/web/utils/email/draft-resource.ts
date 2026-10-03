@@ -113,6 +113,7 @@ export async function createDraftResource(input: Write) {
       to: "",
       subject: input.content.subject,
       messageHtml: input.content.messageHtml,
+      replyToMessageId: input.content.replyToEmail?.messageId,
     });
     if (!created.id) throw new Error("Provider returned no draft identity");
     // Do not test desired owner here: Send/discard may have claimed the late result.
@@ -179,7 +180,7 @@ export async function updateDraftResource(
 
 /** Discard owns the future result even when creation is currently in flight. */
 export async function discardDraftResource(
-  input: Identity & { provider: EmailProvider },
+  input: Identity & { provider?: EmailProvider },
 ): Promise<EmailDraftResource> {
   let row = await expireLease(await registerDraftResource(input));
   if (row.owner === "SEND" || row.state === "CONSUMED") return row;
@@ -193,10 +194,11 @@ export async function discardDraftResource(
   row = latest;
   if (row.owner !== "DISCARD" || row.state === "UNCERTAIN" || row.leaseId)
     return row;
+  if (row.providerDraftId && !input.provider) return row;
   const leaseId = await claimLease(row, "DISCARD");
   if (!leaseId) return current(row);
   try {
-    if (row.providerDraftId)
+    if (row.providerDraftId && input.provider)
       await discardComposeDraft({
         provider: input.provider,
         draftId: row.providerDraftId,
@@ -284,6 +286,7 @@ export async function finishDraftResourceSend(
   return releaseLease(row, leaseId, "CONSUMED");
 }
 
+/** Only a proven pre-dispatch failure or confirmed cancellation may release this owner; its write lease and uncertainty remain intact. */
 export async function releaseKnownUnsentDraftResource(
   accountId: string,
   sendOperationId: string,
@@ -294,8 +297,7 @@ export async function releaseKnownUnsentDraftResource(
       canonicalResourceId: null,
       owner: "SEND",
       sendOperationId,
-      leaseId: null,
-      state: { in: ["NOT_CREATED", "READY"] },
+      state: { in: ["NOT_CREATED", "CREATING", "READY", "UNCERTAIN"] },
     },
     data: { owner: "DRAFT", sendOperationId: null },
   });
@@ -363,16 +365,7 @@ export async function releaseCancelledDraftResource(
   accountId: string,
   sendOperationId: string,
 ) {
-  await prisma.emailDraftResource.updateMany({
-    where: {
-      emailAccountId: accountId,
-      canonicalResourceId: null,
-      owner: "SEND",
-      sendOperationId,
-      state: { in: ["NOT_CREATED", "CREATING", "READY", "UNCERTAIN"] },
-    },
-    data: { owner: "DRAFT", sendOperationId: null },
-  });
+  return releaseKnownUnsentDraftResource(accountId, sendOperationId);
 }
 
 async function findResource(accountId: string, resourceKey: string) {

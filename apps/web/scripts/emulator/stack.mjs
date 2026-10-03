@@ -1,15 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 import { createServer } from "node:net";
-import {
-  mkdirSync,
-  openSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, openSync, readFileSync, rmSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  StartupOwnership,
+  stopStartup,
+  readStartupState,
+} from "./startup-ownership.mjs";
 
 const webRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -27,19 +26,12 @@ if (command === "serve-cron") {
   await up({
     foreground: process.argv.includes("--foreground"),
     nativeTests: process.argv.includes("--native-tests"),
-    ownerToken: process.argv.includes("--owner-token")
-      ? process.argv[process.argv.indexOf("--owner-token") + 1]
-      : randomUUID(),
+    ownerToken: ownerTokenArgument() ?? randomUUID(),
   });
 } else if (command === "reset-native") {
   await resetNative();
 } else if (command === "down") {
-  await down(
-    undefined,
-    process.argv.includes("--owner-token")
-      ? process.argv[process.argv.indexOf("--owner-token") + 1]
-      : undefined,
-  );
+  await down(undefined, ownerTokenArgument());
 } else {
   console.log("Usage: node scripts/emulator/stack.mjs <up|down>");
   process.exit(command === "help" ? 0 : 1);
@@ -117,13 +109,15 @@ async function up({ foreground, nativeTests, ownerToken }) {
     runDir,
     pids,
   };
-  // Claim the checkout before startup so competing runners cannot take ownership.
-  writeFileSync(statePath, `${JSON.stringify(state, null, 2)}\n`, {
-    flag: "wx",
-  });
+  const ownership = new StartupOwnership(statePath, state);
+  const start = (command, args, childEnv, logPath) =>
+    ownership.start(() => spawnLogged(command, args, childEnv, logPath));
   try {
+    ownership.assertCurrent();
     compose(composeProject, ["up", "-d", "--wait"], state.composeEnv);
+    ownership.assertCurrent();
     run(webRoot, "pnpm", ["exec", "prisma", "migrate", "deploy"], env);
+    ownership.assertCurrent();
     const seedPath = path.join(runDir, "emulate.generated.json");
     run(
       webRoot,
@@ -141,108 +135,102 @@ async function up({ foreground, nativeTests, ownerToken }) {
       env,
     );
     if (nativeTests) {
+      ownership.assertCurrent();
       run(
         webRoot,
         process.execPath,
         ["scripts/emulator/native-fixture.mjs", seedPath],
         env,
       );
-      pids.push(
-        spawnLogged(
-          "pnpm",
-          ["exec", "tsx", "scripts/run-llm-emulator.ts", String(ports.llm)],
-          env,
-          path.join(runDir, "llm.log"),
-        ),
-        spawnLogged(
-          process.execPath,
-          [
-            "scripts/emulator/native-proxy.mjs",
-            String(ports.proxy),
-            nextBaseUrl,
-          ],
-          env,
-          path.join(runDir, "proxy.log"),
-        ),
+      start(
+        "pnpm",
+        ["exec", "tsx", "scripts/run-llm-emulator.ts", String(ports.llm)],
+        env,
+        path.join(runDir, "llm.log"),
+      );
+      start(
+        process.execPath,
+        ["scripts/emulator/native-proxy.mjs", String(ports.proxy), nextBaseUrl],
+        env,
+        path.join(runDir, "proxy.log"),
       );
     }
-    pids.push(
-      spawnLogged(
-        nativeTests ? process.execPath : "pnpm",
-        nativeTests
-          ? [
-              "scripts/emulator/native-provider.mjs",
-              "google",
-              String(ports.google),
-              String(ports.googleControl),
-              seedPath,
-            ]
-          : [
-              "exec",
-              "emulate",
-              "start",
-              "--service",
-              "google",
-              "--port",
-              String(ports.google),
-              "--base-url",
-              googleBaseUrl,
-              "--seed",
-              seedPath,
-            ],
-        env,
-        path.join(runDir, "google.log"),
-      ),
-      spawnLogged(
-        nativeTests ? process.execPath : "pnpm",
-        nativeTests
-          ? [
-              "scripts/emulator/native-provider.mjs",
-              "microsoft",
-              String(ports.microsoft),
-              String(ports.microsoftControl),
-              seedPath,
-            ]
-          : [
-              "exec",
-              "emulate",
-              "start",
-              "--service",
-              "microsoft",
-              "--port",
-              String(ports.microsoft),
-              "--base-url",
-              microsoftBaseUrl,
-              "--seed",
-              seedPath,
-            ],
-        env,
-        path.join(runDir, "microsoft.log"),
-      ),
-      spawnLogged(
-        "pnpm",
-        [
-          "exec",
-          "next",
-          "dev",
-          "--turbopack",
-          "--hostname",
-          "127.0.0.1",
-          "--port",
-          String(ports.next),
-        ],
-        env,
-        path.join(runDir, "next.log"),
-      ),
-      spawnLogged(
-        process.execPath,
-        [fileURLToPath(import.meta.url), "serve-cron"],
-        { ...env, EMULATOR_BASE_URL: baseUrl },
-        path.join(runDir, "cron.log"),
-      ),
+    start(
+      nativeTests ? process.execPath : "pnpm",
+      nativeTests
+        ? [
+            "scripts/emulator/native-provider.mjs",
+            "google",
+            String(ports.google),
+            String(ports.googleControl),
+            seedPath,
+          ]
+        : [
+            "exec",
+            "emulate",
+            "start",
+            "--service",
+            "google",
+            "--port",
+            String(ports.google),
+            "--base-url",
+            googleBaseUrl,
+            "--seed",
+            seedPath,
+          ],
+      env,
+      path.join(runDir, "google.log"),
     );
-    writeFileSync(statePath, `${JSON.stringify(state, null, 2)}\n`);
-    await waitForReady(state);
+    start(
+      nativeTests ? process.execPath : "pnpm",
+      nativeTests
+        ? [
+            "scripts/emulator/native-provider.mjs",
+            "microsoft",
+            String(ports.microsoft),
+            String(ports.microsoftControl),
+            seedPath,
+          ]
+        : [
+            "exec",
+            "emulate",
+            "start",
+            "--service",
+            "microsoft",
+            "--port",
+            String(ports.microsoft),
+            "--base-url",
+            microsoftBaseUrl,
+            "--seed",
+            seedPath,
+          ],
+      env,
+      path.join(runDir, "microsoft.log"),
+    );
+    start(
+      "pnpm",
+      [
+        "exec",
+        "next",
+        "dev",
+        "--turbopack",
+        "--hostname",
+        "127.0.0.1",
+        "--port",
+        String(ports.next),
+      ],
+      env,
+      path.join(runDir, "next.log"),
+    );
+    start(
+      process.execPath,
+      [fileURLToPath(import.meta.url), "serve-cron"],
+      { ...env, EMULATOR_BASE_URL: baseUrl },
+      path.join(runDir, "cron.log"),
+    );
+    ownership.publish();
+    await waitForReady(state, () => ownership.assertCurrent());
+    ownership.assertCurrent();
     printReady(state);
     if (foreground) await waitForSignal();
   } catch (error) {
@@ -252,11 +240,13 @@ async function up({ foreground, nativeTests, ownerToken }) {
       console.error("Emulator cleanup also failed", cleanupError);
     }
     throw error;
+  } finally {
+    ownership.close();
   }
 }
 
 async function resetNative() {
-  const state = readState();
+  const state = await readStartupState(statePath);
   if (!state?.controlUrl || !state.llmUrl)
     throw new Error("reset-native requires an owned --native-tests stack");
   for (const origin of state.providerControlUrls) {
@@ -328,10 +318,11 @@ async function serveScheduledActions() {
 }
 
 async function down(providedState, expectedOwner) {
-  const state = providedState ?? readState();
+  const state = providedState ?? (await readStartupState(statePath));
   if (!state) return;
   if (expectedOwner && state.ownerToken !== expectedOwner)
     throw new Error("Emulator ownership changed; refusing cleanup");
+  stopStartup(state);
   for (const pid of state.pids ?? []) stopPid(pid);
   if (state.composeProject) {
     // Keep the ownership record if Compose fails, so cleanup can be retried.
@@ -345,13 +336,8 @@ async function down(providedState, expectedOwner) {
       },
     );
   }
-  if (readState()?.ownerToken === state.ownerToken)
+  if ((await readStartupState(statePath))?.ownerToken === state.ownerToken)
     rmSync(statePath, { force: true });
-}
-
-function readState() {
-  if (!exists(statePath)) return;
-  return JSON.parse(readFileSync(statePath, "utf8"));
 }
 
 function printReady(state) {
@@ -360,25 +346,38 @@ function printReady(state) {
   console.log(`MICROSOFT_BASE_URL=${state.microsoftBaseUrl}`);
 }
 
-async function waitForReady(state) {
+async function waitForReady(state, assertOwner) {
   await waitFor(
     `${state.googleBaseUrl}/.well-known/openid-configuration`,
     "Google emulator",
+    60_000,
+    assertOwner,
   );
   await waitFor(
     `${state.microsoftBaseUrl}/.well-known/openid-configuration`,
     "Microsoft emulator",
+    60_000,
+    assertOwner,
   );
-  await waitFor(`${state.baseUrl}/api/auth/ok`, "Next auth", 180_000);
+  await waitFor(
+    `${state.baseUrl}/api/auth/ok`,
+    "Next auth",
+    180_000,
+    assertOwner,
+  );
 }
 
-async function waitFor(url, name, timeoutMs = 60_000) {
+async function waitFor(url, name, timeoutMs, assertOwner) {
   const deadline = Date.now() + timeoutMs;
   let lastError = "not ready";
   while (Date.now() < deadline) {
+    assertOwner();
     try {
-      const response = await fetch(url);
-      if (response.ok) return;
+      const response = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      if (response.ok) {
+        assertOwner();
+        return;
+      }
       lastError = `${response.status}`;
     } catch (error) {
       lastError = error instanceof Error ? error.message : String(error);
@@ -518,7 +517,12 @@ function compose(project, args, env) {
   const result = spawnSync(
     "docker",
     ["compose", "-p", project, "-f", composeFile, ...args],
-    { cwd: webRoot, env: { ...process.env, ...env }, stdio: "inherit" },
+    {
+      cwd: webRoot,
+      env: { ...process.env, ...env },
+      stdio: "inherit",
+      timeout: 120_000,
+    },
   );
   if (result.status !== 0) {
     throw new Error(`docker compose ${args[0]} failed`);
@@ -530,6 +534,7 @@ function run(cwd, command, args, env) {
     cwd,
     env,
     stdio: "inherit",
+    timeout: 120_000,
   });
   if (result.status !== 0)
     throw new Error(`${command} ${args.join(" ")} failed`);
@@ -612,4 +617,13 @@ function getAvailablePort() {
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function ownerTokenArgument() {
+  const index = process.argv.indexOf("--owner-token");
+  if (index === -1) return;
+  const token = process.argv[index + 1];
+  if (!token || token.startsWith("--"))
+    throw new Error("--owner-token requires a value");
+  return token;
 }

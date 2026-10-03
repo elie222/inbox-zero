@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { createServer, request } from "node:http";
+import { connect } from "node:net";
+import { createInterface } from "node:readline";
 import { test } from "vitest";
 import { fileURLToPath } from "node:url";
 
@@ -19,19 +21,7 @@ test("proxy keeps a fixed destination and loses only a completed metadata reply"
   });
   const upstreamPort = await listen(upstream);
   const foreignPort = await listen(second);
-  const allocator = createServer();
-  const port = await listen(allocator);
-  await close(allocator);
-  const child = spawn(
-    process.execPath,
-    [
-      fileURLToPath(new URL("./native-proxy.mjs", import.meta.url)),
-      String(port),
-      `http://127.0.0.1:${upstreamPort}`,
-    ],
-    { stdio: "ignore" },
-  );
-  const exited = once(child, "exit");
+  const { child, port, exited } = await startProxy(upstreamPort);
   const send = (path, method = "GET", body = "") =>
     new Promise((resolve, reject) => {
       const outgoing = request(
@@ -56,17 +46,6 @@ test("proxy keeps a fixed destination and loses only a completed metadata reply"
       outgoing.end(body);
     });
   try {
-    let ready = false;
-    for (let attempt = 0; attempt < 50; attempt += 1) {
-      try {
-        await send("/__native-control/response-loss");
-        ready = true;
-        break;
-      } catch {
-        await new Promise((resolve) => setTimeout(resolve, 20));
-      }
-    }
-    assert.equal(ready, true);
     assert.equal(
       (await send("/__native-control/response-loss", "POST", "{")).status,
       400,
@@ -100,11 +79,83 @@ test("proxy keeps a fixed destination and loses only a completed metadata reply"
     assert.equal(forwarded, 3);
   } finally {
     child.kill("SIGTERM");
-    await exited;
+    await bounded(exited);
     await close(upstream);
     await close(second);
   }
 }, 5000);
+
+test("proxy drains before closing a held incomplete connection within a bounded time", async () => {
+  const upstream = createServer((_incoming, response) =>
+    response.end("unused"),
+  );
+  const upstreamPort = await listen(upstream);
+  const { child, port, exited } = await startProxy(upstreamPort);
+  const socket = connect(port, "127.0.0.1");
+  socket.on("error", () => {});
+  try {
+    await once(socket, "connect");
+    socket.write(
+      "POST /held HTTP/1.1\r\nHost: localhost\r\nContent-Length: 100\r\n\r\nx",
+    );
+    child.kill("SIGTERM");
+    assert.deepEqual(await bounded(exited), [0, null]);
+  } finally {
+    socket.destroy();
+    child.kill("SIGKILL");
+    await close(upstream);
+  }
+}, 5000);
+
+async function startProxy(upstreamPort) {
+  const child = spawn(
+    process.execPath,
+    [
+      fileURLToPath(new URL("./native-proxy.mjs", import.meta.url)),
+      "0",
+      `http://127.0.0.1:${upstreamPort}`,
+    ],
+    { stdio: ["ignore", "pipe", "pipe"] },
+  );
+  const exited = once(child, "exit");
+  const lines = createInterface({ input: child.stdout });
+  try {
+    const [line] = await bounded(
+      Promise.race([
+        once(lines, "line"),
+        exited.then(() => {
+          throw new Error("Proxy exited before reporting its port");
+        }),
+      ]),
+    );
+    const { port } = JSON.parse(line);
+    assert.ok(Number.isInteger(port) && port > 0);
+    return { child, port, exited };
+  } catch (error) {
+    child.kill("SIGKILL");
+    await exited;
+    throw error;
+  } finally {
+    lines.close();
+  }
+}
+
+async function bounded(work) {
+  let timer;
+  try {
+    return await Promise.race([
+      work,
+      new Promise((_resolve, reject) => {
+        timer = setTimeout(
+          () => reject(new Error("Proxy operation timed out")),
+          2000,
+        );
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 function listen(server) {
   return new Promise((resolve) =>

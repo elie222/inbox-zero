@@ -33,6 +33,21 @@ vi.mock("@upstash/qstash", () => ({
   },
 }));
 
+test("the draft journal database guard rejects missing and unsafe URLs before fixture deletion", () => {
+  expect(() => verifyDraftJournalDatabase([undefined, ""])).toThrow(
+    "throwaway loopback",
+  );
+  expect(() =>
+    verifyDraftJournalDatabase(["postgresql://localhost/inboxzero"]),
+  ).toThrow("throwaway loopback");
+  expect(() =>
+    verifyDraftJournalDatabase(["postgresql://outside.example.test/emulator"]),
+  ).toThrow("throwaway loopback");
+  expect(() =>
+    verifyDraftJournalDatabase(["postgresql://127.0.0.1/emulator"]),
+  ).not.toThrow();
+});
+
 describe.skipIf(process.env.RUN_DB_TESTS !== "true")(
   "native draft resource journal (real Postgres)",
   { timeout: 30_000 },
@@ -52,22 +67,10 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "true")(
     let databaseVerified = false;
 
     beforeAll(() => {
-      // A missing test URL must fail rather than delete rows in the default DB.
-      for (const value of [
+      verifyDraftJournalDatabase([
         process.env.DATABASE_URL,
         process.env.PREVIEW_DATABASE_URL,
-      ]) {
-        if (!value) continue;
-        const url = new URL(value);
-        if (
-          !["localhost", "127.0.0.1", "[::1]"].includes(url.hostname) ||
-          !["/emulator", "/inboxzero_test"].includes(url.pathname)
-        ) {
-          throw new Error(
-            "Draft journal DB tests require a throwaway loopback database.",
-          );
-        }
-      }
+      ]);
       databaseVerified = true;
     });
 
@@ -123,6 +126,46 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "true")(
       expect(
         await prisma.emailDraftResource.count({
           where: { emailAccountId: { in: [accountId, otherAccountId] } },
+        }),
+      ).toBe(2);
+    });
+
+    test("rejects cross-account aliases at the database boundary and preserves valid aliases during other-account deletion", async () => {
+      const root = await registerDraftResource({
+        accountId,
+        resourceKey: "account-root",
+        providerDraftId: "account-draft",
+      });
+      const other = await registerDraftResource({
+        accountId: otherAccountId,
+        resourceKey: "other-root",
+        providerDraftId: "other-draft",
+      });
+      await expect(
+        prisma.emailDraftResource.create({
+          data: {
+            emailAccountId: accountId,
+            resourceKey: "cross-account-alias",
+            canonicalResourceId: other.id,
+            state: "CONSUMED",
+          },
+        }),
+      ).rejects.toMatchObject({ code: "P2003" });
+      const alias = await prisma.emailDraftResource.create({
+        data: {
+          emailAccountId: accountId,
+          resourceKey: "same-account-alias",
+          canonicalResourceId: root.id,
+          state: "CONSUMED",
+        },
+      });
+      await prisma.emailAccount.delete({ where: { id: otherAccountId } });
+      expect(await readDraftResource(accountId, alias.resourceKey)).toEqual(
+        root,
+      );
+      expect(
+        await prisma.emailDraftResource.count({
+          where: { emailAccountId: accountId },
         }),
       ).toBe(2);
     });
@@ -657,8 +700,9 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "true")(
         resourceKey,
         providerDraftId: "mailbox-draft",
       });
-      await prisma.$executeRaw`ALTER TABLE "ScheduledEmail" ADD CONSTRAINT "draft_resource_admission_test_reject" CHECK ("payloadHash" <> 'forced-rollback')`;
+      await prisma.$executeRaw`ALTER TABLE "ScheduledEmail" DROP CONSTRAINT IF EXISTS "draft_resource_admission_test_reject"`;
       try {
+        await prisma.$executeRaw`ALTER TABLE "ScheduledEmail" ADD CONSTRAINT "draft_resource_admission_test_reject" CHECK ("payloadHash" <> 'forced-rollback')`;
         await expect(
           admitScheduledDraftResource({
             accountId,
@@ -695,7 +739,7 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "true")(
         });
         expect(provider.updateDraft).toHaveBeenCalledOnce();
       } finally {
-        await prisma.$executeRaw`ALTER TABLE "ScheduledEmail" DROP CONSTRAINT "draft_resource_admission_test_reject"`;
+        await prisma.$executeRaw`ALTER TABLE "ScheduledEmail" DROP CONSTRAINT IF EXISTS "draft_resource_admission_test_reject"`;
       }
     });
 
@@ -1091,4 +1135,25 @@ function holdProviderCreate(provider: ReturnType<typeof makeProvider>) {
     return creation.promise;
   });
   return { entered, creation };
+}
+
+function verifyDraftJournalDatabase(values: (string | undefined)[]) {
+  const configured = values.filter((value): value is string => Boolean(value));
+  if (!configured.length) {
+    throw new Error(
+      "Draft journal DB tests require a throwaway loopback database.",
+    );
+  }
+  for (const value of configured) {
+    const url = new URL(value);
+    if (
+      !["postgres:", "postgresql:"].includes(url.protocol) ||
+      !["localhost", "127.0.0.1", "[::1]"].includes(url.hostname) ||
+      !["/emulator", "/inboxzero_test"].includes(url.pathname)
+    ) {
+      throw new Error(
+        "Draft journal DB tests require a throwaway loopback database.",
+      );
+    }
+  }
 }
