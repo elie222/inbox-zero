@@ -10,6 +10,13 @@ import type { Logger } from "@/utils/logger";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import { sendHtmlEmailWithOpenTracking } from "@/utils/email/sent-message-open/sent-message-open.server";
 import type { DurableEmailSendBody } from "./durable-email-send.validation";
+import type { EmailDraftResource } from "@/generated/prisma/client";
+import {
+  finishDraftResourceSend,
+  leaseDraftResourceForSend,
+  releaseKnownUnsentDraftResource,
+  reconcileSentDraftResource,
+} from "./draft-resource";
 
 const PROCESSING_LEASE_MS = 2 * 60 * 1000;
 
@@ -59,6 +66,13 @@ export async function executeDurableEmailSend({
     return { status: "rejected" as const, error: "Mutation ID was reused" };
   }
   if (existing.status === EmailSendOperationStatus.SENT) {
+    if (input.email.draftResourceKey)
+      await reconcileSentDraftResource(emailAccountId, input.mutationId).catch(
+        (error) =>
+          logger.error("Known sent draft resource reconciliation is pending", {
+            error,
+          }),
+      );
     return { status: "already_applied" as const, result: existing.result };
   }
   if (existing.status === EmailSendOperationStatus.UNCERTAIN) {
@@ -81,13 +95,47 @@ export async function executeDurableEmailSend({
   }
 
   let stage: "provider_setup" | "send" | "persist_result" = "provider_setup";
+  let draftLease: { resource: EmailDraftResource; leaseId: string } | undefined;
   try {
     const emailProvider = await getEmailProvider();
+    let email = input.email;
+    if (email.draftResourceKey) {
+      const claim = await leaseDraftResourceForSend({
+        accountId: emailAccountId,
+        resourceKey: email.draftResourceKey,
+        providerDraftId: email.providerDraftId,
+        sendOperationId: input.mutationId,
+      });
+      if (claim.status !== "ready" || !("leaseId" in claim)) {
+        if (claim.status === "uncertain")
+          await releaseKnownUnsentDraftResource(
+            emailAccountId,
+            input.mutationId,
+          );
+        await prisma.emailSendOperation.deleteMany({
+          where: { id: existing.id },
+        });
+        if (claim.status === "retry") return { status: "retry" as const };
+        return {
+          status: "rejected" as const,
+          error:
+            claim.status === "uncertain"
+              ? "Mailbox draft saving has an unknown outcome. Check Drafts before sending."
+              : "This mailbox draft belongs to another action.",
+        };
+      }
+      draftLease = { resource: claim.resource, leaseId: claim.leaseId };
+      // Resolution is internal; immutable input and payload hash stay unchanged.
+      email = {
+        ...email,
+        providerDraftId: claim.resource.providerDraftId ?? undefined,
+      };
+    }
     stage = "send";
     const result = await sendHtmlEmailWithOpenTracking({
       emailAccountId,
       threadId: input.threadId,
-      email: input.email,
+      email,
       emailProvider,
       logger,
     });
@@ -96,9 +144,37 @@ export async function executeDurableEmailSend({
       where: { id: existing.id },
       data: { result, status: EmailSendOperationStatus.SENT },
     });
+    if (draftLease)
+      await finishDraftResourceSend(
+        draftLease.resource,
+        draftLease.leaseId,
+        "sent",
+      ).catch((error) =>
+        logger.error("Known sent draft resource completion is pending", {
+          error,
+        }),
+      );
     return { status: "applied" as const, result };
   } catch (error) {
     logger.error("Email send operation failed", { error, stage });
+    if (draftLease) {
+      const knownUnsent =
+        stage === "provider_setup" ||
+        (stage === "send" &&
+          (error instanceof SafeError ||
+            isEmailProviderRateLimitError({ error, provider }) ||
+            classifyEmailAccountProviderIssue({
+              error,
+              provider: provider as "google" | "microsoft",
+            })));
+      await finishDraftResourceSend(
+        draftLease.resource,
+        draftLease.leaseId,
+        knownUnsent ? "unsent" : "uncertain",
+      );
+    } else if (stage === "provider_setup" && input.email.draftResourceKey) {
+      await releaseKnownUnsentDraftResource(emailAccountId, input.mutationId);
+    }
     if (
       stage !== "persist_result" &&
       isEmailProviderRateLimitError({ error, provider })

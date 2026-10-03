@@ -234,6 +234,7 @@ model EmailAccount {
   scheduledActions    ScheduledAction[]
   snoozedThreads      SnoozedThread[]
   emailSendOperations EmailSendOperation[]
+  emailDraftResources EmailDraftResource[]
   sentMessageOpens    SentMessageOpen[]
   scheduledEmails     ScheduledEmail[]
   responseTimes       ResponseTime[]
@@ -920,6 +921,49 @@ enum EmailReminderStatus {
   PROCESSING
   COMPLETED
   CANCELLED
+}
+
+// Native draft ownership is independent from immutable send operations.
+model EmailDraftResource {
+  id                  String   @id @default(cuid())
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  resourceKey         String
+  state               EmailDraftResourceState @default(NOT_CREATED)
+  owner               EmailDraftResourceOwner @default(DRAFT)
+  sendOperationId     String?
+  providerDraftId     String?
+  providerMessageId   String?
+  providerThreadId    String?
+  leaseId             String?
+  leaseStartedAt      DateTime?
+  canonicalResourceId String?
+  canonicalResource   EmailDraftResource? @relation("DraftResourceAliases", fields: [canonicalResourceId, emailAccountId], references: [id, emailAccountId], onDelete: Cascade)
+  aliases             EmailDraftResource[] @relation("DraftResourceAliases")
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([id, emailAccountId])
+  @@unique([emailAccountId, resourceKey])
+  @@unique([emailAccountId, providerDraftId])
+  @@index([owner, state, updatedAt])
+  @@index([emailAccountId, sendOperationId])
+  @@index([canonicalResourceId])
+}
+
+enum EmailDraftResourceState {
+  NOT_CREATED
+  CREATING
+  READY
+  UNCERTAIN
+  CONSUMED
+}
+
+enum EmailDraftResourceOwner {
+  DRAFT
+  SEND
+  DISCARD
 }
 
 model EmailSendOperation {

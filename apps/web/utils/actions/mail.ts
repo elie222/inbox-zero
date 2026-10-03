@@ -15,7 +15,7 @@ import {
   updateMailboxItemBody,
   updateDraftBody,
   saveComposeDraftBody,
-  discardComposeDraftBody,
+  composeDraftParams,
 } from "@/utils/actions/mail.validation";
 import {
   isGoogleProvider,
@@ -533,7 +533,7 @@ export const saveComposeDraftAction = actionClient
 
 export const discardComposeDraftAction = actionClient
   .metadata({ name: "discardComposeDraft" })
-  .inputSchema(discardComposeDraftBody)
+  .inputSchema(composeDraftParams)
   .action(
     async ({
       ctx: { emailAccountId, provider: providerName, logger },

@@ -1,11 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { envMock, captureExceptionMock, cleanupDraftsMock } = vi.hoisted(() => ({
+const {
+  envMock,
+  captureExceptionMock,
+  cleanupDraftsMock,
+  cleanupResourcesMock,
+} = vi.hoisted(() => ({
   envMock: {
     CRON_SECRET: "cron-secret",
   },
   captureExceptionMock: vi.fn(),
   cleanupDraftsMock: vi.fn(),
+  cleanupResourcesMock: vi.fn(),
 }));
 
 vi.mock("@/env", () => ({
@@ -18,6 +24,9 @@ vi.mock("@/utils/error", () => ({
 
 vi.mock("@/utils/ai/draft-cleanup", () => ({
   cleanupConfiguredAIDrafts: (...args: unknown[]) => cleanupDraftsMock(...args),
+}));
+vi.mock("@/utils/email/draft-resource-cleanup", () => ({
+  cleanupDraftResources: cleanupResourcesMock,
 }));
 
 vi.mock("@/utils/middleware", async () => {
@@ -37,6 +46,11 @@ describe("draft cleanup cron route", () => {
     cleanupDraftsMock.mockResolvedValue({
       deletedDrafts: 2,
       skippedDrafts: 1,
+    });
+    cleanupResourcesMock.mockResolvedValue({
+      examined: 1,
+      consumed: 1,
+      errors: 0,
     });
   });
 
@@ -62,11 +76,38 @@ describe("draft cleanup cron route", () => {
     await expect(response.json()).resolves.toEqual({
       deletedDrafts: 2,
       skippedDrafts: 1,
+      draftResources: { examined: 1, consumed: 1, errors: 0 },
     });
     expect(cleanupDraftsMock).toHaveBeenCalledWith({
       logger: expect.anything(),
     });
     expect(captureExceptionMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "ai",
+    "resources",
+  ])("runs the other cleanup when the %s job fails before its account loop", async (failed) => {
+    const error = new Error("Initial database query failed");
+    if (failed === "ai") cleanupDraftsMock.mockRejectedValueOnce(error);
+    else cleanupResourcesMock.mockRejectedValueOnce(error);
+    const response = await GET(
+      new Request("http://localhost:3000/api/cron/draft-cleanup", {
+        headers: { authorization: "Bearer cron-secret" },
+      }),
+    );
+    expect(response.status).toBe(500);
+    expect(cleanupDraftsMock).toHaveBeenCalledOnce();
+    expect(cleanupResourcesMock).toHaveBeenCalledOnce();
+    expect(captureExceptionMock).toHaveBeenCalledWith(error);
+    const result = await response.json();
+    if (failed === "ai")
+      expect(result.draftResources).toEqual({
+        examined: 1,
+        consumed: 1,
+        errors: 0,
+      });
+    else expect(result.deletedDrafts).toBe(2);
   });
 
   it("rejects POST requests without the cron secret in the body", async () => {
@@ -95,6 +136,7 @@ describe("draft cleanup cron route", () => {
     await expect(response.json()).resolves.toEqual({
       deletedDrafts: 2,
       skippedDrafts: 1,
+      draftResources: { examined: 1, consumed: 1, errors: 0 },
     });
     expect(cleanupDraftsMock).toHaveBeenCalledWith({
       logger: expect.anything(),

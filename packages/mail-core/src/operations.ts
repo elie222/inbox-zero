@@ -60,6 +60,7 @@ export const preparedOperationSchema = z.object({
       quotedHtml: z.string().max(1_000_000),
       attachmentIds: z.array(z.string().min(1).max(128)).max(20),
       providerDraftId: z.string().min(1).max(256).optional(),
+      draftResourceKey: z.string().min(1).max(128).optional(),
       replyToMessageId: z.string().max(256).nullable(),
       replyToConversationId: z.string().max(256).nullable(),
       queuedAtMs: z.number().int().nonnegative(),

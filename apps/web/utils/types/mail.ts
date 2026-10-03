@@ -25,6 +25,7 @@ export type Attachment = z.infer<typeof zodAttachment>;
 export const sendEmailBody = z
   .object({
     providerDraftId: z.string().min(1).optional(),
+    draftResourceKey: z.string().min(1).max(128).optional(),
     replyToEmail: z
       .object({
         threadId: z.string(),
