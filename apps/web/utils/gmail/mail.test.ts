@@ -1,6 +1,7 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import { describe, expect, it, vi } from "vitest";
 import type { ParsedMessage } from "@/utils/types";
+import { parseMessage } from "@/utils/gmail/message";
 import { formatEmailDate } from "@/utils/email/reply-quote";
 
 import {
@@ -84,70 +85,122 @@ describe("createMail", () => {
   });
 });
 
-it("forwards embedded Gmail MIME bytes with the authoritative inline content ID", async () => {
-  const get = vi.fn().mockResolvedValue({
-    data: {
-      payload: {
-        parts: [
-          {
-            partId: "1.2",
-            mimeType: "image/png",
-            body: { data: Buffer.from("embedded-image").toString("base64url") },
+it.each([
+  {
+    disposition: "INLINE; filename=unrelated-name.png",
+    cid: " <diagram@example> ",
+    expectedDisposition: "inline",
+    source: "inline",
+  },
+  {
+    disposition: undefined,
+    cid: "<diagram@example>",
+    expectedDisposition: "inline",
+    source: "inline",
+  },
+  {
+    disposition: undefined,
+    cid: "",
+    expectedDisposition: "attachment",
+    source: "attachments",
+  },
+  {
+    disposition: "attachment; filename=unrelated-name.png",
+    cid: "<diagram@example>",
+    expectedDisposition: "attachment",
+    source: "attachments",
+  },
+])("forwards parsed Gmail $source parts with $expectedDisposition MIME semantics ($disposition)", async ({
+  disposition,
+  cid,
+  expectedDisposition,
+  source,
+}) => {
+  const part = {
+    partId: "1.2",
+    filename: "unrelated-name.png",
+    mimeType: "image/png",
+    headers: [
+      ...(cid ? [{ name: "Content-ID", value: cid }] : []),
+      ...(disposition
+        ? [{ name: "Content-Disposition", value: disposition }]
+        : []),
+    ],
+    body:
+      !cid && !disposition
+        ? { attachmentId: "provider-file", size: 14 }
+        : {
+            data: Buffer.from("embedded-image").toString("base64url"),
+            size: 14,
           },
-        ],
+  };
+  const payload = {
+    mimeType: "multipart/mixed",
+    headers: [
+      { name: "From", value: "sender@example.com" },
+      { name: "To", value: "recipient@example.com" },
+      { name: "Subject", value: "Image" },
+      { name: "Date", value: "2026-01-01" },
+      { name: "Message-ID", value: "<original@example>" },
+    ],
+    parts: [
+      {
+        partId: "1.1",
+        mimeType: "text/html",
+        body: {
+          data: Buffer.from(
+            cid
+              ? '<p>Image <img src="cid:diagram@example"></p>'
+              : "<p>Attached image</p>",
+          ).toString("base64url"),
+        },
       },
-    },
+      part,
+    ],
+  };
+  const message = parseMessage({
+    id: "original",
+    threadId: "original-thread",
+    payload,
+  });
+  expect(
+    source === "inline" ? message.inline : message.attachments,
+  ).toHaveLength(1);
+  const get = vi.fn().mockResolvedValue({ data: { payload } });
+  const attachmentGet = vi.fn().mockResolvedValue({
+    data: { data: Buffer.from("embedded-image").toString("base64url") },
   });
   const send = vi.fn().mockResolvedValue({ data: { id: "forwarded" } });
   const gmail = {
-    users: { messages: { get, send } },
+    users: { messages: { get, send, attachments: { get: attachmentGet } } },
   } as unknown as gmail_v1.Gmail;
-  const message: ParsedMessage = {
-    id: "original",
-    threadId: "original-thread",
-    historyId: "1",
-    date: "2026-01-01",
-    inline: [],
-    snippet: "Image",
-    subject: "Image",
-    headers: {
-      from: "sender@example.com",
-      to: "recipient@example.com",
-      date: "2026-01-01",
-      subject: "Image",
-      "message-id": "<original@example>",
-    },
-    textHtml: '<p>Image <img src="cid:diagram@example"></p>',
-    attachments: [
-      {
-        attachmentId: "gmail-part:1.2",
-        filename: "unrelated-name.png",
-        mimeType: "image/png",
-        size: 14,
-        headers: {
-          "content-id": " <diagram@example> ",
-          "content-disposition": "INLINE; filename=unrelated-name.png",
-          "content-type": "image/png",
-          "content-description": "",
-          "content-transfer-encoding": "base64",
-        },
-      },
-    ],
-  };
   await forwardEmail(gmail, message, { to: "recipient@example.com" });
   const raw = Buffer.from(
     send.mock.calls[0][0].requestBody.raw,
     "base64url",
   ).toString("utf8");
-  expect(raw).toContain("Content-ID: <diagram@example>");
-  expect(raw).toContain("Content-Disposition: inline");
-  expect(raw).toContain('src=3D"cid:diagram@example"');
+  expect(raw).toContain(`Content-Disposition: ${expectedDisposition}`);
   expect(raw).toContain(Buffer.from("embedded-image").toString("base64"));
   expect(raw).not.toContain("Content-ID: <unrelated-name.png>");
-  expect(get).toHaveBeenCalledWith(
-    { userId: "me", id: message.id, format: "full" },
-    { signal: undefined },
-  );
+  if (cid) {
+    expect(raw).toContain("Content-ID: <diagram@example>");
+    expect(raw).toContain('src=3D"cid:diagram@example"');
+  } else {
+    expect(raw).not.toContain("Content-ID:");
+    expect(raw).not.toContain("cid:");
+  }
+  if (part.body.attachmentId) {
+    expect(attachmentGet).toHaveBeenCalledWith({
+      userId: "me",
+      id: "provider-file",
+      messageId: message.id,
+    });
+  } else {
+    expect(get).toHaveBeenCalledWith(
+      { userId: "me", id: message.id, format: "full" },
+      { signal: undefined },
+    );
+  }
 });
 
 vi.mock("@/utils/mail", async (importOriginal) => ({

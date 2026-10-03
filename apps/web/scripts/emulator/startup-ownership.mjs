@@ -29,6 +29,7 @@ export class StartupOwnership {
     if (
       current?.ino !== claimed.ino ||
       current?.dev !== claimed.dev ||
+      !existsSync(this.state.runDir) ||
       existsSync(stopPath(this.state))
     ) {
       throw new Error("Emulator startup ownership ended");
@@ -58,7 +59,11 @@ export class StartupOwnership {
 }
 
 export function stopStartup(state) {
-  writeFileSync(stopPath(state), "stopping\n");
+  try {
+    writeFileSync(stopPath(state), "stopping\n");
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+  }
 }
 
 function stopPath(state) {

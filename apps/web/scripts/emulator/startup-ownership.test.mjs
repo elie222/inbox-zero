@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import {
+  copyFileSync,
+  existsSync,
   mkdtempSync,
   mkdirSync,
   readFileSync,
@@ -8,8 +10,9 @@ import {
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { once } from "node:events";
 import { test } from "vitest";
 import {
   StartupOwnership,
@@ -114,3 +117,67 @@ test("state reads tolerate an interrupted publication briefly but reject a perma
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+test("stop tolerates a removed run directory and still leaves the claim removable", async () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "emulator-stale-"));
+  const statePath = path.join(directory, "state.json");
+  const state = {
+    ownerToken: "stale",
+    runDir: path.join(directory, "removed"),
+    pids: [],
+  };
+  mkdirSync(state.runDir);
+  const ownership = new StartupOwnership(statePath, state);
+  try {
+    rmSync(state.runDir, { recursive: true });
+    assert.doesNotThrow(() => stopStartup(state));
+    assert.throws(() => ownership.assertCurrent(), /ownership ended/);
+    rmSync(statePath);
+    assert.equal(await readStartupState(statePath), undefined);
+  } finally {
+    ownership.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("down still terminates owned children and removes stale state when runDir is gone", async () => {
+  const project = mkdtempSync(path.join(os.tmpdir(), "emulator-stale-down-"));
+  const scripts = path.join(project, "scripts/emulator");
+  const statePath = path.join(project, ".tmp/emulator/state.json");
+  mkdirSync(scripts, { recursive: true });
+  mkdirSync(path.dirname(statePath), { recursive: true });
+  for (const name of ["stack.mjs", "startup-ownership.mjs"]) {
+    copyFileSync(
+      fileURLToPath(new URL(`./${name}`, import.meta.url)),
+      path.join(scripts, name),
+    );
+  }
+  const held = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], {
+    detached: true,
+    stdio: "ignore",
+  });
+  const heldExit = once(held, "exit");
+  let stopping;
+  try {
+    writeFileSync(
+      statePath,
+      JSON.stringify({
+        ownerToken: "stale",
+        runDir: path.join(project, "gone"),
+        pids: [held.pid],
+      }),
+    );
+    stopping = spawn(
+      process.execPath,
+      [path.join(scripts, "stack.mjs"), "down", "--owner-token", "stale"],
+      { stdio: "ignore" },
+    );
+    assert.deepEqual(await once(stopping, "exit"), [0, null]);
+    assert.deepEqual(await heldExit, [null, "SIGTERM"]);
+    assert.equal(existsSync(statePath), false);
+  } finally {
+    stopping?.kill("SIGKILL");
+    held.kill("SIGKILL");
+    rmSync(project, { recursive: true, force: true });
+  }
+}, 5000);
