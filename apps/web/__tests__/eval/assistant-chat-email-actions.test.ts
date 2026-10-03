@@ -1,4 +1,4 @@
-import type { ModelMessage } from "ai";
+import { convertToModelMessages, type ModelMessage } from "ai";
 import { afterAll, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   describeEvalMatrix,
@@ -17,10 +17,10 @@ import {
   type RecordedToolCall,
 } from "@/__tests__/eval/assistant-chat-eval-utils";
 import { getStableMessageCacheKey } from "@/__tests__/eval/message-cache-key";
-import { getMockMessage } from "@/__tests__/helpers";
+import { getMockMessage, type getEmailAccount } from "@/__tests__/helpers";
 import prisma from "@/utils/__mocks__/prisma";
+import { buildFollowUpHiddenContextMessage } from "@/utils/messaging/chat-sdk/bot";
 import { createScopedLogger } from "@/utils/logger";
-import type { getEmailAccount } from "@/__tests__/helpers";
 
 // pnpm test-ai eval/assistant-chat-email-actions
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/assistant-chat-email-actions
@@ -95,6 +95,25 @@ const scenarios: EvalScenario[] = [
       searchExpectation:
         "A search query focused on finding the email from ops@partner.example about the revised plan.",
       messageId: "msg-reply-1",
+      contentExpectation:
+        "Reply content that clearly says Tuesday at 2pm works for the sender.",
+      disallowedTools: ["sendEmail"],
+      forbidInlineEmailMarkup: true,
+    },
+  },
+  {
+    title:
+      "uses the pinned follow-up notification message without searching the inbox",
+    reportName: "follow-up notification reply uses pinned message",
+    prompt: "Draft a concise reply saying Tuesday at 2pm works for me.",
+    followUpContext: {
+      emailAccountId: "email-account-1",
+      threadId: "thread-follow-up-pinned",
+      messageId: "msg-follow-up-pinned",
+    },
+    expectation: {
+      kind: "reply_email",
+      messageId: "msg-follow-up-pinned",
       contentExpectation:
         "Reply content that clearly says Tuesday at 2pm works for the sender.",
       disallowedTools: ["sendEmail"],
@@ -235,9 +254,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat email actions", () => {
       test(
         scenario.title,
         async () => {
-          const messages = [
-            { role: "user" as const, content: scenario.prompt },
-          ];
+          const messages = await buildScenarioMessages(scenario);
           const record = await evalReporter.recordCached(
             {
               testName: scenario.reportName,
@@ -341,7 +358,7 @@ type ScenarioExpectation =
     }
   | {
       kind: "reply_email";
-      searchExpectation: string;
+      searchExpectation?: string;
       messageId: string;
       contentExpectation: string;
       disallowedTools: string[];
@@ -361,6 +378,9 @@ type EvalScenario = {
   title: string;
   reportName: string;
   prompt: string;
+  followUpContext?: NonNullable<
+    Parameters<typeof buildFollowUpHiddenContextMessage>[0]["followUpContext"]
+  >;
   searchMessages?: ReturnType<typeof getMockMessage>[];
   expectation: ScenarioExpectation;
 };
@@ -480,18 +500,19 @@ async function evaluateScenario(
         "replyEmail",
         isReplyEmailInput,
       )?.input;
-      const searchJudge = searchCall
-        ? await judgeEvalOutput({
-            input: prompt,
-            output: searchCall.query,
-            expected: expectation.searchExpectation,
-            criterion: {
-              name: "Search query semantics",
-              description:
-                "The generated search query should semantically target the requested message even if the exact wording differs from the prompt.",
-            },
-          })
-        : null;
+      const searchJudge =
+        searchCall && expectation.searchExpectation
+          ? await judgeEvalOutput({
+              input: prompt,
+              output: searchCall.query,
+              expected: expectation.searchExpectation,
+              criterion: {
+                name: "Search query semantics",
+                description:
+                  "The generated search query should semantically target the requested message even if the exact wording differs from the prompt.",
+              },
+            })
+          : null;
       const contentJudge = replyCall
         ? await judgeEvalOutput({
             input: prompt,
@@ -507,21 +528,27 @@ async function evaluateScenario(
 
       return {
         pass:
-          !!searchCall &&
           !!replyCall &&
-          !!searchJudge?.pass &&
           !!contentJudge?.pass &&
-          hasToolBeforeTool(result.toolCalls, "searchInbox", "replyEmail") &&
+          (expectation.searchExpectation
+            ? !!searchCall &&
+              !!searchJudge?.pass &&
+              hasToolBeforeTool(result.toolCalls, "searchInbox", "replyEmail")
+            : !searchCall) &&
           replyCall.messageId === expectation.messageId &&
           allowsAssistantText(expectation, result.assistantText) &&
           hasNoToolCalls(result.toolCalls, expectation.disallowedTools),
         actual:
-          searchCall && replyCall && searchJudge && contentJudge
+          replyCall && contentJudge
             ? [
                 result.actual,
-                formatSemanticJudgeActual(searchCall.query, searchJudge),
+                searchCall && searchJudge
+                  ? formatSemanticJudgeActual(searchCall.query, searchJudge)
+                  : null,
                 formatSemanticJudgeActual(replyCall.content, contentJudge),
-              ].join(" | ")
+              ]
+                .filter(Boolean)
+                .join(" | ")
             : result.actual,
       };
     }
@@ -642,6 +669,32 @@ function getDefaultLabels() {
   ];
 }
 
+async function buildScenarioMessages(
+  scenario: EvalScenario,
+): Promise<ModelMessage[]> {
+  if (!scenario.followUpContext) {
+    return [{ role: "user", content: scenario.prompt }];
+  }
+
+  const hiddenContextMessage = buildFollowUpHiddenContextMessage({
+    followUpContext: scenario.followUpContext,
+    userMessageId: "follow-up-user-message",
+  });
+
+  if (!hiddenContextMessage) {
+    throw new Error("Expected follow-up context message");
+  }
+
+  return convertToModelMessages([
+    hiddenContextMessage,
+    {
+      id: "follow-up-user-message",
+      role: "user",
+      parts: [{ type: "text", text: scenario.prompt }],
+    },
+  ]);
+}
+
 function getDefaultSearchMessages() {
   return [
     getMockMessage({
@@ -664,6 +717,15 @@ function getMessageById(messageId: string) {
       subject: "Question on the revised plan",
       snippet: "Can you send your answer today?",
       textPlain: "Can you send your answer today?",
+      labelIds: ["UNREAD"],
+    }),
+    getMockMessage({
+      id: "msg-follow-up-pinned",
+      threadId: "thread-follow-up-pinned",
+      from: "customer@follow-up.example",
+      subject: "Scheduling follow-up",
+      snippet: "Would Tuesday at 2pm work for you?",
+      textPlain: "Would Tuesday at 2pm work for you?",
       labelIds: ["UNREAD"],
     }),
     getMockMessage({
