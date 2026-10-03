@@ -1,5 +1,46 @@
+diff --git a/dist/api.d.ts b/dist/api.d.ts
+index a239382dbf7034c45fcd06b3fa525b764338a758..dbbf956e67093cd5e7607244309d6b84b6b10da3 100644
+--- a/dist/api.d.ts
++++ b/dist/api.d.ts
+@@ -256,6 +256,7 @@ interface SeedConfig {
+ interface EmulatorOptions {
+     service: ServiceName;
+     port?: number;
++    hostname?: string;
+     seed?: SeedConfig;
+     baseUrl?: string;
+ }
+diff --git a/dist/api.js b/dist/api.js
+index 785bd8dc7e6c0f3d30a62cb5f5ec7243f76ac984..8f49930d4d73dbc0417690157b0eaf0733facf80 100644
+--- a/dist/api.js
++++ b/dist/api.js
+@@ -2587,7 +2587,8 @@ async function createBuiltinEmulator(options) {
+   let handler;
+   const httpServer = serve({
+     fetch: (request) => handler ? handler(request) : new Response("Starting", { status: 503 }),
+-    port
++    port,
++    hostname: options.hostname
+   });
+   try {
+     await waitForListening(httpServer);
+diff --git a/dist/dist-DASB6OVR.js b/dist/dist-DASB6OVR.js
+index a487d402f789659138e03a18a57e1b6632d8ce1b..642683e1498c85827f281beb3e885c34f7c7842d 100644
+--- a/dist/dist-DASB6OVR.js
++++ b/dist/dist-DASB6OVR.js
+@@ -794,6 +794,10 @@ function buildQueryPredicates(gs, userEmail, term) {
+     const labelQuery = cleaned.slice(6);
+     return [(message) => messageMatchesLabelQuery(gs, userEmail, message, labelQuery)];
+   }
++  if (lower.startsWith("-in:")) {
++    const labelQuery = cleaned.slice(4);
++    return [(message) => !messageMatchesLabelQuery(gs, userEmail, message, labelQuery)];
++  }
+   if (lower.startsWith("in:")) {
+     const labelQuery = cleaned.slice(3);
+     return [(message) => messageMatchesLabelQuery(gs, userEmail, message, labelQuery)];
 diff --git a/dist/dist-NDWGOBZE.js b/dist/dist-NDWGOBZE.js
-index 3b6bbe4..b1a093c 100644
+index 3b6bbe48134733165207caf6935f10d8de51044f..b1a093c6862b8a7bbd80bc3808e98ec35d464101 100644
 --- a/dist/dist-NDWGOBZE.js
 +++ b/dist/dist-NDWGOBZE.js
 @@ -73,7 +73,23 @@ var OUTLOOK_COLORS = [
@@ -196,18 +237,3 @@ index 3b6bbe4..b1a093c 100644
          importance: message.importance,
          categories: message.categories,
          parent_folder_id: message.parent_folder_id ?? (message.is_draft ? folders.drafts.microsoft_id : folders.inbox.microsoft_id),
-diff --git a/dist/dist-DASB6OVR.js b/dist/dist-DASB6OVR.js
-index a487d40..642683e 100644
---- a/dist/dist-DASB6OVR.js
-+++ b/dist/dist-DASB6OVR.js
-@@ -794,6 +794,10 @@ function buildQueryPredicates(gs, userEmail, term) {
-     const labelQuery = cleaned.slice(6);
-     return [(message) => messageMatchesLabelQuery(gs, userEmail, message, labelQuery)];
-   }
-+  if (lower.startsWith("-in:")) {
-+    const labelQuery = cleaned.slice(4);
-+    return [(message) => !messageMatchesLabelQuery(gs, userEmail, message, labelQuery)];
-+  }
-   if (lower.startsWith("in:")) {
-     const labelQuery = cleaned.slice(3);
-     return [(message) => messageMatchesLabelQuery(gs, userEmail, message, labelQuery)];

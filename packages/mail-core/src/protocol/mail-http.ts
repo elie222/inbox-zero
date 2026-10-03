@@ -348,8 +348,8 @@ export const uploadAdmitRequestSchema = z.object({
   contentId: z
     .string()
     .min(1)
-    .max(2048)
-    .regex(/^[^\r\n\0]+$/)
+    .max(255)
+    .regex(/^[^<>\s\0]+$/u)
     .optional(),
 });
 

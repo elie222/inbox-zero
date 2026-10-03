@@ -169,12 +169,7 @@ function descriptorToInline(
     filename: attachment.filename,
     mimeType: attachment.mimeType,
     size: attachment.size,
-    headers: {
-      "content-description": "",
-      "content-id": "",
-      "content-transfer-encoding": "base64",
-      "content-type": attachment.mimeType,
-    },
+    headers: descriptorHeaders(attachment),
   };
 }
 
@@ -184,7 +179,7 @@ function descriptorHeaders(attachment: MessageAttachmentDescriptor) {
     "content-disposition": attachment.inline
       ? `inline; filename="${attachment.filename}"`
       : `attachment; filename="${attachment.filename}"`,
-    "content-id": "",
+    "content-id": attachment.contentId ?? "",
     "content-transfer-encoding": "base64",
     "content-type": attachment.mimeType,
   };
