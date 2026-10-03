@@ -205,7 +205,7 @@ export function FolderSelector({
           >
             <div
               className={cn(
-                "flex items-center gap-2 flex-1",
+                "flex items-center gap-2 flex-1 min-w-0",
                 value.id && !isLoading && "pr-7",
               )}
             >
@@ -215,9 +215,11 @@ export function FolderSelector({
                   <span>Loading folders...</span>
                 </>
               ) : value.id ? (
-                <div className="flex items-center gap-2">
-                  <FolderIcon className="h-4 w-4" />
-                  <span>{value.name || selectedFolder?.displayName || ""}</span>
+                <div className="flex min-w-0 items-center gap-2">
+                  <FolderIcon className="h-4 w-4 shrink-0" />
+                  <span className="truncate">
+                    {value.name || selectedFolder?.displayName || ""}
+                  </span>
                 </div>
               ) : (
                 placeholder
