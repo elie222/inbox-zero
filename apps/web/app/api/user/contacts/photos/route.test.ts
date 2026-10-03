@@ -61,6 +61,20 @@ describe("GET /api/user/contacts/photos", () => {
     expect(body).toEqual({ photos: {} });
   });
 
+  it("falls back to no photos and caches the miss briefly when the sweep fails", async () => {
+    redisMock.get.mockResolvedValue(null);
+    getContactPhotosMock.mockRejectedValue(new Error("rate limited"));
+
+    const body = await getPhotos();
+
+    expect(body).toEqual({ photos: {} });
+    expect(redisMock.set).toHaveBeenCalledWith(
+      "contact-photos:account-1",
+      {},
+      { ex: 15 * 60 },
+    );
+  });
+
   it("still serves photos when the cache is unavailable", async () => {
     redisMock.get.mockRejectedValue(new Error("redis down"));
     redisMock.set.mockRejectedValue(new Error("redis down"));

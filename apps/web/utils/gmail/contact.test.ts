@@ -356,6 +356,20 @@ describe("listContactPhotos", () => {
     });
   });
 
+  it("fails instead of reporting no photos when every source is denied", async () => {
+    const denied = { status: "PERMISSION_DENIED" };
+
+    await expect(
+      listContactPhotos(
+        createPhotoClient({
+          connectionsListMock: vi.fn().mockRejectedValue(denied),
+          otherContactsListMock: vi.fn().mockRejectedValue(denied),
+        }),
+        createTestLogger(),
+      ),
+    ).rejects.toBe(denied);
+  });
+
   it("does not read Other Contacts when that flag is off", async () => {
     envMock.NEXT_PUBLIC_GMAIL_OTHER_CONTACTS_ENABLED = false;
     const otherContactsListMock = vi.fn();

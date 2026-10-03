@@ -18,7 +18,6 @@ export function useContactPhoto({
     {
       revalidateIfStale: false,
       revalidateOnFocus: false,
-      revalidateOnReconnect: false,
       shouldRetryOnError: false,
     },
   );

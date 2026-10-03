@@ -24,10 +24,11 @@ export async function setCachedContactPhotos(
   emailAccountId: string,
   photos: Record<string, string>,
   logger: Logger,
+  { ttlSeconds = CONTACT_PHOTOS_TTL_SECONDS }: { ttlSeconds?: number } = {},
 ) {
   try {
     await redis.set(getContactPhotosKey(emailAccountId), photos, {
-      ex: CONTACT_PHOTOS_TTL_SECONDS,
+      ex: ttlSeconds,
     });
   } catch (error) {
     logger.warn("Failed to cache contact photos", { error });

@@ -96,6 +96,10 @@ export async function listContactPhotos(
       : undefined,
   ]);
 
+  // An empty map would be cached as "this account has no photos".
+  if (saved.deniedError && (!other || other.deniedError))
+    throw saved.deniedError;
+
   const photos: Record<string, string> = {};
   let count = 0;
   // Saved contacts come first so the user's own choice of photo wins.

@@ -8,6 +8,8 @@ import {
   setCachedContactPhotos,
 } from "@/utils/redis/contact-photos";
 
+const FAILED_SWEEP_TTL_SECONDS = 15 * 60;
+
 export type ContactPhotosResponse = Awaited<ReturnType<typeof getData>>;
 
 export const GET = withEmailProvider(
@@ -42,7 +44,18 @@ async function getData({
   const cached = await getCachedContactPhotos(emailAccountId, logger);
   if (cached) return { photos: cached };
 
-  const photos = await emailProvider.getContactPhotos();
-  await setCachedContactPhotos(emailAccountId, photos, logger);
-  return { photos };
+  try {
+    const photos = await emailProvider.getContactPhotos();
+    await setCachedContactPhotos(emailAccountId, photos, logger);
+    return { photos };
+  } catch (error) {
+    // Avatars fall back to initials. Caching the miss briefly stops a rate
+    // limited or unpermitted account from re-sweeping on every page load,
+    // while a newly granted scope still takes effect soon.
+    logger.warn("Failed to load contact photos", { error });
+    await setCachedContactPhotos(emailAccountId, {}, logger, {
+      ttlSeconds: FAILED_SWEEP_TTL_SECONDS,
+    });
+    return { photos: {} };
+  }
 }
