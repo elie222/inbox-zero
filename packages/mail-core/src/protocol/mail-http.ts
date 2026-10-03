@@ -344,6 +344,13 @@ export const uploadAdmitRequestSchema = z.object({
   checksum: z.string().min(1).max(128),
   contentType: z.string().max(256),
   filename: z.string().max(1024).optional(),
+  disposition: z.enum(["attachment", "inline"]).optional(),
+  contentId: z
+    .string()
+    .min(1)
+    .max(2048)
+    .regex(/^[^\r\n\0]+$/)
+    .optional(),
 });
 
 export const uploadHoldRequestSchema = z.object({
