@@ -323,7 +323,8 @@ async function serveScheduledActions() {
   }
 }
 
-async function down(state = readState(), expectedOwner) {
+async function down(providedState, expectedOwner) {
+  const state = providedState ?? readState();
   if (!state) return;
   if (expectedOwner && state.ownerToken !== expectedOwner)
     throw new Error("Emulator ownership changed; refusing cleanup");

@@ -49,9 +49,10 @@ const server = createServer(async (request, response) => {
   const drop = metadata && remaining > 0;
   if (drop) remaining -= 1;
   const outgoing = httpRequest(
-    target,
+    upstream,
     {
       method: request.method,
+      path: target.pathname + target.search,
       headers: { ...request.headers, host: upstream.host },
     },
     (result) => {

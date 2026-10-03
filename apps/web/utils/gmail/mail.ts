@@ -28,7 +28,10 @@ import { formatReplySubject } from "@/utils/email/subject";
 import { buildThreadingHeaders } from "@/utils/email/threading";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
 import { getMessage } from "@/utils/gmail/message";
-import { getGmailMessageAttachments } from "@/utils/gmail/attachment";
+import {
+  getGmailAttachment,
+  getGmailMessageAttachments,
+} from "@/utils/gmail/attachment";
 import { getDraftIdForMessage } from "@/utils/gmail/draft";
 import { SafeError } from "@/utils/error";
 import { GmailLabel } from "@/utils/gmail/label";
@@ -266,15 +269,13 @@ export async function forwardEmail(
 
   const attachments = await Promise.all(
     message.attachments?.map(async (attachment) => {
-      const attachmentData = await withGmailRetry(() =>
-        gmail.users.messages.attachments.get({
-          userId: "me",
-          messageId: message.id,
-          id: attachment.attachmentId,
-        }),
+      const attachmentData = await getGmailAttachment(
+        gmail,
+        message.id,
+        attachment.attachmentId,
       );
       return {
-        content: Buffer.from(attachmentData.data.data || "", "base64"),
+        content: Buffer.from(attachmentData.data || "", "base64url"),
         contentType: attachment.mimeType,
         filename: attachment.filename,
       };
