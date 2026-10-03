@@ -117,8 +117,8 @@ const nextConfig: NextConfig = {
           "worker-src 'self' blob:",
           // For API calls, SWR, external services, and Mux
           "connect-src 'self' https: wss: https://*.mux.com https://*.litix.io",
-          // iframes for Mux player
-          "frame-src 'self' https:",
+          // iframes for Mux player and PDF attachment previews
+          "frame-src 'self' https: blob:",
           // Prevent embedding in iframes
           "frame-ancestors 'none'",
         ].join("; "),

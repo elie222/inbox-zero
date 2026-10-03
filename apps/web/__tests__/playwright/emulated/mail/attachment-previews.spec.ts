@@ -48,3 +48,31 @@ test("downloads opened attachment previews over the network", async ({
     "mail-network-attachment-preview",
   );
 });
+
+test("opens an attachment preview from its card", async ({
+  page,
+}, testInfo) => {
+  const { conversations } = await openMail(page);
+  await conversationWithSubject(
+    page,
+    conversations,
+    "Re: Reader Visual Message",
+  ).click();
+  await page
+    .getByRole("button", { name: "Preview reader-preview.png" })
+    .click();
+  const dialog = page.getByRole("dialog", { name: "reader-preview.png" });
+  await expect(
+    dialog.getByRole("img", { name: "reader-preview.png" }),
+  ).toBeVisible();
+  const download = page.waitForEvent("download");
+  await dialog.getByRole("button", { name: "Download" }).click();
+  expect((await download).suggestedFilename()).toBe("reader-preview.png");
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "mail-attachment-preview-dialog",
+  );
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+});
