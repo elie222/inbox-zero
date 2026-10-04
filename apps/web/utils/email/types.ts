@@ -218,7 +218,10 @@ export interface EmailProvider {
   ): Promise<ReadableStream<Uint8Array>>;
   /** Real contact photos keyed by canonical email address. */
   getContactPhotos(): Promise<Record<string, string>>;
-  getDraft(draftId: string): Promise<ParsedMessage | null>;
+  getDraft(
+    draftId: string,
+    options?: { includeAttachments?: boolean },
+  ): Promise<ParsedMessage | null>;
   getDraftReferenceForMessage(
     messageId: string,
   ): Promise<DraftReference | null>;

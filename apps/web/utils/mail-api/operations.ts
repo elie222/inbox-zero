@@ -871,6 +871,8 @@ async function loadSendAttachments(accountId: string, attachmentIds: string[]) {
     content: string;
     contentType: string;
     size: number;
+    disposition?: "attachment" | "inline";
+    contentId?: string;
   }> = [];
   for (const blobId of attachmentIds) {
     let stream: AsyncIterable<Uint8Array> | null;
@@ -894,6 +896,8 @@ async function loadSendAttachments(accountId: string, attachmentIds: string[]) {
       content: bytes.toString("base64"),
       contentType: metadata?.contentType ?? "application/octet-stream",
       size: bytes.byteLength,
+      ...(metadata?.disposition ? { disposition: metadata.disposition } : {}),
+      ...(metadata?.contentId ? { contentId: metadata.contentId } : {}),
     });
   }
   return { status: "ok" as const, attachments };

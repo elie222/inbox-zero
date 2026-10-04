@@ -625,8 +625,16 @@ export class OutlookProvider implements EmailProvider {
     });
   }
 
-  async getDraft(draftId: string): Promise<ParsedMessage | null> {
-    return getDraft({ client: this.client, draftId, logger: this.logger });
+  async getDraft(
+    draftId: string,
+    options?: { includeAttachments?: boolean },
+  ): Promise<ParsedMessage | null> {
+    return getDraft({
+      client: this.client,
+      draftId,
+      logger: this.logger,
+      includeAttachments: options?.includeAttachments,
+    });
   }
 
   async getDraftReferenceForMessage(messageId: string) {

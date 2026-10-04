@@ -17,6 +17,61 @@ import {
 import type { OutlookClient } from "@/utils/outlook/client";
 
 describe("convertMessage", () => {
+  it("retains BCC on a detail request that respects Graph field selection", async () => {
+    let selectedFields = new Set<string>();
+    const request = {
+      select: vi.fn((fields: string) => {
+        selectedFields = new Set(fields.split(","));
+        return request;
+      }),
+      expand: vi.fn().mockReturnThis(),
+      get: vi.fn(async () => ({
+        id: "message",
+        ...(selectedFields.has("bccRecipients")
+          ? {
+              bccRecipients: [
+                { emailAddress: { address: "hidden@example.com" } },
+              ],
+            }
+          : {}),
+      })),
+    };
+    const client = {
+      getFolderIdCache: () => ({ drafts: "drafts" }),
+      getCategoryMapCache: () => new Map(),
+      getClient: () => ({ api: () => request }),
+    } as unknown as OutlookClient;
+    const result = await getMessage("message", client, createTestLogger());
+    expect(result.headers.bcc).toBe("hidden@example.com");
+  });
+
+  it("preserves BCC recipients from a provider draft", () => {
+    const result = convertMessage({
+      bccRecipients: [
+        {
+          emailAddress: {
+            name: "Private Recipient",
+            address: "hidden@example.com",
+          },
+        },
+      ],
+    });
+    expect(result.headers.bcc).toBe("Private Recipient <hidden@example.com>");
+  });
+
+  it("does not substitute a filename for a missing inline content id", () => {
+    const result = convertMessage({
+      attachments: [
+        {
+          id: "inline",
+          name: "logo.png",
+          isInline: true,
+          contentType: "image/png",
+        },
+      ],
+    });
+    expect(result.inline[0].headers["content-id"]).toBe("");
+  });
   it.each([
     [
       "text",

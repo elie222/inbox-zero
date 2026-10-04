@@ -7,6 +7,20 @@ Nothing here talks to production.
 Playwright's `webServer` starts one provider for a spec and exits. This stack
 stays up until you stop it.
 
+## Integration test mode
+
+`node scripts/emulator/stack.mjs up --integration-tests --owner-token <token>`
+adds deterministic provider fixtures, a local model service, and a response-loss
+proxy. Any HTTP client can use this mode; it is independent of a mobile app.
+The returned `controlUrl` exposes test controls under `/__test-control`.
+
+`node scripts/emulator/stack.mjs reset` resets the owned integration stack
+between scenarios. Stop it with:
+
+```sh
+node scripts/emulator/stack.mjs down --owner-token <token>
+```
+
 ## Run
 
 Docker must be running. From a clone of this repo:
@@ -185,7 +199,7 @@ curl -X PUT "$BASE_URL/api/mail/v1/accounts/$EMAIL_ACCOUNT_ID/operations/$OPERAT
 `POST /api/messages/send` accepts the same id on `sendEmailBody.providerDraftId`
 when the client is not using `mail/v1`.
 
-## Native iOS routes
+## Account, subscription, and push routes
 
 These use the same session cookie. Routes marked with the email-account header
 also require `X-Email-Account-ID`.

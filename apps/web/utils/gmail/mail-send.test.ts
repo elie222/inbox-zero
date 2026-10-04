@@ -2,7 +2,8 @@ import type { gmail_v1 } from "@googleapis/gmail";
 import { assert, describe, expect, it, vi } from "vitest";
 import { createScopedLogger } from "@/utils/logger";
 import { SafeError } from "@/utils/error";
-import { sendEmailWithHtml } from "./mail";
+import { forwardEmail, sendEmailWithHtml } from "./mail";
+import { parseMessage } from "./message";
 
 vi.mock("@/utils/mail", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/utils/mail")>()),
@@ -21,6 +22,42 @@ const email = {
 };
 
 describe("sending a Gmail draft from the reader", () => {
+  it("forwards a small embedded MIME attachment using its actual part ID and bytes", async () => {
+    const { gmail, messages } = createGmail();
+    const bytes = Buffer.from("embedded report bytes");
+    const raw = {
+      id: "original-message",
+      threadId: "original-thread",
+      payload: {
+        mimeType: "multipart/mixed",
+        parts: [
+          {
+            partId: "0",
+            mimeType: "text/plain",
+            body: { data: Buffer.from("Original body").toString("base64url") },
+          },
+          {
+            partId: "1",
+            mimeType: "application/pdf",
+            filename: "small.pdf",
+            headers: [{ name: "Content-Disposition", value: "attachment" }],
+            body: { data: bytes.toString("base64url"), size: bytes.length },
+          },
+        ],
+      },
+    };
+    messages.get.mockResolvedValue({ data: raw });
+    const parsed = parseMessage(raw);
+    expect(parsed.attachments?.[0]?.attachmentId).toBe("gmail-part:1");
+    await forwardEmail(gmail, parsed, { to: "recipient@example.com" });
+    expect(messages.attachments.get).not.toHaveBeenCalled();
+    const sent = messages.send.mock.calls.at(-1);
+    assert.isDefined(sent);
+    const mime = Buffer.from(sent[0].requestBody.raw, "base64url").toString();
+    expect(mime).toContain("small.pdf");
+    expect(mime).toContain(bytes.toString("base64"));
+  });
+
   it("reports the actual MIME sender presence and failed send endpoint without message content", async () => {
     const { gmail, messages } = createGmail();
     messages.get.mockResolvedValue({ data: { labelIds: ["INBOX"] } });

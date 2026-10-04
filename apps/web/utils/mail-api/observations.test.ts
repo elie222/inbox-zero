@@ -86,6 +86,62 @@ describe("parsedMessageMetadata", () => {
 });
 
 describe("parsedMessageBodyObservation", () => {
+  it("does not stall a body hydration page on an oversized sender Content-ID", () => {
+    const observation = parsedMessageBodyObservation("acc-1", {
+      id: "large-cid",
+      historyId: "1",
+      textHtml: "<p>Usable content</p>",
+      inline: [
+        {
+          attachmentId: "part",
+          filename: "image.png",
+          mimeType: "image/png",
+          size: 1,
+          headers: { "content-id": "x".repeat(1025) },
+        },
+      ],
+    } as ParsedMessage);
+    expect(observation?.html).toBe("<p>Usable content</p>");
+    expect(observation?.attachments[0].contentId).toBeNull();
+    expect(() => bodyObservationSchema.parse(observation)).not.toThrow();
+  });
+
+  it("keeps authoritative inline content IDs and never substitutes filenames", () => {
+    const observation = parsedMessageBodyObservation("acc-1", {
+      id: "inline-message",
+      threadId: "inline-thread",
+      historyId: "5",
+      date: "2026-01-01T00:00:00.000Z",
+      headers: { from: "ada@example.com", to: "me@example.com", date: "" },
+      textHtml: '<img src="cid:logo@example.test">',
+      inline: [
+        {
+          attachmentId: "inline-1",
+          filename: "logo.png",
+          mimeType: "image/png",
+          size: 20,
+          headers: { "content-id": " <logo@example.test> " },
+        },
+        {
+          attachmentId: "inline-2",
+          filename: "other.png",
+          mimeType: "image/png",
+          size: 20,
+          headers: {},
+        },
+      ],
+    } as ParsedMessage);
+    expect(observation?.attachments).toMatchObject([
+      {
+        attachmentId: "inline-1",
+        inline: true,
+        contentId: "logo@example.test",
+      },
+      { attachmentId: "inline-2", inline: true, contentId: null },
+    ]);
+    expect(() => bodyObservationSchema.parse(observation)).not.toThrow();
+  });
+
   it("leaves out attachments the provider sent without an id", () => {
     const observation = parsedMessageBodyObservation("acc-1", {
       id: "m4",
@@ -161,6 +217,7 @@ describe("parsedMessageBodyObservation", () => {
           mimeType: "text/calendar",
           size: 80,
           inline: false,
+          contentId: null,
         },
       ],
       isMeetingInvitation: true,
