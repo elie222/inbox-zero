@@ -39,6 +39,7 @@ import { formatReplySubject } from "@/utils/email/subject";
 import { isTypingTarget } from "@/lib/shortcuts/registry";
 import { useContactPhoto } from "@/hooks/useContactPhoto";
 import { toastError } from "@/components/Toast";
+import { LoadingMiniSpinner } from "@/components/Loading";
 import { getActionErrorMessage } from "@/utils/error";
 import {
   getDraftSessionMessageId,
@@ -284,9 +285,7 @@ export function EmailMessage({
           )}
 
           {!bodyAvailable && !isDraftRow && composeMode !== "forward" && (
-            <p className="text-muted-foreground text-sm">
-              This message hasn’t loaded yet.
-            </p>
+            <MessageBodyLoading />
           )}
           {bodyAvailable &&
             !isDraftRow &&
@@ -696,9 +695,9 @@ function ReplyPanel({
 
   if (draftMessage && !draftSource) {
     return (
-      <p className="mt-5 text-muted-foreground text-sm">
-        This message hasn’t loaded yet.
-      </p>
+      <div className="mt-5">
+        <MessageBodyLoading />
+      </div>
     );
   }
 
@@ -852,4 +851,16 @@ function prepareDraftReplyEmail(draft: ParsedMessage): ReplyingToEmail {
     draftHtml: splitHtml.draftHtml,
     quotedContentHtml: splitHtml.originalHtml,
   };
+}
+
+function MessageBodyLoading() {
+  return (
+    <p
+      className="flex items-center gap-2 text-muted-foreground text-sm"
+      role="status"
+    >
+      <LoadingMiniSpinner />
+      Loading message…
+    </p>
+  );
 }
