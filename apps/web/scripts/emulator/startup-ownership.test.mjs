@@ -80,7 +80,7 @@ test("a stopped startup cannot republish state or take a replacement owner's cla
 
 test.each([
   [[]],
-  [["--native-tests"]],
+  [["--integration-tests"]],
 ])("down rejects an owner-token without a value before cleanup %j", (trailing) => {
   const result = spawnSync(
     process.execPath,

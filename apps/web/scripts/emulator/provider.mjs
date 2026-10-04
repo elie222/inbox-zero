@@ -4,7 +4,7 @@ import { createEmulator } from "emulate";
 
 const [service, port, controlPort, filename] = process.argv.slice(2);
 if (!["google", "microsoft"].includes(service))
-  throw new Error("Native fixture provider must be Gmail or Graph");
+  throw new Error("Provider fixture provider must be Gmail or Graph");
 const emulator = await createEmulator({
   service,
   port: Number(port),
@@ -21,7 +21,7 @@ const control = createServer(async (request, response) => {
     await emulator.reset();
     response.writeHead(200).end();
   } catch (error) {
-    console.error("Native fixture reset failed", error);
+    console.error("Provider fixture reset failed", error);
     response.writeHead(500).end();
   }
 });

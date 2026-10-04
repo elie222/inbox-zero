@@ -3,7 +3,7 @@ import { createServer, request as httpRequest } from "node:http";
 const port = Number(process.argv[2]);
 const upstream = new URL(process.argv[3]);
 if (upstream.protocol !== "http:" || upstream.hostname !== "127.0.0.1") {
-  throw new Error("Native proxy upstream must stay on loopback");
+  throw new Error("Test proxy upstream must stay on loopback");
 }
 let remaining = 0;
 let dropped = 0;
@@ -16,7 +16,7 @@ const server = createServer(async (request, response) => {
     return;
   }
   const body = Buffer.concat(chunks);
-  if (request.url === "/__native-control/response-loss") {
+  if (request.url === "/__test-control/response-loss") {
     if (request.method === "POST") {
       let intent;
       try {
@@ -68,7 +68,7 @@ const server = createServer(async (request, response) => {
     },
     (result) => {
       if (drop) {
-        // Drain the real server reply before disconnecting the native caller.
+        // Drain the real server reply before disconnecting the client.
         result.resume();
         result.on("end", () => {
           dropped += 1;

@@ -47,10 +47,10 @@ test("proxy keeps a fixed destination and loses only a completed metadata reply"
     });
   try {
     assert.equal(
-      (await send("/__native-control/response-loss", "POST", "{")).status,
+      (await send("/__test-control/response-loss", "POST", "{")).status,
       400,
     );
-    assert.equal((await send("/__native-control/response-loss")).status, 200);
+    assert.equal((await send("/__test-control/response-loss")).status, 200);
     for (const path of [
       `//127.0.0.1:${foreignPort}/private`,
       `http://127.0.0.1:${foreignPort}/private`,
@@ -61,7 +61,7 @@ test("proxy keeps a fixed destination and loses only a completed metadata reply"
     assert.equal(forwarded, 0);
     assert.equal((await send("/ordinary")).status, 200);
     await send(
-      "/__native-control/response-loss",
+      "/__test-control/response-loss",
       "POST",
       JSON.stringify({ provider: "google", count: 1 }),
     );
@@ -71,7 +71,7 @@ test("proxy keeps a fixed destination and loses only a completed metadata reply"
     const operation = "/api/mail/v1/accounts/a/operations/op";
     await assert.rejects(send(operation, "PUT", body));
     assert.equal(
-      JSON.parse((await send("/__native-control/response-loss")).data).dropped,
+      JSON.parse((await send("/__test-control/response-loss")).data).dropped,
       1,
     );
     assert.equal((await send(operation, "PUT", body)).status, 200);
@@ -111,7 +111,7 @@ async function startProxy(upstreamPort) {
   const child = spawn(
     process.execPath,
     [
-      fileURLToPath(new URL("./native-proxy.mjs", import.meta.url)),
+      fileURLToPath(new URL("./proxy.mjs", import.meta.url)),
       "0",
       `http://127.0.0.1:${upstreamPort}`,
     ],

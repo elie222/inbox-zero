@@ -25,19 +25,19 @@ if (command === "serve-cron") {
 } else if (command === "up") {
   await up({
     foreground: process.argv.includes("--foreground"),
-    nativeTests: process.argv.includes("--native-tests"),
+    integrationTests: process.argv.includes("--integration-tests"),
     ownerToken: ownerTokenArgument() ?? randomUUID(),
   });
-} else if (command === "reset-native") {
-  await resetNative();
+} else if (command === "reset") {
+  await resetIntegration();
 } else if (command === "down") {
   await down(undefined, ownerTokenArgument());
 } else {
-  console.log("Usage: node scripts/emulator/stack.mjs <up|down>");
+  console.log("Usage: node scripts/emulator/stack.mjs <up|down|reset>");
   process.exit(command === "help" ? 0 : 1);
 }
 
-async function up({ foreground, nativeTests, ownerToken }) {
+async function up({ foreground, integrationTests, ownerToken }) {
   if (!ownerToken) throw new Error("--owner-token requires a value");
   if (exists(statePath)) {
     throw new Error(
@@ -55,7 +55,7 @@ async function up({ foreground, nativeTests, ownerToken }) {
     redisHttp: await getAvailablePort(),
     google: await getAvailablePort(),
     microsoft: await getAvailablePort(),
-    ...(nativeTests
+    ...(integrationTests
       ? {
           proxy: await getAvailablePort(),
           llm: await getAvailablePort(),
@@ -65,7 +65,9 @@ async function up({ foreground, nativeTests, ownerToken }) {
       : {}),
   };
   const nextBaseUrl = `http://127.0.0.1:${ports.next}`;
-  const baseUrl = nativeTests ? `http://127.0.0.1:${ports.proxy}` : nextBaseUrl;
+  const baseUrl = integrationTests
+    ? `http://127.0.0.1:${ports.proxy}`
+    : nextBaseUrl;
   const googleBaseUrl = `http://127.0.0.1:${ports.google}`;
   const microsoftBaseUrl = `http://127.0.0.1:${ports.microsoft}`;
   const databaseUrl = `postgresql://postgres:postgres@127.0.0.1:${ports.postgres}/emulator`;
@@ -77,9 +79,9 @@ async function up({ foreground, nativeTests, ownerToken }) {
     redisUrl: `redis://127.0.0.1:${ports.redis}`,
     redisHttpUrl: `http://127.0.0.1:${ports.redisHttp}`,
   });
-  if (nativeTests) {
+  if (integrationTests) {
     env.OPENAI_COMPATIBLE_BASE_URL = `http://127.0.0.1:${ports.llm}/v1`;
-    env.PLAYWRIGHT_RUN_ID = `native-${id}`;
+    env.PLAYWRIGHT_RUN_ID = `integration-${id}`;
   }
   assertLocalTargets(env);
   const composeProject = `emulator${id}`;
@@ -90,9 +92,9 @@ async function up({ foreground, nativeTests, ownerToken }) {
     googleBaseUrl,
     microsoftBaseUrl,
     databaseUrl,
-    ...(nativeTests
+    ...(integrationTests
       ? {
-          controlUrl: `${baseUrl}/__native-control`,
+          controlUrl: `${baseUrl}/__test-control`,
           llmUrl: `http://127.0.0.1:${ports.llm}`,
           providerControlUrls: [
             `http://127.0.0.1:${ports.googleControl}`,
@@ -134,12 +136,12 @@ async function up({ foreground, nativeTests, ownerToken }) {
       ],
       env,
     );
-    if (nativeTests) {
+    if (integrationTests) {
       ownership.assertCurrent();
       run(
         webRoot,
         process.execPath,
-        ["scripts/emulator/native-fixture.mjs", seedPath],
+        ["scripts/emulator/fixtures.mjs", seedPath],
         env,
       );
       start(
@@ -150,16 +152,16 @@ async function up({ foreground, nativeTests, ownerToken }) {
       );
       start(
         process.execPath,
-        ["scripts/emulator/native-proxy.mjs", String(ports.proxy), nextBaseUrl],
+        ["scripts/emulator/proxy.mjs", String(ports.proxy), nextBaseUrl],
         env,
         path.join(runDir, "proxy.log"),
       );
     }
     start(
-      nativeTests ? process.execPath : "pnpm",
-      nativeTests
+      integrationTests ? process.execPath : "pnpm",
+      integrationTests
         ? [
-            "scripts/emulator/native-provider.mjs",
+            "scripts/emulator/provider.mjs",
             "google",
             String(ports.google),
             String(ports.googleControl),
@@ -182,10 +184,10 @@ async function up({ foreground, nativeTests, ownerToken }) {
       path.join(runDir, "google.log"),
     );
     start(
-      nativeTests ? process.execPath : "pnpm",
-      nativeTests
+      integrationTests ? process.execPath : "pnpm",
+      integrationTests
         ? [
-            "scripts/emulator/native-provider.mjs",
+            "scripts/emulator/provider.mjs",
             "microsoft",
             String(ports.microsoft),
             String(ports.microsoftControl),
@@ -245,10 +247,10 @@ async function up({ foreground, nativeTests, ownerToken }) {
   }
 }
 
-async function resetNative() {
+async function resetIntegration() {
   const state = await readStartupState(statePath);
   if (!state?.controlUrl || !state.llmUrl)
-    throw new Error("reset-native requires an owned --native-tests stack");
+    throw new Error("reset requires an owned --integration-tests stack");
   for (const origin of state.providerControlUrls) {
     const response = await fetch(`${origin}/reset`, {
       method: "POST",
@@ -289,7 +291,7 @@ async function resetNative() {
       method: endpoint === "/response-loss" ? "DELETE" : "POST",
     });
     if (!response.ok)
-      throw new Error(`Native fixture reset failed: ${response.status}`);
+      throw new Error(`Provider fixture reset failed: ${response.status}`);
   }
 }
 
