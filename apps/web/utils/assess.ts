@@ -6,7 +6,10 @@ import { isDefined } from "@/utils/types";
 import type { Logger } from "@/utils/logger";
 import { GmailLabel } from "@/utils/gmail/label";
 
-const DEFAULT_LABEL_COUNT: Record<EmailProvider["name"], number> = {
+const DEFAULT_LABEL_COUNT: Record<
+  Exclude<EmailProvider["name"], "fastmail">,
+  number
+> = {
   google: 13,
   microsoft: 8,
 };
@@ -63,6 +66,8 @@ async function getLabelThreadCount(client: EmailProvider, labelId: string) {
 
 async function getLabelCount(client: EmailProvider) {
   const labels = await client.getLabels();
+  if (client.name === "fastmail")
+    return labels.filter((label) => label.type === "user").length;
   return labels.length - DEFAULT_LABEL_COUNT[client.name];
 }
 
@@ -80,6 +85,7 @@ async function getForwardingAddressesCount(
   client: EmailProvider,
   logger: Logger,
 ) {
+  if (client.name === "fastmail") return null;
   try {
     const forwardingAddresses = await client.getForwardingAddresses();
     return forwardingAddresses.length;

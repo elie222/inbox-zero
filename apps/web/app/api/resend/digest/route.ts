@@ -120,7 +120,9 @@ async function sendEmail({
     where: { id: emailAccountId },
     select: {
       email: true,
-      account: { select: { provider: true, refresh_token: true } },
+      account: {
+        select: { provider: true, access_token: true, refresh_token: true },
+      },
     },
   });
 
@@ -128,9 +130,13 @@ async function sendEmail({
     throw new Error("Email account not found");
   }
 
-  if (!emailAccount.account.refresh_token) {
-    logger.warn("Skipping digest: account has no refresh token");
-    return { success: false, message: "Account has no refresh token" };
+  if (
+    !(emailAccount.account.provider === "fastmail"
+      ? emailAccount.account.access_token
+      : emailAccount.account.refresh_token)
+  ) {
+    logger.warn("Skipping digest: account has no mail credentials");
+    return { success: false, message: "Account has no mail credentials" };
   }
 
   const emailProvider = await createEmailProvider({

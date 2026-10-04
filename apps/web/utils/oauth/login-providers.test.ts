@@ -8,6 +8,17 @@ const allConfigured = {
 } as const;
 
 describe("getEnabledLoginProviders", () => {
+  it("supports an Authelia-only deployment", () => {
+    expect([
+      ...getEnabledLoginProviders({
+        hasGoogleConfig: false,
+        hasMicrosoftConfig: false,
+        hasAppleConfig: false,
+        ssoLoginEnabled: false,
+        autheliaLoginEnabled: true,
+      }),
+    ]).toEqual(["authelia"]);
+  });
   it("includes configured OAuth providers", () => {
     const result = getEnabledLoginProviders(allConfigured);
     expect(result.has("google")).toBe(true);

@@ -83,6 +83,7 @@ services:
       DIRECT_URL: ${DIRECT_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-inboxzero}?schema=public}
       REDIS_HTTP_URL: ${REDIS_HTTP_URL:-${UPSTASH_REDIS_URL:-http://serverless-redis-http:80}}
       INTERNAL_API_URL: ${INTERNAL_API_URL:-http://web:3000}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
     restart: always
 
   worker:
@@ -102,9 +103,30 @@ services:
       - inbox-zero-network
     environment:
       INTERNAL_API_URL: ${INTERNAL_API_URL:-http://web:3000}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
     restart: always
     profiles:
       - queue-worker
+      - fastmail
+      - all
+
+  fastmail-daemon:
+    image: inbox-zero-fastmail-daemon:local
+    build:
+      context: .
+      dockerfile: apps/fastmail-eventsource-daemon/Dockerfile
+    environment:
+      MAIN_APP_URL: http://web:3000
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      FASTMAIL_WEBHOOK_SECRET: ${FASTMAIL_WEBHOOK_SECRET}
+    depends_on:
+      - web
+    networks:
+      - inbox-zero-network
+    restart: always
+    profiles:
+      - fastmail
+      - all
 
   cron:
     image: alpine:latest
@@ -158,6 +180,12 @@ services:
             echo \"[cron] Renewing email watches...\"
             curl -s -X GET 'http://web:3000/api/watch/all' -H \"Authorization: Bearer $${CRON_SECRET}\" || echo \"[cron] Warning: watch request failed\"
             sleep 21600
+          done
+        ) &
+        (
+          while true; do
+            curl -fsS --max-time 60 'http://web:3000/api/fastmail/poll' -H \"Authorization: Bearer $${CRON_SECRET}\" || echo \"[cron] Fastmail recovery request failed\"
+            sleep 300
           done
         ) &
         wait

@@ -47,6 +47,11 @@ interface CalendarConnectionCardProps {
 
 const getProviderInfo = (provider: string) => {
   const providers = {
+    fastmail: {
+      name: "Fastmail Calendar",
+      icon: "/images/calendar.svg",
+      alt: "Fastmail Calendar",
+    },
     microsoft: {
       name: "Microsoft Calendar",
       icon: "/images/product/outlook-calendar.svg",

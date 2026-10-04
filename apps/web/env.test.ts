@@ -35,6 +35,22 @@ describe("env LLM compatibility conversion", () => {
     Object.assign(process.env, originalEnv);
   });
 
+  it("loads an Authelia and Fastmail deployment without Google credentials", async () => {
+    process.env.DEFAULT_LLMS = "openai:gpt-5.4-mini";
+    process.env.NEXT_PUBLIC_AUTHELIA_ENABLED = "true";
+    process.env.NEXT_PUBLIC_FASTMAIL_ENABLED = "true";
+    process.env.AUTHELIA_CLIENT_ID = "inbox-zero";
+    process.env.AUTHELIA_CLIENT_SECRET = "test-secret";
+    process.env.AUTHELIA_ISSUER_URL = "https://auth.example.com";
+    delete process.env.GOOGLE_CLIENT_ID;
+    delete process.env.GOOGLE_CLIENT_SECRET;
+    delete process.env.GOOGLE_PUBSUB_TOPIC_NAME;
+    const { env } = await import("./env");
+    expect(env.NEXT_PUBLIC_AUTHELIA_ENABLED).toBe(true);
+    expect(env.NEXT_PUBLIC_FASTMAIL_ENABLED).toBe(true);
+    expect(env.GOOGLE_CLIENT_ID).toBe("");
+  });
+
   it.each([
     "",
     "   ",

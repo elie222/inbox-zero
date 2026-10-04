@@ -1,9 +1,15 @@
 import type { GetAuthLinkUrlResponse } from "@/app/api/google/linking/auth-url/route";
 import type { GetOutlookAuthLinkUrlResponse } from "@/app/api/outlook/linking/auth-url/route";
-import { isGoogleProvider } from "@/utils/email/provider-types";
+
+type Provider = "google" | "microsoft" | "fastmail";
+const PROVIDER_DISPLAY_NAMES: Record<Provider, string> = {
+  google: "Google",
+  microsoft: "Microsoft",
+  fastmail: "Fastmail",
+};
 
 /**
- * Initiates the OAuth account linking flow for Google or Microsoft.
+ * Initiates OAuth linking for Google/Microsoft or opens Fastmail token connection.
  * Returns a URL to redirect the user to (OAuth provider, or /logout if
  * the session is stale).
  *
@@ -14,10 +20,11 @@ import { isGoogleProvider } from "@/utils/email/provider-types";
  * message is safe to show to the user.
  */
 export async function getAccountLinkingUrl(
-  provider: "google" | "microsoft",
+  provider: Provider,
   options?: { reconnectEmailAccountId?: string },
 ): Promise<string> {
-  const apiProvider = provider === "microsoft" ? "outlook" : "google";
+  if (provider === "fastmail") return "/accounts";
+  const apiProvider = provider === "microsoft" ? "outlook" : provider;
   const query = options?.reconnectEmailAccountId
     ? `?emailAccountId=${encodeURIComponent(options.reconnectEmailAccountId)}`
     : "";
@@ -43,7 +50,7 @@ export async function getAccountLinkingUrl(
     }
 
     throw new Error(
-      `Failed to initiate ${isGoogleProvider(provider) ? "Google" : "Microsoft"} account linking`,
+      `Failed to initiate ${PROVIDER_DISPLAY_NAMES[provider]} account linking`,
     );
   }
 

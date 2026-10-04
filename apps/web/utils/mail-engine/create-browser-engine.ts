@@ -31,7 +31,7 @@ export { browserMailEngineCapabilities };
 export type BrowserMailEngine = MailEngine & {
   ensureAccount(input: {
     accountId: string;
-    provider: "google" | "microsoft";
+    provider: "google" | "microsoft" | "fastmail";
     generation?: string;
   }): Promise<void>;
 };

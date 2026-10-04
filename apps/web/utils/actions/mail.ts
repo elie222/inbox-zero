@@ -503,9 +503,13 @@ function assertMailboxItemMutationSupported({
   kind: "label" | "folder";
   provider: string;
 }) {
-  if (kind === "folder" && !isMicrosoftProvider(provider)) {
+  if (
+    kind === "folder" &&
+    !isMicrosoftProvider(provider) &&
+    provider !== "fastmail"
+  ) {
     throw new SafeError(
-      "Folder actions are only available for Outlook accounts.",
+      "Folder actions are only available for Outlook and Fastmail accounts.",
     );
   }
 }

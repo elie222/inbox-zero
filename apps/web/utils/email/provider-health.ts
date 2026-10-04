@@ -29,7 +29,7 @@ export async function recordEmailAccountProviderIssue({
   failedAccessToken,
 }: {
   emailAccountId: string;
-  provider: "google" | "microsoft";
+  provider: "google" | "microsoft" | "fastmail";
   error: unknown;
   logger: Logger;
   operation: string;
@@ -89,9 +89,17 @@ export function classifyEmailAccountProviderIssue({
   provider,
 }: {
   error: unknown;
-  provider: "google" | "microsoft";
+  provider: "google" | "microsoft" | "fastmail";
 }): ProviderIssue | null {
   const message = getErrorMessage(error);
+  if (
+    provider === "fastmail" &&
+    error &&
+    typeof error === "object" &&
+    "status" in error &&
+    error.status === 401
+  )
+    return { reason: "invalid_grant" };
 
   if (
     provider === "google" &&
@@ -128,7 +136,7 @@ async function claimProviderIssueCleanup({
   logger,
 }: {
   emailAccountId: string;
-  provider: "google" | "microsoft";
+  provider: "google" | "microsoft" | "fastmail";
   operation: string;
   reason: ProviderIssueReason;
   logger: Logger;

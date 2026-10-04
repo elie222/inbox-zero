@@ -73,8 +73,11 @@ describe("mailbox item actions", () => {
     });
   });
 
-  it("renames an Outlook folder through the provider", async () => {
-    setProvider("microsoft");
+  it.each([
+    "microsoft",
+    "fastmail",
+  ] as const)("renames a %s folder through the provider", async (provider) => {
+    setProvider(provider);
 
     const result = await updateMailboxItemAction(EMAIL_ACCOUNT_ID, {
       kind: "folder",
@@ -183,20 +186,20 @@ describe("mailbox item actions", () => {
     expect(prisma.$executeRaw).not.toHaveBeenCalled();
   });
 
-  it("rejects folder mutations for non-Outlook accounts", async () => {
+  it("rejects folder mutations for Gmail accounts", async () => {
     const result = await deleteMailboxItemAction(EMAIL_ACCOUNT_ID, {
       kind: "folder",
       id: "folder-1",
     });
 
     expect(result?.serverError).toBe(
-      "Folder actions are only available for Outlook accounts.",
+      "Folder actions are only available for Outlook and Fastmail accounts.",
     );
     expect(mockDeleteFolder).not.toHaveBeenCalled();
   });
 });
 
-function setProvider(provider: "google" | "microsoft") {
+function setProvider(provider: "google" | "microsoft" | "fastmail") {
   prisma.emailAccount.findUnique.mockResolvedValue(
     getMockEmailAccountWithAccount({
       email: "user@example.com",

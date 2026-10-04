@@ -27,6 +27,7 @@ import { sendOtpPushNotification } from "@/utils/otp-push";
 import { internalDateToDate } from "@/utils/date";
 
 export type SharedProcessHistoryOptions = {
+  propagateProcessingErrors?: boolean;
   provider: EmailProvider;
   rules: RuleWithActions[];
   hasAutomationRules: boolean;
@@ -332,7 +333,7 @@ export async function processHistoryItem(
       }
     }
 
-    if (error instanceof SafeError) {
+    if (error instanceof SafeError && !options.propagateProcessingErrors) {
       logger.info("Skipping. Known processing error.");
       return;
     }

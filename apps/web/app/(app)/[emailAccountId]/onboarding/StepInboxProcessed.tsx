@@ -2,20 +2,15 @@
 
 import { useEffect } from "react";
 import useSWR from "swr";
-import { ReplyIcon } from "lucide-react";
+import { InboxIcon, ReplyIcon } from "lucide-react";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { ContinueButton } from "@/app/(app)/[emailAccountId]/onboarding/ContinueButton";
 import { Skeleton } from "@/components/ui/skeleton";
-import { EmailsSortedIllustration } from "@/app/(app)/[emailAccountId]/onboarding/illustrations/EmailsSortedIllustration";
-import { ONBOARDING_PROCESS_EMAILS_COUNT } from "@/utils/config";
 import { usePremium } from "@/hooks/usePremium";
 import { Badge, type Color } from "@/components/Badge";
 import { getActionColor } from "@/components/PlanBadge";
 import { ActionType, SystemType } from "@/generated/prisma/enums";
 import { formatShortDate, internalDateToDate } from "@/utils/date";
-import { isMicrosoftProvider } from "@/utils/email/provider-types";
-import { getEmailTerminology } from "@/utils/terminology";
-import { useAccount } from "@/providers/EmailAccountProvider";
 import { captureException } from "@/utils/error";
 import type { GetOnboardingProcessedEmailsResponse } from "@/app/api/user/onboarding/processed-emails/route";
 
@@ -43,14 +38,11 @@ function getSystemTypeBadgeColor(
 
 export function StepInboxProcessed({ onNext }: { onNext: () => void }) {
   const { isPremium } = usePremium();
-  const { provider } = useAccount();
   const { data, isLoading, error } =
     useSWR<GetOnboardingProcessedEmailsResponse>(
       "/api/user/onboarding/processed-emails",
       {
-        revalidateOnFocus: false,
-        revalidateOnReconnect: false,
-        revalidateIfStale: false,
+        refreshInterval: 5000,
       },
     );
 
@@ -67,8 +59,8 @@ export function StepInboxProcessed({ onNext }: { onNext: () => void }) {
       <StepInboxProcessedView
         data={data}
         isLoading={isLoading}
+        hasError={!!error}
         isPremium={isPremium}
-        provider={provider}
         onNext={onNext}
       />
     </div>
@@ -78,42 +70,53 @@ export function StepInboxProcessed({ onNext }: { onNext: () => void }) {
 export function StepInboxProcessedView({
   data,
   isLoading,
+  hasError = false,
   isPremium,
-  provider,
   onNext,
 }: {
   data: GetOnboardingProcessedEmailsResponse | undefined;
   isLoading: boolean;
+  hasError?: boolean;
   isPremium: boolean;
-  provider: string;
   onNext: () => void;
 }) {
   const hasEmails = !!data && data.emails.length > 0;
-  const { label } = getEmailTerminology(provider);
-  const pastVerb = isMicrosoftProvider(provider) ? "categorized" : "labeled";
-  const hasDrafts = (data?.draftCount ?? 0) > 0;
+  const totalCount = data?.totalCount ?? 0;
+  const draftCount = data?.draftCount ?? 0;
+  let description: string;
+  if (hasError) {
+    description =
+      "We couldn't load your processing results. Please refresh to try again.";
+  } else if (isLoading) {
+    description = "Checking for completed email processing…";
+  } else if (totalCount === 0) {
+    description =
+      "No completed email processing was found. If you just started setup, processing may still be running.";
+  } else {
+    description = `Applied rules to ${totalCount} recent ${totalCount === 1 ? "conversation" : "conversations"}.`;
+    if (draftCount > 0) {
+      description += ` ${draftCount} ${draftCount === 1 ? "includes a draft reply" : "include draft replies"}.`;
+    }
+  }
 
   return (
     <div className="w-full max-w-xl">
       <div className="mb-6 text-center">
-        <PageHeading className="mb-3">
-          {hasDrafts
-            ? `${label.pluralCapitalized} and drafts are ready`
-            : `${label.pluralCapitalized} are ready`}
-        </PageHeading>
-        <TypographyP className="text-muted-foreground">
-          {hasDrafts
-            ? `We ${pastVerb} your last ${ONBOARDING_PROCESS_EMAILS_COUNT} emails and drafted replies. Nothing was archived.`
-            : `We ${pastVerb} your last ${ONBOARDING_PROCESS_EMAILS_COUNT} emails. Nothing was archived.`}
+        <PageHeading className="mb-3">Inbox processing results</PageHeading>
+        <TypographyP
+          className="text-muted-foreground"
+          role={hasError ? "alert" : "status"}
+        >
+          {description}
         </TypographyP>
       </div>
 
-      {isLoading ? (
+      {hasError ? null : isLoading ? (
         <InboxPreviewSkeleton />
       ) : hasEmails ? (
         <InboxPreview emails={data.emails} />
       ) : (
-        <EmptyIllustration />
+        <EmptyPreview hasResults={totalCount > 0} />
       )}
 
       <div className="mt-7 flex flex-col items-center gap-3">
@@ -128,10 +131,15 @@ export function StepInboxProcessedView({
   );
 }
 
-function EmptyIllustration() {
+function EmptyPreview({ hasResults }: { hasResults: boolean }) {
   return (
-    <div className="flex h-[200px] items-end justify-center">
-      <EmailsSortedIllustration animated={false} />
+    <div className="flex h-[200px] flex-col items-center justify-center gap-3 text-muted-foreground">
+      <InboxIcon className="size-10" aria-hidden="true" />
+      <p className="text-sm">
+        {hasResults
+          ? "Message previews are unavailable."
+          : "Completed results will appear here."}
+      </p>
     </div>
   );
 }

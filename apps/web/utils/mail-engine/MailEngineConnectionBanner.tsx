@@ -1,5 +1,6 @@
 "use client";
 
+import { FastmailAppTokenModal } from "@/app/(app)/accounts/FastmailAppTokenModal";
 import { memo, useEffect, useState } from "react";
 import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
 import { AppAlertBanner } from "@/app/(app)/AppAlertBanner";
@@ -18,6 +19,7 @@ export const MailEngineConnectionBanner = memo(
     const [connection, setConnection] = useState<
       "ready" | "offline" | "blocked_auth" | undefined
     >();
+    const [showFastmailToken, setShowFastmailToken] = useState(false);
     const [reconnecting, setReconnecting] = useState(false);
     const copy = mailEngineConnectionCopy(connection);
 
@@ -58,40 +60,51 @@ export const MailEngineConnectionBanner = memo(
     }
 
     return (
-      <AppAlertBanner
-        action={
-          copy.action ? (
-            <Button
-              disabled={reconnecting || !emailAccountId}
-              onClick={() => {
-                setReconnecting(true);
-                getAccountLinkingUrl(
-                  isMicrosoftProvider(provider) ? "microsoft" : "google",
-                  { reconnectEmailAccountId: emailAccountId },
-                )
-                  .then((url) =>
-                    redirectToSafeUrl(url, { allowExternal: true }),
+      <>
+        <FastmailAppTokenModal
+          open={showFastmailToken}
+          onOpenChange={setShowFastmailToken}
+          emailAccountId={emailAccountId}
+        />
+        <AppAlertBanner
+          action={
+            copy.action ? (
+              <Button
+                disabled={reconnecting || !emailAccountId}
+                onClick={() => {
+                  if (provider === "fastmail") {
+                    setShowFastmailToken(true);
+                    return;
+                  }
+                  setReconnecting(true);
+                  getAccountLinkingUrl(
+                    isMicrosoftProvider(provider) ? "microsoft" : "google",
+                    { reconnectEmailAccountId: emailAccountId },
                   )
-                  .catch((error: unknown) => {
-                    toastError({
-                      title: "Error initiating reconnection",
-                      description:
-                        error instanceof Error
-                          ? error.message
-                          : "Please try again or contact support",
-                    });
-                  })
-                  .finally(() => setReconnecting(false));
-              }}
-              size="sm"
-            >
-              {copy.action}
-            </Button>
-          ) : null
-        }
-        description={copy.description}
-        title={copy.title}
-      />
+                    .then((url) =>
+                      redirectToSafeUrl(url, { allowExternal: true }),
+                    )
+                    .catch((error: unknown) => {
+                      toastError({
+                        title: "Error initiating reconnection",
+                        description:
+                          error instanceof Error
+                            ? error.message
+                            : "Please try again or contact support",
+                      });
+                    })
+                    .finally(() => setReconnecting(false));
+                }}
+                size="sm"
+              >
+                {copy.action}
+              </Button>
+            ) : null
+          }
+          description={copy.description}
+          title={copy.title}
+        />
+      </>
     );
   },
 );

@@ -3,7 +3,10 @@ import {
   normalizeCalendarInvitationContent,
 } from "@/utils/calendar/invitations/content";
 import prisma from "@/utils/prisma";
-import { createCalendarEventProvider } from "@/utils/calendar/event-provider";
+import {
+  createCalendarEventProvider,
+  isUsableCalendarConnection,
+} from "@/utils/calendar/event-provider";
 import { CALENDAR_INVITATION_LIMITS } from "@/utils/calendar/invitations/constants";
 import {
   parseCalendarInvitation,
@@ -11,10 +14,6 @@ import {
   type CalendarInvitation,
   type InvitationResponse,
 } from "@/utils/calendar/invitations/parser";
-import {
-  isGoogleProvider,
-  isMicrosoftProvider,
-} from "@/utils/email/provider-types";
 import {
   getCalendarAttachments,
   isCalendarInvitationMessage,
@@ -176,12 +175,7 @@ async function findInvitationEvent({
   });
   const matches = [];
   for (const connection of connections) {
-    if (!connection.refreshToken) continue;
-    if (
-      !isGoogleProvider(connection.provider) &&
-      !isMicrosoftProvider(connection.provider)
-    )
-      continue;
+    if (!isUsableCalendarConnection(connection)) continue;
     const provider = createCalendarEventProvider({
       connection,
       emailAccountId,

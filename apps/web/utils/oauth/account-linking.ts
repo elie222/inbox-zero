@@ -10,7 +10,7 @@ interface AccountLinkingParams {
   existingUserId: string | null;
   hasEmailAccount: boolean;
   logger: Logger;
-  provider: "google" | "microsoft";
+  provider: "google" | "microsoft" | "fastmail";
   providerEmail: string;
   targetUserId: string;
 }

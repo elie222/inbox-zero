@@ -33,6 +33,19 @@ describe("isEmailProviderRateLimitError", () => {
     ).toBe(true);
   });
 
+  it.each([
+    [429, true],
+    [503, false],
+    [401, false],
+  ])("classifies Fastmail HTTP %s without retrying ambiguous failures", (status, expected) => {
+    expect(
+      isEmailProviderRateLimitError({
+        error: { status },
+        provider: "fastmail",
+      }),
+    ).toBe(expected);
+  });
+
   it("does not classify unrelated provider errors as rate limits", () => {
     expect(
       isEmailProviderRateLimitError({

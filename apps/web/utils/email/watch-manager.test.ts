@@ -62,6 +62,28 @@ describe("ensureEmailAccountsWatched", () => {
     });
   });
 
+  it("leaves Fastmail subscriptions to the listener without reporting missing refresh tokens", async () => {
+    const account = getWatchedEmailAccount({
+      watchEmailsExpirationDate: new Date(),
+    });
+    vi.mocked(prisma.emailAccount.findMany).mockResolvedValue([
+      {
+        ...account,
+        account: {
+          ...account.account,
+          provider: "fastmail",
+          refresh_token: null,
+        },
+      },
+    ] as unknown as Awaited<ReturnType<typeof prisma.emailAccount.findMany>>);
+
+    const results = await ensureEmailAccountsWatched({ userIds: null, logger });
+
+    expect(results).toEqual([]);
+    expect(createEmailProvider).not.toHaveBeenCalled();
+    expect(cleanupInvalidTokens).not.toHaveBeenCalled();
+  });
+
   it("cleans up invalid tokens when watch setup reports a detailed invalid_grant error", async () => {
     vi.mocked(prisma.emailAccount.findMany).mockResolvedValue([
       {

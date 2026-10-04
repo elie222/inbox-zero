@@ -51,6 +51,7 @@ export function LoginForm({
     !otherOptions && enabledProviders.includes("microsoft");
   const showSsoLogin = showOtherOptions && enabledProviders.includes("sso");
 
+  const [loadingAuthelia, setLoadingAuthelia] = useState(false);
   const [loadingApple, setLoadingApple] = useState(false);
   const [loadingGoogle, setLoadingGoogle] = useState(false);
   const [loadingMicrosoft, setLoadingMicrosoft] = useState(false);
@@ -109,6 +110,32 @@ export function LoginForm({
 
   return (
     <div className="flex flex-col justify-center gap-2 px-4">
+      {enabledProviders.includes("authelia") && (
+        <Button
+          size="2xl"
+          loading={loadingAuthelia}
+          onClick={async () => {
+            setLoadingAuthelia(true);
+            try {
+              await signIn.social({
+                provider: "authelia",
+                callbackURL,
+                errorCallbackURL,
+              });
+            } catch (error) {
+              logger.error("Error signing in with Authelia", { error });
+              toastError({
+                title: "Error signing in with Authelia",
+                description: "Please try again or contact support.",
+              });
+            } finally {
+              setLoadingAuthelia(false);
+            }
+          }}
+        >
+          Sign in with Authelia
+        </Button>
+      )}
       {showGoogleLogin ? (
         <Button size="2xl" loading={loadingGoogle} onClick={handleGoogleSignIn}>
           <span className="flex items-center justify-center">

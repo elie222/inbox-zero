@@ -127,6 +127,16 @@ const PROVIDER_CONFIG: Record<string, ProviderUrlConfig> = {
       return `${getOutlookBaseUrl(isPersonalMicrosoftEmail(emailAddress))}/search/q/${query}`;
     },
   },
+  fastmail: {
+    requiresMessageId: true,
+    buildUrl: (messageId) =>
+      `https://app.fastmail.com/mail/Inbox/${encodeURIComponent(messageId)}`,
+    buildDraftUrl: (draft) =>
+      `https://app.fastmail.com/mail/compose/${encodeURIComponent(draft.id)}`,
+    selectId: (messageId, _threadId) => messageId,
+    buildSearchUrl: (from) =>
+      `https://app.fastmail.com/mail/search:${encodeURIComponent(`from:${from}`)}/`,
+  },
   google: GOOGLE_CONFIG,
   default: {
     ...GOOGLE_CONFIG,

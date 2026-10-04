@@ -63,6 +63,13 @@ const stripeEmulatorPriceIds = {
     "price_playwright_professional_annually",
 };
 const stripeWebhookSecret = "whsec_playwright";
+const fastmailEnabled = process.env.PLAYWRIGHT_FASTMAIL_ENABLED === "true";
+const fastmailBaseUrl = fastmailEnabled
+  ? (process.env.PLAYWRIGHT_FASTMAIL_BASE_URL ??
+    `http://127.0.0.1:${await getAvailablePort()}`)
+  : undefined;
+const fastmailPort = fastmailBaseUrl ? getUrlPort(fastmailBaseUrl) : undefined;
+if (fastmailBaseUrl) process.env.PLAYWRIGHT_FASTMAIL_BASE_URL = fastmailBaseUrl;
 const todoistEnabled = process.env.PLAYWRIGHT_TODOIST_ENABLED === "true";
 const todoistBaseUrl = todoistEnabled
   ? `http://localhost:${await getAvailablePort()}`
@@ -185,6 +192,18 @@ export default defineConfig({
       timeout: 240_000,
       reuseExistingServer: !process.env.CI,
     },
+    ...(fastmailBaseUrl && fastmailPort
+      ? [
+          {
+            name: "Fastmail fixture",
+            stdout: "pipe",
+            command: `pnpm exec tsx scripts/run-fastmail-emulator.ts ${fastmailPort}`,
+            cwd: process.cwd(),
+            url: `${fastmailBaseUrl}/health`,
+            timeout: 60_000,
+          },
+        ]
+      : []),
     ...(todoistBaseUrl && todoistPort
       ? [
           {
@@ -231,10 +250,12 @@ export default defineConfig({
       name: "Next.js",
       stdout: "pipe",
       command: `${
-        todoistEnabled
-          ? "node --import ./__tests__/playwright/todoist-preload.mjs node_modules/next/dist/bin/next"
-          : "pnpm exec next"
-      } ${production ? "start" : "dev --turbopack"} --port ${basePort}`,
+        fastmailEnabled
+          ? "node --import ./__tests__/playwright/fastmail-preload.mjs node_modules/next/dist/bin/next"
+          : todoistEnabled
+            ? "node --import ./__tests__/playwright/todoist-preload.mjs node_modules/next/dist/bin/next"
+            : "pnpm exec next"
+      } ${production ? "start" : "dev --turbopack"} --port ${basePort} --hostname 127.0.0.1`,
       cwd: process.cwd(),
       url: `${baseURL}/api/auth/ok`,
       timeout: 240_000,
@@ -245,6 +266,12 @@ export default defineConfig({
         NODE_ENV: production ? "production" : "development",
         NODE_OPTIONS: nodeOptions,
         NEXT_PUBLIC_BASE_URL: baseURL,
+        ...(fastmailEnabled
+          ? {
+              NEXT_PUBLIC_FASTMAIL_ENABLED: "true",
+              PLAYWRIGHT_FASTMAIL_BASE_URL: fastmailBaseUrl,
+            }
+          : {}),
         NEXT_PUBLIC_MAIL_ENGINE_TEST_INSPECT: "true",
         DATABASE_URL: databaseUrl,
         PREVIEW_DATABASE_URL: databaseUrl,

@@ -153,6 +153,9 @@ for (const target of targets) {
               PLAYWRIGHT_TODOIST_ENABLED: "true",
             }
           : {}),
+        ...(/[\\/]fastmail[\\/]/.test(target.path)
+          ? { PLAYWRIGHT_FASTMAIL_ENABLED: "true" }
+          : {}),
         // The spec's knowledge base MCP emulator listens on local http
         ...(/[\\/]integrations[\\/]custom-mcp-server\.spec\.ts$/.test(
           target.path,

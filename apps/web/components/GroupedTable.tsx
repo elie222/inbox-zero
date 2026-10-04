@@ -42,7 +42,7 @@ import {
   useArchiveSenderStatus,
   useArchiveSenderQueueActions,
 } from "@/store/archive-sender-queue";
-import { getEmailUrl, getGmailSearchUrl } from "@/utils/url";
+import { getEmailUrlForMessage, getGmailSearchUrl } from "@/utils/url";
 import { MessageText } from "@/components/Typography";
 import { CreateCategoryDialog } from "@/app/(app)/[emailAccountId]/smart-categories/CreateCategoryButton";
 import {
@@ -531,7 +531,12 @@ function ExpandedRows({
             </TableCell>
             <TableCell className="py-3">
               <Link
-                href={getEmailUrl(thread.id, userEmail, provider)}
+                href={getEmailUrlForMessage(
+                  firstMessage.id,
+                  thread.id,
+                  userEmail,
+                  provider,
+                )}
                 target="_blank"
                 className="hover:underline"
               >

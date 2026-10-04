@@ -154,11 +154,17 @@ async function getWritableProviderForExistingEvent({
     select: {
       id: true,
       provider: true,
+      email: true,
+      appPassword: true,
       accessToken: true,
       refreshToken: true,
       expiresAt: true,
       calendars: {
-        where: { calendarId: providerCalendarId },
+        where: {
+          calendarId: providerCalendarId,
+          isEnabled: true,
+          isReadOnly: false,
+        },
         select: { id: true },
         take: 1,
       },
@@ -196,6 +202,7 @@ async function getWritableCalendar({
     where: {
       ...where,
       isEnabled: true,
+      isReadOnly: false,
       connection: {
         emailAccountId,
         isConnected: true,
@@ -208,6 +215,8 @@ async function getWritableCalendar({
         select: {
           id: true,
           provider: true,
+          email: true,
+          appPassword: true,
           accessToken: true,
           refreshToken: true,
           expiresAt: true,

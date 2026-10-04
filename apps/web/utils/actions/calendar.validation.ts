@@ -27,3 +27,8 @@ export const updateBookingLinkBody = z.object({
     .or(z.literal("")),
 });
 export type UpdateBookingLinkBody = z.infer<typeof updateBookingLinkBody>;
+
+export const connectFastmailCalendarBody = z.object({
+  email: z.string().email(),
+  appPassword: z.string().min(1),
+});

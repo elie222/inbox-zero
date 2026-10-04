@@ -12,6 +12,7 @@ import { cleanupInvalidTokens } from "@/utils/auth/cleanup-invalid-tokens";
 import type { EmailProvider } from "@/utils/email/types";
 import { createManagedOutlookSubscription } from "@/utils/outlook/subscription-manager";
 import {
+  isFastmailProvider,
   isGoogleProvider,
   isMicrosoftProvider,
 } from "@/utils/email/provider-types";
@@ -142,6 +143,9 @@ async function watchEmailAccount(
   logger: Logger,
 ): Promise<WatchEmailAccountResult | null> {
   const { account, user, watchEmailsExpirationDate } = emailAccount;
+
+  // The daemon and independent recovery poll own Fastmail synchronization.
+  if (isFastmailProvider(account.provider)) return null;
 
   const userHasAiAccess = hasAiAccess(
     getUserTier(user.premium),

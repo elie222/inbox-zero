@@ -1,3 +1,4 @@
+import { FastmailCalendarProvider } from "@/utils/calendar/providers/fastmail";
 import { SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
@@ -25,6 +26,8 @@ export async function createCalendarEventProviders(
     select: {
       id: true,
       provider: true,
+      email: true,
+      appPassword: true,
       accessToken: true,
       refreshToken: true,
       expiresAt: true,
@@ -66,6 +69,8 @@ export async function hasUsableCalendarConnection(emailAccountId: string) {
     },
     select: {
       provider: true,
+      email: true,
+      appPassword: true,
       refreshToken: true,
     },
   });
@@ -79,6 +84,8 @@ export function createCalendarEventProvider({
   logger,
 }: {
   connection: {
+    email?: string;
+    appPassword?: string | null;
     accessToken: string | null;
     expiresAt: Date | null;
     id: string;
@@ -104,13 +111,30 @@ export function createCalendarEventProvider({
     return new MicrosoftCalendarEventProvider(providerParams, logger);
   }
 
-  throw new SafeError("Unsupported calendar provider");
+  if (
+    connection.provider === "fastmail" &&
+    connection.email &&
+    connection.appPassword
+  ) {
+    return new FastmailCalendarProvider({
+      email: connection.email,
+      appPassword: connection.appPassword,
+      connectionId: connection.id,
+      emailAccountId,
+    });
+  }
+
+  throw new SafeError("Unsupported calendar provider or missing credentials");
 }
 
-function isUsableCalendarConnection(connection: {
+export function isUsableCalendarConnection(connection: {
+  email?: string;
+  appPassword?: string | null;
   provider: string;
   refreshToken: string | null;
 }) {
+  if (connection.provider === "fastmail")
+    return !!connection.email && !!connection.appPassword;
   if (!connection.refreshToken) return false;
 
   return (

@@ -14,7 +14,7 @@ import { decryptToken, encryptToken } from "@/utils/encryption";
  */
 const ENCRYPTED_FIELDS = {
   account: ["access_token", "refresh_token"],
-  calendarConnection: ["accessToken", "refreshToken"],
+  calendarConnection: ["accessToken", "refreshToken", "appPassword"],
   driveConnection: ["accessToken", "refreshToken"],
   messagingChannel: ["accessToken", "refreshToken"],
   mcpConnection: ["accessToken", "refreshToken", "apiKey"],

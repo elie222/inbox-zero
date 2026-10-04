@@ -419,7 +419,7 @@ async function catchUpCheckpoint(
     });
     if (page.cursor) return page.cursor;
   } catch (error) {
-    if (provider.name === "microsoft") throw error;
+    if (provider.name !== "google") throw error;
     // Fall back to the newest numeric Gmail history id we already fetched.
   }
   return encodedGmailCursorFromMessages(messages);

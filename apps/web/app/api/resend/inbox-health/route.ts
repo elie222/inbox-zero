@@ -108,6 +108,7 @@ async function sendEmail({
       account: {
         select: {
           provider: true,
+          access_token: true,
           refresh_token: true,
         },
       },
@@ -135,10 +136,14 @@ async function sendEmail({
     }
   }
 
-  if (!emailAccount.account.refresh_token) {
-    logger.warn("Skipping inbox health email: account has no refresh token");
+  if (
+    !(emailAccount.account.provider === "fastmail"
+      ? emailAccount.account.access_token
+      : emailAccount.account.refresh_token)
+  ) {
+    logger.warn("Skipping inbox health email: account has no mail credentials");
     await startNextInboxHealthWindow(emailAccountId);
-    return { success: false, message: "Account has no refresh token" };
+    return { success: false, message: "Account has no mail credentials" };
   }
 
   let emailProvider: Awaited<ReturnType<typeof createEmailProvider>>;
@@ -151,7 +156,11 @@ async function sendEmail({
   } catch (error) {
     const provider = emailAccount.account.provider;
 
-    if (!isGoogleProvider(provider) && !isMicrosoftProvider(provider))
+    if (
+      !isGoogleProvider(provider) &&
+      !isMicrosoftProvider(provider) &&
+      provider !== "fastmail"
+    )
       throw error;
 
     const issue = classifyEmailAccountProviderIssue({ error, provider });

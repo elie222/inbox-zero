@@ -122,6 +122,7 @@ function isAutoArchiveFilter(filter: EmailFilter, provider: EmailProvider) {
   switch (provider.name) {
     case "google":
       return isGmailAutoArchiveFilter(filter);
+    case "fastmail":
     case "microsoft":
       return isOutlookAutoArchiveFilter(filter);
     default:

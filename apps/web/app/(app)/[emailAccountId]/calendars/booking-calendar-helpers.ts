@@ -10,6 +10,7 @@ export type BookingLinkCalendarData = {
     calendars: Array<{
       id: string;
       isEnabled: boolean;
+      isReadOnly?: boolean;
       name: string;
       primary: boolean;
     }>;
@@ -26,7 +27,7 @@ export function getSelectedCalendarProvider(
     data?.calendarConnections.flatMap((connection) =>
       connection.calendars.map((calendar) => ({
         id: calendar.id,
-        isEnabled: calendar.isEnabled,
+        isEnabled: calendar.isEnabled && !calendar.isReadOnly,
         primary: calendar.primary,
         provider: connection.provider,
       })),
@@ -85,10 +86,10 @@ function getCalendars(data: BookingLinkCalendarData | undefined) {
   return (
     data?.calendarConnections.flatMap((connection) =>
       connection.calendars
-        .filter((calendar) => calendar.isEnabled)
+        .filter((calendar) => calendar.isEnabled && !calendar.isReadOnly)
         .map((calendar) => ({
           id: calendar.id,
-          isEnabled: calendar.isEnabled,
+          isEnabled: calendar.isEnabled && !calendar.isReadOnly,
           name: calendar.name,
           primary: calendar.primary,
         })),

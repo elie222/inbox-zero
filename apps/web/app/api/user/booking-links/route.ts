@@ -69,6 +69,7 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
               primary: true,
               timezone: true,
               isEnabled: true,
+              isReadOnly: true,
             },
           },
         },

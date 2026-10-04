@@ -83,8 +83,8 @@ const parsedEnv = createEnv({
           .map((entry) => entry.trim())
           .filter(Boolean),
       ),
-    GOOGLE_CLIENT_ID: z.string().min(1),
-    GOOGLE_CLIENT_SECRET: z.string().min(1),
+    GOOGLE_CLIENT_ID: z.string().default(""),
+    GOOGLE_CLIENT_SECRET: z.string().default(""),
     // Local Google emulation only; used for both OAuth and resource APIs.
     GOOGLE_BASE_URL: z.string().url().optional(),
     // Local Microsoft emulation only; used for both OAuth and Microsoft Graph APIs.
@@ -95,6 +95,10 @@ const parsedEnv = createEnv({
       optionalEnvValue,
       z.string().default("common"),
     ),
+    FASTMAIL_WEBHOOK_SECRET: z.string().optional(),
+    AUTHELIA_CLIENT_ID: z.string().optional(),
+    AUTHELIA_CLIENT_SECRET: z.string().optional(),
+    AUTHELIA_ISSUER_URL: z.string().optional(),
     APPLE_CLIENT_ID: z.string().optional(),
     APPLE_TEAM_ID: z.string().optional(),
     APPLE_KEY_ID: z.string().optional(),
@@ -226,7 +230,7 @@ const parsedEnv = createEnv({
       z.enum(["bullmq", "internal", "qstash"]).optional(),
     ),
 
-    GOOGLE_PUBSUB_TOPIC_NAME: z.string().min(1),
+    GOOGLE_PUBSUB_TOPIC_NAME: z.string().default(""),
     GOOGLE_PUBSUB_VERIFICATION_TOKEN: z.string().optional(),
 
     MICROSOFT_WEBHOOK_CLIENT_STATE: z.string().optional(),
@@ -495,6 +499,8 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_VOICE_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_INTEGRATIONS_ENABLED: booleanString.optional(),
+    NEXT_PUBLIC_AUTHELIA_ENABLED: booleanString.optional(),
+    NEXT_PUBLIC_FASTMAIL_ENABLED: booleanString.optional().default(false),
     NEXT_PUBLIC_TEAMS_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_SMART_FILING_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_CLEANER_ENABLED: booleanString.optional(),
@@ -606,6 +612,8 @@ const parsedEnv = createEnv({
       process.env.NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED,
     NEXT_PUBLIC_INTEGRATIONS_ENABLED:
       process.env.NEXT_PUBLIC_INTEGRATIONS_ENABLED,
+    NEXT_PUBLIC_AUTHELIA_ENABLED: process.env.NEXT_PUBLIC_AUTHELIA_ENABLED,
+    NEXT_PUBLIC_FASTMAIL_ENABLED: process.env.NEXT_PUBLIC_FASTMAIL_ENABLED,
     NEXT_PUBLIC_TEAMS_ENABLED: process.env.NEXT_PUBLIC_TEAMS_ENABLED,
     NEXT_PUBLIC_SMART_FILING_ENABLED:
       process.env.NEXT_PUBLIC_SMART_FILING_ENABLED,

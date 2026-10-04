@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createEmailProvider } from "@/utils/email/provider";
 import { flushLoggerSafely } from "@/utils/logger-flush";
-import { getGmailClientForEmail } from "@/utils/email-account-client";
+import {
+  getFastmailClientForEmail,
+  getGmailClientForEmail,
+} from "@/utils/email-account-client";
+import { createScopedLogger } from "@/utils/logger";
 import { assertProviderNotRateLimited } from "@/utils/email/rate-limit";
 import { recordEmailAccountProviderIssue } from "@/utils/email/provider-health";
 
@@ -13,6 +17,7 @@ const { gmailGetMessageMock, gmailSearchMessagesMock, providerToken } =
   }));
 
 vi.mock("@/utils/email-account-client", () => ({
+  getFastmailClientForEmail: vi.fn(),
   getGmailClientForEmail: vi.fn(),
   getOutlookClientForEmail: vi.fn(),
 }));
@@ -65,6 +70,33 @@ describe("createEmailProvider", () => {
     vi.mocked(recordEmailAccountProviderIssue).mockResolvedValue(undefined);
     gmailGetMessageMock.mockResolvedValue({});
     gmailSearchMessagesMock.mockResolvedValue({ messages: [] });
+  });
+
+  it("ties an initial Fastmail authentication failure to the token used before rotation", async () => {
+    vi.mocked(getFastmailClientForEmail).mockImplementationOnce(
+      async (options) => {
+        options.onAccessToken?.("revoked-fixture-token");
+        throw Object.assign(new Error("Session failed after token rotation"), {
+          status: 401,
+        });
+      },
+    );
+
+    await expect(
+      createEmailProvider({
+        emailAccountId: "fastmail-fixture-account",
+        provider: "fastmail",
+        logger: createScopedLogger("provider-regression"),
+      }),
+    ).rejects.toThrow("Session failed after token rotation");
+
+    expect(recordEmailAccountProviderIssue).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: "fastmail",
+        operation: "createEmailProvider",
+        failedAccessToken: "revoked-fixture-token",
+      }),
+    );
   });
 
   it("allows provider requests to proceed when a cached access token is unavailable", async () => {

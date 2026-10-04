@@ -20,6 +20,20 @@ vi.mock("@/utils/redis/provider-issue-cleanup", () => ({
 }));
 
 describe("provider health", () => {
+  it("recognizes revoked Fastmail tokens without treating service failures as revocation", () => {
+    expect(
+      classifyEmailAccountProviderIssue({
+        provider: "fastmail",
+        error: { status: 401 },
+      }),
+    ).toEqual({ reason: "invalid_grant" });
+    expect(
+      classifyEmailAccountProviderIssue({
+        provider: "fastmail",
+        error: { status: 503 },
+      }),
+    ).toBeNull();
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(cleanupInvalidTokens).mockResolvedValue(undefined);

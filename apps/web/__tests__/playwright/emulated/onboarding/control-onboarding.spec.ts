@@ -61,7 +61,10 @@ test("completes account setup and persists onboarding choices", async ({
   await page.getByRole("button", { name: "Skip", exact: true }).click();
 
   await expect(
-    page.getByRole("heading", { name: "Labels are ready", exact: true }),
+    page.getByRole("heading", {
+      name: "Inbox processing results",
+      exact: true,
+    }),
   ).toBeVisible({ timeout: 60_000 });
   await page.getByRole("button", { name: "Continue", exact: true }).click();
 

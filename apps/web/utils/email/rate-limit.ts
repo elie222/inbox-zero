@@ -295,6 +295,25 @@ export function getProviderRateLimitDelayMs({
     return getGoogleRateLimitDelayMs(error, attemptNumber);
   }
 
+  if (provider === "fastmail") {
+    if (
+      !error ||
+      typeof error !== "object" ||
+      !("status" in error) ||
+      error.status !== 429
+    )
+      return null;
+    const header = getRetryAfterHeaderFromError(error);
+    const seconds = header ? Number(header) : Number.NaN;
+    const delay = Number.isFinite(seconds)
+      ? seconds * 1000
+      : header
+        ? Date.parse(header) - Date.now()
+        : DEFAULT_RATE_LIMIT_DELAY_MS;
+    return Number.isFinite(delay) && delay > 0
+      ? delay
+      : DEFAULT_RATE_LIMIT_DELAY_MS;
+  }
   return getMicrosoftRateLimitDelayMs(error, attemptNumber);
 }
 

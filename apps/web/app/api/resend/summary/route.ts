@@ -131,6 +131,7 @@ async function sendEmail({
       account: {
         select: {
           provider: true,
+          access_token: true,
           refresh_token: true,
         },
       },
@@ -239,7 +240,9 @@ async function sendEmail({
   const messages = await getMessages({
     emailAccountId,
     provider: emailAccount.account.provider,
-    hasRefreshToken: !!emailAccount.account.refresh_token,
+    hasCredentials: !!(emailAccount.account.provider === "fastmail"
+      ? emailAccount.account.access_token
+      : emailAccount.account.refresh_token),
     messageIds,
     logger,
   });
@@ -332,25 +335,31 @@ async function sendEmail({
 async function getMessages({
   emailAccountId,
   provider,
-  hasRefreshToken,
+  hasCredentials,
   messageIds,
   logger,
 }: {
   emailAccountId: string;
   provider: string;
-  hasRefreshToken: boolean;
+  hasCredentials: boolean;
   messageIds: string[];
   logger: Logger;
 }): Promise<ParsedMessage[]> {
   const uniqueMessageIds = Array.from(new Set(messageIds)).filter(Boolean);
   if (!uniqueMessageIds.length) return [];
 
-  if (!hasRefreshToken) {
-    logger.warn("Skipping summary message fetch: account has no refresh token");
+  if (!hasCredentials) {
+    logger.warn(
+      "Skipping summary message fetch: account has no mail credentials",
+    );
     return [];
   }
 
-  if (!isGoogleProvider(provider) && !isMicrosoftProvider(provider)) {
+  if (
+    !isGoogleProvider(provider) &&
+    !isMicrosoftProvider(provider) &&
+    provider !== "fastmail"
+  ) {
     logger.warn("Skipping summary message fetch: unsupported provider", {
       provider,
     });

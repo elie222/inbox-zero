@@ -507,3 +507,31 @@ describe("getGmailFilterSettingsUrl", () => {
     expect(getGmailFilterSettingsUrl(emailAddress)).toBe(expected);
   });
 });
+
+describe("Fastmail links", () => {
+  it("uses a message ID rather than a thread ID for a conversation link", () => {
+    expect(
+      getEmailUrlForMessage("M123", "T456", "owner@example.com", "fastmail"),
+    ).toBe("https://app.fastmail.com/mail/Inbox/M123");
+  });
+  it("encodes the sender search without inheriting Gmail URLs", () => {
+    expect(
+      getEmailSearchUrl(
+        "sender+tag@example.com",
+        "owner@example.com",
+        "fastmail",
+      ),
+    ).toBe(
+      "https://app.fastmail.com/mail/search:from%3Asender%2Btag%40example.com/",
+    );
+  });
+  it("opens the current draft message", () => {
+    expect(
+      getEmailDraftUrl(
+        { id: "M123", threadId: "T456" },
+        "owner@example.com",
+        "fastmail",
+      ),
+    ).toBe("https://app.fastmail.com/mail/compose/M123");
+  });
+});

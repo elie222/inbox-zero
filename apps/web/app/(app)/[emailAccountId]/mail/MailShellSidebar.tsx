@@ -217,7 +217,13 @@ export const MailShellSidebar = memo(function MailShellSidebar({
           onCreateLabel={onCreateLabel}
           onEditMailboxItem={onEditMailboxItem}
           onDeleteMailboxItem={onDeleteMailboxItem}
-          labelEditMode={isOutlook ? "color" : "name-and-color"}
+          labelEditMode={
+            provider === "fastmail"
+              ? "name"
+              : isOutlook
+                ? "color"
+                : "name-and-color"
+          }
           supportsLabelVisibility={isGoogle}
           labelColorOptions={
             isOutlook ? OUTLOOK_LABEL_COLOR_OPTIONS : GMAIL_LABEL_COLORS

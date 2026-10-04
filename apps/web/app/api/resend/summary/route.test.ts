@@ -71,7 +71,10 @@ describe("summary email route", () => {
     mockSendSummaryEmail.mockResolvedValue(undefined);
   });
 
-  it("sends a weekly update when automated archive activity is the only reportable item", async () => {
+  it.each([
+    "google",
+    "fastmail",
+  ])("sends a %s weekly update when automated archive activity is the only reportable item", async (provider) => {
     const archivedAt = new Date("2026-06-28T12:00:00.000Z");
     const getMessagesBatch = vi.fn().mockResolvedValue([
       getMessage({
@@ -94,8 +97,9 @@ describe("summary email route", () => {
         userId: "user-1",
         email: "user@example.com",
         account: {
-          provider: "google",
-          refresh_token: "refresh-token",
+          provider,
+          refresh_token: provider === "fastmail" ? null : "refresh-token",
+          access_token: "api-token",
         },
       });
     prisma.rule.findUnique.mockResolvedValue(null);
@@ -135,7 +139,7 @@ describe("summary email route", () => {
     expect(mockCreateEmailProvider).toHaveBeenCalledWith(
       expect.objectContaining({
         emailAccountId: "email-account-id",
-        provider: "google",
+        provider,
       }),
     );
     expect(getMessagesBatch).toHaveBeenCalledWith([
@@ -153,18 +157,28 @@ describe("summary email route", () => {
             subject: "Product update",
             sentAt: archivedAt,
             ruleName: "Marketing",
-            url: "https://mail.google.com/mail/u/?authuser=user%40example.com#all/archived-message-1",
+            url:
+              provider === "fastmail"
+                ? "https://app.fastmail.com/mail/Inbox/archived-message-1"
+                : "https://mail.google.com/mail/u/?authuser=user%40example.com#all/archived-message-1",
             senderUrl:
-              "https://mail.google.com/mail/u/?authuser=user%40example.com#advanced-search/from=marketing%40example.com",
+              provider === "fastmail"
+                ? "https://app.fastmail.com/mail/search:from%3Amarketing%40example.com/"
+                : "https://mail.google.com/mail/u/?authuser=user%40example.com#advanced-search/from=marketing%40example.com",
           },
           {
             from: "Newsletter <newsletter@example.com>",
             subject: "Newsletter snippet",
             sentAt: archivedAt,
             ruleName: "Newsletter",
-            url: "https://mail.google.com/mail/u/?authuser=user%40example.com#all/archived-message-2",
+            url:
+              provider === "fastmail"
+                ? "https://app.fastmail.com/mail/Inbox/archived-message-2"
+                : "https://mail.google.com/mail/u/?authuser=user%40example.com#all/archived-message-2",
             senderUrl:
-              "https://mail.google.com/mail/u/?authuser=user%40example.com#advanced-search/from=newsletter%40example.com",
+              provider === "fastmail"
+                ? "https://app.fastmail.com/mail/search:from%3Anewsletter%40example.com/"
+                : "https://mail.google.com/mail/u/?authuser=user%40example.com#advanced-search/from=newsletter%40example.com",
           },
         ],
         coldEmailers: [],

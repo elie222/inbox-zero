@@ -41,6 +41,7 @@ import { ContinueButton } from "@/app/(app)/[emailAccountId]/onboarding/Continue
 import { cn } from "@/utils";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import {
+  isFastmailProvider,
   isGoogleProvider,
   isMicrosoftProvider,
 } from "@/utils/email/provider-types";
@@ -242,7 +243,7 @@ function CategoryCard({
 
         <div className="ml-auto flex shrink-0 items-center gap-4">
           <Select
-            value={value || undefined}
+            value={value ?? "none"}
             onValueChange={(value) => {
               update(index, {
                 action:
@@ -263,7 +264,7 @@ function CategoryCard({
                   </SelectItem> */}
                 </>
               )}
-              {isGoogleProvider(provider) && (
+              {(isGoogleProvider(provider) || isFastmailProvider(provider)) && (
                 <>
                   <SelectItem value="label">Label</SelectItem>
                   <SelectItem value="label_archive">Label & archive</SelectItem>

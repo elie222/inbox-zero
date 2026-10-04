@@ -207,3 +207,21 @@ describe("parsedMessageBodyObservation", () => {
     ).not.toThrow();
   });
 });
+
+describe("parsedMessagePatch", () => {
+  it("accepts Fastmail observations in the shared protocol", () => {
+    const change = parsedMessagePatch("acc-1", "fastmail", {
+      id: "m1",
+      threadId: "t1",
+      historyId: "opaque-state",
+      date: "2026-10-01T00:00:00Z",
+      headers: { from: "one@example.com", to: "two@example.com" },
+      inline: [],
+      labelIds: ["INBOX"],
+    } as ParsedMessage);
+    expect(providerChangeSchema.safeParse(change).success).toBe(true);
+    expect(change).toMatchObject({
+      reference: { provider: "fastmail", version: "opaque-state" },
+    });
+  });
+});

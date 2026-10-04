@@ -1,6 +1,7 @@
-import type { EmailProvider } from "@/utils/email/types";
-
-export type EmailProviderRateLimitProvider = EmailProvider["name"];
+export type EmailProviderRateLimitProvider =
+  | "google"
+  | "microsoft"
+  | "fastmail";
 
 type EmailProviderRateLimitMetadata = {
   apiErrorType: string;
@@ -9,6 +10,11 @@ type EmailProviderRateLimitMetadata = {
 };
 
 const EMAIL_PROVIDER_RATE_LIMIT_METADATA = {
+  fastmail: {
+    apiErrorType: "Fastmail Rate Limit",
+    messageProviderLabel: "Fastmail",
+    bannerProviderLabel: "Fastmail",
+  },
   google: {
     apiErrorType: "Gmail Rate Limit Exceeded",
     messageProviderLabel: "Gmail",
@@ -48,7 +54,12 @@ export class ProviderRateLimitModeError extends Error {
 export function toRateLimitProvider(
   provider: string | null | undefined,
 ): EmailProviderRateLimitProvider | null {
-  if (provider === "google" || provider === "microsoft") return provider;
+  if (
+    provider === "google" ||
+    provider === "microsoft" ||
+    provider === "fastmail"
+  )
+    return provider;
   return null;
 }
 

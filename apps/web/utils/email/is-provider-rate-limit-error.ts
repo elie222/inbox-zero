@@ -25,5 +25,14 @@ export function isEmailProviderRateLimitError({
     return isOutlookRetryableError(extractOutlookErrorInfo(error)).isRateLimit;
   }
 
+  if (rateLimitProvider === "fastmail") {
+    return (
+      typeof error === "object" &&
+      error !== null &&
+      "status" in error &&
+      error.status === 429
+    );
+  }
+
   return false;
 }

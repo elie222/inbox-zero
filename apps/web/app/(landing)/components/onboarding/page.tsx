@@ -127,7 +127,6 @@ function OnboardingCompleteDemo({
   data,
   isLoading,
   isPremium,
-  provider,
 }: {
   data: GetOnboardingProcessedEmailsResponse | undefined;
   isLoading: boolean;
@@ -140,7 +139,6 @@ function OnboardingCompleteDemo({
         data={data}
         isLoading={isLoading}
         isPremium={isPremium}
-        provider={provider}
         onNext={() => {}}
       />
     </div>

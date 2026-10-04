@@ -28,6 +28,7 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
               id: true,
               name: true,
               isEnabled: true,
+              isReadOnly: true,
               primary: true,
               description: true,
               timezone: true,

@@ -105,10 +105,12 @@ async function getProcessedEmails({
         internalDateToDate(a.date).getTime(),
     );
 
-  const draftCount = emails.filter((email) => email.hasDraft).length;
+  const draftCount = executedRules.filter((rule) =>
+    rule.actionItems.some((action) => action.type === ActionType.DRAFT_EMAIL),
+  ).length;
 
   return {
-    totalCount: emails.length,
+    totalCount: executedRules.length,
     draftCount,
     emails,
   };

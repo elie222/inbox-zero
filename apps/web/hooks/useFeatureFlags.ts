@@ -63,3 +63,7 @@ export function usePricingFrequencyDefault():
     | PricingFrequencyDefault
     | undefined;
 }
+
+export function useFastmailEnabled() {
+  return env.NEXT_PUBLIC_FASTMAIL_ENABLED;
+}

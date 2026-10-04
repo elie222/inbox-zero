@@ -32,7 +32,7 @@ import { ArchiveProgress } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/A
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useThreads } from "@/hooks/useThreads";
 import { formatShortDate } from "@/utils/date";
-import { getEmailUrl } from "@/utils/url";
+import { getEmailUrlForMessage } from "@/utils/url";
 import {
   getArchiveCandidates,
   type ConfidenceLevel,
@@ -588,7 +588,12 @@ function ExpandedEmails({
                 <div className="h-px w-4 bg-border" />
               </div>
               <Link
-                href={getEmailUrl(thread.id, userEmail, provider)}
+                href={getEmailUrlForMessage(
+                  firstMessage.id,
+                  thread.id,
+                  userEmail,
+                  provider,
+                )}
                 target="_blank"
                 className="mr-2 flex flex-1 items-center gap-3 rounded-md px-2 py-2 transition-colors hover:bg-muted/50"
               >

@@ -4,6 +4,7 @@ import IORedis from "ioredis";
 const INTERNAL_API_KEY_HEADER = "x-api-key";
 const DEFAULT_CONCURRENCY = 1;
 const DEFAULT_QUEUES = [
+  { name: "fastmail-sync", concurrency: 3 },
   { name: "automation-jobs", concurrency: 3 },
   { name: "digest-item-summarize", concurrency: 3 },
   { name: "email-summary-all", concurrency: 3 },

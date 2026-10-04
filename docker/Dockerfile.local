@@ -24,6 +24,7 @@ ENV CI=true
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc* ./
 COPY patches ./patches
 COPY apps/web/package.json apps/web/package.json
+COPY apps/fastmail-eventsource-daemon/package.json apps/fastmail-eventsource-daemon/package.json
 # Lockfile plumbing only; Electron and the unsubscribe worker are not installed.
 COPY apps/desktop/package.json apps/desktop/package.json
 COPY apps/worker/package.json apps/worker/package.json

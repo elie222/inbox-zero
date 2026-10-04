@@ -172,7 +172,7 @@ export type MailStoreInspection = {
   revision: LocalRevision;
   accounts: Array<{
     accountId: string;
-    provider: "google" | "microsoft";
+    provider: "google" | "microsoft" | "fastmail";
     generation: string;
     assistantCursor: string | null;
     connection: "ready" | "offline" | "blocked_auth";
@@ -306,7 +306,7 @@ export interface MailStore {
   }): Promise<LocalRevision>;
   ensureAccount(input: {
     accountId: string;
-    provider: "google" | "microsoft";
+    provider: "google" | "microsoft" | "fastmail";
     generation: string;
   }): Promise<LocalRevision>;
   evictReplaceableContent(): Promise<{ evictedBodies: number }>;

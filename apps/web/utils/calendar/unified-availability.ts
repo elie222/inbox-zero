@@ -1,3 +1,5 @@
+import { FastmailCalendarProvider } from "./providers/fastmail";
+import { SafeError } from "@/utils/error";
 import { TZDate } from "@date-fns/tz";
 import { startOfDay, endOfDay, format } from "date-fns";
 import type { Logger } from "@/utils/logger";
@@ -149,6 +151,30 @@ export async function getUnifiedCalendarAvailability({
           if (failClosed) throw error;
           return [];
         }),
+    );
+  }
+
+  for (const connection of calendarConnections.filter(
+    (entry) => entry.provider === "fastmail",
+  )) {
+    if (!connection.calendars.length) continue;
+    promises.push(
+      (async () => {
+        if (!connection.appPassword)
+          throw new SafeError("Reconnect your Fastmail calendar.");
+        return new FastmailCalendarProvider({
+          email: connection.email,
+          appPassword: connection.appPassword,
+          connectionId: connection.id,
+          emailAccountId,
+        }).fetchBusyPeriods(new Date(timeMin), new Date(timeMax));
+      })().catch((error) => {
+        logger.error("Fastmail calendar availability failed", {
+          connectionId: connection.id,
+        });
+        if (failClosed) throw error;
+        return [];
+      }),
     );
   }
 

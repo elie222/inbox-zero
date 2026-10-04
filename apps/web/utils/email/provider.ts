@@ -1,11 +1,16 @@
 import {
+  getFastmailClientForEmail,
   getGmailClientForEmail,
   getOutlookClientForEmail,
 } from "@/utils/email-account-client";
+import { FastmailProvider } from "@/utils/email/fastmail";
 import { GmailProvider } from "@/utils/email/google";
 import { OutlookProvider } from "@/utils/email/microsoft";
 import type { EmailProvider } from "@/utils/email/types";
-import { assertProviderNotRateLimited } from "@/utils/email/rate-limit";
+import {
+  assertProviderNotRateLimited,
+  recordProviderRateLimitFromError,
+} from "@/utils/email/rate-limit";
 import { toRateLimitProvider } from "@/utils/email/rate-limit-mode-error";
 import { recordEmailAccountProviderIssue } from "@/utils/email/provider-health";
 import type { Logger } from "@/utils/logger";
@@ -22,6 +27,7 @@ export async function createEmailProvider({
 }): Promise<EmailProvider> {
   const rateLimitProvider = toRateLimitProvider(provider);
   if (!rateLimitProvider) throw new Error(`Unsupported provider: ${provider}`);
+  let failedAccessToken: string | undefined;
 
   try {
     await assertProviderNotRateLimited({
@@ -31,6 +37,19 @@ export async function createEmailProvider({
       source: "create-email-provider",
     });
 
+    if (rateLimitProvider === "fastmail") {
+      const client = await getFastmailClientForEmail({
+        emailAccountId,
+        // A stale session failure must not clear a token rotated during the request.
+        onAccessToken: (token) => {
+          failedAccessToken = token ?? undefined;
+        },
+      });
+      return withProviderFailureLogging(
+        new FastmailProvider(client, logger, emailAccountId),
+        { emailAccountId, provider: rateLimitProvider, logger },
+      );
+    }
     if (rateLimitProvider === "google") {
       const client = await getGmailClientForEmail({ emailAccountId, logger });
       return withProviderFailureLogging(
@@ -57,6 +76,7 @@ export async function createEmailProvider({
       error,
       logger,
       operation: "createEmailProvider",
+      failedAccessToken,
     });
     await flushLoggerSafely(logger, {
       action: "createEmailProvider",
@@ -81,7 +101,7 @@ function withProviderFailureLogging(
     logger,
   }: {
     emailAccountId: string;
-    provider: "google" | "microsoft";
+    provider: "google" | "microsoft" | "fastmail";
     logger: Logger;
   },
 ): EmailProvider {
@@ -153,7 +173,7 @@ async function logProviderOperationFailure({
 }: {
   error: unknown;
   emailAccountId: string;
-  provider: "google" | "microsoft";
+  provider: "google" | "microsoft" | "fastmail";
   logger: Logger;
   operation: string;
   failedAccessToken?: string;
@@ -164,6 +184,14 @@ async function logProviderOperationFailure({
     provider,
     operation,
   });
+  if (provider === "fastmail")
+    await recordProviderRateLimitFromError({
+      emailAccountId,
+      provider,
+      error,
+      logger,
+      source: operation,
+    });
   await recordProviderIssueSafely({
     emailAccountId,
     provider,
@@ -208,7 +236,7 @@ async function recordProviderIssueSafely({
 type ProviderOperationFailureLogInput = {
   error: unknown;
   emailAccountId: string;
-  provider: "google" | "microsoft";
+  provider: "google" | "microsoft" | "fastmail";
   logger: Logger;
   operation: string;
   failedAccessToken?: string;

@@ -160,6 +160,14 @@ model EmailAccount {
   watchEmailsSubscriptionId      String? // For Outlook subscription ID
   watchEmailsSubscriptionHistory Json? // Historical Outlook subscription IDs: [{ subscriptionId, createdAt, replacedAt }]
   lastSyncedHistoryId            String?
+  fastmailResyncState            String?
+  fastmailResyncPosition         String?
+  fastmailSyncStartedAt          DateTime?
+  fastmailLeaseUntil             DateTime?
+  fastmailLeaseOwner             String?
+  fastmailDrafts                 FastmailDraft[]
+  fastmailSyncItems              FastmailSyncItem[]
+  lastPolledAt                   DateTime? // For Fastmail polling - tracks last successful poll
   behaviorProfile                Json?
   personaAnalysis                Json? // ai analysis of the user's persona
   role                           String? // the role confirmed by the user - previously `User.surveyRole`
@@ -1418,7 +1426,8 @@ model CalendarConnection {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  provider     String // "google" or "microsoft"
+  provider     String // "google", "microsoft", or "fastmail"
+  appPassword  String?
   email        String // Google account email (e.g., "elie@gmail.com")
   accessToken  String?
   refreshToken String?
@@ -1438,6 +1447,7 @@ model Calendar {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  isReadOnly Boolean @default(false)
   calendarId  String // External calendar ID from provider
   name        String
   description String?
@@ -2765,4 +2775,29 @@ model ScimIdentityLink {
 
   @@unique([connectionId, externalId])
   @@index([userId])
+}
+
+model FastmailDraft {
+  id             String
+  emailAccountId String
+  messageId      String
+  version        Int @default(0)
+  updatedAt      DateTime @updatedAt
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@id([emailAccountId, id])
+  @@unique([emailAccountId, messageId])
+}
+
+model FastmailSyncItem {
+  emailAccountId String
+  messageId      String
+  createdAt      DateTime @default(now())
+  processedAt    DateTime?
+  attempts       Int @default(0)
+  lastError      String?
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@id([emailAccountId, messageId])
+  @@index([emailAccountId, processedAt])
 }

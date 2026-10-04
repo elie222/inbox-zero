@@ -16,7 +16,8 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/utils/prisma", () => ({
   default: { calendarConnection: { findMany: mocks.connections } },
 }));
-vi.mock("@/utils/calendar/event-provider", () => ({
+vi.mock("@/utils/calendar/event-provider", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/calendar/event-provider")>()),
   createCalendarEventProvider: () => ({
     findInvitationEvent: mocks.findEvent,
     respondToInvitation: mocks.respond,

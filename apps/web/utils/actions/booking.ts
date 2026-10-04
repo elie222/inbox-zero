@@ -275,6 +275,7 @@ async function getOwnedDestinationCalendar({
     const calendar = await prisma.calendar.findFirst({
       where: {
         isEnabled: true,
+        isReadOnly: false,
         connection: { emailAccountId, isConnected: true },
       },
       orderBy: [{ primary: "desc" }, { createdAt: "asc" }],
@@ -295,6 +296,7 @@ async function getOwnedDestinationCalendar({
     where: {
       id: destinationCalendarId,
       isEnabled: true,
+      isReadOnly: false,
       connection: { emailAccountId, isConnected: true },
     },
     select: {

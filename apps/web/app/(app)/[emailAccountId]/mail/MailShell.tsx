@@ -124,6 +124,7 @@ export function MailShell() {
   const { data: accountsData } = useAccounts();
   const isGoogle = isGoogleProvider(provider);
   const isOutlook = isMicrosoftProvider(provider);
+  const hasFolders = isOutlook || provider === "fastmail";
   const { userLabels } = useEmailLabels();
   const { userLabels: allLabels, mutate: mutateLabels } = useLabels();
   const { folders } = useFolders(provider);
@@ -848,7 +849,8 @@ export function MailShell() {
   const canLabel =
     currentLabelTargets.length > 0 &&
     (isGoogleProvider(labelAccount?.account.provider) ||
-      isMicrosoftProvider(labelAccount?.account.provider)) &&
+      isMicrosoftProvider(labelAccount?.account.provider) ||
+      labelAccount?.account.provider === "fastmail") &&
     currentLabelTargets.every(
       (target) => target.emailAccountId === labelAccountId,
     );
@@ -1257,10 +1259,10 @@ export function MailShell() {
   );
   const searchFolders = useMemo(
     () =>
-      isOutlook && !isAllAccounts
+      hasFolders && !isAllAccounts
         ? getMailSearchFolders(folders)
         : NO_SEARCH_OPTIONS,
-    [folders, isAllAccounts, isOutlook],
+    [folders, isAllAccounts, hasFolders],
   );
   const showSplitTabs = !isScoped && !searchQuery;
   const threadCount = threads.length;
@@ -1377,7 +1379,7 @@ export function MailShell() {
                 searchLabels={isAllAccounts ? NO_SEARCH_OPTIONS : allLabels}
                 searchFolders={searchFolders}
                 searchVariant={getMailSearchVariant({
-                  isAllAccounts,
+                  isAllAccounts: isAllAccounts || provider === "fastmail",
                   isOutlook,
                 })}
                 onToggleLayout={toggleLayout}

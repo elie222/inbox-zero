@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS profile_state (
 
 CREATE TABLE IF NOT EXISTS accounts (
   account_id TEXT PRIMARY KEY,
-  provider TEXT NOT NULL CHECK (provider IN ('google', 'microsoft')),
+  provider TEXT NOT NULL CHECK (provider IN ('google', 'microsoft', 'fastmail')),
   generation TEXT NOT NULL,
   assistant_cursor TEXT
 );
@@ -405,8 +405,55 @@ export async function migrateMailbox(
       PRIMARY KEY (account_id, attachment_id)
     );
   `);
+  await migrateFastmailAccounts(tx);
   await migrateConversationIndex(tx);
   await migrateMembershipIndex(tx);
   await migrateInboxUnreadExcludesArchive(tx);
   await migrateMessageSearchIndex(tx);
+}
+
+async function migrateFastmailAccounts(tx: SqlTransaction) {
+  if ((await tx.query("SELECT 1 FROM schema_migrations WHERE id = 9")).length)
+    return;
+  const [table] = await tx.query(
+    "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'accounts'",
+  );
+  if (!String(table.sql).includes("'fastmail'")) {
+    // DROP TABLE runs cascades even with deferred foreign keys. Preserve the derived indexes too.
+    const indexes = await tx.query(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('effective_role_conversations', 'effective_message_memberships')",
+    );
+    for (const { name } of indexes) {
+      await tx.exec(
+        `CREATE TEMP TABLE fastmail_backup_${name} AS SELECT * FROM ${name}`,
+      );
+    }
+    // Defer child references while replacing SQLite's immutable CHECK constraint.
+    await tx.exec(`
+      PRAGMA defer_foreign_keys = ON;
+      CREATE TABLE accounts_fastmail (
+        account_id TEXT PRIMARY KEY,
+        provider TEXT NOT NULL CHECK (provider IN ('google', 'microsoft', 'fastmail')),
+        generation TEXT NOT NULL,
+        assistant_cursor TEXT,
+        connection TEXT
+      );
+      INSERT INTO accounts_fastmail SELECT account_id, provider, generation, assistant_cursor, connection FROM accounts;
+      DROP TABLE accounts;
+      ALTER TABLE accounts_fastmail RENAME TO accounts;
+    `);
+    for (const { name } of indexes) {
+      await tx.exec(`
+        INSERT INTO ${name} SELECT * FROM fastmail_backup_${name};
+        DROP TABLE fastmail_backup_${name};
+      `);
+    }
+    if ((await tx.query("PRAGMA foreign_key_check")).length)
+      throw new Error("Mailbox migration failed reference validation");
+    // The table replacement leaves stale deferred violations; the explicit check above validates all references.
+    await tx.exec("PRAGMA defer_foreign_keys = OFF");
+  }
+  await tx.execute(
+    "INSERT INTO schema_migrations(id, name) VALUES (9, '0009-fastmail-accounts')",
+  );
 }

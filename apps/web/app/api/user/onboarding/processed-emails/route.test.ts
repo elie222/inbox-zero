@@ -3,13 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ActionType, ExecutedRuleStatus } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
 import { ONBOARDING_PROCESS_EMAILS_COUNT } from "@/utils/config";
+import { createScopedLogger } from "@/utils/logger";
 
-const { mockEmailProvider, mockLogger } = vi.hoisted(() => ({
+const { mockEmailProvider } = vi.hoisted(() => ({
   mockEmailProvider: {
     getMessagesBatch: vi.fn(),
-  },
-  mockLogger: {
-    error: vi.fn(),
   },
 }));
 
@@ -26,7 +24,7 @@ vi.mock("@/utils/middleware", () => ({
             userId: "user-1",
           },
           emailProvider: mockEmailProvider,
-          logger: mockLogger,
+          logger: createScopedLogger("onboarding-results-test"),
         }),
       ),
 }));
@@ -36,6 +34,19 @@ import { GET } from "./route";
 describe("GET /api/user/onboarding/processed-emails", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("returns zero completed results when no rules have been applied", async () => {
+    prisma.executedRule.findMany.mockResolvedValue([]);
+
+    const response = await GET(createRequest());
+
+    expect(await response.json()).toEqual({
+      totalCount: 0,
+      draftCount: 0,
+      emails: [],
+    });
+    expect(mockEmailProvider.getMessagesBatch).not.toHaveBeenCalled();
   });
 
   it("returns processed emails sorted by message date with draft counts", async () => {
@@ -146,7 +157,7 @@ describe("GET /api/user/onboarding/processed-emails", () => {
     const body = await response.json();
 
     expect(body).toMatchObject({
-      totalCount: 1,
+      totalCount: 2,
       draftCount: 0,
       emails: [
         {
@@ -160,7 +171,10 @@ describe("GET /api/user/onboarding/processed-emails", () => {
   it("does not fail onboarding when provider preview fetching fails", async () => {
     const error = new Error("provider unavailable");
     prisma.executedRule.findMany.mockResolvedValue([
-      createExecutedRule({ messageId: "message-1" }),
+      createExecutedRule({
+        messageId: "message-1",
+        actionItems: [{ type: ActionType.DRAFT_EMAIL }],
+      }),
     ] as any);
     mockEmailProvider.getMessagesBatch.mockRejectedValue(error);
 
@@ -168,14 +182,10 @@ describe("GET /api/user/onboarding/processed-emails", () => {
     const body = await response.json();
 
     expect(body).toEqual({
-      totalCount: 0,
-      draftCount: 0,
+      totalCount: 1,
+      draftCount: 1,
       emails: [],
     });
-    expect(mockLogger.error).toHaveBeenCalledWith(
-      "Failed to fetch messages for onboarding preview",
-      { error },
-    );
   });
 });
 

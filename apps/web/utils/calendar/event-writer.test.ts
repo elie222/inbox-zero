@@ -124,6 +124,7 @@ describe("createCalendarEvent", () => {
       expect.objectContaining({
         where: {
           isEnabled: true,
+          isReadOnly: false,
           connection: {
             emailAccountId: "email-account-id",
             isConnected: true,
@@ -171,7 +172,11 @@ describe("createCalendarEvent", () => {
         }),
         select: expect.objectContaining({
           calendars: {
-            where: { calendarId: "primary" },
+            where: {
+              calendarId: "primary",
+              isEnabled: true,
+              isReadOnly: false,
+            },
             select: { id: true },
             take: 1,
           },

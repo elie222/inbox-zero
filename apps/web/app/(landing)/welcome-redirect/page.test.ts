@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
   findUser: vi.fn(),
   findPremium: vi.fn(),
+  findEmailAccount: vi.fn(),
   redirectToEmailAccountPath: vi.fn((path: string) => {
     throw new Error(`account-redirect:${path}`);
   }),
@@ -24,6 +25,10 @@ vi.mock("@/utils/prisma", () => ({
     user: {
       findUnique: (...args: Parameters<typeof mocks.findUser>) =>
         mocks.findUser(...args),
+    },
+    emailAccount: {
+      findFirst: (...args: Parameters<typeof mocks.findEmailAccount>) =>
+        mocks.findEmailAccount(...args),
     },
     premium: {
       findUnique: (...args: Parameters<typeof mocks.findPremium>) =>
@@ -52,6 +57,20 @@ describe("WelcomeRedirectPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.auth.mockResolvedValue({ user: { id: "user-1" } });
+    mocks.findEmailAccount.mockResolvedValue({ id: "email-account-1" });
+  });
+
+  it("sends users without a mailbox to the connection flow before onboarding", async () => {
+    mocks.findUser.mockResolvedValue({
+      completedOnboardingAt: null,
+      premiumId: null,
+    });
+    mocks.findEmailAccount.mockResolvedValue(null);
+
+    await expect(
+      WelcomeRedirectPage({ searchParams: Promise.resolve({}) }),
+    ).rejects.toThrow("redirect:/connect-mailbox");
+    expect(mocks.findPremium).not.toHaveBeenCalled();
   });
 
   it("sends completed web users to automation without loading premium", async () => {

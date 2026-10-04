@@ -8,9 +8,12 @@ export type GetFoldersResponse = Awaited<ReturnType<typeof getFolders>>;
 export const GET = withEmailProvider("user/folders", async (request) => {
   const emailProvider = request.emailProvider;
 
-  if (!isMicrosoftProvider(emailProvider.name)) {
+  if (
+    !isMicrosoftProvider(emailProvider.name) &&
+    emailProvider.name !== "fastmail"
+  ) {
     return NextResponse.json(
-      { error: "Only Microsoft email providers are supported" },
+      { error: "Folders are supported for Outlook and Fastmail accounts" },
       { status: 400 },
     );
   }
