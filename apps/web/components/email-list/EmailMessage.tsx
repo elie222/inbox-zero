@@ -877,7 +877,10 @@ function prepareDraftReplyEmail(draft: ParsedMessage): ReplyingToEmail {
 
 function MessageBodyLoading() {
   return (
-    <p className="flex items-center gap-2 text-muted-foreground text-sm">
+    <p
+      className="flex items-center gap-2 text-muted-foreground text-sm"
+      role="status"
+    >
       <LoadingMiniSpinner />
       Loading message…
     </p>
