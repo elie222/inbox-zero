@@ -20,7 +20,6 @@ describe("DELETE /api/user/scheduled-emails/[id]", () => {
     vi.clearAllMocks();
     authMock.mockResolvedValue({ user: { id: "user-1" } });
     getEmailAccountMock.mockResolvedValue("developer@example.com");
-    prisma.emailDraftResource.updateMany.mockResolvedValue({ count: 1 });
   });
 
   it("rejects a request without a session", async () => {
@@ -51,20 +50,7 @@ describe("DELETE /api/user/scheduled-emails/[id]", () => {
       },
       data: { status: "CANCELLED", reminderStatus: "CANCELLED", error: null },
     });
-    expect(prisma.scheduledEmail.findUnique).toHaveBeenCalledWith({
-      where: { id: "scheduled-1", emailAccountId },
-      select: { clientMutationId: true, status: true },
-    });
-    expect(prisma.emailDraftResource.updateMany).toHaveBeenCalledWith({
-      where: {
-        emailAccountId,
-        canonicalResourceId: null,
-        owner: "SEND",
-        sendOperationId: "send-operation-1",
-        state: { in: ["NOT_CREATED", "CREATING", "READY", "UNCERTAIN"] },
-      },
-      data: { owner: "DRAFT", sendOperationId: null },
-    });
+    expect(prisma.scheduledEmail.findUnique).not.toHaveBeenCalled();
   });
 
   it("rejects a send that has already started", async () => {
@@ -81,29 +67,20 @@ describe("DELETE /api/user/scheduled-emails/[id]", () => {
       error: expect.stringContaining("started"),
       isKnownError: true,
     });
-    expect(prisma.emailDraftResource.updateMany).not.toHaveBeenCalled();
   });
 
-  it("reconciles a retry after cancellation committed but resource release failed", async () => {
-    prisma.scheduledEmail.updateMany
-      .mockResolvedValueOnce({ count: 1 })
-      .mockResolvedValueOnce({ count: 0 });
+  it("accepts a retry when the scheduled send was already cancelled", async () => {
+    prisma.scheduledEmail.updateMany.mockResolvedValue({ count: 0 });
     prisma.scheduledEmail.findUnique.mockResolvedValue({
-      clientMutationId: "send-operation-1",
       status: "CANCELLED",
     } as never);
-    prisma.emailDraftResource.updateMany.mockRejectedValueOnce(
-      new Error("Database response lost"),
-    );
-
-    expect((await cancel("scheduled-1")).status).toBe(500);
-    const retried = await cancel("scheduled-1");
-    expect(retried.status).toBe(200);
-    await expect(retried.json()).resolves.toEqual({ success: true });
-    expect(prisma.emailDraftResource.updateMany).toHaveBeenCalledTimes(2);
-    expect(prisma.emailDraftResource.updateMany.mock.calls[1]).toEqual(
-      prisma.emailDraftResource.updateMany.mock.calls[0],
-    );
+    const response = await cancel("scheduled-1");
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ success: true });
+    expect(prisma.scheduledEmail.findUnique).toHaveBeenCalledWith({
+      where: { id: "scheduled-1", emailAccountId },
+      select: { status: true },
+    });
   });
 
   it("rejects an empty id", async () => {

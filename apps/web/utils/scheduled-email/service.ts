@@ -7,10 +7,6 @@ import { isDuplicateError } from "@/utils/prisma-helpers";
 import { SafeError } from "@/utils/error";
 import { scheduleEmailBody } from "@/utils/actions/scheduled-email.validation";
 import { executeDurableEmailSend } from "@/utils/email/durable-email-send";
-import {
-  admitScheduledDraftResource,
-  releaseCancelledDraftResource,
-} from "@/utils/email/draft-resource";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
@@ -46,8 +42,6 @@ export async function scheduleEmail(
     input.email.replyToEmail.threadId !== input.threadId
   )
     throw new SafeError("The reply belongs to a different conversation.");
-  if (input.email.draftResourceKey)
-    return admitDraftSchedule(emailAccountId, input, sendAt, remindAt, false);
   try {
     return await prisma.scheduledEmail.create({
       data: {
@@ -95,25 +89,27 @@ export async function holdEmailForUndo({
     emailAccountId,
     input.clientMutationId,
   );
-  if (existing) return existing;
+  if (existing) {
+    if (existing.status !== "CANCELLED")
+      assertReusableRequest(existing, hashPayload(input));
+    return existing;
+  }
   let row: ScheduledEmail;
   try {
-    row = input.email.draftResourceKey
-      ? await admitDraftSchedule(emailAccountId, input, sendAt, null, true)
-      : await prisma.scheduledEmail.create({
-          data: {
-            emailAccountId,
-            clientMutationId: input.clientMutationId,
-            payloadHash: hashPayload(input),
-            payload: input,
-            threadId: input.threadId,
-            sendAt,
-            heldForUndo: true,
-          },
-        });
+    row = await prisma.scheduledEmail.create({
+      data: {
+        emailAccountId,
+        clientMutationId: input.clientMutationId,
+        payloadHash: hashPayload(input),
+        payload: input,
+        threadId: input.threadId,
+        sendAt,
+        heldForUndo: true,
+      },
+    });
   } catch (error) {
     if (!isDuplicateError(error)) throw error;
-    return prisma.scheduledEmail.findUniqueOrThrow({
+    const duplicate = await prisma.scheduledEmail.findUniqueOrThrow({
       where: {
         emailAccountId_clientMutationId: {
           emailAccountId,
@@ -121,6 +117,9 @@ export async function holdEmailForUndo({
         },
       },
     });
+    if (duplicate.status !== "CANCELLED")
+      assertReusableRequest(duplicate, hashPayload(input));
+    return duplicate;
   }
   if (row.status === "CANCELLED") return row;
   try {
@@ -137,51 +136,6 @@ export async function holdEmailForUndo({
     });
   }
   return row;
-}
-
-async function admitDraftSchedule(
-  emailAccountId: string,
-  input: z.infer<typeof scheduleEmailBody>,
-  sendAt: Date,
-  remindAt: Date | null,
-  heldForUndo: boolean,
-): Promise<ScheduledEmail> {
-  const payloadHash = hashPayload(input);
-  try {
-    const admitted = await admitScheduledDraftResource({
-      accountId: emailAccountId,
-      resourceKey: input.email.draftResourceKey!,
-      providerDraftId: input.email.providerDraftId,
-      sendOperationId: input.clientMutationId,
-      payloadHash,
-      payload: input,
-      threadId: input.threadId,
-      sendAt,
-      remindAt,
-      heldForUndo,
-    });
-    if (admitted) return admitted;
-  } catch (error) {
-    // A lost DB response can mean the atomic admission committed. Never release its owner blindly.
-    const committed = await findScheduledEmail(
-      emailAccountId,
-      input.clientMutationId,
-    );
-    if (!committed) throw error;
-    if (!(heldForUndo && committed.status === "CANCELLED"))
-      assertReusableRequest(committed, payloadHash);
-    return committed;
-  }
-  const concurrent = await findScheduledEmail(
-    emailAccountId,
-    input.clientMutationId,
-  );
-  if (concurrent) {
-    if (!(heldForUndo && concurrent.status === "CANCELLED"))
-      assertReusableRequest(concurrent, payloadHash);
-    return concurrent;
-  }
-  throw new SafeError("This draft belongs to another pending operation.");
 }
 
 /** Sends a held email once its undo window is over. */
@@ -275,18 +229,15 @@ export async function cancelScheduledEmail(emailAccountId: string, id: string) {
     },
     data: { status: "CANCELLED", reminderStatus: "CANCELLED", error: null },
   });
-  const cancelled = await prisma.scheduledEmail.findUnique({
+  if (result.count) return;
+  const existing = await prisma.scheduledEmail.findUnique({
     where: { id, emailAccountId },
-    select: { clientMutationId: true, status: true },
+    select: { status: true },
   });
-  if (!cancelled || (!result.count && cancelled.status !== "CANCELLED"))
+  if (existing?.status !== "CANCELLED")
     throw new SafeError(
       "This email has started sending or is no longer scheduled.",
     );
-  await releaseCancelledDraftResource(
-    emailAccountId,
-    cancelled.clientMutationId,
-  );
 }
 
 export async function cancelEmailReminder(emailAccountId: string, id: string) {
