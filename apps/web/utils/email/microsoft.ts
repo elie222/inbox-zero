@@ -1715,6 +1715,11 @@ export class OutlookProvider implements EmailProvider {
     return searchContacts(this.client, query, this.logger);
   }
 
+  async getContactPhotos() {
+    // Graph serves contact photos as per-contact binaries, not URLs.
+    return {};
+  }
+
   async markReadThread(threadId: string, read: boolean): Promise<void> {
     await markReadThread({
       client: this.client,
