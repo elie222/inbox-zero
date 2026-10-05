@@ -90,6 +90,12 @@ async function removeColdEmailLabelFromSender({
     ruleLabelIds.map((labelId) => emailProvider.getLabelById(labelId)),
   );
   const labelIds = ruleLabelIds.filter((_, index) => labels[index]);
+  const skippedLabelIds = ruleLabelIds.filter((_, index) => !labels[index]);
+  if (skippedLabelIds.length > 0) {
+    logger.warn("Skipping Cold Email labels that could not be found", {
+      skippedLabelIds,
+    });
+  }
 
   if (labelIds.length === 0) return;
 
