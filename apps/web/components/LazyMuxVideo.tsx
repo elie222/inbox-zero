@@ -11,8 +11,12 @@ export const LazyMuxVideo = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex size-full items-center justify-center">
-        <Loader2Icon className="size-8 animate-spin text-white/70" />
+      <div role="status" className="flex size-full items-center justify-center">
+        <span className="sr-only">Loading video</span>
+        <Loader2Icon
+          aria-hidden="true"
+          className="size-8 animate-spin text-white/70"
+        />
       </div>
     ),
   },
