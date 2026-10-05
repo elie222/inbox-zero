@@ -43,7 +43,7 @@ export function BulkUnsubscribeDesktop({
     // horizontal scroll so the actions column isn't clipped.
     <div className="[container-type:inline-size]">
       <Table
-        className="bulk-unsub-table sm:min-w-[800px] sm:table-fixed"
+        className="bulk-unsub-table min-[641px]:min-w-[800px] sm:table-fixed"
         containerClassName="[@container(min-width:800px)]:overflow-visible"
       >
         <TableHeader

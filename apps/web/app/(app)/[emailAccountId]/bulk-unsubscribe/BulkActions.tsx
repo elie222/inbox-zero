@@ -280,6 +280,7 @@ export function BulkActions({
                       variant="ghost"
                       className="shrink-0"
                       aria-label="More actions"
+                      disabled={isBulkDeleting}
                     >
                       {isBulkDeleting ? (
                         <Loader2Icon className="size-4 animate-spin" />

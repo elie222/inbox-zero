@@ -386,7 +386,9 @@ export function useUnsubscribe<T extends Row>({
           });
         } else {
           analytics.captureAction("unsubscribe_sender_completed", {
-            outcome: "unsubscribed_and_archived",
+            outcome: archiveOnUnsubscribe
+              ? "unsubscribed_and_archived"
+              : "unsubscribed",
           });
         }
       }
@@ -1183,7 +1185,10 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
 }
 
 export function useArchiveOnUnsubscribe() {
-  return useLocalStorage("bulk-unsubscribe-archive-on-unsubscribe", true);
+  // Read after mount so a saved `false` doesn't mismatch the server render.
+  return useLocalStorage("bulk-unsubscribe-archive-on-unsubscribe", true, {
+    initializeWithValue: false,
+  });
 }
 
 export function useNewsletterFilter() {

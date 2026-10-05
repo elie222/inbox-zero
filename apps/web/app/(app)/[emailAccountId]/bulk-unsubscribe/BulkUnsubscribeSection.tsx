@@ -560,53 +560,48 @@ export function BulkUnsubscribe() {
             loadingComponent={<BulkUnsubscribeDesktopSkeleton />}
           >
             {tableRows?.length ? (
-              <>
-                <BulkUnsubscribeDesktop
-                  sortColumn={sortColumn}
-                  sortDirection={sortDirection}
-                  onSort={handleSort}
-                  tableRows={tableRows}
-                  isAllSelected={isAllVisibleSelected}
-                  isSomeSelected={isSomeVisibleSelected}
-                  onToggleSelectAll={onToggleSelectAllVisible}
-                />
-                {/* Only show expand/collapse when there might be more results */}
-                {(expanded ||
-                  (data?.newsletters && data.newsletters.length >= 50)) && (
-                  <div className="mt-2 px-6 pb-6">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setExpanded(!expanded)}
-                      className="w-full"
-                    >
-                      {expanded ? (
-                        <>
-                          <ChevronsUpIcon className="h-4 w-4" />
-                          <span className="ml-2">Show less</span>
-                        </>
-                      ) : (
-                        <>
-                          <ChevronsDownIcon className="h-4 w-4" />
-                          <span className="ml-2">Show more</span>
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                )}
-              </>
+              <BulkUnsubscribeDesktop
+                sortColumn={sortColumn}
+                sortDirection={sortDirection}
+                onSort={handleSort}
+                tableRows={tableRows}
+                isAllSelected={isAllVisibleSelected}
+                isSomeSelected={isSomeVisibleSelected}
+                onToggleSelectAll={onToggleSelectAllVisible}
+              />
             ) : (
-              <div className="flex flex-col items-center justify-center px-4 py-14">
-                <h3 className="font-title text-xl font-medium">
-                  {filter === "unhandled" && !search
-                    ? "Nothing left to review"
-                    : "No senders found"}
-                </h3>
-                <p className="mt-1.5 text-center text-sm text-muted-foreground">
-                  {filter === "unhandled" && !search
-                    ? "New senders will show up here as they arrive."
-                    : "Try a different filter or date range."}
-                </p>
+              <EmptyState
+                isReviewView={filter === "unhandled" && !search}
+                onlyLinklessLeft={
+                  filter === "unhandled" &&
+                  !includeWithoutUnsubscribeLink &&
+                  !!data?.newsletters.length
+                }
+                onIncludeLinkless={() => setIncludeWithoutUnsubscribeLink(true)}
+              />
+            )}
+            {/* Only show expand/collapse when there might be more results */}
+            {(expanded ||
+              (data?.newsletters && data.newsletters.length >= 50)) && (
+              <div className="mt-2 px-6 pb-6">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setExpanded(!expanded)}
+                  className="w-full"
+                >
+                  {expanded ? (
+                    <>
+                      <ChevronsUpIcon className="h-4 w-4" />
+                      <span className="ml-2">Show less</span>
+                    </>
+                  ) : (
+                    <>
+                      <ChevronsDownIcon className="h-4 w-4" />
+                      <span className="ml-2">Show more</span>
+                    </>
+                  )}
+                </Button>
               </div>
             )}
           </LoadingContent>
@@ -661,5 +656,46 @@ function ScanOlderEmailsButton() {
         {isLoading ? "Scanning older emails…" : "Scan older emails"}
       </TooltipContent>
     </Tooltip>
+  );
+}
+
+function EmptyState({
+  isReviewView,
+  onlyLinklessLeft,
+  onIncludeLinkless,
+}: {
+  isReviewView: boolean;
+  onlyLinklessLeft: boolean;
+  onIncludeLinkless: () => void;
+}) {
+  if (onlyLinklessLeft) {
+    return (
+      <div className="flex flex-col items-center justify-center px-4 py-14">
+        <h3 className="font-title text-xl font-medium">
+          Only senders without an unsubscribe link are left
+        </h3>
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-4"
+          onClick={onIncludeLinkless}
+        >
+          Show them
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-center justify-center px-4 py-14">
+      <h3 className="font-title text-xl font-medium">
+        {isReviewView ? "Nothing left to review" : "No senders found"}
+      </h3>
+      <p className="mt-1.5 text-center text-sm text-muted-foreground">
+        {isReviewView
+          ? "New senders will show up here as they arrive."
+          : "Try a different filter or date range."}
+      </p>
+    </div>
   );
 }

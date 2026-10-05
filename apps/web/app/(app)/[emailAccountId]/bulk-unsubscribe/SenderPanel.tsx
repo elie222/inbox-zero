@@ -1,9 +1,9 @@
 "use client";
 
 import useSWR from "swr";
+import useSWRInfinite from "swr/infinite";
 import type React from "react";
 import { useState } from "react";
-import { useQueryState } from "nuqs";
 import { ArrowLeftIcon } from "lucide-react";
 import type { NewsletterStatsResponse } from "@/app/api/user/stats/newsletters/route";
 import type {
@@ -27,7 +27,6 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLabels } from "@/hooks/useLabels";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import {
@@ -41,7 +40,10 @@ import { createSearchParams } from "@/utils/url";
 
 type Newsletter = NewsletterStatsResponse["newsletters"][number];
 
-const EMAILS_TAB_PARAM = "sender-tab";
+const EMAIL_VIEWS = [
+  { value: "all", label: "All" },
+  { value: "inbox", label: "In inbox" },
+] as const;
 
 export function SenderPanel({
   newsletter,
@@ -59,15 +61,8 @@ export function SenderPanel({
   openPremiumModal: () => void;
   filter: NewsletterFilterType;
 }) {
-  const [, setEmailsTab] = useQueryState(EMAILS_TAB_PARAM);
-
-  const close = () => {
-    setEmailsTab(null);
-    onClose();
-  };
-
   return (
-    <Sheet open={!!newsletter} onOpenChange={(open) => !open && close()}>
+    <Sheet open={!!newsletter} onOpenChange={(open) => !open && onClose()}>
       <SheetContent
         data-theme="mail"
         className="flex w-full flex-col gap-0 p-0 focus:outline-none sm:max-w-2xl"
@@ -105,6 +100,8 @@ function SenderPanelContent({
   const { emailAccountId, userEmail, provider } = useAccount();
   const { userLabels } = useLabels();
   const [openThreadId, setOpenThreadId] = useState<string>();
+  const [emailView, setEmailView] =
+    useState<(typeof EMAIL_VIEWS)[number]["value"]>("all");
 
   const readPercentage =
     newsletter.value > 0
@@ -170,34 +167,33 @@ function SenderPanelContent({
               />
             </div>
 
-            <Tabs
-              defaultValue="all"
-              searchParam={EMAILS_TAB_PARAM}
-              className="pt-5 pb-4"
-            >
-              <div className="flex items-center justify-between gap-3 px-4 sm:px-6">
-                <h3 className="text-sm font-semibold">Emails</h3>
-                <TabsList>
-                  <TabsTrigger value="all">All</TabsTrigger>
-                  <TabsTrigger value="inbox">In inbox</TabsTrigger>
-                </TabsList>
+            <div className="flex items-center justify-between gap-3 px-4 pt-5 pb-2 sm:px-6">
+              <h3 className="text-sm font-semibold">Emails</h3>
+              <div className="inline-flex h-10 items-center rounded-md bg-muted p-1 text-muted-foreground">
+                {EMAIL_VIEWS.map((view) => (
+                  <button
+                    key={view.value}
+                    type="button"
+                    aria-pressed={emailView === view.value}
+                    onClick={() => setEmailView(view.value)}
+                    className={cn(
+                      "rounded-sm px-3 py-1.5 text-sm font-medium transition-all",
+                      emailView === view.value &&
+                        "bg-background text-foreground shadow-sm",
+                    )}
+                  >
+                    {view.label}
+                  </button>
+                ))}
               </div>
-              <TabsContent value="all">
-                <SenderEmails
-                  fromEmail={newsletter.name}
-                  type="all"
-                  refreshInterval={refreshInterval}
-                  onOpenThread={setOpenThreadId}
-                />
-              </TabsContent>
-              <TabsContent value="inbox">
-                <SenderEmails
-                  fromEmail={newsletter.name}
-                  refreshInterval={refreshInterval}
-                  onOpenThread={setOpenThreadId}
-                />
-              </TabsContent>
-            </Tabs>
+            </div>
+            <SenderEmails
+              key={emailView}
+              fromEmail={newsletter.name}
+              type={emailView === "all" ? "all" : undefined}
+              refreshInterval={refreshInterval}
+              onOpenThread={setOpenThreadId}
+            />
           </>
         )}
       </div>
@@ -279,12 +275,22 @@ function SenderEmails({
 }) {
   const { userEmail } = useAccount();
   const { userLabels } = useEmailLabels();
-  const query = createSearchParams({ fromEmail, type, view: "list" });
-  const { data, isLoading, error } = useSWR<ThreadsListResponse>(
-    `/api/threads?${query}`,
-    { refreshInterval },
-  );
-  const threads = data?.threads ?? [];
+  const { data, error, isLoading, size, setSize } =
+    useSWRInfinite<ThreadsListResponse>(
+      (_index, previousPage: ThreadsListResponse | null) => {
+        if (previousPage && !previousPage.nextPageToken) return null;
+        const query = createSearchParams({
+          fromEmail,
+          type,
+          view: "list",
+          nextPageToken: previousPage?.nextPageToken,
+        });
+        return `/api/threads?${query}`;
+      },
+      { refreshInterval },
+    );
+  const threads = data?.flatMap((page) => page.threads) ?? [];
+  const isLoadingMore = !!data && size > data.length;
 
   return (
     <LoadingContent loading={isLoading} error={error}>
@@ -309,9 +315,9 @@ function SenderEmails({
         }}
         onToggleSelect={noop}
         onSelectRangeTo={noop}
-        showLoadMore={false}
-        isLoadingMore={false}
-        onLoadMore={noop}
+        showLoadMore={!!data?.at(-1)?.nextPageToken}
+        isLoadingMore={isLoadingMore}
+        onLoadMore={() => setSize(size + 1)}
         listKey={`bulk-unsubscribe:${fromEmail}:${type ?? "inbox"}`}
       />
     </LoadingContent>
