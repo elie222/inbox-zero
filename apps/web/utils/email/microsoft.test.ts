@@ -1801,7 +1801,16 @@ function createMockOutlookClient(
           },
           post: async (body: {
             requests: Array<{ id: string; method: string; url: string }>;
-          }) => options?.batchPost?.(body),
+            inputIds?: string[];
+          }) =>
+            body.inputIds
+              ? {
+                  value: body.inputIds.map((id) => ({
+                    sourceId: id,
+                    targetId: id,
+                  })),
+                }
+              : options?.batchPost?.(body),
           get: async () => {
             requestLog.push({
               apiPath,
