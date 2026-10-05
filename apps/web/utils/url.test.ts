@@ -458,6 +458,29 @@ describe("getEmailSearchUrl", () => {
       getEmailSearchUrl("sender@example.com", emailAddress, provider),
     ).toBe(expected);
   });
+
+  it.each([
+    {
+      provider: "google",
+      emailAddress: "user@gmail.com",
+      expected:
+        "https://mail.google.com/mail/u/?authuser=user%40gmail.com#advanced-search/to=recipient%40example.com",
+    },
+    {
+      provider: "microsoft",
+      emailAddress: "user@company.com",
+      expected:
+        "https://outlook.office.com/mail/search/q/to%3Arecipient%40example.com",
+    },
+  ])("searches mail sent to a recipient for $provider", ({
+    provider,
+    emailAddress,
+    expected,
+  }) => {
+    expect(
+      getEmailSearchUrl("recipient@example.com", emailAddress, provider, "to"),
+    ).toBe(expected);
+  });
 });
 
 describe("getGmailBasicSearchUrl", () => {
