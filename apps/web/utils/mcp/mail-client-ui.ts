@@ -73,6 +73,7 @@ export function registerMailClient(
           ),
       },
       annotations: {
+        title: "Open Inbox Zero",
         readOnlyHint: true,
         destructiveHint: false,
         openWorldHint: false,
@@ -186,6 +187,7 @@ export function registerMailClient(
         description,
         inputSchema: schema.shape,
         annotations: {
+          title,
           readOnlyHint: scope === "mcp:read",
           destructiveHint,
           openWorldHint: true,
