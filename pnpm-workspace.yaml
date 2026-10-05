@@ -27,7 +27,7 @@ overrides:
   jws: "4.0.1"
   linkify-it: "5.0.2"
   lodash: "4.18.1"
-  next: "16.3.6"
+  next: "16.3.8"
   postcss: "8.5.14"
   # express@5 depends on proxy-addr ^2.0.7. 2.0.7 treats an IPv4-mapped IPv6
   # trust subnet with an IPv4-sized prefix as trusting every IPv4 address
