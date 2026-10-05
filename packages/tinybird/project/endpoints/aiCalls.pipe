@@ -111,7 +111,7 @@ SQL >
     SELECT
       toStartOfDay(fromUnixTimestamp64Milli(timestamp)) AS "day",
       sum(cachedInputTokens) AS cachedInputTokens,
-      sum(cacheWriteTokens) AS cacheWriteTokens,
+      sum(ifNull(cacheWriteTokens, 0)) AS cacheWriteTokens,
       sum(promptTokens) AS promptTokens,
       if(promptTokens = 0, 0, cachedInputTokens / promptTokens) AS cacheHitRate
     FROM aiCall
@@ -126,7 +126,7 @@ SQL >
     SELECT
       label,
       sum(cachedInputTokens) AS cachedInputTokens,
-      sum(cacheWriteTokens) AS cacheWriteTokens,
+      sum(ifNull(cacheWriteTokens, 0)) AS cacheWriteTokens,
       sum(promptTokens) AS promptTokens,
       if(promptTokens = 0, 0, cachedInputTokens / promptTokens) AS cacheHitRate
     FROM aiCall

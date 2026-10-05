@@ -99,6 +99,7 @@ export async function saveAiUsage({
     isUserApiKey,
     inputTokens,
     cachedInputTokens,
+    cacheWriteTokens,
     outputTokens,
     reasoningTokens,
     totalTokens,
@@ -181,16 +182,23 @@ export function calculateUsageCost(options: {
   const pricing = getModelPricing({ provider, model });
   if (!pricing) return 0;
 
-  const rawCachedInputTokens = usage.inputTokenDetails?.cacheReadTokens ?? 0;
-  const normalizedCachedInputTokens = Math.max(0, rawCachedInputTokens);
+  const normalizedCachedInputTokens = Math.max(
+    0,
+    usage.inputTokenDetails?.cacheReadTokens ?? 0,
+  );
+  const normalizedCacheWriteTokens = Math.max(
+    0,
+    usage.inputTokenDetails?.cacheWriteTokens ?? 0,
+  );
   const inputTokens = Math.max(
     0,
-    usage.inputTokens ?? normalizedCachedInputTokens,
+    usage.inputTokens ??
+      normalizedCachedInputTokens + normalizedCacheWriteTokens,
   );
   const cachedInputTokens = Math.min(inputTokens, normalizedCachedInputTokens);
   const cacheWriteTokens = Math.min(
     inputTokens - cachedInputTokens,
-    Math.max(0, usage.inputTokenDetails?.cacheWriteTokens ?? 0),
+    normalizedCacheWriteTokens,
   );
   const uncachedInputTokens = Math.max(
     0,
