@@ -7,7 +7,7 @@ import type { SendersResponse } from "@/app/api/user/stats/senders/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getDateRangeParams } from "@/app/(app)/[emailAccountId]/stats/params";
-import { createSearchParams, getGmailSearchUrl } from "@/utils/url";
+import { createSearchParams, getEmailSearchUrl } from "@/utils/url";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { BarListCard } from "@/app/(app)/[emailAccountId]/stats/BarListCard";
 import { Mail, Send } from "lucide-react";
@@ -16,7 +16,7 @@ export function EmailAnalytics(props: {
   dateRange?: DateRange | undefined;
   refreshInterval: number;
 }) {
-  const { userEmail } = useAccount();
+  const { provider, userEmail } = useAccount();
 
   const params = getDateRangeParams(props.dateRange);
 
@@ -41,7 +41,7 @@ export function EmailAnalytics(props: {
   function formatEmailItem(item: { name: string; value: number }) {
     return {
       ...item,
-      href: getGmailSearchUrl(item.name, userEmail),
+      href: getEmailSearchUrl(item.name, userEmail, provider),
       target: "_blank",
     };
   }
