@@ -1,14 +1,25 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { MuxVideo } from "@/components/MuxVideo";
-import { YouTubeVideo } from "@/components/YouTubeVideo";
+import dynamic from "next/dynamic";
 import {
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+
+// The players are heavy and only needed once a dialog opens. DialogContent
+// mounts on open, so loading them here keeps them out of every page that
+// merely renders a "Watch demo" button.
+const MuxVideo = dynamic(
+  () => import("@/components/MuxVideo").then((mod) => mod.MuxVideo),
+  { ssr: false },
+);
+const YouTubeVideo = dynamic(
+  () => import("@/components/YouTubeVideo").then((mod) => mod.YouTubeVideo),
+  { ssr: false },
+);
 
 // Width tracks the viewport, minus the heading, so the 16:9 player stays
 // inside the centered dialog. A fixed player width wider than the dialog
