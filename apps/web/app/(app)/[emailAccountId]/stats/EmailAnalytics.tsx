@@ -46,6 +46,14 @@ export function EmailAnalytics(props: {
     };
   }
 
+  function formatRecipientItem(item: { name: string; value: number }) {
+    return {
+      ...item,
+      href: getEmailSearchUrl(item.name, userEmail, provider, "to"),
+      target: "_blank",
+    };
+  }
+
   return (
     <div className="grid gap-2 sm:gap-4 sm:grid-cols-2">
       <LoadingContent
@@ -89,7 +97,7 @@ export function EmailAnalytics(props: {
                 label: "Email address",
                 data:
                   dataRecipients.mostActiveRecipientEmails.map(
-                    formatEmailItem,
+                    formatRecipientItem,
                   ) || [],
               },
             ]}
