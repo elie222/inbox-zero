@@ -98,7 +98,7 @@ export function DigestSetting() {
   return (
     <SettingCard
       title="Digest"
-      description="Get a summary of the emails you choose, on your schedule."
+      description="Get a summary of emails matched by the rules you pick, on your schedule."
       right={renderRight()}
     />
   );
