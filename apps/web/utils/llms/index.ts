@@ -55,6 +55,10 @@ import {
 } from "@/utils/llms/model";
 import { getModelForUseCase, type LlmUseCase } from "@/utils/llms/use-cases";
 import {
+  buildCachedSystemMessages,
+  getSystemCacheProviderOptions,
+} from "@/utils/llms/caching";
+import {
   assertTrialAiUsageAllowed,
   shouldForceNanoModel,
 } from "@/utils/llms/model-usage-guard";
@@ -440,12 +444,15 @@ export function createGenerateObject({
   label,
   modelOptions,
   promptHardening,
+  cacheSystemPrompt,
   onModelUsed,
 }: {
   emailAccount: LlmEmailAccount;
   label: string;
   modelOptions: ReturnType<typeof getModel>;
   promptHardening: PromptHardening;
+  // Only set when the system prompt is stable across requests for an account.
+  cacheSystemPrompt?: boolean;
   onModelUsed?: (candidate: {
     provider: string;
     modelName: string;
@@ -538,6 +545,16 @@ export function createGenerateObject({
         emailAccountId: emailAccount.id,
       });
 
+      // Built after hardening and DLP so the cached bytes match what the provider sees.
+      const cacheOverrides = cacheSystemPrompt
+        ? buildSystemPromptCacheOverrides({
+            protectedOptions,
+            providerOptions,
+            provider: candidate.provider,
+            cacheKey: emailAccount.id,
+          })
+        : undefined;
+
       const request = {
         repairText: async ({ text }: { text: string }) => {
           logger.info("Repairing text", { label });
@@ -557,6 +574,7 @@ export function createGenerateObject({
         }),
         providerOptions,
         model: candidate.model,
+        ...(cacheOverrides ?? {}),
       } as unknown as Parameters<
         typeof generateObject<SCHEMA, OUTPUT, RESULT>
       >[0];
@@ -1407,6 +1425,46 @@ function shouldFallbackToNextModel(error: unknown): boolean {
   if (llmErrorInfo.retryable) return true;
 
   return isTransientNetworkError(error);
+}
+
+function buildSystemPromptCacheOverrides({
+  protectedOptions,
+  providerOptions,
+  provider,
+  cacheKey,
+}: {
+  protectedOptions: { instructions?: unknown; prompt?: unknown };
+  providerOptions: LLMProviderOptions;
+  provider: string;
+  cacheKey: string;
+}):
+  | {
+      messages: ModelMessage[];
+      instructions: undefined;
+      prompt: undefined;
+      providerOptions: LLMProviderOptions;
+    }
+  | undefined {
+  if (
+    typeof protectedOptions.instructions !== "string" ||
+    typeof protectedOptions.prompt !== "string"
+  ) {
+    return;
+  }
+
+  return {
+    messages: buildCachedSystemMessages({
+      system: protectedOptions.instructions,
+      prompt: protectedOptions.prompt,
+      provider,
+    }),
+    instructions: undefined,
+    prompt: undefined,
+    providerOptions: mergeProviderOptions(
+      providerOptions,
+      getSystemCacheProviderOptions(provider, { cacheKey }),
+    ),
+  };
 }
 
 function mergeProviderOptions(
