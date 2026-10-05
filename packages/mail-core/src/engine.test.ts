@@ -130,6 +130,57 @@ describe("mail engine idle catch-up scheduling", () => {
     await harness.engine.close();
   });
 
+  it("keeps syncing later accounts while an earlier account's streams are slow", async () => {
+    const harness = multiAccountHarness({
+      accounts: [
+        { accountId: "acc-a", streamIds: folderIds(20), readMs: 4000 },
+        { accountId: "acc-b", streamIds: ["primary"], readMs: 500 },
+      ],
+    });
+
+    await harness.runFor(10 * 60_000);
+
+    expect(harness.readsFor("acc-b")).toBeGreaterThanOrEqual(5);
+    await harness.engine.close();
+  });
+
+  it("syncs other accounts while one account's request hangs", async () => {
+    const harness = multiAccountHarness({
+      accounts: [
+        { accountId: "acc-a", streamIds: ["inbox"], readMs: 0, hangs: true },
+        { accountId: "acc-b", streamIds: ["primary"], readMs: 0 },
+      ],
+    });
+
+    await harness.engine.runUntil(50);
+    harness.advance(61_000);
+    await harness.engine.runUntil(harness.nowMs + 50);
+
+    expect(harness.reads).toEqual([
+      "acc-a:inbox",
+      "acc-b:primary",
+      "acc-b:primary",
+    ]);
+    harness.releaseHangs();
+    await harness.engine.close();
+  });
+
+  it("runs commands while an account's sync request hangs", async () => {
+    const harness = multiAccountHarness({
+      accounts: [
+        { accountId: "acc-a", streamIds: ["inbox"], readMs: 0, hangs: true },
+      ],
+    });
+    await harness.engine.runUntil(50);
+    const claimWork = vi.spyOn(harness.store, "claimWork");
+
+    await harness.engine.runUntil(50);
+
+    expect(claimWork).toHaveBeenCalled();
+    harness.releaseHangs();
+    await harness.engine.close();
+  });
+
   it("gates idle assistant catch-up and lets explicit sync wake it", async () => {
     const assistantCursors: Array<string | null> = [];
     const harness = idleCatchUpHarness({
@@ -403,6 +454,121 @@ function idleCatchUpHarness(input: {
     },
   };
   return harness;
+}
+
+function multiAccountHarness(input: {
+  accounts: Array<{
+    accountId: string;
+    streamIds: string[];
+    readMs: number;
+    hangs?: boolean;
+  }>;
+}) {
+  let nowMs = 0;
+  let nextId = 0;
+  const reads: string[] = [];
+  const hangingReads: Array<() => void> = [];
+  const accounts: AccountSyncState[] = input.accounts.map((account) => ({
+    accountId: account.accountId,
+    generation: "g1",
+    assistantCursor: null,
+    streams: account.streamIds.map((streamId) => ({
+      accountId: account.accountId,
+      streamId,
+      generation: "g1",
+      checkpoint: "start",
+    })),
+    stream: null,
+  }));
+  const accountFor = (accountId: string) => {
+    const account = input.accounts.find((item) => item.accountId === accountId);
+    if (!account) throw new Error(`Unknown account ${accountId}`);
+    return account;
+  };
+  const source: MailboxSource = {
+    ...idleSource(),
+    async discoverScopes({ session }) {
+      return {
+        status: "ok",
+        value: {
+          scopes: accountFor(session.accountId).streamIds.map((streamId) => ({
+            id: streamId,
+            kind: "folder" as const,
+            folderId: streamId,
+          })),
+          nextPage: null,
+        },
+      };
+    },
+    async readChanges({ session, requestId, position }) {
+      reads.push(`${session.accountId}:${position.streamId}`);
+      const account = accountFor(session.accountId);
+      nowMs += account.readMs;
+      if (account.hangs) {
+        await new Promise<void>((resolve) => hangingReads.push(resolve));
+      }
+      return {
+        status: "page",
+        page: {
+          session,
+          requestId,
+          from: position,
+          to: position,
+          changes: [],
+          requiredHydration: [],
+          bodies: [],
+          roundComplete: true,
+        },
+      };
+    },
+  };
+  const store = {
+    ...idleCatchUpStore([]),
+    async readAccountSyncStates() {
+      return accounts;
+    },
+  } as MailStore;
+  const engine = createMailEngine({
+    store,
+    source,
+    executor: idleExecutor(),
+    runtime: createHostRuntime({
+      nowMs: () => nowMs,
+      randomId: () => {
+        nextId += 1;
+        return `id-${nextId}`;
+      },
+    }),
+  });
+  return {
+    engine,
+    store,
+    reads,
+    get nowMs() {
+      return nowMs;
+    },
+    advance(ms: number) {
+      nowMs += ms;
+    },
+    releaseHangs() {
+      for (const release of hangingReads.splice(0)) release();
+    },
+    readsFor(accountId: string) {
+      return reads.filter((read) => read.startsWith(`${accountId}:`)).length;
+    },
+    // Mirrors the host loop: short runs with a pause between them.
+    async runFor(durationMs: number) {
+      const endMs = nowMs + durationMs;
+      while (nowMs < endMs) {
+        await engine.runUntil(nowMs + 2000);
+        nowMs += 250;
+      }
+    },
+  };
+}
+
+function folderIds(count: number) {
+  return Array.from({ length: count }, (_, index) => `folder-${index}`);
 }
 
 function idleCatchUpStore(

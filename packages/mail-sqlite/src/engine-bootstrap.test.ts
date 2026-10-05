@@ -286,7 +286,7 @@ describe("engine bootstrap coverage", () => {
     await engine.close();
   });
 
-  it("rediscovers scopes after budget expires with only one folder bootstrapped", async () => {
+  it("starts every discovered folder in one pass after the time budget runs out", async () => {
     let now = 1000;
     const receivedScopes: string[] = [];
     const store = await createSqliteMailStore(createNodeSqliteDriver());
@@ -322,13 +322,8 @@ describe("engine bootstrap coverage", () => {
     });
     await engine.requestSync(["acc-1"]);
     await engine.runUntil(1500);
-    expect(receivedScopes).toEqual(["folder:a"]);
-    expect((await engine.getDiagnostics("acc-1")).coverage).toEqual([
-      expect.objectContaining({ scopeId: "folder:a", metadata: "complete" }),
-      expect.objectContaining({ scopeId: "folder:b", metadata: "partial" }),
-    ]);
+    expect(receivedScopes).toEqual(["folder:a", "folder:b"]);
 
-    now = 2000;
     await engine.runUntil(5000);
     expect(receivedScopes).toEqual(["folder:a", "folder:b"]);
     const inspection = await store.inspect();
