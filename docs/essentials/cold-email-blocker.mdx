@@ -6,7 +6,7 @@ icon: 'shield-check'
 
 Cold Email Blocker keeps unsolicited sales pitches and outreach out of your inbox before you ever see them. The AI recognizes cold emails that traditional spam filters miss, while anyone who has emailed you before always gets through.
 
-Open **Cold Email Blocker** in the left sidebar, or visit [Cold Email Blocker](https://www.getinboxzero.com/cold-email-blocker).
+Open the account menu at the bottom of the left sidebar and select **Cold Email Blocker**, or visit [Cold Email Blocker](https://www.getinboxzero.com/cold-email-blocker). The menu item appears for Google accounts. On Outlook, manage cold email through the **Cold Email** rule in the Assistant, described below.
 
 <iframe
   src="https://player.mux.com/E29tx0001FmSQqASvIM7r87P9Pro3cq0202AiZ8rOKzsyJM?metadata-video-title=Cold%20Email%20Blocker%20walkthrough&accent-color=%233b82f6"
@@ -17,20 +17,31 @@ Open **Cold Email Blocker** in the left sidebar, or visit [Cold Email Blocker](h
   allowFullScreen
 ></iframe>
 
-## Choose a Mode
+## Choose What Happens to Cold Emails
 
-You can run the Cold Email Blocker in three modes:
+Cold email handling is controlled by the **Cold Email** rule in the Assistant. To change it, open the **Settings** tab on the Cold Email Blocker page and click **Go to Assistant Rules**, then edit the **Cold Email** rule.
 
-1. **List**: Show detected cold emails in the table on the page without changing your inbox.
-2. **Auto label**: Label cold emails in your inbox with `Cold Email`.
-3. **Auto archive and label**: Archive cold emails and label them with `Cold Email`.
+By default, the rule's actions are:
+
+- **Gmail**: Label cold emails `Cold Email`, archive them, and notify the sender.
+- **Outlook**: Move cold emails to a `Cold Email` folder.
+
+Change or remove these actions to adjust what happens. For example, remove the archive action to keep cold emails in your inbox with a label.
+
+The rule's prompt decides what counts as a cold email. The default works for most people, but you can edit it in the rule. Giving examples of what you do and don't consider a cold email works well.
 
 Cold email detection applies only to new emails as they arrive; it does not reprocess older mail.
 
-## Custom Prompts
+### Notify Sender
 
-Emails are classified using a prompt. The default works for most people, but you can adjust it by clicking **Edit Prompt**. Giving examples of what you do and don't consider a cold email works well.
+The **Notify sender** action emails the cold sender to let them know their email was filtered and suggests they try another way to reach you. To stop these emails, remove the **Notify sender** action from the rule. On self-hosted instances, the action is only added when outgoing email is configured.
+
+## Review Cold Emails
+
+The **Cold Emails** tab lists the emails that were detected as cold. If a sender was flagged by mistake, click **Not cold email** on the row, or select several rows and click **Mark Not Cold Email**. Inbox Zero stops flagging that sender as cold. Emails it already handled stay where they are: on Gmail, archived emails keep the `Cold Email` label, and on Outlook, emails stay in the `Cold Email` folder. Move them back yourself if you want them in your inbox.
+
+Senders you've rejected appear on the **Marked Not Cold** tab.
 
 ## Testing
 
-Click **Test** to open a side panel where you can paste in an email or test against previous emails to see if they would be marked as cold.
+Open the **Test** tab to paste in an email or test against previous emails to see if they would be marked as cold.

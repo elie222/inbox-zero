@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "prisma migrate deploy && cross-env NODE_OPTIONS=--max_old_space_size=16384 next build && serwist build serwist.config.mjs",
-    "build:ci": "cross-env NODE_OPTIONS=--max_old_space_size=16384 next build && serwist build serwist.config.mjs",
+    "build": "node scripts/build-mcp-app.mjs && prisma migrate deploy && cross-env NODE_OPTIONS=--max_old_space_size=16384 next build && serwist build serwist.config.mjs",
+    "build:ci": "node scripts/build-mcp-app.mjs && cross-env NODE_OPTIONS=--max_old_space_size=16384 next build && serwist build serwist.config.mjs",
     "check-client-redirects": "node scripts/check-client-redirects.js",
     "check-enums": "node scripts/check-enum-imports.js",
     "check-server-actions": "node scripts/check-server-action-exports.js",
@@ -93,6 +93,7 @@
     "@mdx-js/loader": "3.1.1",
     "@mdx-js/react": "3.1.1",
     "@microsoft/microsoft-graph-client": "3.0.7",
+    "@modelcontextprotocol/ext-apps": "2.0.3",
     "@modelcontextprotocol/sdk": "1.30.0",
     "@mux/mux-player-react": "3.13.3",
     "@next/mdx": "16.3.8",

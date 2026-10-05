@@ -19,6 +19,10 @@ import {
 import type { MCP_SCOPES } from "@/utils/mcp/config";
 import { isMcpServerEnabledForUser } from "@/utils/mcp/access";
 import {
+  registerMailClient,
+  getMailPermissions,
+} from "@/utils/mcp/mail-client-ui";
+import {
   createDraftForMcp,
   createDraftInputShape,
   mcpAccountSelectorShape,
@@ -115,6 +119,7 @@ export async function handleMcpServerRequest(
     },
     runTool("list_email_accounts", "mcp:read", async () => ({
       accounts: await listMcpEmailAccounts(userId),
+      permissions: getMailPermissions(session.scopes),
     })),
   );
 
@@ -494,6 +499,8 @@ export async function handleMcpServerRequest(
       };
     }),
   );
+
+  registerMailClient(server, session, toolLogger);
 
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
