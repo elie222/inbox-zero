@@ -217,6 +217,42 @@ describe("Response Time Stats", () => {
       expect(result.responseTimes).toHaveLength(1);
       expect(result.responseTimes[0].responseTimeMins).toBe(30); // 30 mins
     });
+
+    it("parses Gmail millisecond-timestamp internalDate strings", async () => {
+      const threadId = "t1";
+      const sentMsg = getMockMessageHelper({ threadId, id: "s1" });
+
+      const t0 = new Date("2024-01-01T10:00:00Z");
+      const t1 = new Date("2024-01-01T10:45:00Z");
+
+      // Returned out of order so the chronological sort must parse them too
+      mockEmailProvider.getThreadMessages.mockResolvedValue([
+        {
+          ...getMockMessageHelper({ id: "s1", threadId }),
+          internalDate: String(t1.getTime()),
+          labelIds: ["SENT"],
+        },
+        {
+          ...getMockMessageHelper({ id: "r1", threadId }),
+          internalDate: String(t0.getTime()),
+        },
+      ]);
+
+      const result = await calculateResponseTimes(
+        [sentMsg],
+        mockEmailProvider,
+        logger,
+      );
+
+      expect(result.responseTimes).toHaveLength(1);
+      expect(result.responseTimes[0]).toMatchObject({
+        receivedMessageId: "r1",
+        sentMessageId: "s1",
+        responseTimeMins: 45,
+        receivedAt: t0,
+        sentAt: t1,
+      });
+    });
   });
 
   describe("calculateSummaryStats", () => {
