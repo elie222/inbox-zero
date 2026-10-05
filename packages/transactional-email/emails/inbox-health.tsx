@@ -30,7 +30,8 @@ export default function InboxHealthEmail(props: InboxHealthEmailProps) {
     senders,
   } = props;
 
-  const bulkUnsubscribeUrl = `${baseUrl}/${emailAccountId}/bulk-unsubscribe?select=suggested`;
+  const bulkUnsubscribePageUrl = `${baseUrl}/${emailAccountId}/bulk-unsubscribe`;
+  const selectSuggestedUrl = `${bulkUnsubscribePageUrl}?select=suggested`;
   const senderCountText = getSenderCountText(suggestionCount);
   const hiddenCount = Math.max(suggestionCount - senders.length, 0);
 
@@ -60,7 +61,7 @@ export default function InboxHealthEmail(props: InboxHealthEmailProps) {
             : undefined
         }
         cta={{
-          href: bulkUnsubscribeUrl,
+          href: selectSuggestedUrl,
           label: "Unsubscribe in one click",
           primary: true,
         }}
@@ -70,7 +71,7 @@ export default function InboxHealthEmail(props: InboxHealthEmailProps) {
             <SenderRow
               key={sender.email}
               sender={sender}
-              href={bulkUnsubscribeUrl}
+              href={bulkUnsubscribePageUrl}
               isLast={index === senders.length - 1}
             />
           ))}
