@@ -1,29 +1,13 @@
 "use client";
 
 import type { ReactNode } from "react";
-import dynamic from "next/dynamic";
-import { Loader2Icon } from "lucide-react";
 import {
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-
-// The player is heavy and only needed once a dialog opens. DialogContent
-// mounts on open, so loading it here keeps it out of every page that merely
-// renders a "Watch demo" button.
-const MuxVideo = dynamic(
-  () => import("@/components/MuxVideo").then((mod) => mod.MuxVideo),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex size-full items-center justify-center">
-        <Loader2Icon className="size-8 animate-spin text-white/70" />
-      </div>
-    ),
-  },
-);
+import { LazyMuxVideo } from "@/components/LazyMuxVideo";
 
 // Width tracks the viewport, minus the heading, so the 16:9 player stays
 // inside the centered dialog. A fixed player width wider than the dialog
@@ -86,7 +70,7 @@ function VideoPlayer({
 }) {
   return (
     <div className="relative mx-auto aspect-video w-full overflow-hidden rounded-lg bg-black">
-      <MuxVideo
+      <LazyMuxVideo
         playbackId={muxPlaybackId}
         title={title}
         className="size-full"

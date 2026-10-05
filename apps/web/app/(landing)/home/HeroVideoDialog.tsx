@@ -1,8 +1,7 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { usePostHog } from "posthog-js/react";
-import { Loader2Icon } from "lucide-react";
+import { LazyMuxVideo } from "@/components/LazyMuxVideo";
 import { LiquidGlassButton } from "@/components/new-landing/LiquidGlassButton";
 import { Play } from "@/components/new-landing/icons/Play";
 import {
@@ -16,20 +15,6 @@ import { landingPageAnalytics } from "@/hooks/useAnalytics";
 // Recorded on every hero video event so a future video swap can be compared
 // with this one by video_id.
 const HERO_VIDEO_ID = "YeTrweHxCIM5tcBMXlvRbmDuPqL028lJrmJ3F6ZgwnDY";
-
-// Most visitors never open the video, so the player loads only when the
-// dialog does (DialogContent mounts on open).
-const MuxVideo = dynamic(
-  () => import("@/components/MuxVideo").then((mod) => mod.MuxVideo),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex size-full items-center justify-center">
-        <Loader2Icon className="size-8 animate-spin text-white/70" />
-      </div>
-    ),
-  },
-);
 
 export function HeroVideoDialog() {
   const posthog = usePostHog();
@@ -58,7 +43,7 @@ export function HeroVideoDialog() {
       <DialogContent className="max-w-7xl border-0 bg-transparent p-0">
         <DialogTitle className="sr-only">Inbox Zero product video</DialogTitle>
         <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-black">
-          <MuxVideo
+          <LazyMuxVideo
             playbackId={HERO_VIDEO_ID}
             title="Inbox Zero product video"
             className="size-full"
