@@ -1,4 +1,4 @@
-import type { MouseEvent, WheelEvent } from "react";
+import type { WheelEvent } from "react";
 import { useState } from "react";
 import {
   Check,
@@ -193,7 +193,7 @@ export function FolderSelector({
   };
 
   return (
-    <div>
+    <div className="relative">
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
@@ -203,38 +203,29 @@ export function FolderSelector({
             className="w-full justify-between"
             disabled={isLoading}
           >
-            <div className="flex items-center gap-2 flex-1">
+            <div
+              className={cn(
+                "flex items-center gap-2 flex-1 min-w-0",
+                value.id && !isLoading && "pr-7",
+              )}
+            >
               {isLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
                   <span>Loading folders...</span>
                 </>
               ) : value.id ? (
-                <div className="flex items-center gap-2">
-                  <FolderIcon className="h-4 w-4" />
-                  <span>{value.name || selectedFolder?.displayName || ""}</span>
+                <div className="flex min-w-0 items-center gap-2">
+                  <FolderIcon className="h-4 w-4 shrink-0" />
+                  <span className="truncate">
+                    {value.name || selectedFolder?.displayName || ""}
+                  </span>
                 </div>
               ) : (
                 placeholder
               )}
             </div>
-            <div className="flex items-center gap-1">
-              {value.id && !isLoading && (
-                <Button
-                  variant="ghost"
-                  size="icon2xs"
-                  className="hover:bg-muted"
-                  onClick={(e: MouseEvent<HTMLButtonElement>) => {
-                    e.stopPropagation();
-                    onChangeValue({ name: "", id: "" });
-                  }}
-                  title="Clear folder selection"
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              )}
-              <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
-            </div>
+            <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
@@ -276,6 +267,19 @@ export function FolderSelector({
           </Command>
         </PopoverContent>
       </Popover>
+      {value.id && !isLoading && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon2xs"
+          className="absolute right-9 top-2 hover:bg-muted"
+          onClick={() => onChangeValue({ name: "", id: "" })}
+          aria-label="Clear folder selection"
+          title="Clear folder selection"
+        >
+          <X className="h-3 w-3" />
+        </Button>
+      )}
       {error && (
         <div className="mt-1 text-sm text-red-600 dark:text-red-400">
           {error.message}
