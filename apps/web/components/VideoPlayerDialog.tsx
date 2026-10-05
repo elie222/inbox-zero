@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import dynamic from "next/dynamic";
+import { Loader2Icon } from "lucide-react";
 import {
   DialogContent,
   DialogDescription,
@@ -14,7 +15,14 @@ import {
 // renders a "Watch demo" button.
 const MuxVideo = dynamic(
   () => import("@/components/MuxVideo").then((mod) => mod.MuxVideo),
-  { ssr: false },
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex size-full items-center justify-center">
+        <Loader2Icon className="size-8 animate-spin text-white/70" />
+      </div>
+    ),
+  },
 );
 
 // Width tracks the viewport, minus the heading, so the 16:9 player stays
