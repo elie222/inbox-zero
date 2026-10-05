@@ -456,9 +456,12 @@ function useMailHtmlFrame(
       const { body, documentElement } = iframeDocument;
       if (!body || !documentElement) return;
 
+      // scrollHeight rounds to the nearest pixel, so a fractional content
+      // height can come out a pixel short and leave the frame scrollable.
       const newHeight = Math.max(
         documentElement.scrollHeight,
         body.scrollHeight,
+        Math.ceil(documentElement.getBoundingClientRect().height),
       );
       if (newHeight) setMeasurement({ documentKey, height: newHeight });
     };
