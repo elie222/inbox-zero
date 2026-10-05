@@ -98,7 +98,7 @@ export function DigestSetting() {
   return (
     <SettingCard
       title="Digest"
-      description="Get a daily summary of your newsletter emails."
+      description="Get a summary of the emails you choose, on your schedule."
       right={renderRight()}
     />
   );
