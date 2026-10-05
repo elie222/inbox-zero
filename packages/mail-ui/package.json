@@ -18,7 +18,9 @@
     "./MailSidebarRow": "./src/MailSidebarRow.tsx",
     "./MailThreadRow": "./src/MailThreadRow.tsx",
     "./MailReaderSurface": "./src/MailReaderSurface.tsx",
-    "./sanitize-html": "./src/sanitize-html.ts"
+    "./sanitize-html": "./src/sanitize-html.ts",
+    "./MailListToolbarSurface": "./src/MailListToolbarSurface.tsx",
+    "./MailAccountSwitcherTrigger": "./src/MailAccountSwitcherTrigger.tsx"
   },
   "scripts": {
     "test": "vitest run",

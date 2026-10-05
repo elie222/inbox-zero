@@ -28,7 +28,12 @@ const zodV4CorePath = path.join(
 const indexingAllowed = isIndexingAllowed(env.NEXT_PUBLIC_BASE_URL);
 
 const nextConfig: NextConfig = {
-  allowedDevOrigins: ["127.0.0.1"],
+  allowedDevOrigins: [
+    "127.0.0.1",
+    ...(URL.canParse(env.NEXT_PUBLIC_BASE_URL)
+      ? [new URL(env.NEXT_PUBLIC_BASE_URL).hostname]
+      : []),
+  ],
   // Sequential Playwright feature groups use separate dev servers. Isolating
   // their caches prevents a new Turbopack process from restoring stale tasks.
   ...(playwrightRunId && !isProductionBuild
@@ -225,6 +230,9 @@ const nextConfig: NextConfig = {
       }
     : undefined,
   output: process.env.DOCKER_BUILD === "true" ? "standalone" : undefined,
+  outputFileTracingIncludes: {
+    "/mcp": ["./generated/mcp-app/*"],
+  },
   pageExtensions: ["js", "jsx", "mdx", "ts", "tsx"],
   reactStrictMode: true,
   async redirects() {
