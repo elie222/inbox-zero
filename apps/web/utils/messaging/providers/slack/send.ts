@@ -79,7 +79,7 @@ export async function sendConnectionOnboardingDirectMessage({
   await client.chat.postMessage(
     disableSlackLinkUnfurls({
       channel: userId,
-      text: `✅ Inbox Zero connected. Next, choose a private channel in Inbox Zero Settings for meeting brief and attachment notifications, then invite ${formatSlackAppMention(botUserId)} there. You can also DM me anytime to chat about your emails.`,
+      text: `✅ Inbox Zero connected. Next, open Channels in Inbox Zero to choose where messages go. To use a private channel, invite ${formatSlackAppMention(botUserId)} there. You can also DM me anytime to chat about your emails.`,
     }),
   );
 }
