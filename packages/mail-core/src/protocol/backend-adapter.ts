@@ -7,6 +7,8 @@ import {
   bootstrapRequestSchema,
   bootstrapResultSchema,
   capabilitiesResultSchema,
+  changesBatchRequestSchema,
+  changesBatchResultSchema,
   changesRequestSchema,
   changesResultSchema,
   conversationMembershipRequestSchema,
@@ -43,12 +45,46 @@ export type MailHttpRequestFn = (input: {
   sizeBytes?: number | null;
 }>;
 
+export type BackendMailboxSource = MailboxSource &
+  Required<Pick<MailboxSource, "readChangesBatch">>;
+
 export function createBackendMailboxSource(input: {
   request: MailHttpRequestFn;
   accountId: string;
-}): MailboxSource {
+}): BackendMailboxSource {
   const { request, accountId } = input;
   const base = `/api/mail/v1/accounts/${encodeURIComponent(accountId)}`;
+  const readChanges: MailboxSource["readChanges"] = async ({
+    session,
+    requestId,
+    position,
+    pageSize,
+    signal,
+  }) => {
+    const response = await request({
+      method: "POST",
+      path: `${base}/changes`,
+      body: changesRequestSchema.parse({
+        protocolVersion: MAIL_PROTOCOL_VERSION,
+        requestId,
+        session,
+        position,
+        pageSize,
+      }),
+      signal,
+    });
+    const reset = parseReset(response);
+    if (reset) return reset;
+    const error = readError(response);
+    if (error) {
+      if (error.error.code === "expired_position") {
+        return { status: "reset_required", scopeId: position.streamId };
+      }
+      return mapReadError(error);
+    }
+    return changesResultSchema.parse(response.json);
+  };
+  let changesBatchUnsupported = false;
   return {
     async describe({ requestId, signal }) {
       const response = await request({
@@ -175,29 +211,51 @@ export function createBackendMailboxSource(input: {
         },
       };
     },
-    async readChanges({ session, requestId, position, pageSize, signal }) {
+    readChanges,
+    async readChangesBatch({ session, reads, pageSize, signal }) {
+      const readEach = async () => {
+        const results = [];
+        for (const read of reads) {
+          results.push(
+            await readChanges({
+              session,
+              requestId: read.requestId,
+              position: read.position,
+              pageSize,
+              signal,
+            }),
+          );
+        }
+        return results;
+      };
+      if (changesBatchUnsupported) return readEach();
       const response = await request({
         method: "POST",
-        path: `${base}/changes`,
-        body: changesRequestSchema.parse({
+        path: `${base}/changes/batch`,
+        body: changesBatchRequestSchema.parse({
           protocolVersion: MAIL_PROTOCOL_VERSION,
-          requestId,
+          requestId: reads[0]?.requestId ?? "changes-batch",
           session,
-          position,
+          reads,
           pageSize,
         }),
         signal,
       });
-      const reset = parseReset(response);
-      if (reset) return reset;
+      // Servers that predate the batch route answer with a plain 404.
+      if (response.status === 404 && !parseError(response)) {
+        changesBatchUnsupported = true;
+        return readEach();
+      }
       const error = readError(response);
       if (error) {
-        if (error.error.code === "expired_position") {
-          return { status: "reset_required", scopeId: position.streamId };
-        }
-        return mapReadError(error);
+        const mapped = mapReadError(error);
+        return reads.map(() => mapped);
       }
-      return changesResultSchema.parse(response.json);
+      const parsed = changesBatchResultSchema.parse(response.json);
+      if (parsed.results.length !== reads.length) {
+        throw new Error("Changes batch returned the wrong number of results");
+      }
+      return parsed.results;
     },
     async hydrate({ session, requestId, keys, purpose, signal }) {
       const response = await request({

@@ -17,7 +17,11 @@ import type {
   OperationKey,
 } from "./identities";
 import type { OperationState } from "./operations";
-import type { MailboxSource } from "./ports/mailbox-source";
+import {
+  MAX_CHANGES_BATCH_READS,
+  type MailboxSource,
+  type SyncReadResult,
+} from "./ports/mailbox-source";
 import type {
   AccountSyncState,
   MailStore,
@@ -950,6 +954,7 @@ export function createMailEngine(input: {
       return;
     }
     const streams = [...streamsById.values()];
+    const dueStreams: typeof streams = [];
     for (const stream of streams) {
       if (visitedStreams > 0) await yieldToHost();
       visitedStreams += 1;
@@ -985,63 +990,131 @@ export function createMailEngine(input: {
       }
       if (!catchUpDue) continue;
       idleGate.streamCheckedAt.set(stream.streamId, checkStamp(idleGate));
-      const changes = await source.readChanges({
-        session,
-        requestId: runtime.randomId(),
-        position: stream,
-        pageSize: 50,
-        signal: signal ?? new AbortController().signal,
-      });
-      // A stopped lane may have been replaced, and its late result must not
-      // move the shared catch-up schedule.
-      if (signal.aborted) return;
-      if (changes.status === "page") {
-        const applied = await store.applySyncPage({
-          page: changes.page,
-          ownerId,
-          bodies: changes.page.bodies,
-        });
-        if (applied.status === "committed") {
-          if (changes.page.roundComplete) {
-            idleGate.nextStreamCatchUpAtMs.set(
-              stream.streamId,
-              runtime.nowMs() +
-                streamCatchUpInterval(idleGate, stream.streamId),
-            );
-          } else {
-            idleGate.nextStreamCatchUpAtMs.delete(stream.streamId);
-          }
-          await refreshViews();
-          await noteConnection(account.accountId, "ok");
-        } else {
-          idleGate.nextStreamCatchUpAtMs.delete(stream.streamId);
-        }
-      } else if (changes.status === "reset_required") {
-        // Unfinished pages resume through resumesBootstrap, so the gate
-        // only slows a provider that keeps asking for a resync.
-        idleGate.nextStreamCatchUpAtMs.set(
-          stream.streamId,
-          runtime.nowMs() + streamCatchUpInterval(idleGate, stream.streamId),
+      dueStreams.push(stream);
+    }
+    const readBatch = source.readChangesBatch;
+    if (readBatch && dueStreams.length > 1) {
+      // One request per chunk shares the provider connection and lookups
+      // that a request per folder would repeat.
+      for (
+        let offset = 0;
+        offset < dueStreams.length;
+        offset += MAX_CHANGES_BATCH_READS
+      ) {
+        if (offset > 0) await yieldToHost();
+        if (signal.aborted) return;
+        const chunk = dueStreams.slice(
+          offset,
+          offset + MAX_CHANGES_BATCH_READS,
         );
-        const resetStream = { ...stream, streamId: changes.scopeId };
-        await ingestBootstrap({
+        const results = await readBatch({
           session,
-          from: resetStream,
-          deadlineMs: runtime.nowMs() + SYNC_LANE_BOOTSTRAP_SLICE_MS,
+          reads: chunk.map((stream) => ({
+            requestId: runtime.randomId(),
+            position: stream,
+          })),
+          pageSize: 50,
           signal,
-          requestId: runtime.randomId(),
-          scopeId: changes.scopeId,
         });
-        await rememberBootstrapContinuation(idleGate, session, changes.scopeId);
-      } else {
-        idleGate.nextStreamCatchUpAtMs.set(
-          stream.streamId,
-          runtime.nowMs() + streamCatchUpInterval(idleGate, stream.streamId),
-        );
-        await noteConnection(account.accountId, changes.status);
+        if (results.length !== chunk.length) {
+          throw new Error("Changes batch returned the wrong number of results");
+        }
+        for (const [index, stream] of chunk.entries()) {
+          const changes = results[index] as SyncReadResult;
+          // Applying a page holds the store, so let host reads in between.
+          if (index > 0) await yieldToHost();
+          await applyStreamChanges({
+            session,
+            idleGate,
+            stream,
+            changes,
+            signal,
+          });
+        }
+      }
+    } else {
+      for (const [index, stream] of dueStreams.entries()) {
+        if (index > 0) await yieldToHost();
+        if (signal.aborted) return;
+        const changes = await source.readChanges({
+          session,
+          requestId: runtime.randomId(),
+          position: stream,
+          pageSize: 50,
+          signal,
+        });
+        await applyStreamChanges({
+          session,
+          idleGate,
+          stream,
+          changes,
+          signal,
+        });
       }
     }
     await catchUpAssistantIfDue(idleGate, account, signal);
+  }
+
+  async function applyStreamChanges({
+    session,
+    idleGate,
+    stream,
+    changes,
+    signal,
+  }: {
+    session: { accountId: string; generation: string };
+    idleGate: IdleCatchUpGate;
+    stream: AccountSyncState["streams"][number];
+    changes: SyncReadResult;
+    signal: AbortSignal;
+  }) {
+    // A stopped lane may have been replaced, and its late result must not
+    // move the shared catch-up schedule.
+    if (signal.aborted) return;
+    if (changes.status === "page") {
+      const applied = await store.applySyncPage({
+        page: changes.page,
+        ownerId,
+        bodies: changes.page.bodies,
+      });
+      if (applied.status === "committed") {
+        if (changes.page.roundComplete) {
+          idleGate.nextStreamCatchUpAtMs.set(
+            stream.streamId,
+            runtime.nowMs() + streamCatchUpInterval(idleGate, stream.streamId),
+          );
+        } else {
+          idleGate.nextStreamCatchUpAtMs.delete(stream.streamId);
+        }
+        await refreshViews();
+        await noteConnection(session.accountId, "ok");
+      } else {
+        idleGate.nextStreamCatchUpAtMs.delete(stream.streamId);
+      }
+    } else if (changes.status === "reset_required") {
+      // Unfinished pages resume through resumesBootstrap, so the gate
+      // only slows a provider that keeps asking for a resync.
+      idleGate.nextStreamCatchUpAtMs.set(
+        stream.streamId,
+        runtime.nowMs() + streamCatchUpInterval(idleGate, stream.streamId),
+      );
+      const resetStream = { ...stream, streamId: changes.scopeId };
+      await ingestBootstrap({
+        session,
+        from: resetStream,
+        deadlineMs: runtime.nowMs() + SYNC_LANE_BOOTSTRAP_SLICE_MS,
+        signal,
+        requestId: runtime.randomId(),
+        scopeId: changes.scopeId,
+      });
+      await rememberBootstrapContinuation(idleGate, session, changes.scopeId);
+    } else {
+      idleGate.nextStreamCatchUpAtMs.set(
+        stream.streamId,
+        runtime.nowMs() + streamCatchUpInterval(idleGate, stream.streamId),
+      );
+      await noteConnection(session.accountId, changes.status);
+    }
   }
 
   function idleCatchUpGateFor(accountId: string, generation: string) {

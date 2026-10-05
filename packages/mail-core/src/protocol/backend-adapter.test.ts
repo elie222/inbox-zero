@@ -98,6 +98,72 @@ describe("backend mailbox source", () => {
     ).resolves.toMatchObject(expected);
   });
 
+  it("reads several streams in one batch request", async () => {
+    const paths: string[] = [];
+    const source = createBackendMailboxSource({
+      accountId: "acc-1",
+      request: async (input) => {
+        paths.push(input.path);
+        return {
+          status: 200,
+          json: {
+            protocolVersion: MAIL_PROTOCOL_VERSION,
+            requestId: "r1",
+            results: [
+              {
+                status: "reset_required",
+                protocolVersion: MAIL_PROTOCOL_VERSION,
+                requestId: "r1",
+                scopeId: "inbox",
+              },
+              {
+                status: "blocked_auth",
+                protocolVersion: MAIL_PROTOCOL_VERSION,
+                requestId: "r2",
+              },
+            ],
+          },
+        };
+      },
+    });
+
+    const results = await source.readChangesBatch(batchInput());
+
+    expect(paths).toEqual(["/api/mail/v1/accounts/acc-1/changes/batch"]);
+    expect(results).toMatchObject([
+      { status: "reset_required", scopeId: "inbox" },
+      { status: "blocked_auth" },
+    ]);
+  });
+
+  it("falls back to one request per stream when the server has no batch route", async () => {
+    const paths: string[] = [];
+    const source = createBackendMailboxSource({
+      accountId: "acc-1",
+      request: async (input) => {
+        paths.push(input.path);
+        if (input.path.endsWith("/changes/batch")) {
+          return { status: 404, json: null };
+        }
+        return {
+          status: 409,
+          json: { status: "reset_required", scopeId: "primary" },
+        };
+      },
+    });
+
+    await source.readChangesBatch(batchInput());
+    await source.readChangesBatch(batchInput());
+
+    expect(paths).toEqual([
+      "/api/mail/v1/accounts/acc-1/changes/batch",
+      "/api/mail/v1/accounts/acc-1/changes",
+      "/api/mail/v1/accounts/acc-1/changes",
+      "/api/mail/v1/accounts/acc-1/changes",
+      "/api/mail/v1/accounts/acc-1/changes",
+    ]);
+  });
+
   it("drops a search the server will never accept instead of retrying it", async () => {
     const source = createBackendMailboxSource({
       accountId: "acc-1",
@@ -339,3 +405,15 @@ describe("backend operation executor", () => {
     });
   });
 });
+
+function batchInput() {
+  return {
+    session: { accountId: "acc-1", generation: "g1" },
+    reads: ["inbox", "archive"].map((streamId, index) => ({
+      requestId: `r${index + 1}`,
+      position: { streamId, generation: "g1", checkpoint: "cursor" },
+    })),
+    pageSize: 50,
+    signal: new AbortController().signal,
+  };
+}

@@ -22,6 +22,10 @@ import type { ParsedMessage } from "@/utils/types";
 import { mapWithConcurrency } from "@/utils/async";
 import { convertEmailHtmlToText } from "@/utils/mail";
 
+// Outlook allows four concurrent Graph requests per mailbox, shared with
+// webhook processing, so batched folder reads stay below that.
+const CHANGES_BATCH_CONCURRENCY = 3;
+
 const SUPPORTED_CHANGES = [
   "archive",
   "unarchive",
@@ -52,10 +56,10 @@ type BootstrapToken = {
 export function createEmailProviderMailboxSource(input: {
   provider: EmailProvider;
   accountId: string;
-}): MailboxSource {
+}): MailboxSource & Required<Pick<MailboxSource, "readChangesBatch">> {
   const { provider, accountId } = input;
   const maxPageSize = provider.name === "microsoft" ? 20 : 50;
-  return {
+  const source: MailboxSource = {
     async describe() {
       return {
         status: "ok",
@@ -374,6 +378,28 @@ export function createEmailProviderMailboxSource(input: {
         }
         return mapProviderError(error);
       }
+    },
+  };
+  return {
+    ...source,
+    async readChangesBatch({ session, reads, pageSize, signal }) {
+      const read = (item: (typeof reads)[number]) =>
+        source.readChanges({
+          session,
+          requestId: item.requestId,
+          position: item.position,
+          pageSize,
+          signal,
+        });
+      // The first read fills the provider's folder and category lookups so the
+      // rest reuse them instead of each fetching their own.
+      const [first, ...rest] = reads;
+      if (!first) return [];
+      const firstResult = await read(first);
+      return [
+        firstResult,
+        ...(await mapWithConcurrency(rest, CHANGES_BATCH_CONCURRENCY, read)),
+      ];
     },
   };
 }
