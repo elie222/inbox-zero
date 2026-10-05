@@ -406,6 +406,11 @@ function MailSearchInput({
                   return;
                 }
                 if (event.key !== "Escape") return;
+                // The mail-wide Escape shortcut also clears the search, so a
+                // press handled here must not reach it.
+                if (suggestionsOpen || filtersOpen || draft || searchQuery) {
+                  event.preventDefault();
+                }
                 if (suggestionsOpen) {
                   setSuggestionsDismissed(true);
                   setActiveIndex(-1);
