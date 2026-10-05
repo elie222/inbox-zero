@@ -1,12 +1,15 @@
 const INITIAL_RETRY_MS = 1000;
 const MAX_RETRY_MS = 30_000;
 const ACCOUNT_RESCAN_MS = 5000;
+const CHANGE_EVENT_LINES = new Set(["event: mailbox-change", "event: ready"]);
 
 export function consumeMailboxSignalBuffer(buffer: string) {
   const events = buffer.split("\n\n");
   const rest = events.pop() ?? "";
+  // Every (re)connect sends `ready`; changes while disconnected are not
+  // replayed, so treat it as a change to catch up immediately.
   const changed = events.some((event) =>
-    event.split("\n").some((line) => line.trim() === "event: mailbox-change"),
+    event.split("\n").some((line) => CHANGE_EVENT_LINES.has(line.trim())),
   );
   return { rest, changed };
 }

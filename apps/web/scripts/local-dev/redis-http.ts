@@ -51,8 +51,8 @@ export async function createRedisHttpServer({
           : {
               result:
                 request.headers["upstash-encoding"] === "base64"
-                  ? encodeResult(result)
-                  : result,
+                  ? encodeResult(toRestReply(result))
+                  : toRestReply(result),
             },
       );
       response.end(JSON.stringify(batched ? replies : replies[0]));
@@ -90,6 +90,15 @@ function isCommand(value: unknown): value is [string, ...(string | number)[]] {
     typeof value[0] === "string" &&
     value.every((arg) => typeof arg === "string" || typeof arg === "number")
   );
+}
+
+// ioredis turns HGETALL replies into objects; the Upstash REST API returns a
+// flat field/value array.
+function toRestReply(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(toRestReply);
+  if (value && typeof value === "object" && !Buffer.isBuffer(value))
+    return Object.entries(value).flat();
+  return value;
 }
 
 function encodeResult(value: unknown, topLevel = true): unknown {
