@@ -1057,7 +1057,8 @@ export function MailShell() {
         ? undefined
         : () => {
             if (selection.hasSelection) selection.clear();
-            else if (layout === "list") closeReader();
+            else if (layout === "list" && openThreadId) closeReader();
+            else if (searchValue) setSearch("");
           },
       nextSplit: () => {
         const index = splits.findIndex(
