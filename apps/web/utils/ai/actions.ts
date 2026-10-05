@@ -579,7 +579,11 @@ const move_folder: ActionFunction<{
 
   if (!folderIdToUse) return;
 
-  await client.moveMessageToFolder(email.id, folderIdToUse);
+  await client.moveThreadToFolder(
+    email.threadId,
+    emailAccount.email,
+    folderIdToUse,
+  );
 
   // lazy-update the folderId in the database for future runs
   if (!originalFolderId && folderIdToUse && args.folderName) {

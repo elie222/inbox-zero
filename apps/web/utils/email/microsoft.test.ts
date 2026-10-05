@@ -563,20 +563,6 @@ describe("OutlookProvider.getLatestMessageInThread", () => {
 });
 
 describe("OutlookProvider snapshot mutations", () => {
-  it("moves only the selected message to a custom folder", async () => {
-    const post = vi.fn().mockResolvedValue({});
-    const api = vi.fn(() => ({ post }));
-    const provider = new OutlookProvider(
-      { getClient: () => ({ api }) } as never,
-      createTestLogger(),
-    );
-    await provider.moveMessageToFolder("matched-message", "fyi-folder");
-    expect(api).toHaveBeenCalledExactlyOnceWith(
-      "/me/messages/matched-message/move",
-    );
-    expect(post).toHaveBeenCalledWith({ destinationId: "fyi-folder" });
-  });
-
   it.each([
     ["archiveMessages", "archive"],
     ["trashMessages", "deleteditems"],

@@ -2075,13 +2075,6 @@ export class GmailProvider implements EmailProvider {
     this.logger.warn("Deleting folders is not supported for Gmail");
   }
 
-  async moveMessageToFolder(
-    _messageId: string,
-    _folderId: string,
-  ): Promise<void> {
-    this.logger.warn("Moving messages to folders is not supported for Gmail");
-  }
-
   async moveThreadToFolder(
     _threadId: string,
     _ownerEmail: string,
