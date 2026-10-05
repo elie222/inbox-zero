@@ -26,6 +26,7 @@ import { env } from "@/env";
 import { useApiKeys } from "@/hooks/useApiKeys";
 import type { ApiKeyResponse } from "@/app/api/user/api-keys/route";
 import {
+  reduceMcpConnectionScopesAction,
   revokeMcpConnectionAction,
   updateMcpServerAccessAction,
 } from "@/utils/actions/api-key";
@@ -216,26 +217,39 @@ function McpConnectionsDialog({
         <DialogHeader>
           <DialogTitle>MCP apps</DialogTitle>
         </DialogHeader>
+        <DialogDescription>
+          Remove optional access below, or disconnect to remove all access. To
+          add permissions, reconnect from the application and approve the new
+          access.
+        </DialogDescription>
         <LoadingContent loading={isLoading} error={error}>
           <ul className="space-y-3">
             {connections.map((connection) => (
               <li
                 key={connection.clientId}
-                className="flex items-center justify-between gap-3"
+                className="space-y-3 rounded-lg border p-3"
               >
-                <span className="truncate text-sm">{connection.name}</span>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={isExecuting}
-                  aria-label={`Disconnect ${connection.name}`}
-                  onClick={() =>
-                    executeRevoke({ clientId: connection.clientId })
-                  }
-                >
-                  Disconnect
-                </Button>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="truncate text-sm font-medium">
+                    {connection.name}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={isExecuting}
+                    aria-label={`Disconnect ${connection.name}`}
+                    onClick={() =>
+                      executeRevoke({ clientId: connection.clientId })
+                    }
+                  >
+                    Disconnect
+                  </Button>
+                </div>
+                <McpPermissionControls
+                  connection={connection}
+                  mutate={mutate}
+                />
               </li>
             ))}
           </ul>
@@ -244,3 +258,55 @@ function McpConnectionsDialog({
     </Dialog>
   );
 }
+
+function McpPermissionControls({
+  connection,
+  mutate,
+}: {
+  connection: ApiKeyResponse["mcpConnections"][number];
+  mutate: () => void;
+}) {
+  const { execute, isExecuting } = useAction(reduceMcpConnectionScopesAction, {
+    onSuccess: () => toastSuccess({ description: "Permissions updated" }),
+    onError: (error) =>
+      toastError({ description: getActionErrorMessage(error.error) }),
+    onSettled: () => mutate(),
+  });
+  return (
+    <div className="space-y-2">
+      {MCP_PERMISSIONS.map(({ scope, label }) => (
+        <div
+          key={scope}
+          className="flex items-center justify-between gap-3 text-sm"
+        >
+          <span>{label}</span>
+          <Switch
+            aria-label={`${label} for ${connection.name}`}
+            checked={connection.scopes.includes(scope)}
+            disabled={
+              isExecuting ||
+              scope === "mcp:read" ||
+              !connection.scopes.includes(scope)
+            }
+            onCheckedChange={() =>
+              execute({
+                clientId: connection.clientId,
+                scopes: MCP_PERMISSIONS.map((p) => p.scope).filter(
+                  (current) =>
+                    current !== scope && connection.scopes.includes(current),
+                ),
+              })
+            }
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const MCP_PERMISSIONS = [
+  { scope: "mcp:read", label: "Read and search mail" },
+  { scope: "mcp:write", label: "Drafts, organization, and rules" },
+  { scope: "mcp:send", label: "Send email" },
+  { scope: "offline_access", label: "Offline access" },
+] as const;

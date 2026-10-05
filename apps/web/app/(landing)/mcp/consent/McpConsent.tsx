@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createAuthClient } from "better-auth/react";
 import { oauthProviderClient } from "@better-auth/oauth-provider/client";
 import { useAction } from "next-safe-action/hooks";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { updateMcpServerAccessAction } from "@/utils/actions/api-key";
@@ -24,6 +25,9 @@ export function McpConsent({
   scopes: string[];
   enabled: boolean;
 }) {
+  const [selected, setSelected] = useState(() =>
+    scopes.filter((scope) => scope !== "mcp:send"),
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const { executeAsync } = useAction(updateMcpServerAccessAction);
@@ -36,7 +40,10 @@ export function McpConsent({
         const result = await executeAsync({ enabled: true });
         if (!result?.data) throw new Error(getActionErrorMessage(result));
       }
-      const result = await client.oauth2.consent({ accept });
+      const result = await client.oauth2.consent({
+        accept,
+        ...(accept && { scope: selected.join(" ") }),
+      });
       if (result.error)
         throw new Error(
           result.error.message || "Could not save your decision.",
@@ -62,9 +69,30 @@ export function McpConsent({
           <CardTitle>Connect {clientName}?</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            {consentSummary(scopes)}
-          </p>
+          <fieldset className="space-y-4" disabled={busy}>
+            {scopes.map((scope) => (
+              <label
+                key={scope}
+                htmlFor={`permission-${scope}`}
+                className="flex items-start gap-3 text-sm"
+              >
+                <Checkbox
+                  id={`permission-${scope}`}
+                  checked={selected.includes(scope)}
+                  disabled={scope === "mcp:read"}
+                  onCheckedChange={(checked) =>
+                    setSelected((current) =>
+                      checked
+                        ? [...current, scope]
+                        : current.filter((value) => value !== scope),
+                    )
+                  }
+                  aria-label={permissionLabel(scope)}
+                />
+                <span>{permissionLabel(scope)}</span>
+              </label>
+            ))}
+          </fieldset>
           {error && (
             <p role="alert" className="text-sm text-destructive">
               {error}
@@ -79,7 +107,11 @@ export function McpConsent({
             >
               Deny
             </Button>
-            <Button type="button" disabled={busy} onClick={() => respond(true)}>
+            <Button
+              type="button"
+              disabled={busy || selected.length === 0}
+              onClick={() => respond(true)}
+            >
               Allow
             </Button>
           </div>
@@ -89,9 +121,17 @@ export function McpConsent({
   );
 }
 
-function consentSummary(scopes: string[]) {
-  if (scopes.includes("mcp:write")) {
-    return "Can search mail, create drafts, and manage rules. Can't send email.";
+function permissionLabel(scope: string) {
+  switch (scope) {
+    case "mcp:read":
+      return "Read and search mail (required)";
+    case "mcp:write":
+      return "Create drafts, organize mail, and manage rules";
+    case "mcp:send":
+      return "Send email";
+    case "offline_access":
+      return "Stay connected when you are away";
+    default:
+      return scope;
   }
-  return "Can search and read mail. Can't send email.";
 }

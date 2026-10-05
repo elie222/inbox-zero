@@ -75,6 +75,11 @@ it("initializes a real MCP client and handles scoped tool calls over stateless H
           provider: "google",
         },
       ],
+      permissions: expect.objectContaining({
+        read: true,
+        write: false,
+        send: false,
+      }),
     });
     expect(prisma.emailAccount.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { userId: "owner" } }),

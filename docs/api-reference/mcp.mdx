@@ -73,9 +73,10 @@ Permissions apply to all inboxes linked to your user, including inboxes linked l
 | --- | --- |
 | `mcp:read` | List inboxes, search and read email, read automation rules, and read email statistics |
 | `mcp:write` | Create mailbox drafts and create, replace, or delete automation rules. Does not send email. |
+| `mcp:send` | Send email. Granted only when a client requests it. |
 | `offline_access` | Obtain rotating refresh tokens |
 
-Clients registered without explicit scopes default to read access and refresh tokens. They must request `mcp:write` to create drafts or manage rules. A write grant does not imply a read grant. Rule writes enforce the same digest-plan restrictions as the public API.
+Clients registered without explicit scopes default to read access and refresh tokens. They must request `mcp:write` to create drafts or manage rules. A write grant does not imply a read grant. Rule writes enforce the same digest-plan restrictions as the public API. On the consent screen you can deselect any requested scope except `mcp:read`.
 
 ## Available tools
 
@@ -89,7 +90,7 @@ Search returns metadata and snippets. Use `read_thread` for truncated plain-text
 
 ## Disconnect applications
 
-Open **Settings → Account → MCP** and choose **MCP apps** to disconnect one client. That revokes that app's tokens and consent. Other apps stay connected.
+Open **Settings → Account → MCP** and choose **MCP apps** to disconnect one client. That revokes that app's tokens and consent. Other apps stay connected. You can also remove individual permissions from an app there; adding permissions back requires reconnecting from the app.
 
 Turn off **MCP** to revoke every MCP consent and refresh grant and invalidate existing access tokens. Turning MCP back on does not restore those tokens; reconnect each application to grant access again.
 

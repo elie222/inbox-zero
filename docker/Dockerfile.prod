@@ -111,6 +111,7 @@ RUN rm -f /app/apps/web/.env && touch /app/apps/web/.env
 RUN npx prisma generate --schema=apps/web/prisma/schema.prisma
 
 RUN cd /app/apps/web \
+ && node scripts/build-mcp-app.mjs \
  && pnpm exec next build \
  && pnpm exec serwist build serwist.config.mjs \
  && cd /app \
