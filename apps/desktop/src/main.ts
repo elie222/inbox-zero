@@ -94,7 +94,7 @@ let lastResumedAt: number | null = null;
 let lastFocused: BrowserWindow | null = null;
 let persistWindowsTimer: ReturnType<typeof setTimeout> | undefined;
 let pendingAuthProof: { verifier: string; expiresAt: number } | null = null;
-let completedAuthState: string | null = null;
+const handledAuthStates = new Set<string>();
 let pendingAuthUrl: string | null = null;
 let pendingCallbackPath: string | null = null;
 let isQuitting = false;
@@ -210,7 +210,7 @@ function startDesktopApp() {
   app.on("second-instance", (_event, argv) => {
     const protocolUrl = findDesktopProtocolUrl(argv);
     if (protocolUrl) {
-      handleAuthCallbackUrl(protocolUrl).catch(showSignInError);
+      handleAuthCallbackUrl(protocolUrl).catch(reportSignInError);
     }
     focusAppWindow();
   });
@@ -228,7 +228,7 @@ function startDesktopApp() {
   app.on("open-url", (event, url) => {
     event.preventDefault();
     if (app.isReady()) {
-      handleAuthCallbackUrl(url).catch(showSignInError);
+      handleAuthCallbackUrl(url).catch(reportSignInError);
       return;
     }
     pendingAuthUrl = url;
@@ -678,12 +678,13 @@ async function handleAuthCallbackUrl(url: string) {
   const window = focusAppWindow();
   const callback = parseDesktopAuthCallback(url);
   if (!callback.ok) {
-    showSignInError(new Error(callback.error));
+    reportSignInError(new Error(callback.error));
     return;
   }
   // The server can issue more than one code per sign-in when the browser
   // repeats the callback request.
-  if (callback.state === completedAuthState) return;
+  if (handledAuthStates.has(callback.state)) return;
+  handledAuthStates.add(callback.state);
 
   try {
     const proof = pendingAuthProof;
@@ -697,10 +698,10 @@ async function handleAuthCallbackUrl(url: string) {
       proof.verifier,
     );
     if (pendingAuthProof === proof) pendingAuthProof = null;
-    completedAuthState = callback.state;
     await window.loadURL(consumePostAuthUrl()).catch(() => {});
   } catch (error) {
-    showSignInError(error);
+    handledAuthStates.delete(callback.state);
+    reportSignInError(error);
   }
 }
 
@@ -772,8 +773,12 @@ async function openExternal(url: string) {
   await shell.openExternal(url);
 }
 
-function showSignInError(error: unknown) {
+function reportSignInError(error: unknown) {
   captureDesktopError(error, { area: "sign-in" });
+  showSignInError(error);
+}
+
+function showSignInError(error: unknown) {
   dialog.showErrorBox(
     "Sign in failed",
     error instanceof Error ? error.message : "Could not finish signing in",
