@@ -198,7 +198,7 @@ function SenderPanelContent({
         )}
       </div>
 
-      <div className="flex flex-wrap items-center justify-end gap-1 border-t px-4 py-4 sm:px-6">
+      <div className="flex flex-wrap items-center gap-1 border-t px-4 py-4 sm:px-6">
         <ActionCell
           item={newsletter}
           selected={false}
