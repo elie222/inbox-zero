@@ -1,5 +1,6 @@
 "use server";
 
+import chunk from "lodash/chunk";
 import prisma from "@/utils/prisma";
 import { GroupItemSource } from "@/generated/prisma/enums";
 import { isColdEmail } from "@/utils/cold-email/is-cold-email";
@@ -52,24 +53,53 @@ export const markNotColdEmailAction = actionClient
     },
   );
 
+// Each thread costs a fetch plus a label update, so very large senders are
+// capped to keep the action responsive.
+const MAX_THREADS_TO_UNLABEL = 500;
+const THREAD_PAGE_SIZE = 100;
+const UNLABEL_CONCURRENCY = 10;
+
 async function removeColdEmailLabelFromSender(
   emailProvider: EmailProvider,
   sender: string,
   coldEmailRule: { actions: { labelId: string | null }[] },
 ) {
-  const labelIds = coldEmailRule.actions
-    .map((action) => action.labelId)
-    .filter((id): id is string => Boolean(id));
+  const labelIds = [
+    ...new Set(
+      coldEmailRule.actions
+        .map((action) => action.labelId)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
 
   if (labelIds.length === 0) return;
 
-  const { threads } = await emailProvider.getThreadsWithQuery({
-    query: { fromEmail: sender },
-    maxResults: 100,
-  });
+  // Collect ids before mutating so removing labels can't shift later pages.
+  // Filtering by label covers archived mail, not just the inbox.
+  const threadIds = new Set<string>();
+  for (const labelId of labelIds) {
+    let pageToken: string | undefined;
+    do {
+      const page = await emailProvider.getThreadsWithQuery({
+        query: { fromEmail: sender, labelId },
+        maxResults: THREAD_PAGE_SIZE,
+        pageToken,
+        messageFormat: "metadata",
+      });
+      for (const thread of page.threads) {
+        if (threadIds.size >= MAX_THREADS_TO_UNLABEL) break;
+        threadIds.add(thread.id);
+      }
+      pageToken = page.nextPageToken;
+    } while (pageToken && threadIds.size < MAX_THREADS_TO_UNLABEL);
+  }
 
-  for (const thread of threads) {
-    await emailProvider.removeThreadLabels(thread.id, labelIds);
+  for (const batch of chunk([...threadIds], UNLABEL_CONCURRENCY)) {
+    await Promise.all(
+      batch.map((threadId) =>
+        emailProvider.removeThreadLabels(threadId, labelIds),
+      ),
+    );
   }
 }
 
