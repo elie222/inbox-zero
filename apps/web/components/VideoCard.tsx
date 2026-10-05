@@ -23,10 +23,7 @@ type VideoCardBaseProps = React.HTMLAttributes<HTMLDivElement> & {
   icon?: React.ReactNode;
   title: string;
   description: string;
-  videoSrc?: string;
-  thumbnailSrc?: string;
-  muxPlaybackId?: string;
-  youtubeVideoId?: string;
+  muxPlaybackId: string;
 };
 
 type DismissibleVideoCardProps = VideoCardBaseProps & {
@@ -45,9 +42,7 @@ export function DismissibleVideoCard({
   const analytics = useVideoAnalytics(
     videoAnalyticsConfig
       ? {
-          ...(props.muxPlaybackId
-            ? { muxPlaybackId: props.muxPlaybackId }
-            : { youtubeVideoId: props.youtubeVideoId }),
+          muxPlaybackId: props.muxPlaybackId,
           page: videoAnalyticsConfig.page,
           surface: videoAnalyticsConfig.surface,
           title: videoAnalyticsConfig.title ?? props.title,
@@ -94,10 +89,7 @@ const VideoCard = React.forwardRef<
       icon,
       title,
       description,
-      videoSrc,
-      thumbnailSrc,
       muxPlaybackId,
-      youtubeVideoId,
       analytics,
       onClose,
       ...props
@@ -157,12 +149,7 @@ const VideoCard = React.forwardRef<
                   >
                     <div className="relative w-32 h-20 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
                       <Image
-                        src={
-                          muxPlaybackId
-                            ? `https://image.mux.com/${muxPlaybackId}/thumbnail.jpg`
-                            : thumbnailSrc ||
-                              "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAAWgmWQ0AAAAASUVORK5CYII="
-                        }
+                        src={`https://image.mux.com/${muxPlaybackId}/thumbnail.jpg`}
                         alt={title}
                         fill
                         className="object-cover transition-all duration-200 group-hover:scale-105"
@@ -179,9 +166,7 @@ const VideoCard = React.forwardRef<
                 <VideoPlayerDialog
                   title={title}
                   description={description}
-                  youtubeVideoId={youtubeVideoId}
                   muxPlaybackId={muxPlaybackId}
-                  videoSrc={videoSrc}
                   onVideoCompleted={analytics.trackCompleted}
                   onVideoProgress={analytics.trackProgress}
                   onVideoStarted={analytics.trackStarted}
