@@ -678,7 +678,11 @@ async function handleAuthCallbackUrl(url: string) {
   const window = focusAppWindow();
   const callback = parseDesktopAuthCallback(url);
   if (!callback.ok) {
-    reportSignInError(new Error(callback.error));
+    // The callback text comes from the URL, so keep it out of telemetry.
+    captureDesktopError(new Error("Authentication callback failed"), {
+      area: "sign-in",
+    });
+    showSignInError(new Error(callback.error));
     return;
   }
   // The server can issue more than one code per sign-in when the browser
