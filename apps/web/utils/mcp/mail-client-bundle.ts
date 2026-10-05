@@ -10,17 +10,24 @@ let resourceUri: string | null | undefined;
 let html: Promise<string> | undefined;
 
 export function getMailClientResourceUri() {
-  resourceUri ??= existsSync(manifestPath)
-    ? (
-        JSON.parse(readFileSync(manifestPath, "utf8")) as {
-          resourceUri: string;
-        }
-      ).resourceUri
-    : null;
+  if (resourceUri === undefined) {
+    resourceUri = existsSync(manifestPath)
+      ? (
+          JSON.parse(readFileSync(manifestPath, "utf8")) as {
+            resourceUri: string;
+          }
+        ).resourceUri
+      : null;
+  }
   return resourceUri;
 }
 
 export function readMailClientHtml() {
-  html ??= readFile(path.join(bundleDirectory, "mail.html"), "utf8");
+  html ??= readFile(path.join(bundleDirectory, "mail.html"), "utf8").catch(
+    (error) => {
+      html = undefined;
+      throw error;
+    },
+  );
   return html;
 }

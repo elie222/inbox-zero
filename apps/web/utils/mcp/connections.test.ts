@@ -101,6 +101,36 @@ describe("MCP permission reductions", () => {
     expect(prisma.oauthRefreshToken.deleteMany).not.toHaveBeenCalled();
   });
 
+  it("rejects removing read access or every permission", async () => {
+    prisma.oauthConsent.findFirst.mockResolvedValue({
+      id: "grant-1",
+      scopes: ["mcp:read", "mcp:write"],
+    } as never);
+    for (const scopes of [["mcp:write"], []]) {
+      await expect(
+        reduceMcpConnectionScopes({
+          userId: "user-1",
+          clientId: "client-1",
+          scopes,
+        }),
+      ).rejects.toThrow("Keep read access");
+    }
+    expect(prisma.oauthConsent.update).not.toHaveBeenCalled();
+  });
+
+  it("keeps refresh tokens when offline access was never granted", async () => {
+    prisma.oauthConsent.findFirst.mockResolvedValue({
+      id: "grant-1",
+      scopes: ["mcp:read", "mcp:write"],
+    } as never);
+    await reduceMcpConnectionScopes({
+      userId: "user-1",
+      clientId: "client-1",
+      scopes: ["mcp:read"],
+    });
+    expect(prisma.oauthRefreshToken.deleteMany).not.toHaveBeenCalled();
+  });
+
   it("rejects adding access without a fresh OAuth authorization", async () => {
     prisma.oauthConsent.findFirst.mockResolvedValue({
       id: "grant-1",
@@ -125,6 +155,11 @@ describe("MCP permission reductions", () => {
         scopes: ["mcp:read"],
       }),
     ).rejects.toThrow("not found");
+    expect(prisma.oauthConsent.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: "user-1", clientId: "client-2" },
+      }),
+    );
     expect(prisma.oauthConsent.update).not.toHaveBeenCalled();
   });
 
@@ -136,6 +171,10 @@ describe("MCP permission reductions", () => {
         clientVersion: "7",
       },
     );
+    prisma.oauthConsent.findFirst.mockResolvedValue({
+      id: "grant-1",
+      scopes: ["mcp:read", "mcp:write", "mcp:send", "offline_access"],
+    } as never);
     prisma.$transaction.mockRejectedValue(mismatch);
     await expect(
       reduceMcpConnectionScopes({
@@ -150,7 +189,9 @@ describe("MCP permission reductions", () => {
           id: "grant-1",
           userId: "user-1",
           clientId: "client-1",
-          scopes: { equals: ["mcp:read", "mcp:write", "mcp:send"] },
+          scopes: {
+            equals: ["mcp:read", "mcp:write", "mcp:send", "offline_access"],
+          },
         },
       }),
     );

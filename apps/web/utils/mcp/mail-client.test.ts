@@ -158,7 +158,7 @@ describe("MCP mail client tools", () => {
       expect.objectContaining({ query: { labelId: "clients" } }),
     );
   });
-  it("scopes custom Outlook folders without widening to the entire mailbox", async () => {
+  it("scopes custom folders without widening to the entire mailbox", async () => {
     const getThreadsWithQuery = vi.fn().mockResolvedValue({ threads: [] });
     vi.mocked(createEmailProvider).mockResolvedValue({
       getThreadsWithQuery,
@@ -292,6 +292,18 @@ describe("MCP mail client tools", () => {
     await saveMailDraftForMcp("user", { ...editor, draftId: "draft" }, logger);
     expect(createDraft).not.toHaveBeenCalled();
     expect(updateDraft.mock.calls[0][1].messageHtml).not.toContain("<script>");
+  });
+  it("removes a new draft when adding cc fails instead of orphaning it", async () => {
+    const deleteDraft = vi.fn().mockResolvedValue(true);
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      createDraft: vi.fn().mockResolvedValue({ id: "new-draft" }),
+      updateDraft: vi.fn().mockRejectedValue(new Error("provider down")),
+      deleteDraft,
+    } as never);
+    await expect(
+      saveMailDraftForMcp("user", { ...editor, cc: "cc@example.com" }, logger),
+    ).rejects.toThrow("provider down");
+    expect(deleteDraft).toHaveBeenCalledWith("new-draft");
   });
   it("derives reply headers from the authenticated mailbox and preserves the retry ID", async () => {
     const mail = getMockMessage({ id: "source", threadId: "thread" });

@@ -171,8 +171,17 @@ export async function saveMailDraftForMcp(
       messageHtml,
       replyToMessageId: args.replyToMessageId,
     });
+    if (!draft.id) throw new Error("Draft could not be saved.");
     draftId = draft.id;
-    if (args.cc) await provider.updateDraft(draftId, { cc: args.cc });
+    // createDraft has no cc; remove the partial draft rather than orphan it.
+    if (args.cc) {
+      try {
+        await provider.updateDraft(draftId, { cc: args.cc });
+      } catch (error) {
+        await provider.deleteDraft(draftId).catch(() => {});
+        throw error;
+      }
+    }
   }
   navigationCache.delete(JSON.stringify([userId, emailAccount.id]));
   return {

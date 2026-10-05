@@ -35,7 +35,7 @@ export function MailSearchSurface({
   return (
     <div
       {...surfaceProps}
-      className={`relative flex h-8 min-w-0 flex-1 items-center rounded-lg border border-border bg-sidebar text-muted-foreground text-sm transition-colors focus-within:border-[hsl(var(--border-strong))] focus-within:bg-background hover:border-[hsl(var(--border-strong))] ${active ? "border-[hsl(var(--border-strong))] bg-background" : ""} ${className}`}
+      className={`relative flex h-8 min-w-0 flex-1 items-center rounded-lg border text-muted-foreground text-sm transition-colors focus-within:border-[hsl(var(--border-strong))] focus-within:bg-background hover:border-[hsl(var(--border-strong))] ${active ? "border-[hsl(var(--border-strong))] bg-background" : "border-border bg-sidebar"} ${className}`}
     >
       <form
         role="search"

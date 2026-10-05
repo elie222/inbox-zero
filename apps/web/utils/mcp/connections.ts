@@ -61,6 +61,14 @@ export async function reduceMcpConnectionScopes({
   });
   if (!consent) throw new SafeError("MCP application not found");
   const selected = [...new Set(scopes)];
+  if (
+    selected.length === 0 ||
+    (consent.scopes.includes("mcp:read") && !selected.includes("mcp:read"))
+  ) {
+    throw new SafeError(
+      "Keep read access, or disconnect the application to remove all access.",
+    );
+  }
   if (selected.some((scope) => !consent.scopes.includes(scope))) {
     throw new SafeError(
       "Reconnect from the application to approve additional permissions.",
@@ -81,7 +89,8 @@ export async function reduceMcpConnectionScopes({
       }),
       // The OAuth provider refreshes from the token's original scopes, not the
       // current grant. Removing offline access must revoke those tokens too.
-      ...(!selected.includes("offline_access")
+      ...(consent.scopes.includes("offline_access") &&
+      !selected.includes("offline_access")
         ? [prisma.oauthRefreshToken.deleteMany({ where: { userId, clientId } })]
         : []),
     ]);

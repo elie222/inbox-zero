@@ -187,7 +187,16 @@ function McpConnectionsDialog({
   error: ComponentProps<typeof LoadingContent>["error"];
   mutate: () => void;
 }) {
-  const { execute: executeRevoke, isExecuting } = useAction(
+  const { execute: executeReduce, isExecuting: isReducing } = useAction(
+    reduceMcpConnectionScopesAction,
+    {
+      onSuccess: () => toastSuccess({ description: "Permissions updated" }),
+      onError: (error) =>
+        toastError({ description: getActionErrorMessage(error.error) }),
+      onSettled: () => mutate(),
+    },
+  );
+  const { execute: executeRevoke, isExecuting: isRevoking } = useAction(
     revokeMcpConnectionAction,
     {
       onSuccess: () => {
@@ -205,6 +214,7 @@ function McpConnectionsDialog({
       },
     },
   );
+  const isExecuting = isReducing || isRevoking;
 
   return (
     <Dialog>
@@ -248,7 +258,10 @@ function McpConnectionsDialog({
                 </div>
                 <McpPermissionControls
                   connection={connection}
-                  mutate={mutate}
+                  disabled={isExecuting}
+                  onReduce={(scopes) =>
+                    executeReduce({ clientId: connection.clientId, scopes })
+                  }
                 />
               </li>
             ))}
@@ -261,17 +274,16 @@ function McpConnectionsDialog({
 
 function McpPermissionControls({
   connection,
-  mutate,
+  disabled,
+  onReduce,
 }: {
   connection: ApiKeyResponse["mcpConnections"][number];
-  mutate: () => void;
+  disabled: boolean;
+  onReduce: (scopes: (typeof MCP_PERMISSIONS)[number]["scope"][]) => void;
 }) {
-  const { execute, isExecuting } = useAction(reduceMcpConnectionScopesAction, {
-    onSuccess: () => toastSuccess({ description: "Permissions updated" }),
-    onError: (error) =>
-      toastError({ description: getActionErrorMessage(error.error) }),
-    onSettled: () => mutate(),
-  });
+  const granted = MCP_PERMISSIONS.map((p) => p.scope).filter((scope) =>
+    connection.scopes.includes(scope),
+  );
   return (
     <div className="space-y-2">
       {MCP_PERMISSIONS.map(({ scope, label }) => (
@@ -282,20 +294,15 @@ function McpPermissionControls({
           <span>{label}</span>
           <Switch
             aria-label={`${label} for ${connection.name}`}
-            checked={connection.scopes.includes(scope)}
+            checked={granted.includes(scope)}
             disabled={
-              isExecuting ||
+              disabled ||
               scope === "mcp:read" ||
-              !connection.scopes.includes(scope)
+              !granted.includes(scope) ||
+              granted.length === 1
             }
             onCheckedChange={() =>
-              execute({
-                clientId: connection.clientId,
-                scopes: MCP_PERMISSIONS.map((p) => p.scope).filter(
-                  (current) =>
-                    current !== scope && connection.scopes.includes(current),
-                ),
-              })
+              onReduce(granted.filter((current) => current !== scope))
             }
           />
         </div>

@@ -28,7 +28,12 @@ const zodV4CorePath = path.join(
 const indexingAllowed = isIndexingAllowed(env.NEXT_PUBLIC_BASE_URL);
 
 const nextConfig: NextConfig = {
-  allowedDevOrigins: ["127.0.0.1", new URL(env.NEXT_PUBLIC_BASE_URL).hostname],
+  allowedDevOrigins: [
+    "127.0.0.1",
+    ...(URL.canParse(env.NEXT_PUBLIC_BASE_URL)
+      ? [new URL(env.NEXT_PUBLIC_BASE_URL).hostname]
+      : []),
+  ],
   // Sequential Playwright feature groups use separate dev servers. Isolating
   // their caches prevents a new Turbopack process from restoring stale tasks.
   ...(playwrightRunId && !isProductionBuild

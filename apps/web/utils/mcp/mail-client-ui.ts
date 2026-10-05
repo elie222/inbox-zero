@@ -200,11 +200,19 @@ export function registerMailClient(
         },
       },
       async (args) => {
-        assertScope(session.scopes, scope);
-        return result(
-          await handler(session.userId, schema.parse(args), logger),
-          session.scopes,
-        );
+        try {
+          assertScope(session.scopes, scope);
+          return result(
+            await handler(session.userId, schema.parse(args), logger),
+            session.scopes,
+          );
+        } catch (error) {
+          logger.warn("MCP tool failed", {
+            tool: name,
+            error: error instanceof Error ? error.message : error,
+          });
+          throw error;
+        }
       },
     );
   }
