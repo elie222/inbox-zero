@@ -451,9 +451,7 @@ export function createGenerateObject({
   label: string;
   modelOptions: ReturnType<typeof getModel>;
   promptHardening: PromptHardening;
-  // Opt in to caching the (hardened, policy-enforced) system prompt. Only set
-  // this when the system prompt is stable across requests for a given account;
-  // see buildSystemPromptCacheOverrides.
+  // Only set when the system prompt is stable across requests for an account.
   cacheSystemPrompt?: boolean;
   onModelUsed?: (candidate: {
     provider: string;
@@ -547,10 +545,7 @@ export function createGenerateObject({
         emailAccountId: emailAccount.id,
       });
 
-      // When opted in, restructure the stable { system, prompt } into cache-marked
-      // messages after hardening + DLP, so we cache the exact bytes the provider
-      // sees. Overrides spread last to drop the top-level system/prompt and merge
-      // the cache provider options.
+      // Built after hardening and DLP so the cached bytes match what the provider sees.
       const cacheOverrides = cacheSystemPrompt
         ? buildSystemPromptCacheOverrides({
             protectedOptions,
@@ -1432,11 +1427,6 @@ function shouldFallbackToNextModel(error: unknown): boolean {
   return isTransientNetworkError(error);
 }
 
-// Restructures a hardened/policy-enforced { system, prompt } request into
-// cache-marked messages and merges the provider-level cache options. Returns
-// undefined for message-shaped requests (no `system`/`prompt` string), leaving
-// them untouched. The returned `system`/`prompt: undefined` drop the top-level
-// fields so the SDK uses the messages array instead.
 function buildSystemPromptCacheOverrides({
   protectedOptions,
   providerOptions,

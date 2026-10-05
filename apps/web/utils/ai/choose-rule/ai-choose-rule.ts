@@ -106,9 +106,6 @@ async function getAiResponse(options: GetAiResponseOptions): Promise<{
     label: "Choose rule",
     modelOptions,
     promptHardening: { trust: "untrusted", level: "full" },
-    // The system prompt (rules + user info + format) is stable per account
-    // across inbound emails; the volatile classification feedback now lives in
-    // the user prompt, so the system prefix is cacheable.
     cacheSystemPrompt: true,
   });
 
@@ -433,9 +430,7 @@ These are hints from past user actions. Still evaluate the current email on its 
 </classification_feedback>`;
 }
 
-// Per-sender feedback is volatile, so it lives in the user prompt (next to the
-// email) rather than the cached system prefix. Returns a leading separator only
-// when there's feedback to append, leaving the prompt untouched otherwise.
+// Per-sender feedback stays out of the system prompt so the prefix is cacheable.
 function appendClassificationFeedback(
   feedback: ClassificationFeedbackItem[] | null | undefined,
 ): string {
