@@ -30,8 +30,6 @@ export interface RowProps {
   labels: EmailLabel[];
   // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   mutate: () => Promise<any>;
-  onDoubleClick: () => void;
-
   onOpenNewsletter: (row: Newsletter) => void;
   onSelectRow: () => void;
   onToggleSelect: (id: string, shiftKey?: boolean) => void;
