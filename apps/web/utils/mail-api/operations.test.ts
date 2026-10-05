@@ -11,12 +11,10 @@ import {
   cancelSnoozedThreadByClientMutationId,
   prepareSnoozedThread,
 } from "@/utils/snooze/scheduler";
-import {
-  createFileBlobStore,
-  writeBlobMetadata,
-} from "@inboxzero/mail-sqlite/blob-store";
+import { createFileBlobStore } from "@inboxzero/mail-sqlite/blob-store";
 import {
   accountMailUploadDirectory,
+  admitAccountUpload,
   cancelAccountUpload,
 } from "./upload-blobs";
 import {
@@ -400,9 +398,14 @@ describe("createEmailProviderOperationExecutor", () => {
       sizeBytes: png.byteLength,
     });
     await store.finalize("blob-1");
-    await writeBlobMetadata(directory, "blob-1", {
+    await admitAccountUpload("acc-1", {
+      uploadId: "blob-1",
+      checksum,
+      sizeBytes: png.byteLength,
       filename: "dot.png",
       contentType: "image/png",
+      disposition: "inline",
+      contentId: "image-1@example.test",
     });
     vi.mocked(executeDurableEmailSend).mockResolvedValue({
       status: "applied",
@@ -429,6 +432,8 @@ describe("createEmailProviderOperationExecutor", () => {
                 filename: "dot.png",
                 contentType: "image/png",
                 content: png.toString("base64"),
+                disposition: "inline",
+                contentId: "image-1@example.test",
               }),
             ],
           }),

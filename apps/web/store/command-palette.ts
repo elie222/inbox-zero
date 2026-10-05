@@ -16,6 +16,7 @@ export const shortcutsDialogOpenAtom = atom(false);
 export type MailCommandContext = {
   actions: {
     archive: () => void;
+    moveToInbox?: () => void;
     forward?: () => void;
     label?: () => void;
     star?: () => void;

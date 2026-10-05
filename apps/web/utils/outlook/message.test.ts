@@ -1,4 +1,6 @@
+import { Client } from "@microsoft/microsoft-graph-client";
 import { describe, it, expect, vi } from "vitest";
+import * as outlookOauth from "@/utils/outlook/oauth";
 import type { Message } from "@microsoft/microsoft-graph-types";
 import { createTestLogger } from "@/__tests__/helpers";
 import {
@@ -16,6 +18,61 @@ import {
 import type { OutlookClient } from "@/utils/outlook/client";
 
 describe("convertMessage", () => {
+  it("retains BCC on a detail request that respects Graph field selection", async () => {
+    let selectedFields = new Set<string>();
+    const request = {
+      select: vi.fn((fields: string) => {
+        selectedFields = new Set(fields.split(","));
+        return request;
+      }),
+      expand: vi.fn().mockReturnThis(),
+      get: vi.fn(async () => ({
+        id: "message",
+        ...(selectedFields.has("bccRecipients")
+          ? {
+              bccRecipients: [
+                { emailAddress: { address: "hidden@example.com" } },
+              ],
+            }
+          : {}),
+      })),
+    };
+    const client = {
+      getFolderIdCache: () => ({ drafts: "drafts" }),
+      getCategoryMapCache: () => new Map(),
+      getClient: () => ({ api: () => request }),
+    } as unknown as OutlookClient;
+    const result = await getMessage("message", client, createTestLogger());
+    expect(result.headers.bcc).toBe("hidden@example.com");
+  });
+
+  it("preserves BCC recipients from a provider draft", () => {
+    const result = convertMessage({
+      bccRecipients: [
+        {
+          emailAddress: {
+            name: "Private Recipient",
+            address: "hidden@example.com",
+          },
+        },
+      ],
+    });
+    expect(result.headers.bcc).toBe("Private Recipient <hidden@example.com>");
+  });
+
+  it("does not substitute a filename for a missing inline content id", () => {
+    const result = convertMessage({
+      attachments: [
+        {
+          id: "inline",
+          name: "logo.png",
+          isInline: true,
+          contentType: "image/png",
+        },
+      ],
+    });
+    expect(result.inline[0].headers["content-id"]).toBe("");
+  });
   it.each([
     [
       "text",
@@ -274,6 +331,235 @@ describe("convertMessage", () => {
 });
 
 describe("queryBatchMessages", () => {
+  it("returns immutable search IDs so execution history remains addressable after moves", async () => {
+    const request = createMockMessagesRequest();
+    request.get.mockResolvedValue({
+      value: [
+        { id: "mutable", conversationId: "thread", subject: "Documents" },
+      ],
+    });
+    const post = vi.fn().mockResolvedValue({
+      value: [{ sourceId: "mutable", targetId: "immutable" }],
+    });
+    const api = vi.fn((path: string) =>
+      path === "/me/translateExchangeIds" ? { post } : request,
+    );
+    const result = await queryBatchMessages(
+      createCachedOutlookClient(api),
+      { searchQuery: "Documents" },
+      createTestLogger(),
+    );
+    expect(result.messages[0].id).toBe("immutable");
+    expect(result.messages[0].threadId).toBe("thread");
+    expect(post).toHaveBeenCalledWith({
+      inputIds: ["mutable"],
+      sourceIdType: "restId",
+      targetIdType: "restImmutableEntryId",
+    });
+  });
+
+  it("normalizes IDs on subsequent search pages", async () => {
+    const request = createMockMessagesRequest();
+    request.get.mockResolvedValue({ value: [{ id: "mutable" }] });
+    const post = vi.fn().mockResolvedValue({
+      value: [{ sourceId: "mutable", targetId: "immutable" }],
+    });
+    const api = vi.fn((path: string) =>
+      path === "/me/translateExchangeIds" ? { post } : request,
+    );
+    const result = await queryBatchMessages(
+      createCachedOutlookClient(api),
+      {
+        pageToken:
+          "https://graph.microsoft.com/v1.0/me/messages?$search=Documents&$skip=20",
+      },
+      createTestLogger(),
+    );
+    expect(result.messages[0].id).toBe("immutable");
+  });
+
+  it("keeps valid search results and pagination when another message cannot be resolved", async () => {
+    const request = createMockMessagesRequest();
+    request.get.mockResolvedValue({
+      value: [{ id: "stale" }, { id: "valid" }],
+      "@odata.nextLink":
+        "https://graph.microsoft.com/v1.0/me/messages?$search=Documents&$skip=20",
+    });
+    const post = vi.fn().mockResolvedValue({
+      value: [{ sourceId: "valid", targetId: "immutable" }],
+    });
+    const api = vi.fn((path: string) =>
+      path === "/me/translateExchangeIds" ? { post } : request,
+    );
+    const result = await queryBatchMessages(
+      createCachedOutlookClient(api),
+      { searchQuery: "Documents" },
+      createTestLogger(),
+    );
+    expect(result.messages.map((message) => message.id)).toEqual(["immutable"]);
+    expect(result.nextPageToken).toContain("$skip=20");
+  });
+
+  it("uses the emulator's stable IDs without calling its unavailable translation API", async () => {
+    const emulation = vi
+      .spyOn(outlookOauth, "isMicrosoftEmulationEnabled")
+      .mockReturnValue(true);
+    try {
+      const request = createMockMessagesRequest();
+      request.get.mockResolvedValue({ value: [{ id: "stable" }] });
+      const result = await queryBatchMessages(
+        createCachedOutlookClient(vi.fn().mockReturnValue(request)),
+        { searchQuery: "Documents" },
+        createTestLogger(),
+      );
+      expect(result.messages[0].id).toBe("stable");
+      expect(request.post).not.toHaveBeenCalled();
+    } finally {
+      emulation.mockRestore();
+    }
+  });
+
+  it("sends one correctly quoted and URL-encoded expression through the real Graph SDK", async () => {
+    const request = createMockMessagesRequest();
+    await queryBatchMessages(
+      createCachedOutlookClient(vi.fn().mockReturnValue(request)),
+      {
+        mailboxSearch: {
+          mailbox: "all",
+          text: {
+            kind: "text",
+            field: "any",
+            value: "report & C# 50%",
+            match: "phrase",
+          },
+        },
+      },
+      createTestLogger(),
+    );
+    const search = request.search.mock.calls[0]?.[0] as string;
+    const graph = Client.init({ authProvider: (done) => done(null, "unused") });
+    const actual = graph.api("/me/messages").search(search) as unknown as {
+      buildFullUrl(): string;
+    };
+    const url = new URL(actual.buildFullUrl());
+    expect([...url.searchParams.keys()]).toEqual(["$search"]);
+    expect(url.hash).toBe("");
+    expect(url.searchParams.get("$search")).toBe(
+      JSON.stringify('"report & C# 50%"'),
+    );
+  });
+
+  it.each([
+    [
+      "term",
+      "any",
+      "Native scheduled attachment",
+      '"Native" AND "scheduled" AND "attachment"',
+    ],
+    [
+      "phrase",
+      "any",
+      "Native scheduled attachment",
+      '"Native scheduled attachment"',
+    ],
+    [
+      "phrase",
+      "subject",
+      "Native scheduled attachment",
+      'subject:"Native scheduled attachment"',
+    ],
+  ] as const)("wraps %s %s searches as one Graph expression", async (match, field, value, expression) => {
+    const request = createMockMessagesRequest();
+    await queryBatchMessages(
+      createCachedOutlookClient(vi.fn().mockReturnValue(request)),
+      {
+        mailboxSearch: {
+          mailbox: "all",
+          text: { kind: "text", field, value, match },
+        },
+      },
+      createTestLogger(),
+    );
+    expect(request.search).toHaveBeenCalledWith(
+      encodeURIComponent(JSON.stringify(expression)),
+    );
+    expect(request.filter).not.toHaveBeenCalled();
+    expect(request.orderby).not.toHaveBeenCalled();
+  });
+
+  it("uses literal Graph search with local metadata filtering, retaining empty-page cursors", async () => {
+    const request = createMockMessagesRequest();
+    request.get.mockResolvedValue({
+      value: [{ id: "read", isRead: true }],
+      "@odata.nextLink":
+        "https://graph.microsoft.com/v1.0/me/messages?$skip=20",
+    });
+    const api = vi.fn().mockReturnValue(request);
+    const result = await queryBatchMessages(
+      createCachedOutlookClient(api),
+      {
+        mailboxSearch: {
+          mailbox: "all",
+          read: false,
+          text: {
+            kind: "text",
+            field: "any",
+            value: "in:sent read",
+            match: "term",
+          },
+        },
+      },
+      createTestLogger(),
+    );
+    expect(request.search).toHaveBeenCalledWith(
+      encodeURIComponent(JSON.stringify('"in:sent" AND "read"')),
+    );
+    expect(request.filter).not.toHaveBeenCalled();
+    expect(request.orderby).not.toHaveBeenCalled();
+    expect(result.messages).toEqual([]);
+    expect(result.nextPageToken).toContain("$skip=20");
+  });
+
+  it("keeps matching unread messages when applying metadata to text search", async () => {
+    const request = createMockMessagesRequest();
+    request.get.mockResolvedValue({
+      value: [
+        { id: "read", isRead: true },
+        { id: "unread", isRead: false },
+      ],
+    });
+    const result = await queryBatchMessages(
+      createCachedOutlookClient(vi.fn().mockReturnValue(request)),
+      {
+        mailboxSearch: {
+          mailbox: "all",
+          read: false,
+          text: { kind: "text", field: "any", value: "report", match: "term" },
+        },
+      },
+      createTestLogger(),
+    );
+    expect(result.messages?.map((message) => message.id)).toEqual(["unread"]);
+  });
+
+  it.each([
+    "term",
+    "phrase",
+  ] as const)("omits whitespace-only %s search literals", async (match) => {
+    const request = createMockMessagesRequest();
+    await queryBatchMessages(
+      createCachedOutlookClient(vi.fn().mockReturnValue(request)),
+      {
+        mailboxSearch: {
+          mailbox: "all",
+          text: { kind: "text", field: "any", value: "   ", match },
+        },
+      },
+      createTestLogger(),
+    );
+    expect(request.search).not.toHaveBeenCalled();
+  });
+
   it("rejects full URL page tokens outside Microsoft Graph", async () => {
     const api = vi.fn().mockReturnValue({ get: vi.fn() });
     const client = createCachedOutlookClient(api);
@@ -333,6 +619,37 @@ describe("queryBatchMessages", () => {
     expect(result.nextPageToken).toBe(
       "https://graph.microsoft.com/v1.0/me/messages?$skip=40",
     );
+  });
+
+  it("resolves well-known folder names on continuation pages", async () => {
+    const request = createMockMessagesRequest();
+    request.get.mockResolvedValue({
+      value: [
+        {
+          id: "inside",
+          conversationId: "thread-1",
+          parentFolderId: "inbox-folder-id",
+        },
+        {
+          id: "outside",
+          conversationId: "thread-2",
+          parentFolderId: "archive-folder-id",
+        },
+      ],
+      "@odata.nextLink":
+        "https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$skip=40",
+    });
+    const api = vi.fn().mockReturnValue(request);
+    const result = await queryBatchMessages(
+      createCachedOutlookClient(api),
+      {
+        folderId: "inbox",
+        pageToken:
+          "https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$skip=20",
+      },
+      createTestLogger(),
+    );
+    expect(result.messages.map((message) => message.id)).toEqual(["inside"]);
   });
 
   it("uses metadata filters for unread category searches", async () => {
@@ -760,6 +1077,9 @@ function createMockMessagesRequest() {
     filter: vi.fn().mockReturnThis(),
     orderby: vi.fn().mockReturnThis(),
     search: vi.fn().mockReturnThis(),
+    post: vi.fn(async ({ inputIds }: { inputIds: string[] }) => ({
+      value: inputIds.map((id) => ({ sourceId: id, targetId: id })),
+    })),
     get: vi.fn().mockResolvedValue({ value: [] }),
   };
 

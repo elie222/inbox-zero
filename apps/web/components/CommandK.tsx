@@ -257,6 +257,7 @@ function CommandPaletteContent({
     ? buildMailCommandPalette({
         actions: {
           archive: mailCommandContext.actions.archive,
+          moveToInbox: mailCommandContext.actions.moveToInbox,
           forward: mailCommandContext.actions.forward,
           label: mailCommandContext.actions.label,
           star: mailCommandContext.actions.star,

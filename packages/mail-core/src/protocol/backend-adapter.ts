@@ -271,7 +271,7 @@ export function createBackendMailboxSource(input: {
       if (response.status === 422) return { status: "unsupported" };
       const error = readError(response);
       if (error) {
-        if (error.error.code === "unsupported")
+        if (error.error.code === "unsupported" || !error.error.retryable)
           return { status: "unsupported" };
         return mapReadError(error);
       }

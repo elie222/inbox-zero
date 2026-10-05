@@ -12,9 +12,17 @@ import {
   getNewsletterSenderDisplayName,
   messageRepliesToSourceSender,
   isSameOrganization,
+  getInitials,
 } from "./email";
 
 describe("email utils", () => {
+  describe("getInitials", () => {
+    it("keeps astral characters whole", () => {
+      expect(getInitials("𐐷 Smith")).toBe("𐐏S");
+      expect(getInitials("😀")).toBe("😀");
+    });
+  });
+
   describe("extractNameFromEmail", () => {
     it.each([
       ["formatted sender", "John Doe <john.doe@gmail.com>", "John Doe"],

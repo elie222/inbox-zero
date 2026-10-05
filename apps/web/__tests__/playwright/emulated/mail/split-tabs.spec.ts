@@ -1,5 +1,5 @@
-import { MAX_MAIL_SPLITS } from "@/utils/mail/split-constants";
-import { INITIAL_MAIL_SPLITS } from "@/utils/mail/initial-splits";
+import { MAX_MAIL_SPLITS } from "@/utils/split-inbox/split-constants";
+import { INITIAL_MAIL_SPLITS } from "@/utils/split-inbox/initial-splits";
 import { expect } from "@playwright/test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";

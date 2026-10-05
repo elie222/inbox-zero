@@ -388,7 +388,7 @@ export function BulkUnsubscribe() {
               .
             </>
           ),
-          youtubeVideoId: "T1rnooV4OYc",
+          muxPlaybackId: "qxP8P5aKm7k7I01seCEMP1ZepHQAmdKCcW02x1fM7xQm00",
         }}
       />
 
@@ -399,9 +399,7 @@ export function BulkUnsubscribe() {
         description={
           "Learn how to use the Bulk Unsubscribe to unsubscribe from and archive unwanted emails."
         }
-        videoSrc="https://www.youtube.com/embed/T1rnooV4OYc"
-        youtubeVideoId="T1rnooV4OYc"
-        thumbnailSrc="https://img.youtube.com/vi/T1rnooV4OYc/0.jpg"
+        muxPlaybackId="qxP8P5aKm7k7I01seCEMP1ZepHQAmdKCcW02x1fM7xQm00"
         storageKey="bulk-unsubscribe-onboarding-video"
         videoAnalytics={{
           page: "bulk_unsubscribe",

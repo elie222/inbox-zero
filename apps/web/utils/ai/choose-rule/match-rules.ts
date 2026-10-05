@@ -120,7 +120,7 @@ export async function findMatchingRules({
       return buildColdEmailMatch({
         coldEmailRuleId: coldEmailRule.id,
         matchReasons: getColdEmailMatchReasons(coldEmailResult),
-        reasoning: coldEmailResult.aiReason || coldEmailResult.reason,
+        reasoning: getColdEmailReasoning(coldEmailResult),
         selectionMetadata: createRuleSelectionMetadata({ isThread }),
       });
     }
@@ -213,7 +213,7 @@ export async function findMatchingRules({
       return buildColdEmailMatch({
         coldEmailRuleId: pendingColdEmailRule.id,
         matchReasons: getColdEmailMatchReasons(coldEmailResult),
-        reasoning: coldEmailResult.aiReason || coldEmailResult.reason,
+        reasoning: getColdEmailReasoning(coldEmailResult),
         selectionMetadata,
       });
     }
@@ -255,6 +255,16 @@ function getColdEmailMatchReasons(result: {
         },
       ]
     : [{ type: ConditionType.AI }];
+}
+
+function getColdEmailReasoning(result: {
+  reason: string;
+  aiReason?: string | null;
+}) {
+  if (result.aiReason) return result.aiReason;
+  if (result.reason === "ai-already-labeled")
+    return "The sender matches a learned pattern for this rule.";
+  return "";
 }
 
 async function buildColdEmailMatch({

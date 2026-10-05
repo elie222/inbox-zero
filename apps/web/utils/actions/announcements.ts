@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { announcementDismissedBody } from "@/utils/actions/announcements.validation";
 import { actionClientUser } from "@/utils/actions/safe-action";
 import prisma from "@/utils/prisma";
@@ -17,8 +16,6 @@ export const dismissAnnouncementModalAction = actionClientUser
         announcementDismissedAt: dismissedAt,
       },
     });
-
-    revalidatePath("/");
 
     return { success: true };
   });

@@ -40,17 +40,20 @@ import {
   extractNameFromEmail,
   isSameEmailAddress,
 } from "@/utils/email";
-import {
-  isGoogleProvider,
-  isMicrosoftProvider,
-} from "@/utils/email/provider-types";
 import { emailToContent } from "@/utils/mail";
 import { isDuplicateError } from "@/utils/prisma-helpers";
-import { getEmailUrlForOptionalMessage } from "@/utils/url";
+import {
+  getEmailUrlForOptionalMessage,
+  getOpenInMailboxLabel,
+} from "@/utils/url";
 import { env } from "@/env";
 
 const FOLLOW_UP_ELIGIBILITY_WINDOW_MINUTES = 15;
 const FOLLOW_UP_THREAD_SCAN_LIMIT = 50;
+// Completed candidates don't use up the scan limit, so a large labeled backlog
+// would otherwise be re-read in full every run. Each scanned thread is a
+// provider read, and an unbounded scan exceeds Gmail's per-user quota.
+const FOLLOW_UP_MAX_SCANNED_THREADS = 250;
 // Avoid carrying an entire email through channel fan-out beyond any preview limit.
 const FOLLOW_UP_SNIPPET_SOURCE_MAX_CHARS = 3000;
 
@@ -361,9 +364,11 @@ async function processFollowUpsForType({
   do {
     const page = await provider.getThreadsWithQuery({
       query: { labelId },
-      maxResults:
+      maxResults: Math.min(
         FOLLOW_UP_THREAD_SCAN_LIMIT -
-        (scannedThreadIds.size - skippedAlreadyProcessedCount),
+          (scannedThreadIds.size - skippedAlreadyProcessedCount),
+        FOLLOW_UP_MAX_SCANNED_THREADS - scannedThreadIds.size,
+      ),
       pageToken,
     });
     const threads = page.threads.filter((thread) => {
@@ -619,7 +624,7 @@ async function processFollowUpsForType({
                   emailAddress: emailAccount.email,
                   provider: providerName,
                 }) ?? undefined,
-              threadLinkLabel: getThreadLinkLabel(providerName),
+              threadLinkLabel: getOpenInMailboxLabel(providerName) ?? undefined,
               trackerId: tracker.id,
               logger: threadLogger,
             });
@@ -673,9 +678,18 @@ async function processFollowUpsForType({
     }
   } while (
     pageToken &&
+    scannedThreadIds.size < FOLLOW_UP_MAX_SCANNED_THREADS &&
     scannedThreadIds.size - skippedAlreadyProcessedCount <
       FOLLOW_UP_THREAD_SCAN_LIMIT
   );
+
+  if (pageToken && scannedThreadIds.size >= FOLLOW_UP_MAX_SCANNED_THREADS) {
+    logger.warn("Stopped follow-up scan at the thread limit", {
+      systemType,
+      scanned: scannedThreadIds.size,
+      skippedAlreadyProcessed: skippedAlreadyProcessedCount,
+    });
+  }
 
   const skippedCount =
     skippedAlreadyProcessedCount +
@@ -881,10 +895,4 @@ function resolveFollowUpCounterparty({
   const email = extractEmailAddress(header || "") || header || "";
   const name = extractNameFromEmail(header || "") || email || "someone";
   return { name, email };
-}
-
-function getThreadLinkLabel(provider: string) {
-  if (isGoogleProvider(provider)) return "Open in Gmail";
-  if (isMicrosoftProvider(provider)) return "Open in Outlook";
-  return "Open email";
 }

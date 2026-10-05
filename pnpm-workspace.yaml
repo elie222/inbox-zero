@@ -27,12 +27,21 @@ overrides:
   jws: "4.0.1"
   linkify-it: "5.0.2"
   lodash: "4.18.1"
-  next: "16.3.6"
+  next: "16.3.8"
   postcss: "8.5.14"
+  # express@5 depends on proxy-addr ^2.0.7. 2.0.7 treats an IPv4-mapped IPv6
+  # trust subnet with an IPv4-sized prefix as trusting every IPv4 address
+  # (CVE-2026-90711). 2.0.8 rejects those prefixes.
+  proxy-addr: "2.0.8"
   prosemirror-model: "1.25.11"
   prosemirror-view: "1.42.2"
   svelte: "5.55.5"
-  "undici@>=7.0.0 <8.0.0": "7.29.0"
+  # @actions/* and node-gyp resolve undici 6. 6.25.0 is outside CVE-2026-84961,
+  # which is already covered by 7.29.1 and the direct 8.10.2 pin, but it is
+  # inside the other undici advisories fixed in 6.28.1. 6.29.0 is the latest
+  # 6.x those caret ranges allow.
+  "undici@>=6.0.0 <7.0.0": "6.29.0"
+  "undici@>=7.0.0 <8.0.0": "7.29.1"
   vite: "7.3.6"
   webpack: "5.106.2"
 
@@ -62,5 +71,5 @@ allowBuilds:
 
 patchedDependencies:
   '@better-auth/oauth-provider@1.7.4': patches/@better-auth__oauth-provider@1.7.4.patch
-  '@inbox-zero/emulate@0.11.1': patches/@inbox-zero__emulate@0.11.1.patch
+  '@inbox-zero/emulate@0.12.0': patches/@inbox-zero__emulate@0.12.0.patch
   '@sqlite.org/sqlite-wasm@3.53.4-build1': patches/@sqlite.org__sqlite-wasm@3.53.4-build1.patch

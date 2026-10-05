@@ -36,7 +36,7 @@ vi.mock("@/env", () => ({
 }));
 
 vi.mock("@/utils/outlook/mail", () => outlookMailMock);
-vi.mock("@/utils/microsoft/oauth", () => ({
+vi.mock("@/utils/outlook/oauth", () => ({
   isMicrosoftEmulationEnabled: vi.fn(() => false),
 }));
 
@@ -67,6 +67,40 @@ afterEach(() => {
 });
 
 describe("OutlookProvider.searchMessages", () => {
+  it.each([
+    ["sent", "sentitems", "sent-folder-id", false, "SENT"],
+    ["drafts", "drafts", "drafts-folder-id", true, "DRAFT"],
+    ["spam", "junkemail", "spam-folder-id", false, "SPAM"],
+    ["trash", "deleteditems", "trash-folder-id", false, "TRASH"],
+  ] as const)("queries the Graph %s folder and preserves its roles", async (mailbox, folder, folderID, isDraft, role) => {
+    const client = createMockOutlookClient(
+      [createMessage({ id: "hit", parentFolderId: folderID, isDraft })],
+      {
+        folderIdCache: {
+          inbox: "inbox-folder-id",
+          sentitems: "sent-folder-id",
+          drafts: "drafts-folder-id",
+          junkemail: "spam-folder-id",
+          deleteditems: "trash-folder-id",
+        },
+        categoryMapCache: new Map(),
+      },
+    );
+    const provider = new OutlookProvider(client, createTestLogger());
+    const result = await provider.searchMessages({
+      query: "",
+      mailboxSearch: { mailbox },
+    });
+    expect(client.getRequestLog()).toContainEqual(
+      expect.objectContaining({
+        apiPath: `/me/mailFolders/${folder}/messages`,
+        search: undefined,
+        filter: undefined,
+      }),
+    );
+    expect(result.messages[0]?.labelIds).toContain(role);
+  });
+
   it("resolves a nested folder and searches its messages without a category filter", async () => {
     const message = createMessage({
       id: "matching-message",
@@ -1767,7 +1801,16 @@ function createMockOutlookClient(
           },
           post: async (body: {
             requests: Array<{ id: string; method: string; url: string }>;
-          }) => options?.batchPost?.(body),
+            inputIds?: string[];
+          }) =>
+            body.inputIds
+              ? {
+                  value: body.inputIds.map((id) => ({
+                    sourceId: id,
+                    targetId: id,
+                  })),
+                }
+              : options?.batchPost?.(body),
           get: async () => {
             requestLog.push({
               apiPath,
@@ -1943,7 +1986,7 @@ describe("OutlookProvider.deleteLabel", () => {
 
 describe("OutlookProvider.searchContacts", () => {
   it("skips Graph contact lookups during Microsoft emulation", async () => {
-    const oauth = await import("@/utils/microsoft/oauth");
+    const oauth = await import("@/utils/outlook/oauth");
     vi.mocked(oauth.isMicrosoftEmulationEnabled).mockReturnValue(true);
     const provider = new OutlookProvider({} as never, createTestLogger());
 

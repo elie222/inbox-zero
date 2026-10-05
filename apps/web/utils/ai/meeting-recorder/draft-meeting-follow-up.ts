@@ -5,7 +5,11 @@ import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 import { createScopedLogger } from "@/utils/logger";
 import type { MeetingSummary } from "@/utils/ai/meeting-recorder/summarize-meeting";
 import type { MeetingAttendee } from "@/utils/meeting-recorder/attendees";
-import { getTodayForLLM } from "@/utils/ai/helpers";
+import {
+  getTodayForLLM,
+  getUserAboutPrompt,
+  getWritingStylePrompt,
+} from "@/utils/ai/helpers";
 
 const logger = createScopedLogger("DraftMeetingFollowUp");
 
@@ -82,23 +86,9 @@ export function buildMeetingFollowUpModelInput({
   writingStyle,
   currentDate = new Date(),
 }: MeetingFollowUpInput): string {
-  const userAbout = emailAccount.about
-    ? `Context about the user:
+  const userAbout = getUserAboutPrompt(emailAccount.about);
 
-<userAbout>
-${emailAccount.about}
-</userAbout>
-`
-    : "";
-
-  const writingStylePrompt = writingStyle
-    ? `Writing style:
-
-<writing_style>
-${writingStyle}
-</writing_style>
-`
-    : "";
+  const writingStylePrompt = getWritingStylePrompt(writingStyle);
 
   const recipientList = recipients
     .map((recipient) =>

@@ -5,7 +5,7 @@ import { markNotSpam, markSpam } from "./spam";
 
 vi.mock("server-only", () => ({}));
 
-vi.mock("@/utils/microsoft/retry", () => ({
+vi.mock("@/utils/outlook/retry", () => ({
   withMicrosoftGraphWriteRetry: <T>(operation: () => Promise<T>) => operation(),
 }));
 

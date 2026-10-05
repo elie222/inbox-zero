@@ -4,7 +4,7 @@ import type { Logger } from "@/utils/logger";
 import {
   withMicrosoftGraphRetry,
   withMicrosoftGraphWriteRetry,
-} from "@/utils/microsoft/retry";
+} from "@/utils/outlook/retry";
 import { runThreadMessageMutation } from "@/utils/outlook/thread-helpers";
 import { resolveMicrosoftGraphNextLink } from "@/utils/outlook/page-token";
 

@@ -14,6 +14,7 @@ import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 import parse from "gmail-api-parse-message";
 import { withGmailRetry } from "@/utils/gmail/retry";
 import type { Logger } from "@/utils/logger";
+import { getEmbeddedGmailAttachmentDescriptors } from "./attachment";
 
 export function parseMessage(
   message: MessageWithPayload,
@@ -23,8 +24,13 @@ export function parseMessage(
   const calendarParts = getCalendarParts(message.payload);
   const calendarData =
     calendarParts.length === 1 ? calendarParts[0].body?.data : undefined;
-  const inlineAttachments = parsed.attachments?.filter(isInlineAttachment);
-  const attachments = parsed.attachments?.filter(
+  const parts = [
+    ...(parsed.attachments ?? []),
+    ...(parsed.inline ?? []),
+  ].filter((part) => part.attachmentId);
+  parts.push(...getEmbeddedGmailAttachmentDescriptors(message.payload));
+  const inlineAttachments = parts.filter(isInlineAttachment);
+  const attachments = parts.filter(
     (attachment) => !isInlineAttachment(attachment),
   );
 
@@ -42,7 +48,7 @@ export function parseMessage(
     attachments: attachments?.length ? attachments : undefined,
     subject: parsed.headers?.subject || "",
     date: parsed.headers?.date || "",
-    inline: [...(parsed.inline ?? []), ...(inlineAttachments ?? [])],
+    inline: inlineAttachments,
     // gmail-api-parse-message converts internalDate to a number, but our type expects string
     internalDate:
       parsed.internalDate != null ? String(parsed.internalDate) : null,
@@ -241,11 +247,13 @@ function isMessage(
 function isInlineAttachment(
   attachment: NonNullable<ParsedMessage["attachments"]>[number],
 ) {
+  const disposition = attachment.headers["content-disposition"]
+    ?.split(";", 1)[0]
+    ?.trim()
+    .toLowerCase();
   return (
-    attachment.headers["content-disposition"]
-      ?.split(";", 1)[0]
-      ?.trim()
-      .toLowerCase() === "inline"
+    disposition === "inline" ||
+    (!disposition && Boolean(attachment.headers["content-id"]))
   );
 }
 
@@ -288,35 +296,6 @@ export async function queryBatchMessages(
       })) || [],
     nextPageToken: messages.nextPageToken,
   };
-}
-
-// loops through multiple pages of messages
-export async function queryBatchMessagesPages(
-  gmail: gmail_v1.Gmail,
-  {
-    query,
-    maxResults,
-    logger,
-  }: {
-    query: string;
-    maxResults: number;
-    logger: Logger;
-  },
-) {
-  const messages: ParsedMessage[] = [];
-  let nextPageToken: string | undefined;
-  do {
-    const { messages: pageMessages, nextPageToken: nextToken } =
-      await queryBatchMessages(gmail, {
-        query,
-        pageToken: nextPageToken,
-        logger,
-      });
-    messages.push(...pageMessages);
-    nextPageToken = nextToken || undefined;
-  } while (nextPageToken && messages.length < maxResults);
-
-  return messages;
 }
 
 export async function getSentMessages(

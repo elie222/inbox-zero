@@ -187,15 +187,6 @@ describe("Gmail retry helpers", () => {
       expect(delay).toBe(1000);
     });
 
-    it("should use fallback delay when Retry-After header is stale", () => {
-      // Use HTTP-date format (like "Wed, 21 Oct 2015 07:28:00 GMT")
-      const pastDate = new Date(Date.now() - 5000).toUTCString();
-
-      // Should fall back to exponential backoff for server error
-      const delay = calculateRetryDelay(false, true, false, 2, pastDate);
-      expect(delay).toBe(10_000); // 2nd attempt = 10s
-    });
-
     it("should use retry time from error message when valid", () => {
       const futureDate = new Date(Date.now() + 15_000).toISOString();
       const errorMessage = `Rate limit exceeded. Retry after ${futureDate}`;

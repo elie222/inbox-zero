@@ -4,12 +4,12 @@ import {
   fetchGoogleOpenIdProfile,
   getGoogleOauthClientOptions,
   isGoogleOauthEmulationEnabled,
-} from "@/utils/google/oauth";
+} from "@/utils/gmail/oauth";
 import {
   fetchMicrosoftUserProfile,
   getMicrosoftOauthAuthorizeUrl,
   requestMicrosoftToken,
-} from "@/utils/microsoft/oauth";
+} from "@/utils/outlook/oauth";
 import {
   GOOGLE_DRIVE_FULL_SCOPES,
   GOOGLE_DRIVE_SCOPES,

@@ -67,10 +67,15 @@ test("persists the booking link and scheduling timezone", async ({ page }) => {
     .poll(() => getCalendarTestState(), { timeout: 120_000 })
     .toMatchObject({ bookingLink: "https://cal.com/playwright-test" });
 
-  const timezoneSelect = page.locator('select[name="timezone"]');
-  await timezoneSelect.selectOption("Europe/Paris");
-  await timezoneSelect
-    .locator("xpath=ancestor::form")
+  // CSS locator: the timezone mismatch dialog hides the page from role queries after reload.
+  const timezonePicker = page.locator('button[role="combobox"]', {
+    hasText: "GMT",
+  });
+  await timezonePicker.click();
+  await page.getByPlaceholder("Search...").fill("Paris");
+  await page.getByRole("option", { name: /^Paris \(GMT/ }).click();
+  await timezonePicker
+    .locator("xpath=../..")
     .getByRole("button", { name: "Save" })
     .click();
   await expect(
@@ -85,7 +90,7 @@ test("persists the booking link and scheduling timezone", async ({ page }) => {
     "https://cal.com/playwright-test",
     { timeout: 120_000 },
   );
-  await expect(timezoneSelect).toHaveValue("Europe/Paris", {
+  await expect(timezonePicker).toHaveText(/^Paris \(GMT/, {
     timeout: 120_000,
   });
 });

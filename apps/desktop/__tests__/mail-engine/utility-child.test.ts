@@ -66,6 +66,42 @@ describe("desktop mail utility child", () => {
     await rm(directory, { recursive: true, force: true });
   });
 
+  it("closes while a cookie lookup is still pending", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "desktop-child-cookie-"));
+    const { child, sent } = startChild();
+    await child.handle({
+      type: "start",
+      id: "start",
+      databasePath: join(directory, "mailbox.sqlite"),
+      origin: "http://127.0.0.1:9",
+    });
+    await child.handle({
+      type: "ipc",
+      id: "sync",
+      payload: {
+        protocolVersion: 1,
+        requestId: "sync",
+        method: "requestSync",
+        payload: { accountIds: ["acc-1"] },
+      },
+    });
+    await expect
+      .poll(() =>
+        sent.some((message) => message.type === "cookieHeaderRequest"),
+      )
+      .toBe(true);
+
+    await expect(
+      Promise.race([
+        child.handle({ type: "close", id: "close" }),
+        new Promise((_resolve, reject) =>
+          setTimeout(() => reject(new Error("close hung")), 3000),
+        ),
+      ]),
+    ).resolves.toBeUndefined();
+    await rm(directory, { recursive: true, force: true });
+  });
+
   it("replies with an error to requests before the engine starts", async () => {
     const { child, replies } = startChild();
     await child.handle({ type: "ipc", id: "early", payload: archive("early") });
