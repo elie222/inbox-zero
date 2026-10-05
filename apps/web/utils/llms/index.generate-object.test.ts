@@ -406,6 +406,27 @@ describe("createGenerateObject repairText", () => {
       expect(request.messages[0].providerOptions).toBeUndefined();
       expect(request.providerOptions.openai.promptCacheKey).toBe("account-1");
     });
+
+    it("adds the cache key to existing OpenRouter options", async () => {
+      const generateObject = await createTestGenerateObject({
+        provider: "openrouter",
+        modelName: "openai/gpt-test",
+        cacheSystemPrompt: true,
+      });
+
+      await generateObject({
+        instructions: "Return JSON.",
+        prompt: "Classify this.",
+        schema: {} as any,
+      } as any);
+
+      const { openrouter } =
+        mockGenerateObject.mock.calls[0][0].providerOptions;
+      expect(openrouter.prompt_cache_key).toBe("account-1");
+      expect(openrouter.trace).toMatchObject({
+        trace_name: expect.any(String),
+      });
+    });
   });
 
   it("falls back to next model on content-filter refusal without retrying primary", async () => {

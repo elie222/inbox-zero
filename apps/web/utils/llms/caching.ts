@@ -23,6 +23,11 @@ export function getSystemCacheProviderOptions(
   if (OPENAI_PROMPT_CACHE_PROVIDERS.has(provider)) {
     return { openai: { promptCacheKey: cacheKey } };
   }
+  // Without a key, OpenRouter's sticky routing hashes the first user message
+  // too, which is the email here, so calls from one account wouldn't stick.
+  if (provider === Provider.OPENROUTER) {
+    return { openrouter: { prompt_cache_key: cacheKey } };
+  }
   return {};
 }
 

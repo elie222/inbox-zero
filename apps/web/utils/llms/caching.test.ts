@@ -14,10 +14,15 @@ describe("getSystemCacheProviderOptions", () => {
     ).toEqual({ openai: { promptCacheKey: "account-1" } });
   });
 
+  it("returns a sticky-routing cache key for openrouter", () => {
+    expect(
+      getSystemCacheProviderOptions("openrouter", { cacheKey: "account-1" }),
+    ).toEqual({ openrouter: { prompt_cache_key: "account-1" } });
+  });
+
   it.each([
     "anthropic",
     "bedrock",
-    "openrouter",
     "aigateway",
   ])("returns nothing for %s (caching is marked on the message instead)", (provider) => {
     expect(
