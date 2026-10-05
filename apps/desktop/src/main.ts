@@ -94,6 +94,7 @@ let lastResumedAt: number | null = null;
 let lastFocused: BrowserWindow | null = null;
 let persistWindowsTimer: ReturnType<typeof setTimeout> | undefined;
 let pendingAuthProof: { verifier: string; expiresAt: number } | null = null;
+let completedAuthState: string | null = null;
 let pendingAuthUrl: string | null = null;
 let pendingCallbackPath: string | null = null;
 let isQuitting = false;
@@ -677,9 +678,12 @@ async function handleAuthCallbackUrl(url: string) {
   const window = focusAppWindow();
   const callback = parseDesktopAuthCallback(url);
   if (!callback.ok) {
-    dialog.showErrorBox("Sign in failed", callback.error);
+    showSignInError(new Error(callback.error));
     return;
   }
+  // The server can issue more than one code per sign-in when the browser
+  // repeats the callback request.
+  if (callback.state === completedAuthState) return;
 
   try {
     const proof = pendingAuthProof;
@@ -693,6 +697,7 @@ async function handleAuthCallbackUrl(url: string) {
       proof.verifier,
     );
     if (pendingAuthProof === proof) pendingAuthProof = null;
+    completedAuthState = callback.state;
     await window.loadURL(consumePostAuthUrl()).catch(() => {});
   } catch (error) {
     showSignInError(error);
@@ -768,6 +773,7 @@ async function openExternal(url: string) {
 }
 
 function showSignInError(error: unknown) {
+  captureDesktopError(error, { area: "sign-in" });
   dialog.showErrorBox(
     "Sign in failed",
     error instanceof Error ? error.message : "Could not finish signing in",
