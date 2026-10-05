@@ -199,7 +199,6 @@ type UsageMetadata = {
   providerRequestIds?: string[];
   stepCount?: number;
   toolCallCount?: number;
-  cacheCreationInputTokens?: number;
 };
 type LlmEmailAccount = {
   sensitiveDataPolicy?: EmailAccountWithAI["sensitiveDataPolicy"];
@@ -1812,17 +1811,7 @@ function getUsageMetadata(result: unknown): UsageMetadata {
     providerReportedCost: providerCost.providerReportedCost,
     providerUpstreamInferenceCost: providerCost.providerUpstreamInferenceCost,
     providerCostSource: providerCost.providerCostSource,
-    cacheCreationInputTokens: getCacheCreationInputTokens(result),
   };
-}
-
-// Cache-write tokens aren't in LanguageModelUsage (which only reports cache
-// reads via cachedInputTokens). Anthropic surfaces them in providerMetadata, so
-// extract them here to make cache write volume measurable alongside reads.
-function getCacheCreationInputTokens(result: unknown): number | undefined {
-  const providerMetadata = getObjectProperty(result, "providerMetadata");
-  const anthropic = getObjectProperty(providerMetadata, "anthropic");
-  return getFiniteNumber(getProperty(anthropic, "cacheCreationInputTokens"));
 }
 
 async function saveUsageWithMetadata({
@@ -1863,7 +1852,6 @@ async function saveUsageWithMetadata({
     providerRequestIds: usageMetadata.providerRequestIds,
     stepCount: usageMetadata.stepCount,
     toolCallCount: usageMetadata.toolCallCount,
-    cacheCreationInputTokens: usageMetadata.cacheCreationInputTokens,
   });
 }
 

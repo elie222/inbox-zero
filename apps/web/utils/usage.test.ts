@@ -18,12 +18,14 @@ function languageModelUsage({
   outputTokens,
   totalTokens,
   cachedInputTokens,
+  cacheWriteTokens,
   reasoningTokens,
 }: {
   inputTokens?: number;
   outputTokens?: number;
   totalTokens?: number;
   cachedInputTokens?: number;
+  cacheWriteTokens?: number;
   reasoningTokens?: number;
 }): LanguageModelUsage {
   return {
@@ -33,7 +35,7 @@ function languageModelUsage({
     inputTokenDetails: {
       noCacheTokens: undefined,
       cacheReadTokens: cachedInputTokens,
-      cacheWriteTokens: undefined,
+      cacheWriteTokens,
     },
     outputTokenDetails: {
       textTokens: undefined,
@@ -53,6 +55,25 @@ describe("calculateUsageCost", () => {
     expect(
       calculateUsageCost({ provider: "typesafe", model: "jev-latest", usage }),
     ).toBeCloseTo(42);
+  });
+
+  it("bills cache writes at the cache-write price", () => {
+    const usage = languageModelUsage({
+      inputTokens: 1_500_000,
+      cachedInputTokens: 250_000,
+      cacheWriteTokens: 1_000_000,
+      outputTokens: 0,
+      totalTokens: 1_500_000,
+    });
+
+    // 0.25M uncached at $3 + 0.25M cache reads at $0.30 + 1M writes at $3.75
+    expect(
+      calculateUsageCost({
+        provider: "anthropic",
+        model: "claude-sonnet-4-6",
+        usage,
+      }),
+    ).toBeCloseTo(0.75 + 0.075 + 3.75);
   });
 
   it("applies cached input pricing when cached tokens are present", () => {
@@ -296,43 +317,24 @@ describe("saveAiUsage", () => {
     vi.clearAllMocks();
   });
 
-  it("publishes cache-creation tokens, defaulting to zero when absent", async () => {
-    const usage: LanguageModelUsage = {
-      inputTokens: 700,
-      cachedInputTokens: 300,
-      outputTokens: 150,
-      totalTokens: 850,
-    };
-
+  it("publishes cache-write tokens from the usage details", async () => {
     await saveAiUsage({
       userId: "user-1",
       email: "user@example.com",
       emailAccountId: "email-account-1",
       provider: "anthropic",
-      model: "claude-sonnet-4.5",
-      usage,
-      label: "Choose rule",
-      cacheCreationInputTokens: 512,
-    });
-
-    expect(publishAiCall).toHaveBeenCalledWith(
-      expect.objectContaining({ cacheCreationInputTokens: 512 }),
-    );
-
-    vi.clearAllMocks();
-
-    await saveAiUsage({
-      userId: "user-1",
-      email: "user@example.com",
-      emailAccountId: "email-account-1",
-      provider: "anthropic",
-      model: "claude-sonnet-4.5",
-      usage,
+      model: "claude-sonnet-4-6",
+      usage: languageModelUsage({
+        inputTokens: 1200,
+        cacheWriteTokens: 1024,
+        outputTokens: 150,
+        totalTokens: 1350,
+      }),
       label: "Choose rule",
     });
 
     expect(publishAiCall).toHaveBeenCalledWith(
-      expect.objectContaining({ cacheCreationInputTokens: 0 }),
+      expect.objectContaining({ cacheWriteTokens: 1024 }),
     );
   });
 
