@@ -39,6 +39,22 @@ test("round-trips strings, nested arrays, numbers, and null through the real Ups
   ]);
 });
 
+test("returns HGETALL hashes in the shape the Upstash client expects", async () => {
+  const server = await startServer(
+    [[null, { name: "שלום", count: "2" }]],
+    vi.fn(),
+  );
+  const redis = new HttpRedis({ url: server.url, token: "local-token" });
+  expect(await redis.hgetall("hash")).toEqual({ name: "שלום", count: 2 });
+
+  const plain = new HttpRedis({
+    url: server.url,
+    token: "local-token",
+    responseEncoding: false,
+  });
+  expect(await plain.hgetall("hash")).toEqual({ name: "שלום", count: 2 });
+});
+
 test("requires the token and rejects malformed command bodies before running Redis commands", async () => {
   const call = vi.fn();
   const server = await startServer([], call);
