@@ -171,4 +171,92 @@ describe("threadsQueryToPredicate", () => {
       ],
     });
   });
+
+  it("maps the Outlook attachment operator onto the attachment predicate", () => {
+    expect(threadsQueryToPredicate({ q: "hasattachments:true" })).toEqual({
+      kind: "has_attachment",
+      value: true,
+    });
+    expect(
+      threadsQueryToPredicate({ q: "invoice hasattachments:yes" }),
+    ).toEqual({
+      kind: "all",
+      predicates: [
+        { kind: "has_attachment", value: true },
+        { kind: "text", field: "any", value: "invoice", match: "term" },
+      ],
+    });
+  });
+
+  it("negates the attachment predicate for hasattachments:false", () => {
+    expect(
+      threadsQueryToPredicate({ q: "invoice hasattachments:false" }),
+    ).toEqual({
+      kind: "all",
+      predicates: [
+        { kind: "has_attachment", value: false },
+        { kind: "text", field: "any", value: "invoice", match: "term" },
+      ],
+    });
+  });
+
+  it("keeps an attachment operator with an uninterpretable value as text", () => {
+    expect(
+      threadsQueryToPredicate({ q: "invoice hasattachments:maybe" }),
+    ).toEqual({
+      kind: "text",
+      field: "any",
+      value: "invoice hasattachments:maybe",
+      match: "term",
+    });
+  });
+
+  it("reads operators inside a parenthesized group without leaving the parens as text", () => {
+    expect(threadsQueryToPredicate({ q: "(hasattachments:true)" })).toEqual({
+      kind: "has_attachment",
+      value: true,
+    });
+    expect(threadsQueryToPredicate({ q: "(subject:invoice)" })).toEqual({
+      kind: "text",
+      field: "subject",
+      value: "invoice",
+      match: "phrase",
+    });
+  });
+
+  it("leaves operators inside a quoted phrase in the phrase", () => {
+    expect(
+      threadsQueryToPredicate({
+        q: '"looking for hasattachments:true in email"',
+      }),
+    ).toEqual({
+      kind: "text",
+      field: "any",
+      value: '"looking for hasattachments:true in email"',
+      match: "term",
+    });
+  });
+
+  it("keeps parens inside a quoted phrase", () => {
+    expect(threadsQueryToPredicate({ q: '"invoice (paid)"' })).toEqual({
+      kind: "text",
+      field: "any",
+      value: '"invoice (paid)"',
+      match: "term",
+    });
+    expect(
+      threadsQueryToPredicate({ q: '(hasattachments:true) "invoice (paid)"' }),
+    ).toEqual({
+      kind: "all",
+      predicates: [
+        { kind: "has_attachment", value: true },
+        {
+          kind: "text",
+          field: "any",
+          value: '"invoice (paid)"',
+          match: "term",
+        },
+      ],
+    });
+  });
 });

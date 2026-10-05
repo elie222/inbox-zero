@@ -9,6 +9,7 @@ import { deleteAccountUploadDirectory } from "@/utils/mail-api/upload-blobs";
 import { deleteUser } from "@/utils/user/delete";
 import { clearLastEmailAccountCookie } from "@/utils/cookies.server";
 import { LAST_EMAIL_ACCOUNT_COOKIE } from "@/utils/cookies";
+import { deleteTinybirdEmailData } from "@inboxzero/tinybird";
 import { deleteAccountAction, deleteEmailAccountAction } from "./user";
 
 vi.mock("@/utils/prisma");
@@ -39,6 +40,9 @@ vi.mock("@/utils/cookies.server", () => ({
 }));
 vi.mock("@/utils/mail-api/upload-blobs", () => ({
   deleteAccountUploadDirectory: vi.fn(() => Promise.resolve()),
+}));
+vi.mock("@inboxzero/tinybird", () => ({
+  deleteTinybirdEmailData: vi.fn(() => Promise.resolve()),
 }));
 vi.mock("@/utils/user/delete", () => ({
   deleteUser: vi.fn(),
@@ -221,6 +225,9 @@ describe("deleteEmailAccountAction", () => {
     expect(prisma.$transaction.mock.invocationCallOrder[0]).toBeLessThan(
       vi.mocked(deleteAccountUploadDirectory).mock.invocationCallOrder[0],
     );
+    expect(deleteTinybirdEmailData).toHaveBeenCalledWith([
+      "secondary@example.com",
+    ]);
     expect(clearLastEmailAccountCookie).not.toHaveBeenCalled();
   });
 

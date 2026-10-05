@@ -99,49 +99,26 @@ For complete self-hosting instructions, production deployment, OAuth setup, and 
 
 ### Local Development
 
-> **Prerequisites**: [Docker](https://docs.docker.com/engine/install/), [Node.js](https://nodejs.org/) v24+, and [pnpm](https://pnpm.io/) v10+
+> **Prerequisites**: macOS or Linux (WSL on Windows), [Node.js](https://nodejs.org/) v24, and the pnpm version pinned in `package.json`. Install either [Docker Desktop](https://docs.docker.com/desktop/) with Compose or native PostgreSQL and Redis. On macOS, native services can be installed with `brew install postgresql@16 redis`.
 
 ```bash
 git clone https://github.com/elie222/inbox-zero.git
 cd inbox-zero
-docker compose -f docker-compose.dev.yml up -d   # Postgres + Redis
 pnpm install
-npm run setup                                     # Interactive env setup
-cd apps/web && pnpm prisma migrate dev && cd ../..
-pnpm dev
+pnpm local:start
 ```
 
-Open http://localhost:3000
+Open http://localhost:3000/mail and sign in with Google as `developer@example.com`, or Microsoft as `developer@outlook.test`. The Google mailbox contains demo messages. Demo users have onboarding completed, and premium checks are bypassed for local development.
 
-After `pnpm install`, if you want to use the local Google emulator, start it with:
+The command starts an isolated database, Redis and its HTTP endpoint, both mail-provider emulators, billing and email-delivery emulators, an LLM emulator, and Next.js. It applies migrations and waits for services to become ready. No OAuth credentials or AI API keys are required. AI responses are canned; this mode exercises application flows, not model quality.
 
-```bash
-docker compose -f docker-compose.dev.yml --profile google-emulator up -d
-```
+Existing `.env` files are left unchanged and ignored by this launcher. Generated credentials, seed data, and the current service addresses are stored under `.context/local-dev/`. Native database data stays there; Docker database data stays in a volume unique to the checkout. Restarts preserve database data and credentials. Redis caches and provider/emulator state start fresh on each run.
 
-Then point `apps/web/.env` at it with:
+Press **Ctrl-C** to stop the app and the services this command started. Start it again with the same command. If port 3000 is occupied, use `pnpm local:start --port 3001`. Native PostgreSQL and Redis are selected when available; use `--backend docker` or `--backend native` to select explicitly. A checkout-specific loopback port prevents concurrent launchers; the operating system releases that lock after a crash, and stale PID files are replaced automatically. Services use automatically assigned ports, so existing databases and Redis instances are not reused or stopped.
 
-```bash
-GOOGLE_BASE_URL=http://localhost:4002
-GOOGLE_CLIENT_ID=emulate-google-client.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=emulate-google-secret
-```
+Run `pnpm local:start --help` for options. If an unrelated process occupies the reported lock port, stop that process or use a different checkout location. PostgreSQL data must be opened with the same major version that created it. If you upgrade your native PostgreSQL major version, back up or move `.context/local-dev/postgres` before starting a new cluster.
 
-If you want to use the local Microsoft emulator, start it with:
-
-```bash
-docker compose -f docker-compose.dev.yml --profile microsoft-emulator up -d
-```
-
-Then point `apps/web/.env` at it with:
-
-```bash
-MICROSOFT_BASE_URL=http://localhost:4003
-MICROSOFT_CLIENT_ID=emulate-microsoft-client-id
-MICROSOFT_CLIENT_SECRET=emulate-microsoft-secret
-```
-
-See the **[Contributing Guide](https://docs.getinboxzero.com/contributing)** for more details including devcontainer setup.
+For development against real providers, continue to use `pnpm setup`, your own environment files, and `pnpm dev`. See the **[Contributing Guide](https://docs.getinboxzero.com/contributing)** for configuration and devcontainer setup.
 
 ## Contributing
 

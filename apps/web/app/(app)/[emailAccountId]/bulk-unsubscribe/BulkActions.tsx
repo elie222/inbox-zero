@@ -38,8 +38,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { DomainIcon } from "@/components/charts/DomainIcon";
-import { extractDomainFromEmail } from "@/utils/email";
+import { SenderIcon } from "@/components/SenderIcon";
 import type { NewsletterStatsResponse } from "@/app/api/user/stats/newsletters/route";
 import { NewsletterStatus } from "@/generated/prisma/enums";
 import type { NewsletterFilterType } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/types";
@@ -305,32 +304,28 @@ export function BulkActions({
           {selectedNewsletters.length > 0 && (
             <div className="max-h-[300px] overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700">
               <div className="divide-y divide-gray-100 dark:divide-gray-800">
-                {selectedNewsletters.map((newsletter) => {
-                  const domain =
-                    extractDomainFromEmail(newsletter.name) || newsletter.name;
-                  return (
-                    <div
-                      key={newsletter.name}
-                      className="flex items-center gap-3 px-3 py-2"
-                    >
-                      <DomainIcon
-                        domain={domain}
-                        size={32}
-                        variant="circular"
-                      />
-                      <div className="flex flex-col min-w-0">
-                        <span className="font-medium text-sm truncate">
-                          {newsletter.fromName || newsletter.name}
+                {selectedNewsletters.map((newsletter) => (
+                  <div
+                    key={newsletter.name}
+                    className="flex items-center gap-3 px-3 py-2"
+                  >
+                    <SenderIcon
+                      email={newsletter.name}
+                      name={newsletter.fromName}
+                      size={32}
+                    />
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-medium text-sm truncate">
+                        {newsletter.fromName || newsletter.name}
+                      </span>
+                      {newsletter.fromName && (
+                        <span className="text-xs text-muted-foreground truncate">
+                          {newsletter.name}
                         </span>
-                        {newsletter.fromName && (
-                          <span className="text-xs text-muted-foreground truncate">
-                            {newsletter.name}
-                          </span>
-                        )}
-                      </div>
+                      )}
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -369,32 +364,28 @@ export function BulkActions({
           {selectedNewsletters.length > 0 && (
             <div className="max-h-[300px] overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700">
               <div className="divide-y divide-gray-100 dark:divide-gray-800">
-                {selectedNewsletters.map((newsletter) => {
-                  const domain =
-                    extractDomainFromEmail(newsletter.name) || newsletter.name;
-                  return (
-                    <div
-                      key={newsletter.name}
-                      className="flex items-center gap-3 px-3 py-2"
-                    >
-                      <DomainIcon
-                        domain={domain}
-                        size={32}
-                        variant="circular"
-                      />
-                      <div className="flex flex-col min-w-0">
-                        <span className="font-medium text-sm truncate">
-                          {newsletter.fromName || newsletter.name}
+                {selectedNewsletters.map((newsletter) => (
+                  <div
+                    key={newsletter.name}
+                    className="flex items-center gap-3 px-3 py-2"
+                  >
+                    <SenderIcon
+                      email={newsletter.name}
+                      name={newsletter.fromName}
+                      size={32}
+                    />
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-medium text-sm truncate">
+                        {newsletter.fromName || newsletter.name}
+                      </span>
+                      {newsletter.fromName && (
+                        <span className="text-xs text-muted-foreground truncate">
+                          {newsletter.name}
                         </span>
-                        {newsletter.fromName && (
-                          <span className="text-xs text-muted-foreground truncate">
-                            {newsletter.name}
-                          </span>
-                        )}
-                      </div>
+                      )}
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
             </div>
           )}

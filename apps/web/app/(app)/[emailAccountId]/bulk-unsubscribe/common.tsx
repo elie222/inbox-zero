@@ -61,6 +61,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { getEmailTerminology } from "@/utils/terminology";
 import { Tooltip } from "@/components/Tooltip";
+import { cn } from "@/utils";
 
 export function ActionCell<T extends Row>({
   item,
@@ -525,15 +526,20 @@ export function HeaderButton(props: {
       className="-ml-3 h-8 data-[state=open]:bg-accent"
       onClick={props.onClick}
     >
-      <span className="text-muted-foreground">{props.children}</span>
-      {props.sorted ? (
-        props.sortDirection === "asc" ? (
-          <ChevronUpIcon className="ml-2 size-4 text-muted-foreground" />
-        ) : (
-          <ChevronDownIcon className="ml-2 size-4 text-muted-foreground" />
-        )
+      <span
+        className={props.sorted ? "text-foreground" : "text-muted-foreground"}
+      >
+        {props.children}
+      </span>
+      {props.sorted && props.sortDirection === "asc" ? (
+        <ChevronUpIcon className="ml-2 size-4 text-foreground" />
       ) : (
-        <ChevronDownIcon className="ml-2 size-4 text-muted-foreground" />
+        <ChevronDownIcon
+          className={cn(
+            "ml-2 size-4",
+            props.sorted ? "text-foreground" : "text-muted-foreground/50",
+          )}
+        />
       )}
     </Button>
   );

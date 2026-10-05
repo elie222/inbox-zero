@@ -3,10 +3,7 @@ import { env } from "@/env";
 import { betterAuthConfig } from "@/utils/auth";
 import { handleMcpServerRequest } from "@/utils/mcp/server";
 import { isMcpServerAvailable } from "@/utils/mcp/config";
-import {
-  getMcpIpRateLimitResponse,
-  getMcpUserRateLimitResponse,
-} from "@/utils/mcp/rate-limit";
+import { getMcpIpRateLimitResponse } from "@/utils/mcp/rate-limit";
 import { verifyMcpToken } from "@/utils/mcp/verify-token";
 import type { Logger } from "@/utils/logger";
 
@@ -52,12 +49,6 @@ export async function handleMcpPostRequest(request: Request, logger?: Logger) {
     throw error;
   }
   if (!principal) return unauthorized();
-
-  const userLimited = await getMcpUserRateLimitResponse({
-    userId: principal.userId,
-    logger,
-  });
-  if (userLimited) return withCors(userLimited);
 
   const response = await handleMcpServerRequest(request, principal);
   return withCors(response);

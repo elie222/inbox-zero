@@ -1,7 +1,7 @@
 import { escapeSearchValue } from "@/utils/outlook/search-escape";
 import type { Contact, Person } from "@microsoft/microsoft-graph-types";
 import type { Logger } from "@/utils/logger";
-import { withMicrosoftGraphRetry } from "@/utils/microsoft/retry";
+import { withMicrosoftGraphRetry } from "@/utils/outlook/retry";
 import type { OutlookClient } from "@/utils/outlook/client";
 import { isOutlookAccessDeniedError } from "@/utils/error";
 import {

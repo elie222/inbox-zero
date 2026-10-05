@@ -1,5 +1,6 @@
 "use client";
 
+import { MailAccountSwitcherTrigger } from "@inboxzero/mail-ui/MailAccountSwitcherTrigger";
 import { memo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
@@ -87,32 +88,16 @@ export const MailAccountSwitcher = memo(function MailAccountSwitcher({
       <DropdownMenu>
         <RailTooltip label={collapsed ? activeLabel : null}>
           <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              aria-label={collapsed ? activeLabel : undefined}
-              className={cn(
-                "flex w-full items-center rounded-xl text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                collapsed ? "justify-center" : "gap-3 px-2",
-                variant === "compact" ? "h-11" : "h-10",
-              )}
-            >
-              {activeIcon}
-              {collapsed ? null : (
-                <>
-                  <span className="min-w-0 flex-1 leading-tight">
-                    <span className="block truncate font-medium text-sm">
-                      {activeLabel}
-                    </span>
-                    {activeEmail ? (
-                      <span className="block truncate text-muted-foreground text-xs">
-                        {activeEmail}
-                      </span>
-                    ) : null}
-                  </span>
-                  <ChevronsUpDownIcon className="size-4 text-muted-foreground" />
-                </>
-              )}
-            </button>
+            <MailAccountSwitcherTrigger
+              icon={activeIcon}
+              indicator={
+                <ChevronsUpDownIcon className="size-4 text-muted-foreground" />
+              }
+              label={activeLabel}
+              email={activeEmail}
+              collapsed={collapsed}
+              compact={variant === "compact"}
+            />
           </DropdownMenuTrigger>
         </RailTooltip>
         <DropdownMenuContent

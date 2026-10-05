@@ -33,7 +33,7 @@ import {
   fetchMicrosoftUserProfile,
   MicrosoftUserProfileError,
   requestMicrosoftToken,
-} from "@/utils/microsoft/oauth";
+} from "@/utils/outlook/oauth";
 import {
   acquireOAuthCodeLock,
   getOAuthCodeResult,

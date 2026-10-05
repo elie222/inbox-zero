@@ -18,6 +18,8 @@ import { getShortcutHint } from "@/lib/shortcuts/registry";
 
 type MailCommandActions = {
   archive: () => void;
+  /** Replaces archive when every target is already archived. */
+  moveToInbox?: () => void;
   forward?: () => void;
   label?: () => void;
   star?: () => void;
@@ -58,19 +60,32 @@ export function buildMailCommandPalette({
   if (targetCount === 0) return [];
 
   const commands: Command[] = [
-    {
-      id: "mail-archive",
-      label:
-        targetCount === 1
-          ? "Archive conversation"
-          : `Archive ${targetCount} conversations`,
-      icon: ArchiveIcon,
-      shortcut: "E",
-      section: "actions",
-      priority: 0,
-      keywords: ["archive", "remove", "inbox"],
-      action: actions.archive,
-    },
+    actions.moveToInbox
+      ? {
+          id: "mail-move-to-inbox",
+          label:
+            targetCount === 1
+              ? "Move to inbox"
+              : `Move ${targetCount} conversations to inbox`,
+          icon: ArchiveRestoreIcon,
+          section: "actions",
+          priority: 0,
+          keywords: ["unarchive", "restore", "inbox"],
+          action: actions.moveToInbox,
+        }
+      : {
+          id: "mail-archive",
+          label:
+            targetCount === 1
+              ? "Archive conversation"
+              : `Archive ${targetCount} conversations`,
+          icon: ArchiveIcon,
+          shortcut: "E",
+          section: "actions",
+          priority: 0,
+          keywords: ["archive", "remove", "inbox"],
+          action: actions.archive,
+        },
   ];
 
   if (targetCount === 1 && actions.forward) {

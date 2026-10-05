@@ -6,7 +6,6 @@ import {
   CircleHelpIcon,
   ChevronsUpDownIcon,
   LightbulbIcon,
-  MessageCircleReplyIcon,
   ShieldCheckIcon,
   LogOutIcon,
   Building2Icon,
@@ -142,29 +141,18 @@ export function NavUser() {
 
           <DropdownMenuGroup>
             {isGoogleProvider(provider) && (
-              <>
-                <DropdownMenuItem asChild>
-                  <Link
-                    href={prefixPath(currentEmailAccountId, "/reply-zero")}
-                    onClick={() => closeMobileSidebar("left-sidebar")}
-                  >
-                    <MessageCircleReplyIcon className="mr-2 size-4" />
-                    Reply Zero
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link
-                    href={prefixPath(
-                      currentEmailAccountId,
-                      "/cold-email-blocker",
-                    )}
-                    onClick={() => closeMobileSidebar("left-sidebar")}
-                  >
-                    <ShieldCheckIcon className="mr-2 size-4" />
-                    Cold Email Blocker
-                  </Link>
-                </DropdownMenuItem>
-              </>
+              <DropdownMenuItem asChild>
+                <Link
+                  href={prefixPath(
+                    currentEmailAccountId,
+                    "/cold-email-blocker",
+                  )}
+                  onClick={() => closeMobileSidebar("left-sidebar")}
+                >
+                  <ShieldCheckIcon className="mr-2 size-4" />
+                  Cold Email Blocker
+                </Link>
+              </DropdownMenuItem>
             )}
           </DropdownMenuGroup>
 

@@ -6,7 +6,7 @@ describe("isIndexingAllowed", () => {
     expect(
       isIndexingAllowed("https://www.getinboxzero.com", "production"),
     ).toBe(true);
-    expect(isIndexingAllowed("https://mail.example.com", undefined)).toBe(true);
+    expect(isIndexingAllowed("https://mail.example.com", "")).toBe(true);
   });
 
   it("blocks preview deploys and staging hosts", () => {

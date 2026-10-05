@@ -1,7 +1,7 @@
 import { after } from "next/server";
 import { ActionType, MessagingMessageStatus } from "@/generated/prisma/enums";
 import type { Logger } from "@/utils/logger";
-import { callWebhook } from "@/utils/webhook";
+import { callWebhook } from "@/utils/outbound-webhook/call-webhook";
 import type {
   ActionExecutionEmailAccount,
   ActionItem,

@@ -55,9 +55,6 @@ vi.mock("@/components/email-list/EmailDetails", () => ({
 }));
 vi.mock("@/components/Toast", () => ({ toastError: mocks.toastError }));
 vi.mock("@/utils/actions/mail", () => ({ deleteDraftAction: vi.fn() }));
-vi.mock("@/utils/actions/generate-reply", () => ({
-  generateNudgeReplyAction: vi.fn(),
-}));
 vi.mock("@/app/(app)/[emailAccountId]/compose/ComposeEmailFormLazy", () => ({
   ComposeEmailFormLazy: ({
     onDiscard,

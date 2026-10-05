@@ -13,7 +13,7 @@ import {
   getGoogleGmailApiRootUrl,
   getGoogleOauthClientOptions,
   getGooglePeopleApiRootUrl,
-} from "@/utils/google/oauth";
+} from "@/utils/gmail/oauth";
 import { gmail } from "@googleapis/gmail";
 
 vi.mock("@/utils/auth/save-tokens", () => ({
@@ -24,7 +24,7 @@ vi.mock("@/utils/auth/cleanup-invalid-tokens", () => ({
   cleanupInvalidTokens: vi.fn(),
 }));
 
-vi.mock("@/utils/google/oauth", () => ({
+vi.mock("@/utils/gmail/oauth", () => ({
   getGoogleOauthClientOptions: vi.fn((redirectUri?: string) => ({
     clientId: "client-id",
     clientSecret: "client-secret",

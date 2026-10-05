@@ -5,7 +5,7 @@ import { createScopedLogger } from "@/utils/logger";
 import {
   getGoogleApiRootUrl,
   getGoogleOauthClientOptions,
-} from "@/utils/google/oauth";
+} from "@/utils/gmail/oauth";
 import type {
   DriveProvider,
   DriveFolder,

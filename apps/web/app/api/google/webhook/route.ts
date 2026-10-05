@@ -11,8 +11,9 @@ import {
 } from "@/utils/webhook/validate-webhook-account";
 import { getEmailProviderRateLimitState } from "@/utils/email/rate-limit";
 import { isGoogleProvider } from "@/utils/email/provider-types";
+import { markGmailHistoryCatchUp } from "@/utils/redis/gmail-history-catch-up";
 
-import { publishLocalMailHint } from "@/utils/redis/local-mail-hints";
+import { notifyMailboxChanged } from "@/utils/mailbox-push";
 
 export const maxDuration = 300;
 
@@ -68,7 +69,14 @@ export const POST = withError("google/webhook", async (request) => {
   });
 
   if (emailAccount) {
-    after(() => publishLocalMailHint(emailAccount.id, logger));
+    // Notify before history processing so early returns still reach clients,
+    // and so this response is not waiting on Apple.
+    after(() =>
+      notifyMailboxChanged({
+        emailAccountId: emailAccount.id,
+        logger,
+      }),
+    );
     const activeRateLimit = await getEmailProviderRateLimitState({
       emailAccountId: emailAccount.id,
       logger,
@@ -90,6 +98,7 @@ export const POST = withError("google/webhook", async (request) => {
           );
         },
       );
+      await markGmailHistoryCatchUp(emailAccount.id, logger);
       logger.warn("Skipping webhook enqueue due to active Gmail rate limit", {
         retryAt: activeRateLimit.retryAt.toISOString(),
         rateLimitSource: activeRateLimit.source,

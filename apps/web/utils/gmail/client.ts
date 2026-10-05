@@ -10,7 +10,7 @@ import {
   getGoogleGmailApiRootUrl,
   getGoogleOauthClientOptions,
   getGooglePeopleApiRootUrl,
-} from "@/utils/google/oauth";
+} from "@/utils/gmail/oauth";
 
 type AuthOptions = {
   accessToken?: string | null;

@@ -307,6 +307,26 @@ describe("HtmlEmail", () => {
     expect(iframe.style.height).toBe(initialHeight);
   });
 
+  it("rounds a fractional document height up so the frame never scrolls", async () => {
+    vi.mocked(fetch).mockReturnValue(new Promise(() => {}));
+    const { getByTitle } = render(
+      <HtmlEmail html="<p>Three lines</p>" messageId="fractional-height" />,
+    );
+    const iframe = getByTitle("Email content preview") as HTMLIFrameElement;
+    const { documentElement } = iframe.contentDocument!;
+    Object.defineProperty(documentElement, "scrollHeight", {
+      configurable: true,
+      get: () => 67,
+    });
+    vi.spyOn(documentElement, "getBoundingClientRect").mockReturnValue(
+      new DOMRect(0, 0, 600, 67.17),
+    );
+    addEmailDocumentMarker(iframe, iframe.contentDocument);
+    iframe.dispatchEvent(new Event("load"));
+
+    await waitFor(() => expect(iframe.style.height).toBe("68px"));
+  });
+
   it("expands when an image increases the iframe document height after loading", async () => {
     vi.mocked(fetch).mockReturnValue(new Promise(() => {}));
     const { getByTitle } = render(

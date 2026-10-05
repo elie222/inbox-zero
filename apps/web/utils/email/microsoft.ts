@@ -1,3 +1,4 @@
+import type { ProviderMailboxSearch } from "@/utils/email/types";
 import type { LocalMailSyncRequest } from "@/utils/actions/local-mail-sync.validation";
 import type { LocalMailSyncResponse } from "@/utils/email/local-mail-sync-types";
 import {
@@ -7,7 +8,7 @@ import {
   getOutlookLocalMailMessage,
   resolveOutlookLocalMailFolderIds,
 } from "@/utils/outlook/local-mail-sync";
-import { matchesSenderFilter } from "@/utils/mail/sender-filter";
+import { matchesSenderFilter } from "@/utils/split-inbox/sender-filter";
 import { SafeError } from "@/utils/error";
 import type { Message } from "@microsoft/microsoft-graph-types";
 import type { OutlookClient } from "@/utils/outlook/client";
@@ -129,8 +130,8 @@ import {
   isRetryableError,
   withMicrosoftGraphRetry,
   withMicrosoftGraphWriteRetry,
-} from "@/utils/microsoft/retry";
-import { isMicrosoftEmulationEnabled } from "@/utils/microsoft/oauth";
+} from "@/utils/outlook/retry";
+import { isMicrosoftEmulationEnabled } from "@/utils/outlook/oauth";
 import { shouldSkipAutoDraft } from "@/utils/auto-draft";
 import { getOutlookMailboxSyncPage } from "@/utils/outlook/mailbox-sync";
 import { requireSentMessageId } from "@/utils/email/sent-message-id";
@@ -624,8 +625,16 @@ export class OutlookProvider implements EmailProvider {
     });
   }
 
-  async getDraft(draftId: string): Promise<ParsedMessage | null> {
-    return getDraft({ client: this.client, draftId, logger: this.logger });
+  async getDraft(
+    draftId: string,
+    options?: { includeAttachments?: boolean },
+  ): Promise<ParsedMessage | null> {
+    return getDraft({
+      client: this.client,
+      draftId,
+      logger: this.logger,
+      includeAttachments: options?.includeAttachments,
+    });
   }
 
   async getDraftReferenceForMessage(messageId: string) {
@@ -1327,6 +1336,7 @@ export class OutlookProvider implements EmailProvider {
 
   async searchMessages(options: {
     query: string;
+    mailboxSearch?: ProviderMailboxSearch;
     maxResults?: number;
     pageToken?: string;
     fromEmail?: string;
@@ -1347,6 +1357,19 @@ export class OutlookProvider implements EmailProvider {
         logger: this.logger,
         folder: options.folder ?? spamTrashFolderFromLabels(options.labelIds),
       }));
+    const mailbox = options.mailboxSearch?.mailbox;
+    const wellKnownFolder = mailbox
+      ? {
+          inbox: "inbox",
+          sent: "sentitems",
+          drafts: "drafts",
+          spam: "junkemail",
+          trash: "deleteditems",
+          all: undefined,
+          archive: undefined,
+          starred: undefined,
+        }[mailbox]
+      : undefined;
     const categoryNames = scope.categoryNames;
 
     const response = await queryBatchMessages(
@@ -1357,8 +1380,10 @@ export class OutlookProvider implements EmailProvider {
         pageToken: options.pageToken,
         fromEmail: options.fromEmail,
         readState: options.readState,
-        folderId,
+        folderId: wellKnownFolder ?? folderId,
         categoryNames,
+        mailboxSearch: options.mailboxSearch,
+        includeDrafts: options.mailboxSearch !== undefined,
       },
       this.logger,
     );
@@ -1688,6 +1713,11 @@ export class OutlookProvider implements EmailProvider {
     // The Microsoft emulator has no people/contacts Graph endpoints.
     if (isMicrosoftEmulationEnabled()) return [];
     return searchContacts(this.client, query, this.logger);
+  }
+
+  async getContactPhotos() {
+    // Graph serves contact photos as per-contact binaries, not URLs.
+    return {};
   }
 
   async markReadThread(threadId: string, read: boolean): Promise<void> {
@@ -2506,6 +2536,11 @@ export class OutlookProvider implements EmailProvider {
       getFolderIds(this.client, this.logger),
     ]);
     return addOutlookSystemFolderTypes(folders, folderIds);
+  }
+
+  async getForwardingAddresses(): Promise<string[]> {
+    // Graph has no equivalent of Gmail's verified forwarding addresses list
+    return [];
   }
 
   async getFolderCounts(): Promise<EmailFolderCount[]> {

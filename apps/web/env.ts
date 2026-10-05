@@ -282,6 +282,7 @@ const parsedEnv = createEnv({
     SUPERWALL_APP_STORE_CONNECT_FORWARD_URL: z.string().url().optional(),
 
     // APNs token auth for native iOS push. Leave unset to keep Expo-only delivery.
+    // The same credentials send silent mailbox-change pushes.
     APNS_KEY_ID: z.string().min(1).optional(),
     APNS_TEAM_ID: z.string().min(1).optional(),
     APNS_PRIVATE_KEY: z.string().min(1).optional(),
@@ -291,6 +292,7 @@ const parsedEnv = createEnv({
     APNS_TRANSPORT: z.enum(["apns", "fake"]).optional(),
 
     TINYBIRD_TOKEN: z.string().optional(),
+    TINYBIRD_DELETE_TOKEN: z.string().optional(),
     TINYBIRD_BASE_URL: z.string().default("https://api.us-east.tinybird.co/"),
 
     API_KEY_SALT: z.string().optional(),

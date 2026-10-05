@@ -16,7 +16,7 @@ import {
 import {
   extractErrorInfo,
   withMicrosoftGraphRetry,
-} from "@/utils/microsoft/retry";
+} from "@/utils/outlook/retry";
 import { isNotFoundError } from "@/utils/outlook/errors";
 import { mapWithConcurrency } from "@/utils/async";
 

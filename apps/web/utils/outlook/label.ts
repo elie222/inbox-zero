@@ -6,7 +6,7 @@ import {
   extractErrorInfo,
   withMicrosoftGraphRetry,
   withMicrosoftGraphWriteRetry,
-} from "@/utils/microsoft/retry";
+} from "@/utils/outlook/retry";
 import {
   processThreadMessagesFallback,
   runThreadMessageMutation,

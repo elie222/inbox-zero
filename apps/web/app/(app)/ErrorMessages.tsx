@@ -1,15 +1,27 @@
-import { auth } from "@/utils/auth";
+"use client";
+
 import Link from "next/link";
+import useSWR from "swr";
+import { useAction } from "next-safe-action/hooks";
 import { AppAlertBanner } from "@/app/(app)/AppAlertBanner";
 import { Button } from "@/components/ui/button";
+import { toastError } from "@/components/Toast";
+import { getActionErrorMessage } from "@/utils/error";
 import { clearUserErrorMessagesAction } from "@/utils/actions/error-messages";
-import { getUserErrorMessages } from "@/utils/error-messages";
+import type { GetErrorMessagesResponse } from "@/app/api/user/error-messages/route";
 
-export async function ErrorMessages() {
-  const session = await auth();
-  if (!session?.user) return null;
-
-  const errorMessages = await getUserErrorMessages(session.user.id);
+export function ErrorMessages() {
+  const { data: errorMessages, mutate } = useSWR<GetErrorMessagesResponse>(
+    "/api/user/error-messages",
+  );
+  const { execute: clearErrorMessages, isExecuting } = useAction(
+    clearUserErrorMessagesAction,
+    {
+      onSuccess: () => mutate(),
+      onError: ({ error }) =>
+        toastError({ description: getActionErrorMessage(error) }),
+    },
+  );
 
   if (!errorMessages || Object.keys(errorMessages).length === 0) return null;
 
@@ -43,15 +55,14 @@ export async function ErrorMessages() {
               </Link>
             </Button>
           ) : null}
-          <form action={clearUserErrorMessagesAction as () => void}>
-            <Button
-              type="submit"
-              variant={singleError?.actionUrl ? "ghost" : "red"}
-              size="sm"
-            >
-              I've fixed them
-            </Button>
-          </form>
+          <Button
+            variant={singleError?.actionUrl ? "ghost" : "red"}
+            size="sm"
+            loading={isExecuting}
+            onClick={() => clearErrorMessages()}
+          >
+            I've fixed them
+          </Button>
         </div>
       }
     />
