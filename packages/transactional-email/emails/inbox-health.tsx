@@ -1,10 +1,8 @@
 import {
   Body,
-  Button,
   Column,
   Container,
   Head,
-  Heading,
   Html,
   Img,
   Link,
@@ -32,6 +30,9 @@ export interface InboxHealthEmailProps {
   yearlyEmailsAvoided: number;
 }
 
+const FONT = "'Helvetica Neue', Helvetica, Arial, sans-serif";
+const ACCENT = "#2563EB";
+
 export default function InboxHealthEmail(props: InboxHealthEmailProps) {
   const {
     baseUrl = "https://www.getinboxzero.com",
@@ -44,76 +45,93 @@ export default function InboxHealthEmail(props: InboxHealthEmailProps) {
 
   const bulkUnsubscribeUrl = `${baseUrl}/${emailAccountId}/bulk-unsubscribe?select=suggested`;
   const senderCountText = getSenderCountText(suggestionCount);
+  const hiddenCount = Math.max(suggestionCount - senders.length, 0);
 
   return (
-    <Html>
+    <Html lang="en">
       <Head />
       <Preview>
         We found {senderCountText} you rarely read. Clean them up in one click.
       </Preview>
       <Tailwind>
-        <Body className="bg-white font-sans">
-          <Container className="mx-auto w-full max-w-[600px] p-0">
-            <Section className="p-8 text-center">
-              <Link href={baseUrl} className="text-[15px]">
+        <Body className="m-0 bg-[#FDFDFD] p-0" style={{ fontFamily: FONT }}>
+          <Container className="mx-auto w-full max-w-[600px] px-3 pb-12 pt-10">
+            <Section className="pb-9 text-center">
+              <Link href={baseUrl}>
                 <Img
-                  src={"https://www.getinboxzero.com/icon.png"}
-                  width="40"
-                  height="40"
+                  src={`${baseUrl}/logo-wordmark.png`}
+                  width="209"
+                  height="25"
                   alt="Inbox Zero"
                   className="mx-auto my-0"
                 />
               </Link>
+            </Section>
 
-              <Text className="mx-0 mb-8 mt-4 p-0 text-center text-2xl font-normal">
-                <span className="font-semibold tracking-tighter">
-                  Inbox Zero
-                </span>
+            <Section className="px-2 pb-7">
+              <Text
+                className="m-0 pb-2.5 text-[13px] font-semibold leading-[18px]"
+                style={{ color: ACCENT }}
+              >
+                Inbox Health
               </Text>
-
-              <Heading className="my-4 text-4xl font-medium leading-tight">
+              <Text className="m-0 pb-3 text-[34px] font-medium leading-10 tracking-[-0.02em] text-[#242424]">
                 We found {senderCountText} you rarely read
-              </Heading>
-              <Text className="mb-8 text-lg leading-8">
+              </Text>
+              <Text className="m-0 text-[16px] leading-6 text-[#6D6E70]">
                 Unsubscribing from them could save you around{" "}
-                <span className="font-semibold">
+                <span className="font-semibold text-[#242424]">
                   {yearlyEmailsAvoided.toLocaleString("en-US")} emails
                 </span>{" "}
                 a year.
               </Text>
             </Section>
 
-            <Section className="rounded-2xl bg-[#3b82f6]/5 bg-[radial-gradient(circle_at_bottom_right,#3b82f6_0%,transparent_60%)] p-8 text-center">
-              <Heading className="m-0 text-3xl font-medium text-[#1e40af]">
-                Rarely Read Senders
-              </Heading>
-              <Text className="mb-4 text-gray-900">
-                Based on the last 3 months of your inbox
-              </Text>
+            <Section className="mb-5 rounded-2xl border border-solid border-[#EFEFEF] bg-white">
+              <Section className="px-6 pb-3.5 pt-6">
+                <Text className="m-0 text-[20px] font-medium leading-[26px] tracking-[-0.02em] text-[#242424]">
+                  Rarely read senders
+                </Text>
+                <Text className="m-0 pt-1.5 text-[14px] leading-5 text-[#6D6E70]">
+                  Based on the last 3 months of your inbox.
+                </Text>
+              </Section>
 
-              {senders.map((sender) => (
-                <SenderCard key={sender.email} sender={sender} />
-              ))}
+              <Section className="px-6 pt-2">
+                {senders.map((sender, index) => (
+                  <SenderRow
+                    key={sender.email}
+                    sender={sender}
+                    href={bulkUnsubscribeUrl}
+                    isLast={index === senders.length - 1}
+                  />
+                ))}
+              </Section>
 
-              <Section className="text-center mt-[32px] mb-[32px]">
-                <Button
+              {hiddenCount > 0 && (
+                <Text className="m-0 px-6 pt-3.5 text-[13px] leading-[18px] text-[#848484]">
+                  And {hiddenCount} more{" "}
+                  {hiddenCount === 1 ? "sender" : "senders"}.
+                </Text>
+              )}
+
+              <Section className="px-6 pb-6 pt-5">
+                <Link
                   href={bulkUnsubscribeUrl}
-                  style={{
-                    background: "#000",
-                    color: "#fff",
-                    padding: "12px 20px",
-                    borderRadius: "5px",
-                  }}
+                  className="block rounded-[10px] px-5 py-3 text-center text-[14px] font-medium leading-5 no-underline"
+                  style={{ backgroundColor: ACCENT, color: "#FFFFFF" }}
                 >
-                  Unsubscribe in One Click
-                </Button>
+                  Unsubscribe in one click
+                </Link>
               </Section>
             </Section>
 
-            <StatsEmailFooter
-              baseUrl={baseUrl}
-              unsubscribeToken={unsubscribeToken}
-            />
+            <Section className="border-t border-solid border-[#EFEFEF] px-6 pt-4 text-center text-[13px] leading-5 text-[#848484]">
+              <StatsEmailFooter
+                baseUrl={baseUrl}
+                unsubscribeToken={unsubscribeToken}
+              />
+            </Section>
           </Container>
         </Body>
       </Tailwind>
@@ -161,26 +179,47 @@ InboxHealthEmail.PreviewProps = {
   ],
 } satisfies InboxHealthEmailProps;
 
-function SenderCard({ sender }: { sender: SuggestedSender }) {
+// The whole row is a link so mail clients don't auto-link the bare address.
+function SenderRow({
+  sender,
+  href,
+  isLast,
+}: {
+  sender: SuggestedSender;
+  href: string;
+  isLast: boolean;
+}) {
+  const showAddress = sender.name && sender.name !== sender.email;
+  const borderClass = `border-t border-solid border-[#EFEFEF] ${
+    isLast ? "border-b" : ""
+  }`;
+
   return (
-    <Section className="my-3 rounded-lg bg-white/50 p-4 text-left shadow-sm border border-[#3b82f6]/20">
-      <Row>
-        <Column>
-          <Text className="m-0 font-semibold">
+    <Row className={borderClass}>
+      <Column className="py-3">
+        <Link href={href} className="block no-underline">
+          <Text className="m-0 text-[14px] font-semibold leading-5 text-[#242424]">
             {sender.name || sender.email}
           </Text>
-          <Text className="m-0 text-gray-600">{sender.email}</Text>
-        </Column>
-        <Column align="right">
-          <Text className="m-0 text-sm text-gray-500">
-            {sender.count} emails in the last 3 months
-          </Text>
-          <Text className="m-0 text-sm text-gray-500">
-            {sender.readPercentage}% read
-          </Text>
-        </Column>
-      </Row>
-    </Section>
+          {showAddress && (
+            <Text className="m-0 pt-0.5 text-[13px] leading-5 text-[#848484]">
+              {sender.email}
+            </Text>
+          )}
+        </Link>
+      </Column>
+      <Column
+        align="right"
+        className="w-[110px] whitespace-nowrap py-3 align-top"
+      >
+        <Text className="m-0 text-[14px] font-medium leading-5 text-[#242424]">
+          {sender.count.toLocaleString("en-US")} emails
+        </Text>
+        <Text className="m-0 pt-0.5 text-[13px] leading-5 text-[#848484]">
+          {sender.readPercentage}% read
+        </Text>
+      </Column>
+    </Row>
   );
 }
 
