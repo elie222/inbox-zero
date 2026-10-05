@@ -10,8 +10,7 @@ import { useVideoAnalytics } from "@/hooks/useVideoAnalytics";
 type Video = {
   title: string;
   description: ReactNode;
-  youtubeVideoId?: string;
-  muxPlaybackId?: string;
+  muxPlaybackId: string;
 };
 
 export function PageHeaderVideoButton({ video }: { video: Video }) {
@@ -19,7 +18,6 @@ export function PageHeaderVideoButton({ video }: { video: Video }) {
     muxPlaybackId: video.muxPlaybackId,
     surface: "page_header",
     title: video.title,
-    youtubeVideoId: video.youtubeVideoId,
   });
 
   return (
@@ -37,7 +35,6 @@ export function PageHeaderVideoButton({ video }: { video: Video }) {
       <VideoPlayerDialog
         title={video.title}
         description={video.description}
-        youtubeVideoId={video.youtubeVideoId}
         muxPlaybackId={video.muxPlaybackId}
         onVideoCompleted={analytics.trackCompleted}
         onVideoProgress={analytics.trackProgress}

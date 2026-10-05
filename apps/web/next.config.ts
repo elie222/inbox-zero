@@ -186,10 +186,6 @@ const nextConfig: NextConfig = {
     deviceSizes: [640, 750, 828, 1080, 1200, 1280, 1440, 1920],
     remotePatterns: [
       {
-        hostname: "img.youtube.com",
-        protocol: "https",
-      },
-      {
         hostname: "image.mux.com",
         protocol: "https",
       },
