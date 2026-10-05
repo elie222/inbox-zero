@@ -162,7 +162,8 @@ describe("engine bootstrap coverage", () => {
         },
         onEnumerate: (page) => {
           enumeratedPages.push(page);
-          now += 1000;
+          // Each page uses up a whole bootstrap slice.
+          now += 2000;
         },
         pages: ["page-1", "page-2"],
       }),
@@ -323,6 +324,12 @@ describe("engine bootstrap coverage", () => {
     await engine.requestSync(["acc-1"]);
     await engine.runUntil(1500);
     expect(receivedScopes).toEqual(["folder:a", "folder:b"]);
+    expect((await engine.getDiagnostics("acc-1")).coverage).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ scopeId: "folder:a", metadata: "complete" }),
+        expect.objectContaining({ scopeId: "folder:b", metadata: "complete" }),
+      ]),
+    );
 
     await engine.runUntil(5000);
     expect(receivedScopes).toEqual(["folder:a", "folder:b"]);

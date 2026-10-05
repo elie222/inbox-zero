@@ -166,18 +166,75 @@ describe("mail engine idle catch-up scheduling", () => {
   });
 
   it("runs commands while an account's sync request hangs", async () => {
+    const executed: string[] = [];
+    const harness = multiAccountHarness({
+      accounts: [
+        { accountId: "acc-a", streamIds: ["inbox"], readMs: 0, hangs: true },
+      ],
+      onExecute: (operationId) => executed.push(operationId),
+    });
+    await harness.engine.runUntil(50);
+    harness.queueCommand("op-1");
+
+    await harness.engine.runUntil(50);
+
+    expect(harness.reads).toEqual(["acc-a:inbox"]);
+    expect(executed).toEqual(["op-1"]);
+    harness.releaseHangs();
+    await harness.engine.close();
+  });
+
+  it("abandons a hung lane so the account syncs again", async () => {
+    const harness = multiAccountHarness({
+      accounts: [
+        { accountId: "acc-a", streamIds: ["inbox"], readMs: 0, hangs: true },
+      ],
+      syncLaneTimeoutMs: 20,
+    });
+    await harness.engine.runUntil(50);
+    await new Promise((resolve) => setTimeout(resolve, 30));
+
+    await harness.engine.requestSync(["acc-a"]);
+    await harness.engine.runUntil(50);
+
+    expect(harness.reads).toEqual(["acc-a:inbox", "acc-a:inbox"]);
+    harness.releaseHangs();
+    await harness.engine.close();
+  });
+
+  it("stops a purged account's lane so a re-added account syncs right away", async () => {
     const harness = multiAccountHarness({
       accounts: [
         { accountId: "acc-a", streamIds: ["inbox"], readMs: 0, hangs: true },
       ],
     });
     await harness.engine.runUntil(50);
-    const claimWork = vi.spyOn(harness.store, "claimWork");
 
+    await harness.engine.purgeAccount("acc-a");
     await harness.engine.runUntil(50);
 
-    expect(claimWork).toHaveBeenCalled();
+    expect(harness.reads).toEqual(["acc-a:inbox", "acc-a:inbox"]);
     harness.releaseHangs();
+    await harness.engine.close();
+  });
+
+  it("reports a failing lane and backs off that account", async () => {
+    const harness = multiAccountHarness({
+      accounts: [
+        { accountId: "acc-a", streamIds: ["inbox"], readMs: 0, fails: true },
+        { accountId: "acc-b", streamIds: ["primary"], readMs: 0 },
+      ],
+    });
+    await expect(harness.engine.runUntil(50)).rejects.toThrow("read failed");
+
+    await harness.engine.requestSync(["acc-a", "acc-b"]);
+    await harness.engine.runUntil(50);
+
+    expect(harness.reads).toEqual([
+      "acc-a:inbox",
+      "acc-b:primary",
+      "acc-b:primary",
+    ]);
     await harness.engine.close();
   });
 
@@ -462,7 +519,10 @@ function multiAccountHarness(input: {
     streamIds: string[];
     readMs: number;
     hangs?: boolean;
+    fails?: boolean;
   }>;
+  syncLaneTimeoutMs?: number;
+  onExecute?: (operationId: string) => void;
 }) {
   let nowMs = 0;
   let nextId = 0;
@@ -507,6 +567,7 @@ function multiAccountHarness(input: {
       if (account.hangs) {
         await new Promise<void>((resolve) => hangingReads.push(resolve));
       }
+      if (account.fails) throw new Error("read failed");
       return {
         status: "page",
         page: {
@@ -522,16 +583,37 @@ function multiAccountHarness(input: {
       };
     },
   };
+  const queuedCommands: string[] = [];
   const store = {
     ...idleCatchUpStore([]),
     async readAccountSyncStates() {
       return accounts;
     },
-  } as MailStore;
+    async claimWork() {
+      const operationId = queuedCommands.shift();
+      if (!operationId) return null;
+      return {
+        kind: "command",
+        attemptId: `attempt-${operationId}`,
+        operation: { key: { accountId: "acc-a", operationId } },
+      };
+    },
+    async settleAttempt() {},
+    async purgeAccount() {
+      return { databaseEpoch: "test", sequence: 1 };
+    },
+  } as unknown as MailStore;
   const engine = createMailEngine({
     store,
     source,
-    executor: idleExecutor(),
+    syncLaneTimeoutMs: input.syncLaneTimeoutMs,
+    executor: {
+      ...idleExecutor(),
+      async execute({ operation }) {
+        input.onExecute?.(operation.key.operationId);
+        return { status: "uncertain", receiptId: null };
+      },
+    },
     runtime: createHostRuntime({
       nowMs: () => nowMs,
       randomId: () => {
@@ -552,6 +634,9 @@ function multiAccountHarness(input: {
     },
     releaseHangs() {
       for (const release of hangingReads.splice(0)) release();
+    },
+    queueCommand(operationId: string) {
+      queuedCommands.push(operationId);
     },
     readsFor(accountId: string) {
       return reads.filter((read) => read.startsWith(`${accountId}:`)).length;

@@ -47,6 +47,14 @@ import type { BlobStore } from "./ports/blob-store";
 const MAX_BOOTSTRAP_PAGES_PER_RUN = 25;
 const NON_ADVANCING_BOOTSTRAP_RETRY_MS = 60_000;
 const IDLE_CATCH_UP_INTERVAL_MS = 60_000;
+// A lane is abandoned after this long, so a request that never settles
+// cannot keep its account from syncing again.
+const SYNC_LANE_TIMEOUT_MS = 2 * 60_000;
+// How long one bootstrap call may keep paging before the lane moves on to the
+// account's other streams; the scan resumes on the lane's next pass.
+const SYNC_LANE_BOOTSTRAP_SLICE_MS = 2000;
+const SYNC_LANE_RETRY_MIN_MS = 1000;
+const SYNC_LANE_RETRY_MAX_MS = 60_000;
 const MAX_MAILBOX_WINDOW_PAGES = 40;
 
 export type WorkAdmission =
@@ -145,19 +153,25 @@ export function createMailEngine(input: {
   assistant?: AssistantStateSource;
   blobStore?: BlobStore;
   idleCatchUpIntervalMs?: number;
+  syncLaneTimeoutMs?: number;
 }): MailEngine {
   const { store, source, executor, runtime } = input;
   const idleCatchUpIntervalMs =
     input.idleCatchUpIntervalMs ?? IDLE_CATCH_UP_INTERVAL_MS;
+  const syncLaneTimeoutMs = input.syncLaneTimeoutMs ?? SYNC_LANE_TIMEOUT_MS;
   const ownerId = input.ownerId ?? "local-owner";
   const assistant = input.assistant;
   const blobStore = input.blobStore;
   const queries = createQueryRegistry();
   let evictedForCurrentPressure = false;
   const idleCatchUpGates = new Map<string, IdleCatchUpGate>();
-  const syncLanes = new Map<string, Promise<void>>();
+  const syncLanes = new Map<string, SyncLane>();
+  const syncLaneRetries = new Map<
+    string,
+    { retryAtMs: number; delayMs: number }
+  >();
   const syncLaneErrors: unknown[] = [];
-  const syncLanesAbort = new AbortController();
+  let closed = false;
   let refreshGate: Promise<void> | null = null;
   let refreshQueued = false;
 
@@ -329,6 +343,7 @@ export function createMailEngine(input: {
       return store.getDiagnostics(accountId);
     },
     async purgeAccount(accountId) {
+      stopSyncLane(accountId);
       idleCatchUpGates.delete(accountId);
       const revision = await store.purgeAccount(accountId);
       await refreshViews();
@@ -342,6 +357,7 @@ export function createMailEngine(input: {
       let purged = false;
       for (const account of accounts) {
         if (retained.has(account.accountId)) continue;
+        stopSyncLane(account.accountId);
         idleCatchUpGates.delete(account.accountId);
         await store.purgeAccount(account.accountId);
         purged = true;
@@ -370,7 +386,7 @@ export function createMailEngine(input: {
           leaseMs: 30_000,
         });
         if (!work) {
-          await startSyncLanes(deadlineMs);
+          await startSyncLanes();
           if (signal?.aborted || runtime.nowMs() >= deadlineMs) return;
           // Batches stay short and claimable work is checked between them,
           // so a large backlog never delays commands or sync.
@@ -597,8 +613,13 @@ export function createMailEngine(input: {
       }
     },
     async close() {
-      syncLanesAbort.abort();
-      await Promise.allSettled(syncLanes.values());
+      closed = true;
+      const lanes = [...syncLanes.keys()].map((accountId) => {
+        const done = syncLanes.get(accountId)?.done;
+        stopSyncLane(accountId);
+        return done;
+      });
+      await Promise.allSettled(lanes);
       queries.closeAll();
       await store.close();
     },
@@ -752,21 +773,51 @@ export function createMailEngine(input: {
   // Each account syncs in its own lane, so a slow account or a slow request
   // never holds up another account or the command loop. A lane outlives the
   // runUntil call that started it; later calls skip accounts already running.
-  async function startSyncLanes(deadlineMs: number) {
+  async function startSyncLanes() {
     const accounts = await store.readAccountSyncStates();
     for (const account of accounts) {
-      if (syncLanesAbort.signal.aborted || syncLanes.has(account.accountId)) {
-        continue;
-      }
-      const lane = catchUpAccount(account, deadlineMs, syncLanesAbort.signal)
-        .catch((error: unknown) => {
-          syncLaneErrors.push(error);
-        })
-        .finally(() => {
-          syncLanes.delete(account.accountId);
-        });
-      syncLanes.set(account.accountId, lane);
+      const { accountId } = account;
+      if (closed || syncLanes.has(accountId)) continue;
+      const retry = syncLaneRetries.get(accountId);
+      if (retry && retry.retryAtMs > runtime.nowMs()) continue;
+      const abort = new AbortController();
+      const timeout = setTimeout(() => abort.abort(), syncLaneTimeoutMs);
+      // The lane settles on abort even if a request ignores the signal.
+      const aborted = new Promise<void>((resolve) => {
+        abort.signal.addEventListener("abort", () => resolve(), { once: true });
+      });
+      const lane: SyncLane = {
+        abort,
+        done: Promise.race([catchUpAccount(account, abort.signal), aborted])
+          .then(() => {
+            syncLaneRetries.delete(accountId);
+          })
+          .catch((error: unknown) => {
+            if (abort.signal.aborted) return;
+            const delayMs = Math.min(
+              SYNC_LANE_RETRY_MAX_MS,
+              (syncLaneRetries.get(accountId)?.delayMs ?? 0) * 2 ||
+                SYNC_LANE_RETRY_MIN_MS,
+            );
+            syncLaneRetries.set(accountId, {
+              retryAtMs: runtime.nowMs() + delayMs,
+              delayMs,
+            });
+            syncLaneErrors.push(error);
+          })
+          .finally(() => {
+            clearTimeout(timeout);
+            if (syncLanes.get(accountId) === lane) syncLanes.delete(accountId);
+          }),
+      };
+      syncLanes.set(accountId, lane);
     }
+  }
+
+  function stopSyncLane(accountId: string) {
+    syncLanes.get(accountId)?.abort.abort();
+    syncLanes.delete(accountId);
+    syncLaneRetries.delete(accountId);
   }
 
   async function waitForSyncLanes(deadlineMs: number, signal?: AbortSignal) {
@@ -774,7 +825,7 @@ export function createMailEngine(input: {
       let timer: ReturnType<typeof setTimeout> | undefined;
       let onAbort: (() => void) | undefined;
       await Promise.race([
-        Promise.allSettled(syncLanes.values()),
+        Promise.allSettled([...syncLanes.values()].map((lane) => lane.done)),
         new Promise<void>((resolve) => {
           timer = setTimeout(
             resolve,
@@ -787,14 +838,17 @@ export function createMailEngine(input: {
       clearTimeout(timer);
       if (onAbort) signal?.removeEventListener("abort", onAbort);
     }
-    // Surfaces lane failures to the host loop, which already backs off on errors.
-    const error = syncLaneErrors.shift();
-    if (error !== undefined) throw error;
+    // Reports lane failures to the host loop. Each failing account already
+    // backs off on its own, so this is for visibility, not retry pacing.
+    const errors = syncLaneErrors.splice(0);
+    if (errors.length === 1) throw errors[0];
+    if (errors.length > 1) {
+      throw new AggregateError(errors, "Mail sync lanes failed");
+    }
   }
 
   async function catchUpAccount(
     account: AccountSyncState,
-    deadlineMs: number,
     signal: AbortSignal,
   ) {
     let visitedStreams = 0;
@@ -868,7 +922,7 @@ export function createMailEngine(input: {
         await ingestBootstrap({
           session,
           from: stream,
-          deadlineMs,
+          deadlineMs: runtime.nowMs() + SYNC_LANE_BOOTSTRAP_SLICE_MS,
           signal,
           requestId: runtime.randomId(),
           scopeId: stream.streamId,
@@ -916,7 +970,7 @@ export function createMailEngine(input: {
         await ingestBootstrap({
           session,
           from: resetStream,
-          deadlineMs,
+          deadlineMs: runtime.nowMs() + SYNC_LANE_BOOTSTRAP_SLICE_MS,
           signal,
           requestId: runtime.randomId(),
           scopeId: changes.scopeId,
@@ -1104,6 +1158,11 @@ const CONNECTION_BY_SOURCE_STATUS: Partial<
   paused: "offline",
   ok: "ready",
   page: "ready",
+};
+
+type SyncLane = {
+  abort: AbortController;
+  done: Promise<void>;
 };
 
 type IdleCatchUpGate = {
