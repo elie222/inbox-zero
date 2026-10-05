@@ -318,14 +318,20 @@ describe("createEmailProviderMailboxSource", () => {
     expect(getMessagesWithPagination).not.toHaveBeenCalled();
   });
 
-  it("exposes Outlook folders as independent sync scopes", async () => {
+  it("exposes Outlook folders as sync scopes, with custom folders at low priority", async () => {
     const getFolders = vi.fn().mockResolvedValue([
       {
         id: "inbox",
         displayName: "Inbox",
+        systemType: "INBOX",
         childFolders: [{ id: "child", displayName: "Child", childFolders: [] }],
       },
-      { id: "archive", displayName: "Archive", childFolders: [] },
+      {
+        id: "archive",
+        displayName: "Archive",
+        systemType: "ARCHIVE",
+        childFolders: [],
+      },
     ]);
     const source = createEmailProviderMailboxSource({
       accountId: "acc-1",
@@ -345,9 +351,14 @@ describe("createEmailProviderMailboxSource", () => {
       status: "ok",
       value: {
         scopes: [
-          { id: "inbox", kind: "folder", folderId: "inbox" },
-          { id: "child", kind: "folder", folderId: "child" },
-          { id: "archive", kind: "folder", folderId: "archive" },
+          { id: "inbox", kind: "folder", folderId: "inbox", priority: "high" },
+          { id: "child", kind: "folder", folderId: "child", priority: "low" },
+          {
+            id: "archive",
+            kind: "folder",
+            folderId: "archive",
+            priority: "high",
+          },
         ],
         nextPage: null,
       },

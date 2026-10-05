@@ -55,6 +55,12 @@ const SYNC_LANE_TIMEOUT_MS = 2 * 60_000;
 const SYNC_LANE_BOOTSTRAP_SLICE_MS = 2000;
 const SYNC_LANE_RETRY_MIN_MS = 1000;
 const SYNC_LANE_RETRY_MAX_MS = 60_000;
+// Folder discovery and low-priority streams (such as custom Outlook folders)
+// change rarely and cost a provider call each, so they run on a slower clock.
+const LOW_PRIORITY_CATCH_UP_INTERVAL_MS = 10 * 60_000;
+// A sync request (a provider push, the tab coming back) refreshes them only
+// when they have not run recently, so a burst of pushes stays cheap.
+const LOW_PRIORITY_REQUESTED_MIN_INTERVAL_MS = 2 * 60_000;
 const MAX_MAILBOX_WINDOW_PAGES = 40;
 
 export type WorkAdmission =
@@ -328,7 +334,10 @@ export function createMailEngine(input: {
       if (accountIds.length === 0) {
         return { status: "rejected", code: "invalid_account" };
       }
-      for (const accountId of accountIds) idleCatchUpGates.delete(accountId);
+      for (const accountId of accountIds) {
+        const gate = idleCatchUpGates.get(accountId);
+        if (gate) requestCatchUp(gate);
+      }
       await store.releaseDeferredOperations({
         accountIds,
         nowMs: runtime.nowMs(),
@@ -873,13 +882,21 @@ export function createMailEngine(input: {
     const shouldDiscoverScopes = idleGateDue(
       idleGate.nextScopeDiscoveryAtMs,
       runtime.nowMs(),
-      idleCatchUpIntervalMs,
+      LOW_PRIORITY_CATCH_UP_INTERVAL_MS,
     );
     const discoveredScopes = shouldDiscoverScopes
       ? await discoverBootstrapScopes(session, signal)
       : undefined;
     if (shouldDiscoverScopes) {
-      idleGate.nextScopeDiscoveryAtMs = runtime.nowMs() + idleCatchUpIntervalMs;
+      idleGate.nextScopeDiscoveryAtMs =
+        runtime.nowMs() + LOW_PRIORITY_CATCH_UP_INTERVAL_MS;
+    }
+    if (discoveredScopes) {
+      idleGate.lowPriorityStreams = new Set(
+        discoveredScopes
+          .filter((scope) => scope.priority === "low")
+          .map((scope) => scope.id),
+      );
     }
     if (discoveredScopes) {
       const addedScopes = await store.registerSyncScopes({
@@ -926,7 +943,7 @@ export function createMailEngine(input: {
       const catchUpDue = idleGateDue(
         idleGate.nextStreamCatchUpAtMs.get(stream.streamId) ?? 0,
         runtime.nowMs(),
-        idleCatchUpIntervalMs,
+        streamCatchUpInterval(idleGate, stream.streamId),
       );
       if (
         !stream.checkpoint ||
@@ -965,7 +982,8 @@ export function createMailEngine(input: {
           if (changes.page.roundComplete) {
             idleGate.nextStreamCatchUpAtMs.set(
               stream.streamId,
-              runtime.nowMs() + idleCatchUpIntervalMs,
+              runtime.nowMs() +
+                streamCatchUpInterval(idleGate, stream.streamId),
             );
           } else {
             idleGate.nextStreamCatchUpAtMs.delete(stream.streamId);
@@ -980,7 +998,7 @@ export function createMailEngine(input: {
         // only slows a provider that keeps asking for a resync.
         idleGate.nextStreamCatchUpAtMs.set(
           stream.streamId,
-          runtime.nowMs() + idleCatchUpIntervalMs,
+          runtime.nowMs() + streamCatchUpInterval(idleGate, stream.streamId),
         );
         const resetStream = { ...stream, streamId: changes.scopeId };
         await ingestBootstrap({
@@ -995,7 +1013,7 @@ export function createMailEngine(input: {
       } else {
         idleGate.nextStreamCatchUpAtMs.set(
           stream.streamId,
-          runtime.nowMs() + idleCatchUpIntervalMs,
+          runtime.nowMs() + streamCatchUpInterval(idleGate, stream.streamId),
         );
         await noteConnection(account.accountId, changes.status);
       }
@@ -1009,12 +1027,36 @@ export function createMailEngine(input: {
     const created: IdleCatchUpGate = {
       activeBootstrapScopes: new Map(),
       generation,
+      lowPriorityStreams: new Set(),
       nextAssistantCatchUpAtMs: 0,
       nextScopeDiscoveryAtMs: 0,
       nextStreamCatchUpAtMs: new Map(),
     };
     idleCatchUpGates.set(accountId, created);
     return created;
+  }
+
+  function streamCatchUpInterval(idleGate: IdleCatchUpGate, streamId: string) {
+    return idleGate.lowPriorityStreams.has(streamId)
+      ? LOW_PRIORITY_CATCH_UP_INTERVAL_MS
+      : idleCatchUpIntervalMs;
+  }
+
+  function requestCatchUp(idleGate: IdleCatchUpGate) {
+    idleGate.nextAssistantCatchUpAtMs = 0;
+    idleGate.nextScopeDiscoveryAtMs = requestedNextAtMs(
+      idleGate.nextScopeDiscoveryAtMs,
+    );
+    for (const [streamId, nextAtMs] of idleGate.nextStreamCatchUpAtMs) {
+      if (idleGate.lowPriorityStreams.has(streamId)) {
+        idleGate.nextStreamCatchUpAtMs.set(
+          streamId,
+          requestedNextAtMs(nextAtMs),
+        );
+      } else {
+        idleGate.nextStreamCatchUpAtMs.delete(streamId);
+      }
+    }
   }
 
   async function rememberBootstrapContinuation(
@@ -1184,10 +1226,22 @@ type SyncLane = {
 type IdleCatchUpGate = {
   activeBootstrapScopes: Map<string, ScopeDescriptor>;
   generation: string;
+  lowPriorityStreams: Set<string>;
   nextAssistantCatchUpAtMs: number;
   nextScopeDiscoveryAtMs: number;
   nextStreamCatchUpAtMs: Map<string, number>;
 };
+
+// Low-priority checks are scheduled a full slow interval after they ran;
+// a request pulls that in to the shorter minimum.
+function requestedNextAtMs(nextAtMs: number) {
+  return Math.min(
+    nextAtMs,
+    nextAtMs -
+      LOW_PRIORITY_CATCH_UP_INTERVAL_MS +
+      LOW_PRIORITY_REQUESTED_MIN_INTERVAL_MS,
+  );
+}
 
 function idleGateDue(nextAtMs: number, nowMs: number, intervalMs: number) {
   return nextAtMs <= nowMs || nextAtMs - nowMs > intervalMs;

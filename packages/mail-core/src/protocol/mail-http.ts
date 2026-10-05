@@ -82,6 +82,7 @@ export const scopesResultSchema = z.object({
       id: z.string().min(1).max(256),
       kind: z.enum(["account", "folder"]),
       folderId: z.string().max(256).nullable(),
+      priority: z.enum(["high", "low"]).optional(),
     }),
   ),
   nextPage: z.string().max(16_384).nullable(),

@@ -37,6 +37,7 @@ const SUPPORTED_CHANGES = [
 
 type FolderScopeNode = {
   id: string;
+  systemType?: string;
   childFolders?: FolderScopeNode[];
 };
 
@@ -464,7 +465,14 @@ function scopedFolderId(provider: EmailProvider, scope: ScopeDescriptor) {
 function flattenFolderScopes(folders: FolderScopeNode[]) {
   const scopes: ScopeDescriptor[] = [];
   for (const folder of folders) {
-    scopes.push({ id: folder.id, kind: "folder", folderId: folder.id });
+    // New mail the user is waiting on lands in system folders; custom folders
+    // can catch up on a slower clock.
+    scopes.push({
+      id: folder.id,
+      kind: "folder",
+      folderId: folder.id,
+      priority: folder.systemType ? "high" : "low",
+    });
     scopes.push(...flattenFolderScopes(folder.childFolders ?? []));
   }
   return scopes;
