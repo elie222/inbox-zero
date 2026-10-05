@@ -12,6 +12,7 @@ import { actionClient } from "@/utils/actions/safe-action";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { EmailProvider } from "@/utils/email/types";
+import type { Logger } from "@/utils/logger";
 import { getColdEmailRule } from "@/utils/cold-email/cold-email-rule";
 import { internalDateToDate } from "@/utils/date";
 import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
@@ -48,7 +49,12 @@ export const markNotColdEmailAction = actionClient
           logger,
           source: GroupItemSource.USER,
         }),
-        removeColdEmailLabelFromSender(emailProvider, sender, coldEmailRule),
+        removeColdEmailLabelFromSender({
+          emailProvider,
+          sender,
+          coldEmailRule,
+          logger,
+        }),
       ]);
     },
   );
@@ -59,18 +65,31 @@ const MAX_THREADS_TO_UNLABEL = 500;
 const THREAD_PAGE_SIZE = 100;
 const UNLABEL_CONCURRENCY = 10;
 
-async function removeColdEmailLabelFromSender(
-  emailProvider: EmailProvider,
-  sender: string,
-  coldEmailRule: { actions: { labelId: string | null }[] },
-) {
-  const labelIds = [
+async function removeColdEmailLabelFromSender({
+  emailProvider,
+  sender,
+  coldEmailRule,
+  logger,
+}: {
+  emailProvider: EmailProvider;
+  sender: string;
+  coldEmailRule: { actions: { labelId: string | null }[] };
+  logger: Logger;
+}) {
+  const ruleLabelIds = [
     ...new Set(
       coldEmailRule.actions
         .map((action) => action.labelId)
         .filter((id): id is string => Boolean(id)),
     ),
   ];
+
+  // A label deleted in the mailbox can't be filtered on, and some providers
+  // fall back to every thread from the sender rather than none.
+  const labels = await Promise.all(
+    ruleLabelIds.map((labelId) => emailProvider.getLabelById(labelId)),
+  );
+  const labelIds = ruleLabelIds.filter((_, index) => labels[index]);
 
   if (labelIds.length === 0) return;
 
@@ -94,12 +113,25 @@ async function removeColdEmailLabelFromSender(
     } while (pageToken && threadIds.size < MAX_THREADS_TO_UNLABEL);
   }
 
+  // One failing thread shouldn't leave the rest of the sender's mail labeled.
+  const failures: unknown[] = [];
   for (const batch of chunk([...threadIds], UNLABEL_CONCURRENCY)) {
-    await Promise.all(
+    const results = await Promise.allSettled(
       batch.map((threadId) =>
         emailProvider.removeThreadLabels(threadId, labelIds),
       ),
     );
+    for (const result of results) {
+      if (result.status === "rejected") failures.push(result.reason);
+    }
+  }
+
+  if (failures.length > 0) {
+    logger.warn("Failed to remove Cold Email label from some threads", {
+      failedCount: failures.length,
+      threadCount: threadIds.size,
+      error: failures[0],
+    });
   }
 }
 

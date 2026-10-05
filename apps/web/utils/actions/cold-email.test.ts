@@ -24,6 +24,7 @@ vi.mock("@/utils/rule/learned-patterns", () => ({
 import { markNotColdEmailAction } from "@/utils/actions/cold-email";
 
 const SENDER = "cold@example.com";
+const OTHER_SENDER = "other@example.com";
 const COLD_LABEL_ID = "Label_cold";
 
 describe("markNotColdEmailAction", () => {
@@ -52,6 +53,11 @@ describe("markNotColdEmailAction", () => {
         labels: [COLD_LABEL_ID],
       }),
       ...makeThreads("unlabeled", 5, { inInbox: false, labels: [] }),
+      ...makeThreads("other-sender", 3, {
+        inInbox: false,
+        labels: [COLD_LABEL_ID],
+        from: OTHER_SENDER,
+      }),
     ]);
     createEmailProviderMock.mockResolvedValue(mailbox.provider);
 
@@ -60,7 +66,11 @@ describe("markNotColdEmailAction", () => {
     });
 
     expect(result?.serverError).toBeUndefined();
-    expect(mailbox.threadIdsWithLabel(COLD_LABEL_ID)).toEqual([]);
+    expect(mailbox.threadIdsWithLabel(COLD_LABEL_ID)).toEqual([
+      "other-sender-0",
+      "other-sender-1",
+      "other-sender-2",
+    ]);
     expect(saveLearnedPatternMock).toHaveBeenCalledWith(
       expect.objectContaining({
         from: SENDER,
@@ -83,15 +93,62 @@ describe("markNotColdEmailAction", () => {
     expect(result?.serverError).toBeUndefined();
     expect(mailbox.threadIdsWithLabel(COLD_LABEL_ID)).toHaveLength(200);
   });
+
+  it("keeps unlabeling remaining threads when one removal fails", async () => {
+    const mailbox = new FakeMailbox(
+      makeThreads("archived", 25, { inInbox: false, labels: [COLD_LABEL_ID] }),
+      { failingThreadIds: ["archived-0"] },
+    );
+    createEmailProviderMock.mockResolvedValue(mailbox.provider);
+
+    const result = await markNotColdEmailAction("account-1", {
+      sender: SENDER,
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(mailbox.threadIdsWithLabel(COLD_LABEL_ID)).toEqual(["archived-0"]);
+  });
+
+  it("skips cleanup when the rule's label no longer exists in the mailbox", async () => {
+    const mailbox = new FakeMailbox(
+      makeThreads("archived", 5, { inInbox: false, labels: [] }),
+      { existingLabelIds: [] },
+    );
+    createEmailProviderMock.mockResolvedValue(mailbox.provider);
+
+    const result = await markNotColdEmailAction("account-1", {
+      sender: SENDER,
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(mailbox.provider.getThreadsWithQuery).not.toHaveBeenCalled();
+    expect(mailbox.provider.removeThreadLabels).not.toHaveBeenCalled();
+    expect(saveLearnedPatternMock).toHaveBeenCalled();
+  });
 });
 
-type FakeThread = { id: string; inInbox: boolean; labels: Set<string> };
+type FakeThread = {
+  id: string;
+  from: string;
+  inInbox: boolean;
+  labels: Set<string>;
+};
 
 class FakeMailbox {
   private readonly threads: FakeThread[];
+  private readonly existingLabelIds: Set<string>;
+  private readonly failingThreadIds: Set<string>;
 
-  constructor(threads: FakeThread[]) {
+  constructor(
+    threads: FakeThread[],
+    {
+      existingLabelIds = [COLD_LABEL_ID],
+      failingThreadIds = [],
+    }: { existingLabelIds?: string[]; failingThreadIds?: string[] } = {},
+  ) {
     this.threads = threads;
+    this.existingLabelIds = new Set(existingLabelIds);
+    this.failingThreadIds = new Set(failingThreadIds);
   }
 
   threadIdsWithLabel(labelId: string) {
@@ -100,8 +157,14 @@ class FakeMailbox {
       .map((thread) => thread.id);
   }
 
-  // Mirrors provider semantics: no type/label means inbox only on Gmail.
+  // Mirrors provider semantics: no type/label means inbox only on Gmail, and
+  // Outlook drops a label filter it can't resolve.
   readonly provider = {
+    getLabelById: vi.fn(async (labelId: string) =>
+      this.existingLabelIds.has(labelId)
+        ? { id: labelId, name: "Cold Email", type: "user" }
+        : null,
+    ),
     getThreadsWithQuery: vi.fn(
       async ({
         query,
@@ -114,7 +177,11 @@ class FakeMailbox {
       }) => {
         const labelId = query?.labelId;
         const matching = this.threads.filter((thread) => {
-          if (labelId) return thread.labels.has(labelId);
+          if (query?.fromEmail && thread.from !== query.fromEmail) return false;
+          if (labelId && this.existingLabelIds.has(labelId)) {
+            return thread.labels.has(labelId);
+          }
+          if (labelId) return true;
           if (query?.type === "all") return true;
           return thread.inInbox;
         });
@@ -129,6 +196,7 @@ class FakeMailbox {
       },
     ),
     removeThreadLabels: vi.fn(async (threadId: string, labelIds: string[]) => {
+      if (this.failingThreadIds.has(threadId)) throw new Error("Rate limited");
       const thread = this.threads.find((t) => t.id === threadId);
       for (const labelId of labelIds) thread?.labels.delete(labelId);
     }),
@@ -138,10 +206,15 @@ class FakeMailbox {
 function makeThreads(
   prefix: string,
   count: number,
-  { inInbox, labels }: { inInbox: boolean; labels: string[] },
+  {
+    inInbox,
+    labels,
+    from = SENDER,
+  }: { inInbox: boolean; labels: string[]; from?: string },
 ): FakeThread[] {
   return Array.from({ length: count }, (_, i) => ({
     id: `${prefix}-${i}`,
+    from,
     inInbox,
     labels: new Set(labels),
   }));
