@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { XIcon, CreditCardIcon, AlertTriangleIcon } from "lucide-react";
 import { useUser } from "@/hooks/useUser";
+import { env } from "@/env";
 import { isPremiumRecord } from "@/utils/premium";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -41,7 +42,11 @@ export function PremiumExpiredCardContent({
 
   const isUserPremium = isPremiumRecord(premium);
 
-  if (isUserPremium) return null;
+  // Self-hosters running with NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS already have
+  // every premium feature enabled — hasAiAccess and friends short-circuit to
+  // true — so prompting them to upgrade is misleading. They have no premium
+  // record, so the isPremiumRecord check alone never hides this.
+  if (isUserPremium || env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) return null;
 
   const getSubscriptionMessage = () => {
     const UPGRADE_MESSAGE = {
