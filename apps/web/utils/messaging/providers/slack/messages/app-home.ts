@@ -37,7 +37,7 @@ export function buildAppHomeBlocks(): AppHomeView {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: "*1.* Connect your email at <https://www.getinboxzero.com|getinboxzero.com>\n*2.* Link Slack in Settings > Connected Apps\n*3.* Pick a channel for notifications (meeting briefs, filing alerts)\n*4.* DM me or @mention me in any channel to chat about your emails",
+          text: "*1.* Connect your email at <https://www.getinboxzero.com|getinboxzero.com>\n*2.* Connect Slack on the Channels page\n*3.* Choose where notifications go (email alerts, drafted replies, meeting briefs)\n*4.* DM me or @mention me in any channel to chat about your emails",
         },
       },
       { type: "divider" },
