@@ -2,6 +2,7 @@
 
 import { useCallback, useState, useEffect } from "react";
 import { toast } from "sonner";
+import { useLocalStorage } from "usehooks-ts";
 import { useAction } from "next-safe-action/hooks";
 import type { PostHog } from "posthog-js/react";
 import { toastSuccess } from "@/components/Toast";
@@ -229,6 +230,7 @@ async function unsubscribeAndArchive({
   refetchPremium,
   emailAccountId,
   queueArchiveSenders,
+  archiveExisting,
 }: {
   senderEmail: string;
   unsubscribeLink?: string | null;
@@ -236,6 +238,7 @@ async function unsubscribeAndArchive({
   refetchPremium: () => Promise<UserResponse | null | undefined>;
   emailAccountId: string;
   queueArchiveSenders: QueueArchiveSendersFn;
+  archiveExisting: boolean;
 }) {
   const unsubscribed = await performAutomaticUnsubscribe({
     emailAccountId,
@@ -246,7 +249,7 @@ async function unsubscribeAndArchive({
 
   await mutate();
   await decrementUnsubscribeCreditAction();
-  await queueArchiveSenders({ senders: [senderEmail] });
+  if (archiveExisting) await queueArchiveSenders({ senders: [senderEmail] });
   await refreshPremium(refetchPremium);
 
   return true;
@@ -303,6 +306,7 @@ export function useUnsubscribe<T extends Row>({
   const analytics = useProductAnalytics("bulk_unsubscribe");
   const [unsubscribeLoading, setUnsubscribeLoading] = useState(false);
   const { queueArchiveSenders } = useArchiveSenderQueueActions(emailAccountId);
+  const [archiveOnUnsubscribe] = useArchiveOnUnsubscribe();
   const automaticUnsubscribeLink = getAutomaticUnsubscribeLink(
     item.unsubscribeLink,
   );
@@ -371,6 +375,7 @@ export function useUnsubscribe<T extends Row>({
           refetchPremium,
           emailAccountId,
           queueArchiveSenders,
+          archiveExisting: archiveOnUnsubscribe,
         });
         if (!unsubscribed) {
           analytics.captureAction("unsubscribe_sender_failed", {
@@ -410,6 +415,7 @@ export function useUnsubscribe<T extends Row>({
     emailAccountId,
     userFacingUnsubscribeLink,
     queueArchiveSenders,
+    archiveOnUnsubscribe,
   ]);
 
   return {
@@ -448,6 +454,7 @@ export function useBulkUnsubscribe<T extends Row>({
 }) {
   const analytics = useProductAnalytics("bulk_unsubscribe");
   const { queueArchiveSenders } = useArchiveSenderQueueActions(emailAccountId);
+  const [archiveOnUnsubscribe] = useArchiveOnUnsubscribe();
 
   const onBulkUnsubscribe = useCallback(
     async (items: T[]) => {
@@ -498,7 +505,9 @@ export function useBulkUnsubscribe<T extends Row>({
           }
 
           await decrementUnsubscribeCreditAction();
-          await queueArchiveSenders({ senders: [item.name] });
+          if (archiveOnUnsubscribe) {
+            await queueArchiveSenders({ senders: [item.name] });
+          }
         },
         onComplete: async () => {
           await mutate();
@@ -527,6 +536,7 @@ export function useBulkUnsubscribe<T extends Row>({
       filter,
       analytics,
       queueArchiveSenders,
+      archiveOnUnsubscribe,
       onSuccess,
     ],
   );
@@ -788,11 +798,11 @@ export function useApproveButton<T extends Row>({
 
     // Show toast optimistically
     if (newStatus === NewsletterStatus.APPROVED) {
-      toast.success("Sender approved", {
+      toast.success("Sender kept", {
         description: item.name,
       });
     } else {
-      toast.success("Sender unapproved", {
+      toast.success("Sender moved to review", {
         description: item.name,
       });
     }
@@ -849,7 +859,7 @@ export function useBulkApprove<T extends Row>({
     );
 
     const newStatus = unapprove ? null : NewsletterStatus.APPROVED;
-    const actionPast = unapprove ? "unapproved" : "approved";
+    const actionPast = unapprove ? "moved to review" : "kept";
 
     await executeBulkOperation({
       items,
@@ -857,9 +867,9 @@ export function useBulkApprove<T extends Row>({
       filter,
       onDeselectItem,
       newStatus,
-      loadingMessage: unapprove ? "Unapproving" : "Approving",
+      loadingMessage: unapprove ? "Moving to review" : "Keeping",
       successMessage: actionPast,
-      errorMessage: `Failed to ${unapprove ? "unapprove" : "approve"}`,
+      errorMessage: `Failed to ${unapprove ? "move to review" : "keep"}`,
       processItem: async (item) => {
         const result = await setSenderStatusAction(emailAccountId, {
           senderEmail: item.name,
@@ -1050,6 +1060,7 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
   userEmail: string;
 }) {
   const { queueArchiveSenders } = useArchiveSenderQueueActions(emailAccountId);
+  const [archiveOnUnsubscribe] = useArchiveOnUnsubscribe();
 
   // perform actions using keyboard shortcuts
   // TODO make this available to command-K dialog too
@@ -1135,6 +1146,7 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
             refetchPremium,
             emailAccountId,
             queueArchiveSenders,
+            archiveExisting: archiveOnUnsubscribe,
           });
           if (!unsubscribed) return;
           return;
@@ -1166,7 +1178,12 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
     onOpenNewsletter,
     emailAccountId,
     queueArchiveSenders,
+    archiveOnUnsubscribe,
   ]);
+}
+
+export function useArchiveOnUnsubscribe() {
+  return useLocalStorage("bulk-unsubscribe-archive-on-unsubscribe", true);
 }
 
 export function useNewsletterFilter() {
