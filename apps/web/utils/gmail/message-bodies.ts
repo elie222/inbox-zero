@@ -104,8 +104,16 @@ function joinHtml(parts: string[]) {
 }
 
 function htmlBodyContents(html: string) {
-  const match = /<body\b[^>]*>([\s\S]*?)<\/body>/i.exec(html);
-  return match?.[1] ?? html;
+  for (let index = 0; index < html.length; index++) {
+    if (html[index] !== "<") continue;
+    const tag = readTag(html, index);
+    if (!tag) continue;
+    index = tag.end - 1;
+    if (tag.closing || tag.name !== "body") continue;
+    const close = closingTag(html, tag.end, "body");
+    return html.slice(tag.end, close?.start ?? html.length);
+  }
+  return html;
 }
 
 /**
@@ -163,14 +171,18 @@ function visibleText(html: string) {
 }
 
 function skipElement(html: string, from: number, name: string) {
+  return closingTag(html, from, name)?.end ?? html.length;
+}
+
+function closingTag(html: string, from: number, name: string) {
   for (let index = from; index < html.length; index++) {
     if (html[index] !== "<") continue;
     const tag = readTag(html, index);
     if (!tag) continue;
-    if (tag.closing && tag.name === name) return tag.end;
+    if (tag.closing && tag.name === name) return { start: index, end: tag.end };
     index = tag.end - 1;
   }
-  return html.length;
+  return null;
 }
 
 function readTag(html: string, start: number) {
