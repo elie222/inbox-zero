@@ -357,6 +357,18 @@ function writeEmulateSeed({
   let seed = fs
     .readFileSync(templatePath, "utf8")
     .replaceAll("__PLAYWRIGHT_TEST_EMAIL__", playwrightTestEmail)
+    .replaceAll(
+      "__PLAYWRIGHT_TEAM_B_EMAIL__",
+      teammateEmail(playwrightTestEmail, "b"),
+    )
+    .replaceAll(
+      "__PLAYWRIGHT_TEAM_C_EMAIL__",
+      teammateEmail(playwrightTestEmail, "c"),
+    )
+    .replaceAll(
+      "__PLAYWRIGHT_TEAM_D_EMAIL__",
+      teammateEmail(playwrightTestEmail, "d"),
+    )
     .replaceAll("__PLAYWRIGHT_TEST_REDIRECT_URI__", redirectUri)
     .replaceAll("__PLAYWRIGHT_TEST_LINKING_URI__", linkingUri)
     .replaceAll("__PLAYWRIGHT_MEETING_START__", meetingStart.toISOString())
@@ -395,6 +407,14 @@ function writeEmulateSeed({
   fs.writeFileSync(outputPath, seed);
 
   return outputPath;
+}
+
+// Keep in sync with teammateEmail in team-comments-test-helpers.ts. The role
+// goes at the end of the local part so the publisher's address is never a
+// substring of a teammate's, which the OAuth account picker matches on.
+function teammateEmail(publisherEmail, role) {
+  const at = publisherEmail.lastIndexOf("@");
+  return `${publisherEmail.slice(0, at)}+team-${role}${publisherEmail.slice(at)}`;
 }
 
 function refreshGmailMessageDates(seed) {

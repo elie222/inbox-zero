@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import type { EmailLabels } from "@/providers/email-label-types";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
+import { PublisherDiscussion } from "@/components/team-comments/PublisherDiscussion";
 import type { OutgoingThreadMessage } from "@/utils/mail-engine/conversation-thread";
 
 const SenderContextPanel = dynamic(
@@ -252,6 +253,13 @@ export function ThreadReader({
         />
       ) : (
         renderToolbar()
+      )}
+      {emailAccountId && threadId && messages.length > 0 && (
+        <PublisherDiscussion
+          key={`${emailAccountId}:${threadId}`}
+          emailAccountId={emailAccountId}
+          threadId={threadId}
+        />
       )}
     </MailReaderSurface>
   );
