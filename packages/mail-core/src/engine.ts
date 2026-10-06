@@ -879,11 +879,20 @@ export function createMailEngine(input: {
       generation: account.generation,
     };
     const idleGate = idleCatchUpGateFor(account.accountId, account.generation);
-    const shouldDiscoverScopes = idleGateDue(
-      idleGate.nextScopeDiscoveryAtMs,
-      runtime.nowMs(),
-      LOW_PRIORITY_CATCH_UP_INTERVAL_MS,
-    );
+    const shouldDiscoverScopes =
+      idleGateDue(
+        idleGate.nextScopeDiscoveryAtMs,
+        runtime.nowMs(),
+        LOW_PRIORITY_CATCH_UP_INTERVAL_MS,
+      ) ||
+      requestedSince(
+        idleGate,
+        idleGate.scopesDiscoveredAt,
+        LOW_PRIORITY_REQUESTED_MIN_INTERVAL_MS,
+      );
+    if (shouldDiscoverScopes) {
+      idleGate.scopesDiscoveredAt = checkStamp(idleGate);
+    }
     const discoveredScopes = shouldDiscoverScopes
       ? await discoverBootstrapScopes(session, signal)
       : undefined;
@@ -940,11 +949,19 @@ export function createMailEngine(input: {
       if (visitedStreams > 0) await yieldToHost();
       visitedStreams += 1;
       if (signal.aborted) return;
-      const catchUpDue = idleGateDue(
-        idleGate.nextStreamCatchUpAtMs.get(stream.streamId) ?? 0,
-        runtime.nowMs(),
-        streamCatchUpInterval(idleGate, stream.streamId),
-      );
+      const catchUpDue =
+        idleGateDue(
+          idleGate.nextStreamCatchUpAtMs.get(stream.streamId) ?? 0,
+          runtime.nowMs(),
+          streamCatchUpInterval(idleGate, stream.streamId),
+        ) ||
+        requestedSince(
+          idleGate,
+          idleGate.streamCheckedAt.get(stream.streamId),
+          idleGate.lowPriorityStreams.has(stream.streamId)
+            ? LOW_PRIORITY_REQUESTED_MIN_INTERVAL_MS
+            : 0,
+        );
       if (
         !stream.checkpoint ||
         (await resumesBootstrap(idleGate, session, stream.streamId, catchUpDue))
@@ -962,6 +979,7 @@ export function createMailEngine(input: {
         continue;
       }
       if (!catchUpDue) continue;
+      idleGate.streamCheckedAt.set(stream.streamId, checkStamp(idleGate));
       const changes = await source.readChanges({
         session,
         requestId: runtime.randomId(),
@@ -1031,6 +1049,9 @@ export function createMailEngine(input: {
       nextAssistantCatchUpAtMs: 0,
       nextScopeDiscoveryAtMs: 0,
       nextStreamCatchUpAtMs: new Map(),
+      requestCount: 0,
+      scopesDiscoveredAt: null,
+      streamCheckedAt: new Map(),
     };
     idleCatchUpGates.set(accountId, created);
     return created;
@@ -1042,21 +1063,28 @@ export function createMailEngine(input: {
       : idleCatchUpIntervalMs;
   }
 
+  // Requests are counted rather than applied to deadlines, so a request that
+  // lands while a check is in flight survives that check finishing, and
+  // repeated requests cannot pull a check in below its minimum interval.
   function requestCatchUp(idleGate: IdleCatchUpGate) {
+    idleGate.requestCount += 1;
     idleGate.nextAssistantCatchUpAtMs = 0;
-    idleGate.nextScopeDiscoveryAtMs = requestedNextAtMs(
-      idleGate.nextScopeDiscoveryAtMs,
+  }
+
+  function checkStamp(idleGate: IdleCatchUpGate): CheckStamp {
+    return { atMs: runtime.nowMs(), requestCount: idleGate.requestCount };
+  }
+
+  function requestedSince(
+    idleGate: IdleCatchUpGate,
+    checked: CheckStamp | null | undefined,
+    minIntervalMs: number,
+  ) {
+    return (
+      checked != null &&
+      idleGate.requestCount > checked.requestCount &&
+      runtime.nowMs() - checked.atMs >= minIntervalMs
     );
-    for (const [streamId, nextAtMs] of idleGate.nextStreamCatchUpAtMs) {
-      if (idleGate.lowPriorityStreams.has(streamId)) {
-        idleGate.nextStreamCatchUpAtMs.set(
-          streamId,
-          requestedNextAtMs(nextAtMs),
-        );
-      } else {
-        idleGate.nextStreamCatchUpAtMs.delete(streamId);
-      }
-    }
   }
 
   async function rememberBootstrapContinuation(
@@ -1230,18 +1258,12 @@ type IdleCatchUpGate = {
   nextAssistantCatchUpAtMs: number;
   nextScopeDiscoveryAtMs: number;
   nextStreamCatchUpAtMs: Map<string, number>;
+  requestCount: number;
+  scopesDiscoveredAt: CheckStamp | null;
+  streamCheckedAt: Map<string, CheckStamp>;
 };
 
-// Low-priority checks are scheduled a full slow interval after they ran;
-// a request pulls that in to the shorter minimum.
-function requestedNextAtMs(nextAtMs: number) {
-  return Math.min(
-    nextAtMs,
-    nextAtMs -
-      LOW_PRIORITY_CATCH_UP_INTERVAL_MS +
-      LOW_PRIORITY_REQUESTED_MIN_INTERVAL_MS,
-  );
-}
+type CheckStamp = { atMs: number; requestCount: number };
 
 function idleGateDue(nextAtMs: number, nowMs: number, intervalMs: number) {
   return nextAtMs <= nowMs || nextAtMs - nowMs > intervalMs;
