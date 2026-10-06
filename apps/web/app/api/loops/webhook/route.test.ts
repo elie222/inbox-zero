@@ -32,6 +32,7 @@ describe("Loops webhook route", () => {
     vi.useFakeTimers();
     vi.setSystemTime(NOW);
     envMock.LOOPS_WEBHOOK_SIGNING_SECRET = SECRET;
+    posthogCaptureEventMock.mockResolvedValue(true);
   });
 
   afterEach(() => {
@@ -70,6 +71,69 @@ describe("Loops webhook route", () => {
         emailSubject: "Welcome to Inbox Zero",
       }),
     );
+  });
+
+  it.each([
+    ["loop.email.sent", "Loops email sent", { loopId: "loop_1" }, "loop"],
+    [
+      "campaign.email.sent",
+      "Loops email sent",
+      { campaignId: "campaign_1" },
+      "campaign",
+    ],
+    ["email.opened", "Loops email opened", { loopId: "loop_1" }, "loop"],
+    [
+      "email.unsubscribed",
+      "Loops email unsubscribed",
+      { campaignId: "campaign_1" },
+      "campaign",
+    ],
+    [
+      "email.spamReported",
+      "Loops email marked as spam",
+      { loopId: "loop_1" },
+      "loop",
+    ],
+    ["email.hardBounced", "Loops email bounced", { loopId: "loop_1" }, "loop"],
+  ])("records %s as %s", async (loopsEventName, posthogEventName, source, sourceType) => {
+    const response = await post(
+      JSON.stringify({
+        eventName: loopsEventName,
+        ...source,
+        email: { id: "email_1", emailMessageId: "message_1", subject: "Hi" },
+        contactIdentity: { email: "user@example.com" },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(posthogCaptureEventMock).toHaveBeenCalledWith(
+      "user@example.com",
+      posthogEventName,
+      expect.objectContaining({ ...source, sourceType }),
+    );
+  });
+
+  it("asks Loops to redeliver when PostHog does not accept the event", async () => {
+    posthogCaptureEventMock.mockResolvedValue(false);
+
+    const response = await post(
+      JSON.stringify({
+        eventName: "email.opened",
+        loopId: "loop_1",
+        contactIdentity: { email: "user@example.com" },
+      }),
+    );
+
+    expect(response.status).toBe(500);
+  });
+
+  it("acknowledges a malformed tracked event without recording it", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const response = await post(JSON.stringify({ eventName: "email.opened" }));
+
+    expect(response.status).toBe(200);
+    expect(posthogCaptureEventMock).not.toHaveBeenCalled();
   });
 
   it("rejects a payload that is not signed with the configured secret", async () => {

@@ -54,29 +54,58 @@ export const POST = withError("loops/webhook", async (request) => {
     return new Response("Invalid signature", { status: 401 });
   }
 
-  const parsed = loopsEmailEventSchema.safeParse(safeJsonParse(rawBody));
+  const payload = safeJsonParse(rawBody);
+  const loopsEventName = getEventName(payload);
   const posthogEventName =
-    parsed.success && POSTHOG_EVENT_NAMES[parsed.data.eventName];
-  if (!parsed.success || !posthogEventName) {
+    loopsEventName && POSTHOG_EVENT_NAMES[loopsEventName];
+  if (!posthogEventName) return NextResponse.json({ ok: true });
+
+  const parsed = loopsEmailEventSchema.safeParse(payload);
+  if (!parsed.success) {
+    logger.warn("Ignored malformed Loops webhook", {
+      loopsEventName,
+      errors: parsed.error.issues,
+    });
     return NextResponse.json({ ok: true });
   }
 
   const event = parsed.data;
   // Contacts are created with the user's email, which is also the PostHog
   // distinct id, so these events join the user's product timeline.
-  await posthogCaptureEvent(event.contactIdentity.email, posthogEventName, {
-    loopsEventName: event.eventName,
-    sourceType: event.sourceType ?? (event.loopId ? "loop" : undefined),
-    loopId: event.loopId,
-    loopName: event.loopName,
-    campaignId: event.campaignId,
-    campaignName: event.campaignName,
-    emailMessageId: event.email?.emailMessageId,
-    emailSubject: event.email?.subject,
-  });
+  const captured = await posthogCaptureEvent(
+    event.contactIdentity.email,
+    posthogEventName,
+    {
+      loopsEventName: event.eventName,
+      sourceType: event.sourceType ?? getSourceType(event),
+      loopId: event.loopId,
+      loopName: event.loopName,
+      campaignId: event.campaignId,
+      campaignName: event.campaignName,
+      emailMessageId: event.email?.emailMessageId,
+      emailSubject: event.email?.subject,
+    },
+  );
+
+  // Non-2xx so Loops redelivers instead of the event being lost.
+  if (!captured) return new Response("Capture failed", { status: 500 });
 
   return NextResponse.json({ ok: true });
 });
+
+function getEventName(payload: unknown): string | undefined {
+  if (typeof payload !== "object" || payload === null) return;
+  const { eventName } = payload as { eventName?: unknown };
+  return typeof eventName === "string" ? eventName : undefined;
+}
+
+function getSourceType(event: {
+  loopId?: string | null;
+  campaignId?: string | null;
+}) {
+  if (event.loopId) return "loop";
+  if (event.campaignId) return "campaign";
+}
 
 function safeJsonParse(value: string): unknown {
   try {
