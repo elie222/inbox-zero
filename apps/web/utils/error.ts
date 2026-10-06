@@ -265,7 +265,19 @@ export function isAnthropicInsufficientBalanceError(
 }
 
 export function isInsufficientCreditsError(error: APICallError): boolean {
-  return error.statusCode === 402;
+  // OpenAI reports an exhausted balance as a 429 with this error type.
+  return (
+    error.statusCode === 402 ||
+    getProviderErrorType(error) === "insufficient_quota"
+  );
+}
+
+// Retries wrap the provider's error, which carries the status and body.
+export function getAIApiCallError(error: unknown): APICallError | null {
+  if (APICallError.isInstance(error)) return error;
+  if (RetryError.isInstance(error) && APICallError.isInstance(error.lastError))
+    return error.lastError;
+  return null;
 }
 
 const HANDLED_USER_KEY_ERROR = "__handledUserKeyError";
@@ -620,4 +632,18 @@ function isKnownAIErrorMessage(message: string): boolean {
     "model not found",
   ];
   return patterns.some((p) => message.includes(p));
+}
+
+function getProviderErrorType(error: APICallError): string | undefined {
+  const data = error.data as { error?: { type?: unknown } } | undefined;
+  if (typeof data?.error?.type === "string") return data.error.type;
+  if (!error.responseBody) return;
+  try {
+    const body = JSON.parse(error.responseBody) as {
+      error?: { type?: unknown };
+    };
+    return typeof body?.error?.type === "string" ? body.error.type : undefined;
+  } catch {
+    return;
+  }
 }
