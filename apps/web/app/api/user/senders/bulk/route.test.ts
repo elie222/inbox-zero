@@ -52,6 +52,11 @@ describe("POST /api/user/senders/bulk", () => {
         ok: true,
         status: NewsletterStatus.UNSUBSCRIBED,
       },
+      {
+        senderEmail: "ok@example.com",
+        ok: true,
+        status: NewsletterStatus.APPROVED,
+      },
     ]);
   });
 
@@ -70,6 +75,11 @@ describe("POST /api/user/senders/bulk", () => {
           senderEmail: "news@example.com",
           ok: true,
           status: NewsletterStatus.UNSUBSCRIBED,
+        },
+        {
+          senderEmail: "ok@example.com",
+          ok: true,
+          status: NewsletterStatus.APPROVED,
         },
       ],
     });
@@ -128,6 +138,23 @@ describe("POST /api/user/senders/bulk", () => {
     );
 
     await expect(post({ actions })).rejects.toBeInstanceOf(ZodError);
+    expect(mockApply).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed JSON", async () => {
+    const response = await POST(
+      new NextRequest("http://localhost/api/user/senders/bulk", {
+        method: "POST",
+        body: "{",
+      }),
+      {} as never,
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Invalid JSON body",
+      isKnownError: true,
+    });
     expect(mockApply).not.toHaveBeenCalled();
   });
 });

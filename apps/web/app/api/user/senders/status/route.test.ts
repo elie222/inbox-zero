@@ -5,14 +5,14 @@ import { NewsletterStatus } from "@/generated/prisma/enums";
 const {
   mockSetStatus,
   mockArchiveExisting,
-  mockHasAccess,
-  mockConsume,
+  mockReserve,
+  mockRelease,
   mockEmailProvider,
 } = vi.hoisted(() => ({
   mockSetStatus: vi.fn(),
   mockArchiveExisting: vi.fn(),
-  mockHasAccess: vi.fn(),
-  mockConsume: vi.fn(),
+  mockReserve: vi.fn(),
+  mockRelease: vi.fn(),
   mockEmailProvider: { name: "google" },
 }));
 
@@ -20,8 +20,8 @@ vi.mock("@/utils/senders/unsubscribe", () => ({
   setSenderStatusWithAutoArchive: mockSetStatus,
 }));
 vi.mock("@/utils/premium/unsubscribe-credits", () => ({
-  userHasUnsubscribeAccess: mockHasAccess,
-  consumeUnsubscribeCredit: mockConsume,
+  reserveUnsubscribeCredit: mockReserve,
+  releaseUnsubscribeCreditReservation: mockRelease,
 }));
 vi.mock("@/utils/senders/archive-existing", () => ({
   archiveExistingSenderMail: mockArchiveExisting,
@@ -55,8 +55,8 @@ describe("POST /api/user/senders/status", () => {
       autoArchived: true,
     });
     mockArchiveExisting.mockResolvedValue("queued");
-    mockHasAccess.mockResolvedValue(true);
-    mockConsume.mockResolvedValue(undefined);
+    mockReserve.mockResolvedValue("reserved");
+    mockRelease.mockResolvedValue(undefined);
   });
 
   it("leaves existing mail alone unless archiveExisting is set", async () => {
@@ -72,7 +72,8 @@ describe("POST /api/user/senders/status", () => {
       autoArchived: true,
     });
     expect(mockArchiveExisting).not.toHaveBeenCalled();
-    expect(mockConsume).toHaveBeenCalledWith({ userId: "user-1" });
+    expect(mockReserve).toHaveBeenCalledWith({ userId: "user-1" });
+    expect(mockRelease).not.toHaveBeenCalled();
   });
 
   it("archives existing mail when asked and reports whether it was queued", async () => {
@@ -97,7 +98,8 @@ describe("POST /api/user/senders/status", () => {
         emailProvider: mockEmailProvider,
       }),
     );
-    expect(mockConsume).toHaveBeenCalledWith({ userId: "user-1" });
+    expect(mockReserve).toHaveBeenCalledWith({ userId: "user-1" });
+    expect(mockRelease).not.toHaveBeenCalled();
   });
 
   it("rejects archiveExisting unless the sender is being auto-archived", async () => {
@@ -114,11 +116,11 @@ describe("POST /api/user/senders/status", () => {
     });
     expect(mockSetStatus).not.toHaveBeenCalled();
     expect(mockArchiveExisting).not.toHaveBeenCalled();
-    expect(mockConsume).not.toHaveBeenCalled();
+    expect(mockReserve).not.toHaveBeenCalled();
   });
 
   it("rejects auto-archive when the unsubscribe allowance is used up", async () => {
-    mockHasAccess.mockResolvedValue(false);
+    mockReserve.mockResolvedValue("denied");
 
     const response = await post({
       senderEmail: "news@example.com",
@@ -130,7 +132,37 @@ describe("POST /api/user/senders/status", () => {
       errorCode: "unsubscribe_allowance",
     });
     expect(mockSetStatus).not.toHaveBeenCalled();
-    expect(mockConsume).not.toHaveBeenCalled();
+    expect(mockRelease).not.toHaveBeenCalled();
+  });
+
+  it("keeps the credit when the backlog archive fails after the status is set", async () => {
+    mockArchiveExisting.mockRejectedValue(new Error("archive failed"));
+
+    await expect(
+      post({
+        senderEmail: "news@example.com",
+        status: NewsletterStatus.AUTO_ARCHIVED,
+        archiveExisting: true,
+      }),
+    ).rejects.toThrow("archive failed");
+    expect(mockSetStatus).toHaveBeenCalled();
+    expect(mockReserve).toHaveBeenCalled();
+    expect(mockRelease).not.toHaveBeenCalled();
+  });
+
+  it("refunds the credit when the status write fails", async () => {
+    mockSetStatus.mockRejectedValue(new Error("provider down"));
+
+    await expect(
+      post({
+        senderEmail: "news@example.com",
+        status: NewsletterStatus.AUTO_ARCHIVED,
+      }),
+    ).rejects.toThrow("provider down");
+    expect(mockRelease).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: "user-1", reservation: "reserved" }),
+    );
+    expect(mockArchiveExisting).not.toHaveBeenCalled();
   });
 
   it("approves a sender without spending a credit", async () => {
@@ -146,7 +178,7 @@ describe("POST /api/user/senders/status", () => {
     });
 
     expect(response.status).toBe(200);
-    expect(mockHasAccess).not.toHaveBeenCalled();
-    expect(mockConsume).not.toHaveBeenCalled();
+    expect(mockReserve).not.toHaveBeenCalled();
+    expect(mockRelease).not.toHaveBeenCalled();
   });
 });

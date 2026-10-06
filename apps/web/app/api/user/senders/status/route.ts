@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { NewsletterStatus } from "@/generated/prisma/enums";
 import { withEmailProvider } from "@/utils/middleware";
 import { setSenderStatusRequestBody } from "@/utils/actions/unsubscriber.validation";
+import { readRequestJson } from "@/utils/read-request-json";
 import {
-  consumeUnsubscribeCredit,
-  userHasUnsubscribeAccess,
+  releaseUnsubscribeCreditReservation,
+  reserveUnsubscribeCredit,
 } from "@/utils/premium/unsubscribe-credits";
 import { archiveExistingSenderMail } from "@/utils/senders/archive-existing";
 import { unsubscribeAllowanceErrorResponse } from "@/utils/senders/unsubscribe-allowance";
@@ -21,19 +22,24 @@ export type SetSenderStatusResponse = Awaited<
  * server actions. Takes the same body and shares its implementation.
  *
  * Existing mail is left alone unless `archiveExisting` is true. That flag is
- * only valid with `AUTO_ARCHIVED`. Large backlogs are archived after the
- * response (`archiveExisting: "queued"`).
+ * only valid with `AUTO_ARCHIVED`. Large backlogs, and senders with no local
+ * inbox rows, are archived after the response (`archiveExisting: "queued"`).
  *
- * `AUTO_ARCHIVED` requires unsubscribe allowance and spends one free-tier
- * credit. Approve and clear do not.
+ * `AUTO_ARCHIVED` reserves one free-tier credit before the status write and
+ * keeps it if that write succeeds, including when the optional backlog archive
+ * fails. The reservation is refunded only when the status write itself fails.
+ * Approve and clear do not use a credit.
  */
 export const maxDuration = 180;
 
 export const POST = withEmailProvider(
   "user/senders/status",
   async (request) => {
+    const body = await readRequestJson(request);
+    if ("response" in body) return body.response;
+
     const { senderEmail, status, labelId, labelName, archiveExisting } =
-      setSenderStatusRequestBody.parse(await request.json());
+      setSenderStatusRequestBody.parse(body.json);
 
     if (archiveExisting && status !== NewsletterStatus.AUTO_ARCHIVED) {
       return NextResponse.json(
@@ -46,21 +52,32 @@ export const POST = withEmailProvider(
     }
 
     const { userId } = request.auth;
-    if (
-      status === NewsletterStatus.AUTO_ARCHIVED &&
-      !(await userHasUnsubscribeAccess({ userId }))
-    ) {
-      return unsubscribeAllowanceErrorResponse();
-    }
+    const reservation =
+      status === NewsletterStatus.AUTO_ARCHIVED
+        ? await reserveUnsubscribeCredit({ userId })
+        : null;
+    if (reservation === "denied") return unsubscribeAllowanceErrorResponse();
 
-    const result = await setSenderStatusWithAutoArchive({
-      emailAccountId: request.auth.emailAccountId,
-      emailProvider: request.emailProvider,
-      senderEmail,
-      status,
-      labelId,
-      labelName,
-    });
+    let result: Awaited<ReturnType<typeof setSenderStatusWithAutoArchive>>;
+    try {
+      result = await setSenderStatusWithAutoArchive({
+        emailAccountId: request.auth.emailAccountId,
+        emailProvider: request.emailProvider,
+        senderEmail,
+        status,
+        labelId,
+        labelName,
+      });
+    } catch (error) {
+      if (reservation) {
+        await releaseUnsubscribeCreditReservation({
+          userId,
+          reservation,
+          logger: request.logger,
+        });
+      }
+      throw error;
+    }
 
     const archiveExistingResult = archiveExisting
       ? await archiveExistingSenderMail({
@@ -71,16 +88,6 @@ export const POST = withEmailProvider(
           logger: request.logger,
         })
       : undefined;
-
-    if (status === NewsletterStatus.AUTO_ARCHIVED) {
-      try {
-        await consumeUnsubscribeCredit({ userId });
-      } catch (error) {
-        request.logger.error("Failed to consume unsubscribe credit", {
-          error,
-        });
-      }
-    }
 
     return NextResponse.json({
       ...result,

@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ZodError } from "zod";
 import prisma from "@/utils/__mocks__/prisma";
 
 const { mockGetSenderEmailStats, mockEmailProvider } = vi.hoisted(() => ({
@@ -84,6 +85,16 @@ describe("GET /api/user/stats/newsletters", () => {
         orderBy: "newest",
       }),
     );
+  });
+
+  it("rejects a limit below 1", async () => {
+    await expect(
+      GET(
+        new NextRequest("http://localhost/api/user/stats/newsletters?limit=-1"),
+        {} as never,
+      ),
+    ).rejects.toBeInstanceOf(ZodError);
+    expect(mockGetSenderEmailStats).not.toHaveBeenCalled();
   });
 
   it("lets a stats failure reject instead of looking like an empty list", async () => {

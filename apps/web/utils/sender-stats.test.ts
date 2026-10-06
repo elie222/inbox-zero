@@ -42,6 +42,16 @@ describe("getSenderEmailStats", () => {
     vi.clearAllMocks();
   });
 
+  it("rejects a limit below 1", async () => {
+    await expect(
+      getSenderEmailStats({ emailAccountId: "account-1", limit: 0 }),
+    ).rejects.toBeInstanceOf(SafeError);
+    await expect(
+      getSenderEmailStats({ emailAccountId: "account-1", limit: -5 }),
+    ).rejects.toBeInstanceOf(SafeError);
+    expect(prisma.$queryRaw).not.toHaveBeenCalled();
+  });
+
   it("returns every sender and no cursor when limit is omitted", async () => {
     vi.mocked(prisma.$queryRaw).mockResolvedValue([
       senderRow({ from: "a@example.com", count: 2 }),

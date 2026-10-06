@@ -2,7 +2,10 @@ import { NewsletterStatus } from "@/generated/prisma/enums";
 import type { BulkSenderActionName } from "@/utils/actions/unsubscriber.validation";
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
-import { consumeUnsubscribeCredit } from "@/utils/premium/unsubscribe-credits";
+import {
+  releaseUnsubscribeCreditReservation,
+  reserveUnsubscribeCredit,
+} from "@/utils/premium/unsubscribe-credits";
 import { getSenderUnsubscribeSource } from "@/utils/senders/source";
 import {
   setSenderStatusWithAutoArchive,
@@ -139,30 +142,42 @@ async function unsubscribeSender({
   userId: string;
   logger: Logger;
 }): Promise<BulkSenderActionResult> {
-  const source = await getSenderUnsubscribeSource({
-    senderEmail,
-    emailProvider,
-    logger,
-  });
-  const result = await unsubscribeSenderAndMark({
-    emailAccountId,
-    senderEmail,
-    unsubscribeLink: source.unsubscribeLink,
-    listUnsubscribeHeader: source.listUnsubscribeHeader,
-    logger,
-  });
+  const reservation = await reserveUnsubscribeCredit({ userId });
+  if (reservation === "denied") return allowanceResult(senderEmail);
 
-  if (!result.unsubscribe.success) {
-    return {
+  try {
+    const source = await getSenderUnsubscribeSource({
       senderEmail,
-      ok: false,
-      status: result.status,
-      reason: result.unsubscribe.reason ?? "request_failed",
-    };
-  }
+      emailProvider,
+      logger,
+    });
+    const result = await unsubscribeSenderAndMark({
+      emailAccountId,
+      senderEmail,
+      unsubscribeLink: source.unsubscribeLink,
+      listUnsubscribeHeader: source.listUnsubscribeHeader,
+      logger,
+    });
 
-  await consumeCredit({ userId, logger });
-  return { senderEmail, ok: true, status: result.status };
+    if (!result.unsubscribe.success) {
+      await releaseUnsubscribeCreditReservation({
+        userId,
+        reservation,
+        logger,
+      });
+      return {
+        senderEmail,
+        ok: false,
+        status: result.status,
+        reason: result.unsubscribe.reason ?? "request_failed",
+      };
+    }
+
+    return { senderEmail, ok: true, status: result.status };
+  } catch (error) {
+    await releaseUnsubscribeCreditReservation({ userId, reservation, logger });
+    throw error;
+  }
 }
 
 async function setStatus({
@@ -182,30 +197,37 @@ async function setStatus({
   userId: string;
   logger: Logger;
 }): Promise<BulkSenderActionResult> {
-  const result = await setSenderStatusWithAutoArchive({
-    emailAccountId,
-    emailProvider,
-    senderEmail,
-    status,
-  });
+  const reservation = shouldConsumeCredit
+    ? await reserveUnsubscribeCredit({ userId })
+    : null;
+  if (reservation === "denied") return allowanceResult(senderEmail);
 
-  if (shouldConsumeCredit) await consumeCredit({ userId, logger });
+  try {
+    const result = await setSenderStatusWithAutoArchive({
+      emailAccountId,
+      emailProvider,
+      senderEmail,
+      status,
+    });
 
-  return { senderEmail, ok: true, status: result.status };
+    return { senderEmail, ok: true, status: result.status };
+  } catch (error) {
+    if (reservation) {
+      await releaseUnsubscribeCreditReservation({
+        userId,
+        reservation,
+        logger,
+      });
+    }
+    throw error;
+  }
 }
 
-async function consumeCredit({
-  userId,
-  logger,
-}: {
-  userId: string;
-  logger: Logger;
-}) {
-  try {
-    await consumeUnsubscribeCredit({ userId });
-  } catch (error) {
-    // The sender change already landed. Failing the item would invite a retry
-    // of the unsubscribe itself.
-    logger.error("Failed to consume unsubscribe credit", { error });
-  }
+function allowanceResult(senderEmail: string): BulkSenderActionResult {
+  return {
+    senderEmail,
+    ok: false,
+    status: null,
+    reason: "unsubscribe_allowance",
+  };
 }

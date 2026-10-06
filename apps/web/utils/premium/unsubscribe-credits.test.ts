@@ -17,6 +17,8 @@ vi.mock("@/utils/prisma");
 
 import {
   consumeUnsubscribeCredit,
+  refundUnsubscribeCredit,
+  reserveUnsubscribeCredit,
   userHasUnsubscribeAccess,
 } from "./unsubscribe-credits";
 
@@ -56,7 +58,9 @@ describe("unsubscribe credits", () => {
     await expect(userHasUnsubscribeAccess({ userId: "user-1" })).resolves.toBe(
       true,
     );
-    await consumeUnsubscribeCredit({ userId: "user-1" });
+    await expect(reserveUnsubscribeCredit({ userId: "user-1" })).resolves.toBe(
+      "premium",
+    );
 
     expect(prisma.premium.updateMany).not.toHaveBeenCalled();
   });
@@ -65,12 +69,16 @@ describe("unsubscribe credits", () => {
     prisma.user.findUnique.mockResolvedValue({
       premium: freePremium(),
     } as never);
-    prisma.premium.updateMany.mockResolvedValue({ count: 0 } as never);
+    prisma.premium.updateMany
+      .mockResolvedValueOnce({ count: 0 } as never)
+      .mockResolvedValueOnce({ count: 1 } as never);
 
     await expect(userHasUnsubscribeAccess({ userId: "user-1" })).resolves.toBe(
       true,
     );
-    await consumeUnsubscribeCredit({ userId: "user-1" });
+    await expect(reserveUnsubscribeCredit({ userId: "user-1" })).resolves.toBe(
+      "reserved",
+    );
 
     expect(prisma.premium.updateMany).toHaveBeenLastCalledWith({
       where: {
@@ -80,6 +88,17 @@ describe("unsubscribe credits", () => {
       },
       data: { unsubscribeCredits: { decrement: 1 } },
     });
+  });
+
+  it("does not treat a missed debit as a reservation", async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      premium: freePremium({ unsubscribeCredits: 0 }),
+    } as never);
+    prisma.premium.updateMany.mockResolvedValue({ count: 0 } as never);
+
+    await expect(reserveUnsubscribeCredit({ userId: "user-1" })).resolves.toBe(
+      "denied",
+    );
   });
 
   it("resets a stale free allowance before spending one credit", async () => {
@@ -94,7 +113,9 @@ describe("unsubscribe credits", () => {
     await expect(userHasUnsubscribeAccess({ userId: "user-1" })).resolves.toBe(
       true,
     );
-    await consumeUnsubscribeCredit({ userId: "user-1" });
+    await expect(reserveUnsubscribeCredit({ userId: "user-1" })).resolves.toBe(
+      "reserved",
+    );
 
     expect(prisma.premium.updateMany).toHaveBeenCalledTimes(1);
     expect(prisma.premium.updateMany).toHaveBeenCalledWith(
@@ -105,6 +126,36 @@ describe("unsubscribe credits", () => {
         },
       }),
     );
+  });
+
+  it("returns a reserved credit up to the free allowance", async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      premium: freePremium({ unsubscribeCredits: 4 }),
+    } as never);
+
+    await refundUnsubscribeCredit({ userId: "user-1" });
+
+    expect(prisma.premium.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "premium-1",
+        unsubscribeMonth: getUnsubscribePeriod(),
+        unsubscribeCredits: { lt: 5 },
+      },
+      data: { unsubscribeCredits: { increment: 1 } },
+    });
+  });
+
+  it("spends through the same debit the web action uses", async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      premium: freePremium(),
+    } as never);
+    prisma.premium.updateMany
+      .mockResolvedValueOnce({ count: 0 } as never)
+      .mockResolvedValueOnce({ count: 1 } as never);
+
+    await consumeUnsubscribeCredit({ userId: "user-1" });
+
+    expect(prisma.premium.updateMany).toHaveBeenCalledTimes(2);
   });
 
   it("denies a free user who already spent this period's credits", async () => {

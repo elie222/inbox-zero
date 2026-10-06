@@ -42,7 +42,7 @@ describe("archiveExistingSenderMail", () => {
     );
   });
 
-  it("still asks the provider to archive when local stats have no inbox rows", async () => {
+  it("queues when local stats have no inbox rows", async () => {
     prisma.emailMessage.count.mockResolvedValue(0 as never);
     const emailProvider = provider();
 
@@ -54,8 +54,10 @@ describe("archiveExistingSenderMail", () => {
         ownerEmail: "user@example.com",
         logger,
       }),
-    ).resolves.toBe("completed");
-    expect(emailProvider.bulkArchiveSenderOrThrow).toHaveBeenCalled();
+    ).resolves.toBe("queued");
+    await vi.waitFor(() => {
+      expect(emailProvider.bulkArchiveSenderOrThrow).toHaveBeenCalled();
+    });
   });
 
   it("queues a large backlog and keeps a later failure off the request", async () => {

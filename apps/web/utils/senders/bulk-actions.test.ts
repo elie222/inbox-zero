@@ -2,14 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NewsletterStatus } from "@/generated/prisma/enums";
 import { createTestLogger } from "@/__tests__/helpers";
 
-const { mockUnsubscribe, mockSetStatus, mockSource, mockConsume } = vi.hoisted(
-  () => ({
+const { mockUnsubscribe, mockSetStatus, mockSource, mockReserve, mockRelease } =
+  vi.hoisted(() => ({
     mockUnsubscribe: vi.fn(),
     mockSetStatus: vi.fn(),
     mockSource: vi.fn(),
-    mockConsume: vi.fn(),
-  }),
-);
+    mockReserve: vi.fn(),
+    mockRelease: vi.fn(),
+  }));
 
 vi.mock("@/utils/senders/unsubscribe", () => ({
   unsubscribeSenderAndMark: mockUnsubscribe,
@@ -19,7 +19,8 @@ vi.mock("@/utils/senders/source", () => ({
   getSenderUnsubscribeSource: mockSource,
 }));
 vi.mock("@/utils/premium/unsubscribe-credits", () => ({
-  consumeUnsubscribeCredit: mockConsume,
+  reserveUnsubscribeCredit: mockReserve,
+  releaseUnsubscribeCreditReservation: mockRelease,
 }));
 
 import {
@@ -36,7 +37,8 @@ describe("applySenderBulkActions", () => {
     mockSource.mockResolvedValue({
       unsubscribeLink: "https://example.com/unsub",
     });
-    mockConsume.mockResolvedValue(undefined);
+    mockReserve.mockResolvedValue("reserved");
+    mockRelease.mockResolvedValue(undefined);
     mockSetStatus.mockImplementation(
       async ({
         senderEmail,
@@ -75,7 +77,11 @@ describe("applySenderBulkActions", () => {
         unsubscribeLink: "https://example.com/unsub",
       }),
     );
-    expect(mockConsume).toHaveBeenCalledWith({ userId: "user-1" });
+    expect(mockReserve).toHaveBeenCalledWith({ userId: "user-1" });
+    expect(mockRelease).not.toHaveBeenCalled();
+    expect(mockReserve.mock.invocationCallOrder[0]).toBeLessThan(
+      mockUnsubscribe.mock.invocationCallOrder[0] ?? 0,
+    );
   });
 
   it("reports an unsuccessful unsubscribe without spending a credit", async () => {
@@ -105,7 +111,41 @@ describe("applySenderBulkActions", () => {
         reason: "no_unsubscribe_url",
       },
     ]);
-    expect(mockConsume).not.toHaveBeenCalled();
+    expect(mockRelease).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: "user-1", reservation: "reserved" }),
+    );
+  });
+
+  it("stops a credit action once the reservation is denied", async () => {
+    mockReserve.mockResolvedValue("denied");
+
+    await expect(
+      applySenderBulkActions({
+        actions: [
+          { senderEmail: "news@example.com", action: "unsubscribe" },
+          { senderEmail: "old@example.com", action: "auto_archived" },
+        ],
+        emailAccountId: "account-1",
+        emailProvider: emailProvider as never,
+        userId: "user-1",
+        logger,
+      }),
+    ).resolves.toEqual([
+      {
+        senderEmail: "news@example.com",
+        ok: false,
+        status: null,
+        reason: "unsubscribe_allowance",
+      },
+      {
+        senderEmail: "old@example.com",
+        ok: false,
+        status: null,
+        reason: "unsubscribe_allowance",
+      },
+    ]);
+    expect(mockUnsubscribe).not.toHaveBeenCalled();
+    expect(mockSetStatus).not.toHaveBeenCalled();
   });
 
   it("continues after one sender fails", async () => {
@@ -141,7 +181,8 @@ describe("applySenderBulkActions", () => {
         status: NewsletterStatus.APPROVED,
       },
     ]);
-    expect(mockConsume).not.toHaveBeenCalled();
+    expect(mockRelease).toHaveBeenCalledTimes(1);
+    expect(mockReserve).toHaveBeenCalledTimes(1);
   });
 
   it("spends a credit for auto-archive and not for approve or clear", async () => {
@@ -162,7 +203,8 @@ describe("applySenderBulkActions", () => {
       NewsletterStatus.APPROVED,
       null,
     ]);
-    expect(mockConsume).toHaveBeenCalledTimes(1);
+    expect(mockReserve).toHaveBeenCalledTimes(1);
+    expect(mockRelease).not.toHaveBeenCalled();
   });
 
   it("requires allowance only for unsubscribe and auto-archive", () => {

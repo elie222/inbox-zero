@@ -27,8 +27,9 @@ export async function archiveExistingSenderMail({
     },
   });
 
-  // Local rows are only a size hint. The provider inbox is the archive source,
-  // including when stats have not ingested the sender yet.
+  // Local rows are only a size hint. The provider inbox is the archive source.
+  // Zero local rows is not a small inbox: the sender may not be ingested yet,
+  // so that case is queued instead of scanned inside the request.
   const archive = () =>
     emailProvider.bulkArchiveSenderOrThrow(
       senderEmail,
@@ -36,7 +37,7 @@ export async function archiveExistingSenderMail({
       emailAccountId,
     );
 
-  if (inboxCount <= INLINE_ARCHIVE_EXISTING_MESSAGE_LIMIT) {
+  if (inboxCount > 0 && inboxCount <= INLINE_ARCHIVE_EXISTING_MESSAGE_LIMIT) {
     await archive();
     return "completed";
   }

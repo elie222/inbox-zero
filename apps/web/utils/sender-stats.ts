@@ -186,11 +186,12 @@ function toSenderEmailStats(result: SenderEmailStatsRow): SenderEmailStats {
 }
 
 function positiveInteger(limit?: number | null) {
-  if (typeof limit !== "number" || !Number.isFinite(limit) || limit < 1) {
-    return null;
+  if (limit == null) return null;
+  if (!Number.isInteger(limit) || limit < 1) {
+    throw new SafeError("Limit must be a positive integer", 400);
   }
 
-  return Math.floor(limit);
+  return limit;
 }
 
 function getOrderByClause(

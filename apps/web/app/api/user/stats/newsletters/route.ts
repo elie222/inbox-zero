@@ -21,7 +21,7 @@ import {
 } from "@/utils/senders/filters";
 
 const newsletterStatsQuery = z.object({
-  limit: z.coerce.number().nullish(),
+  limit: z.coerce.number().int().positive().nullish(),
   cursor: z.string().trim().min(1).max(2048).optional(),
   fromDate: z.coerce.number().nullish(),
   toDate: z.coerce.number().nullish(),
