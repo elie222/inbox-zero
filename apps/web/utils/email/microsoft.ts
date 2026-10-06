@@ -1092,6 +1092,7 @@ export class OutlookProvider implements EmailProvider {
       const newCategories = currentCategories.filter(
         (cat) => !removeCategoryNames.includes(cat),
       );
+      if (newCategories.length === currentCategories.length) continue;
 
       await labelMessage({
         client: this.client,

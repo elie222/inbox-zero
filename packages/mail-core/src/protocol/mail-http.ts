@@ -7,6 +7,7 @@ import {
   messageIdSchema,
   messageKeySchema,
 } from "../identities";
+import { MAX_ATTACHMENT_ID_LENGTH } from "../messages";
 import { mailPredicateSchema } from "../queries";
 import {
   bodyObservationSchema,
@@ -356,7 +357,7 @@ export const assistantStateResultSchema = z.object({
 
 export const attachmentContentQuerySchema = z.object({
   messageId: messageIdSchema,
-  attachmentId: z.string().min(1).max(2048),
+  attachmentId: z.string().min(1).max(MAX_ATTACHMENT_ID_LENGTH),
 });
 
 export const uploadAdmitRequestSchema = z.object({
