@@ -5,6 +5,7 @@ import {
   expectThreadReaderBody,
   insertInboxMailInConversation,
   readLatestMailMutation,
+  UNDO_WINDOW_SEND_TIMEOUT_MS,
 } from "./mail-test-helpers";
 import {
   expectSharedMessageBody,
@@ -124,7 +125,7 @@ test("publisher shares with a teammate who never received the mail and both see 
             kind: "reply",
             threadId: "thr_playwright_reader",
           }),
-        { timeout: 25_000 },
+        { timeout: UNDO_WINDOW_SEND_TIMEOUT_MS },
       )
       .toMatchObject({ status: "succeeded" });
     const afterReply = await readPublisherThread(
