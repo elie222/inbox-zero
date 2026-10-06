@@ -54,12 +54,12 @@ import {
 } from "@/utils/outlook/mail";
 import {
   archiveThread,
-  labelMessage,
   markReadThread,
   markStarredMessage,
   removeThreadLabel,
   unarchiveThread,
   untrashThread,
+  updateMessageCategories,
 } from "@/utils/outlook/label";
 import { trashThread } from "@/utils/outlook/trash";
 import { markNotSpam, markSpam } from "@/utils/outlook/spam";
@@ -582,28 +582,18 @@ export class OutlookProvider implements EmailProvider {
       usedFallback = true;
     }
 
-    // Get current message categories to avoid replacing them
-    const message = await withMicrosoftGraphRetry(
-      () =>
-        this.client
-          .getClient()
-          .api(`/me/messages/${messageId}`)
-          .select("categories")
-          .get(),
-      this.logger,
-    );
+    const categoryName = category.name;
+    const applied = await updateMessageCategories({
+      client: this.client,
+      messageId,
+      update: (categories) =>
+        categories.includes(categoryName)
+          ? categories
+          : [...categories, categoryName],
+      logger: this.logger,
+    });
 
-    const currentCategories = message.categories || [];
-
-    // Add the new category if it's not already present
-    if (!currentCategories.includes(category.name)) {
-      const updatedCategories = [...currentCategories, category.name];
-      await labelMessage({
-        client: this.client,
-        messageId,
-        categories: updatedCategories,
-        logger: this.logger,
-      });
+    if (applied) {
       this.logger.info("Label applied", { labelId: category.id });
     } else {
       this.logger.info("Label already present, skipped", {
@@ -1085,18 +1075,16 @@ export class OutlookProvider implements EmailProvider {
 
     if (!removeCategoryNames.length) return;
 
-    for (const message of messages.value) {
-      const currentCategories = message.categories || [];
+    const messagesWithCategories = messages.value.filter((message) =>
+      message.categories?.some((cat) => removeCategoryNames.includes(cat)),
+    );
 
-      // Remove specified categories
-      const newCategories = currentCategories.filter(
-        (cat) => !removeCategoryNames.includes(cat),
-      );
-
-      await labelMessage({
+    for (const message of messagesWithCategories) {
+      await updateMessageCategories({
         client: this.client,
         messageId: message.id,
-        categories: newCategories,
+        update: (categories) =>
+          categories.filter((cat) => !removeCategoryNames.includes(cat)),
         logger: this.logger,
       });
     }

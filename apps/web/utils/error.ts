@@ -265,7 +265,11 @@ export function isAnthropicInsufficientBalanceError(
 }
 
 export function isInsufficientCreditsError(error: APICallError): boolean {
-  return error.statusCode === 402;
+  // OpenAI reports an exhausted balance as a 429, distinguishable from rate
+  // limits only by its error type.
+  const errorType = (error.data as { error?: { type?: unknown } } | undefined)
+    ?.error?.type;
+  return error.statusCode === 402 || errorType === "insufficient_quota";
 }
 
 const HANDLED_USER_KEY_ERROR = "__handledUserKeyError";
@@ -281,6 +285,13 @@ export function isHandledUserKeyError(error: unknown): boolean {
 
 // Handling AI quota/retry errors. This can be related to the user's own API quota or the system's quota.
 export function isAiQuotaExceededError(error: RetryError): boolean {
+  if (
+    APICallError.isInstance(error.lastError) &&
+    isInsufficientCreditsError(error.lastError)
+  ) {
+    return true;
+  }
+
   const message = [error.message, getErrorMessage(error.lastError)]
     .filter(Boolean)
     .join(" ")

@@ -46,6 +46,17 @@ describe("isAiQuotaExceededError", () => {
 
     expect(isAiQuotaExceededError(error)).toBe(true);
   });
+
+  it("detects an exhausted credit balance by its error type", () => {
+    const error = new RetryError({
+      message: "Failed after 3 attempts",
+      reason: "maxRetriesExceeded",
+      errors: [createInsufficientQuotaError()],
+    });
+
+    expect(isAiQuotaExceededError(error)).toBe(true);
+    expect(isKnownApiError(error)).toBe(true);
+  });
 });
 
 describe("assertActionSucceeded", () => {
@@ -350,6 +361,12 @@ describe("isInsufficientCreditsError", () => {
 
     expect(isInsufficientCreditsError(error)).toBe(expected);
   });
+
+  it("detects a 429 whose error type is insufficient_quota", () => {
+    expect(isInsufficientCreditsError(createInsufficientQuotaError())).toBe(
+      true,
+    );
+  });
 });
 
 describe("isInvalidAIModelError", () => {
@@ -642,6 +659,25 @@ function createAPICallError({
     statusCode,
     responseHeaders: {},
     responseBody: "",
+  });
+}
+
+function createInsufficientQuotaError(): APICallError {
+  return new APICallError({
+    message: "Billing limit reached",
+    url: "https://example.com",
+    requestBodyValues: {},
+    statusCode: 429,
+    responseHeaders: {},
+    responseBody: "",
+    isRetryable: true,
+    data: {
+      error: {
+        message: "Billing limit reached",
+        type: "insufficient_quota",
+        code: "credit_balance_exhausted",
+      },
+    },
   });
 }
 

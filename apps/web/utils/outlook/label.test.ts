@@ -8,6 +8,7 @@ import {
   getOrCreateLabels,
   unarchiveThread,
   untrashThread,
+  updateMessageCategories,
 } from "./label";
 
 const mockGetFolderIds = vi.fn();
@@ -176,6 +177,86 @@ describe("untrashThread", () => {
     expect(post).not.toHaveBeenCalled();
   });
 });
+
+describe("updateMessageCategories", () => {
+  it("re-reads categories and retries when Graph rejects a concurrent write", async () => {
+    let storedCategories = ["Newsletter"];
+    const patch = vi
+      .fn()
+      .mockImplementationOnce(async () => {
+        // Another write landed between our read and our PATCH.
+        storedCategories = [...storedCategories, "To Reply"];
+        throw Object.assign(new Error("change key mismatch"), {
+          statusCode: 412,
+          code: "ErrorIrresolvableConflict",
+        });
+      })
+      .mockImplementation(async ({ categories }: { categories: string[] }) => {
+        storedCategories = categories;
+      });
+    const client = createCategoryClient(() => storedCategories, patch);
+
+    const changed = await updateMessageCategories({
+      client,
+      messageId: "message-1",
+      update: (categories) => [...categories, "Marketing"],
+      logger: createTestLogger(),
+    });
+
+    expect(changed).toBe(true);
+    expect(patch).toHaveBeenCalledTimes(2);
+    expect(storedCategories).toEqual(["Newsletter", "To Reply", "Marketing"]);
+  });
+
+  it("does not write when the categories are unchanged", async () => {
+    const patch = vi.fn();
+    const client = createCategoryClient(() => ["Newsletter"], patch);
+
+    const changed = await updateMessageCategories({
+      client,
+      messageId: "message-1",
+      update: (categories) => categories.filter((c) => c !== "To Reply"),
+      logger: createTestLogger(),
+    });
+
+    expect(changed).toBe(false);
+    expect(patch).not.toHaveBeenCalled();
+  });
+
+  it("does not retry errors other than conflicts", async () => {
+    const patch = vi
+      .fn()
+      .mockRejectedValue(
+        Object.assign(new Error("Not found"), { statusCode: 404 }),
+      );
+    const client = createCategoryClient(() => [], patch);
+
+    await expect(
+      updateMessageCategories({
+        client,
+        messageId: "message-1",
+        update: (categories) => [...categories, "Marketing"],
+        logger: createTestLogger(),
+      }),
+    ).rejects.toThrow("Not found");
+    expect(patch).toHaveBeenCalledTimes(1);
+  });
+});
+
+function createCategoryClient(
+  getCategories: () => string[],
+  patch: ReturnType<typeof vi.fn>,
+) {
+  const api = vi.fn().mockImplementation(() => {
+    const builder = {
+      select: () => builder,
+      get: async () => ({ categories: getCategories() }),
+      patch,
+    };
+    return builder;
+  });
+  return createMockOutlookClient(api);
+}
 
 function createPagingClient(
   pages: { value: { id: string }[]; next?: string }[],

@@ -193,18 +193,18 @@ export async function applyThreadStatusLabel({
     }
   };
 
-  const [removedConflicts, addedTargetLabel] = await Promise.all([
-    removeConflictingThreadStatusLabels({
-      emailAccountId,
-      threadId,
-      systemType,
-      provider,
-      dbLabels,
-      providerLabels,
-      logger,
-    }),
-    addLabel(),
-  ]);
+  // Sequential: on Outlook both steps rewrite the same message's categories,
+  // so running them together races and Graph rejects one with a conflict.
+  const removedConflicts = await removeConflictingThreadStatusLabels({
+    emailAccountId,
+    threadId,
+    systemType,
+    provider,
+    dbLabels,
+    providerLabels,
+    logger,
+  });
+  const addedTargetLabel = await addLabel();
 
   if (!removedConflicts || !addedTargetLabel) {
     logger.warn("Thread status label application completed with errors", {

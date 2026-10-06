@@ -1656,17 +1656,11 @@ describe("OutlookProvider.labelMessage", () => {
     const createLabelSpy = vi
       .spyOn(outlookLabelModule, "createLabel")
       .mockResolvedValue({ id: "new-category-id", displayName: "To Reply" });
-    const labelMessageSpy = vi
-      .spyOn(outlookLabelModule, "labelMessage")
-      .mockResolvedValue(undefined);
+    const updateCategoriesSpy = vi
+      .spyOn(outlookLabelModule, "updateMessageCategories")
+      .mockResolvedValue(true);
 
-    const provider = new OutlookProvider(
-      createMockOutlookClient([], {
-        responsesByApiPath: {
-          "/me/messages/message-1": () => ({ categories: [] }),
-        } as any,
-      }),
-    );
+    const provider = new OutlookProvider(createMockOutlookClient([]));
 
     const result = await provider.labelMessage({
       messageId: "message-1",
@@ -1677,12 +1671,11 @@ describe("OutlookProvider.labelMessage", () => {
     expect(createLabelSpy).toHaveBeenCalledWith(
       expect.objectContaining({ name: "To Reply" }),
     );
-    expect(labelMessageSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        messageId: "message-1",
-        categories: ["To Reply"],
-      }),
+    expect(updateCategoriesSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ messageId: "message-1" }),
     );
+    const { update } = updateCategoriesSpy.mock.calls[0][0];
+    expect(update([])).toEqual(["To Reply"]);
     expect(result).toEqual({
       usedFallback: true,
       actualLabelId: "new-category-id",
@@ -1692,7 +1685,10 @@ describe("OutlookProvider.labelMessage", () => {
   it("skips the label action when the category is gone and no name is available", async () => {
     vi.spyOn(outlookLabelModule, "getLabels").mockResolvedValue([]);
     const createLabelSpy = vi.spyOn(outlookLabelModule, "createLabel");
-    const labelMessageSpy = vi.spyOn(outlookLabelModule, "labelMessage");
+    const updateCategoriesSpy = vi.spyOn(
+      outlookLabelModule,
+      "updateMessageCategories",
+    );
 
     const provider = new OutlookProvider(createMockOutlookClient([]));
 
@@ -1703,7 +1699,7 @@ describe("OutlookProvider.labelMessage", () => {
     });
 
     expect(createLabelSpy).not.toHaveBeenCalled();
-    expect(labelMessageSpy).not.toHaveBeenCalled();
+    expect(updateCategoriesSpy).not.toHaveBeenCalled();
     expect(result).toEqual({});
   });
 });
