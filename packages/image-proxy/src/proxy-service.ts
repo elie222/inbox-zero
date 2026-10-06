@@ -126,7 +126,7 @@ export async function handleImageProxyRequest(
         return new Response("Unsupported content type", { status: 415 });
       }
 
-      return cachedResponse;
+      return embeddableImageResponse(cachedResponse);
     }
   }
 
@@ -157,17 +157,15 @@ export async function handleImageProxyRequest(
     `public, max-age=${Math.min(ttlSeconds, 3600)}, s-maxage=${ttlSeconds}`,
   );
   responseHeaders.set("Content-Type", contentType);
-  // Signed URLs are the access check. same-site blocks mail web views whose
-  // document origin is opaque (WKWebView loadHTMLString, about:blank), so the
-  // image bytes never paint. cross-origin lets those clients embed the image.
-  responseHeaders.set("Cross-Origin-Resource-Policy", "cross-origin");
   responseHeaders.set("Referrer-Policy", "no-referrer");
   responseHeaders.set("X-Content-Type-Options", "nosniff");
 
-  const proxiedResponse = new Response(upstreamResponse.body, {
-    status: upstreamResponse.status,
-    headers: responseHeaders,
-  });
+  const proxiedResponse = embeddableImageResponse(
+    new Response(upstreamResponse.body, {
+      status: upstreamResponse.status,
+      headers: responseHeaders,
+    }),
+  );
 
   if (cache && ttlSeconds > 0 && request.method === "GET") {
     const putPromise = Promise.resolve(
@@ -306,6 +304,18 @@ async function validateAssetProxySignatureAgainstSecrets({
   }
 
   return false;
+}
+
+function embeddableImageResponse(response: Response) {
+  const headers = new Headers(response.headers);
+  // Opaque-origin readers (WKWebView loadHTMLString) are not same-site with
+  // the proxy. Cached entries from before this policy still say same-site.
+  headers.set("Cross-Origin-Resource-Policy", "cross-origin");
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
 }
 
 function copyResponseHeaders(source: Headers) {
