@@ -32,7 +32,7 @@ const {
   mockSetChatId,
   mockSetContext,
   mockSetInput,
-  mockSetLocalStorageInput,
+  mockUseChatInput,
   mockSetMessages,
   mockSetNewChat,
   mockStop,
@@ -46,7 +46,7 @@ const {
   mockSetChatId: vi.fn(),
   mockSetContext: vi.fn(),
   mockSetInput: vi.fn(),
-  mockSetLocalStorageInput: vi.fn(),
+  mockUseChatInput: vi.fn(),
   mockSetMessages: vi.fn(),
   mockSetNewChat: vi.fn(),
   mockStop: vi.fn(),
@@ -180,9 +180,8 @@ vi.mock("@/providers/ChatProvider", () => ({
       sendMessage: vi.fn(),
     } satisfies Partial<ChatHelpers>,
     chatId: null,
-    input: "",
+    ...mockUseChatInput(),
     persistedMessageIds: new Set(),
-    setInput: mockSetInput,
     handleSubmit: mockHandleSubmit,
     setNewChat: mockSetNewChat,
     context: null,
@@ -200,12 +199,13 @@ vi.mock("@/utils/auth-client", () => ({
   }),
 }));
 
-vi.mock("usehooks-ts", () => ({
-  useLocalStorage: () => ["", mockSetLocalStorageInput] as const,
-}));
-
 afterEach(() => {
   cleanup();
+});
+
+beforeEach(() => {
+  window.localStorage.clear();
+  mockUseChatInput.mockReturnValue({ input: "", setInput: mockSetInput });
 });
 
 describe("Chat history", () => {
@@ -235,6 +235,60 @@ describe("Chat history", () => {
     await waitFor(() => {
       expect(mockSetChatId).toHaveBeenCalledWith("chat-1");
     });
+  });
+});
+
+describe("Chat input draft", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseChats.mockReturnValue({
+      data: undefined,
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutate,
+    });
+  });
+
+  it("keeps up with a rapid burst of input and saves the draft", async () => {
+    mockUseChatInput.mockImplementation(() => {
+      const [input, setInput] = React.useState("");
+      return { input, setInput };
+    });
+    const { Chat } = await import("@/components/assistant-chat/chat");
+    render(<Chat open />);
+    const textarea = screen.getByTestId("chat-input") as HTMLTextAreaElement;
+    const setNativeValue = Object.getOwnPropertyDescriptor(
+      HTMLTextAreaElement.prototype,
+      "value",
+    )?.set;
+
+    // Outside act, React commits each controlled update synchronously, like a
+    // text expander or dictation tool typing faster than React schedules work.
+    const actEnvironment = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean };
+    const previous = actEnvironment.IS_REACT_ACT_ENVIRONMENT;
+    actEnvironment.IS_REACT_ACT_ENVIRONMENT = false;
+    try {
+      for (let i = 0; i < 200; i++) {
+        setNativeValue?.call(textarea, `${textarea.value}x`);
+        textarea.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    } finally {
+      actEnvironment.IS_REACT_ACT_ENVIRONMENT = previous;
+    }
+
+    expect(textarea.value).toBe("x".repeat(200));
+    expect(window.localStorage.getItem("input")).toBe(
+      JSON.stringify("x".repeat(200)),
+    );
+  });
+
+  it("restores a saved draft on mount", async () => {
+    window.localStorage.setItem("input", JSON.stringify("Saved draft"));
+    const { Chat } = await import("@/components/assistant-chat/chat");
+
+    render(<Chat open />);
+
+    expect(mockSetInput).toHaveBeenCalledWith("Saved draft");
   });
 });
 
