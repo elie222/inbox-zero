@@ -25,6 +25,8 @@ import { POST } from "./route";
 
 const SECRET = `whsec_${Buffer.from("loops-webhook-secret").toString("base64")}`;
 const NOW = new Date("2026-10-06T09:00:00.000Z");
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 describe("Loops webhook route", () => {
   beforeEach(() => {
@@ -67,10 +69,35 @@ describe("Loops webhook route", () => {
       "Loops email clicked",
       expect.objectContaining({
         loopId: "loop_1",
+        emailId: "email_1",
         emailMessageId: "message_1",
         emailSubject: "Welcome to Inbox Zero",
       }),
+      false,
+      {
+        uuid: expect.stringMatching(UUID_PATTERN),
+        timestamp: new Date(1_791_277_200 * 1000),
+      },
     );
+  });
+
+  it("gives a redelivered event the same id so PostHog can drop the duplicate", async () => {
+    const body = JSON.stringify({
+      eventName: "email.opened",
+      eventTime: 1_791_277_200,
+      loopId: "loop_1",
+      contactIdentity: { email: "user@example.com" },
+    });
+
+    await post(body);
+    await post(body);
+    await post(body, { deliveryId: "msg_2" });
+
+    const uuids = posthogCaptureEventMock.mock.calls.map(
+      (call) => call[4].uuid,
+    );
+    expect(uuids[0]).toBe(uuids[1]);
+    expect(uuids[2]).not.toBe(uuids[0]);
   });
 
   it.each([
@@ -110,6 +137,8 @@ describe("Loops webhook route", () => {
       "user@example.com",
       posthogEventName,
       expect.objectContaining({ ...source, sourceType }),
+      false,
+      expect.anything(),
     );
   });
 
@@ -179,14 +208,19 @@ describe("Loops webhook route", () => {
   });
 });
 
-function post(body: string, { secret = SECRET }: { secret?: string } = {}) {
-  return POST(signedRequest(body, secret) as NextRequest, {
+function post(
+  body: string,
+  {
+    secret = SECRET,
+    deliveryId = "msg_1",
+  }: { secret?: string; deliveryId?: string } = {},
+) {
+  return POST(signedRequest(body, secret, deliveryId) as NextRequest, {
     params: Promise.resolve({}),
   });
 }
 
-function signedRequest(body: string, secret: string) {
-  const id = "msg_1";
+function signedRequest(body: string, secret: string, id: string) {
   const timestamp = Math.floor(NOW.getTime() / 1000);
   const key = Buffer.from(secret.replace(/^whsec_/, ""), "base64");
   const signature = crypto

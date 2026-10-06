@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { env } from "@/env";
@@ -17,6 +18,7 @@ const POSTHOG_EVENT_NAMES: Record<string, string> = {
 
 const loopsEmailEventSchema = z.object({
   eventName: z.string(),
+  eventTime: z.number().optional(),
   sourceType: z.string().optional(),
   loopId: z.string().nullish(),
   loopName: z.string().nullish(),
@@ -82,8 +84,14 @@ export const POST = withError("loops/webhook", async (request) => {
       loopName: event.loopName,
       campaignId: event.campaignId,
       campaignName: event.campaignName,
+      emailId: event.email?.id,
       emailMessageId: event.email?.emailMessageId,
       emailSubject: event.email?.subject,
+    },
+    false,
+    {
+      uuid: getDeliveryUuid(request.headers),
+      timestamp: event.eventTime ? new Date(event.eventTime * 1000) : undefined,
     },
   );
 
@@ -92,6 +100,16 @@ export const POST = withError("loops/webhook", async (request) => {
 
   return NextResponse.json({ ok: true });
 });
+
+// Loops redelivers with the same webhook id, so derive a stable UUID from it.
+function getDeliveryUuid(headers: Headers): string | undefined {
+  const deliveryId = headers.get("webhook-id") ?? headers.get("svix-id");
+  if (!deliveryId) return;
+
+  const hex = createHash("sha256").update(deliveryId).digest("hex");
+  const variant = ((Number.parseInt(hex[16], 16) & 0x3) | 0x8).toString(16);
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-5${hex.slice(13, 16)}-${variant}${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
+}
 
 function getEventName(payload: unknown): string | undefined {
   if (typeof payload !== "object" || payload === null) return;
