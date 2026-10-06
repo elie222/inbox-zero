@@ -32,7 +32,10 @@ export function ConversationActivity() {
         <p>Select a membership from Shared with me to see activity.</p>
       )}
       {memberId && (
-        <LoadingContent loading={activity.isLoading} error={activity.error}>
+        <LoadingContent
+          loading={activity.isLoading}
+          error={activity.data ? undefined : activity.error}
+        >
           <div className="space-y-2">
             {!items.length && (
               <p className="text-muted-foreground text-sm">No activity yet.</p>
@@ -65,13 +68,28 @@ export function ConversationActivity() {
                 </time>
               </Link>
             ))}
-            {nextCursor && (
-              <Button
-                variant="outline"
-                onClick={() => activity.setSize(activity.size + 1)}
-              >
-                Load older activity
-              </Button>
+            {activity.error ? (
+              <div className="flex items-center gap-2" role="alert">
+                <p className="text-destructive text-sm">
+                  Could not load activity.
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => activity.mutate()}
+                >
+                  Retry
+                </Button>
+              </div>
+            ) : (
+              nextCursor && (
+                <Button
+                  variant="outline"
+                  onClick={() => activity.setSize(activity.size + 1)}
+                >
+                  Load older activity
+                </Button>
+              )
             )}
           </div>
         </LoadingContent>

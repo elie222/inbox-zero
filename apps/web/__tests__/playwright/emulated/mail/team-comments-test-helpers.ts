@@ -7,7 +7,9 @@ import { withClient } from "./mail-test-helpers";
 export function teammateEmail(role: "b" | "c" | "d") {
   const publisherEmail = process.env.PLAYWRIGHT_TEST_EMAIL;
   if (!publisherEmail) throw new Error("PLAYWRIGHT_TEST_EMAIL is required");
-  return publisherEmail.replace("playwright-test", `playwright-team-${role}`);
+  // Same rule as teammateEmail in playwright.config.mjs, which seeds these.
+  const at = publisherEmail.lastIndexOf("@");
+  return `${publisherEmail.slice(0, at)}+team-${role}${publisherEmail.slice(at)}`;
 }
 
 export async function signInTeammate(browser: Browser, role: "b" | "c" | "d") {
@@ -32,9 +34,11 @@ export async function signInTeammate(browser: Browser, role: "b" | "c" | "d") {
         }),
       });
       if (response.status === 429 && attempt < 3) {
-        const retryAfterSeconds = Number(
-          response.headers.get("X-Retry-After") ?? 10,
-        );
+        const retryAfterHeader = Number(response.headers.get("X-Retry-After"));
+        const retryAfterSeconds =
+          Number.isFinite(retryAfterHeader) && retryAfterHeader > 0
+            ? retryAfterHeader
+            : 10;
         await new Promise((resolve) =>
           setTimeout(resolve, (retryAfterSeconds + 1) * 1000),
         );
@@ -50,15 +54,31 @@ export async function signInTeammate(browser: Browser, role: "b" | "c" | "d") {
   await expect
     .poll(() => page.url(), { timeout: 30_000 })
     .toContain(process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000");
+  // The app URL can appear before the OAuth callback has created the user.
+  await expect
+    .poll(
+      () =>
+        withClient(async (client) => {
+          const result = await client.query(
+            `SELECT 1 FROM "EmailAccount" WHERE email = $1`,
+            [email],
+          );
+          return result.rowCount;
+        }),
+      { timeout: 30_000 },
+    )
+    .toBe(1);
   await withClient(async (client) => {
-    await client.query(
+    const user = await client.query(
       `UPDATE "User" SET "completedOnboardingAt" = CURRENT_TIMESTAMP WHERE email = $1`,
       [email],
     );
-    await client.query(
+    const emailAccount = await client.query(
       `UPDATE "EmailAccount" SET "behaviorProfile" = '{}'::jsonb, "personaAnalysis" = '{}'::jsonb WHERE email = $1`,
       [email],
     );
+    expect(user.rowCount).toBe(1);
+    expect(emailAccount.rowCount).toBe(1);
   });
   const account = await getEmailAccount(page);
   expect(account.email).toBe(email);

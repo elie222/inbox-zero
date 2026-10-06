@@ -36,7 +36,7 @@ describe("shared conversation content safety", () => {
     vi.mocked(createEmailProvider).mockResolvedValue({
       getThread,
       getAttachmentStream,
-    } as Awaited<ReturnType<typeof createEmailProvider>>);
+    } as unknown as Awaited<ReturnType<typeof createEmailProvider>>);
     getThread.mockResolvedValue({
       messages: [
         {
@@ -73,6 +73,19 @@ describe("shared conversation content safety", () => {
         },
         { id: "draft", threadId: "thread", labelIds: ["DRAFT"] },
         { id: "unrelated", threadId: "other", labelIds: ["INBOX"] },
+        {
+          id: "sent",
+          threadId: "thread",
+          labelIds: ["SENT"],
+          headers: {
+            from: "recipient@example.com",
+            to: "sender@example.com",
+            subject: "Re: Shared subject",
+          },
+          date: "2026-09-22T13:00:00Z",
+          textPlain: "Sent reply",
+          inline: [],
+        },
       ],
     });
     getAttachmentStream.mockResolvedValue(new ReadableStream());
@@ -80,9 +93,13 @@ describe("shared conversation content safety", () => {
 
   test("projects only sent or received mail and strips unsafe HTML and private metadata", async () => {
     const result = await getSharedMessages(actor, "share", logger);
+    expect(getThread).toHaveBeenCalledWith("thread", { complete: true });
     expect(result.status).toBe("available");
     if (result.status !== "available") return;
-    expect(result.messages).toHaveLength(1);
+    expect(result.messages.map((message) => message.text)).toEqual([
+      "Visible message",
+      "Sent reply",
+    ]);
     const message = result.messages[0];
     expect(message.text).toBe("Visible message");
     expect(JSON.stringify(result)).not.toContain("private@example.com");
@@ -114,5 +131,42 @@ describe("shared conversation content safety", () => {
       }),
     ).resolves.toBeNull();
     expect(getAttachmentStream).toHaveBeenCalledTimes(1);
+  });
+
+  test("attachments are unavailable once the publisher's mailbox is disconnected", async () => {
+    vi.mocked(getAuthorizedConversation).mockResolvedValue({
+      conversation: {
+        generation: 1,
+        publisher: {
+          emailAccount: {
+            id: "account",
+            account: { provider: "google", disconnectedAt: new Date() },
+          },
+        },
+        threadId: "thread",
+      },
+    } as Awaited<ReturnType<typeof getAuthorizedConversation>>);
+    await expect(
+      getSharedAttachment(actor, {
+        conversationId: "share",
+        attachmentRef: "0:0",
+        logger,
+      }),
+    ).resolves.toBeNull();
+    expect(createEmailProvider).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    [{ statusCode: 404 }, "missing"],
+    [{ status: 403 }, "reconnect"],
+    [{ response: { status: 401 } }, "reconnect"],
+    [{ code: 429 }, "rate-limited"],
+    [{ code: "500" }, "unknown"],
+  ])("classifies provider error %j as %s", async (error, reason) => {
+    getThread.mockRejectedValue(error);
+    await expect(getSharedMessages(actor, "share", logger)).resolves.toEqual({
+      status: "unavailable",
+      reason,
+    });
   });
 });

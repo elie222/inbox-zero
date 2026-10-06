@@ -254,7 +254,7 @@ export function ThreadReader({
       ) : (
         renderToolbar()
       )}
-      {emailAccountId && threadId && (
+      {emailAccountId && threadId && messages.length > 0 && (
         <PublisherDiscussion
           key={`${emailAccountId}:${threadId}`}
           emailAccountId={emailAccountId}

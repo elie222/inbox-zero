@@ -22,6 +22,7 @@ export const GET = withAuth(
         conversationId,
         request.logger,
       ),
+      { headers: { "Cache-Control": "private, no-store" } },
     );
   },
 );

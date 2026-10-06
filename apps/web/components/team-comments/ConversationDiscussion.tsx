@@ -17,43 +17,72 @@ import {
 } from "@/utils/actions/team-comments";
 import { getActionErrorMessage } from "@/utils/error";
 
-export function ConversationDiscussion({
-  memberId,
-  conversationId,
-  showSharedViewLink = true,
-  onStopped,
-}: {
+type ConversationDiscussionProps = {
   memberId: string;
   conversationId: string;
   showSharedViewLink?: boolean;
   onStopped?: () => void;
+};
+
+export function ConversationDiscussion(props: ConversationDiscussionProps) {
+  const discussion = useConversationDiscussion(
+    props.memberId,
+    props.conversationId,
+  );
+  return <ConversationDiscussionView {...props} discussion={discussion} />;
+}
+
+export function ConversationDiscussionView({
+  memberId,
+  conversationId,
+  showSharedViewLink = true,
+  onStopped,
+  discussion,
+}: ConversationDiscussionProps & {
+  discussion: ReturnType<typeof useConversationDiscussion>;
 }) {
-  const { summary, comments, revoked, refresh, loadMoreComments } =
-    useConversationDiscussion(memberId, conversationId);
+  const { summary, comments, revoked, refresh, loadMoreComments } = discussion;
   const { executeAsync: deleteComment } = useAction(deleteCommentAction);
   const { executeAsync: setAccess } = useAction(setParticipantAccessAction);
   const { executeAsync: stop } = useAction(stopSharingAction);
   const { executeAsync: mute } = useAction(setConversationMutedAction);
-  const { execute: markRead } = useAction(markConversationReadAction);
+  const { executeAsync: markRead } = useAction(markConversationReadAction);
   const [error, setError] = useState("");
-  const lastMarkedPosition = useRef("");
+  const markedPosition = useRef("");
+  const pendingPosition = useRef("");
+  const generation = summary.data?.generation;
+  // The loaded revision also covers invitation and participant activity, which
+  // has no comment of its own.
+  const loadedRevision = comments.data?.revision;
+  const isRefreshing = summary.isValidating;
   useEffect(() => {
-    if (!summary.data || !comments.data) return;
-    const visibleRevision = comments.data.comments.at(-1)?.revision;
+    // Waiting for the refresh to settle lets a failed mark retry after the
+    // next one without retrying in a loop.
+    if (generation === undefined || loadedRevision === undefined) return;
+    if (isRefreshing) return;
+    const position = `${memberId}:${conversationId}:${generation}:${loadedRevision}`;
     if (
-      visibleRevision === undefined ||
-      visibleRevision > summary.data.revision
+      markedPosition.current === position ||
+      pendingPosition.current === position
     )
       return;
-    const position = `${memberId}:${conversationId}:${summary.data.generation}:${visibleRevision}`;
-    if (lastMarkedPosition.current === position) return;
-    lastMarkedPosition.current = position;
-    markRead({
-      memberId,
-      conversationId,
-      throughRevision: visibleRevision,
-    });
-  }, [summary.data, comments.data, memberId, conversationId, markRead]);
+    pendingPosition.current = position;
+    markRead({ memberId, conversationId, throughRevision: loadedRevision })
+      .then((result) => {
+        if (result?.data) markedPosition.current = position;
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (pendingPosition.current === position) pendingPosition.current = "";
+      });
+  }, [
+    generation,
+    loadedRevision,
+    isRefreshing,
+    memberId,
+    conversationId,
+    markRead,
+  ]);
   const summaryErrorStatus = (summary.error as { status?: number } | undefined)
     ?.status;
   if (

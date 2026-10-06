@@ -2,7 +2,7 @@ import "server-only";
 import { EventEmitter } from "node:events";
 import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
-import { RedisSubscriber } from "@/utils/redis/subscriber";
+import { redis } from "@/utils/redis";
 
 declare global {
   var teamConversationEvents: EventEmitter | undefined;
@@ -15,20 +15,20 @@ export function conversationChangeChannel(conversationId: string) {
   return `team-comments:${conversationId}`;
 }
 
+// With Redis configured, every stream listens on Redis, so the in-process
+// emitter is only the fallback for single-process installs without it.
 export async function publishConversationChange(
   conversationId: string,
   logger: Logger,
 ) {
-  localEvents.emit(conversationChangeChannel(conversationId));
-  if (!env.REDIS_URL) return;
-  let publisher: ReturnType<typeof RedisSubscriber.createInstance> | undefined;
+  if (!env.REDIS_URL) {
+    localEvents.emit(conversationChangeChannel(conversationId));
+    return;
+  }
   try {
-    publisher = RedisSubscriber.createInstance();
-    await publisher.publish(conversationChangeChannel(conversationId), "{}");
+    await redis.publish(conversationChangeChannel(conversationId), "{}");
   } catch (error) {
     logger.warn("Unable to publish conversation invalidation", { error });
-  } finally {
-    publisher?.disconnect();
   }
 }
 

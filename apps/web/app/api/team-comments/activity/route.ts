@@ -11,6 +11,11 @@ export const GET = withAuth("team-comments/activity", async (request) => {
     return NextResponse.json({ error: "Member ID required" }, { status: 400 });
   const beforeAt = query.get("beforeAt");
   const beforeId = query.get("beforeId");
+  if (Boolean(beforeAt) !== Boolean(beforeId))
+    return NextResponse.json(
+      { error: "Invalid activity cursor" },
+      { status: 400 },
+    );
   const before =
     beforeAt && beforeId
       ? { createdAt: new Date(beforeAt), id: beforeId }
@@ -28,6 +33,7 @@ export const GET = withAuth("team-comments/activity", async (request) => {
     );
   return NextResponse.json(
     await getData(request.auth.userId, memberId, before, limit),
+    { headers: { "Cache-Control": "private, no-store" } },
   );
 });
 

@@ -12,6 +12,7 @@ export type TeamConversationsResponse = Awaited<ReturnType<typeof getData>>;
 export const GET = withAuth("team-comments/conversations", async (request) =>
   NextResponse.json(
     await getData(request.auth.userId, new URL(request.url).searchParams),
+    { headers: { "Cache-Control": "private, no-store" } },
   ),
 );
 

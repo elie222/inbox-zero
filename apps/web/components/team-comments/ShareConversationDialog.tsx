@@ -44,7 +44,10 @@ export function ShareConversationDialog({
   return (
     <Dialog
       open={open}
-      onOpenChange={(next) => (next ? setOpen(true) : close())}
+      onOpenChange={(next) => {
+        if (next) setOpen(true);
+        else if (!isExecuting) close();
+      }}
     >
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
@@ -92,7 +95,7 @@ export function ShareConversationDialog({
           </p>
         )}
         <DialogFooter>
-          <Button variant="ghost" onClick={close}>
+          <Button variant="ghost" onClick={close} disabled={isExecuting}>
             Cancel
           </Button>
           <Button

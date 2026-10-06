@@ -1,10 +1,14 @@
 import "server-only";
 import createDOMPurify from "dompurify";
 import { JSDOM } from "jsdom";
+import { isEmailProviderRateLimitError } from "@/utils/email/is-provider-rate-limit-error";
 import { createEmailProvider } from "@/utils/email/provider";
+import { isThreadNotFoundError } from "@/utils/email/thread-not-found";
 import type { EmailThread } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 import type { ParsedMessage } from "@/utils/types";
+import { extractErrorInfo as extractGmailErrorInfo } from "@/utils/gmail/retry";
+import { extractErrorInfo as extractOutlookErrorInfo } from "@/utils/outlook/retry";
 import {
   getAuthorizedConversation,
   type ConversationActor,
@@ -44,7 +48,7 @@ export async function getSharedMessages(
     };
   } catch (error) {
     await getAuthorizedConversation(actor, conversationId);
-    const reason = classifyContentError(error);
+    const reason = classifyContentError(error, emailAccount.account.provider);
     logger.warn("Shared conversation email unavailable", { reason });
     logger.trace("Shared conversation email unavailable details", { error });
     return {
@@ -69,6 +73,7 @@ export async function getSharedAttachment(
   const match = /^(\d+):(\d+)$/.exec(input.attachmentRef);
   if (!match) return null;
   const emailAccount = conversation.publisher.emailAccount;
+  if (emailAccount.account.disconnectedAt) return null;
   const thread = await fetchCompleteThread({
     emailAccountId: emailAccount.id,
     provider: emailAccount.account.provider,
@@ -233,11 +238,14 @@ function isDraft(message: ParsedMessage) {
 
 function classifyContentError(
   error: unknown,
+  provider: string,
 ): "rate-limited" | "reconnect" | "missing" | "unknown" {
-  const status =
-    typeof error === "object" && error !== null && "statusCode" in error
-      ? Number(error.statusCode)
-      : undefined;
+  if (isEmailProviderRateLimitError({ error, provider })) return "rate-limited";
+  if (isThreadNotFoundError(error)) return "missing";
+  const status = Number(
+    extractOutlookErrorInfo(error).status ??
+      extractGmailErrorInfo(error).status,
+  );
   if (status === 429) return "rate-limited";
   if (status === 401 || status === 403) return "reconnect";
   if (status === 404) return "missing";

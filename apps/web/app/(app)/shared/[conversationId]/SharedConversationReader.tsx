@@ -6,7 +6,7 @@ import useSWR from "swr";
 import { MailMessageBody } from "@inboxzero/mail-ui/MailBody";
 import { Button } from "@/components/ui/button";
 import { LoadingContent } from "@/components/LoadingContent";
-import { ConversationDiscussion } from "@/components/team-comments/ConversationDiscussion";
+import { ConversationDiscussionView } from "@/components/team-comments/ConversationDiscussion";
 import { useConversationDiscussion } from "@/components/team-comments/use-conversation-discussion";
 import type { TeamMessagesResponse } from "@/app/api/team-comments/conversations/[conversationId]/messages/route";
 
@@ -133,11 +133,11 @@ function AuthorizedReader({
           </div>
         )}
       </LoadingContent>
-      <ConversationDiscussion
-        key={`${memberId}:${conversationId}`}
+      <ConversationDiscussionView
         memberId={memberId}
         conversationId={conversationId}
         showSharedViewLink={false}
+        discussion={access}
       />
     </main>
   );

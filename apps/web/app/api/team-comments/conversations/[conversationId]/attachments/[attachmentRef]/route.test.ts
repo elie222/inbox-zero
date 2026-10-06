@@ -13,7 +13,7 @@ vi.mock("@/utils/middleware", () => ({
     (
       _name: string,
       handler: (
-        request: NextRequest & Record<string, unknown>,
+        request: NextRequest,
         context: {
           params: Promise<{ conversationId: string; attachmentRef: string }>;
         },
@@ -59,5 +59,54 @@ describe("shared attachment response", () => {
     expect(response.headers.get("content-disposition")).toBe(
       `attachment; filename="r_sum_______.pdf"; filename*=UTF-8''r%C3%A9sum%C3%A9_%E6%97%A5%E6%9C%AC%E8%AA%9E%F0%9F%93%8E.pdf`,
     );
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+  });
+
+  test("replaces a lone surrogate in the filename instead of failing", async () => {
+    vi.mocked(getSharedAttachment).mockResolvedValue({
+      stream: new ReadableStream(),
+      filename: "bad\uD800.txt",
+      mimeType: "text/plain",
+      size: 0,
+    });
+    const response = await getAttachment("?memberId=member");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-disposition")).toBe(
+      `attachment; filename="bad_.txt"; filename*=UTF-8''bad%EF%BF%BD.txt`,
+    );
+  });
+
+  test("requires a member ID", async () => {
+    const response = await getAttachment("");
+    expect(response.status).toBe(400);
+    expect(getSharedAttachment).not.toHaveBeenCalled();
+  });
+
+  test("returns 404 when the attachment is unavailable", async () => {
+    vi.mocked(getSharedAttachment).mockResolvedValue(null);
+    const response = await getAttachment("?memberId=member");
+    expect(response.status).toBe(404);
+    expect(getSharedAttachment).toHaveBeenCalledWith(
+      { userId: "user", memberId: "member" },
+      expect.objectContaining({
+        conversationId: "share",
+        attachmentRef: "0:0",
+      }),
+    );
   });
 });
+
+function getAttachment(query: string) {
+  return GET(
+    new NextRequest(
+      `http://localhost/api/team-comments/conversations/share/attachments/0:0${query}`,
+    ),
+    {
+      params: Promise.resolve({
+        conversationId: "share",
+        attachmentRef: "0:0",
+      }),
+    } as never,
+  );
+}

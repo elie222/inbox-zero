@@ -298,7 +298,7 @@ function isTeamCommentsSource({ appPath }) {
     appPath.startsWith("app/api/team-comments/") ||
     appPath.startsWith("app/(app)/shared/") ||
     appPath.startsWith("utils/actions/team-comments.") ||
-    appPath.startsWith("prisma/migrations/20260922150000_team_comments/") ||
+    /^prisma\/migrations\/\d+_team_comments\//.test(appPath) ||
     appPath === "prisma/schema.prisma" ||
     appPath === "utils/actions/organization.ts" ||
     appPath === "utils/actions/user.ts" ||

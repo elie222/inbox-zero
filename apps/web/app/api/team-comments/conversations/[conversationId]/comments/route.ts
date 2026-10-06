@@ -38,6 +38,7 @@ export const GET = withAuth(
         beforeRevision,
         limit,
       ),
+      { headers: { "Cache-Control": "private, no-store" } },
     );
   },
 );

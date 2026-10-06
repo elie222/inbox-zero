@@ -101,10 +101,11 @@ describe("emulated Playwright suite selection", () => {
     ]);
   });
 
-  test("selects both team-comment flows for feature and lifecycle changes without narrowing general coverage", () => {
+  test("adds both team-comment flows for feature, schema and lifecycle changes on top of the existing selection", () => {
     for (const file of [
       "apps/web/utils/team-comments/access.ts",
       "apps/web/prisma/schema.prisma",
+      "apps/web/prisma/migrations/20261006120000_team_comments/migration.sql",
       "apps/web/utils/actions/organization.ts",
       "apps/web/utils/actions/user.ts",
       "apps/web/utils/user/delete.ts",
@@ -121,11 +122,9 @@ describe("emulated Playwright suite selection", () => {
         file.endsWith("user.ts") ||
         file.endsWith("delete.ts")
       ) {
-        expect(
-          selection.targetFiles.some(
-            (target) => !target.includes("team-comments"),
-          ),
-        ).toBe(true);
+        expect(selection.targetFiles).toContain(
+          "__tests__/playwright/emulated/mail",
+        );
       }
     }
   });

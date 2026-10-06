@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const id = z.string().min(1).max(200);
+const id = z.string().trim().min(1).max(200);
 export const shareConversationInput = z.object({
   memberId: id,
   source: z.object({ emailAccountId: id, threadId: id }),

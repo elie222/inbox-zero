@@ -95,14 +95,21 @@ export function CommentComposer({
               const person = participants.find(
                 (participant) => participant.memberId === id,
               );
-              return person && next.includes(`@${person.name}`);
+              return person && mentionsName(next, person.name);
             }),
           );
           setSuccess(false);
         }}
         onKeyDown={onKeyDown}
+        role="combobox"
         aria-autocomplete="list"
+        aria-expanded={suggestions.length > 0}
         aria-controls={suggestions.length ? "comment-mentions" : undefined}
+        aria-activedescendant={
+          suggestions.length
+            ? `comment-mention-${(suggestions[highlighted] ?? suggestions[0]).memberId}`
+            : undefined
+        }
       />
       {suggestions.length > 0 && (
         <div
@@ -114,6 +121,8 @@ export function CommentComposer({
           {suggestions.map((participant, index) => (
             <button
               type="button"
+              id={`comment-mention-${participant.memberId}`}
+              tabIndex={-1}
               role="option"
               aria-selected={index === highlighted}
               className="block w-full rounded px-2 py-1 text-left text-sm aria-selected:bg-accent"
@@ -150,7 +159,7 @@ export function CommentComposer({
             body,
             mentionedMemberIds: mentioned,
             clientMutationId: mutationId,
-          });
+          }).catch(() => undefined);
           if (result?.data) {
             setBody("");
             setMentioned([]);
@@ -164,4 +173,9 @@ export function CommentComposer({
       </Button>
     </div>
   );
+}
+
+function mentionsName(body: string, name: string) {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`@${escaped}(?![\\p{L}\\p{M}\\p{N}_])`, "u").test(body);
 }

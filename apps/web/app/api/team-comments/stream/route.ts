@@ -39,6 +39,7 @@ export const GET = withAuth("team-comments/stream", async (request) => {
         request.signal.removeEventListener("abort", close);
         unsubscribeLocal();
         subscriber?.off("message", onMessage);
+        subscriber?.off("error", close);
         subscriber?.disconnect();
         try {
           controller.close();
@@ -72,27 +73,36 @@ export const GET = withAuth("team-comments/stream", async (request) => {
           if (allowed) send("change");
         });
       };
+      const start = () => {
+        if (closed) return;
+        send("ready");
+        heartbeat = setInterval(() => {
+          validate().then((allowed) => {
+            if (allowed) send("heartbeat");
+          });
+        }, 25_000);
+      };
       request.signal.addEventListener("abort", close);
-      unsubscribeLocal = subscribeLocalConversationChange(conversationId, () =>
-        onMessage(conversationChangeChannel(conversationId)),
-      );
-      subscriber?.on("message", onMessage);
       lifetime = setTimeout(close, 270_000);
       if (request.signal.aborted) {
         close();
         return;
       }
+      if (!subscriber) {
+        unsubscribeLocal = subscribeLocalConversationChange(
+          conversationId,
+          () => onMessage(conversationChangeChannel(conversationId)),
+        );
+        start();
+        return;
+      }
+      subscriber.on("message", onMessage);
+      // Closing lets EventSource reconnect instead of silently missing changes.
+      subscriber.on("error", close);
       subscriber
-        ?.subscribe(conversationChangeChannel(conversationId))
-        .catch(() => {
-          subscriber.disconnect();
-        });
-      send("ready");
-      heartbeat = setInterval(() => {
-        validate().then((allowed) => {
-          if (allowed) send("heartbeat");
-        });
-      }, 25_000);
+        .subscribe(conversationChangeChannel(conversationId))
+        .then(start)
+        .catch(close);
     },
     cancel() {
       cleanup();

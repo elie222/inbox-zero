@@ -26,7 +26,7 @@ import { env } from "@/env";
 import { slugify } from "@/utils/string";
 import { posthogCaptureEvent } from "@/utils/posthog";
 import { createScopedLogger } from "@/utils/logger";
-import { publishConversationChange } from "@/utils/team-comments/events";
+import { prepareMemberRemovalNotifications } from "@/utils/team-comments/member-removal";
 import {
   deleteMemberOrganizationRuleCopies,
   syncOrganizationRulesForNewMember,
@@ -394,33 +394,12 @@ export const removeMemberAction = actionClientUser
       organizationId: targetMember.organizationId,
     });
 
-    const affectedConversations = await prisma.conversation.findMany({
-      where: {
-        status: "ACTIVE",
-        OR: [
-          { publisherId: memberId },
-          { participants: { some: { memberId, active: true } } },
-        ],
-      },
-      select: { id: true },
-    });
-
-    await prisma.$transaction([
-      prisma.conversation.updateMany({
-        where: { publisherId: memberId, status: "ACTIVE" },
-        data: { status: "STOPPED", revision: { increment: 1 } },
-      }),
-      prisma.conversationParticipant.updateMany({
-        where: { memberId, active: true },
-        data: { active: false },
-      }),
-      prisma.member.delete({ where: { id: memberId } }),
-    ]);
-    await Promise.all(
-      affectedConversations.map((conversation) =>
-        publishConversationChange(conversation.id, logger),
-      ),
+    const notifyConversations = await prepareMemberRemovalNotifications(
+      { id: memberId },
+      logger,
     );
+    await prisma.member.delete({ where: { id: memberId } });
+    await notifyConversations();
   });
 
 export const updateMemberRoleAction = actionClientUser

@@ -14,7 +14,9 @@ export function useConversationDiscussion(
   const query = `memberId=${encodeURIComponent(memberId)}`;
   const summary = useSWR<TeamConversationResponse>(
     `/api/team-comments/conversations/${conversationId}?${query}`,
-    { refreshInterval: 30_000 },
+    // Access can be granted again after a revocation, so any successful
+    // summary load means the member can read the conversation.
+    { refreshInterval: 30_000, onSuccess: () => setRevoked(false) },
   );
   const generation = summary.data?.generation;
   const commentPages = useSWRInfinite<TeamCommentsResponse>(
@@ -33,13 +35,13 @@ export function useConversationDiscussion(
             .toReversed()
             .flatMap((page) => page.comments),
           nextCursor: commentPages.data.at(-1)?.nextCursor ?? null,
+          revision: commentPages.data[0]?.revision,
         }
       : undefined,
   };
 
   useEffect(() => {
     if (!generation) return;
-    setRevoked(false);
     const url = `/api/team-comments/stream?conversationId=${encodeURIComponent(conversationId)}&${query}`;
     const stream = new EventSource(url);
     const refresh = () => {

@@ -14,7 +14,7 @@ import { unwatchEmails } from "@/utils/email/watch-manager";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
-import { publishConversationChange } from "@/utils/team-comments/events";
+import { prepareMemberRemovalNotifications } from "@/utils/team-comments/member-removal";
 import { deleteAccountUploadDirectory } from "@/utils/mail-api/upload-blobs";
 import { clearCachedResearchForUser } from "@/utils/redis/research-cache";
 import {
@@ -204,39 +204,16 @@ async function deleteResources({
     await deleteExecutedRulesInBatches({ emailAccountId, logger });
 
     logger.info("Deleting user");
-    const affectedConversations = await prisma.conversation.findMany({
-      where: {
-        status: "ACTIVE",
-        OR: [
-          { publisher: { emailAccount: { userId } } },
-          {
-            participants: {
-              some: { member: { emailAccount: { userId } }, active: true },
-            },
-          },
-        ],
-      },
-      select: { id: true },
-    });
-    const [, , , deletedUser] = await prisma.$transaction([
-      prisma.conversation.updateMany({
-        where: { publisher: { emailAccount: { userId } }, status: "ACTIVE" },
-        data: { status: "STOPPED", revision: { increment: 1 } },
-      }),
-      prisma.conversationParticipant.updateMany({
-        where: { member: { emailAccount: { userId } }, active: true },
-        data: { active: false },
-      }),
-      prisma.member.deleteMany({
-        where: { emailAccount: { userId } },
-      }),
+    const notifyConversations = await prepareMemberRemovalNotifications(
+      { emailAccount: { userId } },
+      logger,
+    );
+    // Members restrict email account deletion, so they go first.
+    const [, deletedUser] = await prisma.$transaction([
+      prisma.member.deleteMany({ where: { emailAccount: { userId } } }),
       prisma.user.deleteMany({ where: { id: userId } }),
     ]);
-    await Promise.all(
-      affectedConversations.map((conversation) =>
-        publishConversationChange(conversation.id, logger),
-      ),
-    );
+    await notifyConversations();
 
     // PostHog tracks the completed delete after the database delete succeeds.
     if (deletedUser.count > 0) await trackUserDeleted(userId);

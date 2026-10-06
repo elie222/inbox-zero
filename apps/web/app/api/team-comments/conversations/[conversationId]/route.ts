@@ -16,6 +16,7 @@ export const GET = withAuth(
       );
     return NextResponse.json(
       await getData(request.auth.userId, memberId, conversationId),
+      { headers: { "Cache-Control": "private, no-store" } },
     );
   },
 );

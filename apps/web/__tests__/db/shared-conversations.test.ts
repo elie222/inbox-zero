@@ -8,6 +8,7 @@ import {
   vi,
 } from "vitest";
 import { createScopedLogger } from "@/utils/logger";
+import { publishConversationChange } from "@/utils/team-comments/events";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/email/provider", () => ({
@@ -36,6 +37,7 @@ describe.skipIf(!RUN_DB_TESTS)(
     let shareConversation: typeof import("@/utils/team-comments/conversations").shareConversation;
     let setParticipantAccess: typeof import("@/utils/team-comments/conversations").setParticipantAccess;
     let getConversationActivity: typeof import("@/utils/team-comments/activity").getConversationActivity;
+    let prepareMemberRemovalNotifications: typeof import("@/utils/team-comments/member-removal").prepareMemberRemovalNotifications;
     let ids: Awaited<ReturnType<typeof seed>>;
     const logger = createScopedLogger("shared-conversation-db-test");
 
@@ -52,6 +54,9 @@ describe.skipIf(!RUN_DB_TESTS)(
       ));
       ({ getConversationActivity } = await import(
         "@/utils/team-comments/activity"
+      ));
+      ({ prepareMemberRemovalNotifications } = await import(
+        "@/utils/team-comments/member-removal"
       ));
     });
 
@@ -329,6 +334,31 @@ describe.skipIf(!RUN_DB_TESTS)(
       });
       expect(comment.body).toBe("Keep the discussion");
       expect(comment.authorMemberId).toBeNull();
+    });
+
+    test("removing the publisher deletes the conversation and notifies its streams", async () => {
+      const notifyConversations = await prepareMemberRemovalNotifications(
+        { id: ids.aMemberId },
+        logger,
+      );
+      await prisma.member.update({
+        where: { id: ids.cMemberId },
+        data: { role: "owner" },
+      });
+      await prisma.member.delete({ where: { id: ids.aMemberId } });
+      await notifyConversations();
+      await expect(
+        prisma.conversation.findUnique({ where: { id: ids.conversationId } }),
+      ).resolves.toBeNull();
+      await expect(
+        prisma.conversationParticipant.count({
+          where: { conversationId: ids.conversationId },
+        }),
+      ).resolves.toBe(0);
+      expect(publishConversationChange).toHaveBeenCalledWith(
+        ids.conversationId,
+        logger,
+      );
     });
 
     test("removing and re-adding a current teammate restores only that membership's grant", async () => {

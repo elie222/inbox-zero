@@ -50,6 +50,7 @@ export function PublisherDiscussion({
           ref={commentsButton}
           size="sm"
           variant="outline"
+          aria-expanded={expanded}
           onClick={() => setExpanded((value) => !value)}
         >
           Comments

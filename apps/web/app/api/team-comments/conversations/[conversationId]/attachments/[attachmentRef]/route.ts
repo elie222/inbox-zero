@@ -21,7 +21,9 @@ export const GET = withAuth(
         { error: "Attachment unavailable" },
         { status: 404 },
       );
-    const filename = Array.from(result.filename).slice(0, 200).join("");
+    const filename = Array.from(result.filename.toWellFormed())
+      .slice(0, 200)
+      .join("");
     const fallback =
       filename.replace(/[^\x20-\x7e]|["\\]/g, "_") || "attachment";
     const encoded = encodeURIComponent(filename).replace(
