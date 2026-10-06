@@ -1,6 +1,6 @@
 /**
  * Not a CI test. Run with:
- *   pnpm exec tsx utils/gmail/message-bodies.bench.ts
+ *   cd apps/web && pnpm exec tsx utils/gmail/message-bodies.bench.ts
  */
 import { performance } from "node:perf_hooks";
 import "@/__tests__/test-env";

@@ -113,6 +113,26 @@ describe("Apple Mail message bodies", () => {
     expect(parsed.textPlain).toContain(signature);
   });
 
+  it("drops a signature padded with non-breaking spaces", () => {
+    const padding = "&#160;&#11;".repeat(80);
+    const parsed = parseMessage(
+      message(
+        "multipart/alternative",
+        [
+          textPart("text/plain", `Hi\n\n${signature}\n`),
+          textPart(
+            "text/html",
+            `<html><body>${padding}${signature}${padding}</body></html>`,
+          ),
+        ],
+        { snippet: "Hi" },
+      ),
+    );
+    expect(parsed.textHtml).toBeUndefined();
+    expect(parsed.textPlain).toContain("Hi");
+    expect(parsed.textPlain).toContain(signature);
+  });
+
   it("decodes an uppercase hex entity before comparing the signature", () => {
     const parsed = parseMessage(
       message(

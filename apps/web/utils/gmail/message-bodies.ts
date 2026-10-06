@@ -183,17 +183,8 @@ function visibleText(html: string, maxLength: number): string | undefined {
   const push = (chunk: string) => {
     if (!chunk) return false;
     parts.push(chunk);
-    for (let cursor = 0; cursor < chunk.length; cursor++) {
-      const code = chunk.charCodeAt(cursor);
-      if (
-        code !== 9 &&
-        code !== 10 &&
-        code !== 12 &&
-        code !== 13 &&
-        code !== 32
-      ) {
-        nonWhitespace++;
-      }
+    for (const char of chunk) {
+      if (!isWhitespace(char)) nonWhitespace += char.length;
     }
     return nonWhitespace > maxLength;
   };
@@ -372,6 +363,22 @@ function decodeEntity(body: string) {
   }
 }
 
+/** JavaScript `\s`: space, tab, newline, vertical tab, nbsp, and the other Unicode spaces. */
+function isWhitespace(char: string | undefined) {
+  return char != null && /\s/.test(char);
+}
+
 function normalize(value: string) {
-  return value.replace(/\s+/g, " ").trim().toLowerCase();
+  let text = "";
+  let pendingSpace = false;
+  for (const char of value) {
+    if (isWhitespace(char)) {
+      pendingSpace = text.length > 0;
+      continue;
+    }
+    if (pendingSpace) text += " ";
+    pendingSpace = false;
+    text += char;
+  }
+  return text.toLowerCase();
 }
