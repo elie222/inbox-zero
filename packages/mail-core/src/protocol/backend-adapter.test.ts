@@ -136,6 +136,25 @@ describe("backend mailbox source", () => {
     ]);
   });
 
+  it("resets every stream when the server reports the batch position expired", async () => {
+    const source = createBackendMailboxSource({
+      accountId: "acc-1",
+      request: async () => ({
+        status: 410,
+        json: {
+          protocolVersion: MAIL_PROTOCOL_VERSION,
+          requestId: "r1",
+          error: { code: "expired_position", retryable: false },
+        },
+      }),
+    });
+
+    await expect(source.readChangesBatch(batchInput())).resolves.toEqual([
+      { status: "reset_required", scopeId: "inbox" },
+      { status: "reset_required", scopeId: "archive" },
+    ]);
+  });
+
   it("falls back to one request per stream when the server has no batch route", async () => {
     const paths: string[] = [];
     const source = createBackendMailboxSource({

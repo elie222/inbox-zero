@@ -17,7 +17,7 @@ export const POST = withEmailProvider(
   "mail/v1/changes-batch",
   async (request, context) => {
     const params = await context.params;
-    const body = await request.json();
+    const body = (await request.json().catch(() => null)) ?? {};
     const requestId = mailRequestId(request, body);
     const mismatch = accountMismatchResponse(
       request,

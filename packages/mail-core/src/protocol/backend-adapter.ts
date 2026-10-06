@@ -248,6 +248,12 @@ export function createBackendMailboxSource(input: {
       }
       const error = readError(response);
       if (error) {
+        if (error.error.code === "expired_position") {
+          return reads.map((read) => ({
+            status: "reset_required" as const,
+            scopeId: read.position.streamId,
+          }));
+        }
         const mapped = mapReadError(error);
         return reads.map(() => mapped);
       }
