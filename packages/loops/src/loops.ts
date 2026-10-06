@@ -27,7 +27,14 @@ export async function createContact(
   if (firstName) properties.firstName = firstName;
   if (provider) properties.provider = provider;
 
-  return await loops.createContact({ email, properties });
+  // Product tips live on their own list so readers can drop them without
+  // unsubscribing from every other email we send.
+  const productTipsListId = process.env.LOOPS_PRODUCT_TIPS_MAILING_LIST_ID;
+  const mailingLists = productTipsListId
+    ? { [productTipsListId]: true }
+    : undefined;
+
+  return await loops.createContact({ email, properties, mailingLists });
 }
 
 export async function deleteContact(

@@ -1,15 +1,16 @@
 import crypto from "node:crypto";
 import { secureCompareBuffers } from "@/utils/crypto-compare";
 
-// Recall delivers webhooks through Svix. Rather than pull in the Svix SDK we
-// verify the signature by hand: it is a documented, stable HMAC scheme.
+// Recall (via Svix) and Loops both sign webhooks with the Standard Webhooks
+// scheme. Rather than pull in the Svix SDK we verify the signature by hand: it
+// is a documented, stable HMAC scheme.
 // https://docs.svix.com/receiving/verifying-payloads/how-manual
 
 const TOLERANCE_SECONDS = 5 * 60;
 
 type MissingHeader = "id" | "timestamp" | "signature";
 
-type RecallWebhookVerification =
+type StandardWebhookVerification =
   | { verified: true }
   | {
       verified: false;
@@ -24,7 +25,7 @@ type RecallWebhookVerification =
     }
   | { verified: false; reason: "signature_mismatch" };
 
-export function verifyRecallWebhook({
+export function verifyStandardWebhook({
   secret,
   headers,
   rawBody,
@@ -32,7 +33,7 @@ export function verifyRecallWebhook({
   secret: string;
   headers: Headers;
   rawBody: string;
-}): RecallWebhookVerification {
+}): StandardWebhookVerification {
   // Svix sends `svix-*`; the vendor-neutral standard-webhooks names are
   // `webhook-*`. The signature is computed identically either way, so accept
   // both rather than 401 on a delivery we could have verified.
@@ -90,7 +91,7 @@ function getHeader(headers: Headers, suffix: string): string | null {
   return headers.get(`svix-${suffix}`) ?? headers.get(`webhook-${suffix}`);
 }
 
-export function getRecallWebhookSecretFingerprint(secret: string): string {
+export function getWebhookSecretFingerprint(secret: string): string {
   const fingerprint = crypto
     .createHash("sha256")
     .update(getVerificationKey(secret))

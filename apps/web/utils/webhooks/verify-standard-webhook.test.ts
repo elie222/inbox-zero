@@ -1,15 +1,15 @@
 import crypto from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  getRecallWebhookSecretFingerprint,
-  verifyRecallWebhook,
-} from "@/utils/recall/verify-webhook";
+  getWebhookSecretFingerprint,
+  verifyStandardWebhook,
+} from "@/utils/webhooks/verify-standard-webhook";
 
 const SECRET = `whsec_${Buffer.from("super-secret-key").toString("base64")}`;
 const NOW = new Date("2026-05-04T09:00:00.000Z");
 const RAW_BODY = JSON.stringify({ event: "bot.done" });
 
-describe("verifyRecallWebhook", () => {
+describe("verifyStandardWebhook", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(NOW);
@@ -21,7 +21,7 @@ describe("verifyRecallWebhook", () => {
 
   it("accepts a correctly signed payload", () => {
     expect(
-      verifyRecallWebhook({
+      verifyStandardWebhook({
         secret: SECRET,
         headers: signedHeaders(),
         rawBody: RAW_BODY,
@@ -39,13 +39,13 @@ describe("verifyRecallWebhook", () => {
     );
 
     expect(
-      verifyRecallWebhook({ secret: SECRET, headers, rawBody: RAW_BODY }),
+      verifyStandardWebhook({ secret: SECRET, headers, rawBody: RAW_BODY }),
     ).toEqual({ verified: true });
   });
 
   it("rejects a payload whose body was modified after signing", () => {
     expect(
-      verifyRecallWebhook({
+      verifyStandardWebhook({
         secret: SECRET,
         headers: signedHeaders(),
         rawBody: `${RAW_BODY} `,
@@ -59,7 +59,7 @@ describe("verifyRecallWebhook", () => {
     });
 
     expect(
-      verifyRecallWebhook({ secret: SECRET, headers, rawBody: RAW_BODY }),
+      verifyStandardWebhook({ secret: SECRET, headers, rawBody: RAW_BODY }),
     ).toEqual({
       verified: false,
       reason: "timestamp_outside_tolerance",
@@ -73,7 +73,7 @@ describe("verifyRecallWebhook", () => {
     });
 
     expect(
-      verifyRecallWebhook({ secret: SECRET, headers, rawBody: RAW_BODY }),
+      verifyStandardWebhook({ secret: SECRET, headers, rawBody: RAW_BODY }),
     ).toEqual({ verified: false, reason: "signature_mismatch" });
   });
 
@@ -86,7 +86,7 @@ describe("verifyRecallWebhook", () => {
     });
 
     expect(
-      verifyRecallWebhook({ secret: SECRET, headers, rawBody: RAW_BODY }),
+      verifyStandardWebhook({ secret: SECRET, headers, rawBody: RAW_BODY }),
     ).toEqual({ verified: true });
   });
 
@@ -95,7 +95,7 @@ describe("verifyRecallWebhook", () => {
     headers.delete("svix-id");
 
     expect(
-      verifyRecallWebhook({ secret: SECRET, headers, rawBody: RAW_BODY }),
+      verifyStandardWebhook({ secret: SECRET, headers, rawBody: RAW_BODY }),
     ).toEqual({
       verified: false,
       reason: "missing_headers",
@@ -108,16 +108,16 @@ describe("verifyRecallWebhook", () => {
     headers.set("svix-timestamp", "not-a-timestamp");
 
     expect(
-      verifyRecallWebhook({ secret: SECRET, headers, rawBody: RAW_BODY }),
+      verifyStandardWebhook({ secret: SECRET, headers, rawBody: RAW_BODY }),
     ).toEqual({ verified: false, reason: "invalid_timestamp" });
   });
 
   it("fingerprints the effective key without exposing the secret", () => {
-    const fingerprint = getRecallWebhookSecretFingerprint(SECRET);
+    const fingerprint = getWebhookSecretFingerprint(SECRET);
 
     expect(fingerprint).toMatch(/^sha256:[a-f0-9]{12}$/);
     expect(fingerprint).toBe(
-      getRecallWebhookSecretFingerprint(SECRET.replace(/^whsec_/, "")),
+      getWebhookSecretFingerprint(SECRET.replace(/^whsec_/, "")),
     );
     expect(fingerprint).not.toContain(SECRET);
   });
