@@ -781,7 +781,11 @@ export function createMailEngine(input: {
       const retry = syncLaneRetries.get(accountId);
       if (retry && retry.retryAtMs > runtime.nowMs()) continue;
       const abort = new AbortController();
-      const timeout = setTimeout(() => abort.abort(), syncLaneTimeoutMs);
+      let timedOut = false;
+      const timeout = setTimeout(() => {
+        timedOut = true;
+        abort.abort();
+      }, syncLaneTimeoutMs);
       // The lane settles on abort even if a request ignores the signal.
       const aborted = new Promise<void>((resolve) => {
         abort.signal.addEventListener("abort", () => resolve(), { once: true });
@@ -790,20 +794,16 @@ export function createMailEngine(input: {
         abort,
         done: Promise.race([catchUpAccount(account, abort.signal), aborted])
           .then(() => {
-            syncLaneRetries.delete(accountId);
+            if (timedOut) {
+              failSyncLane(accountId, new Error("Mail sync lane timed out"));
+            } else {
+              syncLaneRetries.delete(accountId);
+            }
           })
           .catch((error: unknown) => {
-            if (abort.signal.aborted) return;
-            const delayMs = Math.min(
-              SYNC_LANE_RETRY_MAX_MS,
-              (syncLaneRetries.get(accountId)?.delayMs ?? 0) * 2 ||
-                SYNC_LANE_RETRY_MIN_MS,
-            );
-            syncLaneRetries.set(accountId, {
-              retryAtMs: runtime.nowMs() + delayMs,
-              delayMs,
-            });
-            syncLaneErrors.push(error);
+            // A purge or close stopped the lane on purpose.
+            if (abort.signal.aborted && !timedOut) return;
+            failSyncLane(accountId, error);
           })
           .finally(() => {
             clearTimeout(timeout);
@@ -812,6 +812,19 @@ export function createMailEngine(input: {
       };
       syncLanes.set(accountId, lane);
     }
+  }
+
+  function failSyncLane(accountId: string, error: unknown) {
+    const delayMs = Math.min(
+      SYNC_LANE_RETRY_MAX_MS,
+      (syncLaneRetries.get(accountId)?.delayMs ?? 0) * 2 ||
+        SYNC_LANE_RETRY_MIN_MS,
+    );
+    syncLaneRetries.set(accountId, {
+      retryAtMs: runtime.nowMs() + delayMs,
+      delayMs,
+    });
+    syncLaneErrors.push(error);
   }
 
   function stopSyncLane(accountId: string) {
@@ -939,6 +952,9 @@ export function createMailEngine(input: {
         pageSize: 50,
         signal: signal ?? new AbortController().signal,
       });
+      // A stopped lane may have been replaced, and its late result must not
+      // move the shared catch-up schedule.
+      if (signal.aborted) return;
       if (changes.status === "page") {
         const applied = await store.applySyncPage({
           page: changes.page,

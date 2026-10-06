@@ -184,18 +184,21 @@ describe("mail engine idle catch-up scheduling", () => {
     await harness.engine.close();
   });
 
-  it("abandons a hung lane so the account syncs again", async () => {
+  it("abandons a hung lane, reports it, and retries after a backoff", async () => {
     const harness = multiAccountHarness({
       accounts: [
         { accountId: "acc-a", streamIds: ["inbox"], readMs: 0, hangs: true },
       ],
       syncLaneTimeoutMs: 20,
     });
-    await harness.engine.runUntil(50);
-    await new Promise((resolve) => setTimeout(resolve, 30));
+    await expect(harness.engine.runUntil(50)).rejects.toThrow("timed out");
 
     await harness.engine.requestSync(["acc-a"]);
     await harness.engine.runUntil(50);
+    expect(harness.reads).toEqual(["acc-a:inbox"]);
+
+    harness.advance(1000);
+    await harness.engine.runUntil(harness.nowMs + 10).catch(() => {});
 
     expect(harness.reads).toEqual(["acc-a:inbox", "acc-a:inbox"]);
     harness.releaseHangs();
