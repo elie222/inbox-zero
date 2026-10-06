@@ -57,7 +57,7 @@ export function createOpenedConversationAttachments(
     attachment: ParsedMessage["inline"][number] | undefined,
     inlineImage: boolean,
   ) {
-    const key = JSON.stringify([messageId, attachmentId]);
+    const key = JSON.stringify([messageId, attachmentId, inlineImage]);
     let operation = pending.get(key);
     if (!operation) {
       const transferSignal = controller.signal;
@@ -99,8 +99,9 @@ export function createOpenedConversationAttachments(
       return queueAttachmentDownload({
         priority: "requested",
         signal: transferSignal,
-        download: (signal) =>
-          fetchAttachment({
+        download: async (signal) => {
+          if (!eligible()) return;
+          return fetchAttachment({
             url: getAttachmentUrl({
               accountId: emailAccountId,
               messageId,
@@ -109,7 +110,8 @@ export function createOpenedConversationAttachments(
             emailAccountId,
             maxBytes: size ?? INLINE_IMAGE_LIMIT,
             signal,
-          }),
+          });
+        },
       });
     }
     const reserved = size ?? FILE_LIMIT;

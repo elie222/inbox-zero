@@ -66,6 +66,21 @@ it("loads inline body images larger than the preview budget", async () => {
   expect(fetchAttachment).toHaveBeenCalledTimes(2);
 });
 
+it("skips inline body images above the 25 MiB cap", async () => {
+  const session = createOpenedConversationAttachments(
+    "account",
+    "thread",
+    true,
+  );
+  expect(
+    await session.loadInlineImage("a", "file", undefined, {
+      ...image,
+      size: 26 * MiB,
+    }),
+  ).toBeUndefined();
+  expect(fetchAttachment).not.toHaveBeenCalled();
+});
+
 it("does not fetch when the tab is hidden or offline", async () => {
   vi.stubGlobal("document", { visibilityState: "hidden" });
   const session = createOpenedConversationAttachments(
