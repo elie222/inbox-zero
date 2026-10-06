@@ -264,7 +264,10 @@ function decodeEntity(body: string) {
       const numeric =
         /^#(\d{1,7})$/.exec(body) ?? /^#x([\da-f]{1,6})$/i.exec(body);
       if (!numeric) return null;
-      const code = Number.parseInt(numeric[1], numeric[0][1] === "x" ? 16 : 10);
+      const code = Number.parseInt(
+        numeric[1],
+        numeric[0][1]?.toLowerCase() === "x" ? 16 : 10,
+      );
       if (
         !Number.isFinite(code) ||
         code < 0 ||

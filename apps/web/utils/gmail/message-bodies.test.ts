@@ -112,6 +112,24 @@ describe("Apple Mail message bodies", () => {
     expect(parsed.textPlain).toContain(signature);
   });
 
+  it("decodes an uppercase hex entity before comparing the signature", () => {
+    const parsed = parseMessage(
+      message(
+        "multipart/alternative",
+        [
+          textPart("text/plain", `${shelf}\n\n${signature}\n`),
+          textPart(
+            "text/html",
+            "<html><body>&#X53;ent from my iPhone</body></html>",
+          ),
+        ],
+        { snippet: shelf },
+      ),
+    );
+    expect(parsed.textHtml).toBeUndefined();
+    expect(parsed.textPlain).toContain(shelf);
+  });
+
   it("ignores a named text part and an attached message", () => {
     const parsed = parseMessage(
       message("multipart/mixed", [
