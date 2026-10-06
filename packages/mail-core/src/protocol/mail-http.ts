@@ -16,6 +16,7 @@ import {
   syncPositionSchema,
 } from "../sync";
 import { preparedOperationSchema, targetOutcomeSchema } from "../operations";
+import { MAX_CHANGES_BATCH_READS } from "../ports/mailbox-source";
 
 export const mailProtocolVersionSchema = z.literal(MAIL_PROTOCOL_VERSION);
 
@@ -163,6 +164,28 @@ export const changesResultSchema = z.discriminatedUnion("status", [
     requestId: z.string(),
   }),
 ]);
+
+export const changesBatchRequestSchema = z.object({
+  protocolVersion: mailProtocolVersionSchema,
+  requestId: z.string().min(1).max(128),
+  session: accountSessionSchema,
+  reads: z
+    .array(
+      z.object({
+        requestId: z.string().min(1).max(128),
+        position: syncPositionSchema,
+      }),
+    )
+    .min(1)
+    .max(MAX_CHANGES_BATCH_READS),
+  pageSize: z.number().int().min(1).max(100),
+});
+
+export const changesBatchResultSchema = z.object({
+  protocolVersion: mailProtocolVersionSchema,
+  requestId: z.string(),
+  results: z.array(changesResultSchema),
+});
 
 export const hydrationRequestSchema = z.object({
   protocolVersion: mailProtocolVersionSchema,

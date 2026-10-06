@@ -553,6 +553,54 @@ describe("createEmailProviderMailboxSource", () => {
     expect(() => syncPageSchema.parse(result.page)).not.toThrow();
   });
 
+  it("batches folder reads, warming the provider with the first and capping concurrency", async () => {
+    const folders = ["inbox", "a", "b", "c", "d", "e"];
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const started: string[] = [];
+    const source = createEmailProviderMailboxSource({
+      accountId: "acc-1",
+      provider: {
+        name: "microsoft",
+        localMailSyncStrategy: "folder-delta",
+        async getMailboxSyncPage({ folderId }: { folderId: string }) {
+          started.push(`${folderId}:${inFlight}`);
+          inFlight += 1;
+          maxInFlight = Math.max(maxInFlight, inFlight);
+          await new Promise((resolve) => setTimeout(resolve, 5));
+          inFlight -= 1;
+          return {
+            cursor: `${folderId}-next`,
+            reset: false,
+            upsertedMessages: [],
+            deletedMessageIds: [],
+            removedMessageIds: [],
+            hasMore: false,
+          };
+        },
+      } as unknown as EmailProvider,
+    });
+
+    const results = await source.readChangesBatch({
+      session: { accountId: "acc-1", generation: "g1" },
+      reads: folders.map((streamId, index) => ({
+        requestId: `r${index}`,
+        position: { streamId, generation: "g1", checkpoint: "cursor" },
+      })),
+      pageSize: 20,
+      signal: new AbortController().signal,
+    });
+
+    expect(started[0]).toBe("inbox:0");
+    expect(started[1]).toBe("a:0");
+    expect(maxInFlight).toBe(3);
+    expect(
+      results.map(
+        (result) => result.status === "page" && result.page.to.checkpoint,
+      ),
+    ).toEqual(folders.map((folder) => `${folder}-next`));
+  });
+
   it("pages conversation membership instead of truncating the thread", async () => {
     const messages = Array.from({ length: 3 }, (_, index) => ({
       id: `m${index + 1}`,

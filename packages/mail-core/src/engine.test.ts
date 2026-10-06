@@ -348,6 +348,42 @@ describe("mail engine idle catch-up scheduling", () => {
     await harness.engine.close();
   });
 
+  it("reads every due stream of an account in one batch", async () => {
+    const harness = idleCatchUpHarness({
+      streamIds: ["inbox", "archive", "sent"],
+      batch: true,
+    });
+    await harness.engine.runUntil(10_000);
+
+    expect(harness.batchReads).toEqual([["inbox", "archive", "sent"]]);
+    expect(harness.store.streamCheckpoints()).toEqual([
+      "inbox-1",
+      "archive-2",
+      "sent-3",
+    ]);
+
+    await harness.engine.requestSync(["acc-1"]);
+    harness.advance(1000);
+    await harness.engine.runUntil(harness.nowMs + 1000);
+
+    expect(harness.batchReads).toHaveLength(2);
+    expect(harness.store.streamCheckpoints()).toEqual([
+      "inbox-4",
+      "archive-5",
+      "sent-6",
+    ]);
+    await harness.engine.close();
+  });
+
+  it("reads a single due stream without a batch", async () => {
+    const harness = idleCatchUpHarness({ streamIds: ["inbox"], batch: true });
+    await harness.engine.runUntil(10_000);
+
+    expect(harness.batchReads).toEqual([]);
+    expect(harness.readChangeStreams).toEqual(["inbox"]);
+    await harness.engine.close();
+  });
+
   it("gates idle assistant catch-up and lets explicit sync wake it", async () => {
     const assistantCursors: Array<string | null> = [];
     const harness = idleCatchUpHarness({
@@ -541,6 +577,7 @@ function idleExecutor(): OperationExecutor {
 function idleCatchUpHarness(input: {
   streamIds: string[];
   lowPriority?: string[];
+  batch?: boolean;
   partialPagesBeforeComplete?: number;
   assistant?: AssistantStateSource;
 }) {
@@ -555,6 +592,8 @@ function idleCatchUpHarness(input: {
       checkpoint: "start",
     }));
   let discoveredScopeRequests = 0;
+  const batchReads: string[][] = [];
+  let pagesRead = 0;
   let partialPagesRemaining = input.partialPagesBeforeComplete ?? 0;
   const source: MailboxSource = {
     ...idleSource(),
@@ -588,7 +627,7 @@ function idleCatchUpHarness(input: {
           from: position,
           to: {
             ...position,
-            checkpoint: `${position.streamId}-${readChangeStreams.length}`,
+            checkpoint: `${position.streamId}-${++pagesRead}`,
           },
           changes: [],
           requiredHydration: [],
@@ -598,6 +637,26 @@ function idleCatchUpHarness(input: {
       };
     },
   };
+  if (input.batch) {
+    source.readChangesBatch = async ({ session, reads, pageSize, signal }) => {
+      batchReads.push(reads.map((read) => read.position.streamId));
+      const results = [];
+      for (const read of reads) {
+        results.push(
+          await source.readChanges({
+            session,
+            requestId: read.requestId,
+            position: read.position,
+            pageSize,
+            signal,
+          }),
+        );
+      }
+      // Batched reads are tracked in batchReads, not as single reads.
+      readChangeStreams.splice(-reads.length);
+      return results;
+    };
+  }
   const store = idleCatchUpStore(streams);
   const engine = createMailEngine({
     store,
@@ -617,6 +676,7 @@ function idleCatchUpHarness(input: {
     store,
     source,
     readChangeStreams,
+    batchReads,
     onReadChanges: (_streamId: string) => {},
     get discoveredScopeRequests() {
       return discoveredScopeRequests;
@@ -828,7 +888,10 @@ function idleCatchUpStore(
       return { remaining: false };
     },
     async close() {},
-  } as unknown as MailStore;
+    streamCheckpoints() {
+      return streams.map((stream) => stream.checkpoint);
+    },
+  } as unknown as MailStore & { streamCheckpoints(): Array<string | null> };
 }
 
 function assistantSource(cursors: Array<string | null>): AssistantStateSource {
