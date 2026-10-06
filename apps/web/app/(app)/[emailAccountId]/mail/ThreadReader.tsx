@@ -43,7 +43,6 @@ const SenderContextPanel = dynamic(
 const INLINE_SENDER_CONTEXT_MIN_WIDTH = 880;
 
 export type ThreadReaderProps = {
-  emailAccountId?: string;
   enableMessageNavigation: boolean;
   /** The row that is open. It may lag behind the selected thread while loading. */
   thread: ListThread | null;
@@ -95,7 +94,6 @@ export type ThreadReaderProps = {
 };
 
 export function ThreadReader({
-  emailAccountId,
   enableMessageNavigation,
   thread,
   threadId,

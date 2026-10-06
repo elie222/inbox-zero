@@ -108,7 +108,6 @@ export const MailReaderPane = memo(function MailReaderPane({
         >
           <ThreadReader
             {...readerProps}
-            emailAccountId={readerEmailAccount?.id}
             onBackToInbox={onClose}
             renderMessageMenu={renderMessageMenu}
             menu={
