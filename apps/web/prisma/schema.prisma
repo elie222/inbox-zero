@@ -304,19 +304,19 @@ model MailSplitFilter {
 }
 
 model Organization {
-  id                  String               @id @default(cuid())
-  name                String
-  slug                String               @unique
-  logo                String?
-  metadata            Json?
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
-  members             Member[]
-  SsoProvider         SsoProvider?
-  sessions            Session[]
-  invitations         Invitation[]
-  rules               OrganizationRule[]
-  sharedConversations SharedConversation[]
+  id            String             @id @default(cuid())
+  name          String
+  slug          String             @unique
+  logo          String?
+  metadata      Json?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  members       Member[]
+  SsoProvider   SsoProvider?
+  sessions      Session[]
+  invitations   Invitation[]
+  rules         OrganizationRule[]
+  conversations Conversation[]
 }
 
 // Org-managed rule, materialized into a normal member Rule (+ Action) copy per
@@ -383,7 +383,7 @@ model Member {
   updatedAt                DateTime                  @updatedAt
   organization             Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   emailAccount             EmailAccount              @relation(fields: [emailAccountId], references: [id], onDelete: Restrict)
-  sharedConversations      SharedConversation[]
+  conversations            Conversation[]
   conversationParticipants ConversationParticipant[]
   conversationComments     ConversationComment[]
 
@@ -391,18 +391,7 @@ model Member {
   @@unique([emailAccountId])
 }
 
-enum SharedConversationStatus {
-  ACTIVE
-  STOPPED
-}
-
-enum ConversationActivityKind {
-  INVITED
-  COMMENT
-  MENTION
-}
-
-model SharedConversation {
+model Conversation {
   id             String                    @id @default(cuid())
   createdAt      DateTime                  @default(now())
   updatedAt      DateTime                  @updatedAt
@@ -411,7 +400,7 @@ model SharedConversation {
   publisherId    String
   publisher      Member                    @relation(fields: [publisherId], references: [id], onDelete: Cascade)
   threadId       String
-  status         SharedConversationStatus  @default(ACTIVE)
+  status         ConversationStatus        @default(ACTIVE)
   revision       Int                       @default(0)
   generation     Int                       @default(1)
   participants   ConversationParticipant[]
@@ -424,7 +413,7 @@ model SharedConversation {
 model ConversationParticipant {
   id             String                 @id @default(cuid())
   conversationId String
-  conversation   SharedConversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversation   Conversation           @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   memberId       String
   member         Member                 @relation(fields: [memberId], references: [id], onDelete: Cascade)
   generation     Int
@@ -441,7 +430,7 @@ model ConversationParticipant {
 model ConversationComment {
   id               String                 @id @default(cuid())
   conversationId   String
-  conversation     SharedConversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversation     Conversation           @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   // SetNull keeps the discussion readable after the author leaves the organization.
   authorMemberId   String?
   author           Member?                @relation(fields: [authorMemberId], references: [id], onDelete: SetNull)
@@ -2448,6 +2437,17 @@ enum AutomationJobRunStatus {
   SENT
   SKIPPED
   FAILED
+}
+
+enum ConversationStatus {
+  ACTIVE
+  STOPPED
+}
+
+enum ConversationActivityKind {
+  INVITED
+  COMMENT
+  MENTION
 }
 
 model OauthClient {

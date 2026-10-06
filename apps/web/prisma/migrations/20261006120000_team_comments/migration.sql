@@ -1,17 +1,17 @@
-CREATE TYPE "SharedConversationStatus" AS ENUM ('ACTIVE', 'STOPPED');
+CREATE TYPE "ConversationStatus" AS ENUM ('ACTIVE', 'STOPPED');
 CREATE TYPE "ConversationActivityKind" AS ENUM ('INVITED', 'COMMENT', 'MENTION');
 
-CREATE TABLE "SharedConversation" (
+CREATE TABLE "Conversation" (
     "id" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "organizationId" TEXT NOT NULL,
     "publisherId" TEXT NOT NULL,
     "threadId" TEXT NOT NULL,
-    "status" "SharedConversationStatus" NOT NULL DEFAULT 'ACTIVE',
+    "status" "ConversationStatus" NOT NULL DEFAULT 'ACTIVE',
     "revision" INTEGER NOT NULL DEFAULT 0,
     "generation" INTEGER NOT NULL DEFAULT 1,
-    CONSTRAINT "SharedConversation_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "Conversation_pkey" PRIMARY KEY ("id")
 );
 
 CREATE TABLE "ConversationParticipant" (
@@ -48,9 +48,9 @@ CREATE TABLE "ConversationActivity" (
     CONSTRAINT "ConversationActivity_pkey" PRIMARY KEY ("id")
 );
 
-CREATE UNIQUE INDEX "SharedConversation_publisherId_threadId_key" ON "SharedConversation"("publisherId", "threadId");
+CREATE UNIQUE INDEX "Conversation_publisherId_threadId_key" ON "Conversation"("publisherId", "threadId");
 
-CREATE INDEX "SharedConversation_organizationId_idx" ON "SharedConversation"("organizationId");
+CREATE INDEX "Conversation_organizationId_idx" ON "Conversation"("organizationId");
 
 CREATE INDEX "ConversationParticipant_memberId_idx" ON "ConversationParticipant"("memberId");
 
@@ -63,13 +63,13 @@ CREATE INDEX "ConversationActivity_participantId_createdAt_id_idx" ON "Conversat
 
 CREATE UNIQUE INDEX "ConversationActivity_participantId_kind_revision_key" ON "ConversationActivity"("participantId", "kind", "revision");
 
-ALTER TABLE "SharedConversation" ADD CONSTRAINT "SharedConversation_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "SharedConversation" ADD CONSTRAINT "SharedConversation_publisherId_fkey" FOREIGN KEY ("publisherId") REFERENCES "Member"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Conversation" ADD CONSTRAINT "Conversation_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Conversation" ADD CONSTRAINT "Conversation_publisherId_fkey" FOREIGN KEY ("publisherId") REFERENCES "Member"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
-ALTER TABLE "ConversationParticipant" ADD CONSTRAINT "ConversationParticipant_conversationId_fkey" FOREIGN KEY ("conversationId") REFERENCES "SharedConversation"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ConversationParticipant" ADD CONSTRAINT "ConversationParticipant_conversationId_fkey" FOREIGN KEY ("conversationId") REFERENCES "Conversation"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "ConversationParticipant" ADD CONSTRAINT "ConversationParticipant_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "Member"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
-ALTER TABLE "ConversationComment" ADD CONSTRAINT "ConversationComment_conversationId_fkey" FOREIGN KEY ("conversationId") REFERENCES "SharedConversation"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ConversationComment" ADD CONSTRAINT "ConversationComment_conversationId_fkey" FOREIGN KEY ("conversationId") REFERENCES "Conversation"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "ConversationComment" ADD CONSTRAINT "ConversationComment_authorMemberId_fkey" FOREIGN KEY ("authorMemberId") REFERENCES "Member"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 ALTER TABLE "ConversationActivity" ADD CONSTRAINT "ConversationActivity_participantId_fkey" FOREIGN KEY ("participantId") REFERENCES "ConversationParticipant"("id") ON DELETE CASCADE ON UPDATE CASCADE;

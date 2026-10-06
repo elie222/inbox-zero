@@ -162,7 +162,7 @@ describe.skipIf(!RUN_DB_TESTS)(
       );
       expect(new Set(results.map((result) => result.id)).size).toBe(1);
       expect(
-        await prisma.sharedConversation.count({
+        await prisma.conversation.count({
           where: { threadId: "new-provider-thread" },
         }),
       ).toBe(1);
@@ -218,7 +218,7 @@ describe.skipIf(!RUN_DB_TESTS)(
           logger,
         }),
       ]);
-      const conversation = await prisma.sharedConversation.findUniqueOrThrow({
+      const conversation = await prisma.conversation.findUniqueOrThrow({
         where: { id: ids.conversationId },
       });
       expect(conversation.revision).toBe(4);
@@ -275,7 +275,7 @@ describe.skipIf(!RUN_DB_TESTS)(
           revision: index + 1,
         })),
       });
-      await prisma.sharedConversation.update({
+      await prisma.conversation.update({
         where: { id: ids.conversationId },
         data: { revision: 105 },
       });
@@ -460,7 +460,7 @@ describe.skipIf(!RUN_DB_TESTS)(
       });
       await prisma.member.delete({ where: { id: ids.aMemberId } });
       expect(
-        await prisma.sharedConversation.count({
+        await prisma.conversation.count({
           where: { id: ids.conversationId },
         }),
       ).toBe(0);
@@ -553,7 +553,7 @@ async function seed(prisma: typeof import("@/utils/prisma").default) {
       },
     }),
   ]);
-  const conversation = await prisma.sharedConversation.create({
+  const conversation = await prisma.conversation.create({
     data: {
       organizationId: organization.id,
       publisherId: aMember.id,

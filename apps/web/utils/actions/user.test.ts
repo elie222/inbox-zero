@@ -76,7 +76,7 @@ describe("deleteEmailAccountAction", () => {
       Promise.all(operations as Promise<unknown>[]),
     );
     prisma.member.findMany.mockResolvedValue([]);
-    prisma.sharedConversation.findMany.mockResolvedValue([]);
+    prisma.conversation.findMany.mockResolvedValue([]);
     prisma.emailAccount.findUnique.mockResolvedValue({
       email: "primary@example.com",
       accountId: "account-1",
@@ -102,9 +102,9 @@ describe("deleteEmailAccountAction", () => {
   });
 
   it("promotes another account before deleting the primary account", async () => {
-    prisma.sharedConversation.findMany.mockResolvedValue([
+    prisma.conversation.findMany.mockResolvedValue([
       { id: "shared-1" },
-    ] as Awaited<ReturnType<typeof prisma.sharedConversation.findMany>>);
+    ] as Awaited<ReturnType<typeof prisma.conversation.findMany>>);
     prisma.emailAccount.findMany.mockResolvedValue([
       {
         id: "alternate-email-account",

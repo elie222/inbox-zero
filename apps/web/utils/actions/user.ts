@@ -147,7 +147,7 @@ export const deleteEmailAccountAction = actionClientUser
       if (!emailAccount.accountId) throw new SafeError("Account id not found");
       const organizationIdsToDelete =
         await assertEmailAccountCanBeDeleted(emailAccountId);
-      const affectedConversations = await prisma.sharedConversation.findMany({
+      const affectedConversations = await prisma.conversation.findMany({
         where: {
           status: "ACTIVE",
           OR: [
@@ -174,7 +174,7 @@ export const deleteEmailAccountAction = actionClientUser
         },
       });
       const revokePublishedConversationsOperation =
-        prisma.sharedConversation.updateMany({
+        prisma.conversation.updateMany({
           where: { publisher: { emailAccountId }, status: "ACTIVE" },
           data: { status: "STOPPED", revision: { increment: 1 } },
         });

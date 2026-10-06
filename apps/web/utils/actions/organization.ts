@@ -394,7 +394,7 @@ export const removeMemberAction = actionClientUser
       organizationId: targetMember.organizationId,
     });
 
-    const affectedConversations = await prisma.sharedConversation.findMany({
+    const affectedConversations = await prisma.conversation.findMany({
       where: {
         status: "ACTIVE",
         OR: [
@@ -406,7 +406,7 @@ export const removeMemberAction = actionClientUser
     });
 
     await prisma.$transaction([
-      prisma.sharedConversation.updateMany({
+      prisma.conversation.updateMany({
         where: { publisherId: memberId, status: "ACTIVE" },
         data: { status: "STOPPED", revision: { increment: 1 } },
       }),

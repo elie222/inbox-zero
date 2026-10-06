@@ -72,7 +72,7 @@ Integrate discussion into `apps/web/app/(app)/[emailAccountId]/mail/ThreadReader
 
 | Record | Responsibilities |
 | --- | --- |
-| SharedConversation | Organization, publisher membership (cascade on removal), provider thread ID, status, revision, access generation. Unique publisher membership and thread; the mailbox is reached through the membership. |
+| Conversation | Organization, publisher membership (cascade on removal), provider thread ID, status, revision, access generation. Unique publisher membership and thread; the mailbox is reached through the membership. |
 | ConversationParticipant | Exact membership (cascade on removal), generation, grant status, monotonic read revision, mute. Include publisher's grant. |
 | ConversationComment | Nullable author membership (set null on removal, shown as a former member), client mutation ID unique per conversation and author for idempotent posting, body, committed revision, deletion state. Member removal must not cascade delete comments. |
 | Participant activity | Durable invitation/mention/unread state per participant grant; the conversation is derived from the grant. Resolve previews from currently authorized comments rather than copying deleted bodies into notifications. |

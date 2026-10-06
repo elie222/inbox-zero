@@ -45,7 +45,7 @@ describe("deleteUser", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     prisma.member.findMany.mockResolvedValue([]);
-    prisma.sharedConversation.findMany.mockResolvedValue([]);
+    prisma.conversation.findMany.mockResolvedValue([]);
     prisma.$transaction.mockImplementation(async (operations) =>
       Promise.all(operations),
     );

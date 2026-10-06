@@ -59,7 +59,7 @@ export async function getSharedConversation(
 
 export async function listSharedConversations(actor: ConversationActor) {
   const member = await getOwnedMember(actor);
-  const rows = await prisma.sharedConversation.findMany({
+  const rows = await prisma.conversation.findMany({
     where: {
       organizationId: member.organizationId,
       status: "ACTIVE",
@@ -114,7 +114,7 @@ export async function getShareForSource(
     throw new SafeError(
       "The selected account is not this membership's account",
     );
-  const conversation = await prisma.sharedConversation.findUnique({
+  const conversation = await prisma.conversation.findUnique({
     where: {
       publisherId_threadId: {
         publisherId: member.id,
@@ -144,7 +144,7 @@ export async function shareConversation(
     .sort();
   if (!selected.length) throw new SafeError("Select at least one teammate");
   if (selected.length > 20) throw new SafeError("Too many teammates selected");
-  const existing = await prisma.sharedConversation.findUnique({
+  const existing = await prisma.conversation.findUnique({
     where: {
       publisherId_threadId: {
         publisherId: member.id,
@@ -187,7 +187,7 @@ export async function shareConversation(
       await prisma.$transaction(
         [
           prisma.$executeRaw`
-        INSERT INTO "SharedConversation" (
+        INSERT INTO "Conversation" (
           "id", "updatedAt", "organizationId", "publisherId", "threadId", "revision"
         )
         SELECT ${conversationId}, CURRENT_TIMESTAMP, ${member.organizationId},
@@ -234,7 +234,7 @@ export async function shareConversation(
         error.code === "P2002" ||
         (error.code === "P2010" && rawSqlState === "23505")
       ) {
-        const committed = await prisma.sharedConversation.findUnique({
+        const committed = await prisma.conversation.findUnique({
           where: {
             publisherId_threadId: {
               publisherId: member.id,
@@ -259,7 +259,7 @@ export async function stopSharing(
 ) {
   for (let attempt = 0; attempt < 4; attempt++) {
     const member = await getOwnedMember(actor);
-    const conversation = await prisma.sharedConversation.findFirst({
+    const conversation = await prisma.conversation.findFirst({
       where: {
         id: conversationId,
         organizationId: member.organizationId,
@@ -272,7 +272,7 @@ export async function stopSharing(
     try {
       await prisma.$transaction(
         [
-          prisma.sharedConversation.update({
+          prisma.conversation.update({
             where: {
               id: conversationId,
               revision: conversation.revision,
@@ -311,7 +311,7 @@ async function restartSharing(
 ) {
   for (let attempt = 0; attempt < 4; attempt++) {
     const member = await getOwnedMember(actor);
-    const conversation = await prisma.sharedConversation.findFirst({
+    const conversation = await prisma.conversation.findFirst({
       where: {
         id: conversationId,
         organizationId: member.organizationId,
@@ -336,7 +336,7 @@ async function restartSharing(
           SELECT COUNT(*) FROM "Member" WHERE "id" IN (${Prisma.join(participantIds)})
             AND "organizationId" = ${member.organizationId}
           ) = ${participantIds.length} THEN 1 ELSE 0 END`,
-          prisma.sharedConversation.update({
+          prisma.conversation.update({
             where: {
               id: conversationId,
               status: "STOPPED",
@@ -431,7 +431,7 @@ export async function setParticipantAccess(
     try {
       await prisma.$transaction(
         [
-          prisma.sharedConversation.update({
+          prisma.conversation.update({
             where: {
               id: input.conversationId,
               status: "ACTIVE",

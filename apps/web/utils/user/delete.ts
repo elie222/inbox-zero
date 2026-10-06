@@ -204,7 +204,7 @@ async function deleteResources({
     await deleteExecutedRulesInBatches({ emailAccountId, logger });
 
     logger.info("Deleting user");
-    const affectedConversations = await prisma.sharedConversation.findMany({
+    const affectedConversations = await prisma.conversation.findMany({
       where: {
         status: "ACTIVE",
         OR: [
@@ -219,7 +219,7 @@ async function deleteResources({
       select: { id: true },
     });
     const [, , , deletedUser] = await prisma.$transaction([
-      prisma.sharedConversation.updateMany({
+      prisma.conversation.updateMany({
         where: { publisher: { emailAccount: { userId } }, status: "ACTIVE" },
         data: { status: "STOPPED", revision: { increment: 1 } },
       }),

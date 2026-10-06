@@ -91,7 +91,7 @@ export async function postComment(
     try {
       await prisma.$transaction(
         [
-          prisma.sharedConversation.update({
+          prisma.conversation.update({
             where: {
               id: conversation.id,
               status: "ACTIVE",
@@ -178,7 +178,7 @@ export async function deleteComment(
     try {
       await prisma.$transaction(
         [
-          prisma.sharedConversation.update({
+          prisma.conversation.update({
             where: {
               id: conversation.id,
               status: "ACTIVE",

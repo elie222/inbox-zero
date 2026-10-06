@@ -102,7 +102,7 @@ describe("updateMemberRoleAction", () => {
 describe("removeMemberAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    prisma.sharedConversation.findMany.mockResolvedValue([]);
+    prisma.conversation.findMany.mockResolvedValue([]);
     prisma.$transaction.mockImplementation(async (operations) =>
       Promise.all(operations),
     );
@@ -122,9 +122,9 @@ describe("removeMemberAction", () => {
     } as any);
     prisma.rule.deleteMany.mockResolvedValue({ count: 2 } as any);
     prisma.member.delete.mockResolvedValue({} as any);
-    prisma.sharedConversation.findMany.mockResolvedValue([
+    prisma.conversation.findMany.mockResolvedValue([
       { id: "shared-1" },
-    ] as Awaited<ReturnType<typeof prisma.sharedConversation.findMany>>);
+    ] as Awaited<ReturnType<typeof prisma.conversation.findMany>>);
 
     const result = await removeMemberAction({ memberId: "member-2" });
 
@@ -138,7 +138,7 @@ describe("removeMemberAction", () => {
     expect(prisma.member.delete).toHaveBeenCalledWith({
       where: { id: "member-2" },
     });
-    expect(prisma.sharedConversation.updateMany).toHaveBeenCalled();
+    expect(prisma.conversation.updateMany).toHaveBeenCalled();
     expect(prisma.conversationParticipant.updateMany).toHaveBeenCalled();
     expect(publishConversationChange).toHaveBeenCalledWith(
       "shared-1",

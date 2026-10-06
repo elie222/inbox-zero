@@ -28,7 +28,7 @@ export async function getAuthorizedConversation(
   conversationId: string,
 ) {
   const member = await getOwnedMember(actor);
-  const conversation = await prisma.sharedConversation.findFirst({
+  const conversation = await prisma.conversation.findFirst({
     where: {
       id: conversationId,
       organizationId: member.organizationId,
