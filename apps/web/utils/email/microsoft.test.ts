@@ -677,6 +677,37 @@ describe("OutlookProvider snapshot mutations", () => {
   });
 });
 
+describe("OutlookProvider.removeThreadLabels", () => {
+  it("only rewrites messages that carry a removed category", async () => {
+    const patch = vi.fn().mockResolvedValue({});
+    const get = vi.fn().mockResolvedValue({
+      value: [
+        { id: "labeled", categories: ["To Reply", "Work"] },
+        { id: "other-category", categories: ["Work"] },
+        { id: "uncategorized" },
+      ],
+    });
+    const api = vi.fn((path: string) =>
+      path === "/me/messages"
+        ? { filter: () => ({ select: () => ({ get }) }) }
+        : { patch: (payload: unknown) => patch(path, payload) },
+    );
+    const provider = new OutlookProvider(
+      { getClient: () => ({ api }) } as never,
+      createTestLogger(),
+    );
+    vi.spyOn(provider, "getLabels").mockResolvedValue([
+      { id: "to-reply-id", name: "To Reply", type: "user" },
+    ]);
+
+    await provider.removeThreadLabels("thread-1", ["to-reply-id"]);
+
+    expect(patch.mock.calls).toEqual([
+      ["/me/messages/labeled", { categories: ["Work"] }],
+    ]);
+  });
+});
+
 describe("OutlookProvider.getSentMessageIds", () => {
   it("queries sent items with sentDateTime bounds", async () => {
     const client = createMockOutlookClient([
