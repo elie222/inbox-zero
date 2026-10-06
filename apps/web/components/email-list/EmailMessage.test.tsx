@@ -237,7 +237,7 @@ describe("EmailMessage reply", () => {
           ...message,
           headers: {
             ...message.headers,
-            cc: "first@example.com, second@example.com",
+            cc: "first@example.com, second@example.com, user@example.com",
           },
         }}
         onSendSuccess={vi.fn()}

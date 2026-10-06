@@ -773,7 +773,10 @@ function recipientSummary(
   const recipients = [
     ...splitRecipientList(to ?? ""),
     ...splitRecipientList(cc ?? ""),
-  ];
+  ].filter(
+    (recipient, index, all) =>
+      all.findIndex((other) => isSameEmailAddress(other, recipient)) === index,
+  );
   if (recipients.length === 0) return "";
 
   // "me" leads whenever the account is in there at all, however it was addressed.

@@ -387,10 +387,16 @@ export async function migrateMailbox(
   } catch {
     // column already exists on freshly created databases
   }
+  let addedEffectiveCc = false;
   try {
     await tx.exec(
       "ALTER TABLE effective_messages ADD COLUMN cc_json TEXT NOT NULL DEFAULT '[]'",
     );
+    addedEffectiveCc = true;
+  } catch {
+    // column already exists on freshly created databases
+  }
+  if (addedEffectiveCc) {
     await tx.exec(`
       UPDATE effective_messages
       SET cc_json = COALESCE(
@@ -400,8 +406,6 @@ export async function migrateMailbox(
         '[]'
       )
     `);
-  } catch {
-    // column already exists on freshly created databases
   }
   try {
     await tx.exec(
