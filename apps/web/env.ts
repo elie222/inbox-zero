@@ -325,6 +325,7 @@ const parsedEnv = createEnv({
     BLOG_SYNC_IMAGE_ALLOWED_HOSTS: z.string().optional(),
     SANITY_API_WRITE_TOKEN: z.string().min(1).optional(),
     LOOPS_API_SECRET: z.string().optional(),
+    LOOPS_WEBHOOK_SIGNING_SECRET: z.string().min(1).optional(),
     FB_CONVERSION_API_ACCESS_TOKEN: z.string().optional(),
     FB_PIXEL_ID: z.string().optional(),
     CONVERSION_ANALYTICS_SERVER_URL: z.string().optional(),
