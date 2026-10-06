@@ -5,6 +5,9 @@ import { queueAttachmentDownload } from "./download-queue";
 
 const FILE_LIMIT = 1024 * 1024;
 const CONVERSATION_LIMIT = 3 * FILE_LIMIT;
+// Inline images are part of the message body the user opened, so they skip the
+// speculative preview budget. Gmail caps a whole message at 25 MB.
+const INLINE_IMAGE_LIMIT = 25 * FILE_LIMIT;
 
 export function createOpenedConversationAttachments(
   emailAccountId: string,
@@ -36,33 +39,51 @@ export function createOpenedConversationAttachments(
       signal?: AbortSignal,
       attachment?: ParsedMessage["inline"][number],
     ) {
-      const key = JSON.stringify([messageId, attachmentId]);
-      let operation = pending.get(key);
-      if (!operation) {
-        const transferSignal = controller.signal;
-        operation = load(messageId, attachmentId, attachment).then(
-          async (blob) => {
-            const preview = blob
-              ? await getAttachmentImagePreview(blob)
-              : undefined;
-            transferSignal.throwIfAborted();
-            return preview;
-          },
-        );
-        pending.set(key, operation);
-        operation
-          .finally(() => {
-            if (pending.get(key) === operation) pending.delete(key);
-          })
-          .catch(() => undefined);
-      }
-      return signal ? untilAborted(operation, signal) : operation;
+      return start(messageId, attachmentId, signal, attachment, false);
+    },
+    loadInlineImage(
+      messageId: string,
+      attachmentId: string,
+      signal?: AbortSignal,
+      attachment?: ParsedMessage["inline"][number],
+    ) {
+      return start(messageId, attachmentId, signal, attachment, true);
     },
   };
+  function start(
+    messageId: string,
+    attachmentId: string,
+    signal: AbortSignal | undefined,
+    attachment: ParsedMessage["inline"][number] | undefined,
+    inlineImage: boolean,
+  ) {
+    const key = JSON.stringify([messageId, attachmentId]);
+    let operation = pending.get(key);
+    if (!operation) {
+      const transferSignal = controller.signal;
+      operation = load(messageId, attachmentId, attachment, inlineImage).then(
+        async (blob) => {
+          const preview = blob
+            ? await getAttachmentImagePreview(blob)
+            : undefined;
+          transferSignal.throwIfAborted();
+          return preview;
+        },
+      );
+      pending.set(key, operation);
+      operation
+        .finally(() => {
+          if (pending.get(key) === operation) pending.delete(key);
+        })
+        .catch(() => undefined);
+    }
+    return signal ? untilAborted(operation, signal) : operation;
+  }
   async function load(
     messageId: string,
     attachmentId: string,
-    attachment?: ParsedMessage["inline"][number],
+    attachment: ParsedMessage["inline"][number] | undefined,
+    inlineImage: boolean,
   ) {
     const startedEpoch = epoch;
     const transferSignal = controller.signal;
@@ -73,6 +94,24 @@ export function createOpenedConversationAttachments(
       Number.isSafeInteger(reportedSize) && reportedSize > 0
         ? reportedSize
         : undefined;
+    if (inlineImage) {
+      if ((size ?? 0) > INLINE_IMAGE_LIMIT || !eligible()) return;
+      return queueAttachmentDownload({
+        priority: "requested",
+        signal: transferSignal,
+        download: (signal) =>
+          fetchAttachment({
+            url: getAttachmentUrl({
+              accountId: emailAccountId,
+              messageId,
+              attachmentId,
+            }),
+            emailAccountId,
+            maxBytes: size ?? INLINE_IMAGE_LIMIT,
+            signal,
+          }),
+      });
+    }
     const reserved = size ?? FILE_LIMIT;
     if (
       reserved > FILE_LIMIT ||

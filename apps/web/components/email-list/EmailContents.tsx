@@ -229,7 +229,7 @@ async function loadInlineImageSources({
       if (!attachment?.attachmentId) return;
 
       try {
-        const blob = await session.load(
+        const blob = await session.loadInlineImage(
           messageId,
           attachment.attachmentId,
           signal,

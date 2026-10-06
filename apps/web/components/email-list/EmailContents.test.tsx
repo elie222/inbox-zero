@@ -10,7 +10,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const attachmentPreview = vi.hoisted(() => ({ load: vi.fn() }));
+const attachmentPreview = vi.hoisted(() => ({ loadInlineImage: vi.fn() }));
 vi.mock("./OpenedConversationAttachments", () => ({
   useOpenedConversationAttachments: () => attachmentPreview,
 }));
@@ -515,7 +515,7 @@ describe("HtmlEmail", () => {
   it("resolves authenticated cid images to temporary local URLs", async () => {
     const html = '<img src="cid:screenshot@inboxzero.local" />';
     const objectUrl = "blob:https://app.example.com/inline-image";
-    attachmentPreview.load.mockResolvedValue(
+    attachmentPreview.loadInlineImage.mockResolvedValue(
       new Blob(["image"], { type: "image/png" }),
     );
     const createObjectUrl = vi
@@ -574,7 +574,7 @@ describe("HtmlEmail", () => {
       );
     });
     expect(createObjectUrl).toHaveBeenCalledOnce();
-    expect(attachmentPreview.load).toHaveBeenCalledWith(
+    expect(attachmentPreview.loadInlineImage).toHaveBeenCalledWith(
       "message-inline",
       "attachment-1",
       expect.any(AbortSignal),

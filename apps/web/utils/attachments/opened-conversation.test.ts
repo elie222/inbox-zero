@@ -47,6 +47,25 @@ it("shares a three MiB allowance across messages", async () => {
   expect(fetchAttachment).toHaveBeenCalledTimes(3);
 });
 
+it("loads inline body images larger than the preview budget", async () => {
+  const session = createOpenedConversationAttachments(
+    "account",
+    "thread",
+    true,
+  );
+  const largeImage = { ...image, size: 3 * MiB };
+  expect(
+    await session.load("a", "file", undefined, largeImage),
+  ).toBeUndefined();
+  expect(
+    await session.loadInlineImage("b", "file", undefined, largeImage),
+  ).toBeInstanceOf(Blob);
+  expect(await session.load("c", "file", undefined, image)).toBeInstanceOf(
+    Blob,
+  );
+  expect(fetchAttachment).toHaveBeenCalledTimes(2);
+});
+
 it("does not fetch when the tab is hidden or offline", async () => {
   vi.stubGlobal("document", { visibilityState: "hidden" });
   const session = createOpenedConversationAttachments(
