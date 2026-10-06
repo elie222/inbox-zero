@@ -93,6 +93,71 @@ describe("useTranslateThread", () => {
       targetLanguage: "en-US",
     });
   });
+
+  it("allows a retry after the request throws", async () => {
+    mockTranslateThreadAction.mockRejectedValueOnce(new Error("network"));
+    const { result } = renderHook(() => useTranslateThread(), { wrapper });
+    const translate = () =>
+      result.current({
+        emailAccountId: "account-1",
+        threadId: "thread-1",
+        messageIds: ["m1", "m2"],
+      });
+
+    await act(translate);
+    await act(translate);
+
+    expect(mockTranslateThreadAction).toHaveBeenCalledTimes(2);
+  });
+
+  it("translates long threads in batches", async () => {
+    mockTranslateThreadAction.mockResolvedValue({
+      data: { subject: "", messages: [] },
+    });
+    const { result } = renderHook(() => useTranslateThread(), { wrapper });
+    const messageIds = Array.from({ length: 25 }, (_, index) => `m${index}`);
+
+    await act(() =>
+      result.current({
+        emailAccountId: "account-1",
+        threadId: "thread-1",
+        messageIds,
+      }),
+    );
+
+    expect(
+      mockTranslateThreadAction.mock.calls.map(([, input]) => input.messageIds),
+    ).toEqual([messageIds.slice(0, 19), messageIds.slice(19)]);
+  });
+
+  it("treats a different script of the same language as foreign", async () => {
+    vi.spyOn(navigator, "language", "get").mockReturnValue("zh-TW");
+    mockTranslateThreadAction.mockResolvedValue({
+      data: {
+        subject: "",
+        messages: [{ id: "m1", text: "你好", sourceLanguage: "zh-Hans" }],
+      },
+    });
+    const { result } = renderHook(
+      () => ({
+        translate: useTranslateThread(),
+        translation: useThreadTranslation("account-1", "thread-1"),
+      }),
+      { wrapper },
+    );
+
+    await act(() =>
+      result.current.translate({
+        emailAccountId: "account-1",
+        threadId: "thread-1",
+        messageIds: ["m1"],
+      }),
+    );
+
+    expect(
+      getMessageTranslation(result.current.translation, "m1"),
+    ).not.toBeNull();
+  });
 });
 
 function wrapper({ children }: { children: ReactNode }) {
