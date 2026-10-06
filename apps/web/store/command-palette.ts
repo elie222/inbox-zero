@@ -26,6 +26,7 @@ export type MailCommandContext = {
     move?: () => void;
     openExternal?: () => void;
     snooze?: (until: Date) => void;
+    translate?: () => void;
     trash?: () => void;
   };
   allStarred?: boolean;

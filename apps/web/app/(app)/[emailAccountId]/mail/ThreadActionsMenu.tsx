@@ -5,6 +5,7 @@ import {
   ArchiveRestoreIcon,
   ExternalLinkIcon,
   FolderInputIcon,
+  LanguagesIcon,
   MailXIcon,
   MoreHorizontalIcon,
   ShieldAlertIcon,
@@ -37,6 +38,7 @@ export type ThreadActionsMenuProps = {
   onDelete: () => void;
   onLabel?: () => void;
   onMove?: () => void;
+  onTranslate?: () => void;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 };
@@ -52,6 +54,7 @@ export function ThreadActionsMenu({
   onDelete,
   onLabel,
   onMove,
+  onTranslate,
   open,
   onOpenChange,
 }: ThreadActionsMenuProps) {
@@ -109,6 +112,16 @@ export function ThreadActionsMenu({
               Move
               <DropdownMenuShortcut>
                 {getShortcutHint("move")}
+              </DropdownMenuShortcut>
+            </DropdownMenuItem>
+          )}
+
+          {onTranslate && (
+            <DropdownMenuItem onSelect={onTranslate}>
+              <LanguagesIcon className="mr-2 size-4" />
+              Translate
+              <DropdownMenuShortcut>
+                {getShortcutHint("translate")}
               </DropdownMenuShortcut>
             </DropdownMenuItem>
           )}

@@ -39,6 +39,7 @@ export const MailReaderPane = memo(function MailReaderPane({
   onDelete,
   onLabel,
   onMove,
+  onTranslate,
   isMenuOpen,
   onMenuOpenChange,
   ...readerProps
@@ -60,6 +61,7 @@ export const MailReaderPane = memo(function MailReaderPane({
   onDelete: () => void;
   onLabel?: () => void;
   onMove?: () => void;
+  onTranslate?: () => void;
   isMenuOpen: boolean;
   onMenuOpenChange: (open: boolean) => void;
 }) {
@@ -117,6 +119,7 @@ export const MailReaderPane = memo(function MailReaderPane({
                 onDelete={onDelete}
                 onLabel={onLabel}
                 onMove={onMove}
+                onTranslate={onTranslate}
                 open={isMenuOpen}
                 onOpenChange={onMenuOpenChange}
               />

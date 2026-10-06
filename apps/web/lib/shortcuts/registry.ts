@@ -330,6 +330,13 @@ const SHORTCUT_DEFINITIONS = [
     label: "Undo last action",
   },
   {
+    id: "translate",
+    keys: ["shift+t"],
+    scope: "mail",
+    group: "View",
+    label: "Translate / show original",
+  },
+  {
     id: "toggleLayout",
     keys: ["shift+v"],
     scope: "mail",

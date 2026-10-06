@@ -50,6 +50,11 @@ import {
   SentMessageOpenStatus,
   type SentMessageOpenState,
 } from "@/components/email-list/SentMessageOpenStatus";
+import {
+  getMessageTranslation,
+  useThreadTranslation,
+  useTranslateThread,
+} from "@/app/(app)/[emailAccountId]/mail/use-thread-translation";
 
 type ComposeSession = { id: number; mode: ReplyDraftMode };
 
@@ -110,6 +115,12 @@ export function EmailMessage({
 }) {
   const { emailAccountId } = useAccount();
   const { poppedOutDraftSessionId } = useComposeModal();
+  const threadTranslation = useThreadTranslation(
+    emailAccountId,
+    message.threadId,
+  );
+  const translation = getMessageTranslation(threadTranslation, message.id);
+  const showTranslation = Boolean(translation && !translation.showOriginal);
   // `null` follows `defaultComposeMode`, which the reader's Reply button flips
   // long after this message mounted.
   const [composeOverride, setComposeOverride] = useState<
@@ -287,8 +298,26 @@ export function EmailMessage({
           {!bodyAvailable && !isDraftRow && composeMode !== "forward" && (
             <MessageBodyLoading />
           )}
+          {!isDraftRow && threadTranslation?.loading && (
+            <p className="mb-3 flex items-center gap-1.5 text-muted-foreground text-xs">
+              <LoadingMiniSpinner />
+              Translating…
+            </p>
+          )}
+          {!isDraftRow && translation && (
+            <TranslationNotice
+              languageName={translation.languageName}
+              showOriginal={translation.showOriginal}
+              messageId={message.id}
+              threadId={message.threadId}
+            />
+          )}
+          {bodyAvailable && !isDraftRow && showTranslation && translation && (
+            <PlainEmail text={translation.text} />
+          )}
           {bodyAvailable &&
             !isDraftRow &&
+            !showTranslation &&
             (message.textHtml ? (
               <HtmlEmail
                 onForwardMessage={showReplyButton ? onForward : undefined}
@@ -860,6 +889,46 @@ function prepareDraftReplyEmail(draft: ParsedMessage): ReplyingToEmail {
     draftHtml: splitHtml.draftHtml,
     quotedContentHtml: splitHtml.originalHtml,
   };
+}
+
+function TranslationNotice({
+  languageName,
+  showOriginal,
+  messageId,
+  threadId,
+}: {
+  languageName: string | null;
+  showOriginal: boolean;
+  messageId: string;
+  threadId: string;
+}) {
+  const { emailAccountId } = useAccount();
+  const translateThread = useTranslateThread();
+  let status = "Showing original";
+  if (!showOriginal) {
+    status = languageName ? `Translated from ${languageName}` : "Translated";
+  }
+
+  return (
+    <p className="mb-3 flex items-center gap-1.5 text-muted-foreground text-xs">
+      {status}
+      <span aria-hidden>·</span>
+      <button
+        className="text-primary hover:underline"
+        onClick={(event) => {
+          event.stopPropagation();
+          translateThread({
+            emailAccountId,
+            threadId,
+            messageIds: [messageId],
+          });
+        }}
+        type="button"
+      >
+        {showOriginal ? "Show translation" : "Show original"}
+      </button>
+    </p>
+  );
 }
 
 function MessageBodyLoading() {

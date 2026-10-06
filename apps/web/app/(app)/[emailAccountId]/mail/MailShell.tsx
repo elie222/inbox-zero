@@ -34,6 +34,8 @@ import { extractEmailAddress } from "@/utils/email";
 import { LabelPickerDialog } from "@/app/(app)/[emailAccountId]/mail/LabelPickerDialog";
 import { ThreadList } from "@/app/(app)/[emailAccountId]/mail/ThreadList";
 import { useStableCallback } from "@/app/(app)/[emailAccountId]/mail/use-stable-callback";
+import { useTranslateThread } from "@/app/(app)/[emailAccountId]/mail/use-thread-translation";
+import { GmailLabel } from "@/utils/gmail/label";
 import {
   getActiveThreadIndex,
   getSearchFocus,
@@ -517,6 +519,22 @@ export function MailShell() {
       userEmail: readerEmailAccount.email,
     })?.openUrl;
   }, [openMessages, readerEmailAccount]);
+  const translateThread = useTranslateThread();
+  const readerEmailAccountId = readerEmailAccount?.id;
+  const translateOpenThread = useMemo(() => {
+    const threadId = openMessages.at(-1)?.threadId;
+    const messageIds = openMessages
+      .filter((message) => !message.labelIds?.includes(GmailLabel.DRAFT))
+      .map((message) => message.id);
+    if (!readerEmailAccountId || !threadId || !messageIds.length) return;
+    return () => {
+      translateThread({
+        emailAccountId: readerEmailAccountId,
+        threadId,
+        messageIds,
+      });
+    };
+  }, [openMessages, readerEmailAccountId, translateThread]);
   const readerTarget = useMemo(() => {
     if (!openThreadKey || !openThreadSelection || !readerSelectionSettled)
       return;
@@ -918,6 +936,7 @@ export function MailShell() {
                 window.open(openExternalUrl, "_blank", "noopener,noreferrer")
             : undefined,
         snooze: snoozeTargets,
+        translate: isReaderTarget ? translateOpenThread : undefined,
         trash: trashTargets,
       },
       allStarred,
@@ -957,6 +976,7 @@ export function MailShell() {
       requestForwardTarget,
       singleActionTarget,
       snoozeTargets,
+      translateOpenThread,
       trashTargets,
     ],
   );
@@ -1109,6 +1129,7 @@ export function MailShell() {
         isReaderTarget && openExternalUrl
           ? () => window.open(openExternalUrl, "_blank", "noopener,noreferrer")
           : undefined,
+      translate: isMailOverlayOpen ? undefined : translateOpenThread,
       undo: async () => {
         if (await undoLatestToast()) return;
         await undo();
@@ -1504,6 +1525,7 @@ export function MailShell() {
                 onDelete={trashTargets}
                 onLabel={canLabel ? openLabelPicker : undefined}
                 onMove={canLabel ? openMovePicker : undefined}
+                onTranslate={translateOpenThread}
                 isMenuOpen={isMenuOpen}
                 onMenuOpenChange={setIsMenuOpen}
                 enableMessageNavigation={!sidePanelThreadId}
