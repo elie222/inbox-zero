@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS messages (
   from_address TEXT NOT NULL,
   to_json TEXT NOT NULL,
   cc_json TEXT NOT NULL,
+  bcc_json TEXT NOT NULL DEFAULT '[]',
   received_at_ms INTEGER NOT NULL,
   read INTEGER NOT NULL CHECK (read IN (0, 1)),
   starred INTEGER NOT NULL CHECK (starred IN (0, 1)),
@@ -79,6 +80,7 @@ CREATE TABLE IF NOT EXISTS effective_messages (
   from_address TEXT NOT NULL,
   to_json TEXT NOT NULL,
   cc_json TEXT NOT NULL DEFAULT '[]',
+  bcc_json TEXT NOT NULL DEFAULT '[]',
   received_at_ms INTEGER NOT NULL,
   read INTEGER NOT NULL,
   starred INTEGER NOT NULL,
@@ -398,6 +400,20 @@ export async function migrateMailbox(
         '[]'
       )
     `);
+  } catch {
+    // column already exists on freshly created databases
+  }
+  try {
+    await tx.exec(
+      "ALTER TABLE messages ADD COLUMN bcc_json TEXT NOT NULL DEFAULT '[]'",
+    );
+  } catch {
+    // column already exists on freshly created databases
+  }
+  try {
+    await tx.exec(
+      "ALTER TABLE effective_messages ADD COLUMN bcc_json TEXT NOT NULL DEFAULT '[]'",
+    );
   } catch {
     // column already exists on freshly created databases
   }

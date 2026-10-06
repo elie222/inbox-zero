@@ -335,7 +335,7 @@ describe("sqlite mail store", () => {
     await rm(directory, { recursive: true, force: true });
   });
 
-  it("keeps Cc recipients on cached messages and filters on them", async () => {
+  it("keeps Cc and Bcc recipients on cached messages and filters on Cc", async () => {
     const store = await createSqliteMailStore(createNodeSqliteDriver());
     await store.ensureAccount({
       accountId: "acc-1",
@@ -353,7 +353,11 @@ describe("sqlite mail store", () => {
         changes: [
           {
             ...withCc,
-            fields: { ...withCc.fields, cc: ["copied@example.com"] },
+            fields: {
+              ...withCc.fields,
+              cc: ["copied@example.com"],
+              bcc: ["hidden@example.com"],
+            },
           },
           messagePatch("m2", "c2", 2000, ["inbox"]),
         ],
@@ -366,9 +370,10 @@ describe("sqlite mail store", () => {
       { accountId: "acc-1", conversationId: "c1" },
       { pageSize: 10, after: null },
     );
-    expect(conversation.view.messages[0]?.metadata.cc).toEqual([
-      "copied@example.com",
-    ]);
+    expect(conversation.view.messages[0]?.metadata).toMatchObject({
+      cc: ["copied@example.com"],
+      bcc: ["hidden@example.com"],
+    });
 
     const ccMatches = await store.readMailboxView({
       accountIds: ["acc-1"],

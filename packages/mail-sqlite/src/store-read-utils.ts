@@ -79,6 +79,7 @@ export function metadataFromEffective(
     from: String(row.from_address),
     to: JSON.parse(String(row.to_json)) as string[],
     cc: JSON.parse(String(row.cc_json)) as string[],
+    bcc: JSON.parse(String(row.bcc_json)) as string[],
     receivedAtMs: Number(row.received_at_ms),
     read: Number(row.read) === 1,
     starred: Number(row.starred) === 1,

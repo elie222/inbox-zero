@@ -2673,9 +2673,9 @@ async function upsertConfirmed(tx: SqlTransaction, message: ConfirmedMessage) {
   await tx.execute(
     `INSERT INTO messages(
        account_id, message_id, conversation_id, provider, version, subject, preview, external_url,
-       from_address, to_json, cc_json, received_at_ms, read, starred, folder_id, inbox_section, label_ids_json, category_ids_json,
+       from_address, to_json, cc_json, bcc_json, received_at_ms, read, starred, folder_id, inbox_section, label_ids_json, category_ids_json,
        roles_json, in_inbox, in_sent, in_draft, in_trash, in_spam, has_attachments, snoozed_until_ms, deleted
-     ) VALUES (?, ?, ?, COALESCE((SELECT provider FROM accounts WHERE account_id = ?), 'google'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ) VALUES (?, ?, ?, COALESCE((SELECT provider FROM accounts WHERE account_id = ?), 'google'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(account_id, message_id) DO UPDATE SET
        conversation_id = excluded.conversation_id,
        version = excluded.version,
@@ -2685,6 +2685,7 @@ async function upsertConfirmed(tx: SqlTransaction, message: ConfirmedMessage) {
        from_address = excluded.from_address,
        to_json = excluded.to_json,
        cc_json = excluded.cc_json,
+       bcc_json = excluded.bcc_json,
        received_at_ms = excluded.received_at_ms,
        read = excluded.read,
        starred = excluded.starred,
@@ -2713,6 +2714,7 @@ async function upsertConfirmed(tx: SqlTransaction, message: ConfirmedMessage) {
       message.from,
       JSON.stringify(message.to),
       JSON.stringify(message.cc),
+      JSON.stringify(message.bcc ?? []),
       message.receivedAtMs,
       message.read ? 1 : 0,
       message.starred ? 1 : 0,
@@ -2787,10 +2789,10 @@ async function recomputeTargets(tx: SqlTransaction, targets: MessageKey[]) {
     const flags = roleFlags(effective.roles);
     await tx.execute(
       `INSERT INTO effective_messages(
-         account_id, message_id, conversation_id, subject, preview, external_url, from_address, to_json, cc_json,
+         account_id, message_id, conversation_id, subject, preview, external_url, from_address, to_json, cc_json, bcc_json,
          received_at_ms, read, starred, folder_id, inbox_section, label_ids_json, category_ids_json, roles_json,
          in_inbox, in_sent, in_draft, in_trash, in_spam, has_attachments, snoozed_until_ms, pending_operation_ids_json
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(account_id, message_id) DO UPDATE SET
          conversation_id = excluded.conversation_id,
          subject = excluded.subject,
@@ -2799,6 +2801,7 @@ async function recomputeTargets(tx: SqlTransaction, targets: MessageKey[]) {
          from_address = excluded.from_address,
          to_json = excluded.to_json,
          cc_json = excluded.cc_json,
+         bcc_json = excluded.bcc_json,
          received_at_ms = excluded.received_at_ms,
          read = excluded.read,
          starred = excluded.starred,
@@ -2825,6 +2828,7 @@ async function recomputeTargets(tx: SqlTransaction, targets: MessageKey[]) {
         effective.from,
         JSON.stringify(effective.to),
         JSON.stringify(effective.cc),
+        JSON.stringify(effective.bcc ?? []),
         effective.receivedAtMs,
         effective.read ? 1 : 0,
         effective.starred ? 1 : 0,
@@ -3005,6 +3009,7 @@ function confirmedFromRow(
     from: String(row.from_address),
     to: JSON.parse(String(row.to_json)) as string[],
     cc: JSON.parse(String(row.cc_json)) as string[],
+    bcc: JSON.parse(String(row.bcc_json)) as string[],
     receivedAtMs: Number(row.received_at_ms),
     read: Number(row.read) === 1,
     starred: Number(row.starred) === 1,
@@ -3315,6 +3320,7 @@ async function readConversationSends(tx: SqlTransaction, key: ConversationKey) {
                   from: "",
                   to: send.to,
                   cc: send.cc,
+                  bcc: send.bcc,
                   receivedAtMs: send.queuedAtMs,
                   read: true,
                   starred: false,
