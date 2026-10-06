@@ -10,7 +10,13 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { fetchAttachment } = vi.hoisted(() => ({ fetchAttachment: vi.fn() }));
+const { fetchAttachment, queueAttachmentDownload } = vi.hoisted(() => ({
+  fetchAttachment: vi.fn(),
+  queueAttachmentDownload: vi.fn(
+    ({ download }: { download: (signal: AbortSignal) => Promise<unknown> }) =>
+      download(new AbortController().signal),
+  ),
+}));
 vi.mock("@/utils/attachments/download", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/utils/attachments/download")>()),
   fetchAttachment,
@@ -20,11 +26,7 @@ vi.mock("@/utils/attachments/image-preview", () => ({
   getAttachmentImagePreview: async (blob: Blob) => blob,
 }));
 vi.mock("@/utils/attachments/download-queue", () => ({
-  queueAttachmentDownload: ({
-    download,
-  }: {
-    download: (signal: AbortSignal) => Promise<unknown>;
-  }) => download(new AbortController().signal),
+  queueAttachmentDownload,
 }));
 
 const mockTheme = vi.hoisted(() => ({
@@ -586,6 +588,9 @@ describe("HtmlEmail", () => {
       );
     });
     expect(createObjectUrl).toHaveBeenCalledOnce();
+    expect(queueAttachmentDownload).toHaveBeenCalledWith(
+      expect.objectContaining({ priority: "requested" }),
+    );
     expect(fetchAttachment).toHaveBeenCalledWith(
       expect.objectContaining({
         url: expect.stringContaining("attachmentId=attachment-1"),
