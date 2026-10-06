@@ -177,7 +177,6 @@ describe("deleteUser", () => {
             participants: {
               some: {
                 member: { emailAccount: { userId: "user-1" } },
-                active: true,
               },
             },
           },

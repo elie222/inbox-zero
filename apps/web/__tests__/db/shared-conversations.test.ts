@@ -346,6 +346,7 @@ describe.skipIf(!RUN_DB_TESTS)(
         data: { role: "owner" },
       });
       await prisma.member.delete({ where: { id: ids.aMemberId } });
+      vi.mocked(publishConversationChange).mockClear();
       await notifyConversations();
       await expect(
         prisma.conversation.findUnique({ where: { id: ids.conversationId } }),

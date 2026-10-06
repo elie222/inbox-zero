@@ -142,7 +142,7 @@ describe("removeMemberAction", () => {
           { publisher: { id: "member-2" } },
           {
             participants: {
-              some: { member: { id: "member-2" }, active: true },
+              some: { member: { id: "member-2" } },
             },
           },
         ],

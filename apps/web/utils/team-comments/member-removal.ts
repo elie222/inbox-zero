@@ -14,10 +14,7 @@ export async function prepareMemberRemovalNotifications(
   const conversations = await prisma.conversation.findMany({
     where: {
       status: "ACTIVE",
-      OR: [
-        { publisher: member },
-        { participants: { some: { member, active: true } } },
-      ],
+      OR: [{ publisher: member }, { participants: { some: { member } } }],
     },
     select: { id: true },
   });

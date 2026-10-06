@@ -18,7 +18,7 @@ export function ConversationActivity() {
         : "";
       return `/api/team-comments/activity?memberId=${encodeURIComponent(memberId)}&limit=50${before}`;
     },
-    { refreshInterval: 30_000 },
+    { refreshInterval: 30_000, keepPreviousData: false },
   );
   const items = activity.data?.flatMap((page) => page.items) ?? [];
   const nextCursor = activity.data?.at(-1)?.nextCursor;

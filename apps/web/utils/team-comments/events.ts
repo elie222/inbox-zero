@@ -1,11 +1,12 @@
 import "server-only";
 import { EventEmitter } from "node:events";
+import Redis from "ioredis";
 import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
-import { redis } from "@/utils/redis";
 
 declare global {
   var teamConversationEvents: EventEmitter | undefined;
+  var teamConversationPublisher: Redis | undefined;
 }
 
 const localEvents = global.teamConversationEvents ?? new EventEmitter();
@@ -26,7 +27,10 @@ export async function publishConversationChange(
     return;
   }
   try {
-    await redis.publish(conversationChangeChannel(conversationId), "{}");
+    await getPublisher(env.REDIS_URL).publish(
+      conversationChangeChannel(conversationId),
+      "{}",
+    );
   } catch (error) {
     logger.warn("Unable to publish conversation invalidation", { error });
   }
@@ -39,4 +43,18 @@ export function subscribeLocalConversationChange(
   const channel = conversationChangeChannel(conversationId);
   localEvents.on(channel, listener);
   return () => localEvents.off(channel, listener);
+}
+
+// Publish on the same Redis that streams subscribe to, over one reused
+// connection with bounded retries so a slow Redis cannot stall mutations.
+function getPublisher(url: string) {
+  if (!global.teamConversationPublisher) {
+    global.teamConversationPublisher = new Redis(url, {
+      maxRetriesPerRequest: 1,
+      connectTimeout: 2000,
+    });
+    // Failures surface on publish, where they are logged.
+    global.teamConversationPublisher.on("error", () => {});
+  }
+  return global.teamConversationPublisher;
 }
