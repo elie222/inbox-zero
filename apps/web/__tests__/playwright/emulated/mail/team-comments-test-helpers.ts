@@ -19,18 +19,31 @@ export async function signInTeammate(browser: Browser, role: "b" | "c" | "d") {
   const page = await context.newPage();
   await page.goto("/login", { waitUntil: "domcontentloaded" });
   const signIn = await page.evaluate(async (provider) => {
-    const response = await fetch("/api/auth/sign-in/social", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        provider,
-        callbackURL: "/welcome-redirect?force=true",
-        errorCallbackURL: "/login/error",
-      }),
-    });
-    if (!response.ok)
-      throw new Error(`OAuth sign-in failed: ${response.status}`);
-    return response.json() as Promise<{ url: string }>;
+    // Better Auth allows three sign-ins per IP every 10 seconds, and specs
+    // sign in several teammates back to back.
+    for (let attempt = 0; ; attempt++) {
+      const response = await fetch("/api/auth/sign-in/social", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          provider,
+          callbackURL: "/welcome-redirect?force=true",
+          errorCallbackURL: "/login/error",
+        }),
+      });
+      if (response.status === 429 && attempt < 3) {
+        const retryAfterSeconds = Number(
+          response.headers.get("X-Retry-After") ?? 10,
+        );
+        await new Promise((resolve) =>
+          setTimeout(resolve, (retryAfterSeconds + 1) * 1000),
+        );
+        continue;
+      }
+      if (!response.ok)
+        throw new Error(`OAuth sign-in failed: ${response.status}`);
+      return response.json() as Promise<{ url: string }>;
+    }
   }, playwrightMailProvider);
   await page.goto(signIn.url);
   await page.getByRole("button", { name: email }).click();
