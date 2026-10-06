@@ -5,6 +5,8 @@ import { translateThreadBody } from "@/utils/actions/translate.validation";
 import { aiTranslateEmails } from "@/utils/ai/translate-email";
 import { createEmailProvider } from "@/utils/email/provider";
 import { SafeError } from "@/utils/error";
+import { getLatestNonDraftMessage } from "@/utils/email/latest-message";
+import { getMessageTimestamp } from "@/utils/email/message-timestamp";
 import { emailToContent } from "@/utils/mail";
 import { assertHasAiAccess } from "@/utils/premium/limits";
 import { getEmailAccountWithAi } from "@/utils/user/get";
@@ -33,7 +35,11 @@ export const translateThreadAction = actionClient
       const messages = await emailProvider.getMessagesBatch(messageIds);
       if (!messages.length) throw new SafeError("Email not found");
 
-      const subject = messages.at(-1)?.headers.subject ?? "";
+      const subject =
+        getLatestNonDraftMessage({
+          messages,
+          getTimestamp: getMessageTimestamp,
+        })?.headers.subject ?? "";
       const [subjectTranslation, ...messageTranslations] =
         await aiTranslateEmails({
           texts: [
@@ -48,11 +54,20 @@ export const translateThreadAction = actionClient
           emailAccount,
         });
 
+      const translationsById = new Map(
+        messages.map((message, index) => [
+          message.id,
+          messageTranslations[index],
+        ]),
+      );
+
       return {
         subject: subjectTranslation.text,
-        messages: messages.map((message, index) => ({
-          id: message.id,
-          ...messageTranslations[index],
+        // Messages the provider didn't return come back untranslated, so the
+        // client records them as handled instead of re-requesting them forever.
+        messages: messageIds.map((id) => ({
+          id,
+          ...(translationsById.get(id) ?? { text: "", sourceLanguage: null }),
         })),
       };
     },

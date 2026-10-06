@@ -73,7 +73,11 @@ ${formatTextsForPrompt(truncatedTexts)}`;
     );
   }
 
-  return translations;
+  // Blank inputs have no language; a model-supplied tag (e.g. "und") would
+  // make the client show an empty translation in place of the original.
+  return translations.map((translation, index) =>
+    texts[index].trim() ? translation : { text: "", sourceLanguage: null },
+  );
 }
 
 type EmailTranslation = { text: string; sourceLanguage: string | null };

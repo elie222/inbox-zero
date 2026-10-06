@@ -155,4 +155,26 @@ describe("aiTranslateEmails", () => {
       }).success,
     ).toBe(false);
   });
+
+  it("reports blank inputs as untranslated even when the model tags them", async () => {
+    mockGenerateObject.mockResolvedValue({
+      object: {
+        translations: [
+          { text: "Hello", sourceLanguage: "es" },
+          { text: "", sourceLanguage: "und" },
+        ],
+      },
+    });
+
+    const result = await aiTranslateEmails({
+      texts: ["Hola", "  "],
+      targetLanguage: "en",
+      emailAccount: getEmailAccount(),
+    });
+
+    expect(result).toEqual([
+      { text: "Hello", sourceLanguage: "es" },
+      { text: "", sourceLanguage: null },
+    ]);
+  });
 });
