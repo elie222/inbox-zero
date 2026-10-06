@@ -22,6 +22,10 @@ import type { ParsedMessage } from "@/utils/types";
 import { mapWithConcurrency } from "@/utils/async";
 import { convertEmailHtmlToText } from "@/utils/mail";
 
+// Outlook allows four concurrent Graph requests per mailbox, shared with
+// webhook processing, so batched folder reads stay below that.
+const CHANGES_BATCH_CONCURRENCY = 3;
+
 const SUPPORTED_CHANGES = [
   "archive",
   "unarchive",
@@ -37,6 +41,7 @@ const SUPPORTED_CHANGES = [
 
 type FolderScopeNode = {
   id: string;
+  systemType?: string;
   childFolders?: FolderScopeNode[];
 };
 
@@ -51,10 +56,10 @@ type BootstrapToken = {
 export function createEmailProviderMailboxSource(input: {
   provider: EmailProvider;
   accountId: string;
-}): MailboxSource {
+}): MailboxSource & Required<Pick<MailboxSource, "readChangesBatch">> {
   const { provider, accountId } = input;
   const maxPageSize = provider.name === "microsoft" ? 20 : 50;
-  return {
+  const source: MailboxSource = {
     async describe() {
       return {
         status: "ok",
@@ -375,6 +380,28 @@ export function createEmailProviderMailboxSource(input: {
       }
     },
   };
+  return {
+    ...source,
+    async readChangesBatch({ session, reads, pageSize, signal }) {
+      const read = (item: (typeof reads)[number]) =>
+        source.readChanges({
+          session,
+          requestId: item.requestId,
+          position: item.position,
+          pageSize,
+          signal,
+        });
+      // The first read fills the provider's folder and category lookups so the
+      // rest reuse them instead of each fetching their own.
+      const [first, ...rest] = reads;
+      if (!first) return [];
+      const firstResult = await read(first);
+      return [
+        firstResult,
+        ...(await mapWithConcurrency(rest, CHANGES_BATCH_CONCURRENCY, read)),
+      ];
+    },
+  };
 }
 
 function parsedMessageBodies(accountId: string, messages: ParsedMessage[]) {
@@ -464,7 +491,14 @@ function scopedFolderId(provider: EmailProvider, scope: ScopeDescriptor) {
 function flattenFolderScopes(folders: FolderScopeNode[]) {
   const scopes: ScopeDescriptor[] = [];
   for (const folder of folders) {
-    scopes.push({ id: folder.id, kind: "folder", folderId: folder.id });
+    // New mail the user is waiting on lands in system folders; custom folders
+    // can catch up on a slower clock.
+    scopes.push({
+      id: folder.id,
+      kind: "folder",
+      folderId: folder.id,
+      priority: folder.systemType ? "high" : "low",
+    });
     scopes.push(...flattenFolderScopes(folder.childFolders ?? []));
   }
   return scopes;
