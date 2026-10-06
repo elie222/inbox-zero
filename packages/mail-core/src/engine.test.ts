@@ -83,7 +83,7 @@ describe("mail engine idle catch-up scheduling", () => {
     harness.advance(60_000);
     await harness.engine.runUntil(70_000);
 
-    expect(harness.discoveredScopeRequests).toBe(2);
+    expect(harness.discoveredScopeRequests).toBe(1);
     expect(harness.readChangeStreams).toEqual([
       "inbox",
       "archive",
@@ -125,8 +125,53 @@ describe("mail engine idle catch-up scheduling", () => {
     await harness.engine.requestSync(["acc-1"]);
     await harness.engine.runUntil(11_000);
 
-    expect(harness.discoveredScopeRequests).toBe(2);
+    expect(harness.discoveredScopeRequests).toBe(1);
     expect(harness.readChangeStreams).toEqual(["inbox", "inbox"]);
+    await harness.engine.close();
+  });
+
+  it("checks low-priority streams and rediscovers scopes on a slower clock", async () => {
+    const harness = idleCatchUpHarness({
+      streamIds: ["inbox", "projects"],
+      lowPriority: ["projects"],
+    });
+    await harness.engine.runUntil(10_000);
+
+    for (let minute = 1; minute < 10; minute++) {
+      harness.advance(60_000);
+      await harness.engine.runUntil(harness.nowMs + 1000);
+    }
+
+    expect(countOf(harness.readChangeStreams, "inbox")).toBe(10);
+    expect(countOf(harness.readChangeStreams, "projects")).toBe(1);
+    expect(harness.discoveredScopeRequests).toBe(1);
+
+    harness.advance(60_000);
+    await harness.engine.runUntil(harness.nowMs + 1000);
+
+    expect(countOf(harness.readChangeStreams, "projects")).toBe(2);
+    expect(harness.discoveredScopeRequests).toBe(2);
+    await harness.engine.close();
+  });
+
+  it("a sync request refreshes low-priority streams only after a short minimum", async () => {
+    const harness = idleCatchUpHarness({
+      streamIds: ["inbox", "projects"],
+      lowPriority: ["projects"],
+    });
+    await harness.engine.runUntil(10_000);
+
+    harness.advance(30_000);
+    await harness.engine.requestSync(["acc-1"]);
+    await harness.engine.runUntil(harness.nowMs + 1000);
+
+    expect(harness.readChangeStreams).toEqual(["inbox", "projects", "inbox"]);
+
+    harness.advance(120_000);
+    await harness.engine.runUntil(harness.nowMs + 1000);
+
+    expect(countOf(harness.readChangeStreams, "projects")).toBe(2);
+    expect(harness.discoveredScopeRequests).toBe(2);
     await harness.engine.close();
   });
 
@@ -238,6 +283,68 @@ describe("mail engine idle catch-up scheduling", () => {
       "acc-b:primary",
       "acc-b:primary",
     ]);
+    await harness.engine.close();
+  });
+
+  it("keeps the low-priority minimum across a burst of sync requests", async () => {
+    const harness = idleCatchUpHarness({
+      streamIds: ["inbox", "projects"],
+      lowPriority: ["projects"],
+    });
+    await harness.engine.runUntil(10_000);
+
+    for (let request = 0; request < 3; request++) {
+      harness.advance(30_000);
+      await harness.engine.requestSync(["acc-1"]);
+      await harness.engine.runUntil(harness.nowMs + 1000);
+    }
+
+    expect(countOf(harness.readChangeStreams, "inbox")).toBe(4);
+    expect(countOf(harness.readChangeStreams, "projects")).toBe(1);
+    expect(harness.discoveredScopeRequests).toBe(1);
+
+    harness.advance(30_000);
+    await harness.engine.runUntil(harness.nowMs + 1000);
+
+    expect(countOf(harness.readChangeStreams, "projects")).toBe(2);
+    expect(harness.discoveredScopeRequests).toBe(2);
+    await harness.engine.close();
+  });
+
+  it("keeps a sync request that arrives while a stream is being read", async () => {
+    const harness = idleCatchUpHarness({ streamIds: ["inbox"] });
+    let requested = false;
+    harness.onReadChanges = () => {
+      if (requested) return;
+      requested = true;
+      harness.engine.requestSync(["acc-1"]).catch(() => {});
+    };
+    await harness.engine.runUntil(10_000);
+
+    harness.advance(1000);
+    await harness.engine.runUntil(harness.nowMs + 1000);
+
+    expect(harness.readChangeStreams).toEqual(["inbox", "inbox"]);
+    await harness.engine.close();
+  });
+
+  it("retries a failed scope discovery on the normal clock", async () => {
+    const harness = idleCatchUpHarness({ streamIds: ["inbox"] });
+    let failDiscovery = true;
+    const discoverScopes = harness.source.discoverScopes;
+    harness.source.discoverScopes = async (request) => {
+      if (failDiscovery) {
+        failDiscovery = false;
+        return { status: "paused", retryAfterMs: 1000, reason: "unavailable" };
+      }
+      return discoverScopes(request);
+    };
+    await harness.engine.runUntil(10_000);
+
+    harness.advance(60_000);
+    await harness.engine.runUntil(harness.nowMs + 1000);
+
+    expect(harness.discoveredScopeRequests).toBe(1);
     await harness.engine.close();
   });
 
@@ -433,6 +540,7 @@ function idleExecutor(): OperationExecutor {
 
 function idleCatchUpHarness(input: {
   streamIds: string[];
+  lowPriority?: string[];
   partialPagesBeforeComplete?: number;
   assistant?: AssistantStateSource;
 }) {
@@ -459,6 +567,9 @@ function idleCatchUpHarness(input: {
             id: streamId,
             kind: "folder" as const,
             folderId: streamId,
+            priority: input.lowPriority?.includes(streamId)
+              ? ("low" as const)
+              : ("high" as const),
           })) satisfies ScopeDescriptor[],
           nextPage: null,
         },
@@ -504,10 +615,14 @@ function idleCatchUpHarness(input: {
   const harness = {
     engine,
     store,
+    source,
     readChangeStreams,
     onReadChanges: (_streamId: string) => {},
     get discoveredScopeRequests() {
       return discoveredScopeRequests;
+    },
+    get nowMs() {
+      return nowMs;
     },
     advance(ms: number) {
       nowMs += ms;
@@ -653,6 +768,10 @@ function multiAccountHarness(input: {
       }
     },
   };
+}
+
+function countOf(values: string[], value: string) {
+  return values.filter((item) => item === value).length;
 }
 
 function folderIds(count: number) {

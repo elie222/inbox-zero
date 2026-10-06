@@ -31,6 +31,8 @@ export type ScopeDescriptor = {
   id: string;
   kind: "account" | "folder";
   folderId: string | null;
+  /** Low-priority scopes catch up less often; omitted means high. */
+  priority?: "high" | "low";
 };
 
 export type EnumerationPage = {
