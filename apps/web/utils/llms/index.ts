@@ -1184,30 +1184,30 @@ async function handleError(
     });
   }
 
-  if (apiError) {
-    const notifyUser = async (
-      errorType: PersistedErrorType,
-      errorMessage: string,
-    ) => {
-      if (hasUserApiKey) markAsHandledUserKeyError(error);
-      await addUserErrorMessageWithNotification({
-        userId,
-        userEmail,
-        emailAccountId,
-        errorType,
-        errorMessage,
-        logger,
-      });
-    };
+  const notifyUser = async (
+    errorType: PersistedErrorType,
+    errorMessage: string,
+  ) => {
+    if (hasUserApiKey) markAsHandledUserKeyError(error);
+    await addUserErrorMessageWithNotification({
+      userId,
+      userEmail,
+      emailAccountId,
+      errorType,
+      errorMessage,
+      logger,
+    });
+  };
 
-    if (isIncorrectAPIKeyError(apiError)) {
+  if (APICallError.isInstance(error)) {
+    if (isIncorrectAPIKeyError(error)) {
       return await notifyUser(
         ErrorType.INCORRECT_API_KEY,
         "Your AI API key is invalid. Please update it in your settings.",
       );
     }
 
-    if (isInvalidAIModelError(apiError)) {
+    if (isInvalidAIModelError(error)) {
       await notifyUser(
         ErrorType.INVALID_AI_MODEL,
         "The AI model you specified does not exist or is unavailable. Please check your settings.",
@@ -1217,22 +1217,24 @@ async function handleError(
       );
     }
 
-    if (isAPIKeyDeactivatedError(apiError)) {
+    if (isAPIKeyDeactivatedError(error)) {
       return await notifyUser(
         ErrorType.API_KEY_DEACTIVATED,
         "Your AI API key has been deactivated. Please update it in your settings.",
       );
     }
+  }
 
-    if (
-      isAnthropicInsufficientBalanceError(apiError) ||
-      (isInsufficientCreditsError(apiError) && hasUserApiKey)
-    ) {
-      return await notifyUser(
-        ErrorType.INSUFFICIENT_CREDITS,
-        "Your AI provider account has insufficient credits. Please add credits or update your API key in settings.",
-      );
-    }
+  // Exhausted balances can arrive as retryable 429s, so look beneath retries.
+  if (
+    apiError &&
+    (isAnthropicInsufficientBalanceError(apiError) ||
+      (isInsufficientCreditsError(apiError) && hasUserApiKey))
+  ) {
+    return await notifyUser(
+      ErrorType.INSUFFICIENT_CREDITS,
+      "Your AI provider account has insufficient credits. Please add credits or update your API key in settings.",
+    );
   }
 
   if (RetryError.isInstance(error) && isAiQuotaExceededError(error)) {

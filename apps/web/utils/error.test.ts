@@ -386,7 +386,11 @@ describe("getAIApiCallError", () => {
     const retryError = new RetryError({
       message: "Failed after 3 attempts",
       reason: "maxRetriesExceeded",
-      errors: [apiError, apiError, apiError],
+      errors: [
+        createAPICallError({ message: "Earlier failure", statusCode: 500 }),
+        createAPICallError({ message: "Another failure", statusCode: 503 }),
+        apiError,
+      ],
     });
 
     expect(getAIApiCallError(retryError)).toBe(apiError);
