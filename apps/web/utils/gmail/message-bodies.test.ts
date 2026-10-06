@@ -66,6 +66,32 @@ describe("Apple Mail message bodies", () => {
     expect(parsed.textHtml).toBe("<p>Hello from the shelf team.</p>");
     expect(parsed.textPlain).toBe("Hello from the shelf team.");
   });
+
+  it("keeps HTML that adds formatting, a link, and a quoted thread", () => {
+    const html = [
+      `<p><strong>${shelf}</strong></p>`,
+      '<p>Details are <a href="https://shop.example/shelf">on the product page</a>.</p>',
+      "<blockquote><p>On Tuesday, Sam wrote:</p><p>Please send the dimensions.</p></blockquote>",
+    ].join("");
+    const plain = [
+      shelf,
+      "",
+      "Details are on the product page: https://shop.example/shelf",
+      "",
+      "On Tuesday, Sam wrote:",
+      "> Please send the dimensions.",
+      "",
+      "Earlier note about delivery that is only in the plain alternative.",
+    ].join("\n");
+    const parsed = parseMessage(
+      message("multipart/alternative", [
+        textPart("text/plain", plain),
+        textPart("text/html", html),
+      ]),
+    );
+    expect(parsed.textHtml).toBe(html);
+    expect(parsed.textPlain).toBe(plain);
+  });
 });
 
 /**

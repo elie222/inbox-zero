@@ -21,12 +21,12 @@ export function gmailMessageBodies(
 ): { html?: string; plain?: string } {
   const collected = collect(payload);
   const plain = joinPlain(collected.plain);
-  let html = joinHtml(collected.html);
+  let html: string | undefined = joinHtml(collected.html) || undefined;
   if (html && plain && htmlOmitsPlainMessage(html, plain, snippet)) {
     html = undefined;
   }
   return {
-    html: html || undefined,
+    html,
     plain: plain || undefined,
   };
 }
@@ -34,10 +34,10 @@ export function gmailMessageBodies(
 function collect(part: Part | null | undefined): Collected {
   if (!part) return { html: [], plain: [] };
   const mime = part.mimeType?.toLowerCase() ?? "";
-  if (part.parts?.length && (mime.startsWith("multipart/") || mime === "")) {
+  if (part.parts?.length) {
     const children = part.parts.map(collect);
-    // Alternatives are the same message in two formats. Mixed and related
-    // parts are sequential pieces of one message, split around images.
+    // Alternatives are two formats of one message. Every other container,
+    // including multipart/mixed around an inline image, is sequential.
     if (mime === "multipart/alternative") return preferAlternative(children);
     return {
       html: children.flatMap((child) => child.html),
@@ -83,11 +83,7 @@ function header(part: Part, name: string) {
 function decodePart(part: Part) {
   const data = part.body?.data;
   if (!data) return "";
-  try {
-    return Buffer.from(data, "base64url").toString("utf8");
-  } catch {
-    return "";
-  }
+  return Buffer.from(data, "base64url").toString("utf8");
 }
 
 function joinPlain(parts: string[]) {
@@ -113,8 +109,9 @@ function htmlBodyContents(html: string) {
 }
 
 /**
- * The HTML part is a fragment of the plain message (the signature) when the
- * list snippet is in the plain text and missing from the HTML.
+ * The HTML part is only the tail of the plain message, and that tail does
+ * not contain the list snippet. HTML that contains the snippet stays, which
+ * keeps a formatted reply, a link, or a quoted thread.
  */
 function htmlOmitsPlainMessage(
   html: string,
@@ -123,11 +120,11 @@ function htmlOmitsPlainMessage(
 ) {
   const visible = visibleText(html);
   const plainText = normalize(plain);
-  if (!visible) return false;
-  if (!plainText.includes(visible)) return false;
-  if (plainText.length < visible.length + 24) return false;
-  const probe = normalize(snippet || plain).slice(0, 48);
-  if (probe.length < 16) return false;
+  if (!visible || !plainText.endsWith(visible)) return false;
+  const prefix = plainText.slice(0, plainText.length - visible.length).trim();
+  if (prefix.length < 24) return false;
+  const probe = normalize(snippet || prefix).slice(0, 48);
+  if (probe.length < 16 || !prefix.includes(probe)) return false;
   return !visible.includes(probe);
 }
 
