@@ -130,6 +130,117 @@ describe("mail engine idle catch-up scheduling", () => {
     await harness.engine.close();
   });
 
+  it("keeps syncing later accounts while an earlier account's streams are slow", async () => {
+    const harness = multiAccountHarness({
+      accounts: [
+        { accountId: "acc-a", streamIds: folderIds(20), readMs: 4000 },
+        { accountId: "acc-b", streamIds: ["primary"], readMs: 500 },
+      ],
+    });
+
+    await harness.runFor(10 * 60_000);
+
+    expect(harness.readsFor("acc-b")).toBeGreaterThanOrEqual(5);
+    await harness.engine.close();
+  });
+
+  it("syncs other accounts while one account's request hangs", async () => {
+    const harness = multiAccountHarness({
+      accounts: [
+        { accountId: "acc-a", streamIds: ["inbox"], readMs: 0, hangs: true },
+        { accountId: "acc-b", streamIds: ["primary"], readMs: 0 },
+      ],
+    });
+
+    await harness.engine.runUntil(50);
+    harness.advance(61_000);
+    await harness.engine.runUntil(harness.nowMs + 50);
+
+    expect(harness.reads).toEqual([
+      "acc-a:inbox",
+      "acc-b:primary",
+      "acc-b:primary",
+    ]);
+    harness.releaseHangs();
+    await harness.engine.close();
+  });
+
+  it("runs commands while an account's sync request hangs", async () => {
+    const executed: string[] = [];
+    const harness = multiAccountHarness({
+      accounts: [
+        { accountId: "acc-a", streamIds: ["inbox"], readMs: 0, hangs: true },
+      ],
+      onExecute: (operationId) => executed.push(operationId),
+    });
+    await harness.engine.runUntil(50);
+    harness.queueCommand("op-1");
+
+    await harness.engine.runUntil(50);
+
+    expect(harness.reads).toEqual(["acc-a:inbox"]);
+    expect(executed).toEqual(["op-1"]);
+    harness.releaseHangs();
+    await harness.engine.close();
+  });
+
+  it("abandons a hung lane, reports it, and retries after a backoff", async () => {
+    const harness = multiAccountHarness({
+      accounts: [
+        { accountId: "acc-a", streamIds: ["inbox"], readMs: 0, hangs: true },
+      ],
+      syncLaneTimeoutMs: 20,
+    });
+    await expect(harness.engine.runUntil(50)).rejects.toThrow("timed out");
+
+    await harness.engine.requestSync(["acc-a"]);
+    await harness.engine.runUntil(50);
+    expect(harness.reads).toEqual(["acc-a:inbox"]);
+
+    harness.advance(1000);
+    await harness.engine.runUntil(harness.nowMs + 10).catch(() => {});
+
+    expect(harness.reads).toEqual(["acc-a:inbox", "acc-a:inbox"]);
+    harness.releaseHangs();
+    await harness.engine.close();
+  });
+
+  it("stops a purged account's lane so a re-added account syncs right away", async () => {
+    const harness = multiAccountHarness({
+      accounts: [
+        { accountId: "acc-a", streamIds: ["inbox"], readMs: 0, hangs: true },
+      ],
+    });
+    await harness.engine.runUntil(50);
+
+    await harness.engine.purgeAccount("acc-a");
+    await harness.engine.runUntil(50);
+
+    expect(harness.reads).toEqual(["acc-a:inbox", "acc-a:inbox"]);
+    harness.releaseHangs();
+    await harness.engine.close();
+  });
+
+  it("reports a failing lane and backs off that account", async () => {
+    const harness = multiAccountHarness({
+      accounts: [
+        { accountId: "acc-a", streamIds: ["inbox"], readMs: 0, fails: true },
+        { accountId: "acc-b", streamIds: ["primary"], readMs: 0 },
+      ],
+    });
+    await expect(harness.engine.runUntil(50)).rejects.toThrow("read failed");
+
+    await harness.engine.requestSync(["acc-a", "acc-b"]);
+    await harness.engine.runUntil(50);
+
+    expect(harness.reads).toEqual([
+      "acc-a:inbox",
+      "acc-b:primary",
+      "acc-b:primary",
+    ]);
+    await harness.engine.close();
+  });
+
   it("gates idle assistant catch-up and lets explicit sync wake it", async () => {
     const assistantCursors: Array<string | null> = [];
     const harness = idleCatchUpHarness({
@@ -403,6 +514,149 @@ function idleCatchUpHarness(input: {
     },
   };
   return harness;
+}
+
+function multiAccountHarness(input: {
+  accounts: Array<{
+    accountId: string;
+    streamIds: string[];
+    readMs: number;
+    hangs?: boolean;
+    fails?: boolean;
+  }>;
+  syncLaneTimeoutMs?: number;
+  onExecute?: (operationId: string) => void;
+}) {
+  let nowMs = 0;
+  let nextId = 0;
+  const reads: string[] = [];
+  const hangingReads: Array<() => void> = [];
+  const accounts: AccountSyncState[] = input.accounts.map((account) => ({
+    accountId: account.accountId,
+    generation: "g1",
+    assistantCursor: null,
+    streams: account.streamIds.map((streamId) => ({
+      accountId: account.accountId,
+      streamId,
+      generation: "g1",
+      checkpoint: "start",
+    })),
+    stream: null,
+  }));
+  const accountFor = (accountId: string) => {
+    const account = input.accounts.find((item) => item.accountId === accountId);
+    if (!account) throw new Error(`Unknown account ${accountId}`);
+    return account;
+  };
+  const source: MailboxSource = {
+    ...idleSource(),
+    async discoverScopes({ session }) {
+      return {
+        status: "ok",
+        value: {
+          scopes: accountFor(session.accountId).streamIds.map((streamId) => ({
+            id: streamId,
+            kind: "folder" as const,
+            folderId: streamId,
+          })),
+          nextPage: null,
+        },
+      };
+    },
+    async readChanges({ session, requestId, position }) {
+      reads.push(`${session.accountId}:${position.streamId}`);
+      const account = accountFor(session.accountId);
+      nowMs += account.readMs;
+      if (account.hangs) {
+        await new Promise<void>((resolve) => hangingReads.push(resolve));
+      }
+      if (account.fails) throw new Error("read failed");
+      return {
+        status: "page",
+        page: {
+          session,
+          requestId,
+          from: position,
+          to: position,
+          changes: [],
+          requiredHydration: [],
+          bodies: [],
+          roundComplete: true,
+        },
+      };
+    },
+  };
+  const queuedCommands: string[] = [];
+  const store = {
+    ...idleCatchUpStore([]),
+    async readAccountSyncStates() {
+      return accounts;
+    },
+    async claimWork() {
+      const operationId = queuedCommands.shift();
+      if (!operationId) return null;
+      return {
+        kind: "command",
+        attemptId: `attempt-${operationId}`,
+        operation: { key: { accountId: "acc-a", operationId } },
+      };
+    },
+    async settleAttempt() {},
+    async purgeAccount() {
+      return { databaseEpoch: "test", sequence: 1 };
+    },
+  } as unknown as MailStore;
+  const engine = createMailEngine({
+    store,
+    source,
+    syncLaneTimeoutMs: input.syncLaneTimeoutMs,
+    executor: {
+      ...idleExecutor(),
+      async execute({ operation }) {
+        input.onExecute?.(operation.key.operationId);
+        return { status: "uncertain", receiptId: null };
+      },
+    },
+    runtime: createHostRuntime({
+      nowMs: () => nowMs,
+      randomId: () => {
+        nextId += 1;
+        return `id-${nextId}`;
+      },
+    }),
+  });
+  return {
+    engine,
+    store,
+    reads,
+    get nowMs() {
+      return nowMs;
+    },
+    advance(ms: number) {
+      nowMs += ms;
+    },
+    releaseHangs() {
+      for (const release of hangingReads.splice(0)) release();
+    },
+    queueCommand(operationId: string) {
+      queuedCommands.push(operationId);
+    },
+    readsFor(accountId: string) {
+      return reads.filter((read) => read.startsWith(`${accountId}:`)).length;
+    },
+    // Mirrors the host loop: short runs with a pause between them.
+    async runFor(durationMs: number) {
+      const endMs = nowMs + durationMs;
+      while (nowMs < endMs) {
+        await engine.runUntil(nowMs + 2000);
+        nowMs += 250;
+      }
+    },
+  };
+}
+
+function folderIds(count: number) {
+  return Array.from({ length: count }, (_, index) => `folder-${index}`);
 }
 
 function idleCatchUpStore(
