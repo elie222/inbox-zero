@@ -10,9 +10,21 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const attachmentPreview = vi.hoisted(() => ({ load: vi.fn() }));
-vi.mock("./OpenedConversationAttachments", () => ({
-  useOpenedConversationAttachments: () => attachmentPreview,
+const { fetchAttachment } = vi.hoisted(() => ({ fetchAttachment: vi.fn() }));
+vi.mock("@/utils/attachments/download", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/attachments/download")>()),
+  fetchAttachment,
+}));
+// jsdom's Blob lacks arrayBuffer(), which the image signature check needs.
+vi.mock("@/utils/attachments/image-preview", () => ({
+  getAttachmentImagePreview: async (blob: Blob) => blob,
+}));
+vi.mock("@/utils/attachments/download-queue", () => ({
+  queueAttachmentDownload: ({
+    download,
+  }: {
+    download: (signal: AbortSignal) => Promise<unknown>;
+  }) => download(new AbortController().signal),
 }));
 
 const mockTheme = vi.hoisted(() => ({
@@ -512,10 +524,10 @@ describe("HtmlEmail", () => {
     );
   });
 
-  it("resolves authenticated cid images to temporary local URLs", async () => {
+  it("resolves cid images larger than the attachment preview budget to local URLs", async () => {
     const html = '<img src="cid:screenshot@inboxzero.local" />';
     const objectUrl = "blob:https://app.example.com/inline-image";
-    attachmentPreview.load.mockResolvedValue(
+    fetchAttachment.mockResolvedValue(
       new Blob(["image"], { type: "image/png" }),
     );
     const createObjectUrl = vi
@@ -552,7 +564,7 @@ describe("HtmlEmail", () => {
               "content-type": "image/png",
             },
             mimeType: "image/png",
-            size: 5,
+            size: 4 * 1024 * 1024,
           },
         ]}
         messageId="message-inline"
@@ -574,11 +586,11 @@ describe("HtmlEmail", () => {
       );
     });
     expect(createObjectUrl).toHaveBeenCalledOnce();
-    expect(attachmentPreview.load).toHaveBeenCalledWith(
-      "message-inline",
-      "attachment-1",
-      expect.any(AbortSignal),
-      expect.objectContaining({ attachmentId: "attachment-1" }),
+    expect(fetchAttachment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: expect.stringContaining("attachmentId=attachment-1"),
+        emailAccountId: "account-1",
+      }),
     );
 
     unmount();
