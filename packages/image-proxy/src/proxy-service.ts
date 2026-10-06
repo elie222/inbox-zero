@@ -157,7 +157,10 @@ export async function handleImageProxyRequest(
     `public, max-age=${Math.min(ttlSeconds, 3600)}, s-maxage=${ttlSeconds}`,
   );
   responseHeaders.set("Content-Type", contentType);
-  responseHeaders.set("Cross-Origin-Resource-Policy", "same-site");
+  // Signed URLs are the access check. same-site blocks mail web views whose
+  // document origin is opaque (WKWebView loadHTMLString, about:blank), so the
+  // image bytes never paint. cross-origin lets those clients embed the image.
+  responseHeaders.set("Cross-Origin-Resource-Policy", "cross-origin");
   responseHeaders.set("Referrer-Policy", "no-referrer");
   responseHeaders.set("X-Content-Type-Options", "nosniff");
 

@@ -215,6 +215,9 @@ describe("handleImageProxyRequest", () => {
     );
 
     expect(response.status).toBe(200);
+    expect(response.headers.get("cross-origin-resource-policy")).toBe(
+      "cross-origin",
+    );
     expect(upstreamFetch).toHaveBeenCalledTimes(1);
   });
 
