@@ -257,15 +257,16 @@ export async function updateMessageCategories({
   logger: Logger;
 }): Promise<boolean> {
   for (let attempt = 1; ; attempt++) {
-    const message: { categories?: string[] } = await withMicrosoftGraphRetry(
-      () =>
-        client
-          .getClient()
-          .api(`/me/messages/${messageId}`)
-          .select("categories")
-          .get(),
-      logger,
-    );
+    const message: { categories?: string[]; "@odata.etag"?: string } =
+      await withMicrosoftGraphRetry(
+        () =>
+          client
+            .getClient()
+            .api(`/me/messages/${messageId}`)
+            .select("categories")
+            .get(),
+        logger,
+      );
     const currentCategories = message.categories ?? [];
     const categories = update(currentCategories);
 
@@ -277,7 +278,14 @@ export async function updateMessageCategories({
     }
 
     try {
-      await labelMessage({ client, messageId, categories, logger });
+      // If-Match turns a write over a concurrent change into a 412 we retry,
+      // instead of silently dropping the other writer's categories.
+      const etag = message["@odata.etag"];
+      await withMicrosoftGraphWriteRetry(() => {
+        const request = client.getClient().api(`/me/messages/${messageId}`);
+        if (etag) request.header("If-Match", etag);
+        return request.patch({ categories });
+      }, logger);
       return true;
     } catch (error) {
       const { isConflictError } = isRetryableError(extractErrorInfo(error));

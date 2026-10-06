@@ -206,6 +206,11 @@ describe("updateMessageCategories", () => {
     expect(changed).toBe(true);
     expect(patch).toHaveBeenCalledTimes(2);
     expect(storedCategories).toEqual(["Newsletter", "To Reply", "Marketing"]);
+    // Each write is conditioned on the version it was computed from.
+    expect(client.header.mock.calls).toEqual([
+      ["If-Match", 'W/"Newsletter"'],
+      ["If-Match", 'W/"Newsletter|To Reply"'],
+    ]);
   });
 
   it("does not write when the categories are unchanged", async () => {
@@ -247,15 +252,23 @@ function createCategoryClient(
   getCategories: () => string[],
   patch: ReturnType<typeof vi.fn>,
 ) {
+  const header = vi.fn();
   const api = vi.fn().mockImplementation(() => {
     const builder = {
       select: () => builder,
-      get: async () => ({ categories: getCategories() }),
+      header: (name: string, value: string) => {
+        header(name, value);
+        return builder;
+      },
+      get: async () => ({
+        categories: getCategories(),
+        "@odata.etag": `W/"${getCategories().join("|")}"`,
+      }),
       patch,
     };
     return builder;
   });
-  return createMockOutlookClient(api);
+  return Object.assign(createMockOutlookClient(api), { header });
 }
 
 function createPagingClient(

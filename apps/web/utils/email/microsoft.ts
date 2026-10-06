@@ -1562,19 +1562,29 @@ export class OutlookProvider implements EmailProvider {
     // A whole conversation with bodies can be megabytes, and Graph sometimes
     // ends such 200 responses mid-body. Pick the latest message from metadata,
     // then fetch only that one in full.
-    const response: { value?: Message[] } = await withMicrosoftGraphRetry(
-      () =>
-        this.client
-          .getClient()
-          .api("/me/messages")
-          .filter(`conversationId eq '${escapedThreadId}'`)
-          .select(MESSAGE_LIST_SELECT_FIELDS)
-          .top(100)
-          .get(),
-      this.logger,
-    );
+    const messages: Message[] = [];
+    let nextLink: string | undefined;
+    do {
+      const pageLink = nextLink;
+      const page: { value?: Message[]; "@odata.nextLink"?: string } =
+        await withMicrosoftGraphRetry(
+          () =>
+            pageLink
+              ? this.client.getClient().api(pageLink).get()
+              : this.client
+                  .getClient()
+                  .api("/me/messages")
+                  .filter(`conversationId eq '${escapedThreadId}'`)
+                  .select(MESSAGE_LIST_SELECT_FIELDS)
+                  .top(100)
+                  .get(),
+          this.logger,
+        );
+      messages.push(...(page.value ?? []));
+      nextLink = page["@odata.nextLink"];
+    } while (nextLink);
 
-    const parsedMessages: ParsedMessage[] = (response.value || [])
+    const parsedMessages: ParsedMessage[] = messages
       .filter((message: Message) => !message.isDraft)
       .map((message: Message) => convertMessage(message));
     if (parsedMessages.length === 0) return null;

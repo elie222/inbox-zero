@@ -513,6 +513,44 @@ describe("OutlookProvider.getLatestMessageInThread", () => {
     expect(latest?.id).toBe("missing-date");
   });
 
+  it("finds the latest message across every page of the conversation", async () => {
+    const next =
+      "https://graph.microsoft.com/v1.0/me/messages?$skiptoken=page2";
+    const provider = new OutlookProvider(
+      createMockOutlookClient([], {
+        responsesByApiPath: {
+          "/me/messages": {
+            value: [
+              createMessage({
+                id: "older",
+                receivedDateTime: "2026-01-01T00:00:00.000Z",
+                isDraft: false,
+              }),
+            ],
+            "@odata.nextLink": next,
+          },
+          [next]: {
+            value: [
+              createMessage({
+                id: "newest",
+                receivedDateTime: "2026-01-02T00:00:00.000Z",
+                isDraft: false,
+              }),
+            ],
+          },
+        },
+      }),
+    );
+    const getMessageSpy = vi
+      .spyOn(provider, "getMessage")
+      .mockImplementation(async (id) => ({ id }) as never);
+
+    const latest = await provider.getLatestMessageInThread("thread-1");
+
+    expect(getMessageSpy).toHaveBeenCalledWith("newest");
+    expect(latest?.id).toBe("newest");
+  });
+
   it("returns null when all messages are drafts", async () => {
     const provider = new OutlookProvider(
       createMockOutlookClient([
