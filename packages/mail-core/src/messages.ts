@@ -13,9 +13,10 @@ export const inboxSectionSchema = z.enum(["focused", "other"]);
 export type InboxSection = z.infer<typeof inboxSectionSchema>;
 
 export const MAX_ATTACHMENT_CONTENT_ID_LENGTH = 1024;
+export const MAX_ATTACHMENT_ID_LENGTH = 2048;
 
 export const messageAttachmentDescriptorSchema = z.object({
-  attachmentId: z.string().min(1).max(512),
+  attachmentId: z.string().min(1).max(MAX_ATTACHMENT_ID_LENGTH),
   filename: z.string().max(1024),
   mimeType: z.string().max(256),
   size: z.number().int().nonnegative(),

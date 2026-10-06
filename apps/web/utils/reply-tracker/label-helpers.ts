@@ -193,8 +193,8 @@ export async function applyThreadStatusLabel({
     }
   };
 
-  // Sequential: on Outlook both steps rewrite the same message's categories,
-  // so running them together races and Graph rejects one with a conflict.
+  // Sequential: Outlook rewrites the whole category list per message, so
+  // overlapping writes to the same message conflict or lose a change.
   const removedConflicts = await removeConflictingThreadStatusLabels({
     emailAccountId,
     threadId,

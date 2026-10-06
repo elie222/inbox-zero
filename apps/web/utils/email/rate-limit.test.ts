@@ -310,6 +310,35 @@ describe("email provider rate-limit state", () => {
     );
   });
 
+  it.each([
+    "google",
+    "microsoft",
+  ] as const)("does not extend %s rate-limit mode when a call is skipped by the guard", async (provider) => {
+    const error = new ProviderRateLimitModeError({
+      provider,
+      retryAt: new Date(Date.now() + 30_000),
+    });
+
+    await expect(
+      recordProviderRateLimitFromError({
+        error,
+        emailAccountId: "account-1",
+        provider,
+        logger,
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      withRateLimitRecording(
+        { emailAccountId: "account-1", provider, logger },
+        async () => {
+          throw error;
+        },
+      ),
+    ).rejects.toBe(error);
+
+    expect(redis.set).not.toHaveBeenCalled();
+  });
+
   it("does not throw when API-error rate-limit recording fails", async () => {
     vi.mocked(redis.get).mockResolvedValueOnce(null);
     vi.mocked(redis.set).mockRejectedValueOnce(new Error("redis unavailable"));
