@@ -61,6 +61,7 @@ vi.mock("@/utils/error-messages", () => ({
 vi.mock("@/utils/error", () => ({
   attachLlmRepairMetadata: mockAttachLlmRepairMetadata,
   captureException: vi.fn(),
+  getAIApiCallError: vi.fn(() => null),
   isAnthropicInsufficientBalanceError: vi.fn(() => false),
   isContentFilterRefusal: mockIsContentFilterRefusal,
   isIncorrectAPIKeyError: vi.fn(() => false),

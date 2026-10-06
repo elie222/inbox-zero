@@ -34,6 +34,7 @@ import {
 import {
   attachLlmRepairMetadata,
   captureException,
+  getAIApiCallError,
   isAnthropicInsufficientBalanceError,
   isContentFilterRefusal,
   isIncorrectAPIKeyError,
@@ -1161,10 +1162,9 @@ async function handleError(
   modelName: string,
   hasUserApiKey: boolean,
 ) {
+  const apiError = getAIApiCallError(error);
   const isUserKeyInsufficientCredits =
-    hasUserApiKey &&
-    APICallError.isInstance(error) &&
-    isInsufficientCreditsError(error);
+    hasUserApiKey && !!apiError && isInsufficientCreditsError(apiError);
 
   if (isUserKeyInsufficientCredits) {
     logger.warn("User API key has insufficient credits", {
@@ -1184,19 +1184,7 @@ async function handleError(
     });
   }
 
-  if (RetryError.isInstance(error) && isAiQuotaExceededError(error)) {
-    return await addUserErrorMessageWithNotification({
-      userId,
-      userEmail,
-      emailAccountId,
-      errorType: ErrorType.AI_QUOTA_ERROR,
-      errorMessage:
-        "Your AI provider has rejected requests due to rate limits or quota. Please check your provider account if this persists.",
-      logger,
-    });
-  }
-
-  if (APICallError.isInstance(error)) {
+  if (apiError) {
     const notifyUser = async (
       errorType: PersistedErrorType,
       errorMessage: string,
@@ -1212,14 +1200,14 @@ async function handleError(
       });
     };
 
-    if (isIncorrectAPIKeyError(error)) {
+    if (isIncorrectAPIKeyError(apiError)) {
       return await notifyUser(
         ErrorType.INCORRECT_API_KEY,
         "Your AI API key is invalid. Please update it in your settings.",
       );
     }
 
-    if (isInvalidAIModelError(error)) {
+    if (isInvalidAIModelError(apiError)) {
       await notifyUser(
         ErrorType.INVALID_AI_MODEL,
         "The AI model you specified does not exist or is unavailable. Please check your settings.",
@@ -1229,7 +1217,7 @@ async function handleError(
       );
     }
 
-    if (isAPIKeyDeactivatedError(error)) {
+    if (isAPIKeyDeactivatedError(apiError)) {
       return await notifyUser(
         ErrorType.API_KEY_DEACTIVATED,
         "Your AI API key has been deactivated. Please update it in your settings.",
@@ -1237,14 +1225,26 @@ async function handleError(
     }
 
     if (
-      isAnthropicInsufficientBalanceError(error) ||
-      (isInsufficientCreditsError(error) && hasUserApiKey)
+      isAnthropicInsufficientBalanceError(apiError) ||
+      (isInsufficientCreditsError(apiError) && hasUserApiKey)
     ) {
       return await notifyUser(
         ErrorType.INSUFFICIENT_CREDITS,
         "Your AI provider account has insufficient credits. Please add credits or update your API key in settings.",
       );
     }
+  }
+
+  if (RetryError.isInstance(error) && isAiQuotaExceededError(error)) {
+    return await addUserErrorMessageWithNotification({
+      userId,
+      userEmail,
+      emailAccountId,
+      errorType: ErrorType.AI_QUOTA_ERROR,
+      errorMessage:
+        "Your AI provider has rejected requests due to rate limits or quota. Please check your provider account if this persists.",
+      logger,
+    });
   }
 }
 
