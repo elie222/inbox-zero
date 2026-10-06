@@ -183,8 +183,16 @@ function visibleText(html: string, maxLength: number): string | undefined {
   const push = (chunk: string) => {
     if (!chunk) return false;
     parts.push(chunk);
-    for (const char of chunk) {
-      if (!isWhitespace(char)) nonWhitespace += char.length;
+    let cursor = 0;
+    while (cursor < chunk.length) {
+      const code = chunk.charCodeAt(cursor);
+      // ASCII outside the `\s` controls and space cannot match `\s`.
+      if (code <= 32 || code >= 0xa0) {
+        if (!isWhitespace(chunk[cursor])) nonWhitespace++;
+      } else {
+        nonWhitespace++;
+      }
+      cursor++;
     }
     return nonWhitespace > maxLength;
   };
@@ -363,22 +371,11 @@ function decodeEntity(body: string) {
   }
 }
 
-/** JavaScript `\s`: space, tab, newline, vertical tab, nbsp, and the other Unicode spaces. */
+/** Same characters as the `\s` class in `normalize`. */
 function isWhitespace(char: string | undefined) {
   return char != null && /\s/.test(char);
 }
 
 function normalize(value: string) {
-  let text = "";
-  let pendingSpace = false;
-  for (const char of value) {
-    if (isWhitespace(char)) {
-      pendingSpace = text.length > 0;
-      continue;
-    }
-    if (pendingSpace) text += " ";
-    pendingSpace = false;
-    text += char;
-  }
-  return text.toLowerCase();
+  return value.replace(/\s+/g, " ").trim().toLowerCase();
 }
