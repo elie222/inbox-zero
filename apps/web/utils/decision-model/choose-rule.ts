@@ -158,7 +158,11 @@ export async function decisionModelChooseRule<T extends RuleCandidate>({
     topChoice: answer.choice,
     confidence: probability,
     margin,
-    probabilities: answer.probabilities,
+    // An array, not a record: each key of a logged object becomes a permanent
+    // Axiom field, and these keys are user-named rules.
+    probabilities: Object.entries(answer.probabilities)
+      .sort(([, a], [, b]) => b - a)
+      .map(([rule, probability]) => ({ rule, probability })),
     coldEmailProbability,
     model: res.model,
     inputTokens: res.inputTokens,
