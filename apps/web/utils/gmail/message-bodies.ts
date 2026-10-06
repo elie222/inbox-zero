@@ -104,14 +104,22 @@ function joinHtml(parts: string[]) {
 }
 
 function htmlBodyContents(html: string) {
-  for (let index = 0; index < html.length; index++) {
-    if (html[index] !== "<") continue;
-    const tag = readTag(html, index);
-    if (!tag) continue;
-    index = tag.end - 1;
-    if (tag.closing || tag.name !== "body") continue;
-    const close = closingTag(html, tag.end, "body");
-    return html.slice(tag.end, close?.start ?? html.length);
+  let index = 0;
+  while (index < html.length) {
+    if (html[index] !== "<") {
+      const next = html.indexOf("<", index);
+      index = next === -1 ? html.length : next;
+      continue;
+    }
+    const read = readTag(html, index);
+    if (!read.tag) {
+      index = read.resume;
+      continue;
+    }
+    index = read.tag.end;
+    if (read.tag.closing || read.tag.name !== "body") continue;
+    const close = closingTag(html, index, "body");
+    return html.slice(read.tag.end, close?.start ?? html.length);
   }
   return html;
 }
@@ -127,9 +135,32 @@ function htmlOmitsPlainMessage(
   plain: string,
   snippet?: string | null,
 ) {
-  const visible = visibleText(html);
   const plainText = normalize(plain);
-  if (!visible || !plainText.endsWith(visible)) return false;
+  if (!plainText) return false;
+  // A tail has to fit in the plain part. Markup with no tags or entities
+  // is already the visible text, so a longer string cannot be that tail.
+  if (html.indexOf("<") === -1 && html.indexOf("&") === -1) {
+    const visible = normalize(html);
+    if (visible.length > plainText.length) return false;
+    return plainTailOmitsMessage(visible, plainText, snippet);
+  }
+  const visible = visibleText(html, plainText.length);
+  if (!visible) return false;
+  return plainTailOmitsMessage(visible, plainText, snippet);
+}
+
+function plainTailOmitsMessage(
+  visible: string,
+  plainText: string,
+  snippet?: string | null,
+) {
+  if (
+    !visible ||
+    visible.length > plainText.length ||
+    !plainText.endsWith(visible)
+  ) {
+    return false;
+  }
   const prefix = plainText.slice(0, plainText.length - visible.length).trim();
   if (!prefix || visible.includes(prefix)) return false;
   const probe = normalize(snippet ?? "");
@@ -139,72 +170,132 @@ function htmlOmitsPlainMessage(
   return true;
 }
 
-/** One left-to-right pass. Script and style bodies are skipped, including `</script >`. */
-function visibleText(html: string) {
-  let text = "";
-  for (let index = 0; index < html.length; index++) {
+/**
+ * One left-to-right pass. Script and style bodies are skipped, including
+ * `</script >`. Returns undefined once the visible text is longer than
+ * `maxLength`, because that text cannot be a tail of the plain part.
+ */
+function visibleText(html: string, maxLength: number): string | undefined {
+  const parts: string[] = [];
+  let nonWhitespace = 0;
+  let index = 0;
+
+  const push = (chunk: string) => {
+    if (!chunk) return false;
+    parts.push(chunk);
+    for (let cursor = 0; cursor < chunk.length; cursor++) {
+      const code = chunk.charCodeAt(cursor);
+      if (
+        code !== 9 &&
+        code !== 10 &&
+        code !== 12 &&
+        code !== 13 &&
+        code !== 32
+      ) {
+        nonWhitespace++;
+      }
+    }
+    return nonWhitespace > maxLength;
+  };
+
+  while (index < html.length) {
     if (html[index] !== "<") {
       const next = html.indexOf("<", index);
       const end = next === -1 ? html.length : next;
-      text += decodeEntitiesOnce(html.slice(index, end));
-      index = end - 1;
+      if (push(decodeEntitiesOnce(html.slice(index, end)))) return;
+      index = end;
       continue;
     }
     if (html.startsWith("<!--", index)) {
       const commentEnd = html.indexOf("-->", index + 4);
       if (commentEnd === -1) break;
-      index = commentEnd + 2;
+      index = commentEnd + 3;
       continue;
     }
-    const tag = readTag(html, index);
-    if (!tag) {
-      text += "<";
+    const read = readTag(html, index);
+    if (!read.tag) {
+      if (push(decodeEntitiesOnce(html.slice(index, read.resume)))) return;
+      index = read.resume;
       continue;
     }
-    index = tag.end - 1;
-    text += " ";
-    if (!tag.closing && (tag.name === "script" || tag.name === "style")) {
-      index = skipElement(html, tag.end, tag.name) - 1;
+    push(" ");
+    index = read.tag.end;
+    if (
+      !read.tag.closing &&
+      (read.tag.name === "script" || read.tag.name === "style")
+    ) {
+      index = closingTag(html, index, read.tag.name)?.end ?? html.length;
     }
   }
-  return normalize(text);
-}
 
-function skipElement(html: string, from: number, name: string) {
-  return closingTag(html, from, name)?.end ?? html.length;
+  const visible = normalize(parts.join(""));
+  if (!visible || visible.length > maxLength) return;
+  return visible;
 }
 
 function closingTag(html: string, from: number, name: string) {
-  for (let index = from; index < html.length; index++) {
-    if (html[index] !== "<") continue;
-    const tag = readTag(html, index);
-    if (!tag) continue;
-    if (tag.closing && tag.name === name) return { start: index, end: tag.end };
-    index = tag.end - 1;
+  let index = from;
+  while (index < html.length) {
+    if (html[index] !== "<") {
+      const next = html.indexOf("<", index);
+      if (next === -1) return null;
+      index = next;
+      continue;
+    }
+    const read = readTag(html, index);
+    if (read.tag?.closing && read.tag.name === name) {
+      return { start: index, end: read.tag.end };
+    }
+    const resume = read.tag ? read.tag.end : read.resume;
+    if (resume <= index) return null;
+    index = resume;
   }
   return null;
 }
 
-function readTag(html: string, start: number) {
-  if (html[start] !== "<") return null;
+/**
+ * Reads the tag at `start`. The search for `>` stops at the next `<`, and
+ * `resume` is the first index the caller has not already consumed.
+ */
+function readTag(
+  html: string,
+  start: number,
+): {
+  tag: { closing: boolean; name: string; end: number } | null;
+  resume: number;
+} {
   let index = start + 1;
+  if (index >= html.length) return { tag: null, resume: html.length };
+
   let closing = false;
   if (html[index] === "/") {
     closing = true;
     index += 1;
+    if (index >= html.length) return { tag: null, resume: html.length };
   }
+  if (html[index] === "<") return { tag: null, resume: index };
+
   const nameStart = index;
   while (index < html.length && isTagNameChar(html[index], index > nameStart)) {
     index += 1;
   }
-  if (index === nameStart) return null;
-  const end = findChar(html, ">", index, index + 2048);
-  if (end === -1) return null;
-  return {
-    closing,
-    name: html.slice(nameStart, index).toLowerCase(),
-    end: end + 1,
-  };
+  if (index === nameStart) return { tag: null, resume: start + 1 };
+
+  for (let end = index; end < html.length; end++) {
+    const char = html[end];
+    if (char === ">") {
+      return {
+        tag: {
+          closing,
+          name: html.slice(nameStart, index).toLowerCase(),
+          end: end + 1,
+        },
+        resume: end + 1,
+      };
+    }
+    if (char === "<") return { tag: null, resume: end };
+  }
+  return { tag: null, resume: html.length };
 }
 
 function findChar(value: string, char: string, from: number, limit: number) {

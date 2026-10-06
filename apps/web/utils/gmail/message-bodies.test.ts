@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { parsedMessageBodyObservation } from "@/utils/mail-api/observations";
 import { parseMessage } from "./message";
+import { gmailMessageBodies } from "./message-bodies";
 import type { MessageWithPayload } from "@/utils/types";
 
 const shelf = "Hello, I would like to order the same shelf again.";
@@ -128,6 +129,22 @@ describe("Apple Mail message bodies", () => {
     );
     expect(parsed.textHtml).toBeUndefined();
     expect(parsed.textPlain).toContain(shelf);
+  });
+
+  it("reads a megabyte of unclosed tags quickly", () => {
+    const html = "<a".repeat(500_000);
+    const plain = `${"y".repeat(html.length)} tail`;
+    const start = performance.now();
+    const bodies = gmailMessageBodies(
+      {
+        mimeType: "multipart/alternative",
+        parts: [textPart("text/plain", plain), textPart("text/html", html)],
+      },
+      "y",
+    );
+    expect(performance.now() - start).toBeLessThan(1000);
+    expect(bodies.html).toBe(html);
+    expect(bodies.plain).toContain("tail");
   });
 
   it("ignores a named text part and an attached message", () => {
