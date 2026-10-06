@@ -45,14 +45,21 @@ describe("aiTranslateEmails", () => {
       emailAccount: getEmailAccount(),
     });
 
-    expect(result).toEqual(["", "", ""]);
+    expect(result).toEqual([
+      { text: "", sourceLanguage: null },
+      { text: "", sourceLanguage: null },
+      { text: "", sourceLanguage: null },
+    ]);
     expect(mockCreateGenerateObject).not.toHaveBeenCalled();
   });
 
   it("returns translations in the same order as the inputs", async () => {
     mockGenerateObject.mockResolvedValue({
       object: {
-        translations: ["Hello", "World"],
+        translations: [
+          { text: "Hello", sourceLanguage: "es" },
+          { text: "World", sourceLanguage: "es" },
+        ],
       },
     });
 
@@ -62,7 +69,10 @@ describe("aiTranslateEmails", () => {
       emailAccount: getEmailAccount(),
     });
 
-    expect(result).toEqual(["Hello", "World"]);
+    expect(result).toEqual([
+      { text: "Hello", sourceLanguage: "es" },
+      { text: "World", sourceLanguage: "es" },
+    ]);
     expect(mockCreateGenerateObject).toHaveBeenCalledWith(
       expect.objectContaining({
         label: "Translate email",
@@ -79,7 +89,7 @@ describe("aiTranslateEmails", () => {
   it("throws when the model returns the wrong number of translations", async () => {
     mockGenerateObject.mockResolvedValue({
       object: {
-        translations: ["only one"],
+        translations: [{ text: "only one", sourceLanguage: "es" }],
       },
     });
 
@@ -95,7 +105,7 @@ describe("aiTranslateEmails", () => {
   it("hard-slices long texts without appending an ellipsis", async () => {
     mockGenerateObject.mockResolvedValue({
       object: {
-        translations: ["ok"],
+        translations: [{ text: "ok", sourceLanguage: "en" }],
       },
     });
 
@@ -115,9 +125,10 @@ describe("aiTranslateEmails", () => {
   });
 
   it("pins the output schema length to the number of input texts", async () => {
+    const translation = (text: string) => ({ text, sourceLanguage: "en" });
     mockGenerateObject.mockResolvedValue({
       object: {
-        translations: ["one", "two", "three"],
+        translations: ["one", "two", "three"].map(translation),
       },
     });
 
@@ -134,10 +145,14 @@ describe("aiTranslateEmails", () => {
     };
 
     expect(
-      call.schema.safeParse({ translations: ["one", "two", "three"] }).success,
+      call.schema.safeParse({
+        translations: ["one", "two", "three"].map(translation),
+      }).success,
     ).toBe(true);
     expect(
-      call.schema.safeParse({ translations: ["one", "two"] }).success,
+      call.schema.safeParse({
+        translations: ["one", "two"].map(translation),
+      }).success,
     ).toBe(false);
   });
 });

@@ -8,6 +8,7 @@ import {
   MailXIcon,
   MailIcon,
   MailOpenIcon,
+  LanguagesIcon,
   ShieldAlertIcon,
   TagIcon,
   StarIcon,
@@ -29,6 +30,7 @@ type MailCommandActions = {
   move?: () => void;
   openSnooze?: () => void;
   openExternal?: () => void;
+  translate?: () => void;
   trash?: () => void;
   toggleAutoArchive?: () => void;
   unsubscribe?: () => void;
@@ -165,6 +167,19 @@ export function buildMailCommandPalette({
       keywords: ["snooze", "later", "remind"],
       action: actions.openSnooze,
       closeOnSelect: false,
+    });
+  }
+
+  if (targetCount === 1 && actions.translate) {
+    commands.push({
+      id: "mail-translate",
+      label: "Translate",
+      icon: LanguagesIcon,
+      shortcut: getShortcutHint("translate"),
+      section: "actions",
+      priority: 4,
+      keywords: ["translate", "language", "original"],
+      action: actions.translate,
     });
   }
 
