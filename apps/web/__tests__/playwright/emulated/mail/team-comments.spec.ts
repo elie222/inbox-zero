@@ -38,7 +38,7 @@ test("publisher shares with a teammate who never received the mail and both see 
       .getByRole("button", { name: "Share", exact: true })
       .click();
     const dialog = page.getByRole("dialog", { name: "Share conversation" });
-    await expect(dialog).toContainText("past and future messages");
+    await expect(dialog).toContainText("including future replies");
     await dialog.getByLabel("Shared Teammate").check();
     await capturePlaywrightCheckpoint(
       page,

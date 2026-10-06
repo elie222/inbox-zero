@@ -57,11 +57,8 @@ export function ShareConversationDialog({
         <DialogHeader>
           <DialogTitle>Share conversation</DialogTitle>
           <DialogDescription>
-            Selected teammates will see your past and future messages in this
-            conversation, including branches where email recipients change. They
-            can post internal comments; they cannot send email from your
-            account. Existing discussion history becomes visible if sharing is
-            restarted.
+            Teammates can read this conversation, including future replies, and
+            leave internal comments. They can't send email from your account.
           </DialogDescription>
         </DialogHeader>
         <div
