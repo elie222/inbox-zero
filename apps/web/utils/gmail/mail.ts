@@ -10,7 +10,8 @@ import {
   forwardEmailText,
 } from "@/utils/gmail/forward";
 import type { ParsedMessage } from "@/utils/types";
-import { createReplyContent, formatEmailDate } from "@/utils/gmail/reply";
+import { createReplyContent } from "@/utils/gmail/reply";
+import { formatReplyQuotedHeader } from "@/utils/email/reply-quote";
 import type { EmailForAction } from "@/utils/ai/types";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import {
@@ -27,7 +28,10 @@ import { formatReplySubject } from "@/utils/email/subject";
 import { buildThreadingHeaders } from "@/utils/email/threading";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
 import { getMessage } from "@/utils/gmail/message";
-import { getGmailMessageAttachments } from "@/utils/gmail/attachment";
+import {
+  getGmailAttachment,
+  getGmailMessageAttachments,
+} from "@/utils/gmail/attachment";
 import { getDraftIdForMessage } from "@/utils/gmail/draft";
 import { SafeError } from "@/utils/error";
 import { GmailLabel } from "@/utils/gmail/label";
@@ -264,20 +268,32 @@ export async function forwardEmail(
   }
 
   const attachments = await Promise.all(
-    message.attachments?.map(async (attachment) => {
-      const attachmentData = await withGmailRetry(() =>
-        gmail.users.messages.attachments.get({
-          userId: "me",
-          messageId: message.id,
-          id: attachment.attachmentId,
-        }),
-      );
-      return {
-        content: Buffer.from(attachmentData.data.data || "", "base64"),
-        contentType: attachment.mimeType,
-        filename: attachment.filename,
-      };
-    }) || [],
+    [...(message.attachments ?? []), ...(message.inline ?? [])].map(
+      async (attachment): Promise<Attachment> => {
+        const attachmentData = await getGmailAttachment(
+          gmail,
+          message.id,
+          attachment.attachmentId,
+        );
+        const contentId = attachment.headers["content-id"]
+          ?.trim()
+          .replace(/^<|>$/g, "");
+        const disposition = attachment.headers["content-disposition"]
+          ?.split(";")[0]
+          .trim()
+          .toLowerCase();
+        return {
+          cid: contentId || undefined,
+          contentDisposition:
+            disposition === "inline" || (!disposition && contentId)
+              ? "inline"
+              : "attachment",
+          content: Buffer.from(attachmentData.data || "", "base64url"),
+          contentType: attachment.mimeType,
+          filename: attachment.filename,
+        };
+      },
+    ),
   );
 
   const raw = await createRawMailMessage({
@@ -404,14 +420,10 @@ export function buildReplyMessageText({
   textContent?: string;
   message: Pick<ParsedMessage, "headers" | "textPlain">;
 }) {
-  const quotedDate = formatEmailDate(new Date(message.headers.date));
-  const quotedHeader = `On ${quotedDate}, ${message.headers.from} wrote:`;
-  const quotedContent = quotePlainTextContent(message.textPlain);
-
   return buildQuotedPlainText({
     textContent: renderReplyBodyAsPlainText(textContent),
-    quotedHeader,
-    quotedContent,
+    quotedHeader: formatReplyQuotedHeader(message.headers),
+    quotedContent: quotePlainTextContent(message.textPlain),
   });
 }
 

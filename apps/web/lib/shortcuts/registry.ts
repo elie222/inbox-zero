@@ -323,11 +323,25 @@ const SHORTCUT_DEFINITIONS = [
     label: "More actions",
   },
   {
+    id: "openTeamComments",
+    keys: ["shift+c"],
+    scope: "mail",
+    group: "View",
+    label: "Open team comments",
+  },
+  {
     id: "undo",
     keys: ["z"],
     scope: "mail",
     group: "Triage",
     label: "Undo last action",
+  },
+  {
+    id: "translate",
+    keys: ["shift+t"],
+    scope: "mail",
+    group: "View",
+    label: "Translate / show original",
   },
   {
     id: "toggleLayout",

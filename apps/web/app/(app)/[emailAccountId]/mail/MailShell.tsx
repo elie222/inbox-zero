@@ -24,6 +24,7 @@ import {
 } from "@/app/(app)/[emailAccountId]/mail/MailSidebar";
 import { MailShellSidebar } from "@/app/(app)/[emailAccountId]/mail/MailShellSidebar";
 import { MailSplitTabs } from "@/app/(app)/[emailAccountId]/mail/MailSplitTabs";
+import { SelectAllCheckbox } from "@/app/(app)/[emailAccountId]/mail/SelectAllCheckbox";
 import { MailReaderPane } from "@/app/(app)/[emailAccountId]/mail/MailReaderPane";
 import { MailTitlebarNav } from "@/app/(app)/[emailAccountId]/mail/MailTitlebarNav";
 import { ScheduledEmailList } from "@/app/(app)/[emailAccountId]/mail/ScheduledEmailList";
@@ -33,6 +34,8 @@ import { extractEmailAddress } from "@/utils/email";
 import { LabelPickerDialog } from "@/app/(app)/[emailAccountId]/mail/LabelPickerDialog";
 import { ThreadList } from "@/app/(app)/[emailAccountId]/mail/ThreadList";
 import { useStableCallback } from "@/app/(app)/[emailAccountId]/mail/use-stable-callback";
+import { useTranslateThread } from "@/app/(app)/[emailAccountId]/mail/use-thread-translation";
+import { GmailLabel } from "@/utils/gmail/label";
 import {
   getActiveThreadIndex,
   getSearchFocus,
@@ -56,7 +59,10 @@ import { MailEngineConnectionBanner } from "@/utils/mail-engine/MailEngineConnec
 import { useThreadSelection } from "@/app/(app)/[emailAccountId]/mail/use-thread-selection";
 import { useWarmNeighbourThreads } from "@/app/(app)/[emailAccountId]/mail/use-warm-neighbour-threads";
 import { useMailPerformanceTelemetry } from "@/app/(app)/[emailAccountId]/mail/use-mail-performance-telemetry";
-import { isThreadUnread } from "@/app/(app)/[emailAccountId]/mail/read-state";
+import {
+  isThreadArchived,
+  isThreadUnread,
+} from "@/app/(app)/[emailAccountId]/mail/read-state";
 import { MailLayout, MailSplitFilterKind } from "@/generated/prisma/enums";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useAtomValue, useSetAtom } from "jotai";
@@ -74,7 +80,8 @@ import {
   isGoogleProvider,
   isMicrosoftProvider,
 } from "@/utils/email/provider-types";
-import { useEmail } from "@/providers/EmailProvider";
+import { getOpenInMailboxLabel } from "@/utils/url";
+import { useEmailLabels } from "@/providers/EmailLabelsProvider";
 import { undoLatestToast } from "@/components/Toast";
 import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 import { useLabels } from "@/hooks/useLabels";
@@ -94,7 +101,7 @@ import {
   otherMailSplitQuery,
   mailSplitToThreadsQuery,
   mailTypeToThreadsQuery,
-} from "@/utils/mail/split-query";
+} from "@/utils/split-inbox/split-query";
 import { getActionErrorMessage } from "@/utils/error";
 import { prefixPath } from "@/utils/path";
 import { getMailAccountUrl } from "@/app/(app)/[emailAccountId]/mail/mail-account-url";
@@ -119,7 +126,7 @@ export function MailShell() {
   const { data: accountsData } = useAccounts();
   const isGoogle = isGoogleProvider(provider);
   const isOutlook = isMicrosoftProvider(provider);
-  const { userLabels } = useEmail();
+  const { userLabels } = useEmailLabels();
   const { userLabels: allLabels, mutate: mutateLabels } = useLabels();
   const { folders } = useFolders(provider);
   const { data: settings, mutate: mutateSettings } = useMailSettings();
@@ -512,6 +519,22 @@ export function MailShell() {
       userEmail: readerEmailAccount.email,
     })?.openUrl;
   }, [openMessages, readerEmailAccount]);
+  const translateThread = useTranslateThread();
+  const readerEmailAccountId = readerEmailAccount?.id;
+  const translateOpenThread = useMemo(() => {
+    const threadId = openMessages.at(-1)?.threadId;
+    const messageIds = openMessages
+      .filter((message) => !message.labelIds?.includes(GmailLabel.DRAFT))
+      .map((message) => message.id);
+    if (!readerEmailAccountId || !threadId || !messageIds.length) return;
+    return () => {
+      translateThread({
+        emailAccountId: readerEmailAccountId,
+        threadId,
+        messageIds,
+      });
+    };
+  }, [openMessages, readerEmailAccountId, translateThread]);
   const readerTarget = useMemo(() => {
     if (!openThreadKey || !openThreadSelection || !readerSelectionSettled)
       return;
@@ -573,6 +596,7 @@ export function MailShell() {
   ]);
   const {
     archive,
+    moveToInbox,
     trash,
     markSpam,
     setReadState,
@@ -791,6 +815,14 @@ export function MailShell() {
     () => runOn(archive, true, true),
     [archive, runOn],
   );
+  // Archiving again would be a no-op, so archived targets offer the way back.
+  const moveToInboxTargets = useCallback(
+    () => runOn(moveToInbox, true, true),
+    [moveToInbox, runOn],
+  );
+  const targetsArchived =
+    actionTargets.length > 0 &&
+    actionTargets.every((target) => isThreadArchived(target.messages));
   const trashTargets = useCallback(() => runOn(trash, true), [runOn, trash]);
   const markSpamTargets = useCallback(
     () => runOn(markSpam, true),
@@ -890,6 +922,7 @@ export function MailShell() {
     () => ({
       actions: {
         archive: archiveTargets,
+        moveToInbox: targetsArchived ? moveToInboxTargets : undefined,
         forward: singleActionTarget ? requestForwardTarget : undefined,
         label: canLabel ? openLabelPicker : undefined,
         star: starTargets,
@@ -903,6 +936,7 @@ export function MailShell() {
                 window.open(openExternalUrl, "_blank", "noopener,noreferrer")
             : undefined,
         snooze: snoozeTargets,
+        translate: isReaderTarget ? translateOpenThread : undefined,
         trash: trashTargets,
       },
       allStarred,
@@ -912,7 +946,8 @@ export function MailShell() {
       ),
       openExternalLabel:
         isReaderTarget && openExternalUrl
-          ? `Open in ${isMicrosoftProvider(readerEmailAccount?.account.provider) ? "Outlook" : "Gmail"}`
+          ? (getOpenInMailboxLabel(readerEmailAccount?.account.provider) ??
+            undefined)
           : undefined,
       target: singleActionTarget
         ? {
@@ -924,6 +959,8 @@ export function MailShell() {
     }),
     [
       archiveTargets,
+      moveToInboxTargets,
+      targetsArchived,
       actionTargets,
       canLabel,
       isReaderTarget,
@@ -939,6 +976,7 @@ export function MailShell() {
       requestForwardTarget,
       singleActionTarget,
       snoozeTargets,
+      translateOpenThread,
       trashTargets,
     ],
   );
@@ -1039,7 +1077,8 @@ export function MailShell() {
         ? undefined
         : () => {
             if (selection.hasSelection) selection.clear();
-            else if (layout === "list") closeReader();
+            else if (layout === "list" && openThreadId) closeReader();
+            else if (searchValue) setSearch("");
           },
       nextSplit: () => {
         const index = splits.findIndex(
@@ -1070,7 +1109,7 @@ export function MailShell() {
       extendSelectionUp: () => extendSelection(-1),
       label: canLabel ? openLabelPicker : undefined,
       move: canLabel ? openMovePicker : undefined,
-      archive: archiveTargets,
+      archive: targetsArchived ? undefined : archiveTargets,
       star: starTargets,
       markSpam: markSpamTargets,
       markUnread: markUnreadTargets,
@@ -1086,10 +1125,14 @@ export function MailShell() {
       moreActions: openThreadId
         ? () => setIsMenuOpen((open) => !open)
         : undefined,
+      openTeamComments: openThreadId
+        ? () => document.dispatchEvent(new Event("team-comments:open"))
+        : undefined,
       openExternal:
         isReaderTarget && openExternalUrl
           ? () => window.open(openExternalUrl, "_blank", "noopener,noreferrer")
           : undefined,
+      translate: isMailOverlayOpen ? undefined : translateOpenThread,
       undo: async () => {
         if (await undoLatestToast()) return;
         await undo();
@@ -1244,6 +1287,22 @@ export function MailShell() {
         : NO_SEARCH_OPTIONS,
     [folders, isAllAccounts, isOutlook],
   );
+  const showSplitTabs = !isScoped && !searchQuery;
+  const threadCount = threads.length;
+  const { selectedCount, selectAll, clear: clearSelection } = selection;
+  // Only offered once something is selected, so the tabs sit flush otherwise.
+  const selectAllCheckbox = useMemo(
+    () =>
+      selectedCount > 0 ? (
+        <SelectAllCheckbox
+          threadCount={threadCount}
+          selectedCount={selectedCount}
+          onSelectAll={selectAll}
+          onClearSelection={clearSelection}
+        />
+      ) : null,
+    [threadCount, selectedCount, selectAll, clearSelection],
+  );
 
   const showList = layout === "split" || !openThreadSelection;
   const showReader = layout === "split" || Boolean(openThreadSelection);
@@ -1351,10 +1410,12 @@ export function MailShell() {
                 onTogglePreview={togglePreview}
                 onToggleAssistant={onToggleAssistant}
                 showLayoutToggle={!isAllAccounts}
-                threadCount={threads.length}
+                selectAll={showSplitTabs ? null : selectAllCheckbox}
                 selectedCount={selection.selectedCount}
-                onSelectAll={selection.selectAll}
                 onArchiveSelected={archiveTargets}
+                onMoveToInboxSelected={
+                  targetsArchived ? moveToInboxTargets : undefined
+                }
                 onDeleteSelected={trashTargets}
                 isUnreadSelected={actionTargets.some((target) =>
                   isThreadUnread(target.messages),
@@ -1364,8 +1425,9 @@ export function MailShell() {
                 onLabelSelected={canLabel ? openLabelPicker : undefined}
                 onClearSelection={selection.clear}
               />
-              {!isScoped && !searchQuery && (
+              {showSplitTabs && (
                 <MailSplitTabs
+                  leading={selectAllCheckbox}
                   splits={splitTabs}
                   activeSplitId={displayedActiveSplitId}
                   onSelectSplit={setActiveSplitId}
@@ -1466,6 +1528,7 @@ export function MailShell() {
                 onDelete={trashTargets}
                 onLabel={canLabel ? openLabelPicker : undefined}
                 onMove={canLabel ? openMovePicker : undefined}
+                onTranslate={translateOpenThread}
                 isMenuOpen={isMenuOpen}
                 onMenuOpenChange={setIsMenuOpen}
                 enableMessageNavigation={!sidePanelThreadId}
@@ -1488,6 +1551,7 @@ export function MailShell() {
                 labelHref={labelHref}
                 onRemoveLabel={onRemoveLabel}
                 onArchive={archiveTargets}
+                onMoveToInbox={targetsArchived ? moveToInboxTargets : undefined}
                 isUnread={isOpenThreadUnread}
                 onMarkRead={markOpenThreadRead}
                 onMarkUnread={markUnreadTargets}

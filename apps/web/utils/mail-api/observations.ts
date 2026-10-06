@@ -1,4 +1,5 @@
 import {
+  MAX_ATTACHMENT_CONTENT_ID_LENGTH,
   MAX_RECIPIENTS,
   type MessageAttachmentDescriptor,
   type MessageMetadata,
@@ -48,6 +49,7 @@ export function parsedMessageMetadata(message: ParsedMessage): MessageMetadata {
     from: message.headers.from || "",
     to: splitAddresses(message.headers.to),
     cc: splitAddresses(message.headers.cc),
+    bcc: splitAddresses(message.headers.bcc),
     receivedAtMs: receivedAtMs(message),
     read: !labels.includes("UNREAD"),
     starred: labels.includes("STARRED"),
@@ -116,8 +118,7 @@ function parsedMessageAttachmentDescriptors(
       descriptorFromParsed(attachment, true),
     ),
   ].filter(
-    // Gmail omits the id when a small part's data is embedded in the message.
-    // It can't be fetched by id, and one missing id fails the whole sync page.
+    // A provider part without a native or authoritative MIME reference cannot be retrieved.
     (descriptor) => Boolean(descriptor.attachmentId),
   );
 }
@@ -128,15 +129,23 @@ function descriptorFromParsed(
     filename: string;
     mimeType: string;
     size: number;
+    headers?: { "content-id"?: string };
   },
   inline: boolean,
 ): MessageAttachmentDescriptor {
+  const contentId = attachment.headers?.["content-id"]
+    ?.trim()
+    .replace(/^<|>$/g, "");
   return {
     attachmentId: attachment.attachmentId,
     filename: attachment.filename,
     mimeType: attachment.mimeType,
     size: Number.isFinite(attachment.size) ? attachment.size : 0,
     inline,
+    contentId:
+      contentId && contentId.length <= MAX_ATTACHMENT_CONTENT_ID_LENGTH
+        ? contentId
+        : null,
   };
 }
 

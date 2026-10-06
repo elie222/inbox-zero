@@ -1,5 +1,5 @@
 import * as cheerio from "cheerio";
-import { isSafeExternalHttpUrl } from "@/utils/network/safe-http-url";
+import { isSafeExternalHttpUrl } from "@inboxzero/network/safe-url";
 
 // No "image": a browser submits those as name.x/name.y coordinates, which we
 // cannot reproduce, so the form is left to the browser worker instead.

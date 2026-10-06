@@ -9,7 +9,11 @@ vi.mock("@/env", () => ({
   },
 }));
 
-import { deliverApnsNotifications, takeRecordedApnsSends } from "./apns";
+import {
+  deliverApnsNotifications,
+  isStaleApnsToken,
+  takeRecordedApnsSends,
+} from "./apns";
 
 describe("deliverApnsNotifications", () => {
   beforeEach(() => {
@@ -43,5 +47,45 @@ describe("deliverApnsNotifications", () => {
         },
       },
     ]);
+  });
+
+  it("records a silent background push with no alert", async () => {
+    await deliverApnsNotifications({
+      tokens: ["b".repeat(64)],
+      sandbox: true,
+      notification: {
+        pushType: "background",
+        data: { emailAccountId: "account-1", hint: "mailbox" },
+      },
+      logger: { warn: vi.fn() } as never,
+    });
+
+    expect(takeRecordedApnsSends()).toEqual([
+      {
+        token: "b".repeat(64),
+        topic: "com.getinboxzero.app",
+        sandbox: true,
+        payload: {
+          aps: { "content-available": 1 },
+          emailAccountId: "account-1",
+          hint: "mailbox",
+        },
+      },
+    ]);
+  });
+});
+
+describe("isStaleApnsToken", () => {
+  it.each([
+    { status: 410, reason: "Unregistered" },
+    { status: 400, reason: "BadDeviceToken" },
+  ])("prunes %j", (delivery) => {
+    expect(isStaleApnsToken(delivery)).toBe(true);
+  });
+
+  it("keeps retryable rejections", () => {
+    expect(isStaleApnsToken({ status: 429, reason: "TooManyRequests" })).toBe(
+      false,
+    );
   });
 });

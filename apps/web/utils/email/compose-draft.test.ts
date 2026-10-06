@@ -112,3 +112,18 @@ it("does not send when updating the draft fails", async () => {
   ).rejects.toThrow("Draft missing");
   expect(provider.sendDraft).not.toHaveBeenCalled();
 });
+
+it("creates a provider reply draft in the original conversation", async () => {
+  await saveComposeDraft({
+    provider,
+    content: {
+      ...content,
+      replyToEmail: { threadId: "thread-1", messageId: "parent-1" },
+    },
+  });
+  expect(provider.createDraft).toHaveBeenCalledWith(
+    expect.objectContaining({
+      replyToMessageId: "parent-1",
+    }),
+  );
+});

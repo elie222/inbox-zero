@@ -199,17 +199,62 @@ export function getNewsletterSenderDisplayName({
   return fromName?.trim() || "";
 }
 
+/** Two letters at most: initials from a display name, or the address's first letters. */
+export function getInitials(name: string) {
+  // Spread by code point so an emoji or astral letter isn't split in half.
+  const words = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => [...word]);
+  if (words.length === 0) return "?";
+  if (words.length === 1) return words[0].slice(0, 2).join("").toUpperCase();
+  return `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase();
+}
+
 // Public email providers where we should search by full email address
 // For company domains, we search by domain to catch emails from different people at same company
 export const PUBLIC_EMAIL_DOMAINS = new Set([
   "gmail.com",
   "googlemail.com",
   "yahoo.com",
+  "yahoo.co.uk",
+  "yahoo.ca",
+  "yahoo.com.au",
+  "yahoo.co.in",
+  "yahoo.fr",
+  "yahoo.de",
+  "yahoo.es",
+  "yahoo.it",
+  "yahoo.co.jp",
+  "yahoo.com.br",
+  "yahoo.com.mx",
+  "yahoo.co.nz",
+  "yahoo.com.sg",
+  "yahoo.com.hk",
+  "yahoo.com.tw",
   "ymail.com",
   "rocketmail.com",
   "hotmail.com",
+  "hotmail.co.uk",
+  "hotmail.fr",
+  "hotmail.de",
+  "hotmail.es",
+  "hotmail.it",
+  "hotmail.ca",
+  "hotmail.com.au",
   "outlook.com",
+  "outlook.fr",
+  "outlook.de",
+  "outlook.es",
+  "outlook.it",
   "live.com",
+  "live.co.uk",
+  "live.fr",
+  "live.de",
+  "live.it",
+  "live.ca",
+  "live.com.au",
   "msn.com",
   "aol.com",
   "icloud.com",

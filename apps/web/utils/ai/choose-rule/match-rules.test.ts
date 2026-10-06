@@ -2071,7 +2071,7 @@ describe("findMatchingRules - Integration Tests", () => {
     expect(result.matches[0]?.matchReasons).toEqual([
       { type: ConditionType.AI },
     ]);
-    expect(result.reasoning).toBe("ai");
+    expect(result.reasoning).toBe("");
   });
 
   it("returns learned pattern match reasons for cold email pattern hits", async () => {
@@ -2122,7 +2122,9 @@ describe("findMatchingRules - Integration Tests", () => {
         ],
       },
     ]);
-    expect(result.reasoning).toBe("ai-already-labeled");
+    expect(result.reasoning).toBe(
+      "The sender matches a learned pattern for this rule.",
+    );
   });
 
   it("should skip cold email detection when rule is not enabled", async () => {
@@ -3159,7 +3161,9 @@ describe("findMatchingRules - decisionModel rule selection", () => {
 
     expect(decisionModelChooseRule).not.toHaveBeenCalled();
     expect(result.matches[0]?.rule.id).toBe("cold-email-rule");
-    expect(result.reasoning).toBe("ai-already-labeled");
+    expect(result.reasoning).toBe(
+      "The sender matches a learned pattern for this rule.",
+    );
   });
 
   it("does not call the decisionModel when there are no candidates and cold email is decided", async () => {

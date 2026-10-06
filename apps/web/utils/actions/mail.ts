@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import prisma from "@/utils/prisma";
-import { removeLabelFromMailSplits } from "@/utils/mail/splits.server";
+import { removeLabelFromMailSplits } from "@/utils/split-inbox/splits.server";
 import { sendEmailBody } from "@/utils/types/mail";
 import { actionClient } from "@/utils/actions/safe-action";
 import { SafeError } from "@/utils/error";
@@ -15,7 +15,7 @@ import {
   updateMailboxItemBody,
   updateDraftBody,
   saveComposeDraftBody,
-  discardComposeDraftBody,
+  composeDraftParams,
 } from "@/utils/actions/mail.validation";
 import {
   isGoogleProvider,
@@ -533,7 +533,7 @@ export const saveComposeDraftAction = actionClient
 
 export const discardComposeDraftAction = actionClient
   .metadata({ name: "discardComposeDraft" })
-  .inputSchema(discardComposeDraftBody)
+  .inputSchema(composeDraftParams)
   .action(
     async ({
       ctx: { emailAccountId, provider: providerName, logger },

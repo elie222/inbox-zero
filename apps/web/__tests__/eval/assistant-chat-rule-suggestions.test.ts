@@ -17,6 +17,10 @@ import {
 } from "@/__tests__/eval/models";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
 import {
+  formatSemanticJudgeActual,
+  judgeEvalOutput,
+} from "@/__tests__/eval/semantic-judge";
+import {
   buildRuleFixtureRow,
   toRuleRows,
   type DemoInboxRuleRow,
@@ -126,6 +130,7 @@ type Scenario = {
   messages: ModelMessage[];
   rules?: DemoInboxRuleRow[];
   expectRuleWrite?: boolean;
+  expectedRule?: ExpectedRule;
   expectQuestion?: boolean;
   maxFinalWords?: number;
 };
@@ -137,6 +142,20 @@ type EpisodeScenario = {
   account: AssistantRuleSuggestionFixture["account"];
   inboxStats: { total: number; unread: number };
   turns: AssistantChatEpisodeTurn[];
+  expectedRule: ExpectedRule;
+};
+
+type ExpectedRule = {
+  label: string;
+  archives: boolean;
+  scope: string;
+};
+
+const productUpdatesRule: ExpectedRule = {
+  label: "Product Updates",
+  archives: true,
+  scope:
+    "The rule targets product update digests from SaaS vendors and excludes security alerts and billing emails.",
 };
 
 const saasRules = toRuleRows({
@@ -246,6 +265,7 @@ const scenarios: Scenario[] = [
     ],
     rules: saasRules,
     expectRuleWrite: true,
+    expectedRule: productUpdatesRule,
   },
 ];
 
@@ -267,6 +287,7 @@ const episodeScenarios: EpisodeScenario[] = [
           "Yes, product update digests are low priority. Create that rule, label them Product Updates, archive them, and exclude security or billing alerts.",
       },
     ],
+    expectedRule: productUpdatesRule,
   },
 ];
 
@@ -315,16 +336,26 @@ describe.runIf(shouldRunEval)("Eval: assistant chat rule suggestions", () => {
           }
 
           const analysis = analyzeTrace(trace);
-          const expectRuleWrite =
-            scenario.expectRuleWrite ?? scenario.name.includes("creates");
-          const pass = expectRuleWrite
+          const judgeResult = scenario.expectRuleWrite
+            ? await judgeCreatedRules({
+                scenario,
+                createdRules: state.createdRules,
+              })
+            : await judgeSuggestionResponse({
+                scenario,
+                finalText: trace.finalText,
+              });
+          const pass = scenario.expectRuleWrite
             ? analysis.usedCreateRule &&
-              hasExpectedCreatedRule(scenario, state.createdRules)
+              hasExpectedRuleActions(
+                scenario.expectedRule,
+                state.createdRules,
+              ) &&
+              judgeResult.pass
             : analysis.usedRulesTool &&
               analysis.usedSearchTool &&
               analysis.noRuleWrite &&
-              analysis.mentionsEvidence &&
-              analysis.mentionsPriority &&
+              judgeResult.pass &&
               (!scenario.expectQuestion || analysis.asksQuestion) &&
               (!scenario.maxFinalWords ||
                 analysis.wordCount <= scenario.maxFinalWords);
@@ -335,7 +366,11 @@ describe.runIf(shouldRunEval)("Eval: assistant chat rule suggestions", () => {
             pass,
             durationMs: Date.now() - startedAt,
             expected: scenario.expected,
-            actual: formatTraceForReport(trace, analysis, state),
+            actual: `${formatTraceForReport(trace, analysis, state)} | ${formatSemanticJudgeActual(
+              judgeResult.output,
+              judgeResult,
+            )}`,
+            criteria: [judgeResult],
           });
 
           expect(trace.finalText.trim().length).toBeGreaterThan(0);
@@ -379,14 +414,20 @@ describe.runIf(shouldRunEval)("Eval: assistant chat rule suggestions", () => {
               finalText: episode.finalText,
               toolCalls,
             });
+            const judgeResult = await judgeCreatedRules({
+              scenario,
+              createdRules: state.createdRules,
+            });
             const pass =
               firstTurnAnalysis.usedRulesTool &&
               firstTurnAnalysis.usedSearchTool &&
               firstTurnAnalysis.noRuleWrite &&
               finalAnalysis.usedCreateRule &&
-              state.createdRules.some((rule) =>
-                rule.name.toLowerCase().includes("product"),
-              );
+              hasExpectedRuleActions(
+                scenario.expectedRule,
+                state.createdRules,
+              ) &&
+              judgeResult.pass;
 
             evalReporter.record({
               testName: scenario.name,
@@ -394,11 +435,12 @@ describe.runIf(shouldRunEval)("Eval: assistant chat rule suggestions", () => {
               pass,
               durationMs: Date.now() - startedAt,
               expected: scenario.expected,
-              actual: formatEpisodeForReport({
+              actual: `${formatEpisodeForReport({
                 episode,
                 analysis: finalAnalysis,
                 state,
-              }),
+              })} | ${formatSemanticJudgeActual(judgeResult.output, judgeResult)}`,
+              criteria: [judgeResult],
             });
 
             expect(episode.finalText.trim().length).toBeGreaterThan(0);
@@ -596,38 +638,74 @@ function analyzeTrace(trace: AssistantChatTrace) {
   });
 }
 
-function hasExpectedCreatedRule(
-  scenario: Scenario,
+function hasExpectedRuleActions(
+  expectedRule: ExpectedRule | undefined,
   createdRules: DemoInboxRuleRow[],
 ) {
-  if (!scenario.expectRuleWrite && !scenario.name.includes("creates")) {
-    return createdRules.length === 0;
-  }
-
-  if (!scenario.name.toLowerCase().includes("product")) {
-    return createdRules.length > 0;
-  }
+  if (!expectedRule) return createdRules.length > 0;
 
   return createdRules.some((rule) => {
-    const lowerName = rule.name.toLowerCase();
-    const lowerInstructions = (rule.instructions ?? "").toLowerCase();
-    const hasProductLabel = rule.actions.some(
+    const hasLabel = rule.actions.some(
       (action) =>
         action.type === ActionType.LABEL &&
-        action.label?.toLowerCase() === "product updates",
+        action.label?.toLowerCase() === expectedRule.label.toLowerCase(),
     );
     const hasArchive = rule.actions.some(
       (action) => action.type === ActionType.ARCHIVE,
     );
 
-    return (
-      lowerName.includes("product") &&
-      lowerInstructions.includes("security") &&
-      lowerInstructions.includes("billing") &&
-      hasProductLabel &&
-      hasArchive
-    );
+    return hasLabel && hasArchive === expectedRule.archives;
   });
+}
+
+async function judgeCreatedRules({
+  scenario,
+  createdRules,
+}: {
+  scenario: { expected: string; expectedRule?: ExpectedRule };
+  createdRules: DemoInboxRuleRow[];
+}) {
+  const output = JSON.stringify(summarizeRules(createdRules));
+  const result = await judgeEvalOutput({
+    input: scenario.expected,
+    output,
+    expected: scenario.expectedRule?.scope,
+    criterion: {
+      name: "Created rule matches the confirmed scope",
+      description:
+        "At least one created rule's name and matching conditions cover the category the user confirmed and honor any exclusions the user stated.",
+    },
+  });
+
+  return { ...result, output };
+}
+
+async function judgeSuggestionResponse({
+  scenario,
+  finalText,
+}: {
+  scenario: Scenario;
+  finalText: string;
+}) {
+  const result = await judgeEvalOutput({
+    input: [
+      "## Scenario",
+      scenario.expected,
+      "## User messages",
+      ...scenario.messages
+        .filter((message) => message.role === "user")
+        .map((message) => String(message.content)),
+    ].join("\n"),
+    output: finalText,
+    expected: scenario.expected,
+    criterion: {
+      name: "Grounded rule suggestions with priority calibration",
+      description:
+        "The response grounds its rule suggestions in what it found in the user's inbox or existing rules, and addresses which kinds of email are important versus low priority, either by reasoning about priority or by asking the user about it.",
+    },
+  });
+
+  return { ...result, output: finalText };
 }
 
 function analyzeAssistantOutput({
@@ -637,7 +715,6 @@ function analyzeAssistantOutput({
   finalText: string;
   toolCalls: RecordedToolCall[];
 }) {
-  const lowerText = finalText.toLowerCase();
   const usedRulesTool = hasTool(toolCalls, "getUserRulesAndSettings");
   const usedSearchTool = hasTool(toolCalls, "searchInbox");
   const usedCreateRule = hasTool(toolCalls, "createRule");
@@ -648,18 +725,6 @@ function analyzeAssistantOutput({
     usedCreateRule,
     noRuleWrite: !hasAssistantWriteToolCalls(toolCalls),
     asksQuestion: finalText.includes("?"),
-    mentionsEvidence: [
-      "sample",
-      "found",
-      "saw",
-      "inbox",
-      "existing",
-      "already",
-      "rule",
-    ].some((term) => lowerText.includes(term)),
-    mentionsPriority: ["priority", "urgent", "high", "low", "important"].some(
-      (term) => lowerText.includes(term),
-    ),
     wordCount: finalText.trim().split(/\s+/).filter(Boolean).length,
   };
 }

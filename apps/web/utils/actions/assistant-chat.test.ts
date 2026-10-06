@@ -338,7 +338,7 @@ describe("confirmAssistantEmailAction", () => {
       id: "chat-message-1",
       chatId: "chat-1",
       updatedAt: new Date("2026-02-23T00:00:00.000Z"),
-      parts: [buildPendingReplyPart()],
+      parts: [buildPendingReplyPart("Thanks! Reach me at <owner@example.com>")],
     } as any);
 
     prisma.chatMessage.updateMany.mockResolvedValue({ count: 1 } as any);
@@ -372,9 +372,11 @@ describe("confirmAssistantEmailAction", () => {
       } as any,
     );
 
-    expect(replyToEmail).toHaveBeenCalledWith(sourceMessage, "Thanks!", {
-      from: "Owner <owner@example.com>",
-    });
+    expect(replyToEmail).toHaveBeenCalledWith(
+      sourceMessage,
+      "Thanks! Reach me at &lt;owner@example.com&gt;",
+      { from: "Owner <owner@example.com>" },
+    );
     expect(result?.data?.confirmationState).toBe("confirmed");
     expect(result?.data?.confirmationResult).toMatchObject({
       actionType: "reply_email",
@@ -1647,7 +1649,7 @@ function confirmPendingSendEmail() {
   );
 }
 
-function buildPendingReplyPart() {
+function buildPendingReplyPart(content = "Thanks!") {
   return {
     type: "tool-replyEmail",
     toolCallId: "tool-1",
@@ -1660,7 +1662,7 @@ function buildPendingReplyPart() {
       emailAccountId: "ea_1",
       pendingAction: {
         messageId: "source-message-1",
-        content: "Thanks!",
+        content,
       },
       reference: {
         messageId: "source-message-1",

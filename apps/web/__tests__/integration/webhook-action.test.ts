@@ -52,12 +52,14 @@ vi.mock("@/utils/log-error-with-dedupe", () => ({
 }));
 
 // Mock webhook URL validation to allow localhost
-vi.mock("@/utils/webhook-validation", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/utils/webhook-validation")>()),
+vi.mock("@/utils/outbound-webhook/url-validation", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("@/utils/outbound-webhook/url-validation")
+  >()),
   validateWebhookUrl: vi.fn().mockResolvedValue({ valid: true }),
 }));
 
-vi.mock("@/utils/network/safe-http-url", () => ({
+vi.mock("@inboxzero/network/safe-url", () => ({
   resolveSafeExternalHttpUrl: vi.fn(async (url: string) => ({
     url: new URL(url),
     lookup: (

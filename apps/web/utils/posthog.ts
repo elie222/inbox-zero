@@ -173,6 +173,8 @@ export async function posthogCaptureEvent(
   // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   properties?: Record<string, any>,
   sendFeatureFlags?: boolean,
+  // A stable uuid with the same timestamp lets PostHog drop redeliveries.
+  { uuid, timestamp }: { uuid?: string; timestamp?: Date } = {},
 ) {
   try {
     if (!env.NEXT_PUBLIC_POSTHOG_KEY) {
@@ -186,6 +188,8 @@ export async function posthogCaptureEvent(
       event,
       properties,
       sendFeatureFlags,
+      uuid,
+      timestamp,
     });
     try {
       await client.flush();

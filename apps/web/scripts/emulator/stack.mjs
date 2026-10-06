@@ -1,14 +1,14 @@
+import { randomUUID } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 import { createServer } from "node:net";
-import {
-  mkdirSync,
-  openSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, openSync, readFileSync, rmSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  StartupOwnership,
+  stopStartup,
+  readStartupState,
+} from "./startup-ownership.mjs";
 
 const webRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -23,15 +23,22 @@ const command = process.argv[2] ?? "help";
 if (command === "serve-cron") {
   await serveScheduledActions();
 } else if (command === "up") {
-  await up({ foreground: process.argv.includes("--foreground") });
+  await up({
+    foreground: process.argv.includes("--foreground"),
+    integrationTests: process.argv.includes("--integration-tests"),
+    ownerToken: ownerTokenArgument() ?? randomUUID(),
+  });
+} else if (command === "reset") {
+  await resetIntegration();
 } else if (command === "down") {
-  await down();
+  await down(undefined, ownerTokenArgument());
 } else {
-  console.log("Usage: node scripts/emulator/stack.mjs <up|down>");
+  console.log("Usage: node scripts/emulator/stack.mjs <up|down|reset>");
   process.exit(command === "help" ? 0 : 1);
 }
 
-async function up({ foreground }) {
+async function up({ foreground, integrationTests, ownerToken }) {
+  if (!ownerToken) throw new Error("--owner-token requires a value");
   if (exists(statePath)) {
     throw new Error(
       "Emulator is already running. Stop it with: pnpm -F inbox-zero-ai emulator:down",
@@ -48,8 +55,19 @@ async function up({ foreground }) {
     redisHttp: await getAvailablePort(),
     google: await getAvailablePort(),
     microsoft: await getAvailablePort(),
+    ...(integrationTests
+      ? {
+          proxy: await getAvailablePort(),
+          llm: await getAvailablePort(),
+          googleControl: await getAvailablePort(),
+          microsoftControl: await getAvailablePort(),
+        }
+      : {}),
   };
-  const baseUrl = `http://127.0.0.1:${ports.next}`;
+  const nextBaseUrl = `http://127.0.0.1:${ports.next}`;
+  const baseUrl = integrationTests
+    ? `http://127.0.0.1:${ports.proxy}`
+    : nextBaseUrl;
   const googleBaseUrl = `http://127.0.0.1:${ports.google}`;
   const microsoftBaseUrl = `http://127.0.0.1:${ports.microsoft}`;
   const databaseUrl = `postgresql://postgres:postgres@127.0.0.1:${ports.postgres}/emulator`;
@@ -61,14 +79,29 @@ async function up({ foreground }) {
     redisUrl: `redis://127.0.0.1:${ports.redis}`,
     redisHttpUrl: `http://127.0.0.1:${ports.redisHttp}`,
   });
+  if (integrationTests) {
+    env.OPENAI_COMPATIBLE_BASE_URL = `http://127.0.0.1:${ports.llm}/v1`;
+    env.PLAYWRIGHT_RUN_ID = `integration-${id}`;
+  }
   assertLocalTargets(env);
   const composeProject = `emulator${id}`;
   const pids = [];
   const state = {
+    ownerToken,
     baseUrl,
     googleBaseUrl,
     microsoftBaseUrl,
     databaseUrl,
+    ...(integrationTests
+      ? {
+          controlUrl: `${baseUrl}/__test-control`,
+          llmUrl: `http://127.0.0.1:${ports.llm}`,
+          providerControlUrls: [
+            `http://127.0.0.1:${ports.googleControl}`,
+            `http://127.0.0.1:${ports.microsoftControl}`,
+          ],
+        }
+      : {}),
     composeProject,
     composeEnv: {
       POSTGRES_PORT: String(ports.postgres),
@@ -78,9 +111,15 @@ async function up({ foreground }) {
     runDir,
     pids,
   };
+  const ownership = new StartupOwnership(statePath, state);
+  const start = (command, args, childEnv, logPath) =>
+    ownership.start(() => spawnLogged(command, args, childEnv, logPath));
   try {
+    ownership.assertCurrent();
     compose(composeProject, ["up", "-d", "--wait"], state.composeEnv);
+    ownership.assertCurrent();
     run(webRoot, "pnpm", ["exec", "prisma", "migrate", "deploy"], env);
+    ownership.assertCurrent();
     const seedPath = path.join(runDir, "emulate.generated.json");
     run(
       webRoot,
@@ -97,72 +136,162 @@ async function up({ foreground }) {
       ],
       env,
     );
-    pids.push(
-      spawnLogged(
-        "pnpm",
-        [
-          "exec",
-          "emulate",
-          "start",
-          "--service",
-          "google",
-          "--port",
-          String(ports.google),
-          "--base-url",
-          googleBaseUrl,
-          "--seed",
-          seedPath,
-        ],
-        env,
-        path.join(runDir, "google.log"),
-      ),
-      spawnLogged(
-        "pnpm",
-        [
-          "exec",
-          "emulate",
-          "start",
-          "--service",
-          "microsoft",
-          "--port",
-          String(ports.microsoft),
-          "--base-url",
-          microsoftBaseUrl,
-          "--seed",
-          seedPath,
-        ],
-        env,
-        path.join(runDir, "microsoft.log"),
-      ),
-      spawnLogged(
-        "pnpm",
-        [
-          "exec",
-          "next",
-          "dev",
-          "--turbopack",
-          "--hostname",
-          "127.0.0.1",
-          "--port",
-          String(ports.next),
-        ],
-        env,
-        path.join(runDir, "next.log"),
-      ),
-      spawnLogged(
+    if (integrationTests) {
+      ownership.assertCurrent();
+      run(
+        webRoot,
         process.execPath,
-        [fileURLToPath(import.meta.url), "serve-cron"],
-        { ...env, EMULATOR_BASE_URL: baseUrl },
-        path.join(runDir, "cron.log"),
-      ),
+        ["scripts/emulator/fixtures.mjs", seedPath],
+        env,
+      );
+      start(
+        "pnpm",
+        ["exec", "tsx", "scripts/run-llm-emulator.ts", String(ports.llm)],
+        env,
+        path.join(runDir, "llm.log"),
+      );
+      start(
+        process.execPath,
+        ["scripts/emulator/proxy.mjs", String(ports.proxy), nextBaseUrl],
+        env,
+        path.join(runDir, "proxy.log"),
+      );
+    }
+    start(
+      integrationTests ? process.execPath : "pnpm",
+      integrationTests
+        ? [
+            "scripts/emulator/provider.mjs",
+            "google",
+            String(ports.google),
+            String(ports.googleControl),
+            seedPath,
+          ]
+        : [
+            "exec",
+            "emulate",
+            "start",
+            "--service",
+            "google",
+            "--port",
+            String(ports.google),
+            "--base-url",
+            googleBaseUrl,
+            "--seed",
+            seedPath,
+          ],
+      env,
+      path.join(runDir, "google.log"),
     );
-    writeFileSync(statePath, `${JSON.stringify(state, null, 2)}\n`);
-    await waitForReady(state);
+    start(
+      integrationTests ? process.execPath : "pnpm",
+      integrationTests
+        ? [
+            "scripts/emulator/provider.mjs",
+            "microsoft",
+            String(ports.microsoft),
+            String(ports.microsoftControl),
+            seedPath,
+          ]
+        : [
+            "exec",
+            "emulate",
+            "start",
+            "--service",
+            "microsoft",
+            "--port",
+            String(ports.microsoft),
+            "--base-url",
+            microsoftBaseUrl,
+            "--seed",
+            seedPath,
+          ],
+      env,
+      path.join(runDir, "microsoft.log"),
+    );
+    start(
+      "pnpm",
+      [
+        "exec",
+        "next",
+        "dev",
+        "--turbopack",
+        "--hostname",
+        "127.0.0.1",
+        "--port",
+        String(ports.next),
+      ],
+      env,
+      path.join(runDir, "next.log"),
+    );
+    start(
+      process.execPath,
+      [fileURLToPath(import.meta.url), "serve-cron"],
+      { ...env, EMULATOR_BASE_URL: baseUrl },
+      path.join(runDir, "cron.log"),
+    );
+    ownership.publish();
+    await waitForReady(state, () => ownership.assertCurrent());
+    ownership.assertCurrent();
     printReady(state);
     if (foreground) await waitForSignal();
   } catch (error) {
-    await down(state);
+    try {
+      await down(state);
+    } catch (cleanupError) {
+      console.error("Emulator cleanup also failed", cleanupError);
+    }
     throw error;
+  } finally {
+    ownership.close();
+  }
+}
+
+async function resetIntegration() {
+  const state = await readStartupState(statePath);
+  if (!state?.controlUrl || !state.llmUrl)
+    throw new Error("reset requires an owned --integration-tests stack");
+  for (const origin of state.providerControlUrls) {
+    const response = await fetch(`${origin}/reset`, {
+      method: "POST",
+      redirect: "manual",
+    });
+    if (response.status !== 200)
+      throw new Error(`Provider reset failed: ${response.status}`);
+  }
+  const sql = `DO $$ DECLARE tables text; BEGIN SELECT string_agg(format('%I.%I', schemaname, tablename), ', ') INTO tables FROM pg_tables WHERE schemaname = 'public' AND tablename <> '_prisma_migrations'; IF tables IS NOT NULL THEN EXECUTE 'TRUNCATE TABLE ' || tables || ' RESTART IDENTITY CASCADE'; END IF; END $$;`;
+  compose(
+    state.composeProject,
+    [
+      "exec",
+      "-T",
+      "db",
+      "psql",
+      "-U",
+      "postgres",
+      "-d",
+      "emulator",
+      "-v",
+      "ON_ERROR_STOP=1",
+      "-c",
+      sql,
+    ],
+    state.composeEnv,
+  );
+  compose(
+    state.composeProject,
+    ["exec", "-T", "redis", "redis-cli", "FLUSHALL"],
+    state.composeEnv,
+  );
+  for (const [origin, endpoint] of [
+    [state.llmUrl, "/__emulator/reset"],
+    [state.controlUrl, "/response-loss"],
+  ]) {
+    const response = await fetch(`${origin}${endpoint}`, {
+      method: endpoint === "/response-loss" ? "DELETE" : "POST",
+    });
+    if (!response.ok)
+      throw new Error(`Provider fixture reset failed: ${response.status}`);
   }
 }
 
@@ -190,30 +319,27 @@ async function serveScheduledActions() {
   }
 }
 
-async function down(state = readState()) {
+async function down(providedState, expectedOwner) {
+  const state = providedState ?? (await readStartupState(statePath));
   if (!state) return;
+  if (expectedOwner && state.ownerToken !== expectedOwner)
+    throw new Error("Emulator ownership changed; refusing cleanup");
+  stopStartup(state);
   for (const pid of state.pids ?? []) stopPid(pid);
   if (state.composeProject) {
-    try {
-      compose(
-        state.composeProject,
-        ["down", "--volumes", "--timeout", "10", "--remove-orphans"],
-        state.composeEnv ?? {
-          POSTGRES_PORT: "1",
-          REDIS_PORT: "1",
-          REDIS_HTTP_PORT: "1",
-        },
-      );
-    } catch (error) {
-      console.error(error instanceof Error ? error.message : error);
-    }
+    // Keep the ownership record if Compose fails, so cleanup can be retried.
+    compose(
+      state.composeProject,
+      ["down", "--volumes", "--timeout", "10", "--remove-orphans"],
+      state.composeEnv ?? {
+        POSTGRES_PORT: "1",
+        REDIS_PORT: "1",
+        REDIS_HTTP_PORT: "1",
+      },
+    );
   }
-  rmSync(statePath, { force: true });
-}
-
-function readState() {
-  if (!exists(statePath)) return;
-  return JSON.parse(readFileSync(statePath, "utf8"));
+  if ((await readStartupState(statePath))?.ownerToken === state.ownerToken)
+    rmSync(statePath, { force: true });
 }
 
 function printReady(state) {
@@ -222,25 +348,38 @@ function printReady(state) {
   console.log(`MICROSOFT_BASE_URL=${state.microsoftBaseUrl}`);
 }
 
-async function waitForReady(state) {
+async function waitForReady(state, assertOwner) {
   await waitFor(
     `${state.googleBaseUrl}/.well-known/openid-configuration`,
     "Google emulator",
+    60_000,
+    assertOwner,
   );
   await waitFor(
     `${state.microsoftBaseUrl}/.well-known/openid-configuration`,
     "Microsoft emulator",
+    60_000,
+    assertOwner,
   );
-  await waitFor(`${state.baseUrl}/api/auth/ok`, "Next auth", 180_000);
+  await waitFor(
+    `${state.baseUrl}/api/auth/ok`,
+    "Next auth",
+    180_000,
+    assertOwner,
+  );
 }
 
-async function waitFor(url, name, timeoutMs = 60_000) {
+async function waitFor(url, name, timeoutMs, assertOwner) {
   const deadline = Date.now() + timeoutMs;
   let lastError = "not ready";
   while (Date.now() < deadline) {
+    assertOwner();
     try {
-      const response = await fetch(url);
-      if (response.ok) return;
+      const response = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      if (response.ok) {
+        assertOwner();
+        return;
+      }
       lastError = `${response.status}`;
     } catch (error) {
       lastError = error instanceof Error ? error.message : String(error);
@@ -380,7 +519,12 @@ function compose(project, args, env) {
   const result = spawnSync(
     "docker",
     ["compose", "-p", project, "-f", composeFile, ...args],
-    { cwd: webRoot, env: { ...process.env, ...env }, stdio: "inherit" },
+    {
+      cwd: webRoot,
+      env: { ...process.env, ...env },
+      stdio: "inherit",
+      timeout: 120_000,
+    },
   );
   if (result.status !== 0) {
     throw new Error(`docker compose ${args[0]} failed`);
@@ -392,6 +536,7 @@ function run(cwd, command, args, env) {
     cwd,
     env,
     stdio: "inherit",
+    timeout: 120_000,
   });
   if (result.status !== 0)
     throw new Error(`${command} ${args.join(" ")} failed`);
@@ -474,4 +619,13 @@ function getAvailablePort() {
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function ownerTokenArgument() {
+  const index = process.argv.indexOf("--owner-token");
+  if (index === -1) return;
+  const token = process.argv[index + 1];
+  if (!token || token.startsWith("--"))
+    throw new Error("--owner-token requires a value");
+  return token;
 }

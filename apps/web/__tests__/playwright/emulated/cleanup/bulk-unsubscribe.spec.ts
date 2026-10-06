@@ -23,7 +23,7 @@ test.afterEach(async () => {
   if (fixture) await cleanUpFixture(fixture);
 });
 
-test("blocks a selected sender and surfaces it in Auto Archive", async ({
+test("blocks a selected sender and surfaces it in Auto-archived", async ({
   page,
 }) => {
   test.setTimeout(360_000);
@@ -33,7 +33,7 @@ test("blocks a selected sender and surfaces it in Auto Archive", async ({
     page.getByRole("heading", { name: "Bulk Unsubscriber" }),
   ).toBeVisible();
 
-  await selectNewsletterFilter(page, "Unhandled", "All");
+  await selectNewsletterFilter(page, "To review", "All senders");
 
   const senderRow = page
     .getByRole("row")
@@ -45,11 +45,12 @@ test("blocks a selected sender and surfaces it in Auto Archive", async ({
     page.getByText("Sender blocked. Future emails will be archived."),
   ).toBeVisible({ timeout: 120_000 });
 
-  await selectNewsletterFilter(page, "All", "Auto Archive");
+  await selectNewsletterFilter(page, "All senders", "Auto-archived");
   await expect(senderRow).toBeVisible({ timeout: 120_000 });
-  await expect(senderRow.getByRole("link", { name: "Block" })).toBeVisible({
-    timeout: 60_000,
-  });
+  await expect(senderRow).toContainText("Auto-archived", { timeout: 60_000 });
+  await expect(
+    senderRow.getByRole("button", { name: "Move to review" }),
+  ).toBeVisible();
 });
 
 async function selectNewsletterFilter(

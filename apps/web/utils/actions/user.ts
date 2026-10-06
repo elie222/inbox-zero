@@ -23,6 +23,7 @@ import {
 } from "@/utils/actions/user.validation";
 import { clearLastEmailAccountCookie } from "@/utils/cookies.server";
 import { deleteAccountUploadDirectory } from "@/utils/mail-api/upload-blobs";
+import { deleteTinybirdEmailData } from "@inboxzero/tinybird";
 import { aliasPosthogUser } from "@/utils/posthog";
 import {
   cleanupAIDraftsForAccount,
@@ -30,6 +31,7 @@ import {
 } from "@/utils/ai/draft-cleanup";
 import { isDuplicateError, isNotFoundError } from "@/utils/prisma-helpers";
 import type { Logger } from "@/utils/logger";
+import { prepareMemberRemovalNotifications } from "@/utils/team-comments/member-removal";
 import {
   DELETE_ACCOUNT_REQUIRES_OWNER_TRANSFER_ERROR,
   DELETE_EMAIL_ACCOUNT_REQUIRES_OWNER_TRANSFER_ERROR,
@@ -145,6 +147,10 @@ export const deleteEmailAccountAction = actionClientUser
       if (!emailAccount.accountId) throw new SafeError("Account id not found");
       const organizationIdsToDelete =
         await assertEmailAccountCanBeDeleted(emailAccountId);
+      const notifyConversations = await prepareMemberRemovalNotifications(
+        { emailAccountId },
+        logger,
+      );
 
       const isPrimaryAccount = emailAccount.email === emailAccount.user.email;
       const deleteSoloOrganizationsOperation =
@@ -242,12 +248,20 @@ export const deleteEmailAccountAction = actionClientUser
         );
       }
 
+      after(() =>
+        deleteTinybirdEmailData([emailAccount.email]).catch((error) => {
+          logger.error("Error deleting Tinybird data", { error });
+          captureException(error);
+        }),
+      );
+
       await deleteAccountUploadDirectory(emailAccountId).catch((error) => {
         logger.error("Failed to delete account mail uploads", {
           error,
           emailAccountId,
         });
       });
+      await notifyConversations();
 
       await clearLastEmailAccountCookieIfMatching({
         userId,

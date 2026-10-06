@@ -182,7 +182,9 @@ test("search suggests contacts and recent searches", async ({
   expect(new URL(page.url()).searchParams.get("q")).toBe("alice@example.com");
   await expect(suggestions).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Clear search" }).click();
+  // Escape from outside the field still leaves the search.
+  await searchInput.blur();
+  await page.keyboard.press("Escape");
   await expect(page).not.toHaveURL(/[?&]q=/);
   await searchInput.click();
   const recent = suggestions.getByRole("option", {

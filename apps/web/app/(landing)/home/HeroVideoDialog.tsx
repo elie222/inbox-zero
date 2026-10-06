@@ -1,6 +1,7 @@
 "use client";
 
 import { usePostHog } from "posthog-js/react";
+import { LazyMuxVideo } from "@/components/LazyMuxVideo";
 import { LiquidGlassButton } from "@/components/new-landing/LiquidGlassButton";
 import { Play } from "@/components/new-landing/icons/Play";
 import {
@@ -11,14 +12,24 @@ import {
 } from "@/components/ui/dialog";
 import { landingPageAnalytics } from "@/hooks/useAnalytics";
 
+// Recorded on every hero video event so a future video swap can be compared
+// with this one by video_id.
+const HERO_VIDEO_ID = "YeTrweHxCIM5tcBMXlvRbmDuPqL028lJrmJ3F6ZgwnDY";
+
 export function HeroVideoDialog() {
   const posthog = usePostHog();
 
   return (
-    <Dialog>
+    <Dialog
+      onOpenChange={(open) => {
+        if (!open) landingPageAnalytics.videoClosed(posthog, HERO_VIDEO_ID);
+      }}
+    >
       <DialogTrigger
         asChild
-        onClick={() => landingPageAnalytics.videoClicked(posthog)}
+        onClick={() =>
+          landingPageAnalytics.videoClicked(posthog, HERO_VIDEO_ID)
+        }
       >
         <LiquidGlassButton
           aria-label="Play product demo video"
@@ -30,14 +41,27 @@ export function HeroVideoDialog() {
         </LiquidGlassButton>
       </DialogTrigger>
       <DialogContent className="max-w-7xl border-0 bg-transparent p-0">
-        <DialogTitle className="sr-only">Video player</DialogTitle>
-        <div className="relative aspect-video w-full">
-          <iframe
-            src="https://www.youtube.com/embed/UusnveLKwWM?autoplay=1&rel=0"
-            className="size-full rounded-lg"
-            title="Video content"
-            allowFullScreen
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        <DialogTitle className="sr-only">Inbox Zero product video</DialogTitle>
+        <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-black">
+          <LazyMuxVideo
+            playbackId={HERO_VIDEO_ID}
+            title="Inbox Zero product video"
+            className="size-full"
+            playerClassName="size-full"
+            autoPlay
+            onVideoStarted={() =>
+              landingPageAnalytics.videoStarted(posthog, HERO_VIDEO_ID)
+            }
+            onVideoProgress={(progressPercent: number) =>
+              landingPageAnalytics.videoProgress(
+                posthog,
+                HERO_VIDEO_ID,
+                progressPercent,
+              )
+            }
+            onVideoCompleted={() =>
+              landingPageAnalytics.videoCompleted(posthog, HERO_VIDEO_ID)
+            }
           />
         </div>
       </DialogContent>

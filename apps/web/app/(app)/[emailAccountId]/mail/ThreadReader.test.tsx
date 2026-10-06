@@ -7,6 +7,9 @@ import { ThreadReader } from "@/app/(app)/[emailAccountId]/mail/ThreadReader";
 vi.mock("@/env", () => ({
   env: { NEXT_PUBLIC_SUPPORT_EMAIL: "support@example.com" },
 }));
+vi.mock("@/providers/EmailAccountProvider", () => ({
+  useAccount: () => ({ emailAccountId: "account-1" }),
+}));
 vi.mock("@/app/(app)/[emailAccountId]/mail/ReaderToolbar", () => ({
   ReaderToolbar: () => null,
 }));

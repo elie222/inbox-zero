@@ -257,6 +257,7 @@ function CommandPaletteContent({
     ? buildMailCommandPalette({
         actions: {
           archive: mailCommandContext.actions.archive,
+          moveToInbox: mailCommandContext.actions.moveToInbox,
           forward: mailCommandContext.actions.forward,
           label: mailCommandContext.actions.label,
           star: mailCommandContext.actions.star,
@@ -269,6 +270,7 @@ function CommandPaletteContent({
             : undefined,
           trash: mailCommandContext.actions.trash,
           openExternal: mailCommandContext.actions.openExternal,
+          translate: mailCommandContext.actions.translate,
           toggleAutoArchive: senderCommandContext?.toggleAutoArchive,
           unsubscribe: senderCommandContext?.unsubscribe,
         },

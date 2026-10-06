@@ -14,17 +14,45 @@ import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 import parse from "gmail-api-parse-message";
 import { withGmailRetry } from "@/utils/gmail/retry";
 import type { Logger } from "@/utils/logger";
+import { getEmbeddedGmailAttachmentDescriptors } from "./attachment";
+import { gmailMessageBodies } from "./message-bodies";
 
 export function parseMessage(
   message: MessageWithPayload,
   options?: { includeCalendarContent?: boolean },
 ): ParsedMessage & { subject: string; date: string } {
-  const parsed = parse(message) as ParsedMessage;
+  // gmail-api-parse-message decodes every text part and keeps only the last.
+  // Hide the text first so that decode does not run twice.
+  const textBodies = collectTextBodies(message.payload);
+  const hiddenText: { body: gmail_v1.Schema$MessagePartBody; data: string }[] =
+    [];
+  let parsed: ParsedMessage;
+  try {
+    for (const body of textBodies) {
+      const data = body.data;
+      if (!data) continue;
+      hiddenText.push({ body, data });
+      body.data = undefined;
+    }
+    parsed = parse(message) as ParsedMessage;
+  } finally {
+    restoreTextBodies(hiddenText);
+  }
+  if (message.payload) {
+    const bodies = gmailMessageBodies(message.payload, message.snippet);
+    parsed.textHtml = bodies.html;
+    parsed.textPlain = bodies.plain;
+  }
   const calendarParts = getCalendarParts(message.payload);
   const calendarData =
     calendarParts.length === 1 ? calendarParts[0].body?.data : undefined;
-  const inlineAttachments = parsed.attachments?.filter(isInlineAttachment);
-  const attachments = parsed.attachments?.filter(
+  const parts = [
+    ...(parsed.attachments ?? []),
+    ...(parsed.inline ?? []),
+  ].filter((part) => part.attachmentId);
+  parts.push(...getEmbeddedGmailAttachmentDescriptors(message.payload));
+  const inlineAttachments = parts.filter(isInlineAttachment);
+  const attachments = parts.filter(
     (attachment) => !isInlineAttachment(attachment),
   );
 
@@ -42,7 +70,7 @@ export function parseMessage(
     attachments: attachments?.length ? attachments : undefined,
     subject: parsed.headers?.subject || "",
     date: parsed.headers?.date || "",
-    inline: [...(parsed.inline ?? []), ...(inlineAttachments ?? [])],
+    inline: inlineAttachments,
     // gmail-api-parse-message converts internalDate to a number, but our type expects string
     internalDate:
       parsed.internalDate != null ? String(parsed.internalDate) : null,
@@ -241,11 +269,13 @@ function isMessage(
 function isInlineAttachment(
   attachment: NonNullable<ParsedMessage["attachments"]>[number],
 ) {
+  const disposition = attachment.headers["content-disposition"]
+    ?.split(";", 1)[0]
+    ?.trim()
+    .toLowerCase();
   return (
-    attachment.headers["content-disposition"]
-      ?.split(";", 1)[0]
-      ?.trim()
-      .toLowerCase() === "inline"
+    disposition === "inline" ||
+    (!disposition && Boolean(attachment.headers["content-id"]))
   );
 }
 
@@ -290,35 +320,6 @@ export async function queryBatchMessages(
   };
 }
 
-// loops through multiple pages of messages
-export async function queryBatchMessagesPages(
-  gmail: gmail_v1.Gmail,
-  {
-    query,
-    maxResults,
-    logger,
-  }: {
-    query: string;
-    maxResults: number;
-    logger: Logger;
-  },
-) {
-  const messages: ParsedMessage[] = [];
-  let nextPageToken: string | undefined;
-  do {
-    const { messages: pageMessages, nextPageToken: nextToken } =
-      await queryBatchMessages(gmail, {
-        query,
-        pageToken: nextPageToken,
-        logger,
-      });
-    messages.push(...pageMessages);
-    nextPageToken = nextToken || undefined;
-  } while (nextPageToken && messages.length < maxResults);
-
-  return messages;
-}
-
 export async function getSentMessages(
   gmail: gmail_v1.Gmail,
   logger: Logger,
@@ -330,6 +331,29 @@ export async function getSentMessages(
     logger,
   });
   return messages.messages;
+}
+
+function collectTextBodies(part?: gmail_v1.Schema$MessagePart | null) {
+  const bodies: gmail_v1.Schema$MessagePartBody[] = [];
+  const visit = (current?: gmail_v1.Schema$MessagePart | null) => {
+    if (!current) return;
+    const mime = current.mimeType?.toLowerCase() ?? "";
+    if (
+      current.body?.data &&
+      (mime.includes("text/html") || mime.includes("text/plain"))
+    ) {
+      bodies.push(current.body);
+    }
+    current.parts?.forEach(visit);
+  };
+  visit(part);
+  return bodies;
+}
+
+function restoreTextBodies(
+  hidden: { body: gmail_v1.Schema$MessagePartBody; data: string }[],
+) {
+  for (const item of hidden) item.body.data = item.data;
 }
 
 function getCalendarParts(

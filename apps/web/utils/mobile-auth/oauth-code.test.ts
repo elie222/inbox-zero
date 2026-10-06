@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  consumeMobileAuthState,
+  redeemMobileAuthState,
   consumeMobileAuthFailureState,
   consumeMobileAuthCode,
   createMobileAuthCode,
@@ -104,7 +104,7 @@ describe("mobile authentication authorization", () => {
     await storeMobileAuthState(pending);
     await completeMobileAuthState(completed);
     await expect(consumeMobileAuthFailureState({ state })).rejects.toThrow();
-    await expect(consumeMobileAuthState(completed)).resolves.toMatchObject({
+    await expect(redeemMobileAuthState(completed)).resolves.toMatchObject({
       codeChallenge,
     });
   });
@@ -116,14 +116,14 @@ describe("mobile authentication authorization", () => {
 
   it("rejects states that were never issued", async () => {
     await expect(
-      consumeMobileAuthState({ state, sessionToken: "ambient-session" }),
+      redeemMobileAuthState({ state, sessionToken: "ambient-session" }),
     ).rejects.toThrow("Invalid authentication state");
   });
 
   it("rejects an issued state before provider completion even with an ambient session", async () => {
     await storeMobileAuthState(pending);
     await expect(
-      consumeMobileAuthState({ state, sessionToken: "ambient-session" }),
+      redeemMobileAuthState({ state, sessionToken: "ambient-session" }),
     ).rejects.toThrow("Invalid authentication state");
   });
 
@@ -131,17 +131,14 @@ describe("mobile authentication authorization", () => {
     "app-link",
     "custom-scheme",
     "desktop-scheme",
-  ] as const)("completes and redeems a %s flow once", async (returnUrlMode) => {
+  ] as const)("completes and redeems a %s flow", async (returnUrlMode) => {
     await storeMobileAuthState({ ...pending, returnUrlMode });
     await completeMobileAuthState(completed);
-    const grant = await consumeMobileAuthState({
+    const grant = await redeemMobileAuthState({
       state,
       sessionToken: completed.sessionToken,
     });
     expect(grant).toEqual({ returnUrlMode, codeChallenge });
-    await expect(
-      consumeMobileAuthState({ state, sessionToken: completed.sessionToken }),
-    ).rejects.toThrow();
     const code = await createMobileAuthCode({
       state,
       userId: "user-1",
@@ -166,7 +163,7 @@ describe("mobile authentication authorization", () => {
       completeMobileAuthState({ ...completed, ...override }),
     ).rejects.toThrow();
     await expect(
-      consumeMobileAuthState({ state, sessionToken: completed.sessionToken }),
+      redeemMobileAuthState({ state, sessionToken: completed.sessionToken }),
     ).rejects.toThrow();
   });
 
@@ -174,10 +171,10 @@ describe("mobile authentication authorization", () => {
     await storeMobileAuthState(pending);
     await completeMobileAuthState(completed);
     await expect(
-      consumeMobileAuthState({ state, sessionToken: "victim-session" }),
+      redeemMobileAuthState({ state, sessionToken: "victim-session" }),
     ).rejects.toThrow();
     await expect(
-      consumeMobileAuthState({ state, sessionToken: completed.sessionToken }),
+      redeemMobileAuthState({ state, sessionToken: completed.sessionToken }),
     ).resolves.toMatchObject({ codeChallenge });
   });
 
@@ -201,12 +198,12 @@ describe("mobile authentication authorization", () => {
     await completeMobileAuthState(completed);
     vi.advanceTimersByTime(5 * 60 * 1000);
     await expect(
-      consumeMobileAuthState({ state, sessionToken: completed.sessionToken }),
+      redeemMobileAuthState({ state, sessionToken: completed.sessionToken }),
     ).rejects.toThrow();
     vi.useRealTimers();
   });
 
-  it("allows only one concurrent completion and one concurrent state consumption", async () => {
+  it("allows only one concurrent completion", async () => {
     await storeMobileAuthState(pending);
     expect(
       (
@@ -216,14 +213,30 @@ describe("mobile authentication authorization", () => {
         ])
       ).filter((r) => r.status === "fulfilled"),
     ).toHaveLength(1);
-    expect(
-      (
-        await Promise.allSettled([
-          consumeMobileAuthState(completed),
-          consumeMobileAuthState(completed),
-        ])
-      ).filter((r) => r.status === "fulfilled"),
-    ).toHaveLength(1);
+  });
+
+  it("lets the bound session redeem a repeated callback so the shown response still reaches the app", async () => {
+    await storeMobileAuthState(pending);
+    await completeMobileAuthState(completed);
+    const grants = await Promise.all([
+      redeemMobileAuthState(completed),
+      redeemMobileAuthState(completed),
+    ]);
+    const codes = await Promise.all(
+      grants.map((grant) =>
+        createMobileAuthCode({
+          state,
+          userId: "user-1",
+          codeChallenge: grant.codeChallenge,
+        }),
+      ),
+    );
+    await expect(
+      consumeMobileAuthCode({ code: codes[1], state, codeVerifier: verifier }),
+    ).resolves.toEqual({ userId: "user-1" });
+    await expect(
+      redeemMobileAuthState({ state, sessionToken: "other-session" }),
+    ).rejects.toThrow();
   });
 
   it.each([
@@ -296,7 +309,7 @@ describe("mobile authentication authorization", () => {
     await mobileAuthProviderCompletion(
       hookContext({ params: { id: provider } }),
     );
-    await expect(consumeMobileAuthState(completed)).resolves.toMatchObject({
+    await expect(redeemMobileAuthState(completed)).resolves.toMatchObject({
       codeChallenge,
     });
   });
@@ -331,7 +344,7 @@ describe("mobile authentication authorization", () => {
     await mobileAuthProviderCompletion(hookContext(override)).catch(
       () => undefined,
     );
-    await expect(consumeMobileAuthState(completed)).rejects.toThrow();
+    await expect(redeemMobileAuthState(completed)).rejects.toThrow();
   });
 });
 

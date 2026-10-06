@@ -5,7 +5,7 @@ import { cleanupInvalidTokens } from "@/utils/auth/cleanup-invalid-tokens";
 import { createEmailProvider } from "@/utils/email/provider";
 import { captureException } from "@/utils/error";
 import { clearWatchLapsedErrorIfResolved } from "@/utils/error-messages";
-import { fetchGoogleOpenIdProfile } from "@/utils/google/oauth";
+import { fetchGoogleOpenIdProfile } from "@/utils/gmail/oauth";
 import { ensureEmailAccountsWatched } from "./watch-manager";
 
 vi.mock("@/utils/prisma");
@@ -28,7 +28,7 @@ vi.mock("@/utils/error", () => ({
     error instanceof Error && error.message.includes("invalid_grant"),
 }));
 
-vi.mock("@/utils/google/oauth", () => ({
+vi.mock("@/utils/gmail/oauth", () => ({
   fetchGoogleOpenIdProfile: vi.fn(),
 }));
 

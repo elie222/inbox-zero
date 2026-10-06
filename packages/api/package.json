@@ -26,6 +26,7 @@
     "dev": "bun run src/main.ts",
     "prepublishOnly": "bun run build",
     "test": "vitest run",
+    "typecheck": "tsc --noEmit",
     "test:watch": "vitest"
   },
   "dependencies": {

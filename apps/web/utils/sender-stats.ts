@@ -115,6 +115,10 @@ export async function getSenderEmailStats(
 
   whereConditions.push(
     Prisma.sql`"emailAccountId" = ${options.emailAccountId}`,
+    Prisma.sql`sent = false`,
+    Prisma.sql`draft = false`,
+    // Sent mail can lose the SENT label (e.g. moved out of Outlook's Sent Items)
+    Prisma.sql`LOWER("from") <> (SELECT LOWER(email) FROM "EmailAccount" WHERE id = ${options.emailAccountId})`,
   );
 
   if (options.search) {

@@ -157,6 +157,7 @@
         "LEMON_SQUEEZY_API_KEY",
 
         "TINYBIRD_TOKEN",
+        "TINYBIRD_DELETE_TOKEN",
         "TINYBIRD_BASE_URL",
 
         "POSTHOG_API_SECRET",
@@ -177,6 +178,7 @@
         "NEXT_PUBLIC_IS_RESEND_CONFIGURED",
 
         "LOOPS_API_SECRET",
+        "LOOPS_WEBHOOK_SIGNING_SECRET",
 
         "CRON_SECRET",
         "MAIL_UPLOAD_DIR",
@@ -302,7 +304,7 @@
         "UNSUBSCRIBE_WORKER_URL",
         "UNSUBSCRIBE_WORKER_SECRET"
       ],
-      "outputs": [".next/**", "!.next/cache/**", "public/sw.js", "public/sw.js.map"]
+      "outputs": [".next/**", "!.next/cache/**", "public/sw.js", "public/sw.js.map", "generated/mcp-app/**"]
     },
     "build:ci": {
       "env": [
@@ -441,7 +443,7 @@
         "UNSUBSCRIBE_WORKER_URL",
         "UNSUBSCRIBE_WORKER_SECRET"
       ],
-      "outputs": [".next/**", "!.next/cache/**", "public/sw.js", "public/sw.js.map"]
+      "outputs": [".next/**", "!.next/cache/**", "public/sw.js", "public/sw.js.map", "generated/mcp-app/**"]
     },
     "test": {
       "env": ["RUN_AI_TESTS"]

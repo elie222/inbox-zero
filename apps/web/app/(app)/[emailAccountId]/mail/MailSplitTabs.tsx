@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, type ReactNode, useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { getMailCategories } from "@/app/(app)/[emailAccountId]/mail/MailSidebar";
 import {
@@ -30,8 +30,11 @@ import {
 } from "@/utils/email/provider-types";
 import { getActionErrorMessage } from "@/utils/error";
 import { GmailLabel } from "@/utils/gmail/label";
-import type { MailSplitFilterDraft } from "@/utils/mail/split-filters";
-import type { MailSplit, PortableLabelSplit } from "@/utils/mail/split-query";
+import type { MailSplitFilterDraft } from "@/utils/split-inbox/split-filters";
+import type {
+  MailSplit,
+  PortableLabelSplit,
+} from "@/utils/split-inbox/split-query";
 import type { EmailLabels } from "@/providers/email-label-types";
 
 /**
@@ -48,6 +51,7 @@ export const MailSplitTabs = memo(function MailSplitTabs({
   countAccountIds,
   portableLabelSplits,
   labelsByAccount,
+  leading,
 }: {
   splits: (MailSplit & MailSplitTab)[];
   activeSplitId: string | null;
@@ -59,6 +63,7 @@ export const MailSplitTabs = memo(function MailSplitTabs({
   countAccountIds: string[];
   portableLabelSplits?: PortableLabelSplit[];
   labelsByAccount?: Record<string, EmailLabels>;
+  leading?: ReactNode;
 }) {
   const { emailAccountId, provider } = useAccount();
   const isGoogle = isGoogleProvider(provider);
@@ -227,6 +232,7 @@ export const MailSplitTabs = memo(function MailSplitTabs({
       <SplitTabs
         splits={splits}
         countsById={countsById}
+        leading={leading}
         activeSplitId={activeSplitId}
         onSelect={onSelectSplit}
         onDelete={onDelete}

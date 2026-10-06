@@ -5,6 +5,7 @@ import {
   ArchiveRestoreIcon,
   ExternalLinkIcon,
   FolderInputIcon,
+  LanguagesIcon,
   MailXIcon,
   MoreHorizontalIcon,
   ShieldAlertIcon,
@@ -26,7 +27,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import { getOpenInMailboxLabel } from "@/utils/url";
 import type { ParsedMessage } from "@/utils/types";
 
 export type ThreadActionsMenuProps = {
@@ -37,6 +38,7 @@ export type ThreadActionsMenuProps = {
   onDelete: () => void;
   onLabel?: () => void;
   onMove?: () => void;
+  onTranslate?: () => void;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 };
@@ -52,6 +54,7 @@ export function ThreadActionsMenu({
   onDelete,
   onLabel,
   onMove,
+  onTranslate,
   open,
   onOpenChange,
 }: ThreadActionsMenuProps) {
@@ -109,6 +112,16 @@ export function ThreadActionsMenu({
               Move
               <DropdownMenuShortcut>
                 {getShortcutHint("move")}
+              </DropdownMenuShortcut>
+            </DropdownMenuItem>
+          )}
+
+          {onTranslate && (
+            <DropdownMenuItem onSelect={onTranslate}>
+              <LanguagesIcon className="mr-2 size-4" />
+              Translate
+              <DropdownMenuShortcut>
+                {getShortcutHint("translate")}
               </DropdownMenuShortcut>
             </DropdownMenuItem>
           )}
@@ -177,7 +190,7 @@ export function ThreadActionsMenu({
             <DropdownMenuItem asChild>
               <a href={openUrl} rel="noopener noreferrer" target="_blank">
                 <ExternalLinkIcon className="mr-2 size-4" />
-                Open in {isMicrosoftProvider(provider) ? "Outlook" : "Gmail"}
+                {getOpenInMailboxLabel(provider) ?? "Open in email provider"}
                 <DropdownMenuShortcut>
                   {getShortcutHint("openExternal")}
                 </DropdownMenuShortcut>

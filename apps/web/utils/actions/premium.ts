@@ -16,6 +16,7 @@ import {
 } from "@/utils/premium";
 import { consumeUnsubscribeCredit } from "@/utils/premium/unsubscribe-credits";
 import {
+  getAdminGrantExpiresAt,
   grantPremiumAdmin,
   upgradeToPremiumLemon,
 } from "@/utils/premium/server";
@@ -31,7 +32,6 @@ import {
 import { changePremiumStatusSchema } from "@/app/(app)/admin/validation";
 import { activateLemonLicenseKey } from "@/ee/billing/lemon/index";
 import { PremiumTier } from "@/generated/prisma/enums";
-import { ONE_MONTH_MS, ONE_YEAR_MS } from "@/utils/date";
 import {
   BRIEF_MY_MEETING_PRICE_ID_ANNUALLY,
   BRIEF_MY_MEETING_PRICE_ID_MONTHLY,
@@ -48,6 +48,7 @@ import {
 } from "@/utils/actions/premium.validation";
 import { SafeError } from "@/utils/error";
 import { createPremiumForUser } from "@/utils/premium/create-premium";
+import { TEN_YEARS_MS } from "@/utils/date";
 import { getStripe } from "@/ee/billing/stripe";
 import {
   trackStripeCheckoutCreated,
@@ -59,7 +60,6 @@ import {
   getConversionClickMetadata,
 } from "@/utils/analytics/server-conversion-events";
 
-const TEN_YEARS = 10 * 365 * 24 * 60 * 60 * 1000;
 const checkoutOfferSchema = z.enum(["BRIEF_MY_MEETING"]);
 
 export const decrementUnsubscribeCreditAction = actionClientUser
@@ -243,7 +243,7 @@ export const activateLicenseKeyAction = actionClientUser
       lemonSqueezyVariantId: lemonSqueezyLicense.data?.meta.variant_id || null,
       lemonSqueezySubscriptionId: null,
       lemonSqueezySubscriptionItemId: null,
-      lemonSqueezyRenewsAt: new Date(Date.now() + TEN_YEARS),
+      lemonSqueezyRenewsAt: new Date(Date.now() + TEN_YEARS_MS),
     });
   });
 
@@ -254,44 +254,42 @@ export const adminChangePremiumStatusAction = adminActionClient
     async ({
       parsedInput: { email, period, count, emailAccountsAccess, upgrade },
     }) => {
+      const normalizedEmail = email.trim().toLowerCase();
       const userToUpgrade = await prisma.emailAccount.findUnique({
-        where: { email },
+        where: { email: normalizedEmail },
         select: {
           id: true,
           user: { select: { id: true, premiumId: true } },
         },
       });
 
-      if (!userToUpgrade?.user) throw new SafeError("User not found");
+      if (!userToUpgrade?.user) {
+        if (upgrade) {
+          const grant = {
+            tier: period,
+            count: count || 1,
+            emailAccountsAccess: emailAccountsAccess ?? null,
+          };
+          await prisma.pendingPremiumGrant.upsert({
+            where: { email: normalizedEmail },
+            create: { email: normalizedEmail, ...grant },
+            update: grant,
+          });
+          return { pending: true };
+        }
+
+        const { count: deleted } = await prisma.pendingPremiumGrant.deleteMany({
+          where: { email: normalizedEmail },
+        });
+        if (!deleted) throw new SafeError("User not found");
+        return { pending: true };
+      }
 
       if (upgrade) {
-        const getGrantExpiresAt = (period: PremiumTier): Date | null => {
-          const now = new Date();
-          switch (period) {
-            case PremiumTier.BASIC_ANNUALLY:
-            case PremiumTier.PRO_ANNUALLY:
-            case PremiumTier.STARTER_ANNUALLY:
-            case PremiumTier.PLUS_ANNUALLY:
-            case PremiumTier.PROFESSIONAL_ANNUALLY:
-              return new Date(now.getTime() + ONE_YEAR_MS * (count || 1));
-            case PremiumTier.BASIC_MONTHLY:
-            case PremiumTier.PRO_MONTHLY:
-            case PremiumTier.STARTER_MONTHLY:
-            case PremiumTier.PLUS_MONTHLY:
-            case PremiumTier.PROFESSIONAL_MONTHLY:
-            case PremiumTier.COPILOT_MONTHLY:
-              return new Date(now.getTime() + ONE_MONTH_MS * (count || 1));
-            case PremiumTier.LIFETIME:
-              return new Date(now.getTime() + TEN_YEARS);
-            default:
-              return null;
-          }
-        };
-
         await grantPremiumAdmin({
           userId: userToUpgrade.user.id,
           tier: period,
-          adminGrantExpiresAt: getGrantExpiresAt(period),
+          adminGrantExpiresAt: getAdminGrantExpiresAt({ tier: period, count }),
           emailAccountsAccess,
         });
       } else if (userToUpgrade.user.premiumId) {
@@ -306,6 +304,8 @@ export const adminChangePremiumStatusAction = adminActionClient
       } else {
         throw new SafeError("User not premium.");
       }
+
+      return { pending: false };
     },
   );
 

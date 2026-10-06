@@ -19,7 +19,6 @@ import { learnFromOutlookLabelRemoval } from "@/utils/webhook/outlook/learn-labe
 import prisma from "@/utils/prisma";
 import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";
 import { withRateLimitRecording } from "@/utils/email/rate-limit";
-
 export async function processHistoryForUser({
   preloadedEmailAccount,
   subscriptionId,

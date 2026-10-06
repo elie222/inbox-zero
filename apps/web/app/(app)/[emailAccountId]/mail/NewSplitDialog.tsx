@@ -25,15 +25,15 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   MAX_SPLIT_FILTERS,
   type MailSplitFilterDraft,
-} from "@/utils/mail/split-filters";
-import { OLDER_THAN_OPTIONS } from "@/utils/mail/split-query";
+} from "@/utils/split-inbox/split-filters";
+import { OLDER_THAN_OPTIONS } from "@/utils/split-inbox/split-query";
 import {
   availableLibraryFilters,
   libraryDefinition,
   SPLIT_LIBRARY,
   SPLIT_LIBRARY_CATEGORIES,
   type SplitLibraryEntry,
-} from "@/utils/mail/split-library";
+} from "@/utils/split-inbox/split-library";
 import { cn } from "@/utils";
 
 const YOUR_SPLITS = "Your splits";

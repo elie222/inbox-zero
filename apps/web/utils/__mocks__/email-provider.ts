@@ -125,6 +125,7 @@ export const createMockEmailProvider = (
     .mockResolvedValue({ id: "label1", name: "Test Label", type: "user" }),
   getOriginalMessage: vi.fn().mockResolvedValue(null),
   getFiltersList: vi.fn().mockResolvedValue([]),
+  getForwardingAddresses: vi.fn().mockResolvedValue([]),
   createFilter: vi.fn().mockResolvedValue({}),
   deleteFilter: vi.fn().mockResolvedValue({}),
   createAutoArchiveFilter: vi.fn().mockResolvedValue({}),

@@ -1,20 +1,8 @@
+import { Column, Link, Row, Section, Text } from "@react-email/components";
 import {
-  Body,
-  Button,
-  Column,
-  Container,
-  Head,
-  Heading,
-  Html,
-  Img,
-  Link,
-  Preview,
-  Row,
-  Section,
-  Tailwind,
-  Text,
-} from "@react-email/components";
-import { StatsEmailFooter } from "./components/stats-email-footer";
+  StatsEmailCard,
+  StatsEmailLayout,
+} from "./components/stats-email-layout";
 
 type SuggestedSender = {
   name: string;
@@ -42,82 +30,54 @@ export default function InboxHealthEmail(props: InboxHealthEmailProps) {
     senders,
   } = props;
 
-  const bulkUnsubscribeUrl = `${baseUrl}/${emailAccountId}/bulk-unsubscribe?select=suggested`;
+  const bulkUnsubscribePageUrl = `${baseUrl}/${emailAccountId}/bulk-unsubscribe`;
+  const selectSuggestedUrl = `${bulkUnsubscribePageUrl}?select=suggested`;
   const senderCountText = getSenderCountText(suggestionCount);
+  const hiddenCount = Math.max(suggestionCount - senders.length, 0);
 
   return (
-    <Html>
-      <Head />
-      <Preview>
-        We found {senderCountText} you rarely read. Clean them up in one click.
-      </Preview>
-      <Tailwind>
-        <Body className="bg-white font-sans">
-          <Container className="mx-auto w-full max-w-[600px] p-0">
-            <Section className="p-8 text-center">
-              <Link href={baseUrl} className="text-[15px]">
-                <Img
-                  src={"https://www.getinboxzero.com/icon.png"}
-                  width="40"
-                  height="40"
-                  alt="Inbox Zero"
-                  className="mx-auto my-0"
-                />
-              </Link>
-
-              <Text className="mx-0 mb-8 mt-4 p-0 text-center text-2xl font-normal">
-                <span className="font-semibold tracking-tighter">
-                  Inbox Zero
-                </span>
-              </Text>
-
-              <Heading className="my-4 text-4xl font-medium leading-tight">
-                We found {senderCountText} you rarely read
-              </Heading>
-              <Text className="mb-8 text-lg leading-8">
-                Unsubscribing from them could save you around{" "}
-                <span className="font-semibold">
-                  {yearlyEmailsAvoided.toLocaleString("en-US")} emails
-                </span>{" "}
-                a year.
-              </Text>
-            </Section>
-
-            <Section className="rounded-2xl bg-[#3b82f6]/5 bg-[radial-gradient(circle_at_bottom_right,#3b82f6_0%,transparent_60%)] p-8 text-center">
-              <Heading className="m-0 text-3xl font-medium text-[#1e40af]">
-                Rarely Read Senders
-              </Heading>
-              <Text className="mb-4 text-gray-900">
-                Based on the last 3 months of your inbox
-              </Text>
-
-              {senders.map((sender) => (
-                <SenderCard key={sender.email} sender={sender} />
-              ))}
-
-              <Section className="text-center mt-[32px] mb-[32px]">
-                <Button
-                  href={bulkUnsubscribeUrl}
-                  style={{
-                    background: "#000",
-                    color: "#fff",
-                    padding: "12px 20px",
-                    borderRadius: "5px",
-                  }}
-                >
-                  Unsubscribe in One Click
-                </Button>
-              </Section>
-            </Section>
-
-            <StatsEmailFooter
-              baseUrl={baseUrl}
-              unsubscribeToken={unsubscribeToken}
+    <StatsEmailLayout
+      baseUrl={baseUrl}
+      unsubscribeToken={unsubscribeToken}
+      preview={`We found ${senderCountText} you rarely read. Clean them up in one click.`}
+      eyebrow="Inbox Health"
+      title={`We found ${senderCountText} you rarely read`}
+      subtitle={
+        <>
+          Unsubscribing from them could save you around{" "}
+          <span className="font-semibold text-[#242424]">
+            {yearlyEmailsAvoided.toLocaleString("en-US")} emails
+          </span>{" "}
+          a year.
+        </>
+      }
+    >
+      <StatsEmailCard
+        title="Rarely read senders"
+        description="Based on the last 3 months of your inbox."
+        footnote={
+          hiddenCount > 0
+            ? `And ${hiddenCount} more ${hiddenCount === 1 ? "sender" : "senders"}.`
+            : undefined
+        }
+        cta={{
+          href: selectSuggestedUrl,
+          label: "Unsubscribe in one click",
+          primary: true,
+        }}
+      >
+        <Section className="px-6 pt-2">
+          {senders.map((sender, index) => (
+            <SenderRow
+              key={sender.email}
+              sender={sender}
+              href={bulkUnsubscribePageUrl}
+              isLast={index === senders.length - 1}
             />
-          </Container>
-        </Body>
-      </Tailwind>
-    </Html>
+          ))}
+        </Section>
+      </StatsEmailCard>
+    </StatsEmailLayout>
   );
 }
 
@@ -161,26 +121,47 @@ InboxHealthEmail.PreviewProps = {
   ],
 } satisfies InboxHealthEmailProps;
 
-function SenderCard({ sender }: { sender: SuggestedSender }) {
+// The whole row is a link so mail clients don't auto-link the bare address.
+function SenderRow({
+  sender,
+  href,
+  isLast,
+}: {
+  sender: SuggestedSender;
+  href: string;
+  isLast: boolean;
+}) {
+  const showAddress = sender.name && sender.name !== sender.email;
+  const borderClass = `border-t border-solid border-[#EFEFEF] ${
+    isLast ? "border-b" : ""
+  }`;
+
   return (
-    <Section className="my-3 rounded-lg bg-white/50 p-4 text-left shadow-sm border border-[#3b82f6]/20">
-      <Row>
-        <Column>
-          <Text className="m-0 font-semibold">
+    <Row className={borderClass}>
+      <Column className="py-3">
+        <Link href={href} className="block no-underline">
+          <Text className="m-0 text-[14px] font-semibold leading-5 text-[#242424]">
             {sender.name || sender.email}
           </Text>
-          <Text className="m-0 text-gray-600">{sender.email}</Text>
-        </Column>
-        <Column align="right">
-          <Text className="m-0 text-sm text-gray-500">
-            {sender.count} emails in the last 3 months
-          </Text>
-          <Text className="m-0 text-sm text-gray-500">
-            {sender.readPercentage}% read
-          </Text>
-        </Column>
-      </Row>
-    </Section>
+          {showAddress && (
+            <Text className="m-0 pt-0.5 text-[13px] leading-5 text-[#848484]">
+              {sender.email}
+            </Text>
+          )}
+        </Link>
+      </Column>
+      <Column
+        align="right"
+        className="w-[110px] whitespace-nowrap py-3 align-top"
+      >
+        <Text className="m-0 text-[14px] font-medium leading-5 text-[#242424]">
+          {sender.count.toLocaleString("en-US")} emails
+        </Text>
+        <Text className="m-0 pt-0.5 text-[13px] leading-5 text-[#848484]">
+          {sender.readPercentage}% read
+        </Text>
+      </Column>
+    </Row>
   );
 }
 

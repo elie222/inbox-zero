@@ -37,7 +37,9 @@ function ContentWrapper({ children }: { children: React.ReactNode }) {
     >
       <SidebarInset
         className={cn(
-          "overflow-hidden bg-background pt-9 max-w-full",
+          // clip, not hidden: hidden makes this a scroll container, which
+          // stops sticky descendants from sticking to the page scroll
+          "overflow-clip bg-background pt-9 max-w-full",
           noTopPadding && "pt-0",
           // The mail page fills the viewport and scrolls its thread list
           // internally, so layout banners shrink it instead of overflowing

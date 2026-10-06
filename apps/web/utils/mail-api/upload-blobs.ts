@@ -37,6 +37,8 @@ export async function admitAccountUpload(
     sizeBytes: number;
     filename: string;
     contentType: string;
+    disposition?: "attachment" | "inline";
+    contentId?: string;
   },
 ) {
   const parsed = blobIdSchema.safeParse(input.uploadId);
@@ -44,6 +46,8 @@ export async function admitAccountUpload(
   await writeBlobMetadata(accountMailUploadDirectory(accountId), parsed.data, {
     filename: input.filename,
     contentType: input.contentType,
+    disposition: input.disposition,
+    contentId: input.contentId,
     checksum: input.checksum,
     sizeBytes: input.sizeBytes,
   });

@@ -4,6 +4,7 @@ import nextMdx from "@next/mdx";
 import { realpathSync } from "node:fs";
 import path from "node:path";
 import { env } from "./env";
+import { isIndexingAllowed } from "./utils/indexing";
 import type { NextConfig } from "next";
 
 const withMDX = nextMdx({
@@ -24,9 +25,15 @@ const zodV4CorePath = path.join(
   path.dirname(require.resolve("zod/package.json")),
   "v4/core/index.js",
 );
+const indexingAllowed = isIndexingAllowed(env.NEXT_PUBLIC_BASE_URL);
 
 const nextConfig: NextConfig = {
-  allowedDevOrigins: ["127.0.0.1"],
+  allowedDevOrigins: [
+    "127.0.0.1",
+    ...(URL.canParse(env.NEXT_PUBLIC_BASE_URL)
+      ? [new URL(env.NEXT_PUBLIC_BASE_URL).hostname]
+      : []),
+  ],
   // Sequential Playwright feature groups use separate dev servers. Isolating
   // their caches prevents a new Turbopack process from restoring stale tasks.
   ...(playwrightRunId && !isProductionBuild
@@ -115,8 +122,8 @@ const nextConfig: NextConfig = {
           "worker-src 'self' blob:",
           // For API calls, SWR, external services, and Mux
           "connect-src 'self' https: wss: https://*.mux.com https://*.litix.io",
-          // iframes for Mux player
-          "frame-src 'self' https:",
+          // iframes for Mux player and PDF attachment previews
+          "frame-src 'self' https: blob:",
           // Prevent embedding in iframes
           "frame-ancestors 'none'",
         ].join("; "),
@@ -128,6 +135,19 @@ const nextConfig: NextConfig = {
     ];
 
     return [
+      ...(indexingAllowed
+        ? []
+        : [
+            {
+              source: "/:path*",
+              headers: [
+                {
+                  key: "X-Robots-Tag",
+                  value: "noindex, nofollow",
+                },
+              ],
+            },
+          ]),
       {
         headers: [
           ...securityHeaders,
@@ -171,10 +191,6 @@ const nextConfig: NextConfig = {
     deviceSizes: [640, 750, 828, 1080, 1200, 1280, 1440, 1920],
     remotePatterns: [
       {
-        hostname: "img.youtube.com",
-        protocol: "https",
-      },
-      {
         hostname: "image.mux.com",
         protocol: "https",
       },
@@ -214,6 +230,9 @@ const nextConfig: NextConfig = {
       }
     : undefined,
   output: process.env.DOCKER_BUILD === "true" ? "standalone" : undefined,
+  outputFileTracingIncludes: {
+    "/mcp": ["./generated/mcp-app/*"],
+  },
   pageExtensions: ["js", "jsx", "mdx", "ts", "tsx"],
   reactStrictMode: true,
   async redirects() {
@@ -338,9 +357,19 @@ const nextConfig: NextConfig = {
         source: "/request-access",
       },
       {
-        destination: "/reply-zero",
-        permanent: false,
+        destination: "/",
+        permanent: true,
         source: "/reply-tracker",
+      },
+      {
+        destination: "/",
+        permanent: true,
+        source: "/reply-zero/:path*",
+      },
+      {
+        destination: "/",
+        permanent: true,
+        source: "/:emailAccountId/reply-zero/:path*",
       },
       {
         destination: "/",

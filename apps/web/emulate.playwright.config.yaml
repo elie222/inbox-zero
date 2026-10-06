@@ -3,6 +3,12 @@ google:
     - email: __PLAYWRIGHT_TEST_EMAIL__
       name: Smoke Test User
       picture: "__PLAYWRIGHT_PROFILE_PICTURE__"
+    - email: __PLAYWRIGHT_TEAM_B_EMAIL__
+      name: Shared Teammate
+    - email: __PLAYWRIGHT_TEAM_C_EMAIL__
+      name: Nonparticipant Admin
+    - email: __PLAYWRIGHT_TEAM_D_EMAIL__
+      name: Foreign Organization Member
   oauth_clients:
     - client_id: client_id
       client_secret: client_secret

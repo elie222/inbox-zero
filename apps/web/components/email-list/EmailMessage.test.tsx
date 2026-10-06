@@ -55,9 +55,6 @@ vi.mock("@/components/email-list/EmailDetails", () => ({
 }));
 vi.mock("@/components/Toast", () => ({ toastError: mocks.toastError }));
 vi.mock("@/utils/actions/mail", () => ({ deleteDraftAction: vi.fn() }));
-vi.mock("@/utils/actions/generate-reply", () => ({
-  generateNudgeReplyAction: vi.fn(),
-}));
 vi.mock("@/app/(app)/[emailAccountId]/compose/ComposeEmailFormLazy", () => ({
   ComposeEmailFormLazy: ({
     onDiscard,
@@ -229,6 +226,27 @@ describe("EmailMessage reply", () => {
       />,
     );
     expect(screen.getByRole("textbox", { name: "Email message" })).toBeTruthy();
+  });
+
+  it("counts Cc recipients in the recipient summary", () => {
+    const message = createMessage("message-1");
+    render(
+      <EmailMessage
+        expanded
+        message={{
+          ...message,
+          headers: {
+            ...message.headers,
+            cc: "first@example.com, second@example.com, user@example.com",
+          },
+        }}
+        onSendSuccess={vi.fn()}
+        onToggle={vi.fn()}
+        refetch={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("to me and 2 others")).toBeTruthy();
   });
 });
 
