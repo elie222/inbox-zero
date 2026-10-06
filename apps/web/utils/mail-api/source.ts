@@ -224,7 +224,12 @@ export function createEmailProviderMailboxSource(input: {
                 scopeId: position.streamId,
               })),
             ],
-            ...parsedMessageBodies(accountId, page.upsertedMessages),
+            // Delta pages carry metadata only, so a body-derived flag such as
+            // a meeting invitation must not stand in for the body.
+            requiredHydration: page.upsertedMessages.map((message) => ({
+              accountId,
+              messageId: message.id,
+            })),
             roundComplete: !page.hasMore,
           },
         };
