@@ -131,7 +131,7 @@ Don't use `.with()` for a global/file-level logger. Only use within a specific f
 
 ## Field Names Must Be Fixed
 
-Axiom turns every nested key of a logged object into a permanent dataset field, and the dataset has a hard field limit. Once it is full, events that add a new field name are silently dropped.
+Axiom turns every nested key of a logged object into a permanent dataset field, and each dataset has a plan-dependent field limit. Once it is full, events that add a new field name are silently dropped.
 
 Never log an object whose keys come from data (rule names, label names, sender addresses, IDs, header names). Log an array instead, since arrays are stored as one field:
 
