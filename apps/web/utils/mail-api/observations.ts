@@ -49,6 +49,7 @@ export function parsedMessageMetadata(message: ParsedMessage): MessageMetadata {
     from: message.headers.from || "",
     to: splitAddresses(message.headers.to),
     cc: splitAddresses(message.headers.cc),
+    bcc: splitAddresses(message.headers.bcc),
     receivedAtMs: receivedAtMs(message),
     read: !labels.includes("UNREAD"),
     starred: labels.includes("STARRED"),

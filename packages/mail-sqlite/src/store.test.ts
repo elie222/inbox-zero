@@ -335,6 +335,78 @@ describe("sqlite mail store", () => {
     await rm(directory, { recursive: true, force: true });
   });
 
+  it("keeps Cc and Bcc recipients on cached messages and filters on Cc", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const withCc = messagePatch("m1", "c1", 1000, ["inbox"]);
+    await store.applySyncPage({
+      ownerId: "owner",
+      page: {
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "cc",
+        from: { streamId: "primary", generation: "g1", checkpoint: null },
+        to: { streamId: "primary", generation: "g1", checkpoint: "1" },
+        changes: [
+          {
+            ...withCc,
+            fields: {
+              ...withCc.fields,
+              cc: ["copied@example.com"],
+              bcc: ["hidden@example.com"],
+            },
+          },
+          messagePatch("m2", "c2", 2000, ["inbox"]),
+        ],
+        requiredHydration: [],
+        roundComplete: true,
+      },
+    });
+
+    const conversation = await store.readConversation(
+      { accountId: "acc-1", conversationId: "c1" },
+      { pageSize: 10, after: null },
+    );
+    expect(conversation.view.messages[0]?.metadata).toMatchObject({
+      cc: ["copied@example.com"],
+      bcc: ["hidden@example.com"],
+    });
+
+    const ccMatches = await store.readMailboxView({
+      accountIds: ["acc-1"],
+      predicate: {
+        kind: "address",
+        field: "cc",
+        value: "copied@example.com",
+        match: "address",
+      },
+      order: "newest_first",
+      pageSize: 25,
+      after: null,
+    });
+    expect(
+      ccMatches.view.conversations.map((row) => row.key.conversationId),
+    ).toEqual(["c1"]);
+    await store.close();
+  });
+
+  it("backfills Cc recipients on cached messages when upgrading", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "mail-sqlite-"));
+    const path = join(directory, "mailbox.sqlite");
+    createLegacyMailboxWithoutExternalUrl(path);
+
+    const store = await createSqliteMailStore(createNodeSqliteDriver(path));
+    const inspection = await store.inspect({ accountIds: ["acc-1"] });
+    expect(inspection.messages[0]?.effective.cc).toEqual([
+      "copied@example.com",
+    ]);
+    await store.close();
+    await rm(directory, { recursive: true, force: true });
+  });
+
   it("rejects stale sync pages that do not start from the stored checkpoint", async () => {
     const store = await createSqliteMailStore(createNodeSqliteDriver());
     await store.ensureAccount({
@@ -4890,7 +4962,7 @@ function createLegacyMailboxWithoutExternalUrl(path: string) {
         in_trash, in_spam, has_attachments, deleted
       ) VALUES (
         'acc-1', 'm1', 'c1', 'microsoft', '1', 'Legacy subject', 'Legacy preview',
-        'ada@example.com', '["me@example.com"]', '[]', 1000, 0, 0, 'inbox',
+        'ada@example.com', '["me@example.com"]', '["copied@example.com"]', 1000, 0, 0, 'inbox',
         '["INBOX"]', '[]', '["inbox"]', 1, 0, 0, 0, 0, 0, 0
       );
       INSERT INTO effective_messages(

@@ -39,6 +39,7 @@ export const messageMetadataSchema = z.object({
   from: z.string().max(4096),
   to: z.array(z.string().max(4096)).max(MAX_RECIPIENTS),
   cc: z.array(z.string().max(4096)).max(MAX_RECIPIENTS),
+  bcc: z.array(z.string().max(4096)).max(MAX_RECIPIENTS).optional(),
   receivedAtMs: z.number().int(),
   read: z.boolean(),
   starred: z.boolean(),
