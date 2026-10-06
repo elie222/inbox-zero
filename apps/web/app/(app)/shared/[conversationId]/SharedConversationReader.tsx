@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
@@ -109,11 +110,10 @@ function AuthorizedReader({
                   {message.cc && <p>Cc: {message.cc}</p>}
                   <time>{new Date(message.date).toLocaleString()}</time>
                 </div>
-                <MailMessageBody
+                <SharedMessageBody
                   messageId={`${conversationId}:${message.ref}`}
                   html={message.html}
                   text={message.text}
-                  allowRemoteImages={false}
                 />
                 {message.attachments.length > 0 && (
                   <div className="flex flex-wrap gap-2 border-t pt-2">
@@ -141,4 +141,94 @@ function AuthorizedReader({
       />
     </main>
   );
+}
+
+// The mail body iframe blocks same-origin images and its sanitizer drops blob:
+// URLs, so inline images from the access-checked attachment route are loaded
+// here and embedded as data: URLs.
+function SharedMessageBody({
+  messageId,
+  html,
+  text,
+}: {
+  messageId: string;
+  html?: string | null;
+  text?: string | null;
+}) {
+  const [inlineImages, setInlineImages] = useState<{
+    html: string;
+    sources: Record<string, string>;
+  }>();
+
+  useEffect(() => {
+    const sources = getInlineImageSources(html);
+    if (!html || !sources.length) return;
+    const controller = new AbortController();
+    loadInlineImages(sources, controller.signal).then((loaded) => {
+      if (!controller.signal.aborted)
+        setInlineImages({ html, sources: loaded });
+    });
+    return () => controller.abort();
+  }, [html]);
+
+  const resolvedHtml =
+    html && inlineImages?.html === html
+      ? replaceInlineImageSources(html, inlineImages.sources)
+      : html;
+
+  return (
+    <MailMessageBody
+      messageId={messageId}
+      html={resolvedHtml}
+      text={text}
+      allowRemoteImages={false}
+    />
+  );
+}
+
+const INLINE_IMAGE_SOURCE =
+  /src="(\/api\/team-comments\/conversations\/[^"/]+\/attachments\/[^"]+)"/g;
+
+function getInlineImageSources(html: string | null | undefined) {
+  if (!html) return [];
+  return [
+    ...new Set(Array.from(html.matchAll(INLINE_IMAGE_SOURCE), (m) => m[1])),
+  ];
+}
+
+function replaceInlineImageSources(
+  html: string,
+  sources: Record<string, string>,
+) {
+  return html.replace(INLINE_IMAGE_SOURCE, (match, source: string) =>
+    sources[source] ? `src="${sources[source]}"` : match,
+  );
+}
+
+async function loadInlineImages(sources: string[], signal: AbortSignal) {
+  const entries = await Promise.all(
+    sources.map(async (source) => {
+      try {
+        const response = await fetch(source.replaceAll("&amp;", "&"), {
+          signal,
+        });
+        if (!response.ok) return;
+        const blob = await response.blob();
+        if (!blob.type.startsWith("image/")) return;
+        return [source, await readAsDataUrl(blob)] as const;
+      } catch {
+        return;
+      }
+    }),
+  );
+  return Object.fromEntries(entries.filter((entry) => entry !== undefined));
+}
+
+function readAsDataUrl(blob: Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
 }
