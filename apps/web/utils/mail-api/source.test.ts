@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  compactMailboxSyncMessage,
   decodeMailboxSyncCursor,
   encodeMailboxSyncCursor,
   InvalidMailboxSyncCursorError,
@@ -8,6 +9,7 @@ import { ProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error"
 import { syncPageSchema } from "@inboxzero/mail-core/sync";
 import { createEmailProviderMailboxSource } from "./source";
 import type { EmailProvider } from "@/utils/email/types";
+import type { ParsedMessage } from "@/utils/types";
 
 vi.mock("server-only", () => ({}));
 
@@ -551,6 +553,51 @@ describe("createEmailProviderMailboxSource", () => {
     });
     if (result.status !== "page") throw new Error("expected a page");
     expect(() => syncPageSchema.parse(result.page)).not.toThrow();
+  });
+
+  it("hydrates delta meeting invitations instead of storing an empty body", async () => {
+    const invitation = compactMailboxSyncMessage({
+      id: "invite-1",
+      threadId: "t1",
+      historyId: "12",
+      date: "2026-01-01T00:00:00.000Z",
+      subject: "Invite",
+      snippet: "A new event has been scheduled",
+      headers: { from: "ada@example.com", to: "me@example.com", date: "" },
+      labelIds: ["INBOX"],
+      textHtml: "<p>A new event has been scheduled</p>",
+      textPlain: "A new event has been scheduled",
+      isMeetingInvitation: true,
+      inline: [],
+    } as ParsedMessage);
+    const source = createEmailProviderMailboxSource({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        localMailSyncStrategy: "history",
+        async getMailboxSyncPage() {
+          return {
+            cursor: "next",
+            reset: false,
+            upsertedMessages: [invitation],
+            deletedMessageIds: [],
+            hasMore: false,
+          };
+        },
+      } as unknown as EmailProvider,
+    });
+    const result = await source.readChanges({
+      session: { accountId: "acc-1", generation: "g1" },
+      requestId: "r1",
+      position: { streamId: "primary", generation: "g1", checkpoint: "1" },
+      pageSize: 20,
+      signal: new AbortController().signal,
+    });
+    if (result.status !== "page") throw new Error("expected a page");
+    expect(result.page.bodies ?? []).toEqual([]);
+    expect(result.page.requiredHydration).toEqual([
+      { accountId: "acc-1", messageId: "invite-1" },
+    ]);
   });
 
   it("batches folder reads, warming the provider with the first and capping concurrency", async () => {

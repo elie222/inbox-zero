@@ -446,4 +446,24 @@ export async function migrateMailbox(
   await migrateMembershipIndex(tx);
   await migrateInboxUnreadExcludesArchive(tx);
   await migrateMessageSearchIndex(tx);
+  await migrateEmptyMeetingInvitationBodies(tx);
+}
+
+// Delta sync once stored a meeting invitation's flag without its body. Dropping
+// those rows lets the reader hydrate the body again.
+export async function migrateEmptyMeetingInvitationBodies(tx: SqlTransaction) {
+  const applied = await tx.query(
+    "SELECT 1 FROM schema_migrations WHERE id = 9",
+  );
+  if (applied.length) return;
+  await tx.exec(`
+    DELETE FROM message_content
+    WHERE is_meeting_invitation = 1
+      AND html IS NULL
+      AND text IS NULL
+      AND COALESCE(attachments_json, '[]') = '[]'
+  `);
+  await tx.execute(
+    "INSERT INTO schema_migrations(id, name) VALUES (9, '0009-empty-meeting-invitation-bodies')",
+  );
 }
