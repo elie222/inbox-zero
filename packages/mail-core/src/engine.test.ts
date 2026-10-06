@@ -328,6 +328,26 @@ describe("mail engine idle catch-up scheduling", () => {
     await harness.engine.close();
   });
 
+  it("retries a failed scope discovery on the normal clock", async () => {
+    const harness = idleCatchUpHarness({ streamIds: ["inbox"] });
+    let failDiscovery = true;
+    const discoverScopes = harness.source.discoverScopes;
+    harness.source.discoverScopes = async (request) => {
+      if (failDiscovery) {
+        failDiscovery = false;
+        return { status: "paused", retryAfterMs: 1000, reason: "unavailable" };
+      }
+      return discoverScopes(request);
+    };
+    await harness.engine.runUntil(10_000);
+
+    harness.advance(60_000);
+    await harness.engine.runUntil(harness.nowMs + 1000);
+
+    expect(harness.discoveredScopeRequests).toBe(1);
+    await harness.engine.close();
+  });
+
   it("gates idle assistant catch-up and lets explicit sync wake it", async () => {
     const assistantCursors: Array<string | null> = [];
     const harness = idleCatchUpHarness({
@@ -595,6 +615,7 @@ function idleCatchUpHarness(input: {
   const harness = {
     engine,
     store,
+    source,
     readChangeStreams,
     onReadChanges: (_streamId: string) => {},
     get discoveredScopeRequests() {

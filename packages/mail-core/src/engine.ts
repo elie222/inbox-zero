@@ -897,8 +897,13 @@ export function createMailEngine(input: {
       ? await discoverBootstrapScopes(session, signal)
       : undefined;
     if (shouldDiscoverScopes) {
+      // A failed discovery retries on the normal clock; an account with no
+      // streams cannot start syncing until it succeeds.
       idleGate.nextScopeDiscoveryAtMs =
-        runtime.nowMs() + LOW_PRIORITY_CATCH_UP_INTERVAL_MS;
+        runtime.nowMs() +
+        (discoveredScopes
+          ? LOW_PRIORITY_CATCH_UP_INTERVAL_MS
+          : idleCatchUpIntervalMs);
     }
     if (discoveredScopes) {
       idleGate.lowPriorityStreams = new Set(
