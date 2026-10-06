@@ -156,7 +156,7 @@ async function executeBulkOperation<T extends Row>({
       failureCount++;
       if (error instanceof EmailProviderRateLimitError) {
         rateLimitError = error;
-      } else {
+      } else if (!(error instanceof AutomaticUnsubscribeFailedError)) {
         captureException(error);
       }
     } finally {
@@ -503,7 +503,7 @@ export function useBulkUnsubscribe<T extends Row>({
             unsubscribeLink: item.unsubscribeLink,
           });
           if (!unsubscribed) {
-            throw new Error("Automatic unsubscribe did not succeed");
+            throw new AutomaticUnsubscribeFailedError();
           }
 
           await decrementUnsubscribeCreditAction();
@@ -1310,4 +1310,13 @@ function getBulkActionErrorMessage(error: unknown, fallback: string) {
   }
 
   return fallback;
+}
+
+// An expected outcome (the sender's endpoint rejected or needs a person), not
+// a bug: the server logs the reason and the toast reports the failure count.
+class AutomaticUnsubscribeFailedError extends Error {
+  constructor() {
+    super("Automatic unsubscribe did not succeed");
+    this.name = "AutomaticUnsubscribeFailedError";
+  }
 }

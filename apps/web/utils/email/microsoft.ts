@@ -54,12 +54,12 @@ import {
 } from "@/utils/outlook/mail";
 import {
   archiveThread,
-  labelMessage,
   markReadThread,
   markStarredMessage,
   removeThreadLabel,
   unarchiveThread,
   untrashThread,
+  updateMessageCategories,
 } from "@/utils/outlook/label";
 import { trashThread } from "@/utils/outlook/trash";
 import { markNotSpam, markSpam } from "@/utils/outlook/spam";
@@ -582,28 +582,18 @@ export class OutlookProvider implements EmailProvider {
       usedFallback = true;
     }
 
-    // Get current message categories to avoid replacing them
-    const message = await withMicrosoftGraphRetry(
-      () =>
-        this.client
-          .getClient()
-          .api(`/me/messages/${messageId}`)
-          .select("categories")
-          .get(),
-      this.logger,
-    );
+    const categoryName = category.name;
+    const applied = await updateMessageCategories({
+      client: this.client,
+      messageId,
+      update: (categories) =>
+        categories.includes(categoryName)
+          ? categories
+          : [...categories, categoryName],
+      logger: this.logger,
+    });
 
-    const currentCategories = message.categories || [];
-
-    // Add the new category if it's not already present
-    if (!currentCategories.includes(category.name)) {
-      const updatedCategories = [...currentCategories, category.name];
-      await labelMessage({
-        client: this.client,
-        messageId,
-        categories: updatedCategories,
-        logger: this.logger,
-      });
+    if (applied) {
       this.logger.info("Label applied", { labelId: category.id });
     } else {
       this.logger.info("Label already present, skipped", {
@@ -1085,19 +1075,16 @@ export class OutlookProvider implements EmailProvider {
 
     if (!removeCategoryNames.length) return;
 
-    for (const message of messages.value) {
-      const currentCategories = message.categories || [];
+    const messagesWithCategories = messages.value.filter((message) =>
+      message.categories?.some((cat) => removeCategoryNames.includes(cat)),
+    );
 
-      // Remove specified categories
-      const newCategories = currentCategories.filter(
-        (cat) => !removeCategoryNames.includes(cat),
-      );
-      if (newCategories.length === currentCategories.length) continue;
-
-      await labelMessage({
+    for (const message of messagesWithCategories) {
+      await updateMessageCategories({
         client: this.client,
         messageId: message.id,
-        categories: newCategories,
+        update: (categories) =>
+          categories.filter((cat) => !removeCategoryNames.includes(cat)),
         logger: this.logger,
       });
     }
@@ -1572,14 +1559,32 @@ export class OutlookProvider implements EmailProvider {
     threadId: string,
   ): Promise<ParsedMessage | null> {
     const escapedThreadId = escapeODataString(threadId);
-    const response = await this.client
-      .getClient()
-      .api("/me/messages")
-      .filter(`conversationId eq '${escapedThreadId}'`)
-      .select(MESSAGE_SELECT_FIELDS)
-      .get();
+    // A whole conversation with bodies can be megabytes, and Graph sometimes
+    // ends such 200 responses mid-body. Pick the latest message from metadata,
+    // then fetch only that one in full.
+    const messages: Message[] = [];
+    let nextLink: string | undefined;
+    do {
+      const pageLink = nextLink;
+      const page: { value?: Message[]; "@odata.nextLink"?: string } =
+        await withMicrosoftGraphRetry(
+          () =>
+            pageLink
+              ? this.client.getClient().api(pageLink).get()
+              : this.client
+                  .getClient()
+                  .api("/me/messages")
+                  .filter(`conversationId eq '${escapedThreadId}'`)
+                  .select(MESSAGE_LIST_SELECT_FIELDS)
+                  .top(100)
+                  .get(),
+          this.logger,
+        );
+      messages.push(...(page.value ?? []));
+      nextLink = page["@odata.nextLink"];
+    } while (nextLink);
 
-    const parsedMessages: ParsedMessage[] = (response.value || [])
+    const parsedMessages: ParsedMessage[] = messages
       .filter((message: Message) => !message.isDraft)
       .map((message: Message) => convertMessage(message));
     if (parsedMessages.length === 0) return null;
@@ -1590,7 +1595,7 @@ export class OutlookProvider implements EmailProvider {
     });
     if (!latestMessage) return null;
 
-    return latestMessage;
+    return this.getMessage(latestMessage.id);
   }
 
   async getDrafts(options?: { maxResults?: number }): Promise<ParsedMessage[]> {
