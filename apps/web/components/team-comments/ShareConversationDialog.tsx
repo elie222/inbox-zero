@@ -19,13 +19,13 @@ import { getActionErrorMessage } from "@/utils/error";
 export function ShareConversationDialog({
   memberId,
   emailAccountId,
-  providerConversationId,
+  threadId,
   teammates,
   onShared,
 }: {
   memberId: string;
   emailAccountId: string;
-  providerConversationId: string;
+  threadId: string;
   teammates: Array<{
     id: string;
     emailAccount: { name: string | null; email: string; image: string | null };
@@ -34,14 +34,12 @@ export function ShareConversationDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
-  const [mutationId, setMutationId] = useState(() => crypto.randomUUID());
   const { executeAsync, isExecuting } = useAction(shareConversationAction);
   const [error, setError] = useState("");
   const close = () => {
     setOpen(false);
     setSelected([]);
     setError("");
-    setMutationId(crypto.randomUUID());
   };
   return (
     <Dialog
@@ -103,9 +101,8 @@ export function ShareConversationDialog({
               setError("");
               const result = await executeAsync({
                 memberId,
-                source: { emailAccountId, providerConversationId },
+                source: { emailAccountId, threadId },
                 participantMemberIds: selected,
-                clientMutationId: mutationId,
               });
               if (result?.data) {
                 close();

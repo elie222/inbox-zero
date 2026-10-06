@@ -61,7 +61,6 @@ export const setParticipantAccessAction = actionClientUser
         conversationId: parsedInput.conversationId,
         memberId: parsedInput.targetMemberId,
         access: parsedInput.access,
-        clientMutationId: parsedInput.clientMutationId,
         logger,
       },
     ),
@@ -74,7 +73,6 @@ export const stopSharingAction = actionClientUser
     stopSharing(
       { userId, memberId: parsedInput.memberId },
       parsedInput.conversationId,
-      parsedInput.clientMutationId,
       logger,
     ),
   );

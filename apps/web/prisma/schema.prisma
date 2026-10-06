@@ -128,7 +128,6 @@ model User {
   scimUsers              ScimUser[]
   scimProjectionGrants   ScimProjectionGrant[]
   scimIdentityLinks      ScimIdentityLink[]
-  sharedConversationComments ConversationComment[] @relation("SharedCommentAuthor")
 }
 
 enum ApiKeyScope {
@@ -241,7 +240,6 @@ model EmailAccount {
   actions             Action[]
 
   members                Member[]
-  publishedSharedConversations SharedConversation[] @relation("SharedConversationPublisherAccount")
   invitations            Invitation[]
   ssoproviders           SsoProvider[]
   calendarConnections    CalendarConnection[]
@@ -306,18 +304,18 @@ model MailSplitFilter {
 }
 
 model Organization {
-  id          String             @id @default(cuid())
-  name        String
-  slug        String             @unique
-  logo        String?
-  metadata    Json?
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
-  members     Member[]
-  SsoProvider SsoProvider?
-  sessions    Session[]
-  invitations Invitation[]
-  rules       OrganizationRule[]
+  id                  String               @id @default(cuid())
+  name                String
+  slug                String               @unique
+  logo                String?
+  metadata            Json?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  members             Member[]
+  SsoProvider         SsoProvider?
+  sessions            Session[]
+  invitations         Invitation[]
+  rules               OrganizationRule[]
   sharedConversations SharedConversation[]
 }
 
@@ -376,18 +374,18 @@ model OrganizationRuleAction {
 }
 
 model Member {
-  id                     String       @id @default(cuid())
-  organizationId         String
-  emailAccountId         String
-  role                   String       @default("member") // "owner" | "admin" | "member"
-  allowOrgAdminAnalytics Boolean      @default(false)
-  createdAt              DateTime     @default(now())
-  updatedAt              DateTime     @updatedAt
-  organization           Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  emailAccount           EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Restrict)
-  publishedSharedConversations SharedConversation[] @relation("SharedConversationPublisherMember")
+  id                       String                    @id @default(cuid())
+  organizationId           String
+  emailAccountId           String
+  role                     String                    @default("member") // "owner" | "admin" | "member"
+  allowOrgAdminAnalytics   Boolean                   @default(false)
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  organization             Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  emailAccount             EmailAccount              @relation(fields: [emailAccountId], references: [id], onDelete: Restrict)
+  sharedConversations      SharedConversation[]
   conversationParticipants ConversationParticipant[]
-  authoredConversationComments ConversationComment[] @relation("SharedCommentAuthorMember")
+  conversationComments     ConversationComment[]
 
   @@unique([organizationId, emailAccountId])
   @@unique([emailAccountId])
@@ -405,94 +403,68 @@ enum ConversationActivityKind {
 }
 
 model SharedConversation {
-  id String @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String                    @id @default(cuid())
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
   organizationId String
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  publisherEmailAccountId String?
-  publisherEmailAccount EmailAccount? @relation("SharedConversationPublisherAccount", fields: [publisherEmailAccountId], references: [id], onDelete: SetNull)
-  publisherAccountIdentityId String
-  publisherMemberId String?
-  publisherMember Member? @relation("SharedConversationPublisherMember", fields: [publisherMemberId], references: [id], onDelete: SetNull)
-  providerConversationId String
-  status SharedConversationStatus @default(ACTIVE)
-  revision Int @default(0)
-  generation Int @default(1)
-  participants ConversationParticipant[]
-  comments ConversationComment[]
-  receipts ConversationMutationReceipt[]
-  activity ConversationActivity[]
+  organization   Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  publisherId    String
+  publisher      Member                    @relation(fields: [publisherId], references: [id], onDelete: Cascade)
+  threadId       String
+  status         SharedConversationStatus  @default(ACTIVE)
+  revision       Int                       @default(0)
+  generation     Int                       @default(1)
+  participants   ConversationParticipant[]
+  comments       ConversationComment[]
 
-  @@unique([organizationId, publisherAccountIdentityId, providerConversationId])
-  @@index([publisherMemberId, status])
+  @@unique([publisherId, threadId])
+  @@index([organizationId])
 }
 
 model ConversationParticipant {
-  id String @id @default(cuid())
+  id             String                 @id @default(cuid())
   conversationId String
-  conversation SharedConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  memberId String?
-  member Member? @relation(fields: [memberId], references: [id], onDelete: SetNull)
-  memberIdentityId String
-  generation Int
-  active Boolean @default(true)
-  readRevision Int @default(0)
-  muted Boolean @default(false)
-  createdAt DateTime @default(now())
-  activity ConversationActivity[]
+  conversation   SharedConversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  memberId       String
+  member         Member                 @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  generation     Int
+  active         Boolean                @default(true)
+  readRevision   Int                    @default(0)
+  muted          Boolean                @default(false)
+  createdAt      DateTime               @default(now())
+  activity       ConversationActivity[]
 
-  @@unique([conversationId, memberIdentityId, generation])
-  @@index([memberId, active, generation])
+  @@unique([conversationId, memberId, generation])
+  @@index([memberId])
 }
 
 model ConversationComment {
-  id String @id @default(cuid())
-  conversationId String
-  conversation SharedConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  authorUserId String?
-  authorUser User? @relation("SharedCommentAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
-  authorMemberId String?
-  authorMember Member? @relation("SharedCommentAuthorMember", fields: [authorMemberId], references: [id], onDelete: SetNull)
-  authorIdentityId String
-  body String @db.Text
-  mentionedMemberIdentityIds String[] @default([])
-  revision Int
-  generation Int
-  deletedAt DateTime?
-  createdAt DateTime @default(now())
-  activity ConversationActivity[]
+  id               String                 @id @default(cuid())
+  conversationId   String
+  conversation     SharedConversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  // SetNull keeps the discussion readable after the author leaves the organization.
+  authorMemberId   String?
+  author           Member?                @relation(fields: [authorMemberId], references: [id], onDelete: SetNull)
+  clientMutationId String
+  body             String                 @db.Text
+  revision         Int
+  deletedAt        DateTime?
+  createdAt        DateTime               @default(now())
+  activity         ConversationActivity[]
 
   @@unique([conversationId, revision])
-  @@index([conversationId, createdAt, id])
-}
-
-model ConversationMutationReceipt {
-  id String @id @default(cuid())
-  conversationId String
-  conversation SharedConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  actorIdentityId String
-  clientMutationId String
-  payloadHash String
-  resultKind String
-  resultId String
-  generation Int
-  createdAt DateTime @default(now())
-
-  @@unique([conversationId, actorIdentityId, clientMutationId])
+  @@unique([conversationId, authorMemberId, clientMutationId])
 }
 
 model ConversationActivity {
-  id String @id @default(cuid())
-  conversationId String
-  conversation SharedConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  id            String                   @id @default(cuid())
   participantId String
-  participant ConversationParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
-  commentId String?
-  comment ConversationComment? @relation(fields: [commentId], references: [id], onDelete: SetNull)
-  kind ConversationActivityKind
-  revision Int
-  createdAt DateTime @default(now())
+  participant   ConversationParticipant  @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  commentId     String?
+  comment       ConversationComment?     @relation(fields: [commentId], references: [id], onDelete: SetNull)
+  kind          ConversationActivityKind
+  revision      Int
+  createdAt     DateTime                 @default(now())
 
   @@unique([participantId, kind, revision])
   @@index([participantId, createdAt, id])

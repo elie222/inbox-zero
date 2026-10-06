@@ -77,8 +77,6 @@ export async function getConversationActivity(
         conversation: {
           status: "ACTIVE",
           organizationId: member.organizationId,
-          publisherMemberId: { not: null },
-          publisherEmailAccountId: { not: null },
         },
       },
       ...(input.before
@@ -95,9 +93,14 @@ export async function getConversationActivity(
     },
     include: {
       participant: {
-        select: { muted: true, readRevision: true, generation: true },
+        select: {
+          muted: true,
+          readRevision: true,
+          generation: true,
+          conversationId: true,
+          conversation: { select: { generation: true } },
+        },
       },
-      conversation: { select: { generation: true, revision: true } },
       comment: { select: { body: true, deletedAt: true } },
     },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
@@ -105,14 +108,12 @@ export async function getConversationActivity(
   });
   const currentGrants = await prisma.conversationParticipant.findMany({
     where: {
+      id: { in: page.map((item) => item.participantId) },
       memberId: member.id,
       active: true,
-      conversationId: { in: page.map((item) => item.conversationId) },
       conversation: {
         status: "ACTIVE",
         organizationId: member.organizationId,
-        publisherMemberId: { not: null },
-        publisherEmailAccountId: { not: null },
       },
     },
     select: {
@@ -130,12 +131,13 @@ export async function getConversationActivity(
     items: page
       .filter(
         (item) =>
-          item.participant.generation === item.conversation.generation &&
+          item.participant.generation ===
+            item.participant.conversation.generation &&
           authorizedGrantIds.has(item.participantId),
       )
       .map((item) => ({
         id: item.id,
-        conversationId: item.conversationId,
+        conversationId: item.participant.conversationId,
         kind: item.kind,
         createdAt: item.createdAt,
         preview: item.comment?.deletedAt

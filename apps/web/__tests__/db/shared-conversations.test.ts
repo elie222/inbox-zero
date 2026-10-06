@@ -70,7 +70,9 @@ describe.skipIf(!RUN_DB_TESTS)(
         { userId: ids.bUserId, memberId: ids.bMemberId },
         ids.conversationId,
       );
-      expect(shared.conversation.publisherEmailAccountId).toBe(ids.aAccountId);
+      expect(shared.conversation.publisher.emailAccount.id).toBe(
+        ids.aAccountId,
+      );
       await expect(
         getAuthorizedConversation(
           { userId: ids.cUserId, memberId: ids.cMemberId },
@@ -150,10 +152,9 @@ describe.skipIf(!RUN_DB_TESTS)(
       const input = {
         source: {
           emailAccountId: ids.aAccountId,
-          providerConversationId: "new-provider-thread",
+          threadId: "new-provider-thread",
         },
         participantMemberIds: [ids.cMemberId],
-        clientMutationId: "concurrent-share",
         logger,
       };
       const results = await Promise.all(
@@ -162,12 +163,15 @@ describe.skipIf(!RUN_DB_TESTS)(
       expect(new Set(results.map((result) => result.id)).size).toBe(1);
       expect(
         await prisma.sharedConversation.count({
-          where: { providerConversationId: "new-provider-thread" },
+          where: { threadId: "new-provider-thread" },
         }),
       ).toBe(1);
       expect(
         await prisma.conversationActivity.count({
-          where: { conversationId: results[0].id, kind: "INVITED" },
+          where: {
+            participant: { conversationId: results[0].id },
+            kind: "INVITED",
+          },
         }),
       ).toBe(1);
       const activity = await getConversationActivity(
@@ -198,7 +202,6 @@ describe.skipIf(!RUN_DB_TESTS)(
           conversationId: ids.conversationId,
           memberId: ids.cMemberId,
           access: true,
-          clientMutationId: "concurrent-invite",
           logger,
         }),
       ]);
@@ -206,14 +209,12 @@ describe.skipIf(!RUN_DB_TESTS)(
         deleteComment(teammate, {
           conversationId: ids.conversationId,
           commentId: comment.id,
-          clientMutationId: "concurrent-delete",
           logger,
         }),
         setParticipantAccess(publisher, {
           conversationId: ids.conversationId,
           memberId: ids.cMemberId,
           access: false,
-          clientMutationId: "concurrent-revoke",
           logger,
         }),
       ]);
@@ -228,7 +229,10 @@ describe.skipIf(!RUN_DB_TESTS)(
       ).toMatchObject({ deletedAt: expect.any(Date) });
       expect(
         await prisma.conversationActivity.count({
-          where: { conversationId: ids.conversationId, kind: "INVITED" },
+          where: {
+            participant: { conversationId: ids.conversationId },
+            kind: "INVITED",
+          },
         }),
       ).toBe(1);
     });
@@ -248,7 +252,6 @@ describe.skipIf(!RUN_DB_TESTS)(
           conversationId: ids.conversationId,
           memberId: ids.bMemberId,
           access: false,
-          clientMutationId: "racing-revocation",
           logger,
         }),
       ]);
@@ -260,23 +263,16 @@ describe.skipIf(!RUN_DB_TESTS)(
         where: { conversationId: ids.conversationId },
       });
       expect(commentCount).toBe(postResult.status === "fulfilled" ? 1 : 0);
-      expect(
-        await prisma.conversationMutationReceipt.count({
-          where: { conversationId: ids.conversationId, resultKind: "comment" },
-        }),
-      ).toBe(commentCount);
     });
 
     test("the first comment page contains the newest entries and older pages do not repeat them", async () => {
       await prisma.conversationComment.createMany({
         data: Array.from({ length: 105 }, (_, index) => ({
           conversationId: ids.conversationId,
-          authorUserId: ids.aUserId,
           authorMemberId: ids.aMemberId,
-          authorIdentityId: ids.aMemberId,
+          clientMutationId: `seeded-${index + 1}`,
           body: `Comment ${index + 1}`,
           revision: index + 1,
-          generation: 1,
         })),
       });
       await prisma.sharedConversation.update({
@@ -341,7 +337,6 @@ describe.skipIf(!RUN_DB_TESTS)(
         conversationId: ids.conversationId,
         memberId: ids.bMemberId,
         access: false,
-        clientMutationId: "remove-b",
         logger,
       });
       await expect(
@@ -354,7 +349,6 @@ describe.skipIf(!RUN_DB_TESTS)(
         conversationId: ids.conversationId,
         memberId: ids.bMemberId,
         access: true,
-        clientMutationId: "restore-b",
         logger,
       });
       await expect(
@@ -367,7 +361,7 @@ describe.skipIf(!RUN_DB_TESTS)(
         await prisma.conversationParticipant.count({
           where: {
             conversationId: ids.conversationId,
-            memberIdentityId: ids.bMemberId,
+            memberId: ids.bMemberId,
             generation: 1,
           },
         }),
@@ -375,8 +369,10 @@ describe.skipIf(!RUN_DB_TESTS)(
       expect(
         await prisma.conversationActivity.count({
           where: {
-            conversationId: ids.conversationId,
-            participant: { memberIdentityId: ids.bMemberId },
+            participant: {
+              conversationId: ids.conversationId,
+              memberId: ids.bMemberId,
+            },
             kind: "INVITED",
           },
         }),
@@ -387,7 +383,6 @@ describe.skipIf(!RUN_DB_TESTS)(
       const stopped = await stopSharing(
         { userId: ids.aUserId, memberId: ids.aMemberId },
         ids.conversationId,
-        "stop-one",
         logger,
       );
       expect(stopped).toEqual({ stopped: true });
@@ -395,7 +390,6 @@ describe.skipIf(!RUN_DB_TESTS)(
         await stopSharing(
           { userId: ids.aUserId, memberId: ids.aMemberId },
           ids.conversationId,
-          "stop-one",
           logger,
         ),
       ).toEqual({ stopped: true });
@@ -410,10 +404,9 @@ describe.skipIf(!RUN_DB_TESTS)(
         {
           source: {
             emailAccountId: ids.aAccountId,
-            providerConversationId: "provider-thread",
+            threadId: "provider-thread",
           },
           participantMemberIds: [ids.cMemberId],
-          clientMutationId: "restart-one",
           logger,
         },
       );
@@ -430,33 +423,80 @@ describe.skipIf(!RUN_DB_TESTS)(
           ids.conversationId,
         ),
       ).resolves.toBeTruthy();
-      await expect(
-        stopSharing(
-          { userId: ids.aUserId, memberId: ids.aMemberId },
-          ids.conversationId,
-          "stop-one",
+    });
+
+    test("sharing an already active conversation again returns the existing share", async () => {
+      const shared = await shareConversation(
+        { userId: ids.aUserId, memberId: ids.aMemberId },
+        {
+          source: {
+            emailAccountId: ids.aAccountId,
+            threadId: "provider-thread",
+          },
+          participantMemberIds: [ids.bMemberId],
           logger,
-        ),
-      ).rejects.toThrow("Sharing has changed");
+        },
+      );
+      expect(shared.id).toBe(ids.conversationId);
+      expect(shared.generation).toBe(1);
+    });
+
+    test("a publisher who leaves and rejoins the organization can share the same thread again", async () => {
+      const publisher = { userId: ids.aUserId, memberId: ids.aMemberId };
+      await postComment(
+        { userId: ids.bUserId, memberId: ids.bMemberId },
+        {
+          conversationId: ids.conversationId,
+          body: "Before the publisher left",
+          mentionedMemberIds: [],
+          clientMutationId: "post-before-publisher-left",
+          logger,
+        },
+      );
+      await stopSharing(publisher, ids.conversationId, logger);
+      await prisma.member.update({
+        where: { id: ids.cMemberId },
+        data: { role: "owner" },
+      });
+      await prisma.member.delete({ where: { id: ids.aMemberId } });
+      expect(
+        await prisma.sharedConversation.count({
+          where: { id: ids.conversationId },
+        }),
+      ).toBe(0);
+      const rejoined = await prisma.member.create({
+        data: {
+          organizationId: ids.organizationId,
+          emailAccountId: ids.aAccountId,
+        },
+      });
+      const shared = await shareConversation(
+        { userId: ids.aUserId, memberId: rejoined.id },
+        {
+          source: {
+            emailAccountId: ids.aAccountId,
+            threadId: "provider-thread",
+          },
+          participantMemberIds: [ids.bMemberId],
+          logger,
+        },
+      );
+      expect(shared.id).not.toBe(ids.conversationId);
+      expect(shared.generation).toBe(1);
+      expect(shared.commentCount).toBe(0);
     });
 
     test("restart reports when a selected teammate has left the organization", async () => {
       const actor = { userId: ids.aUserId, memberId: ids.aMemberId };
-      await stopSharing(
-        actor,
-        ids.conversationId,
-        "stop-before-member-removal",
-        logger,
-      );
+      await stopSharing(actor, ids.conversationId, logger);
       await prisma.member.delete({ where: { id: ids.cMemberId } });
       await expect(
         shareConversation(actor, {
           source: {
             emailAccountId: ids.aAccountId,
-            providerConversationId: "provider-thread",
+            threadId: "provider-thread",
           },
           participantMemberIds: [ids.cMemberId],
-          clientMutationId: "restart-missing-member",
           logger,
         }),
       ).rejects.toThrow("Teammate is no longer a member");
@@ -516,14 +556,12 @@ async function seed(prisma: typeof import("@/utils/prisma").default) {
   const conversation = await prisma.sharedConversation.create({
     data: {
       organizationId: organization.id,
-      publisherEmailAccountId: a.mailbox.id,
-      publisherAccountIdentityId: a.mailbox.id,
-      publisherMemberId: aMember.id,
-      providerConversationId: "provider-thread",
+      publisherId: aMember.id,
+      threadId: "provider-thread",
       participants: {
         create: [
-          { memberId: aMember.id, memberIdentityId: aMember.id, generation: 1 },
-          { memberId: bMember.id, memberIdentityId: bMember.id, generation: 1 },
+          { memberId: aMember.id, generation: 1 },
+          { memberId: bMember.id, generation: 1 },
         ],
       },
     },

@@ -260,7 +260,7 @@ export function ThreadReader({
         <PublisherDiscussion
           key={`${emailAccountId}:${threadId}`}
           emailAccountId={emailAccountId}
-          providerConversationId={threadId}
+          threadId={threadId}
         />
       )}
     </MailReaderSurface>

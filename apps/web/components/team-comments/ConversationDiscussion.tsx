@@ -130,7 +130,6 @@ export function ConversationDiscussion({
                               memberId,
                               conversationId,
                               commentId: comment.id,
-                              clientMutationId: crypto.randomUUID(),
                             });
                             if (result?.data) refresh();
                             else setError(getActionErrorMessage(result ?? {}));
@@ -191,7 +190,6 @@ export function ConversationDiscussion({
                         conversationId,
                         targetMemberId,
                         access: true,
-                        clientMutationId: crypto.randomUUID(),
                       });
                       if (result?.data) refresh();
                       else setError(getActionErrorMessage(result ?? {}));
@@ -224,7 +222,6 @@ export function ConversationDiscussion({
                             conversationId,
                             targetMemberId: person.memberId,
                             access: false,
-                            clientMutationId: crypto.randomUUID(),
                           });
                           if (result?.data) refresh();
                           else setError(getActionErrorMessage(result ?? {}));
@@ -240,7 +237,6 @@ export function ConversationDiscussion({
                       const result = await stop({
                         memberId,
                         conversationId,
-                        clientMutationId: crypto.randomUUID(),
                       });
                       if (result?.data) {
                         refresh();

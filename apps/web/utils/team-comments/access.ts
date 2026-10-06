@@ -33,8 +33,6 @@ export async function getAuthorizedConversation(
       id: conversationId,
       organizationId: member.organizationId,
       status: "ACTIVE",
-      publisherMemberId: { not: null },
-      publisherEmailAccountId: { not: null },
       participants: {
         some: {
           memberId: member.id,
@@ -56,16 +54,14 @@ export async function getAuthorizedConversation(
           },
         },
       },
-      publisherMember: {
+      publisher: {
         select: {
-          id: true,
-          emailAccount: { select: { name: true, email: true } },
-        },
-      },
-      publisherEmailAccount: {
-        select: {
-          id: true,
-          account: { select: { provider: true, disconnectedAt: true } },
+          emailAccount: {
+            select: {
+              id: true,
+              account: { select: { provider: true, disconnectedAt: true } },
+            },
+          },
         },
       },
     },
@@ -85,7 +81,7 @@ export async function getPublisherConversation(
   conversationId: string,
 ) {
   const access = await getAuthorizedConversation(actor, conversationId);
-  if (access.conversation.publisherMemberId !== actor.memberId)
+  if (access.conversation.publisherId !== actor.memberId)
     throw new SafeError("Only the publisher can manage sharing");
   return access;
 }

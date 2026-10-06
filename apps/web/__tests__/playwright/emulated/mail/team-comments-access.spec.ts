@@ -37,7 +37,7 @@ test("cancelled selection grants nothing; nonparticipants and revoked members ca
     await dialog.getByLabel("Shared Teammate").check();
     await dialog.getByRole("button", { name: "Cancel" }).click();
     const unshared = await page.request.get(
-      `/api/team-comments/conversations?memberId=${team.publisherMemberId}&emailAccountId=${team.publisher.id}&providerConversationId=thr_playwright_reader`,
+      `/api/team-comments/conversations?memberId=${team.publisherMemberId}&emailAccountId=${team.publisher.id}&threadId=thr_playwright_reader`,
     );
     expect(((await unshared.json()) as { source: unknown }).source).toBeNull();
     await publisherDiscussion
@@ -78,7 +78,7 @@ test("cancelled selection grants nothing; nonparticipants and revoked members ca
     );
     expect(anonymousResponse.ok()).toBe(false);
     const wrongAccount = await page.request.get(
-      `/api/team-comments/conversations?memberId=${team.publisherMemberId}&emailAccountId=${team.extraAccountId}&providerConversationId=thr_playwright_reader`,
+      `/api/team-comments/conversations?memberId=${team.publisherMemberId}&emailAccountId=${team.extraAccountId}&threadId=thr_playwright_reader`,
     );
     expect(wrongAccount.ok()).toBe(false);
 

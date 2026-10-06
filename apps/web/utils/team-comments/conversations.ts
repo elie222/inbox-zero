@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { Prisma } from "@/generated/prisma/client";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -20,7 +20,7 @@ export async function getSharedConversation(
     actor,
     conversationId,
   );
-  const canManage = conversation.publisherMemberId === actor.memberId;
+  const canManage = conversation.publisherId === actor.memberId;
   const availableTeammates = canManage
     ? await prisma.member.findMany({
         where: {
@@ -37,19 +37,12 @@ export async function getSharedConversation(
     id: conversation.id,
     generation: conversation.generation,
     revision: conversation.revision,
-    publisher: {
-      name: conversation.publisherMember?.emailAccount.name ?? "Former member",
-      email: conversation.publisherMember?.emailAccount.email ?? null,
-    },
     participants: conversation.participants
-      .filter(
-        (entry) => entry.generation === conversation.generation && entry.member,
-      )
+      .filter((entry) => entry.generation === conversation.generation)
       .map((entry) => ({
-        memberId: entry.memberIdentityId,
-        name:
-          entry.member!.emailAccount.name ?? entry.member!.emailAccount.email,
-        image: entry.member!.emailAccount.image,
+        memberId: entry.memberId,
+        name: entry.member.emailAccount.name ?? entry.member.emailAccount.email,
+        image: entry.member.emailAccount.image,
       })),
     capabilities: { manage: canManage, comment: true },
     availableTeammates: availableTeammates.map((teammate) => ({
@@ -70,13 +63,11 @@ export async function listSharedConversations(actor: ConversationActor) {
     where: {
       organizationId: member.organizationId,
       status: "ACTIVE",
-      publisherMemberId: { not: null },
-      publisherEmailAccountId: { not: null },
       participants: { some: { memberId: member.id, active: true } },
     },
     include: {
       participants: { where: { memberId: member.id, active: true } },
-      publisherMember: {
+      publisher: {
         select: { emailAccount: { select: { name: true, email: true } } },
       },
       comments: {
@@ -99,9 +90,7 @@ export async function listSharedConversations(actor: ConversationActor) {
       {
         id: row.id,
         publisher:
-          row.publisherMember?.emailAccount.name ??
-          row.publisherMember?.emailAccount.email ??
-          "Former member",
+          row.publisher.emailAccount.name ?? row.publisher.emailAccount.email,
         commentCount: row._count.comments,
         unread:
           !participant.muted &&
@@ -117,7 +106,7 @@ export async function getShareForSource(
   actor: ConversationActor,
   source: {
     emailAccountId: string;
-    providerConversationId: string;
+    threadId: string;
   },
 ) {
   const member = await getOwnedMember(actor);
@@ -127,24 +116,21 @@ export async function getShareForSource(
     );
   const conversation = await prisma.sharedConversation.findUnique({
     where: {
-      organizationId_publisherAccountIdentityId_providerConversationId: {
-        organizationId: member.organizationId,
-        publisherAccountIdentityId: source.emailAccountId,
-        providerConversationId: source.providerConversationId,
+      publisherId_threadId: {
+        publisherId: member.id,
+        threadId: source.threadId,
       },
     },
   });
   if (conversation?.status !== "ACTIVE") return null;
-  if (conversation.publisherMemberId !== member.id) return null;
   return getSharedConversation(actor, conversation.id);
 }
 
 export async function shareConversation(
   actor: ConversationActor,
   input: {
-    source: { emailAccountId: string; providerConversationId: string };
+    source: { emailAccountId: string; threadId: string };
     participantMemberIds: string[];
-    clientMutationId: string;
     logger: Logger;
   },
 ) {
@@ -158,42 +144,18 @@ export async function shareConversation(
     .sort();
   if (!selected.length) throw new SafeError("Select at least one teammate");
   if (selected.length > 20) throw new SafeError("Too many teammates selected");
-  const payloadHash = hashMutation({ source: input.source, selected });
   const existing = await prisma.sharedConversation.findUnique({
     where: {
-      organizationId_publisherAccountIdentityId_providerConversationId: {
-        organizationId: member.organizationId,
-        publisherAccountIdentityId: member.emailAccountId,
-        providerConversationId: input.source.providerConversationId,
+      publisherId_threadId: {
+        publisherId: member.id,
+        threadId: input.source.threadId,
       },
     },
   });
-  if (existing) {
-    const receipt = await prisma.conversationMutationReceipt.findUnique({
-      where: {
-        conversationId_actorIdentityId_clientMutationId: {
-          conversationId: existing.id,
-          actorIdentityId: member.id,
-          clientMutationId: input.clientMutationId,
-        },
-      },
-    });
-    if (receipt) {
-      if (receipt.payloadHash !== payloadHash)
-        throw new SafeError("Mutation ID was reused with different content");
-      return getSharedConversation(actor, existing.id);
-    }
-    if (existing.status === "ACTIVE")
-      throw new SafeError("This conversation is already shared");
-    return restartSharing(
-      actor,
-      existing.id,
-      selected,
-      input.clientMutationId,
-      payloadHash,
-      input.logger,
-    );
-  }
+  if (existing?.status === "ACTIVE")
+    return getSharedConversation(actor, existing.id);
+  if (existing)
+    return restartSharing(actor, existing.id, selected, input.logger);
 
   const account = await prisma.emailAccount.findFirst({
     where: { id: member.emailAccountId, userId: actor.userId },
@@ -205,7 +167,7 @@ export async function shareConversation(
     provider: account.account.provider,
     logger: input.logger,
   });
-  const thread = await provider.getThread(input.source.providerConversationId, {
+  const thread = await provider.getThread(input.source.threadId, {
     complete: true,
   });
   if (!thread.messages.length) throw new SafeError("Conversation unavailable");
@@ -216,7 +178,6 @@ export async function shareConversation(
     id: randomUUID(),
     conversationId,
     memberId,
-    memberIdentityId: memberId,
     generation: 1,
   }));
   const publisherGrant = grantRows[0];
@@ -227,12 +188,10 @@ export async function shareConversation(
         [
           prisma.$executeRaw`
         INSERT INTO "SharedConversation" (
-          "id", "updatedAt", "organizationId", "publisherEmailAccountId",
-          "publisherAccountIdentityId", "publisherMemberId", "providerConversationId", "revision"
+          "id", "updatedAt", "organizationId", "publisherId", "threadId", "revision"
         )
         SELECT ${conversationId}, CURRENT_TIMESTAMP, ${member.organizationId},
-          ${member.emailAccountId}, ${member.emailAccountId}, ${member.id},
-          ${input.source.providerConversationId}, 1
+          ${member.id}, ${input.source.threadId}, 1
         WHERE (SELECT COUNT(*) FROM "Member" m
           JOIN "EmailAccount" a ON a."id" = m."emailAccountId"
           WHERE m."id" IN (${selectedSql}) AND m."organizationId" = ${member.organizationId}) = ${participantIds.length}
@@ -241,24 +200,11 @@ export async function shareConversation(
               AND m."emailAccountId" = ${member.emailAccountId})
       `,
           prisma.conversationParticipant.createMany({ data: grantRows }),
-          prisma.conversationMutationReceipt.create({
-            data: {
-              id: randomUUID(),
-              conversationId,
-              actorIdentityId: member.id,
-              clientMutationId: input.clientMutationId,
-              payloadHash,
-              resultKind: "share",
-              resultId: conversationId,
-              generation: 1,
-            },
-          }),
           prisma.conversationActivity.createMany({
             data: grantRows
               .filter((grant) => grant.id !== publisherGrant.id)
               .map((grant) => ({
                 id: randomUUID(),
-                conversationId,
                 participantId: grant.id,
                 kind: "INVITED",
                 revision: 1,
@@ -290,32 +236,14 @@ export async function shareConversation(
       ) {
         const committed = await prisma.sharedConversation.findUnique({
           where: {
-            organizationId_publisherAccountIdentityId_providerConversationId: {
-              organizationId: member.organizationId,
-              publisherAccountIdentityId: member.emailAccountId,
-              providerConversationId: input.source.providerConversationId,
+            publisherId_threadId: {
+              publisherId: member.id,
+              threadId: input.source.threadId,
             },
           },
         });
-        if (committed) {
-          const receipt = await prisma.conversationMutationReceipt.findUnique({
-            where: {
-              conversationId_actorIdentityId_clientMutationId: {
-                conversationId: committed.id,
-                actorIdentityId: member.id,
-                clientMutationId: input.clientMutationId,
-              },
-            },
-          });
-          if (receipt) {
-            if (receipt.payloadHash !== payloadHash)
-              throw new SafeError(
-                "Mutation ID was reused with different content",
-              );
-            return getSharedConversation(actor, committed.id);
-          }
-          throw new SafeError("This conversation is already shared");
-        }
+        if (committed?.status === "ACTIVE")
+          return getSharedConversation(actor, committed.id);
       }
     }
     throw error;
@@ -327,39 +255,19 @@ export async function shareConversation(
 export async function stopSharing(
   actor: ConversationActor,
   conversationId: string,
-  clientMutationId: string,
   logger: Logger,
 ) {
-  const payloadHash = hashMutation({ operation: "stop" });
   for (let attempt = 0; attempt < 4; attempt++) {
     const member = await getOwnedMember(actor);
     const conversation = await prisma.sharedConversation.findFirst({
       where: {
         id: conversationId,
         organizationId: member.organizationId,
-        publisherMemberId: member.id,
-        publisherEmailAccountId: member.emailAccountId,
+        publisherId: member.id,
       },
     });
     if (!conversation) throw new SafeError("Conversation access unavailable");
-    const receipt = await prisma.conversationMutationReceipt.findUnique({
-      where: {
-        conversationId_actorIdentityId_clientMutationId: {
-          conversationId,
-          actorIdentityId: actor.memberId,
-          clientMutationId,
-        },
-      },
-    });
-    if (receipt) {
-      if (receipt.payloadHash !== payloadHash || receipt.resultKind !== "stop")
-        throw new SafeError("Mutation ID was reused with different content");
-      if (conversation.generation !== receipt.generation)
-        throw new SafeError("Sharing has changed since this operation");
-      return { stopped: conversation.status === "STOPPED" };
-    }
-    if (conversation.status !== "ACTIVE")
-      throw new SafeError("Conversation is already stopped");
+    if (conversation.status === "STOPPED") return { stopped: true };
     await getPublisherConversation(actor, conversationId);
     try {
       await prisma.$transaction(
@@ -370,25 +278,13 @@ export async function stopSharing(
               revision: conversation.revision,
               generation: conversation.generation,
               status: "ACTIVE",
-              publisherMemberId: actor.memberId,
+              publisherId: actor.memberId,
             },
             data: { status: "STOPPED", revision: { increment: 1 } },
           }),
           prisma.conversationParticipant.updateMany({
             where: { conversationId, generation: conversation.generation },
             data: { active: false },
-          }),
-          prisma.conversationMutationReceipt.create({
-            data: {
-              id: randomUUID(),
-              conversationId,
-              actorIdentityId: actor.memberId,
-              clientMutationId,
-              payloadHash,
-              resultKind: "stop",
-              resultId: conversationId,
-              generation: conversation.generation,
-            },
           }),
         ],
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
@@ -411,8 +307,6 @@ async function restartSharing(
   actor: ConversationActor,
   conversationId: string,
   selected: string[],
-  clientMutationId: string,
-  payloadHash: string,
   logger: Logger,
 ) {
   for (let attempt = 0; attempt < 4; attempt++) {
@@ -421,42 +315,18 @@ async function restartSharing(
       where: {
         id: conversationId,
         organizationId: member.organizationId,
-        publisherMemberId: member.id,
-        publisherEmailAccountId: member.emailAccountId,
+        publisherId: member.id,
       },
     });
     if (!conversation) throw new SafeError("Conversation cannot be restarted");
-    const receipt = await prisma.conversationMutationReceipt.findUnique({
-      where: {
-        conversationId_actorIdentityId_clientMutationId: {
-          conversationId,
-          actorIdentityId: member.id,
-          clientMutationId,
-        },
-      },
-    });
-    if (receipt) {
-      if (
-        receipt.payloadHash !== payloadHash ||
-        receipt.resultKind !== "restart"
-      )
-        throw new SafeError("Mutation ID was reused with different content");
-      if (
-        conversation.status !== "ACTIVE" ||
-        conversation.generation !== receipt.generation
-      )
-        throw new SafeError("Sharing has changed since this operation");
+    if (conversation.status === "ACTIVE")
       return getSharedConversation(actor, conversationId);
-    }
-    if (conversation.status !== "STOPPED")
-      throw new SafeError("Conversation cannot be restarted");
     const generation = conversation.generation + 1;
     const participantIds = [member.id, ...selected];
     const grants = participantIds.map((memberId) => ({
       id: randomUUID(),
       conversationId,
       memberId,
-      memberIdentityId: memberId,
       generation,
     }));
     try {
@@ -472,27 +342,14 @@ async function restartSharing(
               status: "STOPPED",
               revision: conversation.revision,
               generation: conversation.generation,
-              publisherMemberId: member.id,
+              publisherId: member.id,
             },
             data: { status: "ACTIVE", generation, revision: { increment: 1 } },
           }),
           prisma.conversationParticipant.createMany({ data: grants }),
-          prisma.conversationMutationReceipt.create({
-            data: {
-              id: randomUUID(),
-              conversationId,
-              actorIdentityId: member.id,
-              clientMutationId,
-              payloadHash,
-              resultKind: "restart",
-              resultId: conversationId,
-              generation,
-            },
-          }),
           prisma.conversationActivity.createMany({
             data: grants.slice(1).map((grant) => ({
               id: randomUUID(),
-              conversationId,
               participantId: grant.id,
               kind: "INVITED",
               revision: conversation.revision + 1,
@@ -539,40 +396,16 @@ export async function setParticipantAccess(
     conversationId: string;
     memberId: string;
     access: boolean;
-    clientMutationId: string;
     logger: Logger;
   },
 ) {
   if (input.memberId === actor.memberId)
     throw new SafeError("The publisher cannot be removed");
-  const payloadHash = hashMutation({
-    memberId: input.memberId,
-    access: input.access,
-  });
   for (let attempt = 0; attempt < 4; attempt++) {
     const { conversation } = await getPublisherConversation(
       actor,
       input.conversationId,
     );
-    const receipt = await prisma.conversationMutationReceipt.findUnique({
-      where: {
-        conversationId_actorIdentityId_clientMutationId: {
-          conversationId: input.conversationId,
-          actorIdentityId: actor.memberId,
-          clientMutationId: input.clientMutationId,
-        },
-      },
-    });
-    if (receipt) {
-      if (
-        receipt.payloadHash !== payloadHash ||
-        receipt.resultKind !== "participant"
-      )
-        throw new SafeError("Mutation ID was reused with different content");
-      if (receipt.generation !== conversation.generation)
-        throw new SafeError("Sharing has changed since this operation");
-      return getSharedConversation(actor, input.conversationId);
-    }
     const member = await prisma.member.findFirst({
       where: {
         id: input.memberId,
@@ -585,9 +418,9 @@ export async function setParticipantAccess(
     if (!member) return getSharedConversation(actor, input.conversationId);
     const oldGrant = await prisma.conversationParticipant.findUnique({
       where: {
-        conversationId_memberIdentityId_generation: {
+        conversationId_memberId_generation: {
           conversationId: input.conversationId,
-          memberIdentityId: input.memberId,
+          memberId: input.memberId,
           generation: conversation.generation,
         },
       },
@@ -604,7 +437,7 @@ export async function setParticipantAccess(
               status: "ACTIVE",
               revision: conversation.revision,
               generation: conversation.generation,
-              publisherMemberId: actor.memberId,
+              publisherId: actor.memberId,
             },
             data: { revision: { increment: 1 } },
           }),
@@ -622,28 +455,14 @@ export async function setParticipantAccess(
                   id: grantId,
                   conversationId: input.conversationId,
                   memberId: input.memberId,
-                  memberIdentityId: input.memberId,
                   generation: conversation.generation,
                 },
               }),
-          prisma.conversationMutationReceipt.create({
-            data: {
-              id: randomUUID(),
-              conversationId: input.conversationId,
-              actorIdentityId: actor.memberId,
-              clientMutationId: input.clientMutationId,
-              payloadHash,
-              resultKind: "participant",
-              resultId: grantId,
-              generation: conversation.generation,
-            },
-          }),
           prisma.conversationActivity.createMany({
             data: input.access
               ? [
                   {
                     id: randomUUID(),
-                    conversationId: input.conversationId,
                     participantId: grantId,
                     kind: "INVITED",
                     revision: conversation.revision + 1,
@@ -666,10 +485,6 @@ export async function setParticipantAccess(
     }
   }
   throw new Error("Unreachable transaction state");
-}
-
-export function hashMutation(value: unknown) {
-  return createHash("sha256").update(JSON.stringify(value)).digest("hex");
 }
 
 export async function retryConflicts<T>(

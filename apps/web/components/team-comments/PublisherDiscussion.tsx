@@ -11,10 +11,10 @@ import type { TeamConversationResponse } from "@/app/api/team-comments/conversat
 
 export function PublisherDiscussion({
   emailAccountId,
-  providerConversationId,
+  threadId,
 }: {
   emailAccountId: string;
-  providerConversationId: string;
+  threadId: string;
 }) {
   const [expanded, setExpanded] = useState(false);
   const commentsButton = useRef<HTMLButtonElement>(null);
@@ -34,7 +34,7 @@ export function PublisherDiscussion({
     (membership) => membership.emailAccount.id === emailAccountId,
   )?.id;
   const url = memberId
-    ? `/api/team-comments/conversations?memberId=${encodeURIComponent(memberId)}&emailAccountId=${encodeURIComponent(emailAccountId)}&providerConversationId=${encodeURIComponent(providerConversationId)}`
+    ? `/api/team-comments/conversations?memberId=${encodeURIComponent(memberId)}&emailAccountId=${encodeURIComponent(emailAccountId)}&threadId=${encodeURIComponent(threadId)}`
     : null;
   const source = useSWR<TeamConversationsResponse>(url);
   const summary = useSWR<TeamConversationResponse>(
@@ -59,10 +59,10 @@ export function PublisherDiscussion({
         </Button>
         {!source.data?.source && source.data?.teammates.length ? (
           <ShareConversationDialog
-            key={`${emailAccountId}:${providerConversationId}`}
+            key={`${emailAccountId}:${threadId}`}
             memberId={memberId}
             emailAccountId={emailAccountId}
-            providerConversationId={providerConversationId}
+            threadId={threadId}
             teammates={source.data.teammates}
             onShared={() => {
               setExpanded(true);

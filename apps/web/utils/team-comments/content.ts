@@ -21,15 +21,14 @@ export async function getSharedMessages(
     actor,
     conversationId,
   );
-  const publisherEmailAccountId = conversation.publisherEmailAccountId;
-  const account = conversation.publisherEmailAccount;
-  if (!publisherEmailAccountId || !account || account.account.disconnectedAt)
+  const emailAccount = conversation.publisher.emailAccount;
+  if (emailAccount.account.disconnectedAt)
     return { status: "unavailable" as const, reason: "reconnect" as const };
   try {
     const thread = await fetchCompleteThread({
-      emailAccountId: publisherEmailAccountId,
-      provider: account.account.provider,
-      providerConversationId: conversation.providerConversationId,
+      emailAccountId: emailAccount.id,
+      provider: emailAccount.account.provider,
+      threadId: conversation.threadId,
       logger,
     });
     const latest = await getAuthorizedConversation(actor, conversationId);
@@ -38,11 +37,9 @@ export async function getSharedMessages(
     return {
       status: "available" as const,
       complete: true,
-      messages: getVisibleMessages(
-        thread.messages,
-        conversation.providerConversationId,
-      ).map((message, index) =>
-        projectMessage(message, index, conversationId, actor.memberId),
+      messages: getVisibleMessages(thread.messages, conversation.threadId).map(
+        (message, index) =>
+          projectMessage(message, index, conversationId, actor.memberId),
       ),
     };
   } catch (error) {
@@ -70,22 +67,15 @@ export async function getSharedAttachment(
     input.conversationId,
   );
   const match = /^(\d+):(\d+)$/.exec(input.attachmentRef);
-  if (
-    !match ||
-    !conversation.publisherEmailAccountId ||
-    !conversation.publisherEmailAccount
-  )
-    return null;
+  if (!match) return null;
+  const emailAccount = conversation.publisher.emailAccount;
   const thread = await fetchCompleteThread({
-    emailAccountId: conversation.publisherEmailAccountId,
-    provider: conversation.publisherEmailAccount.account.provider,
-    providerConversationId: conversation.providerConversationId,
+    emailAccountId: emailAccount.id,
+    provider: emailAccount.account.provider,
+    threadId: conversation.threadId,
     logger: input.logger,
   });
-  const messages = getVisibleMessages(
-    thread.messages,
-    conversation.providerConversationId,
-  );
+  const messages = getVisibleMessages(thread.messages, conversation.threadId);
   const message = messages[Number(match[1])];
   const attachments = message
     ? [...(message.attachments ?? []), ...message.inline]
@@ -93,8 +83,8 @@ export async function getSharedAttachment(
   const attachment = attachments[Number(match[2])];
   if (!message || !attachment) return null;
   const provider = await createEmailProvider({
-    emailAccountId: conversation.publisherEmailAccountId,
-    provider: conversation.publisherEmailAccount.account.provider,
+    emailAccountId: emailAccount.id,
+    provider: emailAccount.account.provider,
     logger: input.logger,
   });
   const stream = await provider.getAttachmentStream(
@@ -205,21 +195,20 @@ function sanitizeSharedHtml(
 
 function getVisibleMessages(
   messages: EmailThread["messages"],
-  providerConversationId: string,
+  threadId: string,
 ) {
   return messages.filter(
-    (message) =>
-      message.threadId === providerConversationId && !isDraft(message),
+    (message) => message.threadId === threadId && !isDraft(message),
   );
 }
 
 async function fetchCompleteThread(input: {
   emailAccountId: string;
   provider: string;
-  providerConversationId: string;
+  threadId: string;
   logger: Logger;
 }) {
-  const key = `${input.emailAccountId}:${input.providerConversationId}`;
+  const key = `${input.emailAccountId}:${input.threadId}`;
   const existing = inFlight.get(key);
   if (existing) return existing;
   const promise = (async () => {
@@ -228,7 +217,7 @@ async function fetchCompleteThread(input: {
       provider: input.provider,
       logger: input.logger,
     });
-    return provider.getThread(input.providerConversationId, { complete: true });
+    return provider.getThread(input.threadId, { complete: true });
   })();
   inFlight.set(key, promise);
   try {

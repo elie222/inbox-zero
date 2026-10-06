@@ -6,7 +6,6 @@ import {
   getAuthorizedConversation,
   type ConversationActor,
 } from "@/utils/team-comments/access";
-import { hashMutation } from "@/utils/team-comments/conversations";
 import { publishConversationChange } from "@/utils/team-comments/events";
 import type { Logger } from "@/utils/logger";
 
@@ -31,13 +30,7 @@ export async function getComments(
     },
     orderBy: { revision: "desc" },
     take: Math.min(input.limit, 100),
-    include: {
-      authorMember: {
-        select: {
-          emailAccount: { select: { name: true, email: true, image: true } },
-        },
-      },
-    },
+    include: commentAuthorInclude,
   });
   await getAuthorizedConversation(actor, input.conversationId);
   return {
@@ -63,52 +56,32 @@ export async function postComment(
     throw new SafeError("Comment must be 1–10,000 characters");
   const mentionedMemberIds = [...new Set(input.mentionedMemberIds)].sort();
   if (mentionedMemberIds.length > 20) throw new SafeError("Too many mentions");
-  const payloadHash = hashMutation({ body, mentionedMemberIds });
   for (let attempt = 0; attempt < 4; attempt++) {
     const { conversation } = await getAuthorizedConversation(
       actor,
       input.conversationId,
     );
-    const receipt = await prisma.conversationMutationReceipt.findUnique({
+    const existing = await prisma.conversationComment.findUnique({
       where: {
-        conversationId_actorIdentityId_clientMutationId: {
+        conversationId_authorMemberId_clientMutationId: {
           conversationId: input.conversationId,
-          actorIdentityId: actor.memberId,
+          authorMemberId: actor.memberId,
           clientMutationId: input.clientMutationId,
         },
       },
+      include: commentAuthorInclude,
     });
-    if (receipt) {
-      if (
-        receipt.payloadHash !== payloadHash ||
-        receipt.resultKind !== "comment"
-      )
+    if (existing) {
+      if (!existing.deletedAt && existing.body !== body)
         throw new SafeError("Mutation ID was reused with different content");
-      const committed = await prisma.conversationComment.findUnique({
-        where: { id: receipt.resultId },
-        include: {
-          authorMember: {
-            select: {
-              emailAccount: {
-                select: { name: true, email: true, image: true },
-              },
-            },
-          },
-        },
-      });
-      if (!committed) throw new SafeError("Comment unavailable");
-      return toCommentDto(committed);
+      return toCommentDto(existing);
     }
     const activeParticipants = conversation.participants.filter(
-      (entry) =>
-        entry.active &&
-        entry.generation === conversation.generation &&
-        entry.member,
+      (entry) => entry.active && entry.generation === conversation.generation,
     );
     if (
       mentionedMemberIds.some(
-        (id) =>
-          !activeParticipants.some((entry) => entry.memberIdentityId === id),
+        (id) => !activeParticipants.some((entry) => entry.memberId === id),
       )
     )
       throw new SafeError("Mentions must refer to current participants");
@@ -124,8 +97,6 @@ export async function postComment(
               status: "ACTIVE",
               revision: conversation.revision,
               generation: conversation.generation,
-              publisherMemberId: { not: null },
-              publisherEmailAccountId: { not: null },
               participants: {
                 some: {
                   memberId: actor.memberId,
@@ -141,25 +112,10 @@ export async function postComment(
             data: {
               id: commentId,
               conversationId: conversation.id,
-              authorUserId: actor.userId,
               authorMemberId: actor.memberId,
-              authorIdentityId: actor.memberId,
-              body,
-              mentionedMemberIdentityIds: mentionedMemberIds,
-              revision,
-              generation: conversation.generation,
-            },
-          }),
-          prisma.conversationMutationReceipt.create({
-            data: {
-              id: randomUUID(),
-              conversationId: conversation.id,
-              actorIdentityId: actor.memberId,
               clientMutationId: input.clientMutationId,
-              payloadHash,
-              resultKind: "comment",
-              resultId: commentId,
-              generation: conversation.generation,
+              body,
+              revision,
             },
           }),
           prisma.conversationActivity.createMany({
@@ -167,10 +123,9 @@ export async function postComment(
               .filter((participant) => participant.memberId !== actor.memberId)
               .map((participant) => ({
                 id: randomUUID(),
-                conversationId: conversation.id,
                 participantId: participant.id,
                 commentId,
-                kind: mentionedMemberIds.includes(participant.memberIdentityId)
+                kind: mentionedMemberIds.includes(participant.memberId)
                   ? ("MENTION" as const)
                   : ("COMMENT" as const),
                 revision,
@@ -182,15 +137,7 @@ export async function postComment(
       await publishConversationChange(conversation.id, input.logger);
       const committed = await prisma.conversationComment.findUniqueOrThrow({
         where: { id: commentId },
-        include: {
-          authorMember: {
-            select: {
-              emailAccount: {
-                select: { name: true, email: true, image: true },
-              },
-            },
-          },
-        },
+        include: commentAuthorInclude,
       });
       return toCommentDto(committed);
     } catch (error) {
@@ -210,42 +157,19 @@ export async function deleteComment(
   input: {
     conversationId: string;
     commentId: string;
-    clientMutationId: string;
     logger: Logger;
   },
 ) {
-  const payloadHash = hashMutation({
-    operation: "delete",
-    commentId: input.commentId,
-  });
   for (let attempt = 0; attempt < 4; attempt++) {
     const { conversation } = await getAuthorizedConversation(
       actor,
       input.conversationId,
     );
-    const receipt = await prisma.conversationMutationReceipt.findUnique({
-      where: {
-        conversationId_actorIdentityId_clientMutationId: {
-          conversationId: input.conversationId,
-          actorIdentityId: actor.memberId,
-          clientMutationId: input.clientMutationId,
-        },
-      },
-    });
-    if (receipt) {
-      if (
-        receipt.payloadHash !== payloadHash ||
-        receipt.resultKind !== "delete"
-      )
-        throw new SafeError("Mutation ID was reused with different content");
-      return { id: receipt.resultId, deleted: true };
-    }
     const comment = await prisma.conversationComment.findFirst({
       where: {
         id: input.commentId,
         conversationId: input.conversationId,
         authorMemberId: actor.memberId,
-        authorUserId: actor.userId,
       },
     });
     if (!comment)
@@ -277,23 +201,7 @@ export async function deleteComment(
               deletedAt: null,
               authorMemberId: actor.memberId,
             },
-            data: {
-              body: "",
-              mentionedMemberIdentityIds: [],
-              deletedAt: new Date(),
-            },
-          }),
-          prisma.conversationMutationReceipt.create({
-            data: {
-              id: randomUUID(),
-              conversationId: conversation.id,
-              actorIdentityId: actor.memberId,
-              clientMutationId: input.clientMutationId,
-              payloadHash,
-              resultKind: "delete",
-              resultId: comment.id,
-              generation: conversation.generation,
-            },
+            data: { body: "", deletedAt: new Date() },
           }),
         ],
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
@@ -312,39 +220,33 @@ export async function deleteComment(
   throw new Error("Unreachable transaction state");
 }
 
-function toCommentDto(comment: {
-  id: string;
-  revision: number;
-  body: string;
-  deletedAt: Date | null;
-  createdAt: Date;
-  authorIdentityId: string;
-  mentionedMemberIdentityIds: string[];
-  authorMember: {
-    emailAccount: { name: string | null; email: string; image: string | null };
-  } | null;
-}) {
+const commentAuthorInclude = {
+  author: {
+    select: {
+      emailAccount: { select: { name: true, email: true, image: true } },
+    },
+  },
+} satisfies Prisma.ConversationCommentInclude;
+
+function toCommentDto(
+  comment: Prisma.ConversationCommentGetPayload<{
+    include: typeof commentAuthorInclude;
+  }>,
+) {
   return {
     id: comment.id,
     revision: comment.revision,
     body: comment.deletedAt ? null : comment.body,
     deleted: Boolean(comment.deletedAt),
     createdAt: comment.createdAt,
-    author: comment.authorMember
+    author: comment.author
       ? {
-          memberId: comment.authorIdentityId,
+          memberId: comment.authorMemberId,
           name:
-            comment.authorMember.emailAccount.name ??
-            comment.authorMember.emailAccount.email,
-          image: comment.authorMember.emailAccount.image,
+            comment.author.emailAccount.name ??
+            comment.author.emailAccount.email,
+          image: comment.author.emailAccount.image,
         }
-      : {
-          memberId: comment.authorIdentityId,
-          name: "Former member",
-          image: null,
-        },
-    mentionedMemberIds: comment.deletedAt
-      ? []
-      : comment.mentionedMemberIdentityIds,
+      : { memberId: null, name: "Former member", image: null },
   };
 }

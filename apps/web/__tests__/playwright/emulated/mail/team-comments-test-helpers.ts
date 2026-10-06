@@ -152,7 +152,7 @@ export async function readSharedConversationId(
   accountId: string,
 ) {
   const response = await page.request.get(
-    `/api/team-comments/conversations?memberId=${memberId}&emailAccountId=${accountId}&providerConversationId=thr_playwright_reader`,
+    `/api/team-comments/conversations?memberId=${memberId}&emailAccountId=${accountId}&threadId=thr_playwright_reader`,
   );
   expect(response.ok(), await response.text()).toBe(true);
   const data = (await response.json()) as { source: { id: string } | null };
@@ -189,7 +189,7 @@ export async function expectSharedMessageBody(
 export async function readPublisherThread(
   page: Page,
   emailAccountId: string,
-  providerConversationId: string,
+  threadId: string,
 ) {
   const token = await withClient(async (client) => {
     const result = await client.query<{ access_token: string | null }>(
@@ -206,7 +206,7 @@ export async function readPublisherThread(
     const baseUrl = process.env.GOOGLE_BASE_URL;
     if (!baseUrl) throw new Error("GOOGLE_BASE_URL is missing");
     const response = await page.request.get(
-      `${baseUrl}/gmail/v1/users/me/threads/${encodeURIComponent(providerConversationId)}`,
+      `${baseUrl}/gmail/v1/users/me/threads/${encodeURIComponent(threadId)}`,
       { headers },
     );
     expect(response.ok(), await response.text()).toBe(true);
@@ -261,8 +261,7 @@ export async function readPublisherThread(
   };
   return pageData.value
     .filter(
-      (message) =>
-        message.conversationId === providerConversationId && !message.isDraft,
+      (message) => message.conversationId === threadId && !message.isDraft,
     )
     .map((message) => ({
       to:

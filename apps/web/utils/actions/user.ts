@@ -151,7 +151,7 @@ export const deleteEmailAccountAction = actionClientUser
         where: {
           status: "ACTIVE",
           OR: [
-            { publisherEmailAccountId: emailAccountId },
+            { publisher: { emailAccountId } },
             {
               participants: {
                 some: { member: { emailAccountId }, active: true },
@@ -175,7 +175,7 @@ export const deleteEmailAccountAction = actionClientUser
       });
       const revokePublishedConversationsOperation =
         prisma.sharedConversation.updateMany({
-          where: { publisherEmailAccountId: emailAccountId, status: "ACTIVE" },
+          where: { publisher: { emailAccountId }, status: "ACTIVE" },
           data: { status: "STOPPED", revision: { increment: 1 } },
         });
       const revokeConversationGrantsOperation =

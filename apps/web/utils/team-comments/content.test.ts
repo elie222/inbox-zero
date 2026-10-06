@@ -24,11 +24,13 @@ describe("shared conversation content safety", () => {
     vi.mocked(getAuthorizedConversation).mockResolvedValue({
       conversation: {
         generation: 1,
-        publisherEmailAccountId: "account",
-        publisherEmailAccount: {
-          account: { provider: "google", disconnectedAt: null },
+        publisher: {
+          emailAccount: {
+            id: "account",
+            account: { provider: "google", disconnectedAt: null },
+          },
         },
-        providerConversationId: "thread",
+        threadId: "thread",
       },
     } as Awaited<ReturnType<typeof getAuthorizedConversation>>);
     vi.mocked(createEmailProvider).mockResolvedValue({

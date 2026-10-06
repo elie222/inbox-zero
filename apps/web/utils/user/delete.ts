@@ -208,7 +208,7 @@ async function deleteResources({
       where: {
         status: "ACTIVE",
         OR: [
-          { publisherEmailAccount: { userId } },
+          { publisher: { emailAccount: { userId } } },
           {
             participants: {
               some: { member: { emailAccount: { userId } }, active: true },
@@ -220,7 +220,7 @@ async function deleteResources({
     });
     const [, , , deletedUser] = await prisma.$transaction([
       prisma.sharedConversation.updateMany({
-        where: { publisherEmailAccount: { userId }, status: "ACTIVE" },
+        where: { publisher: { emailAccount: { userId } }, status: "ACTIVE" },
         data: { status: "STOPPED", revision: { increment: 1 } },
       }),
       prisma.conversationParticipant.updateMany({

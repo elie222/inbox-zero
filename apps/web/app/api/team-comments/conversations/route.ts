@@ -31,16 +31,16 @@ async function getData(userId: string, params: URLSearchParams) {
   const actor = { userId, memberId };
   const member = await getOwnedMember(actor);
   const sourceAccountId = params.get("emailAccountId");
-  const providerConversationId = params.get("providerConversationId");
+  const threadId = params.get("threadId");
   const source =
-    sourceAccountId && providerConversationId
+    sourceAccountId && threadId
       ? await getShareForSource(actor, {
           emailAccountId: sourceAccountId,
-          providerConversationId,
+          threadId,
         })
       : null;
   const teammates =
-    sourceAccountId && providerConversationId
+    sourceAccountId && threadId
       ? await prisma.member.findMany({
           where: {
             organizationId: member.organizationId,
