@@ -503,8 +503,13 @@ describe("OutlookProvider.getLatestMessageInThread", () => {
       ]),
     );
 
+    const getMessageSpy = vi
+      .spyOn(provider, "getMessage")
+      .mockImplementation(async (id) => ({ id }) as never);
+
     const latest = await provider.getLatestMessageInThread("thread-1");
 
+    expect(getMessageSpy).toHaveBeenCalledWith("missing-date");
     expect(latest?.id).toBe("missing-date");
   });
 

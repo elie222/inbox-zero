@@ -1559,12 +1559,20 @@ export class OutlookProvider implements EmailProvider {
     threadId: string,
   ): Promise<ParsedMessage | null> {
     const escapedThreadId = escapeODataString(threadId);
-    const response = await this.client
-      .getClient()
-      .api("/me/messages")
-      .filter(`conversationId eq '${escapedThreadId}'`)
-      .select(MESSAGE_SELECT_FIELDS)
-      .get();
+    // A whole conversation with bodies can be megabytes, and Graph sometimes
+    // ends such 200 responses mid-body. Pick the latest message from metadata,
+    // then fetch only that one in full.
+    const response: { value?: Message[] } = await withMicrosoftGraphRetry(
+      () =>
+        this.client
+          .getClient()
+          .api("/me/messages")
+          .filter(`conversationId eq '${escapedThreadId}'`)
+          .select(MESSAGE_LIST_SELECT_FIELDS)
+          .top(100)
+          .get(),
+      this.logger,
+    );
 
     const parsedMessages: ParsedMessage[] = (response.value || [])
       .filter((message: Message) => !message.isDraft)
@@ -1577,7 +1585,7 @@ export class OutlookProvider implements EmailProvider {
     });
     if (!latestMessage) return null;
 
-    return latestMessage;
+    return this.getMessage(latestMessage.id);
   }
 
   async getDrafts(options?: { maxResults?: number }): Promise<ParsedMessage[]> {
