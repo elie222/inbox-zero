@@ -70,18 +70,21 @@ describe("Apple Mail message bodies", () => {
   it("keeps HTML that adds formatting, a link, and a quoted thread", () => {
     const html = [
       `<p><strong>${shelf}</strong></p>`,
-      '<p>Details are <a href="https://shop.example/shelf">on the product page</a>.</p>',
+      '<p>Details are <a href="https://shop.example/shelf">on the product page.</a></p>',
       "<blockquote><p>On Tuesday, Sam wrote:</p><p>Please send the dimensions.</p></blockquote>",
     ].join("");
+    // The plain-only note is the prefix, so the HTML text is the tail and
+    // still contains the snippet. Dropping every tail would hide this HTML.
     const plain = [
+      "Delivery timing is only in the plain alternative.",
+      "",
       shelf,
       "",
-      "Details are on the product page: https://shop.example/shelf",
+      "Details are on the product page.",
       "",
       "On Tuesday, Sam wrote:",
-      "> Please send the dimensions.",
       "",
-      "Earlier note about delivery that is only in the plain alternative.",
+      "Please send the dimensions.",
     ].join("\n");
     const parsed = parseMessage(
       message("multipart/alternative", [
@@ -91,6 +94,73 @@ describe("Apple Mail message bodies", () => {
     );
     expect(parsed.textHtml).toBe(html);
     expect(parsed.textPlain).toBe(plain);
+  });
+
+  it("uses the plain part for a short reply whose HTML is only the signature", () => {
+    const parsed = parseMessage(
+      message(
+        "multipart/alternative",
+        [
+          textPart("text/plain", `Hi\n\n${signature}\n`),
+          textPart("text/html", `<html><body>${signature}</body></html>`),
+        ],
+        { snippet: "Hi" },
+      ),
+    );
+    expect(parsed.textHtml).toBeUndefined();
+    expect(parsed.textPlain).toContain("Hi");
+    expect(parsed.textPlain).toContain(signature);
+  });
+
+  it("ignores a named text part and an attached message", () => {
+    const parsed = parseMessage(
+      message("multipart/mixed", [
+        textPart("text/plain", `${shelf}\n`),
+        {
+          mimeType: "text/html",
+          filename: "notes.html",
+          body: {
+            data: Buffer.from("<p>Attached note</p>").toString("base64url"),
+            size: 20,
+          },
+        },
+        {
+          mimeType: "multipart/mixed",
+          headers: [{ name: "Content-Disposition", value: "attachment" }],
+          parts: [textPart("text/plain", "Inside the attachment\n")],
+        },
+        {
+          mimeType: "message/rfc822",
+          filename: "forward.eml",
+          headers: [
+            {
+              name: "Content-Disposition",
+              value: "attachment; filename=forward.eml",
+            },
+          ],
+          parts: [
+            textPart("text/plain", `Forwarded secret\n\n${signature}\n`),
+            textPart("text/html", "<p>Forwarded secret</p>"),
+          ],
+        },
+      ]),
+    );
+    expect(parsed.textPlain).toBe(`${shelf}\n`);
+    expect(parsed.textHtml).toBeUndefined();
+  });
+
+  it("ignores style and script, including an end tag with space before the bracket", () => {
+    const parsed = parseMessage(
+      message("multipart/alternative", [
+        textPart("text/plain", `${shelf}\n\n${signature}\n`),
+        textPart(
+          "text/html",
+          `<style>${shelf}</style ><script>${shelf}</script ><p>${signature}</p>`,
+        ),
+      ]),
+    );
+    expect(parsed.textHtml).toBeUndefined();
+    expect(parsed.textPlain).toContain(shelf);
   });
 });
 
@@ -151,7 +221,7 @@ function appleMailSignatureOnlyHtml(): MessageWithPayload {
 function message(
   mimeType: string,
   parts: gmail_v1.Schema$MessagePart[],
-  options?: { boundary?: string },
+  options?: { boundary?: string; snippet?: string },
 ): MessageWithPayload {
   const contentType = options?.boundary
     ? `${mimeType}; boundary=${options.boundary}`
@@ -159,7 +229,7 @@ function message(
   return {
     id: "message",
     threadId: "thread",
-    snippet: shelf,
+    snippet: options?.snippet ?? shelf,
     payload: {
       mimeType,
       headers: [
