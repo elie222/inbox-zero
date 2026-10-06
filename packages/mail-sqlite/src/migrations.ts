@@ -78,6 +78,7 @@ CREATE TABLE IF NOT EXISTS effective_messages (
   external_url TEXT,
   from_address TEXT NOT NULL,
   to_json TEXT NOT NULL,
+  cc_json TEXT NOT NULL DEFAULT '[]',
   received_at_ms INTEGER NOT NULL,
   read INTEGER NOT NULL,
   starred INTEGER NOT NULL,
@@ -381,6 +382,22 @@ export async function migrateMailbox(
   }
   try {
     await tx.exec("ALTER TABLE operations ADD COLUMN sent_message_id TEXT");
+  } catch {
+    // column already exists on freshly created databases
+  }
+  try {
+    await tx.exec(
+      "ALTER TABLE effective_messages ADD COLUMN cc_json TEXT NOT NULL DEFAULT '[]'",
+    );
+    await tx.exec(`
+      UPDATE effective_messages
+      SET cc_json = COALESCE(
+        (SELECT m.cc_json FROM messages AS m
+         WHERE m.account_id = effective_messages.account_id
+           AND m.message_id = effective_messages.message_id),
+        '[]'
+      )
+    `);
   } catch {
     // column already exists on freshly created databases
   }

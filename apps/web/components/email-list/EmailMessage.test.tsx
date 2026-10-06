@@ -227,6 +227,27 @@ describe("EmailMessage reply", () => {
     );
     expect(screen.getByRole("textbox", { name: "Email message" })).toBeTruthy();
   });
+
+  it("counts Cc recipients in the recipient summary", () => {
+    const message = createMessage("message-1");
+    render(
+      <EmailMessage
+        expanded
+        message={{
+          ...message,
+          headers: {
+            ...message.headers,
+            cc: "first@example.com, second@example.com",
+          },
+        }}
+        onSendSuccess={vi.fn()}
+        onToggle={vi.fn()}
+        refetch={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("to me and 2 others")).toBeTruthy();
+  });
 });
 
 describe("EmailMessage pop out", () => {

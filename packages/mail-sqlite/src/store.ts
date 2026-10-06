@@ -2787,10 +2787,10 @@ async function recomputeTargets(tx: SqlTransaction, targets: MessageKey[]) {
     const flags = roleFlags(effective.roles);
     await tx.execute(
       `INSERT INTO effective_messages(
-         account_id, message_id, conversation_id, subject, preview, external_url, from_address, to_json,
+         account_id, message_id, conversation_id, subject, preview, external_url, from_address, to_json, cc_json,
          received_at_ms, read, starred, folder_id, inbox_section, label_ids_json, category_ids_json, roles_json,
          in_inbox, in_sent, in_draft, in_trash, in_spam, has_attachments, snoozed_until_ms, pending_operation_ids_json
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(account_id, message_id) DO UPDATE SET
          conversation_id = excluded.conversation_id,
          subject = excluded.subject,
@@ -2798,6 +2798,7 @@ async function recomputeTargets(tx: SqlTransaction, targets: MessageKey[]) {
          external_url = excluded.external_url,
          from_address = excluded.from_address,
          to_json = excluded.to_json,
+         cc_json = excluded.cc_json,
          received_at_ms = excluded.received_at_ms,
          read = excluded.read,
          starred = excluded.starred,
@@ -2823,6 +2824,7 @@ async function recomputeTargets(tx: SqlTransaction, targets: MessageKey[]) {
         effective.externalUrl ?? null,
         effective.from,
         JSON.stringify(effective.to),
+        JSON.stringify(effective.cc),
         effective.receivedAtMs,
         effective.read ? 1 : 0,
         effective.starred ? 1 : 0,

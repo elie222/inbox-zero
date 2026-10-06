@@ -78,7 +78,7 @@ export function metadataFromEffective(
       row.external_url == null ? undefined : String(row.external_url),
     from: String(row.from_address),
     to: JSON.parse(String(row.to_json)) as string[],
-    cc: [],
+    cc: JSON.parse(String(row.cc_json)) as string[],
     receivedAtMs: Number(row.received_at_ms),
     read: Number(row.read) === 1,
     starred: Number(row.starred) === 1,
