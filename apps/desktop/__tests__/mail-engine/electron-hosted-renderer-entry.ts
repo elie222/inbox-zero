@@ -922,26 +922,30 @@ function wrapBlockedAuthRequest(
       if (gate.countCatchUp || gate.enabled) {
         gate.changes += 1;
       }
-      if (gate.resetOnce && !gate.resetFired) {
+      if (
+        gate.resetOnce &&
+        !gate.resetFired &&
+        input.path.endsWith("/changes/batch")
+      ) {
+        const { reads } = changesBatchRequestSchema.parse(input.body);
         gate.resetFired = true;
-        // Outlook reads several due folders through the batch route.
-        if (input.path.endsWith("/changes/batch")) {
-          const { reads } = changesBatchRequestSchema.parse(input.body);
-          return {
-            status: 200,
-            json: {
+        return {
+          status: 200,
+          json: {
+            protocolVersion: 1,
+            requestId: "hosted-electron-reset",
+            results: reads.map((read) => ({
               protocolVersion: 1,
-              requestId: "hosted-electron-reset",
-              results: reads.map((read) => ({
-                protocolVersion: 1,
-                requestId: read.requestId,
-                status: "reset_required",
-                scopeId: read.position.streamId,
-              })),
-            },
-          };
-        }
+              requestId: read.requestId,
+              status: "reset_required",
+              scopeId: read.position.streamId,
+            })),
+          },
+        };
+      }
+      if (gate.resetOnce && !gate.resetFired) {
         const { position } = changesRequestSchema.parse(input.body);
+        gate.resetFired = true;
         return {
           status: 200,
           json: {

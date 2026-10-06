@@ -521,7 +521,7 @@ function MessageHeader({
       {expanded ? (
         <>
           <span className="hidden min-w-0 truncate text-muted-foreground text-xs sm:block">
-            {recipientSummary(message.headers.to, userEmail)}
+            {recipientSummary(message.headers, userEmail)}
           </span>
           <Button
             aria-label={showDetails ? "Hide details" : "Show details"}
@@ -795,8 +795,17 @@ function resolveComposeMode(
 }
 
 /** "to me", "to Dana", "to me and 3 others" — who a message went out to. */
-function recipientSummary(to: string | undefined, userEmail: string) {
-  const recipients = splitRecipientList(to ?? "");
+function recipientSummary(
+  { to, cc }: { to?: string; cc?: string },
+  userEmail: string,
+) {
+  const recipients = [
+    ...splitRecipientList(to ?? ""),
+    ...splitRecipientList(cc ?? ""),
+  ].filter(
+    (recipient, index, all) =>
+      all.findIndex((other) => isSameEmailAddress(other, recipient)) === index,
+  );
   if (recipients.length === 0) return "";
 
   // "me" leads whenever the account is in there at all, however it was addressed.

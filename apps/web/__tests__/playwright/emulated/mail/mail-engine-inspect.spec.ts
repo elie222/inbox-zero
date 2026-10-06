@@ -143,7 +143,6 @@ test("opens account reconnect from blocked_auth catch-up", async ({
     });
   };
   await page.route("**/api/mail/v1/accounts/**/changes", fulfillBlockedAuth);
-  // Outlook reads several due folders through the batch route.
   await page.route(
     "**/api/mail/v1/accounts/**/changes/batch",
     fulfillBlockedAuth,
