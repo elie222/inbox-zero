@@ -15,12 +15,18 @@ import parse from "gmail-api-parse-message";
 import { withGmailRetry } from "@/utils/gmail/retry";
 import type { Logger } from "@/utils/logger";
 import { getEmbeddedGmailAttachmentDescriptors } from "./attachment";
+import { gmailMessageBodies } from "./message-bodies";
 
 export function parseMessage(
   message: MessageWithPayload,
   options?: { includeCalendarContent?: boolean },
 ): ParsedMessage & { subject: string; date: string } {
   const parsed = parse(message) as ParsedMessage;
+  if (message.payload) {
+    const bodies = gmailMessageBodies(message.payload, message.snippet);
+    parsed.textHtml = bodies.html;
+    parsed.textPlain = bodies.plain;
+  }
   const calendarParts = getCalendarParts(message.payload);
   const calendarData =
     calendarParts.length === 1 ? calendarParts[0].body?.data : undefined;
