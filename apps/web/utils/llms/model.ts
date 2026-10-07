@@ -169,8 +169,6 @@ function selectModel(
         );
       }
 
-      // Uses the Responses API: Chat Completions rejects function tools on
-      // reasoning models unless reasoning is turned off.
       return {
         provider: Provider.AZURE_FOUNDRY,
         modelName,
