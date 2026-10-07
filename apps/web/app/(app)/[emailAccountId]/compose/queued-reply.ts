@@ -36,19 +36,10 @@ export type ReaderEmailOutcome =
   | { status: "failed"; error: string; ownsNotification: boolean }
   | { status: "cancelled" };
 
-export async function queueReaderEmail({
-  client,
-  email,
-  emailAccountId,
-  messageIds,
-  online,
-  onQueued,
-  mutationId,
-  holdForUndo,
-  providerDraftMessageIds,
-  settlementTimeoutMs = READER_EMAIL_SETTLEMENT_TIMEOUT_MS,
-  threadId,
-}: {
+const UNDONE_SEND_LOOKUP_TIMEOUT_MS = 2000;
+const MAX_RESEND_ATTEMPTS = 20;
+
+type QueueReaderEmailOptions = {
   client: MailClient;
   email: SendEmailBody;
   emailAccountId: string;
@@ -61,8 +52,50 @@ export async function queueReaderEmail({
   providerDraftMessageIds?: string[];
   settlementTimeoutMs?: number;
   threadId: string;
-}): Promise<ReaderEmailOutcome> {
-  const commandId = mutationId ?? crypto.randomUUID();
+};
+
+export async function queueReaderEmail(
+  options: QueueReaderEmailOptions,
+): Promise<ReaderEmailOutcome> {
+  const { client, emailAccountId, mutationId } = options;
+  if (!mutationId) {
+    return queueReaderEmailOnce(options, crypto.randomUUID());
+  }
+  // An undone send keeps its command id, so resending the restored draft moves
+  // to the next id in the chain. Deriving ids keeps a send that is still
+  // pending anywhere in the chain blocking duplicates.
+  for (let attempt = 0; ; attempt += 1) {
+    const commandId =
+      attempt === 0 ? mutationId : `${mutationId}-retry-${attempt}`;
+    try {
+      return await queueReaderEmailOnce(options, commandId);
+    } catch (error) {
+      if (
+        !(error instanceof ConflictingSendError) ||
+        attempt >= MAX_RESEND_ATTEMPTS ||
+        !(await wasSendUndone(client, emailAccountId, commandId))
+      ) {
+        throw error;
+      }
+    }
+  }
+}
+
+async function queueReaderEmailOnce(
+  {
+    client,
+    email,
+    emailAccountId,
+    messageIds,
+    online,
+    onQueued,
+    holdForUndo,
+    providerDraftMessageIds,
+    settlementTimeoutMs = READER_EMAIL_SETTLEMENT_TIMEOUT_MS,
+    threadId,
+  }: QueueReaderEmailOptions,
+  commandId: string,
+): Promise<ReaderEmailOutcome> {
   const draftId = commandId;
   const attachmentIds = await stageLocalSendAttachments(
     client,
@@ -98,12 +131,11 @@ export async function queueReaderEmail({
         : null,
     });
     if (admission.status === "rejected") {
-      throw new Error(
-        admissionRejectionCopy(admission.code) ??
-          (admission.code === "invalid"
-            ? "This reply is already queued with different content. Check the thread delivery status."
-            : "Could not queue this email. Try again."),
-      );
+      const copy = admissionRejectionCopy(admission.code);
+      if (!copy && admission.code === "invalid") {
+        throw new ConflictingSendError();
+      }
+      throw new Error(copy ?? "Could not queue this email. Try again.");
     }
     queued = true;
     await onQueued?.();
@@ -152,6 +184,45 @@ export function waitForReaderEmailSettlement(options: {
     settlementTimeoutMs:
       options.settlementTimeoutMs ?? READER_EMAIL_SETTLEMENT_TIMEOUT_MS,
     threadId: options.threadId,
+  });
+}
+
+class ConflictingSendError extends Error {
+  constructor() {
+    super(
+      "This reply is already queued with different content. Check the thread delivery status.",
+    );
+  }
+}
+
+function wasSendUndone(
+  client: MailClient,
+  accountId: string,
+  operationId: string,
+) {
+  const handle = client.observeOperation({ accountId, operationId });
+  return new Promise<boolean>((resolve) => {
+    let settled = false;
+    const finish = (undone: boolean) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      unsubscribe();
+      handle.close();
+      resolve(undone);
+    };
+    const inspect = () => {
+      const snapshot = handle.getSnapshot();
+      if (snapshot.status === "loading") return;
+      const status = snapshot.data?.status;
+      finish(status === "cancelled" || status === "superseded");
+    };
+    const unsubscribe = handle.subscribe(inspect);
+    const timeout = setTimeout(
+      () => finish(false),
+      UNDONE_SEND_LOOKUP_TIMEOUT_MS,
+    );
+    inspect();
   });
 }
 
