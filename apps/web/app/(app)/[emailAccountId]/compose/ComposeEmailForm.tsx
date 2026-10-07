@@ -95,6 +95,7 @@ import type { StoredReplyDraft } from "@/utils/mail-engine/reply-drafts";
 import {
   getDraftSessionMessageIds,
   getReplyDraft,
+  hideDiscardedDraftMessages,
   rememberReplacedDraftMessage,
   updateReplyDraftProviderState,
   type ReplyDraftContent,
@@ -305,6 +306,9 @@ function ComposeEmailFormContent({
   const isInlineReply = Boolean(draftKeyMessageId && replyingToEmail?.threadId);
   const canScheduleDelivery = isInlineReply || isComposeWindow;
   const isNewCompose = !replyingToEmail && !providerDraftMessageId;
+  // New messages and replies get a mailbox draft so they follow the user to
+  // other devices. Forwards stay on this device.
+  const ownsProviderDraft = !providerDraftMessageId && draftMode !== "forward";
   const { mutate } = useSWRConfig();
   const client = useOptionalMailClient() ?? getActiveMailClient();
   const [sendAt, setSendAt] = useState(storedDraft?.content?.sendAt ?? "");
@@ -321,6 +325,9 @@ function ComposeEmailFormContent({
   });
   const editorInitialized = useRef(false);
   const providerDraftId = useRef(storedDraft?.content?.providerDraftId);
+  const savedDraftMessageId = useRef(
+    storedDraft?.content?.providerDraftMessageId,
+  );
   const savedAttachments = useRef<string | undefined>(undefined);
 
   const [restoredAttachments] = useState<ComposeAttachment[]>(() =>
@@ -452,6 +459,7 @@ function ComposeEmailFormContent({
         ? {
             ...lastDraftContent.current,
             providerDraftId: providerDraftId.current,
+            providerDraftMessageId: savedDraftMessageId.current,
           }
         : undefined;
     const value = editorRef.current.getValue();
@@ -463,6 +471,7 @@ function ComposeEmailFormContent({
     }
     const content: ReplyDraftContent = {
       providerDraftId: providerDraftId.current,
+      providerDraftMessageId: savedDraftMessageId.current,
       composeMode: draftMode,
       requestId,
       deliveryPath: deliveryPath.current,
@@ -495,9 +504,39 @@ function ComposeEmailFormContent({
     loadError: draftLoadError,
     getContent: getDraftContent,
   });
+  // The thread hides the mailbox copy of a draft that is open here, so the
+  // copy is recorded before it is synced into the thread.
+  const recordSavedDraftMessage = async (messageId: string) => {
+    const previous = savedDraftMessageId.current;
+    if (previous && previous !== messageId)
+      rememberReplacedDraftMessage(selectedEmailAccountId, previous, messageId);
+    savedDraftMessageId.current = messageId;
+    captureLocalDraft();
+    await flushDraft();
+    await ingestMailboxDraft(client, selectedEmailAccountId, messageId);
+  };
+  const discardMailboxDraft = useCallback(
+    async (draftId: string) => {
+      const result = await discardComposeDraftAction(selectedEmailAccountId, {
+        draftId,
+      });
+      if (!result?.data) throw new Error(getActionErrorMessage(result ?? {}));
+      // The engine keeps the deleted draft until its next sync.
+      if (savedDraftMessageId.current)
+        hideDiscardedDraftMessages(
+          selectedEmailAccountId,
+          getDraftSessionMessageIds(
+            selectedEmailAccountId,
+            savedDraftMessageId.current,
+          ),
+        );
+      await client?.requestSync([selectedEmailAccountId]);
+    },
+    [client, selectedEmailAccountId],
+  );
   const providerAutosave = useProviderDraftAutosave({
-    enabled: Boolean(providerDraftMessageId) || isNewCompose,
-    sessionKey: isNewCompose
+    enabled: Boolean(providerDraftMessageId) || ownsProviderDraft,
+    sessionKey: ownsProviderDraft
       ? `${selectedEmailAccountId}:${requestId}`
       : undefined,
     getContent: () => {
@@ -509,6 +548,7 @@ function ComposeEmailFormContent({
         to: content.values.to ?? "",
         cc: content.values.cc ?? "",
         bcc: content.values.bcc ?? "",
+        replyToEmail: content.values.replyToEmail,
         attachments: serializeComposeAttachments(content.attachments),
         messageHtml: combineEmailHtml({
           editableHtml:
@@ -525,14 +565,19 @@ function ComposeEmailFormContent({
         }),
       };
     },
-    save: async ({ attachments: draftAttachments, ...content }) => {
-      if (isNewCompose) {
+    save: async ({
+      attachments: draftAttachments,
+      replyToEmail: draftReplyToEmail,
+      ...content
+    }) => {
+      if (ownsProviderDraft) {
         if (!localDraftIdentity)
           throw new Error(
             "Local draft storage is required to sync this message.",
           );
         await flushDraft();
         let draftId = providerDraftId.current;
+        let createdMessageId: string | null = null;
         if (!draftId) {
           draftId = await updateReplyDraftProviderState(
             localDraftIdentity,
@@ -541,20 +586,14 @@ function ComposeEmailFormContent({
           if (!draftId) {
             const created = await saveComposeDraftAction(
               selectedEmailAccountId,
-              { content },
+              { content: { ...content, replyToEmail: draftReplyToEmail } },
             );
             if (!created?.data)
               throw new Error(
                 "Mailbox draft creation could not be confirmed. Check Drafts in Gmail or Outlook; your message is still saved on this device.",
               );
             draftId = created.data.draftId;
-            if (created.data.messageId) {
-              await ingestMailboxDraft(
-                client,
-                selectedEmailAccountId,
-                created.data.messageId,
-              );
-            }
+            createdMessageId = created.data.messageId;
           }
         }
         providerDraftId.current = draftId;
@@ -563,6 +602,7 @@ function ComposeEmailFormContent({
           requestId,
           draftId,
         );
+        if (createdMessageId) await recordSavedDraftMessage(createdMessageId);
         const attachmentSnapshot = JSON.stringify(draftAttachments);
         const result = await saveComposeDraftAction(selectedEmailAccountId, {
           draftId,
@@ -575,13 +615,8 @@ function ComposeEmailFormContent({
         });
         if (!result?.data) throw new Error(getActionErrorMessage(result ?? {}));
         savedAttachments.current = attachmentSnapshot;
-        if (result.data.messageId) {
-          await ingestMailboxDraft(
-            client,
-            selectedEmailAccountId,
-            result.data.messageId,
-          );
-        }
+        if (result.data.messageId)
+          await recordSavedDraftMessage(result.data.messageId);
         return;
       }
       if (!providerDraftMessageId) return;
@@ -620,8 +655,12 @@ function ComposeEmailFormContent({
     [captureLocalDraft, providerAutosave.capture],
   );
   useEffect(() => {
-    if (storedDraft?.content) captureDraft();
-  }, [storedDraft, captureDraft]);
+    if (!storedDraft?.content) return;
+    captureLocalDraft();
+    // Once the mailbox has the draft, it may hold newer edits from another
+    // device, so only the user's next edit here writes to it.
+    if (!storedDraft.content.providerDraftId) providerAutosave.capture();
+  }, [storedDraft, captureLocalDraft, providerAutosave.capture]);
   useEffect(() => {
     const subscription = watch(() => captureDraft());
     return () => subscription.unsubscribe();
@@ -877,11 +916,18 @@ function ComposeEmailFormContent({
           : canScheduleDelivery && Boolean(sendAt || remindAt);
         if (isScheduled) {
           const scheduledThreadId = replyingToEmail?.threadId ?? null;
+          // A scheduled reply leaves Drafts and is sent on its thread when due.
+          const replacedDraftId =
+            ownsProviderDraft && !isNewCompose
+              ? enrichedData.providerDraftId
+              : undefined;
           const result = await scheduleEmailAction(selectedEmailAccountId, {
             clientMutationId: requestId,
             threadId: scheduledThreadId,
             messageIds: draftKeyMessageId ? [draftKeyMessageId] : [],
-            email: enrichedData,
+            email: replacedDraftId
+              ? { ...enrichedData, providerDraftId: undefined }
+              : enrichedData,
             sendAt: deliveryTimes.sendAt,
             remindAt: deliveryTimes.remindAt,
           });
@@ -896,6 +942,16 @@ function ComposeEmailFormContent({
             return;
           }
           deliveryAccepted = true;
+          if (replacedDraftId) {
+            try {
+              await discardMailboxDraft(replacedDraftId);
+            } catch {
+              toastError({
+                description:
+                  "Reply scheduled, but its draft could not be removed from your mailbox.",
+              });
+            }
+          }
           try {
             await clearLocalDraft();
           } catch {
@@ -930,6 +986,8 @@ function ComposeEmailFormContent({
           localDraftIdentity?.messageId ??
           requestId;
         const online = navigator.onLine;
+        const sentDraftMessageId =
+          providerDraftMessageId ?? savedDraftMessageId.current;
         if (!client) {
           setSubmissionError(
             "Mail is still starting. Try sending again in a moment.",
@@ -949,10 +1007,10 @@ function ComposeEmailFormContent({
             emailAccountId: selectedEmailAccountId,
             holdForUndo: online,
             messageIds: isNewCompose ? [] : [readerMessageId],
-            providerDraftMessageIds: providerDraftMessageId
+            providerDraftMessageIds: sentDraftMessageId
               ? getDraftSessionMessageIds(
                   selectedEmailAccountId,
-                  providerDraftMessageId,
+                  sentDraftMessageId,
                 )
               : [],
             online,
@@ -1071,10 +1129,12 @@ function ComposeEmailFormContent({
       stopProviderAutosave,
       resumeProviderAutosave,
       canScheduleDelivery,
+      discardMailboxDraft,
       initialDraft,
       isInlineReply,
       isNewCompose,
       localDraftIdentity,
+      ownsProviderDraft,
       sendAt,
       remindAt,
       requestId,
@@ -1183,23 +1243,16 @@ function ComposeEmailFormContent({
     if (!onDiscard || isSubmitting) return;
     try {
       await stopProviderAutosave();
-      if (isNewCompose) {
+      if (ownsProviderDraft) {
         const local = localDraftIdentity
           ? await getReplyDraft(localDraftIdentity)
           : undefined;
         providerDraftId.current =
           local?.content?.providerDraftId ?? providerDraftId.current;
-        if (providerDraftId.current) {
-          const result = await discardComposeDraftAction(
-            selectedEmailAccountId,
-            {
-              draftId: providerDraftId.current,
-            },
-          );
-          if (!result?.data)
-            throw new Error(getActionErrorMessage(result ?? {}));
-          await client?.requestSync([selectedEmailAccountId]);
-        }
+        savedDraftMessageId.current =
+          local?.content?.providerDraftMessageId ?? savedDraftMessageId.current;
+        if (providerDraftId.current)
+          await discardMailboxDraft(providerDraftId.current);
         if (
           !providerDraftId.current &&
           local?.content?.providerDraftCreationUnconfirmed
@@ -1225,10 +1278,9 @@ function ComposeEmailFormContent({
     }
   }, [
     clearLocalDraft,
-    client,
     isSubmitting,
-    isNewCompose,
-    selectedEmailAccountId,
+    ownsProviderDraft,
+    discardMailboxDraft,
     localDraftIdentity,
     onDiscard,
     stopProviderAutosave,

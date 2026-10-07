@@ -15,6 +15,7 @@ import {
   getLatestDraftMessageId,
   getReplyDraftMode,
   getReplyDraftSessionId,
+  isDiscardedDraftMessage,
   type ReplyDraftMode,
   type StoredReplyDraft,
 } from "@/utils/mail-engine/reply-drafts";
@@ -87,7 +88,7 @@ export function EmailThread({
       outgoing?: OutgoingThreadMessage;
     }> => [
       ...organizeThreadMessages(
-        withoutReplacedDrafts(messages, emailAccountId),
+        withoutReplacedDrafts(messages, emailAccountId, localDrafts),
       ),
       ...outgoing.map((item) => ({
         message: {
@@ -98,7 +99,7 @@ export function EmailThread({
         outgoing: item,
       })),
     ],
-    [messages, emailAccountId, outgoing, userEmail],
+    [messages, emailAccountId, localDrafts, outgoing, userEmail],
   );
 
   const lastMessageId = organizedMessages.at(-1)?.message.id;
@@ -464,13 +465,28 @@ export function organizeThreadMessages(messages: ThreadMessage[]) {
 
 // A saved draft's old and new Gmail messages can both be in the conversation
 // until sync removes the old one. Only the latest save is the draft being edited.
+// A reply written here is edited from its local copy, so its mailbox copy is
+// hidden rather than shown as a second composer.
 function withoutReplacedDrafts(
   messages: ThreadMessage[],
   emailAccountId: string,
+  localDrafts: StoredReplyDraft[],
 ) {
   const messageIds = new Set(messages.map((message) => message.id));
+  const locallyEditedIds = new Set(
+    localDrafts.flatMap((draft) =>
+      draft.content?.providerDraftMessageId
+        ? [draft.content.providerDraftMessageId]
+        : [],
+    ),
+  );
   return messages.filter((message) => {
     if (!message.labelIds?.includes(GmailLabel.DRAFT)) return true;
+    if (
+      locallyEditedIds.has(message.id) ||
+      isDiscardedDraftMessage(emailAccountId, message.id)
+    )
+      return false;
     const latest = getLatestDraftMessageId(
       emailAccountId,
       getDraftSessionMessageId(emailAccountId, message.id),

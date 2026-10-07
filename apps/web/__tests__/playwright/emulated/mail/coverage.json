@@ -53,7 +53,9 @@
   ],
   "compose-drafts.spec.ts": [
     "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
+    "components/email-list/EmailThread.tsx",
     "hooks/useProviderDraftAutosave.ts",
+    "hooks/useReplyDrafts.ts",
     "utils/email/compose-draft.ts"
   ],
   "contact-autocomplete.spec.ts": [
