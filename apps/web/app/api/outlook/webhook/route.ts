@@ -162,7 +162,13 @@ async function processNotificationsAsync(
       });
 
       if (emailAccount) {
-        after(() => catchUpAfterOutlookRateLimit({ emailAccount, logger }));
+        after(() =>
+          runWithBackgroundLoggerFlush({
+            logger,
+            task: () => catchUpAfterOutlookRateLimit({ emailAccount, logger }),
+            extra: { operation: "outlook-rate-limit-catch-up" },
+          }),
+        );
       }
     } catch (error) {
       const emailAccount = await getWebhookEmailAccount(
