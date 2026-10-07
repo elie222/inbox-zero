@@ -317,17 +317,17 @@ const SHORTCUT_DEFINITIONS = [
   },
   {
     id: "moreActions",
-    keys: ["m"],
+    keys: ["."],
     scope: "mail",
     group: "Triage",
     label: "More actions",
   },
   {
     id: "openTeamComments",
-    keys: ["shift+c"],
+    keys: ["m"],
     scope: "mail",
     group: "View",
-    label: "Open team comments",
+    label: "Comment",
   },
   {
     id: "undo",

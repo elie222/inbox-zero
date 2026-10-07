@@ -291,3 +291,9 @@ export async function readPublisherThread(
       body: `${message.body?.content ?? ""} ${message.bodyTextContent ?? ""}`,
     }));
 }
+
+export async function openTeamComments(page: Page) {
+  await page.getByRole("button", { name: /^More actions/ }).click();
+  await page.getByRole("menuitem", { name: /^Comment\b/ }).click();
+  await expect(page.getByLabel("Internal comment")).toBeFocused();
+}

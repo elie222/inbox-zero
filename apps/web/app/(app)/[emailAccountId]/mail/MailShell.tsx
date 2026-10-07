@@ -108,6 +108,7 @@ import { getMailAccountUrl } from "@/app/(app)/[emailAccountId]/mail/mail-accoun
 import { redirectToSafeUrl } from "@/utils/redirect";
 import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
 import { LoadingContent } from "@/components/LoadingContent";
+import { useTeamCommentsAvailable } from "@/components/team-comments/use-team-comments-available";
 import { getEmailMessageCellActions } from "@/components/EmailMessageCellActions";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 
@@ -535,6 +536,14 @@ export function MailShell() {
       });
     };
   }, [openMessages, readerEmailAccountId, translateThread]);
+  const teamCommentsAvailable = useTeamCommentsAvailable(readerEmailAccountId);
+  const openTeamComments = useMemo(
+    () =>
+      openThreadId && teamCommentsAvailable
+        ? () => document.dispatchEvent(new Event("team-comments:open"))
+        : undefined,
+    [openThreadId, teamCommentsAvailable],
+  );
   const readerTarget = useMemo(() => {
     if (!openThreadKey || !openThreadSelection || !readerSelectionSettled)
       return;
@@ -937,6 +946,7 @@ export function MailShell() {
             : undefined,
         snooze: snoozeTargets,
         translate: isReaderTarget ? translateOpenThread : undefined,
+        comment: isReaderTarget ? openTeamComments : undefined,
         trash: trashTargets,
       },
       allStarred,
@@ -977,6 +987,7 @@ export function MailShell() {
       singleActionTarget,
       snoozeTargets,
       translateOpenThread,
+      openTeamComments,
       trashTargets,
     ],
   );
@@ -1125,9 +1136,7 @@ export function MailShell() {
       moreActions: openThreadId
         ? () => setIsMenuOpen((open) => !open)
         : undefined,
-      openTeamComments: openThreadId
-        ? () => document.dispatchEvent(new Event("team-comments:open"))
-        : undefined,
+      openTeamComments,
       openExternal:
         isReaderTarget && openExternalUrl
           ? () => window.open(openExternalUrl, "_blank", "noopener,noreferrer")
@@ -1529,6 +1538,7 @@ export function MailShell() {
                 onLabel={canLabel ? openLabelPicker : undefined}
                 onMove={canLabel ? openMovePicker : undefined}
                 onTranslate={translateOpenThread}
+                onComment={openTeamComments}
                 isMenuOpen={isMenuOpen}
                 onMenuOpenChange={setIsMenuOpen}
                 enableMessageNavigation={!sidePanelThreadId}

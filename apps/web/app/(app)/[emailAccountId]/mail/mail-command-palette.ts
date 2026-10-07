@@ -13,6 +13,7 @@ import {
   TagIcon,
   StarIcon,
   Trash2Icon,
+  MessageSquareIcon,
 } from "lucide-react";
 import type { Command } from "@/lib/commands/types";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
@@ -31,6 +32,7 @@ type MailCommandActions = {
   openSnooze?: () => void;
   openExternal?: () => void;
   translate?: () => void;
+  comment?: () => void;
   trash?: () => void;
   toggleAutoArchive?: () => void;
   unsubscribe?: () => void;
@@ -180,6 +182,19 @@ export function buildMailCommandPalette({
       priority: 4,
       keywords: ["translate", "language", "original"],
       action: actions.translate,
+    });
+  }
+
+  if (targetCount === 1 && actions.comment) {
+    commands.push({
+      id: "mail-comment",
+      label: "Comment",
+      icon: MessageSquareIcon,
+      shortcut: getShortcutHint("openTeamComments"),
+      section: "actions",
+      priority: 4,
+      keywords: ["comment", "share", "team", "internal", "mention"],
+      action: actions.comment,
     });
   }
 

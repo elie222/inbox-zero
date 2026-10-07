@@ -23,7 +23,9 @@ async function getData(userId: string, params: URLSearchParams) {
       where: { emailAccount: { userId } },
       select: {
         id: true,
-        organization: { select: { name: true } },
+        organization: {
+          select: { name: true, _count: { select: { members: true } } },
+        },
         emailAccount: { select: { id: true, email: true } },
       },
     });

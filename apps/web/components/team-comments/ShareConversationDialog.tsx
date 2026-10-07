@@ -50,7 +50,7 @@ export function ShareConversationDialog({
       }}
     >
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
+        <Button variant="ghost" size="xs" className="shrink-0">
           Share
         </Button>
       </DialogTrigger>
