@@ -115,9 +115,14 @@ vi.mock("@/utils/ai/assistant/chat-response-guard", () => ({
   getToolFailureWarning: mockGetToolFailureWarning,
 }));
 
+// Stub the parts that would open Redis; keep the real database bookkeeping.
 vi.mock("@/utils/chat/active-run", async (importActual) => ({
   ...(await importActual<typeof import("@/utils/chat/active-run")>()),
   getChatStreamContext: mockGetChatStreamContext,
+  startChatRun: async () => ({
+    abortSignal: new AbortController().signal,
+    end: vi.fn(),
+  }),
 }));
 
 import { POST } from "./route";
@@ -292,8 +297,7 @@ describe("chat route rule freshness persistence", () => {
   it("tracks the reply as the chat's active stream until the run ends", async () => {
     let activeStreamIdDuringRun: string | undefined;
     mockAiProcessAssistantChat.mockImplementationOnce(async () => {
-      activeStreamIdDuringRun =
-        prisma.chat.update.mock.calls[0]?.[0].data.activeStreamId;
+      activeStreamIdDuringRun = getClaimedStreamId();
       return createAssistantStreamResult();
     });
 
@@ -305,7 +309,7 @@ describe("chat route rule freshness persistence", () => {
     expect(streamOptions.generateId()).toBe(activeStreamIdDuringRun);
     expect(prisma.chat.updateMany).toHaveBeenCalledWith({
       where: { id: "chat-1", activeStreamId: activeStreamIdDuringRun },
-      data: { activeStreamId: null },
+      data: { activeStreamId: null, activeStreamStartedAt: null },
     });
   });
 
@@ -321,8 +325,7 @@ describe("chat route rule freshness persistence", () => {
 
     await POST(createRequest());
 
-    const activeStreamId =
-      prisma.chat.update.mock.calls[0]?.[0].data.activeStreamId;
+    const activeStreamId = getClaimedStreamId();
     expect(createNewResumableStream).toHaveBeenCalledWith(
       activeStreamId,
       expect.any(Function),
@@ -384,17 +387,39 @@ describe("chat route rule freshness persistence", () => {
     ]);
   });
 
+  it("rejects a new message while another reply is still running", async () => {
+    prisma.chat.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(409);
+    expect(prisma.chatMessage.create).not.toHaveBeenCalled();
+    expect(mockAiProcessAssistantChat).not.toHaveBeenCalled();
+  });
+
+  it("clears the active stream when preparing the run fails", async () => {
+    prisma.chatMessage.create.mockRejectedValueOnce(new Error("db down"));
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(500);
+    const activeStreamId = getClaimedStreamId();
+    expect(prisma.chat.updateMany).toHaveBeenCalledWith({
+      where: { id: "chat-1", activeStreamId },
+      data: { activeStreamId: null, activeStreamStartedAt: null },
+    });
+  });
+
   it("clears the active stream when the run fails to start", async () => {
     mockAiProcessAssistantChat.mockRejectedValueOnce(new Error("model down"));
 
     const response = await POST(createRequest());
 
     expect(response.status).toBe(500);
-    const activeStreamId =
-      prisma.chat.update.mock.calls[0]?.[0].data.activeStreamId;
+    const activeStreamId = getClaimedStreamId();
     expect(prisma.chat.updateMany).toHaveBeenCalledWith({
       where: { id: "chat-1", activeStreamId },
-      data: { activeStreamId: null },
+      data: { activeStreamId: null, activeStreamStartedAt: null },
     });
   });
 
@@ -586,7 +611,12 @@ describe("chat route rule freshness persistence", () => {
     const consoleErrorSpy = vi
       .spyOn(console, "error")
       .mockImplementation(() => {});
-    prisma.chat.updateMany.mockRejectedValueOnce(new Error("db down"));
+    prisma.chat.updateMany.mockImplementation((async (args: {
+      data: Record<string, unknown>;
+    }) => {
+      if ("lastSeenRulesRevision" in args.data) throw new Error("db down");
+      return { count: 1 };
+    }) as any);
     mockAiProcessAssistantChat.mockImplementationOnce(async (args) => {
       args.onRulesStateExposed?.(3);
       return createAssistantStreamResult();
@@ -683,6 +713,12 @@ describe("chat route rule freshness persistence", () => {
     }
   });
 });
+
+function getClaimedStreamId() {
+  return prisma.chat.updateMany.mock.calls.find(
+    ([args]) => args.data.activeStreamStartedAt instanceof Date,
+  )?.[0].data.activeStreamId as string | undefined;
+}
 
 function createRequest(text = "Update my rules") {
   return new NextRequest("http://localhost/api/chat", {

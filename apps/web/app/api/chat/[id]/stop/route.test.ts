@@ -39,8 +39,8 @@ describe("POST /api/chat/[id]/stop", () => {
   });
 
   it("cancels the active run and waits for it to save its reply", async () => {
-    const run = startChatRun("stream-1");
-    prisma.chat.findFirst.mockResolvedValue({ activeStreamId: "stream-1" });
+    const run = await startChatRun("stream-1");
+    prisma.chat.findFirst.mockResolvedValue(activeChat("stream-1"));
     // The run clears its stream once it has saved the stopped reply.
     prisma.chat.findUnique
       .mockResolvedValueOnce({ activeStreamId: "stream-1" })
@@ -59,22 +59,32 @@ describe("POST /api/chat/[id]/stop", () => {
     expect(prisma.chat.updateMany).not.toHaveBeenCalled();
   });
 
-  it("clears the stream itself, only if unchanged, when the run never ends", async () => {
-    prisma.chat.findFirst.mockResolvedValue({ activeStreamId: "stream-1" });
+  it("reports a timeout and leaves the marker to the run when it doesn't end", async () => {
+    prisma.chat.findFirst.mockResolvedValue(activeChat("stream-1"));
     prisma.chat.findUnique.mockResolvedValue({ activeStreamId: "stream-1" });
 
     const response = await stop("chat-1", { activeStreamId: "stream-1" });
 
-    expect(response.status).toBe(200);
-    expect(prisma.chat.updateMany).toHaveBeenCalledWith({
-      where: { id: "chat-1", activeStreamId: "stream-1" },
-      data: { activeStreamId: null },
+    expect(response.status).toBe(504);
+    expect(prisma.chat.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("treats a marker left by a run that outlived the time limit as nothing running", async () => {
+    const run = await startChatRun("stream-1");
+    prisma.chat.findFirst.mockResolvedValue({
+      activeStreamId: "stream-1",
+      activeStreamStartedAt: new Date(Date.now() - 801_000),
     });
+
+    const response = await stop("chat-1", {});
+
+    expect(response.status).toBe(200);
+    expect(run.abortSignal.aborted).toBe(false);
   });
 
   it("cancels the active run when the client does not know its id yet", async () => {
-    const run = startChatRun("stream-1");
-    prisma.chat.findFirst.mockResolvedValue({ activeStreamId: "stream-1" });
+    const run = await startChatRun("stream-1");
+    prisma.chat.findFirst.mockResolvedValue(activeChat("stream-1"));
     prisma.chat.findUnique.mockResolvedValue({ activeStreamId: null });
 
     await stop("chat-1", {});
@@ -83,8 +93,8 @@ describe("POST /api/chat/[id]/stop", () => {
   });
 
   it("ignores a stop for an earlier reply", async () => {
-    const newerRun = startChatRun("stream-2");
-    prisma.chat.findFirst.mockResolvedValue({ activeStreamId: "stream-2" });
+    const newerRun = await startChatRun("stream-2");
+    prisma.chat.findFirst.mockResolvedValue(activeChat("stream-2"));
 
     const response = await stop("chat-1", { activeStreamId: "stream-1" });
 
@@ -94,7 +104,7 @@ describe("POST /api/chat/[id]/stop", () => {
   });
 
   it("does nothing when no reply is running", async () => {
-    prisma.chat.findFirst.mockResolvedValue({ activeStreamId: null });
+    prisma.chat.findFirst.mockResolvedValue(activeChat(null));
 
     const response = await stop("chat-1", { activeStreamId: "stream-1" });
 
@@ -103,7 +113,7 @@ describe("POST /api/chat/[id]/stop", () => {
   });
 
   it("does not stop another account's chat", async () => {
-    const run = startChatRun("stream-1");
+    const run = await startChatRun("stream-1");
     prisma.chat.findFirst.mockResolvedValue(null);
 
     const response = await stop("someone-elses-chat", {});
@@ -123,4 +133,11 @@ function stop(id: string, body: Record<string, unknown>) {
     }),
     { params: Promise.resolve({ id }) },
   );
+}
+
+function activeChat(activeStreamId: string | null) {
+  return {
+    activeStreamId,
+    activeStreamStartedAt: activeStreamId ? new Date() : null,
+  };
 }

@@ -329,5 +329,6 @@ const chatHistoryEntry = {
   compactionCount: 0,
   lastSeenRulesRevision: null,
   activeStreamId: null,
+  activeStreamStartedAt: null,
   emailAccountId: "email-account-1",
 } satisfies ChatHistoryEntry;

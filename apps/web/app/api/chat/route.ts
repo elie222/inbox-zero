@@ -45,6 +45,7 @@ import {
 import { getToolFailureWarning } from "@/utils/ai/assistant/chat-response-guard";
 import { flushLoggerSafely } from "@/utils/logger-flush";
 import {
+  claimActiveStream,
   clearActiveStream,
   getChatStreamContext,
   startChatRun,
@@ -143,156 +144,159 @@ export const POST = withEmailAccount("chat", async (request) => {
   const chatRunId = crypto.randomUUID();
   const runLogger = request.logger.with({ chatId: chat.id, chatRunId });
 
-  const hiddenInlineActionMessage =
-    buildHiddenInlineActionMessage(inlineActions);
-
-  await saveChatMessage({
-    chat: { connect: { id: chat.id } },
-    id: message.id,
-    role: "user",
-    parts: message.parts,
-    metadata: buildUserChatMessageMetadata({
-      runId: chatRunId,
-      context,
-      inlineActions,
-    }),
-  });
-
   // The reply's message id doubles as its stream id, so a client can name the
   // run it wants to stop by the message it is already showing.
   const streamId = crypto.randomUUID();
-  const chatRun = startChatRun(streamId);
-  await prisma.chat.update({
-    where: { id: chat.id },
-    data: { activeStreamId: streamId },
-  });
-
-  after(() =>
-    trackFirstTimeEvent({
-      emailAccountId,
-      event: FIRST_TIME_EVENTS.FIRST_CHAT_MESSAGE,
-    }),
-  );
-
-  const latestCompaction = chat.compactions[0];
-
-  const messagesForModel = latestCompaction
-    ? chat.messages.filter(
-        (m) => m.createdAt >= latestCompaction.compactedBeforeCreatedAt,
-      )
-    : chat.messages;
-
-  const conversationUiMessages = [
-    ...convertToUIMessages({ ...chat, messages: messagesForModel }),
-    message,
-  ];
-
-  const uiMessages = [
-    ...conversationUiMessages,
-    ...(hiddenInlineActionMessage ? [hiddenInlineActionMessage] : []),
-  ];
-
-  const conversationModelMessages = await convertToModelMessages(
-    conversationUiMessages,
-  );
-
-  let modelMessages = hiddenInlineActionMessage
-    ? await convertToModelMessages(uiMessages)
-    : conversationModelMessages;
-
-  if (latestCompaction) {
-    modelMessages = [
-      buildCompactionSummaryMessage(latestCompaction.summary),
-      ...modelMessages,
-    ];
+  const chatRun = await startChatRun(streamId);
+  if (!(await claimActiveStream({ chatId: chat.id, streamId }))) {
+    chatRun.end();
+    return NextResponse.json(
+      { error: "A reply is already in progress." },
+      { status: 409 },
+    );
   }
 
-  if (shouldCompact(modelMessages)) {
-    try {
-      const { compactedMessages, summary, compactedCount } =
-        await compactMessages({
-          messages: modelMessages,
-          user,
-          logger: request.logger,
-        });
-
-      if (compactedCount > 0 && summary.trim().length > 0) {
-        modelMessages = compactedMessages;
-
-        // Compute boundary: keep at least RECENT_MESSAGES_TO_KEEP DB messages.
-        // messagesForModel doesn't include the new user message (saved after query),
-        // so we keep RECENT_MESSAGES_TO_KEEP from the existing set.
-        const keepFromIndex = Math.max(
-          0,
-          messagesForModel.length - RECENT_MESSAGES_TO_KEEP,
-        );
-        const compactedBeforeCreatedAt =
-          messagesForModel[keepFromIndex]?.createdAt ?? new Date();
-
-        const [, memories] = await Promise.all([
-          prisma.$transaction([
-            prisma.chatCompaction.create({
-              data: {
-                chatId: chat.id,
-                summary,
-                messageCount: compactedCount,
-                compactedBeforeCreatedAt,
-              },
-            }),
-            prisma.chat.update({
-              where: { id: chat.id },
-              data: { compactionCount: { increment: 1 } },
-            }),
-          ]),
-          extractMemories({
-            messages: conversationModelMessages,
-            user,
-          }).catch((err) => {
-            request.logger.error("Failed to extract memories", {
-              error: err,
-            });
-            return [];
-          }),
-        ]);
-
-        if (memories.length > 0) {
-          await prisma.chatMemory.createMany({
-            data: memories.map((m) => ({
-              content: m.content,
-              chatId: chat.id,
-              emailAccountId,
-            })),
-            skipDuplicates: true,
-          });
-        }
-      }
-    } catch (compactionError) {
-      request.logger.error(
-        "Chat compaction failed, continuing with full history",
-        {
-          error: compactionError,
-        },
-      );
-    }
-  }
-
-  let memories: { content: string; date: string }[] = [];
   try {
-    const recentMemories = await prisma.chatMemory.findMany({
-      where: { emailAccountId },
-      orderBy: { createdAt: "desc" },
-      take: 20,
-      select: { content: true, createdAt: true },
+    const hiddenInlineActionMessage =
+      buildHiddenInlineActionMessage(inlineActions);
+
+    await saveChatMessage({
+      chat: { connect: { id: chat.id } },
+      id: message.id,
+      role: "user",
+      parts: message.parts,
+      metadata: buildUserChatMessageMetadata({
+        runId: chatRunId,
+        context,
+        inlineActions,
+      }),
     });
-    memories = recentMemories.map((m) => ({
-      content: m.content,
-      date: formatUtcDate(m.createdAt),
-    }));
-  } catch (error) {
-    request.logger.warn("Failed to load memories for chat", { error });
-  }
 
-  try {
+    after(() =>
+      trackFirstTimeEvent({
+        emailAccountId,
+        event: FIRST_TIME_EVENTS.FIRST_CHAT_MESSAGE,
+      }),
+    );
+
+    const latestCompaction = chat.compactions[0];
+
+    const messagesForModel = latestCompaction
+      ? chat.messages.filter(
+          (m) => m.createdAt >= latestCompaction.compactedBeforeCreatedAt,
+        )
+      : chat.messages;
+
+    const conversationUiMessages = [
+      ...convertToUIMessages({ ...chat, messages: messagesForModel }),
+      message,
+    ];
+
+    const uiMessages = [
+      ...conversationUiMessages,
+      ...(hiddenInlineActionMessage ? [hiddenInlineActionMessage] : []),
+    ];
+
+    const conversationModelMessages = await convertToModelMessages(
+      conversationUiMessages,
+    );
+
+    let modelMessages = hiddenInlineActionMessage
+      ? await convertToModelMessages(uiMessages)
+      : conversationModelMessages;
+
+    if (latestCompaction) {
+      modelMessages = [
+        buildCompactionSummaryMessage(latestCompaction.summary),
+        ...modelMessages,
+      ];
+    }
+
+    if (shouldCompact(modelMessages)) {
+      try {
+        const { compactedMessages, summary, compactedCount } =
+          await compactMessages({
+            messages: modelMessages,
+            user,
+            logger: request.logger,
+          });
+
+        if (compactedCount > 0 && summary.trim().length > 0) {
+          modelMessages = compactedMessages;
+
+          // Compute boundary: keep at least RECENT_MESSAGES_TO_KEEP DB messages.
+          // messagesForModel doesn't include the new user message (saved after query),
+          // so we keep RECENT_MESSAGES_TO_KEEP from the existing set.
+          const keepFromIndex = Math.max(
+            0,
+            messagesForModel.length - RECENT_MESSAGES_TO_KEEP,
+          );
+          const compactedBeforeCreatedAt =
+            messagesForModel[keepFromIndex]?.createdAt ?? new Date();
+
+          const [, memories] = await Promise.all([
+            prisma.$transaction([
+              prisma.chatCompaction.create({
+                data: {
+                  chatId: chat.id,
+                  summary,
+                  messageCount: compactedCount,
+                  compactedBeforeCreatedAt,
+                },
+              }),
+              prisma.chat.update({
+                where: { id: chat.id },
+                data: { compactionCount: { increment: 1 } },
+              }),
+            ]),
+            extractMemories({
+              messages: conversationModelMessages,
+              user,
+            }).catch((err) => {
+              request.logger.error("Failed to extract memories", {
+                error: err,
+              });
+              return [];
+            }),
+          ]);
+
+          if (memories.length > 0) {
+            await prisma.chatMemory.createMany({
+              data: memories.map((m) => ({
+                content: m.content,
+                chatId: chat.id,
+                emailAccountId,
+              })),
+              skipDuplicates: true,
+            });
+          }
+        }
+      } catch (compactionError) {
+        request.logger.error(
+          "Chat compaction failed, continuing with full history",
+          {
+            error: compactionError,
+          },
+        );
+      }
+    }
+
+    let memories: { content: string; date: string }[] = [];
+    try {
+      const recentMemories = await prisma.chatMemory.findMany({
+        where: { emailAccountId },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+        select: { content: true, createdAt: true },
+      });
+      memories = recentMemories.map((m) => ({
+        content: m.content,
+        date: formatUtcDate(m.createdAt),
+      }));
+    } catch (error) {
+      request.logger.warn("Failed to load memories for chat", { error });
+    }
+
     const inboxStats = await inboxStatsPromise;
     let seenRulesRevision: number | null = null;
     const assistantRun: AssistantChatRunMetadata = {

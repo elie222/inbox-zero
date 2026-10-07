@@ -1,14 +1,25 @@
+import Redis from "ioredis";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import prisma from "@/utils/__mocks__/prisma";
 import { createScopedLogger } from "@/utils/logger";
-import { getChatStreamContext, startChatRun, stopChatRun } from "./active-run";
+import {
+  claimActiveStream,
+  getChatStreamContext,
+  getLiveStreamId,
+  startChatRun,
+  stopChatRun,
+} from "./active-run";
 
-const { envState, redisInstances } = vi.hoisted(() => ({
+const { envState, redisBus } = vi.hoisted(() => ({
   envState: { REDIS_URL: undefined as string | undefined },
-  redisInstances: [] as Array<{
-    listeners: Map<string, (...args: string[]) => void>;
-    subscriptions: Set<string>;
-    publish: ReturnType<typeof vi.fn>;
-  }>,
+  redisBus: {
+    instances: [] as Array<{
+      listeners: Map<string, (...args: string[]) => void>;
+      subscriptions: Set<string>;
+    }>,
+    // Lets a test hold a subscription open to simulate a slow Redis.
+    subscribeGate: null as Promise<void> | null,
+  },
 }));
 
 vi.mock("@/env", () => ({ env: envState }));
@@ -25,17 +36,9 @@ vi.mock("ioredis", () => ({
   default: class FakeRedis {
     listeners = new Map<string, (...args: string[]) => void>();
     subscriptions = new Set<string>();
-    publish = vi.fn(async (channel: string, message: string) => {
-      for (const instance of redisInstances) {
-        if (instance.subscriptions.has(channel)) {
-          instance.listeners.get("message")?.(channel, message);
-        }
-      }
-      return 1;
-    });
 
     constructor() {
-      redisInstances.push(this);
+      redisBus.instances.push(this);
     }
 
     on(event: string, listener: (...args: string[]) => void) {
@@ -44,7 +47,17 @@ vi.mock("ioredis", () => ({
     }
 
     async subscribe(channel: string) {
+      await redisBus.subscribeGate;
       this.subscriptions.add(channel);
+      return 1;
+    }
+
+    async publish(channel: string, message: string) {
+      for (const instance of redisBus.instances) {
+        if (instance.subscriptions.has(channel)) {
+          instance.listeners.get("message")?.(channel, message);
+        }
+      }
       return 1;
     }
   },
@@ -56,7 +69,8 @@ describe("assistant chat runs", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     envState.REDIS_URL = undefined;
-    redisInstances.length = 0;
+    redisBus.instances.length = 0;
+    redisBus.subscribeGate = null;
     global.assistantChatRedis = undefined;
     global.assistantChatRuns?.clear();
   });
@@ -66,46 +80,87 @@ describe("assistant chat runs", () => {
   });
 
   it("stops a run on the same instance without Redis", async () => {
-    const run = startChatRun("stream-1");
+    const run = await startChatRun("stream-1");
 
     await stopChatRun("stream-1", logger);
 
     expect(run.abortSignal.aborted).toBe(true);
   });
 
-  it("aborts a run when another instance broadcasts its stop", async () => {
+  it("aborts a run when another instance publishes its stop", async () => {
     envState.REDIS_URL = "redis://localhost:6379";
-    const run = startChatRun("stream-1");
-    const otherRun = startChatRun("stream-2");
-    const subscriber = redisInstances.find((instance) =>
-      instance.subscriptions.has("assistant-chat:stop"),
-    );
+    const run = await startChatRun("stream-1");
+    const otherRun = await startChatRun("stream-2");
+    // Another instance has its own connection to the same Redis.
+    const otherInstance = new Redis();
 
-    // Another instance publishes through its own connection.
-    subscriber?.listeners.get("message")?.("assistant-chat:stop", "stream-1");
+    await otherInstance.publish("assistant-chat:stop", "stream-1");
 
     expect(run.abortSignal.aborted).toBe(true);
     expect(otherRun.abortSignal.aborted).toBe(false);
   });
 
-  it("broadcasts stops so the instance that owns the run can abort it", async () => {
+  it("listens for stops before a run starts", async () => {
     envState.REDIS_URL = "redis://localhost:6379";
+    let openSubscription = () => {};
+    redisBus.subscribeGate = new Promise((resolve) => {
+      openSubscription = resolve;
+    });
 
-    await stopChatRun("stream-elsewhere", logger);
+    let started = false;
+    const runPromise = startChatRun("stream-1").then((run) => {
+      started = true;
+      return run;
+    });
+    await Promise.resolve();
+    expect(started).toBe(false);
 
-    const publishes = redisInstances.flatMap(
-      (instance) => instance.publish.mock.calls,
-    );
-    expect(publishes).toEqual([["assistant-chat:stop", "stream-elsewhere"]]);
+    openSubscription();
+    const run = await runPromise;
+    await new Redis().publish("assistant-chat:stop", "stream-1");
+
+    expect(run.abortSignal.aborted).toBe(true);
   });
 
   it("ignores stops after the run has ended", async () => {
     envState.REDIS_URL = "redis://localhost:6379";
-    const run = startChatRun("stream-1");
+    const run = await startChatRun("stream-1");
     run.end();
 
     await stopChatRun("stream-1", logger);
 
     expect(run.abortSignal.aborted).toBe(false);
+  });
+
+  it("claims a chat only when no live reply holds it", async () => {
+    prisma.chat.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    await expect(
+      claimActiveStream({ chatId: "chat-1", streamId: "stream-2" }),
+    ).resolves.toBe(false);
+
+    const { where } = prisma.chat.updateMany.mock.calls[0]![0];
+    expect(where).toMatchObject({ id: "chat-1" });
+    expect(where?.OR).toEqual(
+      expect.arrayContaining([
+        { activeStreamId: null },
+        { activeStreamStartedAt: { lt: expect.any(Date) } },
+      ]),
+    );
+  });
+
+  it("treats a marker older than the run time limit as stale", () => {
+    expect(
+      getLiveStreamId({
+        activeStreamId: "stream-1",
+        activeStreamStartedAt: new Date(Date.now() - 60_000),
+      }),
+    ).toBe("stream-1");
+    expect(
+      getLiveStreamId({
+        activeStreamId: "stream-1",
+        activeStreamStartedAt: new Date(Date.now() - 801_000),
+      }),
+    ).toBeNull();
   });
 });

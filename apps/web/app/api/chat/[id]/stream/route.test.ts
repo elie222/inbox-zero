@@ -23,9 +23,12 @@ vi.mock("@/utils/middleware", async () => {
   });
 });
 
-vi.mock("@/utils/chat/active-run", () => ({
+vi.mock("@/utils/chat/active-run", async (importActual) => ({
+  ...(await importActual<typeof import("@/utils/chat/active-run")>()),
   getChatStreamContext: mockGetChatStreamContext,
 }));
+
+vi.mock("@/utils/sleep", () => ({ sleep: vi.fn() }));
 
 describe("GET /api/chat/[id]/stream", () => {
   beforeEach(() => {
@@ -37,7 +40,7 @@ describe("GET /api/chat/[id]/stream", () => {
       .fn()
       .mockResolvedValue(streamOf(['data: {"type":"start"}\n\n']));
     mockGetChatStreamContext.mockReturnValue({ resumeExistingStream });
-    prisma.chat.findFirst.mockResolvedValue({ activeStreamId: "stream-1" });
+    prisma.chat.findFirst.mockResolvedValue(activeChat("stream-1"));
 
     const response = await resume("chat-1");
 
@@ -57,7 +60,7 @@ describe("GET /api/chat/[id]/stream", () => {
   it("returns no content when the chat has no active reply", async () => {
     const resumeExistingStream = vi.fn();
     mockGetChatStreamContext.mockReturnValue({ resumeExistingStream });
-    prisma.chat.findFirst.mockResolvedValue({ activeStreamId: null });
+    prisma.chat.findFirst.mockResolvedValue(activeChat(null));
 
     const response = await resume("chat-1");
 
@@ -67,7 +70,7 @@ describe("GET /api/chat/[id]/stream", () => {
 
   it("returns no content when Redis is not configured", async () => {
     mockGetChatStreamContext.mockReturnValue(null);
-    prisma.chat.findFirst.mockResolvedValue({ activeStreamId: "stream-1" });
+    prisma.chat.findFirst.mockResolvedValue(activeChat("stream-1"));
 
     const response = await resume("chat-1");
 
@@ -78,11 +81,63 @@ describe("GET /api/chat/[id]/stream", () => {
     mockGetChatStreamContext.mockReturnValue({
       resumeExistingStream: vi.fn().mockResolvedValue(null),
     });
-    prisma.chat.findFirst.mockResolvedValue({ activeStreamId: "stream-1" });
+    prisma.chat.findFirst.mockResolvedValue(activeChat("stream-1"));
 
     const response = await resume("chat-1");
 
     expect(response.status).toBe(204);
+  });
+
+  it("waits for a reply still being set up to start streaming", async () => {
+    const resumeExistingStream = vi
+      .fn()
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(streamOf(['data: {"type":"start"}\n\n']));
+    mockGetChatStreamContext.mockReturnValue({ resumeExistingStream });
+    prisma.chat.findFirst.mockResolvedValue(activeChat("stream-1"));
+
+    const response = await resume("chat-1");
+
+    expect(response.status).toBe(200);
+    expect(resumeExistingStream).toHaveBeenCalledTimes(2);
+  });
+
+  it("stops waiting once the reply is no longer active", async () => {
+    const resumeExistingStream = vi.fn().mockResolvedValue(undefined);
+    mockGetChatStreamContext.mockReturnValue({ resumeExistingStream });
+    prisma.chat.findFirst
+      .mockResolvedValueOnce(activeChat("stream-1"))
+      .mockResolvedValueOnce(activeChat(null));
+
+    const response = await resume("chat-1");
+
+    expect(response.status).toBe(204);
+    expect(resumeExistingStream).toHaveBeenCalledTimes(1);
+  });
+
+  it("gives up after a bounded wait for a stream that never appears", async () => {
+    const resumeExistingStream = vi.fn().mockResolvedValue(undefined);
+    mockGetChatStreamContext.mockReturnValue({ resumeExistingStream });
+    prisma.chat.findFirst.mockResolvedValue(activeChat("stream-1"));
+
+    const response = await resume("chat-1");
+
+    expect(response.status).toBe(204);
+    expect(resumeExistingStream.mock.calls.length).toBeLessThanOrEqual(31);
+  });
+
+  it("ignores a marker left by a run that outlived the time limit", async () => {
+    const resumeExistingStream = vi.fn();
+    mockGetChatStreamContext.mockReturnValue({ resumeExistingStream });
+    prisma.chat.findFirst.mockResolvedValue({
+      activeStreamId: "stream-1",
+      activeStreamStartedAt: new Date(Date.now() - 801_000),
+    });
+
+    const response = await resume("chat-1");
+
+    expect(response.status).toBe(204);
+    expect(resumeExistingStream).not.toHaveBeenCalled();
   });
 
   it("does not resume another account's chat", async () => {
@@ -110,4 +165,11 @@ function streamOf(chunks: string[]) {
       controller.close();
     },
   });
+}
+
+function activeChat(activeStreamId: string | null) {
+  return {
+    activeStreamId,
+    activeStreamStartedAt: activeStreamId ? new Date() : null,
+  };
 }

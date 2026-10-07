@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { withEmailAccount } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
-import { clearActiveStream, stopChatRun } from "@/utils/chat/active-run";
+import { getLiveStreamId, stopChatRun } from "@/utils/chat/active-run";
 import { stopAssistantChatSchema } from "@/utils/actions/assistant-chat.validation";
 import { sleep } from "@/utils/sleep";
 
@@ -22,14 +22,14 @@ export const POST = withEmailAccount(
 
     const chat = await prisma.chat.findFirst({
       where: { id, emailAccountId: request.auth.emailAccountId },
-      select: { activeStreamId: true },
+      select: { activeStreamId: true, activeStreamStartedAt: true },
     });
 
     if (!chat) {
       return NextResponse.json({ error: "Chat not found" }, { status: 404 });
     }
 
-    const { activeStreamId } = chat;
+    const activeStreamId = getLiveStreamId(chat);
 
     // A stop for an earlier reply must not cancel one started since.
     if (
@@ -41,12 +41,13 @@ export const POST = withEmailAccount(
 
     // The cancelled run saves the reply as it stood, so assistant messages,
     // which confirmations trust, stay server-written. Waiting for it lets the
-    // client refetch the saved reply as soon as this returns.
+    // client refetch the saved reply as soon as this returns. Only the run
+    // clears its marker, so an unconfirmed stop can't free the chat for a
+    // second reply while the first is still going.
     await stopChatRun(activeStreamId, request.logger);
-    const ended = await waitForRunToEnd(id, activeStreamId);
-    if (!ended) {
+    if (!(await waitForRunToEnd(id, activeStreamId))) {
       request.logger.warn("Stopped assistant chat run did not end in time");
-      await clearActiveStream({ chatId: id, streamId: activeStreamId });
+      return NextResponse.json({ success: false }, { status: 504 });
     }
 
     return NextResponse.json({ success: true });
