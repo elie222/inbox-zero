@@ -27,7 +27,12 @@ export async function createContact(
   if (firstName) properties.firstName = firstName;
   if (provider) properties.provider = provider;
 
-  return await loops.createContact({ email, properties });
+  try {
+    return await loops.createContact({ email, properties });
+  } catch (error) {
+    if (isExistingContactError(error)) return { success: true };
+    throw error;
+  }
 }
 
 export async function deleteContact(
@@ -123,4 +128,21 @@ export async function updateContactCompanySize({
   companySize: number;
 }) {
   return updateContactProperty(email, { companySize });
+}
+
+function isExistingContactError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+
+  if (
+    ("statusCode" in error && Number(error.statusCode) === 409) ||
+    ("status" in error && Number(error.status) === 409)
+  ) {
+    return true;
+  }
+
+  return (
+    "message" in error &&
+    typeof error.message === "string" &&
+    /already (exists|on (?:the )?list)/i.test(error.message)
+  );
 }
