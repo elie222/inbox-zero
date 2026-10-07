@@ -74,8 +74,9 @@ export function Chat({
     attachments,
     setAttachments,
     submitTextMessage,
+    stop,
   } = useChat();
-  const { messages, status, stop, regenerate, setMessages } = chat;
+  const { messages, status, regenerate, setMessages } = chat;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadQueue, setUploadQueue] = useState<string[]>([]);
 

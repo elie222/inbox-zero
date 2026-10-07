@@ -1,5 +1,6 @@
 import { NextResponse, after } from "next/server";
 import {
+  consumeStream,
   convertToModelMessages,
   createUIMessageStream,
   createUIMessageStreamResponse,
@@ -43,6 +44,11 @@ import {
 } from "@/utils/ai/assistant/chat-seen-rules-revision";
 import { getToolFailureWarning } from "@/utils/ai/assistant/chat-response-guard";
 import { flushLoggerSafely } from "@/utils/logger-flush";
+import {
+  clearActiveStream,
+  getChatStreamContext,
+  startChatRun,
+} from "@/utils/chat/active-run";
 
 export const maxDuration = 800;
 
@@ -150,6 +156,15 @@ export const POST = withEmailAccount("chat", async (request) => {
       context,
       inlineActions,
     }),
+  });
+
+  // The reply's message id doubles as its stream id, so a client can name the
+  // run it wants to stop by the message it is already showing.
+  const streamId = crypto.randomUUID();
+  const chatRun = startChatRun(streamId);
+  await prisma.chat.update({
+    where: { id: chat.id },
+    data: { activeStreamId: streamId },
   });
 
   after(() =>
@@ -319,10 +334,12 @@ export const POST = withEmailAccount("chat", async (request) => {
       onEnd: (result) => {
         assistantRun.finishReason = result.finishReason;
       },
+      abortSignal: chatRun.abortSignal,
       logger: runLogger,
     });
 
     const stream = createUIMessageStream({
+      generateId: () => streamId,
       execute: async ({ writer }) => {
         let responseMessage: UIMessage | null = null;
 
@@ -334,6 +351,8 @@ export const POST = withEmailAccount("chat", async (request) => {
         })) {
           writer.write(chunk);
         }
+
+        if (chatRun.abortSignal.aborted) return;
 
         const warning = getToolFailureWarning(responseMessage);
         if (!warning) return;
@@ -349,51 +368,62 @@ export const POST = withEmailAccount("chat", async (request) => {
         });
         writer.write({ type: "text-end", id: warningPartId });
       },
-      onEnd: async ({ messages }) => {
-        assistantRun.visibleTextProduced = hasVisibleAssistantText(messages);
-        const persistableMessages = messages.filter(
-          isPersistableAssistantMessage,
-        );
-
-        if (persistableMessages.length < messages.length) {
-          runLogger.error("Skipping empty assistant chat messages", {
-            skippedCount: messages.length - persistableMessages.length,
-          });
-        }
-
-        let insertedMessageCount = 0;
-        if (persistableMessages.length > 0) {
-          const result = await saveChatMessages(
-            persistableMessages,
-            chat.id,
-            runLogger,
-            assistantRun,
+      onEnd: async ({ messages: endMessages, isAborted }) => {
+        try {
+          // A stopped reply is saved as it stood, minus tool calls that never
+          // got a result, which would otherwise show as running forever.
+          const messages = isAborted
+            ? endMessages.map(removeIncompleteToolParts)
+            : endMessages;
+          assistantRun.visibleTextProduced = hasVisibleAssistantText(messages);
+          const persistableMessages = messages.filter(
+            isPersistableAssistantMessage,
           );
-          insertedMessageCount = result.count;
-        }
 
-        if (seenRulesRevision != null) {
-          await saveLastSeenRulesRevision({
-            chatId: chat.id,
-            rulesRevision: seenRulesRevision,
-            logger: runLogger,
+          if (persistableMessages.length < messages.length) {
+            runLogger.error("Skipping empty assistant chat messages", {
+              skippedCount: messages.length - persistableMessages.length,
+            });
+          }
+
+          let insertedMessageCount = 0;
+          if (persistableMessages.length > 0) {
+            const result = await saveChatMessages(
+              persistableMessages,
+              chat.id,
+              runLogger,
+              assistantRun,
+            );
+            insertedMessageCount = result.count;
+          }
+
+          if (seenRulesRevision != null) {
+            await saveLastSeenRulesRevision({
+              chatId: chat.id,
+              rulesRevision: seenRulesRevision,
+              logger: runLogger,
+            });
+          }
+
+          runLogger.info("Assistant chat run completed", {
+            provider: assistantRun.provider,
+            modelName: assistantRun.modelName,
+            pipelineVersion: assistantRun.pipelineVersion,
+            deploymentCommit: assistantRun.deploymentCommit,
+            finishReason: assistantRun.finishReason,
+            stepCount: assistantRun.stepCount,
+            toolCallCount: assistantRun.toolCallCount,
+            visibleTextProduced: assistantRun.visibleTextProduced,
+            stopped: isAborted,
+            assistantMessageCount: messages.filter(
+              (message) => message.role === "assistant",
+            ).length,
+            insertedMessageCount,
           });
+        } finally {
+          chatRun.end();
+          await clearActiveStream({ chatId: chat.id, streamId });
         }
-
-        runLogger.info("Assistant chat run completed", {
-          provider: assistantRun.provider,
-          modelName: assistantRun.modelName,
-          pipelineVersion: assistantRun.pipelineVersion,
-          deploymentCommit: assistantRun.deploymentCommit,
-          finishReason: assistantRun.finishReason,
-          stepCount: assistantRun.stepCount,
-          toolCallCount: assistantRun.toolCallCount,
-          visibleTextProduced: assistantRun.visibleTextProduced,
-          assistantMessageCount: messages.filter(
-            (message) => message.role === "assistant",
-          ).length,
-          insertedMessageCount,
-        });
 
         await flushLoggerSafely(runLogger, {
           action: "assistant-chat",
@@ -402,8 +432,29 @@ export const POST = withEmailAccount("chat", async (request) => {
       },
     });
 
-    return createUIMessageStreamResponse({ stream });
+    const streamContext = getChatStreamContext();
+    return createUIMessageStreamResponse({
+      stream,
+      // The run keeps going if the client disconnects, so its reply is still
+      // saved; with Redis the stream is also kept for the client to resume.
+      consumeSseStream: ({ stream: sseStream }) => {
+        if (!streamContext) {
+          consumeStream({ stream: sseStream });
+          return;
+        }
+        streamContext
+          .createNewResumableStream(streamId, () => sseStream)
+          .catch((error) => {
+            runLogger.error("Failed to create resumable chat stream", {
+              error,
+            });
+            consumeStream({ stream: sseStream });
+          });
+      },
+    });
   } catch (error) {
+    chatRun.end();
+    await clearActiveStream({ chatId: chat.id, streamId });
     runLogger.error("Error in assistant chat", { error });
     await flushLoggerSafely(runLogger, {
       action: "assistant-chat",
@@ -574,4 +625,17 @@ function getInvalidChatRequestMetadata(value: unknown) {
     },
     { attachmentCount: 0, textLength: 0 },
   );
+}
+
+function removeIncompleteToolParts(message: UIMessage): UIMessage {
+  return {
+    ...message,
+    parts: message.parts.filter(
+      (part) =>
+        !(
+          "toolCallId" in part &&
+          (part.state === "input-streaming" || part.state === "input-available")
+        ),
+    ),
+  };
 }

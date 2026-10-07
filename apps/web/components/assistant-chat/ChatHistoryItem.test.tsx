@@ -35,6 +35,7 @@ describe("ChatHistoryItem", () => {
       deletedAt: null,
       compactionCount: 0,
       lastSeenRulesRevision: null,
+      activeStreamId: null,
       emailAccountId: "email-account-1",
     } satisfies ChatHistoryEntry;
 
