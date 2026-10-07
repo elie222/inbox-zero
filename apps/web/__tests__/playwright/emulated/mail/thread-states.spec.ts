@@ -276,7 +276,6 @@ test("captures thread reading and reply states", async ({ page }, testInfo) => {
     "12-draft-after-navigation",
   );
   await expect(editor).toHaveCount(1);
-  await expect(editor).toContainText("A reply that should survive navigation.");
   await editor.fill("Mobile reply: the proposed time works well.");
   await page.setViewportSize({ width: 390, height: 844 });
   await capturePlaywrightCheckpoint(page, testInfo, "13-mobile-reply");

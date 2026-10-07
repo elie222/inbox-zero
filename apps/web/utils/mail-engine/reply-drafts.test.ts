@@ -249,7 +249,10 @@ describe("local reply drafts", () => {
     setActiveMailClient(null);
   });
 
-  it("does not restore a draft read while its account was being cleared", async () => {
+  it.each([
+    ["one account", "account"],
+    ["every account", undefined],
+  ])("does not restore a draft read while %s was being cleared", async (_, clearedAccount) => {
     const { setActiveMailClient } = await import("./active-client");
     const client = createRevisionCheckingClient();
     setActiveMailClient(client as never);
@@ -258,7 +261,7 @@ describe("local reply drafts", () => {
     const readDraft = client.readDraft;
     client.readDraft = async (key) => {
       const result = await readDraft(key);
-      clearLocalReplyDrafts("account");
+      clearLocalReplyDrafts(clearedAccount);
       return result;
     };
 

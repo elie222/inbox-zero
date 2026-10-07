@@ -507,6 +507,8 @@ async function loadEngineReplyDraft(identity: ReplyDraftIdentity) {
   const client = getActiveMailClient();
   if (!client) return;
   const epoch = currentEpoch(identity.emailAccountId);
+  // Registered so that clearing every account also invalidates this read.
+  accountEpoch.set(identity.emailAccountId, epoch);
   const stored = await client.readDraft({
     accountId: identity.emailAccountId,
     draftId: engineDraftId(identity),
