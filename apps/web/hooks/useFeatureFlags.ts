@@ -37,8 +37,7 @@ export function useIntegrationActionsEnabled(): boolean {
 }
 
 export function useSmartFilingEnabled() {
-  const posthogEnabled = useFeatureFlagEnabled("smart-filing");
-  return env.NEXT_PUBLIC_SMART_FILING_ENABLED || posthogEnabled;
+  return env.NEXT_PUBLIC_SMART_FILING_ENABLED;
 }
 
 export function useBookingLinksEnabled() {
