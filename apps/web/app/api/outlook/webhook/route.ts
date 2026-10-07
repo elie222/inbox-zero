@@ -16,6 +16,8 @@ import {
 } from "@/utils/webhook/validate-webhook-account";
 import { getEmailProviderRateLimitState } from "@/utils/email/rate-limit";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import { catchUpAfterOutlookRateLimit } from "@/utils/outlook/rate-limit-catch-up";
+import { markOutlookRateLimitCatchUp } from "@/utils/redis/outlook-rate-limit-catch-up";
 
 import { notifyMailboxChanged } from "@/utils/mailbox-push";
 
@@ -158,6 +160,16 @@ async function processNotificationsAsync(
         resourceData,
         logger,
       });
+
+      if (emailAccount) {
+        after(() =>
+          runWithBackgroundLoggerFlush({
+            logger,
+            task: () => catchUpAfterOutlookRateLimit({ emailAccount, logger }),
+            extra: { operation: "outlook-rate-limit-catch-up" },
+          }),
+        );
+      }
     } catch (error) {
       const emailAccount = await getWebhookEmailAccount(
         { watchEmailsSubscriptionId: subscriptionId },
@@ -192,6 +204,12 @@ async function isOutlookRateLimited(
     logger,
   });
   if (!isMicrosoftProvider(activeRateLimit?.provider)) return false;
+
+  await markOutlookRateLimitCatchUp({
+    emailAccountId: emailAccount.id,
+    since: new Date(),
+    logger,
+  });
 
   await cleanupWebhookAccountOnRateLimitSkip(emailAccount, logger).catch(
     (error) => {
