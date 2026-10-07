@@ -192,7 +192,6 @@ export const useNavigation = () => {
             },
           ]
         : []),
-      // Smart filing is on by default; self-hosters can hide it with the env var.
       ...(env.NEXT_PUBLIC_SMART_FILING_ENABLED === false
         ? []
         : [
