@@ -102,6 +102,19 @@ describe("GET /api/chat/[id]/stream", () => {
     expect(resumeExistingStream).toHaveBeenCalledTimes(2);
   });
 
+  it("keeps waiting through a transient Redis error", async () => {
+    const resumeExistingStream = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("Redis timeout"))
+      .mockResolvedValueOnce(streamOf(['data: {"type":"start"}\n\n']));
+    mockGetChatStreamContext.mockReturnValue({ resumeExistingStream });
+    prisma.chat.findFirst.mockResolvedValue(activeChat("stream-1"));
+
+    const response = await resume("chat-1");
+
+    expect(response.status).toBe(200);
+  });
+
   it("stops waiting once the reply is no longer active", async () => {
     const resumeExistingStream = vi.fn().mockResolvedValue(undefined);
     mockGetChatStreamContext.mockReturnValue({ resumeExistingStream });

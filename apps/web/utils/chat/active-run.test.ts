@@ -4,6 +4,7 @@ import prisma from "@/utils/__mocks__/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import {
   claimActiveStream,
+  clearActiveStream,
   getChatStreamContext,
   getLiveStreamId,
   startChatRun,
@@ -147,6 +148,14 @@ describe("assistant chat runs", () => {
         { activeStreamStartedAt: { lt: expect.any(Date) } },
       ]),
     );
+  });
+
+  it("does not throw when clearing the marker fails", async () => {
+    prisma.chat.updateMany.mockRejectedValueOnce(new Error("db down"));
+
+    await expect(
+      clearActiveStream({ chatId: "chat-1", streamId: "stream-1" }),
+    ).resolves.toBeUndefined();
   });
 
   it("treats a marker older than the run time limit as stale", () => {

@@ -37,8 +37,9 @@ export const GET = withEmailAccount(
       const stream = await streamContext
         .resumeExistingStream(streamId)
         .catch((error) => {
+          // Keep polling; only a finished stream (null) ends the wait.
           request.logger.warn("Failed to resume chat stream", { error });
-          return null;
+          return;
         });
 
       if (stream) {

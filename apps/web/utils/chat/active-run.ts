@@ -104,10 +104,15 @@ export async function clearActiveStream({
   streamId: string;
 }) {
   // Only clear our own stream; a newer reply may already have replaced it.
-  await prisma.chat.updateMany({
-    where: { id: chatId, activeStreamId: streamId },
-    data: { activeStreamId: null, activeStreamStartedAt: null },
-  });
+  // A failure here must not break the run's cleanup; the marker goes stale.
+  try {
+    await prisma.chat.updateMany({
+      where: { id: chatId, activeStreamId: streamId },
+      data: { activeStreamId: null, activeStreamStartedAt: null },
+    });
+  } catch (error) {
+    logger.error("Failed to clear active chat stream", { chatId, error });
+  }
 }
 
 function getRedis() {
