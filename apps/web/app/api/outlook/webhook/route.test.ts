@@ -2,7 +2,11 @@ import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { redis } from "@/utils/redis";
 import { processHistoryForUser } from "@/utils/webhook/outlook/process-history";
-import { getWebhookEmailAccount } from "@/utils/webhook/validate-webhook-account";
+import {
+  cleanupWebhookAccountOnRateLimitSkip,
+  getWebhookEmailAccount,
+} from "@/utils/webhook/validate-webhook-account";
+import { getEmailProviderRateLimitState } from "@/utils/email/rate-limit";
 import { POST } from "./route";
 
 vi.mock("server-only", () => ({}));
@@ -20,7 +24,11 @@ vi.mock("@/utils/webhook/outlook/process-history", () => ({
   processHistoryForUser: vi.fn(),
 }));
 vi.mock("@/utils/webhook/validate-webhook-account", () => ({
+  cleanupWebhookAccountOnRateLimitSkip: vi.fn(),
   getWebhookEmailAccount: vi.fn(),
+}));
+vi.mock("@/utils/email/rate-limit", () => ({
+  getEmailProviderRateLimitState: vi.fn(),
 }));
 vi.mock("@/utils/webhook/error-handler", () => ({
   handleWebhookError: vi.fn(),
@@ -96,6 +104,21 @@ describe("Outlook realtime webhook hints", () => {
       release(0);
       await blockedRedis;
     }
+  });
+
+  it("skips automation while the account is rate limited", async () => {
+    vi.mocked(getEmailProviderRateLimitState).mockResolvedValue({
+      provider: "microsoft",
+      retryAt: new Date(Date.now() + 60_000),
+      source: "outlook/webhook",
+    });
+    vi.mocked(cleanupWebhookAccountOnRateLimitSkip).mockResolvedValue();
+
+    expect((await POST(request("valid-state", 2))).status).toBe(200);
+    await vi.waitFor(() =>
+      expect(cleanupWebhookAccountOnRateLimitSkip).toHaveBeenCalledTimes(2),
+    );
+    expect(processHistoryForUser).not.toHaveBeenCalled();
   });
 
   it("does not publish when subscription ownership is unknown", async () => {
