@@ -249,6 +249,30 @@ describe("local reply drafts", () => {
     setActiveMailClient(null);
   });
 
+  it("lists a thread's reply drafts saved before a reload", async () => {
+    const { setActiveMailClient } = await import("./active-client");
+    const client = createRevisionCheckingClient();
+    setActiveMailClient(client as never);
+    await createReplyDraftWriter(replyIdentity).save({
+      ...content,
+      composeMode: "reply",
+    });
+    clearLocalReplyDrafts();
+
+    const listed = await getReplyDrafts("account", "thread", [
+      "earlier",
+      identity.messageId,
+    ]);
+
+    expect(listed).toMatchObject([
+      {
+        messageId: replyIdentity.messageId,
+        content: { draft: { editableHtml: "<p>My reply</p>" } },
+      },
+    ]);
+    setActiveMailClient(null);
+  });
+
   it("copies a cancelled send draft into the reply composer session", async () => {
     const { setActiveMailClient } = await import("./active-client");
     setActiveMailClient({

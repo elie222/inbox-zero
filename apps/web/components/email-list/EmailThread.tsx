@@ -72,7 +72,13 @@ export function EmailThread({
 }) {
   const { emailAccountId, userEmail } = useAccount();
   const threadId = messages[0]?.threadId ?? "";
-  const { drafts: localDrafts } = useReplyDrafts(emailAccountId, threadId);
+  const { drafts: localDrafts } = useReplyDrafts(
+    emailAccountId,
+    threadId,
+    messages
+      .filter((message) => !message.labelIds?.includes(GmailLabel.DRAFT))
+      .map((message) => message.id),
+  );
   const { data: sentMessageOpens } = useSentMessageOpens(threadId || null);
   const organizedMessages = useMemo(
     (): Array<{

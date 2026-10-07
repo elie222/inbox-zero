@@ -209,8 +209,29 @@ export async function updateReplyDraftProviderState(
   return draftId;
 }
 
-export async function getReplyDrafts(emailAccountId: string, threadId: string) {
+/**
+ * Drafts saved before a reload live only in the engine, which has no index by
+ * thread, so this restores the composer sessions of the given messages first.
+ */
+export async function getReplyDrafts(
+  emailAccountId: string,
+  threadId: string,
+  messageIds: string[] = [],
+) {
   assertAccountEpoch(emailAccountId);
+  await Promise.all(
+    messageIds
+      .flatMap((messageId) => [
+        getReplyDraftSessionId(messageId, "reply"),
+        getReplyDraftSessionId(messageId, "forward"),
+        messageId,
+      ])
+      .map((messageId) => {
+        const identity = { emailAccountId, threadId, messageId };
+        if (drafts.has(draftKey(identity))) return;
+        return loadEngineReplyDraft(identity).catch(() => {});
+      }),
+  );
   return [...drafts.values()].filter(
     (draft) =>
       draft.emailAccountId === emailAccountId &&
@@ -490,6 +511,9 @@ async function loadEngineReplyDraft(identity: ReplyDraftIdentity) {
     draftId: engineDraftId(identity),
   });
   if (stored.status !== "found" || !stored.content.clientState) return;
+  // A composer may have saved while the read was in flight.
+  const current = drafts.get(draftKey(identity));
+  if (current) return current;
   try {
     const content = JSON.parse(stored.content.clientState) as ReplyDraftContent;
     if (!content?.draft || !content.values) return;
