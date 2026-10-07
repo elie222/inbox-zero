@@ -67,7 +67,7 @@ import { prefixPath } from "@/utils/path";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { NavUser } from "@/components/NavUser";
 import { PremiumCard } from "@/components/PremiumCard";
-import { FeedbackDialog } from "@/components/FeedbackDialog";
+import { FeedbackSidebarButton } from "@/components/FeedbackDialog";
 import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
 
 type NavItem = {
@@ -376,7 +376,7 @@ export function SideNav({
         {feedbackEnabled && (
           <SidebarMenu>
             <SidebarMenuItem>
-              <FeedbackDialog />
+              <FeedbackSidebarButton />
             </SidebarMenuItem>
           </SidebarMenu>
         )}
