@@ -36,10 +36,6 @@ export function useIntegrationActionsEnabled(): boolean {
   return isIntegrationActionGloballyEnabled() || posthogEnabled === true;
 }
 
-export function useSmartFilingEnabled() {
-  return env.NEXT_PUBLIC_SMART_FILING_ENABLED;
-}
-
 export function useBookingLinksEnabled() {
   const posthogEnabled = useFeatureFlagEnabled("booking-links");
   return env.NEXT_PUBLIC_BOOKING_LINKS_ENABLED || posthogEnabled;
