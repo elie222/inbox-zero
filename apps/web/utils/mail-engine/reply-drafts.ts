@@ -93,7 +93,10 @@ export function getDraftSessionMessageId(
   );
 }
 
-/** Every mailbox message a draft has been saved as while it was open here. */
+/**
+ * Every mailbox message a draft has been saved as while it was open here,
+ * with the given (newest) message last.
+ */
 export function getDraftSessionMessageIds(
   emailAccountId: string,
   draftMessageId: string,
@@ -108,7 +111,8 @@ export function getDraftSessionMessageIds(
   ) ?? []) {
     if (session === sessionMessageId) ids.add(messageId);
   }
-  return [...ids];
+  ids.delete(draftMessageId);
+  return [...ids, draftMessageId];
 }
 
 /** A discarded mailbox draft stays in the engine until its next sync. */

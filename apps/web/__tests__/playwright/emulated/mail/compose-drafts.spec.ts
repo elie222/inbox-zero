@@ -136,7 +136,8 @@ test("saves a reply in the mailbox and reopens it after a reload", async ({
   await expect(message).toBeVisible({ timeout: 60_000 });
   await message.getByRole("button", { name: "Reply", exact: true }).click();
   const editors = page.getByRole("textbox", { name: "Email message" });
-  await editors.fill("A reply saved to the mailbox.");
+  const replyBody = `A reply saved to the mailbox. ${testInfo.retry}`;
+  await editors.fill(replyBody);
   await expect
     .poll(
       () =>
@@ -144,7 +145,7 @@ test("saves a reply in the mailbox and reopens it after a reload", async ({
           page,
           emailAccountId,
           "thr_playwright_reply",
-          "A reply saved to the mailbox.",
+          replyBody,
         ),
       { timeout: 15_000 },
     )
@@ -154,19 +155,14 @@ test("saves a reply in the mailbox and reopens it after a reload", async ({
 
   await page.reload();
   await expect(editors).toHaveCount(1, { timeout: 60_000 });
-  await expect(editors).toContainText("A reply saved to the mailbox.");
+  await expect(editors).toContainText(replyBody);
   await capturePlaywrightCheckpoint(page, testInfo, "reply-draft-after-reload");
 
   await page.getByRole("button", { name: "Discard draft" }).click();
   await expect(editors).toHaveCount(0);
   await expect
     .poll(() =>
-      readThreadDrafts(
-        page,
-        emailAccountId,
-        "thr_playwright_reply",
-        "A reply saved to the mailbox.",
-      ),
+      readThreadDrafts(page, emailAccountId, "thr_playwright_reply", replyBody),
     )
     .toHaveLength(0);
 });

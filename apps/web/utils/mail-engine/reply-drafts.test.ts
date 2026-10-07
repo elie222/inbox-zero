@@ -2,10 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearLocalReplyDrafts,
   createReplyDraftWriter,
+  getDraftSessionMessageIds,
   getReplyDraft,
   getReplyDraftForSession,
   getReplyDrafts,
   getReplyDraftSessionId,
+  rememberReplacedDraftMessage,
   restoreUnsentReplyDraft,
   updateReplyDraftProviderState,
   type ReplyDraftContent,
@@ -269,6 +271,15 @@ describe("local reply drafts", () => {
       await getReplyDrafts("account", "thread", [identity.messageId]),
     ).toEqual([]);
     setActiveMailClient(null);
+  });
+
+  it("lists a draft's saved copies with the newest last", () => {
+    rememberReplacedDraftMessage("account", "copy-a", "copy-b");
+    rememberReplacedDraftMessage("account", "copy-b", "copy-c");
+
+    expect(getDraftSessionMessageIds("account", "copy-c").at(-1)).toBe(
+      "copy-c",
+    );
   });
 
   it("lists a thread's reply drafts saved before a reload", async () => {
