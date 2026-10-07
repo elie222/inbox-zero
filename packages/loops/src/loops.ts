@@ -124,3 +124,43 @@ export async function updateContactCompanySize({
 }) {
   return updateContactProperty(email, { companySize });
 }
+
+// Send webhooks include these names; later engagement webhooks do not.
+export async function getWorkflowName(
+  workflowId: string,
+): Promise<string | null> {
+  const loops = getLoopsClient();
+  if (!loops) return null;
+  try {
+    const workflow = await loops.getWorkflow(encodeURIComponent(workflowId));
+    const name = workflow.name?.trim();
+    return name || null;
+  } catch (error) {
+    if (isNotFound(error)) return null;
+    throw error;
+  }
+}
+
+export async function getCampaignName(
+  campaignId: string,
+): Promise<string | null> {
+  const loops = getLoopsClient();
+  if (!loops) return null;
+  try {
+    const campaign = await loops.getCampaign(encodeURIComponent(campaignId));
+    const name = campaign.name?.trim();
+    return name || null;
+  } catch (error) {
+    if (isNotFound(error)) return null;
+    throw error;
+  }
+}
+
+function isNotFound(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "statusCode" in error &&
+    error.statusCode === 404
+  );
+}

@@ -2851,3 +2851,26 @@ model ScimIdentityLink {
   @@unique([connectionId, externalId])
   @@index([userId])
 }
+
+// Loops includes loopName and campaignName only on *.email.sent webhooks.
+// Later engagement events identify the same email by id, so the name is remembered here.
+model LoopsEmailSource {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Shared by every recipient of one sent version of a workflow or campaign email.
+  emailMessageId String? @unique
+
+  loopId       String?
+  loopName     String?
+  campaignId   String?
+  campaignName String?
+  sourceType   String?
+  // When this send happened in Loops. Name fallback uses this, so a retry of an
+  // older send cannot outrank a newer version.
+  eventTime    DateTime?
+
+  @@index([loopId])
+  @@index([campaignId])
+}
