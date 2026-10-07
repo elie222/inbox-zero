@@ -38,6 +38,7 @@ const {
     emailAccountId: "account-a",
   },
   chatState: {
+    id: "new-chat-id",
     status: "ready" as "ready" | "submitted" | "streaming" | "error",
   },
   queryState: {
@@ -47,7 +48,7 @@ const {
 
 vi.mock("@ai-sdk/react", () => ({
   useChat: (options: { onError?: (error: Error) => void }) => ({
-    id: "new-chat-id",
+    id: chatState.id,
     messages: [],
     status: chatState.status,
     setMessages: mockSetMessages,
@@ -125,6 +126,7 @@ describe("ChatProvider", () => {
     vi.clearAllMocks();
 
     accountState.emailAccountId = "account-a";
+    chatState.id = "new-chat-id";
     chatState.status = "ready";
     queryState.initialChatId = "chat-from-account-a";
     mockUseSWRConfig.mockReturnValue({ mutate: vi.fn() });
@@ -255,8 +257,17 @@ describe("ChatProvider", () => {
     );
     expect(mockSetMessages).not.toHaveBeenCalled();
 
-    // The run finishes and the refetch returns the saved reply.
+    // The run ends before its refetch returns: the stale mid-run data must not
+    // replace the finished reply.
     chatState.status = "ready";
+    rerender(
+      <ChatProvider>
+        <div />
+      </ChatProvider>,
+    );
+    expect(mockSetMessages).not.toHaveBeenCalled();
+
+    // The refetch after the run returns the saved reply.
     savedData = { messages: savedWithReply };
     rerender(
       <ChatProvider>
@@ -264,6 +275,36 @@ describe("ChatProvider", () => {
       </ChatProvider>,
     );
     expect(mockSetMessages).toHaveBeenLastCalledWith(savedWithReply);
+  });
+
+  it("loads another chat's history when switching chats during a run", () => {
+    const otherChat = [
+      {
+        id: "other-message",
+        role: "user",
+        parts: [{ type: "text", text: "Other" }],
+      },
+    ];
+    let savedData: { messages: unknown[] } = { messages: [] };
+    mockUseChatMessages.mockImplementation(() => ({ data: savedData }));
+    mockConvertToUIMessages.mockImplementation(
+      (data: { messages: unknown[] }) => data.messages,
+    );
+
+    chatState.status = "streaming";
+    const { rerender } = renderWithProvider(<div />);
+    mockSetMessages.mockClear();
+
+    // Selecting another chat gives the SDK a fresh, idle chat instance.
+    chatState.id = "other-chat";
+    chatState.status = "ready";
+    savedData = { messages: otherChat };
+    rerender(
+      <ChatProvider>
+        <div />
+      </ChatProvider>,
+    );
+    expect(mockSetMessages).toHaveBeenLastCalledWith(otherChat);
   });
 
   it("clears the active chat when the selected email account changes", async () => {
