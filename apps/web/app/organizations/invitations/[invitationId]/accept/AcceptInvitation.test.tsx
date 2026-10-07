@@ -20,7 +20,9 @@ describe("AcceptInvitation", () => {
       data: { success: true },
     } as never);
 
-    render(<AcceptInvitation invitationId="invite-1" />);
+    render(<AcceptInvitation invitationId="invite-1" />, {
+      reactStrictMode: true,
+    });
 
     expect(await screen.findByText("Welcome!")).toBeTruthy();
     expect(handleInvitationAction).toHaveBeenCalledOnce();
