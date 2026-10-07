@@ -1,5 +1,4 @@
 import { format } from "date-fns";
-import { Clock3Icon } from "lucide-react";
 import * as chrono from "chrono-node";
 import type { Command } from "@/lib/commands/types";
 
@@ -20,7 +19,6 @@ export function buildSnoozeCommandPalette({
       {
         id: "mail-snooze-natural-language",
         label: `Snooze until ${formatSnoozeTime(naturalLanguageDate)}`,
-        icon: Clock3Icon,
         section: "actions",
         priority: 0,
         keywords: [query],
@@ -33,7 +31,6 @@ export function buildSnoozeCommandPalette({
     id: `mail-snooze-${preset.id}`,
     label: preset.label,
     description: formatSnoozeTime(preset.until),
-    icon: Clock3Icon,
     section: "actions",
     priority: index,
     keywords: ["snooze", "later", "remind", preset.id, preset.label],
