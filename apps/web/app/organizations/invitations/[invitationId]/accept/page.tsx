@@ -16,5 +16,5 @@ export default async function AcceptInvitationPage(props: {
     );
   }
 
-  return <AcceptInvitation invitationId={invitationId} />;
+  return <AcceptInvitation key={invitationId} invitationId={invitationId} />;
 }
