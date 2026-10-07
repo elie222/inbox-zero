@@ -108,7 +108,7 @@ function AuthorizedReader({
                   <p>From: {message.from}</p>
                   <p>To: {message.to}</p>
                   {message.cc && <p>Cc: {message.cc}</p>}
-                  <time dateTime={new Date(message.date).toISOString()}>
+                  <time>
                     {new Date(message.date).toLocaleString(undefined, {
                       dateStyle: "medium",
                       timeStyle: "short",

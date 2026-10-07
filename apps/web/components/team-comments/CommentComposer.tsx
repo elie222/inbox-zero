@@ -98,6 +98,11 @@ export function CommentComposer({
     } else setError(getActionErrorMessage(result ?? {}));
   };
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+      event.preventDefault();
+      submit();
+      return;
+    }
     if (suggestions.length) {
       if (event.key === "ArrowDown") {
         event.preventDefault();
@@ -113,11 +118,6 @@ export function CommentComposer({
         event.preventDefault();
         selectMention(suggestions[highlighted] ?? suggestions[0]);
       }
-      return;
-    }
-    if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-      event.preventDefault();
-      submit();
     }
   };
   const notice = newlyShared.length ? (

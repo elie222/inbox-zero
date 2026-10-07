@@ -34,8 +34,22 @@ export function PublisherDiscussion({
     return () =>
       document.removeEventListener("team-comments:open", openComposer);
   }, []);
+  const { executeAsync: share } = useAction(shareConversationAction);
+  const { executeAsync: postComment } = useAction(postCommentAction);
+  const memberships = useSWR<TeamConversationsResponse>(
+    "/api/team-comments/conversations",
+  );
+  const memberId = memberships.data?.memberships.find(
+    (membership) => membership.emailAccount.id === emailAccountId,
+  )?.id;
+  const url = memberId
+    ? `/api/team-comments/conversations?memberId=${encodeURIComponent(memberId)}&emailAccountId=${encodeURIComponent(emailAccountId)}&threadId=${encodeURIComponent(threadId)}`
+    : null;
+  const source = useSWR<TeamConversationsResponse>(url);
+  // The composer only renders once membership and sharing state have loaded.
+  const composerReady = Boolean(memberId && source.data);
   useEffect(() => {
-    if (!focusRequest) return;
+    if (!focusRequest || !composerReady) return;
     const focus = () => {
       const composer = document.getElementById("internal-comment");
       composer?.focus();
@@ -50,19 +64,7 @@ export function PublisherDiscussion({
         focus();
     }, 300);
     return () => clearTimeout(timeout);
-  }, [focusRequest]);
-  const { executeAsync: share } = useAction(shareConversationAction);
-  const { executeAsync: postComment } = useAction(postCommentAction);
-  const memberships = useSWR<TeamConversationsResponse>(
-    "/api/team-comments/conversations",
-  );
-  const memberId = memberships.data?.memberships.find(
-    (membership) => membership.emailAccount.id === emailAccountId,
-  )?.id;
-  const url = memberId
-    ? `/api/team-comments/conversations?memberId=${encodeURIComponent(memberId)}&emailAccountId=${encodeURIComponent(emailAccountId)}&threadId=${encodeURIComponent(threadId)}`
-    : null;
-  const source = useSWR<TeamConversationsResponse>(url);
+  }, [focusRequest, composerReady]);
   if (!memberId || !source.data) return null;
   const sharedSource = source.data.source;
   const teammates = source.data.teammates;

@@ -360,7 +360,7 @@ function CommentBody({ body, names }: { body: string; names: string[] }) {
     `(@(?:${names
       .toSorted((a, b) => b.length - a.length)
       .map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
-      .join("|")}))`,
+      .join("|")}))(?![\\p{L}\\p{M}\\p{N}_])`,
     "u",
   );
   return body.split(pattern).map((part, index) =>

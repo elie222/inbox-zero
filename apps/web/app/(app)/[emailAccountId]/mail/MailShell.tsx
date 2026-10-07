@@ -539,10 +539,20 @@ export function MailShell() {
   const teamCommentsAvailable = useTeamCommentsAvailable(readerEmailAccountId);
   const openTeamComments = useMemo(
     () =>
-      openThreadId && teamCommentsAvailable
+      // The listener mounts with the thread's messages, so an earlier request
+      // would be dropped.
+      openThreadId &&
+      readerSelectionSettled &&
+      openMessages.length > 0 &&
+      teamCommentsAvailable
         ? () => document.dispatchEvent(new Event("team-comments:open"))
         : undefined,
-    [openThreadId, teamCommentsAvailable],
+    [
+      openThreadId,
+      readerSelectionSettled,
+      openMessages.length,
+      teamCommentsAvailable,
+    ],
   );
   const readerTarget = useMemo(() => {
     if (!openThreadKey || !openThreadSelection || !readerSelectionSettled)
