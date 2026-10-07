@@ -1,7 +1,9 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { useAction } from "next-safe-action/hooks";
+import { useEffect, useRef } from "react";
+import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -10,75 +12,38 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Loading } from "@/components/Loading";
 import { handleInvitationAction } from "@/utils/actions/organization";
 import { WELCOME_PATH } from "@/utils/config";
+import { getActionErrorMessage } from "@/utils/error";
 
 export function AcceptInvitation({ invitationId }: { invitationId: string }) {
-  const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<boolean>(false);
-  const hasProcessed = useRef(false);
+  const { execute, result, hasErrored, hasSucceeded } = useAction(
+    handleInvitationAction,
+  );
+  const hasExecuted = useRef(false);
 
   useEffect(() => {
-    if (hasProcessed.current) return;
-    hasProcessed.current = true;
+    // Accepting is not idempotent, so a Strict Mode re-run must not repeat it.
+    if (hasExecuted.current) return;
+    hasExecuted.current = true;
+    execute({ invitationId });
+  }, [execute, invitationId]);
 
-    const handleInvitation = async () => {
-      try {
-        const result = await handleInvitationAction({ invitationId });
-
-        if (result?.serverError) {
-          setError(result.serverError);
-        } else if (result?.validationErrors) {
-          setError("Validation error occurred");
-        } else if (result?.data) {
-          setSuccess(true);
-        } else {
-          setError("An unknown error occurred.");
-        }
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to process invitation",
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    handleInvitation();
-  }, [invitationId]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Card className="w-full max-w-md">
-          <CardContent className="py-8">
-            <Loading />
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>Invitation error</CardTitle>
-            <CardDescription>{error}</CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
-    );
-  }
-
-  if (success) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Card className="w-full max-w-md">
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+      <Card className="w-full max-w-md">
+        <LoadingContent
+          loading={!hasSucceeded && !hasErrored}
+          error={
+            hasErrored
+              ? {
+                  error: getActionErrorMessage(result, {
+                    fallback: "Failed to accept the invitation",
+                  }),
+                }
+              : undefined
+          }
+        >
           <CardHeader>
             <CardTitle>Welcome!</CardTitle>
             <CardDescription>
@@ -86,17 +51,12 @@ export function AcceptInvitation({ invitationId }: { invitationId: string }) {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button
-              onClick={() => router.push(WELCOME_PATH)}
-              className="w-full"
-            >
-              Continue
+            <Button asChild className="w-full">
+              <Link href={WELCOME_PATH}>Continue</Link>
             </Button>
           </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  return null;
+        </LoadingContent>
+      </Card>
+    </div>
+  );
 }
