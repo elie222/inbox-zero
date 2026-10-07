@@ -51,6 +51,10 @@ packageExtensions:
   "@hookform/resolvers":
     peerDependencies:
       zod: "*"
+  # resumable-stream/ioredis imports ioredis without declaring it.
+  resumable-stream:
+    peerDependencies:
+      ioredis: "*"
 
 # Only reviewed dependencies may run install scripts.
 allowBuilds:
