@@ -175,7 +175,7 @@ Reference for environment variables relevant to self-hosting Inbox Zero. Hosted-
 | `NEXT_PUBLIC_MEETING_RECORDER_ENABLED` | No | Show the Meeting Recorder in the app. Recording also requires Recall.ai credentials, its signed webhook, and the meeting-recorder scheduling job; without them nothing records. | `false` |
 | `NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED` | No | Enable follow-up reminders, which allows users to add labels to emails for automatic follow-up tracking. Requires the follow-up reminders cron job to be running. | `false` |
 | `NEXT_PUBLIC_INTEGRATIONS_ENABLED` | No | Enable the integrations feature, allowing users to connect external services. | `false` |
-| `NEXT_PUBLIC_SMART_FILING_ENABLED` | No | Enable the Smart Filing feature for automatic document organization from email attachments. | `false` |
+| `NEXT_PUBLIC_SMART_FILING_ENABLED` | No | Set to `false` to hide Attachments (Smart Filing) from the sidebar. Shown when unset. | `true` |
 | `NEXT_PUBLIC_CLEANER_ENABLED` | No | Enable the newer cleaner/bulk cleanup experience | `false` |
 | `NEXT_PUBLIC_DELETE_EMAIL_ACTION_ENABLED` | No | Enable delete/trash actions for automation rules, including rules created through the external API. | `false` |
 | `NEXT_PUBLIC_BOOKING_LINKS_ENABLED` | No | Enable first-party booking links and availability pages. | `false` |
