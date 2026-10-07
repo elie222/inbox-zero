@@ -108,7 +108,12 @@ function AuthorizedReader({
                   <p>From: {message.from}</p>
                   <p>To: {message.to}</p>
                   {message.cc && <p>Cc: {message.cc}</p>}
-                  <time>{new Date(message.date).toLocaleString()}</time>
+                  <time>
+                    {new Date(message.date).toLocaleString(undefined, {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })}
+                  </time>
                 </div>
                 <SharedMessageBody
                   messageId={`${conversationId}:${message.ref}`}

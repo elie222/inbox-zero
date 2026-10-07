@@ -3,18 +3,42 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useAction } from "next-safe-action/hooks";
+import {
+  BellIcon,
+  BellOffIcon,
+  ExternalLinkIcon,
+  MoreHorizontalIcon,
+  Trash2Icon,
+  UserPlusIcon,
+  UserXIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { LoadingContent } from "@/components/LoadingContent";
 import { CommentComposer } from "@/components/team-comments/CommentComposer";
-import { ConversationParticipants } from "@/components/team-comments/ConversationParticipants";
+import {
+  ConversationParticipants,
+  PersonAvatar,
+} from "@/components/team-comments/ConversationParticipants";
 import { useConversationDiscussion } from "@/components/team-comments/use-conversation-discussion";
 import {
   deleteCommentAction,
   markConversationReadAction,
+  postCommentAction,
   setConversationMutedAction,
   setParticipantAccessAction,
   stopSharingAction,
 } from "@/utils/actions/team-comments";
+import { formatShortDate } from "@/utils/date";
 import { getActionErrorMessage } from "@/utils/error";
 
 type ConversationDiscussionProps = {
@@ -47,6 +71,7 @@ export function ConversationDiscussionView({
   const { executeAsync: stop } = useAction(stopSharingAction);
   const { executeAsync: mute } = useAction(setConversationMutedAction);
   const { executeAsync: markRead } = useAction(markConversationReadAction);
+  const { executeAsync: postComment } = useAction(postCommentAction);
   const [error, setError] = useState("");
   const markedPosition = useRef("");
   const pendingPosition = useRef("");
@@ -96,190 +121,229 @@ export function ConversationDiscussionView({
         Your access to this conversation has ended.
       </div>
     );
+  const runAndRefresh = async (
+    action: Promise<
+      | (Parameters<typeof getActionErrorMessage>[0] & { data?: unknown })
+      | undefined
+    >,
+  ) => {
+    const result = await action;
+    if (result?.data) {
+      setError("");
+      refresh();
+    } else setError(getActionErrorMessage(result ?? {}));
+    return Boolean(result?.data);
+  };
+  const data = summary.data;
+  const participantIds =
+    data?.participants.map((participant) => participant.memberId) ?? [];
+  const addableTeammates =
+    data?.availableTeammates.filter(
+      (person) => !participantIds.includes(person.memberId),
+    ) ?? [];
   return (
-    <section
-      className="space-y-5 border-t border-border py-6"
-      aria-label="Internal discussion"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="font-title text-lg font-semibold">
-            Internal discussion
-          </h2>
-          <p className="text-muted-foreground text-xs">
-            Comments stay with your team and are never sent as email.
-          </p>
-        </div>
-        {showSharedViewLink && (
-          <Link
-            className="text-primary text-sm underline"
-            href={`/shared/${conversationId}?memberId=${encodeURIComponent(memberId)}`}
-          >
-            Open shared view
-          </Link>
-        )}
-      </div>
+    <section className="space-y-4 pt-4 pb-6" aria-label="Internal discussion">
       <LoadingContent
         loading={summary.isLoading || comments.isLoading}
         error={summary.error ?? comments.error}
       >
-        {summary.data && comments.data && (
+        {data && comments.data && (
           <>
-            <ConversationParticipants
-              participants={summary.data.participants}
-            />
-            <div className="space-y-3" aria-live="polite">
+            <div className="flex items-center gap-2 border-t pt-4 text-muted-foreground text-xs">
+              <ConversationParticipants
+                participants={data.participants}
+                currentMemberId={memberId}
+                publisherMemberId={data.publisherMemberId}
+                onRemove={
+                  data.capabilities.manage
+                    ? (targetMemberId) =>
+                        runAndRefresh(
+                          setAccess({
+                            memberId,
+                            conversationId,
+                            targetMemberId,
+                            access: false,
+                          }),
+                        )
+                    : undefined
+                }
+              />
+              <span className="flex-1">Sharing started</span>
+              <time dateTime={new Date(data.sharedAt).toISOString()}>
+                {formatShortDate(new Date(data.sharedAt), { lowercase: true })}
+              </time>
+              <DropdownMenu modal={false}>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="icon2xs"
+                    variant="ghost"
+                    aria-label="Discussion options"
+                  >
+                    <MoreHorizontalIcon className="size-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {showSharedViewLink && (
+                    <DropdownMenuItem asChild>
+                      <Link
+                        href={`/shared/${conversationId}?memberId=${encodeURIComponent(memberId)}`}
+                      >
+                        <ExternalLinkIcon />
+                        Open shared view
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                  {data.capabilities.manage && addableTeammates.length > 0 && (
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger>
+                        <UserPlusIcon />
+                        Add teammate
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent>
+                        {addableTeammates.map((person) => (
+                          <DropdownMenuItem
+                            key={person.memberId}
+                            onSelect={() =>
+                              runAndRefresh(
+                                setAccess({
+                                  memberId,
+                                  conversationId,
+                                  targetMemberId: person.memberId,
+                                  access: true,
+                                }),
+                              )
+                            }
+                          >
+                            <PersonAvatar person={person} className="size-5" />
+                            {person.name}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                  )}
+                  <DropdownMenuItem
+                    onSelect={() =>
+                      runAndRefresh(
+                        mute({ memberId, conversationId, muted: !data.muted }),
+                      )
+                    }
+                  >
+                    {data.muted ? <BellIcon /> : <BellOffIcon />}
+                    {data.muted ? "Unmute" : "Mute"}
+                  </DropdownMenuItem>
+                  {data.capabilities.manage && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onSelect={async () => {
+                          if (
+                            await runAndRefresh(
+                              stop({ memberId, conversationId }),
+                            )
+                          )
+                            onStopped?.();
+                        }}
+                      >
+                        <UserXIcon />
+                        Stop sharing
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+            <div className="space-y-4" aria-live="polite">
               {comments.data.nextCursor && (
-                <Button size="sm" variant="outline" onClick={loadMoreComments}>
+                <Button size="xs-2" variant="ghost" onClick={loadMoreComments}>
                   Load older comments
                 </Button>
               )}
-              {comments.data.comments.length === 0 && (
-                <p className="text-muted-foreground text-sm">
-                  No comments yet.
-                </p>
-              )}
               {comments.data.comments.map((comment) => (
-                <article
-                  className="rounded-lg border bg-card p-3"
-                  key={comment.id}
-                >
-                  <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                    <span>
-                      {comment.author.name} ·{" "}
-                      {new Date(comment.createdAt).toLocaleString()}
+                <article className="group space-y-1" key={comment.id}>
+                  <div className="flex items-center gap-2">
+                    <PersonAvatar person={comment.author} className="size-5" />
+                    <span className="font-medium text-sm">
+                      {comment.author.name}
                     </span>
+                    <time
+                      className="text-muted-foreground text-xs"
+                      dateTime={new Date(comment.createdAt).toISOString()}
+                      title={new Date(comment.createdAt).toLocaleString()}
+                    >
+                      {formatShortDate(new Date(comment.createdAt), {
+                        lowercase: true,
+                      })}
+                    </time>
                     {!comment.deleted &&
                       comment.author.memberId === memberId && (
                         <Button
-                          size="sm"
+                          size="icon2xs"
                           variant="ghost"
-                          onClick={async () => {
-                            const result = await deleteComment({
-                              memberId,
-                              conversationId,
-                              commentId: comment.id,
-                            });
-                            if (result?.data) refresh();
-                            else setError(getActionErrorMessage(result ?? {}));
-                          }}
+                          aria-label="Delete comment"
+                          className="ml-auto text-muted-foreground opacity-0 focus-visible:opacity-100 group-hover:opacity-100"
+                          onClick={() =>
+                            runAndRefresh(
+                              deleteComment({
+                                memberId,
+                                conversationId,
+                                commentId: comment.id,
+                              }),
+                            )
+                          }
                         >
-                          Delete
+                          <Trash2Icon className="size-3.5" />
                         </Button>
                       )}
                   </div>
                   {comment.deleted ? (
-                    <p className="italic text-muted-foreground text-sm">
+                    <p className="pl-7 text-muted-foreground text-sm italic">
                       Comment deleted
                     </p>
                   ) : (
-                    <p className="whitespace-pre-wrap break-words text-sm">
-                      {comment.body}
+                    <p className="ml-7 w-fit max-w-full whitespace-pre-wrap break-words rounded-md border border-l-2 border-l-primary/50 bg-muted/40 px-3 py-1.5 text-sm">
+                      <CommentBody
+                        body={comment.body ?? ""}
+                        names={data.participants.map(
+                          (participant) => participant.name,
+                        )}
+                      />
                     </p>
                   )}
                 </article>
               ))}
             </div>
             <CommentComposer
-              key={`${memberId}:${conversationId}:${summary.data.generation}`}
-              memberId={memberId}
-              conversationId={conversationId}
-              generation={summary.data.generation}
-              participants={summary.data.participants}
-              onPosted={refresh}
-            />
-            <div className="flex flex-wrap items-center gap-2 border-t pt-3">
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={async () => {
-                  const result = await mute({
+              key={`${memberId}:${conversationId}:${data.generation}`}
+              candidates={[
+                ...data.participants.filter(
+                  (participant) => participant.memberId !== memberId,
+                ),
+                ...(data.capabilities.manage ? addableTeammates : []),
+              ]}
+              participantIds={participantIds}
+              onSubmit={async (comment) => {
+                for (const targetMemberId of comment.mentionedMemberIds) {
+                  if (participantIds.includes(targetMemberId)) continue;
+                  const granted = await setAccess({
                     memberId,
                     conversationId,
-                    muted: !summary.data!.muted,
+                    targetMemberId,
+                    access: true,
                   });
-                  if (result?.data) refresh();
-                  else setError(getActionErrorMessage(result ?? {}));
-                }}
-              >
-                {summary.data.muted ? "Unmute" : "Mute"}
-              </Button>
-              {summary.data.capabilities.manage && (
-                <>
-                  <select
-                    aria-label="Add teammate"
-                    defaultValue=""
-                    className="rounded border bg-background px-2 py-1 text-sm"
-                    onChange={async (event) => {
-                      const targetMemberId = event.target.value;
-                      event.target.value = "";
-                      if (!targetMemberId) return;
-                      const result = await setAccess({
-                        memberId,
-                        conversationId,
-                        targetMemberId,
-                        access: true,
-                      });
-                      if (result?.data) refresh();
-                      else setError(getActionErrorMessage(result ?? {}));
-                    }}
-                  >
-                    <option value="">Add teammate…</option>
-                    {summary.data.availableTeammates
-                      .filter(
-                        (person) =>
-                          !summary.data!.participants.some(
-                            (entry) => entry.memberId === person.memberId,
-                          ),
-                      )
-                      .map((person) => (
-                        <option key={person.memberId} value={person.memberId}>
-                          {person.name}
-                        </option>
-                      ))}
-                  </select>
-                  {summary.data.participants
-                    .filter((person) => person.memberId !== memberId)
-                    .map((person) => (
-                      <Button
-                        key={person.memberId}
-                        variant="ghost"
-                        size="sm"
-                        onClick={async () => {
-                          const result = await setAccess({
-                            memberId,
-                            conversationId,
-                            targetMemberId: person.memberId,
-                            access: false,
-                          });
-                          if (result?.data) refresh();
-                          else setError(getActionErrorMessage(result ?? {}));
-                        }}
-                      >
-                        Remove {person.name}
-                      </Button>
-                    ))}
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={async () => {
-                      const result = await stop({
-                        memberId,
-                        conversationId,
-                      });
-                      if (result?.data) {
-                        refresh();
-                        onStopped?.();
-                      } else setError(getActionErrorMessage(result ?? {}));
-                    }}
-                  >
-                    Stop sharing
-                  </Button>
-                </>
-              )}
-            </div>
+                  if (!granted?.data) return granted;
+                }
+                const result = await postComment({
+                  memberId,
+                  conversationId,
+                  ...comment,
+                });
+                if (result?.data) refresh();
+                return result;
+              }}
+            />
             {error && (
-              <p className="text-destructive text-sm" role="alert">
+              <p className="text-destructive text-xs" role="alert">
                 {error}
               </p>
             )}
@@ -287,5 +351,25 @@ export function ConversationDiscussionView({
         )}
       </LoadingContent>
     </section>
+  );
+}
+
+function CommentBody({ body, names }: { body: string; names: string[] }) {
+  if (!names.length) return body;
+  const pattern = new RegExp(
+    `(?<![\\p{L}\\p{M}\\p{N}_])(@(?:${names
+      .toSorted((a, b) => b.length - a.length)
+      .map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+      .join("|")}))(?![\\p{L}\\p{M}\\p{N}_])`,
+    "u",
+  );
+  return body.split(pattern).map((part, index) =>
+    index % 2 ? (
+      <span key={index} className="font-medium text-primary">
+        {part}
+      </span>
+    ) : (
+      part
+    ),
   );
 }

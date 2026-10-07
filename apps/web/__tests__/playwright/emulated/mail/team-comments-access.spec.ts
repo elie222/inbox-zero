@@ -3,6 +3,7 @@ import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
 import {
   expectSharedMessageBody,
+  openTeamComments,
   readSharedConversationId,
   seedTeam,
   signInTeammate,
@@ -30,6 +31,7 @@ test("cancelled selection grants nothing; nonparticipants and revoked members ca
       { waitUntil: "domcontentloaded" },
     );
     const publisherDiscussion = page.getByTestId("publisher-discussion");
+    await openTeamComments(page);
     await publisherDiscussion
       .getByRole("button", { name: "Share", exact: true })
       .click();
@@ -89,18 +91,11 @@ test("cancelled selection grants nothing; nonparticipants and revoked members ca
       b.page,
       "First message in the reader conversation.",
     );
-    if (
-      !(await publisherDiscussion
-        .getByRole("button", { name: "Remove Shared Teammate" })
-        .isVisible())
-    ) {
-      await publisherDiscussion
-        .getByRole("button", { name: /Comments/ })
-        .click();
-    }
     await publisherDiscussion
-      .getByRole("button", { name: "Remove Shared Teammate" })
+      .getByRole("button", { name: "Shared participants" })
       .click();
+    await page.getByRole("button", { name: "Remove Shared Teammate" }).click();
+    await page.keyboard.press("Escape");
     await expect(
       b.page
         .getByRole("alert", { name: "" })
@@ -117,16 +112,14 @@ test("cancelled selection grants nothing; nonparticipants and revoked members ca
     );
     expect(denied.ok()).toBe(false);
     await publisherDiscussion
-      .getByRole("button", { name: "Stop sharing" })
+      .getByRole("button", { name: "Discussion options" })
       .click();
+    await page.getByRole("menuitem", { name: "Stop sharing" }).click();
     await expect(
-      publisherDiscussion.getByRole("button", { name: "Share", exact: true }),
-    ).toBeVisible();
-    await expect(
-      publisherDiscussion.getByRole("group", { name: "Shared participants" }),
+      publisherDiscussion.getByRole("region", { name: "Internal discussion" }),
     ).toHaveCount(0);
     await expect(
-      publisherDiscussion.getByRole("heading", { name: "Internal discussion" }),
+      publisherDiscussion.getByLabel("Internal comment"),
     ).toHaveCount(0);
   } finally {
     await team.cleanup();

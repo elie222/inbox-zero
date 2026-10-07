@@ -9,6 +9,7 @@ import {
 } from "./mail-test-helpers";
 import {
   expectSharedMessageBody,
+  openTeamComments,
   readPublisherThread,
   readSharedConversationId,
   seedTeam,
@@ -32,8 +33,9 @@ test("publisher shares with a teammate who never received the mail and both see 
     );
     const publisherDiscussion = page.getByTestId("publisher-discussion");
     await expect(
-      publisherDiscussion.getByRole("button", { name: "Share", exact: true }),
-    ).toBeVisible({ timeout: 60_000 });
+      publisherDiscussion.getByLabel("Internal comment"),
+    ).toHaveCount(0);
+    await openTeamComments(page);
     await publisherDiscussion
       .getByRole("button", { name: "Share", exact: true })
       .click();
@@ -75,7 +77,6 @@ test("publisher shares with a teammate who never received the mail and both see 
     await teammate.page.getByLabel("Internal comment").fill(comment);
     await teammate.page.getByRole("button", { name: "Post comment" }).click();
     await expect(teammate.page.getByText(comment)).toBeVisible();
-    await expect(teammate.page.getByText("Comment posted.")).toBeVisible();
     await expect(publisherDiscussion.getByText(comment)).toBeVisible({
       timeout: 5000,
     });
@@ -191,6 +192,56 @@ test("publisher shares with a teammate who never received the mail and both see 
       testInfo,
       "narrow-shared-reader-dark",
     );
+  } finally {
+    await team.cleanup();
+    await teammate.context.close();
+  }
+});
+
+test("mentioning a teammate in the first comment shares the conversation with them", async ({
+  page,
+  browser,
+}, testInfo) => {
+  const teammate = await signInTeammate(browser, "b");
+  const team = await seedTeam(page, [{ role: "b", account: teammate.account }]);
+  try {
+    await page.goto(
+      `/${team.publisher.id}/mail?thread-id=thr_playwright_reader`,
+      { waitUntil: "domcontentloaded" },
+    );
+    await expectThreadReaderBody(
+      page,
+      "First message in the reader conversation.",
+    );
+    const publisherDiscussion = page.getByTestId("publisher-discussion");
+    await openTeamComments(page);
+    const composer = publisherDiscussion.getByLabel("Internal comment");
+    await composer.pressSequentially("@Shared");
+    await page.getByRole("option", { name: /Shared Teammate/ }).click();
+    await composer.pressSequentially("can you take a look?");
+    await expect(publisherDiscussion).toContainText(
+      "Sending will also share all past and future messages",
+    );
+    await capturePlaywrightCheckpoint(page, testInfo, "mention-to-share");
+    await publisherDiscussion
+      .getByRole("button", { name: "Post comment" })
+      .click();
+    await expect(
+      publisherDiscussion.getByRole("region", { name: "Internal discussion" }),
+    ).toContainText("can you take a look?", { timeout: 30_000 });
+
+    const conversationId = await readSharedConversationId(
+      page,
+      team.publisherMemberId,
+      team.publisher.id,
+    );
+    await teammate.page.goto(
+      `/shared/${conversationId}?memberId=${team.memberIds.b}`,
+      { waitUntil: "domcontentloaded" },
+    );
+    await expect(teammate.page.getByText("can you take a look?")).toBeVisible({
+      timeout: 30_000,
+    });
   } finally {
     await team.cleanup();
     await teammate.context.close();

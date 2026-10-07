@@ -29,7 +29,7 @@ export async function getSharedConversation(
         },
         select: {
           id: true,
-          emailAccount: { select: { email: true, name: true } },
+          emailAccount: { select: { email: true, name: true, image: true } },
         },
       })
     : [];
@@ -37,6 +37,14 @@ export async function getSharedConversation(
     id: conversation.id,
     generation: conversation.generation,
     revision: conversation.revision,
+    publisherMemberId: conversation.publisherId,
+    // The publisher joins each generation when sharing starts or restarts.
+    sharedAt:
+      conversation.participants.find(
+        (entry) =>
+          entry.memberId === conversation.publisherId &&
+          entry.generation === conversation.generation,
+      )?.createdAt ?? conversation.createdAt,
     participants: conversation.participants
       .filter((entry) => entry.generation === conversation.generation)
       .map((entry) => ({
@@ -48,6 +56,7 @@ export async function getSharedConversation(
     availableTeammates: availableTeammates.map((teammate) => ({
       memberId: teammate.id,
       name: teammate.emailAccount.name ?? teammate.emailAccount.email,
+      image: teammate.emailAccount.image,
     })),
     readRevision: participant.readRevision,
     muted: participant.muted,
