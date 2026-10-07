@@ -42,21 +42,21 @@ export const POST = withEmailAccount(
       unsubscribeSenderBody.parse(body.json);
     const { emailAccountId, userId } = request.auth;
 
-    const source =
-      unsubscribeLink || listUnsubscribeHeader
-        ? { unsubscribeLink, listUnsubscribeHeader }
-        : await loadOmittedUnsubscribeSource({
-            emailAccountId,
-            userId,
-            senderEmail,
-            logger: request.logger,
-          });
-
     const reservation = await reserveUnsubscribeCredit({ userId });
     if (reservation === "denied") return unsubscribeAllowanceErrorResponse();
 
     let result: UnsubscribeSenderResponse;
     try {
+      const source =
+        unsubscribeLink || listUnsubscribeHeader
+          ? { unsubscribeLink, listUnsubscribeHeader }
+          : await loadOmittedUnsubscribeSource({
+              emailAccountId,
+              userId,
+              senderEmail,
+              logger: request.logger,
+            });
+
       result = await unsubscribeSenderAndMark({
         emailAccountId,
         senderEmail,

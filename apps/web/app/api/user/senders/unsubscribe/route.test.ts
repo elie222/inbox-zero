@@ -123,6 +123,21 @@ describe("POST /api/user/senders/unsubscribe", () => {
     });
     expect(mockUnsubscribe).not.toHaveBeenCalled();
     expect(mockRelease).not.toHaveBeenCalled();
+    expect(mockSource).not.toHaveBeenCalled();
+    expect(mockCreateProvider).not.toHaveBeenCalled();
+    expect(prisma.emailAccount.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("releases the credit when resolving the omitted source fails", async () => {
+    mockSource.mockRejectedValue(new Error("lookup failed"));
+
+    await expect(post({ senderEmail: "news@example.com" })).rejects.toThrow(
+      "lookup failed",
+    );
+    expect(mockUnsubscribe).not.toHaveBeenCalled();
+    expect(mockRelease).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: "user-1", reservation: "reserved" }),
+    );
   });
 
   it("does not spend a credit when the unsubscribe does not succeed", async () => {
