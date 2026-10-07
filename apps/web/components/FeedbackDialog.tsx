@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useAtom, useSetAtom } from "jotai";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { useAction } from "next-safe-action/hooks";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -13,7 +13,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
@@ -24,9 +23,26 @@ import {
   type SubmitFeedbackBody,
 } from "@/utils/actions/feedback.validation";
 import { getActionErrorMessage } from "@/utils/error";
+import { feedbackDialogOpenAtom } from "@/store/command-palette";
+
+export function FeedbackSidebarButton() {
+  const setOpen = useSetAtom(feedbackDialogOpenAtom);
+
+  return (
+    <SidebarMenuButton
+      tooltip="Feedback"
+      sidebarName="left-sidebar"
+      className="h-9 font-semibold"
+      onClick={() => setOpen(true)}
+    >
+      <MessageSquarePlusIcon />
+      <span>Feedback</span>
+    </SidebarMenuButton>
+  );
+}
 
 export function FeedbackDialog() {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useAtom(feedbackDialogOpenAtom);
 
   const {
     register,
@@ -64,16 +80,6 @@ export function FeedbackDialog() {
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        <SidebarMenuButton
-          tooltip="Feedback"
-          sidebarName="left-sidebar"
-          className="h-9 font-semibold"
-        >
-          <MessageSquarePlusIcon />
-          <span>Feedback</span>
-        </SidebarMenuButton>
-      </DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Send feedback</DialogTitle>
