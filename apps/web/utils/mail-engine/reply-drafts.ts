@@ -12,6 +12,8 @@ import type { SendEmailBody } from "@/utils/types/mail";
 
 export type ReplyDraftContent = {
   providerDraftId?: string;
+  /** The mailbox message last saved for the draft, which the thread hides. */
+  providerDraftMessageId?: string;
   providerDraftCreationUnconfirmed?: boolean;
   composeMode?: ReplyDraftMode;
   requestId?: string;
@@ -47,6 +49,7 @@ const engineRevisions = new Map<string, number>();
 // draft was first opened from keeps its composer and local draft across saves.
 const draftSessionMessageIds = new Map<string, Map<string, string>>();
 const latestDraftMessageIds = new Map<string, Map<string, string>>();
+const discardedDraftMessageIds = new Map<string, Set<string>>();
 const listeners = new Set<(scope: ReplyDraftScope) => void>();
 const accountEpoch = new Map<string, number>();
 const channel =
@@ -106,6 +109,26 @@ export function getDraftSessionMessageIds(
     if (session === sessionMessageId) ids.add(messageId);
   }
   return [...ids];
+}
+
+/** A discarded mailbox draft stays in the engine until its next sync. */
+export function hideDiscardedDraftMessages(
+  emailAccountId: string,
+  messageIds: string[],
+) {
+  let hidden = discardedDraftMessageIds.get(emailAccountId);
+  if (!hidden) {
+    hidden = new Set();
+    discardedDraftMessageIds.set(emailAccountId, hidden);
+  }
+  for (const messageId of messageIds) hidden.add(messageId);
+}
+
+export function isDiscardedDraftMessage(
+  emailAccountId: string,
+  messageId: string,
+) {
+  return Boolean(discardedDraftMessageIds.get(emailAccountId)?.has(messageId));
 }
 
 export function getLatestDraftMessageId(
@@ -285,7 +308,11 @@ export function createReplyDraftWriter(
         });
         revision += 1;
         await persistEngineReplyDraft(identity, nextContent).catch(() => {});
-        if (Boolean(previous?.content) !== Boolean(content)) {
+        if (
+          Boolean(previous?.content) !== Boolean(content) ||
+          previous?.content?.providerDraftMessageId !==
+            content?.providerDraftMessageId
+        ) {
           notifyReplyDraftChange(identity);
         }
       });
@@ -325,6 +352,7 @@ export function clearLocalReplyDrafts(emailAccountId?: string) {
     engineRevisions.clear();
     draftSessionMessageIds.clear();
     latestDraftMessageIds.clear();
+    discardedDraftMessageIds.clear();
     for (const accountId of accountEpoch.keys()) {
       accountEpoch.set(accountId, currentEpoch(accountId) + 1);
     }
@@ -338,6 +366,7 @@ export function clearLocalReplyDrafts(emailAccountId?: string) {
   }
   draftSessionMessageIds.delete(emailAccountId);
   latestDraftMessageIds.delete(emailAccountId);
+  discardedDraftMessageIds.delete(emailAccountId);
 }
 
 function accountMap(
@@ -390,6 +419,9 @@ export async function restoreUnsentReplyDraft(input: {
     };
     const current = await getReplyDraft(identity);
     await createReplyDraftWriter(identity, current?.revision ?? 0).save({
+      // Keeps editing the mailbox draft the send would have used.
+      providerDraftId: stored.content.providerDraftId,
+      providerDraftMessageId: stored.content.providerDraftMessageIds?.at(-1),
       composeMode: "reply",
       values: {
         to: stored.content.to.join(", "),
