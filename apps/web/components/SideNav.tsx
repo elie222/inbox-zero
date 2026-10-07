@@ -54,6 +54,7 @@ import { CommandShortcut } from "@/components/ui/command";
 import { useSplitLabels } from "@/hooks/useLabels";
 import type { EmailLabel } from "@/providers/email-label-types";
 import { LoadingContent } from "@/components/LoadingContent";
+import { env } from "@/env";
 import {
   useCleanerEnabled,
   useIntegrationsEnabled,
@@ -191,12 +192,17 @@ export const useNavigation = () => {
             },
           ]
         : []),
-      {
-        name: "Attachments",
-        href: prefixPath(currentEmailAccountId, "/drive"),
-        icon: HardDriveIcon,
-        new: false,
-      },
+      // Smart filing is on by default; self-hosters can hide it with the env var.
+      ...(env.NEXT_PUBLIC_SMART_FILING_ENABLED === false
+        ? []
+        : [
+            {
+              name: "Attachments",
+              href: prefixPath(currentEmailAccountId, "/drive"),
+              icon: HardDriveIcon,
+              new: false,
+            },
+          ]),
       ...(showIntegrations
         ? [
             {
