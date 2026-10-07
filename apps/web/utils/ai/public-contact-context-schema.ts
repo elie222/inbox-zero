@@ -15,11 +15,14 @@ const publicCompanyContextSchema = z.strictObject({
     .min(1)
     .max(253)
     .describe("The company's public internet domain without a URL path"),
+  // No .url(): OpenAI structured outputs reject the "uri" format it emits.
+  // isSafeForSharedCache rejects anything that is not an HTTP(S) URL.
   website: z
     .string()
-    .url()
+    .trim()
+    .max(2048)
     .nullable()
-    .describe("The company's public HTTP or HTTPS website, or null"),
+    .describe("The company's full public HTTP or HTTPS website URL, or null"),
   description: z
     .string()
     .trim()
@@ -67,8 +70,11 @@ export const publicContactContextSchema = z.strictObject({
     .array(
       z
         .string()
-        .url()
-        .describe("A public page supporting the researched facts"),
+        .trim()
+        .max(2048)
+        .describe(
+          "The full HTTP or HTTPS URL of a public page supporting the researched facts",
+        ),
     )
     .min(1)
     .max(5)

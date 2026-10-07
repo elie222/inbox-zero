@@ -7,6 +7,7 @@ import {
   ReplyIcon,
   ChevronsUpDownIcon,
   ChevronsDownUpIcon,
+  UserSearchIcon,
 } from "lucide-react";
 import { Tooltip } from "@/components/Tooltip";
 import {
@@ -470,7 +471,7 @@ function MessageHeader({
     </Avatar>
   );
   // Fixed widths on the collapsed rows keep the snippet column aligned down
-  // the thread, whichever senders are clickable.
+  // the thread.
   const senderNameClassName = cn(
     "truncate text-sm",
     expanded
@@ -486,60 +487,52 @@ function MessageHeader({
         onToggle && "cursor-pointer",
       )}
     >
-      {canResearchSender ? (
-        <Tooltip content="View public profile">
+      {expanded ? (
+        <>
           <button
-            aria-label={`View public profile for ${senderName}`}
-            className={cn(
-              "group/sender flex items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              expanded ? "min-w-0" : "shrink-0",
-            )}
-            onClick={(event) => {
-              event.stopPropagation();
-              onOpenSenderContext?.(message);
-            }}
+            aria-expanded={showDetails}
+            aria-label={showDetails ? "Hide details" : "Show details"}
+            className="group/details flex min-w-0 items-center gap-2 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onClick={toggleDetails}
             type="button"
           >
             {avatar}
-            <span
-              className={cn(
-                senderNameClassName,
-                "text-left underline-offset-4 group-hover/sender:underline",
+            <span className={senderNameClassName}>{senderName}</span>
+            <span className="hidden min-w-0 truncate text-muted-foreground text-xs sm:block">
+              {recipientSummary(message.headers, userEmail)}
+            </span>
+            <span className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors group-hover/details:bg-muted group-hover/details:text-foreground">
+              {showDetails ? (
+                <ChevronsDownUpIcon className="size-3.5" />
+              ) : (
+                <ChevronsUpDownIcon className="size-3.5" />
               )}
-            >
-              {senderName}
             </span>
           </button>
-        </Tooltip>
+          {canResearchSender && (
+            <Tooltip content="View public profile">
+              <Button
+                aria-label={`View public profile for ${senderName}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onOpenSenderContext?.(message);
+                }}
+                size="iconXs"
+                variant="ghostMuted"
+              >
+                <UserSearchIcon className="size-3.5" />
+              </Button>
+            </Tooltip>
+          )}
+        </>
       ) : (
         <>
           {avatar}
           <span className={senderNameClassName}>{senderName}</span>
-        </>
-      )}
-
-      {expanded ? (
-        <>
-          <span className="hidden min-w-0 truncate text-muted-foreground text-xs sm:block">
-            {recipientSummary(message.headers, userEmail)}
+          <span className="min-w-0 flex-1 truncate text-muted-foreground text-sm">
+            {decodeSnippet(message.snippet)}
           </span>
-          <Button
-            aria-label={showDetails ? "Hide details" : "Show details"}
-            onClick={toggleDetails}
-            size="iconXs"
-            variant="ghostMuted"
-          >
-            {showDetails ? (
-              <ChevronsDownUpIcon className="size-3.5" />
-            ) : (
-              <ChevronsUpDownIcon className="size-3.5" />
-            )}
-          </Button>
         </>
-      ) : (
-        <span className="min-w-0 flex-1 truncate text-muted-foreground text-sm">
-          {decodeSnippet(message.snippet)}
-        </span>
       )}
 
       {hasDraft &&
