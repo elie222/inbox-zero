@@ -3,25 +3,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NewsletterStatus } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
 
-const {
-  mockReserve,
-  mockRelease,
-  mockUnsubscribe,
-  mockSource,
-  mockCreateProvider,
-} = vi.hoisted(() => ({
-  mockReserve: vi.fn(),
-  mockRelease: vi.fn(),
+const { mockUnsubscribe, mockSource, mockCreateProvider } = vi.hoisted(() => ({
   mockUnsubscribe: vi.fn(),
   mockSource: vi.fn(),
   mockCreateProvider: vi.fn(),
 }));
 
 vi.mock("@/utils/prisma");
-vi.mock("@/utils/premium/unsubscribe-credits", () => ({
-  reserveUnsubscribeCredit: mockReserve,
-  releaseUnsubscribeCreditReservation: mockRelease,
-}));
 vi.mock("@/utils/senders/unsubscribe", () => ({
   unsubscribeSenderAndMark: mockUnsubscribe,
 }));
@@ -54,8 +42,6 @@ function post(body: unknown) {
 describe("POST /api/user/senders/unsubscribe", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockReserve.mockResolvedValue("reserved");
-    mockRelease.mockResolvedValue(undefined);
     mockUnsubscribe.mockResolvedValue({
       senderEmail: "news@example.com",
       status: NewsletterStatus.UNSUBSCRIBED,
@@ -86,8 +72,6 @@ describe("POST /api/user/senders/unsubscribe", () => {
         unsubscribeLink: "https://example.com/given",
       }),
     );
-    expect(mockReserve).toHaveBeenCalledWith({ userId: "user-1" });
-    expect(mockRelease).not.toHaveBeenCalled();
   });
 
   it("resolves the unsubscribe source when only the sender is sent", async () => {
@@ -110,37 +94,16 @@ describe("POST /api/user/senders/unsubscribe", () => {
     );
   });
 
-  it("returns unsubscribe_allowance when the user has no credits", async () => {
-    mockReserve.mockResolvedValue("denied");
-
-    const response = await post({ senderEmail: "news@example.com" });
-
-    expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toEqual({
-      error: "Unsubscribe allowance exceeded",
-      errorCode: "unsubscribe_allowance",
-      isKnownError: true,
-    });
-    expect(mockUnsubscribe).not.toHaveBeenCalled();
-    expect(mockRelease).not.toHaveBeenCalled();
-    expect(mockSource).not.toHaveBeenCalled();
-    expect(mockCreateProvider).not.toHaveBeenCalled();
-    expect(prisma.emailAccount.findUnique).not.toHaveBeenCalled();
-  });
-
-  it("releases the credit when resolving the omitted source fails", async () => {
+  it("does not unsubscribe when resolving the omitted source fails", async () => {
     mockSource.mockRejectedValue(new Error("lookup failed"));
 
     await expect(post({ senderEmail: "news@example.com" })).rejects.toThrow(
       "lookup failed",
     );
     expect(mockUnsubscribe).not.toHaveBeenCalled();
-    expect(mockRelease).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: "user-1", reservation: "reserved" }),
-    );
   });
 
-  it("does not spend a credit when the unsubscribe does not succeed", async () => {
+  it("leaves the sender unchanged when the unsubscribe does not succeed", async () => {
     mockUnsubscribe.mockResolvedValue({
       senderEmail: "news@example.com",
       status: null,
@@ -158,9 +121,6 @@ describe("POST /api/user/senders/unsubscribe", () => {
       status: null,
       unsubscribe: { success: false, reason: "no_unsubscribe_url" },
     });
-    expect(mockRelease).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: "user-1", reservation: "reserved" }),
-    );
   });
 
   it("rejects malformed JSON", async () => {
@@ -177,6 +137,7 @@ describe("POST /api/user/senders/unsubscribe", () => {
       error: "Invalid JSON body",
       isKnownError: true,
     });
-    expect(mockReserve).not.toHaveBeenCalled();
+    expect(mockUnsubscribe).not.toHaveBeenCalled();
+    expect(mockSource).not.toHaveBeenCalled();
   });
 });

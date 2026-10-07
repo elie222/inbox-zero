@@ -3,12 +3,7 @@ import { NewsletterStatus } from "@/generated/prisma/enums";
 import { withEmailProvider } from "@/utils/middleware";
 import { setSenderStatusRequestBody } from "@/utils/actions/unsubscriber.validation";
 import { readRequestJson } from "@/utils/read-request-json";
-import {
-  releaseUnsubscribeCreditReservation,
-  reserveUnsubscribeCredit,
-} from "@/utils/premium/unsubscribe-credits";
 import { archiveExistingSenderMail } from "@/utils/senders/archive-existing";
-import { unsubscribeAllowanceErrorResponse } from "@/utils/senders/unsubscribe-allowance";
 import { setSenderStatusWithAutoArchive } from "@/utils/senders/unsubscribe";
 
 export type SetSenderStatusResponse = Awaited<
@@ -24,11 +19,7 @@ export type SetSenderStatusResponse = Awaited<
  * Existing mail is left alone unless `archiveExisting` is true. That flag is
  * only valid with `AUTO_ARCHIVED`. Large backlogs, and senders with no local
  * inbox rows, are archived after the response (`archiveExisting: "queued"`).
- *
- * `AUTO_ARCHIVED` reserves one free-tier credit before the status write and
- * keeps it if that write succeeds, including when the optional backlog archive
- * fails. The reservation is refunded only when the status write itself fails.
- * Approve and clear do not use a credit.
+ * These mail actions do not use AI credits.
  */
 export const maxDuration = 180;
 
@@ -51,33 +42,14 @@ export const POST = withEmailProvider(
       );
     }
 
-    const { userId } = request.auth;
-    const reservation =
-      status === NewsletterStatus.AUTO_ARCHIVED
-        ? await reserveUnsubscribeCredit({ userId })
-        : null;
-    if (reservation === "denied") return unsubscribeAllowanceErrorResponse();
-
-    let result: Awaited<ReturnType<typeof setSenderStatusWithAutoArchive>>;
-    try {
-      result = await setSenderStatusWithAutoArchive({
-        emailAccountId: request.auth.emailAccountId,
-        emailProvider: request.emailProvider,
-        senderEmail,
-        status,
-        labelId,
-        labelName,
-      });
-    } catch (error) {
-      if (reservation) {
-        await releaseUnsubscribeCreditReservation({
-          userId,
-          reservation,
-          logger: request.logger,
-        });
-      }
-      throw error;
-    }
+    const result = await setSenderStatusWithAutoArchive({
+      emailAccountId: request.auth.emailAccountId,
+      emailProvider: request.emailProvider,
+      senderEmail,
+      status,
+      labelId,
+      labelName,
+    });
 
     const archiveExistingResult = archiveExisting
       ? await archiveExistingSenderMail({

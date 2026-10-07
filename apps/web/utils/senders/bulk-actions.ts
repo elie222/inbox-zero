@@ -2,10 +2,6 @@ import { NewsletterStatus } from "@/generated/prisma/enums";
 import type { BulkSenderActionName } from "@/utils/actions/unsubscriber.validation";
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
-import {
-  releaseUnsubscribeCreditReservation,
-  reserveUnsubscribeCredit,
-} from "@/utils/premium/unsubscribe-credits";
 import { getSenderUnsubscribeSource } from "@/utils/senders/source";
 import {
   setSenderStatusWithAutoArchive,
@@ -19,26 +15,15 @@ export type BulkSenderActionResult = {
   reason?: string;
 };
 
-export function senderActionsRequireUnsubscribeAccess(
-  actions: { action: BulkSenderActionName }[],
-) {
-  return actions.some(
-    (action) =>
-      action.action === "unsubscribe" || action.action === "auto_archived",
-  );
-}
-
 export async function applySenderBulkActions({
   actions,
   emailAccountId,
   emailProvider,
-  userId,
   logger,
 }: {
   actions: { senderEmail: string; action: BulkSenderActionName }[];
   emailAccountId: string;
   emailProvider: EmailProvider;
-  userId: string;
   logger: Logger;
 }): Promise<BulkSenderActionResult[]> {
   const results: BulkSenderActionResult[] = [];
@@ -49,7 +34,6 @@ export async function applySenderBulkActions({
         action,
         emailAccountId,
         emailProvider,
-        userId,
         logger,
       }),
     );
@@ -62,13 +46,11 @@ async function applySenderBulkAction({
   action,
   emailAccountId,
   emailProvider,
-  userId,
   logger,
 }: {
   action: { senderEmail: string; action: BulkSenderActionName };
   emailAccountId: string;
   emailProvider: EmailProvider;
-  userId: string;
   logger: Logger;
 }): Promise<BulkSenderActionResult> {
   try {
@@ -78,38 +60,28 @@ async function applySenderBulkAction({
           senderEmail: action.senderEmail,
           emailAccountId,
           emailProvider,
-          userId,
           logger,
         });
       case "approved":
         return await setStatus({
           senderEmail: action.senderEmail,
           status: NewsletterStatus.APPROVED,
-          consumeCredit: false,
           emailAccountId,
           emailProvider,
-          userId,
-          logger,
         });
       case "auto_archived":
         return await setStatus({
           senderEmail: action.senderEmail,
           status: NewsletterStatus.AUTO_ARCHIVED,
-          consumeCredit: true,
           emailAccountId,
           emailProvider,
-          userId,
-          logger,
         });
       case "clear":
         return await setStatus({
           senderEmail: action.senderEmail,
           status: null,
-          consumeCredit: false,
           emailAccountId,
           emailProvider,
-          userId,
-          logger,
         });
     }
   } catch (error) {
@@ -133,101 +105,55 @@ async function unsubscribeSender({
   senderEmail,
   emailAccountId,
   emailProvider,
-  userId,
   logger,
 }: {
   senderEmail: string;
   emailAccountId: string;
   emailProvider: EmailProvider;
-  userId: string;
   logger: Logger;
 }): Promise<BulkSenderActionResult> {
-  const reservation = await reserveUnsubscribeCredit({ userId });
-  if (reservation === "denied") return allowanceResult(senderEmail);
+  const source = await getSenderUnsubscribeSource({
+    senderEmail,
+    emailProvider,
+    logger,
+  });
+  const result = await unsubscribeSenderAndMark({
+    emailAccountId,
+    senderEmail,
+    unsubscribeLink: source.unsubscribeLink,
+    listUnsubscribeHeader: source.listUnsubscribeHeader,
+    logger,
+  });
 
-  try {
-    const source = await getSenderUnsubscribeSource({
+  if (!result.unsubscribe.success) {
+    return {
       senderEmail,
-      emailProvider,
-      logger,
-    });
-    const result = await unsubscribeSenderAndMark({
-      emailAccountId,
-      senderEmail,
-      unsubscribeLink: source.unsubscribeLink,
-      listUnsubscribeHeader: source.listUnsubscribeHeader,
-      logger,
-    });
-
-    if (!result.unsubscribe.success) {
-      await releaseUnsubscribeCreditReservation({
-        userId,
-        reservation,
-        logger,
-      });
-      return {
-        senderEmail,
-        ok: false,
-        status: result.status,
-        reason: result.unsubscribe.reason ?? "request_failed",
-      };
-    }
-
-    return { senderEmail, ok: true, status: result.status };
-  } catch (error) {
-    await releaseUnsubscribeCreditReservation({ userId, reservation, logger });
-    throw error;
+      ok: false,
+      status: result.status,
+      reason: result.unsubscribe.reason ?? "request_failed",
+    };
   }
+
+  return { senderEmail, ok: true, status: result.status };
 }
 
 async function setStatus({
   senderEmail,
   status,
-  consumeCredit: shouldConsumeCredit,
   emailAccountId,
   emailProvider,
-  userId,
-  logger,
 }: {
   senderEmail: string;
   status: NewsletterStatus | null;
-  consumeCredit: boolean;
   emailAccountId: string;
   emailProvider: EmailProvider;
-  userId: string;
-  logger: Logger;
 }): Promise<BulkSenderActionResult> {
-  const reservation = shouldConsumeCredit
-    ? await reserveUnsubscribeCredit({ userId })
-    : null;
-  if (reservation === "denied") return allowanceResult(senderEmail);
-
-  try {
-    const result = await setSenderStatusWithAutoArchive({
-      emailAccountId,
-      emailProvider,
-      senderEmail,
-      status,
-    });
-
-    return { senderEmail, ok: true, status: result.status };
-  } catch (error) {
-    if (reservation) {
-      await releaseUnsubscribeCreditReservation({
-        userId,
-        reservation,
-        logger,
-      });
-    }
-    throw error;
-  }
-}
-
-function allowanceResult(senderEmail: string): BulkSenderActionResult {
-  return {
+  const result = await setSenderStatusWithAutoArchive({
+    emailAccountId,
+    emailProvider,
     senderEmail,
-    ok: false,
-    status: null,
-    reason: "unsubscribe_allowance",
-  };
+    status,
+  });
+
+  return { senderEmail, ok: true, status: result.status };
 }

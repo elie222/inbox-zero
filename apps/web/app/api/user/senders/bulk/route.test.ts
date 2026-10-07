@@ -4,15 +4,11 @@ import { ZodError } from "zod";
 import { NewsletterStatus } from "@/generated/prisma/enums";
 import { BULK_SENDER_ACTION_LIMIT } from "@/utils/actions/unsubscriber.validation";
 
-const { mockHasAccess, mockApply, mockEmailProvider } = vi.hoisted(() => ({
-  mockHasAccess: vi.fn(),
+const { mockApply, mockEmailProvider } = vi.hoisted(() => ({
   mockApply: vi.fn(),
   mockEmailProvider: { name: "google" },
 }));
 
-vi.mock("@/utils/premium/unsubscribe-credits", () => ({
-  userHasUnsubscribeAccess: mockHasAccess,
-}));
 vi.mock("@/utils/senders/bulk-actions", async () => {
   const actual = await vi.importActual<
     typeof import("@/utils/senders/bulk-actions")
@@ -45,7 +41,6 @@ function post(body: unknown) {
 describe("POST /api/user/senders/bulk", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockHasAccess.mockResolvedValue(true);
     mockApply.mockResolvedValue([
       {
         senderEmail: "news@example.com",
@@ -86,46 +81,12 @@ describe("POST /api/user/senders/bulk", () => {
     expect(mockApply).toHaveBeenCalledWith(
       expect.objectContaining({
         emailAccountId: "email-account-1",
-        userId: "user-1",
         actions: [
           { senderEmail: "news@example.com", action: "unsubscribe" },
           { senderEmail: "ok@example.com", action: "approved" },
         ],
       }),
     );
-  });
-
-  it("rejects a credit-consuming batch when the allowance is used up", async () => {
-    mockHasAccess.mockResolvedValue(false);
-
-    const response = await post({
-      actions: [{ senderEmail: "news@example.com", action: "auto_archived" }],
-    });
-
-    expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toMatchObject({
-      errorCode: "unsubscribe_allowance",
-    });
-    expect(mockApply).not.toHaveBeenCalled();
-  });
-
-  it("still approves senders when the user has no unsubscribe allowance", async () => {
-    mockHasAccess.mockResolvedValue(false);
-    mockApply.mockResolvedValue([
-      {
-        senderEmail: "ok@example.com",
-        ok: true,
-        status: NewsletterStatus.APPROVED,
-      },
-    ]);
-
-    const response = await post({
-      actions: [{ senderEmail: "ok@example.com", action: "approved" }],
-    });
-
-    expect(response.status).toBe(200);
-    expect(mockHasAccess).not.toHaveBeenCalled();
-    expect(mockApply).toHaveBeenCalled();
   });
 
   it("rejects a batch over the action limit", async () => {

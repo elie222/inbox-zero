@@ -5,12 +5,7 @@ import { withEmailAccount } from "@/utils/middleware";
 import { createEmailProvider } from "@/utils/email/provider";
 import { unsubscribeSenderBody } from "@/utils/actions/unsubscriber.validation";
 import { readRequestJson } from "@/utils/read-request-json";
-import {
-  releaseUnsubscribeCreditReservation,
-  reserveUnsubscribeCredit,
-} from "@/utils/premium/unsubscribe-credits";
 import { getSenderUnsubscribeSource } from "@/utils/senders/source";
-import { unsubscribeAllowanceErrorResponse } from "@/utils/senders/unsubscribe-allowance";
 import { unsubscribeSenderAndMark } from "@/utils/senders/unsubscribe";
 import type { Logger } from "@/utils/logger";
 
@@ -28,9 +23,7 @@ export const maxDuration = 180;
  * `unsubscribeLink`.
  *
  * `{ senderEmail }` is enough. When the link and header are omitted they are
- * resolved from the sender's recent mail. One free-tier credit is reserved
- * before the attempt and refunded when the unsubscribe does not succeed.
- * Callers without allowance receive 403 `unsubscribe_allowance`.
+ * resolved from the sender's recent mail. This does not use AI credits.
  */
 export const POST = withEmailAccount(
   "user/senders/unsubscribe",
@@ -42,44 +35,23 @@ export const POST = withEmailAccount(
       unsubscribeSenderBody.parse(body.json);
     const { emailAccountId, userId } = request.auth;
 
-    const reservation = await reserveUnsubscribeCredit({ userId });
-    if (reservation === "denied") return unsubscribeAllowanceErrorResponse();
+    const source =
+      unsubscribeLink || listUnsubscribeHeader
+        ? { unsubscribeLink, listUnsubscribeHeader }
+        : await loadOmittedUnsubscribeSource({
+            emailAccountId,
+            userId,
+            senderEmail,
+            logger: request.logger,
+          });
 
-    let result: UnsubscribeSenderResponse;
-    try {
-      const source =
-        unsubscribeLink || listUnsubscribeHeader
-          ? { unsubscribeLink, listUnsubscribeHeader }
-          : await loadOmittedUnsubscribeSource({
-              emailAccountId,
-              userId,
-              senderEmail,
-              logger: request.logger,
-            });
-
-      result = await unsubscribeSenderAndMark({
-        emailAccountId,
-        senderEmail,
-        unsubscribeLink: source.unsubscribeLink,
-        listUnsubscribeHeader: source.listUnsubscribeHeader,
-        logger: request.logger,
-      });
-    } catch (error) {
-      await releaseUnsubscribeCreditReservation({
-        userId,
-        reservation,
-        logger: request.logger,
-      });
-      throw error;
-    }
-
-    if (!result.unsubscribe.success) {
-      await releaseUnsubscribeCreditReservation({
-        userId,
-        reservation,
-        logger: request.logger,
-      });
-    }
+    const result = await unsubscribeSenderAndMark({
+      emailAccountId,
+      senderEmail,
+      unsubscribeLink: source.unsubscribeLink,
+      listUnsubscribeHeader: source.listUnsubscribeHeader,
+      logger: request.logger,
+    });
 
     return NextResponse.json(result satisfies UnsubscribeSenderResponse);
   },
