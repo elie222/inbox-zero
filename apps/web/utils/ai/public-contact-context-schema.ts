@@ -20,6 +20,7 @@ const publicCompanyContextSchema = z.strictObject({
   website: z
     .string()
     .trim()
+    .min(1)
     .max(2048)
     .nullable()
     .describe("The company's full public HTTP or HTTPS website URL, or null"),
@@ -71,6 +72,7 @@ export const publicContactContextSchema = z.strictObject({
       z
         .string()
         .trim()
+        .min(1)
         .max(2048)
         .describe(
           "The full HTTP or HTTPS URL of a public page supporting the researched facts",
