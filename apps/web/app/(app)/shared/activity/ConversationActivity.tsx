@@ -1,14 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import useSWRInfinite from "swr/infinite";
 import { Button } from "@/components/ui/button";
 import { LoadingContent } from "@/components/LoadingContent";
+import { Badge } from "@/components/ui/badge";
 import type { TeamActivityResponse } from "@/app/api/team-comments/activity/route";
+import {
+  NoOrganization,
+  useSharedMemberId,
+} from "@/app/(app)/shared/SharedTabs";
+
+const ACTIVITY_LABELS: Record<
+  TeamActivityResponse["items"][number]["kind"],
+  string
+> = {
+  INVITED: "Conversation shared",
+  MENTION: "You were mentioned",
+  COMMENT: "New comment",
+};
 
 export function ConversationActivity() {
-  const memberId = useSearchParams().get("memberId");
+  const { memberId, memberships } = useSharedMemberId();
   const activity = useSWRInfinite<TeamActivityResponse>(
     (index, previousPage) => {
       if (!memberId || (index > 0 && !previousPage?.nextCursor)) return null;
@@ -23,14 +36,11 @@ export function ConversationActivity() {
   const items = activity.data?.flatMap((page) => page.items) ?? [];
   const nextCursor = activity.data?.at(-1)?.nextCursor;
   return (
-    <main className="mx-auto max-w-3xl space-y-5 px-4 py-8">
-      <Link href="/shared" className="text-primary text-sm underline">
-        Shared with me
-      </Link>
-      <h1 className="font-title text-2xl font-semibold">Activity</h1>
-      {!memberId && (
-        <p>Select a membership from Shared with me to see activity.</p>
-      )}
+    <LoadingContent
+      loading={memberships.isLoading}
+      error={memberships.data ? undefined : memberships.error}
+    >
+      {memberships.data && !memberId && <NoOrganization />}
       {memberId && (
         <LoadingContent
           loading={activity.isLoading}
@@ -46,26 +56,20 @@ export function ConversationActivity() {
                 href={`/shared/${item.conversationId}?memberId=${encodeURIComponent(memberId)}`}
                 className="block rounded-lg border bg-card p-3 hover:bg-accent"
               >
-                <span className="font-medium text-sm">
-                  {item.kind === "INVITED"
-                    ? "Conversation shared"
-                    : item.kind === "MENTION"
-                      ? "You were mentioned"
-                      : "New comment"}
-                </span>
-                {item.unread && (
-                  <span className="ml-2 rounded bg-primary px-1 text-primary-foreground text-xs">
-                    Unread
+                <div className="flex items-center justify-between gap-3">
+                  <span className="flex items-center gap-2 font-medium text-sm">
+                    {ACTIVITY_LABELS[item.kind]}
+                    {item.unread && <Badge>Unread</Badge>}
                   </span>
-                )}
+                  <time className="shrink-0 text-muted-foreground text-xs">
+                    {new Date(item.createdAt).toLocaleString()}
+                  </time>
+                </div>
                 {item.preview && (
-                  <p className="line-clamp-2 text-muted-foreground text-sm">
+                  <p className="mt-1 line-clamp-2 text-muted-foreground text-sm">
                     {item.preview}
                   </p>
                 )}
-                <time className="text-muted-foreground text-xs">
-                  {new Date(item.createdAt).toLocaleString()}
-                </time>
               </Link>
             ))}
             {activity.error ? (
@@ -94,6 +98,6 @@ export function ConversationActivity() {
           </div>
         </LoadingContent>
       )}
-    </main>
+    </LoadingContent>
   );
 }
