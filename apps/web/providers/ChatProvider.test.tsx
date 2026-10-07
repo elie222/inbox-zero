@@ -20,6 +20,7 @@ const {
   mockConvertToUIMessages,
   mockCaptureException,
   accountState,
+  chatState,
   queryState,
 } = vi.hoisted(() => ({
   mockClientLoggerError: vi.fn(),
@@ -36,6 +37,9 @@ const {
   accountState: {
     emailAccountId: "account-a",
   },
+  chatState: {
+    status: "ready" as "ready" | "submitted" | "streaming" | "error",
+  },
   queryState: {
     initialChatId: "chat-from-account-a" as string | null,
   },
@@ -45,7 +49,7 @@ vi.mock("@ai-sdk/react", () => ({
   useChat: (options: { onError?: (error: Error) => void }) => ({
     id: "new-chat-id",
     messages: [],
-    status: "ready",
+    status: chatState.status,
     setMessages: mockSetMessages,
     sendMessage: (message: unknown, requestOptions?: { body?: unknown }) =>
       mockSendMessage(message, requestOptions).catch((error) => {
@@ -121,6 +125,7 @@ describe("ChatProvider", () => {
     vi.clearAllMocks();
 
     accountState.emailAccountId = "account-a";
+    chatState.status = "ready";
     queryState.initialChatId = "chat-from-account-a";
     mockUseSWRConfig.mockReturnValue({ mutate: vi.fn() });
     mockUseChatMessages.mockImplementation((chatId: string | null) =>
@@ -212,6 +217,53 @@ describe("ChatProvider", () => {
       body: { context: fixContext },
     });
     expect(latestContext?.context).toEqual(fixContext);
+  });
+
+  it("keeps an in-progress reply when the saved chat refetches mid-run", async () => {
+    const savedUserOnly = [
+      {
+        id: "user-message",
+        role: "user",
+        parts: [{ type: "text", text: "Hi" }],
+      },
+    ];
+    const savedWithReply = [
+      ...savedUserOnly,
+      {
+        id: "assistant-message",
+        role: "assistant",
+        parts: [{ type: "text", text: "Done" }],
+      },
+    ];
+    let savedData = { messages: savedUserOnly };
+    mockUseChatMessages.mockImplementation(() => ({ data: savedData }));
+    mockConvertToUIMessages.mockImplementation(
+      (data: { messages: unknown[] }) => data.messages,
+    );
+
+    const { rerender } = renderWithProvider(<div />);
+    mockSetMessages.mockClear();
+
+    // A focus refetch lands while the reply streams; the server has only saved
+    // the user message so far.
+    chatState.status = "streaming";
+    savedData = { messages: [...savedUserOnly] };
+    rerender(
+      <ChatProvider>
+        <div />
+      </ChatProvider>,
+    );
+    expect(mockSetMessages).not.toHaveBeenCalled();
+
+    // The run finishes and the refetch returns the saved reply.
+    chatState.status = "ready";
+    savedData = { messages: savedWithReply };
+    rerender(
+      <ChatProvider>
+        <div />
+      </ChatProvider>,
+    );
+    expect(mockSetMessages).toHaveBeenLastCalledWith(savedWithReply);
   });
 
   it("clears the active chat when the selected email account changes", async () => {

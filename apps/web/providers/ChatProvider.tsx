@@ -165,7 +165,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     },
   });
 
+  // The reply is saved only when the run ends, so a refetch mid-run (e.g. on
+  // window focus) would replace it with just the user's message. onFinish
+  // refetches after the status is ready, which brings in the saved reply.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Sync only when saved data changes; re-running on status would apply stale data
   useEffect(() => {
+    if (chat.status === "submitted" || chat.status === "streaming") return;
     chat.setMessages(data ? convertToUIMessages(data) : []);
   }, [chat.setMessages, data]);
 
