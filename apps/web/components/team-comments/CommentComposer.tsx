@@ -98,6 +98,7 @@ export function CommentComposer({
     } else setError(getActionErrorMessage(result ?? {}));
   };
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.nativeEvent.isComposing) return;
     if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
       event.preventDefault();
       submit();

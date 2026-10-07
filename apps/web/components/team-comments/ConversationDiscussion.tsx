@@ -357,7 +357,7 @@ export function ConversationDiscussionView({
 function CommentBody({ body, names }: { body: string; names: string[] }) {
   if (!names.length) return body;
   const pattern = new RegExp(
-    `(@(?:${names
+    `(?<![\\p{L}\\p{M}\\p{N}_])(@(?:${names
       .toSorted((a, b) => b.length - a.length)
       .map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
       .join("|")}))(?![\\p{L}\\p{M}\\p{N}_])`,

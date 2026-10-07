@@ -29,6 +29,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  getShortcutHint,
   getShortcutKeyLabels,
   type ShortcutId,
 } from "@/lib/shortcuts/registry";
@@ -214,16 +215,14 @@ export function ThreadActionsMenu({
 function MenuShortcut({ id }: { id: ShortcutId }) {
   return (
     <span className="ml-auto flex items-center gap-1">
+      <span className="sr-only">{getShortcutHint(id)}</span>
       {getShortcutKeyLabels(id).map((key, index) => (
         <Kbd
+          aria-hidden
           className="h-5 min-w-5 px-1.5 font-sans text-[11px]"
           key={`${index}-${key}`}
         >
-          {key === "shift" ? (
-            <ArrowBigUpIcon aria-label="Shift" className="size-3.5" />
-          ) : (
-            key
-          )}
+          {key === "shift" ? <ArrowBigUpIcon className="size-3.5" /> : key}
         </Kbd>
       ))}
     </span>
