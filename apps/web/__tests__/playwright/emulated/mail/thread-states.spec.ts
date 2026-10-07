@@ -257,8 +257,12 @@ test("captures thread reading and reply states", async ({ page }, testInfo) => {
   await expect(
     page.getByRole("heading", { name: "Reply Workflow Message" }),
   ).toBeVisible();
+  // The saved reply reopens on its own after a reload.
+  await expect(editor).toHaveCount(1);
+  await expect(editor).toContainText(
+    "Thanks Leslie, Thursday at 2 pm works for me.",
+  );
   await capturePlaywrightCheckpoint(page, testInfo, "08-draft-after-reload");
-  await page.getByRole("button", { name: "Reply", exact: true }).last().click();
   await editor.fill("A reply that should survive navigation.");
   await expect(editor).toContainText("A reply that should survive navigation.");
   await page.goto(`/${emailAccountId}/mail`);
@@ -271,13 +275,8 @@ test("captures thread reading and reply states", async ({ page }, testInfo) => {
     testInfo,
     "12-draft-after-navigation",
   );
-  if (!(await editor.count()) || !(await editor.first().isVisible())) {
-    await page
-      .getByRole("button", { name: "Reply", exact: true })
-      .last()
-      .click();
-  }
-  await expect(editor).toBeVisible();
+  await expect(editor).toHaveCount(1);
+  await expect(editor).toContainText("A reply that should survive navigation.");
   await editor.fill("Mobile reply: the proposed time works well.");
   await page.setViewportSize({ width: 390, height: 844 });
   await capturePlaywrightCheckpoint(page, testInfo, "13-mobile-reply");

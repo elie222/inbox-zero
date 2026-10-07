@@ -249,6 +249,25 @@ describe("local reply drafts", () => {
     setActiveMailClient(null);
   });
 
+  it("does not restore a draft read while its account was being cleared", async () => {
+    const { setActiveMailClient } = await import("./active-client");
+    const client = createRevisionCheckingClient();
+    setActiveMailClient(client as never);
+    await createReplyDraftWriter(replyIdentity).save(content);
+    clearLocalReplyDrafts();
+    const readDraft = client.readDraft;
+    client.readDraft = async (key) => {
+      const result = await readDraft(key);
+      clearLocalReplyDrafts("account");
+      return result;
+    };
+
+    expect(
+      await getReplyDrafts("account", "thread", [identity.messageId]),
+    ).toEqual([]);
+    setActiveMailClient(null);
+  });
+
   it("lists a thread's reply drafts saved before a reload", async () => {
     const { setActiveMailClient } = await import("./active-client");
     const client = createRevisionCheckingClient();

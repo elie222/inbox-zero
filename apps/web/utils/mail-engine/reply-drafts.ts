@@ -506,12 +506,15 @@ async function persistEngineReplyDraft(
 async function loadEngineReplyDraft(identity: ReplyDraftIdentity) {
   const client = getActiveMailClient();
   if (!client) return;
+  const epoch = currentEpoch(identity.emailAccountId);
   const stored = await client.readDraft({
     accountId: identity.emailAccountId,
     draftId: engineDraftId(identity),
   });
   if (stored.status !== "found" || !stored.content.clientState) return;
-  // A composer may have saved while the read was in flight.
+  // The account may have been cleared, or a composer may have saved, while
+  // the read was in flight.
+  if (currentEpoch(identity.emailAccountId) !== epoch) return;
   const current = drafts.get(draftKey(identity));
   if (current) return current;
   try {
