@@ -19,16 +19,18 @@ export function useSharedMemberId() {
   const memberships = useSWR<TeamConversationsResponse>(
     "/api/team-comments/conversations",
   );
+  const options = memberships.data?.memberships ?? [];
   const memberId =
-    memberIdParam ?? memberships.data?.memberships[0]?.id ?? null;
-  return { memberId, setMemberId, memberships };
+    options.find(({ id }) => id === memberIdParam)?.id ??
+    options[0]?.id ??
+    null;
+  return { memberId, setMemberId, memberships, options };
 }
 
 export function SharedTabs() {
   const pathname = usePathname();
-  const { memberId, setMemberId, memberships } = useSharedMemberId();
+  const { memberId, setMemberId, options } = useSharedMemberId();
   const query = memberId ? `?memberId=${encodeURIComponent(memberId)}` : "";
-  const options = memberships.data?.memberships ?? [];
 
   return (
     <div>
