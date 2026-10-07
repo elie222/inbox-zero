@@ -8,6 +8,7 @@ describe("getSystemCacheProviderOptions", () => {
   it.each([
     "openai",
     "azure",
+    "azure-foundry",
   ])("returns a prompt cache key for %s (auto prefix caching)", (provider) => {
     expect(
       getSystemCacheProviderOptions(provider, { cacheKey: "account-1" }),
@@ -31,7 +32,6 @@ describe("getSystemCacheProviderOptions", () => {
   });
 
   it.each([
-    "azure-foundry",
     "google",
     "vertex",
     "groq",

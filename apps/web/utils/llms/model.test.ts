@@ -689,12 +689,24 @@ describe("Models", () => {
 
       expect(result.provider).toBe(Provider.AZURE_FOUNDRY);
       expect(result.modelName).toBe("deployment-name");
-      expect(createOpenAICompatible).toHaveBeenCalledWith({
-        name: "azure-foundry",
+      // Chat Completions rejects function tools on reasoning models, so
+      // Foundry must go through the Azure provider's Responses API.
+      expect(createAzure).toHaveBeenCalledWith({
+        apiKey: TEST_AZURE_FOUNDRY_API_KEY,
         baseURL: TEST_AZURE_FOUNDRY_BASE_URL,
-        supportsStructuredOutputs: true,
-        headers: { "api-key": TEST_AZURE_FOUNDRY_API_KEY },
       });
+      expect(createOpenAICompatible).not.toHaveBeenCalled();
+      expect(result.providerOptions?.openai?.reasoningEffort).toBe("low");
+    });
+
+    it("should configure Azure Foundry draft models with medium reasoning effort", () => {
+      const userAi = defaultUserAi();
+
+      setDraftLlms(Provider.AZURE_FOUNDRY, "deployment-name");
+
+      const result = getModel(userAi, "draft");
+
+      expect(result.providerOptions?.openai?.reasoningEffort).toBe("medium");
     });
 
     it("should skip Azure Foundry list entries without an API key", () => {
