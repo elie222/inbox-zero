@@ -33,6 +33,7 @@ export function FeedbackSidebarButton() {
       tooltip="Feedback"
       sidebarName="left-sidebar"
       className="h-9 font-semibold"
+      aria-haspopup="dialog"
       onClick={() => setOpen(true)}
     >
       <MessageSquarePlusIcon />
