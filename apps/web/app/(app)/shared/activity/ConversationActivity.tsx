@@ -36,7 +36,10 @@ export function ConversationActivity() {
   const items = activity.data?.flatMap((page) => page.items) ?? [];
   const nextCursor = activity.data?.at(-1)?.nextCursor;
   return (
-    <LoadingContent loading={memberships.isLoading} error={memberships.error}>
+    <LoadingContent
+      loading={memberships.isLoading}
+      error={memberships.data ? undefined : memberships.error}
+    >
       {memberships.data && !memberId && <NoOrganization />}
       {memberId && (
         <LoadingContent

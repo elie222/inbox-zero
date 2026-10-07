@@ -21,7 +21,10 @@ export function SharedConversationList() {
   return (
     <LoadingContent
       loading={memberships.isLoading || conversations.isLoading}
-      error={memberships.error || conversations.error}
+      error={
+        (memberships.data ? undefined : memberships.error) ||
+        (conversations.data ? undefined : conversations.error)
+      }
     >
       {memberships.data && !memberId && <NoOrganization />}
       {memberId && (
