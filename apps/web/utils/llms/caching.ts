@@ -10,10 +10,10 @@ const ANTHROPIC_CACHE_CONTROL_PROVIDERS = new Set<string>([
   Provider.AI_GATEWAY,
 ]);
 
-// Azure Foundry is openai-compatible, so it ignores `openai` provider options.
 const OPENAI_PROMPT_CACHE_PROVIDERS = new Set<string>([
   Provider.OPEN_AI,
   Provider.AZURE,
+  Provider.AZURE_FOUNDRY,
 ]);
 
 export function getSystemCacheProviderOptions(
