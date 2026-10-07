@@ -12,10 +12,9 @@ import {
   getUserTier,
   isAdminForPremium,
   isOnHigherTier,
-  isPremiumRecord,
-  getUnsubscribePeriod,
   premiumEntitlementSelect,
 } from "@/utils/premium";
+import { consumeUnsubscribeCredit } from "@/utils/premium/unsubscribe-credits";
 import {
   getAdminGrantExpiresAt,
   grantPremiumAdmin,
@@ -66,55 +65,7 @@ const checkoutOfferSchema = z.enum(["BRIEF_MY_MEETING"]);
 export const decrementUnsubscribeCreditAction = actionClientUser
   .metadata({ name: "decrementUnsubscribeCredit" })
   .action(async ({ ctx: { userId } }) => {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        premium: {
-          select: {
-            id: true,
-            unsubscribeCredits: true,
-            unsubscribeMonth: true,
-            ...premiumEntitlementSelect,
-          },
-        },
-      },
-    });
-
-    if (!user) throw new SafeError("User not found");
-
-    const isUserPremium = isPremiumRecord(user.premium);
-    if (isUserPremium) return;
-
-    const currentPeriod = getUnsubscribePeriod();
-
-    // create premium row for user if it doesn't already exist
-    const premium = user.premium || (await createPremiumForUser({ userId }));
-
-    const resetResult = await prisma.premium.updateMany({
-      where: {
-        id: premium.id,
-        OR: [
-          { unsubscribeMonth: null },
-          { unsubscribeMonth: { not: currentPeriod } },
-        ],
-      },
-      data: {
-        // reset and use a credit
-        unsubscribeCredits: env.NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS - 1,
-        unsubscribeMonth: currentPeriod,
-      },
-    });
-
-    if (resetResult.count > 0) return;
-
-    await prisma.premium.updateMany({
-      where: {
-        id: premium.id,
-        unsubscribeMonth: currentPeriod,
-        unsubscribeCredits: { gt: 0 },
-      },
-      data: { unsubscribeCredits: { decrement: 1 } },
-    });
+    await consumeUnsubscribeCredit({ userId });
   });
 
 export const updateMultiAccountPremiumAction = actionClientUser
