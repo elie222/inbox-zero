@@ -110,6 +110,7 @@ describe("Outlook realtime webhook hints", () => {
     vi.mocked(getEmailProviderRateLimitState).mockResolvedValue({
       provider: "microsoft",
       retryAt: new Date(Date.now() + 60_000),
+      source: "outlook/webhook",
     });
     vi.mocked(cleanupWebhookAccountOnRateLimitSkip).mockResolvedValue();
 
