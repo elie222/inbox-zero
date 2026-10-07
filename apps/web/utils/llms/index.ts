@@ -258,6 +258,7 @@ type ToolCallAgentStreamOptions = BaseStreamOptions & {
   onStepEnd?: GenerateTextOnStepEndCallback<Record<string, Tool>>;
   onModelResolved?: (resolvedModel: ToolCallAgentResolvedModel) => void;
   temperature?: number;
+  abortSignal?: AbortSignal;
 };
 
 export function createGenerateText({
@@ -903,6 +904,7 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
     onModelResolved,
     sensitiveDataPolicy,
     temperature,
+    abortSignal,
   } = options;
   const { modelOptions, modelCandidates } = await resolveModelCandidates({
     modelOptions: getModelOptionsForRoute(options),
@@ -938,7 +940,7 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
       emailAccountId,
     });
     const candidateTools = wrapToolsWithSensitiveDataPolicy({
-      tools,
+      tools: skipToolsAfterAbort(tools, abortSignal),
       policy: sensitiveDataPolicy,
       label,
       userId,
@@ -1017,6 +1019,7 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
         messages: protectedMessages as ModelMessage[],
         experimental_transform: smoothStream({ chunking: "word" }),
         onStepEnd,
+        abortSignal,
       });
     } catch (error) {
       if (nextCandidate && shouldFallbackToNextModel(error)) {
@@ -1061,6 +1064,35 @@ function getModelOptionsForRoute({
   return useCase
     ? getModelForUseCase(userAi, useCase)
     : getModel(userAi, modelType);
+}
+
+// An abort ends the stream but still runs tool calls the model had already
+// emitted, so check before each call to keep a stopped run from acting.
+function skipToolsAfterAbort<TTools extends ToolSet | undefined>(
+  tools: TTools,
+  abortSignal: AbortSignal | undefined,
+): TTools {
+  if (!tools || !abortSignal) return tools;
+
+  const guardedTools: ToolSet = { ...tools };
+
+  for (const [toolName, toolDefinition] of Object.entries(guardedTools)) {
+    const execute = toolDefinition.execute;
+    if (!execute) continue;
+
+    guardedTools[toolName] = {
+      ...toolDefinition,
+      execute(
+        input: Parameters<NonNullable<typeof execute>>[0],
+        options: Parameters<NonNullable<typeof execute>>[1],
+      ) {
+        abortSignal.throwIfAborted();
+        return execute.call(toolDefinition, input, options);
+      },
+    } as ToolSet[string];
+  }
+
+  return guardedTools as TTools;
 }
 
 function wrapToolsWithSensitiveDataPolicy<TTools extends ToolSet | undefined>({

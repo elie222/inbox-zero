@@ -215,6 +215,7 @@
     "react-textarea-autosize": "8.5.9",
     "recharts": "2.15.4",
     "remark-gfm": "4.0.1",
+    "resumable-stream": "2.2.13",
     "sanity-plugin-markdown": "9.0.13",
     "schema-dts": "2.0.0",
     "serialize-error": "13.0.1",

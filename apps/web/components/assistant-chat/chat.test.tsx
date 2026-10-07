@@ -37,6 +37,7 @@ const {
   mockSetNewChat,
   mockStop,
   mockUseChats,
+  chatState,
 } = vi.hoisted(() => ({
   mockCaptureAction: vi.fn(),
   mockHandleSubmit: vi.fn(),
@@ -51,6 +52,7 @@ const {
   mockSetNewChat: vi.fn(),
   mockStop: vi.fn(),
   mockUseChats: vi.fn(),
+  chatState: { status: "ready" as ChatHelpers["status"] },
 }));
 
 vi.mock("@/components/assistant-chat/messages", () => ({
@@ -173,8 +175,8 @@ vi.mock("@/providers/ChatProvider", () => ({
   useChat: () => ({
     chat: {
       messages: [],
-      status: "ready",
-      stop: mockStop,
+      status: chatState.status,
+      stop: vi.fn(),
       regenerate: mockRegenerate,
       setMessages: mockSetMessages,
       sendMessage: vi.fn(),
@@ -190,6 +192,7 @@ vi.mock("@/providers/ChatProvider", () => ({
     setAttachments: mockSetAttachments,
     setChatId: mockSetChatId,
     submitTextMessage: vi.fn(),
+    stop: mockStop,
   }),
 }));
 
@@ -204,6 +207,7 @@ afterEach(() => {
 });
 
 beforeEach(() => {
+  chatState.status = "ready";
   window.localStorage.clear();
   mockUseChatInput.mockReturnValue({ input: "", setInput: mockSetInput });
 });
@@ -292,6 +296,30 @@ describe("Chat input draft", () => {
   });
 });
 
+describe("Chat stop", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseChats.mockReturnValue({
+      data: undefined,
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutate,
+    });
+  });
+
+  it("stops the run on the server, not just the local stream", async () => {
+    chatState.status = "streaming";
+    const { Chat } = await import("@/components/assistant-chat/chat");
+
+    const { container } = render(<Chat open />);
+    const submitButton = container.querySelector('button[type="submit"]');
+    if (!submitButton) throw new Error("Submit button not found");
+    fireEvent.click(submitButton);
+
+    expect(mockStop).toHaveBeenCalledTimes(1);
+  });
+});
+
 const chatHistoryEntry = {
   id: "chat-1",
   name: "Project update",
@@ -300,5 +328,7 @@ const chatHistoryEntry = {
   deletedAt: null,
   compactionCount: 0,
   lastSeenRulesRevision: null,
+  activeStreamId: null,
+  activeStreamStartedAt: null,
   emailAccountId: "email-account-1",
 } satisfies ChatHistoryEntry;

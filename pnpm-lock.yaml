@@ -28,7 +28,7 @@ overrides:
   vite: 7.3.6
   webpack: 5.106.2
 
-packageExtensionsChecksum: sha256-7EyWhva5Lcamo6pe18OzfUc27A7xbWt39+G/ofluF9k=
+packageExtensionsChecksum: sha256-PRbzx2viqV+1LR1E4uOlUjx+heWO2EvJ6w+FHgUvBZY=
 
 patchedDependencies:
   '@better-auth/oauth-provider@1.7.4': f3e7e8d12056b3b4c2a2a4154041f666a87ec5e12419a2e2dfa5b56d573b346e
@@ -688,6 +688,9 @@ importers:
       remark-gfm:
         specifier: 4.0.1
         version: 4.0.1(supports-color@8.1.1)
+      resumable-stream:
+        specifier: 2.2.13
+        version: 2.2.13(ioredis@6.0.0(supports-color@8.1.1))
       sanity-plugin-markdown:
         specifier: 9.0.13
         version: 9.0.13(cea112eb51986e31baab4e3abc825825)
@@ -11884,6 +11887,11 @@ packages:
   restore-cursor@5.1.0:
     resolution: {integrity: sha512-oMA2dcrw6u0YfxJQXm342bFKX/E4sG9rbTzO9ptUcR/e8A33cHuvStiYOwH7fszkZlZ1z/ta9AAoPk2F4qIOHA==}
     engines: {node: '>=18'}
+
+  resumable-stream@2.2.13:
+    resolution: {integrity: sha512-qy1ZZUP7sFKGXSx7OdbjU3f07VfSM7CghOlUaKT+35AuADX0sAYndmeCb5kVwgi4MSfkZZiL4yrdxWX1xx/Lnw==}
+    peerDependencies:
+      ioredis: 6.0.0
 
   ret@0.5.0:
     resolution: {integrity: sha512-I1XxrZSQ+oErkRR4jYbAyEEu2I0avBvvMM5JN+6EBprOGRCs63ENqZ3vjavq8fBw2+62G5LF5XelKwuJpcvcxw==}
@@ -25499,6 +25507,10 @@ snapshots:
     dependencies:
       onetime: 7.0.0
       signal-exit: 4.1.0
+
+  resumable-stream@2.2.13(ioredis@6.0.0(supports-color@8.1.1)):
+    dependencies:
+      ioredis: 6.0.0(supports-color@8.1.1)
 
   ret@0.5.0: {}
 

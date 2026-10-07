@@ -1427,8 +1427,10 @@ model Chat {
 
   name String?
 
-  compactionCount       Int  @default(0)
+  compactionCount       Int     @default(0)
   lastSeenRulesRevision Int?
+  activeStreamId        String?
+  activeStreamStartedAt DateTime?
 
   messages       ChatMessage[]
   compactions    ChatCompaction[]
