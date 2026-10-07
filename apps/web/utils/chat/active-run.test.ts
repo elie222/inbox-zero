@@ -156,6 +156,7 @@ describe("assistant chat runs", () => {
     await expect(
       clearActiveStream({ chatId: "chat-1", streamId: "stream-1" }),
     ).resolves.toBeUndefined();
+    expect(prisma.chat.updateMany).toHaveBeenCalledOnce();
   });
 
   it("treats a marker older than the run time limit as stale", () => {
