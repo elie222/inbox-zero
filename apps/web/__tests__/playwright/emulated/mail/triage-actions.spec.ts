@@ -147,7 +147,12 @@ test("deletes an open conversation and restores it from Trash", async ({
   await page.getByRole("button", { name: /^More actions/ }).click();
   await page.getByRole("menuitem", { name: /^Delete/ }).click();
 
-  await expect(conversations).toBeVisible();
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get("thread-id"))
+    .not.toBe(DELETE_THREAD);
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get("thread-id"))
+    .not.toBeNull();
   await expect(deletedConversation).toHaveCount(0);
   await expectEngineMutation(page, emailAccountId, "trash", DELETE_THREAD);
 

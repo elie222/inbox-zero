@@ -708,6 +708,23 @@ export function MailShell() {
   );
 
   const getOpenThreadKey = useStableCallback(() => openThreadKey);
+  const advanceReaderPast = useStableCallback(
+    (currentThreadKey: string, removedThreadKeys: string[]) => {
+      const nextThread = getNextThreadAfterRemoval({
+        threadIds: orderedIds,
+        currentThreadId: currentThreadKey,
+        currentThreadIndex: focusedIndex,
+        removedThreadIds: removedThreadKeys,
+      });
+      setFocusedIndex(nextThread?.index ?? 0);
+      const nextRow = threads.find(
+        (thread) => getListThreadKey(thread) === nextThread?.id,
+      );
+      setOpenThread(
+        nextRow ? getListThreadSelection(nextRow, emailAccountId) : null,
+      );
+    },
+  );
   const runOn = useStableCallback(
     async (
       action: (ids: string[]) => Promise<string[]>,
@@ -727,19 +744,7 @@ export function MailShell() {
         getOpenThreadKey() === openThreadKey
       ) {
         if (autoAdvanceReader) {
-          const nextThread = getNextThreadAfterRemoval({
-            threadIds: orderedIds,
-            currentThreadId: openThreadKey,
-            currentThreadIndex: focusedIndex,
-            removedThreadIds: queuedThreadKeys,
-          });
-          setFocusedIndex(nextThread?.index ?? 0);
-          const nextRow = threads.find(
-            (thread) => getListThreadKey(thread) === nextThread?.id,
-          );
-          setOpenThread(
-            nextRow ? getListThreadSelection(nextRow, emailAccountId) : null,
-          );
+          advanceReaderPast(openThreadKey, queuedThreadKeys);
         } else {
           setOpenThread(null);
         }
@@ -842,9 +847,12 @@ export function MailShell() {
   const targetsArchived =
     actionTargets.length > 0 &&
     actionTargets.every((target) => isThreadArchived(target.messages));
-  const trashTargets = useCallback(() => runOn(trash, true), [runOn, trash]);
+  const trashTargets = useCallback(
+    () => runOn(trash, true, true),
+    [runOn, trash],
+  );
   const markSpamTargets = useCallback(
-    () => runOn(markSpam, true),
+    () => runOn(markSpam, true, true),
     [markSpam, runOn],
   );
   const markReadTargets = useCallback(
@@ -1359,7 +1367,7 @@ export function MailShell() {
             refetchThreadList();
             if (labelPicker.mode === "move") {
               if (openThreadKey && keys.includes(openThreadKey)) {
-                setOpenThread(null);
+                advanceReaderPast(openThreadKey, keys);
               }
               selection.clear();
             }
