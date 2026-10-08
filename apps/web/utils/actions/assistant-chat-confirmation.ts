@@ -143,6 +143,17 @@ export async function confirmAssistantEmailActionForAccount({
     throw new SafeError(getAssistantEmailActionErrorMessage(actionType, error));
   }
 
+  if (provider === "microsoft" && confirmationResult.messageId) {
+    try {
+      const sentMessage = await emailProvider.getMessage(
+        confirmationResult.messageId,
+      );
+      confirmationResult.externalUrl = sentMessage.externalUrl;
+    } catch (error) {
+      logger.warn("Failed to resolve sent email link", { error });
+    }
+  }
+
   try {
     await persistConfirmedAssistantEmailActionPart({
       chatMessageId: reservation.chatMessageId,
