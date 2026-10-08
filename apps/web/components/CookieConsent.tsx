@@ -34,7 +34,7 @@ export function CookieConsentBanner() {
         </p>
         <div className="mt-4 grid grid-cols-2 gap-2">
           <Button
-            variant="primaryBlack"
+            variant="outline"
             size="sm"
             onClick={() => setCookieConsent("denied")}
           >
