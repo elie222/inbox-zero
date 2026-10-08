@@ -120,7 +120,7 @@ export async function decisionModelChooseRule<T extends RuleCandidate>({
 
   if (coldEmailRule) {
     const coldAnswer = res.answers[COLD_EMAIL_QUESTION_KEY];
-    if (coldAnswer?.type !== "yesNo") {
+    if (coldAnswer?.type !== "boolean") {
       throw new Error(
         "Decision model response is missing the cold email answer",
       );
@@ -158,7 +158,11 @@ export async function decisionModelChooseRule<T extends RuleCandidate>({
     topChoice: answer.choice,
     confidence: probability,
     margin,
-    probabilities: answer.probabilities,
+    // An array, not a record: each key of a logged object becomes a permanent
+    // Axiom field, and these keys are user-named rules.
+    probabilities: Object.entries(answer.probabilities)
+      .sort(([, a], [, b]) => b - a)
+      .map(([rule, probability]) => ({ rule, probability })),
     coldEmailProbability,
     model: res.model,
     inputTokens: res.inputTokens,
@@ -300,7 +304,7 @@ function getRuleCriterion(rule: RuleCandidate) {
 
 function buildColdEmailQuestion(): DecisionQuestion {
   return {
-    type: "yesNo",
+    type: "boolean",
     instructions:
       "Is `email` cold outreach under `coldEmailDefinition` from the perspective of `accountOwner`?",
     criteria: {

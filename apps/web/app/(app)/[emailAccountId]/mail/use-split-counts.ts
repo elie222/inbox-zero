@@ -5,8 +5,11 @@ import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider"
 import type { MailPredicate } from "@inboxzero/mail-core/queries";
 import { labelNamesToAccountScopedPredicate } from "@/app/(app)/[emailAccountId]/mail/use-combined-mail-threads";
 import type { EmailLabels } from "@/providers/email-label-types";
-import { splitCountTargets } from "@/utils/mail/split-counts";
-import type { MailSplit, PortableLabelSplit } from "@/utils/mail/split-query";
+import { splitCountTargets } from "@/utils/split-inbox/split-counts";
+import type {
+  MailSplit,
+  PortableLabelSplit,
+} from "@/utils/split-inbox/split-query";
 
 const EMPTY_COUNTS = new Map<string, number>();
 

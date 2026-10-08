@@ -193,18 +193,18 @@ export async function applyThreadStatusLabel({
     }
   };
 
-  const [removedConflicts, addedTargetLabel] = await Promise.all([
-    removeConflictingThreadStatusLabels({
-      emailAccountId,
-      threadId,
-      systemType,
-      provider,
-      dbLabels,
-      providerLabels,
-      logger,
-    }),
-    addLabel(),
-  ]);
+  // Sequential: Outlook rewrites the whole category list per message, so
+  // overlapping writes to the same message conflict or lose a change.
+  const removedConflicts = await removeConflictingThreadStatusLabels({
+    emailAccountId,
+    threadId,
+    systemType,
+    provider,
+    dbLabels,
+    providerLabels,
+    logger,
+  });
+  const addedTargetLabel = await addLabel();
 
   if (!removedConflicts || !addedTargetLabel) {
     logger.warn("Thread status label application completed with errors", {

@@ -88,7 +88,7 @@ test("keeps arrow navigation inside the thread and expands from its toolbar", as
 
   const editor = page.getByRole("textbox", { name: "Email message" });
   await expect(editor).toBeFocused();
-  await expect(editor.locator("p")).toHaveText("");
+  await expect(editor.locator(":scope > p")).toHaveText("");
   await page.getByLabel(/^Show (signature and )?quoted message$/).click();
   await expect(
     page.getByRole("toolbar", { name: "Selection formatting" }),

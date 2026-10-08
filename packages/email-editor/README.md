@@ -38,9 +38,11 @@ editor stack.
 
 The core profile supports paragraphs and hard breaks, bold, italic, underline,
 strikethrough, links, ordered and unordered lists, blockquotes, inline images,
-and block direction. Unsupported editable markup uses a warned fallback: an
-untouched draft remains byte-for-byte intact, while editing its sanitized view
-may simplify unsupported formatting. Complex quoted messages and signatures
+block direction, and text color, font family, and font size. Unsupported
+editable markup uses a warned fallback: an untouched draft remains
+byte-for-byte intact, while editing its sanitized view may simplify unsupported
+formatting. Signatures that fit this profile are edited in place inside a
+Gmail-style signature container. Quoted messages and more complex signatures
 remain protected HTML and are combined with the canonical editable reply only
 when sending.
 

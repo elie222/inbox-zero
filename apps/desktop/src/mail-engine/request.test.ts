@@ -41,7 +41,7 @@ describe("createOriginMailRequest", () => {
   });
 
   it("sends a PUT JSON body and session cookies", async () => {
-    const fetchMock = vi.fn(
+    const fetchMock = vi.fn<typeof fetch>(
       async () => new Response(JSON.stringify({ ok: true }), { status: 200 }),
     );
     vi.stubGlobal("fetch", fetchMock);
@@ -74,7 +74,7 @@ describe("createOriginMailRequest", () => {
   });
 
   it("issues mail HTTP against the configured origin, not the SaaS host", async () => {
-    const fetchMock = vi.fn(
+    const fetchMock = vi.fn<typeof fetch>(
       async () => new Response(JSON.stringify({ ok: true }), { status: 200 }),
     );
     vi.stubGlobal("fetch", fetchMock);
@@ -95,7 +95,7 @@ describe("createOriginMailRequest", () => {
 
   it("returns attachment bytes without parsing them as JSON", async () => {
     const bytes = new Uint8Array([9, 8, 7]);
-    const fetchMock = vi.fn(
+    const fetchMock = vi.fn<typeof fetch>(
       async () =>
         new Response(bytes, {
           status: 200,
@@ -130,7 +130,7 @@ describe("createOriginMailRequest", () => {
 
   it("sends upload content as octet-stream bytes, not JSON", async () => {
     const bytes = new Uint8Array([1, 2, 3]);
-    const fetchMock = vi.fn(
+    const fetchMock = vi.fn<typeof fetch>(
       async () =>
         new Response(JSON.stringify({ status: "staged" }), { status: 200 }),
     );

@@ -46,7 +46,7 @@ export async function backfillRecentOutlookMessages({
       maxMessages,
       pageCount,
     });
-    return { processedCount: 0, candidateCount: 0 };
+    return { processedCount: 0, candidateCount: 0, rateLimited: false };
   }
 
   const existingMessages = await prisma.emailMessage.findMany({
@@ -147,6 +147,7 @@ export async function backfillRecentOutlookMessages({
   return {
     processedCount,
     candidateCount: candidateMessages.length,
+    rateLimited: Boolean(rateLimitError),
   };
 }
 

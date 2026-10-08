@@ -13,6 +13,8 @@ import { getMockParsedMessage } from "@/__tests__/mocks/email-provider.mock";
 import { learnFromOutlookLabelRemoval } from "@/utils/webhook/outlook/learn-label-removal";
 import prisma from "@/utils/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
+import { withRateLimitRecording } from "@/utils/email/rate-limit";
+import { markOutlookRateLimitCatchUp } from "@/utils/redis/outlook-rate-limit-catch-up";
 
 const logger = createTestLogger();
 
@@ -54,6 +56,9 @@ vi.mock("@/utils/error", async (importOriginal) => {
   };
 });
 
+vi.mock("@/utils/redis/outlook-rate-limit-catch-up", () => ({
+  markOutlookRateLimitCatchUp: vi.fn(),
+}));
 vi.mock("@/utils/email/rate-limit", () => ({
   withRateLimitRecording: vi.fn(async (_context, operation) => operation()),
 }));
@@ -335,6 +340,35 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
       const jsonResponse = await result.json();
       expect(jsonResponse).toEqual({ ok: true });
       expect(captureException).not.toHaveBeenCalled();
+    });
+
+    it("marks the message for catch-up when Microsoft throttles it", async () => {
+      const error = Object.assign(new Error("Throttled"), {
+        code: "ApplicationThrottled",
+        statusCode: 429,
+      });
+      vi.mocked(withRateLimitRecording).mockImplementationOnce(
+        async (context, operation) => {
+          try {
+            return await operation();
+          } catch (operationError) {
+            await context.onRateLimitRecorded?.(null, operationError);
+            throw operationError;
+          }
+        },
+      );
+      const mockProvider = { getMessage: vi.fn().mockRejectedValue(error) };
+      vi.mocked(createEmailProvider).mockResolvedValue(mockProvider as any);
+
+      await processHistoryForUser({
+        subscriptionId: "sub-123",
+        resourceData: mockResourceData as any,
+        logger,
+      });
+
+      expect(markOutlookRateLimitCatchUp).toHaveBeenCalledWith(
+        expect.objectContaining({ emailAccountId: "account-123" }),
+      );
     });
 
     it("handles Outlook access denied errors gracefully without Sentry", async () => {

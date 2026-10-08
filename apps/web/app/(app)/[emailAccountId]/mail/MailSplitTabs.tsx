@@ -30,8 +30,11 @@ import {
 } from "@/utils/email/provider-types";
 import { getActionErrorMessage } from "@/utils/error";
 import { GmailLabel } from "@/utils/gmail/label";
-import type { MailSplitFilterDraft } from "@/utils/mail/split-filters";
-import type { MailSplit, PortableLabelSplit } from "@/utils/mail/split-query";
+import type { MailSplitFilterDraft } from "@/utils/split-inbox/split-filters";
+import type {
+  MailSplit,
+  PortableLabelSplit,
+} from "@/utils/split-inbox/split-query";
 import type { EmailLabels } from "@/providers/email-label-types";
 
 /**

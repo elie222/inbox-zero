@@ -14,7 +14,11 @@ export async function rewriteHtmlForImageProxy(html: string, logger: Logger) {
   const displayHtml = stripSentMessageOpenPixels(html);
   const config = getImageProxyConfig(logger);
   if (!config || !displayHtml) {
-    return { html: displayHtml, remoteAssetsProxied: false };
+    return {
+      html: displayHtml,
+      remoteAssetsProxied: false,
+      proxyBaseUrl: null,
+    };
   }
 
   return {
@@ -24,6 +28,7 @@ export async function rewriteHtmlForImageProxy(html: string, logger: Logger) {
       ttlSeconds: DEFAULT_ASSET_PROXY_TTL_SECONDS,
     }),
     remoteAssetsProxied: true,
+    proxyBaseUrl: config.proxyBaseUrl,
   };
 }
 

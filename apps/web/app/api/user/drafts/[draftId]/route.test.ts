@@ -47,30 +47,54 @@ describe("/api/user/drafts/[draftId]", () => {
     createEmailProvider.mockResolvedValue(provider);
   });
 
-  it("reports a draft the mailbox still holds", async () => {
+  it("reads the existing draft named by the path without creating or updating it", async () => {
+    provider.getDraft.mockResolvedValue({
+      id: "message-1",
+      threadId: "thread-1",
+      subject: "Complete",
+      headers: {
+        from: "sender@example.com",
+        to: "to@example.com",
+        cc: "cc@example.com",
+        bcc: "hidden@example.com",
+      },
+      textHtml: "<p>Full draft</p>",
+      inline: [],
+      attachments: [],
+    });
     const response = await read("draft-1");
-
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({ exists: true });
-    expect(provider.getDraft).toHaveBeenCalledWith("draft-1");
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    await expect(response.json()).resolves.toMatchObject({
+      draftId: "draft-1",
+      html: "<p>Full draft</p>",
+      bcc: "hidden@example.com",
+    });
+    expect(provider.getDraft).toHaveBeenCalledWith("draft-1", {
+      includeAttachments: true,
+    });
+    expect(provider.createDraft).not.toHaveBeenCalled();
+    expect(provider.updateDraft).not.toHaveBeenCalled();
   });
 
-  it("reports a draft deleted from the mailbox", async () => {
-    provider.getDraft.mockResolvedValue(null);
-
-    const response = await read("draft-1");
-
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({ exists: false });
-  });
-
-  it("rejects a read without a session", async () => {
+  it("rejects an unauthenticated read", async () => {
     authMock.mockResolvedValue(null);
-
-    const response = await read("draft-1");
-
-    expect(response.status).toBe(401);
+    expect((await read("draft-1")).status).toBe(401);
     expect(provider.getDraft).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 for a draft removed or sent from another client", async () => {
+    provider.getDraft.mockResolvedValue(null);
+    const response = await read("draft-1");
+    expect(response.status).toBe(404);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+  });
+
+  it("reports provider failure without presenting an empty or missing draft", async () => {
+    provider.getDraft.mockRejectedValue(new Error("Provider unavailable"));
+    expect((await read("draft-1")).status).toBe(500);
+    expect(provider.createDraft).not.toHaveBeenCalled();
+    expect(provider.updateDraft).not.toHaveBeenCalled();
   });
 
   it("rejects an update without a session", async () => {
@@ -152,15 +176,6 @@ function draftBody(message = "Hello") {
   };
 }
 
-function read(draftId: string) {
-  return GET(
-    new NextRequest(`http://127.0.0.1/api/user/drafts/${draftId}`, {
-      headers: accountHeaders(),
-    }),
-    { params: Promise.resolve({ draftId }) },
-  );
-}
-
 function update(draftId: string, body: unknown) {
   return PUT(
     new NextRequest(`http://127.0.0.1/api/user/drafts/${draftId}`, {
@@ -176,6 +191,15 @@ function discard(draftId: string) {
   return DELETE(
     new NextRequest(`http://127.0.0.1/api/user/drafts/${draftId}`, {
       method: "DELETE",
+      headers: accountHeaders(),
+    }),
+    { params: Promise.resolve({ draftId }) },
+  );
+}
+
+function read(draftId: string) {
+  return GET(
+    new NextRequest(`http://127.0.0.1/api/user/drafts/${draftId}`, {
       headers: accountHeaders(),
     }),
     { params: Promise.resolve({ draftId }) },

@@ -7,7 +7,7 @@ import { createReferral } from "@/utils/referral/referral-code";
 import { captureException } from "@/utils/error";
 import { saveTokens } from "@/utils/auth/save-tokens";
 import { createOutlookClient } from "@/utils/outlook/client";
-import { fetchGoogleOpenIdProfile } from "@/utils/google/oauth";
+import { fetchGoogleOpenIdProfile } from "@/utils/gmail/oauth";
 import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
 import {
   betterAuthConfig,
@@ -71,8 +71,8 @@ vi.mock("@googleapis/gmail", () => ({
 vi.mock("@/utils/outlook/client", () => ({
   createOutlookClient: vi.fn(),
 }));
-vi.mock("@/utils/google/oauth", async (importActual) => ({
-  ...(await importActual<typeof import("@/utils/google/oauth")>()),
+vi.mock("@/utils/gmail/oauth", async (importActual) => ({
+  ...(await importActual<typeof import("@/utils/gmail/oauth")>()),
   fetchGoogleOpenIdProfile: vi.fn(),
 }));
 vi.mock("@/utils/email/watch-manager", () => ({

@@ -1,5 +1,5 @@
 import type { OutlookClient } from "@/utils/outlook/client";
-import { withMicrosoftGraphWriteRetry } from "@/utils/microsoft/retry";
+import { withMicrosoftGraphWriteRetry } from "@/utils/outlook/retry";
 import {
   processThreadMessagesFallback,
   runThreadMessageMutation,

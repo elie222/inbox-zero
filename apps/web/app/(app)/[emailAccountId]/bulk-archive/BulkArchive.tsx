@@ -14,6 +14,7 @@ import { useCategorizeProgress } from "@/app/(app)/[emailAccountId]/smart-catego
 import { CategorizeWithAiButton } from "@/app/(app)/[emailAccountId]/smart-categories/CategorizeWithAiButton";
 import type { CategorizedSendersResponse } from "@/app/api/user/categorize/senders/categorized/route";
 import { PageWrapper } from "@/components/PageWrapper";
+import { PageHeaderVideoButton } from "@/components/PageHeaderVideoButton";
 import { LoadingContent } from "@/components/LoadingContent";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { PageHeading } from "@/components/Typography";
@@ -68,6 +69,15 @@ export function BulkArchive() {
           <div className="flex items-center gap-2">
             <PageHeading>Bulk Archive</PageHeading>
             <TooltipExplanation text="Archive, delete, or mark emails as read in bulk by category to quickly clean up your inbox." />
+            <PageHeaderVideoButton
+              video={{
+                title: "Getting started with Bulk Archive",
+                description:
+                  "Learn how to archive whole categories of old email at once.",
+                muxPlaybackId:
+                  "jyy00xnJVvyjVsyNKjclj02r023p200rOyDMAFNUE6Lwnpo",
+              }}
+            />
           </div>
           <div className="flex items-center gap-2">
             <BulkArchiveSettingsModal

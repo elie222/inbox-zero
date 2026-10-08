@@ -157,6 +157,36 @@ test("keeps the collapsed signature when typing after clicking below it", async 
   );
 });
 
+test("edits the signature and its links in place", async ({ page }) => {
+  await openMail(page);
+  await page.getByRole("button", { name: /^Compose/ }).click();
+
+  const dialog = page.getByRole("dialog", { name: "New Message" });
+  const editor = dialog.getByRole("textbox", { name: "Email message" });
+  await editor.pressSequentially("Draft body");
+  await dialog.getByRole("button", { name: "Show signature" }).click();
+
+  const signature = dialog.locator("[data-email-signature-content]");
+  const footerLink = signature.getByRole("link", { name: "Inbox Zero" });
+  await selectEditorText(editor, "Inbox Zero");
+  await editor.press("ControlOrMeta+k");
+  const editLinkDialog = dialog.getByRole("dialog", { name: "Edit link" });
+  await expect(editLinkDialog.getByLabel("Link address")).toHaveValue(/^http/);
+  await editLinkDialog
+    .getByLabel("Link address")
+    .fill("https://example.com/signature");
+  await editLinkDialog.getByRole("button", { name: "Update" }).click();
+  await expect(footerLink).toHaveAttribute(
+    "href",
+    "https://example.com/signature",
+  );
+
+  await selectEditorText(editor, "Sent with");
+  await page.keyboard.type("Written with");
+  await expect(signature).toContainText("Written with Inbox Zero");
+  await expect(editor.locator(":scope > p").first()).toHaveText("Draft body");
+});
+
 test("restores a new message draft after closing the composer", async ({
   page,
 }, testInfo) => {

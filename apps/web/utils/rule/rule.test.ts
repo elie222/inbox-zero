@@ -3,7 +3,7 @@ import prisma from "@/utils/__mocks__/prisma";
 import { ActionType, GroupItemType } from "@/generated/prisma/enums";
 import { createEmailProvider } from "@/utils/email/provider";
 import { DELETE_EMAIL_ACTION_DISABLED_MESSAGE } from "@/utils/delete-email-action";
-import { WEBHOOK_ACTION_DISABLED_MESSAGE } from "@/utils/webhook-action";
+import { WEBHOOK_ACTION_DISABLED_MESSAGE } from "@/utils/outbound-webhook/action";
 import { getActionRiskLevel } from "@/utils/risk";
 
 const {
@@ -68,7 +68,6 @@ import {
   setRuleEnabled,
   setRuleRunOnThreads,
   updateRule,
-  updateRuleInstructions,
   updateRuleActions,
 } from "./rule";
 import { createTestLogger } from "@/__tests__/helpers";
@@ -654,17 +653,6 @@ describe("rule history snapshots", () => {
   beforeEach(resetRuleMocks);
 
   it.each([
-    {
-      name: "updating instructions",
-      data: { instructions: "updated instructions" },
-      triggerType: "instructions_updated",
-      run: () =>
-        updateRuleInstructions({
-          ruleId: RULE_ID,
-          emailAccountId: EMAIL_ACCOUNT_ID,
-          instructions: "updated instructions",
-        }),
-    },
     {
       name: "toggling rule enablement",
       data: { enabled: false },

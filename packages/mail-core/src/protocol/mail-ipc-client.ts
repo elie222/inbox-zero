@@ -84,6 +84,7 @@ export function createMailIpcClient(
     ensureMessageContent: (key) => call("ensureMessageContent", key),
     getDiagnostics: (accountId) => call("getDiagnostics", { accountId }),
     purgeAccount: (accountId) => call("purgeAccount", { accountId }),
+    retainAccounts: (accountIds) => call("retainAccounts", { accountIds }),
     inspect: () => call("inspect", {}),
     async close() {
       for (const handle of [...handles]) handle.close();

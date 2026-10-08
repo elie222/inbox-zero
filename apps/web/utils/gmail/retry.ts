@@ -1,8 +1,11 @@
-import pRetry, { AbortError } from "p-retry";
 import { createScopedLogger, type Logger } from "@/utils/logger";
-import { sleep } from "@/utils/sleep";
 import { isFetchError } from "@/utils/retry/is-fetch-error";
 import { getRetryAfterHeaderFromError } from "@/utils/retry/get-retry-after-header";
+import {
+  getRetryAfterDelayMs,
+  type ProviderRetryPolicy,
+  withProviderRetry,
+} from "@/utils/retry/provider-retry";
 
 const logger = createScopedLogger("gmail-retry");
 export const MAX_GMAIL_BLOCKING_RETRY_DELAY_MS = 10_000;
@@ -50,82 +53,44 @@ async function withGmailRetryPolicy<T>(
   operation: () => Promise<T>,
   maxRetries: number,
   context: RetryLogContext | undefined,
-  retryPolicy: "all" | "rate-limit-only",
+  retryPolicy: ProviderRetryPolicy,
 ): Promise<T> {
-  const retryLogger = context?.logger || logger;
+  return withProviderRetry(operation, {
+    providerName: "Gmail",
+    logger: context?.logger || logger,
+    maxRetries,
+    maxBlockingDelayMs: MAX_GMAIL_BLOCKING_RETRY_DELAY_MS,
+    retryPolicy,
+    classify: (attempt) => {
+      const errorInfo = extractErrorInfo(attempt.error);
+      const { retryable, isRateLimit, isServerError, isFailedPrecondition } =
+        isRetryableError(errorInfo);
+      const retryAfterHeader = getRetryAfterHeaderFromError(attempt.error);
 
-  try {
-    return await pRetry(operation, {
-      retries: maxRetries,
-      onFailedAttempt: async (attempt) => {
-        const originalError = getRetryAttemptError(attempt);
-        const attemptNumber = getRetryAttemptNumber(attempt);
-        const errorInfo = extractErrorInfo(originalError);
-        const { retryable, isRateLimit, isServerError, isFailedPrecondition } =
-          isRetryableError(errorInfo);
-        const retryLogFields = buildRetryLogFields(errorInfo);
-
-        if (!retryable || (retryPolicy === "rate-limit-only" && !isRateLimit)) {
-          retryLogger.warn("Non-retryable error encountered", retryLogFields);
-          throw originalError;
-        }
-
-        const retryAfterHeader = getRetryAfterHeader(originalError);
-        const retryAfterFromMessage = parseRetryTime(
-          errorInfo.errorMessage,
-        )?.toISOString();
-
-        const delayMs = calculateRetryDelay(
+      return {
+        retryable,
+        isRateLimit,
+        delayMs: calculateRetryDelay(
           isRateLimit,
           isServerError,
           isFailedPrecondition,
-          attemptNumber,
+          attempt.attemptNumber,
           retryAfterHeader,
           errorInfo.errorMessage,
-        );
-
-        retryLogger.warn("Gmail error. Will retry", {
-          delaySeconds: Math.ceil(delayMs / 1000),
-          attemptNumber,
-          maxRetries,
-          ...retryLogFields,
+        ),
+        logFields: {
+          ...buildRetryLogFields(errorInfo),
           retryAfterHeader,
-          retryAfterFromMessage,
+          retryAfterFromMessage: parseRetryTime(
+            errorInfo.errorMessage,
+          )?.toISOString(),
           isRateLimit,
           isServerError,
           isFailedPrecondition,
-        });
-
-        if (delayMs > MAX_GMAIL_BLOCKING_RETRY_DELAY_MS) {
-          retryLogger.warn("Aborting retry due to long backoff in serverless", {
-            delaySeconds: Math.ceil(delayMs / 1000),
-            maxBlockingDelaySeconds: Math.ceil(
-              MAX_GMAIL_BLOCKING_RETRY_DELAY_MS / 1000,
-            ),
-            attemptNumber,
-            maxRetries,
-            ...retryLogFields,
-          });
-          throw new AbortError(
-            toErrorInstance(
-              originalError,
-              errorInfo.errorMessage ||
-                "Aborted retry due to long backoff in serverless",
-            ),
-          );
-        }
-
-        // Apply the custom delay
-        if (delayMs > 0) {
-          await sleep(delayMs);
-        }
-      },
-    });
-  } catch (error) {
-    const originalError = getAbortOriginalError(error);
-    if (originalError !== undefined) throw originalError;
-    throw error;
-  }
+        },
+      };
+    },
+  });
 }
 
 /**
@@ -252,23 +217,8 @@ export function calculateRetryDelay(
     // If stale, fall through to fallback logic
   }
 
-  // Handle Retry-After header
-  if (retryAfterHeader) {
-    const retryAfterSeconds = Number.parseInt(retryAfterHeader, 10);
-    if (!Number.isNaN(retryAfterSeconds)) {
-      return retryAfterSeconds * 1000;
-    }
-
-    // Try parsing as HTTP-date
-    const retryDate = new Date(retryAfterHeader);
-    if (!Number.isNaN(retryDate.getTime())) {
-      const delayMs = Math.max(0, retryDate.getTime() - Date.now());
-      if (delayMs > 0) {
-        return delayMs;
-      }
-      // If stale, fall through to fallback logic
-    }
-  }
+  const retryAfterDelayMs = getRetryAfterDelayMs(retryAfterHeader);
+  if (retryAfterDelayMs !== undefined) return retryAfterDelayMs;
 
   // Use different fallback delays based on error type
   if (isServerError) {
@@ -328,10 +278,6 @@ function buildRetryLogFields(errorInfo: ErrorInfo) {
   };
 }
 
-export function getRetryAfterHeader(error: unknown): string | undefined {
-  return getRetryAfterHeaderFromError(error);
-}
-
 function getFirstErrorValue(
   errors: unknown,
   key: "reason" | "message",
@@ -380,38 +326,6 @@ function getRetryAttemptError(attempt: unknown): unknown {
     return attemptRecord.error;
   }
   return attempt;
-}
-
-function getRetryAttemptNumber(attempt: unknown): number {
-  const attemptRecord = toRecord(attempt);
-  const attemptNumber = attemptRecord.attemptNumber;
-  if (typeof attemptNumber !== "number" || Number.isNaN(attemptNumber)) {
-    return 1;
-  }
-  return attemptNumber;
-}
-
-function toErrorInstance(error: unknown, fallbackMessage: string): Error {
-  if (error instanceof Error) return error;
-
-  const message =
-    typeof error === "string" && error.trim()
-      ? error
-      : fallbackMessage || "Retry aborted";
-  const normalizedError = new Error(message);
-
-  if (error && typeof error === "object") {
-    Object.assign(normalizedError, error);
-  }
-
-  return normalizedError;
-}
-
-function getAbortOriginalError(error: unknown): unknown | undefined {
-  const errorRecord = toRecord(error);
-  if (errorRecord.name !== "AbortError") return;
-  if (!("originalError" in errorRecord)) return;
-  return errorRecord.originalError;
 }
 
 function toRecord(value: unknown): Record<string, unknown> {

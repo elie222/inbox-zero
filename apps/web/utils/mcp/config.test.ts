@@ -32,6 +32,6 @@ it("uses /mcp as the canonical resource identifier", () => {
   expect(getMcpProtectedResourceMetadata()).toMatchObject({
     resource: "https://example.com/mcp",
     authorization_servers: ["https://example.com/api/auth"],
-    scopes_supported: ["mcp:read", "mcp:write", "offline_access"],
+    scopes_supported: ["mcp:read", "mcp:write", "mcp:send", "offline_access"],
   });
 });
