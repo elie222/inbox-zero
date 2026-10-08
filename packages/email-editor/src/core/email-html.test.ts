@@ -13,6 +13,7 @@ import {
   detectInlineImageMimeType,
   finalizeEditableEmailHtml,
   normalizeEmailUrl,
+  prepareEditableSignatureHtml,
   prepareEmailDraft,
   sanitizeEditableEmailHtml,
   sanitizePreservedEmailHtmlForPreview,
@@ -114,6 +115,25 @@ describe("prepareEmailDraft", () => {
     );
   });
 
+  it("edits text colors, fonts, and sizes without falling back", () => {
+    const result = prepareEmailDraft({
+      html: '<div class="gmail_default"><span style="color:#555;font-size:12px">Muted</span> <font color="#0b5394" face="arial, sans-serif" size="1">Small</font></div>',
+    });
+
+    expect(result.mode).toBe("rich");
+    expect(result.editableHtml).toBe(
+      '<p><span style="color:#555;font-size:12px">Muted</span> <span style="color:#0b5394;font-family:arial, sans-serif;font-size:10px">Small</span></p>',
+    );
+  });
+
+  it("falls back for text styles that could inject CSS", () => {
+    const result = prepareEmailDraft({
+      html: '<p><span style="color:red;background:url(https://tracker.example)">Text</span></p>',
+    });
+
+    expect(result.mode).toBe("fallback");
+  });
+
   it("uses the lossless fallback for remote editable images", () => {
     const html = '<p><img src="https://tracker.example/image.png"></p>';
     const result = prepareEmailDraft({ html });
@@ -164,6 +184,55 @@ describe("outgoing HTML", () => {
   });
 });
 
+describe("editable signatures", () => {
+  it("makes simple provider signatures editable inside one signature container", () => {
+    expect(
+      prepareEditableSignatureHtml(
+        '<div dir="ltr" class="gmail_signature" data-smartmail="gmail_signature"><div>Example Person</div><font color="#666666">Example Company</font></div><br><div>Sent with <a href="https://example.com/ref">Inbox Zero</a></div>',
+      ),
+    ).toBe(
+      '<div data-smartmail="gmail_signature"><p></p><p dir="ltr">Example Person</p><p dir="ltr"><span style="color:#666666">Example Company</span></p><p></p><p>Sent with <a href="https://example.com/ref" target="_blank" rel="noopener noreferrer">Inbox Zero</a></p></div>',
+    );
+  });
+
+  it("adds one blank line before the signature and keeps it when reopened", () => {
+    const editable = prepareEditableSignatureHtml("<div>Regards</div>");
+    expect(editable).toBe(
+      '<div data-smartmail="gmail_signature"><p></p><p>Regards</p></div>',
+    );
+    expect(prepareEditableSignatureHtml(editable ?? "")).toBe(editable);
+  });
+
+  it("keeps signatures protected when editing would lose layout or remote images", () => {
+    expect(
+      prepareEditableSignatureHtml(
+        '<table role="presentation"><tbody><tr><td>Example Person</td></tr></tbody></table>',
+      ),
+    ).toBeNull();
+    expect(
+      prepareEditableSignatureHtml('<img src="https://example.com/logo.png">'),
+    ).toBeNull();
+  });
+
+  it("sends an edited signature and finds it again when the draft is reopened", () => {
+    const sent = finalizeEditableEmailHtml({
+      html: '<p>Hello</p><div data-smartmail="gmail_signature"><p></p><p>Edited <a href="https://example.com/new">link</a></p></div>',
+      inlineAttachments: [],
+    });
+    expect(sent).toBe(
+      '<p>Hello</p><div data-smartmail="gmail_signature"><p></p><p>Edited <a href="https://example.com/new" target="_blank" rel="noopener noreferrer">link</a></p></div>',
+    );
+
+    const reopened = prepareEmailDraft({
+      html: sent,
+      signatureHtml: "<div>Original signature</div>",
+    });
+    expect(reopened.editableHtml).toBe("<p>Hello</p>");
+    expect(reopened.signatureHtml).toContain("Edited");
+    expect(reopened.signatureHtml).not.toContain("Original signature");
+  });
+});
+
 describe("preserved HTML preview", () => {
   it("keeps complex layout but blocks active content and remote tracking images", () => {
     const result = sanitizePreservedEmailHtmlForPreview(
@@ -194,10 +263,10 @@ describe("editable HTML boundary", () => {
   it("keeps supported formatting and local inline-image previews", () => {
     expect(
       sanitizeEditableEmailHtml(
-        '<section><p dir="rtl"><span style="font-weight:700;color:red">שלום</span><img src="file:///tmp/image.png" width="120" height="80" onerror="steal()"></p></section>',
+        '<section><p dir="rtl"><span style="font-weight:700;color:red;position:fixed">שלום</span><img src="file:///tmp/image.png" width="120" height="80" onerror="steal()"></p></section>',
       ),
     ).toBe(
-      '<p dir="rtl"><span style="font-weight:700">שלום</span><img src="file:///tmp/image.png" width="120" height="80"></p>',
+      '<p dir="rtl"><span style="font-weight:700;color:red">שלום</span><img src="file:///tmp/image.png" width="120" height="80"></p>',
     );
   });
 
