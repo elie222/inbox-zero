@@ -46,7 +46,7 @@ it("propagates a failed raw download instead of returning an empty attachment", 
 });
 
 it.each([
-  0, 2, 4,
+  0, 4,
 ])("rejects a raw download of %i bytes when metadata reports 3 bytes", async (downloadedSize) => {
   const request = {
     options: vi.fn().mockReturnThis(),
@@ -63,6 +63,26 @@ it.each([
   await expect(getOutlookAttachment(client, "message", "file")).rejects.toThrow(
     "Attachment size mismatch",
   );
+});
+
+it("accepts raw content smaller than metadata size, which includes Graph metadata overhead", async () => {
+  const content = Buffer.alloc(34_877, 1);
+  const request = {
+    options: vi.fn().mockReturnThis(),
+    responseType: vi.fn().mockReturnThis(),
+    get: vi
+      .fn()
+      .mockResolvedValueOnce({ size: 35_137 })
+      .mockResolvedValueOnce(new Response(content)),
+  };
+  const client = {
+    getClient: () => ({ api: () => request }),
+  } as unknown as OutlookClient;
+
+  expect(await getOutlookAttachment(client, "message", "file")).toEqual({
+    contentBytes: content.toString("base64"),
+    size: content.length,
+  });
 });
 
 it.each([

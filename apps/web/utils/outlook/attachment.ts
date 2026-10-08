@@ -19,7 +19,12 @@ export async function getOutlookAttachment(
       attachmentId,
     );
     const content = Buffer.from(await new Response(stream).arrayBuffer());
-    if (attachment.size && content.length !== attachment.size) {
+    // Graph's size includes attachment metadata, so the raw file is usually
+    // smaller. Only an empty or oversized body is a reliable sign of bad data.
+    if (
+      attachment.size &&
+      (content.length === 0 || content.length > attachment.size)
+    ) {
       throw new Error("Attachment size mismatch");
     }
 
