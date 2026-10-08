@@ -71,8 +71,10 @@ export function Hero({
 export function HeroVideoPlayer({
   video,
 }: {
-  video?: { muxPlaybackId: string; thumbnailTime: number; title: string };
+  video?: { muxPlaybackId: string; thumbnailTime?: number; title: string };
 }) {
+  const muxThumbnail = video?.thumbnailTime !== undefined;
+
   return (
     <HeroReveal className="relative w-full" delay={0.125 * 9}>
       <div className="relative block overflow-hidden rounded-3xl border border-[#EFEFEF] md:rounded-[43px]">
@@ -83,13 +85,13 @@ export function HeroVideoPlayer({
         />
         <Image
           src={
-            video
+            muxThumbnail
               ? `https://image.mux.com/${video.muxPlaybackId}/thumbnail.jpg?time=${video.thumbnailTime}&width=2560`
               : "/images/new-landing/video-thumbnail.jpg"
           }
           alt={video?.title ?? "an organized inbox"}
           width={2560}
-          height={video ? 1440 : 1404}
+          height={muxThumbnail ? 1440 : 1404}
           sizes="(min-width: 1280px) 1152px, (min-width: 1024px) calc(100vw - 64px), calc(100vw - 48px)"
           preload
           className="h-auto w-full"
