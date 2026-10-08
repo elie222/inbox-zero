@@ -48,7 +48,7 @@ export function createOriginMailRequest(input: {
         ...(isBytes ? { "content-type": "application/octet-stream" } : {}),
         ...(cookieHeader ? { cookie: cookieHeader } : {}),
       },
-      body: isBytes ? body : payload,
+      body: isBytes ? (body as Uint8Array<ArrayBuffer>) : payload,
       signal,
     });
     if (accept === "bytes" && response.ok) {

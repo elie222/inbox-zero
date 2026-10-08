@@ -22,7 +22,7 @@ export function SidebarRight({
   return (
     <div
       className={cn(
-        "fixed right-0 top-0 z-50 h-screen border-l bg-background transition-transform duration-200 ease-linear",
+        "fixed right-0 top-0 z-50 h-dvh border-l bg-background transition-transform duration-200 ease-linear",
         "w-full lg:w-[450px]",
         isOpen ? "translate-x-0" : "translate-x-full",
         className,

@@ -91,6 +91,7 @@ export function createMockEmailProvider(
       .fn()
       .mockResolvedValue({ messages: [], nextPageToken: undefined }),
     searchContacts: vi.fn().mockResolvedValue([]),
+    getContactPhotos: vi.fn().mockResolvedValue({}),
     getMessagesFromSender: vi
       .fn()
       .mockResolvedValue({ messages: [], nextPageToken: undefined }),
@@ -161,6 +162,7 @@ export function createMockEmailProvider(
 
     // Filters
     getFiltersList: vi.fn().mockResolvedValue([]),
+    getForwardingAddresses: vi.fn().mockResolvedValue([]),
     createFilter: vi.fn().mockResolvedValue({ status: 200 }),
     deleteFilter: vi.fn().mockResolvedValue({ status: 200 }),
     createAutoArchiveFilter: vi.fn().mockResolvedValue({ status: 200 }),

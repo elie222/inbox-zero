@@ -13,7 +13,7 @@ import { createTestLogger } from "@/__tests__/helpers";
 const logger = createTestLogger();
 
 // Mock the retry wrapper to just execute the function directly
-vi.mock("@/utils/microsoft/retry", () => ({
+vi.mock("@/utils/outlook/retry", () => ({
   withMicrosoftGraphRetry: <T>(fn: () => Promise<T>) => fn(),
   withMicrosoftGraphWriteRetry: <T>(fn: () => Promise<T>) => fn(),
 }));

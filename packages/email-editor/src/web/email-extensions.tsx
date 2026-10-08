@@ -1,8 +1,10 @@
 import { Extension, Node, type AnyExtension } from "@tiptap/core";
 import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
+import { TextStyleKit } from "@tiptap/extension-text-style";
 import StarterKit from "@tiptap/starter-kit";
 import {
+  NodeViewContent,
   NodeViewWrapper,
   ReactNodeViewRenderer,
   type NodeViewProps,
@@ -36,6 +38,31 @@ const PreservedEmailBlockNode = Node.create({
 
   addNodeView() {
     return ReactNodeViewRenderer(PreservedBlockNodeView);
+  },
+});
+
+// Simple signatures are edited in place but keep the collapsible signature
+// chrome. The Gmail container attribute lets a reopened draft find it again.
+const EditableSignatureNode = Node.create({
+  name: "editableEmailSignature",
+  group: "block",
+  content: "block+",
+  defining: true,
+  isolating: true,
+  // Forward-delete from the reply would otherwise select the collapsed
+  // signature and the next keystroke would replace it unseen.
+  selectable: false,
+
+  parseHTML() {
+    return [{ tag: "div[data-smartmail]" }];
+  },
+
+  renderHTML() {
+    return ["div", { "data-smartmail": "gmail_signature" }, 0];
+  },
+
+  addNodeView() {
+    return ReactNodeViewRenderer(EditableSignatureNodeView);
   },
 });
 
@@ -117,6 +144,8 @@ export function createEmailEditorExtensions(
     EmailDirection,
     UrlHighlight,
     PreservedEmailBlockNode,
+    EditableSignatureNode,
+    TextStyleKit.configure({ backgroundColor: false, lineHeight: false }),
     Placeholder.configure({
       placeholder,
       showOnlyCurrent: true,
@@ -144,6 +173,31 @@ function PreservedBlockNodeView({ node, deleteNode }: NodeViewProps) {
     </NodeViewWrapper>
   );
 }
+
+function EditableSignatureNodeView({ deleteNode }: NodeViewProps) {
+  return (
+    <NodeViewWrapper
+      className={styles.preservedBlock}
+      data-email-preserved-kind="signature"
+    >
+      <PreservedBlockView
+        block={EDITABLE_SIGNATURE_BLOCK}
+        onRemove={deleteNode}
+        signatureContent={
+          <NodeViewContent
+            className={styles.signatureHtml}
+            data-email-signature-content=""
+          />
+        }
+      />
+    </NodeViewWrapper>
+  );
+}
+
+const EDITABLE_SIGNATURE_BLOCK = {
+  id: "signature",
+  kind: "signature",
+} as const;
 
 function normalizeDirection(value: unknown): "ltr" | "rtl" | "auto" | null {
   return value === "ltr" || value === "rtl" || value === "auto" ? value : null;

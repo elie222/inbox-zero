@@ -4,7 +4,12 @@ import { createScopedLogger } from "@/utils/logger";
 import { createGenerateObject } from "@/utils/llms/index";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
-import { getEmailListPrompt, getTodayForLLM } from "@/utils/ai/helpers";
+import {
+  getEmailListPrompt,
+  getTodayForLLM,
+  getUserAboutPrompt,
+  getWritingStylePrompt,
+} from "@/utils/ai/helpers";
 import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 import { appendOllamaOnlySystemGuidance } from "@/utils/llms/ollama-guidance";
 import type { ReplyContextCollectorResult } from "@/utils/ai/reply/reply-context-collector";
@@ -201,14 +206,7 @@ export function buildDraftReplyModelContext({
   const advisoryLearnedWritingStyle = normalizedWritingStyle
     ? normalizedLearnedWritingStyle
     : null;
-  const userAbout = emailAccount.about
-    ? `Context about the user:
-
-<userAbout>
-${emailAccount.about}
-</userAbout>
-`
-    : "";
+  const userAbout = getUserAboutPrompt(emailAccount.about);
 
   const relevantKnowledge = knowledgeBaseContent
     ? `Relevant knowledge base content:
@@ -265,14 +263,7 @@ ${senderReplyExamples}
 `
     : "";
 
-  const writingStylePrompt = effectiveWritingStyle
-    ? `Writing style:
-
-<writing_style>
-${effectiveWritingStyle}
-</writing_style>
-`
-    : "";
+  const writingStylePrompt = getWritingStylePrompt(effectiveWritingStyle);
 
   const learnedWritingStylePrompt = advisoryLearnedWritingStyle
     ? `Learned writing style from prior draft edits. This is advisory and lower priority than any explicit writing style provided by the user.

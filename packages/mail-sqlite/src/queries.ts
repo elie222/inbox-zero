@@ -86,7 +86,9 @@ export function compilePredicate(
       const column =
         predicate.field === "from"
           ? `${alias}.from_address`
-          : `${alias}.to_json`;
+          : predicate.field === "to"
+            ? `${alias}.to_json`
+            : `${alias}.cc_json`;
       if (predicate.field === "from" && predicate.match === "address") {
         return {
           sql: `(LOWER(${column}) = LOWER(?) OR LOWER(${column}) LIKE '%' || LOWER(?) || '%')`,

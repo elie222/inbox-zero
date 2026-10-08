@@ -1,23 +1,33 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { mobileAuthCodeChallengeSchema } from "@/utils/mobile-auth/pkce";
 import { withError } from "@/utils/middleware";
 import { startMobileSocialAuth } from "@/utils/mobile-auth/start-social";
 import { mobileAuthProviderSchema } from "@/utils/mobile-auth/providers";
-
-const browserStartQuerySchema = z.object({
-  provider: mobileAuthProviderSchema,
-  codeChallenge: mobileAuthCodeChallengeSchema,
-});
+import { getMobileAuthBaseUrlOrigin } from "@/utils/mobile-auth/url";
 
 export const GET = withError("mobile-auth/browser-start", async (request) => {
-  const query = browserStartQuerySchema.parse({
-    provider: request.nextUrl.searchParams.get("provider"),
-    codeChallenge: request.nextUrl.searchParams.get("codeChallenge"),
-  });
+  const provider = mobileAuthProviderSchema.parse(
+    request.nextUrl.searchParams.get("provider"),
+  );
+  const codeChallenge = mobileAuthCodeChallengeSchema.safeParse(
+    request.nextUrl.searchParams.get("codeChallenge"),
+  );
+  if (!codeChallenge.success) {
+    request.logger.warn("Desktop auth start rejected", {
+      reason: "invalid_code_challenge",
+      provider,
+    });
+    const response = NextResponse.redirect(
+      new URL("/login/desktop-update-required", getMobileAuthBaseUrlOrigin()),
+      302,
+    );
+    response.headers.set("Cache-Control", "no-store");
+    return response;
+  }
+
   const started = await startMobileSocialAuth({
-    provider: query.provider,
-    codeChallenge: query.codeChallenge,
+    provider,
+    codeChallenge: codeChallenge.data,
     returnUrlMode: "desktop-scheme",
   });
 

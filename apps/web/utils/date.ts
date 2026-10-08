@@ -15,6 +15,7 @@ export const ONE_HOUR_MS = ONE_MINUTE_MS * 60;
 export const ONE_DAY_MS = ONE_HOUR_MS * 24;
 export const ONE_MONTH_MS = ONE_DAY_MS * 30;
 export const ONE_YEAR_MS = ONE_DAY_MS * 365;
+export const TEN_YEARS_MS = ONE_YEAR_MS * 10;
 
 export const ONE_HOUR_MINUTES = 60;
 export const ONE_DAY_MINUTES = ONE_HOUR_MINUTES * 24;
@@ -87,7 +88,9 @@ export function internalDateToDate(
   options?: { fallbackToNow?: boolean },
 ): Date {
   const fallbackToNow = options?.fallbackToNow ?? true;
-  if (!internalDate) return fallbackToNow ? new Date() : new Date(Number.NaN);
+  if (!internalDate?.trim()) {
+    return fallbackToNow ? new Date() : new Date(Number.NaN);
+  }
 
   // First try to parse as a regular date string (for ISO strings like "2025-06-19T21:46:31Z")
   let date = new Date(internalDate);

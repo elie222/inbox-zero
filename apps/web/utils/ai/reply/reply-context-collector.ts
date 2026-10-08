@@ -264,6 +264,7 @@ export async function searchReplyContextEmails({
       return selectThreadContextMessages({
         messages,
         matchingMessages,
+        emailProvider,
       });
     }),
   );
@@ -330,9 +331,11 @@ function filterCurrentThreadMessages(
 function selectThreadContextMessages({
   messages,
   matchingMessages,
+  emailProvider,
 }: {
   messages: ParsedMessage[];
   matchingMessages: ParsedMessage[];
+  emailProvider: EmailProvider;
 }) {
   if (messages.length <= MAX_CONTEXT_EMAILS_PER_THREAD) return messages;
 
@@ -347,7 +350,11 @@ function selectThreadContextMessages({
 
   const rankedMessages = messages
     .flatMap((message, index) => {
-      const rank = getThreadContextRank({ message, index, matchIndexes });
+      const rank = getThreadContextRank({
+        index,
+        matchIndexes,
+        isSent: emailProvider.isSentMessage(message),
+      });
       return rank === null ? [] : [{ index, message, rank }];
     })
     .sort((a, b) => a.rank - b.rank || a.index - b.index)
@@ -358,13 +365,13 @@ function selectThreadContextMessages({
 }
 
 function getThreadContextRank({
-  message,
   index,
   matchIndexes,
+  isSent,
 }: {
-  message: ParsedMessage;
   index: number;
   matchIndexes: number[];
+  isSent: boolean;
 }) {
   const distanceFromMatch = Math.min(
     ...matchIndexes.map((matchIndex) => Math.abs(index - matchIndex)),
@@ -378,17 +385,9 @@ function getThreadContextRank({
       index <= matchIndex + THREAD_CONTEXT_AFTER_MATCH,
   );
 
-  if (inContextWindow && isSentMessage(message)) return 1;
+  if (inContextWindow && isSent) return 1;
   if (inContextWindow) return 2 + distanceFromMatch;
-  if (isSentMessage(message)) return 100 + distanceFromMatch;
+  if (isSent) return 100 + distanceFromMatch;
 
   return null;
-}
-
-function isSentMessage(message: ParsedMessage) {
-  return (
-    message.labelIds?.some((label) => label.toLowerCase() === "sent") ||
-    message.parentFolderId?.toLowerCase().includes("sent") ||
-    false
-  );
 }

@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePostHog } from "posthog-js/react";
 import type { PostHog } from "posthog-js";
 import { Label, Radio, RadioGroup } from "@headlessui/react";
-import { usePricingFrequencyDefault } from "@/hooks/useFeatureFlags";
 import { Sparkle } from "@/components/new-landing/icons/Sparkle";
 import { Zap } from "@/components/new-landing/icons/Zap";
 import { Check } from "@/components/new-landing/icons/Check";
@@ -89,9 +88,7 @@ const frequencies = ["annually", "monthly"] as const;
 type PricingFrequency = (typeof frequencies)[number];
 
 export function Pricing() {
-  const pricingFrequencyDefaultVariant = usePricingFrequencyDefault();
-  const defaultFrequency =
-    pricingFrequencyDefaultVariant === "annually" ? "annually" : "monthly";
+  const defaultFrequency: PricingFrequency = "annually";
   const [chosenFrequency, setFrequency] = useState<PricingFrequency | null>(
     null,
   );
@@ -114,8 +111,6 @@ export function Pricing() {
               previousFrequency: frequency,
               frequency: nextFrequency,
               defaultFrequency,
-              pricingFrequencyDefaultVariant:
-                pricingFrequencyDefaultVariant ?? null,
             });
             setFrequency(nextFrequency);
           }}
@@ -146,9 +141,6 @@ export function Pricing() {
                 frequency={frequency}
                 defaultFrequency={defaultFrequency}
                 frequencySource={chosenFrequency ? "user_selected" : "default"}
-                pricingFrequencyDefaultVariant={
-                  pricingFrequencyDefaultVariant ?? null
-                }
                 posthog={posthog}
               />
             </CardWrapper>
@@ -183,8 +175,6 @@ export function Pricing() {
                       frequencySource: chosenFrequency
                         ? "user_selected"
                         : "default",
-                      pricingFrequencyDefaultVariant:
-                        pricingFrequencyDefaultVariant ?? null,
                     })
                   }
                 >
@@ -205,7 +195,6 @@ interface PricingCardProps {
   frequency: PricingFrequency;
   frequencySource: "default" | "user_selected";
   posthog: PostHog;
-  pricingFrequencyDefaultVariant: string | null;
   tier: PricingTier;
   tierIndex: number;
 }
@@ -216,7 +205,6 @@ function PricingCard({
   frequency,
   defaultFrequency,
   frequencySource,
-  pricingFrequencyDefaultVariant,
   posthog,
 }: PricingCardProps) {
   const { name, description, features } = tier;
@@ -272,7 +260,6 @@ function PricingCard({
                   frequency,
                   defaultFrequency,
                   frequencySource,
-                  pricingFrequencyDefaultVariant,
                 })
               }
             >

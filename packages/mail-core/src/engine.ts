@@ -17,7 +17,11 @@ import type {
   OperationKey,
 } from "./identities";
 import type { OperationState } from "./operations";
-import type { MailboxSource } from "./ports/mailbox-source";
+import {
+  MAX_CHANGES_BATCH_READS,
+  type MailboxSource,
+  type SyncReadResult,
+} from "./ports/mailbox-source";
 import type {
   AccountSyncState,
   MailStore,
@@ -47,6 +51,20 @@ import type { BlobStore } from "./ports/blob-store";
 const MAX_BOOTSTRAP_PAGES_PER_RUN = 25;
 const NON_ADVANCING_BOOTSTRAP_RETRY_MS = 60_000;
 const IDLE_CATCH_UP_INTERVAL_MS = 60_000;
+// A lane is abandoned after this long, so a request that never settles
+// cannot keep its account from syncing again.
+const SYNC_LANE_TIMEOUT_MS = 2 * 60_000;
+// How long one bootstrap call may keep paging before the lane moves on to the
+// account's other streams; the scan resumes on the lane's next pass.
+const SYNC_LANE_BOOTSTRAP_SLICE_MS = 2000;
+const SYNC_LANE_RETRY_MIN_MS = 1000;
+const SYNC_LANE_RETRY_MAX_MS = 60_000;
+// Folder discovery and low-priority streams (such as custom Outlook folders)
+// change rarely and cost a provider call each, so they run on a slower clock.
+const LOW_PRIORITY_CATCH_UP_INTERVAL_MS = 10 * 60_000;
+// A sync request (a provider push, the tab coming back) refreshes them only
+// when they have not run recently, so a burst of pushes stays cheap.
+const LOW_PRIORITY_REQUESTED_MIN_INTERVAL_MS = 2 * 60_000;
 const MAX_MAILBOX_WINDOW_PAGES = 40;
 
 export type WorkAdmission =
@@ -125,6 +143,8 @@ export type MailClient = {
   ensureMessageContent(key: MessageKey): Promise<WorkAdmission>;
   getDiagnostics(accountId: string): Promise<MailDiagnostics>;
   purgeAccount(accountId: string): Promise<LocalRevision>;
+  /** Purges every local account outside `accountIds`; an empty list is ignored. */
+  retainAccounts(accountIds: string[]): Promise<void>;
   close?(): Promise<void>;
 };
 
@@ -143,16 +163,25 @@ export function createMailEngine(input: {
   assistant?: AssistantStateSource;
   blobStore?: BlobStore;
   idleCatchUpIntervalMs?: number;
+  syncLaneTimeoutMs?: number;
 }): MailEngine {
   const { store, source, executor, runtime } = input;
   const idleCatchUpIntervalMs =
     input.idleCatchUpIntervalMs ?? IDLE_CATCH_UP_INTERVAL_MS;
+  const syncLaneTimeoutMs = input.syncLaneTimeoutMs ?? SYNC_LANE_TIMEOUT_MS;
   const ownerId = input.ownerId ?? "local-owner";
   const assistant = input.assistant;
   const blobStore = input.blobStore;
   const queries = createQueryRegistry();
   let evictedForCurrentPressure = false;
   const idleCatchUpGates = new Map<string, IdleCatchUpGate>();
+  const syncLanes = new Map<string, SyncLane>();
+  const syncLaneRetries = new Map<
+    string,
+    { retryAtMs: number; delayMs: number }
+  >();
+  const syncLaneErrors: unknown[] = [];
+  let closed = false;
   let refreshGate: Promise<void> | null = null;
   let refreshQueued = false;
 
@@ -309,7 +338,10 @@ export function createMailEngine(input: {
       if (accountIds.length === 0) {
         return { status: "rejected", code: "invalid_account" };
       }
-      for (const accountId of accountIds) idleCatchUpGates.delete(accountId);
+      for (const accountId of accountIds) {
+        const gate = idleCatchUpGates.get(accountId);
+        if (gate) requestCatchUp(gate);
+      }
       await store.releaseDeferredOperations({
         accountIds,
         nowMs: runtime.nowMs(),
@@ -324,10 +356,26 @@ export function createMailEngine(input: {
       return store.getDiagnostics(accountId);
     },
     async purgeAccount(accountId) {
+      stopSyncLane(accountId);
       idleCatchUpGates.delete(accountId);
       const revision = await store.purgeAccount(accountId);
       await refreshViews();
       return revision;
+    },
+    async retainAccounts(accountIds) {
+      // An empty list is never a real account set, so it must not wipe the device.
+      if (accountIds.length === 0) return;
+      const retained = new Set(accountIds);
+      const accounts = await store.readAccountSyncStates();
+      let purged = false;
+      for (const account of accounts) {
+        if (retained.has(account.accountId)) continue;
+        stopSyncLane(account.accountId);
+        idleCatchUpGates.delete(account.accountId);
+        await store.purgeAccount(account.accountId);
+        purged = true;
+      }
+      if (purged) await refreshViews();
     },
     inspect() {
       return store.inspect();
@@ -351,12 +399,13 @@ export function createMailEngine(input: {
           leaseMs: 30_000,
         });
         if (!work) {
-          await catchUpIdleAccounts(deadlineMs, signal);
+          await startSyncLanes();
           if (signal?.aborted || runtime.nowMs() >= deadlineMs) return;
           // Batches stay short and claimable work is checked between them,
           // so a large backlog never delays commands or sync.
           const { remaining } = await store.indexSearchBacklog();
           if (remaining) continue;
+          await waitForSyncLanes(deadlineMs, signal);
           return;
         }
         if (work.kind === "command") {
@@ -577,6 +626,13 @@ export function createMailEngine(input: {
       }
     },
     async close() {
+      closed = true;
+      const lanes = [...syncLanes.keys()].map((accountId) => {
+        const done = syncLanes.get(accountId)?.done;
+        stopSyncLane(accountId);
+        return done;
+      });
+      await Promise.allSettled(lanes);
       queries.closeAll();
       await store.close();
     },
@@ -727,161 +783,337 @@ export function createMailEngine(input: {
     await refreshViews();
   }
 
-  async function catchUpIdleAccounts(deadlineMs: number, signal?: AbortSignal) {
+  // Each account syncs in its own lane, so a slow account or a slow request
+  // never holds up another account or the command loop. A lane outlives the
+  // runUntil call that started it; later calls skip accounts already running.
+  async function startSyncLanes() {
     const accounts = await store.readAccountSyncStates();
-    let visitedStreams = 0;
     for (const account of accounts) {
-      if (runtime.nowMs() >= deadlineMs) return;
-      const session = {
-        accountId: account.accountId,
-        generation: account.generation,
+      const { accountId } = account;
+      if (closed || syncLanes.has(accountId)) continue;
+      const retry = syncLaneRetries.get(accountId);
+      if (retry && retry.retryAtMs > runtime.nowMs()) continue;
+      const abort = new AbortController();
+      let timedOut = false;
+      const timeout = setTimeout(() => {
+        timedOut = true;
+        abort.abort();
+      }, syncLaneTimeoutMs);
+      // The lane settles on abort even if a request ignores the signal.
+      const aborted = new Promise<void>((resolve) => {
+        abort.signal.addEventListener("abort", () => resolve(), { once: true });
+      });
+      const lane: SyncLane = {
+        abort,
+        done: Promise.race([catchUpAccount(account, abort.signal), aborted])
+          .then(() => {
+            if (timedOut) {
+              failSyncLane(accountId, new Error("Mail sync lane timed out"));
+            } else {
+              syncLaneRetries.delete(accountId);
+            }
+          })
+          .catch((error: unknown) => {
+            // A purge or close stopped the lane on purpose.
+            if (abort.signal.aborted && !timedOut) return;
+            failSyncLane(accountId, error);
+          })
+          .finally(() => {
+            clearTimeout(timeout);
+            if (syncLanes.get(accountId) === lane) syncLanes.delete(accountId);
+          }),
       };
-      const idleGate = idleCatchUpGateFor(
-        account.accountId,
-        account.generation,
-      );
-      const shouldDiscoverScopes = idleGateDue(
+      syncLanes.set(accountId, lane);
+    }
+  }
+
+  function failSyncLane(accountId: string, error: unknown) {
+    const delayMs = Math.min(
+      SYNC_LANE_RETRY_MAX_MS,
+      (syncLaneRetries.get(accountId)?.delayMs ?? 0) * 2 ||
+        SYNC_LANE_RETRY_MIN_MS,
+    );
+    syncLaneRetries.set(accountId, {
+      retryAtMs: runtime.nowMs() + delayMs,
+      delayMs,
+    });
+    syncLaneErrors.push(error);
+  }
+
+  function stopSyncLane(accountId: string) {
+    syncLanes.get(accountId)?.abort.abort();
+    syncLanes.delete(accountId);
+    syncLaneRetries.delete(accountId);
+  }
+
+  async function waitForSyncLanes(deadlineMs: number, signal?: AbortSignal) {
+    if (syncLanes.size > 0) {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      let onAbort: (() => void) | undefined;
+      await Promise.race([
+        Promise.allSettled([...syncLanes.values()].map((lane) => lane.done)),
+        new Promise<void>((resolve) => {
+          timer = setTimeout(
+            resolve,
+            Math.max(0, deadlineMs - runtime.nowMs()),
+          );
+          onAbort = resolve;
+          signal?.addEventListener("abort", onAbort, { once: true });
+        }),
+      ]);
+      clearTimeout(timer);
+      if (onAbort) signal?.removeEventListener("abort", onAbort);
+    }
+    // Reports lane failures to the host loop. Each failing account already
+    // backs off on its own, so this is for visibility, not retry pacing.
+    const errors = syncLaneErrors.splice(0);
+    if (errors.length === 1) throw errors[0];
+    if (errors.length > 1) {
+      throw new AggregateError(errors, "Mail sync lanes failed");
+    }
+  }
+
+  async function catchUpAccount(
+    account: AccountSyncState,
+    signal: AbortSignal,
+  ) {
+    let visitedStreams = 0;
+    const session = {
+      accountId: account.accountId,
+      generation: account.generation,
+    };
+    const idleGate = idleCatchUpGateFor(account.accountId, account.generation);
+    const shouldDiscoverScopes =
+      idleGateDue(
         idleGate.nextScopeDiscoveryAtMs,
         runtime.nowMs(),
-        idleCatchUpIntervalMs,
+        LOW_PRIORITY_CATCH_UP_INTERVAL_MS,
+      ) ||
+      requestedSince(
+        idleGate,
+        idleGate.scopesDiscoveredAt,
+        LOW_PRIORITY_REQUESTED_MIN_INTERVAL_MS,
       );
-      const discoveredScopes = shouldDiscoverScopes
-        ? await discoverBootstrapScopes(session, signal)
-        : undefined;
-      if (shouldDiscoverScopes) {
-        idleGate.nextScopeDiscoveryAtMs =
-          runtime.nowMs() + idleCatchUpIntervalMs;
-      }
-      if (discoveredScopes) {
-        const addedScopes = await store.registerSyncScopes({
-          session,
-          scopeIds: discoveredScopes.map((scope) => scope.id),
+    if (shouldDiscoverScopes) {
+      idleGate.scopesDiscoveredAt = checkStamp(idleGate);
+    }
+    const discoveredScopes = shouldDiscoverScopes
+      ? await discoverBootstrapScopes(session, signal)
+      : undefined;
+    if (shouldDiscoverScopes) {
+      // A failed discovery retries on the normal clock; an account with no
+      // streams cannot start syncing until it succeeds.
+      idleGate.nextScopeDiscoveryAtMs =
+        runtime.nowMs() +
+        (discoveredScopes
+          ? LOW_PRIORITY_CATCH_UP_INTERVAL_MS
+          : idleCatchUpIntervalMs);
+    }
+    if (discoveredScopes) {
+      idleGate.lowPriorityStreams = new Set(
+        discoveredScopes
+          .filter((scope) => scope.priority === "low")
+          .map((scope) => scope.id),
+      );
+    }
+    if (discoveredScopes) {
+      const addedScopes = await store.registerSyncScopes({
+        session,
+        scopeIds: discoveredScopes.map((scope) => scope.id),
+      });
+      if (addedScopes) await refreshViews();
+    }
+    const streamsById = new Map(
+      account.streams.map((stream) => [stream.streamId, stream]),
+    );
+    for (const scope of discoveredScopes ?? []) {
+      if (!streamsById.has(scope.id)) {
+        idleGate.activeBootstrapScopes.set(scope.id, scope);
+        streamsById.set(scope.id, {
+          accountId: account.accountId,
+          streamId: scope.id,
+          generation: account.generation,
+          checkpoint: null,
         });
-        if (addedScopes) await refreshViews();
       }
-      const streamsById = new Map(
-        account.streams.map((stream) => [stream.streamId, stream]),
-      );
-      for (const scope of discoveredScopes ?? []) {
-        if (!streamsById.has(scope.id)) {
-          idleGate.activeBootstrapScopes.set(scope.id, scope);
-          streamsById.set(scope.id, {
+    }
+    if (!shouldDiscoverScopes) {
+      for (const scopeId of idleGate.activeBootstrapScopes.keys()) {
+        if (!streamsById.has(scopeId)) {
+          streamsById.set(scopeId, {
             accountId: account.accountId,
-            streamId: scope.id,
+            streamId: scopeId,
             generation: account.generation,
             checkpoint: null,
           });
         }
       }
-      if (!shouldDiscoverScopes) {
-        for (const scopeId of idleGate.activeBootstrapScopes.keys()) {
-          if (!streamsById.has(scopeId)) {
-            streamsById.set(scopeId, {
-              accountId: account.accountId,
-              streamId: scopeId,
-              generation: account.generation,
-              checkpoint: null,
-            });
-          }
-        }
-      }
-      if (streamsById.size === 0) {
-        await catchUpAssistantIfDue(idleGate, account, signal);
-        continue;
-      }
-      const streams = [...streamsById.values()];
-      for (const stream of streams) {
-        if (visitedStreams > 0) await yieldToHost();
-        visitedStreams += 1;
-        if (signal?.aborted || runtime.nowMs() >= deadlineMs) return;
-        const catchUpDue = idleGateDue(
+    }
+    if (streamsById.size === 0) {
+      await catchUpAssistantIfDue(idleGate, account, signal);
+      return;
+    }
+    const streams = [...streamsById.values()];
+    const dueStreams: typeof streams = [];
+    for (const stream of streams) {
+      if (visitedStreams > 0) await yieldToHost();
+      visitedStreams += 1;
+      if (signal.aborted) return;
+      const catchUpDue =
+        idleGateDue(
           idleGate.nextStreamCatchUpAtMs.get(stream.streamId) ?? 0,
           runtime.nowMs(),
-          idleCatchUpIntervalMs,
+          streamCatchUpInterval(idleGate, stream.streamId),
+        ) ||
+        requestedSince(
+          idleGate,
+          idleGate.streamCheckedAt.get(stream.streamId),
+          idleGate.lowPriorityStreams.has(stream.streamId)
+            ? LOW_PRIORITY_REQUESTED_MIN_INTERVAL_MS
+            : 0,
         );
-        if (
-          !stream.checkpoint ||
-          (await resumesBootstrap(
-            idleGate,
-            session,
-            stream.streamId,
-            catchUpDue,
-          ))
-        ) {
-          await ingestBootstrap({
-            session,
-            from: stream,
-            deadlineMs,
-            signal,
+      if (
+        !stream.checkpoint ||
+        (await resumesBootstrap(idleGate, session, stream.streamId, catchUpDue))
+      ) {
+        await ingestBootstrap({
+          session,
+          from: stream,
+          deadlineMs: runtime.nowMs() + SYNC_LANE_BOOTSTRAP_SLICE_MS,
+          signal,
+          requestId: runtime.randomId(),
+          scopeId: stream.streamId,
+          scope: idleGate.activeBootstrapScopes.get(stream.streamId),
+        });
+        await rememberBootstrapContinuation(idleGate, session, stream.streamId);
+        continue;
+      }
+      if (!catchUpDue) continue;
+      idleGate.streamCheckedAt.set(stream.streamId, checkStamp(idleGate));
+      dueStreams.push(stream);
+    }
+    const readBatch = source.readChangesBatch;
+    if (readBatch && dueStreams.length > 1) {
+      // One request per chunk shares the provider connection and lookups
+      // that a request per folder would repeat.
+      for (
+        let offset = 0;
+        offset < dueStreams.length;
+        offset += MAX_CHANGES_BATCH_READS
+      ) {
+        if (offset > 0) await yieldToHost();
+        if (signal.aborted) return;
+        const chunk = dueStreams.slice(
+          offset,
+          offset + MAX_CHANGES_BATCH_READS,
+        );
+        const results = await readBatch({
+          session,
+          reads: chunk.map((stream) => ({
             requestId: runtime.randomId(),
-            scopeId: stream.streamId,
-            scope: idleGate.activeBootstrapScopes.get(stream.streamId),
-          });
-          await rememberBootstrapContinuation(
-            idleGate,
-            session,
-            stream.streamId,
-          );
-          continue;
+            position: stream,
+          })),
+          pageSize: 50,
+          signal,
+        });
+        if (results.length !== chunk.length) {
+          throw new Error("Changes batch returned the wrong number of results");
         }
-        if (!catchUpDue) continue;
+        for (const [index, stream] of chunk.entries()) {
+          const changes = results[index] as SyncReadResult;
+          // Applying a page holds the store, so let host reads in between.
+          if (index > 0) await yieldToHost();
+          await applyStreamChanges({
+            session,
+            idleGate,
+            stream,
+            changes,
+            signal,
+          });
+        }
+      }
+    } else {
+      for (const [index, stream] of dueStreams.entries()) {
+        if (index > 0) await yieldToHost();
+        if (signal.aborted) return;
         const changes = await source.readChanges({
           session,
           requestId: runtime.randomId(),
           position: stream,
           pageSize: 50,
-          signal: signal ?? new AbortController().signal,
+          signal,
         });
-        if (changes.status === "page") {
-          const applied = await store.applySyncPage({
-            page: changes.page,
-            ownerId,
-            bodies: changes.page.bodies,
-          });
-          if (applied.status === "committed") {
-            if (changes.page.roundComplete) {
-              idleGate.nextStreamCatchUpAtMs.set(
-                stream.streamId,
-                runtime.nowMs() + idleCatchUpIntervalMs,
-              );
-            } else {
-              idleGate.nextStreamCatchUpAtMs.delete(stream.streamId);
-            }
-            await refreshViews();
-            await noteConnection(account.accountId, "ok");
-          } else {
-            idleGate.nextStreamCatchUpAtMs.delete(stream.streamId);
-          }
-        } else if (changes.status === "reset_required") {
-          // Unfinished pages resume through resumesBootstrap, so the gate
-          // only slows a provider that keeps asking for a resync.
+        await applyStreamChanges({
+          session,
+          idleGate,
+          stream,
+          changes,
+          signal,
+        });
+      }
+    }
+    await catchUpAssistantIfDue(idleGate, account, signal);
+  }
+
+  async function applyStreamChanges({
+    session,
+    idleGate,
+    stream,
+    changes,
+    signal,
+  }: {
+    session: { accountId: string; generation: string };
+    idleGate: IdleCatchUpGate;
+    stream: AccountSyncState["streams"][number];
+    changes: SyncReadResult;
+    signal: AbortSignal;
+  }) {
+    // A stopped lane may have been replaced, and its late result must not
+    // move the shared catch-up schedule.
+    if (signal.aborted) return;
+    if (changes.status === "page") {
+      const applied = await store.applySyncPage({
+        page: changes.page,
+        ownerId,
+        bodies: changes.page.bodies,
+      });
+      if (applied.status === "committed") {
+        if (changes.page.roundComplete) {
           idleGate.nextStreamCatchUpAtMs.set(
             stream.streamId,
-            runtime.nowMs() + idleCatchUpIntervalMs,
-          );
-          const resetStream = { ...stream, streamId: changes.scopeId };
-          await ingestBootstrap({
-            session,
-            from: resetStream,
-            deadlineMs,
-            signal,
-            requestId: runtime.randomId(),
-            scopeId: changes.scopeId,
-          });
-          await rememberBootstrapContinuation(
-            idleGate,
-            session,
-            changes.scopeId,
+            runtime.nowMs() + streamCatchUpInterval(idleGate, stream.streamId),
           );
         } else {
-          idleGate.nextStreamCatchUpAtMs.set(
-            stream.streamId,
-            runtime.nowMs() + idleCatchUpIntervalMs,
-          );
-          await noteConnection(account.accountId, changes.status);
+          idleGate.nextStreamCatchUpAtMs.delete(stream.streamId);
         }
+        await refreshViews();
+        await noteConnection(session.accountId, "ok");
+      } else {
+        idleGate.nextStreamCatchUpAtMs.delete(stream.streamId);
       }
-      await catchUpAssistantIfDue(idleGate, account, signal);
+    } else if (changes.status === "reset_required") {
+      // Unfinished pages resume through resumesBootstrap, so the gate
+      // only slows a provider that keeps asking for a resync.
+      idleGate.nextStreamCatchUpAtMs.set(
+        stream.streamId,
+        runtime.nowMs() + streamCatchUpInterval(idleGate, stream.streamId),
+      );
+      const resetStream = { ...stream, streamId: changes.scopeId };
+      await ingestBootstrap({
+        session,
+        from: resetStream,
+        deadlineMs: runtime.nowMs() + SYNC_LANE_BOOTSTRAP_SLICE_MS,
+        signal,
+        requestId: runtime.randomId(),
+        scopeId: changes.scopeId,
+      });
+      await rememberBootstrapContinuation(idleGate, session, changes.scopeId);
+    } else {
+      idleGate.nextStreamCatchUpAtMs.set(
+        stream.streamId,
+        runtime.nowMs() + streamCatchUpInterval(idleGate, stream.streamId),
+      );
+      await noteConnection(session.accountId, changes.status);
     }
   }
 
@@ -891,12 +1123,46 @@ export function createMailEngine(input: {
     const created: IdleCatchUpGate = {
       activeBootstrapScopes: new Map(),
       generation,
+      lowPriorityStreams: new Set(),
       nextAssistantCatchUpAtMs: 0,
       nextScopeDiscoveryAtMs: 0,
       nextStreamCatchUpAtMs: new Map(),
+      requestCount: 0,
+      scopesDiscoveredAt: null,
+      streamCheckedAt: new Map(),
     };
     idleCatchUpGates.set(accountId, created);
     return created;
+  }
+
+  function streamCatchUpInterval(idleGate: IdleCatchUpGate, streamId: string) {
+    return idleGate.lowPriorityStreams.has(streamId)
+      ? LOW_PRIORITY_CATCH_UP_INTERVAL_MS
+      : idleCatchUpIntervalMs;
+  }
+
+  // Requests are counted rather than applied to deadlines, so a request that
+  // lands while a check is in flight survives that check finishing, and
+  // repeated requests cannot pull a check in below its minimum interval.
+  function requestCatchUp(idleGate: IdleCatchUpGate) {
+    idleGate.requestCount += 1;
+    idleGate.nextAssistantCatchUpAtMs = 0;
+  }
+
+  function checkStamp(idleGate: IdleCatchUpGate): CheckStamp {
+    return { atMs: runtime.nowMs(), requestCount: idleGate.requestCount };
+  }
+
+  function requestedSince(
+    idleGate: IdleCatchUpGate,
+    checked: CheckStamp | null | undefined,
+    minIntervalMs: number,
+  ) {
+    return (
+      checked != null &&
+      idleGate.requestCount > checked.requestCount &&
+      runtime.nowMs() - checked.atMs >= minIntervalMs
+    );
   }
 
   async function rememberBootstrapContinuation(
@@ -1058,13 +1324,24 @@ const CONNECTION_BY_SOURCE_STATUS: Partial<
   page: "ready",
 };
 
+type SyncLane = {
+  abort: AbortController;
+  done: Promise<void>;
+};
+
 type IdleCatchUpGate = {
   activeBootstrapScopes: Map<string, ScopeDescriptor>;
   generation: string;
+  lowPriorityStreams: Set<string>;
   nextAssistantCatchUpAtMs: number;
   nextScopeDiscoveryAtMs: number;
   nextStreamCatchUpAtMs: Map<string, number>;
+  requestCount: number;
+  scopesDiscoveredAt: CheckStamp | null;
+  streamCheckedAt: Map<string, CheckStamp>;
 };
+
+type CheckStamp = { atMs: number; requestCount: number };
 
 function idleGateDue(nextAtMs: number, nowMs: number, intervalMs: number) {
   return nextAtMs <= nowMs || nextAtMs - nowMs > intervalMs;

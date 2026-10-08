@@ -53,6 +53,7 @@ import { CommandShortcut } from "@/components/ui/command";
 import { useSplitLabels } from "@/hooks/useLabels";
 import type { EmailLabel } from "@/providers/email-label-types";
 import { LoadingContent } from "@/components/LoadingContent";
+import { env } from "@/env";
 import {
   useCleanerEnabled,
   useIntegrationsEnabled,
@@ -65,7 +66,7 @@ import { prefixPath } from "@/utils/path";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { NavUser } from "@/components/NavUser";
 import { PremiumCard } from "@/components/PremiumCard";
-import { FeedbackDialog } from "@/components/FeedbackDialog";
+import { FeedbackSidebarButton } from "@/components/FeedbackDialog";
 import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
 
 type NavItem = {
@@ -180,12 +181,16 @@ export const useNavigation = () => {
             },
           ]
         : []),
-      {
-        name: "Attachments",
-        href: prefixPath(currentEmailAccountId, "/drive"),
-        icon: HardDriveIcon,
-        new: false,
-      },
+      ...(env.NEXT_PUBLIC_SMART_FILING_ENABLED === false
+        ? []
+        : [
+            {
+              name: "Attachments",
+              href: prefixPath(currentEmailAccountId, "/drive"),
+              icon: HardDriveIcon,
+              new: false,
+            },
+          ]),
       ...(showIntegrations
         ? [
             {
@@ -360,7 +365,7 @@ export function SideNav({
         {feedbackEnabled && (
           <SidebarMenu>
             <SidebarMenuItem>
-              <FeedbackDialog />
+              <FeedbackSidebarButton />
             </SidebarMenuItem>
           </SidebarMenu>
         )}

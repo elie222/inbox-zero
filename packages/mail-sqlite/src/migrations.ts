@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS messages (
   from_address TEXT NOT NULL,
   to_json TEXT NOT NULL,
   cc_json TEXT NOT NULL,
+  bcc_json TEXT NOT NULL DEFAULT '[]',
   received_at_ms INTEGER NOT NULL,
   read INTEGER NOT NULL CHECK (read IN (0, 1)),
   starred INTEGER NOT NULL CHECK (starred IN (0, 1)),
@@ -78,6 +79,8 @@ CREATE TABLE IF NOT EXISTS effective_messages (
   external_url TEXT,
   from_address TEXT NOT NULL,
   to_json TEXT NOT NULL,
+  cc_json TEXT NOT NULL DEFAULT '[]',
+  bcc_json TEXT NOT NULL DEFAULT '[]',
   received_at_ms INTEGER NOT NULL,
   read INTEGER NOT NULL,
   starred INTEGER NOT NULL,
@@ -384,6 +387,40 @@ export async function migrateMailbox(
   } catch {
     // column already exists on freshly created databases
   }
+  let addedEffectiveCc = false;
+  try {
+    await tx.exec(
+      "ALTER TABLE effective_messages ADD COLUMN cc_json TEXT NOT NULL DEFAULT '[]'",
+    );
+    addedEffectiveCc = true;
+  } catch {
+    // column already exists on freshly created databases
+  }
+  if (addedEffectiveCc) {
+    await tx.exec(`
+      UPDATE effective_messages
+      SET cc_json = COALESCE(
+        (SELECT m.cc_json FROM messages AS m
+         WHERE m.account_id = effective_messages.account_id
+           AND m.message_id = effective_messages.message_id),
+        '[]'
+      )
+    `);
+  }
+  try {
+    await tx.exec(
+      "ALTER TABLE messages ADD COLUMN bcc_json TEXT NOT NULL DEFAULT '[]'",
+    );
+  } catch {
+    // column already exists on freshly created databases
+  }
+  try {
+    await tx.exec(
+      "ALTER TABLE effective_messages ADD COLUMN bcc_json TEXT NOT NULL DEFAULT '[]'",
+    );
+  } catch {
+    // column already exists on freshly created databases
+  }
   await tx.exec(`
     CREATE INDEX IF NOT EXISTS operations_sent_message
       ON operations(account_id, sent_message_id)
@@ -409,4 +446,24 @@ export async function migrateMailbox(
   await migrateMembershipIndex(tx);
   await migrateInboxUnreadExcludesArchive(tx);
   await migrateMessageSearchIndex(tx);
+  await migrateEmptyMeetingInvitationBodies(tx);
+}
+
+// Delta sync once stored a meeting invitation's flag without its body. Dropping
+// those rows lets the reader hydrate the body again.
+export async function migrateEmptyMeetingInvitationBodies(tx: SqlTransaction) {
+  const applied = await tx.query(
+    "SELECT 1 FROM schema_migrations WHERE id = 9",
+  );
+  if (applied.length) return;
+  await tx.exec(`
+    DELETE FROM message_content
+    WHERE is_meeting_invitation = 1
+      AND html IS NULL
+      AND text IS NULL
+      AND COALESCE(attachments_json, '[]') = '[]'
+  `);
+  await tx.execute(
+    "INSERT INTO schema_migrations(id, name) VALUES (9, '0009-empty-meeting-invitation-bodies')",
+  );
 }

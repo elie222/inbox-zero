@@ -18,7 +18,7 @@ import { getMissingRecipientMessage } from "@/utils/rule/recipient-validation";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import { SafeError } from "@/utils/error";
 import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
-import { validateWebhookUrlFormat } from "@/utils/webhook-validation";
+import { validateWebhookUrlFormat } from "@/utils/outbound-webhook/url-validation";
 import {
   getBlockedLowTrustStaticFromActionTypes,
   LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE,
@@ -171,23 +171,6 @@ export async function partialUpdateRule({
     emailAccountId,
     data,
     triggerType: "conditions_updated",
-  });
-}
-
-export function updateRuleInstructions({
-  ruleId,
-  emailAccountId,
-  instructions,
-}: {
-  ruleId: string;
-  emailAccountId: string;
-  instructions: string;
-}) {
-  return updateRuleAndQueueHistory({
-    ruleId,
-    emailAccountId,
-    data: { instructions },
-    triggerType: "instructions_updated",
   });
 }
 

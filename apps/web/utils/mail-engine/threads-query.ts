@@ -2,7 +2,8 @@ import type {
   ConversationQuery,
   MailPredicate,
 } from "@inboxzero/mail-core/queries";
-import { isOutlookInboxSection } from "@/utils/mail/outlook-inbox";
+import { isOutlookInboxSection } from "@/utils/outlook/inbox-sections";
+import { parseBooleanSearchValue } from "@/utils/tokenize-search-query";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 
 export function threadsQueryToConversationQuery(input: {
@@ -147,16 +148,30 @@ function textQueryPredicates(query: string): MailPredicate[] {
       value,
       match: "phrase",
     });
+    return true;
   });
   for (const field of ["from", "to"] as const) {
     remaining = takePrefixedValues(remaining, `${field}:`, (value) => {
       clauses.push({ kind: "address", field, value, match: "address" });
+      return true;
     });
   }
+  let hasAttachment: boolean | undefined;
   remaining = takeToken(remaining, "has:attachment", () => {
-    clauses.push({ kind: "has_attachment", value: true });
+    hasAttachment = true;
   });
-  remaining = remaining.replaceAll(/\s+/g, " ").trim();
+  // The Outlook search form emits hasattachments:true where the Gmail form
+  // emits has:attachment. See outlook-search-query.ts and mail-search-query.ts.
+  remaining = takePrefixedValue(remaining, "hasattachments:", (value) => {
+    const parsed = parseBooleanSearchValue(value);
+    if (parsed === undefined) return false;
+    hasAttachment = parsed;
+    return true;
+  });
+  if (hasAttachment !== undefined) {
+    clauses.push({ kind: "has_attachment", value: hasAttachment });
+  }
+  remaining = stripGroupingParens(remaining);
   if (remaining) {
     clauses.push({
       kind: "text",
@@ -174,29 +189,39 @@ function textQueryPredicates(query: string): MailPredicate[] {
 function takePrefixedValues(
   input: string,
   prefix: string,
-  onValue: (value: string) => void,
+  onValue: (value: string) => boolean,
 ) {
   let remaining = input;
   while (true) {
-    const at = findStandaloneToken(remaining, prefix);
-    if (at === -1) return remaining;
-    const valueStart = at + prefix.length;
-    if (remaining[valueStart] === '"') {
-      const closing = remaining.indexOf('"', valueStart + 1);
-      if (closing === -1) return remaining;
-      const value = remaining.slice(valueStart + 1, closing);
-      if (!value) return remaining;
-      onValue(value);
-      remaining = `${remaining.slice(0, at)} ${remaining.slice(closing + 1)}`;
-      continue;
-    }
-    const space = remaining.indexOf(" ", valueStart);
-    const valueEnd = space === -1 ? remaining.length : space;
-    const value = remaining.slice(valueStart, valueEnd);
-    if (!value) return remaining;
-    onValue(value);
-    remaining = `${remaining.slice(0, at)} ${remaining.slice(valueEnd)}`;
+    const next = takePrefixedValue(remaining, prefix, onValue);
+    if (next === remaining) return remaining;
+    remaining = next;
   }
+}
+
+function takePrefixedValue(
+  input: string,
+  prefix: string,
+  // Returning false declines the token, leaving it in the remaining text so a
+  // value we cannot interpret still reaches the free-text clause.
+  onValue: (value: string) => boolean,
+) {
+  const at = findStandaloneToken(input, prefix);
+  if (at === -1) return input;
+  const valueStart = at + prefix.length;
+  if (input[valueStart] === '"') {
+    const closing = input.indexOf('"', valueStart + 1);
+    if (closing === -1) return input;
+    const value = input.slice(valueStart + 1, closing);
+    if (!value) return input;
+    if (!onValue(value)) return input;
+    return `${input.slice(0, at)} ${input.slice(closing + 1)}`;
+  }
+  const valueEnd = findValueEnd(input, valueStart);
+  const value = input.slice(valueStart, valueEnd);
+  if (!value) return input;
+  if (!onValue(value)) return input;
+  return `${input.slice(0, at)} ${input.slice(valueEnd)}`;
 }
 
 function takeToken(input: string, token: string, onMatch: () => void) {
@@ -214,10 +239,53 @@ function findStandaloneToken(input: string, token: string) {
     const at = haystack.indexOf(needle, start);
     if (at === -1) return -1;
     const before = at === 0 ? " " : input[at - 1];
-    if (before === " " || before === "(") return at;
+    const standalone = before === " " || before === "(";
+    if (standalone && !isInsideQuotes(input, at)) return at;
     start = at + 1;
   }
   return -1;
+}
+
+// An operator inside a quoted phrase belongs to the phrase, not to the query.
+function isInsideQuotes(input: string, at: number) {
+  let quotes = 0;
+  for (let index = 0; index < at; index++) {
+    if (input[index] === '"') quotes += 1;
+  }
+  return quotes % 2 === 1;
+}
+
+// A closing paren ends a value so grouped queries like (hasattachments:true)
+// still reach their operator.
+function findValueEnd(input: string, from: number) {
+  const match = input.slice(from).match(/[\s)]/);
+  return match?.index === undefined ? input.length : from + match.index;
+}
+
+// The local index has no boolean grouping, so parens left behind by the
+// operators above would otherwise be matched as literal search terms. A quoted
+// phrase keeps its parens and spacing: there they are search text, and the
+// clause is also handed to the provider search, where quoting is meaningful.
+function stripGroupingParens(input: string) {
+  let output = "";
+  let quoted = false;
+  for (const char of input) {
+    if (char === '"') {
+      quoted = !quoted;
+      output += char;
+      continue;
+    }
+    if (quoted) {
+      output += char;
+      continue;
+    }
+    if (char === "(" || char === ")" || /\s/.test(char)) {
+      if (!output.endsWith(" ")) output += " ";
+      continue;
+    }
+    output += char;
+  }
+  return output.trim();
 }
 
 function splitFilterToPredicate(filter: {

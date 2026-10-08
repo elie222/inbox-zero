@@ -1,5 +1,6 @@
 "use server";
 
+import chunk from "lodash/chunk";
 import prisma from "@/utils/prisma";
 import { GroupItemSource } from "@/generated/prisma/enums";
 import { isColdEmail } from "@/utils/cold-email/is-cold-email";
@@ -11,6 +12,7 @@ import { actionClient } from "@/utils/actions/safe-action";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { EmailProvider } from "@/utils/email/types";
+import type { Logger } from "@/utils/logger";
 import { getColdEmailRule } from "@/utils/cold-email/cold-email-rule";
 import { internalDateToDate } from "@/utils/date";
 import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
@@ -47,29 +49,95 @@ export const markNotColdEmailAction = actionClient
           logger,
           source: GroupItemSource.USER,
         }),
-        removeColdEmailLabelFromSender(emailProvider, sender, coldEmailRule),
+        removeColdEmailLabelFromSender({
+          emailProvider,
+          sender,
+          coldEmailRule,
+          logger,
+        }),
       ]);
     },
   );
 
-async function removeColdEmailLabelFromSender(
-  emailProvider: EmailProvider,
-  sender: string,
-  coldEmailRule: { actions: { labelId: string | null }[] },
-) {
-  const labelIds = coldEmailRule.actions
-    .map((action) => action.labelId)
-    .filter((id): id is string => Boolean(id));
+// Each thread costs a fetch plus a label update, so very large senders are
+// capped to keep the action responsive.
+const MAX_THREADS_TO_UNLABEL = 500;
+const THREAD_PAGE_SIZE = 100;
+const UNLABEL_CONCURRENCY = 10;
+
+async function removeColdEmailLabelFromSender({
+  emailProvider,
+  sender,
+  coldEmailRule,
+  logger,
+}: {
+  emailProvider: EmailProvider;
+  sender: string;
+  coldEmailRule: { actions: { labelId: string | null }[] };
+  logger: Logger;
+}) {
+  const ruleLabelIds = [
+    ...new Set(
+      coldEmailRule.actions
+        .map((action) => action.labelId)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+
+  // A label deleted in the mailbox can't be filtered on, and some providers
+  // fall back to every thread from the sender rather than none.
+  const labels = await Promise.all(
+    ruleLabelIds.map((labelId) => emailProvider.getLabelById(labelId)),
+  );
+  const labelIds = ruleLabelIds.filter((_, index) => labels[index]);
+  const skippedLabelIds = ruleLabelIds.filter((_, index) => !labels[index]);
+  if (skippedLabelIds.length > 0) {
+    logger.warn("Skipping Cold Email labels that could not be found", {
+      skippedLabelIds,
+    });
+  }
 
   if (labelIds.length === 0) return;
 
-  const { threads } = await emailProvider.getThreadsWithQuery({
-    query: { fromEmail: sender },
-    maxResults: 100,
-  });
+  // Collect ids before mutating so removing labels can't shift later pages.
+  // Filtering by label covers archived mail, not just the inbox.
+  const threadIds = new Set<string>();
+  for (const labelId of labelIds) {
+    let pageToken: string | undefined;
+    do {
+      const page = await emailProvider.getThreadsWithQuery({
+        query: { fromEmail: sender, labelId },
+        maxResults: THREAD_PAGE_SIZE,
+        pageToken,
+        messageFormat: "metadata",
+      });
+      for (const thread of page.threads) {
+        if (threadIds.size >= MAX_THREADS_TO_UNLABEL) break;
+        threadIds.add(thread.id);
+      }
+      pageToken = page.nextPageToken;
+    } while (pageToken && threadIds.size < MAX_THREADS_TO_UNLABEL);
+  }
 
-  for (const thread of threads) {
-    await emailProvider.removeThreadLabels(thread.id, labelIds);
+  // One failing thread shouldn't leave the rest of the sender's mail labeled.
+  const failures: unknown[] = [];
+  for (const batch of chunk([...threadIds], UNLABEL_CONCURRENCY)) {
+    const results = await Promise.allSettled(
+      batch.map((threadId) =>
+        emailProvider.removeThreadLabels(threadId, labelIds),
+      ),
+    );
+    for (const result of results) {
+      if (result.status === "rejected") failures.push(result.reason);
+    }
+  }
+
+  if (failures.length > 0) {
+    logger.warn("Failed to remove Cold Email label from some threads", {
+      failedCount: failures.length,
+      threadCount: threadIds.size,
+      error: failures[0],
+    });
   }
 }
 

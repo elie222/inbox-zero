@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 
-import { act, render, waitFor } from "@testing-library/react";
+import { act, cleanup, render, waitFor } from "@testing-library/react";
 import type React from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ASSISTANT_CHAT_MAX_TEXT_LENGTH } from "@/utils/actions/assistant-chat.validation";
 import type { MessageContext } from "@/utils/ai/assistant/chat-context-validation";
+import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 import { ChatProvider, useChat } from "./ChatProvider";
 
 const {
@@ -19,7 +20,10 @@ const {
   mockUseSWRConfig,
   mockConvertToUIMessages,
   mockCaptureException,
+  mockChatStop,
+  mockResumeStream,
   accountState,
+  chatState,
   queryState,
 } = vi.hoisted(() => ({
   mockClientLoggerError: vi.fn(),
@@ -33,8 +37,16 @@ const {
   mockUseSWRConfig: vi.fn(),
   mockConvertToUIMessages: vi.fn(),
   mockCaptureException: vi.fn(),
+  mockChatStop: vi.fn(),
+  mockResumeStream: vi.fn(),
   accountState: {
     emailAccountId: "account-a",
+  },
+  chatState: {
+    id: "new-chat-id",
+    status: "ready" as "ready" | "submitted" | "streaming" | "error",
+    messages: [] as Array<{ id: string; role: string }>,
+    onError: undefined as ((error: Error) => void) | undefined,
   },
   queryState: {
     initialChatId: "chat-from-account-a" as string | null,
@@ -42,19 +54,23 @@ const {
 }));
 
 vi.mock("@ai-sdk/react", () => ({
-  useChat: (options: { onError?: (error: Error) => void }) => ({
-    id: "new-chat-id",
-    messages: [],
-    status: "ready",
-    setMessages: mockSetMessages,
-    sendMessage: (message: unknown, requestOptions?: { body?: unknown }) =>
-      mockSendMessage(message, requestOptions).catch((error) => {
-        options.onError?.(error);
-        throw error;
-      }),
-    stop: vi.fn(),
-    regenerate: vi.fn(),
-  }),
+  useChat: (options: { onError?: (error: Error) => void }) => {
+    chatState.onError = options.onError;
+    return {
+      id: chatState.id,
+      messages: chatState.messages,
+      status: chatState.status,
+      setMessages: mockSetMessages,
+      sendMessage: (message: unknown, requestOptions?: { body?: unknown }) =>
+        mockSendMessage(message, requestOptions).catch((error) => {
+          options.onError?.(error);
+          throw error;
+        }),
+      stop: mockChatStop,
+      resumeStream: mockResumeStream,
+      regenerate: vi.fn(),
+    };
+  },
 }));
 
 vi.mock("ai", () => ({
@@ -116,11 +132,22 @@ vi.mock("@/utils/logger-client", () => ({
   }),
 }));
 
+afterEach(() => {
+  cleanup();
+});
+
 describe("ChatProvider", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
     accountState.emailAccountId = "account-a";
+    chatState.id = "new-chat-id";
+    chatState.status = "ready";
+    chatState.messages = [];
+    setVisibility("visible");
+    mockChatStop.mockResolvedValue(undefined);
+    mockResumeStream.mockResolvedValue(undefined);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null)));
     queryState.initialChatId = "chat-from-account-a";
     mockUseSWRConfig.mockReturnValue({ mutate: vi.fn() });
     mockUseChatMessages.mockImplementation((chatId: string | null) =>
@@ -212,6 +239,92 @@ describe("ChatProvider", () => {
       body: { context: fixContext },
     });
     expect(latestContext?.context).toEqual(fixContext);
+  });
+
+  it("keeps an in-progress reply when the saved chat refetches mid-run", async () => {
+    const savedUserOnly = [
+      {
+        id: "user-message",
+        role: "user",
+        parts: [{ type: "text", text: "Hi" }],
+      },
+    ];
+    const savedWithReply = [
+      ...savedUserOnly,
+      {
+        id: "assistant-message",
+        role: "assistant",
+        parts: [{ type: "text", text: "Done" }],
+      },
+    ];
+    let savedData = { messages: savedUserOnly };
+    mockUseChatMessages.mockImplementation(() => ({ data: savedData }));
+    mockConvertToUIMessages.mockImplementation(
+      (data: { messages: unknown[] }) => data.messages,
+    );
+
+    const { rerender } = renderWithProvider(<div />);
+    mockSetMessages.mockClear();
+
+    // A focus refetch lands while the reply streams; the server has only saved
+    // the user message so far.
+    chatState.status = "streaming";
+    savedData = { messages: [...savedUserOnly] };
+    rerender(
+      <ChatProvider>
+        <div />
+      </ChatProvider>,
+    );
+    expect(mockSetMessages).not.toHaveBeenCalled();
+
+    // The run ends before its refetch returns: the stale mid-run data must not
+    // replace the finished reply.
+    chatState.status = "ready";
+    rerender(
+      <ChatProvider>
+        <div />
+      </ChatProvider>,
+    );
+    expect(mockSetMessages).not.toHaveBeenCalled();
+
+    // The refetch after the run returns the saved reply.
+    savedData = { messages: savedWithReply };
+    rerender(
+      <ChatProvider>
+        <div />
+      </ChatProvider>,
+    );
+    expect(mockSetMessages).toHaveBeenLastCalledWith(savedWithReply);
+  });
+
+  it("loads another chat's history when switching chats during a run", () => {
+    const otherChat = [
+      {
+        id: "other-message",
+        role: "user",
+        parts: [{ type: "text", text: "Other" }],
+      },
+    ];
+    let savedData: { messages: unknown[] } = { messages: [] };
+    mockUseChatMessages.mockImplementation(() => ({ data: savedData }));
+    mockConvertToUIMessages.mockImplementation(
+      (data: { messages: unknown[] }) => data.messages,
+    );
+
+    chatState.status = "streaming";
+    const { rerender } = renderWithProvider(<div />);
+    mockSetMessages.mockClear();
+
+    // Selecting another chat gives the SDK a fresh, idle chat instance.
+    chatState.id = "other-chat";
+    chatState.status = "ready";
+    savedData = { messages: otherChat };
+    rerender(
+      <ChatProvider>
+        <div />
+      </ChatProvider>,
+    );
+    expect(mockSetMessages).toHaveBeenLastCalledWith(otherChat);
   });
 
   it("clears the active chat when the selected email account changes", async () => {
@@ -329,6 +442,151 @@ describe("ChatProvider", () => {
     );
   });
 });
+
+describe("ChatProvider interrupted replies", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    accountState.emailAccountId = "account-a";
+    queryState.initialChatId = "chat-1";
+    chatState.status = "streaming";
+    chatState.messages = [
+      { id: "user-message", role: "user" },
+      { id: "stream-1", role: "assistant" },
+    ];
+    setVisibility("visible");
+    mockUseSWRConfig.mockReturnValue({ mutate: vi.fn() });
+    mockUseChatMessages.mockReturnValue({
+      data: { messages: [], activeStreamId: null },
+    });
+    mockConvertToUIMessages.mockReturnValue([]);
+    mockClientLoggerFlush.mockResolvedValue(undefined);
+    mockChatStop.mockResolvedValue(undefined);
+    mockResumeStream.mockResolvedValue(undefined);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null)));
+  });
+
+  it("stops the run on the server before stopping the local stream", async () => {
+    let latestContext: ReturnType<typeof useChat> | undefined;
+    function Consumer() {
+      latestContext = useChat();
+      return null;
+    }
+    renderWithProvider(<Consumer />);
+
+    await act(async () => {
+      await latestContext?.stop();
+    });
+
+    const fetchMock = vi.mocked(fetch);
+    expect(fetchMock).toHaveBeenCalledWith("/api/chat/chat-1/stop", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        [EMAIL_ACCOUNT_HEADER]: "account-a",
+      },
+      body: JSON.stringify({ activeStreamId: "stream-1" }),
+    });
+    expect(fetchMock.mock.invocationCallOrder[0]).toBeLessThan(
+      mockChatStop.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("reattaches when the tab returns after the connection dropped mid-reply", async () => {
+    renderWithProvider(<div />);
+
+    setVisibility("hidden");
+    act(() => {
+      chatState.onError?.(new TypeError("Load failed"));
+    });
+    expect(mockResumeStream).not.toHaveBeenCalled();
+    expect(mockToastError).not.toHaveBeenCalled();
+
+    setVisibility("visible");
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+
+    expect(mockResumeStream).toHaveBeenCalledTimes(1);
+  });
+
+  it("reattaches when a backgrounded tab's stream stalled", async () => {
+    renderWithProvider(<div />);
+
+    await hideAndShowTab();
+
+    expect(mockChatStop).toHaveBeenCalled();
+    expect(mockResumeStream).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves a stream alone that kept updating in the background", async () => {
+    const { rerender } = renderWithProvider(<div />);
+
+    setVisibility("hidden");
+    act(() => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    chatState.messages = [...chatState.messages];
+    rerender(
+      <ChatProvider>
+        <div />
+      </ChatProvider>,
+    );
+    setVisibility("visible");
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+
+    expect(mockResumeStream).not.toHaveBeenCalled();
+  });
+
+  it("reattaches to a reply still running when the chat is opened", async () => {
+    chatState.status = "ready";
+    chatState.messages = [];
+    mockUseChatMessages.mockReturnValue({
+      data: { messages: [], activeStreamId: "stream-1" },
+    });
+
+    await act(async () => {
+      renderWithProvider(<div />);
+    });
+
+    expect(mockResumeStream).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reattach after an explicit stop", async () => {
+    let latestContext: ReturnType<typeof useChat> | undefined;
+    function Consumer() {
+      latestContext = useChat();
+      return null;
+    }
+    renderWithProvider(<Consumer />);
+
+    await act(async () => {
+      await latestContext?.stop();
+    });
+    await hideAndShowTab();
+
+    expect(mockResumeStream).not.toHaveBeenCalled();
+  });
+});
+
+async function hideAndShowTab() {
+  setVisibility("hidden");
+  act(() => {
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  setVisibility("visible");
+  await act(async () => {
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+}
+
+function setVisibility(state: DocumentVisibilityState) {
+  Object.defineProperty(document, "visibilityState", {
+    configurable: true,
+    get: () => state,
+  });
+}
 
 function renderWithProvider(children: React.ReactNode) {
   return render(<ChatProvider>{children}</ChatProvider>);

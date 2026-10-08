@@ -188,7 +188,7 @@ export async function processHistoryItem(
 
     // categorize a sender if we haven't already
     // this is used for category filters in ai rules
-    if (emailAccount.autoCategorizeSenders) {
+    if (emailAccount.autoCategorizeSenders && email) {
       const sender = email;
       const senderName = extractNameFromEmail(parsedMessage.headers.from);
       const displayName =

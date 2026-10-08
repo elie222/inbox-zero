@@ -22,8 +22,8 @@ const CHOICE_KEY = "__rule_choice__";
 const COLD_KEY = "__cold_email__";
 const decisionModel = {
   provider: "typesafe" as const,
-  model: "test-model",
-  apiKey: "test-key",
+  modelId: "test-model",
+  model: {} as never,
 };
 
 const newsletterRule = {
@@ -163,7 +163,7 @@ describe("decisionModelChooseRule", () => {
         CHOICE_KEY,
         COLD_KEY,
       ]);
-      expect(getRequest().questions[COLD_KEY].type).toBe("yesNo");
+      expect(getRequest().questions[COLD_KEY].type).toBe("boolean");
       expect(
         Object.keys(getRequest().questions[CHOICE_KEY].criteria),
       ).not.toContain("Cold Email");
@@ -214,7 +214,7 @@ describe("decisionModelChooseRule", () => {
         model: "test-model",
         inputTokens: 10,
         outputTokens: 1,
-        answers: { [COLD_KEY]: { type: "yesNo", probability: 0.2 } },
+        answers: { [COLD_KEY]: { type: "boolean", probability: 0.2 } },
       });
       expect(
         await chooseRule({
@@ -411,7 +411,7 @@ function mockAnswer(
       },
       ...(cold === undefined
         ? {}
-        : { [COLD_KEY]: { type: "yesNo", probability: cold } }),
+        : { [COLD_KEY]: { type: "boolean", probability: cold } }),
     },
   });
 }
