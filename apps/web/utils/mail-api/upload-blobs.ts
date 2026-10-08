@@ -47,7 +47,7 @@ export async function admitAccountUpload(
     },
     select: { storageKey: true },
   });
-  const storageKey = newStorageKey(accountId);
+  const storageKey = await newStorageKey(accountId);
   await prisma.mailUpload.upsert({
     where: {
       emailAccountId_blobId: { emailAccountId: accountId, blobId: parsed.data },
@@ -94,7 +94,7 @@ export async function putAccountUploadContent(
     return { status: "missing" as const };
   // Each writer gets a new key. A restart/cancel cannot publish the old stream
   // or let its cleanup delete a newer writer's bytes, even for identical files.
-  const storageKey = newStorageKey(accountId);
+  const storageKey = await newStorageKey(accountId);
   const claimed = await prisma.mailUpload.updateMany({
     where: {
       emailAccountId: accountId,
@@ -116,7 +116,10 @@ export async function putAccountUploadContent(
     });
     if (staged.status === "rejected") return staged;
     const finalized = await store.finalize(storageKey);
-    if (!finalized) return { status: "missing" as const };
+    if (!finalized) {
+      await deleteStoredUpload(storageKey);
+      return { status: "missing" as const };
+    }
     const updated = await prisma.mailUpload.updateMany({
       where: {
         emailAccountId: accountId,
@@ -136,9 +139,9 @@ export async function putAccountUploadContent(
       sizeBytes: finalized.sizeBytes,
       checksum: finalized.checksum,
     };
-  } catch (error) {
+  } catch {
     await deleteStoredUpload(storageKey);
-    throw error;
+    throw new Error("Failed to store attachment");
   }
 }
 
@@ -280,10 +283,15 @@ export async function readAccountUploads(accountId: string, blobIds: string[]) {
   for (const blobId of blobIds) {
     const row = byBlobId.get(blobId);
     if (!row) return { status: "missing" as const, blobId };
-    const source = await getMailUploadStore().read(row.storageKey);
-    if (!source) return { status: "missing" as const, blobId };
     // Providers currently need base64 content, so allocate once at that boundary.
-    const collected = await collectBlobBytes(source, row.sizeBytes);
+    let collected: Awaited<ReturnType<typeof collectBlobBytes>>;
+    try {
+      const source = await getMailUploadStore().read(row.storageKey);
+      if (!source) return { status: "missing" as const, blobId };
+      collected = await collectBlobBytes(source, row.sizeBytes);
+    } catch {
+      throw new Error("Failed to read attachment");
+    }
     if (
       collected.status !== "ok" ||
       collected.bytes.byteLength !== row.sizeBytes ||
@@ -323,20 +331,57 @@ export async function deleteAccountUploads(
 }
 
 export async function deleteStaleMailUploads(olderThan: Date) {
-  return requestUploadDeletion({
+  const deleted = await requestUploadDeletion({
     OR: [
-      { updatedAt: { lt: olderThan } },
+      {
+        updatedAt: { lt: olderThan },
+        OR: [{ heldAt: null }, { heldAt: { lt: expiredHoldBefore() } }],
+      },
       { deletionRequestedAt: { not: null } },
     ],
   });
+  try {
+    // Retain retired generations long enough for an interrupted writer to stop.
+    // The ledger survives account cascades and failed immediate object cleanup.
+    const where = {
+      mailUpload: null,
+      createdAt: { lt: expiredHoldBefore() },
+    };
+    const objects = await prisma.mailUploadObject.findMany({
+      where,
+      take: 100,
+      orderBy: { createdAt: "asc" },
+      select: { storageKey: true },
+    });
+    for (let offset = 0; offset < objects.length; offset += 10) {
+      await Promise.all(
+        objects.slice(offset, offset + 10).map(async (object) => {
+          if (await deleteStoredUpload(object.storageKey)) {
+            await prisma.mailUploadObject.deleteMany({
+              where: { ...where, storageKey: object.storageKey },
+            });
+          }
+        }),
+      );
+    }
+  } catch (error) {
+    logger.warn("Failed to clean up retired upload objects", {
+      errorType: error instanceof Error ? error.name : "UnknownError",
+    });
+  }
+  return deleted;
 }
 
 // Capture keys before the cascade removes metadata, but delete bytes only after
 // the account transaction commits. A failed account deletion keeps its uploads.
 export async function prepareAccountUploadDeletion(accountIds: string[]) {
   try {
-    const rows = await prisma.mailUpload.findMany({
-      where: { emailAccountId: { in: accountIds } },
+    const rows = await prisma.mailUploadObject.findMany({
+      where: {
+        OR: accountIds.map((accountId) => ({
+          storageKey: { startsWith: accountStoragePrefix(accountId) },
+        })),
+      },
       select: { storageKey: true },
     });
     return async () => {
@@ -357,8 +402,11 @@ export async function prepareAccountUploadDeletion(accountIds: string[]) {
   }
 }
 
-function newStorageKey(accountId: string) {
-  return `${createHash("sha256").update(accountId).digest("hex")}.${randomUUID()}`;
+async function newStorageKey(accountId: string) {
+  const storageKey = `${accountStoragePrefix(accountId)}${randomUUID()}`;
+  // Persist before any write, including keys whose metadata claim later fails.
+  await prisma.mailUploadObject.create({ data: { storageKey } });
+  return storageKey;
 }
 
 async function requestUploadDeletion(where: Prisma.MailUploadWhereInput) {
@@ -367,30 +415,39 @@ async function requestUploadDeletion(where: Prisma.MailUploadWhereInput) {
     const rows = await prisma.mailUpload.findMany({
       where,
       select: { id: true, storageKey: true },
-      take: 500,
+      take: 100,
       orderBy: { id: "asc" },
     });
-    for (const row of rows) {
-      // Invalidate before touching the object. Holds and in-flight writers must
-      // not claim it; retain the key until deletion succeeds so cron can retry.
-      const requested = await prisma.mailUpload.updateMany({
-        where: { ...where, id: row.id, storageKey: row.storageKey },
-        data: { deletionRequestedAt: new Date(), stagedAt: null },
-      });
-      if (requested.count === 0 || !(await deleteStoredUpload(row.storageKey)))
-        continue;
-      const result = await prisma.mailUpload.deleteMany({
-        where: {
-          id: row.id,
-          storageKey: row.storageKey,
-          deletionRequestedAt: { not: null },
-        },
-      });
-      deleted += result.count;
+    for (let offset = 0; offset < rows.length; offset += 10) {
+      await Promise.all(
+        rows.slice(offset, offset + 10).map(async (row) => {
+          // Invalidate before touching the object. Holds and in-flight writers must
+          // not claim it; retain the key until deletion succeeds so cron can retry.
+          const requested = await prisma.mailUpload.updateMany({
+            where: { ...where, id: row.id, storageKey: row.storageKey },
+            data: { deletionRequestedAt: new Date(), stagedAt: null },
+          });
+          if (
+            requested.count === 0 ||
+            !(await deleteStoredUpload(row.storageKey))
+          )
+            return;
+          const result = await prisma.mailUpload.deleteMany({
+            where: {
+              id: row.id,
+              storageKey: row.storageKey,
+              deletionRequestedAt: { not: null },
+            },
+          });
+          deleted += result.count;
+        }),
+      );
     }
   } catch (error) {
     // Cleanup cannot turn a committed send/cancel into a failed user action.
-    logger.warn("Failed to clean up mail uploads", { error });
+    logger.warn("Failed to clean up mail uploads", {
+      errorType: error instanceof Error ? error.name : "UnknownError",
+    });
   }
   return deleted;
 }
@@ -400,11 +457,17 @@ async function deleteStoredUpload(storageKey: string) {
     await getMailUploadStore().delete(storageKey);
     return true;
   } catch (error) {
-    logger.warn("Failed to delete stored upload", { error, storageKey });
+    logger.warn("Failed to delete stored upload", {
+      errorType: error instanceof Error ? error.name : "UnknownError",
+    });
     return false;
   }
 }
 
 function expiredHoldBefore() {
   return new Date(Date.now() - HOLD_TTL_MS);
+}
+
+function accountStoragePrefix(accountId: string) {
+  return `${createHash("sha256").update(accountId).digest("hex")}.`;
 }

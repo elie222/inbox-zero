@@ -17,6 +17,8 @@ type Where = Record<string, unknown>;
  */
 export function installMailUploadTable(prisma: typeof prismaMock) {
   const rows = new Map<string, MailUpload>();
+  let nextId = 0;
+  const ledger = new Map<string, { storageKey: string; createdAt: Date }>();
   const objects = new Map<string, Uint8Array>();
   const store = createObjectBlobStore({
     async put(key, bytes, sizeBytes) {
@@ -48,7 +50,7 @@ export function installMailUploadTable(prisma: typeof prismaMock) {
     const { emailAccountId, blobId } = args.where.emailAccountId_blobId;
     const existing = rows.get(rowKey(emailAccountId, blobId));
     const row = {
-      id: `upload-${rows.size + 1}`,
+      id: `upload-${++nextId}`,
       createdAt: new Date(),
       // Nullable columns Postgres defaults for us.
       stagedAt: null,
@@ -104,6 +106,40 @@ export function installMailUploadTable(prisma: typeof prismaMock) {
     }
     return { count: matched.length };
   }) as never);
+  prisma.mailUploadObject.create.mockImplementation((async ({
+    data,
+  }: {
+    data: { storageKey: string };
+  }) => {
+    const object = { ...data, createdAt: new Date() };
+    ledger.set(data.storageKey, object);
+    return object;
+  }) as never);
+  const selectObjects = (where: Where) => {
+    const { mailUpload, ...filters } = where;
+    return [...ledger.values()].filter(
+      (object) =>
+        matches(object, filters) &&
+        (mailUpload !== null ||
+          ![...rows.values()].some(
+            (row) => row.storageKey === object.storageKey,
+          )),
+    );
+  };
+  prisma.mailUploadObject.findMany.mockImplementation((async ({
+    where,
+  }: {
+    where: Where;
+  }) => selectObjects(where)) as never);
+  prisma.mailUploadObject.deleteMany.mockImplementation((async ({
+    where,
+  }: {
+    where: Where;
+  }) => {
+    const objects = selectObjects(where);
+    for (const object of objects) ledger.delete(object.storageKey);
+    return { count: objects.length };
+  }) as never);
   return store;
 }
 
@@ -115,15 +151,28 @@ function select(rows: Map<string, MailUpload>, where: Where) {
   return [...rows.values()].filter((row) => matches(row, where));
 }
 
-function matches(row: MailUpload, where: Where): boolean {
+function matches(
+  row: MailUpload | { storageKey: string; createdAt: Date },
+  where: Where,
+): boolean {
   return Object.entries(where).every(([field, condition]) => {
     if (field === "OR") {
       return (condition as Where[]).some((clause) => matches(row, clause));
     }
-    const value = row[field as keyof MailUpload];
+    const value = row[field as keyof typeof row];
     if (condition === null) return value === null;
     if (condition && typeof condition === "object") {
-      const filter = condition as { in?: unknown[]; lt?: Date; not?: unknown };
+      const filter = condition as {
+        in?: unknown[];
+        lt?: Date;
+        not?: unknown;
+        startsWith?: string;
+      };
+      if (
+        filter.startsWith &&
+        (typeof value !== "string" || !value.startsWith(filter.startsWith))
+      )
+        return false;
       if (filter.in && !filter.in.includes(value)) return false;
       if (filter.lt && !(value instanceof Date && value < filter.lt)) {
         return false;

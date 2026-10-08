@@ -1030,12 +1030,22 @@ model MailUpload {
   heldAt              DateTime?
   deletionRequestedAt DateTime?
 
+  storageObject  MailUploadObject @relation(fields: [storageKey], references: [storageKey])
   emailAccountId String
-  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  emailAccount   EmailAccount     @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   @@unique([emailAccountId, blobId])
   @@index([updatedAt])
   @@index([deletionRequestedAt])
+}
+
+// Keep every generation discoverable after replacement, cancellation or account cascade.
+model MailUploadObject {
+  storageKey String      @id
+  createdAt  DateTime    @default(now())
+  mailUpload MailUpload?
+
+  @@index([createdAt])
 }
 
 // Open status for emails sent from the mail client. A unique token is embedded

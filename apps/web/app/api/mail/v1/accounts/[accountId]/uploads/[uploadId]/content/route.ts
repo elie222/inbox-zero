@@ -89,12 +89,16 @@ async function cancelUnreadBody(request: Request) {
 async function* bodyBytes(request: Request) {
   if (!request.body) return;
   const reader = request.body.getReader();
+  const signal = AbortSignal.any([
+    request.signal,
+    AbortSignal.timeout(maxDuration * 1000),
+  ]);
   const onAbort = () => {
     reader.cancel().catch(() => undefined);
   };
-  request.signal.addEventListener("abort", onAbort, { once: true });
+  signal.addEventListener("abort", onAbort, { once: true });
   try {
-    while (!request.signal.aborted) {
+    while (!signal.aborted) {
       const { done, value } = await reader.read();
       if (done) return;
       if (value) yield value;
@@ -102,7 +106,8 @@ async function* bodyBytes(request: Request) {
   } catch {
     return;
   } finally {
-    request.signal.removeEventListener("abort", onAbort);
+    signal.removeEventListener("abort", onAbort);
     await reader.cancel().catch(() => undefined);
+    reader.releaseLock();
   }
 }

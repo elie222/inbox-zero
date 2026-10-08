@@ -45,7 +45,11 @@ stream until the email provider's base64 conversion boundary.
 
 Cancel, confirmed send, and the existing email-send-operation retention cron
 remove stored objects and metadata. Deletion failures are logged and retain an
-inactive metadata row for the cron to retry. Account/user deletion captures
+inactive metadata row for the cron to retry. A metadata-only `MailUploadObject`
+ledger records each storage generation before writing bytes and survives account
+cascades. Retention retries unreferenced keys after a one-hour grace period,
+including replaced keys and interrupted writes; active send holds remain protected.
+Cleanup runs in bounded batches. Account/user deletion captures
 keys before the cascade and attempts object deletion after the transaction
 commits, without failing account deletion on storage errors.
 

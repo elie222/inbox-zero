@@ -152,6 +152,43 @@ describe("PUT /uploads/[uploadId]/content", () => {
     });
   });
 
+  it("cancels a stalled request at the upload deadline on self-hosted servers", async () => {
+    await admitAccountUpload(accountId, {
+      uploadId: "file-1",
+      checksum: "not-empty",
+      sizeBytes: 1,
+      filename: "note.txt",
+      contentType: "text/plain",
+    });
+    const deadline = new AbortController();
+    const client = new AbortController();
+    const timeout = vi
+      .spyOn(AbortSignal, "timeout")
+      .mockReturnValue(deadline.signal);
+    const cancel = vi.fn();
+    const request = new NextRequest(
+      "http://localhost/api/mail/v1/accounts/acc-1/uploads/file-1/content?protocolVersion=1",
+      {
+        method: "PUT",
+        body: new ReadableStream({ cancel }),
+        signal: client.signal,
+        duplex: "half",
+      } as ConstructorParameters<typeof NextRequest>[1],
+    );
+    const pending = PUT(request, params("file-1"));
+    try {
+      await vi.waitFor(() => expect(timeout).toHaveBeenCalledWith(300_000));
+      deadline.abort();
+      expect((await pending).status).toBe(400);
+      expect(cancel).toHaveBeenCalled();
+      expect(request.body!.locked).toBe(false);
+    } finally {
+      client.abort();
+      await pending;
+      timeout.mockRestore();
+    }
+  });
+
   it("cancels the request body when the client aborts", async () => {
     const bytes = Buffer.from("streamed");
     const checksum = createHash("sha256").update(bytes).digest("hex");

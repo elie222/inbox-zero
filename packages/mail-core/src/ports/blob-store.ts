@@ -29,15 +29,11 @@ export function isAdmissibleBlobSize(sizeBytes: number) {
   );
 }
 
-/**
- * Buffers a staged blob whose length was already admitted. Callers must have
- * passed `sizeBytes` through `isAdmissibleBlobSize` first, because the buffer
- * is allocated up front rather than concatenated from chunks afterwards.
- */
 export async function collectBlobBytes(
   bytes: AsyncIterable<Uint8Array>,
   sizeBytes: number,
 ) {
+  if (!isAdmissibleBlobSize(sizeBytes)) return { status: "too_large" as const };
   const collected = new Uint8Array(sizeBytes);
   let size = 0;
   for await (const chunk of bytes) {

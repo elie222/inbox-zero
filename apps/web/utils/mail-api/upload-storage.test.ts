@@ -1,5 +1,12 @@
 import { createHash } from "node:crypto";
-import { mkdtemp, rm } from "node:fs/promises";
+import {
+  mkdtemp,
+  readFile,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Readable } from "node:stream";
@@ -230,6 +237,32 @@ it("never publishes data when a transport returns without consuming the source",
   await expect(store.stage(input())).rejects.toThrow(
     "Storage did not consume the complete upload",
   );
+});
+
+it("filesystem deletes interrupted writes and creates owner-only attachment files", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "mail-upload-interrupted-"));
+  directories.push(directory);
+  const store = createFilesystemUploadStore(directory);
+  // Simulate a process that exited after writing bytes but before publication.
+  await writeFile(join(directory, "interrupted.data"), bytes);
+  await store.delete("interrupted");
+  await expect(stat(join(directory, "interrupted.data"))).rejects.toMatchObject(
+    { code: "ENOENT" },
+  );
+  await store.stage(input());
+  await store.finalize("file-1");
+  expect((await stat(join(directory, "file-1.data"))).mode & 0o777).toBe(0o600);
+});
+
+it("filesystem refuses to overwrite a symlink outside its upload root", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "mail-upload-symlink-"));
+  directories.push(directory);
+  const outside = join(directory, "outside.txt");
+  await writeFile(outside, "unchanged");
+  await symlink(outside, join(directory, "file-1.data"));
+  const store = createFilesystemUploadStore(directory);
+  await expect(store.stage(input())).rejects.toThrow();
+  expect(await readFile(outside, "utf8")).toBe("unchanged");
 });
 
 function input(content: Buffer = bytes) {

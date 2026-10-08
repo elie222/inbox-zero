@@ -68,8 +68,10 @@ export function createObjectBlobStore(objects: ObjectStorage): BlobStore {
       } catch (error) {
         await removeObjects(objects, key).catch((cleanupError) => {
           logger.warn("Failed to clean up rejected upload", {
-            error: cleanupError,
-            storageKey: key,
+            errorType:
+              cleanupError instanceof Error
+                ? cleanupError.name
+                : "UnknownError",
           });
         });
         if (rejected) return { status: "rejected", code: rejected };
