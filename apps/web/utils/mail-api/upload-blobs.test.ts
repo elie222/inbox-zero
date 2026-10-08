@@ -28,7 +28,7 @@ describe("mail upload staging", () => {
     installMailUploadTable(prisma);
   });
 
-  it("keeps only metadata in Postgres and writes bytes to an opaque account-scoped key", async () => {
+  it("keeps only metadata in Postgres and writes bytes to an opaque storage key", async () => {
     await admit("file-1");
     await stage("file-1", bytes);
     const row = await prisma.mailUpload.findUnique({
@@ -128,26 +128,6 @@ describe("mail upload staging", () => {
     );
   });
 
-  it("account deletion also attempts retired generations whose earlier cleanup failed", async () => {
-    await admit("file-1");
-    await stage("file-1", bytes);
-    const row = await prisma.mailUpload.findUnique({
-      where: {
-        emailAccountId_blobId: { emailAccountId: accountId, blobId: "file-1" },
-      },
-    });
-    vi.spyOn(getMailUploadStore(), "delete").mockRejectedValueOnce(
-      new Error("storage unavailable"),
-    );
-    await admit("file-1");
-    const cleanup = await prepareAccountUploadDeletion([accountId]);
-    await prisma.mailUpload.deleteMany({
-      where: { emailAccountId: accountId },
-    });
-    await cleanup();
-    expect(await getMailUploadStore().read(row!.storageKey)).toBeNull();
-  });
-
   it("does not fail an unheld cancel when metadata cleanup fails", async () => {
     await admit("file-1");
     await stage("file-1", bytes);
@@ -168,7 +148,7 @@ describe("mail upload staging", () => {
       new Error("storage unavailable"),
     );
     await expect(cleanup()).resolves.toBeUndefined();
-    prisma.mailUploadObject.findMany.mockRejectedValueOnce(
+    prisma.mailUpload.findMany.mockRejectedValueOnce(
       new Error("database unavailable"),
     );
     const unavailableCleanup = await prepareAccountUploadDeletion([accountId]);
@@ -193,39 +173,6 @@ describe("mail upload staging", () => {
     await expect(readAccountUploads(accountId, ["file-1"])).rejects.toThrow(
       "Failed to read attachment",
     );
-  });
-
-  it("retention keeps a failed orphan cleanup available for the next sweep", async () => {
-    vi.useFakeTimers();
-    try {
-      await admit("file-1");
-      await stage("file-1", bytes);
-      const row = await prisma.mailUpload.findUnique({
-        where: {
-          emailAccountId_blobId: {
-            emailAccountId: accountId,
-            blobId: "file-1",
-          },
-        },
-      });
-      await prisma.mailUpload.deleteMany({
-        where: { emailAccountId: accountId },
-      });
-      const store = getMailUploadStore();
-      const remove = store.delete.bind(store);
-      const spy = vi.spyOn(store, "delete").mockImplementation(async (key) => {
-        if (key === row!.storageKey) throw new Error("temporarily unavailable");
-        await remove(key);
-      });
-      vi.advanceTimersByTime(60 * 60 * 1000 + 1);
-      await deleteStaleMailUploads(new Date(0));
-      expect(await store.read(row!.storageKey)).not.toBeNull();
-      spy.mockRestore();
-      await deleteStaleMailUploads(new Date(0));
-      expect(await store.read(row!.storageKey)).toBeNull();
-    } finally {
-      vi.useRealTimers();
-    }
   });
 
   it("stages content admitted by an earlier request", async () => {
@@ -257,131 +204,12 @@ describe("mail upload staging", () => {
     });
   });
 
-  it.each([
-    "admission",
-    "content",
-  ])("retention retries a failed deletion after key replacement by %s", async (path) => {
-    vi.useFakeTimers();
-    try {
-      await admit("file-1");
-      await stage("file-1", bytes);
-      const row = await prisma.mailUpload.findUnique({
-        where: {
-          emailAccountId_blobId: {
-            emailAccountId: accountId,
-            blobId: "file-1",
-          },
-        },
-      });
-      vi.spyOn(getMailUploadStore(), "delete").mockRejectedValueOnce(
-        new Error("storage unavailable"),
-      );
-      if (path === "admission") await admit("file-1");
-      else await stage("file-1", bytes);
-      expect(await getMailUploadStore().read(row!.storageKey)).not.toBeNull();
-      vi.advanceTimersByTime(60 * 60 * 1000 + 1);
-      await deleteStaleMailUploads(new Date(0));
-      expect(await getMailUploadStore().read(row!.storageKey)).toBeNull();
-      if (path === "content")
-        expect(await readAccountUploads(accountId, ["file-1"])).toMatchObject({
-          status: "ok",
-        });
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it.each([
-    "object",
-    "lookup",
-  ])("retention recovers account objects after failed %s cleanup", async (failure) => {
-    vi.useFakeTimers();
-    try {
-      await admit("file-1");
-      await stage("file-1", bytes);
-      const row = await prisma.mailUpload.findUnique({
-        where: {
-          emailAccountId_blobId: {
-            emailAccountId: accountId,
-            blobId: "file-1",
-          },
-        },
-      });
-      if (failure === "lookup")
-        prisma.mailUploadObject.findMany.mockRejectedValueOnce(
-          new Error("database unavailable"),
-        );
-      const cleanup = await prepareAccountUploadDeletion([accountId]);
-      await prisma.mailUpload.deleteMany({
-        where: { emailAccountId: accountId },
-      });
-      const store = getMailUploadStore();
-      const remove = store.delete.bind(store);
-      const spy = vi.spyOn(store, "delete");
-      if (failure === "object")
-        spy.mockImplementation(async (key) => {
-          if (key === row!.storageKey) throw new Error("storage unavailable");
-          await remove(key);
-        });
-      await cleanup();
-      spy.mockRestore();
-      expect(await getMailUploadStore().read(row!.storageKey)).not.toBeNull();
-      vi.advanceTimersByTime(60 * 60 * 1000 + 1);
-      await deleteStaleMailUploads(new Date(0));
-      expect(await getMailUploadStore().read(row!.storageKey)).toBeNull();
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("retention recovers an abandoned writer after its metadata was replaced", async () => {
-    vi.useFakeTimers();
-    try {
-      await admit("file-1");
-      await stage("file-1", bytes);
-      const row = await prisma.mailUpload.findUnique({
-        where: {
-          emailAccountId_blobId: {
-            emailAccountId: accountId,
-            blobId: "file-1",
-          },
-        },
-      });
-      await admit("file-1");
-      // A worker can finish its object write after replacement/cancel deleted
-      // its old key, then crash before its final metadata compare-and-swap.
-      const store = getMailUploadStore();
-      await store.put(
-        row!.storageKey,
-        (async function* () {
-          yield bytes;
-        })(),
-        bytes.length,
-      );
-      vi.advanceTimersByTime(60 * 60 * 1000 + 1);
-      await deleteStaleMailUploads(new Date(0));
-      expect(await store.read(row!.storageKey)).toBeNull();
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("retention sweeps more abandoned uploads and retired keys than fit in one batch", async () => {
-    vi.useFakeTimers();
-    try {
-      const uploadIds = Array.from({ length: 250 }, (_, i) => `file-${i}`);
-      for (const uploadId of uploadIds) await admit(uploadId);
-      expect(await deleteStaleMailUploads(new Date(Date.now() + 1000))).toBe(
-        uploadIds.length,
-      );
-      vi.advanceTimersByTime(60 * 60 * 1000 + 1);
-      await deleteStaleMailUploads(new Date(0));
-      expect(
-        await prisma.mailUploadObject.findMany({ where: {} }),
-      ).toHaveLength(0);
-    } finally {
-      vi.useRealTimers();
-    }
+  it("retention sweeps more abandoned uploads than fit in one page", async () => {
+    const uploadIds = Array.from({ length: 250 }, (_, i) => `file-${i}`);
+    for (const uploadId of uploadIds) await admit(uploadId);
+    expect(await deleteStaleMailUploads(new Date(Date.now() + 1000))).toBe(
+      uploadIds.length,
+    );
   });
 
   it("retention preserves a live send hold even when upload timestamps are old", async () => {

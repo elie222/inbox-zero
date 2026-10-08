@@ -31,11 +31,10 @@ the same configuration on each. Storage keys are random and never sent to the
 browser. Content is verified against the admitted checksum when written and
 again when read for sending.
 
-Cancel and confirmed sends delete objects right away; the send-operation
-retention cron retries failed deletions and removes abandoned uploads. Every
-storage key is recorded in `MailUploadObject` before bytes are written, so
-replaced keys, interrupted writes, and objects left behind by account deletion
-are still cleaned up.
+Cancel and confirmed sends delete objects right away. A failed deletion keeps
+its metadata row so the send-operation retention cron can retry it; the cron
+also removes uploads a composer abandoned. Account deletion removes the
+account's objects after the database transaction commits.
 
 ## Release
 

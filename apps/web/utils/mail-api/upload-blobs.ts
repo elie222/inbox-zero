@@ -48,7 +48,7 @@ export async function admitAccountUpload(
     },
     select: { storageKey: true },
   });
-  const storageKey = await newStorageKey(accountId);
+  const storageKey = randomUUID();
   await prisma.mailUpload.upsert({
     where: {
       emailAccountId_blobId: { emailAccountId: accountId, blobId: parsed.data },
@@ -95,7 +95,7 @@ export async function putAccountUploadContent(
     return { status: "missing" as const };
   // Each writer gets a new key. A restart/cancel cannot publish the old stream
   // or let its cleanup delete a newer writer's bytes, even for identical files.
-  const storageKey = await newStorageKey(accountId);
+  const storageKey = randomUUID();
   const claimed = await prisma.mailUpload.updateMany({
     where: {
       emailAccountId: accountId,
@@ -334,7 +334,7 @@ export async function deleteAccountUploads(
 }
 
 export async function deleteStaleMailUploads(olderThan: Date) {
-  const deleted = await requestUploadDeletion({
+  return requestUploadDeletion({
     OR: [
       {
         updatedAt: { lt: olderThan },
@@ -343,50 +343,14 @@ export async function deleteStaleMailUploads(olderThan: Date) {
       { deletionRequestedAt: { not: null } },
     ],
   });
-  try {
-    // Retain retired generations long enough for an interrupted writer to stop.
-    // The ledger survives account cascades and failed immediate object cleanup.
-    const where = {
-      mailUpload: null,
-      createdAt: { lt: expiredHoldBefore() },
-    };
-    // Page by key so objects whose deletion keeps failing are not re-read.
-    let after = "";
-    while (true) {
-      const objects = await prisma.mailUploadObject.findMany({
-        where: { ...where, storageKey: { gt: after } },
-        take: CLEANUP_PAGE_SIZE,
-        orderBy: { storageKey: "asc" },
-        select: { storageKey: true },
-      });
-      await inBatches(objects, async (object) => {
-        if (await deleteStoredUpload(object.storageKey)) {
-          await prisma.mailUploadObject.deleteMany({
-            where: { ...where, storageKey: object.storageKey },
-          });
-        }
-      });
-      if (objects.length < CLEANUP_PAGE_SIZE) break;
-      after = objects[objects.length - 1].storageKey;
-    }
-  } catch (error) {
-    logger.warn("Failed to clean up retired upload objects", {
-      errorType: error instanceof Error ? error.name : "UnknownError",
-    });
-  }
-  return deleted;
 }
 
 // Capture keys before the cascade removes metadata, but delete bytes only after
 // the account transaction commits. A failed account deletion keeps its uploads.
 export async function prepareAccountUploadDeletion(accountIds: string[]) {
   try {
-    const rows = await prisma.mailUploadObject.findMany({
-      where: {
-        OR: accountIds.map((accountId) => ({
-          storageKey: { startsWith: accountStoragePrefix(accountId) },
-        })),
-      },
+    const rows = await prisma.mailUpload.findMany({
+      where: { emailAccountId: { in: accountIds } },
       select: { storageKey: true },
     });
     return async () => {
@@ -399,13 +363,6 @@ export async function prepareAccountUploadDeletion(accountIds: string[]) {
     });
     return async () => {};
   }
-}
-
-async function newStorageKey(accountId: string) {
-  const storageKey = `${accountStoragePrefix(accountId)}${randomUUID()}`;
-  // Persist before any write, including keys whose metadata claim later fails.
-  await prisma.mailUploadObject.create({ data: { storageKey } });
-  return storageKey;
 }
 
 async function requestUploadDeletion(where: Prisma.MailUploadWhereInput) {
@@ -511,8 +468,4 @@ async function inBatches<T>(items: T[], run: (item: T) => Promise<unknown>) {
 
 function expiredHoldBefore() {
   return new Date(Date.now() - HOLD_TTL_MS);
-}
-
-function accountStoragePrefix(accountId: string) {
-  return `${createHash("sha256").update(accountId).digest("hex")}.`;
 }

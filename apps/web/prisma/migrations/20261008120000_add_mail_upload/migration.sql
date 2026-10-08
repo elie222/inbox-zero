@@ -33,14 +33,3 @@ CREATE UNIQUE INDEX "MailUpload_emailAccountId_blobId_key" ON "MailUpload"("emai
 
 -- AddForeignKey
 ALTER TABLE "MailUpload" ADD CONSTRAINT "MailUpload_emailAccountId_fkey" FOREIGN KEY ("emailAccountId") REFERENCES "EmailAccount"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- Object keys survive metadata replacement and account cascades for cleanup retries.
-CREATE TABLE "MailUploadObject" (
-    "storageKey" TEXT NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "MailUploadObject_pkey" PRIMARY KEY ("storageKey")
-);
-
-CREATE INDEX "MailUploadObject_createdAt_idx" ON "MailUploadObject"("createdAt");
-
-ALTER TABLE "MailUpload" ADD CONSTRAINT "MailUpload_storageKey_fkey" FOREIGN KEY ("storageKey") REFERENCES "MailUploadObject"("storageKey") ON DELETE RESTRICT ON UPDATE CASCADE;
