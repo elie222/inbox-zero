@@ -502,6 +502,7 @@ describe("drafts deleted from the mailbox", () => {
   afterEach(() => {
     setActiveMailClient(null);
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
   it("opens the composer blank once the mailbox draft is deleted", async () => {
@@ -673,6 +674,37 @@ describe("drafts deleted from the mailbox", () => {
     expect((await getReplyDraft(identity))?.content).toMatchObject({
       providerDraftId: "provider-1",
     });
+  });
+
+  it.each([
+    "request",
+    "response body",
+  ])("keeps the local draft within two seconds when the mailbox %s stalls", async (phase) => {
+    await saveDraftWithProvider();
+    const stored = await getReplyDraft(identity);
+    vi.useFakeTimers();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_url: string, init: RequestInit) => {
+        const stalled = new Promise<Response>((_resolve, reject) => {
+          init.signal?.addEventListener("abort", () => {
+            reject(new DOMException("Aborted", "AbortError"));
+          });
+        });
+        return phase === "request"
+          ? stalled
+          : Promise.resolve({ status: 404, json: () => stalled });
+      }),
+    );
+    const loaded = vi.fn();
+    const loading = dropReplyDraftDeletedFromMailbox(stored).then(loaded);
+
+    await vi.advanceTimersByTimeAsync(1999);
+    expect(loaded).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(loaded).toHaveBeenCalledWith(stored);
+    await loading;
+    expect((await getReplyDraft(identity))?.content).toBe(stored?.content);
   });
 
   it("does not ask the mailbox about a draft it never reached", async () => {

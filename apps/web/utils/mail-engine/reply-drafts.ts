@@ -312,17 +312,21 @@ export async function dropReplyDraftDeletedFromMailbox(
   const client = getActiveMailClient();
   const key = draftKey(draft);
   const engineRevision = engineRevisions.get(key);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 2000);
   try {
     const response = await fetchWithAccount({
       url: `/api/user/drafts/${encodeURIComponent(providerDraftId)}`,
       emailAccountId: draft.emailAccountId,
-      init: { cache: "no-store" },
+      init: { cache: "no-store", signal: controller.signal },
     });
     if (response.status !== 404) return draft;
     const body = (await response.json()) as { code?: string };
     if (body.code !== "DRAFT_NOT_FOUND") return draft;
   } catch {
     return draft;
+  } finally {
+    clearTimeout(timeout);
   }
   await pendingWrites.get(key)?.catch(() => {});
   if (drafts.get(key) !== draft) return getReplyDraft(draft);
