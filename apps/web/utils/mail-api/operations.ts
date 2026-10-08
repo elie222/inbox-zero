@@ -155,7 +155,7 @@ async function executeMetadataPerTarget(
       targets.push(failedTargetOutcome(target, error));
     }
   }
-  return metadataResult(operation, targets, observations);
+  return metadataResult(accountId, operation, targets, observations);
 }
 
 async function observeAppliedMetadata(
@@ -194,7 +194,7 @@ async function observeAppliedMetadata(
       targets.push({ key: target, outcome: "applied", code: null });
     }
   }
-  return metadataResult(operation, targets, observations);
+  return metadataResult(accountId, operation, targets, observations);
 }
 
 // One failed read rejects a whole provider batch, so retry individually to
@@ -243,10 +243,11 @@ async function inspectMetadataOperation(
       targets.push(failedTargetOutcome(target, error));
     }
   }
-  return metadataResult(operation, targets, observations);
+  return metadataResult(accountId, operation, targets, observations);
 }
 
-function metadataResult(
+async function metadataResult(
+  accountId: string,
   operation: PreparedMetadataOperation,
   targets: TargetOutcome[],
   observations: ReturnType<typeof parsedMessagePatch>[],
@@ -265,6 +266,26 @@ function metadataResult(
       status: "uncertain" as const,
       receiptId: operation.key.operationId,
     };
+  }
+  if (operation.intent.change.kind === "archive") {
+    const messageIds = targets
+      .filter((target) => target.outcome === "applied")
+      .map((target) => target.key.messageId);
+    try {
+      await prisma.emailMessage.updateMany({
+        where: {
+          emailAccountId: accountId,
+          messageId: { in: messageIds },
+        },
+        data: { inbox: false },
+      });
+    } catch (error) {
+      // A stats write failure must not retry an already applied provider move.
+      logger.error("Failed to update archived EmailMessage records", {
+        emailAccountId: accountId,
+        error,
+      });
+    }
   }
   return {
     status: "confirmed" as const,

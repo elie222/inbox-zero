@@ -82,7 +82,6 @@ import {
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import prisma from "@/utils/prisma";
 import {
-  getEmailUrlForMessage,
   getOpenInMailboxLabel,
   getEmailUrlForOptionalMessage,
 } from "@/utils/url";
@@ -1164,6 +1163,7 @@ async function replacePendingEmailConfirmationCard({
   confirmationResult?: {
     messageId?: string | null;
     threadId?: string | null;
+    externalUrl?: string | null;
   } | null;
   event: ActionEvent;
   logger: Logger;
@@ -1317,6 +1317,7 @@ function buildPendingEmailSuccessFeedback({
   confirmationResult?: {
     messageId?: string | null;
     threadId?: string | null;
+    externalUrl?: string | null;
   } | null;
   accountEmail?: string | null;
   accountProvider?: string | null;
@@ -1324,6 +1325,7 @@ function buildPendingEmailSuccessFeedback({
   const emailUrl = getEmailUrlForOptionalMessage({
     messageId: confirmationResult?.messageId,
     threadId: confirmationResult?.threadId,
+    externalUrl: confirmationResult?.externalUrl,
     emailAddress: accountEmail,
     provider: accountProvider || undefined,
   });
@@ -1344,6 +1346,7 @@ export function buildHandledPendingEmailCard({
   confirmationResult?: {
     messageId?: string | null;
     threadId?: string | null;
+    externalUrl?: string | null;
   } | null;
   messagingProvider: SupportedPlatform;
   part: PendingEmailToolPart;
@@ -1429,6 +1432,7 @@ export function getPendingEmailHandledOpenText({
   confirmationResult?: {
     messageId?: string | null;
     threadId?: string | null;
+    externalUrl?: string | null;
   } | null;
 }) {
   const openLink = getPendingEmailHandledOpenLink({
@@ -1451,21 +1455,18 @@ function getPendingEmailHandledOpenLink({
   confirmationResult?: {
     messageId?: string | null;
     threadId?: string | null;
+    externalUrl?: string | null;
   } | null;
 }) {
-  const messageId = confirmationResult?.messageId || undefined;
-  const threadId = confirmationResult?.threadId || undefined;
-  const resolvedMessageId = messageId || threadId;
-  const resolvedThreadId = threadId || messageId;
+  const emailUrl = getEmailUrlForOptionalMessage({
+    messageId: confirmationResult?.messageId,
+    threadId: confirmationResult?.threadId,
+    externalUrl: confirmationResult?.externalUrl,
+    emailAddress: accountEmail,
+    provider: accountProvider || undefined,
+  });
+  if (!emailUrl) return null;
 
-  if (!resolvedMessageId || !resolvedThreadId) return null;
-
-  const emailUrl = getEmailUrlForMessage(
-    resolvedMessageId,
-    resolvedThreadId,
-    accountEmail,
-    accountProvider || undefined,
-  );
   const label = getOpenInMailboxLabel(accountProvider);
   if (!label) return null;
 
