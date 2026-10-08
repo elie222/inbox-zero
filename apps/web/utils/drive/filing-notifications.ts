@@ -230,14 +230,17 @@ export async function sendCorrectionConfirmation({
   });
 
   try {
-    await emailProvider.sendEmailWithHtml({
-      replyToEmail: sourceMessage,
-      to: userEmail,
-      from: fromAddress,
-      replyTo: replyToAddress,
-      subject,
-      messageHtml,
-    });
+    await emailProvider.sendEmailWithHtml(
+      {
+        replyToEmail: sourceMessage,
+        to: userEmail,
+        from: fromAddress,
+        replyTo: replyToAddress,
+        subject,
+        messageHtml,
+      },
+      { preserveThreadSubject: true },
+    );
 
     log.info("Correction confirmation sent");
   } catch (error) {
@@ -456,14 +459,17 @@ async function sendNotificationEmail({
   let result: Awaited<ReturnType<EmailProvider["sendEmailWithHtml"]>>;
 
   try {
-    result = await emailProvider.sendEmailWithHtml({
-      replyToEmail: sourceMessage,
-      to: userEmail,
-      from: fromAddress,
-      replyTo: replyToAddress,
-      subject,
-      messageHtml,
-    });
+    result = await emailProvider.sendEmailWithHtml(
+      {
+        replyToEmail: sourceMessage,
+        to: userEmail,
+        from: fromAddress,
+        replyTo: replyToAddress,
+        subject,
+        messageHtml,
+      },
+      { preserveThreadSubject: true },
+    );
   } catch (error) {
     await releaseNotificationBatch({
       filingIds,

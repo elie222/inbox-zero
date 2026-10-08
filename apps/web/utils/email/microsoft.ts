@@ -99,6 +99,7 @@ import type {
   BulkArchiveResult,
   EmailLabelUpdate,
   GetThreadOptions,
+  SendEmailOptions,
 } from "@/utils/email/types";
 import type { SendEmailBody } from "@/utils/types/mail";
 import { getOutlookCategoryPreset } from "@/utils/outlook/category-colors";
@@ -868,7 +869,7 @@ export class OutlookProvider implements EmailProvider {
     return { messageId: requireSentMessageId(result.id) };
   }
 
-  async sendEmailWithHtml(body: SendEmailBody) {
+  async sendEmailWithHtml(body: SendEmailBody, options?: SendEmailOptions) {
     const result = await sendEmailWithHtml(
       this.client,
       {
@@ -876,6 +877,7 @@ export class OutlookProvider implements EmailProvider {
         attachments: toMailerAttachments(body.attachments),
       },
       this.logger,
+      options,
     );
     return {
       messageId: result.id || "",
