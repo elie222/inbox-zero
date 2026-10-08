@@ -352,8 +352,8 @@ const parsedEnv = createEnv({
     DEFAULT_DECISION_MODEL: z
       .string()
       .regex(
-        /^(typesafe|openrouter|gateway|openai):\S+$/,
-        "Expected <typesafe|openrouter|gateway|openai>:<model>",
+        /^(typesafe|openrouter|aigateway|openai):\S+$/,
+        "Expected <typesafe|openrouter|aigateway|openai>:<model>",
       )
       .optional(),
     // Whether users who haven't chosen get the decision model; otherwise opt-in
@@ -652,7 +652,7 @@ if (
 const decisionModelApiKeyNames: Record<string, string> = {
   typesafe: "TYPESAFE_API_KEY",
   openrouter: "OPENROUTER_API_KEY",
-  gateway: "AI_GATEWAY_API_KEY",
+  aigateway: "AI_GATEWAY_API_KEY",
   openai: "OPENAI_API_KEY",
 };
 const decisionModelProvider =

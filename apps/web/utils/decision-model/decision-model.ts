@@ -42,7 +42,7 @@ type DecideResult = Experimental_DecisionResult<
 >;
 
 export type DecisionModelConfig = {
-  provider: "typesafe" | "openrouter" | "gateway" | "openai";
+  provider: "typesafe" | "openrouter" | "aigateway" | "openai";
   modelId: string;
   model: Experimental_DecisionModelV4;
 };
@@ -248,7 +248,7 @@ export function createDecisionModelConfig(
         }),
       };
     }
-    case "gateway": {
+    case "aigateway": {
       const apiKey = resolveApiKey(env.AI_GATEWAY_API_KEY);
       if (!apiKey) return null;
       return {
@@ -333,5 +333,5 @@ function isJsonObject(value: unknown): value is JSONObject {
 function getLoggableError(error: unknown) {
   return error instanceof Error
     ? { name: error.name, message: error.message }
-    : error;
+    : { name: "UnknownError", message: "Non-Error rejection" };
 }

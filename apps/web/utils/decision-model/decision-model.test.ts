@@ -188,7 +188,7 @@ describe("runDecisionModel", () => {
       logger,
     });
 
-    expect(doDecide.mock.calls[0]?.[0].state).toEqual({
+    expect(doDecide.mock.calls[0]?.[0].state).toStrictEqual({
       email: { subject: "Hi" },
     });
   });
