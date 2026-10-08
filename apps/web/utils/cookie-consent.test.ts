@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { env } from "@/env";
 import {
   canUseTrackingCookies,
   getCookieConsentState,
@@ -11,7 +12,7 @@ import {
 } from "./cookie-consent";
 
 vi.mock("@/env", () => ({
-  env: { NEXT_PUBLIC_POSTHOG_KEY: "phc_test" },
+  env: { NEXT_PUBLIC_COOKIE_CONSENT_ENABLED: true },
 }));
 
 describe("isConsentTimeZone", () => {
@@ -46,6 +47,19 @@ describe("cookie consent state", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it("leaves tracking unchanged when the banner is disabled", () => {
+    useTimeZone("Europe/Paris");
+    vi.mocked(env).NEXT_PUBLIC_COOKIE_CONSENT_ENABLED = false;
+
+    try {
+      expect(getCookieConsentState()).toBe("not-required");
+      expect(canUseTrackingCookies()).toBe(true);
+      expect(isCookieBannerOpen()).toBe(false);
+    } finally {
+      vi.mocked(env).NEXT_PUBLIC_COOKIE_CONSENT_ENABLED = true;
+    }
   });
 
   it("does not ask visitors outside consent regions", () => {

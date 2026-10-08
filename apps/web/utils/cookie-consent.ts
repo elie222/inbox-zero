@@ -91,7 +91,7 @@ export function isConsentTimeZone(timeZone: string | undefined): boolean {
 }
 
 export function getCookieConsentState(): CookieConsentState {
-  if (!hasConsentGatedTracking()) return "not-required";
+  if (!env.NEXT_PUBLIC_COOKIE_CONSENT_ENABLED) return "not-required";
   if (!isConsentTimeZone(getDeviceTimeZone())) return "not-required";
 
   return getStoredChoice() ?? "pending";
@@ -154,16 +154,6 @@ export function subscribeToCookieConsent(onChange: () => void) {
     window.removeEventListener(CHANGE_EVENT, onChange);
     window.removeEventListener("storage", onStorage);
   };
-}
-
-function hasConsentGatedTracking() {
-  return Boolean(
-    env.NEXT_PUBLIC_POSTHOG_KEY ||
-      env.NEXT_PUBLIC_GTM_ID ||
-      env.NEXT_PUBLIC_DUB_REFER_DOMAIN ||
-      env.NEXT_PUBLIC_CONVERSION_ANALYTICS_SCRIPT_URL ||
-      env.NEXT_PUBLIC_SENTRY_DSN,
-  );
 }
 
 function getDeviceTimeZone() {

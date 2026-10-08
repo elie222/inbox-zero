@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { env } from "@/env";
 import {
   useCookieBannerOpen,
   useCookieConsent,
@@ -56,6 +57,8 @@ export function CookieConsentBanner() {
 /** Renders tracking scripts only once the visitor's consent allows them. */
 export function WithCookieConsent({ children }: { children: React.ReactNode }) {
   const consent = useCookieConsent();
+  // Without the banner, scripts render on the server as they always have.
+  if (!env.NEXT_PUBLIC_COOKIE_CONSENT_ENABLED) return children;
   if (consent !== "not-required" && consent !== "granted") return null;
 
   return children;

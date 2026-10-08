@@ -5,7 +5,10 @@ import { setCookieConsent } from "@/utils/cookie-consent";
 import { trackClientConversion } from "./client-conversions";
 
 vi.mock("@/env", () => ({
-  env: { NEXT_PUBLIC_GTM_ID: "GTM-TEST" },
+  env: {
+    NEXT_PUBLIC_COOKIE_CONSENT_ENABLED: true,
+    NEXT_PUBLIC_GTM_ID: "GTM-TEST",
+  },
 }));
 vi.mock("@next/third-parties/google", () => ({
   sendGTMEvent: vi.fn(),
