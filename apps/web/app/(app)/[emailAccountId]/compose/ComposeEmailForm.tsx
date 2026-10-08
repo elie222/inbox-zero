@@ -88,6 +88,7 @@ import { scheduleEmailAction } from "@/utils/actions/scheduled-email";
 import {
   extractEmailAddress,
   extractNameFromEmail,
+  formatRecipientNames,
   isValidEmail,
   splitRecipientList,
 } from "@/utils/email";
@@ -304,6 +305,7 @@ function ComposeEmailFormContent({
   selectedEmailAccountId: string;
   onSelectEmailAccount: (emailAccountId: string) => void;
 }) {
+  const { userEmail } = useAccount();
   const isComposeWindow = layout === "window";
   const isInlineReply = Boolean(draftKeyMessageId && replyingToEmail?.threadId);
   const canScheduleDelivery = isInlineReply || isComposeWindow;
@@ -1385,8 +1387,16 @@ function ComposeEmailFormContent({
               </span>
               <span className="min-w-0 truncate">
                 to{" "}
-                {extractNameFromEmail(
-                  watch("to") || replyingToEmail?.to || "",
+                {formatRecipientNames(
+                  [
+                    ...splitRecipientList(
+                      watch("to") ?? replyingToEmail?.to ?? "",
+                    ),
+                    ...splitRecipientList(
+                      watch("cc") ?? replyingToEmail?.cc ?? "",
+                    ),
+                  ],
+                  userEmail,
                 ) || "recipients"}
               </span>
               <ChevronDownIcon className="size-3 shrink-0 text-muted-foreground" />

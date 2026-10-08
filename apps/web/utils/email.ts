@@ -2,15 +2,15 @@ import type { ParsedMessage } from "@/utils/types";
 import { z } from "zod";
 
 const emailSchema = z.string().email();
-const recipientSeparatorRegex = /,(?=(?:[^"]*"[^"]*")*[^"]*$)/;
 
 // Converts "John Doe <john.doe@gmail>" to "John Doe"
+// Converts '"Doe, John" <john.doe@gmail>' to "Doe, John"
 // Converts "<john.doe@gmail>" to "john.doe@gmail"
 // Converts "john.doe@gmail" to "john.doe@gmail"
 export function extractNameFromEmail(email: string) {
   if (!email) return "";
   const firstPart = email.split("<")[0]?.trim();
-  if (firstPart) return firstPart;
+  if (firstPart) return unquoteDisplayName(firstPart);
   const secondPart = email.split("<")?.[1]?.trim();
   if (secondPart) return secondPart.split(">")[0];
   return email;
@@ -27,10 +27,23 @@ export function extractEmailAddresses(header: string): string[] {
 export function splitRecipientList(recipientList: string): string[] {
   if (!recipientList) return [];
 
-  return recipientList
-    .split(recipientSeparatorRegex)
-    .map((recipient) => recipient.trim())
-    .filter(Boolean);
+  // One pass rather than a quote-counting regex: headers come from senders,
+  // and this runs on every synced message.
+  const recipients: string[] = [];
+  let start = 0;
+  let inQuotes = false;
+  for (let index = 0; index < recipientList.length; index++) {
+    const char = recipientList[index];
+    if (inQuotes && char === "\\") index++;
+    else if (char === '"') inQuotes = !inQuotes;
+    else if (char === "," && !inQuotes) {
+      recipients.push(recipientList.slice(start, index));
+      start = index + 1;
+    }
+  }
+  recipients.push(recipientList.slice(start));
+
+  return recipients.map((recipient) => recipient.trim()).filter(Boolean);
 }
 
 // Converts "John Doe <john.doe@gmail>" to "john.doe@gmail"
@@ -75,6 +88,26 @@ export function canonicalizeEmailAddress(email: string): string {
 
 export function isSameEmailAddress(left: string, right: string) {
   return canonicalizeEmailAddress(left) === canonicalizeEmailAddress(right);
+}
+
+// "me, Dana, Alex": who a message goes to, short enough to scan in a header.
+export function formatRecipientNames(recipients: string[], userEmail: string) {
+  const seen = new Set<string>();
+  let includesMe = false;
+  const names: string[] = [];
+  for (const recipient of recipients) {
+    const key =
+      canonicalizeEmailAddress(recipient) || recipient.trim().toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    if (userEmail && isSameEmailAddress(recipient, userEmail)) {
+      includesMe = true;
+    } else {
+      names.push(recipientFirstName(recipient));
+    }
+  }
+  // "me" leads however the account was addressed, so it's easy to spot.
+  return (includesMe ? ["me", ...names] : names).join(", ");
 }
 
 export function messageRepliesToSourceSender({
@@ -302,4 +335,23 @@ export function isSameOrganization(left: string, right: string): boolean {
   if (!leftDomain || isPublicEmailDomain(leftDomain)) return false;
 
   return leftDomain === extractDomainFromEmail(right).toLowerCase();
+}
+
+// Display names with commas arrive quoted ('"Doe, John"'), which is header
+// syntax rather than part of the name.
+function unquoteDisplayName(name: string) {
+  const quoted = name.match(/^"(.*)"$/);
+  if (!quoted) return name;
+  return quoted[1].replace(/\\(.)/g, "$1").trim();
+}
+
+function recipientFirstName(recipient: string) {
+  const email = extractEmailAddress(recipient);
+  const name = extractNameFromEmail(recipient);
+  if (!name || name.includes("@")) return email || name;
+  // Directory-style "Last, First" names put the given name after the comma.
+  const givenName = name.includes(",")
+    ? name.slice(name.indexOf(",") + 1).trim()
+    : name;
+  return givenName.split(/\s+/)[0] || name;
 }

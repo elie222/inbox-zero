@@ -13,6 +13,7 @@ import { Tooltip } from "@/components/Tooltip";
 import {
   extractEmailAddress,
   extractNameFromEmail,
+  formatRecipientNames,
   getInitials,
   isSameEmailAddress,
   splitRecipientList,
@@ -787,31 +788,15 @@ function resolveComposeMode(
   return mode;
 }
 
-/** "to me", "to Dana", "to me and 3 others" — who a message went out to. */
 function recipientSummary(
   { to, cc }: { to?: string; cc?: string },
   userEmail: string,
 ) {
-  const recipients = [
-    ...splitRecipientList(to ?? ""),
-    ...splitRecipientList(cc ?? ""),
-  ].filter(
-    (recipient, index, all) =>
-      all.findIndex((other) => isSameEmailAddress(other, recipient)) === index,
+  const names = formatRecipientNames(
+    [...splitRecipientList(to ?? ""), ...splitRecipientList(cc ?? "")],
+    userEmail,
   );
-  if (recipients.length === 0) return "";
-
-  // "me" leads whenever the account is in there at all, however it was addressed.
-  const first =
-    recipients.find((recipient) => isSameEmailAddress(recipient, userEmail)) ??
-    recipients[0];
-  const firstLabel = isSameEmailAddress(first, userEmail)
-    ? "me"
-    : extractNameFromEmail(first) || extractEmailAddress(first);
-
-  const others = recipients.length - 1;
-  if (others === 0) return `to ${firstLabel}`;
-  return `to ${firstLabel} and ${others} ${others === 1 ? "other" : "others"}`;
+  return names ? `to ${names}` : "";
 }
 
 const prepareReplyingToEmail = (

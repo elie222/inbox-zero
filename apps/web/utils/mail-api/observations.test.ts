@@ -54,6 +54,29 @@ describe("parsedMessageMetadata", () => {
     expect(metadata.inboxSection).toBe("focused");
   });
 
+  it("keeps quoted display names with commas as one recipient", () => {
+    const metadata = parsedMessageMetadata({
+      id: "m1b",
+      threadId: "t1b",
+      historyId: "1",
+      date: "2026-01-01T00:00:00.000Z",
+      subject: "Hello",
+      snippet: "Hi",
+      labelIds: ["INBOX"],
+      headers: {
+        from: '"Lovelace, Ada" <ada@example.com>',
+        to: "me@example.com",
+        cc: '"Hopper, Grace" <grace@example.com>, "Turing, Alan" <alan@example.com>',
+        date: "",
+      },
+      inline: [],
+    } as ParsedMessage);
+    expect(metadata.cc).toEqual([
+      '"Hopper, Grace" <grace@example.com>',
+      '"Turing, Alan" <alan@example.com>',
+    ]);
+  });
+
   it("prefers the provider attachment flag over an unfetched attachment list", () => {
     const metadata = parsedMessageMetadata({
       id: "m2a",
