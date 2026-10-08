@@ -64,6 +64,36 @@ describe("getUncategorizedSenders", () => {
     ]);
   });
 
+  it("returns senders when paging starts past the first 200 senders", async () => {
+    mockSenderPages(350);
+
+    const result = await getUncategorizedSenders({
+      emailAccountId: "account-1",
+      offset: 200,
+    });
+
+    expect(result.uncategorizedSenders).toHaveLength(100);
+    expect(result.uncategorizedSenders[0]?.email).toBe("sender200@example.com");
+    expect(result.nextOffset).toBe(300);
+  });
+
+  it("keeps scanning past 200 senders when earlier pages are all categorized", async () => {
+    mockSenderPages(350);
+    prisma.newsletter.findMany.mockImplementation((async (args: {
+      where: { email: { in: string[] } };
+    }) =>
+      args.where.email.in
+        .filter((email) => Number(email.match(/\d+/)?.[0]) < 300)
+        .map((email) => ({ email }))) as never);
+
+    const result = await getUncategorizedSenders({
+      emailAccountId: "account-1",
+    });
+
+    expect(result.uncategorizedSenders).toHaveLength(50);
+    expect(result.uncategorizedSenders[0]?.email).toBe("sender300@example.com");
+  });
+
   it("treats mixed-case senders as categorized when a canonicalized record exists", async () => {
     mockGetSenders.mockResolvedValue([
       { from: "Costco@digital.costco.com", fromName: "Costco" },
@@ -89,3 +119,16 @@ describe("getUncategorizedSenders", () => {
     );
   });
 });
+
+function mockSenderPages(total: number) {
+  mockGetSenders.mockImplementation(
+    async ({ offset = 0, limit = 100 }: { offset?: number; limit?: number }) =>
+      Array.from(
+        { length: Math.max(0, Math.min(limit, total - offset)) },
+        (_, i) => ({
+          from: `sender${offset + i}@example.com`,
+          fromName: null,
+        }),
+      ),
+  );
+}
