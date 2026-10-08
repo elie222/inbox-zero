@@ -28,7 +28,6 @@ const TRACKING_COOKIE_PREFIXES = [
   "wbraid",
   "gad_",
   "affiliate",
-  "lemon",
 ];
 const TRACKING_STORAGE_PREFIXES = ["ph_", "__ph"];
 
