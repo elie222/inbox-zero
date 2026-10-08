@@ -6,6 +6,12 @@ import * as Sentry from "@sentry/nextjs";
 import { env } from "@/env";
 import { beforeSend, beforeSendTransaction } from "@/utils/sentry-scrub";
 import { installStaleDeploymentReload } from "@/utils/stale-deployment";
+import {
+  canUseTrackingCookies,
+  subscribeToCookieConsent,
+} from "@/utils/cookie-consent";
+
+const REPLAY_SESSION_SAMPLE_RATE = 0.1;
 
 Sentry.init({
   dsn: env.NEXT_PUBLIC_SENTRY_DSN,
@@ -20,11 +26,12 @@ Sentry.init({
   beforeSend,
   beforeSendTransaction,
 
-  replaysOnErrorSampleRate: 1.0,
-
-  // This sets the sample rate to be 10%. You may want this to be 100% while
-  // in development and sample at a lower rate in production
-  replaysSessionSampleRate: 0.1,
+  // Session replay stores data in the browser, so it waits for cookie consent
+  // where that is required.
+  replaysOnErrorSampleRate: canUseTrackingCookies() ? 1.0 : 0,
+  replaysSessionSampleRate: canUseTrackingCookies()
+    ? REPLAY_SESSION_SAMPLE_RATE
+    : 0,
 
   integrations: [
     Sentry.replayIntegration({
@@ -33,6 +40,19 @@ Sentry.init({
     }),
   ],
 });
+
+if (!canUseTrackingCookies()) {
+  const unsubscribe = subscribeToCookieConsent(() => {
+    if (!canUseTrackingCookies()) return;
+
+    unsubscribe();
+    // Mirrors the sampling Sentry applies when consent exists at page load:
+    // some sessions are recorded in full, the rest only around errors.
+    const replay = Sentry.getReplay();
+    if (Math.random() < REPLAY_SESSION_SAMPLE_RATE) replay?.start();
+    else replay?.startBuffering();
+  });
+}
 
 installStaleDeploymentReload();
 
