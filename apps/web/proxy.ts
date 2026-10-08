@@ -9,8 +9,9 @@ import {
   markdownResponse,
 } from "@/utils/agent-markdown/content";
 import { BRAND_NAME, SUPPORT_EMAIL } from "@/utils/branding";
+import { auth } from "@/utils/auth";
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   if (isNextInternalRequest(request)) {
     return withVaryAccept(NextResponse.next());
   }
@@ -20,6 +21,26 @@ export function proxy(request: NextRequest) {
   }
 
   if (!prefersMarkdown(request.headers.get("accept"))) {
+    if (request.nextUrl.pathname === "/") {
+      const hasSessionCookie = request.cookies.has(
+        "__Secure-better-auth.session_token",
+      );
+      const hasLegacySessionCookie = request.cookies.has(
+        "__Secure-better-auth.session-token.1",
+      );
+
+      if (hasSessionCookie || hasLegacySessionCookie) {
+        const session = await auth(request.headers);
+        if (session?.user) {
+          const destination = request.nextUrl.clone();
+          destination.pathname = hasSessionCookie ? "/automation" : "/setup";
+          const response = NextResponse.redirect(destination);
+          response.headers.set("Cache-Control", "private, no-store");
+          return withVaryAccept(response);
+        }
+      }
+    }
+
     return withVaryAccept(NextResponse.next());
   }
 
