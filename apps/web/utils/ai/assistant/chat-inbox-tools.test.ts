@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { asSchema } from "ai";
 import type { ParsedMessage } from "@/utils/types";
 import prisma from "@/utils/__mocks__/prisma";
-import { createTestLogger } from "@/__tests__/helpers";
+import { createTestLogger, getMockMessage } from "@/__tests__/helpers";
 import { createEmailProvider } from "@/utils/email/provider";
 import { SafeError } from "@/utils/error";
 import {
@@ -1343,6 +1343,107 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     );
   });
 
+  it("searchInbox resolves a folder independently of a same-named category across all pages", async () => {
+    const messages = Array.from({ length: 24 }, (_, index) =>
+      getMockMessage({
+        id: `folder-message-${index + 1}`,
+        threadId: `folder-thread-${index + 1}`,
+        from: "digest@example.com",
+        labelIds: ["UNREAD"],
+      }),
+    );
+    const searchMessages = vi.fn().mockImplementation(async (options) => {
+      if (options.folderId !== "newsletter-folder" || options.labelName) {
+        return { messages: [], nextPageToken: undefined };
+      }
+      if (!options.pageToken) {
+        return {
+          messages: messages.slice(0, 11),
+          nextPageToken: "PAGE_TOKEN_2",
+        };
+      }
+      if (options.pageToken === "PAGE_TOKEN_2") {
+        return { messages: [], nextPageToken: "PAGE_TOKEN_3" };
+      }
+      return { messages: messages.slice(11), nextPageToken: undefined };
+    });
+    const markReadThread = vi.fn().mockImplementation(async (threadId) => {
+      if (threadId === "folder-thread-24")
+        throw new Error("Mock write failure");
+    });
+    const getFolders = vi.fn().mockResolvedValue([
+      {
+        id: "newsletter-folder",
+        displayName: "Newsletter",
+        childFolders: [],
+      },
+    ]);
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      searchMessages,
+      getFolders,
+      getLabels: vi
+        .fn()
+        .mockResolvedValue([
+          { id: "newsletter-category", name: "Newsletter", type: "user" },
+        ]),
+      markReadThread,
+    } as any);
+    const options = {
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      logger,
+    };
+    const search = searchInboxTool(options);
+    const schema = search.inputSchema as any;
+    const parsedInput = schema.safeParse({ folderName: "Newsletter" });
+    expect(parsedInput.success).toBe(true);
+
+    const threadIds = new Set<string>();
+    let pageToken: string | undefined;
+    let pages = 0;
+    do {
+      const result: any = await (search.execute as any)({
+        query: "",
+        folderName: "Newsletter",
+        readState: "unread",
+        limit: 20,
+        pageToken,
+      });
+      expect(result.error).toBeUndefined();
+      for (const message of result.messages) threadIds.add(message.threadId);
+      pageToken = result.nextPageToken;
+      pages += 1;
+      expect(pages).toBeLessThanOrEqual(3);
+      expect(result.hasMore).toBe(Boolean(pageToken));
+    } while (pageToken);
+
+    expect(threadIds.size).toBe(24);
+    expect(searchMessages).toHaveBeenCalledTimes(3);
+    expect(markReadThread).not.toHaveBeenCalled();
+    const result = await (manageInboxTool(options).execute as any)({
+      action: "mark_read_threads",
+      threadIds: [...threadIds],
+      read: true,
+    });
+    expect(markReadThread).toHaveBeenCalledTimes(24);
+    expect(result).toMatchObject({
+      success: false,
+      requestedCount: 24,
+      successCount: 23,
+      failedCount: 1,
+      failedThreadIds: ["folder-thread-24"],
+    });
+    expect(
+      searchMessages.mock.calls.every(
+        ([input]) =>
+          input.folderId === "newsletter-folder" &&
+          input.labelName === undefined &&
+          input.readState === "unread",
+      ),
+    ).toBe(true);
+  });
+
   it("searchInbox passes structured Outlook category and read-state filters", async () => {
     const searchMessages = vi.fn().mockResolvedValue({
       messages: [],
@@ -1524,6 +1625,11 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     (createEmailProvider as any).mockResolvedValue({
       searchMessages,
       getLabels: vi.fn().mockResolvedValue([]),
+      getFolders: vi
+        .fn()
+        .mockResolvedValue([
+          { id: "scoped-folder", displayName: "Operations", childFolders: [] },
+        ]),
     });
 
     const toolInstance = searchInboxTool({
@@ -1544,7 +1650,8 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
       maxResults: 20,
       pageToken: undefined,
       readState: "unread",
-      labelName: "Operations",
+      labelName: undefined,
+      folderId: "scoped-folder",
     });
   });
 
@@ -1628,6 +1735,11 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     (createEmailProvider as any).mockResolvedValue({
       searchMessages,
       getLabels: vi.fn().mockResolvedValue([]),
+      getFolders: vi
+        .fn()
+        .mockResolvedValue([
+          { id: "scoped-folder", displayName: "invoice", childFolders: [] },
+        ]),
     });
 
     const toolInstance = searchInboxTool({
@@ -1647,7 +1759,8 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
       maxResults: 20,
       pageToken: undefined,
       readState: undefined,
-      labelName: "invoice",
+      labelName: undefined,
+      folderId: "scoped-folder",
     });
     expect(searchMessages).toHaveBeenCalledTimes(1);
     expect(result.queryUsed).toBe("");
@@ -1672,6 +1785,11 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     (createEmailProvider as any).mockResolvedValue({
       searchMessages,
       getLabels: vi.fn().mockResolvedValue([]),
+      getFolders: vi
+        .fn()
+        .mockResolvedValue([
+          { id: "scoped-folder", displayName: "invoice", childFolders: [] },
+        ]),
     });
 
     const toolInstance = searchInboxTool({
@@ -1691,14 +1809,16 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
       maxResults: 20,
       pageToken: undefined,
       readState: undefined,
-      labelName: "invoice",
+      labelName: undefined,
+      folderId: "scoped-folder",
     });
     expect(searchMessages).toHaveBeenNthCalledWith(2, {
       query: "",
       maxResults: 20,
       pageToken: "PAGE_TOKEN_2",
       readState: undefined,
-      labelName: "invoice",
+      labelName: undefined,
+      folderId: "scoped-folder",
     });
     expect(searchMessages).toHaveBeenCalledTimes(2);
     expect(result.queryUsed).toBe("");
