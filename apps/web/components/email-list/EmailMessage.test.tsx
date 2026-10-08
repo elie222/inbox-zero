@@ -228,7 +228,7 @@ describe("EmailMessage reply", () => {
     expect(screen.getByRole("textbox", { name: "Email message" })).toBeTruthy();
   });
 
-  it("counts Cc recipients in the recipient summary", () => {
+  it("names To and Cc recipients in the recipient summary", () => {
     const message = createMessage("message-1");
     render(
       <EmailMessage
@@ -237,7 +237,8 @@ describe("EmailMessage reply", () => {
           ...message,
           headers: {
             ...message.headers,
-            cc: "first@example.com, second@example.com, user@example.com",
+            to: "Alex Kim <alex@example.com>, user@example.com",
+            cc: '"Doe, Jane" <jane@example.com>, Sam Lee <sam@example.com>, user@example.com',
           },
         }}
         onSendSuccess={vi.fn()}
@@ -246,7 +247,7 @@ describe("EmailMessage reply", () => {
       />,
     );
 
-    expect(screen.getByText("to me and 2 others")).toBeTruthy();
+    expect(screen.getByText("to me, Alex, Jane, Sam")).toBeTruthy();
   });
 });
 

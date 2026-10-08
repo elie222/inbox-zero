@@ -88,6 +88,7 @@ import { scheduleEmailAction } from "@/utils/actions/scheduled-email";
 import {
   extractEmailAddress,
   extractNameFromEmail,
+  formatRecipientNames,
   isValidEmail,
   splitRecipientList,
 } from "@/utils/email";
@@ -106,7 +107,10 @@ import { resolveSendDraftId } from "@/app/(app)/[emailAccountId]/compose/send-dr
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { stripBrandingSignatures } from "@/utils/referral/signature";
 import { renderSentWithFooterHtml } from "@/utils/email/sent-with-footer";
-import { getActionErrorMessage } from "@/utils/error";
+import {
+  getActionErrorMessage,
+  UNEXPECTED_ACTION_ERROR_MESSAGE,
+} from "@/utils/error";
 import { redirectToSafeUrl } from "@/utils/redirect";
 import { generateReferralLink } from "@/utils/referral/referral-link";
 import {
@@ -301,6 +305,7 @@ function ComposeEmailFormContent({
   selectedEmailAccountId: string;
   onSelectEmailAccount: (emailAccountId: string) => void;
 }) {
+  const { userEmail } = useAccount();
   const isComposeWindow = layout === "window";
   const isInlineReply = Boolean(draftKeyMessageId && replyingToEmail?.threadId);
   const canScheduleDelivery = isInlineReply || isComposeWindow;
@@ -573,7 +578,7 @@ function ComposeEmailFormContent({
               : {}),
           },
         });
-        if (!result?.data) throw new Error(getActionErrorMessage(result ?? {}));
+        if (!result?.data) throw new Error(getDraftSyncErrorMessage(result));
         savedAttachments.current = attachmentSnapshot;
         if (result.data.messageId) {
           await ingestMailboxDraft(
@@ -594,7 +599,7 @@ function ComposeEmailFormContent({
         draftMessageId: providerDraftMessageId,
         draftId: providerDraftId.current,
       });
-      if (!result?.data) throw new Error(getActionErrorMessage(result ?? {}));
+      if (!result?.data) throw new Error(getDraftSyncErrorMessage(result));
       providerDraftId.current = result.data.draftId;
       const { messageId } = result.data;
       const replacedMessage = messageId && messageId !== providerDraftMessageId;
@@ -1382,8 +1387,16 @@ function ComposeEmailFormContent({
               </span>
               <span className="min-w-0 truncate">
                 to{" "}
-                {extractNameFromEmail(
-                  watch("to") || replyingToEmail?.to || "",
+                {formatRecipientNames(
+                  [
+                    ...splitRecipientList(
+                      watch("to") ?? replyingToEmail?.to ?? "",
+                    ),
+                    ...splitRecipientList(
+                      watch("cc") ?? replyingToEmail?.cc ?? "",
+                    ),
+                  ],
+                  userEmail,
                 ) || "recipients"}
               </span>
               <ChevronDownIcon className="size-3 shrink-0 text-muted-foreground" />
@@ -1644,6 +1657,9 @@ function ComposeEmailFormContent({
     </form>
   );
 }
+
+const DRAFT_SYNC_FAILED_MESSAGE =
+  "Couldn't sync this draft to your mailbox. It's saved on this device and we'll keep trying.";
 
 const RECIPIENT_LABELS: Record<ComposeRecipientField, string> = {
   to: "To",
@@ -2014,4 +2030,19 @@ async function refreshScheduledEmails(
       : []),
   ];
   await Promise.all(keys.map((key) => mutate(key).catch(() => {})));
+}
+
+// Unexpected server failures are usually transient and the autosave retries
+// them, so they get reassuring copy. Specific rejections (a draft that was
+// sent or deleted elsewhere, an expired session) are shown as-is.
+function getDraftSyncErrorMessage(
+  result: { serverError?: string } | undefined,
+) {
+  const message = getActionErrorMessage(
+    result ?? {},
+    DRAFT_SYNC_FAILED_MESSAGE,
+  );
+  return message === UNEXPECTED_ACTION_ERROR_MESSAGE
+    ? DRAFT_SYNC_FAILED_MESSAGE
+    : message;
 }
