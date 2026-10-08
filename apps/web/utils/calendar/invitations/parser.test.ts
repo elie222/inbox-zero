@@ -49,8 +49,8 @@ const detailedInvite = [
   "ATTENDEE;CN=Test User;PARTSTAT=NEEDS-ACTION:mailto:user@example.com",
   "ATTENDEE;CN=Guest;PARTSTAT=ACCEPTED;ROLE=OPT-PARTICIPANT:mailto:guest@example.com",
   "LOCATION:Microsoft Teams Meeting",
-  "X-GOOGLE-CONFERENCE:https://meet.google.com/ttw-swve-twg",
-  "SUMMARY:test rsvp",
+  "X-GOOGLE-CONFERENCE:https://meet.google.com/abc-defg-hij",
+  "SUMMARY:Project planning",
   "END:VEVENT",
   "END:VCALENDAR",
 ].join("\r\n");
@@ -63,7 +63,7 @@ describe("calendar invitation details", () => {
       end: "2026-09-29T16:05:00.000Z",
       allDay: false,
       location: "Microsoft Teams Meeting",
-      conferenceUrl: "https://meet.google.com/ttw-swve-twg",
+      conferenceUrl: "https://meet.google.com/abc-defg-hij",
     });
   });
 
@@ -142,7 +142,7 @@ describe("calendar invitation details", () => {
   it("falls back to a conference link in the description", () => {
     const parsed = parseCalendarInvitation(
       detailedInvite.replace(
-        "X-GOOGLE-CONFERENCE:https://meet.google.com/ttw-swve-twg",
+        "X-GOOGLE-CONFERENCE:https://meet.google.com/abc-defg-hij",
         "DESCRIPTION:Join here: https://zoom.us/j/8123456789",
       ),
       "user@example.com",
@@ -153,7 +153,7 @@ describe("calendar invitation details", () => {
   it("finds a join link buried deep in a long description", () => {
     const parsed = parseCalendarInvitation(
       detailedInvite.replace(
-        "X-GOOGLE-CONFERENCE:https://meet.google.com/ttw-swve-twg",
+        "X-GOOGLE-CONFERENCE:https://meet.google.com/abc-defg-hij",
         `DESCRIPTION:${"agenda ".repeat(2000)}https://meet.google.com/abc-defg-hij`,
       ),
       "user@example.com",
@@ -166,7 +166,7 @@ describe("calendar invitation details", () => {
   it("finds a join link in a vendor property we do not name", () => {
     const parsed = parseCalendarInvitation(
       detailedInvite.replace(
-        "X-GOOGLE-CONFERENCE:https://meet.google.com/ttw-swve-twg",
+        "X-GOOGLE-CONFERENCE:https://meet.google.com/abc-defg-hij",
         "X-MICROSOFT-ONLINEMEETINGCONFLINK:https://teams.microsoft.com/l/meetup-join/abc",
       ),
       "user@example.com",
@@ -179,7 +179,7 @@ describe("calendar invitation details", () => {
   it("ignores a location that is not a conference link", () => {
     const parsed = parseCalendarInvitation(
       detailedInvite.replace(
-        "X-GOOGLE-CONFERENCE:https://meet.google.com/ttw-swve-twg",
+        "X-GOOGLE-CONFERENCE:https://meet.google.com/abc-defg-hij",
         "SUMMARY:ignored",
       ),
       "user@example.com",

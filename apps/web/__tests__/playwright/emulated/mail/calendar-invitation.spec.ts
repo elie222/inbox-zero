@@ -31,7 +31,7 @@ test("shows inline calendar responses with the current RSVP", async ({
           end: "2026-10-01T10:30:00.000Z",
           allDay: false,
           location: "Meeting room 2",
-          conferenceUrl: "https://meet.google.com/ttw-swve-twg",
+          conferenceUrl: "https://meet.google.com/abc-defg-hij",
         },
       },
     }),
@@ -57,8 +57,8 @@ test("shows inline calendar responses with the current RSVP", async ({
   ).toBeVisible();
   await expect(card.getByText("Meeting room 2")).toBeVisible();
   await expect(
-    card.getByRole("link", { name: "meet.google.com/ttw-swve-twg" }),
-  ).toHaveAttribute("href", "https://meet.google.com/ttw-swve-twg");
+    card.getByRole("link", { name: "meet.google.com/abc-defg-hij" }),
+  ).toHaveAttribute("href", "https://meet.google.com/abc-defg-hij");
   await expect(card.getByText("organizer@example.com")).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath("calendar-invitation-desktop.png"),
