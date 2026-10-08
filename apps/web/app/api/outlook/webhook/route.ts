@@ -10,7 +10,14 @@ import {
 } from "@/utils/webhook/outlook/types";
 import { handleWebhookError } from "@/utils/webhook/error-handler";
 import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";
-import { getWebhookEmailAccount } from "@/utils/webhook/validate-webhook-account";
+import {
+  cleanupWebhookAccountOnRateLimitSkip,
+  getWebhookEmailAccount,
+} from "@/utils/webhook/validate-webhook-account";
+import { getEmailProviderRateLimitState } from "@/utils/email/rate-limit";
+import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import { catchUpAfterOutlookRateLimit } from "@/utils/outlook/rate-limit-catch-up";
+import { markOutlookRateLimitCatchUp } from "@/utils/redis/outlook-rate-limit-catch-up";
 
 import { notifyMailboxChanged } from "@/utils/mailbox-push";
 
@@ -143,12 +150,26 @@ async function processNotificationsAsync(
           }),
         );
       }
+      if (emailAccount && (await isOutlookRateLimited(emailAccount, logger))) {
+        continue;
+      }
+
       await processHistoryForUser({
         preloadedEmailAccount: emailAccount,
         subscriptionId,
         resourceData,
         logger,
       });
+
+      if (emailAccount) {
+        after(() =>
+          runWithBackgroundLoggerFlush({
+            logger,
+            task: () => catchUpAfterOutlookRateLimit({ emailAccount, logger }),
+            extra: { operation: "outlook-rate-limit-catch-up" },
+          }),
+        );
+      }
     } catch (error) {
       const emailAccount = await getWebhookEmailAccount(
         { watchEmailsSubscriptionId: subscriptionId },
@@ -172,4 +193,35 @@ async function processNotificationsAsync(
       }
     }
   }
+}
+
+async function isOutlookRateLimited(
+  emailAccount: NonNullable<Awaited<ReturnType<typeof getWebhookEmailAccount>>>,
+  logger: Logger,
+) {
+  const activeRateLimit = await getEmailProviderRateLimitState({
+    emailAccountId: emailAccount.id,
+    logger,
+  });
+  if (!isMicrosoftProvider(activeRateLimit?.provider)) return false;
+
+  await markOutlookRateLimitCatchUp({
+    emailAccountId: emailAccount.id,
+    since: new Date(),
+    logger,
+  });
+
+  await cleanupWebhookAccountOnRateLimitSkip(emailAccount, logger).catch(
+    (error) => {
+      logger.warn("Failed to cleanup webhook account during rate-limit skip", {
+        error: error instanceof Error ? error.message : error,
+      });
+    },
+  );
+  logger.warn("Skipping Outlook notification due to active rate limit", {
+    emailAccountId: emailAccount.id,
+    retryAt: activeRateLimit.retryAt.toISOString(),
+    rateLimitSource: activeRateLimit.source,
+  });
+  return true;
 }

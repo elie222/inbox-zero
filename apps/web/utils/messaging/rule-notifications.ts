@@ -59,10 +59,6 @@ import he from "he";
 import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
 import {
-  isGoogleProvider,
-  isMicrosoftProvider,
-} from "@/utils/email/provider-types";
-import {
   isMessagingChannelOperational,
   isOperationalSlackChannel,
 } from "@/utils/messaging/channel-validity";
@@ -73,7 +69,10 @@ import {
 import { getMessagingAdapterRegistry } from "@/utils/messaging/chat-sdk/adapters";
 import { markdownToTelegramText } from "@/utils/messaging/providers/telegram/format";
 import { getMessagingRoute } from "@/utils/messaging/routes";
-import { getEmailUrlForOptionalMessage } from "@/utils/url";
+import {
+  getEmailUrlForOptionalMessage,
+  getOpenInMailboxLabel,
+} from "@/utils/url";
 import {
   attachmentSourceInputSchema,
   selectedAttachmentSchema,
@@ -2223,11 +2222,7 @@ function getNotificationOpenLink(
   context: NotificationContext,
 ): NotificationOpenLink | null {
   const provider = context.executedRule.emailAccount.account.provider;
-  const label = isGoogleProvider(provider)
-    ? "Open in Gmail"
-    : isMicrosoftProvider(provider)
-      ? "Open in Outlook"
-      : null;
+  const label = getOpenInMailboxLabel(provider);
   if (!label) return null;
 
   const url = getEmailUrlForOptionalMessage({

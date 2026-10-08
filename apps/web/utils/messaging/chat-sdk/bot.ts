@@ -83,6 +83,7 @@ import { isDuplicateError } from "@/utils/prisma-helpers";
 import prisma from "@/utils/prisma";
 import {
   getEmailUrlForMessage,
+  getOpenInMailboxLabel,
   getEmailUrlForOptionalMessage,
 } from "@/utils/url";
 import { getEmailAccountWithAi } from "@/utils/user/get";
@@ -1431,12 +1432,10 @@ function getPendingEmailHandledOpenLink({
     accountEmail,
     accountProvider || undefined,
   );
-  const mailbox = accountProvider === "microsoft" ? "Outlook" : "Gmail";
+  const label = getOpenInMailboxLabel(accountProvider);
+  if (!label) return null;
 
-  return {
-    label: `Open in ${mailbox}`,
-    url: emailUrl,
-  };
+  return { label, url: emailUrl };
 }
 
 function getMessagingCardText({

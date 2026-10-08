@@ -3,27 +3,32 @@ export type ModelPricing = {
   input: number;
   output: number;
   cachedInput?: number;
+  cacheWrite?: number;
 };
 
 const sonnet = {
   input: 3 / 1_000_000,
   output: 15 / 1_000_000,
   cachedInput: 0.3 / 1_000_000,
+  cacheWrite: 3.75 / 1_000_000,
 };
 const sonnet5 = {
   input: 2 / 1_000_000,
   output: 10 / 1_000_000,
   cachedInput: 0.2 / 1_000_000,
+  cacheWrite: 2.5 / 1_000_000,
 };
 const haiku = {
   input: 1 / 1_000_000,
   output: 5 / 1_000_000,
   cachedInput: 0.1 / 1_000_000,
+  cacheWrite: 1.25 / 1_000_000,
 };
 const opus5 = {
   input: 5 / 1_000_000,
   output: 25 / 1_000_000,
   cachedInput: 0.5 / 1_000_000,
+  cacheWrite: 6.25 / 1_000_000,
 };
 
 const gemini2_0flash = {

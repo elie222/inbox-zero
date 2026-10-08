@@ -5,8 +5,8 @@ import {
   createMailSplit,
   removeLabelFromMailSplits,
   reorderMailSplits,
-} from "@/utils/mail/splits.server";
-import { setDefaultMailSplits } from "@/utils/mail/default-splits.server";
+} from "@/utils/split-inbox/splits.server";
+import { setDefaultMailSplits } from "@/utils/split-inbox/default-splits.server";
 
 const RUN_DB_TESTS = process.env.RUN_DB_TESTS;
 

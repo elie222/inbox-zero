@@ -83,7 +83,7 @@ describe("mail engine idle catch-up scheduling", () => {
     harness.advance(60_000);
     await harness.engine.runUntil(70_000);
 
-    expect(harness.discoveredScopeRequests).toBe(2);
+    expect(harness.discoveredScopeRequests).toBe(1);
     expect(harness.readChangeStreams).toEqual([
       "inbox",
       "archive",
@@ -125,8 +125,262 @@ describe("mail engine idle catch-up scheduling", () => {
     await harness.engine.requestSync(["acc-1"]);
     await harness.engine.runUntil(11_000);
 
-    expect(harness.discoveredScopeRequests).toBe(2);
+    expect(harness.discoveredScopeRequests).toBe(1);
     expect(harness.readChangeStreams).toEqual(["inbox", "inbox"]);
+    await harness.engine.close();
+  });
+
+  it("checks low-priority streams and rediscovers scopes on a slower clock", async () => {
+    const harness = idleCatchUpHarness({
+      streamIds: ["inbox", "projects"],
+      lowPriority: ["projects"],
+    });
+    await harness.engine.runUntil(10_000);
+
+    for (let minute = 1; minute < 10; minute++) {
+      harness.advance(60_000);
+      await harness.engine.runUntil(harness.nowMs + 1000);
+    }
+
+    expect(countOf(harness.readChangeStreams, "inbox")).toBe(10);
+    expect(countOf(harness.readChangeStreams, "projects")).toBe(1);
+    expect(harness.discoveredScopeRequests).toBe(1);
+
+    harness.advance(60_000);
+    await harness.engine.runUntil(harness.nowMs + 1000);
+
+    expect(countOf(harness.readChangeStreams, "projects")).toBe(2);
+    expect(harness.discoveredScopeRequests).toBe(2);
+    await harness.engine.close();
+  });
+
+  it("a sync request refreshes low-priority streams only after a short minimum", async () => {
+    const harness = idleCatchUpHarness({
+      streamIds: ["inbox", "projects"],
+      lowPriority: ["projects"],
+    });
+    await harness.engine.runUntil(10_000);
+
+    harness.advance(30_000);
+    await harness.engine.requestSync(["acc-1"]);
+    await harness.engine.runUntil(harness.nowMs + 1000);
+
+    expect(harness.readChangeStreams).toEqual(["inbox", "projects", "inbox"]);
+
+    harness.advance(120_000);
+    await harness.engine.runUntil(harness.nowMs + 1000);
+
+    expect(countOf(harness.readChangeStreams, "projects")).toBe(2);
+    expect(harness.discoveredScopeRequests).toBe(2);
+    await harness.engine.close();
+  });
+
+  it("keeps syncing later accounts while an earlier account's streams are slow", async () => {
+    const harness = multiAccountHarness({
+      accounts: [
+        { accountId: "acc-a", streamIds: folderIds(20), readMs: 4000 },
+        { accountId: "acc-b", streamIds: ["primary"], readMs: 500 },
+      ],
+    });
+
+    await harness.runFor(10 * 60_000);
+
+    expect(harness.readsFor("acc-b")).toBeGreaterThanOrEqual(5);
+    await harness.engine.close();
+  });
+
+  it("syncs other accounts while one account's request hangs", async () => {
+    const harness = multiAccountHarness({
+      accounts: [
+        { accountId: "acc-a", streamIds: ["inbox"], readMs: 0, hangs: true },
+        { accountId: "acc-b", streamIds: ["primary"], readMs: 0 },
+      ],
+    });
+
+    await harness.engine.runUntil(50);
+    harness.advance(61_000);
+    await harness.engine.runUntil(harness.nowMs + 50);
+
+    expect(harness.reads).toEqual([
+      "acc-a:inbox",
+      "acc-b:primary",
+      "acc-b:primary",
+    ]);
+    harness.releaseHangs();
+    await harness.engine.close();
+  });
+
+  it("runs commands while an account's sync request hangs", async () => {
+    const executed: string[] = [];
+    const harness = multiAccountHarness({
+      accounts: [
+        { accountId: "acc-a", streamIds: ["inbox"], readMs: 0, hangs: true },
+      ],
+      onExecute: (operationId) => executed.push(operationId),
+    });
+    await harness.engine.runUntil(50);
+    harness.queueCommand("op-1");
+
+    await harness.engine.runUntil(50);
+
+    expect(harness.reads).toEqual(["acc-a:inbox"]);
+    expect(executed).toEqual(["op-1"]);
+    harness.releaseHangs();
+    await harness.engine.close();
+  });
+
+  it("abandons a hung lane, reports it, and retries after a backoff", async () => {
+    const harness = multiAccountHarness({
+      accounts: [
+        { accountId: "acc-a", streamIds: ["inbox"], readMs: 0, hangs: true },
+      ],
+      syncLaneTimeoutMs: 20,
+    });
+    await expect(harness.engine.runUntil(50)).rejects.toThrow("timed out");
+
+    await harness.engine.requestSync(["acc-a"]);
+    await harness.engine.runUntil(50);
+    expect(harness.reads).toEqual(["acc-a:inbox"]);
+
+    harness.advance(1000);
+    await harness.engine.runUntil(harness.nowMs + 10).catch(() => {});
+
+    expect(harness.reads).toEqual(["acc-a:inbox", "acc-a:inbox"]);
+    harness.releaseHangs();
+    await harness.engine.close();
+  });
+
+  it("stops a purged account's lane so a re-added account syncs right away", async () => {
+    const harness = multiAccountHarness({
+      accounts: [
+        { accountId: "acc-a", streamIds: ["inbox"], readMs: 0, hangs: true },
+      ],
+    });
+    await harness.engine.runUntil(50);
+
+    await harness.engine.purgeAccount("acc-a");
+    await harness.engine.runUntil(50);
+
+    expect(harness.reads).toEqual(["acc-a:inbox", "acc-a:inbox"]);
+    harness.releaseHangs();
+    await harness.engine.close();
+  });
+
+  it("reports a failing lane and backs off that account", async () => {
+    const harness = multiAccountHarness({
+      accounts: [
+        { accountId: "acc-a", streamIds: ["inbox"], readMs: 0, fails: true },
+        { accountId: "acc-b", streamIds: ["primary"], readMs: 0 },
+      ],
+    });
+    await expect(harness.engine.runUntil(50)).rejects.toThrow("read failed");
+
+    await harness.engine.requestSync(["acc-a", "acc-b"]);
+    await harness.engine.runUntil(50);
+
+    expect(harness.reads).toEqual([
+      "acc-a:inbox",
+      "acc-b:primary",
+      "acc-b:primary",
+    ]);
+    await harness.engine.close();
+  });
+
+  it("keeps the low-priority minimum across a burst of sync requests", async () => {
+    const harness = idleCatchUpHarness({
+      streamIds: ["inbox", "projects"],
+      lowPriority: ["projects"],
+    });
+    await harness.engine.runUntil(10_000);
+
+    for (let request = 0; request < 3; request++) {
+      harness.advance(30_000);
+      await harness.engine.requestSync(["acc-1"]);
+      await harness.engine.runUntil(harness.nowMs + 1000);
+    }
+
+    expect(countOf(harness.readChangeStreams, "inbox")).toBe(4);
+    expect(countOf(harness.readChangeStreams, "projects")).toBe(1);
+    expect(harness.discoveredScopeRequests).toBe(1);
+
+    harness.advance(30_000);
+    await harness.engine.runUntil(harness.nowMs + 1000);
+
+    expect(countOf(harness.readChangeStreams, "projects")).toBe(2);
+    expect(harness.discoveredScopeRequests).toBe(2);
+    await harness.engine.close();
+  });
+
+  it("keeps a sync request that arrives while a stream is being read", async () => {
+    const harness = idleCatchUpHarness({ streamIds: ["inbox"] });
+    let requested = false;
+    harness.onReadChanges = () => {
+      if (requested) return;
+      requested = true;
+      harness.engine.requestSync(["acc-1"]).catch(() => {});
+    };
+    await harness.engine.runUntil(10_000);
+
+    harness.advance(1000);
+    await harness.engine.runUntil(harness.nowMs + 1000);
+
+    expect(harness.readChangeStreams).toEqual(["inbox", "inbox"]);
+    await harness.engine.close();
+  });
+
+  it("retries a failed scope discovery on the normal clock", async () => {
+    const harness = idleCatchUpHarness({ streamIds: ["inbox"] });
+    let failDiscovery = true;
+    const discoverScopes = harness.source.discoverScopes;
+    harness.source.discoverScopes = async (request) => {
+      if (failDiscovery) {
+        failDiscovery = false;
+        return { status: "paused", retryAfterMs: 1000, reason: "unavailable" };
+      }
+      return discoverScopes(request);
+    };
+    await harness.engine.runUntil(10_000);
+
+    harness.advance(60_000);
+    await harness.engine.runUntil(harness.nowMs + 1000);
+
+    expect(harness.discoveredScopeRequests).toBe(1);
+    await harness.engine.close();
+  });
+
+  it("reads every due stream of an account in one batch", async () => {
+    const harness = idleCatchUpHarness({
+      streamIds: ["inbox", "archive", "sent"],
+      batch: true,
+    });
+    await harness.engine.runUntil(10_000);
+
+    expect(harness.batchReads).toEqual([["inbox", "archive", "sent"]]);
+    expect(harness.store.streamCheckpoints()).toEqual([
+      "inbox-1",
+      "archive-2",
+      "sent-3",
+    ]);
+
+    await harness.engine.requestSync(["acc-1"]);
+    harness.advance(1000);
+    await harness.engine.runUntil(harness.nowMs + 1000);
+
+    expect(harness.batchReads).toHaveLength(2);
+    expect(harness.store.streamCheckpoints()).toEqual([
+      "inbox-4",
+      "archive-5",
+      "sent-6",
+    ]);
+    await harness.engine.close();
+  });
+
+  it("reads a single due stream without a batch", async () => {
+    const harness = idleCatchUpHarness({ streamIds: ["inbox"], batch: true });
+    await harness.engine.runUntil(10_000);
+
+    expect(harness.batchReads).toEqual([]);
+    expect(harness.readChangeStreams).toEqual(["inbox"]);
     await harness.engine.close();
   });
 
@@ -322,6 +576,8 @@ function idleExecutor(): OperationExecutor {
 
 function idleCatchUpHarness(input: {
   streamIds: string[];
+  lowPriority?: string[];
+  batch?: boolean;
   partialPagesBeforeComplete?: number;
   assistant?: AssistantStateSource;
 }) {
@@ -336,6 +592,8 @@ function idleCatchUpHarness(input: {
       checkpoint: "start",
     }));
   let discoveredScopeRequests = 0;
+  const batchReads: string[][] = [];
+  let pagesRead = 0;
   let partialPagesRemaining = input.partialPagesBeforeComplete ?? 0;
   const source: MailboxSource = {
     ...idleSource(),
@@ -348,6 +606,9 @@ function idleCatchUpHarness(input: {
             id: streamId,
             kind: "folder" as const,
             folderId: streamId,
+            priority: input.lowPriority?.includes(streamId)
+              ? ("low" as const)
+              : ("high" as const),
           })) satisfies ScopeDescriptor[],
           nextPage: null,
         },
@@ -366,7 +627,7 @@ function idleCatchUpHarness(input: {
           from: position,
           to: {
             ...position,
-            checkpoint: `${position.streamId}-${readChangeStreams.length}`,
+            checkpoint: `${position.streamId}-${++pagesRead}`,
           },
           changes: [],
           requiredHydration: [],
@@ -376,6 +637,26 @@ function idleCatchUpHarness(input: {
       };
     },
   };
+  if (input.batch) {
+    source.readChangesBatch = async ({ session, reads, pageSize, signal }) => {
+      batchReads.push(reads.map((read) => read.position.streamId));
+      const results = [];
+      for (const read of reads) {
+        results.push(
+          await source.readChanges({
+            session,
+            requestId: read.requestId,
+            position: read.position,
+            pageSize,
+            signal,
+          }),
+        );
+      }
+      // Batched reads are tracked in batchReads, not as single reads.
+      readChangeStreams.splice(-reads.length);
+      return results;
+    };
+  }
   const store = idleCatchUpStore(streams);
   const engine = createMailEngine({
     store,
@@ -393,16 +674,168 @@ function idleCatchUpHarness(input: {
   const harness = {
     engine,
     store,
+    source,
     readChangeStreams,
+    batchReads,
     onReadChanges: (_streamId: string) => {},
     get discoveredScopeRequests() {
       return discoveredScopeRequests;
+    },
+    get nowMs() {
+      return nowMs;
     },
     advance(ms: number) {
       nowMs += ms;
     },
   };
   return harness;
+}
+
+function multiAccountHarness(input: {
+  accounts: Array<{
+    accountId: string;
+    streamIds: string[];
+    readMs: number;
+    hangs?: boolean;
+    fails?: boolean;
+  }>;
+  syncLaneTimeoutMs?: number;
+  onExecute?: (operationId: string) => void;
+}) {
+  let nowMs = 0;
+  let nextId = 0;
+  const reads: string[] = [];
+  const hangingReads: Array<() => void> = [];
+  const accounts: AccountSyncState[] = input.accounts.map((account) => ({
+    accountId: account.accountId,
+    generation: "g1",
+    assistantCursor: null,
+    streams: account.streamIds.map((streamId) => ({
+      accountId: account.accountId,
+      streamId,
+      generation: "g1",
+      checkpoint: "start",
+    })),
+    stream: null,
+  }));
+  const accountFor = (accountId: string) => {
+    const account = input.accounts.find((item) => item.accountId === accountId);
+    if (!account) throw new Error(`Unknown account ${accountId}`);
+    return account;
+  };
+  const source: MailboxSource = {
+    ...idleSource(),
+    async discoverScopes({ session }) {
+      return {
+        status: "ok",
+        value: {
+          scopes: accountFor(session.accountId).streamIds.map((streamId) => ({
+            id: streamId,
+            kind: "folder" as const,
+            folderId: streamId,
+          })),
+          nextPage: null,
+        },
+      };
+    },
+    async readChanges({ session, requestId, position }) {
+      reads.push(`${session.accountId}:${position.streamId}`);
+      const account = accountFor(session.accountId);
+      nowMs += account.readMs;
+      if (account.hangs) {
+        await new Promise<void>((resolve) => hangingReads.push(resolve));
+      }
+      if (account.fails) throw new Error("read failed");
+      return {
+        status: "page",
+        page: {
+          session,
+          requestId,
+          from: position,
+          to: position,
+          changes: [],
+          requiredHydration: [],
+          bodies: [],
+          roundComplete: true,
+        },
+      };
+    },
+  };
+  const queuedCommands: string[] = [];
+  const store = {
+    ...idleCatchUpStore([]),
+    async readAccountSyncStates() {
+      return accounts;
+    },
+    async claimWork() {
+      const operationId = queuedCommands.shift();
+      if (!operationId) return null;
+      return {
+        kind: "command",
+        attemptId: `attempt-${operationId}`,
+        operation: { key: { accountId: "acc-a", operationId } },
+      };
+    },
+    async settleAttempt() {},
+    async purgeAccount() {
+      return { databaseEpoch: "test", sequence: 1 };
+    },
+  } as unknown as MailStore;
+  const engine = createMailEngine({
+    store,
+    source,
+    syncLaneTimeoutMs: input.syncLaneTimeoutMs,
+    executor: {
+      ...idleExecutor(),
+      async execute({ operation }) {
+        input.onExecute?.(operation.key.operationId);
+        return { status: "uncertain", receiptId: null };
+      },
+    },
+    runtime: createHostRuntime({
+      nowMs: () => nowMs,
+      randomId: () => {
+        nextId += 1;
+        return `id-${nextId}`;
+      },
+    }),
+  });
+  return {
+    engine,
+    store,
+    reads,
+    get nowMs() {
+      return nowMs;
+    },
+    advance(ms: number) {
+      nowMs += ms;
+    },
+    releaseHangs() {
+      for (const release of hangingReads.splice(0)) release();
+    },
+    queueCommand(operationId: string) {
+      queuedCommands.push(operationId);
+    },
+    readsFor(accountId: string) {
+      return reads.filter((read) => read.startsWith(`${accountId}:`)).length;
+    },
+    // Mirrors the host loop: short runs with a pause between them.
+    async runFor(durationMs: number) {
+      const endMs = nowMs + durationMs;
+      while (nowMs < endMs) {
+        await engine.runUntil(nowMs + 2000);
+        nowMs += 250;
+      }
+    },
+  };
+}
+
+function countOf(values: string[], value: string) {
+  return values.filter((item) => item === value).length;
+}
+
+function folderIds(count: number) {
+  return Array.from({ length: count }, (_, index) => `folder-${index}`);
 }
 
 function idleCatchUpStore(
@@ -455,7 +888,10 @@ function idleCatchUpStore(
       return { remaining: false };
     },
     async close() {},
-  } as unknown as MailStore;
+    streamCheckpoints() {
+      return streams.map((stream) => stream.checkpoint);
+    },
+  } as unknown as MailStore & { streamCheckpoints(): Array<string | null> };
 }
 
 function assistantSource(cursors: Array<string | null>): AssistantStateSource {

@@ -6,7 +6,7 @@ import {
 import {
   getGoogleTokenInfoUrl,
   isGoogleOauthEmulationEnabled,
-} from "@/utils/google/oauth";
+} from "@/utils/gmail/oauth";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 

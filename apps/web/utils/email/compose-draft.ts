@@ -19,6 +19,7 @@ export async function saveComposeDraft({
       to: "",
       subject: content.subject,
       messageHtml: content.messageHtml,
+      replyToMessageId: content.replyToEmail?.messageId,
     });
     if (!draft.id) throw new SafeError("Could not confirm the mailbox draft.");
     draftId = draft.id;

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getBatch } from "./batch";
 
-vi.mock("@/utils/google/oauth", () => ({
+vi.mock("@/utils/gmail/oauth", () => ({
   getGoogleGmailBatchUrl: () => "https://example.com/batch/gmail/v1",
 }));
 

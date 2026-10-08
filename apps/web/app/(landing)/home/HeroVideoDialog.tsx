@@ -1,6 +1,7 @@
 "use client";
 
 import { usePostHog } from "posthog-js/react";
+import { LazyMuxVideo } from "@/components/LazyMuxVideo";
 import { LiquidGlassButton } from "@/components/new-landing/LiquidGlassButton";
 import { Play } from "@/components/new-landing/icons/Play";
 import {
@@ -11,14 +12,29 @@ import {
 } from "@/components/ui/dialog";
 import { landingPageAnalytics } from "@/hooks/useAnalytics";
 
-export function HeroVideoDialog() {
+// Recorded on every hero video event so videos can be compared by video_id.
+const HERO_VIDEO_ID = "YeTrweHxCIM5tcBMXlvRbmDuPqL028lJrmJ3F6ZgwnDY";
+
+export function HeroVideoDialog({
+  playbackId = HERO_VIDEO_ID,
+  thumbnailTime,
+  title = "Inbox Zero product video",
+}: {
+  playbackId?: string;
+  thumbnailTime?: number;
+  title?: string;
+}) {
   const posthog = usePostHog();
 
   return (
-    <Dialog>
+    <Dialog
+      onOpenChange={(open) => {
+        if (!open) landingPageAnalytics.videoClosed(posthog, playbackId);
+      }}
+    >
       <DialogTrigger
         asChild
-        onClick={() => landingPageAnalytics.videoClicked(posthog)}
+        onClick={() => landingPageAnalytics.videoClicked(posthog, playbackId)}
       >
         <LiquidGlassButton
           aria-label="Play product demo video"
@@ -30,14 +46,28 @@ export function HeroVideoDialog() {
         </LiquidGlassButton>
       </DialogTrigger>
       <DialogContent className="max-w-7xl border-0 bg-transparent p-0">
-        <DialogTitle className="sr-only">Video player</DialogTitle>
-        <div className="relative aspect-video w-full">
-          <iframe
-            src="https://www.youtube.com/embed/UusnveLKwWM?autoplay=1&rel=0"
-            className="size-full rounded-lg"
-            title="Video content"
-            allowFullScreen
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        <DialogTitle className="sr-only">{title}</DialogTitle>
+        <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-black">
+          <LazyMuxVideo
+            playbackId={playbackId}
+            thumbnailTime={thumbnailTime}
+            title={title}
+            className="size-full"
+            playerClassName="size-full"
+            autoPlay
+            onVideoStarted={() =>
+              landingPageAnalytics.videoStarted(posthog, playbackId)
+            }
+            onVideoProgress={(progressPercent: number) =>
+              landingPageAnalytics.videoProgress(
+                posthog,
+                playbackId,
+                progressPercent,
+              )
+            }
+            onVideoCompleted={() =>
+              landingPageAnalytics.videoCompleted(posthog, playbackId)
+            }
           />
         </div>
       </DialogContent>

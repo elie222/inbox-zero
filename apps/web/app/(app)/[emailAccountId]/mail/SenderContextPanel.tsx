@@ -323,6 +323,8 @@ function getUnavailableMessage(reason?: PublicContactContextUnavailableReason) {
       return "Public profiles are not researched for personal email addresses.";
     case "search_unavailable":
       return "Web search is not configured for this account.";
+    case "research_failed":
+      return "Couldn't research this sender right now. Try again later.";
     case "cache_unavailable":
       return "Public context is temporarily unavailable. Try again shortly.";
     default:

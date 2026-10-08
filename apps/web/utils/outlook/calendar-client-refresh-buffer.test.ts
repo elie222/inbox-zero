@@ -4,7 +4,7 @@ import { mockDeep } from "vitest-mock-extended";
 import type { CalendarConnection } from "@/generated/prisma/client";
 import { createTestLogger } from "@/__tests__/helpers";
 import prisma from "@/utils/__mocks__/prisma";
-import { requestMicrosoftToken } from "@/utils/microsoft/oauth";
+import { requestMicrosoftToken } from "@/utils/outlook/oauth";
 import { getCalendarClientWithRefresh } from "./calendar-client";
 
 vi.mock("@microsoft/microsoft-graph-client", () => ({
@@ -15,7 +15,7 @@ vi.mock("@microsoft/microsoft-graph-client", () => ({
 
 vi.mock("@/utils/prisma");
 
-vi.mock("@/utils/microsoft/oauth", () => ({
+vi.mock("@/utils/outlook/oauth", () => ({
   getMicrosoftGraphClientOptions: vi.fn(() => ({
     baseUrl: "http://localhost:4003/",
   })),

@@ -7,7 +7,7 @@ import prisma from "@/utils/prisma";
 import {
   getGoogleApiRootUrl,
   getGoogleOauthClientOptions,
-} from "@/utils/google/oauth";
+} from "@/utils/gmail/oauth";
 import { saveCalendarTokens } from "@/utils/calendar/save-calendar-tokens";
 
 type AuthOptions = {

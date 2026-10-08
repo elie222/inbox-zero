@@ -41,7 +41,7 @@ export async function decideRecurringPattern({
     candidateRules.map((_rule, index) => [
       `${RULE_KEY_PREFIX}${index}`,
       {
-        type: "yesNo",
+        type: "boolean",
         instructions: `Will future emails from \`sender\` consistently match \`candidateRules[${index}]\` based on \`sampleEmails\`?`,
         criteria: {
           true: "The sampled emails consistently serve one narrow purpose that clearly matches this rule.",
@@ -76,7 +76,7 @@ export async function decideRecurringPattern({
       const answer = response.answers[`${RULE_KEY_PREFIX}${index}`];
       return {
         rule,
-        probability: answer?.type === "yesNo" ? answer.probability : 0,
+        probability: answer?.type === "boolean" ? answer.probability : 0,
       };
     })
     .sort((a, b) => b.probability - a.probability)[0];

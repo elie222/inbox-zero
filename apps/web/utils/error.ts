@@ -28,6 +28,7 @@ const RATE_LIMIT_MESSAGE_TEMPLATE =
   "{provider} is temporarily limiting requests. Please try again shortly.";
 export const EMAIL_PROVIDER_RATE_LIMIT_MESSAGE =
   "Your email provider is temporarily limiting requests. Please try again shortly.";
+export const UNEXPECTED_ACTION_ERROR_MESSAGE = "An unknown error occurred.";
 
 export function getEmailProviderRateLimitMessage(
   provider: EmailProviderRateLimitProvider,
@@ -265,7 +266,19 @@ export function isAnthropicInsufficientBalanceError(
 }
 
 export function isInsufficientCreditsError(error: APICallError): boolean {
-  return error.statusCode === 402;
+  // OpenAI reports an exhausted balance as a 429 with this error type.
+  return (
+    error.statusCode === 402 ||
+    getProviderErrorType(error) === "insufficient_quota"
+  );
+}
+
+// Retries wrap the provider's error, which carries the status and body.
+export function getAIApiCallError(error: unknown): APICallError | null {
+  if (APICallError.isInstance(error)) return error;
+  if (RetryError.isInstance(error) && APICallError.isInstance(error.lastError))
+    return error.lastError;
+  return null;
 }
 
 const HANDLED_USER_KEY_ERROR = "__handledUserKeyError";
@@ -281,6 +294,13 @@ export function isHandledUserKeyError(error: unknown): boolean {
 
 // Handling AI quota/retry errors. This can be related to the user's own API quota or the system's quota.
 export function isAiQuotaExceededError(error: RetryError): boolean {
+  if (
+    APICallError.isInstance(error.lastError) &&
+    isInsufficientCreditsError(error.lastError)
+  ) {
+    return true;
+  }
+
   const message = [error.message, getErrorMessage(error.lastError)]
     .filter(Boolean)
     .join(" ")
@@ -620,4 +640,18 @@ function isKnownAIErrorMessage(message: string): boolean {
     "model not found",
   ];
   return patterns.some((p) => message.includes(p));
+}
+
+function getProviderErrorType(error: APICallError): string | undefined {
+  const data = error.data as { error?: { type?: unknown } } | undefined;
+  if (typeof data?.error?.type === "string") return data.error.type;
+  if (!error.responseBody) return;
+  try {
+    const body = JSON.parse(error.responseBody) as {
+      error?: { type?: unknown };
+    };
+    return typeof body?.error?.type === "string" ? body.error.type : undefined;
+  } catch {
+    return;
+  }
 }

@@ -4,9 +4,11 @@ import { publishArchive, type TinybirdEmailAction } from "@inboxzero/tinybird";
 import { WELL_KNOWN_FOLDERS } from "./constants";
 import {
   extractErrorInfo,
+  isRetryableError,
   withMicrosoftGraphRetry,
   withMicrosoftGraphWriteRetry,
-} from "@/utils/microsoft/retry";
+} from "@/utils/outlook/retry";
+import { sleep } from "@/utils/sleep";
 import {
   processThreadMessagesFallback,
   runThreadMessageMutation,
@@ -35,6 +37,9 @@ export const OUTLOOK_COLORS: Array<string> = OUTLOOK_CATEGORY_COLOR_IDS.slice(
   10,
 );
 export const OUTLOOK_COLOR_MAP = OUTLOOK_CATEGORY_COLOR_MAP;
+
+const MAX_CATEGORY_CONFLICT_ATTEMPTS = 3;
+const CATEGORY_CONFLICT_RETRY_DELAY_MS = 250;
 
 export async function getLabels(client: OutlookClient) {
   const response: { value: OutlookCategory[] } = await client
@@ -234,6 +239,67 @@ export async function labelMessage({
   );
 }
 
+/**
+ * Read-modify-write of a message's categories. Graph rejects the PATCH with a
+ * 412 conflict when another write lands on the message first; the rejected
+ * write was not applied, so re-read and recompute instead of overwriting.
+ * Returns whether the categories changed.
+ */
+export async function updateMessageCategories({
+  client,
+  messageId,
+  update,
+  logger,
+}: {
+  client: OutlookClient;
+  messageId: string;
+  update: (categories: string[]) => string[];
+  logger: Logger;
+}): Promise<boolean> {
+  for (let attempt = 1; ; attempt++) {
+    const message: { categories?: string[]; "@odata.etag"?: string } =
+      await withMicrosoftGraphRetry(
+        () =>
+          client
+            .getClient()
+            .api(`/me/messages/${messageId}`)
+            .select("categories")
+            .get(),
+        logger,
+      );
+    const currentCategories = message.categories ?? [];
+    const categories = update(currentCategories);
+
+    if (
+      categories.length === currentCategories.length &&
+      categories.every((category) => currentCategories.includes(category))
+    ) {
+      return false;
+    }
+
+    try {
+      // If-Match turns a write over a concurrent change into a 412 we retry,
+      // instead of silently dropping the other writer's categories.
+      const etag = message["@odata.etag"];
+      await withMicrosoftGraphWriteRetry(() => {
+        const request = client.getClient().api(`/me/messages/${messageId}`);
+        if (etag) request.header("If-Match", etag);
+        return request.patch({ categories });
+      }, logger);
+      return true;
+    } catch (error) {
+      const { isConflictError } = isRetryableError(extractErrorInfo(error));
+      if (!isConflictError || attempt >= MAX_CATEGORY_CONFLICT_ATTEMPTS) {
+        throw error;
+      }
+      logger.warn("Category update conflicted, retrying with fresh state", {
+        attempt,
+      });
+      await sleep(CATEGORY_CONFLICT_RETRY_DELAY_MS * attempt);
+    }
+  }
+}
+
 export async function labelThread({
   client,
   threadId,
@@ -292,7 +358,6 @@ export async function removeThreadLabel({
     .select("id,categories")
     .get();
 
-  // Remove the category from each message
   const messagesWithCategory: Array<{ id: string; categories?: string[] }> =
     messages.value.filter((message: { id: string; categories?: string[] }) =>
       message.categories?.includes(categoryName),
@@ -304,24 +369,14 @@ export async function removeThreadLabel({
     ),
     threadId,
     logger,
-    messageHandler: async (messageId) => {
-      const message = messagesWithCategory.find(
-        (item) => item.id === messageId,
-      );
-      if (!message?.categories) return;
-
-      const updatedCategories = message.categories.filter(
-        (cat) => cat !== categoryName,
-      );
-
-      await withMicrosoftGraphWriteRetry(
-        () =>
-          client.getClient().api(`/me/messages/${messageId}`).patch({
-            categories: updatedCategories,
-          }),
+    messageHandler: (messageId) =>
+      updateMessageCategories({
+        client,
+        messageId,
+        update: (categories) =>
+          categories.filter((cat) => cat !== categoryName),
         logger,
-      );
-    },
+      }),
     failureMessage: "Failed to remove category from message",
     continueOnError: true,
   });

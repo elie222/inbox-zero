@@ -505,6 +505,51 @@ describe("processAccountFollowUps - dedup logic", () => {
     expect(provider.getLatestMessageInThread).toHaveBeenCalledTimes(75);
   });
 
+  it("stops paging through a large completed backlog", async () => {
+    // Recent enough that business-day counting stays cheap across 250 threads.
+    const eligibleDate = String(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    let page = 0;
+    const provider = createMockProvider({
+      getThreadsWithQuery: vi
+        .fn()
+        .mockImplementation(async ({ maxResults }) => {
+          page++;
+          return {
+            threads: Array.from({ length: maxResults }, (_, index) => ({
+              id: `completed-${page}-${index}`,
+              messages: [],
+              snippet: "",
+            })),
+            nextPageToken: page < 10 ? `page-${page + 1}` : undefined,
+          };
+        }),
+      getLatestMessageInThread: vi
+        .fn()
+        .mockImplementation(async (id) =>
+          mockAwaitingMessage(id, eligibleDate),
+        ),
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue(provider);
+    vi.mocked(prisma.threadTracker.findMany).mockImplementation((async ({
+      where,
+    }: {
+      where: { threadId: { in: string[] } };
+    }) =>
+      where.threadId.in.map((threadId) => ({
+        threadId,
+        messageId: threadId,
+      }))) as any);
+
+    await processAccountFollowUps({
+      emailAccount: createMockAccount(),
+      logger,
+    });
+
+    expect(provider.getThreadsWithQuery).toHaveBeenCalledTimes(5);
+    expect(provider.getLatestMessageInThread).toHaveBeenCalledTimes(250);
+    expect(generateFollowUpDraft).not.toHaveBeenCalled();
+  });
+
   it("stops when the provider repeats a page token without new candidates", async () => {
     const provider = createMockProvider({
       getThreadsWithQuery: vi
@@ -697,7 +742,9 @@ describe("processAccountFollowUps - dedup logic", () => {
     });
     vi.mocked(createEmailProvider).mockResolvedValue(provider);
 
-    vi.mocked(prisma.threadTracker.findMany).mockImplementation((args: any) => {
+    vi.mocked(prisma.threadTracker.findMany).mockImplementation(((
+      args: any,
+    ) => {
       if (args?.where?.OR) return Promise.resolve([]);
       return Promise.resolve([
         {
@@ -706,7 +753,7 @@ describe("processAccountFollowUps - dedup logic", () => {
           sentAt: new Date(Number(OLD_DATE)),
         } as any,
       ]);
-    });
+    }) as any);
     vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue(null);
     vi.mocked(prisma.threadTracker.create).mockResolvedValue({
       id: "tracker-first-follow-up",
@@ -780,7 +827,9 @@ describe("processAccountFollowUps - dedup logic", () => {
     vi.mocked(createEmailProvider).mockResolvedValue(provider);
 
     let findManyCallCount = 0;
-    vi.mocked(prisma.threadTracker.findMany).mockImplementation((args: any) => {
+    vi.mocked(prisma.threadTracker.findMany).mockImplementation(((
+      args: any,
+    ) => {
       findManyCallCount += 1;
       if (findManyCallCount === 1) return Promise.resolve([]);
 
@@ -794,7 +843,7 @@ describe("processAccountFollowUps - dedup logic", () => {
           messageId: "msg-duplicate-check",
         } as any,
       ]);
-    });
+    }) as any);
 
     vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue(null);
     vi.mocked(prisma.threadTracker.create).mockResolvedValue({
@@ -1319,7 +1368,9 @@ describe("processAccountFollowUps - dedup logic", () => {
     );
 
     let rowType: string | null = null;
-    vi.mocked(prisma.threadTracker.findMany).mockImplementation((args: any) => {
+    vi.mocked(prisma.threadTracker.findMany).mockImplementation(((
+      args: any,
+    ) => {
       const requestedType = args?.where?.type;
       if (!rowType) return Promise.resolve([]);
       if (requestedType && rowType === requestedType) {
@@ -1333,20 +1384,20 @@ describe("processAccountFollowUps - dedup logic", () => {
         ]);
       }
       return Promise.resolve([]);
-    });
+    }) as any);
     vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue(null);
-    vi.mocked(prisma.threadTracker.create).mockImplementation((args: any) => {
+    vi.mocked(prisma.threadTracker.create).mockImplementation(((args: any) => {
       const createType = args?.data?.type;
       if (rowType === null) {
         rowType = createType;
         return Promise.resolve({ id: "tracker-shared" } as any);
       }
       return Promise.reject(duplicateError);
-    });
-    vi.mocked(prisma.threadTracker.update).mockImplementation((args: any) => {
+    }) as any);
+    vi.mocked(prisma.threadTracker.update).mockImplementation(((args: any) => {
       rowType = args?.data?.type ?? rowType;
       return Promise.resolve({ id: "tracker-shared" } as any);
-    });
+    }) as any);
 
     const emailAccount = createMockAccount({
       followUpAwaitingReplyDays: 3,

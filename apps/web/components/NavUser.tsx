@@ -3,16 +3,17 @@
 import { useState } from "react";
 import Link from "next/link";
 import {
+  BellIcon,
   CircleHelpIcon,
   ChevronsUpDownIcon,
   LightbulbIcon,
-  MessageCircleReplyIcon,
   ShieldCheckIcon,
   LogOutIcon,
   Building2Icon,
   CrownIcon,
   GiftIcon,
   GlobeIcon,
+  MessagesSquareIcon,
   SettingsIcon,
 } from "lucide-react";
 import {
@@ -123,6 +124,24 @@ export function NavUser() {
                 </Link>
               </DropdownMenuItem>
             )}
+            <DropdownMenuItem asChild>
+              <Link
+                href="/shared"
+                onClick={() => closeMobileSidebar("left-sidebar")}
+              >
+                <MessagesSquareIcon className="mr-2 size-4" />
+                Shared with me
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link
+                href="/shared/activity"
+                onClick={() => closeMobileSidebar("left-sidebar")}
+              >
+                <BellIcon className="mr-2 size-4" />
+                Activity
+              </Link>
+            </DropdownMenuItem>
             {isGoogleProvider(provider) && (
               <DropdownMenuItem asChild>
                 <Link
@@ -142,29 +161,18 @@ export function NavUser() {
 
           <DropdownMenuGroup>
             {isGoogleProvider(provider) && (
-              <>
-                <DropdownMenuItem asChild>
-                  <Link
-                    href={prefixPath(currentEmailAccountId, "/reply-zero")}
-                    onClick={() => closeMobileSidebar("left-sidebar")}
-                  >
-                    <MessageCircleReplyIcon className="mr-2 size-4" />
-                    Reply Zero
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link
-                    href={prefixPath(
-                      currentEmailAccountId,
-                      "/cold-email-blocker",
-                    )}
-                    onClick={() => closeMobileSidebar("left-sidebar")}
-                  >
-                    <ShieldCheckIcon className="mr-2 size-4" />
-                    Cold Email Blocker
-                  </Link>
-                </DropdownMenuItem>
-              </>
+              <DropdownMenuItem asChild>
+                <Link
+                  href={prefixPath(
+                    currentEmailAccountId,
+                    "/cold-email-blocker",
+                  )}
+                  onClick={() => closeMobileSidebar("left-sidebar")}
+                >
+                  <ShieldCheckIcon className="mr-2 size-4" />
+                  Cold Email Blocker
+                </Link>
+              </DropdownMenuItem>
             )}
           </DropdownMenuGroup>
 

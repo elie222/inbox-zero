@@ -2,12 +2,14 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useState,
   useSyncExternalStore,
   type ReactNode,
 } from "react";
+import { usePathname } from "next/navigation";
 import type { MailClient } from "@inboxzero/mail-core/engine";
 import { MailEngineProvider } from "@inboxzero/mail-react/MailEngineProvider";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -21,8 +23,13 @@ import {
   createDesktopIpcMailClient,
   hasDesktopMailEngineIpc,
 } from "@/utils/mail-engine/desktop-ipc";
-import { selectMailEngineRuntimeMode } from "@/utils/mail-engine/runtime-mode";
+import {
+  selectMailEngineRuntimeMode,
+  shouldStartMailEngine,
+} from "@/utils/mail-engine/runtime-mode";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import { fetchEmailAccounts } from "@/utils/fetch-email-accounts";
+import { followMailboxChanges } from "@/utils/mail-engine/follow-mailbox-changes";
 import { browserMailEngineCapabilities } from "@/utils/mail-engine/worker-protocol";
 import {
   MAIL_ENGINE_OWNER_LOCK,
@@ -41,6 +48,7 @@ type MailEngineRuntimeStatus = {
   client: MailClient | null;
   mounted: boolean;
   unavailable: boolean;
+  requestBrowserEngine: () => void;
 };
 
 type MailEngineInspectTransport = "browser" | "desktop-ipc";
@@ -49,7 +57,13 @@ const MailEngineRuntimeStatusContext = createContext<MailEngineRuntimeStatus>({
   client: null,
   mounted: false,
   unavailable: false,
+  requestBrowserEngine: () => {},
 });
+
+export function useMailEngineDemand() {
+  const { requestBrowserEngine } = useContext(MailEngineRuntimeStatusContext);
+  useEffect(requestBrowserEngine, [requestBrowserEngine]);
+}
 
 export function MailEngineRuntime({ children }: { children: ReactNode }) {
   const status = useContext(MailEngineRuntimeStatusContext);
@@ -97,19 +111,39 @@ export function MailCoverageGate({ children }: { children: ReactNode }) {
 
 function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
   const { emailAccountId, provider } = useAccount();
+  const pathname = usePathname();
+  const desktopIpc = useSyncExternalStore(
+    subscribeNever,
+    hasDesktopMailEngineIpc,
+    () => false,
+  );
+  const [browserRequested, setBrowserRequested] = useState(false);
+  const requestBrowserEngine = useCallback(() => setBrowserRequested(true), []);
+  const enabled = shouldStartMailEngine({
+    pathname,
+    desktopIpc,
+    browserRequested,
+  });
   const [client, setClient] = useState<MailClient | null>(null);
   const [unavailable, setUnavailable] = useState(false);
 
   useEffect(() => {
-    if (!emailAccountId) return;
+    if (!emailAccountId || !enabled) {
+      setUnavailable(false);
+      return;
+    }
+    // Keep queued sends and undo working after the initiating page or composer closes.
+    if (!desktopIpc) requestBrowserEngine();
+    setUnavailable(false);
     const mode = selectMailEngineRuntimeMode({
-      desktopIpc: hasDesktopMailEngineIpc(),
+      desktopIpc,
       opfs: browserMailEngineCapabilities().opfs,
     });
     if (mode === "unavailable") {
       setUnavailable(true);
       return;
     }
+    const mailProvider = isMicrosoftProvider(provider) ? "microsoft" : "google";
     const abort = new AbortController();
     let published: MailClient | undefined;
 
@@ -128,7 +162,7 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
 
     if (mode === "desktop-ipc") {
       const client = createDesktopIpcMailClient({
-        provider: isMicrosoftProvider(provider) ? "microsoft" : "google",
+        provider: mailProvider,
       });
       publishClient(client, "owner", "desktop-ipc").catch(() => {
         if (!abort.signal.aborted) setUnavailable(true);
@@ -160,7 +194,7 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
           bus.post({
             type: "hello",
             accountId: emailAccountId,
-            provider: isMicrosoftProvider(provider) ? "microsoft" : "google",
+            provider: mailProvider,
           });
           return;
         }
@@ -175,7 +209,7 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
         publishClient(
           createTabFollowerClient({
             accountId: emailAccountId,
-            provider: isMicrosoftProvider(provider) ? "microsoft" : "google",
+            provider: mailProvider,
             bus,
           }),
           "follower",
@@ -185,7 +219,7 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
       bus.post({
         type: "hello",
         accountId: emailAccountId,
-        provider: isMicrosoftProvider(provider) ? "microsoft" : "google",
+        provider: mailProvider,
       });
     }
 
@@ -204,7 +238,7 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
       const create = async () => {
         engine = await createBrowserMailEngine({
           accountId: emailAccountId,
-          provider: isMicrosoftProvider(provider) ? "microsoft" : "google",
+          provider: mailProvider,
           online: typeof navigator === "undefined" || navigator.onLine,
         });
         if (abort.signal.aborted) {
@@ -254,7 +288,38 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
       engine?.close().catch(() => undefined);
       setClient(null);
     };
-  }, [emailAccountId, provider]);
+  }, [emailAccountId, provider, enabled, desktopIpc, requestBrowserEngine]);
+
+  useEffect(() => {
+    if (!client || !emailAccountId) return;
+    let cancelled = false;
+    // Accounts deleted on another device stay in this device's local store
+    // and keep syncing until the server's list says they are gone. The open
+    // account stays too, since an org admin may be viewing a member's mail.
+    fetchEmailAccounts()
+      .then(({ emailAccounts }) => {
+        if (cancelled || emailAccounts.length === 0) return;
+        return client.retainAccounts([
+          emailAccountId,
+          ...emailAccounts.map((account) => account.id),
+        ]);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [client, emailAccountId]);
+
+  useEffect(() => {
+    // The desktop engine follows mailbox changes itself.
+    if (!client || !emailAccountId || hasDesktopMailEngineIpc()) return;
+    return followMailboxChanges({
+      accountId: emailAccountId,
+      onChange: () => {
+        client.requestSync([emailAccountId]).catch(() => undefined);
+      },
+    });
+  }, [client, emailAccountId]);
 
   useEffect(() => {
     if (!client || !emailAccountId) return;
@@ -268,7 +333,7 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
 
   return (
     <MailEngineRuntimeStatusContext.Provider
-      value={{ client, mounted: true, unavailable }}
+      value={{ client, mounted: true, unavailable, requestBrowserEngine }}
     >
       <MailEngineProvider client={client}>{children}</MailEngineProvider>
     </MailEngineRuntimeStatusContext.Provider>

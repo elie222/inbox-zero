@@ -4,10 +4,11 @@ import { auth } from "@/utils/auth";
 import { SafeError } from "@/utils/error";
 import { withError } from "@/utils/middleware";
 import {
-  consumeMobileAuthState,
   consumeMobileAuthFailureState,
   createMobileAuthCode,
+  getMobileAuthFlowId,
   isValidMobileAuthState,
+  redeemMobileAuthState,
 } from "@/utils/mobile-auth/oauth-code";
 import {
   getMobileAuthAppCallbackUrl,
@@ -30,7 +31,23 @@ export const GET = withError("mobile-auth/callback", async (request) => {
     return redirectToAuthError();
   }
 
-  if (request.nextUrl.searchParams.has("error")) {
+  const logger = request.logger.with({
+    flowId: getMobileAuthFlowId(query.data.state),
+  });
+  const hasProviderError = request.nextUrl.searchParams.has("error");
+  // Fetch metadata shows whether a repeat hit is a prefetch or another client.
+  logger.info("Mobile auth callback received", {
+    hasProviderError,
+    secFetchDest: request.headers.get("sec-fetch-dest"),
+    secFetchMode: request.headers.get("sec-fetch-mode"),
+    secFetchSite: request.headers.get("sec-fetch-site"),
+    secFetchUser: request.headers.get("sec-fetch-user"),
+    secPurpose:
+      request.headers.get("sec-purpose") ?? request.headers.get("purpose"),
+    userAgent: request.headers.get("user-agent"),
+  });
+
+  if (hasProviderError) {
     let returnUrlMode: Awaited<
       ReturnType<typeof consumeMobileAuthFailureState>
     >["returnUrlMode"];
@@ -56,22 +73,22 @@ export const GET = withError("mobile-auth/callback", async (request) => {
   const session = await auth(request.headers);
   const userId = session?.user?.id;
   if (!userId || !session.session.token) {
-    request.logger.warn("Mobile auth callback rejected", {
+    logger.warn("Mobile auth callback rejected", {
       reason: "missing_session",
     });
     return redirectToAuthError();
   }
 
   if (session.session.emailOtp) {
-    request.logger.warn("Mobile auth callback rejected", {
+    logger.warn("Mobile auth callback rejected", {
       reason: "email_otp_session",
     });
     return redirectToAuthError();
   }
 
-  let grant: Awaited<ReturnType<typeof consumeMobileAuthState>>;
+  let grant: Awaited<ReturnType<typeof redeemMobileAuthState>>;
   try {
-    grant = await consumeMobileAuthState({
+    grant = await redeemMobileAuthState({
       state: query.data.state,
       sessionToken: session.session.token,
     });
@@ -86,8 +103,9 @@ export const GET = withError("mobile-auth/callback", async (request) => {
     userId,
   });
 
-  request.logger.info("Created mobile auth code", {
+  logger.info("Created mobile auth code", {
     userId,
+    returnUrlMode: grant.returnUrlMode,
   });
 
   return redirectToMobileCallback(

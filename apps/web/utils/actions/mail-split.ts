@@ -13,16 +13,16 @@ import {
   updateMailPreferencesBody,
   updateMailSplitBody,
 } from "@/utils/actions/mail-split.validation";
-import type { MailSplitFilterDraft } from "@/utils/mail/split-filters";
+import type { MailSplitFilterDraft } from "@/utils/split-inbox/split-filters";
 import { aiPromptToSplitFilters } from "@/utils/ai/split/prompt-to-split";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import {
   createMailSplit,
   reorderMailSplits,
   toFilterRows,
-} from "@/utils/mail/splits.server";
-import { lockMailSplits } from "@/utils/mail/split-lock";
-import { MAX_MAIL_SPLITS } from "@/utils/mail/split-constants";
+} from "@/utils/split-inbox/splits.server";
+import { lockMailSplits } from "@/utils/split-inbox/split-lock";
+import { MAX_MAIL_SPLITS } from "@/utils/split-inbox/split-constants";
 
 export const createMailSplitAction = actionClient
   .metadata({ name: "createMailSplit" })
