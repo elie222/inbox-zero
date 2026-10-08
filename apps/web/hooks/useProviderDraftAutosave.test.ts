@@ -88,7 +88,7 @@ it("saves skipped queued content after resuming", async () => {
   unmount();
 });
 
-it("retries failed saves without requiring another edit", async () => {
+it("retries a failed save silently without requiring another edit", async () => {
   vi.useFakeTimers();
   const save = vi
     .fn()
@@ -99,9 +99,32 @@ it("retries failed saves without requiring another edit", async () => {
   );
   act(() => result.current.capture());
   await act(() => vi.advanceTimersByTimeAsync(3000));
-  expect(result.current.error).toBe("Offline");
+  expect(save).toHaveBeenCalledOnce();
+  expect(result.current.error).toBe("");
   await act(() => vi.advanceTimersByTimeAsync(3000));
   expect(save).toHaveBeenCalledTimes(2);
+  expect(result.current.error).toBe("");
+  unmount();
+});
+
+it("reports repeated save failures until a save succeeds", async () => {
+  vi.useFakeTimers();
+  const save = vi
+    .fn()
+    .mockRejectedValueOnce(new Error("Unavailable"))
+    .mockRejectedValueOnce(new Error("Unavailable"))
+    .mockRejectedValueOnce(new Error("Unavailable"))
+    .mockResolvedValue(undefined);
+  const { result, unmount } = renderHook(() =>
+    useProviderDraftAutosave({ enabled: true, getContent: () => "edit", save }),
+  );
+  act(() => result.current.capture());
+  await act(() => vi.advanceTimersByTimeAsync(6000));
+  expect(result.current.error).toBe("");
+  await act(() => vi.advanceTimersByTimeAsync(3000));
+  expect(result.current.error).toBe("Unavailable");
+  await act(() => vi.advanceTimersByTimeAsync(3000));
+  expect(save).toHaveBeenCalledTimes(4);
   expect(result.current.error).toBe("");
   unmount();
 });

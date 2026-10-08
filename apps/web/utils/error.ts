@@ -28,6 +28,7 @@ const RATE_LIMIT_MESSAGE_TEMPLATE =
   "{provider} is temporarily limiting requests. Please try again shortly.";
 export const EMAIL_PROVIDER_RATE_LIMIT_MESSAGE =
   "Your email provider is temporarily limiting requests. Please try again shortly.";
+export const UNEXPECTED_ACTION_ERROR_MESSAGE = "An unknown error occurred.";
 
 export function getEmailProviderRateLimitMessage(
   provider: EmailProviderRateLimitProvider,
