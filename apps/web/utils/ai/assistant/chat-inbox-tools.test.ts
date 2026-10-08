@@ -2,11 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { asSchema } from "ai";
 import type { ParsedMessage } from "@/utils/types";
 import prisma from "@/utils/__mocks__/prisma";
-import {
-  createTestLogger,
-  getEmailAccount,
-  getMockMessage,
-} from "@/__tests__/helpers";
+import { createTestLogger, getMockMessage } from "@/__tests__/helpers";
 import { createEmailProvider } from "@/utils/email/provider";
 import { SafeError } from "@/utils/error";
 import {
@@ -29,7 +25,6 @@ vi.mock("@/utils/posthog", () => ({
 }));
 
 const {
-  mockGenerateObject,
   mockArchiveCategory,
   mockGetCategoryOverview,
   mockStartBulkCategorization,
@@ -37,21 +32,12 @@ const {
   mockGetCategorizationStatusSnapshot,
   mockValidateUserAndAiAccess,
 } = vi.hoisted(() => ({
-  mockGenerateObject: vi.fn(),
   mockArchiveCategory: vi.fn(),
   mockGetCategoryOverview: vi.fn(),
   mockStartBulkCategorization: vi.fn(),
   mockGetCategorizationProgress: vi.fn(),
   mockGetCategorizationStatusSnapshot: vi.fn(),
   mockValidateUserAndAiAccess: vi.fn(),
-}));
-
-vi.mock("@/utils/llms", () => ({
-  createGenerateObject: () => mockGenerateObject,
-}));
-
-vi.mock("@/utils/llms/model", () => ({
-  getModel: vi.fn(() => ({ model: {}, provider: "test", modelName: "test" })),
 }));
 
 vi.mock("@/utils/categorize/senders/archive-category", () => ({
@@ -91,10 +77,6 @@ const logger = createTestLogger();
 describe("chat inbox tools", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGenerateObject.mockReset();
-    mockGenerateObject.mockResolvedValue({
-      object: { content: "Thanks for the update." },
-    });
   });
 
   it("adds formatted from header when sending an email", async () => {
@@ -187,8 +169,6 @@ describe("chat inbox tools", () => {
       emailAccountId: "email-account-1",
       provider: "google",
       logger,
-      emailAccount: getEmailAccount(),
-      messages: [{ role: "user", content: "Draft a reply thanking them." }],
     });
 
     const result = await (toolInstance.execute as any)({
@@ -213,105 +193,6 @@ describe("chat inbox tools", () => {
         threadId: "thread-1",
       },
     });
-  });
-
-  it.each([
-    {
-      title: "matches an English email despite Portuguese chat and draft",
-      request: "Prepare uma resposta confirmando que terça-feira funciona.",
-      content: "Terça-feira funciona para mim.",
-      translated: "Tuesday works for me.",
-    },
-    {
-      title: "preserves an explicitly requested Spanish reply",
-      request: "Prepare uma resposta em espanhol confirmando terça-feira.",
-      content: "El martes me viene bien.",
-      translated: "El martes me viene bien.",
-    },
-  ])("$title", async ({ request, content, translated }) => {
-    const message = getMockMessage({
-      id: "language-message",
-      textPlain: "Would Tuesday work for our meeting?",
-      textHtml: "",
-    });
-    const replyToEmail = vi.fn();
-    vi.mocked(createEmailProvider).mockResolvedValue({
-      getMessage: vi.fn().mockResolvedValue(message),
-      replyToEmail,
-    } as any);
-    mockGenerateObject.mockResolvedValue({ object: { content: translated } });
-
-    const toolInstance = replyEmailTool({
-      email: TEST_EMAIL,
-      emailAccountId: "email-account-1",
-      provider: "google",
-      logger,
-      emailAccount: getEmailAccount(),
-      messages: [{ role: "user", content: request }],
-    });
-    const result = await (toolInstance.execute as any)({
-      messageId: message.id,
-      content,
-    });
-
-    expect(result).toMatchObject({
-      success: true,
-      requiresConfirmation: true,
-      pendingAction: { messageId: message.id, content: translated },
-    });
-    expect(mockGenerateObject).toHaveBeenCalledWith(
-      expect.objectContaining({
-        prompt: expect.stringContaining(request),
-      }),
-    );
-    expect(mockGenerateObject.mock.calls[0][0].prompt).toContain(
-      message.textPlain,
-    );
-    expect(replyToEmail).not.toHaveBeenCalled();
-  });
-
-  it.each([
-    new Error("Translation unavailable"),
-    new DOMException("Translation timed out", "TimeoutError"),
-  ])("preserves the original reply for confirmation when language matching fails: %s", async (error) => {
-    vi.mocked(createEmailProvider).mockResolvedValue({
-      getMessage: vi.fn().mockResolvedValue(
-        getMockMessage({
-          textPlain: "Would Tuesday work for our meeting?",
-          textHtml: "",
-        }),
-      ),
-    } as any);
-    mockGenerateObject.mockRejectedValue(error);
-    const warning = vi.spyOn(logger, "warn");
-
-    const toolInstance = replyEmailTool({
-      email: TEST_EMAIL,
-      emailAccountId: "email-account-1",
-      provider: "google",
-      logger,
-      emailAccount: getEmailAccount(),
-      messages: [{ role: "user", content: "Prepare uma resposta." }],
-    });
-
-    const result = await (toolInstance.execute as any)({
-      messageId: "message-1",
-      content: "Terça-feira funciona para mim.",
-    });
-
-    expect(result).toMatchObject({
-      success: true,
-      requiresConfirmation: true,
-      pendingAction: {
-        messageId: "message-1",
-        content: "Terça-feira funciona para mim.",
-      },
-    });
-    expect(warning).toHaveBeenCalledWith(
-      "Failed to match reply language; using original draft",
-      { error },
-    );
-    warning.mockRestore();
   });
 
   it("prepares forward flow without sending immediately", async () => {

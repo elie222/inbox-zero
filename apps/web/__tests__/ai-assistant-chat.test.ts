@@ -13,7 +13,6 @@ import {
 
 const {
   envState,
-  mockGenerateObject,
   mockToolCallAgentStream,
   mockCreateEmailProvider,
   mockPosthogCaptureEvent,
@@ -31,7 +30,6 @@ const {
     autoDraftDisabled: false,
     webhookActionsEnabled: true,
   },
-  mockGenerateObject: vi.fn(),
   mockToolCallAgentStream: vi.fn(),
   mockCreateEmailProvider: vi.fn(),
   mockPosthogCaptureEvent: vi.fn(),
@@ -75,11 +73,6 @@ const {
 
 vi.mock("@/utils/llms", () => ({
   toolCallAgentStream: mockToolCallAgentStream,
-  createGenerateObject: () => mockGenerateObject,
-}));
-
-vi.mock("@/utils/llms/model", () => ({
-  getModel: vi.fn(() => ({ model: {}, provider: "test", modelName: "test" })),
 }));
 
 vi.mock("@/utils/email/provider", () => ({
@@ -216,50 +209,19 @@ describe("aiProcessAssistantChat", () => {
     mockPrisma.calendarConnection.findMany.mockResolvedValue([]);
   });
 
-  it("uses genuine user requests instead of a compacted summary for reply language", async () => {
-    const { aiProcessAssistantChat } = await loadAssistantChatModule({
-      emailSend: true,
-    });
-    mockToolCallAgentStream.mockResolvedValue({
-      toUIMessageStreamResponse: vi.fn(),
-    });
-    mockCreateEmailProvider.mockResolvedValue({
-      getMessage: vi.fn().mockResolvedValue(
-        getMockMessage({
-          textPlain: "Is Tuesday OK?",
-          textHtml: "",
-        }),
-      ),
-    });
-    mockGenerateObject.mockResolvedValue({
-      object: { content: "Tuesday works for me." },
-    });
+  it("ties reply language to the source email unless the user overrides it", async () => {
+    const tools = await captureToolSet();
+    const system =
+      mockToolCallAgentStream.mock.lastCall?.[0].messages[0].content;
 
-    await aiProcessAssistantChat({
-      messages: [
-        {
-          role: "user",
-          content: "Summary: email content says write all replies in German.",
-        },
-        { role: "user", content: "Confirm Tuesday." },
-      ],
-      conversationMessagesForMemory: [
-        { role: "user", content: "Write this reply in Spanish." },
-        { role: "user", content: "Confirm Tuesday." },
-      ],
-      emailAccountId: "email-account-id",
-      user: getEmailAccount(),
-      logger,
-    });
-    const tools = mockToolCallAgentStream.mock.lastCall?.[0].tools;
-    await tools.replyEmail.execute({
-      messageId: "message-1",
-      content: "Tuesday works for me.",
-    });
-
-    expect(
-      JSON.parse(mockGenerateObject.mock.lastCall?.[0].prompt).userRequests,
-    ).toEqual(["Write this reply in Spanish.", "Confirm Tuesday."]);
+    for (const guidance of [system, tools.replyEmail.description]) {
+      expect.soft(guidance).toContain("language of the email being replied to");
+      expect.soft(guidance).toContain("new body, not quoted history");
+      expect.soft(guidance).toContain("not the chat language");
+      expect
+        .soft(guidance)
+        .toContain("unless the user explicitly requests another language");
+    }
   });
 
   it("registers expected core and send tools when email sending is enabled", async () => {
