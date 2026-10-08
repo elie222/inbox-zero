@@ -65,7 +65,7 @@ export const preparedOperationSchema = z.object({
       queuedAtMs: z.number().int().nonnegative(),
       /**
        * When the server should deliver it. Setting it hands the send to the
-       * server right away, so the undo window survives the client going away.
+       * server right away, so the undo period survives the client going away.
        */
       sendAtMs: z.number().int().nonnegative().optional(),
     }),

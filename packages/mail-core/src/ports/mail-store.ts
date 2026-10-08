@@ -24,6 +24,8 @@ import type {
   TargetOutcome,
 } from "../operations";
 import type {
+  ContactSuggestion,
+  ContactSuggestionQuery,
   ConversationQuery,
   Coverage,
   MailPredicate,
@@ -348,6 +350,7 @@ export interface MailStore {
       conversationIds: string[];
     }>;
   }>;
+  indexContactBacklog(): Promise<{ remaining: boolean }>;
   /** Indexes one short batch of stored bodies missing from local search. */
   indexSearchBacklog(): Promise<{ remaining: boolean }>;
   inspect(input?: MailStoreInspectionInput): Promise<MailStoreInspection>;
@@ -358,6 +361,9 @@ export interface MailStore {
     session: AccountSession;
     scopeId: string;
   }): Promise<BootstrapScan | null>;
+  readContactSuggestions(
+    query: ContactSuggestionQuery,
+  ): Promise<ContactSuggestion[]>;
   readConversation(
     key: ConversationKey,
     page: { after: string | null; pageSize: number },
