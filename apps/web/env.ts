@@ -303,6 +303,7 @@ const parsedEnv = createEnv({
     POSTHOG_FEEDBACK_SURVEY_QUESTION_ID: z.string().optional(),
     POSTHOG_LLM_EVALS_APPROVED_EMAILS: z.string().optional(),
     FEEDBACK_WEBHOOK_URL: z.string().url().optional(),
+    SALES_INQUIRY_WEBHOOK_URL: z.string().url().optional(),
 
     RECALL_API_KEY: z.string().optional(),
     RECALL_WEBHOOK_SECRET: z.string().optional(),
@@ -462,6 +463,7 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_SLACK_BOT_NAME: z.string().trim().min(1).default("Inbox Zero"),
     NEXT_PUBLIC_SELF_HOSTED_LOGIN_FOOTER_TEXT: z.string().optional(),
     NEXT_PUBLIC_CONTACTS_ENABLED: booleanString.optional().default(false),
+    NEXT_PUBLIC_COOKIE_CONSENT_ENABLED: booleanString.optional().default(false),
     NEXT_PUBLIC_MAIL_ENGINE_TEST_INSPECT: booleanString
       .optional()
       .default(false),
@@ -576,6 +578,8 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_SELF_HOSTED_LOGIN_FOOTER_TEXT:
       process.env.NEXT_PUBLIC_SELF_HOSTED_LOGIN_FOOTER_TEXT,
     NEXT_PUBLIC_CONTACTS_ENABLED: process.env.NEXT_PUBLIC_CONTACTS_ENABLED,
+    NEXT_PUBLIC_COOKIE_CONSENT_ENABLED:
+      process.env.NEXT_PUBLIC_COOKIE_CONSENT_ENABLED,
     NEXT_PUBLIC_MAIL_ENGINE_TEST_INSPECT:
       process.env.NEXT_PUBLIC_MAIL_ENGINE_TEST_INSPECT,
     NEXT_PUBLIC_GMAIL_OTHER_CONTACTS_ENABLED:

@@ -16,6 +16,7 @@ describe("emulated Playwright suite selection", () => {
     "packages/mail-sqlite/src/store.ts",
     "packages/mail-react/src/use-mailbox-view.ts",
     "packages/mail-ui/src/MailApp.tsx",
+    "packages/email-editor/src/web/EmailEditor.tsx",
     "apps/desktop/src/mail-engine/owner.ts",
   ])("selects all mail scenarios for shared runtime changes: %s", (file) => {
     const selection = selectChangedPlaywrightTargets(file, appRoot);

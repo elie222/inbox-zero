@@ -6,6 +6,7 @@ import type {
 } from "@inboxzero/email-editor/core";
 import type { EmailEditorPreservedBlock } from "@inboxzero/email-editor/web";
 import { splitRecipientList } from "@/utils/email";
+import { fetchWithAccount } from "@/utils/fetch";
 import { getActiveMailClient } from "@/utils/mail-engine/active-client";
 import { releaseSendAttachmentHolds } from "@/utils/mail-engine/stage-attachments";
 import type { SendEmailBody } from "@/utils/types/mail";
@@ -298,6 +299,83 @@ export function createReplyDraftWriter(
   };
 }
 
+/**
+ * Once a draft reaches the mailbox the mailbox owns it, so deleting it there
+ * must not leave the composer reopening this copy. Only a definite "gone"
+ * discards it; an unreachable mailbox keeps what the user wrote.
+ */
+export async function dropReplyDraftDeletedFromMailbox(
+  draft: StoredReplyDraft | undefined,
+) {
+  const providerDraftId = draft?.content?.providerDraftId;
+  if (!draft || !providerDraftId) return draft;
+  const client = getActiveMailClient();
+  const key = draftKey(draft);
+  const engineRevision = engineRevisions.get(key);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 2000);
+  try {
+    const response = await fetchWithAccount({
+      url: `/api/user/drafts/${encodeURIComponent(providerDraftId)}`,
+      emailAccountId: draft.emailAccountId,
+      init: { cache: "no-store", signal: controller.signal },
+    });
+    if (response.status !== 404) return draft;
+    const body = (await response.json()) as { code?: string };
+    if (body.code !== "DRAFT_NOT_FOUND") return draft;
+  } catch {
+    return draft;
+  } finally {
+    clearTimeout(timeout);
+  }
+  await pendingWrites.get(key)?.catch(() => {});
+  if (drafts.get(key) !== draft) return getReplyDraft(draft);
+  if (client !== getActiveMailClient()) return draft;
+  if (client) {
+    if (engineRevision === undefined) return draft;
+    try {
+      // A fresh revision read here could authorize clearing another client's edits.
+      const cleared = await client.saveDraft({
+        key: { accountId: draft.emailAccountId, draftId: engineDraftId(draft) },
+        expectedRevision: engineRevision,
+        content: {
+          to: [],
+          cc: [],
+          bcc: [],
+          subject: "",
+          editableHtml: "",
+          quotedHtml: "",
+          attachmentIds: [],
+        },
+      });
+      if (drafts.get(key) !== draft) return getReplyDraft(draft);
+      if (cleared.status === "conflict") {
+        drafts.delete(key);
+        engineRevisions.delete(key);
+        return getReplyDraft(draft);
+      }
+      if (cleared.status !== "saved") return draft;
+      rememberEngineRevision(draft, cleared);
+    } catch {
+      return draft;
+    }
+    drafts.set(key, {
+      ...draft,
+      content: null,
+      revision: draft.revision + 1,
+      updatedAt: Date.now(),
+    });
+    notifyReplyDraftChange(draft);
+  } else {
+    await createReplyDraftWriter(draft, draft.revision)
+      .clear()
+      .catch(() => {});
+  }
+  // Hand back whatever the store holds now so the composer writes at its
+  // revision instead of restarting from zero and rejecting its own saves.
+  return getReplyDraft(draft);
+}
+
 export function clearLocalReplyDrafts(emailAccountId?: string) {
   if (!emailAccountId) {
     drafts.clear();
@@ -378,10 +456,9 @@ export async function restoreUnsentReplyDraft(input: {
       },
       draft: {
         editableHtml: stored.content.editableHtml,
-        mode: "rich",
+        mode: "original",
         quotedHtml: stored.content.quotedHtml,
         signatureHtml: "",
-        unsupported: [],
       },
       preservedBlocks: [],
       attachments: [],

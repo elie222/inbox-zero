@@ -386,11 +386,6 @@ const nextConfig: NextConfig = {
         permanent: true,
         source: "/soc2",
       },
-      {
-        destination: "https://go.getinboxzero.com/sales",
-        permanent: false,
-        source: "/sales",
-      },
     ];
   },
   async rewrites() {
@@ -398,10 +393,6 @@ const nextConfig: NextConfig = {
       {
         destination: "https://app.posthog.com/:path*",
         source: "/ingest/:path*",
-      },
-      {
-        destination: "https://lmsqueezy.com/affiliate.js",
-        source: "/vendor/lemon/affiliate.js",
       },
       {
         destination: "https://api.dub.co/track/:path",

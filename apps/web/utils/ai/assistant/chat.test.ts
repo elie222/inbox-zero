@@ -48,6 +48,34 @@ describe("buildResolvedSystemPrompt", () => {
       "you may tell them they can connect a calendar in settings",
     );
   });
+
+  it("only asks for inline email card markup when the client can render it", () => {
+    const cardPrompt = buildPrompt({ supportsInlineEmailCards: true });
+    const plainPrompt = buildPrompt({ supportsInlineEmailCards: false });
+
+    expect(cardPrompt).toContain("<emails>");
+    expect(cardPrompt).toContain("<email-detail");
+
+    expect(plainPrompt).not.toContain("<emails>");
+    expect(plainPrompt).not.toContain("<email-detail");
+    expect(plainPrompt).toContain("numbered list");
+  });
+
+  it("never asks for inline email card markup on messaging surfaces", () => {
+    const prompt = buildPrompt({
+      responseSurface: "messaging",
+      supportsInlineEmailCards: true,
+    });
+
+    expect(prompt).not.toContain("<emails>");
+    expect(prompt).not.toContain("<email-detail");
+    expect(prompt).toBe(
+      buildPrompt({
+        responseSurface: "messaging",
+        supportsInlineEmailCards: false,
+      }),
+    );
+  });
 });
 
 describe("buildInboxSnapshotMessage", () => {
@@ -158,6 +186,7 @@ function buildPrompt(
     calendarConnection: { state: "connected" },
     provider: "google",
     responseSurface: "web",
+    supportsInlineEmailCards: false,
     userTimezone: "UTC",
     currentTimestamp: "2026-05-12T00:00:00.000Z",
     ...overrides,

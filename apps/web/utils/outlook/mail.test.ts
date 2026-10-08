@@ -84,6 +84,7 @@ describe("sendEmailWithHtml", () => {
 
     expect(patchDraft).toHaveBeenCalledWith(
       expect.objectContaining({
+        subject: "Re: Subject",
         toRecipients: [
           {
             emailAddress: {

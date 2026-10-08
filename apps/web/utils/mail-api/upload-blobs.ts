@@ -14,7 +14,9 @@ import {
 } from "@inboxzero/mail-sqlite/blob-store";
 
 export function mailUploadRoot() {
+  // Uploads are runtime data, so they must not be included in the server bundle.
   return resolve(
+    /* turbopackIgnore: true */
     env.MAIL_UPLOAD_DIR ?? join(tmpdir(), "inbox-zero-mail-uploads"),
   );
 }

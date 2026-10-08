@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { asSchema } from "ai";
 import type { ParsedMessage } from "@/utils/types";
 import prisma from "@/utils/__mocks__/prisma";
-import { createTestLogger } from "@/__tests__/helpers";
+import { createTestLogger, getMockMessage } from "@/__tests__/helpers";
 import { createEmailProvider } from "@/utils/email/provider";
 import { SafeError } from "@/utils/error";
 import {
@@ -942,6 +942,148 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     vi.clearAllMocks();
   });
 
+  it.each([
+    [
+      { folderName: "Marketing" },
+      { folderId: "marketing-folder", labelId: undefined },
+      7,
+    ],
+    [
+      { categoryName: "Marketing" },
+      { folderId: undefined, labelId: "Marketing" },
+      37,
+    ],
+    [
+      { folderName: "Marketing", categoryName: "Marketing" },
+      { folderId: "marketing-folder", labelId: "Marketing" },
+      3,
+    ],
+  ])("searchInbox exposes an exact Outlook scope count for %j instead of a page count", async (scope, expectedScope, count) => {
+    const countMessages = vi.fn().mockResolvedValue(count);
+    const searchMessages = vi.fn().mockResolvedValue({
+      messages: [getMockMessage({ id: "message-1" })],
+      nextPageToken: "NEXT_PAGE",
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      countMessages,
+      searchMessages,
+      getLabels: vi
+        .fn()
+        .mockResolvedValue([
+          { id: "marketing-category", name: "Marketing", type: "user" },
+        ]),
+      getFolders: vi.fn().mockResolvedValue([
+        {
+          id: "marketing-folder",
+          displayName: "Marketing",
+          childFolders: [],
+        },
+      ]),
+    } as any);
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      logger,
+    });
+    const result = await (toolInstance.execute as any)({
+      query: "",
+      limit: 20,
+      ...scope,
+    });
+
+    expect(result).toMatchObject({
+      exactCount: count,
+      totalReturned: 1,
+      hasMore: true,
+    });
+    expect(countMessages).toHaveBeenCalledExactlyOnceWith(expectedScope);
+    expect(searchMessages.mock.calls[0][0].folderId).toBe(
+      expectedScope.folderId,
+    );
+    expect(searchMessages.mock.calls[0][0].labelName).toBe(
+      expectedScope.labelId,
+    );
+  });
+
+  it("searchInbox returns exact zero for an empty Outlook folder", async () => {
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      countMessages: vi.fn().mockResolvedValue(0),
+      searchMessages: vi.fn().mockResolvedValue({ messages: [] }),
+      getLabels: vi.fn().mockResolvedValue([]),
+      getFolders: vi
+        .fn()
+        .mockResolvedValue([
+          { id: "empty-folder", displayName: "Empty", childFolders: [] },
+        ]),
+    } as any);
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      logger,
+    });
+    const result = await (toolInstance.execute as any)({
+      query: "",
+      limit: 20,
+      folderName: "Empty",
+    });
+
+    expect(result).toMatchObject({ exactCount: 0, totalReturned: 0 });
+  });
+
+  it("searchInbox preserves search results and discloses an unavailable exact count", async () => {
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      countMessages: vi.fn().mockRejectedValue(new Error("Count unavailable")),
+      searchMessages: vi
+        .fn()
+        .mockResolvedValue({ messages: [getMockMessage({ id: "message-1" })] }),
+      getLabels: vi.fn().mockResolvedValue([]),
+    } as any);
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      logger,
+    });
+    const result = await (toolInstance.execute as any)({
+      query: "",
+      limit: 20,
+      categoryName: "Marketing",
+    });
+
+    expect(result).toMatchObject({
+      totalReturned: 1,
+      countError: "Exact message count unavailable",
+    });
+    expect(result).not.toHaveProperty("exactCount");
+  });
+
+  it.each([
+    { query: "invoice", categoryName: "Marketing" },
+    { query: "", categoryName: "Marketing", readState: "unread" },
+    { query: "", categoryName: "Marketing", fromEmail: "sender@example.com" },
+    { query: "", categoryName: "Marketing", pageToken: "NEXT_PAGE" },
+    { query: "invoice" },
+  ])("searchInbox does not add scope-only counts to filtered or paginated searches: %j", async (input) => {
+    const countMessages = vi.fn();
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      countMessages,
+      searchMessages: vi.fn().mockResolvedValue({ messages: [] }),
+      getLabels: vi.fn().mockResolvedValue([]),
+    } as any);
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      logger,
+    });
+    const result = await (toolInstance.execute as any)({ limit: 20, ...input });
+
+    expect(result).not.toHaveProperty("exactCount");
+    expect(countMessages).not.toHaveBeenCalled();
+  });
+
   it("searchInbox result signals when more pages remain (hasMore)", async () => {
     (createEmailProvider as any).mockResolvedValue({
       searchMessages: vi.fn().mockResolvedValue({
@@ -1343,6 +1485,107 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     );
   });
 
+  it("searchInbox resolves a folder independently of a same-named category across all pages", async () => {
+    const messages = Array.from({ length: 24 }, (_, index) =>
+      getMockMessage({
+        id: `folder-message-${index + 1}`,
+        threadId: `folder-thread-${index + 1}`,
+        from: "digest@example.com",
+        labelIds: ["UNREAD"],
+      }),
+    );
+    const searchMessages = vi.fn().mockImplementation(async (options) => {
+      if (options.folderId !== "newsletter-folder" || options.labelName) {
+        return { messages: [], nextPageToken: undefined };
+      }
+      if (!options.pageToken) {
+        return {
+          messages: messages.slice(0, 11),
+          nextPageToken: "PAGE_TOKEN_2",
+        };
+      }
+      if (options.pageToken === "PAGE_TOKEN_2") {
+        return { messages: [], nextPageToken: "PAGE_TOKEN_3" };
+      }
+      return { messages: messages.slice(11), nextPageToken: undefined };
+    });
+    const markReadThread = vi.fn().mockImplementation(async (threadId) => {
+      if (threadId === "folder-thread-24")
+        throw new Error("Mock write failure");
+    });
+    const getFolders = vi.fn().mockResolvedValue([
+      {
+        id: "newsletter-folder",
+        displayName: "Newsletter",
+        childFolders: [],
+      },
+    ]);
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      searchMessages,
+      getFolders,
+      getLabels: vi
+        .fn()
+        .mockResolvedValue([
+          { id: "newsletter-category", name: "Newsletter", type: "user" },
+        ]),
+      markReadThread,
+    } as any);
+    const options = {
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      logger,
+    };
+    const search = searchInboxTool(options);
+    const schema = search.inputSchema as any;
+    const parsedInput = schema.safeParse({ folderName: "Newsletter" });
+    expect(parsedInput.success).toBe(true);
+
+    const threadIds = new Set<string>();
+    let pageToken: string | undefined;
+    let pages = 0;
+    do {
+      const result: any = await (search.execute as any)({
+        query: "",
+        folderName: "Newsletter",
+        readState: "unread",
+        limit: 20,
+        pageToken,
+      });
+      expect(result.error).toBeUndefined();
+      for (const message of result.messages) threadIds.add(message.threadId);
+      pageToken = result.nextPageToken;
+      pages += 1;
+      expect(pages).toBeLessThanOrEqual(3);
+      expect(result.hasMore).toBe(Boolean(pageToken));
+    } while (pageToken);
+
+    expect(threadIds.size).toBe(24);
+    expect(searchMessages).toHaveBeenCalledTimes(3);
+    expect(markReadThread).not.toHaveBeenCalled();
+    const result = await (manageInboxTool(options).execute as any)({
+      action: "mark_read_threads",
+      threadIds: [...threadIds],
+      read: true,
+    });
+    expect(markReadThread).toHaveBeenCalledTimes(24);
+    expect(result).toMatchObject({
+      success: false,
+      requestedCount: 24,
+      successCount: 23,
+      failedCount: 1,
+      failedThreadIds: ["folder-thread-24"],
+    });
+    expect(
+      searchMessages.mock.calls.every(
+        ([input]) =>
+          input.folderId === "newsletter-folder" &&
+          input.labelName === undefined &&
+          input.readState === "unread",
+      ),
+    ).toBe(true);
+  });
+
   it("searchInbox passes structured Outlook category and read-state filters", async () => {
     const searchMessages = vi.fn().mockResolvedValue({
       messages: [],
@@ -1524,6 +1767,11 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     (createEmailProvider as any).mockResolvedValue({
       searchMessages,
       getLabels: vi.fn().mockResolvedValue([]),
+      getFolders: vi
+        .fn()
+        .mockResolvedValue([
+          { id: "scoped-folder", displayName: "Operations", childFolders: [] },
+        ]),
     });
 
     const toolInstance = searchInboxTool({
@@ -1544,7 +1792,8 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
       maxResults: 20,
       pageToken: undefined,
       readState: "unread",
-      labelName: "Operations",
+      labelName: undefined,
+      folderId: "scoped-folder",
     });
   });
 
@@ -1628,6 +1877,11 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     (createEmailProvider as any).mockResolvedValue({
       searchMessages,
       getLabels: vi.fn().mockResolvedValue([]),
+      getFolders: vi
+        .fn()
+        .mockResolvedValue([
+          { id: "scoped-folder", displayName: "invoice", childFolders: [] },
+        ]),
     });
 
     const toolInstance = searchInboxTool({
@@ -1647,7 +1901,8 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
       maxResults: 20,
       pageToken: undefined,
       readState: undefined,
-      labelName: "invoice",
+      labelName: undefined,
+      folderId: "scoped-folder",
     });
     expect(searchMessages).toHaveBeenCalledTimes(1);
     expect(result.queryUsed).toBe("");
@@ -1672,6 +1927,11 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     (createEmailProvider as any).mockResolvedValue({
       searchMessages,
       getLabels: vi.fn().mockResolvedValue([]),
+      getFolders: vi
+        .fn()
+        .mockResolvedValue([
+          { id: "scoped-folder", displayName: "invoice", childFolders: [] },
+        ]),
     });
 
     const toolInstance = searchInboxTool({
@@ -1691,14 +1951,16 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
       maxResults: 20,
       pageToken: undefined,
       readState: undefined,
-      labelName: "invoice",
+      labelName: undefined,
+      folderId: "scoped-folder",
     });
     expect(searchMessages).toHaveBeenNthCalledWith(2, {
       query: "",
       maxResults: 20,
       pageToken: "PAGE_TOKEN_2",
       readState: undefined,
-      labelName: "invoice",
+      labelName: undefined,
+      folderId: "scoped-folder",
     });
     expect(searchMessages).toHaveBeenCalledTimes(2);
     expect(result.queryUsed).toBe("");
