@@ -36,7 +36,6 @@ export function CallToAction({
         <Button variant="secondary-two" size={buttonSize} asChild>
           <Link
             href="/sales"
-            target="_blank"
             onClick={() => landingPageAnalytics.talkToSalesClicked(posthog)}
           >
             <Chat />

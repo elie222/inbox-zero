@@ -386,11 +386,6 @@ const nextConfig: NextConfig = {
         permanent: true,
         source: "/soc2",
       },
-      {
-        destination: "https://go.getinboxzero.com/sales",
-        permanent: false,
-        source: "/sales",
-      },
     ];
   },
   async rewrites() {
