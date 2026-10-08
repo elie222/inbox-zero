@@ -4,6 +4,7 @@ import { act, cleanup, render, waitFor } from "@testing-library/react";
 import type { DefaultChatTransport } from "ai";
 import type React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ChatMessage } from "@/components/assistant-chat/types";
 import { ASSISTANT_CHAT_MAX_TEXT_LENGTH } from "@/utils/actions/assistant-chat.validation";
 import type { MessageContext } from "@/utils/ai/assistant/chat-context-validation";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
@@ -455,7 +456,7 @@ describe("ChatProvider", () => {
   ] as const)("declares inline email card support in %s requests", async (trigger) => {
     renderWithProvider(null);
     const transport = mockChatTransport.mock.results.at(-1)
-      ?.value as DefaultChatTransport;
+      ?.value as DefaultChatTransport<ChatMessage>;
     const message = {
       id: "user-message",
       role: "user" as const,
@@ -483,7 +484,7 @@ describe("ChatProvider", () => {
   it("resumes the existing reply without starting another generation", async () => {
     renderWithProvider(null);
     const transport = mockChatTransport.mock.results.at(-1)
-      ?.value as DefaultChatTransport;
+      ?.value as DefaultChatTransport<ChatMessage>;
     vi.mocked(fetch).mockResolvedValueOnce(new Response(null, { status: 204 }));
 
     await transport.reconnectToStream({ chatId: "chat-1" });

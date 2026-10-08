@@ -223,7 +223,7 @@ describe("chat route rule freshness persistence", () => {
   });
 
   it("only enables inline email cards for clients that declare support", async () => {
-    await POST(createRequest());
+    await POST(createRequest(), { params: Promise.resolve({}) });
 
     expect(mockAiProcessAssistantChat).toHaveBeenCalledWith(
       expect.objectContaining({ supportsInlineEmailCards: false }),
@@ -231,6 +231,7 @@ describe("chat route rule freshness persistence", () => {
 
     await POST(
       createRequest("Update my rules", { supportsInlineEmailCards: true }),
+      { params: Promise.resolve({}) },
     );
 
     expect(mockAiProcessAssistantChat).toHaveBeenLastCalledWith(
