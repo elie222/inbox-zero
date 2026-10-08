@@ -120,7 +120,7 @@ export async function decisionModelChooseRule<T extends RuleCandidate>({
 
   if (coldEmailRule) {
     const coldAnswer = res.answers[COLD_EMAIL_QUESTION_KEY];
-    if (coldAnswer?.type !== "yesNo") {
+    if (coldAnswer?.type !== "boolean") {
       throw new Error(
         "Decision model response is missing the cold email answer",
       );
@@ -304,7 +304,7 @@ function getRuleCriterion(rule: RuleCandidate) {
 
 function buildColdEmailQuestion(): DecisionQuestion {
   return {
-    type: "yesNo",
+    type: "boolean",
     instructions:
       "Is `email` cold outreach under `coldEmailDefinition` from the perspective of `accountOwner`?",
     criteria: {

@@ -1,3 +1,14 @@
+import { createGateway } from "@ai-sdk/gateway";
+import { createOpenAI } from "@ai-sdk/openai";
+import type {
+  Experimental_DecisionModelV4,
+  JSONObject,
+} from "@ai-sdk/provider";
+import {
+  type Experimental_DecisionQuestion,
+  type Experimental_DecisionResult,
+  experimental_decide,
+} from "ai";
 import { env } from "@/env";
 import type { User } from "@/generated/prisma/client";
 import { assertTrialAiUsageAllowed } from "@/utils/llms/model-usage-guard";
@@ -6,21 +17,9 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { saveAiUsage } from "@/utils/usage";
-import { decideWithTypeSafe } from "./typesafe";
+import { createSystemOneDecisionModel } from "./system-one";
 
-type DecisionInstructions = string | Record<string, string>;
-
-export type DecisionQuestion =
-  | {
-      type: "choice";
-      instructions: DecisionInstructions;
-      criteria: Record<string, string>;
-    }
-  | {
-      type: "yesNo";
-      instructions: DecisionInstructions;
-      criteria?: { true: DecisionInstructions; false: DecisionInstructions };
-    };
+export type DecisionQuestion = Experimental_DecisionQuestion;
 
 export type DecisionAnswer =
   | {
@@ -29,7 +28,7 @@ export type DecisionAnswer =
       confidence: number;
       probabilities: Record<string, number>;
     }
-  | { type: "yesNo"; probability: number };
+  | { type: "boolean"; probability: number };
 
 export type DecisionModelResponse = {
   model: string;
@@ -38,10 +37,14 @@ export type DecisionModelResponse = {
   answers: Record<string, DecisionAnswer | undefined>;
 };
 
+type DecideResult = Experimental_DecisionResult<
+  Record<string, DecisionQuestion>
+>;
+
 export type DecisionModelConfig = {
-  provider: "typesafe";
-  model: string;
-  apiKey: string;
+  provider: "typesafe" | "openrouter" | "gateway" | "openai";
+  modelId: string;
+  model: Experimental_DecisionModelV4;
 };
 
 /** The optional decision model for this account, or null for the LLM path. */
@@ -111,36 +114,56 @@ export async function runDecisionModel({
     emailAccountId: emailAccount.id,
   });
 
-  const response = await sendToProvider({
-    config,
-    state: request.prompt,
+  const result = await experimental_decide({
+    model: config.model,
+    state: request.prompt as JSONObject,
     questions: request.instructions,
+    // Every caller falls back to the LLM, which is the better retry.
+    maxRetries: 0,
   });
+
+  const inputTokens = result.usage.inputTokens ?? 0;
+  const outputTokens = result.usage.outputTokens ?? 0;
+  const providerReportedCost = getOpenRouterCost(result);
 
   await saveAiUsage({
     userId: emailAccount.userId,
     email: emailAccount.email,
     emailAccountId: emailAccount.id,
     provider: config.provider,
-    model: config.model,
+    model: config.modelId,
     usage: {
-      inputTokens: response.inputTokens,
-      outputTokens: response.outputTokens,
-      totalTokens: response.inputTokens + response.outputTokens,
+      inputTokens,
+      outputTokens,
+      totalTokens: inputTokens + outputTokens,
       inputTokenDetails: {
         noCacheTokens: undefined,
         cacheReadTokens: undefined,
         cacheWriteTokens: undefined,
       },
       outputTokenDetails: {
-        textTokens: response.outputTokens,
+        textTokens: outputTokens,
         reasoningTokens: undefined,
       },
     },
+    providerReportedCost,
+    providerCostSource:
+      providerReportedCost === undefined ? undefined : "openrouter_usage",
+    providerRequestIds: result.response.id ? [result.response.id] : undefined,
     label,
   });
 
-  return response;
+  return {
+    model: result.response.modelId,
+    inputTokens,
+    outputTokens,
+    answers: Object.fromEntries(
+      Object.entries(result.answers).map(([id, answer]) => [
+        id,
+        toDecisionAnswer(id, answer, result),
+      ]),
+    ),
+  };
 }
 
 export async function runDecisionModelOrFallback<T>({
@@ -180,23 +203,111 @@ export async function runDecisionModelOrFallback<T>({
   }
 }
 
-function sendToProvider(options: {
-  config: DecisionModelConfig;
-  state: Record<string, unknown>;
-  questions: Record<string, DecisionQuestion>;
-}): Promise<DecisionModelResponse> {
-  switch (options.config.provider) {
-    case "typesafe":
-      return decideWithTypeSafe(options);
+function getDeploymentDecisionModelConfig() {
+  return env.DEFAULT_DECISION_MODEL
+    ? createDecisionModelConfig(env.DEFAULT_DECISION_MODEL)
+    : null;
+}
+
+/** Resolves a `provider:model` entry, or null when its key is not set. */
+export function createDecisionModelConfig(
+  providerAndModel: string,
+): DecisionModelConfig | null {
+  const separatorIndex = providerAndModel.indexOf(":");
+  const provider = providerAndModel.slice(0, separatorIndex);
+  const modelId = providerAndModel.slice(separatorIndex + 1);
+
+  switch (provider) {
+    case "typesafe": {
+      if (!env.TYPESAFE_API_KEY) return null;
+      return {
+        provider,
+        modelId,
+        model: createSystemOneDecisionModel({
+          provider,
+          url: "https://api.typesafe.ai/v1/systemone",
+          apiKey: env.TYPESAFE_API_KEY,
+          modelId,
+        }),
+      };
+    }
+    case "openrouter": {
+      if (!env.OPENROUTER_API_KEY) return null;
+      return {
+        provider,
+        modelId,
+        model: createSystemOneDecisionModel({
+          provider,
+          url: "https://openrouter.ai/api/alpha/decisions",
+          apiKey: env.OPENROUTER_API_KEY,
+          modelId,
+        }),
+      };
+    }
+    case "gateway": {
+      if (!env.AI_GATEWAY_API_KEY) return null;
+      return {
+        provider,
+        modelId,
+        model: createGateway({ apiKey: env.AI_GATEWAY_API_KEY }).decisionModel(
+          modelId,
+        ),
+      };
+    }
+    case "openai": {
+      if (!env.OPENAI_API_KEY) return null;
+      return {
+        provider,
+        modelId,
+        model: createOpenAI({ apiKey: env.OPENAI_API_KEY }).decisionModel(
+          modelId,
+        ),
+      };
+    }
+    default:
+      return null;
   }
 }
 
-function getDeploymentDecisionModelConfig(): DecisionModelConfig | null {
-  if (!env.DEFAULT_DECISION_MODEL || !env.TYPESAFE_API_KEY) return null;
+/**
+ * Callers threshold on choice confidence, so a choice must come with a
+ * distribution. Providers that report their own confidence (System One,
+ * OpenAI) put it in provider metadata; otherwise it is the chosen option's
+ * probability.
+ */
+function toDecisionAnswer(
+  id: string,
+  answer: DecideResult["answers"][string],
+  result: DecideResult,
+): DecisionAnswer | undefined {
+  if (answer.type === "boolean") return answer;
+  if (answer.type !== "choice" || !answer.probabilities) return;
 
   return {
-    provider: "typesafe",
-    model: env.DEFAULT_DECISION_MODEL.slice("typesafe:".length),
-    apiKey: env.TYPESAFE_API_KEY,
+    type: "choice",
+    choice: answer.choice,
+    confidence:
+      getProviderConfidence(result, id) ?? answer.probabilities[answer.choice],
+    probabilities: answer.probabilities,
   };
+}
+
+function getProviderConfidence(result: DecideResult, id: string) {
+  for (const metadata of Object.values(result.providerMetadata ?? {})) {
+    const confidence = metadata.confidence;
+    if (isJsonObject(confidence) && typeof confidence[id] === "number") {
+      return confidence[id];
+    }
+  }
+}
+
+function getOpenRouterCost(result: DecideResult) {
+  const usage = result.providerMetadata?.openrouter?.usage;
+  return isJsonObject(usage) && typeof usage.cost === "number"
+    ? usage.cost
+    : undefined;
+}
+
+function isJsonObject(value: unknown): value is JSONObject {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

@@ -5,8 +5,8 @@ const envMock = vi.hoisted(() => ({
   DEFAULT_DECISION_MODEL: undefined as string | undefined,
   DEFAULT_DECISION_MODEL_ENABLED: false,
   TYPESAFE_API_KEY: undefined as string | undefined,
+  OPENROUTER_API_KEY: undefined as string | undefined,
 }));
-const decideWithTypeSafeMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/env", () => ({ env: envMock }));
 vi.mock("@/utils/prisma");
@@ -14,10 +14,8 @@ vi.mock("@/utils/llms/model-usage-guard", () => ({
   assertTrialAiUsageAllowed: vi.fn(),
 }));
 vi.mock("@/utils/usage", () => ({ saveAiUsage: vi.fn() }));
-vi.mock("@/utils/decision-model/typesafe", () => ({
-  decideWithTypeSafe: decideWithTypeSafeMock,
-}));
 
+import { Experimental_DecisionMockModelV4 } from "ai/test";
 import prisma from "@/utils/__mocks__/prisma";
 import { saveAiUsage } from "@/utils/usage";
 import {
@@ -27,18 +25,18 @@ import {
 } from "./decision-model";
 
 const logger = createTestLogger();
+const doDecide = vi.fn();
 const config = {
   provider: "typesafe" as const,
-  model: "test-model",
-  apiKey: "test-key",
+  modelId: "test-model",
+  model: new Experimental_DecisionMockModelV4({ doDecide }),
 };
+const appliesQuestion = {
+  applies: { type: "boolean", instructions: "Does it apply?" },
+} as const;
 
 describe("getDecisionModelConfig", () => {
-  const deploymentConfig = {
-    provider: "typesafe",
-    model: "jev-latest",
-    apiKey: "key",
-  };
+  const deploymentConfig = { provider: "typesafe", modelId: "jev-latest" };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -71,12 +69,26 @@ describe("getDecisionModelConfig", () => {
     expect(await getDecisionModelConfig(getEmailAccount())).toBeNull();
   });
 
+  it("resolves OpenRouter decision models with the OpenRouter key", async () => {
+    envMock.DEFAULT_DECISION_MODEL = "openrouter:cloudflare/clef";
+    envMock.OPENROUTER_API_KEY = "openrouter-key";
+    mockUserSetting(true);
+
+    const config = await getDecisionModelConfig(getEmailAccount());
+
+    expect(config).toMatchObject({
+      provider: "openrouter",
+      modelId: "cloudflare/clef",
+      model: { provider: "openrouter", modelId: "cloudflare/clef" },
+    });
+  });
+
   it("is opt-in when the deployment default is off", async () => {
     mockUserSetting(null);
     expect(await getDecisionModelConfig(getEmailAccount())).toBeNull();
 
     mockUserSetting(true);
-    expect(await getDecisionModelConfig(getEmailAccount())).toEqual(
+    expect(await getDecisionModelConfig(getEmailAccount())).toMatchObject(
       deploymentConfig,
     );
   });
@@ -85,7 +97,7 @@ describe("getDecisionModelConfig", () => {
     envMock.DEFAULT_DECISION_MODEL_ENABLED = true;
 
     mockUserSetting(null);
-    expect(await getDecisionModelConfig(getEmailAccount())).toEqual(
+    expect(await getDecisionModelConfig(getEmailAccount())).toMatchObject(
       deploymentConfig,
     );
 
@@ -100,7 +112,7 @@ describe("getDecisionModelConfig", () => {
     expect(await getDecisionModelConfig(getEmailAccount())).toBeNull();
 
     mockUserSetting(true, "user-key");
-    expect(await getDecisionModelConfig(getEmailAccount())).toEqual(
+    expect(await getDecisionModelConfig(getEmailAccount())).toMatchObject(
       deploymentConfig,
     );
   });
@@ -117,49 +129,45 @@ describe("runDecisionModel", () => {
         config,
         emailAccount: { ...getEmailAccount(), sensitiveDataPolicy: "BLOCK" },
         state: { content: `client_secret=${"c".repeat(24)}` },
-        questions: {},
+        questions: appliesQuestion,
         label: "test",
         logger,
       }),
     ).rejects.toThrow("blocked by your account settings");
-    expect(decideWithTypeSafeMock).not.toHaveBeenCalled();
+    expect(doDecide).not.toHaveBeenCalled();
   });
 
   it("sends redacted state to the provider under a REDACT policy", async () => {
     const secret = "c".repeat(24);
-    decideWithTypeSafeMock.mockResolvedValue({
-      model: "test-model",
-      inputTokens: 1,
-      outputTokens: 0,
-      answers: {},
-    });
+    doDecide.mockResolvedValue(
+      decisionResult({ applies: { type: "boolean", probability: 0.5 } }),
+    );
 
     await runDecisionModel({
       config,
       emailAccount: { ...getEmailAccount(), sensitiveDataPolicy: "REDACT" },
       state: { content: `client_secret=${secret}` },
-      questions: {},
+      questions: appliesQuestion,
       label: "test",
       logger,
     });
 
-    const sent = JSON.stringify(decideWithTypeSafeMock.mock.calls[0]?.[0]);
+    const sent = JSON.stringify(doDecide.mock.calls[0]?.[0].state);
     expect(sent).not.toContain(secret);
   });
 
-  it("records usage for the configured model", async () => {
-    decideWithTypeSafeMock.mockResolvedValue({
-      model: "test-model",
-      inputTokens: 1200,
-      outputTokens: 12,
-      answers: {},
+  it("records usage and provider-reported cost for the configured model", async () => {
+    doDecide.mockResolvedValue({
+      ...decisionResult({ applies: { type: "boolean", probability: 0.5 } }),
+      usage: { inputTokens: 1200, outputTokens: 12 },
+      providerMetadata: { openrouter: { usage: { cost: 0.0003 } } },
     });
 
     await runDecisionModel({
       config,
       emailAccount: getEmailAccount(),
       state: {},
-      questions: {},
+      questions: appliesQuestion,
       label: "test",
       logger,
     });
@@ -169,6 +177,7 @@ describe("runDecisionModel", () => {
         provider: "typesafe",
         model: "test-model",
         label: "test",
+        providerReportedCost: 0.0003,
         usage: expect.objectContaining({
           inputTokens: 1200,
           outputTokens: 12,
@@ -176,6 +185,41 @@ describe("runDecisionModel", () => {
         }),
       }),
     );
+  });
+
+  it("uses provider-reported choice confidence, else the chosen probability", async () => {
+    doDecide.mockResolvedValue({
+      ...decisionResult({
+        reported: {
+          type: "choice",
+          choice: "a",
+          probabilities: { a: 0.9, b: 0.1 },
+        },
+        derived: {
+          type: "choice",
+          choice: "b",
+          probabilities: { a: 0.2, b: 0.8 },
+        },
+      }),
+      providerMetadata: { typesafe: { confidence: { reported: 0.6 } } },
+    });
+
+    const choice = {
+      type: "choice",
+      instructions: "Pick one",
+      criteria: { a: "A", b: "B" },
+    } as const;
+    const response = await runDecisionModel({
+      config,
+      emailAccount: getEmailAccount(),
+      state: {},
+      questions: { reported: choice, derived: choice },
+      label: "test",
+      logger,
+    });
+
+    expect(response.answers.reported).toMatchObject({ confidence: 0.6 });
+    expect(response.answers.derived).toMatchObject({ confidence: 0.8 });
   });
 });
 
@@ -245,3 +289,7 @@ describe("runDecisionModelOrFallback", () => {
     expect(fallback).toHaveBeenCalledOnce();
   });
 });
+
+function decisionResult(answers: Record<string, unknown>) {
+  return { answers, warnings: [] };
+}
