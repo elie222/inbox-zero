@@ -110,7 +110,8 @@ function normalizeLinkHref(value: string) {
   if (!href) return "";
   if (/^(?:https?:\/\/|mailto:|tel:|#)/iu.test(href)) return href;
   if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(href)) return `mailto:${href}`;
-  // Keep other explicit schemes so the allowlist rejects them.
-  if (/^[a-z][a-z\d+.-]*:\/\//iu.test(href)) return href;
+  // Keep other explicit schemes so the allowlist rejects them; a colon
+  // followed by digits is a port, as in example.com:8080.
+  if (/^[a-z][a-z\d+.-]*:(?!\d)/iu.test(href)) return href;
   return `https://${href}`;
 }

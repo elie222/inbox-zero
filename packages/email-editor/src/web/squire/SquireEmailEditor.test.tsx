@@ -355,6 +355,21 @@ describe("Squire email editor", () => {
     expect(onSlashTrigger).toHaveBeenLastCalledWith(null);
   });
 
+  it("treats a host with a port as a web address", async () => {
+    const { textbox } = await renderEditor({});
+    act(() => {
+      fireEvent.keyDown(textbox(), { key: "k", ctrlKey: true });
+    });
+    fireEvent.change(screen.getByLabelText("Link address"), {
+      target: { value: "example.com:8080/docs" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+
+    expect(textbox().querySelector("a")?.getAttribute("href")).toBe(
+      "https://example.com:8080/docs",
+    );
+  });
+
   it("adds a link from the keyboard shortcut", async () => {
     const { handle, textbox } = await renderEditor({});
     act(() => {
@@ -376,14 +391,17 @@ describe("Squire email editor", () => {
     expect(link?.textContent).toBe("https://example.com/docs");
   });
 
-  it("rejects links with unsupported schemes", async () => {
+  it.each([
+    "ftp://files.example.com",
+    "ftp:files",
+  ])("rejects links with unsupported schemes: %s", async (address) => {
     const { textbox } = await renderEditor({});
 
     act(() => {
       fireEvent.keyDown(textbox(), { key: "k", ctrlKey: true });
     });
     fireEvent.change(screen.getByLabelText("Link address"), {
-      target: { value: "ftp://files.example.com" },
+      target: { value: address },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add" }));
 

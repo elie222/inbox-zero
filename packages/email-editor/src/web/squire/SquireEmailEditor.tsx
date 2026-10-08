@@ -723,7 +723,7 @@ export const SquireEmailEditor = forwardRef<
         <div
           className={styles.editor}
           onScroll={() => {
-            setToolbarPosition(null);
+            updateSelectionUi();
             updateSlashTrigger();
           }}
         >
