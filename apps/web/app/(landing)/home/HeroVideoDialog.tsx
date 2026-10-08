@@ -17,9 +17,11 @@ const HERO_VIDEO_ID = "YeTrweHxCIM5tcBMXlvRbmDuPqL028lJrmJ3F6ZgwnDY";
 
 export function HeroVideoDialog({
   playbackId = HERO_VIDEO_ID,
+  thumbnailTime,
   title = "Inbox Zero product video",
 }: {
   playbackId?: string;
+  thumbnailTime?: number;
   title?: string;
 }) {
   const posthog = usePostHog();
@@ -48,6 +50,7 @@ export function HeroVideoDialog({
         <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-black">
           <LazyMuxVideo
             playbackId={playbackId}
+            thumbnailTime={thumbnailTime}
             title={title}
             className="size-full"
             playerClassName="size-full"

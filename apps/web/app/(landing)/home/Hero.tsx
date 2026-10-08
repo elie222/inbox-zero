@@ -78,6 +78,7 @@ export function HeroVideoPlayer({
       <div className="relative block overflow-hidden rounded-3xl border border-[#EFEFEF] md:rounded-[43px]">
         <HeroVideoDialog
           playbackId={video?.muxPlaybackId}
+          thumbnailTime={video?.thumbnailTime}
           title={video?.title}
         />
         <Image
