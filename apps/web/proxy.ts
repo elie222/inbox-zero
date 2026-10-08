@@ -12,15 +12,7 @@ import { BRAND_NAME, SUPPORT_EMAIL } from "@/utils/branding";
 import { auth } from "@/utils/auth";
 
 export async function proxy(request: NextRequest) {
-  if (isNextInternalRequest(request)) {
-    return withVaryAccept(NextResponse.next());
-  }
-
-  if (request.method !== "GET" && request.method !== "HEAD") {
-    return withVaryAccept(NextResponse.next());
-  }
-
-  if (!prefersMarkdown(request.headers.get("accept"))) {
+  if (request.method === "GET" || request.method === "HEAD") {
     if (request.nextUrl.pathname === "/") {
       const hasSessionCookie = request.cookies.has(
         "__Secure-better-auth.session_token",
@@ -40,7 +32,17 @@ export async function proxy(request: NextRequest) {
         }
       }
     }
+  }
 
+  if (isNextInternalRequest(request)) {
+    return withVaryAccept(NextResponse.next());
+  }
+
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    return withVaryAccept(NextResponse.next());
+  }
+
+  if (!prefersMarkdown(request.headers.get("accept"))) {
     return withVaryAccept(NextResponse.next());
   }
 

@@ -116,6 +116,24 @@ describe("homepage session redirects", () => {
     expect(auth).not.toHaveBeenCalled();
     expect(response.headers.get("x-middleware-next")).toBe("1");
   });
+
+  it("preserves signed-in redirects during client navigation", async () => {
+    vi.mocked(auth).mockResolvedValue({ user: { id: "user-1" } } as Awaited<
+      ReturnType<typeof auth>
+    >);
+    const response = await proxy(
+      new NextRequest("https://www.getinboxzero.com/", {
+        headers: {
+          RSC: "1",
+          cookie: "__Secure-better-auth.session_token=valid-session",
+        },
+      }),
+    );
+
+    expect(response.headers.get("location")).toBe(
+      "https://www.getinboxzero.com/automation",
+    );
+  });
 });
 
 function matchesProxy(url: string) {
