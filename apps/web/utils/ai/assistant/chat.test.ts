@@ -68,6 +68,13 @@ describe("buildResolvedSystemPrompt", () => {
     });
 
     expect(prompt).not.toContain("<emails>");
+    expect(prompt).not.toContain("<email-detail");
+    expect(prompt).toBe(
+      buildPrompt({
+        responseSurface: "messaging",
+        supportsInlineEmailCards: false,
+      }),
+    );
   });
 });
 

@@ -79,6 +79,7 @@ export async function captureAssistantChatTrace({
   messages,
   logger,
   inboxStats,
+  supportsInlineEmailCards = true,
   context,
   chatHasHistory,
   chatLastSeenRulesRevision,
@@ -87,6 +88,7 @@ export async function captureAssistantChatTrace({
   messages: ModelMessage[];
   logger: Logger;
   inboxStats?: { total: number; unread: number } | null;
+  supportsInlineEmailCards?: boolean;
   context?: MessageContext;
   chatHasHistory?: boolean;
   chatLastSeenRulesRevision?: number | null;
@@ -103,7 +105,7 @@ export async function captureAssistantChatTrace({
     emailAccountId: emailAccount.id,
     user: emailAccount,
     inboxStats,
-    supportsInlineEmailCards: true,
+    supportsInlineEmailCards,
     context,
     chatHasHistory,
     chatLastSeenRulesRevision,
