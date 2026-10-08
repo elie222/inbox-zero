@@ -179,12 +179,12 @@ describe("threadsQueryToPredicate", () => {
     });
   });
 
-  it("maps a repeated operator onto one predicate per value", () => {
-    expect(
-      threadsQueryToPredicate({
-        q: "to:ada@example.com to:grace@example.com",
-      }),
-    ).toEqual({
+  it.each([
+    "to:ada@example.com to:grace@example.com",
+    "(to:ada@example.com) (to:grace@example.com)",
+    'to:"ada@example.com" to:"grace@example.com"',
+  ])("extracts every recipient operator: %s", (q) => {
+    expect(threadsQueryToPredicate({ q })).toEqual({
       kind: "all",
       predicates: [
         {
@@ -198,6 +198,30 @@ describe("threadsQueryToPredicate", () => {
           field: "to",
           value: "grace@example.com",
           match: "address",
+        },
+      ],
+    });
+  });
+
+  it("leaves recipient operators inside quoted text in the phrase", () => {
+    expect(
+      threadsQueryToPredicate({
+        q: 'to:ada@example.com "sent to:grace@example.com"',
+      }),
+    ).toEqual({
+      kind: "all",
+      predicates: [
+        {
+          kind: "address",
+          field: "to",
+          value: "ada@example.com",
+          match: "address",
+        },
+        {
+          kind: "text",
+          field: "any",
+          value: '"sent to:grace@example.com"',
+          match: "term",
         },
       ],
     });
