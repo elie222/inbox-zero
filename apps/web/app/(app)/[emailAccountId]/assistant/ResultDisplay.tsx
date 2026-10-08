@@ -48,7 +48,11 @@ export function ResultsDisplay({
             <div className="my-1 text-xs text-muted-foreground">Previous:</div>
           )}
           <div
-            className={showFullContent ? "flex flex-col gap-4" : "flex gap-1"}
+            className={
+              showFullContent
+                ? "flex flex-col gap-4"
+                : "flex flex-wrap gap-1 sm:flex-nowrap"
+            }
           >
             {batchResults.map((result, resultIndex) => (
               <ResultDisplay
@@ -86,13 +90,16 @@ function ResultDisplay({
       content={<ResultDisplayContent result={result} />}
       className="w-max min-w-64 max-w-[min(32rem,calc(100vw-2rem))] overflow-visible"
     >
-      <Badge color={rule ? "green" : "red"} className="whitespace-nowrap">
+      <Badge
+        color={rule ? "green" : "red"}
+        className="whitespace-nowrap max-sm:whitespace-normal max-sm:break-words"
+      >
         {rule
           ? rule.name
           : status === ExecutedRuleStatus.SKIPPED
             ? "No match found"
             : capitalCase(status)}
-        <EyeIcon className="ml-1.5 size-3.5 opacity-70" />
+        <EyeIcon className="ml-1.5 size-3.5 shrink-0 opacity-70" />
       </Badge>
     </HoverCard>
   );

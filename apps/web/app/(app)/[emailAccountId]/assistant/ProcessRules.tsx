@@ -265,7 +265,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
 
   return (
     <div>
-      <div className="flex items-center justify-between gap-2 pb-6">
+      <div className="flex flex-wrap items-center justify-between gap-2 pb-6 sm:flex-nowrap">
         <div className="flex items-center gap-2">
           {isRunningAll ? (
             <Button onClick={handleStop} variant="outline" size="sm">
@@ -321,7 +321,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
           <MutedText className="p-4 text-center">No emails found</MutedText>
         ) : (
           <Card>
-            <Table>
+            <Table className="table-fixed sm:table-auto">
               <TableBody>
                 {messages.map((message) => (
                   <ProcessRulesRow
@@ -361,12 +361,12 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
 function ProcessRulesLoading() {
   return (
     <Card>
-      <Table>
+      <Table className="table-fixed sm:table-auto">
         <TableBody>
           {Array.from({ length: 5 }).map((_, index) => (
             <TableRow key={index} className="hover:bg-transparent">
               <TableCell>
-                <div className="flex items-center justify-between gap-4">
+                <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                   <div className="min-w-0 flex-1 space-y-2">
                     <Skeleton className="h-4 w-40" />
                     <Skeleton className="h-4 w-full max-w-xl" />
@@ -425,7 +425,7 @@ function ProcessRulesRow({
       }
     >
       <TableCell>
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <div className="min-w-0 flex-1">
             <EmailMessageCell
               sender={message.headers.from}
@@ -439,7 +439,7 @@ function ProcessRulesRow({
               collapseLabels={testMode}
             />
           </div>
-          <div className="ml-4 flex shrink-0 items-center gap-1">
+          <div className="flex flex-wrap items-center justify-end gap-1 sm:ml-4 sm:shrink-0 sm:flex-nowrap">
             {results ? (
               <>
                 <ResultsDisplay results={results} />
