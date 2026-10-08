@@ -29,9 +29,11 @@ export function createObjectBlobStore(objects: ObjectStorage): BlobStore {
         return { status: "rejected", code: "too_large" };
       }
       let rejected: "too_large" | "checksum_mismatch" | undefined;
+      let verifiedComplete = false;
       const verified = (async function* () {
         const hash = createHash("sha256");
         let size = 0;
+        let pending: Uint8Array | undefined;
         for await (const chunk of input.bytes) {
           size += chunk.byteLength;
           if (size > input.sizeBytes) {
@@ -39,15 +41,24 @@ export function createObjectBlobStore(objects: ObjectStorage): BlobStore {
             throw new Error("Upload exceeds admitted size");
           }
           hash.update(chunk);
-          yield chunk;
+          if (chunk.byteLength === 0) continue;
+          // Withhold the last chunk until verification: a transport can return
+          // as soon as Content-Length is satisfied, before the iterator ends.
+          if (pending) yield pending;
+          pending = chunk;
         }
         if (size !== input.sizeBytes || hash.digest("hex") !== input.checksum) {
           rejected = "checksum_mismatch";
           throw new Error("Upload does not match admission");
         }
+        verifiedComplete = true;
+        if (pending) yield pending;
       })();
       try {
+        if (input.sizeBytes === 0) await verified.next();
         await objects.put(`${key}.data`, verified, input.sizeBytes);
+        if (!verifiedComplete)
+          throw new Error("Storage did not consume the complete upload");
         await writeReference(objects, `${key}.staging`, {
           blobId: key,
           sizeBytes: input.sizeBytes,

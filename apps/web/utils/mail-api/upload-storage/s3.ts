@@ -16,7 +16,7 @@ export function createS3UploadStore({
 }) {
   return createObjectBlobStore({
     async put(key, bytes, sizeBytes) {
-      const body = Readable.from(bytes);
+      const body = Readable.from(bytes, { objectMode: false });
       try {
         await client.send(
           new PutObjectCommand({
@@ -53,7 +53,7 @@ export function createS3UploadStore({
     },
     async delete(key) {
       await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }), {
-        abortSignal: AbortSignal.timeout(60_000),
+        abortSignal: AbortSignal.timeout(10_000),
       });
     },
   });

@@ -1,3 +1,4 @@
+import { prepareAccountUploadDeletion } from "@/utils/mail-api/upload-blobs";
 import { withThreadPageBufferDeletion } from "@/utils/redis/thread-page-buffer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Prisma } from "@/generated/prisma/client";
@@ -10,6 +11,10 @@ import { deleteContact as deleteLoopsContact } from "@inboxzero/loops";
 import { releaseAccountRecordings } from "@/utils/meeting-recorder/delete-media";
 
 vi.mock("@/utils/prisma");
+const uploadCleanup = vi.hoisted(() => vi.fn(async () => {}));
+vi.mock("@/utils/mail-api/upload-blobs", () => ({
+  prepareAccountUploadDeletion: vi.fn(async () => uploadCleanup),
+}));
 vi.mock("@/utils/redis/thread-page-buffer", () => ({
   withThreadPageBufferDeletion: vi.fn(async (_ids, operation) => operation()),
 }));
@@ -103,6 +108,7 @@ describe("deleteUser", () => {
       "database unavailable",
     );
     expect(deleteTinybirdEmailData).not.toHaveBeenCalled();
+    expect(uploadCleanup).not.toHaveBeenCalled();
   });
 
   it("deletes solo organizations and memberships before deleting the user, then notifies shared conversations", async () => {
@@ -133,6 +139,17 @@ describe("deleteUser", () => {
     ] as Awaited<ReturnType<typeof prisma.conversation.findMany>>);
 
     await deleteUser({ userId: "user-1", logger });
+    expect(prepareAccountUploadDeletion).toHaveBeenCalledWith([
+      "email-account-1",
+    ]);
+    expect(uploadCleanup).toHaveBeenCalledOnce();
+    expect(
+      vi.mocked(prepareAccountUploadDeletion).mock.invocationCallOrder[0],
+    ).toBeLessThan(prisma.$transaction.mock.invocationCallOrder[0]);
+    expect(uploadCleanup.mock.invocationCallOrder[0]).toBeGreaterThan(
+      prisma.$transaction.mock.invocationCallOrder[0],
+    );
+
     expect(deleteTinybirdEmailData).toHaveBeenCalledWith(["owner@example.com"]);
     expect(withThreadPageBufferDeletion).toHaveBeenCalledWith(
       ["email-account-1"],

@@ -3,9 +3,11 @@ import { rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { installMailUploadTable } from "@/__tests__/mocks/mail-upload.mock";
+import { getMailUploadStore } from "./upload-storage";
 import prisma from "@/utils/__mocks__/prisma";
 import {
   admitAccountUpload,
+  prepareAccountUploadDeletion,
   cancelAccountUpload,
   deleteAccountUploads,
   deleteStaleMailUploads,
@@ -32,6 +34,133 @@ const checksum = createHash("sha256").update(bytes).digest("hex");
 describe("mail upload staging", () => {
   beforeEach(() => {
     installMailUploadTable(prisma);
+  });
+
+  it("keeps only metadata in Postgres and writes bytes to an opaque account-scoped key", async () => {
+    await admit("file-1");
+    await stage("file-1", bytes);
+    const row = await prisma.mailUpload.findUnique({
+      where: {
+        emailAccountId_blobId: { emailAccountId: accountId, blobId: "file-1" },
+      },
+    });
+    expect(row).not.toHaveProperty("content");
+    expect(row!.storageKey).not.toContain("file-1");
+    expect(row!.storageKey).not.toContain("note.txt");
+    expect(await getMailUploadStore().read(row!.storageKey)).not.toBeNull();
+  });
+
+  it("does not publish a stale stream after an identical re-admission", async () => {
+    await admit("file-1");
+    const result = await putAccountUploadContent(
+      accountId,
+      "file-1",
+      (async function* () {
+        yield bytes.subarray(0, 2);
+        await admit("file-1");
+        yield bytes.subarray(2);
+      })(),
+    );
+    expect(result).toEqual({ status: "missing" });
+    expect(await inspectAccountUpload(accountId, "file-1")).toEqual({
+      status: "missing",
+    });
+  });
+
+  it.each([
+    "cancel",
+    "sent",
+    "retention",
+  ])("retries a failed %s object deletion from retention without failing the action", async (path) => {
+    await admit("file-1");
+    await stage("file-1", bytes);
+    const row = await prisma.mailUpload.findUnique({
+      where: {
+        emailAccountId_blobId: { emailAccountId: accountId, blobId: "file-1" },
+      },
+    });
+    vi.spyOn(getMailUploadStore(), "delete").mockRejectedValueOnce(
+      new Error("storage unavailable"),
+    );
+    if (path === "cancel")
+      await expect(
+        cancelAccountUpload(accountId, "file-1"),
+      ).resolves.toMatchObject({ status: "deleted" });
+    else if (path === "sent")
+      await expect(
+        deleteAccountUploads(accountId, ["file-1"]),
+      ).resolves.toBeUndefined();
+    else
+      await expect(
+        deleteStaleMailUploads(new Date(Date.now() + 1000)),
+      ).resolves.toBe(0);
+    expect(await inspectAccountUpload(accountId, "file-1")).toEqual({
+      status: "missing",
+    });
+    expect(await getMailUploadStore().read(row!.storageKey)).not.toBeNull();
+    expect(await deleteStaleMailUploads(new Date(Date.now() - 1000))).toBe(1);
+    expect(await getMailUploadStore().read(row!.storageKey)).toBeNull();
+  });
+
+  it("keeps stored bytes until account deletion commits, then deletes only that account's objects", async () => {
+    await admit("file-1");
+    await stage("file-1", bytes);
+    const row = await prisma.mailUpload.findUnique({
+      where: {
+        emailAccountId_blobId: { emailAccountId: accountId, blobId: "file-1" },
+      },
+    });
+    await admitAccountUpload("other-account", {
+      uploadId: "file-1",
+      checksum,
+      sizeBytes: bytes.byteLength,
+      filename: "note.txt",
+      contentType: "text/plain",
+    });
+    await putAccountUploadContent(
+      "other-account",
+      "file-1",
+      (async function* () {
+        yield bytes;
+      })(),
+    );
+    const cleanup = await prepareAccountUploadDeletion([accountId]);
+    expect(await getMailUploadStore().read(row!.storageKey)).not.toBeNull();
+    await prisma.mailUpload.deleteMany({
+      where: { emailAccountId: accountId },
+    });
+    await cleanup();
+    expect(await getMailUploadStore().read(row!.storageKey)).toBeNull();
+    expect(await readAccountUploads("other-account", ["file-1"])).toMatchObject(
+      { status: "ok" },
+    );
+  });
+
+  it("does not fail an unheld cancel when metadata cleanup fails", async () => {
+    await admit("file-1");
+    await stage("file-1", bytes);
+    prisma.mailUpload.findMany.mockRejectedValueOnce(
+      new Error("database unavailable"),
+    );
+    await expect(cancelAccountUpload(accountId, "file-1")).resolves.toEqual({
+      status: "deleted",
+      blobId: "file-1",
+    });
+  });
+
+  it("does not fail account deletion when object cleanup or key lookup fails", async () => {
+    await admit("file-1");
+    await stage("file-1", bytes);
+    const cleanup = await prepareAccountUploadDeletion([accountId]);
+    vi.spyOn(getMailUploadStore(), "delete").mockRejectedValueOnce(
+      new Error("storage unavailable"),
+    );
+    await expect(cleanup()).resolves.toBeUndefined();
+    prisma.mailUpload.findMany.mockRejectedValueOnce(
+      new Error("database unavailable"),
+    );
+    const unavailableCleanup = await prepareAccountUploadDeletion([accountId]);
+    await expect(unavailableCleanup()).resolves.toBeUndefined();
   });
 
   it("stages content admitted by an earlier request", async () => {

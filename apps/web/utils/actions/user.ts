@@ -1,5 +1,6 @@
 "use server";
 
+import { prepareAccountUploadDeletion } from "@/utils/mail-api/upload-blobs";
 import { z } from "zod";
 import { after } from "next/server";
 import { Prisma } from "@/generated/prisma/client";
@@ -295,8 +296,11 @@ async function runDeleteEmailAccountTransaction(
   },
 ) {
   try {
-    await withThreadPageBufferDeletion([context.emailAccountId], () =>
-      prisma.$transaction([
+    await withThreadPageBufferDeletion([context.emailAccountId], async () => {
+      const deleteUploads = await prepareAccountUploadDeletion([
+        context.emailAccountId,
+      ]);
+      await prisma.$transaction([
         prisma.$queryRaw`
         SELECT true AS locked
         FROM (
@@ -304,8 +308,9 @@ async function runDeleteEmailAccountTransaction(
         ) lock
       `,
         ...operations,
-      ]),
-    );
+      ]);
+      await deleteUploads();
+    });
   } catch (error) {
     context.logger.error("Delete email account transaction failed", {
       error,

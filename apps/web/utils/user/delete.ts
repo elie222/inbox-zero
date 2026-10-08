@@ -1,3 +1,4 @@
+import { prepareAccountUploadDeletion } from "@/utils/mail-api/upload-blobs";
 import { deleteContact as deleteLoopsContact } from "@inboxzero/loops";
 import { deleteContact as deleteResendContact } from "@inboxzero/transactional-email";
 import { withThreadPageBufferDeletion } from "@/utils/redis/thread-page-buffer";
@@ -174,11 +175,13 @@ async function deleteUserRows({
       { emailAccount: { userId } },
       logger,
     );
+    const deleteUploads = await prepareAccountUploadDeletion(emailAccountIds);
     // Members restrict email account deletion, so they go first.
     const [, deletedUser] = await prisma.$transaction([
       prisma.member.deleteMany({ where: { emailAccount: { userId } } }),
       prisma.user.deleteMany({ where: { id: userId } }),
     ]);
+    await deleteUploads();
     await notifyConversations();
 
     // PostHog tracks the completed delete after the database delete succeeds.

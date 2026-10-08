@@ -1,5 +1,13 @@
+import { vi } from "vitest";
+import { collectBlobBytes } from "@inboxzero/mail-core/ports/blob-store";
+import { createObjectBlobStore } from "@/utils/mail-api/upload-storage/object-store";
+import { getMailUploadStore } from "@/utils/mail-api/upload-storage";
 import type { MailUpload } from "@/generated/prisma/client";
 import type prismaMock from "@/utils/__mocks__/prisma";
+
+vi.mock("@/utils/mail-api/upload-storage", () => ({
+  getMailUploadStore: vi.fn(),
+}));
 
 type Where = Record<string, unknown>;
 
@@ -9,6 +17,26 @@ type Where = Record<string, unknown>;
  */
 export function installMailUploadTable(prisma: typeof prismaMock) {
   const rows = new Map<string, MailUpload>();
+  const objects = new Map<string, Uint8Array>();
+  const store = createObjectBlobStore({
+    async put(key, bytes, sizeBytes) {
+      const collected = await collectBlobBytes(bytes, sizeBytes);
+      if (collected.status !== "ok") throw new Error("Too large");
+      objects.set(key, collected.bytes);
+    },
+    async read(key) {
+      const content = objects.get(key);
+      return content
+        ? (async function* () {
+            yield content;
+          })()
+        : null;
+    },
+    async delete(key) {
+      objects.delete(key);
+    },
+  });
+  vi.mocked(getMailUploadStore).mockReturnValue(store);
 
   prisma.mailUpload.upsert.mockImplementation((async (args: {
     where: {
@@ -23,7 +51,8 @@ export function installMailUploadTable(prisma: typeof prismaMock) {
       id: `upload-${rows.size + 1}`,
       createdAt: new Date(),
       // Nullable columns Postgres defaults for us.
-      content: null,
+      stagedAt: null,
+      deletionRequestedAt: null,
       heldAt: null,
       ...(existing ?? { emailAccountId, blobId, ...args.create }),
       ...(existing ? args.update : {}),
@@ -75,6 +104,7 @@ export function installMailUploadTable(prisma: typeof prismaMock) {
     }
     return { count: matched.length };
   }) as never);
+  return store;
 }
 
 function rowKey(emailAccountId: string, blobId: string) {

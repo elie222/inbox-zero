@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { blobIdSchema } from "@inboxzero/mail-core/identities";
 import {
   collectBlobBytes,
@@ -7,6 +7,8 @@ import {
 import type { Attachment } from "@/utils/types/mail";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
+import type { Prisma } from "@/generated/prisma/client";
+import { getMailUploadStore } from "./upload-storage";
 
 const logger = createScopedLogger("mail-api/upload-blobs");
 
@@ -39,15 +41,34 @@ export async function admitAccountUpload(
     checksum: input.checksum,
     sizeBytes: input.sizeBytes,
   };
+  const previous = await prisma.mailUpload.findUnique({
+    where: {
+      emailAccountId_blobId: { emailAccountId: accountId, blobId: parsed.data },
+    },
+    select: { storageKey: true },
+  });
+  const storageKey = newStorageKey(accountId);
   await prisma.mailUpload.upsert({
     where: {
       emailAccountId_blobId: { emailAccountId: accountId, blobId: parsed.data },
     },
-    create: { emailAccountId: accountId, blobId: parsed.data, ...metadata },
+    create: {
+      emailAccountId: accountId,
+      blobId: parsed.data,
+      storageKey,
+      ...metadata,
+    },
     // Re-admitting the same id restarts the upload, so any half-finished
     // content and its hold are discarded.
-    update: { ...metadata, content: null, heldAt: null },
+    update: {
+      ...metadata,
+      storageKey,
+      stagedAt: null,
+      heldAt: null,
+      deletionRequestedAt: null,
+    },
   });
+  if (previous) await deleteStoredUpload(previous.storageKey);
   return { status: "admitted" as const, blobId: parsed.data };
 }
 
@@ -62,39 +83,63 @@ export async function putAccountUploadContent(
     where: {
       emailAccountId_blobId: { emailAccountId: accountId, blobId: parsed.data },
     },
-    select: { checksum: true, sizeBytes: true },
+    select: {
+      checksum: true,
+      sizeBytes: true,
+      storageKey: true,
+      deletionRequestedAt: true,
+    },
   });
-  if (!admitted) return { status: "missing" as const };
-  const collected = await collectBlobBytes(bytes, admitted.sizeBytes);
-  if (collected.status === "too_large") {
-    return { status: "rejected" as const, code: "too_large" as const };
-  }
-  if (
-    collected.bytes.byteLength !== admitted.sizeBytes ||
-    createHash("sha256").update(collected.bytes).digest("hex") !==
-      admitted.checksum
-  ) {
-    return { status: "rejected" as const, code: "checksum_mismatch" as const };
-  }
-  const updated = await prisma.mailUpload.updateMany({
-    // Writing against the admission these bytes were verified against keeps a
-    // re-admission that landed mid-stream from taking content it never checked.
+  if (!admitted || admitted.deletionRequestedAt)
+    return { status: "missing" as const };
+  // Each writer gets a new key. A restart/cancel cannot publish the old stream
+  // or let its cleanup delete a newer writer's bytes, even for identical files.
+  const storageKey = newStorageKey(accountId);
+  const claimed = await prisma.mailUpload.updateMany({
     where: {
       emailAccountId: accountId,
       blobId: parsed.data,
+      storageKey: admitted.storageKey,
+      deletionRequestedAt: null,
+    },
+    data: { storageKey, stagedAt: null },
+  });
+  if (claimed.count === 0) return { status: "missing" as const };
+  await deleteStoredUpload(admitted.storageKey);
+  const store = getMailUploadStore();
+  try {
+    const staged = await store.stage({
+      blobId: storageKey,
+      bytes,
       checksum: admitted.checksum,
       sizeBytes: admitted.sizeBytes,
-    },
-    data: { content: collected.bytes },
-  });
-  // The upload was cancelled or restarted while its content was streaming in.
-  if (updated.count === 0) return { status: "missing" as const };
-  return {
-    status: "staged" as const,
-    blobId: parsed.data,
-    sizeBytes: collected.bytes.byteLength,
-    checksum: admitted.checksum,
-  };
+    });
+    if (staged.status === "rejected") return staged;
+    const finalized = await store.finalize(storageKey);
+    if (!finalized) return { status: "missing" as const };
+    const updated = await prisma.mailUpload.updateMany({
+      where: {
+        emailAccountId: accountId,
+        blobId: parsed.data,
+        storageKey,
+        deletionRequestedAt: null,
+      },
+      data: { stagedAt: new Date() },
+    });
+    if (updated.count === 0) {
+      await deleteStoredUpload(storageKey);
+      return { status: "missing" as const };
+    }
+    return {
+      status: "staged" as const,
+      blobId: parsed.data,
+      sizeBytes: finalized.sizeBytes,
+      checksum: finalized.checksum,
+    };
+  } catch (error) {
+    await deleteStoredUpload(storageKey);
+    throw error;
+  }
 }
 
 export async function inspectAccountUpload(
@@ -107,7 +152,8 @@ export async function inspectAccountUpload(
     where: {
       emailAccountId: accountId,
       blobId: parsed.data,
-      content: { not: null },
+      stagedAt: { not: null },
+      deletionRequestedAt: null,
     },
     select: { id: true },
   });
@@ -118,23 +164,34 @@ export async function inspectAccountUpload(
 export async function cancelAccountUpload(accountId: string, uploadId: string) {
   const parsed = blobIdSchema.safeParse(uploadId);
   if (!parsed.success) return { status: "invalid" as const };
-  const deleted = await prisma.mailUpload.deleteMany({
-    where: {
-      emailAccountId: accountId,
+  await requestUploadDeletion({
+    emailAccountId: accountId,
+    blobId: parsed.data,
+    OR: [{ heldAt: null }, { heldAt: { lt: expiredHoldBefore() } }],
+  });
+  try {
+    const held = await prisma.mailUpload.findUnique({
+      where: {
+        emailAccountId_blobId: {
+          emailAccountId: accountId,
+          blobId: parsed.data,
+        },
+      },
+      select: { deletionRequestedAt: true, heldAt: true },
+    });
+    if (
+      held &&
+      !held.deletionRequestedAt &&
+      held.heldAt &&
+      held.heldAt >= expiredHoldBefore()
+    )
+      return { status: "in_use" as const, blobId: parsed.data };
+  } catch (error) {
+    logger.warn("Failed to inspect cancelled upload", {
+      error,
       blobId: parsed.data,
-      OR: [{ heldAt: null }, { heldAt: { lt: expiredHoldBefore() } }],
-    },
-  });
-  if (deleted.count > 0) {
-    return { status: "deleted" as const, blobId: parsed.data };
+    });
   }
-  const held = await prisma.mailUpload.findUnique({
-    where: {
-      emailAccountId_blobId: { emailAccountId: accountId, blobId: parsed.data },
-    },
-    select: { id: true },
-  });
-  if (held) return { status: "in_use" as const, blobId: parsed.data };
   return { status: "deleted" as const, blobId: parsed.data };
 }
 
@@ -168,7 +225,8 @@ export async function holdAccountUploads(accountId: string, blobIds: string[]) {
     where: {
       emailAccountId: accountId,
       blobId: { in: blobIds },
-      content: { not: null },
+      stagedAt: { not: null },
+      deletionRequestedAt: null,
     },
     data: { heldAt: new Date() },
   });
@@ -203,13 +261,16 @@ export async function readAccountUploads(accountId: string, blobIds: string[]) {
     where: {
       emailAccountId: accountId,
       blobId: { in: blobIds },
-      content: { not: null },
+      stagedAt: { not: null },
+      deletionRequestedAt: null,
     },
     select: {
       blobId: true,
       filename: true,
       contentType: true,
-      content: true,
+      storageKey: true,
+      checksum: true,
+      sizeBytes: true,
       disposition: true,
       contentId: true,
     },
@@ -218,12 +279,23 @@ export async function readAccountUploads(accountId: string, blobIds: string[]) {
   const uploads: Attachment[] = [];
   for (const blobId of blobIds) {
     const row = byBlobId.get(blobId);
-    if (!row?.content) return { status: "missing" as const, blobId };
-    // Buffer.from(Uint8Array) copies the whole attachment; a view does not.
+    if (!row) return { status: "missing" as const, blobId };
+    const source = await getMailUploadStore().read(row.storageKey);
+    if (!source) return { status: "missing" as const, blobId };
+    // Providers currently need base64 content, so allocate once at that boundary.
+    const collected = await collectBlobBytes(source, row.sizeBytes);
+    if (
+      collected.status !== "ok" ||
+      collected.bytes.byteLength !== row.sizeBytes ||
+      createHash("sha256").update(collected.bytes).digest("hex") !==
+        row.checksum
+    ) {
+      return { status: "missing" as const, blobId };
+    }
     const content = Buffer.from(
-      row.content.buffer,
-      row.content.byteOffset,
-      row.content.byteLength,
+      collected.bytes.buffer,
+      collected.bytes.byteOffset,
+      collected.bytes.byteLength,
     );
     uploads.push({
       filename: row.filename,
@@ -244,22 +316,93 @@ export async function deleteAccountUploads(
   blobIds: string[],
 ) {
   if (blobIds.length === 0) return;
-  // A send that already reached the mailbox must not fail because its staged
-  // bytes could not be swept up; the retention sweep is the backstop.
-  try {
-    await prisma.mailUpload.deleteMany({
-      where: { emailAccountId: accountId, blobId: { in: blobIds } },
-    });
-  } catch (error) {
-    logger.warn("Failed to delete consumed uploads", { error, blobIds });
-  }
+  await requestUploadDeletion({
+    emailAccountId: accountId,
+    blobId: { in: blobIds },
+  });
 }
 
 export async function deleteStaleMailUploads(olderThan: Date) {
-  const result = await prisma.mailUpload.deleteMany({
-    where: { updatedAt: { lt: olderThan } },
+  return requestUploadDeletion({
+    OR: [
+      { updatedAt: { lt: olderThan } },
+      { deletionRequestedAt: { not: null } },
+    ],
   });
-  return result.count;
+}
+
+// Capture keys before the cascade removes metadata, but delete bytes only after
+// the account transaction commits. A failed account deletion keeps its uploads.
+export async function prepareAccountUploadDeletion(accountIds: string[]) {
+  try {
+    const rows = await prisma.mailUpload.findMany({
+      where: { emailAccountId: { in: accountIds } },
+      select: { storageKey: true },
+    });
+    return async () => {
+      for (let offset = 0; offset < rows.length; offset += 10) {
+        await Promise.all(
+          rows
+            .slice(offset, offset + 10)
+            .map((row) => deleteStoredUpload(row.storageKey)),
+        );
+      }
+    };
+  } catch (error) {
+    logger.warn("Failed to capture account upload keys for deletion", {
+      error,
+      accountIds,
+    });
+    return async () => {};
+  }
+}
+
+function newStorageKey(accountId: string) {
+  return `${createHash("sha256").update(accountId).digest("hex")}.${randomUUID()}`;
+}
+
+async function requestUploadDeletion(where: Prisma.MailUploadWhereInput) {
+  let deleted = 0;
+  try {
+    const rows = await prisma.mailUpload.findMany({
+      where,
+      select: { id: true, storageKey: true },
+      take: 500,
+      orderBy: { id: "asc" },
+    });
+    for (const row of rows) {
+      // Invalidate before touching the object. Holds and in-flight writers must
+      // not claim it; retain the key until deletion succeeds so cron can retry.
+      const requested = await prisma.mailUpload.updateMany({
+        where: { ...where, id: row.id, storageKey: row.storageKey },
+        data: { deletionRequestedAt: new Date(), stagedAt: null },
+      });
+      if (requested.count === 0 || !(await deleteStoredUpload(row.storageKey)))
+        continue;
+      const result = await prisma.mailUpload.deleteMany({
+        where: {
+          id: row.id,
+          storageKey: row.storageKey,
+          deletionRequestedAt: { not: null },
+        },
+      });
+      deleted += result.count;
+    }
+  } catch (error) {
+    // Cleanup cannot turn a committed send/cancel into a failed user action.
+    logger.warn("Failed to clean up mail uploads", { error });
+  }
+  return deleted;
+}
+
+async function deleteStoredUpload(storageKey: string) {
+  try {
+    await getMailUploadStore().delete(storageKey);
+    return true;
+  } catch (error) {
+    logger.warn("Failed to delete stored upload", { error, storageKey });
+    return false;
+  }
 }
 
 function expiredHoldBefore() {

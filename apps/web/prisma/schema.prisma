@@ -1013,28 +1013,29 @@ model EmailSendOperation {
   @@index([status, updatedAt])
 }
 
-// Attachments the mail client stages before a send. Serverless instances do not
-// share a filesystem, so the bytes have to outlive the request that staged them.
+// Metadata for staged attachments. Bytes live in the configured private blob store.
 model MailUpload {
-  id          String    @id @default(cuid())
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  blobId      String
-  filename    String
-  contentType String
-  disposition String?
-  contentId   String?
-  checksum    String
-  sizeBytes   Int
-  // Null until the content upload finalizes the blob.
-  content     Bytes?
-  heldAt      DateTime?
+  id                  String    @id @default(cuid())
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  blobId              String
+  filename            String
+  contentType         String
+  disposition         String?
+  contentId           String?
+  checksum            String
+  sizeBytes           Int
+  storageKey          String    @unique
+  stagedAt            DateTime?
+  heldAt              DateTime?
+  deletionRequestedAt DateTime?
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   @@unique([emailAccountId, blobId])
   @@index([updatedAt])
+  @@index([deletionRequestedAt])
 }
 
 // Open status for emails sent from the mail client. A unique token is embedded

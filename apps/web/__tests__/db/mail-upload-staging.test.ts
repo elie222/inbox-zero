@@ -1,7 +1,21 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createFilesystemUploadStore } from "@/utils/mail-api/upload-storage/filesystem";
+import { getMailUploadStore } from "@/utils/mail-api/upload-storage";
 import { createHash } from "node:crypto";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import {
   admitAccountUpload,
+  prepareAccountUploadDeletion,
   cancelAccountUpload,
   deleteAccountUploads,
   holdAccountUploads,
@@ -11,6 +25,10 @@ import {
   releaseAccountUploadHolds,
 } from "@/utils/mail-api/upload-blobs";
 import prisma from "@/utils/prisma";
+
+vi.mock("@/utils/mail-api/upload-storage", () => ({
+  getMailUploadStore: vi.fn(),
+}));
 
 const bytes = Buffer.from("a staged attachment", "utf8");
 const checksum = createHash("sha256").update(bytes).digest("hex");
@@ -23,6 +41,13 @@ describe.skipIf(!process.env.RUN_DB_TESTS)(
   () => {
     const email = "mail-upload-staging-test@example.com";
     let emailAccountId: string;
+    let directory: string;
+    beforeAll(async () => {
+      directory = await mkdtemp(join(tmpdir(), "mail-upload-db-test-"));
+      vi.mocked(getMailUploadStore).mockImplementation(() =>
+        createFilesystemUploadStore(directory),
+      );
+    });
 
     beforeEach(async () => {
       await prisma.user.deleteMany({ where: { email } });
@@ -43,11 +68,17 @@ describe.skipIf(!process.env.RUN_DB_TESTS)(
 
     afterAll(async () => {
       await prisma.user.deleteMany({ where: { email } });
+      await rm(directory, { recursive: true, force: true });
     });
 
     it("reads back content admitted and uploaded by earlier requests", async () => {
       await admit("file-1");
       await stage("file-1", bytes);
+      const row = await prisma.mailUpload.findUniqueOrThrow({
+        where: { emailAccountId_blobId: { emailAccountId, blobId: "file-1" } },
+      });
+      expect(row).not.toHaveProperty("content");
+      expect(await getMailUploadStore().read(row.storageKey)).not.toBeNull();
 
       expect(await readAccountUploads(emailAccountId, ["file-1"])).toEqual({
         status: "ok",
@@ -147,7 +178,13 @@ describe.skipIf(!process.env.RUN_DB_TESTS)(
       await admit("file-1");
       await stage("file-1", bytes);
 
+      const row = await prisma.mailUpload.findUniqueOrThrow({
+        where: { emailAccountId_blobId: { emailAccountId, blobId: "file-1" } },
+      });
+      const cleanup = await prepareAccountUploadDeletion([emailAccountId]);
       await prisma.user.deleteMany({ where: { email } });
+      await cleanup();
+      expect(await getMailUploadStore().read(row.storageKey)).toBeNull();
 
       expect(await prisma.mailUpload.count({ where: { emailAccountId } })).toBe(
         0,

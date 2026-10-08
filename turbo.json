@@ -1,6 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalPassThroughEnv": ["AWS_*"],
+  "globalPassThroughEnv": ["AWS_*", "MAIL_UPLOAD_*", "BLOB_READ_WRITE_TOKEN", "BLOB_STORE_ID", "VERCEL_OIDC_TOKEN"],
   "globalDependencies": ["**/.env.*local"],
   "tasks": {
     "build": {

@@ -1,6 +1,4 @@
 import "server-only";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
 import { S3Client } from "@aws-sdk/client-s3";
 import type { BlobStore } from "@inboxzero/mail-core/ports/blob-store";
 import { env } from "@/env";
@@ -52,15 +50,7 @@ export function getMailUploadStore(): BlobStore {
       store = createVercelBlobUploadStore(env.BLOB_READ_WRITE_TOKEN);
       break;
     default:
-      store = createFilesystemUploadStore(mailUploadRoot());
+      store = createFilesystemUploadStore();
   }
   return store;
-}
-
-function mailUploadRoot() {
-  // Uploads are runtime data, so they must not be included in the server bundle.
-  return resolve(
-    /* turbopackIgnore: true */
-    env.MAIL_UPLOAD_DIR ?? join(tmpdir(), "inbox-zero-mail-uploads"),
-  );
 }

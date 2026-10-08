@@ -1,3 +1,4 @@
+import { prepareAccountUploadDeletion } from "@/utils/mail-api/upload-blobs";
 import { withThreadPageBufferDeletion } from "@/utils/redis/thread-page-buffer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Prisma } from "@/generated/prisma/client";
@@ -14,6 +15,10 @@ import { deleteTinybirdEmailData } from "@inboxzero/tinybird";
 import { deleteAccountAction, deleteEmailAccountAction } from "./user";
 
 vi.mock("@/utils/prisma");
+const uploadCleanup = vi.hoisted(() => vi.fn(async () => {}));
+vi.mock("@/utils/mail-api/upload-blobs", () => ({
+  prepareAccountUploadDeletion: vi.fn(async () => uploadCleanup),
+}));
 vi.mock("@/utils/team-comments/events", () => ({
   publishConversationChange: vi.fn(),
 }));
@@ -100,6 +105,7 @@ describe("deleteEmailAccountAction", () => {
     });
     expect(result?.serverError).toBeDefined();
     expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(uploadCleanup).not.toHaveBeenCalled();
   });
 
   it("promotes another account before deleting the primary account", async () => {
@@ -118,6 +124,16 @@ describe("deleteEmailAccountAction", () => {
     const result = await deleteEmailAccountAction({
       emailAccountId: "primary-email-account",
     });
+    expect(prepareAccountUploadDeletion).toHaveBeenCalledWith([
+      "primary-email-account",
+    ]);
+    expect(uploadCleanup).toHaveBeenCalledOnce();
+    expect(
+      vi.mocked(prepareAccountUploadDeletion).mock.invocationCallOrder[0],
+    ).toBeLessThan(prisma.$transaction.mock.invocationCallOrder[0]);
+    expect(uploadCleanup.mock.invocationCallOrder[0]).toBeGreaterThan(
+      prisma.$transaction.mock.invocationCallOrder[0],
+    );
 
     expect(result?.serverError).toBeUndefined();
     expect(withThreadPageBufferDeletion).toHaveBeenCalledWith(

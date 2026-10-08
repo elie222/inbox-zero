@@ -5,7 +5,7 @@ import { createObjectBlobStore } from "./object-store";
 export function createVercelBlobUploadStore(token?: string) {
   return createObjectBlobStore({
     async put(key, bytes) {
-      const body = Readable.from(bytes);
+      const body = Readable.from(bytes, { objectMode: false });
       try {
         await put(key, body, {
           access: "private",
@@ -44,7 +44,7 @@ export function createVercelBlobUploadStore(token?: string) {
       })();
     },
     async delete(key) {
-      await del(key, { token, abortSignal: AbortSignal.timeout(60_000) });
+      await del(key, { token, abortSignal: AbortSignal.timeout(10_000) });
     },
   });
 }

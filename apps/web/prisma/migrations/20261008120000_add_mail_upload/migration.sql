@@ -10,12 +10,20 @@ CREATE TABLE "MailUpload" (
     "contentId" TEXT,
     "checksum" TEXT NOT NULL,
     "sizeBytes" INTEGER NOT NULL,
-    "content" BYTEA,
+    "storageKey" TEXT NOT NULL,
+    "stagedAt" TIMESTAMP(3),
+    "deletionRequestedAt" TIMESTAMP(3),
     "heldAt" TIMESTAMP(3),
     "emailAccountId" TEXT NOT NULL,
 
     CONSTRAINT "MailUpload_pkey" PRIMARY KEY ("id")
 );
+
+-- CreateIndex
+CREATE UNIQUE INDEX "MailUpload_storageKey_key" ON "MailUpload"("storageKey");
+
+-- CreateIndex
+CREATE INDEX "MailUpload_deletionRequestedAt_idx" ON "MailUpload"("deletionRequestedAt");
 
 -- CreateIndex
 CREATE INDEX "MailUpload_updatedAt_idx" ON "MailUpload"("updatedAt");

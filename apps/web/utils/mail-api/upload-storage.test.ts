@@ -12,6 +12,7 @@ import {
 import type { BlobStore } from "@inboxzero/mail-core/ports/blob-store";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createFilesystemUploadStore } from "./upload-storage/filesystem";
+import { createObjectBlobStore } from "./upload-storage/object-store";
 import { createS3UploadStore } from "./upload-storage/s3";
 import { createVercelBlobUploadStore } from "./upload-storage/vercel-blob";
 
@@ -155,6 +156,80 @@ it("uses private Vercel Blob reads and writes, with deterministic object paths",
   }
   for (const [, options] of blob.get.mock.calls)
     expect(options).toMatchObject({ access: "private", useCache: false });
+});
+
+it("propagates S3 authorization errors instead of treating private objects as missing", async () => {
+  const client = new S3Client({ region: "us-east-1" });
+  vi.spyOn(client, "send").mockRejectedValue(
+    Object.assign(new Error("denied"), { name: "AccessDenied" }),
+  );
+  await expect(
+    createS3UploadStore({ client, bucket: "private-test" }).read("file-1"),
+  ).rejects.toThrow("denied");
+});
+
+it("fails a private Blob write without falling back to public access", async () => {
+  const create = await fixture("vercel-blob");
+  blob.put.mockRejectedValueOnce(new Error("private store required"));
+  await expect(create().stage(input())).rejects.toThrow(
+    "private store required",
+  );
+  expect(blob.put).toHaveBeenCalledOnce();
+  expect(blob.put.mock.calls[0][2].access).toBe("private");
+});
+
+it("verifies the final chunk before a transport can acknowledge Content-Length", async () => {
+  const objects = new Map<string, Buffer>();
+  const store = createObjectBlobStore({
+    async put(key, source, sizeBytes) {
+      const chunks: Uint8Array[] = [];
+      let size = 0;
+      for await (const chunk of source) {
+        chunks.push(chunk);
+        size += chunk.byteLength;
+        // Like a server that acknowledges as soon as all declared bytes arrive,
+        // this transport does not wait for the source's next() to report EOF.
+        if (size === sizeBytes) {
+          objects.set(key, Buffer.concat(chunks));
+          return;
+        }
+      }
+      objects.set(key, Buffer.concat(chunks));
+    },
+    async read(key) {
+      const content = objects.get(key);
+      return content
+        ? (async function* () {
+            yield content;
+          })()
+        : null;
+    },
+    async delete(key) {
+      objects.delete(key);
+    },
+  });
+  expect(await store.stage(input(Buffer.alloc(bytes.length)))).toEqual({
+    status: "rejected",
+    code: "checksum_mismatch",
+  });
+  expect(await store.finalize("file-1")).toBeNull();
+  expect(await store.stage(input())).toEqual({ status: "staged" });
+  expect(await store.finalize("file-1")).toEqual({
+    blobId: "file-1",
+    checksum,
+    sizeBytes: bytes.length,
+  });
+});
+
+it("never publishes data when a transport returns without consuming the source", async () => {
+  const store = createObjectBlobStore({
+    put: async () => {},
+    read: async () => null,
+    delete: async () => {},
+  });
+  await expect(store.stage(input())).rejects.toThrow(
+    "Storage did not consume the complete upload",
+  );
 });
 
 function input(content: Buffer = bytes) {
