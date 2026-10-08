@@ -10,8 +10,11 @@ import {
   MessagingRoutePurpose,
   MessagingRouteTargetType,
 } from "@/generated/prisma/enums";
-import { createTestLogger } from "@/__tests__/helpers";
+import { createTestLogger, getMockMessage } from "@/__tests__/helpers";
 import type { ParsedMessage } from "@/utils/types";
+import type { OutlookClient } from "@/utils/outlook/client";
+import { sendDraft as sendOutlookDraft } from "@/utils/outlook/draft";
+import { handleSlackRuleNotificationModalSubmit } from "./rule-notifications";
 
 vi.mock("@/utils/prisma");
 
@@ -413,6 +416,96 @@ describe("handleRuleNotificationAction", () => {
       "telegram-message-1",
       "Draft already sent. No action needed.",
     );
+  });
+
+  it("marks an edited Outlook draft sent when Graph cannot yet read the sent message", async () => {
+    const post = vi.fn().mockResolvedValue(undefined);
+    const get = vi.fn(async () => {
+      if (post.mock.calls.length) {
+        throw Object.assign(new Error("Message not found"), {
+          statusCode: 404,
+          code: "ErrorItemNotFound",
+        });
+      }
+      return { id: "draft-1", conversationId: "thread-1" };
+    });
+    const client = {
+      getClient: () => ({
+        api: (path: string) => {
+          if (path === "/me/messages/draft-1/send") return { post };
+          if (path === "/me/messages/draft-1") {
+            return { get, select: vi.fn().mockReturnValue({ get }) };
+          }
+          throw new Error(`Unexpected Graph path: ${path}`);
+        },
+      }),
+    } as unknown as OutlookClient;
+    const provider = {
+      updateDraft: vi.fn().mockResolvedValue(undefined),
+      sendDraft: (draftId: string) =>
+        sendOutlookDraft({ client, draftId, logger }),
+      getDraft: vi.fn().mockResolvedValue(
+        getMockMessage({
+          id: "draft-1",
+          textPlain: "Edited draft body",
+        }),
+      ),
+      getMessage: vi.fn().mockResolvedValue(getMockMessage()),
+    };
+    mockCreateEmailProvider.mockResolvedValue(provider);
+    mockNotificationContext({
+      id: "action-1",
+      type: ActionType.DRAFT_MESSAGING_CHANNEL,
+      content: "Initial draft body",
+      accountProvider: "microsoft",
+      messagingMessageId: "slack-ts-1",
+      mailboxDraftAction: {
+        id: "draft-action-1",
+        draftId: "draft-1",
+        subject: "Re: Test subject",
+      },
+    });
+    prisma.executedAction.update.mockResolvedValue({} as never);
+    prisma.executedAction.updateMany.mockResolvedValue({ count: 2 } as never);
+
+    const response = await handleSlackRuleNotificationModalSubmit({
+      event: {
+        privateMetadata: "action-1",
+        values: { draft_content: "Edited draft body" },
+        user: { userId: "user-1" },
+        raw: { team: { id: "team-1" } },
+        relatedMessage: {
+          edit: vi.fn().mockRejectedValue(new Error("Slack update failed")),
+        },
+      } as never,
+      logger,
+    });
+
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(provider.updateDraft).toHaveBeenCalledWith("draft-1", {
+      messageHtml: "Edited draft body",
+      subject: "Re: Test subject",
+    });
+    expect(response).toEqual({ action: "close" });
+    expect(prisma.executedAction.update).toHaveBeenCalledWith({
+      where: { id: "action-1" },
+      data: {
+        draftStatus: DraftEmailStatus.LIKELY_SENT,
+        messagingMessageStatus: MessagingMessageStatus.DRAFT_SENT,
+      },
+    });
+    expect(mockSlackUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ts: "slack-ts-1",
+        text: expect.stringContaining("Reply sent. ✅"),
+        blocks: expect.any(Array),
+      }),
+    );
+    const blocks = JSON.stringify(mockSlackUpdate.mock.calls[0][0].blocks);
+    expect(blocks).toContain("Open in Outlook");
+    expect(blocks).not.toContain("rule_draft_send");
+    expect(blocks).not.toContain("rule_draft_edit");
+    expect(blocks).not.toContain("rule_draft_dismiss");
   });
 
   it("closes the Slack edit modal when the draft sends but the message update fails", async () => {
