@@ -467,6 +467,8 @@ describe("ChatProvider", () => {
     await transport.sendMessages({
       trigger,
       chatId: "chat-1",
+      messageId: undefined,
+      abortSignal: undefined,
       messages: [message],
       body: { context: buildFixRuleContext("thread-1") },
     });

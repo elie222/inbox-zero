@@ -903,7 +903,10 @@ function getFormattingRules(
 - Prefer one recommended next step plus one direct confirmation question.
 - Ask at most one follow-up question at the end of a response.`;
 
-  if (!supportsInlineEmailCards) return markdownRules;
+  if (!supportsInlineEmailCards) {
+    return `${markdownRules}
+- This client cannot render inline email cards. Summarize emails using standard markdown, including when earlier replies used cards.`;
+  }
 
   return `${markdownRules}
 
