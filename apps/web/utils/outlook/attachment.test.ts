@@ -45,6 +45,49 @@ it("propagates a failed raw download instead of returning an empty attachment", 
   ).rejects.toMatchObject({ status: 404, statusCode: 404 });
 });
 
+it.each([
+  0, 2, 4,
+])("rejects a raw download of %i bytes when metadata reports 3 bytes", async (downloadedSize) => {
+  const request = {
+    options: vi.fn().mockReturnThis(),
+    responseType: vi.fn().mockReturnThis(),
+    get: vi
+      .fn()
+      .mockResolvedValueOnce({ size: 3 })
+      .mockResolvedValueOnce(new Response(Buffer.alloc(downloadedSize))),
+  };
+  const client = {
+    getClient: () => ({ api: () => request }),
+  } as unknown as OutlookClient;
+
+  await expect(getOutlookAttachment(client, "message", "file")).rejects.toThrow(
+    "Attachment size mismatch",
+  );
+});
+
+it.each([
+  3,
+  undefined,
+])("returns complete raw content when metadata size is %s", async (size) => {
+  const content = Buffer.from([0, 255, 128]);
+  const request = {
+    options: vi.fn().mockReturnThis(),
+    responseType: vi.fn().mockReturnThis(),
+    get: vi
+      .fn()
+      .mockResolvedValueOnce({ size })
+      .mockResolvedValueOnce(new Response(content)),
+  };
+  const client = {
+    getClient: () => ({ api: () => request }),
+  } as unknown as OutlookClient;
+
+  expect(await getOutlookAttachment(client, "message", "file")).toEqual({
+    contentBytes: content.toString("base64"),
+    size: content.length,
+  });
+});
+
 it("uses the authenticated raw attachment endpoint and forwards cancellation", async () => {
   let cancelled = false;
   const body = new ReadableStream<Uint8Array>({

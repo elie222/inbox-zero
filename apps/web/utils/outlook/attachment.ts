@@ -19,6 +19,9 @@ export async function getOutlookAttachment(
       attachmentId,
     );
     const content = Buffer.from(await new Response(stream).arrayBuffer());
+    if (attachment.size && content.length !== attachment.size) {
+      throw new Error("Attachment size mismatch");
+    }
 
     return {
       ...attachment,
