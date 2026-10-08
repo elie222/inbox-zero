@@ -206,6 +206,9 @@ export const assistantInputSchema = z.object({
   }),
   context: messageContextSchema.optional(),
   inlineActions: z.array(inlineEmailActionSchema).max(20).optional(),
+  // Clients that can't render the assistant's inline email card markup would
+  // show it as raw XML, so cards are opt-in per client.
+  supportsInlineEmailCards: z.boolean().optional().default(false),
 });
 
 export type AssistantInput = z.infer<typeof assistantInputSchema>;

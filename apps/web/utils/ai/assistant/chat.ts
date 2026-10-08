@@ -85,6 +85,7 @@ export async function aiProcessAssistantChat({
   memories,
   inboxStats,
   responseSurface = "web",
+  supportsInlineEmailCards = false,
   messagingPlatform,
   onRulesStateExposed,
   onStepEnd,
@@ -104,6 +105,7 @@ export async function aiProcessAssistantChat({
   memories?: { content: string; date: string }[];
   inboxStats?: { total: number; unread: number } | null;
   responseSurface?: "web" | "messaging";
+  supportsInlineEmailCards?: boolean;
   messagingPlatform?: MessagingPlatform;
   onRulesStateExposed?: (rulesRevision: number) => void;
   onStepEnd?: AssistantChatOnStepEnd;
@@ -153,6 +155,7 @@ export async function aiProcessAssistantChat({
     calendarConnection,
     provider: user.account.provider,
     responseSurface,
+    supportsInlineEmailCards,
     messagingPlatform,
     userTimezone,
     currentTimestamp,
@@ -710,6 +713,7 @@ export function buildResolvedSystemPrompt({
   calendarConnection,
   provider,
   responseSurface,
+  supportsInlineEmailCards,
   messagingPlatform,
   userTimezone,
   currentTimestamp,
@@ -720,6 +724,7 @@ export function buildResolvedSystemPrompt({
   calendarConnection: CalendarConnectionStatus;
   provider: string;
   responseSurface: "web" | "messaging";
+  supportsInlineEmailCards: boolean;
   messagingPlatform?: MessagingPlatform;
   userTimezone: string;
   currentTimestamp: string;
@@ -825,7 +830,7 @@ export function buildResolvedSystemPrompt({
 - Keep responses concise by default.
 - Don't tell the user which tools you're using. The tools you use will be displayed in the UI anyway.
 - Never show internal IDs like threadId, messageId, or ${providerPolicy.hiddenTaxonomyIdName} to the user. These are for tool calls only.`,
-    getFormattingRules(responseSurface),
+    getFormattingRules(responseSurface, supportsInlineEmailCards),
   ];
 
   return sections.filter(Boolean).join("\n\n");
@@ -875,7 +880,10 @@ function describeCalendarLookupError(error: unknown): string {
   return message ? `${error.name}: ${message}` : error.name;
 }
 
-function getFormattingRules(responseSurface: "web" | "messaging") {
+function getFormattingRules(
+  responseSurface: "web" | "messaging",
+  supportsInlineEmailCards: boolean,
+) {
   if (responseSurface === "messaging") {
     return `Formatting rules:
 - Use **bold** for key details (sender names, amounts, dates, action items).
@@ -886,14 +894,21 @@ function getFormattingRules(responseSurface: "web" | "messaging") {
 - Ask at most one follow-up question at the end of a response.`;
   }
 
-  return `Formatting rules:
+  const markdownRules = `Formatting rules:
 - Always use markdown formatting. Structure multi-part answers with markdown headers (## for sections).
 - When listing many emails, use a numbered list so the user can reference items by number.
 - When grouping emails (e.g. triage), use a markdown header (##) for each group and a numbered list under it.
 - Emojis are welcome when they improve tone or readability.
 - Do not present multi-option menus unless the user explicitly asks for options, or a safety-critical scope decision is required.
 - Prefer one recommended next step plus one direct confirmation question.
-- Ask at most one follow-up question at the end of a response.
+- Ask at most one follow-up question at the end of a response.`;
+
+  if (!supportsInlineEmailCards) {
+    return `${markdownRules}
+- This client cannot render inline email cards. Summarize emails using standard markdown, including when earlier replies used cards.`;
+  }
+
+  return `${markdownRules}
 
 Inline email cards:
 - For triage or inbox summary, render <email> tags inside an <emails> container.
