@@ -11,7 +11,7 @@ afterEach(async () => {
 });
 
 describe("local contact suggestions", () => {
-  it("weights sent-to (including own sender without Sent) above received-only, then frequency and recency", async () => {
+  it("ranks sent-to (including own sender without Sent) first, then frequency and recency", async () => {
     const { store } = await setup();
     await write(store, [
       message("s1", "me@example.com", ["Sent Friend <sent@example.com>"]),
@@ -46,6 +46,78 @@ describe("local contact suggestions", () => {
       "role@example.com",
       "old@example.com",
       "incoming@example.com",
+    ]);
+  });
+
+  it("ranks an old, infrequent sent-to contact above a recent, frequent received-only contact", async () => {
+    const { store } = await setup();
+    await write(store, [
+      message("sent", "me@example.com", ["Friend <sent@example.com>"], 1),
+      ...Array.from({ length: 250 }, (_, i) =>
+        message(`received${i}`, "Friend <received@example.com>"),
+      ),
+    ]);
+    expect((await search(store, "friend")).map((c) => c.emailAddress)).toEqual([
+      "sent@example.com",
+      "received@example.com",
+    ]);
+  });
+
+  it("orders both tiers by 100 times sent-to count plus received count", async () => {
+    const { store } = await setup();
+    await write(store, [
+      message("sent1", "me@example.com", ["Friend <mixed@example.com>"]),
+      ...Array.from({ length: 50 }, (_, i) =>
+        message(`mixed${i}`, "Friend <mixed@example.com>"),
+      ),
+      ...Array.from({ length: 2 }, (_, i) =>
+        message(
+          `sent2-${i}`,
+          "me@example.com",
+          ["Friend <sent@example.com>"],
+          1,
+        ),
+      ),
+      ...Array.from({ length: 2 }, (_, i) =>
+        message(`frequent${i}`, "Friend <frequent@example.com>", [], 1),
+      ),
+      message("recent", "Friend <recent@example.com>"),
+    ]);
+    expect((await search(store, "friend")).map((c) => c.emailAddress)).toEqual([
+      "sent@example.com",
+      "mixed@example.com",
+      "frequent@example.com",
+      "recent@example.com",
+    ]);
+  });
+
+  it("breaks equal scores by most recent interaction, then email", async () => {
+    const { store } = await setup();
+    await write(store, [
+      message("old", "me@example.com", ["Friend <a-old@example.com>"], 1),
+      message(
+        "recent-z",
+        "me@example.com",
+        ["Friend <z-recent@example.com>"],
+        2,
+      ),
+      message(
+        "recent-b",
+        "me@example.com",
+        ["Friend <b-recent@example.com>"],
+        2,
+      ),
+      message("received-old", "Friend <a-received@example.com>", [], 1),
+      message("received-z", "Friend <z-received@example.com>", [], 2),
+      message("received-b", "Friend <b-received@example.com>", [], 2),
+    ]);
+    expect((await search(store, "friend")).map((c) => c.emailAddress)).toEqual([
+      "b-recent@example.com",
+      "z-recent@example.com",
+      "a-old@example.com",
+      "b-received@example.com",
+      "z-received@example.com",
+      "a-received@example.com",
     ]);
   });
 
@@ -89,7 +161,7 @@ describe("local contact suggestions", () => {
       ),
     ]);
     const results = await search(store, "friend", ["PERSON0@example.com"]);
-    expect(results).toHaveLength(8);
+    expect(results).toHaveLength(6);
     expect(
       results.every(
         (c) =>
@@ -230,7 +302,7 @@ describe("local contact suggestions", () => {
     while ((await store.indexContactBacklog()).remaining) {
       /* engine-paced batches */
     }
-    expect(await search(store, "backfill")).toHaveLength(8);
+    expect(await search(store, "backfill")).toHaveLength(6);
     await write(store, [
       {
         kind: "message_deleted",

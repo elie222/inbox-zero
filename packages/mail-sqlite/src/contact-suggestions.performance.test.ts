@@ -46,7 +46,7 @@ it("queries indexed prefixes in a 24k-message / 6k-contact store", async () => {
         ][i % 6],
       });
       timings.push(performance.now() - start);
-      expect(results.length).toBeLessThanOrEqual(8);
+      expect(results.length).toBeLessThanOrEqual(6);
     }
     timings.sort((a, b) => a - b);
     process.stdout.write(

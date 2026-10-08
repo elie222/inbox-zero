@@ -18,7 +18,7 @@ export function mergeContactSuggestions(
     [...selectedAddresses].map((address) => address.toLowerCase()),
   );
   const results: ComposeContact[] = [];
-  for (const contact of [...local, ...api]) {
+  for (const contact of [...local.slice(0, 6), ...api]) {
     const email = contact.emailAddress.toLowerCase();
     if (seen.has(email)) continue;
     seen.add(email);

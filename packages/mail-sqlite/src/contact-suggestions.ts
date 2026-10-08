@@ -185,7 +185,6 @@ export async function indexContactBacklog(tx: SqlTransaction) {
 export async function readContactSuggestions(
   tx: SqlTransaction,
   input: ContactSuggestionQuery,
-  nowMs: number,
 ): Promise<ContactSuggestion[]> {
   const query = input.query.trim().toLowerCase();
   if (!query) return [];
@@ -193,9 +192,8 @@ export async function readContactSuggestions(
     (email) => email.trim().toLowerCase(),
   );
   const own = input.ownAddresses.map((email) => email.trim().toLowerCase());
-  // Sending is deliberate contact evidence: each sent-to interaction weighs
-  // 20 vs 1 for received mail. A bounded 0..5 recency bonus (30-day half-life)
-  // breaks frequency ties without overwhelming repeated correspondence.
+  // Match iOS: deliberate sent-to evidence always comes first, then weighted
+  // frequency (100 per sent, 1 per received); recency only breaks score ties.
   const rows = await tx.query(
     `
     WITH own AS (
@@ -211,15 +209,16 @@ export async function readContactSuggestions(
         CASE WHEN s.email != s.sender AND (s.sent = 1 OR s.sender IN (SELECT email FROM own)) THEN s.count ELSE 0 END AS sent_count
       FROM candidates c JOIN contact_stats s ON s.account_id = ? AND s.email = c.email
     ), totals AS (
-      SELECT email, SUM(20 * sent_count + count - sent_count) + 5.0 * 30 / (30 + MAX(0, (? - MAX(last_at)) / 86400000.0)) AS score,
+      SELECT email, SUM(sent_count) > 0 AS sent_to,
+        SUM(100 * sent_count + count - sent_count) AS score,
         MAX(last_at) AS last_at FROM evidence GROUP BY email
     ), ranked AS MATERIALIZED (
-      SELECT * FROM totals ORDER BY score DESC, last_at DESC, email LIMIT 8
+      SELECT * FROM totals ORDER BY sent_to DESC, score DESC, last_at DESC, email LIMIT 6
     )
     SELECT t.email, (
       SELECT name FROM contact_stats WHERE account_id = ? AND email = t.email AND name != ''
       GROUP BY name ORDER BY SUM(count) DESC, MAX(last_at) DESC, name LIMIT 1
-    ) AS name FROM ranked t ORDER BY t.score DESC, t.last_at DESC, t.email
+    ) AS name FROM ranked t ORDER BY t.sent_to DESC, t.score DESC, t.last_at DESC, t.email
   `,
     [
       JSON.stringify(own),
@@ -229,7 +228,6 @@ export async function readContactSuggestions(
       `${query}\u{10ffff}`,
       JSON.stringify(excluded),
       input.accountId,
-      nowMs,
       input.accountId,
     ],
   );

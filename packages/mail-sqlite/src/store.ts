@@ -158,9 +158,7 @@ export async function createSqliteMailStore(
 
   const store: MailStore = {
     readContactSuggestions(query) {
-      return driver.read((tx) =>
-        readContactSuggestions(tx, query, runtime.nowMs()),
-      );
+      return driver.read((tx) => readContactSuggestions(tx, query));
     },
     indexContactBacklog() {
       return driver.write(indexContactBacklog);

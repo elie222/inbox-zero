@@ -29,6 +29,22 @@ describe("mergeContactSuggestions", () => {
         [],
         new Set(),
       ),
-    ).toHaveLength(8);
+    ).toHaveLength(6);
+  });
+
+  it("caps local suggestions at six while preserving the eight-result merged and API-only caps", () => {
+    const local = Array.from({ length: 10 }, (_, i) => ({
+      emailAddress: `local${i}@example.com`,
+    }));
+    const api = Array.from({ length: 10 }, (_, i) => ({
+      emailAddress: `api${i}@example.com`,
+    }));
+    expect(mergeContactSuggestions(local, api, new Set())).toEqual([
+      ...local.slice(0, 6),
+      ...api.slice(0, 2),
+    ]);
+    expect(mergeContactSuggestions([], api, new Set())).toEqual(
+      api.slice(0, 8),
+    );
   });
 });
