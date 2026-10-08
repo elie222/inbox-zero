@@ -181,6 +181,11 @@ describe("email utils", () => {
         '"Doe, John" <john@example.com>, jane@example.com',
         ['"Doe, John" <john@example.com>', "jane@example.com"],
       ],
+      [
+        "escaped quote and comma inside quoted display name",
+        '"John \\"JD\\", Doe" <john@example.com>, jane@example.com',
+        ['"John \\"JD\\", Doe" <john@example.com>', "jane@example.com"],
+      ],
     ])("splits %s", (_caseName, input, expected) => {
       expect(splitRecipientList(input)).toEqual(expected);
     });

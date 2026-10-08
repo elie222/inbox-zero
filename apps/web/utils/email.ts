@@ -2,7 +2,6 @@ import type { ParsedMessage } from "@/utils/types";
 import { z } from "zod";
 
 const emailSchema = z.string().email();
-const recipientSeparatorRegex = /,(?=(?:[^"]*"[^"]*")*[^"]*$)/;
 
 // Converts "John Doe <john.doe@gmail>" to "John Doe"
 // Converts '"Doe, John" <john.doe@gmail>' to "Doe, John"
@@ -28,10 +27,23 @@ export function extractEmailAddresses(header: string): string[] {
 export function splitRecipientList(recipientList: string): string[] {
   if (!recipientList) return [];
 
-  return recipientList
-    .split(recipientSeparatorRegex)
-    .map((recipient) => recipient.trim())
-    .filter(Boolean);
+  // One pass rather than a quote-counting regex: headers come from senders,
+  // and this runs on every synced message.
+  const recipients: string[] = [];
+  let start = 0;
+  let inQuotes = false;
+  for (let index = 0; index < recipientList.length; index++) {
+    const char = recipientList[index];
+    if (inQuotes && char === "\\") index++;
+    else if (char === '"') inQuotes = !inQuotes;
+    else if (char === "," && !inQuotes) {
+      recipients.push(recipientList.slice(start, index));
+      start = index + 1;
+    }
+  }
+  recipients.push(recipientList.slice(start));
+
+  return recipients.map((recipient) => recipient.trim()).filter(Boolean);
 }
 
 // Converts "John Doe <john.doe@gmail>" to "john.doe@gmail"

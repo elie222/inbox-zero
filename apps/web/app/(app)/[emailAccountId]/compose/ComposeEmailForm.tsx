@@ -1387,10 +1387,10 @@ function ComposeEmailFormContent({
                 {formatRecipientNames(
                   [
                     ...splitRecipientList(
-                      watch("to") || replyingToEmail?.to || "",
+                      watch("to") ?? replyingToEmail?.to ?? "",
                     ),
                     ...splitRecipientList(
-                      watch("cc") || replyingToEmail?.cc || "",
+                      watch("cc") ?? replyingToEmail?.cc ?? "",
                     ),
                   ],
                   userEmail,

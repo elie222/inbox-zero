@@ -237,6 +237,7 @@ describe("EmailMessage reply", () => {
           ...message,
           headers: {
             ...message.headers,
+            to: "Alex Kim <alex@example.com>, user@example.com",
             cc: '"Doe, Jane" <jane@example.com>, Sam Lee <sam@example.com>, user@example.com',
           },
         }}
@@ -246,7 +247,7 @@ describe("EmailMessage reply", () => {
       />,
     );
 
-    expect(screen.getByText("to me, Jane, Sam")).toBeTruthy();
+    expect(screen.getByText("to me, Alex, Jane, Sam")).toBeTruthy();
   });
 });
 
