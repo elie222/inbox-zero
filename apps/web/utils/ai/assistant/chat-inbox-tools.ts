@@ -1,4 +1,4 @@
-import { type InferUITool, tool } from "ai";
+import { type InferUITool, type ModelMessage, tool } from "ai";
 import { z } from "zod";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
@@ -52,6 +52,8 @@ import {
 import { microsoftGraphPageTokenSchema } from "@/utils/outlook/page-token";
 import { validateUserAndAiAccess } from "@/utils/user/validate";
 import { SafeError } from "@/utils/error";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
+import { matchReplyLanguage } from "@/utils/ai/assistant/reply-language";
 
 const SEARCH_INBOX_MAX_RESULTS = 20;
 const MAX_SENDER_CATEGORIZATION_WAIT_MS = 1500;
@@ -1288,15 +1290,19 @@ export const replyEmailTool = ({
   emailAccountId,
   provider,
   logger,
+  emailAccount,
+  messages,
 }: {
   email: string;
   emailAccountId: string;
   provider: string;
   logger: Logger;
+  emailAccount: EmailAccountWithAI;
+  messages: ModelMessage[];
 }) =>
   tool({
     description:
-      "Prepare a reply to an existing email by message ID. This does NOT send immediately — it returns a confirmation payload for the user to approve. Do not recreate replies with sendEmail.",
+      "Prepare a reply to an existing email by message ID. This does NOT send immediately — it returns a confirmation payload for the user to approve. The reply body defaults to the original message's language unless the user explicitly requests another language. Do not recreate replies with sendEmail.",
     inputSchema: replyEmailToolInputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "reply_email", email, logger });
@@ -1315,9 +1321,15 @@ export const replyEmailTool = ({
         const message = await emailProvider.getMessage(
           parsedInput.data.messageId,
         );
+        const content = await matchReplyLanguage({
+          content: parsedInput.data.content,
+          message,
+          messages,
+          emailAccount,
+        });
 
         return createPendingReplyEmailOutput(
-          parsedInput.data,
+          { ...parsedInput.data, content },
           message,
           emailAccountId,
         );
