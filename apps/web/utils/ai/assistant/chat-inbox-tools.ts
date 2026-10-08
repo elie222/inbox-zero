@@ -1304,7 +1304,7 @@ export const replyEmailTool = ({
 }) =>
   tool({
     description:
-      "Prepare a reply to an existing email by message ID. This does NOT send immediately — it returns a confirmation payload for the user to approve. Do not recreate replies with sendEmail.",
+      "Prepare a reply to an existing email by message ID. This does NOT send immediately — it returns a confirmation payload for the user to approve. Use the language of the email being replied to (new body, not quoted history), not the chat language, unless the user explicitly requests another language. Do not recreate replies with sendEmail.",
     inputSchema: replyEmailToolInputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "reply_email", email, logger });
@@ -1351,7 +1351,7 @@ export const forwardEmailTool = ({
 }) =>
   tool({
     description:
-      "Prepare a forward for an existing email by message ID. This does NOT send immediately — it returns a confirmation payload for the user to approve. Do not recreate forwards with sendEmail.",
+      "Prepare a forward for an existing email by message ID. This does NOT send immediately — it returns a confirmation payload for the user to approve. Use the forwarded email's language (new body, not quoted history) for any added note, not the chat language, unless the user explicitly requests another language. Do not recreate forwards with sendEmail.",
     inputSchema: forwardEmailToolInputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "forward_email", email, logger });
