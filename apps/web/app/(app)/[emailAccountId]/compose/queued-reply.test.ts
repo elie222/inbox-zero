@@ -89,7 +89,9 @@ describe("queueReaderEmail", () => {
   });
 
   it("reuses a draft identity and refuses a conflicting send payload", async () => {
-    const client = createClient();
+    const client = createClient({
+      handle: createHandle({ status: "queued" }),
+    });
     client.submitSend.mockResolvedValue({
       status: "rejected",
       code: "invalid",
@@ -106,6 +108,130 @@ describe("queueReaderEmail", () => {
       }),
     ).rejects.toThrow("different content");
     expect(cancelStaged).toHaveBeenCalledWith("account", []);
+  });
+
+  it.each([
+    "cancelled",
+    "superseded",
+  ] as const)("resends under a new command after the previous send was %s", async (status) => {
+    const client = createClient({
+      handle: createHandle({ status }),
+    });
+    client.submitSend
+      .mockResolvedValueOnce({ status: "rejected", code: "invalid" })
+      .mockResolvedValueOnce({ status: "queued" });
+
+    const outcome = await queueReaderEmail({
+      client,
+      email: createEmail(),
+      emailAccountId: "account",
+      holdForUndo: true,
+      messageIds: ["message"],
+      mutationId: "mutation",
+      online: true,
+      threadId: "thread",
+    });
+
+    expect(client.submitSend).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        commandId: "mutation-retry-1",
+        draft: { accountId: "account", draftId: "mutation-retry-1" },
+      }),
+    );
+    expect(outcome).toMatchObject({
+      status: "held",
+      mutationId: "mutation-retry-1",
+    });
+  });
+
+  it("resends after undoing both the original send and its retry", async () => {
+    const handles: Record<string, ReturnType<typeof createHandle>> = {
+      mutation: createHandle({ status: "cancelled" }),
+      "mutation-retry-1": createHandle({ status: "cancelled" }),
+    };
+    const client = createClient();
+    client.observeOperation.mockImplementation(
+      ({ operationId }: { operationId: string }) => handles[operationId],
+    );
+    client.submitSend
+      .mockResolvedValueOnce({ status: "rejected", code: "invalid" })
+      .mockResolvedValueOnce({ status: "rejected", code: "invalid" })
+      .mockResolvedValueOnce({ status: "queued" });
+
+    const outcome = await queueReaderEmail({
+      client,
+      email: { ...createEmail(), messageHtml: "<p>Edited reply</p>" },
+      emailAccountId: "account",
+      holdForUndo: true,
+      messageIds: ["message"],
+      mutationId: "mutation",
+      online: true,
+      threadId: "thread",
+    });
+
+    expect(outcome).toMatchObject({
+      status: "held",
+      mutationId: "mutation-retry-2",
+    });
+    expect(client.submitSend).toHaveBeenCalledTimes(3);
+    expect(client.submitSend).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        commandId: "mutation-retry-2",
+        draft: { accountId: "account", draftId: "mutation-retry-2" },
+      }),
+    );
+    for (const handle of Object.values(handles)) {
+      expect(handle.close).toHaveBeenCalledOnce();
+    }
+  });
+
+  it("keeps blocking a duplicate while a resent send is still pending", async () => {
+    const handles: Record<string, ReturnType<typeof createHandle>> = {
+      mutation: createHandle({ status: "cancelled" }),
+      "mutation-retry-1": createHandle({ status: "queued" }),
+    };
+    const client = createClient();
+    client.observeOperation.mockImplementation(
+      ({ operationId }: { operationId: string }) => handles[operationId],
+    );
+    client.submitSend.mockResolvedValue({
+      status: "rejected",
+      code: "invalid",
+    });
+    await expect(
+      queueReaderEmail({
+        client,
+        email: createEmail(),
+        emailAccountId: "account",
+        messageIds: ["message"],
+        mutationId: "mutation",
+        online: true,
+        threadId: "thread",
+      }),
+    ).rejects.toThrow("different content");
+    expect(client.submitSend).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps refusing a conflicting send while the first one is still pending", async () => {
+    const client = createClient({
+      handle: createHandle({ status: "queued" }),
+    });
+    client.submitSend.mockResolvedValue({
+      status: "rejected",
+      code: "invalid",
+    });
+    await expect(
+      queueReaderEmail({
+        client,
+        email: createEmail(),
+        emailAccountId: "account",
+        messageIds: ["message"],
+        mutationId: "mutation",
+        online: true,
+        threadId: "thread",
+      }),
+    ).rejects.toThrow("different content");
+    expect(client.submitSend).toHaveBeenCalledOnce();
   });
 
   it("does not cancel staged uploads after the send is already queued", async () => {
