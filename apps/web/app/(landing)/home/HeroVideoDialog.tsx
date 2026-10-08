@@ -12,24 +12,27 @@ import {
 } from "@/components/ui/dialog";
 import { landingPageAnalytics } from "@/hooks/useAnalytics";
 
-// Recorded on every hero video event so a future video swap can be compared
-// with this one by video_id.
+// Recorded on every hero video event so videos can be compared by video_id.
 const HERO_VIDEO_ID = "YeTrweHxCIM5tcBMXlvRbmDuPqL028lJrmJ3F6ZgwnDY";
 
-export function HeroVideoDialog() {
+export function HeroVideoDialog({
+  playbackId = HERO_VIDEO_ID,
+  title = "Inbox Zero product video",
+}: {
+  playbackId?: string;
+  title?: string;
+}) {
   const posthog = usePostHog();
 
   return (
     <Dialog
       onOpenChange={(open) => {
-        if (!open) landingPageAnalytics.videoClosed(posthog, HERO_VIDEO_ID);
+        if (!open) landingPageAnalytics.videoClosed(posthog, playbackId);
       }}
     >
       <DialogTrigger
         asChild
-        onClick={() =>
-          landingPageAnalytics.videoClicked(posthog, HERO_VIDEO_ID)
-        }
+        onClick={() => landingPageAnalytics.videoClicked(posthog, playbackId)}
       >
         <LiquidGlassButton
           aria-label="Play product demo video"
@@ -41,26 +44,26 @@ export function HeroVideoDialog() {
         </LiquidGlassButton>
       </DialogTrigger>
       <DialogContent className="max-w-7xl border-0 bg-transparent p-0">
-        <DialogTitle className="sr-only">Inbox Zero product video</DialogTitle>
+        <DialogTitle className="sr-only">{title}</DialogTitle>
         <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-black">
           <LazyMuxVideo
-            playbackId={HERO_VIDEO_ID}
-            title="Inbox Zero product video"
+            playbackId={playbackId}
+            title={title}
             className="size-full"
             playerClassName="size-full"
             autoPlay
             onVideoStarted={() =>
-              landingPageAnalytics.videoStarted(posthog, HERO_VIDEO_ID)
+              landingPageAnalytics.videoStarted(posthog, playbackId)
             }
             onVideoProgress={(progressPercent: number) =>
               landingPageAnalytics.videoProgress(
                 posthog,
-                HERO_VIDEO_ID,
+                playbackId,
                 progressPercent,
               )
             }
             onVideoCompleted={() =>
-              landingPageAnalytics.videoCompleted(posthog, HERO_VIDEO_ID)
+              landingPageAnalytics.videoCompleted(posthog, playbackId)
             }
           />
         </div>
