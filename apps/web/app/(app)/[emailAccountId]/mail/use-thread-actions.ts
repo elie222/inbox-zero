@@ -21,7 +21,7 @@ import {
 import { submitConversationChanges } from "@/utils/mail-engine/submit-conversations";
 import { admissionRejectionCopy } from "@/utils/mail-engine/admission-notice";
 
-type UndoableAction = "archive" | "trash";
+type UndoableAction = "archive" | "unarchive" | "trash";
 
 type ThreadSnapshot = {
   emailAccountId: string;
@@ -130,11 +130,9 @@ export function useThreadActions({
       batch.undone = true;
       if (lastAction.current === batch) lastAction.current = null;
 
-      const compensation = mutationPayloadToChange(
-        batch.action === "archive"
-          ? { kind: "unarchive" }
-          : { kind: "untrash" },
-      );
+      const compensation = mutationPayloadToChange({
+        kind: UNDOABLE_COPY[batch.action].compensation,
+      });
       if (!compensation) return [];
       const results = await Promise.allSettled(
         Object.values(
@@ -206,9 +204,7 @@ export function useThreadActions({
         if (threadKeys.length) {
           toast.error(
             enqueueFailureCopy(
-              action === "archive"
-                ? "Couldn't queue archiving"
-                : "Couldn't queue deletion",
+              `Couldn't queue ${UNDOABLE_COPY[action].noun}`,
               rejectionCodes,
             ),
           );
@@ -220,10 +216,7 @@ export function useThreadActions({
       lastAction.current = batch;
       const failedCount = threadKeys.length - snapshots.length;
       toastUndo({
-        message: summarise(
-          action === "archive" ? "Archived" : "Deleted",
-          snapshots.length,
-        ),
+        message: UNDOABLE_COPY[action].done(snapshots.length),
         shortcut: getShortcutHint("undo"),
         onUndo: () => {
           undoBatch(batch);
@@ -232,9 +225,7 @@ export function useThreadActions({
       if (failedCount) {
         toast.error(
           enqueueFailureCopy(
-            action === "archive"
-              ? `Couldn't queue ${failedCount} of ${threadKeys.length} for archiving`
-              : `Couldn't queue ${failedCount} of ${threadKeys.length} for deletion`,
+            `Couldn't queue ${failedCount} of ${threadKeys.length} for ${UNDOABLE_COPY[action].noun}`,
             rejectionCodes,
           ),
         );
@@ -362,6 +353,10 @@ export function useThreadActions({
       (threadKeys: string[]) => runUndoable("archive", threadKeys),
       [runUndoable],
     ),
+    moveToInbox: useCallback(
+      (threadKeys: string[]) => runUndoable("unarchive", threadKeys),
+      [runUndoable],
+    ),
     trash: useCallback(
       (threadKeys: string[]) => runUndoable("trash", threadKeys),
       [runUndoable],
@@ -377,6 +372,32 @@ export function useThreadActions({
     undo,
   };
 }
+
+const UNDOABLE_COPY: Record<
+  UndoableAction,
+  {
+    compensation: "archive" | "unarchive" | "untrash";
+    done: (count: number) => string;
+    noun: string;
+  }
+> = {
+  archive: {
+    compensation: "unarchive",
+    done: (count) => summarise("Archived", count),
+    noun: "archiving",
+  },
+  unarchive: {
+    compensation: "archive",
+    done: (count) =>
+      count === 1 ? "Moved to inbox" : `Moved ${count} conversations to inbox`,
+    noun: "moving to inbox",
+  },
+  trash: {
+    compensation: "untrash",
+    done: (count) => summarise("Deleted", count),
+    noun: "deletion",
+  },
+};
 
 function summarise(verb: string, count: number) {
   return count === 1 ? verb : `${verb} ${count} conversations`;

@@ -22,6 +22,7 @@ import { BubbleMenu } from "@tiptap/react/menus";
 import { DOMSerializer, Fragment, type Node } from "@tiptap/pm/model";
 import {
   isSafeEmailUrl,
+  prepareEditableSignatureHtml,
   sanitizePreservedEmailHtmlForPreview,
 } from "../core/email-html";
 import { createEmailEditorExtensions } from "./email-extensions";
@@ -102,6 +103,10 @@ export const EmailEditor = forwardRef<EmailEditorHandle, EmailEditorProps>(
         id: block.id,
         kind: block.kind,
         previewHtml: sanitizePreservedEmailHtmlForPreview(block.html),
+        editableHtml:
+          block.kind === "signature"
+            ? (prepareEditableSignatureHtml(block.html) ?? undefined)
+            : undefined,
       })),
       unsupported,
     }));
@@ -190,15 +195,18 @@ const RichEmailEditor = forwardRef<
   );
 
   const emitChange = useCallback((editor: Editor) => {
-    const { inlineContentIds, preservedBlocks: blocks } =
-      inspectRichEditorDocument(editor);
+    const {
+      inlineContentIds,
+      preservedBlocks: blocks,
+      preservedBlockIds,
+    } = inspectRichEditorDocument(editor);
     setActiveBlocks((current) =>
       hasSamePreservedBlocks(current, blocks) ? current : blocks,
     );
     onStateChangeRef.current?.({
       inlineContentIds,
       mode: "rich",
-      preservedBlockIds: blocks.map((block) => block.id),
+      preservedBlockIds,
     });
   }, []);
 
@@ -222,7 +230,8 @@ const RichEmailEditor = forwardRef<
             if (
               !(target instanceof Element) ||
               event.button !== 0 ||
-              target.closest("button")
+              target.closest("button") ||
+              target.closest("[data-email-signature-content]")
             ) {
               return false;
             }
@@ -247,6 +256,15 @@ const RichEmailEditor = forwardRef<
             view.focus();
             return true;
           },
+        },
+        // Only the composer creates signature containers; pasted ones would
+        // otherwise hide under the collapsed signature toggle.
+        transformPastedHTML: (html) => {
+          const document = new DOMParser().parseFromString(html, "text/html");
+          for (const element of document.querySelectorAll("[data-smartmail]")) {
+            element.removeAttribute("data-smartmail");
+          }
+          return document.body.innerHTML;
         },
         handleClick: (_view, _position, event) => {
           const link = (event.target as HTMLElement | null)?.closest("a");
@@ -279,15 +297,19 @@ const RichEmailEditor = forwardRef<
       onCreate: ({ editor: createdEditor }) => {
         const selectionPosition = createdEditor.state.doc.content.size;
         createdEditor.commands.setTextSelection(selectionPosition);
-        if (preservedBlocks.length) {
-          createdEditor.commands.insertContentAt(
-            selectionPosition,
-            preservedBlocks.map((block) => ({
-              type: "preservedEmailBlock",
-              attrs: block,
-            })),
-            { updateSelection: false },
-          );
+        for (const { editableHtml, ...block } of preservedBlocks) {
+          const end = createdEditor.state.doc.content.size;
+          if (!editableHtml) {
+            createdEditor.commands.insertContentAt(
+              end,
+              { type: "preservedEmailBlock", attrs: block },
+              { updateSelection: false },
+            );
+            continue;
+          }
+          createdEditor.commands.insertContentAt(end, editableHtml, {
+            updateSelection: false,
+          });
         }
         if (autofocus) createdEditor.commands.focus();
         emitChange(createdEditor);
@@ -571,7 +593,7 @@ const RichEmailEditor = forwardRef<
             <div className={styles.linkActions}>
               {linkPanel.href && (
                 <button
-                  className={styles.toolbarButton}
+                  className={styles.linkButton}
                   onClick={() => openSafeLink(linkPanel.href)}
                   type="button"
                 >
@@ -580,7 +602,7 @@ const RichEmailEditor = forwardRef<
               )}
               {linkPanel.href && (
                 <button
-                  className={styles.toolbarButton}
+                  className={styles.linkButton}
                   onClick={removeLink}
                   type="button"
                 >
@@ -588,14 +610,14 @@ const RichEmailEditor = forwardRef<
                 </button>
               )}
               <button
-                className={styles.toolbarButton}
+                className={styles.linkButton}
                 onClick={closeLinkPanel}
                 type="button"
               >
                 Cancel
               </button>
               <button
-                className={styles.toolbarButton}
+                className={`${styles.linkButton} ${styles.linkButtonPrimary}`}
                 onClick={applyLink}
                 type="button"
               >
@@ -841,9 +863,8 @@ function StandalonePreservedBlock({
 }
 
 function getRichEditorValue(editor: Editor): EmailEditorValue {
-  const { editableContent, inlineContentIds, preservedBlocks } =
+  const { editableContent, inlineContentIds, preservedBlockIds } =
     inspectRichEditorDocument(editor);
-  const preservedBlockIds = preservedBlocks.map((block) => block.id);
 
   const container = window.document.createElement("div");
   container.appendChild(
@@ -864,6 +885,9 @@ function inspectRichEditorDocument(editor: Editor) {
   const editableContent: Node[] = [];
   const inlineContentIds: string[] = [];
   const preservedBlocks: ActivePreservedBlock[] = [];
+  // Only protected blocks are re-attached when sending; an editable signature
+  // is already part of the editable HTML.
+  const preservedBlockIds: string[] = [];
 
   editor.state.doc.forEach((node) => {
     if (node.type.name === "preservedEmailBlock") {
@@ -872,8 +896,12 @@ function inspectRichEditorDocument(editor: Editor) {
           id: String(node.attrs.id),
           kind: node.attrs.kind === "signature" ? "signature" : "quote",
         });
+        preservedBlockIds.push(String(node.attrs.id));
       }
       return;
+    }
+    if (node.type.name === "editableEmailSignature") {
+      preservedBlocks.push({ id: "signature", kind: "signature" });
     }
 
     editableContent.push(node);
@@ -884,7 +912,12 @@ function inspectRichEditorDocument(editor: Editor) {
     });
   });
 
-  return { editableContent, inlineContentIds, preservedBlocks };
+  return {
+    editableContent,
+    inlineContentIds,
+    preservedBlocks,
+    preservedBlockIds,
+  };
 }
 
 function hasSamePreservedBlocks(

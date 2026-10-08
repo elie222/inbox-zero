@@ -3,7 +3,7 @@ import {
   MICROSOFT_ADMIN_CONSENT_PAGE_PATH,
   MICROSOFT_ADMIN_CONSENT_STATE_COOKIE_NAME,
   type MicrosoftAdminConsentState,
-} from "@/utils/microsoft/admin-consent";
+} from "@/utils/outlook/admin-consent";
 import { env } from "@/env";
 import { withError } from "@/utils/middleware";
 import { validateSignedOAuthState } from "@/utils/oauth/state";

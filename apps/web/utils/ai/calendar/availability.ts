@@ -98,7 +98,6 @@ export async function aiGetCalendarAvailability({
       },
       orderBy: { createdAt: "asc" },
       select: {
-        timezone: true,
         windows: {
           select: {
             weekday: true,
@@ -112,9 +111,7 @@ export async function aiGetCalendarAvailability({
 
   const hasDefaultAvailabilitySchedule = defaultAvailabilitySchedule != null;
   const effectiveMinimumNoticeMinutes = Math.max(0, minimumNoticeMinutes);
-  const userTimezone =
-    defaultAvailabilitySchedule?.timezone ??
-    getUserTimezone(emailAccount, calendarConnections);
+  const userTimezone = getUserTimezone(emailAccount, calendarConnections);
 
   logger.trace("Determined user timezone", { userTimezone });
 

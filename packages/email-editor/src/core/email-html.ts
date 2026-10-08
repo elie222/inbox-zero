@@ -41,6 +41,7 @@ export type PreparedEmailDraft = {
   unsupported: string[];
 };
 
+const SIGNATURE_ATTRIBUTE = 'data-smartmail="gmail_signature"';
 const BLOCK_TAGS = new Set(["blockquote", "div", "ol", "p", "ul"]);
 const SUPPORTED_TAGS = new Set([
   "a",
@@ -50,6 +51,7 @@ const SUPPORTED_TAGS = new Set([
   "del",
   "div",
   "em",
+  "font",
   "i",
   "img",
   "li",
@@ -134,6 +136,17 @@ const SAFE_PREVIEW_STYLE_PROPERTIES = new Set([
   "width",
   "word-break",
 ]);
+
+const TEXT_STYLE_PROPERTIES = ["color", "font-family", "font-size"] as const;
+const FONT_TAG_SIZES: Record<string, string> = {
+  "1": "10px",
+  "2": "13px",
+  "3": "16px",
+  "4": "18px",
+  "5": "24px",
+  "6": "32px",
+  "7": "48px",
+};
 
 type ChildNode = DefaultTreeAdapterTypes.ChildNode;
 type Element = DefaultTreeAdapterTypes.Element;
@@ -233,15 +246,47 @@ export function finalizeEditableEmailHtml({
     }
   });
 
+  // The editor never produces quote containers, and splitting would drop the
+  // editable signature container from the outgoing body.
   const rewrittenHtml = serialize(fragment);
-  const prepared = prepareEmailDraft({ html: rewrittenHtml });
-  return prepared.editableHtml;
+  return findUnsupportedEditableMarkup(rewrittenHtml).length > 0
+    ? rewrittenHtml
+    : normalizeEditableEmailHtml(rewrittenHtml);
 }
 
 export function sanitizePreservedEmailHtmlForPreview(html: string) {
   const fragment = parseFragment(html);
   sanitizePreviewChildren(fragment);
   return serialize(fragment);
+}
+
+/**
+ * Returns the signature as editable HTML wrapped in a single signature
+ * container, or null when editing it would lose formatting.
+ */
+export function prepareEditableSignatureHtml(html: string) {
+  const fragment = parseFragment(html);
+  // The container markers (Outlook's id included) are replaced by our own.
+  visitElements(fragment, (element) => {
+    if (!isSignatureContainer(element)) return;
+    element.attrs = element.attrs.filter(
+      (attribute) =>
+        attribute.name !== "id" && !isPresentationFreeAttribute(attribute.name),
+    );
+  });
+  if (findUnsupportedEditableMarkup(serialize(fragment)).length > 0) {
+    return null;
+  }
+
+  // A lone <br> paragraph renders two lines tall in the editor, and the
+  // leading blank line separates the signature from the reply when sent.
+  const content = renderFlow(fragment.childNodes).replace(
+    /<p((?: dir="[a-z]+")?)><br><\/p>/gu,
+    "<p$1></p>",
+  );
+  if (!content.replace(/<p(?: dir="[a-z]+")?><\/p>/gu, "")) return null;
+  const spacer = /^<p(?: dir="[a-z]+")?><\/p>/u.test(content) ? "" : "<p></p>";
+  return `<div ${SIGNATURE_ATTRIBUTE}>${spacer}${content}</div>`;
 }
 
 /**
@@ -511,9 +556,16 @@ function inspectNode(node: ChildNode, unsupported: Set<string>) {
       }
       continue;
     }
-    if (!allowedAttributes.has(attribute.name)) {
+    if (
+      !allowedAttributes.has(attribute.name) &&
+      !isPresentationFreeAttribute(attribute.name)
+    ) {
       unsupported.add(`${node.tagName}[${attribute.name}]`);
     }
+  }
+
+  if (node.tagName === "font" && !getFontTagStyle(node)) {
+    unsupported.add("font");
   }
 
   if (node.tagName === "a") {
@@ -568,6 +620,9 @@ function renderBlock(element: Element, inheritedDirection?: string): string {
   const directionAttribute = renderDirection(direction);
 
   if (element.tagName === "div") {
+    if (isSignatureContainer(element)) {
+      return `<div ${SIGNATURE_ATTRIBUTE}>${renderFlow(element.childNodes, direction)}</div>`;
+    }
     if (element.childNodes.some(isBlockElement)) {
       return renderFlow(element.childNodes, direction);
     }
@@ -649,6 +704,9 @@ function renderInline(node: ChildNode): string {
   }
   if (node.tagName === "u") return `<u>${children}</u>`;
   if (node.tagName === "span") return renderStyledSpan(node, children);
+  if (node.tagName === "font") {
+    return renderTextStyle(getFontTagStyle(node) ?? new Map(), children);
+  }
 
   return children;
 }
@@ -669,7 +727,39 @@ function renderStyledSpan(element: Element, children: string) {
   if (fontWeight === "bold" || Number.parseInt(fontWeight, 10) >= 600) {
     html = `<strong>${html}</strong>`;
   }
-  return html;
+  return renderTextStyle(declarations, html);
+}
+
+function renderTextStyle(declarations: Map<string, string>, children: string) {
+  const style = TEXT_STYLE_PROPERTIES.flatMap((property) => {
+    const value = declarations.get(property);
+    return value && isSafeTextStyle(property, value)
+      ? [`${property}:${value}`]
+      : [];
+  }).join(";");
+  return style
+    ? `<span style="${escapeAttribute(style)}">${children}</span>`
+    : children;
+}
+
+function getFontTagStyle(element: Element) {
+  const declarations = new Map<string, string>();
+  const color = getAttribute(element, "color")?.trim().toLowerCase();
+  const face = getAttribute(element, "face")?.trim().toLowerCase();
+  const size = getAttribute(element, "size")?.trim();
+
+  if (color) declarations.set("color", color);
+  if (face) declarations.set("font-family", face);
+  if (size) {
+    const fontSize = FONT_TAG_SIZES[size];
+    if (!fontSize) return null;
+    declarations.set("font-size", fontSize);
+  }
+  return [...declarations].every(([property, value]) =>
+    isSafeTextStyle(property, value),
+  )
+    ? declarations
+    : null;
 }
 
 function renderImage(element: Element) {
@@ -768,6 +858,17 @@ function sanitizeEditableElement(element: Element) {
       return isPositiveInteger(attribute.value);
     }
     if (attribute.name === "start") return /^-?\d+$/u.test(attribute.value);
+    if (attribute.name === "color") {
+      return isSafeTextStyle("color", attribute.value.trim().toLowerCase());
+    }
+    if (attribute.name === "face") {
+      return isSafeTextStyle(
+        "font-family",
+        attribute.value.trim().toLowerCase(),
+      );
+    }
+    if (attribute.name === "size")
+      return attribute.value.trim() in FONT_TAG_SIZES;
     if (attribute.name === "dir") {
       return /^(?:ltr|rtl|auto)$/iu.test(attribute.value);
     }
@@ -802,6 +903,7 @@ function sanitizeEditableStyle(tagName: string, style: string) {
         return value === "ltr" || value === "rtl";
       }
       if (tagName !== "span") return false;
+      if (isSafeTextStyle(property, value)) return true;
       if (property === "font-style") return value === "italic";
       if (property === "font-weight") {
         return value === "bold" || Number.parseInt(value, 10) >= 600;
@@ -927,6 +1029,7 @@ function getAllowedEditableAttributes(tagName: string) {
     return new Set(["dir", "style"]);
   }
   if (tagName === "span") return new Set(["style"]);
+  if (tagName === "font") return new Set(["color", "face", "size"]);
   return new Set<string>();
 }
 
@@ -944,6 +1047,7 @@ function isSupportedStyle(element: Element, style: string) {
   if (element.tagName !== "span") return false;
 
   return [...declarations].every(([property, value]) => {
+    if (isSafeTextStyle(property, value)) return true;
     if (property === "font-style") return value === "italic";
     if (property === "font-weight") {
       return value === "bold" || Number.parseInt(value, 10) >= 600;
@@ -988,6 +1092,28 @@ function getDirection(element: Element) {
   return styleDirection === "ltr" || styleDirection === "rtl"
     ? styleDirection
     : undefined;
+}
+
+function isSafeTextStyle(property: string, value: string) {
+  if (property === "color") {
+    return /^(?:#[\da-f]{3,8}|rgba?\([\d\s.,%]+\)|[a-z]+)$/u.test(value);
+  }
+  if (property === "font-family") {
+    return value.length <= 200 && /^[\w\s,'"-]+$/u.test(value);
+  }
+  if (property === "font-size") {
+    return /^(?:\d+(?:\.\d+)?(?:px|pt|em|rem|%)|(?:x{1,2}-)?(?:small|large)|medium|smaller|larger)$/u.test(
+      value,
+    );
+  }
+  return false;
+}
+
+// These carry no visible formatting without a stylesheet, so dropping them
+// while editing loses nothing the recipient would see. Ids and lang stay
+// unsupported because links and screen readers depend on them.
+function isPresentationFreeAttribute(name: string) {
+  return name === "class" || name.startsWith("data-");
 }
 
 export function isSafeEmailUrl(value: string) {

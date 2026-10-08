@@ -19,7 +19,8 @@ import { learnFromOutlookLabelRemoval } from "@/utils/webhook/outlook/learn-labe
 import prisma from "@/utils/prisma";
 import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";
 import { withRateLimitRecording } from "@/utils/email/rate-limit";
-
+import { isEmailProviderRateLimitError } from "@/utils/email/is-provider-rate-limit-error";
+import { markOutlookRateLimitCatchUp } from "@/utils/redis/outlook-rate-limit-catch-up";
 export async function processHistoryForUser({
   preloadedEmailAccount,
   subscriptionId,
@@ -97,6 +98,18 @@ export async function processHistoryForUser({
         provider: accountProvider,
         logger,
         source: "outlook/webhook",
+        onRateLimitRecorded: async (state, error) => {
+          if (
+            state ||
+            isEmailProviderRateLimitError({ error, provider: "microsoft" })
+          ) {
+            await markOutlookRateLimitCatchUp({
+              emailAccountId: validatedEmailAccount.id,
+              since: new Date(),
+              logger,
+            });
+          }
+        },
       },
       async () => {
         // Outlook: Fetch message first to check folder before acquiring lock

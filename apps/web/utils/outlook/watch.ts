@@ -2,7 +2,7 @@ import type { Client } from "@microsoft/microsoft-graph-client";
 import type { Subscription } from "@microsoft/microsoft-graph-types";
 import { addDays } from "date-fns/addDays";
 import { env } from "@/env";
-import { withMicrosoftGraphWriteRetry } from "@/utils/microsoft/retry";
+import { withMicrosoftGraphWriteRetry } from "@/utils/outlook/retry";
 import type { Logger } from "@/utils/logger";
 
 export async function watchOutlook(client: Client, logger: Logger) {

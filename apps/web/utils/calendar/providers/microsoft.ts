@@ -4,7 +4,7 @@ import type { Logger } from "@/utils/logger";
 import {
   fetchMicrosoftUserProfile,
   requestMicrosoftToken,
-} from "@/utils/microsoft/oauth";
+} from "@/utils/outlook/oauth";
 import {
   fetchMicrosoftCalendars,
   getCalendarClientWithRefresh,

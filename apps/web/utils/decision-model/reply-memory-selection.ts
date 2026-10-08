@@ -34,7 +34,7 @@ export async function decideRelevantReplyMemories({
     candidates.map((_memory, index) => [
       `${MEMORY_KEY_PREFIX}${index}`,
       {
-        type: "yesNo",
+        type: "boolean",
         instructions: `Would \`replyMemories[${index}]\` materially improve a reply to \`incomingEmail\`?`,
         criteria: {
           true: "The memory answers this email, its procedure is triggered by this email, or its guidance applies specifically to this sender or company.",
@@ -71,7 +71,7 @@ export async function decideRelevantReplyMemories({
       const answer = response.answers[`${MEMORY_KEY_PREFIX}${index}`];
       return {
         id: memory.id,
-        probability: answer?.type === "yesNo" ? answer.probability : 0,
+        probability: answer?.type === "boolean" ? answer.probability : 0,
       };
     })
     .filter(({ probability }) => probability >= MIN_RELEVANCE_PROBABILITY)

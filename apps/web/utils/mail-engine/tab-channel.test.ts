@@ -238,6 +238,7 @@ function stubClient(input: {
     async purgeAccount() {
       return { databaseEpoch: "e", sequence: 1 };
     },
+    async retainAccounts() {},
   };
 }
 

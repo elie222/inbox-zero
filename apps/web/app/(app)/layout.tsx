@@ -9,6 +9,7 @@ import { SideNavWithTopNav } from "@/components/SideNavWithTopNav";
 import { auth } from "@/utils/auth";
 import { PostHogIdentify } from "@/providers/PostHogProvider";
 import { CommandK } from "@/components/CommandK";
+import { FeedbackDialog } from "@/components/FeedbackDialog";
 import { AppProviders } from "@/providers/AppProviders";
 import { AssessUser } from "@/app/(app)/[emailAccountId]/assess";
 import { SentryIdentify } from "@/app/(app)/sentry-identify";
@@ -67,6 +68,8 @@ export default async function AppLayout({
   const isClosed = cookieStore.get("left-sidebar:state")?.value === "false";
   const bypassPremiumChecks =
     booleanString.parse(process.env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) ?? false;
+  const feedbackEnabled =
+    !bypassPremiumChecks || Boolean(process.env.FEEDBACK_WEBHOOK_URL);
 
   after(async () => {
     const email = session.user.email;
@@ -88,10 +91,7 @@ export default async function AppLayout({
           <MailEngineRuntime>
             <SideNavWithTopNav
               defaultOpen={!isClosed}
-              feedbackEnabled={
-                !bypassPremiumChecks ||
-                Boolean(process.env.FEEDBACK_WEBHOOK_URL)
-              }
+              feedbackEnabled={feedbackEnabled}
             >
               <DesktopMailIndicators />
               <AiAutomationStatusBanner />
@@ -102,10 +102,11 @@ export default async function AppLayout({
             <EmailViewer />
             <SettingsDialog />
             <AnnouncementDialog />
+            {feedbackEnabled && <FeedbackDialog />}
             <ErrorBoundary extra={{ component: "AppLayout" }}>
               <PostHogIdentify />
 
-              <CommandK />
+              <CommandK feedbackEnabled={feedbackEnabled} />
               <AssessUser />
               <SentryIdentify email={session.user.email} />
             </ErrorBoundary>

@@ -13,8 +13,8 @@ import {
 
 const config = {
   provider: "typesafe" as const,
-  model: "jev-latest",
-  apiKey: "key",
+  modelId: "jev-latest",
+  model: {} as never,
 };
 const categories = [
   { name: "Newsletter", description: "Editorial subscription email" },

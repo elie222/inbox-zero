@@ -49,6 +49,8 @@ export const POST = withEmailProvider(
       sizeBytes: parsed.data.sizeBytes,
       filename: parsed.data.filename ?? parsed.data.uploadId,
       contentType: parsed.data.contentType,
+      disposition: parsed.data.disposition,
+      contentId: parsed.data.contentId,
     });
     if (admitted.status === "invalid") {
       return NextResponse.json(

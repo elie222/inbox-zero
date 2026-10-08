@@ -37,6 +37,11 @@ export function isValidMobileAuthState(state: string): boolean {
   return MOBILE_AUTH_STATE_REGEX.test(state);
 }
 
+// Correlates every step of one sign-in across logs without logging the state.
+export function getMobileAuthFlowId(state: string): string {
+  return hashToken("state", state).slice(0, 12);
+}
+
 export async function storeMobileAuthState(
   input: Omit<z.infer<typeof stateSchema>, "completionHash" | "sessionHash"> & {
     state: string;
@@ -49,6 +54,11 @@ export async function storeMobileAuthState(
     completionHash: hashToken("completion", input.completionToken),
   });
   await storeToken("state", input.state, data);
+  logger.info("Mobile auth state stored", {
+    flowId: getMobileAuthFlowId(input.state),
+    provider: input.provider,
+    returnUrlMode: input.returnUrlMode,
+  });
 }
 
 // Called only from the successful provider callback hook, never from a browser session lookup.
@@ -64,19 +74,19 @@ export async function completeMobileAuthState(input: {
     where: { token },
   });
   const data = parseRecord(record?.identifier, "state", stateSchema);
+  const reject: (reason: string) => never = (reason) =>
+    rejectState("complete", reason, input.state);
+  if (!record || !data) reject("missing_or_invalid");
+  if (record.expires <= new Date()) reject("expired");
+  if (data.sessionHash) reject("already_completed");
+  if (data.provider !== input.provider) reject("provider_mismatch");
   if (
-    !record ||
-    !data ||
-    record.expires <= new Date() ||
-    data.sessionHash ||
-    data.provider !== input.provider ||
     !secureCompare(
       data.completionHash,
       hashToken("completion", input.completionToken),
     )
-  ) {
-    throw new SafeError("Invalid authentication state", 401);
-  }
+  )
+    reject("completion_mismatch");
   const updated = await prisma.verificationToken.updateMany({
     where: {
       token,
@@ -90,11 +100,18 @@ export async function completeMobileAuthState(input: {
       }),
     },
   });
-  if (updated.count !== 1)
-    throw new SafeError("Invalid authentication state", 401);
+  if (updated.count !== 1) reject("concurrent_update");
+  logger.info("Mobile auth state completed", {
+    flowId: getMobileAuthFlowId(input.state),
+    provider: input.provider,
+  });
 }
 
-export async function consumeMobileAuthState(input: {
+// Not single-use: browsers and security software can replay the callback
+// request concurrently, and the response the browser shows must still reach
+// the app. Only the session the provider completed can redeem it, and each
+// code still needs the app's PKCE verifier.
+export async function redeemMobileAuthState(input: {
   state: string;
   sessionToken: string;
 }) {
@@ -104,17 +121,16 @@ export async function consumeMobileAuthState(input: {
     where: { token },
   });
   const data = parseRecord(record?.identifier, "state", stateSchema);
+  const reject: (reason: string) => never = (reason) =>
+    rejectState("redeem", reason, input.state);
+  if (!record || !data) reject("missing_or_invalid");
+  if (record.expires <= new Date()) reject("expired");
+  if (!data.sessionHash) reject("not_completed");
+  if (!input.sessionToken) reject("missing_session");
   if (
-    !record ||
-    !data ||
-    record.expires <= new Date() ||
-    !data.sessionHash ||
-    !input.sessionToken ||
     !secureCompare(data.sessionHash, hashToken("session", input.sessionToken))
-  ) {
-    throw new SafeError("Invalid authentication state", 401);
-  }
-  await consumeToken(token, record.identifier, "Invalid authentication state");
+  )
+    reject("session_mismatch");
   return {
     returnUrlMode: data.returnUrlMode,
     codeChallenge: data.codeChallenge,
@@ -128,10 +144,13 @@ export async function consumeMobileAuthFailureState(input: { state: string }) {
     where: { token },
   });
   const data = parseRecord(record?.identifier, "state", stateSchema);
-  if (!record || !data || record.expires <= new Date() || data.sessionHash) {
-    throw new SafeError("Invalid authentication state", 401);
-  }
-  await consumeToken(token, record.identifier, "Invalid authentication state");
+  const reject: (reason: string) => never = (reason) =>
+    rejectState("failure", reason, input.state);
+  if (!record || !data) reject("missing_or_invalid");
+  if (record.expires <= new Date()) reject("expired");
+  if (data.sessionHash) reject("already_completed");
+  if (!(await consumeToken(token, record.identifier)))
+    reject("concurrent_consume");
   return { returnUrlMode: data.returnUrlMode };
 }
 
@@ -156,30 +175,46 @@ export async function consumeMobileAuthCode(input: {
     where: { token },
   });
   const data = parseRecord(record?.identifier, "code", codeSchema);
+  const flowId = getMobileAuthFlowId(input.state);
+  const reject: (reason: string) => never = (reason) => {
+    logger.warn("Mobile auth code rejected", { flowId, reason });
+    throw new SafeError("Invalid or expired authentication code", 401);
+  };
+  if (!record || !data) reject("missing_or_invalid");
+  if (record.expires <= new Date()) reject("expired");
+  if (data.state !== input.state) reject("state_mismatch");
+  if (!mobileAuthCodeVerifierSchema.safeParse(input.codeVerifier).success)
+    reject("invalid_verifier");
   if (
-    !record ||
-    !data ||
-    record.expires <= new Date() ||
-    data.state !== input.state ||
-    !mobileAuthCodeVerifierSchema.safeParse(input.codeVerifier).success ||
     !secureCompare(
       getMobileAuthCodeChallenge(input.codeVerifier),
       data.codeChallenge,
     )
-  ) {
-    throw new SafeError("Invalid or expired authentication code", 401);
-  }
-  await consumeToken(
-    token,
-    record.identifier,
-    "Invalid or expired authentication code",
-  );
+  )
+    reject("verifier_mismatch");
+  if (!(await consumeToken(token, record.identifier)))
+    reject("concurrent_consume");
   return { userId: data.userId };
 }
 
 function assertState(state: string) {
-  if (!isValidMobileAuthState(state))
-    throw new SafeError("Invalid authentication state", 400);
+  if (!isValidMobileAuthState(state)) rejectState("validate", "invalid_format");
+}
+
+function rejectState(
+  stage: "validate" | "complete" | "redeem" | "failure",
+  reason: string,
+  state?: string,
+): never {
+  logger.warn("Mobile auth state rejected", {
+    stage,
+    reason,
+    flowId: state ? getMobileAuthFlowId(state) : undefined,
+  });
+  throw new SafeError(
+    "Invalid authentication state",
+    stage === "validate" ? 400 : 401,
+  );
 }
 
 function identifier(scope: "state" | "code", data: unknown) {
@@ -216,11 +251,11 @@ async function storeToken(
   });
 }
 
-async function consumeToken(token: string, value: string, message: string) {
+async function consumeToken(token: string, value: string): Promise<boolean> {
   const deleted = await prisma.verificationToken.deleteMany({
     where: { token, identifier: value, expires: { gt: new Date() } },
   });
-  if (deleted.count !== 1) throw new SafeError(message, 401);
+  return deleted.count === 1;
 }
 
 async function deleteExpiredTokens() {

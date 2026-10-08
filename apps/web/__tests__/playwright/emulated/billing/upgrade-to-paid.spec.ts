@@ -12,8 +12,8 @@ import {
 
 const STARTER_TIER = "Starter";
 // The helpers read the database directly, so they see the stored column value
-// rather than the Prisma enum name: STARTER_MONTHLY is `@map("BUSINESS_MONTHLY")`.
-const STARTER_MONTHLY_TIER_COLUMN = "BUSINESS_MONTHLY";
+// rather than the Prisma enum name: STARTER_ANNUALLY is `@map("BUSINESS_ANNUALLY")`.
+const STARTER_ANNUALLY_TIER_COLUMN = "BUSINESS_ANNUALLY";
 
 test.beforeEach(async () => {
   await resetBillingState();
@@ -48,7 +48,7 @@ test("starts a trial from the post-onboarding upgrade page", async ({
   await expect(page).toHaveURL(/\/setup(?:\?.*)?$/, { timeout: 60_000 });
   await expect.poll(getPremiumBillingState, { timeout: 60_000 }).toMatchObject({
     stripeSubscriptionStatus: "trialing",
-    tier: STARTER_MONTHLY_TIER_COLUMN,
+    tier: STARTER_ANNUALLY_TIER_COLUMN,
   });
 
   await page.goto("/premium");

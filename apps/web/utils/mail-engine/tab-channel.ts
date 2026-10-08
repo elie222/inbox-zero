@@ -323,6 +323,9 @@ export function createTabFollowerClient(input: {
     async purgeAccount(accountId) {
       return call("purgeAccount", [accountId]) as never;
     },
+    async retainAccounts(accountIds) {
+      await call("retainAccounts", [accountIds]);
+    },
   };
   followerDisposers.set(client, () => {
     dispose();

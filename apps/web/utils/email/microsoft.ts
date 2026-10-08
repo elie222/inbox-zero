@@ -1,3 +1,4 @@
+import type { ProviderMailboxSearch } from "@/utils/email/types";
 import type { LocalMailSyncRequest } from "@/utils/actions/local-mail-sync.validation";
 import type { LocalMailSyncResponse } from "@/utils/email/local-mail-sync-types";
 import {
@@ -7,7 +8,7 @@ import {
   getOutlookLocalMailMessage,
   resolveOutlookLocalMailFolderIds,
 } from "@/utils/outlook/local-mail-sync";
-import { matchesSenderFilter } from "@/utils/mail/sender-filter";
+import { matchesSenderFilter } from "@/utils/split-inbox/sender-filter";
 import { SafeError } from "@/utils/error";
 import type { Message } from "@microsoft/microsoft-graph-types";
 import type { OutlookClient } from "@/utils/outlook/client";
@@ -53,12 +54,12 @@ import {
 } from "@/utils/outlook/mail";
 import {
   archiveThread,
-  labelMessage,
   markReadThread,
   markStarredMessage,
   removeThreadLabel,
   unarchiveThread,
   untrashThread,
+  updateMessageCategories,
 } from "@/utils/outlook/label";
 import { trashThread } from "@/utils/outlook/trash";
 import { markNotSpam, markSpam } from "@/utils/outlook/spam";
@@ -129,8 +130,8 @@ import {
   isRetryableError,
   withMicrosoftGraphRetry,
   withMicrosoftGraphWriteRetry,
-} from "@/utils/microsoft/retry";
-import { isMicrosoftEmulationEnabled } from "@/utils/microsoft/oauth";
+} from "@/utils/outlook/retry";
+import { isMicrosoftEmulationEnabled } from "@/utils/outlook/oauth";
 import { shouldSkipAutoDraft } from "@/utils/auto-draft";
 import { getOutlookMailboxSyncPage } from "@/utils/outlook/mailbox-sync";
 import { requireSentMessageId } from "@/utils/email/sent-message-id";
@@ -581,28 +582,18 @@ export class OutlookProvider implements EmailProvider {
       usedFallback = true;
     }
 
-    // Get current message categories to avoid replacing them
-    const message = await withMicrosoftGraphRetry(
-      () =>
-        this.client
-          .getClient()
-          .api(`/me/messages/${messageId}`)
-          .select("categories")
-          .get(),
-      this.logger,
-    );
+    const categoryName = category.name;
+    const applied = await updateMessageCategories({
+      client: this.client,
+      messageId,
+      update: (categories) =>
+        categories.includes(categoryName)
+          ? categories
+          : [...categories, categoryName],
+      logger: this.logger,
+    });
 
-    const currentCategories = message.categories || [];
-
-    // Add the new category if it's not already present
-    if (!currentCategories.includes(category.name)) {
-      const updatedCategories = [...currentCategories, category.name];
-      await labelMessage({
-        client: this.client,
-        messageId,
-        categories: updatedCategories,
-        logger: this.logger,
-      });
+    if (applied) {
       this.logger.info("Label applied", { labelId: category.id });
     } else {
       this.logger.info("Label already present, skipped", {
@@ -624,8 +615,16 @@ export class OutlookProvider implements EmailProvider {
     });
   }
 
-  async getDraft(draftId: string): Promise<ParsedMessage | null> {
-    return getDraft({ client: this.client, draftId, logger: this.logger });
+  async getDraft(
+    draftId: string,
+    options?: { includeAttachments?: boolean },
+  ): Promise<ParsedMessage | null> {
+    return getDraft({
+      client: this.client,
+      draftId,
+      logger: this.logger,
+      includeAttachments: options?.includeAttachments,
+    });
   }
 
   async getDraftReferenceForMessage(messageId: string) {
@@ -1076,18 +1075,16 @@ export class OutlookProvider implements EmailProvider {
 
     if (!removeCategoryNames.length) return;
 
-    for (const message of messages.value) {
-      const currentCategories = message.categories || [];
+    const messagesWithCategories = messages.value.filter((message) =>
+      message.categories?.some((cat) => removeCategoryNames.includes(cat)),
+    );
 
-      // Remove specified categories
-      const newCategories = currentCategories.filter(
-        (cat) => !removeCategoryNames.includes(cat),
-      );
-
-      await labelMessage({
+    for (const message of messagesWithCategories) {
+      await updateMessageCategories({
         client: this.client,
         messageId: message.id,
-        categories: newCategories,
+        update: (categories) =>
+          categories.filter((cat) => !removeCategoryNames.includes(cat)),
         logger: this.logger,
       });
     }
@@ -1327,6 +1324,7 @@ export class OutlookProvider implements EmailProvider {
 
   async searchMessages(options: {
     query: string;
+    mailboxSearch?: ProviderMailboxSearch;
     maxResults?: number;
     pageToken?: string;
     fromEmail?: string;
@@ -1347,6 +1345,19 @@ export class OutlookProvider implements EmailProvider {
         logger: this.logger,
         folder: options.folder ?? spamTrashFolderFromLabels(options.labelIds),
       }));
+    const mailbox = options.mailboxSearch?.mailbox;
+    const wellKnownFolder = mailbox
+      ? {
+          inbox: "inbox",
+          sent: "sentitems",
+          drafts: "drafts",
+          spam: "junkemail",
+          trash: "deleteditems",
+          all: undefined,
+          archive: undefined,
+          starred: undefined,
+        }[mailbox]
+      : undefined;
     const categoryNames = scope.categoryNames;
 
     const response = await queryBatchMessages(
@@ -1357,8 +1368,10 @@ export class OutlookProvider implements EmailProvider {
         pageToken: options.pageToken,
         fromEmail: options.fromEmail,
         readState: options.readState,
-        folderId,
+        folderId: wellKnownFolder ?? folderId,
         categoryNames,
+        mailboxSearch: options.mailboxSearch,
+        includeDrafts: options.mailboxSearch !== undefined,
       },
       this.logger,
     );
@@ -1546,14 +1559,32 @@ export class OutlookProvider implements EmailProvider {
     threadId: string,
   ): Promise<ParsedMessage | null> {
     const escapedThreadId = escapeODataString(threadId);
-    const response = await this.client
-      .getClient()
-      .api("/me/messages")
-      .filter(`conversationId eq '${escapedThreadId}'`)
-      .select(MESSAGE_SELECT_FIELDS)
-      .get();
+    // A whole conversation with bodies can be megabytes, and Graph sometimes
+    // ends such 200 responses mid-body. Pick the latest message from metadata,
+    // then fetch only that one in full.
+    const messages: Message[] = [];
+    let nextLink: string | undefined;
+    do {
+      const pageLink = nextLink;
+      const page: { value?: Message[]; "@odata.nextLink"?: string } =
+        await withMicrosoftGraphRetry(
+          () =>
+            pageLink
+              ? this.client.getClient().api(pageLink).get()
+              : this.client
+                  .getClient()
+                  .api("/me/messages")
+                  .filter(`conversationId eq '${escapedThreadId}'`)
+                  .select(MESSAGE_LIST_SELECT_FIELDS)
+                  .top(100)
+                  .get(),
+          this.logger,
+        );
+      messages.push(...(page.value ?? []));
+      nextLink = page["@odata.nextLink"];
+    } while (nextLink);
 
-    const parsedMessages: ParsedMessage[] = (response.value || [])
+    const parsedMessages: ParsedMessage[] = messages
       .filter((message: Message) => !message.isDraft)
       .map((message: Message) => convertMessage(message));
     if (parsedMessages.length === 0) return null;
@@ -1564,7 +1595,7 @@ export class OutlookProvider implements EmailProvider {
     });
     if (!latestMessage) return null;
 
-    return latestMessage;
+    return this.getMessage(latestMessage.id);
   }
 
   async getDrafts(options?: { maxResults?: number }): Promise<ParsedMessage[]> {
@@ -1688,6 +1719,11 @@ export class OutlookProvider implements EmailProvider {
     // The Microsoft emulator has no people/contacts Graph endpoints.
     if (isMicrosoftEmulationEnabled()) return [];
     return searchContacts(this.client, query, this.logger);
+  }
+
+  async getContactPhotos() {
+    // Graph serves contact photos as per-contact binaries, not URLs.
+    return {};
   }
 
   async markReadThread(threadId: string, read: boolean): Promise<void> {
@@ -2506,6 +2542,11 @@ export class OutlookProvider implements EmailProvider {
       getFolderIds(this.client, this.logger),
     ]);
     return addOutlookSystemFolderTypes(folders, folderIds);
+  }
+
+  async getForwardingAddresses(): Promise<string[]> {
+    // Graph has no equivalent of Gmail's verified forwarding addresses list
+    return [];
   }
 
   async getFolderCounts(): Promise<EmailFolderCount[]> {

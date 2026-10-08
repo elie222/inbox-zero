@@ -128,7 +128,6 @@ function selectModel(
     }
     case Provider.AZURE: {
       const modelName = aiModel || "gpt-6-luna";
-      const baseOptions = providerOptions ?? {};
       const resourceName = env.AZURE_RESOURCE_NAME;
       if (!resourceName) {
         throw new SafeError(
@@ -144,13 +143,7 @@ function selectModel(
           resourceName,
           apiVersion: env.AZURE_API_VERSION,
         })(modelName),
-        providerOptions: {
-          ...baseOptions,
-          openai: {
-            ...(baseOptions.openai ?? {}),
-            reasoningEffort: REASONING_EFFORT_BY_MODEL_TYPE[modelType],
-          },
-        },
+        providerOptions: getAzureProviderOptions(providerOptions, modelType),
       };
     }
     case Provider.AZURE_FOUNDRY: {
@@ -176,16 +169,11 @@ function selectModel(
         );
       }
 
-      const azureFoundry = createOpenAICompatible({
-        name: "azure-foundry",
-        baseURL,
-        supportsStructuredOutputs: true,
-        headers: { "api-key": apiKey },
-      });
       return {
         provider: Provider.AZURE_FOUNDRY,
         modelName,
-        model: azureFoundry(modelName),
+        model: createAzure({ apiKey, baseURL })(modelName),
+        providerOptions: getAzureProviderOptions(providerOptions, modelType),
       };
     }
     case Provider.GOOGLE: {
@@ -898,4 +886,19 @@ function isDuplicateResolvedModel(
 
 function isSupportedProvider(provider: string): boolean {
   return Object.values(Provider).includes(provider);
+}
+
+function getAzureProviderOptions(
+  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
+  providerOptions: Record<string, any> | undefined,
+  modelType: ModelType,
+) {
+  const baseOptions = providerOptions ?? {};
+  return {
+    ...baseOptions,
+    openai: {
+      ...(baseOptions.openai ?? {}),
+      reasoningEffort: REASONING_EFFORT_BY_MODEL_TYPE[modelType],
+    },
+  };
 }

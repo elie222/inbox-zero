@@ -199,7 +199,7 @@ async function startEngine(input: {
 }) {
   await input.store.ensureAccount({
     accountId: input.accountId,
-    provider: input.provider.name === "microsoft" ? "microsoft" : "google",
+    provider: input.provider.name,
     generation: "gen-1",
   });
   const engine = createMailEngine({

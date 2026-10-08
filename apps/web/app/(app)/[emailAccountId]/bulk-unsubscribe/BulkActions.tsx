@@ -5,9 +5,10 @@ import {
   ArchiveRestoreIcon,
   Loader2Icon,
   MailXIcon,
-  ThumbsDownIcon,
+  MoreHorizontalIcon,
   ThumbsUpIcon,
   TrashIcon,
+  Undo2Icon,
   XIcon,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -38,8 +39,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { DomainIcon } from "@/components/charts/DomainIcon";
-import { extractDomainFromEmail } from "@/utils/email";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { SenderIcon } from "@/components/SenderIcon";
 import type { NewsletterStatsResponse } from "@/app/api/user/stats/newsletters/route";
 import { NewsletterStatus } from "@/generated/prisma/enums";
 import type { NewsletterFilterType } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/types";
@@ -52,7 +59,7 @@ function ActionButton({
   loadingLabel,
   onClick,
   loading,
-  danger,
+  primary,
   showLabelOnMobile,
 }: {
   icon: React.ComponentType<{ className?: string }>;
@@ -60,7 +67,7 @@ function ActionButton({
   loadingLabel?: string;
   onClick: () => void;
   loading?: boolean;
-  danger?: boolean;
+  primary?: boolean;
   showLabelOnMobile?: boolean;
 }) {
   return (
@@ -70,9 +77,10 @@ function ActionButton({
       disabled={loading}
       title={label}
       className={cn(
-        "flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap",
-        "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
-        danger && "hover:text-red-600",
+        "flex h-9 items-center gap-2 px-2.5 sm:px-3 text-sm font-medium rounded-lg transition-colors whitespace-nowrap",
+        primary
+          ? "bg-blue-600 text-white hover:bg-blue-500"
+          : "text-foreground hover:bg-muted",
         loading && "opacity-50 cursor-not-allowed",
       )}
     >
@@ -95,7 +103,6 @@ export function BulkActions({
   deselectItem,
   newsletters,
   filter,
-  totalCount,
   dateRange,
 }: {
   selected: Map<string, boolean>;
@@ -105,7 +112,6 @@ export function BulkActions({
   deselectItem: (id: string) => void;
   newsletters?: Newsletter[];
   filter: NewsletterFilterType;
-  totalCount: number;
   dateRange?: DateRange;
 }) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -218,72 +224,88 @@ export function BulkActions({
       <AnimatePresence>
         {isVisible && (
           <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
             transition={{ duration: 0.15, ease: "easeOut" }}
-            className="overflow-hidden"
+            className="sticky bottom-6 z-40 mx-auto mt-4 w-fit max-w-full"
           >
             <PremiumTooltip
               showTooltip={!hasUnsubscribeAccess}
               openModal={openModal}
             >
-              <div className="mt-4 bg-gray-50 border border-gray-200 rounded-lg px-2 sm:px-3 py-2 flex items-center justify-between gap-1 sm:gap-3">
-                {/* Left side: Close button and selection count */}
-                <div className="flex items-center gap-1 sm:gap-3 shrink-0">
-                  <button
-                    type="button"
-                    onClick={onClearSelection}
-                    className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded transition-colors"
-                  >
-                    <XIcon className="size-4" />
-                  </button>
-                  <span className="text-sm text-gray-600 whitespace-nowrap">
-                    {selectedCount} of {totalCount}
-                    <span className="hidden sm:inline"> selected</span>
-                  </span>
-                </div>
+              <div className="flex items-center gap-1 overflow-x-auto rounded-xl border bg-background py-2 pr-2 pl-3 shadow-lg">
+                <button
+                  type="button"
+                  onClick={onClearSelection}
+                  aria-label="Clear selection"
+                  className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <XIcon className="size-4" />
+                </button>
+                <span className="whitespace-nowrap pr-1 text-sm font-medium">
+                  {selectedCount}
+                  <span className="hidden sm:inline"> selected</span>
+                </span>
 
-                {/* Right side: Action Buttons */}
-                <div className="flex items-center gap-0 sm:gap-1 flex-nowrap">
-                  {allSelectedCanUnsubscribe && (
-                    <ActionButton
-                      icon={MailXIcon}
-                      label={unsubscribeLabel}
-                      showLabelOnMobile
-                      onClick={() => onBulkUnsubscribe(selectedNewsletters)}
-                    />
-                  )}
+                <div className="mx-1 h-6 w-px shrink-0 bg-border sm:mx-2" />
+
+                {allSelectedCanUnsubscribe && (
                   <ActionButton
-                    icon={ArchiveRestoreIcon}
-                    label="Auto Archive"
-                    onClick={() => setAutoArchiveDialogOpen(true)}
+                    icon={MailXIcon}
+                    label={unsubscribeLabel}
+                    primary
+                    showLabelOnMobile
+                    onClick={() => onBulkUnsubscribe(selectedNewsletters)}
                   />
-                  <ActionButton
-                    icon={
-                      allSelectedAreApproved ? ThumbsDownIcon : ThumbsUpIcon
-                    }
-                    label={allSelectedAreApproved ? "Unapprove" : "Approve"}
-                    onClick={() =>
-                      onBulkApprove(getSelectedValues(), allSelectedAreApproved)
-                    }
-                  />
-                  <ActionButton
-                    icon={ArchiveIcon}
-                    label="Archive"
-                    loadingLabel="Archiving"
-                    onClick={() => setArchiveDialogOpen(true)}
-                    loading={isBulkArchiving}
-                  />
-                  <ActionButton
-                    icon={TrashIcon}
-                    label="Delete"
-                    loadingLabel="Deleting"
-                    danger
-                    onClick={() => setDeleteDialogOpen(true)}
-                    loading={isBulkDeleting}
-                  />
-                </div>
+                )}
+                <ActionButton
+                  icon={allSelectedAreApproved ? Undo2Icon : ThumbsUpIcon}
+                  label={allSelectedAreApproved ? "Move to review" : "Keep"}
+                  onClick={() =>
+                    onBulkApprove(getSelectedValues(), allSelectedAreApproved)
+                  }
+                />
+                <ActionButton
+                  icon={ArchiveIcon}
+                  label="Archive"
+                  loadingLabel="Archiving"
+                  onClick={() => setArchiveDialogOpen(true)}
+                  loading={isBulkArchiving}
+                />
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="shrink-0"
+                      aria-label="More actions"
+                      disabled={isBulkDeleting}
+                    >
+                      {isBulkDeleting ? (
+                        <Loader2Icon className="size-4 animate-spin" />
+                      ) : (
+                        <MoreHorizontalIcon className="size-4" />
+                      )}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" side="top">
+                    <DropdownMenuItem
+                      onClick={() => setAutoArchiveDialogOpen(true)}
+                    >
+                      <ArchiveRestoreIcon className="mr-2 size-4" />
+                      Auto-archive future emails
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="text-destructive focus:text-destructive"
+                      onClick={() => setDeleteDialogOpen(true)}
+                    >
+                      <TrashIcon className="mr-2 size-4" />
+                      Delete all emails
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </PremiumTooltip>
           </motion.div>
@@ -305,32 +327,28 @@ export function BulkActions({
           {selectedNewsletters.length > 0 && (
             <div className="max-h-[300px] overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700">
               <div className="divide-y divide-gray-100 dark:divide-gray-800">
-                {selectedNewsletters.map((newsletter) => {
-                  const domain =
-                    extractDomainFromEmail(newsletter.name) || newsletter.name;
-                  return (
-                    <div
-                      key={newsletter.name}
-                      className="flex items-center gap-3 px-3 py-2"
-                    >
-                      <DomainIcon
-                        domain={domain}
-                        size={32}
-                        variant="circular"
-                      />
-                      <div className="flex flex-col min-w-0">
-                        <span className="font-medium text-sm truncate">
-                          {newsletter.fromName || newsletter.name}
+                {selectedNewsletters.map((newsletter) => (
+                  <div
+                    key={newsletter.name}
+                    className="flex items-center gap-3 px-3 py-2"
+                  >
+                    <SenderIcon
+                      email={newsletter.name}
+                      name={newsletter.fromName}
+                      size={32}
+                    />
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-medium text-sm truncate">
+                        {newsletter.fromName || newsletter.name}
+                      </span>
+                      {newsletter.fromName && (
+                        <span className="text-xs text-muted-foreground truncate">
+                          {newsletter.name}
                         </span>
-                        {newsletter.fromName && (
-                          <span className="text-xs text-muted-foreground truncate">
-                            {newsletter.name}
-                          </span>
-                        )}
-                      </div>
+                      )}
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -369,32 +387,28 @@ export function BulkActions({
           {selectedNewsletters.length > 0 && (
             <div className="max-h-[300px] overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700">
               <div className="divide-y divide-gray-100 dark:divide-gray-800">
-                {selectedNewsletters.map((newsletter) => {
-                  const domain =
-                    extractDomainFromEmail(newsletter.name) || newsletter.name;
-                  return (
-                    <div
-                      key={newsletter.name}
-                      className="flex items-center gap-3 px-3 py-2"
-                    >
-                      <DomainIcon
-                        domain={domain}
-                        size={32}
-                        variant="circular"
-                      />
-                      <div className="flex flex-col min-w-0">
-                        <span className="font-medium text-sm truncate">
-                          {newsletter.fromName || newsletter.name}
+                {selectedNewsletters.map((newsletter) => (
+                  <div
+                    key={newsletter.name}
+                    className="flex items-center gap-3 px-3 py-2"
+                  >
+                    <SenderIcon
+                      email={newsletter.name}
+                      name={newsletter.fromName}
+                      size={32}
+                    />
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-medium text-sm truncate">
+                        {newsletter.fromName || newsletter.name}
+                      </span>
+                      {newsletter.fromName && (
+                        <span className="text-xs text-muted-foreground truncate">
+                          {newsletter.name}
                         </span>
-                        {newsletter.fromName && (
-                          <span className="text-xs text-muted-foreground truncate">
-                            {newsletter.name}
-                          </span>
-                        )}
-                      </div>
+                      )}
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -425,7 +439,7 @@ export function BulkActions({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Auto archive these senders?</DialogTitle>
+            <DialogTitle>Auto-archive these senders?</DialogTitle>
             <DialogDescription>
               Automatically archive all current and future emails from these
               senders. They will no longer appear in your inbox.
@@ -444,7 +458,7 @@ export function BulkActions({
                 setAutoArchiveDialogOpen(false);
               }}
             >
-              Auto Archive
+              Auto-archive
             </Button>
           </DialogFooter>
         </DialogContent>

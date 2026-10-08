@@ -12,6 +12,7 @@ const {
   const mcpServerConstructor = vi.fn(
     class MockMcpServer {
       registerTool = registerTool;
+      registerResource = vi.fn();
       connect = connect;
     },
   );
@@ -69,6 +70,10 @@ vi.mock("@/utils/mcp/account-selection", () => ({
   listMcpEmailAccounts: vi.fn(),
   resolveMcpEmailAccount: vi.fn(),
 }));
+vi.mock("@/utils/mcp/mail-client-bundle", () => ({
+  getMailClientResourceUri: vi.fn(),
+  readMailClientHtml: vi.fn(),
+}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/premium/server", () => ({
   assertCanUseDigestsIfNeeded: vi.fn(),
@@ -86,6 +91,7 @@ import { resolveMcpEmailAccount } from "@/utils/mcp/account-selection";
 import prisma from "@/utils/__mocks__/prisma";
 import { handleMcpServerRequest } from "@/utils/mcp/server";
 import { isMcpServerEnabledForUser } from "@/utils/mcp/access";
+import { getMailClientResourceUri } from "@/utils/mcp/mail-client-bundle";
 
 describe("mcp-server", () => {
   beforeEach(() => {
@@ -141,6 +147,27 @@ describe("mcp-server", () => {
     expect(response).toBeInstanceOf(Response);
   });
 
+  it("registers mail client tools only when the mail client UI is installed", async () => {
+    const request = () =>
+      handleMcpServerRequest(
+        new Request("http://localhost/mcp", { method: "POST" }),
+        { userId: "user_1", scopes: ["mcp:read", "mcp:send"] } as never,
+      );
+    const registered = () => registerTool.mock.calls.map(([name]) => name);
+
+    vi.mocked(getMailClientResourceUri).mockReturnValue(null);
+    await request();
+    expect(registered()).toContain("search_inbox");
+    expect(registered()).not.toContain("open_mail");
+    expect(registered()).not.toContain("send_mail");
+
+    registerTool.mockClear();
+    vi.mocked(getMailClientResourceUri).mockReturnValue("ui://mail/test.html");
+    await request();
+    expect(registered()).toContain("open_mail");
+    expect(registered()).toContain("send_mail");
+  });
+
   it("returns 403 when MCP access is disabled for the user", async () => {
     vi.mocked(isMcpServerEnabledForUser).mockResolvedValue(false);
 
@@ -157,6 +184,7 @@ describe("mcp-server", () => {
 describe("MCP tool permissions and rule writes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(getMailClientResourceUri).mockReturnValue("ui://mail/test.html");
     vi.mocked(isMcpServerEnabledForUser).mockResolvedValue(true);
     vi.mocked(resolveMcpEmailAccount).mockResolvedValue({
       id: "account_1",
@@ -172,11 +200,24 @@ describe("MCP tool permissions and rule writes", () => {
     } as never);
   });
 
+  it("does not expand an existing draft-write grant into send access", async () => {
+    const tool = await getTool("send_mail", ["mcp:read", "mcp:write"]);
+    await expect(tool({})).rejects.toThrow("mcp:send");
+    expect(resolveMcpEmailAccount).not.toHaveBeenCalled();
+    const registration = registerTool.mock.calls.find(
+      ([name]) => name === "send_mail",
+    );
+    expect(registration?.[1]._meta.ui.visibility).toEqual(["app"]);
+  });
+
   it.each([
     "create_draft",
     "create_rule",
     "update_rule",
     "delete_rule",
+    "save_mail_draft",
+    "change_mail",
+    "send_mail",
   ])("denies %s to a read-only client before accessing an inbox", async (name) => {
     const tool = await getTool(name, ["mcp:read"]);
     await expect(tool({ id: "rule_1", rule: {} })).rejects.toThrow(

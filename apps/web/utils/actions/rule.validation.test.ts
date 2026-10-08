@@ -8,7 +8,7 @@ import {
 import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import { ConditionType } from "@/utils/config";
 import { NINETY_DAYS_MINUTES } from "@/utils/date";
-import { WEBHOOK_ACTION_DISABLED_MESSAGE } from "@/utils/webhook-action";
+import { WEBHOOK_ACTION_DISABLED_MESSAGE } from "@/utils/outbound-webhook/action";
 import { DELETE_EMAIL_ACTION_DISABLED_MESSAGE } from "@/utils/delete-email-action";
 
 const { mockEnv } = vi.hoisted(() => ({

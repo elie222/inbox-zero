@@ -1,4 +1,4 @@
-import type { Provider } from "@inboxzero/mail-core/identities";
+import { messageMatchesPredicate } from "@inboxzero/mail-core/query-semantics";
 import type { MailPredicate } from "@inboxzero/mail-core/queries";
 import type {
   MailboxSource,
@@ -9,15 +9,22 @@ import {
   encodeMailboxSyncCursor,
   InvalidMailboxSyncCursorError,
 } from "@/utils/email/mailbox-sync";
-import type { EmailProvider } from "@/utils/email/types";
+import type { EmailProvider, ProviderMailboxSearch } from "@/utils/email/types";
 import {
+  parsedMessageMetadata,
   parsedMessageBodyObservation,
   parsedMessagePatch,
 } from "@/utils/mail-api/observations";
 import { isProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
 import { extractErrorInfo as extractGmailErrorInfo } from "@/utils/gmail/retry";
-import { extractErrorInfo as extractOutlookErrorInfo } from "@/utils/microsoft/retry";
+import { extractErrorInfo as extractOutlookErrorInfo } from "@/utils/outlook/retry";
 import type { ParsedMessage } from "@/utils/types";
+import { mapWithConcurrency } from "@/utils/async";
+import { convertEmailHtmlToText } from "@/utils/mail";
+
+// Outlook allows four concurrent Graph requests per mailbox, shared with
+// webhook processing, so batched folder reads stay below that.
+const CHANGES_BATCH_CONCURRENCY = 3;
 
 const SUPPORTED_CHANGES = [
   "archive",
@@ -34,6 +41,7 @@ const SUPPORTED_CHANGES = [
 
 type FolderScopeNode = {
   id: string;
+  systemType?: string;
   childFolders?: FolderScopeNode[];
 };
 
@@ -48,12 +56,10 @@ type BootstrapToken = {
 export function createEmailProviderMailboxSource(input: {
   provider: EmailProvider;
   accountId: string;
-}): MailboxSource {
+}): MailboxSource & Required<Pick<MailboxSource, "readChangesBatch">> {
   const { provider, accountId } = input;
   const maxPageSize = provider.name === "microsoft" ? 20 : 50;
-  const providerName: Provider =
-    provider.name === "microsoft" ? "microsoft" : "google";
-  return {
+  const source: MailboxSource = {
     async describe() {
       return {
         status: "ok",
@@ -127,7 +133,7 @@ export function createEmailProviderMailboxSource(input: {
           includeDrafts: true,
         });
         const changes = syncPage.messages.map((message) =>
-          parsedMessagePatch(accountId, providerName, message),
+          parsedMessagePatch(accountId, provider.name, message),
         );
         const { requiredHydration, bodies } = parsedMessageBodies(
           accountId,
@@ -203,7 +209,7 @@ export function createEmailProviderMailboxSource(input: {
             },
             changes: [
               ...page.upsertedMessages.map((message) =>
-                parsedMessagePatch(accountId, providerName, message),
+                parsedMessagePatch(accountId, provider.name, message),
               ),
               ...page.deletedMessageIds.map((messageId) => ({
                 kind: "message_deleted" as const,
@@ -218,7 +224,12 @@ export function createEmailProviderMailboxSource(input: {
                 scopeId: position.streamId,
               })),
             ],
-            ...parsedMessageBodies(accountId, page.upsertedMessages),
+            // Delta pages carry metadata only, so a body-derived flag such as
+            // a meeting invitation must not stand in for the body.
+            requiredHydration: page.upsertedMessages.map((message) => ({
+              accountId,
+              messageId: message.id,
+            })),
             roundComplete: !page.hasMore,
           },
         };
@@ -245,7 +256,7 @@ export function createEmailProviderMailboxSource(input: {
           status: "ok" as const,
           value: {
             changes: messages.map((message) =>
-              parsedMessagePatch(accountId, providerName, message),
+              parsedMessagePatch(accountId, provider.name, message),
             ),
             bodies:
               purpose === "body" ? hydratedBodies(accountId, messages) : [],
@@ -284,7 +295,7 @@ export function createEmailProviderMailboxSource(input: {
                 messageId: message.id,
               })),
               changes: slice.map((message) =>
-                parsedMessagePatch(accountId, providerName, message),
+                parsedMessagePatch(accountId, provider.name, message),
               ),
               nextPage:
                 start + pageSize < messages.length
@@ -302,22 +313,48 @@ export function createEmailProviderMailboxSource(input: {
     async search({ predicate, page, pageSize }) {
       const compiled = compileMailboxSearch(predicate);
       if (!compiled) return { status: "unsupported" };
-      const result = await provider.searchMessages({
-        query: compiled.query,
-        maxResults: Math.min(pageSize, maxPageSize),
-        pageToken: page ?? undefined,
-        ...(compiled.folder
-          ? {
-              folder: compiled.folder,
-              includeSpamTrash: true as const,
-              labelIds: [compiled.folder === "spam" ? "SPAM" : "TRASH"],
-            }
-          : {}),
-      });
+      let result: Awaited<ReturnType<EmailProvider["searchMessages"]>>;
+      try {
+        result = await provider.searchMessages({
+          query: "",
+          mailboxSearch: compiled.search,
+          maxResults: Math.min(pageSize, maxPageSize),
+          pageToken: page ?? undefined,
+        });
+      } catch (error) {
+        // A rejected query fails the same way every time, so the client
+        // must drop it rather than retry it.
+        if (isRejectedProviderRequest(error)) return { status: "unsupported" };
+        return mapProviderError(error);
+      }
+      const candidates = await mapWithConcurrency(
+        result.messages,
+        5,
+        async (message) => {
+          const fields = searchMessageFields(accountId, message);
+          if (!messageMatchesPredicate(fields, compiled.filter)) return null;
+          const text = compiled.search.text;
+          if (!text || messageMatchesPredicate(fields, text)) return message;
+          if (
+            text.field !== "any" ||
+            message.textPlain != null ||
+            message.textHtml != null
+          )
+            return null;
+          // List projections can omit the body that made the provider return this candidate.
+          const fullMessage = await provider.getMessage(message.id);
+          const fullFields = searchMessageFields(accountId, fullMessage);
+          return messageMatchesPredicate(fullFields, compiled.filter) &&
+            messageMatchesPredicate(fullFields, text)
+            ? fullMessage
+            : null;
+        },
+      );
+      const matches = candidates.filter((message) => message !== null);
       return {
         status: "ok",
         value: {
-          matches: result.messages.map((message) => ({
+          matches: matches.map((message) => ({
             accountId,
             messageId: message.id,
           })),
@@ -346,6 +383,28 @@ export function createEmailProviderMailboxSource(input: {
         }
         return mapProviderError(error);
       }
+    },
+  };
+  return {
+    ...source,
+    async readChangesBatch({ session, reads, pageSize, signal }) {
+      const read = (item: (typeof reads)[number]) =>
+        source.readChanges({
+          session,
+          requestId: item.requestId,
+          position: item.position,
+          pageSize,
+          signal,
+        });
+      // The first read fills the provider's folder and category lookups so the
+      // rest reuse them instead of each fetching their own.
+      const [first, ...rest] = reads;
+      if (!first) return [];
+      const firstResult = await read(first);
+      return [
+        firstResult,
+        ...(await mapWithConcurrency(rest, CHANGES_BATCH_CONCURRENCY, read)),
+      ];
     },
   };
 }
@@ -437,7 +496,14 @@ function scopedFolderId(provider: EmailProvider, scope: ScopeDescriptor) {
 function flattenFolderScopes(folders: FolderScopeNode[]) {
   const scopes: ScopeDescriptor[] = [];
   for (const folder of folders) {
-    scopes.push({ id: folder.id, kind: "folder", folderId: folder.id });
+    // New mail the user is waiting on lands in system folders; custom folders
+    // can catch up on a slower clock.
+    scopes.push({
+      id: folder.id,
+      kind: "folder",
+      folderId: folder.id,
+      priority: folder.systemType ? "high" : "low",
+    });
     scopes.push(...flattenFolderScopes(folder.childFolders ?? []));
   }
   return scopes;
@@ -467,6 +533,13 @@ function isMissingProviderResource(error: unknown) {
   );
 }
 
+function isRejectedProviderRequest(error: unknown) {
+  return (
+    extractGmailErrorInfo(error).status === 400 ||
+    extractOutlookErrorInfo(error).status === 400
+  );
+}
+
 function mapProviderError(error: unknown) {
   if (isProviderRateLimitModeError(error)) {
     return {
@@ -491,45 +564,67 @@ function mapProviderError(error: unknown) {
   };
 }
 
-function compileMailboxSearch(predicate: MailPredicate): {
-  query: string;
-  folder?: "spam" | "trash";
-} | null {
-  if (predicate.kind === "text") return { query: predicate.value };
-  if (predicate.kind !== "all") return null;
-
-  let query: string | null = null;
-  let folder: "spam" | "trash" | undefined;
-  for (const child of predicate.predicates) {
-    if (child.kind === "text") {
-      if (query) return null;
-      query = child.value;
-      continue;
-    }
-    const childFolder = spamTrashPredicateFolder(child);
-    if (!childFolder || (folder && folder !== childFolder)) return null;
-    folder = childFolder;
-  }
-  if (!query || !folder) return null;
-  return { query, folder };
-}
-
-function spamTrashPredicateFolder(
+function compileMailboxSearch(
   predicate: MailPredicate,
-): "spam" | "trash" | null {
-  if (
-    predicate.kind === "mailbox" &&
-    (predicate.mailbox === "spam" || predicate.mailbox === "trash")
-  ) {
-    return predicate.mailbox;
+): { search: ProviderMailboxSearch; filter: MailPredicate } | null {
+  const compiled: ProviderMailboxSearch = { mailbox: "all" };
+  const children: MailPredicate[] = [];
+  function flatten(part: MailPredicate) {
+    if (part.kind === "all") part.predicates.forEach(flatten);
+    else children.push(part);
   }
-  if (
-    predicate.kind === "role" &&
-    (predicate.role === "spam" || predicate.role === "trash")
-  ) {
-    return predicate.role;
+  flatten(predicate);
+  let scoped = false;
+  for (const child of children) {
+    switch (child.kind) {
+      case "text":
+        if (compiled.text || child.field === "body") return null;
+        compiled.text = child;
+        break;
+      case "mailbox":
+      case "role": {
+        const mailbox =
+          child.kind === "mailbox"
+            ? child.mailbox
+            : child.role === "draft"
+              ? "drafts"
+              : child.role;
+        if (mailbox === "snoozed" || scoped) return null;
+        compiled.mailbox = mailbox;
+        scoped = true;
+        break;
+      }
+      case "read":
+        if (compiled.read !== undefined && compiled.read !== child.value)
+          return null;
+        compiled.read = child.value;
+        break;
+      case "starred":
+        if (compiled.starred !== undefined && compiled.starred !== child.value)
+          return null;
+        compiled.starred = child.value;
+        break;
+      case "has_attachment":
+        if (
+          compiled.hasAttachment !== undefined &&
+          compiled.hasAttachment !== child.value
+        )
+          return null;
+        compiled.hasAttachment = child.value;
+        break;
+      case "not":
+        if (child.predicate.kind !== "role") return null;
+        compiled.excludedRoles ??= [];
+        compiled.excludedRoles.push(child.predicate.role);
+        break;
+      default:
+        return null;
+    }
   }
-  return null;
+  const filters = children.filter((child) => child.kind !== "text");
+  if (compiled.mailbox !== "spam" && compiled.mailbox !== "trash")
+    filters.push({ kind: "mailbox", mailbox: "all" });
+  return { search: compiled, filter: { kind: "all", predicates: filters } };
 }
 
 async function* streamToIterable(stream: ReadableStream<Uint8Array>) {
@@ -543,4 +638,19 @@ async function* streamToIterable(stream: ReadableStream<Uint8Array>) {
   } finally {
     await reader.cancel().catch(() => undefined);
   }
+}
+
+function searchMessageFields(accountId: string, message: ParsedMessage) {
+  return {
+    ...parsedMessageMetadata(message),
+    accountId,
+    messageId: message.id,
+    conversationId: message.threadId,
+    pendingOperationIds: [],
+    bodyText:
+      message.textPlain ||
+      (message.textHtml
+        ? convertEmailHtmlToText({ htmlText: message.textHtml })
+        : message.textPlain),
+  };
 }

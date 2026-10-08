@@ -6,7 +6,7 @@ import { getCalendarClientWithRefresh } from "@/utils/calendar/client";
 import {
   getGoogleApiRootUrl,
   getGoogleOauthClientOptions,
-} from "../google/oauth";
+} from "@/utils/gmail/oauth";
 
 vi.mock("@/utils/prisma");
 
@@ -16,7 +16,7 @@ vi.mock("@/env", () => ({
   },
 }));
 
-vi.mock("@/utils/google/oauth", () => ({
+vi.mock("@/utils/gmail/oauth", () => ({
   getGoogleApiRootUrl: vi.fn(() => "http://localhost:4444"),
   getGoogleOauthClientOptions: vi.fn((redirectUri?: string) => ({
     clientId: "client-id",

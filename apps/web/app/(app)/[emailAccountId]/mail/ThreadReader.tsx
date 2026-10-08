@@ -11,6 +11,7 @@ import { AlertCircleIcon, Loader2Icon, MailIcon } from "lucide-react";
 import { ReaderToolbar } from "@/app/(app)/[emailAccountId]/mail/ReaderToolbar";
 import { MailReaderSurface } from "@inboxzero/mail-ui/MailReaderSurface";
 import { isThreadStarred } from "@/app/(app)/[emailAccountId]/mail/star-state";
+import { useThreadTranslation } from "@/app/(app)/[emailAccountId]/mail/use-thread-translation";
 import type {
   ListThread,
   MailLayoutMode,
@@ -22,7 +23,9 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { getSWRFetchErrorMessage } from "@/providers/swr-error";
 import { Button } from "@/components/ui/button";
 import type { EmailLabels } from "@/providers/email-label-types";
+import { useAccount } from "@/providers/EmailAccountProvider";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
+import { PublisherDiscussion } from "@/components/team-comments/PublisherDiscussion";
 import type { OutgoingThreadMessage } from "@/utils/mail-engine/conversation-thread";
 
 const SenderContextPanel = dynamic(
@@ -67,6 +70,7 @@ export type ThreadReaderProps = {
   onRemoveLabel?: (labelId: string) => void;
   onBackToInbox: () => void;
   onArchive: () => void;
+  onMoveToInbox?: () => void;
   isUnread: boolean;
   onMarkRead: () => void;
   onMarkUnread: () => void;
@@ -104,6 +108,7 @@ export function ThreadReader({
   onRemoveLabel,
   onBackToInbox,
   onArchive,
+  onMoveToInbox,
   isUnread,
   onMarkRead,
   onMarkUnread,
@@ -121,6 +126,14 @@ export function ThreadReader({
   } | null>(null);
   const [readerRef, readerWidth] = useElementWidth();
   const headerMessage = thread?.messages.at(-1) ?? messages.at(-1);
+  const { emailAccountId } = useAccount();
+  const translation = useThreadTranslation(
+    emailAccountId,
+    headerMessage?.threadId,
+  );
+  const translatedSubject = translation?.showOriginal
+    ? undefined
+    : translation?.subject;
 
   if (error || (!headerMessage && !localAvailability)) {
     return (
@@ -169,11 +182,14 @@ export function ThreadReader({
       labels={labels}
       menu={menu}
       onArchive={onArchive}
+      onMoveToInbox={onMoveToInbox}
       onMarkRead={onMarkRead}
       onMarkUnread={onMarkUnread}
       onBackToInbox={onBackToInbox}
       onRemoveLabel={onRemoveLabel}
-      subject={headerMessage?.headers.subject ?? "Conversation"}
+      subject={
+        translatedSubject ?? headerMessage?.headers.subject ?? "Conversation"
+      }
     />
   );
 
@@ -237,6 +253,13 @@ export function ThreadReader({
         />
       ) : (
         renderToolbar()
+      )}
+      {emailAccountId && threadId && messages.length > 0 && (
+        <PublisherDiscussion
+          key={`${emailAccountId}:${threadId}`}
+          emailAccountId={emailAccountId}
+          threadId={threadId}
+        />
       )}
     </MailReaderSurface>
   );

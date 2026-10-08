@@ -114,4 +114,35 @@ describe("mobile auth browser-start route", () => {
     ).rejects.toThrow(/Invalid option/);
     expect(handlerMock).not.toHaveBeenCalled();
   });
+
+  it("directs older desktop clients to update when the PKCE challenge is missing", async () => {
+    const response = await GET(
+      new NextRequest(
+        "https://www.getinboxzero.com/api/mobile-auth/browser-start?provider=google",
+      ),
+      {} as never,
+    );
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe(
+      "https://www.getinboxzero.com/login/desktop-update-required",
+    );
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(handlerMock).not.toHaveBeenCalled();
+  });
+
+  it("directs invalid desktop auth requests to update without starting OAuth", async () => {
+    const response = await GET(
+      new NextRequest(
+        "https://www.getinboxzero.com/api/mobile-auth/browser-start?provider=google&codeChallenge=invalid",
+      ),
+      {} as never,
+    );
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe(
+      "https://www.getinboxzero.com/login/desktop-update-required",
+    );
+    expect(handlerMock).not.toHaveBeenCalled();
+  });
 });

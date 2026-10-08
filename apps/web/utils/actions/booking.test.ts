@@ -43,7 +43,6 @@ describe("booking actions", () => {
     const result = await createBookingLinkAction("email-account-id", {
       title: "Intro call",
       slug: "intro-call",
-      timezone: "UTC",
       durationMinutes: 30,
     });
 
@@ -61,7 +60,6 @@ describe("booking actions", () => {
             create: expect.objectContaining({
               name: "Default availability",
               isDefault: true,
-              timezone: "UTC",
               windows: {
                 create: [
                   { weekday: 1, startMinutes: 540, endMinutes: 1020 },
@@ -91,7 +89,6 @@ describe("booking actions", () => {
     await createBookingLinkAction("email-account-id", {
       title: "Intro call",
       slug: "intro-call",
-      timezone: "UTC",
       durationMinutes: 45,
     });
 
@@ -121,7 +118,6 @@ describe("booking actions", () => {
     const result = await createBookingLinkAction("email-account-id", {
       title: "Intro call",
       slug: "intro-call",
-      timezone: "UTC",
       durationMinutes: 30,
     });
 
@@ -188,7 +184,6 @@ describe("booking actions", () => {
     const result = await createBookingLinkAction("email-account-id", {
       title: "Intro call",
       slug: "intro-call",
-      timezone: "UTC",
       durationMinutes: 30,
       videoEnabled: false,
     });
@@ -210,7 +205,6 @@ describe("booking actions", () => {
     const result = await createBookingLinkAction("email-account-id", {
       title: "Intro call",
       slug: "intro-call",
-      timezone: "UTC",
       durationMinutes: 30,
     });
 
@@ -227,7 +221,6 @@ describe("booking actions", () => {
     const result = await createBookingLinkAction("email-account-id", {
       title: "Intro call",
       slug: "intro-call",
-      timezone: "UTC",
       durationMinutes: 30,
       destinationCalendarId: "disabled-calendar-id",
     });
@@ -252,7 +245,6 @@ describe("booking actions", () => {
     const result = await createBookingLinkAction("email-account-id", {
       title: "Intro call",
       slug: "intro-call",
-      timezone: "UTC",
       durationMinutes: 30,
     });
 
@@ -456,7 +448,6 @@ describe("booking actions", () => {
     ];
     const result = await updateBookingAvailabilityAction("email-account-id", {
       bookingLinkId: "booking-link-id",
-      timezone: "America/New_York",
       minimumNoticeMinutes: 4 * 60,
       windows,
     });
@@ -465,7 +456,6 @@ describe("booking actions", () => {
     expect(prisma.availabilitySchedule.update).toHaveBeenCalledWith({
       where: { id: "availability-schedule-id" },
       data: {
-        timezone: "America/New_York",
         windows: {
           deleteMany: {},
           create: windows,
@@ -485,7 +475,6 @@ describe("booking actions", () => {
 
     const result = await updateBookingAvailabilityAction("email-account-id", {
       bookingLinkId: "other-booking-link-id",
-      timezone: "America/New_York",
       minimumNoticeMinutes: 4 * 60,
       windows: [{ weekday: 1, startMinutes: 9 * 60, endMinutes: 12 * 60 }],
     });
@@ -514,7 +503,6 @@ describe("booking actions", () => {
       { weekday: 2, startMinutes: 9 * 60, endMinutes: 17 * 60 },
     ];
     const result = await updateDefaultAvailabilityAction("email-account-id", {
-      timezone: "America/New_York",
       windows,
     });
 
@@ -523,7 +511,6 @@ describe("booking actions", () => {
       data: {
         name: "Default availability",
         isDefault: true,
-        timezone: "America/New_York",
         emailAccount: { connect: { id: "email-account-id" } },
         windows: { create: windows },
       },
@@ -541,7 +528,6 @@ describe("booking actions", () => {
       { weekday: 4, startMinutes: 10 * 60, endMinutes: 16 * 60 },
     ];
     const result = await updateDefaultAvailabilityAction("email-account-id", {
-      timezone: "Europe/London",
       windows,
     });
 
@@ -549,7 +535,6 @@ describe("booking actions", () => {
     expect(prisma.availabilitySchedule.update).toHaveBeenCalledWith({
       where: { id: "availability-schedule-id" },
       data: {
-        timezone: "Europe/London",
         windows: {
           deleteMany: {},
           create: windows,
@@ -561,7 +546,6 @@ describe("booking actions", () => {
 
   it("rejects default availability updates with no windows", async () => {
     const result = await updateDefaultAvailabilityAction("email-account-id", {
-      timezone: "UTC",
       windows: [],
     });
 

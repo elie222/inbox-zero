@@ -4,8 +4,7 @@ import { PageHeading, PageSubHeading } from "@/components/Typography";
 type Video = {
   title: string;
   description: React.ReactNode;
-  youtubeVideoId?: string;
-  muxPlaybackId?: string;
+  muxPlaybackId: string;
 };
 
 interface PageHeaderProps {
@@ -24,9 +23,7 @@ export function PageHeader({ title, video, description }: PageHeaderProps) {
             <PageSubHeading className="mt-1">{description}</PageSubHeading>
           )}
         </div>
-        {video && (video.youtubeVideoId || video.muxPlaybackId) && (
-          <PageHeaderVideoButton video={video} />
-        )}
+        {video && <PageHeaderVideoButton video={video} />}
       </div>
     </div>
   );

@@ -40,6 +40,21 @@ describe("buildMailCommandPalette", () => {
     );
   });
 
+  it("offers moving back to the inbox instead of archiving archived conversations", () => {
+    const moveToInbox = vi.fn();
+    const commands = buildMailCommandPalette({
+      actions: { ...actions, moveToInbox },
+      hasRead: true,
+      hasUnread: false,
+      targetCount: 2,
+    });
+
+    expect(commands.map((command) => command.id)).not.toContain("mail-archive");
+    expect(
+      commands.find((command) => command.id === "mail-move-to-inbox"),
+    ).toMatchObject({ label: "Move 2 conversations to inbox" });
+  });
+
   it("labels commands for the full multi-selection", () => {
     const commands = buildMailCommandPalette({
       actions,
