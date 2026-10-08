@@ -40,6 +40,7 @@ const PENDING_ACTION_POLL_INTERVAL_MS = 250;
 const SENT_MESSAGE_RESOLVE_MAX_ATTEMPTS = 5;
 const SENT_MESSAGE_RESOLVE_RETRY_MS = 500;
 const SENT_MESSAGE_RESOLVE_LOOKBACK_MS = 60 * 1000;
+const SENT_MESSAGE_LINK_TIMEOUT_MS = 5000;
 
 const ASSISTANT_EMAIL_ACTION_METADATA: Record<
   AssistantPendingEmailActionType,
@@ -144,13 +145,23 @@ export async function confirmAssistantEmailActionForAccount({
   }
 
   if (provider === "microsoft" && confirmationResult.messageId) {
+    let linkTimeout: ReturnType<typeof setTimeout> | undefined;
     try {
-      const sentMessage = await emailProvider.getMessage(
-        confirmationResult.messageId,
-      );
+      // This optional lookup must not hold up persistence past the processing lease.
+      const sentMessage = await Promise.race([
+        emailProvider.getMessage(confirmationResult.messageId),
+        new Promise<never>((_, reject) => {
+          linkTimeout = setTimeout(
+            () => reject(new Error("Timed out resolving sent email link")),
+            SENT_MESSAGE_LINK_TIMEOUT_MS,
+          );
+        }),
+      ]);
       confirmationResult.externalUrl = sentMessage.externalUrl;
     } catch (error) {
       logger.warn("Failed to resolve sent email link", { error });
+    } finally {
+      clearTimeout(linkTimeout);
     }
   }
 

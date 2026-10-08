@@ -232,6 +232,67 @@ describe("confirmAssistantEmailAction", () => {
     });
   });
 
+  it("persists confirmation when the sent Outlook link lookup never resolves", async () => {
+    vi.useFakeTimers();
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      name: "Demo Owner",
+      email: "owner@example.com",
+    } as never);
+    prisma.chatMessage.findFirst.mockResolvedValue({
+      id: "chat-message-1",
+      chatId: "chat-1",
+      updatedAt: new Date(),
+      parts: [buildPendingSendPart()],
+    } as never);
+    prisma.chatMessage.updateMany.mockResolvedValue({ count: 1 });
+
+    let startLookup!: () => void;
+    const lookupStarted = new Promise<void>((resolve) => {
+      startLookup = resolve;
+    });
+    const sendEmailWithHtml = vi.fn().mockResolvedValue({
+      messageId: "sent-message-1",
+      threadId: "thread-1",
+    });
+    const getMessage = vi.fn().mockImplementation(() => {
+      startLookup();
+      return new Promise(() => {});
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      sendEmailWithHtml,
+      getMessage,
+    } as never);
+
+    const confirmation = confirmAssistantEmailActionForAccount({
+      chatId: "chat-1",
+      chatMessageId: "chat-message-1",
+      toolCallId: "tool-1",
+      actionType: "send_email",
+      emailAccountId: "ea_1",
+      provider: "microsoft",
+      logger: createTestLogger(),
+    });
+    await lookupStarted;
+    await vi.advanceTimersByTimeAsync(5000);
+
+    expect(prisma.chatMessage.updateMany).toHaveBeenCalledTimes(2);
+    const updatedParts = prisma.chatMessage.updateMany.mock.calls[1][0].data
+      .parts as any[];
+    expect(updatedParts[0].output.confirmationState).toBe("confirmed");
+    expect(updatedParts[0].output.confirmationResult.messageId).toBe(
+      "sent-message-1",
+    );
+    expect(
+      updatedParts[0].output.confirmationResult.externalUrl,
+    ).toBeUndefined();
+    await expect(confirmation).resolves.toMatchObject({
+      success: true,
+      confirmationState: "confirmed",
+    });
+    expect(sendEmailWithHtml).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it("keeps the sent message id unset when sent mail lookup is ambiguous", async () => {
     (prisma.emailAccount.findUnique as any)
       .mockResolvedValueOnce({
