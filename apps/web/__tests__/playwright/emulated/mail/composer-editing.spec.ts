@@ -2,6 +2,10 @@ import { expect, type Locator } from "@playwright/test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
 import {
+  createSecondEmailAccount,
+  deleteSecondEmailAccount,
+} from "./account-test-helpers";
+import {
   conversationWithSubject,
   openMail,
   openMailboxFromSidebar,
@@ -46,7 +50,7 @@ test("keeps keyboard focus in the composer and follows the message field order",
 
 test("opens the snippet picker from slash in the composer", async ({
   page,
-}) => {
+}, testInfo) => {
   await openMail(page);
   await page.getByRole("button", { name: /^Compose/ }).click();
 
@@ -60,6 +64,7 @@ test("opens the snippet picker from slash in the composer", async ({
   await expect(
     page.getByRole("option", { name: /Turn into snippet/ }),
   ).toBeVisible();
+  await capturePlaywrightCheckpoint(page, testInfo, "slash-snippet-picker");
 
   await page.keyboard.press("Escape");
   await expect(picker).toBeHidden();
@@ -105,51 +110,45 @@ test("keeps the collapsed signature when typing after clicking below it", async 
   await page.getByRole("button", { name: /^Compose/ }).click();
 
   const dialog = page.getByRole("dialog", { name: "New Message" });
+  const editorRoot = dialog.locator("[data-email-editor-root]");
   const editor = dialog.getByRole("textbox", { name: "Email message" });
-  const signatureBlock = dialog.locator(
-    "[data-email-preserved-kind='signature']",
-  );
-  await expect(signatureBlock).toBeVisible();
+  const toggle = dialog.getByRole("button", { name: "Show signature" });
+  await expect(toggle).toBeVisible();
+  await expect(editor.locator("[data-smartmail]")).toHaveCount(0);
 
-  const signatureBox = await signatureBlock.boundingBox();
-  if (!signatureBox) throw new Error("Signature block has no bounding box");
-  const editorBox = await editor.boundingBox();
-  if (!editorBox) throw new Error("Editor has no bounding box");
-
-  const emptySpaceTop = signatureBox.y + signatureBox.height;
-  const emptySpaceHeight = editorBox.y + editorBox.height - emptySpaceTop;
+  const toggleBox = await toggle.boundingBox();
+  const rootBox = await editorRoot.boundingBox();
+  if (!toggleBox || !rootBox) throw new Error("Composer has no bounding box");
+  const emptySpaceTop = toggleBox.y + toggleBox.height;
+  const emptySpaceHeight = rootBox.y + rootBox.height - emptySpaceTop;
   expect(emptySpaceHeight).toBeGreaterThan(8);
-  const clickPosition = {
-    x: editorBox.width / 2,
-    y: emptySpaceTop - editorBox.y + emptySpaceHeight / 2,
-  };
-  await editor.click({ position: clickPosition });
+  await page.mouse.click(
+    rootBox.x + rootBox.width / 2,
+    emptySpaceTop + emptySpaceHeight / 2,
+  );
   await page.keyboard.type("Draft body");
 
-  await expect(editor).toContainText("Draft body");
+  await expect(editor).toHaveText("Draft body");
+  await expect(toggle).toBeVisible();
+  await toggle.click();
+  const signature = editor.locator("[data-smartmail]");
+  await expect(signature).toContainText("Inbox Zero");
   expect(
     await editor.evaluate((element) => {
-      const signature = element.querySelector(
-        "[data-email-preserved-kind='signature']",
-      );
-      if (!signature) return false;
-
+      const signatureElement = element.querySelector("[data-smartmail]");
       const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
       while (walker.nextNode()) {
         if (walker.currentNode.textContent?.includes("Draft body")) {
           return Boolean(
-            walker.currentNode.compareDocumentPosition(signature) &
-              Node.DOCUMENT_POSITION_FOLLOWING,
+            signatureElement &&
+              walker.currentNode.compareDocumentPosition(signatureElement) &
+                Node.DOCUMENT_POSITION_FOLLOWING,
           );
         }
       }
       return false;
     }),
   ).toBe(true);
-  await expect(signatureBlock).toHaveCount(1);
-  await expect(
-    dialog.getByRole("button", { name: "Show signature" }),
-  ).toBeVisible();
   await capturePlaywrightCheckpoint(
     page,
     testInfo,
@@ -166,7 +165,7 @@ test("edits the signature and its links in place", async ({ page }) => {
   await editor.pressSequentially("Draft body");
   await dialog.getByRole("button", { name: "Show signature" }).click();
 
-  const signature = dialog.locator("[data-email-signature-content]");
+  const signature = editor.locator("[data-smartmail]");
   const footerLink = signature.getByRole("link", { name: "Inbox Zero" });
   await selectEditorText(editor, "Inbox Zero");
   await editor.press("ControlOrMeta+k");
@@ -184,7 +183,7 @@ test("edits the signature and its links in place", async ({ page }) => {
   await selectEditorText(editor, "Sent with");
   await page.keyboard.type("Written with");
   await expect(signature).toContainText("Written with Inbox Zero");
-  await expect(editor.locator(":scope > p").first()).toHaveText("Draft body");
+  await expect(editor.locator(":scope > div").first()).toHaveText("Draft body");
 });
 
 test("restores a new message draft after closing the composer", async ({
@@ -232,7 +231,7 @@ test("restores a new message draft after closing the composer", async ({
   await expect(dialog).toBeHidden();
 });
 
-test("highlights URLs while typing and pasting", async ({ page }, testInfo) => {
+test("links URLs while typing and pasting", async ({ page }, testInfo) => {
   await openMail(page);
   await page.getByRole("button", { name: /^Compose/ }).click();
   const dialog = page.getByRole("dialog", { name: "New Message" });
@@ -241,14 +240,10 @@ test("highlights URLs while typing and pasting", async ({ page }, testInfo) => {
   await expect(dialog.getByRole("listbox", { name: "Snippets" })).toHaveCount(
     0,
   );
-  await expect(editor.locator("[data-email-url-highlight]")).toHaveText(
-    "example.com/docs",
-  );
-  await expect(editor.locator("[data-email-url-highlight]")).toHaveCSS(
-    "color",
-    "rgb(37, 99, 235)",
-  );
   await editor.press("Space");
+  const typedLink = editor.getByRole("link", { name: "example.com/docs" });
+  await expect(typedLink).toHaveAttribute("href", /example\.com\/docs$/);
+  await expect(typedLink).toHaveCSS("color", "rgb(37, 99, 235)");
   await editor.evaluate((element) => {
     const clipboardData = new DataTransfer();
     clipboardData.setData("text/plain", "More at example.org/help.");
@@ -260,15 +255,10 @@ test("highlights URLs while typing and pasting", async ({ page }, testInfo) => {
       }),
     );
   });
-  await expect(editor.getByText("example.org/help", { exact: true })).toHaveCSS(
-    "color",
-    "rgb(37, 99, 235)",
-  );
-  await capturePlaywrightCheckpoint(
-    page,
-    testInfo,
-    "automatic-url-highlighting",
-  );
+  await expect(
+    editor.getByRole("link", { name: "example.org/help" }),
+  ).toHaveAttribute("href", /example\.org\/help$/);
+  await capturePlaywrightCheckpoint(page, testInfo, "automatic-url-links");
 });
 
 test("keeps editing state stable across formatting, links, paste, and files", async ({
@@ -323,16 +313,35 @@ test("keeps editing state stable across formatting, links, paste, and files", as
       }),
     );
   });
-  await expect(editor.locator("strong", { hasText: "rich" })).toBeVisible();
+  await expect(editor.locator("b, strong", { hasText: "rich" })).toBeVisible();
 
   await selectEditorText(editor, "middle");
   await formatting.getByRole("button", { name: "Bold" }).click();
-  await expect(editor.locator("strong", { hasText: "middle" })).toBeVisible();
+  await expect(
+    editor.locator("b, strong", { hasText: "middle" }),
+  ).toBeVisible();
 
   await selectEditorText(editor, "omega");
+  const selectionBox = await editor.evaluate((element) => {
+    const rect = window.getSelection()?.getRangeAt(0).getBoundingClientRect();
+    return rect && element.contains(window.getSelection()?.anchorNode ?? null)
+      ? { bottom: rect.bottom, left: rect.left, top: rect.top }
+      : null;
+  });
   await editor.press("ControlOrMeta+k");
   const addLinkDialog = dialog.getByRole("dialog", { name: "Add link" });
   await addLinkDialog.getByLabel("Link address").fill("example.com/first");
+  // The panel opens next to the text it links, not at a fixed corner.
+  const panelBox = await addLinkDialog.boundingBox();
+  if (!selectionBox || !panelBox) throw new Error("Link panel has no anchor");
+  expect(
+    Math.min(
+      Math.abs(panelBox.y - selectionBox.bottom),
+      Math.abs(panelBox.y + panelBox.height - selectionBox.top),
+    ),
+  ).toBeLessThan(24);
+  expect(Math.abs(panelBox.x - selectionBox.left)).toBeLessThan(24);
+  await capturePlaywrightCheckpoint(page, testInfo, "composer-link-panel");
   await addLinkDialog.getByRole("button", { name: "Add" }).click();
   const link = editor.getByRole("link", { name: "omega" });
   await expect(link).toHaveAttribute("href", "https://example.com/first");
@@ -379,9 +388,10 @@ test("keeps editing state stable across formatting, links, paste, and files", as
 
   await selectEditorText(editor, "middle");
   await formatting.getByRole("button", { name: "Right-to-left text" }).click();
-  await expect(editor.locator("p[dir='rtl']")).toHaveCount(1);
+  await expect(editor.locator("[dir='rtl']")).toHaveCount(1);
   await formatting.getByRole("button", { name: "Left-to-right text" }).click();
-  await expect(editor.locator("p[dir='ltr']")).toHaveCount(1);
+  await expect(editor.locator("[dir='ltr']")).toHaveCount(1);
+  await expect(editor.locator("[dir='rtl']")).toHaveCount(0);
   await selectEditorText(editor, "middle");
   await expect(
     page.getByRole("toolbar", { name: "Selection formatting" }),
@@ -418,13 +428,10 @@ test("does not add a line break for the send shortcut", async ({
   await dialog.getByPlaceholder("Subject").fill(subject);
   await editor.pressSequentially("Draft body");
   await dialog.getByRole("button", { name: "Show signature" }).click();
-  const signatureBlock = dialog.locator(
-    "[data-email-preserved-kind='signature']",
-  );
-  // The remove control only appears while hovering the signature.
-  await signatureBlock.hover();
+  const signature = editor.locator("[data-smartmail]");
+  await expect(signature).toBeVisible();
   await dialog.getByRole("button", { name: "Remove signature" }).click();
-  await expect(signatureBlock).toHaveCount(0);
+  await expect(signature).toHaveCount(0);
 
   await editor.press("ControlOrMeta+Enter");
 
@@ -481,6 +488,103 @@ test("attaches files and discards a compose draft with shortcuts", async ({
   await editor.press("ControlOrMeta+Shift+,");
   await expect(dialog).toBeHidden();
 });
+
+test("edits a table signature with a hosted logo in place", async ({
+  page,
+}, testInfo) => {
+  const { emailAccountId } = await openMail(page);
+  const secondAccount = await createSecondEmailAccount(emailAccountId, {
+    signature: TABLE_SIGNATURE_HTML,
+  });
+
+  try {
+    await page.goto(`/${emailAccountId}/mail?accountScope=all`);
+    await page.getByRole("button", { name: /^Compose/ }).click();
+    const dialog = page.getByRole("dialog", { name: "New Message" });
+    await dialog.getByRole("combobox", { name: "From" }).click();
+    await page
+      .getByRole("option", {
+        name: `${secondAccount.name} (${secondAccount.email})`,
+        exact: true,
+      })
+      .click();
+
+    const editor = dialog.getByRole("textbox", { name: "Email message" });
+    await editor.pressSequentially("Body before the signature");
+    await dialog.getByRole("button", { name: "Show signature" }).click();
+    const signature = editor.locator("[data-smartmail]");
+    await expect(signature.locator("table td")).toHaveCount(2);
+    await expect(signature.locator("td").last()).toHaveCSS(
+      "color",
+      "rgb(51, 51, 51)",
+    );
+    const logo = signature.getByRole("img", { name: "Example Company" });
+    await expect(logo).toBeAttached();
+    // Composing never requests images from the sender's host directly.
+    await expect(logo).not.toHaveAttribute(
+      "src",
+      /^https:\/\/assets\.example\.com/,
+    );
+    await capturePlaywrightCheckpoint(page, testInfo, "table-signature");
+
+    await selectEditorText(editor, "Head of Examples");
+    await page.keyboard.type("Chief Example Officer");
+    await expect(signature).toContainText("Chief Example Officer");
+    await expect(signature.locator("table")).toHaveCount(1);
+    await expect(editor.locator(":scope > div").first()).toHaveText(
+      "Body before the signature",
+    );
+    await capturePlaywrightCheckpoint(page, testInfo, "edited-table-signature");
+    await dialog.getByRole("button", { name: "Discard draft" }).click();
+  } finally {
+    await deleteSecondEmailAccount(secondAccount.accountId);
+  }
+});
+
+test("keeps pasted layout safely and restores it with the draft", async ({
+  page,
+}, testInfo) => {
+  await openMail(page);
+  await page.getByRole("button", { name: /^Compose/ }).click();
+  const dialog = page.getByRole("dialog", { name: "New Message" });
+  const editor = dialog.getByRole("textbox", { name: "Email message" });
+  await editor.pressSequentially("Numbers below");
+  await editor.press("Enter");
+  await editor.evaluate((element) => {
+    const clipboardData = new DataTransfer();
+    clipboardData.setData(
+      "text/html",
+      '<table style="border-collapse:collapse"><tbody><tr><td style="color:#0b6e4f;padding:4px 8px;border:1px solid #c8e6c9">Pasted cell</td></tr></tbody></table><img src="x" onerror="window.__pasteXss=1"><script>window.__pasteXss=1</script>',
+    );
+    element.dispatchEvent(
+      new ClipboardEvent("paste", {
+        bubbles: true,
+        cancelable: true,
+        clipboardData,
+      }),
+    );
+  });
+  const pastedCell = editor.getByRole("cell", { name: "Pasted cell" });
+  await expect(pastedCell).toHaveCSS("color", "rgb(11, 110, 79)");
+  await expect(editor.locator("script, [onerror]")).toHaveCount(0);
+  expect(
+    await page.evaluate(() => (window as { __pasteXss?: number }).__pasteXss),
+  ).toBeUndefined();
+  await capturePlaywrightCheckpoint(page, testInfo, "pasted-styled-table");
+
+  await dialog.getByRole("button", { name: "Close compose" }).click();
+  await expect(dialog).toBeHidden();
+  await page.getByRole("button", { name: /^Compose/ }).click();
+  await expect(editor).toContainText("Numbers below");
+  await expect(editor.getByRole("cell", { name: "Pasted cell" })).toHaveCSS(
+    "color",
+    "rgb(11, 110, 79)",
+  );
+  await dialog.getByRole("button", { name: "Discard draft" }).click();
+  await expect(dialog).toBeHidden();
+});
+
+const TABLE_SIGNATURE_HTML = `<table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse"><tbody><tr><td valign="top" style="padding-right:12px"><img src="https://assets.example.com/logo.png" width="48" height="48" alt="Example Company"></td><td valign="top" style="font-family:Arial,sans-serif;font-size:13px;color:#333333"><b>Example Person</b><br>Head of Examples<br><a href="https://example.com">example.com</a></td></tr></tbody></table>`;
 
 async function selectEditorText(editor: Locator, text: string) {
   await editor.evaluate((element, selectedText) => {

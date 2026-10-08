@@ -5,6 +5,7 @@ import type { ComponentType } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import NextScript from "next/script";
 import { env } from "@/env";
+import { WithCookieConsent } from "@/components/CookieConsent";
 import { trackClientConversion } from "@/utils/analytics/client-conversions";
 import {
   CONVERSION_EVENT_ID_PARAM,
@@ -22,11 +23,13 @@ export function ConversionAnalyticsScript() {
   if (!env.NEXT_PUBLIC_CONVERSION_ANALYTICS_SCRIPT_URL) return null;
 
   return (
-    <ExternalScript
-      id="conversion-analytics"
-      src={env.NEXT_PUBLIC_CONVERSION_ANALYTICS_SCRIPT_URL}
-      strategy="afterInteractive"
-    />
+    <WithCookieConsent>
+      <ExternalScript
+        id="conversion-analytics"
+        src={env.NEXT_PUBLIC_CONVERSION_ANALYTICS_SCRIPT_URL}
+        strategy="afterInteractive"
+      />
+    </WithCookieConsent>
   );
 }
 
