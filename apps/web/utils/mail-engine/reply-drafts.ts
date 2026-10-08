@@ -319,6 +319,8 @@ export async function dropReplyDraftDeletedFromMailbox(
       init: { cache: "no-store" },
     });
     if (response.status !== 404) return draft;
+    const body = (await response.json()) as { code?: string };
+    if (body.code !== "DRAFT_NOT_FOUND") return draft;
   } catch {
     return draft;
   }

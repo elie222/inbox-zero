@@ -594,7 +594,7 @@ describe("drafts deleted from the mailbox", () => {
             providerDraftId: newer.providerDraftId,
           },
         });
-        return { status: 404 };
+        return { status: 404, json: async () => ({ code: "DRAFT_NOT_FOUND" }) };
       }),
     );
 
@@ -617,7 +617,7 @@ describe("drafts deleted from the mailbox", () => {
           ...content,
           requestId: "compose-2",
         });
-        return { status: 404 };
+        return { status: 404, json: async () => ({ code: "DRAFT_NOT_FOUND" }) };
       }),
     );
 
@@ -633,6 +633,24 @@ describe("drafts deleted from the mailbox", () => {
       vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status }));
       expect(await dropReplyDraftDeletedFromMailbox(stored)).toBe(stored);
     }
+  });
+
+  it("keeps the draft when a 404 does not confirm draft deletion", async () => {
+    await saveDraftWithProvider();
+    const stored = await getReplyDraft(identity);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        status: 404,
+        json: async () => ({
+          error: "Email account not found",
+          isKnownError: true,
+        }),
+      }),
+    );
+
+    expect(await dropReplyDraftDeletedFromMailbox(stored)).toBe(stored);
+    expect((await getReplyDraft(identity))?.content).toBe(stored?.content);
   });
 
   it("keeps the draft while the mailbox copy is still there", async () => {
@@ -682,7 +700,10 @@ async function saveDraftWithProvider() {
 function stubMailboxDraftLookup(exists: boolean) {
   vi.stubGlobal(
     "fetch",
-    vi.fn().mockResolvedValue({ status: exists ? 200 : 404 }),
+    vi.fn().mockResolvedValue({
+      status: exists ? 200 : 404,
+      json: async () => (exists ? {} : { code: "DRAFT_NOT_FOUND" }),
+    }),
   );
 }
 
