@@ -867,7 +867,7 @@ export function MailShell() {
     [runOn, setStarredState, allStarred],
   );
   const snoozeTargets = useCallback(
-    (until: Date) => runOn((ids) => snooze(ids, until), true),
+    (until: Date) => runOn((ids) => snooze(ids, until), true, true),
     [runOn, snooze],
   );
   const currentLabelTargets = useMemo(
