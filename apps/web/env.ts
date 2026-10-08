@@ -659,9 +659,13 @@ const decisionModelApiKeyName =
   decisionModelApiKeyNames[
     process.env.DEFAULT_DECISION_MODEL?.split(":")[0] ?? ""
   ];
-if (decisionModelApiKeyName && !process.env[decisionModelApiKeyName]) {
+if (
+  decisionModelApiKeyName &&
+  !process.env[decisionModelApiKeyName] &&
+  !process.env.LLM_API_KEY
+) {
   throw new Error(
-    `${decisionModelApiKeyName} is required for DEFAULT_DECISION_MODEL=${process.env.DEFAULT_DECISION_MODEL}.`,
+    `${decisionModelApiKeyName} or LLM_API_KEY is required for DEFAULT_DECISION_MODEL=${process.env.DEFAULT_DECISION_MODEL}.`,
   );
 }
 

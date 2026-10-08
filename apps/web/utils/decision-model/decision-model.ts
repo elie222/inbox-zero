@@ -211,7 +211,10 @@ function getDeploymentDecisionModelConfig() {
     : null;
 }
 
-/** Resolves a `provider:model` entry, or null when its key is not set. */
+/**
+ * Resolves a `provider:model` entry, or null when neither the provider key
+ * nor LLM_API_KEY is set, matching how LLM entries resolve keys.
+ */
 export function createDecisionModelConfig(
   providerAndModel: string,
 ): DecisionModelConfig | null {
@@ -221,49 +224,49 @@ export function createDecisionModelConfig(
 
   switch (provider) {
     case "typesafe": {
-      if (!env.TYPESAFE_API_KEY) return null;
+      const apiKey = env.TYPESAFE_API_KEY || env.LLM_API_KEY;
+      if (!apiKey) return null;
       return {
         provider,
         modelId,
         model: createSystemOneDecisionModel({
           provider,
           url: "https://api.typesafe.ai/v1/systemone",
-          apiKey: env.TYPESAFE_API_KEY,
+          apiKey,
           modelId,
         }),
       };
     }
     case "openrouter": {
-      if (!env.OPENROUTER_API_KEY) return null;
+      const apiKey = env.OPENROUTER_API_KEY || env.LLM_API_KEY;
+      if (!apiKey) return null;
       return {
         provider,
         modelId,
         model: createSystemOneDecisionModel({
           provider,
           url: "https://openrouter.ai/api/alpha/decisions",
-          apiKey: env.OPENROUTER_API_KEY,
+          apiKey,
           modelId,
         }),
       };
     }
     case "gateway": {
-      if (!env.AI_GATEWAY_API_KEY) return null;
+      const apiKey = env.AI_GATEWAY_API_KEY || env.LLM_API_KEY;
+      if (!apiKey) return null;
       return {
         provider,
         modelId,
-        model: createGateway({ apiKey: env.AI_GATEWAY_API_KEY }).decisionModel(
-          modelId,
-        ),
+        model: createGateway({ apiKey }).decisionModel(modelId),
       };
     }
     case "openai": {
-      if (!env.OPENAI_API_KEY) return null;
+      const apiKey = env.OPENAI_API_KEY || env.LLM_API_KEY;
+      if (!apiKey) return null;
       return {
         provider,
         modelId,
-        model: createOpenAI({ apiKey: env.OPENAI_API_KEY }).decisionModel(
-          modelId,
-        ),
+        model: createOpenAI({ apiKey }).decisionModel(modelId),
       };
     }
     default:

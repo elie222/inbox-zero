@@ -6,6 +6,7 @@ const envMock = vi.hoisted(() => ({
   DEFAULT_DECISION_MODEL_ENABLED: false,
   TYPESAFE_API_KEY: undefined as string | undefined,
   OPENROUTER_API_KEY: undefined as string | undefined,
+  LLM_API_KEY: undefined as string | undefined,
 }));
 
 vi.mock("@/env", () => ({ env: envMock }));
@@ -43,6 +44,8 @@ describe("getDecisionModelConfig", () => {
     envMock.DEFAULT_DECISION_MODEL = "typesafe:jev-latest";
     envMock.DEFAULT_DECISION_MODEL_ENABLED = false;
     envMock.TYPESAFE_API_KEY = "key";
+    envMock.OPENROUTER_API_KEY = undefined;
+    envMock.LLM_API_KEY = undefined;
   });
 
   function mockUserSetting(
@@ -80,6 +83,18 @@ describe("getDecisionModelConfig", () => {
       provider: "openrouter",
       modelId: "cloudflare/clef",
       model: { provider: "openrouter", modelId: "cloudflare/clef" },
+    });
+  });
+
+  it("falls back to LLM_API_KEY like LLM providers do", async () => {
+    envMock.DEFAULT_DECISION_MODEL = "openrouter:cloudflare/clef";
+    envMock.OPENROUTER_API_KEY = undefined;
+    envMock.LLM_API_KEY = "shared-key";
+    mockUserSetting(true);
+
+    expect(await getDecisionModelConfig(getEmailAccount())).toMatchObject({
+      provider: "openrouter",
+      modelId: "cloudflare/clef",
     });
   });
 
