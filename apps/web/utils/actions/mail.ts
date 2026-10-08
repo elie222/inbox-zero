@@ -480,7 +480,9 @@ export const deleteDraftAction = actionClient
       }
 
       const wasDeleted = await provider.deleteDraft(draft.id, draft.version);
-      if (!wasDeleted) return;
+      if (!wasDeleted) {
+        throw new SafeError("This draft changed or was already deleted.");
+      }
 
       try {
         await markTrackedDraftDeleted({

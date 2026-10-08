@@ -19,8 +19,10 @@ import {
   organizeThreadMessages,
 } from "@/components/email-list/EmailThread";
 
+const { discardDraft } = vi.hoisted(() => ({ discardDraft: vi.fn() }));
+
 vi.mock("next-safe-action/hooks", () => ({
-  useAction: () => ({ executeAsync: vi.fn() }),
+  useAction: () => ({ executeAsync: discardDraft }),
 }));
 vi.mock("swr", () => ({ default: () => ({ data: undefined }) }));
 vi.mock("@/providers/EmailAccountProvider", () => ({
@@ -286,7 +288,10 @@ describe("EmailThread outgoing replies", () => {
 });
 
 describe("EmailThread draft discard", () => {
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    discardDraft.mockReset();
+  });
 
   // A draft opened from the Drafts folder is the entire conversation, so once
   // it is discarded there is nothing left to read and the reader has to leave.
@@ -305,6 +310,32 @@ describe("EmailThread draft discard", () => {
     await act(async () => {});
 
     expect(onThreadDiscarded).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    "action error",
+    "exception",
+  ])("keeps the conversation and restores its draft after a deletion %s", async (failure) => {
+    if (failure === "action error") {
+      discardDraft.mockResolvedValue({ serverError: "Deletion failed" });
+    } else {
+      discardDraft.mockRejectedValue(new Error("Deletion failed"));
+    }
+    const onThreadDiscarded = vi.fn();
+    render(
+      <EmailThread
+        messages={[createReaderDraft("failed-draft", "1000")]}
+        onThreadDiscarded={onThreadDiscarded}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Discard draft" }));
+    await act(async () => {});
+
+    expect(screen.getByRole("textbox", { name: "Email message" })).toBeTruthy();
+    expect(onThreadDiscarded).not.toHaveBeenCalled();
   });
 
   it("keeps a draft-only conversation open while another draft remains", async () => {

@@ -134,14 +134,14 @@ describe("deleteDraftAction", () => {
     );
   });
 
-  it("preserves tracking when the draft changes before deletion", async () => {
+  it("reports failure and preserves tracking when the draft changes before deletion", async () => {
     mocks.deleteDraft.mockResolvedValue(false);
 
     const result = await deleteDraftAction(EMAIL_ACCOUNT_ID, {
       draftMessageId: "message-1",
     });
 
-    expect(result?.serverError).toBeUndefined();
+    expect(result?.serverError).toBeTruthy();
     expect(mocks.deleteDraft).toHaveBeenCalledWith("draft-1", 'W/"version-1"');
     expect(mocks.markTrackedDraftDeleted).not.toHaveBeenCalled();
   });
