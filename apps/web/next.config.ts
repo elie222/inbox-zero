@@ -400,10 +400,6 @@ const nextConfig: NextConfig = {
         source: "/ingest/:path*",
       },
       {
-        destination: "https://lmsqueezy.com/affiliate.js",
-        source: "/vendor/lemon/affiliate.js",
-      },
-      {
         destination: "https://api.dub.co/track/:path",
         source: "/_proxy/dub/track/:path",
       },
