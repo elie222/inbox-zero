@@ -86,7 +86,7 @@ export async function deleteUser({
 
       // Watches and meeting bots are found through rows that cascade with the
       // user, so every mailbox is released before the user is deleted.
-      await Promise.all(
+      const releases = await Promise.allSettled(
         emailAccounts.map(async (emailAccount) => {
           await stopWatchingEmailAccount({
             emailAccountId: emailAccount.id,
@@ -100,17 +100,22 @@ export async function deleteUser({
           });
         }),
       );
+      // Settle every mailbox first so a retry cannot overlap unfinished cleanup.
+      const failedRelease = releases.find(
+        (result): result is PromiseRejectedResult =>
+          result.status === "rejected",
+      );
+      if (failedRelease) throw failedRelease.reason;
 
-      const contactsDeleted = Promise.allSettled(
+      await deleteUserRows({ userId, emailAccountIds, logger });
+
+      await Promise.allSettled(
         emailAccounts.flatMap(({ email }) => [
           deleteLoopsContact(email),
           deletePosthogUser({ email }),
           deleteResendContact({ email }),
         ]),
       );
-
-      await deleteUserRows({ userId, emailAccountIds, logger });
-      await contactsDeleted;
 
       logger.info("User resources deleted");
     });

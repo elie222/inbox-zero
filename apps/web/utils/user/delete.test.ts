@@ -274,6 +274,7 @@ describe("deleteUser", () => {
       "provider unavailable",
     );
     expect(prisma.user.deleteMany).not.toHaveBeenCalled();
+    expect(deleteLoopsContact).not.toHaveBeenCalled();
   });
 
   it("deletes ownerless solo organizations before deleting the user", async () => {
