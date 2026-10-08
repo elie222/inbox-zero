@@ -19,6 +19,7 @@ const confirmationResultSchema = z.object({
   actionType: assistantPendingEmailActionTypeSchema,
   messageId: z.string().nullish(),
   threadId: z.string().nullish(),
+  externalUrl: z.string().nullish(),
   to: z.string().nullish(),
   subject: z.string().nullish(),
   confirmedAt: z.string().min(1),
