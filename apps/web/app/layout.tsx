@@ -17,6 +17,10 @@ import { UTM } from "@/app/utm";
 import { startupImage } from "@/app/startup-image";
 import { Toaster } from "@/components/Toast";
 import {
+  CookieConsentBanner,
+  WithCookieConsent,
+} from "@/components/CookieConsent";
+import {
   BRAND_ICON_URL,
   BRAND_NAME,
   SUPPORT_EMAIL,
@@ -188,16 +192,19 @@ export default async function RootLayout({
         <AxiomWebVitals />
         <UTM />
         <SpeedInsights />
-        {env.NEXT_PUBLIC_DUB_REFER_DOMAIN && (
-          <DubAnalytics
-            apiHost="/_proxy/dub"
-            scriptProps={{ src: "/_proxy/dub/script.js" }}
-            domainsConfig={{ refer: env.NEXT_PUBLIC_DUB_REFER_DOMAIN }}
-          />
-        )}
-        {env.NEXT_PUBLIC_GTM_ID ? (
-          <GoogleTagManager gtmId={env.NEXT_PUBLIC_GTM_ID} />
-        ) : null}
+        <WithCookieConsent>
+          {env.NEXT_PUBLIC_DUB_REFER_DOMAIN && (
+            <DubAnalytics
+              apiHost="/_proxy/dub"
+              scriptProps={{ src: "/_proxy/dub/script.js" }}
+              domainsConfig={{ refer: env.NEXT_PUBLIC_DUB_REFER_DOMAIN }}
+            />
+          )}
+          {env.NEXT_PUBLIC_GTM_ID ? (
+            <GoogleTagManager gtmId={env.NEXT_PUBLIC_GTM_ID} />
+          ) : null}
+        </WithCookieConsent>
+        <CookieConsentBanner />
       </body>
     </html>
   );

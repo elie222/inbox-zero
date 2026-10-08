@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useCookieConsent } from "@/hooks/useCookieConsent";
 
 const ATTRIBUTION_PARAMS = [
   { param: "utm_source", cookie: "utm_source" },
@@ -16,13 +17,16 @@ const ATTRIBUTION_PARAMS = [
   { param: "gad_source", cookie: "gad_source" },
 ] as const;
 
-function setUtmCookies() {
+function setUtmCookies({ includeTracking }: { includeTracking: boolean }) {
   const urlParams = new URLSearchParams(window.location.search);
 
   // expires in 30 days
   const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toUTCString();
 
   for (const { param, cookie } of ATTRIBUTION_PARAMS) {
+    // Referral codes credit the referring user, so they don't need consent.
+    if (!includeTracking && cookie !== "referral_code") continue;
+
     const value = urlParams.get(param);
     if (!value || hasCookie(cookie)) continue;
 
@@ -37,9 +41,15 @@ function hasCookie(name: string) {
 }
 
 export function UTM() {
+  const consent = useCookieConsent();
+
   useEffect(() => {
-    setUtmCookies();
-  }, []);
+    if (!consent) return;
+
+    setUtmCookies({
+      includeTracking: consent === "not-required" || consent === "granted",
+    });
+  }, [consent]);
 
   return null;
 }
