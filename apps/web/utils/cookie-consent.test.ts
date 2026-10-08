@@ -18,10 +18,17 @@ describe("isConsentTimeZone", () => {
   it.each([
     ["Europe/Berlin", true],
     ["Europe/London", true],
+    ["Europe/Zurich", true],
+    ["Europe/Oslo", true],
     ["Atlantic/Canary", true],
     ["Asia/Nicosia", true],
+    ["America/Martinique", true],
+    ["Europe/Istanbul", false],
+    ["Europe/Moscow", false],
+    ["Europe/Kiev", false],
+    ["Europe/Belgrade", false],
+    ["Asia/Jerusalem", false],
     ["America/New_York", false],
-    ["Asia/Tokyo", false],
     [undefined, false],
   ])("%s requires consent: %s", (timeZone, expected) => {
     expect(isConsentTimeZone(timeZone)).toBe(expected);

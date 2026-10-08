@@ -32,27 +32,62 @@ const TRACKING_COOKIE_PREFIXES = [
 const TRACKING_STORAGE_PREFIXES = ["ph_", "__ph"];
 
 // Location is read from the device time zone so no request is needed and the
-// check works on self-hosted deployments. Every European zone is included,
-// which also covers the UK, Switzerland and the EEA.
-const CONSENT_TIME_ZONE_PREFIXES = ["Europe/"];
+// check works on self-hosted deployments. Covers the EU (including its
+// outermost regions), the rest of the EEA, the UK and Switzerland, which share
+// the same cookie consent rules.
 const CONSENT_TIME_ZONES = new Set([
+  // EU
+  "Europe/Amsterdam",
+  "Europe/Athens",
+  "Europe/Berlin",
+  "Europe/Bratislava",
+  "Europe/Brussels",
+  "Europe/Bucharest",
+  "Europe/Budapest",
+  "Europe/Busingen",
+  "Europe/Copenhagen",
+  "Europe/Dublin",
+  "Europe/Helsinki",
+  "Europe/Lisbon",
+  "Europe/Ljubljana",
+  "Europe/Luxembourg",
+  "Europe/Madrid",
+  "Europe/Malta",
+  "Europe/Mariehamn",
+  "Europe/Paris",
+  "Europe/Prague",
+  "Europe/Riga",
+  "Europe/Rome",
+  "Europe/Sofia",
+  "Europe/Stockholm",
+  "Europe/Tallinn",
+  "Europe/Vienna",
+  "Europe/Vilnius",
+  "Europe/Warsaw",
+  "Europe/Zagreb",
+  "Africa/Ceuta",
+  "America/Cayenne",
+  "America/Guadeloupe",
+  "America/Marigot",
+  "America/Martinique",
+  "Asia/Famagusta",
+  "Asia/Nicosia",
   "Atlantic/Azores",
   "Atlantic/Canary",
-  "Atlantic/Faroe",
   "Atlantic/Madeira",
+  "Indian/Mayotte",
+  "Indian/Reunion",
+  // Rest of the EEA
   "Atlantic/Reykjavik",
-  "Arctic/Longyearbyen",
-  "Asia/Nicosia",
-  "Asia/Famagusta",
+  "Europe/Oslo",
+  "Europe/Vaduz",
+  // UK and Switzerland
+  "Europe/London",
+  "Europe/Zurich",
 ]);
 
 export function isConsentTimeZone(timeZone: string | undefined): boolean {
-  if (!timeZone) return false;
-
-  return (
-    CONSENT_TIME_ZONE_PREFIXES.some((prefix) => timeZone.startsWith(prefix)) ||
-    CONSENT_TIME_ZONES.has(timeZone)
-  );
+  return Boolean(timeZone && CONSENT_TIME_ZONES.has(timeZone));
 }
 
 export function getCookieConsentState(): CookieConsentState {
