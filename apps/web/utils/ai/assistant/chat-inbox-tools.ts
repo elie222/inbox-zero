@@ -1334,6 +1334,7 @@ export const replyEmailTool = ({
           message,
           messages,
           emailAccount,
+          logger,
         });
 
         return createPendingReplyEmailOutput(

@@ -270,7 +270,10 @@ describe("chat inbox tools", () => {
     expect(replyToEmail).not.toHaveBeenCalled();
   });
 
-  it("does not offer an unchecked reply when language matching fails", async () => {
+  it.each([
+    new Error("Translation unavailable"),
+    new DOMException("Translation timed out", "TimeoutError"),
+  ])("preserves the original reply for confirmation when language matching fails: %s", async (error) => {
     vi.mocked(createEmailProvider).mockResolvedValue({
       getMessage: vi.fn().mockResolvedValue(
         getMockMessage({
@@ -279,7 +282,8 @@ describe("chat inbox tools", () => {
         }),
       ),
     } as any);
-    mockGenerateObject.mockRejectedValue(new Error("Translation unavailable"));
+    mockGenerateObject.mockRejectedValue(error);
+    const warning = vi.spyOn(logger, "warn");
 
     const toolInstance = replyEmailTool({
       email: TEST_EMAIL,
@@ -295,7 +299,19 @@ describe("chat inbox tools", () => {
       content: "Terça-feira funciona para mim.",
     });
 
-    expect(result).toEqual({ error: "Failed to prepare reply" });
+    expect(result).toMatchObject({
+      success: true,
+      requiresConfirmation: true,
+      pendingAction: {
+        messageId: "message-1",
+        content: "Terça-feira funciona para mim.",
+      },
+    });
+    expect(warning).toHaveBeenCalledWith(
+      "Failed to match reply language; using original draft",
+      { error },
+    );
+    warning.mockRestore();
   });
 
   it("prepares forward flow without sending immediately", async () => {

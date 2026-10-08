@@ -308,7 +308,7 @@ export async function aiProcessAssistantChat({
           replyEmail: replyEmailTool({
             ...toolOptions,
             emailAccount: user,
-            messages,
+            messages: memoryConversationMessages,
           }),
         }
       : {}),

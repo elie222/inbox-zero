@@ -66,6 +66,28 @@ const scenarios = [
     expected: "A French reply confirming the proposal is ready for review.",
   },
   {
+    name: "old language request does not leak into an unrelated reply",
+    original: "Could you confirm whether the proposal is ready for review?",
+    requests: [
+      "Write the previous reply in French.",
+      "That reply is finished.",
+      "Read the next email about the proposal.",
+      "Confirm that the proposal is ready for review.",
+    ],
+    draft: "A proposta está pronta para revisão.",
+    expected: "An English reply confirming the proposal is ready for review.",
+  },
+  {
+    name: "latest explicit request takes precedence over a recent earlier request",
+    original: "Could you confirm whether the proposal is ready for review?",
+    requests: [
+      "Write this reply in French.",
+      "Actually, write it in Spanish and confirm the proposal is ready for review.",
+    ],
+    draft: "A proposta está pronta para revisão.",
+    expected: "A Spanish reply confirming the proposal is ready for review.",
+  },
+  {
     name: "quoted history does not determine reply language",
     original:
       "Could you confirm whether the proposal is ready for review?\n\nOn Monday, sender@example.com wrote:\n> Você pode preparar a proposta para revisão?",
