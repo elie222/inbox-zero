@@ -573,7 +573,7 @@ function ComposeEmailFormContent({
               : {}),
           },
         });
-        if (!result?.data) throw new Error(getActionErrorMessage(result ?? {}));
+        if (!result?.data) throw new Error(DRAFT_SYNC_FAILED_MESSAGE);
         savedAttachments.current = attachmentSnapshot;
         if (result.data.messageId) {
           await ingestMailboxDraft(
@@ -594,7 +594,7 @@ function ComposeEmailFormContent({
         draftMessageId: providerDraftMessageId,
         draftId: providerDraftId.current,
       });
-      if (!result?.data) throw new Error(getActionErrorMessage(result ?? {}));
+      if (!result?.data) throw new Error(DRAFT_SYNC_FAILED_MESSAGE);
       providerDraftId.current = result.data.draftId;
       const { messageId } = result.data;
       const replacedMessage = messageId && messageId !== providerDraftMessageId;
@@ -1644,6 +1644,9 @@ function ComposeEmailFormContent({
     </form>
   );
 }
+
+const DRAFT_SYNC_FAILED_MESSAGE =
+  "Couldn't sync this draft to your mailbox. It's saved on this device and we'll keep trying.";
 
 const RECIPIENT_LABELS: Record<ComposeRecipientField, string> = {
   to: "To",
