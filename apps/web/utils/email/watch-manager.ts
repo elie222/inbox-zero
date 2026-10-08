@@ -334,18 +334,14 @@ async function watchEmails({
 export async function stopWatchingEmailAccount({
   emailAccountId,
   provider,
-  hasAccessToken,
   subscriptionId,
   logger,
 }: {
   emailAccountId: string;
   provider: string;
-  hasAccessToken: boolean;
   subscriptionId: string | null;
   logger: Logger;
 }) {
-  if (!hasAccessToken) return;
-
   let emailProvider: EmailProvider;
   try {
     emailProvider = await createEmailProvider({

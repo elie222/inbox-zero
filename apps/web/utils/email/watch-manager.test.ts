@@ -284,7 +284,6 @@ describe("stopWatchingEmailAccount", () => {
     await stopWatchingEmailAccount({
       emailAccountId: "account-1",
       provider: "microsoft",
-      hasAccessToken: true,
       subscriptionId: "subscription-1",
       logger,
     });
@@ -308,7 +307,6 @@ describe("stopWatchingEmailAccount", () => {
       stopWatchingEmailAccount({
         emailAccountId: "account-1",
         provider: "google",
-        hasAccessToken: true,
         subscriptionId: null,
         logger,
       }),

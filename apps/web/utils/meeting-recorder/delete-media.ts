@@ -1,7 +1,9 @@
 import type { MeetingRecording } from "@/generated/prisma/client";
+import { MeetingRecordingStatus } from "@/generated/prisma/enums";
 import { captureException } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
 import { createMeetingBotProvider } from "@/utils/meeting-recorder/create-bot-provider";
+import { LIVE_STATUSES } from "@/utils/meeting-recorder/recording-lifecycle";
 import prisma from "@/utils/prisma";
 
 /**
@@ -34,7 +36,12 @@ export async function deleteRecordingMedia({
   }
 }
 
-export async function deleteAccountRecordingMedia({
+/**
+ * Recording rows are the only record of where a bot and its media live, and
+ * they cascade with the account. Provider errors propagate so the account is
+ * not deleted while a bot could still join a call or media remains.
+ */
+export async function releaseAccountRecordings({
   emailAccountId,
   logger,
 }: {
@@ -47,10 +54,21 @@ export async function deleteAccountRecordingMedia({
       mediaDeletedAt: null,
       externalBotId: { not: null },
     },
-    select: { id: true, botProvider: true, externalBotId: true },
+    select: { botProvider: true, externalBotId: true, status: true },
   });
 
-  for (const recording of recordings) {
-    await deleteRecordingMedia({ recording, logger });
+  for (const { botProvider, externalBotId, status } of recordings) {
+    if (!externalBotId) continue;
+
+    const provider = createMeetingBotProvider(botProvider, logger);
+    if (BOT_MAY_BE_ACTIVE_STATUSES.includes(status)) {
+      await provider.cancelBot(externalBotId);
+    }
+    await provider.deleteMedia(externalBotId);
   }
 }
+
+const BOT_MAY_BE_ACTIVE_STATUSES: MeetingRecordingStatus[] = [
+  ...LIVE_STATUSES,
+  MeetingRecordingStatus.CANCELLING,
+];

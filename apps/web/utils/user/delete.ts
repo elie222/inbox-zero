@@ -15,8 +15,7 @@ import type { Logger } from "@/utils/logger";
 import { prepareMemberRemovalNotifications } from "@/utils/team-comments/member-removal";
 import { deleteAccountUploadDirectory } from "@/utils/mail-api/upload-blobs";
 import { clearCachedResearchForUser } from "@/utils/redis/research-cache";
-import { releaseAccountBookings } from "@/utils/meeting-recorder/reconcile";
-import { deleteAccountRecordingMedia } from "@/utils/meeting-recorder/delete-media";
+import { releaseAccountRecordings } from "@/utils/meeting-recorder/delete-media";
 import {
   DELETE_ACCOUNT_REQUIRES_OWNER_TRANSFER_ERROR,
   getDeletableOrganizationIdsOrThrow,
@@ -37,9 +36,6 @@ export async function deleteUser({
     where: { userId },
     select: {
       provider: true,
-      access_token: true,
-      refresh_token: true,
-      expires_at: true,
       emailAccount: {
         select: {
           id: true,
@@ -82,39 +78,41 @@ export async function deleteUser({
         deletedEmailAccountIds: emailAccountIds,
       });
 
-      const resourcesPromise = accounts.map(async (account) => {
-        if (!account.emailAccount) return Promise.resolve();
+      const emailAccounts = accounts.flatMap((account) =>
+        account.emailAccount
+          ? [{ ...account.emailAccount, provider: account.provider }]
+          : [],
+      );
 
-        return deleteResources({
-          emailAccountId: account.emailAccount.id,
-          email: account.emailAccount.email,
-          userId,
-          provider: account.provider,
-          hasAccessToken: Boolean(account.access_token),
-          subscriptionId: account.emailAccount.watchEmailsSubscriptionId,
-          logger,
-        });
-      });
+      // Watches and meeting bots are found through rows that cascade with the
+      // user, so every mailbox is released before the user is deleted.
+      await Promise.all(
+        emailAccounts.map(async (emailAccount) => {
+          await stopWatchingEmailAccount({
+            emailAccountId: emailAccount.id,
+            provider: emailAccount.provider,
+            subscriptionId: emailAccount.watchEmailsSubscriptionId,
+            logger,
+          });
+          await releaseAccountRecordings({
+            emailAccountId: emailAccount.id,
+            logger,
+          });
+        }),
+      );
 
-      // Then proceed with the regular deletion process
-      const results = await Promise.allSettled(resourcesPromise);
+      const contactsDeleted = Promise.allSettled(
+        emailAccounts.flatMap(({ email }) => [
+          deleteLoopsContact(email),
+          deletePosthogUser({ email }),
+          deleteResendContact({ email }),
+        ]),
+      );
+
+      await deleteUserRows({ userId, emailAccountIds, logger });
+      await contactsDeleted;
 
       logger.info("User resources deleted");
-
-      // Log any failures
-      const failures = results.filter((r) => r.status === "rejected");
-      if (failures.length > 0) {
-        logger.error("Some deletion operations failed", {
-          failures: failures.map((f) => (f as PromiseRejectedResult).reason),
-        });
-
-        const originalError = (failures[0] as PromiseRejectedResult)?.reason;
-        const customError = new Error("User deletion error");
-        customError.cause = originalError;
-
-        captureException(customError, { extra: { failures } });
-        throw originalError;
-      }
     });
 
     const emails = accounts
@@ -150,46 +148,22 @@ async function deleteSoloOrganizations({
   );
 }
 
-async function deleteResources({
-  emailAccountId,
-  email,
+async function deleteUserRows({
   userId,
-  provider,
-  hasAccessToken,
-  subscriptionId,
+  emailAccountIds,
   logger,
 }: {
-  emailAccountId: string;
-  email: string;
   userId: string;
-  provider: string;
-  hasAccessToken: boolean;
-  subscriptionId: string | null;
+  emailAccountIds: string[];
   logger: Logger;
 }) {
-  const resourcesPromise = Promise.allSettled([
-    deleteLoopsContact(email),
-    deletePosthogUser({ email }),
-    deleteResendContact({ email }),
-  ]);
-
   try {
-    // These read the account's tokens and recordings, which cascade with the
-    // user, so they must finish before the rows go.
-    await stopWatchingEmailAccount({
-      emailAccountId,
-      provider,
-      hasAccessToken,
-      subscriptionId,
-      logger,
-    });
-    await releaseAccountBookings({ emailAccountId, logger });
-    await deleteAccountRecordingMedia({ emailAccountId, logger });
-
     // First delete ExecutedRules and their associated ExecutedActions in batches
     // If we try do this in one go for a user with a lot of executed rules, this will fail
     logger.info("Deleting ExecutedRules in batches");
-    await deleteExecutedRulesInBatches({ emailAccountId, logger });
+    for (const emailAccountId of emailAccountIds) {
+      await deleteExecutedRulesInBatches({ emailAccountId, logger });
+    }
 
     logger.info("Deleting user");
     const notifyConversations = await prepareMemberRemovalNotifications(
@@ -205,12 +179,6 @@ async function deleteResources({
 
     // PostHog tracks the completed delete after the database delete succeeds.
     if (deletedUser.count > 0) await trackUserDeleted(userId);
-    await deleteAccountUploadDirectory(emailAccountId).catch((error) => {
-      logger.error("Failed to delete account mail uploads", {
-        error,
-        emailAccountId,
-      });
-    });
   } catch (error) {
     if (
       isOrganizationOwnerInvariantError(error) ||
@@ -218,15 +186,17 @@ async function deleteResources({
     ) {
       throw new SafeError(DELETE_ACCOUNT_REQUIRES_OWNER_TRANSFER_ERROR);
     }
-
-    logger.error("Error during database user deletion process", {
-      error,
-    });
-    captureException(error, { emailAccountId, userEmail: email });
     throw error;
   }
 
-  return resourcesPromise;
+  for (const emailAccountId of emailAccountIds) {
+    await deleteAccountUploadDirectory(emailAccountId).catch((error) => {
+      logger.error("Failed to delete account mail uploads", {
+        error,
+        emailAccountId,
+      });
+    });
+  }
 }
 
 /**

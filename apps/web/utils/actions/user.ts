@@ -141,7 +141,7 @@ export const deleteEmailAccountAction = actionClientUser
           email: true,
           accountId: true,
           watchEmailsSubscriptionId: true,
-          account: { select: { provider: true, access_token: true } },
+          account: { select: { provider: true } },
           user: { select: { email: true } },
         },
       });
@@ -194,7 +194,6 @@ export const deleteEmailAccountAction = actionClientUser
         await stopWatchingEmailAccount({
           emailAccountId,
           provider: emailAccount.account.provider,
-          hasAccessToken: Boolean(emailAccount.account.access_token),
           subscriptionId: emailAccount.watchEmailsSubscriptionId,
           logger,
         });
@@ -241,7 +240,6 @@ export const deleteEmailAccountAction = actionClientUser
         await stopWatchingEmailAccount({
           emailAccountId,
           provider: emailAccount.account.provider,
-          hasAccessToken: Boolean(emailAccount.account.access_token),
           subscriptionId: emailAccount.watchEmailsSubscriptionId,
           logger,
         });
