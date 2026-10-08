@@ -1,5 +1,6 @@
 import { NextResponse, after } from "next/server";
 import {
+  consumeStream,
   convertToModelMessages,
   createUIMessageStream,
   createUIMessageStreamResponse,
@@ -43,6 +44,12 @@ import {
 } from "@/utils/ai/assistant/chat-seen-rules-revision";
 import { getToolFailureWarning } from "@/utils/ai/assistant/chat-response-guard";
 import { flushLoggerSafely } from "@/utils/logger-flush";
+import {
+  claimActiveStream,
+  clearActiveStream,
+  getChatStreamContext,
+  startChatRun,
+} from "@/utils/chat/active-run";
 
 export const maxDuration = 800;
 
@@ -137,147 +144,159 @@ export const POST = withEmailAccount("chat", async (request) => {
   const chatRunId = crypto.randomUUID();
   const runLogger = request.logger.with({ chatId: chat.id, chatRunId });
 
-  const hiddenInlineActionMessage =
-    buildHiddenInlineActionMessage(inlineActions);
-
-  await saveChatMessage({
-    chat: { connect: { id: chat.id } },
-    id: message.id,
-    role: "user",
-    parts: message.parts,
-    metadata: buildUserChatMessageMetadata({
-      runId: chatRunId,
-      context,
-      inlineActions,
-    }),
-  });
-
-  after(() =>
-    trackFirstTimeEvent({
-      emailAccountId,
-      event: FIRST_TIME_EVENTS.FIRST_CHAT_MESSAGE,
-    }),
-  );
-
-  const latestCompaction = chat.compactions[0];
-
-  const messagesForModel = latestCompaction
-    ? chat.messages.filter(
-        (m) => m.createdAt >= latestCompaction.compactedBeforeCreatedAt,
-      )
-    : chat.messages;
-
-  const conversationUiMessages = [
-    ...convertToUIMessages({ ...chat, messages: messagesForModel }),
-    message,
-  ];
-
-  const uiMessages = [
-    ...conversationUiMessages,
-    ...(hiddenInlineActionMessage ? [hiddenInlineActionMessage] : []),
-  ];
-
-  const conversationModelMessages = await convertToModelMessages(
-    conversationUiMessages,
-  );
-
-  let modelMessages = hiddenInlineActionMessage
-    ? await convertToModelMessages(uiMessages)
-    : conversationModelMessages;
-
-  if (latestCompaction) {
-    modelMessages = [
-      buildCompactionSummaryMessage(latestCompaction.summary),
-      ...modelMessages,
-    ];
+  // The reply's message id doubles as its stream id, so a client can name the
+  // run it wants to stop by the message it is already showing.
+  const streamId = crypto.randomUUID();
+  const chatRun = await startChatRun(streamId);
+  if (!(await claimActiveStream({ chatId: chat.id, streamId }))) {
+    chatRun.end();
+    return NextResponse.json(
+      { error: "A reply is already in progress." },
+      { status: 409 },
+    );
   }
 
-  if (shouldCompact(modelMessages)) {
-    try {
-      const { compactedMessages, summary, compactedCount } =
-        await compactMessages({
-          messages: modelMessages,
-          user,
-          logger: request.logger,
-        });
-
-      if (compactedCount > 0 && summary.trim().length > 0) {
-        modelMessages = compactedMessages;
-
-        // Compute boundary: keep at least RECENT_MESSAGES_TO_KEEP DB messages.
-        // messagesForModel doesn't include the new user message (saved after query),
-        // so we keep RECENT_MESSAGES_TO_KEEP from the existing set.
-        const keepFromIndex = Math.max(
-          0,
-          messagesForModel.length - RECENT_MESSAGES_TO_KEEP,
-        );
-        const compactedBeforeCreatedAt =
-          messagesForModel[keepFromIndex]?.createdAt ?? new Date();
-
-        const [, memories] = await Promise.all([
-          prisma.$transaction([
-            prisma.chatCompaction.create({
-              data: {
-                chatId: chat.id,
-                summary,
-                messageCount: compactedCount,
-                compactedBeforeCreatedAt,
-              },
-            }),
-            prisma.chat.update({
-              where: { id: chat.id },
-              data: { compactionCount: { increment: 1 } },
-            }),
-          ]),
-          extractMemories({
-            messages: conversationModelMessages,
-            user,
-          }).catch((err) => {
-            request.logger.error("Failed to extract memories", {
-              error: err,
-            });
-            return [];
-          }),
-        ]);
-
-        if (memories.length > 0) {
-          await prisma.chatMemory.createMany({
-            data: memories.map((m) => ({
-              content: m.content,
-              chatId: chat.id,
-              emailAccountId,
-            })),
-            skipDuplicates: true,
-          });
-        }
-      }
-    } catch (compactionError) {
-      request.logger.error(
-        "Chat compaction failed, continuing with full history",
-        {
-          error: compactionError,
-        },
-      );
-    }
-  }
-
-  let memories: { content: string; date: string }[] = [];
   try {
-    const recentMemories = await prisma.chatMemory.findMany({
-      where: { emailAccountId },
-      orderBy: { createdAt: "desc" },
-      take: 20,
-      select: { content: true, createdAt: true },
+    const hiddenInlineActionMessage =
+      buildHiddenInlineActionMessage(inlineActions);
+
+    await saveChatMessage({
+      chat: { connect: { id: chat.id } },
+      id: message.id,
+      role: "user",
+      parts: message.parts,
+      metadata: buildUserChatMessageMetadata({
+        runId: chatRunId,
+        context,
+        inlineActions,
+      }),
     });
-    memories = recentMemories.map((m) => ({
-      content: m.content,
-      date: formatUtcDate(m.createdAt),
-    }));
-  } catch (error) {
-    request.logger.warn("Failed to load memories for chat", { error });
-  }
 
-  try {
+    after(() =>
+      trackFirstTimeEvent({
+        emailAccountId,
+        event: FIRST_TIME_EVENTS.FIRST_CHAT_MESSAGE,
+      }),
+    );
+
+    const latestCompaction = chat.compactions[0];
+
+    const messagesForModel = latestCompaction
+      ? chat.messages.filter(
+          (m) => m.createdAt >= latestCompaction.compactedBeforeCreatedAt,
+        )
+      : chat.messages;
+
+    const conversationUiMessages = [
+      ...convertToUIMessages({ ...chat, messages: messagesForModel }),
+      message,
+    ];
+
+    const uiMessages = [
+      ...conversationUiMessages,
+      ...(hiddenInlineActionMessage ? [hiddenInlineActionMessage] : []),
+    ];
+
+    const conversationModelMessages = await convertToModelMessages(
+      conversationUiMessages,
+    );
+
+    let modelMessages = hiddenInlineActionMessage
+      ? await convertToModelMessages(uiMessages)
+      : conversationModelMessages;
+
+    if (latestCompaction) {
+      modelMessages = [
+        buildCompactionSummaryMessage(latestCompaction.summary),
+        ...modelMessages,
+      ];
+    }
+
+    if (shouldCompact(modelMessages)) {
+      try {
+        const { compactedMessages, summary, compactedCount } =
+          await compactMessages({
+            messages: modelMessages,
+            user,
+            logger: request.logger,
+          });
+
+        if (compactedCount > 0 && summary.trim().length > 0) {
+          modelMessages = compactedMessages;
+
+          // Compute boundary: keep at least RECENT_MESSAGES_TO_KEEP DB messages.
+          // messagesForModel doesn't include the new user message (saved after query),
+          // so we keep RECENT_MESSAGES_TO_KEEP from the existing set.
+          const keepFromIndex = Math.max(
+            0,
+            messagesForModel.length - RECENT_MESSAGES_TO_KEEP,
+          );
+          const compactedBeforeCreatedAt =
+            messagesForModel[keepFromIndex]?.createdAt ?? new Date();
+
+          const [, memories] = await Promise.all([
+            prisma.$transaction([
+              prisma.chatCompaction.create({
+                data: {
+                  chatId: chat.id,
+                  summary,
+                  messageCount: compactedCount,
+                  compactedBeforeCreatedAt,
+                },
+              }),
+              prisma.chat.update({
+                where: { id: chat.id },
+                data: { compactionCount: { increment: 1 } },
+              }),
+            ]),
+            extractMemories({
+              messages: conversationModelMessages,
+              user,
+            }).catch((err) => {
+              request.logger.error("Failed to extract memories", {
+                error: err,
+              });
+              return [];
+            }),
+          ]);
+
+          if (memories.length > 0) {
+            await prisma.chatMemory.createMany({
+              data: memories.map((m) => ({
+                content: m.content,
+                chatId: chat.id,
+                emailAccountId,
+              })),
+              skipDuplicates: true,
+            });
+          }
+        }
+      } catch (compactionError) {
+        request.logger.error(
+          "Chat compaction failed, continuing with full history",
+          {
+            error: compactionError,
+          },
+        );
+      }
+    }
+
+    let memories: { content: string; date: string }[] = [];
+    try {
+      const recentMemories = await prisma.chatMemory.findMany({
+        where: { emailAccountId },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+        select: { content: true, createdAt: true },
+      });
+      memories = recentMemories.map((m) => ({
+        content: m.content,
+        date: formatUtcDate(m.createdAt),
+      }));
+    } catch (error) {
+      request.logger.warn("Failed to load memories for chat", { error });
+    }
+
     const inboxStats = await inboxStatsPromise;
     let seenRulesRevision: number | null = null;
     const assistantRun: AssistantChatRunMetadata = {
@@ -320,10 +339,12 @@ export const POST = withEmailAccount("chat", async (request) => {
       onEnd: (result) => {
         assistantRun.finishReason = result.finishReason;
       },
+      abortSignal: chatRun.abortSignal,
       logger: runLogger,
     });
 
     const stream = createUIMessageStream({
+      generateId: () => streamId,
       execute: async ({ writer }) => {
         let responseMessage: UIMessage | null = null;
 
@@ -335,6 +356,8 @@ export const POST = withEmailAccount("chat", async (request) => {
         })) {
           writer.write(chunk);
         }
+
+        if (chatRun.abortSignal.aborted) return;
 
         const warning = getToolFailureWarning(responseMessage);
         if (!warning) return;
@@ -350,51 +373,62 @@ export const POST = withEmailAccount("chat", async (request) => {
         });
         writer.write({ type: "text-end", id: warningPartId });
       },
-      onEnd: async ({ messages }) => {
-        assistantRun.visibleTextProduced = hasVisibleAssistantText(messages);
-        const persistableMessages = messages.filter(
-          isPersistableAssistantMessage,
-        );
-
-        if (persistableMessages.length < messages.length) {
-          runLogger.error("Skipping empty assistant chat messages", {
-            skippedCount: messages.length - persistableMessages.length,
-          });
-        }
-
-        let insertedMessageCount = 0;
-        if (persistableMessages.length > 0) {
-          const result = await saveChatMessages(
-            persistableMessages,
-            chat.id,
-            runLogger,
-            assistantRun,
+      onEnd: async ({ messages: endMessages, isAborted }) => {
+        try {
+          // A stopped reply is saved as it stood, minus tool calls that never
+          // got a result, which would otherwise show as running forever.
+          const messages = isAborted
+            ? endMessages.map(removeIncompleteToolParts)
+            : endMessages;
+          assistantRun.visibleTextProduced = hasVisibleAssistantText(messages);
+          const persistableMessages = messages.filter(
+            isPersistableAssistantMessage,
           );
-          insertedMessageCount = result.count;
-        }
 
-        if (seenRulesRevision != null) {
-          await saveLastSeenRulesRevision({
-            chatId: chat.id,
-            rulesRevision: seenRulesRevision,
-            logger: runLogger,
+          if (persistableMessages.length < messages.length) {
+            runLogger.error("Skipping empty assistant chat messages", {
+              skippedCount: messages.length - persistableMessages.length,
+            });
+          }
+
+          let insertedMessageCount = 0;
+          if (persistableMessages.length > 0) {
+            const result = await saveChatMessages(
+              persistableMessages,
+              chat.id,
+              runLogger,
+              assistantRun,
+            );
+            insertedMessageCount = result.count;
+          }
+
+          if (seenRulesRevision != null) {
+            await saveLastSeenRulesRevision({
+              chatId: chat.id,
+              rulesRevision: seenRulesRevision,
+              logger: runLogger,
+            });
+          }
+
+          runLogger.info("Assistant chat run completed", {
+            provider: assistantRun.provider,
+            modelName: assistantRun.modelName,
+            pipelineVersion: assistantRun.pipelineVersion,
+            deploymentCommit: assistantRun.deploymentCommit,
+            finishReason: assistantRun.finishReason,
+            stepCount: assistantRun.stepCount,
+            toolCallCount: assistantRun.toolCallCount,
+            visibleTextProduced: assistantRun.visibleTextProduced,
+            stopped: isAborted,
+            assistantMessageCount: messages.filter(
+              (message) => message.role === "assistant",
+            ).length,
+            insertedMessageCount,
           });
+        } finally {
+          chatRun.end();
+          await clearActiveStream({ chatId: chat.id, streamId });
         }
-
-        runLogger.info("Assistant chat run completed", {
-          provider: assistantRun.provider,
-          modelName: assistantRun.modelName,
-          pipelineVersion: assistantRun.pipelineVersion,
-          deploymentCommit: assistantRun.deploymentCommit,
-          finishReason: assistantRun.finishReason,
-          stepCount: assistantRun.stepCount,
-          toolCallCount: assistantRun.toolCallCount,
-          visibleTextProduced: assistantRun.visibleTextProduced,
-          assistantMessageCount: messages.filter(
-            (message) => message.role === "assistant",
-          ).length,
-          insertedMessageCount,
-        });
 
         await flushLoggerSafely(runLogger, {
           action: "assistant-chat",
@@ -403,8 +437,29 @@ export const POST = withEmailAccount("chat", async (request) => {
       },
     });
 
-    return createUIMessageStreamResponse({ stream });
+    const streamContext = getChatStreamContext();
+    return createUIMessageStreamResponse({
+      stream,
+      // The run keeps going if the client disconnects, so its reply is still
+      // saved; with Redis the stream is also kept for the client to resume.
+      consumeSseStream: ({ stream: sseStream }) => {
+        if (!streamContext) {
+          consumeStream({ stream: sseStream });
+          return;
+        }
+        streamContext
+          .createNewResumableStream(streamId, () => sseStream)
+          .catch((error) => {
+            runLogger.error("Failed to create resumable chat stream", {
+              error,
+            });
+            consumeStream({ stream: sseStream });
+          });
+      },
+    });
   } catch (error) {
+    chatRun.end();
+    await clearActiveStream({ chatId: chat.id, streamId });
     runLogger.error("Error in assistant chat", { error });
     await flushLoggerSafely(runLogger, {
       action: "assistant-chat",
@@ -575,4 +630,17 @@ function getInvalidChatRequestMetadata(value: unknown) {
     },
     { attachmentCount: 0, textLength: 0 },
   );
+}
+
+function removeIncompleteToolParts(message: UIMessage): UIMessage {
+  return {
+    ...message,
+    parts: message.parts.filter(
+      (part) =>
+        !(
+          "toolCallId" in part &&
+          (part.state === "input-streaming" || part.state === "input-available")
+        ),
+    ),
+  };
 }

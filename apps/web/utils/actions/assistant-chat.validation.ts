@@ -212,3 +212,7 @@ export const assistantInputSchema = z.object({
 });
 
 export type AssistantInput = z.infer<typeof assistantInputSchema>;
+
+export const stopAssistantChatSchema = z.object({
+  activeStreamId: z.string().trim().min(1).optional(),
+});

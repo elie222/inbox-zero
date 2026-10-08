@@ -174,23 +174,6 @@ export async function partialUpdateRule({
   });
 }
 
-export function updateRuleInstructions({
-  ruleId,
-  emailAccountId,
-  instructions,
-}: {
-  ruleId: string;
-  emailAccountId: string;
-  instructions: string;
-}) {
-  return updateRuleAndQueueHistory({
-    ruleId,
-    emailAccountId,
-    data: { instructions },
-    triggerType: "instructions_updated",
-  });
-}
-
 export function setRuleRunOnThreads({
   ruleId,
   emailAccountId,

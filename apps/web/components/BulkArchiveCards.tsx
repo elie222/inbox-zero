@@ -300,6 +300,7 @@ export function BulkArchiveCards({
         const isExpanded = expandedCategory === categoryName;
         const isArchived = archivedCategories[categoryName];
         const isLoading = loadingCategories[categoryName];
+        const selectedCount = getSelectedCount(categoryName);
 
         return (
           <Card key={categoryName} className="overflow-hidden">
@@ -374,11 +375,8 @@ export function BulkArchiveCards({
                       ) : (
                         <actionLabels.icon className="mr-2 size-4" />
                       )}
-                      {isExpanded
-                        ? actionLabels.countLabel(
-                            getSelectedCount(categoryName),
-                            senders.length,
-                          )
+                      {isExpanded || selectedCount < senders.length
+                        ? actionLabels.countLabel(selectedCount, senders.length)
                         : actionLabels.allLabel}
                     </Button>
                   )}
@@ -415,8 +413,7 @@ export function BulkArchiveCards({
                           }
                         />
                         <span className="text-sm text-muted-foreground">
-                          {getSelectedCount(categoryName)} of {senders.length}{" "}
-                          selected
+                          {selectedCount} of {senders.length} selected
                         </span>
                       </div>
                       {senders.map((sender) => (

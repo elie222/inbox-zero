@@ -67,6 +67,40 @@ afterEach(() => {
 });
 
 describe("OutlookProvider.searchMessages", () => {
+  it.each([
+    ["sent", "sentitems", "sent-folder-id", false, "SENT"],
+    ["drafts", "drafts", "drafts-folder-id", true, "DRAFT"],
+    ["spam", "junkemail", "spam-folder-id", false, "SPAM"],
+    ["trash", "deleteditems", "trash-folder-id", false, "TRASH"],
+  ] as const)("queries the Graph %s folder and preserves its roles", async (mailbox, folder, folderID, isDraft, role) => {
+    const client = createMockOutlookClient(
+      [createMessage({ id: "hit", parentFolderId: folderID, isDraft })],
+      {
+        folderIdCache: {
+          inbox: "inbox-folder-id",
+          sentitems: "sent-folder-id",
+          drafts: "drafts-folder-id",
+          junkemail: "spam-folder-id",
+          deleteditems: "trash-folder-id",
+        },
+        categoryMapCache: new Map(),
+      },
+    );
+    const provider = new OutlookProvider(client, createTestLogger());
+    const result = await provider.searchMessages({
+      query: "",
+      mailboxSearch: { mailbox },
+    });
+    expect(client.getRequestLog()).toContainEqual(
+      expect.objectContaining({
+        apiPath: `/me/mailFolders/${folder}/messages`,
+        search: undefined,
+        filter: undefined,
+      }),
+    );
+    expect(result.messages[0]?.labelIds).toContain(role);
+  });
+
   it("resolves a nested folder and searches its messages without a category filter", async () => {
     const message = createMessage({
       id: "matching-message",
@@ -469,9 +503,52 @@ describe("OutlookProvider.getLatestMessageInThread", () => {
       ]),
     );
 
+    const getMessageSpy = vi
+      .spyOn(provider, "getMessage")
+      .mockImplementation(async (id) => ({ id }) as never);
+
     const latest = await provider.getLatestMessageInThread("thread-1");
 
+    expect(getMessageSpy).toHaveBeenCalledWith("missing-date");
     expect(latest?.id).toBe("missing-date");
+  });
+
+  it("finds the latest message across every page of the conversation", async () => {
+    const next =
+      "https://graph.microsoft.com/v1.0/me/messages?$skiptoken=page2";
+    const provider = new OutlookProvider(
+      createMockOutlookClient([], {
+        responsesByApiPath: {
+          "/me/messages": {
+            value: [
+              createMessage({
+                id: "older",
+                receivedDateTime: "2026-01-01T00:00:00.000Z",
+                isDraft: false,
+              }),
+            ],
+            "@odata.nextLink": next,
+          },
+          [next]: {
+            value: [
+              createMessage({
+                id: "newest",
+                receivedDateTime: "2026-01-02T00:00:00.000Z",
+                isDraft: false,
+              }),
+            ],
+          },
+        },
+      }),
+    );
+    const getMessageSpy = vi
+      .spyOn(provider, "getMessage")
+      .mockImplementation(async (id) => ({ id }) as never);
+
+    const latest = await provider.getLatestMessageInThread("thread-1");
+
+    expect(getMessageSpy).toHaveBeenCalledWith("newest");
+    expect(latest?.id).toBe("newest");
   });
 
   it("returns null when all messages are drafts", async () => {
@@ -640,6 +717,44 @@ describe("OutlookProvider snapshot mutations", () => {
     await expect(
       provider.markMessagesReadState(["message"], true),
     ).rejects.toBe(failure);
+  });
+});
+
+describe("OutlookProvider.removeThreadLabels", () => {
+  it("only rewrites messages that carry a removed category", async () => {
+    const patch = vi.fn().mockResolvedValue({});
+    const messages = [
+      { id: "labeled", categories: ["To Reply", "Work"] },
+      { id: "other-category", categories: ["Work"] },
+      { id: "uncategorized" },
+    ];
+    const get = vi.fn().mockResolvedValue({ value: messages });
+    const api = vi.fn((path: string) => {
+      if (path === "/me/messages") {
+        return { filter: () => ({ select: () => ({ get }) }) };
+      }
+      const message = messages.find((m) => path.endsWith(`/${m.id}`));
+      const request = {
+        select: () => request,
+        header: () => request,
+        get: async () => message,
+        patch: (payload: unknown) => patch(path, payload),
+      };
+      return request;
+    });
+    const provider = new OutlookProvider(
+      { getClient: () => ({ api }) } as never,
+      createTestLogger(),
+    );
+    vi.spyOn(provider, "getLabels").mockResolvedValue([
+      { id: "to-reply-id", name: "To Reply", type: "user" },
+    ]);
+
+    await provider.removeThreadLabels("thread-1", ["to-reply-id"]);
+
+    expect(patch.mock.calls).toEqual([
+      ["/me/messages/labeled", { categories: ["Work"] }],
+    ]);
   });
 });
 
@@ -1622,17 +1737,11 @@ describe("OutlookProvider.labelMessage", () => {
     const createLabelSpy = vi
       .spyOn(outlookLabelModule, "createLabel")
       .mockResolvedValue({ id: "new-category-id", displayName: "To Reply" });
-    const labelMessageSpy = vi
-      .spyOn(outlookLabelModule, "labelMessage")
-      .mockResolvedValue(undefined);
+    const updateCategoriesSpy = vi
+      .spyOn(outlookLabelModule, "updateMessageCategories")
+      .mockResolvedValue(true);
 
-    const provider = new OutlookProvider(
-      createMockOutlookClient([], {
-        responsesByApiPath: {
-          "/me/messages/message-1": () => ({ categories: [] }),
-        } as any,
-      }),
-    );
+    const provider = new OutlookProvider(createMockOutlookClient([]));
 
     const result = await provider.labelMessage({
       messageId: "message-1",
@@ -1643,12 +1752,11 @@ describe("OutlookProvider.labelMessage", () => {
     expect(createLabelSpy).toHaveBeenCalledWith(
       expect.objectContaining({ name: "To Reply" }),
     );
-    expect(labelMessageSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        messageId: "message-1",
-        categories: ["To Reply"],
-      }),
+    expect(updateCategoriesSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ messageId: "message-1" }),
     );
+    const { update } = updateCategoriesSpy.mock.calls[0][0];
+    expect(update([])).toEqual(["To Reply"]);
     expect(result).toEqual({
       usedFallback: true,
       actualLabelId: "new-category-id",
@@ -1658,7 +1766,10 @@ describe("OutlookProvider.labelMessage", () => {
   it("skips the label action when the category is gone and no name is available", async () => {
     vi.spyOn(outlookLabelModule, "getLabels").mockResolvedValue([]);
     const createLabelSpy = vi.spyOn(outlookLabelModule, "createLabel");
-    const labelMessageSpy = vi.spyOn(outlookLabelModule, "labelMessage");
+    const updateCategoriesSpy = vi.spyOn(
+      outlookLabelModule,
+      "updateMessageCategories",
+    );
 
     const provider = new OutlookProvider(createMockOutlookClient([]));
 
@@ -1669,7 +1780,7 @@ describe("OutlookProvider.labelMessage", () => {
     });
 
     expect(createLabelSpy).not.toHaveBeenCalled();
-    expect(labelMessageSpy).not.toHaveBeenCalled();
+    expect(updateCategoriesSpy).not.toHaveBeenCalled();
     expect(result).toEqual({});
   });
 });
@@ -1767,7 +1878,16 @@ function createMockOutlookClient(
           },
           post: async (body: {
             requests: Array<{ id: string; method: string; url: string }>;
-          }) => options?.batchPost?.(body),
+            inputIds?: string[];
+          }) =>
+            body.inputIds
+              ? {
+                  value: body.inputIds.map((id) => ({
+                    sourceId: id,
+                    targetId: id,
+                  })),
+                }
+              : options?.batchPost?.(body),
           get: async () => {
             requestLog.push({
               apiPath,

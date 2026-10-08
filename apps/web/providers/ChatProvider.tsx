@@ -64,6 +64,7 @@ type ChatContextType = {
   setNewChat: () => void;
   submitTextMessage: (text: string) => Promise<void>;
   handleSubmit: () => void;
+  stop: () => Promise<void>;
   context: MessageContext | null;
   setContext: (context: MessageContext | null) => void;
   attachments: Attachment[];
@@ -87,6 +88,13 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const pendingRequestContextRef = useRef<MessageContext | null>(null);
   const previousChatIdRef = useRef(chatId);
   const previousEmailAccountIdRef = useRef<string | null>(null);
+  // After an explicit stop, don't reattach until the user sends again.
+  const stoppedRef = useRef(false);
+  // A send failed or dropped mid-reply; the run may still be going server-side.
+  const interruptedRef = useRef(false);
+  const resumingRef = useRef(false);
+  const resumedStreamIdRef = useRef<string | null>(null);
+  const messagesAtHideRef = useRef<unknown>(null);
 
   const { data } = useChatMessages(chatId);
   const persistedMessageIds = useMemo(
@@ -129,16 +137,43 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     // messages: initialMessages, // NOTE: couldn't get this to work
     experimental_throttle: 100,
     generateId: generateUUID,
-    onFinish: async () => {
+    onFinish: async ({ isAbort }) => {
       pendingInlineActionsRef.current = null;
       pendingRequestRef.current = null;
       pendingRequestContextRef.current = null;
+      // An abort is a stop or a reattach, which refetch once the server has
+      // saved the reply; refetching now would drop the partial one shown.
       await Promise.all([
         mutate("/api/user/rules"),
-        chatId ? mutate(`/api/chats/${chatId}`) : Promise.resolve(),
+        chatId && !isAbort ? mutate(`/api/chats/${chatId}`) : Promise.resolve(),
       ]);
     },
     onError: (error) => {
+      if (resumingRef.current) {
+        interruptedRef.current = true;
+        logger.warn("Assistant chat resume failed", {
+          chatId: chatId ?? chat.id,
+          errorName: error.name,
+        });
+        return;
+      }
+
+      interruptedRef.current = true;
+      if (document.visibilityState === "visible") resumeActiveRun();
+
+      // The server already has the message once the reply starts streaming,
+      // so a dropped connection is reattached rather than reported as unsent.
+      if (chat.status === "streaming") {
+        pendingInlineActionsRef.current = null;
+        pendingRequestRef.current = null;
+        pendingRequestContextRef.current = null;
+        logger.warn("Assistant chat stream interrupted", {
+          chatId: chatId ?? chat.id,
+          errorName: error.name,
+        });
+        return;
+      }
+
       const pendingRequest = pendingRequestRef.current;
       const pendingInlineActions = pendingInlineActionsRef.current;
       const pendingContext = pendingRequestContextRef.current;
@@ -166,9 +201,70 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     },
   });
 
+  const isRunActive =
+    chat.status === "submitted" || chat.status === "streaming";
+  const handledDataRef = useRef<{ chatId: string; data: typeof data } | null>(
+    null,
+  );
+
   useEffect(() => {
+    const handled = handledDataRef.current;
+    if (handled?.chatId === chat.id && handled.data === data) return;
+    handledDataRef.current = { chatId: chat.id, data };
+    // The reply is saved only when the run ends, so data fetched mid-run (e.g.
+    // on window focus) is behind the local messages. onFinish refetches once
+    // the run ends, which brings in the saved reply.
+    if (isRunActive) return;
     chat.setMessages(data ? convertToUIMessages(data) : []);
-  }, [chat.setMessages, data]);
+  }, [chat.id, chat.setMessages, data, isRunActive]);
+
+  const resumeActiveRun = useCallback(async () => {
+    if (!chatId || stoppedRef.current || resumingRef.current) return;
+
+    resumingRef.current = true;
+    interruptedRef.current = false;
+    try {
+      // Drop a stalled request first so two streams never write the reply.
+      await chat.stop();
+      await chat.resumeStream();
+    } finally {
+      resumingRef.current = false;
+    }
+    await mutate(`/api/chats/${chatId}`);
+  }, [chat.resumeStream, chat.stop, chatId, mutate]);
+
+  // Reattach to a reply still running for this chat, e.g. after a reload or
+  // when opening the chat mid-run, once its saved messages are shown.
+  const activeStreamId = data?.activeStreamId ?? null;
+  useEffect(() => {
+    if (!activeStreamId || resumedStreamIdRef.current === activeStreamId)
+      return;
+    if (chat.status === "submitted" || chat.status === "streaming") return;
+    if (chat.messages.at(-1)?.id === activeStreamId) return;
+
+    resumedStreamIdRef.current = activeStreamId;
+    resumeActiveRun();
+  }, [activeStreamId, chat.messages, chat.status, resumeActiveRun]);
+
+  // Mobile browsers drop the connection of a backgrounded tab while the reply
+  // keeps running, so reattach when the tab comes back.
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        messagesAtHideRef.current = chat.messages;
+        return;
+      }
+
+      const stalled =
+        chat.status === "streaming" &&
+        chat.messages === messagesAtHideRef.current;
+      if (interruptedRef.current || stalled) resumeActiveRun();
+    };
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () =>
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+  }, [chat.messages, chat.status, resumeActiveRun]);
 
   useEffect(() => {
     inlineActionsRef.current = inlineActions;
@@ -178,6 +274,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     if (previousChatIdRef.current === chatId) return;
 
     previousChatIdRef.current = chatId;
+    stoppedRef.current = false;
+    interruptedRef.current = false;
     if (pendingRequestRef.current?.chatId === chatId) return;
 
     pendingInlineActionsRef.current = null;
@@ -231,6 +329,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (!chatId) setChatId(chat.id);
+      stoppedRef.current = false;
+      interruptedRef.current = false;
 
       const requestChatId = chatId ?? chat.id;
       const requestContext = context;
@@ -271,6 +371,52 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     },
     [sendMessageParts],
   );
+
+  const stop = useCallback(async () => {
+    stoppedRef.current = true;
+    interruptedRef.current = false;
+    if (!chatId) {
+      await chat.stop();
+      return;
+    }
+
+    // The reply's message id is its stream id; sending it keeps a late stop
+    // from cancelling a newer reply.
+    const lastMessage = chat.messages.at(-1);
+    const activeStreamId =
+      lastMessage?.role === "assistant" &&
+      !persistedMessageIds.has(lastMessage.id)
+        ? lastMessage.id
+        : undefined;
+
+    const stopRequest = fetch(`/api/chat/${chatId}/stop`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        [EMAIL_ACCOUNT_HEADER]: emailAccountId,
+      },
+      body: JSON.stringify({ activeStreamId }),
+    });
+    await chat.stop();
+
+    try {
+      const response = await stopRequest;
+      if (!response.ok) throw new Error(`Status ${response.status}`);
+    } catch (error) {
+      logger.warn("Failed to stop assistant chat run", {
+        chatId,
+        errorName: error instanceof Error ? error.name : "UnknownError",
+      });
+    }
+    await mutate(`/api/chats/${chatId}`);
+  }, [
+    chat.messages,
+    chat.stop,
+    chatId,
+    emailAccountId,
+    mutate,
+    persistedMessageIds,
+  ]);
 
   const handleSubmit = useCallback(() => {
     const text = input.trim();
@@ -330,6 +476,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         setNewChat,
         submitTextMessage,
         handleSubmit,
+        stop,
         context,
         setContext,
         attachments,

@@ -13,6 +13,12 @@ export const commandPaletteOpenAtom = atom(false);
  */
 export const shortcutsDialogOpenAtom = atom(false);
 
+/**
+ * Open state for the feedback dialog, so both the sidebar and Command K can
+ * open it. The mail screen has no global sidebar, so Command K is its only way in.
+ */
+export const feedbackDialogOpenAtom = atom(false);
+
 export type MailCommandContext = {
   actions: {
     archive: () => void;
@@ -26,6 +32,8 @@ export type MailCommandContext = {
     move?: () => void;
     openExternal?: () => void;
     snooze?: (until: Date) => void;
+    translate?: () => void;
+    comment?: () => void;
     trash?: () => void;
   };
   allStarred?: boolean;

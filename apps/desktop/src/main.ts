@@ -94,6 +94,7 @@ let lastResumedAt: number | null = null;
 let lastFocused: BrowserWindow | null = null;
 let persistWindowsTimer: ReturnType<typeof setTimeout> | undefined;
 let pendingAuthProof: { verifier: string; expiresAt: number } | null = null;
+const handledAuthStates = new Set<string>();
 let pendingAuthUrl: string | null = null;
 let pendingCallbackPath: string | null = null;
 let isQuitting = false;
@@ -209,7 +210,7 @@ function startDesktopApp() {
   app.on("second-instance", (_event, argv) => {
     const protocolUrl = findDesktopProtocolUrl(argv);
     if (protocolUrl) {
-      handleAuthCallbackUrl(protocolUrl).catch(showSignInError);
+      handleAuthCallbackUrl(protocolUrl).catch(reportSignInError);
     }
     focusAppWindow();
   });
@@ -227,7 +228,7 @@ function startDesktopApp() {
   app.on("open-url", (event, url) => {
     event.preventDefault();
     if (app.isReady()) {
-      handleAuthCallbackUrl(url).catch(showSignInError);
+      handleAuthCallbackUrl(url).catch(reportSignInError);
       return;
     }
     pendingAuthUrl = url;
@@ -677,9 +678,17 @@ async function handleAuthCallbackUrl(url: string) {
   const window = focusAppWindow();
   const callback = parseDesktopAuthCallback(url);
   if (!callback.ok) {
-    dialog.showErrorBox("Sign in failed", callback.error);
+    // The callback text comes from the URL, so keep it out of telemetry.
+    captureDesktopError(new Error("Authentication callback failed"), {
+      area: "sign-in",
+    });
+    showSignInError(new Error(callback.error));
     return;
   }
+  // The server can issue more than one code per sign-in when the browser
+  // repeats the callback request.
+  if (handledAuthStates.has(callback.state)) return;
+  handledAuthStates.add(callback.state);
 
   try {
     const proof = pendingAuthProof;
@@ -695,7 +704,8 @@ async function handleAuthCallbackUrl(url: string) {
     if (pendingAuthProof === proof) pendingAuthProof = null;
     await window.loadURL(consumePostAuthUrl()).catch(() => {});
   } catch (error) {
-    showSignInError(error);
+    handledAuthStates.delete(callback.state);
+    reportSignInError(error);
   }
 }
 
@@ -765,6 +775,11 @@ function getStartAuthCallbackPath(options: unknown): string | null {
 async function openExternal(url: string) {
   if (!isAllowedExternalUrl(url)) return;
   await shell.openExternal(url);
+}
+
+function reportSignInError(error: unknown) {
+  captureDesktopError(error, { area: "sign-in" });
+  showSignInError(error);
 }
 
 function showSignInError(error: unknown) {

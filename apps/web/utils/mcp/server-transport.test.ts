@@ -18,6 +18,10 @@ vi.mock("@/utils/rule/rule", () => ({
   deleteRule: vi.fn(),
 }));
 vi.mock("@/utils/email/provider", () => ({ createEmailProvider: vi.fn() }));
+vi.mock("@/utils/mcp/mail-client-bundle", () => ({
+  getMailClientResourceUri: () => "ui://mail/test.html",
+  readMailClientHtml: vi.fn(),
+}));
 vi.mock("@/app/api/user/stats/by-period/controller", () => ({
   getStatsByPeriod: vi.fn(),
 }));
@@ -46,9 +50,13 @@ it("initializes a real MCP client and handles scoped tool calls over stateless H
   try {
     await client.connect(transport);
     const tools = await client.listTools();
-    expect(tools.tools.map((tool) => tool.name)).toContain(
-      "list_email_accounts",
+    expect(tools.tools.map((tool) => tool.name)).toEqual(
+      expect.arrayContaining(["list_email_accounts", "open_mail"]),
     );
+    for (const tool of tools.tools) {
+      expect(tool.annotations?.title).toEqual(expect.any(String));
+      expect(tool.annotations?.title).toBe(tool.title);
+    }
     prisma.emailAccount.findMany.mockResolvedValue([
       {
         id: "inbox",
@@ -71,6 +79,11 @@ it("initializes a real MCP client and handles scoped tool calls over stateless H
           provider: "google",
         },
       ],
+      permissions: expect.objectContaining({
+        read: true,
+        write: false,
+        send: false,
+      }),
     });
     expect(prisma.emailAccount.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { userId: "owner" } }),

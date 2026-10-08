@@ -91,6 +91,7 @@ export function createMockEmailProvider(
       .fn()
       .mockResolvedValue({ messages: [], nextPageToken: undefined }),
     searchContacts: vi.fn().mockResolvedValue([]),
+    getContactPhotos: vi.fn().mockResolvedValue({}),
     getMessagesFromSender: vi
       .fn()
       .mockResolvedValue({ messages: [], nextPageToken: undefined }),

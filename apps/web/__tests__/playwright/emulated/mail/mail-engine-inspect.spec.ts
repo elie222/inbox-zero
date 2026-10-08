@@ -143,6 +143,10 @@ test("opens account reconnect from blocked_auth catch-up", async ({
     });
   };
   await page.route("**/api/mail/v1/accounts/**/changes", fulfillBlockedAuth);
+  await page.route(
+    "**/api/mail/v1/accounts/**/changes/batch",
+    fulfillBlockedAuth,
+  );
   await page.route("**/api/mail/v1/accounts/**/enumeration", async (route) => {
     enumerationRequests += 1;
     await route.continue();

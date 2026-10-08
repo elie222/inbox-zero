@@ -302,6 +302,40 @@ describe("Provider Edge Cases", () => {
       );
     });
 
+    it("still runs rules when the sender address cannot be parsed", async () => {
+      const provider = createMockEmailProvider({
+        getMessage: vi.fn().mockResolvedValue(
+          getMockParsedMessage({
+            labelIds: ["INBOX"],
+            headers: {
+              from: "",
+              to: "user@test.com",
+              subject: "Test",
+              date: "2024-01-01",
+            },
+          }),
+        ),
+        isSentMessage: vi.fn().mockReturnValue(false),
+      });
+
+      await processHistoryItem(
+        { messageId: "msg-123", threadId: "thread-123" },
+        {
+          ...baseOptions,
+          emailAccount: {
+            ...getDefaultEmailAccount(),
+            autoCategorizeSenders: true,
+          },
+          hasAiAccess: true,
+          hasAutomationRules: true,
+          provider,
+        },
+      );
+
+      expect(categorizeSender).not.toHaveBeenCalled();
+      expect(runRules).toHaveBeenCalledOnce();
+    });
+
     it("categorizes when any sender casing variant has no category", async () => {
       vi.mocked(prisma.newsletter.findFirst).mockResolvedValueOnce(null);
       vi.mocked(prisma.newsletter.findMany).mockResolvedValue([

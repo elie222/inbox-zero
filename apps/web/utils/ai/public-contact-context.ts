@@ -44,6 +44,7 @@ export type PublicContactContextResult =
       reason:
         | "personal_email"
         | "search_unavailable"
+        | "research_failed"
         | "cache_unavailable"
         | "research_in_progress"
         | "not_found";
@@ -169,7 +170,7 @@ Return JSON matching the provided schema, including direct public source URLs.`,
   } catch (error) {
     logger.error("Public contact research failed");
     logger.trace("Public contact research failure details", { error });
-    return { status: "unavailable", reason: "search_unavailable" };
+    return { status: "unavailable", reason: "research_failed" };
   } finally {
     await releasePublicContactResearchLock(
       identity.data.email,

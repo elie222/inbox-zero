@@ -17,6 +17,8 @@ const {
   mockGetToolFailureWarning,
   mockCreateUIMessageStream,
   mockCreateUIMessageStreamResponse,
+  mockConsumeStream,
+  mockGetChatStreamContext,
   streamState,
 } = vi.hoisted(() => ({
   mockAiProcessAssistantChat: vi.fn(),
@@ -31,16 +33,20 @@ const {
   mockGetToolFailureWarning: vi.fn(),
   mockCreateUIMessageStream: vi.fn(),
   mockCreateUIMessageStreamResponse: vi.fn(),
+  mockConsumeStream: vi.fn(),
+  mockGetChatStreamContext: vi.fn(),
   streamState: {
     finishMessages: [] as Array<{
       id: string;
       role: "assistant";
-      parts: Array<{ type: "text"; text: string }>;
+      parts: Array<Record<string, unknown>>;
     }>,
+    isAborted: false,
   },
 }));
 
 vi.mock("ai", () => ({
+  consumeStream: mockConsumeStream,
   convertToModelMessages: mockConvertToModelMessages,
   createUIMessageStream: mockCreateUIMessageStream,
   createUIMessageStreamResponse: mockCreateUIMessageStreamResponse,
@@ -109,6 +115,16 @@ vi.mock("@/utils/ai/assistant/chat-response-guard", () => ({
   getToolFailureWarning: mockGetToolFailureWarning,
 }));
 
+// Stub the parts that would open Redis; keep the real database bookkeeping.
+vi.mock("@/utils/chat/active-run", async (importActual) => ({
+  ...(await importActual<typeof import("@/utils/chat/active-run")>()),
+  getChatStreamContext: mockGetChatStreamContext,
+  startChatRun: async () => ({
+    abortSignal: new AbortController().signal,
+    end: vi.fn(),
+  }),
+}));
+
 import { POST } from "./route";
 
 describe("chat route rule freshness persistence", () => {
@@ -142,9 +158,14 @@ describe("chat route rule freshness persistence", () => {
     mockCreateUIMessageStreamResponse.mockImplementation(async ({ stream }) => {
       const writer = { write: vi.fn() };
       await stream.execute({ writer });
-      await stream.onEnd({ messages: streamState.finishMessages });
+      await stream.onEnd({
+        messages: streamState.finishMessages,
+        isAborted: streamState.isAborted,
+      });
       return new Response(JSON.stringify({ ok: true }), { status: 200 });
     });
+    streamState.isAborted = false;
+    mockGetChatStreamContext.mockReturnValue(null);
 
     prisma.chat.findUnique.mockResolvedValue({
       id: "chat-1",
@@ -282,7 +303,140 @@ describe("chat route rule freshness persistence", () => {
   it("does not persist a rules revision when no rule state was exposed", async () => {
     await POST(createRequest());
 
-    expect(prisma.chat.updateMany).not.toHaveBeenCalled();
+    expect(prisma.chat.updateMany).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { lastSeenRulesRevision: expect.anything() },
+      }),
+    );
+  });
+
+  it("tracks the reply as the chat's active stream until the run ends", async () => {
+    let activeStreamIdDuringRun: string | undefined;
+    mockAiProcessAssistantChat.mockImplementationOnce(async () => {
+      activeStreamIdDuringRun = getClaimedStreamId();
+      return createAssistantStreamResult();
+    });
+
+    await POST(createRequest());
+
+    expect(activeStreamIdDuringRun).toEqual(expect.any(String));
+    // The reply's message id is its stream id, so clients can name the run.
+    const streamOptions = mockCreateUIMessageStream.mock.calls[0]?.[0];
+    expect(streamOptions.generateId()).toBe(activeStreamIdDuringRun);
+    expect(prisma.chat.updateMany).toHaveBeenCalledWith({
+      where: { id: "chat-1", activeStreamId: activeStreamIdDuringRun },
+      data: { activeStreamId: null, activeStreamStartedAt: null },
+    });
+  });
+
+  it("keeps the reply stream resumable when Redis is configured", async () => {
+    const createNewResumableStream = vi.fn().mockResolvedValue(null);
+    mockGetChatStreamContext.mockReturnValue({ createNewResumableStream });
+    mockCreateUIMessageStreamResponse.mockImplementationOnce(
+      async ({ consumeSseStream }) => {
+        consumeSseStream({ stream: new ReadableStream() });
+        return new Response(null, { status: 200 });
+      },
+    );
+
+    await POST(createRequest());
+
+    const activeStreamId = getClaimedStreamId();
+    expect(createNewResumableStream).toHaveBeenCalledWith(
+      activeStreamId,
+      expect.any(Function),
+    );
+    expect(mockConsumeStream).not.toHaveBeenCalled();
+  });
+
+  it("keeps the run going after a disconnect when Redis is not configured", async () => {
+    const sseStream = new ReadableStream();
+    mockCreateUIMessageStreamResponse.mockImplementationOnce(
+      async ({ consumeSseStream }) => {
+        consumeSseStream({ stream: sseStream });
+        return new Response(null, { status: 200 });
+      },
+    );
+
+    await POST(createRequest());
+
+    expect(mockConsumeStream).toHaveBeenCalledWith({ stream: sseStream });
+  });
+
+  it("passes a stop signal into the run and saves a stopped reply once, without unfinished tool calls", async () => {
+    streamState.isAborted = true;
+    streamState.finishMessages = [
+      {
+        id: "assistant-1",
+        role: "assistant",
+        parts: [
+          { type: "text", text: "Archiving now" },
+          {
+            type: "tool-manageInbox",
+            toolCallId: "call-1",
+            state: "output-available",
+            input: {},
+            output: { success: true },
+          },
+          {
+            type: "tool-manageInbox",
+            toolCallId: "call-2",
+            state: "input-available",
+            input: {},
+          },
+        ],
+      },
+    ];
+
+    await POST(createRequest());
+
+    expect(mockAiProcessAssistantChat).toHaveBeenCalledWith(
+      expect.objectContaining({ abortSignal: expect.any(AbortSignal) }),
+    );
+    expect(prisma.chatMessage.createMany).toHaveBeenCalledTimes(1);
+    const [row] = prisma.chatMessage.createMany.mock.calls[0]?.[0]
+      .data as Array<{ id: string; parts: Array<{ toolCallId?: string }> }>;
+    expect(row.id).toBe("assistant-1");
+    expect(row.parts.map((part) => part.toolCallId)).toEqual([
+      undefined,
+      "call-1",
+    ]);
+  });
+
+  it("rejects a new message while another reply is still running", async () => {
+    prisma.chat.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(409);
+    expect(prisma.chatMessage.create).not.toHaveBeenCalled();
+    expect(mockAiProcessAssistantChat).not.toHaveBeenCalled();
+  });
+
+  it("clears the active stream when preparing the run fails", async () => {
+    prisma.chatMessage.create.mockRejectedValueOnce(new Error("db down"));
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(500);
+    const activeStreamId = getClaimedStreamId();
+    expect(prisma.chat.updateMany).toHaveBeenCalledWith({
+      where: { id: "chat-1", activeStreamId },
+      data: { activeStreamId: null, activeStreamStartedAt: null },
+    });
+  });
+
+  it("clears the active stream when the run fails to start", async () => {
+    mockAiProcessAssistantChat.mockRejectedValueOnce(new Error("model down"));
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(500);
+    const activeStreamId = getClaimedStreamId();
+    expect(prisma.chat.updateMany).toHaveBeenCalledWith({
+      where: { id: "chat-1", activeStreamId },
+      data: { activeStreamId: null, activeStreamStartedAt: null },
+    });
   });
 
   it("marks chats with prior messages as having history", async () => {
@@ -473,7 +627,12 @@ describe("chat route rule freshness persistence", () => {
     const consoleErrorSpy = vi
       .spyOn(console, "error")
       .mockImplementation(() => {});
-    prisma.chat.updateMany.mockRejectedValueOnce(new Error("db down"));
+    prisma.chat.updateMany.mockImplementation((async (args: {
+      data: Record<string, unknown>;
+    }) => {
+      if ("lastSeenRulesRevision" in args.data) throw new Error("db down");
+      return { count: 1 };
+    }) as any);
     mockAiProcessAssistantChat.mockImplementationOnce(async (args) => {
       args.onRulesStateExposed?.(3);
       return createAssistantStreamResult();
@@ -570,6 +729,12 @@ describe("chat route rule freshness persistence", () => {
     }
   });
 });
+
+function getClaimedStreamId() {
+  return prisma.chat.updateMany.mock.calls.find(
+    ([args]) => args.data.activeStreamStartedAt instanceof Date,
+  )?.[0].data.activeStreamId as string | undefined;
+}
 
 function createRequest(
   text = "Update my rules",

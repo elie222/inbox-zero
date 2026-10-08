@@ -4,13 +4,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   authMock,
-  consumeMobileAuthStateMock,
+  redeemMobileAuthStateMock,
   consumeMobileAuthFailureStateMock,
   createMobileAuthCodeMock,
   mockEnv,
 } = vi.hoisted(() => ({
   authMock: vi.fn(),
-  consumeMobileAuthStateMock: vi.fn(),
+  redeemMobileAuthStateMock: vi.fn(),
   consumeMobileAuthFailureStateMock: vi.fn(),
   createMobileAuthCodeMock: vi.fn(),
   mockEnv: {
@@ -33,8 +33,9 @@ vi.mock("@/utils/mobile-auth/oauth-code", async () => {
     typeof import("@/utils/mobile-auth/oauth-code")
   >("@/utils/mobile-auth/oauth-code");
   return {
+    getMobileAuthFlowId: () => "flow-id",
     isValidMobileAuthState: actual.isValidMobileAuthState,
-    consumeMobileAuthState: consumeMobileAuthStateMock,
+    redeemMobileAuthState: redeemMobileAuthStateMock,
     consumeMobileAuthFailureState: consumeMobileAuthFailureStateMock,
     createMobileAuthCode: createMobileAuthCodeMock,
   };
@@ -59,7 +60,7 @@ describe("mobile auth callback route", () => {
       user: { id: "user-1" },
       session: { emailOtp: false, token: "session-token" },
     });
-    consumeMobileAuthStateMock.mockResolvedValue({
+    redeemMobileAuthStateMock.mockResolvedValue({
       returnUrlMode: "app-link",
       codeChallenge: "a".repeat(43),
     });
@@ -85,7 +86,7 @@ describe("mobile auth callback route", () => {
   });
 
   it("does not mint a code for an ambient session without completed state", async () => {
-    consumeMobileAuthStateMock.mockRejectedValue(
+    redeemMobileAuthStateMock.mockRejectedValue(
       new SafeError("Invalid authentication state", 401),
     );
     const response = await GET(
@@ -160,7 +161,7 @@ describe("mobile auth callback route", () => {
     );
 
     expect(authMock).toHaveBeenCalledWith(expect.any(Headers));
-    expect(consumeMobileAuthStateMock).toHaveBeenCalledWith({
+    expect(redeemMobileAuthStateMock).toHaveBeenCalledWith({
       state: "state-1234567890",
       sessionToken: "session-token",
     });
@@ -191,7 +192,7 @@ describe("mobile auth callback route", () => {
   });
 
   it("redirects to the stored custom scheme mode", async () => {
-    consumeMobileAuthStateMock.mockResolvedValue({
+    redeemMobileAuthStateMock.mockResolvedValue({
       returnUrlMode: "custom-scheme",
     });
 
@@ -208,7 +209,7 @@ describe("mobile auth callback route", () => {
   });
 
   it("redirects to the stored desktop scheme mode", async () => {
-    consumeMobileAuthStateMock.mockResolvedValue({
+    redeemMobileAuthStateMock.mockResolvedValue({
       returnUrlMode: "desktop-scheme",
     });
 
@@ -225,7 +226,7 @@ describe("mobile auth callback route", () => {
   });
 
   it("ignores tampered return URL modes on callback URLs", async () => {
-    consumeMobileAuthStateMock.mockResolvedValue({
+    redeemMobileAuthStateMock.mockResolvedValue({
       returnUrlMode: "app-link",
       codeChallenge: "a".repeat(43),
     });
@@ -257,6 +258,6 @@ describe("mobile auth callback route", () => {
     expect(response.headers.get("location")).toBe(
       "https://www.getinboxzero.com/login/app-sign-in-error",
     );
-    expect(consumeMobileAuthStateMock).not.toHaveBeenCalled();
+    expect(redeemMobileAuthStateMock).not.toHaveBeenCalled();
   });
 });

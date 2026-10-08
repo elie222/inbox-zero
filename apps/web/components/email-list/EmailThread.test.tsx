@@ -121,7 +121,7 @@ describe("EmailThread reply composer", () => {
         />,
       );
 
-      expect(screen.queryByText(/hasn.t loaded yet/)).toBeNull();
+      expect(screen.queryByText("Loading message…")).toBeNull();
       const current = screen.getByRole("textbox", { name: "Email message" });
       expect(current.dataset.draftSessionId).toBe("draft-v1:reply");
       expect(current.dataset.providerDraftMessageId).toBe("draft-v2");

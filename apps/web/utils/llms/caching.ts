@@ -1,0 +1,65 @@
+import type { JSONValue, ModelMessage } from "ai";
+import { Provider } from "@/utils/llms/config";
+
+type ProviderOptions = Record<string, Record<string, JSONValue>>;
+
+// Gateways here pass `anthropic` provider options through to Anthropic models.
+const ANTHROPIC_CACHE_CONTROL_PROVIDERS = new Set<string>([
+  Provider.ANTHROPIC,
+  Provider.OPENROUTER,
+  Provider.AI_GATEWAY,
+]);
+
+const OPENAI_PROMPT_CACHE_PROVIDERS = new Set<string>([
+  Provider.OPEN_AI,
+  Provider.AZURE,
+  Provider.AZURE_FOUNDRY,
+]);
+
+export function getSystemCacheProviderOptions(
+  provider: string,
+  { cacheKey }: { cacheKey: string },
+): ProviderOptions {
+  if (OPENAI_PROMPT_CACHE_PROVIDERS.has(provider)) {
+    return { openai: { promptCacheKey: cacheKey } };
+  }
+  // Without a key, OpenRouter's sticky routing hashes the first user message
+  // too, which is the email here, so calls from one account wouldn't stick.
+  if (provider === Provider.OPENROUTER) {
+    return { openrouter: { prompt_cache_key: cacheKey } };
+  }
+  return {};
+}
+
+export function buildCachedSystemMessages({
+  system,
+  prompt,
+  provider,
+}: {
+  system: string;
+  prompt: string;
+  provider: string;
+}): ModelMessage[] {
+  const cacheMarker = getSystemMessageCacheMarker(provider);
+
+  return [
+    {
+      role: "system",
+      content: system,
+      ...(cacheMarker ? { providerOptions: cacheMarker } : {}),
+    },
+    { role: "user", content: prompt },
+  ];
+}
+
+function getSystemMessageCacheMarker(
+  provider: string,
+): ProviderOptions | undefined {
+  if (ANTHROPIC_CACHE_CONTROL_PROVIDERS.has(provider)) {
+    return { anthropic: { cacheControl: { type: "ephemeral" } } };
+  }
+  if (provider === Provider.BEDROCK) {
+    return { bedrock: { cachePoint: { type: "default" } } };
+  }
+  return;
+}

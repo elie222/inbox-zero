@@ -10,8 +10,8 @@ import { decideUnsubscribePageState } from "./unsubscribe-page";
 
 const config = {
   provider: "typesafe" as const,
-  model: "jev-latest",
-  apiKey: "key",
+  modelId: "jev-latest",
+  model: {} as never,
 };
 
 describe("decideUnsubscribePageState", () => {
@@ -20,7 +20,7 @@ describe("decideUnsubscribePageState", () => {
   it("confirms only at the conservative threshold", async () => {
     runDecisionModelMock.mockResolvedValue({
       answers: {
-        unsubscribe_confirmed: { type: "yesNo", probability: 0.89 },
+        unsubscribe_confirmed: { type: "boolean", probability: 0.89 },
       },
     });
 
@@ -37,7 +37,7 @@ describe("decideUnsubscribePageState", () => {
   it("accepts a high-confidence confirmation", async () => {
     runDecisionModelMock.mockResolvedValue({
       answers: {
-        unsubscribe_confirmed: { type: "yesNo", probability: 0.97 },
+        unsubscribe_confirmed: { type: "boolean", probability: 0.97 },
       },
     });
 

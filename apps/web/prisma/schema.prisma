@@ -304,18 +304,19 @@ model MailSplitFilter {
 }
 
 model Organization {
-  id          String             @id @default(cuid())
-  name        String
-  slug        String             @unique
-  logo        String?
-  metadata    Json?
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
-  members     Member[]
-  SsoProvider SsoProvider?
-  sessions    Session[]
-  invitations Invitation[]
-  rules       OrganizationRule[]
+  id            String             @id @default(cuid())
+  name          String
+  slug          String             @unique
+  logo          String?
+  metadata      Json?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  members       Member[]
+  SsoProvider   SsoProvider?
+  sessions      Session[]
+  invitations   Invitation[]
+  rules         OrganizationRule[]
+  conversations Conversation[]
 }
 
 // Org-managed rule, materialized into a normal member Rule (+ Action) copy per
@@ -373,18 +374,89 @@ model OrganizationRuleAction {
 }
 
 model Member {
-  id                     String       @id @default(cuid())
-  organizationId         String
-  emailAccountId         String
-  role                   String       @default("member") // "owner" | "admin" | "member"
-  allowOrgAdminAnalytics Boolean      @default(false)
-  createdAt              DateTime     @default(now())
-  updatedAt              DateTime     @updatedAt
-  organization           Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  emailAccount           EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Restrict)
+  id                       String                    @id @default(cuid())
+  organizationId           String
+  emailAccountId           String
+  role                     String                    @default("member") // "owner" | "admin" | "member"
+  allowOrgAdminAnalytics   Boolean                   @default(false)
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  organization             Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  emailAccount             EmailAccount              @relation(fields: [emailAccountId], references: [id], onDelete: Restrict)
+  conversations            Conversation[]
+  conversationParticipants ConversationParticipant[]
+  conversationComments     ConversationComment[]
 
   @@unique([organizationId, emailAccountId])
   @@unique([emailAccountId])
+}
+
+model Conversation {
+  id             String                    @id @default(cuid())
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+  organizationId String
+  organization   Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  publisherId    String
+  publisher      Member                    @relation(fields: [publisherId], references: [id], onDelete: Cascade)
+  threadId       String
+  status         ConversationStatus        @default(ACTIVE)
+  revision       Int                       @default(0)
+  generation     Int                       @default(1)
+  participants   ConversationParticipant[]
+  comments       ConversationComment[]
+
+  @@unique([publisherId, threadId])
+  @@index([organizationId])
+}
+
+model ConversationParticipant {
+  id             String                 @id @default(cuid())
+  conversationId String
+  conversation   Conversation           @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  memberId       String
+  member         Member                 @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  generation     Int
+  active         Boolean                @default(true)
+  readRevision   Int                    @default(0)
+  muted          Boolean                @default(false)
+  createdAt      DateTime               @default(now())
+  activity       ConversationActivity[]
+
+  @@unique([conversationId, memberId, generation])
+  @@index([memberId])
+}
+
+model ConversationComment {
+  id               String                 @id @default(cuid())
+  conversationId   String
+  conversation     Conversation           @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  // SetNull keeps the discussion readable after the author leaves the organization.
+  authorMemberId   String?
+  author           Member?                @relation(fields: [authorMemberId], references: [id], onDelete: SetNull)
+  clientMutationId String
+  body             String                 @db.Text
+  revision         Int
+  deletedAt        DateTime?
+  createdAt        DateTime               @default(now())
+  activity         ConversationActivity[]
+
+  @@unique([conversationId, revision])
+  @@unique([conversationId, authorMemberId, clientMutationId])
+}
+
+model ConversationActivity {
+  id            String                   @id @default(cuid())
+  participantId String
+  participant   ConversationParticipant  @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  commentId     String?
+  comment       ConversationComment?     @relation(fields: [commentId], references: [id], onDelete: SetNull)
+  kind          ConversationActivityKind
+  revision      Int
+  createdAt     DateTime                 @default(now())
+
+  @@unique([participantId, kind, revision])
+  @@index([participantId, createdAt, id])
 }
 
 model Invitation {
@@ -567,6 +639,18 @@ model Premium {
   payments Payment[]
 
   @@index([pendingInvites])
+}
+
+// Admin grant for an email that has not signed up yet. Applied and deleted on sign-up.
+model PendingPremiumGrant {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  email               String      @unique
+  tier                PremiumTier
+  count               Int         @default(1)
+  emailAccountsAccess Int?
 }
 
 model VerificationToken {
@@ -1343,8 +1427,10 @@ model Chat {
 
   name String?
 
-  compactionCount       Int  @default(0)
+  compactionCount       Int     @default(0)
   lastSeenRulesRevision Int?
+  activeStreamId        String?
+  activeStreamStartedAt DateTime?
 
   messages       ChatMessage[]
   compactions    ChatCompaction[]
@@ -1477,7 +1563,7 @@ model AvailabilitySchedule {
 
   name      String
   isDefault Boolean @default(false)
-  timezone  String
+  timezone  String  @default("UTC") // Deprecated: schedules use EmailAccount.timezone. Drop once no deployment reads it.
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
@@ -2353,6 +2439,17 @@ enum AutomationJobRunStatus {
   SENT
   SKIPPED
   FAILED
+}
+
+enum ConversationStatus {
+  ACTIVE
+  STOPPED
+}
+
+enum ConversationActivityKind {
+  INVITED
+  COMMENT
+  MENTION
 }
 
 model OauthClient {
