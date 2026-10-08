@@ -95,6 +95,23 @@ describe("cookie consent state", () => {
     expect(isCookieBannerOpen()).toBe(false);
   });
 
+  it("keeps a withdrawal in memory without reloading when storage cannot change", () => {
+    useTimeZone("Europe/Vienna");
+    setCookieConsent("granted");
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("SecurityError");
+    });
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
+      throw new Error("SecurityError");
+    });
+    vi.spyOn(Storage.prototype, "getItem").mockReturnValue(null);
+
+    setCookieConsent("denied");
+
+    expect(getCookieConsentState()).toBe("denied");
+    expect(canUseTrackingCookies()).toBe(false);
+  });
+
   it("removes tracking cookies and storage when consent is withdrawn from reopened settings", () => {
     useTimeZone("Europe/Berlin");
     setCookieConsent("granted");

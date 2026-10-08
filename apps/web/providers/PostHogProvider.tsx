@@ -114,7 +114,13 @@ if (typeof window !== "undefined" && env.NEXT_PUBLIC_POSTHOG_KEY) {
   posthog.register(getClientAnalyticsProperties());
   startDesktopHealthReporting();
   subscribeToCookieConsent(() => {
-    if (!canUseTrackingCookies()) return;
+    if (!canUseTrackingCookies()) {
+      posthog.set_config({
+        persistence: "memory",
+        disable_session_recording: true,
+      });
+      return;
+    }
 
     posthog.set_config({ persistence: "localStorage+cookie" });
     if (deferredFeaturesEnabled) {

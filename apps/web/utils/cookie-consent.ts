@@ -80,13 +80,16 @@ export function setCookieConsent(choice: CookieConsentChoice) {
   memoryChoice = persisted ? null : choice;
 
   if (choice === "denied" && previous === "granted") {
-    // A grant left in storage would resume tracking on the next load, so fall
-    // back to asking again.
-    if (!persisted) removeStoredChoice();
     clearTrackingStorage();
-    // Scripts that already loaded keep running until the page is reloaded.
-    window.location.reload();
-    return;
+
+    // Reloading into a grant still left in storage would resume tracking, so
+    // only reload once that grant is gone. Otherwise the in-memory denial
+    // holds for this page.
+    if (persisted || removeStoredChoice()) {
+      // Scripts that already loaded keep running until the page is reloaded.
+      window.location.reload();
+      return;
+    }
   }
 
   window.dispatchEvent(new Event(CHANGE_EVENT));
@@ -99,7 +102,15 @@ export function reopenCookieConsent() {
 
 export function subscribeToCookieConsent(onChange: () => void) {
   const onStorage = (event: StorageEvent) => {
-    if (event.key === STORAGE_KEY) onChange();
+    if (event.key !== STORAGE_KEY) return;
+
+    // Consent withdrawn in another tab must also stop the scripts loaded here.
+    if (event.oldValue === "granted" && event.newValue !== "granted") {
+      window.location.reload();
+      return;
+    }
+
+    onChange();
   };
 
   window.addEventListener(CHANGE_EVENT, onChange);
@@ -147,10 +158,13 @@ function writeStoredChoice(choice: CookieConsentChoice): boolean {
   }
 }
 
-function removeStoredChoice() {
+function removeStoredChoice(): boolean {
   try {
     window.localStorage.removeItem(STORAGE_KEY);
-  } catch {}
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function clearTrackingStorage() {
