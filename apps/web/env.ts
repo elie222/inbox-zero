@@ -52,6 +52,20 @@ const defaultLlmsEnv = z.preprocess(
 const parsedEnv = createEnv({
   server: {
     NODE_ENV: z.enum(["development", "production", "test"]),
+    MAIL_UPLOAD_STORAGE: z
+      .enum(["filesystem", "s3", "vercel-blob"])
+      .default("filesystem"),
+    MAIL_UPLOAD_DIR: z.string().min(1).optional(),
+    MAIL_UPLOAD_S3_BUCKET: z.string().min(1).optional(),
+    MAIL_UPLOAD_S3_REGION: z.string().min(1).optional(),
+    MAIL_UPLOAD_S3_ENDPOINT: z.string().url().optional(),
+    MAIL_UPLOAD_S3_FORCE_PATH_STYLE: booleanString.optional().default(false),
+    MAIL_UPLOAD_S3_ACCESS_KEY_ID: z.string().min(1).optional(),
+    MAIL_UPLOAD_S3_SECRET_ACCESS_KEY: z.string().min(1).optional(),
+    MAIL_UPLOAD_S3_SESSION_TOKEN: z.string().min(1).optional(),
+    BLOB_READ_WRITE_TOKEN: z.string().min(1).optional(),
+    BLOB_STORE_ID: z.string().min(1).optional(),
+    VERCEL_OIDC_TOKEN: z.string().min(1).optional(),
     INBOX_ZERO_ENV_FILE: z.string().optional(),
     DATABASE_URL: z.string().url(),
     DATABASE_URL_UNPOOLED: z.string().url().optional(),
