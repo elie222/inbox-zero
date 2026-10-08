@@ -259,11 +259,13 @@ const RichEmailEditor = forwardRef<
         },
         // Only the composer creates signature containers; pasted ones would
         // otherwise hide under the collapsed signature toggle.
-        transformPastedHTML: (html) =>
-          html.replace(
-            /\sdata-smartmail(?:=(?:"[^"]*"|'[^']*'|[^\s>]*))?/giu,
-            "",
-          ),
+        transformPastedHTML: (html) => {
+          const document = new DOMParser().parseFromString(html, "text/html");
+          for (const element of document.querySelectorAll("[data-smartmail]")) {
+            element.removeAttribute("data-smartmail");
+          }
+          return document.body.innerHTML;
+        },
         handleClick: (_view, _position, event) => {
           const link = (event.target as HTMLElement | null)?.closest("a");
           if (!(link instanceof HTMLAnchorElement)) return false;

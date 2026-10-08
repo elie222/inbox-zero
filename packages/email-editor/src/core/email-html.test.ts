@@ -126,6 +126,17 @@ describe("prepareEmailDraft", () => {
     );
   });
 
+  it("keeps drafts with link targets or language metadata lossless", () => {
+    for (const html of [
+      '<p><a href="#details">Details</a></p><p id="details">More</p>',
+      '<p lang="fr">Bonjour</p>',
+    ]) {
+      const result = prepareEmailDraft({ html });
+      expect(result.mode).toBe("fallback");
+      expect(result.editableHtml).toBe(html);
+    }
+  });
+
   it("falls back for text styles that could inject CSS", () => {
     const result = prepareEmailDraft({
       html: '<p><span style="color:red;background:url(https://tracker.example)">Text</span></p>',
@@ -193,6 +204,12 @@ describe("editable signatures", () => {
     ).toBe(
       '<div data-smartmail="gmail_signature"><p></p><p dir="ltr">Example Person</p><p dir="ltr"><span style="color:#666666">Example Company</span></p><p></p><p>Sent with <a href="https://example.com/ref" target="_blank" rel="noopener noreferrer">Inbox Zero</a></p></div>',
     );
+  });
+
+  it("edits simple Outlook signatures despite their container id", () => {
+    expect(
+      prepareEditableSignatureHtml('<div id="Signature"><p>Regards</p></div>'),
+    ).toBe('<div data-smartmail="gmail_signature"><p></p><p>Regards</p></div>');
   });
 
   it("adds one blank line before the signature and keeps it when reopened", () => {

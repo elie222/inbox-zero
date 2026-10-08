@@ -265,15 +265,19 @@ export function sanitizePreservedEmailHtmlForPreview(html: string) {
  * container, or null when editing it would lose formatting.
  */
 export function prepareEditableSignatureHtml(html: string) {
-  if (findUnsupportedEditableMarkup(html).length > 0) return null;
-
   const fragment = parseFragment(html);
+  // The container markers (Outlook's id included) are replaced by our own.
   visitElements(fragment, (element) => {
     if (!isSignatureContainer(element)) return;
     element.attrs = element.attrs.filter(
-      (attribute) => !isPresentationFreeAttribute(attribute.name),
+      (attribute) =>
+        attribute.name !== "id" && !isPresentationFreeAttribute(attribute.name),
     );
   });
+  if (findUnsupportedEditableMarkup(serialize(fragment)).length > 0) {
+    return null;
+  }
+
   // A lone <br> paragraph renders two lines tall in the editor, and the
   // leading blank line separates the signature from the reply when sent.
   const content = renderFlow(fragment.childNodes).replace(
@@ -1106,14 +1110,10 @@ function isSafeTextStyle(property: string, value: string) {
 }
 
 // These carry no visible formatting without a stylesheet, so dropping them
-// while editing loses nothing the recipient would see.
+// while editing loses nothing the recipient would see. Ids and lang stay
+// unsupported because links and screen readers depend on them.
 function isPresentationFreeAttribute(name: string) {
-  return (
-    name === "class" ||
-    name === "id" ||
-    name === "lang" ||
-    name.startsWith("data-")
-  );
+  return name === "class" || name.startsWith("data-");
 }
 
 export function isSafeEmailUrl(value: string) {
