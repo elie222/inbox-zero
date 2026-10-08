@@ -43,6 +43,7 @@
     "@tiptap/core": "3.30.2",
     "@tiptap/extension-image": "3.30.2",
     "@tiptap/extension-placeholder": "3.30.2",
+    "@tiptap/extension-text-style": "3.30.2",
     "@tiptap/pm": "3.30.2",
     "@tiptap/react": "3.30.2",
     "@tiptap/starter-kit": "3.30.2",
@@ -57,6 +58,9 @@
       "optional": true
     },
     "@tiptap/extension-placeholder": {
+      "optional": true
+    },
+    "@tiptap/extension-text-style": {
       "optional": true
     },
     "@tiptap/pm": {

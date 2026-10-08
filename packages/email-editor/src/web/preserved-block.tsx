@@ -1,10 +1,17 @@
-import { createContext, type MouseEvent, useContext } from "react";
+import {
+  createContext,
+  type MouseEvent,
+  type ReactNode,
+  useContext,
+} from "react";
 import styles from "./EmailEditor.module.css";
 
 export type RenderedPreservedEmailBlock = {
   id: string;
   kind: "quote" | "signature";
   previewHtml: string;
+  // Present when the signature can be edited without losing formatting.
+  editableHtml?: string;
 };
 
 export type ActivePreservedBlock = Pick<
@@ -29,9 +36,12 @@ export const PreservedBlocksContext = createContext<PreservedBlocksState>({
 export function PreservedBlockView({
   block,
   onRemove,
+  signatureContent,
 }: {
-  block: RenderedPreservedEmailBlock;
+  block: ActivePreservedBlock & { previewHtml?: string };
   onRemove: () => void;
+  // Editor-owned signature content stays mounted while collapsed.
+  signatureContent?: ReactNode;
 }) {
   const { blocks, expanded, toggle } = useContext(PreservedBlocksContext);
   const showToggle = blocks[0]?.id === block.id;
@@ -49,6 +59,7 @@ export function PreservedBlockView({
           aria-expanded={expanded}
           aria-label={`${expanded ? "Hide" : "Show"} ${hiddenContent}`}
           className={styles.preservedToggle}
+          contentEditable={false}
           onClick={toggle}
           onMouseDown={(event) => event.preventDefault()}
           type="button"
@@ -56,24 +67,28 @@ export function PreservedBlockView({
           ⋯
         </button>
       )}
-      {expanded && block.kind === "signature" && (
-        <div className={styles.signatureContent}>
+      {block.kind === "signature" && (expanded || signatureContent) && (
+        <div className={styles.signatureContent} hidden={!expanded}>
           <button
             aria-label="Remove signature"
             className={styles.removePreservedButton}
+            contentEditable={false}
             onClick={onRemove}
             type="button"
           >
             ×
           </button>
-          {/* biome-ignore lint/a11y/useKeyWithClickEvents: the handler only suppresses link navigation; keyboard activation of a link also dispatches click. */}
-          <div
-            className={styles.signatureHtml}
-            // biome-ignore lint/security/noDangerouslySetInnerHtml: core sanitization removes active content before the signature is rendered inline.
-            dangerouslySetInnerHTML={{ __html: block.previewHtml }}
-            onAuxClick={preventLinkNavigation}
-            onClick={preventLinkNavigation}
-          />
+          {signatureContent ?? (
+            // biome-ignore lint/a11y/useKeyWithClickEvents: the handler only suppresses link navigation; keyboard activation of a link also dispatches click.
+            <div
+              className={styles.signatureHtml}
+              // biome-ignore lint/security/noDangerouslySetInnerHtml: core sanitization removes active content before the signature is rendered inline.
+              dangerouslySetInnerHTML={{ __html: block.previewHtml ?? "" }}
+              onAuxClick={preventLinkNavigation}
+              onClick={preventLinkNavigation}
+              onDragStart={(event) => event.preventDefault()}
+            />
+          )}
         </div>
       )}
       {expanded && block.kind === "quote" && (
