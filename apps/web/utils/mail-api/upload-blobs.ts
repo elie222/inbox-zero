@@ -15,6 +15,7 @@ const logger = createScopedLogger("mail-api/upload-blobs");
 // A send holds its uploads only while it is in flight; anything older is a
 // hold the browser never released, not an upload the mailbox still needs.
 const HOLD_TTL_MS = 60 * 60 * 1000;
+const CLEANUP_PAGE_SIZE = 100;
 
 export async function admitAccountUpload(
   accountId: string,
@@ -106,43 +107,45 @@ export async function putAccountUploadContent(
   });
   if (claimed.count === 0) return { status: "missing" as const };
   await deleteStoredUpload(admitted.storageKey);
-  const store = getMailUploadStore();
+  const verified = verifyUploadBytes(bytes, admitted);
   try {
-    const staged = await store.stage({
-      blobId: storageKey,
-      bytes,
-      checksum: admitted.checksum,
-      sizeBytes: admitted.sizeBytes,
-    });
-    if (staged.status === "rejected") return staged;
-    const finalized = await store.finalize(storageKey);
-    if (!finalized) {
-      await deleteStoredUpload(storageKey);
-      return { status: "missing" as const };
-    }
-    const updated = await prisma.mailUpload.updateMany({
-      where: {
-        emailAccountId: accountId,
-        blobId: parsed.data,
-        storageKey,
-        deletionRequestedAt: null,
-      },
-      data: { stagedAt: new Date() },
-    });
-    if (updated.count === 0) {
-      await deleteStoredUpload(storageKey);
-      return { status: "missing" as const };
-    }
-    return {
-      status: "staged" as const,
-      blobId: parsed.data,
-      sizeBytes: finalized.sizeBytes,
-      checksum: finalized.checksum,
-    };
+    // A transport may never pull an empty body, so verify it up front.
+    if (admitted.sizeBytes === 0) await verified.bytes.next();
+    await getMailUploadStore().put(
+      storageKey,
+      verified.bytes,
+      admitted.sizeBytes,
+    );
+    if (verified.outcome() !== "verified")
+      throw new Error("Storage did not consume the complete upload");
   } catch {
     await deleteStoredUpload(storageKey);
+    const outcome = verified.outcome();
+    if (outcome === "too_large" || outcome === "checksum_mismatch")
+      return { status: "rejected" as const, code: outcome };
     throw new Error("Failed to store attachment");
+  } finally {
+    await verified.bytes.return(undefined);
   }
+  const updated = await prisma.mailUpload.updateMany({
+    where: {
+      emailAccountId: accountId,
+      blobId: parsed.data,
+      storageKey,
+      deletionRequestedAt: null,
+    },
+    data: { stagedAt: new Date() },
+  });
+  if (updated.count === 0) {
+    await deleteStoredUpload(storageKey);
+    return { status: "missing" as const };
+  }
+  return {
+    status: "staged" as const,
+    blobId: parsed.data,
+    sizeBytes: admitted.sizeBytes,
+    checksum: admitted.checksum,
+  };
 }
 
 export async function inspectAccountUpload(
@@ -347,22 +350,24 @@ export async function deleteStaleMailUploads(olderThan: Date) {
       mailUpload: null,
       createdAt: { lt: expiredHoldBefore() },
     };
-    const objects = await prisma.mailUploadObject.findMany({
-      where,
-      take: 100,
-      orderBy: { createdAt: "asc" },
-      select: { storageKey: true },
-    });
-    for (let offset = 0; offset < objects.length; offset += 10) {
-      await Promise.all(
-        objects.slice(offset, offset + 10).map(async (object) => {
-          if (await deleteStoredUpload(object.storageKey)) {
-            await prisma.mailUploadObject.deleteMany({
-              where: { ...where, storageKey: object.storageKey },
-            });
-          }
-        }),
-      );
+    // Page by key so objects whose deletion keeps failing are not re-read.
+    let after = "";
+    while (true) {
+      const objects = await prisma.mailUploadObject.findMany({
+        where: { ...where, storageKey: { gt: after } },
+        take: CLEANUP_PAGE_SIZE,
+        orderBy: { storageKey: "asc" },
+        select: { storageKey: true },
+      });
+      await inBatches(objects, async (object) => {
+        if (await deleteStoredUpload(object.storageKey)) {
+          await prisma.mailUploadObject.deleteMany({
+            where: { ...where, storageKey: object.storageKey },
+          });
+        }
+      });
+      if (objects.length < CLEANUP_PAGE_SIZE) break;
+      after = objects[objects.length - 1].storageKey;
     }
   } catch (error) {
     logger.warn("Failed to clean up retired upload objects", {
@@ -385,13 +390,7 @@ export async function prepareAccountUploadDeletion(accountIds: string[]) {
       select: { storageKey: true },
     });
     return async () => {
-      for (let offset = 0; offset < rows.length; offset += 10) {
-        await Promise.all(
-          rows
-            .slice(offset, offset + 10)
-            .map((row) => deleteStoredUpload(row.storageKey)),
-        );
-      }
+      await inBatches(rows, (row) => deleteStoredUpload(row.storageKey));
     };
   } catch (error) {
     logger.warn("Failed to capture account upload keys for deletion", {
@@ -412,36 +411,38 @@ async function newStorageKey(accountId: string) {
 async function requestUploadDeletion(where: Prisma.MailUploadWhereInput) {
   let deleted = 0;
   try {
-    const rows = await prisma.mailUpload.findMany({
-      where,
-      select: { id: true, storageKey: true },
-      take: 100,
-      orderBy: { id: "asc" },
-    });
-    for (let offset = 0; offset < rows.length; offset += 10) {
-      await Promise.all(
-        rows.slice(offset, offset + 10).map(async (row) => {
-          // Invalidate before touching the object. Holds and in-flight writers must
-          // not claim it; retain the key until deletion succeeds so cron can retry.
-          const requested = await prisma.mailUpload.updateMany({
-            where: { ...where, id: row.id, storageKey: row.storageKey },
-            data: { deletionRequestedAt: new Date(), stagedAt: null },
-          });
-          if (
-            requested.count === 0 ||
-            !(await deleteStoredUpload(row.storageKey))
-          )
-            return;
-          const result = await prisma.mailUpload.deleteMany({
-            where: {
-              id: row.id,
-              storageKey: row.storageKey,
-              deletionRequestedAt: { not: null },
-            },
-          });
-          deleted += result.count;
-        }),
-      );
+    // Page by id so rows whose object deletion keeps failing are not re-read.
+    let after = "";
+    while (true) {
+      const rows = await prisma.mailUpload.findMany({
+        where: { ...where, id: { gt: after } },
+        select: { id: true, storageKey: true },
+        take: CLEANUP_PAGE_SIZE,
+        orderBy: { id: "asc" },
+      });
+      await inBatches(rows, async (row) => {
+        // Invalidate before touching the object. Holds and in-flight writers must
+        // not claim it; retain the key until deletion succeeds so cron can retry.
+        const requested = await prisma.mailUpload.updateMany({
+          where: { ...where, id: row.id, storageKey: row.storageKey },
+          data: { deletionRequestedAt: new Date(), stagedAt: null },
+        });
+        if (
+          requested.count === 0 ||
+          !(await deleteStoredUpload(row.storageKey))
+        )
+          return;
+        const result = await prisma.mailUpload.deleteMany({
+          where: {
+            id: row.id,
+            storageKey: row.storageKey,
+            deletionRequestedAt: { not: null },
+          },
+        });
+        deleted += result.count;
+      });
+      if (rows.length < CLEANUP_PAGE_SIZE) break;
+      after = rows[rows.length - 1].id;
     }
   } catch (error) {
     // Cleanup cannot turn a committed send/cancel into a failed user action.
@@ -461,6 +462,50 @@ async function deleteStoredUpload(storageKey: string) {
       errorType: error instanceof Error ? error.name : "UnknownError",
     });
     return false;
+  }
+}
+
+// Streams the body through while checking it against its admission. The last
+// chunk is withheld until the checksum matches: a transport can finish as soon
+// as Content-Length is satisfied, before the iterator would report a mismatch.
+function verifyUploadBytes(
+  bytes: AsyncIterable<Uint8Array>,
+  expected: { sizeBytes: number; checksum: string },
+) {
+  let outcome: "pending" | "verified" | "too_large" | "checksum_mismatch" =
+    "pending";
+  const verified = (async function* () {
+    const hash = createHash("sha256");
+    let size = 0;
+    let pending: Uint8Array | undefined;
+    for await (const chunk of bytes) {
+      size += chunk.byteLength;
+      if (size > expected.sizeBytes) {
+        outcome = "too_large";
+        throw new Error("Upload exceeds admitted size");
+      }
+      hash.update(chunk);
+      if (chunk.byteLength === 0) continue;
+      if (pending) yield pending;
+      pending = chunk;
+    }
+    if (
+      size !== expected.sizeBytes ||
+      hash.digest("hex") !== expected.checksum
+    ) {
+      outcome = "checksum_mismatch";
+      throw new Error("Upload does not match admission");
+    }
+    outcome = "verified";
+    if (pending) yield pending;
+  })();
+  return { bytes: verified, outcome: () => outcome };
+}
+
+// Bounds concurrent storage requests during bulk cleanup.
+async function inBatches<T>(items: T[], run: (item: T) => Promise<unknown>) {
+  for (let offset = 0; offset < items.length; offset += 10) {
+    await Promise.all(items.slice(offset, offset + 10).map(run));
   }
 }
 

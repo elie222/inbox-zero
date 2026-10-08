@@ -2,10 +2,13 @@ import { constants } from "node:fs";
 import { lstat, mkdir, open, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { blobIdSchema } from "@inboxzero/mail-core/identities";
 import { env } from "@/env";
-import { createObjectBlobStore } from "./object-store";
+import type { MailUploadStore } from "@/utils/mail-api/upload-storage";
 
-export function createFilesystemUploadStore(directory?: string) {
+export function createFilesystemUploadStore(
+  directory?: string,
+): MailUploadStore {
   // Uploads are runtime data, so they must not be included in the server bundle.
   const root = resolve(
     /* turbopackIgnore: true */
@@ -13,11 +16,11 @@ export function createFilesystemUploadStore(directory?: string) {
       env.MAIL_UPLOAD_DIR ??
       join(tmpdir(), "inbox-zero-mail-uploads"),
   );
-  return createObjectBlobStore({
+  return {
     async put(key, bytes) {
       await mkdir(root, { recursive: true, mode: 0o700 });
       const handle = await open(
-        join(root, key),
+        objectPath(root, key),
         constants.O_CREAT |
           constants.O_WRONLY |
           constants.O_TRUNC |
@@ -44,7 +47,7 @@ export function createFilesystemUploadStore(directory?: string) {
       }
     },
     async read(key) {
-      const path = join(root, key);
+      const path = objectPath(root, key);
       try {
         const info = await lstat(path);
         if (!info.isFile()) throw new Error("Invalid attachment file");
@@ -71,7 +74,12 @@ export function createFilesystemUploadStore(directory?: string) {
       })();
     },
     async delete(key) {
-      await rm(join(root, key), { force: true });
+      await rm(objectPath(root, key), { force: true });
     },
-  });
+  };
+}
+
+// Keys are generated server-side; parsing keeps a bad key from escaping the root.
+function objectPath(root: string, key: string) {
+  return join(root, blobIdSchema.parse(key));
 }

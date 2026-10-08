@@ -177,7 +177,7 @@ describe("mail upload staging", () => {
 
   it("hides storage details when SDK writes or streaming reads fail", async () => {
     await admit("file-1");
-    vi.spyOn(getMailUploadStore(), "stage").mockRejectedValueOnce(
+    vi.spyOn(getMailUploadStore(), "put").mockRejectedValueOnce(
       new Error("storage-key secret-test-credential"),
     );
     await expect(stage("file-1", bytes)).rejects.toThrow(
@@ -351,18 +351,34 @@ describe("mail upload staging", () => {
       // A worker can finish its object write after replacement/cancel deleted
       // its old key, then crash before its final metadata compare-and-swap.
       const store = getMailUploadStore();
-      await store.stage({
-        blobId: row!.storageKey,
-        bytes: (async function* () {
+      await store.put(
+        row!.storageKey,
+        (async function* () {
           yield bytes;
         })(),
-        sizeBytes: bytes.length,
-        checksum,
-      });
-      await store.finalize(row!.storageKey);
+        bytes.length,
+      );
       vi.advanceTimersByTime(60 * 60 * 1000 + 1);
       await deleteStaleMailUploads(new Date(0));
       expect(await store.read(row!.storageKey)).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("retention sweeps more abandoned uploads and retired keys than fit in one batch", async () => {
+    vi.useFakeTimers();
+    try {
+      const uploadIds = Array.from({ length: 250 }, (_, i) => `file-${i}`);
+      for (const uploadId of uploadIds) await admit(uploadId);
+      expect(await deleteStaleMailUploads(new Date(Date.now() + 1000))).toBe(
+        uploadIds.length,
+      );
+      vi.advanceTimersByTime(60 * 60 * 1000 + 1);
+      await deleteStaleMailUploads(new Date(0));
+      expect(
+        await prisma.mailUploadObject.findMany({ where: {} }),
+      ).toHaveLength(0);
     } finally {
       vi.useRealTimers();
     }
@@ -470,6 +486,93 @@ describe("mail upload staging", () => {
     expect(
       await stage("file-1", Buffer.concat([bytes, Buffer.from("extra")])),
     ).toEqual({ status: "rejected", code: "too_large" });
+  });
+
+  it("rejects content shorter than the admitted size", async () => {
+    await admit("file-1");
+    expect(await stage("file-1", bytes.subarray(1))).toEqual({
+      status: "rejected",
+      code: "checksum_mismatch",
+    });
+  });
+
+  it("stages an empty attachment", async () => {
+    const empty = Buffer.alloc(0);
+    await admitAccountUpload(accountId, {
+      uploadId: "file-1",
+      checksum: createHash("sha256").update(empty).digest("hex"),
+      sizeBytes: 0,
+      filename: "empty.txt",
+      contentType: "text/plain",
+    });
+    expect(await stage("file-1", empty)).toMatchObject({ status: "staged" });
+    expect(await readAccountUploads(accountId, ["file-1"])).toMatchObject({
+      status: "ok",
+      uploads: [{ filename: "empty.txt", content: "", size: 0 }],
+    });
+  });
+
+  it("rejects tampered content even when storage stops reading at the declared size", async () => {
+    await admit("file-1");
+    const store = getMailUploadStore();
+    const put = store.put.bind(store);
+    // Like a server that acknowledges as soon as all declared bytes arrive,
+    // this transport never asks the source whether it has ended.
+    vi.spyOn(store, "put").mockImplementation(async (key, source, size) => {
+      const chunks: Uint8Array[] = [];
+      let received = 0;
+      for await (const chunk of source) {
+        chunks.push(chunk);
+        received += chunk.byteLength;
+        if (received === size) break;
+      }
+      await put(
+        key,
+        (async function* () {
+          yield* chunks;
+        })(),
+        size,
+      );
+    });
+    expect(await stage("file-1", Buffer.alloc(bytes.length))).toEqual({
+      status: "rejected",
+      code: "checksum_mismatch",
+    });
+    expect(await inspectAccountUpload(accountId, "file-1")).toEqual({
+      status: "missing",
+    });
+    expect(await stage("file-1", bytes)).toMatchObject({ status: "staged" });
+  });
+
+  it("does not stage an upload storage returned from without consuming", async () => {
+    await admit("file-1");
+    vi.spyOn(getMailUploadStore(), "put").mockResolvedValueOnce();
+    await expect(stage("file-1", bytes)).rejects.toThrow(
+      "Failed to store attachment",
+    );
+    expect(await inspectAccountUpload(accountId, "file-1")).toEqual({
+      status: "missing",
+    });
+  });
+
+  it("removes partial bytes when the upload stream fails", async () => {
+    await admit("file-1");
+    await expect(
+      putAccountUploadContent(
+        accountId,
+        "file-1",
+        (async function* () {
+          yield bytes.subarray(0, 2);
+          throw new Error("disconnected");
+        })(),
+      ),
+    ).rejects.toThrow("Failed to store attachment");
+    const row = await prisma.mailUpload.findUnique({
+      where: {
+        emailAccountId_blobId: { emailAccountId: accountId, blobId: "file-1" },
+      },
+    });
+    expect(await getMailUploadStore().read(row!.storageKey)).toBeNull();
   });
 
   it("rejects an admission larger than the upload limit", async () => {

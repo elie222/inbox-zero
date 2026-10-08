@@ -1,7 +1,9 @@
 import { vi } from "vitest";
 import { collectBlobBytes } from "@inboxzero/mail-core/ports/blob-store";
-import { createObjectBlobStore } from "@/utils/mail-api/upload-storage/object-store";
-import { getMailUploadStore } from "@/utils/mail-api/upload-storage";
+import {
+  getMailUploadStore,
+  type MailUploadStore,
+} from "@/utils/mail-api/upload-storage";
 import type { MailUpload } from "@/generated/prisma/client";
 import type prismaMock from "@/utils/__mocks__/prisma";
 
@@ -10,6 +12,11 @@ vi.mock("@/utils/mail-api/upload-storage", () => ({
 }));
 
 type Where = Record<string, unknown>;
+type Page = {
+  where: Where;
+  take?: number;
+  orderBy?: Record<string, "asc" | "desc">;
+};
 
 /**
  * Backs `prisma.mailUpload` with an in-memory table so upload staging can be
@@ -20,7 +27,7 @@ export function installMailUploadTable(prisma: typeof prismaMock) {
   let nextId = 0;
   const ledger = new Map<string, { storageKey: string; createdAt: Date }>();
   const objects = new Map<string, Uint8Array>();
-  const store = createObjectBlobStore({
+  const store: MailUploadStore = {
     async put(key, bytes, sizeBytes) {
       const collected = await collectBlobBytes(bytes, sizeBytes);
       if (collected.status !== "ok") throw new Error("Too large");
@@ -37,7 +44,7 @@ export function installMailUploadTable(prisma: typeof prismaMock) {
     async delete(key) {
       objects.delete(key);
     },
-  });
+  };
   vi.mocked(getMailUploadStore).mockReturnValue(store);
 
   prisma.mailUpload.upsert.mockImplementation((async (args: {
@@ -78,9 +85,8 @@ export function installMailUploadTable(prisma: typeof prismaMock) {
       select(rows, args.where)[0] ?? null) as never,
   );
 
-  prisma.mailUpload.findMany.mockImplementation((async (args: {
-    where: Where;
-  }) => select(rows, args.where)) as never);
+  prisma.mailUpload.findMany.mockImplementation((async (args: Page) =>
+    paginate(select(rows, args.where), args)) as never);
 
   prisma.mailUpload.updateMany.mockImplementation((async (args: {
     where: Where;
@@ -126,11 +132,8 @@ export function installMailUploadTable(prisma: typeof prismaMock) {
           )),
     );
   };
-  prisma.mailUploadObject.findMany.mockImplementation((async ({
-    where,
-  }: {
-    where: Where;
-  }) => selectObjects(where)) as never);
+  prisma.mailUploadObject.findMany.mockImplementation((async (args: Page) =>
+    paginate(selectObjects(args.where), args)) as never);
   prisma.mailUploadObject.deleteMany.mockImplementation((async ({
     where,
   }: {
@@ -145,6 +148,14 @@ export function installMailUploadTable(prisma: typeof prismaMock) {
 
 function rowKey(emailAccountId: string, blobId: string) {
   return JSON.stringify([emailAccountId, blobId]);
+}
+
+function paginate<T extends object>(found: T[], { take, orderBy }: Page) {
+  const [field] = Object.keys(orderBy ?? {}) as (keyof T)[];
+  const sorted = field
+    ? [...found].sort((a, b) => (a[field] < b[field] ? -1 : 1))
+    : found;
+  return take === undefined ? sorted : sorted.slice(0, take);
 }
 
 function select(rows: Map<string, MailUpload>, where: Where) {
@@ -165,6 +176,7 @@ function matches(
       const filter = condition as {
         in?: unknown[];
         lt?: Date;
+        gt?: string;
         not?: unknown;
         startsWith?: string;
       };
@@ -177,6 +189,8 @@ function matches(
       if (filter.lt && !(value instanceof Date && value < filter.lt)) {
         return false;
       }
+      if (filter.gt && !(typeof value === "string" && value > filter.gt))
+        return false;
       if ("not" in filter && value === filter.not) return false;
       return true;
     }

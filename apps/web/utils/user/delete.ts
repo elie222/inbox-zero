@@ -1,4 +1,3 @@
-import { prepareAccountUploadDeletion } from "@/utils/mail-api/upload-blobs";
 import { deleteContact as deleteLoopsContact } from "@inboxzero/loops";
 import { deleteContact as deleteResendContact } from "@inboxzero/transactional-email";
 import { withThreadPageBufferDeletion } from "@/utils/redis/thread-page-buffer";
@@ -14,6 +13,7 @@ import { captureException, SafeError } from "@/utils/error";
 import { stopWatchingEmailAccount } from "@/utils/email/watch-manager";
 import type { Logger } from "@/utils/logger";
 import { prepareMemberRemovalNotifications } from "@/utils/team-comments/member-removal";
+import { prepareAccountUploadDeletion } from "@/utils/mail-api/upload-blobs";
 import { clearCachedResearchForUser } from "@/utils/redis/research-cache";
 import { releaseAccountRecordings } from "@/utils/meeting-recorder/delete-media";
 import {

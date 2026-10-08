@@ -1,9 +1,9 @@
 import { Readable } from "node:stream";
 import { del, get, put } from "@vercel/blob";
-import { createObjectBlobStore } from "./object-store";
+import type { MailUploadStore } from "@/utils/mail-api/upload-storage";
 
-export function createVercelBlobUploadStore(token?: string) {
-  return createObjectBlobStore({
+export function createVercelBlobUploadStore(token?: string): MailUploadStore {
+  return {
     async put(key, bytes) {
       const body = Readable.from(bytes, { objectMode: false });
       try {
@@ -46,5 +46,5 @@ export function createVercelBlobUploadStore(token?: string) {
     async delete(key) {
       await del(key, { token, abortSignal: AbortSignal.timeout(10_000) });
     },
-  });
+  };
 }

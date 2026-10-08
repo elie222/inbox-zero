@@ -1,6 +1,5 @@
 "use server";
 
-import { prepareAccountUploadDeletion } from "@/utils/mail-api/upload-blobs";
 import { z } from "zod";
 import { after } from "next/server";
 import { Prisma } from "@/generated/prisma/client";
@@ -24,6 +23,7 @@ import {
   updateAIDraftCleanupSettingsBody,
 } from "@/utils/actions/user.validation";
 import { clearLastEmailAccountCookie } from "@/utils/cookies.server";
+import { prepareAccountUploadDeletion } from "@/utils/mail-api/upload-blobs";
 import { deleteTinybirdEmailData } from "@inboxzero/tinybird";
 import { aliasPosthogUser } from "@/utils/posthog";
 import {

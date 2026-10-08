@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import {
   mkdtemp,
   readFile,
@@ -16,10 +15,9 @@ import {
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
-import type { BlobStore } from "@inboxzero/mail-core/ports/blob-store";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { MailUploadStore } from "./upload-storage";
 import { createFilesystemUploadStore } from "./upload-storage/filesystem";
-import { createObjectBlobStore } from "./upload-storage/object-store";
 import { createS3UploadStore } from "./upload-storage/s3";
 import { createVercelBlobUploadStore } from "./upload-storage/vercel-blob";
 
@@ -28,7 +26,6 @@ vi.mock("@vercel/blob", () => blob);
 
 const directories: string[] = [];
 const bytes = Buffer.from("private attachment");
-const checksum = createHash("sha256").update(bytes).digest("hex");
 
 afterEach(async () => {
   vi.restoreAllMocks();
@@ -41,118 +38,53 @@ afterEach(async () => {
 
 for (const adapter of ["filesystem", "s3", "vercel-blob"] as const) {
   describe(`${adapter} upload storage contract`, () => {
-    it("keeps staged bytes unreadable until finalized, across adapter instances", async () => {
+    it("reads back written bytes across adapter instances", async () => {
       const create = await fixture(adapter);
-      const writer = create();
-      expect(await writer.stage(input())).toEqual({ status: "staged" });
-      expect(await create().read("file-1")).toBeNull();
-      expect(await create().finalize("file-1")).toEqual({
-        blobId: "file-1",
-        sizeBytes: bytes.length,
-        checksum,
-      });
+      await create().put("file-1", source(), bytes.length);
       expect(await collect(await create().read("file-1"))).toEqual(bytes);
     });
 
     it("returns null for an absent object", async () => {
       const create = await fixture(adapter);
       expect(await create().read("missing")).toBeNull();
-      expect(await create().finalize("missing")).toBeNull();
-    });
-
-    it.each([
-      ["long", Buffer.concat([bytes, Buffer.from("extra")]), "too_large"],
-      ["short", bytes.subarray(1), "checksum_mismatch"],
-      ["tampered", Buffer.alloc(bytes.length), "checksum_mismatch"],
-    ])("rejects %s content and leaves no readable object", async (_name, content, code) => {
-      const create = await fixture(adapter);
-      expect(await create().stage(input(content))).toEqual({
-        status: "rejected",
-        code,
-      });
-      expect(await create().finalize("file-1")).toBeNull();
-      expect(await create().read("file-1")).toBeNull();
-    });
-
-    it("rejects an oversize admission without reading the source", async () => {
-      const create = await fixture(adapter);
-      const next = vi.fn();
-      expect(
-        await create().stage({
-          ...input(),
-          sizeBytes: 25_000_001,
-          bytes: (async function* () {
-            next();
-            yield bytes;
-          })(),
-        }),
-      ).toEqual({ status: "rejected", code: "too_large" });
-      expect(next).not.toHaveBeenCalled();
-    });
-
-    it("removes partial data when the source fails", async () => {
-      const create = await fixture(adapter);
-      await expect(
-        create().stage({
-          ...input(),
-          bytes: (async function* () {
-            yield bytes.subarray(0, 2);
-            throw new Error("disconnected");
-          })(),
-        }),
-      ).rejects.toThrow("disconnected");
-      expect(await create().finalize("file-1")).toBeNull();
     });
 
     it("supports empty attachments", async () => {
       const create = await fixture(adapter);
       const empty = Buffer.alloc(0);
-      expect(
-        await create().stage({
-          ...input(empty),
-          sizeBytes: 0,
-          checksum: createHash("sha256").update(empty).digest("hex"),
-        }),
-      ).toEqual({ status: "staged" });
-      expect(await create().finalize("file-1")).toMatchObject({ sizeBytes: 0 });
+      await create().put("file-1", source(empty), 0);
       expect(await collect(await create().read("file-1"))).toEqual(empty);
     });
 
-    it("deletes staged and finalized bytes without deleting a sibling", async () => {
+    it("deletes an object idempotently without deleting a sibling", async () => {
       const create = await fixture(adapter);
-      await create().stage(input());
-      await create().stage({ ...input(), blobId: "file-2" });
-      await create().finalize("file-2");
+      await create().put("file-1", source(), bytes.length);
+      await create().put("file-2", source(), bytes.length);
       await create().delete("file-1");
       await create().delete("file-1");
-      expect(await create().finalize("file-1")).toBeNull();
+      expect(await create().read("file-1")).toBeNull();
       expect(await collect(await create().read("file-2"))).toEqual(bytes);
-      await create().delete("file-2");
-      expect(await create().read("file-2")).toBeNull();
     });
 
-    it("refuses a path escaping storage key", async () => {
+    it("propagates a failing source", async () => {
       const create = await fixture(adapter);
       await expect(
-        create().stage({ ...input(), blobId: "../escape" }),
-      ).rejects.toThrow();
-      await expect(create().read("../escape")).rejects.toThrow();
-      await expect(create().delete("../escape")).rejects.toThrow();
+        create().put(
+          "file-1",
+          (async function* () {
+            yield bytes.subarray(0, 2);
+            throw new Error("disconnected");
+          })(),
+          bytes.length,
+        ),
+      ).rejects.toThrow("disconnected");
     });
   });
 }
 
-it("uses streaming private S3 objects without ACLs or public URLs", async () => {
-  const create = await fixture("s3");
-  await create().stage(input());
-  await create().finalize("file-1");
-  expect(await collect(await create().read("file-1"))).toEqual(bytes);
-});
-
 it("uses private Vercel Blob reads and writes, with deterministic object paths", async () => {
   const create = await fixture("vercel-blob");
-  await create().stage(input());
-  await create().finalize("file-1");
+  await create().put("file-1", source(), bytes.length);
   expect(await collect(await create().read("file-1"))).toEqual(bytes);
   for (const [, body, options] of blob.put.mock.calls) {
     expect(body).toBeInstanceOf(Readable);
@@ -178,80 +110,22 @@ it("propagates S3 authorization errors instead of treating private objects as mi
 it("fails a private Blob write without falling back to public access", async () => {
   const create = await fixture("vercel-blob");
   blob.put.mockRejectedValueOnce(new Error("private store required"));
-  await expect(create().stage(input())).rejects.toThrow(
+  await expect(create().put("file-1", source(), bytes.length)).rejects.toThrow(
     "private store required",
   );
   expect(blob.put).toHaveBeenCalledOnce();
   expect(blob.put.mock.calls[0][2].access).toBe("private");
 });
 
-it("verifies the final chunk before a transport can acknowledge Content-Length", async () => {
-  const objects = new Map<string, Buffer>();
-  const store = createObjectBlobStore({
-    async put(key, source, sizeBytes) {
-      const chunks: Uint8Array[] = [];
-      let size = 0;
-      for await (const chunk of source) {
-        chunks.push(chunk);
-        size += chunk.byteLength;
-        // Like a server that acknowledges as soon as all declared bytes arrive,
-        // this transport does not wait for the source's next() to report EOF.
-        if (size === sizeBytes) {
-          objects.set(key, Buffer.concat(chunks));
-          return;
-        }
-      }
-      objects.set(key, Buffer.concat(chunks));
-    },
-    async read(key) {
-      const content = objects.get(key);
-      return content
-        ? (async function* () {
-            yield content;
-          })()
-        : null;
-    },
-    async delete(key) {
-      objects.delete(key);
-    },
-  });
-  expect(await store.stage(input(Buffer.alloc(bytes.length)))).toEqual({
-    status: "rejected",
-    code: "checksum_mismatch",
-  });
-  expect(await store.finalize("file-1")).toBeNull();
-  expect(await store.stage(input())).toEqual({ status: "staged" });
-  expect(await store.finalize("file-1")).toEqual({
-    blobId: "file-1",
-    checksum,
-    sizeBytes: bytes.length,
-  });
-});
-
-it("never publishes data when a transport returns without consuming the source", async () => {
-  const store = createObjectBlobStore({
-    put: async () => {},
-    read: async () => null,
-    delete: async () => {},
-  });
-  await expect(store.stage(input())).rejects.toThrow(
-    "Storage did not consume the complete upload",
-  );
-});
-
-it("filesystem deletes interrupted writes and creates owner-only attachment files", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "mail-upload-interrupted-"));
+it("filesystem creates owner-only attachment files", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "mail-upload-mode-"));
   directories.push(directory);
-  const store = createFilesystemUploadStore(directory);
-  // Simulate a process that exited after writing bytes but before publication.
-  await writeFile(join(directory, "interrupted.data"), bytes);
-  await store.delete("interrupted");
-  await expect(stat(join(directory, "interrupted.data"))).rejects.toMatchObject(
-    { code: "ENOENT" },
+  await createFilesystemUploadStore(directory).put(
+    "file-1",
+    source(),
+    bytes.length,
   );
-  await store.stage(input());
-  await store.finalize("file-1");
-  expect((await stat(join(directory, "file-1.data"))).mode & 0o777).toBe(0o600);
+  expect((await stat(join(directory, "file-1"))).mode & 0o777).toBe(0o600);
 });
 
 it("filesystem refuses to overwrite a symlink outside its upload root", async () => {
@@ -259,22 +133,28 @@ it("filesystem refuses to overwrite a symlink outside its upload root", async ()
   directories.push(directory);
   const outside = join(directory, "outside.txt");
   await writeFile(outside, "unchanged");
-  await symlink(outside, join(directory, "file-1.data"));
+  await symlink(outside, join(directory, "file-1"));
   const store = createFilesystemUploadStore(directory);
-  await expect(store.stage(input())).rejects.toThrow();
+  await expect(store.put("file-1", source(), bytes.length)).rejects.toThrow();
   expect(await readFile(outside, "utf8")).toBe("unchanged");
 });
 
-function input(content: Buffer = bytes) {
-  return {
-    blobId: "file-1",
-    bytes: (async function* () {
-      yield content.subarray(0, 2);
-      yield content.subarray(2);
-    })(),
-    checksum,
-    sizeBytes: bytes.length,
-  };
+it("filesystem refuses a path-escaping storage key", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "mail-upload-escape-"));
+  directories.push(directory);
+  const store = createFilesystemUploadStore(directory);
+  await expect(
+    store.put("../escape", source(), bytes.length),
+  ).rejects.toThrow();
+  await expect(store.read("../escape")).rejects.toThrow();
+  await expect(store.delete("../escape")).rejects.toThrow();
+});
+
+function source(content: Buffer = bytes) {
+  return (async function* () {
+    yield content.subarray(0, 2);
+    yield content.subarray(2);
+  })();
 }
 
 async function collect(source: AsyncIterable<Uint8Array> | null) {
@@ -286,7 +166,7 @@ async function collect(source: AsyncIterable<Uint8Array> | null) {
 
 async function fixture(
   adapter: "filesystem" | "s3" | "vercel-blob",
-): Promise<() => BlobStore> {
+): Promise<() => MailUploadStore> {
   if (adapter === "filesystem") {
     const directory = await mkdtemp(join(tmpdir(), "mail-upload-contract-"));
     directories.push(directory);

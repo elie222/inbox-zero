@@ -1,14 +1,25 @@
 import "server-only";
 import { S3Client } from "@aws-sdk/client-s3";
-import type { BlobStore } from "@inboxzero/mail-core/ports/blob-store";
 import { env } from "@/env";
 import { createFilesystemUploadStore } from "./upload-storage/filesystem";
 import { createS3UploadStore } from "./upload-storage/s3";
 import { createVercelBlobUploadStore } from "./upload-storage/vercel-blob";
 
-let store: BlobStore | undefined;
+// Private object storage for attachment bytes. Callers verify content against
+// the admitted checksum, so adapters only move bytes.
+export type MailUploadStore = {
+  put(
+    key: string,
+    bytes: AsyncIterable<Uint8Array>,
+    sizeBytes: number,
+  ): Promise<void>;
+  read(key: string): Promise<AsyncIterable<Uint8Array> | null>;
+  delete(key: string): Promise<void>;
+};
 
-export function getMailUploadStore(): BlobStore {
+let store: MailUploadStore | undefined;
+
+export function getMailUploadStore(): MailUploadStore {
   if (store) return store;
   switch (env.MAIL_UPLOAD_STORAGE) {
     case "s3": {

@@ -5,7 +5,7 @@ import {
   PutObjectCommand,
   type S3Client,
 } from "@aws-sdk/client-s3";
-import { createObjectBlobStore } from "./object-store";
+import type { MailUploadStore } from "@/utils/mail-api/upload-storage";
 
 export function createS3UploadStore({
   client,
@@ -13,8 +13,8 @@ export function createS3UploadStore({
 }: {
   client: S3Client;
   bucket: string;
-}) {
-  return createObjectBlobStore({
+}): MailUploadStore {
+  return {
     async put(key, bytes, sizeBytes) {
       const body = Readable.from(bytes, { objectMode: false });
       try {
@@ -56,5 +56,5 @@ export function createS3UploadStore({
         abortSignal: AbortSignal.timeout(10_000),
       });
     },
-  });
+  };
 }
