@@ -69,35 +69,42 @@ export function SelectionToolbar({
 }: {
   editor: Squire;
   onLink: () => void;
-  // Viewport coordinates; the toolbar is portalled so containers that clip
-  // their overflow cannot hide it.
-  position: { centerX: number; top: number };
+  // Viewport coordinates of the selection; the toolbar is portalled so
+  // containers that clip their overflow cannot hide it.
+  position: { bottom: number; centerX: number; top: number };
   state: FormatState;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [left, setLeft] = useState<number | null>(null);
+  const [placement, setPlacement] = useState<{
+    left: number;
+    top: number;
+  } | null>(null);
   useLayoutEffect(() => {
     const width = ref.current?.offsetWidth ?? 0;
-    const margin = 8;
-    setLeft(
-      Math.max(
-        margin,
-        Math.min(
-          position.centerX - width / 2,
-          window.innerWidth - width - margin,
-        ),
+    const height = ref.current?.offsetHeight ?? 0;
+    const gap = 8;
+    const below = position.bottom + gap;
+    setPlacement({
+      left: Math.max(
+        gap,
+        Math.min(position.centerX - width / 2, window.innerWidth - width - gap),
       ),
-    );
-  }, [position.centerX]);
+      // Flip above the selection when there is no room below it.
+      top:
+        below + height > window.innerHeight
+          ? Math.max(gap, position.top - height - gap)
+          : below,
+    });
+  }, [position.bottom, position.centerX, position.top]);
 
   return createPortal(
     <div
       className={styles.squireToolbar}
       ref={ref}
       style={{
-        left: left ?? position.centerX,
-        top: position.top,
-        visibility: left === null ? "hidden" : undefined,
+        left: placement?.left ?? position.centerX,
+        top: placement?.top ?? position.bottom,
+        visibility: placement ? undefined : "hidden",
       }}
     >
       <div

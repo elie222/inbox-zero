@@ -376,6 +376,21 @@ describe("Squire email editor", () => {
     expect(link?.textContent).toBe("https://example.com/docs");
   });
 
+  it("rejects links with unsupported schemes", async () => {
+    const { textbox } = await renderEditor({});
+
+    act(() => {
+      fireEvent.keyDown(textbox(), { key: "k", ctrlKey: true });
+    });
+    fireEvent.change(screen.getByLabelText("Link address"), {
+      target: { value: "ftp://files.example.com" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+
+    expect(screen.getByRole("alert").textContent).toContain("safe");
+    expect(textbox().querySelector("a")).toBeNull();
+  });
+
   it("asks for an address before adding a link", async () => {
     const { textbox } = await renderEditor({});
 

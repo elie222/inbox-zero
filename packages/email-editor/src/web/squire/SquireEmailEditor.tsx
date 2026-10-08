@@ -80,13 +80,17 @@ class EmailSquire extends Squire {
   }
 
   private changeHistory(direction: "undo" | "redo", change: () => Squire) {
-    // Undo saves the current state before stepping back, so the undo index
-    // alone cannot tell whether anything changed.
+    // Undo saves the current state before stepping back, and a collapsed
+    // signature can make two snapshots render alike, so check both.
     const before = this.getRoot().innerHTML;
+    const undoIndex = this._undoIndex;
     this.isChangingHistory = true;
     try {
       change();
-      if (this.getRoot().innerHTML !== before) {
+      if (
+        this.getRoot().innerHTML !== before ||
+        this._undoIndex !== undoIndex
+      ) {
         this.onHistoryChange?.(direction);
       }
     } finally {
@@ -142,6 +146,7 @@ export const SquireEmailEditor = forwardRef<
   const [formatState, setFormatState] =
     useState<FormatState>(EMPTY_FORMAT_STATE);
   const [toolbarPosition, setToolbarPosition] = useState<{
+    bottom: number;
     centerX: number;
     top: number;
   } | null>(null);
@@ -354,8 +359,9 @@ export const SquireEmailEditor = forwardRef<
     }
     const selectionRect = range.getBoundingClientRect();
     setToolbarPosition({
+      bottom: selectionRect.bottom,
       centerX: selectionRect.left + selectionRect.width / 2,
-      top: selectionRect.bottom + 8,
+      top: selectionRect.top,
     });
   }, []);
 
@@ -716,7 +722,10 @@ export const SquireEmailEditor = forwardRef<
       >
         <div
           className={styles.editor}
-          onScroll={() => setToolbarPosition(null)}
+          onScroll={() => {
+            setToolbarPosition(null);
+            updateSlashTrigger();
+          }}
         >
           <div className={styles.squireBody}>
             <div
