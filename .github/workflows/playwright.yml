@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "packages/mail-*/**"
+      - "packages/email-editor/**"
       - "apps/desktop/**"
       - "apps/web/app/**"
       - "apps/web/components/**"
@@ -37,6 +38,7 @@ on:
     branches: [main]
     paths:
       - "packages/mail-*/**"
+      - "packages/email-editor/**"
       - "apps/desktop/**"
       - "apps/web/app/**"
       - "apps/web/components/**"
