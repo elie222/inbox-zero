@@ -68,11 +68,8 @@ const pricingFaqs: {
     question: "Need a custom plan for your enterprise?",
     answer: (
       <span>
-        <Anchor href="https://go.getinboxzero.com/sales" newTab>
-          Contact our sales team
-        </Anchor>{" "}
-        for custom pricing, SSO, SCIM, on-premise deployment, and dedicated
-        support.
+        <Anchor href="/sales">Contact our sales team</Anchor> for custom
+        pricing, SSO, SCIM, on-premise deployment, and dedicated support.
       </span>
     ),
     answerText:
