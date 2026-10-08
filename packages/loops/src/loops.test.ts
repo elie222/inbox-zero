@@ -27,13 +27,12 @@ describe("Loops lifecycle events", () => {
   });
 
   it.each([
-    new APIError(409, { success: false, message: "Conflict" }),
     new APIError(409, {
       success: false,
       message: "Email or userId already exists/is already on list",
     }),
-    { statusCode: "409" },
-    { status: 409 },
+    { statusCode: "409", message: "Email already on list" },
+    { status: 409, message: "Email already exists" },
     new Error("Email or userId already exists/is already on list"),
     new Error("Email already on list"),
   ])("treats an existing contact as success: %s", async (error) => {
@@ -52,20 +51,37 @@ describe("Loops lifecycle events", () => {
     });
   });
 
-  it("preserves unexpected contact creation errors", async () => {
-    const error = new APIError(500, {
-      success: false,
-      message: "Internal server error",
-    });
+  it.each([
+    { success: true, id: "contact-id" },
+    { success: false },
+  ])("passes through the contact creation response: %s", async (response) => {
+    client.createContact.mockResolvedValueOnce(response);
+
+    await expect(createContact("user@example.com", "John")).resolves.toBe(
+      response,
+    );
+  });
+
+  it.each([
+    new APIError(409, { success: false, message: "Invalid email address." }),
+    new APIError(409, { success: false, message: "Conflict" }),
+    { statusCode: "409" },
+    { status: 409 },
+    new APIError(500, { success: false, message: "Internal server error" }),
+  ])("preserves unexpected contact creation errors: %s", async (error) => {
     client.createContact.mockRejectedValueOnce(error);
 
     await expect(createContact("user@example.com")).rejects.toBe(error);
   });
 
-  it("sets tier when a trial converts to paid", async () => {
-    await completedTrial("user@example.com", "PLUS_MONTHLY");
+  it.each([
+    "sub_trial",
+    "sub_other_trial",
+  ])("sets tier and scopes deduplication to subscription %s", async (subscriptionId) => {
+    await completedTrial("user@example.com", "PLUS_MONTHLY", subscriptionId);
 
     expect(client.sendEvent).toHaveBeenCalledExactlyOnceWith({
+      headers: { "Idempotency-Key": `completed_trial:${subscriptionId}` },
       eventName: "completed_trial",
       email: "user@example.com",
       contactProperties: { tier: "PLUS_MONTHLY" },

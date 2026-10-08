@@ -77,9 +77,13 @@ export async function handleLoopsEvents({
     if (trialCompleted) {
       logger.info("Trial completed", { email, tier: newTier });
       if (newTier) {
-        await completedTrial(email, newTier).catch((error) => {
-          logger.error("Error sending Loops trial completed event", { error });
-        });
+        await completedTrial(email, newTier, newSubscription.id).catch(
+          (error) => {
+            logger.error("Error sending Loops trial completed event", {
+              error,
+            });
+          },
+        );
       }
     }
 

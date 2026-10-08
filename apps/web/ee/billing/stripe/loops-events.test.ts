@@ -174,6 +174,7 @@ describe("handleLoopsEvents", () => {
           stripeTrialEnd,
         },
         newSubscription: {
+          id: "sub_trial",
           status: "active",
           trial_end: Math.floor(stripeTrialEnd.getTime() / 1000),
         },
@@ -194,8 +195,33 @@ describe("handleLoopsEvents", () => {
       expect(completedTrial).toHaveBeenCalledExactlyOnceWith(
         "user@example.com",
         "PLUS_MONTHLY",
+        "sub_trial",
       );
       expect(startedTrial).not.toHaveBeenCalled();
+    });
+
+    it("uses the same subscription identity for concurrent trial completion syncs", async () => {
+      const args = {
+        currentPremium: {
+          ...mockCurrentPremium,
+          stripeSubscriptionStatus: "trialing",
+        },
+        newSubscription: { id: "sub_trial", status: "active", trial_end: null },
+        newTier: "PLUS_MONTHLY",
+        logger,
+      };
+
+      await Promise.all([handleLoopsEvents(args), handleLoopsEvents(args)]);
+      await handleLoopsEvents({
+        ...args,
+        newSubscription: { ...args.newSubscription, id: "sub_other_trial" },
+      });
+
+      expect(vi.mocked(completedTrial).mock.calls).toEqual([
+        ["user@example.com", "PLUS_MONTHLY", "sub_trial"],
+        ["user@example.com", "PLUS_MONTHLY", "sub_trial"],
+        ["user@example.com", "PLUS_MONTHLY", "sub_other_trial"],
+      ]);
     });
 
     it("should call completedTrial when trial ends and subscription becomes active", async () => {
@@ -206,6 +232,7 @@ describe("handleLoopsEvents", () => {
       };
 
       const newSubscription = {
+        id: "sub_trial",
         status: "active",
         trial_end: Math.floor(Date.now() / 1000) - 1000, // Trial ended
       };
@@ -220,6 +247,7 @@ describe("handleLoopsEvents", () => {
       expect(completedTrial).toHaveBeenCalledWith(
         "user@example.com",
         "STARTER_MONTHLY",
+        "sub_trial",
       );
       expect(startedTrial).not.toHaveBeenCalled(); // Should not call direct upgrade
     });
@@ -232,6 +260,7 @@ describe("handleLoopsEvents", () => {
       };
 
       const newSubscription = {
+        id: "sub_trial",
         status: "active",
         trial_end: Math.floor(Date.now() / 1000) - 1000,
       };
@@ -350,6 +379,7 @@ describe("handleLoopsEvents", () => {
       };
 
       const newSubscription = {
+        id: "sub_trial",
         status: "active",
         trial_end: null,
       };

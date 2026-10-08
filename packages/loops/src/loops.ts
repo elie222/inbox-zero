@@ -60,11 +60,14 @@ export async function startedTrial(
 export async function completedTrial(
   email: string,
   tier: string,
+  subscriptionId: string,
 ): Promise<{ success: boolean }> {
   const loops = getLoopsClient();
   if (!loops) return { success: false };
   return await loops.sendEvent({
     eventName: "completed_trial",
+    // Concurrent Stripe syncs must share a key even across webhook event types.
+    headers: { "Idempotency-Key": `completed_trial:${subscriptionId}` },
     email,
     contactProperties: { tier },
     eventProperties: { tier },
@@ -132,13 +135,6 @@ export async function updateContactCompanySize({
 
 function isExistingContactError(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
-
-  if (
-    ("statusCode" in error && Number(error.statusCode) === 409) ||
-    ("status" in error && Number(error.status) === 409)
-  ) {
-    return true;
-  }
 
   return (
     "message" in error &&
