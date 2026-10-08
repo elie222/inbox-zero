@@ -462,7 +462,10 @@ describe("handleRuleNotificationAction", () => {
           textPlain: "Edited draft body",
         }),
       ),
-      getMessage: vi.fn().mockResolvedValue(getMockMessage()),
+      getMessage: vi.fn().mockResolvedValue({
+        ...getMockMessage(),
+        externalUrl: "https://outlook.office.com/owa/?ItemID=received-1",
+      }),
     };
     mockCreateEmailProvider.mockResolvedValue(provider);
     mockNotificationContext({
