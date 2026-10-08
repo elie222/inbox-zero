@@ -207,19 +207,21 @@ export function isDraftUnmodified({
   originalContent,
   currentDraft,
   logger,
+  includeLinks = false,
 }: {
   originalContent: string;
   currentDraft: ParsedMessage;
   logger: Logger;
+  includeLinks?: boolean;
 }): boolean {
   const { text: currentText, source: comparisonSource } =
-    extractDraftComparisonText(currentDraft);
+    extractDraftComparisonText(currentDraft, includeLinks);
   const currentReplyContent = stripQuotedContent(currentText);
 
   const originalWithBr = originalContent.replace(/\n/g, "<br>");
   const originalContentPlain = convertEmailHtmlToText({
     htmlText: originalWithBr,
-    includeLinks: false,
+    includeLinks,
   });
   const originalContentTrimmed = originalContentPlain.trim();
   const isUnmodified = originalContentTrimmed === currentReplyContent;
@@ -243,7 +245,10 @@ export function isDraftUnmodified({
   return isUnmodified;
 }
 
-function extractDraftComparisonText(draft: ParsedMessage): {
+function extractDraftComparisonText(
+  draft: ParsedMessage,
+  includeLinks: boolean,
+): {
   text: string;
   source: "textHtml" | "textPlain";
 } {
@@ -251,7 +256,7 @@ function extractDraftComparisonText(draft: ParsedMessage): {
     return {
       text: convertEmailHtmlToText({
         htmlText: stripQuotedHtmlContent(draft.textHtml),
-        includeLinks: false,
+        includeLinks,
       }),
       source: "textHtml",
     };
