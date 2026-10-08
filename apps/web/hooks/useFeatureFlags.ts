@@ -15,6 +15,11 @@ export function useFollowUpRemindersEnabled() {
   return env.NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED || posthogEnabled;
 }
 
+export function useSquireComposerEnabled() {
+  const posthogEnabled = useFeatureFlagEnabled("squire-composer");
+  return env.NEXT_PUBLIC_SQUIRE_COMPOSER_ENABLED || posthogEnabled === true;
+}
+
 export function useMeetingBriefsEnabled() {
   return env.NEXT_PUBLIC_MEETING_BRIEFS_ENABLED;
 }

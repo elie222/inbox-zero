@@ -7,7 +7,6 @@ import {
 } from "../fixtures/email-html";
 import {
   EMAIL_ATTACHMENT_LIMITS,
-  canOpenEmailLink,
   combineEmailHtml,
   createInlineContentId,
   detectInlineImageMimeType,
@@ -20,6 +19,7 @@ import {
   validateEmailAttachments,
   type EmailComposerAttachment,
 } from "./email-html";
+import { canOpenEmailLink } from "./email-profile";
 
 const PNG_BASE64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
@@ -178,6 +178,7 @@ describe("outgoing HTML", () => {
 
   it("rewrites composer previews to matching Content-ID URLs and rejects data URLs", () => {
     const result = finalizeEditableEmailHtml({
+      mode: "rich",
       html: '<p>Diagram <img src="blob:https://app.example/preview" data-content-id="inline-1@example" alt="Diagram"></p><img src="data:image/png;base64,AAAA">',
       inlineAttachments: [
         attachment({
@@ -233,6 +234,7 @@ describe("editable signatures", () => {
 
   it("sends an edited signature and finds it again when the draft is reopened", () => {
     const sent = finalizeEditableEmailHtml({
+      mode: "rich",
       html: '<p>Hello</p><div data-smartmail="gmail_signature"><p></p><p>Edited <a href="https://example.com/new">link</a></p></div>',
       inlineAttachments: [],
     });

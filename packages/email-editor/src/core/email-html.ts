@@ -1,4 +1,11 @@
 import { parseFragment, serialize, type DefaultTreeAdapterTypes } from "parse5";
+import { sanitizeEmailBodyHtml } from "./email-body";
+import {
+  isSafeContentId,
+  isSafeEmailUrl,
+  isSafeTextStyle,
+  sanitizeEmailStyle,
+} from "./email-profile";
 
 export const EMAIL_ATTACHMENT_LIMITS = {
   maxFiles: 10,
@@ -33,9 +40,13 @@ export type EmailAttachmentMetadata = Omit<
   "contentBase64"
 >;
 
+// "rich" is the narrow Tiptap profile, "html" the email body profile, and
+// "fallback" provider HTML that must be sent untouched.
+export type EmailBodyMode = "rich" | "fallback" | "html";
+
 export type PreparedEmailDraft = {
   editableHtml: string;
-  mode: "rich" | "fallback";
+  mode: EmailBodyMode;
   quotedHtml: string;
   signatureHtml: string;
   unsupported: string[];
@@ -106,37 +117,6 @@ const SAFE_PREVIEW_ATTRIBUTES = new Set([
   "valign",
   "width",
 ]);
-const SAFE_PREVIEW_STYLE_PROPERTIES = new Set([
-  "background",
-  "background-color",
-  "border-collapse",
-  "border-spacing",
-  "color",
-  "direction",
-  "display",
-  "font",
-  "font-family",
-  "font-size",
-  "font-style",
-  "font-weight",
-  "height",
-  "letter-spacing",
-  "line-height",
-  "max-height",
-  "max-width",
-  "min-height",
-  "min-width",
-  "overflow-wrap",
-  "text-align",
-  "text-decoration",
-  "text-indent",
-  "text-transform",
-  "vertical-align",
-  "white-space",
-  "width",
-  "word-break",
-]);
-
 const TEXT_STYLE_PROPERTIES = ["color", "font-family", "font-size"] as const;
 const FONT_TAG_SIZES: Record<string, string> = {
   "1": "10px",
@@ -152,12 +132,19 @@ type ChildNode = DefaultTreeAdapterTypes.ChildNode;
 type Element = DefaultTreeAdapterTypes.Element;
 type ParentNode = DefaultTreeAdapterTypes.ParentNode;
 
+/**
+ * Splits a provider draft into editable body, signature and quote. With the
+ * "html" profile the body stays as provider HTML: the editor sanitizes it for
+ * display, and an untouched draft is sent exactly as it was.
+ */
 export function prepareEmailDraft({
   html,
+  profile = "rich",
   quotedHtml,
   signatureHtml,
 }: {
   html: string;
+  profile?: "rich" | "html";
   quotedHtml?: string;
   signatureHtml?: string;
 }): PreparedEmailDraft {
@@ -178,6 +165,16 @@ export function prepareEmailDraft({
     html: quoteSplit.editableHtml,
     knownSignatureHtml: signatureHtml,
   });
+  if (profile === "html") {
+    return {
+      editableHtml: signatureSplit.editableHtml,
+      mode: "fallback",
+      quotedHtml: quoteSplit.quotedHtml,
+      signatureHtml: signatureSplit.signatureHtml,
+      unsupported: [],
+    };
+  }
+
   const unsupported = findUnsupportedEditableMarkup(
     signatureSplit.editableHtml,
   );
@@ -218,10 +215,14 @@ export function combineEmailHtml({
 export function finalizeEditableEmailHtml({
   html,
   inlineAttachments,
+  mode,
 }: {
   html: string;
   inlineAttachments: EmailComposerAttachment[];
+  mode: EmailBodyMode;
 }) {
+  if (mode === "fallback") return html;
+
   const contentIds = new Set(
     inlineAttachments
       .filter((attachment) => attachment.disposition === "inline")
@@ -249,6 +250,7 @@ export function finalizeEditableEmailHtml({
   // The editor never produces quote containers, and splitting would drop the
   // editable signature container from the outgoing body.
   const rewrittenHtml = serialize(fragment);
+  if (mode === "html") return sanitizeEmailBodyHtml(rewrittenHtml);
   return findUnsupportedEditableMarkup(rewrittenHtml).length > 0
     ? rewrittenHtml
     : normalizeEditableEmailHtml(rewrittenHtml);
@@ -298,10 +300,6 @@ export function sanitizeEditableEmailHtml(html: string) {
   const fragment = parseFragment(html);
   sanitizeEditableChildren(fragment);
   return serialize(fragment);
-}
-
-export function canOpenEmailLink(value: string) {
-  return /^(?:https?:|mailto:|tel:)/iu.test(value.trim());
 }
 
 export function normalizeEmailUrl(value: string): string | null {
@@ -797,7 +795,7 @@ function sanitizePreviewChildren(parent: ParentNode) {
         );
       }
       if (attribute.name === "style") {
-        attribute.value = sanitizePreviewStyle(attribute.value);
+        attribute.value = sanitizeEmailStyle(attribute.value);
         return Boolean(attribute.value);
       }
       if (attribute.name === "target") {
@@ -919,32 +917,6 @@ function sanitizeEditableStyle(tagName: string, style: string) {
       );
     })
     .map(([property, value]) => `${property}:${value}`)
-    .join(";");
-}
-
-function sanitizePreviewStyle(style: string) {
-  return style
-    .split(";")
-    .map((declaration) => declaration.trim())
-    .filter(Boolean)
-    .map((declaration) => {
-      const separator = declaration.indexOf(":");
-      if (separator < 0) return "";
-      const property = declaration.slice(0, separator).trim().toLowerCase();
-      const value = declaration.slice(separator + 1).trim();
-      const normalizedValue = value.toLowerCase();
-      const isBoxProperty = /^(?:border|margin|padding)(?:-|$)/u.test(property);
-      if (
-        (!SAFE_PREVIEW_STYLE_PROPERTIES.has(property) && !isBoxProperty) ||
-        normalizedValue.includes("url(") ||
-        normalizedValue.includes("expression(") ||
-        normalizedValue.includes("javascript:")
-      ) {
-        return "";
-      }
-      return `${property}:${value}`;
-    })
-    .filter(Boolean)
     .join(";");
 }
 
@@ -1094,31 +1066,11 @@ function getDirection(element: Element) {
     : undefined;
 }
 
-function isSafeTextStyle(property: string, value: string) {
-  if (property === "color") {
-    return /^(?:#[\da-f]{3,8}|rgba?\([\d\s.,%]+\)|[a-z]+)$/u.test(value);
-  }
-  if (property === "font-family") {
-    return value.length <= 200 && /^[\w\s,'"-]+$/u.test(value);
-  }
-  if (property === "font-size") {
-    return /^(?:\d+(?:\.\d+)?(?:px|pt|em|rem|%)|(?:x{1,2}-)?(?:small|large)|medium|smaller|larger)$/u.test(
-      value,
-    );
-  }
-  return false;
-}
-
 // These carry no visible formatting without a stylesheet, so dropping them
 // while editing loses nothing the recipient would see. Ids and lang stay
 // unsupported because links and screen readers depend on them.
 function isPresentationFreeAttribute(name: string) {
   return name === "class" || name.startsWith("data-");
-}
-
-export function isSafeEmailUrl(value: string) {
-  const normalized = value.trim();
-  return canOpenEmailLink(normalized) || normalized.startsWith("#");
 }
 
 function isSafeImageSource(value: string) {
@@ -1139,10 +1091,6 @@ function isSafeEditableImageSource(value: string) {
 
 function isPositiveInteger(value: string) {
   return /^\d+$/u.test(value) && Number(value) > 0;
-}
-
-function isSafeContentId(value: string) {
-  return value.length <= 255 && /^[^<>\s]+$/u.test(value);
 }
 
 function isBase64(value: string) {

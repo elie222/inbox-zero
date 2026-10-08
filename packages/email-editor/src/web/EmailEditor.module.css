@@ -388,3 +388,82 @@
   margin: 0 0.125rem;
   background: rgb(255 255 255 / 15%);
 }
+
+.squireBody {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: var(--email-editor-content-min-height, 200px);
+}
+
+.surface[data-email-editor-engine="squire"]
+  .editor
+  .squireContent[data-email-editor-content] {
+  flex: none;
+  min-height: 0;
+  padding-bottom: 0;
+  white-space: normal;
+}
+
+.editor .squireContent[data-email-editor-empty] > :first-child::before {
+  float: left;
+  height: 0;
+  color: var(--email-editor-muted-foreground);
+  pointer-events: none;
+  content: var(--email-editor-placeholder);
+}
+
+.editor .squireContent img[data-original-src]:not([src]) {
+  min-width: 1.5rem;
+  min-height: 1.5rem;
+  overflow: hidden;
+  font-size: 0.625rem;
+  line-height: 1.2;
+  color: var(--email-editor-muted-foreground);
+  background: var(--email-editor-muted);
+}
+
+.editor .squireContent table {
+  max-width: 100%;
+  border-collapse: collapse;
+}
+
+.squirePreserved {
+  padding: 0 0.75rem;
+  color: var(--email-editor-muted-foreground);
+}
+
+.surface[data-email-editor-appearance="seamless"] .squirePreserved {
+  padding: 0 var(--email-editor-content-padding, 1rem);
+}
+
+.squireFiller {
+  flex: 1;
+  min-height: 0.75rem;
+  cursor: text;
+}
+
+.squireRemoveSignature {
+  position: absolute;
+  right: 0.5rem;
+  width: 1.75rem;
+  height: 1.75rem;
+  font-size: 1.1rem;
+  color: var(--email-editor-muted-foreground);
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+}
+
+.squireRemoveSignature:hover,
+.squireRemoveSignature:focus-visible {
+  color: var(--email-editor-foreground);
+  outline: none;
+  background: var(--email-editor-muted);
+}
+
+.squireToolbar {
+  position: fixed;
+  z-index: 100;
+}

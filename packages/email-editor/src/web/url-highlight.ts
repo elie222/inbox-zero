@@ -3,7 +3,7 @@ import type { Node } from "@tiptap/pm/model";
 import { Plugin } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { find } from "linkifyjs";
-import { isSafeEmailUrl } from "../core/email-html";
+import { isSafeEmailUrl } from "../core/email-profile";
 
 export const UrlHighlight = Extension.create({
   name: "urlHighlight",

@@ -9,6 +9,7 @@
     "editor",
     "html",
     "react",
+    "squire",
     "tiptap"
   ],
   "homepage": "https://github.com/elie222/inbox-zero/tree/main/packages/email-editor#readme",
@@ -47,8 +48,10 @@
     "@tiptap/pm": "3.30.2",
     "@tiptap/react": "3.30.2",
     "@tiptap/starter-kit": "3.30.2",
+    "dompurify": "3.4.15",
     "react": ">=19",
-    "react-dom": ">=19"
+    "react-dom": ">=19",
+    "squire-rte": "2.4.9"
   },
   "peerDependenciesMeta": {
     "@tiptap/core": {
@@ -72,16 +75,28 @@
     "@tiptap/starter-kit": {
       "optional": true
     },
+    "dompurify": {
+      "optional": true
+    },
     "react": {
       "optional": true
     },
     "react-dom": {
       "optional": true
+    },
+    "squire-rte": {
+      "optional": true
     }
   },
   "devDependencies": {
+    "@testing-library/react": "16.3.3",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",
+    "dompurify": "3.4.15",
+    "jsdom": "27.3.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "squire-rte": "2.4.9",
     "typescript": "6.0.3",
     "vitest": "4.1.10"
   },

@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "packages/mail-*/**"
+      - "packages/email-editor/**"
       - "apps/desktop/**"
       - "apps/web/app/**"
       - "apps/web/components/**"
@@ -37,6 +38,7 @@ on:
     branches: [main]
     paths:
       - "packages/mail-*/**"
+      - "packages/email-editor/**"
       - "apps/desktop/**"
       - "apps/web/app/**"
       - "apps/web/components/**"
@@ -101,6 +103,8 @@ env:
   NEXT_PUBLIC_INTEGRATIONS_ENABLED: "true"
   NEXT_PUBLIC_INTEGRATION_ACTION_ENABLED: "true"
   NEXT_PUBLIC_EXTERNAL_API_ENABLED: "true"
+  # The Squire composer is rolling out behind a flag; browser specs cover it.
+  NEXT_PUBLIC_SQUIRE_COMPOSER_ENABLED: "true"
   # Stripe emulator price ids. The emulator accepts any id; these only have to
   # match what the build was frozen with so the tier lookup resolves.
   NEXT_PUBLIC_STRIPE_BUSINESS_MONTHLY_PRICE_ID: price_playwright_starter_monthly

@@ -43,30 +43,12 @@ export function PreservedBlockView({
   // Editor-owned signature content stays mounted while collapsed.
   signatureContent?: ReactNode;
 }) {
-  const { blocks, expanded, toggle } = useContext(PreservedBlocksContext);
+  const { blocks, expanded } = useContext(PreservedBlocksContext);
   const showToggle = blocks[0]?.id === block.id;
-  const hiddenContent = [
-    blocks.some((candidate) => candidate.kind === "signature") && "signature",
-    blocks.some((candidate) => candidate.kind === "quote") && "quoted message",
-  ]
-    .filter(Boolean)
-    .join(" and ");
 
   return (
     <>
-      {showToggle && (
-        <button
-          aria-expanded={expanded}
-          aria-label={`${expanded ? "Hide" : "Show"} ${hiddenContent}`}
-          className={styles.preservedToggle}
-          contentEditable={false}
-          onClick={toggle}
-          onMouseDown={(event) => event.preventDefault()}
-          type="button"
-        >
-          ⋯
-        </button>
-      )}
+      {showToggle && <PreservedBlocksToggle />}
       {block.kind === "signature" && (expanded || signatureContent) && (
         <div className={styles.signatureContent} hidden={!expanded}>
           <button
@@ -92,15 +74,45 @@ export function PreservedBlockView({
         </div>
       )}
       {expanded && block.kind === "quote" && (
-        <iframe
-          className={styles.quotePreview}
-          sandbox=""
-          srcDoc={`<!doctype html><html><head><meta name="color-scheme" content="light"><style>html,body{margin:0;padding:0;background:#fff;color:#242424;font:13px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}body{padding:8px}img{max-width:100%;height:auto}table{max-width:100%}a{color:#2563eb}</style></head><body>${block.previewHtml}</body></html>`}
-          tabIndex={-1}
-          title="Quoted message preview"
-        />
+        <QuotePreview previewHtml={block.previewHtml ?? ""} />
       )}
     </>
+  );
+}
+
+export function PreservedBlocksToggle() {
+  const { blocks, expanded, toggle } = useContext(PreservedBlocksContext);
+  const hiddenContent = [
+    blocks.some((candidate) => candidate.kind === "signature") && "signature",
+    blocks.some((candidate) => candidate.kind === "quote") && "quoted message",
+  ]
+    .filter(Boolean)
+    .join(" and ");
+
+  return (
+    <button
+      aria-expanded={expanded}
+      aria-label={`${expanded ? "Hide" : "Show"} ${hiddenContent}`}
+      className={styles.preservedToggle}
+      contentEditable={false}
+      onClick={toggle}
+      onMouseDown={(event) => event.preventDefault()}
+      type="button"
+    >
+      ⋯
+    </button>
+  );
+}
+
+export function QuotePreview({ previewHtml }: { previewHtml: string }) {
+  return (
+    <iframe
+      className={styles.quotePreview}
+      sandbox=""
+      srcDoc={`<!doctype html><html><head><meta name="color-scheme" content="light"><style>html,body{margin:0;padding:0;background:#fff;color:#242424;font:13px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}body{padding:8px}img{max-width:100%;height:auto}table{max-width:100%}a{color:#2563eb}</style></head><body>${previewHtml}</body></html>`}
+      tabIndex={-1}
+      title="Quoted message preview"
+    />
   );
 }
 

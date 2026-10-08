@@ -65,6 +65,7 @@ import {
 } from "@/components/ui/select";
 import { env } from "@/env";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
+import { useSquireComposerEnabled } from "@/hooks/useFeatureFlags";
 import { useLocalReplyDraft } from "@/hooks/useLocalReplyDraft";
 import { useProviderDraftAutosave } from "@/hooks/useProviderDraftAutosave";
 import {
@@ -126,6 +127,7 @@ import {
   resolveRecipientSelection,
 } from "./compose-recipients";
 import { DeliveryOptions, type DeliveryOptionsHandle } from "./DeliveryOptions";
+import { resolveRemoteImages } from "./resolve-remote-images";
 import { useComposeSnippets } from "./useComposeSnippets";
 import {
   getReminderAfterSendTimeChange,
@@ -346,6 +348,14 @@ function ComposeEmailFormContent({
           : undefined,
     })),
   );
+  const squireComposerEnabled = useSquireComposerEnabled();
+  // A draft saved by the Squire engine reopens in it, even if the flag has
+  // not loaded yet.
+  const [editorEngine] = useState<"squire" | "tiptap">(() =>
+    squireComposerEnabled || storedDraft?.content?.draft.mode === "html"
+      ? "squire"
+      : "tiptap",
+  );
   const [initialComposer] = useState(() => {
     if (storedDraft?.content) {
       const { draft, preservedBlocks } = storedDraft.content;
@@ -380,6 +390,7 @@ function ComposeEmailFormContent({
 
     const preparedDraft = prepareEmailDraft({
       html: replyingToEmail?.draftHtml ?? "",
+      profile: editorEngine === "squire" ? "html" : "rich",
       quotedHtml: replyingToEmail?.quotedContentHtml,
       signatureHtml:
         replyingToEmail?.signatureHtml ?? accountSignatureHtml ?? undefined,
@@ -442,7 +453,12 @@ function ComposeEmailFormContent({
       bcc: replyingToEmail?.bcc,
     },
   });
-  const { extraExtensions, toolbar: snippetToolbar } = useComposeSnippets({
+  const {
+    extraExtensions,
+    onSlashKeyDown,
+    onSlashTrigger,
+    toolbar: snippetToolbar,
+  } = useComposeSnippets({
     editorRef,
     to: watch("to"),
   });
@@ -516,13 +532,11 @@ function ComposeEmailFormContent({
         bcc: content.values.bcc ?? "",
         attachments: serializeComposeAttachments(content.attachments),
         messageHtml: combineEmailHtml({
-          editableHtml:
-            content.draft.mode === "fallback"
-              ? content.draft.editableHtml
-              : finalizeEditableEmailHtml({
-                  html: content.draft.editableHtml,
-                  inlineAttachments: content.attachments,
-                }),
+          editableHtml: finalizeEditableEmailHtml({
+            html: content.draft.editableHtml,
+            inlineAttachments: content.attachments,
+            mode: content.draft.mode,
+          }),
           signatureHtml: blocks.has("signature")
             ? content.draft.signatureHtml
             : "",
@@ -678,7 +692,11 @@ function ComposeEmailFormContent({
 
   const addFiles = useCallback(
     async (files: File[], disposition: ComposeAttachment["disposition"]) => {
-      if (disposition === "inline" && initialDraft.mode === "fallback") {
+      if (
+        disposition === "inline" &&
+        initialDraft.mode === "fallback" &&
+        editorEngine === "tiptap"
+      ) {
         toastError({
           description:
             "Inline images are unavailable while preserving this draft's original formatting.",
@@ -756,7 +774,7 @@ function ComposeEmailFormContent({
       }
       updateAttachments([...attachmentsRef.current, ...acceptedAttachments]);
     },
-    [initialDraft.mode, updateAttachments],
+    [editorEngine, initialDraft.mode, updateAttachments],
   );
 
   const removeAttachment = useCallback(
@@ -824,13 +842,11 @@ function ComposeEmailFormContent({
       }
 
       const preservedBlockIds = new Set(editorValue.preservedBlockIds);
-      const editableHtml =
-        editorValue.mode === "fallback"
-          ? editorValue.editableHtml
-          : finalizeEditableEmailHtml({
-              html: editorValue.editableHtml,
-              inlineAttachments: outgoingAttachments,
-            });
+      const editableHtml = finalizeEditableEmailHtml({
+        html: editorValue.editableHtml,
+        inlineAttachments: outgoingAttachments,
+        mode: editorValue.mode,
+      });
       const enrichedData: SendEmailBody = {
         ...data,
         ...recipients,
@@ -1466,7 +1482,10 @@ function ComposeEmailFormContent({
         placeholder={isInlineReply ? "" : undefined}
         appearance={isComposeWindow || isInlineReply ? "seamless" : "contained"}
         autofocus={!focusRecipientField}
+        engine={editorEngine}
         extraExtensions={extraExtensions}
+        onSlashKeyDown={onSlashKeyDown}
+        onSlashTrigger={onSlashTrigger}
         ref={editorRef}
         initialHtml={initialDraft.editableHtml}
         mode={initialDraft.mode}
@@ -1477,6 +1496,7 @@ function ComposeEmailFormContent({
           );
         }}
         preservedBlocks={preservedBlocks}
+        resolveRemoteImages={resolveRemoteImages}
         unsupported={initialDraft.unsupported}
       />
 

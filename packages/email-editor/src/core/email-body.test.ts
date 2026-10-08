@@ -1,0 +1,157 @@
+import { describe, expect, it } from "vitest";
+import {
+  GMAIL_DRAFT_FIXTURE,
+  SANITIZER_ATTACK_FIXTURES,
+  SIGNATURE_FIXTURES,
+} from "../fixtures/email-html";
+import {
+  prepareEmailBodySignatureHtml,
+  sanitizeEmailBodyHtml,
+} from "./email-body";
+import { finalizeEditableEmailHtml, prepareEmailDraft } from "./email-html";
+import { expectInert } from "./sanitizer.test-utils";
+
+describe("sanitizeEmailBodyHtml", () => {
+  it.each(
+    SANITIZER_ATTACK_FIXTURES,
+  )("removes active content from %s", (html) => {
+    expectInert(sanitizeEmailBodyHtml(html));
+  });
+
+  it("keeps provider layout, styles and links", () => {
+    const html = sanitizeEmailBodyHtml(SIGNATURE_FIXTURES.tableWithLogo);
+
+    expect(html).toContain('cellpadding="0"');
+    expect(html).toContain('valign="top"');
+    expect(html).toContain("border-collapse:collapse");
+    expect(html).toContain('src="https://assets.example.com/logo.png"');
+    expect(html).toContain('width="64"');
+    expect(html).toContain("font-family:Arial,sans-serif");
+    expect(html).toContain("<b>Example Person</b>");
+    expect(html).toContain(
+      '<a href="https://example.com" target="_blank" rel="noopener noreferrer">',
+    );
+  });
+
+  it("unwraps unknown elements without losing their text", () => {
+    const html = sanitizeEmailBodyHtml(SIGNATURE_FIXTURES.outlookMso);
+
+    expect(html).not.toContain("o:p");
+    expect(html).not.toContain("MsoNormal");
+    expect(html).toContain("Example Person");
+    expect(html).toContain("font-size:11.0pt");
+  });
+
+  it.each(
+    Object.entries(SIGNATURE_FIXTURES),
+  )("is stable when reapplied to the %s fixture", (_name, fixture) => {
+    const once = sanitizeEmailBodyHtml(fixture);
+    expect(sanitizeEmailBodyHtml(once)).toBe(once);
+  });
+
+  it("drops data URI images, which mail clients block", () => {
+    expect(
+      sanitizeEmailBodyHtml('<img src="data:image/png;base64,iVBORw0KGgo=">'),
+    ).toBe("");
+  });
+
+  it("keeps font tags, direction, centering and inline images", () => {
+    expect(sanitizeEmailBodyHtml(SIGNATURE_FIXTURES.fontTags)).toBe(
+      '<font face="Verdana" size="2" color="#336699">Example Person</font><br><font size="1">Sent from a desk</font>',
+    );
+    expect(sanitizeEmailBodyHtml(SIGNATURE_FIXTURES.rtl)).toContain(
+      '<div dir="rtl" style="text-align:right">',
+    );
+    expect(sanitizeEmailBodyHtml(SIGNATURE_FIXTURES.centered)).toContain(
+      '<center><img src="cid:logo@example" alt="Logo">',
+    );
+  });
+});
+
+describe("prepareEmailBodySignatureHtml", () => {
+  it("wraps the signature in one container with a separating blank line", () => {
+    expect(
+      prepareEmailBodySignatureHtml(
+        '<div class="gmail_signature" data-smartmail="gmail_signature">Example Person</div>',
+      ),
+    ).toBe(
+      '<div data-smartmail="gmail_signature"><div><br></div><div>Example Person</div></div>',
+    );
+  });
+
+  it("keeps complex signatures editable instead of protecting them", () => {
+    const html = prepareEmailBodySignatureHtml(
+      SIGNATURE_FIXTURES.tableWithLogo,
+    );
+
+    expect(html).toContain("<table");
+    expect(html).toContain("Head of Examples");
+  });
+
+  it("returns null when nothing visible is left", () => {
+    expect(prepareEmailBodySignatureHtml("<script>x</script><br>")).toBeNull();
+  });
+});
+
+describe("prepareEmailDraft with the html profile", () => {
+  it("keeps the provider body as-is and still splits signature and quote", () => {
+    const result = prepareEmailDraft({
+      html: GMAIL_DRAFT_FIXTURE,
+      profile: "html",
+    });
+
+    expect(result.mode).toBe("fallback");
+    expect(result.unsupported).toEqual([]);
+    expect(result.editableHtml).toContain(
+      '<div dir="ltr">Thanks for the update.',
+    );
+    expect(result.editableHtml).not.toContain("gmail_signature");
+    expect(result.signatureHtml).toContain("<table");
+    expect(result.quotedHtml).toContain("gmail_quote_container");
+  });
+});
+
+describe("finalizeEditableEmailHtml in html mode", () => {
+  it("rewrites inline previews to Content-ID references and sanitizes", () => {
+    const sent = finalizeEditableEmailHtml({
+      html: '<div>Hi <img src="blob:https://app.example/1" data-content-id="img-1@example" alt="Chart"></div><div onclick="x()">Bye</div><table><tbody><tr><td style="color:#333">Sig</td></tr></tbody></table>',
+      inlineAttachments: [
+        {
+          id: "a",
+          filename: "chart.png",
+          mimeType: "image/png",
+          size: 1,
+          contentBase64: "AA==",
+          disposition: "inline",
+          contentId: "img-1@example",
+        },
+      ],
+      mode: "html",
+    });
+
+    expect(sent).toBe(
+      '<div>Hi <img src="cid:img-1@example" alt="Chart"></div><div>Bye</div><table><tbody><tr><td style="color:#333">Sig</td></tr></tbody></table>',
+    );
+  });
+
+  it("drops unsent local previews", () => {
+    expect(
+      finalizeEditableEmailHtml({
+        html: '<div><img src="blob:https://app.example/2" data-content-id="gone@example"></div>',
+        inlineAttachments: [],
+        mode: "html",
+      }),
+    ).toBe("<div></div>");
+  });
+
+  it("returns fallback HTML untouched", () => {
+    const html = "<div><!--[if mso]>x<![endif]-->Hi</div>";
+    expect(
+      finalizeEditableEmailHtml({
+        html,
+        inlineAttachments: [],
+        mode: "fallback",
+      }),
+    ).toBe(html);
+  });
+});

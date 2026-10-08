@@ -2,7 +2,8 @@
 
 Reusable email composition primitives for Inbox Zero. The package keeps the
 provider interchange format as HTML while separating portable email correctness
-rules from the React/Tiptap editing surface.
+rules from the React editing surface. Two editing engines are available while
+the Squire engine rolls out: Tiptap (the default) and Squire.
 
 ## Install
 
@@ -21,8 +22,9 @@ import {
 } from "@inboxzero/email-editor/core";
 ```
 
-Consumers of `@inboxzero/email-editor/web` must also install the React and
-Tiptap peer dependencies declared by the package. Those peers are optional so
+Consumers of `@inboxzero/email-editor/web` must also install the React peer
+dependencies plus the peers of the engine they use: the Tiptap packages, or
+`squire-rte` and `dompurify`. Those peers are optional so
 native and backend consumers can install the core without bringing in a web
 editor stack.
 
@@ -31,8 +33,8 @@ editor stack.
 - `@inboxzero/email-editor/core` — editable-email HTML normalization,
   unsupported-markup fallback detection, preserved quote/signature handling,
   inline Content-ID rewriting, attachment validation, and public contracts.
-- `@inboxzero/email-editor/web` — the uncontrolled React/Tiptap editor and its
-  web extensions.
+- `@inboxzero/email-editor/web` — the uncontrolled React editor. Pass
+  `engine="squire"` for the Squire engine.
 - `@inboxzero/email-editor/fixtures` — anonymous Gmail- and Outlook-style HTML
   fixtures for provider round-trip tests.
 
@@ -45,6 +47,17 @@ formatting. Signatures that fit this profile are edited in place inside a
 Gmail-style signature container. Quoted messages and more complex signatures
 remain protected HTML and are combined with the canonical editable reply only
 when sending.
+
+The Squire engine edits "email-safe HTML" instead: tables, styled blocks,
+fonts and hosted images survive loading, editing and sending. One profile
+(`core/email-profile.ts`) drives both the browser sanitizer (DOMPurify, on
+load, paste and insert) and the parse5 sanitizer that `finalizeEditableEmailHtml`
+applies in `"html"` mode. Signatures always load as editable content in a
+single container that collapses behind the "⋯" toggle; while collapsed it is
+detached from the editable DOM so typing and deleting cannot change it unseen.
+Remote images are never fetched from their host while composing: the
+`resolveRemoteImages` prop maps them to proxied URLs, and the sent HTML keeps
+the original addresses. An untouched draft is returned exactly as loaded.
 
 Inline images use temporary local preview URLs while editing. Before sending,
 `finalizeEditableEmailHtml` converts matched previews to `cid:` references;

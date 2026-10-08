@@ -2,13 +2,13 @@
 
 import {
   forwardRef,
+  lazy,
+  Suspense,
   useCallback,
-  useId,
   useImperativeHandle,
   useMemo,
   useRef,
   useState,
-  type ReactNode,
 } from "react";
 import type { AnyExtension } from "@tiptap/core";
 import {
@@ -20,12 +20,15 @@ import {
 import { TextSelection } from "@tiptap/pm/state";
 import { BubbleMenu } from "@tiptap/react/menus";
 import { DOMSerializer, Fragment, type Node } from "@tiptap/pm/model";
+import { prepareEmailBodySignatureHtml } from "../core/email-body";
 import {
-  isSafeEmailUrl,
+  type EmailBodyMode,
   prepareEditableSignatureHtml,
   sanitizePreservedEmailHtmlForPreview,
 } from "../core/email-html";
 import { createEmailEditorExtensions } from "./email-extensions";
+import { LinkPanel, openSafeLink } from "./link-panel";
+import { FormattingIcon, ToolbarButton } from "./toolbar";
 import {
   type ActivePreservedBlock,
   PreservedBlocksContext,
@@ -34,10 +37,18 @@ import {
 } from "./preserved-block";
 import styles from "./EmailEditor.module.css";
 
+// Squire touches the DOM when its module loads, and Tiptap-only consumers
+// should not download it.
+const SquireEmailEditor = lazy(() =>
+  import("./squire/SquireEmailEditor").then((module) => ({
+    default: module.SquireEmailEditor,
+  })),
+);
+
 export type EmailEditorValue = {
   editableHtml: string;
   inlineContentIds: string[];
-  mode: "rich" | "fallback";
+  mode: EmailBodyMode;
   preservedBlockIds: string[];
 };
 
@@ -47,6 +58,11 @@ export type EmailEditorPreservedBlock = {
   id: string;
   kind: "quote" | "signature";
   html: string;
+};
+
+export type EmailEditorSlashTrigger = {
+  query: string;
+  rect: DOMRect;
 };
 
 export type EmailEditorHandle = {
@@ -61,25 +77,40 @@ export type EmailEditorHandle = {
     previewUrl: string;
   }) => boolean;
   removeInlineImage: (contentId: string) => boolean;
+  // Replaces the "/query" reported by onSlashTrigger. Squire engine only.
+  replaceSlashTrigger: (html: string) => boolean;
 };
 
 export type EmailEditorProps = {
   appearance?: "contained" | "seamless";
+  engine?: "tiptap" | "squire";
+  // Tiptap engine only.
   extraExtensions?: AnyExtension[];
   initialHtml: string;
-  mode?: "rich" | "fallback";
+  mode?: EmailBodyMode;
   preservedBlocks?: EmailEditorPreservedBlock[];
   unsupported?: string[];
   placeholder?: string;
   autofocus?: boolean;
   onStateChange?: (state: EmailEditorState) => void;
   onImageFiles?: (files: File[]) => void;
+  // Squire engine only: a "/" typed at a line start or after whitespace.
+  onSlashTrigger?: (trigger: EmailEditorSlashTrigger | null) => void;
+  // Squire engine only: keys typed while a slash trigger is open. Return true
+  // when handled.
+  onSlashKeyDown?: (event: KeyboardEvent) => boolean;
+  // Squire engine only: maps remote image URLs to proxied URLs for display.
+  // Images without a mapping show their alt text; sent HTML keeps the original.
+  resolveRemoteImages?: (
+    sources: string[],
+  ) => Promise<Record<string, string | null>>;
 };
 
 export const EmailEditor = forwardRef<EmailEditorHandle, EmailEditorProps>(
   function EmailEditor(
     {
       appearance = "contained",
+      engine = "tiptap",
       initialHtml,
       mode = "rich",
       preservedBlocks = [],
@@ -89,10 +120,14 @@ export const EmailEditor = forwardRef<EmailEditorHandle, EmailEditorProps>(
       extraExtensions = [],
       onStateChange,
       onImageFiles,
+      onSlashKeyDown,
+      onSlashTrigger,
+      resolveRemoteImages,
     },
     ref,
   ) {
     const [initialState] = useState(() => ({
+      engine,
       initialHtml,
       appearance,
       mode,
@@ -105,13 +140,39 @@ export const EmailEditor = forwardRef<EmailEditorHandle, EmailEditorProps>(
         previewHtml: sanitizePreservedEmailHtmlForPreview(block.html),
         editableHtml:
           block.kind === "signature"
-            ? (prepareEditableSignatureHtml(block.html) ?? undefined)
+            ? ((engine === "squire"
+                ? prepareEmailBodySignatureHtml(block.html)
+                : prepareEditableSignatureHtml(block.html)) ?? undefined)
             : undefined,
       })),
       unsupported,
     }));
 
-    if (initialState.mode === "fallback") {
+    if (initialState.engine === "squire") {
+      return (
+        <Suspense
+          fallback={<div className={styles.surface} aria-busy="true" />}
+        >
+          <SquireEmailEditor
+            ref={ref}
+            appearance={initialState.appearance}
+            autofocus={initialState.autofocus}
+            initialHtml={initialState.initialHtml}
+            initialMode={initialState.mode}
+            onImageFiles={onImageFiles}
+            onSlashKeyDown={onSlashKeyDown}
+            onSlashTrigger={onSlashTrigger}
+            onStateChange={onStateChange}
+            placeholder={initialState.placeholder}
+            preservedBlocks={initialState.preservedBlocks}
+            resolveRemoteImages={resolveRemoteImages}
+          />
+        </Suspense>
+      );
+    }
+
+    // Tiptap's schema would drop the layout of HTML-profile drafts.
+    if (initialState.mode === "fallback" || initialState.mode === "html") {
       return (
         <FallbackEmailEditor
           ref={ref}
@@ -176,10 +237,6 @@ const RichEmailEditor = forwardRef<
     href: string;
     to: number;
   } | null>(null);
-  const [linkHref, setLinkHref] = useState("");
-  const [linkError, setLinkError] = useState("");
-  const linkInputId = useId();
-  const linkErrorId = `${linkInputId}-error`;
 
   const [expanded, setExpanded] = useState(false);
   const [activeBlocks, setActiveBlocks] = useState<ActivePreservedBlock[]>(() =>
@@ -342,46 +399,39 @@ const RichEmailEditor = forwardRef<
     const { from, to } = editor.state.selection;
     const href = String(editor.getAttributes("link").href ?? "");
     setLinkPanel({ from, href, to });
-    setLinkHref(href);
-    setLinkError("");
   }, [editor]);
 
   const closeLinkPanel = useCallback(() => {
     setLinkPanel(null);
-    setLinkError("");
     editor?.commands.focus();
   }, [editor]);
 
-  const applyLink = useCallback(() => {
-    if (!editor || !linkPanel) return;
-    const href = normalizeLinkHref(linkHref);
-    if (!href || !isSafeEmailUrl(href)) {
-      setLinkError("Enter a safe web, email, telephone, or in-message link.");
-      return;
-    }
-
-    if (linkPanel.from === linkPanel.to) {
-      editor
-        .chain()
-        .focus()
-        .setTextSelection(linkPanel.from)
-        .insertContent({
-          type: "text",
-          text: href,
-          marks: [{ type: "link", attrs: { href } }],
-        })
-        .run();
-    } else {
-      editor
-        .chain()
-        .focus()
-        .setTextSelection({ from: linkPanel.from, to: linkPanel.to })
-        .setLink({ href })
-        .run();
-    }
-    setLinkPanel(null);
-    setLinkError("");
-  }, [editor, linkHref, linkPanel]);
+  const applyLink = useCallback(
+    (href: string) => {
+      if (!editor || !linkPanel) return;
+      if (linkPanel.from === linkPanel.to) {
+        editor
+          .chain()
+          .focus()
+          .setTextSelection(linkPanel.from)
+          .insertContent({
+            type: "text",
+            text: href,
+            marks: [{ type: "link", attrs: { href } }],
+          })
+          .run();
+      } else {
+        editor
+          .chain()
+          .focus()
+          .setTextSelection({ from: linkPanel.from, to: linkPanel.to })
+          .setLink({ href })
+          .run();
+      }
+      setLinkPanel(null);
+    },
+    [editor, linkPanel],
+  );
 
   const removeLink = useCallback(() => {
     if (!editor || !linkPanel) return;
@@ -460,6 +510,7 @@ const RichEmailEditor = forwardRef<
           return true;
         });
       },
+      replaceSlashTrigger: () => false,
     }),
     [editor, initialHtml],
   );
@@ -556,75 +607,13 @@ const RichEmailEditor = forwardRef<
         </BubbleMenu>
 
         {linkPanel && (
-          <div
-            aria-label={linkPanel.href ? "Edit link" : "Add link"}
-            className={styles.linkPanel}
-            data-email-editor-link-dialog=""
-            onKeyDown={(event) => {
-              if (event.key !== "Escape") return;
-              event.preventDefault();
-              event.stopPropagation();
-              closeLinkPanel();
-            }}
-            role="dialog"
-          >
-            <label htmlFor={linkInputId}>Link address</label>
-            <input
-              aria-describedby={linkError ? linkErrorId : undefined}
-              aria-invalid={Boolean(linkError)}
-              autoFocus
-              className={styles.linkInput}
-              id={linkInputId}
-              onChange={(event) => setLinkHref(event.target.value)}
-              placeholder="https://example.com"
-              type="text"
-              value={linkHref}
-              onKeyDown={(event) => {
-                if (event.key !== "Enter") return;
-                event.preventDefault();
-                applyLink();
-              }}
-            />
-            {linkError && (
-              <p className={styles.linkError} id={linkErrorId} role="alert">
-                {linkError}
-              </p>
-            )}
-            <div className={styles.linkActions}>
-              {linkPanel.href && (
-                <button
-                  className={styles.linkButton}
-                  onClick={() => openSafeLink(linkPanel.href)}
-                  type="button"
-                >
-                  Open
-                </button>
-              )}
-              {linkPanel.href && (
-                <button
-                  className={styles.linkButton}
-                  onClick={removeLink}
-                  type="button"
-                >
-                  Remove
-                </button>
-              )}
-              <button
-                className={styles.linkButton}
-                onClick={closeLinkPanel}
-                type="button"
-              >
-                Cancel
-              </button>
-              <button
-                className={`${styles.linkButton} ${styles.linkButtonPrimary}`}
-                onClick={applyLink}
-                type="button"
-              >
-                {linkPanel.href ? "Update" : "Add"}
-              </button>
-            </div>
-          </div>
+          <LinkPanel
+            initialHref={linkPanel.href}
+            key={`${linkPanel.from}-${linkPanel.to}`}
+            onApply={applyLink}
+            onCancel={closeLinkPanel}
+            onRemove={removeLink}
+          />
         )}
       </div>
     </PreservedBlocksContext.Provider>
@@ -706,6 +695,7 @@ const FallbackEmailEditor = forwardRef<
       },
       insertInlineImage: () => false,
       removeInlineImage: () => false,
+      replaceSlashTrigger: () => false,
     }),
     [getValue],
   );
@@ -819,35 +809,6 @@ function MarkButtons({
   );
 }
 
-function ToolbarButton({
-  active,
-  children,
-  disabled = false,
-  label,
-  onPress,
-}: {
-  active?: boolean;
-  children: ReactNode;
-  disabled?: boolean;
-  label: string;
-  onPress: () => void;
-}) {
-  return (
-    <button
-      aria-label={label}
-      aria-pressed={active}
-      className={`${styles.toolbarButton} ${active ? styles.toolbarButtonActive : ""}`}
-      disabled={disabled}
-      onClick={onPress}
-      onMouseDown={(event) => event.preventDefault()}
-      title={label}
-      type="button"
-    >
-      {children}
-    </button>
-  );
-}
-
 function StandalonePreservedBlock({
   block,
   onRemove,
@@ -947,20 +908,6 @@ function setBlockDirection(editor: Editor, direction: "ltr" | "rtl") {
     .run();
 }
 
-function normalizeLinkHref(value: string) {
-  const href = value.trim();
-  if (!href) return "";
-  if (/^(?:https?:\/\/|mailto:|tel:|#)/iu.test(href)) return href;
-  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(href)) return `mailto:${href}`;
-  return `https://${href}`;
-}
-
-function openSafeLink(value: string) {
-  const href = normalizeLinkHref(value);
-  if (!isSafeEmailUrl(href)) return;
-  window.open(href, "_blank", "noopener,noreferrer");
-}
-
 function getActiveBlockDirection(editor: Editor) {
   for (const type of ["paragraph", "blockquote", "bulletList", "orderedList"]) {
     if (!editor.isActive(type)) continue;
@@ -979,34 +926,4 @@ function emptyEditorValue(
     mode,
     preservedBlockIds: [],
   };
-}
-
-function FormattingIcon({
-  kind,
-}: {
-  kind: "bullets" | "numbers" | "quote" | "ltr" | "rtl" | "link";
-}) {
-  const paths = {
-    bullets: "M9 6h12M9 12h12M9 18h12M3 6h.01M3 12h.01M3 18h.01",
-    numbers: "M10 6h11M10 12h11M10 18h11M3 4h1v5M3 9h2M3 14c3-2 4 1 1 3l-1 2h3",
-    quote: "M9 5H3v7h5c0 4-2 6-5 7M21 5h-6v7h5c0 4-2 6-5 7",
-    ltr: "M4 4h16M4 9h10M4 14h16M4 20h14M15 17l3 3-3 3",
-    rtl: "M4 4h16M10 9h10M4 14h16M6 20h14M9 17l-3 3 3 3",
-    link: "M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-2 2M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l2-2",
-  };
-  return (
-    <svg
-      aria-hidden="true"
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d={paths[kind]} />
-    </svg>
-  );
 }

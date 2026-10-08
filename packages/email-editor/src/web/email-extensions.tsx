@@ -9,7 +9,7 @@ import {
   ReactNodeViewRenderer,
   type NodeViewProps,
 } from "@tiptap/react";
-import { isSafeEmailUrl } from "../core/email-html";
+import { isSafeEmailUrl } from "../core/email-profile";
 import {
   PreservedBlockView,
   type RenderedPreservedEmailBlock,
