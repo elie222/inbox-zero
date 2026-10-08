@@ -1,6 +1,49 @@
 import { expect, it, vi } from "vitest";
-import { getOutlookAttachmentStream } from "./attachment";
+import { getOutlookAttachment, getOutlookAttachmentStream } from "./attachment";
 import type { OutlookClient } from "./client";
+
+it("keeps inline base64 content without downloading it again", async () => {
+  const attachment = {
+    contentBytes: Buffer.from([0, 255, 128]).toString("base64"),
+    size: 3,
+  };
+  const api = vi.fn(() => ({ get: vi.fn().mockResolvedValue(attachment) }));
+  const client = { getClient: () => ({ api }) } as unknown as OutlookClient;
+
+  expect(await getOutlookAttachment(client, "message", "file")).toEqual(
+    attachment,
+  );
+  expect(api).toHaveBeenCalledTimes(1);
+});
+
+it("preserves a zero-byte attachment without a raw download", async () => {
+  const attachment = { size: 0 };
+  const api = vi.fn(() => ({ get: vi.fn().mockResolvedValue(attachment) }));
+  const client = { getClient: () => ({ api }) } as unknown as OutlookClient;
+
+  expect(await getOutlookAttachment(client, "message", "file")).toEqual(
+    attachment,
+  );
+  expect(api).toHaveBeenCalledTimes(1);
+});
+
+it("propagates a failed raw download instead of returning an empty attachment", async () => {
+  const request = {
+    options: vi.fn().mockReturnThis(),
+    responseType: vi.fn().mockReturnThis(),
+    get: vi
+      .fn()
+      .mockResolvedValueOnce({ size: 5 * 1024 * 1024 })
+      .mockResolvedValueOnce(new Response("unavailable", { status: 404 })),
+  };
+  const client = {
+    getClient: () => ({ api: () => request }),
+  } as unknown as OutlookClient;
+
+  await expect(
+    getOutlookAttachment(client, "message", "file"),
+  ).rejects.toMatchObject({ status: 404, statusCode: 404 });
+});
 
 it("uses the authenticated raw attachment endpoint and forwards cancellation", async () => {
   let cancelled = false;

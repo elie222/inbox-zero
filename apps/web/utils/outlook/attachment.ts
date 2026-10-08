@@ -12,6 +12,21 @@ export async function getOutlookAttachment(
     .api(`/me/messages/${messageId}/attachments/${attachmentId}`)
     .get();
 
+  if (!attachment.contentBytes && attachment.size !== 0) {
+    const stream = await getOutlookAttachmentStream(
+      client,
+      messageId,
+      attachmentId,
+    );
+    const content = Buffer.from(await new Response(stream).arrayBuffer());
+
+    return {
+      ...attachment,
+      contentBytes: content.toString("base64"),
+      size: content.length,
+    };
+  }
+
   return attachment;
 }
 

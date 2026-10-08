@@ -67,6 +67,37 @@ afterEach(() => {
   });
 });
 
+describe("OutlookProvider.getAttachment", () => {
+  it.each([
+    ["sample.mp3", "audio/mpeg", undefined],
+    ["sample.mp4", "video/mp4", ""],
+  ])("downloads %s larger than 4 MiB when Graph omits contentBytes", async (name, contentType, contentBytes) => {
+    const content = Buffer.alloc(5 * 1024 * 1024 + 17, 0xa5);
+    const request = {
+      options: vi.fn().mockReturnThis(),
+      responseType: vi.fn().mockReturnThis(),
+      get: vi
+        .fn()
+        .mockResolvedValueOnce({ name, contentType, contentBytes })
+        .mockResolvedValueOnce(new Response(content)),
+    };
+    const api = vi.fn(() => request);
+    const client = {
+      getClient: () => ({ api }),
+    } as unknown as ConstructorParameters<typeof OutlookProvider>[0];
+    const provider = new OutlookProvider(client, createTestLogger());
+
+    const attachment = await provider.getAttachment("message/+", "file/=");
+
+    expect(Buffer.from(attachment.data, "base64").equals(content)).toBe(true);
+    expect(attachment.size).toBe(content.length);
+    expect(api).toHaveBeenCalledWith(
+      "/me/messages/message%2F%2B/attachments/file%2F%3D/$value",
+    );
+    expect(request.responseType).toHaveBeenCalledWith("raw");
+  });
+});
+
 describe("OutlookProvider.searchMessages", () => {
   it.each([
     ["sent", "sentitems", "sent-folder-id", false, "SENT"],
