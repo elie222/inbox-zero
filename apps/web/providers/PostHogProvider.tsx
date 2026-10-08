@@ -22,7 +22,6 @@ import {
   canUseTrackingCookies,
   subscribeToCookieConsent,
 } from "@/utils/cookie-consent";
-import { useCookieConsent } from "@/hooks/useCookieConsent";
 
 // based on: https://posthog.com/docs/libraries/next-js
 
@@ -55,10 +54,7 @@ export function PostHogPageview() {
 export function PostHogIdentify() {
   const { data: session } = useSession();
   const { emailAccount } = useAccount();
-  const consent = useCookieConsent();
-  // Identifying ties events to a person, so it waits for consent where needed.
-  const canIdentify = consent === "not-required" || consent === "granted";
-  const userEmail = canIdentify ? session?.user.email : undefined;
+  const userEmail = session?.user.email;
   const userCreatedAt = session?.user.createdAt;
 
   useEffect(() => {
@@ -77,8 +73,6 @@ export function PostHogIdentify() {
   }, [userCreatedAt, userEmail]);
 
   useEffect(() => {
-    if (!canIdentify) return;
-
     // Set super properties that will be included with all events
     posthog.register({
       email_account_id: emailAccount?.id,
@@ -95,7 +89,7 @@ export function PostHogIdentify() {
         },
       );
     }
-  }, [canIdentify, emailAccount]);
+  }, [emailAccount]);
 
   return null;
 }
@@ -106,8 +100,8 @@ if (typeof window !== "undefined" && env.NEXT_PUBLIC_POSTHOG_KEY) {
     capture_pageview: false, // Disable automatic pageview capture, as we capture manually
     disable_session_recording: true,
     disable_surveys: true,
-    // Without consent, events are kept anonymous to the page session and
-    // nothing is written to cookies or storage.
+    // Without consent, nothing is written to cookies or storage, so an
+    // anonymous visitor is only recognized within the current page session.
     persistence: canUseTrackingCookies() ? "localStorage+cookie" : "memory",
     before_send: stripUntrackedUrlParams,
   });

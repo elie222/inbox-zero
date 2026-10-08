@@ -6,7 +6,6 @@ import { usePathname, useSearchParams } from "next/navigation";
 import NextScript from "next/script";
 import { env } from "@/env";
 import { WithCookieConsent } from "@/components/CookieConsent";
-import { useCookieConsent } from "@/hooks/useCookieConsent";
 import { trackClientConversion } from "@/utils/analytics/client-conversions";
 import {
   CONVERSION_EVENT_ID_PARAM,
@@ -41,17 +40,9 @@ export function ConversionQueryParamEvents() {
     searchParams.get(CONVERSION_EVENT_PARAM),
   );
   const eventId = searchParams.get(CONVERSION_EVENT_ID_PARAM) ?? undefined;
-  const consent = useCookieConsent();
 
   useEffect(() => {
     if (!eventName) return;
-    // Keep the params until the visitor decides, so a later grant can still
-    // record the conversion.
-    if (!consent || consent === "pending") return;
-    if (consent === "denied") {
-      removeConversionParams();
-      return;
-    }
 
     try {
       const storageKey = eventId
@@ -78,7 +69,7 @@ export function ConversionQueryParamEvents() {
         console.error("Failed to remove conversion params:", removeError);
       }
     }
-  }, [eventName, eventId, pathname, consent]);
+  }, [eventName, eventId, pathname]);
 
   return null;
 }
