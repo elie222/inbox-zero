@@ -44,6 +44,57 @@ describe("createEmailProviderOperationExecutor", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
+  it.each([
+    "execute",
+    "inspect",
+  ] as const)("%s clears local inbox flags only for confirmed Outlook archive targets", async (method) => {
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "microsoft",
+        async archiveMessages(ids: string[]) {
+          if (ids.includes("missing")) throw new Error("not found 404");
+        },
+        async getMessage(id: string) {
+          if (id === "missing") throw new Error("not found 404");
+          return {
+            id,
+            threadId: `t-${id}`,
+            headers: {
+              from: "newsletter@example.com",
+              to: "owner@example.com",
+            },
+            labelIds: id === "still-inbox" ? ["INBOX"] : [],
+            snippet: id,
+          };
+        },
+      } as unknown as EmailProvider,
+    });
+    prisma.emailMessage.updateMany.mockResolvedValue({ count: 1 });
+
+    const operation = metadataOperation(
+      ["archived", "still-inbox", "missing"].map((messageId) => ({
+        accountId: "acc-1",
+        messageId,
+      })),
+    );
+    const result = await executor[method]({
+      operation,
+      attemptId: "attempt-1",
+      receiptId: "bulk-1",
+      signal: new AbortController().signal,
+    });
+
+    expect(result.status).toBe("confirmed");
+    expect(prisma.emailMessage.updateMany).toHaveBeenCalledExactlyOnceWith({
+      where: {
+        emailAccountId: "acc-1",
+        messageId: { in: ["archived"] },
+      },
+      data: { inbox: false },
+    });
+  });
+
   it("archives every target with one provider call and one batched read", async () => {
     const archiveMessages = vi.fn();
     const getMessage = vi.fn();
@@ -84,6 +135,13 @@ describe("createEmailProviderOperationExecutor", () => {
         (target) => `${target.key.messageId}:${target.outcome}`,
       ),
     ).toEqual(["m1:applied", "m2:applied", "still-inbox:uncertain"]);
+    expect(prisma.emailMessage.updateMany).toHaveBeenCalledExactlyOnceWith({
+      where: {
+        emailAccountId: "acc-1",
+        messageId: { in: ["m1", "m2"] },
+      },
+      data: { inbox: false },
+    });
   });
 
   it("keeps verifying other messages when a batched read fails", async () => {
@@ -120,6 +178,33 @@ describe("createEmailProviderOperationExecutor", () => {
         (target) => `${target.key.messageId}:${target.outcome}`,
       ),
     ).toEqual(["m1:applied", "still-inbox:uncertain", "unreadable:applied"]);
+  });
+
+  it("keeps an applied archive confirmed when the local stats write fails", async () => {
+    const archiveMessages = vi.fn();
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "microsoft",
+        archiveMessages,
+        getMessagesBatch: vi.fn().mockResolvedValue([]),
+      } as unknown as EmailProvider,
+    });
+    prisma.emailMessage.updateMany.mockRejectedValue(
+      new Error("database unavailable"),
+    );
+
+    const result = await executor.execute({
+      operation: metadataOperation([
+        { accountId: "acc-1", messageId: "archived" },
+      ]),
+      attemptId: "attempt-1",
+      signal: new AbortController().signal,
+    });
+
+    expect(result.status).toBe("confirmed");
+    expect(archiveMessages).toHaveBeenCalledOnce();
+    expect(prisma.emailMessage.updateMany).toHaveBeenCalledOnce();
   });
 
   it("falls back to per-message outcomes when the bulk call fails", async () => {
@@ -181,6 +266,7 @@ describe("createEmailProviderOperationExecutor", () => {
       signal: new AbortController().signal,
     });
     expect(result).toEqual({ status: "uncertain", receiptId: "bulk-1" });
+    expect(prisma.emailMessage.updateMany).not.toHaveBeenCalled();
   });
 
   it("confirms inspected archive after the provider message leaves the inbox", async () => {
