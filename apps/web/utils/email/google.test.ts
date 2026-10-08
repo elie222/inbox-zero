@@ -57,6 +57,50 @@ vi.mock("@/utils/gmail/oauth", () => ({
   isGoogleOauthEmulationEnabled: vi.fn(() => false),
 }));
 
+describe("GmailProvider.countMessages", () => {
+  it.each([
+    0, 7, 47,
+  ])("uses exact label message count %s, not thread counts or search estimates", async (count) => {
+    const get = vi
+      .fn()
+      .mockResolvedValue({ data: { messagesTotal: count, threadsTotal: 2 } });
+    const list = vi.fn();
+    const provider = new GmailProvider({
+      users: { labels: { get }, messages: { list } },
+    } as any);
+    await expect(provider.countMessages({ labelId: "label-1" })).resolves.toBe(
+      count,
+    );
+    expect(get).toHaveBeenCalledWith({ userId: "me", id: "label-1" });
+    expect(list).not.toHaveBeenCalled();
+  });
+
+  it("uses the profile's exact mailbox count when no label is specified", async () => {
+    const getProfile = vi
+      .fn()
+      .mockResolvedValue({ data: { messagesTotal: 123 } });
+    const provider = new GmailProvider({ users: { getProfile } } as any);
+    await expect(provider.countMessages({})).resolves.toBe(123);
+  });
+
+  it("does not silently ignore Outlook folder scopes", async () => {
+    const getProfile = vi.fn();
+    const provider = new GmailProvider({ users: { getProfile } } as any);
+    await expect(
+      provider.countMessages({ folderId: "folder-1" }),
+    ).rejects.toThrow("folder");
+    expect(getProfile).not.toHaveBeenCalled();
+  });
+
+  it("does not invent zero when an exact count is unavailable", async () => {
+    const get = vi.fn().mockResolvedValue({ data: { threadsTotal: 7 } });
+    const provider = new GmailProvider({ users: { labels: { get } } } as any);
+    await expect(
+      provider.countMessages({ labelId: "label-1" }),
+    ).rejects.toThrow("exact message count");
+  });
+});
+
 describe("GmailProvider.searchMessages structured search", () => {
   it.each([
     "term",
