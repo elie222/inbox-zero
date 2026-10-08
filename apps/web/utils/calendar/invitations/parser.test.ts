@@ -45,7 +45,7 @@ const detailedInvite = [
   "SEQUENCE:0",
   "DTSTART;TZID=America/Sao_Paulo:20260929T130000",
   "DTEND;TZID=America/Sao_Paulo:20260929T130500",
-  "ORGANIZER;CN=Barbara Dalavechia:mailto:organizer@example.com",
+  "ORGANIZER:mailto:organizer@example.com",
   "ATTENDEE;CN=Test User;PARTSTAT=NEEDS-ACTION:mailto:user@example.com",
   "ATTENDEE;CN=Guest;PARTSTAT=ACCEPTED;ROLE=OPT-PARTICIPANT:mailto:guest@example.com",
   "LOCATION:Microsoft Teams Meeting",
@@ -56,7 +56,7 @@ const detailedInvite = [
 ].join("\r\n");
 
 describe("calendar invitation details", () => {
-  it("reads the meeting time, place, link and guests", () => {
+  it("reads the meeting time, place and link", () => {
     const parsed = parseCalendarInvitation(detailedInvite, "user@example.com")!;
     expect(parsed).toMatchObject({
       start: "2026-09-29T16:00:00.000Z",
@@ -64,21 +64,6 @@ describe("calendar invitation details", () => {
       allDay: false,
       location: "Microsoft Teams Meeting",
       conferenceUrl: "https://meet.google.com/ttw-swve-twg",
-      organizerName: "Barbara Dalavechia",
-      attendees: [
-        {
-          email: "user@example.com",
-          name: "Test User",
-          response: null,
-          optional: false,
-        },
-        {
-          email: "guest@example.com",
-          name: "Guest",
-          response: "accepted",
-          optional: true,
-        },
-      ],
     });
   });
 
@@ -108,6 +93,19 @@ describe("calendar invitation details", () => {
       start: "2026-09-29T16:00:00.000Z",
       end: "2026-09-29T16:05:00.000Z",
     });
+  });
+
+  it("keeps an explicit floating end independent of the start timezone", () => {
+    const parsed = parseCalendarInvitation(
+      detailedInvite
+        .replace(`${timezone}\r\n`, "")
+        .replace(
+          "DTEND;TZID=America/Sao_Paulo:20260929T130500",
+          "DTEND:20260929T170500",
+        ),
+      "user@example.com",
+    )!;
+    expect(parsed.end).toBe("2026-09-29T17:05:00");
   });
 
   it("derives the end from a duration", () => {

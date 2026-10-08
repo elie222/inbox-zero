@@ -1,7 +1,4 @@
-import {
-  CALENDAR_INVITATION_LIMITS,
-  CALENDAR_INVITATION_RENDER_LIMITS,
-} from "@/utils/calendar/invitations/constants";
+import { CALENDAR_INVITATION_LIMITS } from "@/utils/calendar/invitations/constants";
 import { findVideoConferenceLink } from "@/utils/calendar/video-conference-link";
 import { TZDate } from "@date-fns/tz";
 import ICAL from "ical.js";
@@ -34,17 +31,27 @@ export function parseCalendarInvitation(content: string, email: string) {
       organizer === email.toLowerCase()
     )
       return null;
+    const response = attendee
+      .getParameter("partstat")
+      ?.toString()
+      .toLowerCase();
     return {
       uid,
       organizer,
       attendee: email.toLowerCase(),
-      title:
-        getText(event, "summary", CALENDAR_INVITATION_RENDER_LIMITS.text) ??
-        "Calendar invitation",
+      title: String(
+        event.getFirstPropertyValue("summary") || "Calendar invitation",
+      ),
       sequence,
       recurrenceId,
       recurring:
         event.hasProperty("rrule") || event.hasProperty("recurrence-id"),
+      response:
+        response === "accepted" ||
+        response === "declined" ||
+        response === "tentative"
+          ? response
+          : null,
       ...getInvitationDetails(event, start),
       content,
     };
@@ -136,16 +143,12 @@ function getEmail(value: unknown) {
 function getInvitationDetails(event: ICAL.Component, start: ICAL.Time) {
   const timeZone = getParameter(event.getFirstProperty("dtstart"), "tzid");
   const end = getEnd(event, start, timeZone);
-  const location = getText(
-    event,
-    "location",
-    CALENDAR_INVITATION_RENDER_LIMITS.text,
-  );
+  const location = getText(event, "location");
   return {
     start: toDisplayTime(start, timeZone),
     end: end && toDisplayTime(end.time, end.timeZone),
     allDay: start.isDate,
-    location,
+    location: location?.slice(0, 2000) ?? null,
     conferenceUrl:
       findVideoConferenceLink(
         // Every vendor names the join URL in its own X- property, so scan them
@@ -156,21 +159,6 @@ function getInvitationDetails(event: ICAL.Component, start: ICAL.Time) {
         // for a join link, and invitations bury it in a long agenda.
         getText(event, "description"),
       ) ?? null,
-    organizerName: getName(event.getFirstProperty("organizer")),
-    attendees: event
-      .getAllProperties("attendee")
-      .slice(0, CALENDAR_INVITATION_RENDER_LIMITS.attendees)
-      .flatMap((property) => {
-        const email = getEmail(property.getFirstValue());
-        if (!email) return [];
-        return {
-          email,
-          name: getName(property),
-          response: toResponse(getParameter(property, "partstat")),
-          optional:
-            getParameter(property, "role")?.toUpperCase() === "OPT-PARTICIPANT",
-        };
-      }),
   };
 }
 
@@ -185,8 +173,7 @@ function getEnd(
   if (end instanceof ICAL.Time)
     return {
       time: end,
-      timeZone:
-        getParameter(event.getFirstProperty("dtend"), "tzid") ?? startTimeZone,
+      timeZone: getParameter(event.getFirstProperty("dtend"), "tzid"),
     };
   const duration = event.getFirstPropertyValue("duration");
   if (!(duration instanceof ICAL.Duration)) return null;
@@ -234,32 +221,14 @@ function getExtensionValues(event: ICAL.Component) {
     });
 }
 
-function getText(event: ICAL.Component, name: string, limit?: number) {
+function getText(event: ICAL.Component, name: string) {
   const value = event.getFirstPropertyValue(name);
   if (typeof value !== "string" || !value) return null;
-  return limit ? value.slice(0, limit) : value;
+  return value;
 }
 
 function getParameter(property: ICAL.Property | null, name: string) {
   const value = property?.getParameter(name);
   if (typeof value !== "string" || !value) return null;
   return value;
-}
-
-function getName(property: ICAL.Property | null) {
-  return (
-    getParameter(property, "cn")?.slice(
-      0,
-      CALENDAR_INVITATION_RENDER_LIMITS.name,
-    ) ?? null
-  );
-}
-
-function toResponse(value: string | null): InvitationResponse | null {
-  const response = value?.toLowerCase();
-  return response === "accepted" ||
-    response === "declined" ||
-    response === "tentative"
-    ? response
-    : null;
 }

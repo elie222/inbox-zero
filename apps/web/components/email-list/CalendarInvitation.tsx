@@ -3,13 +3,7 @@
 import { getAccountScopedKey } from "@/utils/swr";
 import useSWR from "swr";
 import { useAction } from "next-safe-action/hooks";
-import {
-  CalendarIcon,
-  MapPinIcon,
-  RepeatIcon,
-  UsersIcon,
-  VideoIcon,
-} from "lucide-react";
+import { CalendarIcon, MapPinIcon, VideoIcon } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -20,21 +14,6 @@ import { getActionErrorMessage } from "@/utils/error";
 import type { CalendarInvitationResponse } from "@/app/api/messages/calendar-invitation/route";
 import { formatInvitationTime } from "@/utils/calendar/invitations/format-time";
 import type { InvitationResponse } from "@/utils/calendar/invitations/parser";
-
-type Invitation = NonNullable<CalendarInvitationResponse["invitation"]>;
-
-const COLLAPSED_GUESTS = 5;
-
-// Drives both the RSVP buttons and the guest list's response labels, so the two
-// cannot disagree.
-const RESPONSE_OPTIONS = [
-  ["accepted", "Yes"],
-  ["declined", "No"],
-  ["tentative", "Maybe"],
-] as const satisfies ReadonlyArray<readonly [InvitationResponse, string]>;
-
-const RESPONSE_LABEL: Record<string, string | undefined> =
-  Object.fromEntries(RESPONSE_OPTIONS);
 
 // The card reads the meeting time in the zone the viewer's device is set to.
 const viewerTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -92,12 +71,16 @@ export function CalendarInvitation({ messageId }: { messageId: string }) {
                   {formatInvitationTime(invitation, viewerTimeZone)}
                 </p>
                 <p className="break-words">{invitation.title}</p>
+                <p className="break-all text-sm text-muted-foreground">
+                  {invitation.organizer}
+                </p>
+                {invitation.recurring && (
+                  <p className="text-sm text-muted-foreground">
+                    Recurring invitation
+                  </p>
+                )}
               </div>
             </div>
-
-            {invitation.recurring && (
-              <DetailRow icon={RepeatIcon}>Recurring invitation</DetailRow>
-            )}
 
             {invitation.location && (
               <DetailRow icon={MapPinIcon}>
@@ -118,11 +101,15 @@ export function CalendarInvitation({ messageId }: { messageId: string }) {
               </DetailRow>
             )}
 
-            <Guests invitation={invitation} response={response} />
-
             <fieldset className="flex flex-wrap gap-2">
               <legend className="sr-only">Your response</legend>
-              {RESPONSE_OPTIONS.map(([value, label]) => (
+              {(
+                [
+                  ["accepted", "Yes"],
+                  ["declined", "No"],
+                  ["tentative", "Maybe"],
+                ] as const
+              ).map(([value, label]) => (
                 <Button
                   key={value}
                   size="sm"
@@ -145,57 +132,6 @@ export function CalendarInvitation({ messageId }: { messageId: string }) {
   );
 }
 
-function Guests({
-  invitation,
-  response,
-}: {
-  invitation: Invitation;
-  response: string | null | undefined;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const guests = getGuests(invitation);
-  const visible = expanded ? guests : guests.slice(0, COLLAPSED_GUESTS);
-  return (
-    <DetailRow icon={UsersIcon}>
-      <ul className="space-y-0.5">
-        {visible.map((guest) => {
-          // The viewer's own row follows the RSVP on the buttons: the PARTSTAT in
-          // the invitation is the organizer's copy, so it goes stale as soon as
-          // they answer.
-          const guestResponse =
-            guest.email === invitation.attendee ? response : guest.response;
-          const tags = [
-            guest.email === invitation.organizer && "Organizer",
-            guest.optional && "Optional",
-            guestResponse && RESPONSE_LABEL[guestResponse],
-          ].filter(Boolean);
-          return (
-            <li key={guest.email} className="break-words">
-              {guest.name ?? guest.email}
-              {tags.length > 0 && (
-                <span className="text-muted-foreground">
-                  {" "}
-                  · {tags.join(" · ")}
-                </span>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-      {guests.length > COLLAPSED_GUESTS && (
-        <Button
-          variant="link"
-          size="sm"
-          className="h-auto p-0"
-          onClick={() => setExpanded(!expanded)}
-        >
-          {expanded ? "Show fewer" : `Show all ${guests.length} guests`}
-        </Button>
-      )}
-    </DetailRow>
-  );
-}
-
 function DetailRow({
   icon: Icon,
   children,
@@ -209,19 +145,4 @@ function DetailRow({
       <div className="min-w-0">{children}</div>
     </div>
   );
-}
-
-// The organizer leads the list, and only appears once even when they also
-// invited themselves as an attendee.
-function getGuests({ attendees, organizer, organizerName }: Invitation) {
-  const listed = attendees.find((attendee) => attendee.email === organizer);
-  return [
-    {
-      response: listed?.response ?? null,
-      email: organizer,
-      name: organizerName ?? listed?.name ?? null,
-      optional: false,
-    },
-    ...attendees.filter((attendee) => attendee.email !== organizer),
-  ];
 }

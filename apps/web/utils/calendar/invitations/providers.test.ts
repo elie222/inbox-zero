@@ -34,6 +34,7 @@ const invitation: CalendarInvitation = {
   sequence: 2,
   recurrenceId: null,
   recurring: false,
+  response: null,
   content: "",
   title: "Meeting",
   start: "2026-10-01T10:00:00.000Z",
@@ -41,8 +42,6 @@ const invitation: CalendarInvitation = {
   allDay: false,
   location: null,
   conferenceUrl: null,
-  organizerName: null,
-  attendees: [],
 };
 const google = new GoogleCalendarEventProvider(params, createTestLogger());
 const microsoft = new MicrosoftCalendarEventProvider(

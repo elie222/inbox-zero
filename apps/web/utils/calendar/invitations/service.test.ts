@@ -361,8 +361,6 @@ describe("loading calendar invitations", () => {
       invitation: {
         title: "Calendar invitation",
         organizer: "organizer@example.com",
-        attendee: "user@example.com",
-        organizerName: null,
         recurring: false,
         response: "accepted",
         calendarSynced: true,
@@ -371,14 +369,6 @@ describe("loading calendar invitations", () => {
         allDay: false,
         location: null,
         conferenceUrl: null,
-        attendees: [
-          {
-            email: "user@example.com",
-            name: null,
-            response: null,
-            optional: false,
-          },
-        ],
       },
     });
     expect(mocks.connections).toHaveBeenCalledWith({
