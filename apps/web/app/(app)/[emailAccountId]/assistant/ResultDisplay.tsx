@@ -92,7 +92,7 @@ function ResultDisplay({
     >
       <Badge
         color={rule ? "green" : "red"}
-        className="whitespace-nowrap max-sm:whitespace-normal max-sm:break-words"
+        className="whitespace-nowrap max-sm:whitespace-normal max-sm:break-all max-sm:max-w-full"
       >
         {rule
           ? rule.name

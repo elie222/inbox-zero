@@ -37,6 +37,7 @@ test("keeps Test row controls inside the phone viewport", async ({
   await page.goto(`/${emailAccountId}/automation?tab=test`);
   const row = page.getByRole("row").filter({ hasText: subject });
   await expect(row).toBeVisible();
+  await row.scrollIntoViewIfNeeded();
   await capturePlaywrightCheckpoint(page, testInfo, "mobile-test");
   await expectNoHorizontalOverflow(row.locator("xpath=ancestor::table/.."));
   await expectInViewport(
@@ -44,49 +45,58 @@ test("keeps Test row controls inside the phone viewport", async ({
   );
 });
 
-test("keeps History actions beside readable email content on phones", async ({
-  page,
-}, testInfo) => {
-  const emailAccountId = await getEmailAccountId(page);
-  await markAutomationOnboardingViewed(page);
-  await page.route("**/api/user/executed-rules/history?**", (route) =>
-    route.fulfill({
-      json: {
-        totalPages: 1,
-        results: [
-          {
-            messageId: message.id,
-            threadId: message.threadId,
-            messageCount: 1,
-            executedRules: [
-              {
-                id: "mobile-execution",
-                createdAt: "2026-01-01T09:00:00.000Z",
-                status: "APPLIED",
-                automated: true,
-                reason: "Routine receipt",
-                rule: {
-                  id: "mobile-rule",
-                  name: "Project receipt notifications and updates",
+for (const ruleName of [
+  "Project receipt notifications and updates",
+  "ProjectReceiptNotificationsAndUpdates".repeat(8),
+]) {
+  test(`keeps History actions readable on phones for ${ruleName.includes(" ") ? "spaced" : "unbroken"} rule names`, async ({
+    page,
+  }, testInfo) => {
+    const emailAccountId = await getEmailAccountId(page);
+    await markAutomationOnboardingViewed(page);
+    await page.route("**/api/user/executed-rules/history?**", (route) =>
+      route.fulfill({
+        json: {
+          totalPages: 1,
+          results: [
+            {
+              messageId: message.id,
+              threadId: message.threadId,
+              messageCount: 1,
+              executedRules: [
+                {
+                  id: "mobile-execution",
+                  createdAt: "2026-01-01T09:00:00.000Z",
+                  status: "APPLIED",
+                  automated: true,
+                  reason: "Routine receipt",
+                  rule: {
+                    id: "mobile-rule",
+                    name: ruleName,
+                  },
+                  actions: [],
                 },
-                actions: [],
-              },
-            ],
-          },
-        ],
-      },
-    }),
-  );
-  await page.route("**/api/messages/batch?**", (route) =>
-    route.fulfill({ json: { messages: [message] } }),
-  );
-  await page.goto(`/${emailAccountId}/automation?tab=history`);
-  const row = page.getByRole("row").filter({ hasText: subject });
-  await expect(row).toBeVisible();
-  await capturePlaywrightCheckpoint(page, testInfo, "mobile-history");
-  await expectNoHorizontalOverflow(row.locator("xpath=ancestor::table/.."));
-  await expectInViewport(row.getByRole("button", { name: "Fix", exact: true }));
-});
+              ],
+            },
+          ],
+        },
+      }),
+    );
+    await page.route("**/api/messages/batch?**", (route) =>
+      route.fulfill({ json: { messages: [message] } }),
+    );
+    await page.goto(`/${emailAccountId}/automation?tab=history`);
+    const row = page.getByRole("row").filter({ hasText: subject });
+    await expect(row).toBeVisible();
+    await row.scrollIntoViewIfNeeded();
+    await capturePlaywrightCheckpoint(page, testInfo, "mobile-history");
+    await expectNoHorizontalOverflow(row.locator("xpath=ancestor::table/.."));
+    await expectInViewport(row.getByText(ruleName, { exact: true }));
+    await expectInViewport(
+      row.getByRole("button", { name: "Fix", exact: true }),
+    );
+  });
+}
 
 test("aligns the signature editor and preview at phone width", async ({
   page,
@@ -227,6 +237,9 @@ test("keeps calendar options and availability controls on phones", async ({
   const availability = page
     .getByRole("heading", { name: "Availability", exact: true })
     .locator("xpath=ancestor::section");
+  await expect(
+    availability.locator('input[type="time"]').first(),
+  ).toBeVisible();
   await availability.scrollIntoViewIfNeeded();
   await capturePlaywrightCheckpoint(page, testInfo, "mobile-availability");
   await expectNoHorizontalOverflow(availability);
@@ -274,11 +287,31 @@ async function expectNoHorizontalOverflow(locator: Locator) {
       locator.evaluate((element) => element.scrollWidth - element.clientWidth),
     )
     .toBeLessThanOrEqual(1);
+  await expect
+    .poll(() =>
+      locator
+        .page()
+        .locator("html")
+        .evaluate((element) => element.scrollWidth - element.clientWidth),
+    )
+    .toBeLessThanOrEqual(1);
+  const box = await locator.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.x).toBeGreaterThanOrEqual(0);
+  expect(box!.x + box!.width).toBeLessThanOrEqual(
+    locator.page().viewportSize()!.width,
+  );
 }
 
 async function expectInViewport(locator: Locator) {
   const box = await locator.boundingBox();
   expect(box).not.toBeNull();
   expect(box!.x).toBeGreaterThanOrEqual(0);
-  expect(box!.x + box!.width).toBeLessThanOrEqual(390);
+  expect(box!.x + box!.width).toBeLessThanOrEqual(
+    locator.page().viewportSize()!.width,
+  );
+  expect(box!.y).toBeGreaterThanOrEqual(0);
+  expect(box!.y + box!.height).toBeLessThanOrEqual(
+    locator.page().viewportSize()!.height,
+  );
 }
