@@ -2,17 +2,19 @@ import { CalendarInvitation } from "@/components/email-list/CalendarInvitation";
 import { isCalendarInvitationMessage } from "@/utils/calendar/invitations/detection";
 import { useCallback, useMemo, useState, useRef, useEffect } from "react";
 import { useAction } from "next-safe-action/hooks";
-import useSWR from "swr";
 import {
   ForwardIcon,
   ReplyIcon,
   ChevronsUpDownIcon,
   ChevronsDownUpIcon,
+  UserSearchIcon,
 } from "lucide-react";
 import { Tooltip } from "@/components/Tooltip";
 import {
   extractEmailAddress,
   extractNameFromEmail,
+  formatRecipientNames,
+  getInitials,
   isSameEmailAddress,
   splitRecipientList,
 } from "@/utils/email";
@@ -36,10 +38,10 @@ import { EmailAttachments } from "@/components/email-list/EmailAttachments";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
 import { formatReplySubject } from "@/utils/email/subject";
-import { env } from "@/env";
 import { isTypingTarget } from "@/lib/shortcuts/registry";
-import type { ContactsResponse } from "@/app/api/user/contacts/route";
+import { useContactPhoto } from "@/hooks/useContactPhoto";
 import { toastError } from "@/components/Toast";
+import { LoadingMiniSpinner } from "@/components/Loading";
 import { getActionErrorMessage } from "@/utils/error";
 import {
   getDraftSessionMessageId,
@@ -50,6 +52,11 @@ import {
   SentMessageOpenStatus,
   type SentMessageOpenState,
 } from "@/components/email-list/SentMessageOpenStatus";
+import {
+  getMessageTranslation,
+  useThreadTranslation,
+  useTranslateThread,
+} from "@/app/(app)/[emailAccountId]/mail/use-thread-translation";
 
 type ComposeSession = { id: number; mode: ReplyDraftMode };
 
@@ -110,6 +117,12 @@ export function EmailMessage({
 }) {
   const { emailAccountId } = useAccount();
   const { poppedOutDraftSessionId } = useComposeModal();
+  const threadTranslation = useThreadTranslation(
+    emailAccountId,
+    message.threadId,
+  );
+  const translation = getMessageTranslation(threadTranslation, message.id);
+  const showTranslation = Boolean(translation && !translation.showOriginal);
   // `null` follows `defaultComposeMode`, which the reader's Reply button flips
   // long after this message mounted.
   const [composeOverride, setComposeOverride] = useState<
@@ -285,12 +298,28 @@ export function EmailMessage({
           )}
 
           {!bodyAvailable && !isDraftRow && composeMode !== "forward" && (
-            <p className="text-muted-foreground text-sm">
-              This message hasn’t loaded yet.
+            <MessageBodyLoading />
+          )}
+          {!isDraftRow && threadTranslation?.loading && (
+            <p className="mb-3 flex items-center gap-1.5 text-muted-foreground text-xs">
+              <LoadingMiniSpinner />
+              Translating…
             </p>
+          )}
+          {!isDraftRow && translation && (
+            <TranslationNotice
+              languageName={translation.languageName}
+              showOriginal={translation.showOriginal}
+              messageId={message.id}
+              threadId={message.threadId}
+            />
+          )}
+          {bodyAvailable && !isDraftRow && showTranslation && translation && (
+            <PlainEmail text={translation.text} />
           )}
           {bodyAvailable &&
             !isDraftRow &&
+            !showTranslation &&
             (message.textHtml ? (
               <HtmlEmail
                 onForwardMessage={showReplyButton ? onForward : undefined}
@@ -401,24 +430,11 @@ function MessageHeader({
   const senderName = isSent
     ? "Me"
     : extractNameFromEmail(message.headers.from) || senderEmail;
-  const { data: contacts } = useSWR<ContactsResponse>(
-    expanded &&
-      env.NEXT_PUBLIC_CONTACTS_ENABLED &&
-      !isSent &&
-      senderEmail &&
-      emailAccountId
-      ? [
-          `/api/user/contacts?query=${encodeURIComponent(senderEmail)}`,
-          emailAccountId,
-        ]
-      : null,
-    { revalidateOnFocus: false, shouldRetryOnError: false },
-  );
-  const senderImage = isSent
-    ? emailAccount?.image
-    : contacts?.contacts.find((contact) =>
-        isSameEmailAddress(contact.emailAddress, senderEmail),
-      )?.profilePictureUrl;
+  const contactPhoto = useContactPhoto({
+    email: expanded && !isSent ? senderEmail : null,
+    emailAccountId,
+  });
+  const senderImage = isSent ? emailAccount?.image : contactPhoto;
   const canResearchSender =
     Boolean(onOpenSenderContext) &&
     !isSent &&
@@ -451,12 +467,12 @@ function MessageHeader({
             : "bg-muted text-muted-foreground",
         )}
       >
-        {initialsFor(senderName)}
+        {getInitials(senderName)}
       </AvatarFallback>
     </Avatar>
   );
   // Fixed widths on the collapsed rows keep the snippet column aligned down
-  // the thread, whichever senders are clickable.
+  // the thread.
   const senderNameClassName = cn(
     "truncate text-sm",
     expanded
@@ -472,60 +488,52 @@ function MessageHeader({
         onToggle && "cursor-pointer",
       )}
     >
-      {canResearchSender ? (
-        <Tooltip content="View public profile">
+      {expanded ? (
+        <>
           <button
-            aria-label={`View public profile for ${senderName}`}
-            className={cn(
-              "group/sender flex items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              expanded ? "min-w-0" : "shrink-0",
-            )}
-            onClick={(event) => {
-              event.stopPropagation();
-              onOpenSenderContext?.(message);
-            }}
+            aria-expanded={showDetails}
+            aria-label={showDetails ? "Hide details" : "Show details"}
+            className="group/details flex min-w-0 items-center gap-2 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onClick={toggleDetails}
             type="button"
           >
             {avatar}
-            <span
-              className={cn(
-                senderNameClassName,
-                "text-left underline-offset-4 group-hover/sender:underline",
+            <span className={senderNameClassName}>{senderName}</span>
+            <span className="hidden min-w-0 truncate text-muted-foreground text-xs sm:block">
+              {recipientSummary(message.headers, userEmail)}
+            </span>
+            <span className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors group-hover/details:bg-muted group-hover/details:text-foreground">
+              {showDetails ? (
+                <ChevronsDownUpIcon className="size-3.5" />
+              ) : (
+                <ChevronsUpDownIcon className="size-3.5" />
               )}
-            >
-              {senderName}
             </span>
           </button>
-        </Tooltip>
+          {canResearchSender && (
+            <Tooltip content="View public profile">
+              <Button
+                aria-label={`View public profile for ${senderName}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onOpenSenderContext?.(message);
+                }}
+                size="iconXs"
+                variant="ghostMuted"
+              >
+                <UserSearchIcon className="size-3.5" />
+              </Button>
+            </Tooltip>
+          )}
+        </>
       ) : (
         <>
           {avatar}
           <span className={senderNameClassName}>{senderName}</span>
-        </>
-      )}
-
-      {expanded ? (
-        <>
-          <span className="hidden min-w-0 truncate text-muted-foreground text-xs sm:block">
-            {recipientSummary(message.headers.to, userEmail)}
+          <span className="min-w-0 flex-1 truncate text-muted-foreground text-sm">
+            {decodeSnippet(message.snippet)}
           </span>
-          <Button
-            aria-label={showDetails ? "Hide details" : "Show details"}
-            onClick={toggleDetails}
-            size="iconXs"
-            variant="ghostMuted"
-          >
-            {showDetails ? (
-              <ChevronsDownUpIcon className="size-3.5" />
-            ) : (
-              <ChevronsUpDownIcon className="size-3.5" />
-            )}
-          </Button>
         </>
-      ) : (
-        <span className="min-w-0 flex-1 truncate text-muted-foreground text-sm">
-          {decodeSnippet(message.snippet)}
-        </span>
       )}
 
       {hasDraft &&
@@ -710,9 +718,9 @@ function ReplyPanel({
 
   if (draftMessage && !draftSource) {
     return (
-      <p className="mt-5 text-muted-foreground text-sm">
-        This message hasn’t loaded yet.
-      </p>
+      <div className="mt-5">
+        <MessageBodyLoading />
+      </div>
     );
   }
 
@@ -768,14 +776,6 @@ function ReplyPanel({
   );
 }
 
-/** Two letters at most: initials from a display name, or the address's first letters. */
-function initialsFor(name: string) {
-  const words = name.trim().split(/\s+/).filter(Boolean);
-  if (words.length === 0) return "?";
-  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
-  return `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase();
-}
-
 function resolveComposeMode(
   override: ReplyDraftMode | "closed" | null,
   defaultComposeMode: ReplyDraftMode | undefined,
@@ -788,22 +788,15 @@ function resolveComposeMode(
   return mode;
 }
 
-/** "to me", "to Dana", "to me and 3 others" — who a message went out to. */
-function recipientSummary(to: string | undefined, userEmail: string) {
-  const recipients = splitRecipientList(to ?? "");
-  if (recipients.length === 0) return "";
-
-  // "me" leads whenever the account is in there at all, however it was addressed.
-  const first =
-    recipients.find((recipient) => isSameEmailAddress(recipient, userEmail)) ??
-    recipients[0];
-  const firstLabel = isSameEmailAddress(first, userEmail)
-    ? "me"
-    : extractNameFromEmail(first) || extractEmailAddress(first);
-
-  const others = recipients.length - 1;
-  if (others === 0) return `to ${firstLabel}`;
-  return `to ${firstLabel} and ${others} ${others === 1 ? "other" : "others"}`;
+function recipientSummary(
+  { to, cc }: { to?: string; cc?: string },
+  userEmail: string,
+) {
+  const names = formatRecipientNames(
+    [...splitRecipientList(to ?? ""), ...splitRecipientList(cc ?? "")],
+    userEmail,
+  );
+  return names ? `to ${names}` : "";
 }
 
 const prepareReplyingToEmail = (
@@ -874,4 +867,56 @@ function prepareDraftReplyEmail(draft: ParsedMessage): ReplyingToEmail {
     draftHtml: splitHtml.draftHtml,
     quotedContentHtml: splitHtml.originalHtml,
   };
+}
+
+function TranslationNotice({
+  languageName,
+  showOriginal,
+  messageId,
+  threadId,
+}: {
+  languageName: string | null;
+  showOriginal: boolean;
+  messageId: string;
+  threadId: string;
+}) {
+  const { emailAccountId } = useAccount();
+  const translateThread = useTranslateThread();
+  let status = "Showing original";
+  if (!showOriginal) {
+    status = languageName ? `Translated from ${languageName}` : "Translated";
+  }
+
+  return (
+    <p className="mb-3 flex items-center gap-1.5 text-muted-foreground text-xs">
+      {status}
+      <span aria-hidden>·</span>
+      <button
+        className="text-primary hover:underline"
+        onClick={(event) => {
+          event.stopPropagation();
+          translateThread({
+            emailAccountId,
+            threadId,
+            messageIds: [messageId],
+          });
+        }}
+        type="button"
+      >
+        {showOriginal ? "Show translation" : "Show original"}
+      </button>
+    </p>
+  );
+}
+
+function MessageBodyLoading() {
+  return (
+    <p
+      className="flex items-center gap-2 text-muted-foreground text-sm"
+      role="status"
+    >
+      <LoadingMiniSpinner />
+      Loading message…
+    </p>
+  );
 }

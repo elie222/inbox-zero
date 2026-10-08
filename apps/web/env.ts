@@ -324,6 +324,7 @@ const parsedEnv = createEnv({
     BLOG_SYNC_IMAGE_ALLOWED_HOSTS: z.string().optional(),
     SANITY_API_WRITE_TOKEN: z.string().min(1).optional(),
     LOOPS_API_SECRET: z.string().optional(),
+    LOOPS_WEBHOOK_SIGNING_SECRET: z.string().min(1).optional(),
     FB_CONVERSION_API_ACCESS_TOKEN: z.string().optional(),
     FB_PIXEL_ID: z.string().optional(),
     CONVERSION_ANALYTICS_SERVER_URL: z.string().optional(),
@@ -346,10 +347,13 @@ const parsedEnv = createEnv({
     HEALTH_API_KEY: z.string().optional(),
     OAUTH_PROXY_URL: z.string().url().optional(),
     MCP_SERVER_ENABLED: booleanString.optional().default(false),
-    // Optional provider:model for structured decisions, e.g. typesafe:jev-latest
+    // Optional provider:model for structured decisions, e.g. openrouter:typesafe/jev-1.13
     DEFAULT_DECISION_MODEL: z
       .string()
-      .regex(/^typesafe:\S+$/, "Expected typesafe:<model>")
+      .regex(
+        /^(typesafe|openrouter|aigateway|openai):\S+$/,
+        "Expected <typesafe|openrouter|aigateway|openai>:<model>",
+      )
       .optional(),
     // Whether users who haven't chosen get the decision model; otherwise opt-in
     DEFAULT_DECISION_MODEL_ENABLED: booleanString.optional().default(false),
@@ -644,9 +648,24 @@ if (
   );
 }
 
-if (process.env.DEFAULT_DECISION_MODEL && !process.env.TYPESAFE_API_KEY) {
+const decisionModelApiKeyNames: Record<string, string> = {
+  typesafe: "TYPESAFE_API_KEY",
+  openrouter: "OPENROUTER_API_KEY",
+  aigateway: "AI_GATEWAY_API_KEY",
+  openai: "OPENAI_API_KEY",
+};
+const decisionModelProvider =
+  process.env.DEFAULT_DECISION_MODEL?.split(":")[0] ?? "";
+const decisionModelApiKeyName = decisionModelApiKeyNames[decisionModelProvider];
+// TypeSafe is not an LLM provider, so LLM_API_KEY cannot stand in for its key.
+const acceptsLlmApiKey = decisionModelProvider !== "typesafe";
+if (
+  decisionModelApiKeyName &&
+  !process.env[decisionModelApiKeyName]?.trim() &&
+  !(acceptsLlmApiKey && process.env.LLM_API_KEY?.trim())
+) {
   throw new Error(
-    "TYPESAFE_API_KEY is required when DEFAULT_DECISION_MODEL is set.",
+    `${decisionModelApiKeyName}${acceptsLlmApiKey ? " or LLM_API_KEY" : ""} is required for DEFAULT_DECISION_MODEL=${process.env.DEFAULT_DECISION_MODEL}.`,
   );
 }
 

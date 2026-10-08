@@ -22,6 +22,15 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         email: EMAIL,
         messages: [
           {
+            microsoft_id: "delta-before-window",
+            conversation_id: "delta-before-window-thread",
+            user_email: EMAIL,
+            subject: "Before retained window",
+            body_content: "Older mail",
+            parent_folder_id: "inbox",
+            received_date_time: "2020-01-01T12:00:00Z",
+          },
+          {
             microsoft_id: "delta-keep",
             conversation_id: "delta-keep-thread",
             user_email: EMAIL,
@@ -52,6 +61,33 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
     afterAll(async () => {
       harness?.restoreFetch();
       await harness?.emulator.close();
+    });
+
+    it("retains the received-date boundary across successive delta reads", async () => {
+      const after = new Date("2026-09-01T00:00:00Z");
+      const first = await harness.provider.getMailboxSyncPage({
+        after,
+        limit: 50,
+      });
+      let page = first;
+      for (let read = 0; read < 3; read++) {
+        const cursor = decodeMailboxSyncCursor(page.cursor, "microsoft");
+        expect(new URL(cursor.deltaLink).searchParams.get("$filter")).toBe(
+          `receivedDateTime ge ${after.toISOString()}`,
+        );
+        expect(
+          page.upsertedMessages.map((message) => message.subject),
+        ).toContain("Stay in inbox");
+        expect(
+          page.upsertedMessages.map((message) => message.subject),
+        ).not.toContain("Before retained window");
+        if (read < 2) {
+          page = await harness.provider.getMailboxSyncPage({
+            cursor: page.cursor,
+            limit: 50,
+          });
+        }
+      }
     });
 
     it("returns a graph.microsoft.com delta cursor and later folder moves", async () => {

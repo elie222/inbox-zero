@@ -45,6 +45,7 @@ import {
   claimPendingPremiumInvite,
   updateAccountSeats,
 } from "@/utils/premium/seats";
+import { applyPendingPremiumGrant } from "@/utils/premium/server";
 import { mobileAuthProviderCompletion } from "@/utils/mobile-auth/provider-completion";
 import { safeExpo } from "@/utils/mobile-auth/expo";
 import { clearAccountDisconnectedErrorIfResolved } from "@/utils/error-messages";
@@ -498,7 +499,13 @@ async function postSignUp({
     loops(),
     resend,
     dub,
-    handlePendingPremiumInvite({ email }),
+    // Sequential so the admin grant lands on whichever premium the invite assigns.
+    handlePendingPremiumInvite({ email }).then(() =>
+      applyPendingPremiumGrant({ userId, email }).catch((error) => {
+        logger.error("Error applying pending premium grant", { email, error });
+        captureException(error, { userEmail: email });
+      }),
+    ),
     handleReferralOnSignUp({ userId, email }),
   ]);
 }

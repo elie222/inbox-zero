@@ -22,6 +22,8 @@ export async function admitAccountUpload(
     sizeBytes: number;
     filename: string;
     contentType: string;
+    disposition?: "attachment" | "inline";
+    contentId?: string;
   },
 ) {
   const parsed = blobIdSchema.safeParse(input.uploadId);
@@ -32,6 +34,8 @@ export async function admitAccountUpload(
   const metadata = {
     filename: input.filename,
     contentType: input.contentType,
+    disposition: input.disposition ?? null,
+    contentId: input.contentId ?? null,
     checksum: input.checksum,
     sizeBytes: input.sizeBytes,
   };
@@ -148,9 +152,14 @@ export async function setAccountUploadHold(
     if (!released) return { status: "unavailable" as const };
     return { status: "released" as const, blobId: parsed.data };
   }
-  const heldCount = await holdAccountUploads(accountId, [parsed.data]);
-  if (heldCount === 0) return { status: "missing" as const };
-  return { status: "held" as const, blobId: parsed.data };
+  try {
+    const heldCount = await holdAccountUploads(accountId, [parsed.data]);
+    if (heldCount === 0) return { status: "missing" as const };
+    return { status: "held" as const, blobId: parsed.data };
+  } catch (error) {
+    logger.warn("Failed to hold upload", { error, blobId: parsed.data });
+    return { status: "unavailable" as const };
+  }
 }
 
 export async function holdAccountUploads(accountId: string, blobIds: string[]) {
@@ -201,6 +210,8 @@ export async function readAccountUploads(accountId: string, blobIds: string[]) {
       filename: true,
       contentType: true,
       content: true,
+      disposition: true,
+      contentId: true,
     },
   });
   const byBlobId = new Map(rows.map((row) => [row.blobId, row]));
@@ -219,6 +230,10 @@ export async function readAccountUploads(accountId: string, blobIds: string[]) {
       contentType: row.contentType,
       content: content.toString("base64"),
       size: content.byteLength,
+      ...(row.disposition === "inline" || row.disposition === "attachment"
+        ? { disposition: row.disposition }
+        : {}),
+      ...(row.contentId ? { contentId: row.contentId } : {}),
     });
   }
   return { status: "ok" as const, uploads };

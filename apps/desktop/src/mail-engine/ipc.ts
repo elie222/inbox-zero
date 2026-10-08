@@ -66,6 +66,9 @@ export async function dispatchMailIpc(engine: MailEngine, payload: unknown) {
         status: "ok" as const,
         result: await engine.purgeAccount(request.payload.accountId),
       };
+    case "retainAccounts":
+      await engine.retainAccounts(request.payload.accountIds);
+      return { status: "ok" as const, result: null };
     case "inspect":
       return {
         status: "ok" as const,

@@ -62,6 +62,52 @@ describe.skipIf(!process.env.RUN_DB_TESTS)(
       });
     });
 
+    it("preserves inline image metadata through database storage", async () => {
+      await admitAccountUpload(emailAccountId, {
+        uploadId: "inline-1",
+        checksum,
+        sizeBytes: bytes.byteLength,
+        filename: "image.png",
+        contentType: "image/png",
+        disposition: "inline",
+        contentId: "image-1@example.test",
+      });
+      await stage("inline-1", bytes);
+      expect(
+        await readAccountUploads(emailAccountId, ["inline-1"]),
+      ).toMatchObject({
+        status: "ok",
+        uploads: [{ disposition: "inline", contentId: "image-1@example.test" }],
+      });
+    });
+
+    it("does not write stale content over a replacement admission", async () => {
+      await admit("file-1");
+      const replacement = Buffer.from("a replacement attachment", "utf8");
+      const result = await putAccountUploadContent(
+        emailAccountId,
+        "file-1",
+        (async function* () {
+          yield bytes.subarray(0, 4);
+          await admitAccountUpload(emailAccountId, {
+            uploadId: "file-1",
+            checksum: createHash("sha256").update(replacement).digest("hex"),
+            sizeBytes: replacement.byteLength,
+            filename: "replacement.txt",
+            contentType: "text/plain",
+          });
+          yield bytes.subarray(4);
+        })(),
+      );
+      expect(result).toEqual({ status: "missing" });
+      expect(await inspectAccountUpload(emailAccountId, "file-1")).toEqual({
+        status: "missing",
+      });
+      expect(await stage("file-1", replacement)).toMatchObject({
+        status: "staged",
+      });
+    });
+
     it("rejects content that does not match what was admitted", async () => {
       await admit("file-1");
       // Same length as the admitted bytes, so this reaches the checksum

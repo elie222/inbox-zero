@@ -178,6 +178,7 @@
         "NEXT_PUBLIC_IS_RESEND_CONFIGURED",
 
         "LOOPS_API_SECRET",
+        "LOOPS_WEBHOOK_SIGNING_SECRET",
 
         "CRON_SECRET",
         "BLOG_SYNC_WEBHOOK_SECRET",
@@ -302,7 +303,7 @@
         "UNSUBSCRIBE_WORKER_URL",
         "UNSUBSCRIBE_WORKER_SECRET"
       ],
-      "outputs": [".next/**", "!.next/cache/**", "public/sw.js", "public/sw.js.map"]
+      "outputs": [".next/**", "!.next/cache/**", "public/sw.js", "public/sw.js.map", "generated/mcp-app/**"]
     },
     "build:ci": {
       "env": [
@@ -441,7 +442,7 @@
         "UNSUBSCRIBE_WORKER_URL",
         "UNSUBSCRIBE_WORKER_SECRET"
       ],
-      "outputs": [".next/**", "!.next/cache/**", "public/sw.js", "public/sw.js.map"]
+      "outputs": [".next/**", "!.next/cache/**", "public/sw.js", "public/sw.js.map", "generated/mcp-app/**"]
     },
     "test": {
       "env": ["RUN_AI_TESTS"]

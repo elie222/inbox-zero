@@ -105,6 +105,22 @@ describe("DELETE /uploads/[uploadId]", () => {
     });
   });
 
+  it("returns a retryable 503 when a hold could not be written", async () => {
+    await stageReadyBlob("file-1");
+    prisma.mailUpload.updateMany.mockRejectedValueOnce(new Error("no db"));
+
+    const response = await POST(holdRequest("file-1", true), params("file-1"));
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: "unavailable", retryable: true },
+    });
+    const retried = await POST(holdRequest("file-1", true), params("file-1"));
+    expect(retried.status).toBe(200);
+    expect(
+      (await DELETE(deleteRequest("file-1"), params("file-1"))).status,
+    ).toBe(409);
+  });
+
   it("returns a retryable 503 when a release could not be written", async () => {
     await stageReadyBlob("file-1");
     expect(

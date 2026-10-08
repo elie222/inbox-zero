@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { rm } from "node:fs/promises";
+import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { installMailUploadTable } from "@/__tests__/mocks/mail-upload.mock";
 import prisma from "@/utils/__mocks__/prisma";
@@ -15,6 +17,12 @@ import {
   setAccountUploadHold,
 } from "./upload-blobs";
 
+const instance = vi.hoisted(() => ({ directory: "" }));
+
+vi.mock("node:os", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("node:os")>()),
+  tmpdir: () => instance.directory,
+}));
 vi.mock("@/utils/prisma");
 
 const accountId = "acc-1";
@@ -53,6 +61,23 @@ describe("mail upload staging", () => {
         },
       ],
     });
+  });
+
+  it("stages and inspects an upload across instances with different temporary filesystems", async () => {
+    const root = resolve(".tmp/mail-upload-cross-instance-test");
+    try {
+      instance.directory = resolve(root, "admit");
+      await admit("file-1");
+      instance.directory = resolve(root, "content");
+      expect(await stage("file-1", bytes)).toMatchObject({ status: "staged" });
+      instance.directory = resolve(root, "send");
+      expect(await inspectAccountUpload(accountId, "file-1")).toEqual({
+        status: "ready",
+        blobId: "file-1",
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 
   it("rejects content that was never admitted", async () => {
@@ -222,6 +247,55 @@ describe("mail upload staging", () => {
       status: "missing",
       blobId: "file-1",
     });
+  });
+
+  it("scopes upload writes, holds, inspection and deletion to the account", async () => {
+    await admit("file-1");
+    await stage("file-1", bytes);
+    expect(await inspectAccountUpload("acc-2", "file-1")).toEqual({
+      status: "missing",
+    });
+    expect(
+      await putAccountUploadContent(
+        "acc-2",
+        "file-1",
+        (async function* () {
+          yield bytes;
+        })(),
+      ),
+    ).toEqual({ status: "missing" });
+    expect(await setAccountUploadHold("acc-2", "file-1", true)).toEqual({
+      status: "missing",
+    });
+    await cancelAccountUpload("acc-2", "file-1");
+    await deleteAccountUploads("acc-2", ["file-1"]);
+    expect(await inspectAccountUpload(accountId, "file-1")).toEqual({
+      status: "ready",
+      blobId: "file-1",
+    });
+
+    await setAccountUploadHold(accountId, "file-1", true);
+    await releaseAccountUploadHolds("acc-2", ["file-1"]);
+    expect(await cancelAccountUpload(accountId, "file-1")).toEqual({
+      status: "in_use",
+      blobId: "file-1",
+    });
+  });
+
+  it("allows cancellation after an abandoned hold expires", async () => {
+    vi.useFakeTimers();
+    try {
+      await admit("file-1");
+      await stage("file-1", bytes);
+      await setAccountUploadHold(accountId, "file-1", true);
+      vi.advanceTimersByTime(60 * 60 * 1000 + 1);
+      expect(await cancelAccountUpload(accountId, "file-1")).toEqual({
+        status: "deleted",
+        blobId: "file-1",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("deletes uploads a composer abandoned", async () => {

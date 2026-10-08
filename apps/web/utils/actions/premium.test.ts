@@ -3,6 +3,7 @@ import { getMockOrganizationMembership } from "@/__tests__/helpers";
 import { getStripePriceId } from "@/app/(app)/premium/config";
 import prisma from "@/utils/__mocks__/prisma";
 import {
+  adminChangePremiumStatusAction,
   endStripeTrialAction,
   generateCheckoutSessionAction,
   getBillingPortalUrlAction,
@@ -17,6 +18,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/utils/prisma");
+vi.mock("@/utils/admin", () => ({ isAdmin: () => true }));
 vi.mock("@/utils/auth", () => ({
   auth: vi.fn(async () => ({
     user: { id: "user-1", email: "user@example.com" },
@@ -621,3 +623,61 @@ function stripeInvalidRequestError(message: string, param?: string) {
     ...(param ? { param } : {}),
   });
 }
+
+describe("adminChangePremiumStatusAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    prisma.emailAccount.findUnique.mockResolvedValue(null);
+  });
+
+  it("saves a pending grant when the user has not signed up yet", async () => {
+    const result = await adminChangePremiumStatusAction({
+      email: "New.User@example.com",
+      period: "PLUS_ANNUALLY",
+      count: 2,
+      upgrade: true,
+    });
+
+    expect(result?.data).toEqual({ pending: true });
+    expect(prisma.emailAccount.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { email: "new.user@example.com" } }),
+    );
+    expect(prisma.pendingPremiumGrant.upsert).toHaveBeenCalledWith({
+      where: { email: "new.user@example.com" },
+      create: {
+        email: "new.user@example.com",
+        tier: "PLUS_ANNUALLY",
+        count: 2,
+        emailAccountsAccess: null,
+      },
+      update: { tier: "PLUS_ANNUALLY", count: 2, emailAccountsAccess: null },
+    });
+  });
+
+  it("removes a pending grant on downgrade before sign-up", async () => {
+    prisma.pendingPremiumGrant.deleteMany.mockResolvedValue({ count: 1 });
+
+    const result = await adminChangePremiumStatusAction({
+      email: "new.user@example.com",
+      period: "PLUS_ANNUALLY",
+      upgrade: false,
+    });
+
+    expect(result?.data).toEqual({ pending: true });
+    expect(prisma.pendingPremiumGrant.deleteMany).toHaveBeenCalledWith({
+      where: { email: "new.user@example.com" },
+    });
+  });
+
+  it("rejects a downgrade for an unknown email without a pending grant", async () => {
+    prisma.pendingPremiumGrant.deleteMany.mockResolvedValue({ count: 0 });
+
+    const result = await adminChangePremiumStatusAction({
+      email: "nobody@example.com",
+      period: "PLUS_ANNUALLY",
+      upgrade: false,
+    });
+
+    expect(result?.serverError).toBe("User not found");
+  });
+});

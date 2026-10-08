@@ -434,14 +434,14 @@ function AttachmentSourceNode({
         <TreeNodeTrigger className="py-1">
           <div className="w-4" />
           <FileTextIcon className="size-4 text-muted-foreground" />
-          <div className="flex flex-1 items-center gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
             <Checkbox
               checked={checkboxState}
               disabled={isSelectionInherited}
               onCheckedChange={(checked) => onToggle(item, checked === true)}
               onClick={(event) => event.stopPropagation()}
             />
-            <TreeLabel>{item.name}</TreeLabel>
+            <TreeLabel title={item.name}>{item.name}</TreeLabel>
           </div>
         </TreeNodeTrigger>
       </TreeNode>
@@ -459,7 +459,7 @@ function AttachmentSourceNode({
           <TreeExpander hasChildren />
         )}
         <FolderIcon className="size-4 text-muted-foreground" />
-        <div className="flex flex-1 items-center gap-2">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           {allowFolderSelection && (
             <Checkbox
               checked={checkboxState}
@@ -468,7 +468,7 @@ function AttachmentSourceNode({
               onClick={(event) => event.stopPropagation()}
             />
           )}
-          <TreeLabel>{item.name}</TreeLabel>
+          <TreeLabel title={item.name}>{item.name}</TreeLabel>
         </div>
       </TreeNodeTrigger>
       <TreeNodeContent hasChildren={isExpanded}>

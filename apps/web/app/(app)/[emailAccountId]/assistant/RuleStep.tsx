@@ -181,7 +181,9 @@ function CardLayoutRight({
   className?: string;
 }) {
   return (
-    <div className={cn("space-y-2 mx-auto w-full", className)}>{children}</div>
+    <div className={cn("min-w-0 space-y-2 mx-auto w-full", className)}>
+      {children}
+    </div>
   );
 }
 
@@ -218,7 +220,7 @@ export function RuleStep({
 }) {
   return (
     <div className="flex items-start gap-3">
-      <div className="relative flex-1">
+      <div className="relative min-w-0 flex-1">
         <CardLayout>
           {leftContent && <div className="shrink-0">{leftContent}</div>}
           <CardLayoutRight>{rightContent}</CardLayoutRight>

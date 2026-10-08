@@ -1,12 +1,5 @@
 import pRetry, { AbortError } from "p-retry";
 
-// Datasources that store rows per mailbox, keyed by the mailbox address.
-const EMAIL_DATASOURCES = [
-  "email_action",
-  "email",
-  "last_and_oldest_emails_mv",
-] as const;
-
 // Deletes rows that identify a mailbox by its address. AI usage rows are kept
 // for cost reporting; they are keyed by user id except when usage tracking
 // fell back to the email address, and those rows are deleted too.
@@ -15,9 +8,7 @@ export async function deleteTinybirdEmailData(emails: string[]) {
 
   const quotedEmails = emails.map(quote).join(", ");
   await deleteRows("aiCall", `userId IN (${quotedEmails})`);
-  for (const datasource of EMAIL_DATASOURCES) {
-    await deleteRows(datasource, `ownerEmail IN (${quotedEmails})`);
-  }
+  await deleteRows("email_action", `ownerEmail IN (${quotedEmails})`);
 }
 
 // Tinybird runs one delete job at a time and answers 429 while one is running.

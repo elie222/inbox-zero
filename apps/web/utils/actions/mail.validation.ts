@@ -84,6 +84,9 @@ export const saveComposeDraftBody = z.object({
   draftId: z.string().min(1).optional(),
   content: sendEmailBody,
 });
-export const discardComposeDraftBody = z.object({
+export const composeDraftParams = z.object({
   draftId: z.string().min(1),
+});
+export const readComposeDraftQuery = z.object({
+  messageId: z.string().min(1),
 });

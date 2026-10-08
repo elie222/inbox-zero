@@ -390,6 +390,8 @@ describe("createEmailProviderOperationExecutor", () => {
       bytes: png,
       filename: "dot.png",
       contentType: "image/png",
+      disposition: "inline",
+      contentId: "image-1@example.test",
     });
     vi.mocked(executeDurableEmailSend).mockResolvedValue({
       status: "applied",
@@ -418,6 +420,8 @@ describe("createEmailProviderOperationExecutor", () => {
                 filename: "dot.png",
                 contentType: "image/png",
                 content: png.toString("base64"),
+                disposition: "inline",
+                contentId: "image-1@example.test",
               }),
             ],
           }),
@@ -1098,7 +1102,13 @@ function heldRow(overrides: Partial<ScheduledEmail> = {}): ScheduledEmail {
 async function stageAccountUpload(
   accountId: string,
   blobId: string,
-  options: { bytes?: Buffer; filename?: string; contentType?: string } = {},
+  options: {
+    bytes?: Buffer;
+    filename?: string;
+    contentType?: string;
+    disposition?: "attachment" | "inline";
+    contentId?: string;
+  } = {},
 ) {
   const bytes = options.bytes ?? Buffer.from("blob", "utf8");
   expect(
@@ -1108,6 +1118,8 @@ async function stageAccountUpload(
       sizeBytes: bytes.byteLength,
       filename: options.filename ?? "note.txt",
       contentType: options.contentType ?? "text/plain",
+      disposition: options.disposition,
+      contentId: options.contentId,
     }),
   ).toEqual({ status: "admitted", blobId });
   expect(

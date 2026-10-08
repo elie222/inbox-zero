@@ -86,7 +86,7 @@ export function RuleDialog({
           logMessage="Rule dialog crashed"
           logScope="rule-dialog-error-boundary"
         >
-          <div>
+          <div className="min-w-0">
             {ruleId ? (
               <RuleLoader ruleId={ruleId}>
                 {({ rule, mutate }) => (

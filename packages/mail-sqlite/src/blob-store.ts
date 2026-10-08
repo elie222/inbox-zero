@@ -214,6 +214,8 @@ export async function writeBlobMetadata(
     contentType: string;
     checksum?: string;
     sizeBytes?: number;
+    disposition?: "attachment" | "inline";
+    contentId?: string;
   },
 ) {
   await mkdir(directory, { recursive: true });
@@ -231,6 +233,8 @@ export async function readBlobMetadata(
   contentType: string;
   checksum?: string;
   sizeBytes?: number;
+  disposition?: "attachment" | "inline";
+  contentId?: string;
 } | null> {
   const path = blobFile(directory, blobId, ".meta.json");
   try {
@@ -240,10 +244,21 @@ export async function readBlobMetadata(
       contentType?: string;
       checksum?: string;
       sizeBytes?: number;
+      disposition?: unknown;
+      contentId?: unknown;
     };
     return {
       filename: parsed.filename ?? blobId,
       contentType: parsed.contentType ?? "application/octet-stream",
+      ...(parsed.disposition === "attachment" || parsed.disposition === "inline"
+        ? { disposition: parsed.disposition }
+        : {}),
+      ...(typeof parsed.contentId === "string" &&
+      parsed.contentId.length >= 1 &&
+      parsed.contentId.length <= 2048 &&
+      !/[\r\n\0]/.test(parsed.contentId)
+        ? { contentId: parsed.contentId }
+        : {}),
       ...(typeof parsed.checksum === "string" &&
       parsed.checksum.length >= 1 &&
       parsed.checksum.length <= 128

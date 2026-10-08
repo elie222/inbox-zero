@@ -23,6 +23,7 @@ vi.mock("@/utils/auth", () => ({
 
 vi.mock("@/utils/mobile-auth/oauth-code", () => ({
   consumeMobileAuthCode: consumeMobileAuthCodeMock,
+  getMobileAuthFlowId: () => "flow-id",
 }));
 
 vi.mock("@/utils/mobile-auth/session-cookie", () => ({

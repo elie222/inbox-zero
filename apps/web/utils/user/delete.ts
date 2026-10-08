@@ -10,11 +10,11 @@ import {
   trackUserDeletionRequested,
 } from "@/utils/posthog";
 import { captureException, SafeError } from "@/utils/error";
-import { unwatchEmails } from "@/utils/email/watch-manager";
-import { createEmailProvider } from "@/utils/email/provider";
-import type { EmailProvider } from "@/utils/email/types";
+import { stopWatchingEmailAccount } from "@/utils/email/watch-manager";
 import type { Logger } from "@/utils/logger";
+import { prepareMemberRemovalNotifications } from "@/utils/team-comments/member-removal";
 import { clearCachedResearchForUser } from "@/utils/redis/research-cache";
+import { releaseAccountRecordings } from "@/utils/meeting-recorder/delete-media";
 import {
   DELETE_ACCOUNT_REQUIRES_OWNER_TRANSFER_ERROR,
   getDeletableOrganizationIdsOrThrow,
@@ -35,9 +35,6 @@ export async function deleteUser({
     where: { userId },
     select: {
       provider: true,
-      access_token: true,
-      refresh_token: true,
-      expires_at: true,
       emailAccount: {
         select: {
           id: true,
@@ -80,57 +77,46 @@ export async function deleteUser({
         deletedEmailAccountIds: emailAccountIds,
       });
 
-      const resourcesPromise = accounts.map(async (account) => {
-        if (!account.emailAccount) return Promise.resolve();
+      const emailAccounts = accounts.flatMap((account) =>
+        account.emailAccount
+          ? [{ ...account.emailAccount, provider: account.provider }]
+          : [],
+      );
 
-        let emailProvider: EmailProvider | null = null;
-        if (account.access_token) {
-          try {
-            emailProvider = await createEmailProvider({
-              emailAccountId: account.emailAccount.id,
-              provider: account.provider,
-              logger,
-            });
-          } catch (error) {
-            logger.warn(
-              "Could not create provider to unwatch deleted account",
-              {
-                emailAccountId: account.emailAccount.id,
-                error,
-              },
-            );
-          }
-        }
+      // Watches and meeting bots are found through rows that cascade with the
+      // user, so every mailbox is released before the user is deleted.
+      const releases = await Promise.allSettled(
+        emailAccounts.map(async (emailAccount) => {
+          await stopWatchingEmailAccount({
+            emailAccountId: emailAccount.id,
+            provider: emailAccount.provider,
+            subscriptionId: emailAccount.watchEmailsSubscriptionId,
+            logger,
+          });
+          await releaseAccountRecordings({
+            emailAccountId: emailAccount.id,
+            logger,
+          });
+        }),
+      );
+      // Settle every mailbox first so a retry cannot overlap unfinished cleanup.
+      const failedRelease = releases.find(
+        (result): result is PromiseRejectedResult =>
+          result.status === "rejected",
+      );
+      if (failedRelease) throw failedRelease.reason;
 
-        return deleteResources({
-          emailAccountId: account.emailAccount.id,
-          email: account.emailAccount.email,
-          userId,
-          emailProvider,
-          subscriptionId: account.emailAccount.watchEmailsSubscriptionId,
-          logger,
-        });
-      });
+      await deleteUserRows({ userId, emailAccountIds, logger });
 
-      // Then proceed with the regular deletion process
-      const results = await Promise.allSettled(resourcesPromise);
+      await Promise.allSettled(
+        emailAccounts.flatMap(({ email }) => [
+          deleteLoopsContact(email),
+          deletePosthogUser({ email }),
+          deleteResendContact({ email }),
+        ]),
+      );
 
       logger.info("User resources deleted");
-
-      // Log any failures
-      const failures = results.filter((r) => r.status === "rejected");
-      if (failures.length > 0) {
-        logger.error("Some deletion operations failed", {
-          failures: failures.map((f) => (f as PromiseRejectedResult).reason),
-        });
-
-        const originalError = (failures[0] as PromiseRejectedResult)?.reason;
-        const customError = new Error("User deletion error");
-        customError.cause = originalError;
-
-        captureException(customError, { extra: { failures } });
-        throw originalError;
-      }
     });
 
     const emails = accounts
@@ -166,43 +152,34 @@ async function deleteSoloOrganizations({
   );
 }
 
-async function deleteResources({
-  emailAccountId,
-  email,
+async function deleteUserRows({
   userId,
-  emailProvider,
-  subscriptionId,
+  emailAccountIds,
   logger,
 }: {
-  emailAccountId: string;
-  email: string;
   userId: string;
-  emailProvider: EmailProvider | null;
-  subscriptionId: string | null;
+  emailAccountIds: string[];
   logger: Logger;
 }) {
-  const resourcesPromise = Promise.allSettled([
-    deleteLoopsContact(emailAccountId),
-    deletePosthogUser({ email }),
-    deleteResendContact({ email }),
-    emailProvider
-      ? unwatchEmails({
-          emailAccountId,
-          provider: emailProvider,
-          subscriptionId,
-          logger,
-        })
-      : Promise.resolve(),
-  ]);
-
   try {
     // First delete ExecutedRules and their associated ExecutedActions in batches
     // If we try do this in one go for a user with a lot of executed rules, this will fail
     logger.info("Deleting ExecutedRules in batches");
-    await deleteExecutedRulesInBatches({ emailAccountId, logger });
+    for (const emailAccountId of emailAccountIds) {
+      await deleteExecutedRulesInBatches({ emailAccountId, logger });
+    }
 
     logger.info("Deleting user");
-    const deletedUser = await prisma.user.deleteMany({ where: { id: userId } });
+    const notifyConversations = await prepareMemberRemovalNotifications(
+      { emailAccount: { userId } },
+      logger,
+    );
+    // Members restrict email account deletion, so they go first.
+    const [, deletedUser] = await prisma.$transaction([
+      prisma.member.deleteMany({ where: { emailAccount: { userId } } }),
+      prisma.user.deleteMany({ where: { id: userId } }),
+    ]);
+    await notifyConversations();
 
     // PostHog tracks the completed delete after the database delete succeeds.
     if (deletedUser.count > 0) await trackUserDeleted(userId);
@@ -213,15 +190,8 @@ async function deleteResources({
     ) {
       throw new SafeError(DELETE_ACCOUNT_REQUIRES_OWNER_TRANSFER_ERROR);
     }
-
-    logger.error("Error during database user deletion process", {
-      error,
-    });
-    captureException(error, { emailAccountId, userEmail: email });
     throw error;
   }
-
-  return resourcesPromise;
 }
 
 /**

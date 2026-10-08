@@ -1,13 +1,11 @@
 "use server";
 
 import { getDefaultMailSplitDrafts } from "@/utils/split-inbox/default-splits";
-import { revalidatePath } from "next/cache";
 import { ONBOARDING_PROCESS_EMAILS_COUNT } from "@/utils/config";
 import { after } from "next/server";
 import {
   createRuleBody,
   updateRuleBody,
-  updateRuleSettingsBody,
   enableDraftRepliesBody,
   enableMultiRuleSelectionBody,
   updateDraftReplyConfidenceBody,
@@ -33,7 +31,6 @@ import {
   createRuleWithResolvedActions,
   replaceRuleWithResolvedActions,
   setRuleEnabled,
-  updateRuleInstructions,
   type RuleActionCreateData,
   addActionOwnershipToInput,
   assertIntegrationActionsConnected,
@@ -50,7 +47,6 @@ import {
 import { actionClient, actionClientUser } from "@/utils/actions/safe-action";
 import { assertRuleIsNotOrgManaged } from "@/utils/organizations/rules";
 import { env } from "@/env";
-import { prefixPath } from "@/utils/path";
 import { ONE_WEEK_MINUTES } from "@/utils/date";
 import { createEmailProvider } from "@/utils/email/provider";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
@@ -179,28 +175,6 @@ export const updateRuleAction = actionClient
     },
   );
 
-export const updateRuleSettingsAction = actionClient
-  .metadata({ name: "updateRuleSettings" })
-  .inputSchema(updateRuleSettingsBody)
-  .action(
-    async ({ ctx: { emailAccountId }, parsedInput: { id, instructions } }) => {
-      await assertRuleIsNotOrgManaged({ ruleId: id, emailAccountId });
-
-      const currentRule = await prisma.rule.findUnique({
-        where: { id, emailAccountId },
-      });
-      if (!currentRule) throw new SafeError("Rule not found");
-
-      await updateRuleInstructions({
-        ruleId: id,
-        emailAccountId,
-        instructions,
-      });
-
-      revalidatePath(prefixPath(emailAccountId, "/reply-zero"));
-    },
-  );
-
 export const enableDraftRepliesAction = actionClient
   .metadata({ name: "enableDraftReplies" })
   .inputSchema(enableDraftRepliesBody)
@@ -265,8 +239,6 @@ export const enableDraftRepliesAction = actionClient
           },
         });
       }
-
-      revalidatePath(prefixPath(emailAccountId, "/reply-zero"));
     },
   );
 
@@ -321,8 +293,6 @@ export const deleteRuleAction = actionClient
         emailAccountId,
         groupId: rule.groupId,
       });
-
-      revalidatePath(prefixPath(emailAccountId, `/assistant/rule/${id}`));
     } catch (error) {
       if (isNotFoundError(error)) return;
       throw error;
