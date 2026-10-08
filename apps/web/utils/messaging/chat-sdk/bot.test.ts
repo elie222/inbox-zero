@@ -615,15 +615,19 @@ describe("pending email handled state helpers", () => {
     );
   });
 
-  it("renders the sent Outlook link as an action button in Telegram", () => {
+  it.each([
+    "slack",
+    "telegram",
+  ] as const)("uses the Graph sent-message link in %s", (messagingProvider) => {
     const card = buildHandledPendingEmailCard({
       accountEmail: "user@example.com",
       accountProvider: "microsoft",
       confirmationResult: {
         messageId: "message-1",
         threadId: "thread-1",
+        externalUrl: "https://outlook.office.com/owa/?ItemID=sent-1",
       },
-      messagingProvider: "telegram",
+      messagingProvider,
       part: {
         type: "tool-replyEmail",
         state: "output-available",
@@ -653,14 +657,24 @@ describe("pending email handled state helpers", () => {
           expect.objectContaining({
             type: "link-button",
             label: "Open in Outlook",
-            url: "https://outlook.office.com/mail/inbox/id/message-1",
+            url: "https://outlook.office.com/owa/?ItemID=sent-1&ispopout=0",
           }),
         ],
       }),
     ]);
     expect(JSON.stringify(textChildren)).not.toContain(
-      "https://outlook.office.com/mail/inbox/id/message-1",
+      "https://outlook.office.com/owa/?ItemID=sent-1&ispopout=0",
     );
+  });
+
+  it("omits the sent Outlook link when only message ids are available", () => {
+    expect(
+      getPendingEmailHandledOpenText({
+        accountEmail: "user@example.com",
+        accountProvider: "microsoft",
+        confirmationResult: { messageId: "message-1", threadId: "thread-1" },
+      }),
+    ).toBeNull();
   });
 
   it("returns null when the sent message ids are unavailable", () => {
