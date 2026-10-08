@@ -1,3 +1,4 @@
+import { migrateContactSuggestions } from "./contact-suggestions";
 import type { SqlTransaction } from "./driver";
 import {
   migrateConversationIndex,
@@ -447,6 +448,7 @@ export async function migrateMailbox(
   await migrateInboxUnreadExcludesArchive(tx);
   await migrateMessageSearchIndex(tx);
   await migrateEmptyMeetingInvitationBodies(tx);
+  await migrateContactSuggestions(tx);
 }
 
 // Delta sync once stored a meeting invitation's flag without its body. Dropping
