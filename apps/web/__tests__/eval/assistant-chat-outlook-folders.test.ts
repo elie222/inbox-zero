@@ -216,6 +216,110 @@ describe.runIf(shouldRunEval)("Eval: assistant chat Outlook folders", () => {
       );
 
       test(
+        "marks all folder pages read and reports the processed count",
+        async () => {
+          const prompt =
+            "Mark all unread emails in my Newsletter folder as read.";
+          mockGetFolders.mockResolvedValue([
+            {
+              id: "folder-newsletter",
+              displayName: "Newsletter",
+              childFolders: [],
+            },
+          ]);
+          const messages = Array.from({ length: 24 }, (_, index) =>
+            getMockMessage({
+              id: `newsletter-message-${index + 1}`,
+              threadId: `newsletter-thread-${index + 1}`,
+              from: "digest@example.com",
+              subject: `Newsletter issue ${index + 1}`,
+              labelIds: ["UNREAD"],
+            }),
+          );
+          mockSearchMessages.mockImplementation(async (input) => {
+            if (input.folderId !== "folder-newsletter" || input.labelName) {
+              return { messages: [], nextPageToken: undefined };
+            }
+            if (!input.pageToken) {
+              return {
+                messages: messages.slice(0, 11),
+                nextPageToken: "PAGE_TOKEN_2",
+              };
+            }
+            if (input.pageToken === "PAGE_TOKEN_2") {
+              return { messages: [], nextPageToken: "PAGE_TOKEN_3" };
+            }
+            return { messages: messages.slice(11), nextPageToken: undefined };
+          });
+
+          const { toolCalls, actual, finalText } = await runAssistantChat({
+            emailAccount: cloneEmailAccountForProvider(
+              emailAccount,
+              "microsoft",
+            ),
+            inboxStats: { total: 35, unread: 24 },
+            messages: [{ role: "user", content: prompt }],
+          });
+          const writes = toolCalls.filter(
+            (call) => call.toolName === "manageInbox",
+          );
+          const threadIds = new Set(
+            writes.flatMap((call) => {
+              const input = call.input as {
+                action: string;
+                threadIds?: string[];
+                read?: boolean;
+              };
+              return input.action === "mark_read_threads" && input.read === true
+                ? (input.threadIds ?? [])
+                : [];
+            }),
+          );
+          const providerCalls = mockSearchMessages.mock.calls.map(
+            ([input]) => input,
+          );
+          const lastSearchIndex = toolCalls.findLastIndex(
+            (call) => call.toolName === "searchInbox",
+          );
+          const firstWriteIndex = toolCalls.findIndex(
+            (call) => call.toolName === "manageInbox",
+          );
+          const judge = await judgeEvalOutput({
+            input: prompt,
+            output: finalText,
+            expected:
+              "All 24 matching folder emails were successfully marked as read.",
+            criterion: {
+              name: "accurate_folder_cleanup_count",
+              description:
+                "The response reports completion for the requested folder and a processed count of 24. It does not treat a partial search page as the full result or claim category-wide changes.",
+            },
+          });
+          const pass =
+            threadIds.size === 24 &&
+            messages.every((message) => threadIds.has(message.threadId)) &&
+            providerCalls.some((input) => input.pageToken === "PAGE_TOKEN_3") &&
+            providerCalls.every(
+              (input) =>
+                input.folderId === "folder-newsletter" && !input.labelName,
+            ) &&
+            firstWriteIndex > lastSearchIndex &&
+            judge.pass;
+          evalReporter.record({
+            testName:
+              "folder mark-read covers every page and reports actual count",
+            model: model.label,
+            pass,
+            actual: `${actual} | ${finalText} | judge=${judge.reasoning}`,
+          });
+          expect(pass, `${actual} | ${finalText} | ${judge.reasoning}`).toBe(
+            true,
+          );
+        },
+        TIMEOUT,
+      );
+
+      test(
         "moves searched messages to an Outlook folder",
         async () => {
           const testName = "outlook folder move uses folder tool after search";

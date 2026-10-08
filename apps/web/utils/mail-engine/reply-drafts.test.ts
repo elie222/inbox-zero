@@ -1,7 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { setActiveMailClient } from "./active-client";
 import {
   clearLocalReplyDrafts,
   createReplyDraftWriter,
+  dropReplyDraftDeletedFromMailbox,
   getReplyDraft,
   getReplyDraftForSession,
   getReplyDrafts,
@@ -492,6 +494,250 @@ describe("local reply drafts", () => {
     setActiveMailClient(null);
   });
 });
+
+describe("drafts deleted from the mailbox", () => {
+  beforeEach(() => {
+    clearLocalReplyDrafts();
+  });
+  afterEach(() => {
+    setActiveMailClient(null);
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  it("opens the composer blank once the mailbox draft is deleted", async () => {
+    await saveDraftWithProvider();
+    stubMailboxDraftLookup(false);
+
+    const stored = await getReplyDraft(identity);
+    const dropped = await dropReplyDraftDeletedFromMailbox(stored);
+
+    expect(dropped?.content).toBeNull();
+    expect((await getReplyDraft(identity))?.content).toBeNull();
+  });
+
+  it("keeps saving what the user writes next into the emptied draft", async () => {
+    await saveDraftWithProvider();
+    stubMailboxDraftLookup(false);
+
+    const dropped = await dropReplyDraftDeletedFromMailbox(
+      await getReplyDraft(identity),
+    );
+    await createReplyDraftWriter(identity, dropped?.revision).save({
+      ...content,
+      requestId: "compose-2",
+    });
+
+    expect((await getReplyDraft(identity))?.content).toMatchObject({
+      requestId: "compose-2",
+    });
+  });
+
+  it("clears durable deleted drafts and saves the next compose after reopening", async () => {
+    const client = createRevisionCheckingClient();
+    setActiveMailClient(client as never);
+    await saveDraftWithProvider();
+    stubMailboxDraftLookup(false);
+
+    const dropped = await dropReplyDraftDeletedFromMailbox(
+      await getReplyDraft(identity),
+    );
+    expect(dropped?.content).toBeNull();
+    clearLocalReplyDrafts();
+    expect(await getReplyDraft(identity)).toBeUndefined();
+    await createReplyDraftWriter(identity).save({
+      ...content,
+      requestId: "compose-2",
+    });
+    expect(
+      (await client.readDraft({ draftId: identity.messageId })).content
+        ?.subject,
+    ).toBe(content.values.subject);
+  });
+
+  it("keeps the draft when durable cleanup fails", async () => {
+    const client = createRevisionCheckingClient();
+    setActiveMailClient(client as never);
+    await saveDraftWithProvider();
+    const stored = await getReplyDraft(identity);
+    stubMailboxDraftLookup(false);
+    client.saveDraft.mockRejectedValueOnce(new Error("Storage unavailable"));
+
+    expect(await dropReplyDraftDeletedFromMailbox(stored)).toBe(stored);
+    expect(
+      (await client.readDraft({ draftId: identity.messageId })).content
+        ?.subject,
+    ).toBe(content.values.subject);
+  });
+
+  it("preserves newer durable edits made before the mailbox lookup completes", async () => {
+    const client = createRevisionCheckingClient();
+    setActiveMailClient(client as never);
+    await saveDraftWithProvider();
+    const stored = await getReplyDraft(identity);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async () => {
+        const current = await client.readDraft({ draftId: identity.messageId });
+        const newer = {
+          ...content,
+          requestId: "compose-2",
+          providerDraftId: "provider-2",
+          values: { ...content.values, subject: "Newer edits" },
+        };
+        await client.saveDraft({
+          key: { draftId: identity.messageId },
+          expectedRevision: current.draftRevision ?? null,
+          content: {
+            ...current.content,
+            subject: newer.values.subject,
+            clientState: JSON.stringify(newer),
+            providerDraftId: newer.providerDraftId,
+          },
+        });
+        return { status: 404, json: async () => ({ code: "DRAFT_NOT_FOUND" }) };
+      }),
+    );
+
+    const reconciled = await dropReplyDraftDeletedFromMailbox(stored);
+
+    expect(reconciled?.content?.values.subject).toBe("Newer edits");
+    expect(
+      (await client.readDraft({ draftId: identity.messageId })).content
+        ?.subject,
+    ).toBe("Newer edits");
+  });
+
+  it("preserves local edits made while the mailbox lookup is pending", async () => {
+    await saveDraftWithProvider();
+    const stored = await getReplyDraft(identity);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async () => {
+        await createReplyDraftWriter(identity, stored?.revision).save({
+          ...content,
+          requestId: "compose-2",
+        });
+        return { status: 404, json: async () => ({ code: "DRAFT_NOT_FOUND" }) };
+      }),
+    );
+
+    expect(
+      (await dropReplyDraftDeletedFromMailbox(stored))?.content,
+    ).toMatchObject({ requestId: "compose-2" });
+  });
+
+  it("preserves the draft when the lookup is unauthorized or fails", async () => {
+    await saveDraftWithProvider();
+    const stored = await getReplyDraft(identity);
+    for (const status of [401, 403, 500]) {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status }));
+      expect(await dropReplyDraftDeletedFromMailbox(stored)).toBe(stored);
+    }
+  });
+
+  it("keeps the draft when a 404 does not confirm draft deletion", async () => {
+    await saveDraftWithProvider();
+    const stored = await getReplyDraft(identity);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        status: 404,
+        json: async () => ({
+          error: "Email account not found",
+          isKnownError: true,
+        }),
+      }),
+    );
+
+    expect(await dropReplyDraftDeletedFromMailbox(stored)).toBe(stored);
+    expect((await getReplyDraft(identity))?.content).toBe(stored?.content);
+  });
+
+  it("keeps the draft while the mailbox copy is still there", async () => {
+    await saveDraftWithProvider();
+    stubMailboxDraftLookup(true);
+
+    const stored = await getReplyDraft(identity);
+    expect(await dropReplyDraftDeletedFromMailbox(stored)).toBe(stored);
+    expect((await getReplyDraft(identity))?.content).toMatchObject({
+      providerDraftId: "provider-1",
+    });
+  });
+
+  it("keeps the draft when the mailbox cannot be reached", async () => {
+    await saveDraftWithProvider();
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+
+    const stored = await getReplyDraft(identity);
+    expect(await dropReplyDraftDeletedFromMailbox(stored)).toBe(stored);
+    expect((await getReplyDraft(identity))?.content).toMatchObject({
+      providerDraftId: "provider-1",
+    });
+  });
+
+  it.each([
+    "request",
+    "response body",
+  ])("keeps the local draft within two seconds when the mailbox %s stalls", async (phase) => {
+    await saveDraftWithProvider();
+    const stored = await getReplyDraft(identity);
+    vi.useFakeTimers();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_url: string, init: RequestInit) => {
+        const stalled = new Promise<Response>((_resolve, reject) => {
+          init.signal?.addEventListener("abort", () => {
+            reject(new DOMException("Aborted", "AbortError"));
+          });
+        });
+        return phase === "request"
+          ? stalled
+          : Promise.resolve({ status: 404, json: () => stalled });
+      }),
+    );
+    const loaded = vi.fn();
+    const loading = dropReplyDraftDeletedFromMailbox(stored).then(loaded);
+
+    await vi.advanceTimersByTimeAsync(1999);
+    expect(loaded).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(loaded).toHaveBeenCalledWith(stored);
+    await loading;
+    expect((await getReplyDraft(identity))?.content).toBe(stored?.content);
+  });
+
+  it("does not ask the mailbox about a draft it never reached", async () => {
+    await createReplyDraftWriter(identity).save({
+      ...content,
+      requestId: "compose-1",
+    });
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const stored = await getReplyDraft(identity);
+    expect(await dropReplyDraftDeletedFromMailbox(stored)).toBe(stored);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+async function saveDraftWithProvider() {
+  await createReplyDraftWriter(identity).save({
+    ...content,
+    requestId: "compose-1",
+  });
+  await updateReplyDraftProviderState(identity, "compose-1", "provider-1");
+}
+
+function stubMailboxDraftLookup(exists: boolean) {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue({
+      status: exists ? 200 : 404,
+      json: async () => (exists ? {} : { code: "DRAFT_NOT_FOUND" }),
+    }),
+  );
+}
 
 function createRevisionCheckingClient() {
   const drafts = new Map<

@@ -74,6 +74,7 @@ export function EmailMessage({
   onExpand,
   onSendSuccess,
   onMarkDone,
+  onDraftDiscarded,
   onOpenSenderContext,
   hasDraft = false,
   selected,
@@ -102,6 +103,11 @@ export function EmailMessage({
   onExpand?: () => void;
   onSendSuccess: (messageId: string, threadId: string) => void;
   onMarkDone?: () => void;
+  /**
+   * A saved draft shown in this message was discarded. Only wired up by
+   * parents for which that discard empties the conversation.
+   */
+  onDraftDiscarded?: () => void;
   onOpenSenderContext?: (message: ThreadMessage) => void;
   hasDraft?: boolean;
   selected?: boolean;
@@ -353,6 +359,7 @@ export function EmailMessage({
               onSendSuccess={onSendSuccess}
               onSent={onReplySent}
               onMarkDone={onMarkDone}
+              onDraftDiscarded={onDraftDiscarded}
               onStartDiscard={() => {
                 setDraftDismissed(sessionMessageId, true);
                 return {
@@ -595,6 +602,7 @@ function ReplyPanel({
   onRestore,
   onRestoreCompose,
   onStartDiscard,
+  onDraftDiscarded,
   composeMode,
   draftMessage,
   draftSessionMessageId,
@@ -612,6 +620,7 @@ function ReplyPanel({
   onRestore?: () => void;
   onRestoreCompose: (composeSession: ComposeSession) => void;
   onStartDiscard: () => ComposeSession | undefined;
+  onDraftDiscarded?: () => void;
   composeMode: ReplyDraftMode;
   draftMessage?: ThreadMessage;
   draftSessionMessageId?: string;
@@ -703,6 +712,7 @@ function ReplyPanel({
       } finally {
         refetch();
       }
+      onDraftDiscarded?.();
       return true;
     },
     [
@@ -710,6 +720,7 @@ function ReplyPanel({
       draftMessage,
       discardDraft,
       onCloseCompose,
+      onDraftDiscarded,
       onRestoreCompose,
       onStartDiscard,
       refetch,
