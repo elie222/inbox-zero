@@ -614,6 +614,8 @@ async function processMessagingAssistantMessage({
         });
       }
 
+      if (context.provider === "slack" && !thread.isDM) return true;
+
       if (!context.messageText && context.imageParts.length === 0) {
         return true;
       }
