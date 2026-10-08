@@ -90,11 +90,11 @@ export function createSystemOneDecisionModel({
         answers: Object.fromEntries(
           Object.entries(body.answers).map(([id, answer]) => [
             id,
-            toDecisionAnswer(answer),
+            fromSystemOneAnswer(answer),
           ]),
         ),
-        // Distributions arrive rounded, so they can sum to slightly off 1.
-        rounding: { probabilityDecimals: 4 },
+        // Distributions arrive rounded, and precision varies by hosted model.
+        rounding: { probabilityDecimals: 2 },
         usage: {
           inputTokens: body.usage.input_tokens,
           outputTokens: body.usage.output_tokens,
@@ -124,7 +124,7 @@ function toSystemOneQuestion(question: Experimental_DecisionModelV4Question) {
   return question.type === "boolean" ? { ...question, type: "noul" } : question;
 }
 
-function toDecisionAnswer(
+function fromSystemOneAnswer(
   answer: z.infer<typeof systemOneResponseSchema>["answers"][string],
 ): Experimental_DecisionModelV4Answer {
   if (answer.type === "noul") {

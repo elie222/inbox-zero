@@ -82,7 +82,7 @@ DEFAULT_DECISION_MODEL=openrouter:typesafe/jev-1.13 # or openrouter:cloudflare/c
 DEFAULT_DECISION_MODEL_ENABLED=false # true: on for users who haven't chosen; false: users opt in
 ```
 
-Use the same `provider:model` format as the `*_LLMS` variables. Supported providers are `openrouter`, `gateway`, `openai`, and `typesafe`. Keys resolve the same way too: the provider's key (`OPENROUTER_API_KEY`, `AI_GATEWAY_API_KEY`, `OPENAI_API_KEY`, or `TYPESAFE_API_KEY` for direct TypeSafe), falling back to `LLM_API_KEY`.
+Use the same `provider:model` format as the `*_LLMS` variables. Supported providers are `openrouter`, `gateway`, `openai`, and `typesafe`. Keys resolve the same way too: the provider's key (`OPENROUTER_API_KEY`, `AI_GATEWAY_API_KEY`, or `OPENAI_API_KEY`), falling back to `LLM_API_KEY`. Direct TypeSafe always needs `TYPESAFE_API_KEY`.
 
 The decision model receives the same email content as the LLM it replaces, with the same sensitive data policy applied. Users who set their own AI key are not enrolled by default. If a decision call fails, that step falls back to the configured LLM.
 

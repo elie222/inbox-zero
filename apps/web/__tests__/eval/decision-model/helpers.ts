@@ -39,7 +39,13 @@ export async function compareDecision<T>({
 }) {
   const [jev, luna] = await Promise.all([runJev(), runLuna()]);
 
-  recordResult({ reporter, testName, model: "JEV", actual: jev, expected });
+  recordResult({
+    reporter,
+    testName,
+    model: decisionModelConfig.modelId,
+    actual: jev,
+    expected,
+  });
   recordResult({
     reporter,
     testName,

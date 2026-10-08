@@ -85,7 +85,7 @@ Reference for environment variables relevant to self-hosting Inbox Zero. Hosted-
 | `CEREBRAS_API_KEY` | No | Cerebras API key | — |
 | `OPENROUTER_API_KEY` | No | OpenRouter API key | — |
 | `AI_GATEWAY_API_KEY` | No | AI Gateway API key | — |
-| `DEFAULT_DECISION_MODEL` | No | Optional decision model as `provider:model`, for example `openrouter:cloudflare/clef`. Providers: `openrouter`, `gateway`, `openai`, `typesafe`. Uses that provider's key, or `LLM_API_KEY`. See [LLM Setup](/hosting/llm-setup#decision-models). | — |
+| `DEFAULT_DECISION_MODEL` | No | Optional decision model as `provider:model`, for example `openrouter:cloudflare/clef`. Providers: `openrouter`, `gateway`, `openai`, `typesafe`. Uses that provider's key, or `LLM_API_KEY` (except `typesafe`, which needs `TYPESAFE_API_KEY`). See [LLM Setup](/hosting/llm-setup#decision-models). | — |
 | `DEFAULT_DECISION_MODEL_ENABLED` | No | Turn the decision model on for users who haven't chosen; otherwise users opt in | `false` |
 | `TYPESAFE_API_KEY` | No | TypeSafe API key, for `typesafe:` decision models | — |
 | `PERPLEXITY_API_KEY` | No | Perplexity API key for guest research for meeting briefs | — |

@@ -655,17 +655,18 @@ const decisionModelApiKeyNames: Record<string, string> = {
   gateway: "AI_GATEWAY_API_KEY",
   openai: "OPENAI_API_KEY",
 };
-const decisionModelApiKeyName =
-  decisionModelApiKeyNames[
-    process.env.DEFAULT_DECISION_MODEL?.split(":")[0] ?? ""
-  ];
+const decisionModelProvider =
+  process.env.DEFAULT_DECISION_MODEL?.split(":")[0] ?? "";
+const decisionModelApiKeyName = decisionModelApiKeyNames[decisionModelProvider];
+// TypeSafe is not an LLM provider, so LLM_API_KEY cannot stand in for its key.
+const acceptsLlmApiKey = decisionModelProvider !== "typesafe";
 if (
   decisionModelApiKeyName &&
   !process.env[decisionModelApiKeyName]?.trim() &&
-  !process.env.LLM_API_KEY?.trim()
+  !(acceptsLlmApiKey && process.env.LLM_API_KEY?.trim())
 ) {
   throw new Error(
-    `${decisionModelApiKeyName} or LLM_API_KEY is required for DEFAULT_DECISION_MODEL=${process.env.DEFAULT_DECISION_MODEL}.`,
+    `${decisionModelApiKeyName}${acceptsLlmApiKey ? " or LLM_API_KEY" : ""} is required for DEFAULT_DECISION_MODEL=${process.env.DEFAULT_DECISION_MODEL}.`,
   );
 }
 

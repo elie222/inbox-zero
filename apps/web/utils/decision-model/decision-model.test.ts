@@ -65,8 +65,9 @@ describe("getDecisionModelConfig", () => {
     expect(prisma.user.findUnique).not.toHaveBeenCalled();
   });
 
-  it("returns null when the provider key is missing", async () => {
+  it("returns null when the TypeSafe key is missing, even with LLM_API_KEY", async () => {
     envMock.TYPESAFE_API_KEY = undefined;
+    envMock.LLM_API_KEY = "shared-key";
     mockUserSetting(true);
 
     expect(await getDecisionModelConfig(getEmailAccount())).toBeNull();
@@ -171,6 +172,25 @@ describe("runDecisionModel", () => {
 
     const sent = JSON.stringify(doDecide.mock.calls[0]?.[0].state);
     expect(sent).not.toContain(secret);
+  });
+
+  it("sends state with undefined fields, such as a missing header", async () => {
+    doDecide.mockResolvedValue(
+      decisionResult({ applies: { type: "boolean", probability: 0.5 } }),
+    );
+
+    await runDecisionModel({
+      config,
+      emailAccount: getEmailAccount(),
+      state: { email: { subject: "Hi", to: undefined } },
+      questions: appliesQuestion,
+      label: "test",
+      logger,
+    });
+
+    expect(doDecide.mock.calls[0]?.[0].state).toEqual({
+      email: { subject: "Hi" },
+    });
   });
 
   it("records usage and provider-reported cost for the configured model", async () => {

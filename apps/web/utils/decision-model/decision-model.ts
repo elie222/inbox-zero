@@ -116,7 +116,9 @@ export async function runDecisionModel({
 
   const result = await experimental_decide({
     model: config.model,
-    state: request.prompt as JSONObject,
+    // decide() rejects undefined fields (e.g. a missing header) that JSON
+    // serialization would drop.
+    state: JSON.parse(JSON.stringify(request.prompt)) as JSONObject,
     questions: request.instructions,
     // Every caller falls back to the LLM, which is the better retry.
     maxRetries: 0,
@@ -198,17 +200,11 @@ export async function runDecisionModelOrFallback<T>({
     return await decide(config);
   } catch (error) {
     logger.warn("Decision model failed, falling back to LLM", {
-      error,
+      error: getLoggableError(error),
       feature,
     });
     return fallback();
   }
-}
-
-function getDeploymentDecisionModelConfig() {
-  return env.DEFAULT_DECISION_MODEL
-    ? createDecisionModelConfig(env.DEFAULT_DECISION_MODEL)
-    : null;
 }
 
 /**
@@ -224,7 +220,8 @@ export function createDecisionModelConfig(
 
   switch (provider) {
     case "typesafe": {
-      const apiKey = resolveApiKey(env.TYPESAFE_API_KEY);
+      // Not an LLM provider, so LLM_API_KEY is never a TypeSafe key.
+      const apiKey = env.TYPESAFE_API_KEY?.trim();
       if (!apiKey) return null;
       return {
         provider,
@@ -272,6 +269,12 @@ export function createDecisionModelConfig(
     default:
       return null;
   }
+}
+
+function getDeploymentDecisionModelConfig() {
+  return env.DEFAULT_DECISION_MODEL
+    ? createDecisionModelConfig(env.DEFAULT_DECISION_MODEL)
+    : null;
 }
 
 /**
@@ -324,4 +327,11 @@ function resolveApiKey(providerApiKey: string | undefined) {
 
 function isJsonObject(value: unknown): value is JSONObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// AI SDK errors can carry the request input, which here is email content.
+function getLoggableError(error: unknown) {
+  return error instanceof Error
+    ? { name: error.name, message: error.message }
+    : error;
 }
