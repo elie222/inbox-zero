@@ -1,4 +1,4 @@
-import { copyFile, readFile, writeFile } from "node:fs/promises";
+import { copyFile, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, extname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -45,11 +45,9 @@ const publishedPackageJson = {
   publishConfig: { access: "public" },
 };
 
-const javascriptFiles = [
-  resolve(outputDirectory, "web/EmailEditor.js"),
-  resolve(outputDirectory, "web/email-extensions.js"),
-  resolve(outputDirectory, "web/url-highlight.js"),
-];
+const javascriptFiles = (await readdir(outputDirectory, { recursive: true }))
+  .filter((path) => path.endsWith(".js"))
+  .map((path) => resolve(outputDirectory, path));
 
 await Promise.all(
   javascriptFiles.map(async (path) => {

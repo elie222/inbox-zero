@@ -107,6 +107,7 @@ import {
   resolveComposeRecipientFields,
 } from "./compose-recipients";
 import { DeliveryOptions, type DeliveryOptionsHandle } from "./DeliveryOptions";
+import { resolveRemoteImages } from "./resolve-remote-images";
 import { useComposeSnippets } from "./useComposeSnippets";
 import {
   getReminderAfterSendTimeChange,
@@ -426,7 +427,11 @@ function ComposeEmailFormContent({
       bcc: replyingToEmail?.bcc,
     },
   });
-  const { extraExtensions, toolbar: snippetToolbar } = useComposeSnippets({
+  const {
+    onSlashKeyDown,
+    onSlashTrigger,
+    toolbar: snippetToolbar,
+  } = useComposeSnippets({
     editorRef,
     to: watch("to"),
   });
@@ -500,13 +505,11 @@ function ComposeEmailFormContent({
         bcc: content.values.bcc ?? "",
         attachments: serializeComposeAttachments(content.attachments),
         messageHtml: combineEmailHtml({
-          editableHtml:
-            content.draft.mode === "fallback"
-              ? content.draft.editableHtml
-              : finalizeEditableEmailHtml({
-                  html: content.draft.editableHtml,
-                  inlineAttachments: content.attachments,
-                }),
+          editableHtml: finalizeEditableEmailHtml({
+            html: content.draft.editableHtml,
+            inlineAttachments: content.attachments,
+            mode: content.draft.mode,
+          }),
           signatureHtml: blocks.has("signature")
             ? content.draft.signatureHtml
             : "",
@@ -662,14 +665,6 @@ function ComposeEmailFormContent({
 
   const addFiles = useCallback(
     async (files: File[], disposition: ComposeAttachment["disposition"]) => {
-      if (disposition === "inline" && initialDraft.mode === "fallback") {
-        toastError({
-          description:
-            "Inline images are unavailable while preserving this draft's original formatting.",
-        });
-        return;
-      }
-
       const attachmentDrafts = files.map((file) =>
         createComposeAttachmentMetadata(file, disposition),
       );
@@ -740,7 +735,7 @@ function ComposeEmailFormContent({
       }
       updateAttachments([...attachmentsRef.current, ...acceptedAttachments]);
     },
-    [initialDraft.mode, updateAttachments],
+    [updateAttachments],
   );
 
   const removeAttachment = useCallback(
@@ -808,13 +803,11 @@ function ComposeEmailFormContent({
       }
 
       const preservedBlockIds = new Set(editorValue.preservedBlockIds);
-      const editableHtml =
-        editorValue.mode === "fallback"
-          ? editorValue.editableHtml
-          : finalizeEditableEmailHtml({
-              html: editorValue.editableHtml,
-              inlineAttachments: outgoingAttachments,
-            });
+      const editableHtml = finalizeEditableEmailHtml({
+        html: editorValue.editableHtml,
+        inlineAttachments: outgoingAttachments,
+        mode: editorValue.mode,
+      });
       const enrichedData: SendEmailBody = {
         ...data,
         ...recipients,
@@ -1452,7 +1445,8 @@ function ComposeEmailFormContent({
         placeholder={isInlineReply ? "" : undefined}
         appearance={isComposeWindow || isInlineReply ? "seamless" : "contained"}
         autofocus={!focusRecipientField}
-        extraExtensions={extraExtensions}
+        onSlashKeyDown={onSlashKeyDown}
+        onSlashTrigger={onSlashTrigger}
         ref={editorRef}
         initialHtml={initialDraft.editableHtml}
         mode={initialDraft.mode}
@@ -1463,7 +1457,7 @@ function ComposeEmailFormContent({
           );
         }}
         preservedBlocks={preservedBlocks}
-        unsupported={initialDraft.unsupported}
+        resolveRemoteImages={resolveRemoteImages}
       />
 
       {submissionError && (
