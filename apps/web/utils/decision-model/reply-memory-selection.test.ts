@@ -14,8 +14,8 @@ import { decideRelevantReplyMemories } from "./reply-memory-selection";
 
 const config = {
   provider: "typesafe" as const,
-  model: "jev-latest",
-  apiKey: "key",
+  modelId: "jev-latest",
+  model: {} as never,
 };
 const candidates = Array.from({ length: 8 }, (_, index) => ({
   id: `memory-${index}`,
@@ -34,7 +34,7 @@ describe("decideRelevantReplyMemories", () => {
         [0.7, 0.1, 0.95, 0.8, 0.65, 0.6, 0.55, 0.5].map(
           (probability, index) => [
             `memory_${index}`,
-            { type: "yesNo", probability },
+            { type: "boolean", probability },
           ],
         ),
       ),
@@ -60,7 +60,7 @@ describe("decideRelevantReplyMemories", () => {
 
   it("returns no memories when none clear the threshold", async () => {
     runDecisionModelMock.mockResolvedValue({
-      answers: { memory_0: { type: "yesNo", probability: 0.2 } },
+      answers: { memory_0: { type: "boolean", probability: 0.2 } },
     });
 
     const result = await decideRelevantReplyMemories({
