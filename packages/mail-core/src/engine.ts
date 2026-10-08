@@ -34,6 +34,8 @@ import type { HostRuntime } from "./ports/runtime";
 import { webCryptoSha256 } from "./canonical";
 import { extractTextPredicates } from "./query-semantics";
 import type {
+  ContactSuggestion,
+  ContactSuggestionQuery,
   ConversationQuery,
   MailboxCountsQuery,
   MailboxCountsView,
@@ -112,6 +114,9 @@ export type DraftAttachmentInput = {
 };
 
 export type MailClient = {
+  queryContactSuggestions?(
+    query: ContactSuggestionQuery,
+  ): Promise<ContactSuggestion[]>;
   observeMailbox(query: ConversationQuery): QueryHandle<MailboxView>;
   observeMailboxCounts(
     query: MailboxCountsQuery,
@@ -202,6 +207,9 @@ export function createMailEngine(input: {
   }
 
   return {
+    queryContactSuggestions(query) {
+      return store.readContactSuggestions(query);
+    },
     observeMailbox(query) {
       enqueueSearches(query);
       return queries.observe(mailboxQueryKey(query), () =>
@@ -403,8 +411,9 @@ export function createMailEngine(input: {
           if (signal?.aborted || runtime.nowMs() >= deadlineMs) return;
           // Batches stay short and claimable work is checked between them,
           // so a large backlog never delays commands or sync.
+          const contacts = await store.indexContactBacklog();
           const { remaining } = await store.indexSearchBacklog();
-          if (remaining) continue;
+          if (contacts.remaining || remaining) continue;
           await waitForSyncLanes(deadlineMs, signal);
           return;
         }

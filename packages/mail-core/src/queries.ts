@@ -221,3 +221,15 @@ export function canonicalizeCountsQuery(query: MailboxCountsQuery): string {
 export function mailboxPredicate(mailbox: WellKnownMailbox): MailPredicate {
   return { kind: "mailbox", mailbox };
 }
+
+export type ContactSuggestion = {
+  emailAddress: string;
+  name?: string;
+};
+
+export type ContactSuggestionQuery = {
+  accountId: string;
+  query: string;
+  ownAddresses: string[];
+  excludeEmails: string[];
+};
