@@ -7,7 +7,7 @@ import {
   readLatestMailMutation,
 } from "./mail-test-helpers";
 
-test("toggles a star with S and the command palette while preserving unread", async ({
+test("toggles stars with shortcuts, the palette and the list toolbar while preserving unread", async ({
   page,
 }, testInfo) => {
   const { conversations, emailAccountId } = await openMail(page);
@@ -88,6 +88,12 @@ test("toggles a star with S and the command palette while preserving unread", as
   await expect(starStatus).toHaveCount(0);
   await expect(otherStarStatus).toHaveCount(0);
   await expectCompletedStarMutation(page, emailAccountId, false);
+  await expectCompletedStarMutation(
+    page,
+    emailAccountId,
+    false,
+    "thr_playwright_1",
+  );
 
   await row.click();
   const readerStarStatus = page
