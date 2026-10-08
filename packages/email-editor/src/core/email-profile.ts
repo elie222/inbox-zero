@@ -186,12 +186,16 @@ export function sanitizeEmailBodyAttribute(
     case "start":
       return tagName === "ol" && /^-?\d{1,6}$/u.test(trimmed) ? trimmed : null;
     case "type":
+      // Apple Mail and Thunderbird mark quotes with type="cite".
+      if (tagName === "blockquote") {
+        return trimmed.toLowerCase() === "cite" ? "cite" : null;
+      }
       return (tagName === "ol" || tagName === "ul" || tagName === "li") &&
         /^(?:1|a|i|disc|circle|square)$/iu.test(trimmed)
         ? trimmed
         : null;
     case "align":
-      return /^(?:left|right|center|justify)$/iu.test(trimmed)
+      return /^(?:left|right|center|justify|top|middle|bottom)$/iu.test(trimmed)
         ? trimmed.toLowerCase()
         : null;
     case "valign":
@@ -207,6 +211,7 @@ export function sanitizeEmailBodyAttribute(
         ? trimmed
         : null;
     case "size":
+      if (tagName === "hr") return /^\d{1,3}$/u.test(trimmed) ? trimmed : null;
       return tagName === "font" && /^[+-]?[1-7]$/u.test(trimmed)
         ? trimmed
         : null;
@@ -222,7 +227,8 @@ export function sanitizeEmailBodyAttribute(
         : null;
     case "alt":
     case "title":
-      return value;
+      // DOMPurify trims these values; trimming here keeps both sanitizers equal.
+      return trimmed;
     case "data-content-id":
       return tagName === "img" && isSafeContentId(trimmed) ? trimmed : null;
     case "data-smartmail":

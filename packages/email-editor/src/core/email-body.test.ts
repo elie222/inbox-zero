@@ -49,6 +49,16 @@ describe("sanitizeEmailBodyHtml", () => {
     expect(sanitizeEmailBodyHtml(once)).toBe(once);
   });
 
+  it("keeps legacy layout attributes common in real mail", () => {
+    expect(
+      sanitizeEmailBodyHtml(
+        '<table align="middle"><tbody><tr><td align="middle">x</td></tr></tbody></table><hr size="1"><blockquote type="cite">q</blockquote>',
+      ),
+    ).toBe(
+      '<table align="middle"><tbody><tr><td align="middle">x</td></tr></tbody></table><hr size="1"><blockquote type="cite">q</blockquote>',
+    );
+  });
+
   it("drops image addresses that are not full web URLs", () => {
     expect(
       sanitizeEmailBodyHtml('<img src="http:assets.example.com/logo.png">'),
