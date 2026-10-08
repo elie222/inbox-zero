@@ -65,7 +65,6 @@ import {
 } from "@/components/ui/select";
 import { env } from "@/env";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
-import { useSquireComposerEnabled } from "@/hooks/useFeatureFlags";
 import { useLocalReplyDraft } from "@/hooks/useLocalReplyDraft";
 import { useProviderDraftAutosave } from "@/hooks/useProviderDraftAutosave";
 import {
@@ -348,14 +347,6 @@ function ComposeEmailFormContent({
           : undefined,
     })),
   );
-  const squireComposerEnabled = useSquireComposerEnabled();
-  // A draft saved by the Squire engine reopens in it, even if the flag has
-  // not loaded yet.
-  const [editorEngine] = useState<"squire" | "tiptap">(() =>
-    squireComposerEnabled || storedDraft?.content?.draft.mode === "html"
-      ? "squire"
-      : "tiptap",
-  );
   const [initialComposer] = useState(() => {
     if (storedDraft?.content) {
       const { draft, preservedBlocks } = storedDraft.content;
@@ -390,7 +381,6 @@ function ComposeEmailFormContent({
 
     const preparedDraft = prepareEmailDraft({
       html: replyingToEmail?.draftHtml ?? "",
-      profile: editorEngine === "squire" ? "html" : "rich",
       quotedHtml: replyingToEmail?.quotedContentHtml,
       signatureHtml:
         replyingToEmail?.signatureHtml ?? accountSignatureHtml ?? undefined,
@@ -454,7 +444,6 @@ function ComposeEmailFormContent({
     },
   });
   const {
-    extraExtensions,
     onSlashKeyDown,
     onSlashTrigger,
     toolbar: snippetToolbar,
@@ -692,18 +681,6 @@ function ComposeEmailFormContent({
 
   const addFiles = useCallback(
     async (files: File[], disposition: ComposeAttachment["disposition"]) => {
-      if (
-        disposition === "inline" &&
-        initialDraft.mode === "fallback" &&
-        editorEngine === "tiptap"
-      ) {
-        toastError({
-          description:
-            "Inline images are unavailable while preserving this draft's original formatting.",
-        });
-        return;
-      }
-
       const attachmentDrafts = files.map((file) =>
         createComposeAttachmentMetadata(file, disposition),
       );
@@ -774,7 +751,7 @@ function ComposeEmailFormContent({
       }
       updateAttachments([...attachmentsRef.current, ...acceptedAttachments]);
     },
-    [editorEngine, initialDraft.mode, updateAttachments],
+    [updateAttachments],
   );
 
   const removeAttachment = useCallback(
@@ -1482,8 +1459,6 @@ function ComposeEmailFormContent({
         placeholder={isInlineReply ? "" : undefined}
         appearance={isComposeWindow || isInlineReply ? "seamless" : "contained"}
         autofocus={!focusRecipientField}
-        engine={editorEngine}
-        extraExtensions={extraExtensions}
         onSlashKeyDown={onSlashKeyDown}
         onSlashTrigger={onSlashTrigger}
         ref={editorRef}
@@ -1497,7 +1472,6 @@ function ComposeEmailFormContent({
         }}
         preservedBlocks={preservedBlocks}
         resolveRemoteImages={resolveRemoteImages}
-        unsupported={initialDraft.unsupported}
       />
 
       {submissionError && (

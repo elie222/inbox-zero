@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import type Squire from "squire-rte";
 import styles from "../EmailEditor.module.css";
 import { FormattingIcon, ToolbarButton } from "../toolbar";
+import { placePopover } from "./placement";
 
 export type FormatState = {
   blockquote: boolean;
@@ -80,21 +81,27 @@ export function SelectionToolbar({
     top: number;
   } | null>(null);
   useLayoutEffect(() => {
-    const width = ref.current?.offsetWidth ?? 0;
-    const height = ref.current?.offsetHeight ?? 0;
-    const gap = 8;
-    const below = position.bottom + gap;
-    setPlacement({
-      left: Math.max(
-        gap,
-        Math.min(position.centerX - width / 2, window.innerWidth - width - gap),
-      ),
-      // Flip above the selection when there is no room below it.
-      top:
-        below + height > window.innerHeight
-          ? Math.max(gap, position.top - height - gap)
-          : below,
-    });
+    setPlacement(
+      placePopover({
+        align: "center",
+        anchor: {
+          bottom: position.bottom,
+          left: position.centerX,
+          right: position.centerX,
+          top: position.top,
+        },
+        bounds: {
+          bottom: window.innerHeight,
+          left: 0,
+          right: window.innerWidth,
+          top: 0,
+        },
+        size: {
+          height: ref.current?.offsetHeight ?? 0,
+          width: ref.current?.offsetWidth ?? 0,
+        },
+      }),
+    );
   }, [position.bottom, position.centerX, position.top]);
 
   return createPortal(

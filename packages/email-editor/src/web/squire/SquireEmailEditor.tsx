@@ -6,6 +6,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -22,7 +23,6 @@ import type {
 import { LinkPanel, openSafeLink } from "../link-panel";
 import {
   type ActivePreservedBlock,
-  PreservedBlocksContext,
   PreservedBlocksToggle,
   QuotePreview,
   type RenderedPreservedEmailBlock,
@@ -39,6 +39,7 @@ import {
   readFormatState,
   SelectionToolbar,
 } from "./selection-toolbar";
+import { placePopover, visibleBounds } from "./placement";
 import { findSlashTrigger, type SlashTriggerMatch } from "./slash-trigger";
 
 type SquireEmailEditorProps = {
@@ -151,9 +152,16 @@ export const SquireEmailEditor = forwardRef<
     top: number;
   } | null>(null);
   const [linkPanel, setLinkPanel] = useState<{
+    anchor: DOMRect;
     href: string;
     key: number;
     range: Range;
+  } | null>(null);
+  const surfaceRef = useRef<HTMLDivElement>(null);
+  const linkPanelRef = useRef<HTMLDivElement>(null);
+  const [linkPanelPosition, setLinkPanelPosition] = useState<{
+    left: number;
+    top: number;
   } | null>(null);
 
   const slashRef = useRef<SlashTriggerMatch | null>(null);
@@ -184,7 +192,7 @@ export const SquireEmailEditor = forwardRef<
     }
     return {
       inlineContentIds,
-      mode: "html",
+      mode: "edited",
       // An edited signature is part of the editable HTML from here on.
       preservedBlockIds: quoteBlock ? [quoteBlock.id] : [],
     };
@@ -374,11 +382,37 @@ export const SquireEmailEditor = forwardRef<
     if (link) range.selectNodeContents(link);
     setToolbarPosition(null);
     setLinkPanel({
+      // A collapsed range has no box of its own; use the caret's.
+      anchor: range.collapsed
+        ? currentEditor.getCursorPosition()
+        : range.getBoundingClientRect(),
       href: link?.getAttribute("href") ?? "",
       key: Date.now(),
       range,
     });
   }, []);
+
+  // Open the link panel next to the text it edits, inside whatever part of
+  // the composer is visible.
+  useLayoutEffect(() => {
+    const surface = surfaceRef.current;
+    const panel = linkPanelRef.current;
+    if (!linkPanel || !surface || !panel) {
+      setLinkPanelPosition(null);
+      return;
+    }
+    const surfaceRect = surface.getBoundingClientRect();
+    const placed = placePopover({
+      align: "start",
+      anchor: linkPanel.anchor,
+      bounds: visibleBounds(surface),
+      size: { height: panel.offsetHeight, width: panel.offsetWidth },
+    });
+    setLinkPanelPosition({
+      left: placed.left - surfaceRect.left,
+      top: placed.top - surfaceRect.top,
+    });
+  }, [linkPanel]);
 
   const setExpanded = useCallback((value: boolean) => {
     expandedRef.current = value;
@@ -622,14 +656,6 @@ export const SquireEmailEditor = forwardRef<
     if (quoteBlock) blocks.push({ id: quoteBlock.id, kind: "quote" });
     return blocks;
   }, [quoteBlock, signaturePresent]);
-  const preservedBlocksState = useMemo(
-    () => ({
-      blocks: activeBlocks,
-      expanded,
-      toggle: () => setExpanded(!expandedRef.current),
-    }),
-    [activeBlocks, expanded, setExpanded],
-  );
 
   useImperativeHandle(
     ref,
@@ -712,84 +738,95 @@ export const SquireEmailEditor = forwardRef<
   );
 
   return (
-    <PreservedBlocksContext.Provider value={preservedBlocksState}>
+    <div
+      className={styles.surface}
+      data-email-editor-root
+      data-email-editor-appearance={appearance}
+      ref={surfaceRef}
+    >
       <div
-        className={styles.surface}
-        data-email-editor-root
-        data-email-editor-appearance={appearance}
-        data-email-editor-engine="squire"
-        data-email-editor-mode="rich"
+        className={styles.editor}
+        onScroll={() => {
+          updateSelectionUi();
+          updateSlashTrigger();
+        }}
       >
+        <div className={styles.squireBody}>
+          <div
+            aria-label="Email message"
+            aria-multiline="true"
+            className={styles.squireContent}
+            data-email-editor-content=""
+            dir="auto"
+            ref={rootRef}
+            role="textbox"
+            style={
+              {
+                "--email-editor-placeholder": JSON.stringify(placeholder),
+              } as CSSProperties
+            }
+            tabIndex={0}
+          />
+          {removeButtonTop !== null && (
+            <button
+              aria-label="Remove signature"
+              className={styles.squireRemoveSignature}
+              onClick={removeSignature}
+              onMouseDown={(event) => event.preventDefault()}
+              style={{ top: removeButtonTop }}
+              type="button"
+            >
+              ×
+            </button>
+          )}
+          {activeBlocks.length > 0 && (
+            <div className={styles.squirePreserved}>
+              <PreservedBlocksToggle
+                blocks={activeBlocks}
+                expanded={expanded}
+                onToggle={() => setExpanded(!expandedRef.current)}
+              />
+              {quoteBlock && (
+                <div data-email-preserved-kind="quote">
+                  {expanded && (
+                    <QuotePreview previewHtml={quoteBlock.previewHtml} />
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          <div
+            aria-hidden="true"
+            className={styles.squireFiller}
+            onMouseDown={(event) => {
+              if (event.button !== 0 || !editor) return;
+              event.preventDefault();
+              editor.focus();
+              editor.moveCursorToEnd();
+            }}
+          />
+        </div>
+      </div>
+
+      {editor && toolbarPosition && (
+        <SelectionToolbar
+          editor={editor}
+          onLink={openLinkPanel}
+          position={toolbarPosition}
+          state={formatState}
+        />
+      )}
+
+      {editor && linkPanel && (
         <div
-          className={styles.editor}
-          onScroll={() => {
-            updateSelectionUi();
-            updateSlashTrigger();
+          className={styles.linkPanelAnchor}
+          ref={linkPanelRef}
+          style={{
+            left: linkPanelPosition?.left ?? 0,
+            top: linkPanelPosition?.top ?? 0,
+            visibility: linkPanelPosition ? undefined : "hidden",
           }}
         >
-          <div className={styles.squireBody}>
-            <div
-              aria-label="Email message"
-              aria-multiline="true"
-              className={styles.squireContent}
-              data-email-editor-content=""
-              dir="auto"
-              ref={rootRef}
-              role="textbox"
-              style={
-                {
-                  "--email-editor-placeholder": JSON.stringify(placeholder),
-                } as CSSProperties
-              }
-              tabIndex={0}
-            />
-            {removeButtonTop !== null && (
-              <button
-                aria-label="Remove signature"
-                className={styles.squireRemoveSignature}
-                onClick={removeSignature}
-                onMouseDown={(event) => event.preventDefault()}
-                style={{ top: removeButtonTop }}
-                type="button"
-              >
-                ×
-              </button>
-            )}
-            {activeBlocks.length > 0 && (
-              <div className={styles.squirePreserved}>
-                <PreservedBlocksToggle />
-                {quoteBlock && (
-                  <div data-email-preserved-kind="quote">
-                    {expanded && (
-                      <QuotePreview previewHtml={quoteBlock.previewHtml} />
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-            <div
-              aria-hidden="true"
-              className={styles.squireFiller}
-              onMouseDown={(event) => {
-                if (event.button !== 0 || !editor) return;
-                event.preventDefault();
-                editor.focus();
-                editor.moveCursorToEnd();
-              }}
-            />
-          </div>
-        </div>
-
-        {editor && toolbarPosition && (
-          <SelectionToolbar
-            editor={editor}
-            onLink={openLinkPanel}
-            position={toolbarPosition}
-            state={formatState}
-          />
-        )}
-
-        {editor && linkPanel && (
           <LinkPanel
             initialHref={linkPanel.href}
             key={linkPanel.key}
@@ -820,9 +857,9 @@ export const SquireEmailEditor = forwardRef<
               setLinkPanel(null);
             }}
           />
-        )}
-      </div>
-    </PreservedBlocksContext.Provider>
+        </div>
+      )}
+    </div>
   );
 });
 

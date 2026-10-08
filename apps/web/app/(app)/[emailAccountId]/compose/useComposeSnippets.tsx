@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState, type RefObject } from "react";
+import { useCallback, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { BracesIcon } from "lucide-react";
 import type {
@@ -27,7 +27,6 @@ import {
 } from "@/components/ui/popover";
 import { Tooltip } from "@/components/Tooltip";
 import { useSnippets } from "@/hooks/useSnippets";
-import { createSnippetSlashExtension } from "./snippet-slash-extension";
 import {
   snippetContentToHtml,
   snippetVariablesFromRecipient,
@@ -49,8 +48,6 @@ export function useComposeSnippets({
 }) {
   const { data, mutate } = useSnippets();
   const snippets = data?.snippets ?? EMPTY_SNIPPETS;
-  const snippetsRef = useRef(snippets);
-  snippetsRef.current = snippets;
   const toRef = useRef(to);
   toRef.current = to;
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -77,13 +74,11 @@ export function useComposeSnippets({
     [],
   );
   const insertSnippet = useCallback(
-    (snippet: SnippetMatchItem, range?: { from: number; to: number }) => {
-      editorRef.current?.insertHtml(snippetHtml(snippet), range);
+    (snippet: SnippetMatchItem) => {
+      editorRef.current?.insertHtml(snippetHtml(snippet));
     },
     [editorRef, snippetHtml],
   );
-  const insertSnippetRef = useRef(insertSnippet);
-  insertSnippetRef.current = insertSnippet;
 
   const openCreate = useCallback(
     (
@@ -103,29 +98,6 @@ export function useComposeSnippets({
     },
     [editorRef],
   );
-  const openCreateRef = useRef(openCreate);
-  openCreateRef.current = openCreate;
-
-  const extraExtensions = useMemo(
-    () => [
-      createSnippetSlashExtension({
-        getSnippets: () => snippetsRef.current,
-        insertSnippet: (snippet, range) => {
-          insertSnippetRef.current(snippet, range);
-        },
-        onCreate: ({ shortcut }) => {
-          openCreateRef.current(
-            {
-              shortcut,
-            },
-            { insertOnCreate: true },
-          );
-        },
-      }),
-    ],
-    [],
-  );
-
   const onSlashKeyDown = useCallback(
     (event: KeyboardEvent) =>
       slashPickerRef.current?.onKeyDown({ event }) ?? false,
@@ -235,7 +207,6 @@ export function useComposeSnippets({
   );
 
   return {
-    extraExtensions,
     onSlashKeyDown,
     onSlashTrigger: setSlashTrigger,
     toolbar,

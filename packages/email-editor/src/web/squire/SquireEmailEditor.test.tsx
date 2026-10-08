@@ -36,7 +36,7 @@ describe("Squire email editor", () => {
     const initialHtml = "<div>Draft body<!--[if mso]>x<![endif]--></div>";
     const { handle, textbox } = await renderEditor({
       initialHtml,
-      mode: "fallback",
+      mode: "original",
       preservedBlocks: [SIGNATURE, QUOTE],
     });
 
@@ -44,7 +44,7 @@ describe("Squire email editor", () => {
     expect(handle().getValue()).toEqual({
       editableHtml: initialHtml,
       inlineContentIds: [],
-      mode: "fallback",
+      mode: "original",
       preservedBlockIds: ["signature", "quote"],
     });
   });
@@ -86,7 +86,7 @@ describe("Squire email editor", () => {
     });
     const value = handle().getValue();
 
-    expect(value.mode).toBe("html");
+    expect(value.mode).toBe("edited");
     expect(value.preservedBlockIds).toEqual(["quote"]);
     expect(value.editableHtml).toContain("Hello");
     expect(value.editableHtml).toContain(
@@ -107,7 +107,7 @@ describe("Squire email editor", () => {
     expect(textbox().querySelector("[data-smartmail]")).toBeNull();
     expect(screen.queryByRole("button", { name: /signature/u })).toBeNull();
     const value = handle().getValue();
-    expect(value.mode).toBe("html");
+    expect(value.mode).toBe("edited");
     expect(value.editableHtml).not.toContain("Example Person");
     expect(value.preservedBlockIds).toEqual([]);
   });
@@ -159,12 +159,12 @@ describe("Squire email editor", () => {
     const initialHtml = "<div>Original</div>";
     const { handle, textbox } = await renderEditor({
       initialHtml,
-      mode: "fallback",
+      mode: "original",
     });
     await act(async () => {
       handle().insertText(" more");
     });
-    expect(handle().getValue().mode).toBe("html");
+    expect(handle().getValue().mode).toBe("edited");
 
     await act(async () => {
       fireEvent.keyDown(textbox(), { key: "z", ctrlKey: true });
@@ -172,7 +172,7 @@ describe("Squire email editor", () => {
 
     expect(handle().getValue()).toMatchObject({
       editableHtml: initialHtml,
-      mode: "fallback",
+      mode: "original",
     });
   });
 
@@ -180,7 +180,7 @@ describe("Squire email editor", () => {
     const initialHtml = "<div>Original</div>";
     const { handle, textbox } = await renderEditor({
       initialHtml,
-      mode: "fallback",
+      mode: "original",
     });
 
     act(() => {
@@ -189,7 +189,7 @@ describe("Squire email editor", () => {
 
     expect(handle().getValue()).toMatchObject({
       editableHtml: initialHtml,
-      mode: "fallback",
+      mode: "original",
     });
   });
 
@@ -197,7 +197,7 @@ describe("Squire email editor", () => {
     const { handle, textbox } = await renderEditor({
       initialHtml:
         '<div>Reply</div><div data-smartmail="gmail_signature"><div>Example Person</div></div>',
-      mode: "html",
+      mode: "edited",
     });
 
     expect(textbox().textContent).toBe("Reply");
@@ -214,7 +214,7 @@ describe("Squire email editor", () => {
     const { handle, textbox } = await renderEditor({
       initialHtml:
         '<div onclick="alert(1)">Hi<img src="x" onerror="alert(1)"><script>alert(1)</script></div>',
-      mode: "fallback",
+      mode: "original",
     });
     act(() => {
       handle().insertHtml(
@@ -241,7 +241,7 @@ describe("Squire email editor", () => {
     const { handle, textbox } = await renderEditor({
       initialHtml:
         '<div>Hi <img src="https://assets.example.com/a.png" alt="A"></div>',
-      mode: "fallback",
+      mode: "original",
       resolveRemoteImages,
     });
 
@@ -266,7 +266,7 @@ describe("Squire email editor", () => {
     const { textbox } = await renderEditor({
       initialHtml:
         '<div><img src="https://assets.example.com/a.png" alt="A"></div>',
-      mode: "fallback",
+      mode: "original",
     });
 
     expect(textbox().querySelector("img")?.hasAttribute("src")).toBe(false);
@@ -445,7 +445,6 @@ async function renderEditor(props: Partial<EmailEditorProps>) {
   const onStateChange = vi.fn();
   render(
     <EmailEditor
-      engine="squire"
       initialHtml=""
       onStateChange={onStateChange}
       ref={ref}

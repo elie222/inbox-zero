@@ -322,9 +322,25 @@ test("keeps editing state stable across formatting, links, paste, and files", as
   ).toBeVisible();
 
   await selectEditorText(editor, "omega");
+  const selectionBox = await editor.evaluate((element) => {
+    const rect = window.getSelection()?.getRangeAt(0).getBoundingClientRect();
+    return rect && element.contains(window.getSelection()?.anchorNode ?? null)
+      ? { bottom: rect.bottom, left: rect.left, top: rect.top }
+      : null;
+  });
   await editor.press("ControlOrMeta+k");
   const addLinkDialog = dialog.getByRole("dialog", { name: "Add link" });
   await addLinkDialog.getByLabel("Link address").fill("example.com/first");
+  // The panel opens next to the text it links, not at a fixed corner.
+  const panelBox = await addLinkDialog.boundingBox();
+  if (!selectionBox || !panelBox) throw new Error("Link panel has no anchor");
+  expect(
+    Math.min(
+      Math.abs(panelBox.y - selectionBox.bottom),
+      Math.abs(panelBox.y + panelBox.height - selectionBox.top),
+    ),
+  ).toBeLessThan(24);
+  expect(Math.abs(panelBox.x - selectionBox.left)).toBeLessThan(24);
   await capturePlaywrightCheckpoint(page, testInfo, "composer-link-panel");
   await addLinkDialog.getByRole("button", { name: "Add" }).click();
   const link = editor.getByRole("link", { name: "omega" });

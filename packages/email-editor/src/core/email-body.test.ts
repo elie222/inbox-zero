@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  GMAIL_DRAFT_FIXTURE,
   SANITIZER_ATTACK_FIXTURES,
   SIGNATURE_FIXTURES,
 } from "../fixtures/email-html";
@@ -8,7 +7,7 @@ import {
   prepareEmailBodySignatureHtml,
   sanitizeEmailBodyHtml,
 } from "./email-body";
-import { finalizeEditableEmailHtml, prepareEmailDraft } from "./email-html";
+import { finalizeEditableEmailHtml } from "./email-html";
 import { expectInert } from "./sanitizer.test-utils";
 
 describe("sanitizeEmailBodyHtml", () => {
@@ -109,25 +108,7 @@ describe("prepareEmailBodySignatureHtml", () => {
   });
 });
 
-describe("prepareEmailDraft with the html profile", () => {
-  it("keeps the provider body as-is and still splits signature and quote", () => {
-    const result = prepareEmailDraft({
-      html: GMAIL_DRAFT_FIXTURE,
-      profile: "html",
-    });
-
-    expect(result.mode).toBe("fallback");
-    expect(result.unsupported).toEqual([]);
-    expect(result.editableHtml).toContain(
-      '<div dir="ltr">Thanks for the update.',
-    );
-    expect(result.editableHtml).not.toContain("gmail_signature");
-    expect(result.signatureHtml).toContain("<table");
-    expect(result.quotedHtml).toContain("gmail_quote_container");
-  });
-});
-
-describe("finalizeEditableEmailHtml in html mode", () => {
+describe("finalizeEditableEmailHtml", () => {
   it("rewrites inline previews to Content-ID references and sanitizes", () => {
     const sent = finalizeEditableEmailHtml({
       html: '<div>Hi <img src="blob:https://app.example/1" data-content-id="img-1@example" alt="Chart"></div><div onclick="x()">Bye</div><table><tbody><tr><td style="color:#333">Sig</td></tr></tbody></table>',
@@ -142,7 +123,7 @@ describe("finalizeEditableEmailHtml in html mode", () => {
           contentId: "img-1@example",
         },
       ],
-      mode: "html",
+      mode: "edited",
     });
 
     expect(sent).toBe(
@@ -155,18 +136,18 @@ describe("finalizeEditableEmailHtml in html mode", () => {
       finalizeEditableEmailHtml({
         html: '<div><img src="blob:https://app.example/2" data-content-id="gone@example"></div>',
         inlineAttachments: [],
-        mode: "html",
+        mode: "edited",
       }),
     ).toBe("<div></div>");
   });
 
-  it("returns fallback HTML untouched", () => {
+  it("returns original HTML untouched", () => {
     const html = "<div><!--[if mso]>x<![endif]-->Hi</div>";
     expect(
       finalizeEditableEmailHtml({
         html,
         inlineAttachments: [],
-        mode: "fallback",
+        mode: "original",
       }),
     ).toBe(html);
   });

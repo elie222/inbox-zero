@@ -4,8 +4,6 @@ export const OUTLOOK_DRAFT_FIXTURE = `<div dir="rtl"><p>תודה על העדכו
 
 export const RTL_EDITABLE_FIXTURE = `<div dir="rtl">שלום <b>עולם</b><div><br></div><div><i>שורה שנייה</i></div></div>`;
 
-export const UNSUPPORTED_EDITABLE_FIXTURE = `<table role="presentation"><tbody><tr><td style="color:#123456">A legacy layout</td></tr></tbody></table>`;
-
 // Signature shapes common in provider drafts, with placeholder content.
 export const SIGNATURE_FIXTURES = {
   tableWithLogo: `<table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse"><tbody><tr><td valign="top" style="padding-right:12px"><img src="https://assets.example.com/logo.png" width="64" height="64" alt="Example Company"></td><td valign="top" style="font-family:Arial,sans-serif;font-size:13px;color:#333333"><b>Example Person</b><br>Head of Examples<br><a href="https://example.com">example.com</a></td></tr></tbody></table>`,
