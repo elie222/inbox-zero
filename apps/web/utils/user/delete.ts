@@ -17,6 +17,8 @@ import type { Logger } from "@/utils/logger";
 import { prepareMemberRemovalNotifications } from "@/utils/team-comments/member-removal";
 import { deleteAccountUploadDirectory } from "@/utils/mail-api/upload-blobs";
 import { clearCachedResearchForUser } from "@/utils/redis/research-cache";
+import { releaseAccountBookings } from "@/utils/meeting-recorder/reconcile";
+import { deleteAccountRecordingMedia } from "@/utils/meeting-recorder/delete-media";
 import {
   DELETE_ACCOUNT_REQUIRES_OWNER_TRANSFER_ERROR,
   getDeletableOrganizationIdsOrThrow,
@@ -85,30 +87,12 @@ export async function deleteUser({
       const resourcesPromise = accounts.map(async (account) => {
         if (!account.emailAccount) return Promise.resolve();
 
-        let emailProvider: EmailProvider | null = null;
-        if (account.access_token) {
-          try {
-            emailProvider = await createEmailProvider({
-              emailAccountId: account.emailAccount.id,
-              provider: account.provider,
-              logger,
-            });
-          } catch (error) {
-            logger.warn(
-              "Could not create provider to unwatch deleted account",
-              {
-                emailAccountId: account.emailAccount.id,
-                error,
-              },
-            );
-          }
-        }
-
         return deleteResources({
           emailAccountId: account.emailAccount.id,
           email: account.emailAccount.email,
           userId,
-          emailProvider,
+          provider: account.provider,
+          hasAccessToken: Boolean(account.access_token),
           subscriptionId: account.emailAccount.watchEmailsSubscriptionId,
           logger,
         });
@@ -153,6 +137,44 @@ export async function deleteUser({
   }
 }
 
+export async function unwatchDeletedEmailAccount({
+  emailAccountId,
+  provider,
+  hasAccessToken,
+  subscriptionId,
+  logger,
+}: {
+  emailAccountId: string;
+  provider: string;
+  hasAccessToken: boolean;
+  subscriptionId: string | null;
+  logger: Logger;
+}) {
+  if (!hasAccessToken) return;
+
+  let emailProvider: EmailProvider;
+  try {
+    emailProvider = await createEmailProvider({
+      emailAccountId,
+      provider,
+      logger,
+    });
+  } catch (error) {
+    logger.warn("Could not create provider to unwatch deleted account", {
+      emailAccountId,
+      error,
+    });
+    return;
+  }
+
+  await unwatchEmails({
+    emailAccountId,
+    provider: emailProvider,
+    subscriptionId,
+    logger,
+  });
+}
+
 async function deleteSoloOrganizations({
   organizationIds,
   deletedEmailAccountIds,
@@ -172,32 +194,38 @@ async function deleteResources({
   emailAccountId,
   email,
   userId,
-  emailProvider,
+  provider,
+  hasAccessToken,
   subscriptionId,
   logger,
 }: {
   emailAccountId: string;
   email: string;
   userId: string;
-  emailProvider: EmailProvider | null;
+  provider: string;
+  hasAccessToken: boolean;
   subscriptionId: string | null;
   logger: Logger;
 }) {
   const resourcesPromise = Promise.allSettled([
-    deleteLoopsContact(emailAccountId),
+    deleteLoopsContact(email),
     deletePosthogUser({ email }),
     deleteResendContact({ email }),
-    emailProvider
-      ? unwatchEmails({
-          emailAccountId,
-          provider: emailProvider,
-          subscriptionId,
-          logger,
-        })
-      : Promise.resolve(),
   ]);
 
   try {
+    // These read the account's tokens and recordings, which cascade with the
+    // user, so they must finish before the rows go.
+    await unwatchDeletedEmailAccount({
+      emailAccountId,
+      provider,
+      hasAccessToken,
+      subscriptionId,
+      logger,
+    });
+    await releaseAccountBookings({ emailAccountId, logger });
+    await deleteAccountRecordingMedia({ emailAccountId, logger });
+
     // First delete ExecutedRules and their associated ExecutedActions in batches
     // If we try do this in one go for a user with a lot of executed rules, this will fail
     logger.info("Deleting ExecutedRules in batches");

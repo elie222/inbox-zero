@@ -6,7 +6,7 @@ import { updateAccountSeats } from "@/utils/premium/seats";
 import { aliasPosthogUser } from "@/utils/posthog";
 import { betterAuthConfig } from "@/utils/auth";
 import { deleteAccountUploadDirectory } from "@/utils/mail-api/upload-blobs";
-import { deleteUser } from "@/utils/user/delete";
+import { deleteUser, unwatchDeletedEmailAccount } from "@/utils/user/delete";
 import { clearLastEmailAccountCookie } from "@/utils/cookies.server";
 import { LAST_EMAIL_ACCOUNT_COOKIE } from "@/utils/cookies";
 import { publishConversationChange } from "@/utils/team-comments/events";
@@ -50,6 +50,7 @@ vi.mock("@inboxzero/tinybird", () => ({
 }));
 vi.mock("@/utils/user/delete", () => ({
   deleteUser: vi.fn(),
+  unwatchDeletedEmailAccount: vi.fn(),
 }));
 vi.mock("@/utils/posthog", () => ({
   aliasPosthogUser: vi.fn(),
@@ -80,6 +81,7 @@ describe("deleteEmailAccountAction", () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       email: "primary@example.com",
       accountId: "account-1",
+      account: { provider: "google", access_token: "token" },
       user: { email: "primary@example.com" },
     } as Awaited<ReturnType<typeof prisma.emailAccount.findUnique>>);
   });
@@ -88,6 +90,7 @@ describe("deleteEmailAccountAction", () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       email: "secondary@example.com",
       accountId: "account-1",
+      account: { provider: "google", access_token: "token" },
       user: { email: "primary@example.com" },
     } as Awaited<ReturnType<typeof prisma.emailAccount.findUnique>>);
     vi.mocked(withThreadPageBufferDeletion).mockRejectedValueOnce(
@@ -198,6 +201,7 @@ describe("deleteEmailAccountAction", () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       email: "alternate@example.com",
       accountId: "account-2",
+      account: { provider: "google", access_token: "token" },
       user: { email: "primary@example.com" },
     } as Awaited<ReturnType<typeof prisma.emailAccount.findUnique>>);
     prisma.emailAccount.delete.mockRejectedValue(newPrismaNotFoundError());
@@ -219,10 +223,49 @@ describe("deleteEmailAccountAction", () => {
     expect(deleteAccountUploadDirectory).not.toHaveBeenCalled();
   });
 
+  it("stops watching a removed mailbox before deleting it", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      email: "secondary@example.com",
+      accountId: "account-2",
+      watchEmailsSubscriptionId: "subscription-1",
+      account: { provider: "microsoft", access_token: "token" },
+      user: { email: "primary@example.com" },
+    } as Awaited<ReturnType<typeof prisma.emailAccount.findUnique>>);
+
+    const result = await deleteEmailAccountAction({
+      emailAccountId: "secondary-account",
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(unwatchDeletedEmailAccount).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emailAccountId: "secondary-account",
+        provider: "microsoft",
+        hasAccessToken: true,
+        subscriptionId: "subscription-1",
+      }),
+    );
+    expect(
+      vi.mocked(unwatchDeletedEmailAccount).mock.invocationCallOrder[0],
+    ).toBeLessThan(prisma.$transaction.mock.invocationCallOrder[0]);
+  });
+
+  it("keeps watching the only mailbox when its removal is refused", async () => {
+    prisma.emailAccount.findMany.mockResolvedValue([]);
+
+    const result = await deleteEmailAccountAction({
+      emailAccountId: "primary-email-account",
+    });
+
+    expect(result?.serverError).toBeDefined();
+    expect(unwatchDeletedEmailAccount).not.toHaveBeenCalled();
+  });
+
   it("deletes staged mail uploads after a successful non-primary account delete", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       email: "secondary@example.com",
       accountId: "account-2",
+      account: { provider: "google", access_token: "token" },
       user: { email: "primary@example.com" },
     } as Awaited<ReturnType<typeof prisma.emailAccount.findUnique>>);
 
@@ -247,6 +290,7 @@ describe("deleteEmailAccountAction", () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       email: "secondary@example.com",
       accountId: "account-2",
+      account: { provider: "google", access_token: "token" },
       user: { email: "primary@example.com" },
     } as Awaited<ReturnType<typeof prisma.emailAccount.findUnique>>);
     cookiesGet.mockReturnValue({
@@ -272,6 +316,7 @@ describe("deleteEmailAccountAction", () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       email: "secondary@example.com",
       accountId: "account-2",
+      account: { provider: "google", access_token: "token" },
       user: { email: "primary@example.com" },
     } as Awaited<ReturnType<typeof prisma.emailAccount.findUnique>>);
     cookiesGet.mockReturnValue({
@@ -294,6 +339,7 @@ describe("deleteEmailAccountAction", () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       email: "secondary@example.com",
       accountId: "account-2",
+      account: { provider: "google", access_token: "token" },
       user: { email: "primary@example.com" },
     } as Awaited<ReturnType<typeof prisma.emailAccount.findUnique>>);
     cookiesGet.mockReturnValue({
@@ -317,6 +363,7 @@ describe("deleteEmailAccountAction", () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       email: "secondary@example.com",
       accountId: "account-2",
+      account: { provider: "google", access_token: "token" },
       user: { email: "primary@example.com" },
     } as Awaited<ReturnType<typeof prisma.emailAccount.findUnique>>);
     cookiesGet.mockReturnValue({
@@ -345,6 +392,7 @@ describe("deleteEmailAccountAction", () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       email: "secondary@example.com",
       accountId: "account-2",
+      account: { provider: "google", access_token: "token" },
       user: { email: "primary@example.com" },
     } as Awaited<ReturnType<typeof prisma.emailAccount.findUnique>>);
     vi.mocked(deleteAccountUploadDirectory).mockRejectedValueOnce(
@@ -487,6 +535,7 @@ describe("deleteEmailAccountAction", () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       email: "admin@example.com",
       accountId: "account-2",
+      account: { provider: "google", access_token: "token" },
       user: { email: "owner@example.com" },
     } as Awaited<ReturnType<typeof prisma.emailAccount.findUnique>>);
     prisma.member.findMany.mockResolvedValue([

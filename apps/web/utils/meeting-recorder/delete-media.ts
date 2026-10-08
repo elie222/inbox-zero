@@ -33,3 +33,24 @@ export async function deleteRecordingMedia({
     captureException(error);
   }
 }
+
+export async function deleteAccountRecordingMedia({
+  emailAccountId,
+  logger,
+}: {
+  emailAccountId: string;
+  logger: Logger;
+}): Promise<void> {
+  const recordings = await prisma.meetingRecording.findMany({
+    where: {
+      emailAccountId,
+      mediaDeletedAt: null,
+      externalBotId: { not: null },
+    },
+    select: { id: true, botProvider: true, externalBotId: true },
+  });
+
+  for (const recording of recordings) {
+    await deleteRecordingMedia({ recording, logger });
+  }
+}

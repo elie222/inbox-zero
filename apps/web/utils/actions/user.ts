@@ -5,7 +5,7 @@ import { after } from "next/server";
 import { Prisma } from "@/generated/prisma/client";
 import prisma from "@/utils/prisma";
 import { withThreadPageBufferDeletion } from "@/utils/redis/thread-page-buffer";
-import { deleteUser } from "@/utils/user/delete";
+import { deleteUser, unwatchDeletedEmailAccount } from "@/utils/user/delete";
 import { actionClient, actionClientUser } from "@/utils/actions/safe-action";
 import { captureException, SafeError } from "@/utils/error";
 import { updateAccountSeats } from "@/utils/premium/seats";
@@ -139,6 +139,8 @@ export const deleteEmailAccountAction = actionClientUser
         select: {
           email: true,
           accountId: true,
+          watchEmailsSubscriptionId: true,
+          account: { select: { provider: true, access_token: true } },
           user: { select: { email: true } },
         },
       });
@@ -188,6 +190,14 @@ export const deleteEmailAccountAction = actionClientUser
         const newPrimaryAccount = otherEmailAccounts[0];
         const oldEmail = emailAccount.user.email;
 
+        await unwatchDeletedEmailAccount({
+          emailAccountId,
+          provider: emailAccount.account.provider,
+          hasAccessToken: Boolean(emailAccount.account.access_token),
+          subscriptionId: emailAccount.watchEmailsSubscriptionId,
+          logger,
+        });
+
         await runDeleteEmailAccountTransaction(
           userId,
           [
@@ -227,6 +237,14 @@ export const deleteEmailAccountAction = actionClientUser
           });
         });
       } else {
+        await unwatchDeletedEmailAccount({
+          emailAccountId,
+          provider: emailAccount.account.provider,
+          hasAccessToken: Boolean(emailAccount.account.access_token),
+          subscriptionId: emailAccount.watchEmailsSubscriptionId,
+          logger,
+        });
+
         await runDeleteEmailAccountTransaction(
           userId,
           [
