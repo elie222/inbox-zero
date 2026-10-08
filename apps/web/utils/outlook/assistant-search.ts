@@ -9,6 +9,7 @@ import {
   stripStandaloneOutlookStateTerms,
   stripOutlookComparisonFilters,
 } from "@/utils/outlook/message";
+import { resolveOutlookFolderId } from "@/utils/outlook/search-scope";
 
 const OUTLOOK_EMPTY_PAGE_AUTOPAGINATION_LIMIT = 5;
 
@@ -36,6 +37,10 @@ export async function runOutlookSearch({
   lastError?: unknown;
   failures: Array<{ query: string; error: unknown }>;
 }> {
+  const folderId = await resolveOutlookFolderId({
+    emailProvider,
+    folderName: normalizedInput.folderName,
+  });
   const searchQueries: string[] = [];
   const searchQuerySet = new Set<string>();
   const addSearchQuery = (query: string | null | undefined) => {
@@ -70,6 +75,7 @@ export async function runOutlookSearch({
         fromEmail: normalizedInput.fromEmail ?? undefined,
         readState: normalizedInput.readState ?? undefined,
         labelName: normalizedInput.categoryName ?? undefined,
+        ...(folderId && { folderId }),
       });
       executedQuery = candidateQuery;
       break;
@@ -117,6 +123,7 @@ export async function runOutlookSearch({
     readState: normalizedInput.readState,
     categoryName: normalizedInput.categoryName,
     fromEmail: normalizedInput.fromEmail,
+    folderId,
   });
 
   return { result, queryUsed, failures };
@@ -130,6 +137,7 @@ async function skipEmptyOutlookSearchPages({
   readState,
   categoryName,
   fromEmail,
+  folderId,
 }: {
   emailProvider: EmailProvider;
   searchResult: SearchMessagesResult;
@@ -138,6 +146,7 @@ async function skipEmptyOutlookSearchPages({
   readState?: OutlookReadState | null;
   categoryName?: string | null;
   fromEmail?: string | null;
+  folderId?: string;
 }) {
   let result = searchResult;
   let emptyPageSkips = 0;
@@ -155,6 +164,7 @@ async function skipEmptyOutlookSearchPages({
       fromEmail: fromEmail ?? undefined,
       readState: readState ?? undefined,
       labelName: categoryName ?? undefined,
+      ...(folderId && { folderId }),
     });
   }
 
@@ -166,6 +176,7 @@ type NormalizedOutlookSearchInput = {
   fromEmail?: string | null;
   readState?: OutlookReadState | null;
   categoryName?: string | null;
+  folderName?: string | null;
 };
 
 export function normalizeOutlookSearchInput({
@@ -173,12 +184,8 @@ export function normalizeOutlookSearchInput({
   fromEmail,
   readState,
   categoryName,
-}: {
-  query: string;
-  fromEmail?: string | null;
-  readState?: OutlookReadState | null;
-  categoryName?: string | null;
-}): NormalizedOutlookSearchInput {
+  folderName,
+}: NormalizedOutlookSearchInput): NormalizedOutlookSearchInput {
   const normalizedQuery = query.trim();
   const inferredReadState =
     readState ?? inferOutlookReadStateFromQuery(normalizedQuery);
@@ -196,46 +203,25 @@ export function normalizeOutlookSearchInput({
     throw new Error("Sender filters conflict. Use one exact sender address.");
   }
   const effectiveFromEmail = explicitFromEmail ?? queryFromEmail;
-
-  if (effectiveFromEmail) {
-    const queryContainsOnlySameSender =
-      queryFromEmail?.toLowerCase() === effectiveFromEmail.toLowerCase();
-    return {
-      query: queryContainsOnlySameSender ? "" : queryWithoutState,
-      fromEmail: effectiveFromEmail,
-      readState: inferredReadState,
-      categoryName,
-    };
-  }
-
-  if (categoryName) {
-    return {
-      query: queryWithoutState,
-      readState: inferredReadState,
-      categoryName,
-    };
-  }
-
-  if (!queryWithoutState && inferredReadState) {
-    return {
-      query: "",
-      readState: inferredReadState,
-    };
-  }
-
   const scopeCandidate = getOutlookFieldScopeCandidate(queryWithoutState);
-
-  if (!scopeCandidate) {
-    return {
-      query: queryWithoutState,
-      readState: inferredReadState,
-    };
+  if (scopeCandidate) {
+    const explicitScope =
+      scopeCandidate.field === "folder" ? folderName : categoryName;
+    if (explicitScope && explicitScope !== scopeCandidate.name) {
+      throw new Error(
+        "Search scopes conflict. Use one folder and one category filter.",
+      );
+    }
   }
 
   return {
-    query: "",
+    query: scopeCandidate || queryFromEmail ? "" : queryWithoutState,
+    fromEmail: effectiveFromEmail,
     readState: inferredReadState,
-    categoryName: scopeCandidate,
+    categoryName:
+      scopeCandidate?.field === "category" ? scopeCandidate.name : categoryName,
+    folderName:
+      scopeCandidate?.field === "folder" ? scopeCandidate.name : folderName,
   };
 }
 
@@ -273,7 +259,8 @@ function getOutlookFieldScopeCandidate(query: string) {
   const field = normalizedQuery.slice(0, colonIndex).trim().toLowerCase();
   if (field !== "category" && field !== "folder") return null;
 
-  return stripWrappingQuotes(normalizedQuery.slice(colonIndex + 1));
+  const name = stripWrappingQuotes(normalizedQuery.slice(colonIndex + 1));
+  return name ? { field, name } : null;
 }
 
 function stripWrappingQuotes(value: string) {
