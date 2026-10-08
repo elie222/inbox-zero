@@ -41,18 +41,16 @@ export function sanitizeEmailHtmlToFragment(html: string): DocumentFragment {
  * whether through the value, the clipboard or a drag.
  */
 export function restoreOriginalImageSources(html: string) {
-  const template = document.createElement("template");
-  template.innerHTML = html;
-  for (const image of template.content.querySelectorAll(
+  // DOMParser documents are inert: nothing loads or runs while rewriting.
+  const { body } = new DOMParser().parseFromString(html, "text/html");
+  for (const image of body.querySelectorAll(
     `img[${ORIGINAL_IMAGE_SOURCE_ATTRIBUTE}]`,
   )) {
-    image.setAttribute(
-      "src",
-      image.getAttribute(ORIGINAL_IMAGE_SOURCE_ATTRIBUTE) ?? "",
-    );
+    const original = image.getAttribute(ORIGINAL_IMAGE_SOURCE_ATTRIBUTE) ?? "";
     image.removeAttribute(ORIGINAL_IMAGE_SOURCE_ATTRIBUTE);
+    if (isRemoteImageSource(original)) image.setAttribute("src", original);
   }
-  return template.innerHTML;
+  return body.innerHTML;
 }
 
 function getPurifier() {

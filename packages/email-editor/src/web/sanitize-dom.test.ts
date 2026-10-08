@@ -79,6 +79,14 @@ describe("sanitizeEmailHtmlToFragment", () => {
       ),
     ).toBe('<img src="https://assets.example.com/logo.png">');
   });
+
+  it("never restores a non-web address as an image source", () => {
+    expect(
+      restoreOriginalImageSources(
+        `<img src="https://proxy.example/p" ${ORIGINAL_IMAGE_SOURCE_ATTRIBUTE}="javascript:alert(1)">`,
+      ),
+    ).toBe('<img src="https://proxy.example/p">');
+  });
 });
 
 function toHtml(fragment: DocumentFragment) {
