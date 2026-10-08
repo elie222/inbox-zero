@@ -26,6 +26,7 @@ vi.mock("@/utils/ai/actions", () => ({
 vi.mock("@/utils/email/provider", () => ({
   createEmailProvider: vi.fn().mockResolvedValue({
     getMessage: vi.fn().mockResolvedValue({
+      externalUrl: "https://outlook.office.com/owa/?ItemID=scheduled-1",
       id: "msg-123",
       threadId: "thread-123",
       headers: {},
@@ -53,7 +54,7 @@ describe("executor", () => {
   });
 
   describe("executeScheduledAction", () => {
-    it("should successfully execute action and mark as completed", async () => {
+    it("preserves the provider link when executing a delayed action", async () => {
       mockScheduledActionUpdate(ScheduledActionStatus.COMPLETED);
       mockExecutedActionCreate();
       mockExecutedRuleFind();
@@ -67,6 +68,13 @@ describe("executor", () => {
       );
 
       expect(result.success).toBe(true);
+      expect(runActionFunction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: expect.objectContaining({
+            externalUrl: "https://outlook.office.com/owa/?ItemID=scheduled-1",
+          }),
+        }),
+      );
       expect(prisma.scheduledAction.update).toHaveBeenCalledWith({
         where: { id: "scheduled-action-123" },
         data: {

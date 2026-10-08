@@ -20,6 +20,7 @@ import { isOutlookItemNotFoundError, SafeError } from "@/utils/error";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
 import { uploadResumableChunks } from "@/utils/outlook/upload-session";
 import type { Logger } from "@/utils/logger";
+import type { SendEmailOptions } from "@/utils/email/types";
 
 type GraphRecipient = {
   emailAddress: { address: string; name?: string };
@@ -35,6 +36,7 @@ export async function sendEmailWithHtml(
   client: OutlookClient,
   body: MailSendEmailBody,
   logger: Logger,
+  options?: SendEmailOptions,
 ): Promise<SentEmailResult> {
   ensureEmailSendingEnabled();
 
@@ -45,7 +47,7 @@ export async function sendEmailWithHtml(
   // For replies with a message ID, use createReply for proper threading
   // Microsoft Graph's sendMail doesn't support In-Reply-To/References headers
   if (body.replyToEmail?.messageId) {
-    return sendReplyUsingCreateReply(client, body, logger);
+    return sendReplyUsingCreateReply(client, body, logger, options);
   }
 
   if (body.replyToEmail?.forwardedMessageId) {
@@ -389,6 +391,7 @@ async function sendReplyUsingCreateReply(
   client: OutlookClient,
   body: MailSendEmailBody,
   logger: Logger,
+  options?: SendEmailOptions,
 ): Promise<SentEmailResult> {
   const originalMessageId = body.replyToEmail!.messageId!;
 
@@ -418,7 +421,8 @@ async function sendReplyUsingCreateReply(
         .getClient()
         .api(`/me/messages/${replyDraft.id}`)
         .patch({
-          subject: body.subject,
+          // Exchange starts a new conversation when the reply subject changes.
+          ...(options?.preserveThreadSubject ? {} : { subject: body.subject }),
           body: {
             contentType: "html",
             content: body.messageHtml,

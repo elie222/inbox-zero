@@ -204,12 +204,16 @@ export function getEmailUrlForOptionalMessage({
   threadId,
   emailAddress,
   provider,
+  externalUrl,
 }: {
   messageId?: string | null;
   threadId?: string | null;
   emailAddress?: string | null;
   provider?: string;
+  externalUrl?: string | null;
 }) {
+  if (provider === "microsoft") return toOutlookReadingPaneUrl(externalUrl);
+
   const config = getProviderConfig(provider);
   if (config.requiresMessageId && !messageId) return null;
 

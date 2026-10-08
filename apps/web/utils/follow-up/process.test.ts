@@ -1081,7 +1081,17 @@ describe("processAccountFollowUps - dedup logic", () => {
     expect(generateFollowUpDraft).not.toHaveBeenCalled();
   });
 
-  it("uses the recipient as the notification counterparty for awaiting follow-ups", async () => {
+  it.each([
+    {
+      externalUrl: "https://outlook.office.com/owa/?ItemID=follow-up-1",
+      expectedLink:
+        "https://outlook.office.com/owa/?ItemID=follow-up-1&ispopout=0",
+    },
+    { externalUrl: undefined, expectedLink: undefined },
+  ])("uses the provider follow-up link or omits it: $externalUrl", async ({
+    externalUrl,
+    expectedLink,
+  }) => {
     const provider = createMockProvider({
       getThreadsWithLabel: vi
         .fn()
@@ -1090,10 +1100,11 @@ describe("processAccountFollowUps - dedup logic", () => {
         ]),
       getLatestMessageInThread: vi.fn().mockResolvedValue({
         ...mockAwaitingMessage("msg-awaiting-notify", OLD_DATE),
+        externalUrl,
         subject: "Pricing follow-up",
         headers: {
           from: "user@example.com",
-          to: "Alex Partner <alex@partner.com>",
+          to: "Demo Contact <contact@example.com>",
           subject: "Pricing follow-up",
           date: new Date(Number(OLD_DATE)).toISOString(),
         },
@@ -1117,10 +1128,11 @@ describe("processAccountFollowUps - dedup logic", () => {
     expect(sendFollowUpNotification).toHaveBeenCalledWith(
       expect.objectContaining({
         subject: "Pricing follow-up",
-        counterpartyName: "Alex Partner",
-        counterpartyEmail: "alex@partner.com",
+        counterpartyName: "Demo Contact",
+        counterpartyEmail: "contact@example.com",
         trackerType: ThreadTrackerType.AWAITING,
         threadLinkLabel: "Open in Outlook",
+        threadLink: expectedLink,
       }),
     );
   });
