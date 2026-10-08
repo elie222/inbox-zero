@@ -15,6 +15,7 @@ type PendingEmailPreviewPart = {
 
 export function buildPendingEmailPreview(
   part: PendingEmailPreviewPart,
+  maxChars: number | null = PENDING_EMAIL_PREVIEW_MAX_CHARS,
 ): string | null {
   const rawContent = getPendingEmailPreviewContent(part);
   if (!rawContent) return null;
@@ -22,7 +23,7 @@ export function buildPendingEmailPreview(
   const normalized = removeExcessiveWhitespace(rawContent);
   if (!normalized) return null;
 
-  return truncate(normalized, PENDING_EMAIL_PREVIEW_MAX_CHARS);
+  return maxChars === null ? normalized : truncate(normalized, maxChars);
 }
 
 function getPendingEmailPreviewContent(part: PendingEmailPreviewPart) {
