@@ -2,6 +2,7 @@
 
 import { sendGTMEvent } from "@next/third-parties/google";
 import { env } from "@/env";
+import { canUseTrackingCookies } from "@/utils/cookie-consent";
 import {
   CONVERSION_BROWSER_EVENT,
   type ConversionEvent,
@@ -15,6 +16,7 @@ declare global {
 
 export function trackClientConversion(event: ConversionEvent) {
   if (typeof window === "undefined") return;
+  if (!canUseTrackingCookies()) return;
 
   trackGoogleTagManagerConversion(event);
   trackPrivateConversion(event);

@@ -22,6 +22,7 @@ import {
   canUseTrackingCookies,
   subscribeToCookieConsent,
 } from "@/utils/cookie-consent";
+import { useCookieConsent } from "@/hooks/useCookieConsent";
 
 // based on: https://posthog.com/docs/libraries/next-js
 
@@ -54,7 +55,10 @@ export function PostHogPageview() {
 export function PostHogIdentify() {
   const { data: session } = useSession();
   const { emailAccount } = useAccount();
-  const userEmail = session?.user.email;
+  const consent = useCookieConsent();
+  // Identifying ties events to a person, so it waits for consent where needed.
+  const canIdentify = consent === "not-required" || consent === "granted";
+  const userEmail = canIdentify ? session?.user.email : undefined;
   const userCreatedAt = session?.user.createdAt;
 
   useEffect(() => {
@@ -73,6 +77,8 @@ export function PostHogIdentify() {
   }, [userCreatedAt, userEmail]);
 
   useEffect(() => {
+    if (!canIdentify) return;
+
     // Set super properties that will be included with all events
     posthog.register({
       email_account_id: emailAccount?.id,
@@ -89,7 +95,7 @@ export function PostHogIdentify() {
         },
       );
     }
-  }, [emailAccount]);
+  }, [canIdentify, emailAccount]);
 
   return null;
 }

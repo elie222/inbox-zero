@@ -10,6 +10,10 @@ export type CookieConsentState =
 const STORAGE_KEY = "cookie-consent";
 const CHANGE_EVENT = "cookie-consent-change";
 
+// Keeps the choice for this page when storage is unavailable.
+let memoryChoice: CookieConsentChoice | null = null;
+let settingsReopened = false;
+
 // Cookies and storage written by the trackers gated on consent, removed when a
 // visitor withdraws it.
 const TRACKING_COOKIE_PREFIXES = [
@@ -64,14 +68,21 @@ export function canUseTrackingCookies(): boolean {
   return state === "not-required" || state === "granted";
 }
 
+export function isCookieBannerOpen(): boolean {
+  const state = getCookieConsentState();
+  return state === "pending" || (settingsReopened && state !== "not-required");
+}
+
 export function setCookieConsent(choice: CookieConsentChoice) {
   const previous = getStoredChoice();
-
-  try {
-    window.localStorage.setItem(STORAGE_KEY, choice);
-  } catch {}
+  settingsReopened = false;
+  const persisted = writeStoredChoice(choice);
+  memoryChoice = persisted ? null : choice;
 
   if (choice === "denied" && previous === "granted") {
+    // A grant left in storage would resume tracking on the next load, so fall
+    // back to asking again.
+    if (!persisted) removeStoredChoice();
     clearTrackingStorage();
     // Scripts that already loaded keep running until the page is reloaded.
     window.location.reload();
@@ -82,10 +93,7 @@ export function setCookieConsent(choice: CookieConsentChoice) {
 }
 
 export function reopenCookieConsent() {
-  try {
-    window.localStorage.removeItem(STORAGE_KEY);
-  } catch {}
-
+  settingsReopened = true;
   window.dispatchEvent(new Event(CHANGE_EVENT));
 }
 
@@ -108,7 +116,8 @@ function hasConsentGatedTracking() {
     env.NEXT_PUBLIC_POSTHOG_KEY ||
       env.NEXT_PUBLIC_GTM_ID ||
       env.NEXT_PUBLIC_DUB_REFER_DOMAIN ||
-      env.NEXT_PUBLIC_CONVERSION_ANALYTICS_SCRIPT_URL,
+      env.NEXT_PUBLIC_CONVERSION_ANALYTICS_SCRIPT_URL ||
+      env.NEXT_PUBLIC_SENTRY_DSN,
   );
 }
 
@@ -123,10 +132,25 @@ function getDeviceTimeZone() {
 function getStoredChoice(): CookieConsentChoice | null {
   try {
     const value = window.localStorage.getItem(STORAGE_KEY);
-    return value === "granted" || value === "denied" ? value : null;
+    if (value === "granted" || value === "denied") return value;
+  } catch {}
+
+  return memoryChoice;
+}
+
+function writeStoredChoice(choice: CookieConsentChoice): boolean {
+  try {
+    window.localStorage.setItem(STORAGE_KEY, choice);
+    return true;
   } catch {
-    return null;
+    return false;
   }
+}
+
+function removeStoredChoice() {
+  try {
+    window.localStorage.removeItem(STORAGE_KEY);
+  } catch {}
 }
 
 function clearTrackingStorage() {

@@ -4,6 +4,7 @@ import {
   canUseTrackingCookies,
   getCookieConsentState,
   isConsentTimeZone,
+  isCookieBannerOpen,
   reopenCookieConsent,
   setCookieConsent,
   subscribeToCookieConsent,
@@ -72,16 +73,29 @@ describe("cookie consent state", () => {
     expect(canUseTrackingCookies()).toBe(false);
   });
 
-  it("asks again when the visitor reopens cookie settings", () => {
+  it("keeps the current choice while reopened cookie settings are shown", () => {
     useTimeZone("Europe/Rome");
-    setCookieConsent("denied");
+    setCookieConsent("granted");
 
     reopenCookieConsent();
 
-    expect(getCookieConsentState()).toBe("pending");
+    expect(isCookieBannerOpen()).toBe(true);
+    expect(getCookieConsentState()).toBe("granted");
   });
 
-  it("removes tracking cookies and storage when consent is withdrawn", () => {
+  it("keeps the choice for the page when storage is unavailable", () => {
+    useTimeZone("Europe/Lisbon");
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("QuotaExceededError");
+    });
+
+    setCookieConsent("granted");
+
+    expect(getCookieConsentState()).toBe("granted");
+    expect(isCookieBannerOpen()).toBe(false);
+  });
+
+  it("removes tracking cookies and storage when consent is withdrawn from reopened settings", () => {
     useTimeZone("Europe/Berlin");
     setCookieConsent("granted");
     document.cookie = "ph_phc_test_posthog=1; path=/";
@@ -96,6 +110,7 @@ describe("cookie consent state", () => {
       reload,
     });
 
+    reopenCookieConsent();
     setCookieConsent("denied");
 
     expect(document.cookie).not.toContain("ph_phc_test_posthog");

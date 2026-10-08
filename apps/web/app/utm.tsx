@@ -17,15 +17,41 @@ const ATTRIBUTION_PARAMS = [
   { param: "gad_source", cookie: "gad_source" },
 ] as const;
 
-function setUtmCookies({ includeTracking }: { includeTracking: boolean }) {
-  const urlParams = new URLSearchParams(window.location.search);
+export function UTM() {
+  const consent = useCookieConsent();
+
+  useEffect(() => {
+    captureLandingParams();
+    if (!consent) return;
+
+    const canTrack = consent === "not-required" || consent === "granted";
+    if (!canTrack) clearTrackingAttributionCookies();
+    setAttributionCookies({ includeTracking: canTrack });
+  }, [consent]);
+
+  return null;
+}
+
+// Consent can arrive after the visitor has navigated away from the landing
+// URL, so its campaign parameters are kept for when it does.
+let landingSearch: string | null = null;
+
+function captureLandingParams() {
+  landingSearch ??= window.location.search;
+}
+
+function setAttributionCookies({
+  includeTracking,
+}: {
+  includeTracking: boolean;
+}) {
+  const urlParams = new URLSearchParams(landingSearch ?? "");
 
   // expires in 30 days
   const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toUTCString();
 
   for (const { param, cookie } of ATTRIBUTION_PARAMS) {
-    // Referral codes credit the referring user, so they don't need consent.
-    if (!includeTracking && cookie !== "referral_code") continue;
+    if (!includeTracking && !isReferralCookie(cookie)) continue;
 
     const value = urlParams.get(param);
     if (!value || hasCookie(cookie)) continue;
@@ -34,22 +60,21 @@ function setUtmCookies({ includeTracking }: { includeTracking: boolean }) {
   }
 }
 
+function clearTrackingAttributionCookies() {
+  for (const { cookie } of ATTRIBUTION_PARAMS) {
+    if (isReferralCookie(cookie) || !hasCookie(cookie)) continue;
+
+    document.cookie = `${cookie}=; Max-Age=0; path=/`;
+  }
+}
+
+// Referral codes credit the referring user, so they don't need consent.
+function isReferralCookie(cookie: string) {
+  return cookie === "referral_code";
+}
+
 function hasCookie(name: string) {
   return document.cookie
     .split("; ")
     .some((cookie) => cookie.startsWith(`${name}=`));
-}
-
-export function UTM() {
-  const consent = useCookieConsent();
-
-  useEffect(() => {
-    if (!consent) return;
-
-    setUtmCookies({
-      includeTracking: consent === "not-required" || consent === "granted",
-    });
-  }, [consent]);
-
-  return null;
 }

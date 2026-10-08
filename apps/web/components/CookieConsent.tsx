@@ -2,13 +2,16 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { useCookieConsent } from "@/hooks/useCookieConsent";
+import {
+  useCookieBannerOpen,
+  useCookieConsent,
+} from "@/hooks/useCookieConsent";
 import { BRAND_NAME } from "@/utils/branding";
 import { reopenCookieConsent, setCookieConsent } from "@/utils/cookie-consent";
 
 export function CookieConsentBanner() {
-  const consent = useCookieConsent();
-  if (consent !== "pending") return null;
+  const open = useCookieBannerOpen();
+  if (!open) return null;
 
   return (
     <section
@@ -31,7 +34,7 @@ export function CookieConsentBanner() {
         </p>
         <div className="mt-4 grid grid-cols-2 gap-2">
           <Button
-            variant="outline"
+            variant="primaryBlack"
             size="sm"
             onClick={() => setCookieConsent("denied")}
           >

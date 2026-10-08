@@ -2,6 +2,7 @@ import { useSyncExternalStore } from "react";
 import {
   type CookieConsentState,
   getCookieConsentState,
+  isCookieBannerOpen,
   subscribeToCookieConsent,
 } from "@/utils/cookie-consent";
 
@@ -11,5 +12,13 @@ export function useCookieConsent(): CookieConsentState | null {
     subscribeToCookieConsent,
     getCookieConsentState,
     () => null,
+  );
+}
+
+export function useCookieBannerOpen(): boolean {
+  return useSyncExternalStore(
+    subscribeToCookieConsent,
+    isCookieBannerOpen,
+    () => false,
   );
 }
