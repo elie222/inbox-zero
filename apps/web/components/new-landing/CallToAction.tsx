@@ -35,7 +35,7 @@ export function CallToAction({
       {showSalesButton ? (
         <Button variant="secondary-two" size={buttonSize} asChild>
           <Link
-            href="/sales"
+            href="https://www.getinboxzero.com/sales"
             onClick={() => landingPageAnalytics.talkToSalesClicked(posthog)}
           >
             <Chat />
