@@ -147,10 +147,10 @@ describe("threadsQueryToPredicate", () => {
     });
   });
 
-  it("maps subject and from operators onto structured predicates", () => {
+  it("maps subject, from and to operators onto structured predicates", () => {
     expect(
       threadsQueryToPredicate({
-        q: 'from:alice@example.com subject:"Archive Action Message" has:attachment',
+        q: 'from:alice@example.com to:bob@example.com subject:"Archive Action Message" has:attachment invoice',
       }),
     ).toEqual({
       kind: "all",
@@ -167,7 +167,62 @@ describe("threadsQueryToPredicate", () => {
           value: "alice@example.com",
           match: "address",
         },
+        {
+          kind: "address",
+          field: "to",
+          value: "bob@example.com",
+          match: "address",
+        },
         { kind: "has_attachment", value: true },
+        { kind: "text", field: "any", value: "invoice", match: "term" },
+      ],
+    });
+  });
+
+  it.each([
+    "to:ada@example.com to:grace@example.com",
+    "(to:ada@example.com) (to:grace@example.com)",
+    'to:"ada@example.com" to:"grace@example.com"',
+  ])("extracts every recipient operator: %s", (q) => {
+    expect(threadsQueryToPredicate({ q })).toEqual({
+      kind: "all",
+      predicates: [
+        {
+          kind: "address",
+          field: "to",
+          value: "ada@example.com",
+          match: "address",
+        },
+        {
+          kind: "address",
+          field: "to",
+          value: "grace@example.com",
+          match: "address",
+        },
+      ],
+    });
+  });
+
+  it("leaves recipient operators inside quoted text in the phrase", () => {
+    expect(
+      threadsQueryToPredicate({
+        q: 'to:ada@example.com "sent to:grace@example.com"',
+      }),
+    ).toEqual({
+      kind: "all",
+      predicates: [
+        {
+          kind: "address",
+          field: "to",
+          value: "ada@example.com",
+          match: "address",
+        },
+        {
+          kind: "text",
+          field: "any",
+          value: '"sent to:grace@example.com"',
+          match: "term",
+        },
       ],
     });
   });
