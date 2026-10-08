@@ -5,8 +5,11 @@ import { cleanupInvalidTokens } from "@/utils/auth/cleanup-invalid-tokens";
 import { createEmailProvider } from "@/utils/email/provider";
 import { captureException } from "@/utils/error";
 import { clearWatchLapsedErrorIfResolved } from "@/utils/error-messages";
-import { fetchGoogleOpenIdProfile } from "@/utils/google/oauth";
-import { ensureEmailAccountsWatched } from "./watch-manager";
+import { fetchGoogleOpenIdProfile } from "@/utils/gmail/oauth";
+import {
+  ensureEmailAccountsWatched,
+  stopWatchingEmailAccount,
+} from "./watch-manager";
 
 vi.mock("@/utils/prisma");
 
@@ -28,7 +31,7 @@ vi.mock("@/utils/error", () => ({
     error instanceof Error && error.message.includes("invalid_grant"),
 }));
 
-vi.mock("@/utils/google/oauth", () => ({
+vi.mock("@/utils/gmail/oauth", () => ({
   fetchGoogleOpenIdProfile: vi.fn(),
 }));
 
@@ -266,3 +269,48 @@ function getWatchedEmailAccount({
     },
   };
 }
+
+describe("stopWatchingEmailAccount", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("stops the provider watch and clears the stored subscription", async () => {
+    const unwatchEmails = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      unwatchEmails,
+    } as unknown as Awaited<ReturnType<typeof createEmailProvider>>);
+
+    await stopWatchingEmailAccount({
+      emailAccountId: "account-1",
+      provider: "microsoft",
+      subscriptionId: "subscription-1",
+      logger,
+    });
+
+    expect(unwatchEmails).toHaveBeenCalledWith("subscription-1");
+    expect(prisma.emailAccount.updateMany).toHaveBeenCalledWith({
+      where: { id: "account-1" },
+      data: {
+        watchEmailsExpirationDate: null,
+        watchEmailsSubscriptionId: null,
+      },
+    });
+  });
+
+  it("does nothing when a revoked token prevents provider creation", async () => {
+    vi.mocked(createEmailProvider).mockRejectedValue(
+      new Error("invalid_grant"),
+    );
+
+    await expect(
+      stopWatchingEmailAccount({
+        emailAccountId: "account-1",
+        provider: "google",
+        subscriptionId: null,
+        logger,
+      }),
+    ).resolves.toBeUndefined();
+    expect(prisma.emailAccount.updateMany).not.toHaveBeenCalled();
+  });
+});

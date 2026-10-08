@@ -1,3 +1,4 @@
+import type { ProviderMailboxSearch } from "@/utils/email/types";
 import { getCompleteGmailThread } from "@/utils/gmail/thread";
 import type { LocalMailSyncRequest } from "@/utils/actions/local-mail-sync.validation";
 import type { LocalMailSyncResponse } from "@/utils/email/local-mail-sync-types";
@@ -7,7 +8,7 @@ import {
   getGmailMailChangesPage,
   hydrateGmailMailMessages,
 } from "@/utils/gmail/local-mail-sync";
-import { matchesSenderFilter } from "@/utils/mail/sender-filter";
+import { matchesSenderFilter } from "@/utils/split-inbox/sender-filter";
 import type { gmail_v1 } from "@googleapis/gmail";
 import chunk from "lodash/chunk";
 import { SafeError } from "@/utils/error";
@@ -70,7 +71,7 @@ import {
   getAccessTokenFromClient,
   getContactsClient,
 } from "@/utils/gmail/client";
-import { searchContacts } from "@/utils/gmail/contact";
+import { listContactPhotos, searchContacts } from "@/utils/gmail/contact";
 import {
   getGmailAttachment,
   getGmailAttachmentStream,
@@ -117,12 +118,13 @@ import type {
 import type { SendEmailBody } from "@/utils/types/mail";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import { getGmailSignatures } from "@/utils/gmail/signature-settings";
+import { getForwardingAddresses } from "@/utils/gmail/settings";
 import { withRateLimitRecording } from "@/utils/email/rate-limit";
 import { shouldSkipAutoDraft } from "@/utils/auto-draft";
 import { extractUniqueEmailAddresses } from "@/utils/email";
 import { requireSentMessageId } from "@/utils/email/sent-message-id";
 import { getGmailMailboxSyncPage } from "@/utils/gmail/mailbox-sync";
-import { isGoogleOauthEmulationEnabled } from "@/utils/google/oauth";
+import { isGoogleOauthEmulationEnabled } from "@/utils/gmail/oauth";
 
 const GMAIL_MESSAGE_WRITE_CONCURRENCY = 5;
 
@@ -1398,27 +1400,36 @@ export class GmailProvider implements EmailProvider {
 
   async searchMessages(options: {
     query: string;
+    mailboxSearch?: ProviderMailboxSearch;
     maxResults?: number;
     pageToken?: string;
     labelIds?: string[];
     includeSpamTrash?: boolean;
     folder?: "spam" | "trash";
   }): Promise<{ messages: ParsedMessage[]; nextPageToken?: string }> {
+    const query = options.mailboxSearch
+      ? gmailMailboxQuery(options.mailboxSearch)
+      : options.query;
+    const folder =
+      options.mailboxSearch?.mailbox === "spam" ||
+      options.mailboxSearch?.mailbox === "trash"
+        ? options.mailboxSearch.mailbox
+        : options.folder;
     const labelIds =
       options.labelIds ??
-      (options.folder === "spam"
+      (folder === "spam"
         ? [GmailLabel.SPAM]
-        : options.folder === "trash"
+        : folder === "trash"
           ? [GmailLabel.TRASH]
           : undefined);
     const response = await getMessages(this.client, {
-      query: options.query,
+      query,
       maxResults: options.maxResults || 20,
       pageToken: options.pageToken || undefined,
       labelIds,
       includeSpamTrash:
         options.includeSpamTrash ||
-        queryIncludesSpamOrTrash(options.query) ||
+        queryIncludesSpamOrTrash(query) ||
         labelIds?.some(
           (labelId) =>
             labelId === GmailLabel.SPAM || labelId === GmailLabel.TRASH,
@@ -1672,6 +1683,14 @@ export class GmailProvider implements EmailProvider {
     const client = getContactsClient({ accessToken: this.getAccessToken() });
     return this.withRateLimitTracking("search-contacts", () =>
       searchContacts(client, query, this.logger),
+    );
+  }
+
+  async getContactPhotos() {
+    if (isGoogleOauthEmulationEnabled()) return {};
+    const client = getContactsClient({ accessToken: this.getAccessToken() });
+    return this.withRateLimitTracking("list-contact-photos", () =>
+      listContactPhotos(client, this.logger),
     );
   }
 
@@ -2049,6 +2068,13 @@ export class GmailProvider implements EmailProvider {
     return [];
   }
 
+  async getForwardingAddresses(): Promise<string[]> {
+    const addresses = await getForwardingAddresses(this.client);
+    return addresses
+      .map((address) => address.forwardingEmail)
+      .filter((email): email is string => !!email);
+  }
+
   async renameFolder(_folderId: string, _name: string): Promise<void> {
     this.logger.warn("Renaming folders is not supported for Gmail");
   }
@@ -2133,4 +2159,43 @@ function searchLabelIds(options: {
   if (options.folder === "spam") return [GmailLabel.SPAM];
   if (options.folder === "trash") return [GmailLabel.TRASH];
   return [];
+}
+
+function gmailMailboxQuery(search: ProviderMailboxSearch): string {
+  const parts: string[] = [];
+  if (search.text) {
+    const terms =
+      search.text.match === "phrase"
+        ? [search.text.value.trim()].filter(Boolean)
+        : search.text.value.trim().split(/\s+/).filter(Boolean);
+    for (const term of terms) {
+      const literal = `"${term.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+      parts.push(
+        search.text.field === "any"
+          ? literal
+          : `${search.text.field}:${literal}`,
+      );
+    }
+  }
+  const mailboxQueries = {
+    all: "",
+    inbox: "in:inbox",
+    sent: "in:sent",
+    drafts: "in:drafts",
+    spam: "in:spam",
+    trash: "in:trash",
+    archive: "-in:inbox -in:spam -in:trash",
+    starred: "is:starred",
+  };
+  if (mailboxQueries[search.mailbox])
+    parts.push(mailboxQueries[search.mailbox]);
+  for (const role of search.excludedRoles ?? [])
+    parts.push(`-in:${role === "draft" ? "drafts" : role}`);
+  if (search.read !== undefined)
+    parts.push(search.read ? "is:read" : "is:unread");
+  if (search.starred !== undefined)
+    parts.push(search.starred ? "is:starred" : "-is:starred");
+  if (search.hasAttachment !== undefined)
+    parts.push(search.hasAttachment ? "has:attachment" : "-has:attachment");
+  return parts.join(" ");
 }

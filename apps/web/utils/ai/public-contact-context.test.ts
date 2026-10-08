@@ -301,6 +301,23 @@ describe("getPublicContactContext", () => {
     expect(generateTextMock).not.toHaveBeenCalled();
   });
 
+  it("reports a failed research call without caching it as not found", async () => {
+    generateTextMock.mockRejectedValue(new Error("Invalid schema"));
+
+    await expect(
+      getPublicContactContext({
+        email: "john@acme.com",
+        name: "John Smith",
+        emailAccount: getEmailAccount(),
+      }),
+    ).resolves.toEqual({
+      status: "unavailable",
+      reason: "research_failed",
+    });
+
+    expect(storePublicContactContextNotFoundMock).not.toHaveBeenCalled();
+  });
+
   it("fails closed when durable storage is unavailable", async () => {
     getStoredPublicContactContextMock.mockResolvedValue({
       status: "unavailable",

@@ -4,40 +4,27 @@ description: 'Track conversations that need a reply or a follow-up.'
 icon: 'reply'
 ---
 
-<Info>
-Reply Zero is in Early Access and is not yet available on all accounts.
-</Info>
+Reply Zero labels the conversations that need your reply and the replies you're waiting on, so nothing slips through the cracks. Conversations are labeled `To Reply` when you owe a response and `Awaiting Reply` when you're waiting on someone else. The labels (categories on Outlook) appear in your regular email client.
 
-Reply Zero keeps every conversation that needs your reply, and every reply you're waiting on, in one place, so nothing slips through the cracks. Conversations are labeled `To Reply` when you owe a response and `Awaiting Reply` when you're waiting on someone else, and the labels are visible in your regular email client too.
+<iframe
+  src="https://player.mux.com/44xT01AKm7KnTrjEyiqz801zbP00y6w02RhD41KCpBh6Zl00?metadata-video-title=Follow-up%20reminders%20walkthrough&accent-color=%233b82f6"
+  title="Follow-up reminders walkthrough"
+  style={{ width: "100%", border: "none", aspectRatio: "16/9" }}
+  loading="lazy"
+  allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
+  allowFullScreen
+></iframe>
 
-![Reply Zero](/images/reply-zero.png)
+## Enable Reply Zero
 
-## Open Reply Zero
-
-Open the account menu at the bottom of the sidebar and choose **Reply Zero**. On first use, follow the onboarding steps to enable the reply-tracking rules.
-
-## Lists
-
-### To Reply
-
-Incoming conversations that appear to need your response are labeled `To Reply`. The Reply Zero view shows them on the **To Reply** tab and provides a **Reply** shortcut.
-
-### Waiting
-
-Sent conversations that appear to require a response are labeled `Awaiting Reply` and shown on the **Waiting** tab. Use **Nudge** to open the thread and prepare a follow-up.
-
-### Done
-
-Choose **Mark Done** when a conversation no longer needs attention. It moves to the **Done** tab. You can restore it with **Not Done** if necessary.
-
-Use the time-range filter to focus on newer or older conversations.
+Open **Assistant** and enable the `To Reply` and `Awaiting Reply` rules.
 
 ## Follow-Up Reminders
 
-Open **Assistant** > **Settings** and configure **Follow-up reminders** to choose how many days to wait and whether Inbox Zero should automatically draft a nudge when you are waiting. Saturday and Sunday do not count toward these thresholds. Use **Find follow-ups** to scan existing mail immediately. Matching conversations receive a `Follow-up` label or category.
+1. Open **Assistant** > **Settings** and turn on **Follow-up reminders**. Both thresholds start at three days.
+2. Select **Configure** to choose how many days to wait in **Remind me when they haven't replied after** and **Remind me when I haven't replied after**, and whether to **Auto-generate drafts** that nudge people when you are waiting on them. Saturday and Sunday do not count toward these thresholds.
+3. Select **Save**, or use **Find follow-ups** to scan existing mail immediately.
 
-To receive reminders in Slack, Microsoft Teams, or Telegram, enable follow-up delivery for the connected account on the **Channels** page.
+Matching conversations receive a `Follow-up` label or category. The label is removed when a new reply arrives or you send one.
 
-<Note>
-The Reply Zero view is currently available for Gmail accounts. On Outlook, use the `To Reply`, `Awaiting Reply`, and `Follow-up` categories directly in Outlook instead.
-</Note>
+To receive reminders in Slack, Microsoft Teams, or Telegram, enable follow-up delivery for the connected account on the **Channels** page. For Slack, select a direct message or an allowed private channel first. Each reminder includes **Open in Gmail** (or **Open in Outlook**) and **Mark done**, which stops reminders for that conversation.

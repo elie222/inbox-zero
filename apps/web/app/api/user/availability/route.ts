@@ -22,7 +22,6 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
       where: { emailAccountId, isDefault: true },
       orderBy: { createdAt: "asc" },
       select: {
-        timezone: true,
         windows: {
           orderBy: [{ weekday: "asc" }, { startMinutes: "asc" }],
           select: {

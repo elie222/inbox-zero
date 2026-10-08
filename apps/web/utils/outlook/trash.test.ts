@@ -5,7 +5,7 @@ import type { OutlookClient } from "@/utils/outlook/client";
 import { trashThread } from "./trash";
 
 vi.mock("@inboxzero/tinybird", () => ({ publishDelete: vi.fn() }));
-vi.mock("@/utils/microsoft/retry", () => ({
+vi.mock("@/utils/outlook/retry", () => ({
   withMicrosoftGraphRetry: (fn: () => Promise<unknown>) => fn(),
   withMicrosoftGraphWriteRetry: (fn: () => Promise<unknown>) => fn(),
 }));

@@ -15,6 +15,9 @@ type DraftAutosaveSession = {
 
 const sessions = new Map<string, DraftAutosaveSession>();
 const MAX_CLOSED_SAVE_FAILURES = 5;
+// Saves retry every few seconds, so a one-off failure (a dropped request when
+// the tab wakes up) fixes itself before the user needs to know about it.
+const FAILURES_BEFORE_ERROR = 3;
 
 export function useProviderDraftAutosave<T>({
   enabled,
@@ -37,6 +40,7 @@ export function useProviderDraftAutosave<T>({
   const paused = useRef(false);
   const mounted = useRef(true);
   const closedSaveFailures = useRef(0);
+  const consecutiveFailures = useRef(0);
   const cleanup = useRef<() => void>(() => {});
 
   const capture = useCallback(() => {
@@ -73,6 +77,7 @@ export function useProviderDraftAutosave<T>({
         await latest.current.save(content);
         savedSnapshot.current = snapshot;
         closedSaveFailures.current = 0;
+        consecutiveFailures.current = 0;
         if (mounted.current) setError("");
       })
       .catch((error: unknown) => {
@@ -81,7 +86,11 @@ export function useProviderDraftAutosave<T>({
           if (closedSaveFailures.current >= MAX_CLOSED_SAVE_FAILURES)
             paused.current = true;
         }
-        if (mounted.current)
+        consecutiveFailures.current += 1;
+        if (
+          mounted.current &&
+          consecutiveFailures.current >= FAILURES_BEFORE_ERROR
+        )
           setError(
             error instanceof Error
               ? error.message

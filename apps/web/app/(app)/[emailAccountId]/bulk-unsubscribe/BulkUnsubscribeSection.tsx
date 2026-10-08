@@ -11,8 +11,10 @@ import {
   CheckIcon,
   ChevronsDownIcon,
   ChevronsUpIcon,
+  HistoryIcon,
   InboxIcon,
   ListIcon,
+  Loader2Icon,
   MailXIcon,
   SparklesIcon,
   ThumbsUpIcon,
@@ -24,20 +26,21 @@ import type {
   NewsletterStatsResponse,
 } from "@/app/api/user/stats/newsletters/route";
 import { getDateRangeParams } from "@/app/(app)/[emailAccountId]/stats/params";
-import { NewsletterModal } from "@/app/(app)/[emailAccountId]/stats/NewsletterModal";
 import { useEmailsToIncludeFilter } from "@/app/(app)/[emailAccountId]/stats/EmailsToIncludeFilter";
 import { usePremium } from "@/hooks/usePremium";
 import {
+  useArchiveOnUnsubscribe,
   useNewsletterFilter,
   useBulkUnsubscribeShortcuts,
 } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/hooks";
+import { SenderPanel } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/SenderPanel";
 import { createSearchParams } from "@/utils/url";
 import type { NewsletterFilterType } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/types";
 import {
   getSuggestedModeRows,
   isUnsubscribeSuggestion,
-  SUGGESTION_READ_RATE_THRESHOLD,
 } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/suggestions";
+import { getUserFacingUnsubscribeLink } from "@/utils/parse/unsubscribe";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { useLabels } from "@/hooks/useLabels";
@@ -53,16 +56,16 @@ import { BulkActions } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/BulkA
 import { ArchiveProgress } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/ArchiveProgress";
 import { ClientOnly } from "@/components/ClientOnly";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { LoadStatsButton } from "@/app/(app)/[emailAccountId]/stats/LoadStatsButton";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
 import { TextLink } from "@/components/Typography";
 import { DismissibleVideoCard } from "@/components/VideoCard";
-import { ActionBar } from "@/app/(app)/[emailAccountId]/stats/ActionBar";
 import { DatePickerWithRange } from "@/components/DatePickerWithRange";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -84,12 +87,12 @@ const filterOptions: {
   separatorAfter?: boolean;
 }[] = [
   {
-    label: "Unhandled",
+    label: "To review",
     value: "unhandled",
     icon: <InboxIcon className="size-4" />,
   },
   {
-    label: "All",
+    label: "All senders",
     value: "all",
     icon: <ListIcon className="size-4" />,
     separatorAfter: true,
@@ -100,12 +103,12 @@ const filterOptions: {
     icon: <MailXIcon className="size-4" />,
   },
   {
-    label: "Auto Archive",
+    label: "Auto-archived",
     value: "autoArchived",
     icon: <ArchiveIcon className="size-4" />,
   },
   {
-    label: "Approved",
+    label: "Kept",
     value: "approved",
     icon: <ThumbsUpIcon className="size-4" />,
   },
@@ -219,18 +222,43 @@ export function BulkUnsubscribe() {
 
   const { hasUnsubscribeAccess, mutate: refetchPremium } = usePremium();
 
-  const [openedNewsletter, setOpenedNewsletter] = useState<Newsletter>();
+  const [includeWithoutUnsubscribeLink, setIncludeWithoutUnsubscribeLink] =
+    useState(false);
+  const [archiveOnUnsubscribe, setArchiveOnUnsubscribe] =
+    useArchiveOnUnsubscribe();
+
+  // Data is filtered, sorted, and limited by the backend. Senders that can
+  // only be blocked are hidden from review unless asked for.
+  const rows = useMemo(
+    () =>
+      filter === "unhandled" && !includeWithoutUnsubscribeLink
+        ? data?.newsletters.filter((item) =>
+            getUserFacingUnsubscribeLink({
+              unsubscribeLink: item.unsubscribeLink,
+            }),
+          )
+        : data?.newsletters,
+    [data?.newsletters, filter, includeWithoutUnsubscribeLink],
+  );
+
+  // Derived from the rows so the panel reflects status changes and closes
+  // once the sender leaves the current view.
+  const [openedNewsletterName, setOpenedNewsletterName] = useState<string>();
+  const openedNewsletter = rows?.find(
+    (row) => row.name === openedNewsletterName,
+  );
 
   const onOpenNewsletter = (newsletter: Newsletter) => {
-    setOpenedNewsletter(newsletter);
+    setOpenedNewsletterName(newsletter.name);
     posthog?.capture("Clicked Expand Sender");
   };
 
   const [selectedRow, setSelectedRow] = useState<Newsletter | undefined>();
 
   useBulkUnsubscribeShortcuts({
-    newsletters: data?.newsletters,
-    selectedRow,
+    newsletters: rows,
+    // The panel has its own email shortcuts; row keys must not act behind it.
+    selectedRow: openedNewsletter ? undefined : selectedRow,
     onOpenNewsletter,
     setSelectedRow,
     refetchPremium,
@@ -246,8 +274,6 @@ export function BulkUnsubscribe() {
 
   const { PremiumModal, openModal } = usePremiumModal();
 
-  // Data is now filtered, sorted, and limited by the backend
-  const rows = data?.newsletters;
   const [isSuggestedMode, setIsSuggestedMode] = useState(false);
 
   const {
@@ -354,7 +380,6 @@ export function BulkUnsubscribe() {
         mutate={mutate}
         selected={selectedRow?.name === item.name}
         onSelectRow={() => setSelectedRow(item)}
-        onDoubleClick={() => onOpenNewsletter(item)}
         hasUnsubscribeAccess={hasUnsubscribeAccess}
         refetchPremium={refetchPremium}
         openPremiumModal={openModal}
@@ -370,27 +395,30 @@ export function BulkUnsubscribe() {
 
   return (
     <PageWrapper>
-      <PageHeader
-        title="Bulk Unsubscriber"
-        video={{
-          title: "Getting started with Bulk Unsubscribe",
-          description: (
-            <>
-              Learn how to quickly bulk unsubscribe from and archive unwanted
-              emails. You can read more in our{" "}
-              <TextLink
-                href="https://docs.getinboxzero.com/essentials/bulk-email-unsubscriber"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                help center
-              </TextLink>
-              .
-            </>
-          ),
-          youtubeVideoId: "T1rnooV4OYc",
-        }}
-      />
+      <div className="flex items-start justify-between gap-4">
+        <PageHeader
+          title="Bulk Unsubscriber"
+          video={{
+            title: "Getting started with Bulk Unsubscribe",
+            description: (
+              <>
+                Learn how to quickly bulk unsubscribe from and archive unwanted
+                emails. You can read more in our{" "}
+                <TextLink
+                  href="https://docs.getinboxzero.com/essentials/bulk-email-unsubscriber"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  help center
+                </TextLink>
+                .
+              </>
+            ),
+            muxPlaybackId: "qxP8P5aKm7k7I01seCEMP1ZepHQAmdKCcW02x1fM7xQm00",
+          }}
+        />
+        <ScanOlderEmailsButton />
+      </div>
 
       <DismissibleVideoCard
         className="my-4"
@@ -399,9 +427,7 @@ export function BulkUnsubscribe() {
         description={
           "Learn how to use the Bulk Unsubscribe to unsubscribe from and archive unwanted emails."
         }
-        videoSrc="https://www.youtube.com/embed/T1rnooV4OYc"
-        youtubeVideoId="T1rnooV4OYc"
-        thumbnailSrc="https://img.youtube.com/vi/T1rnooV4OYc/0.jpg"
+        muxPlaybackId="qxP8P5aKm7k7I01seCEMP1ZepHQAmdKCcW02x1fM7xQm00"
         storageKey="bulk-unsubscribe-onboarding-video"
         videoAnalytics={{
           page: "bulk_unsubscribe",
@@ -409,89 +435,119 @@ export function BulkUnsubscribe() {
         }}
       />
 
-      <div className="items-center justify-between flex mt-4 flex-wrap">
-        <ActionBar rightContent={<LoadStatsButton />}>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-10">
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-10 w-full justify-between sm:w-auto"
+            >
+              <span className="flex items-center">
                 {selectedFilter?.icon}
                 <span className="ml-2">{selectedFilter?.label ?? "All"}</span>
-                <ChevronDown className="ml-2 h-4 w-4 text-gray-400" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[170px]">
-              {filterOptions.map((option) => (
-                <div key={option.value}>
-                  <DropdownMenuItem
-                    onClick={() => setFilter(option.value)}
-                    className="flex items-center justify-between"
-                  >
-                    <span className="flex items-center gap-2">
-                      {option.icon}
-                      {option.label}
-                    </span>
-                    {filter === option.value && (
-                      <CheckIcon className="h-4 w-4 text-primary" />
-                    )}
-                  </DropdownMenuItem>
-                  {option.separatorAfter && <DropdownMenuSeparator />}
-                </div>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <DatePickerWithRange
-            dateRange={dateRange}
-            onSetDateRange={setDateRange}
-            selectOptions={selectOptions}
-            dateDropdown={dateDropdown}
-            onSetDateDropdown={onSetDateDropdown}
-          />
-          <SearchBar onSearch={setSearch} />
-          {(suggestedRows.length > 0 || isSuggestedMode) && (
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant={isSuggestedMode ? "secondary" : "outline"}
-                    size="sm"
-                    className="h-10"
-                    aria-pressed={isSuggestedMode}
-                    onClick={onToggleSuggestedMode}
-                  >
-                    <SparklesIcon className="size-4 text-amber-500" />
-                    <span className="ml-2">
-                      {isSuggestedMode ? "Showing" : "Select"}{" "}
-                      {suggestedRows.length} suggested
-                    </span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p className="max-w-xs">
-                    {isSuggestedMode
-                      ? "Shows suggested senders and any other senders you already selected. Click to show all senders."
-                      : `Selects and shows senders you rarely read (under ${SUGGESTION_READ_RATE_THRESHOLD}% read rate) so you can unsubscribe, block, or archive them in one go.`}
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-        </ActionBar>
+              </span>
+              <ChevronDown className="ml-2 h-4 w-4 text-gray-400" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-[320px]">
+            {filterOptions.map((option) => (
+              <div key={option.value}>
+                <DropdownMenuItem
+                  onClick={() => setFilter(option.value)}
+                  className="flex items-center justify-between"
+                >
+                  <span className="flex items-center gap-2">
+                    {option.icon}
+                    {option.label}
+                  </span>
+                  {filter === option.value && (
+                    <CheckIcon className="h-4 w-4 text-primary" />
+                  )}
+                </DropdownMenuItem>
+                {option.separatorAfter && <DropdownMenuSeparator />}
+              </div>
+            ))}
+            {filter === "unhandled" && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuCheckboxItem
+                  checked={includeWithoutUnsubscribeLink}
+                  onCheckedChange={(checked) => {
+                    setIncludeWithoutUnsubscribeLink(checked);
+                    clearSelection();
+                  }}
+                  onSelect={(event) => event.preventDefault()}
+                >
+                  Include senders without an unsubscribe link
+                </DropdownMenuCheckboxItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <DatePickerWithRange
+          dateRange={dateRange}
+          onSetDateRange={setDateRange}
+          selectOptions={selectOptions}
+          dateDropdown={dateDropdown}
+          onSetDateDropdown={onSetDateDropdown}
+          className="w-full min-w-0 sm:w-auto sm:min-w-52"
+        />
+        <SearchBar onSearch={setSearch} className="col-span-2 sm:w-60" />
+        {(suggestedRows.length > 0 || isSuggestedMode) && (
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={isSuggestedMode ? "secondary" : "outline"}
+                  size="sm"
+                  className="col-span-2 h-10 w-full sm:w-auto"
+                  aria-pressed={isSuggestedMode}
+                  onClick={onToggleSuggestedMode}
+                >
+                  <SparklesIcon className="size-4 text-amber-500" />
+                  <span className="ml-2">
+                    {isSuggestedMode ? "Showing" : "Select"}{" "}
+                    {suggestedRows.length} suggested
+                  </span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="max-w-xs">
+                  {isSuggestedMode
+                    ? "Click to show all senders"
+                    : "Senders you get a lot of email from but rarely open"}
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="col-span-2 flex h-10 items-center gap-2 whitespace-nowrap text-sm text-muted-foreground sm:ml-auto">
+              <Switch
+                id="archive-on-unsubscribe"
+                size="sm"
+                checked={archiveOnUnsubscribe}
+                onCheckedChange={setArchiveOnUnsubscribe}
+              />
+              <label
+                htmlFor="archive-on-unsubscribe"
+                className="cursor-pointer select-none"
+              >
+                Archive on unsubscribe
+              </label>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            Also archive existing emails when you unsubscribe
+          </TooltipContent>
+        </Tooltip>
       </div>
 
       <ClientOnly>
         <ArchiveProgress />
       </ClientOnly>
-
-      <BulkActions
-        selected={selected}
-        mutate={mutate}
-        onClearSelection={clearSelection}
-        deselectItem={deselectItem}
-        newsletters={rows}
-        filter={filter}
-        totalCount={rows?.length ?? 0}
-        dateRange={dateRange}
-      />
 
       <Card className="mt-2 md:mt-4 max-sm:border-0 max-sm:shadow-none">
         {(isStatsLoading && !isLoading && !data?.newsletters.length) ||
@@ -504,60 +560,142 @@ export function BulkUnsubscribe() {
             loadingComponent={<BulkUnsubscribeDesktopSkeleton />}
           >
             {tableRows?.length ? (
-              <>
-                <BulkUnsubscribeDesktop
-                  sortColumn={sortColumn}
-                  sortDirection={sortDirection}
-                  onSort={handleSort}
-                  tableRows={tableRows}
-                  isAllSelected={isAllVisibleSelected}
-                  isSomeSelected={isSomeVisibleSelected}
-                  onToggleSelectAll={onToggleSelectAllVisible}
-                />
-                {/* Only show expand/collapse when there might be more results */}
-                {(expanded || (rows && rows.length >= 50)) && (
-                  <div className="mt-2 px-6 pb-6">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setExpanded(!expanded)}
-                      className="w-full"
-                    >
-                      {expanded ? (
-                        <>
-                          <ChevronsUpIcon className="h-4 w-4" />
-                          <span className="ml-2">Show less</span>
-                        </>
-                      ) : (
-                        <>
-                          <ChevronsDownIcon className="h-4 w-4" />
-                          <span className="ml-2">Show more</span>
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                )}
-              </>
+              <BulkUnsubscribeDesktop
+                sortColumn={sortColumn}
+                sortDirection={sortDirection}
+                onSort={handleSort}
+                tableRows={tableRows}
+                isAllSelected={isAllVisibleSelected}
+                isSomeSelected={isSomeVisibleSelected}
+                onToggleSelectAll={onToggleSelectAllVisible}
+              />
             ) : (
-              <div className="flex flex-col items-center justify-center py-16 px-4">
-                <InboxIcon className="h-16 w-16 text-gray-300" />
-                <h3 className="mt-4 text-lg font-semibold">No emails found</h3>
-                <p className="mt-2 text-center text-muted-foreground">
-                  Adjust the filters or click "Load More" to load additional
-                  emails.
-                </p>
+              <EmptyState
+                isReviewView={filter === "unhandled" && !search}
+                onlyLinklessLeft={
+                  filter === "unhandled" &&
+                  !includeWithoutUnsubscribeLink &&
+                  !!data?.newsletters.length
+                }
+                onIncludeLinkless={() => setIncludeWithoutUnsubscribeLink(true)}
+              />
+            )}
+            {/* Only show expand/collapse when there might be more results */}
+            {(expanded ||
+              (data?.newsletters && data.newsletters.length >= 50)) && (
+              <div className="mt-2 px-6 pb-6">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setExpanded(!expanded)}
+                  className="w-full"
+                >
+                  {expanded ? (
+                    <>
+                      <ChevronsUpIcon className="h-4 w-4" />
+                      <span className="ml-2">Show less</span>
+                    </>
+                  ) : (
+                    <>
+                      <ChevronsDownIcon className="h-4 w-4" />
+                      <span className="ml-2">Show more</span>
+                    </>
+                  )}
+                </Button>
               </div>
             )}
           </LoadingContent>
         )}
       </Card>
-      <NewsletterModal
+      <BulkActions
+        selected={selected}
+        mutate={mutate}
+        onClearSelection={clearSelection}
+        deselectItem={deselectItem}
+        newsletters={rows}
+        filter={filter}
+        dateRange={dateRange}
+      />
+      <SenderPanel
         newsletter={openedNewsletter}
-        onClose={() => setOpenedNewsletter(undefined)}
+        onClose={() => setOpenedNewsletterName(undefined)}
         refreshInterval={refreshInterval}
         mutate={mutate}
+        hasUnsubscribeAccess={hasUnsubscribeAccess}
+        refetchPremium={refetchPremium}
+        openPremiumModal={openModal}
+        filter={filter}
       />
       <PremiumModal />
     </PageWrapper>
+  );
+}
+
+function ScanOlderEmailsButton() {
+  const { isLoading, onLoadBatch } = useStatLoader();
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="outline"
+          size="icon"
+          className="shrink-0"
+          onClick={() => onLoadBatch({ loadBefore: true, showToast: true })}
+          disabled={isLoading}
+          aria-label="Scan older emails"
+        >
+          {isLoading ? (
+            <Loader2Icon className="size-4 animate-spin" />
+          ) : (
+            <HistoryIcon className="size-4" />
+          )}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>
+        {isLoading ? "Scanning older emails…" : "Scan older emails"}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+function EmptyState({
+  isReviewView,
+  onlyLinklessLeft,
+  onIncludeLinkless,
+}: {
+  isReviewView: boolean;
+  onlyLinklessLeft: boolean;
+  onIncludeLinkless: () => void;
+}) {
+  if (onlyLinklessLeft) {
+    return (
+      <div className="flex flex-col items-center justify-center px-4 py-14">
+        <h3 className="font-title text-xl font-medium">
+          Only senders without an unsubscribe link are left
+        </h3>
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-4"
+          onClick={onIncludeLinkless}
+        >
+          Show them
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-center justify-center px-4 py-14">
+      <h3 className="font-title text-xl font-medium">
+        {isReviewView ? "Nothing left to review" : "No senders found"}
+      </h3>
+      <p className="mt-1.5 text-center text-sm text-muted-foreground">
+        {isReviewView
+          ? "New senders will show up here as they arrive."
+          : "Try a different filter or date range."}
+      </p>
+    </div>
   );
 }

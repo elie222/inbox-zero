@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ListThread } from "./types";
 import {
+  isThreadArchived,
   isThreadInInbox,
   isThreadUnread,
   withThreadReadState,
@@ -19,6 +20,18 @@ describe("thread read state", () => {
 
     expect(isThreadInInbox(thread.messages)).toBe(true);
     expect(isThreadInInbox(createThread([["UNREAD"]]).messages)).toBe(false);
+  });
+
+  it("is archived only when no message is in the inbox, trash or spam", () => {
+    expect(
+      isThreadArchived(createThread([["SENT"], ["UNREAD"]]).messages),
+    ).toBe(true);
+    expect(isThreadArchived(createThread([["SENT"], ["INBOX"]]).messages)).toBe(
+      false,
+    );
+    expect(isThreadArchived(createThread([["TRASH"]]).messages)).toBe(false);
+    expect(isThreadArchived(createThread([["SPAM"]]).messages)).toBe(false);
+    expect(isThreadArchived([])).toBe(false);
   });
 
   it("removes the unread label from every message", () => {

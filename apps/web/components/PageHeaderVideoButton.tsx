@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { PlayIcon } from "lucide-react";
-import { OnboardingDialogContent } from "@/components/OnboardingModal";
+import { VideoPlayerDialog } from "@/components/VideoPlayerDialog";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { useVideoAnalytics } from "@/hooks/useVideoAnalytics";
@@ -10,8 +10,7 @@ import { useVideoAnalytics } from "@/hooks/useVideoAnalytics";
 type Video = {
   title: string;
   description: ReactNode;
-  youtubeVideoId?: string;
-  muxPlaybackId?: string;
+  muxPlaybackId: string;
 };
 
 export function PageHeaderVideoButton({ video }: { video: Video }) {
@@ -19,7 +18,6 @@ export function PageHeaderVideoButton({ video }: { video: Video }) {
     muxPlaybackId: video.muxPlaybackId,
     surface: "page_header",
     title: video.title,
-    youtubeVideoId: video.youtubeVideoId,
   });
 
   return (
@@ -34,10 +32,9 @@ export function PageHeaderVideoButton({ video }: { video: Video }) {
           Watch demo
         </Button>
       </DialogTrigger>
-      <OnboardingDialogContent
+      <VideoPlayerDialog
         title={video.title}
         description={video.description}
-        youtubeVideoId={video.youtubeVideoId}
         muxPlaybackId={video.muxPlaybackId}
         onVideoCompleted={analytics.trackCompleted}
         onVideoProgress={analytics.trackProgress}

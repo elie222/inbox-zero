@@ -126,6 +126,20 @@ describe("useThreadActions", () => {
     );
   });
 
+  it("moves an archived thread to the inbox and undoes it by archiving again", async () => {
+    mail.client.cancelOperation.mockResolvedValue({ status: "too_late" });
+    const { result } = renderActions({ threads: [createThread(["SENT"])] });
+    await act(() => result.current.moveToInbox(["thread"]));
+    expect(mail.client.submitConversations).toHaveBeenCalledWith(
+      expect.objectContaining({ change: { kind: "unarchive" } }),
+    );
+    mail.client.submitConversations.mockClear();
+    await act(() => result.current.undo());
+    expect(mail.client.submitConversations).toHaveBeenCalledWith(
+      expect.objectContaining({ change: { kind: "archive" } }),
+    );
+  });
+
   it("does not archive a missing row", async () => {
     const { result } = renderActions({ threads: [] });
     await act(() => result.current.archive(["missing-thread"]));

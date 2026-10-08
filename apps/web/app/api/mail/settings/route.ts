@@ -1,4 +1,4 @@
-import { ensureAllMailSplit } from "@/utils/mail/initial-splits";
+import { ensureAllMailSplit } from "@/utils/split-inbox/initial-splits";
 import { NextResponse } from "next/server";
 import { withEmailAccount } from "@/utils/middleware";
 import prisma from "@/utils/prisma";

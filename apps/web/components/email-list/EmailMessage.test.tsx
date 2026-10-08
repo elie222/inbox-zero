@@ -227,6 +227,28 @@ describe("EmailMessage reply", () => {
     );
     expect(screen.getByRole("textbox", { name: "Email message" })).toBeTruthy();
   });
+
+  it("names To and Cc recipients in the recipient summary", () => {
+    const message = createMessage("message-1");
+    render(
+      <EmailMessage
+        expanded
+        message={{
+          ...message,
+          headers: {
+            ...message.headers,
+            to: "Alex Kim <alex@example.com>, user@example.com",
+            cc: '"Doe, Jane" <jane@example.com>, Sam Lee <sam@example.com>, user@example.com',
+          },
+        }}
+        onSendSuccess={vi.fn()}
+        onToggle={vi.fn()}
+        refetch={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("to me, Alex, Jane, Sam")).toBeTruthy();
+  });
 });
 
 describe("EmailMessage pop out", () => {

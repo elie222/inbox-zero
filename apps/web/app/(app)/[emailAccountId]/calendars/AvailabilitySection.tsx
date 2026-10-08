@@ -63,11 +63,6 @@ function AvailabilityEditor({
   const controller = useWeeklyHours(
     data.schedule?.windows ?? DEFAULT_WEEKDAY_WINDOWS,
   );
-  const timezone =
-    data.schedule?.timezone ??
-    data.timezone ??
-    Intl.DateTimeFormat().resolvedOptions().timeZone ??
-    "UTC";
 
   const { execute: updateAvailability, isExecuting: isSaving } = useAction(
     updateDefaultAvailabilityAction.bind(null, emailAccountId),
@@ -93,13 +88,17 @@ function AvailabilityEditor({
       return;
     }
 
-    updateAvailability({ timezone, windows: collected.windows });
+    updateAvailability({ windows: collected.windows });
   };
 
   return (
     <div className="mt-4 space-y-4">
       <WeeklyHoursEditor controller={controller} />
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between gap-4">
+        <p className="text-xs text-muted-foreground">
+          We hide times where you already have events on your connected
+          calendar.
+        </p>
         <Button onClick={handleSave} loading={isSaving}>
           Save
         </Button>

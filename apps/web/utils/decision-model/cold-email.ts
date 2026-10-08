@@ -36,7 +36,7 @@ export async function decideColdEmail({
     },
     questions: {
       [COLD_EMAIL_KEY]: {
-        type: "yesNo",
+        type: "boolean",
         instructions:
           "Is `email` cold outreach under `coldEmailDefinition` from the perspective of `accountOwner`?",
         criteria: {
@@ -50,7 +50,7 @@ export async function decideColdEmail({
     logger,
   });
   const answer = response.answers[COLD_EMAIL_KEY];
-  if (answer?.type !== "yesNo") {
+  if (answer?.type !== "boolean") {
     throw new Error("Decision model response is missing the cold-email answer");
   }
 
