@@ -16,6 +16,11 @@ import type {
   MessageVisibility,
 } from "@/utils/gmail/constants";
 
+export type SendEmailOptions = {
+  /** Keep the provider's reply subject when changing it would break threading. */
+  preserveThreadSubject?: boolean;
+};
+
 export interface EmailThread {
   historyId?: string;
   id: string;
@@ -424,7 +429,10 @@ export interface EmailProvider {
     messageText: string;
     attachments?: MailAttachment[];
   }): Promise<{ messageId: string }>;
-  sendEmailWithHtml(body: SendEmailBody): Promise<{
+  sendEmailWithHtml(
+    body: SendEmailBody,
+    options?: SendEmailOptions,
+  ): Promise<{
     messageId: string;
     threadId: string;
   }>;
