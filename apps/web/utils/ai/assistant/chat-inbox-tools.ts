@@ -620,7 +620,7 @@ const outlookSearchInboxTool = ({
 }: InboxToolOptions) =>
   tool({
     description:
-      "Search inbox messages and return concise message metadata. Returns at most 20 messages per call. If hasMore=true, more matches remain; for bulk or all-matching requests, keep calling searchInbox with nextPageToken until hasMore=false and collect all matching threadIds before writing in batches, even when the current page has zero messages. Report the summed successCount from action results, and disclose any failures or remaining pages. Outlook filtered searches can return an empty page before later matching pages. totalReturned is only the number of messages returned by this call, so do not present it or a single search page as an exact mailbox, folder, or category count. If the tool returns an error or provider search feedback instead of messages, treat the lookup as inconclusive rather than evidence that the email is absent.",
+      "Search inbox messages and return concise message metadata. Returns at most 20 messages per call. If hasMore=true, more matches remain; for bulk or all-matching requests, keep calling searchInbox with nextPageToken until hasMore=false and collect all matching threadIds before writing in batches, even when the current page has zero messages. Report the summed successCount from action results, and disclose any failures or remaining pages. Outlook filtered searches can return an empty page before later matching pages. For folder/category count questions, use only folderName/categoryName with no query or other filters and report exactCount, the full-scope message count including drafts. If countError is returned, the exact total is unavailable. totalReturned is only this page size and is never an exact mailbox, folder, or category total. If the tool returns an error or provider search feedback instead of messages, treat the lookup as inconclusive rather than evidence that the email is absent.",
     inputSchema: outlookSearchInboxInputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "search_inbox", email, logger });
@@ -669,12 +669,20 @@ const outlookSearchInboxTool = ({
 
         const labels = await labelsPromise;
 
-        return formatSearchInboxResult({
-          searchResult: searchResult.result,
-          queryUsed: searchResult.queryUsed,
-          labels,
-          taxonomyNamesKey: "categoryNames",
-        });
+        return {
+          ...formatSearchInboxResult({
+            searchResult: searchResult.result,
+            queryUsed: searchResult.queryUsed,
+            labels,
+            taxonomyNamesKey: "categoryNames",
+          }),
+          ...(searchResult.exactCount !== undefined && {
+            exactCount: searchResult.exactCount,
+          }),
+          ...(searchResult.countError && {
+            countError: searchResult.countError,
+          }),
+        };
       } catch (error) {
         return buildMicrosoftSearchErrorResult({
           query,

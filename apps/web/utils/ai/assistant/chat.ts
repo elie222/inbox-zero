@@ -53,7 +53,7 @@ import { trimStaleToolResults } from "@/utils/ai/assistant/trim-stale-tool-resul
 
 export const maxDuration = 800;
 // Increment when chat prompts, tools, or routing change so run quality remains attributable.
-export const ASSISTANT_CHAT_PIPELINE_VERSION = 12;
+export const ASSISTANT_CHAT_PIPELINE_VERSION = 13;
 const ASSISTANT_CHAT_TOOL_BUDGET_MS = {
   web: 720_000,
   messaging: 60_000,
