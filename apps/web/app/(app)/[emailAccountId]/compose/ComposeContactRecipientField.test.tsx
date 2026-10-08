@@ -83,6 +83,24 @@ describe("compose contact suggestions", () => {
     expect(screen.getAllByRole("option")).toHaveLength(2);
   });
 
+  it("commits pasted recipient lists with names while the contacts flag is off", async () => {
+    env.NEXT_PUBLIC_CONTACTS_ENABLED = false;
+    render(<Harness />);
+    const input = screen.getByRole("combobox", { name: "To" });
+    fireEvent.change(input, {
+      target: { value: '"Doe, Jane" <jane@example.com>, second@example.com' },
+    });
+    fireEvent.keyUp(input, { key: "Enter" });
+    expect(
+      await screen.findByRole("button", {
+        name: 'Remove "Doe, Jane" <jane@example.com>',
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Remove second@example.com" }),
+    ).toBeTruthy();
+  });
+
   it("keeps local suggestions available alongside the API reconnect-required prompt", async () => {
     env.NEXT_PUBLIC_CONTACTS_ENABLED = true;
     render(<Harness reconnectRequired />);

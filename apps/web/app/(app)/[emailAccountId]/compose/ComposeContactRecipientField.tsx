@@ -21,11 +21,11 @@ import { cn } from "@/utils";
 import {
   extractEmailAddress,
   extractNameFromEmail,
-  isValidEmail,
   splitRecipientList,
 } from "@/utils/email";
 import {
   type ComposeRecipientField,
+  isValidComposeRecipientList,
   resolveComposeRecipients,
   resolveRecipientSelection,
 } from "./compose-recipients";
@@ -196,7 +196,7 @@ export function ComposeContactRecipientField({
             onKeyUp={(event) => {
               if (event.key !== "Enter") return;
               event.preventDefault();
-              if (!isValidEmail(searchQuery.trim())) return;
+              if (!isValidComposeRecipientList(searchQuery.trim())) return;
               onSelectedRecipientsChange(
                 name,
                 resolveComposeRecipients({

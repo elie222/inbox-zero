@@ -151,6 +151,21 @@ for (const theme of ["light", "dark"] as const) {
         dialog.getByRole("button", { name: "Remove bob@example.com" }),
       ).toHaveCount(name === "Cc" ? 1 : 2);
     }
+    await to.fill('"Doe, Jamie" <jamie@example.com>, sam@example.com');
+    await to.press("Enter");
+    await expect(
+      dialog.getByRole("button", {
+        name: 'Remove "Doe, Jamie" <jamie@example.com>',
+      }),
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole("button", { name: "Remove sam@example.com" }),
+    ).toBeVisible();
+    await capturePlaywrightCheckpoint(
+      page,
+      testInfo,
+      "pasted-recipients-selected",
+    );
     if (process.env.NEXT_PUBLIC_CONTACTS_ENABLED === "false")
       expect(apiRequests).toBe(0);
   });
