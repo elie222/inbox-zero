@@ -167,6 +167,11 @@ export interface EmailProvider {
     emailAccountId: string,
   ): Promise<void>;
   checkIfReplySent(senderEmail: string): Promise<boolean>;
+  /** Exact message count, including drafts. Folder and label scopes intersect. */
+  countMessages(options: {
+    folderId?: string;
+    labelId?: string;
+  }): Promise<number>;
   countReceivedMessages(
     senderEmail: string,
     threshold: number,

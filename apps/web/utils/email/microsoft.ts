@@ -156,6 +156,47 @@ export class OutlookProvider implements EmailProvider {
     return { name: this.name, type: "OutlookProvider" };
   }
 
+  async countMessages({
+    folderId,
+    labelId,
+  }: {
+    folderId?: string;
+    labelId?: string;
+  }): Promise<number> {
+    const categoryName = await resolveOutlookCategoryName({
+      emailProvider: this,
+      categoryName: labelId,
+    });
+    const response = await withMicrosoftGraphRetry(() => {
+      let request = this.client
+        .getClient()
+        .api(
+          folderId
+            ? `/me/mailFolders/${encodeURIComponent(folderId)}/messages`
+            : "/me/messages",
+        )
+        .count(true)
+        .select("id")
+        .top(1);
+      if (categoryName) {
+        request = request.filter(
+          `categories/any(c:c eq '${escapeODataString(categoryName)}')`,
+        );
+      }
+      return request.get();
+    }, this.logger);
+
+    const count = response["@odata.count"];
+    if (
+      typeof count !== "number" ||
+      !Number.isSafeInteger(count) ||
+      count < 0
+    ) {
+      throw new Error("Outlook did not return an exact message count");
+    }
+    return count;
+  }
+
   async getThreads(folderId?: string): Promise<EmailThread[]> {
     const messages = await this.getMessages({ folderId });
     const threadMap = new Map<string, ParsedMessage[]>();
