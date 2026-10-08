@@ -105,7 +105,7 @@ import { getOutlookCategoryPreset } from "@/utils/outlook/category-colors";
 import { unwatchOutlook, watchOutlook } from "@/utils/outlook/watch";
 import { escapeODataString } from "@/utils/outlook/odata-escape";
 import { OutlookLabel } from "@/utils/outlook/constants";
-import { resolveOutlookSearchScope } from "@/utils/outlook/search-scope";
+import { resolveOutlookCategoryName } from "@/utils/outlook/search-scope";
 import {
   extractEmailAddress,
   getSearchTermForSender,
@@ -1330,16 +1330,17 @@ export class OutlookProvider implements EmailProvider {
     fromEmail?: string;
     readState?: "read" | "unread";
     labelName?: string;
+    folderId?: string;
     labelIds?: string[];
     includeSpamTrash?: boolean;
     folder?: "spam" | "trash";
   }): Promise<{ messages: ParsedMessage[]; nextPageToken?: string }> {
-    const scope = await resolveOutlookSearchScope({
+    const categoryName = await resolveOutlookCategoryName({
       emailProvider: this,
-      scope: options.labelName,
+      categoryName: options.labelName,
     });
     const folderId =
-      scope.folderId ??
+      options.folderId ??
       (await outlookSpamTrashFolderId({
         client: this.client,
         logger: this.logger,
@@ -1358,7 +1359,7 @@ export class OutlookProvider implements EmailProvider {
           starred: undefined,
         }[mailbox]
       : undefined;
-    const categoryNames = scope.categoryNames;
+    const categoryNames = categoryName ? [categoryName] : [];
 
     const response = await queryBatchMessages(
       this.client,

@@ -102,6 +102,8 @@ async function createInTabEngine(
   const originalRequestSync = engine.requestSync.bind(engine);
   return {
     ...engine,
+    // Local autocomplete stays off the UI thread if dedicated workers fail.
+    queryContactSuggestions: undefined,
     ensureAccount,
     requestSync: (accountIds) =>
       requestSyncUnlessOffline(pageConnectivityOnline(), () =>
@@ -203,6 +205,8 @@ async function createWorkerOwnedEngine(
   }
 
   return {
+    queryContactSuggestions: (query) =>
+      callWorker(worker, pending, "queryContactSuggestions", [query]),
     observeMailbox: (query) => observe("mailbox", [query]),
     observeMailboxCounts: (query) => observe("mailboxCounts", [query]),
     observeMailboxWindow: (query) => {

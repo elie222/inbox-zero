@@ -1,4 +1,8 @@
-import { isValidEmail, splitRecipientList } from "@/utils/email";
+import {
+  extractEmailAddress,
+  isValidEmail,
+  splitRecipientList,
+} from "@/utils/email";
 import { mergeAndDedupeRecipients } from "@/utils/email/reply-all";
 
 export type ComposeRecipientField = "to" | "cc" | "bcc";
@@ -43,7 +47,17 @@ export function resolveComposeRecipients({
   const selected = splitRecipientList(selectedRecipients ?? "");
   const pending = pendingRecipient.trim();
 
-  if (!isValidEmail(pending)) return selected.join(",");
+  if (!isValidComposeRecipientList(pending)) return selected.join(",");
 
   return mergeAndDedupeRecipients(selected, pending).join(",");
+}
+
+export function isValidComposeRecipientList(value: string) {
+  const recipients = splitRecipientList(value);
+  return (
+    recipients.length > 0 &&
+    recipients.every((recipient) =>
+      isValidEmail(extractEmailAddress(recipient)),
+    )
+  );
 }

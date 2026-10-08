@@ -5,6 +5,7 @@ import * as outlookLabelModule from "@/utils/outlook/label";
 import { createTestLogger } from "@/__tests__/helpers";
 import { getThreadParticipantNames } from "@/app/(app)/[emailAccountId]/mail/thread-participants";
 import { OutlookProvider } from "./microsoft";
+import { resolveOutlookFolderId } from "@/utils/outlook/search-scope";
 import { FOLDER_SEPARATOR } from "@/utils/outlook/folders";
 
 const { envMock, outlookMailMock, getFolderIdsMock } = vi.hoisted(() => ({
@@ -101,6 +102,67 @@ describe("OutlookProvider.searchMessages", () => {
     expect(result.messages[0]?.labelIds).toContain(role);
   });
 
+  it("forwards an explicit folderId on every page without resolving it as a category", async () => {
+    const nextPageToken =
+      "https://graph.microsoft.com/v1.0/me/mailFolders/newsletter-folder/messages?$skip=20";
+    const client = createMockOutlookClient([], {
+      categoryMapCache: new Map(),
+      folderIdCache: { inbox: "inbox-folder-id" },
+      responsesByApiPath: {
+        "/me/mailFolders/newsletter-folder/messages": {
+          value: [
+            createMessage({
+              id: "first",
+              parentFolderId: "newsletter-folder",
+              isRead: false,
+            }),
+          ],
+          "@odata.nextLink": nextPageToken,
+        },
+        [nextPageToken]: {
+          value: [
+            createMessage({
+              id: "second",
+              parentFolderId: "newsletter-folder",
+              isRead: false,
+            }),
+            createMessage({
+              id: "outside",
+              parentFolderId: "inbox-folder-id",
+              isRead: false,
+              categories: ["Newsletter"],
+            }),
+          ],
+        },
+      },
+    });
+    const provider = new OutlookProvider(client, createTestLogger());
+    const getFolders = vi
+      .spyOn(provider, "getFolders")
+      .mockRejectedValue(new Error("Should not resolve an ID"));
+    const first = await provider.searchMessages({
+      query: "",
+      folderId: "newsletter-folder",
+      readState: "unread",
+    });
+    expect(first.messages.map(({ id }) => id)).toEqual(["first"]);
+    expect(first.nextPageToken).toBe(nextPageToken);
+    const last = await provider.searchMessages({
+      query: "",
+      folderId: "newsletter-folder",
+      readState: "unread",
+      pageToken: first.nextPageToken,
+    });
+    expect(last.messages.map(({ id }) => id)).toEqual(["second"]);
+    expect(last.nextPageToken).toBeUndefined();
+    expect(getFolders).not.toHaveBeenCalled();
+    expect(client.getRequestLog()).toContainEqual({
+      apiPath: "/me/mailFolders/newsletter-folder/messages",
+      search: undefined,
+      filter: "isRead eq false",
+    });
+  });
+
   it("resolves a nested folder and searches its messages without a category filter", async () => {
     const message = createMessage({
       id: "matching-message",
@@ -121,7 +183,10 @@ describe("OutlookProvider.searchMessages", () => {
 
     const result = await provider.searchMessages({
       query: "invoice",
-      labelName: "receipts",
+      folderId: await resolveOutlookFolderId({
+        emailProvider: provider,
+        folderName: "receipts",
+      }),
     });
 
     expect(result.messages.map((message) => message.id)).toEqual([
@@ -155,7 +220,10 @@ describe("OutlookProvider.searchMessages", () => {
     vi.spyOn(provider, "getLabels").mockResolvedValue([]);
     await provider.searchMessages({
       query: "",
-      labelName: `Parent${FOLDER_SEPARATOR}Receipts`,
+      folderId: await resolveOutlookFolderId({
+        emailProvider: provider,
+        folderName: `Parent${FOLDER_SEPARATOR}Receipts`,
+      }),
     });
     expect(query).toHaveBeenCalledWith(
       expect.anything(),
@@ -204,10 +272,16 @@ describe("OutlookProvider.searchMessages", () => {
     vi.spyOn(provider, "getLabels").mockResolvedValue([]);
 
     await expect(
-      provider.searchMessages({ query: "", labelName: "Receipts" }),
+      resolveOutlookFolderId({
+        emailProvider: provider,
+        folderName: "Receipts",
+      }),
     ).rejects.toThrow("ambiguous");
     await expect(
-      provider.searchMessages({ query: "", labelName: "Missing" }),
+      resolveOutlookFolderId({
+        emailProvider: provider,
+        folderName: "Missing",
+      }),
     ).rejects.toThrow("not found");
     expect(query).not.toHaveBeenCalled();
     query.mockRestore();
@@ -228,13 +302,19 @@ describe("OutlookProvider.searchMessages", () => {
       { id: "category-1", name: "Receipts", type: "user" },
     ]);
 
-    await expect(
-      provider.searchMessages({ query: "", labelName: "Receipts" }),
-    ).rejects.toThrow("ambiguous");
+    await provider.searchMessages({ query: "", labelName: "Receipts" });
+    expect(query).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        folderId: undefined,
+        categoryNames: ["Receipts"],
+      }),
+      expect.anything(),
+    );
     vi.spyOn(provider, "getLabels").mockRejectedValue(
       new Error("Categories unavailable"),
     );
-    await provider.searchMessages({ query: "", labelName: "folder-1" });
+    await provider.searchMessages({ query: "", folderId: "folder-1" });
     expect(query).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ folderId: "folder-1", categoryNames: [] }),

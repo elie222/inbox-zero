@@ -385,6 +385,8 @@ export interface EmailProvider {
     fromEmail?: string;
     readState?: "read" | "unread";
     labelName?: string;
+    /** Scope an Outlook search to a resolved mail folder. */
+    folderId?: string;
     labelIds?: string[];
     /** Gmail omits spam and trash unless this is set. Outlook uses `folder` instead. */
     includeSpamTrash?: boolean;
