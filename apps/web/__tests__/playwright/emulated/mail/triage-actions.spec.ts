@@ -153,23 +153,7 @@ test("deletes an open conversation and restores it from Trash", async ({
   await expect
     .poll(() => new URL(page.url()).searchParams.get("thread-id"))
     .not.toBeNull();
-  const advancedThreadId =
-    new URL(page.url()).searchParams.get("thread-id") ?? undefined;
-  // Opening the next conversation marks it read; later specs expect the seeded
-  // unread state.
-  await page.keyboard.press("KeyU");
-  await expect
-    .poll(
-      () =>
-        readLatestMailMutation(page, {
-          emailAccountId,
-          kind: "set_read_state",
-          threadId: advancedThreadId,
-          payload: { read: false },
-        }),
-      { timeout: 60_000 },
-    )
-    .toMatchObject({ status: "succeeded" });
+  const advancedThreadId = new URL(page.url()).searchParams.get("thread-id");
   await expect(deletedConversation).toHaveCount(0);
   await expectEngineMutation(page, emailAccountId, "trash", DELETE_THREAD);
 
@@ -184,6 +168,28 @@ test("deletes an open conversation and restores it from Trash", async ({
   });
   await expect(conversations).toBeVisible({ timeout: 60_000 });
   await expect(deletedConversation).toBeVisible();
+
+  // Advancing opened the next conversation and marked it read; later specs
+  // expect the seeded unread state.
+  await page.goto(`/${emailAccountId}/mail?thread-id=${advancedThreadId}`, {
+    waitUntil: "domcontentloaded",
+  });
+  await page
+    .getByRole("group", { name: "Thread actions" })
+    .getByRole("button", { name: /Mark as unread/ })
+    .click();
+  await expect
+    .poll(
+      () =>
+        readLatestMailMutation(page, {
+          emailAccountId,
+          kind: "set_read_state",
+          threadId: advancedThreadId ?? undefined,
+          payload: { read: false },
+        }),
+      { timeout: 60_000 },
+    )
+    .toMatchObject({ status: "succeeded" });
 });
 
 test("advances the split reader after archiving an open conversation", async ({
