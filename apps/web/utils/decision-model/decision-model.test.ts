@@ -86,11 +86,13 @@ describe("getDecisionModelConfig", () => {
     });
   });
 
-  it("falls back to LLM_API_KEY like LLM providers do", async () => {
+  it("falls back to LLM_API_KEY when the provider key is unset or blank", async () => {
     envMock.DEFAULT_DECISION_MODEL = "openrouter:cloudflare/clef";
-    envMock.OPENROUTER_API_KEY = undefined;
-    envMock.LLM_API_KEY = "shared-key";
+    envMock.OPENROUTER_API_KEY = "  ";
     mockUserSetting(true);
+    expect(await getDecisionModelConfig(getEmailAccount())).toBeNull();
+
+    envMock.LLM_API_KEY = "shared-key";
 
     expect(await getDecisionModelConfig(getEmailAccount())).toMatchObject({
       provider: "openrouter",

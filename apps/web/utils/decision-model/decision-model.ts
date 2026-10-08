@@ -224,7 +224,7 @@ export function createDecisionModelConfig(
 
   switch (provider) {
     case "typesafe": {
-      const apiKey = env.TYPESAFE_API_KEY || env.LLM_API_KEY;
+      const apiKey = resolveApiKey(env.TYPESAFE_API_KEY);
       if (!apiKey) return null;
       return {
         provider,
@@ -238,7 +238,7 @@ export function createDecisionModelConfig(
       };
     }
     case "openrouter": {
-      const apiKey = env.OPENROUTER_API_KEY || env.LLM_API_KEY;
+      const apiKey = resolveApiKey(env.OPENROUTER_API_KEY);
       if (!apiKey) return null;
       return {
         provider,
@@ -252,7 +252,7 @@ export function createDecisionModelConfig(
       };
     }
     case "gateway": {
-      const apiKey = env.AI_GATEWAY_API_KEY || env.LLM_API_KEY;
+      const apiKey = resolveApiKey(env.AI_GATEWAY_API_KEY);
       if (!apiKey) return null;
       return {
         provider,
@@ -261,7 +261,7 @@ export function createDecisionModelConfig(
       };
     }
     case "openai": {
-      const apiKey = env.OPENAI_API_KEY || env.LLM_API_KEY;
+      const apiKey = resolveApiKey(env.OPENAI_API_KEY);
       if (!apiKey) return null;
       return {
         provider,
@@ -314,6 +314,12 @@ function getProviderCost(
   return isJsonObject(usage) && typeof usage.cost === "number"
     ? usage.cost
     : undefined;
+}
+
+// Blank keys count as unset so they fall back to LLM_API_KEY instead of
+// failing every call.
+function resolveApiKey(providerApiKey: string | undefined) {
+  return providerApiKey?.trim() || env.LLM_API_KEY?.trim();
 }
 
 function isJsonObject(value: unknown): value is JSONObject {
