@@ -1,10 +1,6 @@
 import { parseFragment, serialize, type DefaultTreeAdapterTypes } from "parse5";
 import { sanitizeEmailBodyHtml } from "./email-body";
-import {
-  isSafeContentId,
-  isSafeEmailUrl,
-  sanitizeEmailStyle,
-} from "./email-profile";
+import { isSafeContentId, isRemoteImageSource } from "./email-profile";
 
 export const EMAIL_ATTACHMENT_LIMITS = {
   maxFiles: 10,
@@ -51,46 +47,6 @@ export type PreparedEmailDraft = {
 };
 
 const INLINE_IMAGE_MIME_TYPES = new Set<string>(EMAIL_INLINE_IMAGE_MIME_TYPES);
-const DANGEROUS_PREVIEW_TAGS = new Set([
-  "audio",
-  "base",
-  "button",
-  "embed",
-  "form",
-  "iframe",
-  "input",
-  "link",
-  "meta",
-  "object",
-  "script",
-  "style",
-  "svg",
-  "textarea",
-  "video",
-]);
-const SAFE_PREVIEW_ATTRIBUTES = new Set([
-  "abbr",
-  "align",
-  "alt",
-  "border",
-  "cellpadding",
-  "cellspacing",
-  "colspan",
-  "dir",
-  "height",
-  "href",
-  "lang",
-  "rel",
-  "role",
-  "rowspan",
-  "scope",
-  "src",
-  "style",
-  "target",
-  "title",
-  "valign",
-  "width",
-]);
 
 type ChildNode = DefaultTreeAdapterTypes.ChildNode;
 type Element = DefaultTreeAdapterTypes.Element;
@@ -186,9 +142,19 @@ export function finalizeEditableEmailHtml({
   return sanitizeEmailBodyHtml(serialize(fragment));
 }
 
+/**
+ * Prepares quoted or protected HTML for a read-only preview: the email body
+ * profile, with remote images left unloaded so opening a quote cannot tell
+ * the sender anything.
+ */
 export function sanitizePreservedEmailHtmlForPreview(html: string) {
-  const fragment = parseFragment(html);
-  sanitizePreviewChildren(fragment);
+  const fragment = parseFragment(sanitizeEmailBodyHtml(html));
+  visitElements(fragment, (element) => {
+    if (element.tagName !== "img") return;
+    if (isRemoteImageSource(getAttribute(element, "src") ?? "")) {
+      removeAttribute(element, "src");
+    }
+  });
   return serialize(fragment);
 }
 
@@ -401,50 +367,6 @@ function splitSignatureHtml({
     editableHtml: removeRange(html, startOffset, location.endOffset),
     signatureHtml: html.slice(startOffset, location.endOffset),
   };
-}
-
-function sanitizePreviewChildren(parent: ParentNode) {
-  parent.childNodes = parent.childNodes.filter((node) => {
-    if (!isElement(node)) return node.nodeName !== "#comment";
-    return !DANGEROUS_PREVIEW_TAGS.has(node.tagName);
-  });
-
-  for (const node of parent.childNodes) {
-    if (!isElement(node)) continue;
-
-    node.attrs = node.attrs.filter((attribute) => {
-      if (
-        !SAFE_PREVIEW_ATTRIBUTES.has(attribute.name) &&
-        !attribute.name.startsWith("aria-")
-      ) {
-        return false;
-      }
-      if (attribute.name === "href") return isSafeEmailUrl(attribute.value);
-      if (attribute.name === "src") {
-        return (
-          attribute.value.startsWith("cid:") ||
-          /^data:image\/(?:gif|jpeg|png|webp);base64,/iu.test(attribute.value)
-        );
-      }
-      if (attribute.name === "style") {
-        attribute.value = sanitizeEmailStyle(attribute.value);
-        return Boolean(attribute.value);
-      }
-      if (attribute.name === "target") {
-        attribute.value = "_blank";
-      }
-      if (attribute.name === "rel") {
-        attribute.value = "noopener noreferrer";
-      }
-      return true;
-    });
-
-    if (node.tagName === "a" && getAttribute(node, "href")) {
-      setAttribute(node, "target", "_blank");
-      setAttribute(node, "rel", "noopener noreferrer");
-    }
-    sanitizePreviewChildren(node);
-  }
 }
 
 function isQuoteContainer(element: Element) {

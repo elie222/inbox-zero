@@ -193,6 +193,82 @@ describe("Squire email editor", () => {
     });
   });
 
+  it("adds no blank lines across expanding and collapsing the signature", async () => {
+    const { handle } = await renderEditor({
+      initialHtml: "<div>Body</div>",
+      mode: "original",
+      preservedBlocks: [
+        { id: "signature", kind: "signature", html: "<div>Sig</div>" },
+      ],
+    });
+
+    for (let cycle = 0; cycle < 3; cycle++) {
+      fireEvent.click(await screen.findByRole("button", { name: /^Show/u }));
+      await act(async () => {
+        handle().insertText("x");
+      });
+      fireEvent.click(await screen.findByRole("button", { name: /^Hide/u }));
+      await act(async () => {});
+    }
+
+    expect(handle().getValue().editableHtml).toBe(
+      '<div>Bodyxxx<br></div><div data-smartmail="gmail_signature"><div><br></div><div>Sig</div></div>',
+    );
+  });
+
+  it("keeps text typed below the signature below it when collapsed", async () => {
+    const { handle, textbox } = await renderEditor({
+      initialHtml: "<div>Body</div>",
+      mode: "original",
+      preservedBlocks: [
+        { id: "signature", kind: "signature", html: "<div>Sig</div>" },
+      ],
+    });
+    fireEvent.click(await screen.findByRole("button", { name: /^Show/u }));
+    const postscript = document.createElement("div");
+    postscript.textContent = "PS";
+    await act(async () => {
+      textbox().append(postscript);
+    });
+
+    fireEvent.click(await screen.findByRole("button", { name: /^Hide/u }));
+    await act(async () => {});
+
+    expect(textbox().textContent).toBe("Body");
+    expect(handle().getValue().editableHtml).toMatch(
+      /<div data-smartmail="gmail_signature">.*Sig.*<\/div><div>PS<\/div>$/u,
+    );
+  });
+
+  it("does not treat signature markers in other content as the signature", async () => {
+    const { textbox } = await renderEditor({
+      initialHtml:
+        '<div>Forwarded<div data-smartmail="gmail_signature">Someone else</div></div>',
+      mode: "original",
+      preservedBlocks: [
+        { id: "signature", kind: "signature", html: "<div>Mine</div>" },
+      ],
+    });
+
+    expect(textbox().textContent).toContain("Someone else");
+    fireEvent.click(await screen.findByRole("button", { name: /^Show/u }));
+    expect(textbox().textContent).toContain("Mine");
+  });
+
+  it("strips signature markers from inserted HTML", async () => {
+    const { handle, textbox } = await renderEditor({});
+
+    await act(async () => {
+      handle().insertHtml(
+        '<div data-smartmail="gmail_signature">Snippet</div>',
+      );
+    });
+
+    expect(textbox().textContent).toContain("Snippet");
+    expect(textbox().querySelector("[data-smartmail]")).toBeNull();
+    expect(screen.queryByRole("button", { name: /signature/u })).toBeNull();
+  });
+
   it("collapses a signature restored from an earlier session", async () => {
     const { handle, textbox } = await renderEditor({
       initialHtml:
@@ -325,6 +401,36 @@ describe("Squire email editor", () => {
     expect(onSlashTrigger).not.toHaveBeenCalledWith(
       expect.objectContaining({ query: expect.any(String) }),
     );
+  });
+
+  it("leaves keys that confirm IME composition to the input method", async () => {
+    const onSlashKeyDown = vi.fn(() => true);
+    const { handle, textbox } = await renderEditor({
+      onSlashKeyDown,
+      onSlashTrigger: vi.fn(),
+    });
+    await act(async () => {
+      handle().insertText("/");
+    });
+
+    const composing = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      isComposing: true,
+      key: "Enter",
+    });
+    textbox().dispatchEvent(composing);
+    textbox().dispatchEvent(new CompositionEvent("compositionend"));
+    const justAfter = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "Enter",
+    });
+    textbox().dispatchEvent(justAfter);
+
+    expect(onSlashKeyDown).not.toHaveBeenCalled();
+    expect(composing.defaultPrevented).toBe(false);
+    expect(justAfter.defaultPrevented).toBe(false);
   });
 
   it("forwards picker keys and dismisses the trigger on Escape", async () => {

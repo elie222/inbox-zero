@@ -131,6 +131,8 @@ export const SquireEmailEditor = forwardRef<
   // The signature element is detached from the editable root while collapsed,
   // so select-all, deletes and typing can never change it unseen.
   const signatureRef = useRef<HTMLElement | null>(null);
+  // Content typed below the shown signature stays below it while collapsed.
+  const signatureTailRef = useRef<Node[]>([]);
   const [signaturePresent, setSignaturePresentState] = useState(false);
   const signaturePresentRef = useRef(false);
   const [expanded, setExpandedState] = useState(false);
@@ -185,6 +187,14 @@ export const SquireEmailEditor = forwardRef<
     const inlineContentIds = [
       ...(root?.querySelectorAll("img[data-content-id]") ?? []),
       ...(detachedSignature?.querySelectorAll("img[data-content-id]") ?? []),
+      ...signatureTailRef.current.flatMap((node) =>
+        node instanceof Element
+          ? [
+              ...(node.matches("img[data-content-id]") ? [node] : []),
+              ...node.querySelectorAll("img[data-content-id]"),
+            ]
+          : [],
+      ),
     ].map((image) => image.getAttribute("data-content-id") ?? "");
 
     if (!dirtyRef.current) {
@@ -208,6 +218,9 @@ export const SquireEmailEditor = forwardRef<
       !rootRef.current?.contains(signature)
     ) {
       template.content.append(signature.cloneNode(true));
+    }
+    for (const node of signatureTailRef.current) {
+      template.content.append(node.cloneNode(true));
     }
     return restoreOriginalImageSources(template.innerHTML);
   }, []);
@@ -305,7 +318,7 @@ export const SquireEmailEditor = forwardRef<
       .then((resolved) => {
         for (const source of pending) {
           const proxied = resolved[source];
-          if (proxied && /^(?:https?:|\/)/iu.test(proxied)) {
+          if (proxied && /^(?:https?:\/\/|\/(?!\/))/iu.test(proxied)) {
             cache.set(source, proxied);
           }
         }
@@ -452,10 +465,7 @@ export const SquireEmailEditor = forwardRef<
     signatureRef.current = signature;
     setSignaturePresent(Boolean(signature));
     if (signature) {
-      squire.modifyDocument(() => {
-        signature.remove();
-        ensureBlock(squire, root);
-      });
+      signatureTailRef.current = detachSignature(squire, root, signature);
     }
 
     const reconcileSignature = (direction: "undo" | "redo") => {
@@ -465,10 +475,7 @@ export const SquireEmailEditor = forwardRef<
         signatureRef.current = found;
         setSignaturePresent(true);
         if (!expandedRef.current) {
-          squire.modifyDocument(() => {
-            found.remove();
-            ensureBlock(squire, root);
-          });
+          signatureTailRef.current = detachSignature(squire, root, found);
         }
         return;
       }
@@ -481,7 +488,8 @@ export const SquireEmailEditor = forwardRef<
       // The snapshot was taken while the signature was collapsed.
       const restored = signatureRef.current;
       if (expandedRef.current && restored) {
-        squire.modifyDocument(() => root.append(restored));
+        attachSignature(squire, root, restored, signatureTailRef.current);
+        signatureTailRef.current = [];
       }
     };
 
@@ -528,15 +536,9 @@ export const SquireEmailEditor = forwardRef<
     squire.addEventListener("cursor", onCursor);
     squire.addEventListener("pathChange", updateSelectionUi);
     squire.addEventListener("willPaste", (event: Event) => {
-      // Only the composer creates signature containers; pasted ones would
-      // otherwise hide under the collapsed signature toggle.
-      const fragment = (event as CustomEvent<{ fragment: DocumentFragment }>)
-        .detail.fragment;
-      for (const element of fragment.querySelectorAll(
-        `[${SIGNATURE_CONTAINER_ATTRIBUTE}]`,
-      )) {
-        element.removeAttribute(SIGNATURE_CONTAINER_ATTRIBUTE);
-      }
+      removeSignatureMarkers(
+        (event as CustomEvent<{ fragment: DocumentFragment }>).detail.fragment,
+      );
     });
 
     const interceptImageFiles = (event: ClipboardEvent | DragEvent) => {
@@ -564,10 +566,24 @@ export const SquireEmailEditor = forwardRef<
 
     // Window capture runs before Radix's document listener, so Escape closes
     // the snippet picker without closing the compose window.
+    // Keys that confirm IME composition belong to the input method. Safari
+    // reports the confirming Enter just after compositionend.
+    let compositionEndedAt = 0;
+    const onCompositionEnd = () => {
+      compositionEndedAt = performance.now();
+    };
+    root.addEventListener("compositionend", onCompositionEnd);
     const onWindowKeyDown = (event: KeyboardEvent) => {
       const match = slashRef.current;
       if (!match || !(event.target instanceof Node)) return;
       if (!root.contains(event.target)) return;
+      if (
+        event.isComposing ||
+        event.keyCode === 229 ||
+        performance.now() - compositionEndedAt < 100
+      ) {
+        return;
+      }
       if (event.key === "Escape") {
         event.preventDefault();
         event.stopPropagation();
@@ -600,6 +616,7 @@ export const SquireEmailEditor = forwardRef<
       root.removeEventListener("paste", interceptImageFiles, true);
       root.removeEventListener("drop", interceptImageFiles, true);
       root.removeEventListener("click", onClick);
+      root.removeEventListener("compositionend", onCompositionEnd);
       squire.destroy();
       editorRef.current = null;
       setEditor(null);
@@ -614,16 +631,18 @@ export const SquireEmailEditor = forwardRef<
     const visible = signaturePresent && expanded;
     const inRoot = root.contains(signature);
     if (visible && !inRoot) {
-      editor.modifyDocument(() => root.append(signature));
+      attachSignature(editor, root, signature, signatureTailRef.current);
+      signatureTailRef.current = [];
     } else if (!visible && inRoot) {
-      const selectionInSignature = signature.contains(
-        editor.getSelection().startContainer,
-      );
-      editor.modifyDocument(() => {
-        signature.remove();
-        ensureBlock(editor, root);
-      });
-      if (selectionInSignature) editor.moveCursorToEnd();
+      const selection = editor.getSelection().startContainer;
+      const selectionLeavesRoot =
+        signature.contains(selection) ||
+        Boolean(
+          signature.compareDocumentPosition(selection) &
+            Node.DOCUMENT_POSITION_FOLLOWING,
+        );
+      signatureTailRef.current = detachSignature(editor, root, signature);
+      if (selectionLeavesRoot) editor.moveCursorToEnd();
     }
     updateEmptyState();
     updateSignatureControls();
@@ -669,7 +688,7 @@ export const SquireEmailEditor = forwardRef<
         const currentEditor = editorRef.current;
         if (!currentEditor || !html) return false;
         currentEditor.focus();
-        currentEditor.insertHTML(html);
+        currentEditor.insertHTML(withoutSignatureMarkers(html));
         dirtyRef.current = true;
         return true;
       },
@@ -723,7 +742,7 @@ export const SquireEmailEditor = forwardRef<
         currentEditor.setSelection(match.range);
         dirtyRef.current = true;
         if (html) {
-          currentEditor.insertHTML(html);
+          currentEditor.insertHTML(withoutSignatureMarkers(html));
         } else {
           currentEditor.saveEditUndoState();
           currentEditor.modifyDocument(() => match.range.deleteContents());
@@ -863,11 +882,66 @@ export const SquireEmailEditor = forwardRef<
   );
 });
 
+// Only a top-level container is the composer's own signature; markers nested
+// in quoted or forwarded content belong to someone else.
 function findSignature(root: HTMLElement) {
   const containers = root.querySelectorAll<HTMLElement>(
-    `[${SIGNATURE_CONTAINER_ATTRIBUTE}]`,
+    `:scope > [${SIGNATURE_CONTAINER_ATTRIBUTE}]`,
   );
   return containers.item(containers.length - 1) ?? null;
+}
+
+// Takes the signature out of the editable root, together with anything typed
+// below it. Blank lines after it (Squire adds one to type into) are dropped.
+function detachSignature(
+  editor: Squire,
+  root: HTMLElement,
+  signature: HTMLElement,
+) {
+  const tail: Node[] = [];
+  editor.modifyDocument(() => {
+    let node = signature.nextSibling;
+    while (node) {
+      const next = node.nextSibling;
+      node.parentNode?.removeChild(node);
+      if (!isBlank(node)) tail.push(node);
+      node = next;
+    }
+    signature.remove();
+    ensureBlock(editor, root);
+  });
+  return tail;
+}
+
+function attachSignature(
+  editor: Squire,
+  root: HTMLElement,
+  signature: HTMLElement,
+  tail: Node[],
+) {
+  editor.modifyDocument(() => root.append(signature, ...tail));
+}
+
+function isBlank(node: Node) {
+  if (!(node instanceof Element)) return !node.textContent?.trim();
+  return !node.textContent?.trim() && !node.querySelector("img, hr, table");
+}
+
+// Only the composer creates signature containers; pasted or inserted ones
+// would otherwise hide under the collapsed signature toggle.
+function removeSignatureMarkers(parent: ParentNode) {
+  for (const element of parent.querySelectorAll(
+    `[${SIGNATURE_CONTAINER_ATTRIBUTE}]`,
+  )) {
+    element.removeAttribute(SIGNATURE_CONTAINER_ATTRIBUTE);
+  }
+}
+
+function withoutSignatureMarkers(html: string) {
+  const template = document.createElement("template");
+  template.innerHTML = html;
+  removeSignatureMarkers(template.content);
+  return template.innerHTML;
 }
 
 // Squire needs at least one block to place the caret in.

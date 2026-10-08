@@ -148,6 +148,17 @@ describe("preserved HTML preview", () => {
     expect(result).not.toContain("contenteditable");
     expect(result).toContain("width:100%");
   });
+
+  it.each([
+    '<noscript><img src="https://tracker.example/pixel"></noscript>',
+    '<math><mtext><table><mglyph><style><img src="https://tracker.example/pixel"></style></mglyph></table></mtext></math>',
+    "<div><style>body{background:url(https://tracker.example/bg)}</style></div>",
+    '<link rel="stylesheet" href="https://tracker.example/style.css">',
+  ])("never lets a preview reach the sender's host: %s", (html) => {
+    expect(sanitizePreservedEmailHtmlForPreview(html)).not.toContain(
+      "tracker.example",
+    );
+  });
 });
 
 describe("portable composer helpers", () => {
