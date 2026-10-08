@@ -124,7 +124,7 @@ export async function runDecisionModel({
 
   const inputTokens = result.usage.inputTokens ?? 0;
   const outputTokens = result.usage.outputTokens ?? 0;
-  const providerReportedCost = getOpenRouterCost(result);
+  const providerReportedCost = getProviderCost(result, config.provider);
 
   await saveAiUsage({
     userId: emailAccount.userId,
@@ -148,7 +148,9 @@ export async function runDecisionModel({
     },
     providerReportedCost,
     providerCostSource:
-      providerReportedCost === undefined ? undefined : "openrouter_usage",
+      providerReportedCost === undefined
+        ? undefined
+        : `${config.provider}_usage`,
     providerRequestIds: result.response.id ? [result.response.id] : undefined,
     label,
   });
@@ -301,8 +303,11 @@ function getProviderConfidence(result: DecideResult, id: string) {
   }
 }
 
-function getOpenRouterCost(result: DecideResult) {
-  const usage = result.providerMetadata?.openrouter?.usage;
+function getProviderCost(
+  result: DecideResult,
+  provider: DecisionModelConfig["provider"],
+) {
+  const usage = result.providerMetadata?.[provider]?.usage;
   return isJsonObject(usage) && typeof usage.cost === "number"
     ? usage.cost
     : undefined;

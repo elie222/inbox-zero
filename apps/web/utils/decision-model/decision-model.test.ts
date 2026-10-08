@@ -160,7 +160,7 @@ describe("runDecisionModel", () => {
     doDecide.mockResolvedValue({
       ...decisionResult({ applies: { type: "boolean", probability: 0.5 } }),
       usage: { inputTokens: 1200, outputTokens: 12 },
-      providerMetadata: { openrouter: { usage: { cost: 0.0003 } } },
+      providerMetadata: { typesafe: { usage: { cost: 0.0003 } } },
     });
 
     await runDecisionModel({

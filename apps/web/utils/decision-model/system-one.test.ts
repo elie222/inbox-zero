@@ -1,3 +1,4 @@
+import { APICallError } from "@ai-sdk/provider";
 import { experimental_decide } from "ai";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createSystemOneDecisionModel } from "./system-one";
@@ -100,7 +101,7 @@ describe("createSystemOneDecisionModel", () => {
         state: {},
         questions: { applies: questions.applies },
       }),
-    ).rejects.toThrow();
+    ).rejects.toThrow(/noul/);
   });
 
   it("keeps email content out of request errors", async () => {
@@ -113,7 +114,12 @@ describe("createSystemOneDecisionModel", () => {
       maxRetries: 0,
     }).catch((error: unknown) => error);
 
-    expect(error).toMatchObject({ statusCode: 429 });
-    expect(JSON.stringify(error)).not.toContain("private email body");
+    expect(error).toBeInstanceOf(APICallError);
+    const { message, requestBodyValues, statusCode } = error as APICallError;
+    expect(statusCode).toBe(429);
+    expect(message).not.toContain("private email body");
+    expect(JSON.stringify(requestBodyValues)).not.toContain(
+      "private email body",
+    );
   });
 });
