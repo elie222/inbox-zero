@@ -223,6 +223,28 @@ describe("createEmailProviderMailboxSource", () => {
     });
   });
 
+  it("asks to rebuild the enumerated scope when its cursor is invalid", async () => {
+    const source = createEmailProviderMailboxSource({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        localMailSyncStrategy: "history",
+        async getMessagesWithPagination() {
+          throw new InvalidMailboxSyncCursorError();
+        },
+      } as unknown as EmailProvider,
+    });
+    const result = await source.enumerate({
+      session: { accountId: "acc-1", generation: "g1" },
+      requestId: "r1",
+      signal: new AbortController().signal,
+      bootstrapId: "mailbox",
+      page: JSON.stringify({ scopeId: "inbox", folderId: "INBOX" }),
+      pageSize: 20,
+    });
+    expect(result).toEqual({ status: "reset_required", scopeId: "inbox" });
+  });
+
   it("treats an explicit reset page as expired history", async () => {
     const source = createEmailProviderMailboxSource({
       accountId: "acc-1",
