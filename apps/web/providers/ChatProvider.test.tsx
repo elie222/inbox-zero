@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
 
 import { act, cleanup, render, waitFor } from "@testing-library/react";
+import type { DefaultChatTransport } from "ai";
 import type React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ChatMessage } from "@/components/assistant-chat/types";
 import { ASSISTANT_CHAT_MAX_TEXT_LENGTH } from "@/utils/actions/assistant-chat.validation";
 import type { MessageContext } from "@/utils/ai/assistant/chat-context-validation";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
@@ -20,6 +22,7 @@ const {
   mockUseSWRConfig,
   mockConvertToUIMessages,
   mockCaptureException,
+  mockChatTransport,
   mockChatStop,
   mockResumeStream,
   accountState,
@@ -37,6 +40,7 @@ const {
   mockUseSWRConfig: vi.fn(),
   mockConvertToUIMessages: vi.fn(),
   mockCaptureException: vi.fn(),
+  mockChatTransport: vi.fn(),
   mockChatStop: vi.fn(),
   mockResumeStream: vi.fn(),
   accountState: {
@@ -73,9 +77,13 @@ vi.mock("@ai-sdk/react", () => ({
   },
 }));
 
-vi.mock("ai", () => ({
-  DefaultChatTransport: class DefaultChatTransport {},
-}));
+vi.mock("ai", async () => {
+  const actual = await vi.importActual<typeof import("ai")>("ai");
+  mockChatTransport.mockImplementation(function (options) {
+    return new actual.DefaultChatTransport(options);
+  });
+  return { ...actual, DefaultChatTransport: mockChatTransport };
+});
 
 vi.mock("nuqs", async () => {
   const React = await vi.importActual<typeof import("react")>("react");
@@ -439,6 +447,56 @@ describe("ChatProvider", () => {
     );
     expect(JSON.stringify(mockClientLoggerWarn.mock.calls)).not.toContain(
       draft,
+    );
+  });
+
+  it.each([
+    "submit-message",
+    "regenerate-message",
+  ] as const)("declares inline email card support in %s requests", async (trigger) => {
+    renderWithProvider(null);
+    const transport = mockChatTransport.mock.results.at(-1)
+      ?.value as DefaultChatTransport<ChatMessage>;
+    const message = {
+      id: "user-message",
+      role: "user" as const,
+      parts: [{ type: "text" as const, text: "Summarize my inbox" }],
+    };
+    vi.mocked(fetch).mockResolvedValueOnce(new Response("data: [DONE]\n\n"));
+
+    await transport.sendMessages({
+      trigger,
+      chatId: "chat-1",
+      messageId: undefined,
+      abortSignal: undefined,
+      messages: [message],
+      body: { context: buildFixRuleContext("thread-1") },
+    });
+
+    const [url, request] = vi.mocked(fetch).mock.calls.at(-1)!;
+    expect(url).toBe("/api/chat");
+    expect(JSON.parse(request?.body as string)).toEqual({
+      id: "chat-1",
+      message,
+      supportsInlineEmailCards: true,
+      context: buildFixRuleContext("thread-1"),
+    });
+  });
+
+  it("resumes the existing reply without starting another generation", async () => {
+    renderWithProvider(null);
+    const transport = mockChatTransport.mock.results.at(-1)
+      ?.value as DefaultChatTransport<ChatMessage>;
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    await transport.reconnectToStream({ chatId: "chat-1" });
+
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/chat/chat-1/stream",
+      expect.objectContaining({
+        method: "GET",
+        headers: { [EMAIL_ACCOUNT_HEADER.toLowerCase()]: "account-a" },
+      }),
     );
   });
 });

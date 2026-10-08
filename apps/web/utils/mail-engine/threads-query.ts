@@ -141,7 +141,7 @@ function leafToPredicate(leaf: {
 function textQueryPredicates(query: string): MailPredicate[] {
   const clauses: MailPredicate[] = [];
   let remaining = query.trim();
-  remaining = takePrefixedValue(remaining, "subject:", (value) => {
+  remaining = takePrefixedValues(remaining, "subject:", (value) => {
     clauses.push({
       kind: "text",
       field: "subject",
@@ -150,15 +150,12 @@ function textQueryPredicates(query: string): MailPredicate[] {
     });
     return true;
   });
-  remaining = takePrefixedValue(remaining, "from:", (value) => {
-    clauses.push({
-      kind: "address",
-      field: "from",
-      value,
-      match: "address",
+  for (const field of ["from", "to"] as const) {
+    remaining = takePrefixedValues(remaining, `${field}:`, (value) => {
+      clauses.push({ kind: "address", field, value, match: "address" });
+      return true;
     });
-    return true;
-  });
+  }
   let hasAttachment: boolean | undefined;
   remaining = takeToken(remaining, "has:attachment", () => {
     hasAttachment = true;
@@ -184,6 +181,22 @@ function textQueryPredicates(query: string): MailPredicate[] {
     });
   }
   return clauses;
+}
+
+// Consumes every occurrence, so `to:ada@x to:grace@x` yields two address
+// predicates instead of leaving the second operator behind as literal search
+// text that matches nothing.
+function takePrefixedValues(
+  input: string,
+  prefix: string,
+  onValue: (value: string) => boolean,
+) {
+  let remaining = input;
+  while (true) {
+    const next = takePrefixedValue(remaining, prefix, onValue);
+    if (next === remaining) return remaining;
+    remaining = next;
+  }
 }
 
 function takePrefixedValue(

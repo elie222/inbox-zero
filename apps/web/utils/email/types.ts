@@ -16,6 +16,11 @@ import type {
   MessageVisibility,
 } from "@/utils/gmail/constants";
 
+export type SendEmailOptions = {
+  /** Keep the provider's reply subject when changing it would break threading. */
+  preserveThreadSubject?: boolean;
+};
+
 export interface EmailThread {
   historyId?: string;
   id: string;
@@ -162,6 +167,11 @@ export interface EmailProvider {
     emailAccountId: string,
   ): Promise<void>;
   checkIfReplySent(senderEmail: string): Promise<boolean>;
+  /** Exact message count, including drafts. Folder and label scopes intersect. */
+  countMessages(options: {
+    folderId?: string;
+    labelId?: string;
+  }): Promise<number>;
   countReceivedMessages(
     senderEmail: string,
     threshold: number,
@@ -385,6 +395,8 @@ export interface EmailProvider {
     fromEmail?: string;
     readState?: "read" | "unread";
     labelName?: string;
+    /** Scope an Outlook search to a resolved mail folder. */
+    folderId?: string;
     labelIds?: string[];
     /** Gmail omits spam and trash unless this is set. Outlook uses `folder` instead. */
     includeSpamTrash?: boolean;
@@ -417,7 +429,10 @@ export interface EmailProvider {
     messageText: string;
     attachments?: MailAttachment[];
   }): Promise<{ messageId: string }>;
-  sendEmailWithHtml(body: SendEmailBody): Promise<{
+  sendEmailWithHtml(
+    body: SendEmailBody,
+    options?: SendEmailOptions,
+  ): Promise<{
     messageId: string;
     threadId: string;
   }>;

@@ -167,6 +167,7 @@ Reference for environment variables relevant to self-hosting Inbox Zero. Hosted-
 | `NEXT_PUBLIC_SELF_HOSTED_LOGIN_FOOTER_TEXT` | No | Self-hosted login footer notice. When unset, the default login footer notice is shown. Set to `none` to hide the notice. | Default notice |
 | **Feature Flags** ||||
 | `NEXT_PUBLIC_CONTACTS_ENABLED` | No | Enable Gmail and Outlook contact suggestions while composing | `false` |
+| `NEXT_PUBLIC_COOKIE_CONSENT_ENABLED` | No | Show a cookie banner to visitors in EU, EEA, UK and Swiss time zones, and hold back ad tracking, attribution cookies and session recordings until they accept. Analytics keep running without storing anything on the device. | `false` |
 | `NEXT_PUBLIC_EMAIL_SEND_ENABLED` | No | Enable email sending | `true` |
 | `NEXT_PUBLIC_EXTERNAL_API_ENABLED` | No | Enable external API endpoints, API keys, and API key UI. Also set `API_KEY_SALT`. Required for the MCP server. | `false` |
 | `MCP_SERVER_ENABLED` | No | Enable the remote OAuth MCP server at `/mcp`. Requires `NEXT_PUBLIC_EXTERNAL_API_ENABLED=true`. | `false` |

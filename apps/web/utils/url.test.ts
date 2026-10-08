@@ -327,6 +327,33 @@ describe("getEmailUrlForMessage", () => {
 });
 
 describe("getEmailUrlForOptionalMessage", () => {
+  it("uses the validated Outlook provider link even without message ids", () => {
+    expect(
+      getEmailUrlForOptionalMessage({
+        provider: "microsoft",
+        externalUrl: "https://outlook.live.com/owa/?ItemID=demo-1&ispopout=1",
+      }),
+    ).toBe("https://outlook.live.com/owa/?ItemID=demo-1&ispopout=0");
+  });
+
+  it.each([
+    undefined,
+    "",
+    "invalid",
+    "http://outlook.office.com/owa/?ItemID=demo-1",
+    "https://example.com/message",
+    "https://outlook.office.com.example.com/message",
+  ])("omits Outlook links with missing or invalid provider URLs: %s", (externalUrl) => {
+    expect(
+      getEmailUrlForOptionalMessage({
+        provider: "microsoft",
+        messageId: "message-1",
+        threadId: "thread-1",
+        externalUrl,
+      }),
+    ).toBeNull();
+  });
+
   it.each([
     {
       name: "Microsoft without messageId",

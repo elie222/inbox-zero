@@ -1,3 +1,5 @@
+import { cardToBlockKit } from "@chat-adapter/slack";
+import type { KnownBlock } from "@slack/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
@@ -16,6 +18,7 @@ import {
   hasUnsupportedMessagingAttachment,
   normalizeMessagingAssistantText,
   normalizeMessagingUserText,
+  postPendingEmailCard,
   stripLeadingSlackMention,
 } from "@/utils/messaging/chat-sdk/bot";
 
@@ -390,6 +393,127 @@ describe("buildPendingEmailConfirmationCard", () => {
   });
 });
 
+describe("postPendingEmailCard", () => {
+  it.each([
+    "tool-sendEmail",
+    "tool-replyEmail",
+    "tool-forwardEmail",
+  ] as const)("shows the complete four-paragraph Slack draft for %s with Send", async (type) => {
+    const content = [
+      "Hello team, I am writing to request an update on the project. Please share progress against the agreed milestones, including any work that has been completed since our last check-in. This will help us prepare an accurate overview for the next planning meeting.",
+      "Could you also outline the tasks that remain in progress and the expected dates for completion? If the timeline has changed, please explain the dependencies involved so we can coordinate the next steps and make sure everyone has the resources they need.",
+      "Please include any blockers or risks that could affect delivery, along with the support you would find helpful. We can use your update to agree on practical next steps, clarify ownership, and resolve open questions before they become larger scheduling issues.",
+      "Thank you for your work on this project. Please send the update by the end of the week so we can review it together and confirm our priorities for the coming days. I appreciate your help keeping the team informed and look forward to hearing about the progress.",
+    ].join("\n\n");
+    const { post, args } = getPendingEmailCardFixture(content, "slack", type);
+    expect(await postPendingEmailCard(args)).toBe(true);
+    expect(post).toHaveBeenCalledTimes(1);
+    const blocks = cardToBlockKit(post.mock.calls[0][0]) as KnownBlock[];
+    const draft = blocks
+      .filter((block) => block.type === "section")
+      .slice(1)
+      .map((block) => (block.type === "section" ? block.text?.text : ""))
+      .join("");
+    expect(draft.replace(/\s+/g, " ")).toBe(content.replace(/\s+/g, " "));
+    expect(draft.split("\n\n")).toHaveLength(4);
+    expect(blocks.at(-1)).toMatchObject({
+      type: "actions",
+      elements: [
+        expect.objectContaining({
+          text: expect.objectContaining({ text: "Send" }),
+        }),
+      ],
+    });
+  });
+
+  it.each([
+    3000, 3001, 141_000, 141_001, 180_000,
+  ])("shows all %i draft characters within Slack's section and block limits", async (length) => {
+    const content = "x".repeat(length);
+    const { post, args } = getPendingEmailCardFixture(content);
+    await postPendingEmailCard(args);
+    const cards = post.mock.calls.map(
+      ([card]) => cardToBlockKit(card) as KnownBlock[],
+    );
+    const draft = cards
+      .flatMap((blocks) =>
+        blocks.filter((block) => block.type === "section").slice(1),
+      )
+      .map((block) => (block.type === "section" ? block.text?.text : ""))
+      .join("");
+    expect(draft).toHaveLength(length);
+    expect(draft).toBe(content);
+    for (const blocks of cards) {
+      expect(blocks.length).toBeLessThanOrEqual(50);
+      for (const block of blocks) {
+        if (block.type === "section")
+          expect(block.text?.text.length).toBeLessThanOrEqual(3000);
+      }
+    }
+    expect(
+      cards.flat().filter((block) => block.type === "actions"),
+    ).toHaveLength(1);
+    expect(cards.at(-1)?.at(-1)?.type).toBe("actions");
+    expect(post).toHaveBeenCalledTimes(length > 141_000 ? 2 : 1);
+  });
+
+  it("keeps Unicode intact across Slack sections", async () => {
+    const prefix = "x".repeat(2999);
+    const { post, args } = getPendingEmailCardFixture(
+      `${prefix}😀End of draft.`,
+    );
+    await postPendingEmailCard(args);
+    const sections = cardToBlockKit(post.mock.calls[0][0])
+      .filter((block) => block.type === "section")
+      .slice(1);
+    expect(sections).toMatchObject([
+      { text: { text: prefix } },
+      { text: { text: "😀End of draft." } },
+    ]);
+  });
+
+  it("does not enable Send when a continuation card fails to post", async () => {
+    const { post, args } = getPendingEmailCardFixture("x".repeat(180_000));
+    post
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error("Demo post failure"));
+    expect(await postPendingEmailCard(args)).toBe(false);
+    const firstCard = cardToBlockKit(post.mock.calls[0][0]);
+    expect(firstCard.some((block) => block.type === "actions")).toBe(false);
+  });
+
+  it.each([
+    "slack",
+    "telegram",
+    "teams",
+  ] as const)("keeps short drafts in one %s card", async (provider) => {
+    const content = "Please send a status update.";
+    const { post, args } = getPendingEmailCardFixture(content, provider);
+    await postPendingEmailCard(args);
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(post.mock.calls[0][0].children[1]).toMatchObject({
+      type: "text",
+      content,
+    });
+  });
+
+  it.each([
+    "telegram",
+    "teams",
+  ] as const)("keeps long %s drafts within the existing preview limit", async (provider) => {
+    const { post, args } = getPendingEmailCardFixture(
+      "x".repeat(180_000),
+      provider,
+    );
+    await postPendingEmailCard(args);
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(post.mock.calls[0][0].children[1]).toMatchObject({
+      type: "text",
+      content: `${"x".repeat(600)}...`,
+    });
+  });
+});
+
 describe("getMessagingAiGeneratedPostPayload", () => {
   it("adds an AI content disclosure to Teams assistant messages", () => {
     expect(
@@ -491,15 +615,19 @@ describe("pending email handled state helpers", () => {
     );
   });
 
-  it("renders the sent Outlook link as an action button in Telegram", () => {
+  it.each([
+    "slack",
+    "telegram",
+  ] as const)("uses the Graph sent-message link in %s", (messagingProvider) => {
     const card = buildHandledPendingEmailCard({
       accountEmail: "user@example.com",
       accountProvider: "microsoft",
       confirmationResult: {
         messageId: "message-1",
         threadId: "thread-1",
+        externalUrl: "https://outlook.office.com/owa/?ItemID=sent-1",
       },
-      messagingProvider: "telegram",
+      messagingProvider,
       part: {
         type: "tool-replyEmail",
         state: "output-available",
@@ -529,14 +657,24 @@ describe("pending email handled state helpers", () => {
           expect.objectContaining({
             type: "link-button",
             label: "Open in Outlook",
-            url: "https://outlook.office.com/mail/inbox/id/message-1",
+            url: "https://outlook.office.com/owa/?ItemID=sent-1&ispopout=0",
           }),
         ],
       }),
     ]);
     expect(JSON.stringify(textChildren)).not.toContain(
-      "https://outlook.office.com/mail/inbox/id/message-1",
+      "https://outlook.office.com/owa/?ItemID=sent-1&ispopout=0",
     );
+  });
+
+  it("omits the sent Outlook link when only message ids are available", () => {
+    expect(
+      getPendingEmailHandledOpenText({
+        accountEmail: "user@example.com",
+        accountProvider: "microsoft",
+        confirmationResult: { messageId: "message-1", threadId: "thread-1" },
+      }),
+    ).toBeNull();
   });
 
   it("returns null when the sent message ids are unavailable", () => {
@@ -643,3 +781,45 @@ describe("hasUnsupportedMessagingAttachment", () => {
     ).toBe(true);
   });
 });
+
+function getPendingEmailCardFixture(
+  content: string,
+  provider: Parameters<typeof postPendingEmailCard>[0]["provider"] = "slack",
+  type: Parameters<
+    typeof postPendingEmailCard
+  >[0]["part"]["type"] = "tool-replyEmail",
+) {
+  const post = vi
+    .fn<
+      (
+        card: ReturnType<typeof buildPendingEmailConfirmationCard>,
+      ) => Promise<void>
+    >()
+    .mockResolvedValue(undefined);
+  const args: Parameters<typeof postPendingEmailCard>[0] = {
+    thread: { post } as unknown as Parameters<
+      typeof postPendingEmailCard
+    >[0]["thread"],
+    chatMessageId: "demo-message",
+    part: {
+      type,
+      state: "output-available",
+      toolCallId: "demo-tool-call",
+      output: {
+        confirmationState: "pending",
+        pendingAction: {
+          to: "team@example.com",
+          subject: "Project status update",
+          messageHtml: content
+            .split("\n\n")
+            .map((paragraph) => `<p>${paragraph}</p>`)
+            .join(""),
+          content,
+        },
+      },
+    },
+    provider,
+    logger: createTestLogger(),
+  };
+  return { post, args };
+}

@@ -99,13 +99,14 @@ import type {
   BulkArchiveResult,
   EmailLabelUpdate,
   GetThreadOptions,
+  SendEmailOptions,
 } from "@/utils/email/types";
 import type { SendEmailBody } from "@/utils/types/mail";
 import { getOutlookCategoryPreset } from "@/utils/outlook/category-colors";
 import { unwatchOutlook, watchOutlook } from "@/utils/outlook/watch";
 import { escapeODataString } from "@/utils/outlook/odata-escape";
 import { OutlookLabel } from "@/utils/outlook/constants";
-import { resolveOutlookSearchScope } from "@/utils/outlook/search-scope";
+import { resolveOutlookCategoryName } from "@/utils/outlook/search-scope";
 import {
   extractEmailAddress,
   getSearchTermForSender,
@@ -153,6 +154,47 @@ export class OutlookProvider implements EmailProvider {
 
   toJSON() {
     return { name: this.name, type: "OutlookProvider" };
+  }
+
+  async countMessages({
+    folderId,
+    labelId,
+  }: {
+    folderId?: string;
+    labelId?: string;
+  }): Promise<number> {
+    const categoryName = await resolveOutlookCategoryName({
+      emailProvider: this,
+      categoryName: labelId,
+    });
+    const response = await withMicrosoftGraphRetry(() => {
+      let request = this.client
+        .getClient()
+        .api(
+          folderId
+            ? `/me/mailFolders/${encodeURIComponent(folderId)}/messages`
+            : "/me/messages",
+        )
+        .count(true)
+        .select("id")
+        .top(1);
+      if (categoryName) {
+        request = request.filter(
+          `categories/any(c:c eq '${escapeODataString(categoryName)}')`,
+        );
+      }
+      return request.get();
+    }, this.logger);
+
+    const count = response["@odata.count"];
+    if (
+      typeof count !== "number" ||
+      !Number.isSafeInteger(count) ||
+      count < 0
+    ) {
+      throw new Error("Outlook did not return an exact message count");
+    }
+    return count;
   }
 
   async getThreads(folderId?: string): Promise<EmailThread[]> {
@@ -868,7 +910,7 @@ export class OutlookProvider implements EmailProvider {
     return { messageId: requireSentMessageId(result.id) };
   }
 
-  async sendEmailWithHtml(body: SendEmailBody) {
+  async sendEmailWithHtml(body: SendEmailBody, options?: SendEmailOptions) {
     const result = await sendEmailWithHtml(
       this.client,
       {
@@ -876,6 +918,7 @@ export class OutlookProvider implements EmailProvider {
         attachments: toMailerAttachments(body.attachments),
       },
       this.logger,
+      options,
     );
     return {
       messageId: result.id || "",
@@ -1330,16 +1373,17 @@ export class OutlookProvider implements EmailProvider {
     fromEmail?: string;
     readState?: "read" | "unread";
     labelName?: string;
+    folderId?: string;
     labelIds?: string[];
     includeSpamTrash?: boolean;
     folder?: "spam" | "trash";
   }): Promise<{ messages: ParsedMessage[]; nextPageToken?: string }> {
-    const scope = await resolveOutlookSearchScope({
+    const categoryName = await resolveOutlookCategoryName({
       emailProvider: this,
-      scope: options.labelName,
+      categoryName: options.labelName,
     });
     const folderId =
-      scope.folderId ??
+      options.folderId ??
       (await outlookSpamTrashFolderId({
         client: this.client,
         logger: this.logger,
@@ -1358,7 +1402,7 @@ export class OutlookProvider implements EmailProvider {
           starred: undefined,
         }[mailbox]
       : undefined;
-    const categoryNames = scope.categoryNames;
+    const categoryNames = categoryName ? [categoryName] : [];
 
     const response = await queryBatchMessages(
       this.client,

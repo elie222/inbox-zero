@@ -2,14 +2,14 @@
   "name": "@inboxzero/email-editor",
   "version": "0.1.0",
   "private": true,
-  "description": "Portable email HTML contracts and a Tiptap web editor for Inbox Zero",
+  "description": "Portable email HTML contracts and a Squire web editor for Inbox Zero",
   "license": "SEE LICENSE IN ../../LICENSE",
   "keywords": [
     "email",
     "editor",
     "html",
     "react",
-    "tiptap"
+    "squire"
   ],
   "homepage": "https://github.com/elie222/inbox-zero/tree/main/packages/email-editor#readme",
   "bugs": {
@@ -36,40 +36,16 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "linkifyjs": "4.3.3",
     "parse5": "8.0.1"
   },
   "peerDependencies": {
-    "@tiptap/core": "3.30.2",
-    "@tiptap/extension-image": "3.30.2",
-    "@tiptap/extension-placeholder": "3.30.2",
-    "@tiptap/extension-text-style": "3.30.2",
-    "@tiptap/pm": "3.30.2",
-    "@tiptap/react": "3.30.2",
-    "@tiptap/starter-kit": "3.30.2",
+    "dompurify": "3.4.15",
     "react": ">=19",
-    "react-dom": ">=19"
+    "react-dom": ">=19",
+    "squire-rte": "2.4.9"
   },
   "peerDependenciesMeta": {
-    "@tiptap/core": {
-      "optional": true
-    },
-    "@tiptap/extension-image": {
-      "optional": true
-    },
-    "@tiptap/extension-placeholder": {
-      "optional": true
-    },
-    "@tiptap/extension-text-style": {
-      "optional": true
-    },
-    "@tiptap/pm": {
-      "optional": true
-    },
-    "@tiptap/react": {
-      "optional": true
-    },
-    "@tiptap/starter-kit": {
+    "dompurify": {
       "optional": true
     },
     "react": {
@@ -77,11 +53,20 @@
     },
     "react-dom": {
       "optional": true
+    },
+    "squire-rte": {
+      "optional": true
     }
   },
   "devDependencies": {
+    "@testing-library/react": "16.3.3",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",
+    "dompurify": "3.4.15",
+    "jsdom": "27.3.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "squire-rte": "2.4.9",
     "typescript": "6.0.3",
     "vitest": "4.1.10"
   },

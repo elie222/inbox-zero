@@ -88,6 +88,20 @@ describe("/api/user/drafts/[draftId]", () => {
     const response = await read("draft-1");
     expect(response.status).toBe(404);
     expect(response.headers.get("Cache-Control")).toBe("no-store");
+    await expect(response.json()).resolves.toMatchObject({
+      code: "DRAFT_NOT_FOUND",
+    });
+  });
+
+  it("distinguishes an unavailable account from a missing draft", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue(null);
+    const response = await read("draft-1");
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toEqual({
+      error: "Email account not found",
+      isKnownError: true,
+    });
+    expect(provider.getDraft).not.toHaveBeenCalled();
   });
 
   it("reports provider failure without presenting an empty or missing draft", async () => {

@@ -3,7 +3,10 @@ import {
   getLastMatchingToolCall,
   hasSearchBeforeTool,
   mockMoveThreadToFolder,
+  mockGetFolders,
   mockSearchMessages,
+  mockCountMessages,
+  mockGetLabels,
   runAssistantChat,
   setupInboxWorkflowEval,
   TIMEOUT,
@@ -16,6 +19,7 @@ import {
 } from "@/__tests__/eval/models";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
 import { getMockMessage } from "@/__tests__/helpers";
+import { judgeEvalOutput } from "@/__tests__/eval/semantic-judge";
 import { FOLDER_SEPARATOR } from "@/utils/outlook/folders";
 
 // pnpm --filter inbox-zero-ai test-ai __tests__/eval/assistant-chat-outlook-folders.test.ts
@@ -32,6 +36,289 @@ describe.runIf(shouldRunEval)("Eval: assistant chat Outlook folders", () => {
   describeEvalMatrix(
     "assistant-chat outlook folders",
     (model, emailAccount) => {
+      test.each([
+        ["folder", 7],
+        ["category", 47],
+      ] as const)(
+        "reports the exact Marketing %s count without confusing the same-named scope",
+        async (scope, count) => {
+          const prompt = `How many emails are in my Marketing ${scope}?`;
+          mockGetLabels.mockResolvedValue([
+            { id: "marketing-category", name: "Marketing", type: "user" },
+          ]);
+          mockGetFolders.mockResolvedValue([
+            {
+              id: "marketing-folder",
+              displayName: "Marketing",
+              childFolders: [],
+            },
+          ]);
+          mockCountMessages.mockImplementation(
+            async ({ folderId, labelId }) => {
+              if (folderId === "marketing-folder" && !labelId) return 7;
+              if (!folderId && labelId?.toLowerCase() === "marketing")
+                return 47;
+              throw new Error("Unexpected scope");
+            },
+          );
+          mockSearchMessages.mockResolvedValue({
+            messages: [
+              getMockMessage({ id: "sample-message", subject: "Demo update" }),
+            ],
+            nextPageToken: "MORE_MESSAGES",
+          });
+          const { toolCalls, actual, finalText } = await runAssistantChat({
+            emailAccount: cloneEmailAccountForProvider(
+              emailAccount,
+              "microsoft",
+            ),
+            inboxStats: { total: 200, unread: 8 },
+            messages: [{ role: "user", content: prompt }],
+          });
+          const judge = await judgeEvalOutput({
+            input: prompt,
+            output: finalText,
+            expected: `The Marketing ${scope} contains exactly ${count} emails.`,
+            criterion: {
+              name: "exact_scope_count",
+              description:
+                "Reports the provider's exact total for the requested folder or category, without substituting the search page size, inbox snapshot, or count for the same-named alternative scope.",
+            },
+          });
+          const expectedScope =
+            scope === "folder"
+              ? { folderId: "marketing-folder", labelId: undefined }
+              : { folderId: undefined, labelId: "Marketing" };
+          const pass =
+            judge.pass &&
+            mockCountMessages.mock.calls.some(
+              ([input]) =>
+                input.folderId === expectedScope.folderId &&
+                (input.labelId?.toLowerCase() ?? undefined) ===
+                  expectedScope.labelId?.toLowerCase(),
+            ) &&
+            !toolCalls.some((call) => call.toolName === "manageInbox");
+          evalReporter.record({
+            testName: `exact ${scope} count`,
+            model: model.label,
+            pass,
+            actual: `${actual} | ${finalText} | judge=${judge.reasoning}`,
+          });
+          expect(pass, `${actual} | ${finalText} | ${judge.reasoning}`).toBe(
+            true,
+          );
+        },
+        TIMEOUT,
+      );
+
+      test(
+        "marks all folder pages read and reports the processed count",
+        async () => {
+          const prompt =
+            "Mark all unread emails in my Newsletter folder as read.";
+          mockGetFolders.mockResolvedValue([
+            {
+              id: "folder-newsletter",
+              displayName: "Newsletter",
+              childFolders: [],
+            },
+          ]);
+          const messages = Array.from({ length: 24 }, (_, index) =>
+            getMockMessage({
+              id: `newsletter-message-${index + 1}`,
+              threadId: `newsletter-thread-${index + 1}`,
+              from: "digest@example.com",
+              subject: `Newsletter issue ${index + 1}`,
+              labelIds: ["UNREAD"],
+            }),
+          );
+          mockSearchMessages.mockImplementation(async (input) => {
+            if (input.folderId !== "folder-newsletter" || input.labelName) {
+              return { messages: [], nextPageToken: undefined };
+            }
+            if (!input.pageToken) {
+              return {
+                messages: messages.slice(0, 11),
+                nextPageToken: "PAGE_TOKEN_2",
+              };
+            }
+            if (input.pageToken === "PAGE_TOKEN_2") {
+              return { messages: [], nextPageToken: "PAGE_TOKEN_3" };
+            }
+            return { messages: messages.slice(11), nextPageToken: undefined };
+          });
+
+          const { toolCalls, actual, finalText } = await runAssistantChat({
+            emailAccount: cloneEmailAccountForProvider(
+              emailAccount,
+              "microsoft",
+            ),
+            inboxStats: { total: 35, unread: 24 },
+            messages: [{ role: "user", content: prompt }],
+          });
+          const writes = toolCalls.filter(
+            (call) => call.toolName === "manageInbox",
+          );
+          const threadIds = new Set(
+            writes.flatMap((call) => {
+              const input = call.input as {
+                action: string;
+                threadIds?: string[];
+                read?: boolean;
+              };
+              return input.action === "mark_read_threads" && input.read === true
+                ? (input.threadIds ?? [])
+                : [];
+            }),
+          );
+          const providerCalls = mockSearchMessages.mock.calls.map(
+            ([input]) => input,
+          );
+          const lastSearchIndex = toolCalls.findLastIndex(
+            (call) => call.toolName === "searchInbox",
+          );
+          const firstWriteIndex = toolCalls.findIndex(
+            (call) => call.toolName === "manageInbox",
+          );
+          const judge = await judgeEvalOutput({
+            input: prompt,
+            output: finalText,
+            expected:
+              "All 24 matching folder emails were successfully marked as read.",
+            criterion: {
+              name: "accurate_folder_cleanup_count",
+              description:
+                "The response reports completion for the requested folder and a processed count of 24. It does not treat a partial search page as the full result or claim category-wide changes.",
+            },
+          });
+          const pass =
+            threadIds.size === 24 &&
+            messages.every((message) => threadIds.has(message.threadId)) &&
+            providerCalls.some((input) => input.pageToken === "PAGE_TOKEN_3") &&
+            providerCalls.every(
+              (input) =>
+                input.folderId === "folder-newsletter" && !input.labelName,
+            ) &&
+            firstWriteIndex > lastSearchIndex &&
+            judge.pass;
+          evalReporter.record({
+            testName:
+              "folder mark-read covers every page and reports actual count",
+            model: model.label,
+            pass,
+            actual: `${actual} | ${finalText} | judge=${judge.reasoning}`,
+          });
+          expect(pass, `${actual} | ${finalText} | ${judge.reasoning}`).toBe(
+            true,
+          );
+        },
+        TIMEOUT,
+      );
+
+      test(
+        "marks all folder pages read and reports the processed count",
+        async () => {
+          const prompt =
+            "Mark all unread emails in my Newsletter folder as read.";
+          mockGetFolders.mockResolvedValue([
+            {
+              id: "folder-newsletter",
+              displayName: "Newsletter",
+              childFolders: [],
+            },
+          ]);
+          const messages = Array.from({ length: 24 }, (_, index) =>
+            getMockMessage({
+              id: `newsletter-message-${index + 1}`,
+              threadId: `newsletter-thread-${index + 1}`,
+              from: "digest@example.com",
+              subject: `Newsletter issue ${index + 1}`,
+              labelIds: ["UNREAD"],
+            }),
+          );
+          mockSearchMessages.mockImplementation(async (input) => {
+            if (input.folderId !== "folder-newsletter" || input.labelName) {
+              return { messages: [], nextPageToken: undefined };
+            }
+            if (!input.pageToken) {
+              return {
+                messages: messages.slice(0, 11),
+                nextPageToken: "PAGE_TOKEN_2",
+              };
+            }
+            if (input.pageToken === "PAGE_TOKEN_2") {
+              return { messages: [], nextPageToken: "PAGE_TOKEN_3" };
+            }
+            return { messages: messages.slice(11), nextPageToken: undefined };
+          });
+
+          const { toolCalls, actual, finalText } = await runAssistantChat({
+            emailAccount: cloneEmailAccountForProvider(
+              emailAccount,
+              "microsoft",
+            ),
+            inboxStats: { total: 35, unread: 24 },
+            messages: [{ role: "user", content: prompt }],
+          });
+          const writes = toolCalls.filter(
+            (call) => call.toolName === "manageInbox",
+          );
+          const threadIds = new Set(
+            writes.flatMap((call) => {
+              const input = call.input as {
+                action: string;
+                threadIds?: string[];
+                read?: boolean;
+              };
+              return input.action === "mark_read_threads" && input.read === true
+                ? (input.threadIds ?? [])
+                : [];
+            }),
+          );
+          const providerCalls = mockSearchMessages.mock.calls.map(
+            ([input]) => input,
+          );
+          const lastSearchIndex = toolCalls.findLastIndex(
+            (call) => call.toolName === "searchInbox",
+          );
+          const firstWriteIndex = toolCalls.findIndex(
+            (call) => call.toolName === "manageInbox",
+          );
+          const judge = await judgeEvalOutput({
+            input: prompt,
+            output: finalText,
+            expected:
+              "All 24 matching folder emails were successfully marked as read.",
+            criterion: {
+              name: "accurate_folder_cleanup_count",
+              description:
+                "The response reports completion for the requested folder and a processed count of 24. It does not treat a partial search page as the full result or claim category-wide changes.",
+            },
+          });
+          const pass =
+            threadIds.size === 24 &&
+            messages.every((message) => threadIds.has(message.threadId)) &&
+            providerCalls.some((input) => input.pageToken === "PAGE_TOKEN_3") &&
+            providerCalls.every(
+              (input) =>
+                input.folderId === "folder-newsletter" && !input.labelName,
+            ) &&
+            firstWriteIndex > lastSearchIndex &&
+            judge.pass;
+          evalReporter.record({
+            testName:
+              "folder mark-read covers every page and reports actual count",
+            model: model.label,
+            pass,
+            actual: `${actual} | ${finalText} | judge=${judge.reasoning}`,
+          });
+          expect(pass, `${actual} | ${finalText} | ${judge.reasoning}`).toBe(
+            true,
+          );
+        },
+        TIMEOUT,
+      );
+
       test(
         "moves searched messages to an Outlook folder",
         async () => {

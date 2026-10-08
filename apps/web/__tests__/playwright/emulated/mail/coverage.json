@@ -148,6 +148,7 @@
   "starring.spec.ts": [
     "app/(app)/[emailAccountId]/mail/star-state.ts",
     "app/(app)/[emailAccountId]/mail/ThreadRow.tsx",
+    "app/(app)/[emailAccountId]/mail/ListToolbar.tsx",
     "app/(app)/[emailAccountId]/mail/mail-command-palette.ts",
     "app/(app)/[emailAccountId]/mail/use-thread-actions.ts",
     "components/CommandK.tsx",
