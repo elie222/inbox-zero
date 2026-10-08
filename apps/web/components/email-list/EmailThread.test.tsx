@@ -5,6 +5,7 @@ import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ThreadMessage } from "@/components/email-list/types";
 import {
+  hideDiscardedDraftMessages,
   rememberReplacedDraftMessage,
   type StoredReplyDraft,
 } from "@/utils/mail-engine/reply-drafts";
@@ -276,6 +277,59 @@ describe("EmailThread outgoing replies", () => {
 
     expect(screen.queryByRole("textbox", { name: "Email message" })).toBeNull();
     localDrafts.current = [];
+  });
+});
+
+describe("EmailThread mailbox copies of local replies", () => {
+  afterEach(() => {
+    cleanup();
+    localDrafts.current = [];
+  });
+
+  it("edits a reply from its local copy once its mailbox copy syncs back", () => {
+    localDrafts.current = [
+      {
+        emailAccountId: "account-1",
+        threadId: "thread-1",
+        messageId: "parent:reply",
+        revision: 1,
+        content: {
+          composeMode: "reply",
+          providerDraftMessageId: "mailbox-copy",
+        } as StoredReplyDraft["content"],
+        updatedAt: 1,
+      },
+    ];
+    render(
+      <EmailThread
+        messages={[
+          createReaderMessage("parent", "1000"),
+          createReaderDraft("mailbox-copy", "2000"),
+        ]}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    const composers = screen.getAllByRole("textbox", { name: "Email message" });
+    expect(composers).toHaveLength(1);
+    expect(composers[0]?.dataset.draftSessionId).toBe("parent:reply");
+  });
+
+  it("hides a discarded reply's mailbox copy until sync removes it", () => {
+    hideDiscardedDraftMessages("account-1", ["discarded-copy"]);
+    render(
+      <EmailThread
+        messages={[
+          createReaderMessage("parent", "1000"),
+          createReaderDraft("discarded-copy", "2000"),
+        ]}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    expect(screen.queryByRole("textbox", { name: "Email message" })).toBeNull();
   });
 });
 

@@ -2,10 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearLocalReplyDrafts,
   createReplyDraftWriter,
+  getDraftSessionMessageIds,
   getReplyDraft,
   getReplyDraftForSession,
   getReplyDrafts,
   getReplyDraftSessionId,
+  rememberReplacedDraftMessage,
   restoreUnsentReplyDraft,
   updateReplyDraftProviderState,
   type ReplyDraftContent,
@@ -246,6 +248,61 @@ describe("local reply drafts", () => {
 
     expect(client.conflicts).toBe(0);
     expect(client.saveDraft).toHaveBeenCalledTimes(2);
+    setActiveMailClient(null);
+  });
+
+  it.each([
+    ["one account", "account"],
+    ["every account", undefined],
+  ])("does not restore a draft read while %s was being cleared", async (_, clearedAccount) => {
+    const { setActiveMailClient } = await import("./active-client");
+    const client = createRevisionCheckingClient();
+    setActiveMailClient(client as never);
+    await createReplyDraftWriter(replyIdentity).save(content);
+    clearLocalReplyDrafts();
+    const readDraft = client.readDraft;
+    client.readDraft = async (key) => {
+      const result = await readDraft(key);
+      clearLocalReplyDrafts(clearedAccount);
+      return result;
+    };
+
+    expect(
+      await getReplyDrafts("account", "thread", [identity.messageId]),
+    ).toEqual([]);
+    setActiveMailClient(null);
+  });
+
+  it("lists a draft's saved copies with the newest last", () => {
+    rememberReplacedDraftMessage("account", "copy-a", "copy-b");
+    rememberReplacedDraftMessage("account", "copy-b", "copy-c");
+
+    expect(getDraftSessionMessageIds("account", "copy-c").at(-1)).toBe(
+      "copy-c",
+    );
+  });
+
+  it("lists a thread's reply drafts saved before a reload", async () => {
+    const { setActiveMailClient } = await import("./active-client");
+    const client = createRevisionCheckingClient();
+    setActiveMailClient(client as never);
+    await createReplyDraftWriter(replyIdentity).save({
+      ...content,
+      composeMode: "reply",
+    });
+    clearLocalReplyDrafts();
+
+    const listed = await getReplyDrafts("account", "thread", [
+      "earlier",
+      identity.messageId,
+    ]);
+
+    expect(listed).toMatchObject([
+      {
+        messageId: replyIdentity.messageId,
+        content: { draft: { editableHtml: "<p>My reply</p>" } },
+      },
+    ]);
     setActiveMailClient(null);
   });
 
