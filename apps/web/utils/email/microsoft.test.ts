@@ -67,6 +67,106 @@ afterEach(() => {
   });
 });
 
+describe("OutlookProvider.countMessages", () => {
+  it.each([
+    0, 7, 47,
+  ])("returns exact folder count %s independently of page size", async (count) => {
+    const client = createMockOutlookClient([], {
+      responsesByApiPath: {
+        "/me/mailFolders/marketing-folder/messages": {
+          value: count ? [createMessage({ id: "one-message" })] : [],
+          "@odata.count": count,
+          "@odata.nextLink":
+            "https://graph.microsoft.com/v1.0/me/messages?$skip=1",
+        },
+      },
+    });
+    const provider = new OutlookProvider(client, createTestLogger());
+    const getLabels = vi.spyOn(provider, "getLabels");
+    await expect(
+      provider.countMessages({ folderId: "marketing-folder" }),
+    ).resolves.toBe(count);
+    expect(getLabels).not.toHaveBeenCalled();
+    expect(client.getRequestLog()).toEqual([
+      {
+        apiPath: "/me/mailFolders/marketing-folder/messages",
+        filter: undefined,
+        search: undefined,
+      },
+    ]);
+    expect(client.getCountLog()).toEqual([true]);
+    expect(client.getSelectLog()).toEqual(["id"]);
+  });
+
+  it("counts category membership across folders using an escaped canonical category name", async () => {
+    const client = createMockOutlookClient([], {
+      responsesByApiPath: { "/me/messages": { value: [], "@odata.count": 37 } },
+    });
+    const provider = new OutlookProvider(client, createTestLogger());
+    vi.spyOn(provider, "getLabels").mockResolvedValue([
+      { id: "category-1", name: "Marketing's", type: "user" },
+    ]);
+    await expect(
+      provider.countMessages({ labelId: "category-1" }),
+    ).resolves.toBe(37);
+    expect(client.getRequestLog()).toEqual([
+      {
+        apiPath: "/me/messages",
+        filter: "categories/any(c:c eq 'Marketing''s')",
+        search: undefined,
+      },
+    ]);
+  });
+
+  it("intersects folder and category scopes", async () => {
+    const client = createMockOutlookClient([], {
+      responsesByApiPath: {
+        "/me/mailFolders/folder-1/messages": { value: [], "@odata.count": 3 },
+      },
+    });
+    const provider = new OutlookProvider(client, createTestLogger());
+    vi.spyOn(provider, "getLabels").mockResolvedValue([
+      { id: "category-1", name: "Marketing", type: "user" },
+    ]);
+    await expect(
+      provider.countMessages({ folderId: "folder-1", labelId: "marketing" }),
+    ).resolves.toBe(3);
+    expect(client.getRequestLog()[0]).toMatchObject({
+      apiPath: "/me/mailFolders/folder-1/messages",
+      filter: "categories/any(c:c eq 'Marketing')",
+    });
+  });
+
+  it("rejects an unknown category instead of counting the whole mailbox", async () => {
+    const client = createMockOutlookClient([]);
+    const provider = new OutlookProvider(client, createTestLogger());
+    vi.spyOn(provider, "getLabels").mockResolvedValue([]);
+    await expect(
+      provider.countMessages({ labelId: "missing" }),
+    ).rejects.toThrow("category not found");
+    expect(client.getRequestLog()).toEqual([]);
+  });
+
+  it.each([
+    undefined,
+    -1,
+    1.5,
+  ])("rejects missing or invalid counts (%s) rather than using page length", async (count) => {
+    const client = createMockOutlookClient([], {
+      responsesByApiPath: {
+        "/me/messages": {
+          value: [createMessage({ id: "one-message" })],
+          "@odata.count": count,
+        },
+      },
+    });
+    const provider = new OutlookProvider(client, createTestLogger());
+    await expect(provider.countMessages({})).rejects.toThrow(
+      "exact message count",
+    );
+  });
+});
+
 describe("OutlookProvider.searchMessages", () => {
   it.each([
     ["sent", "sentitems", "sent-folder-id", false, "SENT"],
@@ -1904,7 +2004,11 @@ function createMockOutlookClient(
     folderIdCache?: Record<string, string> | null;
     responsesByApiPath?: Record<
       string,
-      | { value: Message[]; "@odata.nextLink"?: string }
+      | {
+          value: Message[];
+          "@odata.nextLink"?: string;
+          "@odata.count"?: number;
+        }
       | ((request: { filter?: string; search?: string }) => {
           value: Message[];
           "@odata.nextLink"?: string;
@@ -1930,6 +2034,7 @@ function createMockOutlookClient(
     search?: string;
   }> = [];
   const selectLog: string[] = [];
+  const countLog: boolean[] = [];
 
   return {
     getClient: () => ({
@@ -1948,6 +2053,10 @@ function createMockOutlookClient(
           },
           select: (value: string) => {
             selectLog.push(value);
+            return request;
+          },
+          count: (value: boolean) => {
+            countLog.push(value);
             return request;
           },
           expand: () => request,
@@ -1996,6 +2105,7 @@ function createMockOutlookClient(
     },
     getRequestLog: () => requestLog,
     getSelectLog: () => selectLog,
+    getCountLog: () => countLog,
   } as any;
 }
 

@@ -884,6 +884,9 @@ function idleCatchUpStore(
       return false;
     },
     async releaseDeferredOperations() {},
+    async indexContactBacklog() {
+      return { remaining: false };
+    },
     async indexSearchBacklog() {
       return { remaining: false };
     },

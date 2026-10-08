@@ -152,6 +152,30 @@ export class GmailProvider implements EmailProvider {
     return { name: this.name, type: "GmailProvider" };
   }
 
+  async countMessages({
+    folderId,
+    labelId,
+  }: {
+    folderId?: string;
+    labelId?: string;
+  }): Promise<number> {
+    if (folderId) throw new Error("Gmail does not support mail folder scopes");
+    return this.withRateLimitTracking("count-messages", async () => {
+      const response = labelId
+        ? await this.client.users.labels.get({ userId: "me", id: labelId })
+        : await this.client.users.getProfile({ userId: "me" });
+      const count = response.data.messagesTotal;
+      if (
+        typeof count !== "number" ||
+        !Number.isSafeInteger(count) ||
+        count < 0
+      ) {
+        throw new Error("Gmail did not return an exact message count");
+      }
+      return count;
+    });
+  }
+
   async getThreads(labelId?: string): Promise<EmailThread[]> {
     return this.withRateLimitTracking("get-threads", async () => {
       const response = await this.client.users.threads.list({

@@ -2,53 +2,28 @@ import { describe, expect, it } from "vitest";
 import {
   GMAIL_DRAFT_FIXTURE,
   OUTLOOK_DRAFT_FIXTURE,
-  RTL_EDITABLE_FIXTURE,
-  UNSUPPORTED_EDITABLE_FIXTURE,
 } from "../fixtures/email-html";
 import {
   EMAIL_ATTACHMENT_LIMITS,
-  canOpenEmailLink,
   combineEmailHtml,
   createInlineContentId,
   detectInlineImageMimeType,
   finalizeEditableEmailHtml,
-  normalizeEmailUrl,
-  prepareEditableSignatureHtml,
   prepareEmailDraft,
-  sanitizeEditableEmailHtml,
   sanitizePreservedEmailHtmlForPreview,
   validateEmailAttachments,
   type EmailComposerAttachment,
 } from "./email-html";
+import { canOpenEmailLink } from "./email-profile";
 
 const PNG_BASE64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
 
 describe("prepareEmailDraft", () => {
-  it("normalizes provider-equivalent markup into the portable email profile", () => {
-    const result = prepareEmailDraft({ html: RTL_EDITABLE_FIXTURE });
-
-    expect(result.mode).toBe("rich");
-    expect(result.editableHtml).toBe(
-      '<p dir="rtl">שלום <strong>עולם</strong></p><p dir="rtl"><br></p><p dir="rtl"><em>שורה שנייה</em></p>',
-    );
-    expect(result.unsupported).toEqual([]);
-  });
-
-  it("keeps unsupported editable layouts byte-for-byte in safe fallback mode", () => {
-    const result = prepareEmailDraft({
-      html: UNSUPPORTED_EDITABLE_FIXTURE,
-    });
-
-    expect(result.mode).toBe("fallback");
-    expect(result.editableHtml).toBe(UNSUPPORTED_EDITABLE_FIXTURE);
-    expect(result.unsupported).toContain("table");
-  });
-
-  it("separates Gmail signatures and complex quotes without parsing them into the editor", () => {
+  it("separates Gmail signatures and complex quotes", () => {
     const result = prepareEmailDraft({ html: GMAIL_DRAFT_FIXTURE });
 
-    expect(result.mode).toBe("rich");
+    expect(result.mode).toBe("original");
     expect(result.editableHtml).toContain("Thanks for the update.");
     expect(result.editableHtml).not.toContain("gmail_signature");
     expect(result.signatureHtml).toContain("Example Company");
@@ -56,14 +31,24 @@ describe("prepareEmailDraft", () => {
     expect(result.quotedHtml).toContain("gmail_quote_container");
   });
 
-  it("separates Outlook signatures and reply containers while preserving RTL", () => {
+  it("separates Outlook signatures and reply containers", () => {
     const result = prepareEmailDraft({ html: OUTLOOK_DRAFT_FIXTURE });
 
-    expect(result.mode).toBe("rich");
-    expect(result.editableHtml).toBe('<p dir="rtl">תודה על העדכון</p>');
+    expect(result.editableHtml).toBe(
+      '<div dir="rtl"><p>תודה על העדכון</p></div>',
+    );
     expect(result.signatureHtml).toContain('id="Signature"');
     expect(result.quotedHtml).toContain('id="divRplyFwdMsg"');
     expect(result.quotedHtml).toContain("Original Outlook table");
+  });
+
+  it("keeps the provider body exactly as written", () => {
+    const html =
+      '<div dir="rtl">שלום <b>עולם</b><!--[if mso]>x<![endif]--></div>';
+    expect(prepareEmailDraft({ html })).toMatchObject({
+      editableHtml: html,
+      mode: "original",
+    });
   });
 
   it("separates quotes after long runs of provider break markup", () => {
@@ -84,78 +69,29 @@ describe("prepareEmailDraft", () => {
       quotedHtml: quote,
     });
 
-    expect(result.editableHtml).toBe("<p>Hello</p>");
+    expect(result.editableHtml).toBe("<div>Hello</div>");
     expect(result.quotedHtml).toBe(quote);
   });
 
-  it("does not silently flatten unsupported list or styled-span semantics", () => {
-    const listItem = prepareEmailDraft({
-      html: '<ol><li value="4">Fourth</li></ol>',
+  it("finds an edited signature again when a sent draft is reopened", () => {
+    const sent = finalizeEditableEmailHtml({
+      mode: "edited",
+      html: '<div>Hello</div><div data-smartmail="gmail_signature"><div><br></div><div>Edited <a href="https://example.com/new">link</a></div></div>',
+      inlineAttachments: [],
     });
-    const styledSpan = prepareEmailDraft({
-      html: '<p><span style="font-weight:500">Medium</span></p>',
-    });
-
-    expect(listItem.mode).toBe("fallback");
-    expect(listItem.editableHtml).toBe('<ol><li value="4">Fourth</li></ol>');
-    expect(styledSpan.mode).toBe("fallback");
-    expect(styledSpan.editableHtml).toBe(
-      '<p><span style="font-weight:500">Medium</span></p>',
-    );
-  });
-
-  it("ignores formatting whitespace between blocks and retains inline Content-IDs", () => {
-    const result = prepareEmailDraft({
-      html: '\n<p>First</p>\n<p><img src="cid:image@example" data-content-id="image@example" alt="Image"></p>\n',
+    const reopened = prepareEmailDraft({
+      html: sent,
+      signatureHtml: "<div>Original signature</div>",
     });
 
-    expect(result.mode).toBe("rich");
-    expect(result.editableHtml).toBe(
-      '<p>First</p><p><img src="cid:image@example" data-content-id="image@example" alt="Image"></p>',
-    );
-  });
-
-  it("edits text colors, fonts, and sizes without falling back", () => {
-    const result = prepareEmailDraft({
-      html: '<div class="gmail_default"><span style="color:#555;font-size:12px">Muted</span> <font color="#0b5394" face="arial, sans-serif" size="1">Small</font></div>',
-    });
-
-    expect(result.mode).toBe("rich");
-    expect(result.editableHtml).toBe(
-      '<p><span style="color:#555;font-size:12px">Muted</span> <span style="color:#0b5394;font-family:arial, sans-serif;font-size:10px">Small</span></p>',
-    );
-  });
-
-  it("keeps drafts with link targets or language metadata lossless", () => {
-    for (const html of [
-      '<p><a href="#details">Details</a></p><p id="details">More</p>',
-      '<p lang="fr">Bonjour</p>',
-    ]) {
-      const result = prepareEmailDraft({ html });
-      expect(result.mode).toBe("fallback");
-      expect(result.editableHtml).toBe(html);
-    }
-  });
-
-  it("falls back for text styles that could inject CSS", () => {
-    const result = prepareEmailDraft({
-      html: '<p><span style="color:red;background:url(https://tracker.example)">Text</span></p>',
-    });
-
-    expect(result.mode).toBe("fallback");
-  });
-
-  it("uses the lossless fallback for remote editable images", () => {
-    const html = '<p><img src="https://tracker.example/image.png"></p>';
-    const result = prepareEmailDraft({ html });
-
-    expect(result.mode).toBe("fallback");
-    expect(result.editableHtml).toBe(html);
+    expect(reopened.editableHtml).toBe("<div>Hello</div>");
+    expect(reopened.signatureHtml).toContain("Edited");
+    expect(reopened.signatureHtml).not.toContain("Original signature");
   });
 });
 
 describe("outgoing HTML", () => {
-  it("combines canonical reply, preserved signature, and quote in provider order", () => {
+  it("combines the reply, preserved signature, and quote in provider order", () => {
     expect(
       combineEmailHtml({
         editableHtml: "<p>Hello</p>",
@@ -178,6 +114,7 @@ describe("outgoing HTML", () => {
 
   it("rewrites composer previews to matching Content-ID URLs and rejects data URLs", () => {
     const result = finalizeEditableEmailHtml({
+      mode: "edited",
       html: '<p>Diagram <img src="blob:https://app.example/preview" data-content-id="inline-1@example" alt="Diagram"></p><img src="data:image/png;base64,AAAA">',
       inlineAttachments: [
         attachment({
@@ -192,61 +129,6 @@ describe("outgoing HTML", () => {
     expect(result).not.toContain("blob:");
     expect(result).not.toContain("data:image");
     expect(result).not.toContain("data-content-id");
-  });
-});
-
-describe("editable signatures", () => {
-  it("makes simple provider signatures editable inside one signature container", () => {
-    expect(
-      prepareEditableSignatureHtml(
-        '<div dir="ltr" class="gmail_signature" data-smartmail="gmail_signature"><div>Example Person</div><font color="#666666">Example Company</font></div><br><div>Sent with <a href="https://example.com/ref">Inbox Zero</a></div>',
-      ),
-    ).toBe(
-      '<div data-smartmail="gmail_signature"><p></p><p dir="ltr">Example Person</p><p dir="ltr"><span style="color:#666666">Example Company</span></p><p></p><p>Sent with <a href="https://example.com/ref" target="_blank" rel="noopener noreferrer">Inbox Zero</a></p></div>',
-    );
-  });
-
-  it("edits simple Outlook signatures despite their container id", () => {
-    expect(
-      prepareEditableSignatureHtml('<div id="Signature"><p>Regards</p></div>'),
-    ).toBe('<div data-smartmail="gmail_signature"><p></p><p>Regards</p></div>');
-  });
-
-  it("adds one blank line before the signature and keeps it when reopened", () => {
-    const editable = prepareEditableSignatureHtml("<div>Regards</div>");
-    expect(editable).toBe(
-      '<div data-smartmail="gmail_signature"><p></p><p>Regards</p></div>',
-    );
-    expect(prepareEditableSignatureHtml(editable ?? "")).toBe(editable);
-  });
-
-  it("keeps signatures protected when editing would lose layout or remote images", () => {
-    expect(
-      prepareEditableSignatureHtml(
-        '<table role="presentation"><tbody><tr><td>Example Person</td></tr></tbody></table>',
-      ),
-    ).toBeNull();
-    expect(
-      prepareEditableSignatureHtml('<img src="https://example.com/logo.png">'),
-    ).toBeNull();
-  });
-
-  it("sends an edited signature and finds it again when the draft is reopened", () => {
-    const sent = finalizeEditableEmailHtml({
-      html: '<p>Hello</p><div data-smartmail="gmail_signature"><p></p><p>Edited <a href="https://example.com/new">link</a></p></div>',
-      inlineAttachments: [],
-    });
-    expect(sent).toBe(
-      '<p>Hello</p><div data-smartmail="gmail_signature"><p></p><p>Edited <a href="https://example.com/new" target="_blank" rel="noopener noreferrer">link</a></p></div>',
-    );
-
-    const reopened = prepareEmailDraft({
-      html: sent,
-      signatureHtml: "<div>Original signature</div>",
-    });
-    expect(reopened.editableHtml).toBe("<p>Hello</p>");
-    expect(reopened.signatureHtml).toContain("Edited");
-    expect(reopened.signatureHtml).not.toContain("Original signature");
   });
 });
 
@@ -266,43 +148,23 @@ describe("preserved HTML preview", () => {
     expect(result).not.toContain("contenteditable");
     expect(result).toContain("width:100%");
   });
-});
 
-describe("editable HTML boundary", () => {
-  it("removes active content, unsafe URLs, and remote tracking images", () => {
-    expect(
-      sanitizeEditableEmailHtml(
-        '<p onclick="steal()">Safe<script>steal()</script><a href="javascript:steal()">link</a><img src="https://tracker.example/pixel"></p>',
-      ),
-    ).toBe("<p>Safe<a>link</a></p>");
-  });
-
-  it("keeps supported formatting and local inline-image previews", () => {
-    expect(
-      sanitizeEditableEmailHtml(
-        '<section><p dir="rtl"><span style="font-weight:700;color:red;position:fixed">שלום</span><img src="file:///tmp/image.png" width="120" height="80" onerror="steal()"></p></section>',
-      ),
-    ).toBe(
-      '<p dir="rtl"><span style="font-weight:700;color:red">שלום</span><img src="file:///tmp/image.png" width="120" height="80"></p>',
+  it.each([
+    '<noscript><img src="https://tracker.example/pixel"></noscript>',
+    '<math><mtext><table><mglyph><style><img src="https://tracker.example/pixel"></style></mglyph></table></mtext></math>',
+    "<div><style>body{background:url(https://tracker.example/bg)}</style></div>",
+    '<link rel="stylesheet" href="https://tracker.example/style.css">',
+  ])("never lets a preview reach the sender's host: %s", (html) => {
+    expect(sanitizePreservedEmailHtmlForPreview(html)).not.toContain(
+      "tracker.example",
     );
-  });
-
-  it("unwraps harmless unsupported containers without retaining their attributes", () => {
-    expect(
-      sanitizeEditableEmailHtml(
-        '<main class="layout"><p>Hello <mark data-token="secret">there</mark></p></main>',
-      ),
-    ).toBe("<p>Hello there</p>");
   });
 });
 
 describe("portable composer helpers", () => {
-  it("normalizes ordinary links and rejects executable schemes", () => {
-    expect(normalizeEmailUrl("example.com/path")).toBe(
-      "https://example.com/path",
-    );
-    expect(normalizeEmailUrl("javascript:alert(1)")).toBeNull();
+  it("only opens web, email, and telephone links", () => {
     expect(canOpenEmailLink("mailto:hello@example.com")).toBe(true);
+    expect(canOpenEmailLink("javascript:alert(1)")).toBe(false);
     expect(canOpenEmailLink("#reply")).toBe(false);
   });
 

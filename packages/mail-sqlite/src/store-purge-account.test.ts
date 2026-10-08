@@ -8,6 +8,10 @@ import { createNodeSqliteDriver } from "./node-sqlite";
 import { createSqliteMailStore } from "./store";
 
 const ACCOUNT_TABLES = [
+  "contact_interactions",
+  "contact_stats",
+  "contact_tokens",
+  "contact_indexed_messages",
   "message_content",
   "effective_messages",
   "operation_targets",
@@ -55,6 +59,13 @@ describe("sqlite mail store purgeAccount", () => {
     for (const table of ACCOUNT_TABLES) {
       expect(counts[table], table).toBe(0);
     }
+    for (const table of [
+      "contact_interactions",
+      "contact_stats",
+      "contact_tokens",
+      "contact_indexed_messages",
+    ])
+      expect(counts[table], table).toBe(0);
     expect(counts.message_fts).toBe(0);
     expect(counts.unkeyed_fts).toBe(0);
     const remainingCounts = countAccountRows(path, "acc-2");
@@ -88,6 +99,13 @@ describe("sqlite mail store purgeAccount", () => {
     expect(purged).toEqual(before.revision);
     await reopened.close();
     const counts = countAccountRows(path, "acc-1");
+    for (const table of [
+      "contact_interactions",
+      "contact_stats",
+      "contact_tokens",
+      "contact_indexed_messages",
+    ])
+      expect(counts[table], table).toBe(0);
     expect(counts.message_fts).toBe(0);
     expect(counts.unkeyed_fts).toBe(0);
     expect(countAccountRows(path, "acc-2").accounts).toBe(1);
