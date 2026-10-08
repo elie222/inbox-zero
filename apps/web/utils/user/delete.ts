@@ -10,9 +10,7 @@ import {
   trackUserDeletionRequested,
 } from "@/utils/posthog";
 import { captureException, SafeError } from "@/utils/error";
-import { unwatchEmails } from "@/utils/email/watch-manager";
-import { createEmailProvider } from "@/utils/email/provider";
-import type { EmailProvider } from "@/utils/email/types";
+import { stopWatchingEmailAccount } from "@/utils/email/watch-manager";
 import type { Logger } from "@/utils/logger";
 import { prepareMemberRemovalNotifications } from "@/utils/team-comments/member-removal";
 import { deleteAccountUploadDirectory } from "@/utils/mail-api/upload-blobs";
@@ -137,44 +135,6 @@ export async function deleteUser({
   }
 }
 
-export async function unwatchDeletedEmailAccount({
-  emailAccountId,
-  provider,
-  hasAccessToken,
-  subscriptionId,
-  logger,
-}: {
-  emailAccountId: string;
-  provider: string;
-  hasAccessToken: boolean;
-  subscriptionId: string | null;
-  logger: Logger;
-}) {
-  if (!hasAccessToken) return;
-
-  let emailProvider: EmailProvider;
-  try {
-    emailProvider = await createEmailProvider({
-      emailAccountId,
-      provider,
-      logger,
-    });
-  } catch (error) {
-    logger.warn("Could not create provider to unwatch deleted account", {
-      emailAccountId,
-      error,
-    });
-    return;
-  }
-
-  await unwatchEmails({
-    emailAccountId,
-    provider: emailProvider,
-    subscriptionId,
-    logger,
-  });
-}
-
 async function deleteSoloOrganizations({
   organizationIds,
   deletedEmailAccountIds,
@@ -216,7 +176,7 @@ async function deleteResources({
   try {
     // These read the account's tokens and recordings, which cascade with the
     // user, so they must finish before the rows go.
-    await unwatchDeletedEmailAccount({
+    await stopWatchingEmailAccount({
       emailAccountId,
       provider,
       hasAccessToken,

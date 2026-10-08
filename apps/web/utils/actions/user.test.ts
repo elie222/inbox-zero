@@ -6,7 +6,8 @@ import { updateAccountSeats } from "@/utils/premium/seats";
 import { aliasPosthogUser } from "@/utils/posthog";
 import { betterAuthConfig } from "@/utils/auth";
 import { deleteAccountUploadDirectory } from "@/utils/mail-api/upload-blobs";
-import { deleteUser, unwatchDeletedEmailAccount } from "@/utils/user/delete";
+import { deleteUser } from "@/utils/user/delete";
+import { stopWatchingEmailAccount } from "@/utils/email/watch-manager";
 import { clearLastEmailAccountCookie } from "@/utils/cookies.server";
 import { LAST_EMAIL_ACCOUNT_COOKIE } from "@/utils/cookies";
 import { publishConversationChange } from "@/utils/team-comments/events";
@@ -50,7 +51,9 @@ vi.mock("@inboxzero/tinybird", () => ({
 }));
 vi.mock("@/utils/user/delete", () => ({
   deleteUser: vi.fn(),
-  unwatchDeletedEmailAccount: vi.fn(),
+}));
+vi.mock("@/utils/email/watch-manager", () => ({
+  stopWatchingEmailAccount: vi.fn(),
 }));
 vi.mock("@/utils/posthog", () => ({
   aliasPosthogUser: vi.fn(),
@@ -237,7 +240,7 @@ describe("deleteEmailAccountAction", () => {
     });
 
     expect(result?.serverError).toBeUndefined();
-    expect(unwatchDeletedEmailAccount).toHaveBeenCalledWith(
+    expect(stopWatchingEmailAccount).toHaveBeenCalledWith(
       expect.objectContaining({
         emailAccountId: "secondary-account",
         provider: "microsoft",
@@ -246,7 +249,7 @@ describe("deleteEmailAccountAction", () => {
       }),
     );
     expect(
-      vi.mocked(unwatchDeletedEmailAccount).mock.invocationCallOrder[0],
+      vi.mocked(stopWatchingEmailAccount).mock.invocationCallOrder[0],
     ).toBeLessThan(prisma.$transaction.mock.invocationCallOrder[0]);
   });
 
@@ -258,7 +261,7 @@ describe("deleteEmailAccountAction", () => {
     });
 
     expect(result?.serverError).toBeDefined();
-    expect(unwatchDeletedEmailAccount).not.toHaveBeenCalled();
+    expect(stopWatchingEmailAccount).not.toHaveBeenCalled();
   });
 
   it("deletes staged mail uploads after a successful non-primary account delete", async () => {

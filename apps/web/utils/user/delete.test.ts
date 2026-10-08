@@ -6,7 +6,6 @@ import prisma from "@/utils/__mocks__/prisma";
 import { deleteAccountUploadDirectory } from "@/utils/mail-api/upload-blobs";
 import { deleteUser } from "@/utils/user/delete";
 import { deleteTinybirdEmailData } from "@inboxzero/tinybird";
-import { createEmailProvider } from "@/utils/email/provider";
 import { publishConversationChange } from "@/utils/team-comments/events";
 import { deleteContact as deleteLoopsContact } from "@inboxzero/loops";
 import { releaseAccountBookings } from "@/utils/meeting-recorder/reconcile";
@@ -34,10 +33,7 @@ vi.mock("@/utils/posthog", () => ({
   trackUserDeletionRequested: vi.fn(() => Promise.resolve()),
 }));
 vi.mock("@/utils/email/watch-manager", () => ({
-  unwatchEmails: vi.fn(),
-}));
-vi.mock("@/utils/email/provider", () => ({
-  createEmailProvider: vi.fn(),
+  stopWatchingEmailAccount: vi.fn(),
 }));
 vi.mock("@/utils/team-comments/events", () => ({
   publishConversationChange: vi.fn(),
@@ -264,33 +260,6 @@ describe("deleteUser", () => {
     expect(
       vi.mocked(deleteAccountRecordingMedia).mock.invocationCallOrder[0],
     ).toBeLessThan(prisma.$transaction.mock.invocationCallOrder[0]);
-  });
-
-  it("deletes a user when a revoked token prevents provider creation", async () => {
-    prisma.account.findMany.mockResolvedValue([
-      {
-        provider: "google",
-        access_token: "expired-token",
-        refresh_token: null,
-        expires_at: null,
-        emailAccount: {
-          id: "email-account-1",
-          email: "user@example.com",
-          watchEmailsSubscriptionId: null,
-        },
-      },
-    ] as Awaited<ReturnType<typeof prisma.account.findMany>>);
-    vi.mocked(createEmailProvider).mockRejectedValue(
-      new Error("invalid_grant"),
-    );
-    prisma.executedRule.findMany.mockResolvedValue([]);
-    prisma.user.deleteMany.mockResolvedValue({ count: 1 } as any);
-
-    await deleteUser({ userId: "user-1", logger });
-
-    expect(prisma.user.deleteMany).toHaveBeenCalledWith({
-      where: { id: "user-1" },
-    });
   });
 
   it("deletes ownerless solo organizations before deleting the user", async () => {

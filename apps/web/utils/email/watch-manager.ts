@@ -331,6 +331,44 @@ async function watchEmails({
   }
 }
 
+export async function stopWatchingEmailAccount({
+  emailAccountId,
+  provider,
+  hasAccessToken,
+  subscriptionId,
+  logger,
+}: {
+  emailAccountId: string;
+  provider: string;
+  hasAccessToken: boolean;
+  subscriptionId: string | null;
+  logger: Logger;
+}) {
+  if (!hasAccessToken) return;
+
+  let emailProvider: EmailProvider;
+  try {
+    emailProvider = await createEmailProvider({
+      emailAccountId,
+      provider,
+      logger,
+    });
+  } catch (error) {
+    logger.warn("Could not create provider to unwatch account", {
+      emailAccountId,
+      error,
+    });
+    return;
+  }
+
+  await unwatchEmails({
+    emailAccountId,
+    provider: emailProvider,
+    subscriptionId,
+    logger,
+  });
+}
+
 export async function unwatchEmails({
   emailAccountId,
   provider,
