@@ -142,11 +142,10 @@ function getEmail(value: unknown) {
 // display-only; responding relies on the fields above.
 function getInvitationDetails(event: ICAL.Component, start: ICAL.Time) {
   const timeZone = getParameter(event.getFirstProperty("dtstart"), "tzid");
-  const end = getEnd(event, start, timeZone);
   const location = getText(event, "location");
   return {
     start: toDisplayTime(start, timeZone),
-    end: end && toDisplayTime(end.time, end.timeZone),
+    end: getEndTime(event, start, timeZone),
     allDay: start.isDate,
     location: location?.slice(0, 2000) ?? null,
     conferenceUrl:
@@ -164,22 +163,39 @@ function getInvitationDetails(event: ICAL.Component, start: ICAL.Time) {
 
 // An event may end in a different zone than it starts in, so DTEND carries its
 // own TZID. An end derived from DURATION stays in the start's zone.
-function getEnd(
+function getEndTime(
   event: ICAL.Component,
   start: ICAL.Time,
   startTimeZone: string | null,
 ) {
   const end = event.getFirstPropertyValue("dtend");
   if (end instanceof ICAL.Time)
-    return {
-      time: end,
-      timeZone: getParameter(event.getFirstProperty("dtend"), "tzid"),
-    };
+    return toDisplayTime(
+      end,
+      getParameter(event.getFirstProperty("dtend"), "tzid"),
+    );
   const duration = event.getFirstPropertyValue("duration");
   if (!(duration instanceof ICAL.Duration)) return null;
   const derived = start.clone();
-  derived.addDuration(duration);
-  return { time: derived, timeZone: startTimeZone };
+  // Calendar days/weeks retain wall-clock time across DST; timed units advance
+  // the instant, after the calendar days (RFC 5545 section 3.3.6).
+  derived.addDuration(
+    new ICAL.Duration({
+      days: duration.days,
+      weeks: duration.weeks,
+      isNegative: duration.isNegative,
+    }),
+  );
+  const dayEnd = toDisplayTime(derived, startTimeZone);
+  const timedDuration = duration.clone();
+  timedDuration.days = 0;
+  timedDuration.weeks = 0;
+  if (dayEnd.endsWith("Z"))
+    return new Date(
+      Date.parse(dayEnd) + timedDuration.toSeconds() * 1000,
+    ).toISOString();
+  derived.addDuration(timedDuration);
+  return toDisplayTime(derived, startTimeZone);
 }
 
 /**

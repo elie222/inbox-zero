@@ -119,6 +119,30 @@ describe("calendar invitation details", () => {
     expect(parsed.end).toBe("2026-09-29T16:45:00.000Z");
   });
 
+  it.each([
+    ["20260308T013000", "PT2H", "2026-03-08T08:30:00.000Z"],
+    ["20261101T003000", "PT120M", "2026-11-01T06:30:00.000Z"],
+    ["20260308T013000", "PT7200S", "2026-03-08T08:30:00.000Z"],
+    ["20260307T013000", "P1DT2H", "2026-03-08T08:30:00.000Z"],
+    ["20260307T123000", "P1D", "2026-03-08T16:30:00.000Z"],
+    ["20260301T123000", "P1W", "2026-03-08T16:30:00.000Z"],
+  ])("applies %s + %s across daylight saving", (start, duration, end) => {
+    const parsed = parseCalendarInvitation(
+      detailedInvite
+        .replace(`${timezone}\r\n`, "")
+        .replace(
+          "DTSTART;TZID=America/Sao_Paulo:20260929T130000",
+          `DTSTART;TZID=America/New_York:${start}`,
+        )
+        .replace(
+          "DTEND;TZID=America/Sao_Paulo:20260929T130500",
+          `DURATION:${duration}`,
+        ),
+      "user@example.com",
+    )!;
+    expect(parsed.end).toBe(end);
+  });
+
   it("reads all-day events as plain dates", () => {
     const parsed = parseCalendarInvitation(
       detailedInvite
