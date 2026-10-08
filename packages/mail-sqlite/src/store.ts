@@ -1,3 +1,9 @@
+import {
+  deleteAccountContactSuggestions,
+  indexContactMessage,
+  indexContactBacklog,
+  readContactSuggestions,
+} from "./contact-suggestions";
 import { hashCanonical } from "@inboxzero/mail-core/canonical";
 import type { HostRuntime } from "@inboxzero/mail-core/ports/runtime";
 import type {
@@ -151,6 +157,14 @@ export async function createSqliteMailStore(
   });
 
   const store: MailStore = {
+    readContactSuggestions(query) {
+      return driver.read((tx) =>
+        readContactSuggestions(tx, query, runtime.nowMs()),
+      );
+    },
+    indexContactBacklog() {
+      return driver.write(indexContactBacklog);
+    },
     async ensureAccount(input) {
       return driver.write(async (tx) => {
         const existing = await tx.query(
@@ -219,6 +233,7 @@ export async function createSqliteMailStore(
     async purgeAccount(accountId) {
       return driver.write(async (tx) => {
         await deleteAccountSearchIndex(tx, accountId);
+        await deleteAccountContactSuggestions(tx, accountId);
         const existing = await tx.query(
           "SELECT 1 AS n FROM accounts WHERE account_id = ?",
           [accountId],
@@ -2378,6 +2393,7 @@ async function resetAccountForGeneration(
   },
 ) {
   await deleteAccountSearchIndex(tx, input.accountId);
+  await deleteAccountContactSuggestions(tx, input.accountId);
   const derivedTables = [
     "message_content",
     "effective_messages",
@@ -2640,7 +2656,9 @@ async function applyChange(tx: SqlTransaction, change: ProviderChange) {
       "DELETE FROM effective_messages WHERE account_id = ? AND message_id = ?",
       [change.key.accountId, change.key.messageId],
     );
+    await indexContactMessage(tx, change.key);
   }
+
   if (change.kind === "removed_from_scope") {
     const current = await loadConfirmed(tx, change.key);
     if (!current) return;
@@ -2733,6 +2751,7 @@ async function upsertConfirmed(tx: SqlTransaction, message: ConfirmedMessage) {
       message.deleted ? 1 : 0,
     ],
   );
+  await indexContactMessage(tx, message);
   if (
     previous?.subject !== message.subject ||
     previous?.preview !== message.preview ||
