@@ -49,6 +49,12 @@ describe("sanitizeEmailBodyHtml", () => {
     expect(sanitizeEmailBodyHtml(once)).toBe(once);
   });
 
+  it("drops image addresses that are not full web URLs", () => {
+    expect(
+      sanitizeEmailBodyHtml('<img src="http:assets.example.com/logo.png">'),
+    ).toBe("");
+  });
+
   it("drops data URI images, which mail clients block", () => {
     expect(
       sanitizeEmailBodyHtml('<img src="data:image/png;base64,iVBORw0KGgo=">'),

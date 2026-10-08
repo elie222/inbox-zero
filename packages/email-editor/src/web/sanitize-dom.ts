@@ -93,6 +93,11 @@ function getPurifier() {
     const copiedSource = copiedOriginalSources.get(node);
     if (copiedSource) node.setAttribute("src", copiedSource);
     const source = node.getAttribute("src") ?? "";
+    if (!source) {
+      // Matches the send-time sanitizer, which drops images without a source.
+      node.parentNode?.removeChild(node);
+      return;
+    }
     if (!isRemoteImageSource(source)) return;
     node.setAttribute(ORIGINAL_IMAGE_SOURCE_ATTRIBUTE, source);
     node.removeAttribute("src");

@@ -405,7 +405,7 @@
   white-space: normal;
 }
 
-.editor .squireContent[data-email-editor-empty] > :first-child::before {
+.squireBody[data-email-editor-empty] > .squireContent > :first-child::before {
   float: left;
   height: 0;
   color: var(--email-editor-muted-foreground);

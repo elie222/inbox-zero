@@ -47,7 +47,10 @@ export function LinkPanel({
         autoFocus
         className={styles.linkInput}
         id={inputId}
-        onChange={(event) => setHref(event.target.value)}
+        onChange={(event) => {
+          setHref(event.target.value);
+          setError("");
+        }}
         placeholder="https://example.com"
         type="text"
         value={href}

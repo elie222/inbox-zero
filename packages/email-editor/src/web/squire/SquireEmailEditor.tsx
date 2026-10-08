@@ -80,14 +80,18 @@ class EmailSquire extends Squire {
   }
 
   private changeHistory(direction: "undo" | "redo", change: () => Squire) {
-    const undoIndex = this._undoIndex;
+    // Undo saves the current state before stepping back, so the undo index
+    // alone cannot tell whether anything changed.
+    const before = this.getRoot().innerHTML;
     this.isChangingHistory = true;
     try {
       change();
+      if (this.getRoot().innerHTML !== before) {
+        this.onHistoryChange?.(direction);
+      }
     } finally {
       this.isChangingHistory = false;
     }
-    if (this._undoIndex !== undoIndex) this.onHistoryChange?.(direction);
     return this;
   }
 }
@@ -231,7 +235,8 @@ export const SquireEmailEditor = forwardRef<
       !first?.textContent?.trim() &&
       !first?.querySelector("img") &&
       (!second || second === signatureRef.current);
-    root.toggleAttribute("data-email-editor-empty", empty);
+    // Squire observes its root, so state for styling lives on the wrapper.
+    root.parentElement?.toggleAttribute("data-email-editor-empty", empty);
   }, []);
 
   const resolveImages = useCallback(() => {
@@ -256,12 +261,16 @@ export const SquireEmailEditor = forwardRef<
       ];
     };
     const applyCached = () => {
+      const updates = images().flatMap((image) => {
+        const proxied = cache.get(
+          image.getAttribute(ORIGINAL_IMAGE_SOURCE_ATTRIBUTE) ?? "",
+        );
+        return proxied ? [{ image, proxied }] : [];
+      });
+      if (!updates.length) return;
       currentEditor.modifyDocument(() => {
-        for (const image of images()) {
-          const proxied = cache.get(
-            image.getAttribute(ORIGINAL_IMAGE_SOURCE_ATTRIBUTE) ?? "",
-          );
-          if (proxied) image.setAttribute("src", proxied);
+        for (const { image, proxied } of updates) {
+          image.setAttribute("src", proxied);
         }
       });
       updateSignatureControls();
@@ -455,7 +464,8 @@ export const SquireEmailEditor = forwardRef<
     };
     squire.onHistoryChange = (direction) => {
       reconcileSignature(direction);
-      markEdited();
+      // Undoing every edit returns to the untouched draft.
+      dirtyRef.current = serializeContent() !== baselineRef.current;
       onInput();
     };
     const onFocus = () => {

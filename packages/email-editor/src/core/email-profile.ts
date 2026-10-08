@@ -236,7 +236,7 @@ export function sanitizeEmailBodyAttribute(
 
 export function isSafeEmailBodyImageSource(value: string) {
   const source = value.trim();
-  if (/^(?:https?|blob):/iu.test(source)) return true;
+  if (/^https?:\/\//iu.test(source) || /^blob:/iu.test(source)) return true;
   // Data URIs are dropped: most mail clients block them, and inline images are
   // sent as Content-ID attachments instead.
   return /^cid:/iu.test(source) && isSafeContentId(source.slice(4));

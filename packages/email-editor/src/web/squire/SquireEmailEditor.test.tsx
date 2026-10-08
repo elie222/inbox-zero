@@ -143,13 +143,37 @@ describe("Squire email editor", () => {
       fireEvent.keyDown(textbox(), { key: "z", ctrlKey: true });
     });
     expect(textbox().querySelector("[data-smartmail]")).toBeTruthy();
-    expect(handle().getValue().editableHtml).toContain("Example Person");
+    // Back to the untouched draft: the original signature is re-attached.
+    expect(handle().getValue().preservedBlockIds).toContain("signature");
 
     await act(async () => {
       fireEvent.keyDown(textbox(), { key: "y", ctrlKey: true });
     });
     expect(textbox().querySelector("[data-smartmail]")).toBeNull();
-    expect(handle().getValue().editableHtml).not.toContain("Example Person");
+    const value = handle().getValue();
+    expect(value.editableHtml).not.toContain("Example Person");
+    expect(value.preservedBlockIds).not.toContain("signature");
+  });
+
+  it("returns to the untouched draft when every edit is undone", async () => {
+    const initialHtml = "<div>Original</div>";
+    const { handle, textbox } = await renderEditor({
+      initialHtml,
+      mode: "fallback",
+    });
+    await act(async () => {
+      handle().insertText(" more");
+    });
+    expect(handle().getValue().mode).toBe("html");
+
+    await act(async () => {
+      fireEvent.keyDown(textbox(), { key: "z", ctrlKey: true });
+    });
+
+    expect(handle().getValue()).toMatchObject({
+      editableHtml: initialHtml,
+      mode: "fallback",
+    });
   });
 
   it("stays untouched after an undo with nothing to undo", async () => {

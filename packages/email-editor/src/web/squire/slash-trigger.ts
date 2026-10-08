@@ -37,5 +37,5 @@ function startsLine(node: Node): boolean {
 }
 
 function isBlock(element: Element) {
-  return /^(?:BLOCKQUOTE|DIV|H[1-6]|LI|P|TD|TH)$/u.test(element.nodeName);
+  return /^(?:BLOCKQUOTE|DIV|H[1-6]|LI|P|PRE|TD|TH)$/u.test(element.nodeName);
 }

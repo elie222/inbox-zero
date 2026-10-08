@@ -9,8 +9,11 @@ export async function resolveRemoteImages(
   sources: string[],
 ): Promise<Record<string, string | null>> {
   const template = document.createElement("template");
+  // Images created in the live document start loading as soon as they get a
+  // src, even while detached.
+  const inertDocument = template.content.ownerDocument;
   for (const [index, source] of sources.entries()) {
-    const image = document.createElement("img");
+    const image = inertDocument.createElement("img");
     image.setAttribute("src", source);
     image.setAttribute(SOURCE_INDEX_ATTRIBUTE, String(index));
     template.content.append(image);
