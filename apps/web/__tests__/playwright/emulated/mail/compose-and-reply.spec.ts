@@ -35,8 +35,8 @@ test("composes, sends, and reads a new message from Sent", async ({
   await expect(composeEditor).toContainText("A composed message body.");
   await dialog.getByRole("button", { name: "Show signature" }).click();
   await expect(
-    dialog
-      .locator("[data-email-preserved-kind='signature']")
+    composeEditor
+      .locator("[data-smartmail]")
       .getByRole("link", { name: "Inbox Zero" }),
   ).toBeVisible();
   await capturePlaywrightCheckpoint(page, testInfo, "composer-with-footer");
@@ -147,7 +147,8 @@ test("selects the sender when composing from all accounts", async ({
     await dialog.getByRole("button", { name: "Show signature" }).click();
     await expect(
       dialog
-        .locator("[data-email-preserved-kind='signature']")
+        .getByRole("textbox", { name: "Email message" })
+        .locator("[data-smartmail]")
         .getByText(signature),
     ).toBeVisible();
   } finally {

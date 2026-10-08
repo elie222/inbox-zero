@@ -1,4 +1,6 @@
 import { parseFragment, serialize, type DefaultTreeAdapterTypes } from "parse5";
+import { sanitizeEmailBodyHtml } from "./email-body";
+import { isSafeContentId, isRemoteImageSource } from "./email-profile";
 
 export const EMAIL_ATTACHMENT_LIMITS = {
   maxFiles: 10,
@@ -33,125 +35,28 @@ export type EmailAttachmentMetadata = Omit<
   "contentBase64"
 >;
 
+// "original" HTML is sent exactly as it was loaded; "edited" HTML came from
+// the editor and is sanitized before sending.
+export type EmailBodyMode = "original" | "edited";
+
 export type PreparedEmailDraft = {
   editableHtml: string;
-  mode: "rich" | "fallback";
+  mode: EmailBodyMode;
   quotedHtml: string;
   signatureHtml: string;
-  unsupported: string[];
 };
 
-const SIGNATURE_ATTRIBUTE = 'data-smartmail="gmail_signature"';
-const BLOCK_TAGS = new Set(["blockquote", "div", "ol", "p", "ul"]);
-const SUPPORTED_TAGS = new Set([
-  "a",
-  "b",
-  "blockquote",
-  "br",
-  "del",
-  "div",
-  "em",
-  "font",
-  "i",
-  "img",
-  "li",
-  "ol",
-  "p",
-  "s",
-  "span",
-  "strike",
-  "strong",
-  "u",
-  "ul",
-]);
 const INLINE_IMAGE_MIME_TYPES = new Set<string>(EMAIL_INLINE_IMAGE_MIME_TYPES);
-const DANGEROUS_PREVIEW_TAGS = new Set([
-  "audio",
-  "base",
-  "button",
-  "embed",
-  "form",
-  "iframe",
-  "input",
-  "link",
-  "meta",
-  "object",
-  "script",
-  "style",
-  "svg",
-  "textarea",
-  "video",
-]);
-const DANGEROUS_EDITABLE_TAGS = new Set([...DANGEROUS_PREVIEW_TAGS, "select"]);
-const SAFE_PREVIEW_ATTRIBUTES = new Set([
-  "abbr",
-  "align",
-  "alt",
-  "border",
-  "cellpadding",
-  "cellspacing",
-  "colspan",
-  "dir",
-  "height",
-  "href",
-  "lang",
-  "rel",
-  "role",
-  "rowspan",
-  "scope",
-  "src",
-  "style",
-  "target",
-  "title",
-  "valign",
-  "width",
-]);
-const SAFE_PREVIEW_STYLE_PROPERTIES = new Set([
-  "background",
-  "background-color",
-  "border-collapse",
-  "border-spacing",
-  "color",
-  "direction",
-  "display",
-  "font",
-  "font-family",
-  "font-size",
-  "font-style",
-  "font-weight",
-  "height",
-  "letter-spacing",
-  "line-height",
-  "max-height",
-  "max-width",
-  "min-height",
-  "min-width",
-  "overflow-wrap",
-  "text-align",
-  "text-decoration",
-  "text-indent",
-  "text-transform",
-  "vertical-align",
-  "white-space",
-  "width",
-  "word-break",
-]);
-
-const TEXT_STYLE_PROPERTIES = ["color", "font-family", "font-size"] as const;
-const FONT_TAG_SIZES: Record<string, string> = {
-  "1": "10px",
-  "2": "13px",
-  "3": "16px",
-  "4": "18px",
-  "5": "24px",
-  "6": "32px",
-  "7": "48px",
-};
 
 type ChildNode = DefaultTreeAdapterTypes.ChildNode;
 type Element = DefaultTreeAdapterTypes.Element;
 type ParentNode = DefaultTreeAdapterTypes.ParentNode;
 
+/**
+ * Splits a provider draft into editable body, signature and quote. The body
+ * stays as provider HTML: the editor sanitizes it for display, and an
+ * untouched draft is sent exactly as it was.
+ */
 export function prepareEmailDraft({
   html,
   quotedHtml,
@@ -165,10 +70,9 @@ export function prepareEmailDraft({
   if (!source) {
     return {
       editableHtml: "",
-      mode: "rich",
+      mode: "original",
       quotedHtml: quotedHtml ?? "",
       signatureHtml: signatureHtml?.trim() ?? "",
-      unsupported: [],
     };
   }
   const quoteSplit = quotedHtml
@@ -178,26 +82,11 @@ export function prepareEmailDraft({
     html: quoteSplit.editableHtml,
     knownSignatureHtml: signatureHtml,
   });
-  const unsupported = findUnsupportedEditableMarkup(
-    signatureSplit.editableHtml,
-  );
-
-  if (unsupported.length > 0) {
-    return {
-      editableHtml: signatureSplit.editableHtml,
-      mode: "fallback",
-      quotedHtml: quoteSplit.quotedHtml,
-      signatureHtml: signatureSplit.signatureHtml,
-      unsupported,
-    };
-  }
-
   return {
-    editableHtml: normalizeEditableEmailHtml(signatureSplit.editableHtml),
-    mode: "rich",
+    editableHtml: signatureSplit.editableHtml,
+    mode: "original",
     quotedHtml: quoteSplit.quotedHtml,
     signatureHtml: signatureSplit.signatureHtml,
-    unsupported: [],
   };
 }
 
@@ -218,10 +107,14 @@ export function combineEmailHtml({
 export function finalizeEditableEmailHtml({
   html,
   inlineAttachments,
+  mode,
 }: {
   html: string;
   inlineAttachments: EmailComposerAttachment[];
+  mode: EmailBodyMode;
 }) {
+  if (mode === "original") return html;
+
   const contentIds = new Set(
     inlineAttachments
       .filter((attachment) => attachment.disposition === "inline")
@@ -246,72 +139,23 @@ export function finalizeEditableEmailHtml({
     }
   });
 
-  // The editor never produces quote containers, and splitting would drop the
-  // editable signature container from the outgoing body.
-  const rewrittenHtml = serialize(fragment);
-  return findUnsupportedEditableMarkup(rewrittenHtml).length > 0
-    ? rewrittenHtml
-    : normalizeEditableEmailHtml(rewrittenHtml);
+  return sanitizeEmailBodyHtml(serialize(fragment));
 }
 
+/**
+ * Prepares quoted or protected HTML for a read-only preview: the email body
+ * profile, with remote images left unloaded so opening a quote cannot tell
+ * the sender anything.
+ */
 export function sanitizePreservedEmailHtmlForPreview(html: string) {
-  const fragment = parseFragment(html);
-  sanitizePreviewChildren(fragment);
-  return serialize(fragment);
-}
-
-/**
- * Returns the signature as editable HTML wrapped in a single signature
- * container, or null when editing it would lose formatting.
- */
-export function prepareEditableSignatureHtml(html: string) {
-  const fragment = parseFragment(html);
-  // The container markers (Outlook's id included) are replaced by our own.
+  const fragment = parseFragment(sanitizeEmailBodyHtml(html));
   visitElements(fragment, (element) => {
-    if (!isSignatureContainer(element)) return;
-    element.attrs = element.attrs.filter(
-      (attribute) =>
-        attribute.name !== "id" && !isPresentationFreeAttribute(attribute.name),
-    );
+    if (element.tagName !== "img") return;
+    if (isRemoteImageSource(getAttribute(element, "src") ?? "")) {
+      removeAttribute(element, "src");
+    }
   });
-  if (findUnsupportedEditableMarkup(serialize(fragment)).length > 0) {
-    return null;
-  }
-
-  // A lone <br> paragraph renders two lines tall in the editor, and the
-  // leading blank line separates the signature from the reply when sent.
-  const content = renderFlow(fragment.childNodes).replace(
-    /<p((?: dir="[a-z]+")?)><br><\/p>/gu,
-    "<p$1></p>",
-  );
-  if (!content.replace(/<p(?: dir="[a-z]+")?><\/p>/gu, "")) return null;
-  const spacer = /^<p(?: dir="[a-z]+")?><\/p>/u.test(content) ? "" : "<p></p>";
-  return `<div ${SIGNATURE_ATTRIBUTE}>${spacer}${content}</div>`;
-}
-
-/**
- * Reduces untrusted draft HTML to the portable editable email profile.
- * Unsupported layout containers are unwrapped, while active content and
- * unsafe attributes are removed entirely.
- */
-export function sanitizeEditableEmailHtml(html: string) {
-  const fragment = parseFragment(html);
-  sanitizeEditableChildren(fragment);
   return serialize(fragment);
-}
-
-export function canOpenEmailLink(value: string) {
-  return /^(?:https?:|mailto:|tel:)/iu.test(value.trim());
-}
-
-export function normalizeEmailUrl(value: string): string | null {
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-
-  const candidate = /^[a-z][a-z\d+.-]*:/iu.test(trimmed)
-    ? trimmed
-    : `https://${trimmed}`;
-  return isSafeEmailUrl(candidate) ? candidate : null;
 }
 
 export function detectInlineImageMimeType(
@@ -525,429 +369,6 @@ function splitSignatureHtml({
   };
 }
 
-function findUnsupportedEditableMarkup(html: string) {
-  const fragment = parseFragment(html);
-  const unsupported = new Set<string>();
-
-  for (const child of fragment.childNodes) {
-    inspectNode(child, unsupported);
-  }
-
-  return [...unsupported].sort();
-}
-
-function inspectNode(node: ChildNode, unsupported: Set<string>) {
-  if (node.nodeName === "#comment") {
-    unsupported.add("comment");
-    return;
-  }
-  if (!isElement(node)) return;
-
-  if (!SUPPORTED_TAGS.has(node.tagName)) {
-    unsupported.add(node.tagName);
-    return;
-  }
-
-  const allowedAttributes = getAllowedEditableAttributes(node.tagName);
-  for (const attribute of node.attrs) {
-    if (attribute.name === "style") {
-      if (!isSupportedStyle(node, attribute.value)) {
-        unsupported.add(`${node.tagName}[style]`);
-      }
-      continue;
-    }
-    if (
-      !allowedAttributes.has(attribute.name) &&
-      !isPresentationFreeAttribute(attribute.name)
-    ) {
-      unsupported.add(`${node.tagName}[${attribute.name}]`);
-    }
-  }
-
-  if (node.tagName === "font" && !getFontTagStyle(node)) {
-    unsupported.add("font");
-  }
-
-  if (node.tagName === "a") {
-    const href = getAttribute(node, "href");
-    if (href && !isSafeEmailUrl(href)) unsupported.add("a[href]");
-  }
-  if (node.tagName === "img") {
-    const source = getAttribute(node, "src");
-    if (!source || !isSafeImageSource(source)) unsupported.add("img[src]");
-    const contentId = getAttribute(node, "data-content-id");
-    if (contentId && !isSafeContentId(contentId)) {
-      unsupported.add("img[data-content-id]");
-    }
-  }
-
-  for (const child of node.childNodes) inspectNode(child, unsupported);
-}
-
-function normalizeEditableEmailHtml(html: string) {
-  const fragment = parseFragment(html);
-  return renderFlow(fragment.childNodes);
-}
-
-function renderFlow(nodes: ChildNode[], inheritedDirection?: string): string {
-  let html = "";
-  let inlineHtml = "";
-
-  const flushInline = () => {
-    if (!inlineHtml.trim()) {
-      inlineHtml = "";
-      return;
-    }
-    html += renderParagraph(inlineHtml, inheritedDirection);
-    inlineHtml = "";
-  };
-
-  for (const node of nodes) {
-    if (isElement(node) && BLOCK_TAGS.has(node.tagName)) {
-      flushInline();
-      html += renderBlock(node, inheritedDirection);
-      continue;
-    }
-    inlineHtml += renderInline(node);
-  }
-
-  flushInline();
-  return html;
-}
-
-function renderBlock(element: Element, inheritedDirection?: string): string {
-  const direction = getDirection(element) ?? inheritedDirection;
-  const directionAttribute = renderDirection(direction);
-
-  if (element.tagName === "div") {
-    if (isSignatureContainer(element)) {
-      return `<div ${SIGNATURE_ATTRIBUTE}>${renderFlow(element.childNodes, direction)}</div>`;
-    }
-    if (element.childNodes.some(isBlockElement)) {
-      return renderFlow(element.childNodes, direction);
-    }
-    return renderParagraph(renderInlineChildren(element), direction);
-  }
-  if (element.tagName === "p") {
-    return `<p${directionAttribute}>${renderInlineChildren(element)}</p>`;
-  }
-  if (element.tagName === "blockquote") {
-    return `<blockquote${directionAttribute}>${renderFlow(element.childNodes, direction)}</blockquote>`;
-  }
-  if (element.tagName === "ul" || element.tagName === "ol") {
-    const start =
-      element.tagName === "ol" ? renderIntegerAttribute(element, "start") : "";
-    const items = element.childNodes
-      .filter(
-        (node): node is Element => isElement(node) && node.tagName === "li",
-      )
-      .map((item) => renderListItem(item, direction))
-      .join("");
-    return `<${element.tagName}${directionAttribute}${start}>${items}</${element.tagName}>`;
-  }
-
-  return "";
-}
-
-function renderListItem(element: Element, inheritedDirection?: string) {
-  let html = "";
-  let inlineHtml = "";
-
-  for (const node of element.childNodes) {
-    if (
-      isElement(node) &&
-      (node.tagName === "ul" ||
-        node.tagName === "ol" ||
-        node.tagName === "blockquote")
-    ) {
-      html += inlineHtml;
-      inlineHtml = "";
-      html += renderBlock(node, inheritedDirection);
-      continue;
-    }
-    if (isElement(node) && (node.tagName === "p" || node.tagName === "div")) {
-      inlineHtml += renderInlineChildren(node);
-      continue;
-    }
-    inlineHtml += renderInline(node);
-  }
-
-  return `<li>${html}${inlineHtml}</li>`;
-}
-
-function renderInline(node: ChildNode): string {
-  if ("value" in node) return escapeHtml(node.value);
-  if (!isElement(node)) return "";
-
-  if (node.tagName === "br") return "<br>";
-  if (node.tagName === "img") return renderImage(node);
-
-  const children = renderInlineChildren(node);
-  if (node.tagName === "a") {
-    const href = getAttribute(node, "href");
-    if (!href || !isSafeEmailUrl(href)) return children;
-    const title = renderOptionalAttribute(node, "title");
-    return `<a href="${escapeAttribute(href)}"${title} target="_blank" rel="noopener noreferrer">${children}</a>`;
-  }
-  if (node.tagName === "b" || node.tagName === "strong") {
-    return `<strong>${children}</strong>`;
-  }
-  if (node.tagName === "i" || node.tagName === "em") {
-    return `<em>${children}</em>`;
-  }
-  if (
-    node.tagName === "strike" ||
-    node.tagName === "del" ||
-    node.tagName === "s"
-  ) {
-    return `<s>${children}</s>`;
-  }
-  if (node.tagName === "u") return `<u>${children}</u>`;
-  if (node.tagName === "span") return renderStyledSpan(node, children);
-  if (node.tagName === "font") {
-    return renderTextStyle(getFontTagStyle(node) ?? new Map(), children);
-  }
-
-  return children;
-}
-
-function renderInlineChildren(element: Element) {
-  return element.childNodes.map(renderInline).join("");
-}
-
-function renderStyledSpan(element: Element, children: string) {
-  const declarations = parseStyle(getAttribute(element, "style") ?? "");
-  let html = children;
-  const decoration = declarations.get("text-decoration") ?? "";
-
-  if (decoration.includes("line-through")) html = `<s>${html}</s>`;
-  if (decoration.includes("underline")) html = `<u>${html}</u>`;
-  if (declarations.get("font-style") === "italic") html = `<em>${html}</em>`;
-  const fontWeight = declarations.get("font-weight") ?? "";
-  if (fontWeight === "bold" || Number.parseInt(fontWeight, 10) >= 600) {
-    html = `<strong>${html}</strong>`;
-  }
-  return renderTextStyle(declarations, html);
-}
-
-function renderTextStyle(declarations: Map<string, string>, children: string) {
-  const style = TEXT_STYLE_PROPERTIES.flatMap((property) => {
-    const value = declarations.get(property);
-    return value && isSafeTextStyle(property, value)
-      ? [`${property}:${value}`]
-      : [];
-  }).join(";");
-  return style
-    ? `<span style="${escapeAttribute(style)}">${children}</span>`
-    : children;
-}
-
-function getFontTagStyle(element: Element) {
-  const declarations = new Map<string, string>();
-  const color = getAttribute(element, "color")?.trim().toLowerCase();
-  const face = getAttribute(element, "face")?.trim().toLowerCase();
-  const size = getAttribute(element, "size")?.trim();
-
-  if (color) declarations.set("color", color);
-  if (face) declarations.set("font-family", face);
-  if (size) {
-    const fontSize = FONT_TAG_SIZES[size];
-    if (!fontSize) return null;
-    declarations.set("font-size", fontSize);
-  }
-  return [...declarations].every(([property, value]) =>
-    isSafeTextStyle(property, value),
-  )
-    ? declarations
-    : null;
-}
-
-function renderImage(element: Element) {
-  const source = getAttribute(element, "src");
-  if (!source || !isSafeImageSource(source)) return "";
-
-  return `<img src="${escapeAttribute(source)}"${renderContentIdAttribute(element)}${renderOptionalAttribute(element, "alt")}${renderOptionalAttribute(element, "title")}${renderPositiveIntegerAttribute(element, "width")}${renderPositiveIntegerAttribute(element, "height")}>`;
-}
-
-function renderParagraph(content: string, direction?: string) {
-  return `<p${renderDirection(direction)}>${content}</p>`;
-}
-
-function sanitizePreviewChildren(parent: ParentNode) {
-  parent.childNodes = parent.childNodes.filter((node) => {
-    if (!isElement(node)) return node.nodeName !== "#comment";
-    return !DANGEROUS_PREVIEW_TAGS.has(node.tagName);
-  });
-
-  for (const node of parent.childNodes) {
-    if (!isElement(node)) continue;
-
-    node.attrs = node.attrs.filter((attribute) => {
-      if (
-        !SAFE_PREVIEW_ATTRIBUTES.has(attribute.name) &&
-        !attribute.name.startsWith("aria-")
-      ) {
-        return false;
-      }
-      if (attribute.name === "href") return isSafeEmailUrl(attribute.value);
-      if (attribute.name === "src") {
-        return (
-          attribute.value.startsWith("cid:") ||
-          /^data:image\/(?:gif|jpeg|png|webp);base64,/iu.test(attribute.value)
-        );
-      }
-      if (attribute.name === "style") {
-        attribute.value = sanitizePreviewStyle(attribute.value);
-        return Boolean(attribute.value);
-      }
-      if (attribute.name === "target") {
-        attribute.value = "_blank";
-      }
-      if (attribute.name === "rel") {
-        attribute.value = "noopener noreferrer";
-      }
-      return true;
-    });
-
-    if (node.tagName === "a" && getAttribute(node, "href")) {
-      setAttribute(node, "target", "_blank");
-      setAttribute(node, "rel", "noopener noreferrer");
-    }
-    sanitizePreviewChildren(node);
-  }
-}
-
-function sanitizeEditableChildren(parent: ParentNode) {
-  const sanitizedChildren: ChildNode[] = [];
-
-  for (const node of parent.childNodes) {
-    if (node.nodeName === "#comment") continue;
-    if (!isElement(node)) {
-      sanitizedChildren.push(node);
-      continue;
-    }
-    if (DANGEROUS_EDITABLE_TAGS.has(node.tagName)) continue;
-
-    sanitizeEditableChildren(node);
-    if (!SUPPORTED_TAGS.has(node.tagName)) {
-      for (const child of node.childNodes) {
-        child.parentNode = parent;
-        sanitizedChildren.push(child);
-      }
-      continue;
-    }
-    if (!sanitizeEditableElement(node)) continue;
-    sanitizedChildren.push(node);
-  }
-
-  parent.childNodes = sanitizedChildren;
-}
-
-function sanitizeEditableElement(element: Element) {
-  const allowedAttributes = getAllowedEditableAttributes(element.tagName);
-  element.attrs = element.attrs.filter((attribute) => {
-    if (!allowedAttributes.has(attribute.name)) return false;
-    if (attribute.name === "href") return isSafeEmailUrl(attribute.value);
-    if (attribute.name === "src") {
-      return isSafeEditableImageSource(attribute.value);
-    }
-    if (attribute.name === "data-content-id") {
-      return isSafeContentId(attribute.value);
-    }
-    if (attribute.name === "width" || attribute.name === "height") {
-      return isPositiveInteger(attribute.value);
-    }
-    if (attribute.name === "start") return /^-?\d+$/u.test(attribute.value);
-    if (attribute.name === "color") {
-      return isSafeTextStyle("color", attribute.value.trim().toLowerCase());
-    }
-    if (attribute.name === "face") {
-      return isSafeTextStyle(
-        "font-family",
-        attribute.value.trim().toLowerCase(),
-      );
-    }
-    if (attribute.name === "size")
-      return attribute.value.trim() in FONT_TAG_SIZES;
-    if (attribute.name === "dir") {
-      return /^(?:ltr|rtl|auto)$/iu.test(attribute.value);
-    }
-    if (attribute.name === "style") {
-      attribute.value = sanitizeEditableStyle(element.tagName, attribute.value);
-      return Boolean(attribute.value);
-    }
-    return true;
-  });
-
-  if (element.tagName === "a") {
-    if (getAttribute(element, "href")) {
-      setAttribute(element, "target", "_blank");
-      setAttribute(element, "rel", "noopener noreferrer");
-    } else {
-      removeAttribute(element, "target");
-      removeAttribute(element, "rel");
-    }
-  }
-  if (element.tagName === "img") {
-    return Boolean(getAttribute(element, "src"));
-  }
-  return true;
-}
-
-function sanitizeEditableStyle(tagName: string, style: string) {
-  const declarations = parseStyle(style);
-
-  return [...declarations]
-    .filter(([property, value]) => {
-      if ((tagName === "div" || tagName === "p") && property === "direction") {
-        return value === "ltr" || value === "rtl";
-      }
-      if (tagName !== "span") return false;
-      if (isSafeTextStyle(property, value)) return true;
-      if (property === "font-style") return value === "italic";
-      if (property === "font-weight") {
-        return value === "bold" || Number.parseInt(value, 10) >= 600;
-      }
-      if (property !== "text-decoration") return false;
-
-      const tokens = value.split(/\s+/u).filter(Boolean);
-      return (
-        tokens.length > 0 &&
-        tokens.every(
-          (token) => token === "underline" || token === "line-through",
-        )
-      );
-    })
-    .map(([property, value]) => `${property}:${value}`)
-    .join(";");
-}
-
-function sanitizePreviewStyle(style: string) {
-  return style
-    .split(";")
-    .map((declaration) => declaration.trim())
-    .filter(Boolean)
-    .map((declaration) => {
-      const separator = declaration.indexOf(":");
-      if (separator < 0) return "";
-      const property = declaration.slice(0, separator).trim().toLowerCase();
-      const value = declaration.slice(separator + 1).trim();
-      const normalizedValue = value.toLowerCase();
-      const isBoxProperty = /^(?:border|margin|padding)(?:-|$)/u.test(property);
-      if (
-        (!SAFE_PREVIEW_STYLE_PROPERTIES.has(property) && !isBoxProperty) ||
-        normalizedValue.includes("url(") ||
-        normalizedValue.includes("expression(") ||
-        normalizedValue.includes("javascript:")
-      ) {
-        return "";
-      }
-      return `${property}:${value}`;
-    })
-    .filter(Boolean)
-    .join(";");
-}
-
 function isQuoteContainer(element: Element) {
   const classes = classTokens(element);
   const id = (getAttribute(element, "id") ?? "").toLowerCase();
@@ -1009,140 +430,6 @@ function removeNode(node: Element) {
 
 function removeRange(html: string, start: number, end: number) {
   return `${html.slice(0, start)}${html.slice(end)}`;
-}
-
-function getAllowedEditableAttributes(tagName: string) {
-  if (tagName === "a") return new Set(["href", "rel", "target", "title"]);
-  if (tagName === "img") {
-    return new Set([
-      "alt",
-      "data-content-id",
-      "height",
-      "src",
-      "title",
-      "width",
-    ]);
-  }
-  if (tagName === "ol") return new Set(["dir", "start"]);
-  if (tagName === "blockquote") return new Set(["dir"]);
-  if (tagName === "div" || tagName === "p" || tagName === "ul") {
-    return new Set(["dir", "style"]);
-  }
-  if (tagName === "span") return new Set(["style"]);
-  if (tagName === "font") return new Set(["color", "face", "size"]);
-  return new Set<string>();
-}
-
-function isSupportedStyle(element: Element, style: string) {
-  const declarations = parseStyle(style);
-  if (declarations.size === 0) return true;
-
-  if (element.tagName === "div" || element.tagName === "p") {
-    return (
-      declarations.size === 1 &&
-      (declarations.get("direction") === "ltr" ||
-        declarations.get("direction") === "rtl")
-    );
-  }
-  if (element.tagName !== "span") return false;
-
-  return [...declarations].every(([property, value]) => {
-    if (isSafeTextStyle(property, value)) return true;
-    if (property === "font-style") return value === "italic";
-    if (property === "font-weight") {
-      return value === "bold" || Number.parseInt(value, 10) >= 600;
-    }
-    if (property === "text-decoration") {
-      const tokens = value.split(/\s+/u).filter(Boolean);
-      return (
-        tokens.length > 0 &&
-        tokens.every(
-          (token) => token === "underline" || token === "line-through",
-        )
-      );
-    }
-    return false;
-  });
-}
-
-function parseStyle(style: string) {
-  const declarations = new Map<string, string>();
-  for (const declaration of style.split(";")) {
-    const separator = declaration.indexOf(":");
-    if (separator < 0) continue;
-    const property = declaration.slice(0, separator).trim().toLowerCase();
-    const value = declaration
-      .slice(separator + 1)
-      .trim()
-      .toLowerCase();
-    if (property && value) declarations.set(property, value);
-  }
-  return declarations;
-}
-
-function getDirection(element: Element) {
-  const attribute = getAttribute(element, "dir")?.toLowerCase();
-  if (attribute === "ltr" || attribute === "rtl" || attribute === "auto") {
-    return attribute;
-  }
-
-  const styleDirection = parseStyle(getAttribute(element, "style") ?? "").get(
-    "direction",
-  );
-  return styleDirection === "ltr" || styleDirection === "rtl"
-    ? styleDirection
-    : undefined;
-}
-
-function isSafeTextStyle(property: string, value: string) {
-  if (property === "color") {
-    return /^(?:#[\da-f]{3,8}|rgba?\([\d\s.,%]+\)|[a-z]+)$/u.test(value);
-  }
-  if (property === "font-family") {
-    return value.length <= 200 && /^[\w\s,'"-]+$/u.test(value);
-  }
-  if (property === "font-size") {
-    return /^(?:\d+(?:\.\d+)?(?:px|pt|em|rem|%)|(?:x{1,2}-)?(?:small|large)|medium|smaller|larger)$/u.test(
-      value,
-    );
-  }
-  return false;
-}
-
-// These carry no visible formatting without a stylesheet, so dropping them
-// while editing loses nothing the recipient would see. Ids and lang stay
-// unsupported because links and screen readers depend on them.
-function isPresentationFreeAttribute(name: string) {
-  return name === "class" || name.startsWith("data-");
-}
-
-export function isSafeEmailUrl(value: string) {
-  const normalized = value.trim();
-  return canOpenEmailLink(normalized) || normalized.startsWith("#");
-}
-
-function isSafeImageSource(value: string) {
-  const normalized = value.trim().toLowerCase();
-  return normalized.startsWith("cid:") || normalized.startsWith("blob:");
-}
-
-function isSafeEditableImageSource(value: string) {
-  const source = value.trim();
-  if (/^(?:file|content|blob):/iu.test(source)) return true;
-  if (source.startsWith("cid:")) {
-    return isSafeContentId(source.slice(4));
-  }
-  return /^data:image\/(?:gif|jpeg|png|webp);base64,[a-z\d+/]*={0,2}$/iu.test(
-    source,
-  );
-}
-
-function isPositiveInteger(value: string) {
-  return /^\d+$/u.test(value) && Number(value) > 0;
-}
-
-function isSafeContentId(value: string) {
-  return value.length <= 255 && /^[^<>\s]+$/u.test(value);
 }
 
 function isBase64(value: string) {
@@ -1224,47 +511,6 @@ function removeAttribute(element: Element, name: string) {
   element.attrs = element.attrs.filter((attribute) => attribute.name !== name);
 }
 
-function renderDirection(direction?: string) {
-  return direction ? ` dir="${direction}"` : "";
-}
-
-function renderOptionalAttribute(element: Element, name: string) {
-  const value = getAttribute(element, name);
-  return value ? ` ${name}="${escapeAttribute(value)}"` : "";
-}
-
-function renderContentIdAttribute(element: Element) {
-  const contentId = getAttribute(element, "data-content-id");
-  if (!contentId || !isSafeContentId(contentId)) return "";
-  return ` data-content-id="${escapeAttribute(contentId)}"`;
-}
-
-function renderPositiveIntegerAttribute(element: Element, name: string) {
-  const value = getAttribute(element, name);
-  if (!value || !/^\d+$/u.test(value) || Number.parseInt(value, 10) <= 0) {
-    return "";
-  }
-  return ` ${name}="${value}"`;
-}
-
-function renderIntegerAttribute(element: Element, name: string) {
-  const value = getAttribute(element, name);
-  if (!value || !/^-?\d+$/u.test(value)) return "";
-  return ` ${name}="${value}"`;
-}
-
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/gu, "&amp;")
-    .replace(/</gu, "&lt;")
-    .replace(/>/gu, "&gt;")
-    .replace(/\u00a0/gu, "&nbsp;");
-}
-
-function escapeAttribute(value: string) {
-  return escapeHtml(value).replace(/"/gu, "&quot;");
-}
-
 function stripTrailingBreaks(html: string) {
   let end = html.length;
   let foundBreak = false;
@@ -1306,8 +552,4 @@ function isBreakTag(html: string, start: number, end: number) {
 
 function isElement(node: ChildNode): node is Element {
   return "tagName" in node;
-}
-
-function isBlockElement(node: ChildNode): node is Element {
-  return isElement(node) && BLOCK_TAGS.has(node.tagName);
 }
