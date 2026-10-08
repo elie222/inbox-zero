@@ -34,10 +34,9 @@ const content: ReplyDraftContent = {
   },
   draft: {
     editableHtml: "<p>My reply</p>",
-    mode: "rich",
+    mode: "original",
     quotedHtml: "",
     signatureHtml: "",
-    unsupported: [],
   },
   preservedBlocks: [
     { id: "quote", kind: "quote", html: "<p>Original</p>", collapsed: true },

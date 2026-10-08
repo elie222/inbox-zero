@@ -378,10 +378,9 @@ export async function restoreUnsentReplyDraft(input: {
       },
       draft: {
         editableHtml: stored.content.editableHtml,
-        mode: "rich",
+        mode: "original",
         quotedHtml: stored.content.quotedHtml,
         signatureHtml: "",
-        unsupported: [],
       },
       preservedBlocks: [],
       attachments: [],
