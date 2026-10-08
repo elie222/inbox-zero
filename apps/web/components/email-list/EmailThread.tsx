@@ -38,6 +38,7 @@ export function EmailThread({
   onSendSuccess,
   onMarkDone,
   onOpenSenderContext,
+  onThreadDiscarded,
   withHeader,
   renderToolbar,
   renderMessageMenu,
@@ -61,6 +62,8 @@ export function EmailThread({
   ) => void;
   onMarkDone?: () => void;
   onOpenSenderContext?: (message: ThreadMessage) => void;
+  /** The conversation's only message was a draft, and it has been discarded. */
+  onThreadDiscarded?: () => void;
   withHeader?: boolean;
   enableMessageNavigation?: boolean;
   renderMessageMenu?: (message: ThreadMessage) => ReactNode;
@@ -95,6 +98,11 @@ export function EmailThread({
     [messages, emailAccountId, outgoing, userEmail],
   );
 
+  // A conversation whose only message is a draft — how the Drafts folder lists
+  // one — stops existing the moment that draft is discarded.
+  const isDraftOnlyConversation =
+    organizedMessages.length === 1 &&
+    Boolean(organizedMessages[0].message.labelIds?.includes(GmailLabel.DRAFT));
   const lastMessageId = organizedMessages.at(-1)?.message.id;
   // A reply that hasn't reached the provider has no id to thread on yet, so
   // replying to it threads on the newest message the provider has.
@@ -318,6 +326,9 @@ export function EmailThread({
                 }}
                 onOpenSenderContext={onOpenSenderContext}
                 onMarkDone={onMarkDone}
+                onDraftDiscarded={
+                  isDraftOnlyConversation ? onThreadDiscarded : undefined
+                }
                 onExpand={() =>
                   setExpansionOverrides((prev) =>
                     new Map(prev).set(message.id, true),
