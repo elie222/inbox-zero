@@ -1116,6 +1116,7 @@ function ComposeEmailFormContent({
             holdForUndo: online,
             messageIds: isNewCompose ? [] : [readerMessageId],
             providerDraftMessageIds: draftMessageIds,
+            attachments: attachmentsRef.current.flatMap(toAttachmentReference),
             online,
             threadId: readerThreadId,
             onQueued: async () => {

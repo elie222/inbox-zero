@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setActiveMailClient } from "./active-client";
+import { sendEmailToDraftContent } from "./draft-content";
 import {
   clearLocalReplyDrafts,
   createReplyDraftWriter,
@@ -331,25 +332,31 @@ describe("local reply drafts", () => {
     setActiveMailClient(null);
   });
 
-  it("reopens an undone reply on its mailbox draft so its files are still sent", async () => {
+  it("reopens an undone reply on its mailbox draft with its files listed", async () => {
     const { setActiveMailClient } = await import("./active-client");
+    const file = {
+      id: "local-1",
+      filename: "report.pdf",
+      mimeType: "application/pdf",
+      size: 1200,
+      disposition: "attachment" as const,
+      draftAttachmentId: "file-1",
+    };
+    const sent = sendEmailToDraftContent(
+      {
+        to: "leslie@example.com",
+        subject: "Re: Reply Workflow Message",
+        messageHtml: "<p>Report attached.</p>",
+        providerDraftId: "provider-draft-1",
+      },
+      [],
+      "thread",
+      ["draft-message-1"],
+      [file],
+    );
     setActiveMailClient({
       async readDraft() {
-        return {
-          status: "found" as const,
-          draftRevision: 1,
-          content: {
-            to: ["leslie@example.com"],
-            cc: [],
-            bcc: [],
-            subject: "Re: Reply Workflow Message",
-            editableHtml: "<p>Report attached.</p>",
-            quotedHtml: "",
-            attachmentIds: [],
-            providerDraftId: "provider-draft-1",
-            providerDraftMessageIds: ["draft-message-1"],
-          },
-        };
+        return { status: "found" as const, draftRevision: 1, content: sent };
       },
       async saveDraft() {
         return {
@@ -368,6 +375,7 @@ describe("local reply drafts", () => {
     expect((await getReplyDraft(replyIdentity))?.content).toMatchObject({
       providerDraftId: "provider-draft-1",
       providerDraftMessageIds: ["draft-message-1"],
+      attachments: [file],
     });
     setActiveMailClient(null);
   });

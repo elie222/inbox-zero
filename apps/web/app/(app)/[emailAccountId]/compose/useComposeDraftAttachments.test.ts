@@ -15,9 +15,8 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-// A send restored for editing keeps its mailbox draft but not the list of
-// files on it, so the composer must reopen with the mailbox's files.
-it("lists the mailbox draft's files for a restored draft that kept none", async () => {
+// The mailbox is the truth for files already on the draft.
+it("lists the mailbox draft's files for a draft that kept references", async () => {
   vi.mocked(fetchDraftAttachments).mockResolvedValue({
     messageId: "draft-message-1",
     attachments: [
@@ -37,7 +36,19 @@ it("lists the mailbox draft's files for a restored draft that kept none", async 
     useComposeDraftAttachments({
       emailAccountId: "account-1",
       sessionKey: "account-1:thread-1:message-1:reply",
-      storedDraft: storedDraft({ providerDraftId: "draft-1", attachments: [] }),
+      storedDraft: storedDraft({
+        providerDraftId: "draft-1",
+        attachments: [
+          {
+            id: "local-1",
+            filename: "report.pdf",
+            mimeType: "application/pdf",
+            size: 1200,
+            disposition: "attachment",
+            draftAttachmentId: "file-1",
+          },
+        ],
+      }),
       loadMailboxDraft: false,
       enabled: true,
     }),
@@ -60,12 +71,13 @@ it("lists the mailbox draft's files for a restored draft that kept none", async 
   ]);
 });
 
-it("does not ask the mailbox when the draft has never been saved there", () => {
+// A draft with no files opens at once rather than waiting on the mailbox.
+it("does not ask the mailbox for a draft without files", () => {
   const { result } = renderHook(() =>
     useComposeDraftAttachments({
       emailAccountId: "account-1",
       sessionKey: "account-1:thread-1:message-1:reply",
-      storedDraft: storedDraft({ attachments: [] }),
+      storedDraft: storedDraft({ providerDraftId: "draft-1", attachments: [] }),
       loadMailboxDraft: false,
       enabled: true,
     }),

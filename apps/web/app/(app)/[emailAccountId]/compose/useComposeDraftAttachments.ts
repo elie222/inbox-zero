@@ -45,11 +45,9 @@ export function useComposeDraftAttachments({
 }) {
   // Loaded once per compose session: Gmail moves an open draft to a new
   // message on every save, and reloading then would remount the composer.
-  // A send restored for editing keeps only its mailbox draft, not the list of
-  // files on it, so any session with a mailbox draft asks the mailbox.
   const needed =
     enabled &&
-    (loadMailboxDraft || Boolean(storedDraft?.content?.providerDraftId));
+    (loadMailboxDraft || Boolean(storedDraft?.content?.attachments.length));
   const key = needed ? sessionKey : "";
   const inputs = useRef({
     emailAccountId,
