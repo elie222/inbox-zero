@@ -44,6 +44,34 @@ describe("mailbox predicates", () => {
     ).toBe(true);
   });
 
+  it("keeps a conversation in drafts only through drafts that aren't excluded", () => {
+    const withoutSending = {
+      kind: "all",
+      predicates: [
+        { kind: "mailbox", mailbox: "drafts" },
+        { kind: "not", predicate: { kind: "message", ids: ["d-sending"] } },
+      ],
+    } as const;
+    expect(
+      conversationMatchesPredicate(
+        [
+          message({ messageId: "m-1", roles: ["inbox"] }),
+          message({ messageId: "d-sending", roles: ["draft"] }),
+        ],
+        withoutSending,
+      ),
+    ).toBe(false);
+    expect(
+      conversationMatchesPredicate(
+        [
+          message({ messageId: "d-sending", roles: ["draft"] }),
+          message({ messageId: "d-kept", roles: ["draft"] }),
+        ],
+        withoutSending,
+      ),
+    ).toBe(true);
+  });
+
   it("matches snoozed mail until the timestamp elapses", () => {
     expect(
       conversationMatchesPredicate(

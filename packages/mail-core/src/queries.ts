@@ -6,6 +6,8 @@ import {
 } from "./identities";
 import { inboxSectionSchema, mailboxRoleSchema } from "./messages";
 
+export const MAX_MESSAGE_PREDICATE_IDS = 10_000;
+
 export const wellKnownMailboxSchema = z.enum([
   "inbox",
   "sent",
@@ -63,6 +65,10 @@ export const mailPredicateSchema: z.ZodType<MailPredicate> = z.lazy(() =>
     }),
     z.object({ kind: z.literal("has_attachment"), value: z.boolean() }),
     z.object({
+      kind: z.literal("message"),
+      ids: z.array(z.string().min(1).max(512)).max(MAX_MESSAGE_PREDICATE_IDS),
+    }),
+    z.object({
       kind: z.literal("text"),
       field: z.enum(["any", "subject", "body"]),
       value: z.string().min(1).max(4096),
@@ -94,6 +100,7 @@ export type MailPredicate =
     }
   | { kind: "received"; afterMs: number | null; beforeMs: number | null }
   | { kind: "has_attachment"; value: boolean }
+  | { kind: "message"; ids: string[] }
   | {
       kind: "text";
       field: "any" | "subject" | "body";

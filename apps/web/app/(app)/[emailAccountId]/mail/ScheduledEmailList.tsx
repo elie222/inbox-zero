@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import useSWR from "swr";
 import { AlertCircleIcon, ClockIcon, LoaderCircleIcon } from "lucide-react";
 import type { UpcomingScheduledEmailsResponse } from "@/app/api/user/scheduled-emails/route";
 import { InlineActionButton } from "@/components/InlineActionButton";
@@ -13,6 +12,7 @@ import {
 import { getActionErrorMessage } from "@/utils/error";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
+import { useUpcomingScheduledEmails } from "@/hooks/useHiddenDraftMessageIds";
 
 type ScheduledEmail =
   UpcomingScheduledEmailsResponse["scheduledEmails"][number];
@@ -22,24 +22,7 @@ export function ScheduledEmailList() {
   const [actionError, setActionError] = useState("");
   const [busy, setBusy] = useState(false);
   const { data, isLoading, error, mutate } =
-    useSWR<UpcomingScheduledEmailsResponse>(
-      ["/api/user/scheduled-emails", emailAccountId],
-      {
-        refreshInterval: (current) => {
-          const rows = current?.scheduledEmails ?? [];
-          if (rows.some((row) => row.status === "PROCESSING")) return 5000;
-          const dueTimes = rows
-            .filter((row) => row.status === "PENDING")
-            .map((row) => new Date(row.sendAt).getTime());
-          return dueTimes.length
-            ? Math.min(
-                60_000,
-                Math.max(5000, Math.min(...dueTimes) - Date.now()),
-              )
-            : 0;
-        },
-      },
-    );
+    useUpcomingScheduledEmails(emailAccountId);
 
   const runScheduledAction = async (
     action: typeof cancelScheduledEmailAction,

@@ -44,6 +44,10 @@ import { ButtonLoader } from "@/components/Loading";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Tooltip } from "@/components/Tooltip";
 import { threadScheduledEmailsKey } from "@/components/email-list/ThreadDeliveryStatus";
+import {
+  hideSendingDraftMessages,
+  upcomingScheduledEmailsKey,
+} from "@/hooks/useHiddenDraftMessageIds";
 import { VoiceInput } from "@/components/voice/VoiceInput";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
@@ -85,8 +89,6 @@ import {
   getDraftSessionMessageIds,
   forgetReplyDraftProvider,
   getReplyDraft,
-  rememberProviderDraftMessage,
-  rememberReplacedDraftMessage,
   updateReplyDraftProviderState,
   type ReplyDraftContent,
   type ReplyDraftIdentity,
@@ -94,6 +96,7 @@ import {
 } from "@/utils/mail-engine/reply-drafts";
 import { createPreservedEmailBlocks } from "@/utils/email/preserved-blocks";
 import { resolveSendDraftId } from "@/app/(app)/[emailAccountId]/compose/send-draft-reference";
+import { followProviderDraftMessage } from "@/app/(app)/[emailAccountId]/compose/follow-provider-draft-message";
 import {
   isGoogleProvider,
   isMicrosoftProvider,
@@ -576,31 +579,18 @@ function ComposeEmailFormContent({
     };
   };
 
-  // Called when a provider save may have moved the draft to a new message
-  // (Gmail does on every save) so the views that track it follow along.
-  const followProviderDraftMessage = async (messageId: string | null) => {
-    if (!messageId) return;
-    if (providerDraftMessageId) {
-      if (messageId === providerDraftMessageId) return;
-      rememberReplacedDraftMessage(
-        selectedEmailAccountId,
-        providerDraftMessageId,
-        messageId,
-      );
-      await ingestMailboxDraft(client, selectedEmailAccountId, messageId);
-      return;
-    }
-    if (isNewCompose) {
-      await ingestMailboxDraft(client, selectedEmailAccountId, messageId);
-      return;
-    }
-    if (!localDraftIdentity) return;
-    await rememberProviderDraftMessage(
-      localDraftIdentity,
-      requestId,
+  const followDraftMessage = (messageId: string | null) =>
+    followProviderDraftMessage({
+      client,
+      emailAccountId: selectedEmailAccountId,
       messageId,
-    );
-  };
+      openedDraftMessageId: providerDraftMessageId,
+      isNewCompose,
+      localDraft: localDraftIdentity && {
+        identity: localDraftIdentity,
+        requestId,
+      },
+    });
 
   // Every compose with files needs a mailbox draft to hold them. New messages
   // also get one from autosave; replies and forwards get one on first attach.
@@ -643,7 +633,7 @@ function ComposeEmailFormContent({
           "Mailbox draft creation could not be confirmed. Check Drafts in Gmail or Outlook; your message is still saved on this device.",
         );
       draftId = created.data.draftId;
-      await followProviderDraftMessage(created.data.messageId);
+      await followDraftMessage(created.data.messageId);
     }
     providerDraftId.current = draftId;
     await updateReplyDraftProviderState(localDraftIdentity, requestId, draftId);
@@ -669,7 +659,7 @@ function ComposeEmailFormContent({
             content,
           });
           if (!result?.data) throw new Error(getDraftSyncErrorMessage(result));
-          await followProviderDraftMessage(result.data.messageId);
+          await followDraftMessage(result.data.messageId);
           return;
         }
         const result = await updateDraftAction(selectedEmailAccountId, {
@@ -685,7 +675,7 @@ function ComposeEmailFormContent({
         providerDraftId.current = result.data.draftId;
         captureLocalDraft();
         await flushDraft();
-        await followProviderDraftMessage(result.data.messageId);
+        await followDraftMessage(result.data.messageId);
       }),
   });
   const { stop: stopProviderAutosave, resume: resumeProviderAutosave } =
@@ -734,7 +724,7 @@ function ComposeEmailFormContent({
         file,
         attachment: toAttachmentMetadata(attachment),
       });
-      await followProviderDraftMessage(result.messageId);
+      await followDraftMessage(result.messageId);
       if (isAttached()) return result;
       // Removed while uploading: take it back off the draft.
       const removed = await removeDraftAttachment({
@@ -742,7 +732,7 @@ function ComposeEmailFormContent({
         draftId,
         attachmentId: result.attachmentId,
       });
-      await followProviderDraftMessage(removed.messageId);
+      await followDraftMessage(removed.messageId);
     }).then(
       (result) => {
         if (!result) return;
@@ -797,7 +787,7 @@ function ComposeEmailFormContent({
       }),
     ).then(
       async (result) => {
-        await followProviderDraftMessage(result.messageId);
+        await followDraftMessage(result.messageId);
         reconcileDraftAttachments(result.attachments);
       },
       (error: unknown) => {
@@ -1107,6 +1097,7 @@ function ComposeEmailFormContent({
           return;
         }
         let outcome: Awaited<ReturnType<typeof queueReaderEmail>>;
+        let showDraftAgain = () => {};
         try {
           outcome = await queueReaderEmail({
             client,
@@ -1121,6 +1112,10 @@ function ComposeEmailFormContent({
             threadId: readerThreadId,
             onQueued: async () => {
               deliveryAccepted = true;
+              showDraftAgain = hideSendingDraftMessages(
+                selectedEmailAccountId,
+                draftMessageIds,
+              );
               if (replyingToEmail?.threadId?.trim()) {
                 await mutate([
                   "thread-deliveries",
@@ -1137,6 +1132,7 @@ function ComposeEmailFormContent({
             error instanceof Error
               ? error.message
               : "Could not confirm this reply was queued. Check the thread delivery status before retrying.";
+          showDraftAgain();
           setSubmissionError(description);
           toastError({ description });
           return;
@@ -1170,6 +1166,8 @@ function ComposeEmailFormContent({
             threadId: outcome.threadId,
           })
             .then(async (settled) => {
+              if (settled.status === "cancelled" || settled.status === "failed")
+                showDraftAgain();
               if (settled.status === "cancelled") return;
               await discardLocalDraft();
               if (settled.status === "sent") {
@@ -1193,6 +1191,8 @@ function ComposeEmailFormContent({
             .catch(() => {});
           return;
         }
+        if (outcome.status === "failed" || outcome.status === "cancelled")
+          showDraftAgain();
         await discardLocalDraft();
         if (outcome.status === "sent") {
           if (!isInlineReply) toastSuccess({ description: "Email sent!" });
@@ -1943,19 +1943,6 @@ function isShortcutForForm(
   );
 }
 
-async function ingestMailboxDraft(
-  client: ReturnType<typeof useOptionalMailClient>,
-  emailAccountId: string,
-  messageId: string,
-) {
-  if (!client) return;
-  await client.ensureMessageContent({
-    accountId: emailAccountId,
-    messageId,
-  });
-  await client.requestSync([emailAccountId]);
-}
-
 /**
  * SWR's `mutate` rejects when the revalidation request fails. These refreshes
  * run after the send is already scheduled, so a failure is stale data, not a
@@ -1967,7 +1954,7 @@ async function refreshScheduledEmails(
   threadId: string | null,
 ) {
   const keys = [
-    ["/api/user/scheduled-emails", emailAccountId],
+    upcomingScheduledEmailsKey(emailAccountId),
     ...(threadId ? [threadScheduledEmailsKey(emailAccountId, threadId)] : []),
   ];
   await Promise.all(keys.map((key) => mutate(key).catch(() => {})));

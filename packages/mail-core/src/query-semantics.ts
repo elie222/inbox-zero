@@ -69,6 +69,8 @@ export function messageMatchesPredicate(
       return true;
     case "has_attachment":
       return message.hasAttachments === predicate.value;
+    case "message":
+      return predicate.ids.includes(message.messageId);
     case "text":
       return textMatches(
         message,
