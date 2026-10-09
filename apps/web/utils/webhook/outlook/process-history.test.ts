@@ -145,6 +145,27 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
     expect(learnFromOutlookLabelRemoval).not.toHaveBeenCalled();
   });
 
+  it.each([
+    true,
+    false,
+    undefined,
+  ])("passes arrival eligibility %s without enabling backfills", async (isNewMessage) => {
+    const message = getMockParsedMessage({ labelIds: ["INBOX"] });
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      getMessage: vi.fn().mockResolvedValue(message),
+    } as never);
+    await processHistoryForUser({
+      subscriptionId: "sub-123",
+      resourceData: mockResourceData,
+      logger,
+      isNewMessage,
+    });
+    expect(processHistoryItem).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ isNewMessage: isNewMessage ?? false }),
+    );
+  });
+
   it("looks up the account by email when no subscription ID is provided", async () => {
     const inboxMessage = getMockParsedMessage({ labelIds: ["INBOX"] });
     const mockProvider = {
