@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Prisma } from "@/generated/prisma/client";
 import prisma from "@/utils/__mocks__/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { enrichLoopsEmailNames } from "./email-source";
@@ -46,6 +47,7 @@ describe("enrichLoopsEmailNames", () => {
         loopId: "loop_1",
         loopName: "Welcome series",
         emailMessageId: "message_1",
+        eventTime: new Date("2026-10-06T00:00:00.000Z"),
       },
       logger,
     );
@@ -61,6 +63,7 @@ describe("enrichLoopsEmailNames", () => {
           loopId: "loop_1",
           loopName: "Welcome series",
           sourceType: "loop",
+          eventTime: new Date("2026-10-06T00:00:00.000Z"),
         }),
       }),
     );
@@ -374,6 +377,118 @@ describe("enrichLoopsEmailNames", () => {
     expect(names.loopName).toBe("Welcome series");
   });
 
+  it("does not store an engagement time when Loops fills the name", async () => {
+    getWorkflowNameMock.mockResolvedValue("Welcome series");
+
+    await enrichLoopsEmailNames(
+      {
+        sourceType: "loop",
+        loopId: "loop_open",
+        emailMessageId: "message_open",
+        eventTime: new Date("2026-10-08T00:00:00.000Z"),
+      },
+      logger,
+    );
+
+    const upsert = prisma.loopsEmailSource.upsert.mock.calls[0]?.[0];
+    expect(upsert?.create).not.toHaveProperty("eventTime");
+    expect(upsert?.update).not.toHaveProperty("eventTime");
+  });
+
+  it("keeps a newer unversioned name when an older send loses the insert race", async () => {
+    prisma.loopsEmailSource.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: "source_raced",
+        loopName: "Renamed series",
+        campaignName: null,
+        eventTime: new Date("2026-10-07T00:00:00.000Z"),
+      });
+    prisma.loopsEmailSource.create.mockRejectedValueOnce(uniqueViolation());
+
+    await enrichLoopsEmailNames(
+      {
+        loopId: "loop_race",
+        loopName: "Welcome series",
+        eventTime: new Date("2026-10-06T00:00:00.000Z"),
+      },
+      logger,
+    );
+
+    expect(prisma.loopsEmailSource.update).not.toHaveBeenCalled();
+  });
+
+  it("stores a newer unversioned name when the insert race loses", async () => {
+    prisma.loopsEmailSource.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: "source_raced",
+        loopName: "Welcome series",
+        campaignName: null,
+        eventTime: new Date("2026-10-06T00:00:00.000Z"),
+      });
+    prisma.loopsEmailSource.create.mockRejectedValueOnce(uniqueViolation());
+
+    await enrichLoopsEmailNames(
+      {
+        loopId: "loop_race_newer",
+        loopName: "Renamed series",
+        eventTime: new Date("2026-10-07T00:00:00.000Z"),
+      },
+      logger,
+    );
+
+    expect(prisma.loopsEmailSource.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "source_raced" },
+        data: expect.objectContaining({ loopName: "Renamed series" }),
+      }),
+    );
+  });
+
+  it("asks Loops again after a cached name expires", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-07T00:00:00.000Z"));
+    getWorkflowNameMock.mockResolvedValueOnce("Welcome series");
+    getWorkflowNameMock.mockResolvedValueOnce("Renamed series");
+
+    try {
+      await enrichLoopsEmailNames({ loopId: "loop_ttl" }, logger);
+      await enrichLoopsEmailNames({ loopId: "loop_ttl" }, logger);
+      expect(getWorkflowNameMock).toHaveBeenCalledTimes(1);
+
+      await vi.advanceTimersByTimeAsync(10 * 60 * 1000);
+      const names = await enrichLoopsEmailNames({ loopId: "loop_ttl" }, logger);
+
+      expect(names.loopName).toBe("Renamed series");
+      expect(getWorkflowNameMock).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("drops the least recently used Loops name when the cache is full", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2030-01-01T00:00:00.000Z"));
+    getWorkflowNameMock.mockImplementation(async (id: string) => `Name ${id}`);
+
+    try {
+      for (let index = 0; index < 500; index++) {
+        await enrichLoopsEmailNames({ loopId: `loop_cache_${index}` }, logger);
+      }
+      await enrichLoopsEmailNames({ loopId: "loop_cache_0" }, logger);
+      expect(getWorkflowNameMock).toHaveBeenCalledTimes(500);
+
+      await enrichLoopsEmailNames({ loopId: "loop_cache_new" }, logger);
+      await enrichLoopsEmailNames({ loopId: "loop_cache_1" }, logger);
+
+      expect(getWorkflowNameMock).toHaveBeenCalledTimes(502);
+      expect(getWorkflowNameMock).toHaveBeenLastCalledWith("loop_cache_1");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("does not call Loops when no API secret is configured", async () => {
     envMock.LOOPS_API_SECRET = "";
 
@@ -387,3 +502,10 @@ describe("enrichLoopsEmailNames", () => {
     expect(getCampaignNameMock).not.toHaveBeenCalled();
   });
 });
+
+function uniqueViolation() {
+  return new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+    code: "P2002",
+    clientVersion: "test",
+  });
+}

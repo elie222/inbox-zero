@@ -4,7 +4,8 @@ import { Prisma } from "@/generated/prisma/client";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 
-const NAME_MISS_TTL_MS = 10 * 60 * 1000;
+const NAME_CACHE_TTL_MS = 10 * 60 * 1000;
+const NAME_CACHE_MAX_ENTRIES = 500;
 const NAME_LOOKUP_TIMEOUT_MS = 3000;
 
 type LoopsEmailIdentity = {
@@ -92,7 +93,7 @@ async function resolveMissingName({
 
   const key = cacheKey(id);
   // A database outage must not turn every open into a Loops API call.
-  const cached = resolvedNames.get(key);
+  const cached = readCachedName(key);
   if (cached) return cached;
   if (recentlyMissed(key)) return null;
 
@@ -105,7 +106,7 @@ async function resolveMissingName({
         misses.set(key, Date.now());
         return null;
       }
-      resolvedNames.set(key, name);
+      rememberCachedName(key, name);
       await rememberSafely(
         {
           ...identity,
@@ -113,6 +114,9 @@ async function resolveMissingName({
           loopName: sourceType === "loop" ? name : identity.loopName,
           campaignName:
             sourceType === "campaign" ? name : identity.campaignName,
+          // Opens and clicks are later than the send. Storing that timestamp
+          // would let this version outrank a newer send.
+          eventTime: null,
         },
         logger,
       );
@@ -258,9 +262,15 @@ async function upsertUnversioned(
     if (!isUniqueViolation(error)) throw error;
     const raced = await prisma.loopsEmailSource.findFirst({
       where: versionless,
-      select: { id: true },
+      select: {
+        id: true,
+        loopName: true,
+        campaignName: true,
+        eventTime: true,
+      },
     });
     if (!raced) throw error;
+    if (keepStoredName(raced, incoming)) return;
     await prisma.loopsEmailSource.update({ where: { id: raced.id }, data });
   }
 }
@@ -311,7 +321,7 @@ function nonempty(value: string | null | undefined): string | null {
 function recentlyMissed(key: string) {
   const missedAt = misses.get(key);
   if (!missedAt) return false;
-  if (Date.now() - missedAt < NAME_MISS_TTL_MS) return true;
+  if (Date.now() - missedAt < NAME_CACHE_TTL_MS) return true;
   misses.delete(key);
   return false;
 }
@@ -345,6 +355,35 @@ function lookupOnce(key: string, load: () => Promise<string | null>) {
   return pending;
 }
 
+function readCachedName(key: string): string | null {
+  const cached = resolvedNames.get(key);
+  if (!cached) return null;
+  if (Date.now() - cached.storedAt >= NAME_CACHE_TTL_MS) {
+    resolvedNames.delete(key);
+    return null;
+  }
+  // Reinsert so a full cache evicts names that have not been used recently.
+  resolvedNames.delete(key);
+  resolvedNames.set(key, cached);
+  return cached.name;
+}
+
+function rememberCachedName(key: string, name: string) {
+  resolvedNames.delete(key);
+  resolvedNames.set(key, { name, storedAt: Date.now() });
+  const now = Date.now();
+  for (const [cachedKey, cached] of resolvedNames) {
+    if (now - cached.storedAt >= NAME_CACHE_TTL_MS) {
+      resolvedNames.delete(cachedKey);
+    }
+  }
+  while (resolvedNames.size > NAME_CACHE_MAX_ENTRIES) {
+    const oldest = resolvedNames.keys().next().value;
+    if (!oldest) return;
+    resolvedNames.delete(oldest);
+  }
+}
+
 const misses = new Map<string, number>();
-const resolvedNames = new Map<string, string>();
+const resolvedNames = new Map<string, { name: string; storedAt: number }>();
 const lookups = new Map<string, Promise<string | null>>();
