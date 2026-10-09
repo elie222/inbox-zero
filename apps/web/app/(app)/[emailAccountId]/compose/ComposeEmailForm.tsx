@@ -413,7 +413,7 @@ function ComposeEmailFormContent({
         draft: {
           ...draft,
           editableHtml: sentWithFooterHtml
-            ? stripBrandingSignatures(parsedDraft.body.innerHTML)
+            ? stripBrandingOutsideSignature(parsedDraft.body)
             : parsedDraft.body.innerHTML,
         },
         preservedBlocks,
@@ -428,13 +428,17 @@ function ComposeEmailFormContent({
         replyingToEmail?.signatureHtml ?? accountSignatureHtml ?? undefined,
     });
     // The footer travels with the signature so it lands right after it and is
-    // removed with it, without introducing another block in the composer.
+    // removed with it, without introducing another block in the composer. A
+    // reopened draft's signature may already carry a footer; it is replaced.
     const draft = {
       ...preparedDraft,
       editableHtml: sentWithFooterHtml
         ? stripBrandingSignatures(preparedDraft.editableHtml)
         : preparedDraft.editableHtml,
-      signatureHtml: [preparedDraft.signatureHtml, sentWithFooterHtml]
+      signatureHtml: [
+        stripBrandingSignatures(preparedDraft.signatureHtml),
+        sentWithFooterHtml,
+      ]
         .filter(Boolean)
         .join("<br>"),
     };
@@ -1973,4 +1977,15 @@ function getDraftSyncErrorMessage(
   return message === UNEXPECTED_ACTION_ERROR_MESSAGE
     ? DRAFT_SYNC_FAILED_MESSAGE
     : message;
+}
+
+// The footer inside the composer's signature belongs to it; only branding
+// elsewhere in the body is removed.
+function stripBrandingOutsideSignature(body: HTMLElement) {
+  const signature = body.querySelector(":scope > [data-smartmail]");
+  if (!signature) return stripBrandingSignatures(body.innerHTML);
+  const placeholder = document.createComment("signature");
+  signature.replaceWith(placeholder);
+  const html = stripBrandingSignatures(body.innerHTML);
+  return html.replace("<!--signature-->", signature.outerHTML);
 }

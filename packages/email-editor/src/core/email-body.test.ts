@@ -90,8 +90,17 @@ describe("prepareEmailBodySignatureHtml", () => {
         '<div class="gmail_signature" data-smartmail="gmail_signature">Example Person</div>',
       ),
     ).toBe(
-      '<div data-smartmail="gmail_signature"><div><br></div><div>Example Person</div></div>',
+      '<div data-smartmail="gmail_signature"><div><br></div>Example Person</div>',
     );
+  });
+
+  it("re-wraps a saved signature without nesting or adding blank lines", () => {
+    const saved =
+      '<div data-smartmail="gmail_signature"><div><br></div><div>Example Person</div></div>';
+    const rewrapped = prepareEmailBodySignatureHtml(saved);
+
+    expect(rewrapped).toBe(saved);
+    expect(prepareEmailBodySignatureHtml(rewrapped ?? "")).toBe(saved);
   });
 
   it("keeps complex signatures editable instead of protecting them", () => {
