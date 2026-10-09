@@ -77,6 +77,18 @@ export async function aiChooseRule<
     };
   }
 
+  // The model claimed a match but named rules that were not offered. Treat this
+  // as an invalid response instead of silently skipping the email.
+  const { unresolvedRuleNames } = getRuleNameResolution({
+    aiResponse,
+    orderedRules,
+  });
+  if (rulesWithMetadata.length === 0 && unresolvedRuleNames.length > 0) {
+    throw new Error(
+      `AI choose rule returned rule names that were not offered: ${unresolvedRuleNames.join(", ")}`,
+    );
+  }
+
   return {
     rules: rulesWithMetadata,
     reason: aiResponse.reasoning,
@@ -364,16 +376,11 @@ function logAiChooseRuleResult<
   rulesWithMetadata: { rule: T; isPrimary?: boolean }[];
 }) {
   const candidateRuleNames = orderedRules.map((rule) => rule.name);
-  const returnedRuleNames = aiResponse.matchedRules
-    .map((match) => match.ruleName)
-    .filter(Boolean);
+  const { returnedRuleNames, unresolvedRuleNames } = getRuleNameResolution({
+    aiResponse,
+    orderedRules,
+  });
   const resolvedRuleNames = rulesWithMetadata.map(({ rule }) => rule.name);
-  const unresolvedRuleNames = returnedRuleNames.filter(
-    (ruleName) =>
-      !orderedRules.some(
-        (rule) => rule.name.toLowerCase() === ruleName.toLowerCase(),
-      ),
-  );
 
   const logPayload = {
     candidateRuleCount: candidateRuleNames.length,
@@ -406,6 +413,26 @@ function logAiChooseRuleResult<
 
 function joinLogValues(values: (string | null | undefined)[]) {
   return values.filter(isDefined).join(", ");
+}
+
+function getRuleNameResolution<T extends { name: string }>({
+  aiResponse,
+  orderedRules,
+}: {
+  aiResponse: { matchedRules: { ruleName: string }[] };
+  orderedRules: T[];
+}) {
+  const returnedRuleNames = aiResponse.matchedRules
+    .map((match) => match.ruleName)
+    .filter(Boolean);
+  const unresolvedRuleNames = returnedRuleNames.filter(
+    (ruleName) =>
+      !orderedRules.some(
+        (rule) => rule.name.toLowerCase() === ruleName.toLowerCase(),
+      ),
+  );
+
+  return { returnedRuleNames, unresolvedRuleNames };
 }
 
 function formatClassificationFeedback(
