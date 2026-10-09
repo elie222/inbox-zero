@@ -782,7 +782,7 @@ function ExpandedEmails({
   const { data, isLoading, error } = useThreads({
     fromEmail: sender,
     limit: 5,
-    type: "all",
+    type: "inbox",
   });
 
   if (isLoading) {
