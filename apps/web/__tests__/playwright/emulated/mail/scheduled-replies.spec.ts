@@ -2,7 +2,14 @@ import { expect, type Page } from "@playwright/test";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
-import { openMail, withClient } from "./mail-test-helpers";
+import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
+import type { ThreadsResponse } from "@/app/api/threads/route";
+import {
+  conversationWithSubject,
+  openMail,
+  openMailboxFromSidebar,
+  withClient,
+} from "./mail-test-helpers";
 
 const THREAD_ID = "thr_playwright_reply";
 
@@ -327,6 +334,106 @@ test("schedules a new message from the composer", async ({
   }
 });
 
+test("hides a scheduled new message's mailbox draft from Drafts until it's cancelled", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(180_000);
+  page.setDefaultTimeout(20_000);
+  const { emailAccountId, conversations } = await openMail(page);
+  const subject = `Playwright Scheduled Draft ${testInfo.retry}`;
+  const draftInList = conversationWithSubject(page, conversations, subject);
+  try {
+    await openMailboxFromSidebar(page, "Drafts");
+    await page.getByRole("button", { name: /^Compose/ }).click();
+    const dialog = page.getByRole("dialog", { name: "New Message" });
+    await dialog
+      .getByRole("combobox", { name: "To", exact: true })
+      .fill("recipient@example.com");
+    await page.keyboard.press("Enter");
+    await dialog.getByPlaceholder("Subject").fill(subject);
+    await dialog
+      .getByRole("textbox", { name: "Email message" })
+      .fill("A scheduled message saved in the mailbox.");
+    await expect
+      .poll(() => readMailboxDrafts(page, emailAccountId, subject), {
+        timeout: 60_000,
+      })
+      .toHaveLength(1);
+    await expect(draftInList).toBeVisible({ timeout: 60_000 });
+
+    await dialog
+      .getByRole("button", { name: "Send later", exact: true })
+      .click();
+    await page
+      .getByRole("dialog", { name: "Send later" })
+      .getByRole("button", { name: /Tomorrow morning/ })
+      .click();
+    await dialog.getByRole("button", { name: "Send", exact: true }).click();
+    await expect(dialog).toBeHidden();
+    await expect(
+      page.getByText("Email scheduled.", { exact: true }),
+    ).toBeVisible();
+
+    const scheduled = await withClient((client) =>
+      client.query<{ status: string; draftMessageIds: string[] }>(
+        `SELECT status, "draftMessageIds" FROM "ScheduledEmail" WHERE "emailAccountId" = $1 AND payload->'email'->>'subject' = $2`,
+        [emailAccountId, subject],
+      ),
+    );
+    expect(scheduled.rows).toHaveLength(1);
+    expect(scheduled.rows[0].status).toBe("PENDING");
+    expect(scheduled.rows[0].draftMessageIds.length).toBeGreaterThan(0);
+
+    // The send goes out from the mailbox draft, so it stays in the mailbox
+    // but not in the Drafts list.
+    expect(await readMailboxDrafts(page, emailAccountId, subject)).toHaveLength(
+      1,
+    );
+    await expect(draftInList).toHaveCount(0);
+    await page.reload();
+    await expect(conversations).toBeVisible({ timeout: 60_000 });
+    await expect(draftInList).toHaveCount(0);
+    await capturePlaywrightCheckpoint(
+      page,
+      testInfo,
+      "scheduled-message-draft-hidden",
+    );
+
+    await page.goto(`/${emailAccountId}/mail?type=scheduled`, {
+      waitUntil: "domcontentloaded",
+    });
+    await page
+      .getByRole("list", { name: "Scheduled emails" })
+      .getByRole("listitem")
+      .filter({ hasText: subject })
+      .getByRole("button", { name: "Cancel send" })
+      .click();
+    await expect(page.getByText(subject, { exact: true })).toHaveCount(0);
+    await openMailboxFromSidebar(page, "Drafts");
+    await expect(draftInList).toBeVisible({ timeout: 60_000 });
+  } finally {
+    const rows = await withClient((client) =>
+      client.query<{ providerDraftId: string | null }>(
+        `SELECT payload->'email'->>'providerDraftId' AS "providerDraftId" FROM "ScheduledEmail" WHERE "emailAccountId" = $1 AND payload->'email'->>'subject' = $2`,
+        [emailAccountId, subject],
+      ),
+    );
+    for (const { providerDraftId } of rows.rows) {
+      if (!providerDraftId) continue;
+      await page.request.delete(
+        `/api/user/drafts/${encodeURIComponent(providerDraftId)}`,
+        { headers: { [EMAIL_ACCOUNT_HEADER]: emailAccountId } },
+      );
+    }
+    await withClient((client) =>
+      client.query(
+        `DELETE FROM "ScheduledEmail" WHERE "emailAccountId" = $1 AND payload->'email'->>'subject' = $2`,
+        [emailAccountId, subject],
+      ),
+    );
+  }
+});
+
 test("adds a newly scheduled message to the Scheduled view already on screen", async ({
   page,
 }, testInfo) => {
@@ -402,6 +509,22 @@ async function readThreadDrafts(page: Page, emailAccountId: string) {
   return body.thread.messages.filter((message) =>
     message.labelIds?.includes("DRAFT"),
   );
+}
+
+async function readMailboxDrafts(
+  page: Page,
+  emailAccountId: string,
+  subject: string,
+) {
+  const response = await page.request.get(
+    new URL("/api/threads?type=draft", page.url()).toString(),
+    { headers: { [EMAIL_ACCOUNT_HEADER]: emailAccountId } },
+  );
+  expect(response.ok()).toBe(true);
+  const body: ThreadsResponse = await response.json();
+  return body.threads
+    .flatMap((thread) => thread.messages)
+    .filter((message) => message.headers.subject === subject);
 }
 
 async function readScheduledReply(emailAccountId: string) {

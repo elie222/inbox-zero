@@ -1,7 +1,6 @@
 import { OpenedConversationAttachments } from "./OpenedConversationAttachments";
 import { useEffect, useMemo, useState, useRef, type ReactNode } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
-import useSWR from "swr";
 import { isTypingTarget } from "@/lib/shortcuts/registry";
 import { ChevronsDownUpIcon, ChevronsUpDownIcon } from "lucide-react";
 import { Tooltip } from "@/components/Tooltip";
@@ -9,11 +8,8 @@ import type { ThreadMessage } from "@/components/email-list/types";
 import { EmailMessage } from "@/components/email-list/EmailMessage";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useReplyDrafts } from "@/hooks/useReplyDrafts";
-import {
-  ThreadDeliveryStatus,
-  threadScheduledEmailsKey,
-} from "@/components/email-list/ThreadDeliveryStatus";
-import type { ScheduledEmailsResponse } from "@/app/api/user/scheduled-emails/route";
+import { ThreadDeliveryStatus } from "@/components/email-list/ThreadDeliveryStatus";
+import { useHiddenDraftMessageIds } from "@/hooks/useHiddenDraftMessageIds";
 import { Button } from "@/components/ui/button";
 import {
   getDraftSessionMessageId,
@@ -82,10 +78,7 @@ export function EmailThread({
   const threadId = messages[0]?.threadId ?? "";
   const { drafts: localDrafts } = useReplyDrafts(emailAccountId, threadId);
   const { data: sentMessageOpens } = useSentMessageOpens(threadId || null);
-  // Shares the delivery status's request, which keeps it fresh.
-  const { data: scheduled } = useSWR<ScheduledEmailsResponse>(
-    threadId ? threadScheduledEmailsKey(emailAccountId, threadId) : null,
-  );
+  const hiddenDraftMessageIds = useHiddenDraftMessageIds(emailAccountId);
   const organizedMessages = useMemo(
     (): Array<{
       message: ThreadMessage;
@@ -97,11 +90,7 @@ export function EmailThread({
           ...localDrafts.flatMap(
             (draft) => draft.content?.providerDraftMessageIds ?? [],
           ),
-          ...(scheduled?.scheduledEmails ?? []).flatMap((row) =>
-            row.status === "PENDING" || row.status === "PROCESSING"
-              ? row.draftMessageIds
-              : [],
-          ),
+          ...hiddenDraftMessageIds,
         ]),
       ),
       ...outgoing.map((item) => ({
@@ -113,7 +102,14 @@ export function EmailThread({
         outgoing: item,
       })),
     ],
-    [messages, emailAccountId, localDrafts, scheduled, outgoing, userEmail],
+    [
+      messages,
+      emailAccountId,
+      localDrafts,
+      hiddenDraftMessageIds,
+      outgoing,
+      userEmail,
+    ],
   );
 
   // A conversation whose only message is a draft — how the Drafts folder lists

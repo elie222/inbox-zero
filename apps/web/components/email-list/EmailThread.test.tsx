@@ -18,6 +18,7 @@ import {
   EmailThread,
   organizeThreadMessages,
 } from "@/components/email-list/EmailThread";
+import { hideSendingDraftMessages } from "@/hooks/useHiddenDraftMessageIds";
 
 const { discardDraft } = vi.hoisted(() => ({ discardDraft: vi.fn() }));
 
@@ -32,7 +33,7 @@ const { scheduledEmails } = vi.hoisted(() => ({
 vi.mock("swr", () => ({
   default: (key: unknown) => ({
     data:
-      Array.isArray(key) && String(key[0]).startsWith("scheduled:")
+      Array.isArray(key) && key[0] === "/api/user/scheduled-emails"
         ? { scheduledEmails: scheduledEmails.current }
         : undefined,
   }),
@@ -60,10 +61,6 @@ vi.mock("@/components/email-list/EmailDetails", () => ({
 }));
 vi.mock("@/components/email-list/ThreadDeliveryStatus", () => ({
   ThreadDeliveryStatus: () => null,
-  threadScheduledEmailsKey: (emailAccountId: string, threadId: string) => [
-    `scheduled:${threadId}`,
-    emailAccountId,
-  ],
 }));
 vi.mock("@/components/email-list/OpenedConversationAttachments", () => ({
   OpenedConversationAttachments: ({
@@ -343,6 +340,28 @@ describe("EmailThread scheduled send drafts", () => {
         showReplyButton
       />,
     );
+
+    expect(
+      screen.getByRole("textbox", { name: "Email message" }).dataset
+        .providerDraftMessageId,
+    ).toBe("draft-1");
+  });
+
+  it("hides a draft while its send is held, and shows it again once undone", () => {
+    const showDraftAgain = hideSendingDraftMessages("account-1", ["draft-1"]);
+    render(
+      <EmailThread
+        messages={[
+          createReaderMessage("parent", "1000"),
+          createReaderDraft("draft-1", "2000"),
+        ]}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+    expect(screen.queryByRole("textbox", { name: "Email message" })).toBeNull();
+
+    act(() => showDraftAgain());
 
     expect(
       screen.getByRole("textbox", { name: "Email message" }).dataset

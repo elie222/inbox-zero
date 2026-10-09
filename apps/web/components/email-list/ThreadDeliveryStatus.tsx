@@ -15,7 +15,7 @@ import {
   LoaderCircleIcon,
   WifiOffIcon,
 } from "lucide-react";
-import useSWR from "swr";
+import useSWR, { useSWRConfig } from "swr";
 import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
 import type { ReplyDraftMode } from "@/utils/mail-engine/reply-drafts";
 import { InlineActionButton } from "@/components/InlineActionButton";
@@ -35,6 +35,7 @@ import {
   shouldShowEngineDeliveryStatus,
 } from "@/utils/mail-engine/engine-delivery";
 import { restoreUnsentReplyDraft } from "@/utils/mail-engine/reply-drafts";
+import { upcomingScheduledEmailsKey } from "@/hooks/useHiddenDraftMessageIds";
 
 export function ThreadDeliveryStatus({
   emailAccountId,
@@ -52,6 +53,7 @@ export function ThreadDeliveryStatus({
   canEditReply: boolean;
 }) {
   const client = useOptionalMailClient();
+  const { mutate: mutateCache } = useSWRConfig();
   const online = useSyncExternalStore(
     subscribeToConnectivity,
     () => navigator.onLine,
@@ -134,6 +136,10 @@ export function ThreadDeliveryStatus({
       await action();
       await mutate();
       await refreshOutbox();
+      // Which drafts are hidden follows whether their sends are still pending.
+      await mutateCache(upcomingScheduledEmailsKey(emailAccountId)).catch(
+        () => {},
+      );
     } catch (failure) {
       setActionError(
         failure instanceof Error

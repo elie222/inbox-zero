@@ -25,6 +25,7 @@ type UpcomingScheduledEmail = {
   error: string | null;
   to: string | null;
   subject: string | null;
+  draftMessageIds: string[];
 };
 
 export type ScheduledEmailsResponse = Awaited<ReturnType<typeof getThreadData>>;
@@ -100,7 +101,8 @@ async function getUpcomingData(emailAccountId: string) {
       "threadId",
       "error",
       "payload" -> 'email' ->> 'to' AS "to",
-      "payload" -> 'email' ->> 'subject' AS "subject"
+      "payload" -> 'email' ->> 'subject' AS "subject",
+      "draftMessageIds"
     FROM "ScheduledEmail"
     WHERE "emailAccountId" = ${emailAccountId}
       AND NOT "heldForUndo"
