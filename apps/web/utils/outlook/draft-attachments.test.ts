@@ -75,22 +75,6 @@ describe("Outlook draft attachments", () => {
     );
   });
 
-  it("refuses to post a file that needs an upload session", async () => {
-    await expect(
-      addOutlookDraftAttachment({
-        client,
-        draftId: "draft-1",
-        attachment: {
-          ...smallFile,
-          size: DRAFT_ATTACHMENT_DIRECT_UPLOAD_LIMIT_BYTES,
-          content: Buffer.alloc(DRAFT_ATTACHMENT_DIRECT_UPLOAD_LIMIT_BYTES),
-        },
-        logger,
-      }),
-    ).rejects.toThrow("too large");
-    expect(request.post).not.toHaveBeenCalled();
-  });
-
   it("opens an upload session for a large file and returns only its URL", async () => {
     request.post.mockResolvedValue({
       uploadUrl: "https://outlook.office.com/upload/session-1",
@@ -115,18 +99,6 @@ describe("Outlook draft attachments", () => {
         size,
       },
     });
-  });
-
-  it("does not open an upload session for a small file", async () => {
-    await expect(
-      createOutlookDraftAttachmentUploadSession({
-        client,
-        draftId: "draft-1",
-        attachment: smallFile,
-        logger,
-      }),
-    ).rejects.toThrow("small enough");
-    expect(request.post).not.toHaveBeenCalled();
   });
 
   it("treats removing an attachment that is already gone as done", async () => {

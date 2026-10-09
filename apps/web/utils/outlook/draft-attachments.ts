@@ -4,8 +4,7 @@ import type {
 } from "@microsoft/microsoft-graph-types";
 import type { DraftAttachmentMetadata } from "@/utils/actions/draft-attachments.validation";
 import type { DraftAttachment } from "@/utils/email/types";
-import { usesDirectDraftAttachmentUpload } from "@/utils/email/draft-attachment-upload";
-import { isOutlookItemNotFoundError, SafeError } from "@/utils/error";
+import { isOutlookItemNotFoundError } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
 import type { OutlookClient } from "@/utils/outlook/client";
 import {
@@ -31,7 +30,7 @@ export async function listOutlookDraftAttachments({
         () =>
           client
             .getClient()
-            .api(`/me/messages/${draftId}/attachments`)
+            .api(`/me/messages/${encodeURIComponent(draftId)}/attachments`)
             .select(ATTACHMENT_FIELDS)
             .get(),
         logger,
@@ -58,13 +57,11 @@ export async function addOutlookDraftAttachment({
   attachment: DraftAttachmentMetadata & { content: Buffer };
   logger: Logger;
 }) {
-  if (!usesDirectDraftAttachmentUpload(attachment.content.length))
-    throw new SafeError("This file is too large to attach in one request.");
   const created: FileAttachment = await withMicrosoftGraphWriteRetry(
     () =>
       client
         .getClient()
-        .api(`/me/messages/${draftId}/attachments`)
+        .api(`/me/messages/${encodeURIComponent(draftId)}/attachments`)
         .post({
           "@odata.type": "#microsoft.graph.fileAttachment",
           name: attachment.filename,
@@ -93,13 +90,13 @@ export async function createOutlookDraftAttachmentUploadSession({
   attachment: DraftAttachmentMetadata;
   logger: Logger;
 }) {
-  if (usesDirectDraftAttachmentUpload(attachment.size))
-    throw new SafeError("This file is small enough to attach directly.");
   const session: UploadSession = await withMicrosoftGraphWriteRetry(
     () =>
       client
         .getClient()
-        .api(`/me/messages/${draftId}/attachments/createUploadSession`)
+        .api(
+          `/me/messages/${encodeURIComponent(draftId)}/attachments/createUploadSession`,
+        )
         .post({
           AttachmentItem: {
             attachmentType: "file",
@@ -133,7 +130,7 @@ export async function removeOutlookDraftAttachment({
         client
           .getClient()
           .api(
-            `/me/messages/${draftId}/attachments/${encodeURIComponent(attachmentId)}`,
+            `/me/messages/${encodeURIComponent(draftId)}/attachments/${encodeURIComponent(attachmentId)}`,
           )
           .delete(),
       logger,

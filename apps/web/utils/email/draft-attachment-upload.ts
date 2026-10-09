@@ -1,3 +1,6 @@
+import { EMAIL_ATTACHMENT_LIMITS } from "@inboxzero/email-editor/core";
+import { SafeError } from "@/utils/error";
+
 /**
  * Shared by the browser and the server: how composer attachments travel to a
  * mailbox draft without either side keeping the bytes.
@@ -25,6 +28,20 @@ export type DraftMessageUploadPart =
       /** Where to read an attachment the draft already holds. */
       source?: { messageId: string; providerAttachmentId: string };
     };
+
+/** The composer's file count and total size limits, enforced on the draft. */
+export function assertDraftAttachmentLimits(
+  existing: { size: number }[],
+  size: number,
+) {
+  const totalBytes = existing.reduce((total, file) => total + file.size, size);
+  if (existing.length + 1 > EMAIL_ATTACHMENT_LIMITS.maxFiles)
+    throw new SafeError(
+      `Attach at most ${EMAIL_ATTACHMENT_LIMITS.maxFiles} files.`,
+    );
+  if (totalBytes > EMAIL_ATTACHMENT_LIMITS.maxTotalBytes)
+    throw new SafeError("Attachments must total 15 MB or less.");
+}
 
 export function usesDirectDraftAttachmentUpload(size: number) {
   return size < DRAFT_ATTACHMENT_DIRECT_UPLOAD_LIMIT_BYTES;

@@ -102,6 +102,7 @@ import type {
   DraftAttachmentUploadStart,
 } from "@/utils/email/types";
 import type { DraftAttachmentMetadata } from "@/utils/actions/draft-attachments.validation";
+import { assertDraftAttachmentLimits } from "@/utils/email/draft-attachment-upload";
 import {
   addOutlookDraftAttachment,
   createOutlookDraftAttachmentUploadSession,
@@ -823,6 +824,8 @@ export class OutlookProvider implements EmailProvider {
     draftId: string,
     attachment: DraftAttachmentMetadata & { content: Buffer },
   ) {
+    const { attachments } = await this.getEditableDraftAttachments(draftId);
+    assertDraftAttachmentLimits(attachments, attachment.size);
     const attachmentId = await addOutlookDraftAttachment({
       client: this.client,
       draftId,
@@ -830,28 +833,28 @@ export class OutlookProvider implements EmailProvider {
       logger: this.logger,
     });
     return {
-      ...(await this.getRequiredDraftAttachments(draftId)),
+      ...(await this.getEditableDraftAttachments(draftId)),
       attachmentId,
     };
   }
 
   async removeDraftAttachment(draftId: string, attachmentId: string) {
-    // Graph also deletes attachments from sent and received mail.
-    if (!(await this.getDraftReferenceForMessage(draftId)))
-      throw new DraftNotFoundError("Could not find this draft in Outlook.");
+    await this.getEditableDraftAttachments(draftId);
     await removeOutlookDraftAttachment({
       client: this.client,
       draftId,
       attachmentId,
       logger: this.logger,
     });
-    return this.getRequiredDraftAttachments(draftId);
+    return this.getEditableDraftAttachments(draftId);
   }
 
   async startDraftAttachmentUpload(
     draftId: string,
     attachment: DraftAttachmentMetadata,
   ): Promise<DraftAttachmentUploadStart> {
+    const { attachments } = await this.getEditableDraftAttachments(draftId);
+    assertDraftAttachmentLimits(attachments, attachment.size);
     const uploadUrl = await createOutlookDraftAttachmentUploadSession({
       client: this.client,
       draftId,
@@ -861,8 +864,12 @@ export class OutlookProvider implements EmailProvider {
     return { type: "provider-url", uploadUrl };
   }
 
-  private async getRequiredDraftAttachments(draftId: string) {
-    const result = await this.getDraftAttachments(draftId);
+  // Graph also changes attachments on sent and received mail, so these
+  // calls first confirm the message is a draft.
+  private async getEditableDraftAttachments(draftId: string) {
+    const result = (await this.getDraftReferenceForMessage(draftId))
+      ? await this.getDraftAttachments(draftId)
+      : null;
     if (!result)
       throw new DraftNotFoundError("Could not find this draft in Outlook.");
     return result;

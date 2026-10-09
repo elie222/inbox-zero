@@ -9,7 +9,9 @@ import {
 import {
   GMAIL_UPLOAD_CHUNK_BYTES,
   GRAPH_UPLOAD_CHUNK_BYTES,
+  usesDirectDraftAttachmentUpload,
 } from "@/utils/email/draft-attachment-upload";
+import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
 import { saveDraftAttachmentUpload } from "@/utils/redis/draft-attachment-upload";
 
@@ -26,6 +28,9 @@ export const startDraftAttachmentUploadAction = actionClient
         provider: providerName,
         logger,
       });
+      // Smaller files go through the one-request route instead.
+      if (usesDirectDraftAttachmentUpload(attachment.size))
+        throw new SafeError("This file is small enough to attach directly.");
       const upload = await provider.startDraftAttachmentUpload(
         draftId,
         attachment,

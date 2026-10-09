@@ -55,10 +55,7 @@ export const POST = withEmailProvider(
       DRAFT_ATTACHMENT_DIRECT_UPLOAD_LIMIT_BYTES - 1,
     );
     if (!content)
-      throw new SafeError(
-        "This file is too large to attach in one request.",
-        413,
-      );
+      throw new SafeError("This file couldn't be uploaded. Attach it again.");
     if (content.byteLength !== metadata.size)
       throw new SafeError("The uploaded file is incomplete.");
     const result = await request.emailProvider.addDraftAttachment(draftId, {

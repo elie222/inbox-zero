@@ -117,7 +117,6 @@ import type {
   DraftAttachmentUploadStart,
 } from "@/utils/email/types";
 import type { DraftAttachmentMetadata } from "@/utils/actions/draft-attachments.validation";
-import { usesDirectDraftAttachmentUpload } from "@/utils/email/draft-attachment-upload";
 import {
   buildGmailDraftUploadTemplate,
   getGmailDraftAttachments,
@@ -1069,8 +1068,6 @@ export class GmailProvider implements EmailProvider {
     draftId: string,
     attachment: DraftAttachmentMetadata & { content: Buffer },
   ) {
-    if (!usesDirectDraftAttachmentUpload(attachment.content.length))
-      throw new SafeError("This file is too large to attach in one request.");
     await rewriteGmailDraft({
       gmail: this.client,
       draftId,
@@ -1093,8 +1090,6 @@ export class GmailProvider implements EmailProvider {
     draftId: string,
     attachment: DraftAttachmentMetadata,
   ): Promise<DraftAttachmentUploadStart> {
-    if (usesDirectDraftAttachmentUpload(attachment.size))
-      throw new SafeError("This file is small enough to attach directly.");
     const template = await buildGmailDraftUploadTemplate({
       gmail: this.client,
       draftId,

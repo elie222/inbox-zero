@@ -2,34 +2,28 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ReadComposeDraftResponse } from "@/app/api/user/drafts/route";
-import type { DraftAttachment } from "@/utils/email/types";
 import { fetchWithAccount } from "@/utils/fetch";
-import type {
-  ComposeAttachmentReference,
-  StoredReplyDraft,
-} from "@/utils/mail-engine/reply-drafts";
-import { readComposeAttachmentBytes } from "./attachment-bytes";
+import type { StoredReplyDraft } from "@/utils/mail-engine/reply-drafts";
+import {
+  type ComposeAttachment,
+  mergeDraftAttachments,
+} from "./compose-attachments";
 import {
   fetchDraftAttachments,
   readDraftAttachmentBytes,
 } from "./upload-draft-attachment";
 
-export type LoadedComposeAttachment = ComposeAttachmentReference & {
-  previewUrl?: string;
-};
-
 type LoadedDraftAttachments = {
   draftId?: string;
-  attachments: LoadedComposeAttachment[];
+  attachments: ComposeAttachment[];
 };
 
 const LOAD_TIMEOUT_MS = 8000;
 
 /**
  * The files already on a compose session's mailbox draft. The mailbox is the
- * source of truth: the local draft only remembers references, and a reopened
- * draft (or one restored after undo) lists whatever the mailbox holds. When
- * the mailbox can't be reached the stored references are used as they are.
+ * source of truth; the local draft only remembers references, which are used
+ * as they are when the mailbox can't be reached in time.
  */
 export function useComposeDraftAttachments({
   emailAccountId,
@@ -61,16 +55,7 @@ export function useComposeDraftAttachments({
   useEffect(() => {
     if (!key) return;
     let cancelled = false;
-    const { emailAccountId, storedDraft, providerDraftMessageId } =
-      inputs.current;
-    loadDraftAttachments({
-      emailAccountId,
-      providerDraftId: storedDraft?.content?.providerDraftId,
-      providerDraftMessageId,
-      stored: (storedDraft?.content?.attachments ?? []).filter(
-        (attachment) => attachment.providerAttachmentId,
-      ),
-    }).then((value) => {
+    loadDraftAttachments(inputs.current).then((value) => {
       if (cancelled) {
         for (const attachment of value.attachments)
           if (attachment.previewUrl) URL.revokeObjectURL(attachment.previewUrl);
@@ -91,45 +76,53 @@ export function useComposeDraftAttachments({
 
 async function loadDraftAttachments({
   emailAccountId,
-  providerDraftId,
+  storedDraft,
   providerDraftMessageId,
-  stored,
 }: {
   emailAccountId: string;
-  providerDraftId?: string;
+  storedDraft?: StoredReplyDraft;
   providerDraftMessageId?: string;
-  stored: ComposeAttachmentReference[];
 }): Promise<LoadedDraftAttachments> {
+  const stored: ComposeAttachment[] = (
+    storedDraft?.content?.attachments ?? []
+  ).map((attachment) => ({ ...attachment, status: "uploaded" }));
+  let draftId = storedDraft?.content?.providerDraftId;
   const signal = AbortSignal.timeout(LOAD_TIMEOUT_MS);
   try {
-    const draftId =
-      providerDraftId ??
-      (providerDraftMessageId
-        ? await resolveDraftId(emailAccountId, providerDraftMessageId, signal)
-        : undefined);
-    if (!draftId)
-      return { attachments: await withPreviews(emailAccountId, stored) };
+    if (!draftId && providerDraftMessageId)
+      draftId = await resolveDraftId(
+        emailAccountId,
+        providerDraftMessageId,
+        signal,
+      );
+    if (!draftId) return { attachments: stored };
     const listed = await fetchDraftAttachments({
       emailAccountId,
       draftId,
       signal,
     });
     if (!listed) return { draftId, attachments: [] };
-    return {
-      draftId,
-      attachments: await withPreviews(
+    const attachments = mergeDraftAttachments(stored, listed.attachments);
+    for (const attachment of attachments) {
+      const source = listed.attachments.find(
+        (item) => item.id === attachment.providerAttachmentId,
+      );
+      if (attachment.disposition !== "inline" || !source) continue;
+      const bytes = await readDraftAttachmentBytes({
         emailAccountId,
-        listed.attachments.map((attachment) =>
-          fromDraftAttachment(attachment, stored),
-        ),
-        listed.attachments,
-      ),
-    };
+        attachmentId: attachment.id,
+        source,
+        size: attachment.size,
+        signal,
+      }).catch(() => null);
+      if (bytes)
+        attachment.previewUrl = URL.createObjectURL(
+          new Blob([bytes], { type: attachment.mimeType }),
+        );
+    }
+    return { draftId, attachments };
   } catch {
-    return {
-      draftId: providerDraftId,
-      attachments: await withPreviews(emailAccountId, stored),
-    };
+    return { draftId, attachments: stored };
   }
 }
 
@@ -146,55 +139,4 @@ async function resolveDraftId(
   if (!response.ok) return;
   const draft: ReadComposeDraftResponse = await response.json();
   return draft.draftId;
-}
-
-function fromDraftAttachment(
-  attachment: DraftAttachment,
-  stored: ComposeAttachmentReference[],
-): ComposeAttachmentReference {
-  // Outlook gives each file its own id, so the composer keeps the local id it
-  // stored the bytes under. Gmail drafts carry the composer's id already.
-  const local = stored.find(
-    (reference) => reference.providerAttachmentId === attachment.id,
-  );
-  return {
-    id: local?.id ?? attachment.id,
-    providerAttachmentId: attachment.id,
-    filename: attachment.filename,
-    mimeType: attachment.mimeType,
-    size: attachment.size,
-    disposition: attachment.disposition,
-    ...(attachment.contentId ? { contentId: attachment.contentId } : {}),
-  };
-}
-
-async function withPreviews(
-  emailAccountId: string,
-  attachments: ComposeAttachmentReference[],
-  listed: DraftAttachment[] = [],
-): Promise<LoadedComposeAttachment[]> {
-  return Promise.all(
-    attachments.map(async (attachment) => {
-      if (attachment.disposition !== "inline") return attachment;
-      const source = listed.find(
-        (item) => item.id === attachment.providerAttachmentId,
-      );
-      const bytes = await (source
-        ? readDraftAttachmentBytes({
-            emailAccountId,
-            localId: attachment.id,
-            source,
-            size: attachment.size,
-          })
-        : readComposeAttachmentBytes(emailAccountId, attachment.id)
-      ).catch(() => null);
-      if (!bytes) return attachment;
-      return {
-        ...attachment,
-        previewUrl: URL.createObjectURL(
-          new Blob([bytes], { type: attachment.mimeType }),
-        ),
-      };
-    }),
-  );
 }

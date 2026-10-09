@@ -205,6 +205,7 @@ function putChunk({
           cookie: "better-auth.session_token=session",
           [EMAIL_ACCOUNT_HEADER]: accountId,
           "content-range": `bytes ${start}-${start + length - 1}/${total}`,
+          "content-length": String(bodyLength),
         },
         body: new Uint8Array(bodyLength),
       },

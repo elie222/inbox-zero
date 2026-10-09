@@ -14,7 +14,7 @@ const largeSize = DRAFT_ATTACHMENT_DIRECT_UPLOAD_LIMIT_BYTES + 10;
 
 describe("uploadDraftAttachment", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     vi.stubGlobal("fetch", fetchMock);
   });
 
@@ -53,18 +53,18 @@ describe("uploadDraftAttachment", () => {
         chunkBytes: 4 * 1024 * 1024,
       },
     });
-    fetchMock.mockResolvedValueOnce(
-      new Response(null, {
-        status: 201,
-        headers: {
-          Location:
-            "https://outlook.office.com/api/v2.0/Users('u')/Messages('m')/Attachments('graph-att-1')",
-        },
-      }),
-    );
-    fetchMock.mockResolvedValueOnce(
-      Response.json({ messageId: "draft-1", attachments: [] }),
-    );
+    const existing = listedAttachment("forwarded-1");
+    fetchMock
+      .mockResolvedValueOnce(
+        Response.json({ messageId: "draft-1", attachments: [existing] }),
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 201 }))
+      .mockResolvedValueOnce(
+        Response.json({
+          messageId: "draft-1",
+          attachments: [existing, listedAttachment("graph-att-1")],
+        }),
+      );
     const result = await uploadDraftAttachment({
       emailAccountId: "account-1",
       draftId: "draft-1",
@@ -73,9 +73,9 @@ describe("uploadDraftAttachment", () => {
     });
     expect(result).toMatchObject({
       attachmentId: "graph-att-1",
-      messageId: null,
+      messageId: "draft-1",
     });
-    const [url, init] = fetchMock.mock.calls[0]!;
+    const [url, init] = fetchMock.mock.calls[1]!;
     expect(url).toBe("https://outlook.office.com/upload/session-1");
     const headers = new Headers(init.headers);
     expect(headers.get("authorization")).toBeNull();
@@ -168,5 +168,17 @@ function metadata(size: number) {
     mimeType: "text/plain",
     size,
     disposition: "attachment" as const,
+  };
+}
+
+function listedAttachment(id: string) {
+  return {
+    id,
+    filename: `${id}.bin`,
+    mimeType: "application/octet-stream",
+    size: 10,
+    disposition: "attachment",
+    messageId: "draft-1",
+    providerAttachmentId: id,
   };
 }

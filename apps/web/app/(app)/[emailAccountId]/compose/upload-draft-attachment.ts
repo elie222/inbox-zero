@@ -17,28 +17,22 @@ import {
   encodeMimeBase64,
   usesDirectDraftAttachmentUpload,
 } from "@/utils/email/draft-attachment-upload";
-import type { DraftAttachment } from "@/utils/email/types";
+import type { DraftAttachmentsResult } from "@/utils/email/types";
 import { getActionErrorMessage } from "@/utils/error";
 import { fetchWithAccount } from "@/utils/fetch";
-import {
-  readComposeAttachmentBytes,
-  saveComposeAttachmentBytes,
-} from "./attachment-bytes";
 
-export type DraftAttachmentUploadResult = {
-  /** The id to remove the file with later. */
+export type DraftAttachmentUploadResult = DraftAttachmentsResult & {
   attachmentId: string;
-  /** Set when the provider replaced the draft's message (Gmail). */
-  messageId: string | null;
-  /** The draft's full attachment list, when the provider returned it. */
-  attachments?: DraftAttachment[];
 };
+
+// Files attached in this tab, so a Gmail re-upload doesn't download them
+// again. Only references are ever written to the local draft.
+const attachedFiles = new Map<string, Blob>();
 
 /**
  * Adds a file to the mailbox draft. Small files go through our server in one
- * request; larger ones go to the provider's upload session so no request
- * reaches the server's body limit. The bytes are also kept in this browser for
- * a later Gmail re-upload.
+ * request; larger ones use the provider's upload session so no request
+ * reaches the server's body limit.
  */
 export async function uploadDraftAttachment({
   emailAccountId,
@@ -51,7 +45,7 @@ export async function uploadDraftAttachment({
   file: Blob;
   attachment: DraftAttachmentMetadata;
 }): Promise<DraftAttachmentUploadResult> {
-  await saveComposeAttachmentBytes(emailAccountId, attachment.id, file);
+  attachedFiles.set(fileKey(emailAccountId, attachment.id), file);
   if (usesDirectDraftAttachmentUpload(file.size))
     return uploadInOneRequest({ emailAccountId, draftId, file, attachment });
 
@@ -67,34 +61,22 @@ export async function uploadDraftAttachment({
     );
   const upload = started.data;
   if (upload.type === "provider-url") {
-    const uploadedId = await uploadToProviderUrl({
-      uploadUrl: upload.uploadUrl,
-      chunkBytes: upload.chunkBytes,
-      file,
-    });
-    // The upload response may not name the attachment, and a forward's draft
-    // also holds files the composer hasn't listed yet.
-    const listed = await fetchDraftAttachments({ emailAccountId, draftId });
-    const attachmentId =
-      uploadedId ??
-      listed?.attachments.findLast(
-        (candidate) =>
-          candidate.filename === attachment.filename &&
-          candidate.size === attachment.size,
-      )?.id;
-    if (!attachmentId)
+    const before = await fetchDraftAttachments({ emailAccountId, draftId });
+    await uploadToProviderUrl({ ...upload, file });
+    const after = await fetchDraftAttachments({ emailAccountId, draftId });
+    // Draft changes run one at a time, so the new id is the only new one.
+    const added = after?.attachments.filter(
+      (item) => !before?.attachments.some((known) => known.id === item.id),
+    );
+    if (!after || added?.length !== 1)
       throw new Error(`Could not confirm ${attachment.filename} was attached.`);
-    return {
-      attachmentId,
-      messageId: null,
-      attachments: listed?.attachments,
-    };
+    return { ...after, attachmentId: added[0]!.id };
   }
 
   const message = await assembleDraftMessage({
     emailAccountId,
     parts: upload.parts,
-    newAttachment: { id: attachment.id, file },
+    file,
   });
   if (message.size !== upload.totalBytes)
     throw new Error(`Could not attach ${attachment.filename}. Try again.`);
@@ -129,6 +111,14 @@ export async function removeDraftAttachment({
   return result.data;
 }
 
+export function forgetAttachedFiles(
+  emailAccountId: string,
+  attachmentIds: string[],
+) {
+  for (const id of attachmentIds)
+    attachedFiles.delete(fileKey(emailAccountId, id));
+}
+
 export async function fetchDraftAttachments({
   emailAccountId,
   draftId,
@@ -148,21 +138,23 @@ export async function fetchDraftAttachments({
   return response.json();
 }
 
-/** The bytes of a file on the draft: from this browser, else the mailbox. */
+/** A file on the draft: the copy this tab attached, else the mailbox's. */
 export async function readDraftAttachmentBytes({
   emailAccountId,
-  localId,
+  attachmentId,
   source,
   size,
+  signal,
 }: {
   emailAccountId: string;
-  localId: string;
+  attachmentId: string;
   source: { messageId: string; providerAttachmentId: string };
   size: number;
+  signal?: AbortSignal;
 }) {
-  const stored = await readComposeAttachmentBytes(emailAccountId, localId);
-  if (stored && stored.size === size) return stored;
-  const downloaded = await fetchAttachment({
+  const attached = attachedFiles.get(fileKey(emailAccountId, attachmentId));
+  if (attached?.size === size) return attached;
+  return fetchAttachment({
     url: getAttachmentUrl({
       accountId: emailAccountId,
       messageId: source.messageId,
@@ -170,9 +162,8 @@ export async function readDraftAttachmentBytes({
     }),
     emailAccountId,
     maxBytes: size,
+    signal,
   });
-  await saveComposeAttachmentBytes(emailAccountId, localId, downloaded);
-  return downloaded;
 }
 
 async function uploadInOneRequest({
@@ -212,10 +203,8 @@ async function uploadInOneRequest({
   return result;
 }
 
-/**
- * Microsoft's upload URL is pre-authenticated and CORS-enabled, and must not
- * be sent an Authorization header, so the browser uploads straight to it.
- */
+// Microsoft's upload URL is pre-authenticated and must not get our
+// Authorization header, so the browser uploads straight to it.
 async function uploadToProviderUrl({
   uploadUrl,
   chunkBytes,
@@ -225,10 +214,9 @@ async function uploadToProviderUrl({
   chunkBytes: number;
   file: Blob;
 }) {
-  let response: Response | undefined;
   for (let start = 0; start < file.size; start += chunkBytes) {
     const end = Math.min(start + chunkBytes, file.size);
-    response = await fetch(uploadUrl, {
+    const response = await fetch(uploadUrl, {
       method: "PUT",
       headers: {
         "Content-Type": "application/octet-stream",
@@ -241,27 +229,18 @@ async function uploadToProviderUrl({
       throw new Error("Could not upload the attachment. Try again.");
     }
   }
-  const location = response?.headers.get("location");
-  const fromLocation = location?.match(/Attachments\('([^']+)'\)/iu)?.[1];
-  if (fromLocation) return fromLocation;
-  const body = (await response?.json().catch(() => null)) as {
-    id?: unknown;
-  } | null;
-  return typeof body?.id === "string" ? body.id : null;
 }
 
-/**
- * Gmail replaces the whole message, so the browser fills the server's MIME
- * template with the base64 of every file on the draft.
- */
+// Gmail replaces the whole message, so the browser fills the server's MIME
+// template with the base64 of every file on the draft.
 async function assembleDraftMessage({
   emailAccountId,
   parts,
-  newAttachment,
+  file,
 }: {
   emailAccountId: string;
   parts: DraftMessageUploadPart[];
-  newAttachment: { id: string; file: Blob };
+  file: Blob;
 }) {
   const segments: string[] = [];
   for (const part of parts) {
@@ -269,15 +248,14 @@ async function assembleDraftMessage({
       segments.push(part.text);
       continue;
     }
-    const bytes =
-      part.attachmentId === newAttachment.id || !part.source
-        ? newAttachment.file
-        : await readDraftAttachmentBytes({
-            emailAccountId,
-            localId: part.attachmentId,
-            source: part.source,
-            size: part.size,
-          });
+    const bytes = part.source
+      ? await readDraftAttachmentBytes({
+          emailAccountId,
+          attachmentId: part.attachmentId,
+          source: part.source,
+          size: part.size,
+        })
+      : file;
     if (bytes.size !== part.size)
       throw new Error("An attachment changed while it was being uploaded.");
     segments.push(encodeMimeBase64(new Uint8Array(await bytes.arrayBuffer())));
@@ -320,8 +298,7 @@ async function uploadDraftMessage({
       );
     const result: UploadDraftMessageChunkResponse = await response.json();
     if (result.status === "complete") return result;
-    if (result.nextOffset <= start)
-      throw new Error("Could not upload the attachment. Try again.");
+    if (result.nextOffset <= start) break;
     start = result.nextOffset;
   }
   throw new Error("Could not upload the attachment. Try again.");
@@ -332,4 +309,8 @@ async function readErrorMessage(response: Response) {
     error?: unknown;
   } | null;
   return typeof body?.error === "string" ? body.error : undefined;
+}
+
+function fileKey(emailAccountId: string, attachmentId: string) {
+  return `${emailAccountId}:${attachmentId}`;
 }
