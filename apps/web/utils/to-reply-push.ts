@@ -1,6 +1,6 @@
 import { SystemType } from "@/generated/prisma/enums";
 import type { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
-import { extractNameFromEmail } from "@/utils/email";
+import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
 import { getMessageTimestamp } from "@/utils/email/message-timestamp";
 import type { Logger } from "@/utils/logger";
 import { sendMobilePushNotification } from "@/utils/mobile-push";
@@ -42,7 +42,11 @@ export async function sendToReplyPushNotification({
       userId,
       deduplicationKey: `to-reply:${emailAccountId}:${message.id}`,
       notification: {
-        title: truncate(extractNameFromEmail(message.headers.from), 100),
+        title: truncate(
+          extractNameFromEmail(message.headers.from).trim() ||
+            extractEmailAddress(message.headers.from),
+          100,
+        ),
         body: truncate(message.subject.trim() || "(no subject)", 200),
         sound: "default",
         data: {

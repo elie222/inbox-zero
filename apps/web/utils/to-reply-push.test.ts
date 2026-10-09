@@ -65,6 +65,21 @@ describe("sendToReplyPushNotification", () => {
     });
   });
 
+  it("falls back to the address for an empty quoted display name", async () => {
+    await sendToReplyPushNotification({
+      ...options,
+      message: {
+        ...options.message,
+        headers: { ...options.message.headers, from: '"" <alex@example.com>' },
+      },
+    });
+    expect(sendMobilePushNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        notification: expect.objectContaining({ title: "alex@example.com" }),
+      }),
+    );
+  });
+
   it.each([
     "old",
     "future",
