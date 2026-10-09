@@ -91,6 +91,24 @@ describe("mail engine idle catch-up scheduling", () => {
     await harness.engine.close();
   });
 
+  it("keeps committed sync working when a host callback throws", async () => {
+    const harness = idleCatchUpHarness({
+      streamIds: ["inbox"],
+      onSyncPageCommitted: () => {
+        throw new Error("notification transport unavailable");
+      },
+    });
+    const recordConnection = vi.spyOn(harness.store, "recordConnection");
+    await expect(harness.engine.runUntil(10_000)).resolves.toBeUndefined();
+    expect(recordConnection).toHaveBeenCalledWith({
+      accountId: "acc-1",
+      connection: "ready",
+    });
+    await harness.engine.runUntil(10_000);
+    expect(harness.readChangeStreams).toEqual(["inbox"]);
+    await harness.engine.close();
+  });
+
   it("checks every stream once, then waits for the idle interval", async () => {
     const harness = idleCatchUpHarness({ streamIds: ["inbox", "archive"] });
     await harness.engine.runUntil(10_000);

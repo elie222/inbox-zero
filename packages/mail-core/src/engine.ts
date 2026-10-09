@@ -563,9 +563,9 @@ export function createMailEngine(input: {
             bodies: changes.page.bodies,
           });
           if (applied.status === "committed") {
-            input.onSyncPageCommitted?.(changes.page);
             await refreshViews();
             await noteConnection(work.session.accountId, "ok");
+            notifySyncPageCommitted(changes.page);
           }
         } else if (changes.status === "reset_required") {
           await ingestBootstrap({
@@ -1034,7 +1034,6 @@ export function createMailEngine(input: {
         bodies: changes.page.bodies,
       });
       if (applied.status === "committed") {
-        input.onSyncPageCommitted?.(changes.page);
         if (changes.page.roundComplete) {
           idleGate.nextStreamCatchUpAtMs.set(
             stream.streamId,
@@ -1045,6 +1044,7 @@ export function createMailEngine(input: {
         }
         await refreshViews();
         await noteConnection(session.accountId, "ok");
+        notifySyncPageCommitted(changes.page);
       } else {
         idleGate.nextStreamCatchUpAtMs.delete(stream.streamId);
       }
@@ -1261,6 +1261,14 @@ export function createMailEngine(input: {
       kind: "account",
       folderId: null,
     };
+  }
+
+  function notifySyncPageCommitted(page: SyncPage) {
+    try {
+      input.onSyncPageCommitted?.(page);
+    } catch {
+      // Optional host side effects must not interrupt committed sync.
+    }
   }
 
   async function noteConnection(accountId: string, status: string) {
