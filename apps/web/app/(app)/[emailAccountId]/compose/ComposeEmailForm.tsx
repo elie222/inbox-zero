@@ -253,8 +253,10 @@ function ComposeEmailFormWithEngine(props: ComposeEmailFormProps) {
       : undefined,
     props.draftMode,
   );
+  const composeSessionKey = `${selectedEmailAccountId}:${props.replyingToEmail?.threadId ?? ""}:${props.draftSessionId ?? ""}`;
   const draftAttachments = useComposeDraftAttachments({
     emailAccountId: selectedEmailAccountId,
+    sessionKey: composeSessionKey,
     storedDraft: localDraft.draft,
     providerDraftMessageId: props.providerDraftMessageId,
     enabled: !localDraft.isLoading,
@@ -282,7 +284,7 @@ function ComposeEmailFormWithEngine(props: ComposeEmailFormProps) {
             accountSignatureHtml={emailAccount.signature ?? ""}
             sendingAddress={emailAccount.email}
             sentWithFooterHtml={sentWithFooterHtml}
-            key={`${selectedEmailAccountId}:${props.replyingToEmail?.threadId ?? ""}:${props.draftSessionId ?? ""}`}
+            key={composeSessionKey}
             onSelectEmailAccount={setSelectedEmailAccountId}
             selectedEmailAccountId={selectedEmailAccountId}
           />

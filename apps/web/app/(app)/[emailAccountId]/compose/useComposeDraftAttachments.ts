@@ -33,24 +33,27 @@ const LOAD_TIMEOUT_MS = 8000;
  */
 export function useComposeDraftAttachments({
   emailAccountId,
+  sessionKey,
   storedDraft,
   providerDraftMessageId,
   enabled,
 }: {
   emailAccountId: string;
+  /** Changes only when a different compose session mounts. */
+  sessionKey: string;
   storedDraft?: StoredReplyDraft;
   providerDraftMessageId?: string;
   enabled: boolean;
 }) {
-  const key = enabled
-    ? JSON.stringify([
-        emailAccountId,
-        storedDraft?.content?.providerDraftId ?? null,
-        providerDraftMessageId ?? null,
-      ])
-    : "";
-  const storedAttachments = useRef(storedDraft?.content?.attachments);
-  storedAttachments.current = storedDraft?.content?.attachments;
+  // Loaded once per compose session: Gmail moves an open draft to a new
+  // message on every save, and reloading then would remount the composer.
+  const key = enabled ? sessionKey : "";
+  const inputs = useRef({
+    emailAccountId,
+    storedDraft,
+    providerDraftMessageId,
+  });
+  inputs.current = { emailAccountId, storedDraft, providerDraftMessageId };
   const [loaded, setLoaded] = useState<{
     key: string;
     value: LoadedDraftAttachments;
@@ -58,16 +61,13 @@ export function useComposeDraftAttachments({
   useEffect(() => {
     if (!key) return;
     let cancelled = false;
-    const [accountId, providerDraftId, draftMessageId] = JSON.parse(key) as [
-      string,
-      string | null,
-      string | null,
-    ];
+    const { emailAccountId, storedDraft, providerDraftMessageId } =
+      inputs.current;
     loadDraftAttachments({
-      emailAccountId: accountId,
-      providerDraftId: providerDraftId ?? undefined,
-      providerDraftMessageId: draftMessageId ?? undefined,
-      stored: (storedAttachments.current ?? []).filter(
+      emailAccountId,
+      providerDraftId: storedDraft?.content?.providerDraftId,
+      providerDraftMessageId,
+      stored: (storedDraft?.content?.attachments ?? []).filter(
         (attachment) => attachment.providerAttachmentId,
       ),
     }).then((value) => {
