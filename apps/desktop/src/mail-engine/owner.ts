@@ -19,7 +19,6 @@ import {
 } from "./sqlite";
 import { desktopStoragePressure } from "./storage-pressure";
 import { watchMailboxSignals } from "./mailbox-signals";
-import { createFileBlobStore } from "@inboxzero/mail-sqlite/blob-store";
 
 export type DesktopMailOwner = {
   handleIpc(payload: unknown): ReturnType<typeof dispatchMailIpc>;
@@ -131,7 +130,6 @@ async function createOwnedEngine(input: OwnedEngineInput): Promise<{
       ...nodeMailCrypto(),
       storagePressure: () => desktopStoragePressure(input.databasePath),
     }),
-    blobStore: createFileBlobStore(`${input.databasePath}.blobs`),
     ownerId: "desktop-owner",
   });
   const abort = new AbortController();

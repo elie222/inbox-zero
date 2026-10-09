@@ -166,7 +166,6 @@ async function seedHydratedMailbox() {
         subject: "Keep me",
         editableHtml: "<p>Keep me</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     }),
   ).toMatchObject({ status: "saved" });

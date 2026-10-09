@@ -14,12 +14,6 @@ import {
   type ReplyDraftContent,
 } from "./reply-drafts";
 
-const releaseHolds = vi.hoisted(() => vi.fn());
-
-vi.mock("@/utils/mail-engine/stage-attachments", () => ({
-  releaseSendAttachmentHolds: releaseHolds,
-}));
-
 const identity = {
   emailAccountId: "account",
   threadId: "thread",
@@ -50,8 +44,6 @@ const content: ReplyDraftContent = {
 describe("local reply drafts", () => {
   beforeEach(() => {
     clearLocalReplyDrafts();
-    releaseHolds.mockReset();
-    releaseHolds.mockResolvedValue(undefined);
   });
 
   it("keeps the provider reference when a reopened writer saves newer content", async () => {
@@ -266,7 +258,6 @@ describe("local reply drafts", () => {
             editableHtml:
               "<p>I can review the updated proposal on Thursday.</p>",
             quotedHtml: "",
-            attachmentIds: [],
           },
         };
       },
@@ -288,47 +279,6 @@ describe("local reply drafts", () => {
     expect(
       (await getReplyDraft(replyIdentity))?.content?.draft.editableHtml,
     ).toBe("<p>I can review the updated proposal on Thursday.</p>");
-    expect(releaseHolds).toHaveBeenCalledWith("account", []);
-    setActiveMailClient(null);
-  });
-
-  it("releases staged blob holds without deleting files the composer cannot restage", async () => {
-    const { setActiveMailClient } = await import("./active-client");
-    setActiveMailClient({
-      async readDraft() {
-        return {
-          status: "found" as const,
-          draftRevision: 1,
-          content: {
-            to: ["leslie@example.com"],
-            cc: [],
-            bcc: [],
-            subject: "Re: Reply Workflow Message",
-            editableHtml:
-              "<p>I can review the updated proposal on Thursday.</p>",
-            quotedHtml: "",
-            attachmentIds: ["blob-1"],
-          },
-        };
-      },
-      async saveDraft() {
-        return {
-          status: "saved" as const,
-          draftRevision: 1,
-          revision: { databaseEpoch: "e", sequence: 1 },
-        };
-      },
-    } as never);
-    await restoreUnsentReplyDraft({
-      emailAccountId: "account",
-      threadId: "thread",
-      messageId: "parent",
-      operationId: "send-1",
-    });
-    expect((await getReplyDraft(replyIdentity))?.content?.attachments).toEqual(
-      [],
-    );
-    expect(releaseHolds).toHaveBeenCalledWith("account", ["blob-1"]);
     setActiveMailClient(null);
   });
 
@@ -349,7 +299,6 @@ describe("local reply drafts", () => {
         messageHtml: "<p>Report attached.</p>",
         providerDraftId: "provider-draft-1",
       },
-      [],
       "thread",
       ["draft-message-1"],
       [file],
@@ -396,7 +345,6 @@ describe("local reply drafts", () => {
             editableHtml:
               "<p>I can review the updated proposal on Thursday.</p>",
             quotedHtml: "",
-            attachmentIds: [],
           },
         };
       },
@@ -448,97 +396,6 @@ describe("local reply drafts", () => {
         operationId: "send-1",
       }),
     ).rejects.toThrow(/no longer on this device/);
-    setActiveMailClient(null);
-  });
-
-  it("still restores the composer when hold release fails", async () => {
-    releaseHolds.mockRejectedValue(new Error("network down"));
-    const { setActiveMailClient } = await import("./active-client");
-    setActiveMailClient({
-      async readDraft() {
-        return {
-          status: "found" as const,
-          draftRevision: 1,
-          content: {
-            to: ["leslie@example.com"],
-            cc: [],
-            bcc: [],
-            subject: "Re: Reply Workflow Message",
-            editableHtml:
-              "<p>I can review the updated proposal on Thursday.</p>",
-            quotedHtml: "",
-            attachmentIds: ["blob-1"],
-          },
-        };
-      },
-      async saveDraft() {
-        return {
-          status: "saved" as const,
-          draftRevision: 1,
-          revision: { databaseEpoch: "e", sequence: 1 },
-        };
-      },
-    } as never);
-    await restoreUnsentReplyDraft({
-      emailAccountId: "account",
-      threadId: "thread",
-      messageId: "parent",
-      operationId: "send-1",
-    });
-    expect(
-      (await getReplyDraft(replyIdentity))?.content?.draft.editableHtml,
-    ).toBe("<p>I can review the updated proposal on Thursday.</p>");
-    setActiveMailClient(null);
-  });
-
-  it("releases blob holds even when restoring the composer fails", async () => {
-    const { setActiveMailClient } = await import("./active-client");
-    let releaseSessionRead = () => {};
-    const sessionRead = new Promise<void>((resolve) => {
-      releaseSessionRead = resolve;
-    });
-    let waitingForSession = false;
-    setActiveMailClient({
-      async readDraft(key: { draftId: string }) {
-        if (key.draftId !== "send-1") {
-          waitingForSession = true;
-          await sessionRead;
-          return { status: "missing" as const };
-        }
-        return {
-          status: "found" as const,
-          draftRevision: 1,
-          content: {
-            to: ["leslie@example.com"],
-            cc: [],
-            bcc: [],
-            subject: "Re: Reply Workflow Message",
-            editableHtml:
-              "<p>I can review the updated proposal on Thursday.</p>",
-            quotedHtml: "",
-            attachmentIds: ["blob-1"],
-          },
-        };
-      },
-      async saveDraft() {
-        return {
-          status: "saved" as const,
-          draftRevision: 1,
-          revision: { databaseEpoch: "e", sequence: 1 },
-        };
-      },
-    } as never);
-    const restore = restoreUnsentReplyDraft({
-      emailAccountId: "account",
-      threadId: "thread",
-      messageId: "parent",
-      operationId: "send-1",
-    });
-    await vi.waitFor(() => expect(waitingForSession).toBe(true));
-    await createReplyDraftWriter(replyIdentity).save(content);
-    releaseSessionRead();
-    await expect(restore).rejects.toThrow(/another tab/);
-    expect(releaseHolds).toHaveBeenCalledWith("account", ["blob-1"]);
     setActiveMailClient(null);
   });
 });

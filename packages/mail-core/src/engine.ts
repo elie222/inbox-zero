@@ -48,7 +48,6 @@ import {
   mailboxQueryKey,
 } from "./subscriptions";
 import type { ConversationView } from "./ports/mail-store";
-import type { BlobStore } from "./ports/blob-store";
 
 const MAX_BOOTSTRAP_PAGES_PER_RUN = 25;
 const NON_ADVANCING_BOOTSTRAP_RETRY_MS = 60_000;
@@ -101,18 +100,6 @@ export type MailboxWindowOptions = {
   pageCount?: number;
 };
 
-export type DraftAttachmentInput = {
-  accountId: string;
-  draftId: string | null;
-  attachmentId: string;
-  filename: string;
-  contentType: string;
-  checksum: string;
-  sizeBytes: number;
-  bytes: AsyncIterable<Uint8Array>;
-  inline?: boolean;
-};
-
 export type MailClient = {
   queryContactSuggestions?(
     query: ContactSuggestionQuery,
@@ -134,9 +121,6 @@ export type MailClient = {
   submitConversations(input: SubmitConversationCommand): Promise<Admission>;
   saveDraft(input: SaveDraft): Promise<DraftSaveResult>;
   readDraft(key: DraftKey): Promise<DraftReadResult>;
-  stageDraftAttachment(
-    input: DraftAttachmentInput,
-  ): Promise<{ status: "staged" } | { status: "rejected"; code: string }>;
   submitSend(input: SubmitSend): Promise<Admission>;
   cancelOperation(
     key: OperationKey,
@@ -166,7 +150,6 @@ export function createMailEngine(input: {
   runtime: HostRuntime;
   ownerId?: string;
   assistant?: AssistantStateSource;
-  blobStore?: BlobStore;
   idleCatchUpIntervalMs?: number;
   syncLaneTimeoutMs?: number;
 }): MailEngine {
@@ -176,7 +159,6 @@ export function createMailEngine(input: {
   const syncLaneTimeoutMs = input.syncLaneTimeoutMs ?? SYNC_LANE_TIMEOUT_MS;
   const ownerId = input.ownerId ?? "local-owner";
   const assistant = input.assistant;
-  const blobStore = input.blobStore;
   const queries = createQueryRegistry();
   let evictedForCurrentPressure = false;
   const idleCatchUpGates = new Map<string, IdleCatchUpGate>();
@@ -292,33 +274,6 @@ export function createMailEngine(input: {
     },
     readDraft(key) {
       return store.readDraft(key);
-    },
-    async stageDraftAttachment(input) {
-      if (!blobStore) {
-        return { status: "rejected", code: "storage_unavailable" };
-      }
-      const stagedLocal = await blobStore.stage({
-        blobId: input.attachmentId,
-        bytes: input.bytes,
-        checksum: input.checksum,
-        sizeBytes: input.sizeBytes,
-      });
-      if (stagedLocal.status !== "staged") {
-        return { status: "rejected", code: stagedLocal.code };
-      }
-      const finalized = await blobStore.finalize(input.attachmentId);
-      if (!finalized)
-        return { status: "rejected", code: "storage_unavailable" };
-      return store.stageDraftAttachment({
-        accountId: input.accountId,
-        draftId: input.draftId,
-        attachmentId: input.attachmentId,
-        filename: input.filename,
-        contentType: input.contentType,
-        checksum: input.checksum,
-        sizeBytes: input.sizeBytes,
-        inline: input.inline,
-      });
     },
     async submitSend(send) {
       const admission = await store.admitSend(send);
@@ -441,18 +396,6 @@ export function createMailEngine(input: {
             attemptId: work.attemptId,
             operation: work.operation,
             result,
-          });
-          await refreshViews();
-          continue;
-        }
-        if (work.kind === "upload") {
-          await runAttachmentUpload({
-            work,
-            blobStore,
-            executor,
-            store,
-            runtime,
-            signal: signal ?? new AbortController().signal,
           });
           await refreshViews();
           continue;
@@ -1380,54 +1323,6 @@ function defaultRandomId(): string {
   throw new Error(
     "HostRuntime.randomId is required when crypto.randomUUID is unavailable",
   );
-}
-
-async function runAttachmentUpload(input: {
-  work: Extract<import("./ports/mail-store").ClaimedWork, { kind: "upload" }>;
-  blobStore?: BlobStore;
-  executor: OperationExecutor;
-  store: MailStore;
-  runtime: HostRuntime;
-  signal: AbortSignal;
-}) {
-  const { work, blobStore, executor, store } = input;
-  if (!blobStore || !executor.stageUpload) {
-    await store.failOperation(work.operation.key, "missing_attachment");
-    return;
-  }
-  const bytes = await blobStore.read(work.attachmentId);
-  if (!bytes) {
-    await store.failOperation(work.operation.key, "missing_attachment");
-    return;
-  }
-  const staged = await executor.stageUpload({
-    session: work.operation.session,
-    uploadId: work.attachmentId,
-    checksum: work.checksum,
-    sizeBytes: work.sizeBytes,
-    filename: work.filename,
-    contentType: work.contentType,
-    bytes,
-    signal: input.signal,
-  });
-  if (staged.status !== "staged") {
-    if (
-      staged.status === "rejected" &&
-      (staged.code === "missing" || staged.code === "too_large")
-    ) {
-      await store.failOperation(
-        work.operation.key,
-        staged.code === "too_large" ? "too_large" : "missing_attachment",
-      );
-    }
-    return;
-  }
-  await store.recordAttachmentUpload({
-    accountId: work.operation.key.accountId,
-    operationId: work.operation.key.operationId,
-    attachmentId: work.attachmentId,
-    remoteUploadId: staged.blobId,
-  });
 }
 
 /**
