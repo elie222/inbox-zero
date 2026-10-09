@@ -21,6 +21,6 @@ export function extractDraftComposerContent(
 function htmlHasContent(html: string) {
   if (!html.trim()) return false;
   const doc = new DOMParser().parseFromString(html, "text/html");
-  if (doc.body.querySelector("img")) return true;
+  if (doc.body.querySelector("img, hr, picture, svg, video")) return true;
   return (doc.body.textContent ?? "").replace(/ /g, " ").trim().length > 0;
 }

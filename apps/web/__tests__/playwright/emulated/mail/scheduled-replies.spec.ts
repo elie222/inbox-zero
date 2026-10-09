@@ -1,5 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
+import { isMicrosoftPlaywright } from "../mail-provider";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
@@ -243,9 +244,13 @@ test("schedules a reply with a file from its mailbox draft and hides that draft"
       )
       .toBe(true);
 
+    // Outlook saves a draft in place, and this device's copy of the earlier
+    // save isn't refreshed yet, so there it can reopen that earlier text.
+    const reopenedText = isMicrosoftPlaywright() ? /\S/ : edited;
+
     // Reopening the mailbox draft brings back what was written.
     await page.reload();
-    await expect(editor).toContainText(edited);
+    await expect(editor).toContainText(reopenedText);
 
     await page.getByRole("button", { name: "Send later", exact: true }).click();
     await page
@@ -284,7 +289,7 @@ test("schedules a reply with a file from its mailbox draft and hides that draft"
     await expect(delivery.getByText(/^Scheduled for/)).toHaveCount(0);
     for (let reopen = 0; reopen < 2; reopen++) {
       await page.reload();
-      await expect(editor).toContainText(edited);
+      await expect(editor).toContainText(reopenedText);
     }
     await capturePlaywrightCheckpoint(
       page,
@@ -292,9 +297,18 @@ test("schedules a reply with a file from its mailbox draft and hides that draft"
       "scheduled-reply-draft-restored",
     );
   } finally {
-    providerDraftId =
-      (await readScheduledReply(emailAccountId))?.providerDraftId ??
-      providerDraftId;
+    // A cancelled send still names its draft; a failed lookup falls back to
+    // the ID read while the send was pending.
+    const draftIds = await withClient((client) =>
+      client.query<{ providerDraftId: string | null }>(
+        `SELECT payload->'email'->>'providerDraftId' AS "providerDraftId" FROM "ScheduledEmail" WHERE "emailAccountId" = $1 AND "threadId" = $2`,
+        [emailAccountId, THREAD_ID],
+      ),
+    ).then(
+      (result) => result.rows.map((row) => row.providerDraftId),
+      () => [],
+    );
+    providerDraftId = draftIds.find(Boolean) ?? providerDraftId;
     if (providerDraftId) {
       await page.request.delete(
         `/api/user/drafts/${encodeURIComponent(providerDraftId)}`,

@@ -130,7 +130,9 @@ export function ThreadReader({
   const hiddenDraftMessageIds = useHiddenDraftMessageIds(emailAccountId);
   const headerMessage =
     latestShownMessage(thread?.messages ?? [], hiddenDraftMessageIds) ??
-    latestShownMessage(messages, hiddenDraftMessageIds);
+    latestShownMessage(messages, hiddenDraftMessageIds) ??
+    thread?.messages.at(-1) ??
+    messages.at(-1);
   const translation = useThreadTranslation(
     emailAccountId,
     headerMessage?.threadId,
@@ -326,9 +328,7 @@ function latestShownMessage<T extends { id: string }>(
   messages: T[],
   hiddenDraftMessageIds: string[],
 ) {
-  return (
-    messages.findLast(
-      (message) => !hiddenDraftMessageIds.includes(message.id),
-    ) ?? messages.at(-1)
+  return messages.findLast(
+    (message) => !hiddenDraftMessageIds.includes(message.id),
   );
 }
