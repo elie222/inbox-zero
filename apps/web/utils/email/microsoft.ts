@@ -836,6 +836,9 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async removeDraftAttachment(draftId: string, attachmentId: string) {
+    // Graph also deletes attachments from sent and received mail.
+    if (!(await this.getDraftReferenceForMessage(draftId)))
+      throw new DraftNotFoundError("Could not find this draft in Outlook.");
     await removeOutlookDraftAttachment({
       client: this.client,
       draftId,

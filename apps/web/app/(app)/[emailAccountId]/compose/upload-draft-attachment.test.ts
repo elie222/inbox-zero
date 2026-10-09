@@ -1,4 +1,3 @@
-import PostalMime from "postal-mime";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 import { DRAFT_ATTACHMENT_DIRECT_UPLOAD_LIMIT_BYTES } from "@/utils/email/draft-attachment-upload";
@@ -145,10 +144,20 @@ describe("uploadDraftAttachment", () => {
     ).toBe(true);
     const message = await new Blob(uploaded).text();
     expect(message.length).toBe(totalBytes);
-    const email = await PostalMime.parse(message);
+    expect(message.startsWith(head) && message.endsWith(tail)).toBe(true);
+    const encoded = message.slice(head.length, message.length - tail.length);
     expect(
-      new Uint8Array(email.attachments[0]!.content as ArrayBuffer),
-    ).toEqual(bytes);
+      encoded
+        .split("\r\n")
+        .every((line, index, lines) =>
+          index === lines.length - 1 ? line.length <= 76 : line.length === 76,
+        ),
+    ).toBe(true);
+    expect(
+      Buffer.from(encoded.replaceAll("\r\n", ""), "base64").equals(
+        Buffer.from(bytes),
+      ),
+    ).toBe(true);
   });
 });
 
