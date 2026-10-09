@@ -7,6 +7,7 @@ import { createEmailProvider } from "@/utils/email/provider";
 import { getEmailAccount } from "@/utils/redis/account-validation";
 import { toggleRule } from "@/utils/rule/toggle-rule";
 import { SafeError } from "@/utils/error";
+import * as mailSplits from "@/utils/split-inbox/splits.server";
 import { POST } from "./route";
 import { PATCH, DELETE } from "./[splitId]/route";
 import { POST as reorder } from "./reorder/route";
@@ -23,6 +24,9 @@ vi.mock("@/utils/email/rate-limit", () => ({
 }));
 vi.mock("@/utils/error.server");
 vi.mock("@/utils/rule/toggle-rule", () => ({ toggleRule: vi.fn() }));
+
+const createSplit = vi.spyOn(mailSplits, "createMailSplitOrThrow");
+const reorderSplits = vi.spyOn(mailSplits, "reorderMailSplits");
 
 const draft = { name: "Unread", filters: [{ kind: "UNREAD", value: null }] };
 const saved = { id: "split-1", ...draft, order: 1, matchAll: true };
@@ -139,12 +143,10 @@ describe("mail v1 split routes", () => {
       context(),
     );
     expect(response.status).toBe(200);
-    expect(prisma.$executeRaw).toHaveBeenCalledWith(
-      expect.anything(),
-      "acc-1",
-      ["split-2", "split-1"],
-      ["split-2", "split-1"],
-    );
+    expect(reorderSplits).toHaveBeenCalledWith({
+      emailAccountId: "acc-1",
+      ids: ["split-2", "split-1"],
+    });
     expect(await response.json()).toHaveProperty("splits");
   });
 
@@ -286,23 +288,12 @@ describe("mail v1 split routes", () => {
       context(),
     );
     expect(response.status).toBe(200);
-    expect(prisma.$queryRaw).toHaveBeenCalledWith(
-      expect.anything(),
-      "acc-1",
-      "Receipts",
-      "acc-1",
-      expect.any(String),
-      "Receipts",
-      true,
-      "acc-1",
-      14,
-    );
-    expect(prisma.$executeRaw).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.any(String),
-      expect.stringContaining('"value":"receipt-1"'),
-      expect.any(String),
-    );
+    expect(createSplit).toHaveBeenCalledWith({
+      emailAccountId: "acc-1",
+      name: "Receipts",
+      matchAll: true,
+      filters: [{ kind: "LABEL", value: "receipt-1" }],
+    });
     expect(toggleRule).not.toHaveBeenCalled();
   });
 
