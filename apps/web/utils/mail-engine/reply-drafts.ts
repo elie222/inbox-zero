@@ -526,9 +526,8 @@ export async function restoreUnsentReplyDraft(input: {
         signatureHtml: "",
       },
       preservedBlocks: [],
-      // The mailbox draft still holds the files; the composer lists them from
-      // there when it reopens.
-      attachments: [],
+      // The mailbox draft still holds the files; these only list them.
+      attachments: sentAttachments(stored.content.clientState),
       ...(stored.content.providerDraftId
         ? { providerDraftId: stored.content.providerDraftId }
         : {}),
@@ -667,4 +666,16 @@ function rememberEngineRevision(
 
 function engineDraftId(identity: ReplyDraftIdentity) {
   return identity.messageId.slice(0, 128);
+}
+
+function sentAttachments(clientState: string | undefined) {
+  if (!clientState) return [];
+  try {
+    const parsed = JSON.parse(clientState) as {
+      attachments?: ComposeAttachmentReference[];
+    };
+    return Array.isArray(parsed.attachments) ? parsed.attachments : [];
+  } catch {
+    return [];
+  }
 }

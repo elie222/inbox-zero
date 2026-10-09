@@ -6,6 +6,7 @@ import {
 import type { QueryHandle } from "@inboxzero/mail-core/queries";
 import type { SendEmailBody } from "@/utils/types/mail";
 import { sendEmailToDraftContent } from "@/utils/mail-engine/draft-content";
+import type { ComposeAttachmentReference } from "@/utils/mail-engine/reply-drafts";
 import {
   cancelSendAttachments,
   stageSendAttachments,
@@ -50,6 +51,8 @@ type QueueReaderEmailOptions = {
   holdForUndo?: boolean;
   /** The mailbox draft's saved copies, which the queued send replaces. */
   providerDraftMessageIds?: string[];
+  /** The files on the mailbox draft, kept so an undone send lists them. */
+  attachments?: ComposeAttachmentReference[];
   settlementTimeoutMs?: number;
   threadId: string;
 };
@@ -91,6 +94,7 @@ async function queueReaderEmailOnce(
     onQueued,
     holdForUndo,
     providerDraftMessageIds,
+    attachments,
     settlementTimeoutMs = READER_EMAIL_SETTLEMENT_TIMEOUT_MS,
     threadId,
   }: QueueReaderEmailOptions,
@@ -110,6 +114,7 @@ async function queueReaderEmailOnce(
       attachmentIds,
       threadId,
       providerDraftMessageIds,
+      attachments,
     );
     const draftRevision = await saveSendableDraft(client, {
       accountId: emailAccountId,

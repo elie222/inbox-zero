@@ -967,6 +967,8 @@ model ScheduledEmail {
   reminderStartedAt   DateTime?
   // A just-sent email the server holds for the undo window, not one the user scheduled.
   heldForUndo         Boolean              @default(false)
+  // The mailbox draft's saved copies, which the thread hides while the send is pending.
+  draftMessageIds     String[]             @default([])
 
   @@unique([emailAccountId, clientMutationId])
   @@index([status, sendAt])

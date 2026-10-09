@@ -83,10 +83,7 @@ export function ThreadDeliveryStatus({
     },
   );
   const { data, error, isValidating, mutate } = useSWR<ScheduledEmailsResponse>(
-    [
-      `/api/user/scheduled-emails?threadId=${encodeURIComponent(threadId)}`,
-      emailAccountId,
-    ],
+    threadScheduledEmailsKey(emailAccountId, threadId),
     {
       isPaused: () => !navigator.onLine,
       refreshInterval: (current) => {
@@ -367,6 +364,16 @@ export function ThreadDeliveryStatus({
       )}
     </section>
   );
+}
+
+export function threadScheduledEmailsKey(
+  emailAccountId: string,
+  threadId: string,
+) {
+  return [
+    `/api/user/scheduled-emails?threadId=${encodeURIComponent(threadId)}`,
+    emailAccountId,
+  ];
 }
 
 function formatTime(value: string | Date) {
