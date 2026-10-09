@@ -36,17 +36,7 @@ import {
 } from "@/utils/snooze/scheduler";
 import prisma from "@/utils/prisma";
 import { EmailSendOperationStatus } from "@/generated/prisma/enums";
-import {
-  createFileBlobStore,
-  readBlobMetadata,
-} from "@inboxzero/mail-sqlite/blob-store";
-import {
-  accountMailUploadDirectory,
-  holdAccountUploads,
-  releaseAccountUploadHolds,
-} from "@/utils/mail-api/upload-blobs";
 import type { ParsedMessage } from "@/utils/types";
-import type { Attachment } from "@/utils/types/mail";
 import { scheduleEmailBody } from "@/utils/actions/scheduled-email.validation";
 
 const logger = createScopedLogger("mail-api/operations");
@@ -576,43 +566,22 @@ async function executeSend(
   if (operation.intent.sendAtMs !== undefined) {
     return driveHeldSend(provider, accountId, operation);
   }
-  try {
-    await holdAccountUploads(accountId, operation.intent.attachmentIds);
-    const loadedAttachments = await loadSendAttachments(
-      accountId,
-      operation.intent.attachmentIds,
-    );
-    if (loadedAttachments.status === "missing") {
-      return {
-        status: "rejected" as const,
-        code: "missing_attachment",
-        targets: [],
-      };
-    }
-    const outcome = await executeDurableEmailSend({
-      logger,
-      emailAccountId: accountId,
-      getEmailProvider: async () => provider,
-      provider: provider.name,
-      attachmentIds: operation.intent.attachmentIds,
-      input: {
-        mutationId: sendMutationId(operation.key.operationId),
-        queuedAt: operation.intent.queuedAtMs,
-        ...sendRequest(operation.intent, loadedAttachments.attachments),
-      },
-    });
-    const result = mapSendOutcome(
-      operation.key.operationId,
-      outcome,
-      await observeSentMessage(provider, accountId, sentMessageIdFrom(outcome)),
-    );
-    if (result.status === "confirmed") {
-      await releaseSendAttachments(accountId, operation.intent.attachmentIds);
-    }
-    return result;
-  } finally {
-    await releaseAccountUploadHolds(accountId, operation.intent.attachmentIds);
-  }
+  const outcome = await executeDurableEmailSend({
+    logger,
+    emailAccountId: accountId,
+    getEmailProvider: async () => provider,
+    provider: provider.name,
+    input: {
+      mutationId: sendMutationId(operation.key.operationId),
+      queuedAt: operation.intent.queuedAtMs,
+      ...sendRequest(operation.intent),
+    },
+  });
+  return mapSendOutcome(
+    operation.key.operationId,
+    outcome,
+    await observeSentMessage(provider, accountId, sentMessageIdFrom(outcome)),
+  );
 }
 
 async function inspectSend(
@@ -675,33 +644,24 @@ async function holdEngineSend(
       targets: [],
     };
   }
-  try {
-    await holdAccountUploads(accountId, intent.attachmentIds);
-    const loaded = await loadSendAttachments(accountId, intent.attachmentIds);
-    if (loaded.status === "missing") {
-      return { status: "rejected", code: "missing_attachment", targets: [] };
-    }
-    const input = scheduleEmailBody.safeParse({
-      clientMutationId: mutationId,
-      ...sendRequest(intent, loaded.attachments),
-      sendAt: null,
-      remindAt: null,
-    });
-    if (!input.success) {
-      return { status: "rejected", code: "invalid", targets: [] };
-    }
-    const row = await holdEmailForUndo({
-      emailAccountId: accountId,
-      input: input.data,
-      sendAt: new Date(intent.sendAtMs),
-      logger,
-    });
-    // The hold carries the files now, so the uploads aren't needed again.
-    await releaseSendAttachments(accountId, intent.attachmentIds);
-    return { status: "held", row };
-  } finally {
-    await releaseAccountUploadHolds(accountId, intent.attachmentIds);
+  // A send with files goes out from the mailbox draft that holds them, so the
+  // hold keeps only that draft's id.
+  const input = scheduleEmailBody.safeParse({
+    clientMutationId: mutationId,
+    ...sendRequest(intent),
+    sendAt: null,
+    remindAt: null,
+  });
+  if (!input.success) {
+    return { status: "rejected", code: "invalid", targets: [] };
   }
+  const row = await holdEmailForUndo({
+    emailAccountId: accountId,
+    input: input.data,
+    sendAt: new Date(intent.sendAtMs),
+    logger,
+  });
+  return { status: "held", row };
 }
 
 async function heldSendResult(
@@ -768,9 +728,6 @@ async function inspectSendOperation(
     return { status: "uncertain" as const, receiptId: mutationId };
   }
   if (found.status === EmailSendOperationStatus.SENT) {
-    if (operation.intent.kind === "send") {
-      await releaseSendAttachments(accountId, operation.intent.attachmentIds);
-    }
     return {
       status: "confirmed" as const,
       receiptId: mutationId,
@@ -826,7 +783,7 @@ function mapSendOutcome(
   return { status: "uncertain" as const, receiptId };
 }
 
-function sendRequest(intent: SendIntent, attachments: Attachment[]) {
+function sendRequest(intent: SendIntent) {
   return {
     threadId: intent.replyToMessageId ? intent.replyToConversationId : null,
     messageIds: intent.replyToMessageId
@@ -845,7 +802,6 @@ function sendRequest(intent: SendIntent, attachments: Attachment[]) {
               messageId: intent.replyToMessageId,
             }
           : undefined,
-      attachments: attachments.length > 0 ? attachments : undefined,
       ...(intent.providerDraftId
         ? { providerDraftId: intent.providerDraftId }
         : {}),
@@ -867,61 +823,6 @@ function sendMutationId(operationId: string) {
 
 function isHexChar(value: string) {
   return (value >= "0" && value <= "9") || (value >= "a" && value <= "f");
-}
-
-async function releaseSendAttachments(
-  accountId: string,
-  attachmentIds: string[],
-) {
-  if (attachmentIds.length === 0) return;
-  const directory = accountMailUploadDirectory(accountId);
-  const store = createFileBlobStore(directory);
-  for (const blobId of attachmentIds) {
-    await store.delete(blobId).catch(() => undefined);
-  }
-}
-
-async function loadSendAttachments(accountId: string, attachmentIds: string[]) {
-  if (attachmentIds.length === 0) {
-    return { status: "ok" as const, attachments: [] };
-  }
-  const directory = accountMailUploadDirectory(accountId);
-  const store = createFileBlobStore(directory);
-  const attachments: Array<{
-    filename: string;
-    content: string;
-    contentType: string;
-    size: number;
-    disposition?: "attachment" | "inline";
-    contentId?: string;
-  }> = [];
-  for (const blobId of attachmentIds) {
-    let stream: AsyncIterable<Uint8Array> | null;
-    try {
-      stream = await store.read(blobId);
-    } catch {
-      return { status: "missing" as const, blobId };
-    }
-    if (!stream) return { status: "missing" as const, blobId };
-    const chunks: Uint8Array[] = [];
-    for await (const chunk of stream) chunks.push(chunk);
-    const bytes = Buffer.concat(chunks);
-    let metadata: Awaited<ReturnType<typeof readBlobMetadata>>;
-    try {
-      metadata = await readBlobMetadata(directory, blobId);
-    } catch {
-      return { status: "missing" as const, blobId };
-    }
-    attachments.push({
-      filename: metadata?.filename ?? blobId,
-      content: bytes.toString("base64"),
-      contentType: metadata?.contentType ?? "application/octet-stream",
-      size: bytes.byteLength,
-      ...(metadata?.disposition ? { disposition: metadata.disposition } : {}),
-      ...(metadata?.contentId ? { contentId: metadata.contentId } : {}),
-    });
-  }
-  return { status: "ok" as const, attachments };
 }
 
 function metadataChangeSatisfied(

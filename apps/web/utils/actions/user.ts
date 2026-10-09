@@ -23,7 +23,6 @@ import {
   updateAIDraftCleanupSettingsBody,
 } from "@/utils/actions/user.validation";
 import { clearLastEmailAccountCookie } from "@/utils/cookies.server";
-import { deleteAccountUploadDirectory } from "@/utils/mail-api/upload-blobs";
 import { deleteTinybirdEmailData } from "@inboxzero/tinybird";
 import { aliasPosthogUser } from "@/utils/posthog";
 import {
@@ -272,12 +271,6 @@ export const deleteEmailAccountAction = actionClientUser
         }),
       );
 
-      await deleteAccountUploadDirectory(emailAccountId).catch((error) => {
-        logger.error("Failed to delete account mail uploads", {
-          error,
-          emailAccountId,
-        });
-      });
       await notifyConversations();
 
       await clearLastEmailAccountCookieIfMatching({

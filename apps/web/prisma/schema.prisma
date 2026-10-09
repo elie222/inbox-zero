@@ -967,6 +967,8 @@ model ScheduledEmail {
   reminderStartedAt   DateTime?
   // A just-sent email the server holds for the undo window, not one the user scheduled.
   heldForUndo         Boolean              @default(false)
+  // The mailbox draft's saved copies, which the thread hides while the send is pending.
+  draftMessageIds     String[]             @default([])
 
   @@unique([emailAccountId, clientMutationId])
   @@index([status, sendAt])
@@ -1003,6 +1005,8 @@ model EmailSendOperation {
   status              EmailSendOperationStatus @default(PROCESSING)
   processingStartedAt DateTime                 @default(now())
   result              Json?
+  // No longer written. Kept so servers still running the previous release keep
+  // working while a deploy migrates; drop it in a later release.
   attachmentIds       String[]                 @default([])
 
   emailAccountId String

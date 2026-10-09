@@ -486,6 +486,66 @@ test("undoes a sent reply and restores its text", async ({
   await capturePlaywrightCheckpoint(page, testInfo, "reply-undone-from-thread");
 });
 
+test("undoes a sent reply with a file and lists the file again", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(240_000);
+  const { emailAccountId } = await openMail(page);
+  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reply`);
+  const sourceMessage = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  await expect(sourceMessage).toBeVisible({ timeout: 60_000 });
+  await sourceMessage
+    .getByRole("button", { name: "Reply", exact: true })
+    .click();
+  await sourceMessage
+    .getByRole("textbox", { name: "Email message" })
+    .pressSequentially(`A reply with notes, taken back. ${testInfo.retry}`);
+  await sourceMessage.getByTestId("compose-attachments-input").setInputFiles({
+    name: "notes.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("Example notes"),
+  });
+  const attachments = sourceMessage.getByRole("list", { name: "Attachments" });
+  await expect(attachments.locator("li[aria-busy]")).toHaveCount(0, {
+    timeout: 90_000,
+  });
+  await expect(attachments).toContainText("notes.txt");
+  await sourceMessage
+    .getByRole("button", { name: "Send", exact: true })
+    .click();
+
+  const undo = page
+    .getByRole("region", { name: "Notifications alt+T" })
+    .getByRole("button", { name: /^Undo/ });
+  await expect(undo).toBeVisible();
+  await expect
+    .poll(() =>
+      readLatestMailMutation(page, {
+        emailAccountId,
+        kind: "reply",
+        threadId: "thr_playwright_reply",
+      }),
+    )
+    .toMatchObject({ status: "reconciling" });
+  await undo.click();
+
+  // The file stayed on the mailbox draft, so the restored reply lists it.
+  await expect(
+    sourceMessage.getByRole("list", { name: "Attachments" }),
+  ).toContainText("notes.txt", { timeout: 30_000 });
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "reply-with-file-undone-from-thread",
+  );
+  await sourceMessage.getByRole("button", { name: "Discard draft" }).click();
+  await expect(
+    sourceMessage.getByRole("textbox", { name: "Email message" }),
+  ).toHaveCount(0);
+});
+
 test("sends a reply after its tab closes during the undo window", async ({
   page,
   request,

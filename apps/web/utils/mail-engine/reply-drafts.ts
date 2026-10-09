@@ -8,7 +8,6 @@ import type { EmailEditorPreservedBlock } from "@inboxzero/email-editor/web";
 import { splitRecipientList } from "@/utils/email";
 import { fetchWithAccount } from "@/utils/fetch";
 import { getActiveMailClient } from "@/utils/mail-engine/active-client";
-import { releaseSendAttachmentHolds } from "@/utils/mail-engine/stage-attachments";
 import type { SendEmailBody } from "@/utils/types/mail";
 
 /**
@@ -410,7 +409,6 @@ export async function dropReplyDraftDeletedFromMailbox(
           subject: "",
           editableHtml: "",
           quotedHtml: "",
-          attachmentIds: [],
         },
       });
       if (drafts.get(key) !== draft) return getReplyDraft(draft);
@@ -504,48 +502,36 @@ export async function restoreUnsentReplyDraft(input: {
       "This reply is no longer on this device. Refresh the thread and try again.",
     );
   }
-  try {
-    const identity: ReplyDraftIdentity = {
-      emailAccountId: input.emailAccountId,
-      threadId: input.threadId,
-      messageId: getReplyDraftSessionId(input.messageId, "reply"),
-    };
-    const current = await getReplyDraft(identity);
-    await createReplyDraftWriter(identity, current?.revision ?? 0).save({
-      composeMode: "reply",
-      values: {
-        to: stored.content.to.join(", "),
-        cc: stored.content.cc.join(", "),
-        bcc: stored.content.bcc.join(", "),
-        subject: stored.content.subject,
-      },
-      draft: {
-        editableHtml: stored.content.editableHtml,
-        mode: "original",
-        quotedHtml: stored.content.quotedHtml,
-        signatureHtml: "",
-      },
-      preservedBlocks: [],
-      // The mailbox draft still holds the files; the composer lists them from
-      // there when it reopens.
-      attachments: [],
-      ...(stored.content.providerDraftId
-        ? { providerDraftId: stored.content.providerDraftId }
-        : {}),
-      ...(stored.content.providerDraftMessageIds
-        ? { providerDraftMessageIds: stored.content.providerDraftMessageIds }
-        : {}),
-    });
-  } finally {
-    try {
-      await releaseSendAttachmentHolds(
-        input.emailAccountId,
-        stored.content.attachmentIds,
-      );
-    } catch {
-      // TTL remains the backstop for leftover holds.
-    }
-  }
+  const identity: ReplyDraftIdentity = {
+    emailAccountId: input.emailAccountId,
+    threadId: input.threadId,
+    messageId: getReplyDraftSessionId(input.messageId, "reply"),
+  };
+  const current = await getReplyDraft(identity);
+  await createReplyDraftWriter(identity, current?.revision ?? 0).save({
+    composeMode: "reply",
+    values: {
+      to: stored.content.to.join(", "),
+      cc: stored.content.cc.join(", "),
+      bcc: stored.content.bcc.join(", "),
+      subject: stored.content.subject,
+    },
+    draft: {
+      editableHtml: stored.content.editableHtml,
+      mode: "original",
+      quotedHtml: stored.content.quotedHtml,
+      signatureHtml: "",
+    },
+    preservedBlocks: [],
+    // The mailbox draft still holds the files; these only list them.
+    attachments: sentAttachments(stored.content.clientState),
+    ...(stored.content.providerDraftId
+      ? { providerDraftId: stored.content.providerDraftId }
+      : {}),
+    ...(stored.content.providerDraftMessageIds
+      ? { providerDraftMessageIds: stored.content.providerDraftMessageIds }
+      : {}),
+  });
 }
 
 function currentEpoch(emailAccountId: string) {
@@ -599,7 +585,6 @@ async function persistEngineReplyDraft(
         subject: "",
         editableHtml: "",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     rememberEngineRevision(identity, cleared);
@@ -617,7 +602,6 @@ async function persistEngineReplyDraft(
         subject: content.values.subject,
         editableHtml: content.draft.editableHtml,
         quotedHtml: content.draft.quotedHtml,
-        attachmentIds: [],
         clientState: JSON.stringify(content).slice(0, 1_000_000),
         ...(content.providerDraftId
           ? { providerDraftId: content.providerDraftId }
@@ -667,4 +651,16 @@ function rememberEngineRevision(
 
 function engineDraftId(identity: ReplyDraftIdentity) {
   return identity.messageId.slice(0, 128);
+}
+
+function sentAttachments(clientState: string | undefined) {
+  if (!clientState) return [];
+  try {
+    const parsed = JSON.parse(clientState) as {
+      attachments?: ComposeAttachmentReference[];
+    };
+    return Array.isArray(parsed.attachments) ? parsed.attachments : [];
+  } catch {
+    return [];
+  }
 }

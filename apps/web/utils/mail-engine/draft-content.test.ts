@@ -4,18 +4,14 @@ import { sendEmailToDraftContent } from "./draft-content";
 describe("sendEmailToDraftContent", () => {
   it("splits recipients and keeps the send html on the editable body", () => {
     expect(
-      sendEmailToDraftContent(
-        {
-          to: "Ada <ada@example.com>, lin@example.com",
-          cc: "cc@example.com",
-          bcc: "",
-          subject: "Hello",
-          messageHtml: "<p>Hi</p>",
-        },
-        ["blob-1"],
-      ),
+      sendEmailToDraftContent({
+        to: "Ada <ada@example.com>, lin@example.com",
+        cc: "cc@example.com",
+        bcc: "",
+        subject: "Hello",
+        messageHtml: "<p>Hi</p>",
+      }),
     ).toEqual({
-      attachmentIds: ["blob-1"],
       bcc: [],
       cc: ["cc@example.com"],
       editableHtml: "<p>Hi</p>",
@@ -27,15 +23,12 @@ describe("sendEmailToDraftContent", () => {
 
   it("freezes the provider draft id used to send", () => {
     expect(
-      sendEmailToDraftContent(
-        {
-          to: "ada@example.com",
-          subject: "Hello",
-          messageHtml: "<p>Hi</p>",
-          providerDraftId: "gmail-draft-1",
-        },
-        [],
-      ).providerDraftId,
+      sendEmailToDraftContent({
+        to: "ada@example.com",
+        subject: "Hello",
+        messageHtml: "<p>Hi</p>",
+        providerDraftId: "gmail-draft-1",
+      }).providerDraftId,
     ).toBe("gmail-draft-1");
   });
 });

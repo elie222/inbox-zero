@@ -37,6 +37,13 @@ describe("getDraftMessageUploadLength", () => {
       ]),
     ).toBe(8 + mimeBase64Length(58) + 7);
   });
+
+  it("counts text in the UTF-8 bytes the client uploads", () => {
+    const parts = [{ type: "text" as const, text: "Café ✓\r\n" }];
+    expect(getDraftMessageUploadLength(parts)).toBe(
+      new Blob([parts[0]!.text]).size,
+    );
+  });
 });
 
 describe("validateGmailUploadChunk", () => {

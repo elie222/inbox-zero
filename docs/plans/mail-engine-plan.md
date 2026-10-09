@@ -4,6 +4,8 @@ Build a fast, consistent web/Electron mail client around a shared SQLite engine 
 
 The design is proposed until the implementation prompt is executed. That prompt selects the initial existing-login/backend-mediated route and authorizes implementation and local verification. Material unresolved product/support decisions remain explicit gates; production rollout, merging, and AI prompt/tool changes are not implicitly authorized.
 
+Attachments no longer go through the engine. They are added to the provider's mailbox draft as they are attached, and a send with files goes out from that draft. The blob store, attachment staging, and `/uploads` resources described below were removed and are kept only as history.
+
 Read in order, then refer to the relevant section during implementation:
 
 1. [Implementation approach](#approach): scope, simplicity, and replacement philosophy.

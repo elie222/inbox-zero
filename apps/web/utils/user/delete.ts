@@ -13,7 +13,6 @@ import { captureException, SafeError } from "@/utils/error";
 import { stopWatchingEmailAccount } from "@/utils/email/watch-manager";
 import type { Logger } from "@/utils/logger";
 import { prepareMemberRemovalNotifications } from "@/utils/team-comments/member-removal";
-import { deleteAccountUploadDirectory } from "@/utils/mail-api/upload-blobs";
 import { clearCachedResearchForUser } from "@/utils/redis/research-cache";
 import { releaseAccountRecordings } from "@/utils/meeting-recorder/delete-media";
 import {
@@ -192,15 +191,6 @@ async function deleteUserRows({
       throw new SafeError(DELETE_ACCOUNT_REQUIRES_OWNER_TRANSFER_ERROR);
     }
     throw error;
-  }
-
-  for (const emailAccountId of emailAccountIds) {
-    await deleteAccountUploadDirectory(emailAccountId).catch((error) => {
-      logger.error("Failed to delete account mail uploads", {
-        error,
-        emailAccountId,
-      });
-    });
   }
 }
 

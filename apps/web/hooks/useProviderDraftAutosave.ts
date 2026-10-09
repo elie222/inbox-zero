@@ -57,12 +57,13 @@ export function useProviderDraftAutosave<T>({
   const consecutiveFailures = useRef(0);
   const cleanup = useRef<() => void>(() => {});
 
+  // Edits made before saving is enabled are saved once it is.
   const capture = useCallback(() => {
-    if (latest.current.enabled && !paused.current) dirty.current = true;
+    if (!paused.current) dirty.current = true;
   }, []);
 
   const readPendingContent = useCallback(() => {
-    if (!dirty.current) return;
+    if (!dirty.current || !latest.current.enabled) return;
     dirty.current = false;
     pendingContent.current = latest.current.getContent();
   }, []);
@@ -77,15 +78,10 @@ export function useProviderDraftAutosave<T>({
 
   const flush = useCallback(() => {
     if (activeSave.current) return activeSave.current;
-    if (!navigator.onLine) return Promise.resolve();
+    if (!navigator.onLine || !latest.current.enabled) return Promise.resolve();
     readPendingContent();
     const content = pendingContent.current;
-    if (
-      !latest.current.enabled ||
-      paused.current ||
-      halted.current ||
-      content === undefined
-    )
+    if (paused.current || halted.current || content === undefined)
       return Promise.resolve();
     const snapshot = JSON.stringify(content);
     if (snapshot === savedSnapshot.current) return Promise.resolve();
