@@ -71,6 +71,44 @@ describe("mail engine mailbox windows", () => {
 });
 
 describe("mail engine idle catch-up scheduling", () => {
+  it("emits committed incremental pages, excluding stale results", async () => {
+    const onSyncPageCommitted = vi.fn();
+    const harness = idleCatchUpHarness({
+      streamIds: ["inbox"],
+      onSyncPageCommitted,
+    });
+    await harness.engine.runUntil(10_000);
+    expect(onSyncPageCommitted).toHaveBeenCalledTimes(1);
+    expect(onSyncPageCommitted.mock.calls[0][0].session.accountId).toBe(
+      "acc-1",
+    );
+    vi.spyOn(harness.store, "applySyncPage").mockResolvedValue({
+      status: "stale",
+    });
+    harness.advance(60_000);
+    await harness.engine.runUntil(70_000);
+    expect(onSyncPageCommitted).toHaveBeenCalledTimes(1);
+    await harness.engine.close();
+  });
+
+  it("keeps committed sync working when a host callback throws", async () => {
+    const harness = idleCatchUpHarness({
+      streamIds: ["inbox"],
+      onSyncPageCommitted: () => {
+        throw new Error("notification transport unavailable");
+      },
+    });
+    const recordConnection = vi.spyOn(harness.store, "recordConnection");
+    await expect(harness.engine.runUntil(10_000)).resolves.toBeUndefined();
+    expect(recordConnection).toHaveBeenCalledWith({
+      accountId: "acc-1",
+      connection: "ready",
+    });
+    await harness.engine.runUntil(10_000);
+    expect(harness.readChangeStreams).toEqual(["inbox"]);
+    await harness.engine.close();
+  });
+
   it("checks every stream once, then waits for the idle interval", async () => {
     const harness = idleCatchUpHarness({ streamIds: ["inbox", "archive"] });
     await harness.engine.runUntil(10_000);
@@ -580,6 +618,7 @@ function idleCatchUpHarness(input: {
   batch?: boolean;
   partialPagesBeforeComplete?: number;
   assistant?: AssistantStateSource;
+  onSyncPageCommitted?: (page: import("./sync").SyncPage) => void;
 }) {
   let nowMs = 0;
   let nextId = 0;
@@ -663,6 +702,7 @@ function idleCatchUpHarness(input: {
     source,
     executor: idleExecutor(),
     assistant: input.assistant,
+    onSyncPageCommitted: input.onSyncPageCommitted,
     runtime: createHostRuntime({
       nowMs: () => nowMs,
       randomId: () => {

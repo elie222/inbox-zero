@@ -10,10 +10,6 @@ export type InboxZeroDesktopApi = {
   /** Tells the shell this page hydrated; without it the shell reloads the page. */
   signalReady?: () => void;
   setUnreadCount?: (count: number) => void;
-  notifyNewMail?: (payload: {
-    emailAccountId: string;
-    messages: { id: string; receivedAt: number }[];
-  }) => void;
   openWindow?: (path: string) => Promise<void>;
   startAuth: (
     provider: DesktopAuthProvider,

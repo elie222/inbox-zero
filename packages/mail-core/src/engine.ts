@@ -47,6 +47,7 @@ import {
   mailboxCountsQueryKey,
   mailboxQueryKey,
 } from "./subscriptions";
+import type { SyncPage } from "./sync";
 import type { ConversationView } from "./ports/mail-store";
 
 const MAX_BOOTSTRAP_PAGES_PER_RUN = 25;
@@ -152,6 +153,8 @@ export function createMailEngine(input: {
   assistant?: AssistantStateSource;
   idleCatchUpIntervalMs?: number;
   syncLaneTimeoutMs?: number;
+  /** Committed incremental changes only; bootstrap and backfill never emit. */
+  onSyncPageCommitted?: (page: SyncPage) => void;
 }): MailEngine {
   const { store, source, executor, runtime } = input;
   const idleCatchUpIntervalMs =
@@ -562,6 +565,7 @@ export function createMailEngine(input: {
           if (applied.status === "committed") {
             await refreshViews();
             await noteConnection(work.session.accountId, "ok");
+            notifySyncPageCommitted(changes.page);
           }
         } else if (changes.status === "reset_required") {
           await ingestBootstrap({
@@ -1040,6 +1044,7 @@ export function createMailEngine(input: {
         }
         await refreshViews();
         await noteConnection(session.accountId, "ok");
+        notifySyncPageCommitted(changes.page);
       } else {
         idleGate.nextStreamCatchUpAtMs.delete(stream.streamId);
       }
@@ -1256,6 +1261,14 @@ export function createMailEngine(input: {
       kind: "account",
       folderId: null,
     };
+  }
+
+  function notifySyncPageCommitted(page: SyncPage) {
+    try {
+      input.onSyncPageCommitted?.(page);
+    } catch {
+      // Optional host side effects must not interrupt committed sync.
+    }
   }
 
   async function noteConnection(accountId: string, status: string) {
