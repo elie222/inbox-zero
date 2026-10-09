@@ -716,6 +716,52 @@ describe("createEmailProviderOperationExecutor", () => {
     );
   });
 
+  it("holds a send with files by its mailbox draft, never their bytes", async () => {
+    vi.mocked(findScheduledEmail).mockResolvedValue(null);
+    vi.mocked(holdEmailForUndo).mockImplementation(async ({ input, sendAt }) =>
+      heldRow({ payload: input, sendAt }),
+    );
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: { name: "google" } as unknown as EmailProvider,
+    });
+    const operation = heldSendOperation(Date.now() + 30_000);
+    if (operation.intent.kind !== "send") throw new Error("expected send");
+    operation.intent.providerDraftId = "draft-1";
+
+    const result = await executor.execute({
+      operation,
+      attemptId: "a-held-draft",
+      signal: new AbortController().signal,
+    });
+
+    expect(result).toMatchObject({ status: "accepted" });
+    const { input } = vi.mocked(holdEmailForUndo).mock.calls[0][0];
+    expect(input.email.providerDraftId).toBe("draft-1");
+    expect(input.email.attachments).toBeUndefined();
+  });
+
+  it("refuses to hold a send that carries staged file uploads", async () => {
+    vi.mocked(findScheduledEmail).mockResolvedValue(null);
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: { name: "google" } as unknown as EmailProvider,
+    });
+    const operation = heldSendOperation(Date.now() + 30_000);
+    if (operation.intent.kind !== "send") throw new Error("expected send");
+    operation.intent.attachmentIds = ["blob-1"];
+
+    const result = await executor.execute({
+      operation,
+      attemptId: "a-held-upload",
+      signal: new AbortController().signal,
+    });
+
+    expect(result).toMatchObject({ status: "rejected" });
+    expect(holdEmailForUndo).not.toHaveBeenCalled();
+    expect(executeDurableEmailSend).not.toHaveBeenCalled();
+  });
+
   it("confirms a held send from its receipt once the server sent it", async () => {
     vi.mocked(findScheduledEmail).mockResolvedValue(
       heldRow({ status: "SENT" }),
@@ -1161,6 +1207,7 @@ function heldRow(overrides: Partial<ScheduledEmail> = {}): ScheduledEmail {
   const now = new Date();
   return {
     id: "held-1",
+    draftMessageIds: [],
     createdAt: now,
     updatedAt: now,
     emailAccountId: "acc-1",

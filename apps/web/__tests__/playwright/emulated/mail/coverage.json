@@ -138,7 +138,9 @@
   ],
   "scheduled-replies.spec.ts": [
     "components/email-list/ThreadDeliveryStatus.tsx",
-    "components/email-list/EmailThread.tsx"
+    "components/email-list/EmailThread.tsx",
+    "hooks/useProviderDraftAutosave.ts",
+    "utils/scheduled-email/service.ts"
   ],
   "search.spec.ts": [
     "app/(app)/[emailAccountId]/mail/ListToolbar.tsx",

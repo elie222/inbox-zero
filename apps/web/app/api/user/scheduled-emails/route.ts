@@ -79,6 +79,7 @@ async function getThreadData(emailAccountId: string, threadId: string) {
       reminderStatus: true,
       sentAt: true,
       error: true,
+      draftMessageIds: true,
     },
     orderBy: { createdAt: "desc" },
   });
@@ -87,7 +88,8 @@ async function getThreadData(emailAccountId: string, threadId: string) {
 
 /**
  * Reads recipient and subject out of the payload JSON instead of selecting it:
- * a scheduled send carries its body and attachments, which run to megabytes.
+ * a scheduled send carries its body, and older ones their attachments, which
+ * run to megabytes.
  */
 async function getUpcomingData(emailAccountId: string) {
   const scheduledEmails = await prisma.$queryRaw<UpcomingScheduledEmail[]>`

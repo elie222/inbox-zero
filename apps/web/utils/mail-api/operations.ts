@@ -675,33 +675,27 @@ async function holdEngineSend(
       targets: [],
     };
   }
-  try {
-    await holdAccountUploads(accountId, intent.attachmentIds);
-    const loaded = await loadSendAttachments(accountId, intent.attachmentIds);
-    if (loaded.status === "missing") {
-      return { status: "rejected", code: "missing_attachment", targets: [] };
-    }
-    const input = scheduleEmailBody.safeParse({
-      clientMutationId: mutationId,
-      ...sendRequest(intent, loaded.attachments),
-      sendAt: null,
-      remindAt: null,
-    });
-    if (!input.success) {
-      return { status: "rejected", code: "invalid", targets: [] };
-    }
-    const row = await holdEmailForUndo({
-      emailAccountId: accountId,
-      input: input.data,
-      sendAt: new Date(intent.sendAtMs),
-      logger,
-    });
-    // The hold carries the files now, so the uploads aren't needed again.
-    await releaseSendAttachments(accountId, intent.attachmentIds);
-    return { status: "held", row };
-  } finally {
-    await releaseAccountUploadHolds(accountId, intent.attachmentIds);
+  // A send with files goes out from the mailbox draft that holds them, so the
+  // hold keeps only that draft's id, never the bytes.
+  if (intent.attachmentIds.length > 0) {
+    return { status: "rejected", code: "invalid", targets: [] };
   }
+  const input = scheduleEmailBody.safeParse({
+    clientMutationId: mutationId,
+    ...sendRequest(intent, []),
+    sendAt: null,
+    remindAt: null,
+  });
+  if (!input.success) {
+    return { status: "rejected", code: "invalid", targets: [] };
+  }
+  const row = await holdEmailForUndo({
+    emailAccountId: accountId,
+    input: input.data,
+    sendAt: new Date(intent.sendAtMs),
+    logger,
+  });
+  return { status: "held", row };
 }
 
 async function heldSendResult(
