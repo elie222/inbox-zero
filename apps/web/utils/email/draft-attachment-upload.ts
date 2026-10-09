@@ -64,11 +64,16 @@ export function encodeMimeBase64(bytes: Uint8Array) {
   return lines.join(MIME_LINE_BREAK);
 }
 
+// Clients upload the assembled message as UTF-8, so text counts in bytes.
+const utf8Encoder = new TextEncoder();
+
 export function getDraftMessageUploadLength(parts: DraftMessageUploadPart[]) {
   return parts.reduce(
     (total, part) =>
       total +
-      (part.type === "text" ? part.text.length : mimeBase64Length(part.size)),
+      (part.type === "text"
+        ? utf8Encoder.encode(part.text).byteLength
+        : mimeBase64Length(part.size)),
     0,
   );
 }
