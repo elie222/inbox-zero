@@ -123,6 +123,28 @@ describe("prepareEmailDraft", () => {
   });
 });
 
+describe("reopening a draft with a saved signature", () => {
+  const saved =
+    '<div>Hi there</div><div data-smartmail="gmail_signature"><div><br></div><div>Example Person</div><div>Sent with <a href="https://example.com">Inbox Zero</a></div></div>';
+
+  it.each([
+    ["unchanged", saved],
+    [
+      "reformatted by another editor",
+      saved.replace("Example Person", "Example  Person"),
+    ],
+  ])("takes the whole container as the signature when %s", (_case, html) => {
+    const result = prepareEmailDraft({
+      html,
+      signatureHtml: "<div>Example Person</div>",
+    });
+
+    expect(result.editableHtml).toBe("<div>Hi there</div>");
+    expect(result.signatureHtml).toContain("data-smartmail");
+    expect(result.signatureHtml).toContain("Sent with");
+  });
+});
+
 describe("outgoing HTML", () => {
   it("combines the reply, preserved signature, and quote in provider order", () => {
     expect(

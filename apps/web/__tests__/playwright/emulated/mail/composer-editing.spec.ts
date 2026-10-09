@@ -209,6 +209,11 @@ test("restores a new message draft after closing the composer", async ({
   ).toBeVisible();
   await expect(subjectField).toHaveValue("Preserved compose draft");
   await expect(messageField).toContainText("Keep this message after closing.");
+  // The restored signature keeps its footer exactly once.
+  await dialog.getByRole("button", { name: "Show signature" }).click();
+  await expect(
+    messageField.locator("[data-smartmail]").getByText(/Sent with/u),
+  ).toHaveCount(1);
   await capturePlaywrightCheckpoint(
     page,
     testInfo,

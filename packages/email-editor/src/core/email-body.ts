@@ -30,14 +30,38 @@ export function sanitizeEmailBodyHtml(html: string) {
 export function prepareEmailBodySignatureHtml(html: string) {
   const fragment = parseFragment(html);
   sanitizeChildren(fragment);
-  visitElements(fragment, (element) => {
-    element.attrs = element.attrs.filter(
-      (attribute) => attribute.name !== SIGNATURE_CONTAINER_ATTRIBUTE,
-    );
-  });
+  // Re-wrapping a saved signature must not nest containers or stack the
+  // blank line that separates it from the reply.
+  unwrapSignatureContainers(fragment);
+  while (fragment.childNodes[0] && !isVisible(fragment.childNodes[0])) {
+    fragment.childNodes.shift();
+  }
   if (!hasVisibleContent(fragment)) return null;
 
   return `<div ${SIGNATURE_CONTAINER_ATTRIBUTE}="${SIGNATURE_CONTAINER_VALUE}"><div><br></div>${serialize(fragment)}</div>`;
+}
+
+function unwrapSignatureContainers(parent: ParentNode) {
+  const children: ChildNode[] = [];
+  for (const node of parent.childNodes) {
+    if (!isElement(node)) {
+      children.push(node);
+      continue;
+    }
+    unwrapSignatureContainers(node);
+    const isContainer = node.attrs.some(
+      (attribute) => attribute.name === SIGNATURE_CONTAINER_ATTRIBUTE,
+    );
+    if (!isContainer) {
+      children.push(node);
+      continue;
+    }
+    for (const child of node.childNodes) {
+      child.parentNode = parent;
+      children.push(child);
+    }
+  }
+  parent.childNodes = children;
 }
 
 function sanitizeChildren(parent: ParentNode) {
@@ -94,23 +118,14 @@ function sanitizeAttributes(element: Element) {
 }
 
 function hasVisibleContent(parent: ParentNode): boolean {
-  return parent.childNodes.some((node) => {
-    if ("value" in node) return Boolean(node.value.trim());
-    if (!isElement(node)) return false;
-    if (node.tagName === "img" || node.tagName === "hr") return true;
-    return hasVisibleContent(node);
-  });
+  return parent.childNodes.some(isVisible);
 }
 
-function visitElements(
-  parent: ParentNode,
-  visitor: (element: Element) => void,
-) {
-  for (const node of parent.childNodes) {
-    if (!isElement(node)) continue;
-    visitor(node);
-    visitElements(node, visitor);
-  }
+function isVisible(node: ChildNode): boolean {
+  if ("value" in node) return Boolean(node.value.trim());
+  if (!isElement(node)) return false;
+  if (node.tagName === "img" || node.tagName === "hr") return true;
+  return hasVisibleContent(node);
 }
 
 function hasAttribute(element: Element, name: string) {

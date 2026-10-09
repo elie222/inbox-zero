@@ -339,7 +339,14 @@ function splitSignatureHtml({
   knownSignatureHtml?: string;
 }) {
   const knownSignature = knownSignatureHtml?.trim();
-  if (knownSignature) {
+  const fragment = parseFragment(html, { sourceCodeLocationInfo: true });
+  // A composer's own signature container holds the whole signature, footer
+  // included; matching only the known text inside it would leave the rest
+  // behind in the body.
+  const composerSignature = findElement(fragment, (element) =>
+    element.attrs.some((attribute) => attribute.name === "data-smartmail"),
+  );
+  if (!composerSignature && knownSignature) {
     const knownStart = html.lastIndexOf(knownSignature);
     if (knownStart >= 0) {
       return {
@@ -353,8 +360,8 @@ function splitSignatureHtml({
     }
   }
 
-  const fragment = parseFragment(html, { sourceCodeLocationInfo: true });
-  const signature = findElement(fragment, isSignatureContainer);
+  const signature =
+    composerSignature ?? findElement(fragment, isSignatureContainer);
   const location = signature?.sourceCodeLocation;
   if (!signature || !location) {
     return {
