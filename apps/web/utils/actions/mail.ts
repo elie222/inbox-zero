@@ -5,7 +5,7 @@ import prisma from "@/utils/prisma";
 import { removeLabelFromMailSplits } from "@/utils/split-inbox/splits.server";
 import { sendEmailBody } from "@/utils/types/mail";
 import { actionClient } from "@/utils/actions/safe-action";
-import { SafeError } from "@/utils/error";
+import { DraftNotFoundError, SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
 import { sendHtmlEmailWithOpenTracking } from "@/utils/email/sent-message-open/sent-message-open.server";
 import {
@@ -439,17 +439,29 @@ export const updateDraftAction = actionClient
         parsedInput.draftId ??
         (await provider.getDraftReferenceForMessage(parsedInput.draftMessageId))
           ?.id;
-      if (!draftId) throw new SafeError("Could not find this draft to update.");
+      // A draft sent, deleted, or replaced elsewhere can never be saved, so the
+      // composer is told to stop syncing rather than retry.
+      if (!draftId) return { status: "missing" as const };
       const {
         draftMessageId: _messageId,
         draftId: _draftId,
         ...content
       } = parsedInput;
-      await provider.updateDraft(draftId, content);
+      try {
+        await provider.updateDraft(draftId, content);
+      } catch (error) {
+        if (error instanceof DraftNotFoundError)
+          return { status: "missing" as const };
+        throw error;
+      }
       // Gmail may have moved the draft to a new message; the composer needs it,
       // so a failed read fails the save and autosave retries it.
       const message = await provider.getDraft(draftId);
-      return { draftId, messageId: message?.id ?? null };
+      return {
+        status: "saved" as const,
+        draftId,
+        messageId: message?.id ?? null,
+      };
     },
   );
 
@@ -475,9 +487,8 @@ export const deleteDraftAction = actionClient
               message ? provider.getDraftReferenceForMessage(message.id) : null,
             )
         : await provider.getDraftReferenceForMessage(draftMessageId);
-      if (!draft) {
-        throw new SafeError("Could not find this draft to delete.");
-      }
+      // Already sent, deleted, or replaced elsewhere: nothing left to discard.
+      if (!draft) return;
 
       const wasDeleted = await provider.deleteDraft(draft.id, draft.version);
       if (!wasDeleted) return;

@@ -172,6 +172,13 @@ export class SafeError extends Error {
   }
 }
 
+export class DraftNotFoundError extends SafeError {
+  constructor(safeMessage: string) {
+    super(safeMessage);
+    this.name = "DraftNotFoundError";
+  }
+}
+
 export class EmailProviderRateLimitError extends Error {
   constructor() {
     super(EMAIL_PROVIDER_RATE_LIMIT_MESSAGE);

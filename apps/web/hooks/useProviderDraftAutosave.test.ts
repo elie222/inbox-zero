@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import { useProviderDraftAutosave } from "./useProviderDraftAutosave";
+import {
+  DraftAutosaveHaltedError,
+  useProviderDraftAutosave,
+} from "./useProviderDraftAutosave";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -126,6 +129,30 @@ it("reports repeated save failures until a save succeeds", async () => {
   await act(() => vi.advanceTimersByTimeAsync(3000));
   expect(save).toHaveBeenCalledTimes(4);
   expect(result.current.error).toBe("");
+  unmount();
+});
+
+it("stops retrying and reports at once when a save can never succeed", async () => {
+  vi.useFakeTimers();
+  const save = vi
+    .fn()
+    .mockRejectedValue(new DraftAutosaveHaltedError("Draft is gone"));
+  let content = "edit";
+  const { result, unmount } = renderHook(() =>
+    useProviderDraftAutosave({
+      enabled: true,
+      getContent: () => content,
+      save,
+    }),
+  );
+  act(() => result.current.capture());
+  await act(() => vi.advanceTimersByTimeAsync(3000));
+  expect(result.current.error).toBe("Draft is gone");
+  content = "another edit";
+  act(() => result.current.capture());
+  act(() => result.current.resume());
+  await act(() => vi.advanceTimersByTimeAsync(12_000));
+  expect(save).toHaveBeenCalledTimes(1);
   unmount();
 });
 

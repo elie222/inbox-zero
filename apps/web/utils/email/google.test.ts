@@ -5,6 +5,7 @@ import type { ParsedMessage } from "@/utils/types";
 import { GmailLabel } from "@/utils/gmail/label";
 import * as gmailLabelModule from "@/utils/gmail/label";
 import * as gmailThreadModule from "@/utils/gmail/thread";
+import { DraftNotFoundError } from "@/utils/error";
 import { GmailProvider } from "./google";
 
 const {
@@ -822,10 +823,7 @@ describe("GmailProvider.updateDraft", () => {
     gmailDraftMock.getDraft.mockResolvedValueOnce(null);
     await expect(
       provider.updateDraft("draft-1", { messageHtml: "<p>Edit</p>" }),
-    ).rejects.toMatchObject({
-      name: "SafeError",
-      safeMessage: expect.stringMatching(/Gmail.*Check Sent/),
-    });
+    ).rejects.toBeInstanceOf(DraftNotFoundError);
     expect(update).not.toHaveBeenCalled();
   });
 

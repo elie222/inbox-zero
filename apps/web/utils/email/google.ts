@@ -11,7 +11,7 @@ import {
 import { matchesSenderFilter } from "@/utils/split-inbox/sender-filter";
 import type { gmail_v1 } from "@googleapis/gmail";
 import chunk from "lodash/chunk";
-import { SafeError } from "@/utils/error";
+import { DraftNotFoundError } from "@/utils/error";
 import type { Attachment as MailAttachment } from "nodemailer/lib/mailer";
 import { mapWithConcurrency } from "@/utils/async";
 import { toMailerAttachments } from "@/utils/types/mail";
@@ -1031,7 +1031,7 @@ export class GmailProvider implements EmailProvider {
 
     const currentDraft = await getDraft(draftId, this.client);
     if (!currentDraft) {
-      throw new SafeError(
+      throw new DraftNotFoundError(
         "This draft is no longer available in Gmail. Check Sent before trying again.",
       );
     }
