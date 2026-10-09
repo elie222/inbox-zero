@@ -172,7 +172,6 @@ export class SafeError extends Error {
   }
 }
 
-// The provider draft was sent, deleted, or replaced since it was loaded.
 export class DraftNotFoundError extends SafeError {
   constructor(safeMessage: string) {
     super(safeMessage);
