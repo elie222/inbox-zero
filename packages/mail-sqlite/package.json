@@ -21,7 +21,6 @@
     "./migrations": "./src/migrations.ts",
     "./maintenance": "./src/maintenance.ts",
     "./node": "./src/node-sqlite.ts",
-    "./blob-store": "./src/blob-store.ts",
     "./capabilities": "./src/capabilities.ts",
     "./test-support/driver-contract": "./test-support/driver-contract.ts"
   },

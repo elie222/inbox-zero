@@ -5,17 +5,10 @@ are the mailbox engine used by web and desktop. `@inboxzero/mail-ui` is the
 React DOM presentation and stays in this app. The Expo adapter stays in the
 mobile app.
 
-Web and desktop pass `HostRuntime` into the store and the engine. Desktop
-keeps attachment bytes in a file blob store and stages them before
-`submitSend`. The in-tab web engine uploads attachments through the server
-before queueing the send. Either way, the queued send is watched with
-`observeOperation`.
-
-## Staged uploads
-
-`MAIL_UPLOAD_DIR` is the directory for accepted attachment uploads. Set it to
-a durable directory shared by every web instance. When it is unset, uploads
-use a temp directory and do not survive a restart or another machine.
+Web and desktop pass `HostRuntime` into the store and the engine. Attachments
+are added to the provider's mailbox draft as they are attached, and a send
+with files goes out from that draft, so the engine never holds their bytes.
+The queued send is watched with `observeOperation`.
 
 ## Release
 
@@ -30,5 +23,5 @@ depend on it, before merging. Mobile depends on the published versions.
 2. `pnpm -F @inboxzero/mail-core pack:smoke`
 3. Dist manifests rewrite `workspace:*` to that version and set `publishConfig.access` to `public`.
 
-Do not import `@inboxzero/mail-sqlite/node` or `@inboxzero/mail-sqlite/blob-store`
-from a non-Node host. Those entry points use Node file APIs.
+Do not import `@inboxzero/mail-sqlite/node` from a non-Node host. That entry
+point uses Node file APIs.

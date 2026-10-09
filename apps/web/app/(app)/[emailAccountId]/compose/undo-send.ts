@@ -3,7 +3,6 @@ import { toastError, toastUndo } from "@/components/Toast";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
 import type { MailClient } from "@inboxzero/mail-core/engine";
 import type { OperationStatus } from "@inboxzero/mail-core/operations";
-import { cancelSendAttachments } from "@/utils/mail-engine/stage-attachments";
 
 export const UNDO_SEND_DELAY_MS = 30_000;
 const UNDO_SEND_TOAST_ID = "undo-send";
@@ -21,7 +20,6 @@ type PendingUndoSend = {
   client: MailClient;
   operationId: string;
   emailAccountId: string;
-  attachmentIds: string[];
   restoreComposer: () => void;
   undone: boolean;
   release: () => void;
@@ -38,14 +36,12 @@ export function beginUndoSend({
   client,
   operationId,
   emailAccountId,
-  attachmentIds = [],
   restoreComposer,
   holdUntil,
 }: {
   client: MailClient;
   operationId: string;
   emailAccountId: string;
-  attachmentIds?: string[];
   restoreComposer: () => void;
   holdUntil: number;
 }) {
@@ -62,7 +58,6 @@ export function beginUndoSend({
     client,
     operationId,
     emailAccountId,
-    attachmentIds,
     restoreComposer,
     undone: false,
     toastId,
@@ -126,11 +121,6 @@ export async function undoPendingSend() {
     return false;
   }
   current.restoreComposer();
-  try {
-    await cancelSendAttachments(current.emailAccountId, current.attachmentIds);
-  } catch {
-    // The send is already cancelled; tmpdir cleanup remains the backstop.
-  }
   return true;
 }
 

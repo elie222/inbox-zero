@@ -13,7 +13,6 @@ const notifications = vi.hoisted(() => ({
   toastError: vi.fn(),
   toastUndo: vi.fn(),
 }));
-const cancelStaged = vi.hoisted(() => vi.fn());
 
 vi.mock("@/components/Toast", () => ({
   toastError: notifications.toastError,
@@ -25,15 +24,11 @@ vi.mock("sonner", () => ({
 vi.mock("@/lib/shortcuts/registry", () => ({
   getShortcutHint: () => "z",
 }));
-vi.mock("@/utils/mail-engine/stage-attachments", () => ({
-  cancelSendAttachments: cancelStaged,
-}));
 
 describe("undo send", () => {
   beforeEach(async () => {
     await undoPendingSend();
     vi.clearAllMocks();
-    cancelStaged.mockResolvedValue(undefined);
   });
 
   it("holds online sends for 30 seconds and skips the delay when offline", () => {
@@ -49,7 +44,6 @@ describe("undo send", () => {
       client,
       operationId: "mutation",
       emailAccountId: "account",
-      attachmentIds: ["blob-1"],
       holdUntil,
       restoreComposer,
     });
@@ -69,7 +63,6 @@ describe("undo send", () => {
       accountId: "account",
       operationId: "mutation",
     });
-    expect(cancelStaged).toHaveBeenCalledWith("account", ["blob-1"]);
     expect(restoreComposer).toHaveBeenCalledOnce();
     expect(notifications.dismiss).toHaveBeenCalledWith("undo-send:mutation");
     expect(handle.close).toHaveBeenCalled();
@@ -125,7 +118,6 @@ describe("undo send", () => {
     expect(handle.close).toHaveBeenCalled();
     await expect(undoPendingSend()).resolves.toBe(false);
     expect(client.cancelOperation).not.toHaveBeenCalled();
-    expect(cancelStaged).not.toHaveBeenCalled();
     expect(restoreComposer).not.toHaveBeenCalled();
     expect(notifications.toastError).not.toHaveBeenCalled();
   });
@@ -210,7 +202,6 @@ describe("undo send", () => {
 
     await expect(undoPendingSend()).resolves.toBe(false);
     expect(restoreComposer).not.toHaveBeenCalled();
-    expect(cancelStaged).not.toHaveBeenCalled();
     expect(notifications.toastError).toHaveBeenCalledWith({
       description: "Too late to undo. This email was already sent.",
     });

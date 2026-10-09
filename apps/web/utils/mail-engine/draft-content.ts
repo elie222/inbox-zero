@@ -5,7 +5,6 @@ import type { ComposeAttachmentReference } from "@/utils/mail-engine/reply-draft
 
 export function sendEmailToDraftContent(
   email: SendEmailBody,
-  attachmentIds: string[],
   conversationId?: string,
   providerDraftMessageIds: string[] = [],
   attachments: ComposeAttachmentReference[] = [],
@@ -17,7 +16,6 @@ export function sendEmailToDraftContent(
     subject: email.subject,
     editableHtml: email.messageHtml,
     quotedHtml: "",
-    attachmentIds: attachmentIds.slice(0, 20),
     ...(conversationId ? { conversationId } : {}),
     ...(email.providerDraftId
       ? { providerDraftId: email.providerDraftId }

@@ -229,12 +229,6 @@ async function createWorkerOwnedEngine(
       callWorker(worker, pending, "submitConversations", [payload]),
     saveDraft: (payload) => callWorker(worker, pending, "saveDraft", [payload]),
     readDraft: (payload) => callWorker(worker, pending, "readDraft", [payload]),
-    async stageDraftAttachment(input) {
-      const bytes = await collectWorkerBytes(input.bytes);
-      return callWorker(worker, pending, "stageDraftAttachment", [
-        { ...input, bytes },
-      ]);
-    },
     submitSend: (payload) =>
       callWorker(worker, pending, "submitSend", [payload]),
     cancelOperation: (payload) =>
@@ -304,20 +298,4 @@ function callWorker<T>(
 
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function collectWorkerBytes(bytes: AsyncIterable<Uint8Array>) {
-  const chunks: Uint8Array[] = [];
-  let size = 0;
-  for await (const chunk of bytes) {
-    size += chunk.byteLength;
-    chunks.push(chunk);
-  }
-  const collected = new Uint8Array(size);
-  let offset = 0;
-  for (const chunk of chunks) {
-    collected.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return collected;
 }

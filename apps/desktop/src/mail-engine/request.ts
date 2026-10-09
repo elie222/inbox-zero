@@ -35,9 +35,7 @@ export function createOriginMailRequest(input: {
 }): MailHttpRequestFn {
   return async ({ method, path, body, signal, accept }) => {
     const url = new URL(path, input.origin).toString();
-    const isBytes = body instanceof Uint8Array;
-    const payload =
-      body === undefined || isBytes ? undefined : JSON.stringify(body);
+    const payload = body === undefined ? undefined : JSON.stringify(body);
     const cookieHeader = input.cookieHeader
       ? await input.cookieHeader(url)
       : "";
@@ -45,10 +43,9 @@ export function createOriginMailRequest(input: {
       method,
       headers: {
         ...mailApiHeaders(path, payload !== undefined, accept ?? "json"),
-        ...(isBytes ? { "content-type": "application/octet-stream" } : {}),
         ...(cookieHeader ? { cookie: cookieHeader } : {}),
       },
-      body: isBytes ? (body as Uint8Array<ArrayBuffer>) : payload,
+      body: payload,
       signal,
     });
     if (accept === "bytes" && response.ok) {
