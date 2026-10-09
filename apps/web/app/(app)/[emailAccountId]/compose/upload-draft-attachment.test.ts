@@ -1,13 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
-import { DRAFT_ATTACHMENT_DIRECT_UPLOAD_LIMIT_BYTES } from "@/utils/email/draft-attachment-upload";
-import { uploadDraftAttachment } from "./upload-draft-attachment";
-
-const startUpload = vi.hoisted(() => vi.fn());
-vi.mock("@/utils/actions/draft-attachments", () => ({
-  startDraftAttachmentUploadAction: startUpload,
-  removeDraftAttachmentAction: vi.fn(),
-}));
+import {
+  DRAFT_ATTACHMENT_DIRECT_UPLOAD_LIMIT_BYTES,
+  GMAIL_UPLOAD_CHUNK_BYTES,
+  GRAPH_UPLOAD_CHUNK_BYTES,
+} from "@/utils/email/draft-attachment-upload";
+import {
+  removeDraftAttachment,
+  uploadDraftAttachment,
+} from "./upload-draft-attachment";
 
 const fetchMock = vi.fn();
 const largeSize = DRAFT_ATTACHMENT_DIRECT_UPLOAD_LIMIT_BYTES + 10;
@@ -37,7 +38,7 @@ describe("uploadDraftAttachment", () => {
       attachment: metadata(5),
     });
     expect(result.attachmentId).toBe("file-1");
-    expect(startUpload).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0]!;
     expect(url).toMatch(/^\/api\/user\/drafts\/draft-1\/attachments\?/);
     expect(new Headers(init.headers).get(EMAIL_ACCOUNT_HEADER)).toBe(
@@ -46,14 +47,15 @@ describe("uploadDraftAttachment", () => {
   });
 
   it("uploads a large Outlook file straight to Microsoft without our credentials", async () => {
-    startUpload.mockResolvedValue({
-      data: {
-        type: "provider-url",
-        uploadUrl: "https://outlook.office.com/upload/session-1",
-      },
-    });
     const existing = listedAttachment("forwarded-1");
     fetchMock
+      .mockResolvedValueOnce(
+        Response.json({
+          type: "provider-url",
+          uploadUrl: "https://outlook.office.com/upload/session-1",
+          chunkBytes: GRAPH_UPLOAD_CHUNK_BYTES,
+        }),
+      )
       .mockResolvedValueOnce(
         Response.json({ messageId: "draft-1", attachments: [existing] }),
       )
@@ -74,7 +76,14 @@ describe("uploadDraftAttachment", () => {
       attachmentId: "graph-att-1",
       messageId: "draft-1",
     });
-    const [url, init] = fetchMock.mock.calls[1]!;
+    const [startUrl, startInit] = fetchMock.mock.calls[0]!;
+    expect(startUrl).toBe("/api/user/drafts/draft-1/attachments/uploads");
+    expect(startInit.method).toBe("POST");
+    expect(JSON.parse(startInit.body)).toEqual(metadata(largeSize));
+    expect(new Headers(startInit.headers).get(EMAIL_ACCOUNT_HEADER)).toBe(
+      "account-1",
+    );
+    const [url, init] = fetchMock.mock.calls[2]!;
     expect(url).toBe("https://outlook.office.com/upload/session-1");
     const headers = new Headers(init.headers);
     expect(headers.get("authorization")).toBeNull();
@@ -94,18 +103,19 @@ describe("uploadDraftAttachment", () => {
       encodedLength +
       2 * (Math.ceil(encodedLength / 76) - 1) +
       tail.length;
-    startUpload.mockResolvedValue({
-      data: {
+    fetchMock.mockResolvedValueOnce(
+      Response.json({
         type: "gmail-message",
         uploadId: "upload-1",
         totalBytes,
+        chunkBytes: GMAIL_UPLOAD_CHUNK_BYTES,
         parts: [
           { type: "text", text: head },
           { type: "attachment", attachmentId: "file-1", size: largeSize },
           { type: "text", text: tail },
         ],
-      },
-    });
+      }),
+    );
     const uploaded: Blob[] = [];
     fetchMock.mockImplementation(async (_url: string, init: RequestInit) => {
       uploaded.push(init.body as Blob);
@@ -133,12 +143,17 @@ describe("uploadDraftAttachment", () => {
       attachmentId: "file-1",
       messageId: "message-2",
     });
+    expect(fetchMock.mock.calls[0]![0]).toBe(
+      "/api/user/drafts/draft-1/attachments/uploads",
+    );
     expect(
-      fetchMock.mock.calls.every(([url]) =>
-        String(url).startsWith(
-          "/api/user/drafts/draft-1/attachments/uploads/upload-1",
+      fetchMock.mock.calls
+        .slice(1)
+        .every(([url]) =>
+          String(url).startsWith(
+            "/api/user/drafts/draft-1/attachments/uploads/upload-1",
+          ),
         ),
-      ),
     ).toBe(true);
     const message = await new Blob(uploaded).text();
     expect(message.length).toBe(totalBytes);
@@ -156,6 +171,48 @@ describe("uploadDraftAttachment", () => {
         Buffer.from(bytes),
       ),
     ).toBe(true);
+  });
+});
+
+describe("removeDraftAttachment", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("deletes the attachment through the draft's attachment route", async () => {
+    fetchMock.mockResolvedValue(
+      Response.json({ messageId: "message-3", attachments: [] }),
+    );
+    const result = await removeDraftAttachment({
+      emailAccountId: "account-1",
+      draftId: "draft/1",
+      attachmentId: "att/1",
+    });
+    expect(result).toEqual({ messageId: "message-3", attachments: [] });
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe("/api/user/drafts/draft%2F1/attachments/att%2F1");
+    expect(init.method).toBe("DELETE");
+    expect(new Headers(init.headers).get(EMAIL_ACCOUNT_HEADER)).toBe(
+      "account-1",
+    );
+  });
+
+  it("surfaces the server's error message", async () => {
+    fetchMock.mockResolvedValue(
+      Response.json({ error: "Draft not found." }, { status: 404 }),
+    );
+    await expect(
+      removeDraftAttachment({
+        emailAccountId: "account-1",
+        draftId: "draft-1",
+        attachmentId: "att-1",
+      }),
+    ).rejects.toThrow("Draft not found.");
   });
 });
 

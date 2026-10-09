@@ -27,13 +27,3 @@ export const draftAttachmentMetadataSchema = z
 export type DraftAttachmentMetadata = z.infer<
   typeof draftAttachmentMetadataSchema
 >;
-
-export const startDraftAttachmentUploadBody = z.object({
-  draftId: z.string().min(1).max(512),
-  attachment: draftAttachmentMetadataSchema,
-});
-
-export const removeDraftAttachmentBody = z.object({
-  draftId: z.string().min(1).max(512),
-  attachmentId: z.string().min(1).max(1024),
-});

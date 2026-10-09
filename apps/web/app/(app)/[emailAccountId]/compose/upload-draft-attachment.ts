@@ -3,11 +3,9 @@ import type {
   GetDraftAttachmentsResponse,
 } from "@/app/api/user/drafts/[draftId]/attachments/route";
 import type { ReadComposeDraftResponse } from "@/app/api/user/drafts/route";
+import type { RemoveDraftAttachmentResponse } from "@/app/api/user/drafts/[draftId]/attachments/[attachmentId]/route";
+import type { StartDraftAttachmentUploadResponse } from "@/app/api/user/drafts/[draftId]/attachments/uploads/route";
 import type { UploadDraftMessageChunkResponse } from "@/app/api/user/drafts/[draftId]/attachments/uploads/[uploadId]/route";
-import {
-  removeDraftAttachmentAction,
-  startDraftAttachmentUploadAction,
-} from "@/utils/actions/draft-attachments";
 import type { DraftAttachmentMetadata } from "@/utils/actions/draft-attachments.validation";
 import {
   fetchAttachment,
@@ -16,12 +14,9 @@ import {
 import {
   type DraftMessageUploadPart,
   encodeMimeBase64,
-  GMAIL_UPLOAD_CHUNK_BYTES,
-  GRAPH_UPLOAD_CHUNK_BYTES,
   usesDirectDraftAttachmentUpload,
 } from "@/utils/email/draft-attachment-upload";
 import type { DraftAttachmentsResult } from "@/utils/email/types";
-import { getActionErrorMessage } from "@/utils/error";
 import { fetchWithAccount } from "@/utils/fetch";
 
 type DraftAttachmentUploadResult = DraftAttachmentsResult & {
@@ -52,20 +47,28 @@ export async function uploadDraftAttachment({
   if (usesDirectDraftAttachmentUpload(file.size))
     return uploadInOneRequest({ emailAccountId, draftId, file, attachment });
 
-  const started = await startDraftAttachmentUploadAction(emailAccountId, {
-    draftId,
-    attachment,
+  const started = await fetchWithAccount({
+    url: `/api/user/drafts/${encodeURIComponent(draftId)}/attachments/uploads`,
+    emailAccountId,
+    init: {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(attachment),
+    },
   });
-  if (!started?.data)
+  if (!started.ok)
     throw new Error(
-      getActionErrorMessage(started ?? {}, {
-        prefix: `Could not attach ${attachment.filename}`,
-      }),
+      (await readErrorMessage(started)) ??
+        `Could not attach ${attachment.filename}.`,
     );
-  const upload = started.data;
+  const upload: StartDraftAttachmentUploadResponse = await started.json();
   if (upload.type === "provider-url") {
     const before = await fetchDraftAttachments({ emailAccountId, draftId });
-    await uploadToProviderUrl(upload.uploadUrl, file);
+    await uploadToProviderUrl({
+      uploadUrl: upload.uploadUrl,
+      chunkBytes: upload.chunkBytes,
+      file,
+    });
     const after = await fetchDraftAttachments({ emailAccountId, draftId });
     // Draft changes run one at a time, so the new id is the only new one.
     const added = after?.attachments.filter(
@@ -87,6 +90,7 @@ export async function uploadDraftAttachment({
     emailAccountId,
     draftId,
     uploadId: upload.uploadId,
+    chunkBytes: upload.chunkBytes,
     message,
   });
 }
@@ -99,18 +103,17 @@ export async function removeDraftAttachment({
   emailAccountId: string;
   draftId: string;
   attachmentId: string;
-}) {
-  const result = await removeDraftAttachmentAction(emailAccountId, {
-    draftId,
-    attachmentId,
+}): Promise<RemoveDraftAttachmentResponse> {
+  const response = await fetchWithAccount({
+    url: `/api/user/drafts/${encodeURIComponent(draftId)}/attachments/${encodeURIComponent(attachmentId)}`,
+    emailAccountId,
+    init: { method: "DELETE" },
   });
-  if (!result?.data)
+  if (!response.ok)
     throw new Error(
-      getActionErrorMessage(result ?? {}, {
-        prefix: "Could not remove the attachment",
-      }),
+      (await readErrorMessage(response)) ?? "Could not remove the attachment.",
     );
-  return result.data;
+  return response.json();
 }
 
 export function forgetAttachedFiles(
@@ -226,9 +229,17 @@ async function uploadInOneRequest({
 
 // Microsoft's upload URL is pre-authenticated and must not get our
 // Authorization header, so the browser uploads straight to it.
-async function uploadToProviderUrl(uploadUrl: string, file: Blob) {
-  for (let start = 0; start < file.size; start += GRAPH_UPLOAD_CHUNK_BYTES) {
-    const end = Math.min(start + GRAPH_UPLOAD_CHUNK_BYTES, file.size);
+async function uploadToProviderUrl({
+  uploadUrl,
+  chunkBytes,
+  file,
+}: {
+  uploadUrl: string;
+  chunkBytes: number;
+  file: Blob;
+}) {
+  for (let start = 0; start < file.size; start += chunkBytes) {
+    const end = Math.min(start + chunkBytes, file.size);
     const response = await fetch(uploadUrl, {
       method: "PUT",
       headers: {
@@ -280,16 +291,18 @@ async function uploadDraftMessage({
   emailAccountId,
   draftId,
   uploadId,
+  chunkBytes,
   message,
 }: {
   emailAccountId: string;
   draftId: string;
   uploadId: string;
+  chunkBytes: number;
   message: Blob;
 }): Promise<DraftAttachmentUploadResult> {
   let start = 0;
   while (start < message.size) {
-    const end = Math.min(start + GMAIL_UPLOAD_CHUNK_BYTES, message.size);
+    const end = Math.min(start + chunkBytes, message.size);
     const response = await fetchWithAccount({
       url: `/api/user/drafts/${encodeURIComponent(draftId)}/attachments/uploads/${encodeURIComponent(uploadId)}`,
       emailAccountId,
