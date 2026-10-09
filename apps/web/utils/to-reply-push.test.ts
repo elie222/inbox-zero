@@ -126,6 +126,25 @@ describe("sendToReplyPushNotification", () => {
     expect(sendMobilePushNotification).not.toHaveBeenCalled();
   });
 
+  it("does not alert for a skipped To Reply result", async () => {
+    await sendToReplyPushNotification({
+      ...options,
+      results: [{ ...options.results[0], status: ExecutedRuleStatus.SKIPPED }],
+    });
+    expect(sendMobilePushNotification).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ExecutedRuleStatus.APPLYING,
+    ExecutedRuleStatus.ERROR,
+  ])("alerts when To Reply is classified but action status is %s", async (status) => {
+    await sendToReplyPushNotification({
+      ...options,
+      results: [{ ...options.results[0], status }],
+    });
+    expect(sendMobilePushNotification).toHaveBeenCalledOnce();
+  });
+
   it("bounds long notification content", async () => {
     await sendToReplyPushNotification({
       ...options,

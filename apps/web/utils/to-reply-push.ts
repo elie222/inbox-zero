@@ -1,4 +1,4 @@
-import { SystemType } from "@/generated/prisma/enums";
+import { ExecutedRuleStatus, SystemType } from "@/generated/prisma/enums";
 import type { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
 import { getMessageTimestamp } from "@/utils/email/message-timestamp";
@@ -32,7 +32,9 @@ export async function sendToReplyPushNotification({
     receivedAt > now.getTime() ||
     !results.some(
       (result) =>
-        !result.existing && result.rule?.systemType === SystemType.TO_REPLY,
+        !result.existing &&
+        result.status !== ExecutedRuleStatus.SKIPPED &&
+        result.rule?.systemType === SystemType.TO_REPLY,
     )
   )
     return;
