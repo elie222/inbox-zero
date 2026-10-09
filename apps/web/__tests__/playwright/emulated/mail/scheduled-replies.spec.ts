@@ -217,6 +217,7 @@ test("schedules a reply with a file from its mailbox draft and hides that draft"
   const emailAccountId = await openReply(page);
   const delivery = page.getByRole("region", { name: "Reply delivery status" });
   const editor = page.getByRole("textbox", { name: "Email message" });
+  let providerDraftId: string | null = null;
   try {
     await page.getByTestId("compose-attachments-input").setInputFiles({
       name: "agenda.txt",
@@ -242,6 +243,10 @@ test("schedules a reply with a file from its mailbox draft and hides that draft"
       )
       .toBe(true);
 
+    // Reopening the mailbox draft brings back what was written.
+    await page.reload();
+    await expect(editor).toContainText(edited);
+
     await page.getByRole("button", { name: "Send later", exact: true }).click();
     await page
       .getByRole("dialog", { name: "Send later" })
@@ -255,7 +260,8 @@ test("schedules a reply with a file from its mailbox draft and hides that draft"
       status: "PENDING",
       hasAttachmentBytes: false,
     });
-    expect(scheduled?.providerDraftId).toBeTruthy();
+    providerDraftId = scheduled?.providerDraftId ?? null;
+    expect(providerDraftId).toBeTruthy();
     expect(scheduled?.draftMessageIds.length).toBeGreaterThan(0);
 
     // The send goes out from the mailbox draft, which stays in the thread
@@ -271,11 +277,27 @@ test("schedules a reply with a file from its mailbox draft and hides that draft"
       testInfo,
       "scheduled-reply-draft-hidden",
     );
+
+    // Cancelling brings the draft back with its text, and reopening it again
+    // (after autosave has had its chance to write) keeps that text.
+    await delivery.getByRole("button", { name: "Cancel send" }).click();
+    await expect(delivery.getByText(/^Scheduled for/)).toHaveCount(0);
+    for (let reopen = 0; reopen < 2; reopen++) {
+      await page.reload();
+      await expect(editor).toContainText(edited);
+    }
+    await capturePlaywrightCheckpoint(
+      page,
+      testInfo,
+      "scheduled-reply-draft-restored",
+    );
   } finally {
-    const scheduled = await readScheduledReply(emailAccountId);
-    if (scheduled?.providerDraftId) {
+    providerDraftId =
+      (await readScheduledReply(emailAccountId))?.providerDraftId ??
+      providerDraftId;
+    if (providerDraftId) {
       await page.request.delete(
-        `/api/user/drafts/${encodeURIComponent(scheduled.providerDraftId)}`,
+        `/api/user/drafts/${encodeURIComponent(providerDraftId)}`,
         { headers: { "X-Email-Account-ID": emailAccountId } },
       );
     }

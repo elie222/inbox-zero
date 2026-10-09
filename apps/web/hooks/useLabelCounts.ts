@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
+import { useHiddenDraftMessageIds } from "@/hooks/useHiddenDraftMessageIds";
 import {
   mailboxCountTargets,
   type MailboxCountFolder,
@@ -25,13 +26,15 @@ export function useLabelCounts({
   const client = useOptionalMailClient();
   const resolvedLabels = labels.length > 0 ? labels : NO_LABELS;
   const resolvedFolders = folders.length > 0 ? folders : NO_FOLDERS;
+  const hiddenDraftMessageIds = useHiddenDraftMessageIds(emailAccountId);
   const targets = useMemo(
     () =>
       mailboxCountTargets({
         labels: resolvedLabels,
         folders: resolvedFolders,
+        hiddenDraftMessageIds,
       }),
-    [resolvedFolders, resolvedLabels],
+    [resolvedFolders, resolvedLabels, hiddenDraftMessageIds],
   );
   const [countsById, setCountsById] = useState(
     new Map<string, MailboxLabelCount>(),
