@@ -11,6 +11,7 @@ import {
   finalizeEditableEmailHtml,
   prepareEmailDraft,
   sanitizePreservedEmailHtmlForPreview,
+  splitQuotedHtml,
   validateEmailAttachments,
   type EmailComposerAttachment,
 } from "./email-html";
@@ -71,6 +72,38 @@ describe("prepareEmailDraft", () => {
 
     expect(result.editableHtml).toBe("<div>Hello</div>");
     expect(result.quotedHtml).toBe(quote);
+  });
+
+  it("drops blank blocks left between the reply and its quote", () => {
+    const result = prepareEmailDraft({
+      html: '<div>Reply</div><br><div dir="ltr"></div>\n<br>\n<div class="gmail_quote">Original</div>',
+    });
+
+    expect(result.editableHtml).toBe("<div>Reply</div>");
+    expect(result.quotedHtml).toBe('<div class="gmail_quote">Original</div>');
+  });
+
+  it("does not grow a reply each time it is saved and reopened", () => {
+    const signatureHtml = '<div dir="ltr">Alex Example</div>';
+    let html = combineEmailHtml({
+      editableHtml: "<div>Reply</div>",
+      signatureHtml,
+      quotedHtml: '<div class="gmail_quote">Original</div>',
+    });
+    const saved = html;
+
+    for (let reopen = 0; reopen < 3; reopen++) {
+      const { quotedHtml, editableHtml } = splitQuotedHtml(html);
+      const draft = prepareEmailDraft({
+        html: editableHtml,
+        quotedHtml,
+        signatureHtml,
+      });
+      expect(draft.editableHtml).toBe("<div>Reply</div>");
+      html = combineEmailHtml(draft);
+    }
+
+    expect(html).toBe(saved);
   });
 
   it("finds an edited signature again when a sent draft is reopened", () => {

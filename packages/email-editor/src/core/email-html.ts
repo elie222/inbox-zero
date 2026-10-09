@@ -47,9 +47,11 @@ export type PreparedEmailDraft = {
 };
 
 const INLINE_IMAGE_MIME_TYPES = new Set<string>(EMAIL_INLINE_IMAGE_MIME_TYPES);
+const VISIBLE_EMPTY_TAGS = new Set(["img", "hr", "picture", "svg", "video"]);
 
 type ChildNode = DefaultTreeAdapterTypes.ChildNode;
 type Element = DefaultTreeAdapterTypes.Element;
+type TextNode = DefaultTreeAdapterTypes.TextNode;
 type ParentNode = DefaultTreeAdapterTypes.ParentNode;
 
 /**
@@ -83,7 +85,7 @@ export function prepareEmailDraft({
     knownSignatureHtml: signatureHtml,
   });
   return {
-    editableHtml: signatureSplit.editableHtml,
+    editableHtml: stripTrailingBlankHtml(signatureSplit.editableHtml),
     mode: "original",
     quotedHtml: quoteSplit.quotedHtml,
     signatureHtml: signatureSplit.signatureHtml,
@@ -311,7 +313,11 @@ export function validateEmailAttachmentMetadata(
   return { valid: true };
 }
 
-function splitQuotedHtml(html: string) {
+/**
+ * Splits provider HTML at its first quote container. Everything before it is
+ * the reply and everything from it on is the quote, so no content is lost.
+ */
+export function splitQuotedHtml(html: string) {
   const fragment = parseFragment(html, { sourceCodeLocationInfo: true });
   const quote = findElement(fragment, isQuoteContainer);
   const startOffset = quote?.sourceCodeLocation?.startOffset;
@@ -320,7 +326,7 @@ function splitQuotedHtml(html: string) {
   }
 
   return {
-    editableHtml: stripTrailingBreaks(html.slice(0, startOffset)),
+    editableHtml: stripTrailingBlankHtml(html.slice(0, startOffset)),
     quotedHtml: html.slice(startOffset),
   };
 }
@@ -514,43 +520,24 @@ function removeAttribute(element: Element, name: string) {
   element.attrs = element.attrs.filter((attribute) => attribute.name !== name);
 }
 
-function stripTrailingBreaks(html: string) {
+// Separators and empty blocks between the reply and what follows it are
+// added back when the parts are combined, so they would pile up on each save.
+function stripTrailingBlankHtml(html: string) {
+  const fragment = parseFragment(html, { sourceCodeLocationInfo: true });
   let end = html.length;
-  let foundBreak = false;
-
-  while (end > 0) {
-    while (end > 0) {
-      const character = html.at(end - 1);
-      if (character === undefined || character.trim() !== "") break;
-      end--;
-    }
-
-    const tagStart = html.lastIndexOf("<", end - 1);
-    if (tagStart < 0 || !isBreakTag(html, tagStart, end)) break;
-    foundBreak = true;
-    end = tagStart;
+  for (const node of [...fragment.childNodes].reverse()) {
+    const startOffset = node.sourceCodeLocation?.startOffset;
+    if (startOffset === undefined || !isBlankNode(node)) break;
+    end = startOffset;
   }
-
-  return foundBreak ? html.slice(0, end) : html;
+  return html.slice(0, end);
 }
 
-function isBreakTag(html: string, start: number, end: number) {
-  if (
-    html.at(start) !== "<" ||
-    html.at(start + 1)?.toLowerCase() !== "b" ||
-    html.at(start + 2)?.toLowerCase() !== "r"
-  ) {
-    return false;
-  }
-
-  let index = start + 3;
-  while (index < end - 1) {
-    const character = html.at(index);
-    if (character === undefined || character.trim() !== "") break;
-    index++;
-  }
-  if (html.at(index) === "/") index++;
-  return index === end - 1 && html.at(index) === ">";
+function isBlankNode(node: ChildNode): boolean {
+  if (node.nodeName === "#text")
+    return !(node as TextNode).value.replace(/\u00a0/gu, " ").trim();
+  if (!isElement(node) || VISIBLE_EMPTY_TAGS.has(node.tagName)) return false;
+  return node.childNodes.every(isBlankNode);
 }
 
 function isElement(node: ChildNode): node is Element {

@@ -191,6 +191,14 @@ describe("email formatting", () => {
     expect(html).not.toContain("<script>");
   });
 
+  it("starts a quote-only reply with the quote, not an empty reply block", () => {
+    const { html } = createReplyContent({ message: getMessage() });
+
+    expect(
+      html.startsWith('<div class="gmail_quote gmail_quote_container">'),
+    ).toBe(true);
+  });
+
   it("escapes quoted plain text when the original has no HTML body", () => {
     const { html, text } = createReplyContent({
       textContent: "Thanks",

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { MAX_MAILBOX_COUNT_TARGETS } from "@inboxzero/mail-core/queries";
+import type { ProviderChange } from "@inboxzero/mail-core/sync";
+import { createSqliteMailStore } from "@inboxzero/mail-sqlite/store";
+import { createWasmSqliteDriver } from "./wasm-sqlite";
 import {
   mailboxCountTargets,
   MAX_MAILBOX_COUNT_LABELS,
@@ -91,4 +94,81 @@ describe("mailboxCountTargets", () => {
       MAX_MAILBOX_COUNT_TARGETS,
     );
   });
+
+  it("leaves drafts a pending send will deliver out of the Drafts count", async () => {
+    const store = await createSqliteMailStore(
+      await createWasmSqliteDriver({ persist: false }),
+    );
+    try {
+      await store.ensureAccount({
+        accountId: "acc-1",
+        provider: "google",
+        generation: "g1",
+      });
+      await store.applySyncPage({
+        ownerId: "owner",
+        page: {
+          session: { accountId: "acc-1", generation: "g1" },
+          requestId: "bootstrap",
+          from: { streamId: "primary", generation: "g1", checkpoint: null },
+          to: { streamId: "primary", generation: "g1", checkpoint: "1" },
+          changes: [
+            draftPatch("d-scheduled", "c-scheduled"),
+            draftPatch("d-kept", "c-kept"),
+          ],
+          requiredHydration: [],
+          roundComplete: true,
+        },
+      });
+
+      const drafts = mailboxCountTargets({
+        labels: [],
+        folders: [],
+        hiddenDraftMessageIds: ["d-scheduled"],
+      }).find((target) => target.id === "DRAFT");
+      if (!drafts) throw new Error("Missing Drafts target");
+      const view = await store.readMailboxView({
+        accountIds: ["acc-1"],
+        predicate: drafts.predicate,
+        order: "newest_first",
+        pageSize: 10,
+        after: null,
+      });
+
+      expect(view.view.counts.matchingConversations).toBe(1);
+    } finally {
+      await store.close();
+    }
+  });
 });
+
+function draftPatch(
+  messageId: string,
+  conversationId: string,
+): Extract<ProviderChange, { kind: "message_patch" }> {
+  return {
+    kind: "message_patch",
+    key: { accountId: "acc-1", messageId },
+    reference: {
+      provider: "google",
+      messageId,
+      conversationId,
+      version: "1",
+    },
+    fields: {
+      subject: conversationId,
+      preview: messageId,
+      from: "me@example.com",
+      to: ["ada@example.com"],
+      cc: [],
+      receivedAtMs: 1000,
+      read: true,
+      starred: false,
+      folderId: "drafts",
+      labelIds: ["DRAFT"],
+      categoryIds: [],
+      roles: ["draft"],
+      hasAttachments: false,
+    },
+  };
+}

@@ -1,6 +1,7 @@
-import type {
-  ConversationQuery,
-  MailPredicate,
+import {
+  MAX_MESSAGE_PREDICATE_IDS,
+  type ConversationQuery,
+  type MailPredicate,
 } from "@inboxzero/mail-core/queries";
 import { isOutlookInboxSection } from "@/utils/outlook/inbox-sections";
 import { parseBooleanSearchValue } from "@/utils/tokenize-search-query";
@@ -18,6 +19,30 @@ export function threadsQueryToConversationQuery(input: {
     order: "newest_first",
     pageSize: input.pageSize ?? 50,
     after: input.after ?? null,
+  };
+}
+
+/**
+ * Leaves out drafts that a pending send stands in for, so a conversation counts
+ * as a draft only through drafts that are still shown.
+ */
+export function withoutHiddenDrafts(
+  predicate: MailPredicate,
+  hiddenDraftMessageIds: string[],
+): MailPredicate {
+  if (!hiddenDraftMessageIds.length) return predicate;
+  return {
+    kind: "all",
+    predicates: [
+      predicate,
+      {
+        kind: "not",
+        predicate: {
+          kind: "message",
+          ids: hiddenDraftMessageIds.slice(-MAX_MESSAGE_PREDICATE_IDS),
+        },
+      },
+    ],
   };
 }
 
