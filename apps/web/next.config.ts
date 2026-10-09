@@ -26,6 +26,11 @@ const zodV4CorePath = path.join(
   "v4/core/index.js",
 );
 const indexingAllowed = isIndexingAllowed(env.NEXT_PUBLIC_BASE_URL);
+// Outlook uploads large attachments from the browser straight to Graph, which
+// is a plain-http origin when the app runs against the local emulator.
+const microsoftEmulatorOrigin = env.MICROSOFT_BASE_URL
+  ? new URL(env.MICROSOFT_BASE_URL).origin
+  : null;
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: [
@@ -121,7 +126,12 @@ const nextConfig: NextConfig = {
           // If you use web workers or service workers
           "worker-src 'self' blob:",
           // For API calls, SWR, external services, and Mux
-          "connect-src 'self' https: wss: https://*.mux.com https://*.litix.io",
+          [
+            "connect-src 'self' https: wss: https://*.mux.com https://*.litix.io",
+            microsoftEmulatorOrigin,
+          ]
+            .filter(Boolean)
+            .join(" "),
           // iframes for Mux player and PDF attachment previews
           "frame-src 'self' https: blob:",
           // Prevent embedding in iframes

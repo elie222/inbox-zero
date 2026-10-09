@@ -1,6 +1,5 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Page } from "@playwright/test";
-import { isMicrosoftPlaywright } from "../mail-provider";
 import { test } from "../playwright-test";
 import {
   conversationWithSubject,
@@ -36,9 +35,6 @@ test("sends a new message with an image attachment", async ({
 test("sends a new message with an attachment too large for one request", async ({
   page,
 }, testInfo) => {
-  // Graph hands out an https upload URL; the local emulator's http one is
-  // outside the app's connect-src, so only Gmail's proxied upload runs here.
-  test.skip(isMicrosoftPlaywright(), "Graph upload URLs need https.");
   test.setTimeout(ATTACHMENT_SEND_TIMEOUT_MS + 120_000);
   await sendAndVerifyAttachment(page, {
     subject: `Large attachment send ${testInfo.retry}`,
