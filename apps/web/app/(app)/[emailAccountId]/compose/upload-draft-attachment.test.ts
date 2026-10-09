@@ -50,7 +50,6 @@ describe("uploadDraftAttachment", () => {
       data: {
         type: "provider-url",
         uploadUrl: "https://outlook.office.com/upload/session-1",
-        chunkBytes: 4 * 1024 * 1024,
       },
     });
     const existing = listedAttachment("forwarded-1");
@@ -100,7 +99,6 @@ describe("uploadDraftAttachment", () => {
         type: "gmail-message",
         uploadId: "upload-1",
         totalBytes,
-        chunkBytes: 4 * 1024 * 1024,
         parts: [
           { type: "text", text: head },
           { type: "attachment", attachmentId: "file-1", size: largeSize },

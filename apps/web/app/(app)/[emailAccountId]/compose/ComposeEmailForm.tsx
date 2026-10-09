@@ -82,8 +82,8 @@ import { formatRecipientNames, splitRecipientList } from "@/utils/email";
 import type { StoredReplyDraft } from "@/utils/mail-engine/reply-drafts";
 import {
   getDraftSessionMessageIds,
+  forgetReplyDraftProvider,
   getReplyDraft,
-  hideScheduledDraftMessages,
   rememberProviderDraftMessage,
   rememberReplacedDraftMessage,
   updateReplyDraftProviderState,
@@ -93,7 +93,10 @@ import {
 } from "@/utils/mail-engine/reply-drafts";
 import { createPreservedEmailBlocks } from "@/utils/email/preserved-blocks";
 import { resolveSendDraftId } from "@/app/(app)/[emailAccountId]/compose/send-draft-reference";
-import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import {
+  isGoogleProvider,
+  isMicrosoftProvider,
+} from "@/utils/email/provider-types";
 import { stripBrandingSignatures } from "@/utils/referral/signature";
 import { renderSentWithFooterHtml } from "@/utils/email/sent-with-footer";
 import {
@@ -134,6 +137,7 @@ import {
 import {
   forgetAttachedFiles,
   removeDraftAttachment,
+  resolveDraftId,
   uploadDraftAttachment,
 } from "./upload-draft-attachment";
 import { useComposeDraftAttachments } from "./useComposeDraftAttachments";
@@ -154,6 +158,8 @@ export type ReplyingToEmail = {
    * The files that travel with a forward. They stay on the provider until the
    * send, so the composer shows them without ever holding their bytes.
    */
+  /** An opened mailbox draft that already holds files. */
+  draftHasAttachments?: boolean;
   forwardedAttachments?: Pick<
     EmailAttachmentMetadata,
     "id" | "filename" | "mimeType" | "size"
@@ -255,6 +261,10 @@ function ComposeEmailFormWithEngine(props: ComposeEmailFormProps) {
     emailAccountId: selectedEmailAccountId,
     sessionKey: composeSessionKey,
     storedDraft: localDraft.draft,
+    loadMailboxDraft: Boolean(
+      props.providerDraftMessageId &&
+        props.replyingToEmail?.draftHasAttachments,
+    ),
     providerDraftMessageId: props.providerDraftMessageId,
     enabled: !localDraft.isLoading,
   });
@@ -276,6 +286,7 @@ function ComposeEmailFormWithEngine(props: ComposeEmailFormProps) {
             storedDraft={localDraft.draft}
             initialAttachments={draftAttachments.attachments}
             initialProviderDraftId={draftAttachments.draftId}
+            initialDraftMissing={draftAttachments.draftMissing}
             draftLoadError={localDraft.error}
             accountProvider={selectedAccountProvider}
             accountSignatureHtml={emailAccount.signature ?? ""}
@@ -316,11 +327,13 @@ function ComposeEmailFormContent({
   localDraftIdentity,
   initialAttachments,
   initialProviderDraftId,
+  initialDraftMissing,
 }: ComposeEmailFormProps & {
   localDraftIdentity?: ReplyDraftIdentity;
   storedDraft?: StoredReplyDraft;
   initialAttachments: ComposeAttachment[];
   initialProviderDraftId?: string;
+  initialDraftMissing: boolean;
   draftLoadError?: Error;
   accountProvider: string;
   accountSignatureHtml: string;
@@ -350,10 +363,9 @@ function ComposeEmailFormContent({
   });
   const editorInitialized = useRef(false);
   const providerDraftId = useRef(
-    storedDraft?.content?.providerDraftId ?? initialProviderDraftId,
-  );
-  const providerDraftMessageIds = useRef(
-    storedDraft?.content?.providerDraftMessageIds ?? [],
+    initialDraftMissing
+      ? undefined
+      : (storedDraft?.content?.providerDraftId ?? initialProviderDraftId),
   );
   const draftQueueKey = `${selectedEmailAccountId}:${requestId}`;
 
@@ -523,9 +535,6 @@ function ComposeEmailFormContent({
         value.preservedBlockIds.includes(block.id),
       ),
       attachments: attachmentsRef.current.flatMap(toAttachmentReference),
-      ...(providerDraftMessageIds.current.length
-        ? { providerDraftMessageIds: providerDraftMessageIds.current }
-        : {}),
       sendAt: options?.sendAt ?? sendAt,
       remindAt: options?.remindAt ?? remindAt,
     };
@@ -584,15 +593,7 @@ function ComposeEmailFormContent({
       await ingestMailboxDraft(client, selectedEmailAccountId, messageId);
       return;
     }
-    if (
-      !localDraftIdentity ||
-      providerDraftMessageIds.current.includes(messageId)
-    )
-      return;
-    providerDraftMessageIds.current = [
-      ...providerDraftMessageIds.current,
-      messageId,
-    ].slice(-50);
+    if (!localDraftIdentity) return;
     await rememberProviderDraftMessage(
       localDraftIdentity,
       requestId,
@@ -604,12 +605,23 @@ function ComposeEmailFormContent({
   // also get one from autosave; replies and forwards get one on first attach.
   const ensureProviderDraft = async () => {
     if (providerDraftId.current) return providerDraftId.current;
-    if (providerDraftMessageId)
-      throw new Error(
-        "Could not find this draft in your mailbox. Reopen it and try again.",
-      );
+    if (providerDraftMessageId) {
+      const draftId = await resolveDraftId({
+        emailAccountId: selectedEmailAccountId,
+        messageId: providerDraftMessageId,
+      });
+      if (!draftId)
+        throw new Error(
+          "Could not find this draft in your mailbox. Reopen it and try again.",
+        );
+      providerDraftId.current = draftId;
+      return draftId;
+    }
     if (!localDraftIdentity)
       throw new Error("Local draft storage is required to save attachments.");
+    const deletedDraftId = storedDraft?.content?.providerDraftId;
+    if (initialDraftMissing && deletedDraftId)
+      await forgetReplyDraftProvider(localDraftIdentity, deletedDraftId);
     captureLocalDraft();
     await flushDraft();
     let draftId = await updateReplyDraftProviderState(
@@ -630,7 +642,6 @@ function ComposeEmailFormContent({
           "Mailbox draft creation could not be confirmed. Check Drafts in Gmail or Outlook; your message is still saved on this device.",
         );
       draftId = created.data.draftId;
-      providerDraftId.current = draftId;
       await followProviderDraftMessage(created.data.messageId);
     }
     providerDraftId.current = draftId;
@@ -641,8 +652,10 @@ function ComposeEmailFormContent({
   const providerAutosave = useProviderDraftAutosave({
     enabled: Boolean(providerDraftMessageId) || isNewCompose,
     sessionKey: isNewCompose ? draftQueueKey : undefined,
-    // Gmail rebuilds the whole message on each save, files included.
-    minIntervalMs: attachments.length ? ATTACHMENT_DRAFT_SAVE_INTERVAL_MS : 0,
+    minIntervalMs:
+      attachments.length && isGoogleProvider(accountProvider)
+        ? GMAIL_ATTACHMENT_DRAFT_SAVE_INTERVAL_MS
+        : 0,
     getContent: getProviderDraftContent,
     save: (content) =>
       enqueueDraftOperation(draftQueueKey, async () => {
@@ -700,13 +713,12 @@ function ComposeEmailFormContent({
   );
 
   // After each change the mailbox's list is the truth for files on the draft.
+  // This keeps running after the composer closes, so the local draft still
+  // records uploads that finish later.
   const reconcileDraftAttachments = (
     listed: DraftAttachment[],
     current = attachmentsRef.current,
-  ) => {
-    if (isMountedRef.current)
-      updateAttachments(mergeDraftAttachments(current, listed));
-  };
+  ) => updateAttachments(mergeDraftAttachments(current, listed));
 
   const uploadComposeAttachment = (file: File, attachment: ComposeAttachment) =>
     enqueueDraftOperation(draftQueueKey, async () => {
@@ -732,8 +744,7 @@ function ComposeEmailFormContent({
     }).then(
       (result) => {
         if (!result) return;
-        if (draftMode === "forward" && isMountedRef.current)
-          setForwardSavedToMailbox(true);
+        if (draftMode === "forward") setForwardSavedToMailbox(true);
         reconcileDraftAttachments(
           result.attachments,
           attachmentsRef.current.map((item) =>
@@ -741,7 +752,7 @@ function ComposeEmailFormContent({
               ? {
                   ...item,
                   status: "uploaded",
-                  providerAttachmentId: result.attachmentId,
+                  draftAttachmentId: result.attachmentId,
                 }
               : item,
           ),
@@ -753,14 +764,13 @@ function ComposeEmailFormContent({
             ? error.message
             : `Could not attach ${attachment.filename}.`;
         toastError({ description });
-        if (isMountedRef.current)
-          updateAttachments(
-            attachmentsRef.current.map((item) =>
-              item.id === attachment.id
-                ? { ...item, status: "failed", error: description }
-                : item,
-            ),
-          );
+        updateAttachments(
+          attachmentsRef.current.map((item) =>
+            item.id === attachment.id
+              ? { ...item, status: "failed", error: description }
+              : item,
+          ),
+        );
       },
     );
 
@@ -773,15 +783,15 @@ function ComposeEmailFormContent({
     );
     forgetAttachedFiles(selectedEmailAccountId, [attachment.id]);
     const draftId = providerDraftId.current;
-    const providerAttachmentId = attachment.providerAttachmentId;
+    const { draftAttachmentId } = attachment;
     // Uploads still running take the file back off the draft when they end.
-    if (attachment.status !== "uploaded" || !providerAttachmentId || !draftId)
+    if (attachment.status !== "uploaded" || !draftAttachmentId || !draftId)
       return;
     enqueueDraftOperation(draftQueueKey, () =>
       removeDraftAttachment({
         emailAccountId: selectedEmailAccountId,
         draftId,
-        attachmentId: providerAttachmentId,
+        attachmentId: draftAttachmentId,
       }),
     ).then(
       async (result) => {
@@ -795,11 +805,10 @@ function ComposeEmailFormContent({
               ? error.message
               : `Could not remove ${attachment.filename}.`,
         });
-        if (isMountedRef.current)
-          updateAttachments([
-            ...attachmentsRef.current,
-            { ...attachment, previewUrl: undefined, managed: false },
-          ]);
+        updateAttachments([
+          ...attachmentsRef.current,
+          { ...attachment, previewUrl: undefined, managed: false },
+        ]);
       },
     );
   };
@@ -1033,13 +1042,6 @@ function ComposeEmailFormContent({
           }
           deliveryAccepted = true;
           forgetAttachedComposeFiles();
-          hideScheduledDraftMessages(
-            selectedEmailAccountId,
-            providerDraftMessageIds.current,
-            (deliveryTimes.sendAt
-              ? new Date(deliveryTimes.sendAt).getTime()
-              : Date.now()) + SCHEDULED_DRAFT_HIDE_GRACE_MS,
-          );
           try {
             await clearLocalDraft();
           } catch {
@@ -1084,6 +1086,10 @@ function ComposeEmailFormContent({
           });
           return;
         }
+        const savedDraftMessageIds = localDraftIdentity
+          ? ((await getReplyDraft(localDraftIdentity))?.content
+              ?.providerDraftMessageIds ?? [])
+          : [];
         let outcome: Awaited<ReturnType<typeof queueReaderEmail>>;
         try {
           outcome = await queueReaderEmail({
@@ -1098,7 +1104,7 @@ function ComposeEmailFormContent({
                   selectedEmailAccountId,
                   providerDraftMessageId,
                 )
-              : providerDraftMessageIds.current,
+              : savedDraftMessageIds,
             online,
             threadId: readerThreadId,
             onQueued: async () => {
@@ -1674,18 +1680,7 @@ function ComposeEmailFormContent({
               key={attachment.id}
               title={attachment.error}
             >
-              {attachment.status === "uploading" ? (
-                <Loader2Icon
-                  aria-hidden
-                  className="size-3.5 shrink-0 animate-spin"
-                />
-              ) : attachment.status === "failed" ? (
-                <CircleAlertIcon aria-hidden className="size-3.5 shrink-0" />
-              ) : attachment.disposition === "inline" ? (
-                <ImageIcon aria-hidden className="size-3.5 shrink-0" />
-              ) : (
-                <PaperclipIcon aria-hidden className="size-3.5 shrink-0" />
-              )}
+              <AttachmentIcon attachment={attachment} />
               <span className="max-w-52 truncate">{attachment.filename}</span>
               <span className="text-muted-foreground">
                 {ATTACHMENT_STATUS_LABELS[attachment.status] ??
@@ -1825,9 +1820,8 @@ function ComposeEmailFormContent({
   );
 }
 
-const ATTACHMENT_DRAFT_SAVE_INTERVAL_MS = 15_000;
-// Scheduled sends run on a cron, so they can land a little after their time.
-const SCHEDULED_DRAFT_HIDE_GRACE_MS = 60 * 60 * 1000;
+// Gmail rebuilds the whole message on each save, files included.
+const GMAIL_ATTACHMENT_DRAFT_SAVE_INTERVAL_MS = 15_000;
 
 const ATTACHMENT_STATUS_LABELS: Partial<
   Record<ComposeAttachment["status"], string>
@@ -1873,6 +1867,18 @@ async function isInlineImageContent(file: File) {
 
 function revokePreview(attachment: ComposeAttachment) {
   if (attachment.previewUrl) URL.revokeObjectURL(attachment.previewUrl);
+}
+
+function AttachmentIcon({ attachment }: { attachment: ComposeAttachment }) {
+  if (attachment.status === "uploading")
+    return (
+      <Loader2Icon aria-hidden className="size-3.5 shrink-0 animate-spin" />
+    );
+  if (attachment.status === "failed")
+    return <CircleAlertIcon aria-hidden className="size-3.5 shrink-0" />;
+  if (attachment.disposition === "inline")
+    return <ImageIcon aria-hidden className="size-3.5 shrink-0" />;
+  return <PaperclipIcon aria-hidden className="size-3.5 shrink-0" />;
 }
 
 function ComposeFieldLabel({

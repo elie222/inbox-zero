@@ -4,7 +4,7 @@ import type { ComposeAttachmentReference } from "@/utils/mail-engine/reply-draft
 
 export type ComposeAttachment = EmailAttachmentMetadata & {
   /** Set once the file is on the mailbox draft; it removes the file later. */
-  providerAttachmentId?: string;
+  draftAttachmentId?: string;
   status: "uploading" | "uploaded" | "failed";
   error?: string;
   previewUrl?: string;
@@ -28,7 +28,7 @@ export function mergeDraftAttachments(
   const uploaded = listed.map((item): ComposeAttachment => {
     const known = current.find(
       (attachment) =>
-        attachment.providerAttachmentId === item.id ||
+        attachment.draftAttachmentId === item.id ||
         (item.contentId && attachment.contentId === item.contentId),
     );
     return {
@@ -38,7 +38,7 @@ export function mergeDraftAttachments(
       size: item.size,
       disposition: item.disposition,
       ...(item.contentId ? { contentId: item.contentId } : {}),
-      providerAttachmentId: item.id,
+      draftAttachmentId: item.id,
       status: "uploaded",
       ...(known?.previewUrl ? { previewUrl: known.previewUrl } : {}),
       ...(known?.managed ? { managed: true } : {}),
@@ -61,11 +61,11 @@ export function toAttachmentReference({
   status,
   error: _error,
   managed: _managed,
-  providerAttachmentId,
+  draftAttachmentId,
   ...attachment
 }: ComposeAttachment): ComposeAttachmentReference[] {
-  return status === "uploaded" && providerAttachmentId
-    ? [{ ...attachment, providerAttachmentId }]
+  return status === "uploaded" && draftAttachmentId
+    ? [{ ...attachment, draftAttachmentId }]
     : [];
 }
 

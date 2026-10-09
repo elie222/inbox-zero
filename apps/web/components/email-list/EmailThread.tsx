@@ -13,7 +13,6 @@ import { Button } from "@/components/ui/button";
 import {
   getDraftSessionMessageId,
   getLatestDraftMessageId,
-  getScheduledDraftMessageIds,
   getReplyDraftMode,
   getReplyDraftSessionId,
   type ReplyDraftMode,
@@ -87,12 +86,9 @@ export function EmailThread({
       ...organizeThreadMessages(
         withoutLocallyComposedDrafts(
           withoutReplacedDrafts(messages, emailAccountId),
-          [
-            ...localDrafts.flatMap(
-              (draft) => draft.content?.providerDraftMessageIds ?? [],
-            ),
-            ...getScheduledDraftMessageIds(emailAccountId),
-          ],
+          localDrafts.flatMap(
+            (draft) => draft.content?.providerDraftMessageIds ?? [],
+          ),
         ),
       ),
       ...outgoing.map((item) => ({
@@ -493,9 +489,8 @@ function withoutReplacedDrafts(
   });
 }
 
-// A reply with files is saved to the mailbox while its composer is open, and
-// stays there while a scheduled send waits. The composer or the scheduled
-// send already shows it, so the saved copy would be a second editor.
+// A reply with files is saved to the mailbox while its composer is open. The
+// composer already shows it, so the saved copy would be a second editor.
 function withoutLocallyComposedDrafts(
   messages: ThreadMessage[],
   composedIds: string[],

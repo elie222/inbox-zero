@@ -877,6 +877,9 @@ function prepareDraftReplyEmail(draft: ParsedMessage): ReplyingToEmail {
     references: draft.headers.references,
     draftHtml: splitHtml.draftHtml,
     quotedContentHtml: splitHtml.originalHtml,
+    draftHasAttachments: Boolean(
+      draft.attachments?.length || draft.inline?.length,
+    ),
   };
 }
 

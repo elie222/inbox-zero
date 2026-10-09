@@ -2,6 +2,7 @@ import type {
   AddDraftAttachmentResponse,
   GetDraftAttachmentsResponse,
 } from "@/app/api/user/drafts/[draftId]/attachments/route";
+import type { ReadComposeDraftResponse } from "@/app/api/user/drafts/route";
 import type { UploadDraftMessageChunkResponse } from "@/app/api/user/drafts/[draftId]/attachments/uploads/[uploadId]/route";
 import {
   removeDraftAttachmentAction,
@@ -15,13 +16,15 @@ import {
 import {
   type DraftMessageUploadPart,
   encodeMimeBase64,
+  GMAIL_UPLOAD_CHUNK_BYTES,
+  GRAPH_UPLOAD_CHUNK_BYTES,
   usesDirectDraftAttachmentUpload,
 } from "@/utils/email/draft-attachment-upload";
 import type { DraftAttachmentsResult } from "@/utils/email/types";
 import { getActionErrorMessage } from "@/utils/error";
 import { fetchWithAccount } from "@/utils/fetch";
 
-export type DraftAttachmentUploadResult = DraftAttachmentsResult & {
+type DraftAttachmentUploadResult = DraftAttachmentsResult & {
   attachmentId: string;
 };
 
@@ -62,7 +65,7 @@ export async function uploadDraftAttachment({
   const upload = started.data;
   if (upload.type === "provider-url") {
     const before = await fetchDraftAttachments({ emailAccountId, draftId });
-    await uploadToProviderUrl({ ...upload, file });
+    await uploadToProviderUrl(upload.uploadUrl, file);
     const after = await fetchDraftAttachments({ emailAccountId, draftId });
     // Draft changes run one at a time, so the new id is the only new one.
     const added = after?.attachments.filter(
@@ -84,7 +87,6 @@ export async function uploadDraftAttachment({
     emailAccountId,
     draftId,
     uploadId: upload.uploadId,
-    chunkBytes: upload.chunkBytes,
     message,
   });
 }
@@ -136,6 +138,25 @@ export async function fetchDraftAttachments({
   if (response.status === 404) return null;
   if (!response.ok) throw new Error("Could not load the draft's attachments.");
   return response.json();
+}
+
+export async function resolveDraftId({
+  emailAccountId,
+  messageId,
+  signal,
+}: {
+  emailAccountId: string;
+  messageId: string;
+  signal?: AbortSignal;
+}) {
+  const response = await fetchWithAccount({
+    url: `/api/user/drafts?messageId=${encodeURIComponent(messageId)}`,
+    emailAccountId,
+    init: { cache: "no-store", signal },
+  });
+  if (!response.ok) return;
+  const draft: ReadComposeDraftResponse = await response.json();
+  return draft.draftId;
 }
 
 /** A file on the draft: the copy this tab attached, else the mailbox's. */
@@ -205,17 +226,9 @@ async function uploadInOneRequest({
 
 // Microsoft's upload URL is pre-authenticated and must not get our
 // Authorization header, so the browser uploads straight to it.
-async function uploadToProviderUrl({
-  uploadUrl,
-  chunkBytes,
-  file,
-}: {
-  uploadUrl: string;
-  chunkBytes: number;
-  file: Blob;
-}) {
-  for (let start = 0; start < file.size; start += chunkBytes) {
-    const end = Math.min(start + chunkBytes, file.size);
+async function uploadToProviderUrl(uploadUrl: string, file: Blob) {
+  for (let start = 0; start < file.size; start += GRAPH_UPLOAD_CHUNK_BYTES) {
+    const end = Math.min(start + GRAPH_UPLOAD_CHUNK_BYTES, file.size);
     const response = await fetch(uploadUrl, {
       method: "PUT",
       headers: {
@@ -267,18 +280,16 @@ async function uploadDraftMessage({
   emailAccountId,
   draftId,
   uploadId,
-  chunkBytes,
   message,
 }: {
   emailAccountId: string;
   draftId: string;
   uploadId: string;
-  chunkBytes: number;
   message: Blob;
 }): Promise<DraftAttachmentUploadResult> {
   let start = 0;
   while (start < message.size) {
-    const end = Math.min(start + chunkBytes, message.size);
+    const end = Math.min(start + GMAIL_UPLOAD_CHUNK_BYTES, message.size);
     const response = await fetchWithAccount({
       url: `/api/user/drafts/${encodeURIComponent(draftId)}/attachments/uploads/${encodeURIComponent(uploadId)}`,
       emailAccountId,

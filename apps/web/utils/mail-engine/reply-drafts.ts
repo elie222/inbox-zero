@@ -16,7 +16,7 @@ import type { SendEmailBody } from "@/utils/types/mail";
  * the mailbox draft holds the bytes.
  */
 export type ComposeAttachmentReference = EmailAttachmentMetadata & {
-  providerAttachmentId: string;
+  draftAttachmentId: string;
 };
 
 export type ReplyDraftContent = {
@@ -223,6 +223,24 @@ export async function updateReplyDraftProviderState(
   return draftId;
 }
 
+/** The mailbox draft was deleted, so the next save starts a new one. */
+export async function forgetReplyDraftProvider(
+  identity: ReplyDraftIdentity,
+  providerDraftId: string,
+) {
+  await pendingWrites.get(draftKey(identity))?.catch(() => {});
+  const current = drafts.get(draftKey(identity));
+  if (current?.content?.providerDraftId !== providerDraftId) return;
+  const {
+    providerDraftId: _draftId,
+    providerDraftCreationUnconfirmed: _unconfirmed,
+    providerDraftMessageIds: _messageIds,
+    ...content
+  } = current.content;
+  drafts.set(draftKey(identity), { ...current, content });
+  await persistEngineReplyDraft(identity, content).catch(() => {});
+}
+
 export async function rememberProviderDraftMessage(
   identity: ReplyDraftIdentity,
   requestId: string,
@@ -288,11 +306,22 @@ export function createReplyDraftWriter(
               providerDraftCreationUnconfirmed:
                 previous.content.providerDraftCreationUnconfirmed,
             }),
-            ...(previous.content.providerDraftMessageIds && {
-              providerDraftMessageIds: previous.content.providerDraftMessageIds,
-            }),
           };
         }
+        // The composer doesn't track the mailbox copies of its draft; they
+        // belong to the mailbox draft, whichever composer session saves.
+        const providerDraftId =
+          nextContent?.providerDraftId ?? previous?.content?.providerDraftId;
+        if (
+          nextContent &&
+          providerDraftId &&
+          previous?.content?.providerDraftId === providerDraftId &&
+          previous.content.providerDraftMessageIds
+        )
+          nextContent = {
+            ...nextContent,
+            providerDraftMessageIds: previous.content.providerDraftMessageIds,
+          };
         drafts.set(draftKey(identity), {
           ...identity,
           content: nextContent,
@@ -412,35 +441,7 @@ export async function dropReplyDraftDeletedFromMailbox(
   return getReplyDraft(draft);
 }
 
-/**
- * A scheduled reply sends its mailbox draft later, after the composer and its
- * local draft are gone. Its saved copy stays hidden in the thread until then.
- */
-export function hideScheduledDraftMessages(
-  emailAccountId: string,
-  messageIds: string[],
-  hiddenUntil: number,
-) {
-  if (!messageIds.length) return;
-  const hidden = readScheduledDraftMessages();
-  hidden[emailAccountId] = {
-    ...hidden[emailAccountId],
-    ...Object.fromEntries(messageIds.map((id) => [id, hiddenUntil])),
-  };
-  writeScheduledDraftMessages(hidden);
-}
-
-export function getScheduledDraftMessageIds(emailAccountId: string) {
-  const now = Date.now();
-  return Object.entries(readScheduledDraftMessages()[emailAccountId] ?? {})
-    .filter(([, hiddenUntil]) => hiddenUntil > now)
-    .map(([messageId]) => messageId);
-}
-
 export function clearLocalReplyDrafts(emailAccountId?: string) {
-  const scheduled = readScheduledDraftMessages();
-  if (emailAccountId) delete scheduled[emailAccountId];
-  writeScheduledDraftMessages(emailAccountId ? scheduled : {});
   if (!emailAccountId) {
     drafts.clear();
     engineRevisions.clear();
@@ -459,37 +460,6 @@ export function clearLocalReplyDrafts(emailAccountId?: string) {
   }
   draftSessionMessageIds.delete(emailAccountId);
   latestDraftMessageIds.delete(emailAccountId);
-}
-
-const SCHEDULED_DRAFT_MESSAGES_KEY = "inbox-zero-scheduled-draft-messages";
-
-function readScheduledDraftMessages(): Record<string, Record<string, number>> {
-  try {
-    return JSON.parse(
-      localStorage.getItem(SCHEDULED_DRAFT_MESSAGES_KEY) ?? "{}",
-    );
-  } catch {
-    return {};
-  }
-}
-
-function writeScheduledDraftMessages(
-  hidden: Record<string, Record<string, number>>,
-) {
-  try {
-    const now = Date.now();
-    const pruned = Object.fromEntries(
-      Object.entries(hidden).map(([account, messages]) => [
-        account,
-        Object.fromEntries(
-          Object.entries(messages).filter(([, until]) => until > now),
-        ),
-      ]),
-    );
-    localStorage.setItem(SCHEDULED_DRAFT_MESSAGES_KEY, JSON.stringify(pruned));
-  } catch {
-    // Storage unavailable: the draft shows in the thread until it's sent.
-  }
 }
 
 function accountMap(

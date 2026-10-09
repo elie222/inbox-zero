@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { ReadComposeDraftResponse } from "@/app/api/user/drafts/route";
-import { fetchWithAccount } from "@/utils/fetch";
 import type { StoredReplyDraft } from "@/utils/mail-engine/reply-drafts";
 import {
   type ComposeAttachment,
@@ -11,10 +9,13 @@ import {
 import {
   fetchDraftAttachments,
   readDraftAttachmentBytes,
+  resolveDraftId,
 } from "./upload-draft-attachment";
 
 type LoadedDraftAttachments = {
   draftId?: string;
+  /** Set when the mailbox draft no longer exists. */
+  draftMissing?: boolean;
   attachments: ComposeAttachment[];
 };
 
@@ -30,6 +31,7 @@ export function useComposeDraftAttachments({
   sessionKey,
   storedDraft,
   providerDraftMessageId,
+  loadMailboxDraft,
   enabled,
 }: {
   emailAccountId: string;
@@ -37,11 +39,16 @@ export function useComposeDraftAttachments({
   sessionKey: string;
   storedDraft?: StoredReplyDraft;
   providerDraftMessageId?: string;
+  /** An opened mailbox draft whose files should be listed. */
+  loadMailboxDraft: boolean;
   enabled: boolean;
 }) {
   // Loaded once per compose session: Gmail moves an open draft to a new
   // message on every save, and reloading then would remount the composer.
-  const key = enabled ? sessionKey : "";
+  const needed =
+    enabled &&
+    (loadMailboxDraft || Boolean(storedDraft?.content?.attachments.length));
+  const key = needed ? sessionKey : "";
   const inputs = useRef({
     emailAccountId,
     storedDraft,
@@ -67,10 +74,12 @@ export function useComposeDraftAttachments({
       cancelled = true;
     };
   }, [key]);
+  const value = loaded?.key === key ? loaded.value : undefined;
   return {
-    isLoading: Boolean(key && loaded?.key !== key),
-    draftId: loaded?.key === key ? loaded.value.draftId : undefined,
-    attachments: loaded?.key === key ? loaded.value.attachments : [],
+    isLoading: Boolean(key && !value),
+    draftId: value?.draftId,
+    draftMissing: value?.draftMissing ?? false,
+    attachments: value?.attachments ?? [],
   };
 }
 
@@ -90,22 +99,25 @@ async function loadDraftAttachments({
   const signal = AbortSignal.timeout(LOAD_TIMEOUT_MS);
   try {
     if (!draftId && providerDraftMessageId)
-      draftId = await resolveDraftId(
+      draftId = await resolveDraftId({
         emailAccountId,
-        providerDraftMessageId,
+        messageId: providerDraftMessageId,
         signal,
-      );
+      });
     if (!draftId) return { attachments: stored };
     const listed = await fetchDraftAttachments({
       emailAccountId,
       draftId,
       signal,
     });
-    if (!listed) return { draftId, attachments: [] };
+    if (!listed) return { draftMissing: true, attachments: [] };
     const attachments = mergeDraftAttachments(stored, listed.attachments);
+    // Previews only replace images in HTML the composer already edited.
+    if (storedDraft?.content?.draft.mode !== "edited")
+      return { draftId, attachments };
     for (const attachment of attachments) {
       const source = listed.attachments.find(
-        (item) => item.id === attachment.providerAttachmentId,
+        (item) => item.id === attachment.draftAttachmentId,
       );
       if (attachment.disposition !== "inline" || !source) continue;
       const bytes = await readDraftAttachmentBytes({
@@ -124,19 +136,4 @@ async function loadDraftAttachments({
   } catch {
     return { draftId, attachments: stored };
   }
-}
-
-async function resolveDraftId(
-  emailAccountId: string,
-  messageId: string,
-  signal: AbortSignal,
-) {
-  const response = await fetchWithAccount({
-    url: `/api/user/drafts?messageId=${encodeURIComponent(messageId)}`,
-    emailAccountId,
-    init: { cache: "no-store", signal },
-  });
-  if (!response.ok) return;
-  const draft: ReadComposeDraftResponse = await response.json();
-  return draft.draftId;
 }

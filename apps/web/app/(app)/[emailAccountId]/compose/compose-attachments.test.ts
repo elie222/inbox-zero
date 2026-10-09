@@ -12,7 +12,7 @@ describe("toAttachmentReference", () => {
       attachment({
         id: "photo",
         status: "uploaded",
-        providerAttachmentId: "graph-1",
+        draftAttachmentId: "graph-1",
         previewUrl: "blob:preview",
         managed: true,
         disposition: "inline",
@@ -30,7 +30,7 @@ describe("toAttachmentReference", () => {
         size: 10,
         disposition: "inline",
         contentId: "photo@inboxzero.local",
-        providerAttachmentId: "graph-1",
+        draftAttachmentId: "graph-1",
       },
     ]);
     expect(JSON.stringify(stored)).not.toMatch(/blob:|contentBase64/);
@@ -44,7 +44,7 @@ describe("mergeDraftAttachments", () => {
         attachment({
           id: "local-1",
           status: "uploaded",
-          providerAttachmentId: "graph-1",
+          draftAttachmentId: "graph-1",
         }),
       ],
       [listed({ id: "graph-1" })],
@@ -52,7 +52,7 @@ describe("mergeDraftAttachments", () => {
     expect(merged).toEqual([
       expect.objectContaining({
         id: "local-1",
-        providerAttachmentId: "graph-1",
+        draftAttachmentId: "graph-1",
         status: "uploaded",
       }),
     ]);
@@ -78,7 +78,7 @@ describe("mergeDraftAttachments", () => {
         attachment({
           id: "gone",
           status: "uploaded",
-          providerAttachmentId: "gone",
+          draftAttachmentId: "gone",
         }),
         attachment({ id: "pending", status: "uploading" }),
       ],
@@ -93,7 +93,7 @@ describe("mergeDraftAttachments", () => {
         attachment({
           id: "photo",
           status: "uploaded",
-          providerAttachmentId: "old-gmail-id",
+          draftAttachmentId: "old-gmail-id",
           disposition: "inline",
           contentId: "photo@inboxzero.local",
           previewUrl: "blob:preview",
@@ -111,7 +111,7 @@ describe("mergeDraftAttachments", () => {
     expect(merged).toEqual([
       expect.objectContaining({
         id: "photo",
-        providerAttachmentId: "new-id",
+        draftAttachmentId: "new-id",
         previewUrl: "blob:preview",
         managed: true,
       }),
