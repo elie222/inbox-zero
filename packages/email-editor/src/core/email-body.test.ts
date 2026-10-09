@@ -113,15 +113,7 @@ describe("finalizeEditableEmailHtml", () => {
     const sent = finalizeEditableEmailHtml({
       html: '<div>Hi <img src="blob:https://app.example/1" data-content-id="img-1@example" alt="Chart"></div><div onclick="x()">Bye</div><table><tbody><tr><td style="color:#333">Sig</td></tr></tbody></table>',
       inlineAttachments: [
-        {
-          id: "a",
-          filename: "chart.png",
-          mimeType: "image/png",
-          size: 1,
-          contentBase64: "AA==",
-          disposition: "inline",
-          contentId: "img-1@example",
-        },
+        { disposition: "inline", contentId: "img-1@example" },
       ],
       mode: "edited",
     });
