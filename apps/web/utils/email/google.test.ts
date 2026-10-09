@@ -56,6 +56,7 @@ vi.mock("@/utils/gmail/signature-settings", () => gmailSignatureMock);
 vi.mock("@/utils/email/bulk-action-tracking", () => bulkActionTrackingMock);
 vi.mock("@/utils/gmail/oauth", () => ({
   isGoogleOauthEmulationEnabled: vi.fn(() => false),
+  getGoogleGmailApiRootUrl: vi.fn(() => "https://gmail.googleapis.com/"),
 }));
 
 describe("GmailProvider.countMessages", () => {

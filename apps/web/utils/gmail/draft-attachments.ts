@@ -17,6 +17,7 @@ import {
   getGmailAttachment,
 } from "@/utils/gmail/attachment";
 import { getDraft } from "@/utils/gmail/draft";
+import { getGoogleGmailApiRootUrl } from "@/utils/gmail/oauth";
 import { buildMailMessage } from "@/utils/gmail/mail";
 import { withGmailRetry } from "@/utils/gmail/retry";
 import { convertEmailHtmlToText } from "@/utils/mail";
@@ -232,20 +233,27 @@ export async function uploadGmailDraftMessage(
 ) {
   const { draftId, threadId } = draft;
   const result = await withGmailRetry(() => {
-    // Built per attempt: a retry needs a fresh stream.
-    const body = hasAttachments
-      ? {
-          requestBody: { message: { threadId } },
-          media: { mimeType: "message/rfc822", body: Readable.from(message) },
-        }
-      : {
-          requestBody: {
-            message: { threadId, raw: message.toString("base64url") },
-          },
-        };
+    if (!hasAttachments) {
+      const requestBody = {
+        message: { threadId, raw: message.toString("base64url") },
+      };
+      return draftId
+        ? gmail.users.drafts.update({ userId: "me", id: draftId, requestBody })
+        : gmail.users.drafts.create({ userId: "me", requestBody });
+    }
+    // Built per attempt because a retry needs a fresh stream. The client's
+    // root URL isn't applied to upload URLs, so it is passed per call.
+    const upload = {
+      requestBody: { message: { threadId } },
+      media: { mimeType: "message/rfc822", body: Readable.from(message) },
+    };
+    const options = { rootUrl: getGoogleGmailApiRootUrl() };
     return draftId
-      ? gmail.users.drafts.update({ userId: "me", id: draftId, ...body })
-      : gmail.users.drafts.create({ userId: "me", ...body });
+      ? gmail.users.drafts.update(
+          { userId: "me", id: draftId, ...upload },
+          options,
+        )
+      : gmail.users.drafts.create({ userId: "me", ...upload }, options);
   });
   return result.data;
 }

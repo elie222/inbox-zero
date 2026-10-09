@@ -25,7 +25,7 @@ index 785bd8dc7e6c0f3d30a62cb5f5ec7243f76ac984..8f49930d4d73dbc0417690157b0eaf07
    try {
      await waitForListening(httpServer);
 diff --git a/dist/dist-DASB6OVR.js b/dist/dist-DASB6OVR.js
-index a487d402f789659138e03a18a57e1b6632d8ce1b..642683e1498c85827f281beb3e885c34f7c7842d 100644
+index a487d402f789659138e03a18a57e1b6632d8ce1b..8f5c77d21ee7b6620c663a82e4e43546a57cf2a0 100644
 --- a/dist/dist-DASB6OVR.js
 +++ b/dist/dist-DASB6OVR.js
 @@ -794,6 +794,10 @@ function buildQueryPredicates(gs, userEmail, term) {
@@ -39,8 +39,152 @@ index a487d402f789659138e03a18a57e1b6632d8ce1b..642683e1498c85827f281beb3e885c34
    if (lower.startsWith("in:")) {
      const labelQuery = cleaned.slice(3);
      return [(message) => messageMatchesLabelQuery(gs, userEmail, message, labelQuery)];
+@@ -912,6 +916,7 @@ function replaceMessageAttachments(gs, message, attachments) {
+       disposition: attachment.disposition,
+       content_id: attachment.content_id,
+       transfer_encoding: attachment.transfer_encoding,
++      attachment_id_header: attachment.attachment_id_header ?? null,
+       data: attachment.data,
+       size: attachment.size
+     });
+@@ -1147,6 +1152,9 @@ function createAttachmentPart(partId, attachment) {
+   if (attachment.content_id) {
+     headers.push({ name: "Content-ID", value: attachment.content_id });
+   }
++  if (attachment.attachment_id_header) {
++    headers.push({ name: "X-Attachment-Id", value: attachment.attachment_id_header });
++  }
+   return {
+     partId,
+     mimeType: attachment.mime_type,
+@@ -1227,6 +1235,7 @@ function parseRawMessage(raw) {
+     disposition: node.disposition,
+     content_id: node.contentId,
+     transfer_encoding: node.transferEncoding,
++    attachment_id_header: node.headers.get("x-attachment-id") ?? null,
+     data: (node.body ?? Buffer.alloc(0)).toString("base64url"),
+     size: node.body?.length ?? 0
+   }));
+@@ -1821,6 +1830,8 @@ async function parseGoogleBody(c) {
+     }
+   } else if (contentType.includes("application/x-www-form-urlencoded")) {
+     parsed = Object.fromEntries(new URLSearchParams(rawText));
++  } else if (contentType.includes("multipart/related")) {
++    parsed = parseMediaMultipartBody(contentType, rawText);
+   } else {
+     parsed = {
+       raw: Buffer.from(rawText, "utf8").toString("base64url")
+@@ -1832,6 +1843,32 @@ async function parseGoogleBody(c) {
+   }
+   return parsed;
+ }
++function parseMediaMultipartBody(contentType, rawText) {
++  const boundary = parseHeaderWithParams(contentType).params.boundary;
++  if (!boundary) return {};
++  const parts = rawText.split(`--${boundary}`).slice(1).filter((part) => !part.startsWith("--"));
++  let metadata = {};
++  let raw;
++  for (const part of parts) {
++    const body = part.replace(/^\r?\n/, "");
++    const separator = body.indexOf("\r\n\r\n");
++    if (separator < 0) continue;
++    const headers = body.slice(0, separator).toLowerCase();
++    const content = body.slice(separator + 4).replace(/\r\n$/, "");
++    if (headers.includes("application/json")) {
++      try {
++        const json = JSON.parse(content);
++        if (json && typeof json === "object" && !Array.isArray(json)) metadata = json;
++      } catch {
++      }
++    } else {
++      raw = Buffer.from(content, "utf8").toString("base64url");
++    }
++  }
++  if (raw === void 0) return metadata;
++  const message = getRecord(metadata, "message") ?? {};
++  return { ...metadata, message: { ...message, raw } };
++}
+ function getStringArray(body, field) {
+   const value = body[field];
+   if (Array.isArray(value)) {
+@@ -2615,6 +2652,75 @@ function draftRoutes({ app, store }) {
+       return googleApiError(c, 400, "Invalid raw MIME message payload.", "invalidArgument", "INVALID_ARGUMENT");
+     }
+   });
++  const resumableUploads = /* @__PURE__ */ new Map();
++  const applyDraftUpdate = (c, authEmail, draftId, messageBody) => {
++    const draft = getDraftById(gs, authEmail, draftId);
++    if (!draft) {
++      return googleApiError(c, 404, "Requested entity was not found.", "notFound", "NOT_FOUND");
++    }
++    try {
++      const updated = updateDraftMessage(gs, draft, parseMessageInputFromBody(messageBody));
++      if (!updated) {
++        return googleApiError(c, 404, "Requested entity was not found.", "notFound", "NOT_FOUND");
++      }
++      return c.json(formatDraftResource(gs, updated.draft, "full"));
++    } catch {
++      return googleApiError(c, 400, "Invalid raw MIME message payload.", "invalidArgument", "INVALID_ARGUMENT");
++    }
++  };
++  app.put("/upload/gmail/v1/users/:userId/drafts/:id", async (c) => {
++    const authEmail = requireGmailUser(c);
++    if (authEmail instanceof Response) return authEmail;
++    const url = new URL(c.req.url);
++    const uploadId = url.searchParams.get("upload_id");
++    if (uploadId) {
++      const upload = resumableUploads.get(uploadId);
++      if (!upload || upload.userEmail !== authEmail) {
++        return googleApiError(c, 404, "Upload session not found.", "notFound", "NOT_FOUND");
++      }
++      const range = (c.req.header("Content-Range") ?? "").match(/^bytes (\d+)-(\d+)\/(\d+)$/);
++      const chunk = Buffer.from(await c.req.arrayBuffer());
++      if (!range || Number(range[1]) !== upload.received || Number(range[3]) !== upload.total || chunk.length !== Number(range[2]) - Number(range[1]) + 1) {
++        return googleApiError(c, 400, "Invalid upload range.", "invalidArgument", "INVALID_ARGUMENT");
++      }
++      upload.chunks.push(chunk);
++      upload.received += chunk.length;
++      if (upload.received < upload.total) {
++        return c.body(null, 308, { Range: `bytes=0-${upload.received - 1}` });
++      }
++      resumableUploads.delete(uploadId);
++      const message = getRecord(upload.metadata, "message") ?? {};
++      return applyDraftUpdate(c, authEmail, upload.draftId, {
++        ...message,
++        raw: Buffer.concat(upload.chunks).toString("base64url")
++      });
++    }
++    const draftId = c.req.param("id");
++    if (url.searchParams.get("uploadType") === "resumable") {
++      if (!getDraftById(gs, authEmail, draftId)) {
++        return googleApiError(c, 404, "Requested entity was not found.", "notFound", "NOT_FOUND");
++      }
++      const total = Number(c.req.header("X-Upload-Content-Length"));
++      if (!Number.isSafeInteger(total) || total <= 0) {
++        return googleApiError(c, 400, "X-Upload-Content-Length is required.", "invalidArgument", "INVALID_ARGUMENT");
++      }
++      const id = generateUid("upload");
++      resumableUploads.set(id, {
++        userEmail: authEmail,
++        draftId,
++        metadata: await parseGoogleBody(c),
++        total,
++        received: 0,
++        chunks: []
++      });
++      const location = new URL(url.pathname, url.origin);
++      location.searchParams.set("uploadType", "resumable");
++      location.searchParams.set("upload_id", id);
++      return c.body(null, 200, { Location: location.toString() });
++    }
++    const body = await parseGoogleBody(c);
++    return applyDraftUpdate(c, authEmail, draftId, getRecord(body, "message") ?? body);
++  });
+   app.post("/gmail/v1/users/:userId/drafts/send", sendHandler);
+   app.post("/upload/gmail/v1/users/:userId/drafts/send", sendHandler);
+   app.delete("/gmail/v1/users/:userId/drafts/:id", (c) => {
 diff --git a/dist/dist-NDWGOBZE.js b/dist/dist-NDWGOBZE.js
-index 3b6bbe48134733165207caf6935f10d8de51044f..b1a093c6862b8a7bbd80bc3808e98ec35d464101 100644
+index 3b6bbe48134733165207caf6935f10d8de51044f..b66d74fba703209a875538e81a1a152edf433135 100644
 --- a/dist/dist-NDWGOBZE.js
 +++ b/dist/dist-NDWGOBZE.js
 @@ -73,7 +73,23 @@ var OUTLOOK_COLORS = [
@@ -208,7 +352,81 @@ index 3b6bbe48134733165207caf6935f10d8de51044f..b1a093c6862b8a7bbd80bc3808e98ec3
    app.get("/v1.0/me/messages/:messageId/attachments/:attachmentId", (c) => {
      const authEmail = requireAuthEmail(ctx, c);
      if (authEmail instanceof Response) return authEmail;
-@@ -1576,6 +1683,19 @@ function graphRoutes(ctx) {
+@@ -1409,10 +1516,25 @@ function graphRoutes(ctx) {
+       message_microsoft_id: message.microsoft_id,
+       name: typeof body.name === "string" ? body.name : "attachment.bin",
+       content_type: typeof body.contentType === "string" ? body.contentType : "application/octet-stream",
+-      content_bytes: typeof body.contentBytes === "string" ? body.contentBytes : ""
++      content_bytes: typeof body.contentBytes === "string" ? body.contentBytes : "",
++      is_inline: body.isInline === true,
++      content_id: typeof body.contentId === "string" ? body.contentId : null
+     });
+     return c.json(formatAttachmentResource(attachment), 201);
+   });
++  app.delete("/v1.0/me/messages/:messageId/attachments/:attachmentId", (c) => {
++    const authEmail = requireAuthEmail(ctx, c);
++    if (authEmail instanceof Response) return authEmail;
++    const ms = getMicrosoftStore(ctx.store);
++    const message = resolveMessage(ctx, authEmail, c.req.param("messageId"));
++    if (!message) return microsoftGraphError(c, 404, "ErrorItemNotFound", "Message not found.");
++    const attachments = ms.attachments.findBy("message_microsoft_id", message.microsoft_id);
++    const attachment = attachments.find((entry) => entry.microsoft_id === c.req.param("attachmentId"));
++    if (!attachment) return microsoftGraphError(c, 404, "ErrorItemNotFound", "Attachment not found.");
++    ms.attachments.delete(attachment.id);
++    if (attachments.length === 1) ms.messages.update(message.id, { has_attachments: false });
++    return c.body(null, 204);
++  });
+   app.post("/v1.0/me/messages/:messageId/attachments/createUploadSession", async (c) => {
+     const authEmail = requireAuthEmail(ctx, c);
+     if (authEmail instanceof Response) return authEmail;
+@@ -1428,6 +1550,8 @@ function graphRoutes(ctx) {
+       attachmentName: typeof attachmentItem.name === "string" ? attachmentItem.name : "attachment.bin",
+       contentType: typeof attachmentItem.contentType === "string" ? attachmentItem.contentType : "application/octet-stream",
+       totalSize: typeof attachmentItem.size === "number" ? attachmentItem.size : 0,
++      isInline: attachmentItem.isInline === true,
++      contentId: typeof attachmentItem.contentId === "string" ? attachmentItem.contentId : null,
+       uploadedBytes: 0,
+       contentBytes: ""
+     });
+@@ -1437,6 +1561,10 @@ function graphRoutes(ctx) {
+       nextExpectedRanges: ["0-"]
+     });
+   });
++  app.delete("/upload/microsoft/v1.0/messages/:messageId/attachments/sessions/:sessionId", (c) => {
++    getUploadSessions(ctx).delete(c.req.param("sessionId"));
++    return c.body(null, 204);
++  });
+   app.get("/upload/microsoft/v1.0/messages/:messageId/attachments/sessions/:sessionId", (c) => {
+     const session = getUploadSessions(ctx).get(c.req.param("sessionId"));
+     if (!session || session.messageId !== c.req.param("messageId")) {
+@@ -1465,7 +1593,7 @@ function graphRoutes(ctx) {
+     }
+     const chunk = Buffer.from(await c.req.arrayBuffer());
+     const updatedBytes = end + 1;
+-    session.contentBytes += chunk.toString("base64");
++    session.contentBytes = Buffer.concat([Buffer.from(session.contentBytes, "base64"), chunk]).toString("base64");
+     session.totalSize = total;
+     session.uploadedBytes = updatedBytes;
+     getUploadSessions(ctx).set(session.sessionId, session);
+@@ -1477,10 +1605,15 @@ function graphRoutes(ctx) {
+         name: session.attachmentName,
+         content_type: session.contentType,
+         size: total,
+-        content_bytes: session.contentBytes
++        content_bytes: session.contentBytes,
++        is_inline: session.isInline ?? false,
++        content_id: session.contentId ?? null
+       });
+       getUploadSessions(ctx).delete(session.sessionId);
+-      return c.json(formatAttachmentResource(attachment), 201);
++      return c.json(formatAttachmentResource(attachment), 201, {
++        Location: `${ctx.baseUrl}/api/v2.0/Users('${session.userEmail}')/Messages('${session.messageId}')/Attachments('${attachment.microsoft_id}')`,
++        "Access-Control-Expose-Headers": "Location"
++      });
+     }
+     return c.json(
+       {
+@@ -1576,6 +1709,19 @@ function graphRoutes(ctx) {
      if (!category) return microsoftGraphError(c, 404, "ErrorItemNotFound", "Category not found.");
      return c.json(formatCategoryResource(category));
    });
@@ -228,7 +446,7 @@ index 3b6bbe48134733165207caf6935f10d8de51044f..b1a093c6862b8a7bbd80bc3808e98ec3
    app.delete("/v1.0/me/outlook/masterCategories/:categoryId", (c) => {
      const authEmail = requireAuthEmail(ctx, c);
      if (authEmail instanceof Response) return authEmail;
-@@ -3187,6 +3307,8 @@ function seedFromConfig(store, baseUrl, config) {
+@@ -3187,6 +3333,8 @@ function seedFromConfig(store, baseUrl, config) {
          received_date_time: message.received_date_time,
          is_draft: message.is_draft,
          is_read: message.is_read,
