@@ -158,6 +158,7 @@ async function processNotificationsAsync(
         preloadedEmailAccount: emailAccount,
         subscriptionId,
         resourceData,
+        isNewMessage: notification.changeType === "created",
         logger,
       });
 

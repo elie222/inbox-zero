@@ -26,6 +26,7 @@ export async function processHistoryForUser({
   subscriptionId,
   emailAddress,
   resourceData,
+  isNewMessage = false,
   logger,
 }: {
   preloadedEmailAccount?: Awaited<
@@ -34,6 +35,7 @@ export async function processHistoryForUser({
   subscriptionId?: string;
   emailAddress?: string;
   resourceData: OutlookResourceData;
+  isNewMessage?: boolean;
   logger: Logger;
 }) {
   let emailAccount = preloadedEmailAccount ?? null;
@@ -190,6 +192,7 @@ export async function processHistoryForUser({
           { messageId: resourceData.id, message },
           {
             provider,
+            isNewMessage,
             emailAccount: {
               ...validatedEmailAccount,
               account: { provider: accountProvider },

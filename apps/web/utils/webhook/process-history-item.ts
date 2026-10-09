@@ -23,11 +23,13 @@ import type { Logger } from "@/utils/logger";
 import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";
 import { captureException, SafeError } from "@/utils/error";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
+import { sendToReplyPushNotification } from "@/utils/to-reply-push";
 import { sendOtpPushNotification } from "@/utils/otp-push";
 import { internalDateToDate } from "@/utils/date";
 
 export type SharedProcessHistoryOptions = {
   provider: EmailProvider;
+  isNewMessage?: boolean;
   rules: RuleWithActions[];
   hasAutomationRules: boolean;
   hasAiAccess: boolean;
@@ -221,7 +223,7 @@ export async function processHistoryItem(
     if (!hasExistingRule && hasAutomationRules && hasAiAccess) {
       logger.info("Running rules...");
 
-      await runRules({
+      const results = await runRules({
         provider,
         message: parsedMessage,
         rules,
@@ -230,6 +232,19 @@ export async function processHistoryItem(
         modelType: "default",
         logger,
       });
+
+      if (
+        options.isNewMessage &&
+        email !== canonicalizeEmailAddress(userEmail)
+      ) {
+        await sendToReplyPushNotification({
+          emailAccountId,
+          userId: emailAccount.userId,
+          message: parsedMessage,
+          results,
+          logger,
+        });
+      }
     }
 
     // Process attachments for document filing (runs in parallel with rules if both enabled)

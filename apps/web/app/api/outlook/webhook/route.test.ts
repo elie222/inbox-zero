@@ -78,6 +78,7 @@ describe("Outlook realtime webhook hints", () => {
     expect(processHistoryForUser).toHaveBeenCalledWith(
       expect.objectContaining({
         subscriptionId: "subscription-a",
+        isNewMessage: true,
         resourceData: { id: "message-a" },
         preloadedEmailAccount: { id: "account-a" },
       }),
