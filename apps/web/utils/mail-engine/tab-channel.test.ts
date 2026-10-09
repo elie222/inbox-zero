@@ -206,9 +206,6 @@ function stubClient(input: {
     async readDraft() {
       return { status: "missing" };
     },
-    async stageDraftAttachment() {
-      return { status: "rejected", code: "unsupported" };
-    },
     async submitSend() {
       return { status: "rejected", code: "unsupported" };
     },

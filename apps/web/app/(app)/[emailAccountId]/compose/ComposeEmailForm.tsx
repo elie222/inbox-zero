@@ -1158,7 +1158,6 @@ function ComposeEmailFormContent({
             client,
             operationId: outcome.mutationId,
             emailAccountId: selectedEmailAccountId,
-            attachmentIds: outcome.attachmentIds,
             holdUntil: outcome.holdUntil,
             restoreComposer: () => onRestore?.(),
           });

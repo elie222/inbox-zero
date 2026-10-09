@@ -219,7 +219,6 @@ function heldSend(accountId: string, operationId: string): PreparedOperation {
       subject: "Re: Plans",
       html: "<p>Thursday works.</p>",
       quotedHtml: "",
-      attachmentIds: [],
       replyToMessageId: "message-1",
       replyToConversationId: "thread-1",
       queuedAtMs: nowMs,
