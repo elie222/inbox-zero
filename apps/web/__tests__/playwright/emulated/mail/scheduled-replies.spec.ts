@@ -203,6 +203,84 @@ test("sends a reply with a reminder through the local email provider", async ({
   }
 });
 
+test("schedules a reply with a file from its mailbox draft and hides that draft", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(240_000);
+  const emailAccountId = await openReply(page);
+  const delivery = page.getByRole("region", { name: "Reply delivery status" });
+  const editor = page.getByRole("textbox", { name: "Email message" });
+  try {
+    await page.getByTestId("compose-attachments-input").setInputFiles({
+      name: "agenda.txt",
+      mimeType: "text/plain",
+      buffer: Buffer.from("Example agenda"),
+    });
+    const attachments = page.getByRole("list", { name: "Attachments" });
+    await expect(attachments).toContainText("agenda.txt");
+    await expect(attachments.locator("li[aria-busy]")).toHaveCount(0, {
+      timeout: 90_000,
+    });
+
+    // Text written after the file is attached reaches the mailbox draft too.
+    const edited = `Agenda attached for Thursday. Attempt ${testInfo.retry}.`;
+    await editor.fill(edited);
+    await expect
+      .poll(
+        async () =>
+          (await readThreadDrafts(page, emailAccountId)).some((draft) =>
+            `${draft.textHtml ?? ""}${draft.textPlain ?? ""}`.includes(edited),
+          ),
+        { timeout: 90_000 },
+      )
+      .toBe(true);
+
+    await page.getByRole("button", { name: "Send later", exact: true }).click();
+    await page
+      .getByRole("dialog", { name: "Send later" })
+      .getByRole("button", { name: /Tomorrow morning/ })
+      .click();
+    await page.getByRole("button", { name: "Send", exact: true }).click();
+    await expect(delivery.getByText(/^Scheduled for/)).toBeVisible();
+
+    const scheduled = await readScheduledReply(emailAccountId);
+    expect(scheduled).toMatchObject({
+      status: "PENDING",
+      hasAttachmentBytes: false,
+    });
+    expect(scheduled?.providerDraftId).toBeTruthy();
+    expect(scheduled?.draftMessageIds.length).toBeGreaterThan(0);
+
+    // The send goes out from the mailbox draft, which stays in the thread
+    // until then; the delivery status stands in for it.
+    expect(
+      (await readThreadDrafts(page, emailAccountId)).length,
+    ).toBeGreaterThan(0);
+    await page.reload();
+    await expect(delivery.getByText(/^Scheduled for/)).toBeVisible();
+    await expect(editor).toHaveCount(0);
+    await capturePlaywrightCheckpoint(
+      page,
+      testInfo,
+      "scheduled-reply-draft-hidden",
+    );
+  } finally {
+    const scheduled = await readScheduledReply(emailAccountId);
+    if (scheduled?.providerDraftId) {
+      await page.request.delete(
+        `/api/user/drafts/${encodeURIComponent(scheduled.providerDraftId)}`,
+        { headers: { "X-Email-Account-ID": emailAccountId } },
+      );
+    }
+    await withClient((client) =>
+      client.query(
+        'DELETE FROM "ScheduledEmail" WHERE "emailAccountId" = $1 AND "threadId" = $2',
+        [emailAccountId, THREAD_ID],
+      ),
+    );
+  }
+});
+
 test("schedules a new message from the composer", async ({
   page,
 }, testInfo) => {
@@ -312,6 +390,38 @@ async function openReply(page: Page) {
     .getByRole("textbox", { name: "Email message" })
     .fill("Thanks Leslie, Thursday works. I will bring the updated proposal.");
   return emailAccountId;
+}
+
+async function readThreadDrafts(page: Page, emailAccountId: string) {
+  const response = await page.request.get(
+    `/api/threads/${THREAD_ID}?includeDrafts=true`,
+    { headers: { "X-Email-Account-ID": emailAccountId } },
+  );
+  expect(response.ok()).toBe(true);
+  const body: ThreadResponse = await response.json();
+  return body.thread.messages.filter((message) =>
+    message.labelIds?.includes("DRAFT"),
+  );
+}
+
+async function readScheduledReply(emailAccountId: string) {
+  const result = await withClient((client) =>
+    client.query<{
+      status: string;
+      providerDraftId: string | null;
+      hasAttachmentBytes: boolean;
+      draftMessageIds: string[];
+    }>(
+      `SELECT status,
+         payload->'email'->>'providerDraftId' AS "providerDraftId",
+         payload->'email' ? 'attachments' AS "hasAttachmentBytes",
+         "draftMessageIds"
+       FROM "ScheduledEmail"
+       WHERE "emailAccountId" = $1 AND "threadId" = $2 AND status != 'CANCELLED'`,
+      [emailAccountId, THREAD_ID],
+    ),
+  );
+  return result.rows[0];
 }
 
 function setScheduledStatus(

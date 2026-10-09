@@ -54,6 +54,51 @@ describe("scheduled replies", () => {
     ).rejects.toThrow("after");
     expect(prisma.scheduledEmail.create).not.toHaveBeenCalled();
   });
+  it("keeps attachment bytes out of a scheduled send", async () => {
+    prisma.scheduledEmail.findUnique.mockResolvedValue(null);
+    await expect(
+      scheduleEmail(
+        "account",
+        {
+          ...input,
+          email: {
+            ...input.email,
+            attachments: [
+              {
+                filename: "report.pdf",
+                content: "JVBERi0=",
+                contentType: "application/pdf",
+              },
+            ],
+          },
+        },
+        now,
+      ),
+    ).rejects.toThrow("mailbox draft");
+    expect(prisma.scheduledEmail.create).not.toHaveBeenCalled();
+  });
+  it("schedules a send from its mailbox draft and records the draft's messages", async () => {
+    prisma.scheduledEmail.findUnique.mockResolvedValue(null);
+    prisma.scheduledEmail.create.mockResolvedValue(row());
+    await scheduleEmail(
+      "account",
+      {
+        ...input,
+        email: { ...input.email, providerDraftId: "draft-1" },
+        draftMessageIds: ["draft-message-1", "draft-message-2"],
+      },
+      now,
+    );
+    const { data } = prisma.scheduledEmail.create.mock.calls[0][0];
+    expect(data.draftMessageIds).toEqual([
+      "draft-message-1",
+      "draft-message-2",
+    ]);
+    expect(data.payload).toMatchObject({
+      email: { providerDraftId: "draft-1" },
+    });
+    expect(data.payload).not.toHaveProperty("email.attachments");
+  });
   it("does not cancel an executing send", async () => {
     prisma.scheduledEmail.updateMany.mockResolvedValue({ count: 0 });
     await expect(cancelScheduledEmail("account", "id")).rejects.toThrow(
@@ -678,6 +723,7 @@ describe("holdEmailForUndo", () => {
 function row(overrides: Partial<ScheduledEmail> = {}): ScheduledEmail {
   return {
     id: "id",
+    draftMessageIds: [],
     emailAccountId: "account",
     threadId: "thread",
     clientMutationId: input.clientMutationId,

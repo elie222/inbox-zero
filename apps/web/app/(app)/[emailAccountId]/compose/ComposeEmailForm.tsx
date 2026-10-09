@@ -43,6 +43,7 @@ import { Input } from "@/components/Input";
 import { ButtonLoader } from "@/components/Loading";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Tooltip } from "@/components/Tooltip";
+import { threadScheduledEmailsKey } from "@/components/email-list/ThreadDeliveryStatus";
 import { VoiceInput } from "@/components/voice/VoiceInput";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
@@ -454,12 +455,12 @@ function ComposeEmailFormContent({
   const [attachments, setAttachments] = useState<ComposeAttachment[]>(
     initialComposer.attachments,
   );
-  // Once a forward is saved to the mailbox, its draft holds the forwarded
-  // files and lists them with the others.
-  const [forwardSavedToMailbox, setForwardSavedToMailbox] = useState(
+  // Set once a reply or forward has put files on a mailbox draft. A forward's
+  // draft then holds the forwarded files and lists them with the others.
+  const [savedToMailbox, setSavedToMailbox] = useState(
     Boolean(providerDraftId.current),
   );
-  const forwardedAttachments = forwardSavedToMailbox
+  const forwardedAttachments = savedToMailbox
     ? []
     : (replyingToEmail?.forwardedAttachments ?? []);
   const attachmentsRef = useRef<ComposeAttachment[]>(
@@ -649,9 +650,11 @@ function ComposeEmailFormContent({
     return draftId;
   };
 
+  // A reply or forward with a mailbox draft for its files saves its text there
+  // too, so the mailbox copy never goes stale.
   const providerAutosave = useProviderDraftAutosave({
-    enabled: Boolean(providerDraftMessageId) || isNewCompose,
-    sessionKey: isNewCompose ? draftQueueKey : undefined,
+    enabled: Boolean(providerDraftMessageId) || isNewCompose || savedToMailbox,
+    sessionKey: providerDraftMessageId ? undefined : draftQueueKey,
     minIntervalMs:
       attachments.length && isGoogleProvider(accountProvider)
         ? GMAIL_ATTACHMENT_DRAFT_SAVE_INTERVAL_MS
@@ -659,7 +662,7 @@ function ComposeEmailFormContent({
     getContent: getProviderDraftContent,
     save: (content) =>
       enqueueDraftOperation(draftQueueKey, async () => {
-        if (isNewCompose) {
+        if (!providerDraftMessageId) {
           const draftId = await ensureProviderDraft();
           const result = await saveComposeDraftAction(selectedEmailAccountId, {
             draftId,
@@ -669,7 +672,6 @@ function ComposeEmailFormContent({
           await followProviderDraftMessage(result.data.messageId);
           return;
         }
-        if (!providerDraftMessageId) return;
         const result = await updateDraftAction(selectedEmailAccountId, {
           ...content,
           draftMessageId: providerDraftMessageId,
@@ -744,7 +746,7 @@ function ComposeEmailFormContent({
     }).then(
       (result) => {
         if (!result) return;
-        if (draftMode === "forward") setForwardSavedToMailbox(true);
+        setSavedToMailbox(true);
         reconcileDraftAttachments(
           result.attachments,
           attachmentsRef.current.map((item) =>
@@ -1006,6 +1008,14 @@ function ComposeEmailFormContent({
           providerDraftId.current,
           localDraftIdentity,
         );
+        // The mailbox draft is what carries the files to the recipient.
+        if (attachmentsRef.current.length && !enrichedData.providerDraftId) {
+          toastError({
+            description:
+              "Could not find this draft in your mailbox to send its attachments. Reopen it and try again.",
+          });
+          return;
+        }
         if (isInlineReply) {
           if (deliveryPath.current === "outbox" && (sendAt || remindAt)) {
             setSubmissionError(
@@ -1017,6 +1027,15 @@ function ComposeEmailFormContent({
         }
         captureDraft();
         await flushDraft();
+        const draftMessageIds = providerDraftMessageId
+          ? getDraftSessionMessageIds(
+              selectedEmailAccountId,
+              providerDraftMessageId,
+            )
+          : localDraftIdentity
+            ? ((await getReplyDraft(localDraftIdentity))?.content
+                ?.providerDraftMessageIds ?? [])
+            : [];
         const isScheduled = isInlineReply
           ? deliveryPath.current === "scheduled"
           : canScheduleDelivery && Boolean(sendAt || remindAt);
@@ -1027,6 +1046,7 @@ function ComposeEmailFormContent({
             threadId: scheduledThreadId,
             messageIds: draftKeyMessageId ? [draftKeyMessageId] : [],
             email: enrichedData,
+            draftMessageIds: draftMessageIds.slice(-50),
             sendAt: deliveryTimes.sendAt,
             remindAt: deliveryTimes.remindAt,
           });
@@ -1086,10 +1106,6 @@ function ComposeEmailFormContent({
           });
           return;
         }
-        const savedDraftMessageIds = localDraftIdentity
-          ? ((await getReplyDraft(localDraftIdentity))?.content
-              ?.providerDraftMessageIds ?? [])
-          : [];
         let outcome: Awaited<ReturnType<typeof queueReaderEmail>>;
         try {
           outcome = await queueReaderEmail({
@@ -1099,12 +1115,7 @@ function ComposeEmailFormContent({
             emailAccountId: selectedEmailAccountId,
             holdForUndo: online,
             messageIds: isNewCompose ? [] : [readerMessageId],
-            providerDraftMessageIds: providerDraftMessageId
-              ? getDraftSessionMessageIds(
-                  selectedEmailAccountId,
-                  providerDraftMessageId,
-                )
-              : savedDraftMessageIds,
+            providerDraftMessageIds: draftMessageIds,
             online,
             threadId: readerThreadId,
             onQueued: async () => {
@@ -1957,14 +1968,7 @@ async function refreshScheduledEmails(
 ) {
   const keys = [
     ["/api/user/scheduled-emails", emailAccountId],
-    ...(threadId
-      ? [
-          [
-            `/api/user/scheduled-emails?threadId=${encodeURIComponent(threadId)}`,
-            emailAccountId,
-          ],
-        ]
-      : []),
+    ...(threadId ? [threadScheduledEmailsKey(emailAccountId, threadId)] : []),
   ];
   await Promise.all(keys.map((key) => mutate(key).catch(() => {})));
 }

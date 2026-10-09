@@ -24,7 +24,19 @@ const { discardDraft } = vi.hoisted(() => ({ discardDraft: vi.fn() }));
 vi.mock("next-safe-action/hooks", () => ({
   useAction: () => ({ executeAsync: discardDraft }),
 }));
-vi.mock("swr", () => ({ default: () => ({ data: undefined }) }));
+const { scheduledEmails } = vi.hoisted(() => ({
+  scheduledEmails: {
+    current: [] as { status: string; draftMessageIds: string[] }[],
+  },
+}));
+vi.mock("swr", () => ({
+  default: (key: unknown) => ({
+    data:
+      Array.isArray(key) && String(key[0]).startsWith("scheduled:")
+        ? { scheduledEmails: scheduledEmails.current }
+        : undefined,
+  }),
+}));
 vi.mock("@/providers/EmailAccountProvider", () => ({
   useAccount: () => ({
     emailAccount: undefined,
@@ -48,6 +60,10 @@ vi.mock("@/components/email-list/EmailDetails", () => ({
 }));
 vi.mock("@/components/email-list/ThreadDeliveryStatus", () => ({
   ThreadDeliveryStatus: () => null,
+  threadScheduledEmailsKey: (emailAccountId: string, threadId: string) => [
+    `scheduled:${threadId}`,
+    emailAccountId,
+  ],
 }));
 vi.mock("@/components/email-list/OpenedConversationAttachments", () => ({
   OpenedConversationAttachments: ({
@@ -284,6 +300,54 @@ describe("EmailThread outgoing replies", () => {
 
     expect(screen.queryByRole("textbox", { name: "Email message" })).toBeNull();
     localDrafts.current = [];
+  });
+});
+
+describe("EmailThread scheduled send drafts", () => {
+  afterEach(() => {
+    cleanup();
+    scheduledEmails.current = [];
+  });
+
+  // A scheduled send goes out from its mailbox draft, which stays in the
+  // thread until then. The delivery status stands in for it meanwhile.
+  it("hides the mailbox draft of a pending scheduled send", () => {
+    scheduledEmails.current = [
+      { status: "PENDING", draftMessageIds: ["draft-old", "draft-1"] },
+    ];
+    render(
+      <EmailThread
+        messages={[
+          createReaderMessage("parent", "1000"),
+          createReaderDraft("draft-1", "2000"),
+        ]}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    expect(screen.queryByRole("textbox", { name: "Email message" })).toBeNull();
+  });
+
+  it("shows the draft again once its scheduled send is no longer pending", () => {
+    scheduledEmails.current = [
+      { status: "FAILED", draftMessageIds: ["draft-1"] },
+    ];
+    render(
+      <EmailThread
+        messages={[
+          createReaderMessage("parent", "1000"),
+          createReaderDraft("draft-1", "2000"),
+        ]}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    expect(
+      screen.getByRole("textbox", { name: "Email message" }).dataset
+        .providerDraftMessageId,
+    ).toBe("draft-1");
   });
 });
 
