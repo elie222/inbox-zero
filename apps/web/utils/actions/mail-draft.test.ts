@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getMockEmailAccountWithAccount } from "@/__tests__/helpers";
 import prisma from "@/utils/__mocks__/prisma";
-import { SafeError } from "@/utils/error";
+import { DraftNotFoundError } from "@/utils/error";
 import { deleteDraftAction, updateDraftAction } from "@/utils/actions/mail";
 
 vi.mock("@/utils/prisma");
@@ -64,6 +64,7 @@ describe("deleteDraftAction", () => {
       bcc: "",
     });
     expect(result?.data).toEqual({
+      status: "saved",
       draftId: "draft-1",
       messageId: "new-message",
     });
@@ -91,9 +92,9 @@ describe("deleteDraftAction", () => {
     expect(result?.serverError).toBeTruthy();
   });
 
-  it("reports a provider rejection when a draft has been sent or deleted", async () => {
+  it("reports a missing draft when the provider no longer has it", async () => {
     mocks.updateDraft.mockRejectedValueOnce(
-      new SafeError("Could not find this draft to update."),
+      new DraftNotFoundError("Could not find this draft to update."),
     );
     const result = await updateDraftAction(EMAIL_ACCOUNT_ID, {
       draftMessageId: "old-message",
@@ -104,8 +105,22 @@ describe("deleteDraftAction", () => {
       cc: "",
       bcc: "",
     });
-    expect(result?.serverError).toBeTruthy();
-    expect(result?.serverError).toBe("Could not find this draft to update.");
+    expect(result?.serverError).toBeUndefined();
+    expect(result?.data).toEqual({ status: "missing" });
+  });
+
+  it("reports a missing draft when its message no longer maps to a draft", async () => {
+    mocks.getDraftReferenceForMessage.mockResolvedValue(null);
+    const result = await updateDraftAction(EMAIL_ACCOUNT_ID, {
+      draftMessageId: "deleted-message",
+      messageHtml: "<p>Edited</p>",
+      subject: "Reply",
+      to: "person@example.com",
+      cc: "",
+      bcc: "",
+    });
+    expect(result?.data).toEqual({ status: "missing" });
+    expect(mocks.updateDraft).not.toHaveBeenCalled();
   });
 
   it("discards an autosaved draft using its current message and version", async () => {
@@ -146,14 +161,14 @@ describe("deleteDraftAction", () => {
     expect(mocks.markTrackedDraftDeleted).not.toHaveBeenCalled();
   });
 
-  it("reports when the provider draft cannot be found", async () => {
+  it("succeeds without deleting when the draft is already gone", async () => {
     mocks.getDraftReferenceForMessage.mockResolvedValue(null);
 
     const result = await deleteDraftAction(EMAIL_ACCOUNT_ID, {
       draftMessageId: "message-1",
     });
 
-    expect(result?.serverError).toBe("Could not find this draft to delete.");
+    expect(result?.serverError).toBeUndefined();
     expect(mocks.deleteDraft).not.toHaveBeenCalled();
     expect(mocks.markTrackedDraftDeleted).not.toHaveBeenCalled();
   });

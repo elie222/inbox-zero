@@ -4,6 +4,7 @@ import * as outlookMessageModule from "@/utils/outlook/message";
 import * as outlookLabelModule from "@/utils/outlook/label";
 import { createTestLogger } from "@/__tests__/helpers";
 import { getThreadParticipantNames } from "@/app/(app)/[emailAccountId]/mail/thread-participants";
+import { DraftNotFoundError } from "@/utils/error";
 import { OutlookProvider } from "./microsoft";
 import { resolveOutlookFolderId } from "@/utils/outlook/search-scope";
 import { FOLDER_SEPARATOR } from "@/utils/outlook/folders";
@@ -464,7 +465,7 @@ describe("OutlookProvider.updateDraft", () => {
     vi.spyOn(provider, "getDraftReferenceForMessage").mockResolvedValue(null);
     await expect(
       provider.updateDraft("draft-1", { messageHtml: "<p>Edit</p>" }),
-    ).rejects.toThrow("Could not find this draft to update.");
+    ).rejects.toBeInstanceOf(DraftNotFoundError);
     expect(patch).not.toHaveBeenCalled();
   });
 
@@ -485,7 +486,7 @@ describe("OutlookProvider.updateDraft", () => {
     const provider = new OutlookProvider(client, createTestLogger());
     await expect(
       provider.updateDraft("message-1", { messageHtml: "<p>Edit</p>" }),
-    ).rejects.toThrow("Could not find this draft to update.");
+    ).rejects.toBeInstanceOf(DraftNotFoundError);
     expect(patch).not.toHaveBeenCalled();
   });
 

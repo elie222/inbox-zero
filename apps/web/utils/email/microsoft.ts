@@ -9,7 +9,7 @@ import {
   resolveOutlookLocalMailFolderIds,
 } from "@/utils/outlook/local-mail-sync";
 import { matchesSenderFilter } from "@/utils/split-inbox/sender-filter";
-import { SafeError } from "@/utils/error";
+import { DraftNotFoundError } from "@/utils/error";
 import type { Message } from "@microsoft/microsoft-graph-types";
 import type { OutlookClient } from "@/utils/outlook/client";
 import type { ParsedMessage } from "@/utils/types";
@@ -769,7 +769,8 @@ export class OutlookProvider implements EmailProvider {
     this.logger.info("Updating draft", { draftId });
 
     const draft = await this.getDraftReferenceForMessage(draftId);
-    if (!draft) throw new SafeError("Could not find this draft to update.");
+    if (!draft)
+      throw new DraftNotFoundError("Could not find this draft to update.");
 
     const body: Partial<Message> = {};
     if (params.messageHtml !== undefined) {

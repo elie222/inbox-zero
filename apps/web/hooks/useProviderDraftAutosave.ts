@@ -19,6 +19,15 @@ const MAX_CLOSED_SAVE_FAILURES = 5;
 // the tab wakes up) fixes itself before the user needs to know about it.
 const FAILURES_BEFORE_ERROR = 3;
 
+// Thrown by `save` when retrying can never succeed, such as when the draft no
+// longer exists in the mailbox. Autosave stops and shows the message at once.
+export class DraftAutosaveHaltedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "DraftAutosaveHaltedError";
+  }
+}
+
 export function useProviderDraftAutosave<T>({
   enabled,
   sessionKey,
@@ -38,6 +47,7 @@ export function useProviderDraftAutosave<T>({
   const savedSnapshot = useRef<string | undefined>(undefined);
   const activeSave = useRef<Promise<void> | undefined>(undefined);
   const paused = useRef(false);
+  const halted = useRef(false);
   const mounted = useRef(true);
   const closedSaveFailures = useRef(0);
   const consecutiveFailures = useRef(0);
@@ -66,7 +76,12 @@ export function useProviderDraftAutosave<T>({
     if (!navigator.onLine) return Promise.resolve();
     readPendingContent();
     const content = pendingContent.current;
-    if (!latest.current.enabled || paused.current || content === undefined)
+    if (
+      !latest.current.enabled ||
+      paused.current ||
+      halted.current ||
+      content === undefined
+    )
       return Promise.resolve();
     const snapshot = JSON.stringify(content);
     if (snapshot === savedSnapshot.current) return Promise.resolve();
@@ -81,6 +96,11 @@ export function useProviderDraftAutosave<T>({
         if (mounted.current) setError("");
       })
       .catch((error: unknown) => {
+        if (error instanceof DraftAutosaveHaltedError) {
+          halted.current = true;
+          if (mounted.current) setError(error.message);
+          return;
+        }
         if (!mounted.current) {
           closedSaveFailures.current += 1;
           if (closedSaveFailures.current >= MAX_CLOSED_SAVE_FAILURES)
@@ -100,7 +120,10 @@ export function useProviderDraftAutosave<T>({
       .finally(() => {
         activeSave.current = undefined;
         if (session?.active === request) session.active = undefined;
-        if (!mounted.current && (paused.current || isPendingContentSaved()))
+        if (
+          !mounted.current &&
+          (paused.current || halted.current || isPendingContentSaved())
+        )
           cleanup.current();
       });
     activeSave.current = request;
@@ -125,6 +148,7 @@ export function useProviderDraftAutosave<T>({
   useEffect(() => {
     mounted.current = true;
     paused.current = false;
+    halted.current = false;
     const previous = sessionKey ? sessions.get(sessionKey) : undefined;
     previous?.cancel();
     const session = {
@@ -152,7 +176,12 @@ export function useProviderDraftAutosave<T>({
     };
     return () => {
       mounted.current = false;
-      if (!sessionKey || paused.current || isPendingContentSaved())
+      if (
+        !sessionKey ||
+        paused.current ||
+        halted.current ||
+        isPendingContentSaved()
+      )
         cleanup.current();
       flushLatest();
     };

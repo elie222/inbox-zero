@@ -55,7 +55,10 @@ import {
 import { env } from "@/env";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { useLocalReplyDraft } from "@/hooks/useLocalReplyDraft";
-import { useProviderDraftAutosave } from "@/hooks/useProviderDraftAutosave";
+import {
+  DraftAutosaveHaltedError,
+  useProviderDraftAutosave,
+} from "@/hooks/useProviderDraftAutosave";
 import {
   MailCoverageGate,
   useMailEngineDemand,
@@ -587,6 +590,10 @@ function ComposeEmailFormContent({
         draftId: providerDraftId.current,
       });
       if (!result?.data) throw new Error(getDraftSyncErrorMessage(result));
+      if (result.data.status === "missing")
+        throw new DraftAutosaveHaltedError(
+          "This draft was sent, deleted, or changed elsewhere, so edits here are no longer saved to your mailbox.",
+        );
       providerDraftId.current = result.data.draftId;
       const { messageId } = result.data;
       const replacedMessage = messageId && messageId !== providerDraftMessageId;
