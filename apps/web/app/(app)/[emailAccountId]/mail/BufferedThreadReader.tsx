@@ -38,7 +38,6 @@ export function BufferedThreadReader({
     previous.content.props.threadId !== null;
   useLayoutEffect(() => {
     if (!replacing) onReady(threadKey);
-    if (!dataReady) return;
     if (readinessDeadline.current?.key !== threadKey) {
       readinessDeadline.current = {
         key: threadKey,
@@ -53,8 +52,11 @@ export function BufferedThreadReader({
       setVisibleKey(threadKey);
       onReady(threadKey);
     };
-    // A malformed or empty email must not leave navigation locked indefinitely.
+    // A slow load or a malformed email must not leave the previous thread on
+    // screen indefinitely; past the deadline the reader shows its own loading
+    // or error state instead.
     const timeout = setTimeout(commit, Math.max(0, remaining));
+    if (!dataReady) return () => clearTimeout(timeout);
     const reveal = () => {
       const iframes = pendingRef.current?.querySelectorAll("iframe");
       // React committing the message does not mean its srcDoc has been parsed
