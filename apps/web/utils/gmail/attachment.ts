@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import { Readable } from "node:stream";
 import { decodeGmailAttachmentStream } from "./attachment-stream";
 import type { Attachment } from "nodemailer/lib/mailer";
@@ -83,6 +83,7 @@ export function listGmailAttachmentParts(
   messageId: string,
   payload: gmail_v1.Schema$MessagePart | null | undefined,
 ): GmailAttachmentPart[] {
+  const seen = new Map<string, number>();
   return collectAttachmentParts(payload).map((part) => {
     const headers = partHeaders(part);
     const contentId = headers.get("content-id")?.trim().replace(/^<|>$/g, "");
@@ -92,15 +93,18 @@ export function listGmailAttachmentParts(
     const data = part.body?.attachmentId
       ? undefined
       : (part.body?.data ?? undefined);
+    const filename = part.filename || "attachment";
+    const mimeType = part.mimeType || "application/octet-stream";
+    const size =
+      part.body?.size ?? (data ? Buffer.byteLength(data, "base64url") : 0);
     return {
       attachment: {
         id:
           headers.get(ATTACHMENT_ID_HEADER.toLowerCase()) ??
-          providerAttachmentId,
-        filename: part.filename || "attachment",
-        mimeType: part.mimeType || "application/octet-stream",
-        size:
-          part.body?.size ?? (data ? Buffer.byteLength(data, "base64url") : 0),
+          derivedAttachmentId(seen, filename, mimeType, size),
+        filename,
+        mimeType,
+        size,
         disposition:
           disposition === "inline" || (!disposition && contentId)
             ? "inline"
@@ -157,11 +161,6 @@ export function toGmailMailAttachment(
   content: Buffer,
 ): Attachment {
   const inline = attachment.disposition === "inline" && attachment.contentId;
-  // Gmail's own attachment ids are long and unsafe as header values, so
-  // those files get a fresh id that stays with them from then on.
-  const id = /^[\w-]{1,64}$/u.test(attachment.id)
-    ? attachment.id
-    : randomUUID();
   return {
     filename: attachment.filename,
     contentType: attachment.mimeType,
@@ -173,7 +172,7 @@ export function toGmailMailAttachment(
       : { contentTransferEncoding: "base64" }),
     contentDisposition: inline ? "inline" : "attachment",
     ...(inline ? { cid: attachment.contentId } : {}),
-    headers: { [ATTACHMENT_ID_HEADER]: id },
+    headers: { [ATTACHMENT_ID_HEADER]: attachment.id },
   };
 }
 
@@ -302,4 +301,22 @@ function partHeaders(part: gmail_v1.Schema$MessagePart) {
       value ?? undefined,
     ]),
   );
+}
+
+// A file without our id header (written by another client, or never rebuilt)
+// gets an id from what Gmail reports about it, so listing it before and after
+// a rebuild yields the same id that the rebuild then writes into the header.
+function derivedAttachmentId(
+  seen: Map<string, number>,
+  filename: string,
+  mimeType: string,
+  size: number,
+) {
+  const key = JSON.stringify([filename, mimeType, size]);
+  const occurrence = seen.get(key) ?? 0;
+  seen.set(key, occurrence + 1);
+  return createHash("sha256")
+    .update(`${key}:${occurrence}`)
+    .digest("hex")
+    .slice(0, 32);
 }

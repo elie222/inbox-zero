@@ -9,6 +9,7 @@ import {
   buildGmailDraftUploadTemplate,
   rewriteGmailDraft,
 } from "./draft-attachments";
+import { listGmailAttachmentParts } from "./attachment";
 
 const getDraft = vi.hoisted(() => vi.fn());
 vi.mock("@/utils/gmail/draft", () => ({ getDraft }));
@@ -135,6 +136,37 @@ describe("rewriteGmailDraft", () => {
       rewriteGmailDraft({ gmail, draftId: "r-1", removeAttachmentId: "gone" }),
     ).rejects.toThrow("no longer on the draft");
     expect(gmail.users.drafts.update).not.toHaveBeenCalled();
+  });
+
+  it("keeps the id of a file another client attached across a text save", async () => {
+    const draft = draftWithReport();
+    // Gmail's own attachment ids run to hundreds of characters.
+    draft.payload.parts[1] = {
+      ...draft.payload.parts[1]!,
+      headers: [{ name: "Content-Disposition", value: "attachment" }],
+      body: { attachmentId: "A".repeat(300), size: EXISTING_BYTES.length },
+    };
+    getDraft.mockResolvedValue(draft);
+    const [listed] = listGmailAttachmentParts(draft.id, draft.payload);
+
+    const gmail = gmailClient();
+    await rewriteGmailDraft({
+      gmail,
+      draftId: "r-1",
+      text: { messageHtml: "<p>Edited</p>" },
+    });
+    const raw = await readStream(uploadedBody(gmail));
+    expect(raw.toLowerCase()).toContain(
+      `x-attachment-id: ${listed!.attachment.id}`,
+    );
+
+    await expect(
+      rewriteGmailDraft({
+        gmail: gmailClient(),
+        draftId: "r-1",
+        removeAttachmentId: listed!.attachment.id,
+      }),
+    ).resolves.not.toThrow();
   });
 
   it("keeps a plain-text draft as plain text when its files change", async () => {
