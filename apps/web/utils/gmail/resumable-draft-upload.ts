@@ -3,8 +3,9 @@ import { getGoogleGmailApiRootUrl } from "@/utils/gmail/oauth";
 
 /**
  * Opens a Gmail resumable upload that replaces the whole draft message.
- * The session URI it returns must stay on the server: Gmail's docs only
- * describe using it with the account's Authorization header.
+ * The session URI must stay on the server: Gmail's docs only describe using
+ * it with the account's Authorization header, and a client-supplied URL
+ * would let a caller aim our token anywhere.
  */
 export async function startGmailDraftUploadSession({
   accessToken,
@@ -63,8 +64,6 @@ export async function uploadGmailDraftChunk({
 }): Promise<
   { status: "incomplete"; nextOffset: number } | { status: "complete" }
 > {
-  if (!isGmailUploadUrl(sessionUri))
-    throw new Error("Refusing to upload to an unexpected URL.");
   const response = await fetch(sessionUri, {
     method: "PUT",
     headers: {
