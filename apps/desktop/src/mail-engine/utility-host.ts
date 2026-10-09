@@ -44,6 +44,7 @@ export function createDesktopMailProcessOwner(input: {
   fork: () => MailChildProcess;
   cookieHeader: (url: string) => Promise<string>;
   onEngineError: (error: Error) => void;
+  onNewMail?: (payload: unknown) => void;
 }): DesktopMailProcessOwner {
   const subscriptions = new Map<
     string,
@@ -119,6 +120,9 @@ export function createDesktopMailProcessOwner(input: {
         else waiter?.reject(new Error(message.message));
         return;
       }
+      case "newMail":
+        if (running === current && !closed) input.onNewMail?.(message.payload);
+        return;
       case "snapshot":
         if (running === current) {
           subscriptions

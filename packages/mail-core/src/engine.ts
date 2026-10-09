@@ -47,6 +47,7 @@ import {
   mailboxCountsQueryKey,
   mailboxQueryKey,
 } from "./subscriptions";
+import type { SyncPage } from "./sync";
 import type { ConversationView } from "./ports/mail-store";
 
 const MAX_BOOTSTRAP_PAGES_PER_RUN = 25;
@@ -152,6 +153,8 @@ export function createMailEngine(input: {
   assistant?: AssistantStateSource;
   idleCatchUpIntervalMs?: number;
   syncLaneTimeoutMs?: number;
+  /** Committed incremental changes only; bootstrap and backfill never emit. */
+  onSyncPageCommitted?: (page: SyncPage) => void;
 }): MailEngine {
   const { store, source, executor, runtime } = input;
   const idleCatchUpIntervalMs =
@@ -560,6 +563,7 @@ export function createMailEngine(input: {
             bodies: changes.page.bodies,
           });
           if (applied.status === "committed") {
+            input.onSyncPageCommitted?.(changes.page);
             await refreshViews();
             await noteConnection(work.session.accountId, "ok");
           }
@@ -1030,6 +1034,7 @@ export function createMailEngine(input: {
         bodies: changes.page.bodies,
       });
       if (applied.status === "committed") {
+        input.onSyncPageCommitted?.(changes.page);
         if (changes.page.roundComplete) {
           idleGate.nextStreamCatchUpAtMs.set(
             stream.streamId,

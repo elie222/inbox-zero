@@ -4,6 +4,7 @@ import {
   type DurationSummary,
   startEventLoopDelayMonitor,
 } from "../health";
+import { newMailFromSyncPage } from "../mail-notifications";
 import { isTransientNetworkError } from "../network-errors";
 import { createRoutedBackendPorts } from "./backend";
 import { followMailboxSignal } from "./mailbox-signals";
@@ -24,6 +25,7 @@ export type ChildToMainMessage =
   | { type: "reply"; id: string; status: "ok"; result: unknown }
   | { type: "reply"; id: string; status: "error"; message: string }
   | { type: "snapshot"; subscriptionId: string; snapshot: unknown }
+  | { type: "newMail"; payload: ReturnType<typeof newMailFromSyncPage> }
   | { type: "engineError"; message: string; stack?: string }
   | { type: "cookieHeaderRequest"; requestId: string; url: string };
 
@@ -94,6 +96,10 @@ export function createUtilityChildRuntime(
               cookieHeader: requestCookieHeader,
             }),
           ),
+          onSyncPageCommitted: (page) => {
+            const payload = newMailFromSyncPage(page);
+            if (payload.messages.length) post({ type: "newMail", payload });
+          },
           onEngineError: (error) => {
             if (isTransientNetworkError(error)) return;
             post(engineErrorMessage(error));

@@ -54,7 +54,7 @@ import {
   shouldSmokeLocalMail,
   shouldUseLocalMailRenderer,
 } from "./desktop";
-import { createMailNotificationTracker } from "./mail-notifications";
+import { createMailNotifier } from "./mail-notifications";
 import { captureDesktopError, initDesktopSentry } from "./sentry";
 import { startEventLoopDelayMonitor } from "./health";
 import { registerMailEnginePushIpc } from "./mail-engine/push-ipc";
@@ -107,8 +107,13 @@ const localMailRendererFile = path.join(
 const localMailUrl = shouldUseLocalMailRenderer()
   ? getDesktopLocalMailUrl(localMailRendererFile)
   : null;
-const trackNewMail = createMailNotificationTracker();
-const mailNotifications = new Map<string, Notification>();
+const mailNotifier = createMailNotifier({
+  origin: appOrigin,
+  isFocused: () => windows.some((window) => window.isFocused()),
+  isSupported: () => Notification.isSupported(),
+  createNotification: (options) => new Notification(options),
+  openWindow: openAppWindow,
+});
 let downloadPercent: number | null = null;
 let refreshDesktopMenu: (() => void) | undefined;
 
@@ -135,38 +140,6 @@ function startDesktopApp() {
       return;
     unreadByContents.set(event.sender.id, count);
     setUnreadBadge(Math.max(0, ...unreadByContents.values()));
-  });
-  ipcMain.on("desktop:new-mail", (event, payload: unknown) => {
-    if (!isTrustedDesktopEvent(event)) return;
-    const mail = trackNewMail(payload);
-    if (
-      !mail ||
-      windows.some((window) => window.isFocused()) ||
-      !Notification.isSupported()
-    )
-      return;
-    const notification = new Notification({
-      title: "Inbox Zero",
-      body:
-        mail.count === 1
-          ? "You have a new email"
-          : `You have ${mail.count} new emails`,
-    });
-    mailNotifications.get(mail.emailAccountId)?.close();
-    mailNotifications.set(mail.emailAccountId, notification);
-    notification.on("click", () => {
-      openAppWindow(
-        new URL(`/${mail.emailAccountId}/mail`, appOrigin).toString(),
-      );
-    });
-    const release = () => {
-      if (mailNotifications.get(mail.emailAccountId) === notification) {
-        mailNotifications.delete(mail.emailAccountId);
-      }
-    };
-    notification.on("close", release);
-    notification.on("failed", release);
-    notification.show();
   });
   ipcMain.handle("desktop:open-window", (event, path: unknown) => {
     if (!isTrustedDesktopEvent(event)) return;
@@ -592,8 +565,7 @@ function setUnreadBadge(count: number) {
 function clearMailIndicators() {
   unreadByContents.clear();
   applyUnreadBadge();
-  for (const notification of mailNotifications.values()) notification.close();
-  mailNotifications.clear();
+  mailNotifier.close();
 }
 
 function readLastAppUrl(): string | null {
@@ -817,6 +789,7 @@ function createDesktopMailProcess() {
         .map((cookie) => `${cookie.name}=${cookie.value}`)
         .join("; ");
     },
+    onNewMail: mailNotifier.notify,
     onEngineError: (error) =>
       captureDesktopError(error, { area: "mail-engine" }),
   });

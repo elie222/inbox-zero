@@ -5,6 +5,7 @@ import {
 } from "@inboxzero/mail-core/engine";
 import type { AssistantStateSource } from "@inboxzero/mail-core/ports/assistant-source";
 import type { MailboxSource } from "@inboxzero/mail-core/ports/mailbox-source";
+import type { SyncPage } from "@inboxzero/mail-core/sync";
 import type { OperationExecutor } from "@inboxzero/mail-core/ports/operation-executor";
 import {
   dispatchMailIpc,
@@ -101,6 +102,7 @@ type OwnedEngineInput = {
   executor: OperationExecutor;
   assistant?: AssistantStateSource;
   idleCatchUpIntervalMs?: number;
+  onSyncPageCommitted?: (page: SyncPage) => void;
   /** The loop keeps retrying after a failed run; the host decides whether to report it. */
   onEngineError?: (error: unknown) => void;
   onSqliteTransaction?: SqliteTransactionTimer;
@@ -125,6 +127,7 @@ async function createOwnedEngine(input: OwnedEngineInput): Promise<{
     source: input.source,
     executor: input.executor,
     assistant: input.assistant,
+    onSyncPageCommitted: input.onSyncPageCommitted,
     idleCatchUpIntervalMs: input.idleCatchUpIntervalMs,
     runtime: createHostRuntime({
       ...nodeMailCrypto(),
