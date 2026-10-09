@@ -27,7 +27,12 @@ export async function createContact(
   if (firstName) properties.firstName = firstName;
   if (provider) properties.provider = provider;
 
-  return await loops.createContact({ email, properties });
+  try {
+    return await loops.createContact({ email, properties });
+  } catch (error) {
+    if (isExistingContactError(error)) return { success: true };
+    throw error;
+  }
 }
 
 export async function deleteContact(
@@ -55,11 +60,14 @@ export async function startedTrial(
 export async function completedTrial(
   email: string,
   tier: string,
+  subscriptionId: string,
 ): Promise<{ success: boolean }> {
   const loops = getLoopsClient();
   if (!loops) return { success: false };
   return await loops.sendEvent({
     eventName: "completed_trial",
+    // Concurrent Stripe syncs must share a key even across webhook event types.
+    headers: { "Idempotency-Key": `completed_trial:${subscriptionId}` },
     email,
     contactProperties: { tier },
     eventProperties: { tier },
@@ -123,4 +131,14 @@ export async function updateContactCompanySize({
   companySize: number;
 }) {
   return updateContactProperty(email, { companySize });
+}
+
+function isExistingContactError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+
+  return (
+    "message" in error &&
+    typeof error.message === "string" &&
+    /already (exists|on (?:the )?list)/i.test(error.message)
+  );
 }

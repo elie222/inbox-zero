@@ -36,6 +36,48 @@ describe("handleLoopsEvents", () => {
   };
 
   describe("Trial started scenarios", () => {
+    it.each([
+      Object.assign(
+        new Error("409 - Email or userId already exists/is already on list"),
+        { statusCode: 409 },
+      ),
+      new Error("Loops API unavailable"),
+    ])("should send upgraded with tier even if contact creation fails: %s", async (error) => {
+      vi.mocked(createContact).mockRejectedValueOnce(error);
+
+      await handleLoopsEvents({
+        currentPremium: mockCurrentPremium,
+        newSubscription: {
+          status: "trialing",
+          trial_end: Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60,
+        },
+        newTier: "PLUS_MONTHLY",
+        logger,
+      });
+
+      expect(startedTrial).toHaveBeenCalledExactlyOnceWith(
+        "user@example.com",
+        "PLUS_MONTHLY",
+      );
+    });
+
+    it("should send upgraded only once when an active subscription has a future trial end", async () => {
+      await handleLoopsEvents({
+        currentPremium: mockCurrentPremium,
+        newSubscription: {
+          status: "active",
+          trial_end: Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60,
+        },
+        newTier: "PLUS_MONTHLY",
+        logger,
+      });
+
+      expect(startedTrial).toHaveBeenCalledExactlyOnceWith(
+        "user@example.com",
+        "PLUS_MONTHLY",
+      );
+    });
+
     it("should create contact when trial starts for new user", async () => {
       const currentPremium = {
         ...mockCurrentPremium,
@@ -123,6 +165,65 @@ describe("handleLoopsEvents", () => {
   });
 
   describe("Trial completion scenarios", () => {
+    it("should set tier at scheduled trial conversion without resending on later syncs", async () => {
+      const stripeTrialEnd = new Date(Date.now() - 1000 * 60 * 60);
+      const args = {
+        currentPremium: {
+          ...mockCurrentPremium,
+          stripeSubscriptionStatus: "trialing",
+          stripeTrialEnd,
+        },
+        newSubscription: {
+          id: "sub_trial",
+          status: "active",
+          trial_end: Math.floor(stripeTrialEnd.getTime() / 1000),
+        },
+        newTier: "PLUS_MONTHLY",
+        logger,
+      };
+
+      await handleLoopsEvents(args);
+      await handleLoopsEvents({
+        ...args,
+        currentPremium: {
+          ...args.currentPremium,
+          stripeSubscriptionStatus: "active",
+          tier: "PLUS_MONTHLY",
+        },
+      });
+
+      expect(completedTrial).toHaveBeenCalledExactlyOnceWith(
+        "user@example.com",
+        "PLUS_MONTHLY",
+        "sub_trial",
+      );
+      expect(startedTrial).not.toHaveBeenCalled();
+    });
+
+    it("uses the same subscription identity for concurrent trial completion syncs", async () => {
+      const args = {
+        currentPremium: {
+          ...mockCurrentPremium,
+          stripeSubscriptionStatus: "trialing",
+        },
+        newSubscription: { id: "sub_trial", status: "active", trial_end: null },
+        newTier: "PLUS_MONTHLY",
+        logger,
+      };
+
+      await Promise.all([handleLoopsEvents(args), handleLoopsEvents(args)]);
+      await handleLoopsEvents({
+        ...args,
+        newSubscription: { ...args.newSubscription, id: "sub_other_trial" },
+      });
+
+      expect(vi.mocked(completedTrial).mock.calls).toEqual([
+        ["user@example.com", "PLUS_MONTHLY", "sub_trial"],
+        ["user@example.com", "PLUS_MONTHLY", "sub_trial"],
+        ["user@example.com", "PLUS_MONTHLY", "sub_other_trial"],
+      ]);
+    });
+
     it("should call completedTrial when trial ends and subscription becomes active", async () => {
       const currentPremium = {
         ...mockCurrentPremium,
@@ -131,6 +232,7 @@ describe("handleLoopsEvents", () => {
       };
 
       const newSubscription = {
+        id: "sub_trial",
         status: "active",
         trial_end: Math.floor(Date.now() / 1000) - 1000, // Trial ended
       };
@@ -145,6 +247,7 @@ describe("handleLoopsEvents", () => {
       expect(completedTrial).toHaveBeenCalledWith(
         "user@example.com",
         "STARTER_MONTHLY",
+        "sub_trial",
       );
       expect(startedTrial).not.toHaveBeenCalled(); // Should not call direct upgrade
     });
@@ -157,6 +260,7 @@ describe("handleLoopsEvents", () => {
       };
 
       const newSubscription = {
+        id: "sub_trial",
         status: "active",
         trial_end: Math.floor(Date.now() / 1000) - 1000,
       };
@@ -275,6 +379,7 @@ describe("handleLoopsEvents", () => {
       };
 
       const newSubscription = {
+        id: "sub_trial",
         status: "active",
         trial_end: null,
       };

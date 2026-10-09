@@ -46,41 +46,51 @@ export async function handleLoopsEvents({
     if (hasNewTrial) {
       logger.info("Trial started", { email });
       await createContact(email, name?.split(" ")[0]).catch((error) => {
-        // ignore if already exists
-        if (error.message.includes("Email already on list")) {
-          logger.info("Email already on list", { email });
-          return;
-        }
-
-        throw error;
+        logger.error("Error creating Loops contact", { error });
       });
 
       // Sets the Loops tier so signup nudges stop targeting trial users
-      if (newTier) await startedTrial(email, newTier);
+      if (newTier) {
+        await startedTrial(email, newTier).catch((error) => {
+          logger.error("Error sending Loops trial started event", { error });
+        });
+      }
     }
 
     // 2. Payment scenarios - distinguish between trial completion and direct purchase
     const wasInTrial =
-      currentPremium.stripeTrialEnd &&
-      currentPremium.stripeTrialEnd > new Date();
+      currentPremium.stripeSubscriptionStatus === "trialing" ||
+      (currentPremium.stripeTrialEnd &&
+        currentPremium.stripeTrialEnd > new Date());
     const isNowActive = newSubscription.status === "active";
     const noLongerInTrial =
       !newSubscription.trial_end ||
       newSubscription.trial_end <= Date.now() / 1000;
 
     // 2a. Trial completed and converted to paid subscription
-    const trialCompleted = isNowActive && wasInTrial && noLongerInTrial;
+    const trialCompleted =
+      isNowActive &&
+      wasInTrial &&
+      noLongerInTrial &&
+      currentPremium.stripeSubscriptionStatus !== "active";
 
     if (trialCompleted) {
       logger.info("Trial completed", { email, tier: newTier });
       if (newTier) {
-        await completedTrial(email, newTier);
+        await completedTrial(email, newTier, newSubscription.id).catch(
+          (error) => {
+            logger.error("Error sending Loops trial completed event", {
+              error,
+            });
+          },
+        );
       }
     }
 
     // 2b. Direct upgrade (no trial) or upgrade from incomplete status
     const directUpgrade =
       isNowActive &&
+      !hasNewTrial &&
       !wasInTrial &&
       (!currentPremium.stripeSubscriptionStatus || // First subscription without trial
         currentPremium.stripeSubscriptionStatus === "incomplete"); // Completing incomplete payment
@@ -88,7 +98,9 @@ export async function handleLoopsEvents({
     if (directUpgrade) {
       logger.info("Direct upgrade to premium", { email, tier: newTier });
       if (newTier) {
-        await startedTrial(email, newTier);
+        await startedTrial(email, newTier).catch((error) => {
+          logger.error("Error sending Loops upgrade event", { error });
+        });
       }
     }
 
@@ -101,7 +113,9 @@ export async function handleLoopsEvents({
 
     if (wasCancelled) {
       logger.info("Subscription cancelled", { email });
-      await cancelledPremium(email);
+      await cancelledPremium(email).catch((error) => {
+        logger.error("Error sending Loops cancellation event", { error });
+      });
     }
   } catch (error) {
     logger.error("Error handling Loops events", { error });
