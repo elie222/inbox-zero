@@ -956,19 +956,13 @@ describe("GmailProvider.updateDraft", () => {
       bcc: "",
     });
 
-    expect(update).toHaveBeenCalledWith({
+    const upload = update.mock.calls[0]?.[0];
+    expect(upload).toMatchObject({
       userId: "me",
       id: "r-123",
-      requestBody: {
-        message: {
-          threadId: "thread-special",
-          raw: expect.any(String),
-        },
-      },
+      requestBody: { message: { threadId: "thread-special" } },
     });
-
-    const raw = update.mock.calls[0]?.[0]?.requestBody?.message?.raw;
-    const decodedMessage = decodeBase64Url(raw);
+    const decodedMessage = await readStream(upload.media.body);
 
     expect(decodedMessage).toContain("Subject: =?UTF-8?");
     expect(decodedMessage).toContain("In-Reply-To: <original@example.com>");

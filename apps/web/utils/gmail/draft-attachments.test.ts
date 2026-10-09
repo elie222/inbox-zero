@@ -124,16 +124,53 @@ describe("rewriteGmailDraft", () => {
       draftId: "r-1",
       removeAttachmentId: "existing-1",
     });
-    const call = vi.mocked(gmail.users.drafts.update).mock
-      .calls[0]![0] as unknown as {
-      requestBody: { message: { raw?: string } };
-    };
-    const raw = Buffer.from(
-      call.requestBody.message.raw!,
-      "base64url",
-    ).toString();
+    const raw = await readStream(uploadedBody(gmail));
     expect(raw).not.toContain("report.pdf");
     expect(raw).toContain("Draft body");
+  });
+
+  it("refuses to remove a file the draft doesn't hold", async () => {
+    const gmail = gmailClient();
+    await expect(
+      rewriteGmailDraft({ gmail, draftId: "r-1", removeAttachmentId: "gone" }),
+    ).rejects.toThrow("no longer on the draft");
+    expect(gmail.users.drafts.update).not.toHaveBeenCalled();
+  });
+
+  it("keeps a plain-text draft as plain text when its files change", async () => {
+    getDraft.mockResolvedValue({
+      ...draftWithReport(),
+      textHtml: undefined,
+      textPlain: "Plain draft body",
+    });
+    const gmail = gmailClient();
+    await rewriteGmailDraft({
+      gmail,
+      draftId: "r-1",
+      removeAttachmentId: "existing-1",
+    });
+    const email = await PostalMime.parse(await readStream(uploadedBody(gmail)));
+    expect(email.text?.trim()).toBe("Plain draft body");
+    expect(email.html).toBeUndefined();
+  });
+
+  it("keeps an attached email out of base64", async () => {
+    const gmail = gmailClient();
+    await rewriteGmailDraft({
+      gmail,
+      draftId: "r-1",
+      addAttachment: {
+        id: "forwarded-email",
+        filename: "note.eml",
+        mimeType: "message/rfc822",
+        size: 30,
+        disposition: "attachment",
+        content: Buffer.from("Subject: Hi\r\n\r\nForwarded body"),
+      },
+    });
+    const raw = await readStream(uploadedBody(gmail));
+    // Readable in the message itself, so not base64-encoded.
+    expect(raw).toContain("Forwarded body");
   });
 });
 
@@ -199,4 +236,10 @@ async function readStream(stream: NodeJS.ReadableStream) {
   const chunks: Buffer[] = [];
   for await (const chunk of stream) chunks.push(Buffer.from(chunk));
   return Buffer.concat(chunks).toString();
+}
+
+function uploadedBody(gmail: gmail_v1.Gmail) {
+  const call = vi.mocked(gmail.users.drafts.update).mock
+    .calls[0]![0] as unknown as { media: { body: NodeJS.ReadableStream } };
+  return call.media.body;
 }

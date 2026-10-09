@@ -122,10 +122,10 @@ export async function sendEmailWithHtml(
     messageText = stripHtmlTagsForPlainText(body.messageHtml).trim();
   }
 
-  const forwardedAttachments = await getForwardedAttachments(
-    gmail,
-    body.replyToEmail?.forwardedMessageId,
-  );
+  const forwardedAttachments = body.replyToEmail?.forwardedMessageId
+    ? (await getForwardedMessage(gmail, body.replyToEmail.forwardedMessageId))
+        .attachments
+    : [];
 
   const raw = await createRawMailMessage({
     ...body,
@@ -526,16 +526,14 @@ async function trackGmailSend<T>(
 }
 
 /**
- * Graph carries a forward's files across on its own, but a Gmail send composes
- * its own MIME, so the parts of the message being forwarded have to be fetched
- * and re-attached.
+ * Graph carries a forward's files across on its own, but a Gmail send or
+ * draft composes its own MIME, so the parts of the message being forwarded
+ * have to be fetched and re-attached.
  */
-async function getForwardedAttachments(
+export async function getForwardedMessage(
   gmail: gmail_v1.Gmail,
-  forwardedMessageId: string | undefined,
-): Promise<Attachment[]> {
-  if (!forwardedMessageId) return [];
-
+  forwardedMessageId: string,
+): Promise<{ threadId?: string; attachments: Attachment[] }> {
   const message = await getMessage(forwardedMessageId, gmail).catch(
     (error: unknown) => {
       if (extractErrorInfo(error).status !== 404) throw error;
@@ -547,11 +545,14 @@ async function getForwardedAttachments(
 
   // A part that fails to download fails the send: silently dropping one file
   // from a forward is worse than asking the user to try again.
-  return await getGmailMessageAttachments(
-    gmail,
-    forwardedMessageId,
-    message.payload,
-  );
+  return {
+    threadId: message.threadId ?? undefined,
+    attachments: await getGmailMessageAttachments(
+      gmail,
+      forwardedMessageId,
+      message.payload,
+    ),
+  };
 }
 
 function getGmailSendMetadata(raw: string, body: MailSendEmailBody) {

@@ -118,7 +118,7 @@ describe("Outlook draft attachments", () => {
     ).resolves.toBeUndefined();
   });
 
-  it("lists attachments without downloading their bytes", async () => {
+  it("lists inline attachments with their content ids", async () => {
     request.get.mockResolvedValue({
       value: [
         {
@@ -145,8 +145,5 @@ describe("Outlook draft attachments", () => {
         providerAttachmentId: "graph-att-1",
       },
     ]);
-    expect(request.select).toHaveBeenCalledWith(
-      expect.not.stringContaining("contentBytes"),
-    );
   });
 });

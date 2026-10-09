@@ -6,11 +6,7 @@ import {
   removeDraftAttachmentBody,
   startDraftAttachmentUploadBody,
 } from "@/utils/actions/draft-attachments.validation";
-import {
-  GMAIL_UPLOAD_CHUNK_BYTES,
-  GRAPH_UPLOAD_CHUNK_BYTES,
-  usesDirectDraftAttachmentUpload,
-} from "@/utils/email/draft-attachment-upload";
+import { usesDirectDraftAttachmentUpload } from "@/utils/email/draft-attachment-upload";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
 import { saveDraftAttachmentUpload } from "@/utils/redis/draft-attachment-upload";
@@ -36,11 +32,7 @@ export const startDraftAttachmentUploadAction = actionClient
         attachment,
       );
       if (upload.type === "provider-url") {
-        return {
-          type: upload.type,
-          uploadUrl: upload.uploadUrl,
-          chunkBytes: GRAPH_UPLOAD_CHUNK_BYTES,
-        };
+        return { type: upload.type, uploadUrl: upload.uploadUrl };
       }
       const uploadId = randomUUID();
       await saveDraftAttachmentUpload(emailAccountId, uploadId, {
@@ -55,7 +47,6 @@ export const startDraftAttachmentUploadAction = actionClient
         uploadId,
         parts: upload.parts,
         totalBytes: upload.totalBytes,
-        chunkBytes: GMAIL_UPLOAD_CHUNK_BYTES,
       };
     },
   );

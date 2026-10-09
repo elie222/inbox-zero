@@ -1,9 +1,11 @@
+import { randomUUID } from "node:crypto";
 import { Readable } from "node:stream";
 import { decodeGmailAttachmentStream } from "./attachment-stream";
 import type { Attachment } from "nodemailer/lib/mailer";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { withGmailRetry } from "@/utils/gmail/retry";
 import type { ParsedMessage } from "@/utils/types";
+import type { DraftAttachment } from "@/utils/email/types";
 
 const embeddedPartPrefix = "gmail-part:";
 const maximumEmbeddedBytes = 25_000_000;
@@ -66,54 +68,113 @@ export async function getGmailAttachmentStream(
   );
 }
 
+// Gmail keeps this part header across saves, which gives each attachment an
+// id that survives Gmail replacing a draft's message.
+const ATTACHMENT_ID_HEADER = "X-Attachment-Id";
+
+export type GmailAttachmentPart = {
+  attachment: DraftAttachment;
+  /** Small parts carry their bytes in the payload already. */
+  data?: string;
+};
+
+/** The files in a message, by the rules every Gmail rebuild follows. */
+export function listGmailAttachmentParts(
+  messageId: string,
+  payload: gmail_v1.Schema$MessagePart | null | undefined,
+): GmailAttachmentPart[] {
+  return collectAttachmentParts(payload).map((part) => {
+    const headers = partHeaders(part);
+    const contentId = headers.get("content-id")?.trim().replace(/^<|>$/g, "");
+    const disposition = partDisposition(part);
+    const providerAttachmentId =
+      part.body?.attachmentId ?? embeddedGmailAttachmentId(part.partId ?? "");
+    const data = part.body?.attachmentId
+      ? undefined
+      : (part.body?.data ?? undefined);
+    return {
+      attachment: {
+        id:
+          headers.get(ATTACHMENT_ID_HEADER.toLowerCase()) ??
+          providerAttachmentId,
+        filename: part.filename || "attachment",
+        mimeType: part.mimeType || "application/octet-stream",
+        size:
+          part.body?.size ?? (data ? Buffer.byteLength(data, "base64url") : 0),
+        disposition:
+          disposition === "inline" || (!disposition && contentId)
+            ? "inline"
+            : "attachment",
+        ...(contentId ? { contentId } : {}),
+        messageId,
+        providerAttachmentId,
+      },
+      data,
+    };
+  });
+}
+
+/** Downloads the parts and prepares them to be written into a new message. */
+export async function readGmailAttachmentParts(
+  gmail: gmail_v1.Gmail,
+  parts: GmailAttachmentPart[],
+): Promise<Attachment[]> {
+  const attachments: Attachment[] = [];
+  for (const { attachment, data } of parts) {
+    const content =
+      data ??
+      (
+        await getGmailAttachment(
+          gmail,
+          attachment.messageId,
+          attachment.providerAttachmentId,
+        )
+      ).data;
+    if (content == null) throw new Error("Missing Gmail attachment data");
+    attachments.push(
+      toGmailMailAttachment(attachment, Buffer.from(content, "base64url")),
+    );
+  }
+  return attachments;
+}
+
 export async function getGmailMessageAttachments(
   gmail: gmail_v1.Gmail,
   messageId: string,
   payload: gmail_v1.Schema$MessagePart | null | undefined,
-): Promise<Attachment[]> {
-  if (!payload) return [];
-  if (payload.parts?.length) {
-    const attachments = [];
-    for (const part of payload.parts) {
-      attachments.push(
-        ...(await getGmailMessageAttachments(gmail, messageId, part)),
-      );
-    }
-    return attachments;
-  }
-
-  const headers = new Map(
-    payload.headers?.map(({ name, value }) => [name?.toLowerCase(), value]),
+) {
+  return readGmailAttachmentParts(
+    gmail,
+    listGmailAttachmentParts(messageId, payload),
   );
-  const disposition = headers
-    .get("content-disposition")
-    ?.split(";")[0]
-    .trim()
-    .toLowerCase();
-  const contentId = headers.get("content-id");
-  const isBody =
-    payload.mimeType === "text/plain" || payload.mimeType === "text/html";
-  if (isBody && !payload.filename && disposition !== "attachment") return [];
-  if (!payload.mimeType || payload.mimeType.startsWith("multipart/")) return [];
+}
 
-  const data = payload.body?.attachmentId
-    ? (await getGmailAttachment(gmail, messageId, payload.body.attachmentId))
-        .data
-    : payload.body?.data;
-  if (data == null) throw new Error("Missing Gmail attachment data");
-
-  return [
-    {
-      filename: payload.filename || undefined,
-      contentType: payload.mimeType,
-      content: Buffer.from(data, "base64url"),
-      contentDisposition:
-        disposition === "inline" || (!disposition && contentId)
-          ? "inline"
-          : "attachment",
-      cid: contentId?.replace(/^<|>$/g, ""),
-    },
-  ];
+export function toGmailMailAttachment(
+  attachment: Pick<
+    DraftAttachment,
+    "id" | "filename" | "mimeType" | "disposition" | "contentId"
+  >,
+  content: Buffer,
+): Attachment {
+  const inline = attachment.disposition === "inline" && attachment.contentId;
+  // Gmail's own attachment ids are long and unsafe as header values, so
+  // those files get a fresh id that stays with them from then on.
+  const id = /^[\w-]{1,64}$/u.test(attachment.id)
+    ? attachment.id
+    : randomUUID();
+  return {
+    filename: attachment.filename,
+    contentType: attachment.mimeType,
+    content,
+    // An attached email must keep a 7bit or 8bit encoding (RFC 2046), so the
+    // builder picks it; every other file is base64.
+    ...(attachment.mimeType.startsWith("message/")
+      ? {}
+      : { contentTransferEncoding: "base64" }),
+    contentDisposition: inline ? "inline" : "attachment",
+    ...(inline ? { cid: attachment.contentId } : {}),
+    headers: { [ATTACHMENT_ID_HEADER]: id },
+  };
 }
 
 export function getEmbeddedGmailAttachmentDescriptors(
@@ -208,4 +269,37 @@ async function readEmbeddedGmailAttachment(
   throw Object.assign(new Error("Gmail MIME part no longer exists"), {
     code: 404,
   });
+}
+
+function collectAttachmentParts(
+  payload: gmail_v1.Schema$MessagePart | null | undefined,
+): gmail_v1.Schema$MessagePart[] {
+  if (!payload) return [];
+  // An attached email is one file, not a set of parts to unpack.
+  if (payload.mimeType === "message/rfc822") return [payload];
+  if (payload.parts?.length)
+    return payload.parts.flatMap((part) => collectAttachmentParts(part));
+  if (!payload.mimeType || payload.mimeType.startsWith("multipart/")) return [];
+  const isBody =
+    payload.mimeType === "text/plain" || payload.mimeType === "text/html";
+  if (isBody && !payload.filename && partDisposition(payload) !== "attachment")
+    return [];
+  return [payload];
+}
+
+function partDisposition(part: gmail_v1.Schema$MessagePart) {
+  return partHeaders(part)
+    .get("content-disposition")
+    ?.split(";", 1)[0]
+    ?.trim()
+    .toLowerCase();
+}
+
+function partHeaders(part: gmail_v1.Schema$MessagePart) {
+  return new Map(
+    (part.headers ?? []).map(({ name, value }) => [
+      name?.toLowerCase(),
+      value ?? undefined,
+    ]),
+  );
 }

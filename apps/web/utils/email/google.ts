@@ -11,7 +11,6 @@ import {
 import { matchesSenderFilter } from "@/utils/split-inbox/sender-filter";
 import type { gmail_v1 } from "@googleapis/gmail";
 import chunk from "lodash/chunk";
-import { SafeError } from "@/utils/error";
 import type { Attachment as MailAttachment } from "nodemailer/lib/mailer";
 import { mapWithConcurrency } from "@/utils/async";
 import { toMailerAttachments } from "@/utils/types/mail";
@@ -44,6 +43,7 @@ import { getMessageByRfc822Id } from "@/utils/gmail/message";
 import {
   buildMailMessage,
   draftEmail,
+  getForwardedMessage,
   forwardEmail,
   replyToEmail,
   sendEmailWithPlainText,
@@ -75,7 +75,6 @@ import { listContactPhotos, searchContacts } from "@/utils/gmail/contact";
 import {
   getGmailAttachment,
   getGmailAttachmentStream,
-  getGmailMessageAttachments,
 } from "@/utils/gmail/attachment";
 import {
   getThreadsBatch,
@@ -1004,21 +1003,12 @@ export class GmailProvider implements EmailProvider {
     // forward would, so sending the draft carries them.
     let forwardedAttachments: MailAttachment[] = [];
     if (params.forwardedMessageId) {
-      const forwarded = await getMessage(
-        params.forwardedMessageId,
-        this.client,
-      ).catch((error: unknown) => {
-        if (extractErrorInfo(error).status !== 404) throw error;
-        throw new SafeError(
-          "Reload the original message before forwarding. Its attachments could not be verified.",
-        );
-      });
-      threadId = forwarded.threadId ?? undefined;
-      forwardedAttachments = await getGmailMessageAttachments(
+      const forwarded = await getForwardedMessage(
         this.client,
         params.forwardedMessageId,
-        forwarded.payload,
       );
+      threadId = forwarded.threadId;
+      forwardedAttachments = forwarded.attachments;
     }
 
     const message = await buildMailMessage({
@@ -1038,7 +1028,6 @@ export class GmailProvider implements EmailProvider {
       this.client,
       { threadId },
       message,
-      forwardedAttachments.length > 0,
     );
 
     this.logger.info("Gmail draft created", { draftId: result.id });

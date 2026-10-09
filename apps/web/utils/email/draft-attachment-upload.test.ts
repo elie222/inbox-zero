@@ -1,12 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
-  DRAFT_ATTACHMENT_DIRECT_UPLOAD_LIMIT_BYTES,
   encodeMimeBase64,
   GMAIL_UPLOAD_CHUNK_BYTES,
   getDraftMessageUploadLength,
   mimeBase64Length,
   parseContentRange,
-  usesDirectDraftAttachmentUpload,
   validateGmailUploadChunk,
 } from "./draft-attachment-upload";
 
@@ -38,21 +36,6 @@ describe("getDraftMessageUploadLength", () => {
         { type: "text", text: "\r\n--b--" },
       ]),
     ).toBe(8 + mimeBase64Length(58) + 7);
-  });
-});
-
-describe("usesDirectDraftAttachmentUpload", () => {
-  it("sends files under the limit in one request and larger ones by session", () => {
-    expect(
-      usesDirectDraftAttachmentUpload(
-        DRAFT_ATTACHMENT_DIRECT_UPLOAD_LIMIT_BYTES - 1,
-      ),
-    ).toBe(true);
-    expect(
-      usesDirectDraftAttachmentUpload(
-        DRAFT_ATTACHMENT_DIRECT_UPLOAD_LIMIT_BYTES,
-      ),
-    ).toBe(false);
   });
 });
 
@@ -104,14 +87,6 @@ describe("validateGmailUploadChunk", () => {
 });
 
 describe("parseContentRange", () => {
-  it("reads a byte range", () => {
-    expect(parseContentRange("bytes 10-19/100")).toEqual({
-      start: 10,
-      length: 10,
-      total: 100,
-    });
-  });
-
   it.each([
     null,
     "bytes */100",

@@ -718,16 +718,17 @@ export class OutlookProvider implements EmailProvider {
     });
     const toRecipients = toGraphRecipients(params.to, this.logger);
 
-    // For threading, use createReply on the replyToMessageId. A forward is
-    // drafted from the forwarded message so it keeps its conversation and files.
-    const sourceAction = params.replyToMessageId
-      ? `/me/messages/${params.replyToMessageId}/createReply`
-      : params.forwardedMessageId
-        ? `/me/messages/${params.forwardedMessageId}/createForward`
-        : null;
+    // Replies thread through createReply. A forward is drafted from the
+    // forwarded message so it keeps its conversation and files.
+    let sourceAction: string | undefined;
+    if (params.replyToMessageId)
+      sourceAction = `/me/messages/${encodeURIComponent(params.replyToMessageId)}/createReply`;
+    else if (params.forwardedMessageId)
+      sourceAction = `/me/messages/${encodeURIComponent(params.forwardedMessageId)}/createForward`;
     if (sourceAction) {
+      const action = sourceAction;
       const draft = await withMicrosoftGraphWriteRetry(
-        () => this.client.getClient().api(sourceAction).post({}),
+        () => this.client.getClient().api(action).post({}),
         this.logger,
       );
 
@@ -832,10 +833,7 @@ export class OutlookProvider implements EmailProvider {
       attachment,
       logger: this.logger,
     });
-    return {
-      ...(await this.getEditableDraftAttachments(draftId)),
-      attachmentId,
-    };
+    return { ...(await this.listDraftAttachments(draftId)), attachmentId };
   }
 
   async removeDraftAttachment(draftId: string, attachmentId: string) {
@@ -846,7 +844,7 @@ export class OutlookProvider implements EmailProvider {
       attachmentId,
       logger: this.logger,
     });
-    return this.getEditableDraftAttachments(draftId);
+    return this.listDraftAttachments(draftId);
   }
 
   async startDraftAttachmentUpload(
@@ -864,12 +862,16 @@ export class OutlookProvider implements EmailProvider {
     return { type: "provider-url", uploadUrl };
   }
 
-  // Graph also changes attachments on sent and received mail, so these
-  // calls first confirm the message is a draft.
+  // Graph also changes attachments on sent and received mail, so changes
+  // first confirm the message is a draft.
   private async getEditableDraftAttachments(draftId: string) {
-    const result = (await this.getDraftReferenceForMessage(draftId))
-      ? await this.getDraftAttachments(draftId)
-      : null;
+    if (!(await this.getDraftReferenceForMessage(draftId)))
+      throw new DraftNotFoundError("Could not find this draft in Outlook.");
+    return this.listDraftAttachments(draftId);
+  }
+
+  private async listDraftAttachments(draftId: string) {
+    const result = await this.getDraftAttachments(draftId);
     if (!result)
       throw new DraftNotFoundError("Could not find this draft in Outlook.");
     return result;

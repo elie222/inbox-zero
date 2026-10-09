@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { Readable } from "node:stream";
 import type { gmail_v1 } from "@googleapis/gmail";
 import type Mail from "nodemailer/lib/mailer";
@@ -8,14 +8,12 @@ import {
   type DraftMessageUploadPart,
   getDraftMessageUploadLength,
 } from "@/utils/email/draft-attachment-upload";
-import type {
-  DraftAttachment,
-  DraftAttachmentsResult,
-} from "@/utils/email/types";
-import { DraftNotFoundError } from "@/utils/error";
+import type { DraftAttachmentsResult } from "@/utils/email/types";
+import { DraftNotFoundError, SafeError } from "@/utils/error";
 import {
-  embeddedGmailAttachmentId,
-  getGmailAttachment,
+  listGmailAttachmentParts,
+  readGmailAttachmentParts,
+  toGmailMailAttachment,
 } from "@/utils/gmail/attachment";
 import { getDraft } from "@/utils/gmail/draft";
 import { buildMailMessage } from "@/utils/gmail/mail";
@@ -33,10 +31,6 @@ type DraftTextUpdate = {
   bcc?: string;
 };
 
-// Gmail keeps this part header across saves, which gives each attachment an
-// id that survives Gmail replacing the draft's message.
-const ATTACHMENT_ID_HEADER = "X-Attachment-Id";
-
 export async function getGmailDraftAttachments(
   gmail: gmail_v1.Gmail,
   draftId: string,
@@ -45,7 +39,9 @@ export async function getGmailDraftAttachments(
   if (!draft) return null;
   return {
     messageId: draft.id,
-    attachments: listAttachmentParts(draft).map(({ attachment }) => attachment),
+    attachments: listGmailAttachmentParts(draft.id, draft.payload).map(
+      ({ attachment }) => attachment,
+    ),
   };
 }
 
@@ -77,34 +73,27 @@ export async function rewriteGmailDraft({
   removeAttachmentId?: string;
 }) {
   const current = await getRequiredDraft(gmail, draftId);
-  const existing = listAttachmentParts(current).filter(
+  const parts = listGmailAttachmentParts(current.id, current.payload);
+  if (
+    removeAttachmentId &&
+    !parts.some(({ attachment }) => attachment.id === removeAttachmentId)
+  )
+    throw new SafeError("This file is no longer on the draft.");
+  const kept = parts.filter(
     ({ attachment }) =>
       attachment.id !== removeAttachmentId &&
       attachment.id !== addAttachment?.id,
   );
   if (addAttachment)
     assertDraftAttachmentLimits(
-      existing.map(({ attachment }) => attachment),
+      kept.map(({ attachment }) => attachment),
       addAttachment.size,
     );
-  const attachments: Mail.Attachment[] = [];
-  for (const { attachment, data } of existing) {
-    const content =
-      data ??
-      (
-        await getGmailAttachment(
-          gmail,
-          attachment.messageId,
-          attachment.providerAttachmentId,
-        )
-      ).data;
-    if (content == null) throw new Error("Missing Gmail attachment data");
-    attachments.push(
-      toMailAttachment(attachment, Buffer.from(content, "base64url")),
-    );
-  }
+  const attachments = await readGmailAttachmentParts(gmail, kept);
   if (addAttachment)
-    attachments.push(toMailAttachment(addAttachment, addAttachment.content));
+    attachments.push(
+      toGmailMailAttachment(addAttachment, addAttachment.content),
+    );
 
   const message = await buildMailMessage(
     draftMailOptions(current, attachments, text),
@@ -113,7 +102,6 @@ export async function rewriteGmailDraft({
     gmail,
     { draftId, threadId: current.threadId },
     message,
-    attachments.length > 0,
   );
 }
 
@@ -132,10 +120,19 @@ export async function buildGmailDraftUploadTemplate({
   attachment: DraftAttachmentMetadata;
 }) {
   const current = await getRequiredDraft(gmail, draftId);
-  const existing = listAttachmentParts(current)
+  const existing = listGmailAttachmentParts(current.id, current.payload)
     .map((part) => part.attachment)
     .filter((item) => item.id !== attachment.id);
   assertDraftAttachmentLimits(existing, attachment.size);
+  // Attached emails can't be base64 (RFC 2046), so they have no slot.
+  if (
+    [...existing, attachment].some((item) =>
+      item.mimeType.startsWith("message/"),
+    )
+  )
+    throw new SafeError(
+      "Large files can't be added to a draft that has an attached email. Attach a file under 3 MB, or remove the attached email.",
+    );
 
   const slots = [
     ...existing.map((item) => ({
@@ -167,7 +164,7 @@ export async function buildGmailDraftUploadTemplate({
   const built = await buildMailMessage(
     draftMailOptions(
       current,
-      slots.map((slot) => toMailAttachment(slot.attachment, slot.content)),
+      slots.map((slot) => toGmailMailAttachment(slot.attachment, slot.content)),
     ),
   );
   // The browser re-encodes the text parts, so a byte outside ASCII would
@@ -198,32 +195,23 @@ export async function buildGmailDraftUploadTemplate({
 }
 
 /**
- * Messages with files go through Gmail's media upload, which takes up to
- * 35 MB rather than the much smaller JSON request limit.
+ * Uses Gmail's media upload, which takes messages up to 35 MB rather than
+ * the much smaller JSON request limit.
  */
 export async function uploadGmailDraftMessage(
   gmail: gmail_v1.Gmail,
   draft: { draftId?: string; threadId?: string | null },
   message: Buffer,
-  hasAttachments: boolean,
 ) {
   const { draftId, threadId } = draft;
+  // The client's root URL isn't applied to upload URLs, so pass it per call.
+  const options = { rootUrl: getGoogleGmailApiRootUrl() };
   const result = await withGmailRetry(() => {
-    if (!hasAttachments) {
-      const requestBody = {
-        message: { threadId, raw: message.toString("base64url") },
-      };
-      return draftId
-        ? gmail.users.drafts.update({ userId: "me", id: draftId, requestBody })
-        : gmail.users.drafts.create({ userId: "me", requestBody });
-    }
-    // Built per attempt because a retry needs a fresh stream. The client's
-    // root URL isn't applied to upload URLs, so it is passed per call.
+    // Built per attempt because a retry needs a fresh stream.
     const upload = {
       requestBody: { message: { threadId } },
       media: { mimeType: "message/rfc822", body: Readable.from(message) },
     };
-    const options = { rootUrl: getGoogleGmailApiRootUrl() };
     return draftId
       ? gmail.users.drafts.update(
           { userId: "me", id: draftId, ...upload },
@@ -239,7 +227,7 @@ function draftMailOptions(
   attachments: Mail.Attachment[],
   text?: DraftTextUpdate,
 ): Mail.Options {
-  const html = text?.messageHtml ?? current.textHtml ?? "";
+  const html = text?.messageHtml ?? current.textHtml;
   return {
     from: current.headers?.from,
     to: text?.to ?? current.headers?.to ?? "",
@@ -247,36 +235,14 @@ function draftMailOptions(
     bcc: text?.bcc ?? current.headers?.bcc,
     replyTo: current.headers?.["reply-to"],
     subject: text?.subject ?? current.subject ?? "",
-    text: convertEmailHtmlToText({ htmlText: html }),
-    html,
+    // A plain-text draft stays plain text.
+    ...(html == null
+      ? { text: current.textPlain ?? "" }
+      : { html, text: convertEmailHtmlToText({ htmlText: html }) }),
     attachments,
     inReplyTo: current.headers?.["in-reply-to"],
     references: current.headers?.references,
     headers: { "X-Mailer": "Inbox Zero Web" },
-  };
-}
-
-function toMailAttachment(
-  attachment: Pick<
-    DraftAttachment,
-    "id" | "filename" | "mimeType" | "disposition" | "contentId"
-  >,
-  content: Buffer,
-): Mail.Attachment {
-  const inline = attachment.disposition === "inline" && attachment.contentId;
-  // Gmail's own attachment ids are long and unsafe as header values, so
-  // those files get a fresh id that the rebuilt draft reports back.
-  const id = /^[\w-]{1,64}$/u.test(attachment.id)
-    ? attachment.id
-    : randomUUID();
-  return {
-    filename: attachment.filename,
-    contentType: attachment.mimeType,
-    content,
-    contentTransferEncoding: "base64",
-    contentDisposition: inline ? "inline" : "attachment",
-    ...(inline ? { cid: attachment.contentId } : {}),
-    headers: { [ATTACHMENT_ID_HEADER]: id },
   };
 }
 
@@ -289,68 +255,5 @@ async function getRequiredDraft(gmail: gmail_v1.Gmail, draftId: string) {
 function draftNotFound() {
   return new DraftNotFoundError(
     "This draft is no longer available in Gmail. Check Sent before trying again.",
-  );
-}
-
-/** The draft's files, with the bytes of parts small enough to be inline. */
-function listAttachmentParts(draft: GmailDraft) {
-  return collectAttachmentParts(draft.payload).map((part) => {
-    const headers = partHeaders(part);
-    const contentId = headers.get("content-id")?.trim().replace(/^<|>$/g, "");
-    const disposition = partDisposition(part);
-    const providerAttachmentId =
-      part.body?.attachmentId ?? embeddedGmailAttachmentId(part.partId ?? "");
-    const data = part.body?.attachmentId
-      ? undefined
-      : (part.body?.data ?? undefined);
-    const attachment: DraftAttachment = {
-      id:
-        headers.get(ATTACHMENT_ID_HEADER.toLowerCase()) ?? providerAttachmentId,
-      filename: part.filename || "attachment",
-      mimeType: part.mimeType || "application/octet-stream",
-      size:
-        part.body?.size ?? (data ? Buffer.byteLength(data, "base64url") : 0),
-      disposition:
-        disposition === "inline" || (!disposition && contentId)
-          ? "inline"
-          : "attachment",
-      ...(contentId ? { contentId } : {}),
-      messageId: draft.id,
-      providerAttachmentId,
-    };
-    return { attachment, data };
-  });
-}
-
-function collectAttachmentParts(
-  payload: gmail_v1.Schema$MessagePart | null | undefined,
-): gmail_v1.Schema$MessagePart[] {
-  if (!payload) return [];
-  // An attached email is one file, not a set of parts to unpack.
-  if (payload.mimeType === "message/rfc822") return [payload];
-  if (payload.parts?.length)
-    return payload.parts.flatMap(collectAttachmentParts);
-  if (!payload.mimeType || payload.mimeType.startsWith("multipart/")) return [];
-  const isBody =
-    payload.mimeType === "text/plain" || payload.mimeType === "text/html";
-  if (isBody && !payload.filename && partDisposition(payload) !== "attachment")
-    return [];
-  return [payload];
-}
-
-function partDisposition(part: gmail_v1.Schema$MessagePart) {
-  return partHeaders(part)
-    .get("content-disposition")
-    ?.split(";", 1)[0]
-    ?.trim()
-    .toLowerCase();
-}
-
-function partHeaders(part: gmail_v1.Schema$MessagePart) {
-  return new Map(
-    (part.headers ?? []).map(({ name, value }) => [
-      name?.toLowerCase(),
-      value ?? undefined,
-    ]),
   );
 }
