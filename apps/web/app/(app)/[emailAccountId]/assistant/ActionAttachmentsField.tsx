@@ -54,6 +54,7 @@ import {
   buildDriveSourceChildrenMap,
   driveSourceSelection,
   getAttachmentSourceNodeSelection,
+  formatAttachmentSourceCount,
   getDriveSourceTreeNodeId,
   type DriveSourceChildrenMap,
 } from "./attachment-source-selection";
@@ -99,7 +100,9 @@ export function ActionAttachmentsField({
         <span className="text-sm font-medium">Attachments</span>
         {isConnected && totalCount > 0 && (
           <Badge variant="secondary" className="tabular-nums">
-            {totalCount}
+            {formatAttachmentSourceCount(
+              allowAiSelectedSources ? [...value, ...attachmentSources] : value,
+            )}
           </Badge>
         )}
       </div>
@@ -134,7 +137,7 @@ export function ActionAttachmentsField({
             {hasAttachments && (
               <>
                 <Badge variant="outline" className="text-[10px] px-1 py-0">
-                  {value.length}
+                  {formatAttachmentSourceCount(value)}
                 </Badge>
                 {isExpanded ? (
                   <ChevronDownIcon className="size-3" />
@@ -173,7 +176,7 @@ export function ActionAttachmentsField({
             {hasAiSources && (
               <>
                 <Badge variant="outline" className="text-[10px] px-1 py-0">
-                  {attachmentSources.length}
+                  {formatAttachmentSourceCount(attachmentSources)}
                 </Badge>
                 {isSourcesExpanded ? (
                   <ChevronDownIcon className="size-3" />
