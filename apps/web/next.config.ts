@@ -238,6 +238,28 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       {
+        destination: "/automation?fromHome=true",
+        has: [
+          {
+            key: "__Secure-better-auth.session_token",
+            type: "cookie",
+          },
+        ],
+        permanent: false,
+        source: "/",
+      },
+      {
+        destination: "/setup?fromHome=true",
+        has: [
+          {
+            key: "__Secure-better-auth.session-token.1",
+            type: "cookie",
+          },
+        ],
+        permanent: false,
+        source: "/",
+      },
+      {
         destination: "https://go.getinboxzero.com/feature-requests",
         permanent: true,
         source: "/feature-requests",

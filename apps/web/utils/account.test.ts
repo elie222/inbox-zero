@@ -62,6 +62,59 @@ describe("redirectToEmailAccountPath", () => {
     mocks.cookies.mockResolvedValue({ get: () => undefined });
   });
 
+  it.each([
+    "/automation",
+    "/setup",
+  ] as const)("returns unauthenticated homepage visitors from %s to the public homepage", async (path) => {
+    mocks.auth.mockResolvedValue(null);
+
+    await expect(
+      redirectToEmailAccountPath(path, { fromHome: "true", ref: "campaign" }),
+    ).rejects.toThrow("redirect:/home?ref=campaign");
+
+    expect(mocks.auth).toHaveBeenCalledOnce();
+    expect(mocks.findFirst).not.toHaveBeenCalled();
+    expect(mocks.cookies).not.toHaveBeenCalled();
+    expect(getAccountRedirectLog(consoleLogSpy)).toEqual(
+      expect.objectContaining({ outcome: "home" }),
+    );
+  });
+
+  it.each([
+    "/automation",
+    "/setup",
+  ] as const)("keeps direct unauthenticated visits to %s on the login flow", async (path) => {
+    mocks.auth.mockResolvedValue(null);
+
+    await expect(redirectToEmailAccountPath(path)).rejects.toThrow(
+      `redirect:/login?next=${encodeURIComponent(path)}`,
+    );
+  });
+
+  it.each([
+    "/automation",
+    "/setup",
+  ] as const)("preserves signed-in homepage redirects to %s without forwarding the marker", async (path) => {
+    mocks.findFirst.mockResolvedValue({ id: "account_123" });
+
+    await expect(
+      redirectToEmailAccountPath(path, { fromHome: "true", ref: "campaign" }),
+    ).rejects.toThrow(`redirect:/account_123${path}?ref=campaign`);
+
+    expect(mocks.auth).toHaveBeenCalledOnce();
+  });
+
+  it("does not carry the homepage marker into mailbox connection", async () => {
+    mocks.findFirst.mockResolvedValue(null);
+
+    await expect(
+      redirectToEmailAccountPath("/automation", { fromHome: "true" }),
+    ).rejects.toThrow("redirect:/connect-mailbox?next=%2Fautomation");
+    expect(mocks.redirect).toHaveBeenCalledWith(
+      "/connect-mailbox?next=%2Fautomation",
+    );
+  });
+
   it("sends authenticated users without an email account to mailbox connection", async () => {
     mocks.findFirst.mockResolvedValue(null);
 
