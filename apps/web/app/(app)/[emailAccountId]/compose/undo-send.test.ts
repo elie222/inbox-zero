@@ -33,7 +33,7 @@ describe("undo send", () => {
 
   it("holds online sends for 30 seconds and skips the delay when offline", () => {
     expect(getUndoSendHoldUntil(false, 1000)).toBeUndefined();
-    expect(getUndoSendHoldUntil(true, 1000)).toBe(31_000);
+    expect(getUndoSendHoldUntil(true, 1000)).toBe(11_000);
   });
 
   it("restores the composer when undo cancels a held send", async () => {

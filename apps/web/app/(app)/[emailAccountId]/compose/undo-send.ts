@@ -4,7 +4,7 @@ import { getShortcutHint } from "@/lib/shortcuts/registry";
 import type { MailClient } from "@inboxzero/mail-core/engine";
 import type { OperationStatus } from "@inboxzero/mail-core/operations";
 
-export const UNDO_SEND_DELAY_MS = 30_000;
+export const UNDO_SEND_DELAY_MS = 10_000;
 const UNDO_SEND_TOAST_ID = "undo-send";
 // The server holds the send while it is executing or verifying, so undo stays
 // open until the send leaves it or the window ends.
