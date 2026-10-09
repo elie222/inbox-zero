@@ -47,6 +47,20 @@
     "components/email-list/ThreadDeliveryStatus.tsx",
     "components/ShortcutTooltipContent.tsx"
   ],
+  "compose-attachment-send.spec.ts": [
+    "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
+    "app/(app)/[emailAccountId]/compose/compose-attachments.ts",
+    "app/(app)/[emailAccountId]/compose/upload-draft-attachment.ts",
+    "app/(app)/[emailAccountId]/compose/useComposeDraftAttachments.ts",
+    "app/api/user/drafts/[draftId]/attachments/route.ts",
+    "app/api/user/drafts/[draftId]/attachments/uploads/[uploadId]/route.ts",
+    "utils/actions/draft-attachments.ts",
+    "utils/email/compose-draft.ts",
+    "utils/email/draft-attachment-upload.ts",
+    "utils/gmail/draft-attachments.ts",
+    "utils/gmail/resumable-draft-upload.ts",
+    "utils/outlook/draft-attachments.ts"
+  ],
   "composer-editing.spec.ts": [
     "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
     "components/ShortcutTooltipContent.tsx"

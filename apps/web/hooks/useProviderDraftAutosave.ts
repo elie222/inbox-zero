@@ -33,15 +33,19 @@ export function useProviderDraftAutosave<T>({
   sessionKey,
   getContent,
   save,
+  minIntervalMs = 0,
 }: {
   enabled: boolean;
   sessionKey?: string;
   getContent: () => T | undefined;
   save: (content: T) => Promise<void>;
+  /** Spaces out timed saves; closing, hiding, or going online still save. */
+  minIntervalMs?: number;
 }) {
   const [error, setError] = useState("");
-  const latest = useRef({ enabled, getContent, save });
-  latest.current = { enabled, getContent, save };
+  const latest = useRef({ enabled, getContent, save, minIntervalMs });
+  latest.current = { enabled, getContent, save, minIntervalMs };
+  const lastSaveStartedAt = useRef(0);
   const dirty = useRef(false);
   const pendingContent = useRef<T | undefined>(undefined);
   const savedSnapshot = useRef<string | undefined>(undefined);
@@ -89,6 +93,7 @@ export function useProviderDraftAutosave<T>({
     const request = Promise.resolve(session?.active)
       .then(async () => {
         if (paused.current) return;
+        lastSaveStartedAt.current = Date.now();
         await latest.current.save(content);
         savedSnapshot.current = snapshot;
         closedSaveFailures.current = 0;
@@ -159,7 +164,11 @@ export function useProviderDraftAutosave<T>({
       active: previous?.active,
     };
     if (sessionKey) sessions.set(sessionKey, session);
-    const timer = setInterval(flush, 3000);
+    const timer = setInterval(() => {
+      if (Date.now() - lastSaveStartedAt.current < latest.current.minIntervalMs)
+        return;
+      flush();
+    }, 3000);
     const flushLatest = () =>
       activeSave.current ? activeSave.current.then(flush) : flush();
     const onHidden = () => {

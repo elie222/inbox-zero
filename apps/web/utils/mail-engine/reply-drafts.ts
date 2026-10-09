@@ -1,7 +1,7 @@
 import type { DraftSaveResult } from "@inboxzero/mail-core/drafts";
 import type { MailClient } from "@inboxzero/mail-core/engine";
 import type {
-  EmailComposerAttachment,
+  EmailAttachmentMetadata,
   PreparedEmailDraft,
 } from "@inboxzero/email-editor/core";
 import type { EmailEditorPreservedBlock } from "@inboxzero/email-editor/web";
@@ -11,16 +11,29 @@ import { getActiveMailClient } from "@/utils/mail-engine/active-client";
 import { releaseSendAttachmentHolds } from "@/utils/mail-engine/stage-attachments";
 import type { SendEmailBody } from "@/utils/types/mail";
 
+/**
+ * A file already on the mailbox draft. Only the reference is stored locally;
+ * the mailbox draft holds the bytes.
+ */
+export type ComposeAttachmentReference = EmailAttachmentMetadata & {
+  draftAttachmentId: string;
+};
+
 export type ReplyDraftContent = {
   providerDraftId?: string;
   providerDraftCreationUnconfirmed?: boolean;
+  /**
+   * Mailbox messages this composer saved its draft as. The thread hides them
+   * so the open composer is the only place the draft shows.
+   */
+  providerDraftMessageIds?: string[];
   composeMode?: ReplyDraftMode;
   requestId?: string;
   deliveryPath?: "scheduled" | "outbox";
   values: Omit<SendEmailBody, "attachments" | "messageHtml">;
   draft: PreparedEmailDraft;
   preservedBlocks: EmailEditorPreservedBlock[];
-  attachments: EmailComposerAttachment[];
+  attachments: ComposeAttachmentReference[];
   sendAt?: string;
   remindAt?: string;
 };
@@ -210,6 +223,44 @@ export async function updateReplyDraftProviderState(
   return draftId;
 }
 
+/** The mailbox draft was deleted, so the next save starts a new one. */
+export async function forgetReplyDraftProvider(
+  identity: ReplyDraftIdentity,
+  providerDraftId: string,
+) {
+  await pendingWrites.get(draftKey(identity))?.catch(() => {});
+  const current = drafts.get(draftKey(identity));
+  if (current?.content?.providerDraftId !== providerDraftId) return;
+  const {
+    providerDraftId: _draftId,
+    providerDraftCreationUnconfirmed: _unconfirmed,
+    providerDraftMessageIds: _messageIds,
+    ...content
+  } = current.content;
+  drafts.set(draftKey(identity), { ...current, content });
+  await persistEngineReplyDraft(identity, content).catch(() => {});
+}
+
+export async function rememberProviderDraftMessage(
+  identity: ReplyDraftIdentity,
+  requestId: string,
+  messageId: string,
+) {
+  await pendingWrites.get(draftKey(identity))?.catch(() => {});
+  assertAccountEpoch(identity.emailAccountId);
+  const current = drafts.get(draftKey(identity));
+  if (!current?.content || current.content.requestId !== requestId) return;
+  const messageIds = current.content.providerDraftMessageIds ?? [];
+  if (messageIds.includes(messageId)) return;
+  const nextContent = {
+    ...current.content,
+    providerDraftMessageIds: [...messageIds, messageId].slice(-50),
+  };
+  drafts.set(draftKey(identity), { ...current, content: nextContent });
+  await persistEngineReplyDraft(identity, nextContent).catch(() => {});
+  notifyReplyDraftChange(identity);
+}
+
 export async function getReplyDrafts(emailAccountId: string, threadId: string) {
   assertAccountEpoch(emailAccountId);
   return [...drafts.values()].filter(
@@ -257,6 +308,20 @@ export function createReplyDraftWriter(
             }),
           };
         }
+        // The composer doesn't track the mailbox copies of its draft; they
+        // belong to the mailbox draft, whichever composer session saves.
+        const providerDraftId =
+          nextContent?.providerDraftId ?? previous?.content?.providerDraftId;
+        if (
+          nextContent &&
+          providerDraftId &&
+          previous?.content?.providerDraftId === providerDraftId &&
+          previous.content.providerDraftMessageIds
+        )
+          nextContent = {
+            ...nextContent,
+            providerDraftMessageIds: previous.content.providerDraftMessageIds,
+          };
         drafts.set(draftKey(identity), {
           ...identity,
           content: nextContent,
@@ -461,7 +526,15 @@ export async function restoreUnsentReplyDraft(input: {
         signatureHtml: "",
       },
       preservedBlocks: [],
+      // The mailbox draft still holds the files; the composer lists them from
+      // there when it reopens.
       attachments: [],
+      ...(stored.content.providerDraftId
+        ? { providerDraftId: stored.content.providerDraftId }
+        : {}),
+      ...(stored.content.providerDraftMessageIds
+        ? { providerDraftMessageIds: stored.content.providerDraftMessageIds }
+        : {}),
     });
   } finally {
     try {

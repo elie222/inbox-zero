@@ -84,7 +84,12 @@ export function EmailThread({
       outgoing?: OutgoingThreadMessage;
     }> => [
       ...organizeThreadMessages(
-        withoutReplacedDrafts(messages, emailAccountId),
+        withoutLocallyComposedDrafts(
+          withoutReplacedDrafts(messages, emailAccountId),
+          localDrafts.flatMap(
+            (draft) => draft.content?.providerDraftMessageIds ?? [],
+          ),
+        ),
       ),
       ...outgoing.map((item) => ({
         message: {
@@ -95,7 +100,7 @@ export function EmailThread({
         outgoing: item,
       })),
     ],
-    [messages, emailAccountId, outgoing, userEmail],
+    [messages, emailAccountId, localDrafts, outgoing, userEmail],
   );
 
   // A conversation whose only message is a draft — how the Drafts folder lists
@@ -482,6 +487,20 @@ function withoutReplacedDrafts(
     );
     return !latest || latest === message.id || !messageIds.has(latest);
   });
+}
+
+// A reply with files is saved to the mailbox while its composer is open. The
+// composer already shows it, so the saved copy would be a second editor.
+function withoutLocallyComposedDrafts(
+  messages: ThreadMessage[],
+  composedIds: string[],
+) {
+  if (!composedIds.length) return messages;
+  return messages.filter(
+    (message) =>
+      !message.labelIds?.includes(GmailLabel.DRAFT) ||
+      !composedIds.includes(message.id),
+  );
 }
 
 function sortDraftsOldestFirst(drafts: ThreadMessage[]) {
