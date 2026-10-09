@@ -42,12 +42,6 @@ export async function scheduleEmail(
     input.email.replyToEmail.threadId !== input.threadId
   )
     throw new SafeError("The reply belongs to a different conversation.");
-  // Files stay on the mailbox draft, which the send goes out from, so a
-  // scheduled row never holds their bytes.
-  if (input.email.attachments?.length)
-    throw new SafeError(
-      "Attach files to the mailbox draft before scheduling this email.",
-    );
   try {
     return await prisma.scheduledEmail.create({
       data: {

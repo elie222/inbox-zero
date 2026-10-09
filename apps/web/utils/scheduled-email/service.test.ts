@@ -54,8 +54,10 @@ describe("scheduled replies", () => {
     ).rejects.toThrow("after");
     expect(prisma.scheduledEmail.create).not.toHaveBeenCalled();
   });
-  it("keeps attachment bytes out of a scheduled send", async () => {
+  // Native clients schedule over HTTP with the files inline.
+  it("still schedules a send that carries its attachments", async () => {
     prisma.scheduledEmail.findUnique.mockResolvedValue(null);
+    prisma.scheduledEmail.create.mockResolvedValue(row());
     await expect(
       scheduleEmail(
         "account",
@@ -74,8 +76,16 @@ describe("scheduled replies", () => {
         },
         now,
       ),
-    ).rejects.toThrow("mailbox draft");
-    expect(prisma.scheduledEmail.create).not.toHaveBeenCalled();
+    ).resolves.toBeDefined();
+    expect(prisma.scheduledEmail.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        payload: expect.objectContaining({
+          email: expect.objectContaining({
+            attachments: [expect.objectContaining({ filename: "report.pdf" })],
+          }),
+        }),
+      }),
+    });
   });
   it("schedules a send from its mailbox draft and records the draft's messages", async () => {
     prisma.scheduledEmail.findUnique.mockResolvedValue(null);

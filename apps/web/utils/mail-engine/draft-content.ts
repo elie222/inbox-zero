@@ -1,12 +1,14 @@
 import type { DraftContent } from "@inboxzero/mail-core/drafts";
 import { splitRecipientList } from "@/utils/email";
 import type { SendEmailBody } from "@/utils/types/mail";
+import type { ComposeAttachmentReference } from "@/utils/mail-engine/reply-drafts";
 
 export function sendEmailToDraftContent(
   email: SendEmailBody,
   attachmentIds: string[],
   conversationId?: string,
   providerDraftMessageIds: string[] = [],
+  attachments: ComposeAttachmentReference[] = [],
 ): DraftContent {
   return {
     to: splitRecipientList(email.to).slice(0, 100),
@@ -22,6 +24,10 @@ export function sendEmailToDraftContent(
       : {}),
     ...(providerDraftMessageIds.length
       ? { providerDraftMessageIds: providerDraftMessageIds.slice(-50) }
+      : {}),
+    // Restoring the send for editing lists these without asking the mailbox.
+    ...(attachments.length
+      ? { clientState: JSON.stringify({ attachments }) }
       : {}),
   };
 }
