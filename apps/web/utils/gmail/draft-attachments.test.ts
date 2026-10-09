@@ -169,6 +169,32 @@ describe("rewriteGmailDraft", () => {
     ).resolves.not.toThrow();
   });
 
+  it("gives an identical file from another client its own id", async () => {
+    const draft = draftWithReport();
+    const external = (headers: { name: string; value: string }[]) => ({
+      ...draft.payload.parts[1]!,
+      headers: [
+        { name: "Content-Disposition", value: "attachment" },
+        ...headers,
+      ],
+      body: { attachmentId: "A".repeat(300), size: EXISTING_BYTES.length },
+    });
+    const [first] = listGmailAttachmentParts(draft.id, {
+      ...draft.payload,
+      parts: [draft.payload.parts[0]!, external([])],
+    });
+    // The first copy was rebuilt and carries its id; a second copy arrives.
+    const ids = listGmailAttachmentParts(draft.id, {
+      ...draft.payload,
+      parts: [
+        draft.payload.parts[0]!,
+        external([{ name: "X-Attachment-Id", value: first!.attachment.id }]),
+        external([]),
+      ],
+    }).map((part) => part.attachment.id);
+    expect(new Set(ids).size).toBe(2);
+  });
+
   it("keeps a plain-text draft as plain text when its files change", async () => {
     getDraft.mockResolvedValue({
       ...draftWithReport(),

@@ -83,8 +83,15 @@ export function listGmailAttachmentParts(
   messageId: string,
   payload: gmail_v1.Schema$MessagePart | null | undefined,
 ): GmailAttachmentPart[] {
+  const parts = collectAttachmentParts(payload);
+  const usedIds = new Set(
+    parts.flatMap((part) => {
+      const id = partHeaders(part).get(ATTACHMENT_ID_HEADER.toLowerCase());
+      return id ? [id] : [];
+    }),
+  );
   const seen = new Map<string, number>();
-  return collectAttachmentParts(payload).map((part) => {
+  return parts.map((part) => {
     const headers = partHeaders(part);
     const contentId = headers.get("content-id")?.trim().replace(/^<|>$/g, "");
     const disposition = partDisposition(part);
@@ -101,7 +108,7 @@ export function listGmailAttachmentParts(
       attachment: {
         id:
           headers.get(ATTACHMENT_ID_HEADER.toLowerCase()) ??
-          derivedAttachmentId(seen, filename, mimeType, size),
+          derivedAttachmentId(seen, usedIds, filename, mimeType, size),
         filename,
         mimeType,
         size,
@@ -306,17 +313,25 @@ function partHeaders(part: gmail_v1.Schema$MessagePart) {
 // A file without our id header (written by another client, or never rebuilt)
 // gets an id from what Gmail reports about it, so listing it before and after
 // a rebuild yields the same id that the rebuild then writes into the header.
+// Ids other files already carry are skipped, so identical files never share one.
 function derivedAttachmentId(
   seen: Map<string, number>,
+  usedIds: Set<string>,
   filename: string,
   mimeType: string,
   size: number,
 ) {
   const key = JSON.stringify([filename, mimeType, size]);
-  const occurrence = seen.get(key) ?? 0;
-  seen.set(key, occurrence + 1);
-  return createHash("sha256")
-    .update(`${key}:${occurrence}`)
-    .digest("hex")
-    .slice(0, 32);
+  let occurrence = seen.get(key) ?? 0;
+  let id: string;
+  do {
+    id = createHash("sha256")
+      .update(`${key}:${occurrence}`)
+      .digest("hex")
+      .slice(0, 32);
+    occurrence++;
+  } while (usedIds.has(id));
+  seen.set(key, occurrence);
+  usedIds.add(id);
+  return id;
 }
