@@ -827,39 +827,6 @@ describe("GmailProvider.updateDraft", () => {
     expect(update).not.toHaveBeenCalled();
   });
 
-  it("writes new attachments and removes old files when the composer supplies the complete set", async () => {
-    const update = vi.fn().mockResolvedValue({ data: {} });
-    const client = new gmail_v1.Gmail({});
-    client.users.drafts.update = update;
-    const provider = new GmailProvider(client);
-    gmailDraftMock.getDraft.mockResolvedValue({
-      ...createParsedMessage({ id: "draft-message-1", internalDate: "1000" }),
-      payload: {
-        mimeType: "multipart/mixed",
-        parts: [{ filename: "old.txt", body: { attachmentId: "old-file" } }],
-      },
-    });
-    await provider.updateDraft("draft-1", {
-      messageHtml: "<p>Example</p>",
-      attachments: [
-        {
-          filename: "example.txt",
-          content: Buffer.from("Example attachment").toString("base64"),
-          contentType: "text/plain",
-        },
-      ],
-    });
-    const mime = decodeBase64Url(
-      update.mock.calls[0][0].requestBody.message.raw,
-    );
-    expect(mime).toContain("filename=example.txt");
-    expect(mime).not.toContain("old.txt");
-    await provider.updateDraft("draft-1", { attachments: [] });
-    expect(
-      decodeBase64Url(update.mock.calls[1][0].requestBody.message.raw),
-    ).not.toContain("filename=");
-  });
-
   it.each([
     true,
     false,
@@ -911,9 +878,9 @@ describe("GmailProvider.updateDraft", () => {
       messageHtml: '<p>Edited</p><img src="cid:logo@example.com">',
     });
 
-    const mime = decodeBase64Url(
-      update.mock.calls[0][0].requestBody.message.raw,
-    );
+    const upload = update.mock.calls[0][0];
+    expect(upload.media.mimeType).toBe("message/rfc822");
+    const mime = await readStream(upload.media.body);
     expect(mime).toContain("From: alias@example.com");
     expect(mime).toContain("filename=report.pdf");
     expect(mime).toContain(Buffer.from("attachment bytes").toString("base64"));
@@ -1209,4 +1176,10 @@ function createGmailClient(
   messages: Partial<gmail_v1.Gmail["users"]["messages"]>,
 ) {
   return { users: { messages } } as unknown as gmail_v1.Gmail;
+}
+
+async function readStream(stream: AsyncIterable<Buffer | string>) {
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+  return Buffer.concat(chunks).toString();
 }

@@ -65,10 +65,22 @@ it("retries updates using the existing provider draft and clears omitted recipie
   });
   expect(provider.createDraft).not.toHaveBeenCalled();
   expect(provider.updateDraft).toHaveBeenLastCalledWith("draft-1", {
-    ...content,
+    to: content.to,
+    subject: content.subject,
+    messageHtml: content.messageHtml,
     cc: "",
     bcc: "",
   });
+});
+it("never replaces the attachments already on the mailbox draft when saving", async () => {
+  await saveComposeDraft({
+    provider,
+    draftId: "draft-1",
+    content: { ...content, attachments: [] },
+  });
+  expect(vi.mocked(provider.updateDraft).mock.calls[0]?.[1]).not.toHaveProperty(
+    "attachments",
+  );
 });
 it("rejects an unconfirmed creation", async () => {
   vi.mocked(provider.createDraft).mockResolvedValue({ id: "" });
@@ -98,12 +110,28 @@ it("updates and sends the provider draft directly", async () => {
     await sendComposeDraft({ provider, draftId: "draft-1", email: content }),
   ).toEqual(sent);
   expect(provider.updateDraft).toHaveBeenCalledWith("draft-1", {
-    ...content,
+    to: content.to,
+    subject: content.subject,
+    messageHtml: content.messageHtml,
     cc: "",
     bcc: "",
   });
   expect(provider.sendDraft).toHaveBeenCalledWith("draft-1");
   expect(provider.createDraft).not.toHaveBeenCalled();
+});
+it("sends the attachments already on the mailbox draft instead of replacing them", async () => {
+  vi.mocked(provider.sendDraft).mockResolvedValue({
+    messageId: "sent-1",
+    threadId: "thread-1",
+  });
+  await sendComposeDraft({
+    provider,
+    draftId: "draft-1",
+    email: { ...content, attachments: [] },
+  });
+  expect(vi.mocked(provider.updateDraft).mock.calls[0]?.[1]).not.toHaveProperty(
+    "attachments",
+  );
 });
 it("does not send when updating the draft fails", async () => {
   vi.mocked(provider.updateDraft).mockRejectedValue(new Error("Draft missing"));
@@ -125,5 +153,18 @@ it("creates a provider reply draft in the original conversation", async () => {
     expect.objectContaining({
       replyToMessageId: "parent-1",
     }),
+  );
+});
+
+it("creates a forward draft from the forwarded message so its files travel with it", async () => {
+  await saveComposeDraft({
+    provider,
+    content: {
+      ...content,
+      replyToEmail: { threadId: "thread-1", forwardedMessageId: "source-1" },
+    },
+  });
+  expect(provider.createDraft).toHaveBeenCalledWith(
+    expect.objectContaining({ forwardedMessageId: "source-1" }),
   );
 });

@@ -144,7 +144,7 @@ export function getEmbeddedGmailAttachmentDescriptors(
   if (size > maximumEmbeddedBytes) return [];
   return [
     {
-      attachmentId: embeddedPartPrefix + encodeURIComponent(payload.partId),
+      attachmentId: embeddedGmailAttachmentId(payload.partId),
       filename: payload.filename ?? "",
       mimeType: payload.mimeType,
       size,
@@ -158,6 +158,11 @@ export function getEmbeddedGmailAttachmentDescriptors(
       },
     },
   ];
+}
+
+/** Small parts carry their bytes inline and have no Gmail attachment id. */
+export function embeddedGmailAttachmentId(partId: string) {
+  return embeddedPartPrefix + encodeURIComponent(partId);
 }
 
 async function readEmbeddedGmailAttachment(

@@ -52,13 +52,15 @@ const encodeMessage = (message: Buffer) =>
     .replace(/\//g, "_")
     .replace(/=+$/, "");
 
-export const createMail = async (options: Mail.Options) => {
+export async function buildMailMessage(options: Mail.Options) {
   const mailComposer = new MailComposer(options);
   const compiledMessage = mailComposer.compile();
   compiledMessage.keepBcc = true;
-  const message = await compiledMessage.build();
-  return encodeMessage(message);
-};
+  return compiledMessage.build();
+}
+
+export const createMail = async (options: Mail.Options) =>
+  encodeMessage(await buildMailMessage(options));
 
 const createRawMailMessage = async ({
   to,

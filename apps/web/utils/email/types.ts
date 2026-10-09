@@ -10,11 +10,46 @@ import type {
 } from "@/utils/outlook/folders";
 import type { Attachment as MailAttachment } from "nodemailer/lib/mailer";
 import type { SendEmailBody } from "@/utils/types/mail";
+import type { DraftAttachmentMetadata } from "@/utils/actions/draft-attachments.validation";
+import type { DraftMessageUploadPart } from "@/utils/email/draft-attachment-upload";
 import type { EmailContact } from "@/utils/email/contact";
 import type {
   LabelVisibility,
   MessageVisibility,
 } from "@/utils/gmail/constants";
+
+export type DraftAttachment = {
+  /** Stays the same across draft saves, so the composer can remove it later. */
+  id: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  disposition: "attachment" | "inline";
+  contentId?: string;
+  /** Where the attachment content route reads the bytes from right now. */
+  messageId: string;
+  providerAttachmentId: string;
+};
+
+export type DraftAttachmentsResult = {
+  messageId: string;
+  attachments: DraftAttachment[];
+};
+
+/**
+ * How the browser sends a file too large for one request to our server.
+ * Outlook hands out a pre-authenticated URL the browser uploads to directly.
+ * Gmail replaces the whole message, so the browser uploads the full MIME
+ * (server-built text around the attachment bytes) through our chunk proxy.
+ */
+export type DraftAttachmentUploadStart =
+  | { type: "provider-url"; uploadUrl: string }
+  | {
+      type: "gmail-message";
+      sessionUri: string;
+      parts: DraftMessageUploadPart[];
+      totalBytes: number;
+    };
 
 export type SendEmailOptions = {
   /** Keep the provider's reply subject when changing it would break threading. */
@@ -138,6 +173,10 @@ export type ProviderMailboxSearch = {
 };
 
 export interface EmailProvider {
+  addDraftAttachment(
+    draftId: string,
+    attachment: DraftAttachmentMetadata & { content: Buffer },
+  ): Promise<DraftAttachmentsResult & { attachmentId: string }>;
   archiveMessage(messageId: string): Promise<void>;
   archiveMessages(messageIds: string[], labelId?: string): Promise<void>;
   archiveThread(threadId: string, ownerEmail: string): Promise<void>;
@@ -186,6 +225,8 @@ export interface EmailProvider {
     subject: string;
     messageHtml: string;
     replyToMessageId?: string; // For proper threading
+    /** Starts the draft as a forward of this message, carrying its files. */
+    forwardedMessageId?: string;
   }): Promise<{ id: string }>;
   createFilter(options: {
     from: string;
@@ -237,6 +278,7 @@ export interface EmailProvider {
     draftId: string,
     options?: { includeAttachments?: boolean },
   ): Promise<ParsedMessage | null>;
+  getDraftAttachments(draftId: string): Promise<DraftAttachmentsResult | null>;
   getDraftReferenceForMessage(
     messageId: string,
   ): Promise<DraftReference | null>;
@@ -374,6 +416,10 @@ export interface EmailProvider {
     folderName: string,
   ): Promise<void>;
   readonly name: "google" | "microsoft";
+  removeDraftAttachment(
+    draftId: string,
+    attachmentId: string,
+  ): Promise<DraftAttachmentsResult>;
   removeThreadLabel(threadId: string, labelId: string): Promise<void>;
   removeThreadLabels(threadId: string, labelIds: string[]): Promise<void>;
   renameFolder(folderId: string, name: string): Promise<void>;
@@ -437,6 +483,10 @@ export interface EmailProvider {
     threadId: string;
   }>;
   starMessage(messageId: string): Promise<void>;
+  startDraftAttachmentUpload(
+    draftId: string,
+    attachment: DraftAttachmentMetadata,
+  ): Promise<DraftAttachmentUploadStart>;
   syncLocalMail(
     request: LocalMailSyncRequest,
     context: { emailAccountId: string },
@@ -465,7 +515,6 @@ export interface EmailProvider {
       to?: string;
       cc?: string;
       bcc?: string;
-      attachments?: SendEmailBody["attachments"];
     },
   ): Promise<void>;
   updateLabel(labelId: string, update: EmailLabelUpdate): Promise<void>;
