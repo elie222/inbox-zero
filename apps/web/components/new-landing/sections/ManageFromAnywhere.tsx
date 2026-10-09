@@ -12,11 +12,13 @@ import {
   SectionSubtitle,
 } from "@/components/new-landing/common/Typography";
 
-const platforms: {
+type Platform = {
   name: string;
   icon: React.ReactNode;
   comingSoon?: boolean;
-}[] = [
+};
+
+const defaultPlatforms: Platform[] = [
   {
     name: "Slack",
     icon: <Image src="/images/slack.svg" alt="Slack" width={56} height={56} />,
@@ -42,14 +44,19 @@ const platforms: {
   },
 ];
 
-export function ManageFromAnywhere() {
+export function ManageFromAnywhere({
+  title = "Your inbox, wherever you work",
+  subtitle = "Read emails, draft replies, and manage your inbox from Slack, Telegram, mobile, or the web, without switching apps.",
+  platforms = defaultPlatforms,
+}: {
+  platforms?: Platform[];
+  subtitle?: React.ReactNode;
+  title?: React.ReactNode;
+}) {
   return (
     <Section>
-      <SectionHeading>Your inbox, wherever you work</SectionHeading>
-      <SectionSubtitle>
-        Read emails, draft replies, and manage your inbox from Slack, Telegram,
-        mobile, or the web, without switching apps.
-      </SectionSubtitle>
+      <SectionHeading>{title}</SectionHeading>
+      <SectionSubtitle>{subtitle}</SectionSubtitle>
       <SectionContent className="flex justify-center">
         <BlurFade inView>
           <div className="flex flex-wrap items-start justify-center gap-6 sm:gap-10">

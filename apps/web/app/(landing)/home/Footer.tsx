@@ -13,6 +13,7 @@ export const footerNavigation = {
       target: "_blank",
     },
     { name: "AI Email Assistant", href: "/ai-automation" },
+    { name: "Email Client", href: "/email-client" },
     { name: "Mobile App", href: "/mobile-app" },
     { name: "Desktop App", href: "/desktop" },
     { name: "AI Chat for Slack & Telegram", href: "/ai-assistant-chat" },
