@@ -1,5 +1,6 @@
 "use server";
 
+import { toggleRule } from "@/utils/rule/toggle-rule";
 import { getDefaultMailSplitDrafts } from "@/utils/split-inbox/default-splits";
 import { ONBOARDING_PROCESS_EMAILS_COUNT } from "@/utils/config";
 import { after } from "next/server";
@@ -38,10 +39,8 @@ import {
 import { SafeError } from "@/utils/error";
 import {
   getRuleConfig,
-  getSystemRuleActionTypes,
   getCategoryAction,
   getActionTypesForCategoryAction,
-  isOptInSystemType,
   STANDARD_CATEGORY_SYSTEM_TYPES,
 } from "@/utils/rule/consts";
 import { actionClient, actionClientUser } from "@/utils/actions/safe-action";
@@ -682,134 +681,6 @@ export const copyRulesFromAccountAction = actionClientUser
     },
   );
 
-async function toggleRule({
-  ruleId,
-  systemType,
-  enabled,
-  emailAccountId,
-  provider,
-  logger,
-}: {
-  ruleId: string | undefined;
-  systemType: SystemType | undefined;
-  enabled: boolean;
-  emailAccountId: string;
-  provider: string;
-  logger: Logger;
-}) {
-  if (ruleId) {
-    await assertRuleIsNotOrgManaged({ ruleId, emailAccountId });
-    return await setRuleEnabled({ ruleId, emailAccountId, enabled });
-  }
-
-  if (!systemType) {
-    throw new SafeError("System type is required");
-  }
-
-  const existingRule = await prisma.rule.findUnique({
-    where: {
-      emailAccountId_systemType: {
-        emailAccountId,
-        systemType,
-      },
-    },
-  });
-
-  if (existingRule) {
-    const updatedRule = await setRuleEnabled({
-      ruleId: existingRule.id,
-      emailAccountId,
-      enabled,
-    });
-    if (enabled) {
-      await ensureDefaultMailSplitForRule({
-        emailAccountId,
-        systemType,
-        logger,
-      });
-    } else if (isOptInSystemType(systemType)) {
-      await ensureDefaultMailSplitForRule({
-        emailAccountId,
-        systemType,
-        enabled: false,
-        logger,
-      });
-    }
-    return updatedRule;
-  }
-
-  const emailProvider = await createEmailProvider({
-    emailAccountId,
-    provider,
-    logger,
-  });
-
-  const ruleConfig = getRuleConfig(systemType);
-  const actionTypes = getSystemRuleActionTypes(systemType, provider);
-
-  const actions: RuleActionCreateData[] = [];
-
-  for (const actionType of actionTypes) {
-    if (actionType.includeFolder) {
-      const folderId = await emailProvider.getOrCreateFolderIdByName(
-        ruleConfig.name,
-      );
-      actions.push({
-        type: actionType.type,
-        folderId,
-        folderName: ruleConfig.name,
-      });
-    } else if (actionType.includeLabel) {
-      const labelInfo = await resolveLabelNameAndId({
-        emailProvider,
-        label: ruleConfig.label,
-        labelId: null,
-      });
-      actions.push({
-        type: actionType.type,
-        labelId: labelInfo.labelId,
-        label: labelInfo.label,
-      });
-    } else {
-      actions.push({
-        type: actionType.type,
-      });
-    }
-  }
-
-  const upsertedRule = await upsertSystemRule({
-    name: ruleConfig.name,
-    instructions: ruleConfig.instructions,
-    actions,
-    emailAccountId,
-    systemType,
-    runOnThreads: ruleConfig.runOnThreads,
-    enabled,
-    logger,
-  });
-
-  if (!upsertedRule) {
-    logger.error("Failed to upsert system rule");
-    throw new SafeError("Failed to create rule");
-  }
-
-  logger.info("Successfully upserted system rule", {
-    ruleId: upsertedRule.id,
-    ruleName: upsertedRule.name,
-    systemType: upsertedRule.systemType,
-  });
-
-  if (enabled) {
-    await ensureDefaultMailSplitForRule({
-      emailAccountId,
-      systemType,
-      logger,
-    });
-  }
-
-  return upsertedRule;
-}
-
 function mapActionToSanitizedFields(action: {
   type: ActionType;
   messagingChannelId?: string | null;
@@ -898,36 +769,6 @@ function handleRuleError(error: unknown, logger: Logger) {
   }
   logger.error("Error creating/updating rule", { error });
   throw new SafeError("Error creating/updating rule");
-}
-
-async function ensureDefaultMailSplitForRule({
-  emailAccountId,
-  systemType,
-  enabled = true,
-  logger,
-}: {
-  emailAccountId: string;
-  systemType: SystemType;
-  enabled?: boolean;
-  logger: Logger;
-}) {
-  try {
-    const rule = await prisma.rule.findUnique({
-      where: { emailAccountId_systemType: { emailAccountId, systemType } },
-      select: {
-        systemType: true,
-        actions: { select: { type: true, labelId: true } },
-      },
-    });
-    if (!rule) return;
-    await setDefaultMailSplits({
-      emailAccountId,
-      defaultSplits: getDefaultMailSplitDrafts([rule]),
-      enabled,
-    });
-  } catch (error) {
-    logger.error("Error creating default mail split", { error });
-  }
 }
 
 async function resolveActionLabels<

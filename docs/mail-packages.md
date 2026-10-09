@@ -25,3 +25,8 @@ depend on it, before merging. Mobile depends on the published versions.
 
 Do not import `@inboxzero/mail-sqlite/node` from a non-Node host. That entry
 point uses Node file APIs.
+
+## Account settings API
+
+Installed clients can edit split inbox tabs and resolve library presets through
+the [split inbox REST API](mail-api-splits.md).
