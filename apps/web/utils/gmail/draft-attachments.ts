@@ -17,7 +17,6 @@ import {
 } from "@/utils/gmail/attachment";
 import { getDraft } from "@/utils/gmail/draft";
 import { buildMailMessage } from "@/utils/gmail/mail";
-import { getGoogleGmailApiRootUrl } from "@/utils/gmail/oauth";
 import { withGmailRetry } from "@/utils/gmail/retry";
 import { convertEmailHtmlToText } from "@/utils/mail";
 
@@ -205,7 +204,7 @@ export async function uploadGmailDraftMessage(
 ) {
   const { draftId, threadId } = draft;
   // The client's root URL isn't applied to upload URLs, so pass it per call.
-  const options = { rootUrl: getGoogleGmailApiRootUrl() };
+  const options = { rootUrl: gmail.context._options.rootUrl };
   const result = await withGmailRetry(() => {
     // Built per attempt because a retry needs a fresh stream.
     const upload = {

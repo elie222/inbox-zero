@@ -819,6 +819,7 @@ describe("GmailProvider.updateDraft", () => {
   it("does not write a draft that has been sent or deleted", async () => {
     const update = vi.fn();
     const provider = new GmailProvider({
+      context: { _options: {} },
       users: { drafts: { update } },
     } as any);
     gmailDraftMock.getDraft.mockResolvedValueOnce(null);
@@ -926,6 +927,7 @@ describe("GmailProvider.updateDraft", () => {
   it("keeps Gmail threading metadata and MIME-encodes non-ASCII subjects", async () => {
     const update = vi.fn().mockResolvedValue({ data: {} });
     const provider = new GmailProvider({
+      context: { _options: {} },
       users: { drafts: { update } },
     } as any);
     const subject = "Re: ok but you NEED to share your secrets 👀🔍";
@@ -1161,10 +1163,6 @@ function createParsedMessage({
     textPlain: "",
     textHtml: "",
   };
-}
-
-function decodeBase64Url(value: string): string {
-  return Buffer.from(value, "base64url").toString("utf8");
 }
 
 function createGmailClient(
