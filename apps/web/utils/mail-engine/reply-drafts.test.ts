@@ -331,6 +331,47 @@ describe("local reply drafts", () => {
     setActiveMailClient(null);
   });
 
+  it("reopens an undone reply on its mailbox draft so its files are still sent", async () => {
+    const { setActiveMailClient } = await import("./active-client");
+    setActiveMailClient({
+      async readDraft() {
+        return {
+          status: "found" as const,
+          draftRevision: 1,
+          content: {
+            to: ["leslie@example.com"],
+            cc: [],
+            bcc: [],
+            subject: "Re: Reply Workflow Message",
+            editableHtml: "<p>Report attached.</p>",
+            quotedHtml: "",
+            attachmentIds: [],
+            providerDraftId: "provider-draft-1",
+            providerDraftMessageIds: ["draft-message-1"],
+          },
+        };
+      },
+      async saveDraft() {
+        return {
+          status: "saved" as const,
+          draftRevision: 1,
+          revision: { databaseEpoch: "e", sequence: 1 },
+        };
+      },
+    } as never);
+    await restoreUnsentReplyDraft({
+      emailAccountId: "account",
+      threadId: "thread",
+      messageId: "parent",
+      operationId: "send-1",
+    });
+    expect((await getReplyDraft(replyIdentity))?.content).toMatchObject({
+      providerDraftId: "provider-draft-1",
+      providerDraftMessageIds: ["draft-message-1"],
+    });
+    setActiveMailClient(null);
+  });
+
   it("restores through an explicit mail client when the active client is missing", async () => {
     const { setActiveMailClient } = await import("./active-client");
     setActiveMailClient(null);

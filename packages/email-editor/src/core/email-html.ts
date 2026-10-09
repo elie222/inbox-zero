@@ -110,7 +110,10 @@ export function finalizeEditableEmailHtml({
   mode,
 }: {
   html: string;
-  inlineAttachments: EmailComposerAttachment[];
+  inlineAttachments: Pick<
+    EmailAttachmentMetadata,
+    "disposition" | "contentId"
+  >[];
   mode: EmailBodyMode;
 }) {
   if (mode === "original") return html;

@@ -1,14 +1,13 @@
 "use client";
 
 import {
-  type EmailComposerAttachment,
   type EmailAttachmentMetadata,
   EMAIL_INLINE_IMAGE_MIME_TYPES,
   combineEmailHtml,
+  detectInlineImageMimeType,
   finalizeEditableEmailHtml,
   prepareEmailDraft,
   validateEmailAttachmentMetadata,
-  validateEmailAttachments,
 } from "@inboxzero/email-editor/core";
 import {
   EmailEditor,
@@ -17,7 +16,9 @@ import {
 } from "@inboxzero/email-editor/web";
 import {
   ChevronDownIcon,
+  CircleAlertIcon,
   ImageIcon,
+  Loader2Icon,
   PaperclipIcon,
   PictureInPicture2Icon,
   TrashIcon,
@@ -82,6 +83,7 @@ import type { StoredReplyDraft } from "@/utils/mail-engine/reply-drafts";
 import {
   getDraftSessionMessageIds,
   getReplyDraft,
+  rememberProviderDraftMessage,
   rememberReplacedDraftMessage,
   updateReplyDraftProviderState,
   type ReplyDraftContent,
@@ -104,6 +106,7 @@ import {
   validateSendEmailPayloadSize,
 } from "@/utils/types/mail";
 import { randomUuid } from "@/utils/uuid";
+import type { DraftAttachment } from "@/utils/email/types";
 import { cn } from "@/utils";
 import {
   type ComposeRecipientField,
@@ -123,6 +126,27 @@ import {
 } from "./queued-reply";
 import { beginUndoSend, UNDO_SEND_DELAY_MS } from "./undo-send";
 import { getReplyToEmailPayload } from "./reply-to-email-payload";
+import { deleteComposeAttachmentBytes } from "./attachment-bytes";
+import {
+  enqueueDraftOperation,
+  waitForDraftOperations,
+} from "./draft-operation-queue";
+import {
+  type DraftAttachmentUploadResult,
+  removeDraftAttachment,
+  uploadDraftAttachment,
+} from "./upload-draft-attachment";
+import {
+  type LoadedComposeAttachment,
+  useComposeDraftAttachments,
+} from "./useComposeDraftAttachments";
+import {
+  type ComposeAttachment,
+  getEditorInlineAttachments,
+  mergeDraftAttachments,
+  toAttachmentMetadata,
+  toAttachmentReference,
+} from "./compose-attachments";
 
 export type ReplyingToEmail = {
   threadId?: string;
@@ -163,10 +187,6 @@ type ComposeEmailFormProps = {
   onRestore?: () => void;
   onDiscard?: (draftId?: string) => boolean | Promise<boolean>;
   onPopOut?: () => void;
-};
-
-type ComposeAttachment = EmailComposerAttachment & {
-  previewUrl?: string;
 };
 
 type ComposeFormValues = Omit<SendEmailBody, "attachments" | "messageHtml">;
@@ -233,10 +253,21 @@ function ComposeEmailFormWithEngine(props: ComposeEmailFormProps) {
       : undefined,
     props.draftMode,
   );
+  const draftAttachments = useComposeDraftAttachments({
+    emailAccountId: selectedEmailAccountId,
+    storedDraft: localDraft.draft,
+    providerDraftMessageId: props.providerDraftMessageId,
+    enabled: !localDraft.isLoading,
+  });
   return (
     <LoadingContent
       error={error}
-      loading={isLoading || localDraft.isLoading || isLoadingReferralCode}
+      loading={
+        isLoading ||
+        localDraft.isLoading ||
+        draftAttachments.isLoading ||
+        isLoadingReferralCode
+      }
     >
       {emailAccount && (
         <ShortcutsProvider scopes={MAIL_SHORTCUT_SCOPES}>
@@ -244,6 +275,8 @@ function ComposeEmailFormWithEngine(props: ComposeEmailFormProps) {
             {...props}
             localDraftIdentity={localDraftIdentity}
             storedDraft={localDraft.draft}
+            initialAttachments={draftAttachments.attachments}
+            initialProviderDraftId={draftAttachments.draftId}
             draftLoadError={localDraft.error}
             accountProvider={selectedAccountProvider}
             accountSignatureHtml={emailAccount.signature ?? ""}
@@ -282,9 +315,13 @@ function ComposeEmailFormContent({
   onDiscard,
   onPopOut,
   localDraftIdentity,
+  initialAttachments,
+  initialProviderDraftId,
 }: ComposeEmailFormProps & {
   localDraftIdentity?: ReplyDraftIdentity;
   storedDraft?: StoredReplyDraft;
+  initialAttachments: LoadedComposeAttachment[];
+  initialProviderDraftId?: string;
   draftLoadError?: Error;
   accountProvider: string;
   accountSignatureHtml: string;
@@ -313,46 +350,47 @@ function ComposeEmailFormContent({
     return times.valid ? "" : times.error;
   });
   const editorInitialized = useRef(false);
-  const providerDraftId = useRef(storedDraft?.content?.providerDraftId);
-  const savedAttachments = useRef<string | undefined>(undefined);
-
-  const [restoredAttachments] = useState<ComposeAttachment[]>(() =>
-    (storedDraft?.content?.attachments ?? []).map((attachment) => ({
-      ...attachment,
-      previewUrl:
-        attachment.disposition === "inline"
-          ? URL.createObjectURL(
-              new Blob(
-                [
-                  Uint8Array.from(atob(attachment.contentBase64), (character) =>
-                    character.charCodeAt(0),
-                  ),
-                ],
-                { type: attachment.mimeType },
-              ),
-            )
-          : undefined,
-    })),
+  const providerDraftId = useRef(
+    storedDraft?.content?.providerDraftId ?? initialProviderDraftId,
   );
+  const providerDraftMessageIds = useRef(
+    storedDraft?.content?.providerDraftMessageIds ?? [],
+  );
+  const draftQueueKey = `${selectedEmailAccountId}:${requestId}`;
+
   const [initialComposer] = useState(() => {
+    const restoredAttachments: ComposeAttachment[] = initialAttachments.map(
+      (attachment) => ({ ...attachment, status: "uploaded" }),
+    );
     if (storedDraft?.content) {
       const { draft, preservedBlocks } = storedDraft.content;
       const parsedDraft = new DOMParser().parseFromString(
         draft.editableHtml,
         "text/html",
       );
-      for (const image of parsedDraft.querySelectorAll(
-        'img[data-content-id], img[src^="cid:"]',
-      )) {
+      // HTML still in its original form is sent exactly as loaded, so its
+      // cid: images must not be swapped for local previews.
+      const images =
+        draft.mode === "edited"
+          ? parsedDraft.querySelectorAll(
+              'img[data-content-id], img[src^="cid:"]',
+            )
+          : [];
+      for (const image of images) {
         const contentId =
           image.getAttribute("data-content-id") ??
           image.getAttribute("src")?.slice(4);
         const attachment = restoredAttachments.find(
           (item) => item.contentId === contentId,
         );
-        if (attachment?.previewUrl && contentId) {
-          image.setAttribute("src", attachment.previewUrl);
+        if (attachment && contentId) {
+          // Without a preview the image still goes out as its attachment.
+          image.setAttribute(
+            "src",
+            attachment.previewUrl ?? `cid:${contentId}`,
+          );
           image.setAttribute("data-content-id", contentId);
+          attachment.managed = true;
         }
       }
       return {
@@ -363,6 +401,7 @@ function ComposeEmailFormContent({
             : parsedDraft.body.innerHTML,
         },
         preservedBlocks,
+        attachments: restoredAttachments,
       };
     }
 
@@ -384,7 +423,7 @@ function ComposeEmailFormContent({
         .join("<br>"),
     };
     const preservedBlocks = createPreservedEmailBlocks(draft);
-    return { draft, preservedBlocks };
+    return { draft, preservedBlocks, attachments: restoredAttachments };
   });
   const { draft: initialDraft, preservedBlocks } = initialComposer;
   const [activeRecipientField, setActiveRecipientField] =
@@ -400,10 +439,20 @@ function ComposeEmailFormContent({
   const [editReply, setEditReply] = useState(false);
   // Forwards start without a recipient, so focus To. Replies already have one.
   const focusRecipientField = draftMode === "forward" || !replyingToEmail;
-  const [attachments, setAttachments] =
-    useState<ComposeAttachment[]>(restoredAttachments);
-  const forwardedAttachments = replyingToEmail?.forwardedAttachments ?? [];
-  const attachmentsRef = useRef<ComposeAttachment[]>(restoredAttachments);
+  const [attachments, setAttachments] = useState<ComposeAttachment[]>(
+    initialComposer.attachments,
+  );
+  // Once a forward is saved to the mailbox, its draft holds the forwarded
+  // files and lists them with the others.
+  const [forwardSavedToMailbox, setForwardSavedToMailbox] = useState(
+    Boolean(providerDraftId.current),
+  );
+  const forwardedAttachments = forwardSavedToMailbox
+    ? []
+    : (replyingToEmail?.forwardedAttachments ?? []);
+  const attachmentsRef = useRef<ComposeAttachment[]>(
+    initialComposer.attachments,
+  );
   const isMountedRef = useRef(true);
   const editorRef = useRef<EmailEditorHandle>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -449,6 +498,7 @@ function ComposeEmailFormContent({
         ? {
             ...lastDraftContent.current,
             providerDraftId: providerDraftId.current,
+            attachments: attachmentsRef.current.flatMap(toAttachmentReference),
           }
         : undefined;
     const value = editorRef.current.getValue();
@@ -472,9 +522,10 @@ function ComposeEmailFormContent({
       preservedBlocks: preservedBlocks.filter((block) =>
         value.preservedBlockIds.includes(block.id),
       ),
-      attachments: attachmentsRef.current.map(
-        ({ previewUrl: _previewUrl, ...attachment }) => attachment,
-      ),
+      attachments: attachmentsRef.current.flatMap(toAttachmentReference),
+      ...(providerDraftMessageIds.current.length
+        ? { providerDraftMessageIds: providerDraftMessageIds.current }
+        : {}),
       sendAt: options?.sendAt ?? sendAt,
       remindAt: options?.remindAt ?? remindAt,
     };
@@ -492,122 +543,135 @@ function ComposeEmailFormContent({
     loadError: draftLoadError,
     getContent: getDraftContent,
   });
+  const getProviderDraftContent = () => {
+    const content = getDraftContent();
+    if (!content) return;
+    const blocks = new Set(content.preservedBlocks.map((block) => block.id));
+    return {
+      subject: content.values.subject ?? "",
+      to: content.values.to ?? "",
+      cc: content.values.cc ?? "",
+      bcc: content.values.bcc ?? "",
+      messageHtml: combineEmailHtml({
+        editableHtml: finalizeEditableEmailHtml({
+          html: content.draft.editableHtml,
+          inlineAttachments: getEditorInlineAttachments(attachmentsRef.current),
+          mode: content.draft.mode,
+        }),
+        signatureHtml: blocks.has("signature")
+          ? content.draft.signatureHtml
+          : "",
+        quotedHtml: blocks.has("quote") ? content.draft.quotedHtml : "",
+      }),
+    };
+  };
+
+  // Called when a provider save may have moved the draft to a new message
+  // (Gmail does on every save) so the views that track it follow along.
+  const followProviderDraftMessage = async (messageId: string | null) => {
+    if (!messageId) return;
+    if (providerDraftMessageId) {
+      if (messageId === providerDraftMessageId) return;
+      rememberReplacedDraftMessage(
+        selectedEmailAccountId,
+        providerDraftMessageId,
+        messageId,
+      );
+      await ingestMailboxDraft(client, selectedEmailAccountId, messageId);
+      return;
+    }
+    if (isNewCompose) {
+      await ingestMailboxDraft(client, selectedEmailAccountId, messageId);
+      return;
+    }
+    if (
+      !localDraftIdentity ||
+      providerDraftMessageIds.current.includes(messageId)
+    )
+      return;
+    providerDraftMessageIds.current = [
+      ...providerDraftMessageIds.current,
+      messageId,
+    ].slice(-50);
+    await rememberProviderDraftMessage(
+      localDraftIdentity,
+      requestId,
+      messageId,
+    );
+  };
+
+  // Every compose with files needs a mailbox draft to hold them. New messages
+  // also get one from autosave; replies and forwards get one on first attach.
+  const ensureProviderDraft = async () => {
+    if (providerDraftId.current) return providerDraftId.current;
+    if (providerDraftMessageId)
+      throw new Error(
+        "Could not find this draft in your mailbox. Reopen it and try again.",
+      );
+    if (!localDraftIdentity)
+      throw new Error("Local draft storage is required to save attachments.");
+    captureLocalDraft();
+    await flushDraft();
+    let draftId = await updateReplyDraftProviderState(
+      localDraftIdentity,
+      requestId,
+    );
+    if (!draftId) {
+      const content = getProviderDraftContent();
+      if (!content) throw new Error("This draft is not ready to save yet.");
+      const created = await saveComposeDraftAction(selectedEmailAccountId, {
+        content: {
+          ...content,
+          replyToEmail: getReplyToEmailPayload(getValues("replyToEmail")),
+        },
+      });
+      if (!created?.data)
+        throw new Error(
+          "Mailbox draft creation could not be confirmed. Check Drafts in Gmail or Outlook; your message is still saved on this device.",
+        );
+      draftId = created.data.draftId;
+      providerDraftId.current = draftId;
+      await followProviderDraftMessage(created.data.messageId);
+    }
+    providerDraftId.current = draftId;
+    await updateReplyDraftProviderState(localDraftIdentity, requestId, draftId);
+    return draftId;
+  };
+
   const providerAutosave = useProviderDraftAutosave({
     enabled: Boolean(providerDraftMessageId) || isNewCompose,
-    sessionKey: isNewCompose
-      ? `${selectedEmailAccountId}:${requestId}`
-      : undefined,
-    getContent: () => {
-      const content = getDraftContent();
-      if (!content) return;
-      const blocks = new Set(content.preservedBlocks.map((block) => block.id));
-      return {
-        subject: content.values.subject ?? "",
-        to: content.values.to ?? "",
-        cc: content.values.cc ?? "",
-        bcc: content.values.bcc ?? "",
-        attachments: serializeComposeAttachments(content.attachments),
-        messageHtml: combineEmailHtml({
-          editableHtml: finalizeEditableEmailHtml({
-            html: content.draft.editableHtml,
-            inlineAttachments: content.attachments,
-            mode: content.draft.mode,
-          }),
-          signatureHtml: blocks.has("signature")
-            ? content.draft.signatureHtml
-            : "",
-          quotedHtml: blocks.has("quote") ? content.draft.quotedHtml : "",
-        }),
-      };
-    },
-    save: async ({ attachments: draftAttachments, ...content }) => {
-      if (isNewCompose) {
-        if (!localDraftIdentity)
-          throw new Error(
-            "Local draft storage is required to sync this message.",
-          );
-        await flushDraft();
-        let draftId = providerDraftId.current;
-        if (!draftId) {
-          draftId = await updateReplyDraftProviderState(
-            localDraftIdentity,
-            requestId,
-          );
-          if (!draftId) {
-            const created = await saveComposeDraftAction(
-              selectedEmailAccountId,
-              { content },
-            );
-            if (!created?.data)
-              throw new Error(
-                "Mailbox draft creation could not be confirmed. Check Drafts in Gmail or Outlook; your message is still saved on this device.",
-              );
-            draftId = created.data.draftId;
-            if (created.data.messageId) {
-              await ingestMailboxDraft(
-                client,
-                selectedEmailAccountId,
-                created.data.messageId,
-              );
-            }
-          }
+    sessionKey: isNewCompose ? draftQueueKey : undefined,
+    // Gmail rebuilds the whole message on each save, files included.
+    minIntervalMs: attachments.length ? ATTACHMENT_DRAFT_SAVE_INTERVAL_MS : 0,
+    getContent: getProviderDraftContent,
+    save: (content) =>
+      enqueueDraftOperation(draftQueueKey, async () => {
+        if (isNewCompose) {
+          const draftId = await ensureProviderDraft();
+          const result = await saveComposeDraftAction(selectedEmailAccountId, {
+            draftId,
+            content,
+          });
+          if (!result?.data) throw new Error(getDraftSyncErrorMessage(result));
+          await followProviderDraftMessage(result.data.messageId);
+          return;
         }
-        providerDraftId.current = draftId;
-        await updateReplyDraftProviderState(
-          localDraftIdentity,
-          requestId,
-          draftId,
-        );
-        const attachmentSnapshot = JSON.stringify(draftAttachments);
-        const result = await saveComposeDraftAction(selectedEmailAccountId, {
-          draftId,
-          content: {
-            ...content,
-            ...(attachmentSnapshot !== savedAttachments.current
-              ? { attachments: draftAttachments }
-              : {}),
-          },
+        if (!providerDraftMessageId) return;
+        const result = await updateDraftAction(selectedEmailAccountId, {
+          ...content,
+          draftMessageId: providerDraftMessageId,
+          draftId: providerDraftId.current,
         });
         if (!result?.data) throw new Error(getDraftSyncErrorMessage(result));
-        savedAttachments.current = attachmentSnapshot;
-        if (result.data.messageId) {
-          await ingestMailboxDraft(
-            client,
-            selectedEmailAccountId,
-            result.data.messageId,
+        if (result.data.status === "missing")
+          throw new DraftAutosaveHaltedError(
+            "This draft was sent, deleted, or changed elsewhere, so edits here are no longer saved to your mailbox.",
           );
-        }
-        return;
-      }
-      if (!providerDraftMessageId) return;
-      if (draftAttachments.length)
-        throw new Error(
-          "Drafts with newly added attachments are saved on this device until sent.",
-        );
-      const result = await updateDraftAction(selectedEmailAccountId, {
-        ...content,
-        draftMessageId: providerDraftMessageId,
-        draftId: providerDraftId.current,
-      });
-      if (!result?.data) throw new Error(getDraftSyncErrorMessage(result));
-      if (result.data.status === "missing")
-        throw new DraftAutosaveHaltedError(
-          "This draft was sent, deleted, or changed elsewhere, so edits here are no longer saved to your mailbox.",
-        );
-      providerDraftId.current = result.data.draftId;
-      const { messageId } = result.data;
-      const replacedMessage = messageId && messageId !== providerDraftMessageId;
-      if (replacedMessage)
-        rememberReplacedDraftMessage(
-          selectedEmailAccountId,
-          providerDraftMessageId,
-          messageId,
-        );
-      captureLocalDraft();
-      await flushDraft();
-      if (replacedMessage)
-        await ingestMailboxDraft(client, selectedEmailAccountId, messageId);
-    },
+        providerDraftId.current = result.data.draftId;
+        captureLocalDraft();
+        await flushDraft();
+        await followProviderDraftMessage(result.data.messageId);
+      }),
   });
   const { stop: stopProviderAutosave, resume: resumeProviderAutosave } =
     providerAutosave;
@@ -635,130 +699,209 @@ function ComposeEmailFormContent({
     [captureDraft],
   );
 
-  const removeUnusedInlineAttachments = useCallback(
-    (contentIds: string[]) => {
-      const referencedIds = new Set(contentIds);
-      const removed = attachmentsRef.current.filter(
-        (attachment) =>
-          attachment.disposition === "inline" &&
-          attachment.contentId &&
-          !referencedIds.has(attachment.contentId),
-      );
-      if (!removed.length) return;
+  const patchAttachment = (id: string, patch: Partial<ComposeAttachment>) => {
+    if (!isMountedRef.current) return;
+    if (!attachmentsRef.current.some((attachment) => attachment.id === id))
+      return;
+    updateAttachments(
+      attachmentsRef.current.map((attachment) =>
+        attachment.id === id ? { ...attachment, ...patch } : attachment,
+      ),
+    );
+  };
 
-      for (const attachment of removed) revokePreview(attachment);
-      updateAttachments(
-        attachmentsRef.current.filter(
-          (attachment) => !removed.some((item) => item.id === attachment.id),
-        ),
-      );
-    },
-    [updateAttachments],
-  );
+  // The mailbox's list is the truth for files already on the draft; files
+  // still uploading are kept as they are.
+  const reconcileDraftAttachments = (listed: DraftAttachment[]) => {
+    if (!isMountedRef.current) return;
+    updateAttachments(mergeDraftAttachments(attachmentsRef.current, listed));
+  };
 
-  const handleEditorStateChange = useCallback(
-    (state: EmailEditorState) => {
-      removeUnusedInlineAttachments(state.inlineContentIds);
-      if (!editorInitialized.current) {
-        queueMicrotask(() => {
-          editorInitialized.current = true;
-        });
-        return;
-      }
-      captureDraft();
-    },
-    [captureDraft, removeUnusedInlineAttachments],
-  );
-
-  const addFiles = useCallback(
-    async (files: File[], disposition: ComposeAttachment["disposition"]) => {
-      const attachmentDrafts = files.map((file) =>
-        createComposeAttachmentMetadata(file, disposition),
-      );
-      const validation = validateEmailAttachmentMetadata([
-        ...attachmentsRef.current,
-        ...attachmentDrafts,
-      ]);
-      if (!validation.valid) {
-        toastError({ description: validation.error });
-        return;
-      }
-
-      const contents = await Promise.all(files.map(readFileAsBase64));
-      if (!isMountedRef.current) return;
-
-      const currentValidation = validateEmailAttachmentMetadata([
-        ...attachmentsRef.current,
-        ...attachmentDrafts,
-      ]);
-      if (!currentValidation.valid) {
-        toastError({ description: currentValidation.error });
-        return;
-      }
-
-      const encodedAttachments = attachmentDrafts.map((attachment, index) => ({
-        ...attachment,
-        contentBase64: contents[index] ?? "",
-      }));
-      const contentValidation = validateEmailAttachments([
-        ...attachmentsRef.current,
-        ...encodedAttachments,
-      ]);
-      if (!contentValidation.valid) {
-        toastError({ description: contentValidation.error });
-        return;
-      }
-
-      const createdAttachments: ComposeAttachment[] =
-        encodedAttachments.flatMap((attachment, index) => {
-          if (disposition !== "inline") return [attachment];
-          const file = files[index];
-          if (!file) return [];
-          return [{ ...attachment, previewUrl: URL.createObjectURL(file) }];
-        });
-      const acceptedAttachments = createdAttachments.filter((attachment) => {
-        if (
-          attachment.disposition !== "inline" ||
-          !attachment.contentId ||
-          !attachment.previewUrl
-        ) {
-          return true;
-        }
-
-        const inserted = editorRef.current?.insertInlineImage({
-          alt: attachment.filename,
-          contentId: attachment.contentId,
-          previewUrl: attachment.previewUrl,
-        });
-        if (inserted) return true;
-        revokePreview(attachment);
-        return false;
+  const uploadComposeAttachment = (file: File, attachment: ComposeAttachment) =>
+    enqueueDraftOperation(draftQueueKey, async () => {
+      const isAttached = () =>
+        attachmentsRef.current.some((item) => item.id === attachment.id);
+      if (!isAttached()) return;
+      const draftId = await ensureProviderDraft();
+      const result = await uploadDraftAttachment({
+        emailAccountId: selectedEmailAccountId,
+        draftId,
+        file,
+        attachment: toAttachmentMetadata(attachment),
       });
-
-      if (acceptedAttachments.length !== createdAttachments.length) {
-        toastError({
-          description: "One of the inline images could not be inserted.",
+      await followProviderDraftMessage(result.messageId);
+      if (isAttached()) return result;
+      // Removed while uploading: take it back off the draft.
+      const removed = await removeDraftAttachment({
+        emailAccountId: selectedEmailAccountId,
+        draftId,
+        attachmentId: result.attachmentId,
+      });
+      await followProviderDraftMessage(removed.messageId);
+    }).then(
+      (result?: DraftAttachmentUploadResult) => {
+        if (!result) return;
+        if (draftMode === "forward" && isMountedRef.current)
+          setForwardSavedToMailbox(true);
+        if (
+          result.attachments?.some((item) => item.id === result.attachmentId)
+        ) {
+          patchAttachment(attachment.id, {
+            providerAttachmentId: result.attachmentId,
+          });
+          reconcileDraftAttachments(result.attachments);
+        } else {
+          patchAttachment(attachment.id, {
+            status: "uploaded",
+            providerAttachmentId: result.attachmentId,
+          });
+        }
+      },
+      (error: unknown) => {
+        const description =
+          error instanceof Error
+            ? error.message
+            : `Could not attach ${attachment.filename}.`;
+        patchAttachment(attachment.id, {
+          status: "failed",
+          error: description,
         });
-      }
-      updateAttachments([...attachmentsRef.current, ...acceptedAttachments]);
-    },
-    [updateAttachments],
-  );
+        toastError({ description });
+      },
+    );
 
-  const removeAttachment = useCallback(
-    (attachment: ComposeAttachment) => {
-      if (attachment.contentId) {
-        editorRef.current?.removeInlineImage(attachment.contentId);
+  const detachAttachment = (attachment: ComposeAttachment) => {
+    revokePreview(attachment);
+    updateAttachments(
+      attachmentsRef.current.filter(
+        (candidate) => candidate.id !== attachment.id,
+      ),
+    );
+    deleteComposeAttachmentBytes(selectedEmailAccountId, [attachment.id]);
+    const draftId = providerDraftId.current;
+    const providerAttachmentId = attachment.providerAttachmentId;
+    // Uploads still running take the file back off the draft when they end.
+    if (attachment.status !== "uploaded" || !providerAttachmentId || !draftId)
+      return;
+    enqueueDraftOperation(draftQueueKey, () =>
+      removeDraftAttachment({
+        emailAccountId: selectedEmailAccountId,
+        draftId,
+        attachmentId: providerAttachmentId,
+      }),
+    ).then(
+      async (result) => {
+        await followProviderDraftMessage(result.messageId);
+        reconcileDraftAttachments(result.attachments);
+      },
+      (error: unknown) => {
+        toastError({
+          description:
+            error instanceof Error
+              ? error.message
+              : `Could not remove ${attachment.filename}.`,
+        });
+        if (isMountedRef.current)
+          updateAttachments([
+            ...attachmentsRef.current,
+            { ...attachment, previewUrl: undefined, managed: false },
+          ]);
+      },
+    );
+  };
+
+  const removeUnusedInlineAttachments = (contentIds: string[]) => {
+    const referencedIds = new Set(contentIds);
+    for (const attachment of attachmentsRef.current) {
+      if (
+        attachment.managed &&
+        attachment.disposition === "inline" &&
+        attachment.contentId &&
+        !referencedIds.has(attachment.contentId)
+      )
+        detachAttachment(attachment);
+    }
+  };
+
+  const handleEditorStateChange = (state: EmailEditorState) => {
+    removeUnusedInlineAttachments(state.inlineContentIds);
+    if (!editorInitialized.current) {
+      queueMicrotask(() => {
+        editorInitialized.current = true;
+      });
+      return;
+    }
+    captureDraft();
+  };
+
+  const addFiles = async (
+    files: File[],
+    disposition: ComposeAttachment["disposition"],
+  ) => {
+    const created = files.map((file) => {
+      const attachment: ComposeAttachment = {
+        ...createComposeAttachmentMetadata(file, disposition),
+        status: "uploading",
+      };
+      return { file, attachment };
+    });
+    const validation = validateEmailAttachmentMetadata([
+      ...attachmentsRef.current.filter((item) => item.status !== "failed"),
+      ...created.map(({ attachment }) => attachment),
+    ]);
+    if (!validation.valid) {
+      toastError({ description: validation.error });
+      return;
+    }
+    if (disposition === "inline") {
+      for (const { file } of created) {
+        if (!(await isInlineImageContent(file))) {
+          toastError({
+            description: "Inline image content does not match its file type.",
+          });
+          return;
+        }
       }
+      if (!isMountedRef.current) return;
+    }
+
+    const accepted = created.filter(({ file, attachment }) => {
+      if (disposition !== "inline" || !attachment.contentId) return true;
+      attachment.previewUrl = URL.createObjectURL(file);
+      attachment.managed = true;
+      const inserted = editorRef.current?.insertInlineImage({
+        alt: attachment.filename,
+        contentId: attachment.contentId,
+        previewUrl: attachment.previewUrl,
+      });
+      if (inserted) return true;
       revokePreview(attachment);
-      updateAttachments(
-        attachmentsRef.current.filter(
-          (candidate) => candidate.id !== attachment.id,
-        ),
-      );
-    },
-    [updateAttachments],
-  );
+      return false;
+    });
+    if (accepted.length !== created.length) {
+      toastError({
+        description: "One of the inline images could not be inserted.",
+      });
+    }
+    if (!accepted.length) return;
+    updateAttachments([
+      ...attachmentsRef.current,
+      ...accepted.map(({ attachment }) => attachment),
+    ]);
+    await Promise.all(
+      accepted.map(({ file, attachment }) =>
+        uploadComposeAttachment(file, attachment),
+      ),
+    );
+  };
+
+  const removeAttachment = (attachment: ComposeAttachment) => {
+    // Detached first, so the editor change this causes finds nothing to remove.
+    detachAttachment(attachment);
+    if (attachment.contentId && attachment.managed) {
+      editorRef.current?.removeInlineImage(attachment.contentId);
+    }
+  };
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -772,6 +915,15 @@ function ComposeEmailFormContent({
       }, 0);
     };
   }, []);
+
+  const forgetAttachmentBytes = useCallback(
+    () =>
+      deleteComposeAttachmentBytes(
+        selectedEmailAccountId,
+        attachmentsRef.current.map((attachment) => attachment.id),
+      ),
+    [selectedEmailAccountId],
+  );
 
   const onSubmit: SubmitHandler<ComposeFormValues> = useCallback(
     async (data, event) => {
@@ -791,28 +943,29 @@ function ComposeEmailFormContent({
         return;
       }
 
+      // Files go to the mailbox draft as they are attached, so a send waits
+      // for them and never carries their bytes itself.
+      await waitForDraftOperations(draftQueueKey);
+      const failedAttachment = attachmentsRef.current.find(
+        (attachment) => attachment.status !== "uploaded",
+      );
+      if (failedAttachment) {
+        toastError({
+          description: `${failedAttachment.filename} isn't attached. Remove it or attach it again before sending.`,
+        });
+        return;
+      }
+
       const editorValue = editorRef.current?.getValue() ?? {
         editableHtml: initialDraft.editableHtml,
         inlineContentIds: [],
         mode: initialDraft.mode,
         preservedBlockIds: preservedBlocks.map((block) => block.id),
       };
-      const inlineContentIds = new Set(editorValue.inlineContentIds);
-      const outgoingAttachments = attachmentsRef.current.filter(
-        (attachment) =>
-          attachment.disposition === "attachment" ||
-          (attachment.contentId && inlineContentIds.has(attachment.contentId)),
-      );
-      const validation = validateEmailAttachments(outgoingAttachments);
-      if (!validation.valid) {
-        toastError({ description: validation.error });
-        return;
-      }
-
       const preservedBlockIds = new Set(editorValue.preservedBlockIds);
       const editableHtml = finalizeEditableEmailHtml({
         html: editorValue.editableHtml,
-        inlineAttachments: outgoingAttachments,
+        inlineAttachments: getEditorInlineAttachments(attachmentsRef.current),
         mode: editorValue.mode,
       });
       const enrichedData: SendEmailBody = {
@@ -828,7 +981,6 @@ function ComposeEmailFormContent({
             ? initialDraft.quotedHtml
             : "",
         }),
-        attachments: serializeComposeAttachments(outgoingAttachments),
       };
       const payloadValidation = validateSendEmailPayloadSize(enrichedData);
       if (!payloadValidation.valid) {
@@ -885,6 +1037,7 @@ function ComposeEmailFormContent({
             return;
           }
           deliveryAccepted = true;
+          forgetAttachmentBytes();
           try {
             await clearLocalDraft();
           } catch {
@@ -943,7 +1096,7 @@ function ComposeEmailFormContent({
                   selectedEmailAccountId,
                   providerDraftMessageId,
                 )
-              : [],
+              : providerDraftMessageIds.current,
             online,
             threadId: readerThreadId,
             onQueued: async () => {
@@ -969,6 +1122,7 @@ function ComposeEmailFormContent({
           return;
         }
         const discardLocalDraft = async () => {
+          forgetAttachmentBytes();
           try {
             await clearLocalDraft();
           } catch {
@@ -1068,10 +1222,12 @@ function ComposeEmailFormContent({
       remindAt,
       requestId,
       draftKeyMessageId,
+      draftQueueKey,
       captureDraft,
       clearLocalDraft,
       client,
       flushDraft,
+      forgetAttachmentBytes,
       mutate,
       onClose,
       onRestore,
@@ -1173,7 +1329,10 @@ function ComposeEmailFormContent({
     if (!onDiscard || isSubmitting) return;
     try {
       await stopProviderAutosave();
-      if (isNewCompose) {
+      await waitForDraftOperations(draftQueueKey);
+      // A draft opened from the mailbox is discarded by its owner; any other
+      // compose discards the mailbox draft it saved.
+      if (!providerDraftMessageId) {
         const local = localDraftIdentity
           ? await getReplyDraft(localDraftIdentity)
           : undefined;
@@ -1203,6 +1362,7 @@ function ComposeEmailFormContent({
         resumeProviderAutosave();
         return;
       }
+      forgetAttachmentBytes();
       await clearLocalDraft();
     } catch (error) {
       resumeProviderAutosave();
@@ -1216,8 +1376,10 @@ function ComposeEmailFormContent({
   }, [
     clearLocalDraft,
     client,
+    draftQueueKey,
+    forgetAttachmentBytes,
     isSubmitting,
-    isNewCompose,
+    providerDraftMessageId,
     selectedEmailAccountId,
     localDraftIdentity,
     onDiscard,
@@ -1501,17 +1663,31 @@ function ComposeEmailFormContent({
           ))}
           {attachments.map((attachment) => (
             <li
-              className="flex max-w-full items-center gap-2 rounded-md border bg-muted/40 px-2 py-1 text-xs"
+              aria-busy={attachment.status === "uploading" || undefined}
+              className={cn(
+                "flex max-w-full items-center gap-2 rounded-md border bg-muted/40 px-2 py-1 text-xs",
+                attachment.status === "failed" &&
+                  "border-destructive/50 text-destructive",
+              )}
               key={attachment.id}
+              title={attachment.error}
             >
-              {attachment.disposition === "inline" ? (
+              {attachment.status === "uploading" ? (
+                <Loader2Icon
+                  aria-hidden
+                  className="size-3.5 shrink-0 animate-spin"
+                />
+              ) : attachment.status === "failed" ? (
+                <CircleAlertIcon aria-hidden className="size-3.5 shrink-0" />
+              ) : attachment.disposition === "inline" ? (
                 <ImageIcon aria-hidden className="size-3.5 shrink-0" />
               ) : (
                 <PaperclipIcon aria-hidden className="size-3.5 shrink-0" />
               )}
               <span className="max-w-52 truncate">{attachment.filename}</span>
               <span className="text-muted-foreground">
-                {formatFileSize(attachment.size)}
+                {ATTACHMENT_STATUS_LABELS[attachment.status] ??
+                  formatFileSize(attachment.size)}
               </span>
               <button
                 aria-label={`Remove ${attachment.filename}`}
@@ -1645,6 +1821,15 @@ function ComposeEmailFormContent({
   );
 }
 
+const ATTACHMENT_DRAFT_SAVE_INTERVAL_MS = 15_000;
+
+const ATTACHMENT_STATUS_LABELS: Partial<
+  Record<ComposeAttachment["status"], string>
+> = {
+  uploading: "Uploading…",
+  failed: "Not attached",
+};
+
 const DRAFT_SYNC_FAILED_MESSAGE =
   "Couldn't sync this draft to your mailbox. It's saved on this device and we'll keep trying.";
 
@@ -1673,18 +1858,11 @@ function createComposeAttachmentMetadata(
   };
 }
 
-function readFileAsBase64(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () =>
-      reject(reader.error ?? new Error("File read failed"));
-    reader.onload = () => {
-      const result = String(reader.result ?? "");
-      const separator = result.indexOf(",");
-      resolve(separator >= 0 ? result.slice(separator + 1) : result);
-    };
-    reader.readAsDataURL(file);
-  });
+async function isInlineImageContent(file: File) {
+  const header = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+  let binary = "";
+  for (const byte of header) binary += String.fromCharCode(byte);
+  return detectInlineImageMimeType(btoa(binary)) === file.type;
 }
 
 function revokePreview(attachment: ComposeAttachment) {
@@ -1753,18 +1931,6 @@ async function ingestMailboxDraft(
     messageId,
   });
   await client.requestSync([emailAccountId]);
-}
-
-function serializeComposeAttachments(attachments: EmailComposerAttachment[]) {
-  return attachments.map((attachment) => ({
-    id: attachment.id,
-    filename: attachment.filename,
-    content: attachment.contentBase64,
-    contentType: attachment.mimeType,
-    size: attachment.size,
-    disposition: attachment.disposition,
-    contentId: attachment.contentId,
-  }));
 }
 
 /**
