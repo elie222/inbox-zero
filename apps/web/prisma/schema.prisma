@@ -1005,6 +1005,9 @@ model EmailSendOperation {
   status              EmailSendOperationStatus @default(PROCESSING)
   processingStartedAt DateTime                 @default(now())
   result              Json?
+  // No longer written. Kept so servers still running the previous release keep
+  // working while a deploy migrates; drop it in a later release.
+  attachmentIds       String[]                 @default([])
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
