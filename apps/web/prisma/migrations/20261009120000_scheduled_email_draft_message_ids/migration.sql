@@ -1,2 +1,2 @@
 -- AlterTable
-ALTER TABLE "ScheduledEmail" ADD COLUMN     "draftMessageIds" TEXT[] DEFAULT ARRAY[]::TEXT[];
+ALTER TABLE "ScheduledEmail" ADD COLUMN     "draftMessageIds" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
