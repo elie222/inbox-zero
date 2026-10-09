@@ -233,6 +233,30 @@ describe("rewriteGmailDraft", () => {
 });
 
 function draftWithReport() {
+  const payload: gmail_v1.Schema$MessagePart & {
+    parts: gmail_v1.Schema$MessagePart[];
+  } = {
+    mimeType: "multipart/mixed",
+    parts: [
+      {
+        partId: "0",
+        mimeType: "text/html",
+        body: {
+          data: Buffer.from("<p>Draft body</p>").toString("base64url"),
+        },
+      },
+      {
+        partId: "1",
+        mimeType: "application/pdf",
+        filename: "report.pdf",
+        headers: [
+          { name: "Content-Disposition", value: "attachment" },
+          { name: "X-Attachment-Id", value: "existing-1" },
+        ],
+        body: { attachmentId: "gmail-att-1", size: EXISTING_BYTES.length },
+      },
+    ],
+  };
   return {
     id: "message-1",
     threadId: "thread-1",
@@ -243,28 +267,7 @@ function draftWithReport() {
       to: "recipient@example.com",
       subject: "Quarterly update",
     },
-    payload: {
-      mimeType: "multipart/mixed",
-      parts: [
-        {
-          partId: "0",
-          mimeType: "text/html",
-          body: {
-            data: Buffer.from("<p>Draft body</p>").toString("base64url"),
-          },
-        },
-        {
-          partId: "1",
-          mimeType: "application/pdf",
-          filename: "report.pdf",
-          headers: [
-            { name: "Content-Disposition", value: "attachment" },
-            { name: "X-Attachment-Id", value: "existing-1" },
-          ],
-          body: { attachmentId: "gmail-att-1", size: EXISTING_BYTES.length },
-        },
-      ],
-    },
+    payload,
   };
 }
 
