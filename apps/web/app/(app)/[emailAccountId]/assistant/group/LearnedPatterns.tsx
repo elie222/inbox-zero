@@ -74,7 +74,7 @@ export function LearnedPatternsDialog({
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl grid-rows-[auto_minmax(0,1fr)] overflow-hidden">
         <DialogHeader>
           <DialogTitle>Learned patterns</DialogTitle>
           <DialogDescription>
@@ -84,13 +84,15 @@ export function LearnedPatternsDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {isExecuting ? (
-          <Skeleton className="h-40 w-full" />
-        ) : (
-          learnedPatternGroupId && (
-            <ViewLearnedPatterns groupId={learnedPatternGroupId} />
-          )
-        )}
+        <div className="min-w-0 overflow-y-auto">
+          {isExecuting ? (
+            <Skeleton className="h-40 w-full" />
+          ) : (
+            learnedPatternGroupId && (
+              <ViewLearnedPatterns groupId={learnedPatternGroupId} />
+            )
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );
