@@ -1987,5 +1987,6 @@ function stripBrandingOutsideSignature(body: HTMLElement) {
   const placeholder = document.createComment("signature");
   signature.replaceWith(placeholder);
   const html = stripBrandingSignatures(body.innerHTML);
-  return html.replace("<!--signature-->", signature.outerHTML);
+  // A function replacer keeps "$" sequences in the signature literal.
+  return html.replace("<!--signature-->", () => signature.outerHTML);
 }
