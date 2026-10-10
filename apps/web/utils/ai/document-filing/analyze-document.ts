@@ -17,11 +17,17 @@ const documentAnalysisSchema = z
       .describe(
         "Required if action is 'use_existing'. The ID of the existing folder from the provided list.",
       ),
+    parentFolderId: z
+      .string()
+      .nullable()
+      .describe(
+        "Only for 'create_new'. The ID of the existing folder from the provided list to create the new folder inside. Use null only when no existing folder is a sensible parent and the folder must be created at the top level of the drive.",
+      ),
     folderPath: z
       .string()
       .nullable()
       .describe(
-        "Required if action is 'create_new'. The path for the new folder to create.",
+        "Required if action is 'create_new'. The path of the new folder relative to parentFolderId (or to the drive root when parentFolderId is null). Use '/' to create several nested levels at once, for example 'Amazon/2026'.",
       ),
     confidence: z
       .number()
@@ -95,7 +101,7 @@ export async function analyzeDocument({
 }
 
 function buildSystem(filingPrompt: string): string {
-  return `You are a document filing assistant. Your job is to decide where to file documents based on the user's preferences.
+  return `You are a document filing assistant. Your job is to decide where to file documents based on the user's preferences. You own the folder structure: within the user's preferences, organize files the way a meticulous assistant would, including creating subfolders when they make the structure clearer.
 
 <user_filing_preferences>
 ${filingPrompt}
@@ -106,22 +112,25 @@ Your response must be in valid JSON format.
 </output_format>
 
 Choose one of:
-1. action: "use_existing" + folderId - Use an existing folder from the list (requires folder ID)
-2. action: "create_new" + folderPath - Create a new folder ONLY if:
-   - The document clearly matches the user's preferences, AND
-   - No existing folder fits, AND
-   - The new folder makes sense for the user's stated filing goals
+1. action: "use_existing" + folderId - Use an existing folder from the list (requires folder ID). Use the most specific existing folder that fits; a subfolder beats its parent.
+2. action: "create_new" + folderPath (+ parentFolderId) - Create a new folder when the document clearly matches the user's preferences but no existing folder fits well enough:
+   - Set parentFolderId to the existing folder the new folder belongs inside, and folderPath to the new folder's path relative to that parent. Multiple levels are allowed, for example parentFolderId = the "Receipts" folder and folderPath = "2026/Amazon".
+   - Follow any grouping the user's preferences imply (by vendor, client, project, year, month, document type) and create the subfolders needed for it, even when the user did not spell out the exact folder.
+   - Only leave parentFolderId null, creating a top-level folder, when none of the existing folders is a sensible parent.
+   - Never create a folder that duplicates an existing one under a slightly different name; reuse it instead.
 3. action: "skip" - Skip this document if:
    - It doesn't match the user's filing preferences
    - It's unrelated to what the user wants to organize
    - You're unsure whether it fits
 
 Examples:
-- User wants "file receipts" → Receipt PDF arrives → File it
+- User wants "file receipts" → Receipt PDF arrives → File it in the receipts folder
 - User wants "file receipts" → CV PDF arrives → SKIP (not a receipt)
-- User wants "organize invoices by vendor" → Invoice arrives but no vendor folder exists → Create new folder for that vendor
+- User wants "organize invoices by vendor" → Invoice from Acme arrives, "Invoices" folder exists but no Acme folder → create_new with parentFolderId = "Invoices" folder and folderPath = "Acme"
+- User wants "receipts by year and month" → Receipt dated March 2026 arrives, only "Receipts" exists → create_new with parentFolderId = "Receipts" folder and folderPath = "2026/03"
+- User wants "file contracts" → Contract arrives, no contracts folder exists anywhere → create_new with parentFolderId = null and folderPath = "Contracts"
 
-Prefer existing folders. Only create folders that align with user preferences. When in doubt, skip.
+Prefer existing folders over new ones, and nesting inside an existing folder over a new top-level folder. Only create folders that align with the user's preferences. When in doubt, skip.
 Be conservative with confidence scores - only use 0.9+ when very certain.`;
 }
 
@@ -175,5 +184,5 @@ ${contentSection}
 ${foldersText}
 </existing_folders>
 
-Based on the user's filing preferences and the document metadata${hasContent ? " and content" : ""}, decide where this document should be filed.`;
+Folder paths use "/" between levels; a folder whose path starts with another folder's path is nested inside it. Based on the user's filing preferences and the document metadata${hasContent ? " and content" : ""}, decide where this document should be filed.`;
 }
