@@ -707,6 +707,8 @@ export class OutlookProvider implements EmailProvider {
 
   async createDraft(params: {
     to: string;
+    cc?: string;
+    bcc?: string;
     subject: string;
     messageHtml: string;
     replyToMessageId?: string;
@@ -716,7 +718,16 @@ export class OutlookProvider implements EmailProvider {
       replyToMessageId: params.replyToMessageId,
       forwardedMessageId: params.forwardedMessageId,
     });
-    const toRecipients = toGraphRecipients(params.to, this.logger);
+    const recipients = {
+      toRecipients: toGraphRecipients(params.to, this.logger),
+      // Left out when empty so creating never clears what the source message set.
+      ...(params.cc?.trim()
+        ? { ccRecipients: toGraphRecipients(params.cc, this.logger) }
+        : {}),
+      ...(params.bcc?.trim()
+        ? { bccRecipients: toGraphRecipients(params.bcc, this.logger) }
+        : {}),
+    };
 
     // Replies thread through createReply. A forward is drafted from the
     // forwarded message so it keeps its conversation and files.
@@ -741,7 +752,7 @@ export class OutlookProvider implements EmailProvider {
             .patch({
               body: { contentType: "html", content: params.messageHtml },
               subject: params.subject,
-              toRecipients,
+              ...recipients,
             }),
         this.logger,
       );
@@ -759,7 +770,7 @@ export class OutlookProvider implements EmailProvider {
           .post({
             subject: params.subject,
             body: { contentType: "html", content: params.messageHtml },
-            toRecipients,
+            ...recipients,
           }),
       this.logger,
     );
