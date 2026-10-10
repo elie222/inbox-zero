@@ -2301,7 +2301,7 @@ describe("OutlookProvider.createDraft", () => {
     });
   });
 
-  it("leaves the recipients createReply set when the draft has no Cc or Bcc yet", async () => {
+  it("leaves the recipients createReply set when the draft has none yet", async () => {
     const post = vi.fn().mockResolvedValue({ id: "reply-draft" });
     const patch = vi.fn().mockResolvedValue({});
     const provider = new OutlookProvider(
@@ -2310,7 +2310,7 @@ describe("OutlookProvider.createDraft", () => {
     );
 
     await provider.createDraft({
-      to: "recipient@example.com",
+      to: "",
       cc: "",
       bcc: "",
       subject: "Re: Example",
@@ -2319,6 +2319,7 @@ describe("OutlookProvider.createDraft", () => {
     });
 
     const body = patch.mock.calls[0]?.[0];
+    expect(body).not.toHaveProperty("toRecipients");
     expect(body).not.toHaveProperty("ccRecipients");
     expect(body).not.toHaveProperty("bccRecipients");
   });
