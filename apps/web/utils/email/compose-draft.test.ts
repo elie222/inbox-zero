@@ -47,6 +47,24 @@ it("creates the mailbox draft already addressed, so a copy synced before the nex
     expect.objectContaining({ to: content.to }),
   );
 });
+it("creates the mailbox draft with its Cc and Bcc so they survive a sync before the next save", async () => {
+  await saveComposeDraft({
+    provider,
+    content: {
+      ...content,
+      cc: "copied@example.com",
+      bcc: "hidden@example.com",
+      replyToEmail: { threadId: "thread-1", messageId: "parent-1" },
+    },
+  });
+  expect(provider.createDraft).toHaveBeenCalledWith(
+    expect.objectContaining({
+      cc: "copied@example.com",
+      bcc: "hidden@example.com",
+      replyToMessageId: "parent-1",
+    }),
+  );
+});
 it("keeps the confirmed draft id when the mailbox message cannot be loaded yet", async () => {
   vi.mocked(provider.getDraft).mockRejectedValueOnce(new Error("timeout"));
   expect(await saveComposeDraft({ provider, content })).toEqual({

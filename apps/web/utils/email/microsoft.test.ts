@@ -2253,6 +2253,75 @@ describe("OutlookProvider.createDraft", () => {
 
     expect(post).not.toHaveBeenCalled();
   });
+
+  it("creates a new draft with its Cc and Bcc recipients", async () => {
+    const post = vi.fn().mockResolvedValue({ id: "draft-1" });
+    const provider = new OutlookProvider(
+      { getClient: () => ({ api: () => ({ post }) }) } as never,
+      createTestLogger(),
+    );
+
+    await provider.createDraft({
+      to: "recipient@example.com",
+      cc: "copied@example.com, other@example.com",
+      bcc: "hidden@example.com",
+      subject: "Example",
+      messageHtml: "<p>Example</p>",
+    });
+
+    expect(post.mock.calls[0]?.[0]).toMatchObject({
+      ccRecipients: [
+        { emailAddress: { address: "copied@example.com" } },
+        { emailAddress: { address: "other@example.com" } },
+      ],
+      bccRecipients: [{ emailAddress: { address: "hidden@example.com" } }],
+    });
+  });
+
+  it("adds Cc and Bcc to a reply draft when filling it after createReply", async () => {
+    const post = vi.fn().mockResolvedValue({ id: "reply-draft" });
+    const patch = vi.fn().mockResolvedValue({});
+    const provider = new OutlookProvider(
+      { getClient: () => ({ api: () => ({ post, patch }) }) } as never,
+      createTestLogger(),
+    );
+
+    await provider.createDraft({
+      to: "recipient@example.com",
+      cc: "copied@example.com",
+      bcc: "hidden@example.com",
+      subject: "Re: Example",
+      messageHtml: "<p>Example</p>",
+      replyToMessageId: "parent-1",
+    });
+
+    expect(patch.mock.calls[0]?.[0]).toMatchObject({
+      ccRecipients: [{ emailAddress: { address: "copied@example.com" } }],
+      bccRecipients: [{ emailAddress: { address: "hidden@example.com" } }],
+    });
+  });
+
+  it("leaves the recipients createReply set when the draft has no Cc or Bcc yet", async () => {
+    const post = vi.fn().mockResolvedValue({ id: "reply-draft" });
+    const patch = vi.fn().mockResolvedValue({});
+    const provider = new OutlookProvider(
+      { getClient: () => ({ api: () => ({ post, patch }) }) } as never,
+      createTestLogger(),
+    );
+
+    await provider.createDraft({
+      to: "recipient@example.com",
+      cc: "",
+      bcc: "",
+      subject: "Re: Example",
+      messageHtml: "<p>Example</p>",
+      replyToMessageId: "parent-1",
+    });
+
+    const body = patch.mock.calls[0]?.[0];
+    expect(body).not.toHaveProperty("ccRecipients");
+    expect(body).not.toHaveProperty("bccRecipients");
+  });
 });
 
 describe("OutlookProvider.deleteLabel", () => {

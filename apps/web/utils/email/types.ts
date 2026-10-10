@@ -222,6 +222,8 @@ export interface EmailProvider {
   }): Promise<{ status: number }>;
   createDraft(params: {
     to: string;
+    cc?: string;
+    bcc?: string;
     subject: string;
     messageHtml: string;
     replyToMessageId?: string; // For proper threading

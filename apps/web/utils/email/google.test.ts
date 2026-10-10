@@ -815,6 +815,41 @@ describe("GmailProvider.searchThreads", () => {
   });
 });
 
+describe("GmailProvider.createDraft", () => {
+  it("creates a threaded reply draft that already carries its Cc and Bcc", async () => {
+    const create = vi.fn().mockResolvedValue({ data: { id: "draft-1" } });
+    const provider = new GmailProvider({
+      context: { _options: {} },
+      users: { drafts: { create } },
+    } as any);
+    vi.spyOn(provider, "getMessage").mockResolvedValue(
+      createParsedMessage({
+        id: "parent-1",
+        internalDate: "1000",
+        threadId: "thread-1",
+        headers: { "message-id": "<parent@example.com>" },
+      }),
+    );
+
+    await provider.createDraft({
+      to: "recipient@example.com",
+      cc: "copied@example.com",
+      bcc: "hidden@example.com",
+      subject: "Re: Example",
+      messageHtml: "<p>Example</p>",
+      replyToMessageId: "parent-1",
+    });
+
+    const upload = create.mock.calls[0]?.[0];
+    expect(upload.requestBody).toEqual({ message: { threadId: "thread-1" } });
+    const mime = await readStream(upload.media.body);
+    expect(mime).toContain("To: recipient@example.com");
+    expect(mime).toContain("Cc: copied@example.com");
+    expect(mime).toContain("Bcc: hidden@example.com");
+    expect(mime).toContain("In-Reply-To: <parent@example.com>");
+  });
+});
+
 describe("GmailProvider.updateDraft", () => {
   it("does not write a draft that has been sent or deleted", async () => {
     const update = vi.fn();
