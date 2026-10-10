@@ -211,7 +211,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "${files[@]}" --clobber
           else
-            extra=(--latest=false)
+            # The desktop app is what people download, so it holds the repo's Latest badge.
+            if [[ "${TAG#desktop-v}" == *-* ]]; then
+              extra=(--latest=false)
+            else
+              extra=(--latest)
+            fi
             if [ "${{ github.ref_type }}" != "tag" ]; then
               extra+=(--target "${{ github.sha }}")
             fi
