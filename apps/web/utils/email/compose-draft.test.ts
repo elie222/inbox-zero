@@ -41,6 +41,12 @@ it("returns the provider reference before attempting attachment updates", async 
   expect(provider.createDraft).toHaveBeenCalledOnce();
   expect(provider.updateDraft).not.toHaveBeenCalled();
 });
+it("creates the mailbox draft already addressed, so a copy synced before the next save can still be sent", async () => {
+  await saveComposeDraft({ provider, content });
+  expect(provider.createDraft).toHaveBeenCalledWith(
+    expect.objectContaining({ to: content.to }),
+  );
+});
 it("keeps the confirmed draft id when the mailbox message cannot be loaded yet", async () => {
   vi.mocked(provider.getDraft).mockRejectedValueOnce(new Error("timeout"));
   expect(await saveComposeDraft({ provider, content })).toEqual({
