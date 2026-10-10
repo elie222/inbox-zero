@@ -244,6 +244,12 @@ cron:
     draft-cleanup:
       schedule: "0 4 * * *"
       path: /api/cron/draft-cleanup
+    mobile-push-retention:
+      schedule: "30 3 * * *"
+      path: /api/cron/mobile-push-retention
+    email-send-operation-retention:
+      schedule: "45 3 * * *"
+      path: /api/cron/email-send-operation-retention
     follow-up-reminders:
       schedule: "0 * * * *"
       path: /api/follow-up-reminders
@@ -253,9 +259,15 @@ cron:
     inbox-health:
       schedule: "0 8 * * *"
       path: /api/resend/inbox-health/all
+    weekly-summary:
+      schedule: "0 9 * * 1"
+      path: /api/resend/summary/all
     meeting-briefs:
       schedule: "*/15 * * * *"
       path: /api/meeting-briefs
+    meeting-recorder:
+      schedule: "*/5 * * * *"
+      path: /api/meeting-recorder/schedule
     watch-renewal:
       schedule: "0 */6 * * *"
       path: /api/watch/all

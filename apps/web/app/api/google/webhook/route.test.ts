@@ -131,6 +131,24 @@ describe("Google webhook route", () => {
     );
   });
 
+  it.each([
+    { name: "missing historyId", data: { emailAddress: "user@example.com" } },
+    { name: "missing emailAddress", data: { historyId: "123" } },
+    {
+      name: "non-numeric historyId",
+      data: { emailAddress: "user@example.com", historyId: "abc" },
+    },
+    { name: "unrelated payload", data: { test: true } },
+  ])("rejects a malformed Pub/Sub payload ($name)", async ({ data }) => {
+    const request = createRequest({ token: "test-google-webhook-token", data });
+
+    const response = await POST(request as any, {} as never);
+
+    expect(response.status).toBe(400);
+    expect(processHistoryForUserMock).not.toHaveBeenCalled();
+    expect(getWebhookEmailAccountMock).not.toHaveBeenCalled();
+  });
+
   it("acknowledges valid requests and processes history asynchronously", async () => {
     getWebhookEmailAccountMock.mockResolvedValue({ id: "account-1" });
 
@@ -218,10 +236,12 @@ function createRequest({
   token,
   emailAddress = "user@example.com",
   historyId = 123,
+  data = { emailAddress, historyId },
 }: {
   token?: string;
   emailAddress?: string;
   historyId?: number | string;
+  data?: unknown;
 }) {
   const requestUrl = new URL("https://example.com/api/google/webhook");
   if (token) requestUrl.searchParams.set("token", token);
@@ -233,12 +253,7 @@ function createRequest({
     },
     body: JSON.stringify({
       message: {
-        data: Buffer.from(
-          JSON.stringify({
-            emailAddress,
-            historyId,
-          }),
-        )
+        data: Buffer.from(JSON.stringify(data))
           .toString("base64url")
           .replace(/\+/g, "-")
           .replace(/\//g, "_"),

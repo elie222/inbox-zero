@@ -160,6 +160,32 @@ services:
             sleep 21600
           done
         ) &
+        (
+          sleep 300
+          while true; do
+            for job in reasoning-retention mobile-push-retention email-send-operation-retention draft-cleanup; do
+              echo \"[cron] Running $${job}...\"
+              curl -s -X GET \"http://web:3000/api/cron/$${job}\" -H \"Authorization: Bearer $${CRON_SECRET}\" || echo \"[cron] Warning: $${job} request failed\"
+            done
+            sleep 86400
+          done
+        ) &
+        (
+          sleep 300
+          while true; do
+            echo \"[cron] Sending inbox health emails...\"
+            curl -s -X GET 'http://web:3000/api/resend/inbox-health/all' -H \"Authorization: Bearer $${CRON_SECRET}\" || echo \"[cron] Warning: inbox-health request failed\"
+            sleep 86400
+          done
+        ) &
+        (
+          sleep 300
+          while true; do
+            echo \"[cron] Sending weekly summary emails...\"
+            curl -s -X GET 'http://web:3000/api/resend/summary/all' -H \"Authorization: Bearer $${CRON_SECRET}\" || echo \"[cron] Warning: summary request failed\"
+            sleep 604800
+          done
+        ) &
         wait
         }
       "
