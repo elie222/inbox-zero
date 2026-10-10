@@ -36,7 +36,10 @@ import {
   startSenderCategorizationTool,
 } from "./chat-inbox-tools";
 import { saveMemoryTool, searchMemoriesTool } from "./chat-memory-tools";
-import { getCalendarEventsTool } from "./chat-calendar-tools";
+import {
+  createCalendarEventTool,
+  getCalendarEventsTool,
+} from "./chat-calendar-tools";
 import { hasUsableCalendarConnection } from "@/utils/calendar/event-provider";
 import type { MessagingPlatform } from "@/utils/messaging/platforms";
 import type { SerializedMatchReason } from "@/utils/ai/choose-rule/types";
@@ -311,7 +314,13 @@ export async function aiProcessAssistantChat({
 
     // Progressive disclosure groups (registered but not active by default)
     ...(calendarConnection.state === "connected"
-      ? { getCalendarEvents: getCalendarEventsTool(toolOptions) }
+      ? {
+          getCalendarEvents: getCalendarEventsTool(toolOptions),
+          createCalendarEvent: createCalendarEventTool({
+            ...toolOptions,
+            timezone: userTimezone,
+          }),
+        }
       : {}),
     // Attachments
     readAttachment: readAttachmentTool(toolOptions),
@@ -852,6 +861,12 @@ function getProviderContextSection({
     `- Current provider: ${provider}.`,
     `- User timezone: ${userTimezone}. Current timestamp: ${currentTimestamp}. Resolve relative dates like today, tomorrow, this afternoon, Monday, or Friday from this timezone before calling calendar or inbox date-range tools.`,
   ];
+
+  if (calendarConnection.state === "connected") {
+    lines.push(
+      "- A calendar is connected. When the user asks to add, schedule, or put something on their calendar, create the event with createCalendarEvent using explicit start and end times in their timezone. Ask before guessing a date or time the user or email did not state. Only add attendees the user named; attendees receive invitation emails.",
+    );
+  }
 
   if (calendarConnection.state === "disconnected") {
     lines.push(
