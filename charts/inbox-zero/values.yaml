@@ -244,10 +244,10 @@ cron:
     draft-cleanup:
       schedule: "0 4 * * *"
       path: /api/cron/draft-cleanup
-    mobile-push-retention:
+    push-retention:
       schedule: "30 3 * * *"
       path: /api/cron/mobile-push-retention
-    email-send-operation-retention:
+    send-op-retention:
       schedule: "45 3 * * *"
       path: /api/cron/email-send-operation-retention
     follow-up-reminders:

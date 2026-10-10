@@ -111,7 +111,7 @@ services:
     command: >
       sh -c "
         apk add --no-cache curl &&
-        until curl -s -o /dev/null http://web:3000/; do echo \"[cron] Waiting for web...\"; sleep 5; done && {
+        until curl -fs -o /dev/null http://web:3000/; do echo \"[cron] Waiting for web...\"; sleep 5; done && {
         (
           while true; do
             echo \"[cron] Processing scheduled actions...\"
