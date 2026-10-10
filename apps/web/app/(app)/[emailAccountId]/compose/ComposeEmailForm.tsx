@@ -37,7 +37,7 @@ import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR, { useSWRConfig } from "swr";
 import type { ScopedMutator } from "swr";
 import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
-import type { GetComposeSignatureResponse } from "@/app/api/user/compose-signature/route";
+import type { GetSignatureResponse } from "@/app/api/user/signature/route";
 import { ComposeContactRecipientField } from "./ComposeContactRecipientField";
 import { Input } from "@/components/Input";
 import { ButtonLoader } from "@/components/Loading";
@@ -224,11 +224,8 @@ function ComposeEmailFormWithEngine(props: ComposeEmailFormProps) {
       ?.account.provider ?? provider;
   // A failed lookup still lets the user compose, just without a signature.
   const { data: composeSignature, isLoading: isLoadingSignature } =
-    useSWR<GetComposeSignatureResponse>(
-      getAccountScopedKey(
-        "/api/user/compose-signature",
-        selectedEmailAccountId,
-      ),
+    useSWR<GetSignatureResponse>(
+      getAccountScopedKey("/api/user/signature", selectedEmailAccountId),
     );
 
   const localDraftIdentity = props.draftSessionId
