@@ -177,6 +177,42 @@ describe("summary email route", () => {
     });
   });
 
+  it.each([
+    { name: "one weekly cron interval ago", hoursAgo: 168, expectSend: true },
+    { name: "a day ago", hoursAgo: 24, expectSend: false },
+  ])("applies the weekly recency gate when the last summary was sent $name", async ({
+    hoursAgo,
+    expectSend,
+  }) => {
+    prisma.emailAccount.findUnique
+      .mockResolvedValueOnce({
+        lastSummaryEmailAt: new Date(Date.now() - hoursAgo * 60 * 60 * 1000),
+      })
+      .mockResolvedValueOnce({
+        userId: "user-1",
+        email: "user@example.com",
+        account: { provider: "google", refresh_token: "refresh-token" },
+      });
+    prisma.rule.findUnique.mockResolvedValue(null);
+    prisma.executedAction.count.mockResolvedValue(0);
+    prisma.executedAction.findMany.mockResolvedValue([]);
+    prisma.emailAccount.update.mockResolvedValue({});
+
+    const response = await POST(
+      new NextRequest("http://localhost:3000/api/resend/summary", {
+        method: "POST",
+        body: JSON.stringify({ emailAccountId: "email-account-id" }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    if (expectSend) {
+      expect(prisma.emailAccount.update).toHaveBeenCalled();
+    } else {
+      expect(prisma.emailAccount.update).not.toHaveBeenCalled();
+    }
+  });
+
   it("does not send when there is no weekly summary activity", async () => {
     prisma.emailAccount.findUnique
       .mockResolvedValueOnce({ lastSummaryEmailAt: null })

@@ -97,9 +97,10 @@ async function sendEmail({
 
   logger.info("Sending summary email");
 
-  // run every 7 days. but overlap by 1 hour
+  // Weekly, with 1 hour of slack so a run scheduled exactly 7 days after the
+  // last send isn't skipped by small timing differences.
   const days = 7;
-  const cutOffDate = subHours(new Date(), days * 24 + 1);
+  const cutOffDate = subHours(new Date(), days * 24 - 1);
 
   if (!force) {
     const emailAccount = await prisma.emailAccount.findUnique({
