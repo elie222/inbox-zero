@@ -37,7 +37,7 @@ import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR, { useSWRConfig } from "swr";
 import type { ScopedMutator } from "swr";
 import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
-import type { GetReferralCodeResponse } from "@/app/api/referrals/code/route";
+import type { GetComposeSignatureResponse } from "@/app/api/user/compose-signature/route";
 import { ComposeContactRecipientField } from "./ComposeContactRecipientField";
 import { Input } from "@/components/Input";
 import { ButtonLoader } from "@/components/Loading";
@@ -59,6 +59,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { env } from "@/env";
+import { getAccountScopedKey } from "@/utils/swr";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { useLocalReplyDraft } from "@/hooks/useLocalReplyDraft";
 import {
@@ -102,13 +103,11 @@ import {
   isMicrosoftProvider,
 } from "@/utils/email/provider-types";
 import { stripBrandingSignatures } from "@/utils/referral/signature";
-import { renderSentWithFooterHtml } from "@/utils/email/sent-with-footer";
 import {
   getActionErrorMessage,
   UNEXPECTED_ACTION_ERROR_MESSAGE,
 } from "@/utils/error";
 import { redirectToSafeUrl } from "@/utils/redirect";
-import { generateReferralLink } from "@/utils/referral/referral-link";
 import {
   type SendEmailBody,
   validateSendEmailPayloadSize,
@@ -223,21 +222,14 @@ function ComposeEmailFormWithEngine(props: ComposeEmailFormProps) {
   const selectedAccountProvider =
     props.fromAccounts?.find((account) => account.id === selectedEmailAccountId)
       ?.account.provider ?? provider;
-  const includeSentWithFooter =
-    !env.NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE &&
-    Boolean(emailAccount?.includeSentWithSignature);
-  const { data: referralCode, isLoading: isLoadingReferralCode } =
-    useSWR<GetReferralCodeResponse>(
-      includeSentWithFooter ? "/api/referrals/code" : null,
+  // A failed lookup still lets the user compose, just without a signature.
+  const { data: composeSignature, isLoading: isLoadingSignature } =
+    useSWR<GetComposeSignatureResponse>(
+      getAccountScopedKey(
+        "/api/user/compose-signature",
+        selectedEmailAccountId,
+      ),
     );
-  // A failed referral lookup still sends the footer, just without the referral link.
-  const sentWithFooterHtml = includeSentWithFooter
-    ? renderSentWithFooterHtml(
-        referralCode?.code
-          ? generateReferralLink(referralCode.code)
-          : env.NEXT_PUBLIC_BASE_URL,
-      )
-    : "";
 
   const localDraftIdentity = props.draftSessionId
     ? {
@@ -279,7 +271,7 @@ function ComposeEmailFormWithEngine(props: ComposeEmailFormProps) {
         isLoading ||
         localDraft.isLoading ||
         draftAttachments.isLoading ||
-        isLoadingReferralCode
+        isLoadingSignature
       }
     >
       {emailAccount && (
@@ -293,9 +285,9 @@ function ComposeEmailFormWithEngine(props: ComposeEmailFormProps) {
             initialDraftMissing={draftAttachments.draftMissing}
             draftLoadError={localDraft.error}
             accountProvider={selectedAccountProvider}
-            accountSignatureHtml={emailAccount.signature ?? ""}
+            accountSignatureHtml={composeSignature?.signatureHtml ?? ""}
             sendingAddress={emailAccount.email}
-            sentWithFooterHtml={sentWithFooterHtml}
+            sentWithFooterHtml={composeSignature?.footerHtml ?? ""}
             key={composeSessionKey}
             onSelectEmailAccount={setSelectedEmailAccountId}
             selectedEmailAccountId={selectedEmailAccountId}
