@@ -718,9 +718,11 @@ export class OutlookProvider implements EmailProvider {
       replyToMessageId: params.replyToMessageId,
       forwardedMessageId: params.forwardedMessageId,
     });
+    // Left out when empty so creating never clears what the source message set.
     const recipients = {
-      toRecipients: toGraphRecipients(params.to, this.logger),
-      // Left out when empty so creating never clears what the source message set.
+      ...(params.to.trim()
+        ? { toRecipients: toGraphRecipients(params.to, this.logger) }
+        : {}),
       ...(params.cc?.trim()
         ? { ccRecipients: toGraphRecipients(params.cc, this.logger) }
         : {}),
