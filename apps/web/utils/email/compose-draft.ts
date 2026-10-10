@@ -16,7 +16,7 @@ export async function saveComposeDraft({
     // Return the reference before syncing the rest of the content so later
     // failures can retry an update without creating another mailbox draft.
     const draft = await provider.createDraft({
-      to: "",
+      to: content.to,
       subject: content.subject,
       messageHtml: content.messageHtml,
       replyToMessageId: content.replyToEmail?.messageId,
