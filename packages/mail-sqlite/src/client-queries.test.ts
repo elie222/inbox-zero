@@ -87,6 +87,66 @@ describe("mail client queries", () => {
     }
   });
 
+  it("keeps the conversation title when a newer reply draft syncs", async () => {
+    const store = await createSqliteMailStore(
+      createNodeSqliteDriver(":memory:"),
+    );
+    try {
+      await store.ensureAccount({
+        accountId: "acc-1",
+        provider: "google",
+        generation: "g1",
+      });
+      const replyDraft = messagePatch("reply-draft", "conversation", 2000, [
+        "draft",
+      ]);
+      replyDraft.fields.subject = "Re: Original subject";
+      const original = messagePatch("original", "conversation", 1000, [
+        "inbox",
+      ]);
+      original.fields.subject = "Original subject";
+      const newMessage = messagePatch("new-draft", "draft-only", 3000, [
+        "draft",
+      ]);
+      newMessage.fields.subject = "New message subject";
+      await store.applySyncPage({
+        ownerId: "owner",
+        page: {
+          session: { accountId: "acc-1", generation: "g1" },
+          requestId: "bootstrap",
+          from: { streamId: "primary", generation: "g1", checkpoint: null },
+          to: { streamId: "primary", generation: "g1", checkpoint: "1" },
+          changes: [original, replyDraft, newMessage],
+          requiredHydration: [],
+          roundComplete: true,
+        },
+      });
+      const result = await store.readMailboxView({
+        accountIds: ["acc-1"],
+        predicate: mailboxPredicate("all"),
+        order: "newest_first",
+        pageSize: 25,
+        after: null,
+      });
+      expect(
+        result.view.conversations.find(
+          (row) => row.key.conversationId === "conversation",
+        ),
+      ).toMatchObject({
+        subject: "Original subject",
+        preview: "reply-draft",
+        roles: ["inbox", "draft"],
+      });
+      expect(
+        result.view.conversations.find(
+          (row) => row.key.conversationId === "draft-only",
+        )?.subject,
+      ).toBe("New message subject");
+    } finally {
+      await store.close();
+    }
+  });
+
   it("counts archive unreads from the whole conversation", async () => {
     const directory = await mkdtemp(join(tmpdir(), "mail-archive-unread-"));
     const store = await createSqliteMailStore(
