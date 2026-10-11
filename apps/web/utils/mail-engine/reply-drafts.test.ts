@@ -347,7 +347,6 @@ describe("local reply drafts", () => {
     expect(
       await getReplyDrafts("account", "thread", [identity.messageId]),
     ).toEqual([]);
-    setActiveMailClient(null);
   });
 
   it("lists a draft's saved copies with the newest last", () => {
@@ -379,7 +378,6 @@ describe("local reply drafts", () => {
         content: { draft: { editableHtml: "<p>My reply</p>" } },
       },
     ]);
-    setActiveMailClient(null);
   });
 
   it("copies a cancelled send draft into the reply composer session", async () => {

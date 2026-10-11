@@ -146,6 +146,12 @@ export function EmailThread({
           .map(({ message }) => [message.id, true]),
       ),
   );
+  const [activeCompose, setActiveCompose] = useState<{
+    threadId: string;
+    messageId: string;
+  }>();
+  const activeComposeMessageId =
+    activeCompose?.threadId === threadId ? activeCompose.messageId : undefined;
   const [recoveredReply, setRecoveredReply] = useState<{
     messageId: string;
     mode: ReplyDraftMode;
@@ -153,11 +159,13 @@ export function EmailThread({
   }>();
   useEffect(() => {
     const messageId = autoOpenForwardForMessageId ?? autoOpenReplyForMessageId;
-    if (messageId)
+    if (messageId) {
+      setActiveCompose({ threadId, messageId });
       setExpansionOverrides((previous) =>
         new Map(previous).set(messageId, true),
       );
-  }, [autoOpenForwardForMessageId, autoOpenReplyForMessageId]);
+    }
+  }, [autoOpenForwardForMessageId, autoOpenReplyForMessageId, threadId]);
   const expanded = (id: string, hasDraft: boolean) =>
     expansionOverrides.get(id) ?? (id === lastMessageId || hasDraft);
   // Outlook sends a draft as the same message, so its local copy would reopen
@@ -323,6 +331,13 @@ export function EmailThread({
                     ? () => setSelectedMessageId(message.id)
                     : undefined
                 }
+                hideComposer={Boolean(
+                  activeComposeMessageId &&
+                    activeComposeMessageId !== message.id,
+                )}
+                onStartCompose={() =>
+                  setActiveCompose({ threadId, messageId: message.id })
+                }
                 defaultComposeMode={defaultComposeMode}
                 draftMessages={draftMessages}
                 expanded={expanded(
@@ -399,6 +414,7 @@ export function EmailThread({
             messageIds={messages.map((message) => message.id)}
             refetch={refetch}
             onEditReply={(messageId, mode) => {
+              setActiveCompose({ threadId, messageId });
               setExpansionOverrides((previous) =>
                 new Map(previous).set(messageId, true),
               );

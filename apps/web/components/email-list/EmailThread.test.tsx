@@ -18,7 +18,6 @@ import {
   EmailThread,
   organizeThreadMessages,
 } from "@/components/email-list/EmailThread";
-
 import { hideSendingDraftMessages } from "@/hooks/useHiddenDraftMessageIds";
 
 const { discardDraft } = vi.hoisted(() => ({ discardDraft: vi.fn() }));
@@ -111,8 +110,38 @@ describe("EmailThread reply composer", () => {
         showReplyButton
       />,
     );
-
     expect(screen.getByRole("textbox", { name: "Email message" })).toBeTruthy();
+
+    view.rerender(
+      <EmailThread
+        messages={[
+          first,
+          createReaderMessage("second", "2000"),
+          createReaderDraft("other-copy", "3000"),
+        ]}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+    expect(screen.getByRole("textbox", { name: "Email message" })).toBeTruthy();
+
+    view.rerender(
+      <EmailThread
+        messages={[
+          {
+            ...createReaderMessage("other-parent", "1000"),
+            threadId: "thread-2",
+          },
+          { ...createReaderDraft("other-draft", "2000"), threadId: "thread-2" },
+        ]}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+    expect(
+      screen.getByRole("textbox", { name: "Email message" }).dataset
+        .draftSessionId,
+    ).toBe("other-draft:reply");
   });
 
   // Gmail gives a draft a new message ID each time it is saved. When sync
@@ -152,6 +181,48 @@ describe("EmailThread reply composer", () => {
       expect(current.dataset.providerDraftMessageId).toBe("draft-v2");
       expect(composerMounts).toBe(1);
     }
+    view.rerender(
+      <EmailThread
+        messages={[parent, createReaderDraft("draft-v2", "3000")]}
+        autoOpenForwardForMessageId="parent"
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+    expect(
+      screen.getAllByRole("textbox", { name: "Email message" }),
+    ).toHaveLength(1);
+    expect(
+      screen.getByRole("textbox", { name: "Email message" }).dataset
+        .draftSessionId,
+    ).toBe("parent:forward");
+    view.rerender(
+      <EmailThread
+        messages={[parent, createReaderDraft("draft-v2", "3000")]}
+        autoOpenReplyForMessageId="parent"
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+    expect(
+      screen.getAllByRole("textbox", { name: "Email message" }),
+    ).toHaveLength(1);
+    expect(
+      screen.getByRole("textbox", { name: "Email message" }).dataset
+        .draftSessionId,
+    ).toBe("draft-v1:reply");
+    fireEvent.click(screen.getByRole("button", { name: "Reply" }));
+    expect(
+      screen.getAllByRole("textbox", { name: "Email message" }),
+    ).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Forward" }));
+    expect(
+      screen.getAllByRole("textbox", { name: "Email message" }),
+    ).toHaveLength(1);
+    expect(
+      screen.getByRole("textbox", { name: "Email message" }).dataset
+        .draftSessionId,
+    ).toBe("parent:forward");
   });
 });
 
