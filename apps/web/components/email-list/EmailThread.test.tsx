@@ -74,8 +74,18 @@ const { localDrafts } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/hooks/useReplyDrafts", () => ({
-  useReplyDrafts: () => ({
-    drafts: localDrafts.current,
+  useReplyDrafts: (
+    _accountId: string,
+    _threadId: string,
+    messageIds: string[],
+  ) => ({
+    drafts: localDrafts.current.filter((draft) =>
+      messageIds.some(
+        (id) =>
+          draft.messageId === `${id}:reply` ||
+          draft.messageId === `${id}:forward`,
+      ),
+    ),
     isLoading: localDrafts.isLoading,
   }),
 }));
@@ -123,7 +133,11 @@ describe("EmailThread reply composer", () => {
         showReplyButton
       />,
     );
-    expect(screen.getByRole("textbox", { name: "Email message" })).toBeTruthy();
+    expect(
+      screen
+        .getAllByRole("textbox", { name: "Email message" })
+        .map((editor) => editor.dataset.draftSessionId),
+    ).toEqual(["first:reply", "other-copy:reply"]);
 
     view.rerender(
       <EmailThread
@@ -142,6 +156,33 @@ describe("EmailThread reply composer", () => {
       screen.getByRole("textbox", { name: "Email message" }).dataset
         .draftSessionId,
     ).toBe("other-draft:reply");
+  });
+
+  it("keeps independent mailbox drafts open while composing and closing a forward", () => {
+    render(
+      <EmailThread
+        messages={[
+          createReaderMessage("parent", "1000"),
+          createReaderDraft("independent-first", "2000"),
+          createReaderDraft("independent-second", "3000"),
+        ]}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+    const editors = () =>
+      screen.getAllByRole("textbox", { name: "Email message" });
+    fireEvent.change(editors()[0], { target: { value: "Independent edit" } });
+    fireEvent.click(screen.getByRole("button", { name: "Forward" }));
+    expect(editors().map((editor) => editor.dataset.draftSessionId)).toEqual([
+      "independent-first:reply",
+      "independent-second:reply",
+      "parent:forward",
+    ]);
+    expect((editors()[0] as HTMLInputElement).value).toBe("Independent edit");
+    fireEvent.click(screen.getAllByRole("button", { name: "Send" })[2]);
+    expect(editors()).toHaveLength(2);
+    expect((editors()[0] as HTMLInputElement).value).toBe("Independent edit");
   });
 
   // Gmail gives a draft a new message ID each time it is saved. When sync
@@ -191,9 +232,9 @@ describe("EmailThread reply composer", () => {
     );
     expect(
       screen.getAllByRole("textbox", { name: "Email message" }),
-    ).toHaveLength(1);
+    ).toHaveLength(2);
     expect(
-      screen.getByRole("textbox", { name: "Email message" }).dataset
+      screen.getAllByRole("textbox", { name: "Email message" })[1].dataset
         .draftSessionId,
     ).toBe("parent:forward");
     view.rerender(
@@ -218,9 +259,9 @@ describe("EmailThread reply composer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Forward" }));
     expect(
       screen.getAllByRole("textbox", { name: "Email message" }),
-    ).toHaveLength(1);
+    ).toHaveLength(2);
     expect(
-      screen.getByRole("textbox", { name: "Email message" }).dataset
+      screen.getAllByRole("textbox", { name: "Email message" })[1].dataset
         .draftSessionId,
     ).toBe("parent:forward");
   });
@@ -343,6 +384,62 @@ describe("EmailThread outgoing replies", () => {
     const composer = screen.getByRole("textbox", { name: "Email message" });
     expect(composer.dataset.draftKeyMessageId).toBe("parent");
     expect(composer.dataset.draftSessionId).toBe("outgoing:send-1:reply");
+  });
+
+  it("restores a reply on an outgoing row and keeps it when the sent row takes over", () => {
+    localDrafts.current = [
+      {
+        emailAccountId: "account-1",
+        threadId: "thread-1",
+        messageId: "outgoing:send-1:reply",
+        revision: 1,
+        updatedAt: 1000,
+        content: { composeMode: "reply" } as StoredReplyDraft["content"],
+      },
+    ];
+    try {
+      const parent = createReaderMessage("parent", "1000");
+      const view = render(
+        <EmailThread
+          messages={[parent]}
+          outgoing={[
+            {
+              operationId: "send-1",
+              status: "verifying",
+              message: createSentMessage("outgoing:send-1", "3000"),
+            },
+          ]}
+          refetch={vi.fn()}
+          showReplyButton
+        />,
+      );
+      expect(
+        screen.getByRole("textbox", { name: "Email message" }).dataset
+          .draftSessionId,
+      ).toBe("outgoing:send-1:reply");
+      const outgoingRow = document.querySelector(
+        '[data-thread-message-id="outgoing:send-1"]',
+      );
+      const replyButton = Array.from(
+        outgoingRow?.querySelectorAll("button") ?? [],
+      ).find((button) => button.textContent === "Reply");
+      if (!replyButton) throw new Error("expected outgoing reply button");
+      fireEvent.click(replyButton);
+      view.rerender(
+        <EmailThread
+          messages={[parent, createSentMessage("sent-1", "3000")]}
+          sendOperationIds={new Map([["sent-1", "send-1"]])}
+          refetch={vi.fn()}
+          showReplyButton
+        />,
+      );
+      expect(
+        screen.getByRole("textbox", { name: "Email message" }).dataset
+          .draftSessionId,
+      ).toBe("outgoing:send-1:reply");
+    } finally {
+      localDrafts.current = [];
+    }
   });
 
   // Outlook sends a saved draft as that same message. Its local copy is only

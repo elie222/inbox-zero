@@ -69,6 +69,86 @@ describe("local reply drafts", () => {
     ]);
   });
 
+  it("preserves edit times when sessions load in the opposite order", async () => {
+    const clock = vi.spyOn(Date, "now");
+    try {
+      const client = createRevisionCheckingClient();
+      setActiveMailClient(client as never);
+      clock.mockReturnValue(1000);
+      await createReplyDraftWriter({
+        ...identity,
+        messageId: "parent:forward",
+      }).save({ ...content, composeMode: "forward" });
+      clock.mockReturnValue(2000);
+      await createReplyDraftWriter(replyIdentity).save({
+        ...content,
+        composeMode: "reply",
+      });
+      clearLocalReplyDrafts();
+      clock.mockReturnValue(3000);
+      const restored = await getReplyDrafts("account", "thread", ["parent"]);
+      expect(
+        restored
+          .map(({ messageId, updatedAt }) => [messageId, updatedAt])
+          .sort(),
+      ).toEqual([
+        ["parent:forward", 1000],
+        ["parent:reply", 2000],
+      ]);
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
+  it.each([
+    "reply",
+    "forward",
+  ] as const)("migrates legacy %s drafts on thread lookup and persists the migration", async (mode) => {
+    const client = createRevisionCheckingClient();
+    setActiveMailClient(client as never);
+    await createReplyDraftWriter(identity).save({
+      ...content,
+      composeMode: mode,
+    });
+    clearLocalReplyDrafts();
+    for (let reload = 0; reload < 2; reload += 1) {
+      const listed = await getReplyDrafts("account", "thread", ["parent"]);
+      expect(listed.map((draft) => draft.messageId)).toEqual([
+        `parent:${mode}`,
+      ]);
+      expect((await getReplyDraft(identity))?.content ?? null).toBeNull();
+      clearLocalReplyDrafts();
+    }
+  });
+
+  it("keeps the persisted legacy draft when saving its migration fails", async () => {
+    const client = createRevisionCheckingClient();
+    setActiveMailClient(client as never);
+    await createReplyDraftWriter(identity).save({
+      ...content,
+      composeMode: "reply",
+    });
+    clearLocalReplyDrafts();
+    client.saveDraft.mockRejectedValueOnce(new Error("Storage unavailable"));
+    await getReplyDrafts("account", "thread", ["parent"]);
+    clearLocalReplyDrafts();
+    expect((await getReplyDraft(identity))?.content).toMatchObject({
+      composeMode: "reply",
+    });
+  });
+
+  it("does not list mailbox-owned sessions as local replies on other messages", async () => {
+    await createReplyDraftWriter({
+      ...identity,
+      messageId: "mailbox-copy:reply",
+    }).save({
+      ...content,
+      providerDraftMessageIds: ["mailbox-copy"],
+    });
+    expect(await getReplyDrafts("account", "thread", ["parent"])).toEqual([]);
+    expect(await getReplyDrafts("account", "thread", [])).toEqual([]);
+  });
+
   it.each([
     "edit",
     "discard",

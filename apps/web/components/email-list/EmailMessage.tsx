@@ -156,25 +156,24 @@ export function EmailMessage({
   const [dismissedDraftIds, setDismissedDraftIds] = useState(
     () => new Set<string>(),
   );
-  const setDraftDismissed = (sessionMessageId: string, dismissed: boolean) => {
-    setDismissedDraftIds((previous) => {
-      if (previous.has(sessionMessageId) === dismissed) return previous;
-      const next = new Set(previous);
-      if (dismissed) next.add(sessionMessageId);
-      else next.delete(sessionMessageId);
-      return next;
-    });
-  };
-  const mailboxDrafts = serverDrafts.filter(
+  const setDraftDismissed = useCallback(
+    (sessionMessageId: string, dismissed: boolean) => {
+      setDismissedDraftIds((previous) => {
+        if (previous.has(sessionMessageId) === dismissed) return previous;
+        const next = new Set(previous);
+        if (dismissed) next.add(sessionMessageId);
+        else next.delete(sessionMessageId);
+        return next;
+      });
+    },
+    [],
+  );
+  const visibleDrafts = serverDrafts.filter(
     (draft) =>
-      !hideComposer &&
-      composeMode !== "forward" &&
       !dismissedDraftIds.has(draft.sessionMessageId) &&
       getReplyDraftSessionId(draft.sessionMessageId, "reply") !==
         poppedOutDraftSessionId,
   );
-  const visibleDrafts =
-    composeMode === "reply" ? mailboxDrafts.slice(0, 1) : mailboxDrafts;
   const composingMailboxReply =
     composeMode === "reply" && visibleDrafts.length > 0;
   const isDraftRow = serverDrafts.some(
@@ -191,9 +190,7 @@ export function EmailMessage({
     composeSessionRef.current += 1;
     const savedDraft = serverDrafts[0];
     if (savedDraft) {
-      setDismissedDraftIds(
-        new Set(serverDrafts.slice(1).map((draft) => draft.sessionMessageId)),
-      );
+      setDraftDismissed(savedDraft.sessionMessageId, false);
       setComposeOverride("closed");
       requestAnimationFrame(() => {
         messageRef.current
@@ -204,29 +201,20 @@ export function EmailMessage({
       setComposeOverride("reply");
     }
     onExpand?.();
-  }, [onExpand, onStartCompose, serverDrafts]);
+  }, [onExpand, onStartCompose, serverDrafts, setDraftDismissed]);
   const onForward = useCallback(() => {
     onStartCompose?.();
     composeSessionRef.current += 1;
-    setDismissedDraftIds(
-      new Set(serverDrafts.map((draft) => draft.sessionMessageId)),
-    );
     setComposeOverride("forward");
     onExpand?.();
-  }, [onExpand, onStartCompose, serverDrafts]);
+  }, [onExpand, onStartCompose]);
 
   const onCloseCompose = useCallback(() => {
     setComposeOverride("closed");
   }, []);
   const closeMailboxDraft = (sessionMessageId: string) => {
-    onCloseCompose();
-    if (composeMode === "reply") {
-      setDismissedDraftIds(
-        new Set(serverDrafts.map((draft) => draft.sessionMessageId)),
-      );
-    } else {
-      setDraftDismissed(sessionMessageId, true);
-    }
+    if (composeMode === "reply") onCloseCompose();
+    setDraftDismissed(sessionMessageId, true);
   };
   const [composerKey, setComposerKey] = useState(0);
   const undoSendSessionRef = useRef<ComposeSession | null>(null);

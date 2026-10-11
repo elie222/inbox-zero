@@ -79,9 +79,12 @@ export function EmailThread({
   const { drafts: localDrafts, isLoading: draftsLoading } = useReplyDrafts(
     emailAccountId,
     threadId,
-    messages
-      .filter((message) => !message.labelIds?.includes(GmailLabel.DRAFT))
-      .map((message) => message.id),
+    [
+      ...messages
+        .filter((message) => !message.labelIds?.includes(GmailLabel.DRAFT))
+        .map((message) => getComposerMessageId(message.id, sendOperationIds)),
+      ...outgoing.map((item) => item.message.id),
+    ],
   );
   const { data: sentMessageOpens } = useSentMessageOpens(threadId || null);
   const hiddenDraftMessageIds = useHiddenDraftMessageIds(emailAccountId);
@@ -151,7 +154,9 @@ export function EmailThread({
     messageId: string;
   }>();
   const activeComposeMessageId =
-    activeCompose?.threadId === threadId ? activeCompose.messageId : undefined;
+    activeCompose?.threadId === threadId
+      ? getComposerMessageId(activeCompose.messageId, sendOperationIds)
+      : undefined;
   const [recoveredReply, setRecoveredReply] = useState<{
     messageId: string;
     mode: ReplyDraftMode;
@@ -168,13 +173,13 @@ export function EmailThread({
   }, [autoOpenForwardForMessageId, autoOpenReplyForMessageId, threadId]);
   const expanded = (id: string, hasDraft: boolean) =>
     expansionOverrides.get(id) ?? (id === lastMessageId || hasDraft);
-  // Outlook sends a draft as the same message, so its local copy would reopen
-  // as a reply on the sent message until the send settles and clears it.
-  const localDraftModeFor = (message: ThreadMessage) =>
-    message.labelIds?.includes(GmailLabel.DRAFT) ||
-    sendOperationIds?.has(message.id)
-      ? undefined
-      : getLocalDraftMode(localDrafts, message.id);
+  const localDraftModeFor = (message: ThreadMessage) => {
+    if (message.labelIds?.includes(GmailLabel.DRAFT)) return;
+    return getLocalDraftMode(
+      localDrafts,
+      getComposerMessageId(message.id, sendOperationIds),
+    );
+  };
   const hasLocalDraft = (message: ThreadMessage) =>
     Boolean(localDraftModeFor(message));
   const allExpanded = organizedMessages.every(({ message, draftMessages }) =>
@@ -298,19 +303,17 @@ export function EmailThread({
           {organizedMessages.map(({ message, draftMessages, outgoing }) => {
             const sendOperationId =
               outgoing?.operationId ?? sendOperationIds?.get(message.id);
-            const defaultComposeMode = getDefaultComposeMode({
-              autoOpenMode:
-                autoOpenForwardForMessageId === message.id
-                  ? "forward"
-                  : autoOpenReplyForMessageId === message.id
-                    ? "reply"
-                    : undefined,
-              localDraftMode: localDraftModeFor(message),
-              recoveredReply:
-                recoveredReply?.messageId === message.id
-                  ? recoveredReply
-                  : undefined,
-            });
+            let autoOpenMode: ReplyDraftMode | undefined;
+            if (autoOpenForwardForMessageId === message.id)
+              autoOpenMode = "forward";
+            else if (autoOpenReplyForMessageId === message.id)
+              autoOpenMode = "reply";
+            const recoveredMode =
+              recoveredReply?.messageId === message.id
+                ? recoveredReply.mode
+                : undefined;
+            const defaultComposeMode =
+              recoveredMode ?? autoOpenMode ?? localDraftModeFor(message);
             return (
               <EmailMessage
                 bodyAvailable={!missingBodyIds?.has(message.id)}
@@ -333,7 +336,8 @@ export function EmailThread({
                 }
                 hideComposer={Boolean(
                   activeComposeMessageId &&
-                    activeComposeMessageId !== message.id,
+                    activeComposeMessageId !==
+                      getComposerMessageId(message.id, sendOperationIds),
                 )}
                 onStartCompose={() =>
                   setActiveCompose({ threadId, messageId: message.id })
@@ -431,11 +435,18 @@ export function EmailThread({
   );
 }
 
+function getComposerMessageId(
+  messageId: string,
+  sendOperationIds?: Map<string, string>,
+) {
+  const operationId = sendOperationIds?.get(messageId);
+  return operationId ? `outgoing:${operationId}` : messageId;
+}
+
 function getLocalDraftMode(drafts: StoredReplyDraft[], messageId: string) {
   const latest = drafts
     .filter(
       (draft) =>
-        draft.messageId === messageId ||
         draft.messageId === getReplyDraftSessionId(messageId, "reply") ||
         draft.messageId === getReplyDraftSessionId(messageId, "forward"),
     )
@@ -444,20 +455,6 @@ function getLocalDraftMode(drafts: StoredReplyDraft[], messageId: string) {
   return latest.messageId === getReplyDraftSessionId(messageId, "forward")
     ? ("forward" as const)
     : getReplyDraftMode(latest);
-}
-
-function getDefaultComposeMode({
-  autoOpenMode,
-  localDraftMode,
-  recoveredReply,
-}: {
-  autoOpenMode?: ReplyDraftMode;
-  localDraftMode?: ReplyDraftMode;
-  recoveredReply?: { mode: ReplyDraftMode };
-}) {
-  if (recoveredReply) return recoveredReply.mode;
-  if (autoOpenMode) return autoOpenMode;
-  return localDraftMode;
 }
 
 // Drafts without reply headers still belong to this conversation. Keep each
