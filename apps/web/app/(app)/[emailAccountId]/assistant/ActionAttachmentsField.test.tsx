@@ -1,9 +1,16 @@
 /** @vitest-environment jsdom */
 
 import React from "react";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AttachmentSourceType } from "@/generated/prisma/enums";
+import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
 import { ActionAttachmentsField } from "./ActionAttachmentsField";
 
 const mockUseDriveConnections = vi.fn();
@@ -71,6 +78,82 @@ describe("ActionAttachmentsField", () => {
     cleanup();
   });
 
+  it("labels a single AI folder as a folder", () => {
+    renderField({
+      attachmentSources: [badgeSource("folder-1", AttachmentSourceType.FOLDER)],
+    });
+
+    expect(
+      within(
+        screen.getByRole("button", { name: /^AI-selected sources/ }),
+      ).getByText("1 folder"),
+    ).toBeTruthy();
+    expect(screen.getAllByText("1 folder")).toHaveLength(2);
+  });
+
+  it("labels mixed AI sources with folders first", () => {
+    renderField({
+      attachmentSources: [
+        badgeSource("file-1", AttachmentSourceType.FILE),
+        badgeSource("folder-1", AttachmentSourceType.FOLDER),
+        badgeSource("folder-2", AttachmentSourceType.FOLDER),
+      ],
+    });
+
+    expect(
+      within(
+        screen.getByRole("button", { name: /^AI-selected sources/ }),
+      ).getByText("2 folders, 1 file"),
+    ).toBeTruthy();
+    expect(screen.getAllByText("2 folders, 1 file")).toHaveLength(2);
+  });
+
+  it("counts files in both sections in the header without deduplicating", () => {
+    const file = badgeSource("file-1", AttachmentSourceType.FILE);
+    renderField({
+      value: [file, badgeSource("file-2", AttachmentSourceType.FILE)],
+      attachmentSources: [
+        file,
+        badgeSource("folder-1", AttachmentSourceType.FOLDER),
+      ],
+    });
+
+    expect(
+      within(screen.getByRole("button", { name: /^Always attach/ })).getByText(
+        "2 files",
+      ),
+    ).toBeTruthy();
+    expect(
+      within(
+        screen.getByRole("button", { name: /^AI-selected sources/ }),
+      ).getByText("1 folder, 1 file"),
+    ).toBeTruthy();
+    expect(screen.getByText("1 folder, 3 files")).toBeTruthy();
+  });
+
+  it("excludes disabled AI sources from the header", () => {
+    renderField({
+      value: [badgeSource("file-1", AttachmentSourceType.FILE)],
+      attachmentSources: [badgeSource("folder-1", AttachmentSourceType.FOLDER)],
+      allowAiSelectedSources: false,
+    });
+
+    expect(screen.getAllByText("1 file")).toHaveLength(2);
+    expect(screen.queryByText("1 folder")).toBeNull();
+  });
+
+  it("keeps badges hidden for empty selections", () => {
+    renderField();
+
+    expect(screen.getByText("Attachments").parentElement?.textContent).toBe(
+      "Attachments",
+    );
+    expect(screen.getByRole("button", { name: "Always attach" })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "AI-selected sources" }),
+    ).toBeTruthy();
+  });
+
   it("applies always-attach selections only after saving the picker", () => {
     const onChange = vi.fn();
     renderField({ onChange });
@@ -129,9 +212,15 @@ describe("ActionAttachmentsField", () => {
 });
 
 function renderField({
+  value = [],
+  attachmentSources = [],
+  allowAiSelectedSources = true,
   onChange = vi.fn(),
   onAttachmentSourcesChange = vi.fn(),
 }: {
+  value?: AttachmentSourceInput[];
+  attachmentSources?: AttachmentSourceInput[];
+  allowAiSelectedSources?: boolean;
   onChange?: (
     value: Parameters<typeof ActionAttachmentsField>[0]["value"],
   ) => void;
@@ -141,12 +230,26 @@ function renderField({
 } = {}) {
   render(
     <ActionAttachmentsField
-      value={[]}
+      value={value}
       onChange={onChange}
       emailAccountId="email-account-1"
       contentSetManually
-      attachmentSources={[]}
+      attachmentSources={attachmentSources}
+      allowAiSelectedSources={allowAiSelectedSources}
       onAttachmentSourcesChange={onAttachmentSourcesChange}
     />,
   );
+}
+
+function badgeSource(
+  sourceId: string,
+  type: AttachmentSourceType,
+): AttachmentSourceInput {
+  return {
+    driveConnectionId: "drive-connection-1",
+    sourceId,
+    name:
+      type === AttachmentSourceType.FOLDER ? "Demo Certificates" : "Demo.pdf",
+    type,
+  };
 }

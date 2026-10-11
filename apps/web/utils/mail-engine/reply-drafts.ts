@@ -1,27 +1,38 @@
 import type { DraftSaveResult } from "@inboxzero/mail-core/drafts";
 import type { MailClient } from "@inboxzero/mail-core/engine";
 import type {
-  EmailComposerAttachment,
+  EmailAttachmentMetadata,
   PreparedEmailDraft,
 } from "@inboxzero/email-editor/core";
 import type { EmailEditorPreservedBlock } from "@inboxzero/email-editor/web";
 import { splitRecipientList } from "@/utils/email";
+import { fetchWithAccount } from "@/utils/fetch";
 import { getActiveMailClient } from "@/utils/mail-engine/active-client";
-import { releaseSendAttachmentHolds } from "@/utils/mail-engine/stage-attachments";
 import type { SendEmailBody } from "@/utils/types/mail";
+
+/**
+ * A file already on the mailbox draft. Only the reference is stored locally;
+ * the mailbox draft holds the bytes.
+ */
+export type ComposeAttachmentReference = EmailAttachmentMetadata & {
+  draftAttachmentId: string;
+};
 
 export type ReplyDraftContent = {
   providerDraftId?: string;
-  /** The mailbox message last saved for the draft, which the thread hides. */
-  providerDraftMessageId?: string;
   providerDraftCreationUnconfirmed?: boolean;
+  /**
+   * Mailbox messages this composer saved its draft as. The thread hides them
+   * so the open composer is the only place the draft shows.
+   */
+  providerDraftMessageIds?: string[];
   composeMode?: ReplyDraftMode;
   requestId?: string;
   deliveryPath?: "scheduled" | "outbox";
   values: Omit<SendEmailBody, "attachments" | "messageHtml">;
   draft: PreparedEmailDraft;
   preservedBlocks: EmailEditorPreservedBlock[];
-  attachments: EmailComposerAttachment[];
+  attachments: ComposeAttachmentReference[];
   sendAt?: string;
   remindAt?: string;
 };
@@ -49,7 +60,6 @@ const engineRevisions = new Map<string, number>();
 // draft was first opened from keeps its composer and local draft across saves.
 const draftSessionMessageIds = new Map<string, Map<string, string>>();
 const latestDraftMessageIds = new Map<string, Map<string, string>>();
-const discardedDraftMessageIds = new Map<string, Set<string>>();
 const listeners = new Set<(scope: ReplyDraftScope) => void>();
 const accountEpoch = new Map<string, number>();
 const channel =
@@ -93,10 +103,7 @@ export function getDraftSessionMessageId(
   );
 }
 
-/**
- * Every mailbox message a draft has been saved as while it was open here,
- * with the given (newest) message last.
- */
+/** Every mailbox message a draft has been saved as while it was open here. */
 export function getDraftSessionMessageIds(
   emailAccountId: string,
   draftMessageId: string,
@@ -113,26 +120,6 @@ export function getDraftSessionMessageIds(
   }
   ids.delete(draftMessageId);
   return [...ids, draftMessageId];
-}
-
-/** A discarded mailbox draft stays in the engine until its next sync. */
-export function hideDiscardedDraftMessages(
-  emailAccountId: string,
-  messageIds: string[],
-) {
-  let hidden = discardedDraftMessageIds.get(emailAccountId);
-  if (!hidden) {
-    hidden = new Set();
-    discardedDraftMessageIds.set(emailAccountId, hidden);
-  }
-  for (const messageId of messageIds) hidden.add(messageId);
-}
-
-export function isDiscardedDraftMessage(
-  emailAccountId: string,
-  messageId: string,
-) {
-  return Boolean(discardedDraftMessageIds.get(emailAccountId)?.has(messageId));
 }
 
 export function getLatestDraftMessageId(
@@ -236,10 +223,44 @@ export async function updateReplyDraftProviderState(
   return draftId;
 }
 
-/**
- * Drafts saved before a reload live only in the engine, which has no index by
- * thread, so this restores the composer sessions of the given messages first.
- */
+/** The mailbox draft was deleted, so the next save starts a new one. */
+export async function forgetReplyDraftProvider(
+  identity: ReplyDraftIdentity,
+  providerDraftId: string,
+) {
+  await pendingWrites.get(draftKey(identity))?.catch(() => {});
+  const current = drafts.get(draftKey(identity));
+  if (current?.content?.providerDraftId !== providerDraftId) return;
+  const {
+    providerDraftId: _draftId,
+    providerDraftCreationUnconfirmed: _unconfirmed,
+    providerDraftMessageIds: _messageIds,
+    ...content
+  } = current.content;
+  drafts.set(draftKey(identity), { ...current, content });
+  await persistEngineReplyDraft(identity, content).catch(() => {});
+}
+
+export async function rememberProviderDraftMessage(
+  identity: ReplyDraftIdentity,
+  requestId: string,
+  messageId: string,
+) {
+  await pendingWrites.get(draftKey(identity))?.catch(() => {});
+  assertAccountEpoch(identity.emailAccountId);
+  const current = drafts.get(draftKey(identity));
+  if (!current?.content || current.content.requestId !== requestId) return;
+  const messageIds = current.content.providerDraftMessageIds ?? [];
+  if (messageIds.includes(messageId)) return;
+  const nextContent = {
+    ...current.content,
+    providerDraftMessageIds: [...messageIds, messageId].slice(-50),
+  };
+  drafts.set(draftKey(identity), { ...current, content: nextContent });
+  await persistEngineReplyDraft(identity, nextContent).catch(() => {});
+  notifyReplyDraftChange(identity);
+}
+
 export async function getReplyDrafts(
   emailAccountId: string,
   threadId: string,
@@ -304,6 +325,20 @@ export function createReplyDraftWriter(
             }),
           };
         }
+        // The composer doesn't track the mailbox copies of its draft; they
+        // belong to the mailbox draft, whichever composer session saves.
+        const providerDraftId =
+          nextContent?.providerDraftId ?? previous?.content?.providerDraftId;
+        if (
+          nextContent &&
+          providerDraftId &&
+          previous?.content?.providerDraftId === providerDraftId &&
+          previous.content.providerDraftMessageIds
+        )
+          nextContent = {
+            ...nextContent,
+            providerDraftMessageIds: previous.content.providerDraftMessageIds,
+          };
         drafts.set(draftKey(identity), {
           ...identity,
           content: nextContent,
@@ -312,11 +347,7 @@ export function createReplyDraftWriter(
         });
         revision += 1;
         await persistEngineReplyDraft(identity, nextContent).catch(() => {});
-        if (
-          Boolean(previous?.content) !== Boolean(content) ||
-          previous?.content?.providerDraftMessageId !==
-            content?.providerDraftMessageId
-        ) {
+        if (Boolean(previous?.content) !== Boolean(content)) {
           notifyReplyDraftChange(identity);
         }
       });
@@ -350,13 +381,88 @@ export function createReplyDraftWriter(
   };
 }
 
+/**
+ * Once a draft reaches the mailbox the mailbox owns it, so deleting it there
+ * must not leave the composer reopening this copy. Only a definite "gone"
+ * discards it; an unreachable mailbox keeps what the user wrote.
+ */
+export async function dropReplyDraftDeletedFromMailbox(
+  draft: StoredReplyDraft | undefined,
+) {
+  const providerDraftId = draft?.content?.providerDraftId;
+  if (!draft || !providerDraftId) return draft;
+  const client = getActiveMailClient();
+  const key = draftKey(draft);
+  const engineRevision = engineRevisions.get(key);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 2000);
+  try {
+    const response = await fetchWithAccount({
+      url: `/api/user/drafts/${encodeURIComponent(providerDraftId)}`,
+      emailAccountId: draft.emailAccountId,
+      init: { cache: "no-store", signal: controller.signal },
+    });
+    if (response.status !== 404) return draft;
+    const body = (await response.json()) as { code?: string };
+    if (body.code !== "DRAFT_NOT_FOUND") return draft;
+  } catch {
+    return draft;
+  } finally {
+    clearTimeout(timeout);
+  }
+  await pendingWrites.get(key)?.catch(() => {});
+  if (drafts.get(key) !== draft) return getReplyDraft(draft);
+  if (client !== getActiveMailClient()) return draft;
+  if (client) {
+    if (engineRevision === undefined) return draft;
+    try {
+      // A fresh revision read here could authorize clearing another client's edits.
+      const cleared = await client.saveDraft({
+        key: { accountId: draft.emailAccountId, draftId: engineDraftId(draft) },
+        expectedRevision: engineRevision,
+        content: {
+          to: [],
+          cc: [],
+          bcc: [],
+          subject: "",
+          editableHtml: "",
+          quotedHtml: "",
+        },
+      });
+      if (drafts.get(key) !== draft) return getReplyDraft(draft);
+      if (cleared.status === "conflict") {
+        drafts.delete(key);
+        engineRevisions.delete(key);
+        return getReplyDraft(draft);
+      }
+      if (cleared.status !== "saved") return draft;
+      rememberEngineRevision(draft, cleared);
+    } catch {
+      return draft;
+    }
+    drafts.set(key, {
+      ...draft,
+      content: null,
+      revision: draft.revision + 1,
+      updatedAt: Date.now(),
+    });
+    notifyReplyDraftChange(draft);
+  } else {
+    await createReplyDraftWriter(draft, draft.revision)
+      .clear()
+      .catch(() => {});
+  }
+  // Hand back whatever the store holds now so the composer writes at its
+  // revision instead of restarting from zero and rejecting its own saves.
+  return getReplyDraft(draft);
+}
+
 export function clearLocalReplyDrafts(emailAccountId?: string) {
   if (!emailAccountId) {
     drafts.clear();
     engineRevisions.clear();
     draftSessionMessageIds.clear();
     latestDraftMessageIds.clear();
-    discardedDraftMessageIds.clear();
     for (const accountId of accountEpoch.keys()) {
       accountEpoch.set(accountId, currentEpoch(accountId) + 1);
     }
@@ -370,7 +476,6 @@ export function clearLocalReplyDrafts(emailAccountId?: string) {
   }
   draftSessionMessageIds.delete(emailAccountId);
   latestDraftMessageIds.delete(emailAccountId);
-  discardedDraftMessageIds.delete(emailAccountId);
 }
 
 function accountMap(
@@ -415,44 +520,36 @@ export async function restoreUnsentReplyDraft(input: {
       "This reply is no longer on this device. Refresh the thread and try again.",
     );
   }
-  try {
-    const identity: ReplyDraftIdentity = {
-      emailAccountId: input.emailAccountId,
-      threadId: input.threadId,
-      messageId: getReplyDraftSessionId(input.messageId, "reply"),
-    };
-    const current = await getReplyDraft(identity);
-    await createReplyDraftWriter(identity, current?.revision ?? 0).save({
-      // Keeps editing the mailbox draft the send would have used.
-      providerDraftId: stored.content.providerDraftId,
-      providerDraftMessageId: stored.content.providerDraftMessageIds?.at(-1),
-      composeMode: "reply",
-      values: {
-        to: stored.content.to.join(", "),
-        cc: stored.content.cc.join(", "),
-        bcc: stored.content.bcc.join(", "),
-        subject: stored.content.subject,
-      },
-      draft: {
-        editableHtml: stored.content.editableHtml,
-        mode: "rich",
-        quotedHtml: stored.content.quotedHtml,
-        signatureHtml: "",
-        unsupported: [],
-      },
-      preservedBlocks: [],
-      attachments: [],
-    });
-  } finally {
-    try {
-      await releaseSendAttachmentHolds(
-        input.emailAccountId,
-        stored.content.attachmentIds,
-      );
-    } catch {
-      // TTL remains the backstop for leftover holds.
-    }
-  }
+  const identity: ReplyDraftIdentity = {
+    emailAccountId: input.emailAccountId,
+    threadId: input.threadId,
+    messageId: getReplyDraftSessionId(input.messageId, "reply"),
+  };
+  const current = await getReplyDraft(identity);
+  await createReplyDraftWriter(identity, current?.revision ?? 0).save({
+    composeMode: "reply",
+    values: {
+      to: stored.content.to.join(", "),
+      cc: stored.content.cc.join(", "),
+      bcc: stored.content.bcc.join(", "),
+      subject: stored.content.subject,
+    },
+    draft: {
+      editableHtml: stored.content.editableHtml,
+      mode: "original",
+      quotedHtml: stored.content.quotedHtml,
+      signatureHtml: "",
+    },
+    preservedBlocks: [],
+    // The mailbox draft still holds the files; these only list them.
+    attachments: sentAttachments(stored.content.clientState),
+    ...(stored.content.providerDraftId
+      ? { providerDraftId: stored.content.providerDraftId }
+      : {}),
+    ...(stored.content.providerDraftMessageIds
+      ? { providerDraftMessageIds: stored.content.providerDraftMessageIds }
+      : {}),
+  });
 }
 
 function currentEpoch(emailAccountId: string) {
@@ -506,7 +603,6 @@ async function persistEngineReplyDraft(
         subject: "",
         editableHtml: "",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     rememberEngineRevision(identity, cleared);
@@ -524,7 +620,6 @@ async function persistEngineReplyDraft(
         subject: content.values.subject,
         editableHtml: content.draft.editableHtml,
         quotedHtml: content.draft.quotedHtml,
-        attachmentIds: [],
         clientState: JSON.stringify(content).slice(0, 1_000_000),
         ...(content.providerDraftId
           ? { providerDraftId: content.providerDraftId }
@@ -582,4 +677,16 @@ function rememberEngineRevision(
 
 function engineDraftId(identity: ReplyDraftIdentity) {
   return identity.messageId.slice(0, 128);
+}
+
+function sentAttachments(clientState: string | undefined) {
+  if (!clientState) return [];
+  try {
+    const parsed = JSON.parse(clientState) as {
+      attachments?: ComposeAttachmentReference[];
+    };
+    return Array.isArray(parsed.attachments) ? parsed.attachments : [];
+  } catch {
+    return [];
+  }
 }

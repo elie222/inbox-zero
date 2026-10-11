@@ -85,13 +85,6 @@ export function createRoutedBackendAdapter(input: {
         }
         return executor.cancel(request);
       },
-      stageUpload: (request) => {
-        const executor = executorFor(request.session.accountId);
-        if (!executor.stageUpload) {
-          return Promise.resolve({ status: "unavailable" as const });
-        }
-        return executor.stageUpload(request);
-      },
     },
     assistant: {
       read: (request) => assistantFor(request.session.accountId).read(request),

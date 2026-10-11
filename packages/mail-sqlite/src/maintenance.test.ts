@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  evictReplaceableMessageContent,
-  listReferencedBlobIds,
-} from "./maintenance";
+import { evictReplaceableMessageContent } from "./maintenance";
 import { createNodeSqliteDriver } from "./node-sqlite";
 import { createSqliteMailStore } from "./store";
 import type { ProviderChange } from "@inboxzero/mail-core/sync";
@@ -52,7 +49,6 @@ describe("replaceable body retention", () => {
         subject: "Keep me",
         editableHtml: "<p>Keep me</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -170,73 +166,3 @@ function messagePatch(
     },
   };
 }
-
-describe("referenced blob ids", () => {
-  it("lists blobs held by drafts and pending sends", async () => {
-    const driver = createNodeSqliteDriver();
-    const store = await createSqliteMailStore(driver);
-    await store.ensureAccount({
-      accountId: "acc-1",
-      provider: "google",
-      generation: "g1",
-    });
-    expect(
-      (
-        await store.saveDraft({
-          key: { accountId: "acc-1", draftId: "d-keep" },
-          expectedRevision: null,
-          content: {
-            to: ["ada@example.com"],
-            cc: [],
-            bcc: [],
-            subject: "Keep",
-            editableHtml: "<p>Keep</p>",
-            quotedHtml: "",
-            attachmentIds: ["keep-draft"],
-          },
-        })
-      ).status,
-    ).toBe("saved");
-    const sending = await store.saveDraft({
-      key: { accountId: "acc-1", draftId: "d-send" },
-      expectedRevision: null,
-      content: {
-        to: ["ada@example.com"],
-        cc: [],
-        bcc: [],
-        subject: "Send",
-        editableHtml: "<p>Send</p>",
-        quotedHtml: "",
-        attachmentIds: ["keep-send"],
-      },
-    });
-    expect(sending.status).toBe("saved");
-    if (sending.status !== "saved") throw new Error("expected save");
-    expect(
-      (
-        await store.admitSend({
-          commandId: "send-keep",
-          draft: { accountId: "acc-1", draftId: "d-send" },
-          draftRevision: sending.draftRevision,
-          replyTo: null,
-        })
-      ).status,
-    ).toBe("queued");
-    expect(
-      await store.stageDraftAttachment({
-        accountId: "acc-1",
-        draftId: "d-keep",
-        attachmentId: "orphan-local",
-        filename: "orphan.txt",
-        contentType: "text/plain",
-        checksum: "abc",
-        sizeBytes: 4,
-      }),
-    ).toEqual({ status: "staged" });
-    expect((await listReferencedBlobIds(driver)).sort()).toEqual([
-      "keep-draft",
-      "keep-send",
-    ]);
-    await store.close();
-  });
-});

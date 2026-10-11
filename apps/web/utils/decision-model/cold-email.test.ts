@@ -14,8 +14,8 @@ import { decideColdEmail } from "./cold-email";
 
 const config = {
   provider: "typesafe" as const,
-  model: "jev-latest",
-  apiKey: "key",
+  modelId: "jev-latest",
+  model: {} as never,
 };
 
 describe("decideColdEmail", () => {
@@ -23,7 +23,7 @@ describe("decideColdEmail", () => {
 
   it("requires a strong cold-outreach probability", async () => {
     runDecisionModelMock.mockResolvedValue({
-      answers: { cold_email: { type: "yesNo", probability: 0.74 } },
+      answers: { cold_email: { type: "boolean", probability: 0.74 } },
     });
 
     const result = await decideColdEmail({
@@ -39,7 +39,7 @@ describe("decideColdEmail", () => {
 
   it("classifies high-confidence outreach as cold", async () => {
     runDecisionModelMock.mockResolvedValue({
-      answers: { cold_email: { type: "yesNo", probability: 0.95 } },
+      answers: { cold_email: { type: "boolean", probability: 0.95 } },
     });
 
     const result = await decideColdEmail({

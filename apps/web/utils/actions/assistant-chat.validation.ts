@@ -19,6 +19,7 @@ const confirmationResultSchema = z.object({
   actionType: assistantPendingEmailActionTypeSchema,
   messageId: z.string().nullish(),
   threadId: z.string().nullish(),
+  externalUrl: z.string().nullish(),
   to: z.string().nullish(),
   subject: z.string().nullish(),
   confirmedAt: z.string().min(1),
@@ -206,6 +207,9 @@ export const assistantInputSchema = z.object({
   }),
   context: messageContextSchema.optional(),
   inlineActions: z.array(inlineEmailActionSchema).max(20).optional(),
+  // Clients that can't render the assistant's inline email card markup would
+  // show it as raw XML, so cards are opt-in per client.
+  supportsInlineEmailCards: z.boolean().optional().default(false),
 });
 
 export type AssistantInput = z.infer<typeof assistantInputSchema>;

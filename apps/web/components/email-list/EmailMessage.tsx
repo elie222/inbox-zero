@@ -13,6 +13,7 @@ import { Tooltip } from "@/components/Tooltip";
 import {
   extractEmailAddress,
   extractNameFromEmail,
+  formatRecipientNames,
   getInitials,
   isSameEmailAddress,
   splitRecipientList,
@@ -73,6 +74,7 @@ export function EmailMessage({
   onExpand,
   onSendSuccess,
   onMarkDone,
+  onDraftDiscarded,
   onOpenSenderContext,
   hasDraft = false,
   selected,
@@ -101,6 +103,11 @@ export function EmailMessage({
   onExpand?: () => void;
   onSendSuccess: (messageId: string, threadId: string) => void;
   onMarkDone?: () => void;
+  /**
+   * A saved draft shown in this message was discarded. Only wired up by
+   * parents for which that discard empties the conversation.
+   */
+  onDraftDiscarded?: () => void;
   onOpenSenderContext?: (message: ThreadMessage) => void;
   hasDraft?: boolean;
   selected?: boolean;
@@ -352,6 +359,7 @@ export function EmailMessage({
               onSendSuccess={onSendSuccess}
               onSent={onReplySent}
               onMarkDone={onMarkDone}
+              onDraftDiscarded={onDraftDiscarded}
               onStartDiscard={() => {
                 setDraftDismissed(sessionMessageId, true);
                 return {
@@ -594,6 +602,7 @@ function ReplyPanel({
   onRestore,
   onRestoreCompose,
   onStartDiscard,
+  onDraftDiscarded,
   composeMode,
   draftMessage,
   draftSessionMessageId,
@@ -611,6 +620,7 @@ function ReplyPanel({
   onRestore?: () => void;
   onRestoreCompose: (composeSession: ComposeSession) => void;
   onStartDiscard: () => ComposeSession | undefined;
+  onDraftDiscarded?: () => void;
   composeMode: ReplyDraftMode;
   draftMessage?: ThreadMessage;
   draftSessionMessageId?: string;
@@ -702,6 +712,7 @@ function ReplyPanel({
       } finally {
         refetch();
       }
+      onDraftDiscarded?.();
       return true;
     },
     [
@@ -709,6 +720,7 @@ function ReplyPanel({
       draftMessage,
       discardDraft,
       onCloseCompose,
+      onDraftDiscarded,
       onRestoreCompose,
       onStartDiscard,
       refetch,
@@ -787,31 +799,15 @@ function resolveComposeMode(
   return mode;
 }
 
-/** "to me", "to Dana", "to me and 3 others" — who a message went out to. */
 function recipientSummary(
   { to, cc }: { to?: string; cc?: string },
   userEmail: string,
 ) {
-  const recipients = [
-    ...splitRecipientList(to ?? ""),
-    ...splitRecipientList(cc ?? ""),
-  ].filter(
-    (recipient, index, all) =>
-      all.findIndex((other) => isSameEmailAddress(other, recipient)) === index,
+  const names = formatRecipientNames(
+    [...splitRecipientList(to ?? ""), ...splitRecipientList(cc ?? "")],
+    userEmail,
   );
-  if (recipients.length === 0) return "";
-
-  // "me" leads whenever the account is in there at all, however it was addressed.
-  const first =
-    recipients.find((recipient) => isSameEmailAddress(recipient, userEmail)) ??
-    recipients[0];
-  const firstLabel = isSameEmailAddress(first, userEmail)
-    ? "me"
-    : extractNameFromEmail(first) || extractEmailAddress(first);
-
-  const others = recipients.length - 1;
-  if (others === 0) return `to ${firstLabel}`;
-  return `to ${firstLabel} and ${others} ${others === 1 ? "other" : "others"}`;
+  return names ? `to ${names}` : "";
 }
 
 const prepareReplyingToEmail = (
@@ -881,6 +877,9 @@ function prepareDraftReplyEmail(draft: ParsedMessage): ReplyingToEmail {
     references: draft.headers.references,
     draftHtml: splitHtml.draftHtml,
     quotedContentHtml: splitHtml.originalHtml,
+    draftHasAttachments: Boolean(
+      draft.attachments?.length || draft.inline?.length,
+    ),
   };
 }
 

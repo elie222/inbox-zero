@@ -3029,8 +3029,8 @@ describe("findMatchingRules - Integration Tests", () => {
 describe("findMatchingRules - decisionModel rule selection", () => {
   const decisionModel = {
     provider: "typesafe" as const,
-    model: "test-model",
-    apiKey: "test-key",
+    modelId: "test-model",
+    model: {} as never,
   };
 
   beforeEach(() => {

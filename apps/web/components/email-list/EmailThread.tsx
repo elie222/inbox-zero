@@ -9,13 +9,13 @@ import { EmailMessage } from "@/components/email-list/EmailMessage";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useReplyDrafts } from "@/hooks/useReplyDrafts";
 import { ThreadDeliveryStatus } from "@/components/email-list/ThreadDeliveryStatus";
+import { useHiddenDraftMessageIds } from "@/hooks/useHiddenDraftMessageIds";
 import { Button } from "@/components/ui/button";
 import {
   getDraftSessionMessageId,
   getLatestDraftMessageId,
   getReplyDraftMode,
   getReplyDraftSessionId,
-  isDiscardedDraftMessage,
   type ReplyDraftMode,
   type StoredReplyDraft,
 } from "@/utils/mail-engine/reply-drafts";
@@ -39,6 +39,7 @@ export function EmailThread({
   onSendSuccess,
   onMarkDone,
   onOpenSenderContext,
+  onThreadDiscarded,
   withHeader,
   renderToolbar,
   renderMessageMenu,
@@ -62,6 +63,8 @@ export function EmailThread({
   ) => void;
   onMarkDone?: () => void;
   onOpenSenderContext?: (message: ThreadMessage) => void;
+  /** The conversation's only message was a draft, and it has been discarded. */
+  onThreadDiscarded?: () => void;
   withHeader?: boolean;
   enableMessageNavigation?: boolean;
   renderMessageMenu?: (message: ThreadMessage) => ReactNode;
@@ -81,6 +84,7 @@ export function EmailThread({
       .map((message) => message.id),
   );
   const { data: sentMessageOpens } = useSentMessageOpens(threadId || null);
+  const hiddenDraftMessageIds = useHiddenDraftMessageIds(emailAccountId);
   const organizedMessages = useMemo(
     (): Array<{
       message: ThreadMessage;
@@ -88,7 +92,12 @@ export function EmailThread({
       outgoing?: OutgoingThreadMessage;
     }> => [
       ...organizeThreadMessages(
-        withoutReplacedDrafts(messages, emailAccountId, localDrafts),
+        withoutDraftMessages(withoutReplacedDrafts(messages, emailAccountId), [
+          ...localDrafts.flatMap(
+            (draft) => draft.content?.providerDraftMessageIds ?? [],
+          ),
+          ...hiddenDraftMessageIds,
+        ]),
       ),
       ...outgoing.map((item) => ({
         message: {
@@ -99,9 +108,21 @@ export function EmailThread({
         outgoing: item,
       })),
     ],
-    [messages, emailAccountId, localDrafts, outgoing, userEmail],
+    [
+      messages,
+      emailAccountId,
+      localDrafts,
+      hiddenDraftMessageIds,
+      outgoing,
+      userEmail,
+    ],
   );
 
+  // A conversation whose only message is a draft — how the Drafts folder lists
+  // one — stops existing the moment that draft is discarded.
+  const isDraftOnlyConversation =
+    organizedMessages.length === 1 &&
+    Boolean(organizedMessages[0].message.labelIds?.includes(GmailLabel.DRAFT));
   const lastMessageId = organizedMessages.at(-1)?.message.id;
   // A reply that hasn't reached the provider has no id to thread on yet, so
   // replying to it threads on the newest message the provider has.
@@ -325,6 +346,9 @@ export function EmailThread({
                 }}
                 onOpenSenderContext={onOpenSenderContext}
                 onMarkDone={onMarkDone}
+                onDraftDiscarded={
+                  isDraftOnlyConversation ? onThreadDiscarded : undefined
+                }
                 onExpand={() =>
                   setExpansionOverrides((prev) =>
                     new Map(prev).set(message.id, true),
@@ -465,34 +489,31 @@ export function organizeThreadMessages(messages: ThreadMessage[]) {
 
 // A saved draft's old and new Gmail messages can both be in the conversation
 // until sync removes the old one. Only the latest save is the draft being edited.
-// A reply written here is edited from its local copy, so its mailbox copy is
-// hidden rather than shown as a second composer.
 function withoutReplacedDrafts(
   messages: ThreadMessage[],
   emailAccountId: string,
-  localDrafts: StoredReplyDraft[],
 ) {
   const messageIds = new Set(messages.map((message) => message.id));
-  const locallyEditedIds = new Set(
-    localDrafts.flatMap((draft) =>
-      draft.content?.providerDraftMessageId
-        ? [draft.content.providerDraftMessageId]
-        : [],
-    ),
-  );
   return messages.filter((message) => {
     if (!message.labelIds?.includes(GmailLabel.DRAFT)) return true;
-    if (
-      locallyEditedIds.has(message.id) ||
-      isDiscardedDraftMessage(emailAccountId, message.id)
-    )
-      return false;
     const latest = getLatestDraftMessageId(
       emailAccountId,
       getDraftSessionMessageId(emailAccountId, message.id),
     );
     return !latest || latest === message.id || !messageIds.has(latest);
   });
+}
+
+// A reply with files is saved to the mailbox while its composer is open, and
+// stays there until a scheduled send goes out from it. The composer or the
+// delivery status already shows it, so the saved copy would be a second editor.
+function withoutDraftMessages(messages: ThreadMessage[], draftIds: string[]) {
+  if (!draftIds.length) return messages;
+  return messages.filter(
+    (message) =>
+      !message.labelIds?.includes(GmailLabel.DRAFT) ||
+      !draftIds.includes(message.id),
+  );
 }
 
 function sortDraftsOldestFirst(drafts: ThreadMessage[]) {

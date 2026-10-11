@@ -317,6 +317,7 @@ export const POST = withEmailAccount("chat", async (request) => {
       user,
       context,
       chatId: chat.id,
+      supportsInlineEmailCards: data.supportsInlineEmailCards,
       chatLastSeenRulesRevision: chat.lastSeenRulesRevision,
       chatHasHistory,
       memories,

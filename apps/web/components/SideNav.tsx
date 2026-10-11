@@ -10,7 +10,6 @@ import {
   ArchiveIcon,
   ArrowLeftIcon,
   BarChartBigIcon,
-  BellIcon,
   BrushIcon,
   CalendarIcon,
   ChevronDownIcon,
@@ -67,7 +66,7 @@ import { prefixPath } from "@/utils/path";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { NavUser } from "@/components/NavUser";
 import { PremiumCard } from "@/components/PremiumCard";
-import { FeedbackDialog } from "@/components/FeedbackDialog";
+import { FeedbackSidebarButton } from "@/components/FeedbackDialog";
 import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
 
 type NavItem = {
@@ -111,16 +110,6 @@ export const useNavigation = () => {
         name: "Chat",
         href: prefixPath(currentEmailAccountId, "/assistant"),
         icon: MessageSquareIcon,
-      },
-      {
-        name: "Shared with me",
-        href: "/shared",
-        icon: MessagesSquareIcon,
-      },
-      {
-        name: "Activity",
-        href: "/shared/activity",
-        icon: BellIcon,
       },
       {
         name: "Assistant",
@@ -376,7 +365,7 @@ export function SideNav({
         {feedbackEnabled && (
           <SidebarMenu>
             <SidebarMenuItem>
-              <FeedbackDialog />
+              <FeedbackSidebarButton />
             </SidebarMenuItem>
           </SidebarMenu>
         )}

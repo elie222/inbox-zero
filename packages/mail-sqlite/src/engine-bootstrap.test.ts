@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   createMailEngine,
   createHostRuntime,
@@ -13,6 +13,7 @@ import { createSqliteMailStore } from "./store";
 
 describe("engine bootstrap coverage", () => {
   it("finishes enumeration after bootstrap overruns the runUntil slice", async () => {
+    const onSyncPageCommitted = vi.fn();
     let now = 1000;
     let enumerated = 0;
     const store = await createSqliteMailStore(createNodeSqliteDriver());
@@ -22,6 +23,7 @@ describe("engine bootstrap coverage", () => {
       generation: "g1",
     });
     const engine = createMailEngine({
+      onSyncPageCommitted,
       store,
       source: slowBootstrapSource({
         onBootstrap: () => {
@@ -45,6 +47,7 @@ describe("engine bootstrap coverage", () => {
     await engine.runUntil(2000);
     const diagnostics = await engine.getDiagnostics("acc-1");
     expect(enumerated).toBe(1);
+    expect(onSyncPageCommitted).not.toHaveBeenCalled();
     expect(diagnostics.coverage).toEqual([
       expect.objectContaining({
         accountId: "acc-1",
@@ -96,6 +99,7 @@ describe("engine bootstrap coverage", () => {
   });
 
   it("removes local messages omitted from a completed bootstrap", async () => {
+    const onSyncPageCommitted = vi.fn();
     const store = await createSqliteMailStore(createNodeSqliteDriver());
     await store.ensureAccount({
       accountId: "acc-1",
@@ -115,6 +119,7 @@ describe("engine bootstrap coverage", () => {
       },
     });
     const engine = createMailEngine({
+      onSyncPageCommitted,
       store,
       source: slowBootstrapSource({
         onBootstrap: () => {},
@@ -134,6 +139,7 @@ describe("engine bootstrap coverage", () => {
     });
     await engine.requestSync(["acc-1"]);
     await engine.runUntil(5000);
+    expect(onSyncPageCommitted).not.toHaveBeenCalled();
     const inspection = await engine.inspect();
     expect(
       inspection.messages.find((row) => row.messageId === "gone")?.deleted,

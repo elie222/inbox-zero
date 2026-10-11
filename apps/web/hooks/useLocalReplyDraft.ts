@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
+  dropReplyDraftDeletedFromMailbox,
   getReplyDraftForSession,
   type ReplyDraftIdentity,
   type StoredReplyDraft,
@@ -32,14 +33,16 @@ export function useLocalReplyDraft(
       identities.identity,
       identities.legacyIdentity,
       identities.mode,
-    ).then(
-      (draft) => {
-        if (!cancelled) setLoaded({ key, draft });
-      },
-      (error) => {
-        if (!cancelled) setLoaded({ key, error });
-      },
-    );
+    )
+      .then(dropReplyDraftDeletedFromMailbox)
+      .then(
+        (draft) => {
+          if (!cancelled) setLoaded({ key, draft });
+        },
+        (error) => {
+          if (!cancelled) setLoaded({ key, error });
+        },
+      );
     return () => {
       cancelled = true;
     };

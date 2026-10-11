@@ -163,9 +163,7 @@ export function Pricing() {
               </div>
               <Button variant="secondary-two" size="lg" asChild>
                 <Link
-                  href="https://go.getinboxzero.com/sales"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href="https://www.getinboxzero.com/sales"
                   onClick={() =>
                     landingPageAnalytics.pricingCtaClicked(posthog, {
                       tier: "Enterprise",

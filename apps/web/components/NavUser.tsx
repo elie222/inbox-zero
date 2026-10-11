@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import {
+  BellIcon,
   CircleHelpIcon,
   ChevronsUpDownIcon,
   LightbulbIcon,
@@ -12,6 +13,7 @@ import {
   CrownIcon,
   GiftIcon,
   GlobeIcon,
+  MessagesSquareIcon,
   SettingsIcon,
 } from "lucide-react";
 import {
@@ -122,6 +124,24 @@ export function NavUser() {
                 </Link>
               </DropdownMenuItem>
             )}
+            <DropdownMenuItem asChild>
+              <Link
+                href="/shared"
+                onClick={() => closeMobileSidebar("left-sidebar")}
+              >
+                <MessagesSquareIcon className="mr-2 size-4" />
+                Shared with me
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link
+                href="/shared/activity"
+                onClick={() => closeMobileSidebar("left-sidebar")}
+              >
+                <BellIcon className="mr-2 size-4" />
+                Activity
+              </Link>
+            </DropdownMenuItem>
             {isGoogleProvider(provider) && (
               <DropdownMenuItem asChild>
                 <Link

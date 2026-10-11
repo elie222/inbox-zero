@@ -9,7 +9,7 @@ import {
   resolveOutlookLocalMailFolderIds,
 } from "@/utils/outlook/local-mail-sync";
 import { matchesSenderFilter } from "@/utils/split-inbox/sender-filter";
-import { SafeError } from "@/utils/error";
+import { DraftNotFoundError } from "@/utils/error";
 import type { Message } from "@microsoft/microsoft-graph-types";
 import type { OutlookClient } from "@/utils/outlook/client";
 import type { ParsedMessage } from "@/utils/types";
@@ -46,7 +46,6 @@ import { getLatestNonDraftMessage } from "@/utils/email/latest-message";
 import { getMessageTimestamp } from "@/utils/email/message-timestamp";
 import {
   draftEmail,
-  addAttachmentsToDraft,
   forwardEmail,
   replyToEmail,
   sendEmailWithPlainText,
@@ -99,13 +98,23 @@ import type {
   BulkArchiveResult,
   EmailLabelUpdate,
   GetThreadOptions,
+  SendEmailOptions,
+  DraftAttachmentUploadStart,
 } from "@/utils/email/types";
+import type { DraftAttachmentMetadata } from "@/utils/actions/draft-attachments.validation";
+import { assertDraftAttachmentLimits } from "@/utils/email/draft-attachment-upload";
+import {
+  addOutlookDraftAttachment,
+  createOutlookDraftAttachmentUploadSession,
+  listOutlookDraftAttachments,
+  removeOutlookDraftAttachment,
+} from "@/utils/outlook/draft-attachments";
 import type { SendEmailBody } from "@/utils/types/mail";
 import { getOutlookCategoryPreset } from "@/utils/outlook/category-colors";
 import { unwatchOutlook, watchOutlook } from "@/utils/outlook/watch";
 import { escapeODataString } from "@/utils/outlook/odata-escape";
 import { OutlookLabel } from "@/utils/outlook/constants";
-import { resolveOutlookSearchScope } from "@/utils/outlook/search-scope";
+import { resolveOutlookCategoryName } from "@/utils/outlook/search-scope";
 import {
   extractEmailAddress,
   getSearchTermForSender,
@@ -153,6 +162,47 @@ export class OutlookProvider implements EmailProvider {
 
   toJSON() {
     return { name: this.name, type: "OutlookProvider" };
+  }
+
+  async countMessages({
+    folderId,
+    labelId,
+  }: {
+    folderId?: string;
+    labelId?: string;
+  }): Promise<number> {
+    const categoryName = await resolveOutlookCategoryName({
+      emailProvider: this,
+      categoryName: labelId,
+    });
+    const response = await withMicrosoftGraphRetry(() => {
+      let request = this.client
+        .getClient()
+        .api(
+          folderId
+            ? `/me/mailFolders/${encodeURIComponent(folderId)}/messages`
+            : "/me/messages",
+        )
+        .count(true)
+        .select("id")
+        .top(1);
+      if (categoryName) {
+        request = request.filter(
+          `categories/any(c:c eq '${escapeODataString(categoryName)}')`,
+        );
+      }
+      return request.get();
+    }, this.logger);
+
+    const count = response["@odata.count"];
+    if (
+      typeof count !== "number" ||
+      !Number.isSafeInteger(count) ||
+      count < 0
+    ) {
+      throw new Error("Outlook did not return an exact message count");
+    }
+    return count;
   }
 
   async getThreads(folderId?: string): Promise<EmailThread[]> {
@@ -657,23 +707,41 @@ export class OutlookProvider implements EmailProvider {
 
   async createDraft(params: {
     to: string;
+    cc?: string;
+    bcc?: string;
     subject: string;
     messageHtml: string;
     replyToMessageId?: string;
+    forwardedMessageId?: string;
   }): Promise<{ id: string }> {
     this.logger.info("Creating draft", {
       replyToMessageId: params.replyToMessageId,
+      forwardedMessageId: params.forwardedMessageId,
     });
-    const toRecipients = toGraphRecipients(params.to, this.logger);
+    // Left out when empty so creating never clears what the source message set.
+    const recipients = {
+      ...(params.to.trim()
+        ? { toRecipients: toGraphRecipients(params.to, this.logger) }
+        : {}),
+      ...(params.cc?.trim()
+        ? { ccRecipients: toGraphRecipients(params.cc, this.logger) }
+        : {}),
+      ...(params.bcc?.trim()
+        ? { bccRecipients: toGraphRecipients(params.bcc, this.logger) }
+        : {}),
+    };
 
-    // For threading, use createReply on the replyToMessageId
-    if (params.replyToMessageId) {
+    // Replies thread through createReply. A forward is drafted from the
+    // forwarded message so it keeps its conversation and files.
+    let sourceAction: string | undefined;
+    if (params.replyToMessageId)
+      sourceAction = `/me/messages/${encodeURIComponent(params.replyToMessageId)}/createReply`;
+    else if (params.forwardedMessageId)
+      sourceAction = `/me/messages/${encodeURIComponent(params.forwardedMessageId)}/createForward`;
+    if (sourceAction) {
+      const action = sourceAction;
       const draft = await withMicrosoftGraphWriteRetry(
-        () =>
-          this.client
-            .getClient()
-            .api(`/me/messages/${params.replyToMessageId}/createReply`)
-            .post({}),
+        () => this.client.getClient().api(action).post({}),
         this.logger,
       );
 
@@ -686,7 +754,7 @@ export class OutlookProvider implements EmailProvider {
             .patch({
               body: { contentType: "html", content: params.messageHtml },
               subject: params.subject,
-              toRecipients,
+              ...recipients,
             }),
         this.logger,
       );
@@ -704,7 +772,7 @@ export class OutlookProvider implements EmailProvider {
           .post({
             subject: params.subject,
             body: { contentType: "html", content: params.messageHtml },
-            toRecipients,
+            ...recipients,
           }),
       this.logger,
     );
@@ -721,13 +789,13 @@ export class OutlookProvider implements EmailProvider {
       to?: string;
       cc?: string;
       bcc?: string;
-      attachments?: SendEmailBody["attachments"];
     },
   ): Promise<void> {
     this.logger.info("Updating draft", { draftId });
 
     const draft = await this.getDraftReferenceForMessage(draftId);
-    if (!draft) throw new SafeError("Could not find this draft to update.");
+    if (!draft)
+      throw new DraftNotFoundError("Could not find this draft to update.");
 
     const body: Partial<Message> = {};
     if (params.messageHtml !== undefined) {
@@ -754,34 +822,72 @@ export class OutlookProvider implements EmailProvider {
       this.logger,
     );
 
-    if (params.attachments !== undefined) {
-      const existing = await withMicrosoftGraphRetry(
-        () =>
-          this.client
-            .getClient()
-            .api(`/me/messages/${draftId}/attachments`)
-            .select("id")
-            .get(),
-        this.logger,
-      );
-      for (const attachment of existing.value ?? []) {
-        await withMicrosoftGraphWriteRetry(
-          () =>
-            this.client
-              .getClient()
-              .api(`/me/messages/${draftId}/attachments/${attachment.id}`)
-              .delete(),
-          this.logger,
-        );
-      }
-      await addAttachmentsToDraft({
-        client: this.client,
-        draftId,
-        attachments: toMailerAttachments(params.attachments) ?? [],
-        logger: this.logger,
-      });
-    }
     this.logger.info("Draft updated", { draftId });
+  }
+
+  async getDraftAttachments(draftId: string) {
+    const attachments = await listOutlookDraftAttachments({
+      client: this.client,
+      draftId,
+      logger: this.logger,
+    });
+    return attachments ? { messageId: draftId, attachments } : null;
+  }
+
+  async addDraftAttachment(
+    draftId: string,
+    attachment: DraftAttachmentMetadata & { content: Buffer },
+  ) {
+    const { attachments } = await this.getEditableDraftAttachments(draftId);
+    assertDraftAttachmentLimits(attachments, attachment.size);
+    const attachmentId = await addOutlookDraftAttachment({
+      client: this.client,
+      draftId,
+      attachment,
+      logger: this.logger,
+    });
+    return { ...(await this.listDraftAttachments(draftId)), attachmentId };
+  }
+
+  async removeDraftAttachment(draftId: string, attachmentId: string) {
+    await this.getEditableDraftAttachments(draftId);
+    await removeOutlookDraftAttachment({
+      client: this.client,
+      draftId,
+      attachmentId,
+      logger: this.logger,
+    });
+    return this.listDraftAttachments(draftId);
+  }
+
+  async startDraftAttachmentUpload(
+    draftId: string,
+    attachment: DraftAttachmentMetadata,
+  ): Promise<DraftAttachmentUploadStart> {
+    const { attachments } = await this.getEditableDraftAttachments(draftId);
+    assertDraftAttachmentLimits(attachments, attachment.size);
+    const uploadUrl = await createOutlookDraftAttachmentUploadSession({
+      client: this.client,
+      draftId,
+      attachment,
+      logger: this.logger,
+    });
+    return { type: "provider-url", uploadUrl };
+  }
+
+  // Graph also changes attachments on sent and received mail, so changes
+  // first confirm the message is a draft.
+  private async getEditableDraftAttachments(draftId: string) {
+    if (!(await this.getDraftReferenceForMessage(draftId)))
+      throw new DraftNotFoundError("Could not find this draft in Outlook.");
+    return this.listDraftAttachments(draftId);
+  }
+
+  private async listDraftAttachments(draftId: string) {
+    const result = await this.getDraftAttachments(draftId);
+    if (!result)
+      throw new DraftNotFoundError("Could not find this draft in Outlook.");
+    return result;
   }
 
   async draftEmail(
@@ -868,7 +974,7 @@ export class OutlookProvider implements EmailProvider {
     return { messageId: requireSentMessageId(result.id) };
   }
 
-  async sendEmailWithHtml(body: SendEmailBody) {
+  async sendEmailWithHtml(body: SendEmailBody, options?: SendEmailOptions) {
     const result = await sendEmailWithHtml(
       this.client,
       {
@@ -876,6 +982,7 @@ export class OutlookProvider implements EmailProvider {
         attachments: toMailerAttachments(body.attachments),
       },
       this.logger,
+      options,
     );
     return {
       messageId: result.id || "",
@@ -1330,16 +1437,17 @@ export class OutlookProvider implements EmailProvider {
     fromEmail?: string;
     readState?: "read" | "unread";
     labelName?: string;
+    folderId?: string;
     labelIds?: string[];
     includeSpamTrash?: boolean;
     folder?: "spam" | "trash";
   }): Promise<{ messages: ParsedMessage[]; nextPageToken?: string }> {
-    const scope = await resolveOutlookSearchScope({
+    const categoryName = await resolveOutlookCategoryName({
       emailProvider: this,
-      scope: options.labelName,
+      categoryName: options.labelName,
     });
     const folderId =
-      scope.folderId ??
+      options.folderId ??
       (await outlookSpamTrashFolderId({
         client: this.client,
         logger: this.logger,
@@ -1358,7 +1466,7 @@ export class OutlookProvider implements EmailProvider {
           starred: undefined,
         }[mailbox]
       : undefined;
-    const categoryNames = scope.categoryNames;
+    const categoryNames = categoryName ? [categoryName] : [];
 
     const response = await queryBatchMessages(
       this.client,

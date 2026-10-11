@@ -109,7 +109,7 @@ describe("CommandK side-panel actions", () => {
   it("queues archive through the engine before closing the viewer", async () => {
     const persisted = Promise.withResolvers<{ status: string }>();
     mail.client.submitConversations.mockReturnValue(persisted.promise);
-    render(<CommandK />);
+    render(<CommandK feedbackEnabled />);
 
     let archive: Promise<void> | undefined;
     act(() => {
@@ -138,7 +138,7 @@ describe("CommandK side-panel actions", () => {
     mail.client.submitConversations.mockRejectedValue(
       new Error("storage unavailable"),
     );
-    render(<CommandK />);
+    render(<CommandK feedbackEnabled />);
 
     await act(async () => shortcuts.handlers?.archive?.());
 
@@ -153,7 +153,7 @@ describe("CommandK side-panel actions", () => {
       status: "rejected",
       code: "queue_full",
     });
-    render(<CommandK />);
+    render(<CommandK feedbackEnabled />);
 
     await act(async () => shortcuts.handlers?.archive?.());
 
@@ -166,7 +166,7 @@ describe("CommandK side-panel actions", () => {
   it("keeps star bound while the side-panel thread is loading", async () => {
     thread.data = undefined;
     thread.isLoading = true;
-    render(<CommandK />);
+    render(<CommandK feedbackEnabled />);
     await act(async () => shortcuts.handlers?.star?.());
     expect(mail.client.submitConversations).not.toHaveBeenCalled();
     expect(notifications.error).toHaveBeenCalledWith({
@@ -175,7 +175,7 @@ describe("CommandK side-panel actions", () => {
   });
 
   it("stars the displayed thread through the engine", async () => {
-    render(<CommandK />);
+    render(<CommandK feedbackEnabled />);
     await act(async () => shortcuts.handlers?.star?.());
     expect(mail.client.submitConversations).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -187,7 +187,7 @@ describe("CommandK side-panel actions", () => {
   it("keeps archive bound while the full thread snapshot is loading", async () => {
     thread.data = undefined;
     thread.isLoading = true;
-    render(<CommandK />);
+    render(<CommandK feedbackEnabled />);
 
     expect(shortcuts.handlers?.archive).toBeTypeOf("function");
 
@@ -201,7 +201,7 @@ describe("CommandK side-panel actions", () => {
   });
 
   it("opens a forward composer for the latest side-panel message", () => {
-    render(<CommandK />);
+    render(<CommandK feedbackEnabled />);
 
     act(() => shortcuts.handlers?.forward?.());
 

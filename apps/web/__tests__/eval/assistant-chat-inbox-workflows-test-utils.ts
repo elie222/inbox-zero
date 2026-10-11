@@ -58,6 +58,8 @@ const hoisted = vi.hoisted(() => ({
   },
   mockUnsubscribeSenderAndMark: vi.fn(),
   mockSearchMessages: vi.fn(),
+  mockCountMessages: vi.fn(),
+  mockGetLabels: vi.fn(),
   mockGetMessage: vi.fn(),
   mockArchiveThreadWithLabel: vi.fn(),
   mockMarkReadThread: vi.fn(),
@@ -79,6 +81,8 @@ const {
 } = hoisted;
 
 export const mockSearchMessages = hoisted.mockSearchMessages;
+export const mockCountMessages = hoisted.mockCountMessages;
+export const mockGetLabels = hoisted.mockGetLabels;
 export const mockGetMessage = hoisted.mockGetMessage;
 export { mockArchiveThreadWithLabel };
 export const mockGetFolders = hoisted.mockGetFolders;
@@ -171,6 +175,10 @@ export function setupInboxWorkflowEval() {
       messages: getDefaultSearchMessages(),
       nextPageToken: undefined,
     });
+    mockCountMessages.mockRejectedValue(
+      new Error("Count fixture not configured"),
+    );
+    mockGetLabels.mockResolvedValue(getDefaultLabels());
     mockGetFolders.mockResolvedValue(getDefaultFolders());
     mockGetOrCreateFolderIdByName.mockImplementation(async (folderName) => {
       const folder = flattenFolders(getDefaultFolders()).find(
@@ -191,7 +199,8 @@ export function setupInboxWorkflowEval() {
 
     mockCreateEmailProvider.mockResolvedValue({
       searchMessages: mockSearchMessages,
-      getLabels: vi.fn().mockResolvedValue(getDefaultLabels()),
+      countMessages: mockCountMessages,
+      getLabels: mockGetLabels,
       getMessage: mockGetMessage,
       archiveThreadWithLabel: mockArchiveThreadWithLabel,
       markReadThread: mockMarkReadThread,

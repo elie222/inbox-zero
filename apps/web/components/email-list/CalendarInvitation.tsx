@@ -3,7 +3,7 @@
 import { getAccountScopedKey } from "@/utils/swr";
 import useSWR from "swr";
 import { useAction } from "next-safe-action/hooks";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, MapPinIcon, VideoIcon } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -12,7 +12,11 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { respondToCalendarInvitationAction } from "@/utils/actions/calendar-invitation";
 import { getActionErrorMessage } from "@/utils/error";
 import type { CalendarInvitationResponse } from "@/app/api/messages/calendar-invitation/route";
+import { formatInvitationTime } from "@/utils/calendar/invitations/format-time";
 import type { InvitationResponse } from "@/utils/calendar/invitations/parser";
+
+// The card reads the meeting time in the zone the viewer's device is set to.
+const viewerTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 export function CalendarInvitation({ messageId }: { messageId: string }) {
   const { emailAccountId } = useAccount();
@@ -62,8 +66,11 @@ export function CalendarInvitation({ messageId }: { messageId: string }) {
           <div className="space-y-3">
             <div className="flex items-start gap-2">
               <CalendarIcon className="mt-0.5 size-4 shrink-0" />
-              <div className="min-w-0">
-                <p className="font-medium break-words">{invitation.title}</p>
+              <div className="min-w-0 space-y-0.5">
+                <p className="font-medium break-words">
+                  {formatInvitationTime(invitation, viewerTimeZone)}
+                </p>
+                <p className="break-words">{invitation.title}</p>
                 <p className="break-all text-sm text-muted-foreground">
                   {invitation.organizer}
                 </p>
@@ -74,6 +81,26 @@ export function CalendarInvitation({ messageId }: { messageId: string }) {
                 )}
               </div>
             </div>
+
+            {invitation.location && (
+              <DetailRow icon={MapPinIcon}>
+                <span className="break-words">{invitation.location}</span>
+              </DetailRow>
+            )}
+
+            {invitation.conferenceUrl && (
+              <DetailRow icon={VideoIcon}>
+                <a
+                  href={invitation.conferenceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="break-all underline underline-offset-2"
+                >
+                  {invitation.conferenceUrl.replace(/^https?:\/\//, "")}
+                </a>
+              </DetailRow>
+            )}
+
             <fieldset className="flex flex-wrap gap-2">
               <legend className="sr-only">Your response</legend>
               {(
@@ -102,5 +129,20 @@ export function CalendarInvitation({ messageId }: { messageId: string }) {
         )}
       </LoadingContent>
     </section>
+  );
+}
+
+function DetailRow({
+  icon: Icon,
+  children,
+}: {
+  icon: typeof CalendarIcon;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-start gap-2 text-sm">
+      <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+      <div className="min-w-0">{children}</div>
+    </div>
   );
 }

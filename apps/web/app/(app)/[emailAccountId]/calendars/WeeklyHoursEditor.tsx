@@ -122,7 +122,7 @@ export function WeeklyHoursEditor({
           return (
             <div
               key={dayLabel}
-              className="flex items-start gap-4 border-b px-4 py-3 last:border-b-0"
+              className="flex flex-col items-start gap-2 border-b px-4 py-3 last:border-b-0 sm:flex-row sm:gap-4"
             >
               <div className="flex w-32 items-center gap-2.5 pt-1.5">
                 <Switch
@@ -150,10 +150,13 @@ export function WeeklyHoursEditor({
                   {dayLabel}
                 </span>
               </div>
-              <div className="flex flex-1 flex-col gap-2">
+              <div className="flex w-full min-w-0 flex-1 flex-col gap-2 sm:w-auto">
                 {day.enabled ? (
                   day.ranges.map((range, rangeIndex) => (
-                    <div key={rangeIndex} className="flex items-center gap-2">
+                    <div
+                      key={rangeIndex}
+                      className="flex flex-wrap items-center gap-2 sm:flex-nowrap"
+                    >
                       <TimeField
                         value={range.start}
                         onChange={(value) =>

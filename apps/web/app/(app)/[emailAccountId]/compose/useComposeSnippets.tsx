@@ -1,10 +1,17 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState, type RefObject } from "react";
+import { useCallback, useRef, useState, type RefObject } from "react";
+import { createPortal } from "react-dom";
 import { BracesIcon } from "lucide-react";
-import type { EmailEditorHandle } from "@inboxzero/email-editor/web";
+import type {
+  EmailEditorHandle,
+  EmailEditorSlashTrigger,
+} from "@inboxzero/email-editor/web";
 import { SnippetForm } from "@/components/snippets/SnippetForm";
-import { SnippetPicker } from "@/components/snippets/SnippetPicker";
+import {
+  SnippetPicker,
+  type SnippetPickerRef,
+} from "@/components/snippets/SnippetPicker";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,12 +27,14 @@ import {
 } from "@/components/ui/popover";
 import { Tooltip } from "@/components/Tooltip";
 import { useSnippets } from "@/hooks/useSnippets";
-import { createSnippetSlashExtension } from "./snippet-slash-extension";
 import {
   snippetContentToHtml,
   snippetVariablesFromRecipient,
 } from "@/utils/snippets/expand-snippet";
-import type { SnippetMatchItem } from "@/utils/snippets/match-snippets";
+import {
+  normalizeSnippetQuery,
+  type SnippetMatchItem,
+} from "@/utils/snippets/match-snippets";
 import type { CreateSnippetBody } from "@/utils/actions/snippet.validation";
 
 const EMPTY_SNIPPETS: SnippetMatchItem[] = [];
@@ -39,8 +48,6 @@ export function useComposeSnippets({
 }) {
   const { data, mutate } = useSnippets();
   const snippets = data?.snippets ?? EMPTY_SNIPPETS;
-  const snippetsRef = useRef(snippets);
-  snippetsRef.current = snippets;
   const toRef = useRef(to);
   toRef.current = to;
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -54,18 +61,24 @@ export function useComposeSnippets({
     setFormState({ insertOnCreate: false, open: false });
   }, []);
 
-  const insertSnippet = useCallback(
-    (snippet: SnippetMatchItem, range?: { from: number; to: number }) => {
-      const html = snippetContentToHtml(
+  const [slashTrigger, setSlashTrigger] =
+    useState<EmailEditorSlashTrigger | null>(null);
+  const slashPickerRef = useRef<SnippetPickerRef>(null);
+
+  const snippetHtml = useCallback(
+    (snippet: SnippetMatchItem) =>
+      snippetContentToHtml(
         snippet.content,
         snippetVariablesFromRecipient(toRef.current),
-      );
-      editorRef.current?.insertHtml(html, range);
-    },
-    [editorRef],
+      ),
+    [],
   );
-  const insertSnippetRef = useRef(insertSnippet);
-  insertSnippetRef.current = insertSnippet;
+  const insertSnippet = useCallback(
+    (snippet: SnippetMatchItem) => {
+      editorRef.current?.insertHtml(snippetHtml(snippet));
+    },
+    [editorRef, snippetHtml],
+  );
 
   const openCreate = useCallback(
     (
@@ -85,31 +98,41 @@ export function useComposeSnippets({
     },
     [editorRef],
   );
-  const openCreateRef = useRef(openCreate);
-  openCreateRef.current = openCreate;
-
-  const extraExtensions = useMemo(
-    () => [
-      createSnippetSlashExtension({
-        getSnippets: () => snippetsRef.current,
-        insertSnippet: (snippet, range) => {
-          insertSnippetRef.current(snippet, range);
-        },
-        onCreate: ({ shortcut }) => {
-          openCreateRef.current(
-            {
-              shortcut,
-            },
-            { insertOnCreate: true },
-          );
-        },
-      }),
-    ],
+  const onSlashKeyDown = useCallback(
+    (event: KeyboardEvent) =>
+      slashPickerRef.current?.onKeyDown({ event }) ?? false,
     [],
   );
 
   const toolbar = (
     <>
+      {slashTrigger &&
+        createPortal(
+          <div
+            className="fixed z-[100]"
+            style={{
+              left: slashTrigger.rect.left,
+              top: slashTrigger.rect.bottom + 4,
+            }}
+          >
+            <SnippetPicker
+              onSelectCreate={() => {
+                editorRef.current?.replaceSlashTrigger("");
+                openCreate(
+                  { shortcut: normalizeSnippetQuery(slashTrigger.query) },
+                  { insertOnCreate: true },
+                );
+              }}
+              onSelectSnippet={(snippet) => {
+                editorRef.current?.replaceSlashTrigger(snippetHtml(snippet));
+              }}
+              query={slashTrigger.query}
+              ref={slashPickerRef}
+              snippets={snippets}
+            />
+          </div>,
+          document.body,
+        )}
       <Popover
         onOpenChange={(open) => {
           setPickerOpen(open);
@@ -183,5 +206,9 @@ export function useComposeSnippets({
     </>
   );
 
-  return { extraExtensions, toolbar };
+  return {
+    onSlashKeyDown,
+    onSlashTrigger: setSlashTrigger,
+    toolbar,
+  };
 }

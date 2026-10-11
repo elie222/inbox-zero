@@ -60,20 +60,6 @@ export function createMailIpcClient(
     submitConversations: (payload) => call("submitConversations", payload),
     saveDraft: (payload) => call("saveDraft", payload),
     readDraft: (payload) => call("readDraft", payload),
-    async stageDraftAttachment(input) {
-      const bytes = await collectBytes(input.bytes);
-      return call("stageDraftAttachment", {
-        accountId: input.accountId,
-        draftId: input.draftId,
-        attachmentId: input.attachmentId,
-        filename: input.filename,
-        contentType: input.contentType,
-        checksum: input.checksum,
-        sizeBytes: input.sizeBytes,
-        inline: input.inline,
-        contentBase64: bytesToBase64(bytes),
-      });
-    },
     submitSend: (payload) => call("submitSend", payload),
     cancelOperation: (payload) => call("cancelOperation", payload),
     requestSync: (accountIds) =>
@@ -281,37 +267,6 @@ function observeMailboxWindow(
 type RefreshableQueryHandle<T> = QueryHandle<T> & {
   refresh(): Promise<void>;
 };
-
-async function collectBytes(bytes: AsyncIterable<Uint8Array>) {
-  const chunks: Uint8Array[] = [];
-  let size = 0;
-  for await (const chunk of bytes) {
-    size += chunk.byteLength;
-    chunks.push(chunk);
-  }
-  const collected = new Uint8Array(size);
-  let offset = 0;
-  for (const chunk of chunks) {
-    collected.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return collected;
-}
-
-function bytesToBase64(bytes: Uint8Array) {
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  if (typeof btoa === "function") return btoa(binary);
-  const nodeBuffer = (
-    globalThis as {
-      Buffer?: {
-        from(input: Uint8Array): { toString(encoding: "base64"): string };
-      };
-    }
-  ).Buffer;
-  if (!nodeBuffer) throw new Error("base64 encoding is unavailable");
-  return nodeBuffer.from(bytes).toString("base64");
-}
 
 function defaultRequestId() {
   const cryptoObj = globalThis.crypto;

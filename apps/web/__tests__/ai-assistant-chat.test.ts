@@ -209,6 +209,21 @@ describe("aiProcessAssistantChat", () => {
     mockPrisma.calendarConnection.findMany.mockResolvedValue([]);
   });
 
+  it("ties reply language to the source email unless the user overrides it", async () => {
+    const tools = await captureToolSet();
+    const system =
+      mockToolCallAgentStream.mock.lastCall?.[0].messages[0].content;
+
+    for (const guidance of [system, tools.replyEmail.description]) {
+      expect.soft(guidance).toContain("language of the email being replied to");
+      expect.soft(guidance).toContain("new body, not quoted history");
+      expect.soft(guidance).toContain("not the chat language");
+      expect
+        .soft(guidance)
+        .toContain("unless the user explicitly requests another language");
+    }
+  });
+
   it("registers expected core and send tools when email sending is enabled", async () => {
     const { aiProcessAssistantChat } = await loadAssistantChatModule({
       emailSend: true,

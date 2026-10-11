@@ -33,13 +33,11 @@ describe("deleteTinybirdEmailData", () => {
         condition: "userId IN ('a@example.com', 'b@example.com')",
         auth: "Bearer delete-token",
       },
-      ...["email_action", "email", "last_and_oldest_emails_mv"].map(
-        (datasource) => ({
-          path: `/v0/datasources/${datasource}/delete`,
-          condition: "ownerEmail IN ('a@example.com', 'b@example.com')",
-          auth: "Bearer delete-token",
-        }),
-      ),
+      {
+        path: "/v0/datasources/email_action/delete",
+        condition: "ownerEmail IN ('a@example.com', 'b@example.com')",
+        auth: "Bearer delete-token",
+      },
     ]);
   });
 
@@ -59,7 +57,7 @@ describe("deleteTinybirdEmailData", () => {
     await expect(
       deleteTinybirdEmailData(["a@example.com"]),
     ).resolves.toBeUndefined();
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("fails loudly when Tinybird is enabled without a delete token", async () => {

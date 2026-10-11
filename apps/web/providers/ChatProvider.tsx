@@ -127,6 +127,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           body: {
             id,
             message: messages.at(-1),
+            supportsInlineEmailCards: true,
             inlineActions: pendingInlineActionsRef.current ?? undefined,
             ...body,
           },
