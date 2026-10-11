@@ -8,6 +8,7 @@ import {
 import {
   conversationWithSubject,
   expectSeamlessReplyHandoff,
+  clearWorkflowMailboxDrafts,
   expectThreadReaderBody,
   openMail,
   openMailboxFromSidebar,
@@ -17,6 +18,10 @@ import {
   watchReplyHandoff,
   withClient,
 } from "./mail-test-helpers";
+
+test.beforeEach(async ({ page }) => {
+  await clearWorkflowMailboxDrafts(page);
+});
 
 test("composes, sends, and reads a new message from Sent", async ({
   page,

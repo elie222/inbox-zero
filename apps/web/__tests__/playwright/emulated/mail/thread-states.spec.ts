@@ -3,10 +3,15 @@ import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
 import {
+  clearWorkflowMailboxDrafts,
   expectThreadReaderBody,
   openMail,
   readLatestMailMutation,
 } from "./mail-test-helpers";
+
+test.beforeEach(async ({ page }) => {
+  await clearWorkflowMailboxDrafts(page);
+});
 
 test("captures queued reply and reconnect", async ({ page }, testInfo) => {
   page.setDefaultTimeout(15_000);
