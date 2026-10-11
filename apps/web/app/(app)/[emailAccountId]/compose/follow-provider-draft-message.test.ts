@@ -31,6 +31,26 @@ describe("followProviderDraftMessage", () => {
     clearLocalReplyDrafts();
   });
 
+  it("records a reply's mailbox copy before syncing it into the thread", async () => {
+    await createReplyDraftWriter(identity).save(content);
+    const client = {
+      ensureMessageContent: vi.fn(async () => {
+        expect(
+          (await getReplyDraft(identity))?.content?.providerDraftMessageIds,
+        ).toEqual(["reply-copy"]);
+      }),
+      requestSync: vi.fn(async () => ({})),
+    } as unknown as MailClient;
+    await followProviderDraftMessage({
+      client,
+      emailAccountId: "account",
+      messageId: "reply-copy",
+      localDraft: { identity, requestId: "compose-1" },
+    });
+    expect(client.ensureMessageContent).toHaveBeenCalledOnce();
+    expect(client.requestSync).toHaveBeenCalledWith(["account"]);
+  });
+
   // A scheduled new message records these ids so its mailbox draft stays
   // hidden until the send goes out.
   it("keeps every message a new message's mailbox draft was saved as", async () => {
@@ -45,7 +65,6 @@ describe("followProviderDraftMessage", () => {
         client,
         emailAccountId: "account",
         messageId,
-        isNewCompose: true,
         localDraft: { identity, requestId: "compose-1" },
       });
     }

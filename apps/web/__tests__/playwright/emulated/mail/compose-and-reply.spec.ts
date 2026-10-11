@@ -8,6 +8,7 @@ import {
 import {
   conversationWithSubject,
   expectSeamlessReplyHandoff,
+  clearWorkflowMailboxDrafts,
   expectThreadReaderBody,
   openMail,
   openMailboxFromSidebar,
@@ -17,6 +18,10 @@ import {
   watchReplyHandoff,
   withClient,
 } from "./mail-test-helpers";
+
+test.beforeEach(async ({ page }) => {
+  await clearWorkflowMailboxDrafts(page);
+});
 
 test("composes, sends, and reads a new message from Sent", async ({
   page,
@@ -207,7 +212,8 @@ test("focuses the To field when forwarding with F", async ({ page }) => {
     message.getByRole("button", { name: "Forward", exact: true }),
   ).toBeVisible();
 
-  await page.keyboard.press("KeyF");
+  // Restored drafts focus their editor; this shortcut belongs to the reader.
+  await message.press("KeyF");
 
   const toField = message.getByRole("combobox", { name: "To" });
   await expect(toField).toBeVisible();

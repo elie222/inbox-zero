@@ -68,6 +68,8 @@ export function EmailMessage({
   refetch,
   showReplyButton,
   defaultComposeMode,
+  hideComposer,
+  onStartCompose,
   draftMessages,
   expanded,
   onToggle,
@@ -93,6 +95,8 @@ export function EmailMessage({
   refetch: () => void;
   showReplyButton: boolean;
   defaultComposeMode?: ReplyDraftMode;
+  hideComposer?: boolean;
+  onStartCompose?: () => void;
   expanded: boolean;
   /** Absent when the thread has a single message, which never collapses. */
   onToggle?: () => void;
@@ -134,13 +138,17 @@ export function EmailMessage({
   const [composeOverride, setComposeOverride] = useState<
     ReplyDraftMode | "closed" | null
   >(null);
-  const composeMode = resolveComposeMode(
-    composeOverride,
-    defaultComposeMode,
-    (mode) =>
-      getReplyDraftSessionId(composerSessionMessageId ?? message.id, mode) ===
-      poppedOutDraftSessionId,
-  );
+  const composeMode = hideComposer
+    ? undefined
+    : resolveComposeMode(
+        composeOverride,
+        defaultComposeMode,
+        (mode) =>
+          getReplyDraftSessionId(
+            composerSessionMessageId ?? message.id,
+            mode,
+          ) === poppedOutDraftSessionId,
+      );
   const serverDrafts = (draftMessages ?? []).map((draft) => ({
     message: draft,
     sessionMessageId: getDraftSessionMessageId(emailAccountId, draft.id),
@@ -148,21 +156,26 @@ export function EmailMessage({
   const [dismissedDraftIds, setDismissedDraftIds] = useState(
     () => new Set<string>(),
   );
-  const setDraftDismissed = (sessionMessageId: string, dismissed: boolean) => {
-    setDismissedDraftIds((previous) => {
-      if (previous.has(sessionMessageId) === dismissed) return previous;
-      const next = new Set(previous);
-      if (dismissed) next.add(sessionMessageId);
-      else next.delete(sessionMessageId);
-      return next;
-    });
-  };
+  const setDraftDismissed = useCallback(
+    (sessionMessageId: string, dismissed: boolean) => {
+      setDismissedDraftIds((previous) => {
+        if (previous.has(sessionMessageId) === dismissed) return previous;
+        const next = new Set(previous);
+        if (dismissed) next.add(sessionMessageId);
+        else next.delete(sessionMessageId);
+        return next;
+      });
+    },
+    [],
+  );
   const visibleDrafts = serverDrafts.filter(
     (draft) =>
       !dismissedDraftIds.has(draft.sessionMessageId) &&
       getReplyDraftSessionId(draft.sessionMessageId, "reply") !==
         poppedOutDraftSessionId,
   );
+  const composingMailboxReply =
+    composeMode === "reply" && visibleDrafts.length > 0;
   const isDraftRow = serverDrafts.some(
     (draft) => draft.message.id === message.id,
   );
@@ -170,21 +183,39 @@ export function EmailMessage({
 
   const [showDetails, setShowDetails] = useState(false);
   const composeSessionRef = useRef(0);
+  const messageRef = useRef<HTMLLIElement>(null);
 
   const onReply = useCallback(() => {
+    onStartCompose?.();
     composeSessionRef.current += 1;
-    setComposeOverride("reply");
+    const savedDraft = serverDrafts[0];
+    if (savedDraft) {
+      setDraftDismissed(savedDraft.sessionMessageId, false);
+      setComposeOverride("closed");
+      requestAnimationFrame(() => {
+        messageRef.current
+          ?.querySelector<HTMLElement>("[data-email-editor-content]")
+          ?.focus();
+      });
+    } else {
+      setComposeOverride("reply");
+    }
     onExpand?.();
-  }, [onExpand]);
+  }, [onExpand, onStartCompose, serverDrafts, setDraftDismissed]);
   const onForward = useCallback(() => {
+    onStartCompose?.();
     composeSessionRef.current += 1;
     setComposeOverride("forward");
     onExpand?.();
-  }, [onExpand]);
+  }, [onExpand, onStartCompose]);
 
   const onCloseCompose = useCallback(() => {
     setComposeOverride("closed");
   }, []);
+  const closeMailboxDraft = (sessionMessageId: string) => {
+    if (composeMode === "reply") onCloseCompose();
+    setDraftDismissed(sessionMessageId, true);
+  };
   const [composerKey, setComposerKey] = useState(0);
   const undoSendSessionRef = useRef<ComposeSession | null>(null);
 
@@ -245,6 +276,7 @@ export function EmailMessage({
 
   return (
     <li
+      ref={messageRef}
       data-thread-message-id={message.id}
       data-selected={selected}
       tabIndex={selected !== undefined || hasOpenComposer ? -1 : undefined}
@@ -351,7 +383,7 @@ export function EmailMessage({
               draftMessage={draft}
               draftSessionMessageId={sessionMessageId}
               message={message}
-              onCloseCompose={() => setDraftDismissed(sessionMessageId, true)}
+              onCloseCompose={() => closeMailboxDraft(sessionMessageId)}
               onRestoreCompose={() =>
                 setDraftDismissed(sessionMessageId, false)
               }
@@ -361,7 +393,7 @@ export function EmailMessage({
               onMarkDone={onMarkDone}
               onDraftDiscarded={onDraftDiscarded}
               onStartDiscard={() => {
-                setDraftDismissed(sessionMessageId, true);
+                closeMailboxDraft(sessionMessageId);
                 return {
                   id: composeSessionRef.current,
                   mode: "reply" as const,
@@ -371,7 +403,7 @@ export function EmailMessage({
               composeMode="reply"
             />
           ))}
-          {composeMode && (
+          {composeMode && !composingMailboxReply && (
             <ReplyPanel
               key={composerKey}
               autoScroll

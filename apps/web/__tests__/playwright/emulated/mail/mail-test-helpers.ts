@@ -1,5 +1,7 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import { Client } from "pg";
+import type { ThreadResponse } from "@/app/api/threads/[id]/route";
+import type { ReadComposeDraftResponse } from "@/app/api/user/drafts/route";
 import { getEmailAccountId } from "../account-test-helpers";
 import { isMicrosoftPlaywright } from "../mail-provider";
 import {
@@ -25,6 +27,33 @@ export async function openMail(page: Page) {
   await expect(conversations).toBeVisible({ timeout: 60_000 });
 
   return { conversations, emailAccountId };
+}
+
+// These specs share an emulator account, while each case starts with fresh
+// device storage. Mailbox drafts from earlier cases would be independent drafts.
+export async function clearWorkflowMailboxDrafts(page: Page) {
+  const emailAccountId = await getEmailAccountId(page);
+  const headers = { "X-Email-Account-ID": emailAccountId };
+  const response = await page.request.get(
+    "/api/threads/thr_playwright_reply?includeDrafts=true",
+    { headers },
+  );
+  expect(response.ok(), await response.text()).toBe(true);
+  const { thread }: ThreadResponse = await response.json();
+  for (const message of thread.messages) {
+    if (!message.labelIds?.includes("DRAFT")) continue;
+    const reference = await page.request.get(
+      `/api/user/drafts?messageId=${encodeURIComponent(message.id)}`,
+      { headers },
+    );
+    expect(reference.ok(), await reference.text()).toBe(true);
+    const { draftId }: ReadComposeDraftResponse = await reference.json();
+    const discarded = await page.request.delete(
+      `/api/user/drafts/${encodeURIComponent(draftId)}`,
+      { headers },
+    );
+    expect(discarded.ok(), await discarded.text()).toBe(true);
+  }
 }
 
 export async function expectThreadReaderBody(
