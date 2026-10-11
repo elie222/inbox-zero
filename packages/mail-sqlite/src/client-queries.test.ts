@@ -87,7 +87,10 @@ describe("mail client queries", () => {
     }
   });
 
-  it("keeps the conversation title when a newer reply draft syncs", async () => {
+  it.each([
+    ["draft", "all"],
+    ["trash", "inbox"],
+  ] as const)("keeps the conversation title when a newer %s reply syncs", async (role, mailbox) => {
     const store = await createSqliteMailStore(
       createNodeSqliteDriver(":memory:"),
     );
@@ -98,7 +101,7 @@ describe("mail client queries", () => {
         generation: "g1",
       });
       const replyDraft = messagePatch("reply-draft", "conversation", 2000, [
-        "draft",
+        role,
       ]);
       replyDraft.fields.subject = "Re: Original subject";
       const original = messagePatch("original", "conversation", 1000, [
@@ -123,7 +126,7 @@ describe("mail client queries", () => {
       });
       const result = await store.readMailboxView({
         accountIds: ["acc-1"],
-        predicate: mailboxPredicate("all"),
+        predicate: mailboxPredicate(mailbox),
         order: "newest_first",
         pageSize: 25,
         after: null,
@@ -135,13 +138,15 @@ describe("mail client queries", () => {
       ).toMatchObject({
         subject: "Original subject",
         preview: "reply-draft",
-        roles: ["inbox", "draft"],
+        roles: ["inbox", role],
       });
-      expect(
-        result.view.conversations.find(
-          (row) => row.key.conversationId === "draft-only",
-        )?.subject,
-      ).toBe("New message subject");
+      if (mailbox === "all") {
+        expect(
+          result.view.conversations.find(
+            (row) => row.key.conversationId === "draft-only",
+          )?.subject,
+        ).toBe("New message subject");
+      }
     } finally {
       await store.close();
     }

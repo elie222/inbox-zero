@@ -425,13 +425,12 @@ async function readConversationSummaries(
     const message = conversationMembers.at(-1);
     if (!message)
       throw new Error("Conversation query has no effective message");
-    // A reply draft must not rename the conversation while it is being edited.
+    // A draft must not rename the conversation, including after it moves to trash.
     const subjectMessage =
-      [...conversationMembers]
-        .reverse()
-        .find(
-          (member) => !jsonStringArray(member.roles_json).includes("draft"),
-        ) ?? message;
+      [...conversationMembers].reverse().find((member) => {
+        const roles = jsonStringArray(member.roles_json);
+        return !roles.includes("draft") && !roles.includes("trash");
+      }) ?? message;
     return {
       key: {
         accountId: String(row.account_id),
