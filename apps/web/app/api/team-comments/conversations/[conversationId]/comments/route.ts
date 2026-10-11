@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
+import { commentBody } from "@/utils/actions/team-comments.validation";
 import { withAuth } from "@/utils/middleware";
-import { getComments } from "@/utils/team-comments/comments";
+import { getComments, postComment } from "@/utils/team-comments/comments";
 
 export type TeamCommentsResponse = Awaited<ReturnType<typeof getData>>;
+export type PostTeamCommentResponse = Awaited<ReturnType<typeof postComment>>;
 
 export const GET = withAuth(
   "team-comments/comments",
@@ -40,6 +42,21 @@ export const GET = withAuth(
       ),
       { headers: { "Cache-Control": "private, no-store" } },
     );
+  },
+);
+
+export const POST = withAuth(
+  "team-comments/comments/post",
+  async (request, { params }) => {
+    const { conversationId } = await params;
+    const { memberId, ...input } = commentBody.parse(await request.json());
+    const comment = await postComment(
+      { userId: request.auth.userId, memberId },
+      { ...input, conversationId, logger: request.logger },
+    );
+    return NextResponse.json(comment satisfies PostTeamCommentResponse, {
+      headers: { "Cache-Control": "private, no-store" },
+    });
   },
 );
 
