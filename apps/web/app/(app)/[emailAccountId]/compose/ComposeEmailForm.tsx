@@ -611,6 +611,7 @@ function ComposeEmailFormContent({
       localDraftIdentity,
       requestId,
     );
+    let createdMessageId: string | null = null;
     if (!draftId) {
       const content = getProviderDraftContent();
       if (!content) throw new Error("This draft is not ready to save yet.");
@@ -625,10 +626,12 @@ function ComposeEmailFormContent({
           "Mailbox draft creation could not be confirmed. Check Drafts in Gmail or Outlook; your message is still saved on this device.",
         );
       draftId = created.data.draftId;
-      await followDraftMessage(created.data.messageId);
+      createdMessageId = created.data.messageId;
     }
+    // Keep the reference durable if the composer closes during mailbox sync.
     providerDraftId.current = draftId;
     await updateReplyDraftProviderState(localDraftIdentity, requestId, draftId);
+    if (createdMessageId) await followDraftMessage(createdMessageId);
     return draftId;
   };
 

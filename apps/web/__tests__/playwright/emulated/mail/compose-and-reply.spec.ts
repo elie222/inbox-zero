@@ -207,7 +207,8 @@ test("focuses the To field when forwarding with F", async ({ page }) => {
     message.getByRole("button", { name: "Forward", exact: true }),
   ).toBeVisible();
 
-  await page.keyboard.press("KeyF");
+  // Restored drafts focus their editor; this shortcut belongs to the reader.
+  await message.press("KeyF");
 
   const toField = message.getByRole("combobox", { name: "To" });
   await expect(toField).toBeVisible();

@@ -71,11 +71,14 @@ vi.mock("@/components/email-list/OpenedConversationAttachments", () => ({
   }) => children,
 }));
 const { localDrafts } = vi.hoisted(() => ({
-  localDrafts: { current: [] as StoredReplyDraft[] },
+  localDrafts: { current: [] as StoredReplyDraft[], isLoading: false },
 }));
 
 vi.mock("@/hooks/useReplyDrafts", () => ({
-  useReplyDrafts: () => ({ drafts: localDrafts.current }),
+  useReplyDrafts: () => ({
+    drafts: localDrafts.current,
+    isLoading: localDrafts.isLoading,
+  }),
 }));
 vi.mock("@/hooks/useSentMessageOpens", () => ({
   useSentMessageOpens: () => ({ data: undefined }),
@@ -473,9 +476,20 @@ describe("EmailThread mailbox copies of local replies", () => {
   afterEach(() => {
     cleanup();
     localDrafts.current = [];
+    localDrafts.isLoading = false;
   });
 
   it("edits a reply from its local copy once its mailbox copy syncs back", () => {
+    localDrafts.isLoading = true;
+    const messages = [
+      createReaderMessage("parent", "1000"),
+      createReaderDraft("mailbox-copy", "2000"),
+    ];
+    const view = render(
+      <EmailThread messages={messages} refetch={vi.fn()} showReplyButton />,
+    );
+    expect(screen.queryByRole("textbox", { name: "Email message" })).toBeNull();
+    localDrafts.isLoading = false;
     localDrafts.current = [
       {
         emailAccountId: "account-1",
@@ -489,15 +503,8 @@ describe("EmailThread mailbox copies of local replies", () => {
         updatedAt: 1,
       },
     ];
-    render(
-      <EmailThread
-        messages={[
-          createReaderMessage("parent", "1000"),
-          createReaderDraft("mailbox-copy", "2000"),
-        ]}
-        refetch={vi.fn()}
-        showReplyButton
-      />,
+    view.rerender(
+      <EmailThread messages={messages} refetch={vi.fn()} showReplyButton />,
     );
 
     const composers = screen.getAllByRole("textbox", { name: "Email message" });

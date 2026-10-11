@@ -76,7 +76,7 @@ export function EmailThread({
 }) {
   const { emailAccountId, userEmail } = useAccount();
   const threadId = messages[0]?.threadId ?? "";
-  const { drafts: localDrafts } = useReplyDrafts(
+  const { drafts: localDrafts, isLoading: draftsLoading } = useReplyDrafts(
     emailAccountId,
     threadId,
     messages
@@ -97,6 +97,8 @@ export function EmailThread({
             (draft) => draft.content?.providerDraftMessageIds ?? [],
           ),
           ...hiddenDraftMessageIds,
+          // Opening a mailbox copy before the local lookup creates a second session.
+          ...(draftsLoading ? messages.map((message) => message.id) : []),
         ]),
       ),
       ...outgoing.map((item) => ({
@@ -112,6 +114,7 @@ export function EmailThread({
       messages,
       emailAccountId,
       localDrafts,
+      draftsLoading,
       hiddenDraftMessageIds,
       outgoing,
       userEmail,
