@@ -216,6 +216,67 @@ describe("Squire email editor", () => {
     );
   });
 
+  it("replaces a collapsed signature and keeps the message", async () => {
+    const { handle, textbox } = await renderEditor({
+      initialHtml: "<div>Body</div>",
+      mode: "original",
+      preservedBlocks: [
+        { id: "signature", kind: "signature", html: "<div>Old</div>" },
+      ],
+    });
+
+    await act(async () => {
+      handle().replaceSignature("<div>New</div>");
+    });
+
+    expect(textbox().textContent).toBe("Body");
+    const value = handle().getValue();
+    expect(value.preservedBlockIds).not.toContain("signature");
+    expect(value.editableHtml).toBe(
+      '<div>Body</div><div data-smartmail="gmail_signature"><div><br></div><div>New</div></div>',
+    );
+  });
+
+  it("replaces a shown signature in place", async () => {
+    const { handle, textbox } = await renderEditor({
+      initialHtml: "<div>Body</div>",
+      mode: "original",
+      preservedBlocks: [
+        { id: "signature", kind: "signature", html: "<div>Old</div>" },
+      ],
+    });
+    fireEvent.click(await screen.findByRole("button", { name: /^Show/u }));
+
+    await act(async () => {
+      handle().replaceSignature("<div>New</div>");
+    });
+
+    expect(textbox().textContent).toContain("New");
+    expect(textbox().textContent).not.toContain("Old");
+    expect(
+      screen.getByRole("button", { name: "Remove signature" }),
+    ).toBeTruthy();
+  });
+
+  it("adds a signature to a message without one and removes it again", async () => {
+    const { handle } = await renderEditor({
+      initialHtml: "<div>Body</div>",
+      mode: "original",
+    });
+
+    await act(async () => {
+      handle().replaceSignature("<div>New</div>");
+    });
+    expect(screen.getByRole("button", { name: "Show signature" })).toBeTruthy();
+    expect(handle().getValue().editableHtml).toContain("New");
+
+    await act(async () => {
+      handle().replaceSignature("");
+    });
+    expect(screen.queryByRole("button", { name: /signature/u })).toBeNull();
+    expect(handle().getValue().editableHtml).not.toContain("New");
+  });
+
   it("keeps text typed below the signature below it when collapsed", async () => {
     const { handle, textbox } = await renderEditor({
       initialHtml: "<div>Body</div>",

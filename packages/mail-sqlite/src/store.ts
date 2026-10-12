@@ -1112,6 +1112,7 @@ export async function createSqliteMailStore(
           kind: "send" as const,
           frozenDraftId: input.draft.draftId,
           frozenDraftRevision: input.draftRevision,
+          ...(content.from ? { from: content.from } : {}),
           to: content.to,
           cc: content.cc,
           bcc: content.bcc,

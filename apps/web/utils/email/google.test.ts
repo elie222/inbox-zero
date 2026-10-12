@@ -496,11 +496,15 @@ describe("GmailProvider.getLatestMessageInThread", () => {
         email: "user@example.com",
         signature: "",
         isDefault: true,
+        isPrimary: true,
+        isVerified: true,
       },
       {
         email: "alias@example.com",
         signature: "",
         isDefault: false,
+        isPrimary: false,
+        isVerified: true,
       },
     ]);
     const provider = new GmailProvider({} as any);
@@ -519,6 +523,78 @@ describe("GmailProvider.getLatestMessageInThread", () => {
       args,
       ["user@example.com", "alias@example.com"],
     );
+  });
+
+  it("drafts replies to mail sent to an alias from that alias", async () => {
+    gmailSignatureMock.getGmailSignatures.mockResolvedValue([
+      {
+        email: "user@example.com",
+        signature: "",
+        isDefault: true,
+        isPrimary: true,
+        isVerified: true,
+      },
+      {
+        email: "support@example.com",
+        displayName: "Example Support",
+        signature: "",
+        isDefault: false,
+        isPrimary: false,
+        isVerified: true,
+      },
+    ]);
+    const provider = new GmailProvider({} as any);
+    const message = createParsedMessage({
+      id: "message-1",
+      internalDate: "1000",
+      headers: { to: "Support <Support@example.com>" },
+    });
+
+    await provider.draftEmail(
+      message,
+      { content: "Follow up" },
+      "user@example.com",
+    );
+
+    expect(gmailMailMock.draftEmail).toHaveBeenCalledWith(
+      expect.anything(),
+      message,
+      { content: "Follow up", from: '"Example Support" <support@example.com>' },
+      expect.anything(),
+    );
+  });
+
+  it("does not draft from an alias Gmail has not verified", async () => {
+    gmailSignatureMock.getGmailSignatures.mockResolvedValue([
+      {
+        email: "user@example.com",
+        signature: "",
+        isDefault: true,
+        isPrimary: true,
+        isVerified: true,
+      },
+      {
+        email: "support@example.com",
+        signature: "",
+        isDefault: false,
+        isPrimary: false,
+        isVerified: false,
+      },
+    ]);
+    const provider = new GmailProvider({} as any);
+    const message = createParsedMessage({
+      id: "message-1",
+      internalDate: "1000",
+      headers: { to: "support@example.com" },
+    });
+
+    await provider.draftEmail(
+      message,
+      { content: "Follow up" },
+      "user@example.com",
+    );
+
+    expect(gmailMailMock.draftEmail.mock.calls[0][2].from).toBeUndefined();
   });
 });
 

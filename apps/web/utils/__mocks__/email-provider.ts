@@ -49,6 +49,7 @@ export const createMockEmailProvider = (
   getMessageByRfc822MessageId: vi.fn().mockResolvedValue(null),
   getFolders: vi.fn().mockResolvedValue([]),
   getFolderCounts: vi.fn().mockResolvedValue([]),
+  getSendAsAddresses: vi.fn().mockResolvedValue([]),
   getSignatures: vi.fn().mockResolvedValue([]),
   getInboxStats: vi.fn().mockResolvedValue({ total: 0, unread: 0 }),
   getMessage: vi.fn().mockResolvedValue({

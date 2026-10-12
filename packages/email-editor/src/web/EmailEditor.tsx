@@ -40,6 +40,9 @@ export type EmailEditorHandle = {
     previewUrl: string;
   }) => boolean;
   removeInlineImage: (contentId: string) => boolean;
+  // Swaps the signature for another, adding it if there was none. Empty HTML
+  // removes it. The rest of the message is kept as written.
+  replaceSignature: (html: string) => boolean;
   // Replaces the "/query" reported by onSlashTrigger.
   replaceSlashTrigger: (html: string) => boolean;
 };
