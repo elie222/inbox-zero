@@ -55,8 +55,9 @@ export function HtmlEmail({
 }) {
   const sanitizedHtml = useMemo(() => sanitizeEmailHtml(html), [html]);
   // Message objects are rebuilt whenever the conversation republishes, so the
-  // effect keys on the attachments' identity rather than the array. Re-running
-  // it would mint new object URLs and remount the frame without its images.
+  // effect keys on the attachments' identity rather than the array or its
+  // order. Re-running it would mint new object URLs and remount the frame
+  // without its images.
   const inlineImageIds = useMemo(
     () => serializeInlineImageIds(inlineAttachments),
     [inlineAttachments],
@@ -264,5 +265,5 @@ function serializeInlineImageIds(inlineAttachments: ParsedMessage["inline"]) {
     if (contentId && attachment.attachmentId)
       entries.push([contentId, attachment.attachmentId]);
   }
-  return JSON.stringify(entries);
+  return JSON.stringify(entries.sort(([a], [b]) => a.localeCompare(b)));
 }
