@@ -4,6 +4,7 @@ import { isThreadStarred } from "@/app/(app)/[emailAccountId]/mail/star-state";
 import * as React from "react";
 import {
   Loader2Icon,
+  MessageSquarePlusIcon,
   MonitorIcon,
   MoonIcon,
   SunIcon,
@@ -27,6 +28,7 @@ import {
 import { useComposeModal } from "@/providers/ComposeModalProvider";
 import {
   commandPaletteOpenAtom,
+  feedbackDialogOpenAtom,
   mailCommandContextAtom,
   senderCommandContextAtom,
   shortcutsDialogOpenAtom,
@@ -80,16 +82,16 @@ const ALWAYS_VISIBLE_SHORTCUT_COMMANDS = new Set(["compose", "help"]);
 // route's own bindings: these handlers are only defined when the side panel has a
 // thread (`side-panel-thread-id`), which the mail list never sets — and the mail
 // screen in turn stands down while the side panel is open.
-export function CommandK() {
+export function CommandK({ feedbackEnabled }: { feedbackEnabled: boolean }) {
   return (
     <ShortcutsProvider scopes={MAIL_SHORTCUT_SCOPES}>
-      <CommandPalette />
+      <CommandPalette feedbackEnabled={feedbackEnabled} />
       <ShortcutsDialog />
     </ShortcutsProvider>
   );
 }
 
-function CommandPalette() {
+function CommandPalette({ feedbackEnabled }: { feedbackEnabled: boolean }) {
   const mailCommandContext = useAtomValue(mailCommandContextAtom);
   const senderCommandContext = useAtomValue(senderCommandContextAtom);
   const displayedEmail = useDisplayedEmail();
@@ -104,6 +106,7 @@ function CommandPalette() {
 
   return (
     <CommandPaletteContent
+      feedbackEnabled={feedbackEnabled}
       displayedEmail={displayedEmail}
       mailCommandContext={activeMailContext}
       senderCommandContext={
@@ -114,16 +117,19 @@ function CommandPalette() {
 }
 
 function CommandPaletteContent({
+  feedbackEnabled,
   displayedEmail,
   mailCommandContext,
   senderCommandContext,
 }: {
+  feedbackEnabled: boolean;
   displayedEmail: ReturnType<typeof useDisplayedEmail>;
   mailCommandContext: MailCommandContext | null;
   senderCommandContext: SenderCommandContext | null;
 }) {
   const [open, setOpen] = useAtom(commandPaletteOpenAtom);
   const setShortcutsOpen = useSetAtom(shortcutsDialogOpenAtom);
+  const setFeedbackOpen = useSetAtom(feedbackDialogOpenAtom);
   const [activePage, setPage] = React.useState<"root" | "snooze" | "accounts">(
     "root",
   );
@@ -270,6 +276,8 @@ function CommandPaletteContent({
             : undefined,
           trash: mailCommandContext.actions.trash,
           openExternal: mailCommandContext.actions.openExternal,
+          translate: mailCommandContext.actions.translate,
+          comment: mailCommandContext.actions.comment,
           toggleAutoArchive: senderCommandContext?.toggleAutoArchive,
           unsubscribe: senderCommandContext?.unsubscribe,
         },
@@ -326,6 +334,16 @@ function CommandPaletteContent({
       ...commands,
       ...themeCommands,
     ];
+    if (feedbackEnabled) {
+      allCommands.push({
+        id: "send-feedback",
+        label: "Send feedback",
+        icon: MessageSquarePlusIcon,
+        section: "settings",
+        keywords: ["feedback", "bug", "report", "suggestion", "idea"],
+        action: () => setFeedbackOpen(true),
+      });
+    }
   }
 
   const filteredCommands =

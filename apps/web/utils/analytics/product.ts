@@ -177,6 +177,8 @@ export const PRODUCT_ANALYTICS_ACTIONS = {
 
 export const APP_PAGES = {
   mail: { label: "Mail", area: "mail" },
+  shared_conversations: { label: "Shared with me", area: "mail" },
+  shared_activity: { label: "Activity", area: "mail" },
   assistant_chat: { label: "Chat", area: "manage" },
   automation: { label: "Assistant", area: "manage" },
   channels: { label: "Channels", area: "manage" },
@@ -199,6 +201,9 @@ export type ProductAnalyticsAction = StringLeaf<
 const APP_ROUTE_SEGMENTS: Array<{ segment: string; page: AppPage }> = [
   { segment: "mail", page: "mail" },
   { segment: "compose", page: "mail" },
+  // Before "shared", which also appears in /shared/activity.
+  { segment: "activity", page: "shared_activity" },
+  { segment: "shared", page: "shared_conversations" },
   { segment: "assistant", page: "assistant_chat" },
   { segment: "automation", page: "automation" },
   { segment: "channels", page: "channels" },
@@ -232,6 +237,8 @@ const NAV_ITEM_PAGES: Record<string, AppPage> = {
   Forums: "mail",
   Promotions: "mail",
   Chat: "assistant_chat",
+  "Shared with me": "shared_conversations",
+  Activity: "shared_activity",
   Assistant: "automation",
   Channels: "channels",
   Meetings: "meetings",

@@ -32,11 +32,12 @@ const {
   mockSetChatId,
   mockSetContext,
   mockSetInput,
-  mockSetLocalStorageInput,
+  mockUseChatInput,
   mockSetMessages,
   mockSetNewChat,
   mockStop,
   mockUseChats,
+  chatState,
 } = vi.hoisted(() => ({
   mockCaptureAction: vi.fn(),
   mockHandleSubmit: vi.fn(),
@@ -46,11 +47,12 @@ const {
   mockSetChatId: vi.fn(),
   mockSetContext: vi.fn(),
   mockSetInput: vi.fn(),
-  mockSetLocalStorageInput: vi.fn(),
+  mockUseChatInput: vi.fn(),
   mockSetMessages: vi.fn(),
   mockSetNewChat: vi.fn(),
   mockStop: vi.fn(),
   mockUseChats: vi.fn(),
+  chatState: { status: "ready" as ChatHelpers["status"] },
 }));
 
 vi.mock("@/components/assistant-chat/messages", () => ({
@@ -173,16 +175,15 @@ vi.mock("@/providers/ChatProvider", () => ({
   useChat: () => ({
     chat: {
       messages: [],
-      status: "ready",
-      stop: mockStop,
+      status: chatState.status,
+      stop: vi.fn(),
       regenerate: mockRegenerate,
       setMessages: mockSetMessages,
       sendMessage: vi.fn(),
     } satisfies Partial<ChatHelpers>,
     chatId: null,
-    input: "",
+    ...mockUseChatInput(),
     persistedMessageIds: new Set(),
-    setInput: mockSetInput,
     handleSubmit: mockHandleSubmit,
     setNewChat: mockSetNewChat,
     context: null,
@@ -191,6 +192,7 @@ vi.mock("@/providers/ChatProvider", () => ({
     setAttachments: mockSetAttachments,
     setChatId: mockSetChatId,
     submitTextMessage: vi.fn(),
+    stop: mockStop,
   }),
 }));
 
@@ -200,12 +202,14 @@ vi.mock("@/utils/auth-client", () => ({
   }),
 }));
 
-vi.mock("usehooks-ts", () => ({
-  useLocalStorage: () => ["", mockSetLocalStorageInput] as const,
-}));
-
 afterEach(() => {
   cleanup();
+});
+
+beforeEach(() => {
+  chatState.status = "ready";
+  window.localStorage.clear();
+  mockUseChatInput.mockReturnValue({ input: "", setInput: mockSetInput });
 });
 
 describe("Chat history", () => {
@@ -238,6 +242,84 @@ describe("Chat history", () => {
   });
 });
 
+describe("Chat input draft", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseChats.mockReturnValue({
+      data: undefined,
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutate,
+    });
+  });
+
+  it("keeps up with a rapid burst of input and saves the draft", async () => {
+    mockUseChatInput.mockImplementation(() => {
+      const [input, setInput] = React.useState("");
+      return { input, setInput };
+    });
+    const { Chat } = await import("@/components/assistant-chat/chat");
+    render(<Chat open />);
+    const textarea = screen.getByTestId("chat-input") as HTMLTextAreaElement;
+    const setNativeValue = Object.getOwnPropertyDescriptor(
+      HTMLTextAreaElement.prototype,
+      "value",
+    )?.set;
+
+    // Outside act, React commits each controlled update synchronously, like a
+    // text expander or dictation tool typing faster than React schedules work.
+    const actEnvironment = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean };
+    const previous = actEnvironment.IS_REACT_ACT_ENVIRONMENT;
+    actEnvironment.IS_REACT_ACT_ENVIRONMENT = false;
+    try {
+      for (let i = 0; i < 200; i++) {
+        setNativeValue?.call(textarea, `${textarea.value}x`);
+        textarea.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    } finally {
+      actEnvironment.IS_REACT_ACT_ENVIRONMENT = previous;
+    }
+
+    expect(textarea.value).toBe("x".repeat(200));
+    expect(window.localStorage.getItem("input")).toBe(
+      JSON.stringify("x".repeat(200)),
+    );
+  });
+
+  it("restores a saved draft on mount", async () => {
+    window.localStorage.setItem("input", JSON.stringify("Saved draft"));
+    const { Chat } = await import("@/components/assistant-chat/chat");
+
+    render(<Chat open />);
+
+    expect(mockSetInput).toHaveBeenCalledWith("Saved draft");
+  });
+});
+
+describe("Chat stop", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseChats.mockReturnValue({
+      data: undefined,
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutate,
+    });
+  });
+
+  it("stops the run on the server, not just the local stream", async () => {
+    chatState.status = "streaming";
+    const { Chat } = await import("@/components/assistant-chat/chat");
+
+    const { container } = render(<Chat open />);
+    const submitButton = container.querySelector('button[type="submit"]');
+    if (!submitButton) throw new Error("Submit button not found");
+    fireEvent.click(submitButton);
+
+    expect(mockStop).toHaveBeenCalledTimes(1);
+  });
+});
+
 const chatHistoryEntry = {
   id: "chat-1",
   name: "Project update",
@@ -246,5 +328,7 @@ const chatHistoryEntry = {
   deletedAt: null,
   compactionCount: 0,
   lastSeenRulesRevision: null,
+  activeStreamId: null,
+  activeStreamStartedAt: null,
   emailAccountId: "email-account-1",
 } satisfies ChatHistoryEntry;

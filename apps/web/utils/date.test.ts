@@ -176,6 +176,7 @@ describe("internalDateToDate", () => {
   it.each([
     { name: "internalDate is missing", internalDate: undefined },
     { name: "internalDate is invalid", internalDate: "not-a-date" },
+    { name: "internalDate is blank", internalDate: "   " },
   ])("returns invalid date when fallbackToNow is false and $name", ({
     internalDate,
   }) => {

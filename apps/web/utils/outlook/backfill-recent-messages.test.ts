@@ -69,7 +69,11 @@ describe("backfillRecentOutlookMessages", () => {
       logger,
     });
 
-    expect(result).toEqual({ processedCount: 2, candidateCount: 3 });
+    expect(result).toEqual({
+      processedCount: 2,
+      candidateCount: 3,
+      rateLimited: false,
+    });
     expect(processHistoryForUser).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({
@@ -109,7 +113,11 @@ describe("backfillRecentOutlookMessages", () => {
       logger,
     });
 
-    expect(result).toEqual({ processedCount: 0, candidateCount: 0 });
+    expect(result).toEqual({
+      processedCount: 0,
+      candidateCount: 0,
+      rateLimited: false,
+    });
     expect(prisma.emailMessage.findMany).not.toHaveBeenCalled();
     expect(processHistoryForUser).not.toHaveBeenCalled();
   });
@@ -146,7 +154,11 @@ describe("backfillRecentOutlookMessages", () => {
       logger,
     });
 
-    expect(result).toEqual({ processedCount: 2, candidateCount: 3 });
+    expect(result).toEqual({
+      processedCount: 2,
+      candidateCount: 3,
+      rateLimited: false,
+    });
     expect(processHistoryForUser).toHaveBeenCalledTimes(2);
     expect(processHistoryForUser).toHaveBeenNthCalledWith(
       1,
@@ -197,7 +209,11 @@ describe("backfillRecentOutlookMessages", () => {
       logger,
     });
 
-    expect(result).toEqual({ processedCount: 6, candidateCount: 6 });
+    expect(result).toEqual({
+      processedCount: 6,
+      candidateCount: 6,
+      rateLimited: false,
+    });
     expect(processHistoryForUser).toHaveBeenCalledTimes(6);
     expect(maxActive).toBe(5);
   });
@@ -232,7 +248,11 @@ describe("backfillRecentOutlookMessages", () => {
       logger,
     });
 
-    expect(result).toEqual({ processedCount: 4, candidateCount: 12 });
+    expect(result).toEqual({
+      processedCount: 4,
+      candidateCount: 12,
+      rateLimited: true,
+    });
     expect(processHistoryForUser).toHaveBeenCalledTimes(5);
     expect(errorSpy).not.toHaveBeenCalled();
     expect(warnSpy).toHaveBeenCalledTimes(1);

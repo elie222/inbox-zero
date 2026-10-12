@@ -24,7 +24,10 @@ export function findVideoConferenceLink(
     for (const url of urls ?? []) {
       if (!KNOWN_MEETING_HOST.test(url)) continue;
       const candidate = url.replace(TRAILING_PUNCTUATION, "");
-      if (isVideoConferenceLink(candidate)) return candidate;
+      // Every host above serves HTTPS only, so an http:// link would leak the
+      // meeting id and passcode in cleartext before redirecting anyway.
+      if (isVideoConferenceLink(candidate))
+        return candidate.replace(/^http:\/\//i, "https://");
     }
   }
 }

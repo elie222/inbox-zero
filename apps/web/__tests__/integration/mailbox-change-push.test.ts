@@ -331,11 +331,15 @@ describe.skipIf(!process.env.RUN_INTEGRATION_TESTS)(
               `local-mail-interest:${GMAIL_ACCOUNT}`,
             ),
           ).toBe(1);
+          // Connecting triggers a catch-up of its own.
+          expect(changes).toEqual([GMAIL_ACCOUNT]);
         });
         const response = await postGoogleWebhook(gmailWebhook("2"));
         expect(response.status).toBe(200);
         await flushAfter();
-        await vi.waitFor(() => expect(changes).toEqual([GMAIL_ACCOUNT]));
+        await vi.waitFor(() =>
+          expect(changes).toEqual([GMAIL_ACCOUNT, GMAIL_ACCOUNT]),
+        );
       } finally {
         abort.abort();
         await following;

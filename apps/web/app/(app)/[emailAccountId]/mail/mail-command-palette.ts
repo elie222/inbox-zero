@@ -8,10 +8,12 @@ import {
   MailXIcon,
   MailIcon,
   MailOpenIcon,
+  LanguagesIcon,
   ShieldAlertIcon,
   TagIcon,
   StarIcon,
   Trash2Icon,
+  MessageSquareIcon,
 } from "lucide-react";
 import type { Command } from "@/lib/commands/types";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
@@ -29,6 +31,8 @@ type MailCommandActions = {
   move?: () => void;
   openSnooze?: () => void;
   openExternal?: () => void;
+  translate?: () => void;
+  comment?: () => void;
   trash?: () => void;
   toggleAutoArchive?: () => void;
   unsubscribe?: () => void;
@@ -165,6 +169,32 @@ export function buildMailCommandPalette({
       keywords: ["snooze", "later", "remind"],
       action: actions.openSnooze,
       closeOnSelect: false,
+    });
+  }
+
+  if (targetCount === 1 && actions.translate) {
+    commands.push({
+      id: "mail-translate",
+      label: "Translate",
+      icon: LanguagesIcon,
+      shortcut: getShortcutHint("translate"),
+      section: "actions",
+      priority: 4,
+      keywords: ["translate", "language", "original"],
+      action: actions.translate,
+    });
+  }
+
+  if (targetCount === 1 && actions.comment) {
+    commands.push({
+      id: "mail-comment",
+      label: "Comment",
+      icon: MessageSquareIcon,
+      shortcut: getShortcutHint("openTeamComments"),
+      section: "actions",
+      priority: 4,
+      keywords: ["comment", "share", "team", "internal", "mention"],
+      action: actions.comment,
     });
   }
 

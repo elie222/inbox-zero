@@ -11,6 +11,7 @@ const MESSAGES = [
     id: "html",
     subject: "Weekly digest",
     from: "Billing <billing@acme.example>",
+    to: ["Ada Lovelace <ada@example.com>"],
     read: false,
     text: null,
     html: `<html><head><style>.font-large { color: red }</style></head><body>
@@ -21,6 +22,7 @@ const MESSAGES = [
     id: "text",
     subject: "Invoice reminder",
     from: "ada@example.com",
+    to: ["me@example.com", "grace@example.com"],
     read: true,
     text: "Payment for the quarterly review",
     html: null,
@@ -29,6 +31,7 @@ const MESSAGES = [
     id: "lunch",
     subject: "Lunch",
     from: "grace@example.com",
+    to: ["me@example.com"],
     read: false,
     text: "Tacos on Friday",
     html: null,
@@ -37,6 +40,7 @@ const MESSAGES = [
     id: "bare",
     subject: "Parking notice",
     from: "facilities@example.com",
+    to: ["me@example.com"],
     read: false,
     text: null,
     html: null,
@@ -99,12 +103,7 @@ describe("local text search", () => {
       await search(store, {
         kind: "all",
         predicates: [
-          {
-            kind: "address",
-            field: "from",
-            value: "billing@acme.example",
-            match: "address",
-          },
+          address("from", "billing@acme.example"),
           text("any", "quarterly"),
         ],
       }),
@@ -115,6 +114,23 @@ describe("local text search", () => {
         predicate: text("any", "quarterly"),
       }),
     ).toEqual(["bare", "lunch"]);
+    await close();
+  });
+
+  it("matches recipients for a to: search", async () => {
+    const { store, close } = await searchableMailbox();
+
+    expect(await search(store, address("to", "ada@example.com"))).toEqual([
+      "html",
+    ]);
+    expect(await search(store, address("to", "grace@example.com"))).toEqual([
+      "text",
+    ]);
+    expect(await search(store, address("to", "me@example.com"))).toEqual([
+      "bare",
+      "lunch",
+      "text",
+    ]);
     await close();
   });
 
@@ -189,6 +205,10 @@ describe("local text search", () => {
 
 function text(field: "any" | "subject" | "body", value: string): MailPredicate {
   return { kind: "text", field, value, match: "term" };
+}
+
+function address(field: "from" | "to", value: string): MailPredicate {
+  return { kind: "address", field, value, match: "address" };
 }
 
 async function search(store: MailStore, predicate: MailPredicate) {
@@ -284,7 +304,7 @@ function messagePatch(
       subject: message.subject,
       preview: "",
       from: message.from,
-      to: ["me@example.com"],
+      to: message.to,
       cc: [],
       receivedAtMs: index,
       read: message.read,

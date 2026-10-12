@@ -2,12 +2,16 @@
   "name": "@inboxzero/loops",
   "version": "0.0.0",
   "main": "src/index.ts",
+  "scripts": {
+    "test": "vitest run"
+  },
   "dependencies": {
     "loops": "7.3.0"
   },
   "devDependencies": {
     "@types/node": "24.10.1",
     "tsconfig": "workspace:*",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "vitest": "4.1.10"
   }
 }

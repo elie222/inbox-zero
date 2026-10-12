@@ -1,3 +1,4 @@
+import { migrateContactSuggestions } from "./contact-suggestions";
 import type { SqlTransaction } from "./driver";
 import {
   migrateConversationIndex,
@@ -38,6 +39,7 @@ CREATE TABLE IF NOT EXISTS messages (
   from_address TEXT NOT NULL,
   to_json TEXT NOT NULL,
   cc_json TEXT NOT NULL,
+  bcc_json TEXT NOT NULL DEFAULT '[]',
   received_at_ms INTEGER NOT NULL,
   read INTEGER NOT NULL CHECK (read IN (0, 1)),
   starred INTEGER NOT NULL CHECK (starred IN (0, 1)),
@@ -78,6 +80,8 @@ CREATE TABLE IF NOT EXISTS effective_messages (
   external_url TEXT,
   from_address TEXT NOT NULL,
   to_json TEXT NOT NULL,
+  cc_json TEXT NOT NULL DEFAULT '[]',
+  bcc_json TEXT NOT NULL DEFAULT '[]',
   received_at_ms INTEGER NOT NULL,
   read INTEGER NOT NULL,
   starred INTEGER NOT NULL,
@@ -150,21 +154,6 @@ CREATE TABLE IF NOT EXISTS drafts (
   frozen INTEGER NOT NULL DEFAULT 0,
   updated_at_ms INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (account_id, draft_id)
-);
-
-CREATE TABLE IF NOT EXISTS draft_attachments (
-  account_id TEXT NOT NULL,
-  attachment_id TEXT NOT NULL,
-  draft_id TEXT,
-  filename TEXT NOT NULL,
-  content_type TEXT NOT NULL,
-  size_bytes INTEGER NOT NULL,
-  checksum TEXT NOT NULL,
-  inline INTEGER NOT NULL DEFAULT 0,
-  remote_upload_id TEXT,
-  remote_status TEXT NOT NULL DEFAULT 'local',
-  created_at_ms INTEGER NOT NULL,
-  PRIMARY KEY (account_id, attachment_id)
 );
 
 CREATE TABLE IF NOT EXISTS sync_streams (
@@ -384,29 +373,70 @@ export async function migrateMailbox(
   } catch {
     // column already exists on freshly created databases
   }
+  let addedEffectiveCc = false;
+  try {
+    await tx.exec(
+      "ALTER TABLE effective_messages ADD COLUMN cc_json TEXT NOT NULL DEFAULT '[]'",
+    );
+    addedEffectiveCc = true;
+  } catch {
+    // column already exists on freshly created databases
+  }
+  if (addedEffectiveCc) {
+    await tx.exec(`
+      UPDATE effective_messages
+      SET cc_json = COALESCE(
+        (SELECT m.cc_json FROM messages AS m
+         WHERE m.account_id = effective_messages.account_id
+           AND m.message_id = effective_messages.message_id),
+        '[]'
+      )
+    `);
+  }
+  try {
+    await tx.exec(
+      "ALTER TABLE messages ADD COLUMN bcc_json TEXT NOT NULL DEFAULT '[]'",
+    );
+  } catch {
+    // column already exists on freshly created databases
+  }
+  try {
+    await tx.exec(
+      "ALTER TABLE effective_messages ADD COLUMN bcc_json TEXT NOT NULL DEFAULT '[]'",
+    );
+  } catch {
+    // column already exists on freshly created databases
+  }
   await tx.exec(`
     CREATE INDEX IF NOT EXISTS operations_sent_message
       ON operations(account_id, sent_message_id)
       WHERE sent_message_id IS NOT NULL;
   `);
-  await tx.exec(`
-    CREATE TABLE IF NOT EXISTS draft_attachments (
-      account_id TEXT NOT NULL,
-      attachment_id TEXT NOT NULL,
-      draft_id TEXT,
-      filename TEXT NOT NULL,
-      content_type TEXT NOT NULL,
-      size_bytes INTEGER NOT NULL,
-      checksum TEXT NOT NULL,
-      inline INTEGER NOT NULL DEFAULT 0,
-      remote_upload_id TEXT,
-      remote_status TEXT NOT NULL DEFAULT 'local',
-      created_at_ms INTEGER NOT NULL,
-      PRIMARY KEY (account_id, attachment_id)
-    );
-  `);
+  // Attachment bytes now live on the mailbox draft, not on this device.
+  await tx.exec("DROP TABLE IF EXISTS draft_attachments");
   await migrateConversationIndex(tx);
   await migrateMembershipIndex(tx);
   await migrateInboxUnreadExcludesArchive(tx);
   await migrateMessageSearchIndex(tx);
+  await migrateEmptyMeetingInvitationBodies(tx);
+  await migrateContactSuggestions(tx);
+}
+
+// Delta sync once stored a meeting invitation's flag without its body. Dropping
+// those rows lets the reader hydrate the body again.
+export async function migrateEmptyMeetingInvitationBodies(tx: SqlTransaction) {
+  const applied = await tx.query(
+    "SELECT 1 FROM schema_migrations WHERE id = 9",
+  );
+  if (applied.length) return;
+  await tx.exec(`
+    DELETE FROM message_content
+    WHERE is_meeting_invitation = 1
+      AND html IS NULL
+      AND text IS NULL
+      AND COALESCE(attachments_json, '[]') = '[]'
+  `);
+  await tx.execute(
+    "INSERT INTO schema_migrations(id, name) VALUES (9, '0009-empty-meeting-invitation-bodies')",
+  );
 }

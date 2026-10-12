@@ -34,6 +34,7 @@ import {
 import {
   attachLlmRepairMetadata,
   captureException,
+  getAIApiCallError,
   isAnthropicInsufficientBalanceError,
   isContentFilterRefusal,
   isIncorrectAPIKeyError,
@@ -54,6 +55,10 @@ import {
   type SelectModel,
 } from "@/utils/llms/model";
 import { getModelForUseCase, type LlmUseCase } from "@/utils/llms/use-cases";
+import {
+  buildCachedSystemMessages,
+  getSystemCacheProviderOptions,
+} from "@/utils/llms/caching";
 import {
   assertTrialAiUsageAllowed,
   shouldForceNanoModel,
@@ -253,6 +258,7 @@ type ToolCallAgentStreamOptions = BaseStreamOptions & {
   onStepEnd?: GenerateTextOnStepEndCallback<Record<string, Tool>>;
   onModelResolved?: (resolvedModel: ToolCallAgentResolvedModel) => void;
   temperature?: number;
+  abortSignal?: AbortSignal;
 };
 
 export function createGenerateText({
@@ -440,12 +446,15 @@ export function createGenerateObject({
   label,
   modelOptions,
   promptHardening,
+  cacheSystemPrompt,
   onModelUsed,
 }: {
   emailAccount: LlmEmailAccount;
   label: string;
   modelOptions: ReturnType<typeof getModel>;
   promptHardening: PromptHardening;
+  // Only set when the system prompt is stable across requests for an account.
+  cacheSystemPrompt?: boolean;
   onModelUsed?: (candidate: {
     provider: string;
     modelName: string;
@@ -538,6 +547,16 @@ export function createGenerateObject({
         emailAccountId: emailAccount.id,
       });
 
+      // Built after hardening and DLP so the cached bytes match what the provider sees.
+      const cacheOverrides = cacheSystemPrompt
+        ? buildSystemPromptCacheOverrides({
+            protectedOptions,
+            providerOptions,
+            provider: candidate.provider,
+            cacheKey: emailAccount.id,
+          })
+        : undefined;
+
       const request = {
         repairText: async ({ text }: { text: string }) => {
           logger.info("Repairing text", { label });
@@ -557,6 +576,7 @@ export function createGenerateObject({
         }),
         providerOptions,
         model: candidate.model,
+        ...(cacheOverrides ?? {}),
       } as unknown as Parameters<
         typeof generateObject<SCHEMA, OUTPUT, RESULT>
       >[0];
@@ -884,6 +904,7 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
     onModelResolved,
     sensitiveDataPolicy,
     temperature,
+    abortSignal,
   } = options;
   const { modelOptions, modelCandidates } = await resolveModelCandidates({
     modelOptions: getModelOptionsForRoute(options),
@@ -919,7 +940,7 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
       emailAccountId,
     });
     const candidateTools = wrapToolsWithSensitiveDataPolicy({
-      tools,
+      tools: skipToolsAfterAbort(tools, abortSignal),
       policy: sensitiveDataPolicy,
       label,
       userId,
@@ -998,6 +1019,7 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
         messages: protectedMessages as ModelMessage[],
         experimental_transform: smoothStream({ chunking: "word" }),
         onStepEnd,
+        abortSignal,
       });
     } catch (error) {
       if (nextCandidate && shouldFallbackToNextModel(error)) {
@@ -1042,6 +1064,35 @@ function getModelOptionsForRoute({
   return useCase
     ? getModelForUseCase(userAi, useCase)
     : getModel(userAi, modelType);
+}
+
+// An abort ends the stream but still runs tool calls the model had already
+// emitted, so check before each call to keep a stopped run from acting.
+function skipToolsAfterAbort<TTools extends ToolSet | undefined>(
+  tools: TTools,
+  abortSignal: AbortSignal | undefined,
+): TTools {
+  if (!tools || !abortSignal) return tools;
+
+  const guardedTools: ToolSet = { ...tools };
+
+  for (const [toolName, toolDefinition] of Object.entries(guardedTools)) {
+    const execute = toolDefinition.execute;
+    if (!execute) continue;
+
+    guardedTools[toolName] = {
+      ...toolDefinition,
+      execute(
+        input: Parameters<NonNullable<typeof execute>>[0],
+        options: Parameters<NonNullable<typeof execute>>[1],
+      ) {
+        abortSignal.throwIfAborted();
+        return execute.call(toolDefinition, input, options);
+      },
+    } as ToolSet[string];
+  }
+
+  return guardedTools as TTools;
 }
 
 function wrapToolsWithSensitiveDataPolicy<TTools extends ToolSet | undefined>({
@@ -1143,10 +1194,9 @@ async function handleError(
   modelName: string,
   hasUserApiKey: boolean,
 ) {
+  const apiError = getAIApiCallError(error);
   const isUserKeyInsufficientCredits =
-    hasUserApiKey &&
-    APICallError.isInstance(error) &&
-    isInsufficientCreditsError(error);
+    hasUserApiKey && !!apiError && isInsufficientCreditsError(apiError);
 
   if (isUserKeyInsufficientCredits) {
     logger.warn("User API key has insufficient credits", {
@@ -1166,34 +1216,22 @@ async function handleError(
     });
   }
 
-  if (RetryError.isInstance(error) && isAiQuotaExceededError(error)) {
-    return await addUserErrorMessageWithNotification({
+  const notifyUser = async (
+    errorType: PersistedErrorType,
+    errorMessage: string,
+  ) => {
+    if (hasUserApiKey) markAsHandledUserKeyError(error);
+    await addUserErrorMessageWithNotification({
       userId,
       userEmail,
       emailAccountId,
-      errorType: ErrorType.AI_QUOTA_ERROR,
-      errorMessage:
-        "Your AI provider has rejected requests due to rate limits or quota. Please check your provider account if this persists.",
+      errorType,
+      errorMessage,
       logger,
     });
-  }
+  };
 
   if (APICallError.isInstance(error)) {
-    const notifyUser = async (
-      errorType: PersistedErrorType,
-      errorMessage: string,
-    ) => {
-      if (hasUserApiKey) markAsHandledUserKeyError(error);
-      await addUserErrorMessageWithNotification({
-        userId,
-        userEmail,
-        emailAccountId,
-        errorType,
-        errorMessage,
-        logger,
-      });
-    };
-
     if (isIncorrectAPIKeyError(error)) {
       return await notifyUser(
         ErrorType.INCORRECT_API_KEY,
@@ -1217,16 +1255,30 @@ async function handleError(
         "Your AI API key has been deactivated. Please update it in your settings.",
       );
     }
+  }
 
-    if (
-      isAnthropicInsufficientBalanceError(error) ||
-      (isInsufficientCreditsError(error) && hasUserApiKey)
-    ) {
-      return await notifyUser(
-        ErrorType.INSUFFICIENT_CREDITS,
-        "Your AI provider account has insufficient credits. Please add credits or update your API key in settings.",
-      );
-    }
+  // Exhausted balances can arrive as retryable 429s, so look beneath retries.
+  if (
+    apiError &&
+    (isAnthropicInsufficientBalanceError(apiError) ||
+      (isInsufficientCreditsError(apiError) && hasUserApiKey))
+  ) {
+    return await notifyUser(
+      ErrorType.INSUFFICIENT_CREDITS,
+      "Your AI provider account has insufficient credits. Please add credits or update your API key in settings.",
+    );
+  }
+
+  if (RetryError.isInstance(error) && isAiQuotaExceededError(error)) {
+    return await addUserErrorMessageWithNotification({
+      userId,
+      userEmail,
+      emailAccountId,
+      errorType: ErrorType.AI_QUOTA_ERROR,
+      errorMessage:
+        "Your AI provider has rejected requests due to rate limits or quota. Please check your provider account if this persists.",
+      logger,
+    });
   }
 }
 
@@ -1407,6 +1459,46 @@ function shouldFallbackToNextModel(error: unknown): boolean {
   if (llmErrorInfo.retryable) return true;
 
   return isTransientNetworkError(error);
+}
+
+function buildSystemPromptCacheOverrides({
+  protectedOptions,
+  providerOptions,
+  provider,
+  cacheKey,
+}: {
+  protectedOptions: { instructions?: unknown; prompt?: unknown };
+  providerOptions: LLMProviderOptions;
+  provider: string;
+  cacheKey: string;
+}):
+  | {
+      messages: ModelMessage[];
+      instructions: undefined;
+      prompt: undefined;
+      providerOptions: LLMProviderOptions;
+    }
+  | undefined {
+  if (
+    typeof protectedOptions.instructions !== "string" ||
+    typeof protectedOptions.prompt !== "string"
+  ) {
+    return;
+  }
+
+  return {
+    messages: buildCachedSystemMessages({
+      system: protectedOptions.instructions,
+      prompt: protectedOptions.prompt,
+      provider,
+    }),
+    instructions: undefined,
+    prompt: undefined,
+    providerOptions: mergeProviderOptions(
+      providerOptions,
+      getSystemCacheProviderOptions(provider, { cacheKey }),
+    ),
+  };
 }
 
 function mergeProviderOptions(

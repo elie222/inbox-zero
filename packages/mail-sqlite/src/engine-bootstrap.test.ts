@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   createMailEngine,
   createHostRuntime,
@@ -13,6 +13,7 @@ import { createSqliteMailStore } from "./store";
 
 describe("engine bootstrap coverage", () => {
   it("finishes enumeration after bootstrap overruns the runUntil slice", async () => {
+    const onSyncPageCommitted = vi.fn();
     let now = 1000;
     let enumerated = 0;
     const store = await createSqliteMailStore(createNodeSqliteDriver());
@@ -22,6 +23,7 @@ describe("engine bootstrap coverage", () => {
       generation: "g1",
     });
     const engine = createMailEngine({
+      onSyncPageCommitted,
       store,
       source: slowBootstrapSource({
         onBootstrap: () => {
@@ -45,6 +47,7 @@ describe("engine bootstrap coverage", () => {
     await engine.runUntil(2000);
     const diagnostics = await engine.getDiagnostics("acc-1");
     expect(enumerated).toBe(1);
+    expect(onSyncPageCommitted).not.toHaveBeenCalled();
     expect(diagnostics.coverage).toEqual([
       expect.objectContaining({
         accountId: "acc-1",
@@ -96,6 +99,7 @@ describe("engine bootstrap coverage", () => {
   });
 
   it("removes local messages omitted from a completed bootstrap", async () => {
+    const onSyncPageCommitted = vi.fn();
     const store = await createSqliteMailStore(createNodeSqliteDriver());
     await store.ensureAccount({
       accountId: "acc-1",
@@ -115,6 +119,7 @@ describe("engine bootstrap coverage", () => {
       },
     });
     const engine = createMailEngine({
+      onSyncPageCommitted,
       store,
       source: slowBootstrapSource({
         onBootstrap: () => {},
@@ -134,6 +139,7 @@ describe("engine bootstrap coverage", () => {
     });
     await engine.requestSync(["acc-1"]);
     await engine.runUntil(5000);
+    expect(onSyncPageCommitted).not.toHaveBeenCalled();
     const inspection = await engine.inspect();
     expect(
       inspection.messages.find((row) => row.messageId === "gone")?.deleted,
@@ -162,7 +168,8 @@ describe("engine bootstrap coverage", () => {
         },
         onEnumerate: (page) => {
           enumeratedPages.push(page);
-          now += 1000;
+          // Each page uses up a whole bootstrap slice.
+          now += 2000;
         },
         pages: ["page-1", "page-2"],
       }),
@@ -286,7 +293,7 @@ describe("engine bootstrap coverage", () => {
     await engine.close();
   });
 
-  it("rediscovers scopes after budget expires with only one folder bootstrapped", async () => {
+  it("starts every discovered folder in one pass after the time budget runs out", async () => {
     let now = 1000;
     const receivedScopes: string[] = [];
     const store = await createSqliteMailStore(createNodeSqliteDriver());
@@ -322,13 +329,14 @@ describe("engine bootstrap coverage", () => {
     });
     await engine.requestSync(["acc-1"]);
     await engine.runUntil(1500);
-    expect(receivedScopes).toEqual(["folder:a"]);
-    expect((await engine.getDiagnostics("acc-1")).coverage).toEqual([
-      expect.objectContaining({ scopeId: "folder:a", metadata: "complete" }),
-      expect.objectContaining({ scopeId: "folder:b", metadata: "partial" }),
-    ]);
+    expect(receivedScopes).toEqual(["folder:a", "folder:b"]);
+    expect((await engine.getDiagnostics("acc-1")).coverage).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ scopeId: "folder:a", metadata: "complete" }),
+        expect.objectContaining({ scopeId: "folder:b", metadata: "complete" }),
+      ]),
+    );
 
-    now = 2000;
     await engine.runUntil(5000);
     expect(receivedScopes).toEqual(["folder:a", "folder:b"]);
     const inspection = await store.inspect();

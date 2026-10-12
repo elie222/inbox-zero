@@ -74,6 +74,16 @@ describe("extractErrorInfo", () => {
 describe("isRetryableError", () => {
   it.each([
     {
+      name: "200 response whose body failed to parse as retryable",
+      errorInfo: {
+        status: 200,
+        code: "SyntaxError",
+        errorMessage:
+          "Expected ',' or ']' after array element in JSON at position 4096",
+      },
+      expected: { isRateLimit: false, retryable: true },
+    },
+    {
       name: "429 status as rate limit",
       errorInfo: { status: 429, errorMessage: "Too many requests" },
       expected: { isRateLimit: true, retryable: true },

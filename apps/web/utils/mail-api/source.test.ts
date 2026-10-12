@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  compactMailboxSyncMessage,
   decodeMailboxSyncCursor,
   encodeMailboxSyncCursor,
   InvalidMailboxSyncCursorError,
@@ -8,6 +9,7 @@ import { ProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error"
 import { syncPageSchema } from "@inboxzero/mail-core/sync";
 import { createEmailProviderMailboxSource } from "./source";
 import type { EmailProvider } from "@/utils/email/types";
+import type { ParsedMessage } from "@/utils/types";
 
 vi.mock("server-only", () => ({}));
 
@@ -318,14 +320,20 @@ describe("createEmailProviderMailboxSource", () => {
     expect(getMessagesWithPagination).not.toHaveBeenCalled();
   });
 
-  it("exposes Outlook folders as independent sync scopes", async () => {
+  it("exposes Outlook folders as sync scopes, with custom folders at low priority", async () => {
     const getFolders = vi.fn().mockResolvedValue([
       {
         id: "inbox",
         displayName: "Inbox",
+        systemType: "INBOX",
         childFolders: [{ id: "child", displayName: "Child", childFolders: [] }],
       },
-      { id: "archive", displayName: "Archive", childFolders: [] },
+      {
+        id: "archive",
+        displayName: "Archive",
+        systemType: "ARCHIVE",
+        childFolders: [],
+      },
     ]);
     const source = createEmailProviderMailboxSource({
       accountId: "acc-1",
@@ -345,9 +353,14 @@ describe("createEmailProviderMailboxSource", () => {
       status: "ok",
       value: {
         scopes: [
-          { id: "inbox", kind: "folder", folderId: "inbox" },
-          { id: "child", kind: "folder", folderId: "child" },
-          { id: "archive", kind: "folder", folderId: "archive" },
+          { id: "inbox", kind: "folder", folderId: "inbox", priority: "high" },
+          { id: "child", kind: "folder", folderId: "child", priority: "low" },
+          {
+            id: "archive",
+            kind: "folder",
+            folderId: "archive",
+            priority: "high",
+          },
         ],
         nextPage: null,
       },
@@ -540,6 +553,99 @@ describe("createEmailProviderMailboxSource", () => {
     });
     if (result.status !== "page") throw new Error("expected a page");
     expect(() => syncPageSchema.parse(result.page)).not.toThrow();
+  });
+
+  it("hydrates delta meeting invitations instead of storing an empty body", async () => {
+    const invitation = compactMailboxSyncMessage({
+      id: "invite-1",
+      threadId: "t1",
+      historyId: "12",
+      date: "2026-01-01T00:00:00.000Z",
+      subject: "Invite",
+      snippet: "A new event has been scheduled",
+      headers: { from: "ada@example.com", to: "me@example.com", date: "" },
+      labelIds: ["INBOX"],
+      textHtml: "<p>A new event has been scheduled</p>",
+      textPlain: "A new event has been scheduled",
+      isMeetingInvitation: true,
+      inline: [],
+    } as ParsedMessage);
+    const source = createEmailProviderMailboxSource({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        localMailSyncStrategy: "history",
+        async getMailboxSyncPage() {
+          return {
+            cursor: "next",
+            reset: false,
+            upsertedMessages: [invitation],
+            deletedMessageIds: [],
+            hasMore: false,
+          };
+        },
+      } as unknown as EmailProvider,
+    });
+    const result = await source.readChanges({
+      session: { accountId: "acc-1", generation: "g1" },
+      requestId: "r1",
+      position: { streamId: "primary", generation: "g1", checkpoint: "1" },
+      pageSize: 20,
+      signal: new AbortController().signal,
+    });
+    if (result.status !== "page") throw new Error("expected a page");
+    expect(result.page.bodies ?? []).toEqual([]);
+    expect(result.page.requiredHydration).toEqual([
+      { accountId: "acc-1", messageId: "invite-1" },
+    ]);
+  });
+
+  it("batches folder reads, warming the provider with the first and capping concurrency", async () => {
+    const folders = ["inbox", "a", "b", "c", "d", "e"];
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const started: string[] = [];
+    const source = createEmailProviderMailboxSource({
+      accountId: "acc-1",
+      provider: {
+        name: "microsoft",
+        localMailSyncStrategy: "folder-delta",
+        async getMailboxSyncPage({ folderId }: { folderId: string }) {
+          started.push(`${folderId}:${inFlight}`);
+          inFlight += 1;
+          maxInFlight = Math.max(maxInFlight, inFlight);
+          await new Promise((resolve) => setTimeout(resolve, 5));
+          inFlight -= 1;
+          return {
+            cursor: `${folderId}-next`,
+            reset: false,
+            upsertedMessages: [],
+            deletedMessageIds: [],
+            removedMessageIds: [],
+            hasMore: false,
+          };
+        },
+      } as unknown as EmailProvider,
+    });
+
+    const results = await source.readChangesBatch({
+      session: { accountId: "acc-1", generation: "g1" },
+      reads: folders.map((streamId, index) => ({
+        requestId: `r${index}`,
+        position: { streamId, generation: "g1", checkpoint: "cursor" },
+      })),
+      pageSize: 20,
+      signal: new AbortController().signal,
+    });
+
+    expect(started[0]).toBe("inbox:0");
+    expect(started[1]).toBe("a:0");
+    expect(maxInFlight).toBe(3);
+    expect(
+      results.map(
+        (result) => result.status === "page" && result.page.to.checkpoint,
+      ),
+    ).toEqual(folders.map((folder) => `${folder}-next`));
   });
 
   it("pages conversation membership instead of truncating the thread", async () => {

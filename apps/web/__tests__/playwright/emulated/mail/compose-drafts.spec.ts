@@ -125,6 +125,69 @@ test("removes the mailbox draft after sending a new message", async ({
     .toHaveLength(0);
 });
 
+test("saves a reply in the mailbox and reopens it after a reload", async ({
+  page,
+}, testInfo) => {
+  const { emailAccountId } = await openMail(page);
+  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reply`);
+  const message = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  await expect(message).toBeVisible({ timeout: 60_000 });
+  await message.getByRole("button", { name: "Reply", exact: true }).click();
+  const editors = page.getByRole("textbox", { name: "Email message" });
+  const replyBody = `A reply saved to the mailbox. ${testInfo.retry}`;
+  await editors.fill(replyBody);
+  await expect
+    .poll(
+      () =>
+        readThreadDrafts(
+          page,
+          emailAccountId,
+          "thr_playwright_reply",
+          replyBody,
+        ),
+      { timeout: 15_000 },
+    )
+    .toHaveLength(1);
+  // The mailbox copy syncs back into the thread without a second composer.
+  await expect(editors).toHaveCount(1);
+
+  await page.reload();
+  await expect(editors).toHaveCount(1, { timeout: 60_000 });
+  await expect(editors).toContainText(replyBody);
+  await capturePlaywrightCheckpoint(page, testInfo, "reply-draft-after-reload");
+
+  await page.getByRole("button", { name: "Discard draft" }).click();
+  await expect(editors).toHaveCount(0);
+  await expect
+    .poll(() =>
+      readThreadDrafts(page, emailAccountId, "thr_playwright_reply", replyBody),
+    )
+    .toHaveLength(0);
+});
+
+async function readThreadDrafts(
+  page: Page,
+  emailAccountId: string,
+  threadId: string,
+  text: string,
+) {
+  const response = await page.request.get(
+    new URL(
+      `/api/threads/${threadId}?includeDrafts=true`,
+      page.url(),
+    ).toString(),
+    { headers: { [EMAIL_ACCOUNT_HEADER]: emailAccountId } },
+  );
+  expect(response.ok()).toBe(true);
+  const { thread }: ThreadResponse = await response.json();
+  return thread.messages.filter(
+    (message) =>
+      message.labelIds?.includes("DRAFT") && message.textHtml?.includes(text),
+  );
+}
+
 async function readMailboxDrafts(
   page: Page,
   emailAccountId: string,

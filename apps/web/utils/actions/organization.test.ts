@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
+import { publishConversationChange } from "@/utils/team-comments/events";
 import {
   removeMemberAction,
   transferOwnershipAction,
@@ -7,6 +8,9 @@ import {
 } from "@/utils/actions/organization";
 
 vi.mock("@/utils/prisma");
+vi.mock("@/utils/team-comments/events", () => ({
+  publishConversationChange: vi.fn(),
+}));
 vi.mock("@/utils/auth", () => ({
   auth: vi.fn(async () => ({
     user: { id: "user-1", email: "admin@example.com" },
@@ -98,6 +102,7 @@ describe("updateMemberRoleAction", () => {
 describe("removeMemberAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prisma.conversation.findMany.mockResolvedValue([]);
   });
 
   it("deletes the member's org rule copies scoped to the organization, leaving personal rules untouched", async () => {
@@ -114,6 +119,9 @@ describe("removeMemberAction", () => {
     } as any);
     prisma.rule.deleteMany.mockResolvedValue({ count: 2 } as any);
     prisma.member.delete.mockResolvedValue({} as any);
+    prisma.conversation.findMany.mockResolvedValue([
+      { id: "shared-1" },
+    ] as Awaited<ReturnType<typeof prisma.conversation.findMany>>);
 
     const result = await removeMemberAction({ memberId: "member-2" });
 
@@ -127,6 +135,51 @@ describe("removeMemberAction", () => {
     expect(prisma.member.delete).toHaveBeenCalledWith({
       where: { id: "member-2" },
     });
+    expect(prisma.conversation.findMany).toHaveBeenCalledWith({
+      where: {
+        status: "ACTIVE",
+        OR: [
+          { publisher: { id: "member-2" } },
+          {
+            participants: {
+              some: { member: { id: "member-2" } },
+            },
+          },
+        ],
+      },
+      select: { id: true },
+    });
+    expect(publishConversationChange).toHaveBeenCalledTimes(1);
+    expect(publishConversationChange).toHaveBeenCalledWith(
+      "shared-1",
+      expect.anything(),
+    );
+    expect(
+      vi.mocked(publishConversationChange).mock.invocationCallOrder[0],
+    ).toBeGreaterThan(prisma.member.delete.mock.invocationCallOrder[0]);
+  });
+
+  it("removes a member with no shared conversations without publishing", async () => {
+    prisma.member.findUnique.mockResolvedValue({
+      id: "member-2",
+      emailAccountId: "email-account-2",
+      organizationId: "org-1",
+      role: "member",
+    } as any);
+    prisma.member.findFirst.mockResolvedValue({
+      role: "owner",
+      emailAccountId: "email-account-1",
+      emailAccount: { user: { premium: null } },
+    } as any);
+    prisma.member.delete.mockResolvedValue({} as any);
+
+    const result = await removeMemberAction({ memberId: "member-2" });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.member.delete).toHaveBeenCalledWith({
+      where: { id: "member-2" },
+    });
+    expect(publishConversationChange).not.toHaveBeenCalled();
   });
 
   it("prevents callers from removing themselves", async () => {

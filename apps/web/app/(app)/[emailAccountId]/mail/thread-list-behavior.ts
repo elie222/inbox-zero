@@ -1,3 +1,4 @@
+import { GmailLabel } from "@/utils/gmail/label";
 import { formatDateGroupLabel } from "@/utils/date";
 import { getThreadTimestamp } from "@/utils/threads/sort";
 
@@ -193,4 +194,14 @@ export function groupThreadsByDate<
   });
 
   return groups;
+}
+
+export function getComposeTargetMessageId(
+  messages: { id: string; labelIds?: string[] }[],
+) {
+  return (
+    messages.findLast(
+      (message) => !message.labelIds?.includes(GmailLabel.DRAFT),
+    ) ?? messages.at(-1)
+  )?.id;
 }

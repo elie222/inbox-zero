@@ -16,6 +16,7 @@ describe("emulated Playwright suite selection", () => {
     "packages/mail-sqlite/src/store.ts",
     "packages/mail-react/src/use-mailbox-view.ts",
     "packages/mail-ui/src/MailApp.tsx",
+    "packages/email-editor/src/web/EmailEditor.tsx",
     "apps/desktop/src/mail-engine/owner.ts",
   ])("selects all mail scenarios for shared runtime changes: %s", (file) => {
     const selection = selectChangedPlaywrightTargets(file, appRoot);
@@ -99,6 +100,34 @@ describe("emulated Playwright suite selection", () => {
     expect(selection.targetFiles).toEqual([
       "__tests__/playwright/emulated/mail/split-tabs.spec.ts",
     ]);
+  });
+
+  test("adds both team-comment flows for feature, schema and lifecycle changes on top of the existing selection", () => {
+    for (const file of [
+      "apps/web/utils/team-comments/access.ts",
+      "apps/web/prisma/schema.prisma",
+      "apps/web/prisma/migrations/20261006120000_team_comments/migration.sql",
+      "apps/web/utils/actions/organization.ts",
+      "apps/web/utils/actions/user.ts",
+      "apps/web/utils/user/delete.ts",
+    ]) {
+      const selection = selectChangedPlaywrightTargets(file, appRoot);
+      expect(selection.targetFiles).toEqual(
+        expect.arrayContaining([
+          "__tests__/playwright/emulated/mail/team-comments-access.spec.ts",
+          "__tests__/playwright/emulated/mail/team-comments.spec.ts",
+        ]),
+      );
+      if (
+        file.endsWith("organization.ts") ||
+        file.endsWith("user.ts") ||
+        file.endsWith("delete.ts")
+      ) {
+        expect(selection.targetFiles).toContain(
+          "__tests__/playwright/emulated/mail",
+        );
+      }
+    }
   });
 
   test("selects the mail area when the engine queue debug page changes", () => {

@@ -15,8 +15,8 @@ import { decideThreadStatus } from "./thread-status";
 
 const config = {
   provider: "typesafe" as const,
-  model: "jev-latest",
-  apiKey: "key",
+  modelId: "jev-latest",
+  model: {} as never,
 };
 const definitions = [
   { systemType: SystemType.TO_REPLY, instructions: "The user owes a reply." },

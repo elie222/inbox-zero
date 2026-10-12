@@ -1,4 +1,3 @@
-import { useOpenedConversationAttachments } from "./OpenedConversationAttachments";
 import { startTransition, useEffect, useMemo, useState } from "react";
 import {
   BufferedMailHtmlFrame,
@@ -25,8 +24,15 @@ import {
 } from "@/utils/email/inline-images";
 import { linkifyPlainText } from "@/utils/email/linkify-plain-text";
 import { splitEmailContent } from "@/utils/email/split-email-content.client";
+import {
+  fetchAttachment,
+  getAttachmentUrl,
+} from "@/utils/attachments/download";
+import { queueAttachmentDownload } from "@/utils/attachments/download-queue";
+import { getAttachmentImagePreview } from "@/utils/attachments/image-preview";
 
 const NO_INLINE_ATTACHMENTS: ParsedMessage["inline"] = [];
+const INLINE_IMAGE_MAX_BYTES = 25 * 1024 * 1024;
 
 export function HtmlEmail({
   html,
@@ -47,7 +53,6 @@ export function HtmlEmail({
   onNavigateMessage?: (direction: -1 | 1) => void;
   onFocusMessage?: () => void;
 }) {
-  const attachmentSession = useOpenedConversationAttachments();
   const sanitizedHtml = useMemo(() => sanitizeEmailHtml(html), [html]);
   const [showReplies, setShowReplies] = useState(false);
   const [renderHtml, setRenderHtml] = useState(
@@ -70,7 +75,7 @@ export function HtmlEmail({
     Promise.all([
       prepareSanitizedEmailHtml({ messageId, sourceHtml: sanitizedHtml }),
       loadInlineImageSources({
-        session: emailAccountId ? attachmentSession : undefined,
+        emailAccountId,
         signal: controller.signal,
         html: sanitizedHtml,
         inlineAttachments,
@@ -101,13 +106,7 @@ export function HtmlEmail({
       controller.abort();
       for (const objectUrl of objectUrls) URL.revokeObjectURL(objectUrl);
     };
-  }, [
-    emailAccountId,
-    attachmentSession,
-    inlineAttachments,
-    messageId,
-    sanitizedHtml,
-  ]);
+  }, [emailAccountId, inlineAttachments, messageId, sanitizedHtml]);
 
   const { mainContent, quotedContent, hasQuotedContent } = useMemo(
     () => splitEmailContent(renderHtml),
@@ -200,41 +199,50 @@ export function PlainEmail({ text }: { text: string }) {
 }
 
 async function loadInlineImageSources({
-  session,
+  emailAccountId,
   signal,
   html,
   inlineAttachments,
   messageId,
 }: {
-  session: ReturnType<typeof useOpenedConversationAttachments>;
+  emailAccountId: string | undefined;
   signal: AbortSignal;
   html: string;
   inlineAttachments: ParsedMessage["inline"];
   messageId: string;
 }): Promise<Record<string, string>> {
-  if (!session || !inlineAttachments.length) return {};
+  if (!emailAccountId || !inlineAttachments.length) return {};
 
-  const attachmentByContentId = new Map<
-    string,
-    ParsedMessage["inline"][number]
-  >();
+  const attachmentIdByContentId = new Map<string, string>();
   for (const attachment of inlineAttachments) {
     const contentId = normalizeContentId(attachment.headers["content-id"]);
-    if (contentId) attachmentByContentId.set(contentId, attachment);
+    if (contentId && attachment.attachmentId)
+      attachmentIdByContentId.set(contentId, attachment.attachmentId);
   }
 
   const entries = await Promise.all(
     getInlineImageContentIds(html).map(async (contentId) => {
-      const attachment = attachmentByContentId.get(contentId);
-      if (!attachment?.attachmentId) return;
+      const attachmentId = attachmentIdByContentId.get(contentId);
+      if (!attachmentId) return;
 
       try {
-        const blob = await session.load(
-          messageId,
-          attachment.attachmentId,
+        // Body images are content the user opened, so they skip the
+        // speculative attachment-preview budget.
+        const blob = await queueAttachmentDownload({
+          priority: "requested",
           signal,
-          attachment,
-        );
+          download: (transferSignal) =>
+            fetchAttachment({
+              url: getAttachmentUrl({
+                accountId: emailAccountId,
+                messageId,
+                attachmentId,
+              }),
+              emailAccountId,
+              maxBytes: INLINE_IMAGE_MAX_BYTES,
+              signal: transferSignal,
+            }),
+        }).then(getAttachmentImagePreview);
         if (!blob || signal.aborted) return;
         return [contentId, URL.createObjectURL(blob)] as const;
       } catch {

@@ -335,6 +335,78 @@ describe("sqlite mail store", () => {
     await rm(directory, { recursive: true, force: true });
   });
 
+  it("keeps Cc and Bcc recipients on cached messages and filters on Cc", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const withCc = messagePatch("m1", "c1", 1000, ["inbox"]);
+    await store.applySyncPage({
+      ownerId: "owner",
+      page: {
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "cc",
+        from: { streamId: "primary", generation: "g1", checkpoint: null },
+        to: { streamId: "primary", generation: "g1", checkpoint: "1" },
+        changes: [
+          {
+            ...withCc,
+            fields: {
+              ...withCc.fields,
+              cc: ["copied@example.com"],
+              bcc: ["hidden@example.com"],
+            },
+          },
+          messagePatch("m2", "c2", 2000, ["inbox"]),
+        ],
+        requiredHydration: [],
+        roundComplete: true,
+      },
+    });
+
+    const conversation = await store.readConversation(
+      { accountId: "acc-1", conversationId: "c1" },
+      { pageSize: 10, after: null },
+    );
+    expect(conversation.view.messages[0]?.metadata).toMatchObject({
+      cc: ["copied@example.com"],
+      bcc: ["hidden@example.com"],
+    });
+
+    const ccMatches = await store.readMailboxView({
+      accountIds: ["acc-1"],
+      predicate: {
+        kind: "address",
+        field: "cc",
+        value: "copied@example.com",
+        match: "address",
+      },
+      order: "newest_first",
+      pageSize: 25,
+      after: null,
+    });
+    expect(
+      ccMatches.view.conversations.map((row) => row.key.conversationId),
+    ).toEqual(["c1"]);
+    await store.close();
+  });
+
+  it("backfills Cc recipients on cached messages when upgrading", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "mail-sqlite-"));
+    const path = join(directory, "mailbox.sqlite");
+    createLegacyMailboxWithoutExternalUrl(path);
+
+    const store = await createSqliteMailStore(createNodeSqliteDriver(path));
+    const inspection = await store.inspect({ accountIds: ["acc-1"] });
+    expect(inspection.messages[0]?.effective.cc).toEqual([
+      "copied@example.com",
+    ]);
+    await store.close();
+    await rm(directory, { recursive: true, force: true });
+  });
+
   it("rejects stale sync pages that do not start from the stored checkpoint", async () => {
     const store = await createSqliteMailStore(createNodeSqliteDriver());
     await store.ensureAccount({
@@ -714,7 +786,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -743,7 +814,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi later",
         editableHtml: "<p>Later</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(conflict.status).toBe("conflict");
@@ -793,7 +863,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -817,7 +886,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
             subject: "Hi later",
             editableHtml: "<p>Later</p>",
             quotedHtml: "",
-            attachmentIds: [],
           },
         })
       ).status,
@@ -837,7 +905,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi later",
         editableHtml: "<p>Later</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(edited.status).toBe("saved");
@@ -867,7 +934,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -907,7 +973,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
             subject: "Hi later",
             editableHtml: "<p>Later</p>",
             quotedHtml: "",
-            attachmentIds: [],
           },
         })
       ).status,
@@ -930,7 +995,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi later",
         editableHtml: "<p>Later</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(edited.status).toBe("saved");
@@ -973,7 +1037,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -1013,7 +1076,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi later",
         editableHtml: "<p>Later</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(edited.status).toBe("saved");
@@ -1071,7 +1133,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
             subject: "Hi later still",
             editableHtml: "<p>Later still</p>",
             quotedHtml: "",
-            attachmentIds: [],
           },
         })
       ).status,
@@ -1104,7 +1165,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -1145,7 +1205,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi later",
         editableHtml: "<p>Later</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(edited.status).toBe("saved");
@@ -1180,7 +1239,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Uncertain",
         editableHtml: "<p>Uncertain</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     const confirmedDraft = await store.saveDraft({
@@ -1193,7 +1251,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Confirmed",
         editableHtml: "<p>Confirmed</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(uncertainDraft.status).toBe("saved");
@@ -1267,7 +1324,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
             subject: "Uncertain later",
             editableHtml: "<p>Later</p>",
             quotedHtml: "",
-            attachmentIds: [],
           },
         })
       ).status,
@@ -1284,7 +1340,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
             subject: "Confirmed later",
             editableHtml: "<p>Later</p>",
             quotedHtml: "",
-            attachmentIds: [],
           },
         })
       ).status,
@@ -1325,7 +1380,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
         providerDraftId: "gmail-draft-1",
       },
     });
@@ -1369,7 +1423,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -1437,7 +1490,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
             subject: "Hi later",
             editableHtml: "<p>Later</p>",
             quotedHtml: "",
-            attachmentIds: [],
           },
         })
       ).status,
@@ -1462,7 +1514,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -1538,7 +1589,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
             subject: "Hi later",
             editableHtml: "<p>Later</p>",
             quotedHtml: "",
-            attachmentIds: [],
           },
         })
       ).status,
@@ -1600,7 +1650,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -1685,7 +1734,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -1749,7 +1797,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -1834,7 +1881,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -1933,7 +1979,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -1992,7 +2037,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
             subject: "Hi later",
             editableHtml: "<p>Later</p>",
             quotedHtml: "",
-            attachmentIds: [],
           },
         })
       ).status,
@@ -2017,7 +2061,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -2469,7 +2512,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Draft",
         editableHtml: "<p>Draft</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -2833,7 +2875,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hold",
         editableHtml: "<p>Hold</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -2895,7 +2936,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Held",
         editableHtml: "<p>Held</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     if (saved.status !== "saved") throw new Error("expected save");
@@ -2942,7 +2982,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Held",
         editableHtml: "<p>Held, edited</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(resaved.status).toBe("saved");
@@ -2966,7 +3005,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Now",
         editableHtml: "<p>Now</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     if (saved.status !== "saved") throw new Error("expected save");
@@ -3006,7 +3044,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Re: Reply Workflow Message",
         editableHtml: "<p>Thursday works.</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -3051,7 +3088,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Offline",
         editableHtml: "<p>Offline</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     const undoDraft = await store.saveDraft({
@@ -3064,7 +3100,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Undo",
         editableHtml: "<p>Undo</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(offlineDraft.status).toBe("saved");
@@ -4050,7 +4085,6 @@ describe("per-target outcomes, dependencies, pagination, and stale hydration", (
         subject: "Local",
         editableHtml: "<p>Local</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -4112,7 +4146,6 @@ describe("per-target outcomes, dependencies, pagination, and stale hydration", (
         subject: "Still local",
         editableHtml: "<p>Still local</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(later.status).toBe("saved");
@@ -4414,7 +4447,6 @@ describe("quota, retention, and recovery", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -4436,7 +4468,6 @@ describe("quota, retention, and recovery", () => {
         subject: "Hi later",
         editableHtml: "<p>Later</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(edited.status).toBe("saved");
@@ -4699,7 +4730,6 @@ async function queueReply(store: MailStore, providerDraftMessageIds: string[]) {
       subject: "Re: Plans",
       editableHtml: "<p>Thanks, see you then</p>",
       quotedHtml: "<blockquote>Earlier</blockquote>",
-      attachmentIds: [],
       conversationId: "c1",
       ...(providerDraftMessageIds.length
         ? { providerDraftId: "r-1", providerDraftMessageIds }
@@ -4890,7 +4920,7 @@ function createLegacyMailboxWithoutExternalUrl(path: string) {
         in_trash, in_spam, has_attachments, deleted
       ) VALUES (
         'acc-1', 'm1', 'c1', 'microsoft', '1', 'Legacy subject', 'Legacy preview',
-        'ada@example.com', '["me@example.com"]', '[]', 1000, 0, 0, 'inbox',
+        'ada@example.com', '["me@example.com"]', '["copied@example.com"]', 1000, 0, 0, 'inbox',
         '["INBOX"]', '[]', '["inbox"]', 1, 0, 0, 0, 0, 0, 0
       );
       INSERT INTO effective_messages(

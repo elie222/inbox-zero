@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  getAppPageFromPathname,
   getPageViewSearch,
   stripUntrackedUrlParams,
 } from "@/utils/analytics/product";
@@ -48,5 +49,15 @@ describe("stripUntrackedUrlParams", () => {
     expect(event.$set_once).toEqual({
       $initial_current_url: "https://app.test/acc/mail",
     });
+  });
+});
+
+describe("getAppPageFromPathname", () => {
+  it("tells shared conversations apart from their activity feed", () => {
+    expect(getAppPageFromPathname("/shared")).toBe("shared_conversations");
+    expect(getAppPageFromPathname("/shared/conv-1")).toBe(
+      "shared_conversations",
+    );
+    expect(getAppPageFromPathname("/shared/activity")).toBe("shared_activity");
   });
 });

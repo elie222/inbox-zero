@@ -38,13 +38,13 @@ export function BulkUnsubscribeDesktop({
   onToggleSelectAll: () => void;
 }) {
   return (
-    // Only let the header stick to the page once the widest rows fit (~843px);
+    // Only let the header stick to the page once the widest rows fit (~800px);
     // narrower, e.g. with the chat sidebar open, the table keeps its own
     // horizontal scroll so the actions column isn't clipped.
     <div className="[container-type:inline-size]">
       <Table
-        className="bulk-unsub-table"
-        containerClassName="[@container(min-width:844px)]:overflow-visible"
+        className="bulk-unsub-table min-[641px]:min-w-[800px] sm:table-fixed"
+        containerClassName="[@container(min-width:800px)]:overflow-visible"
       >
         <TableHeader
           sticky
@@ -61,10 +61,10 @@ export function BulkUnsubscribeDesktop({
                 onChange={() => onToggleSelectAll()}
               />
             </TableHead>
-            <TableHead className="pl-8">
+            <TableHead className="pl-4">
               <span className="text-sm font-medium">From</span>
             </TableHead>
-            <TableHead className="whitespace-nowrap">
+            <TableHead className="w-[90px] whitespace-nowrap">
               <HeaderButton
                 sorted={sortColumn === "emails"}
                 sortDirection={
@@ -75,7 +75,7 @@ export function BulkUnsubscribeDesktop({
                 Emails
               </HeaderButton>
             </TableHead>
-            <TableHead className="whitespace-nowrap">
+            <TableHead className="w-[150px] whitespace-nowrap">
               <HeaderButton
                 sorted={sortColumn === "unread"}
                 sortDirection={
@@ -86,7 +86,7 @@ export function BulkUnsubscribeDesktop({
                 Read
               </HeaderButton>
             </TableHead>
-            <TableHead className="w-[196px]" />
+            <TableHead className="w-[300px]" />
           </TableRow>
         </TableHeader>
         <TableBody>{tableRows}</TableBody>
@@ -100,7 +100,6 @@ export function BulkUnsubscribeRowDesktop({
   refetchPremium,
   selected,
   onSelectRow,
-  onDoubleClick,
   hasUnsubscribeAccess,
   mutate,
   onOpenNewsletter,
@@ -118,11 +117,23 @@ export function BulkUnsubscribeRowDesktop({
   return (
     <TableRow
       key={item.name}
-      className="hover:bg-transparent dark:hover:bg-transparent"
+      className={cn(
+        "cursor-pointer hover:bg-muted/50 dark:hover:bg-muted/50",
+        checked &&
+          "bg-blue-500/[.08] hover:bg-blue-500/[.08] dark:hover:bg-blue-500/[.08]",
+      )}
       aria-selected={selected || undefined}
       data-selected={selected || undefined}
       onMouseEnter={onSelectRow}
-      onDoubleClick={onDoubleClick}
+      onClick={(event) => {
+        // Clicks from portaled menus and dialogs bubble through the React tree
+        // but are not DOM descendants of the row.
+        const target = event.target as HTMLElement;
+        if (!event.currentTarget.contains(target)) return;
+        if (target.closest("button, a, input, [data-cell=checkbox]")) return;
+        if (window.getSelection()?.toString()) return;
+        onOpenNewsletter(item);
+      }}
     >
       <TableCell className="w-10 pr-0" data-cell="checkbox">
         <ButtonCheckbox
@@ -131,10 +142,7 @@ export function BulkUnsubscribeRowDesktop({
           onChange={(shiftKey) => onToggleSelect?.(item.name, shiftKey)}
         />
       </TableCell>
-      <TableCell
-        className="max-w-[200px] min-w-0 py-3 pl-8 lg:max-w-[350px]"
-        data-cell="from"
-      >
+      <TableCell className="min-w-0 py-3 pl-4" data-cell="from">
         <div className="flex items-center gap-2 min-w-0">
           <SenderIcon email={item.name} name={item.fromName} size={32} />
           <div className="min-w-0 lg:flex lg:items-baseline lg:gap-2">
@@ -176,8 +184,8 @@ export function BulkUnsubscribeRowDesktop({
           </span>
         </div>
       </TableCell>
-      <TableCell className="w-auto sm:w-[196px] p-1" data-cell="actions">
-        <div className="flex justify-end items-center gap-2">
+      <TableCell className="w-auto sm:w-[300px] p-1" data-cell="actions">
+        <div className="flex justify-end items-center gap-1">
           <ActionCell
             item={item}
             hasUnsubscribeAccess={hasUnsubscribeAccess}

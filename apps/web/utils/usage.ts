@@ -17,6 +17,7 @@ const logger = createScopedLogger("usage");
 
 export type AiUsageEvent = {
   cachedInputTokens: number;
+  cacheWriteTokens: number;
   estimatedCost: number;
   inputTokens: number;
   label: string;
@@ -85,6 +86,7 @@ export async function saveAiUsage({
   const inputTokens = usage.inputTokens ?? 0;
   const outputTokens = usage.outputTokens ?? 0;
   const cachedInputTokens = usage.inputTokenDetails?.cacheReadTokens ?? 0;
+  const cacheWriteTokens = usage.inputTokenDetails?.cacheWriteTokens ?? 0;
   const reasoningTokens = usage.outputTokenDetails?.reasoningTokens ?? 0;
   const totalTokens = usage.totalTokens ?? 0;
 
@@ -97,6 +99,7 @@ export async function saveAiUsage({
     isUserApiKey,
     inputTokens,
     cachedInputTokens,
+    cacheWriteTokens,
     outputTokens,
     reasoningTokens,
     totalTokens,
@@ -113,6 +116,7 @@ export async function saveAiUsage({
 
   notifyAiUsageListeners({
     cachedInputTokens,
+    cacheWriteTokens,
     estimatedCost,
     inputTokens,
     label,
@@ -138,6 +142,7 @@ export async function saveAiUsage({
         completionTokens: outputTokens,
         promptTokens: inputTokens,
         cachedInputTokens,
+        cacheWriteTokens,
         reasoningTokens,
         cost: platformCost,
         estimatedCost,
@@ -177,20 +182,36 @@ export function calculateUsageCost(options: {
   const pricing = getModelPricing({ provider, model });
   if (!pricing) return 0;
 
-  const rawCachedInputTokens = usage.inputTokenDetails?.cacheReadTokens ?? 0;
-  const normalizedCachedInputTokens = Math.max(0, rawCachedInputTokens);
+  const normalizedCachedInputTokens = Math.max(
+    0,
+    usage.inputTokenDetails?.cacheReadTokens ?? 0,
+  );
+  const normalizedCacheWriteTokens = Math.max(
+    0,
+    usage.inputTokenDetails?.cacheWriteTokens ?? 0,
+  );
   const inputTokens = Math.max(
     0,
-    usage.inputTokens ?? normalizedCachedInputTokens,
+    usage.inputTokens ??
+      normalizedCachedInputTokens + normalizedCacheWriteTokens,
   );
   const cachedInputTokens = Math.min(inputTokens, normalizedCachedInputTokens);
-  const uncachedInputTokens = Math.max(0, inputTokens - cachedInputTokens);
+  const cacheWriteTokens = Math.min(
+    inputTokens - cachedInputTokens,
+    normalizedCacheWriteTokens,
+  );
+  const uncachedInputTokens = Math.max(
+    0,
+    inputTokens - cachedInputTokens - cacheWriteTokens,
+  );
   const outputTokens = Math.max(0, usage.outputTokens ?? 0);
   const cachedInputTokenPrice = pricing.cachedInput ?? pricing.input;
+  const cacheWriteTokenPrice = pricing.cacheWrite ?? pricing.input;
 
   return (
     uncachedInputTokens * pricing.input +
     cachedInputTokens * cachedInputTokenPrice +
+    cacheWriteTokens * cacheWriteTokenPrice +
     outputTokens * pricing.output
   );
 }

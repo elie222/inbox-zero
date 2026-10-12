@@ -88,7 +88,9 @@ export function internalDateToDate(
   options?: { fallbackToNow?: boolean },
 ): Date {
   const fallbackToNow = options?.fallbackToNow ?? true;
-  if (!internalDate) return fallbackToNow ? new Date() : new Date(Number.NaN);
+  if (!internalDate?.trim()) {
+    return fallbackToNow ? new Date() : new Date(Number.NaN);
+  }
 
   // First try to parse as a regular date string (for ISO strings like "2025-06-19T21:46:31Z")
   let date = new Date(internalDate);

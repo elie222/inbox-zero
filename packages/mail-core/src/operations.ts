@@ -58,14 +58,13 @@ export const preparedOperationSchema = z.object({
       subject: z.string().max(16_384),
       html: z.string().max(1_000_000),
       quotedHtml: z.string().max(1_000_000),
-      attachmentIds: z.array(z.string().min(1).max(128)).max(20),
       providerDraftId: z.string().min(1).max(256).optional(),
       replyToMessageId: z.string().max(256).nullable(),
       replyToConversationId: z.string().max(256).nullable(),
       queuedAtMs: z.number().int().nonnegative(),
       /**
        * When the server should deliver it. Setting it hands the send to the
-       * server right away, so the undo window survives the client going away.
+       * server right away, so the undo period survives the client going away.
        */
       sendAtMs: z.number().int().nonnegative().optional(),
     }),

@@ -13,6 +13,10 @@ export const GET = withError("mobile-auth/browser-start", async (request) => {
     request.nextUrl.searchParams.get("codeChallenge"),
   );
   if (!codeChallenge.success) {
+    request.logger.warn("Desktop auth start rejected", {
+      reason: "invalid_code_challenge",
+      provider,
+    });
     const response = NextResponse.redirect(
       new URL("/login/desktop-update-required", getMobileAuthBaseUrlOrigin()),
       302,

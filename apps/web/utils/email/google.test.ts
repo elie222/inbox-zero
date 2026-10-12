@@ -5,6 +5,7 @@ import type { ParsedMessage } from "@/utils/types";
 import { GmailLabel } from "@/utils/gmail/label";
 import * as gmailLabelModule from "@/utils/gmail/label";
 import * as gmailThreadModule from "@/utils/gmail/thread";
+import { DraftNotFoundError } from "@/utils/error";
 import { GmailProvider } from "./google";
 
 const {
@@ -55,7 +56,52 @@ vi.mock("@/utils/gmail/signature-settings", () => gmailSignatureMock);
 vi.mock("@/utils/email/bulk-action-tracking", () => bulkActionTrackingMock);
 vi.mock("@/utils/gmail/oauth", () => ({
   isGoogleOauthEmulationEnabled: vi.fn(() => false),
+  getGoogleGmailApiRootUrl: vi.fn(() => "https://gmail.googleapis.com/"),
 }));
+
+describe("GmailProvider.countMessages", () => {
+  it.each([
+    0, 7, 47,
+  ])("uses exact label message count %s, not thread counts or search estimates", async (count) => {
+    const get = vi
+      .fn()
+      .mockResolvedValue({ data: { messagesTotal: count, threadsTotal: 2 } });
+    const list = vi.fn();
+    const provider = new GmailProvider({
+      users: { labels: { get }, messages: { list } },
+    } as any);
+    await expect(provider.countMessages({ labelId: "label-1" })).resolves.toBe(
+      count,
+    );
+    expect(get).toHaveBeenCalledWith({ userId: "me", id: "label-1" });
+    expect(list).not.toHaveBeenCalled();
+  });
+
+  it("uses the profile's exact mailbox count when no label is specified", async () => {
+    const getProfile = vi
+      .fn()
+      .mockResolvedValue({ data: { messagesTotal: 123 } });
+    const provider = new GmailProvider({ users: { getProfile } } as any);
+    await expect(provider.countMessages({})).resolves.toBe(123);
+  });
+
+  it("does not silently ignore Outlook folder scopes", async () => {
+    const getProfile = vi.fn();
+    const provider = new GmailProvider({ users: { getProfile } } as any);
+    await expect(
+      provider.countMessages({ folderId: "folder-1" }),
+    ).rejects.toThrow("folder");
+    expect(getProfile).not.toHaveBeenCalled();
+  });
+
+  it("does not invent zero when an exact count is unavailable", async () => {
+    const get = vi.fn().mockResolvedValue({ data: { threadsTotal: 7 } });
+    const provider = new GmailProvider({ users: { labels: { get } } } as any);
+    await expect(
+      provider.countMessages({ labelId: "label-1" }),
+    ).rejects.toThrow("exact message count");
+  });
+});
 
 describe("GmailProvider.searchMessages structured search", () => {
   it.each([
@@ -769,53 +815,53 @@ describe("GmailProvider.searchThreads", () => {
   });
 });
 
+describe("GmailProvider.createDraft", () => {
+  it("creates a threaded reply draft that already carries its Cc and Bcc", async () => {
+    const create = vi.fn().mockResolvedValue({ data: { id: "draft-1" } });
+    const provider = new GmailProvider({
+      context: { _options: {} },
+      users: { drafts: { create } },
+    } as any);
+    vi.spyOn(provider, "getMessage").mockResolvedValue(
+      createParsedMessage({
+        id: "parent-1",
+        internalDate: "1000",
+        threadId: "thread-1",
+        headers: { "message-id": "<parent@example.com>" },
+      }),
+    );
+
+    await provider.createDraft({
+      to: "recipient@example.com",
+      cc: "copied@example.com",
+      bcc: "hidden@example.com",
+      subject: "Re: Example",
+      messageHtml: "<p>Example</p>",
+      replyToMessageId: "parent-1",
+    });
+
+    const upload = create.mock.calls[0]?.[0];
+    expect(upload.requestBody).toEqual({ message: { threadId: "thread-1" } });
+    const mime = await readStream(upload.media.body);
+    expect(mime).toContain("To: recipient@example.com");
+    expect(mime).toContain("Cc: copied@example.com");
+    expect(mime).toContain("Bcc: hidden@example.com");
+    expect(mime).toContain("In-Reply-To: <parent@example.com>");
+  });
+});
+
 describe("GmailProvider.updateDraft", () => {
   it("does not write a draft that has been sent or deleted", async () => {
     const update = vi.fn();
     const provider = new GmailProvider({
+      context: { _options: {} },
       users: { drafts: { update } },
     } as any);
     gmailDraftMock.getDraft.mockResolvedValueOnce(null);
     await expect(
       provider.updateDraft("draft-1", { messageHtml: "<p>Edit</p>" }),
-    ).rejects.toMatchObject({
-      name: "SafeError",
-      safeMessage: expect.stringMatching(/Gmail.*Check Sent/),
-    });
+    ).rejects.toBeInstanceOf(DraftNotFoundError);
     expect(update).not.toHaveBeenCalled();
-  });
-
-  it("writes new attachments and removes old files when the composer supplies the complete set", async () => {
-    const update = vi.fn().mockResolvedValue({ data: {} });
-    const client = new gmail_v1.Gmail({});
-    client.users.drafts.update = update;
-    const provider = new GmailProvider(client);
-    gmailDraftMock.getDraft.mockResolvedValue({
-      ...createParsedMessage({ id: "draft-message-1", internalDate: "1000" }),
-      payload: {
-        mimeType: "multipart/mixed",
-        parts: [{ filename: "old.txt", body: { attachmentId: "old-file" } }],
-      },
-    });
-    await provider.updateDraft("draft-1", {
-      messageHtml: "<p>Example</p>",
-      attachments: [
-        {
-          filename: "example.txt",
-          content: Buffer.from("Example attachment").toString("base64"),
-          contentType: "text/plain",
-        },
-      ],
-    });
-    const mime = decodeBase64Url(
-      update.mock.calls[0][0].requestBody.message.raw,
-    );
-    expect(mime).toContain("filename=example.txt");
-    expect(mime).not.toContain("old.txt");
-    await provider.updateDraft("draft-1", { attachments: [] });
-    expect(
-      decodeBase64Url(update.mock.calls[1][0].requestBody.message.raw),
-    ).not.toContain("filename=");
   });
 
   it.each([
@@ -869,9 +915,9 @@ describe("GmailProvider.updateDraft", () => {
       messageHtml: '<p>Edited</p><img src="cid:logo@example.com">',
     });
 
-    const mime = decodeBase64Url(
-      update.mock.calls[0][0].requestBody.message.raw,
-    );
+    const upload = update.mock.calls[0][0];
+    expect(upload.media.mimeType).toBe("message/rfc822");
+    const mime = await readStream(upload.media.body);
     expect(mime).toContain("From: alias@example.com");
     expect(mime).toContain("filename=report.pdf");
     expect(mime).toContain(Buffer.from("attachment bytes").toString("base64"));
@@ -916,6 +962,7 @@ describe("GmailProvider.updateDraft", () => {
   it("keeps Gmail threading metadata and MIME-encodes non-ASCII subjects", async () => {
     const update = vi.fn().mockResolvedValue({ data: {} });
     const provider = new GmailProvider({
+      context: { _options: {} },
       users: { drafts: { update } },
     } as any);
     const subject = "Re: ok but you NEED to share your secrets 👀🔍";
@@ -946,19 +993,13 @@ describe("GmailProvider.updateDraft", () => {
       bcc: "",
     });
 
-    expect(update).toHaveBeenCalledWith({
+    const upload = update.mock.calls[0]?.[0];
+    expect(upload).toMatchObject({
       userId: "me",
       id: "r-123",
-      requestBody: {
-        message: {
-          threadId: "thread-special",
-          raw: expect.any(String),
-        },
-      },
+      requestBody: { message: { threadId: "thread-special" } },
     });
-
-    const raw = update.mock.calls[0]?.[0]?.requestBody?.message?.raw;
-    const decodedMessage = decodeBase64Url(raw);
+    const decodedMessage = await readStream(upload.media.body);
 
     expect(decodedMessage).toContain("Subject: =?UTF-8?");
     expect(decodedMessage).toContain("In-Reply-To: <original@example.com>");
@@ -1159,12 +1200,14 @@ function createParsedMessage({
   };
 }
 
-function decodeBase64Url(value: string): string {
-  return Buffer.from(value, "base64url").toString("utf8");
-}
-
 function createGmailClient(
   messages: Partial<gmail_v1.Gmail["users"]["messages"]>,
 ) {
   return { users: { messages } } as unknown as gmail_v1.Gmail;
+}
+
+async function readStream(stream: AsyncIterable<Buffer | string>) {
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+  return Buffer.concat(chunks).toString();
 }
