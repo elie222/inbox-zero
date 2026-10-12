@@ -87,7 +87,7 @@ export function HeroVideoPlayer({
           src={
             muxThumbnail
               ? `https://image.mux.com/${video.muxPlaybackId}/thumbnail.jpg?time=${video.thumbnailTime}&width=2560`
-              : "/images/new-landing/video-thumbnail.jpg"
+              : "/images/new-landing/video-thumbnail.webp"
           }
           alt={video?.title ?? "an organized inbox"}
           width={2560}
