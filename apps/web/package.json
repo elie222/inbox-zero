@@ -235,6 +235,7 @@
     "unpdf": "1.8.1",
     "use-stick-to-bottom": "1.1.6",
     "usehooks-ts": "3.1.1",
+    "utif2": "4.1.0",
     "zod": "4.2.1"
   },
   "devDependencies": {
