@@ -86,13 +86,13 @@ async function convertTiffToPng(blob: Blob): Promise<Blob | undefined> {
 
     decodeImage(buffer, image);
     const canvas = new OffscreenCanvas(width, height);
-    canvas
-      .getContext("2d")
-      ?.putImageData(
-        new ImageData(new Uint8ClampedArray(toRGBA8(image)), width, height),
-        0,
-        0,
-      );
+    const context = canvas.getContext("2d");
+    if (!context) return;
+    context.putImageData(
+      new ImageData(new Uint8ClampedArray(toRGBA8(image)), width, height),
+      0,
+      0,
+    );
     return await canvas.convertToBlob({ type: "image/png" });
   } catch {
     return;
