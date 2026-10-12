@@ -47,13 +47,30 @@
     "components/email-list/ThreadDeliveryStatus.tsx",
     "components/ShortcutTooltipContent.tsx"
   ],
+  "compose-attachment-send.spec.ts": [
+    "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
+    "app/(app)/[emailAccountId]/compose/compose-attachments.ts",
+    "app/(app)/[emailAccountId]/compose/upload-draft-attachment.ts",
+    "app/(app)/[emailAccountId]/compose/useComposeDraftAttachments.ts",
+    "app/api/user/drafts/[draftId]/attachments/route.ts",
+    "app/api/user/drafts/[draftId]/attachments/uploads/[uploadId]/route.ts",
+    "app/api/user/drafts/[draftId]/attachments/uploads/route.ts",
+    "app/api/user/drafts/[draftId]/attachments/[attachmentId]/route.ts",
+    "utils/email/compose-draft.ts",
+    "utils/email/draft-attachment-upload.ts",
+    "utils/gmail/draft-attachments.ts",
+    "utils/gmail/resumable-draft-upload.ts",
+    "utils/outlook/draft-attachments.ts"
+  ],
   "composer-editing.spec.ts": [
     "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
     "components/ShortcutTooltipContent.tsx"
   ],
   "compose-drafts.spec.ts": [
     "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
+    "components/email-list/EmailThread.tsx",
     "hooks/useProviderDraftAutosave.ts",
+    "hooks/useReplyDrafts.ts",
     "utils/email/compose-draft.ts"
   ],
   "contact-autocomplete.spec.ts": [
@@ -124,7 +141,9 @@
   ],
   "scheduled-replies.spec.ts": [
     "components/email-list/ThreadDeliveryStatus.tsx",
-    "components/email-list/EmailThread.tsx"
+    "components/email-list/EmailThread.tsx",
+    "hooks/useProviderDraftAutosave.ts",
+    "utils/scheduled-email/service.ts"
   ],
   "search.spec.ts": [
     "app/(app)/[emailAccountId]/mail/ListToolbar.tsx",
@@ -141,10 +160,21 @@
   "starring.spec.ts": [
     "app/(app)/[emailAccountId]/mail/star-state.ts",
     "app/(app)/[emailAccountId]/mail/ThreadRow.tsx",
+    "app/(app)/[emailAccountId]/mail/ListToolbar.tsx",
     "app/(app)/[emailAccountId]/mail/mail-command-palette.ts",
     "app/(app)/[emailAccountId]/mail/use-thread-actions.ts",
     "components/CommandK.tsx",
     "lib/shortcuts/registry.ts"
+  ],
+  "team-comments-access.spec.ts": [
+    "utils/team-comments/access.ts",
+    "utils/team-comments/conversations.ts",
+    "components/team-comments/ConversationDiscussion.tsx"
+  ],
+  "team-comments.spec.ts": [
+    "components/team-comments/PublisherDiscussion.tsx",
+    "components/team-comments/ConversationDiscussion.tsx",
+    "app/(app)/shared/[conversationId]/SharedConversationReader.tsx"
   ],
   "theme.spec.ts": ["components/CommandK.tsx", "components/theme-provider.tsx"],
   "thread-navigation.spec.ts": [

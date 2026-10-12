@@ -18,8 +18,7 @@ per runtime: the Compression Streams API by default, `nodeBodyCodec` (zlib) on
 Node hosts. Bodies written before compression are converted in batched
 transactions when the store opens (migration 0008).
 
-`@inboxzero/mail-sqlite/node` and `@inboxzero/mail-sqlite/blob-store` use Node
-file APIs.
+`@inboxzero/mail-sqlite/node` uses Node file APIs.
 
 The regular suite includes a 10k-conversation regression. Larger ingestion/query
 checks are opt-in: `SCALE_TESTS=1 pnpm -F @inboxzero/mail-sqlite test src/store.test.ts`.

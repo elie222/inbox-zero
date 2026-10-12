@@ -38,3 +38,27 @@ export async function getSenderUnsubscribeSource({
 
   return {};
 }
+
+/**
+ * Uses the client-supplied unsubscribe source when one is present. Otherwise
+ * reads it from the sender's recent mail.
+ */
+export async function resolveSenderUnsubscribeSource({
+  senderEmail,
+  unsubscribeLink,
+  listUnsubscribeHeader,
+  emailProvider,
+  logger,
+}: {
+  senderEmail: string;
+  unsubscribeLink?: string | null;
+  listUnsubscribeHeader?: string | null;
+  emailProvider: EmailProvider;
+  logger: Logger;
+}) {
+  if (unsubscribeLink || listUnsubscribeHeader) {
+    return { unsubscribeLink, listUnsubscribeHeader };
+  }
+
+  return getSenderUnsubscribeSource({ senderEmail, emailProvider, logger });
+}

@@ -8,13 +8,20 @@ import {
 describe("mailbox change signals", () => {
   it("reads a mailbox-change event split across chunks", () => {
     const first = consumeMailboxSignalBuffer(
-      "event: ready\ndata: {}\n\nevent: mail",
+      "event: heartbeat\ndata: {}\n\nevent: mail",
     );
     expect(first.changed).toBe(false);
     const second = consumeMailboxSignalBuffer(
       `${first.rest}box-change\ndata: {}\n\n`,
     );
     expect(second).toEqual({ rest: "", changed: true });
+  });
+
+  it("catches up on every (re)connect because missed changes are not replayed", () => {
+    expect(consumeMailboxSignalBuffer("event: ready\ndata: {}\n\n")).toEqual({
+      rest: "",
+      changed: true,
+    });
   });
 
   it("ignores heartbeats and other accounts' event names", () => {

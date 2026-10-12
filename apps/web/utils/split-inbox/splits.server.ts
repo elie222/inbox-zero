@@ -1,3 +1,9 @@
+import { SafeError } from "@/utils/error";
+import { isDuplicateError } from "@/utils/prisma-helpers";
+import type {
+  UpdateMailSplitBody,
+  DeleteMailSplitBody,
+} from "@/utils/actions/mail-split.validation";
 import { randomUUID } from "node:crypto";
 import type { MailSplit } from "@/generated/prisma/client";
 import { MailSplitFilterKind } from "@/generated/prisma/enums";
@@ -170,4 +176,105 @@ export async function reorderMailSplits({
       WHERE split."id" = reordered."id"
     `,
   ]);
+}
+
+export async function createMailSplitOrThrow({
+  emailAccountId,
+  name,
+  matchAll,
+  filters,
+}: {
+  emailAccountId: string;
+  name: string;
+  matchAll: boolean;
+  filters: MailSplitFilterDraft[];
+}): Promise<MailSplit> {
+  try {
+    const result = await createMailSplit({
+      emailAccountId,
+      name,
+      matchAll,
+      filters,
+    });
+
+    if (!result) {
+      throw new SafeError("Could not create split. Please try again.");
+    }
+    if (result.status !== "created") {
+      if (result.status === "duplicate") {
+        throw new SafeError(`You already have a "${name}" split.`);
+      }
+      throw new SafeError(`You can only have ${MAX_MAIL_SPLITS} splits.`);
+    }
+
+    const { status: _, ...split } = result;
+    return split;
+  } catch (error) {
+    if (isDuplicateError(error, "name")) {
+      throw new SafeError(`You already have a "${name}" split.`);
+    }
+    throw error;
+  }
+}
+
+export async function updateMailSplit({
+  emailAccountId,
+  id,
+  name,
+  filters,
+  matchAll,
+}: UpdateMailSplitBody & { emailAccountId: string }) {
+  try {
+    // One transaction so a split can never end up renamed but still
+    // carrying its old conditions. Filters are replaced wholesale rather
+    // than diffed: the builder hands back the conditions it is showing, so
+    // anything missing from that list was removed.
+    const [, { count }] = await prisma.$transaction([
+      lockMailSplits(emailAccountId),
+      prisma.mailSplit.updateMany({
+        where: { id, emailAccountId },
+        data: { name, matchAll },
+      }),
+      // Scoped through the split's owner, so another account's id can't
+      // reach these rows even though `id` is caller-supplied.
+      prisma.mailSplitFilter.deleteMany({
+        where: { mailSplitId: id, mailSplit: { emailAccountId } },
+      }),
+      prisma.$executeRaw`
+            INSERT INTO "MailSplitFilter" ("id", "kind", "value", "order", "mailSplitId")
+            SELECT
+              conditions."id",
+              conditions."kind"::"MailSplitFilterKind",
+              conditions."value",
+              conditions."order",
+              ${id}
+            FROM jsonb_to_recordset(${toFilterRows(filters)}::jsonb)
+              AS conditions("id" text, "kind" text, "value" text, "order" integer)
+            WHERE EXISTS (
+              SELECT 1 FROM "MailSplit"
+              WHERE "id" = ${id} AND "emailAccountId" = ${emailAccountId}
+            )
+          `,
+    ]);
+    if (!count) throw new SafeError("Split not found");
+  } catch (error) {
+    if (isDuplicateError(error, "name")) {
+      throw new SafeError(`You already have a "${name}" split.`);
+    }
+    throw error;
+  }
+}
+
+export async function deleteMailSplit({
+  emailAccountId,
+  id,
+}: DeleteMailSplitBody & { emailAccountId: string }) {
+  // deleteMany rather than delete so another account's id can never be removed
+  const [, { count }] = await prisma.$transaction([
+    lockMailSplits(emailAccountId),
+    prisma.mailSplit.deleteMany({
+      where: { id, emailAccountId, filters: { some: {} } },
+    }),
+  ]);
+  if (!count) throw new SafeError("Split not found or cannot be removed");
 }

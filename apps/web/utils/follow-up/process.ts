@@ -623,6 +623,7 @@ async function processFollowUpsForType({
                   threadId: thread.id,
                   emailAddress: emailAccount.email,
                   provider: providerName,
+                  externalUrl: lastMessage.externalUrl,
                 }) ?? undefined,
               threadLinkLabel: getOpenInMailboxLabel(providerName) ?? undefined,
               trackerId: tracker.id,

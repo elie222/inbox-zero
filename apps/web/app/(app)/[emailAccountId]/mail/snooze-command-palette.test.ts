@@ -6,84 +6,48 @@ import {
 } from "./snooze-command-palette";
 
 describe("buildSnoozeCommandPalette", () => {
-  it("offers named times of day and shows when each one lands", () => {
+  it("offers a short list of days and shows when each one lands", () => {
     const now = new Date(2026, 7, 18, 10);
-    const presets = getSnoozePresets(now);
     const commands = buildSnoozeCommandPalette({
       now,
       onSnooze: vi.fn(),
       query: "",
     });
 
-    expect(presets.map(({ id }) => id)).toEqual([
-      "this-afternoon",
-      "this-evening",
-      "tomorrow-morning",
-      "this-weekend",
-      "next-monday",
-      "next-week",
-    ]);
-    expect(presets.map(({ until }) => until)).toEqual([
-      new Date(2026, 7, 18, 17),
-      new Date(2026, 7, 18, 20),
-      new Date(2026, 7, 19, 9),
-      new Date(2026, 7, 22, 9),
-      new Date(2026, 7, 24, 9),
-      new Date(2026, 7, 25, 9),
-    ]);
     expect(
       commands.map((command) => [command.label, command.description]),
     ).toEqual([
-      ["This afternoon", "Tue, Aug 18 at 5:00 PM"],
-      ["This evening", "Tue, Aug 18 at 8:00 PM"],
-      ["Tomorrow morning", "Wed, Aug 19 at 9:00 AM"],
+      ["Tomorrow", "Wed, Aug 19 at 9:00 AM"],
+      ["End of week", "Fri, Aug 21 at 9:00 AM"],
       ["This weekend", "Sat, Aug 22 at 9:00 AM"],
-      ["Next Monday", "Mon, Aug 24 at 9:00 AM"],
-      ["Next week", "Tue, Aug 25 at 9:00 AM"],
+      ["Next week", "Mon, Aug 24 at 9:00 AM"],
     ]);
   });
 
-  it("hides named times that have already passed", () => {
-    expect(
-      getSnoozePresets(new Date(2026, 7, 18, 17, 1)).map(({ id }) => id),
-    ).toEqual([
-      "this-evening",
-      "tomorrow-morning",
-      "this-weekend",
-      "next-monday",
-      "next-week",
-    ]);
-    expect(
-      getSnoozePresets(new Date(2026, 7, 18, 20, 1)).map(({ id }) => id),
-    ).toEqual(["tomorrow-morning", "this-weekend", "next-monday", "next-week"]);
-  });
+  it("drops presets that have passed or would land on the same day", () => {
+    const presetIdsOn = (date: Date) =>
+      getSnoozePresets(date).map(({ id }) => id);
 
-  it("skips presets that would land on the same time", () => {
-    expect(
-      getSnoozePresets(new Date(2026, 7, 16, 10)).map(({ id }) => id),
-    ).toEqual([
-      "this-afternoon",
-      "this-evening",
-      "tomorrow-morning",
-      "next-week",
-    ]);
-    expect(
-      getSnoozePresets(new Date(2026, 7, 17, 10)).map(({ id }) => id),
-    ).toEqual([
-      "this-afternoon",
-      "this-evening",
-      "tomorrow-morning",
+    // Thursday: tomorrow is already Friday
+    expect(presetIdsOn(new Date(2026, 7, 20, 10))).toEqual([
+      "tomorrow",
       "this-weekend",
-      "next-monday",
-    ]);
-    expect(
-      getSnoozePresets(new Date(2026, 7, 21, 10)).map(({ id }) => id),
-    ).toEqual([
-      "this-afternoon",
-      "this-evening",
-      "tomorrow-morning",
-      "next-monday",
       "next-week",
+    ]);
+    // Friday: tomorrow is already the weekend
+    expect(presetIdsOn(new Date(2026, 7, 21, 10))).toEqual([
+      "tomorrow",
+      "next-week",
+    ]);
+    // Saturday
+    expect(presetIdsOn(new Date(2026, 7, 22, 10))).toEqual([
+      "tomorrow",
+      "next-week",
+    ]);
+    // Sunday: tomorrow is already next week
+    expect(presetIdsOn(new Date(2026, 7, 23, 10))).toEqual([
+      "tomorrow",
+      "end-of-week",
     ]);
   });
 

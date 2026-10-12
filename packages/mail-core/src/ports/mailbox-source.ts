@@ -31,6 +31,8 @@ export type ScopeDescriptor = {
   id: string;
   kind: "account" | "folder";
   folderId: string | null;
+  /** Low-priority scopes catch up less often; omitted means high. */
+  priority?: "high" | "low";
 };
 
 export type EnumerationPage = {
@@ -43,6 +45,8 @@ export type EnumerationPage = {
   | { nextPage: string; catchUpFrom: null }
   | { nextPage: null; catchUpFrom: SyncPosition }
 );
+
+export const MAX_CHANGES_BATCH_READS = 20;
 
 export type SyncReadResult =
   | { status: "page"; page: import("../sync").SyncPage }
@@ -111,6 +115,17 @@ export interface MailboxSource {
     pageSize: number;
     signal: AbortSignal;
   }): Promise<SyncReadResult>;
+  /**
+   * Reads several streams of one account in one round trip, returning one
+   * result per read in order. Optional; without it the engine reads each
+   * stream with `readChanges`.
+   */
+  readChangesBatch?(input: {
+    session: AccountSession;
+    reads: Array<{ requestId: string; position: SyncPosition }>;
+    pageSize: number;
+    signal: AbortSignal;
+  }): Promise<SyncReadResult[]>;
   readConversationMembership(
     input: SourceContext & {
       conversation: ConversationKey;

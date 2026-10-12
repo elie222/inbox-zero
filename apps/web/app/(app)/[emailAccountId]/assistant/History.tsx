@@ -91,14 +91,14 @@ function HistoryTable({
 
   return (
     <div>
-      <Table>
-        <TableBody>
+      <Table className="max-sm:block">
+        <TableBody className="max-sm:block">
           {groups.map((group) => (
             <Fragment key={group.key}>
-              <TableRow className="hover:bg-transparent">
+              <TableRow className="hover:bg-transparent max-sm:block">
                 <TableCell
                   colSpan={2}
-                  className="bg-muted/40 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                  className="max-sm:block bg-muted/40 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
                 >
                   {formatDateGroupLabel(group.date)}
                 </TableCell>
@@ -160,8 +160,8 @@ function HistoryThread({
         messageCount={result.messageCount}
       />
       {expanded && (
-        <TableRow className="bg-muted/30 hover:bg-muted/30">
-          <TableCell colSpan={2} className="pl-10">
+        <TableRow className="bg-muted/30 hover:bg-muted/30 max-sm:block">
+          <TableCell colSpan={2} className="pl-10 max-sm:block max-sm:pl-4">
             <ThreadHistory
               threadId={result.threadId}
               latestMessageId={result.messageId}
@@ -203,8 +203,8 @@ function ThreadHistory({
     <LoadingContent loading={isLoading} error={error || messagesError}>
       {data && (
         <>
-          <Table>
-            <TableBody>
+          <Table className="max-sm:block">
+            <TableBody className="max-sm:block">
               {results.map((result) => (
                 <HistoryMessageRow
                   key={result.messageId}
@@ -216,7 +216,7 @@ function ThreadHistory({
             </TableBody>
           </Table>
           {data.totalPages > 1 && (
-            <div className="flex items-center justify-end gap-2 py-2">
+            <div className="flex flex-wrap items-center justify-end gap-2 py-2 sm:flex-nowrap">
               <Button
                 variant="outline"
                 size="sm"
@@ -261,8 +261,8 @@ function HistoryMessageRow({
   const { setInput } = useChat();
   const isMessageLoading = !message && messagesLoading;
   return (
-    <TableRow>
-      <TableCell>
+    <TableRow className="max-sm:flex max-sm:flex-col">
+      <TableCell className="max-sm:pb-2">
         <div className="flex items-start gap-2">
           {leading}
           <div className="min-w-0 flex-1">
@@ -293,7 +293,7 @@ function HistoryMessageRow({
           </div>
         </div>
       </TableCell>
-      <TableCell>
+      <TableCell className="max-sm:pt-0">
         <RuleCell
           executedRules={result.executedRules}
           message={message}
@@ -359,8 +359,8 @@ function RuleCell({
   isMessageLoading: boolean;
 }) {
   return (
-    <div className="flex items-center justify-end gap-2">
-      <div>
+    <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:justify-end">
+      <div className="min-w-0">
         <ResultsDisplay results={executedRules} />
       </div>
       {message ? (

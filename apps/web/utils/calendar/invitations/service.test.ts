@@ -364,6 +364,11 @@ describe("loading calendar invitations", () => {
         recurring: false,
         response: "accepted",
         calendarSynced: true,
+        start: "2026-10-01T10:00:00.000Z",
+        end: null,
+        allDay: false,
+        location: null,
+        conferenceUrl: null,
       },
     });
     expect(mocks.connections).toHaveBeenCalledWith({

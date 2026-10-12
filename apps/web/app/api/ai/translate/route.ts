@@ -32,5 +32,7 @@ export const POST = withEmailAccount(async (request) => {
     emailAccount,
   });
 
-  return NextResponse.json({ translations } satisfies TranslateResponse);
+  return NextResponse.json({
+    translations: translations.map((translation) => translation.text),
+  } satisfies TranslateResponse);
 });

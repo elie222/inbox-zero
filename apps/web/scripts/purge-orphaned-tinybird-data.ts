@@ -11,11 +11,6 @@ import chunk from "lodash/chunk";
 import { deleteTinybirdEmailData } from "@inboxzero/tinybird";
 import prisma from "@/utils/prisma";
 
-const EMAIL_DATASOURCES = [
-  "email_action",
-  "email",
-  "last_and_oldest_emails_mv",
-];
 const BATCH_SIZE = 100;
 
 async function main() {
@@ -32,19 +27,17 @@ async function main() {
   );
 
   const orphanedEmails = new Set<string>();
-  for (const datasource of EMAIL_DATASOURCES) {
-    const owners = await getDistinctValues(datasource, "ownerEmail");
-    if (!owners) {
-      console.log(`${datasource}: datasource not found, skipping`);
-      continue;
-    }
+  const owners = await getDistinctValues("email_action", "ownerEmail");
+  if (owners) {
     const orphaned = owners.filter(
       (email) => !liveEmails.has(email.toLowerCase()),
     );
     for (const email of orphaned) orphanedEmails.add(email);
     console.log(
-      `${datasource}: ${owners.length} mailboxes, ${orphaned.length} orphaned`,
+      `email_action: ${owners.length} mailboxes, ${orphaned.length} orphaned`,
     );
+  } else {
+    console.log("email_action: datasource not found, skipping");
   }
 
   // AI usage rows are kept; only rows that fell back to an email address as

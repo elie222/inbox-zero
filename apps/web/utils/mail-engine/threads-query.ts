@@ -1,6 +1,7 @@
-import type {
-  ConversationQuery,
-  MailPredicate,
+import {
+  MAX_MESSAGE_PREDICATE_IDS,
+  type ConversationQuery,
+  type MailPredicate,
 } from "@inboxzero/mail-core/queries";
 import { isOutlookInboxSection } from "@/utils/outlook/inbox-sections";
 import { parseBooleanSearchValue } from "@/utils/tokenize-search-query";
@@ -18,6 +19,30 @@ export function threadsQueryToConversationQuery(input: {
     order: "newest_first",
     pageSize: input.pageSize ?? 50,
     after: input.after ?? null,
+  };
+}
+
+/**
+ * Leaves out drafts that a pending send stands in for, so a conversation counts
+ * as a draft only through drafts that are still shown.
+ */
+export function withoutHiddenDrafts(
+  predicate: MailPredicate,
+  hiddenDraftMessageIds: string[],
+): MailPredicate {
+  if (!hiddenDraftMessageIds.length) return predicate;
+  return {
+    kind: "all",
+    predicates: [
+      predicate,
+      {
+        kind: "not",
+        predicate: {
+          kind: "message",
+          ids: hiddenDraftMessageIds.slice(-MAX_MESSAGE_PREDICATE_IDS),
+        },
+      },
+    ],
   };
 }
 
@@ -141,7 +166,7 @@ function leafToPredicate(leaf: {
 function textQueryPredicates(query: string): MailPredicate[] {
   const clauses: MailPredicate[] = [];
   let remaining = query.trim();
-  remaining = takePrefixedValue(remaining, "subject:", (value) => {
+  remaining = takePrefixedValues(remaining, "subject:", (value) => {
     clauses.push({
       kind: "text",
       field: "subject",
@@ -150,15 +175,12 @@ function textQueryPredicates(query: string): MailPredicate[] {
     });
     return true;
   });
-  remaining = takePrefixedValue(remaining, "from:", (value) => {
-    clauses.push({
-      kind: "address",
-      field: "from",
-      value,
-      match: "address",
+  for (const field of ["from", "to"] as const) {
+    remaining = takePrefixedValues(remaining, `${field}:`, (value) => {
+      clauses.push({ kind: "address", field, value, match: "address" });
+      return true;
     });
-    return true;
-  });
+  }
   let hasAttachment: boolean | undefined;
   remaining = takeToken(remaining, "has:attachment", () => {
     hasAttachment = true;
@@ -184,6 +206,22 @@ function textQueryPredicates(query: string): MailPredicate[] {
     });
   }
   return clauses;
+}
+
+// Consumes every occurrence, so `to:ada@x to:grace@x` yields two address
+// predicates instead of leaving the second operator behind as literal search
+// text that matches nothing.
+function takePrefixedValues(
+  input: string,
+  prefix: string,
+  onValue: (value: string) => boolean,
+) {
+  let remaining = input;
+  while (true) {
+    const next = takePrefixedValue(remaining, prefix, onValue);
+    if (next === remaining) return remaining;
+    remaining = next;
+  }
 }
 
 function takePrefixedValue(

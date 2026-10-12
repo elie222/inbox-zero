@@ -350,6 +350,29 @@ describe("bulk unsubscribe hooks", () => {
         }),
       );
     });
+
+    it("counts a sender that rejects automatic unsubscribe as a failure without reporting it", async () => {
+      unsubscribeSenderActionMock.mockResolvedValue({
+        data: { unsubscribe: { success: false } },
+      });
+
+      const { result } = renderHook(() =>
+        useBulkUnsubscribe({ ...sharedHookArgs, filter: "all" }),
+      );
+
+      let outcome: Awaited<ReturnType<typeof result.current.onBulkUnsubscribe>>;
+      await act(async () => {
+        outcome = await result.current.onBulkUnsubscribe([
+          getRow({ unsubscribeLink: "https://example.com/unsubscribe" }),
+        ]);
+      });
+
+      expect(outcome!).toEqual(
+        expect.objectContaining({ successCount: 0, failureCount: 1 }),
+      );
+      expect(captureExceptionMock).not.toHaveBeenCalled();
+      expect(decrementCreditMock).not.toHaveBeenCalled();
+    });
   });
 
   describe("useApproveButton", () => {

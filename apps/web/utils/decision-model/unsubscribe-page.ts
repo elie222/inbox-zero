@@ -22,7 +22,7 @@ export async function decideUnsubscribePageState({
     state: { pageText },
     questions: {
       [CONFIRMED_KEY]: {
-        type: "yesNo",
+        type: "boolean",
         instructions:
           "Does `pageText` explicitly state that the recipient has already been unsubscribed?",
         criteria: {
@@ -36,7 +36,7 @@ export async function decideUnsubscribePageState({
     logger,
   });
   const answer = response.answers[CONFIRMED_KEY];
-  if (answer?.type !== "yesNo") {
+  if (answer?.type !== "boolean") {
     throw new Error(
       "Decision model response is missing the unsubscribe-page answer",
     );

@@ -125,6 +125,7 @@ export function applyMetadataPatch(
     from: patch.from ?? current.from,
     to: patch.to ?? current.to,
     cc: patch.cc ?? current.cc,
+    bcc: patch.bcc ?? current.bcc,
     receivedAtMs: patch.receivedAtMs ?? current.receivedAtMs,
     read: patch.read ?? current.read,
     starred: patch.starred ?? current.starred,

@@ -1,7 +1,4 @@
-import {
-  useFeatureFlagEnabled,
-  useFeatureFlagVariantKey,
-} from "posthog-js/react";
+import { useFeatureFlagEnabled } from "posthog-js/react";
 import { env } from "@/env";
 import {
   INTEGRATION_ACTION_FEATURE_FLAG,
@@ -39,11 +36,6 @@ export function useIntegrationActionsEnabled(): boolean {
   return isIntegrationActionGloballyEnabled() || posthogEnabled === true;
 }
 
-export function useSmartFilingEnabled() {
-  const posthogEnabled = useFeatureFlagEnabled("smart-filing");
-  return env.NEXT_PUBLIC_SMART_FILING_ENABLED || posthogEnabled;
-}
-
 export function useBookingLinksEnabled() {
   const posthogEnabled = useFeatureFlagEnabled("booking-links");
   return env.NEXT_PUBLIC_BOOKING_LINKS_ENABLED || posthogEnabled;
@@ -52,14 +44,4 @@ export function useBookingLinksEnabled() {
 export function useTeamsEnabled() {
   const posthogEnabled = useFeatureFlagEnabled("microsoft-teams");
   return env.NEXT_PUBLIC_TEAMS_ENABLED || posthogEnabled;
-}
-
-export type PricingFrequencyDefault = "control" | "monthly" | "annually";
-
-export function usePricingFrequencyDefault():
-  | PricingFrequencyDefault
-  | undefined {
-  return useFeatureFlagVariantKey("pricing-frequency-default") as
-    | PricingFrequencyDefault
-    | undefined;
 }

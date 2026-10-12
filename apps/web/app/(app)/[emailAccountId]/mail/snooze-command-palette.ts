@@ -1,5 +1,4 @@
 import { format } from "date-fns";
-import { Clock3Icon } from "lucide-react";
 import * as chrono from "chrono-node";
 import type { Command } from "@/lib/commands/types";
 
@@ -20,7 +19,6 @@ export function buildSnoozeCommandPalette({
       {
         id: "mail-snooze-natural-language",
         label: `Snooze until ${formatSnoozeTime(naturalLanguageDate)}`,
-        icon: Clock3Icon,
         section: "actions",
         priority: 0,
         keywords: [query],
@@ -33,7 +31,6 @@ export function buildSnoozeCommandPalette({
     id: `mail-snooze-${preset.id}`,
     label: preset.label,
     description: formatSnoozeTime(preset.until),
-    icon: Clock3Icon,
     section: "actions",
     priority: index,
     keywords: ["snooze", "later", "remind", preset.id, preset.label],
@@ -55,49 +52,41 @@ export function parseSnoozeDate(input: string, now = new Date()) {
 }
 
 const MORNING_HOUR = 9;
-const AFTERNOON_HOUR = 17;
-const EVENING_HOUR = 20;
+const SUNDAY = 0;
+const FRIDAY = 5;
+const SATURDAY = 6;
 
 export function getSnoozePresets(now: Date) {
-  const weekend = weekendMorning(now);
   const candidates = [
     {
-      id: "this-afternoon",
-      label: "This afternoon",
-      until: atHour(now, 0, AFTERNOON_HOUR),
-    },
-    {
-      id: "this-evening",
-      label: "This evening",
-      until: atHour(now, 0, EVENING_HOUR),
-    },
-    {
-      id: "tomorrow-morning",
-      label: "Tomorrow morning",
+      id: "tomorrow",
+      label: "Tomorrow",
       until: atHour(now, 1, MORNING_HOUR),
     },
-    ...(weekend
-      ? [{ id: "this-weekend", label: "This weekend", until: weekend }]
-      : []),
     {
-      id: "next-monday",
-      label: "Next Monday",
-      until: atHour(now, daysUntilNextMonday(now), MORNING_HOUR),
+      id: "end-of-week",
+      label: "End of week",
+      until: laterThisWeek(now, FRIDAY),
+    },
+    {
+      id: "this-weekend",
+      label: "This weekend",
+      until: now.getDay() === SUNDAY ? null : laterThisWeek(now, SATURDAY),
     },
     {
       id: "next-week",
       label: "Next week",
-      until: atHour(now, 7, MORNING_HOUR),
+      until: atHour(now, daysUntilNextMonday(now), MORNING_HOUR),
     },
   ];
 
   const seen = new Set<number>();
-  return candidates.filter((preset) => {
-    if (preset.until <= now) return false;
-    const key = preset.until.getTime();
-    if (seen.has(key)) return false;
+  return candidates.flatMap(({ until, ...preset }) => {
+    if (!until) return [];
+    const key = until.getTime();
+    if (seen.has(key)) return [];
     seen.add(key);
-    return true;
+    return [{ ...preset, until }];
   });
 }
 
@@ -112,10 +101,9 @@ function atHour(now: Date, daysFromNow: number, hour: number) {
   return date;
 }
 
-function weekendMorning(now: Date) {
-  const day = now.getDay();
-  if (day === 0 || day === 6) return null;
-  return atHour(now, 6 - day, MORNING_HOUR);
+function laterThisWeek(now: Date, weekday: number) {
+  const daysAhead = weekday - now.getDay();
+  return daysAhead > 0 ? atHour(now, daysAhead, MORNING_HOUR) : null;
 }
 
 function daysUntilNextMonday(now: Date) {

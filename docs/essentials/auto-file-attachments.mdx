@@ -4,40 +4,54 @@ description: 'Automatically organize email attachments in Google Drive or OneDri
 icon: 'folder-open'
 ---
 
-Auto-File Attachments keeps your drive organized without you lifting a finger. Incoming email attachments are analyzed and saved to the right folders in Google Drive or Microsoft OneDrive/SharePoint automatically.
+Auto-File Attachments keeps your drive organized without you lifting a finger. Incoming email attachments are analyzed and saved to the right folders in Google Drive or Microsoft OneDrive automatically.
+
+<iframe
+  src="https://player.mux.com/QwgQawZKf5eQLrZ00UiRCYS3MXrIE8TsEL7opwHmerMw?metadata-video-title=Auto-File%20Attachments%20walkthrough&accent-color=%233b82f6"
+  title="Auto-File Attachments walkthrough"
+  style={{ width: "100%", border: "none", aspectRatio: "16/9" }}
+  loading="lazy"
+  allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
+  allowFullScreen
+></iframe>
 
 ## Set Up Auto-Filing
 
 ### Connect a Drive
 
-Open **Attachments** in the left sidebar and connect one of the supported storage providers:
+Open **Attachments** under Tools in the left sidebar and choose **Add Google Drive** or **Add OneDrive**.
 
-- Google Drive
-- Microsoft OneDrive or SharePoint
+For Google Drive, choose an access level:
 
-### Select Folders
+- **Standard**: You'll need to create new folders for filing.
+- **Full access**: Use your existing folders.
 
-Choose existing folders or create folders during setup. Give each folder a clear description so the assistant knows what belongs there.
+### Pick Your Folders
 
-| Folder | Example description |
-| --- | --- |
-| Receipts | Purchase receipts, invoices, and payment confirmations |
-| Contracts | Signed agreements, proposals, and legal documents |
-| Travel | Flight confirmations, hotel bookings, and itineraries |
+Under **1. Pick your folders**, tick the folders in the folder tree that the assistant may file to. It only files to folders you select.
 
-You can also add general filing instructions and exclusions. Start with a small set of distinct folders; overlapping descriptions make the destination harder to determine.
+### Describe How You Organize
+
+Under **2. Describe how you organize**, write one plain-English prompt that covers all your filing rules, including anything to skip. For example:
+
+```text
+Contracts go to Transactions by property address.
+Receipts go to Receipts by month.
+```
+
+If your prompt calls for it, such as filing receipts by month or invoices by vendor, the assistant can create a new subfolder for a document when no existing folder fits.
 
 ### Review the Preview
 
-The setup flow can preview recent attachments before auto-filing is enabled. Review the suggested destinations and correct them when needed, then enable the feature.
+Choose **Preview with my recent emails**. Under **3. See it in action**, the assistant files up to three recent attachments for real, without sending notifications, and shows where each one went. If a destination is wrong, select the ✕ under **Correct?** to move the file to the right folder. When you're happy, choose **Looks good, start auto-filing**.
 
 ## How Filing Works
 
-When a new attachment arrives, the assistant files it in the matching folder. If it isn't sure where a file belongs, it asks you for a destination instead of filing automatically.
+When a new attachment arrives, the assistant files it in the matching folder. Documents that don't match your prompt are skipped. If it isn't sure where a file belongs, it emails you to ask for a destination instead of filing automatically.
 
 ## Corrections and Activity
 
-Open **Attachments** to review Filing Activity and move a file to a different folder. Notification emails arrive in the source email thread, so you can also reply to approve a filing, move the file, or undo it. The assistant learns from these corrections.
+Open **Attachments** to review **Recent Activity** and move a file to a different folder. You can also change your selected folders under **Allowed folders** and edit your prompt under **Filing rules**. Notification emails arrive in the source email thread, so you can also reply to approve a filing, move the file, or undo it. The assistant learns from these corrections.
 
 ## Delivery Settings
 

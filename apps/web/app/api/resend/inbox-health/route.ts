@@ -169,13 +169,12 @@ async function sendEmail({
     getSenderEmailStats({
       emailAccountId,
       fromDate: subMonths(now, 3).getTime(),
-      logger,
     }),
     getNewsletterStatuses({ emailAccountId }),
     getEmailFilters(emailProvider, logger),
   ]);
 
-  const senders = senderStats.map((stats) => {
+  const senders = senderStats.senders.map((stats) => {
     const email = canonicalizeEmailAddress(stats.from);
     return {
       name: email,

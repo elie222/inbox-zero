@@ -61,7 +61,7 @@ export function useReplyDraftPersistence({
     readPendingContent();
     const content = latest.current;
     if (!content) return true;
-    const snapshot = getReplyDraftSnapshot(content);
+    const snapshot = JSON.stringify(content);
     if (snapshot === queuedSnapshot.current) return queuedSave.current ?? true;
 
     queuedSnapshot.current = snapshot;
@@ -151,13 +151,4 @@ export function useReplyDraftPersistence({
   );
 
   return { capture, clear, flush, saveError };
-}
-
-function getReplyDraftSnapshot(content: ReplyDraftContent) {
-  return JSON.stringify({
-    ...content,
-    attachments: content.attachments.map(
-      ({ contentBase64: _content, ...metadata }) => metadata,
-    ),
-  });
 }

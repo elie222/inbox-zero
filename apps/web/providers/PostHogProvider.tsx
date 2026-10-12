@@ -18,6 +18,10 @@ import { clearPendingAuthProvider } from "@/utils/analytics/auth-funnel";
 import { startDesktopHealthReporting } from "@/utils/analytics/desktop-health";
 import { ONE_DAY_MS } from "@/utils/date";
 import { scheduleAfterPageLoad } from "@/utils/schedule-after-page-load";
+import {
+  canUseTrackingCookies,
+  subscribeToCookieConsent,
+} from "@/utils/cookie-consent";
 
 // based on: https://posthog.com/docs/libraries/next-js
 
@@ -96,10 +100,27 @@ if (typeof window !== "undefined" && env.NEXT_PUBLIC_POSTHOG_KEY) {
     capture_pageview: false, // Disable automatic pageview capture, as we capture manually
     disable_session_recording: true,
     disable_surveys: true,
+    // Without consent, nothing is written to cookies or storage, so an
+    // anonymous visitor is only recognized within the current page session.
+    persistence: canUseTrackingCookies() ? "localStorage+cookie" : "memory",
     before_send: stripUntrackedUrlParams,
   });
   posthog.register(getClientAnalyticsProperties());
   startDesktopHealthReporting();
+  subscribeToCookieConsent(() => {
+    if (!canUseTrackingCookies()) {
+      posthog.set_config({
+        persistence: "memory",
+        disable_session_recording: true,
+      });
+      return;
+    }
+
+    posthog.set_config({ persistence: "localStorage+cookie" });
+    if (deferredFeaturesEnabled) {
+      posthog.set_config({ disable_session_recording: false });
+    }
+  });
 }
 
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
@@ -122,7 +143,7 @@ function DeferredPostHogFeatures() {
 
       deferredFeaturesEnabled = true;
       posthog.set_config({
-        disable_session_recording: false,
+        disable_session_recording: !canUseTrackingCookies(),
         disable_surveys: false,
       });
       posthog.reloadFeatureFlags();

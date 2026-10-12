@@ -3,6 +3,7 @@ import type { Logger } from "@/utils/logger";
 import {
   getProviderFromRateLimitApiErrorType,
   type EmailProviderRateLimitProvider,
+  isProviderRateLimitModeError,
   ProviderRateLimitModeError,
   toRateLimitProvider,
 } from "@/utils/email/rate-limit-mode-error";
@@ -291,6 +292,10 @@ export function getProviderRateLimitDelayMs({
   provider: EmailProviderRateLimitProvider;
   attemptNumber: number;
 }) {
+  // The guard's own error is not a provider response. Recording it would
+  // push retryAt forward on every skipped call, so the mode never expires.
+  if (isProviderRateLimitModeError(error)) return null;
+
   if (provider === "google") {
     return getGoogleRateLimitDelayMs(error, attemptNumber);
   }

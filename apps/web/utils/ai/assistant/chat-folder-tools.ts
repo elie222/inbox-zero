@@ -7,6 +7,7 @@ import {
   flattenOutlookFolders,
   type OutlookFolder,
 } from "@/utils/outlook/folders";
+import { findFolderMatch } from "@/utils/outlook/search-scope";
 import { posthogCaptureEvent } from "@/utils/posthog";
 
 type FolderToolOptions = {
@@ -39,7 +40,7 @@ export const listFoldersTool = ({
 }: FolderToolOptions) =>
   tool({
     description:
-      "List Outlook mail folders for this account. Use this to find folders before searching or moving threads. Returns names, paths, and IDs; use a folder ID in searchInbox categoryName when names are ambiguous.",
+      "List Outlook mail folders for this account. Use this to find folders before searching or moving threads. Returns names, paths, and IDs; use a folder ID in searchInbox folderName when names are ambiguous.",
     inputSchema: z.object({}),
     execute: async () => {
       trackToolCall({ tool: "list_folders", email, logger });
@@ -242,48 +243,12 @@ function toVisibleFolder(folder: FolderReference): FlattenedFolder {
   };
 }
 
-function findFolderMatch(folders: FolderReference[], nameOrPath: string) {
-  const normalizedInput = normalizeFolderText(nameOrPath);
-  const pathMatch = folders.find(
-    (folder) => normalizeFolderText(folder.path) === normalizedInput,
-  );
-
-  if (pathMatch) return { folder: pathMatch };
-
-  const nameMatches = folders.filter(
-    (folder) => normalizeFolderText(folder.name) === normalizedInput,
-  );
-
-  if (nameMatches.length > 1) return { ambiguous: true };
-  if (nameMatches[0]) return { folder: nameMatches[0] };
-
-  const pathAliasMatches = folders.filter(
-    (folder) =>
-      normalizeFolderPath(folder.path) === normalizeFolderPath(nameOrPath),
-  );
-
-  if (pathAliasMatches.length > 1) return { ambiguous: true };
-  return { folder: pathAliasMatches[0] };
-}
-
 function isFolderPath(nameOrPath: string) {
   return (
     nameOrPath.includes(FOLDER_SEPARATOR) ||
     nameOrPath.includes("/") ||
     nameOrPath.includes("\\")
   );
-}
-
-function normalizeFolderPath(path: string) {
-  return path
-    .split(FOLDER_SEPARATOR)
-    .flatMap((segment) => segment.split(/[\\/]/))
-    .map(normalizeFolderText)
-    .join(FOLDER_SEPARATOR);
-}
-
-function normalizeFolderText(value: string) {
-  return value.trim().toLowerCase();
 }
 
 async function trackToolCall({

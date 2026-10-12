@@ -10,8 +10,11 @@ import {
   MessagingRoutePurpose,
   MessagingRouteTargetType,
 } from "@/generated/prisma/enums";
-import { createTestLogger } from "@/__tests__/helpers";
+import { createTestLogger, getMockMessage } from "@/__tests__/helpers";
 import type { ParsedMessage } from "@/utils/types";
+import type { OutlookClient } from "@/utils/outlook/client";
+import { sendDraft as sendOutlookDraft } from "@/utils/outlook/draft";
+import { handleSlackRuleNotificationModalSubmit } from "./rule-notifications";
 
 vi.mock("@/utils/prisma");
 
@@ -83,7 +86,10 @@ describe("handleRuleNotificationAction", () => {
     prisma.executedAction.findMany.mockResolvedValue([] as never);
   });
 
-  it("keeps the draft preview visible after sending from Slack", async () => {
+  it.each([
+    "google",
+    "microsoft",
+  ] as const)("keeps the draft preview and provider link visible after sending from Slack: %s", async (accountProvider) => {
     const provider = {
       sendDraft: vi.fn().mockResolvedValue(undefined),
       getDraft: vi.fn().mockResolvedValue({
@@ -106,6 +112,7 @@ describe("handleRuleNotificationAction", () => {
         inline: [],
       } satisfies ParsedMessage),
       getMessage: vi.fn().mockResolvedValue({
+        externalUrl: "https://outlook.office.com/owa/?ItemID=received-1",
         id: "message-1",
         threadId: "thread-1",
         textPlain: "Original message body",
@@ -133,6 +140,7 @@ describe("handleRuleNotificationAction", () => {
     mockNotificationContext({
       id: "action-1",
       type: ActionType.DRAFT_MESSAGING_CHANNEL,
+      accountProvider,
       content:
         'Thanks for the note.\n\nTry opening the &quot;Test&quot; tab.\n\nDrafted by <a href="https://getinboxzero.com/?ref=ABC">Inbox Zero</a>.',
       mailboxDraftAction: {
@@ -177,10 +185,17 @@ describe("handleRuleNotificationAction", () => {
       "Drafted by <https://getinboxzero.com/?ref=ABC|Inbox Zero>.",
     );
     expect(cardText).toContain("Status: Reply sent. ✅");
-    expect(cardText).toContain("Open in Gmail");
-    expect(cardText).toContain(
-      "https://mail.google.com/mail/u/?authuser=user%40example.com#all/message-1",
-    );
+    if (accountProvider === "microsoft") {
+      expect(cardText).toContain("Open in Outlook");
+      expect(cardText).toContain(
+        "https://outlook.office.com/owa/?ItemID=received-1&ispopout=0",
+      );
+    } else {
+      expect(cardText).toContain("Open in Gmail");
+      expect(cardText).toContain(
+        "https://mail.google.com/mail/u/?authuser=user%40example.com#all/message-1",
+      );
+    }
   });
 
   it("sends the existing Gmail draft when the Slack action owns the draft id", async () => {
@@ -413,6 +428,99 @@ describe("handleRuleNotificationAction", () => {
       "telegram-message-1",
       "Draft already sent. No action needed.",
     );
+  });
+
+  it("marks an edited Outlook draft sent when Graph cannot yet read the sent message", async () => {
+    const post = vi.fn().mockResolvedValue(undefined);
+    const get = vi.fn(async () => {
+      if (post.mock.calls.length) {
+        throw Object.assign(new Error("Message not found"), {
+          statusCode: 404,
+          code: "ErrorItemNotFound",
+        });
+      }
+      return { id: "draft-1", conversationId: "thread-1" };
+    });
+    const client = {
+      getClient: () => ({
+        api: (path: string) => {
+          if (path === "/me/messages/draft-1/send") return { post };
+          if (path === "/me/messages/draft-1") {
+            return { get, select: vi.fn().mockReturnValue({ get }) };
+          }
+          throw new Error(`Unexpected Graph path: ${path}`);
+        },
+      }),
+    } as unknown as OutlookClient;
+    const provider = {
+      updateDraft: vi.fn().mockResolvedValue(undefined),
+      sendDraft: (draftId: string) =>
+        sendOutlookDraft({ client, draftId, logger }),
+      getDraft: vi.fn().mockResolvedValue(
+        getMockMessage({
+          id: "draft-1",
+          textPlain: "Edited draft body",
+        }),
+      ),
+      getMessage: vi.fn().mockResolvedValue({
+        ...getMockMessage(),
+        externalUrl: "https://outlook.office.com/owa/?ItemID=received-1",
+      }),
+    };
+    mockCreateEmailProvider.mockResolvedValue(provider);
+    mockNotificationContext({
+      id: "action-1",
+      type: ActionType.DRAFT_MESSAGING_CHANNEL,
+      content: "Initial draft body",
+      accountProvider: "microsoft",
+      messagingMessageId: "slack-ts-1",
+      mailboxDraftAction: {
+        id: "draft-action-1",
+        draftId: "draft-1",
+        subject: "Re: Test subject",
+      },
+    });
+    prisma.executedAction.update.mockResolvedValue({} as never);
+    prisma.executedAction.updateMany.mockResolvedValue({ count: 2 } as never);
+
+    const response = await handleSlackRuleNotificationModalSubmit({
+      event: {
+        privateMetadata: "action-1",
+        values: { draft_content: "Edited draft body" },
+        user: { userId: "user-1" },
+        raw: { team: { id: "team-1" } },
+        relatedMessage: {
+          edit: vi.fn().mockRejectedValue(new Error("Slack update failed")),
+        },
+      } as never,
+      logger,
+    });
+
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(provider.updateDraft).toHaveBeenCalledWith("draft-1", {
+      messageHtml: "Edited draft body",
+      subject: "Re: Test subject",
+    });
+    expect(response).toEqual({ action: "close" });
+    expect(prisma.executedAction.update).toHaveBeenCalledWith({
+      where: { id: "action-1" },
+      data: {
+        draftStatus: DraftEmailStatus.LIKELY_SENT,
+        messagingMessageStatus: MessagingMessageStatus.DRAFT_SENT,
+      },
+    });
+    expect(mockSlackUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ts: "slack-ts-1",
+        text: expect.stringContaining("Reply sent. ✅"),
+        blocks: expect.any(Array),
+      }),
+    );
+    const blocks = JSON.stringify(mockSlackUpdate.mock.calls[0][0].blocks);
+    expect(blocks).toContain("Open in Outlook");
+    expect(blocks).not.toContain("rule_draft_send");
+    expect(blocks).not.toContain("rule_draft_edit");
+    expect(blocks).not.toContain("rule_draft_dismiss");
   });
 
   it("closes the Slack edit modal when the draft sends but the message update fails", async () => {
@@ -1261,7 +1369,61 @@ describe("sendMessagingRuleNotification", () => {
     expect(serializedBlocks).toContain("Messaging draft body");
   });
 
-  it("adds an Open in Outlook button for Slack draft notifications on Microsoft accounts", async () => {
+  it.each([
+    { platform: "Slack", actionType: ActionType.DRAFT_MESSAGING_CHANNEL },
+    { platform: "Slack", actionType: ActionType.NOTIFY_MESSAGING_CHANNEL },
+    { platform: "Telegram", actionType: ActionType.DRAFT_MESSAGING_CHANNEL },
+  ])("uses the Graph link for $platform $actionType notifications", async ({
+    platform,
+    actionType,
+  }) => {
+    mockNotificationContext({
+      id: "action-1",
+      type: actionType,
+      content: "Draft body",
+      accountProvider: "microsoft",
+      ...(platform === "Telegram"
+        ? {
+            messagingChannel: {
+              id: "channel-1",
+              provider: MessagingProvider.TELEGRAM,
+              isConnected: true,
+              teamId: "telegram-chat-1",
+              providerUserId: "telegram-user-1",
+              accessToken: null,
+              channelId: null,
+            },
+          }
+        : {}),
+    });
+    prisma.executedAction.update.mockResolvedValue({} as never);
+    const { sendMessagingRuleNotification } = await import(
+      "./rule-notifications"
+    );
+    const delivered = await sendMessagingRuleNotification({
+      executedActionId: "action-1",
+      email: {
+        headers: { from: "sender@example.com", subject: "Test subject" },
+        snippet: "Preview text",
+        externalUrl:
+          "https://outlook.office.com/owa/?ItemID=received-1&exvsurl=1",
+      },
+      logger,
+    });
+    expect(delivered).toBe(true);
+    const payload =
+      platform === "Slack"
+        ? mockSlackPostMessage.mock.calls[0][0].blocks
+        : mockTelegramPostMessage.mock.calls[0][1];
+    const serialized = JSON.stringify(payload);
+    expect(serialized).toContain("Open in Outlook");
+    expect(serialized).toContain(
+      "https://outlook.office.com/owa/?ItemID=received-1&exvsurl=1&ispopout=0",
+    );
+    expect(serialized).not.toContain("/mail/inbox/id/");
+  });
+
+  it("omits the Outlook button when the provider link is missing", async () => {
     mockNotificationContext({
       id: "action-1",
       type: ActionType.DRAFT_MESSAGING_CHANNEL,
@@ -1269,33 +1431,22 @@ describe("sendMessagingRuleNotification", () => {
       accountProvider: "microsoft",
     });
     prisma.executedAction.update.mockResolvedValue({} as never);
-
     const { sendMessagingRuleNotification } = await import(
       "./rule-notifications"
     );
-
-    const delivered = await sendMessagingRuleNotification({
-      executedActionId: "action-1",
-      email: {
-        headers: {
-          from: "sender@example.com",
-          subject: "Test subject",
+    expect(
+      await sendMessagingRuleNotification({
+        executedActionId: "action-1",
+        email: {
+          headers: { from: "sender@example.com", subject: "Test subject" },
+          snippet: "Preview text",
         },
-        snippet: "Preview text",
-      },
-      logger,
-    });
-
-    expect(delivered).toBe(true);
-    expect(mockSlackPostMessage).toHaveBeenCalledTimes(1);
-
-    const [args] = mockSlackPostMessage.mock.calls[0];
-    const serializedBlocks = JSON.stringify(args.blocks);
-
-    expect(serializedBlocks).toContain("Open in Outlook");
-    expect(serializedBlocks).toContain(
-      "https://outlook.office.com/mail/inbox/id/message-1",
-    );
+        logger,
+      }),
+    ).toBe(true);
+    expect(
+      JSON.stringify(mockSlackPostMessage.mock.calls[0][0].blocks),
+    ).not.toContain("Open in Outlook");
   });
 
   it("does not add a mailbox link for unsupported account providers", async () => {

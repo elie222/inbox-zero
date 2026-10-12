@@ -132,7 +132,10 @@ describe("handleImageProxyRequest", () => {
   it("returns cached responses without hitting upstream fetch", async () => {
     const cachedResponse = new Response("cached-image", {
       status: 200,
-      headers: { "content-type": "image/png" },
+      headers: {
+        "content-type": "image/png",
+        "cross-origin-resource-policy": "same-site",
+      },
     });
     const cache = {
       match: vi.fn().mockResolvedValue(cachedResponse),
@@ -151,7 +154,15 @@ describe("handleImageProxyRequest", () => {
       },
     );
 
-    expect(response).toBe(cachedResponse);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("image/png");
+    expect(response.headers.get("cross-origin-resource-policy")).toBe(
+      "cross-origin",
+    );
+    expect(cachedResponse.headers.get("cross-origin-resource-policy")).toBe(
+      "same-site",
+    );
+    await expect(response.text()).resolves.toBe("cached-image");
     expect(cache.match).toHaveBeenCalledTimes(1);
     expect(upstreamFetch).not.toHaveBeenCalled();
   });
@@ -215,6 +226,9 @@ describe("handleImageProxyRequest", () => {
     );
 
     expect(response.status).toBe(200);
+    expect(response.headers.get("cross-origin-resource-policy")).toBe(
+      "cross-origin",
+    );
     expect(upstreamFetch).toHaveBeenCalledTimes(1);
   });
 

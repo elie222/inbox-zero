@@ -16,11 +16,11 @@ export async function aiTranslateEmails({
   texts: string[];
   targetLanguage: string;
   emailAccount: EmailAccountWithAI;
-}): Promise<string[]> {
+}): Promise<EmailTranslation[]> {
   if (texts.length === 0) return [];
 
   if (texts.every((text) => !text.trim())) {
-    return texts.map(() => "");
+    return texts.map(() => ({ text: "", sourceLanguage: null }));
   }
 
   // Hard-slice without ellipsis so truncation markers aren't treated as content.
@@ -32,6 +32,7 @@ Return only translations — no commentary, preface, or explanation.
 Preserve the original formatting as much as possible (markdown, line breaks, bullet points, links, and whitespace structure).
 Keep proper nouns, email addresses, URLs, and code-like tokens unchanged when translating would break them.
 If a text is empty or only whitespace, return an empty string for that entry.
+For each entry, also report the BCP 47 tag of the language the original text is written in.
 The translations array must have the same length and order as the input texts.`;
 
   const prompt = `Target language (BCP 47): ${targetLanguage}
@@ -72,13 +73,28 @@ ${formatTextsForPrompt(truncatedTexts)}`;
     );
   }
 
-  return translations;
+  // Blank inputs have no language; a model-supplied tag (e.g. "und") would
+  // make the client show an empty translation in place of the original.
+  return translations.map((translation, index) =>
+    texts[index].trim() ? translation : { text: "", sourceLanguage: null },
+  );
 }
+
+type EmailTranslation = { text: string; sourceLanguage: string | null };
 
 function translationSchema(textCount: number) {
   return z.object({
     translations: z
-      .array(z.string())
+      .array(
+        z.object({
+          text: z.string().describe("The translated text"),
+          sourceLanguage: z
+            .string()
+            .describe(
+              "BCP 47 tag of the original text's language (e.g. de, fr)",
+            ),
+        }),
+      )
       .length(textCount)
       .describe(
         "Translated texts in the same order and length as the input texts",

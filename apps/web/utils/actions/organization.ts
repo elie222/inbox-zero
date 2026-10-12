@@ -26,6 +26,7 @@ import { env } from "@/env";
 import { slugify } from "@/utils/string";
 import { posthogCaptureEvent } from "@/utils/posthog";
 import { createScopedLogger } from "@/utils/logger";
+import { prepareMemberRemovalNotifications } from "@/utils/team-comments/member-removal";
 import {
   deleteMemberOrganizationRuleCopies,
   syncOrganizationRulesForNewMember,
@@ -357,7 +358,7 @@ async function acceptInvitation({
 export const removeMemberAction = actionClientUser
   .metadata({ name: "removeMember" })
   .inputSchema(removeMemberBody)
-  .action(async ({ ctx: { userId }, parsedInput: { memberId } }) => {
+  .action(async ({ ctx: { userId, logger }, parsedInput: { memberId } }) => {
     const { targetMember } = await authorizeMemberManagement({
       memberId,
       userId,
@@ -393,7 +394,12 @@ export const removeMemberAction = actionClientUser
       organizationId: targetMember.organizationId,
     });
 
+    const notifyConversations = await prepareMemberRemovalNotifications(
+      { id: memberId },
+      logger,
+    );
     await prisma.member.delete({ where: { id: memberId } });
+    await notifyConversations();
   });
 
 export const updateMemberRoleAction = actionClientUser

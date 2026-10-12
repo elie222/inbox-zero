@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { createTestLogger } from "@/__tests__/helpers";
-import { getSenderUnsubscribeSource } from "./source";
+import {
+  getSenderUnsubscribeSource,
+  resolveSenderUnsubscribeSource,
+} from "./source";
 
 describe("getSenderUnsubscribeSource", () => {
   const logger = createTestLogger();
@@ -27,6 +30,25 @@ describe("getSenderUnsubscribeSource", () => {
       listUnsubscribeHeader: "<https://example.com/unsub>",
       unsubscribeLink: "https://example.com/body",
     });
+  });
+
+  it("keeps a client-supplied source instead of reading mail", async () => {
+    const emailProvider = {
+      getMessagesFromSender: vi.fn(),
+    };
+
+    await expect(
+      resolveSenderUnsubscribeSource({
+        senderEmail: "news@example.com",
+        unsubscribeLink: "https://example.com/given",
+        emailProvider: emailProvider as never,
+        logger,
+      }),
+    ).resolves.toEqual({
+      unsubscribeLink: "https://example.com/given",
+      listUnsubscribeHeader: undefined,
+    });
+    expect(emailProvider.getMessagesFromSender).not.toHaveBeenCalled();
   });
 
   it("returns nothing when lookup fails", async () => {

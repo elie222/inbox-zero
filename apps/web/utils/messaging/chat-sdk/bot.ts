@@ -82,7 +82,6 @@ import {
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import prisma from "@/utils/prisma";
 import {
-  getEmailUrlForMessage,
   getOpenInMailboxLabel,
   getEmailUrlForOptionalMessage,
 } from "@/utils/url";
@@ -93,6 +92,8 @@ const CHAT_SDK_STATE_KEY_PREFIX = "inbox-zero:chat-sdk";
 const CONNECT_COMMAND_REGEX =
   /^\/?connect(?:@[A-Za-z0-9_]+)?\s+([A-Za-z0-9._-]+)\s*$/i;
 const PENDING_EMAIL_CONFIRM_ACTION_ID = "acpe";
+const SLACK_SECTION_MAX_CHARS = 3000;
+const SLACK_DRAFT_SECTIONS_PER_CARD = 47;
 const LEGACY_PENDING_EMAIL_CONFIRM_ACTION_ID =
   "assistant_confirm_pending_email";
 const TEAMS_AI_GENERATED_CONTENT_NOTICE = `AI-generated content may be inaccurate. Review before using it. Report objectionable AI-generated content to ${env.NEXT_PUBLIC_SUPPORT_EMAIL}.`;
@@ -614,6 +615,8 @@ async function processMessagingAssistantMessage({
         });
       }
 
+      if (context.provider === "slack" && !thread.isDM) return true;
+
       if (!context.messageText && context.imageParts.length === 0) {
         return true;
       }
@@ -1027,7 +1030,7 @@ async function handlePendingEmailConfirmAction({
   }
 }
 
-async function postPendingEmailCard({
+export async function postPendingEmailCard({
   thread,
   chatMessageId,
   part,
@@ -1043,13 +1046,29 @@ async function postPendingEmailCard({
   const actionType = pendingActionTypeFromToolPartType(part.type);
 
   try {
-    await thread.post(
-      buildPendingEmailConfirmationCard({
-        chatMessageId,
-        part,
-        provider,
-      }),
-    );
+    const card = buildPendingEmailConfirmationCard({
+      chatMessageId,
+      part,
+      provider,
+    });
+    if (provider === "slack" && card.children.length > 49) {
+      const summary = card.children[0];
+      const actions = card.children[card.children.length - 1];
+      const draftSections = card.children.slice(1, -1);
+      // Reserve blocks for the title, summary, and Send action (50 total).
+      for (
+        let start = 0;
+        start < draftSections.length;
+        start += SLACK_DRAFT_SECTIONS_PER_CARD
+      ) {
+        const end = start + SLACK_DRAFT_SECTIONS_PER_CARD;
+        const children = [summary, ...draftSections.slice(start, end)];
+        if (end >= draftSections.length) children.push(actions);
+        await thread.post(Card({ title: card.title, children }));
+      }
+    } else {
+      await thread.post(card);
+    }
     return true;
   } catch (error) {
     logger.warn("Failed to post messaging pending email confirmation card", {
@@ -1088,15 +1107,29 @@ export function buildPendingEmailConfirmationCard({
     referenceFrom,
     referenceSubject,
   });
-  const preview = buildPendingEmailPreview(part);
+  const preview = buildPendingEmailPreview(
+    part,
+    provider === "slack" ? null : undefined,
+  );
 
   const cardChildren: CardChild[] = [
     CardText(getMessagingCardText({ provider, text: summary })),
   ];
   if (preview) {
-    cardChildren.push(
-      CardText(getMessagingCardText({ provider, text: preview })),
-    );
+    const maxChars =
+      provider === "slack" ? SLACK_SECTION_MAX_CHARS : preview.length;
+    for (let start = 0; start < preview.length; ) {
+      let end = Math.min(start + maxChars, preview.length);
+      const lastChar = preview.charCodeAt(end - 1);
+      if (end < preview.length && lastChar >= 0xd8_00 && lastChar <= 0xdb_ff)
+        end -= 1;
+      cardChildren.push(
+        CardText(
+          getMessagingCardText({ provider, text: preview.slice(start, end) }),
+        ),
+      );
+      start = end;
+    }
   }
   addTeamsAiGeneratedContentNotice({ children: cardChildren, provider });
   cardChildren.push(
@@ -1130,6 +1163,7 @@ async function replacePendingEmailConfirmationCard({
   confirmationResult?: {
     messageId?: string | null;
     threadId?: string | null;
+    externalUrl?: string | null;
   } | null;
   event: ActionEvent;
   logger: Logger;
@@ -1283,6 +1317,7 @@ function buildPendingEmailSuccessFeedback({
   confirmationResult?: {
     messageId?: string | null;
     threadId?: string | null;
+    externalUrl?: string | null;
   } | null;
   accountEmail?: string | null;
   accountProvider?: string | null;
@@ -1290,6 +1325,7 @@ function buildPendingEmailSuccessFeedback({
   const emailUrl = getEmailUrlForOptionalMessage({
     messageId: confirmationResult?.messageId,
     threadId: confirmationResult?.threadId,
+    externalUrl: confirmationResult?.externalUrl,
     emailAddress: accountEmail,
     provider: accountProvider || undefined,
   });
@@ -1310,6 +1346,7 @@ export function buildHandledPendingEmailCard({
   confirmationResult?: {
     messageId?: string | null;
     threadId?: string | null;
+    externalUrl?: string | null;
   } | null;
   messagingProvider: SupportedPlatform;
   part: PendingEmailToolPart;
@@ -1395,6 +1432,7 @@ export function getPendingEmailHandledOpenText({
   confirmationResult?: {
     messageId?: string | null;
     threadId?: string | null;
+    externalUrl?: string | null;
   } | null;
 }) {
   const openLink = getPendingEmailHandledOpenLink({
@@ -1417,21 +1455,18 @@ function getPendingEmailHandledOpenLink({
   confirmationResult?: {
     messageId?: string | null;
     threadId?: string | null;
+    externalUrl?: string | null;
   } | null;
 }) {
-  const messageId = confirmationResult?.messageId || undefined;
-  const threadId = confirmationResult?.threadId || undefined;
-  const resolvedMessageId = messageId || threadId;
-  const resolvedThreadId = threadId || messageId;
+  const emailUrl = getEmailUrlForOptionalMessage({
+    messageId: confirmationResult?.messageId,
+    threadId: confirmationResult?.threadId,
+    externalUrl: confirmationResult?.externalUrl,
+    emailAddress: accountEmail,
+    provider: accountProvider || undefined,
+  });
+  if (!emailUrl) return null;
 
-  if (!resolvedMessageId || !resolvedThreadId) return null;
-
-  const emailUrl = getEmailUrlForMessage(
-    resolvedMessageId,
-    resolvedThreadId,
-    accountEmail,
-    accountProvider || undefined,
-  );
   const label = getOpenInMailboxLabel(accountProvider);
   if (!label) return null;
 

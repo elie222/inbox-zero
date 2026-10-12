@@ -106,6 +106,7 @@ async function getAiResponse(options: GetAiResponseOptions): Promise<{
     label: "Choose rule",
     modelOptions,
     promptHardening: { trust: "untrusted", level: "full" },
+    cacheSystemPrompt: true,
   });
 
   if (shouldSelectMultipleRules({ rules, emailAccount })) {
@@ -169,8 +170,6 @@ async function getAiResponseSingleRule({
 
 ${getUserRulesPrompt({ rules })}
 
-${formatClassificationFeedback(classificationFeedback)}
-
 ${getUserInfoPrompt({ emailAccount })}
 
 Respond with a valid JSON object:
@@ -186,7 +185,7 @@ Example response format:
 
 <email>
 ${stringifyEmail(email, 500)}
-</email>${email.listUnsubscribe ? "\nNote: This email has a List-Unsubscribe header." : ""}`;
+</email>${email.listUnsubscribe ? "\nNote: This email has a List-Unsubscribe header." : ""}${appendClassificationFeedback(classificationFeedback)}`;
 
   const aiResponse = await generateObject({
     ...modelOptions,
@@ -271,8 +270,6 @@ async function getAiResponseMultiRule({
 ${rulesSection}
 </available_rules>
 
-${formatClassificationFeedback(classificationFeedback)}
-
 ${getUserInfoPrompt({ emailAccount })}
 
 Respond with a valid JSON object:
@@ -298,7 +295,7 @@ Example response format (multiple rules):
 
 <email>
 ${stringifyEmail(email, 500)}
-</email>${email.listUnsubscribe ? "\nNote: This email has a List-Unsubscribe header." : ""}`;
+</email>${email.listUnsubscribe ? "\nNote: This email has a List-Unsubscribe header." : ""}${appendClassificationFeedback(classificationFeedback)}`;
 
   const aiResponse = await generateObject({
     ...modelOptions,
@@ -431,6 +428,14 @@ User has manually classified emails from this sender into these rules:
 ${lines.join("\n")}
 These are hints from past user actions. Still evaluate the current email on its own merits.
 </classification_feedback>`;
+}
+
+// Per-sender feedback stays out of the system prompt so the prefix is cacheable.
+function appendClassificationFeedback(
+  feedback: ClassificationFeedbackItem[] | null | undefined,
+): string {
+  const formatted = formatClassificationFeedback(feedback);
+  return formatted ? `\n\n${formatted}` : "";
 }
 
 const OLLAMA_MULTI_RULE_SELECTION_GUIDANCE = [

@@ -4,7 +4,10 @@ import { betterAuthConfig } from "@/utils/auth";
 import { SafeError } from "@/utils/error";
 import { withError } from "@/utils/middleware";
 import { mobileAuthCodeVerifierSchema } from "@/utils/mobile-auth/pkce";
-import { consumeMobileAuthCode } from "@/utils/mobile-auth/oauth-code";
+import {
+  consumeMobileAuthCode,
+  getMobileAuthFlowId,
+} from "@/utils/mobile-auth/oauth-code";
 import { buildMobileSessionCookie } from "@/utils/mobile-auth/session-cookie";
 
 const exchangeCodeSchema = z.object({
@@ -38,6 +41,7 @@ export const POST = withError("mobile-auth/exchange-code", async (request) => {
 
   request.logger.info("Exchanged mobile auth code", {
     userId,
+    flowId: getMobileAuthFlowId(body.state),
   });
 
   const response = NextResponse.json({ success: true });
