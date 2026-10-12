@@ -364,6 +364,7 @@ function ComposeEmailFormContent({
     replyingToEmail?.fromHint,
     sendAsAddresses,
   );
+  const initialFrom = initialSendAs && formatSendAsAddress(initialSendAs);
   const { mutate } = useSWRConfig();
   const client = useOptionalMailClient() ?? getActiveMailClient();
   const [sendAt, setSendAt] = useState(storedDraft?.content?.sendAt ?? "");
@@ -504,14 +505,21 @@ function ComposeEmailFormContent({
     watch,
     setValue,
   } = useForm<ComposeFormValues>({
-    defaultValues: storedDraft?.content?.values ?? {
-      replyToEmail: getReplyToEmailPayload(replyingToEmail),
-      subject: replyingToEmail?.subject,
-      from: initialSendAs && formatSendAsAddress(initialSendAs),
-      to: replyingToEmail?.to,
-      cc: replyingToEmail?.cc,
-      bcc: replyingToEmail?.bcc,
-    },
+    defaultValues: storedDraft?.content?.values
+      ? {
+          // Drafts saved before send-as support carry no sender; leaving it
+          // unset would show the default while the mailbox draft keeps its own.
+          ...storedDraft.content.values,
+          from: storedDraft.content.values.from ?? initialFrom,
+        }
+      : {
+          replyToEmail: getReplyToEmailPayload(replyingToEmail),
+          subject: replyingToEmail?.subject,
+          from: initialFrom,
+          to: replyingToEmail?.to,
+          cc: replyingToEmail?.cc,
+          bcc: replyingToEmail?.bcc,
+        },
   });
   const {
     onSlashKeyDown,
