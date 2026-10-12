@@ -23,6 +23,8 @@ describe("trimStaleToolResults", () => {
     const firstSearch = getToolOutputValue(trimmed, "call-0");
     expect(firstSearch).toMatchObject({
       queryUsed: "query 0",
+      exactCount: 47,
+      countError: "Exact message count unavailable",
       nextPageToken: "page-token-0",
       messages: [
         {
@@ -168,6 +170,8 @@ function searchRound(
             value: {
               queryUsed: `query ${index}`,
               totalReturned: 1,
+              exactCount: 47,
+              countError: "Exact message count unavailable",
               nextPageToken: `page-token-${index}`,
               hasMore: true,
               summary: { total: 1 },

@@ -286,3 +286,34 @@ export function libraryDefinition(entry: SplitLibraryEntry) {
     }
   });
 }
+
+export function findLibrarySplit(
+  entry: SplitLibraryEntry,
+  filters: MailSplitFilterDraft[],
+  splits: {
+    id: string;
+    name: string;
+    matchAll: boolean;
+    filters: MailSplitFilterDraft[];
+  }[],
+) {
+  if (entry.createsSystemType) {
+    return splits.find(
+      (split) => split.name.toLowerCase() === entry.name.toLowerCase(),
+    );
+  }
+  return splits.find(
+    (split) =>
+      split.name.toLowerCase() === entry.name.toLowerCase() &&
+      split.matchAll === (entry.matchAll ?? true) &&
+      split.filters.length === filters.length &&
+      JSON.stringify(
+        split.filters
+          .map((filter) => [filter.kind, filter.value ?? null])
+          .sort(),
+      ) ===
+        JSON.stringify(
+          filters.map((filter) => [filter.kind, filter.value ?? null]).sort(),
+        ),
+  );
+}

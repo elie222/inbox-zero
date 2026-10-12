@@ -5,6 +5,7 @@ import {
 } from "@inboxzero/mail-core/engine";
 import type { AssistantStateSource } from "@inboxzero/mail-core/ports/assistant-source";
 import type { MailboxSource } from "@inboxzero/mail-core/ports/mailbox-source";
+import type { SyncPage } from "@inboxzero/mail-core/sync";
 import type { OperationExecutor } from "@inboxzero/mail-core/ports/operation-executor";
 import {
   dispatchMailIpc,
@@ -19,7 +20,6 @@ import {
 } from "./sqlite";
 import { desktopStoragePressure } from "./storage-pressure";
 import { watchMailboxSignals } from "./mailbox-signals";
-import { createFileBlobStore } from "@inboxzero/mail-sqlite/blob-store";
 
 export type DesktopMailOwner = {
   handleIpc(payload: unknown): ReturnType<typeof dispatchMailIpc>;
@@ -102,6 +102,7 @@ type OwnedEngineInput = {
   executor: OperationExecutor;
   assistant?: AssistantStateSource;
   idleCatchUpIntervalMs?: number;
+  onSyncPageCommitted?: (page: SyncPage) => void;
   /** The loop keeps retrying after a failed run; the host decides whether to report it. */
   onEngineError?: (error: unknown) => void;
   onSqliteTransaction?: SqliteTransactionTimer;
@@ -126,12 +127,12 @@ async function createOwnedEngine(input: OwnedEngineInput): Promise<{
     source: input.source,
     executor: input.executor,
     assistant: input.assistant,
+    onSyncPageCommitted: input.onSyncPageCommitted,
     idleCatchUpIntervalMs: input.idleCatchUpIntervalMs,
     runtime: createHostRuntime({
       ...nodeMailCrypto(),
       storagePressure: () => desktopStoragePressure(input.databasePath),
     }),
-    blobStore: createFileBlobStore(`${input.databasePath}.blobs`),
     ownerId: "desktop-owner",
   });
   const abort = new AbortController();

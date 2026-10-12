@@ -148,7 +148,6 @@ function draftContent(editableHtml: string) {
     subject: "Re: Plans",
     editableHtml,
     quotedHtml: "",
-    attachmentIds: [],
   };
 }
 

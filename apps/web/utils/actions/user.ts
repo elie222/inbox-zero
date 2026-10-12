@@ -6,6 +6,7 @@ import { Prisma } from "@/generated/prisma/client";
 import prisma from "@/utils/prisma";
 import { withThreadPageBufferDeletion } from "@/utils/redis/thread-page-buffer";
 import { deleteUser } from "@/utils/user/delete";
+import { stopWatchingEmailAccount } from "@/utils/email/watch-manager";
 import { actionClient, actionClientUser } from "@/utils/actions/safe-action";
 import { captureException, SafeError } from "@/utils/error";
 import { updateAccountSeats } from "@/utils/premium/seats";
@@ -22,7 +23,6 @@ import {
   updateAIDraftCleanupSettingsBody,
 } from "@/utils/actions/user.validation";
 import { clearLastEmailAccountCookie } from "@/utils/cookies.server";
-import { deleteAccountUploadDirectory } from "@/utils/mail-api/upload-blobs";
 import { deleteTinybirdEmailData } from "@inboxzero/tinybird";
 import { aliasPosthogUser } from "@/utils/posthog";
 import {
@@ -139,6 +139,8 @@ export const deleteEmailAccountAction = actionClientUser
         select: {
           email: true,
           accountId: true,
+          watchEmailsSubscriptionId: true,
+          account: { select: { provider: true } },
           user: { select: { email: true } },
         },
       });
@@ -188,6 +190,13 @@ export const deleteEmailAccountAction = actionClientUser
         const newPrimaryAccount = otherEmailAccounts[0];
         const oldEmail = emailAccount.user.email;
 
+        await stopWatchingEmailAccount({
+          emailAccountId,
+          provider: emailAccount.account.provider,
+          subscriptionId: emailAccount.watchEmailsSubscriptionId,
+          logger,
+        });
+
         await runDeleteEmailAccountTransaction(
           userId,
           [
@@ -227,6 +236,13 @@ export const deleteEmailAccountAction = actionClientUser
           });
         });
       } else {
+        await stopWatchingEmailAccount({
+          emailAccountId,
+          provider: emailAccount.account.provider,
+          subscriptionId: emailAccount.watchEmailsSubscriptionId,
+          logger,
+        });
+
         await runDeleteEmailAccountTransaction(
           userId,
           [
@@ -255,12 +271,6 @@ export const deleteEmailAccountAction = actionClientUser
         }),
       );
 
-      await deleteAccountUploadDirectory(emailAccountId).catch((error) => {
-        logger.error("Failed to delete account mail uploads", {
-          error,
-          emailAccountId,
-        });
-      });
       await notifyConversations();
 
       await clearLastEmailAccountCookieIfMatching({

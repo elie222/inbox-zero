@@ -50,13 +50,6 @@ function encodeRequestBody(body: unknown): {
   body?: BodyInit;
 } {
   if (body === undefined) return { headers: {} };
-  if (body instanceof Uint8Array) {
-    return {
-      headers: { "content-type": "application/octet-stream" },
-      // TS 5.7 Uint8Array<ArrayBufferLike> is not inferred as BodyInit.
-      body: body as BodyInit,
-    };
-  }
   return {
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),

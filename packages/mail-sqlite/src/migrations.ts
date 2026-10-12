@@ -1,3 +1,4 @@
+import { migrateContactSuggestions } from "./contact-suggestions";
 import type { SqlTransaction } from "./driver";
 import {
   migrateConversationIndex,
@@ -153,21 +154,6 @@ CREATE TABLE IF NOT EXISTS drafts (
   frozen INTEGER NOT NULL DEFAULT 0,
   updated_at_ms INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (account_id, draft_id)
-);
-
-CREATE TABLE IF NOT EXISTS draft_attachments (
-  account_id TEXT NOT NULL,
-  attachment_id TEXT NOT NULL,
-  draft_id TEXT,
-  filename TEXT NOT NULL,
-  content_type TEXT NOT NULL,
-  size_bytes INTEGER NOT NULL,
-  checksum TEXT NOT NULL,
-  inline INTEGER NOT NULL DEFAULT 0,
-  remote_upload_id TEXT,
-  remote_status TEXT NOT NULL DEFAULT 'local',
-  created_at_ms INTEGER NOT NULL,
-  PRIMARY KEY (account_id, attachment_id)
 );
 
 CREATE TABLE IF NOT EXISTS sync_streams (
@@ -426,27 +412,14 @@ export async function migrateMailbox(
       ON operations(account_id, sent_message_id)
       WHERE sent_message_id IS NOT NULL;
   `);
-  await tx.exec(`
-    CREATE TABLE IF NOT EXISTS draft_attachments (
-      account_id TEXT NOT NULL,
-      attachment_id TEXT NOT NULL,
-      draft_id TEXT,
-      filename TEXT NOT NULL,
-      content_type TEXT NOT NULL,
-      size_bytes INTEGER NOT NULL,
-      checksum TEXT NOT NULL,
-      inline INTEGER NOT NULL DEFAULT 0,
-      remote_upload_id TEXT,
-      remote_status TEXT NOT NULL DEFAULT 'local',
-      created_at_ms INTEGER NOT NULL,
-      PRIMARY KEY (account_id, attachment_id)
-    );
-  `);
+  // Attachment bytes now live on the mailbox draft, not on this device.
+  await tx.exec("DROP TABLE IF EXISTS draft_attachments");
   await migrateConversationIndex(tx);
   await migrateMembershipIndex(tx);
   await migrateInboxUnreadExcludesArchive(tx);
   await migrateMessageSearchIndex(tx);
   await migrateEmptyMeetingInvitationBodies(tx);
+  await migrateContactSuggestions(tx);
 }
 
 // Delta sync once stored a meeting invitation's flag without its body. Dropping

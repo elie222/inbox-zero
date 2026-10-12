@@ -786,7 +786,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -815,7 +814,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi later",
         editableHtml: "<p>Later</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(conflict.status).toBe("conflict");
@@ -865,7 +863,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -889,7 +886,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
             subject: "Hi later",
             editableHtml: "<p>Later</p>",
             quotedHtml: "",
-            attachmentIds: [],
           },
         })
       ).status,
@@ -909,7 +905,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi later",
         editableHtml: "<p>Later</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(edited.status).toBe("saved");
@@ -939,7 +934,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -979,7 +973,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
             subject: "Hi later",
             editableHtml: "<p>Later</p>",
             quotedHtml: "",
-            attachmentIds: [],
           },
         })
       ).status,
@@ -1002,7 +995,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi later",
         editableHtml: "<p>Later</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(edited.status).toBe("saved");
@@ -1045,7 +1037,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -1085,7 +1076,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi later",
         editableHtml: "<p>Later</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(edited.status).toBe("saved");
@@ -1143,7 +1133,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
             subject: "Hi later still",
             editableHtml: "<p>Later still</p>",
             quotedHtml: "",
-            attachmentIds: [],
           },
         })
       ).status,
@@ -1176,7 +1165,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -1217,7 +1205,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi later",
         editableHtml: "<p>Later</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(edited.status).toBe("saved");
@@ -1252,7 +1239,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Uncertain",
         editableHtml: "<p>Uncertain</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     const confirmedDraft = await store.saveDraft({
@@ -1265,7 +1251,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Confirmed",
         editableHtml: "<p>Confirmed</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(uncertainDraft.status).toBe("saved");
@@ -1339,7 +1324,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
             subject: "Uncertain later",
             editableHtml: "<p>Later</p>",
             quotedHtml: "",
-            attachmentIds: [],
           },
         })
       ).status,
@@ -1356,7 +1340,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
             subject: "Confirmed later",
             editableHtml: "<p>Later</p>",
             quotedHtml: "",
-            attachmentIds: [],
           },
         })
       ).status,
@@ -1397,7 +1380,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
         providerDraftId: "gmail-draft-1",
       },
     });
@@ -1441,7 +1423,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -1509,7 +1490,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
             subject: "Hi later",
             editableHtml: "<p>Later</p>",
             quotedHtml: "",
-            attachmentIds: [],
           },
         })
       ).status,
@@ -1534,7 +1514,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -1610,7 +1589,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
             subject: "Hi later",
             editableHtml: "<p>Later</p>",
             quotedHtml: "",
-            attachmentIds: [],
           },
         })
       ).status,
@@ -1672,7 +1650,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -1757,7 +1734,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -1821,7 +1797,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -1906,7 +1881,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -2005,7 +1979,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -2064,7 +2037,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
             subject: "Hi later",
             editableHtml: "<p>Later</p>",
             quotedHtml: "",
-            attachmentIds: [],
           },
         })
       ).status,
@@ -2089,7 +2061,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -2541,7 +2512,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Draft",
         editableHtml: "<p>Draft</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -2905,7 +2875,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hold",
         editableHtml: "<p>Hold</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -2967,7 +2936,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Held",
         editableHtml: "<p>Held</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     if (saved.status !== "saved") throw new Error("expected save");
@@ -3014,7 +2982,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Held",
         editableHtml: "<p>Held, edited</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(resaved.status).toBe("saved");
@@ -3038,7 +3005,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Now",
         editableHtml: "<p>Now</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     if (saved.status !== "saved") throw new Error("expected save");
@@ -3078,7 +3044,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Re: Reply Workflow Message",
         editableHtml: "<p>Thursday works.</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -3123,7 +3088,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Offline",
         editableHtml: "<p>Offline</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     const undoDraft = await store.saveDraft({
@@ -3136,7 +3100,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Undo",
         editableHtml: "<p>Undo</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(offlineDraft.status).toBe("saved");
@@ -4122,7 +4085,6 @@ describe("per-target outcomes, dependencies, pagination, and stale hydration", (
         subject: "Local",
         editableHtml: "<p>Local</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -4184,7 +4146,6 @@ describe("per-target outcomes, dependencies, pagination, and stale hydration", (
         subject: "Still local",
         editableHtml: "<p>Still local</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(later.status).toBe("saved");
@@ -4486,7 +4447,6 @@ describe("quota, retention, and recovery", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -4508,7 +4468,6 @@ describe("quota, retention, and recovery", () => {
         subject: "Hi later",
         editableHtml: "<p>Later</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(edited.status).toBe("saved");
@@ -4771,7 +4730,6 @@ async function queueReply(store: MailStore, providerDraftMessageIds: string[]) {
       subject: "Re: Plans",
       editableHtml: "<p>Thanks, see you then</p>",
       quotedHtml: "<blockquote>Earlier</blockquote>",
-      attachmentIds: [],
       conversationId: "c1",
       ...(providerDraftMessageIds.length
         ? { providerDraftId: "r-1", providerDraftMessageIds }

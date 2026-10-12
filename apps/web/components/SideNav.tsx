@@ -10,7 +10,6 @@ import {
   ArchiveIcon,
   ArrowLeftIcon,
   BarChartBigIcon,
-  BellIcon,
   BrushIcon,
   CalendarIcon,
   ChevronDownIcon,
@@ -111,16 +110,6 @@ export const useNavigation = () => {
         name: "Chat",
         href: prefixPath(currentEmailAccountId, "/assistant"),
         icon: MessageSquareIcon,
-      },
-      {
-        name: "Shared with me",
-        href: "/shared",
-        icon: MessagesSquareIcon,
-      },
-      {
-        name: "Activity",
-        href: "/shared/activity",
-        icon: BellIcon,
       },
       {
         name: "Assistant",

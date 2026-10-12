@@ -52,7 +52,6 @@ const defaultLlmsEnv = z.preprocess(
 const parsedEnv = createEnv({
   server: {
     NODE_ENV: z.enum(["development", "production", "test"]),
-    MAIL_UPLOAD_DIR: z.string().min(1).optional(),
     INBOX_ZERO_ENV_FILE: z.string().optional(),
     DATABASE_URL: z.string().url(),
     DATABASE_URL_UNPOOLED: z.string().url().optional(),
@@ -303,6 +302,7 @@ const parsedEnv = createEnv({
     POSTHOG_FEEDBACK_SURVEY_QUESTION_ID: z.string().optional(),
     POSTHOG_LLM_EVALS_APPROVED_EMAILS: z.string().optional(),
     FEEDBACK_WEBHOOK_URL: z.string().url().optional(),
+    SALES_INQUIRY_WEBHOOK_URL: z.string().url().optional(),
 
     RECALL_API_KEY: z.string().optional(),
     RECALL_WEBHOOK_SECRET: z.string().optional(),
@@ -348,10 +348,13 @@ const parsedEnv = createEnv({
     HEALTH_API_KEY: z.string().optional(),
     OAUTH_PROXY_URL: z.string().url().optional(),
     MCP_SERVER_ENABLED: booleanString.optional().default(false),
-    // Optional provider:model for structured decisions, e.g. typesafe:jev-latest
+    // Optional provider:model for structured decisions, e.g. openrouter:typesafe/jev-1.13
     DEFAULT_DECISION_MODEL: z
       .string()
-      .regex(/^typesafe:\S+$/, "Expected typesafe:<model>")
+      .regex(
+        /^(typesafe|openrouter|aigateway|openai):\S+$/,
+        "Expected <typesafe|openrouter|aigateway|openai>:<model>",
+      )
       .optional(),
     // Whether users who haven't chosen get the decision model; otherwise opt-in
     DEFAULT_DECISION_MODEL_ENABLED: booleanString.optional().default(false),
@@ -459,6 +462,7 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_SLACK_BOT_NAME: z.string().trim().min(1).default("Inbox Zero"),
     NEXT_PUBLIC_SELF_HOSTED_LOGIN_FOOTER_TEXT: z.string().optional(),
     NEXT_PUBLIC_CONTACTS_ENABLED: booleanString.optional().default(false),
+    NEXT_PUBLIC_COOKIE_CONSENT_ENABLED: booleanString.optional().default(false),
     NEXT_PUBLIC_MAIL_ENGINE_TEST_INSPECT: booleanString
       .optional()
       .default(false),
@@ -573,6 +577,8 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_SELF_HOSTED_LOGIN_FOOTER_TEXT:
       process.env.NEXT_PUBLIC_SELF_HOSTED_LOGIN_FOOTER_TEXT,
     NEXT_PUBLIC_CONTACTS_ENABLED: process.env.NEXT_PUBLIC_CONTACTS_ENABLED,
+    NEXT_PUBLIC_COOKIE_CONSENT_ENABLED:
+      process.env.NEXT_PUBLIC_COOKIE_CONSENT_ENABLED,
     NEXT_PUBLIC_MAIL_ENGINE_TEST_INSPECT:
       process.env.NEXT_PUBLIC_MAIL_ENGINE_TEST_INSPECT,
     NEXT_PUBLIC_GMAIL_OTHER_CONTACTS_ENABLED:
@@ -646,9 +652,24 @@ if (
   );
 }
 
-if (process.env.DEFAULT_DECISION_MODEL && !process.env.TYPESAFE_API_KEY) {
+const decisionModelApiKeyNames: Record<string, string> = {
+  typesafe: "TYPESAFE_API_KEY",
+  openrouter: "OPENROUTER_API_KEY",
+  aigateway: "AI_GATEWAY_API_KEY",
+  openai: "OPENAI_API_KEY",
+};
+const decisionModelProvider =
+  process.env.DEFAULT_DECISION_MODEL?.split(":")[0] ?? "";
+const decisionModelApiKeyName = decisionModelApiKeyNames[decisionModelProvider];
+// TypeSafe is not an LLM provider, so LLM_API_KEY cannot stand in for its key.
+const acceptsLlmApiKey = decisionModelProvider !== "typesafe";
+if (
+  decisionModelApiKeyName &&
+  !process.env[decisionModelApiKeyName]?.trim() &&
+  !(acceptsLlmApiKey && process.env.LLM_API_KEY?.trim())
+) {
   throw new Error(
-    "TYPESAFE_API_KEY is required when DEFAULT_DECISION_MODEL is set.",
+    `${decisionModelApiKeyName}${acceptsLlmApiKey ? " or LLM_API_KEY" : ""} is required for DEFAULT_DECISION_MODEL=${process.env.DEFAULT_DECISION_MODEL}.`,
   );
 }
 

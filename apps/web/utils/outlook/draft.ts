@@ -78,27 +78,27 @@ export async function sendDraft({
 }): Promise<{ messageId: string; threadId: string }> {
   logger.info("Sending draft", { draftId });
 
-  // Send the draft - this moves it from Drafts to Sent Items
-  // The message ID stays the same after sending
-  await withMicrosoftGraphWriteRetry(
-    () => client.getClient().api(`/me/messages/${draftId}/send`).post({}),
-    logger,
-  );
-
-  // Get the sent message to retrieve the conversationId (threadId)
-  const sentMessage = await withMicrosoftGraphRetry(
+  // Graph may return 404 while moving a sent draft to Sent Items. Capture the
+  // conversation ID before sending so that metadata reads cannot fail a send.
+  const draft = await withMicrosoftGraphRetry(
     () =>
       client
         .getClient()
         .api(`/me/messages/${draftId}`)
+        .select("conversationId")
         .get() as Promise<Message>,
     logger,
   );
 
-  const threadId = sentMessage.conversationId;
+  const threadId = draft.conversationId;
   if (!threadId) {
-    throw new Error("Failed to get threadId from sent message");
+    throw new Error("Failed to get threadId from draft");
   }
+
+  await withMicrosoftGraphWriteRetry(
+    () => client.getClient().api(`/me/messages/${draftId}/send`).post({}),
+    logger,
+  );
 
   logger.info("Draft sent successfully", {
     draftId,

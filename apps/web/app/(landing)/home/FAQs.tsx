@@ -38,7 +38,16 @@ const faqs: {
   },
   {
     question: `Will ${BRAND_NAME} replace my current email client?`,
-    answer: `No! ${BRAND_NAME} isn't an email client. It's used alongside your existing email client. You use Google or Outlook as normal.`,
+    answer: (
+      <span>
+        It doesn't have to. {BRAND_NAME} works inside Gmail and Outlook, so you
+        can keep using them as normal while the assistant works in the
+        background. {BRAND_NAME} also has its own{" "}
+        <Anchor href="/email-client">email client</Anchor> for the web, desktop,
+        and iPhone if you'd like to use it.
+      </span>
+    ),
+    answerText: `It doesn't have to. ${BRAND_NAME} works inside Gmail and Outlook, so you can keep using them as normal while the assistant works in the background. ${BRAND_NAME} also has its own email client for the web, desktop, and iPhone if you'd like to use it.`,
   },
   {
     question: "Is there a mobile app?",

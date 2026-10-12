@@ -1,157 +1,122 @@
 import { describe, it, expect } from "vitest";
 import { JSDOM } from "jsdom";
-import {
-  extractDraftComposerContent,
-  extractEmailReply,
-} from "./extract-reply.client";
+import { extractDraftComposerContent } from "./extract-reply.client";
 
-// Setup JSDOM
 const dom = new JSDOM();
 global.DOMParser = dom.window.DOMParser;
 
-describe("extractEmailReply", () => {
-  it("splits email with gmail quote container", () => {
-    const html = `
-      <div dir="ltr">
-        <div dir="ltr">This is my reply</div>
-      </div>
-      <div class="gmail_quote_container">
-        Original thread content
-      </div>
-    `;
+const SIGNATURE = '<div dir="ltr">Alex Example<div>Example Company</div></div>';
+const GMAIL_QUOTE = `<div class="gmail_quote gmail_quote_container">
+  <div dir="ltr" class="gmail_attr">On Thu, 6 Feb 2025 at 23:23, Leslie Sender &lt;leslie@example.com&gt; wrote:<br></div>
+  <blockquote class="gmail_quote" style="margin:0px 0px 0px 0.8ex;border-left:1px solid rgb(204,204,204);padding-left:1ex">
+    <div dir="ltr">Can we meet on Thursday?</div>
+  </blockquote>
+</div>`;
+// The composer used to save its quote behind an empty reply block.
+const COMPOSER_QUOTE_WITH_EMPTY_BLOCK = `<div dir="ltr"></div>\n<br>\n${GMAIL_QUOTE}`;
+const BODY =
+  "<div>Thanks Leslie, Thursday works.</div><div>I will bring the updated proposal.</div>";
 
-    const result = extractEmailReply(html);
-    expect(result.draftHtml).toBe('<div dir="ltr">This is my reply</div>');
-    expect(result.originalHtml).toBe(`<div class="gmail_quote_container">
-        Original thread content
-      </div>`);
+describe("extractDraftComposerContent", () => {
+  it("keeps the reply body of a composer-saved Gmail draft with a signature and quote", () => {
+    const html = `${BODY}<br>${SIGNATURE}<br>${COMPOSER_QUOTE_WITH_EMPTY_BLOCK}`;
+
+    const result = extractDraftComposerContent(html);
+
+    expect(result.draftHtml).toContain("Thanks Leslie, Thursday works.");
+    expect(result.draftHtml).toContain("I will bring the updated proposal.");
+    expect(result.draftHtml).not.toContain("gmail_quote");
+    expect(result.originalHtml).toContain("Can we meet on Thursday?");
+    expectNoTextLost(html, result);
   });
 
-  it("splits email with gmail quote", () => {
-    const html = `
-      <div dir="ltr">
-        <div dir="ltr">This is my reply</div>
-      </div>
-      <div class="gmail_quote">
-        Original thread content
-      </div>
-    `;
+  it("keeps the reply body of a composer-saved Outlook draft with a signature and quote", () => {
+    const html = `<html><head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"><style type="text/css" style="display:none">P {margin-top:0;margin-bottom:0;}</style></head><body dir="ltr"><div style="font-family: Aptos, Calibri, Arial, Helvetica, sans-serif; font-size: 12pt; color: rgb(0, 0, 0);">Thanks Leslie, Thursday works.</div><br><div id="Signature"><div>Alex Example</div></div><br>${COMPOSER_QUOTE_WITH_EMPTY_BLOCK}</body></html>`;
 
-    const result = extractEmailReply(html);
-    expect(result.draftHtml).toBe('<div dir="ltr">This is my reply</div>');
-    expect(result.originalHtml).toBe(`<div class="gmail_quote">
-        Original thread content
-      </div>`);
+    const result = extractDraftComposerContent(html);
+
+    expect(result.draftHtml).toContain("Thanks Leslie, Thursday works.");
+    expect(result.draftHtml).not.toContain("gmail_quote");
+    expect(result.originalHtml).toContain("Can we meet on Thursday?");
+    expectNoTextLost(html, result);
   });
 
-  it("handles direct reply without nested div", () => {
-    const html = `
-      <div dir="ltr">This is a direct reply</div>
-      <div class="gmail_quote">
-        Original thread content
-      </div>
-    `;
+  it("splits a draft written in Outlook at its reply header", () => {
+    const html = `<div dir="ltr"><p>Thursday works for me.</p></div><div id="Signature"><p>Alex Example</p></div><div id="appendonsend"></div><hr style="display:inline-block;width:98%"><div id="divRplyFwdMsg" dir="ltr"><b>From:</b> Leslie Sender<br><b>Subject:</b> Meeting</div><div>Can we meet on Thursday?</div>`;
 
-    const result = extractEmailReply(html);
-    expect(result.draftHtml).toBe(
-      '<div dir="ltr">This is a direct reply</div>',
-    );
-    expect(result.originalHtml).toBe(`<div class="gmail_quote">
-        Original thread content
-      </div>`);
+    const result = extractDraftComposerContent(html);
+
+    expect(result.draftHtml).toContain("Thursday works for me.");
+    expect(result.draftHtml).not.toContain("divRplyFwdMsg");
+    expect(result.originalHtml).toContain("Can we meet on Thursday?");
+    expectNoTextLost(html, result);
   });
 
-  it("returns full html when no quote container found", () => {
-    const html = '<div dir="ltr">Just a simple email</div>';
+  it("splits a draft written in Gmail at its quote", () => {
+    const html = `<div dir="ltr">hey, that sounds awesome!!!</div><br><div class="gmail_quote gmail_quote_container"><div dir="ltr" class="gmail_attr">On Tue, 25 Feb 2025 at 14:44, Alice Smith &lt;<a href="mailto:example@gmail.com">example@gmail.com</a>&gt; wrote:<br></div><blockquote class="gmail_quote" style="margin:0px 0px 0px 0.8ex;border-left:1px solid rgb(204,204,204);padding-left:1ex"><div dir="ltr"><div>hey, checking in</div></div>\r\n</blockquote></div>\r\n`;
 
-    const result = extractEmailReply(html);
-    expect(result.draftHtml).toBe(html);
-    expect(result.originalHtml).toBe("");
-  });
+    const result = extractDraftComposerContent(html);
 
-  it("ignores gmail_attr in reply selection", () => {
-    const html = `
-      <div dir="ltr">
-        <div dir="ltr">Real reply content</div>
-      </div>
-      <div dir="ltr" class="gmail_attr">On Mon, Jan 1, 2024...</div>
-      <div class="gmail_quote">
-        Original thread content
-      </div>
-    `;
-
-    const result = extractEmailReply(html);
-    expect(result.draftHtml).toBe('<div dir="ltr">Real reply content</div>');
-    expect(result.originalHtml).toBe(`<div class="gmail_quote">
-        Original thread content
-      </div>`);
-  });
-
-  it("handles empty html", () => {
-    const result = extractEmailReply("");
-    expect(result.draftHtml).toBe("");
-    expect(result.originalHtml).toBe("");
-  });
-
-  it("correctly extracts draft content from Gmail draft with <br> separator", () => {
-    const html = `<div dir="ltr">hey, that sounds awesome!!!</div><br><div class="gmail_quote gmail_quote_container"><div dir="ltr" class="gmail_attr">On Tue, 25 Feb 2025 at 14:44, Alice Smith &lt;<a href="mailto:example@gmail.com">example@gmail.com</a>&gt; wrote:<br></div><blockquote class="gmail_quote" style="margin:0px 0px 0px 0.8ex;border-left:1px solid rgb(204,204,204);padding-left:1ex"><div dir="ltr"><div>hey, checking in</div><div><br></div><span class="gmail_signature_prefix">-- </span><br><div dir="ltr" class="gmail_signature"><div dir="ltr">Alice Smith,<div>CEO, The Boring Fund</div></div></div></div>\r\n</blockquote></div>\r\n`;
-
-    const result = extractEmailReply(html);
     expect(result.draftHtml).toBe(
       '<div dir="ltr">hey, that sounds awesome!!!</div>',
     );
-    expect(result.originalHtml).toContain("gmail_quote");
+    expect(result.originalHtml).toContain("hey, checking in");
   });
 
-  it("handles more complex draft with formatting and <br> separator", () => {
-    const html = `<div dir="ltr">This is my <b>formatted</b> reply with <i>styling</i>.</div><br><div class="gmail_quote gmail_quote_container"><div dir="ltr" class="gmail_attr">On Mon, Mar 1, 2025 at 10:00, John Doe &lt;<a href="mailto:john@example.com">john@example.com</a>&gt; wrote:<br></div><blockquote class="gmail_quote" style="margin:0px 0px 0px 0.8ex;border-left:1px solid rgb(204,204,204);padding-left:1ex"><div dir="ltr">Original message content</div></blockquote></div>`;
+  it("returns a draft without a quote unchanged", () => {
+    const html = '<div dir="ltr">Just a simple email</div>';
 
-    const result = extractEmailReply(html);
-    expect(result.draftHtml).toBe(
-      '<div dir="ltr">This is my <b>formatted</b> reply with <i>styling</i>.</div>',
-    );
-    expect(result.originalHtml).toContain("gmail_quote");
+    expect(extractDraftComposerContent(html)).toEqual({
+      draftHtml: html,
+      originalHtml: "",
+    });
   });
 
-  it("handles more complex draft with formatting and <br> separator", () => {
-    const html = `<div dir="ltr">hi,<div><br></div><div>this is a test</div></div><br><div class="gmail_quote gmail_quote_container"><div dir="ltr" class="gmail_attr">On Mon, 5 May 2025 at 22:27, Matt &lt;<a href="mailto:xyz">examplecom</a>&gt; wrote:<br></div><blockquote class="gmail_quote" style="margin:0px 0px 0px 0.8ex;border-left:1px solid rgb(204,204,204);padding-left:1ex"><div dir="ltr">:)</div></blockquote></div>`;
-
-    const result = extractEmailReply(html);
-    expect(result.draftHtml).toBe(
-      '<div dir="ltr">hi,<div><br></div><div>this is a test</div></div>',
-    );
-    expect(result.originalHtml).toContain("gmail_quote");
-  });
-});
-
-describe("extractDraftComposerContent", () => {
-  it("keeps HTML replies that already have visible draft text", () => {
-    const html = `
-      <div dir="ltr">This is my reply</div>
-      <div class="gmail_quote">Original thread content</div>
-    `;
-    expect(extractDraftComposerContent(html, "unused plaintext")).toEqual(
-      extractEmailReply(html),
-    );
+  it("handles a missing body", () => {
+    expect(extractDraftComposerContent(undefined)).toEqual({
+      draftHtml: "",
+      originalHtml: "",
+    });
   });
 
   it("fills an empty quoted draft from plaintext", () => {
-    const html = `
-      <div dir="ltr"></div>
-      <div class="gmail_quote">Original thread content</div>
-    `;
+    const html = `<div dir="ltr"></div><div class="gmail_quote">Original thread content</div>`;
+
     const result = extractDraftComposerContent(html, "First saved reply");
+
     expect(result.draftHtml).toBe("<p>First saved reply</p>");
-    expect(result.originalHtml).toContain("gmail_quote");
+    expect(result.originalHtml).toContain("Original thread content");
   });
 
   it("fills a quoted draft whose reply part is only a break or nbsp", () => {
-    const html = `
-      <div dir="ltr">&nbsp;<br></div>
-      <div class="gmail_quote">Original thread content</div>
-    `;
+    const html = `<div dir="ltr">&nbsp;<br></div><div class="gmail_quote">Original thread content</div>`;
+
     const result = extractDraftComposerContent(html, "First saved reply");
+
     expect(result.draftHtml).toBe("<p>First saved reply</p>");
-    expect(result.originalHtml).toContain("gmail_quote");
+    expect(result.originalHtml).toContain("Original thread content");
+  });
+
+  it("keeps an image-only reply instead of its plaintext stand-in", () => {
+    const html = `<div><img src="cid:diagram@example" alt="Diagram"></div><br>${GMAIL_QUOTE}`;
+
+    const result = extractDraftComposerContent(html, "[image: Diagram]");
+
+    expect(result.draftHtml).toContain('src="cid:diagram@example"');
   });
 });
+
+function expectNoTextLost(
+  html: string,
+  result: { draftHtml: string; originalHtml: string },
+) {
+  expect(visibleText(result.draftHtml + result.originalHtml)).toBe(
+    visibleText(html),
+  );
+}
+
+function visibleText(html: string) {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  return (doc.body.textContent ?? "").replace(/\s+/g, " ").trim();
+}

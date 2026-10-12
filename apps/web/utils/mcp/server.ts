@@ -39,10 +39,10 @@ const readOnlyAnnotations = {
   destructiveHint: false,
   openWorldHint: false,
 };
-const writeAnnotations = {
+const ruleWriteAnnotations = {
   readOnlyHint: false,
-  destructiveHint: false,
-  openWorldHint: false,
+  destructiveHint: true,
+  openWorldHint: true,
 };
 const destructiveAnnotations = {
   readOnlyHint: false,
@@ -270,7 +270,7 @@ export async function handleMcpServerRequest(
         ...mcpAccountSelectorShape,
         rule: ruleRequestBodySchema,
       },
-      annotations: { ...writeAnnotations, title: "Create rule" },
+      annotations: { ...ruleWriteAnnotations, title: "Create rule" },
     },
     runTool("create_rule", "mcp:write", async (args) => {
       const emailAccount = await resolveMcpEmailAccount({
@@ -324,7 +324,7 @@ export async function handleMcpServerRequest(
         id: z.string(),
         rule: ruleRequestBodySchema,
       },
-      annotations: { ...writeAnnotations, title: "Update rule" },
+      annotations: { ...ruleWriteAnnotations, title: "Update rule" },
     },
     runTool("update_rule", "mcp:write", async (args) => {
       const emailAccount = await resolveMcpEmailAccount({

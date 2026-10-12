@@ -49,7 +49,7 @@ export function CalendarConnections() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4">
+          <div className="grid gap-4 max-sm:grid-cols-1">
             <ConnectCalendar />
 
             {connections.map((connection) => (
