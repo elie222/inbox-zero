@@ -15,6 +15,7 @@ vi.mock("@/utils/redis/account-validation", () => ({
 const sourceUserId = "mailbox-merge-db-source";
 const targetUserId = "mailbox-merge-db-target";
 const premiumId = "mailbox-merge-db-premium";
+const sourcePremiumId = "mailbox-merge-db-source-premium";
 const actualPremium = await vi.importActual<
   typeof import("@/utils/user/merge-premium")
 >("@/utils/user/merge-premium");
@@ -29,7 +30,9 @@ describe.skipIf(!process.env.RUN_DB_TESTS)(
       await prisma.user.deleteMany({
         where: { id: { in: [sourceUserId, targetUserId] } },
       });
-      await prisma.premium.deleteMany({ where: { id: premiumId } });
+      await prisma.premium.deleteMany({
+        where: { id: { in: [premiumId, sourcePremiumId] } },
+      });
       await prisma.user.createMany({
         data: [
           { id: sourceUserId, email: "merge-source@example.com" },
@@ -43,7 +46,9 @@ describe.skipIf(!process.env.RUN_DB_TESTS)(
       await prisma.user.deleteMany({
         where: { id: { in: [sourceUserId, targetUserId] } },
       });
-      await prisma.premium.deleteMany({ where: { id: premiumId } });
+      await prisma.premium.deleteMany({
+        where: { id: { in: [premiumId, sourcePremiumId] } },
+      });
     });
 
     it("preserves a mailbox linked after the merge reads its source account snapshot", async () => {
@@ -217,6 +222,41 @@ describe.skipIf(!process.env.RUN_DB_TESTS)(
           where: { email: "merge-original@example.com" },
         }),
       ).toMatchObject({ userId: targetUserId });
+    });
+
+    it("keeps the target's admin rights to its own premium when the source administers another one", async () => {
+      await prisma.premium.create({
+        data: {
+          id: premiumId,
+          tier: "STARTER_MONTHLY",
+          users: { connect: { id: targetUserId } },
+          admins: { connect: { id: targetUserId } },
+        },
+      });
+      await prisma.premium.create({
+        data: {
+          id: sourcePremiumId,
+          users: { connect: { id: sourceUserId } },
+          admins: { connect: { id: sourceUserId } },
+        },
+      });
+      vi.mocked(getPremiumTransferOperations).mockImplementationOnce(
+        actualPremium.getPremiumTransferOperations,
+      );
+
+      await expect(
+        mergeAccount({
+          sourceUserId,
+          targetUserId,
+          sourceAccountId: "mailbox-merge-original",
+          email: "merge-original@example.com",
+          name: null,
+          logger,
+        }),
+      ).resolves.toBe("full_merge");
+      expect(
+        await prisma.user.findUnique({ where: { id: targetUserId } }),
+      ).toMatchObject({ premiumId, premiumAdminId: premiumId });
     });
   },
 );
