@@ -54,6 +54,13 @@ export function HtmlEmail({
   onFocusMessage?: () => void;
 }) {
   const sanitizedHtml = useMemo(() => sanitizeEmailHtml(html), [html]);
+  // Message objects are rebuilt whenever the conversation republishes, so the
+  // effect keys on the attachments' identity rather than the array. Re-running
+  // it would mint new object URLs and remount the frame without its images.
+  const inlineImageIds = useMemo(
+    () => serializeInlineImageIds(inlineAttachments),
+    [inlineAttachments],
+  );
   const [showReplies, setShowReplies] = useState(false);
   const [renderHtml, setRenderHtml] = useState(
     () =>
@@ -78,7 +85,7 @@ export function HtmlEmail({
         emailAccountId,
         signal: controller.signal,
         html: sanitizedHtml,
-        inlineAttachments,
+        inlineImageIds,
         messageId,
       }),
     ]).then(
@@ -106,7 +113,7 @@ export function HtmlEmail({
       controller.abort();
       for (const objectUrl of objectUrls) URL.revokeObjectURL(objectUrl);
     };
-  }, [emailAccountId, inlineAttachments, messageId, sanitizedHtml]);
+  }, [emailAccountId, inlineImageIds, messageId, sanitizedHtml]);
 
   const { mainContent, quotedContent, hasQuotedContent } = useMemo(
     () => splitEmailContent(renderHtml),
@@ -202,23 +209,19 @@ async function loadInlineImageSources({
   emailAccountId,
   signal,
   html,
-  inlineAttachments,
+  inlineImageIds,
   messageId,
 }: {
   emailAccountId: string | undefined;
   signal: AbortSignal;
   html: string;
-  inlineAttachments: ParsedMessage["inline"];
+  inlineImageIds: string;
   messageId: string;
 }): Promise<Record<string, string>> {
-  if (!emailAccountId || !inlineAttachments.length) return {};
-
-  const attachmentIdByContentId = new Map<string, string>();
-  for (const attachment of inlineAttachments) {
-    const contentId = normalizeContentId(attachment.headers["content-id"]);
-    if (contentId && attachment.attachmentId)
-      attachmentIdByContentId.set(contentId, attachment.attachmentId);
-  }
+  const attachmentIdByContentId = new Map<string, string>(
+    JSON.parse(inlineImageIds),
+  );
+  if (!emailAccountId || !attachmentIdByContentId.size) return {};
 
   const entries = await Promise.all(
     getInlineImageContentIds(html).map(async (contentId) => {
@@ -252,4 +255,14 @@ async function loadInlineImageSources({
   );
 
   return Object.fromEntries(entries.filter((entry) => entry !== undefined));
+}
+
+function serializeInlineImageIds(inlineAttachments: ParsedMessage["inline"]) {
+  const entries: [contentId: string, attachmentId: string][] = [];
+  for (const attachment of inlineAttachments) {
+    const contentId = normalizeContentId(attachment.headers["content-id"]);
+    if (contentId && attachment.attachmentId)
+      entries.push([contentId, attachment.attachmentId]);
+  }
+  return JSON.stringify(entries);
 }
