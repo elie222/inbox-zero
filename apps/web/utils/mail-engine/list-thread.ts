@@ -33,6 +33,7 @@ export function conversationSummaryToListThread(
     internalDate: String(conversation.latestMessageAtMs),
     labelIds,
     parentFolderId: undefined,
+    hasAttachment: conversation.hasAttachments,
     headers: {
       from,
       to: conversation.to,
