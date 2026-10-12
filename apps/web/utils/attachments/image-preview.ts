@@ -76,10 +76,8 @@ export async function getAttachmentImagePreview(
 async function convertTiffToPng(blob: Blob): Promise<Blob | undefined> {
   try {
     // TIFFs are rare, so the decoder stays out of the mail-view bundle.
-    const utif = await import("utif2");
     // utif2 is CommonJS; strict ESM exposes it only as the default export.
-    const { decode, decodeImage, toRGBA8 } =
-      (utif as { default?: typeof utif }).default ?? utif;
+    const { decode, decodeImage, toRGBA8 } = (await import("utif2")).default;
     const buffer = await blob.arrayBuffer();
     const [image] = decode(buffer);
     const width = Number((image?.t256 as number[] | undefined)?.[0]);
