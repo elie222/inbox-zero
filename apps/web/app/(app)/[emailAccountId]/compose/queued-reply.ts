@@ -285,7 +285,11 @@ function operationOutcome(
   const operation = handle.getSnapshot().data;
   if (!operation) return;
   if (operation.status === "succeeded") {
-    return { status: "sent", messageId: "", threadId };
+    return {
+      status: "sent",
+      messageId: operation.sentMessage?.messageId ?? "",
+      threadId: operation.sentMessage?.conversationId ?? threadId,
+    };
   }
   if (operation.status === "failed" || operation.status === "needs_attention") {
     return {

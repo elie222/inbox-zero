@@ -91,13 +91,13 @@ export function beginUndoSend({
   inspect();
 }
 
-/** Offers View once the send has gone out, or closes the toast if it didn't. */
+/** Confirms a send that went out, with View when it can be shown, or closes the toast. */
 export function finishUndoSendToast(
   operationId: string,
-  onView: (() => void) | null,
+  outcome: { sent: false } | { sent: true; onView: (() => void) | null },
 ) {
   const toastId = undoSendToastId(operationId);
-  if (!onView) {
+  if (!outcome.sent) {
     toast.dismiss(toastId);
     return;
   }
@@ -105,7 +105,9 @@ export function finishUndoSendToast(
     id: toastId,
     description: SENT_MESSAGE,
     duration: SENT_TOAST_DURATION_MS,
-    action: { label: "View", onClick: onView },
+    action: outcome.onView
+      ? { label: "View", onClick: outcome.onView }
+      : undefined,
   });
 }
 

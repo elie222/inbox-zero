@@ -955,11 +955,11 @@ function ComposeEmailFormContent({
     [selectedEmailAccountId],
   );
 
-  // An inline reply is already on screen, and the side panel only reads the
-  // current account's mail.
+  // An inline reply is already on screen, the side panel only reads the
+  // current account's mail, and a send without a stored copy has nothing to show.
   const getViewSentEmail = useCallback(
     (messageId: string, threadId: string) =>
-      isInlineReply || selectedEmailAccountId !== emailAccountId
+      isInlineReply || selectedEmailAccountId !== emailAccountId || !messageId
         ? null
         : () => showEmail({ threadId, messageId }),
     [emailAccountId, isInlineReply, selectedEmailAccountId, showEmail],
@@ -1213,8 +1213,14 @@ function ComposeEmailFormContent({
               finishUndoSendToast(
                 outcome.mutationId,
                 settled.status === "sent"
-                  ? getViewSentEmail(settled.messageId, settled.threadId)
-                  : null,
+                  ? {
+                      sent: true,
+                      onView: getViewSentEmail(
+                        settled.messageId,
+                        settled.threadId,
+                      ),
+                    }
+                  : { sent: false },
               );
               if (settled.status === "cancelled" || settled.status === "failed")
                 showDraftAgain();
@@ -1238,7 +1244,9 @@ function ComposeEmailFormContent({
                 });
               }
             })
-            .catch(() => finishUndoSendToast(outcome.mutationId, null));
+            .catch(() =>
+              finishUndoSendToast(outcome.mutationId, { sent: false }),
+            );
           return;
         }
         if (outcome.status === "failed" || outcome.status === "cancelled")

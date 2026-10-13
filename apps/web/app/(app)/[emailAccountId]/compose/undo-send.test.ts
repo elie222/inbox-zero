@@ -149,7 +149,7 @@ describe("undo send", () => {
 
   it("offers to view the email once it has been sent", () => {
     const onView = vi.fn();
-    finishUndoSendToast("mutation", onView);
+    finishUndoSendToast("mutation", { sent: true, onView });
 
     const toast = notifications.toastSuccess.mock.calls[0]?.[0];
     expect(toast).toMatchObject({
@@ -162,8 +162,21 @@ describe("undo send", () => {
     expect(onView).toHaveBeenCalledOnce();
   });
 
-  it("closes the sent toast when there is nothing to view", () => {
-    finishUndoSendToast("mutation", null);
+  it("confirms a sent email even when it can't be viewed", () => {
+    finishUndoSendToast("mutation", { sent: true, onView: null });
+
+    expect(notifications.dismiss).not.toHaveBeenCalled();
+    expect(notifications.toastSuccess).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "undo-send:mutation",
+        description: "Email sent!",
+        action: undefined,
+      }),
+    );
+  });
+
+  it("closes the toast when the send didn't go out", () => {
+    finishUndoSendToast("mutation", { sent: false });
 
     expect(notifications.dismiss).toHaveBeenCalledWith("undo-send:mutation");
     expect(notifications.toastSuccess).not.toHaveBeenCalled();
