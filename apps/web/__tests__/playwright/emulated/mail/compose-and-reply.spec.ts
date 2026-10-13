@@ -387,6 +387,34 @@ test("moves a sent reply from its composer into the thread without a gap", async
   await expect(editor).toContainText(replyBody);
 
   const handoff = await watchReplyHandoff(page, replyBody);
+  // TEMP DEBUG: record where the reply text sits on every frame.
+  await page.evaluate((text) => {
+    const log: string[] = [];
+    (window as unknown as { __handoffDebug: string[] }).__handoffDebug = log;
+    const sample = () => {
+      const editor = Array.from(
+        document.querySelectorAll('[contenteditable="true"]'),
+      ).find((element) => element.textContent?.includes(text));
+      const row = editor?.closest("li[data-thread-message-id]");
+      const ids = Array.from(
+        document.querySelectorAll("li[data-thread-message-id]"),
+      )
+        .map((li) => li.getAttribute("data-thread-message-id"))
+        .join(",");
+      const entry = `${editor ? `C@${row?.getAttribute("data-thread-message-id") ?? "none"}${editor.closest("[role=dialog]") ? "+dialog" : ""}` : "-"} [${ids}]`;
+      if (log.at(-1)?.split(" x")[0] !== entry) log.push(`${entry} x1`);
+      else {
+        const [head, count] = log[log.length - 1].split(" x");
+        log[log.length - 1] = `${head} x${Number(count) + 1}`;
+      }
+      requestAnimationFrame(sample);
+    };
+    sample();
+  }, replyBody);
+  page.on("console", (message) => {
+    if (message.text().includes("[reply-drafts]"))
+      console.log(`BROWSER ${message.text()}`);
+  });
   await sourceMessage
     .getByRole("button", { name: "Send", exact: true })
     .click();
@@ -438,6 +466,10 @@ test("moves a sent reply from its composer into the thread without a gap", async
       .getByRole("button", { name: /^Undo/ }),
   ).toHaveCount(0);
   await expectThreadReaderBody(page, replyBody);
+  const debugLog = await page.evaluate(
+    () => (window as unknown as { __handoffDebug: string[] }).__handoffDebug,
+  );
+  console.log(`HANDOFF_DEBUG\n${debugLog.join("\n")}`);
   expectSeamlessReplyHandoff(await handoff.stop(), handoff.rowsBefore);
 });
 
