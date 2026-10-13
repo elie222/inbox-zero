@@ -511,25 +511,37 @@ test("does not reopen a sent reply when returning during the undo window", async
 
   await page.goto(`/${emailAccountId}/mail`);
   await page.goto(threadUrl);
-  await expectThreadReaderBody(page, replyBody);
   // The local draft is kept for undo and loads after the thread renders, so
-  // watch a few seconds of frames rather than checking once.
-  const reopened = await page.evaluate(
-    (text) =>
-      new Promise<boolean>((resolve) => {
-        const end = performance.now() + 3000;
-        const sample = () => {
-          const open = Array.from(
-            document.querySelectorAll('[contenteditable="true"]'),
-          ).some((element) => element.textContent?.includes(text));
-          if (open || performance.now() > end) resolve(open);
-          else requestAnimationFrame(sample);
-        };
-        sample();
-      }),
-    replyBody,
-  );
-  expect(reopened).toBe(false);
+  // watch every frame from the return until the reply shows, and a little after.
+  await page.evaluate((text) => {
+    const state = window as unknown as { __reopenedReply: boolean };
+    state.__reopenedReply = false;
+    const sample = () => {
+      if (
+        Array.from(document.querySelectorAll('[contenteditable="true"]')).some(
+          (element) => element.textContent?.includes(text),
+        )
+      )
+        state.__reopenedReply = true;
+      requestAnimationFrame(sample);
+    };
+    sample();
+  }, replyBody);
+  await expectThreadReaderBody(page, replyBody);
+  await page.waitForTimeout(3000);
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { __reopenedReply: boolean }).__reopenedReply,
+    ),
+  ).toBe(false);
+  // The check only means something while the send is still held for undo.
+  const send = await readLatestMailMutation(page, {
+    emailAccountId,
+    kind: "reply",
+    threadId: "thr_playwright_reply",
+  });
+  expect(send).toBeDefined();
+  expect(send?.status).not.toBe("succeeded");
   await capturePlaywrightCheckpoint(page, testInfo, "returned-during-undo");
   await expect
     .poll(
