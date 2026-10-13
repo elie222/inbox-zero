@@ -790,6 +790,7 @@ function sendRequest(intent: SendIntent) {
       ? [intent.replyToMessageId]
       : [intent.frozenDraftId],
     email: {
+      ...(intent.from ? { from: intent.from } : {}),
       to: intent.to.join(", "),
       cc: intent.cc.join(", ") || undefined,
       bcc: intent.bcc.join(", ") || undefined,

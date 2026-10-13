@@ -853,6 +853,7 @@ const prepareReplyingToEmail = (
   return {
     // If following an email from yourself, use original recipients, otherwise reply to sender
     to: sentFromUser ? message.headers.to : message.headers.from,
+    fromHint: getFromHint(message),
     // If following an email from yourself, don't add "Re:" prefix
     subject: sentFromUser
       ? message.headers.subject
@@ -875,6 +876,7 @@ const prepareForwardingEmail = (
   unsent = false,
 ): ReplyingToEmail => ({
   to: "",
+  fromHint: getFromHint(message),
   subject: forwardEmailSubject(message.headers.subject),
   headerMessageId: undefined,
   threadId: message.threadId || undefined,
@@ -900,6 +902,7 @@ function prepareDraftReplyEmail(draft: ParsedMessage): ReplyingToEmail {
 
   return {
     to: draft.headers.to,
+    fromHint: draft.headers.from,
     subject: draft.headers.subject,
     headerMessageId: draft.headers["message-id"] || undefined,
     messageId: draft.id || undefined,
@@ -913,6 +916,13 @@ function prepareDraftReplyEmail(draft: ParsedMessage): ReplyingToEmail {
       draft.attachments?.length || draft.inline?.length,
     ),
   };
+}
+
+// Follow-ups to the user's own mail keep its sender; replies to received mail
+// go out from whichever of the user's addresses it was sent to.
+function getFromHint(message: ParsedMessage) {
+  if (message.labelIds?.includes("SENT")) return message.headers.from;
+  return [message.headers.to, message.headers.cc].filter(Boolean).join(", ");
 }
 
 function TranslationNotice({
