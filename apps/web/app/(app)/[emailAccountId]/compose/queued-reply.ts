@@ -60,8 +60,7 @@ export async function queueReaderEmail(
   // to the next id in the chain. Deriving ids keeps a send that is still
   // pending anywhere in the chain blocking duplicates.
   for (let attempt = 0; ; attempt += 1) {
-    const commandId =
-      attempt === 0 ? mutationId : `${mutationId}-retry-${attempt}`;
+    const commandId = sendCommandId(mutationId, attempt);
     try {
       return await queueReaderEmailOnce(options, commandId);
     } catch (error) {
@@ -307,4 +306,18 @@ function operationOutcome(
   if (operation.status === "cancelled" || operation.status === "superseded") {
     return { status: "cancelled" };
   }
+}
+
+/** Whether an outbox send came from this compose, including its resends after undo. */
+export function isSendCommandFor(operationId: string, mutationId: string) {
+  return (
+    operationId === mutationId ||
+    operationId.startsWith(`${mutationId}${RESEND_SUFFIX}`)
+  );
+}
+
+const RESEND_SUFFIX = "-retry-";
+
+function sendCommandId(mutationId: string, attempt: number) {
+  return attempt === 0 ? mutationId : `${mutationId}${RESEND_SUFFIX}${attempt}`;
 }
