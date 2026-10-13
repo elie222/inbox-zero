@@ -11,7 +11,6 @@ import {
 import { matchesSenderFilter } from "@/utils/split-inbox/sender-filter";
 import type { gmail_v1 } from "@googleapis/gmail";
 import chunk from "lodash/chunk";
-import { SafeError } from "@/utils/error";
 import type { Attachment as MailAttachment } from "nodemailer/lib/mailer";
 import { mapWithConcurrency } from "@/utils/async";
 import { toMailerAttachments } from "@/utils/types/mail";
@@ -42,8 +41,9 @@ import type { InboxZeroLabel } from "@/utils/label";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 import { getMessageByRfc822Id } from "@/utils/gmail/message";
 import {
-  createMail,
+  buildMailMessage,
   draftEmail,
+  getForwardedMessage,
   forwardEmail,
   replyToEmail,
   sendEmailWithPlainText,
@@ -75,7 +75,6 @@ import { listContactPhotos, searchContacts } from "@/utils/gmail/contact";
 import {
   getGmailAttachment,
   getGmailAttachmentStream,
-  getGmailMessageAttachments,
 } from "@/utils/gmail/attachment";
 import {
   getThreadsBatch,
@@ -114,10 +113,28 @@ import type {
   BulkArchiveResult,
   EmailLabelUpdate,
   GetThreadOptions,
+  DraftAttachmentUploadStart,
 } from "@/utils/email/types";
+import type { DraftAttachmentMetadata } from "@/utils/actions/draft-attachments.validation";
+import {
+  buildGmailDraftUploadTemplate,
+  getGmailDraftAttachments,
+  getRequiredGmailDraftAttachments,
+  rewriteGmailDraft,
+  uploadGmailDraftMessage,
+} from "@/utils/gmail/draft-attachments";
+import { startGmailDraftUploadSession } from "@/utils/gmail/resumable-draft-upload";
 import type { SendEmailBody } from "@/utils/types/mail";
 import { createScopedLogger, type Logger } from "@/utils/logger";
-import { getGmailSignatures } from "@/utils/gmail/signature-settings";
+import {
+  getGmailSignatures,
+  type GmailSignature,
+} from "@/utils/gmail/signature-settings";
+import {
+  findReplySendAsAddress,
+  formatSendAsAddress,
+  type SendAsAddress,
+} from "@/utils/email/send-as";
 import { getForwardingAddresses } from "@/utils/gmail/settings";
 import { withRateLimitRecording } from "@/utils/email/rate-limit";
 import { shouldSkipAutoDraft } from "@/utils/auto-draft";
@@ -134,7 +151,7 @@ export class GmailProvider implements EmailProvider {
   private readonly client: gmail_v1.Gmail;
   private readonly logger: Logger;
   private readonly emailAccountId?: string;
-  private sendAsEmailAddressesPromise?: Promise<string[]>;
+  private sendAsPromise?: Promise<GmailSignature[]>;
 
   constructor(
     client: gmail_v1.Gmail,
@@ -150,6 +167,30 @@ export class GmailProvider implements EmailProvider {
 
   toJSON() {
     return { name: this.name, type: "GmailProvider" };
+  }
+
+  async countMessages({
+    folderId,
+    labelId,
+  }: {
+    folderId?: string;
+    labelId?: string;
+  }): Promise<number> {
+    if (folderId) throw new Error("Gmail does not support mail folder scopes");
+    return this.withRateLimitTracking("count-messages", async () => {
+      const response = labelId
+        ? await this.client.users.labels.get({ userId: "me", id: labelId })
+        : await this.client.users.getProfile({ userId: "me" });
+      const count = response.data.messagesTotal;
+      if (
+        typeof count !== "number" ||
+        !Number.isSafeInteger(count) ||
+        count < 0
+      ) {
+        throw new Error("Gmail did not return an exact message count");
+      }
+      return count;
+    });
   }
 
   async getThreads(labelId?: string): Promise<EmailThread[]> {
@@ -941,12 +982,17 @@ export class GmailProvider implements EmailProvider {
 
   async createDraft(params: {
     to: string;
+    from?: string;
+    cc?: string;
+    bcc?: string;
     subject: string;
     messageHtml: string;
     replyToMessageId?: string;
+    forwardedMessageId?: string;
   }): Promise<{ id: string }> {
     this.logger.info("Creating Gmail draft", {
       replyToMessageId: params.replyToMessageId,
+      forwardedMessageId: params.forwardedMessageId,
     });
 
     let threadId: string | undefined;
@@ -964,11 +1010,27 @@ export class GmailProvider implements EmailProvider {
       }
     }
 
-    const encodedMessage = await createMail({
+    // A forward draft holds the forwarded files itself, the same way a sent
+    // forward would, so sending the draft carries them.
+    let forwardedAttachments: MailAttachment[] = [];
+    if (params.forwardedMessageId) {
+      const forwarded = await getForwardedMessage(
+        this.client,
+        params.forwardedMessageId,
+      );
+      threadId = forwarded.threadId;
+      forwardedAttachments = forwarded.attachments;
+    }
+
+    const message = await buildMailMessage({
+      from: params.from,
       to: params.to,
+      cc: params.cc,
+      bcc: params.bcc,
       subject: params.subject,
       text: convertEmailHtmlToText({ htmlText: params.messageHtml }),
       html: params.messageHtml,
+      attachments: forwardedAttachments,
       ...buildThreadingHeaders({
         headerMessageId,
         references: parentReferences,
@@ -976,20 +1038,14 @@ export class GmailProvider implements EmailProvider {
       headers: { "X-Mailer": "Inbox Zero Web" },
     });
 
-    const result = await withGmailRetry(() =>
-      this.client.users.drafts.create({
-        userId: "me",
-        requestBody: {
-          message: {
-            raw: encodedMessage,
-            threadId,
-          },
-        },
-      }),
+    const result = await uploadGmailDraftMessage(
+      this.client,
+      { threadId },
+      message,
     );
 
-    this.logger.info("Gmail draft created", { draftId: result.data.id });
-    return { id: result.data.id || "" };
+    this.logger.info("Gmail draft created", { draftId: result.id });
+    return { id: result.id || "" };
   }
 
   async updateDraft(
@@ -998,60 +1054,63 @@ export class GmailProvider implements EmailProvider {
       messageHtml?: string;
       subject?: string;
       to?: string;
+      from?: string;
       cc?: string;
       bcc?: string;
-      attachments?: SendEmailBody["attachments"];
     },
   ): Promise<void> {
     this.logger.info("Updating Gmail draft", { draftId });
-
-    const currentDraft = await getDraft(draftId, this.client);
-    if (!currentDraft) {
-      throw new SafeError(
-        "This draft is no longer available in Gmail. Check Sent before trying again.",
-      );
-    }
-
-    const subject = params.subject ?? currentDraft.subject ?? "";
-    const content = params.messageHtml ?? currentDraft.textHtml ?? "";
-    const attachments =
-      params.attachments !== undefined
-        ? toMailerAttachments(params.attachments)
-        : await getGmailMessageAttachments(
-            this.client,
-            currentDraft.id,
-            currentDraft.payload,
-          );
-
-    const encodedMessage = await createMail({
-      from: currentDraft.headers?.from,
-      to: params.to ?? currentDraft.headers?.to ?? "",
-      attachments,
-      cc: params.cc ?? currentDraft.headers?.cc,
-      bcc: params.bcc ?? currentDraft.headers?.bcc,
-      replyTo: currentDraft.headers?.["reply-to"],
-      subject,
-      text: convertEmailHtmlToText({ htmlText: content }),
-      html: content,
-      inReplyTo: currentDraft.headers?.["in-reply-to"],
-      references: currentDraft.headers?.references,
-      headers: { "X-Mailer": "Inbox Zero Web" },
-    });
-
-    await withGmailRetry(() =>
-      this.client.users.drafts.update({
-        userId: "me",
-        id: draftId,
-        requestBody: {
-          message: {
-            threadId: currentDraft.threadId,
-            raw: encodedMessage,
-          },
-        },
-      }),
-    );
-
+    await rewriteGmailDraft({ gmail: this.client, draftId, text: params });
     this.logger.info("Gmail draft updated", { draftId });
+  }
+
+  async getDraftAttachments(draftId: string) {
+    return getGmailDraftAttachments(this.client, draftId);
+  }
+
+  async addDraftAttachment(
+    draftId: string,
+    attachment: DraftAttachmentMetadata & { content: Buffer },
+  ) {
+    await rewriteGmailDraft({
+      gmail: this.client,
+      draftId,
+      addAttachment: attachment,
+    });
+    const result = await getRequiredGmailDraftAttachments(this.client, draftId);
+    return { ...result, attachmentId: attachment.id };
+  }
+
+  async removeDraftAttachment(draftId: string, attachmentId: string) {
+    await rewriteGmailDraft({
+      gmail: this.client,
+      draftId,
+      removeAttachmentId: attachmentId,
+    });
+    return getRequiredGmailDraftAttachments(this.client, draftId);
+  }
+
+  async startDraftAttachmentUpload(
+    draftId: string,
+    attachment: DraftAttachmentMetadata,
+  ): Promise<DraftAttachmentUploadStart> {
+    const template = await buildGmailDraftUploadTemplate({
+      gmail: this.client,
+      draftId,
+      attachment,
+    });
+    const sessionUri = await startGmailDraftUploadSession({
+      accessToken: this.getAccessToken(),
+      draftId,
+      threadId: template.threadId,
+      totalBytes: template.totalBytes,
+    });
+    return {
+      type: "gmail-message",
+      sessionUri,
+      parts: template.parts,
+      totalBytes: template.totalBytes,
+    };
   }
 
   async draftEmail(
@@ -1076,8 +1135,16 @@ export class GmailProvider implements EmailProvider {
       contentLength: args.content?.length,
     });
 
-    const userEmails = await this.getSelfEmailAddresses(userEmail);
-    const draftPromise = draftEmail(this.client, email, args, userEmails);
+    const [userEmails, from] = await Promise.all([
+      this.getSelfEmailAddresses(userEmail),
+      this.getReplyFromAddress(email),
+    ]);
+    const draftPromise = draftEmail(
+      this.client,
+      email,
+      { ...args, from },
+      userEmails,
+    );
     let result: Awaited<typeof draftPromise>;
 
     if (executedRule) {
@@ -1115,7 +1182,7 @@ export class GmailProvider implements EmailProvider {
       this.client,
       email,
       content,
-      options?.from,
+      options?.from ?? (await this.getReplyFromAddress(email)),
       options,
     );
     return { messageId: requireSentMessageId(result.data.id) };
@@ -2096,6 +2163,18 @@ export class GmailProvider implements EmailProvider {
     return "";
   }
 
+  async getSendAsAddresses(): Promise<SendAsAddress[]> {
+    const sendAs = await this.getSendAs();
+    return sendAs
+      .filter((address) => address.isVerified)
+      .map((address) => ({
+        email: address.email,
+        name: address.displayName,
+        isDefault: address.isDefault,
+        signature: address.signature || undefined,
+      }));
+  }
+
   async getSignatures(): Promise<EmailSignature[]> {
     const gmailSignatures = await getGmailSignatures(this.client);
     return gmailSignatures.map((sig) => ({
@@ -2131,23 +2210,42 @@ export class GmailProvider implements EmailProvider {
 
   private async getSelfEmailAddresses(userEmail: string): Promise<string[]> {
     try {
-      const sendAsEmailAddresses = await this.getSendAsEmailAddresses();
-      return extractUniqueEmailAddresses([userEmail, ...sendAsEmailAddresses]);
+      const sendAs = await this.getSendAs();
+      return extractUniqueEmailAddresses([
+        userEmail,
+        ...sendAs.map((address) => address.email),
+      ]);
     } catch (error) {
       this.logger.warn("Failed to fetch Gmail send-as addresses", { error });
       return extractUniqueEmailAddresses([userEmail]);
     }
   }
 
-  private getSendAsEmailAddresses(): Promise<string[]> {
-    this.sendAsEmailAddressesPromise ??= getGmailSignatures(this.client)
-      .then((signatures) => signatures.map((signature) => signature.email))
-      .catch((error) => {
-        this.sendAsEmailAddressesPromise = undefined;
-        throw error;
+  // Mail the user received at an alias is answered from that alias. Without
+  // a From header Gmail would use the default address instead.
+  private async getReplyFromAddress(email: ParsedMessage) {
+    try {
+      const sendAs = await this.getSendAsAddresses();
+      const address = findReplySendAsAddress(
+        [email.headers.to, email.headers.cc].filter(Boolean).join(", "),
+        sendAs,
+      );
+      if (!address || address.isDefault) return;
+      return formatSendAsAddress(address);
+    } catch (error) {
+      this.logger.warn("Failed to resolve the reply send-as address", {
+        error,
       });
+    }
+  }
 
-    return this.sendAsEmailAddressesPromise;
+  private getSendAs(): Promise<GmailSignature[]> {
+    this.sendAsPromise ??= getGmailSignatures(this.client).catch((error) => {
+      this.sendAsPromise = undefined;
+      throw error;
+    });
+
+    return this.sendAsPromise;
   }
 }
 

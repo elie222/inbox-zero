@@ -128,11 +128,15 @@ export function isRetryableError(errorInfo: ErrorInfo): {
     code === "ErrorIrresolvableConflict" ||
     /change key/i.test(errorMessage);
 
+  // Graph sometimes ends a 200 response mid-body; the same read succeeds on retry.
+  const isTruncatedResponse = status === 200 && code === "SyntaxError";
+
   return {
     retryable:
       isRateLimit ||
       isServerError ||
       isConflictError ||
+      isTruncatedResponse ||
       isFetchError(errorInfo),
     isRateLimit,
     isServerError,

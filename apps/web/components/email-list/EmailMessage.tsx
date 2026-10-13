@@ -7,11 +7,13 @@ import {
   ReplyIcon,
   ChevronsUpDownIcon,
   ChevronsDownUpIcon,
+  UserSearchIcon,
 } from "lucide-react";
 import { Tooltip } from "@/components/Tooltip";
 import {
   extractEmailAddress,
   extractNameFromEmail,
+  formatRecipientNames,
   getInitials,
   isSameEmailAddress,
   splitRecipientList,
@@ -50,6 +52,11 @@ import {
   SentMessageOpenStatus,
   type SentMessageOpenState,
 } from "@/components/email-list/SentMessageOpenStatus";
+import {
+  getMessageTranslation,
+  useThreadTranslation,
+  useTranslateThread,
+} from "@/app/(app)/[emailAccountId]/mail/use-thread-translation";
 
 type ComposeSession = { id: number; mode: ReplyDraftMode };
 
@@ -61,12 +68,15 @@ export function EmailMessage({
   refetch,
   showReplyButton,
   defaultComposeMode,
+  hideComposer,
+  onStartCompose,
   draftMessages,
   expanded,
   onToggle,
   onExpand,
   onSendSuccess,
   onMarkDone,
+  onDraftDiscarded,
   onOpenSenderContext,
   hasDraft = false,
   selected,
@@ -85,6 +95,8 @@ export function EmailMessage({
   refetch: () => void;
   showReplyButton: boolean;
   defaultComposeMode?: ReplyDraftMode;
+  hideComposer?: boolean;
+  onStartCompose?: () => void;
   expanded: boolean;
   /** Absent when the thread has a single message, which never collapses. */
   onToggle?: () => void;
@@ -95,6 +107,11 @@ export function EmailMessage({
   onExpand?: () => void;
   onSendSuccess: (messageId: string, threadId: string) => void;
   onMarkDone?: () => void;
+  /**
+   * A saved draft shown in this message was discarded. Only wired up by
+   * parents for which that discard empties the conversation.
+   */
+  onDraftDiscarded?: () => void;
   onOpenSenderContext?: (message: ThreadMessage) => void;
   hasDraft?: boolean;
   selected?: boolean;
@@ -110,18 +127,28 @@ export function EmailMessage({
 }) {
   const { emailAccountId } = useAccount();
   const { poppedOutDraftSessionId } = useComposeModal();
+  const threadTranslation = useThreadTranslation(
+    emailAccountId,
+    message.threadId,
+  );
+  const translation = getMessageTranslation(threadTranslation, message.id);
+  const showTranslation = Boolean(translation && !translation.showOriginal);
   // `null` follows `defaultComposeMode`, which the reader's Reply button flips
   // long after this message mounted.
   const [composeOverride, setComposeOverride] = useState<
     ReplyDraftMode | "closed" | null
   >(null);
-  const composeMode = resolveComposeMode(
-    composeOverride,
-    defaultComposeMode,
-    (mode) =>
-      getReplyDraftSessionId(composerSessionMessageId ?? message.id, mode) ===
-      poppedOutDraftSessionId,
-  );
+  const composeMode = hideComposer
+    ? undefined
+    : resolveComposeMode(
+        composeOverride,
+        defaultComposeMode,
+        (mode) =>
+          getReplyDraftSessionId(
+            composerSessionMessageId ?? message.id,
+            mode,
+          ) === poppedOutDraftSessionId,
+      );
   const serverDrafts = (draftMessages ?? []).map((draft) => ({
     message: draft,
     sessionMessageId: getDraftSessionMessageId(emailAccountId, draft.id),
@@ -129,21 +156,26 @@ export function EmailMessage({
   const [dismissedDraftIds, setDismissedDraftIds] = useState(
     () => new Set<string>(),
   );
-  const setDraftDismissed = (sessionMessageId: string, dismissed: boolean) => {
-    setDismissedDraftIds((previous) => {
-      if (previous.has(sessionMessageId) === dismissed) return previous;
-      const next = new Set(previous);
-      if (dismissed) next.add(sessionMessageId);
-      else next.delete(sessionMessageId);
-      return next;
-    });
-  };
+  const setDraftDismissed = useCallback(
+    (sessionMessageId: string, dismissed: boolean) => {
+      setDismissedDraftIds((previous) => {
+        if (previous.has(sessionMessageId) === dismissed) return previous;
+        const next = new Set(previous);
+        if (dismissed) next.add(sessionMessageId);
+        else next.delete(sessionMessageId);
+        return next;
+      });
+    },
+    [],
+  );
   const visibleDrafts = serverDrafts.filter(
     (draft) =>
       !dismissedDraftIds.has(draft.sessionMessageId) &&
       getReplyDraftSessionId(draft.sessionMessageId, "reply") !==
         poppedOutDraftSessionId,
   );
+  const composingMailboxReply =
+    composeMode === "reply" && visibleDrafts.length > 0;
   const isDraftRow = serverDrafts.some(
     (draft) => draft.message.id === message.id,
   );
@@ -151,21 +183,39 @@ export function EmailMessage({
 
   const [showDetails, setShowDetails] = useState(false);
   const composeSessionRef = useRef(0);
+  const messageRef = useRef<HTMLLIElement>(null);
 
   const onReply = useCallback(() => {
+    onStartCompose?.();
     composeSessionRef.current += 1;
-    setComposeOverride("reply");
+    const savedDraft = serverDrafts[0];
+    if (savedDraft) {
+      setDraftDismissed(savedDraft.sessionMessageId, false);
+      setComposeOverride("closed");
+      requestAnimationFrame(() => {
+        messageRef.current
+          ?.querySelector<HTMLElement>("[data-email-editor-content]")
+          ?.focus();
+      });
+    } else {
+      setComposeOverride("reply");
+    }
     onExpand?.();
-  }, [onExpand]);
+  }, [onExpand, onStartCompose, serverDrafts, setDraftDismissed]);
   const onForward = useCallback(() => {
+    onStartCompose?.();
     composeSessionRef.current += 1;
     setComposeOverride("forward");
     onExpand?.();
-  }, [onExpand]);
+  }, [onExpand, onStartCompose]);
 
   const onCloseCompose = useCallback(() => {
     setComposeOverride("closed");
   }, []);
+  const closeMailboxDraft = (sessionMessageId: string) => {
+    if (composeMode === "reply") onCloseCompose();
+    setDraftDismissed(sessionMessageId, true);
+  };
   const [composerKey, setComposerKey] = useState(0);
   const undoSendSessionRef = useRef<ComposeSession | null>(null);
 
@@ -226,6 +276,7 @@ export function EmailMessage({
 
   return (
     <li
+      ref={messageRef}
       data-thread-message-id={message.id}
       data-selected={selected}
       tabIndex={selected !== undefined || hasOpenComposer ? -1 : undefined}
@@ -287,8 +338,26 @@ export function EmailMessage({
           {!bodyAvailable && !isDraftRow && composeMode !== "forward" && (
             <MessageBodyLoading />
           )}
+          {!isDraftRow && threadTranslation?.loading && (
+            <p className="mb-3 flex items-center gap-1.5 text-muted-foreground text-xs">
+              <LoadingMiniSpinner />
+              Translating…
+            </p>
+          )}
+          {!isDraftRow && translation && (
+            <TranslationNotice
+              languageName={translation.languageName}
+              showOriginal={translation.showOriginal}
+              messageId={message.id}
+              threadId={message.threadId}
+            />
+          )}
+          {bodyAvailable && !isDraftRow && showTranslation && translation && (
+            <PlainEmail text={translation.text} />
+          )}
           {bodyAvailable &&
             !isDraftRow &&
+            !showTranslation &&
             (message.textHtml ? (
               <HtmlEmail
                 onForwardMessage={showReplyButton ? onForward : undefined}
@@ -314,7 +383,7 @@ export function EmailMessage({
               draftMessage={draft}
               draftSessionMessageId={sessionMessageId}
               message={message}
-              onCloseCompose={() => setDraftDismissed(sessionMessageId, true)}
+              onCloseCompose={() => closeMailboxDraft(sessionMessageId)}
               onRestoreCompose={() =>
                 setDraftDismissed(sessionMessageId, false)
               }
@@ -322,8 +391,9 @@ export function EmailMessage({
               onSendSuccess={onSendSuccess}
               onSent={onReplySent}
               onMarkDone={onMarkDone}
+              onDraftDiscarded={onDraftDiscarded}
               onStartDiscard={() => {
-                setDraftDismissed(sessionMessageId, true);
+                closeMailboxDraft(sessionMessageId);
                 return {
                   id: composeSessionRef.current,
                   mode: "reply" as const,
@@ -333,7 +403,7 @@ export function EmailMessage({
               composeMode="reply"
             />
           ))}
-          {composeMode && (
+          {composeMode && !composingMailboxReply && (
             <ReplyPanel
               key={composerKey}
               autoScroll
@@ -441,7 +511,7 @@ function MessageHeader({
     </Avatar>
   );
   // Fixed widths on the collapsed rows keep the snippet column aligned down
-  // the thread, whichever senders are clickable.
+  // the thread.
   const senderNameClassName = cn(
     "truncate text-sm",
     expanded
@@ -457,60 +527,52 @@ function MessageHeader({
         onToggle && "cursor-pointer",
       )}
     >
-      {canResearchSender ? (
-        <Tooltip content="View public profile">
+      {expanded ? (
+        <>
           <button
-            aria-label={`View public profile for ${senderName}`}
-            className={cn(
-              "group/sender flex items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              expanded ? "min-w-0" : "shrink-0",
-            )}
-            onClick={(event) => {
-              event.stopPropagation();
-              onOpenSenderContext?.(message);
-            }}
+            aria-expanded={showDetails}
+            aria-label={showDetails ? "Hide details" : "Show details"}
+            className="group/details flex min-w-0 items-center gap-2 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onClick={toggleDetails}
             type="button"
           >
             {avatar}
-            <span
-              className={cn(
-                senderNameClassName,
-                "text-left underline-offset-4 group-hover/sender:underline",
+            <span className={senderNameClassName}>{senderName}</span>
+            <span className="hidden min-w-0 truncate text-muted-foreground text-xs sm:block">
+              {recipientSummary(message.headers, userEmail)}
+            </span>
+            <span className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors group-hover/details:bg-muted group-hover/details:text-foreground">
+              {showDetails ? (
+                <ChevronsDownUpIcon className="size-3.5" />
+              ) : (
+                <ChevronsUpDownIcon className="size-3.5" />
               )}
-            >
-              {senderName}
             </span>
           </button>
-        </Tooltip>
+          {canResearchSender && (
+            <Tooltip content="View public profile">
+              <Button
+                aria-label={`View public profile for ${senderName}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onOpenSenderContext?.(message);
+                }}
+                size="iconXs"
+                variant="ghostMuted"
+              >
+                <UserSearchIcon className="size-3.5" />
+              </Button>
+            </Tooltip>
+          )}
+        </>
       ) : (
         <>
           {avatar}
           <span className={senderNameClassName}>{senderName}</span>
-        </>
-      )}
-
-      {expanded ? (
-        <>
-          <span className="hidden min-w-0 truncate text-muted-foreground text-xs sm:block">
-            {recipientSummary(message.headers.to, userEmail)}
+          <span className="min-w-0 flex-1 truncate text-muted-foreground text-sm">
+            {decodeSnippet(message.snippet)}
           </span>
-          <Button
-            aria-label={showDetails ? "Hide details" : "Show details"}
-            onClick={toggleDetails}
-            size="iconXs"
-            variant="ghostMuted"
-          >
-            {showDetails ? (
-              <ChevronsDownUpIcon className="size-3.5" />
-            ) : (
-              <ChevronsUpDownIcon className="size-3.5" />
-            )}
-          </Button>
         </>
-      ) : (
-        <span className="min-w-0 flex-1 truncate text-muted-foreground text-sm">
-          {decodeSnippet(message.snippet)}
-        </span>
       )}
 
       {hasDraft &&
@@ -572,6 +634,7 @@ function ReplyPanel({
   onRestore,
   onRestoreCompose,
   onStartDiscard,
+  onDraftDiscarded,
   composeMode,
   draftMessage,
   draftSessionMessageId,
@@ -589,6 +652,7 @@ function ReplyPanel({
   onRestore?: () => void;
   onRestoreCompose: (composeSession: ComposeSession) => void;
   onStartDiscard: () => ComposeSession | undefined;
+  onDraftDiscarded?: () => void;
   composeMode: ReplyDraftMode;
   draftMessage?: ThreadMessage;
   draftSessionMessageId?: string;
@@ -680,6 +744,7 @@ function ReplyPanel({
       } finally {
         refetch();
       }
+      onDraftDiscarded?.();
       return true;
     },
     [
@@ -687,6 +752,7 @@ function ReplyPanel({
       draftMessage,
       discardDraft,
       onCloseCompose,
+      onDraftDiscarded,
       onRestoreCompose,
       onStartDiscard,
       refetch,
@@ -765,22 +831,15 @@ function resolveComposeMode(
   return mode;
 }
 
-/** "to me", "to Dana", "to me and 3 others" — who a message went out to. */
-function recipientSummary(to: string | undefined, userEmail: string) {
-  const recipients = splitRecipientList(to ?? "");
-  if (recipients.length === 0) return "";
-
-  // "me" leads whenever the account is in there at all, however it was addressed.
-  const first =
-    recipients.find((recipient) => isSameEmailAddress(recipient, userEmail)) ??
-    recipients[0];
-  const firstLabel = isSameEmailAddress(first, userEmail)
-    ? "me"
-    : extractNameFromEmail(first) || extractEmailAddress(first);
-
-  const others = recipients.length - 1;
-  if (others === 0) return `to ${firstLabel}`;
-  return `to ${firstLabel} and ${others} ${others === 1 ? "other" : "others"}`;
+function recipientSummary(
+  { to, cc }: { to?: string; cc?: string },
+  userEmail: string,
+) {
+  const names = formatRecipientNames(
+    [...splitRecipientList(to ?? ""), ...splitRecipientList(cc ?? "")],
+    userEmail,
+  );
+  return names ? `to ${names}` : "";
 }
 
 const prepareReplyingToEmail = (
@@ -794,6 +853,7 @@ const prepareReplyingToEmail = (
   return {
     // If following an email from yourself, use original recipients, otherwise reply to sender
     to: sentFromUser ? message.headers.to : message.headers.from,
+    fromHint: getFromHint(message),
     // If following an email from yourself, don't add "Re:" prefix
     subject: sentFromUser
       ? message.headers.subject
@@ -816,6 +876,7 @@ const prepareForwardingEmail = (
   unsent = false,
 ): ReplyingToEmail => ({
   to: "",
+  fromHint: getFromHint(message),
   subject: forwardEmailSubject(message.headers.subject),
   headerMessageId: undefined,
   threadId: message.threadId || undefined,
@@ -841,6 +902,7 @@ function prepareDraftReplyEmail(draft: ParsedMessage): ReplyingToEmail {
 
   return {
     to: draft.headers.to,
+    fromHint: draft.headers.from,
     subject: draft.headers.subject,
     headerMessageId: draft.headers["message-id"] || undefined,
     messageId: draft.id || undefined,
@@ -850,7 +912,57 @@ function prepareDraftReplyEmail(draft: ParsedMessage): ReplyingToEmail {
     references: draft.headers.references,
     draftHtml: splitHtml.draftHtml,
     quotedContentHtml: splitHtml.originalHtml,
+    draftHasAttachments: Boolean(
+      draft.attachments?.length || draft.inline?.length,
+    ),
   };
+}
+
+// Follow-ups to the user's own mail keep its sender; replies to received mail
+// go out from whichever of the user's addresses it was sent to.
+function getFromHint(message: ParsedMessage) {
+  if (message.labelIds?.includes("SENT")) return message.headers.from;
+  return [message.headers.to, message.headers.cc].filter(Boolean).join(", ");
+}
+
+function TranslationNotice({
+  languageName,
+  showOriginal,
+  messageId,
+  threadId,
+}: {
+  languageName: string | null;
+  showOriginal: boolean;
+  messageId: string;
+  threadId: string;
+}) {
+  const { emailAccountId } = useAccount();
+  const translateThread = useTranslateThread();
+  let status = "Showing original";
+  if (!showOriginal) {
+    status = languageName ? `Translated from ${languageName}` : "Translated";
+  }
+
+  return (
+    <p className="mb-3 flex items-center gap-1.5 text-muted-foreground text-xs">
+      {status}
+      <span aria-hidden>·</span>
+      <button
+        className="text-primary hover:underline"
+        onClick={(event) => {
+          event.stopPropagation();
+          translateThread({
+            emailAccountId,
+            threadId,
+            messageIds: [messageId],
+          });
+        }}
+        type="button"
+      >
+        {showOriginal ? "Show translation" : "Show original"}
+      </button>
+    </p>
+  );
 }
 
 function MessageBodyLoading() {

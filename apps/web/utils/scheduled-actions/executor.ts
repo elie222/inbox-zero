@@ -130,6 +130,7 @@ async function validateEmailState(
     }
 
     const emailForAction: EmailForAction = {
+      externalUrl: message.externalUrl,
       threadId: message.threadId,
       id: message.id,
       headers: message.headers,
@@ -206,6 +207,7 @@ async function executeDelayedAction({
   }
 
   const email: EmailForAction = {
+    externalUrl: emailMessage.externalUrl,
     id: emailMessage.id,
     threadId: emailMessage.threadId,
     headers: emailMessage.headers,

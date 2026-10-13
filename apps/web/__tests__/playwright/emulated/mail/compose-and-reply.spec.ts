@@ -8,6 +8,7 @@ import {
 import {
   conversationWithSubject,
   expectSeamlessReplyHandoff,
+  clearWorkflowMailboxDrafts,
   expectThreadReaderBody,
   openMail,
   openMailboxFromSidebar,
@@ -17,6 +18,10 @@ import {
   watchReplyHandoff,
   withClient,
 } from "./mail-test-helpers";
+
+test.beforeEach(async ({ page }) => {
+  await clearWorkflowMailboxDrafts(page);
+});
 
 test("composes, sends, and reads a new message from Sent", async ({
   page,
@@ -35,8 +40,8 @@ test("composes, sends, and reads a new message from Sent", async ({
   await expect(composeEditor).toContainText("A composed message body.");
   await dialog.getByRole("button", { name: "Show signature" }).click();
   await expect(
-    dialog
-      .locator("[data-email-preserved-kind='signature']")
+    composeEditor
+      .locator("[data-smartmail]")
       .getByRole("link", { name: "Inbox Zero" }),
   ).toBeVisible();
   await capturePlaywrightCheckpoint(page, testInfo, "composer-with-footer");
@@ -59,6 +64,44 @@ test("composes, sends, and reads a new message from Sent", async ({
   await expectThreadReaderBody(page, "A composed message body.");
   await expectThreadReaderBody(page, "Sent with Inbox Zero");
   await capturePlaywrightCheckpoint(page, testInfo, "composed-message-in-sent");
+});
+
+test("views a sent message without leaving the current mailbox", async ({
+  page,
+}, testInfo) => {
+  await openMail(page);
+  const subject = `Playwright View Sent ${Date.now()}`;
+
+  await page.getByRole("button", { name: /^Compose/ }).click();
+  const dialog = page.getByRole("dialog", { name: "New Message" });
+  await dialog
+    .getByRole("combobox", { name: "To" })
+    .fill("recipient@example.com");
+  await dialog.getByPlaceholder("Subject").fill(subject);
+  await dialog
+    .locator("[contenteditable='true']")
+    .pressSequentially("A message to view after sending.");
+  await dialog.getByRole("button", { exact: true, name: "Send" }).click();
+  await expect(dialog).toBeHidden();
+
+  const notifications = page.getByRole("region", {
+    name: "Notifications alt+T",
+  });
+  const viewButton = notifications.getByRole("button", { name: "View" });
+  await expect(viewButton).toBeVisible({
+    timeout: UNDO_WINDOW_SEND_TIMEOUT_MS,
+  });
+  await expect(
+    notifications.getByRole("button", { name: /^Undo/ }),
+  ).toHaveCount(0);
+  await capturePlaywrightCheckpoint(page, testInfo, "sent-toast-view");
+  await viewButton.click();
+
+  const sidePanel = page.getByRole("dialog");
+  await expect(sidePanel.getByText(subject).first()).toBeVisible();
+  await expectThreadReaderBody(page, "A message to view after sending.");
+  expect(new URL(page.url()).searchParams.get("thread-id")).toBeNull();
+  await capturePlaywrightCheckpoint(page, testInfo, "sent-message-side-panel");
 });
 
 test("undoes a composed message before it is delivered", async ({
@@ -147,7 +190,8 @@ test("selects the sender when composing from all accounts", async ({
     await dialog.getByRole("button", { name: "Show signature" }).click();
     await expect(
       dialog
-        .locator("[data-email-preserved-kind='signature']")
+        .getByRole("textbox", { name: "Email message" })
+        .locator("[data-smartmail]")
         .getByText(signature),
     ).toBeVisible();
   } finally {
@@ -206,7 +250,8 @@ test("focuses the To field when forwarding with F", async ({ page }) => {
     message.getByRole("button", { name: "Forward", exact: true }),
   ).toBeVisible();
 
-  await page.keyboard.press("KeyF");
+  // Restored drafts focus their editor; this shortcut belongs to the reader.
+  await message.press("KeyF");
 
   const toField = message.getByRole("combobox", { name: "To" });
   await expect(toField).toBeVisible();
@@ -483,6 +528,66 @@ test("undoes a sent reply and restores its text", async ({
     )
     .toBeUndefined();
   await capturePlaywrightCheckpoint(page, testInfo, "reply-undone-from-thread");
+});
+
+test("undoes a sent reply with a file and lists the file again", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(240_000);
+  const { emailAccountId } = await openMail(page);
+  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reply`);
+  const sourceMessage = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  await expect(sourceMessage).toBeVisible({ timeout: 60_000 });
+  await sourceMessage
+    .getByRole("button", { name: "Reply", exact: true })
+    .click();
+  await sourceMessage
+    .getByRole("textbox", { name: "Email message" })
+    .pressSequentially(`A reply with notes, taken back. ${testInfo.retry}`);
+  await sourceMessage.getByTestId("compose-attachments-input").setInputFiles({
+    name: "notes.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("Example notes"),
+  });
+  const attachments = sourceMessage.getByRole("list", { name: "Attachments" });
+  await expect(attachments.locator("li[aria-busy]")).toHaveCount(0, {
+    timeout: 90_000,
+  });
+  await expect(attachments).toContainText("notes.txt");
+  await sourceMessage
+    .getByRole("button", { name: "Send", exact: true })
+    .click();
+
+  const undo = page
+    .getByRole("region", { name: "Notifications alt+T" })
+    .getByRole("button", { name: /^Undo/ });
+  await expect(undo).toBeVisible();
+  await expect
+    .poll(() =>
+      readLatestMailMutation(page, {
+        emailAccountId,
+        kind: "reply",
+        threadId: "thr_playwright_reply",
+      }),
+    )
+    .toMatchObject({ status: "reconciling" });
+  await undo.click();
+
+  // The file stayed on the mailbox draft, so the restored reply lists it.
+  await expect(
+    sourceMessage.getByRole("list", { name: "Attachments" }),
+  ).toContainText("notes.txt", { timeout: 30_000 });
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "reply-with-file-undone-from-thread",
+  );
+  await sourceMessage.getByRole("button", { name: "Discard draft" }).click();
+  await expect(
+    sourceMessage.getByRole("textbox", { name: "Email message" }),
+  ).toHaveCount(0);
 });
 
 test("sends a reply after its tab closes during the undo window", async ({

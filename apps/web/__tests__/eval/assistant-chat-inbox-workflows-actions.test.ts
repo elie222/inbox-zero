@@ -50,14 +50,18 @@ describe.runIf(shouldRunEval)(
             name: "operations folder",
             prompt: "Mark all unread messages in my Operations folder as read.",
             categoryName: "Operations",
+            folderId: "folder-operations",
           },
         ])(
           "continues Outlook mark-read cleanup through empty filtered pages [$name]",
-          async ({ name, prompt, categoryName }) => {
+          async ({ name, prompt, categoryName, folderId }) => {
             mockSearchMessages.mockImplementation(
               async (input: ProviderSearchInput) => {
                 if (
-                  input.labelName?.toLowerCase() !== categoryName.toLowerCase()
+                  folderId
+                    ? input.folderId !== folderId
+                    : input.labelName?.toLowerCase() !==
+                      categoryName.toLowerCase()
                 ) {
                   return {
                     messages: [],
@@ -115,13 +119,19 @@ describe.runIf(shouldRunEval)(
               providerSearchCalls.some(
                 (call) =>
                   call.query === "" &&
-                  call.labelName?.toLowerCase() === categoryName.toLowerCase(),
+                  (folderId
+                    ? call.folderId === folderId
+                    : call.labelName?.toLowerCase() ===
+                      categoryName.toLowerCase()),
               ) &&
               providerSearchCalls.some(
                 (call) =>
                   call.pageToken === "PAGE_TOKEN_2" &&
                   call.query === "" &&
-                  call.labelName?.toLowerCase() === categoryName.toLowerCase(),
+                  (folderId
+                    ? call.folderId === folderId
+                    : call.labelName?.toLowerCase() ===
+                      categoryName.toLowerCase()),
               ) &&
               firstMarkReadIndex > 0 &&
               markedThreadIds.size === 11 &&
@@ -525,6 +535,7 @@ type ProviderSearchInput = {
   query?: string;
   pageToken?: string | null;
   labelName?: string | null;
+  folderId?: string;
   readState?: "read" | "unread" | null;
 };
 
@@ -557,6 +568,7 @@ function summarizeProviderSearchCalls(calls: ProviderSearchInput[]) {
       const parts = [`query=${call.query ?? ""}`];
       if (call.pageToken) parts.push(`pageToken=${call.pageToken}`);
       if (call.labelName) parts.push(`labelName=${call.labelName}`);
+      if (call.folderId) parts.push(`folderId=${call.folderId}`);
       if (call.readState) parts.push(`readState=${call.readState}`);
       return `searchMessages(${parts.join(", ")})`;
     })

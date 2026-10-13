@@ -2,6 +2,7 @@ import {
   MAX_MAILBOX_COUNT_TARGETS,
   type MailPredicate,
 } from "@inboxzero/mail-core/queries";
+import { withoutHiddenDrafts } from "@/utils/mail-engine/threads-query";
 
 export const MAX_MAILBOX_COUNT_LABELS = 100;
 
@@ -32,6 +33,8 @@ export type MailboxCountTarget = {
 export function mailboxCountTargets(input: {
   labels: Array<{ id: string; name: string }>;
   folders: MailboxCountFolder[];
+  /** Drafts a pending send stands in for, hidden from Drafts like in its list. */
+  hiddenDraftMessageIds?: string[];
 }): MailboxCountTarget[] {
   const targets: MailboxCountTarget[] = [
     {
@@ -44,7 +47,10 @@ export function mailboxCountTargets(input: {
       id: "DRAFT",
       name: "Drafts",
       kind: "system",
-      predicate: { kind: "role", role: "draft" },
+      predicate: withoutHiddenDrafts(
+        { kind: "role", role: "draft" },
+        input.hiddenDraftMessageIds ?? [],
+      ),
     },
   ];
 

@@ -22,6 +22,8 @@ import {
   RowsIcon,
   SearchIcon,
   SparklesIcon,
+  StarIcon,
+  StarOffIcon,
   TagIcon,
   TextIcon,
   Trash2Icon,
@@ -81,6 +83,9 @@ export type ListToolbarProps = {
   isUnreadSelected: boolean;
   onMarkReadSelected: () => void;
   onMarkUnreadSelected: () => void;
+  /** True when every selected conversation is already starred. */
+  isStarredSelected: boolean;
+  onStarSelected: () => void;
   /** Omitted when the current view can't label (combined inboxes). */
   onLabelSelected?: () => void;
   onClearSelection: () => void;
@@ -110,6 +115,8 @@ export const ListToolbar = memo(function ListToolbar({
   isUnreadSelected,
   onMarkReadSelected,
   onMarkUnreadSelected,
+  isStarredSelected,
+  onStarSelected,
   onLabelSelected,
   onClearSelection,
 }: ListToolbarProps) {
@@ -169,6 +176,21 @@ export const ListToolbar = memo(function ListToolbar({
                 <MailOpenIcon className="size-3.5" />
               ) : (
                 <MailIcon className="size-3.5" />
+              )}
+            </button>
+          </Tooltip>
+
+          <Tooltip shortcuts={["star"]}>
+            <button
+              type="button"
+              onClick={onStarSelected}
+              aria-label={isStarredSelected ? "Unstar" : "Star"}
+              className={cn(toolbarButton, "w-8 justify-center px-0")}
+            >
+              {isStarredSelected ? (
+                <StarOffIcon className="size-3.5" />
+              ) : (
+                <StarIcon className="size-3.5" />
               )}
             </button>
           </Tooltip>

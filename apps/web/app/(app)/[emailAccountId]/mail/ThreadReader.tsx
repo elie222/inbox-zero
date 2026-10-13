@@ -11,6 +11,7 @@ import { AlertCircleIcon, Loader2Icon, MailIcon } from "lucide-react";
 import { ReaderToolbar } from "@/app/(app)/[emailAccountId]/mail/ReaderToolbar";
 import { MailReaderSurface } from "@inboxzero/mail-ui/MailReaderSurface";
 import { isThreadStarred } from "@/app/(app)/[emailAccountId]/mail/star-state";
+import { useThreadTranslation } from "@/app/(app)/[emailAccountId]/mail/use-thread-translation";
 import type {
   ListThread,
   MailLayoutMode,
@@ -22,7 +23,10 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { getSWRFetchErrorMessage } from "@/providers/swr-error";
 import { Button } from "@/components/ui/button";
 import type { EmailLabels } from "@/providers/email-label-types";
+import { useAccount } from "@/providers/EmailAccountProvider";
+import { useHiddenDraftMessageIds } from "@/hooks/useHiddenDraftMessageIds";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
+import { PublisherDiscussion } from "@/components/team-comments/PublisherDiscussion";
 import type { OutgoingThreadMessage } from "@/utils/mail-engine/conversation-thread";
 
 const SenderContextPanel = dynamic(
@@ -122,7 +126,20 @@ export function ThreadReader({
     senderName: string;
   } | null>(null);
   const [readerRef, readerWidth] = useElementWidth();
-  const headerMessage = thread?.messages.at(-1) ?? messages.at(-1);
+  const { emailAccountId } = useAccount();
+  const hiddenDraftMessageIds = useHiddenDraftMessageIds(emailAccountId);
+  const headerMessage =
+    latestShownMessage(thread?.messages ?? [], hiddenDraftMessageIds) ??
+    latestShownMessage(messages, hiddenDraftMessageIds) ??
+    thread?.messages.at(-1) ??
+    messages.at(-1);
+  const translation = useThreadTranslation(
+    emailAccountId,
+    headerMessage?.threadId,
+  );
+  const translatedSubject = translation?.showOriginal
+    ? undefined
+    : translation?.subject;
 
   if (error || (!headerMessage && !localAvailability)) {
     return (
@@ -176,7 +193,9 @@ export function ThreadReader({
       onMarkUnread={onMarkUnread}
       onBackToInbox={onBackToInbox}
       onRemoveLabel={onRemoveLabel}
-      subject={headerMessage?.headers.subject ?? "Conversation"}
+      subject={
+        translatedSubject ?? headerMessage?.headers.subject ?? "Conversation"
+      }
     />
   );
 
@@ -236,10 +255,22 @@ export function ThreadReader({
           }}
           refetch={refetch}
           onSendSuccess={onSendSuccess}
+          onThreadDiscarded={
+            // A partially loaded conversation can look draft-only, so only
+            // leave once every message is here to say it is.
+            localAvailability?.hasMore ? undefined : onBackToInbox
+          }
           showReplyButton
         />
       ) : (
         renderToolbar()
+      )}
+      {emailAccountId && threadId && messages.length > 0 && (
+        <PublisherDiscussion
+          key={`${emailAccountId}:${threadId}`}
+          emailAccountId={emailAccountId}
+          threadId={threadId}
+        />
       )}
     </MailReaderSurface>
   );
@@ -289,4 +320,15 @@ function useElementWidth() {
   }, []);
 
   return [ref, width] as const;
+}
+
+// A draft that a pending send stands in for isn't shown, so it doesn't title
+// the thread either.
+function latestShownMessage<T extends { id: string }>(
+  messages: T[],
+  hiddenDraftMessageIds: string[],
+) {
+  return messages.findLast(
+    (message) => !hiddenDraftMessageIds.includes(message.id),
+  );
 }

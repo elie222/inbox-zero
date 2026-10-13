@@ -13,7 +13,10 @@ import { createRoutedBackendPorts } from "../../src/mail-engine/backend";
 import { createOriginMailRequest } from "../../src/mail-engine/request";
 import { closeAndWipeDesktopMailbox } from "../../src/mail-engine/wipe";
 import type { MailHttpRequestFn } from "@inboxzero/mail-core/protocol/backend-adapter";
-import { changesRequestSchema } from "@inboxzero/mail-core/protocol/mail-http";
+import {
+  changesBatchRequestSchema,
+  changesRequestSchema,
+} from "@inboxzero/mail-core/protocol/mail-http";
 
 const PARTITION = "persist:inbox-zero";
 const PROOF = process.env.ELECTRON_PROOF ?? "search-archive";
@@ -918,6 +921,27 @@ function wrapBlockedAuthRequest(
     if (input.path.includes("/changes")) {
       if (gate.countCatchUp || gate.enabled) {
         gate.changes += 1;
+      }
+      if (
+        gate.resetOnce &&
+        !gate.resetFired &&
+        input.path.endsWith("/changes/batch")
+      ) {
+        const { reads } = changesBatchRequestSchema.parse(input.body);
+        gate.resetFired = true;
+        return {
+          status: 200,
+          json: {
+            protocolVersion: 1,
+            requestId: "hosted-electron-reset",
+            results: reads.map((read) => ({
+              protocolVersion: 1,
+              requestId: read.requestId,
+              status: "reset_required",
+              scopeId: read.position.streamId,
+            })),
+          },
+        };
       }
       if (gate.resetOnce && !gate.resetFired) {
         const { position } = changesRequestSchema.parse(input.body);

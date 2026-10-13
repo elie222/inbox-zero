@@ -1,12 +1,12 @@
 import { z } from "zod";
 import {
   accountSessionSchema,
-  blobIdSchema,
   conversationKeySchema,
   MAIL_PROTOCOL_VERSION,
   messageIdSchema,
   messageKeySchema,
 } from "../identities";
+import { MAX_ATTACHMENT_ID_LENGTH } from "../messages";
 import { mailPredicateSchema } from "../queries";
 import {
   bodyObservationSchema,
@@ -16,6 +16,7 @@ import {
   syncPositionSchema,
 } from "../sync";
 import { preparedOperationSchema, targetOutcomeSchema } from "../operations";
+import { MAX_CHANGES_BATCH_READS } from "../ports/mailbox-source";
 
 export const mailProtocolVersionSchema = z.literal(MAIL_PROTOCOL_VERSION);
 
@@ -82,6 +83,7 @@ export const scopesResultSchema = z.object({
       id: z.string().min(1).max(256),
       kind: z.enum(["account", "folder"]),
       folderId: z.string().max(256).nullable(),
+      priority: z.enum(["high", "low"]).optional(),
     }),
   ),
   nextPage: z.string().max(16_384).nullable(),
@@ -162,6 +164,28 @@ export const changesResultSchema = z.discriminatedUnion("status", [
     requestId: z.string(),
   }),
 ]);
+
+export const changesBatchRequestSchema = z.object({
+  protocolVersion: mailProtocolVersionSchema,
+  requestId: z.string().min(1).max(128),
+  session: accountSessionSchema,
+  reads: z
+    .array(
+      z.object({
+        requestId: z.string().min(1).max(128),
+        position: syncPositionSchema,
+      }),
+    )
+    .min(1)
+    .max(MAX_CHANGES_BATCH_READS),
+  pageSize: z.number().int().min(1).max(100),
+});
+
+export const changesBatchResultSchema = z.object({
+  protocolVersion: mailProtocolVersionSchema,
+  requestId: z.string(),
+  results: z.array(changesResultSchema),
+});
 
 export const hydrationRequestSchema = z.object({
   protocolVersion: mailProtocolVersionSchema,
@@ -332,32 +356,7 @@ export const assistantStateResultSchema = z.object({
 
 export const attachmentContentQuerySchema = z.object({
   messageId: messageIdSchema,
-  attachmentId: z.string().min(1).max(2048),
-});
-
-export const uploadAdmitRequestSchema = z.object({
-  protocolVersion: mailProtocolVersionSchema,
-  requestId: z.string().min(1).max(128),
-  session: accountSessionSchema,
-  uploadId: blobIdSchema,
-  sizeBytes: z.number().int().nonnegative().max(25_000_000),
-  checksum: z.string().min(1).max(128),
-  contentType: z.string().max(256),
-  filename: z.string().max(1024).optional(),
-  disposition: z.enum(["attachment", "inline"]).optional(),
-  contentId: z
-    .string()
-    .min(1)
-    .max(255)
-    .regex(/^[^<>\s\0]+$/u)
-    .optional(),
-});
-
-export const uploadHoldRequestSchema = z.object({
-  protocolVersion: mailProtocolVersionSchema,
-  requestId: z.string().min(1).max(128),
-  session: accountSessionSchema,
-  held: z.boolean(),
+  attachmentId: z.string().min(1).max(MAX_ATTACHMENT_ID_LENGTH),
 });
 
 export function mailHttpErrorResponse(input: {

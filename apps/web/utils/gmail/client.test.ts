@@ -249,6 +249,32 @@ describe("gmail oauth client configuration", () => {
     expect(saveTokens).not.toHaveBeenCalled();
   });
 
+  it("disconnects the account when a Google security policy blocks token refresh", async () => {
+    refreshAccessToken.mockRejectedValue(
+      Object.assign(new Error("policy_enforced"), {
+        response: { data: { error: "policy_enforced" } },
+      }),
+    );
+
+    await expect(
+      getGmailClientWithRefresh({
+        accessToken: "stale-access-token",
+        refreshToken: "refresh-token",
+        expiresAt: Date.now() - 1000,
+        emailAccountId: "email-account-id",
+        logger,
+      }),
+    ).rejects.toThrow("policy_enforced");
+
+    expect(cleanupInvalidTokens).toHaveBeenCalledWith({
+      emailAccountId: "email-account-id",
+      reason: "policy_enforced",
+      failedAccessToken: "stale-access-token",
+      failedRefreshToken: "refresh-token",
+      logger,
+    });
+  });
+
   it("matches only the refresh token when forced permission recovery omits the access token", async () => {
     refreshAccessToken.mockRejectedValueOnce(new Error("invalid_grant"));
     await expect(

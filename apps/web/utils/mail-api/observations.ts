@@ -11,6 +11,7 @@ import {
   MAX_BODY_LENGTH,
   type ProviderChange,
 } from "@inboxzero/mail-core/sync";
+import { splitRecipientList } from "@/utils/email";
 import type { ParsedMessage } from "@/utils/types";
 
 const ROLE_LABELS = {
@@ -49,6 +50,7 @@ export function parsedMessageMetadata(message: ParsedMessage): MessageMetadata {
     from: message.headers.from || "",
     to: splitAddresses(message.headers.to),
     cc: splitAddresses(message.headers.cc),
+    bcc: splitAddresses(message.headers.bcc),
     receivedAtMs: receivedAtMs(message),
     read: !labels.includes("UNREAD"),
     starred: labels.includes("STARRED"),
@@ -161,11 +163,7 @@ function receivedAtMs(message: ParsedMessage): number {
 
 function splitAddresses(value: string | undefined): string[] {
   if (!value) return [];
-  return value
-    .split(",")
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .slice(0, MAX_RECIPIENTS);
+  return splitRecipientList(value).slice(0, MAX_RECIPIENTS);
 }
 
 function rolesFromFolder(

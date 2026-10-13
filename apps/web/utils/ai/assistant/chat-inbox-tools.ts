@@ -530,16 +530,29 @@ const outlookSearchInboxInputSchema = z
       .min(1)
       .nullish()
       .describe(
-        "Outlook category or folder name, folder path, or folder/category ID for a scoped inbox search or cleanup request.",
+        "Exact Outlook category name or category ID. Filters by category membership; use folderName for mail folders.",
+      ),
+    folderName: z
+      .string()
+      .trim()
+      .min(1)
+      .nullish()
+      .describe(
+        "Exact Outlook mail folder name, folder path, or folder ID from listFolders. Filters messages in that folder, independently of categories. Use a path or ID when folder names are ambiguous.",
       ),
   })
   .refine(
     (value) =>
       Boolean(
-        value.query || value.fromEmail || value.readState || value.categoryName,
+        value.query ||
+          value.fromEmail ||
+          value.readState ||
+          value.categoryName ||
+          value.folderName,
       ),
     {
-      message: "query, fromEmail, readState, or categoryName is required",
+      message:
+        "query, fromEmail, readState, categoryName, or folderName is required",
     },
   );
 
@@ -607,7 +620,7 @@ const outlookSearchInboxTool = ({
 }: InboxToolOptions) =>
   tool({
     description:
-      "Search inbox messages and return concise message metadata. Returns at most 20 messages per call. If hasMore=true, more matches remain; for bulk or all-matching requests, keep calling searchInbox with nextPageToken until hasMore=false before reporting completion, even when the current page has zero messages. Outlook filtered searches can return an empty page before later matching pages. totalReturned is only the number of messages returned by this call, so do not present it or a single search page as an exact mailbox, folder, or category count. If the tool returns an error or provider search feedback instead of messages, treat the lookup as inconclusive rather than evidence that the email is absent.",
+      "Search inbox messages and return concise message metadata. Returns at most 20 messages per call. If hasMore=true, more matches remain; for bulk or all-matching requests, keep calling searchInbox with nextPageToken until hasMore=false and collect all matching threadIds before writing in batches, even when the current page has zero messages. Report the summed successCount from action results, and disclose any failures or remaining pages. Outlook filtered searches can return an empty page before later matching pages. For folder/category count questions, use only folderName/categoryName with no query or other filters and report exactCount, the full-scope message count including drafts. If countError is returned, the exact total is unavailable. totalReturned is only this page size and is never an exact mailbox, folder, or category total. If the tool returns an error or provider search feedback instead of messages, treat the lookup as inconclusive rather than evidence that the email is absent.",
     inputSchema: outlookSearchInboxInputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "search_inbox", email, logger });
@@ -619,6 +632,7 @@ const outlookSearchInboxTool = ({
         pageToken,
         readState,
         categoryName,
+        folderName,
       } = input;
 
       try {
@@ -636,6 +650,7 @@ const outlookSearchInboxTool = ({
           fromEmail,
           readState,
           categoryName,
+          folderName,
         });
         const searchResult = await runOutlookSearch({
           emailProvider,
@@ -654,12 +669,20 @@ const outlookSearchInboxTool = ({
 
         const labels = await labelsPromise;
 
-        return formatSearchInboxResult({
-          searchResult: searchResult.result,
-          queryUsed: searchResult.queryUsed,
-          labels,
-          taxonomyNamesKey: "categoryNames",
-        });
+        return {
+          ...formatSearchInboxResult({
+            searchResult: searchResult.result,
+            queryUsed: searchResult.queryUsed,
+            labels,
+            taxonomyNamesKey: "categoryNames",
+          }),
+          ...(searchResult.exactCount !== undefined && {
+            exactCount: searchResult.exactCount,
+          }),
+          ...(searchResult.countError && {
+            countError: searchResult.countError,
+          }),
+        };
       } catch (error) {
         return buildMicrosoftSearchErrorResult({
           query,
@@ -1281,7 +1304,7 @@ export const replyEmailTool = ({
 }) =>
   tool({
     description:
-      "Prepare a reply to an existing email by message ID. This does NOT send immediately — it returns a confirmation payload for the user to approve. Do not recreate replies with sendEmail.",
+      "Prepare a reply to an existing email by message ID. This does NOT send immediately — it returns a confirmation payload for the user to approve. Use the language of the email being replied to (new body, not quoted history), not the chat language, unless the user explicitly requests another language. Do not recreate replies with sendEmail.",
     inputSchema: replyEmailToolInputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "reply_email", email, logger });
@@ -1328,7 +1351,7 @@ export const forwardEmailTool = ({
 }) =>
   tool({
     description:
-      "Prepare a forward for an existing email by message ID. This does NOT send immediately — it returns a confirmation payload for the user to approve. Do not recreate forwards with sendEmail.",
+      "Prepare a forward for an existing email by message ID. This does NOT send immediately — it returns a confirmation payload for the user to approve. Use the forwarded email's language (new body, not quoted history) for any added note, not the chat language, unless the user explicitly requests another language. Do not recreate forwards with sendEmail.",
     inputSchema: forwardEmailToolInputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "forward_email", email, logger });

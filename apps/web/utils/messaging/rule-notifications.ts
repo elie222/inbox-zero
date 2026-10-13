@@ -124,6 +124,7 @@ type NotificationOpenLink = {
 };
 
 type NotificationEmailPreview = {
+  externalUrl?: string;
   headers: {
     from: string;
     subject: string;
@@ -428,7 +429,7 @@ async function sendSlackRuleNotificationWithContext({
     actionId: context.id,
     actionType: context.type,
     content,
-    openLink: getNotificationOpenLink(context),
+    openLink: getNotificationOpenLink(context, email.externalUrl),
   });
 
   try {
@@ -645,7 +646,7 @@ async function sendTelegramRuleNotificationWithContext({
       buildTelegramNotificationCard({
         actionId: context.id,
         content,
-        openLink: getNotificationOpenLink(context),
+        openLink: getNotificationOpenLink(context, email.externalUrl),
       }),
     );
 
@@ -1073,7 +1074,10 @@ async function sendDraftReplyFromNotification({
     card: buildHandledNotificationCardForProvider({
       provider: context.messagingChannel?.provider,
       content: notificationContent,
-      openLink: getNotificationOpenLink(context),
+      openLink: getNotificationOpenLink(
+        context,
+        sourceMessageSummary.externalUrl,
+      ),
       status: "Reply sent. ✅",
     }),
   });
@@ -1766,6 +1770,7 @@ async function getSourceMessageSummaryForProvider({
     textPlain: message.textPlain,
     textHtml: message.textHtml,
     attachments: message.attachments,
+    externalUrl: message.externalUrl,
   };
 }
 
@@ -2220,6 +2225,7 @@ function getInfoNotificationTitle(systemType: SystemType | null) {
 
 function getNotificationOpenLink(
   context: NotificationContext,
+  externalUrl?: string,
 ): NotificationOpenLink | null {
   const provider = context.executedRule.emailAccount.account.provider;
   const label = getOpenInMailboxLabel(provider);
@@ -2230,6 +2236,7 @@ function getNotificationOpenLink(
     threadId: context.executedRule.threadId,
     emailAddress: context.executedRule.emailAccount.email,
     provider,
+    externalUrl,
   });
   if (!url) return null;
 

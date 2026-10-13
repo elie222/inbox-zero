@@ -101,11 +101,14 @@
    * Warm-neutral palette for the Mail route, scoped so the rest of the app keeps
    * today's cool-slate tokens while the new design language is proven out.
    * Intended to be promoted to `:root` in a follow-up PR, at which point this
-   * block and the `data-theme` attribute go away.
+   * block and the `data-theme` attribute go away. Until then, surfaces that
+   * embed Mail UI outside the route (e.g. the bulk unsubscribe sender panel)
+   * opt in with `data-theme="mail"` on their own element.
    *
    * The dark variant shares the app's charcoal surfaces and only swaps accents.
    */
-  :root[data-theme="mail"]:not(.dark) {
+  :root[data-theme="mail"]:not(.dark),
+  :root:not(.dark) [data-theme="mail"] {
     --background: 0 0% 99.2%; /* #FDFDFD */
     --foreground: 0 0% 14.1%; /* #242424 */
 
@@ -148,7 +151,8 @@
     --sidebar-ring: 221.2 83.2% 53.3%;
   }
 
-  :root[data-theme="mail"].dark {
+  :root[data-theme="mail"].dark,
+  :root.dark [data-theme="mail"] {
     /* Lighter fills with dark text so both the fill and the tinted text on the
        charcoal background clear WCAG AA contrast */
     --primary: 213.1 93.9% 67.8%; /* #60A5FA */

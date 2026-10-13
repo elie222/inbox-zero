@@ -418,14 +418,19 @@ describe("applyThreadStatusLabel", () => {
     expect(mockProvider.labelMessage).not.toHaveBeenCalled();
   });
 
-  test("executes remove and add operations in parallel", async () => {
-    const removePromise = vi.fn().mockResolvedValue(undefined);
-    const labelPromise = vi.fn().mockResolvedValue({});
-
-    vi.mocked(mockProvider.removeThreadLabels).mockImplementation(
-      removePromise,
-    );
-    vi.mocked(mockProvider.labelMessage).mockImplementation(labelPromise);
+  test("finishes removing conflicting labels before adding the target label", async () => {
+    // Outlook rewrites a message's full category list, so overlapping writes
+    // to the same message conflict or drop each other's changes.
+    const calls: string[] = [];
+    vi.mocked(mockProvider.removeThreadLabels).mockImplementation(async () => {
+      calls.push("remove:start");
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      calls.push("remove:end");
+    });
+    vi.mocked(mockProvider.labelMessage).mockImplementation(async () => {
+      calls.push("add");
+      return {};
+    });
 
     await applyThreadStatusLabel({
       emailAccountId,
@@ -436,9 +441,7 @@ describe("applyThreadStatusLabel", () => {
       logger,
     });
 
-    // Both operations should have been called
-    expect(removePromise).toHaveBeenCalled();
-    expect(labelPromise).toHaveBeenCalled();
+    expect(calls).toEqual(["remove:start", "remove:end", "add"]);
   });
 
   test("removes exactly 3 labels (all except target)", async () => {

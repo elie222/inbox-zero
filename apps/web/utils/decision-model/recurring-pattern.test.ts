@@ -14,8 +14,8 @@ import { decideRecurringPattern } from "./recurring-pattern";
 
 const config = {
   provider: "typesafe" as const,
-  model: "jev-latest",
-  apiKey: "key",
+  modelId: "jev-latest",
+  model: {} as never,
 };
 const rules = [
   { name: "Receipts", instructions: "Payment receipts" },
@@ -28,8 +28,8 @@ describe("decideRecurringPattern", () => {
   it("returns the strongest rule above the conservative threshold", async () => {
     runDecisionModelMock.mockResolvedValue({
       answers: {
-        rule_0: { type: "yesNo", probability: 0.93 },
-        rule_1: { type: "yesNo", probability: 0.4 },
+        rule_0: { type: "boolean", probability: 0.93 },
+        rule_1: { type: "boolean", probability: 0.4 },
       },
     });
 
@@ -47,8 +47,8 @@ describe("decideRecurringPattern", () => {
   it("returns no match below 90 percent", async () => {
     runDecisionModelMock.mockResolvedValue({
       answers: {
-        rule_0: { type: "yesNo", probability: 0.89 },
-        rule_1: { type: "yesNo", probability: 0.2 },
+        rule_0: { type: "boolean", probability: 0.89 },
+        rule_1: { type: "boolean", probability: 0.2 },
       },
     });
 

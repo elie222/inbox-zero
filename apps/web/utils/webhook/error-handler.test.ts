@@ -4,6 +4,7 @@ import { trackError } from "@/utils/posthog";
 import { recordRateLimitFromApiError } from "@/utils/email/rate-limit";
 import { cleanupInvalidTokens } from "@/utils/auth/cleanup-invalid-tokens";
 import { createTestLogger } from "@/__tests__/helpers";
+import { ProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
 
 vi.mock("@/utils/posthog", () => ({
   trackError: vi.fn(),
@@ -169,6 +170,18 @@ describe("handleWebhookError", () => {
           errorType: "Outlook Rate Limit",
         }),
       );
+    });
+
+    it("does not track skips from an active rate-limit mode", async () => {
+      await handleWebhookError(
+        new ProviderRateLimitModeError({
+          provider: "microsoft",
+          retryAt: new Date(Date.now() + 60_000),
+        }),
+        { ...baseOptions, url: "/api/outlook/webhook" },
+      );
+
+      expect(trackError).not.toHaveBeenCalled();
     });
   });
 

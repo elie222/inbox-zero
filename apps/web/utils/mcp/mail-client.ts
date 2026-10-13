@@ -167,21 +167,13 @@ export async function saveMailDraftForMcp(
     if (args.replyToMessageId) await provider.getMessage(args.replyToMessageId);
     const draft = await provider.createDraft({
       to: args.to,
+      cc: args.cc,
       subject: args.subject,
       messageHtml,
       replyToMessageId: args.replyToMessageId,
     });
     if (!draft.id) throw new Error("Draft could not be saved.");
     draftId = draft.id;
-    // createDraft has no cc; remove the partial draft rather than orphan it.
-    if (args.cc) {
-      try {
-        await provider.updateDraft(draftId, { cc: args.cc });
-      } catch (error) {
-        await provider.deleteDraft(draftId).catch(() => {});
-        throw error;
-      }
-    }
   }
   navigationCache.delete(JSON.stringify([userId, emailAccount.id]));
   return {
@@ -287,6 +279,7 @@ function serializeMail(
     replyTo: message.headers["reply-to"] ?? "",
     date: message.date,
     snippet: message.snippet,
+    html: includeBody ? message.textHtml || null : null,
     body: includeBody
       ? emailToContent(message, {
           maxLength: Number.MAX_SAFE_INTEGER,

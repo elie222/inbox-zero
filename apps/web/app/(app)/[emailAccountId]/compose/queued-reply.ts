@@ -6,13 +6,8 @@ import {
 import type { QueryHandle } from "@inboxzero/mail-core/queries";
 import type { SendEmailBody } from "@/utils/types/mail";
 import { sendEmailToDraftContent } from "@/utils/mail-engine/draft-content";
-import {
-  cancelSendAttachments,
-  stageSendAttachments,
-} from "@/utils/mail-engine/stage-attachments";
+import type { ComposeAttachmentReference } from "@/utils/mail-engine/reply-drafts";
 import { admissionRejectionCopy } from "@/utils/mail-engine/admission-notice";
-import { randomUuid } from "@/utils/uuid";
-import type { Attachment } from "@/utils/types/mail";
 import { getUndoSendHoldUntil } from "./undo-send";
 
 export const READER_EMAIL_SETTLEMENT_TIMEOUT_MS = 15_000;
@@ -23,32 +18,21 @@ export type ReaderEmailOutcome =
       status: "queued";
       reason: "offline" | "pending" | "blocked_auth";
       threadId: string;
-      attachmentIds?: string[];
     }
   | {
       status: "held";
       holdUntil: number;
       mutationId: string;
       threadId: string;
-      attachmentIds: string[];
     }
   | { status: "uncertain"; ownsNotification: boolean; threadId: string }
   | { status: "failed"; error: string; ownsNotification: boolean }
   | { status: "cancelled" };
 
-export async function queueReaderEmail({
-  client,
-  email,
-  emailAccountId,
-  messageIds,
-  online,
-  onQueued,
-  mutationId,
-  holdForUndo,
-  providerDraftMessageIds,
-  settlementTimeoutMs = READER_EMAIL_SETTLEMENT_TIMEOUT_MS,
-  threadId,
-}: {
+const UNDONE_SEND_LOOKUP_TIMEOUT_MS = 2000;
+const MAX_RESEND_ATTEMPTS = 20;
+
+type QueueReaderEmailOptions = {
   client: MailClient;
   email: SendEmailBody;
   emailAccountId: string;
@@ -59,83 +43,112 @@ export async function queueReaderEmail({
   holdForUndo?: boolean;
   /** The mailbox draft's saved copies, which the queued send replaces. */
   providerDraftMessageIds?: string[];
+  /** The files on the mailbox draft, kept so an undone send lists them. */
+  attachments?: ComposeAttachmentReference[];
   settlementTimeoutMs?: number;
   threadId: string;
-}): Promise<ReaderEmailOutcome> {
-  const commandId = mutationId ?? crypto.randomUUID();
-  const draftId = commandId;
-  const attachmentIds = await stageLocalSendAttachments(
-    client,
-    emailAccountId,
-    draftId,
-    email.attachments,
-  );
-  let queued = false;
-  try {
-    const content = sendEmailToDraftContent(
-      email,
-      attachmentIds,
-      threadId,
-      providerDraftMessageIds,
-    );
-    const draftRevision = await saveSendableDraft(client, {
-      accountId: emailAccountId,
-      draftId,
-      content,
-    });
-    const nowMs = Date.now();
-    const undoHoldUntil = holdForUndo
-      ? getUndoSendHoldUntil(online, nowMs)
-      : undefined;
-    const admission = await client.submitSend({
-      commandId,
-      conversationId: threadId,
-      draft: { accountId: emailAccountId, draftId },
-      draftRevision,
-      notBeforeMs: !online ? nowMs + OFFLINE_DISPATCH_HOLD_MS : undoHoldUntil,
-      replyTo: messageIds[0]
-        ? { accountId: emailAccountId, messageId: messageIds[0] }
-        : null,
-    });
-    if (admission.status === "rejected") {
-      throw new Error(
-        admissionRejectionCopy(admission.code) ??
-          (admission.code === "invalid"
-            ? "This reply is already queued with different content. Check the thread delivery status."
-            : "Could not queue this email. Try again."),
-      );
-    }
-    queued = true;
-    await onQueued?.();
-    if (undoHoldUntil !== undefined) {
-      return {
-        status: "held",
-        holdUntil: undoHoldUntil,
-        mutationId: commandId,
-        threadId,
-        attachmentIds,
-      };
-    }
-    if (!online) {
-      return {
-        status: "queued",
-        reason: "offline",
-        threadId,
-        attachmentIds,
-      };
-    }
+};
 
-    return waitForSettlement({
-      accountId: emailAccountId,
-      client,
-      operationId: commandId,
-      settlementTimeoutMs,
-      threadId,
-    });
-  } catch (error) {
-    if (!queued) await cancelSendAttachments(emailAccountId, attachmentIds);
-    throw error;
+export async function queueReaderEmail(
+  options: QueueReaderEmailOptions,
+): Promise<ReaderEmailOutcome> {
+  const { client, emailAccountId, mutationId } = options;
+  if (!mutationId) {
+    return queueReaderEmailOnce(options, crypto.randomUUID());
   }
+  // An undone send keeps its command id, so resending the restored draft moves
+  // to the next id in the chain. Deriving ids keeps a send that is still
+  // pending anywhere in the chain blocking duplicates.
+  for (let attempt = 0; ; attempt += 1) {
+    const commandId =
+      attempt === 0 ? mutationId : `${mutationId}-retry-${attempt}`;
+    try {
+      return await queueReaderEmailOnce(options, commandId);
+    } catch (error) {
+      if (
+        !(error instanceof ConflictingSendError) ||
+        attempt >= MAX_RESEND_ATTEMPTS ||
+        !(await wasSendUndone(client, emailAccountId, commandId))
+      ) {
+        throw error;
+      }
+    }
+  }
+}
+
+async function queueReaderEmailOnce(
+  {
+    client,
+    email,
+    emailAccountId,
+    messageIds,
+    online,
+    onQueued,
+    holdForUndo,
+    providerDraftMessageIds,
+    attachments,
+    settlementTimeoutMs = READER_EMAIL_SETTLEMENT_TIMEOUT_MS,
+    threadId,
+  }: QueueReaderEmailOptions,
+  commandId: string,
+): Promise<ReaderEmailOutcome> {
+  const draftId = commandId;
+  const content = sendEmailToDraftContent(
+    email,
+    threadId,
+    providerDraftMessageIds,
+    attachments,
+  );
+  const draftRevision = await saveSendableDraft(client, {
+    accountId: emailAccountId,
+    draftId,
+    content,
+  });
+  const nowMs = Date.now();
+  const undoHoldUntil = holdForUndo
+    ? getUndoSendHoldUntil(online, nowMs)
+    : undefined;
+  const admission = await client.submitSend({
+    commandId,
+    conversationId: threadId,
+    draft: { accountId: emailAccountId, draftId },
+    draftRevision,
+    notBeforeMs: !online ? nowMs + OFFLINE_DISPATCH_HOLD_MS : undoHoldUntil,
+    replyTo: messageIds[0]
+      ? { accountId: emailAccountId, messageId: messageIds[0] }
+      : null,
+  });
+  if (admission.status === "rejected") {
+    const copy = admissionRejectionCopy(admission.code);
+    if (!copy && admission.code === "invalid") {
+      throw new ConflictingSendError();
+    }
+    throw new Error(copy ?? "Could not queue this email. Try again.");
+  }
+  await onQueued?.();
+  if (undoHoldUntil !== undefined) {
+    return {
+      status: "held",
+      holdUntil: undoHoldUntil,
+      mutationId: commandId,
+      threadId,
+    };
+  }
+  if (!online) {
+    return {
+      status: "queued",
+      reason: "offline",
+      threadId,
+    };
+  }
+
+  return waitForSettlement({
+    accountId: emailAccountId,
+    client,
+    operationId: commandId,
+    settlementTimeoutMs,
+    threadId,
+  });
 }
 
 export function waitForReaderEmailSettlement(options: {
@@ -152,6 +165,45 @@ export function waitForReaderEmailSettlement(options: {
     settlementTimeoutMs:
       options.settlementTimeoutMs ?? READER_EMAIL_SETTLEMENT_TIMEOUT_MS,
     threadId: options.threadId,
+  });
+}
+
+class ConflictingSendError extends Error {
+  constructor() {
+    super(
+      "This reply is already queued with different content. Check the thread delivery status.",
+    );
+  }
+}
+
+function wasSendUndone(
+  client: MailClient,
+  accountId: string,
+  operationId: string,
+) {
+  const handle = client.observeOperation({ accountId, operationId });
+  return new Promise<boolean>((resolve) => {
+    let settled = false;
+    const finish = (undone: boolean) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      unsubscribe();
+      handle.close();
+      resolve(undone);
+    };
+    const inspect = () => {
+      const snapshot = handle.getSnapshot();
+      if (snapshot.status === "loading") return;
+      const status = snapshot.data?.status;
+      finish(status === "cancelled" || status === "superseded");
+    };
+    const unsubscribe = handle.subscribe(inspect);
+    const timeout = setTimeout(
+      () => finish(false),
+      UNDONE_SEND_LOOKUP_TIMEOUT_MS,
+    );
+    inspect();
   });
 }
 
@@ -183,65 +235,6 @@ async function saveSendableDraft(
     expectedRevision = saved.currentDraftRevision;
   }
   throw new Error("Could not save this email on the device.");
-}
-
-async function stageLocalSendAttachments(
-  client: MailClient,
-  accountId: string,
-  draftId: string,
-  attachments: Attachment[] | undefined,
-) {
-  if (!attachments?.length) return [];
-  if (typeof client.stageDraftAttachment !== "function") {
-    return stageSendAttachments(accountId, attachments);
-  }
-  const ids: string[] = [];
-  for (const attachment of attachments) {
-    const bytes = decodeBase64(attachment.content);
-    const checksum = await sha256Hex(bytes);
-    const attachmentId = attachment.id || randomUuid();
-    const staged = await client.stageDraftAttachment({
-      accountId,
-      draftId,
-      attachmentId,
-      filename: attachment.filename,
-      contentType: attachment.contentType,
-      checksum,
-      sizeBytes: bytes.byteLength,
-      bytes: (async function* () {
-        yield bytes;
-      })(),
-      inline: attachment.disposition === "inline",
-    });
-    if (staged.status !== "staged") {
-      if (
-        staged.code === "storage_unavailable" ||
-        staged.code === "unsupported"
-      ) {
-        return stageSendAttachments(accountId, attachments);
-      }
-      throw new Error(`Could not stage ${attachment.filename} for sending.`);
-    }
-    ids.push(attachmentId);
-  }
-  return ids;
-}
-
-function decodeBase64(value: string) {
-  if (typeof Buffer !== "undefined") return Buffer.from(value, "base64");
-  const binary = globalThis.atob(value);
-  const bytes = new Uint8Array(binary.length);
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index);
-  }
-  return bytes;
-}
-
-async function sha256Hex(bytes: Uint8Array) {
-  const digest = await crypto.subtle.digest("SHA-256", bytes.slice());
-  return [...new Uint8Array(digest)]
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
 }
 
 async function waitForSettlement({
@@ -292,7 +285,11 @@ function operationOutcome(
   const operation = handle.getSnapshot().data;
   if (!operation) return;
   if (operation.status === "succeeded") {
-    return { status: "sent", messageId: "", threadId };
+    return {
+      status: "sent",
+      messageId: operation.sentMessage?.messageId ?? "",
+      threadId: operation.sentMessage?.conversationId ?? threadId,
+    };
   }
   if (operation.status === "failed" || operation.status === "needs_attention") {
     return {

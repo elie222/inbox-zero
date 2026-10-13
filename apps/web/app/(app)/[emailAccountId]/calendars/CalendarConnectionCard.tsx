@@ -144,13 +144,14 @@ export function CalendarConnectionCard({
   return (
     <Card>
       <CardHeader className="p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex min-w-0 items-center gap-3">
+        <div className="flex items-center justify-between gap-2 sm:gap-0">
+          <div className="flex min-w-0 items-center gap-3 max-sm:flex-1">
             <Image
               src={providerInfo.icon}
               alt={providerInfo.alt}
               width={32}
               height={32}
+              className="shrink-0"
               unoptimized
             />
             <div className="min-w-0">

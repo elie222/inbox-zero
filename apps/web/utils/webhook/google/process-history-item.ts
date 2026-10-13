@@ -61,6 +61,7 @@ export async function processHistoryItem(
       { messageId, threadId },
       {
         provider,
+        isNewMessage: type === HistoryEventType.MESSAGE_ADDED,
         emailAccount,
         hasAutomationRules,
         hasAiAccess,

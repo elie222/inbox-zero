@@ -27,7 +27,7 @@ export const GET = withEmailProvider(
     });
     if (!draft)
       return NextResponse.json(
-        { error: "Draft not found." },
+        { error: "Draft not found.", code: "DRAFT_NOT_FOUND" },
         { status: 404, headers: { "Cache-Control": "no-store" } },
       );
     return NextResponse.json(draft satisfies ReadComposeDraftResponse, {

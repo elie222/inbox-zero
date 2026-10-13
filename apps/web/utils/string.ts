@@ -22,7 +22,7 @@ export function textToHtmlParagraphs(text?: string | null): string {
 }
 
 export function truncate(str: string, length: number) {
-  return str.length > length ? `${str.slice(0, length)}...` : str;
+  return str.length > length ? `${sliceHead(str, length)}...` : str;
 }
 
 const HEAD_TAIL_ELLIPSIS = "\n...\n";
@@ -36,7 +36,7 @@ export function truncateHeadTail(
   if (str.length <= maxLength) return str;
 
   const ellipsis = HEAD_TAIL_ELLIPSIS;
-  if (maxLength <= ellipsis.length) return str.slice(0, maxLength);
+  if (maxLength <= ellipsis.length) return sliceHead(str, maxLength);
 
   const clampedTailLength = Math.max(
     0,
@@ -44,10 +44,10 @@ export function truncateHeadTail(
   );
   const headLength = maxLength - clampedTailLength - ellipsis.length;
   if (headLength <= 0) {
-    return `${ellipsis}${str.slice(-(maxLength - ellipsis.length))}`;
+    return `${ellipsis}${sliceTail(str, maxLength - ellipsis.length)}`;
   }
 
-  return `${str.slice(0, headLength)}${ellipsis}${str.slice(-clampedTailLength)}`;
+  return `${sliceHead(str, headLength)}${ellipsis}${sliceTail(str, clampedTailLength)}`;
 }
 
 export function trimToNonEmptyString(value: unknown): string | undefined {
@@ -115,4 +115,27 @@ export function slugify(text: string): string {
 
 export function convertNewlinesToBr(text: string): string {
   return text.replace(/\r\n/g, "\n").replace(/\n/g, "<br>");
+}
+
+// slice() counts UTF-16 code units, so a cut can land inside an emoji or other
+// astral character and leave a lone surrogate. Some LLM APIs reject a request
+// body that contains one as invalid JSON, so drop the half character instead.
+function sliceHead(str: string, length: number) {
+  const head = str.slice(0, length);
+  return isHighSurrogate(head.charCodeAt(head.length - 1))
+    ? head.slice(0, -1)
+    : head;
+}
+
+function sliceTail(str: string, length: number) {
+  const tail = str.slice(-length);
+  return isLowSurrogate(tail.charCodeAt(0)) ? tail.slice(1) : tail;
+}
+
+function isHighSurrogate(code: number) {
+  return code >= 0xd8_00 && code <= 0xdb_ff;
+}
+
+function isLowSurrogate(code: number) {
+  return code >= 0xdc_00 && code <= 0xdf_ff;
 }

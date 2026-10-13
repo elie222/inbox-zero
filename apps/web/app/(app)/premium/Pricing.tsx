@@ -9,10 +9,6 @@ import { usePostHog } from "posthog-js/react";
 import { env } from "@/env";
 import { LoadingContent } from "@/components/LoadingContent";
 import { usePremium } from "@/hooks/usePremium";
-import {
-  usePricingFrequencyDefault,
-  type PricingFrequencyDefault,
-} from "@/hooks/useFeatureFlags";
 import { Button } from "@/components/ui/button";
 import {
   PricingFrequencyToggle,
@@ -74,11 +70,7 @@ export default function Pricing(props: PricingProps) {
   );
   const isLegacyStripePlan = shouldShowLegacyStripePricingNotice(premium);
 
-  const pricingFrequencyDefaultVariant = usePricingFrequencyDefault();
-  const defaultFrequency =
-    pricingFrequencyDefaultVariant === "annually"
-      ? frequencies[1]
-      : frequencies[0];
+  const defaultFrequency = frequencies[1];
   const [chosenFrequency, setFrequency] = useState<
     (typeof frequencies)[number] | null
   >(null);
@@ -105,11 +97,7 @@ export default function Pricing(props: PricingProps) {
   const router = useRouter();
 
   useEffect(() => {
-    if (
-      isLoading ||
-      pricingFrequencyDefaultVariant === undefined ||
-      hasTrackedPricingView.current
-    ) {
+    if (isLoading || hasTrackedPricingView.current) {
       return;
     }
 
@@ -123,7 +111,6 @@ export default function Pricing(props: PricingProps) {
       frequency: frequency.value,
       defaultFrequency: defaultFrequency.value,
       frequencySource: chosenFrequency ? "user_selected" : "default",
-      pricingFrequencyDefaultVariant,
     });
   }, [
     chosenFrequency,
@@ -134,7 +121,6 @@ export default function Pricing(props: PricingProps) {
     isLoading,
     isLoggedIn,
     posthog,
-    pricingFrequencyDefaultVariant,
     pricingSource,
     props.showSkipUpgrade,
   ]);
@@ -205,8 +191,6 @@ export default function Pricing(props: PricingProps) {
               previousFrequency: frequency.value,
               frequency: nextFrequency.value,
               defaultFrequency: defaultFrequency.value,
-              pricingFrequencyDefaultVariant:
-                pricingFrequencyDefaultVariant ?? null,
             });
             setFrequency(nextFrequency);
           }}
@@ -232,9 +216,6 @@ export default function Pricing(props: PricingProps) {
               frequency={frequency}
               defaultFrequency={defaultFrequency}
               frequencySource={chosenFrequency ? "user_selected" : "default"}
-              pricingFrequencyDefaultVariant={
-                pricingFrequencyDefaultVariant ?? null
-              }
               stripeSubscriptionId={premium?.stripeSubscriptionId}
               stripeSubscriptionStatus={premium?.stripeSubscriptionStatus}
               hasActiveAppleManagedSubscription={
@@ -259,7 +240,6 @@ function PriceTier({
   frequency,
   defaultFrequency,
   frequencySource,
-  pricingFrequencyDefaultVariant,
   stripeSubscriptionId,
   stripeSubscriptionStatus,
   hasActiveAppleManagedSubscription,
@@ -274,7 +254,6 @@ function PriceTier({
   frequency: Frequency;
   defaultFrequency: Frequency;
   frequencySource: "default" | "user_selected";
-  pricingFrequencyDefaultVariant: PricingFrequencyDefault | null;
   stripeSubscriptionId: string | null | undefined;
   stripeSubscriptionStatus: string | null | undefined;
   hasActiveAppleManagedSubscription: boolean;
@@ -377,7 +356,6 @@ function PriceTier({
             frequency: frequency.value,
             defaultFrequency: defaultFrequency.value,
             frequencySource,
-            pricingFrequencyDefaultVariant,
             cta: getCTAText(),
             isCurrentPlan,
             isLoggedIn,

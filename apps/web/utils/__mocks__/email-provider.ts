@@ -49,6 +49,7 @@ export const createMockEmailProvider = (
   getMessageByRfc822MessageId: vi.fn().mockResolvedValue(null),
   getFolders: vi.fn().mockResolvedValue([]),
   getFolderCounts: vi.fn().mockResolvedValue([]),
+  getSendAsAddresses: vi.fn().mockResolvedValue([]),
   getSignatures: vi.fn().mockResolvedValue([]),
   getInboxStats: vi.fn().mockResolvedValue({ total: 0, unread: 0 }),
   getMessage: vi.fn().mockResolvedValue({
@@ -92,6 +93,7 @@ export const createMockEmailProvider = (
   unarchiveThread: vi.fn().mockResolvedValue(undefined),
   untrashThread: vi.fn().mockResolvedValue(undefined),
   bulkArchiveFromSenders: vi.fn().mockResolvedValue(undefined),
+  bulkArchiveSenderOrThrow: vi.fn().mockResolvedValue(0),
   bulkTrashFromSenders: vi.fn().mockResolvedValue(undefined),
   labelMessage: vi.fn().mockResolvedValue(undefined),
   removeThreadLabel: vi.fn().mockResolvedValue(undefined),

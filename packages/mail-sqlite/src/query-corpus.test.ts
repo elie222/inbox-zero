@@ -46,6 +46,75 @@ describe("query corpora", () => {
     }
   });
 
+  it("lists a conversation in Drafts only through drafts that aren't excluded", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    try {
+      await store.ensureAccount({
+        accountId: "acc-1",
+        provider: "google",
+        generation: "g1",
+      });
+      const message = (
+        messageId: string,
+        conversationId: string,
+        draft: boolean,
+      ) =>
+        messagePatch({
+          accountId: "acc-1",
+          messageId,
+          conversationId,
+          receivedAtMs: 1,
+          subject: conversationId,
+          draft,
+        });
+      await store.applySyncPage({
+        ownerId: "owner",
+        page: {
+          session: { accountId: "acc-1", generation: "g1" },
+          requestId: "drafts",
+          from: { streamId: "primary", generation: "g1", checkpoint: null },
+          to: { streamId: "primary", generation: "g1", checkpoint: "1" },
+          changes: [
+            message("d-new", "c-new", true),
+            message("m-reply", "c-reply", false),
+            message("d-reply", "c-reply", true),
+            message("d-sending", "c-two-drafts", true),
+            message("d-kept", "c-two-drafts", true),
+          ],
+          requiredHydration: [],
+          roundComplete: true,
+        },
+      });
+
+      const drafts = await store.readMailboxView({
+        accountIds: ["acc-1"],
+        predicate: {
+          kind: "all",
+          predicates: [
+            { kind: "mailbox", mailbox: "drafts" },
+            {
+              kind: "not",
+              predicate: {
+                kind: "message",
+                ids: ["d-new", "d-reply", "d-sending"],
+              },
+            },
+          ],
+        },
+        order: "newest_first",
+        pageSize: PAGE_SIZE,
+        after: null,
+      });
+
+      expect(
+        drafts.view.conversations.map((item) => item.key.conversationId),
+      ).toEqual(["c-two-drafts"]);
+      expect(drafts.view.counts.matchingConversations).toBe(1);
+    } finally {
+      await store.close();
+    }
+  });
+
   it("lists one conversation for a long thread and paginates every message", async () => {
     const store = await createSqliteMailStore(createNodeSqliteDriver());
     await store.ensureAccount({
@@ -351,6 +420,7 @@ function messagePatch(input: {
   receivedAtMs: number;
   subject: string;
   preview?: string;
+  draft?: boolean;
 }): Extract<ProviderChange, { kind: "message_patch" }> {
   return {
     kind: "message_patch",
@@ -370,10 +440,10 @@ function messagePatch(input: {
       receivedAtMs: input.receivedAtMs,
       read: false,
       starred: false,
-      folderId: "inbox",
-      labelIds: ["INBOX"],
+      folderId: input.draft ? "drafts" : "inbox",
+      labelIds: [input.draft ? "DRAFT" : "INBOX"],
       categoryIds: [],
-      roles: ["inbox"],
+      roles: [input.draft ? "draft" : "inbox"],
       hasAttachments: false,
     },
   };

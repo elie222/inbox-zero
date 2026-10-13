@@ -1,4 +1,3 @@
-import { useOpenedConversationAttachments } from "./OpenedConversationAttachments";
 import { startTransition, useEffect, useMemo, useState } from "react";
 import {
   BufferedMailHtmlFrame,
@@ -25,8 +24,15 @@ import {
 } from "@/utils/email/inline-images";
 import { linkifyPlainText } from "@/utils/email/linkify-plain-text";
 import { splitEmailContent } from "@/utils/email/split-email-content.client";
+import {
+  fetchAttachment,
+  getAttachmentUrl,
+} from "@/utils/attachments/download";
+import { queueAttachmentDownload } from "@/utils/attachments/download-queue";
+import { getAttachmentImagePreview } from "@/utils/attachments/image-preview";
 
 const NO_INLINE_ATTACHMENTS: ParsedMessage["inline"] = [];
+const INLINE_IMAGE_MAX_BYTES = 25 * 1024 * 1024;
 
 export function HtmlEmail({
   html,
@@ -47,8 +53,15 @@ export function HtmlEmail({
   onNavigateMessage?: (direction: -1 | 1) => void;
   onFocusMessage?: () => void;
 }) {
-  const attachmentSession = useOpenedConversationAttachments();
   const sanitizedHtml = useMemo(() => sanitizeEmailHtml(html), [html]);
+  // Message objects are rebuilt whenever the conversation republishes, so the
+  // effect keys on the attachments' identity rather than the array or its
+  // order. Re-running it would mint new object URLs and remount the frame
+  // without its images.
+  const inlineImageIds = useMemo(
+    () => serializeInlineImageIds(inlineAttachments),
+    [inlineAttachments],
+  );
   const [showReplies, setShowReplies] = useState(false);
   const [renderHtml, setRenderHtml] = useState(
     () =>
@@ -70,10 +83,10 @@ export function HtmlEmail({
     Promise.all([
       prepareSanitizedEmailHtml({ messageId, sourceHtml: sanitizedHtml }),
       loadInlineImageSources({
-        session: emailAccountId ? attachmentSession : undefined,
+        emailAccountId,
         signal: controller.signal,
         html: sanitizedHtml,
-        inlineAttachments,
+        inlineImageIds,
         messageId,
       }),
     ]).then(
@@ -101,13 +114,7 @@ export function HtmlEmail({
       controller.abort();
       for (const objectUrl of objectUrls) URL.revokeObjectURL(objectUrl);
     };
-  }, [
-    emailAccountId,
-    attachmentSession,
-    inlineAttachments,
-    messageId,
-    sanitizedHtml,
-  ]);
+  }, [emailAccountId, inlineImageIds, messageId, sanitizedHtml]);
 
   const { mainContent, quotedContent, hasQuotedContent } = useMemo(
     () => splitEmailContent(renderHtml),
@@ -200,41 +207,46 @@ export function PlainEmail({ text }: { text: string }) {
 }
 
 async function loadInlineImageSources({
-  session,
+  emailAccountId,
   signal,
   html,
-  inlineAttachments,
+  inlineImageIds,
   messageId,
 }: {
-  session: ReturnType<typeof useOpenedConversationAttachments>;
+  emailAccountId: string | undefined;
   signal: AbortSignal;
   html: string;
-  inlineAttachments: ParsedMessage["inline"];
+  inlineImageIds: string;
   messageId: string;
 }): Promise<Record<string, string>> {
-  if (!session || !inlineAttachments.length) return {};
-
-  const attachmentByContentId = new Map<
-    string,
-    ParsedMessage["inline"][number]
-  >();
-  for (const attachment of inlineAttachments) {
-    const contentId = normalizeContentId(attachment.headers["content-id"]);
-    if (contentId) attachmentByContentId.set(contentId, attachment);
-  }
+  const attachmentIdByContentId = new Map<string, string>(
+    JSON.parse(inlineImageIds),
+  );
+  if (!emailAccountId || !attachmentIdByContentId.size) return {};
 
   const entries = await Promise.all(
     getInlineImageContentIds(html).map(async (contentId) => {
-      const attachment = attachmentByContentId.get(contentId);
-      if (!attachment?.attachmentId) return;
+      const attachmentId = attachmentIdByContentId.get(contentId);
+      if (!attachmentId) return;
 
       try {
-        const blob = await session.load(
-          messageId,
-          attachment.attachmentId,
+        // Body images are content the user opened, so they skip the
+        // speculative attachment-preview budget.
+        const blob = await queueAttachmentDownload({
+          priority: "requested",
           signal,
-          attachment,
-        );
+          download: (transferSignal) =>
+            fetchAttachment({
+              url: getAttachmentUrl({
+                accountId: emailAccountId,
+                messageId,
+                attachmentId,
+              }),
+              emailAccountId,
+              maxBytes: INLINE_IMAGE_MAX_BYTES,
+              signal: transferSignal,
+            }),
+        }).then(getAttachmentImagePreview);
         if (!blob || signal.aborted) return;
         return [contentId, URL.createObjectURL(blob)] as const;
       } catch {
@@ -244,4 +256,14 @@ async function loadInlineImageSources({
   );
 
   return Object.fromEntries(entries.filter((entry) => entry !== undefined));
+}
+
+function serializeInlineImageIds(inlineAttachments: ParsedMessage["inline"]) {
+  const entries: [contentId: string, attachmentId: string][] = [];
+  for (const attachment of inlineAttachments) {
+    const contentId = normalizeContentId(attachment.headers["content-id"]);
+    if (contentId && attachment.attachmentId)
+      entries.push([contentId, attachment.attachmentId]);
+  }
+  return JSON.stringify(entries.sort(([a], [b]) => a.localeCompare(b)));
 }

@@ -54,7 +54,7 @@ import {
   shouldSmokeLocalMail,
   shouldUseLocalMailRenderer,
 } from "./desktop";
-import { createMailNotificationTracker } from "./mail-notifications";
+import { createMailNotifier } from "./mail-notifications";
 import { captureDesktopError, initDesktopSentry } from "./sentry";
 import { startEventLoopDelayMonitor } from "./health";
 import { registerMailEnginePushIpc } from "./mail-engine/push-ipc";
@@ -94,6 +94,7 @@ let lastResumedAt: number | null = null;
 let lastFocused: BrowserWindow | null = null;
 let persistWindowsTimer: ReturnType<typeof setTimeout> | undefined;
 let pendingAuthProof: { verifier: string; expiresAt: number } | null = null;
+const handledAuthStates = new Set<string>();
 let pendingAuthUrl: string | null = null;
 let pendingCallbackPath: string | null = null;
 let isQuitting = false;
@@ -106,8 +107,13 @@ const localMailRendererFile = path.join(
 const localMailUrl = shouldUseLocalMailRenderer()
   ? getDesktopLocalMailUrl(localMailRendererFile)
   : null;
-const trackNewMail = createMailNotificationTracker();
-const mailNotifications = new Map<string, Notification>();
+const mailNotifier = createMailNotifier({
+  origin: appOrigin,
+  isFocused: () => windows.some((window) => window.isFocused()),
+  isSupported: () => Notification.isSupported(),
+  createNotification: (options) => new Notification(options),
+  openWindow: openAppWindow,
+});
 let downloadPercent: number | null = null;
 let refreshDesktopMenu: (() => void) | undefined;
 
@@ -133,39 +139,7 @@ function startDesktopApp() {
     if (typeof count !== "number" || !Number.isSafeInteger(count) || count < 0)
       return;
     unreadByContents.set(event.sender.id, count);
-    setUnreadBadge(Math.max(0, ...unreadByContents.values()));
-  });
-  ipcMain.on("desktop:new-mail", (event, payload: unknown) => {
-    if (!isTrustedDesktopEvent(event)) return;
-    const mail = trackNewMail(payload);
-    if (
-      !mail ||
-      windows.some((window) => window.isFocused()) ||
-      !Notification.isSupported()
-    )
-      return;
-    const notification = new Notification({
-      title: "Inbox Zero",
-      body:
-        mail.count === 1
-          ? "You have a new email"
-          : `You have ${mail.count} new emails`,
-    });
-    mailNotifications.get(mail.emailAccountId)?.close();
-    mailNotifications.set(mail.emailAccountId, notification);
-    notification.on("click", () => {
-      openAppWindow(
-        new URL(`/${mail.emailAccountId}/mail`, appOrigin).toString(),
-      );
-    });
-    const release = () => {
-      if (mailNotifications.get(mail.emailAccountId) === notification) {
-        mailNotifications.delete(mail.emailAccountId);
-      }
-    };
-    notification.on("close", release);
-    notification.on("failed", release);
-    notification.show();
+    applyUnreadBadge();
   });
   ipcMain.handle("desktop:open-window", (event, path: unknown) => {
     if (!isTrustedDesktopEvent(event)) return;
@@ -209,7 +183,7 @@ function startDesktopApp() {
   app.on("second-instance", (_event, argv) => {
     const protocolUrl = findDesktopProtocolUrl(argv);
     if (protocolUrl) {
-      handleAuthCallbackUrl(protocolUrl).catch(showSignInError);
+      handleAuthCallbackUrl(protocolUrl).catch(reportSignInError);
     }
     focusAppWindow();
   });
@@ -227,7 +201,7 @@ function startDesktopApp() {
   app.on("open-url", (event, url) => {
     event.preventDefault();
     if (app.isReady()) {
-      handleAuthCallbackUrl(url).catch(showSignInError);
+      handleAuthCallbackUrl(url).catch(reportSignInError);
       return;
     }
     pendingAuthUrl = url;
@@ -416,6 +390,7 @@ function createAppWindow(options?: {
   const contentsId = window.webContents.id;
   windows.push(window);
   lastFocused = window;
+  applyUnreadBadge();
   rememberWindowUrl(window, startUrl);
   if (options?.isMaximized) window.maximize();
 
@@ -424,6 +399,7 @@ function createAppWindow(options?: {
   });
   window.on("focus", () => {
     lastFocused = window;
+    applyUnreadBadge();
     syncUpdateProgressBar();
   });
   window.on("blur", () => {
@@ -449,8 +425,8 @@ function createAppWindow(options?: {
     if (index !== -1) windows.splice(index, 1);
     unreadByContents.delete(contentsId);
     loadRecoveryByContents.delete(contentsId);
-    applyUnreadBadge();
     if (lastFocused === window) lastFocused = windows.at(-1) ?? null;
+    applyUnreadBadge();
     if (!isQuitting && windows.length > 0) persistWindowsNow();
   });
 
@@ -579,7 +555,11 @@ function isTrustedDesktopEvent(event: IpcMainEvent | IpcMainInvokeEvent) {
 }
 
 function applyUnreadBadge() {
-  setUnreadBadge(Math.max(0, ...unreadByContents.values()));
+  const count =
+    lastFocused && !lastFocused.isDestroyed()
+      ? (unreadByContents.get(lastFocused.webContents.id) ?? 0)
+      : 0;
+  setUnreadBadge(count);
 }
 
 function setUnreadBadge(count: number) {
@@ -591,8 +571,7 @@ function setUnreadBadge(count: number) {
 function clearMailIndicators() {
   unreadByContents.clear();
   applyUnreadBadge();
-  for (const notification of mailNotifications.values()) notification.close();
-  mailNotifications.clear();
+  mailNotifier.close();
 }
 
 function readLastAppUrl(): string | null {
@@ -677,9 +656,17 @@ async function handleAuthCallbackUrl(url: string) {
   const window = focusAppWindow();
   const callback = parseDesktopAuthCallback(url);
   if (!callback.ok) {
-    dialog.showErrorBox("Sign in failed", callback.error);
+    // The callback text comes from the URL, so keep it out of telemetry.
+    captureDesktopError(new Error("Authentication callback failed"), {
+      area: "sign-in",
+    });
+    showSignInError(new Error(callback.error));
     return;
   }
+  // The server can issue more than one code per sign-in when the browser
+  // repeats the callback request.
+  if (handledAuthStates.has(callback.state)) return;
+  handledAuthStates.add(callback.state);
 
   try {
     const proof = pendingAuthProof;
@@ -695,7 +682,8 @@ async function handleAuthCallbackUrl(url: string) {
     if (pendingAuthProof === proof) pendingAuthProof = null;
     await window.loadURL(consumePostAuthUrl()).catch(() => {});
   } catch (error) {
-    showSignInError(error);
+    handledAuthStates.delete(callback.state);
+    reportSignInError(error);
   }
 }
 
@@ -767,6 +755,11 @@ async function openExternal(url: string) {
   await shell.openExternal(url);
 }
 
+function reportSignInError(error: unknown) {
+  captureDesktopError(error, { area: "sign-in" });
+  showSignInError(error);
+}
+
 function showSignInError(error: unknown) {
   dialog.showErrorBox(
     "Sign in failed",
@@ -802,6 +795,7 @@ function createDesktopMailProcess() {
         .map((cookie) => `${cookie.name}=${cookie.value}`)
         .join("; ");
     },
+    onNewMail: mailNotifier.notify,
     onEngineError: (error) =>
       captureDesktopError(error, { area: "mail-engine" }),
   });

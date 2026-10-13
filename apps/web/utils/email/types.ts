@@ -10,11 +10,52 @@ import type {
 } from "@/utils/outlook/folders";
 import type { Attachment as MailAttachment } from "nodemailer/lib/mailer";
 import type { SendEmailBody } from "@/utils/types/mail";
+import type { DraftAttachmentMetadata } from "@/utils/actions/draft-attachments.validation";
+import type { DraftMessageUploadPart } from "@/utils/email/draft-attachment-upload";
 import type { EmailContact } from "@/utils/email/contact";
+import type { SendAsAddress } from "@/utils/email/send-as";
 import type {
   LabelVisibility,
   MessageVisibility,
 } from "@/utils/gmail/constants";
+
+export type DraftAttachment = {
+  /** Stays the same across draft saves, so the composer can remove it later. */
+  id: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  disposition: "attachment" | "inline";
+  contentId?: string;
+  /** Where the attachment content route reads the bytes from right now. */
+  messageId: string;
+  providerAttachmentId: string;
+};
+
+export type DraftAttachmentsResult = {
+  messageId: string;
+  attachments: DraftAttachment[];
+};
+
+/**
+ * How the browser sends a file too large for one request to our server.
+ * Outlook hands out a pre-authenticated URL the browser uploads to directly.
+ * Gmail replaces the whole message, so the browser uploads the full MIME
+ * (server-built text around the attachment bytes) through our chunk proxy.
+ */
+export type DraftAttachmentUploadStart =
+  | { type: "provider-url"; uploadUrl: string }
+  | {
+      type: "gmail-message";
+      sessionUri: string;
+      parts: DraftMessageUploadPart[];
+      totalBytes: number;
+    };
+
+export type SendEmailOptions = {
+  /** Keep the provider's reply subject when changing it would break threading. */
+  preserveThreadSubject?: boolean;
+};
 
 export interface EmailThread {
   historyId?: string;
@@ -133,6 +174,10 @@ export type ProviderMailboxSearch = {
 };
 
 export interface EmailProvider {
+  addDraftAttachment(
+    draftId: string,
+    attachment: DraftAttachmentMetadata & { content: Buffer },
+  ): Promise<DraftAttachmentsResult & { attachmentId: string }>;
   archiveMessage(messageId: string): Promise<void>;
   archiveMessages(messageIds: string[], labelId?: string): Promise<void>;
   archiveThread(threadId: string, ownerEmail: string): Promise<void>;
@@ -147,6 +192,11 @@ export interface EmailProvider {
     ownerEmail: string,
     emailAccountId: string,
   ): Promise<void>;
+  bulkArchiveSenderOrThrow(
+    fromEmail: string,
+    ownerEmail: string,
+    emailAccountId: string,
+  ): Promise<number>;
   bulkArchiveThreads(
     threads: BulkArchiveThread[],
     ownerEmail: string,
@@ -157,6 +207,11 @@ export interface EmailProvider {
     emailAccountId: string,
   ): Promise<void>;
   checkIfReplySent(senderEmail: string): Promise<boolean>;
+  /** Exact message count, including drafts. Folder and label scopes intersect. */
+  countMessages(options: {
+    folderId?: string;
+    labelId?: string;
+  }): Promise<number>;
   countReceivedMessages(
     senderEmail: string,
     threshold: number,
@@ -168,9 +223,14 @@ export interface EmailProvider {
   }): Promise<{ status: number }>;
   createDraft(params: {
     to: string;
+    from?: string;
+    cc?: string;
+    bcc?: string;
     subject: string;
     messageHtml: string;
     replyToMessageId?: string; // For proper threading
+    /** Starts the draft as a forward of this message, carrying its files. */
+    forwardedMessageId?: string;
   }): Promise<{ id: string }>;
   createFilter(options: {
     from: string;
@@ -222,6 +282,7 @@ export interface EmailProvider {
     draftId: string,
     options?: { includeAttachments?: boolean },
   ): Promise<ParsedMessage | null>;
+  getDraftAttachments(draftId: string): Promise<DraftAttachmentsResult | null>;
   getDraftReferenceForMessage(
     messageId: string,
   ): Promise<DraftReference | null>;
@@ -292,6 +353,11 @@ export interface EmailProvider {
   getPreviousConversationMessages(
     messageIds: string[],
   ): Promise<ParsedMessage[]>;
+  /**
+   * The addresses the user can send from. Empty when the provider doesn't
+   * offer a choice, so mail goes out from the account address.
+   */
+  getSendAsAddresses(): Promise<SendAsAddress[]>;
   getSentMessageIds(options: {
     maxResults: number;
     after?: Date;
@@ -359,6 +425,10 @@ export interface EmailProvider {
     folderName: string,
   ): Promise<void>;
   readonly name: "google" | "microsoft";
+  removeDraftAttachment(
+    draftId: string,
+    attachmentId: string,
+  ): Promise<DraftAttachmentsResult>;
   removeThreadLabel(threadId: string, labelId: string): Promise<void>;
   removeThreadLabels(threadId: string, labelIds: string[]): Promise<void>;
   renameFolder(folderId: string, name: string): Promise<void>;
@@ -380,6 +450,8 @@ export interface EmailProvider {
     fromEmail?: string;
     readState?: "read" | "unread";
     labelName?: string;
+    /** Scope an Outlook search to a resolved mail folder. */
+    folderId?: string;
     labelIds?: string[];
     /** Gmail omits spam and trash unless this is set. Outlook uses `folder` instead. */
     includeSpamTrash?: boolean;
@@ -412,11 +484,18 @@ export interface EmailProvider {
     messageText: string;
     attachments?: MailAttachment[];
   }): Promise<{ messageId: string }>;
-  sendEmailWithHtml(body: SendEmailBody): Promise<{
+  sendEmailWithHtml(
+    body: SendEmailBody,
+    options?: SendEmailOptions,
+  ): Promise<{
     messageId: string;
     threadId: string;
   }>;
   starMessage(messageId: string): Promise<void>;
+  startDraftAttachmentUpload(
+    draftId: string,
+    attachment: DraftAttachmentMetadata,
+  ): Promise<DraftAttachmentUploadStart>;
   syncLocalMail(
     request: LocalMailSyncRequest,
     context: { emailAccountId: string },
@@ -443,9 +522,9 @@ export interface EmailProvider {
       messageHtml?: string;
       subject?: string;
       to?: string;
+      from?: string;
       cc?: string;
       bcc?: string;
-      attachments?: SendEmailBody["attachments"];
     },
   ): Promise<void>;
   updateLabel(labelId: string, update: EmailLabelUpdate): Promise<void>;

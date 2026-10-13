@@ -65,6 +65,7 @@ export function conversationMessageToParsed(
       from: message.metadata.from,
       to: message.metadata.to.join(", "),
       cc: message.metadata.cc.join(", ") || undefined,
+      bcc: message.metadata.bcc?.join(", ") || undefined,
       date,
       subject: message.metadata.subject,
     },

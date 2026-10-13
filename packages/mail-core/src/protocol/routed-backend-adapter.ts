@@ -2,6 +2,7 @@ import type { AssistantStateSource } from "../ports/assistant-source";
 import type { MailboxSource } from "../ports/mailbox-source";
 import type { OperationExecutor } from "../ports/operation-executor";
 import {
+  type BackendMailboxSource,
   createBackendAssistantSource,
   createBackendMailboxSource,
   createBackendOperationExecutor,
@@ -15,7 +16,7 @@ export function createRoutedBackendAdapter(input: {
   executor: OperationExecutor;
   assistant: AssistantStateSource;
 } {
-  const sources = new Map<string, MailboxSource>();
+  const sources = new Map<string, BackendMailboxSource>();
   const executors = new Map<string, OperationExecutor>();
   const assistants = new Map<string, AssistantStateSource>();
   const sourceFor = (accountId: string) => {
@@ -60,6 +61,8 @@ export function createRoutedBackendAdapter(input: {
         sourceFor(request.session.accountId).enumerate(request),
       readChanges: (request) =>
         sourceFor(request.session.accountId).readChanges(request),
+      readChangesBatch: (request) =>
+        sourceFor(request.session.accountId).readChangesBatch(request),
       hydrate: (request) =>
         sourceFor(request.session.accountId).hydrate(request),
       readConversationMembership: (request) =>
@@ -81,13 +84,6 @@ export function createRoutedBackendAdapter(input: {
           return Promise.resolve({ status: "unavailable" as const });
         }
         return executor.cancel(request);
-      },
-      stageUpload: (request) => {
-        const executor = executorFor(request.session.accountId);
-        if (!executor.stageUpload) {
-          return Promise.resolve({ status: "unavailable" as const });
-        }
-        return executor.stageUpload(request);
       },
     },
     assistant: {

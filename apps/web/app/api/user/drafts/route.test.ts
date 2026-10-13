@@ -152,7 +152,7 @@ describe("/api/user/drafts", () => {
       logger: expect.objectContaining({ error: expect.any(Function) }),
     });
     expect(provider.createDraft).toHaveBeenCalledWith({
-      to: "",
+      to: "teammate@example.com",
       subject: "Draft",
       messageHtml: "<p>Hello</p>",
     });

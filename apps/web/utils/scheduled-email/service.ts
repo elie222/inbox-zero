@@ -49,6 +49,7 @@ export async function scheduleEmail(
         clientMutationId: input.clientMutationId,
         payloadHash,
         payload: input,
+        draftMessageIds: input.draftMessageIds ?? [],
         threadId: input.threadId,
         sendAt,
         remindAt,

@@ -3,7 +3,10 @@ const rasterTypes = new Set([
   "image/jpeg",
   "image/gif",
   "image/webp",
+  "image/tiff",
 ]);
+// Bounds the RGBA buffer a sender can make us allocate (~100 MB).
+const MAX_TIFF_PIXELS = 25_000_000;
 
 export function isPreviewableImageType(mimeType: string) {
   return rasterTypes.has(normalizeMimeType(mimeType));
@@ -56,12 +59,44 @@ export async function getAttachmentImagePreview(
     matches(bytes.subarray(8), [87, 69, 66, 80, 86, 80, 56])
   ) {
     type = "image/webp";
+  } else if (
+    matches(bytes, [73, 73, 42, 0]) ||
+    matches(bytes, [77, 77, 0, 42])
+  ) {
+    // Chromium cannot render TIFF, and Apple Mail pastes screenshots as TIFF.
+    return convertTiffToPng(blob);
   } else {
     return;
   }
   // HTTP download headers do not constrain a Blob opened as a document.
   // Never carry an untrusted MIME type into a preview, including cached Blobs.
   return blob.slice(0, blob.size, type);
+}
+
+async function convertTiffToPng(blob: Blob): Promise<Blob | undefined> {
+  try {
+    // TIFFs are rare, so the decoder stays out of the mail-view bundle.
+    // utif2 is CommonJS; strict ESM exposes it only as the default export.
+    const { decode, decodeImage, toRGBA8 } = (await import("utif2")).default;
+    const buffer = await blob.arrayBuffer();
+    const [image] = decode(buffer);
+    const width = Number((image?.t256 as number[] | undefined)?.[0]);
+    const height = Number((image?.t257 as number[] | undefined)?.[0]);
+    if (!width || !height || width * height > MAX_TIFF_PIXELS) return;
+
+    decodeImage(buffer, image);
+    const canvas = new OffscreenCanvas(width, height);
+    const context = canvas.getContext("2d");
+    if (!context) return;
+    context.putImageData(
+      new ImageData(new Uint8ClampedArray(toRGBA8(image)), width, height),
+      0,
+      0,
+    );
+    return await canvas.convertToBlob({ type: "image/png" });
+  } catch {
+    return;
+  }
 }
 
 function normalizeMimeType(mimeType: string) {

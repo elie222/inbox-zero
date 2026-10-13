@@ -10,9 +10,23 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const attachmentPreview = vi.hoisted(() => ({ load: vi.fn() }));
-vi.mock("./OpenedConversationAttachments", () => ({
-  useOpenedConversationAttachments: () => attachmentPreview,
+const { fetchAttachment, queueAttachmentDownload } = vi.hoisted(() => ({
+  fetchAttachment: vi.fn(),
+  queueAttachmentDownload: vi.fn(
+    ({ download }: { download: (signal: AbortSignal) => Promise<unknown> }) =>
+      download(new AbortController().signal),
+  ),
+}));
+vi.mock("@/utils/attachments/download", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/attachments/download")>()),
+  fetchAttachment,
+}));
+// jsdom's Blob lacks arrayBuffer(), which the image signature check needs.
+vi.mock("@/utils/attachments/image-preview", () => ({
+  getAttachmentImagePreview: async (blob: Blob) => blob,
+}));
+vi.mock("@/utils/attachments/download-queue", () => ({
+  queueAttachmentDownload,
 }));
 
 const mockTheme = vi.hoisted(() => ({
@@ -512,10 +526,10 @@ describe("HtmlEmail", () => {
     );
   });
 
-  it("resolves authenticated cid images to temporary local URLs", async () => {
+  it("resolves cid images larger than the attachment preview budget to local URLs", async () => {
     const html = '<img src="cid:screenshot@inboxzero.local" />';
     const objectUrl = "blob:https://app.example.com/inline-image";
-    attachmentPreview.load.mockResolvedValue(
+    fetchAttachment.mockResolvedValue(
       new Blob(["image"], { type: "image/png" }),
     );
     const createObjectUrl = vi
@@ -552,7 +566,7 @@ describe("HtmlEmail", () => {
               "content-type": "image/png",
             },
             mimeType: "image/png",
-            size: 5,
+            size: 4 * 1024 * 1024,
           },
         ]}
         messageId="message-inline"
@@ -574,15 +588,80 @@ describe("HtmlEmail", () => {
       );
     });
     expect(createObjectUrl).toHaveBeenCalledOnce();
-    expect(attachmentPreview.load).toHaveBeenCalledWith(
-      "message-inline",
-      "attachment-1",
-      expect.any(AbortSignal),
-      expect.objectContaining({ attachmentId: "attachment-1" }),
+    expect(queueAttachmentDownload).toHaveBeenCalledWith(
+      expect.objectContaining({ priority: "requested" }),
+    );
+    expect(fetchAttachment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: expect.stringContaining("attachmentId=attachment-1"),
+        emailAccountId: "account-1",
+      }),
     );
 
     unmount();
     expect(revokeObjectUrl).toHaveBeenCalledWith(objectUrl);
+  });
+
+  it("keeps loaded cid images when the message is republished with the same attachments", async () => {
+    const html = '<img src="cid:logo@inboxzero.local" />';
+    fetchAttachment.mockResolvedValue(
+      new Blob(["image"], { type: "image/png" }),
+    );
+    const createObjectUrl = vi
+      .spyOn(URL, "createObjectURL")
+      .mockImplementation(
+        () =>
+          `blob:https://app.example.com/logo-${createObjectUrl.mock.calls.length}`,
+      );
+    const revokeObjectUrl = vi.spyOn(URL, "revokeObjectURL");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ html }) }),
+    );
+    const inlineAttachment = () => ({
+      attachmentId: "attachment-logo",
+      filename: "logo.png",
+      headers: {
+        "content-description": "",
+        "content-id": "<logo@inboxzero.local>",
+        "content-transfer-encoding": "base64",
+        "content-type": "image/png",
+      },
+      mimeType: "image/png",
+      size: 1024,
+    });
+    const renderEmail = () => (
+      <HtmlEmail
+        emailAccountId="account-1"
+        html={html}
+        inlineAttachments={[inlineAttachment()]}
+        messageId="message-republished"
+      />
+    );
+
+    const { getByTitle, queryByTitle, rerender } = render(renderEmail());
+    await waitFor(() =>
+      expect(getByTitle("Preparing email content preview")).toBeDefined(),
+    );
+    measureEmailFrame(
+      getByTitle("Preparing email content preview") as HTMLIFrameElement,
+      40,
+    );
+    await waitFor(() =>
+      expect(
+        getByTitle("Email content preview").getAttribute("srcdoc"),
+      ).toContain('src="blob:https://app.example.com/logo-1"'),
+    );
+    const visibleFrame = getByTitle("Email content preview");
+
+    rerender(renderEmail());
+    await act(async () => {});
+
+    expect(getByTitle("Email content preview")).toBe(visibleFrame);
+    expect(queryByTitle("Preparing email content preview")).toBeNull();
+    expect(fetchAttachment).toHaveBeenCalledOnce();
+    expect(createObjectUrl).toHaveBeenCalledOnce();
+    expect(revokeObjectUrl).not.toHaveBeenCalled();
   });
 });
 

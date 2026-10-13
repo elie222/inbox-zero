@@ -3,6 +3,7 @@ import type { OperationState } from "@inboxzero/mail-core/operations";
 import type { QueryHandle } from "@inboxzero/mail-core/queries";
 import {
   beginUndoSend,
+  finishUndoSendToast,
   getUndoSendHoldUntil,
   undoPendingSend,
   UNDO_SEND_DELAY_MS,
@@ -11,12 +12,13 @@ import {
 const notifications = vi.hoisted(() => ({
   dismiss: vi.fn(),
   toastError: vi.fn(),
+  toastSuccess: vi.fn(),
   toastUndo: vi.fn(),
 }));
-const cancelStaged = vi.hoisted(() => vi.fn());
 
 vi.mock("@/components/Toast", () => ({
   toastError: notifications.toastError,
+  toastSuccess: notifications.toastSuccess,
   toastUndo: notifications.toastUndo,
 }));
 vi.mock("sonner", () => ({
@@ -25,20 +27,16 @@ vi.mock("sonner", () => ({
 vi.mock("@/lib/shortcuts/registry", () => ({
   getShortcutHint: () => "z",
 }));
-vi.mock("@/utils/mail-engine/stage-attachments", () => ({
-  cancelSendAttachments: cancelStaged,
-}));
 
 describe("undo send", () => {
   beforeEach(async () => {
     await undoPendingSend();
     vi.clearAllMocks();
-    cancelStaged.mockResolvedValue(undefined);
   });
 
   it("holds online sends for 30 seconds and skips the delay when offline", () => {
     expect(getUndoSendHoldUntil(false, 1000)).toBeUndefined();
-    expect(getUndoSendHoldUntil(true, 1000)).toBe(31_000);
+    expect(getUndoSendHoldUntil(true, 1000)).toBe(11_000);
   });
 
   it("restores the composer when undo cancels a held send", async () => {
@@ -49,7 +47,6 @@ describe("undo send", () => {
       client,
       operationId: "mutation",
       emailAccountId: "account",
-      attachmentIds: ["blob-1"],
       holdUntil,
       restoreComposer,
     });
@@ -69,7 +66,6 @@ describe("undo send", () => {
       accountId: "account",
       operationId: "mutation",
     });
-    expect(cancelStaged).toHaveBeenCalledWith("account", ["blob-1"]);
     expect(restoreComposer).toHaveBeenCalledOnce();
     expect(notifications.dismiss).toHaveBeenCalledWith("undo-send:mutation");
     expect(handle.close).toHaveBeenCalled();
@@ -108,7 +104,7 @@ describe("undo send", () => {
     expect(restoreComposer).toHaveBeenCalledOnce();
   });
 
-  it("dismisses undo once the send has gone out", async () => {
+  it("drops undo once the send has gone out", async () => {
     const restoreComposer = vi.fn();
     const { client, handle } = createClient();
     beginUndoSend({
@@ -121,11 +117,10 @@ describe("undo send", () => {
 
     handle.set("succeeded");
 
-    expect(notifications.dismiss).toHaveBeenCalledWith("undo-send:mutation");
+    expectSentToastWithoutUndo();
     expect(handle.close).toHaveBeenCalled();
     await expect(undoPendingSend()).resolves.toBe(false);
     expect(client.cancelOperation).not.toHaveBeenCalled();
-    expect(cancelStaged).not.toHaveBeenCalled();
     expect(restoreComposer).not.toHaveBeenCalled();
     expect(notifications.toastError).not.toHaveBeenCalled();
   });
@@ -145,11 +140,46 @@ describe("undo send", () => {
 
     await vi.advanceTimersByTimeAsync(UNDO_SEND_DELAY_MS);
 
-    expect(notifications.dismiss).toHaveBeenCalledWith("undo-send:mutation");
+    expectSentToastWithoutUndo();
     expect(handle.close).toHaveBeenCalled();
     await expect(undoPendingSend()).resolves.toBe(false);
     expect(client.cancelOperation).not.toHaveBeenCalled();
     vi.useRealTimers();
+  });
+
+  it("offers to view the email once it has been sent", () => {
+    const onView = vi.fn();
+    finishUndoSendToast("mutation", { sent: true, onView });
+
+    const toast = notifications.toastSuccess.mock.calls[0]?.[0];
+    expect(toast).toMatchObject({
+      id: "undo-send:mutation",
+      description: "Email sent!",
+      action: { label: "View" },
+    });
+    expect(toast.duration).toBeLessThan(Number.POSITIVE_INFINITY);
+    toast.action.onClick();
+    expect(onView).toHaveBeenCalledOnce();
+  });
+
+  it("confirms a sent email even when it can't be viewed", () => {
+    finishUndoSendToast("mutation", { sent: true, onView: null });
+
+    expect(notifications.dismiss).not.toHaveBeenCalled();
+    expect(notifications.toastSuccess).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "undo-send:mutation",
+        description: "Email sent!",
+        action: undefined,
+      }),
+    );
+  });
+
+  it("closes the toast when the send didn't go out", () => {
+    finishUndoSendToast("mutation", { sent: false });
+
+    expect(notifications.dismiss).toHaveBeenCalledWith("undo-send:mutation");
+    expect(notifications.toastSuccess).not.toHaveBeenCalled();
   });
 
   it("does not dismiss a later send's undo when an earlier hold elapses", async () => {
@@ -210,7 +240,6 @@ describe("undo send", () => {
 
     await expect(undoPendingSend()).resolves.toBe(false);
     expect(restoreComposer).not.toHaveBeenCalled();
-    expect(cancelStaged).not.toHaveBeenCalled();
     expect(notifications.toastError).toHaveBeenCalledWith({
       description: "Too late to undo. This email was already sent.",
     });
@@ -239,6 +268,15 @@ describe("undo send", () => {
     expect(restoreComposer).toHaveBeenCalledOnce();
   });
 });
+
+function expectSentToastWithoutUndo() {
+  expect(notifications.dismiss).not.toHaveBeenCalled();
+  expect(notifications.toastSuccess).toHaveBeenCalledWith({
+    id: "undo-send:mutation",
+    description: "Email sent!",
+    duration: Number.POSITIVE_INFINITY,
+  });
+}
 
 function createClient(options?: {
   cancelStatus?: "cancelled" | "too_late" | "unavailable";
