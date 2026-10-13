@@ -258,6 +258,73 @@ describe("Squire email editor", () => {
     ).toBeTruthy();
   });
 
+  it("swaps in an image signature that shows proxied and sends its original URL", async () => {
+    const resolveRemoteImages = vi.fn(async (sources: string[]) =>
+      Object.fromEntries(
+        sources.map((source) => [
+          source,
+          `/api/image-proxy?u=${encodeURIComponent(source)}`,
+        ]),
+      ),
+    );
+    const { handle, textbox } = await renderEditor({
+      initialHtml: "<div>Body</div>",
+      mode: "original",
+      preservedBlocks: [
+        { id: "signature", kind: "signature", html: "<div>Old</div>" },
+      ],
+      resolveRemoteImages,
+    });
+    fireEvent.click(await screen.findByRole("button", { name: /^Show/u }));
+
+    await act(async () => {
+      handle().replaceSignature(SIGNATURE_FIXTURES.tableWithLogo);
+    });
+
+    const logo = textbox().querySelector("[data-smartmail] table img");
+    expect(logo?.getAttribute("src")).toBe(
+      "/api/image-proxy?u=https%3A%2F%2Fassets.example.com%2Flogo.png",
+    );
+    const { editableHtml } = handle().getValue();
+    expect(editableHtml).toContain('src="https://assets.example.com/logo.png"');
+    expect(editableHtml).toContain('alt="Example Company"');
+    expect(editableHtml).toContain("<table");
+    expect(editableHtml).not.toContain("image-proxy");
+    expect(editableHtml).not.toContain("data-original-src");
+    expect(editableHtml).not.toContain("Old");
+  });
+
+  it.each(
+    Object.entries(SIGNATURE_FIXTURES),
+  )("keeps a %s signature intact when swapped in while collapsed", async (_name, html) => {
+    const { handle, textbox } = await renderEditor({
+      initialHtml: "<div>Body</div>",
+      mode: "original",
+      preservedBlocks: [
+        { id: "signature", kind: "signature", html: "<div>Old</div>" },
+      ],
+    });
+
+    await act(async () => {
+      handle().replaceSignature(html);
+    });
+
+    expect(textbox().textContent).toBe("Body");
+    const sent = new DOMParser().parseFromString(
+      handle().getValue().editableHtml,
+      "text/html",
+    );
+    const signature = sent.querySelector("[data-smartmail]");
+    const expected = new DOMParser().parseFromString(html, "text/html").body;
+    expect(signature?.textContent?.replace(/\s+/gu, "")).toBe(
+      expected.textContent?.replace(/\s+/gu, ""),
+    );
+    expect(signature?.querySelectorAll("img").length).toBe(
+      expected.querySelectorAll("img").length,
+    );
+    expect(sent.body.textContent).not.toContain("Old");
+  });
+
   it("adds a signature to a message without one and removes it again", async () => {
     const { handle } = await renderEditor({
       initialHtml: "<div>Body</div>",
