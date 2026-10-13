@@ -499,6 +499,18 @@ const gmailSearchInboxInputSchema = z.object({
   ...searchInboxBaseFields,
 });
 
+const icloudSearchInboxInputSchema = z.object({
+  query: z
+    .string()
+    .trim()
+    .max(500)
+    .default("")
+    .describe(
+      "Literal text to find anywhere in iCloud mail, including sender names, addresses, subjects, and attachment filenames. Leave empty to list messages across folders. Gmail and Outlook search operators are not supported. Inspect results and paginate to narrow by dates, unread state, or attachment type.",
+    ),
+  ...searchInboxBaseFields,
+});
+
 const outlookSearchInboxInputSchema = z
   .object({
     query: z
@@ -556,7 +568,7 @@ const outlookSearchInboxInputSchema = z
     },
   );
 
-const gmailSearchInboxTool = ({
+const textSearchInboxTool = ({
   email,
   emailAccountId,
   provider,
@@ -565,7 +577,10 @@ const gmailSearchInboxTool = ({
   tool({
     description:
       "Search inbox messages and return concise message metadata. Returns at most 20 messages per call. If hasMore=true, more matches remain; for bulk or all-matching requests, keep calling searchInbox with nextPageToken until hasMore=false before reporting completion. totalReturned is only the number of messages returned by this call, so do not present it or a single search page as an exact mailbox, folder, or label count. If the tool returns an error or provider search feedback instead of messages, treat the lookup as inconclusive rather than evidence that the email is absent.",
-    inputSchema: gmailSearchInboxInputSchema,
+    inputSchema:
+      provider === "icloud"
+        ? icloudSearchInboxInputSchema
+        : gmailSearchInboxInputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "search_inbox", email, logger });
 
@@ -693,7 +708,8 @@ const outlookSearchInboxTool = ({
   });
 
 const searchInboxTools = {
-  google: gmailSearchInboxTool,
+  google: textSearchInboxTool,
+  icloud: textSearchInboxTool,
   microsoft: outlookSearchInboxTool,
 };
 
@@ -1566,7 +1582,9 @@ function mapMessageForSearchResult(
     [taxonomyNamesKey]: labelNames,
     category,
     isUnread,
-    hasAttachments: Boolean(message.attachments?.length),
+    hasAttachments: Boolean(
+      message.hasAttachment || message.attachments?.length,
+    ),
   };
 }
 

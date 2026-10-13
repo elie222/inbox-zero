@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
+import { runRulesForMessage } from "@/utils/ai/choose-rule/run-rules-for-message";
+import { createScopedLogger } from "@/utils/logger";
 
 const {
   checkHasAccessMock,
@@ -86,6 +88,22 @@ describe("runRulesAction", () => {
 
     flushLoggerSafelyMock.mockResolvedValue(undefined);
     checkHasAccessMock.mockResolvedValue(true);
+  });
+
+  it("does not refile a snapshot email moved out of Inbox by the user", async () => {
+    const result = await runRulesForMessage({
+      emailAccountId: "account-1",
+      userId: "user-1",
+      provider: "google",
+      logger: createScopedLogger("bulk-test"),
+      messageId: "message-1",
+      threadId: "thread-1",
+      rerun: true,
+      isTest: false,
+      requireInbox: true,
+    });
+    expect(result).toEqual([]);
+    expect(runRulesMock).not.toHaveBeenCalled();
   });
 
   it("waits for logger flush before resolving test-mode runs", async () => {

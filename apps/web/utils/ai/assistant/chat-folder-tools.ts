@@ -28,9 +28,7 @@ const folderNameSchema = z
   .trim()
   .min(1)
   .max(200)
-  .describe(
-    "Exact Outlook mail folder name, or a folder path from listFolders.",
-  );
+  .describe("Exact mail folder name, or a folder path from listFolders.");
 
 export const listFoldersTool = ({
   email,
@@ -40,7 +38,9 @@ export const listFoldersTool = ({
 }: FolderToolOptions) =>
   tool({
     description:
-      "List Outlook mail folders for this account. Use this to find folders before searching or moving threads. Returns names, paths, and IDs; use a folder ID in searchInbox folderName when names are ambiguous.",
+      provider === "icloud"
+        ? "List mail folders for this account. Use this to find folder names and paths before moving threads or configuring folder rules."
+        : "List mail folders for this account. Use this to find folders before searching or moving threads. Returns names, paths, and IDs; use a folder ID in searchInbox folderName when names are ambiguous.",
     inputSchema: z.object({}),
     execute: async () => {
       trackToolCall({ tool: "list_folders", email, logger });
@@ -75,7 +75,7 @@ export const createOrGetFolderTool = ({
 }: FolderToolOptions) =>
   tool({
     description:
-      "Reuse an existing Outlook mail folder by exact name or create a root mail folder if it does not exist yet. Use this when the user asks to create a folder or before using a new folder in automation.",
+      "Reuse an existing mail folder by exact name or create a root mail folder if it does not exist yet. Use this when the user asks to create a folder or before using a new folder in automation.",
     inputSchema: z.object({
       name: folderNameSchema,
     }),
@@ -141,7 +141,7 @@ export const moveThreadsToFolderTool = ({
 }: FolderToolOptions) =>
   tool({
     description:
-      "Move existing Outlook threads to an Outlook mail folder. Use threadIds returned by searchInbox. Use listFolders first when the exact folder name or path is unclear. This reuses an existing folder by exact path/name, or creates a root folder when no existing folder matches the name.",
+      "Move existing threads to a mail folder. Use threadIds returned by searchInbox. Use listFolders first when the exact folder name or path is unclear. This reuses an existing folder by exact path/name, or creates a root folder when no existing folder matches the name.",
     inputSchema: z.object({
       threadIds: threadIdsSchema.describe(
         "Thread IDs from searchInbox results or thread IDs the user already provided.",

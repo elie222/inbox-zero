@@ -290,7 +290,7 @@ function selectModel(
         name: "openai-compatible",
         baseURL,
         supportsStructuredOutputs: true,
-        ...getOpenAiCompatibleAuthOptions(openAiCompatibleApiKey),
+        ...getOpenAiCompatibleRequestOptions(openAiCompatibleApiKey),
       });
       return {
         provider: Provider.OPENAI_COMPATIBLE,
@@ -619,18 +619,44 @@ function getOllamaBaseUrl(): string | undefined {
   return baseURL.replace(/\/+$/, "");
 }
 
-function getOpenAiCompatibleAuthOptions(apiKey: string | undefined) {
-  if (!apiKey) return {};
+function getOpenAiCompatibleRequestOptions(apiKey: string | undefined) {
+  const configuredHeaders =
+    env.OPENAI_COMPATIBLE_HEADERS || process.env.OPENAI_COMPATIBLE_HEADERS;
+  const headers = new Headers();
+  if (configuredHeaders) {
+    try {
+      const parsed: unknown = JSON.parse(configuredHeaders);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        throw new Error("Expected an object");
+      }
+      for (const [name, value] of Object.entries(parsed)) {
+        if (typeof value !== "string") throw new Error("Expected a string");
+        headers.set(name, value);
+      }
+    } catch {
+      throw new SafeError(
+        "OPENAI_COMPATIBLE_HEADERS must be a JSON object of valid HTTP header strings",
+      );
+    }
+  }
 
   const authHeader =
     env.OPENAI_COMPATIBLE_AUTH_HEADER ||
     process.env.OPENAI_COMPATIBLE_AUTH_HEADER;
 
-  if (authHeader === "api-key") {
-    return { headers: { "api-key": apiKey } };
+  if (apiKey && authHeader === "api-key") {
+    headers.set("api-key", apiKey);
+  } else if (apiKey) {
+    // Let the SDK supply the configured credential rather than a custom header.
+    headers.delete("authorization");
   }
 
-  return { apiKey };
+  return {
+    ...(Array.from(headers).length
+      ? { headers: Object.fromEntries(headers) }
+      : {}),
+    ...(apiKey && authHeader !== "api-key" ? { apiKey } : {}),
+  };
 }
 
 function getVertexConfig(): {

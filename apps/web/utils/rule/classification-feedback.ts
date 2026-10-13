@@ -23,6 +23,8 @@ export async function saveClassificationFeedback({
   threadId,
   messageId,
   eventType,
+  subject,
+  observedAt,
   logger,
 }: {
   emailAccountId: string;
@@ -31,6 +33,8 @@ export async function saveClassificationFeedback({
   threadId: string;
   messageId: string;
   eventType: ClassificationFeedbackEventType;
+  subject?: string;
+  observedAt?: Date;
   logger: Logger;
 }) {
   const normalizedSender = sender.toLowerCase();
@@ -61,8 +65,13 @@ export async function saveClassificationFeedback({
         threadId,
         messageId,
         eventType,
+        ...(subject !== undefined ? { subject: truncate(subject, 80) } : {}),
+        ...(observedAt ? { createdAt: observedAt } : {}),
       },
-      update: {},
+      update: {
+        ...(subject !== undefined ? { subject: truncate(subject, 80) } : {}),
+        ...(observedAt ? { createdAt: observedAt } : {}),
+      },
     });
   } catch (error) {
     if (
@@ -106,6 +115,7 @@ export async function getClassificationFeedback({
     take: MAX_FEEDBACK_FOR_PROMPT,
     select: {
       messageId: true,
+      subject: true,
       eventType: true,
       rule: { select: { name: true } },
     },
@@ -114,13 +124,13 @@ export async function getClassificationFeedback({
   if (!feedback?.length) return null;
 
   const subjects = await fetchSubjectsForFeedback(
-    feedback.map((f) => f.messageId),
+    feedback.filter((f) => f.subject == null).map((f) => f.messageId),
     provider,
     logger,
   );
 
   return feedback.map((entry) => ({
-    subject: subjects.get(entry.messageId) ?? null,
+    subject: entry.subject ?? subjects.get(entry.messageId) ?? null,
     ruleName: entry.rule?.name ?? "Unknown",
     eventType: entry.eventType,
   }));
@@ -154,6 +164,7 @@ async function fetchSubjectsForFeedback(
   logger: Logger,
 ): Promise<Map<string, string>> {
   const subjectMap = new Map<string, string>();
+  if (!messageIds.length) return subjectMap;
 
   try {
     const messages = await provider.getMessagesBatch(messageIds);

@@ -83,6 +83,7 @@ function AccountItem({
     email: string;
     image: string | null;
     isPrimary: boolean;
+    account: { provider: string };
   };
   onAccountDeleted: () => void;
 }) {
@@ -108,6 +109,7 @@ function AccountHeader({
     email: string;
     image: string | null;
     isPrimary: boolean;
+    account: { provider: string };
   };
   onAccountDeleted: () => void;
 }) {
@@ -149,6 +151,7 @@ function AccountOptionsDropdown({
     id: string;
     email: string;
     isPrimary: boolean;
+    account: { provider: string };
   };
   onAccountDeleted: () => void;
 }) {
@@ -196,7 +199,11 @@ function AccountOptionsDropdown({
       >
         <DropdownMenuItem asChild>
           <Link
-            href={prefixPath(emailAccount.id, "/setup")}
+            href={
+              emailAccount.account.provider === "icloud"
+                ? `/accounts/icloud?account=${encodeURIComponent(emailAccount.id)}`
+                : prefixPath(emailAccount.id, "/setup")
+            }
             className="flex items-center gap-2"
             onClick={(e: MouseEvent<HTMLAnchorElement>) => e.stopPropagation()}
           >

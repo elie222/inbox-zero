@@ -8,7 +8,7 @@ export const conversationIdSchema = z.string().min(1).max(256);
 export const operationIdSchema = z.string().min(1).max(128);
 export const draftIdSchema = z.string().min(1).max(128);
 
-export const providerSchema = z.enum(["google", "microsoft"]);
+export const providerSchema = z.enum(["google", "microsoft", "icloud"]);
 export type Provider = z.infer<typeof providerSchema>;
 
 export const messageKeySchema = z.object({

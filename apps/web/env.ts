@@ -52,6 +52,7 @@ const defaultLlmsEnv = z.preprocess(
 const parsedEnv = createEnv({
   server: {
     NODE_ENV: z.enum(["development", "production", "test"]),
+    NEXT_DIST_DIR: z.string().min(1).optional(),
     INBOX_ZERO_ENV_FILE: z.string().optional(),
     DATABASE_URL: z.string().url(),
     DATABASE_URL_UNPOOLED: z.string().url().optional(),
@@ -185,6 +186,7 @@ const parsedEnv = createEnv({
     OLLAMA_MODEL: z.string().optional(),
     OPENAI_COMPATIBLE_BASE_URL: z.string().optional(),
     OPENAI_COMPATIBLE_MODEL: z.string().optional(),
+    OPENAI_COMPATIBLE_HEADERS: z.string().optional(),
     OPENAI_COMPATIBLE_AUTH_HEADER: z
       .enum(["authorization", "api-key"])
       .optional(),

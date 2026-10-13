@@ -251,3 +251,31 @@ function createDuplicateFeedbackError() {
     },
   });
 }
+
+describe("correction subject snapshots", () => {
+  it("uses captured metadata after a provider move without rereading the message", async () => {
+    vi.mocked(prisma.classificationFeedback.findMany).mockResolvedValue([
+      {
+        messageId: "old-uid",
+        subject: "Order receipt",
+        eventType: "LABEL_ADDED",
+        rule: { name: "Purchases" },
+      },
+    ] as any);
+    const provider = { getMessagesBatch: vi.fn() };
+    const result = await getClassificationFeedback({
+      emailAccountId: "acc-1",
+      senderEmail: "orders@example.com",
+      provider: provider as any,
+      logger,
+    });
+    expect(result).toEqual([
+      {
+        subject: "Order receipt",
+        ruleName: "Purchases",
+        eventType: "LABEL_ADDED",
+      },
+    ]);
+    expect(provider.getMessagesBatch).not.toHaveBeenCalled();
+  });
+});

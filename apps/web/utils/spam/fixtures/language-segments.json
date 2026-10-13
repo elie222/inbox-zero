@@ -1,0 +1,275 @@
+[
+  {
+    "id": "ja_sentence",
+    "text": "これは日本語の電子メールです。明日の会議は午後三時に始まります。",
+    "expected": [
+      "これ",
+      "は",
+      "日本",
+      "語",
+      "の",
+      "電子",
+      "メール",
+      "です",
+      "明日",
+      "の",
+      "会議",
+      "は",
+      "午後",
+      "三",
+      "時",
+      "に",
+      "始まり",
+      "ます"
+    ]
+  },
+  {
+    "id": "ja_commerce",
+    "text": "ご注文ありがとうございます。商品の発送状況をご確認ください。",
+    "expected": [
+      "ご",
+      "注文",
+      "ありがとう",
+      "ござい",
+      "ます",
+      "商品",
+      "の",
+      "発送",
+      "状況",
+      "を",
+      "ご",
+      "確認",
+      "ください"
+    ]
+  },
+  {
+    "id": "ja_kanji_only",
+    "text": "東京都千代田区新宿駅東京大学",
+    "expected": ["東京", "都", "千代田", "区", "新宿", "駅", "東京", "大学"]
+  },
+  {
+    "id": "ja_mixed",
+    "text": "注文ABC123の確認です。https://example.test/order?id=42 を開いてください😊",
+    "expected": [
+      "注文ABC123の確認です。https://example.test/order?id=42 を開いてください😊"
+    ]
+  },
+  {
+    "id": "th_sentence",
+    "text": "สวัสดีครับนี่คือข้อความภาษาไทยสำหรับการประชุมในวันพรุ่งนี้",
+    "expected": [
+      "สวัสดี",
+      "ครับ",
+      "นี่",
+      "คือ",
+      "ข้อความ",
+      "ภาษาไทย",
+      "สำหรับ",
+      "การประชุม",
+      "ในวันพรุ่งนี้"
+    ]
+  },
+  {
+    "id": "th_commerce",
+    "text": "ขอบคุณสำหรับการสั่งซื้อสินค้ากรุณาตรวจสอบสถานะการจัดส่งของคุณ",
+    "expected": [
+      "ขอบคุณ",
+      "สำหรับ",
+      "การสั่งซื้อ",
+      "สินค้า",
+      "กรุณา",
+      "ตรวจสอบ",
+      "สถานะ",
+      "การจัดส่ง",
+      "ของ",
+      "คุณ"
+    ]
+  },
+  {
+    "id": "th_mixed",
+    "text": "ยืนยันคำสั่งซื้อABC123 ราคา๑๒๓บาท เปิด https://example.test 😊",
+    "expected": [
+      "ยืนยัน",
+      "คำสั่ง",
+      "ซื้อ",
+      "ABC123",
+      "ราคา",
+      "๑๒๓",
+      "บาท",
+      "เปิด",
+      "https",
+      "example",
+      "test",
+      "😊"
+    ]
+  },
+  {
+    "id": "hans_sentence",
+    "text": "这是一封中文电子邮件。明天下午三点我们将在办公室开会。",
+    "expected": [
+      "这",
+      "是",
+      "一",
+      "封",
+      "中文",
+      "电子",
+      "邮件",
+      "明天",
+      "下午",
+      "三点",
+      "我们",
+      "将",
+      "在",
+      "办公室",
+      "开会"
+    ]
+  },
+  {
+    "id": "hans_commerce",
+    "text": "感谢您的购买，请查看订单状态和快递配送信息。",
+    "expected": [
+      "感谢",
+      "您",
+      "的",
+      "购买",
+      "请",
+      "查看",
+      "订单",
+      "状态",
+      "和",
+      "快递",
+      "配送",
+      "信息"
+    ]
+  },
+  {
+    "id": "hans_mixed",
+    "text": "订单ABC123已经发货，金额123.45元。https://example.test 😊",
+    "expected": ["订单ABC123已经发货，金额123.45元。https://example.test 😊"]
+  },
+  {
+    "id": "hant_sentence",
+    "text": "這是一封中文電子郵件。明天下午三點我們將在辦公室開會。",
+    "expected": [
+      "這",
+      "是",
+      "一",
+      "封",
+      "中文",
+      "電子",
+      "郵件",
+      "明天",
+      "下午",
+      "三點",
+      "我們",
+      "將",
+      "在",
+      "辦公室",
+      "開會"
+    ]
+  },
+  {
+    "id": "hant_commerce",
+    "text": "感謝您的購買，請查看訂單狀態和快遞配送資訊。",
+    "expected": [
+      "感謝",
+      "您",
+      "的",
+      "購買",
+      "請",
+      "查看",
+      "訂單",
+      "狀態",
+      "和",
+      "快遞",
+      "配送",
+      "資訊"
+    ]
+  },
+  {
+    "id": "hant_mixed",
+    "text": "訂單ABC123已經出貨，金額１２３元。https://example.test 😊",
+    "expected": ["訂單ABC123已經出貨，金額１２３元。https://example.test 😊"]
+  },
+  {
+    "id": "ko_control",
+    "text": "안녕하세요. 내일 오후 세 시에 회의가 시작됩니다. 주문해 주셔서 감사합니다.",
+    "expected": [
+      "안녕하세요. 내일 오후 세 시에 회의가 시작됩니다. 주문해 주셔서 감사합니다."
+    ]
+  },
+  {
+    "id": "en_control",
+    "text": "Your order has shipped. Meet tomorrow at three. https://example.test",
+    "expected": [
+      "Your order has shipped. Meet tomorrow at three. https://example.test"
+    ]
+  },
+  {
+    "id": "accent_composed",
+    "text": "Café résumé naïve Ångström",
+    "expected": ["Café résumé naïve Ångström"]
+  },
+  {
+    "id": "accent_decomposed",
+    "text": "Café résumé naïve Ångström",
+    "expected": ["Café résumé naïve Ångström"]
+  },
+  {
+    "id": "fullwidth",
+    "text": "ＡＢＣ１２３ ａｂｃ ＠ＥＸＡＭＰＬＥ．ＣＯＭ",
+    "expected": ["ＡＢＣ１２３ ａｂｃ ＠ＥＸＡＭＰＬＥ．ＣＯＭ"]
+  },
+  {
+    "id": "halfwidth_kana",
+    "text": "ｶﾀｶﾅ ﾃｽﾄ ｶﾞ ｺｰﾋｰ",
+    "expected": ["ｶﾀｶﾅ", "ﾃｽﾄ", "ｶﾞ", "ｺｰﾋｰ"]
+  },
+  {
+    "id": "emoji",
+    "text": "Hello 👩🏽‍💻 👨‍👩‍👧‍👦 🇺🇸 😊 東京 ไทย",
+    "expected": ["Hello 👩🏽‍💻 👨‍👩‍👧‍👦 🇺🇸 😊 東京 ไทย"]
+  },
+  {
+    "id": "numbers",
+    "text": "123 123.45 １２３ ๑๒๓ 四 Ⅳ ④ ½",
+    "expected": []
+  },
+  {
+    "id": "url_email",
+    "text": "https://example.test/path?q=ABC123 user@example.test foo-bar camelCase",
+    "expected": [
+      "https://example.test/path?q=ABC123 user@example.test foo-bar camelCase"
+    ]
+  },
+  {
+    "id": "mixed_short_ja",
+    "text": "東京 hello",
+    "expected": ["東京 hello"]
+  },
+  {
+    "id": "mixed_short_zh",
+    "text": "会议 invoice",
+    "expected": ["会议 invoice"]
+  },
+  {
+    "id": "mixed_short_th",
+    "text": "ไทย order",
+    "expected": ["ไทย order"]
+  },
+  {
+    "id": "punctuation",
+    "text": "abc_def foo-bar a.b 你好，世界！日本語・英語 ภาษาไทย/English",
+    "expected": ["abc_def foo-bar a.b 你好，世界！日本語・英語 ภาษาไทย/English"]
+  },
+  {
+    "id": "bom",
+    "text": "﻿﻿Hello﻿world",
+    "expected": ["﻿﻿Hello﻿world"]
+  },
+  {
+    "id": "casing",
+    "text": "İ I ı i ß SS Σ σ ς K ﬃ",
+    "expected": ["İ I ı i ß SS Σ σ ς K ﬃ"]
+  }
+]

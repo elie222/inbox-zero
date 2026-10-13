@@ -1,0 +1,1551 @@
+[
+  {
+    "id": "full-html-oracle-output.json:plain",
+    "html": "Hello world",
+    "expected": {
+      "hello": 1,
+      "world": 1
+    }
+  },
+  {
+    "id": "full-html-oracle-output.json:paragraph",
+    "html": "<p>Hello <b>world</b>!</p>",
+    "expected": {
+      "hello": 1,
+      "world!": 1
+    }
+  },
+  {
+    "id": "full-html-oracle-output.json:entities",
+    "html": "A &amp; B &#65; &#x41; &unknown;",
+    "expected": {
+      "^ent": 2,
+      "^ent-A": 2,
+      "^inter-32": 1,
+      "^iw-baa": 1,
+      "baa": 1,
+      "unknown": 1
+    }
+  },
+  {
+    "id": "full-html-oracle-output.json:attribute",
+    "html": "<a href=\"https://example.test/a?q=1\" title=\"Link\">Go</a>",
+    "expected": {
+      "^all-tags": 1,
+      "A:Go": 1,
+      "TL:Link": 1,
+      "U:^?-https": 1,
+      "U:^scheme-https": 1,
+      "U:a": 1,
+      "U:example": 1,
+      "U:q": 1,
+      "U:test": 1
+    }
+  },
+  {
+    "id": "full-html-oracle-output.json:comment",
+    "html": "Hello<!-- hidden -->world",
+    "expected": {
+      "C:hidden": 1,
+      "helloworld": 1
+    }
+  },
+  {
+    "id": "full-html-oracle-output.json:script",
+    "html": "Before<script>var x=\"hi\";</script>After",
+    "expected": {
+      "beforeafter": 1
+    }
+  },
+  {
+    "id": "full-html-oracle-output.json:broken",
+    "html": "<div title=\"oops>text",
+    "expected": {}
+  },
+  {
+    "id": "full-html-oracle-output.json:doctype",
+    "html": "<!DOCTYPE html><html><body>Body</body></html>",
+    "expected": {
+      "^pi": 1,
+      "body": 1
+    }
+  },
+  {
+    "id": "full-html-oracle-output.json:processing",
+    "html": "<?xml version=\"1.0\"?>x",
+    "expected": {
+      "^pi": 1,
+      "L:x": 1
+    }
+  },
+  {
+    "id": "full-html-oracle-output.json:case",
+    "html": "<DIV CLASS=foo disabled>x</DIV>",
+    "expected": {
+      "^a-class-foo": 1,
+      "L:x": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h000",
+    "html": "",
+    "expected": {
+      "^all-tags": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h001",
+    "html": "a",
+    "expected": {
+      "L:a": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h002",
+    "html": "alpha beta",
+    "expected": {
+      "alpha": 1,
+      "beta": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h003",
+    "html": "hello\nworld",
+    "expected": {
+      "hello": 1,
+      "world": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h004",
+    "html": "a\u0000b",
+    "expected": {
+      "L:ab": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h005",
+    "html": "日本語本文",
+    "expected": {
+      "^unicode": 1,
+      "日本": 1,
+      "本文": 1,
+      "語": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h006",
+    "html": "Καλημέρα café",
+    "expected": {
+      "^unicode": 1,
+      "cafe": 1,
+      "καλημερα": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h007",
+    "html": "A😀B",
+    "expected": {
+      "^unicode": 1,
+      "😀": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h008",
+    "html": "a < b > c",
+    "expected": {
+      "L:a": 1,
+      "L:c": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h009",
+    "html": "<br/>x",
+    "expected": {
+      "L:x": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h010",
+    "html": "<br />x",
+    "expected": {
+      "L:x": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h011",
+    "html": "a&amp;b",
+    "expected": {}
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h012",
+    "html": "&amp",
+    "expected": {
+      "amp": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h013",
+    "html": "&unknown;",
+    "expected": {
+      "unknown": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h014",
+    "html": "&COPY;",
+    "expected": {
+      "^macroman": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h015",
+    "html": "&copy;",
+    "expected": {
+      "^macroman": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h016",
+    "html": "&apos;",
+    "expected": {}
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h017",
+    "html": "&#0;",
+    "expected": {}
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h018",
+    "html": "&#65;",
+    "expected": {
+      "^ent": 1,
+      "^ent-A": 1,
+      "L:A": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h019",
+    "html": "&#x41;",
+    "expected": {
+      "^ent": 1,
+      "^ent-A": 1,
+      "L:A": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h020",
+    "html": "&#128512;",
+    "expected": {
+      "^unicode": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h021",
+    "html": "&#x1f600;",
+    "expected": {
+      "^unicode": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h022",
+    "html": "&#999999999999;",
+    "expected": {
+      "^unicode": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h023",
+    "html": "&#xFFFFFFFF;",
+    "expected": {
+      "^unicode": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h024",
+    "html": "<!-- -->",
+    "expected": {
+      "^all-tags": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h025",
+    "html": "<!--x<!--y-->z-->end",
+    "expected": {}
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h026",
+    "html": "<!--unfinished",
+    "expected": {
+      "^all-tags": 1,
+      "^error": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h027",
+    "html": "<!DOCTYPE html>body",
+    "expected": {
+      "^pi": 1,
+      "body": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h028",
+    "html": "<![CDATA[a<b>]]>",
+    "expected": {
+      "^pi": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h029",
+    "html": "<?xml a=1?>x",
+    "expected": {
+      "^pi": 1,
+      "L:x": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h030",
+    "html": "<% hello %>x",
+    "expected": {
+      "^pi": 1,
+      "L:x": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h031",
+    "html": "broken <tag",
+    "expected": {
+      "^error": 1,
+      "broken": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h032",
+    "html": "<a href=>x",
+    "expected": {
+      "^all-tags": 1,
+      "^error": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h033",
+    "html": "<a href=\"unterminated>text",
+    "expected": {
+      "^all-tags": 1,
+      "A:text": 1,
+      "U:^relative": 1,
+      "U:unterminated": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h034",
+    "html": "<a href='unterminated>text",
+    "expected": {
+      "^all-tags": 1,
+      "A:text": 1,
+      "U:^relative": 1,
+      "U:unterminated": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h035",
+    "html": "<a : x>x",
+    "expected": {
+      "^error": 1,
+      "L:x": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h036",
+    "html": "</broken",
+    "expected": {
+      "^all-tags": 1,
+      "^error": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h037",
+    "html": "<<<>>>",
+    "expected": {
+      "^error": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h038",
+    "html": "<a a=1 a=2>text",
+    "expected": {
+      "^all-tags": 1,
+      "A:text": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h039",
+    "html": "<Aa TITLE=\"A&amp;B\" DISABLED>x</Aa>",
+    "expected": {
+      "^fake-close": 1,
+      "^fake-close-a": 1,
+      "^fake-open": 1,
+      "^fake-open-a": 1,
+      "^html-</aa>": 1,
+      "^html-<aa>": 1,
+      "^html-a-aa-disabled": 1,
+      "^html-a-aa-title": 1,
+      "^html-v-aa-disabled=": 1,
+      "^html-v-aa-title=AampB": 1,
+      "L:x": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h040",
+    "html": "<p>alpha</p>omega",
+    "expected": {
+      "alpha": 1,
+      "omega": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h041",
+    "html": "<p class=foo>alpha</p>omega",
+    "expected": {
+      "^a-class-foo": 1,
+      "alpha": 1,
+      "omega": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h042",
+    "html": "<p title=\"x>y\">alpha</p>omega",
+    "expected": {
+      "alpha": 1,
+      "omega": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h043",
+    "html": "<p disabled>alpha</p>omega",
+    "expected": {
+      "alpha": 1,
+      "omega": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h044",
+    "html": "<p data-x=\"&copy;\">alpha</p>omega",
+    "expected": {
+      "alpha": 1,
+      "omega": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h045",
+    "html": "<BR>alpha</BR>omega",
+    "expected": {
+      "alphaomega": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h046",
+    "html": "<BR class=foo>alpha</BR>omega",
+    "expected": {
+      "alphaomega": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h047",
+    "html": "<BR title=\"x>y\">alpha</BR>omega",
+    "expected": {
+      "alphaomega": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h048",
+    "html": "<BR disabled>alpha</BR>omega",
+    "expected": {
+      "alphaomega": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h049",
+    "html": "<BR data-x=\"&copy;\">alpha</BR>omega",
+    "expected": {
+      "alphaomega": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h050",
+    "html": "<script>alpha</script>omega",
+    "expected": {
+      "omega": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h051",
+    "html": "<script class=foo>alpha</script>omega",
+    "expected": {
+      "omega": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h052",
+    "html": "<script title=\"x>y\">alpha</script>omega",
+    "expected": {
+      "omega": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h053",
+    "html": "<script disabled>alpha</script>omega",
+    "expected": {
+      "omega": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h054",
+    "html": "<script data-x=\"&copy;\">alpha</script>omega",
+    "expected": {
+      "omega": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h055",
+    "html": "<style>alpha</style>omega",
+    "expected": {
+      "omega": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h056",
+    "html": "<style class=foo>alpha</style>omega",
+    "expected": {
+      "omega": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h057",
+    "html": "<style title=\"x>y\">alpha</style>omega",
+    "expected": {
+      "omega": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h058",
+    "html": "<style disabled>alpha</style>omega",
+    "expected": {
+      "omega": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h059",
+    "html": "<style data-x=\"&copy;\">alpha</style>omega",
+    "expected": {
+      "omega": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h060",
+    "html": "<title>alpha</title>omega",
+    "expected": {
+      "omega": 1,
+      "PT:alpha": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h061",
+    "html": "<title class=foo>alpha</title>omega",
+    "expected": {
+      "omega": 1,
+      "PT:alpha": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h062",
+    "html": "<title title=\"x>y\">alpha</title>omega",
+    "expected": {
+      "omega": 1,
+      "PT:alpha": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h063",
+    "html": "<title disabled>alpha</title>omega",
+    "expected": {
+      "omega": 1,
+      "PT:alpha": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h064",
+    "html": "<title data-x=\"&copy;\">alpha</title>omega",
+    "expected": {
+      "omega": 1,
+      "PT:alpha": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h065",
+    "html": "<meta>alpha</meta>omega",
+    "expected": {
+      "alphaomega": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h066",
+    "html": "<meta class=foo>alpha</meta>omega",
+    "expected": {
+      "alphaomega": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h067",
+    "html": "<meta title=\"x>y\">alpha</meta>omega",
+    "expected": {
+      "alphaomega": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h068",
+    "html": "<meta disabled>alpha</meta>omega",
+    "expected": {
+      "alphaomega": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h069",
+    "html": "<meta data-x=\"&copy;\">alpha</meta>omega",
+    "expected": {
+      "alphaomega": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h070",
+    "html": "<div>alpha</div>omega",
+    "expected": {
+      "alphaomega": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h071",
+    "html": "<div class=foo>alpha</div>omega",
+    "expected": {
+      "^a-class-foo": 1,
+      "alphaomega": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h072",
+    "html": "<div title=\"x>y\">alpha</div>omega",
+    "expected": {
+      "alphaomega": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h073",
+    "html": "<div disabled>alpha</div>omega",
+    "expected": {
+      "alphaomega": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h074",
+    "html": "<div data-x=\"&copy;\">alpha</div>omega",
+    "expected": {
+      "alphaomega": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h075",
+    "html": "<span>alpha</span>omega",
+    "expected": {
+      "alphaomega": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h076",
+    "html": "<span class=foo>alpha</span>omega",
+    "expected": {
+      "^a-class-foo": 1,
+      "alphaomega": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h077",
+    "html": "<span title=\"x>y\">alpha</span>omega",
+    "expected": {
+      "alphaomega": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h078",
+    "html": "<span disabled>alpha</span>omega",
+    "expected": {
+      "alphaomega": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h079",
+    "html": "<span data-x=\"&copy;\">alpha</span>omega",
+    "expected": {
+      "alphaomega": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h080",
+    "html": "<svg:path>alpha</svg:path>omega",
+    "expected": {
+      "^error": 2,
+      "alphaomega": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h081",
+    "html": "<svg:path class=foo>alpha</svg:path>omega",
+    "expected": {
+      "^error": 2,
+      "alphaomega": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h082",
+    "html": "<svg:path title=\"x>y\">alpha</svg:path>omega",
+    "expected": {
+      "^error": 2,
+      "alphaomega": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h083",
+    "html": "<svg:path disabled>alpha</svg:path>omega",
+    "expected": {
+      "^error": 2,
+      "alphaomega": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h084",
+    "html": "<svg:path data-x=\"&copy;\">alpha</svg:path>omega",
+    "expected": {
+      "^error": 2,
+      "alphaomega": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h085",
+    "html": "<a href=\"hello\">text</a>",
+    "expected": {
+      "^all-tags": 1,
+      "A:text": 1,
+      "U:^relative": 1,
+      "U:hello": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h086",
+    "html": "<a href=\"a b\">text</a>",
+    "expected": {
+      "^all-tags": 1,
+      "A:text": 1,
+      "U:^relative": 1,
+      "U:a": 1,
+      "U:b": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h087",
+    "html": "<a href=\"a=b\">text</a>",
+    "expected": {
+      "^all-tags": 1,
+      "A:text": 1,
+      "U:^relative": 1,
+      "U:a": 1,
+      "U:b": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h088",
+    "html": "<a href=\"a>b\">text</a>",
+    "expected": {
+      "^all-tags": 1,
+      "A:text": 1,
+      "U:^relative": 1,
+      "U:a": 1,
+      "U:b": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h089",
+    "html": "<a href=\"http://example.test/a?x=1&y=2\">text</a>",
+    "expected": {
+      "^all-tags": 1,
+      "A:text": 1,
+      "U:^?-http": 1,
+      "U:a": 1,
+      "U:example": 1,
+      "U:test": 1,
+      "U:x": 1,
+      "U:y": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h090",
+    "html": "<a href=\"&amp;\">text</a>",
+    "expected": {
+      "^all-tags": 1,
+      "A:text": 1,
+      "U:^relative": 1,
+      "U:amp": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h091",
+    "html": "<a href=\"😀\">text</a>",
+    "expected": {
+      "^all-tags": 1,
+      "A:text": 1,
+      "U:^relative": 1,
+      "U:😀": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h092",
+    "html": "<a href='hello'>text</a>",
+    "expected": {
+      "^all-tags": 1,
+      "A:text": 1,
+      "U:^relative": 1,
+      "U:hello": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h093",
+    "html": "<a href='a b'>text</a>",
+    "expected": {
+      "^all-tags": 1,
+      "A:text": 1,
+      "U:^relative": 1,
+      "U:a": 1,
+      "U:b": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h094",
+    "html": "<a href='a=b'>text</a>",
+    "expected": {
+      "^all-tags": 1,
+      "A:text": 1,
+      "U:^relative": 1,
+      "U:a": 1,
+      "U:b": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h095",
+    "html": "<a href='a>b'>text</a>",
+    "expected": {
+      "^all-tags": 1,
+      "A:text": 1,
+      "U:^relative": 1,
+      "U:a": 1,
+      "U:b": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h096",
+    "html": "<a href='http://example.test/a?x=1&y=2'>text</a>",
+    "expected": {
+      "^all-tags": 1,
+      "A:text": 1,
+      "U:^?-http": 1,
+      "U:a": 1,
+      "U:example": 1,
+      "U:test": 1,
+      "U:x": 1,
+      "U:y": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h097",
+    "html": "<a href='&amp;'>text</a>",
+    "expected": {
+      "^all-tags": 1,
+      "A:text": 1,
+      "U:^relative": 1,
+      "U:amp": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h098",
+    "html": "<a href='😀'>text</a>",
+    "expected": {
+      "^all-tags": 1,
+      "A:text": 1,
+      "U:^relative": 1,
+      "U:😀": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h099",
+    "html": "<a href=hello>text</a>",
+    "expected": {
+      "^all-tags": 1,
+      "A:text": 1,
+      "U:^relative": 1,
+      "U:hello": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h100",
+    "html": "<a href=a b>text</a>",
+    "expected": {
+      "^all-tags": 1,
+      "A:text": 1,
+      "U:^relative": 1,
+      "U:a": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h101",
+    "html": "<a href=a=b>text</a>",
+    "expected": {
+      "^all-tags": 1,
+      "A:text": 1,
+      "U:^relative": 1,
+      "U:a": 1,
+      "U:b": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h102",
+    "html": "<a href=a>b>text</a>",
+    "expected": {
+      "^all-tags": 1,
+      "A:text": 1,
+      "U:^relative": 1,
+      "U:a": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h103",
+    "html": "<a href=http://example.test/a?x=1&y=2>text</a>",
+    "expected": {
+      "^all-tags": 1,
+      "A:text": 1,
+      "U:^?-http": 1,
+      "U:a": 1,
+      "U:example": 1,
+      "U:test": 1,
+      "U:x": 1,
+      "U:y": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h104",
+    "html": "<a href=&amp;>text</a>",
+    "expected": {
+      "^all-tags": 1,
+      "A:text": 1,
+      "U:^relative": 1,
+      "U:amp": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h105",
+    "html": "<a href=😀>text</a>",
+    "expected": {
+      "^all-tags": 1,
+      "A:text": 1,
+      "U:^relative": 1,
+      "U:😀": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h106",
+    "html": "prefix x suffix",
+    "expected": {
+      "prefix": 1,
+      "suffix": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h107",
+    "html": "prefix xx suffix",
+    "expected": {
+      "prefix": 1,
+      "suffix": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h108",
+    "html": "prefix xxxxxxxxxx suffix",
+    "expected": {
+      "prefix": 1,
+      "suffix": 1,
+      "xxxxxxxxxx": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h109",
+    "html": "prefix xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx suffix",
+    "expected": {
+      "^long-x-40": 1,
+      "prefix": 1,
+      "suffix": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h110",
+    "html": "prefix xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx suffix",
+    "expected": {
+      "^long-x-50": 1,
+      "prefix": 1,
+      "suffix": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h111",
+    "html": "prefix xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx suffix",
+    "expected": {
+      "^long-x-40": 1,
+      "^long-x-50": 1,
+      "prefix": 1,
+      "suffix": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h112",
+    "html": "prefix xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx suffix",
+    "expected": {
+      "^long-x-40": 1,
+      "^long-x-50": 1,
+      "prefix": 1,
+      "suffix": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h113",
+    "html": "prefix xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx suffix",
+    "expected": {
+      "^long-x-40": 1,
+      "^long-x-50": 1,
+      "prefix": 1,
+      "suffix": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h114",
+    "html": "prefix xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx suffix",
+    "expected": {
+      "^long-x-50": 15,
+      "prefix": 1,
+      "suffix": 1,
+      "xxxxxxxxxxxxxxxxxxx": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h115",
+    "html": "prefix xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx suffix",
+    "expected": {
+      "prefix": 1,
+      "suffix": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h116",
+    "html": "prefix xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx suffix",
+    "expected": {
+      "prefix": 1,
+      "suffix": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h117",
+    "html": "prefix xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx suffix",
+    "expected": {
+      "prefix": 1,
+      "suffix": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h118",
+    "html": "<tag x=y>",
+    "expected": {
+      "^all-tags": 1,
+      "^fake-open": 1,
+      "^fake-open-t": 1,
+      "^html-<tag>": 1,
+      "^html-a-tag-x": 1,
+      "^html-v-tag-x=y": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h119",
+    "html": "<tag x=y/>",
+    "expected": {
+      "^all-tags": 1,
+      "^fake-open": 1,
+      "^fake-open-t": 1,
+      "^html-<tag>": 1,
+      "^html-a-tag-x": 1,
+      "^html-v-tag-x=y": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h120",
+    "html": "<tag x=y />",
+    "expected": {
+      "^all-tags": 1,
+      "^fake-open": 1,
+      "^fake-open-t": 1,
+      "^html-<tag>": 1,
+      "^html-a-tag-x": 1,
+      "^html-v-tag-x=y": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h121",
+    "html": "<tag x=y",
+    "expected": {
+      "^all-tags": 1,
+      "^error": 1
+    }
+  },
+  {
+    "id": "full-html-research-oracle-output.json:h122",
+    "html": "<tag x=y >tail",
+    "expected": {
+      "^fake-open": 1,
+      "^fake-open-t": 1,
+      "^html-<tag>": 1,
+      "^html-a-tag-x": 1,
+      "^html-v-tag-x=y": 1,
+      "tail": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:baseline",
+    "html": "zephyr cobalt nebula",
+    "expected": {
+      "cobalt": 1,
+      "nebula": 1,
+      "zephyr": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:inline",
+    "html": "zephyr<b>cobalt</b>nebula",
+    "expected": {
+      "zephyrcobaltnebula": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:paragraph",
+    "html": "zephyr<p>cobalt</p>nebula",
+    "expected": {
+      "cobalt": 1,
+      "nebula": 1,
+      "zephyr": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:cell",
+    "html": "zephyr<td>cobalt</td>nebula",
+    "expected": {
+      "cobalt": 1,
+      "nebula": 1,
+      "zephyr": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:comment",
+    "html": "zephyr<!--cobalt-->nebula",
+    "expected": {
+      "C:cobalt": 1,
+      "zephyrnebula": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:script",
+    "html": "zephyr<script>cobalt</script>nebula",
+    "expected": {
+      "zephyrnebula": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:nested-script",
+    "html": "zephyr<script>cobalt<script>quartz</script>nebula</script>saffron",
+    "expected": {
+      "zephyrnebulasaffron": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:unclosed-script",
+    "html": "zephyr<script>cobalt nebula",
+    "expected": {
+      "zephyr": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:no-frames",
+    "html": "zephyr<noframes>cobalt</noframes>nebula",
+    "expected": {
+      "zephyrnebula": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:comment-tag",
+    "html": "zephyr<comment>cobalt</comment>nebula",
+    "expected": {
+      "zephyrnebula": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:post-html",
+    "html": "zephyr</html>cobalt nebula",
+    "expected": {
+      "^after-html": 1,
+      "zephyr": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:post-html-upper",
+    "html": "zephyr</HTML>cobalt nebula",
+    "expected": {
+      "^after-html": 1,
+      "zephyr": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:post-html-comment",
+    "html": "zephyr</html><!--cobalt-->nebula",
+    "expected": {
+      "^after-html": 2,
+      "zephyr": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:anchor",
+    "html": "zephyr<a>cobalt</a>nebula",
+    "expected": {
+      "A:cobalt": 1,
+      "nebula": 1,
+      "zephyr": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:anchor-empty",
+    "html": "zephyr<a></a>nebula",
+    "expected": {
+      "A:^empty": 1,
+      "zephyrnebula": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:anchor-whitespace",
+    "html": "zephyr<a> </a>nebula",
+    "expected": {
+      "nebula": 1,
+      "zephyr": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:anchor-inline",
+    "html": "zephyr<a>cobalt<b>quartz</b>nebula</a>saffron",
+    "expected": {
+      "A:cobalt": 1,
+      "A:nebula": 1,
+      "A:quartz": 1,
+      "saffron": 1,
+      "zephyr": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:anchor-img",
+    "html": "zephyr<a><img alt=\"cobalt\"></a>nebula",
+    "expected": {
+      "A:^empty": 1,
+      "A:^img": 1,
+      "T:cobalt": 1,
+      "zephyrnebula": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:anchor-title",
+    "html": "zephyr<a title=\"cobalt\">nebula</a>saffron",
+    "expected": {
+      "A:nebula": 1,
+      "saffron": 1,
+      "TL:cobalt": 1,
+      "zephyr": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:only-anchor",
+    "html": "<a>zephyr</a>",
+    "expected": {
+      "^all-tags": 1,
+      "A:zephyr": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:title",
+    "html": "zephyr<title>cobalt</title>nebula",
+    "expected": {
+      "nebula": 1,
+      "PT:cobalt": 1,
+      "zephyr": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:only-title",
+    "html": "<title>zephyr</title>",
+    "expected": {
+      "^all-tags": 1,
+      "PT:zephyr": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:nested-title",
+    "html": "zephyr<title>cobalt<title>quartz</title>nebula</title>saffron",
+    "expected": {
+      "nebulasaffron": 1,
+      "PT:cobalt": 1,
+      "PT:quartz": 1,
+      "zephyr": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:font-white",
+    "html": "zephyr<font color=\"white\">cobalt</font>nebula",
+    "expected": {
+      "^fg-ffffff": 1,
+      "^invisible": 1,
+      "nebula": 1,
+      "V:cobalt": 1,
+      "zephyr": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:font-white-upper",
+    "html": "zephyr<font color=\"#FFFFFF\">cobalt</font>nebula",
+    "expected": {
+      "^fg-ffffff": 1,
+      "^invisible": 1,
+      "nebula": 1,
+      "V:cobalt": 1,
+      "zephyr": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:font-near-white",
+    "html": "zephyr<font color=\"#f0f0f0\">cobalt</font>nebula",
+    "expected": {
+      "^fg-f0f0f0": 1,
+      "^invisible": 1,
+      "nebula": 1,
+      "V:cobalt": 1,
+      "zephyr": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:font-not-white",
+    "html": "zephyr<font color=\"red\">cobalt</font>nebula",
+    "expected": {
+      "^fg-ff0000": 1,
+      "zephyrcobaltnebula": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:font-nested",
+    "html": "zephyr<font color=\"white\">cobalt<font color=\"red\">quartz</font>nebula</font>saffron",
+    "expected": {
+      "^fg-ff0000": 1,
+      "^fg-ffffff": 1,
+      "^invisible": 2,
+      "nebulasaffron": 1,
+      "V:cobalt": 1,
+      "V:quartz": 1,
+      "zephyr": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:div-hidden",
+    "html": "zephyr<div style=\"display:none\">cobalt</div>nebula",
+    "expected": {
+      "^a-style-displaynone": 1,
+      "^display": 1,
+      "^display-div": 1,
+      "^invisible": 1,
+      "nebula": 1,
+      "V:cobalt": 1,
+      "zephyr": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:div-float",
+    "html": "zephyr<div style=\"float:left\">cobalt</div>nebula",
+    "expected": {
+      "^a-style-floatleft": 1,
+      "^float": 1,
+      "^float-div": 1,
+      "^invisible": 1,
+      "nebula": 1,
+      "V:cobalt": 1,
+      "zephyr": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:div-visible",
+    "html": "zephyr<div style=\"display:block\">cobalt</div>nebula",
+    "expected": {
+      "^a-style-displayblock": 1,
+      "^display": 1,
+      "^display-div": 1,
+      "zephyrcobaltnebula": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:div-nested",
+    "html": "zephyr<div style=\"display:none\">cobalt<div>quartz</div>nebula</div>saffron",
+    "expected": {
+      "^a-style-displaynone": 1,
+      "^display": 1,
+      "^display-div": 1,
+      "^invisible": 2,
+      "nebulasaffron": 1,
+      "V:cobalt": 1,
+      "V:quartz": 1,
+      "zephyr": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:span-hidden",
+    "html": "zephyr<span style=\"visibility:hidden\">cobalt</span>nebula",
+    "expected": {
+      "^a-style-visibilityhidden": 1,
+      "^invisible": 1,
+      "^vh": 1,
+      "^vh-span": 1,
+      "nebula": 1,
+      "V:cobalt": 1,
+      "zephyr": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:hidden-title",
+    "html": "zephyr<div style=\"display:none\"><title>cobalt</title>nebula</div>saffron",
+    "expected": {
+      "^a-style-displaynone": 1,
+      "^display": 1,
+      "^display-div": 1,
+      "^invisible": 2,
+      "saffron": 1,
+      "V:cobalt": 1,
+      "V:nebula": 1,
+      "zephyr": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:hidden-anchor",
+    "html": "zephyr<div style=\"display:none\"><a>cobalt</a>nebula</div>saffron",
+    "expected": {
+      "^a-style-displaynone": 1,
+      "^display": 1,
+      "^display-div": 1,
+      "^invisible": 2,
+      "A:^empty": 1,
+      "saffron": 1,
+      "V:cobalt": 1,
+      "V:nebula": 1,
+      "zephyr": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:only-hidden",
+    "html": "<font color=\"white\">zephyr</font>",
+    "expected": {
+      "^all-tags": 1,
+      "^fg-ffffff": 1,
+      "^invisible": 1,
+      "V:zephyr": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:style",
+    "html": "zephyr<style>.sample{display:none;float:left}</style>nebula",
+    "expected": {
+      "Y:display": 1,
+      "Y:float": 1,
+      "zephyrnebula": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:nested-style",
+    "html": "zephyr<style>.sample{display:none}<style>quartz</style>nebula</style>saffron",
+    "expected": {
+      "Y:display": 1,
+      "zephyrnebulasaffron": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:img-alt",
+    "html": "zephyr<img alt=\"cobalt\">nebula",
+    "expected": {
+      "T:cobalt": 1,
+      "zephyrnebula": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:named-entity",
+    "html": "zephyr&amp;nebula &apos; &unknown;",
+    "expected": {
+      "nebula": 1,
+      "unknown": 1,
+      "zephyr": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:numeric-entity",
+    "html": "zephyr&#65;nebula &#x1F600;",
+    "expected": {
+      "^ent": 1,
+      "^ent-A": 1,
+      "^unicode": 1,
+      "anebula": 1,
+      "zephyr": 1,
+      "zephyranebula": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:short-letter",
+    "html": "z<b>e</b>phyr",
+    "expected": {
+      "L:e": 1,
+      "L:z": 1,
+      "zephyr": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:short-space-letter",
+    "html": "zephyr<b> a </b>nebula",
+    "expected": {
+      "LS:a": 1,
+      "nebula": 1,
+      "zephyr": 1
+    }
+  },
+  {
+    "id": "html-state-oracle-output.json:unknown-tag",
+    "html": "zephyr<garbled foo=\"cobalt\">nebula</garbled>saffron",
+    "expected": {
+      "^fake-close": 1,
+      "^fake-close-g": 1,
+      "^fake-open": 1,
+      "^fake-open-g": 1,
+      "^html-</garbled>": 1,
+      "^html-<garbled>": 1,
+      "^html-a-garbled-foo": 1,
+      "^html-v-garbled-foo=cobalt": 1,
+      "zephyrnebulasaffron": 1
+    }
+  }
+]

@@ -2,6 +2,8 @@ import {
   getGmailClientForEmail,
   getOutlookClientForEmail,
 } from "@/utils/email-account-client";
+import { ICloudProvider } from "@/utils/email/icloud";
+import { getICloudConnection } from "@/utils/icloud/connection";
 import { GmailProvider } from "@/utils/email/google";
 import { OutlookProvider } from "@/utils/email/microsoft";
 import type { EmailProvider } from "@/utils/email/types";
@@ -20,6 +22,12 @@ export async function createEmailProvider({
   provider: string;
   logger: Logger;
 }): Promise<EmailProvider> {
+  if (provider === "icloud") {
+    return new ICloudProvider(
+      emailAccountId,
+      await getICloudConnection(emailAccountId),
+    );
+  }
   const rateLimitProvider = toRateLimitProvider(provider);
   if (!rateLimitProvider) throw new Error(`Unsupported provider: ${provider}`);
 

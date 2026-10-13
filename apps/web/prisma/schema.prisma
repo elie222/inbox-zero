@@ -59,6 +59,7 @@ model Session {
 }
 
 model User {
+  spamModel SpamModel?
   id            String    @id @default(cuid())
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -142,6 +143,12 @@ enum ApiKeyScope {
 
 // Migrating over to the new settings model. Currently most settings are in the User model, but will be moved to this model in the future.
 model EmailAccount {
+  spamFilterEnabled Boolean @default(false)
+  spamDecisions SpamDecision[]
+  spamTraining SpamTraining[]
+  bulkRuleRuns BulkRuleRun[]
+  iCloudConnection ICloudConnection?
+  iCloudMessages   ICloudMessage[]
   id        String   @id @default(cuid())
   email     String   @unique
   createdAt DateTime @default(now())
@@ -1082,6 +1089,7 @@ model ClassificationFeedback {
   createdAt DateTime @default(now())
 
   sender    String // normalized email address (lowercase)
+  subject   String? // snapshot survives provider folder moves
   eventType ClassificationFeedbackEventType
 
   ruleId         String
@@ -2851,4 +2859,153 @@ model ScimIdentityLink {
 
   @@unique([connectionId, externalId])
   @@index([userId])
+}
+
+
+model ICloudConnection {
+  emailAccountId String @id
+  username String
+  encryptedPassword String @db.Text
+  folders Json
+  emailAccount EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+}
+
+model ICloudMessage {
+  id String @id @default(cuid())
+  emailAccountId String
+  folder String
+  uidValidity String
+  uid Int
+  threadId String
+  rootMessageId String?
+  moveDestination String?
+  moveUid Int?
+  moveUidValidity String?
+  messageIdHeader String?
+  internalDate DateTime
+  deletedAt DateTime?
+  emailAccount EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([emailAccountId, folder, uidValidity, uid])
+  @@index([emailAccountId, threadId])
+  @@index([emailAccountId, folder, deletedAt])
+}
+
+model BulkRuleRun {
+  id String @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  emailAccountId String
+  emailAccount EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  activeAccountId String? @unique
+  status String @default("QUEUED")
+  startDate DateTime
+  endDate DateTime?
+  includeRead Boolean
+  rerun Boolean
+  generateDraftReplies Boolean
+  maxEmails Int?
+  nextPageToken String?
+  scannedAt DateTime?
+  leaseToken String?
+  leaseUntil DateTime?
+  error String?
+  items BulkRuleRunItem[]
+  @@index([emailAccountId, createdAt])
+  @@index([status, leaseUntil])
+}
+
+model BulkRuleRunItem {
+  id String @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  runId String
+  run BulkRuleRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  threadId String
+  messageId String
+  subject String
+  status String @default("PENDING")
+  ruleNames String[]
+  error String?
+  @@unique([runId, threadId])
+  @@index([runId, status, createdAt])
+}
+
+model SpamModel {
+  id String @id @default(cuid())
+  userId String @unique
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status String @default("IMPORTING")
+  sourceDigest String
+  sourceMetadata Json
+  goodMessages Int
+  spamMessages Int
+  bias Float @default(0)
+  threshold Float @default(0.9)
+  revision Int @default(0)
+  tokenizerVersion String
+  importedWords Int @default(0)
+  importedMessages Int @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tokens SpamToken[]
+  history SpamHistoricalMessage[]
+  training SpamTraining[]
+  decisions SpamDecision[]
+}
+
+model SpamToken {
+  modelId String
+  model SpamModel @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  hash String
+  token String
+  lookupHash String
+  normalized String
+  good Int
+  spam Int
+  originalProbability Float?
+  originalLastUsed Float?
+  @@id([modelId, hash])
+  @@index([modelId, lookupHash])
+}
+
+model SpamHistoricalMessage {
+  modelId String
+  model SpamModel @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  sourceId Int
+  label String
+  sourceData Json
+  rawMessage Bytes?
+  @@id([modelId, sourceId])
+}
+
+model SpamTraining {
+  emailAccountId String
+  emailAccount EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  messageKey String
+  modelId String
+  model SpamModel @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  label String
+  tokens Json
+  tokenizerVersion String
+  observedAt DateTime
+  @@id([emailAccountId, messageKey])
+}
+
+model SpamDecision {
+  emailAccountId String
+  emailAccount EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  messageKey String
+  modelId String
+  model SpamModel @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  modelRevision Int
+  tokenizerVersion String
+  score Float
+  verdict String
+  evidence Json
+  warnings String[]
+  moveStartedAt DateTime?
+  movedAt DateTime?
+  createdAt DateTime @default(now())
+  @@id([emailAccountId, messageKey])
 }

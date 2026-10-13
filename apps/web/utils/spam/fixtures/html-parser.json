@@ -1,0 +1,2611 @@
+[
+  {
+    "id": "html-oracle:plain",
+    "html": "Hello world",
+    "expected": [
+      {
+        "car": "T",
+        "cdr": "Hello world"
+      }
+    ]
+  },
+  {
+    "id": "html-oracle:paragraph",
+    "html": "<p>Hello <b>world</b>!</p>",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "p",
+          "cdr": {}
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "Hello "
+      },
+      {
+        "car": "<",
+        "cdr": {
+          "car": "b",
+          "cdr": {}
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "world"
+      },
+      {
+        "car": "</",
+        "cdr": "b"
+      },
+      {
+        "car": "T",
+        "cdr": "!"
+      },
+      {
+        "car": "</",
+        "cdr": "p"
+      }
+    ]
+  },
+  {
+    "id": "html-oracle:entities",
+    "html": "A &amp; B &#65; &#x41; &unknown;",
+    "expected": [
+      {
+        "car": "T",
+        "cdr": "A "
+      },
+      {
+        "car": "E",
+        "cdr": "amp"
+      },
+      {
+        "car": "T",
+        "cdr": " B "
+      },
+      {
+        "car": "#",
+        "cdr": 65
+      },
+      {
+        "car": "T",
+        "cdr": " "
+      },
+      {
+        "car": "#",
+        "cdr": 65
+      },
+      {
+        "car": "T",
+        "cdr": " "
+      },
+      {
+        "car": "E",
+        "cdr": "unknown"
+      }
+    ]
+  },
+  {
+    "id": "html-oracle:attribute",
+    "html": "<a href=\"https://example.test/a?q=1\" title=\"Link\">Go</a>",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "a",
+          "cdr": {
+            "title": "Link",
+            "href": "https://example.test/a?q=1"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "Go"
+      },
+      {
+        "car": "</",
+        "cdr": "a"
+      }
+    ]
+  },
+  {
+    "id": "html-oracle:comment",
+    "html": "Hello<!-- hidden -->world",
+    "expected": [
+      {
+        "car": "T",
+        "cdr": "Hello"
+      },
+      {
+        "car": "<!--",
+        "cdr": " hidden "
+      },
+      {
+        "car": "T",
+        "cdr": "world"
+      }
+    ]
+  },
+  {
+    "id": "html-oracle:script",
+    "html": "Before<script>var x=\"hi\";</script>After",
+    "expected": [
+      {
+        "car": "T",
+        "cdr": "Before"
+      },
+      {
+        "car": "<",
+        "cdr": {
+          "car": "script",
+          "cdr": {}
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "var x=\"hi\";"
+      },
+      {
+        "car": "</",
+        "cdr": "script"
+      },
+      {
+        "car": "T",
+        "cdr": "After"
+      }
+    ]
+  },
+  {
+    "id": "html-oracle:broken",
+    "html": "<div title=\"oops>text",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "div",
+          "cdr": {
+            "title": "oops"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "text"
+      }
+    ]
+  },
+  {
+    "id": "html-oracle:doctype",
+    "html": "<!DOCTYPE html><html><body>Body</body></html>",
+    "expected": [
+      {
+        "car": "<?",
+        "cdr": "DOCTYPE html"
+      },
+      {
+        "car": "<",
+        "cdr": {
+          "car": "html",
+          "cdr": {}
+        }
+      },
+      {
+        "car": "<",
+        "cdr": {
+          "car": "body",
+          "cdr": {}
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "Body"
+      },
+      {
+        "car": "</",
+        "cdr": "body"
+      },
+      {
+        "car": "</",
+        "cdr": "html"
+      }
+    ]
+  },
+  {
+    "id": "html-oracle:processing",
+    "html": "<?xml version=\"1.0\"?>x",
+    "expected": [
+      {
+        "car": "<?",
+        "cdr": "xml version=\"1.0\""
+      },
+      {
+        "car": "T",
+        "cdr": "x"
+      }
+    ]
+  },
+  {
+    "id": "html-oracle:case",
+    "html": "<DIV CLASS=foo disabled>x</DIV>",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "div",
+          "cdr": {
+            "class": "foo",
+            "disabled": ""
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "x"
+      },
+      {
+        "car": "</",
+        "cdr": "div"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h000",
+    "html": "",
+    "expected": []
+  },
+  {
+    "id": "html-research-oracle:h001",
+    "html": "a",
+    "expected": [
+      {
+        "car": "T",
+        "cdr": "a"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h002",
+    "html": "alpha beta",
+    "expected": [
+      {
+        "car": "T",
+        "cdr": "alpha beta"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h003",
+    "html": "hello\nworld",
+    "expected": [
+      {
+        "car": "T",
+        "cdr": "hello\nworld"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h004",
+    "html": "a\u0000b",
+    "expected": [
+      {
+        "car": "T",
+        "cdr": "ab"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h005",
+    "html": "日本語本文",
+    "expected": [
+      {
+        "car": "T",
+        "cdr": "日本語本文"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h006",
+    "html": "Καλημέρα café",
+    "expected": [
+      {
+        "car": "T",
+        "cdr": "Καλημέρα café"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h007",
+    "html": "A😀B",
+    "expected": [
+      {
+        "car": "T",
+        "cdr": "A😀B"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h008",
+    "html": "a < b > c",
+    "expected": [
+      {
+        "car": "T",
+        "cdr": "a "
+      },
+      {
+        "car": "<",
+        "cdr": {
+          "car": "b",
+          "cdr": {}
+        }
+      },
+      {
+        "car": "T",
+        "cdr": " c"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h009",
+    "html": "<br/>x",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "br",
+          "cdr": {}
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "x"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h010",
+    "html": "<br />x",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "br",
+          "cdr": {}
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "x"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h011",
+    "html": "a&amp;b",
+    "expected": [
+      {
+        "car": "T",
+        "cdr": "a"
+      },
+      {
+        "car": "E",
+        "cdr": "amp"
+      },
+      {
+        "car": "T",
+        "cdr": "b"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h012",
+    "html": "&amp",
+    "expected": [
+      {
+        "car": "T",
+        "cdr": "&"
+      },
+      {
+        "car": "T",
+        "cdr": "amp"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h013",
+    "html": "&unknown;",
+    "expected": [
+      {
+        "car": "E",
+        "cdr": "unknown"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h014",
+    "html": "&COPY;",
+    "expected": [
+      {
+        "car": "E",
+        "cdr": "COPY"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h015",
+    "html": "&copy;",
+    "expected": [
+      {
+        "car": "E",
+        "cdr": "copy"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h016",
+    "html": "&apos;",
+    "expected": [
+      {
+        "car": "E",
+        "cdr": "apos"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h017",
+    "html": "&#0;",
+    "expected": [
+      {
+        "car": "#",
+        "cdr": 0
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h018",
+    "html": "&#65;",
+    "expected": [
+      {
+        "car": "#",
+        "cdr": 65
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h019",
+    "html": "&#x41;",
+    "expected": [
+      {
+        "car": "#",
+        "cdr": 65
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h020",
+    "html": "&#128512;",
+    "expected": [
+      {
+        "car": "#",
+        "cdr": 128512
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h021",
+    "html": "&#x1f600;",
+    "expected": [
+      {
+        "car": "#",
+        "cdr": 128512
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h022",
+    "html": "&#999999999999;",
+    "expected": [
+      {
+        "car": "#",
+        "cdr": 2147483647
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h023",
+    "html": "&#xFFFFFFFF;",
+    "expected": [
+      {
+        "car": "#",
+        "cdr": 4294967295
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h024",
+    "html": "<!-- -->",
+    "expected": [
+      {
+        "car": "<!--",
+        "cdr": " "
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h025",
+    "html": "<!--x<!--y-->z-->end",
+    "expected": [
+      {
+        "car": "<!--",
+        "cdr": "x<!--y"
+      },
+      {
+        "car": "T",
+        "cdr": "z-->end"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h026",
+    "html": "<!--unfinished",
+    "expected": [
+      {
+        "car": "*",
+        "cdr": ""
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h027",
+    "html": "<!DOCTYPE html>body",
+    "expected": [
+      {
+        "car": "<?",
+        "cdr": "DOCTYPE html"
+      },
+      {
+        "car": "T",
+        "cdr": "body"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h028",
+    "html": "<![CDATA[a<b>]]>",
+    "expected": [
+      {
+        "car": "<?",
+        "cdr": "[CDATA[a<b"
+      },
+      {
+        "car": "T",
+        "cdr": "]]>"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h029",
+    "html": "<?xml a=1?>x",
+    "expected": [
+      {
+        "car": "<?",
+        "cdr": "xml a=1"
+      },
+      {
+        "car": "T",
+        "cdr": "x"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h030",
+    "html": "<% hello %>x",
+    "expected": [
+      {
+        "car": "<?",
+        "cdr": " hello "
+      },
+      {
+        "car": "T",
+        "cdr": "x"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h031",
+    "html": "broken <tag",
+    "expected": [
+      {
+        "car": "T",
+        "cdr": "broken "
+      },
+      {
+        "car": "*",
+        "cdr": ""
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h032",
+    "html": "<a href=>x",
+    "expected": [
+      {
+        "car": "*",
+        "cdr": ""
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h033",
+    "html": "<a href=\"unterminated>text",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "a",
+          "cdr": {
+            "href": "unterminated"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "text"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h034",
+    "html": "<a href='unterminated>text",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "a",
+          "cdr": {
+            "href": "unterminated"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "text"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h035",
+    "html": "<a : x>x",
+    "expected": [
+      {
+        "car": "*",
+        "cdr": ""
+      },
+      {
+        "car": "T",
+        "cdr": "x"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h036",
+    "html": "</broken",
+    "expected": [
+      {
+        "car": "*",
+        "cdr": ""
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h037",
+    "html": "<<<>>>",
+    "expected": [
+      {
+        "car": "*",
+        "cdr": ""
+      },
+      {
+        "car": "T",
+        "cdr": ">>"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h038",
+    "html": "<a a=1 a=2>text",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "a",
+          "cdr": {
+            "a": "2"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "text"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h039",
+    "html": "<Aa TITLE=\"A&amp;B\" DISABLED>x</Aa>",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "aa",
+          "cdr": {
+            "title": "A&amp;B",
+            "disabled": ""
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "x"
+      },
+      {
+        "car": "</",
+        "cdr": "aa"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h040",
+    "html": "<p>alpha</p>omega",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "p",
+          "cdr": {}
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "</",
+        "cdr": "p"
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h041",
+    "html": "<p class=foo>alpha</p>omega",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "p",
+          "cdr": {
+            "class": "foo"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "</",
+        "cdr": "p"
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h042",
+    "html": "<p title=\"x>y\">alpha</p>omega",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "p",
+          "cdr": {
+            "title": "x>y"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "</",
+        "cdr": "p"
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h043",
+    "html": "<p disabled>alpha</p>omega",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "p",
+          "cdr": {
+            "disabled": ""
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "</",
+        "cdr": "p"
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h044",
+    "html": "<p data-x=\"&copy;\">alpha</p>omega",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "p",
+          "cdr": {
+            "data-x": "&copy;"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "</",
+        "cdr": "p"
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h045",
+    "html": "<BR>alpha</BR>omega",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "br",
+          "cdr": {}
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "</",
+        "cdr": "br"
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h046",
+    "html": "<BR class=foo>alpha</BR>omega",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "br",
+          "cdr": {
+            "class": "foo"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "</",
+        "cdr": "br"
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h047",
+    "html": "<BR title=\"x>y\">alpha</BR>omega",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "br",
+          "cdr": {
+            "title": "x>y"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "</",
+        "cdr": "br"
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h048",
+    "html": "<BR disabled>alpha</BR>omega",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "br",
+          "cdr": {
+            "disabled": ""
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "</",
+        "cdr": "br"
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h049",
+    "html": "<BR data-x=\"&copy;\">alpha</BR>omega",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "br",
+          "cdr": {
+            "data-x": "&copy;"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "</",
+        "cdr": "br"
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h050",
+    "html": "<script>alpha</script>omega",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "script",
+          "cdr": {}
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "</",
+        "cdr": "script"
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h051",
+    "html": "<script class=foo>alpha</script>omega",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "script",
+          "cdr": {
+            "class": "foo"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "</",
+        "cdr": "script"
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h052",
+    "html": "<script title=\"x>y\">alpha</script>omega",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "script",
+          "cdr": {
+            "title": "x>y"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "</",
+        "cdr": "script"
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h053",
+    "html": "<script disabled>alpha</script>omega",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "script",
+          "cdr": {
+            "disabled": ""
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "</",
+        "cdr": "script"
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h054",
+    "html": "<script data-x=\"&copy;\">alpha</script>omega",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "script",
+          "cdr": {
+            "data-x": "&copy;"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "</",
+        "cdr": "script"
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h055",
+    "html": "<style>alpha</style>omega",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "style",
+          "cdr": {}
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "</",
+        "cdr": "style"
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h056",
+    "html": "<style class=foo>alpha</style>omega",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "style",
+          "cdr": {
+            "class": "foo"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "</",
+        "cdr": "style"
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h057",
+    "html": "<style title=\"x>y\">alpha</style>omega",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "style",
+          "cdr": {
+            "title": "x>y"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "</",
+        "cdr": "style"
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h058",
+    "html": "<style disabled>alpha</style>omega",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "style",
+          "cdr": {
+            "disabled": ""
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "</",
+        "cdr": "style"
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h059",
+    "html": "<style data-x=\"&copy;\">alpha</style>omega",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "style",
+          "cdr": {
+            "data-x": "&copy;"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "</",
+        "cdr": "style"
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h060",
+    "html": "<title>alpha</title>omega",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "title",
+          "cdr": {}
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "</",
+        "cdr": "title"
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h061",
+    "html": "<title class=foo>alpha</title>omega",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "title",
+          "cdr": {
+            "class": "foo"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "</",
+        "cdr": "title"
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h062",
+    "html": "<title title=\"x>y\">alpha</title>omega",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "title",
+          "cdr": {
+            "title": "x>y"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "</",
+        "cdr": "title"
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h063",
+    "html": "<title disabled>alpha</title>omega",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "title",
+          "cdr": {
+            "disabled": ""
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "</",
+        "cdr": "title"
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h064",
+    "html": "<title data-x=\"&copy;\">alpha</title>omega",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "title",
+          "cdr": {
+            "data-x": "&copy;"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "</",
+        "cdr": "title"
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h065",
+    "html": "<meta>alpha</meta>omega",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "meta",
+          "cdr": {}
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "</",
+        "cdr": "meta"
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h066",
+    "html": "<meta class=foo>alpha</meta>omega",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "meta",
+          "cdr": {
+            "class": "foo"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "</",
+        "cdr": "meta"
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h067",
+    "html": "<meta title=\"x>y\">alpha</meta>omega",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "meta",
+          "cdr": {
+            "title": "x>y"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "</",
+        "cdr": "meta"
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h068",
+    "html": "<meta disabled>alpha</meta>omega",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "meta",
+          "cdr": {
+            "disabled": ""
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "</",
+        "cdr": "meta"
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h069",
+    "html": "<meta data-x=\"&copy;\">alpha</meta>omega",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "meta",
+          "cdr": {
+            "data-x": "&copy;"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "</",
+        "cdr": "meta"
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h070",
+    "html": "<div>alpha</div>omega",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "div",
+          "cdr": {}
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "</",
+        "cdr": "div"
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h071",
+    "html": "<div class=foo>alpha</div>omega",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "div",
+          "cdr": {
+            "class": "foo"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "</",
+        "cdr": "div"
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h072",
+    "html": "<div title=\"x>y\">alpha</div>omega",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "div",
+          "cdr": {
+            "title": "x>y"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "</",
+        "cdr": "div"
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h073",
+    "html": "<div disabled>alpha</div>omega",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "div",
+          "cdr": {
+            "disabled": ""
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "</",
+        "cdr": "div"
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h074",
+    "html": "<div data-x=\"&copy;\">alpha</div>omega",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "div",
+          "cdr": {
+            "data-x": "&copy;"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "</",
+        "cdr": "div"
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h075",
+    "html": "<span>alpha</span>omega",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "span",
+          "cdr": {}
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "</",
+        "cdr": "span"
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h076",
+    "html": "<span class=foo>alpha</span>omega",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "span",
+          "cdr": {
+            "class": "foo"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "</",
+        "cdr": "span"
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h077",
+    "html": "<span title=\"x>y\">alpha</span>omega",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "span",
+          "cdr": {
+            "title": "x>y"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "</",
+        "cdr": "span"
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h078",
+    "html": "<span disabled>alpha</span>omega",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "span",
+          "cdr": {
+            "disabled": ""
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "</",
+        "cdr": "span"
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h079",
+    "html": "<span data-x=\"&copy;\">alpha</span>omega",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "span",
+          "cdr": {
+            "data-x": "&copy;"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "</",
+        "cdr": "span"
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h080",
+    "html": "<svg:path>alpha</svg:path>omega",
+    "expected": [
+      {
+        "car": "*",
+        "cdr": ""
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "*",
+        "cdr": ""
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h081",
+    "html": "<svg:path class=foo>alpha</svg:path>omega",
+    "expected": [
+      {
+        "car": "*",
+        "cdr": ""
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "*",
+        "cdr": ""
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h082",
+    "html": "<svg:path title=\"x>y\">alpha</svg:path>omega",
+    "expected": [
+      {
+        "car": "*",
+        "cdr": ""
+      },
+      {
+        "car": "T",
+        "cdr": "y\">alpha"
+      },
+      {
+        "car": "*",
+        "cdr": ""
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h083",
+    "html": "<svg:path disabled>alpha</svg:path>omega",
+    "expected": [
+      {
+        "car": "*",
+        "cdr": ""
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "*",
+        "cdr": ""
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h084",
+    "html": "<svg:path data-x=\"&copy;\">alpha</svg:path>omega",
+    "expected": [
+      {
+        "car": "*",
+        "cdr": ""
+      },
+      {
+        "car": "T",
+        "cdr": "alpha"
+      },
+      {
+        "car": "*",
+        "cdr": ""
+      },
+      {
+        "car": "T",
+        "cdr": "omega"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h085",
+    "html": "<a href=\"hello\">text</a>",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "a",
+          "cdr": {
+            "href": "hello"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "text"
+      },
+      {
+        "car": "</",
+        "cdr": "a"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h086",
+    "html": "<a href=\"a b\">text</a>",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "a",
+          "cdr": {
+            "href": "a b"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "text"
+      },
+      {
+        "car": "</",
+        "cdr": "a"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h087",
+    "html": "<a href=\"a=b\">text</a>",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "a",
+          "cdr": {
+            "href": "a=b"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "text"
+      },
+      {
+        "car": "</",
+        "cdr": "a"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h088",
+    "html": "<a href=\"a>b\">text</a>",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "a",
+          "cdr": {
+            "href": "a>b"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "text"
+      },
+      {
+        "car": "</",
+        "cdr": "a"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h089",
+    "html": "<a href=\"http://example.test/a?x=1&y=2\">text</a>",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "a",
+          "cdr": {
+            "href": "http://example.test/a?x=1&y=2"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "text"
+      },
+      {
+        "car": "</",
+        "cdr": "a"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h090",
+    "html": "<a href=\"&amp;\">text</a>",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "a",
+          "cdr": {
+            "href": "&amp;"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "text"
+      },
+      {
+        "car": "</",
+        "cdr": "a"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h091",
+    "html": "<a href=\"😀\">text</a>",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "a",
+          "cdr": {
+            "href": "😀"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "text"
+      },
+      {
+        "car": "</",
+        "cdr": "a"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h092",
+    "html": "<a href='hello'>text</a>",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "a",
+          "cdr": {
+            "href": "hello"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "text"
+      },
+      {
+        "car": "</",
+        "cdr": "a"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h093",
+    "html": "<a href='a b'>text</a>",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "a",
+          "cdr": {
+            "href": "a b"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "text"
+      },
+      {
+        "car": "</",
+        "cdr": "a"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h094",
+    "html": "<a href='a=b'>text</a>",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "a",
+          "cdr": {
+            "href": "a=b"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "text"
+      },
+      {
+        "car": "</",
+        "cdr": "a"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h095",
+    "html": "<a href='a>b'>text</a>",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "a",
+          "cdr": {
+            "href": "a>b"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "text"
+      },
+      {
+        "car": "</",
+        "cdr": "a"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h096",
+    "html": "<a href='http://example.test/a?x=1&y=2'>text</a>",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "a",
+          "cdr": {
+            "href": "http://example.test/a?x=1&y=2"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "text"
+      },
+      {
+        "car": "</",
+        "cdr": "a"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h097",
+    "html": "<a href='&amp;'>text</a>",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "a",
+          "cdr": {
+            "href": "&amp;"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "text"
+      },
+      {
+        "car": "</",
+        "cdr": "a"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h098",
+    "html": "<a href='😀'>text</a>",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "a",
+          "cdr": {
+            "href": "😀"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "text"
+      },
+      {
+        "car": "</",
+        "cdr": "a"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h099",
+    "html": "<a href=hello>text</a>",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "a",
+          "cdr": {
+            "href": "hello"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "text"
+      },
+      {
+        "car": "</",
+        "cdr": "a"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h100",
+    "html": "<a href=a b>text</a>",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "a",
+          "cdr": {
+            "b": "",
+            "href": "a"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "text"
+      },
+      {
+        "car": "</",
+        "cdr": "a"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h101",
+    "html": "<a href=a=b>text</a>",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "a",
+          "cdr": {
+            "href": "a=b"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "text"
+      },
+      {
+        "car": "</",
+        "cdr": "a"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h102",
+    "html": "<a href=a>b>text</a>",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "a",
+          "cdr": {
+            "href": "a"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "b>text"
+      },
+      {
+        "car": "</",
+        "cdr": "a"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h103",
+    "html": "<a href=http://example.test/a?x=1&y=2>text</a>",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "a",
+          "cdr": {
+            "href": "http://example.test/a?x=1&y=2"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "text"
+      },
+      {
+        "car": "</",
+        "cdr": "a"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h104",
+    "html": "<a href=&amp;>text</a>",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "a",
+          "cdr": {
+            "href": "&amp;"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "text"
+      },
+      {
+        "car": "</",
+        "cdr": "a"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h105",
+    "html": "<a href=😀>text</a>",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "a",
+          "cdr": {
+            "href": "😀"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "text"
+      },
+      {
+        "car": "</",
+        "cdr": "a"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h106",
+    "html": "prefix x suffix",
+    "expected": [
+      {
+        "car": "T",
+        "cdr": "prefix x suffix"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h107",
+    "html": "prefix xx suffix",
+    "expected": [
+      {
+        "car": "T",
+        "cdr": "prefix xx suffix"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h108",
+    "html": "prefix xxxxxxxxxx suffix",
+    "expected": [
+      {
+        "car": "T",
+        "cdr": "prefix xxxxxxxxxx suffix"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h109",
+    "html": "prefix xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx suffix",
+    "expected": [
+      {
+        "car": "T",
+        "cdr": "prefix xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx suffix"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h110",
+    "html": "prefix xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx suffix",
+    "expected": [
+      {
+        "car": "T",
+        "cdr": "prefix xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx suffix"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h111",
+    "html": "prefix xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx suffix",
+    "expected": [
+      {
+        "car": "T",
+        "cdr": "prefix xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx suffix"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h112",
+    "html": "prefix xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx suffix",
+    "expected": [
+      {
+        "car": "T",
+        "cdr": "prefix xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx suffix"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h113",
+    "html": "prefix xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx suffix",
+    "expected": [
+      {
+        "car": "T",
+        "cdr": "prefix xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx suffix"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h114",
+    "html": "prefix xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx suffix",
+    "expected": [
+      {
+        "car": "T",
+        "cdr": "prefix xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx suffix"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h115",
+    "html": "prefix xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx suffix",
+    "expected": [
+      {
+        "car": "T",
+        "cdr": "prefix  suffix"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h116",
+    "html": "prefix xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx suffix",
+    "expected": [
+      {
+        "car": "T",
+        "cdr": "prefix  suffix"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h117",
+    "html": "prefix xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx suffix",
+    "expected": [
+      {
+        "car": "T",
+        "cdr": "prefix  suffix"
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h118",
+    "html": "<tag x=y>",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "tag",
+          "cdr": {
+            "x": "y"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h119",
+    "html": "<tag x=y/>",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "tag",
+          "cdr": {
+            "x": "y/"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h120",
+    "html": "<tag x=y />",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "tag",
+          "cdr": {
+            "x": "y"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h121",
+    "html": "<tag x=y",
+    "expected": [
+      {
+        "car": "*",
+        "cdr": ""
+      }
+    ]
+  },
+  {
+    "id": "html-research-oracle:h122",
+    "html": "<tag x=y >tail",
+    "expected": [
+      {
+        "car": "<",
+        "cdr": {
+          "car": "tag",
+          "cdr": {
+            "x": "y"
+          }
+        }
+      },
+      {
+        "car": "T",
+        "cdr": "tail"
+      }
+    ]
+  }
+]

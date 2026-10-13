@@ -77,7 +77,7 @@ export type MailSidebarProps = {
   labelSingular: string;
   backToAppHref: string;
   onCompose: () => void;
-  onCreateLabel: (name: string) => void;
+  onCreateLabel?: (name: string) => void;
   onEditMailboxItem: (edit: MailboxItemEdit) => Promise<boolean>;
   onDeleteMailboxItem: (item: MailboxItem) => Promise<boolean>;
   labelEditMode: "color" | "name-and-color";
@@ -247,7 +247,7 @@ export function MailSidebar({
     event.preventDefault();
     const name = newLabelName.trim();
     if (!name) return;
-    onCreateLabel(name);
+    onCreateLabel?.(name);
     setNewLabelName("");
     setIsAddingLabel(false);
   };
@@ -443,18 +443,20 @@ export function MailSidebar({
               expanded={showLabels}
               onToggle={() => setShowLabels((open) => !open)}
               action={
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowLabels(true);
-                    setIsAddingLabel((open) => !open);
-                  }}
-                  aria-expanded={isAddingLabel}
-                  aria-label={`Create ${labelSingular}`}
-                  className="rounded-md p-0.5 text-muted-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <PlusIcon className="size-3.5" />
-                </button>
+                onCreateLabel ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowLabels(true);
+                      setIsAddingLabel((open) => !open);
+                    }}
+                    aria-expanded={isAddingLabel}
+                    aria-label={`Create ${labelSingular}`}
+                    className="rounded-md p-0.5 text-muted-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <PlusIcon className="size-3.5" />
+                  </button>
+                ) : undefined
               }
             >
               {labelsHeading}

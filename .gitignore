@@ -48,6 +48,7 @@ next-env.d.ts
 .turbo
 dist
 .next
+.next-production/
 
 # tinybird
 .tinyb
@@ -119,5 +120,6 @@ eval-results/
 .context/
 .deepsec/
 .tmp/
+.native/
 
 /.private-build-install.json

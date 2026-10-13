@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS profile_state (
 
 CREATE TABLE IF NOT EXISTS accounts (
   account_id TEXT PRIMARY KEY,
-  provider TEXT NOT NULL CHECK (provider IN ('google', 'microsoft')),
+  provider TEXT NOT NULL CHECK (provider IN ('google', 'microsoft', 'icloud')),
   generation TEXT NOT NULL,
   assistant_cursor TEXT
 );
@@ -420,6 +420,7 @@ export async function migrateMailbox(
   await migrateMessageSearchIndex(tx);
   await migrateEmptyMeetingInvitationBodies(tx);
   await migrateContactSuggestions(tx);
+  await migrateICloudProvider(tx);
 }
 
 // Delta sync once stored a meeting invitation's flag without its body. Dropping
@@ -438,5 +439,42 @@ export async function migrateEmptyMeetingInvitationBodies(tx: SqlTransaction) {
   `);
   await tx.execute(
     "INSERT INTO schema_migrations(id, name) VALUES (9, '0009-empty-meeting-invitation-bodies')",
+  );
+}
+
+async function migrateICloudProvider(tx: SqlTransaction) {
+  const applied = await tx.query(
+    "SELECT 1 FROM schema_migrations WHERE id = 11",
+  );
+  if (applied.length) return;
+  const [table] = await tx.query(
+    "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'accounts'",
+  );
+  if (!String(table?.sql).includes("'icloud'")) {
+    const [deferred] = await tx.query("PRAGMA defer_foreign_keys");
+    await tx.exec(`
+      PRAGMA defer_foreign_keys = ON;
+      CREATE TABLE accounts_with_icloud (
+        account_id TEXT PRIMARY KEY,
+        provider TEXT NOT NULL CHECK (provider IN ('google', 'microsoft', 'icloud')),
+        generation TEXT NOT NULL,
+        assistant_cursor TEXT,
+        connection TEXT
+      );
+      INSERT INTO accounts_with_icloud SELECT account_id, provider, generation, assistant_cursor, connection FROM accounts;
+      DROP TABLE accounts;
+      ALTER TABLE accounts_with_icloud RENAME TO accounts;
+    `);
+    const violations = await tx.query("PRAGMA foreign_key_check");
+    if (violations.length)
+      throw new Error("Mailbox provider migration would break a foreign key");
+    // SQLite retains the deferred DROP violations after the replacement exists.
+    // Clear that counter only after checking the rebuilt schema's references.
+    await tx.exec("PRAGMA defer_foreign_keys = OFF");
+    if (deferred?.defer_foreign_keys)
+      await tx.exec("PRAGMA defer_foreign_keys = ON");
+  }
+  await tx.execute(
+    "INSERT INTO schema_migrations(id, name) VALUES (11, '0011-icloud-provider')",
   );
 }

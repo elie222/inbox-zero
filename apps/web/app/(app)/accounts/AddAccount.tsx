@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
@@ -74,6 +75,9 @@ export function AddAccount({
             unoptimized
           />
           <span className="ml-2">Add Microsoft</span>
+        </Button>
+        <Button asChild variant="outline">
+          <Link href="/accounts/icloud">Add iCloud</Link>
         </Button>
       </div>
 

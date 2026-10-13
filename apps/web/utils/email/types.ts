@@ -401,6 +401,7 @@ export interface EmailProvider {
     labelName: string | null;
   }): Promise<{ usedFallback?: boolean; actualLabelId?: string }>;
   readonly localMailSyncStrategy: "account-history" | "folder-delta";
+  markMessageSpam(messageId: string): Promise<void>;
   markMessagesReadState(messageIds: string[], read: boolean): Promise<void>;
   markMessagesStarredState(
     messageIds: string[],
@@ -415,7 +416,7 @@ export interface EmailProvider {
     ownerEmail: string,
     folderName: string,
   ): Promise<void>;
-  readonly name: "google" | "microsoft";
+  readonly name: "google" | "microsoft" | "icloud";
   removeDraftAttachment(
     draftId: string,
     attachmentId: string,

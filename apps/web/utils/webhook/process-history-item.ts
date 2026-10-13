@@ -1,4 +1,5 @@
 import { after } from "next/server";
+import { filterSpam } from "@/utils/spam/gate";
 import prisma from "@/utils/prisma";
 import { runRules } from "@/utils/ai/choose-rule/run-rules";
 import { categorizeSender } from "@/utils/categorize/senders/categorize";
@@ -77,6 +78,18 @@ export async function processHistoryItem(
 
     if (isIgnoredSender(parsedMessage.headers.from)) {
       logger.info("Skipping. Ignored sender.");
+      return;
+    }
+
+    const spamVerdict = await filterSpam({
+      emailAccountId,
+      message: parsedMessage,
+      provider,
+    });
+    if (spamVerdict?.spam) {
+      logger.info("Stopped processing after spam filter", {
+        score: spamVerdict.score,
+      });
       return;
     }
 

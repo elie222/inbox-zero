@@ -48,7 +48,10 @@ async function getEmailAccountsToWatch(userIds: string[] | null) {
     where: {
       ...(userIds ? { userId: { in: userIds } } : {}),
       ...getPremiumUserFilter(),
-      account: { disconnectedAt: null },
+      account: {
+        disconnectedAt: null,
+        provider: { in: ["google", "microsoft"] },
+      },
     },
     select: {
       id: true,

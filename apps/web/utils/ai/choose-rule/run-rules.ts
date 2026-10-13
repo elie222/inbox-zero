@@ -1,4 +1,5 @@
 import { after } from "next/server";
+import { filterSpam } from "@/utils/spam/gate";
 import type { ParsedMessage, RuleWithActions } from "@/utils/types";
 import {
   ActionType,
@@ -108,6 +109,23 @@ export async function runRules({
   skipArchive?: boolean;
   skipDraftReplies?: boolean;
 }): Promise<RunRulesResult[]> {
+  const spamVerdict = await filterSpam({
+    emailAccountId: emailAccount.id,
+    message,
+    provider,
+    isTest,
+  });
+  if (spamVerdict?.spam) {
+    return [
+      {
+        rule: null,
+        actionItems: [],
+        reason: `Spam filter: ${(spamVerdict.score * 100).toFixed(1)}%`,
+        status: ExecutedRuleStatus.APPLIED,
+        createdAt: new Date(),
+      },
+    ];
+  }
   const batchTimestamp = new Date(); // Single timestamp for this batch execution
   const { regularRules, conversationRules } = prepareRulesWithMetaRule(rules);
 

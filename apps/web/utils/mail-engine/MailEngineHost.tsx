@@ -143,7 +143,12 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
       setUnavailable(true);
       return;
     }
-    const mailProvider = isMicrosoftProvider(provider) ? "microsoft" : "google";
+    const mailProvider =
+      provider === "icloud"
+        ? "icloud"
+        : isMicrosoftProvider(provider)
+          ? "microsoft"
+          : "google";
     const abort = new AbortController();
     let published: MailClient | undefined;
 

@@ -897,13 +897,19 @@ export function MailShell() {
     currentLabelTargets.every(
       (target) => target.emailAccountId === labelAccountId,
     );
+  const canMove =
+    canLabel ||
+    (currentLabelTargets.length > 0 &&
+      labelAccount?.account.provider === "icloud" &&
+      currentLabelTargets.every(
+        (target) => target.emailAccountId === labelAccountId,
+      ));
   const openLabelPicker = useStableCallback(() => {
     if (canLabel)
       setLabelPicker({ mode: "label", targets: currentLabelTargets });
   });
   const openMovePicker = useStableCallback(() => {
-    if (canLabel)
-      setLabelPicker({ mode: "move", targets: currentLabelTargets });
+    if (canMove) setLabelPicker({ mode: "move", targets: currentLabelTargets });
   });
   const singleActionTarget =
     actionTargets.length === 1 ? actionTargets.at(0) : undefined;
@@ -956,7 +962,7 @@ export function MailShell() {
         markRead: markReadTargets,
         markSpam: markSpamTargets,
         markUnread: markUnreadTargets,
-        move: canLabel ? openMovePicker : undefined,
+        move: canMove ? openMovePicker : undefined,
         openExternal:
           isReaderTarget && openExternalUrl
             ? () =>
@@ -991,6 +997,7 @@ export function MailShell() {
       targetsArchived,
       actionTargets,
       canLabel,
+      canMove,
       isReaderTarget,
       allStarred,
       starTargets,
@@ -1137,7 +1144,7 @@ export function MailShell() {
       extendSelectionDown: () => extendSelection(1),
       extendSelectionUp: () => extendSelection(-1),
       label: canLabel ? openLabelPicker : undefined,
-      move: canLabel ? openMovePicker : undefined,
+      move: canMove ? openMovePicker : undefined,
       archive: targetsArchived ? undefined : archiveTargets,
       star: starTargets,
       markSpam: markSpamTargets,
@@ -1309,10 +1316,10 @@ export function MailShell() {
   );
   const searchFolders = useMemo(
     () =>
-      isOutlook && !isAllAccounts
+      (isOutlook || provider === "icloud") && !isAllAccounts
         ? getMailSearchFolders(folders)
         : NO_SEARCH_OPTIONS,
-    [folders, isAllAccounts, isOutlook],
+    [folders, isAllAccounts, isOutlook, provider],
   );
   const showSplitTabs = !isScoped && !searchQuery;
   const threadCount = threads.length;
@@ -1556,7 +1563,7 @@ export function MailShell() {
                 onMarkSpam={markSpamTargets}
                 onDelete={trashTargets}
                 onLabel={canLabel ? openLabelPicker : undefined}
-                onMove={canLabel ? openMovePicker : undefined}
+                onMove={canMove ? openMovePicker : undefined}
                 onTranslate={translateOpenThread}
                 onComment={openTeamComments}
                 isMenuOpen={isMenuOpen}

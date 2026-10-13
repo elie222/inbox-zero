@@ -201,7 +201,11 @@ export const MailShellSidebar = memo(function MailShellSidebar({
           activeFolderId={activeFolderId}
           hrefFor={hrefFor}
           labels={isAllAccounts ? NO_LABELS : allLabels}
-          folders={isAllAccounts || !isOutlook ? NO_FOLDERS : folders}
+          folders={
+            isAllAccounts || (!isOutlook && provider !== "icloud")
+              ? NO_FOLDERS
+              : folders
+          }
           countsById={isAllAccounts ? NO_COUNTS : countsById}
           categories={
             isAllAccounts
@@ -214,7 +218,7 @@ export const MailShellSidebar = memo(function MailShellSidebar({
           labelSingular={terminology.label.singular}
           backToAppHref={prefixPath(emailAccountId, "/automation")}
           onCompose={openCompose}
-          onCreateLabel={onCreateLabel}
+          onCreateLabel={provider === "icloud" ? undefined : onCreateLabel}
           onEditMailboxItem={onEditMailboxItem}
           onDeleteMailboxItem={onDeleteMailboxItem}
           labelEditMode={isOutlook ? "color" : "name-and-color"}
