@@ -48,3 +48,23 @@ describe("LoadingContent in development", () => {
     expect(screen.getByText("Could not load")).toBeTruthy();
   });
 });
+
+describe("LoadingContent while offline", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    cleanup();
+  });
+
+  it("says the user is offline instead of showing the raw fetch error", () => {
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+
+    render(
+      <LoadingContent error={{ error: "Failed to fetch" }} loading={false}>
+        <div>Content</div>
+      </LoadingContent>,
+    );
+
+    expect(screen.getByText("You're offline")).toBeTruthy();
+    expect(screen.queryByText("Failed to fetch")).toBeNull();
+  });
+});

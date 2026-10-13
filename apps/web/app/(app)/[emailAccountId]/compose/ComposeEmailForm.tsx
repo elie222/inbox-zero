@@ -218,7 +218,7 @@ export function ComposeEmailForm(props: ComposeEmailFormProps) {
 }
 
 function ComposeEmailFormWithEngine(props: ComposeEmailFormProps) {
-  const { emailAccountId, provider } = useAccount();
+  const { emailAccountId, provider, userEmail } = useAccount();
   const [selectedEmailAccountId, setSelectedEmailAccountId] =
     useState(emailAccountId);
   const selectedAccountOverride =
@@ -230,19 +230,35 @@ function ComposeEmailFormWithEngine(props: ComposeEmailFormProps) {
     error,
     isLoading,
   } = useEmailAccountFull(selectedAccountOverride);
+  const selectedFromAccount = props.fromAccounts?.find(
+    (account) => account.id === selectedEmailAccountId,
+  );
   const selectedAccountProvider =
-    props.fromAccounts?.find((account) => account.id === selectedEmailAccountId)
-      ?.account.provider ?? provider;
+    selectedFromAccount?.account.provider ?? provider;
+  // The already-loaded account list knows the address, so compose still opens
+  // when the lookup fails offline.
+  const sendingAddress =
+    emailAccount?.email ||
+    selectedFromAccount?.email ||
+    (selectedAccountOverride ? undefined : userEmail);
   // A failed lookup still lets the user compose, just without a signature.
-  const { data: composeSignature, isLoading: isLoadingSignature } =
-    useSWR<GetSignatureResponse>(
-      getAccountScopedKey("/api/user/signature", selectedEmailAccountId),
-    );
+  // Waiting only while there is no error keeps a reconnect refetch from
+  // swapping the open form back to a spinner.
+  const {
+    data: composeSignature,
+    error: signatureError,
+    isLoading: isLoadingSignature,
+  } = useSWR<GetSignatureResponse>(
+    getAccountScopedKey("/api/user/signature", selectedEmailAccountId),
+  );
   // A failed lookup sends from the default address, as before.
-  const { data: sendAs, isLoading: isLoadingSendAs } =
-    useSWR<GetSendAsResponse>(
-      getAccountScopedKey("/api/user/send-as", selectedEmailAccountId),
-    );
+  const {
+    data: sendAs,
+    error: sendAsError,
+    isLoading: isLoadingSendAs,
+  } = useSWR<GetSendAsResponse>(
+    getAccountScopedKey("/api/user/send-as", selectedEmailAccountId),
+  );
 
   const localDraftIdentity = props.draftSessionId
     ? {
@@ -279,16 +295,16 @@ function ComposeEmailFormWithEngine(props: ComposeEmailFormProps) {
   });
   return (
     <LoadingContent
-      error={error}
+      error={sendingAddress ? undefined : error}
       loading={
-        isLoading ||
+        (!sendingAddress && isLoading) ||
         localDraft.isLoading ||
         draftAttachments.isLoading ||
-        isLoadingSignature ||
-        isLoadingSendAs
+        (isLoadingSignature && !signatureError) ||
+        (isLoadingSendAs && !sendAsError)
       }
     >
-      {emailAccount && (
+      {sendingAddress && (
         <ShortcutsProvider scopes={MAIL_SHORTCUT_SCOPES}>
           <ComposeEmailFormContent
             {...props}
@@ -300,7 +316,7 @@ function ComposeEmailFormWithEngine(props: ComposeEmailFormProps) {
             draftLoadError={localDraft.error}
             accountProvider={selectedAccountProvider}
             accountSignatureHtml={composeSignature?.signatureHtml ?? ""}
-            sendingAddress={emailAccount.email}
+            sendingAddress={sendingAddress}
             sendAsAddresses={sendAs?.addresses ?? []}
             sentWithFooterHtml={composeSignature?.footerHtml ?? ""}
             key={composeSessionKey}

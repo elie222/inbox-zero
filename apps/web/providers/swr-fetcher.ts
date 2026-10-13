@@ -25,7 +25,18 @@ export const swrFetcher = async (
 
   const newInit = { ...init, headers };
 
-  const res = await fetch(url, newInit);
+  let res: Response;
+  try {
+    res = await fetch(url, newInit);
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw error;
+    }
+    // Browsers reject with an opaque "Failed to fetch" / "Load failed".
+    throw new Error(
+      "Couldn't connect to Inbox Zero. Check your internet connection and try again.",
+    );
+  }
 
   if (!res.ok) {
     // Try to parse JSON, but handle cases where response isn't JSON (e.g. HMR 404s)
