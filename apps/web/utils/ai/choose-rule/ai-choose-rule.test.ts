@@ -88,6 +88,81 @@ describe.each([
   });
 });
 
+describe("aiChooseRule out-of-list rule names", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("resolves a returned rule name that matches a candidate", async () => {
+    generateObjectSpy.mockResolvedValue({
+      object: { reasoning: "r", ruleName: "newsletter", noMatchFound: false },
+    });
+
+    const result = await runChooseRule({
+      multiRuleSelectionEnabled: false,
+      email: getEmail({ from: "a@example.com" }),
+      classificationFeedback: null,
+    });
+
+    expect(result.rules.map(({ rule }) => rule.name)).toEqual(["Newsletter"]);
+  });
+
+  it("rejects a single-rule response that names a rule not offered", async () => {
+    generateObjectSpy.mockResolvedValue({
+      object: {
+        reasoning: "Synthetic",
+        ruleName: "Other",
+        noMatchFound: false,
+      },
+    });
+
+    await expect(
+      runChooseRule({
+        multiRuleSelectionEnabled: false,
+        email: getEmail({ from: "a@example.com" }),
+        classificationFeedback: null,
+      }),
+    ).rejects.toThrow(/not offered/i);
+  });
+
+  it("rejects a multi-rule response that names rules not offered", async () => {
+    generateObjectSpy.mockResolvedValue({
+      object: {
+        reasoning: "Synthetic",
+        matchedRules: [{ ruleName: "Other", isPrimary: true }],
+        noMatchFound: false,
+      },
+    });
+
+    await expect(
+      runChooseRule({
+        multiRuleSelectionEnabled: true,
+        email: getEmail({ from: "a@example.com" }),
+        classificationFeedback: null,
+      }),
+    ).rejects.toThrow(/not offered/i);
+  });
+
+  it("does not reject when the model reports no match", async () => {
+    generateObjectSpy.mockResolvedValue({
+      object: {
+        reasoning: "Nothing fits",
+        ruleName: null,
+        noMatchFound: true,
+        matchedRules: [],
+      },
+    });
+
+    const result = await runChooseRule({
+      multiRuleSelectionEnabled: false,
+      email: getEmail({ from: "a@example.com" }),
+      classificationFeedback: null,
+    });
+
+    expect(result.rules).toEqual([]);
+  });
+});
+
 const noopLogger = {
   info: vi.fn(),
   warn: vi.fn(),
@@ -107,7 +182,7 @@ async function runChooseRule({
 }) {
   const { aiChooseRule } = await import("./ai-choose-rule");
 
-  await aiChooseRule({
+  return aiChooseRule({
     email,
     rules,
     emailAccount: getEmailAccount({ multiRuleSelectionEnabled }),
