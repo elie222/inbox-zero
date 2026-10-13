@@ -194,5 +194,10 @@
     "app/(app)/[emailAccountId]/mail/MailSidebar.tsx",
     "utils/mail-engine/worker-protocol.ts",
     "utils/mail-engine/admission-notice.ts"
+  ],
+  "send-as.spec.ts": [
+    "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
+    "app/api/user/send-as/route.ts",
+    "utils/email/send-as.ts"
   ]
 }
