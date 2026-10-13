@@ -5,6 +5,7 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
 } from "@testing-library/react";
 import { createRef } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -685,8 +686,12 @@ async function renderEditor(props: Partial<EmailEditorProps>) {
       {...props}
     />,
   );
-  // The Squire engine is loaded lazily.
-  await screen.findByRole("textbox", { name: "Email message" });
+  // The Squire engine is loaded lazily, and fills the textbox only once it
+  // attaches, which is when it makes the root editable.
+  const root = await screen.findByRole("textbox", { name: "Email message" });
+  await waitFor(() =>
+    expect(root.getAttribute("contenteditable")).toBe("true"),
+  );
   return {
     handle: () => {
       if (!ref.current) throw new Error("Editor handle is not ready");

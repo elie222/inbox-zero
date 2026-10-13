@@ -1,4 +1,5 @@
-import { expect } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
+import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
 import {
@@ -13,6 +14,7 @@ import {
   openMail,
   openMailboxFromSidebar,
   readLatestMailMutation,
+  requestMailSync,
   UNDO_WINDOW_SEND_TIMEOUT_MS,
   waitForComposeOutboxSend,
   watchReplyHandoff,
@@ -416,6 +418,9 @@ test("moves a sent reply from its composer into the thread without a gap", async
     '[data-thread-message-id="msg_playwright_reply"]',
   );
   await expect(sourceMessage).toBeVisible({ timeout: 60_000 });
+  // Earlier cases leave drafts in this conversation that the device may still
+  // list until it syncs their removal; the handoff counts the rows.
+  await expectReaderMatchesMailbox(page, emailAccountId);
   await sourceMessage
     .getByRole("button", { name: "Reply", exact: true })
     .click();
@@ -477,6 +482,78 @@ test("moves a sent reply from its composer into the thread without a gap", async
   ).toHaveCount(0);
   await expectThreadReaderBody(page, replyBody);
   expectSeamlessReplyHandoff(await handoff.stop(), handoff.rowsBefore);
+});
+
+test("does not reopen a sent reply when returning during the undo window", async ({
+  page,
+}, testInfo) => {
+  const { emailAccountId } = await openMail(page);
+  const threadUrl = `/${emailAccountId}/mail?thread-id=thr_playwright_reply`;
+  await page.goto(threadUrl);
+  const sourceMessage = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  await expect(sourceMessage).toBeVisible({ timeout: 60_000 });
+  await sourceMessage
+    .getByRole("button", { name: "Reply", exact: true })
+    .click();
+  const replyBody = `A reply sent before leaving the thread. ${testInfo.retry}`;
+  await sourceMessage
+    .getByRole("textbox", { name: "Email message" })
+    .pressSequentially(replyBody);
+  await sourceMessage
+    .getByRole("button", { name: "Send", exact: true })
+    .click();
+  const undo = page
+    .getByRole("region", { name: "Notifications alt+T" })
+    .getByRole("button", { name: /^Undo/ });
+  await expect(undo).toBeVisible();
+
+  await page.goto(`/${emailAccountId}/mail`);
+  await page.goto(threadUrl);
+  // The local draft is kept for undo and loads after the thread renders, so
+  // watch every frame from the return until the reply shows, and a little after.
+  await page.evaluate((text) => {
+    const state = window as unknown as { __reopenedReply: boolean };
+    state.__reopenedReply = false;
+    const sample = () => {
+      if (
+        Array.from(document.querySelectorAll('[contenteditable="true"]')).some(
+          (element) => element.textContent?.includes(text),
+        )
+      )
+        state.__reopenedReply = true;
+      requestAnimationFrame(sample);
+    };
+    sample();
+  }, replyBody);
+  await expectThreadReaderBody(page, replyBody);
+  await page.waitForTimeout(3000);
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { __reopenedReply: boolean }).__reopenedReply,
+    ),
+  ).toBe(false);
+  // The check only means something while the send is still held for undo.
+  const send = await readLatestMailMutation(page, {
+    emailAccountId,
+    kind: "reply",
+    threadId: "thr_playwright_reply",
+  });
+  expect(send).toBeDefined();
+  expect(send?.status).not.toBe("succeeded");
+  await capturePlaywrightCheckpoint(page, testInfo, "returned-during-undo");
+  await expect
+    .poll(
+      () =>
+        readLatestMailMutation(page, {
+          emailAccountId,
+          kind: "reply",
+          threadId: "thr_playwright_reply",
+        }),
+      { timeout: UNDO_WINDOW_SEND_TIMEOUT_MS },
+    )
+    .toMatchObject({ status: "succeeded" });
 });
 
 test("undoes a sent reply and restores its text", async ({
@@ -794,4 +871,22 @@ async function readHeldReply(emailAccountId: string, replyBody: string) {
     );
     return result.rows[0];
   });
+}
+
+async function expectReaderMatchesMailbox(page: Page, emailAccountId: string) {
+  await expect
+    .poll(
+      async () => {
+        await requestMailSync(page);
+        const response = await page.request.get(
+          "/api/threads/thr_playwright_reply",
+          { headers: { "X-Email-Account-ID": emailAccountId } },
+        );
+        const { thread }: ThreadResponse = await response.json();
+        const rows = await page.locator("li[data-thread-message-id]").count();
+        return rows === thread.messages.length;
+      },
+      { timeout: 60_000 },
+    )
+    .toBe(true);
 }
