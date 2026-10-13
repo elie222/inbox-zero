@@ -66,6 +66,7 @@ import {
 } from "@/components/ui/select";
 import { env } from "@/env";
 import { getAccountScopedKey } from "@/utils/swr";
+import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { useLocalReplyDraft } from "@/hooks/useLocalReplyDraft";
 import {
@@ -137,7 +138,11 @@ import {
   READER_EMAIL_SETTLEMENT_TIMEOUT_MS,
   waitForReaderEmailSettlement,
 } from "./queued-reply";
-import { beginUndoSend, UNDO_SEND_DELAY_MS } from "./undo-send";
+import {
+  beginUndoSend,
+  finishUndoSendToast,
+  UNDO_SEND_DELAY_MS,
+} from "./undo-send";
 import { getReplyToEmailPayload } from "./reply-to-email-payload";
 import {
   enqueueDraftOperation,
@@ -371,7 +376,8 @@ function ComposeEmailFormContent({
   selectedEmailAccountId: string;
   onSelectEmailAccount: (emailAccountId: string) => void;
 }) {
-  const { userEmail } = useAccount();
+  const { emailAccountId, userEmail } = useAccount();
+  const { showEmail } = useDisplayedEmail();
   const isComposeWindow = layout === "window";
   const isInlineReply = Boolean(draftKeyMessageId && replyingToEmail?.threadId);
   const canScheduleDelivery = isInlineReply || isComposeWindow;
@@ -965,6 +971,16 @@ function ComposeEmailFormContent({
     [selectedEmailAccountId],
   );
 
+  // An inline reply is already on screen, the side panel only reads the
+  // current account's mail, and a send without a stored copy has nothing to show.
+  const getViewSentEmail = useCallback(
+    (messageId: string, threadId: string) =>
+      isInlineReply || selectedEmailAccountId !== emailAccountId || !messageId
+        ? null
+        : () => showEmail({ threadId, messageId }),
+    [emailAccountId, isInlineReply, selectedEmailAccountId, showEmail],
+  );
+
   const onSubmit: SubmitHandler<ComposeFormValues> = useCallback(
     async (data, event) => {
       const submitter = (event?.nativeEvent as SubmitEvent | undefined)
@@ -1210,6 +1226,18 @@ function ComposeEmailFormContent({
             threadId: outcome.threadId,
           })
             .then(async (settled) => {
+              finishUndoSendToast(
+                outcome.mutationId,
+                settled.status === "sent"
+                  ? {
+                      sent: true,
+                      onView: getViewSentEmail(
+                        settled.messageId,
+                        settled.threadId,
+                      ),
+                    }
+                  : { sent: false },
+              );
               if (settled.status === "cancelled" || settled.status === "failed")
                 showDraftAgain();
               if (settled.status === "cancelled") return;
@@ -1232,14 +1260,27 @@ function ComposeEmailFormContent({
                 });
               }
             })
-            .catch(() => {});
+            .catch(() =>
+              finishUndoSendToast(outcome.mutationId, { sent: false }),
+            );
           return;
         }
         if (outcome.status === "failed" || outcome.status === "cancelled")
           showDraftAgain();
         await discardLocalDraft();
         if (outcome.status === "sent") {
-          if (!isInlineReply) toastSuccess({ description: "Email sent!" });
+          if (!isInlineReply) {
+            const viewSentEmail = getViewSentEmail(
+              outcome.messageId,
+              outcome.threadId,
+            );
+            toastSuccess({
+              description: "Email sent!",
+              action: viewSentEmail
+                ? { label: "View", onClick: viewSentEmail }
+                : undefined,
+            });
+          }
           if (markDoneAfterSend) onMarkDone?.();
           onSuccess?.(outcome.messageId, outcome.threadId);
           refetch?.();
@@ -1291,6 +1332,7 @@ function ComposeEmailFormContent({
       client,
       flushDraft,
       forgetAttachedComposeFiles,
+      getViewSentEmail,
       mutate,
       onClose,
       onRestore,

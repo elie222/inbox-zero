@@ -4650,6 +4650,10 @@ describe("outgoing sends in the conversation view", () => {
     expect(queued.messages.map((message) => message.key.messageId)).toEqual([
       "m1",
     ]);
+    const sendKey = { accountId: "acc-1", operationId: "send-1" };
+    expect((await store.readOperation(sendKey)).operation?.sentMessage).toBe(
+      null,
+    );
     expect(queued.outgoing).toEqual([
       {
         operationId: "send-1",
@@ -4666,6 +4670,9 @@ describe("outgoing sends in the conversation view", () => {
 
     await confirmSend(store, "sent-1");
 
+    expect((await store.readOperation(sendKey)).operation?.sentMessage).toEqual(
+      { messageId: "sent-1", conversationId: "c1" },
+    );
     const sent = await readThread(store);
     expect(sent.outgoing).toEqual([]);
     expect(

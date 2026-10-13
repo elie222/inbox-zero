@@ -66,6 +66,44 @@ test("composes, sends, and reads a new message from Sent", async ({
   await capturePlaywrightCheckpoint(page, testInfo, "composed-message-in-sent");
 });
 
+test("views a sent message without leaving the current mailbox", async ({
+  page,
+}, testInfo) => {
+  await openMail(page);
+  const subject = `Playwright View Sent ${Date.now()}`;
+
+  await page.getByRole("button", { name: /^Compose/ }).click();
+  const dialog = page.getByRole("dialog", { name: "New Message" });
+  await dialog
+    .getByRole("combobox", { name: "To" })
+    .fill("recipient@example.com");
+  await dialog.getByPlaceholder("Subject").fill(subject);
+  await dialog
+    .locator("[contenteditable='true']")
+    .pressSequentially("A message to view after sending.");
+  await dialog.getByRole("button", { exact: true, name: "Send" }).click();
+  await expect(dialog).toBeHidden();
+
+  const notifications = page.getByRole("region", {
+    name: "Notifications alt+T",
+  });
+  const viewButton = notifications.getByRole("button", { name: "View" });
+  await expect(viewButton).toBeVisible({
+    timeout: UNDO_WINDOW_SEND_TIMEOUT_MS,
+  });
+  await expect(
+    notifications.getByRole("button", { name: /^Undo/ }),
+  ).toHaveCount(0);
+  await capturePlaywrightCheckpoint(page, testInfo, "sent-toast-view");
+  await viewButton.click();
+
+  const sidePanel = page.getByRole("dialog");
+  await expect(sidePanel.getByText(subject).first()).toBeVisible();
+  await expectThreadReaderBody(page, "A message to view after sending.");
+  expect(new URL(page.url()).searchParams.get("thread-id")).toBeNull();
+  await capturePlaywrightCheckpoint(page, testInfo, "sent-message-side-panel");
+});
+
 test("undoes a composed message before it is delivered", async ({
   page,
 }, testInfo) => {
