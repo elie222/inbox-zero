@@ -830,8 +830,8 @@ importers:
         specifier: 11.0.0
         version: 11.0.0
       emulate:
-        specifier: npm:@inbox-zero/emulate@0.13.0
-        version: '@inbox-zero/emulate@0.13.0'
+        specifier: npm:@inbox-zero/emulate@0.14.0
+        version: '@inbox-zero/emulate@0.14.0'
       esbuild:
         specifier: 0.28.2
         version: 0.28.2
@@ -3433,8 +3433,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@inbox-zero/emulate@0.13.0':
-    resolution: {integrity: sha512-/2CoQRb3NYiLMmcqj6evnbcU5KY2klzM22pvx2ay/swhKtSOiyetroCvU1bdnN2CQdBUb7lqeDqQRFUUNUiF1Q==}
+  '@inbox-zero/emulate@0.14.0':
+    resolution: {integrity: sha512-EVvSUZTPvaqafJlWifiRHtI/eMKgZd4RW9MtwCYF5g7awJExeq7mjruq5GaoRjCviePQWuREUKr2NGX6revEUg==}
     hasBin: true
 
   '@inquirer/ansi@1.0.2':
@@ -15771,7 +15771,7 @@ snapshots:
   '@img/sharp-win32-x64@0.35.4':
     optional: true
 
-  '@inbox-zero/emulate@0.13.0':
+  '@inbox-zero/emulate@0.14.0':
     dependencies:
       commander: 14.0.3
       picocolors: 1.1.1
@@ -20130,7 +20130,7 @@ snapshots:
       obug: 2.2.1
       std-env: 4.1.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.10.1)(@vitest/coverage-v8@4.1.10)(@vitest/ui@4.1.10)(jsdom@27.3.0(supports-color@8.1.1))(vite@7.3.6(@types/node@24.10.1)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.0)(tsx@4.23.13)(yaml@2.9.0))
+      vitest: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.10.1)(@vitest/coverage-v8@4.1.10)(@vitest/ui@4.1.10)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@7.3.6(@types/node@24.10.1)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.0)(tsx@4.23.13)(yaml@2.9.0))
 
   '@vitest/expect@4.1.10':
     dependencies:
@@ -20184,7 +20184,7 @@ snapshots:
       sirv: 3.0.2
       tinyglobby: 0.2.17
       tinyrainbow: 3.1.0
-      vitest: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.10.1)(@vitest/coverage-v8@4.1.10)(@vitest/ui@4.1.10)(jsdom@27.3.0(supports-color@8.1.1))(vite@7.3.6(@types/node@24.10.1)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.0)(tsx@4.23.13)(yaml@2.9.0))
+      vitest: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.10.1)(@vitest/coverage-v8@4.1.10)(@vitest/ui@4.1.10)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@7.3.6(@types/node@24.10.1)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.0)(tsx@4.23.13)(yaml@2.9.0))
 
   '@vitest/utils@4.1.10':
     dependencies:
