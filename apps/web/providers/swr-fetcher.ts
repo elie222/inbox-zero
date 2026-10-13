@@ -35,6 +35,7 @@ export const swrFetcher = async (
     // Browsers reject with an opaque "Failed to fetch" / "Load failed".
     throw new Error(
       "Couldn't connect to Inbox Zero. Check your internet connection and try again.",
+      { cause: error },
     );
   }
 
