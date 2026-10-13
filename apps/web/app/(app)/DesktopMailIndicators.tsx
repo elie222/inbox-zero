@@ -8,9 +8,10 @@ import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
 export function DesktopMailIndicators() {
   const client = useOptionalMailClient();
   const { emailAccountId, emailAccount } = useAccount();
-  const accountId = emailAccount?.account.disconnectedAt
-    ? null
-    : emailAccountId;
+  const accountId =
+    emailAccount && !emailAccount.account.disconnectedAt
+      ? emailAccountId
+      : null;
 
   useEffect(() => {
     const desktop = getInboxZeroDesktopApp();

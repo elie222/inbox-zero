@@ -6,7 +6,9 @@ const mocks = vi.hoisted(() => ({
   effect: undefined as EffectCallback | undefined,
   account: {
     emailAccountId: "selected",
-    emailAccount: { account: { disconnectedAt: null as Date | null } },
+    emailAccount: { account: { disconnectedAt: null } } as
+      | { account: { disconnectedAt: Date | null } }
+      | undefined,
   },
   listener: undefined as (() => void) | undefined,
   unread: 4,
@@ -37,7 +39,7 @@ describe("desktop inbox badge subscription", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.account.emailAccountId = "selected";
-    mocks.account.emailAccount.account.disconnectedAt = null;
+    mocks.account.emailAccount = { account: { disconnectedAt: null } };
     mocks.unread = 4;
     mocks.observeMailboxCounts.mockImplementation((query) => ({
       getSnapshot: () => ({
@@ -92,9 +94,12 @@ describe("desktop inbox badge subscription", () => {
   it.each([
     "missing",
     "disconnected",
+    "unavailable",
   ])("clears the badge for a %s selected account", (state) => {
     if (state === "missing") mocks.account.emailAccountId = "";
-    else mocks.account.emailAccount.account.disconnectedAt = new Date();
+    else if (state === "unavailable") mocks.account.emailAccount = undefined;
+    else
+      mocks.account.emailAccount = { account: { disconnectedAt: new Date() } };
     DesktopMailIndicators();
     mocks.effect?.();
     expect(mocks.observeMailboxCounts).not.toHaveBeenCalled();
