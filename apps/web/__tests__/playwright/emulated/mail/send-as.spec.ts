@@ -3,25 +3,46 @@ import { isMicrosoftPlaywright } from "../mail-provider";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
 import {
+  clearWorkflowMailboxDrafts,
   openMail,
   readProviderAccessToken,
   requestMailSync,
   UNDO_WINDOW_SEND_TIMEOUT_MS,
 } from "./mail-test-helpers";
 
-test.skip(
-  isMicrosoftPlaywright(),
-  "Outlook mail always goes out from the account address.",
-);
-
+// Gmail send-as signatures are often a table with a hosted logo.
+const ALIAS_LOGO_URL = "https://assets.example.com/support-logo.png";
 const ALIAS = {
   email: "support@example.com",
   name: "Playwright Support",
-  signature: "<div>The Playwright Support Team</div>",
+  signature: `<table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse"><tbody><tr><td valign="top" style="padding-right:12px"><img src="${ALIAS_LOGO_URL}" width="48" height="48" alt="Playwright Support logo"></td><td valign="top" style="font-family:Arial,sans-serif;font-size:13px"><b>The Playwright Support Team</b><br><a href="https://example.com/help">example.com/help</a></td></tr></tbody></table>`,
 };
 const ALIAS_SIGNATURE_TEXT = "The Playwright Support Team";
 
+test("Outlook replies keep sending from the account address", async ({
+  page,
+}) => {
+  test.skip(!isMicrosoftPlaywright(), "Covers the Outlook account path.");
+  await clearWorkflowMailboxDrafts(page);
+  const { emailAccountId } = await openMail(page);
+  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reply`);
+  const message = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  await expect(message).toBeVisible({ timeout: 60_000 });
+  await message.getByRole("button", { name: "Reply", exact: true }).click();
+
+  const summary = page.getByRole("button", { name: /^Draft to/ });
+  await expect(summary).toBeVisible();
+  await expect(summary).not.toContainText(" from ");
+  await summary.click();
+  await expect(page.getByRole("combobox", { name: "To" })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "From" })).toHaveCount(0);
+  await clearWorkflowMailboxDrafts(page);
+});
+
 test.beforeEach(async ({ page }) => {
+  if (isMicrosoftPlaywright()) return;
   await gmail(page, "POST", "settings/sendAs", {
     sendAsEmail: ALIAS.email,
     displayName: ALIAS.name,
@@ -30,6 +51,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test.afterEach(async ({ page }) => {
+  if (isMicrosoftPlaywright()) return;
   await gmail(
     page,
     "DELETE",
@@ -40,6 +62,10 @@ test.afterEach(async ({ page }) => {
 test("replies from the alias a message was sent to", async ({
   page,
 }, testInfo) => {
+  test.skip(
+    isMicrosoftPlaywright(),
+    "Outlook mail always goes out from the account address.",
+  );
   const { emailAccountId } = await openMail(page);
   const subject = `Alias support request ${testInfo.retry}`;
   const threadId = await insertMailToAlias(page, subject);
@@ -74,11 +100,19 @@ test("replies from the alias a message was sent to", async ({
       timeout: UNDO_WINDOW_SEND_TIMEOUT_MS,
     })
     .toContain(ALIAS.email);
+  const html = await readSentHtml(page, threadId);
+  expect(html).toContain(`src="${ALIAS_LOGO_URL}"`);
+  expect(html).toContain("<table");
+  expect(html).not.toContain("image-proxy");
 });
 
 test("switching the sender swaps the signature and sends from it", async ({
   page,
 }, testInfo) => {
+  test.skip(
+    isMicrosoftPlaywright(),
+    "Outlook mail always goes out from the account address.",
+  );
   const { emailAccountId } = await openMail(page);
   const subject = `Alias switch request ${testInfo.retry}`;
   const threadId = await insertMailToAlias(page, subject);
@@ -113,9 +147,14 @@ test("switching the sender swaps the signature and sends from it", async ({
       timeout: UNDO_WINDOW_SEND_TIMEOUT_MS,
     })
     .toContain(accountEmail);
+  expect(await readSentHtml(page, threadId)).not.toContain(ALIAS_LOGO_URL);
 });
 
 test("composes a new message from an alias", async ({ page }, testInfo) => {
+  test.skip(
+    isMicrosoftPlaywright(),
+    "Outlook mail always goes out from the account address.",
+  );
   await openMail(page);
   const subject = `Composed from alias ${testInfo.retry}`;
 
@@ -191,6 +230,25 @@ async function readSentFrom(page: Page, threadId: string) {
   return sentFromHeader(thread.messages);
 }
 
+async function readSentHtml(page: Page, threadId: string) {
+  const thread = (await gmail(page, "GET", `threads/${threadId}`)) as {
+    messages: GmailMessage[];
+  };
+  const latest = thread.messages
+    .filter((message) => message.labelIds?.includes("SENT"))
+    .at(-1);
+  return latest ? collectHtml(latest.payload) : "";
+}
+
+function collectHtml(part: GmailMessage["payload"]): string {
+  if (!part) return "";
+  const own =
+    part.mimeType === "text/html" && part.body?.data
+      ? Buffer.from(part.body.data, "base64url").toString("utf8")
+      : "";
+  return [own, ...(part.parts ?? []).map(collectHtml)].join("");
+}
+
 async function readSentFromSubject(page: Page, subject: string) {
   const list = (await gmail(page, "GET", "messages?labelIds=SENT")) as {
     messages?: { id: string }[];
@@ -205,9 +263,16 @@ async function readSentFromSubject(page: Page, subject: string) {
   );
 }
 
+type GmailPart = {
+  mimeType?: string;
+  headers?: { name: string; value: string }[];
+  body?: { data?: string };
+  parts?: GmailPart[];
+};
+
 type GmailMessage = {
   labelIds?: string[];
-  payload?: { headers?: { name: string; value: string }[] };
+  payload?: GmailPart;
 };
 
 function sentFromHeader(messages: GmailMessage[]) {
