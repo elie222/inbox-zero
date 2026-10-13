@@ -23,7 +23,12 @@ vi.mock("@/utils/icloud/client", async (importOriginal) => ({
 const connection = {
   username: "owner@icloud.com",
   password: "test-app-password",
-  folders: { inbox: "INBOX", archive: "Archive", trash: "Deleted Messages" },
+  folders: {
+    inbox: "INBOX",
+    archive: "Archive",
+    trash: "Deleted Messages",
+    junk: "Junk",
+  },
 };
 let row: Record<string, unknown>;
 let client: ReturnType<typeof fakeClient>;
@@ -97,6 +102,87 @@ describe("iCloud message operations", () => {
       deletedAt: null,
       moveDestination: null,
     });
+  });
+  it("marks spam as junk and clears not-junk flags before copying it", async () => {
+    await new ICloudProvider("owner", connection).markMessageSpam("owned");
+
+    expect(client.messageFlagsRemove).toHaveBeenCalledWith(
+      "5",
+      ["$NotJunk", "NotJunk"],
+      { uid: true },
+    );
+    expect(client.messageFlagsAdd).toHaveBeenCalledWith("5", ["$Junk"], {
+      uid: true,
+    });
+    expect(client.messageFlagsAdd.mock.invocationCallOrder[0]).toBeLessThan(
+      client.messageCopy.mock.invocationCallOrder[0],
+    );
+    expect(row.folder).toBe("Junk");
+  });
+  it("updates junk flags for a message already in Junk", async () => {
+    row.folder = "Junk";
+
+    await new ICloudProvider("owner", connection).markMessageSpam("owned");
+
+    expect(client.messageFlagsAdd).toHaveBeenCalledWith("5", ["$Junk"], {
+      uid: true,
+    });
+    expect(client.messageCopy).not.toHaveBeenCalled();
+  });
+  it.each([
+    "messageFlagsRemove",
+    "messageFlagsAdd",
+  ] as const)("does not move spam if %s is not confirmed", async (operation) => {
+    client[operation].mockResolvedValueOnce(false);
+
+    await expect(
+      new ICloudProvider("owner", connection).markMessageSpam("owned"),
+    ).rejects.toThrow("flag change");
+
+    expect(client.messageCopy).not.toHaveBeenCalled();
+    expect(client.messageDelete).not.toHaveBeenCalled();
+    expect(row.moveDestination).toBeNull();
+  });
+  it("marks received conversation messages as junk without affecting sent copies or drafts", async () => {
+    const provider = new ICloudProvider("owner", connection);
+    vi.spyOn(provider, "getThreadMessages").mockResolvedValue([
+      { id: "owned", labelIds: ["INBOX"] },
+      { id: "sent-copy", labelIds: ["SENT"] },
+      { id: "draft-copy", labelIds: ["DRAFT"] },
+    ] as Awaited<ReturnType<ICloudProvider["getThreadMessages"]>>);
+
+    await provider.markSpam("thread");
+
+    expect(client.messageFlagsAdd).toHaveBeenCalledExactlyOnceWith(
+      "5",
+      ["$Junk"],
+      { uid: true },
+    );
+    expect(client.messageCopy).toHaveBeenCalledTimes(1);
+    expect(row.folder).toBe("Junk");
+  });
+  it("clears junk status when rescuing a message to the inbox", async () => {
+    row.folder = "Junk";
+    const provider = new ICloudProvider("owner", connection);
+    vi.spyOn(provider, "getThreadMessages").mockResolvedValue([
+      { id: "owned", labelIds: ["SPAM"] },
+      { id: "sent-copy", labelIds: ["SENT"] },
+      { id: "draft-copy", labelIds: ["DRAFT"] },
+    ] as Awaited<ReturnType<ICloudProvider["getThreadMessages"]>>);
+
+    await provider.markNotSpam("thread");
+
+    expect(client.messageFlagsRemove).toHaveBeenCalledExactlyOnceWith(
+      "5",
+      ["$Junk", "Junk"],
+      { uid: true },
+    );
+    expect(client.messageFlagsAdd).toHaveBeenCalledExactlyOnceWith(
+      "5",
+      ["$NotJunk"],
+      { uid: true },
+    );
+    expect(row.folder).toBe("INBOX");
   });
   it("files received conversation messages without moving sent copies or drafts", async () => {
     const provider = new ICloudProvider("owner", connection);
@@ -238,7 +324,7 @@ function fakeClient() {
       folder: string,
     ) {
       const previous = this.mailbox.uidValidity;
-      this.mailbox.uidValidity = folder === "Archive" ? BigInt(2) : previous;
+      this.mailbox.uidValidity = folder === row.folder ? previous : BigInt(2);
       return {
         release: () => {
           this.mailbox.uidValidity = previous;
@@ -253,7 +339,7 @@ function fakeClient() {
     fetchOne: vi.fn().mockResolvedValue({ uid: 5 }),
     search: vi.fn().mockResolvedValue([] as number[] | false),
     fetchAll: vi.fn(),
-    messageFlagsAdd: vi.fn(),
-    messageFlagsRemove: vi.fn(),
+    messageFlagsAdd: vi.fn().mockResolvedValue(true),
+    messageFlagsRemove: vi.fn().mockResolvedValue(true),
   };
 }

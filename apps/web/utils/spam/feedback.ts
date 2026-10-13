@@ -3,6 +3,7 @@ import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 import type { PendingCorrection } from "@/utils/mail-corrections/changes";
 import { classifyCorrection } from "@/utils/mail-corrections/changes";
+import { getObservedMessage } from "@/utils/mail-corrections/message";
 import { createEmailProvider } from "@/utils/email/provider";
 import prisma from "@/utils/prisma";
 import { applySpamTraining, enabledSpamModel } from "./store";
@@ -34,12 +35,13 @@ export async function learnSpamCorrection(
   logger: Logger,
 ): Promise<"learned" | "automatic" | "ignored"> {
   const correction = classifyCorrection(change);
-  const label = correction?.added.includes("@junk")
+  let label: "spam" | "good" | null = correction?.added.includes("@junk")
     ? "spam"
     : correction?.removed.includes("@junk")
       ? "good"
       : null;
-  if (!label || !(await enabledSpamModel(emailAccountId))) return "ignored";
+  if (!correction || !(await enabledSpamModel(emailAccountId)))
+    return "ignored";
   const account = await prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
     select: { account: { select: { provider: true } } },
@@ -50,18 +52,8 @@ export async function learnSpamCorrection(
     provider: account.account.provider,
     logger,
   });
-  const message = await provider
-    .getMessage(change.after.messageId)
-    .catch(async (error) => {
-      if (change.after.rfcMessageId) {
-        const relocated = await provider.getMessageByRfc822MessageId(
-          change.after.rfcMessageId,
-        );
-        if (relocated) return relocated;
-      }
-      throw error;
-    });
-  if (label === "spam") {
+  const message = await getObservedMessage(provider, change.after);
+  if (label !== "good") {
     const automatic = await prisma.spamDecision.findUnique({
       where: {
         emailAccountId_messageKey: {
@@ -70,7 +62,18 @@ export async function learnSpamCorrection(
         },
       },
     });
-    if (
+    if (label === null) {
+      // Polling can miss the Junk stop between automatic routing and a rescue.
+      if (
+        automatic?.verdict !== "spam" ||
+        !automatic.moveStartedAt ||
+        !automatic.movedAt ||
+        automatic.moveStartedAt.getTime() < change.before.observedAt ||
+        automatic.movedAt.getTime() > change.after.observedAt
+      )
+        return "ignored";
+      label = "good";
+    } else if (
       automatic?.moveStartedAt &&
       automatic.moveStartedAt.getTime() >= change.before.observedAt - 1000 &&
       automatic.moveStartedAt.getTime() <= change.after.observedAt

@@ -8,22 +8,30 @@ export async function filterNewSpamArrivals({
   observations,
   previous,
   initialized,
+  pending,
 }: {
   emailAccountId: string;
   observations: Observation[];
   previous: Record<string, Observation>;
   initialized: boolean;
+  pending: Record<string, Observation>;
 }) {
-  if (!initialized) return;
-  const arrivals = observations.filter(
-    (item) => !previous[item.key] && item.targets.includes("@inbox"),
-  );
-  for (let offset = 0; offset < arrivals.length; offset += 20)
-    await dispatch({
-      kind: "arrivals",
-      emailAccountId,
-      arrivals: arrivals.slice(offset, offset + 20),
-    });
+  if (!initialized) return [];
+  for (const item of observations)
+    if (!previous[item.key] && item.targets.includes("@inbox"))
+      pending[item.key] = item;
+  const arrivals = Object.values(pending);
+  const errors: Error[] = [];
+  for (let offset = 0; offset < arrivals.length; offset += 20) {
+    const batch = arrivals.slice(offset, offset + 20);
+    try {
+      await dispatch({ kind: "arrivals", emailAccountId, arrivals: batch });
+      for (const item of batch) delete pending[item.key];
+    } catch (error) {
+      errors.push(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+  return errors;
 }
 
 export async function learnObservedSpam(
@@ -32,7 +40,7 @@ export async function learnObservedSpam(
 ): Promise<"learned" | "automatic" | "ignored"> {
   const wasJunk = change.before.targets.includes("@junk");
   const isJunk = change.after.targets.includes("@junk");
-  if (wasJunk === isJunk) return "ignored";
+  if (wasJunk && isJunk) return "ignored";
   const result = await dispatch({ kind: "correction", emailAccountId, change });
   if (!["learned", "automatic", "ignored"].includes(result.outcome))
     throw new Error("Invalid spam observer response");

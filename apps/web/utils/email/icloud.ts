@@ -580,11 +580,23 @@ export class ICloudProvider implements EmailProvider {
     );
   }
 
-  private async flags(ids: string[], flag: string, value: boolean) {
+  private async flags(
+    ids: string[],
+    flag: string,
+    value: boolean,
+    clearFlags: string[] = [],
+  ) {
     for (const id of ids) {
       const row = await this.locate(id);
       await this.run((client) =>
         this.inFolder(client, row, false, async () => {
+          if (
+            clearFlags.length &&
+            !(await client.messageFlagsRemove(String(row.uid), clearFlags, {
+              uid: true,
+            }))
+          )
+            throw new SafeError("iCloud did not confirm the flag change.");
           const ok = await (value
             ? client.messageFlagsAdd(String(row.uid), [flag], { uid: true })
             : client.messageFlagsRemove(String(row.uid), [flag], {
@@ -723,9 +735,7 @@ export class ICloudProvider implements EmailProvider {
     await this.unarchiveMessages(ids);
   }
   async moveThreadToFolder(id: string, _email: string, folder: string) {
-    for (const m of await this.getThreadMessages(id)) {
-      if (m.labelIds?.some((label) => label === "SENT" || label === "DRAFT"))
-        continue;
+    for (const m of await this.getReceivedThreadMessages(id)) {
       await this.move(
         m.id,
         folder.startsWith("imap:") ? decodeICloudFolderId(folder) : folder,
@@ -753,13 +763,20 @@ export class ICloudProvider implements EmailProvider {
     await this.unarchiveThread(id);
   }
   async markMessageSpam(messageId: string): Promise<void> {
-    await this.move(messageId, this.role("junk"));
+    const folder = this.role("junk");
+    await this.flags([messageId], "$Junk", true, ["$NotJunk", "NotJunk"]);
+    await this.move(messageId, folder);
   }
   async markSpam(id: string) {
-    await this.moveThreadToFolder(id, "", this.role("junk"));
+    for (const message of await this.getReceivedThreadMessages(id))
+      await this.markMessageSpam(message.id);
   }
   async markNotSpam(id: string) {
-    await this.unarchiveThread(id);
+    const folder = this.role("inbox");
+    for (const message of await this.getReceivedThreadMessages(id)) {
+      await this.flags([message.id], "$NotJunk", true, ["$Junk", "Junk"]);
+      await this.move(message.id, folder);
+    }
   }
   async bulkArchiveThreads(
     threads: Parameters<EmailProvider["bulkArchiveThreads"]>[0],
@@ -1352,6 +1369,15 @@ export class ICloudProvider implements EmailProvider {
   sendDraft = sendingDisabled;
   replyToEmail = sendingDisabled;
   forwardEmail = sendingDisabled;
+
+  private async getReceivedThreadMessages(threadId: string) {
+    return (await this.getThreadMessages(threadId)).filter(
+      (message) =>
+        !message.labelIds?.some(
+          (label) => label === "SENT" || label === "DRAFT",
+        ),
+    );
+  }
 }
 
 function encodePageToken(value: {

@@ -2910,6 +2910,8 @@ model BulkRuleRun {
   leaseToken String?
   leaseUntil DateTime?
   error String?
+  retryAt DateTime?
+  retryCount Int @default(0)
   items BulkRuleRunItem[]
   @@index([emailAccountId, createdAt])
   @@index([status, leaseUntil])
@@ -2927,6 +2929,7 @@ model BulkRuleRunItem {
   status String @default("PENDING")
   ruleNames String[]
   error String?
+  attempts Int @default(0)
   @@unique([runId, threadId])
   @@index([runId, status, createdAt])
 }

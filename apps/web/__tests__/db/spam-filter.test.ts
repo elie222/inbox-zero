@@ -25,6 +25,7 @@ const message = getMockMessage();
 const provider = {
   isSentMessage: () => false,
   markMessageSpam: vi.fn(async () => undefined),
+  markMessagesReadState: vi.fn(async () => undefined),
   getMessage: vi.fn(async () => ({ ...message, labelIds: ["INBOX"] })),
 } as unknown as EmailProvider;
 
@@ -167,6 +168,10 @@ describe.skipIf(!process.env.RUN_DB_TESTS)("Bayesian persistence", () => {
     ).toBe(true);
     expect(provider.markMessageSpam).toHaveBeenCalledTimes(1);
     expect(provider.markMessageSpam).toHaveBeenCalledWith(message.id);
+    expect(provider.markMessagesReadState).toHaveBeenCalledExactlyOnceWith(
+      [message.id],
+      true,
+    );
     await applySpamTraining({
       emailAccountId,
       message,

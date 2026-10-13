@@ -16,9 +16,12 @@ vi.mock("@/utils/prisma", () => ({
     },
   },
 }));
-const mocks = vi.hoisted(() => ({ getMessage: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  getMessage: vi.fn(),
+  getMessageByRfc822MessageId: vi.fn(),
+}));
 vi.mock("@/utils/email/provider", () => ({
-  createEmailProvider: vi.fn(async () => ({ getMessage: mocks.getMessage })),
+  createEmailProvider: vi.fn(async () => mocks),
 }));
 const observation = {
   key: "new",
@@ -39,6 +42,8 @@ const options = {
 };
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.getMessage.mockReset();
+  mocks.getMessageByRfc822MessageId.mockReset();
   vi.mocked(enabledSpamModel).mockResolvedValue({
     createdAt: new Date(1000),
   } as never);
@@ -62,5 +67,44 @@ it("does not sweep older mail moved into an observed folder", async () => {
     internalDate: "500",
   });
   await filterObservedSpam(options);
+  expect(filterSpam).not.toHaveBeenCalled();
+});
+
+it("resolves an IMAP observation to the full message before filtering", async () => {
+  const fullMessage = {
+    ...getMockMessage({ id: "relocated", labelIds: ["INBOX"] }),
+    internalDate: "2000",
+  };
+  mocks.getMessage
+    .mockRejectedValueOnce(new Error("Unknown observation ID"))
+    .mockResolvedValueOnce(fullMessage);
+  mocks.getMessageByRfc822MessageId.mockResolvedValue({ id: "relocated" });
+
+  await filterObservedSpam({
+    ...options,
+    observations: [{ ...observation, rfcMessageId: "<message@example.test>" }],
+  });
+
+  expect(mocks.getMessageByRfc822MessageId).toHaveBeenCalledWith(
+    "<message@example.test>",
+  );
+  expect(filterSpam).toHaveBeenCalledWith(
+    expect.objectContaining({ message: fullMessage }),
+  );
+});
+
+it("keeps an unresolved arrival retryable instead of filtering partial content", async () => {
+  const error = new Error("Message is unavailable");
+  mocks.getMessage.mockRejectedValue(error);
+  mocks.getMessageByRfc822MessageId.mockResolvedValue(null);
+
+  await expect(
+    filterObservedSpam({
+      ...options,
+      observations: [
+        { ...observation, rfcMessageId: "<missing@example.test>" },
+      ],
+    }),
+  ).rejects.toThrow(error);
   expect(filterSpam).not.toHaveBeenCalled();
 });

@@ -13,7 +13,9 @@ export function shouldStartMailEngine(input: {
   pathname: string | null;
   browserRequested?: boolean;
   desktopIpc: boolean;
+  accountReady?: boolean;
 }): boolean {
+  if (input.accountReady === false) return false;
   if (input.desktopIpc || input.browserRequested) return true;
   const segments = input.pathname?.split("/").filter(Boolean) ?? [];
   if (segments.length === 2) {

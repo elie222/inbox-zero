@@ -22,10 +22,12 @@ vi.mock("@/utils/prisma", () => ({
     spamDecision: { findUnique: vi.fn() },
   },
 }));
+const provider = vi.hoisted(() => ({
+  getMessage: vi.fn(),
+  getMessageByRfc822MessageId: vi.fn(),
+}));
 vi.mock("@/utils/email/provider", () => ({
-  createEmailProvider: vi.fn(async () => ({
-    getMessage: async () => getMockMessage(),
-  })),
+  createEmailProvider: vi.fn(async () => provider),
 }));
 const before = {
   key: "key",
@@ -45,10 +47,77 @@ const change = {
 const logger = createScopedLogger("spam-feedback-test");
 beforeEach(() => {
   vi.clearAllMocks();
+  provider.getMessage.mockReset().mockResolvedValue(getMockMessage());
+  provider.getMessageByRfc822MessageId.mockReset();
   vi.mocked(enabledSpamModel).mockResolvedValue({ id: "model" } as never);
   vi.mocked(prisma.spamDecision.findUnique).mockResolvedValue(null);
 });
 describe("Junk correction provenance", () => {
+  it("learns a rescue when spam routing and the manual move both happen between snapshots", async () => {
+    vi.mocked(prisma.spamDecision.findUnique).mockResolvedValue({
+      verdict: "spam",
+      moveStartedAt: new Date(1500),
+      movedAt: new Date(1600),
+    } as never);
+    expect(
+      await learnSpamCorrection(
+        "account",
+        {
+          ...change,
+          after: { ...change.after, targets: ["Personal"] },
+        },
+        logger,
+      ),
+    ).toBe("learned");
+    expect(applySpamTraining).toHaveBeenCalledWith(
+      expect.objectContaining({ label: "good" }),
+    );
+  });
+
+  it("does not treat an ordinary folder change as a rescue of an old spam decision", async () => {
+    vi.mocked(prisma.spamDecision.findUnique).mockResolvedValue({
+      verdict: "spam",
+      moveStartedAt: new Date(100),
+      movedAt: new Date(200),
+    } as never);
+    expect(
+      await learnSpamCorrection(
+        "account",
+        {
+          ...change,
+          after: { ...change.after, targets: ["Personal"] },
+        },
+        logger,
+      ),
+    ).toBe("ignored");
+    expect(applySpamTraining).not.toHaveBeenCalled();
+  });
+
+  it("trains on the full relocated message when a Junk rescue changes its ID", async () => {
+    const message = getMockMessage({ id: "relocated" });
+    provider.getMessage
+      .mockRejectedValueOnce(new Error("Original ID is unavailable"))
+      .mockResolvedValueOnce(message);
+    provider.getMessageByRfc822MessageId.mockResolvedValue({ id: "relocated" });
+
+    await learnSpamCorrection(
+      "account",
+      {
+        ...change,
+        before: { ...before, targets: ["@junk"] },
+        after: {
+          ...change.after,
+          targets: ["Personal"],
+          rfcMessageId: "<message@example.test>",
+        },
+      },
+      logger,
+    );
+
+    expect(applySpamTraining).toHaveBeenCalledWith(
+      expect.objectContaining({ message, label: "good" }),
+    );
+  });
   it("does not train on the filter's own move", async () => {
     vi.mocked(prisma.spamDecision.findUnique).mockResolvedValue({
       moveStartedAt: new Date(2000),

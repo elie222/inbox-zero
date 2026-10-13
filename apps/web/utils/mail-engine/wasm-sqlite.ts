@@ -1,4 +1,5 @@
 import initSqlite, { type Database } from "@sqlite.org/sqlite-wasm";
+import { atMailEngineStartupStage } from "./startup-stage";
 import type {
   SqlTransaction,
   SqlValue,
@@ -11,7 +12,9 @@ export async function createWasmSqliteDriver(input?: {
   name?: string;
   persist?: boolean;
 }): Promise<SqliteDriver> {
-  const sqlite = await initSqlite();
+  const sqlite = await atMailEngineStartupStage("sqlite-init", () =>
+    initSqlite(),
+  );
   const persist = input?.persist !== false && typeof navigator !== "undefined";
   let database: Database;
   let release: (() => Promise<void>) | undefined;
@@ -20,13 +23,18 @@ export async function createWasmSqliteDriver(input?: {
     "storage" in navigator &&
     "getDirectory" in navigator.storage
   ) {
-    const pool = await sqlite.installOpfsSAHPoolVfs({
-      name: input?.name ?? "mail-engine",
-      directory: MAIL_ENGINE_OPFS_DIRECTORY,
-      initialCapacity: 8,
-    });
-    await pool.unpauseVfs();
-    database = new pool.OpfsSAHPoolDb("/mailbox.sqlite");
+    const pool = await atMailEngineStartupStage("opfs-pool", () =>
+      sqlite.installOpfsSAHPoolVfs({
+        name: input?.name ?? "mail-engine",
+        directory: MAIL_ENGINE_OPFS_DIRECTORY,
+        initialCapacity: 8,
+      }),
+    );
+    await atMailEngineStartupStage("opfs-resume", () => pool.unpauseVfs());
+    database = await atMailEngineStartupStage(
+      "sqlite-open",
+      () => new pool.OpfsSAHPoolDb("/mailbox.sqlite"),
+    );
     release = async () => {
       database.close();
       await pool.pauseVfs();

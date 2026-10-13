@@ -2,6 +2,7 @@ import type { Observation } from "@/utils/mail-corrections/changes";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
+import { getObservedMessage } from "@/utils/mail-corrections/message";
 import { enabledSpamModel } from "./store";
 import { filterSpam } from "./gate";
 
@@ -35,7 +36,7 @@ export async function filterObservedSpam({
     logger,
   });
   for (const arrival of arrivals) {
-    const message = await provider.getMessage(arrival.messageId);
+    const message = await getObservedMessage(provider, arrival);
     // A reset or a previously unobserved archive move must not sweep historical mail.
     const receivedAt = message.internalDate
       ? Number(message.internalDate)

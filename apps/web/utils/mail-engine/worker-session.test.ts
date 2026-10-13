@@ -2,8 +2,36 @@ import { describe, expect, it } from "vitest";
 import type { MailEngine } from "@inboxzero/mail-core/engine";
 import { createMailWorkerHost } from "./worker-session";
 import type { WorkerResponse } from "./worker-protocol";
+import { atMailEngineStartupStage } from "./startup-stage";
 
 describe("mail worker account fencing", () => {
+  it("preserves the failing startup stage and storage error name for recovery", async () => {
+    const posts: WorkerResponse[] = [];
+    const host = createMailWorkerHost({
+      async createEngine() {
+        return atMailEngineStartupStage("opfs-pool", () => {
+          throw new DOMException(
+            "File is in use",
+            "NoModificationAllowedError",
+          );
+        });
+      },
+      post: (message) => posts.push(message),
+    });
+    await host.handle({
+      id: "start",
+      type: "start",
+      input: { accountId: "a", provider: "icloud" },
+    });
+    expect(posts).toEqual([
+      {
+        id: "start",
+        type: "error",
+        message: "[opfs-pool] File is in use",
+        errorName: "NoModificationAllowedError",
+      },
+    ]);
+  });
   it("rejects a second account while the first engine is still starting", async () => {
     const posts: WorkerResponse[] = [];
     let createCount = 0;

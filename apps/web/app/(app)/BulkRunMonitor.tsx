@@ -12,7 +12,10 @@ import {
   XIcon,
 } from "lucide-react";
 import type { GetBulkRunsResponse } from "@/app/api/user/bulk-runs/route";
-import { bulkRunPanelAtom } from "@/store/bulk-run-panel";
+import {
+  bulkRunPanelAtom,
+  dismissedBulkRunsAtom,
+} from "@/store/bulk-run-panel";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -34,13 +37,16 @@ import {
 } from "@/utils/actions/bulk-runs";
 import { assertActionSucceeded } from "@/utils/error";
 import { toastError } from "@/components/Toast";
+import {
+  isBulkRunTerminal,
+  shouldShowBulkRunNotice,
+} from "@/utils/bulk-rules/notice";
 
 type Run = GetBulkRunsResponse["runs"][number];
-const terminal = new Set(["COMPLETED", "STOPPED"]);
 
 export function BulkRunMonitor() {
   const [panel, setPanel] = useAtom(bulkRunPanelAtom);
-  const [dismissed, setDismissed] = useState<string[]>([]);
+  const [dismissed, setDismissed] = useAtom(dismissedBulkRunsAtom);
   const { data, error, isLoading, mutate } = useSWR<GetBulkRunsResponse>(
     "/api/user/bulk-runs",
     { refreshInterval: 2000 },
@@ -56,9 +62,7 @@ export function BulkRunMonitor() {
   return (
     <>
       {latest
-        .filter(
-          (run) => !dismissed.includes(run.id) || !terminal.has(run.status),
-        )
+        .filter((run) => shouldShowBulkRunNotice(run, dismissed))
         .map((run) => (
           <div
             key={run.id}
@@ -76,7 +80,7 @@ export function BulkRunMonitor() {
                 })
               }
             >
-              {!terminal.has(run.status) && run.status !== "PAUSED" && (
+              {!isBulkRunTerminal(run.status) && run.status !== "PAUSED" && (
                 <Loader2Icon className="size-4 shrink-0 animate-spin" />
               )}
               {run.status === "PAUSED" && (
@@ -100,7 +104,7 @@ export function BulkRunMonitor() {
             >
               View progress
             </Button>
-            {terminal.has(run.status) && (
+            {isBulkRunTerminal(run.status) && (
               <Button
                 size="icon"
                 variant="ghost"
@@ -168,7 +172,7 @@ function BulkRunDialog({
     tier: tier || null,
     minimumTier: "PROFESSIONAL_MONTHLY",
   });
-  const active = !!run && !terminal.has(run.status);
+  const active = !!run && !isBulkRunTerminal(run.status);
   async function start() {
     if (!startDate) return;
     try {

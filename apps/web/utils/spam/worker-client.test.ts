@@ -34,6 +34,7 @@ describe("standalone spam observer client", () => {
       observations: [observation],
       previous: {},
       initialized: false,
+      pending: {},
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -53,6 +54,7 @@ describe("standalone spam observer client", () => {
       ],
       previous: { [observation.key]: observation },
       initialized: true,
+      pending: {},
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
     const batches = fetchMock.mock.calls.map(([, options]) =>
@@ -63,7 +65,11 @@ describe("standalone spam observer client", () => {
     expect(fetchMock.mock.calls[0][1].headers["x-api-key"]).toBe("test-key");
   });
 
-  it("leaves topic-only corrections local", async () => {
+  it("checks topic changes for spam rescues that happened between snapshots", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ outcome: "ignored" }),
+    });
     expect(
       await learnObservedSpam("account", {
         before: observation,
@@ -71,7 +77,7 @@ describe("standalone spam observer client", () => {
         since: 1000,
       }),
     ).toBe("ignored");
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).kind).toBe("correction");
   });
 
   it("dispatches a Junk rescue for server-side training", async () => {
@@ -85,16 +91,34 @@ describe("standalone spam observer client", () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body).kind).toBe("correction");
   });
 
-  it("propagates server errors so the observation can be retried", async () => {
+  it("persists failed arrivals for retry after the observation checkpoint advances", async () => {
     fetchMock.mockResolvedValue({ ok: false, status: 503 });
-    await expect(
-      filterNewSpamArrivals({
+    const pending = {};
+    const errors = await filterNewSpamArrivals({
+      emailAccountId: "account",
+      observations: [observation],
+      previous: {},
+      initialized: true,
+      pending,
+    });
+    expect(errors).toHaveLength(1);
+    expect(errors[0].message).toBe("Spam observer returned 503");
+    const restoredPending = JSON.parse(JSON.stringify(pending));
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ outcome: "processed" }),
+    });
+    expect(
+      await filterNewSpamArrivals({
         emailAccountId: "account",
         observations: [observation],
-        previous: {},
+        previous: { [observation.key]: observation },
         initialized: true,
+        pending: restoredPending,
       }),
-    ).rejects.toThrow("Spam observer returned 503");
+    ).toEqual([]);
+    expect(restoredPending).toEqual({});
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("rejects an invalid correction response", async () => {

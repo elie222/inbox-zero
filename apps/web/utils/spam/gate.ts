@@ -116,6 +116,7 @@ async function moveToJunk(
   startedAt: Date | null,
 ) {
   const where = { emailAccountId_messageKey: { emailAccountId, messageKey } };
+  let messageId = message.id;
   if (startedAt) {
     const current = await provider
       .getMessage(message.id)
@@ -132,7 +133,11 @@ async function moveToJunk(
       throw new Error(
         "Spam move outcome is uncertain; review the message before retrying",
       );
-  } else {
+    messageId = current.id;
+  }
+  // Folder moves can change message IDs, so mark read before moving to Junk.
+  await provider.markMessagesReadState([messageId], true);
+  if (!startedAt) {
     await prisma.spamDecision.update({
       where,
       data: { moveStartedAt: new Date() },

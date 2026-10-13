@@ -19,6 +19,7 @@ import prisma from "@/utils/prisma";
 import { decryptToken } from "@/utils/encryption";
 import {
   observationStateSchema,
+  observationSchema,
   completeSnapshot,
   observeChanges,
   type Observation,
@@ -62,6 +63,7 @@ const stateSchema = z.object({
   version: z.literal(1),
   initialized: z.boolean(),
   observations: observationStateSchema,
+  pendingArrivals: z.record(z.string(), observationSchema).default({}),
   google: googleStateSchema,
   imap: imapStateSchema,
   learned: z.number(),
@@ -272,12 +274,19 @@ async function main() {
                 now,
               );
           } else throw new Error("Unsupported account provider");
-          await filterNewSpamArrivals({
+          const arrivalErrors = await filterNewSpamArrivals({
             emailAccountId: account.id,
             observations: result.current,
             previous: previouslyObserved,
             initialized: state.initialized && !result.reset,
+            pending: state.pendingArrivals,
           });
+          let processingErrors = arrivalErrors.length;
+          for (const error of arrivalErrors)
+            logger.warn("Spam arrival processing deferred", {
+              emailAccountId: account.id,
+              errorCode: error.name,
+            });
           if (result.reset || !state.initialized)
             state.observations = { observed: {}, pending: {} };
           const ready = observeChanges(
@@ -287,28 +296,38 @@ async function main() {
             config.settleSeconds * 1000,
           );
           for (const change of ready) {
-            const outcome = await learnCorrection({
-              emailAccountId: account.id,
-              change,
-              targets,
-              automaticRoutes: accountConfig.automaticRoutes,
-              logger,
-            });
-            state[outcome]++;
-            delete state.observations.pending[change.after.key];
-            appendFileSync(
-              join(directory, "events.jsonl"),
-              `${JSON.stringify({
-                at: now,
+            try {
+              const outcome = await learnCorrection({
                 emailAccountId: account.id,
-                messageKey: change.after.key,
-                outcome,
-                before: change.before.targets,
-                after: change.after.targets,
-              })}\n`,
-              { mode: 0o600 },
-            );
+                change,
+                targets,
+                automaticRoutes: accountConfig.automaticRoutes,
+                logger,
+              });
+              state[outcome]++;
+              delete state.observations.pending[change.after.key];
+              appendFileSync(
+                join(directory, "events.jsonl"),
+                `${JSON.stringify({
+                  at: now,
+                  emailAccountId: account.id,
+                  messageKey: change.after.key,
+                  outcome,
+                  before: change.before.targets,
+                  after: change.after.targets,
+                })}\n`,
+                { mode: 0o600 },
+              );
+            } catch (error) {
+              processingErrors++;
+              logger.warn("Correction learning deferred", {
+                emailAccountId: account.id,
+                errorCode:
+                  error instanceof Error ? error.name : "CorrectionError",
+              });
+            }
           }
+          if (processingErrors) failed = true;
           state.initialized = true;
           state.lastSuccessAt = now;
           for (const [key, observation] of Object.entries(
@@ -327,6 +346,8 @@ async function main() {
             lastSuccessAt: now,
             trackedMessages: Object.keys(state.observations.observed).length,
             pending: Object.keys(state.observations.pending).length,
+            pendingArrivals: Object.keys(state.pendingArrivals).length,
+            processingErrors,
             learned: state.learned,
             ignored: state.ignored,
             automatic: state.automatic,

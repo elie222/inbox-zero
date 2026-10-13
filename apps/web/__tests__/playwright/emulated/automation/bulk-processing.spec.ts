@@ -151,6 +151,38 @@ test("keeps a background run visible across navigation and reload", async ({
     ).toBeVisible();
     await dialog.getByRole("button", { name: "Stop", exact: true }).click();
     await expect(dialog.getByText(/Stopped/)).toBeVisible();
+    await page.keyboard.press("Escape");
+    await page
+      .getByRole("button", { name: "Dismiss completed email processing" })
+      .click();
+    await page.reload();
+    await expect(
+      page.getByRole("button", { name: "View progress", exact: true }),
+    ).toBeHidden();
+    await page.route("**/api/user/bulk-runs", (route) =>
+      route.fulfill({
+        json: {
+          runs: [
+            {
+              ...runs[0],
+              id: "empty-completed-run",
+              status: "COMPLETED",
+              total: 0,
+              completed: 0,
+              failed: 0,
+              items: [],
+            },
+          ],
+        },
+      }),
+    );
+    await page.reload();
+    await expect(
+      page.getByRole("button", { name: "View progress", exact: true }),
+    ).toBeHidden();
+    await page.screenshot({
+      path: testInfo.outputPath("empty-completed-runs-hidden.png"),
+    });
   } finally {
     await client.query(
       'DELETE FROM "BulkRuleRun" WHERE "emailAccountId" = $1',

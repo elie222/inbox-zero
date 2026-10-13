@@ -62,6 +62,19 @@ describe("bulk run controls", () => {
       data: { status: "STOPPED", activeAccountId: "account" },
     });
   });
+
+  it("clears an automatic retry delay when the user explicitly resumes", async () => {
+    prisma.bulkRuleRun.findFirst.mockResolvedValue({
+      id: "run",
+      scannedAt: new Date(),
+      status: "PAUSED",
+    } as never);
+    await controlBulkRunAction("account", { runId: "run", command: "resume" });
+    expect(prisma.bulkRuleRun.updateMany).toHaveBeenCalledWith({
+      where: { id: "run", emailAccountId: "account", status: "PAUSED" },
+      data: { status: "RUNNING", error: null, retryAt: null, retryCount: 0 },
+    });
+  });
   it("does not accept an inverted date range", async () => {
     const result = await startBulkRunAction("account", {
       ...options,

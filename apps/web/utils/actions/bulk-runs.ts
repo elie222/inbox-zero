@@ -50,7 +50,12 @@ export const controlBulkRunAction = actionClient
         await assertBulkRunAccess(userId, run);
         await prisma.bulkRuleRun.updateMany({
           where: { id: runId, emailAccountId, status: "PAUSED" },
-          data: { status: run.scannedAt ? "RUNNING" : "QUEUED", error: null },
+          data: {
+            status: run.scannedAt ? "RUNNING" : "QUEUED",
+            error: null,
+            retryAt: null,
+            retryCount: 0,
+          },
         });
       } else if (command === "pause") {
         await prisma.bulkRuleRun.updateMany({
