@@ -1,11 +1,13 @@
 import { toast } from "sonner";
-import { toastError, toastUndo } from "@/components/Toast";
+import { toastError, toastSuccess, toastUndo } from "@/components/Toast";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
 import type { MailClient } from "@inboxzero/mail-core/engine";
 import type { OperationStatus } from "@inboxzero/mail-core/operations";
 
 export const UNDO_SEND_DELAY_MS = 10_000;
 const UNDO_SEND_TOAST_ID = "undo-send";
+const SENT_MESSAGE = "Email sent!";
+const SENT_TOAST_DURATION_MS = 6000;
 // The server holds the send while it is executing or verifying, so undo stays
 // open until the send leaves it or the window ends.
 const UNDOABLE_STATUSES = new Set<OperationStatus>([
@@ -77,7 +79,7 @@ export function beginUndoSend({
   unsubscribe = handle.subscribe(inspect);
   toastUndo({
     id: toastId,
-    message: "Email sent!",
+    message: SENT_MESSAGE,
     shortcut: getShortcutHint("undo"),
     duration,
     // A dismissed toast can still fire during its exit animation, after a
@@ -87,6 +89,24 @@ export function beginUndoSend({
     },
   });
   inspect();
+}
+
+/** Offers View once the send has gone out, or closes the toast if it didn't. */
+export function finishUndoSendToast(
+  operationId: string,
+  onView: (() => void) | null,
+) {
+  const toastId = undoSendToastId(operationId);
+  if (!onView) {
+    toast.dismiss(toastId);
+    return;
+  }
+  toastSuccess({
+    id: toastId,
+    description: SENT_MESSAGE,
+    duration: SENT_TOAST_DURATION_MS,
+    action: { label: "View", onClick: onView },
+  });
 }
 
 export async function undoPendingSend() {
@@ -137,7 +157,13 @@ function clearUndoSendOffer(offer: PendingUndoSend) {
   if (pending !== offer || offer.undone) return;
   pending = null;
   offer.release();
-  toast.dismiss(offer.toastId);
+  // Stays up without undo until finishUndoSendToast reports the outcome, so
+  // the toast doesn't vanish and reappear when the send goes out.
+  toastSuccess({
+    id: offer.toastId,
+    description: SENT_MESSAGE,
+    duration: Number.POSITIVE_INFINITY,
+  });
 }
 
 function undoSendToastId(operationId: string) {
