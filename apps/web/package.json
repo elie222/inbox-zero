@@ -94,7 +94,7 @@
     "@mdx-js/react": "3.1.1",
     "@microsoft/microsoft-graph-client": "3.0.7",
     "@modelcontextprotocol/ext-apps": "2.0.3",
-    "@modelcontextprotocol/sdk": "1.30.0",
+    "@modelcontextprotocol/sdk": "1.31.0",
     "@mux/mux-player-react": "3.13.3",
     "@next/mdx": "16.3.8",
     "@next/third-parties": "16.3.8",
