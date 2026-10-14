@@ -309,12 +309,7 @@ function createWebSearchTool({
   modelOptions: ReturnType<typeof getModelForUseCase>;
   webSearchConfig: WebSearchConfig;
 }) {
-  const {
-    providerName,
-    tools: searchTools,
-    providerOptions,
-    toolChoice,
-  } = webSearchConfig;
+  const { providerName, tools: searchTools, providerOptions } = webSearchConfig;
 
   return tool({
     description: "Search the web for information",
@@ -346,7 +341,6 @@ function createWebSearchTool({
           prompt: query,
           tools: searchTools,
           providerOptions,
-          toolChoice,
         });
 
         const text = searchResult.text;

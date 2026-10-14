@@ -8,6 +8,8 @@ import {
 } from "./identities";
 
 export const draftContentSchema = z.object({
+  /** The send-as address, when it isn't the account's default. */
+  from: z.string().max(4096).optional(),
   to: z.array(z.string().max(4096)).max(100),
   cc: z.array(z.string().max(4096)).max(100),
   bcc: z.array(z.string().max(4096)).max(100),

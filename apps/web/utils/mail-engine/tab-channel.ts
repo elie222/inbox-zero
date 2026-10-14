@@ -284,6 +284,8 @@ export function createTabFollowerClient(input: {
   }
 
   const client: MailClient = {
+    queryContactSuggestions: (query) =>
+      call("queryContactSuggestions", [query]) as never,
     observeMailbox: (query) => observeRemote("mailbox", [query]),
     observeMailboxCounts: (query) => observeRemote("mailboxCounts", [query]),
     observeMailboxWindow: (query) => {

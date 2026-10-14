@@ -43,6 +43,21 @@ describe("mail engine tab channel", () => {
     handle.close();
   });
 
+  it("forwards local contact suggestions from a follower tab to the owner", async () => {
+    const bus = createMemoryTabBus();
+    bindTabMailOwner({ client: stubClient({ onSubmit() {} }), bus });
+    const follower = createTabFollowerClient({ accountId: "acc-1", bus });
+
+    await expect(
+      follower.queryContactSuggestions?.({
+        accountId: "acc-1",
+        ownAddresses: [],
+        excludeEmails: [],
+        query: "ada",
+      }),
+    ).resolves.toEqual([{ emailAddress: "ada@example.com", name: "Ada" }]);
+  });
+
   it("does not throw when posting to a closed BroadcastChannel", () => {
     const channel = {
       postMessage() {
@@ -236,6 +251,9 @@ function stubClient(input: {
       return { databaseEpoch: "e", sequence: 1 };
     },
     async retainAccounts() {},
+    async queryContactSuggestions() {
+      return [{ emailAddress: "ada@example.com", name: "Ada" }];
+    },
   };
 }
 

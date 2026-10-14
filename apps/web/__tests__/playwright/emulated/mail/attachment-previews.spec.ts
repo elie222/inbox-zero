@@ -76,3 +76,24 @@ test("opens an attachment preview from its card", async ({
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
 });
+
+test("marks conversations with attachments in the thread list", async ({
+  page,
+}, testInfo) => {
+  const { conversations } = await openMail(page);
+  const row = conversationWithSubject(
+    page,
+    conversations,
+    "Re: Reader Visual Message",
+  );
+  await row.scrollIntoViewIfNeeded();
+  await expect(row.getByText("Has attachment")).toBeAttached();
+  await expect(
+    conversationWithSubject(page, conversations, "Read Command Message"),
+  ).not.toContainText("Has attachment");
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "mail-thread-list-attachment-indicator",
+  );
+});

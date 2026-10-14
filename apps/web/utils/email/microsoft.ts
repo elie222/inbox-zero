@@ -101,6 +101,7 @@ import type {
   SendEmailOptions,
   DraftAttachmentUploadStart,
 } from "@/utils/email/types";
+import type { SendAsAddress } from "@/utils/email/send-as";
 import type { DraftAttachmentMetadata } from "@/utils/actions/draft-attachments.validation";
 import { assertDraftAttachmentLimits } from "@/utils/email/draft-attachment-upload";
 import {
@@ -2666,6 +2667,12 @@ export class OutlookProvider implements EmailProvider {
       unread: folder.unreadItemCount ?? 0,
       systemType: folder.systemType,
     }));
+  }
+
+  // Graph can't list the aliases a mailbox may send from, and sending from one
+  // depends on a tenant setting, so Outlook mail always uses the account address.
+  async getSendAsAddresses(): Promise<SendAsAddress[]> {
+    return [];
   }
 
   async getSignatures(): Promise<EmailSignature[]> {

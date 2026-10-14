@@ -81,6 +81,7 @@ function summary(
     latestMessageAtMs: 1_700_000_000_000,
     unread: true,
     starred: false,
+    hasAttachments: false,
     labelIds: ["Label_project"],
     roles: ["inbox" as const],
     pendingOperationIds: [],

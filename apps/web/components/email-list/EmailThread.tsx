@@ -1,5 +1,6 @@
 import { OpenedConversationAttachments } from "./OpenedConversationAttachments";
 import { useEffect, useMemo, useState, useRef, type ReactNode } from "react";
+import { isSendCommandFor } from "@/app/(app)/[emailAccountId]/compose/queued-reply";
 import { useHotkeys } from "react-hotkeys-hook";
 import { isTypingTarget } from "@/lib/shortcuts/registry";
 import { ChevronsDownUpIcon, ChevronsUpDownIcon } from "lucide-react";
@@ -173,10 +174,28 @@ export function EmailThread({
   }, [autoOpenForwardForMessageId, autoOpenReplyForMessageId, threadId]);
   const expanded = (id: string, hasDraft: boolean) =>
     expansionOverrides.get(id) ?? (id === lastMessageId || hasDraft);
+  // A sent reply keeps its local draft until delivery so undo can restore it,
+  // but it is no longer an open draft. Leaving and returning to the thread
+  // must not reopen it with a live Send button.
+  const unsentLocalDrafts = useMemo(() => {
+    const submitted = [
+      ...outgoing.map((item) => item.operationId),
+      ...(sendOperationIds?.values() ?? []),
+    ];
+    return localDrafts.filter((draft) => {
+      const requestId = draft.content?.requestId;
+      return !(
+        requestId &&
+        submitted.some((operationId) =>
+          isSendCommandFor(operationId, requestId),
+        )
+      );
+    });
+  }, [localDrafts, outgoing, sendOperationIds]);
   const localDraftModeFor = (message: ThreadMessage) => {
     if (message.labelIds?.includes(GmailLabel.DRAFT)) return;
     return getLocalDraftMode(
-      localDrafts,
+      unsentLocalDrafts,
       getComposerMessageId(message.id, sendOperationIds),
     );
   };

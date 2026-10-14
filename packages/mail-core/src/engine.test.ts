@@ -530,6 +530,7 @@ function mailboxWindowStore(requestedPageCounts: number[]): MailStore {
               latestMessageAtMs: pageCount,
               unread: false,
               starred: false,
+              hasAttachments: false,
               labelIds: [],
               roles: ["inbox"],
               pendingOperationIds: [],

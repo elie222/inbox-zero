@@ -74,5 +74,5 @@ allowBuilds:
   workerd: true
 
 patchedDependencies:
-  '@better-auth/oauth-provider@1.7.4': patches/@better-auth__oauth-provider@1.7.4.patch
+  '@better-auth/oauth-provider@1.7.7': patches/@better-auth__oauth-provider@1.7.7.patch
   '@sqlite.org/sqlite-wasm@3.53.4-build1': patches/@sqlite.org__sqlite-wasm@3.53.4-build1.patch

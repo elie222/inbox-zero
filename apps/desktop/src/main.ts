@@ -139,7 +139,7 @@ function startDesktopApp() {
     if (typeof count !== "number" || !Number.isSafeInteger(count) || count < 0)
       return;
     unreadByContents.set(event.sender.id, count);
-    setUnreadBadge(Math.max(0, ...unreadByContents.values()));
+    applyUnreadBadge();
   });
   ipcMain.handle("desktop:open-window", (event, path: unknown) => {
     if (!isTrustedDesktopEvent(event)) return;
@@ -390,6 +390,7 @@ function createAppWindow(options?: {
   const contentsId = window.webContents.id;
   windows.push(window);
   lastFocused = window;
+  applyUnreadBadge();
   rememberWindowUrl(window, startUrl);
   if (options?.isMaximized) window.maximize();
 
@@ -398,6 +399,7 @@ function createAppWindow(options?: {
   });
   window.on("focus", () => {
     lastFocused = window;
+    applyUnreadBadge();
     syncUpdateProgressBar();
   });
   window.on("blur", () => {
@@ -423,8 +425,8 @@ function createAppWindow(options?: {
     if (index !== -1) windows.splice(index, 1);
     unreadByContents.delete(contentsId);
     loadRecoveryByContents.delete(contentsId);
-    applyUnreadBadge();
     if (lastFocused === window) lastFocused = windows.at(-1) ?? null;
+    applyUnreadBadge();
     if (!isQuitting && windows.length > 0) persistWindowsNow();
   });
 
@@ -553,7 +555,11 @@ function isTrustedDesktopEvent(event: IpcMainEvent | IpcMainInvokeEvent) {
 }
 
 function applyUnreadBadge() {
-  setUnreadBadge(Math.max(0, ...unreadByContents.values()));
+  const count =
+    lastFocused && !lastFocused.isDestroyed()
+      ? (unreadByContents.get(lastFocused.webContents.id) ?? 0)
+      : 0;
+  setUnreadBadge(count);
 }
 
 function setUnreadBadge(count: number) {

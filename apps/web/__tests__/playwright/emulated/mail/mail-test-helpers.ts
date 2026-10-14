@@ -354,7 +354,7 @@ async function insertOutlookInboxReply(
   return message.id;
 }
 
-async function readProviderAccessToken() {
+export async function readProviderAccessToken() {
   const email = process.env.PLAYWRIGHT_TEST_EMAIL;
   if (!email) throw new Error("PLAYWRIGHT_TEST_EMAIL is missing");
   const token = await withClient(async (client) => {

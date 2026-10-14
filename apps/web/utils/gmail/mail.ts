@@ -333,6 +333,7 @@ export async function draftEmail(
   originalEmail: EmailForAction,
   args: {
     to?: string;
+    from?: string;
     subject?: string;
     content: string;
     cc?: string;
@@ -364,6 +365,7 @@ export async function draftEmail(
 
   const raw = await createRawMailMessage({
     to: recipients.to,
+    from: args.from,
     cc: formatCcList(ccList),
     bcc: formatCcList(bccList),
     subject: args.subject || originalEmail.headers.subject,
