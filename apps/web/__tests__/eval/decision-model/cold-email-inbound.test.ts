@@ -149,16 +149,13 @@ describe.runIf(shouldRunDecisionModelEvals)(
             },
             classificationFeedback: null,
             logger: decisionModelEvalLogger,
-          }).catch((error) => {
-            console.error(testCase.name, error);
-            return null;
           });
 
           const answer = lastResponse.bySubject.get(testCase.email.subject)
             ?.answers.__cold_email__;
           const probability =
             answer?.type === "boolean" ? answer.probability : null;
-          const isCold = result?.type === "coldEmail";
+          const isCold = result.type === "coldEmail";
 
           outcomes.push({
             name: testCase.name,
