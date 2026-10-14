@@ -42,6 +42,10 @@ async function startLocalMailApp(
       <MailApp
         accountIds={accountIds}
         host={{
+          loadAttachment: async (input) => {
+            const bytes = await ipc!.readAttachment(input);
+            return new Blob([bytes]);
+          },
           openSettings: () => openPrimaryAccountPath(accountIds, "settings"),
         }}
       />

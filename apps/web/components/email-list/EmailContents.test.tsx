@@ -22,7 +22,7 @@ vi.mock("@/utils/attachments/download", async (importOriginal) => ({
   fetchAttachment,
 }));
 // jsdom's Blob lacks arrayBuffer(), which the image signature check needs.
-vi.mock("@/utils/attachments/image-preview", () => ({
+vi.mock("@inboxzero/mail-ui/image-preview", () => ({
   getAttachmentImagePreview: async (blob: Blob) => blob,
 }));
 vi.mock("@/utils/attachments/download-queue", () => ({

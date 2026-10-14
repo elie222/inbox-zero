@@ -1060,13 +1060,22 @@ importers:
       dompurify:
         specifier: 3.4.15
         version: 3.4.15
+      utif2:
+        specifier: 4.1.0
+        version: 4.1.0
     devDependencies:
+      '@types/node':
+        specifier: 24.10.1
+        version: 24.10.1
       '@types/react':
         specifier: 19.2.18
         version: 19.2.18
       '@types/react-dom':
         specifier: 19.2.4
         version: 19.2.4(@types/react@19.2.18)
+      jsdom:
+        specifier: 27.3.0
+        version: 27.3.0(supports-color@10.2.2)
       react:
         specifier: 19.3.0
         version: 19.3.0

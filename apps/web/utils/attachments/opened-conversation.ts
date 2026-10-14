@@ -1,6 +1,6 @@
 import type { ParsedMessage } from "@/utils/types";
 import { fetchAttachment, getAttachmentUrl } from "./download";
-import { getAttachmentImagePreview } from "./image-preview";
+import { getAttachmentImagePreview } from "@inboxzero/mail-ui/image-preview";
 import { queueAttachmentDownload } from "./download-queue";
 
 const FILE_LIMIT = 1024 * 1024;
