@@ -178,9 +178,20 @@ export function CommentComposer({
             maxLength={10_000}
             placeholder="Comment and @mention a teammate"
             value={body}
-            onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
-              setBody(event.target.value)
-            }
+            onChange={(event: ChangeEvent<HTMLTextAreaElement>) => {
+              const next = event.target.value;
+              setBody(next);
+              // A pick is only valid while its mention is still in the text;
+              // otherwise retyping an ambiguous name would reuse it.
+              setPicked((current) => {
+                const stillMentioned = getMentionedMemberIds(
+                  next,
+                  candidates,
+                  current,
+                );
+                return current.filter((id) => stillMentioned.includes(id));
+              });
+            }}
             onKeyDown={onKeyDown}
             role="combobox"
             aria-autocomplete="list"
