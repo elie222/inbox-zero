@@ -185,6 +185,7 @@ function toParsedMessage(email: ReturnType<typeof getEmail>) {
     to: email.to,
     subject: email.subject,
     textPlain: email.content,
+    textHtml: "",
   });
   return {
     ...message,
