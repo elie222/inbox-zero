@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+vi.mock("@/utils/spam/feedback", () => ({ trainSpamMessage: vi.fn() }));
 import { createEmailProviderOperationExecutor } from "./operations";
 import type { EmailProvider } from "@/utils/email/types";
 import type { PreparedOperation } from "@inboxzero/mail-core/operations";

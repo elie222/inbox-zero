@@ -1,12 +1,15 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalDependencies": ["**/.env.*local"],
+  "globalDependencies": [
+    "**/.env.*local"
+  ],
   "tasks": {
     "build": {
       "env": [
         "VERCEL_ENV",
         "VERCEL_URL",
         "NODE_ENV",
+        "NEXT_DIST_DIR",
         "SKIP_TYPE_CHECK",
         "INBOX_ZERO_ENV_FILE",
         "DATABASE_URL",
@@ -16,10 +19,10 @@
         "PREVIEW_DATABASE_URL_UNPOOLED",
         "NEXTAUTH_SECRET",
         "AUTH_SECRET",
+        "LOCAL_PASSWORD_AUTH_ENABLED",
         "SCIM_CREDENTIAL_HASH_SECRET",
         "AUTH_ALLOWED_EMAILS",
         "AUTH_ALLOWED_EMAIL_DOMAINS",
-
         "GOOGLE_CLIENT_ID",
         "GOOGLE_CLIENT_SECRET",
         "GOOGLE_ADS_DEVELOPER_TOKEN",
@@ -35,7 +38,6 @@
         "GOOGLE_PUBSUB_VERIFICATION_TOKEN",
         "EMAIL_ENCRYPT_SECRET",
         "EMAIL_ENCRYPT_SALT",
-
         "MICROSOFT_CLIENT_ID",
         "MICROSOFT_CLIENT_SECRET",
         "MICROSOFT_BASE_URL",
@@ -59,7 +61,6 @@
         "APNS_ENVIRONMENT",
         "APNS_TRANSPORT",
         "ANDROID_APP_CERT_SHA256_FINGERPRINTS",
-
         "DEFAULT_LLMS",
         "ECONOMY_LLMS",
         "CHAT_LLMS",
@@ -85,7 +86,6 @@
         "AI_TRIAL_WEEKLY_SPEND_LIMIT_USD",
         "SENSITIVE_DATA_POLICY_DEFAULT",
         "NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED",
-
         "LLM_API_KEY",
         "OPENAI_API_KEY",
         "OPENAI_ZERO_DATA_RETENTION",
@@ -119,12 +119,12 @@
         "OLLAMA_MODEL",
         "OPENAI_COMPATIBLE_BASE_URL",
         "OPENAI_COMPATIBLE_MODEL",
+        "OPENAI_COMPATIBLE_HEADERS",
         "OPENAI_COMPATIBLE_AUTH_HEADER",
         "CLI_LLM_ENABLED",
         "CODEX_CLI_ALLOW_NPX",
         "CODEX_CLI_PATH",
         "PERPLEXITY_API_KEY",
-
         "REDIS_HTTP_URL",
         "REDIS_HTTP_TOKEN",
         "UPSTASH_REDIS_URL",
@@ -137,7 +137,6 @@
         "QSTASH_CURRENT_SIGNING_KEY",
         "QSTASH_NEXT_SIGNING_KEY",
         "QUEUE_BACKEND",
-
         "SENTRY_AUTH_TOKEN",
         "SENTRY_ORGANIZATION",
         "SENTRY_PROJECT",
@@ -145,21 +144,17 @@
         "AXIOM_TOKEN",
         "AXIOM_AUDIT_DATASET",
         "AXIOM_AUDIT_TOKEN",
-
         "DISABLE_LOG_ZOD_ERRORS",
         "ENABLE_DEBUG_LOGS",
         "WEBHOOK_ALLOW_PRIVATE_IPS",
         "DIGEST_MAX_SUMMARIES_PER_24H",
         "REASONING_RETENTION_DAYS",
         "DRAFT_SENT_TEXT_RETENTION_DAYS",
-
         "LEMON_SQUEEZY_SIGNING_SECRET",
         "LEMON_SQUEEZY_API_KEY",
-
         "TINYBIRD_TOKEN",
         "TINYBIRD_DELETE_TOKEN",
         "TINYBIRD_BASE_URL",
-
         "POSTHOG_API_SECRET",
         "POSTHOG_PROJECT_ID",
         "POSTHOG_FEEDBACK_SURVEY_ID",
@@ -167,26 +162,21 @@
         "POSTHOG_LLM_EVALS_APPROVED_EMAILS",
         "FEEDBACK_WEBHOOK_URL",
         "SALES_INQUIRY_WEBHOOK_URL",
-
         "RECALL_API_KEY",
         "RECALL_WEBHOOK_SECRET",
         "RECALL_REGION",
         "RECALL_BASE_URL",
-
         "RESEND_API_KEY",
         "RESEND_AUDIENCE_ID",
         "RESEND_FROM_EMAIL",
         "NEXT_PUBLIC_IS_RESEND_CONFIGURED",
-
         "LOOPS_API_SECRET",
         "LOOPS_WEBHOOK_SIGNING_SECRET",
-
         "CRON_SECRET",
         "BLOG_SYNC_WEBHOOK_SECRET",
         "BLOG_SYNC_SANITY_AUTHOR_ID",
         "BLOG_SYNC_IMAGE_ALLOWED_HOSTS",
         "SANITY_API_WRITE_TOKEN",
-
         "ADMINS",
         "WEBHOOK_URL",
         "MCP_SERVER_URL_OVERRIDES",
@@ -194,6 +184,7 @@
         "COMPOSIO_API_KEY",
         "INTERNAL_API_URL",
         "INTERNAL_API_KEY",
+        "AUTO_FILE_AFTER_READING",
         "WHITELIST_FROM",
         "API_KEY_SALT",
         "HEALTH_API_KEY",
@@ -216,7 +207,6 @@
         "CONVERSION_ANALYTICS_SERVER_SECRET",
         "GITHUB_MARKETING_TOKEN",
         "DUB_API_KEY",
-
         "SLACK_CLIENT_ID",
         "SLACK_CLIENT_SECRET",
         "SLACK_SIGNING_SECRET",
@@ -226,7 +216,6 @@
         "TELEGRAM_BOT_TOKEN",
         "TELEGRAM_BOT_SECRET_TOKEN",
         "NEXT_PUBLIC_EXTERNAL_API_ENABLED",
-
         "STRIPE_API_BASE_URL",
         "STRIPE_SECRET_KEY",
         "STRIPE_WEBHOOK_SECRET",
@@ -237,7 +226,6 @@
         "NEXT_PUBLIC_STRIPE_PLUS_ANNUALLY_PRICE_ID",
         "NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_MONTHLY_PRICE_ID",
         "NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_ANNUALLY_PRICE_ID",
-
         "NEXT_PUBLIC_LEMON_STORE_ID",
         "NEXT_PUBLIC_BASIC_MONTHLY_VARIANT_ID",
         "NEXT_PUBLIC_BASIC_ANNUALLY_VARIANT_ID",
@@ -246,13 +234,11 @@
         "NEXT_PUBLIC_BUSINESS_MONTHLY_VARIANT_ID",
         "NEXT_PUBLIC_BUSINESS_ANNUALLY_VARIANT_ID",
         "NEXT_PUBLIC_COPILOT_MONTHLY_VARIANT_ID",
-
         "LICENSE_1_SEAT_VARIANT_ID",
         "LICENSE_3_SEAT_VARIANT_ID",
         "LICENSE_5_SEAT_VARIANT_ID",
         "LICENSE_10_SEAT_VARIANT_ID",
         "LICENSE_25_SEAT_VARIANT_ID",
-
         "NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS",
         "NEXT_PUBLIC_CALL_LINK",
         "NEXT_PUBLIC_POSTHOG_KEY",
@@ -305,18 +291,29 @@
         "UNSUBSCRIBE_WORKER_URL",
         "UNSUBSCRIBE_WORKER_SECRET"
       ],
-      "outputs": [".next/**", "!.next/cache/**", "public/sw.js", "public/sw.js.map", "generated/mcp-app/**"]
+      "outputs": [
+        ".next/**",
+        "!.next/cache/**",
+        "public/sw.js",
+        "public/sw.js.map",
+        "generated/mcp-app/**"
+      ],
+      "dependsOn": [
+        "build:spam-native"
+      ]
     },
     "build:ci": {
       "env": [
         "VERCEL_ENV",
         "VERCEL_URL",
         "NODE_ENV",
+        "NEXT_DIST_DIR",
         "SKIP_TYPE_CHECK",
         "WEBHOOK_ALLOW_PRIVATE_IPS",
         "MCP_ALLOW_PRIVATE_IPS",
         "DATABASE_URL",
         "AUTH_SECRET",
+        "LOCAL_PASSWORD_AUTH_ENABLED",
         "SCIM_CREDENTIAL_HASH_SECRET",
         "AUTH_ALLOWED_EMAILS",
         "AUTH_ALLOWED_EMAIL_DOMAINS",
@@ -366,6 +363,7 @@
         "SENSITIVE_DATA_POLICY_DEFAULT",
         "NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED",
         "INTERNAL_API_KEY",
+        "AUTO_FILE_AFTER_READING",
         "BLOG_SYNC_WEBHOOK_SECRET",
         "BLOG_SYNC_SANITY_AUTHOR_ID",
         "BLOG_SYNC_IMAGE_ALLOWED_HOSTS",
@@ -445,10 +443,21 @@
         "UNSUBSCRIBE_WORKER_URL",
         "UNSUBSCRIBE_WORKER_SECRET"
       ],
-      "outputs": [".next/**", "!.next/cache/**", "public/sw.js", "public/sw.js.map", "generated/mcp-app/**"]
+      "outputs": [
+        ".next/**",
+        "!.next/cache/**",
+        "public/sw.js",
+        "public/sw.js.map",
+        "generated/mcp-app/**"
+      ],
+      "dependsOn": [
+        "build:spam-native"
+      ]
     },
     "test": {
-      "env": ["RUN_AI_TESTS"]
+      "env": [
+        "RUN_AI_TESTS"
+      ]
     },
     "lint": {},
     "check-enums": {},
@@ -460,6 +469,9 @@
     },
     "//#check": {},
     "//#fix": {
+      "cache": false
+    },
+    "build:spam-native": {
       "cache": false
     }
   }

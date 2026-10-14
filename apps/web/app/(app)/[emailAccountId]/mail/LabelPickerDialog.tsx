@@ -13,6 +13,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { useFolders } from "@/hooks/useFolders";
 import { useLabels } from "@/hooks/useLabels";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { createLabelAction } from "@/utils/actions/mail";
@@ -40,9 +41,22 @@ export function LabelPickerDialog({
   onApplied: (threadIds: string[], labelId: string) => void;
   mode?: "label" | "move";
 }) {
-  const { emailAccountId } = useAccount();
+  const { emailAccountId, provider } = useAccount();
+  const isICloud = provider === "icloud";
   const client = useOptionalMailClient();
-  const { userLabels, isLoading, error, mutate } = useLabels(emailAccountId);
+  const {
+    userLabels,
+    isLoading: labelsLoading,
+    error: labelsError,
+    mutate,
+  } = useLabels(emailAccountId);
+  const {
+    folders,
+    isLoading: foldersLoading,
+    error: foldersError,
+  } = useFolders(provider);
+  const isLoading = isICloud ? foldersLoading : labelsLoading;
+  const error = isICloud ? foldersError : labelsError;
   const [search, setSearch] = useState("");
   const [isPending, setIsPending] = useState(false);
   const pending = useRef(false);
@@ -52,7 +66,10 @@ export function LabelPickerDialog({
   const name = search.trim();
   const labels = useMemo(
     () =>
-      userLabels
+      (isICloud
+        ? folders.map((folder) => ({ id: folder.id, name: folder.displayName }))
+        : userLabels
+      )
         .map((label) => ({
           ...label,
           displayName: getLabelDisplayName(label.id, label.name),
@@ -62,9 +79,10 @@ export function LabelPickerDialog({
             a.displayName.localeCompare(b.displayName, "en") ||
             a.id.localeCompare(b.id, "en"),
         ),
-    [userLabels],
+    [userLabels, isICloud, folders],
   );
   const canCreate =
+    !isICloud &&
     name.length > 0 &&
     !labels.some(
       (label) => label.displayName.toLowerCase() === name.toLowerCase(),
@@ -95,6 +113,7 @@ export function LabelPickerDialog({
           threadIds: remainingThreadIds,
           labelId: id,
           removeFromInbox: isMove,
+          moveToFolder: isICloud,
         });
       if (succeededThreadIds.length) {
         onApplied(succeededThreadIds, id);
@@ -138,7 +157,7 @@ export function LabelPickerDialog({
         </DialogTitle>
         <Command className="[&_[cmdk-input-wrapper]>svg]:hidden">
           <CommandInput
-            aria-label="Search labels"
+            aria-label={isICloud ? "Search folders" : "Search labels"}
             className="pr-8"
             placeholder={isMove ? "Move to…" : "Label as…"}
             value={search}
@@ -147,7 +166,9 @@ export function LabelPickerDialog({
           />
           <LoadingContent loading={isLoading} error={error}>
             <CommandList aria-busy={isPending}>
-              <CommandEmpty>No matching labels.</CommandEmpty>
+              <CommandEmpty>
+                {isICloud ? "No matching folders." : "No matching labels."}
+              </CommandEmpty>
               <CommandGroup>
                 {labels.map((label) => (
                   <CommandItem
@@ -213,12 +234,14 @@ async function applyEngineLabels({
   threadIds,
   labelId,
   removeFromInbox,
+  moveToFolder,
 }: {
   client: MailClient;
   emailAccountId: string;
   threadIds: string[];
   labelId: string;
   removeFromInbox: boolean;
+  moveToFolder: boolean;
 }) {
   const succeededThreadIds: string[] = [];
   const failedThreadIds: string[] = [];
@@ -232,19 +255,21 @@ async function applyEngineLabels({
         conversations: [
           { accountId: emailAccountId, conversationId: threadId },
         ],
-        change: {
-          kind: "set_membership",
-          membership: "label",
-          id: labelId,
-          present: true,
-        },
+        change: moveToFolder
+          ? { kind: "move", folderId: labelId }
+          : {
+              kind: "set_membership",
+              membership: "label",
+              id: labelId,
+              present: true,
+            },
         observedRevision: diagnostics.revision,
       });
       if (label.status === "rejected") {
         failedThreadIds.push(threadId);
         continue;
       }
-      if (removeFromInbox) {
+      if (removeFromInbox && !moveToFolder) {
         const archived = await client.submitConversations({
           accountId: emailAccountId,
           commandId: randomUuid(),

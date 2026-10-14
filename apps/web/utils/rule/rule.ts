@@ -712,6 +712,8 @@ async function mapActionFields(
 ) {
   await assertMessagingChannelsBelongToEmailAccount(actions, emailAccountId);
   await assertIntegrationActionsConnected(actions, emailAccountId);
+  const supportsFolders =
+    isMicrosoftProvider(provider) || provider === "icloud";
 
   const actionPromises = actions.map(
     async (a): Promise<RuleActionCreateData> => {
@@ -751,7 +753,7 @@ async function mapActionFields(
         a.type === ActionType.MOVE_FOLDER &&
         folderName &&
         !folderId &&
-        isMicrosoftProvider(provider)
+        supportsFolders
       ) {
         const emailProvider = await createEmailProvider({
           emailAccountId,
@@ -778,7 +780,7 @@ async function mapActionFields(
         subject: a.fields?.subject,
         content: integrationFields ? null : a.fields?.content,
         url: a.fields?.webhookUrl,
-        ...(isMicrosoftProvider(provider) && {
+        ...(supportsFolders && {
           folderName: folderName ?? null,
           folderId,
         }),

@@ -96,6 +96,7 @@ export function createMailWorkerHost(hooks: {
         id: "id" in message ? message.id : "worker",
         type: "error",
         message: error instanceof Error ? error.message : "worker_error",
+        errorName: error instanceof Error ? error.name : undefined,
       });
     }
   }

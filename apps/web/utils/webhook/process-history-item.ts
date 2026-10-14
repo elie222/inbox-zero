@@ -1,4 +1,10 @@
+import { env } from "@/env";
+import {
+  AutomaticFilingDeferredError,
+  createFilingGuard,
+} from "@/utils/mail-corrections/filing-eligibility";
 import { after } from "next/server";
+import { filterSpam } from "@/utils/spam/gate";
 import prisma from "@/utils/prisma";
 import { runRules } from "@/utils/ai/choose-rule/run-rules";
 import { categorizeSender } from "@/utils/categorize/senders/categorize";
@@ -77,6 +83,18 @@ export async function processHistoryItem(
 
     if (isIgnoredSender(parsedMessage.headers.from)) {
       logger.info("Skipping. Ignored sender.");
+      return;
+    }
+
+    const spamVerdict = await filterSpam({
+      emailAccountId,
+      message: parsedMessage,
+      provider,
+    });
+    if (spamVerdict?.spam) {
+      logger.info("Stopped processing after spam filter", {
+        score: spamVerdict.score,
+      });
       return;
     }
 
@@ -223,9 +241,14 @@ export async function processHistoryItem(
     if (!hasExistingRule && hasAutomationRules && hasAiAccess) {
       logger.info("Running rules...");
 
+      const beforeRuleExecution = env.AUTO_FILE_AFTER_READING
+        ? createFilingGuard(provider, messageId)
+        : undefined;
+      await beforeRuleExecution?.();
       const results = await runRules({
         provider,
         message: parsedMessage,
+        beforeRuleExecution,
         rules,
         emailAccount,
         isTest: false,
@@ -327,6 +350,7 @@ export async function processHistoryItem(
       );
     }
   } catch (error: unknown) {
+    if (error instanceof AutomaticFilingDeferredError) return;
     // Handle provider-specific "not found" errors
     if (error instanceof Error) {
       const isGoogleNotFound =

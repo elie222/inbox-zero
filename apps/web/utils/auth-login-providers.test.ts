@@ -26,6 +26,7 @@ describe("betterAuthConfig login providers", () => {
   afterEach(() => {
     vi.resetModules();
     vi.doUnmock("@/utils/oauth/login-providers");
+    vi.doUnmock("@/env");
   });
 
   it("does not register social providers when only SSO login is enabled", async () => {
@@ -40,6 +41,25 @@ describe("betterAuthConfig login providers", () => {
     expect(Object.keys(betterAuthConfig.options.socialProviders)).toEqual([
       "apple",
     ]);
+  });
+
+  it.each([
+    true,
+    false,
+  ])("gates password login on configuration (%s) and disables password signup", async (enabled) => {
+    vi.doMock("@/env", async (importOriginal) => {
+      const original = await importOriginal<typeof import("@/env")>();
+      return {
+        ...original,
+        env: { ...original.env, LOCAL_PASSWORD_AUTH_ENABLED: enabled },
+      };
+    });
+    const config = await loadBetterAuthConfig(["google"]);
+    expect(config.options.emailAndPassword).toMatchObject({
+      enabled,
+      disableSignUp: true,
+      minPasswordLength: 12,
+    });
   });
 });
 

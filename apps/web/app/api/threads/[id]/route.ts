@@ -6,6 +6,7 @@ import { parseMessageReply } from "@/utils/email/parse-message-reply";
 import { getEmailProviderRateLimitMessage, SafeError } from "@/utils/error";
 import { isEmailProviderRateLimitError } from "@/utils/email/is-provider-rate-limit-error";
 import { isThreadNotFoundError } from "@/utils/email/thread-not-found";
+import { toRateLimitProvider } from "@/utils/email/rate-limit-mode-error";
 
 const threadQuery = z.object({ id: z.string() });
 export type ThreadQuery = z.infer<typeof threadQuery>;
@@ -60,14 +61,16 @@ export const GET = withEmailProvider(
       );
       return NextResponse.json(thread);
     } catch (error) {
+      const rateLimitProvider = toRateLimitProvider(emailProvider.name);
       if (
+        rateLimitProvider &&
         isEmailProviderRateLimitError({
           error,
-          provider: emailProvider.name,
+          provider: rateLimitProvider,
         })
       ) {
         throw new SafeError(
-          getEmailProviderRateLimitMessage(emailProvider.name),
+          getEmailProviderRateLimitMessage(rateLimitProvider),
           429,
         );
       }

@@ -2234,7 +2234,7 @@ async function inspectState(
     revision,
     accounts: accounts.map((row) => ({
       accountId: String(row.account_id),
-      provider: String(row.provider) as "google" | "microsoft",
+      provider: String(row.provider) as "google" | "microsoft" | "icloud",
       generation: String(row.generation),
       assistantCursor:
         row.assistant_cursor == null ? null : String(row.assistant_cursor),
@@ -2321,7 +2321,7 @@ async function resetAccountForGeneration(
   tx: SqlTransaction,
   input: {
     accountId: string;
-    provider: "google" | "microsoft";
+    provider: "google" | "microsoft" | "icloud";
     generation: string;
   },
 ) {

@@ -1208,6 +1208,16 @@ export class GmailProvider implements EmailProvider {
     return { messageId: requireSentMessageId(result.data.id) };
   }
 
+  async markMessageSpam(messageId: string): Promise<void> {
+    await withGmailRetry(() =>
+      this.client.users.messages.modify({
+        userId: "me",
+        id: messageId,
+        requestBody: { addLabelIds: ["SPAM"], removeLabelIds: ["INBOX"] },
+      }),
+    );
+  }
+
   async markSpam(threadId: string): Promise<void> {
     await markSpam({ gmail: this.client, threadId });
   }

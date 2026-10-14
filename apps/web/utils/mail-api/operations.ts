@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { trainSpamMessage } from "@/utils/spam/feedback";
 import chunk from "lodash/chunk";
 import type {
   ExecutionResult,
@@ -75,6 +76,7 @@ export function createEmailProviderOperationExecutor(input: {
       try {
         await applyChange(
           provider,
+          accountId,
           operation.intent.change,
           operation.intent.targets.map((target) => target.messageId),
         );
@@ -116,7 +118,9 @@ async function executeMetadataPerTarget(
   const observations: ReturnType<typeof parsedMessagePatch>[] = [];
   for (const target of operation.intent.targets) {
     try {
-      await applyChange(provider, operation.intent.change, [target.messageId]);
+      await applyChange(provider, accountId, operation.intent.change, [
+        target.messageId,
+      ]);
       try {
         const message = await provider.getMessage(target.messageId);
         observations.push(
@@ -307,6 +311,7 @@ function errorMessage(error: unknown) {
 
 async function applyChange(
   provider: EmailProvider,
+  emailAccountId: string,
   change: {
     kind: string;
     read?: boolean;
@@ -349,6 +354,12 @@ async function applyChange(
         } else {
           await provider.markNotSpam(message.threadId);
         }
+        await trainSpamMessage(
+          emailAccountId,
+          message,
+          change.spam ? "spam" : "good",
+          provider,
+        );
       }
       return;
     }
@@ -361,6 +372,11 @@ async function applyChange(
           message.headers.to || "",
           change.folderId,
         );
+        if (message.labelIds?.includes("SPAM")) {
+          const moved = await provider.getMessage(message.id);
+          if (!moved.labelIds?.includes("SPAM"))
+            await trainSpamMessage(emailAccountId, moved, "good", provider);
+        }
       }
       return;
     }

@@ -1,3 +1,5 @@
+import { env } from "@/env";
+import { filterSpam } from "@/utils/spam/gate";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { processHistoryItem } from "@/utils/webhook/process-history-item";
 import {
@@ -25,6 +27,9 @@ import { runRules } from "@/utils/ai/choose-rule/run-rules";
 import { sendMobilePushNotification } from "@/utils/mobile-push";
 import { SafeError } from "@/utils/error";
 
+vi.mock("@/utils/spam/gate", () => ({
+  filterSpam: vi.fn().mockResolvedValue(null),
+}));
 vi.mock("@/utils/prisma", () => ({
   default: {
     executedRule: {
@@ -70,6 +75,8 @@ const logger = createTestLogger();
 describe("Provider Edge Cases", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.restoreAllMocks();
+    vi.mocked(filterSpam).mockResolvedValue(null);
   });
 
   function getDefaultEmailAccount() {
@@ -90,6 +97,54 @@ describe("Provider Edge Cases", () => {
     emailAccount: getDefaultEmailAccount(),
     logger,
   };
+
+  it.each([
+    ["INBOX", "UNREAD"],
+    ["INBOX", "STARRED"],
+  ])("holds protected arrivals when read-first filing is enabled: %j", async (...labels) => {
+    vi.spyOn(env, "AUTO_FILE_AFTER_READING", "get").mockReturnValue(true);
+    const message = getMockParsedMessage({ labelIds: labels });
+    await processHistoryItem(
+      { messageId: message.id, message },
+      {
+        ...baseOptions,
+        hasAutomationRules: true,
+        hasAiAccess: true,
+        provider: createMockEmailProvider({
+          getMessage: vi.fn().mockResolvedValue(message),
+        }),
+      },
+    );
+    expect(runRules).not.toHaveBeenCalled();
+  });
+
+  it("stops spam before categorization, rules, notifications, or attachment filing", async () => {
+    vi.mocked(filterSpam).mockResolvedValue({
+      spam: true,
+      score: 0.99,
+      corrected: false,
+    });
+    const message = getMockParsedMessage();
+    await processHistoryItem(
+      { messageId: message.id, message },
+      {
+        ...baseOptions,
+        provider: createMockEmailProvider(),
+        hasAiAccess: true,
+        hasAutomationRules: true,
+        emailAccount: {
+          ...baseOptions.emailAccount,
+          autoCategorizeSenders: true,
+          filingEnabled: true,
+          filingPrompt: "File documents",
+        },
+      },
+    );
+    expect(categorizeSender).not.toHaveBeenCalled();
+    expect(runRules).not.toHaveBeenCalled();
+    expect(sendOtpPushNotification).not.toHaveBeenCalled();
+    expect(processAttachmentsForFiling).not.toHaveBeenCalled();
+  });
 
   describe("To Reply arrival alerts", () => {
     beforeEach(() => {

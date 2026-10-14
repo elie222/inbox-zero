@@ -169,7 +169,7 @@ function splitAddresses(value: string | undefined): string[] {
 function rolesFromFolder(
   folderId: string | undefined,
 ): Array<"inbox" | "sent" | "draft" | "trash" | "spam"> {
-  if (!folderId) return [];
+  if (!folderId || folderId.startsWith("imap:")) return [];
   const folder = folderId.toLowerCase();
   // Folder ids are often opaque. A substring match treated archive folders
   // whose id happened to contain "inbox" as the inbox itself.

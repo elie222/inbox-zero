@@ -995,6 +995,17 @@ export class OutlookProvider implements EmailProvider {
     return { messageId: requireSentMessageId(result.id) };
   }
 
+  async markMessageSpam(messageId: string): Promise<void> {
+    await withMicrosoftGraphWriteRetry(
+      () =>
+        this.client
+          .getClient()
+          .api(`/me/messages/${messageId}/move`)
+          .post({ destinationId: "junkemail" }),
+      this.logger,
+    );
+  }
+
   async markSpam(threadId: string): Promise<void> {
     await markSpam(this.client, threadId, this.logger);
   }

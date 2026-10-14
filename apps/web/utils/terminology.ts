@@ -15,6 +15,17 @@ interface EmailTerminology {
  * Gmail uses "labels" while Outlook uses "categories"
  */
 export function getEmailTerminology(provider: string): EmailTerminology {
+  if (provider === "icloud") {
+    return {
+      label: {
+        singular: "folder",
+        plural: "folders",
+        singularCapitalized: "Folder",
+        pluralCapitalized: "Folders",
+        action: "Move to folder",
+      },
+    };
+  }
   const isOutlook = isMicrosoftProvider(provider);
 
   if (isOutlook) {

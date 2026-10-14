@@ -1,3 +1,4 @@
+import { SpamFilterSetting } from "./SpamFilterSetting";
 import { AboutSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/AboutSetting";
 import { SensitiveDataPolicySetting } from "@/app/(app)/[emailAccountId]/assistant/settings/SensitiveDataPolicySetting";
 import { DigestSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/DigestSetting";
@@ -54,6 +55,7 @@ export function SettingsTab() {
 
       <div className="space-y-2">
         <SectionHeader>Advanced</SectionHeader>
+        <SpamFilterSetting />
         <SyncToExtensionSetting />
         <MultiRuleSetting />
         <ReferralSignatureSetting />

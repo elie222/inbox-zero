@@ -1,4 +1,5 @@
 import { after } from "next/server";
+import { filterSpam } from "@/utils/spam/gate";
 import type { ParsedMessage, RuleWithActions } from "@/utils/types";
 import {
   ActionType,
@@ -97,6 +98,7 @@ export async function runRules({
   logger,
   skipArchive,
   skipDraftReplies,
+  beforeRuleExecution,
 }: {
   provider: EmailProvider;
   message: ParsedMessage;
@@ -107,7 +109,25 @@ export async function runRules({
   logger: Logger;
   skipArchive?: boolean;
   skipDraftReplies?: boolean;
+  beforeRuleExecution?: () => Promise<void>;
 }): Promise<RunRulesResult[]> {
+  const spamVerdict = await filterSpam({
+    emailAccountId: emailAccount.id,
+    message,
+    provider,
+    isTest,
+  });
+  if (spamVerdict?.spam) {
+    return [
+      {
+        rule: null,
+        actionItems: [],
+        reason: `Spam filter: ${(spamVerdict.score * 100).toFixed(1)}%`,
+        status: ExecutedRuleStatus.APPLIED,
+        createdAt: new Date(),
+      },
+    ];
+  }
   const batchTimestamp = new Date(); // Single timestamp for this batch execution
   const { regularRules, conversationRules } = prepareRulesWithMetaRule(rules);
 
@@ -194,6 +214,7 @@ export async function runRules({
     const reason =
       skippedConversationReason || results.reasoning || "No rules matched";
     if (!isTest) {
+      await beforeRuleExecution?.();
       await withPrismaRetry(
         () =>
           prisma.executedRule.create({
@@ -254,6 +275,7 @@ export async function runRules({
       logger,
       skipArchive,
       skipDraftReplies,
+      beforeRuleExecution,
     );
 
     executedRules.push({
@@ -369,6 +391,7 @@ async function executeMatchedRule(
   logger: Logger,
   skipArchive?: boolean,
   skipDraftReplies?: boolean,
+  beforeRuleExecution?: () => Promise<void>,
 ) {
   const blockedActionTypes = getBlockedLowTrustStaticFromActionTypes(
     rule.from,
@@ -417,6 +440,7 @@ async function executeMatchedRule(
     let executedRule = null;
 
     if (!isTest) {
+      await beforeRuleExecution?.();
       executedRule = await prisma.executedRule.create({
         data: {
           messageId: message.id,
@@ -459,6 +483,9 @@ async function executeMatchedRule(
       createdAt: batchTimestamp,
     };
   }
+
+  // Classification and argument generation may take time; recheck before committing actions.
+  await beforeRuleExecution?.();
 
   const executedRule: Prisma.ExecutedRuleGetPayload<{
     include: { actionItems: true };

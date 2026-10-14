@@ -14,6 +14,7 @@ export function getAvailableActionsForRuleEditor({
 
   const supportsMoveFolder =
     isMicrosoftProvider(provider) ||
+    provider === "icloud" ||
     includesExistingActionType(ActionType.MOVE_FOLDER);
   // The rule editor exposes a single "Draft reply" option for both persisted
   // draft action variants, so the UI only needs the normalized DRAFT_EMAIL type.
@@ -23,13 +24,15 @@ export function getAvailableActionsForRuleEditor({
     includesExistingActionType(ActionType.DRAFT_MESSAGING_CHANNEL);
 
   return [
-    ActionType.LABEL,
+    ...(provider === "icloud" ? [] : [ActionType.LABEL]),
     ...(supportsMoveFolder ? [ActionType.MOVE_FOLDER] : []),
     ActionType.ARCHIVE,
     ActionType.MARK_READ,
     ActionType.STAR,
     ...(showsDraftReplyOption ? [ActionType.DRAFT_EMAIL] : []),
-    ...getAvailableSendActions(existingActionTypes),
+    ...(provider === "icloud"
+      ? []
+      : getAvailableSendActions(existingActionTypes)),
     ActionType.MARK_SPAM,
   ] as ActionType[];
 }

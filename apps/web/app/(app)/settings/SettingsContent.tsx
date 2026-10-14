@@ -52,6 +52,7 @@ import { useMessagingChannels } from "@/hooks/useMessagingChannels";
 import { usePremium } from "@/hooks/usePremium";
 import { useUser } from "@/hooks/useUser";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { LocalAccountSection } from "@/app/(app)/settings/LocalAccountSection";
 import { cn } from "@/utils";
 import { env } from "@/env";
 import { hasOrganizationAdminRole } from "@/utils/organizations/roles";
@@ -171,6 +172,7 @@ export function SettingsContent() {
 
       <SettingsGroup icon={<UserIcon className="size-5" />} title="Account">
         <ItemCard>
+          <LocalAccountSection />
           {env.NEXT_PUBLIC_EXTERNAL_API_ENABLED && <McpSection />}
           <EmailOtpSection hasMultipleAccounts={emailAccounts.length > 1} />
           <ItemSeparator />

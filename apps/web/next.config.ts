@@ -16,6 +16,11 @@ const withMDX = nextMdx({
 const isDevelopment = process.env.NODE_ENV === "development";
 const isProductionBuild = process.env.NODE_ENV === "production";
 const playwrightRunId = process.env.PLAYWRIGHT_RUN_ID;
+const distDir =
+  env.NEXT_DIST_DIR ||
+  (playwrightRunId && !isProductionBuild
+    ? path.join(".tmp", "playwright", playwrightRunId, "next")
+    : ".next");
 const repoRoot = path.resolve(import.meta.dirname, "../..");
 const nextPackageRoot = path.dirname(
   realpathSync(require.resolve("next/package.json")),
@@ -33,6 +38,7 @@ const microsoftEmulatorOrigin = env.MICROSOFT_BASE_URL
   : null;
 
 const nextConfig: NextConfig = {
+  devIndicators: false,
   allowedDevOrigins: [
     "127.0.0.1",
     ...(URL.canParse(env.NEXT_PUBLIC_BASE_URL)
@@ -41,12 +47,7 @@ const nextConfig: NextConfig = {
   ],
   // Sequential Playwright feature groups use separate dev servers. Isolating
   // their caches prevents a new Turbopack process from restoring stale tasks.
-  ...(playwrightRunId && !isProductionBuild
-    ? {
-        devIndicators: false,
-        distDir: path.join(".tmp", "playwright", playwrightRunId, "next"),
-      }
-    : {}),
+  distDir,
   experimental:
     isDevelopment || isProductionBuild
       ? {
@@ -242,6 +243,14 @@ const nextConfig: NextConfig = {
   output: process.env.DOCKER_BUILD === "true" ? "standalone" : undefined,
   outputFileTracingIncludes: {
     "/mcp": ["./generated/mcp-app/*"],
+    "/**": [
+      "./.native/spam-extractor",
+      "./scripts/spam/portable-worker.mjs",
+      "./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs",
+      "./node_modules/pdfjs-dist/cmaps/**/*",
+      "./node_modules/pdfjs-dist/standard_fonts/**/*",
+      "./node_modules/pdfjs-dist/wasm/**/*",
+    ],
   },
   pageExtensions: ["js", "jsx", "mdx", "ts", "tsx"],
   reactStrictMode: true,
@@ -423,6 +432,9 @@ const nextConfig: NextConfig = {
     "ioredis",
     "mammoth",
     "unpdf",
+    "pdfjs-dist",
+    "sharp",
+    "@napi-rs/canvas",
   ],
   turbopack: {
     root: turbopackRoot,

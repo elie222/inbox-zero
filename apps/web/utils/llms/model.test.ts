@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { generateText } from "ai";
 import {
   getConfiguredRolePrimaryModelEntry,
   getModel,
@@ -104,6 +105,7 @@ vi.mock("@/env", () => ({
     OPENAI_COMPATIBLE_BASE_URL: "http://localhost:1234/v1",
     OPENAI_COMPATIBLE_MODEL: "llama-3.2-3b-instruct",
     OPENAI_COMPATIBLE_AUTH_HEADER: undefined,
+    OPENAI_COMPATIBLE_HEADERS: undefined,
     CLI_LLM_ENABLED: false,
     CODEX_CLI_ALLOW_NPX: false,
     CODEX_CLI_PATH: undefined,
@@ -156,6 +158,7 @@ describe("Models", () => {
     vi.mocked(env).OPENAI_COMPATIBLE_BASE_URL = "http://localhost:1234/v1";
     vi.mocked(env).OPENAI_COMPATIBLE_MODEL = "llama-3.2-3b-instruct";
     vi.mocked(env).OPENAI_COMPATIBLE_AUTH_HEADER = undefined;
+    vi.mocked(env).OPENAI_COMPATIBLE_HEADERS = undefined;
     vi.mocked(env).CLI_LLM_ENABLED = false;
     vi.mocked(env).CODEX_CLI_ALLOW_NPX = false;
     vi.mocked(env).CODEX_CLI_PATH = undefined;
@@ -1361,6 +1364,104 @@ describe("Models", () => {
           apiKey: "test-provider-key",
         }),
       );
+    });
+
+    it.each([
+      undefined,
+      "api-key",
+      "authorization",
+    ] as const)("should send custom headers while preserving %s authentication", (authHeader) => {
+      setDefaultLlms(Provider.OPENAI_COMPATIBLE, "test-model");
+      vi.mocked(env).OPENAI_COMPATIBLE_HEADERS = JSON.stringify({
+        "X-Inference-Client": "test-mail-client",
+      });
+      vi.mocked(env).OPENAI_COMPATIBLE_AUTH_HEADER = authHeader;
+      vi.mocked(env).LLM_API_KEY = authHeader ? "test-provider-key" : undefined;
+
+      getModel(defaultUserAi());
+
+      expect(createOpenAICompatible).toHaveBeenCalledWith(
+        expect.objectContaining({
+          headers: {
+            "x-inference-client": "test-mail-client",
+            ...(authHeader === "api-key"
+              ? { "api-key": "test-provider-key" }
+              : {}),
+          },
+          ...(authHeader === "authorization"
+            ? { apiKey: "test-provider-key" }
+            : {}),
+        }),
+      );
+    });
+
+    it("should send client headers and preserve bearer auth on the SDK request", async () => {
+      const actual = await vi.importActual<
+        typeof import("@ai-sdk/openai-compatible")
+      >("@ai-sdk/openai-compatible");
+      const fetcher = vi.fn(async () =>
+        Response.json({
+          id: "test-response",
+          object: "chat.completion",
+          created: 1,
+          model: "test-model",
+          choices: [
+            {
+              index: 0,
+              message: { role: "assistant", content: "OK" },
+              finish_reason: "stop",
+            },
+          ],
+          usage: {
+            prompt_tokens: 1,
+            completion_tokens: 1,
+            total_tokens: 2,
+          },
+        }),
+      );
+      vi.mocked(createOpenAICompatible).mockImplementationOnce((options) =>
+        actual.createOpenAICompatible({ ...options, fetch: fetcher }),
+      );
+      setDefaultLlms(Provider.OPENAI_COMPATIBLE, "test-model");
+      vi.mocked(env).LLM_API_KEY = "test-provider-key";
+      vi.mocked(env).OPENAI_COMPATIBLE_HEADERS = JSON.stringify({
+        "X-Inference-Client": "test-mail-client",
+        Authorization: "Bearer stale-key",
+      });
+
+      const { text } = await generateText({
+        model: getModel(defaultUserAi()).model,
+        prompt: "Reply OK",
+        maxRetries: 0,
+      });
+
+      expect(text).toBe("OK");
+      const [url, request] = fetcher.mock.calls[0] as unknown as [
+        string,
+        RequestInit,
+      ];
+      expect(url).toBe("http://localhost:1234/v1/chat/completions");
+      const headers = new Headers(request.headers);
+      expect(headers.get("x-inference-client")).toBe("test-mail-client");
+      expect(headers.get("authorization")).toBe("Bearer test-provider-key");
+      expect(JSON.parse(request.body as string).model).toBe("test-model");
+    });
+
+    it.each([
+      "{",
+      "[]",
+      "null",
+      '{"X-Client": 5}',
+      '{"bad name": "value"}',
+      '{"X-Client": "line\\nbreak"}',
+    ])("should reject invalid OpenAI-compatible headers without exposing their contents", (headers) => {
+      setDefaultLlms(Provider.OPENAI_COMPATIBLE, "test-model");
+      vi.mocked(env).OPENAI_COMPATIBLE_HEADERS = headers;
+
+      expect(() => getModel(defaultUserAi())).toThrow(
+        "OPENAI_COMPATIBLE_HEADERS must be a JSON object of valid HTTP header strings",
+      );
+      expect(createOpenAICompatible).not.toHaveBeenCalled();
     });
 
     it("should use process env for OpenAI-compatible settings when env is partially mocked", () => {

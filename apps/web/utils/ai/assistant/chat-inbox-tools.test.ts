@@ -79,6 +79,34 @@ describe("chat inbox tools", () => {
     vi.clearAllMocks();
   });
 
+  it("lists iCloud mail with an empty text query and preserves attachment indicators", async () => {
+    const searchMessages = vi.fn().mockResolvedValue({
+      messages: [{ ...getMockMessage(), attachments: [], hasAttachment: true }],
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      searchMessages,
+      getLabels: vi.fn().mockResolvedValue([]),
+    } as never);
+    const tool = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "account",
+      provider: "icloud",
+      logger,
+    });
+    const validation = await asSchema(tool.inputSchema).validate!({
+      query: "",
+      limit: 5,
+    });
+    expect(validation.success).toBe(true);
+    const result = await (tool.execute as any)({ query: "", limit: 5 });
+    expect(searchMessages).toHaveBeenCalledWith({
+      query: "",
+      maxResults: 5,
+      pageToken: undefined,
+    });
+    expect(result.messages[0].hasAttachments).toBe(true);
+  });
+
   it("adds formatted from header when sending an email", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       name: "Test User",

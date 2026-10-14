@@ -28,6 +28,15 @@ describe("selectMailEngineRuntimeMode", () => {
 });
 
 describe("shouldStartMailEngine", () => {
+  it("waits for account metadata before starting an engine", () => {
+    expect(
+      shouldStartMailEngine({
+        pathname: "/account/mail",
+        desktopIpc: false,
+        accountReady: false,
+      }),
+    ).toBe(false);
+  });
   it.each([
     "/account/assistant",
     "/account/automation",

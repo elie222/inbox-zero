@@ -50,10 +50,11 @@ import { getAssistantChatProvider } from "./chat-provider-shared";
 import { LlmUseCase } from "@/utils/llms/use-cases";
 import { isIntegrationActionEnabledForUserId } from "@/utils/integration-action.server";
 import { trimStaleToolResults } from "@/utils/ai/assistant/trim-stale-tool-results";
+import { deliverAttachmentTool } from "./attachment-delivery";
 
 export const maxDuration = 800;
 // Increment when chat prompts, tools, or routing change so run quality remains attributable.
-export const ASSISTANT_CHAT_PIPELINE_VERSION = 14;
+export const ASSISTANT_CHAT_PIPELINE_VERSION = 16;
 const ASSISTANT_CHAT_TOOL_BUDGET_MS = {
   web: 720_000,
   messaging: 60_000,
@@ -86,6 +87,7 @@ export async function aiProcessAssistantChat({
   inboxStats,
   responseSurface = "web",
   supportsInlineEmailCards = false,
+  attachmentDeliveryEnabled = false,
   messagingPlatform,
   onRulesStateExposed,
   onStepEnd,
@@ -106,6 +108,7 @@ export async function aiProcessAssistantChat({
   inboxStats?: { total: number; unread: number } | null;
   responseSurface?: "web" | "messaging";
   supportsInlineEmailCards?: boolean;
+  attachmentDeliveryEnabled?: boolean;
   messagingPlatform?: MessagingPlatform;
   onRulesStateExposed?: (rulesRevision: number) => void;
   onStepEnd?: AssistantChatOnStepEnd;
@@ -315,6 +318,9 @@ export async function aiProcessAssistantChat({
       : {}),
     // Attachments
     readAttachment: readAttachmentTool(toolOptions),
+    ...(attachmentDeliveryEnabled
+      ? { deliverAttachment: deliverAttachmentTool(toolOptions) }
+      : {}),
     ...providerPolicy.getTaxonomyTools(toolOptions),
     // Settings
     updateAssistantSettings: updateAssistantSettingsTool(toolOptions),

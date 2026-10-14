@@ -308,7 +308,7 @@ describe("createRuleSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  it("rejects MOVE_FOLDER actions for non-Microsoft providers", () => {
+  it("rejects MOVE_FOLDER actions for Google providers", () => {
     const result = createRuleSchema(provider).safeParse(
       buildRule({
         type: ActionType.MOVE_FOLDER,
@@ -322,8 +322,11 @@ describe("createRuleSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("requires folderName for MOVE_FOLDER on Microsoft providers", () => {
-    const result = createRuleSchema("microsoft").safeParse(
+  it.each([
+    "microsoft",
+    "icloud",
+  ])("requires folderName for MOVE_FOLDER on %s", (folderProvider) => {
+    const result = createRuleSchema(folderProvider).safeParse(
       buildRule({
         type: ActionType.MOVE_FOLDER,
         fields: {},
@@ -334,8 +337,11 @@ describe("createRuleSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("accepts MOVE_FOLDER with folderName on Microsoft providers", () => {
-    const result = createRuleSchema("microsoft").safeParse(
+  it.each([
+    "microsoft",
+    "icloud",
+  ])("accepts MOVE_FOLDER with folderName on %s", (folderProvider) => {
+    const result = createRuleSchema(folderProvider).safeParse(
       buildRule({
         type: ActionType.MOVE_FOLDER,
         fields: {

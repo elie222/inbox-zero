@@ -8,6 +8,181 @@ import {
 } from "./account-test-helpers";
 import { openMail } from "./mail-test-helpers";
 
+test("releases storage on page departure and restarts after a cached-page restore", async ({
+  page,
+}, testInfo) => {
+  await page.addInitScript(() => {
+    const OriginalWorker = window.Worker;
+    const workers = { started: 0, terminated: 0 };
+    Object.assign(window, { __testMailWorkers: workers });
+    window.Worker = class extends OriginalWorker {
+      postMessage(...args: Parameters<Worker["postMessage"]>) {
+        if (args[0]?.type === "start") workers.started++;
+        super.postMessage(...args);
+      }
+      terminate() {
+        workers.terminated++;
+        super.terminate();
+      }
+    };
+  });
+  const workers = () =>
+    page.evaluate(
+      () =>
+        (
+          window as Window & {
+            __testMailWorkers: { started: number; terminated: number };
+          }
+        ).__testMailWorkers,
+    );
+  const { conversations } = await openMail(page);
+  await expect(conversations.getByRole("option").first()).toBeVisible({
+    timeout: 60_000,
+  });
+  const before = await workers();
+
+  await page.evaluate(() =>
+    window.dispatchEvent(
+      new PageTransitionEvent("pagehide", { persisted: true }),
+    ),
+  );
+  await expect
+    .poll(async () => (await workers()).terminated)
+    .toBeGreaterThan(before.terminated);
+
+  await page.evaluate(() =>
+    window.dispatchEvent(
+      new PageTransitionEvent("pageshow", { persisted: true }),
+    ),
+  );
+  await expect
+    .poll(async () => (await workers()).started)
+    .toBeGreaterThan(before.started);
+  await expect(conversations.getByRole("option").first()).toBeVisible({
+    timeout: 60_000,
+  });
+  await expect(
+    page.getByText("Mail could not start. Please try again.", { exact: true }),
+  ).toBeHidden();
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "mail-engine-page-restored",
+  );
+});
+
+test("recovers from a transient storage lock during startup", async ({
+  page,
+}, testInfo) => {
+  await page.addInitScript(() => {
+    const OriginalWorker = window.Worker;
+    let failFirstStart = true;
+    window.Worker = class extends OriginalWorker {
+      postMessage(...args: Parameters<Worker["postMessage"]>) {
+        const message = args[0];
+        if (message?.type === "start" && failFirstStart) {
+          failFirstStart = false;
+          queueMicrotask(() =>
+            this.dispatchEvent(
+              new MessageEvent("message", {
+                data: {
+                  id: message.id,
+                  type: "error",
+                  errorName: "UnknownError",
+                  message: "Previous storage handle is still closing",
+                },
+              }),
+            ),
+          );
+          return;
+        }
+        super.postMessage(...args);
+      }
+    };
+  });
+  const { conversations } = await openMail(page);
+  await expect(conversations.getByRole("option").first()).toBeVisible({
+    timeout: 60_000,
+  });
+  await expect(
+    page.getByText("Mail could not start. Please try again.", { exact: true }),
+  ).toBeHidden();
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "mail-engine-storage-lock-recovered",
+  );
+});
+
+test("waits for account metadata and switches accounts without storage errors", async ({
+  page,
+}, testInfo) => {
+  await page.addInitScript(() => {
+    const OriginalWorker = window.Worker;
+    const starts: string[] = [];
+    Object.assign(window, { __testMailStarts: starts });
+    window.Worker = class extends OriginalWorker {
+      postMessage(...args: Parameters<Worker["postMessage"]>) {
+        if (args[0]?.type === "start") {
+          starts.push(args[0].input.accountId);
+        }
+        super.postMessage(...args);
+      }
+    };
+  });
+  await page.route("**/api/user/email-accounts", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    await route.continue();
+  });
+  const { emailAccountId } = await openMail(page);
+  const second = await createSecondEmailAccount(emailAccountId);
+  try {
+    await page.reload();
+    await expect
+      .poll(() => page.evaluate(() => window.__inboxZeroMailInspect?.role))
+      .toBe("owner");
+    expect(
+      await page.evaluate(
+        () =>
+          (window as Window & { __testMailStarts: string[] }).__testMailStarts,
+      ),
+    ).toEqual([emailAccountId]);
+    await page
+      .getByRole("button", { name: /playwright-test\+/i })
+      .last()
+      .click();
+    await page.getByRole("menuitem", { name: new RegExp(second.name) }).click();
+    await expect
+      .poll(
+        () => page.evaluate(() => window.__inboxZeroMailInspect?.accountId),
+        { timeout: 60_000 },
+      )
+      .toBe(second.id);
+    await expect(
+      page
+        .getByRole("listbox", { name: "Conversations" })
+        .getByRole("option")
+        .first(),
+    ).toBeVisible({ timeout: 60_000 });
+    await expect(
+      page.getByText("Mail needs persistent browser storage.", { exact: true }),
+    ).toBeHidden();
+    await expect(
+      page.getByText("Mail could not start. Please try again.", {
+        exact: true,
+      }),
+    ).toBeHidden();
+    await capturePlaywrightCheckpoint(
+      page,
+      testInfo,
+      "account-switch-after-storage-close",
+    );
+  } finally {
+    await page.goto("about:blank");
+    await deleteSecondEmailAccount(second.accountId);
+  }
+});
+
 test("exposes engine diagnostics after metadata coverage", async ({
   page,
 }, testInfo) => {

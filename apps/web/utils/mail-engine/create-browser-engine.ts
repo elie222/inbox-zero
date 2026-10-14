@@ -31,13 +31,14 @@ export { browserMailEngineCapabilities };
 export type BrowserMailEngine = MailEngine & {
   ensureAccount(input: {
     accountId: string;
-    provider: "google" | "microsoft";
+    provider: "google" | "microsoft" | "icloud";
     generation?: string;
   }): Promise<void>;
 };
 
 export async function createBrowserMailEngine(
   input: BrowserEngineStart,
+  signal?: AbortSignal,
 ): Promise<BrowserMailEngine> {
   const start: BrowserEngineStart = {
     ...input,
@@ -45,10 +46,21 @@ export async function createBrowserMailEngine(
       input.maxPendingOperations ?? readPageMaxPendingOperations(),
   };
   if (browserMailEngineCapabilities().worker) {
-    try {
-      return await createWorkerOwnedEngine(start);
-    } catch {
-      // Dedicated workers can fail in private mode or without module workers.
+    for (let attempt = 0; ; attempt++) {
+      signal?.throwIfAborted();
+      try {
+        return await createWorkerOwnedEngine(start, signal);
+      } catch (error) {
+        signal?.throwIfAborted();
+        // WebKit can retain a previous worker's file locks briefly after teardown.
+        if (attempt < 3 && isTransientStorageError(error)) {
+          await delay(250 * 2 ** attempt);
+          continue;
+        }
+        // Persistent OPFS requires a worker. An in-tab attempt only masks its error.
+        if (input.persist !== false) throw error;
+        break;
+      }
     }
   }
   return createInTabEngine(start);
@@ -119,6 +131,7 @@ async function createInTabEngine(
 
 async function createWorkerOwnedEngine(
   input: BrowserEngineStart,
+  signal?: AbortSignal,
 ): Promise<BrowserMailEngine> {
   const worker = new Worker(new URL("./engine-worker.ts", import.meta.url), {
     type: "module",
@@ -134,6 +147,42 @@ async function createWorkerOwnedEngine(
       listeners: Set<() => void>;
     }
   >();
+  let terminated = false;
+  let terminationError = new Error("mail engine worker closed");
+
+  function terminate(error = terminationError) {
+    if (terminated) return;
+    terminated = true;
+    terminationError = error;
+    signal?.removeEventListener("abort", onAbort);
+    worker.terminate();
+    for (const waiter of pending.values()) waiter.reject(error);
+    pending.clear();
+  }
+
+  function onAbort() {
+    terminate(
+      signal?.reason instanceof Error
+        ? signal.reason
+        : new DOMException("Mail page left", "AbortError"),
+    );
+  }
+
+  function send(message: WorkerRequest): Promise<unknown> {
+    if (terminated) return Promise.reject(terminationError);
+    return new Promise((resolve, reject) => {
+      pending.set(message.id, { resolve, reject });
+      try {
+        worker.postMessage(message);
+      } catch (error) {
+        pending.delete(message.id);
+        reject(error);
+      }
+    });
+  }
+
+  signal?.addEventListener("abort", onAbort, { once: true });
+  if (signal?.aborted) onAbort();
 
   worker.addEventListener("message", (event: MessageEvent<WorkerResponse>) => {
     const message = event.data;
@@ -148,20 +197,27 @@ async function createWorkerOwnedEngine(
     if (!waiter) return;
     pending.delete(message.id);
     if (message.type === "ok") waiter.resolve(message.value);
-    else waiter.reject(new Error(message.message));
+    else {
+      const error = new Error(message.message);
+      error.name = message.errorName ?? "Error";
+      waiter.reject(error);
+    }
   });
   worker.addEventListener("error", (event) => {
-    for (const waiter of pending.values()) {
-      waiter.reject(new Error(event.message || "mail engine worker failed"));
-    }
-    pending.clear();
+    terminate(new Error(event.message || "mail engine worker failed"));
   });
 
-  await request(worker, pending, {
-    id: crypto.randomUUID(),
-    type: "start",
-    input,
-  });
+  try {
+    await send({
+      id: crypto.randomUUID(),
+      type: "start",
+      input,
+    });
+  } catch (error) {
+    // A partially initialized worker may still own OPFS handles.
+    terminate();
+    throw error;
+  }
 
   function observe<T>(
     kind: WorkerObserveKind,
@@ -179,7 +235,7 @@ async function createWorkerOwnedEngine(
       listeners: new Set<() => void>(),
     };
     observations.set(handleId, observation);
-    request(worker, pending, {
+    send({
       id: crypto.randomUUID(),
       type: "observe",
       kind,
@@ -195,7 +251,7 @@ async function createWorkerOwnedEngine(
       },
       close: () => {
         observations.delete(handleId);
-        request(worker, pending, {
+        send({
           id: crypto.randomUUID(),
           type: "unobserve",
           handleId,
@@ -206,7 +262,7 @@ async function createWorkerOwnedEngine(
 
   return {
     queryContactSuggestions: (query) =>
-      callWorker(worker, pending, "queryContactSuggestions", [query]),
+      callWorker(send, "queryContactSuggestions", [query]),
     observeMailbox: (query) => observe("mailbox", [query]),
     observeMailboxCounts: (query) => observe("mailboxCounts", [query]),
     observeMailboxWindow: (query) => {
@@ -214,7 +270,7 @@ async function createWorkerOwnedEngine(
       return {
         ...handle,
         loadMore: () =>
-          request(worker, pending, {
+          send({
             id: crypto.randomUUID(),
             type: "loadMore",
             handleId: handle.handleId,
@@ -223,72 +279,51 @@ async function createWorkerOwnedEngine(
     },
     observeConversation: (key, page) => observe("conversation", [key, page]),
     observeOperation: (key) => observe("operation", [key]),
-    submitMetadata: (payload) =>
-      callWorker(worker, pending, "submitMetadata", [payload]),
+    submitMetadata: (payload) => callWorker(send, "submitMetadata", [payload]),
     submitConversations: (payload) =>
-      callWorker(worker, pending, "submitConversations", [payload]),
-    saveDraft: (payload) => callWorker(worker, pending, "saveDraft", [payload]),
-    readDraft: (payload) => callWorker(worker, pending, "readDraft", [payload]),
-    submitSend: (payload) =>
-      callWorker(worker, pending, "submitSend", [payload]),
+      callWorker(send, "submitConversations", [payload]),
+    saveDraft: (payload) => callWorker(send, "saveDraft", [payload]),
+    readDraft: (payload) => callWorker(send, "readDraft", [payload]),
+    submitSend: (payload) => callWorker(send, "submitSend", [payload]),
     cancelOperation: (payload) =>
-      callWorker(worker, pending, "cancelOperation", [payload]),
+      callWorker(send, "cancelOperation", [payload]),
     requestSync: (accountIds) =>
       requestSyncUnlessOffline(pageConnectivityOnline(), () =>
-        callWorker<WorkAdmission>(worker, pending, "requestSync", [accountIds]),
+        callWorker<WorkAdmission>(send, "requestSync", [accountIds]),
       ),
     ensureAccount: (account) =>
-      callWorker<void>(worker, pending, "ensureAccount", [account]),
+      callWorker<void>(send, "ensureAccount", [account]),
     ensureMessageContent: (key) =>
-      callWorker(worker, pending, "ensureMessageContent", [key]),
+      callWorker(send, "ensureMessageContent", [key]),
     getDiagnostics: (accountId) =>
-      callWorker(worker, pending, "getDiagnostics", [accountId]),
-    purgeAccount: (accountId) =>
-      callWorker(worker, pending, "purgeAccount", [accountId]),
+      callWorker(send, "getDiagnostics", [accountId]),
+    purgeAccount: (accountId) => callWorker(send, "purgeAccount", [accountId]),
     retainAccounts: (accountIds) =>
-      callWorker<void>(worker, pending, "retainAccounts", [accountIds]),
-    inspect: () => callWorker(worker, pending, "inspect", []),
-    runUntil: (deadlineMs) =>
-      callWorker(worker, pending, "runUntil", [deadlineMs]),
+      callWorker<void>(send, "retainAccounts", [accountIds]),
+    inspect: () => callWorker(send, "inspect", []),
+    runUntil: (deadlineMs) => callWorker(send, "runUntil", [deadlineMs]),
     async close() {
+      if (terminated) return;
       try {
-        await request(worker, pending, {
+        await send({
           id: crypto.randomUUID(),
           type: "close",
         });
       } finally {
         // SAHPool keeps OPFS handles until the worker is gone, even if the
         // graceful close RPC fails.
-        worker.terminate();
+        terminate();
       }
     },
   };
 }
 
-function request(
-  worker: Worker,
-  pending: Map<
-    string,
-    { resolve: (value: unknown) => void; reject: (error: Error) => void }
-  >,
-  message: WorkerRequest,
-) {
-  return new Promise((resolve, reject) => {
-    pending.set(message.id, { resolve, reject });
-    worker.postMessage(message);
-  });
-}
-
 function callWorker<T>(
-  worker: Worker,
-  pending: Map<
-    string,
-    { resolve: (value: unknown) => void; reject: (error: Error) => void }
-  >,
+  send: (message: WorkerRequest) => Promise<unknown>,
   method: string,
   args: unknown[],
 ) {
-  return request(worker, pending, {
+  return send({
     id: crypto.randomUUID(),
     type: "call",
     method,
@@ -298,4 +333,15 @@ function callWorker<T>(
 
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isTransientStorageError(error: unknown) {
+  return (
+    error instanceof Error &&
+    [
+      "UnknownError",
+      "InvalidStateError",
+      "NoModificationAllowedError",
+    ].includes(error.name)
+  );
 }

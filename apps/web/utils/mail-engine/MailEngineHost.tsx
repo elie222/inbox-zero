@@ -13,6 +13,7 @@ import { usePathname } from "next/navigation";
 import type { MailClient } from "@inboxzero/mail-core/engine";
 import { MailEngineProvider } from "@inboxzero/mail-react/MailEngineProvider";
 import { LoadingContent } from "@/components/LoadingContent";
+import { Button } from "@/components/ui/button";
 import { env } from "@/env";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import {
@@ -31,6 +32,11 @@ import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { fetchEmailAccounts } from "@/utils/fetch-email-accounts";
 import { followMailboxChanges } from "@/utils/mail-engine/follow-mailbox-changes";
 import { browserMailEngineCapabilities } from "@/utils/mail-engine/worker-protocol";
+import { holdMailEngineOwner } from "@/utils/mail-engine/owner-lifetime";
+import { atMailEngineStartupStage } from "@/utils/mail-engine/startup-stage";
+import { bindMailEnginePageLifecycle } from "@/utils/mail-engine/page-lifecycle";
+import { createClientLogger } from "@/utils/logger-client";
+import { reportMailEngineStartupFailureAction } from "@/utils/actions/mail-engine";
 import {
   MAIL_ENGINE_OWNER_LOCK,
   MAIL_ENGINE_TAB_CHANNEL,
@@ -47,7 +53,8 @@ import {
 type MailEngineRuntimeStatus = {
   client: MailClient | null;
   mounted: boolean;
-  unavailable: boolean;
+  startupError: boolean;
+  retry: () => void;
   requestBrowserEngine: () => void;
 };
 
@@ -56,7 +63,8 @@ type MailEngineInspectTransport = "browser" | "desktop-ipc";
 const MailEngineRuntimeStatusContext = createContext<MailEngineRuntimeStatus>({
   client: null,
   mounted: false,
-  unavailable: false,
+  startupError: false,
+  retry: () => {},
   requestBrowserEngine: () => {},
 });
 
@@ -96,10 +104,23 @@ export function MailCoverageGate({ children }: { children: ReactNode }) {
     desktopIpc: hasDesktopMailEngineIpc(),
     opfs: browserMailEngineCapabilities().opfs,
   });
-  if (status.unavailable || mode === "unavailable") {
+  if (mode === "unavailable") {
     return (
       <div className="flex flex-1 items-center justify-center p-6 text-muted-foreground text-sm">
         Mail needs persistent browser storage.
+      </div>
+    );
+  }
+  if (status.startupError) {
+    return (
+      <div
+        className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-muted-foreground text-sm"
+        role="alert"
+      >
+        <p>Mail could not start. Please try again.</p>
+        <Button variant="outline" onClick={status.retry}>
+          Retry
+        </Button>
       </div>
     );
   }
@@ -110,7 +131,7 @@ export function MailCoverageGate({ children }: { children: ReactNode }) {
 }
 
 function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
-  const { emailAccountId, provider } = useAccount();
+  const { emailAccountId, provider, isLoading } = useAccount();
   const pathname = usePathname();
   const desktopIpc = useSyncExternalStore(
     subscribeNever,
@@ -123,27 +144,34 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
     pathname,
     desktopIpc,
     browserRequested,
+    accountReady: !isLoading && !!provider,
   });
   const [client, setClient] = useState<MailClient | null>(null);
-  const [unavailable, setUnavailable] = useState(false);
+  const [startupError, setStartupError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const retry = useCallback(() => setAttempt((value) => value + 1), []);
 
   useEffect(() => {
     if (!emailAccountId || !enabled) {
-      setUnavailable(false);
+      setStartupError(false);
       return;
     }
     // Keep queued sends and undo working after the initiating page or composer closes.
     if (!desktopIpc) requestBrowserEngine();
-    setUnavailable(false);
+    setStartupError(false);
     const mode = selectMailEngineRuntimeMode({
       desktopIpc,
       opfs: browserMailEngineCapabilities().opfs,
     });
     if (mode === "unavailable") {
-      setUnavailable(true);
       return;
     }
-    const mailProvider = isMicrosoftProvider(provider) ? "microsoft" : "google";
+    const mailProvider =
+      provider === "icloud"
+        ? "icloud"
+        : isMicrosoftProvider(provider)
+          ? "microsoft"
+          : "google";
     const abort = new AbortController();
     let published: MailClient | undefined;
 
@@ -165,7 +193,7 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
         provider: mailProvider,
       });
       publishClient(client, "owner", "desktop-ipc").catch(() => {
-        if (!abort.signal.aborted) setUnavailable(true);
+        if (!abort.signal.aborted) setStartupError(true);
       });
       client.requestSync([emailAccountId]).catch(() => undefined);
       const unsubscribeLogout = subscribeMailEngineLogout(() => abort.abort());
@@ -180,6 +208,11 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
     }
 
     let engine: BrowserMailEngine | undefined;
+    const unbindPageLifecycle = bindMailEnginePageLifecycle(
+      window,
+      abort,
+      retry,
+    );
     let unbindOwner: (() => void) | undefined;
     let unbindHello: (() => void) | undefined;
     const channel =
@@ -223,29 +256,19 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
       });
     }
 
-    async function hold(create: () => Promise<void>) {
-      await create();
-      await new Promise<void>((resolve) => {
-        if (abort.signal.aborted) {
-          resolve();
-          return;
-        }
-        abort.signal.addEventListener("abort", () => resolve(), { once: true });
-      });
-    }
-
     async function start() {
       const create = async () => {
-        engine = await createBrowserMailEngine({
-          accountId: emailAccountId,
-          provider: mailProvider,
-          online: typeof navigator === "undefined" || navigator.onLine,
-        });
-        if (abort.signal.aborted) {
-          await engine.close();
-          return;
-        }
-        if (bus) {
+        engine = await atMailEngineStartupStage("browser-engine", () =>
+          createBrowserMailEngine(
+            {
+              accountId: emailAccountId,
+              provider: mailProvider,
+              online: typeof navigator === "undefined" || navigator.onLine,
+            },
+            abort.signal,
+          ),
+        );
+        if (!abort.signal.aborted && bus) {
           unbindOwner = bindTabMailOwner({
             client: engine,
             bus,
@@ -255,28 +278,54 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
           bus.post({ type: "owner", accountId: emailAccountId });
         }
         await publishClient(engine, "owner", "browser");
+        const ownedEngine = engine;
+        return async () => {
+          unbindOwner?.();
+          await ownedEngine.close();
+        };
       };
       if (typeof navigator !== "undefined" && navigator.locks?.request) {
-        await navigator.locks.request(
-          MAIL_ENGINE_OWNER_LOCK,
-          { signal: abort.signal },
-          () => hold(create),
+        await atMailEngineStartupStage("owner-lock", () =>
+          navigator.locks.request(
+            MAIL_ENGINE_OWNER_LOCK,
+            { signal: abort.signal },
+            () => holdMailEngineOwner(abort.signal, create),
+          ),
         );
         return;
       }
-      await hold(create);
+      await holdMailEngineOwner(abort.signal, create);
     }
 
-    start().catch(() => {
-      if (!abort.signal.aborted) setUnavailable(true);
+    start().catch((error) => {
+      if (!abort.signal.aborted) {
+        createClientLogger("mail-engine").error("Mail engine startup failed", {
+          error,
+          attempt,
+        });
+        reportMailEngineStartupFailureAction
+          .bind(
+            null,
+            emailAccountId,
+          )({
+            errorName:
+              error instanceof Error ? error.name.slice(0, 100) : "Error",
+            errorMessage:
+              error instanceof Error
+                ? error.message.slice(0, 1000)
+                : "Unknown startup failure",
+          })
+          .catch(() => undefined);
+        setStartupError(true);
+      }
     });
 
     const unsubscribeLogout = subscribeMailEngineLogout(() => {
       abort.abort();
-      engine?.close().catch(() => undefined);
     });
 
     return () => {
+      unbindPageLifecycle();
       unsubscribeLogout();
       abort.abort();
       unbindOwner?.();
@@ -285,10 +334,17 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
       clearMailEngineInspect();
       setActiveMailClient(null);
       channel?.close();
-      engine?.close().catch(() => undefined);
       setClient(null);
     };
-  }, [emailAccountId, provider, enabled, desktopIpc, requestBrowserEngine]);
+  }, [
+    emailAccountId,
+    provider,
+    enabled,
+    desktopIpc,
+    requestBrowserEngine,
+    retry,
+    attempt,
+  ]);
 
   useEffect(() => {
     if (!client || !emailAccountId) return;
@@ -333,7 +389,13 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
 
   return (
     <MailEngineRuntimeStatusContext.Provider
-      value={{ client, mounted: true, unavailable, requestBrowserEngine }}
+      value={{
+        client,
+        mounted: true,
+        startupError,
+        retry,
+        requestBrowserEngine,
+      }}
     >
       <MailEngineProvider client={client}>{children}</MailEngineProvider>
     </MailEngineRuntimeStatusContext.Provider>

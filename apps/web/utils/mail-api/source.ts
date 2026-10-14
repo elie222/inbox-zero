@@ -21,6 +21,7 @@ import { extractErrorInfo as extractOutlookErrorInfo } from "@/utils/outlook/ret
 import type { ParsedMessage } from "@/utils/types";
 import { mapWithConcurrency } from "@/utils/async";
 import { convertEmailHtmlToText } from "@/utils/mail";
+import { SafeError } from "@/utils/error";
 
 // Outlook allows four concurrent Graph requests per mailbox, shared with
 // webhook processing, so batched folder reads stay below that.
@@ -68,14 +69,20 @@ export function createEmailProviderMailboxSource(input: {
             provider.localMailSyncStrategy === "folder-delta"
               ? "folder_delta"
               : "account_history",
-          supportedChanges: [...SUPPORTED_CHANGES],
+          supportedChanges:
+            provider.name === "icloud"
+              ? SUPPORTED_CHANGES.filter(
+                  (change) =>
+                    change !== "set_membership" && change !== "snooze",
+                )
+              : [...SUPPORTED_CHANGES],
           maxPageSize,
-          maxHydrationBatch: 20,
+          maxHydrationBatch: provider.name === "icloud" ? 3 : 20,
         },
       };
     },
     async discoverScopes() {
-      if (provider.name === "microsoft") {
+      if (provider.localMailSyncStrategy === "folder-delta") {
         const folders = await provider.getFolders();
         return {
           status: "ok",
@@ -188,7 +195,8 @@ export function createEmailProviderMailboxSource(input: {
         const page = await provider.getMailboxSyncPage({
           cursor: position.checkpoint || undefined,
           folderId:
-            provider.name === "microsoft" && position.streamId !== "primary"
+            provider.localMailSyncStrategy === "folder-delta" &&
+            position.streamId !== "primary"
               ? position.streamId
               : undefined,
           limit: pageSize,
@@ -451,7 +459,7 @@ async function catchUpCheckpoint(
     });
     if (page.cursor) return page.cursor;
   } catch (error) {
-    if (provider.name === "microsoft") throw error;
+    if (provider.localMailSyncStrategy === "folder-delta") throw error;
     // Fall back to the newest numeric Gmail history id we already fetched.
   }
   return encodedGmailCursorFromMessages(messages);
@@ -489,7 +497,8 @@ async function finalCatchUpFrom({
 }
 
 function scopedFolderId(provider: EmailProvider, scope: ScopeDescriptor) {
-  if (provider.name === "microsoft") return scope.folderId ?? scope.id;
+  if (provider.localMailSyncStrategy === "folder-delta")
+    return scope.folderId ?? scope.id;
   return scope.folderId ?? undefined;
 }
 
@@ -528,6 +537,7 @@ function encodedGmailCursorFromMessages(
 
 function isMissingProviderResource(error: unknown) {
   return (
+    (error instanceof SafeError && error.statusCode === 404) ||
     extractGmailErrorInfo(error).status === 404 ||
     extractOutlookErrorInfo(error).status === 404
   );
@@ -535,6 +545,7 @@ function isMissingProviderResource(error: unknown) {
 
 function isRejectedProviderRequest(error: unknown) {
   return (
+    (error instanceof SafeError && error.statusCode === 400) ||
     extractGmailErrorInfo(error).status === 400 ||
     extractOutlookErrorInfo(error).status === 400
   );
@@ -551,6 +562,7 @@ function mapProviderError(error: unknown) {
   const message = error instanceof Error ? error.message : "";
   const lowered = message.toLowerCase();
   if (
+    (error instanceof SafeError && error.statusCode === 401) ||
     message.includes("401") ||
     lowered.includes("unauthorized") ||
     lowered.includes("invalid_grant")

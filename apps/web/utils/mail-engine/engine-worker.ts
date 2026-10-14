@@ -5,6 +5,7 @@ import {
 import { createSqliteMailStore } from "@inboxzero/mail-sqlite/store";
 import { createMailHttpRequest } from "./http";
 import { createWasmSqliteDriver } from "./wasm-sqlite";
+import { atMailEngineStartupStage } from "./startup-stage";
 import {
   shouldReleaseDeferredOnStart,
   type BrowserEngineStart,
@@ -39,10 +40,12 @@ async function createWorkerEngine(
   const runtime = createHostRuntime({
     storagePressure: browserStoragePressure,
   });
-  const store = await createSqliteMailStore(driver, {
-    maxPendingOperations: input.maxPendingOperations,
-    runtime,
-  });
+  const store = await atMailEngineStartupStage("sqlite-schema", () =>
+    createSqliteMailStore(driver, {
+      maxPendingOperations: input.maxPendingOperations,
+      runtime,
+    }),
+  );
   const ensureAccount: BrowserMailEngine["ensureAccount"] = async (account) => {
     await store.ensureAccount({
       accountId: account.accountId,
@@ -50,7 +53,7 @@ async function createWorkerEngine(
       generation: account.generation ?? account.accountId,
     });
   };
-  await ensureAccount(input);
+  await atMailEngineStartupStage("account-init", () => ensureAccount(input));
   const ports = createRoutedBackendAdapter({
     requestFor: createMailHttpRequest,
   });
@@ -63,7 +66,9 @@ async function createWorkerEngine(
     ownerId: "browser-worker",
   });
   if (shouldReleaseDeferredOnStart(input.online)) {
-    await created.requestSync([input.accountId]);
+    await atMailEngineStartupStage("sync-init", () =>
+      created.requestSync([input.accountId]),
+    );
   }
   let stopped = false;
   const loop = (async () => {

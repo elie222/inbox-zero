@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { LoginForm } from "@/app/(landing)/login/LoginForm";
+import { LocalPasswordForm } from "@/app/(landing)/login/LocalPasswordForm";
 import {
   getEmailAlreadyLinkedDescription,
   getRequiresReconsentDescription,
@@ -55,6 +56,9 @@ export default async function AuthenticationPage(props: {
         </div>
         <div className="mt-4">
           <Suspense>
+            {env.LOCAL_PASSWORD_AUTH_ENABLED && (
+              <LocalPasswordForm callbackURL={nextPath ?? WELCOME_PATH} />
+            )}
             <LoginForm
               enabledProviders={enabledProviders}
               useGoogleOauthEmulator={isGoogleOauthEmulationEnabled()}

@@ -368,7 +368,10 @@ describe("createEmailProviderMailboxSource", () => {
     expect(getFolders).toHaveBeenCalled();
   });
 
-  it("enumerates an Outlook folder scope and starts catch-up from its folder cursor", async () => {
+  it.each([
+    "microsoft",
+    "icloud",
+  ])("enumerates a %s folder scope and starts catch-up from its folder cursor", async (name) => {
     const getMailboxSyncPage = vi.fn().mockResolvedValue({
       cursor: "folder-cursor",
       reset: true,
@@ -382,7 +385,7 @@ describe("createEmailProviderMailboxSource", () => {
     const source = createEmailProviderMailboxSource({
       accountId: "acc-1",
       provider: {
-        name: "microsoft",
+        name,
         localMailSyncStrategy: "folder-delta",
         getMailboxSyncPage,
         getMessagesWithPagination,
@@ -421,7 +424,7 @@ describe("createEmailProviderMailboxSource", () => {
       },
     });
     expect(getMessagesWithPagination).toHaveBeenCalledWith({
-      maxResults: 20,
+      maxResults: name === "microsoft" ? 20 : 25,
       folderId: "archive",
       pageToken: undefined,
       includeDrafts: true,
@@ -563,7 +566,12 @@ describe("createEmailProviderMailboxSource", () => {
       date: "2026-01-01T00:00:00.000Z",
       subject: "Invite",
       snippet: "A new event has been scheduled",
-      headers: { from: "ada@example.com", to: "me@example.com", date: "" },
+      headers: {
+        from: "ada@example.com",
+        to: "me@example.com",
+        date: "",
+        subject: "Invite",
+      },
       labelIds: ["INBOX"],
       textHtml: "<p>A new event has been scheduled</p>",
       textPlain: "A new event has been scheduled",
@@ -1151,7 +1159,11 @@ describe("createEmailProviderMailboxSource", () => {
       provider: {
         name: "google",
         localMailSyncStrategy: "history",
-        async getAttachmentStream(messageId, attachmentId, signal) {
+        async getAttachmentStream(
+          messageId: string,
+          attachmentId: string,
+          signal?: AbortSignal,
+        ) {
           expect(messageId).toBe("m1");
           expect(attachmentId).toBe("att-1");
           expect(signal).toBeDefined();
