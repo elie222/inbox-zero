@@ -845,6 +845,9 @@ export class ICloudProvider implements EmailProvider {
     });
   }
 
+  async getSendAsAddresses() {
+    return [];
+  }
   async getSignatures() {
     return [];
   }
@@ -1249,9 +1252,11 @@ export class ICloudProvider implements EmailProvider {
     const reply = params.replyToMessageId
       ? await this.getMessage(params.replyToMessageId)
       : null;
-    const raw = await new MailComposer({
+    const draft = new MailComposer({
       from: this.connection.username,
       to: params.to,
+      cc: params.cc,
+      bcc: params.bcc,
       subject: params.subject,
       html: params.messageHtml,
       inReplyTo: reply?.headers["message-id"],
@@ -1260,9 +1265,10 @@ export class ICloudProvider implements EmailProvider {
             .filter(Boolean)
             .join(" ")
         : undefined,
-    })
-      .compile()
-      .build();
+    }).compile();
+    // IMAP stores the draft MIME directly, including recipients needed when editing it.
+    draft.keepBcc = true;
+    const raw = await draft.build();
     const folder = this.role("drafts");
     return this.run(async (client) => {
       const result = await client.append(folder, raw, ["\\Draft", "\\Seen"]);

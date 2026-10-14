@@ -186,6 +186,10 @@ describe("EmailMessage draft recovery", () => {
     expect(
       screen.getAllByTestId("composer").map((composer) => composer.textContent),
     ).toEqual(["replyDiscard draft", "forwardDiscard draft"]);
+    fireEvent.click(screen.getByRole("button", { name: "Reply" }));
+    expect(
+      screen.getAllByTestId("composer").map((composer) => composer.textContent),
+    ).toEqual(["replyDiscard draft"]);
     expect(mocks.toastError).toHaveBeenCalledWith({
       description: "Failed to discard draft",
     });

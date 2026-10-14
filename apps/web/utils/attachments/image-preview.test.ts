@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { encodeImage } from "utif2";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   getAttachmentImagePreview,
   getAttachmentPreview,
@@ -62,6 +63,7 @@ describe("attachment image previews", () => {
       "IMAGE/JPEG",
       "image/gif; charset=binary",
       "image/webp",
+      "image/tiff",
     ]) {
       expect(isPreviewableImageType(type)).toBe(true);
     }
@@ -92,4 +94,129 @@ describe("attachment image previews", () => {
       ),
     ).toBeUndefined();
   });
+
+  describe("TIFF images", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it("converts TIFF bytes to a PNG that browsers can render", async () => {
+      const drawn = stubCanvas();
+      const rgba = new Uint8Array([255, 0, 0, 255, 0, 0, 255, 128]);
+      const tiff = new Blob([encodeImage(rgba, 2, 1)], {
+        type: "application/octet-stream",
+      });
+
+      const preview = await getAttachmentImagePreview(tiff);
+
+      expect(preview?.type).toBe("image/png");
+      expect(drawn).toEqual([{ width: 2, height: 1, pixels: [...rgba] }]);
+    });
+
+    it("does not decode TIFF images too large to render", async () => {
+      const drawn = stubCanvas();
+      const tiff = new Blob([
+        encodeImage(new Uint8Array(4), 1, 1, {
+          t256: [20_000],
+          t257: [20_000],
+        } as never),
+      ]);
+
+      expect(await getAttachmentImagePreview(tiff)).toBeUndefined();
+      expect(drawn).toEqual([]);
+    });
+
+    it.each([
+      ["an IFD chain that loops back on itself", loopingTiff()],
+      ["a tag count larger than the file", oversizedCountTiff()],
+      ["sub-IFDs that point back at their parent", loopingSubIfdTiff()],
+    ])("rejects malformed TIFF structure without decoding: %s", async (_, bytes) => {
+      const drawn = stubCanvas();
+
+      expect(
+        await getAttachmentImagePreview(new Blob([bytes])),
+      ).toBeUndefined();
+      expect(drawn).toEqual([]);
+    });
+  });
 });
+
+// Little-endian TIFF whose only IFD names itself as the next IFD.
+function loopingTiff() {
+  const view = tiffHeader(14);
+  view.setUint16(8, 0, true);
+  view.setUint32(10, 8, true);
+  return view.buffer;
+}
+
+function oversizedCountTiff() {
+  const view = tiffHeader(26);
+  view.setUint16(8, 1, true);
+  writeEntry(view, 10, { tag: 256, type: 4, count: 2_000_000, value: 8 });
+  view.setUint32(22, 0, true);
+  return view.buffer;
+}
+
+function loopingSubIfdTiff() {
+  const view = tiffHeader(26);
+  view.setUint16(8, 1, true);
+  writeEntry(view, 10, { tag: 330, type: 4, count: 1, value: 8 });
+  view.setUint32(22, 0, true);
+  return view.buffer;
+}
+
+function tiffHeader(size: number) {
+  const view = new DataView(new ArrayBuffer(size));
+  view.setUint8(0, 73);
+  view.setUint8(1, 73);
+  view.setUint16(2, 42, true);
+  view.setUint32(4, 8, true);
+  return view;
+}
+
+function writeEntry(
+  view: DataView,
+  offset: number,
+  entry: { tag: number; type: number; count: number; value: number },
+) {
+  view.setUint16(offset, entry.tag, true);
+  view.setUint16(offset + 2, entry.type, true);
+  view.setUint32(offset + 4, entry.count, true);
+  view.setUint32(offset + 8, entry.value, true);
+}
+
+function stubCanvas() {
+  const drawn: { width: number; height: number; pixels: number[] }[] = [];
+  vi.stubGlobal(
+    "ImageData",
+    class {
+      data: Uint8ClampedArray;
+      width: number;
+      height: number;
+      constructor(data: Uint8ClampedArray, width: number, height: number) {
+        this.data = data;
+        this.width = width;
+        this.height = height;
+      }
+    },
+  );
+  vi.stubGlobal(
+    "OffscreenCanvas",
+    class {
+      getContext() {
+        return {
+          putImageData: (image: ImageData) =>
+            drawn.push({
+              width: image.width,
+              height: image.height,
+              pixels: [...image.data],
+            }),
+        };
+      }
+      async convertToBlob({ type }: { type: string }) {
+        return new Blob([new Uint8Array([137, 80, 78, 71])], { type });
+      }
+    },
+  );
+  return drawn;
+}

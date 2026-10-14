@@ -5,6 +5,7 @@ import { env } from "@/env";
 import { withError } from "@/utils/middleware";
 import { posthogCaptureEvent } from "@/utils/posthog";
 import { verifyStandardWebhook } from "@/utils/webhooks/verify-standard-webhook";
+import { enrichLoopsEmailNames } from "./email-source";
 
 const POSTHOG_EVENT_NAMES: Record<string, string> = {
   "loop.email.sent": "Loops email sent",
@@ -72,6 +73,20 @@ export const POST = withError("loops/webhook", async (request) => {
   }
 
   const event = parsed.data;
+  // Send webhooks include the workflow or campaign name. Opens, clicks, and
+  // the other engagement events only include the id, so copy the name across.
+  const names = await enrichLoopsEmailNames(
+    {
+      sourceType: event.sourceType,
+      loopId: event.loopId,
+      loopName: event.loopName,
+      campaignId: event.campaignId,
+      campaignName: event.campaignName,
+      emailMessageId: event.email?.emailMessageId,
+      eventTime: event.eventTime ? new Date(event.eventTime * 1000) : null,
+    },
+    logger,
+  );
   // Contacts are created with the user's email, which is also the PostHog
   // distinct id, so these events join the user's product timeline.
   const captured = await posthogCaptureEvent(
@@ -81,9 +96,9 @@ export const POST = withError("loops/webhook", async (request) => {
       loopsEventName: event.eventName,
       sourceType: event.sourceType ?? getSourceType(event),
       loopId: event.loopId,
-      loopName: event.loopName,
+      loopName: names.loopName,
       campaignId: event.campaignId,
-      campaignName: event.campaignName,
+      campaignName: names.campaignName,
       emailId: event.email?.id,
       emailMessageId: event.email?.emailMessageId,
       emailSubject: event.email?.subject,

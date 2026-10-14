@@ -44,3 +44,16 @@ export const muteConversationInput = z.object({
   conversationId: id,
   muted: z.boolean(),
 });
+
+// REST bodies for the mobile app. The conversation and comment IDs come from
+// the route path.
+export const commentBody = commentInput.omit({ conversationId: true });
+export const participantAccessBody = participantAccessInput.omit({
+  conversationId: true,
+});
+export const readConversationBody = readConversationInput.omit({
+  conversationId: true,
+});
+export const muteConversationBody = muteConversationInput.omit({
+  conversationId: true,
+});

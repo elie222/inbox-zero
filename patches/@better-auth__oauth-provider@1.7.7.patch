@@ -1,7 +1,7 @@
-diff --git a/dist/authorize-zWEGx4ky.mjs b/dist/authorize-zWEGx4ky.mjs
+diff --git a/dist/authorize-K1WHCNih.mjs b/dist/authorize-K1WHCNih.mjs
 index 5fdd51c7da07656096bebbdd7b37a7b6b2490d92..e4dcb531706aaee87c824e452be165176597b487 100644
---- a/dist/authorize-zWEGx4ky.mjs
-+++ b/dist/authorize-zWEGx4ky.mjs
+--- a/dist/authorize-K1WHCNih.mjs
++++ b/dist/authorize-K1WHCNih.mjs
 @@ -1708,7 +1708,14 @@ function validateClientRedirectUri(redirectUri, applicationType) {
  		if (!isAllowedNativeHttpLoopback) invalidRedirectUri(`native clients may use http only on the exact loopback hosts localhost, 127.0.0.1, or [::1]: ${redirectUri}`);
  		return;

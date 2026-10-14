@@ -101,6 +101,7 @@ import type {
   SendEmailOptions,
   DraftAttachmentUploadStart,
 } from "@/utils/email/types";
+import type { SendAsAddress } from "@/utils/email/send-as";
 import type { DraftAttachmentMetadata } from "@/utils/actions/draft-attachments.validation";
 import { assertDraftAttachmentLimits } from "@/utils/email/draft-attachment-upload";
 import {
@@ -707,6 +708,8 @@ export class OutlookProvider implements EmailProvider {
 
   async createDraft(params: {
     to: string;
+    cc?: string;
+    bcc?: string;
     subject: string;
     messageHtml: string;
     replyToMessageId?: string;
@@ -716,7 +719,18 @@ export class OutlookProvider implements EmailProvider {
       replyToMessageId: params.replyToMessageId,
       forwardedMessageId: params.forwardedMessageId,
     });
-    const toRecipients = toGraphRecipients(params.to, this.logger);
+    // Left out when empty so creating never clears what the source message set.
+    const recipients = {
+      ...(params.to.trim()
+        ? { toRecipients: toGraphRecipients(params.to, this.logger) }
+        : {}),
+      ...(params.cc?.trim()
+        ? { ccRecipients: toGraphRecipients(params.cc, this.logger) }
+        : {}),
+      ...(params.bcc?.trim()
+        ? { bccRecipients: toGraphRecipients(params.bcc, this.logger) }
+        : {}),
+    };
 
     // Replies thread through createReply. A forward is drafted from the
     // forwarded message so it keeps its conversation and files.
@@ -741,7 +755,7 @@ export class OutlookProvider implements EmailProvider {
             .patch({
               body: { contentType: "html", content: params.messageHtml },
               subject: params.subject,
-              toRecipients,
+              ...recipients,
             }),
         this.logger,
       );
@@ -759,7 +773,7 @@ export class OutlookProvider implements EmailProvider {
           .post({
             subject: params.subject,
             body: { contentType: "html", content: params.messageHtml },
-            toRecipients,
+            ...recipients,
           }),
       this.logger,
     );
@@ -2664,6 +2678,12 @@ export class OutlookProvider implements EmailProvider {
       unread: folder.unreadItemCount ?? 0,
       systemType: folder.systemType,
     }));
+  }
+
+  // Graph can't list the aliases a mailbox may send from, and sending from one
+  // depends on a tenant setting, so Outlook mail always uses the account address.
+  async getSendAsAddresses(): Promise<SendAsAddress[]> {
+    return [];
   }
 
   async getSignatures(): Promise<EmailSignature[]> {

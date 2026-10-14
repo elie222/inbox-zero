@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { simpleParser } from "mailparser";
 import { ICloudProvider } from "./icloud";
 import { withICloudClient } from "@/utils/icloud/client";
 const db = vi.hoisted(() => ({
@@ -71,6 +72,31 @@ beforeEach(() => {
 });
 
 describe("iCloud message operations", () => {
+  it("preserves draft recipients from the shared compose flow", async () => {
+    const provider = new ICloudProvider("owner", {
+      ...connection,
+      folders: { ...connection.folders, drafts: "Drafts" },
+    });
+    await provider.createDraft({
+      to: "recipient@example.test",
+      cc: "copy@example.test",
+      bcc: "hidden@example.test",
+      subject: "Draft recipients",
+      messageHtml: "<p>Hello</p>",
+    });
+
+    const [, raw] = client.append.mock.calls[0];
+    const draft = await simpleParser(raw);
+    expect(draft.headers.get("to")).toMatchObject({
+      value: [{ address: "recipient@example.test" }],
+    });
+    expect(draft.headers.get("cc")).toMatchObject({
+      value: [{ address: "copy@example.test" }],
+    });
+    expect(draft.headers.get("bcc")).toMatchObject({
+      value: [{ address: "hidden@example.test" }],
+    });
+  });
   it("does not contact iCloud for a message owned by another account", async () => {
     const provider = new ICloudProvider("someone-else", connection);
     await expect(provider.getMessage("owned")).rejects.toThrow(
@@ -336,6 +362,12 @@ function fakeClient() {
       uidMap: new Map([[5, 20]]),
     }),
     messageDelete: vi.fn().mockResolvedValue(true),
+    append: vi.fn(
+      async (_folder: string, _content: Buffer, _flags: string[]) => ({
+        uid: 5,
+        uidValidity: BigInt(2),
+      }),
+    ),
     fetchOne: vi.fn().mockResolvedValue({ uid: 5 }),
     search: vi.fn().mockResolvedValue([] as number[] | false),
     fetchAll: vi.fn(),

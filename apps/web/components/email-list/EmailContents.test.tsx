@@ -601,6 +601,68 @@ describe("HtmlEmail", () => {
     unmount();
     expect(revokeObjectUrl).toHaveBeenCalledWith(objectUrl);
   });
+
+  it("keeps loaded cid images when the message is republished with the same attachments", async () => {
+    const html = '<img src="cid:logo@inboxzero.local" />';
+    fetchAttachment.mockResolvedValue(
+      new Blob(["image"], { type: "image/png" }),
+    );
+    const createObjectUrl = vi
+      .spyOn(URL, "createObjectURL")
+      .mockImplementation(
+        () =>
+          `blob:https://app.example.com/logo-${createObjectUrl.mock.calls.length}`,
+      );
+    const revokeObjectUrl = vi.spyOn(URL, "revokeObjectURL");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ html }) }),
+    );
+    const inlineAttachment = () => ({
+      attachmentId: "attachment-logo",
+      filename: "logo.png",
+      headers: {
+        "content-description": "",
+        "content-id": "<logo@inboxzero.local>",
+        "content-transfer-encoding": "base64",
+        "content-type": "image/png",
+      },
+      mimeType: "image/png",
+      size: 1024,
+    });
+    const renderEmail = () => (
+      <HtmlEmail
+        emailAccountId="account-1"
+        html={html}
+        inlineAttachments={[inlineAttachment()]}
+        messageId="message-republished"
+      />
+    );
+
+    const { getByTitle, queryByTitle, rerender } = render(renderEmail());
+    await waitFor(() =>
+      expect(getByTitle("Preparing email content preview")).toBeDefined(),
+    );
+    measureEmailFrame(
+      getByTitle("Preparing email content preview") as HTMLIFrameElement,
+      40,
+    );
+    await waitFor(() =>
+      expect(
+        getByTitle("Email content preview").getAttribute("srcdoc"),
+      ).toContain('src="blob:https://app.example.com/logo-1"'),
+    );
+    const visibleFrame = getByTitle("Email content preview");
+
+    rerender(renderEmail());
+    await act(async () => {});
+
+    expect(getByTitle("Email content preview")).toBe(visibleFrame);
+    expect(queryByTitle("Preparing email content preview")).toBeNull();
+    expect(fetchAttachment).toHaveBeenCalledOnce();
+    expect(createObjectUrl).toHaveBeenCalledOnce();
+    expect(revokeObjectUrl).not.toHaveBeenCalled();
+  });
 });
 
 describe("PlainEmail", () => {

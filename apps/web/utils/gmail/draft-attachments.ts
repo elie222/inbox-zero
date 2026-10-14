@@ -26,6 +26,7 @@ type DraftTextUpdate = {
   messageHtml?: string;
   subject?: string;
   to?: string;
+  from?: string;
   cc?: string;
   bcc?: string;
 };
@@ -228,7 +229,7 @@ function draftMailOptions(
 ): Mail.Options {
   const html = text?.messageHtml ?? current.textHtml;
   return {
-    from: current.headers?.from,
+    from: text?.from || current.headers?.from,
     to: text?.to ?? current.headers?.to ?? "",
     cc: text?.cc ?? current.headers?.cc,
     bcc: text?.bcc ?? current.headers?.bcc,

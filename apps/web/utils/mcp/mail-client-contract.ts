@@ -32,6 +32,7 @@ export const mailMessageSchema = z.object({
   date: z.string(),
   snippet: z.string(),
   body: z.string(),
+  html: z.string().nullable().optional(),
   unread: z.boolean(),
   draftId: z.string().nullable(),
 });

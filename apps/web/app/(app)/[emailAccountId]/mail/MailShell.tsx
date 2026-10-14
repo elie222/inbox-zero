@@ -37,6 +37,7 @@ import { useStableCallback } from "@/app/(app)/[emailAccountId]/mail/use-stable-
 import { useTranslateThread } from "@/app/(app)/[emailAccountId]/mail/use-thread-translation";
 import { GmailLabel } from "@/utils/gmail/label";
 import {
+  getComposeTargetMessageId,
   getActiveThreadIndex,
   getSearchFocus,
   getNextThreadAfterRemoval,
@@ -631,8 +632,9 @@ export function MailShell() {
     (threadKeys: string[]) => setReadState(threadKeys, true, false),
     [setReadState],
   );
+  const composeTargetMessageId = getComposeTargetMessageId(openMessages);
   const requestReaderReply = useCallback(() => {
-    const messageId = openMessages.at(-1)?.id;
+    const messageId = composeTargetMessageId;
     if (messageId) {
       pendingComposeRequest.current = null;
       setForwardToMessageId(undefined);
@@ -646,10 +648,10 @@ export function MailShell() {
         threadKey: openReaderThreadKey,
       };
     }
-  }, [openMessages, openReaderThreadKey]);
+  }, [composeTargetMessageId, openReaderThreadKey]);
 
   const requestReaderForward = useCallback(() => {
-    const messageId = openMessages.at(-1)?.id;
+    const messageId = composeTargetMessageId;
     if (messageId) {
       pendingComposeRequest.current = null;
       setReplyToMessageId(undefined);
@@ -663,7 +665,7 @@ export function MailShell() {
         threadKey: openReaderThreadKey,
       };
     }
-  }, [openMessages, openReaderThreadKey]);
+  }, [composeTargetMessageId, openReaderThreadKey]);
 
   useEffect(() => {
     const pendingRequest = pendingComposeRequest.current;
@@ -673,7 +675,7 @@ export function MailShell() {
       return;
     }
 
-    const messageId = openMessages.at(-1)?.id;
+    const messageId = composeTargetMessageId;
     if (!readerSelectionSettled || !messageId) return;
 
     pendingComposeRequest.current = null;
@@ -684,7 +686,7 @@ export function MailShell() {
       setReplyToMessageId(undefined);
       setForwardToMessageId(messageId);
     }
-  }, [openMessages, openReaderThreadKey, readerSelectionSettled]);
+  }, [composeTargetMessageId, openReaderThreadKey, readerSelectionSettled]);
 
   // Let the fetched snapshot decide the initial read state. Once marking has
   // been attempted, the optimistically patched row is the copy that stays in
@@ -1155,7 +1157,7 @@ export function MailShell() {
         if (!openThreadId && focusedThread) {
           setOpenThread(getListThreadSelection(focusedThread, emailAccountId));
         }
-        setReplyToMessageId(openMessages.at(-1)?.id);
+        setReplyToMessageId(composeTargetMessageId);
       },
       forward: singleActionTarget ? requestForwardTarget : undefined,
       moreActions: openThreadId

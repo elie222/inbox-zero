@@ -13,6 +13,7 @@ import type { SendEmailBody } from "@/utils/types/mail";
 import type { DraftAttachmentMetadata } from "@/utils/actions/draft-attachments.validation";
 import type { DraftMessageUploadPart } from "@/utils/email/draft-attachment-upload";
 import type { EmailContact } from "@/utils/email/contact";
+import type { SendAsAddress } from "@/utils/email/send-as";
 import type {
   LabelVisibility,
   MessageVisibility,
@@ -222,6 +223,9 @@ export interface EmailProvider {
   }): Promise<{ status: number }>;
   createDraft(params: {
     to: string;
+    from?: string;
+    cc?: string;
+    bcc?: string;
     subject: string;
     messageHtml: string;
     replyToMessageId?: string; // For proper threading
@@ -349,6 +353,11 @@ export interface EmailProvider {
   getPreviousConversationMessages(
     messageIds: string[],
   ): Promise<ParsedMessage[]>;
+  /**
+   * The addresses the user can send from. Empty when the provider doesn't
+   * offer a choice, so mail goes out from the account address.
+   */
+  getSendAsAddresses(): Promise<SendAsAddress[]>;
   getSentMessageIds(options: {
     maxResults: number;
     after?: Date;
@@ -514,6 +523,7 @@ export interface EmailProvider {
       messageHtml?: string;
       subject?: string;
       to?: string;
+      from?: string;
       cc?: string;
       bcc?: string;
     },
