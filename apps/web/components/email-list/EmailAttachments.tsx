@@ -20,7 +20,7 @@ import {
   getAttachmentPreview,
   isPreviewableAttachment,
   isPreviewableImageType,
-} from "@/utils/attachments/image-preview";
+} from "@inboxzero/mail-ui/image-preview";
 import {
   fetchAttachment,
   getAttachmentUrl,
