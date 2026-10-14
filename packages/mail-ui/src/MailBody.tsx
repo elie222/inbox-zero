@@ -6,6 +6,9 @@ import {
   useRef,
   useState,
 } from "react";
+import type { MessageAttachmentDescriptor } from "@inboxzero/mail-core/messages";
+import type { MailUiHost } from "./host";
+import { prepareInlineImages } from "./prepare-inline-images";
 import { sanitizeMailHtml } from "./sanitize-html";
 
 const SANS_FONT_STACK = `ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`;
@@ -33,6 +36,9 @@ export function MailMessageBody({
   html,
   text,
   messageId,
+  accountId,
+  attachments = [],
+  loadAttachment,
   isDarkMode = false,
   imageProxyBaseUrl = null,
   imageProxyOrigin = null,
@@ -41,14 +47,68 @@ export function MailMessageBody({
   html?: string | null;
   text?: string | null;
   messageId: string;
+  accountId?: string;
+  attachments?: MessageAttachmentDescriptor[];
+  loadAttachment?: MailUiHost["loadAttachment"];
   isDarkMode?: boolean;
   imageProxyBaseUrl?: string | null;
   imageProxyOrigin?: string | null;
   allowRemoteImages?: boolean;
 }) {
+  const sanitizedHtml = useMemo(
+    () => (html ? sanitizeMailHtml(html) : ""),
+    [html],
+  );
+  const attachmentIds = JSON.stringify(
+    attachments.filter((attachment) => attachment.inline),
+  );
+  const sourceKey = JSON.stringify([
+    accountId,
+    messageId,
+    sanitizedHtml,
+    attachmentIds,
+  ]);
+  const [prepared, setPrepared] = useState<{
+    key: string;
+    html: string;
+  } | null>(null);
+  const renderHtml =
+    prepared?.key === sourceKey ? prepared.html : sanitizedHtml;
+
+  useEffect(() => {
+    if (!sanitizedHtml || !accountId || !loadAttachment) return;
+    const controller = new AbortController();
+    let objectUrls: string[] = [];
+    prepareInlineImages({
+      html: sanitizedHtml,
+      attachments: JSON.parse(attachmentIds),
+      loadAttachment: (attachmentId) =>
+        loadAttachment({ accountId, messageId, attachmentId }),
+      signal: controller.signal,
+    }).then((result) => {
+      if (controller.signal.aborted) {
+        for (const url of result.objectUrls) URL.revokeObjectURL(url);
+        return;
+      }
+      objectUrls = result.objectUrls;
+      setPrepared({ key: sourceKey, html: result.html });
+    });
+    return () => {
+      controller.abort();
+      for (const url of objectUrls) URL.revokeObjectURL(url);
+    };
+  }, [
+    accountId,
+    messageId,
+    sanitizedHtml,
+    attachmentIds,
+    sourceKey,
+    loadAttachment,
+  ]);
+
   const document = useMemo(() => {
-    if (!html) return null;
-    const sanitizedHtml = sanitizeMailHtml(html);
+    if (!renderHtml) return null;
+    const sanitizedHtml = renderHtml;
     const applyDarkTheme = shouldApplyDarkMailTheme(sanitizedHtml, isDarkMode);
     const documentKey = getMailHtmlDocumentKey(
       `${messageId}:${sanitizedHtml}`,
@@ -68,7 +128,7 @@ export function MailMessageBody({
     };
   }, [
     allowRemoteImages,
-    html,
+    renderHtml,
     imageProxyBaseUrl,
     imageProxyOrigin,
     isDarkMode,
