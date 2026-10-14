@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { SWRConfig } from "swr";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SenderContextPanel } from "./SenderContextPanel";
@@ -36,6 +42,27 @@ describe("SenderContextPanel", () => {
     renderPanel(cache, () => new Promise(() => {}));
 
     expect(screen.queryByText("Couldn't load public context")).toBeNull();
+  });
+
+  it("hides a failed retry's error while retrying again", async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce({
+        status: "unavailable",
+        reason: "research_failed",
+      })
+      .mockRejectedValueOnce(networkError())
+      .mockReturnValue(new Promise(() => {}));
+    renderPanel(new Map(), fetcher);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Try again" }));
+    await screen.findByText("Couldn't load public context");
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+
+    await waitFor(() =>
+      expect(screen.queryByText("Couldn't load public context")).toBeNull(),
+    );
+    expect(fetcher).toHaveBeenCalledTimes(3);
   });
 
   it.each([

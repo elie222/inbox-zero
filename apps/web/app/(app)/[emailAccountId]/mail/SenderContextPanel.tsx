@@ -51,8 +51,12 @@ export function SenderContextPanel({
       messageId,
       enabled: true,
     });
+  // A retry keeps the last error until it settles, so don't leave it up
+  // meanwhile.
+  const isRetryingAfterError = Boolean(error) && isValidating;
   const isResearching =
     isLoading ||
+    isRetryingAfterError ||
     (data?.status === "unavailable" && data.reason === "research_in_progress");
   // Focus as soon as the inline pane mounts, including when resizing from
   // the sheet, so an immediate Escape is handled by the pane.
@@ -63,8 +67,7 @@ export function SenderContextPanel({
   const body = (
     <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
       <LoadingContent
-        // A reopened panel retries, so don't leave the last failure up meanwhile.
-        error={isLoading ? undefined : error}
+        error={isRetryingAfterError ? undefined : error}
         errorComponent={<ContextError error={error} onRetry={() => mutate()} />}
         loading={isResearching}
         loadingComponent={<ContextSkeleton />}
