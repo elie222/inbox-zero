@@ -120,6 +120,7 @@ export function toListThreads({ threads, nextPageToken }: LoadedThreads) {
         internalDate: message.internalDate,
         labelIds: message.labelIds,
         parentFolderId: message.parentFolderId,
+        hasAttachment: message.hasAttachment,
         headers: message.headers,
       })),
     })),

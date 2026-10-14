@@ -101,6 +101,46 @@ describe("sqlite mail store", () => {
     await store.close();
   });
 
+  it("flags a conversation with attachments when any message has one", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const reply = messagePatch("m-reply", "c-attached", 2000, ["inbox"]);
+    reply.fields.hasAttachments = true;
+    await store.applySyncPage({
+      ownerId: "owner",
+      page: {
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "bootstrap",
+        from: { streamId: "primary", generation: "g1", checkpoint: null },
+        to: { streamId: "primary", generation: "g1", checkpoint: "1" },
+        changes: [
+          messagePatch("m-original", "c-attached", 1000, ["inbox"]),
+          reply,
+          messagePatch("m-plain", "c-plain", 500, ["inbox"]),
+        ],
+        requiredHydration: [],
+        roundComplete: true,
+      },
+    });
+
+    const { view } = await store.readMailboxView(inboxQuery);
+
+    expect(
+      view.conversations.map((row) => [
+        row.key.conversationId,
+        row.hasAttachments,
+      ]),
+    ).toEqual([
+      ["c-attached", true],
+      ["c-plain", false],
+    ]);
+    await store.close();
+  });
+
   it("keeps two inbox queries and counts aligned across archive, new mail, and reopen", async () => {
     const directory = await mkdtemp(join(tmpdir(), "mail-sqlite-"));
     const path = join(directory, "mailbox.sqlite");

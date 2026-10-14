@@ -67,7 +67,12 @@ export function parseMessage(
       calendarData.length <= CALENDAR_INVITATION_LIMITS.encoded
         ? Buffer.from(calendarData, "base64").toString("utf8")
         : undefined,
-    attachments: attachments?.length ? attachments : undefined,
+    attachments: attachments.length ? attachments : undefined,
+    // Metadata-format messages carry no parts, only the top-level MIME type.
+    hasAttachment:
+      attachments.length > 0 ||
+      (!message.payload?.parts &&
+        message.payload?.mimeType === "multipart/mixed"),
     subject: parsed.headers?.subject || "",
     date: parsed.headers?.date || "",
     inline: inlineAttachments,
