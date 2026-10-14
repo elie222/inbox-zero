@@ -20,6 +20,8 @@ concurrency:
 
 jobs:
   publish-npm:
+    # Forks opt in only after configuring their own publishing credentials.
+    if: github.repository == 'elie222/inbox-zero' || vars.ENABLE_RELEASE_WORKFLOWS == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
 

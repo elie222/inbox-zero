@@ -17,7 +17,9 @@ concurrency:
 
 jobs:
   publish:
+    # Browser tests retain their GitHub artifacts without external S3 publishing.
     if: >-
+      (github.repository == 'elie222/inbox-zero' || vars.ENABLE_PLAYWRIGHT_REPORT_PUBLISHING == 'true') &&
       (github.event.workflow_run.conclusion == 'success' ||
        github.event.workflow_run.conclusion == 'failure' ||
        github.event.workflow_run.conclusion == 'timed_out') &&

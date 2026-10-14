@@ -19,6 +19,8 @@ concurrency:
 
 jobs:
   package:
+    # Forks opt in only after configuring their own signing and release credentials.
+    if: github.repository == 'elie222/inbox-zero' || vars.ENABLE_RELEASE_WORKFLOWS == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -175,7 +177,9 @@ jobs:
 
   publish:
     needs: package
-    if: github.ref_type == 'tag' || inputs.publish
+    if: >-
+      (github.repository == 'elie222/inbox-zero' || vars.ENABLE_RELEASE_WORKFLOWS == 'true') &&
+      (github.ref_type == 'tag' || inputs.publish)
     runs-on: ubuntu-latest
 
     steps:

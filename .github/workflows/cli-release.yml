@@ -12,6 +12,8 @@ permissions:
 
 jobs:
   build:
+    # Forks opt in only after configuring their own release destinations.
+    if: github.repository == 'elie222/inbox-zero' || vars.ENABLE_RELEASE_WORKFLOWS == 'true'
     strategy:
       matrix:
         include:
@@ -54,6 +56,7 @@ jobs:
           path: packages/cli/dist/${{ matrix.artifact }}.tar.gz
 
   publish-npm:
+    if: github.repository == 'elie222/inbox-zero' || vars.ENABLE_RELEASE_WORKFLOWS == 'true'
     runs-on: ubuntu-latest
 
     steps:
