@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useMemo, type Ref } from "react";
+import { PaperclipIcon } from "lucide-react";
 import { MailThreadRow } from "@inboxzero/mail-ui/MailThreadRow";
 import { isThreadStarred } from "@/app/(app)/[emailAccountId]/mail/star-state";
 import { MailLabelChip } from "@/app/(app)/[emailAccountId]/mail/MailLabelChip";
@@ -97,6 +98,9 @@ export const ThreadRow = memo(function ThreadRow({
   const isDraft = thread.messages.some((message) =>
     message.labelIds?.includes(GmailLabel.DRAFT),
   );
+  const hasAttachment = thread.messages.some(
+    (message) => message.hasAttachment,
+  );
 
   return (
     <MailThreadRow
@@ -104,6 +108,15 @@ export const ThreadRow = memo(function ThreadRow({
       compact={compact}
       date={
         <div className="flex items-center justify-end gap-1.5">
+          {hasAttachment ? (
+            <>
+              <PaperclipIcon
+                aria-hidden
+                className="size-3.5 shrink-0 text-muted-foreground"
+              />
+              <span className="sr-only">Has attachment</span>
+            </>
+          ) : null}
           {sentMessageOpen ? (
             <SentMessageOpenStatus compact open={sentMessageOpen} />
           ) : null}

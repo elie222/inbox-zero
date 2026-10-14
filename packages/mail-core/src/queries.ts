@@ -137,6 +137,7 @@ export const conversationSummarySchema = z.object({
   latestMessageAtMs: z.number().int(),
   unread: z.boolean(),
   starred: z.boolean(),
+  hasAttachments: z.boolean(),
   labelIds: z.array(z.string().max(256)).max(500),
   roles: z.array(mailboxRoleSchema).max(8),
   pendingOperationIds: z.array(z.string()),
