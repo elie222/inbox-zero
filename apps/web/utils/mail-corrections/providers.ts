@@ -226,9 +226,20 @@ export async function readICloudCorrections({
   const updated: z.infer<typeof imapStateSchema>["folders"] = {};
   const combined = new Map<string, Observation>();
   for (const folder of folders) {
-    const lock = await client.getMailboxLock(folder.path, { readOnly: true });
+    const junk = targets[folder.path] === "@junk";
+    const lock = await client.getMailboxLock(folder.path, { readOnly: !junk });
     try {
       if (!client.mailbox) throw new Error("iCloud folder not selected");
+      if (junk) {
+        const unread = await client.search({ seen: false }, { uid: true });
+        if (Array.isArray(unread))
+          for (let offset = 0; offset < unread.length; offset += 250)
+            await client.messageFlagsAdd(
+              unread.slice(offset, offset + 250),
+              ["\\Seen"],
+              { uid: true },
+            );
+      }
       const validity = String(client.mailbox.uidValidity);
       const old = state.folders[folder.path];
       if (old && old.validity !== validity) reset = true;

@@ -286,6 +286,7 @@ describe("iCloud correction metadata", () => {
       Purchases: { validity: BigInt(2), uids: [] },
     };
     const release = vi.fn();
+    const messageFlagsAdd = vi.fn().mockResolvedValue(true);
     const fetchAll = vi.fn(
       async (uids: number[], _query: unknown, _options: unknown) =>
         uids.map((uid) => ({
@@ -311,13 +312,35 @@ describe("iCloud correction metadata", () => {
       },
       search: async () => folders[selected].uids,
       fetchAll,
+      messageFlagsAdd,
     };
     return {
       folders,
       fetchAll,
+      messageFlagsAdd,
       client: client as unknown as ImapFlow,
     };
   }
+  it("marks Junk read on initial and cached scans without touching other folders", async () => {
+    const i = imap();
+    const state = imapStateSchema.parse({});
+    const scan = () =>
+      readICloudCorrections({
+        client: i.client,
+        state,
+        targets: { Services: "@junk", Purchases: "Purchases" },
+        now: 100,
+      });
+    await scan();
+    await scan();
+    expect(i.messageFlagsAdd).toHaveBeenCalledTimes(2);
+    expect(i.messageFlagsAdd).toHaveBeenCalledWith([1], ["\\Seen"], {
+      uid: true,
+    });
+    expect(i.client.getMailboxLock).toHaveBeenCalledWith("Services", {
+      readOnly: false,
+    });
+  });
   it("preserves identity through copy/delete moves and fetches metadata only", async () => {
     const i = imap();
     const state = imapStateSchema.parse({});
