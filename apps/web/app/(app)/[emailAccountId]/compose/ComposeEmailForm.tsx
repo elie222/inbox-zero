@@ -64,7 +64,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { env } from "@/env";
 import { getAccountScopedKey } from "@/utils/swr";
 import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
@@ -493,6 +492,7 @@ function ComposeEmailFormContent({
     useState(false);
   const [isReconnectingContacts, setIsReconnectingContacts] = useState(false);
   const [editReply, setEditReply] = useState(false);
+  const [ccBccRequested, setCcBccRequested] = useState(false);
   // Forwards start without a recipient, so focus To. Replies already have one.
   const focusRecipientField = draftMode === "forward" || !replyingToEmail;
   const [attachments, setAttachments] = useState<ComposeAttachment[]>(
@@ -1390,7 +1390,11 @@ function ComposeEmailFormContent({
     onSelectedRecipientsChange: (
       field: ComposeRecipientField,
       recipients: string,
-    ) => setValue(field, recipients),
+    ) => {
+      // Removing the last Cc or Bcc should not collapse the row being edited.
+      if (field !== "to") setCcBccRequested(true);
+      setValue(field, recipients);
+    },
     reconnectRequired: contactsReconnectRequired,
   };
 
@@ -1434,6 +1438,27 @@ function ComposeEmailFormContent({
   const closeInlineReplyFields = () => {
     setEditReply(false);
     requestAnimationFrame(() => inlineReplySummaryButtonRef.current?.focus());
+  };
+  // Inline replies open straight onto every recipient row; elsewhere Cc and
+  // Bcc stay tucked away until asked for or filled.
+  const canToggleCcBcc =
+    !canCollapseInlineReplyFields && !watch("cc") && !watch("bcc");
+  const showCcBcc = !canToggleCcBcc || ccBccRequested;
+  const toggleCcBcc = () => {
+    // Hiding would unmount the rows and drop text that is not an address yet.
+    const unfinishedField = (["cc", "bcc"] as const).find((field) =>
+      pendingRecipientsRef.current[field].trim(),
+    );
+    const focusField = showCcBcc ? unfinishedField : "cc";
+    if (!focusField) setCcBccRequested(false);
+    else {
+      setCcBccRequested(true);
+      requestAnimationFrame(() =>
+        formRef.current
+          ?.querySelector<HTMLInputElement>(`#${focusField}`)
+          ?.focus(),
+      );
+    }
   };
   const handleSendAtChange = (value: string) => {
     const nextRemindAt = getReminderAfterSendTimeChange(value, remindAt);
@@ -1720,35 +1745,24 @@ function ComposeEmailFormContent({
                 </Select>
               </div>
             )}
-            {(["to", "cc", "bcc"] as const).map((field) => (
+            {(showCcBcc
+              ? (["to", "cc", "bcc"] as const)
+              : (["to"] as const)
+            ).map((field) => (
               <div key={field} className="flex min-h-7 items-center gap-2">
                 <ComposeFieldLabel
                   htmlFor={field}
                   label={RECIPIENT_LABELS[field]}
                 />
                 <div className="min-w-0 flex-1">
-                  {env.NEXT_PUBLIC_CONTACTS_ENABLED ||
-                  client?.queryContactSuggestions ? (
-                    <ComposeContactRecipientField
-                      {...recipientFieldProps}
-                      active={activeRecipientField === field}
-                      autoFocus={field === "to" && focusRecipientField}
-                      className="min-h-8"
-                      name={field}
-                      selectedRecipients={watch(field) ?? ""}
-                    />
-                  ) : (
-                    <Input
-                      type="text"
-                      name={field}
-                      registerProps={{
-                        ...register(field, { required: field === "to" }),
-                        autoFocus: field === "to" && focusRecipientField,
-                      }}
-                      error={errors[field]}
-                      className="h-7 rounded-none border-0 bg-transparent p-0 text-sm leading-5 shadow-none focus:border-transparent focus:ring-0 sm:text-sm"
-                    />
-                  )}
+                  <ComposeContactRecipientField
+                    {...recipientFieldProps}
+                    active={activeRecipientField === field}
+                    autoFocus={field === "to" && focusRecipientField}
+                    className="min-h-8"
+                    name={field}
+                    selectedRecipients={watch(field) ?? ""}
+                  />
                 </div>
                 {field === "to" && canCollapseInlineReplyFields && (
                   <button
@@ -1759,6 +1773,21 @@ function ComposeEmailFormContent({
                     className="rounded-sm text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <ChevronDownIcon className="size-3 rotate-180" />
+                  </button>
+                )}
+                {field === "to" && canToggleCcBcc && (
+                  <button
+                    type="button"
+                    aria-expanded={showCcBcc}
+                    aria-label={
+                      showCcBcc ? "Hide Cc and Bcc" : "Show Cc and Bcc"
+                    }
+                    onClick={toggleCcBcc}
+                    className="rounded-sm text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <ChevronDownIcon
+                      className={cn("size-3", showCcBcc && "rotate-180")}
+                    />
                   </button>
                 )}
                 {field === "to" && popOutButton}
