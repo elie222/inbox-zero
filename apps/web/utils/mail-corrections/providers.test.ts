@@ -53,6 +53,46 @@ const moved = {
 };
 
 describe("Gmail correction history", () => {
+  it.each([
+    "UNREAD",
+    "STARRED",
+  ])("observes %s changes without requiring a folder move", async (label) => {
+    const g = google();
+    const state = googleStateSchema.parse({
+      historyId: "10",
+      checkpointAt: 100,
+    });
+    const observations = empty();
+    g.history.mockResolvedValue({
+      data: {
+        historyId: "20",
+        history: [
+          { labelsRemoved: [{ message: { id: "m" }, labelIds: [label] }] },
+        ],
+      },
+    });
+    g.get.mockResolvedValue({
+      data: {
+        id: "m",
+        threadId: "t",
+        historyId: "20",
+        labelIds: ["INBOX"],
+        payload: { headers: [] },
+      },
+    });
+    const result = await readGoogleCorrections({
+      api: g.api,
+      state,
+      observations,
+      targets,
+      now: 200,
+    });
+    expect(result.current[0]).toMatchObject({
+      isRead: true,
+      isFlagged: false,
+      targets: ["@inbox"],
+    });
+  });
   it("establishes a checkpoint without reading or training old messages", async () => {
     const g = google();
     const state = googleStateSchema.parse({});
@@ -272,7 +312,11 @@ describe("iCloud correction metadata", () => {
       search: async () => folders[selected].uids,
       fetchAll,
     };
-    return { folders, fetchAll, client: client as unknown as ImapFlow };
+    return {
+      folders,
+      fetchAll,
+      client: client as unknown as ImapFlow,
+    };
   }
   it("preserves identity through copy/delete moves and fetches metadata only", async () => {
     const i = imap();
@@ -316,6 +360,34 @@ describe("iCloud correction metadata", () => {
     expect(i.client.getMailboxLock).toHaveBeenCalledWith("Services", {
       readOnly: true,
     });
+  });
+  it("refreshes cached Inbox flags and fails closed when a flag response is missing", async () => {
+    const i = imap();
+    const state = imapStateSchema.parse({});
+    const scan = () =>
+      readICloudCorrections({
+        client: i.client,
+        state,
+        targets: { Services: "@inbox" },
+        now: 100,
+      });
+    const fetchMetadata = i.fetchAll.getMockImplementation()!;
+    let flags: Set<string> | undefined = new Set(["\\Seen"]);
+    i.fetchAll.mockImplementation(async (uids, query, options) => {
+      if ((query as { flags?: boolean }).flags)
+        return uids.map((uid) => ({ uid, flags })) as any;
+      return fetchMetadata(uids, query, options);
+    });
+    const first = await scan();
+    expect(first.current[0]).toMatchObject({ isRead: true, isFlagged: false });
+    flags = new Set(["\\Flagged"]);
+    expect((await scan()).current[0]).toMatchObject({
+      isRead: false,
+      isFlagged: true,
+    });
+    expect(first.current[0].isRead).toBe(true);
+    flags = undefined;
+    expect((await scan()).current[0].isRead).toBeUndefined();
   });
   it("resets the baseline after UIDVALIDITY changes", async () => {
     const i = imap();

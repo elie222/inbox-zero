@@ -347,6 +347,7 @@ const parsedEnv = createEnv({
     COMPOSIO_API_KEY: z.string().optional(),
     INTERNAL_API_URL: z.string().optional(),
     INTERNAL_API_KEY: z.string(),
+    AUTO_FILE_AFTER_READING: booleanString.optional().default(false),
     WHITELIST_FROM: z.string().optional(),
     HEALTH_API_KEY: z.string().optional(),
     OAUTH_PROXY_URL: z.string().url().optional(),

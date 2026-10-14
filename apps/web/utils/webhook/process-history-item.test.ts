@@ -1,3 +1,4 @@
+import { env } from "@/env";
 import { filterSpam } from "@/utils/spam/gate";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { processHistoryItem } from "@/utils/webhook/process-history-item";
@@ -74,6 +75,7 @@ const logger = createTestLogger();
 describe("Provider Edge Cases", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.restoreAllMocks();
     vi.mocked(filterSpam).mockResolvedValue(null);
   });
 
@@ -95,6 +97,26 @@ describe("Provider Edge Cases", () => {
     emailAccount: getDefaultEmailAccount(),
     logger,
   };
+
+  it.each([
+    ["INBOX", "UNREAD"],
+    ["INBOX", "STARRED"],
+  ])("holds protected arrivals when read-first filing is enabled: %j", async (...labels) => {
+    vi.spyOn(env, "AUTO_FILE_AFTER_READING", "get").mockReturnValue(true);
+    const message = getMockParsedMessage({ labelIds: labels });
+    await processHistoryItem(
+      { messageId: message.id, message },
+      {
+        ...baseOptions,
+        hasAutomationRules: true,
+        hasAiAccess: true,
+        provider: createMockEmailProvider({
+          getMessage: vi.fn().mockResolvedValue(message),
+        }),
+      },
+    );
+    expect(runRules).not.toHaveBeenCalled();
+  });
 
   it("stops spam before categorization, rules, notifications, or attachment filing", async () => {
     vi.mocked(filterSpam).mockResolvedValue({

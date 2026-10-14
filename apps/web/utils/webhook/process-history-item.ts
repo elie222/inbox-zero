@@ -1,3 +1,8 @@
+import { env } from "@/env";
+import {
+  AutomaticFilingDeferredError,
+  createFilingGuard,
+} from "@/utils/mail-corrections/filing-eligibility";
 import { after } from "next/server";
 import { filterSpam } from "@/utils/spam/gate";
 import prisma from "@/utils/prisma";
@@ -236,9 +241,14 @@ export async function processHistoryItem(
     if (!hasExistingRule && hasAutomationRules && hasAiAccess) {
       logger.info("Running rules...");
 
+      const beforeRuleExecution = env.AUTO_FILE_AFTER_READING
+        ? createFilingGuard(provider, messageId)
+        : undefined;
+      await beforeRuleExecution?.();
       const results = await runRules({
         provider,
         message: parsedMessage,
+        beforeRuleExecution,
         rules,
         emailAccount,
         isTest: false,
@@ -340,6 +350,7 @@ export async function processHistoryItem(
       );
     }
   } catch (error: unknown) {
+    if (error instanceof AutomaticFilingDeferredError) return;
     // Handle provider-specific "not found" errors
     if (error instanceof Error) {
       const isGoogleNotFound =

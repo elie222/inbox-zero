@@ -98,6 +98,7 @@ export async function runRules({
   logger,
   skipArchive,
   skipDraftReplies,
+  beforeRuleExecution,
 }: {
   provider: EmailProvider;
   message: ParsedMessage;
@@ -108,6 +109,7 @@ export async function runRules({
   logger: Logger;
   skipArchive?: boolean;
   skipDraftReplies?: boolean;
+  beforeRuleExecution?: () => Promise<void>;
 }): Promise<RunRulesResult[]> {
   const spamVerdict = await filterSpam({
     emailAccountId: emailAccount.id,
@@ -212,6 +214,7 @@ export async function runRules({
     const reason =
       skippedConversationReason || results.reasoning || "No rules matched";
     if (!isTest) {
+      await beforeRuleExecution?.();
       await withPrismaRetry(
         () =>
           prisma.executedRule.create({
@@ -272,6 +275,7 @@ export async function runRules({
       logger,
       skipArchive,
       skipDraftReplies,
+      beforeRuleExecution,
     );
 
     executedRules.push({
@@ -387,6 +391,7 @@ async function executeMatchedRule(
   logger: Logger,
   skipArchive?: boolean,
   skipDraftReplies?: boolean,
+  beforeRuleExecution?: () => Promise<void>,
 ) {
   const blockedActionTypes = getBlockedLowTrustStaticFromActionTypes(
     rule.from,
@@ -435,6 +440,7 @@ async function executeMatchedRule(
     let executedRule = null;
 
     if (!isTest) {
+      await beforeRuleExecution?.();
       executedRule = await prisma.executedRule.create({
         data: {
           messageId: message.id,
@@ -477,6 +483,9 @@ async function executeMatchedRule(
       createdAt: batchTimestamp,
     };
   }
+
+  // Classification and argument generation may take time; recheck before committing actions.
+  await beforeRuleExecution?.();
 
   const executedRule: Prisma.ExecutedRuleGetPayload<{
     include: { actionItems: true };

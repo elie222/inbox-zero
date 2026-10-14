@@ -1679,6 +1679,33 @@ describe("runRules cold email pattern learning", () => {
   });
 });
 
+describe("automatic filing live guard", () => {
+  it("rechecks after AI arguments and leaves no execution record when mail becomes protected", async () => {
+    vi.clearAllMocks();
+    const rule = createRule("filing", null, [
+      getAction({ type: ActionType.ARCHIVE }),
+    ]);
+    mockMatchingRules([{ rule }]);
+    prisma.executedRule.findFirst.mockResolvedValue(null);
+    let protectedMail = false;
+    vi.mocked(getActionItemsWithAiArgs).mockImplementationOnce(async () => {
+      protectedMail = true;
+      return [{ type: ActionType.ARCHIVE }] as any;
+    });
+    await expect(
+      runRulesWithDefaults({
+        rules: [rule],
+        beforeRuleExecution: async () => {
+          if (protectedMail) throw new Error("Automatic filing deferred");
+        },
+      }),
+    ).rejects.toThrow("Automatic filing deferred");
+    expect(getActionItemsWithAiArgs).toHaveBeenCalled();
+    expect(prisma.executedRule.create).not.toHaveBeenCalled();
+    expect(executeAct).not.toHaveBeenCalled();
+  });
+});
+
 function mockMatchingRules(
   matches: {
     rule: RuleWithActions;

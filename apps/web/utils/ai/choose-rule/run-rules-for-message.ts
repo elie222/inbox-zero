@@ -14,6 +14,7 @@ import {
   RERUN_UPGRADE_MESSAGE,
 } from "@/utils/premium/rerun";
 import type { Logger } from "@/utils/logger";
+import { createFilingGuard } from "@/utils/mail-corrections/filing-eligibility";
 
 export async function runRulesForMessage({
   emailAccountId,
@@ -26,12 +27,14 @@ export async function runRulesForMessage({
   isTest,
   skipDraftReplies,
   requireInbox,
+  requireReadUnflagged,
 }: RunRulesBody & {
   emailAccountId: string;
   userId: string;
   provider: string;
   logger: Logger;
   requireInbox?: boolean;
+  requireReadUnflagged?: boolean;
 }): Promise<RunRulesResult[]> {
   const logger = ctxLogger.with({ messageId, threadId });
 
@@ -102,6 +105,10 @@ export async function runRulesForMessage({
   });
 
   if (requireInbox && !message.labelIds?.includes("INBOX")) return [];
+  const beforeRuleExecution = requireReadUnflagged
+    ? createFilingGuard(emailProvider, messageId)
+    : undefined;
+  await beforeRuleExecution?.();
 
   const fetchExecutedRule = !isTest && !rerun;
 
@@ -183,6 +190,7 @@ export async function runRulesForMessage({
     logger,
     modelType: "chat",
     skipDraftReplies,
+    beforeRuleExecution,
   }).catch((error) => {
     logger.error("runRules failed", { error });
     return flushAndRethrowRunRulesActionError({

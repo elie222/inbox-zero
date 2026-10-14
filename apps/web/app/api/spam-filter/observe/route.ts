@@ -6,7 +6,7 @@ import {
   observationSchema,
   pendingCorrectionSchema,
 } from "@/utils/mail-corrections/changes";
-import { filterObservedSpam } from "@/utils/spam/observe";
+import { processObservedArrivals } from "@/utils/mail-corrections/process-arrivals";
 import { learnSpamCorrection } from "@/utils/spam/feedback";
 
 const requestSchema = z.discriminatedUnion("kind", [
@@ -14,6 +14,7 @@ const requestSchema = z.discriminatedUnion("kind", [
     kind: z.literal("arrivals"),
     emailAccountId: z.string().min(1),
     arrivals: z.array(observationSchema).max(20),
+    fileAfterReading: z.boolean().optional(),
   }),
   z.object({
     kind: z.literal("correction"),
@@ -34,13 +35,14 @@ export const POST = withError(
           request.logger,
         ),
       });
-    await filterObservedSpam({
+    const deferred = await processObservedArrivals({
       emailAccountId: body.emailAccountId,
       observations: body.arrivals,
       previous: {},
       initialized: true,
       logger: request.logger,
+      fileAfterReading: body.fileAfterReading,
     });
-    return NextResponse.json({ outcome: "processed" });
+    return NextResponse.json({ outcome: "processed", deferred });
   }),
 );

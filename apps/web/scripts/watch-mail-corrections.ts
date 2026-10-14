@@ -35,11 +35,12 @@ import {
   type CorrectionTarget,
 } from "@/utils/mail-corrections/learning";
 import { createScopedLogger } from "@/utils/logger";
-import { filterNewSpamArrivals } from "@/utils/spam/worker-client";
+import { processNewMailArrivals } from "@/utils/spam/worker-client";
 
 const configSchema = z.object({
   intervalSeconds: z.number().int().min(10).default(45),
   settleSeconds: z.number().int().min(10).default(30),
+  fileAfterReading: z.boolean().default(false),
   topicRuleNames: z.array(z.string().min(1)).min(1),
   inboxRuleName: z.string().min(1),
   junkRuleName: z.string().min(1),
@@ -274,16 +275,17 @@ async function main() {
                 now,
               );
           } else throw new Error("Unsupported account provider");
-          const arrivalErrors = await filterNewSpamArrivals({
+          const arrivalErrors = await processNewMailArrivals({
             emailAccountId: account.id,
             observations: result.current,
             previous: previouslyObserved,
             initialized: state.initialized && !result.reset,
             pending: state.pendingArrivals,
+            fileAfterReading: config.fileAfterReading,
           });
           let processingErrors = arrivalErrors.length;
           for (const error of arrivalErrors)
-            logger.warn("Spam arrival processing deferred", {
+            logger.warn("Mail arrival processing deferred", {
               emailAccountId: account.id,
               errorCode: error.name,
             });

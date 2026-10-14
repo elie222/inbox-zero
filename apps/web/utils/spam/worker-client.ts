@@ -3,35 +3,58 @@ import type {
   PendingCorrection,
 } from "@/utils/mail-corrections/changes";
 
-export async function filterNewSpamArrivals({
+export async function processNewMailArrivals({
   emailAccountId,
   observations,
   previous,
   initialized,
   pending,
+  fileAfterReading = false,
 }: {
   emailAccountId: string;
   observations: Observation[];
   previous: Record<string, Observation>;
   initialized: boolean;
   pending: Record<string, Observation>;
+  fileAfterReading?: boolean;
 }) {
   if (!initialized) return [];
-  for (const item of observations)
-    if (!previous[item.key] && item.targets.includes("@inbox"))
+  const newKeys = new Set<string>();
+  for (const item of observations) {
+    if (!item.targets.includes("@inbox")) {
+      delete pending[item.key];
+      continue;
+    }
+    if (!previous[item.key]) newKeys.add(item.key);
+    if (
+      newKeys.has(item.key) ||
+      (fileAfterReading && ready(item) && !ready(previous[item.key])) ||
+      pending[item.key]
+    )
       pending[item.key] = item;
+  }
   const arrivals = Object.values(pending);
   const errors: Error[] = [];
-  for (let offset = 0; offset < arrivals.length; offset += 20) {
-    const batch = arrivals.slice(offset, offset + 20);
+  for (const item of arrivals) {
+    if (fileAfterReading && !newKeys.has(item.key) && !ready(item)) continue;
     try {
-      await dispatch({ kind: "arrivals", emailAccountId, arrivals: batch });
-      for (const item of batch) delete pending[item.key];
+      // Acknowledging each email separately keeps slow AI work from replaying a whole batch.
+      const result = await dispatch({
+        kind: "arrivals",
+        emailAccountId,
+        arrivals: [item],
+        fileAfterReading,
+      });
+      if (!result.deferred?.includes(item.key)) delete pending[item.key];
     } catch (error) {
       errors.push(error instanceof Error ? error : new Error(String(error)));
     }
   }
   return errors;
+}
+
+function ready(item: Observation | undefined) {
+  return item?.isRead === true && item.isFlagged === false;
 }
 
 export async function learnObservedSpam(

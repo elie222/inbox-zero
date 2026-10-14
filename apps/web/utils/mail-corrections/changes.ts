@@ -10,6 +10,8 @@ export const observationSchema = z.object({
   targets: z.array(z.string()),
   observedAt: z.number(),
   rfcMessageId: z.string().optional(),
+  isRead: z.boolean().optional(),
+  isFlagged: z.boolean().optional(),
 });
 export type Observation = z.infer<typeof observationSchema>;
 export const pendingCorrectionSchema = z.object({

@@ -97,7 +97,11 @@ export async function readGoogleCorrections({
         }
       const ids = new Set(
         [...(record.labelsAdded ?? []), ...(record.labelsRemoved ?? [])]
-          .filter((event) => event.labelIds?.some((id) => targets[id]))
+          .filter((event) =>
+            event.labelIds?.some(
+              (id) => targets[id] || id === "UNREAD" || id === "STARRED",
+            ),
+          )
           .map((event) => event.message?.id)
           .filter((id): id is string => !!id),
       );
@@ -173,6 +177,8 @@ export async function readGoogleCorrections({
       recipients: addresses(`${header("to")},${header("cc")}`),
       subject: header("subject").slice(0, 80),
       targets: googleTargets(message.labelIds ?? [], targets),
+      isRead: !(message.labelIds ?? []).includes("UNREAD"),
+      isFlagged: (message.labelIds ?? []).includes("STARRED"),
       observedAt: now,
     };
     if (state.newMessages[id]) {
@@ -232,7 +238,7 @@ export async function readICloudCorrections({
       const missing: number[] = [];
       for (const uid of uids) {
         if (old?.validity === validity && old.messages[uid])
-          messages[uid] = old.messages[uid];
+          messages[uid] = { ...old.messages[uid] };
         else missing.push(uid);
       }
       for (let offset = 0; offset < missing.length; offset += 250) {
@@ -275,6 +281,26 @@ export async function readICloudCorrections({
             targets: [targets[folder.path]],
             observedAt: now,
           };
+        }
+      }
+      if (targets[folder.path] === "@inbox") {
+        // Cached envelopes stay valid, but read and flag state can change every poll.
+        for (const message of Object.values(messages)) {
+          message.isRead = undefined;
+          message.isFlagged = undefined;
+        }
+        for (let offset = 0; offset < uids.length; offset += 250) {
+          const batch = await client.fetchAll(
+            uids.slice(offset, offset + 250),
+            { uid: true, flags: true },
+            { uid: true },
+          );
+          for (const item of batch) {
+            const message = messages[item.uid];
+            if (!message || !item.flags) continue;
+            message.isRead = item.flags.has("\\Seen");
+            message.isFlagged = item.flags.has("\\Flagged");
+          }
         }
       }
       updated[folder.path] = { validity, messages };
