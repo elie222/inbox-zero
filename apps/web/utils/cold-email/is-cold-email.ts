@@ -14,8 +14,6 @@ import { createGenerateObject } from "@/utils/llms";
 import { extractEmailAddress, isSameOrganization } from "@/utils/email";
 import { isWhitelistedSender } from "@/utils/email/whitelist";
 import { hasPriorContactOrAssumeYes } from "@/utils/cold-email/has-prior-contact";
-import { decideColdEmail } from "@/utils/decision-model/cold-email";
-import { runDecisionModelOrFallback } from "@/utils/decision-model/decision-model";
 
 export const COLD_EMAIL_FOLDER_NAME = "Cold Emails";
 
@@ -48,8 +46,7 @@ type ColdEmailGuardsInput = {
 
 /**
  * Runs the deterministic cold-email checks (whitelist, same org, learned
- * patterns, prior contact). Returns null when only the AI check remains, so a
- * caller can run that check itself.
+ * patterns, prior contact). Returns null when only the AI check remains.
  */
 export async function checkColdEmailGuards({
   email,
@@ -154,54 +151,12 @@ export async function isColdEmail({
 
   if (guardResult) return guardResult;
 
-  return checkColdEmailWithAi({
+  return checkColdEmailWithLlm({
     email,
     emailAccount,
     coldEmailRule,
     modelType,
     logger,
-  });
-}
-
-/** The AI step of `isColdEmail`, for callers that already ran the guards. */
-export async function checkColdEmailWithAi({
-  email,
-  emailAccount,
-  coldEmailRule,
-  modelType,
-  logger,
-}: Omit<ColdEmailGuardsInput, "provider"> & {
-  modelType?: ModelType;
-}): Promise<ColdEmailResult> {
-  return runDecisionModelOrFallback({
-    emailAccount,
-    logger,
-    feature: "cold-email classification",
-    decide: async (config) => {
-      const result = await decideColdEmail({
-        config,
-        email,
-        emailAccount,
-        coldEmailRule,
-        logger,
-      });
-      logger.info("Decision model checked cold email", {
-        coldEmail: result.coldEmail,
-      });
-      return {
-        isColdEmail: result.coldEmail,
-        reason: "ai" as const,
-        aiReason: result.reason,
-      };
-    },
-    fallback: () =>
-      checkColdEmailWithLlm({
-        email,
-        emailAccount,
-        coldEmailRule,
-        modelType,
-        logger,
-      }),
   });
 }
 

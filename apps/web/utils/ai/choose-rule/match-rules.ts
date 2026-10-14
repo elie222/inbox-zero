@@ -40,8 +40,6 @@ import {
   isColdEmailRuleEnabled,
 } from "@/utils/cold-email/cold-email-rule";
 import {
-  checkColdEmailGuards,
-  checkColdEmailWithLlm,
   type ColdEmailPatternMatch,
   isColdEmail,
 } from "@/utils/cold-email/is-cold-email";
@@ -97,26 +95,22 @@ export async function findMatchingRules({
   const logger = log.with({ module: MODULE });
   const isThread = provider.isReplyInThread(message);
   const email = getEmailForLLM(message);
-  const decisionModel = await getDecisionModelConfig(emailAccount);
   const coldEmailRule = await getColdEmailRule(emailAccount.id);
 
-  // With a decision model, only the deterministic cold-email guards run here. When
-  // they can't decide, ask it about cold email alongside rule selection.
-  let pendingColdEmailRule: typeof coldEmailRule = null;
-
+  // Cold email always goes to the LLM, even when a decision model chooses the
+  // rule: a false "cold" archives a real email, and the decision model could
+  // not separate personalized pitches from legitimate outreach.
   if (coldEmailRule && isColdEmailRuleEnabled(coldEmailRule)) {
-    const coldEmailInput = {
+    const coldEmailResult = await isColdEmail({
       email,
       emailAccount,
       provider,
       coldEmailRule,
+      modelType,
       logger,
-    };
-    const coldEmailResult = decisionModel
-      ? await checkColdEmailGuards(coldEmailInput)
-      : await isColdEmail({ ...coldEmailInput, modelType });
+    });
 
-    if (coldEmailResult?.isColdEmail) {
+    if (coldEmailResult.isColdEmail) {
       return buildColdEmailMatch({
         coldEmailRuleId: coldEmailRule.id,
         matchReasons: getColdEmailMatchReasons(coldEmailResult),
@@ -124,8 +118,6 @@ export async function findMatchingRules({
         selectionMetadata: createRuleSelectionMetadata({ isThread }),
       });
     }
-
-    if (!coldEmailResult) pendingColdEmailRule = coldEmailRule;
   }
 
   // The cold email rule is decided separately above
@@ -154,13 +146,16 @@ export async function findMatchingRules({
         })
       : null;
 
-  if (decisionModel && (potentialAiMatches.length || pendingColdEmailRule)) {
+  const decisionModel = potentialAiMatches.length
+    ? await getDecisionModelConfig(emailAccount)
+    : null;
+
+  if (decisionModel) {
     const selection = await decisionModelChooseRule({
       decisionModel,
       message,
       emailAccount,
       rules: potentialAiMatches,
-      coldEmailRule: pendingColdEmailRule,
       classificationFeedback,
       logger,
     }).catch((error) => {
@@ -173,48 +168,17 @@ export async function findMatchingRules({
       return null;
     });
 
-    if (selection) {
-      if (selection.type === "coldEmail" && pendingColdEmailRule) {
-        return buildColdEmailMatch({
-          coldEmailRuleId: pendingColdEmailRule.id,
-          matchReasons: [{ type: ConditionType.AI }],
-          reasoning: selection.reason,
-          selectionMetadata,
-        });
-      }
-      // Settled, so the LLM check below must not re-ask it.
-      pendingColdEmailRule = null;
-
-      if (selection.type === "rules") {
-        return mergeAiResultsIntoMatches({
-          matches,
-          aiResult: selection,
-          selectionMetadata,
-        });
-      }
-
-      logger.info("Decision model deferred the rule choice to the LLM path", {
-        reason: selection.reason,
+    if (selection?.type === "rules") {
+      return mergeAiResultsIntoMatches({
+        matches,
+        aiResult: selection,
+        selectionMetadata,
       });
     }
-  }
 
-  // Only reached with a pending cold-email rule when the decision model failed.
-  if (pendingColdEmailRule) {
-    const coldEmailResult = await checkColdEmailWithLlm({
-      email,
-      emailAccount,
-      modelType,
-      coldEmailRule: pendingColdEmailRule,
-      logger,
-    });
-
-    if (coldEmailResult.isColdEmail) {
-      return buildColdEmailMatch({
-        coldEmailRuleId: pendingColdEmailRule.id,
-        matchReasons: getColdEmailMatchReasons(coldEmailResult),
-        reasoning: getColdEmailReasoning(coldEmailResult),
-        selectionMetadata,
+    if (selection) {
+      logger.info("Decision model deferred the rule choice to the LLM path", {
+        reason: selection.reason,
       });
     }
   }
