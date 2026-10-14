@@ -358,6 +358,8 @@ const parsedEnv = createEnv({
       .optional(),
     // Whether users who haven't chosen get the decision model; otherwise opt-in
     DEFAULT_DECISION_MODEL_ENABLED: booleanString.optional().default(false),
+    // Also use the decision model for cold email detection; otherwise the LLM decides
+    DECISION_MODEL_COLD_EMAIL_ENABLED: booleanString.optional().default(false),
     TYPESAFE_API_KEY: z.string().optional(),
     IMAGE_PROXY_SIGNING_SECRET: z.string().min(16).optional(),
     // Set to true on the server that acts as the OAuth proxy (e.g., staging)

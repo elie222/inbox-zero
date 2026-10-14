@@ -97,9 +97,8 @@ export async function findMatchingRules({
   const email = getEmailForLLM(message);
   const coldEmailRule = await getColdEmailRule(emailAccount.id);
 
-  // Cold email always goes to the LLM, even when a decision model chooses the
-  // rule: a false "cold" archives a real email, and the decision model could
-  // not separate personalized pitches from legitimate outreach.
+  // Decided on its own, before rule selection, so the model that chooses rules
+  // is not also the one deciding cold email (see isColdEmail).
   if (coldEmailRule && isColdEmailRuleEnabled(coldEmailRule)) {
     const coldEmailResult = await isColdEmail({
       email,
