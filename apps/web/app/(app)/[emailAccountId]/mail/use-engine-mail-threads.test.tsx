@@ -218,6 +218,7 @@ function conversation(
     latestMessageAtMs: 1,
     unread: false,
     starred: false,
+    hasAttachments: false,
     labelIds: [],
     roles: ["inbox"],
     pendingOperationIds: [],
