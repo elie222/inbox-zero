@@ -1445,11 +1445,20 @@ function ComposeEmailFormContent({
     !canCollapseInlineReplyFields && !watch("cc") && !watch("bcc");
   const showCcBcc = !canToggleCcBcc || ccBccRequested;
   const toggleCcBcc = () => {
-    setCcBccRequested(!showCcBcc);
-    if (!showCcBcc)
+    // Hiding would unmount the rows and drop text that is not an address yet.
+    const unfinishedField = (["cc", "bcc"] as const).find((field) =>
+      pendingRecipientsRef.current[field].trim(),
+    );
+    const focusField = showCcBcc ? unfinishedField : "cc";
+    if (!focusField) setCcBccRequested(false);
+    else {
+      setCcBccRequested(true);
       requestAnimationFrame(() =>
-        formRef.current?.querySelector<HTMLInputElement>("#cc")?.focus(),
+        formRef.current
+          ?.querySelector<HTMLInputElement>(`#${focusField}`)
+          ?.focus(),
       );
+    }
   };
   const handleSendAtChange = (value: string) => {
     const nextRemindAt = getReminderAfterSendTimeChange(value, remindAt);
