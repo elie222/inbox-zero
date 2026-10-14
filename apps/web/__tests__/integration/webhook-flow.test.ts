@@ -32,6 +32,12 @@ const mockExecutedRuleUpdate = vi.fn().mockResolvedValue({});
 
 vi.mock("@/utils/prisma", () => ({
   default: {
+    emailAccount: {
+      findUnique: vi.fn().mockResolvedValue({
+        userId: "test-user-id",
+        spamFilterEnabled: false,
+      }),
+    },
     executedRule: {
       findFirst: (...args: unknown[]) => mockExecutedRuleFindFirst(...args),
       update: (...args: unknown[]) => mockExecutedRuleUpdate(...args),

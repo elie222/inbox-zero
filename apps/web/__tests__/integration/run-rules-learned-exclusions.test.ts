@@ -45,6 +45,12 @@ const mockExecutedRuleFindMany = vi.fn().mockResolvedValue([]);
 
 vi.mock("@/utils/prisma", () => ({
   default: {
+    emailAccount: {
+      findUnique: vi.fn().mockResolvedValue({
+        userId: "test-user-id",
+        spamFilterEnabled: false,
+      }),
+    },
     group: {
       findMany: (...args: unknown[]) => mockGroupFindMany(...args),
     },
