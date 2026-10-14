@@ -37,7 +37,13 @@ import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR, { useSWRConfig } from "swr";
 import type { ScopedMutator } from "swr";
 import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
-import type { GetComposeSignatureResponse } from "@/app/api/user/compose-signature/route";
+import type { GetSignatureResponse } from "@/app/api/user/signature/route";
+import type { GetSendAsResponse } from "@/app/api/user/send-as/route";
+import {
+  findReplySendAsAddress,
+  formatSendAsAddress,
+  type SendAsAddress,
+} from "@/utils/email/send-as";
 import { ComposeContactRecipientField } from "./ComposeContactRecipientField";
 import { Input } from "@/components/Input";
 import { ButtonLoader } from "@/components/Loading";
@@ -60,6 +66,7 @@ import {
 } from "@/components/ui/select";
 import { env } from "@/env";
 import { getAccountScopedKey } from "@/utils/swr";
+import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { useLocalReplyDraft } from "@/hooks/useLocalReplyDraft";
 import {
@@ -131,7 +138,11 @@ import {
   READER_EMAIL_SETTLEMENT_TIMEOUT_MS,
   waitForReaderEmailSettlement,
 } from "./queued-reply";
-import { beginUndoSend, UNDO_SEND_DELAY_MS } from "./undo-send";
+import {
+  beginUndoSend,
+  finishUndoSendToast,
+  UNDO_SEND_DELAY_MS,
+} from "./undo-send";
 import { getReplyToEmailPayload } from "./reply-to-email-payload";
 import {
   enqueueDraftOperation,
@@ -170,6 +181,11 @@ export type ReplyingToEmail = {
   references?: string;
   subject: string;
   to: string;
+  /**
+   * Addresses to reply from, best first. The first that is one of the user's
+   * send-as addresses is used, so mail sent to an alias is answered from it.
+   */
+  fromHint?: string;
   cc?: string;
   bcc?: string;
   draftHtml?: string;
@@ -207,7 +223,7 @@ export function ComposeEmailForm(props: ComposeEmailFormProps) {
 }
 
 function ComposeEmailFormWithEngine(props: ComposeEmailFormProps) {
-  const { emailAccountId, provider } = useAccount();
+  const { emailAccountId, provider, userEmail } = useAccount();
   const [selectedEmailAccountId, setSelectedEmailAccountId] =
     useState(emailAccountId);
   const selectedAccountOverride =
@@ -219,17 +235,35 @@ function ComposeEmailFormWithEngine(props: ComposeEmailFormProps) {
     error,
     isLoading,
   } = useEmailAccountFull(selectedAccountOverride);
+  const selectedFromAccount = props.fromAccounts?.find(
+    (account) => account.id === selectedEmailAccountId,
+  );
   const selectedAccountProvider =
-    props.fromAccounts?.find((account) => account.id === selectedEmailAccountId)
-      ?.account.provider ?? provider;
+    selectedFromAccount?.account.provider ?? provider;
+  // The already-loaded account list knows the address, so compose still opens
+  // when the lookup fails offline.
+  const sendingAddress =
+    emailAccount?.email ||
+    selectedFromAccount?.email ||
+    (selectedAccountOverride ? undefined : userEmail);
   // A failed lookup still lets the user compose, just without a signature.
-  const { data: composeSignature, isLoading: isLoadingSignature } =
-    useSWR<GetComposeSignatureResponse>(
-      getAccountScopedKey(
-        "/api/user/compose-signature",
-        selectedEmailAccountId,
-      ),
-    );
+  // Waiting only while there is no error keeps a reconnect refetch from
+  // swapping the open form back to a spinner.
+  const {
+    data: composeSignature,
+    error: signatureError,
+    isLoading: isLoadingSignature,
+  } = useSWR<GetSignatureResponse>(
+    getAccountScopedKey("/api/user/signature", selectedEmailAccountId),
+  );
+  // A failed lookup sends from the default address, as before.
+  const {
+    data: sendAs,
+    error: sendAsError,
+    isLoading: isLoadingSendAs,
+  } = useSWR<GetSendAsResponse>(
+    getAccountScopedKey("/api/user/send-as", selectedEmailAccountId),
+  );
 
   const localDraftIdentity = props.draftSessionId
     ? {
@@ -266,15 +300,16 @@ function ComposeEmailFormWithEngine(props: ComposeEmailFormProps) {
   });
   return (
     <LoadingContent
-      error={error}
+      error={sendingAddress ? undefined : error}
       loading={
-        isLoading ||
+        (!sendingAddress && isLoading) ||
         localDraft.isLoading ||
         draftAttachments.isLoading ||
-        isLoadingSignature
+        (isLoadingSignature && !signatureError) ||
+        (isLoadingSendAs && !sendAsError)
       }
     >
-      {emailAccount && (
+      {sendingAddress && (
         <ShortcutsProvider scopes={MAIL_SHORTCUT_SCOPES}>
           <ComposeEmailFormContent
             {...props}
@@ -286,7 +321,8 @@ function ComposeEmailFormWithEngine(props: ComposeEmailFormProps) {
             draftLoadError={localDraft.error}
             accountProvider={selectedAccountProvider}
             accountSignatureHtml={composeSignature?.signatureHtml ?? ""}
-            sendingAddress={emailAccount.email}
+            sendingAddress={sendingAddress}
+            sendAsAddresses={sendAs?.addresses ?? []}
             sentWithFooterHtml={composeSignature?.footerHtml ?? ""}
             key={composeSessionKey}
             onSelectEmailAccount={setSelectedEmailAccountId}
@@ -310,6 +346,7 @@ function ComposeEmailFormContent({
   accountProvider,
   accountSignatureHtml,
   sendingAddress,
+  sendAsAddresses,
   sentWithFooterHtml,
   selectedEmailAccountId,
   onSelectEmailAccount,
@@ -334,15 +371,22 @@ function ComposeEmailFormContent({
   accountProvider: string;
   accountSignatureHtml: string;
   sendingAddress: string;
+  sendAsAddresses: SendAsAddress[];
   sentWithFooterHtml: string;
   selectedEmailAccountId: string;
   onSelectEmailAccount: (emailAccountId: string) => void;
 }) {
-  const { userEmail } = useAccount();
+  const { emailAccountId, userEmail } = useAccount();
+  const { showEmail } = useDisplayedEmail();
   const isComposeWindow = layout === "window";
   const isInlineReply = Boolean(draftKeyMessageId && replyingToEmail?.threadId);
   const canScheduleDelivery = isInlineReply || isComposeWindow;
   const isNewCompose = !replyingToEmail && !providerDraftMessageId;
+  const initialSendAs = findSelectableSendAs(
+    replyingToEmail?.fromHint,
+    sendAsAddresses,
+  );
+  const initialFrom = initialSendAs && formatSendAsAddress(initialSendAs);
   const { mutate } = useSWRConfig();
   const client = useOptionalMailClient() ?? getActiveMailClient();
   const [sendAt, setSendAt] = useState(storedDraft?.content?.sendAt ?? "");
@@ -417,7 +461,9 @@ function ComposeEmailFormContent({
       html: replyingToEmail?.draftHtml ?? "",
       quotedHtml: replyingToEmail?.quotedContentHtml,
       signatureHtml:
-        replyingToEmail?.signatureHtml ?? accountSignatureHtml ?? undefined,
+        replyingToEmail?.signatureHtml ??
+        getSendAsSignatureHtml(initialSendAs, accountSignatureHtml) ??
+        undefined,
     });
     // The footer travels with the signature so it lands right after it and is
     // removed with it, without introducing another block in the composer. A
@@ -427,12 +473,10 @@ function ComposeEmailFormContent({
       editableHtml: sentWithFooterHtml
         ? stripBrandingSignatures(preparedDraft.editableHtml)
         : preparedDraft.editableHtml,
-      signatureHtml: [
-        stripBrandingSignatures(preparedDraft.signatureHtml),
+      signatureHtml: withSentWithFooter(
+        preparedDraft.signatureHtml,
         sentWithFooterHtml,
-      ]
-        .filter(Boolean)
-        .join("<br>"),
+      ),
     };
     const preservedBlocks = createPreservedEmailBlocks(draft);
     return { draft, preservedBlocks, attachments: restoredAttachments };
@@ -483,13 +527,21 @@ function ComposeEmailFormContent({
     watch,
     setValue,
   } = useForm<ComposeFormValues>({
-    defaultValues: storedDraft?.content?.values ?? {
-      replyToEmail: getReplyToEmailPayload(replyingToEmail),
-      subject: replyingToEmail?.subject,
-      to: replyingToEmail?.to,
-      cc: replyingToEmail?.cc,
-      bcc: replyingToEmail?.bcc,
-    },
+    defaultValues: storedDraft?.content?.values
+      ? {
+          // Drafts saved before send-as support carry no sender; leaving it
+          // unset would show the default while the mailbox draft keeps its own.
+          ...storedDraft.content.values,
+          from: storedDraft.content.values.from ?? initialFrom,
+        }
+      : {
+          replyToEmail: getReplyToEmailPayload(replyingToEmail),
+          subject: replyingToEmail?.subject,
+          from: initialFrom,
+          to: replyingToEmail?.to,
+          cc: replyingToEmail?.cc,
+          bcc: replyingToEmail?.bcc,
+        },
   });
   const {
     onSlashKeyDown,
@@ -558,6 +610,7 @@ function ComposeEmailFormContent({
     const blocks = new Set(content.preservedBlocks.map((block) => block.id));
     return {
       subject: content.values.subject ?? "",
+      from: content.values.from,
       to: content.values.to ?? "",
       cc: content.values.cc ?? "",
       bcc: content.values.bcc ?? "",
@@ -581,7 +634,6 @@ function ComposeEmailFormContent({
       emailAccountId: selectedEmailAccountId,
       messageId,
       openedDraftMessageId: providerDraftMessageId,
-      isNewCompose,
       localDraft: localDraftIdentity && {
         identity: localDraftIdentity,
         requestId,
@@ -615,6 +667,7 @@ function ComposeEmailFormContent({
       localDraftIdentity,
       requestId,
     );
+    let createdMessageId: string | null = null;
     if (!draftId) {
       const content = getProviderDraftContent();
       if (!content) throw new Error("This draft is not ready to save yet.");
@@ -629,17 +682,18 @@ function ComposeEmailFormContent({
           "Mailbox draft creation could not be confirmed. Check Drafts in Gmail or Outlook; your message is still saved on this device.",
         );
       draftId = created.data.draftId;
-      await followDraftMessage(created.data.messageId);
+      createdMessageId = created.data.messageId;
     }
+    // Keep the reference durable if the composer closes during mailbox sync.
     providerDraftId.current = draftId;
     await updateReplyDraftProviderState(localDraftIdentity, requestId, draftId);
+    if (createdMessageId) await followDraftMessage(createdMessageId);
     return draftId;
   };
 
-  // A reply or forward with a mailbox draft for its files saves its text there
-  // too, so the mailbox copy never goes stale.
+  // Replies and forwards sync their text even before any files are attached.
   const providerAutosave = useProviderDraftAutosave({
-    enabled: Boolean(providerDraftMessageId) || isNewCompose || savedToMailbox,
+    enabled: Boolean(providerDraftMessageId) || Boolean(localDraftIdentity),
     sessionKey: providerDraftMessageId ? undefined : draftQueueKey,
     minIntervalMs:
       attachments.length && isGoogleProvider(accountProvider)
@@ -917,6 +971,16 @@ function ComposeEmailFormContent({
     [selectedEmailAccountId],
   );
 
+  // An inline reply is already on screen, the side panel only reads the
+  // current account's mail, and a send without a stored copy has nothing to show.
+  const getViewSentEmail = useCallback(
+    (messageId: string, threadId: string) =>
+      isInlineReply || selectedEmailAccountId !== emailAccountId || !messageId
+        ? null
+        : () => showEmail({ threadId, messageId }),
+    [emailAccountId, isInlineReply, selectedEmailAccountId, showEmail],
+  );
+
   const onSubmit: SubmitHandler<ComposeFormValues> = useCallback(
     async (data, event) => {
       const submitter = (event?.nativeEvent as SubmitEvent | undefined)
@@ -1162,6 +1226,18 @@ function ComposeEmailFormContent({
             threadId: outcome.threadId,
           })
             .then(async (settled) => {
+              finishUndoSendToast(
+                outcome.mutationId,
+                settled.status === "sent"
+                  ? {
+                      sent: true,
+                      onView: getViewSentEmail(
+                        settled.messageId,
+                        settled.threadId,
+                      ),
+                    }
+                  : { sent: false },
+              );
               if (settled.status === "cancelled" || settled.status === "failed")
                 showDraftAgain();
               if (settled.status === "cancelled") return;
@@ -1184,14 +1260,27 @@ function ComposeEmailFormContent({
                 });
               }
             })
-            .catch(() => {});
+            .catch(() =>
+              finishUndoSendToast(outcome.mutationId, { sent: false }),
+            );
           return;
         }
         if (outcome.status === "failed" || outcome.status === "cancelled")
           showDraftAgain();
         await discardLocalDraft();
         if (outcome.status === "sent") {
-          if (!isInlineReply) toastSuccess({ description: "Email sent!" });
+          if (!isInlineReply) {
+            const viewSentEmail = getViewSentEmail(
+              outcome.messageId,
+              outcome.threadId,
+            );
+            toastSuccess({
+              description: "Email sent!",
+              action: viewSentEmail
+                ? { label: "View", onClick: viewSentEmail }
+                : undefined,
+            });
+          }
           if (markDoneAfterSend) onMarkDone?.();
           onSuccess?.(outcome.messageId, outcome.threadId);
           refetch?.();
@@ -1243,6 +1332,7 @@ function ComposeEmailFormContent({
       client,
       flushDraft,
       forgetAttachedComposeFiles,
+      getViewSentEmail,
       mutate,
       onClose,
       onRestore,
@@ -1315,6 +1405,23 @@ function ComposeEmailFormContent({
         );
       }
     };
+  const selectedSendAs = findSelectableSendAs(watch("from"), sendAsAddresses);
+  const showAccountPicker = Boolean(fromAccounts?.length) && !replyingToEmail;
+  // Gmail swaps in each address's own signature, keeping what was written.
+  const changeSendAs = (email: string) => {
+    const address = sendAsAddresses.find((item) => item.email === email);
+    if (!address) return;
+    const previousSignature = getSendAsSignatureHtml(
+      selectedSendAs,
+      accountSignatureHtml,
+    );
+    const nextSignature = getSendAsSignatureHtml(address, accountSignatureHtml);
+    setValue("from", formatSendAsAddress(address));
+    if (nextSignature !== previousSignature)
+      editorRef.current?.replaceSignature(
+        withSentWithFooter(nextSignature, sentWithFooterHtml),
+      );
+  };
   const canCollapseInlineReplyFields =
     isInlineReply && Boolean(replyingToEmail?.to);
   const showInlineReplySummary = canCollapseInlineReplyFields && !editReply;
@@ -1505,12 +1612,20 @@ function ComposeEmailFormContent({
       )}
     >
       <div className={cn(isComposeWindow ? "shrink-0 px-4 pt-3" : "contents")}>
-        {!!fromAccounts?.length && !replyingToEmail && (
+        {showAccountPicker && (
           <div className="flex min-h-7 items-center gap-2">
             <ComposeFieldLabel htmlFor="from-account" label="From" />
             <Select
-              value={selectedEmailAccountId}
-              onValueChange={onSelectEmailAccount}
+              value={
+                selectedSendAs
+                  ? `alias:${selectedSendAs.email}`
+                  : `account:${selectedEmailAccountId}`
+              }
+              onValueChange={(value) => {
+                const [kind, id] = splitFromOption(value);
+                if (kind === "alias") changeSendAs(id);
+                else onSelectEmailAccount(id);
+              }}
             >
               <SelectTrigger
                 aria-label="From"
@@ -1520,17 +1635,26 @@ function ComposeEmailFormContent({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {fromAccounts.map((account) => (
-                  <SelectItem
-                    disabled={Boolean(account.account.disconnectedAt)}
-                    key={account.id}
-                    value={account.id}
-                  >
-                    {account.name
-                      ? `${account.name} (${account.email})`
-                      : account.email}
-                  </SelectItem>
-                ))}
+                {fromAccounts?.flatMap((account) =>
+                  account.id === selectedEmailAccountId && selectedSendAs
+                    ? sendAsAddresses.map((address) => (
+                        <SelectItem
+                          key={address.email}
+                          value={`alias:${address.email}`}
+                        >
+                          {formatAddressLabel(address.name, address.email)}
+                        </SelectItem>
+                      ))
+                    : [
+                        <SelectItem
+                          disabled={Boolean(account.account.disconnectedAt)}
+                          key={account.id}
+                          value={`account:${account.id}`}
+                        >
+                          {formatAddressLabel(account.name, account.email)}
+                        </SelectItem>,
+                      ],
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -1561,12 +1685,41 @@ function ComposeEmailFormContent({
                   userEmail,
                 ) || "recipients"}
               </span>
+              {selectedSendAs && !selectedSendAs.isDefault && (
+                <span className="min-w-0 truncate font-normal text-muted-foreground">
+                  from {selectedSendAs.email}
+                </span>
+              )}
               <ChevronDownIcon className="size-3 shrink-0 text-muted-foreground" />
             </button>
             {popOutButton}
           </div>
         ) : (
           <div className="space-y-1 [&_input]:bg-transparent">
+            {selectedSendAs && !showAccountPicker && (
+              <div className="flex min-h-7 items-center gap-2">
+                <ComposeFieldLabel htmlFor="from-address" label="From" />
+                <Select
+                  value={selectedSendAs.email}
+                  onValueChange={changeSendAs}
+                >
+                  <SelectTrigger
+                    aria-label="From"
+                    className="h-7 min-w-0 flex-1 rounded-none border-0 bg-transparent px-0 text-sm shadow-none focus:ring-0 focus:ring-offset-0"
+                    id="from-address"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sendAsAddresses.map((address) => (
+                      <SelectItem key={address.email} value={address.email}>
+                        {formatAddressLabel(address.name, address.email)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             {(["to", "cc", "bcc"] as const).map((field) => (
               <div key={field} className="flex min-h-7 items-center gap-2">
                 <ComposeFieldLabel
@@ -1981,4 +2134,40 @@ function stripBrandingOutsideSignature(body: HTMLElement) {
   const html = stripBrandingSignatures(body.innerHTML);
   // A function replacer keeps "$" sequences in the signature literal.
   return html.replace("<!--signature-->", () => signature.outerHTML);
+}
+
+// Only an account with aliases picks an address; the rest keep sending
+// without one so the provider applies its default.
+function findSelectableSendAs(
+  candidates: string | undefined,
+  addresses: SendAsAddress[],
+) {
+  if (addresses.length < 2) return;
+  return findReplySendAsAddress(candidates, addresses);
+}
+
+// The default address keeps the signature set in Inbox Zero; an alias uses
+// its own when the provider has one.
+function getSendAsSignatureHtml(
+  address: SendAsAddress | undefined,
+  accountSignatureHtml: string,
+) {
+  if (address && !address.isDefault && address.signature)
+    return address.signature;
+  return accountSignatureHtml;
+}
+
+function withSentWithFooter(signatureHtml: string, footerHtml: string) {
+  return [stripBrandingSignatures(signatureHtml.trim()), footerHtml]
+    .filter(Boolean)
+    .join("<br>");
+}
+
+function formatAddressLabel(name: string | null | undefined, email: string) {
+  return name ? `${name} (${email})` : email;
+}
+
+function splitFromOption(value: string) {
+  const separator = value.indexOf(":");
+  return [value.slice(0, separator), value.slice(separator + 1)] as const;
 }

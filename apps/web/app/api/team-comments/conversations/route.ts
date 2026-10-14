@@ -1,19 +1,40 @@
 import { NextResponse } from "next/server";
+import { shareConversationInput } from "@/utils/actions/team-comments.validation";
 import { withAuth } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 import { getOwnedMember } from "@/utils/team-comments/access";
 import {
   getShareForSource,
   listSharedConversations,
+  shareConversation,
 } from "@/utils/team-comments/conversations";
 
 export type TeamConversationsResponse = Awaited<ReturnType<typeof getData>>;
+export type ShareTeamConversationResponse = Awaited<
+  ReturnType<typeof shareConversation>
+>;
 
 export const GET = withAuth("team-comments/conversations", async (request) =>
   NextResponse.json(
     await getData(request.auth.userId, new URL(request.url).searchParams),
     { headers: { "Cache-Control": "private, no-store" } },
   ),
+);
+
+export const POST = withAuth(
+  "team-comments/conversations/share",
+  async (request) => {
+    const { memberId, ...input } = shareConversationInput.parse(
+      await request.json(),
+    );
+    const shared = await shareConversation(
+      { userId: request.auth.userId, memberId },
+      { ...input, logger: request.logger },
+    );
+    return NextResponse.json(shared satisfies ShareTeamConversationResponse, {
+      headers: { "Cache-Control": "private, no-store" },
+    });
+  },
 );
 
 async function getData(userId: string, params: URLSearchParams) {

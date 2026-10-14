@@ -29,6 +29,50 @@ describe("sanitizeMailHtml", () => {
     expect(parsedDocument.querySelector("a")?.getAttribute("href")).toBeNull();
   });
 
+  it("drops tracking pixels so they are never requested or drawn broken", () => {
+    const sanitized = sanitizeMailHtml(`
+      <html>
+        <body>
+          <p>Thanks for signing up.</p>
+          <img src="https://track.example.com/open.gif" width="1" height="1" alt="tracker">
+          <img src="https://track.example.com/o.gif" style="width:1px;height:1px">
+          <img src="https://track.example.com/zero.gif" width="0" height="0">
+        </body>
+      </html>
+    `);
+    const parsedDocument = new DOMParser().parseFromString(
+      sanitized,
+      "text/html",
+    );
+
+    expect(parsedDocument.querySelectorAll("img")).toHaveLength(0);
+    expect(parsedDocument.body.textContent).toContain("Thanks for signing up.");
+  });
+
+  it("keeps spacer and content images that are only thin in one dimension", () => {
+    const sanitized = sanitizeMailHtml(`
+      <img src="https://cdn.example.com/spacer.gif" width="1" height="24">
+      <img src="https://cdn.example.com/divider.png" width="600" height="1">
+      <img src="https://cdn.example.com/logo.png" width="120" height="40">
+      <img src="https://cdn.example.com/hero.png">
+    `);
+    const parsedDocument = new DOMParser().parseFromString(
+      sanitized,
+      "text/html",
+    );
+
+    expect(
+      Array.from(parsedDocument.querySelectorAll("img")).map((image) =>
+        image.getAttribute("src"),
+      ),
+    ).toEqual([
+      "https://cdn.example.com/spacer.gif",
+      "https://cdn.example.com/divider.png",
+      "https://cdn.example.com/logo.png",
+      "https://cdn.example.com/hero.png",
+    ]);
+  });
+
   it("builds the iframe document through DOM nodes instead of string wrappers", () => {
     const sanitized = sanitizeMailHtml(`
       <section data-testid="message">

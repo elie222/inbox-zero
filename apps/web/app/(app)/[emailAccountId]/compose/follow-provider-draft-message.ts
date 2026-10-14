@@ -16,7 +16,6 @@ export async function followProviderDraftMessage({
   emailAccountId,
   messageId,
   openedDraftMessageId,
-  isNewCompose,
   localDraft,
 }: {
   client: MailClient | null;
@@ -24,7 +23,6 @@ export async function followProviderDraftMessage({
   messageId: string | null;
   /** The mailbox draft this composer was opened from, if any. */
   openedDraftMessageId?: string;
-  isNewCompose: boolean;
   localDraft?: { identity: ReplyDraftIdentity; requestId: string };
 }) {
   if (!messageId) return;
@@ -38,13 +36,14 @@ export async function followProviderDraftMessage({
     await ingestMailboxDraft(client, emailAccountId, messageId);
     return;
   }
-  if (isNewCompose) await ingestMailboxDraft(client, emailAccountId, messageId);
   if (!localDraft) return;
   await rememberProviderDraftMessage(
     localDraft.identity,
     localDraft.requestId,
     messageId,
   );
+  // Publish the local owner before sync can expose a second composer.
+  await ingestMailboxDraft(client, emailAccountId, messageId);
 }
 
 async function ingestMailboxDraft(

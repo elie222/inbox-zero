@@ -5,10 +5,14 @@ import {
   clearLocalReplyDrafts,
   createReplyDraftWriter,
   dropReplyDraftDeletedFromMailbox,
+  getDraftSessionMessageIds,
+  rememberReplacedDraftMessage,
   getReplyDraft,
   getReplyDraftForSession,
   getReplyDrafts,
   getReplyDraftSessionId,
+  rememberProviderDraftMessage,
+  subscribeToReplyDrafts,
   restoreUnsentReplyDraft,
   updateReplyDraftProviderState,
   type ReplyDraftContent,
@@ -44,6 +48,168 @@ const content: ReplyDraftContent = {
 describe("local reply drafts", () => {
   beforeEach(() => {
     clearLocalReplyDrafts();
+  });
+
+  afterEach(() => setActiveMailClient(null));
+
+  it("loads saved reply and forward sessions when a thread opens", async () => {
+    const client = createRevisionCheckingClient();
+    setActiveMailClient(client as never);
+    for (const mode of ["reply", "forward"] as const) {
+      await createReplyDraftWriter({
+        ...identity,
+        messageId: getReplyDraftSessionId(identity.messageId, mode),
+      }).save({ ...content, composeMode: mode });
+    }
+    clearLocalReplyDrafts();
+    const restored = await getReplyDrafts("account", "thread", ["parent"]);
+    expect(restored.map((draft) => draft.content?.composeMode).sort()).toEqual([
+      "forward",
+      "reply",
+    ]);
+  });
+
+  it("preserves edit times when sessions load in the opposite order", async () => {
+    const clock = vi.spyOn(Date, "now");
+    try {
+      const client = createRevisionCheckingClient();
+      setActiveMailClient(client as never);
+      clock.mockReturnValue(1000);
+      await createReplyDraftWriter({
+        ...identity,
+        messageId: "parent:forward",
+      }).save({ ...content, composeMode: "forward" });
+      clock.mockReturnValue(2000);
+      await createReplyDraftWriter(replyIdentity).save({
+        ...content,
+        composeMode: "reply",
+      });
+      clearLocalReplyDrafts();
+      clock.mockReturnValue(3000);
+      const restored = await getReplyDrafts("account", "thread", ["parent"]);
+      expect(
+        restored
+          .map(({ messageId, updatedAt }) => [messageId, updatedAt])
+          .sort(),
+      ).toEqual([
+        ["parent:forward", 1000],
+        ["parent:reply", 2000],
+      ]);
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
+  it.each([
+    "reply",
+    "forward",
+  ] as const)("migrates legacy %s drafts on thread lookup and persists the migration", async (mode) => {
+    const client = createRevisionCheckingClient();
+    setActiveMailClient(client as never);
+    await createReplyDraftWriter(identity).save({
+      ...content,
+      composeMode: mode,
+    });
+    clearLocalReplyDrafts();
+    for (let reload = 0; reload < 2; reload += 1) {
+      const listed = await getReplyDrafts("account", "thread", ["parent"]);
+      expect(listed.map((draft) => draft.messageId)).toEqual([
+        `parent:${mode}`,
+      ]);
+      expect((await getReplyDraft(identity))?.content ?? null).toBeNull();
+      clearLocalReplyDrafts();
+    }
+  });
+
+  it("keeps the persisted legacy draft when saving its migration fails", async () => {
+    const client = createRevisionCheckingClient();
+    setActiveMailClient(client as never);
+    await createReplyDraftWriter(identity).save({
+      ...content,
+      composeMode: "reply",
+    });
+    clearLocalReplyDrafts();
+    client.saveDraft.mockRejectedValueOnce(new Error("Storage unavailable"));
+    await getReplyDrafts("account", "thread", ["parent"]);
+    clearLocalReplyDrafts();
+    expect((await getReplyDraft(identity))?.content).toMatchObject({
+      composeMode: "reply",
+    });
+  });
+
+  it("does not list mailbox-owned sessions as local replies on other messages", async () => {
+    await createReplyDraftWriter({
+      ...identity,
+      messageId: "mailbox-copy:reply",
+    }).save({
+      ...content,
+      providerDraftMessageIds: ["mailbox-copy"],
+    });
+    expect(await getReplyDrafts("account", "thread", ["parent"])).toEqual([]);
+    expect(await getReplyDrafts("account", "thread", [])).toEqual([]);
+  });
+
+  it.each([
+    "edit",
+    "discard",
+  ])("preserves a newer %s while an engine read is pending", async (action) => {
+    const client = createRevisionCheckingClient();
+    setActiveMailClient(client as never);
+    await createReplyDraftWriter(replyIdentity).save(content);
+    clearLocalReplyDrafts();
+    const snapshot = await client.readDraft({
+      draftId: replyIdentity.messageId,
+    });
+    let resolveRead!: (value: typeof snapshot) => void;
+    const delayedRead = new Promise<typeof snapshot>((resolve) => {
+      resolveRead = resolve;
+    });
+    const readDraft = vi.spyOn(client, "readDraft");
+    readDraft.mockReturnValueOnce(delayedRead);
+    const loading = getReplyDraft(replyIdentity);
+    await vi.waitFor(() => expect(readDraft).toHaveBeenCalled());
+    const writer = createReplyDraftWriter(replyIdentity);
+    const newer = {
+      ...content,
+      values: { ...content.values, subject: "New edits" },
+    };
+    if (action === "discard") await writer.clear();
+    else await writer.save(newer);
+    resolveRead(snapshot);
+    const restored = await loading;
+    expect(restored?.content).toEqual(action === "discard" ? null : newer);
+    expect((await getReplyDraft(replyIdentity))?.content).toEqual(
+      restored?.content,
+    );
+  });
+
+  it("publishes mailbox copies and keeps them across subsequent composer saves", async () => {
+    const writer = createReplyDraftWriter(replyIdentity);
+    const initial = {
+      ...content,
+      requestId: "compose-1",
+      providerDraftId: "provider-1",
+    };
+    await writer.save(initial);
+    const snapshots: string[][] = [];
+    const unsubscribe = subscribeToReplyDrafts(() => {
+      getReplyDrafts("account", "thread").then((drafts) => {
+        snapshots.push(drafts[0]?.content?.providerDraftMessageIds ?? []);
+      });
+    });
+    try {
+      await rememberProviderDraftMessage(replyIdentity, "compose-1", "copy-1");
+      await writer.save(initial);
+      await rememberProviderDraftMessage(replyIdentity, "compose-1", "copy-2");
+      await writer.save(initial);
+      expect(snapshots).toContainEqual(["copy-1"]);
+      expect(snapshots).toContainEqual(["copy-1", "copy-2"]);
+      expect(
+        (await getReplyDraft(replyIdentity))?.content?.providerDraftMessageIds,
+      ).toEqual(["copy-1", "copy-2"]);
+    } finally {
+      unsubscribe();
+    }
   });
 
   it("keeps the provider reference when a reopened writer saves newer content", async () => {
@@ -241,6 +407,57 @@ describe("local reply drafts", () => {
     expect(client.conflicts).toBe(0);
     expect(client.saveDraft).toHaveBeenCalledTimes(2);
     setActiveMailClient(null);
+  });
+
+  it.each([
+    ["one account", "account"],
+    ["every account", undefined],
+  ])("does not restore a draft read while %s was being cleared", async (_, clearedAccount) => {
+    const client = createRevisionCheckingClient();
+    setActiveMailClient(client as never);
+    await createReplyDraftWriter(replyIdentity).save(content);
+    clearLocalReplyDrafts();
+    const readDraft = client.readDraft;
+    client.readDraft = async (key) => {
+      const result = await readDraft(key);
+      clearLocalReplyDrafts(clearedAccount);
+      return result;
+    };
+
+    expect(
+      await getReplyDrafts("account", "thread", [identity.messageId]),
+    ).toEqual([]);
+  });
+
+  it("lists a draft's saved copies with the newest last", () => {
+    rememberReplacedDraftMessage("account", "copy-a", "copy-b");
+    rememberReplacedDraftMessage("account", "copy-b", "copy-c");
+
+    expect(getDraftSessionMessageIds("account", "copy-c").at(-1)).toBe(
+      "copy-c",
+    );
+  });
+
+  it("lists a thread's reply drafts saved before a reload", async () => {
+    const client = createRevisionCheckingClient();
+    setActiveMailClient(client as never);
+    await createReplyDraftWriter(replyIdentity).save({
+      ...content,
+      composeMode: "reply",
+    });
+    clearLocalReplyDrafts();
+
+    const listed = await getReplyDrafts("account", "thread", [
+      "earlier",
+      identity.messageId,
+    ]);
+
+    expect(listed).toMatchObject([
+      {
+        messageId: replyIdentity.messageId,
+        content: { draft: { editableHtml: "<p>My reply</p>" } },
+      },
+    ]);
   });
 
   it("copies a cancelled send draft into the reply composer session", async () => {

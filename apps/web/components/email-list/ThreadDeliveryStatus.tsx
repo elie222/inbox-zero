@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircleIcon,
   BellIcon,
@@ -18,6 +12,7 @@ import {
 import useSWR, { useSWRConfig } from "swr";
 import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
 import type { ReplyDraftMode } from "@/utils/mail-engine/reply-drafts";
+import { useIsOnline } from "@/hooks/useIsOnline";
 import { InlineActionButton } from "@/components/InlineActionButton";
 import type { ScheduledEmailsResponse } from "@/app/api/user/scheduled-emails/route";
 import {
@@ -54,11 +49,7 @@ export function ThreadDeliveryStatus({
 }) {
   const client = useOptionalMailClient();
   const { mutate: mutateCache } = useSWRConfig();
-  const online = useSyncExternalStore(
-    subscribeToConnectivity,
-    () => navigator.onLine,
-    () => true,
-  );
+  const online = useIsOnline();
   const [actionError, setActionError] = useState("");
   const [busy, setBusy] = useState(false);
   const [dismissedSendIds, setDismissedSendIds] = useState<string[]>([]);
@@ -449,13 +440,4 @@ function DeliveryIcon({
       className="size-3.5 shrink-0 text-muted-foreground"
     />
   );
-}
-
-function subscribeToConnectivity(onChange: () => void) {
-  window.addEventListener("online", onChange);
-  window.addEventListener("offline", onChange);
-  return () => {
-    window.removeEventListener("online", onChange);
-    window.removeEventListener("offline", onChange);
-  };
 }

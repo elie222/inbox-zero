@@ -846,6 +846,46 @@ describe("drafts, freeze, and uncertain settlement", () => {
     await rm(directory, { recursive: true, force: true });
   });
 
+  it("sends from the draft's send-as address", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const saved = await store.saveDraft({
+      key: { accountId: "acc-1", draftId: "d-alias" },
+      expectedRevision: null,
+      content: {
+        from: "Support <support@example.com>",
+        to: ["ada@example.com"],
+        cc: [],
+        bcc: [],
+        subject: "Hi",
+        editableHtml: "<p>Hi</p>",
+        quotedHtml: "",
+      },
+    });
+    if (saved.status !== "saved") throw new Error("expected save");
+    await store.admitSend({
+      commandId: "send-alias",
+      draft: { accountId: "acc-1", draftId: "d-alias" },
+      draftRevision: saved.draftRevision,
+      replyTo: null,
+    });
+    const work = await store.claimWork({
+      ownerId: "owner",
+      nowMs: Date.now(),
+      leaseMs: 30_000,
+    });
+    if (work?.kind !== "command") throw new Error("expected command");
+    expect(work.operation.intent).toMatchObject({
+      kind: "send",
+      from: "Support <support@example.com>",
+    });
+    await store.close();
+  });
+
   it("unfreezes a draft when a queued send is cancelled", async () => {
     const store = await createSqliteMailStore(createNodeSqliteDriver());
     await store.ensureAccount({
@@ -4610,6 +4650,10 @@ describe("outgoing sends in the conversation view", () => {
     expect(queued.messages.map((message) => message.key.messageId)).toEqual([
       "m1",
     ]);
+    const sendKey = { accountId: "acc-1", operationId: "send-1" };
+    expect((await store.readOperation(sendKey)).operation?.sentMessage).toBe(
+      null,
+    );
     expect(queued.outgoing).toEqual([
       {
         operationId: "send-1",
@@ -4626,6 +4670,9 @@ describe("outgoing sends in the conversation view", () => {
 
     await confirmSend(store, "sent-1");
 
+    expect((await store.readOperation(sendKey)).operation?.sentMessage).toEqual(
+      { messageId: "sent-1", conversationId: "c1" },
+    );
     const sent = await readThread(store);
     expect(sent.outgoing).toEqual([]);
     expect(

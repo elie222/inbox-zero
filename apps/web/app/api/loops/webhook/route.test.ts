@@ -1,12 +1,26 @@
 import crypto from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import prisma from "@/utils/__mocks__/prisma";
 
-const { envMock, posthogCaptureEventMock } = vi.hoisted(() => ({
-  envMock: { LOOPS_WEBHOOK_SIGNING_SECRET: "" },
+const {
+  envMock,
+  posthogCaptureEventMock,
+  getWorkflowNameMock,
+  getCampaignNameMock,
+} = vi.hoisted(() => ({
+  envMock: { LOOPS_WEBHOOK_SIGNING_SECRET: "", LOOPS_API_SECRET: "" },
   posthogCaptureEventMock: vi.fn(),
+  getWorkflowNameMock: vi.fn(),
+  getCampaignNameMock: vi.fn(),
 }));
 
 vi.mock("@/env", () => ({ env: envMock }));
+vi.mock("@/utils/prisma");
+
+vi.mock("@inboxzero/loops", () => ({
+  getWorkflowName: (...args: unknown[]) => getWorkflowNameMock(...args),
+  getCampaignName: (...args: unknown[]) => getCampaignNameMock(...args),
+}));
 
 vi.mock("@/utils/posthog", () => ({
   posthogCaptureEvent: (...args: unknown[]) => posthogCaptureEventMock(...args),
@@ -34,7 +48,15 @@ describe("Loops webhook route", () => {
     vi.useFakeTimers();
     vi.setSystemTime(NOW);
     envMock.LOOPS_WEBHOOK_SIGNING_SECRET = SECRET;
+    envMock.LOOPS_API_SECRET = "";
     posthogCaptureEventMock.mockResolvedValue(true);
+    prisma.loopsEmailSource.findUnique.mockResolvedValue(null);
+    prisma.loopsEmailSource.findFirst.mockResolvedValue(null);
+    prisma.loopsEmailSource.upsert.mockResolvedValue({
+      id: "source_1",
+    } as never);
+    getWorkflowNameMock.mockResolvedValue(null);
+    getCampaignNameMock.mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -137,6 +159,128 @@ describe("Loops webhook route", () => {
       "user@example.com",
       posthogEventName,
       expect.objectContaining({ ...source, sourceType }),
+      false,
+      expect.anything(),
+    );
+  });
+
+  it("remembers a workflow name from the send that includes it", async () => {
+    const response = await post(
+      JSON.stringify({
+        eventName: "loop.email.sent",
+        loopId: "loop_1",
+        loopName: "Welcome series",
+        email: {
+          id: "email_1",
+          emailMessageId: "message_1",
+          subject: "Welcome to Inbox Zero",
+        },
+        contactIdentity: { email: "user@example.com" },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(prisma.loopsEmailSource.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { emailMessageId: "message_1" },
+        create: expect.objectContaining({
+          loopId: "loop_1",
+          loopName: "Welcome series",
+          sourceType: "loop",
+        }),
+      }),
+    );
+    expect(posthogCaptureEventMock).toHaveBeenCalledWith(
+      "user@example.com",
+      "Loops email sent",
+      expect.objectContaining({
+        loopId: "loop_1",
+        loopName: "Welcome series",
+        emailId: "email_1",
+        emailMessageId: "message_1",
+        emailSubject: "Welcome to Inbox Zero",
+      }),
+      false,
+      expect.anything(),
+    );
+  });
+
+  it.each([
+    ["email.opened", "Loops email opened"],
+    ["email.clicked", "Loops email clicked"],
+    ["email.unsubscribed", "Loops email unsubscribed"],
+    ["email.spamReported", "Loops email marked as spam"],
+    ["email.hardBounced", "Loops email bounced"],
+  ])("adds the workflow name Loops omits from %s", async (loopsEventName, posthogEventName) => {
+    prisma.loopsEmailSource.findUnique.mockResolvedValue({
+      loopName: "Welcome series",
+      campaignName: null,
+    });
+
+    const response = await post(
+      JSON.stringify({
+        eventName: loopsEventName,
+        sourceType: "loop",
+        loopId: "loop_1",
+        email: {
+          id: "email_1",
+          emailMessageId: "message_1",
+          subject: "Welcome to Inbox Zero",
+        },
+        contactIdentity: { email: "user@example.com" },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(posthogCaptureEventMock).toHaveBeenCalledWith(
+      "user@example.com",
+      posthogEventName,
+      expect.objectContaining({
+        sourceType: "loop",
+        loopId: "loop_1",
+        loopName: "Welcome series",
+        emailId: "email_1",
+        emailMessageId: "message_1",
+        emailSubject: "Welcome to Inbox Zero",
+      }),
+      false,
+      expect.anything(),
+    );
+    expect(getWorkflowNameMock).not.toHaveBeenCalled();
+  });
+
+  it("adds the campaign name Loops omits from an open", async () => {
+    prisma.loopsEmailSource.findUnique.mockResolvedValue({
+      loopName: null,
+      campaignName: "October update",
+    });
+
+    const response = await post(
+      JSON.stringify({
+        eventName: "email.opened",
+        sourceType: "campaign",
+        campaignId: "campaign_1",
+        email: {
+          id: "email_1",
+          emailMessageId: "message_1",
+          subject: "October update",
+        },
+        contactIdentity: { email: "user@example.com" },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(posthogCaptureEventMock).toHaveBeenCalledWith(
+      "user@example.com",
+      "Loops email opened",
+      expect.objectContaining({
+        sourceType: "campaign",
+        campaignId: "campaign_1",
+        campaignName: "October update",
+        emailId: "email_1",
+        emailMessageId: "message_1",
+        emailSubject: "October update",
+      }),
       false,
       expect.anything(),
     );

@@ -12,6 +12,7 @@ import {
   useState,
 } from "react";
 import Squire from "squire-rte";
+import { prepareEmailBodySignatureHtml } from "../../core/email-body";
 import type { EmailBodyMode } from "../../core/email-html";
 import { SIGNATURE_CONTAINER_ATTRIBUTE } from "../../core/email-profile";
 import type {
@@ -732,6 +733,43 @@ export const SquireEmailEditor = forwardRef<
         emitState();
         return true;
       },
+      replaceSignature: (html) => {
+        const currentEditor = editorRef.current;
+        const root = rootRef.current;
+        if (!currentEditor || !root) return false;
+        const containerHtml = html ? prepareEmailBodySignatureHtml(html) : null;
+        const next = containerHtml
+          ? (sanitizeEmailHtmlToFragment(containerHtml)
+              .firstElementChild as HTMLElement | null)
+          : null;
+        const current = signaturePresentRef.current
+          ? signatureRef.current
+          : null;
+        if (!current && !next) return false;
+        // A collapsed signature is held outside the document; swapping the
+        // reference is enough until it is shown.
+        const inRoot = Boolean(current && root.contains(current));
+        if (inRoot || (next && expandedRef.current)) {
+          currentEditor.saveEditUndoState();
+          currentEditor.modifyDocument(() => {
+            if (current && inRoot) {
+              if (next) current.replaceWith(next);
+              else current.remove();
+            } else if (next) {
+              root.append(next);
+            }
+            ensureBlock(currentEditor, root);
+          });
+        }
+        signatureRef.current = next;
+        setSignaturePresent(Boolean(next));
+        dirtyRef.current = true;
+        updateEmptyState();
+        updateSignatureControls();
+        resolveImages();
+        emitState();
+        return true;
+      },
       replaceSlashTrigger: (html) => {
         const currentEditor = editorRef.current;
         if (!currentEditor) return false;
@@ -753,7 +791,15 @@ export const SquireEmailEditor = forwardRef<
         return true;
       },
     }),
-    [closeSlashTrigger, emitState, readValue],
+    [
+      closeSlashTrigger,
+      emitState,
+      readValue,
+      resolveImages,
+      setSignaturePresent,
+      updateEmptyState,
+      updateSignatureControls,
+    ],
   );
 
   return (

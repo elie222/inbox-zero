@@ -1,5 +1,6 @@
 import { OpenedConversationAttachments } from "./OpenedConversationAttachments";
 import { useEffect, useMemo, useState, useRef, type ReactNode } from "react";
+import { isSendCommandFor } from "@/app/(app)/[emailAccountId]/compose/queued-reply";
 import { useHotkeys } from "react-hotkeys-hook";
 import { isTypingTarget } from "@/lib/shortcuts/registry";
 import { ChevronsDownUpIcon, ChevronsUpDownIcon } from "lucide-react";
@@ -76,7 +77,16 @@ export function EmailThread({
 }) {
   const { emailAccountId, userEmail } = useAccount();
   const threadId = messages[0]?.threadId ?? "";
-  const { drafts: localDrafts } = useReplyDrafts(emailAccountId, threadId);
+  const { drafts: localDrafts, isLoading: draftsLoading } = useReplyDrafts(
+    emailAccountId,
+    threadId,
+    [
+      ...messages
+        .filter((message) => !message.labelIds?.includes(GmailLabel.DRAFT))
+        .map((message) => getComposerMessageId(message.id, sendOperationIds)),
+      ...outgoing.map((item) => item.message.id),
+    ],
+  );
   const { data: sentMessageOpens } = useSentMessageOpens(threadId || null);
   const hiddenDraftMessageIds = useHiddenDraftMessageIds(emailAccountId);
   const organizedMessages = useMemo(
@@ -91,6 +101,8 @@ export function EmailThread({
             (draft) => draft.content?.providerDraftMessageIds ?? [],
           ),
           ...hiddenDraftMessageIds,
+          // Opening a mailbox copy before the local lookup creates a second session.
+          ...(draftsLoading ? messages.map((message) => message.id) : []),
         ]),
       ),
       ...outgoing.map((item) => ({
@@ -106,6 +118,7 @@ export function EmailThread({
       messages,
       emailAccountId,
       localDrafts,
+      draftsLoading,
       hiddenDraftMessageIds,
       outgoing,
       userEmail,
@@ -137,6 +150,14 @@ export function EmailThread({
           .map(({ message }) => [message.id, true]),
       ),
   );
+  const [activeCompose, setActiveCompose] = useState<{
+    threadId: string;
+    messageId: string;
+  }>();
+  const activeComposeMessageId =
+    activeCompose?.threadId === threadId
+      ? getComposerMessageId(activeCompose.messageId, sendOperationIds)
+      : undefined;
   const [recoveredReply, setRecoveredReply] = useState<{
     messageId: string;
     mode: ReplyDraftMode;
@@ -144,20 +165,40 @@ export function EmailThread({
   }>();
   useEffect(() => {
     const messageId = autoOpenForwardForMessageId ?? autoOpenReplyForMessageId;
-    if (messageId)
+    if (messageId) {
+      setActiveCompose({ threadId, messageId });
       setExpansionOverrides((previous) =>
         new Map(previous).set(messageId, true),
       );
-  }, [autoOpenForwardForMessageId, autoOpenReplyForMessageId]);
+    }
+  }, [autoOpenForwardForMessageId, autoOpenReplyForMessageId, threadId]);
   const expanded = (id: string, hasDraft: boolean) =>
     expansionOverrides.get(id) ?? (id === lastMessageId || hasDraft);
-  // Outlook sends a draft as the same message, so its local copy would reopen
-  // as a reply on the sent message until the send settles and clears it.
-  const localDraftModeFor = (message: ThreadMessage) =>
-    message.labelIds?.includes(GmailLabel.DRAFT) ||
-    sendOperationIds?.has(message.id)
-      ? undefined
-      : getLocalDraftMode(localDrafts, message.id);
+  // A sent reply keeps its local draft until delivery so undo can restore it,
+  // but it is no longer an open draft. Leaving and returning to the thread
+  // must not reopen it with a live Send button.
+  const unsentLocalDrafts = useMemo(() => {
+    const submitted = [
+      ...outgoing.map((item) => item.operationId),
+      ...(sendOperationIds?.values() ?? []),
+    ];
+    return localDrafts.filter((draft) => {
+      const requestId = draft.content?.requestId;
+      return !(
+        requestId &&
+        submitted.some((operationId) =>
+          isSendCommandFor(operationId, requestId),
+        )
+      );
+    });
+  }, [localDrafts, outgoing, sendOperationIds]);
+  const localDraftModeFor = (message: ThreadMessage) => {
+    if (message.labelIds?.includes(GmailLabel.DRAFT)) return;
+    return getLocalDraftMode(
+      unsentLocalDrafts,
+      getComposerMessageId(message.id, sendOperationIds),
+    );
+  };
   const hasLocalDraft = (message: ThreadMessage) =>
     Boolean(localDraftModeFor(message));
   const allExpanded = organizedMessages.every(({ message, draftMessages }) =>
@@ -281,19 +322,17 @@ export function EmailThread({
           {organizedMessages.map(({ message, draftMessages, outgoing }) => {
             const sendOperationId =
               outgoing?.operationId ?? sendOperationIds?.get(message.id);
-            const defaultComposeMode = getDefaultComposeMode({
-              autoOpenMode:
-                autoOpenForwardForMessageId === message.id
-                  ? "forward"
-                  : autoOpenReplyForMessageId === message.id
-                    ? "reply"
-                    : undefined,
-              localDraftMode: localDraftModeFor(message),
-              recoveredReply:
-                recoveredReply?.messageId === message.id
-                  ? recoveredReply
-                  : undefined,
-            });
+            let autoOpenMode: ReplyDraftMode | undefined;
+            if (autoOpenForwardForMessageId === message.id)
+              autoOpenMode = "forward";
+            else if (autoOpenReplyForMessageId === message.id)
+              autoOpenMode = "reply";
+            const recoveredMode =
+              recoveredReply?.messageId === message.id
+                ? recoveredReply.mode
+                : undefined;
+            const defaultComposeMode =
+              recoveredMode ?? autoOpenMode ?? localDraftModeFor(message);
             return (
               <EmailMessage
                 bodyAvailable={!missingBodyIds?.has(message.id)}
@@ -313,6 +352,14 @@ export function EmailThread({
                   enableMessageNavigation
                     ? () => setSelectedMessageId(message.id)
                     : undefined
+                }
+                hideComposer={Boolean(
+                  activeComposeMessageId &&
+                    activeComposeMessageId !==
+                      getComposerMessageId(message.id, sendOperationIds),
+                )}
+                onStartCompose={() =>
+                  setActiveCompose({ threadId, messageId: message.id })
                 }
                 defaultComposeMode={defaultComposeMode}
                 draftMessages={draftMessages}
@@ -390,6 +437,7 @@ export function EmailThread({
             messageIds={messages.map((message) => message.id)}
             refetch={refetch}
             onEditReply={(messageId, mode) => {
+              setActiveCompose({ threadId, messageId });
               setExpansionOverrides((previous) =>
                 new Map(previous).set(messageId, true),
               );
@@ -406,11 +454,18 @@ export function EmailThread({
   );
 }
 
+function getComposerMessageId(
+  messageId: string,
+  sendOperationIds?: Map<string, string>,
+) {
+  const operationId = sendOperationIds?.get(messageId);
+  return operationId ? `outgoing:${operationId}` : messageId;
+}
+
 function getLocalDraftMode(drafts: StoredReplyDraft[], messageId: string) {
   const latest = drafts
     .filter(
       (draft) =>
-        draft.messageId === messageId ||
         draft.messageId === getReplyDraftSessionId(messageId, "reply") ||
         draft.messageId === getReplyDraftSessionId(messageId, "forward"),
     )
@@ -419,20 +474,6 @@ function getLocalDraftMode(drafts: StoredReplyDraft[], messageId: string) {
   return latest.messageId === getReplyDraftSessionId(messageId, "forward")
     ? ("forward" as const)
     : getReplyDraftMode(latest);
-}
-
-function getDefaultComposeMode({
-  autoOpenMode,
-  localDraftMode,
-  recoveredReply,
-}: {
-  autoOpenMode?: ReplyDraftMode;
-  localDraftMode?: ReplyDraftMode;
-  recoveredReply?: { mode: ReplyDraftMode };
-}) {
-  if (recoveredReply) return recoveredReply.mode;
-  if (autoOpenMode) return autoOpenMode;
-  return localDraftMode;
 }
 
 // Drafts without reply headers still belong to this conversation. Keep each
