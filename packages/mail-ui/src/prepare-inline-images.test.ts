@@ -4,6 +4,7 @@ import { Blob } from "node:buffer";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildMailHtmlDocument } from "./MailBody";
 import { prepareInlineImages } from "./prepare-inline-images";
+import { sanitizeMailHtml } from "./sanitize-html";
 
 const attachment = {
   attachmentId: "attachment-1",
@@ -31,7 +32,9 @@ describe("local mail inline images", () => {
     );
     const loadAttachment = vi.fn().mockResolvedValue(png);
     const result = await prepareInlineImages({
-      html: '<p>Example</p><img src="cid:LOGO%40example.test"><img src="https://example.test/remote.png">',
+      html: sanitizeMailHtml(
+        '<p>Example</p><img src="cid:LOGO%40example.test"><img src="https://example.test/remote.png">',
+      ),
       attachments: [attachment],
       loadAttachment,
       signal: new AbortController().signal,

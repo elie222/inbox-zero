@@ -108,17 +108,16 @@ export function MailMessageBody({
 
   const document = useMemo(() => {
     if (!renderHtml) return null;
-    const sanitizedHtml = renderHtml;
-    const applyDarkTheme = shouldApplyDarkMailTheme(sanitizedHtml, isDarkMode);
+    const applyDarkTheme = shouldApplyDarkMailTheme(renderHtml, isDarkMode);
     const documentKey = getMailHtmlDocumentKey(
-      `${messageId}:${sanitizedHtml}`,
+      `${messageId}:${renderHtml}`,
       applyDarkTheme,
     );
     return {
       documentKey,
       isDarkMode: applyDarkTheme,
       srcDoc: buildMailHtmlDocument({
-        html: sanitizedHtml,
+        html: renderHtml,
         isDarkMode: applyDarkTheme,
         imageProxyBaseUrl,
         imageProxyOrigin,
