@@ -36,14 +36,12 @@ import { cn } from "@/utils";
 import { ManageSubscription } from "@/app/(app)/premium/ManageSubscription";
 import { captureException } from "@/utils/error";
 import { redirectToSafeUrl } from "@/utils/redirect";
-import type { CheckoutReturnTo } from "@/utils/actions/premium.validation";
 
 export type PricingProps = {
   header?: React.ReactNode;
   showSkipUpgrade?: boolean;
   className?: string;
   displayTiers?: Tier[];
-  checkoutReturnTo?: CheckoutReturnTo;
 };
 
 export default function Pricing(props: PricingProps) {
@@ -225,7 +223,6 @@ export default function Pricing(props: PricingProps) {
               router={router}
               userId={data?.id}
               pricingSource={pricingSource}
-              checkoutReturnTo={props.checkoutReturnTo}
             />
           ))}
         </div>
@@ -247,7 +244,6 @@ function PriceTier({
   router,
   userId,
   pricingSource,
-  checkoutReturnTo,
 }: {
   tier: Tier;
   userPremiumTier: PremiumTier | null;
@@ -261,7 +257,6 @@ function PriceTier({
   router: ReturnType<typeof useRouter>;
   userId: string | null | undefined;
   pricingSource: "welcome_upgrade" | "app_premium";
-  checkoutReturnTo?: CheckoutReturnTo;
 }) {
   const posthog = usePostHog();
   const [loading, setLoading] = useState(false);
@@ -398,7 +393,6 @@ function PriceTier({
             } else {
               result = await generateCheckoutSessionAction({
                 tier: upgradeToTier,
-                returnTo: checkoutReturnTo,
               });
             }
 
