@@ -3,6 +3,7 @@
 import { CheckCircleIcon } from "lucide-react";
 import { userCount } from "@/utils/config";
 import { BRAND_NAME } from "@/utils/branding";
+import { ContinueWithEmailClient } from "@/app/(landing)/welcome-upgrade/ContinueWithEmailClient";
 
 export function WelcomeUpgradeHeader() {
   return (
@@ -26,6 +27,8 @@ export function WelcomeUpgradeHeader() {
         <TrialFeature>Free for the first 7 days</TrialFeature>
         <TrialFeature>Cancel anytime, hassle-free</TrialFeature>
       </div>
+
+      <ContinueWithEmailClient />
     </div>
   );
 }

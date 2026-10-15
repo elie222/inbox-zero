@@ -24,6 +24,7 @@ interface HeroProps {
   badgeVariant?: BadgeVariant;
   children?: React.ReactNode;
   cta?: React.ReactNode;
+  icon?: React.ReactNode;
   subtitle?: React.ReactNode;
   title?: React.ReactNode;
 }
@@ -35,9 +36,13 @@ export function Hero({
   badgeVariant = "blue",
   children,
   cta,
+  icon,
 }: HeroProps) {
   return (
-    <Section className={badge ? "mt-7 md:mt-7" : "mt-10 md:mt-20"}>
+    <Section className={badge || icon ? "mt-7 md:mt-7" : "mt-10 md:mt-20"}>
+      {icon ? (
+        <HeroReveal className="mb-7 flex justify-center">{icon}</HeroReveal>
+      ) : null}
       {badge ? (
         <HeroReveal className="mb-7 flex justify-center">
           <Badge variant={badgeVariant}>{badge}</Badge>

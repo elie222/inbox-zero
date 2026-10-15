@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { MailIcon } from "lucide-react";
 import { usePostHog } from "posthog-js/react";
 import type { PostHog } from "posthog-js";
 import { Label, Radio, RadioGroup } from "@headlessui/react";
@@ -32,6 +33,7 @@ import { type Tier, tiers } from "@/app/(app)/premium/config";
 import { Briefcase } from "@/components/new-landing/icons/Briefcase";
 import { landingPageAnalytics } from "@/hooks/useAnalytics";
 import { cn } from "@/utils";
+import { MAIL_CLIENT_SIGNUP_PATH } from "@/utils/config";
 
 type PricingTier = Tier & {
   badges?: {
@@ -97,12 +99,60 @@ export function Pricing() {
 
   return (
     <Section id="pricing">
-      <SectionHeading>Try for free, affordable paid plans</SectionHeading>
-      <SectionSubtitle>No hidden fees. Cancel anytime.</SectionSubtitle>
+      <SectionHeading>Free email app. Pay only for AI.</SectionHeading>
+      <SectionSubtitle>
+        Every AI plan starts with a 7-day free trial. No hidden fees. Cancel
+        anytime.
+      </SectionSubtitle>
       <SectionContent
         noMarginTop
         className="mt-6 flex flex-col items-center justify-center"
       >
+        <CardWrapper className="mb-6 w-full">
+          <Card
+            variant="extra-rounding"
+            className="!border-blue-100 bg-gradient-to-br from-blue-50 via-white to-white"
+          >
+            <CardContent className="flex flex-col items-start justify-between gap-4 lg:flex-row lg:items-center">
+              <div className="flex items-center gap-4 text-left">
+                <div className="text-blue-500">
+                  <MailIcon className="size-6" strokeWidth={1.5} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-title text-lg">Email app</h3>
+                    <Badge variant="blue">New</Badge>
+                  </div>
+                  <Paragraph size="sm" className="mt-1">
+                    A fast email app for Gmail and Outlook. Free on web,
+                    desktop, and iPhone.
+                  </Paragraph>
+                </div>
+              </div>
+              <div className="w-full shrink-0 lg:w-auto">
+                <Button size="lg" auto asChild>
+                  <Link
+                    href={MAIL_CLIENT_SIGNUP_PATH}
+                    className="whitespace-nowrap"
+                    onClick={() =>
+                      landingPageAnalytics.pricingCtaClicked(posthog, {
+                        tier: "Email app",
+                        cta: "Get started free",
+                        frequency,
+                        defaultFrequency,
+                        frequencySource: chosenFrequency
+                          ? "user_selected"
+                          : "default",
+                      })
+                    }
+                  >
+                    <span className="relative z-10">Get started free</span>
+                  </Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </CardWrapper>
         <RadioGroup
           value={frequency}
           onChange={(nextFrequency: PricingFrequency) => {
@@ -132,7 +182,7 @@ export function Pricing() {
             </Radio>
           ))}
         </RadioGroup>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid w-full grid-cols-1 lg:grid-cols-3 gap-6">
           {pricingTiers.map((tier, index) => (
             <CardWrapper key={tier.name}>
               <PricingCard

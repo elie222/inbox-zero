@@ -7,6 +7,8 @@ import {
   resetBillingState,
 } from "../billing/billing-test-helpers";
 import {
+  chooseSignupIntent,
+  getSignupIntentState,
   resetOnboardingTestState,
   setupOnboardingTestState,
 } from "./onboarding-test-helpers";
@@ -28,6 +30,8 @@ test("control arm opens onboarding on the first step with no paywall", async ({
 }, testInfo) => {
   const emailAccountId = await getEmailAccountId(page);
   await page.goto(`/${emailAccountId}/onboarding`);
+  await capturePlaywrightCheckpoint(page, testInfo, "signup-intent-step");
+  await chooseSignupIntent(page, "AI assistant");
   await expect(
     page.getByRole("heading", { name: "Your inbox, automatically sorted" }),
   ).toBeVisible({ timeout: 60_000 });
@@ -47,6 +51,7 @@ test("paywall-first arm shows pricing, then onboarding after payment, then setup
     { timeout: 60_000 },
   );
   await page.goto(`/${emailAccountId}/onboarding?paywallFirst=true`);
+  await chooseSignupIntent(page, "Both");
   await expect(page).toHaveURL(/\/welcome-upgrade\?returnTo=onboarding$/, {
     timeout: 60_000,
   });
@@ -108,6 +113,54 @@ test("paywall-first arm shows pricing, then onboarding after payment, then setup
     testInfo,
     "paywall-setup-after-onboarding",
   );
+});
+
+test("email app users skip AI setup and the paywall", async ({
+  page,
+}, testInfo) => {
+  const emailAccountId = await getEmailAccountId(page);
+
+  await page.goto(`/${emailAccountId}/onboarding?paywallFirst=true`);
+  await chooseSignupIntent(page, "Email app");
+
+  await expect(page).toHaveURL(new RegExp(`/${emailAccountId}/mail`), {
+    timeout: 60_000,
+  });
+  await expect(
+    page.getByRole("listbox", { name: "Conversations" }),
+  ).toBeVisible({ timeout: 60_000 });
+  await capturePlaywrightCheckpoint(page, testInfo, "email-client-only-mail");
+  expect(await getSignupIntentState()).toEqual({
+    completed: true,
+    signupIntent: "MAIL_CLIENT",
+  });
+  expect(await getPremiumBillingState()).toBeNull();
+});
+
+test("the upgrade page lets users continue free with the email app", async ({
+  page,
+}, testInfo) => {
+  const emailAccountId = await getEmailAccountId(page);
+
+  await page.goto(`/${emailAccountId}/onboarding?paywallFirst=true`);
+  await chooseSignupIntent(page, "AI assistant");
+  await expect(page).toHaveURL(/\/welcome-upgrade\?returnTo=onboarding$/, {
+    timeout: 60_000,
+  });
+  await page
+    .getByRole("button", {
+      name: "Just want the email app? Continue for free",
+    })
+    .click();
+
+  await expect(page).toHaveURL(new RegExp(`/${emailAccountId}/mail`), {
+    timeout: 60_000,
+  });
+  await capturePlaywrightCheckpoint(page, testInfo, "upgrade-continue-free");
+  expect(await getSignupIntentState()).toEqual({
+    completed: true,
+    signupIntent: "MAIL_CLIENT",
+  });
 });
 
 async function waitForCheckoutSessionUrl() {

@@ -16,6 +16,7 @@ export default async function WelcomeRedirectPage(props: {
     where: { id: session.user.id },
     select: {
       completedOnboardingAt: true,
+      signupIntent: true,
       premiumId: true,
     },
   });
@@ -25,7 +26,9 @@ export default async function WelcomeRedirectPage(props: {
   if (searchParams.force) redirect("/onboarding");
   if (user.completedOnboardingAt) {
     await redirectToEmailAccountPath(
-      searchParams.mode === "mail" ? "/mail" : "/automation",
+      searchParams.mode === "mail" || user.signupIntent === "MAIL_CLIENT"
+        ? "/mail"
+        : "/automation",
     );
   }
 

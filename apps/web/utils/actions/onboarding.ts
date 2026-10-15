@@ -4,11 +4,12 @@ import { after } from "next/server";
 import {
   saveOnboardingAnswersBody,
   saveOnboardingFeaturesSchema,
+  saveSignupIntentSchema,
 } from "@/utils/actions/onboarding.validation";
 import { actionClientUser } from "@/utils/actions/safe-action";
 import prisma from "@/utils/prisma";
 import { updateContactCompanySize, updateContactRole } from "@inboxzero/loops";
-import { trackOnboardingAnswer } from "@/utils/posthog";
+import { trackOnboardingAnswer, trackSignupIntent } from "@/utils/posthog";
 
 export const completedOnboardingAction = actionClientUser
   .metadata({ name: "completedOnboarding" })
@@ -17,6 +18,26 @@ export const completedOnboardingAction = actionClientUser
       where: { id: userId, completedOnboardingAt: null },
       data: { completedOnboardingAt: new Date() },
     });
+  });
+
+export const saveSignupIntentAction = actionClientUser
+  .metadata({ name: "saveSignupIntent" })
+  .inputSchema(saveSignupIntentSchema)
+  .action(async ({ parsedInput: { intent }, ctx: { userId, userEmail } }) => {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { signupIntent: intent },
+    });
+
+    // Email-client-only users skip the AI setup steps and the upgrade page.
+    if (intent === "MAIL_CLIENT") {
+      await prisma.user.updateMany({
+        where: { id: userId, completedOnboardingAt: null },
+        data: { completedOnboardingAt: new Date() },
+      });
+    }
+
+    after(() => trackSignupIntent(userEmail, intent));
   });
 
 export const saveOnboardingAnswersAction = actionClientUser

@@ -2,10 +2,10 @@
 
 <p align="center">
   <a href="https://www.getinboxzero.com">
-    <h1 align="center">Inbox Zero - your 24/7 AI email assistant</h1>
+    <h1 align="center">Inbox Zero - AI email assistant and open-source email client</h1>
   </a>
   <p align="center">
-    Organizes your inbox, pre-drafts replies, manages your calendar, and organizes attachments. Chat with it from Slack or Telegram to manage your inbox on the go. Open source alternative to Fyxer, but more customizable and secure.
+    An AI assistant that works in the background of your Gmail or Outlook (open-source alternative to Fyxer), and a fast email client with that AI built in (open-source alternative to Superhuman).
     <br />
     <a href="https://www.getinboxzero.com">Website</a>
     ·
@@ -32,7 +32,20 @@
 
 To help you spend less time in your inbox, so you can focus on what matters most.
 
-## Features
+## Two parts, use one or both
+
+Inbox Zero has two parts. You can use either on its own, or both together.
+
+| | **AI email assistant** | **Email client** |
+| :-- | :-- | :-- |
+| What it is | Runs in the background and handles every email that comes in | A fast app to read and send email, with all your accounts in one inbox |
+| Where you use it | Inside the Gmail or Outlook you already use | Web, Mac, Windows, and iPhone |
+| Alternative to | Fyxer | Superhuman |
+| Price | Paid (7-day free trial) | Free. Add the AI if you want it |
+
+### 1. AI email assistant
+
+The original Inbox Zero, built over the last three years. It works in the background and processes every email that comes in: labeling, archiving, drafting replies in your voice, and more. You don't need to change how you read email. Most people keep using Gmail or Outlook, and that is the main flow we support.
 
 - **AI Personal Assistant:** Organizes your inbox and pre-drafts replies in your tone and style.
 - **AI Rules for email:** Explain in plain English how your AI should handle your inbox.
@@ -45,6 +58,18 @@ To help you spend less time in your inbox, so you can focus on what matters most
 - **Smart Filing:** Automatically save email attachments to Google Drive or OneDrive.
 - **Slack & Telegram Integration:** Chat with your AI assistant from Slack or Telegram to manage your inbox without leaving the apps you already use.
 
+### 2. Email client
+
+An open-source alternative to Superhuman. A fast email client for Gmail and Outlook with a split inbox, all your accounts in one place, and team comments. It's optional: you don't need it to use the AI assistant.
+
+The email client is **free to use**. You only pay if you want the AI (sorted inbox, drafted replies, and the rest of the assistant), and our AI costs half the price of Superhuman.
+
+- **Web:** at [getinboxzero.com](https://www.getinboxzero.com/email-client).
+- **Desktop (Mac and Windows):** an Electron app, open source in [`apps/desktop`](apps/desktop). [Download it](https://www.getinboxzero.com/download).
+- **iPhone:** a native Swift app. It's not open source yet, but we plan to open it. The [App Store app](https://www.getinboxzero.com/app) is free to use, and you can point it at your own server URL if you self-host.
+- **Android:** an older React Native app. It may get an update in the future.
+
+[![Meet the Inbox Zero email client](https://image.mux.com/1K01tCypmkqhB3OZwCzO9j0202K0089aqXX02tYpgoUzztmc/thumbnail.jpg?time=5&width=1280)](https://www.getinboxzero.com/email-client)
 
 Learn more in our [docs](https://docs.getinboxzero.com).
 
@@ -56,7 +81,7 @@ Learn more in our [docs](https://docs.getinboxzero.com).
 |  ![Gmail Client](.github/screenshots/email-client.png)   | ![Bulk Unsubscriber](.github/screenshots/bulk-unsubscriber.png) |
 |                      _Gmail client_                      |                       _Bulk Unsubscriber_                       |
 
-## Demo Video
+## AI Assistant Demo Video
 
 [![Inbox Zero demo](https://img.youtube.com/vi/UusnveLKwWM/maxresdefault.jpg)](https://youtu.be/UusnveLKwWM)
 

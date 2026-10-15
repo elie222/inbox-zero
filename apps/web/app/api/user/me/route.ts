@@ -38,6 +38,7 @@ async function getUser({
       webhookSecret: true,
       announcementDismissedAt: true,
       dismissedHints: true,
+      signupIntent: true,
       premium: {
         select: {
           ...billingAccessPremiumSelect,

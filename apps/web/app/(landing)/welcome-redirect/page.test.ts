@@ -82,6 +82,18 @@ describe("WelcomeRedirectPage", () => {
     expect(mocks.findPremium).not.toHaveBeenCalled();
   });
 
+  it("sends completed email-client-only users to mail on web", async () => {
+    mocks.findUser.mockResolvedValue({
+      completedOnboardingAt: new Date("2026-01-01T00:00:00.000Z"),
+      signupIntent: "MAIL_CLIENT",
+      premiumId: null,
+    });
+
+    await expect(
+      WelcomeRedirectPage({ searchParams: Promise.resolve({}) }),
+    ).rejects.toThrow("account-redirect:/mail");
+  });
+
   it("sends mobile-paid users with active Apple premium to setup", async () => {
     mocks.findUser.mockResolvedValue({
       completedOnboardingAt: null,
@@ -104,6 +116,7 @@ describe("WelcomeRedirectPage", () => {
       where: { id: "user-1" },
       select: {
         completedOnboardingAt: true,
+        signupIntent: true,
         premiumId: true,
       },
     });

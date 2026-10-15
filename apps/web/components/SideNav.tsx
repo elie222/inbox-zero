@@ -32,6 +32,7 @@ import {
   ZapIcon,
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
+import { useUser } from "@/hooks/useUser";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
 import {
   Sidebar,
@@ -94,10 +95,15 @@ export const useNavigation = () => {
 
   const { emailAccount, emailAccountId, provider } = useAccount();
   const currentEmailAccountId = emailAccount?.id || emailAccountId;
+  const { data: user } = useUser();
+  const showInbox =
+    isDesktopApp ||
+    user?.signupIntent === "MAIL_CLIENT" ||
+    user?.signupIntent === "BOTH";
 
   const manageItems: NavItem[] = useMemo(
     () => [
-      ...(isDesktopApp
+      ...(showInbox
         ? [
             {
               name: "Inbox",
@@ -131,7 +137,7 @@ export const useNavigation = () => {
           ]
         : []),
     ],
-    [currentEmailAccountId, isDesktopApp, showMeetingRecorder],
+    [currentEmailAccountId, showInbox, showMeetingRecorder],
   );
 
   const cleanupItems: NavItem[] = useMemo(

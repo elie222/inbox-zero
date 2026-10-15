@@ -72,6 +72,7 @@ model User {
 
   // additional fields
   completedOnboardingAt   DateTime? // questions about the user. e.g. their role
+  signupIntent            SignupIntent? // which part of the product the user signed up for
   onboardingAnswers       Json?
   lastLogin               DateTime?
   utms                    Json?
@@ -129,6 +130,12 @@ model User {
   scimUsers              ScimUser[]
   scimProjectionGrants   ScimProjectionGrant[]
   scimIdentityLinks      ScimIdentityLink[]
+}
+
+enum SignupIntent {
+  AI_ASSISTANT
+  MAIL_CLIENT
+  BOTH
 }
 
 enum ApiKeyScope {

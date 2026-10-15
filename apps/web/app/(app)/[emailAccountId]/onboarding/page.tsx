@@ -9,6 +9,7 @@ import {
 } from "@/components/ConversionAnalytics";
 import { PAYWALL_FIRST_UPGRADE_PATH } from "@/app/(app)/[emailAccountId]/onboarding/onboardingFlow";
 import { shouldShowPaywallFirst } from "@/app/(app)/[emailAccountId]/onboarding/paywallFirst";
+import { StepIntent } from "@/app/(app)/[emailAccountId]/onboarding/StepIntent";
 import { registerUtmTracking } from "@/app/(landing)/welcome/utms";
 import { auth } from "@/utils/auth";
 import prisma from "@/utils/prisma";
@@ -53,13 +54,19 @@ export default async function OnboardingPage(props: {
         where: { id: session.user.id },
         select: {
           email: true,
+          signupIntent: true,
           premium: { select: premiumEntitlementSelect },
         },
       })
     : null;
 
+  // Asked before the paywall-first experiment so email-client-only users never
+  // hit pricing; both experiment arms lose them equally.
+  const showIntentStep = Boolean(user && !user.signupIntent && !step);
+
   if (
     user &&
+    !showIntentStep &&
     (await shouldShowPaywallFirst({
       email: user.email,
       isPremium: isPremiumRecord(user.premium),
@@ -76,7 +83,7 @@ export default async function OnboardingPage(props: {
       </Suspense>
       <ConversionAnalyticsScript />
       <Suspense>
-        <Onboarding step={step} />
+        {showIntentStep ? <StepIntent /> : <Onboarding step={step} />}
       </Suspense>
     </>
   );
