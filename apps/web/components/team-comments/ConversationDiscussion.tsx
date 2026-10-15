@@ -40,6 +40,7 @@ import {
 } from "@/utils/actions/team-comments";
 import { formatShortDate } from "@/utils/date";
 import { getActionErrorMessage } from "@/utils/error";
+import { getMentionPattern } from "@/utils/team-comments/mentions";
 
 type ConversationDiscussionProps = {
   memberId: string;
@@ -355,14 +356,8 @@ export function ConversationDiscussionView({
 }
 
 function CommentBody({ body, names }: { body: string; names: string[] }) {
-  if (!names.length) return body;
-  const pattern = new RegExp(
-    `(?<![\\p{L}\\p{M}\\p{N}_])(@(?:${names
-      .toSorted((a, b) => b.length - a.length)
-      .map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
-      .join("|")}))(?![\\p{L}\\p{M}\\p{N}_])`,
-    "u",
-  );
+  const pattern = getMentionPattern(names);
+  if (!pattern) return body;
   return body.split(pattern).map((part, index) =>
     index % 2 ? (
       <span key={index} className="font-medium text-primary">
