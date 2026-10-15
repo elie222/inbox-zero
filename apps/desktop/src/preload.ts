@@ -1,5 +1,14 @@
 import { contextBridge, ipcRenderer } from "electron";
 
+// The menu can fire before the page subscribes (e.g. a window still loading),
+// so hold the request until a listener arrives.
+let openSettingsListener: (() => void) | null = null;
+let openSettingsPending = false;
+ipcRenderer.on("desktop:open-settings", () => {
+  if (openSettingsListener) openSettingsListener();
+  else openSettingsPending = true;
+});
+
 contextBridge.exposeInMainWorld("inboxZeroDesktop", {
   setUnreadCount: (count: number) =>
     ipcRenderer.send("desktop:unread-count", count),
@@ -22,10 +31,13 @@ contextBridge.exposeInMainWorld("inboxZeroDesktop", {
     };
   },
   onOpenSettings: (listener: () => void) => {
-    const handler = () => listener();
-    ipcRenderer.on("desktop:open-settings", handler);
+    openSettingsListener = listener;
+    if (openSettingsPending) {
+      openSettingsPending = false;
+      listener();
+    }
     return () => {
-      ipcRenderer.removeListener("desktop:open-settings", handler);
+      if (openSettingsListener === listener) openSettingsListener = null;
     };
   },
   wipeMailbox: () => ipcRenderer.invoke("mail-engine-wipe"),
