@@ -99,60 +99,12 @@ export function Pricing() {
 
   return (
     <Section id="pricing">
-      <SectionHeading>Free email app. Pay only for AI.</SectionHeading>
-      <SectionSubtitle>
-        Every AI plan starts with a 7-day free trial. No hidden fees. Cancel
-        anytime.
-      </SectionSubtitle>
+      <SectionHeading>Try for free, affordable paid plans</SectionHeading>
+      <SectionSubtitle>No hidden fees. Cancel anytime.</SectionSubtitle>
       <SectionContent
         noMarginTop
         className="mt-6 flex flex-col items-center justify-center"
       >
-        <CardWrapper className="mb-6 w-full">
-          <Card
-            variant="extra-rounding"
-            className="!border-blue-100 bg-gradient-to-br from-blue-50 via-white to-white"
-          >
-            <CardContent className="flex flex-col items-start justify-between gap-4 lg:flex-row lg:items-center">
-              <div className="flex items-center gap-4 text-left">
-                <div className="text-blue-500">
-                  <MailIcon className="size-6" strokeWidth={1.5} />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-title text-lg">Email app</h3>
-                    <Badge variant="blue">New</Badge>
-                  </div>
-                  <Paragraph size="sm" className="mt-1">
-                    A fast email app for Gmail and Outlook. Free on web,
-                    desktop, and iPhone.
-                  </Paragraph>
-                </div>
-              </div>
-              <div className="w-full shrink-0 lg:w-auto">
-                <Button size="lg" auto asChild>
-                  <Link
-                    href={MAIL_CLIENT_SIGNUP_PATH}
-                    className="whitespace-nowrap"
-                    onClick={() =>
-                      landingPageAnalytics.pricingCtaClicked(posthog, {
-                        tier: "Email app",
-                        cta: "Get started free",
-                        frequency,
-                        defaultFrequency,
-                        frequencySource: chosenFrequency
-                          ? "user_selected"
-                          : "default",
-                      })
-                    }
-                  >
-                    <span className="relative z-10">Get started free</span>
-                  </Link>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </CardWrapper>
         <RadioGroup
           value={frequency}
           onChange={(nextFrequency: PricingFrequency) => {
@@ -196,6 +148,46 @@ export function Pricing() {
             </CardWrapper>
           ))}
         </div>
+        <CardWrapper className="mt-6 w-full">
+          <Card variant="extra-rounding">
+            <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="text-gray-400">
+                  <MailIcon className="size-6" strokeWidth={1.5} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-title text-lg">Email app</h3>
+                    <Badge variant="blue">New</Badge>
+                  </div>
+                  <Paragraph size="sm" className="mt-1">
+                    A fast email app for Gmail and Outlook. Free on web,
+                    desktop, and iPhone.
+                  </Paragraph>
+                </div>
+              </div>
+              <Button variant="secondary-two" size="lg" asChild>
+                <Link
+                  href={MAIL_CLIENT_SIGNUP_PATH}
+                  className="shrink-0 whitespace-nowrap"
+                  onClick={() =>
+                    landingPageAnalytics.pricingCtaClicked(posthog, {
+                      tier: "Email app",
+                      cta: "Get started free",
+                      frequency,
+                      defaultFrequency,
+                      frequencySource: chosenFrequency
+                        ? "user_selected"
+                        : "default",
+                    })
+                  }
+                >
+                  <span className="relative z-10">Get started free</span>
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </CardWrapper>
         <CardWrapper className="mt-6 w-full">
           <Card variant="extra-rounding">
             <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4">
