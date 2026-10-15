@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { MailIcon } from "lucide-react";
 import { usePostHog } from "posthog-js/react";
 import type { PostHog } from "posthog-js";
 import { Label, Radio, RadioGroup } from "@headlessui/react";
@@ -31,6 +30,7 @@ import {
 import { Chat } from "@/components/new-landing/icons/Chat";
 import { type Tier, tiers } from "@/app/(app)/premium/config";
 import { Briefcase } from "@/components/new-landing/icons/Briefcase";
+import { Mail } from "@/components/new-landing/icons/Mail";
 import { landingPageAnalytics } from "@/hooks/useAnalytics";
 import { cn } from "@/utils";
 import { MAIL_CLIENT_SIGNUP_PATH } from "@/utils/config";
@@ -153,7 +153,7 @@ export function Pricing() {
             <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="flex items-center gap-4">
                 <div className="text-gray-400">
-                  <MailIcon className="size-6" strokeWidth={1.5} />
+                  <Mail />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
@@ -166,7 +166,7 @@ export function Pricing() {
                   </Paragraph>
                 </div>
               </div>
-              <Button variant="secondary-two" size="lg" asChild>
+              <Button size="lg" asChild>
                 <Link
                   href={MAIL_CLIENT_SIGNUP_PATH}
                   className="shrink-0 whitespace-nowrap"
