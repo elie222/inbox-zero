@@ -32,7 +32,6 @@ import {
   ZapIcon,
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
-import { useUser } from "@/hooks/useUser";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
 import {
   Sidebar,
@@ -68,7 +67,6 @@ import { isGoogleProvider } from "@/utils/email/provider-types";
 import { NavUser } from "@/components/NavUser";
 import { PremiumCard } from "@/components/PremiumCard";
 import { FeedbackSidebarButton } from "@/components/FeedbackDialog";
-import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
 
 type NavItem = {
   name: string;
@@ -87,31 +85,17 @@ export const useNavigation = () => {
   const showMeetingBriefs = useMeetingBriefsEnabled();
   const showMeetingRecorder = useMeetingRecorderEnabled();
   const showIntegrations = useIntegrationsEnabled();
-  const [isDesktopApp, setIsDesktopApp] = useState(false);
-
-  useEffect(() => {
-    setIsDesktopApp(Boolean(getInboxZeroDesktopApp()));
-  }, []);
 
   const { emailAccount, emailAccountId, provider } = useAccount();
   const currentEmailAccountId = emailAccount?.id || emailAccountId;
-  const { data: user } = useUser();
-  const showInbox =
-    isDesktopApp ||
-    user?.signupIntent === "MAIL_CLIENT" ||
-    user?.signupIntent === "BOTH";
 
   const manageItems: NavItem[] = useMemo(
     () => [
-      ...(showInbox
-        ? [
-            {
-              name: "Inbox",
-              href: prefixPath(currentEmailAccountId, "/mail"),
-              icon: InboxIcon,
-            },
-          ]
-        : []),
+      {
+        name: "Inbox",
+        href: prefixPath(currentEmailAccountId, "/mail"),
+        icon: InboxIcon,
+      },
       {
         name: "Chat",
         href: prefixPath(currentEmailAccountId, "/assistant"),
@@ -137,7 +121,7 @@ export const useNavigation = () => {
           ]
         : []),
     ],
-    [currentEmailAccountId, showInbox, showMeetingRecorder],
+    [currentEmailAccountId, showMeetingRecorder],
   );
 
   const cleanupItems: NavItem[] = useMemo(
