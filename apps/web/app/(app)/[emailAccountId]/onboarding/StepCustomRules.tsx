@@ -44,14 +44,14 @@ export function StepCustomRules({
         </OnboardingWrapper>
       </div>
 
-      <div className="fixed top-0 right-0 w-1/2 h-screen bg-white items-center justify-center hidden xl:flex px-10">
-        <div className="rounded-2xl p-4 bg-slate-50 border border-slate-200">
+      <div className="fixed top-0 right-0 w-1/2 h-screen bg-card items-center justify-center hidden xl:flex px-10">
+        <div className="rounded-2xl p-4 bg-slate-50 dark:bg-background border border-border">
           <Image
             src="/images/onboarding/custom-rules.png"
             alt="Custom rules"
             width={1200}
             height={800}
-            className="rounded-xl border border-slate-200"
+            className="rounded-xl border border-border"
           />
         </div>
       </div>
