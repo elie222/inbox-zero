@@ -2,7 +2,7 @@
 
 <p align="center">
   <a href="https://www.getinboxzero.com">
-    <h1 align="center">Inbox Zero - your 24/7 AI email assistant</h1>
+    <h1 align="center">Inbox Zero - your 24/7 AI email assistant and email app</h1>
   </a>
   <p align="center">
     Organizes your inbox, pre-drafts replies, manages your calendar, and organizes attachments. Chat with it from Slack or Telegram to manage your inbox on the go. Open source alternative to Fyxer, but more customizable and secure. We also offer an email app, an open source alternative to Superhuman.
