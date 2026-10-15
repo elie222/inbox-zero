@@ -155,6 +155,19 @@ describe("Gmail retry helpers", () => {
       expect(result.isServerError).toBe(false);
       expect(result.isFailedPrecondition).toBe(false);
     });
+
+    it("should not retry when Gmail is disabled for the account", () => {
+      const errorInfo = {
+        status: 400,
+        reason: "failedPrecondition",
+        googleErrorStatus: "FAILED_PRECONDITION",
+        errorMessage: "Mail service not enabled",
+      };
+      const result = isRetryableError(errorInfo);
+
+      expect(result.retryable).toBe(false);
+      expect(result.isFailedPrecondition).toBe(false);
+    });
   });
 
   describe("calculateRetryDelay", () => {
