@@ -53,7 +53,7 @@ A fast email client for Gmail and Outlook, with a split inbox, all your accounts
 
 - **Web and desktop:** open source. The desktop app is Electron, in [`apps/desktop`](apps/desktop).
 - **iOS:** a native Swift app, not open source yet. The [App Store app](https://www.getinboxzero.com/app) can connect to your own server URL if you self-host.
-- **Android:** an older React Native app.
+- **Android:** an older React Native [Android app](https://www.getinboxzero.com/android).
 
 Learn more in our [docs](https://docs.getinboxzero.com).
 
