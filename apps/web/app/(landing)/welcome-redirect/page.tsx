@@ -25,6 +25,18 @@ export default async function WelcomeRedirectPage(props: {
   if (!user) redirect("/logout");
   if (searchParams.force) redirect("/onboarding");
   if (user.completedOnboardingAt) {
+    // Opening the email app from an AI-assistant account means they now use
+    // both, which also shows Inbox in the web sidebar.
+    if (
+      searchParams.mode === "mail" &&
+      (!user.signupIntent || user.signupIntent === "AI_ASSISTANT")
+    ) {
+      await prisma.user.update({
+        where: { id: session.user.id },
+        data: { signupIntent: "BOTH" },
+      });
+    }
+
     await redirectToEmailAccountPath(
       searchParams.mode === "mail" || user.signupIntent === "MAIL_CLIENT"
         ? "/mail"
