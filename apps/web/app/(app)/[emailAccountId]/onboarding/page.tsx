@@ -7,13 +7,9 @@ import {
   ConversionAnalyticsScript,
   ConversionQueryParamEvents,
 } from "@/components/ConversionAnalytics";
-import { PAYWALL_FIRST_UPGRADE_PATH } from "@/app/(app)/[emailAccountId]/onboarding/onboardingFlow";
-import { shouldShowPaywallFirst } from "@/app/(app)/[emailAccountId]/onboarding/paywallFirst";
-import { StepIntent } from "@/app/(app)/[emailAccountId]/onboarding/StepIntent";
 import { registerUtmTracking } from "@/app/(landing)/welcome/utms";
 import { auth } from "@/utils/auth";
 import prisma from "@/utils/prisma";
-import { isPremiumRecord, premiumEntitlementSelect } from "@/utils/premium";
 import { BRAND_NAME, getBrandTitle } from "@/utils/branding";
 
 export const maxDuration = 300;
@@ -29,7 +25,6 @@ export default async function OnboardingPage(props: {
   searchParams: Promise<{
     step?: string | string[];
     force?: string | string[];
-    paywallFirst?: string | string[];
   }>;
 }) {
   const [searchParams, { emailAccountId }, cookieStore] = await Promise.all([
@@ -39,7 +34,6 @@ export default async function OnboardingPage(props: {
   ]);
   const step = getSingleSearchParamValue(searchParams.step);
   const force = getSingleSearchParamValue(searchParams.force);
-  const paywallFirst = getSingleSearchParamValue(searchParams.paywallFirst);
 
   const authPromise = auth();
   const utmValues = registerUtmTracking({ authPromise, cookieStore });
@@ -52,29 +46,9 @@ export default async function OnboardingPage(props: {
   const user = session?.user
     ? await prisma.user.findUnique({
         where: { id: session.user.id },
-        select: {
-          email: true,
-          signupIntent: true,
-          premium: { select: premiumEntitlementSelect },
-        },
+        select: { signupIntent: true },
       })
     : null;
-
-  // Asked before the paywall-first experiment so email-client-only users never
-  // hit pricing; both experiment arms lose them equally.
-  const showIntentStep = Boolean(user && !user.signupIntent && !step);
-
-  if (
-    user &&
-    !showIntentStep &&
-    (await shouldShowPaywallFirst({
-      email: user.email,
-      isPremium: isPremiumRecord(user.premium),
-      forced: paywallFirst,
-    }))
-  ) {
-    redirect(PAYWALL_FIRST_UPGRADE_PATH);
-  }
 
   return (
     <>
@@ -83,7 +57,7 @@ export default async function OnboardingPage(props: {
       </Suspense>
       <ConversionAnalyticsScript />
       <Suspense>
-        {showIntentStep ? <StepIntent /> : <Onboarding step={step} />}
+        <Onboarding step={step} signupIntent={user?.signupIntent ?? null} />
       </Suspense>
     </>
   );

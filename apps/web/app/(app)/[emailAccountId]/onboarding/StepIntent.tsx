@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { InboxIcon, Layers, MailIcon, SparklesIcon } from "lucide-react";
 import { PageHeading } from "@/components/Typography";
@@ -10,9 +9,7 @@ import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/Onboa
 import { toastError } from "@/components/Toast";
 import { saveSignupIntentAction } from "@/utils/actions/onboarding";
 import { getActionErrorMessage } from "@/utils/error";
-import { prefixPath } from "@/utils/path";
 import { BRAND_NAME } from "@/utils/branding";
-import { useAccount } from "@/providers/EmailAccountProvider";
 import type { SignupIntent } from "@/generated/prisma/enums";
 
 const options: {
@@ -42,21 +39,15 @@ const options: {
   },
 ];
 
-export function StepIntent() {
-  const router = useRouter();
-  const { emailAccountId } = useAccount();
+export function StepIntent({
+  onIntentSaved,
+}: {
+  onIntentSaved: (intent: SignupIntent) => void;
+}) {
   const [selected, setSelected] = useState<SignupIntent | null>(null);
 
   const { execute, isExecuting } = useAction(saveSignupIntentAction, {
-    onSuccess: ({ input }) => {
-      if (input.intent === "MAIL_CLIENT") {
-        router.push(prefixPath(emailAccountId, "/mail"));
-      } else {
-        // The onboarding page re-renders with the saved intent and continues
-        // into the AI setup flow.
-        router.refresh();
-      }
-    },
+    onSuccess: ({ input }) => onIntentSaved(input.intent),
     onError: ({ error }) => {
       setSelected(null);
       toastError({ description: getActionErrorMessage(error) });

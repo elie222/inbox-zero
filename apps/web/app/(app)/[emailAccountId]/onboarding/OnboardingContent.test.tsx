@@ -45,6 +45,8 @@ vi.mock("./StepInboxProcessed", () => ({ StepInboxProcessed: () => null }));
 vi.mock("./StepCompanySize", () => ({ StepCompanySize: () => null }));
 vi.mock("./StepHowYouHeard", () => ({ StepHowYouHeard: () => null }));
 vi.mock("./StepInviteTeam", () => ({ StepInviteTeam: () => null }));
+vi.mock("./StepIntent", () => ({ StepIntent: () => null }));
+vi.mock("./StepMailApp", () => ({ StepMailApp: () => null }));
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -55,7 +57,7 @@ describe("onboarding persona analysis", () => {
   it("does not access the disposed cache when analysis finishes after navigation", async () => {
     const analysis = Promise.withResolvers<void>();
     mocks.analyzePersona.mockReturnValue(analysis.promise);
-    const { unmount } = render(<OnboardingContent />);
+    const { unmount } = render(<OnboardingContent signupIntent={null} />);
     expect(mocks.analyzePersona).toHaveBeenCalledWith("account-test");
 
     unmount();
@@ -67,7 +69,7 @@ describe("onboarding persona analysis", () => {
   it("refreshes persona data when analysis finishes while onboarding is mounted", async () => {
     const analysis = Promise.withResolvers<void>();
     mocks.analyzePersona.mockReturnValue(analysis.promise);
-    render(<OnboardingContent />);
+    render(<OnboardingContent signupIntent={null} />);
 
     await act(async () => analysis.resolve());
 
