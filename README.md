@@ -2,10 +2,10 @@
 
 <p align="center">
   <a href="https://www.getinboxzero.com">
-    <h1 align="center">Inbox Zero - AI email assistant and open-source email client</h1>
+    <h1 align="center">Inbox Zero - AI email assistant and email client</h1>
   </a>
   <p align="center">
-    An AI assistant that works in the background of your Gmail or Outlook (open-source alternative to Fyxer), and a fast email client with that AI built in (open-source alternative to Superhuman).
+    An AI assistant that organizes your inbox and drafts replies in Gmail or Outlook, plus an email client for web, desktop, and mobile.
     <br />
     <a href="https://www.getinboxzero.com">Website</a>
     ·
@@ -22,8 +22,6 @@
 
 <a href="https://trendshift.io/repositories/6400" target="_blank"><img src="https://trendshift.io/api/badge/repositories/6400" alt="elie222%2Finbox-zero | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
-[![Sponsor](https://readme.cash/i/hg3bchcqpo.svg)](https://readme.cash/c/hg3bchcqpo)
-
 [![Vercel OSS Program](https://vercel.com/oss/program-badge.svg)](https://vercel.com/oss)
 
 </div>
@@ -32,20 +30,11 @@
 
 To help you spend less time in your inbox, so you can focus on what matters most.
 
-## Two parts, use one or both
+## Features
 
-Inbox Zero has two parts. You can use either on its own, or both together.
+Inbox Zero has two parts: an AI email assistant that works in the background on your Gmail or Outlook account, and an email client. Each works on its own.
 
-| | **AI email assistant** | **Email client** |
-| :-- | :-- | :-- |
-| What it is | Runs in the background and handles every email that comes in | A fast app to read and send email, with all your accounts in one inbox |
-| Where you use it | Inside the Gmail or Outlook you already use | Web, Mac, Windows, and iPhone |
-| Alternative to | Fyxer | Superhuman |
-| Price | Paid (7-day free trial) | Free. Add the AI if you want it |
-
-### 1. AI email assistant
-
-The original Inbox Zero, built over the last three years. It works in the background and processes every email that comes in: labeling, archiving, drafting replies in your voice, and more. You don't need to change how you read email. Most people keep using Gmail or Outlook, and that is the main flow we support.
+### AI email assistant
 
 - **AI Personal Assistant:** Organizes your inbox and pre-drafts replies in your tone and style.
 - **AI Rules for email:** Explain in plain English how your AI should handle your inbox.
@@ -58,16 +47,13 @@ The original Inbox Zero, built over the last three years. It works in the backgr
 - **Smart Filing:** Automatically save email attachments to Google Drive or OneDrive.
 - **Slack & Telegram Integration:** Chat with your AI assistant from Slack or Telegram to manage your inbox without leaving the apps you already use.
 
-### 2. Email client
+### Email client
 
-An open-source alternative to Superhuman. A fast email client for Gmail and Outlook with a split inbox, all your accounts in one place, and team comments. It's optional: you don't need it to use the AI assistant.
+A fast email client for Gmail and Outlook, with a split inbox, all your accounts in one place, and team comments.
 
-The email client is **free to use**. You only pay if you want the AI (sorted inbox, drafted replies, and the rest of the assistant), and our AI costs half the price of Superhuman.
-
-- **Web:** at [getinboxzero.com](https://www.getinboxzero.com/email-client).
-- **Desktop (Mac and Windows):** an Electron app, open source in [`apps/desktop`](apps/desktop). [Download it](https://www.getinboxzero.com/download).
-- **iPhone:** a native Swift app. It's not open source yet, but we plan to open it. The [App Store app](https://www.getinboxzero.com/app) is free to use, and you can point it at your own server URL if you self-host.
-- **Android:** an older React Native app. It may get an update in the future.
+- **Web and desktop:** open source. The desktop app is Electron, in [`apps/desktop`](apps/desktop).
+- **iOS:** a native Swift app, not open source yet. The [App Store app](https://www.getinboxzero.com/app) can connect to your own server URL if you self-host.
+- **Android:** an older React Native app.
 
 [![Meet the Inbox Zero email client](https://image.mux.com/1K01tCypmkqhB3OZwCzO9j0202K0089aqXX02tYpgoUzztmc/thumbnail.jpg?time=5&width=1280)](https://www.getinboxzero.com/email-client)
 
