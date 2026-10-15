@@ -21,5 +21,8 @@ export function parsePanelWidthCookie(
 /** `null` forgets the saved width so the panel goes back to its default. */
 export function persistPanelWidth(cookieName: string, width: number | null) {
   const maxAge = width === null ? 0 : ONE_YEAR_IN_SECONDS;
-  document.cookie = `${cookieName}=${width ?? ""}; path=/; max-age=${maxAge}; SameSite=Lax; Secure`;
+  // Browsers drop Secure cookies on plain-HTTP origins, such as a self-hosted
+  // instance without TLS.
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${cookieName}=${width ?? ""}; path=/; max-age=${maxAge}; SameSite=Lax${secure}`;
 }

@@ -129,8 +129,16 @@ export function PanelResizeHandle({
           bounds,
         );
         if (next === null) return;
+        // Applied without easing so the box can be read straight back: a CSS
+        // cap on the panel may have held it narrower than requested, and
+        // that's the width to save.
+        document.body.dataset.resizing = "true";
         resize(next);
-        onResizeEnd(next);
+        const applied = panelWidth(event.currentTarget, bounds);
+        releaseResizingCursor();
+        latestWidth.current = applied;
+        setWidth(applied);
+        onResizeEnd(applied);
       }}
       className={cn(
         "absolute inset-y-0 z-20 hidden w-2 cursor-col-resize touch-none after:absolute after:inset-y-0 after:left-1/2 after:w-px after:-translate-x-1/2 after:transition-colors hover:after:bg-primary focus-visible:after:bg-primary focus-visible:outline-none lg:block",

@@ -6,18 +6,25 @@ import { PanelResizeHandle } from "./PanelResizeHandle";
 
 const bounds = { min: 200, max: 400 };
 
-// jsdom has no layout, so give the handle a positioned panel of a known width.
+// jsdom has no layout, so stand in for a positioned panel whose width follows
+// what the handle applies, up to an optional CSS cap.
+let appliedWidth = 300;
+let cssCap = Number.POSITIVE_INFINITY;
+
 beforeEach(() => {
+  appliedWidth = 300;
+  cssCap = Number.POSITIVE_INFINITY;
   vi.spyOn(HTMLElement.prototype, "offsetParent", "get").mockImplementation(
     function (this: HTMLElement) {
       return this.parentElement;
     },
   );
-  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
-    width: 300,
-    left: 0,
-    right: 300,
-  } as DOMRect);
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+    () => {
+      const width = Math.min(appliedWidth, cssCap);
+      return { width, left: 0, right: width } as DOMRect;
+    },
+  );
 });
 
 afterEach(() => {
@@ -52,6 +59,16 @@ describe("PanelResizeHandle", () => {
     expect(onResize).toHaveBeenCalledWith(284);
   });
 
+  it("saves the width a CSS cap held the panel to, not the requested one", () => {
+    cssCap = 300;
+    const { onResize, onResizeEnd } = renderHandle("right");
+
+    fireEvent.keyDown(screen.getByRole("separator"), { key: "ArrowRight" });
+
+    expect(onResize).toHaveBeenCalledWith(316);
+    expect(onResizeEnd).toHaveBeenCalledWith(300);
+  });
+
   it("resets to the default on double-click", () => {
     const { onReset, onResizeEnd } = renderHandle("right");
 
@@ -63,7 +80,9 @@ describe("PanelResizeHandle", () => {
 });
 
 function renderHandle(edge: "left" | "right") {
-  const onResize = vi.fn();
+  const onResize = vi.fn((width: number) => {
+    appliedWidth = width;
+  });
   const onResizeEnd = vi.fn();
   const onReset = vi.fn();
   render(
