@@ -114,10 +114,11 @@ export async function resetOnboardingTestState() {
 
 export async function openControlOnboarding(page: Page) {
   const emailAccountId = await getEmailAccountId(page);
-  await page.goto(`/${emailAccountId}/onboarding?step=who`);
+  await page.goto(`/${emailAccountId}/onboarding`);
   await expect(
     page.getByRole("heading", { name: "What do you do?" }),
   ).toBeVisible({ timeout: 60_000 });
+  return emailAccountId;
 }
 
 export async function chooseSignupIntent(page: Page, option: string) {
