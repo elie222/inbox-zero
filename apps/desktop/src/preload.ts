@@ -21,6 +21,13 @@ contextBridge.exposeInMainWorld("inboxZeroDesktop", {
       ipcRenderer.removeListener("mail-engine-snapshot", handler);
     };
   },
+  onOpenSettings: (listener: () => void) => {
+    const handler = () => listener();
+    ipcRenderer.on("desktop:open-settings", handler);
+    return () => {
+      ipcRenderer.removeListener("desktop:open-settings", handler);
+    };
+  },
   wipeMailbox: () => ipcRenderer.invoke("mail-engine-wipe"),
   getDesktopHealth: () => ipcRenderer.invoke("desktop:health"),
 });
