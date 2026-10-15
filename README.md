@@ -59,7 +59,7 @@ Learn more in our [docs](https://docs.getinboxzero.com).
 
 ## Demo
 
-[![Inbox Zero demo](apps/web/public/images/new-landing/video-thumbnail.webp)](https://player.mux.com/YeTrweHxCIM5tcBMXlvRbmDuPqL028lJrmJ3F6ZgwnDY)
+[![Inbox Zero demo](https://image.mux.com/YeTrweHxCIM5tcBMXlvRbmDuPqL028lJrmJ3F6ZgwnDY/thumbnail.jpg?time=4.4&width=1280)](https://player.mux.com/YeTrweHxCIM5tcBMXlvRbmDuPqL028lJrmJ3F6ZgwnDY)
 
 ## Built with
 
