@@ -83,7 +83,14 @@ export function AnnouncementContent({
               <span className="flex size-8 shrink-0 items-center justify-center rounded-full border text-muted-foreground">
                 {detail.icon}
               </span>
-              <span className="text-sm">{detail.title}</span>
+              <div className="min-w-0">
+                <div className="text-sm">{detail.title}</div>
+                {detail.description ? (
+                  <div className="text-sm text-muted-foreground">
+                    {detail.description}
+                  </div>
+                ) : null}
+              </div>
             </li>
           ))}
         </ul>
