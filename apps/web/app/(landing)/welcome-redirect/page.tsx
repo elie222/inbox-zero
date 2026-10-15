@@ -26,7 +26,7 @@ export default async function WelcomeRedirectPage(props: {
   if (searchParams.force) redirect("/onboarding");
   if (user.completedOnboardingAt) {
     // Opening the email app from an AI-assistant account means they now use
-    // both, which also shows Inbox in the web sidebar.
+    // both.
     if (
       searchParams.mode === "mail" &&
       (!user.signupIntent || user.signupIntent === "AI_ASSISTANT")
