@@ -59,9 +59,7 @@ test("the upgrade page lets users continue free with the email app", async ({
 
   await page.goto("/welcome-upgrade");
   await page
-    .getByRole("button", {
-      name: "Just want the email app? Continue for free",
-    })
+    .getByRole("button", { name: "Continue for free", exact: true })
     .click();
 
   await expect(page).toHaveURL(new RegExp(`/${emailAccountId}/mail`), {

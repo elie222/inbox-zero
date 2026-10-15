@@ -19,6 +19,9 @@ vi.mock("@/app/(landing)/welcome-upgrade/WelcomeUpgradeNav", () => ({
 vi.mock("@/app/(landing)/welcome-upgrade/Testimonial", () => ({
   Testimonial: () => null,
 }));
+vi.mock("@/app/(landing)/welcome-upgrade/ContinueWithEmailClient", () => ({
+  ContinueWithEmailClient: () => null,
+}));
 vi.mock("@/app/(landing)/welcome-upgrade/WelcomeUpgradePricing", () => ({
   WelcomeUpgradePricing: mocks.pricing,
 }));
