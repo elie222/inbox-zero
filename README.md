@@ -55,21 +55,11 @@ A fast email client for Gmail and Outlook, with a split inbox, all your accounts
 - **iOS:** a native Swift app, not open source yet. The [App Store app](https://www.getinboxzero.com/app) can connect to your own server URL if you self-host.
 - **Android:** an older React Native app.
 
-[![Meet the Inbox Zero email client](https://image.mux.com/1K01tCypmkqhB3OZwCzO9j0202K0089aqXX02tYpgoUzztmc/thumbnail.jpg?time=5&width=1280)](https://www.getinboxzero.com/email-client)
-
 Learn more in our [docs](https://docs.getinboxzero.com).
 
-## Feature Screenshots
+## Demo
 
-| ![AI Assistant](.github/screenshots/email-assistant.png) |        ![Reply Zero](.github/screenshots/reply-zero.png)        |
-| :------------------------------------------------------: | :-------------------------------------------------------------: |
-|                      _AI Assistant_                      |                          _Reply Zero_                           |
-|  ![Gmail Client](.github/screenshots/email-client.png)   | ![Bulk Unsubscriber](.github/screenshots/bulk-unsubscriber.png) |
-|                      _Gmail client_                      |                       _Bulk Unsubscriber_                       |
-
-## AI Assistant Demo Video
-
-[![Inbox Zero demo](https://img.youtube.com/vi/UusnveLKwWM/maxresdefault.jpg)](https://youtu.be/UusnveLKwWM)
+[![Inbox Zero demo](apps/web/public/images/new-landing/video-thumbnail.webp)](https://player.mux.com/YeTrweHxCIM5tcBMXlvRbmDuPqL028lJrmJ3F6ZgwnDY)
 
 ## Built with
 
