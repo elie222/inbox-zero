@@ -91,7 +91,8 @@ export function createLocalEnvironment({
     STRIPE_API_BASE_URL: `http://127.0.0.1:${stripePort}`,
     STRIPE_SECRET_KEY: "emulator-stripe-key",
     STRIPE_WEBHOOK_SECRET: "whsec_emulator",
-    NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: "true",
+    NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS:
+      inherited.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS ?? "true",
     NEXT_PUBLIC_EMAIL_SEND_ENABLED: "true",
     NEXT_PUBLIC_CONTACTS_ENABLED: "true",
   };

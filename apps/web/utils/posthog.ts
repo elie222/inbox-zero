@@ -537,6 +537,13 @@ export async function trackFirstTimeEvent({
   }
 }
 
+export async function trackSignupIntent(email: string, intent: string) {
+  return posthogCaptureEvent(email, "Signup intent selected", {
+    signupIntent: intent,
+    $set: { signupIntent: intent },
+  });
+}
+
 export async function trackOnboardingAnswer(
   email: string,
   answers: {

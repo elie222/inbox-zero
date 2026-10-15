@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SignupIntent } from "@/generated/prisma/enums";
 
 export const saveOnboardingAnswersBody = z.object({
   surveyId: z.string().optional(),
@@ -19,3 +20,7 @@ export const saveOnboardingFeaturesSchema = z.object({
 export type SaveOnboardingFeaturesSchema = z.infer<
   typeof saveOnboardingFeaturesSchema
 >;
+
+export const saveSignupIntentSchema = z.object({
+  intent: z.enum(SignupIntent),
+});

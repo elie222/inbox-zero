@@ -38,6 +38,7 @@ async function getUser({
       webhookSecret: true,
       announcementDismissedAt: true,
       dismissedHints: true,
+      signupIntent: true,
       premium: {
         select: {
           ...billingAccessPremiumSelect,
@@ -109,6 +110,7 @@ async function getUser({
     decisionModelEnabled: isDecisionModelEnabledForUser(user),
     announcementDismissedAt: user.announcementDismissedAt,
     dismissedHints: user.dismissedHints,
+    signupIntent: user.signupIntent,
     premium,
     // Resolved here so the client never compares periods against its own clock.
     unsubscribeCreditsRemaining: getRemainingUnsubscribeCredits(

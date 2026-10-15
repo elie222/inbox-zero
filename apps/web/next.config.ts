@@ -306,6 +306,11 @@ const nextConfig: NextConfig = {
         source: "/ios",
       },
       {
+        destination: "/download",
+        permanent: true,
+        source: "/desktop",
+      },
+      {
         destination:
           "https://play.google.com/store/apps/details?id=com.getinboxzero.app",
         permanent: false,

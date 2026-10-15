@@ -16,7 +16,7 @@ export default function DesktopUpdateRequiredPage() {
         description="This version of Inbox Zero Desktop can no longer complete sign-in. Download the latest version, reopen the app, and try signing in again."
         button={
           <Button asChild>
-            <Link href="/desktop">Download the latest desktop app</Link>
+            <Link href="/download">Download the latest desktop app</Link>
           </Button>
         }
       />

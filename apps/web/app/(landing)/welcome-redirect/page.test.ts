@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
   findUser: vi.fn(),
+  updateUser: vi.fn(),
   findPremium: vi.fn(),
   redirectToEmailAccountPath: vi.fn((path: string) => {
     throw new Error(`account-redirect:${path}`);
@@ -24,6 +25,8 @@ vi.mock("@/utils/prisma", () => ({
     user: {
       findUnique: (...args: Parameters<typeof mocks.findUser>) =>
         mocks.findUser(...args),
+      update: (...args: Parameters<typeof mocks.updateUser>) =>
+        mocks.updateUser(...args),
     },
     premium: {
       findUnique: (...args: Parameters<typeof mocks.findPremium>) =>
@@ -82,6 +85,53 @@ describe("WelcomeRedirectPage", () => {
     expect(mocks.findPremium).not.toHaveBeenCalled();
   });
 
+  it("marks AI-assistant users as using both when they open the email app", async () => {
+    mocks.findUser.mockResolvedValue({
+      completedOnboardingAt: new Date("2026-01-01T00:00:00.000Z"),
+      signupIntent: "AI_ASSISTANT",
+      premiumId: null,
+    });
+
+    await expect(
+      WelcomeRedirectPage({
+        searchParams: Promise.resolve({ mode: "mail" }),
+      }),
+    ).rejects.toThrow("account-redirect:/mail");
+
+    expect(mocks.updateUser).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+      data: { signupIntent: "BOTH" },
+    });
+  });
+
+  it("keeps an email-app-only intent when opening the email app", async () => {
+    mocks.findUser.mockResolvedValue({
+      completedOnboardingAt: new Date("2026-01-01T00:00:00.000Z"),
+      signupIntent: "MAIL_CLIENT",
+      premiumId: null,
+    });
+
+    await expect(
+      WelcomeRedirectPage({
+        searchParams: Promise.resolve({ mode: "mail" }),
+      }),
+    ).rejects.toThrow("account-redirect:/mail");
+
+    expect(mocks.updateUser).not.toHaveBeenCalled();
+  });
+
+  it("sends completed email-client-only users to mail on web", async () => {
+    mocks.findUser.mockResolvedValue({
+      completedOnboardingAt: new Date("2026-01-01T00:00:00.000Z"),
+      signupIntent: "MAIL_CLIENT",
+      premiumId: null,
+    });
+
+    await expect(
+      WelcomeRedirectPage({ searchParams: Promise.resolve({}) }),
+    ).rejects.toThrow("account-redirect:/mail");
+  });
+
   it("sends mobile-paid users with active Apple premium to setup", async () => {
     mocks.findUser.mockResolvedValue({
       completedOnboardingAt: null,
@@ -104,6 +154,7 @@ describe("WelcomeRedirectPage", () => {
       where: { id: "user-1" },
       select: {
         completedOnboardingAt: true,
+        signupIntent: true,
         premiumId: true,
       },
     });

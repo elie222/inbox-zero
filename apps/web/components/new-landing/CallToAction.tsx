@@ -10,6 +10,7 @@ import { cn } from "@/utils";
 interface CallToActionProps {
   buttonSize?: "xl" | "lg";
   className?: string;
+  href?: string;
   showSalesButton?: boolean;
   text?: string;
 }
@@ -18,6 +19,7 @@ export function CallToAction({
   text = "Get started",
   buttonSize = "xl",
   className,
+  href = "/login",
   showSalesButton = true,
 }: CallToActionProps) {
   const posthog = usePostHog();
@@ -26,7 +28,7 @@ export function CallToAction({
     <div className={cn("flex justify-center items-center gap-4", className)}>
       <Button size={buttonSize} asChild>
         <Link
-          href="/login"
+          href={href}
           onClick={() => landingPageAnalytics.getStartedClicked(posthog)}
         >
           <span className="relative z-10">{text}</span>
