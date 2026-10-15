@@ -14,11 +14,13 @@ import type {
   MailboxItem,
   MailboxItemEdit,
 } from "@/app/(app)/[emailAccountId]/mail/MailboxItemContextMenu";
-import { MailSidebarResizeHandle } from "@/app/(app)/[emailAccountId]/mail/MailSidebarResizeHandle";
 import {
   MAIL_SIDEBAR_DEFAULT_WIDTH,
   MAIL_SIDEBAR_RAIL_WIDTH,
-} from "@/app/(app)/[emailAccountId]/mail/sidebar-width";
+  MAIL_SIDEBAR_WIDTH_BOUNDS,
+  MAIL_SIDEBAR_WIDTH_COOKIE,
+} from "@/app/(app)/[emailAccountId]/mail/panel-widths";
+import { PanelResizeHandle } from "@/components/PanelResizeHandle";
 import { Sidebar, useSidebar } from "@/components/ui/sidebar";
 import { useFolders } from "@/hooks/useFolders";
 import { useLabelCounts } from "@/hooks/useLabelCounts";
@@ -27,6 +29,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
 import type { EmailLabel } from "@/providers/email-label-types";
 import type { OutlookFolder } from "@/utils/outlook/folders";
+import { persistPanelWidth } from "@/utils/panel-width";
 import {
   createLabelAction,
   deleteMailboxItemAction,
@@ -99,6 +102,10 @@ export const MailShellSidebar = memo(function MailShellSidebar({
   const setSidebarWidth = useCallback((width: number) => {
     sidebarScopeRef.current?.style.setProperty("--sidebar-width", `${width}px`);
   }, []);
+  const resetSidebarWidth = useCallback(() => {
+    setSidebarWidth(MAIL_SIDEBAR_DEFAULT_WIDTH);
+    persistPanelWidth(MAIL_SIDEBAR_WIDTH_COOKIE, null);
+  }, [setSidebarWidth]);
 
   const hrefFor = useCallback(
     (target: MailNavTarget) =>
@@ -235,9 +242,20 @@ export const MailShellSidebar = memo(function MailShellSidebar({
           }
         />
         {isMailSidebarOpen ? (
-          <MailSidebarResizeHandle onResize={setSidebarWidth} />
+          <PanelResizeHandle
+            label="Resize sidebar"
+            edge="right"
+            bounds={MAIL_SIDEBAR_WIDTH_BOUNDS}
+            onResize={setSidebarWidth}
+            onResizeEnd={persistSidebarWidth}
+            onReset={resetSidebarWidth}
+          />
         ) : null}
       </Sidebar>
     </div>
   );
 });
+
+function persistSidebarWidth(width: number) {
+  persistPanelWidth(MAIL_SIDEBAR_WIDTH_COOKIE, width);
+}
