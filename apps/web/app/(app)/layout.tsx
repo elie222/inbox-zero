@@ -6,6 +6,11 @@ import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { Inter } from "next/font/google";
 import { SideNavWithTopNav } from "@/components/SideNavWithTopNav";
+import {
+  CHAT_SIDEBAR_DEFAULT_WIDTH,
+  CHAT_SIDEBAR_WIDTH_BOUNDS,
+  CHAT_SIDEBAR_WIDTH_COOKIE,
+} from "@/components/chat-sidebar-width";
 import { auth } from "@/utils/auth";
 import { PostHogIdentify } from "@/providers/PostHogProvider";
 import { CommandK } from "@/components/CommandK";
@@ -23,6 +28,7 @@ import { EmailViewer } from "@/components/EmailViewer";
 import { SettingsDialog } from "@/app/(app)/settings/SettingsDialog";
 import { AnnouncementDialog } from "@/components/feature-announcements/AnnouncementDialog";
 import { captureException } from "@/utils/error";
+import { parsePanelWidthCookie } from "@/utils/panel-width";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { booleanString } from "@/utils/zod";
@@ -66,6 +72,11 @@ export default async function AppLayout({
 
   const cookieStore = await cookies();
   const isClosed = cookieStore.get("left-sidebar:state")?.value === "false";
+  const chatSidebarWidth =
+    parsePanelWidthCookie(
+      cookieStore.get(CHAT_SIDEBAR_WIDTH_COOKIE)?.value,
+      CHAT_SIDEBAR_WIDTH_BOUNDS,
+    ) ?? CHAT_SIDEBAR_DEFAULT_WIDTH;
   const bypassPremiumChecks =
     booleanString.parse(process.env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) ?? false;
   const feedbackEnabled =
@@ -92,6 +103,7 @@ export default async function AppLayout({
             <SideNavWithTopNav
               defaultOpen={!isClosed}
               feedbackEnabled={feedbackEnabled}
+              chatSidebarWidth={chatSidebarWidth}
             >
               <DesktopMailIndicators />
               <AiAutomationStatusBanner />

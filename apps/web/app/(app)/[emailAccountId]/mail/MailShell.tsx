@@ -25,6 +25,7 @@ import {
 import { MailShellSidebar } from "@/app/(app)/[emailAccountId]/mail/MailShellSidebar";
 import { MailSplitTabs } from "@/app/(app)/[emailAccountId]/mail/MailSplitTabs";
 import { SelectAllCheckbox } from "@/app/(app)/[emailAccountId]/mail/SelectAllCheckbox";
+import { MailListPanel } from "@/app/(app)/[emailAccountId]/mail/MailListPanel";
 import { MailReaderPane } from "@/app/(app)/[emailAccountId]/mail/MailReaderPane";
 import { MailTitlebarNav } from "@/app/(app)/[emailAccountId]/mail/MailTitlebarNav";
 import { ScheduledEmailList } from "@/app/(app)/[emailAccountId]/mail/ScheduledEmailList";
@@ -1414,16 +1415,7 @@ export function MailShell() {
         <MailEngineConnectionBanner />
         <div className="flex min-h-0 min-w-0 flex-1">
           {showList && (
-            <section
-              className={
-                layout === "split"
-                  ? "flex min-h-0 w-[clamp(258px,32vw,400px)] shrink-0 flex-col border-r border-border"
-                  : // min-w-0 matters: a flex item won't shrink below its content
-                    // width without it, so long snippets would widen the column
-                    // past the viewport instead of truncating.
-                    "flex min-h-0 min-w-0 flex-1 flex-col"
-              }
-            >
+            <MailListPanel layout={layout}>
               <ListToolbar
                 layout={layout}
                 isDesktopApp={isDesktopApp}
@@ -1530,7 +1522,7 @@ export function MailShell() {
                   </LoadingContent>
                 )}
               </MailPanelErrorBoundary>
-            </section>
+            </MailListPanel>
           )}
 
           {showReader ? (

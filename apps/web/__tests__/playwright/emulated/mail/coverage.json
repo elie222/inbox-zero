@@ -87,7 +87,9 @@
   ],
   "layout.spec.ts": [
     "app/(app)/[emailAccountId]/mail/ThreadList.tsx",
-    "app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx"
+    "app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx",
+    "app/(app)/[emailAccountId]/mail/MailListPanel.tsx",
+    "components/PanelResizeHandle.tsx"
   ],
   "mail-engine-inspect.spec.ts": [
     "utils/mail-engine/MailEngineHost.tsx",
