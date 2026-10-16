@@ -9,8 +9,13 @@ import { MailSidebar, type MailSidebarProps } from "./MailSidebar";
 (globalThis as { React?: typeof React }).React = React;
 
 vi.mock("next/link", () => ({
-  default: ({ children, href, ...props }: React.ComponentProps<"a">) => (
-    <a href={href} {...props}>
+  default: ({
+    children,
+    href,
+    onNavigate,
+    ...props
+  }: React.ComponentProps<"a"> & { onNavigate?: () => void }) => (
+    <a href={href} onClick={() => onNavigate?.()} {...props}>
       {children}
     </a>
   ),

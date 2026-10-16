@@ -67,7 +67,7 @@ export type MailSidebarProps = {
   activeFolderId: string | null;
   /** Builds the href for a row so the sidebar never owns routing. */
   hrefFor: (target: MailNavTarget) => string;
-  /** Runs on every row click, including the row for the view already open. */
+  /** Runs when a row navigates in place, including to the view already open. */
   onNavigate: () => void;
   labels: EmailLabel[];
   folders: OutlookFolder[];
@@ -775,7 +775,7 @@ function NavRow({
   const row = href ? (
     <Link
       href={href}
-      onClick={onNavigate}
+      onNavigate={onNavigate}
       aria-current={active ? "page" : undefined}
       className={className}
     >
