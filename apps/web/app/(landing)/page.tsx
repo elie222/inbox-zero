@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Testimonials } from "@/components/new-landing/sections/Testimonials";
 import { Hero, HeroContent } from "@/app/(landing)/home/Hero";
 import { Pricing } from "@/components/new-landing/sections/Pricing";
@@ -18,6 +17,7 @@ import { BasicLayout } from "@/components/layouts/BasicLayout";
 import { FAQs } from "@/app/(landing)/home/FAQs";
 import { FinalCTA } from "@/app/(landing)/home/FinalCTA";
 import { WordReveal } from "@/components/new-landing/common/WordReveal";
+import { SectionLink } from "@/components/new-landing/common/SectionLink";
 import { env } from "@/env";
 import { BRAND_NAME } from "@/utils/branding";
 
@@ -39,9 +39,9 @@ export default function NewLanding() {
     <BasicLayout>
       <Hero
         badge={
-          <Link href={`#${EMAIL_CLIENT_SECTION_ID}`}>
-            New: our free email app →
-          </Link>
+          <SectionLink sectionId={EMAIL_CLIENT_SECTION_ID}>
+            New: Inbox Zero Mail app →
+          </SectionLink>
         }
         title={
           <WordReveal
