@@ -25,6 +25,7 @@ import {
   installDesktopLoadRecovery,
 } from "./load-recovery";
 import { configureDesktopApplicationMenu } from "./application-menu";
+import { installDesktopContextMenu } from "./context-menu";
 import { recordDesktopDiagnostics } from "./diagnostics";
 import {
   checkForDesktopUpdatesManually,
@@ -445,6 +446,11 @@ function createAppWindow(options?: {
 
   applyNavigationPolicy(window.webContents);
   applyDesktopWindowDragRegion(window.webContents);
+  installDesktopContextMenu(window.webContents, {
+    openExternal: (url) => {
+      openExternal(url).catch(() => {});
+    },
+  });
   window.webContents.on("did-navigate", (_event, url) => {
     rememberWindowUrl(window, url);
   });
