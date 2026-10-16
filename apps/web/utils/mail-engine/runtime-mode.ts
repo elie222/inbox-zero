@@ -3,9 +3,10 @@ export type MailEngineRuntimeMode = "desktop-ipc" | "browser" | "unavailable";
 export function selectMailEngineRuntimeMode(input: {
   desktopIpc: boolean;
   opfs: boolean;
+  worker: boolean;
 }): MailEngineRuntimeMode {
   if (input.desktopIpc) return "desktop-ipc";
-  if (input.opfs) return "browser";
+  if (input.opfs && input.worker) return "browser";
   return "unavailable";
 }
 
