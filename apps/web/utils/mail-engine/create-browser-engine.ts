@@ -26,6 +26,32 @@ export type BrowserMailEngine = MailEngine & {
 export async function createBrowserMailEngine(
   input: BrowserEngineStart,
 ): Promise<BrowserMailEngine> {
+  // A failed SAH pool installation is cached by SQLite. Retry in a fresh
+  // worker so partial pools and their handles cannot survive the attempt.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await startBrowserMailEngine(input);
+    } catch (error) {
+      if (
+        !(error instanceof MailEngineStartupError) ||
+        error.stage !== "opfs-open" ||
+        !["NoModificationAllowedError", "InvalidStateError"].includes(
+          error.name,
+        ) ||
+        attempt === 7
+      ) {
+        throw error;
+      }
+      await new Promise((resolve) =>
+        setTimeout(resolve, Math.min(50 * 2 ** attempt, 1000)),
+      );
+    }
+  }
+}
+
+async function startBrowserMailEngine(
+  input: BrowserEngineStart,
+): Promise<BrowserMailEngine> {
   let worker: Worker;
   try {
     worker = new Worker(new URL("./engine-worker.ts", import.meta.url), {
@@ -205,12 +231,16 @@ export async function createBrowserMailEngine(
     runUntil: (deadlineMs) =>
       callWorker(worker, pending, "runUntil", [deadlineMs]),
     async close() {
+      let timer: ReturnType<typeof setTimeout> | undefined;
       try {
-        await request(worker, pending, {
-          id: crypto.randomUUID(),
-          type: "close",
-        });
+        await Promise.race([
+          request(worker, pending, { id: crypto.randomUUID(), type: "close" }),
+          new Promise<void>((resolve) => {
+            timer = setTimeout(resolve, 1000);
+          }),
+        ]);
       } finally {
+        clearTimeout(timer);
         // SAHPool keeps OPFS handles until the worker is gone, even if the
         // graceful close RPC fails.
         worker.terminate();

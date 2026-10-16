@@ -18,6 +18,7 @@ import {
   EmptyTitle,
   EmptyDescription,
 } from "@/components/ui/empty";
+import { holdMailEngineOwner } from "./owner-lock";
 import { reportMailEngineStartupFailure } from "./startup-failure";
 import type { MailEngineStartupStage } from "./startup-error";
 import { usePathname } from "next/navigation";
@@ -44,7 +45,6 @@ import { fetchEmailAccounts } from "@/utils/fetch-email-accounts";
 import { followMailboxChanges } from "@/utils/mail-engine/follow-mailbox-changes";
 import { browserMailEngineCapabilities } from "@/utils/mail-engine/worker-protocol";
 import {
-  MAIL_ENGINE_OWNER_LOCK,
   MAIL_ENGINE_TAB_CHANNEL,
   bindTabMailOwner,
   createBroadcastTabBus,
@@ -124,7 +124,7 @@ export function MailCoverageGate({ children }: { children: ReactNode }) {
           </EmptyTitle>
           <EmptyDescription>
             {status.failed
-              ? "Close other Inbox Zero tabs and try again. If this continues, use a non-private window and an up-to-date browser."
+              ? "Try again. If this continues, use a non-private window and an up-to-date browser."
               : "Mail requires a browser with persistent file storage (OPFS) and web workers. Use an up-to-date browser in a non-private window."}
           </EmptyDescription>
         </EmptyHeader>
@@ -283,17 +283,6 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
       });
     }
 
-    async function hold(create: () => Promise<void>) {
-      await create();
-      await new Promise<void>((resolve) => {
-        if (abort.signal.aborted) {
-          resolve();
-          return;
-        }
-        abort.signal.addEventListener("abort", () => resolve(), { once: true });
-      });
-    }
-
     async function start() {
       stage = "owner-lock";
       const create = async () => {
@@ -304,7 +293,6 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
           online: typeof navigator === "undefined" || navigator.onLine,
         });
         if (abort.signal.aborted) {
-          await engine.close();
           return;
         }
         if (bus) {
@@ -314,26 +302,23 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
             ensureAccount: engine.ensureAccount,
           });
           bus.post({ type: "ready" });
-          bus.post({ type: "owner", accountId: emailAccountId });
         }
         await publishClient(engine, "owner", "browser");
       };
-      if (typeof navigator !== "undefined" && navigator.locks?.request) {
-        await navigator.locks.request(
-          MAIL_ENGINE_OWNER_LOCK,
-          { signal: abort.signal },
-          () => hold(create),
-        );
-        return;
-      }
-      await hold(create);
+      await holdMailEngineOwner({
+        signal: abort.signal,
+        start: create,
+        close: async () => {
+          unbindOwner?.();
+          await engine?.close().catch(() => undefined);
+        },
+      });
     }
 
     start().catch(fail);
 
     const unsubscribeLogout = subscribeMailEngineLogout(() => {
       abort.abort();
-      engine?.close().catch(() => undefined);
     });
 
     return () => {
@@ -345,7 +330,6 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
       clearMailEngineInspect();
       setActiveMailClient(null);
       channel?.close();
-      engine?.close().catch(() => undefined);
       setClient(null);
     };
   }, [
