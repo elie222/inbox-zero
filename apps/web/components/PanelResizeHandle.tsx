@@ -141,7 +141,7 @@ export function PanelResizeHandle({
         onResizeEnd(applied);
       }}
       className={cn(
-        "absolute inset-y-0 z-20 hidden w-2 cursor-col-resize touch-none after:absolute after:inset-y-0 after:left-1/2 after:w-px after:-translate-x-1/2 after:transition-colors hover:after:bg-primary focus-visible:after:bg-primary focus-visible:outline-none lg:block",
+        "absolute inset-y-0 z-20 hidden w-2 cursor-col-resize touch-none after:absolute after:inset-y-0 after:left-1/2 after:w-px after:-translate-x-1/2 focus-visible:after:bg-primary focus-visible:outline-none lg:block",
         edge === "right"
           ? "right-0 translate-x-1/2"
           : "left-0 -translate-x-1/2",
