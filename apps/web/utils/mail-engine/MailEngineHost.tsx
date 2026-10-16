@@ -167,7 +167,7 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: Retry must tear down the previous attempt and start a new engine.
   useEffect(() => {
-    if (!emailAccountId || !enabled) {
+    if (!emailAccountId || !provider || !enabled) {
       setFailed(false);
       return;
     }
