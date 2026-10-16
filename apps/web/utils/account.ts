@@ -17,17 +17,23 @@ export async function redirectToEmailAccountPath(
   path: `/${string}`,
   searchParams?: Record<string, string | string[] | undefined>,
 ) {
-  const timing = createRedirectTiming(path, searchParams);
+  const { fromHome, ...redirectSearchParams } = searchParams ?? {};
+  const timing = createRedirectTiming(path, redirectSearchParams);
   const session = await measureRedirectStep(timing, "auth", () => auth());
   const userId = session?.user.id;
   if (!userId) {
     logRedirectTiming(timing, {
-      outcome: "login",
+      outcome: fromHome === "true" ? "home" : "login",
       usedLastEmailAccountCookie: false,
       usedFallbackAccountLookup: false,
       foundEmailAccount: false,
     });
-    redirect(buildLoginRedirectUrl(buildRedirectUrl(path, searchParams)));
+    if (fromHome === "true") {
+      redirect(buildRedirectUrl("/home", redirectSearchParams));
+    }
+    redirect(
+      buildLoginRedirectUrl(buildRedirectUrl(path, redirectSearchParams)),
+    );
   }
 
   const lastEmailAccountId = await measureRedirectStep(
@@ -62,14 +68,14 @@ export async function redirectToEmailAccountPath(
     });
     redirect(
       buildRedirectUrl("/connect-mailbox", {
-        next: buildRedirectUrl(path, searchParams),
+        next: buildRedirectUrl(path, redirectSearchParams),
       }),
     );
   }
 
   const redirectUrl = buildRedirectUrl(
     `/${emailAccountId}${path}`,
-    searchParams,
+    redirectSearchParams,
   );
 
   logRedirectTiming(timing, {
@@ -138,7 +144,7 @@ async function measureRedirectStep<T>(
 function logRedirectTiming(
   timing: RedirectTiming,
   metadata: {
-    outcome: "account-path" | "connect-mailbox" | "login";
+    outcome: "account-path" | "connect-mailbox" | "login" | "home";
     usedLastEmailAccountCookie: boolean;
     usedFallbackAccountLookup: boolean;
     foundEmailAccount: boolean;
