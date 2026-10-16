@@ -27,6 +27,7 @@ import {
   PersonStandingIcon,
   RatioIcon,
   SendIcon,
+  SmartphoneIcon,
   SparklesIcon,
   Users2Icon,
   ZapIcon,
@@ -202,6 +203,15 @@ export const useNavigation = () => {
   };
 };
 
+const getTheAppLinks: NavItem[] = [
+  {
+    name: "Get the app",
+    icon: SmartphoneIcon,
+    href: "/download",
+    target: "_blank",
+  },
+];
+
 const topMailLinks: NavItem[] = [
   {
     name: "Inbox",
@@ -351,6 +361,8 @@ export function SideNav({
 
       <SidebarFooter className="pb-4">
         <SideNavMenu items={visibleBottomLinks} activeHref={path} />
+
+        <SideNavMenu items={getTheAppLinks} activeHref={path} />
 
         {feedbackEnabled && (
           <SidebarMenu>

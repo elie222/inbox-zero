@@ -37,7 +37,7 @@ function getDemoAnnouncement(): Announcement {
       "Track replies and get reminded about unanswered emails. Never let an important email slip through the cracks.",
     image: <FollowUpRemindersIllustration />,
     link: "/automation?tab=settings",
-    learnMoreLink: "/#",
+    secondaryLink: { href: "/#", label: "Learn more" },
     publishedAt: "2026-01-15T00:00:00Z",
     details: [
       {

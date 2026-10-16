@@ -24,10 +24,10 @@ export interface Announcement {
   enabled?: boolean;
   id: string;
   image: ReactNode;
-  learnMoreLink?: string;
   link?: string;
   linkLabel?: string;
   publishedAt: string;
+  secondaryLink?: { href: string; label: string };
   title: string;
 }
 
@@ -46,6 +46,7 @@ export const ANNOUNCEMENTS: Announcement[] = [
     ),
     link: "/mail",
     linkLabel: "Try it",
+    secondaryLink: { href: "/download", label: "Download the app" },
     publishedAt: "2026-10-15T00:00:00Z",
     details: [
       {
@@ -71,7 +72,7 @@ export const ANNOUNCEMENTS: Announcement[] = [
   //     "Track replies and get reminded about unanswered emails. Never let an important email slip through the cracks.",
   //   image: <FollowUpRemindersIllustration />,
   //   link: "/automation?tab=settings",
-  //   learnMoreLink: "/#",
+  //   secondaryLink: { href: "/#", label: "Learn more" },
   //   publishedAt: "2026-01-15T00:00:00Z",
   //   details: [
   //     {
@@ -93,7 +94,7 @@ export const ANNOUNCEMENTS: Announcement[] = [
   //     "Get AI-powered briefings before your meetings. Know who you're meeting and what you've discussed.",
   //   image: <MeetingBriefsIllustration />,
   //   link: "/briefs",
-  //   learnMoreLink: "/#",
+  //   secondaryLink: { href: "/#", label: "Learn more" },
   //   publishedAt: "2024-12-28T00:00:00Z",
   //   details: [
   //     {
