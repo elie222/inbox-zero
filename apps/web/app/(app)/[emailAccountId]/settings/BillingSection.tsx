@@ -90,16 +90,21 @@ export function BillingSection() {
                 You&apos;re on grandfathered Stripe pricing. The current plan
                 prices shown elsewhere in the app are for new subscriptions.
               </ItemDescription>
+            ) : premium.stripeSubscriptionStatus === "trialing" ? (
+              <ItemDescription>Free trial</ItemDescription>
             ) : null}
           </ItemContent>
-          <ItemActions>
-            <ManageSubscription premium={premium} />
-            <ViewInvoicesButton premium={premium} />
+          <ItemActions className="flex-wrap justify-end">
             {!hasAppleSubscription && (
               <Button asChild variant="outline" size="sm">
                 <Link href="/premium">Change plan</Link>
               </Button>
             )}
+            <ManageSubscription premium={premium} compact />
+            {!premium.stripeSubscriptionId &&
+              !premium.lemonSqueezyCustomerId && (
+                <ViewInvoicesButton premium={premium} />
+              )}
           </ItemActions>
         </Item>
       ) : (
