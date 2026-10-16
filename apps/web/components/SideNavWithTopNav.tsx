@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense } from "react";
+import { type CSSProperties, Suspense, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import {
@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/sidebar";
 import { SideNav } from "@/components/SideNav";
 import { SidebarRight } from "@/components/SidebarRight";
+import { CHAT_PANEL_WIDTH } from "@/components/assistant-chat/panel-width";
 import { cn } from "@/utils";
 
 const CrispWithNoSSR = dynamic(() => import("@/components/CrispChat"));
@@ -32,7 +33,7 @@ function ContentWrapper({ children }: { children: React.ReactNode }) {
     <div
       className={cn(
         "min-w-0 flex-1 transition-all duration-200 ease-linear",
-        isRightSidebarOpen && "lg:mr-[450px]",
+        isRightSidebarOpen && "lg:mr-[var(--chat-panel-width)]",
       )}
     >
       <SidebarInset
@@ -58,13 +59,26 @@ function ContentWrapper({ children }: { children: React.ReactNode }) {
 export function SideNavWithTopNav({
   children,
   defaultOpen,
+  chatPanelWidth,
   feedbackEnabled,
 }: {
   children: React.ReactNode;
   defaultOpen: boolean;
+  chatPanelWidth: number;
   feedbackEnabled: boolean;
 }) {
   const pathname = usePathname();
+
+  // Set on the shared wrapper because the page content makes room for the
+  // panel too. Dragging writes straight to the variable so the edge keeps up
+  // with the cursor instead of waiting on a re-render.
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const setChatPanelWidth = useCallback((width: number) => {
+    wrapperRef.current?.style.setProperty(
+      CHAT_PANEL_WIDTH.cssVar,
+      `${width}px`,
+    );
+  }, []);
 
   if (!pathname) return null;
 
@@ -83,6 +97,10 @@ export function SideNavWithTopNav({
 
   return (
     <SidebarProvider
+      ref={wrapperRef}
+      style={
+        { [CHAT_PANEL_WIDTH.cssVar]: `${chatPanelWidth}px` } as CSSProperties
+      }
       defaultOpen={defaultOpen ? ["left-sidebar"] : []}
       sidebarNames={["left-sidebar", "chat-sidebar"]}
       keyboardShortcutName="left-sidebar"
@@ -96,7 +114,9 @@ export function SideNavWithTopNav({
         </>
       )}
       <ContentWrapper>{children}</ContentWrapper>
-      {!isAssistantRoute ? <SidebarRight name="chat-sidebar" /> : null}
+      {!isAssistantRoute ? (
+        <SidebarRight name="chat-sidebar" onResize={setChatPanelWidth} />
+      ) : null}
     </SidebarProvider>
   );
 }

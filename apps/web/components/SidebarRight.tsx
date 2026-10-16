@@ -2,6 +2,8 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect } from "react";
+import { PanelResizeHandle } from "@/components/PanelResizeHandle";
+import { CHAT_PANEL_WIDTH } from "@/components/assistant-chat/panel-width";
 import { useSidebar } from "@/components/ui/sidebar";
 import { cn } from "@/utils";
 
@@ -12,9 +14,11 @@ const Chat = dynamic(
 
 export function SidebarRight({
   name,
+  onResize,
   className,
 }: {
   name: string;
+  onResize: (width: number) => void;
   className?: string;
 }) {
   const { isOpen, close } = useSidebarPanel(name);
@@ -23,11 +27,20 @@ export function SidebarRight({
     <div
       className={cn(
         "fixed right-0 top-0 z-50 h-dvh border-l bg-background transition-transform duration-200 ease-linear",
-        "w-full lg:w-[450px]",
+        "w-full lg:w-[var(--chat-panel-width)]",
         isOpen ? "translate-x-0" : "translate-x-full",
         className,
       )}
     >
+      {isOpen ? (
+        <PanelResizeHandle
+          config={CHAT_PANEL_WIDTH}
+          edge="start"
+          label="Resize assistant"
+          onResize={onResize}
+          className="hidden lg:block"
+        />
+      ) : null}
       <div className="flex h-full w-full flex-col overflow-hidden">
         {isOpen ? <Chat open onClose={close} /> : null}
       </div>

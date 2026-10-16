@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { Inter } from "next/font/google";
 import { SideNavWithTopNav } from "@/components/SideNavWithTopNav";
+import { CHAT_PANEL_WIDTH } from "@/components/assistant-chat/panel-width";
 import { auth } from "@/utils/auth";
 import { PostHogIdentify } from "@/providers/PostHogProvider";
 import { CommandK } from "@/components/CommandK";
@@ -26,6 +27,7 @@ import { captureException } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { booleanString } from "@/utils/zod";
+import { parsePanelWidthCookie } from "@/utils/panel-width";
 
 const logger = createScopedLogger("AppLayout");
 
@@ -66,6 +68,10 @@ export default async function AppLayout({
 
   const cookieStore = await cookies();
   const isClosed = cookieStore.get("left-sidebar:state")?.value === "false";
+  const chatPanelWidth = parsePanelWidthCookie(
+    CHAT_PANEL_WIDTH,
+    cookieStore.get(CHAT_PANEL_WIDTH.cookie)?.value,
+  );
   const bypassPremiumChecks =
     booleanString.parse(process.env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) ?? false;
   const feedbackEnabled =
@@ -91,6 +97,7 @@ export default async function AppLayout({
           <MailEngineRuntime>
             <SideNavWithTopNav
               defaultOpen={!isClosed}
+              chatPanelWidth={chatPanelWidth}
               feedbackEnabled={feedbackEnabled}
             >
               <DesktopMailIndicators />
