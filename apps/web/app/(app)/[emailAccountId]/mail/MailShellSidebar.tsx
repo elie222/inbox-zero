@@ -67,6 +67,7 @@ export const MailShellSidebar = memo(function MailShellSidebar({
   onSelectAccount,
   onSelectAllAccounts,
   onMailboxItemDeleted,
+  onNavigate,
 }: {
   activeType: string | null;
   activeLabelId: string | null;
@@ -77,6 +78,7 @@ export const MailShellSidebar = memo(function MailShellSidebar({
   onSelectAllAccounts: () => void;
   /** Leaves a view or split that the deleted label or folder defined. */
   onMailboxItemDeleted: (item: MailboxItem) => Promise<unknown>;
+  onNavigate: () => void;
 }) {
   const { emailAccountId, provider } = useAccount();
   const isGoogle = isGoogleProvider(provider);
@@ -200,6 +202,7 @@ export const MailShellSidebar = memo(function MailShellSidebar({
           activeLabelId={activeLabelId}
           activeFolderId={activeFolderId}
           hrefFor={hrefFor}
+          onNavigate={onNavigate}
           labels={isAllAccounts ? NO_LABELS : allLabels}
           folders={isAllAccounts || !isOutlook ? NO_FOLDERS : folders}
           countsById={isAllAccounts ? NO_COUNTS : countsById}
