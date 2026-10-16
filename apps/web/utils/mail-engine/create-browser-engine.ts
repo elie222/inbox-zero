@@ -5,7 +5,6 @@ import type {
   QuerySnapshot,
 } from "@inboxzero/mail-core/queries";
 import {
-  browserMailEngineCapabilities,
   pageConnectivityOnline,
   readPageMaxPendingOperations,
   requestSyncUnlessOffline,
@@ -16,8 +15,6 @@ import {
 } from "@/utils/mail-engine/worker-protocol";
 import { MailEngineStartupError } from "./startup-error";
 
-export { browserMailEngineCapabilities };
-
 export type BrowserMailEngine = MailEngine & {
   ensureAccount(input: {
     accountId: string;
@@ -27,17 +24,6 @@ export type BrowserMailEngine = MailEngine & {
 };
 
 export async function createBrowserMailEngine(
-  input: BrowserEngineStart,
-): Promise<BrowserMailEngine> {
-  const start: BrowserEngineStart = {
-    ...input,
-    maxPendingOperations:
-      input.maxPendingOperations ?? readPageMaxPendingOperations(),
-  };
-  return createWorkerOwnedEngine(start);
-}
-
-async function createWorkerOwnedEngine(
   input: BrowserEngineStart,
 ): Promise<BrowserMailEngine> {
   let worker: Worker;
@@ -102,7 +88,11 @@ async function createWorkerOwnedEngine(
       request(worker, pending, {
         id: crypto.randomUUID(),
         type: "start",
-        input,
+        input: {
+          ...input,
+          maxPendingOperations:
+            input.maxPendingOperations ?? readPageMaxPendingOperations(),
+        },
       }),
       new Promise<never>((_, reject) => {
         startupTimer = setTimeout(

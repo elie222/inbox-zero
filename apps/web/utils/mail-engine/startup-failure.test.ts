@@ -36,12 +36,12 @@ describe("mail engine startup reporting", () => {
       stage: "browser-start",
     });
     expect(captureException).toHaveBeenLastCalledWith(error, {
-      extra: {
+      tags: {
         runtimeMode,
         platform: runtimeMode === "desktop-ipc" ? "desktop" : "web",
-        ...capabilities,
         stage: "opfs-open",
       },
+      extra: capabilities,
     });
     expect(log).toHaveBeenCalledWith(
       "[mail-engine]:",

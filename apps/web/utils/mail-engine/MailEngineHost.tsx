@@ -32,7 +32,7 @@ import {
   type BrowserMailEngine,
 } from "@/utils/mail-engine/create-browser-engine";
 import {
-  createDesktopIpcMailClient,
+  startDesktopIpcMailClient,
   hasDesktopMailEngineIpc,
 } from "@/utils/mail-engine/desktop-ipc";
 import {
@@ -187,6 +187,11 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
     function fail(error: unknown) {
       if (abort.signal.aborted) return;
       setFailed(true);
+      report(error, stage);
+    }
+
+    function report(error: unknown, stage: MailEngineStartupStage) {
+      if (abort.signal.aborted) return;
       reportMailEngineStartupFailure(error, {
         runtimeMode: mode,
         platform: getInboxZeroDesktopApp() ? "desktop" : "web",
@@ -211,13 +216,12 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
     }
 
     if (mode === "desktop-ipc") {
-      async function startDesktop() {
-        const client = createDesktopIpcMailClient({ provider: mailProvider });
-        stage = "desktop-sync";
-        await client.requestSync([emailAccountId]);
-        await publishClient(client, "owner", "desktop-ipc");
-      }
-      startDesktop().catch(fail);
+      startDesktopIpcMailClient({
+        provider: mailProvider,
+        accountId: emailAccountId,
+        publish: (client) => publishClient(client, "owner", "desktop-ipc"),
+        onSyncError: (error) => report(error, "desktop-sync"),
+      }).catch(fail);
       const unsubscribeLogout = subscribeMailEngineLogout(() => abort.abort());
       return () => {
         unsubscribeLogout();

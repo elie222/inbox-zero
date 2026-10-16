@@ -22,16 +22,16 @@ export function reportMailEngineStartupFailure(
     error instanceof MailEngineStartupError
       ? error
       : new MailEngineStartupError(context.stage, error);
-  const extra = {
+  const tags = {
     runtimeMode: context.runtimeMode,
     platform: context.platform,
-    ...context.capabilities,
     stage: failure.stage,
   };
-  captureException(failure, { extra });
+  captureException(failure, { tags, extra: context.capabilities });
   logger.error("Mail engine failed to start", {
     error: { name: failure.name, message: failure.message },
-    ...extra,
+    ...tags,
+    ...context.capabilities,
   });
   logger.flush().catch(() => undefined);
 }

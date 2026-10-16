@@ -68,6 +68,7 @@ export type CaptureExceptionContext = {
   userEmail?: string;
   // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   extra?: Record<string, any>;
+  tags?: Record<string, string>;
   sampleRate?: number;
 };
 
@@ -139,6 +140,7 @@ export function captureException(
 
   sentryCaptureException(error, {
     extra: Object.keys(sentryExtra).length > 0 ? sentryExtra : undefined,
+    ...(context.tags && { tags: context.tags }),
   });
 }
 
