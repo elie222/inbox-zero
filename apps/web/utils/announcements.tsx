@@ -7,13 +7,14 @@ import {
   Sparkles,
 } from "lucide-react";
 import { AnnouncementVideo } from "@/components/feature-announcements/AnnouncementVideo";
+import { GetTheAppLinks } from "@/components/GetTheAppMenu";
 
 const DETAIL_ICON_CLASS = "size-4";
 export const EMAIL_CLIENT_LAUNCH_VIDEO_ID =
   "1K01tCypmkqhB3OZwCzO9j0202K0089aqXX02tYpgoUzztmc";
 
 export interface AnnouncementDetail {
-  description?: string;
+  description?: ReactNode;
   icon: ReactNode;
   title: string;
 }
@@ -50,6 +51,7 @@ export const ANNOUNCEMENTS: Announcement[] = [
     details: [
       {
         title: "Web, desktop, and mobile",
+        description: <GetTheAppLinks />,
         icon: <MonitorSmartphone className={DETAIL_ICON_CLASS} />,
       },
       { title: "Unified inbox", icon: <Inbox className={DETAIL_ICON_CLASS} /> },

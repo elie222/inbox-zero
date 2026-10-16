@@ -64,6 +64,7 @@ import { AccountSwitcher } from "@/components/AccountSwitcher";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { isGoogleProvider } from "@/utils/email/provider-types";
+import { GetTheAppSidebarButton } from "@/components/GetTheAppMenu";
 import { NavUser } from "@/components/NavUser";
 import { PremiumCard } from "@/components/PremiumCard";
 import { FeedbackSidebarButton } from "@/components/FeedbackDialog";
@@ -351,6 +352,12 @@ export function SideNav({
 
       <SidebarFooter className="pb-4">
         <SideNavMenu items={visibleBottomLinks} activeHref={path} />
+
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <GetTheAppSidebarButton />
+          </SidebarMenuItem>
+        </SidebarMenu>
 
         {feedbackEnabled && (
           <SidebarMenu>
