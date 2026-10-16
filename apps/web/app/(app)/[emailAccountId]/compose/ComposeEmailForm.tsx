@@ -42,6 +42,7 @@ import type { GetSendAsResponse } from "@/app/api/user/send-as/route";
 import {
   findReplySendAsAddress,
   formatSendAsAddress,
+  getSendAsSignatureHtml,
   type SendAsAddress,
 } from "@/utils/email/send-as";
 import { ComposeContactRecipientField } from "./ComposeContactRecipientField";
@@ -461,7 +462,11 @@ function ComposeEmailFormContent({
       quotedHtml: replyingToEmail?.quotedContentHtml,
       signatureHtml:
         replyingToEmail?.signatureHtml ??
-        getSendAsSignatureHtml(initialSendAs, accountSignatureHtml) ??
+        getSendAsSignatureHtml(
+          initialSendAs,
+          sendAsAddresses,
+          accountSignatureHtml,
+        ) ??
         undefined,
     });
     // The footer travels with the signature so it lands right after it and is
@@ -1417,9 +1422,14 @@ function ComposeEmailFormContent({
     if (!address) return;
     const previousSignature = getSendAsSignatureHtml(
       selectedSendAs,
+      sendAsAddresses,
       accountSignatureHtml,
     );
-    const nextSignature = getSendAsSignatureHtml(address, accountSignatureHtml);
+    const nextSignature = getSendAsSignatureHtml(
+      address,
+      sendAsAddresses,
+      accountSignatureHtml,
+    );
     setValue("from", formatSendAsAddress(address));
     if (nextSignature !== previousSignature)
       editorRef.current?.replaceSignature(
@@ -2173,17 +2183,6 @@ function findSelectableSendAs(
 ) {
   if (addresses.length < 2) return;
   return findReplySendAsAddress(candidates, addresses);
-}
-
-// The default address keeps the signature set in Inbox Zero; an alias uses
-// its own when the provider has one.
-function getSendAsSignatureHtml(
-  address: SendAsAddress | undefined,
-  accountSignatureHtml: string,
-) {
-  if (address && !address.isDefault && address.signature)
-    return address.signature;
-  return accountSignatureHtml;
 }
 
 function withSentWithFooter(signatureHtml: string, footerHtml: string) {

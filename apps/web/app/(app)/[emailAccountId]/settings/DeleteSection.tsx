@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useAction } from "next-safe-action/hooks";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Item,
   ItemContent,
@@ -28,10 +28,14 @@ import { logOut } from "@/utils/user";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
 import { usePremium } from "@/hooks/usePremium";
 import { hasActiveAppleSubscription } from "@/utils/premium";
+import { useAccounts } from "@/hooks/useAccounts";
 
 export function DeleteSection() {
   const { onCancelLoadBatch } = useStatLoader();
   const { premium } = usePremium();
+  const { data: accountsData } = useAccounts();
+  const connectedEmails =
+    accountsData?.emailAccounts.map((account) => account.email) ?? [];
   const hasAppleSubscription = hasActiveAppleSubscription(
     premium?.appleExpiresAt || null,
     premium?.appleRevokedAt || null,
@@ -77,9 +81,9 @@ export function DeleteSection() {
   return (
     <Item size="sm">
       <ItemContent>
-        <ItemTitle>Delete account</ItemTitle>
+        <ItemTitle>Delete Inbox Zero account</ItemTitle>
         <ItemDescription>
-          Permanently delete your account and all data.
+          Removes your Inbox Zero data. Your email accounts are not affected.
         </ItemDescription>
       </ItemContent>
       <ItemActions>
@@ -94,7 +98,7 @@ export function DeleteSection() {
               <AlertDialogTitle>
                 {shouldBlockDeletion
                   ? "Cancel subscription first"
-                  : "Are you absolutely sure?"}
+                  : "Delete your Inbox Zero account?"}
               </AlertDialogTitle>
               <AlertDialogDescription asChild>
                 <div>
@@ -131,10 +135,38 @@ export function DeleteSection() {
                       </p>
                     </>
                   ) : (
-                    <p>
-                      This action cannot be undone. This will permanently delete
-                      your user and all associated accounts.
-                    </p>
+                    <div className="space-y-3">
+                      <p>
+                        This permanently deletes your Inbox Zero account,
+                        including your rules, settings, and the data we store.
+                        It can't be undone.
+                      </p>
+                      {connectedEmails.length > 0 && (
+                        <div>
+                          <p>These email accounts will be disconnected:</p>
+                          <ul className="mt-1 list-disc pl-5 font-medium text-foreground">
+                            {connectedEmails.map((email) => (
+                              <li key={email}>{email}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      <p>
+                        Your mailboxes and the emails in them are not deleted.
+                      </p>
+                      {connectedEmails.length > 1 && (
+                        <p>
+                          Only want to remove one email account?{" "}
+                          <Link
+                            href="/accounts"
+                            className="text-foreground underline"
+                            onClick={() => setIsDialogOpen(false)}
+                          >
+                            Manage accounts
+                          </Link>
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
               </AlertDialogDescription>
@@ -152,8 +184,11 @@ export function DeleteSection() {
                   I've already cancelled my subscription
                 </AlertDialogAction>
               ) : (
-                <AlertDialogAction onClick={handleDeleteAccount}>
-                  Delete account
+                <AlertDialogAction
+                  className={buttonVariants({ variant: "destructive" })}
+                  onClick={handleDeleteAccount}
+                >
+                  Delete Inbox Zero account
                 </AlertDialogAction>
               )}
             </AlertDialogFooter>
