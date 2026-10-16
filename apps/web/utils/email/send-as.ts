@@ -27,6 +27,21 @@ export function findReplySendAsAddress(
   return addresses.find((address) => address.isDefault);
 }
 
+/**
+ * The signature compose starts with. Mail sent through the API gets no
+ * signature from the provider, so the default address falls back to the
+ * provider's signature when none is set in the app.
+ */
+export function getSendAsSignatureHtml(
+  address: SendAsAddress | undefined,
+  addresses: SendAsAddress[],
+  accountSignatureHtml: string,
+) {
+  const sendAs = address ?? addresses.find((item) => item.isDefault);
+  if (sendAs?.isDefault) return accountSignatureHtml || sendAs.signature || "";
+  return sendAs?.signature || accountSignatureHtml;
+}
+
 export function formatSendAsAddress({ email, name }: SendAsAddress) {
   if (!name || name === email) return email;
   return `"${name.replace(/["\\]/g, "\\$&")}" <${email}>`;
