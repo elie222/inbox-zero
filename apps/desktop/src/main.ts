@@ -273,6 +273,9 @@ function startDesktopApp() {
           }).catch(logDesktopUpdateError);
         },
         createWindow: () => createAppWindow(),
+        openSettings: () => {
+          focusAppWindow().webContents.send("desktop:open-settings");
+        },
         recordDiagnostics: () => {
           recordDesktopDiagnostics({
             getMailOwner: () => desktopMailOwner,

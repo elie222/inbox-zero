@@ -21,6 +21,7 @@ export type InboxZeroDesktopApi = {
   onMailEngineSnapshot?: (
     listener: (event: MailIpcSnapshotEvent) => void,
   ) => () => void;
+  onOpenSettings?: (listener: () => void) => () => void;
   wipeMailbox?: () => Promise<unknown>;
   getDesktopHealth?: () => Promise<DesktopHealth | null>;
 };
