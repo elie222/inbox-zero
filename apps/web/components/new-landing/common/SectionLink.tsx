@@ -11,7 +11,8 @@ export function SectionLink({
     <a
       href={`#${sectionId}`}
       onClick={(event) => {
-        if (event.metaKey || event.ctrlKey || event.shiftKey) return;
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+          return;
         event.preventDefault();
         scrollToSection(sectionId);
       }}
