@@ -38,6 +38,14 @@ test("persists draft cleanup settings and disables all account rules", async ({
     accountCard.card.getByRole("switch", { name: "Toggle read status" }),
   ).toBeChecked();
 
+  const sentWithSwitch = accountCard.card.getByRole("switch", {
+    name: "Toggle 'Sent with Inbox Zero'",
+  });
+  await expect(sentWithSwitch).toBeChecked();
+  await sentWithSwitch.click();
+  await expect(sentWithSwitch).not.toBeChecked();
+  await expect(sentWithSwitch).toBeEnabled({ timeout: 60_000 });
+
   let cleanupDaysInput = accountCard.card.getByRole("spinbutton", {
     name: "Draft cleanup age in days",
   });
@@ -84,5 +92,10 @@ test("persists draft cleanup settings and disables all account rules", async ({
     name: "Draft cleanup age in days",
   });
   await expect(cleanupDaysInput).toHaveValue("21", { timeout: 60_000 });
+  await expect(
+    accountCard.card.getByRole("switch", {
+      name: "Toggle 'Sent with Inbox Zero'",
+    }),
+  ).not.toBeChecked();
   await expect(accountCard.card.getByText("Disable All Rules")).toHaveCount(0);
 });
