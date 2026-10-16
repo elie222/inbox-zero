@@ -14,11 +14,11 @@ import type {
   MailboxItem,
   MailboxItemEdit,
 } from "@/app/(app)/[emailAccountId]/mail/MailboxItemContextMenu";
-import { MailSidebarResizeHandle } from "@/app/(app)/[emailAccountId]/mail/MailSidebarResizeHandle";
 import {
-  MAIL_SIDEBAR_DEFAULT_WIDTH,
   MAIL_SIDEBAR_RAIL_WIDTH,
-} from "@/app/(app)/[emailAccountId]/mail/sidebar-width";
+  MAIL_SIDEBAR_WIDTH,
+} from "@/app/(app)/[emailAccountId]/mail/panel-widths";
+import { PanelResizeHandle } from "@/components/PanelResizeHandle";
 import { Sidebar, useSidebar } from "@/components/ui/sidebar";
 import { useFolders } from "@/hooks/useFolders";
 import { useLabelCounts } from "@/hooks/useLabelCounts";
@@ -97,7 +97,10 @@ export const MailShellSidebar = memo(function MailShellSidebar({
   // pointer move would make the sidebar edge lag behind the cursor.
   const sidebarScopeRef = useRef<HTMLDivElement>(null);
   const setSidebarWidth = useCallback((width: number) => {
-    sidebarScopeRef.current?.style.setProperty("--sidebar-width", `${width}px`);
+    sidebarScopeRef.current?.style.setProperty(
+      MAIL_SIDEBAR_WIDTH.cssVar,
+      `${width}px`,
+    );
   }, []);
 
   const hrefFor = useCallback(
@@ -187,7 +190,7 @@ export const MailShellSidebar = memo(function MailShellSidebar({
       className="hidden lg:contents"
       style={
         {
-          "--sidebar-width": `var(--mail-sidebar-width, ${MAIL_SIDEBAR_DEFAULT_WIDTH}px)`,
+          [MAIL_SIDEBAR_WIDTH.cssVar]: `var(--mail-sidebar-width, ${MAIL_SIDEBAR_WIDTH.defaultWidth}px)`,
           "--sidebar-width-icon": `${MAIL_SIDEBAR_RAIL_WIDTH}px`,
         } as CSSProperties
       }
@@ -235,7 +238,13 @@ export const MailShellSidebar = memo(function MailShellSidebar({
           }
         />
         {isMailSidebarOpen ? (
-          <MailSidebarResizeHandle onResize={setSidebarWidth} />
+          <PanelResizeHandle
+            config={MAIL_SIDEBAR_WIDTH}
+            edge="end"
+            label="Resize sidebar"
+            onResize={setSidebarWidth}
+            className="hidden md:block"
+          />
         ) : null}
       </Sidebar>
     </div>

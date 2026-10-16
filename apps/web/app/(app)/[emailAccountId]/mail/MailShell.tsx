@@ -26,6 +26,7 @@ import { MailShellSidebar } from "@/app/(app)/[emailAccountId]/mail/MailShellSid
 import { MailSplitTabs } from "@/app/(app)/[emailAccountId]/mail/MailSplitTabs";
 import { SelectAllCheckbox } from "@/app/(app)/[emailAccountId]/mail/SelectAllCheckbox";
 import { MailReaderPane } from "@/app/(app)/[emailAccountId]/mail/MailReaderPane";
+import { MAIL_LIST_WIDTH } from "@/app/(app)/[emailAccountId]/mail/panel-widths";
 import { MailTitlebarNav } from "@/app/(app)/[emailAccountId]/mail/MailTitlebarNav";
 import { ScheduledEmailList } from "@/app/(app)/[emailAccountId]/mail/ScheduledEmailList";
 import type { MailboxItem } from "@/app/(app)/[emailAccountId]/mail/MailboxItemContextMenu";
@@ -109,6 +110,7 @@ import { getMailAccountUrl } from "@/app/(app)/[emailAccountId]/mail/mail-accoun
 import { redirectToSafeUrl } from "@/utils/redirect";
 import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
 import { LoadingContent } from "@/components/LoadingContent";
+import { PanelResizeHandle } from "@/components/PanelResizeHandle";
 import { useTeamCommentsAvailable } from "@/components/team-comments/use-team-comments-available";
 import { getEmailMessageCellActions } from "@/components/EmailMessageCellActions";
 import type { ThreadsQuery } from "@/utils/threads/validation";
@@ -1309,6 +1311,15 @@ export function MailShell() {
   const onToggleAssistant = useStableCallback(() =>
     toggleSidebar(["chat-sidebar"]),
   );
+  // Dragging writes straight to the CSS variable: re-rendering the shell on
+  // every pointer move would make the list edge lag behind the cursor.
+  const listSectionRef = useRef<HTMLElement>(null);
+  const setListWidth = useCallback((width: number) => {
+    listSectionRef.current?.style.setProperty(
+      MAIL_LIST_WIDTH.cssVar,
+      `${width}px`,
+    );
+  }, []);
   const searchFolders = useMemo(
     () =>
       isOutlook && !isAllAccounts
@@ -1411,9 +1422,12 @@ export function MailShell() {
         <div className="flex min-h-0 min-w-0 flex-1">
           {showList && (
             <section
+              ref={listSectionRef}
               className={
                 layout === "split"
-                  ? "flex min-h-0 w-[clamp(258px,32vw,400px)] shrink-0 flex-col border-r border-border"
+                  ? // The cap keeps a saved width from crowding out the reader
+                    // when the window is narrower than when it was chosen.
+                    "relative flex min-h-0 w-[var(--mail-list-width)] max-w-[60%] shrink-0 flex-col border-r border-border"
                   : // min-w-0 matters: a flex item won't shrink below its content
                     // width without it, so long snippets would widen the column
                     // past the viewport instead of truncating.
@@ -1526,6 +1540,15 @@ export function MailShell() {
                   </LoadingContent>
                 )}
               </MailPanelErrorBoundary>
+              {layout === "split" ? (
+                <PanelResizeHandle
+                  config={MAIL_LIST_WIDTH}
+                  edge="end"
+                  label="Resize email list"
+                  onResize={setListWidth}
+                  className="hidden md:block"
+                />
+              ) : null}
             </section>
           )}
 
