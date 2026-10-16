@@ -1,4 +1,8 @@
 import {
+  MailEngineStartupError,
+  type MailEngineStartupStage,
+} from "./startup-error";
+import {
   createHostRuntime,
   createMailEngine,
 } from "@inboxzero/mail-core/engine";
@@ -39,53 +43,63 @@ async function createWorkerEngine(
   const runtime = createHostRuntime({
     storagePressure: browserStoragePressure,
   });
-  const store = await createSqliteMailStore(driver, {
-    maxPendingOperations: input.maxPendingOperations,
-    runtime,
-  });
-  const ensureAccount: BrowserMailEngine["ensureAccount"] = async (account) => {
-    await store.ensureAccount({
-      accountId: account.accountId,
-      provider: account.provider,
-      generation: account.generation ?? account.accountId,
+  let stage: MailEngineStartupStage = "store-init";
+  try {
+    const store = await createSqliteMailStore(driver, {
+      maxPendingOperations: input.maxPendingOperations,
+      runtime,
     });
-  };
-  await ensureAccount(input);
-  const ports = createRoutedBackendAdapter({
-    requestFor: createMailHttpRequest,
-  });
-  const created = createMailEngine({
-    store,
-    source: ports.source,
-    executor: ports.executor,
-    assistant: ports.assistant,
-    runtime,
-    ownerId: "browser-worker",
-  });
-  if (shouldReleaseDeferredOnStart(input.online)) {
-    await created.requestSync([input.accountId]);
-  }
-  let stopped = false;
-  const loop = (async () => {
-    while (!stopped) {
-      try {
-        await created.runUntil(Date.now() + 2000);
-      } catch {
-        await delay(1000);
-      }
-      await delay(250);
+    const ensureAccount: BrowserMailEngine["ensureAccount"] = async (
+      account,
+    ) => {
+      await store.ensureAccount({
+        accountId: account.accountId,
+        provider: account.provider,
+        generation: account.generation ?? account.accountId,
+      });
+    };
+    stage = "account-init";
+    await ensureAccount(input);
+    const ports = createRoutedBackendAdapter({
+      requestFor: createMailHttpRequest,
+    });
+    const created = createMailEngine({
+      store,
+      source: ports.source,
+      executor: ports.executor,
+      assistant: ports.assistant,
+      runtime,
+      ownerId: "browser-worker",
+    });
+    stage = "initial-sync";
+    if (shouldReleaseDeferredOnStart(input.online)) {
+      await created.requestSync([input.accountId]);
     }
-  })();
-  const originalClose = created.close.bind(created);
-  return {
-    ...created,
-    ensureAccount,
-    async close() {
-      stopped = true;
-      await originalClose();
-      await loop;
-    },
-  };
+    let stopped = false;
+    const loop = (async () => {
+      while (!stopped) {
+        try {
+          await created.runUntil(Date.now() + 2000);
+        } catch {
+          await delay(1000);
+        }
+        await delay(250);
+      }
+    })();
+    const originalClose = created.close.bind(created);
+    return {
+      ...created,
+      ensureAccount,
+      async close() {
+        stopped = true;
+        await originalClose();
+        await loop;
+      },
+    };
+  } catch (error) {
+    await driver.close().catch(() => undefined);
+    throw new MailEngineStartupError(stage, error);
+  }
 }
 
 function delay(ms: number) {

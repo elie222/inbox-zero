@@ -1,3 +1,4 @@
+import type { MailEngineStartupStage } from "./startup-error";
 import type { MailClient, WorkAdmission } from "@inboxzero/mail-core/engine";
 import type { QuerySnapshot } from "@inboxzero/mail-core/queries";
 
@@ -78,7 +79,13 @@ export type WorkerRequest =
 
 export type WorkerResponse =
   | { id: string; type: "ok"; value?: unknown }
-  | { id: string; type: "error"; message: string }
+  | {
+      id: string;
+      type: "error";
+      message: string;
+      stage?: MailEngineStartupStage;
+      errorName?: string;
+    }
   | { type: "snapshot"; handleId: string; snapshot: QuerySnapshot<unknown> };
 
 export function browserMailEngineCapabilities() {

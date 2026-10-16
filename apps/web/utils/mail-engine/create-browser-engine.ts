@@ -1,32 +1,19 @@
-import {
-  createMailEngine,
-  createHostRuntime,
-  type MailEngine,
-  type WorkAdmission,
-} from "@inboxzero/mail-core/engine";
-import { createSqliteMailStore } from "@inboxzero/mail-sqlite/store";
+import type { MailEngine, WorkAdmission } from "@inboxzero/mail-core/engine";
 import type {
   MailboxView,
   QueryHandle,
   QuerySnapshot,
 } from "@inboxzero/mail-core/queries";
-import { createMailHttpRequest } from "@/utils/mail-engine/http";
-import { createRoutedBackendAdapter } from "@inboxzero/mail-core/protocol/routed-backend-adapter";
-import { createWasmSqliteDriver } from "@/utils/mail-engine/wasm-sqlite";
 import {
-  browserMailEngineCapabilities,
   pageConnectivityOnline,
   readPageMaxPendingOperations,
   requestSyncUnlessOffline,
-  shouldReleaseDeferredOnStart,
   type BrowserEngineStart,
   type WorkerObserveKind,
   type WorkerRequest,
   type WorkerResponse,
 } from "@/utils/mail-engine/worker-protocol";
-import { browserStoragePressure } from "@/utils/mail-engine/storage-pressure";
-
-export { browserMailEngineCapabilities };
+import { MailEngineStartupError } from "./startup-error";
 
 export type BrowserMailEngine = MailEngine & {
   ensureAccount(input: {
@@ -39,90 +26,14 @@ export type BrowserMailEngine = MailEngine & {
 export async function createBrowserMailEngine(
   input: BrowserEngineStart,
 ): Promise<BrowserMailEngine> {
-  const start: BrowserEngineStart = {
-    ...input,
-    maxPendingOperations:
-      input.maxPendingOperations ?? readPageMaxPendingOperations(),
-  };
-  if (browserMailEngineCapabilities().worker) {
-    try {
-      return await createWorkerOwnedEngine(start);
-    } catch {
-      // Dedicated workers can fail in private mode or without module workers.
-    }
-  }
-  return createInTabEngine(start);
-}
-
-async function createInTabEngine(
-  input: BrowserEngineStart,
-): Promise<BrowserMailEngine> {
-  const driver = await createWasmSqliteDriver({ persist: input.persist });
-  const runtime = createHostRuntime({
-    storagePressure: browserStoragePressure,
-  });
-  const store = await createSqliteMailStore(driver, {
-    maxPendingOperations: input.maxPendingOperations,
-    runtime,
-  });
-  const ensureAccount: BrowserMailEngine["ensureAccount"] = async (account) => {
-    await store.ensureAccount({
-      accountId: account.accountId,
-      provider: account.provider,
-      generation: account.generation ?? account.accountId,
+  let worker: Worker;
+  try {
+    worker = new Worker(new URL("./engine-worker.ts", import.meta.url), {
+      type: "module",
     });
-  };
-  await ensureAccount(input);
-  const ports = createRoutedBackendAdapter({
-    requestFor: createMailHttpRequest,
-  });
-  const engine = createMailEngine({
-    store,
-    source: ports.source,
-    executor: ports.executor,
-    assistant: ports.assistant,
-    runtime,
-    ownerId: "browser-owner",
-  });
-  if (shouldReleaseDeferredOnStart(input.online)) {
-    await engine.requestSync([input.accountId]);
+  } catch (error) {
+    throw new MailEngineStartupError("worker-load", error);
   }
-  let stopped = false;
-  const loop = (async () => {
-    while (!stopped) {
-      try {
-        await engine.runUntil(Date.now() + 2000);
-      } catch {
-        await delay(1000);
-      }
-      await delay(250);
-    }
-  })();
-  const originalClose = engine.close.bind(engine);
-  const originalRequestSync = engine.requestSync.bind(engine);
-  return {
-    ...engine,
-    // Local autocomplete stays off the UI thread if dedicated workers fail.
-    queryContactSuggestions: undefined,
-    ensureAccount,
-    requestSync: (accountIds) =>
-      requestSyncUnlessOffline(pageConnectivityOnline(), () =>
-        originalRequestSync(accountIds),
-      ),
-    async close() {
-      stopped = true;
-      await originalClose();
-      await loop;
-    },
-  };
-}
-
-async function createWorkerOwnedEngine(
-  input: BrowserEngineStart,
-): Promise<BrowserMailEngine> {
-  const worker = new Worker(new URL("./engine-worker.ts", import.meta.url), {
-    type: "module",
-  });
   const pending = new Map<
     string,
     { resolve: (value: unknown) => void; reject: (error: Error) => void }
@@ -147,21 +58,64 @@ async function createWorkerOwnedEngine(
     const waiter = pending.get(message.id);
     if (!waiter) return;
     pending.delete(message.id);
-    if (message.type === "ok") waiter.resolve(message.value);
-    else waiter.reject(new Error(message.message));
+    if (message.type === "ok") {
+      waiter.resolve(message.value);
+    } else {
+      const error = new Error(message.message);
+      error.name = message.errorName ?? "Error";
+      waiter.reject(
+        message.stage
+          ? new MailEngineStartupError(message.stage, error)
+          : error,
+      );
+    }
   });
   worker.addEventListener("error", (event) => {
     for (const waiter of pending.values()) {
-      waiter.reject(new Error(event.message || "mail engine worker failed"));
+      waiter.reject(
+        new MailEngineStartupError(
+          "worker-load",
+          new Error(event.message || "mail engine worker failed"),
+        ),
+      );
     }
     pending.clear();
   });
 
-  await request(worker, pending, {
-    id: crypto.randomUUID(),
-    type: "start",
-    input,
-  });
+  let startupTimer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      request(worker, pending, {
+        id: crypto.randomUUID(),
+        type: "start",
+        input: {
+          ...input,
+          maxPendingOperations:
+            input.maxPendingOperations ?? readPageMaxPendingOperations(),
+        },
+      }),
+      new Promise<never>((_, reject) => {
+        startupTimer = setTimeout(
+          () =>
+            reject(
+              new MailEngineStartupError(
+                "worker-start",
+                new Error("Mail engine worker startup timed out"),
+              ),
+            ),
+          30_000,
+        );
+      }),
+    ]);
+  } catch (error) {
+    worker.terminate();
+    pending.clear();
+    throw error instanceof MailEngineStartupError
+      ? error
+      : new MailEngineStartupError("worker-start", error);
+  } finally {
+    clearTimeout(startupTimer);
+  }
 
   function observe<T>(
     kind: WorkerObserveKind,
@@ -294,8 +248,4 @@ function callWorker<T>(
     method,
     args,
   }) as Promise<T>;
-}
-
-function delay(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }

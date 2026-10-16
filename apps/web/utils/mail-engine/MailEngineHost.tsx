@@ -9,18 +9,30 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
+import { AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+  EmptyDescription,
+} from "@/components/ui/empty";
+import { reportMailEngineStartupFailure } from "./startup-failure";
+import type { MailEngineStartupStage } from "./startup-error";
 import { usePathname } from "next/navigation";
 import type { MailClient } from "@inboxzero/mail-core/engine";
 import { MailEngineProvider } from "@inboxzero/mail-react/MailEngineProvider";
 import { LoadingContent } from "@/components/LoadingContent";
 import { env } from "@/env";
+import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import {
   createBrowserMailEngine,
   type BrowserMailEngine,
 } from "@/utils/mail-engine/create-browser-engine";
 import {
-  createDesktopIpcMailClient,
+  startDesktopIpcMailClient,
   hasDesktopMailEngineIpc,
 } from "@/utils/mail-engine/desktop-ipc";
 import {
@@ -47,7 +59,8 @@ import {
 type MailEngineRuntimeStatus = {
   client: MailClient | null;
   mounted: boolean;
-  unavailable: boolean;
+  failed: boolean;
+  retry: () => void;
   requestBrowserEngine: () => void;
 };
 
@@ -56,7 +69,8 @@ type MailEngineInspectTransport = "browser" | "desktop-ipc";
 const MailEngineRuntimeStatusContext = createContext<MailEngineRuntimeStatus>({
   client: null,
   mounted: false,
-  unavailable: false,
+  failed: false,
+  retry: () => {},
   requestBrowserEngine: () => {},
 });
 
@@ -94,13 +108,32 @@ export function MailCoverageGate({ children }: { children: ReactNode }) {
   }
   const mode = selectMailEngineRuntimeMode({
     desktopIpc: hasDesktopMailEngineIpc(),
-    opfs: browserMailEngineCapabilities().opfs,
+    ...browserMailEngineCapabilities(),
   });
-  if (status.unavailable || mode === "unavailable") {
+  if (status.failed || mode === "unavailable") {
     return (
-      <div className="flex flex-1 items-center justify-center p-6 text-muted-foreground text-sm">
-        Mail needs persistent browser storage.
-      </div>
+      <Empty role="alert">
+        <EmptyHeader>
+          <EmptyMedia variant="icon" className="bg-destructive/10">
+            <AlertCircle className="text-destructive" />
+          </EmptyMedia>
+          <EmptyTitle>
+            {status.failed
+              ? "Mail couldn’t start"
+              : "This browser doesn’t support Mail"}
+          </EmptyTitle>
+          <EmptyDescription>
+            {status.failed
+              ? "Close other Inbox Zero tabs and try again. If this continues, use a non-private window and an up-to-date browser."
+              : "Mail requires a browser with persistent file storage (OPFS) and web workers. Use an up-to-date browser in a non-private window."}
+          </EmptyDescription>
+        </EmptyHeader>
+        {status.failed && (
+          <Button variant="outline" onClick={status.retry}>
+            Retry
+          </Button>
+        )}
+      </Empty>
     );
   }
   if (!status.client) {
@@ -125,27 +158,47 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
     browserRequested,
   });
   const [client, setClient] = useState<MailClient | null>(null);
-  const [unavailable, setUnavailable] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const retry = useCallback(() => {
+    setFailed(false);
+    setAttempt((value) => value + 1);
+  }, []);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Retry must tear down the previous attempt and start a new engine.
   useEffect(() => {
     if (!emailAccountId || !enabled) {
-      setUnavailable(false);
+      setFailed(false);
       return;
     }
     // Keep queued sends and undo working after the initiating page or composer closes.
     if (!desktopIpc) requestBrowserEngine();
-    setUnavailable(false);
-    const mode = selectMailEngineRuntimeMode({
-      desktopIpc,
-      opfs: browserMailEngineCapabilities().opfs,
-    });
+    setFailed(false);
+    const capabilities = browserMailEngineCapabilities();
+    const mode = selectMailEngineRuntimeMode({ desktopIpc, ...capabilities });
     if (mode === "unavailable") {
-      setUnavailable(true);
       return;
     }
     const mailProvider = isMicrosoftProvider(provider) ? "microsoft" : "google";
     const abort = new AbortController();
     let published: MailClient | undefined;
+    let stage: MailEngineStartupStage =
+      mode === "desktop-ipc" ? "desktop-client" : "owner-lock";
+    function fail(error: unknown) {
+      if (abort.signal.aborted) return;
+      setFailed(true);
+      report(error, stage);
+    }
+
+    function report(error: unknown, stage: MailEngineStartupStage) {
+      if (abort.signal.aborted) return;
+      reportMailEngineStartupFailure(error, {
+        runtimeMode: mode,
+        platform: getInboxZeroDesktopApp() ? "desktop" : "web",
+        capabilities,
+        stage,
+      });
+    }
 
     async function publishClient(
       next: MailClient,
@@ -153,21 +206,22 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
       transport: MailEngineInspectTransport,
     ) {
       if (abort.signal.aborted) return;
+      stage = "publish-client";
       if (published && published !== next) disposeTabFollowerClient(published);
       published = next;
       publishMailEngineInspect(next, emailAccountId, role, transport);
       setActiveMailClient(next);
+      setFailed(false);
       setClient(next);
     }
 
     if (mode === "desktop-ipc") {
-      const client = createDesktopIpcMailClient({
+      startDesktopIpcMailClient({
         provider: mailProvider,
-      });
-      publishClient(client, "owner", "desktop-ipc").catch(() => {
-        if (!abort.signal.aborted) setUnavailable(true);
-      });
-      client.requestSync([emailAccountId]).catch(() => undefined);
+        accountId: emailAccountId,
+        publish: (client) => publishClient(client, "owner", "desktop-ipc"),
+        onSyncError: (error) => report(error, "desktop-sync"),
+      }).catch(fail);
       const unsubscribeLogout = subscribeMailEngineLogout(() => abort.abort());
       return () => {
         unsubscribeLogout();
@@ -182,10 +236,16 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
     let engine: BrowserMailEngine | undefined;
     let unbindOwner: (() => void) | undefined;
     let unbindHello: (() => void) | undefined;
-    const channel =
-      typeof BroadcastChannel !== "undefined"
-        ? new BroadcastChannel(MAIL_ENGINE_TAB_CHANNEL)
-        : null;
+    let channel: BroadcastChannel | null = null;
+    stage = "tab-channel";
+    try {
+      if (typeof BroadcastChannel !== "undefined") {
+        channel = new BroadcastChannel(MAIL_ENGINE_TAB_CHANNEL);
+      }
+    } catch (error) {
+      fail(error);
+      return;
+    }
     const bus = channel ? createBroadcastTabBus(channel) : null;
 
     if (bus) {
@@ -214,7 +274,7 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
           }),
           "follower",
           "browser",
-        ).catch(() => undefined);
+        ).catch(fail);
       });
       bus.post({
         type: "hello",
@@ -235,7 +295,9 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
     }
 
     async function start() {
+      stage = "owner-lock";
       const create = async () => {
+        stage = "browser-start";
         engine = await createBrowserMailEngine({
           accountId: emailAccountId,
           provider: mailProvider,
@@ -267,9 +329,7 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
       await hold(create);
     }
 
-    start().catch(() => {
-      if (!abort.signal.aborted) setUnavailable(true);
-    });
+    start().catch(fail);
 
     const unsubscribeLogout = subscribeMailEngineLogout(() => {
       abort.abort();
@@ -288,7 +348,14 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
       engine?.close().catch(() => undefined);
       setClient(null);
     };
-  }, [emailAccountId, provider, enabled, desktopIpc, requestBrowserEngine]);
+  }, [
+    emailAccountId,
+    provider,
+    enabled,
+    desktopIpc,
+    requestBrowserEngine,
+    attempt,
+  ]);
 
   useEffect(() => {
     if (!client || !emailAccountId) return;
@@ -333,7 +400,7 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
 
   return (
     <MailEngineRuntimeStatusContext.Provider
-      value={{ client, mounted: true, unavailable, requestBrowserEngine }}
+      value={{ client, mounted: true, failed, retry, requestBrowserEngine }}
     >
       <MailEngineProvider client={client}>{children}</MailEngineProvider>
     </MailEngineRuntimeStatusContext.Provider>
