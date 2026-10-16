@@ -29,11 +29,16 @@ import { useStatLoader } from "@/providers/StatLoaderProvider";
 import { usePremium } from "@/hooks/usePremium";
 import { hasActiveAppleSubscription } from "@/utils/premium";
 import { useAccounts } from "@/hooks/useAccounts";
+import { LoadingContent } from "@/components/LoadingContent";
 
 export function DeleteSection() {
   const { onCancelLoadBatch } = useStatLoader();
   const { premium } = usePremium();
-  const { data: accountsData } = useAccounts();
+  const {
+    data: accountsData,
+    isLoading: isLoadingAccounts,
+    error: accountsError,
+  } = useAccounts();
   const connectedEmails =
     accountsData?.emailAccounts.map((account) => account.email) ?? [];
   const hasAppleSubscription = hasActiveAppleSubscription(
@@ -83,7 +88,8 @@ export function DeleteSection() {
       <ItemContent>
         <ItemTitle>Delete Inbox Zero account</ItemTitle>
         <ItemDescription>
-          Removes your Inbox Zero data. Your email accounts are not affected.
+          Deletes your Inbox Zero data and disconnects your email accounts. Your
+          emails are not deleted.
         </ItemDescription>
       </ItemContent>
       <ItemActions>
@@ -141,16 +147,21 @@ export function DeleteSection() {
                         including your rules, settings, and the data we store.
                         It can't be undone.
                       </p>
-                      {connectedEmails.length > 0 && (
-                        <div>
-                          <p>These email accounts will be disconnected:</p>
-                          <ul className="mt-1 list-disc pl-5 font-medium text-foreground">
-                            {connectedEmails.map((email) => (
-                              <li key={email}>{email}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
+                      <LoadingContent
+                        loading={isLoadingAccounts}
+                        error={accountsError}
+                      >
+                        {connectedEmails.length > 0 && (
+                          <div>
+                            <p>These email accounts will be disconnected:</p>
+                            <ul className="mt-1 list-disc pl-5 font-medium text-foreground">
+                              {connectedEmails.map((email) => (
+                                <li key={email}>{email}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </LoadingContent>
                       <p>
                         Your mailboxes and the emails in them are not deleted.
                       </p>
@@ -186,6 +197,7 @@ export function DeleteSection() {
               ) : (
                 <AlertDialogAction
                   className={buttonVariants({ variant: "destructive" })}
+                  disabled={!accountsData}
                   onClick={handleDeleteAccount}
                 >
                   Delete Inbox Zero account
