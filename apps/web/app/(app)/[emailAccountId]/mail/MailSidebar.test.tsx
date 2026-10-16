@@ -39,6 +39,7 @@ function sidebar(overrides: Partial<MailSidebarProps> = {}) {
       labelsHeading="Labels"
       labelSingular="label"
       backToAppHref="/automation"
+      onNavigate={vi.fn()}
       onCompose={vi.fn()}
       onCreateLabel={vi.fn()}
       onEditMailboxItem={vi.fn()}
@@ -55,6 +56,15 @@ function renderSidebar(overrides: Partial<MailSidebarProps> = {}) {
 }
 
 describe("MailSidebar", () => {
+  it("reports a click on the row for the view that's already open", () => {
+    const onNavigate = vi.fn();
+    renderSidebar({ activeType: "inbox", onNavigate });
+
+    fireEvent.click(screen.getByText("Inbox"));
+
+    expect(onNavigate).toHaveBeenCalledOnce();
+  });
+
   it("leaves the inbox out in the open and everything else behind Mail", () => {
     renderSidebar();
 

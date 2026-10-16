@@ -311,6 +311,9 @@ export function MailShell() {
     (value: string) => setSearchDraft({ identity: searchEditIdentity, value }),
     [searchEditIdentity],
   );
+  // Picking the view that's already open leaves the URL unchanged, so an
+  // unsubmitted search would otherwise keep filtering the list.
+  const discardSearchDraft = useCallback(() => setSearchDraft(undefined), []);
 
   const combinedLabelSplits = useMemo(
     () => getPortableLabelSplits(settings?.splits ?? [], userLabels),
@@ -1404,6 +1407,7 @@ export function MailShell() {
         onSelectAccount={selectAccount}
         onSelectAllAccounts={selectAllAccounts}
         onMailboxItemDeleted={onMailboxItemDeleted}
+        onNavigate={discardSearchDraft}
       />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
