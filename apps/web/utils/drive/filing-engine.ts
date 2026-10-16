@@ -5,7 +5,12 @@ import type { ParsedMessage, Attachment } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Logger } from "@/utils/logger";
 import { createDriveProviderWithRefresh } from "@/utils/drive/provider";
-import { createAndSaveFilingFolder } from "@/utils/drive/folder-utils";
+import {
+  createAndSaveFilingFolder,
+  type FolderPathParent,
+  joinFolderPath,
+  resolveFolderPathTarget,
+} from "@/utils/drive/folder-utils";
 import { extractTextFromDocument } from "@/utils/drive/document-extraction";
 import { analyzeDocument } from "@/utils/ai/document-filing/analyze-document";
 import { isDuplicateError } from "@/utils/prisma-helpers";
@@ -226,7 +231,7 @@ export async function processAttachment({
     }
 
     // Step 6: Determine target folder and drive connection
-    const { driveConnection, folderId, folderPath, needsToCreateFolder } =
+    const { driveConnection, folderId, folderPath, create } =
       resolveFolderTarget(analysis, allFolders, driveConnections, log);
 
     // Step 6: Create folder if needed
@@ -237,11 +242,15 @@ export async function processAttachment({
     let targetFolderId = folderId;
     let targetFolderPath = folderPath;
 
-    if (needsToCreateFolder && folderPath) {
-      log.info("Creating new folder", { path: folderPath });
+    if (create) {
+      log.info("Creating new folder", {
+        path: folderPath,
+        parentFolderId: create.parent?.id,
+      });
       const newFolder = await createAndSaveFilingFolder({
         driveProvider,
-        folderPath,
+        folderPath: create.relativePath,
+        parent: create.parent,
         emailAccountId: emailAccount.id,
         driveConnectionId: driveConnection.id,
         logger: log,
@@ -417,11 +426,18 @@ interface FolderWithConnection {
 }
 
 interface FolderTarget {
+  /**
+   * Resolve `relativePath` through the provider, starting inside `parent`
+   * (or the drive root when `parent` is null), and create missing folders.
+   */
+  create: { relativePath: string; parent: FolderPathParent | null } | null;
   driveConnection: DriveConnection;
   folderId: string;
+  /** Full display path of the target folder, including any parent path. */
   folderPath: string;
-  needsToCreateFolder: boolean;
 }
+
+const DEFAULT_NEW_FOLDER_PATH = "Inbox Zero Filed";
 
 type AttachmentFiling = NonNullable<
   Awaited<ReturnType<typeof findAttachmentFiling>>
@@ -631,6 +647,7 @@ function resolveFolderTarget(
   analysis: {
     action: string;
     folderId?: string | null;
+    parentFolderId?: string | null;
     folderPath?: string | null;
   },
   folders: FolderWithConnection[],
@@ -649,7 +666,7 @@ function resolveFolderTarget(
           driveConnection: connection,
           folderId: folder.id,
           folderPath: folder.path || folder.name,
-          needsToCreateFolder: false,
+          create: null,
         };
       }
     }
@@ -657,7 +674,7 @@ function resolveFolderTarget(
     // Use the folder name from our records if available, otherwise use a default
     const staleFolderName =
       folders.find((f) => f.id === analysis.folderId)?.name ||
-      "Inbox Zero Filed";
+      DEFAULT_NEW_FOLDER_PATH;
     logger.warn("Could not find folder from AI response, creating new folder", {
       folderId: analysis.folderId,
       fallbackPath: staleFolderName,
@@ -667,16 +684,91 @@ function resolveFolderTarget(
       driveConnection: connection,
       folderId: "root",
       folderPath: staleFolderName,
-      needsToCreateFolder: true,
+      create: { relativePath: staleFolderName, parent: null },
     };
   }
 
-  // Creating new folder - use first connection
-  const connection = connections[0];
+  const requestedPath = analysis.folderPath?.trim() || DEFAULT_NEW_FOLDER_PATH;
+  const parentFolder = analysis.parentFolderId
+    ? folders.find((f) => f.id === analysis.parentFolderId)
+    : undefined;
+
+  if (analysis.parentFolderId && !parentFolder) {
+    throw new Error("The selected parent folder could not be found");
+  }
+
+  if (parentFolder) {
+    const connection = connections.find(
+      (c) => c.id === parentFolder.driveConnectionId,
+    );
+    if (!connection) {
+      throw new Error("The selected parent folder's drive is disconnected");
+    }
+
+    const parentPath = parentFolder.path || parentFolder.name;
+    // Display paths are not unique. Traverse real children from the chosen ID.
+    return {
+      driveConnection: connection,
+      folderId: "root",
+      folderPath: joinFolderPath(parentPath, requestedPath),
+      create: {
+        relativePath: requestedPath,
+        parent: { id: parentFolder.id, path: parentPath },
+      },
+    };
+  }
+
+  const target = resolveFolderPathTarget({
+    folderPath: requestedPath,
+    folders,
+  });
+
+  if (target.kind === "existing") {
+    const connection = connections.find(
+      (c) => c.id === target.folder.driveConnectionId,
+    );
+    if (connection) {
+      logger.info("Requested folder path already exists, reusing it", {
+        folderId: target.folder.id,
+        folderPath: target.folder.path,
+      });
+      return {
+        driveConnection: connection,
+        folderId: target.folder.id,
+        folderPath: target.folder.path || target.folder.name,
+        create: null,
+      };
+    }
+  }
+
+  const resolvedParent = target.kind === "create" ? target.parent : null;
+  const parentConnection = resolvedParent
+    ? connections.find((c) => c.id === resolvedParent.driveConnectionId)
+    : undefined;
+
+  if (resolvedParent && parentConnection) {
+    const parentPath = resolvedParent.path || resolvedParent.name;
+    const relativePath =
+      target.kind === "create" && target.parent
+        ? target.relativePath
+        : requestedPath;
+    return {
+      driveConnection: parentConnection,
+      folderId: "root",
+      folderPath: joinFolderPath(parentPath, relativePath),
+      create: {
+        relativePath,
+        parent: { id: resolvedParent.id, path: parentPath },
+      },
+    };
+  }
+
+  // No usable parent: create the full path from the root of the first drive
+  const fullPath = target.kind === "create" ? target.fullPath : requestedPath;
   return {
-    driveConnection: connection,
+    driveConnection: connections[0],
     folderId: "root",
-    folderPath: analysis.folderPath || "Inbox Zero Filed",
-    needsToCreateFolder: true,
+    folderPath: fullPath,
+    create: { relativePath: fullPath, parent: null },
   };
 }
