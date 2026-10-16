@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Download, Monitor, Smartphone } from "lucide-react";
 import { BlurFade } from "@/components/new-landing/common/BlurFade";
 import { Button } from "@/components/new-landing/common/Button";
+import { scrollToSection } from "@/components/new-landing/common/SectionLink";
 import { Apple } from "@/components/new-landing/icons/Apple";
 import {
   DESKTOP_GITHUB_REPO,
@@ -106,26 +107,13 @@ export function DesktopDownloadCta({
           </Button>
         )}
         <Button variant="secondary-two" size={buttonSize} asChild>
-          <button type="button" onClick={scrollToDownloads}>
+          <button type="button" onClick={() => scrollToSection("downloads")}>
             Other platforms
           </button>
         </Button>
       </div>
     </BlurFade>
   );
-}
-
-function scrollToDownloads() {
-  const target = document.getElementById("downloads");
-  if (!target) return;
-  const reduceMotion = window.matchMedia(
-    "(prefers-reduced-motion: reduce)",
-  ).matches;
-  target.scrollIntoView({
-    behavior: reduceMotion ? "auto" : "smooth",
-    block: "start",
-  });
-  history.replaceState(null, "", "#downloads");
 }
 
 type MobileStore = { href: string; label: string };
