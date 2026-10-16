@@ -6,25 +6,40 @@ import {
   isUnsubscribeSuggestion,
 } from "./suggestions";
 
+const SENDER = "news@example.com";
+
 describe("isUnsubscribeSuggestion", () => {
   it("suggests senders with a low read rate", () => {
-    expect(isUnsubscribeSuggestion({ value: 10, readEmails: 1 })).toBe(true);
-    expect(isUnsubscribeSuggestion({ value: 10, readEmails: 0 })).toBe(true);
+    expect(
+      isUnsubscribeSuggestion({ name: SENDER, value: 10, readEmails: 1 }),
+    ).toBe(true);
+    expect(
+      isUnsubscribeSuggestion({ name: SENDER, value: 10, readEmails: 0 }),
+    ).toBe(true);
   });
 
   it("does not suggest senders the user reads", () => {
-    expect(isUnsubscribeSuggestion({ value: 10, readEmails: 2 })).toBe(false);
-    expect(isUnsubscribeSuggestion({ value: 10, readEmails: 9 })).toBe(false);
+    expect(
+      isUnsubscribeSuggestion({ name: SENDER, value: 10, readEmails: 2 }),
+    ).toBe(false);
+    expect(
+      isUnsubscribeSuggestion({ name: SENDER, value: 10, readEmails: 9 }),
+    ).toBe(false);
   });
 
   it("does not suggest senders with too few emails", () => {
-    expect(isUnsubscribeSuggestion({ value: 1, readEmails: 0 })).toBe(false);
-    expect(isUnsubscribeSuggestion({ value: 2, readEmails: 0 })).toBe(false);
+    expect(
+      isUnsubscribeSuggestion({ name: SENDER, value: 1, readEmails: 0 }),
+    ).toBe(false);
+    expect(
+      isUnsubscribeSuggestion({ name: SENDER, value: 2, readEmails: 0 }),
+    ).toBe(false);
   });
 
   it("does not suggest senders the user already handled", () => {
     expect(
       isUnsubscribeSuggestion({
+        name: SENDER,
         value: 10,
         readEmails: 0,
         status: NewsletterStatus.APPROVED,
@@ -32,6 +47,7 @@ describe("isUnsubscribeSuggestion", () => {
     ).toBe(false);
     expect(
       isUnsubscribeSuggestion({
+        name: SENDER,
         value: 10,
         readEmails: 0,
         status: NewsletterStatus.UNSUBSCRIBED,
@@ -39,6 +55,7 @@ describe("isUnsubscribeSuggestion", () => {
     ).toBe(false);
     expect(
       isUnsubscribeSuggestion({
+        name: SENDER,
         value: 10,
         readEmails: 0,
         autoArchived: { id: "filter-1" },
@@ -49,10 +66,41 @@ describe("isUnsubscribeSuggestion", () => {
   it("does not require an unsubscribe link by default", () => {
     expect(
       isUnsubscribeSuggestion({
+        name: SENDER,
         value: 10,
         readEmails: 0,
       }),
     ).toBe(true);
+  });
+
+  it("never suggests account security senders", () => {
+    for (const name of [
+      "noreply-accounts@google.com",
+      "no-reply@accounts.google.com",
+      "Google <No-Reply@Accounts.Google.com>",
+      "account-security-noreply@accountprotection.microsoft.com",
+      "appleid@id.apple.com",
+      "security@facebookmail.com",
+      "security-noreply@linkedin.com",
+    ]) {
+      expect(isUnsubscribeSuggestion({ name, value: 20, readEmails: 0 })).toBe(
+        false,
+      );
+    }
+  });
+
+  it("still suggests other senders from the same companies", () => {
+    for (const name of [
+      "googleplay-noreply@google.com",
+      "promotions@microsoft.com",
+      "notification@facebookmail.com",
+      "messages-noreply@linkedin.com",
+      "x@accounts.google.com.example.com",
+    ]) {
+      expect(isUnsubscribeSuggestion({ name, value: 20, readEmails: 0 })).toBe(
+        true,
+      );
+    }
   });
 });
 
@@ -76,9 +124,9 @@ describe("getUnsubscribeSuggestions", () => {
 
   it("returns an empty list when nothing qualifies", () => {
     expect(getUnsubscribeSuggestions([])).toEqual([]);
-    expect(getUnsubscribeSuggestions([{ value: 10, readEmails: 8 }])).toEqual(
-      [],
-    );
+    expect(
+      getUnsubscribeSuggestions([{ name: SENDER, value: 10, readEmails: 8 }]),
+    ).toEqual([]);
   });
 
   it("can keep only low-read senders with automatic unsubscribe links", () => {
