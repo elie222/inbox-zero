@@ -274,14 +274,9 @@ export function createTabFollowerClient(input: {
       listeners: new Set<() => void>(),
     };
     observations.set(handleId, observation);
-    const id = crypto.randomUUID();
-    pending.set(id, {
-      resolve: () => undefined,
-      reject: () => undefined,
-    });
     input.bus.post({
       type: "observe",
-      id,
+      id: crypto.randomUUID(),
       accountId: input.accountId,
       handleId,
       kind,
