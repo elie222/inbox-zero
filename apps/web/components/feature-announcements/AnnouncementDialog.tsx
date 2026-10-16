@@ -96,16 +96,18 @@ export function AnnouncementContent({
         </ul>
       )}
 
-      <div className="flex gap-2">
-        {announcement.learnMoreLink && (
-          <Button variant="outline" className="flex-1" asChild>
-            <Link href={announcement.learnMoreLink}>Learn more</Link>
-          </Button>
-        )}
+      <div className="flex flex-col gap-2">
         {announcement.link && (
-          <Button size="lg" className="flex-1" asChild>
+          <Button size="lg" asChild>
             <Link href={announcement.link} onClick={onClose}>
               {announcement.linkLabel ?? "View"}
+            </Link>
+          </Button>
+        )}
+        {announcement.secondaryLink && (
+          <Button size="lg" variant="outline" asChild>
+            <Link href={announcement.secondaryLink.href} target="_blank">
+              {announcement.secondaryLink.label}
             </Link>
           </Button>
         )}

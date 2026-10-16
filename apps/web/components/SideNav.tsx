@@ -27,6 +27,7 @@ import {
   PersonStandingIcon,
   RatioIcon,
   SendIcon,
+  SmartphoneIcon,
   SparklesIcon,
   Users2Icon,
   ZapIcon,
@@ -64,7 +65,6 @@ import { AccountSwitcher } from "@/components/AccountSwitcher";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { isGoogleProvider } from "@/utils/email/provider-types";
-import { GetTheAppSidebarButton } from "@/components/GetTheAppMenu";
 import { NavUser } from "@/components/NavUser";
 import { PremiumCard } from "@/components/PremiumCard";
 import { FeedbackSidebarButton } from "@/components/FeedbackDialog";
@@ -202,6 +202,15 @@ export const useNavigation = () => {
     moreItems,
   };
 };
+
+const getTheAppLinks: NavItem[] = [
+  {
+    name: "Get the app",
+    icon: SmartphoneIcon,
+    href: "/download",
+    target: "_blank",
+  },
+];
 
 const topMailLinks: NavItem[] = [
   {
@@ -353,11 +362,7 @@ export function SideNav({
       <SidebarFooter className="pb-4">
         <SideNavMenu items={visibleBottomLinks} activeHref={path} />
 
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <GetTheAppSidebarButton />
-          </SidebarMenuItem>
-        </SidebarMenu>
+        <SideNavMenu items={getTheAppLinks} activeHref={path} />
 
         {feedbackEnabled && (
           <SidebarMenu>
