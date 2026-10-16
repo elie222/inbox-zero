@@ -84,6 +84,14 @@ describe("desktop context menu", () => {
     expect(actions.copyText).toHaveBeenCalledWith("jane+news@example.com");
   });
 
+  it("falls back to the raw address when a mailto link is malformed", () => {
+    const actions = createActions();
+    const template = build({ linkURL: "mailto:a%ZZ@example.com" }, actions);
+
+    click(template, "Copy Email Address");
+    expect(actions.copyText).toHaveBeenCalledWith("a%ZZ@example.com");
+  });
+
   it("opens and copies web links", () => {
     const actions = createActions();
     const template = build({ linkURL: "https://example.com/a" }, actions);

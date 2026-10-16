@@ -185,7 +185,7 @@ function buildLinkSection(
   if (!url) return [];
 
   if (url.protocol === "mailto:") {
-    const address = decodeURIComponent(url.pathname);
+    const address = safeDecode(url.pathname);
     return address
       ? [
           {
@@ -197,7 +197,7 @@ function buildLinkSection(
   }
 
   if (url.protocol === "tel:") {
-    const phone = decodeURIComponent(url.pathname);
+    const phone = safeDecode(url.pathname);
     return phone
       ? [{ label: "Copy Phone Number", click: () => actions.copyText(phone) }]
       : [];
@@ -218,8 +218,9 @@ function buildImageSection(
   actions: ContextMenuActions,
 ): MenuItemConstructorOptions[] {
   const hasRemoteSource = /^https?:/.test(params.srcURL);
+  const isSaveable = /^(https?|data|blob):/.test(params.srcURL);
   return [
-    ...(params.srcURL
+    ...(isSaveable
       ? [
           {
             label: "Save Image As…",
@@ -240,6 +241,14 @@ function buildImageSection(
         ]
       : []),
   ];
+}
+
+function safeDecode(value: string) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
 }
 
 function truncate(text: string) {
