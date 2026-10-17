@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { ArrowUpIcon } from "lucide-react";
 import { Badge } from "@/components/Badge";
 import { getActionColor } from "@/components/PlanBadge";
@@ -40,13 +40,16 @@ const rules = [
 ];
 
 export function CustomRulesIllustration() {
+  const reduceMotion = useReducedMotion();
+  const enter = reduceMotion ? false : { opacity: 0, y: 8 };
+
   return (
     <IllustrationWindow className="w-full max-w-[600px]">
       <div className="space-y-2.5 bg-muted/40 p-5">
         {rules.map((rule, index) => (
           <motion.div
             key={rule.instruction}
-            initial={{ opacity: 0, y: 8 }}
+            initial={enter}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: index * 0.12 }}
             className="rounded-xl border border-border bg-card p-4 shadow-sm"
@@ -69,7 +72,7 @@ export function CustomRulesIllustration() {
         ))}
 
         <motion.div
-          initial={{ opacity: 0, y: 8 }}
+          initial={enter}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: rules.length * 0.12 }}
           className="flex items-center gap-3 rounded-xl border border-dashed border-border bg-card py-2.5 pr-2.5 pl-4"
