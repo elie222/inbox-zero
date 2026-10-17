@@ -129,6 +129,25 @@ describe("parsedMessageBodyObservation", () => {
     expect(() => bodyObservationSchema.parse(observation)).not.toThrow();
   });
 
+  it("does not stall a body hydration page on an oversized attachment filename or MIME type", () => {
+    const observation = parsedMessageBodyObservation("acc-1", {
+      id: "large-filename",
+      historyId: "1",
+      textHtml: "<p>Usable content</p>",
+      attachments: [
+        {
+          attachmentId: "part",
+          filename: `${"x".repeat(2000)}.pdf`,
+          mimeType: `application/${"x".repeat(300)}`,
+          size: 1,
+          headers: {},
+        },
+      ],
+    } as unknown as ParsedMessage);
+    expect(observation?.attachments[0].filename.startsWith("xxx")).toBe(true);
+    expect(() => bodyObservationSchema.parse(observation)).not.toThrow();
+  });
+
   it("keeps authoritative inline content IDs and never substitutes filenames", () => {
     const observation = parsedMessageBodyObservation("acc-1", {
       id: "inline-message",
@@ -262,6 +281,7 @@ describe("parsedMessageBodyObservation", () => {
           { length: 600 },
           (_, index) => `person${index}@example.com`,
         ).join(", "),
+        bcc: `"Unbalanced ${"x".repeat(5000)}@example.com`,
         date: "",
       },
       textHtml: `<p>${"x".repeat(5_000_001)}</p>`,
