@@ -271,12 +271,17 @@ describe("parsedMessageBodyObservation", () => {
       id: "m5",
       threadId: "t5",
       historyId: "6",
+      internalDate: "1767225600.5",
       date: "2026-01-01T00:00:00.000Z",
-      subject: "Hello",
-      snippet: "Hi",
-      labelIds: ["INBOX"],
+      subject: "x".repeat(20_000),
+      snippet: "x".repeat(20_000),
+      externalUrl: `https://example.com/${"x".repeat(20_000)}`,
+      labelIds: [
+        "INBOX",
+        ...Array.from({ length: 600 }, (_, index) => `Label_${index}`),
+      ],
       headers: {
-        from: "ada@example.com",
+        from: `"${"x".repeat(5000)}" <ada@example.com>`,
         to: Array.from(
           { length: 600 },
           (_, index) => `person${index}@example.com`,
@@ -285,25 +290,57 @@ describe("parsedMessageBodyObservation", () => {
         date: "",
       },
       textHtml: `<p>${"x".repeat(5_000_001)}</p>`,
-      attachments: Array.from({ length: 150 }, (_, index) => ({
-        attachmentId: `att-${index}`,
-        filename: `file-${index}.pdf`,
-        mimeType: "application/pdf",
-        size: 10,
-        headers: {},
-      })),
+      attachments: [
+        {
+          attachmentId: "x".repeat(3000),
+          filename: "unreachable.pdf",
+          mimeType: "application/pdf",
+          size: 10,
+          headers: {},
+        },
+        {
+          attachmentId: "odd-size",
+          filename: "odd-size.pdf",
+          mimeType: "application/pdf",
+          size: -1.5,
+          headers: {},
+        },
+        ...Array.from({ length: 150 }, (_, index) => ({
+          attachmentId: `att-${index}`,
+          filename: `file-${index}.pdf`,
+          mimeType: "application/pdf",
+          size: 10,
+          headers: {},
+        })),
+      ],
       inline: [],
     } as unknown as ParsedMessage;
 
-    expect(() =>
-      providerChangeSchema.parse(
-        parsedMessagePatch("acc-1", "google", message),
-      ),
-    ).not.toThrow();
-    expect(() =>
-      bodyObservationSchema.parse(
-        parsedMessageBodyObservation("acc-1", message),
-      ),
-    ).not.toThrow();
+    const patch = parsedMessagePatch("acc-1", "google", message);
+    const body = parsedMessageBodyObservation("acc-1", message);
+    expect(patch?.fields.from?.endsWith(" <ada@example.com>")).toBe(true);
+    expect(body?.attachments?.[0]).toMatchObject({
+      attachmentId: "odd-size",
+      size: 0,
+    });
+    expect(() => providerChangeSchema.parse(patch)).not.toThrow();
+    expect(() => bodyObservationSchema.parse(body)).not.toThrow();
+  });
+
+  it("skips a message whose provider ids the protocol cannot carry", () => {
+    const message = {
+      id: "x".repeat(300),
+      threadId: "t6",
+      historyId: "7",
+      date: "2026-01-01T00:00:00.000Z",
+      subject: "Hello",
+      snippet: "Hi",
+      labelIds: ["INBOX"],
+      headers: { from: "ada@example.com", to: "", date: "" },
+      textPlain: "Hi",
+    } as unknown as ParsedMessage;
+
+    expect(parsedMessagePatch("acc-1", "google", message)).toBeNull();
+    expect(parsedMessageBodyObservation("acc-1", message)).toBeNull();
   });
 });
