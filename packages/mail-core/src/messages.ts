@@ -33,18 +33,20 @@ export type MessageAttachmentDescriptor = z.infer<
   typeof messageAttachmentDescriptorSchema
 >;
 
+export const MAX_MESSAGE_TEXT_LENGTH = 16_384;
+export const MAX_ADDRESS_LENGTH = 4096;
 export const MAX_RECIPIENTS = 500;
-export const MAX_RECIPIENT_LENGTH = 4096;
+export const MAX_MESSAGE_LABELS = 500;
 
 export const messageMetadataSchema = z.object({
-  subject: z.string().max(16_384),
-  preview: z.string().max(16_384),
-  externalUrl: z.string().max(16_384).nullable().optional(),
-  from: z.string().max(4096),
-  to: z.array(z.string().max(MAX_RECIPIENT_LENGTH)).max(MAX_RECIPIENTS),
-  cc: z.array(z.string().max(MAX_RECIPIENT_LENGTH)).max(MAX_RECIPIENTS),
+  subject: z.string().max(MAX_MESSAGE_TEXT_LENGTH),
+  preview: z.string().max(MAX_MESSAGE_TEXT_LENGTH),
+  externalUrl: z.string().max(MAX_MESSAGE_TEXT_LENGTH).nullable().optional(),
+  from: z.string().max(MAX_ADDRESS_LENGTH),
+  to: z.array(z.string().max(MAX_ADDRESS_LENGTH)).max(MAX_RECIPIENTS),
+  cc: z.array(z.string().max(MAX_ADDRESS_LENGTH)).max(MAX_RECIPIENTS),
   bcc: z
-    .array(z.string().max(MAX_RECIPIENT_LENGTH))
+    .array(z.string().max(MAX_ADDRESS_LENGTH))
     .max(MAX_RECIPIENTS)
     .optional(),
   receivedAtMs: z.number().int(),
@@ -52,8 +54,8 @@ export const messageMetadataSchema = z.object({
   starred: z.boolean(),
   folderId: z.string().max(256).nullable(),
   inboxSection: inboxSectionSchema.nullable().optional(),
-  labelIds: z.array(z.string().max(256)).max(500),
-  categoryIds: z.array(z.string().max(256)).max(500),
+  labelIds: z.array(z.string().max(256)).max(MAX_MESSAGE_LABELS),
+  categoryIds: z.array(z.string().max(256)).max(MAX_MESSAGE_LABELS),
   roles: z.array(mailboxRoleSchema).max(8),
   hasAttachments: z.boolean(),
   snoozedUntilMs: z.number().int().nullable().optional(),
