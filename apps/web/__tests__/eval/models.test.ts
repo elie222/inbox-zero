@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { getEvalModels } from "@/__tests__/eval/model-catalog";
+import {
+  EVAL_MODEL_CATALOG,
+  getEmailAccountForModel,
+  getEvalModels,
+} from "@/__tests__/eval/model-catalog";
 import { shouldRunEvalTests } from "@/__tests__/eval/models";
 
 const originalEnv = { ...process.env };
@@ -81,6 +85,21 @@ describe("shouldRunEvalTests", () => {
     process.env.LLM_API_KEY = "shared-key";
 
     expect(shouldRunEvalTests()).toBe(true);
+  });
+
+  it("uses LLM_API_KEY for the selected openrouter eval model", () => {
+    process.env.OPENROUTER_API_KEY = undefined;
+    process.env.LLM_API_KEY = "shared-key";
+
+    const emailAccount = getEmailAccountForModel(
+      EVAL_MODEL_CATALOG["gemini-3.1-flash-lite"],
+    );
+
+    expect(emailAccount.user).toEqual({
+      aiProvider: "openrouter",
+      aiModel: "google/gemini-3.1-flash-lite-preview",
+      aiApiKey: "shared-key",
+    });
   });
 
   it("does not treat unrelated provider keys as valid for openrouter eval presets", () => {
