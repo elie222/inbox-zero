@@ -1,5 +1,8 @@
 import {
   MAX_ATTACHMENT_CONTENT_ID_LENGTH,
+  MAX_ATTACHMENT_FILENAME_LENGTH,
+  MAX_ATTACHMENT_MIME_TYPE_LENGTH,
+  MAX_RECIPIENT_LENGTH,
   MAX_RECIPIENTS,
   type MessageAttachmentDescriptor,
   type MessageMetadata,
@@ -139,8 +142,8 @@ function descriptorFromParsed(
     .replace(/^<|>$/g, "");
   return {
     attachmentId: attachment.attachmentId,
-    filename: attachment.filename,
-    mimeType: attachment.mimeType,
+    filename: attachment.filename.slice(0, MAX_ATTACHMENT_FILENAME_LENGTH),
+    mimeType: attachment.mimeType.slice(0, MAX_ATTACHMENT_MIME_TYPE_LENGTH),
     size: Number.isFinite(attachment.size) ? attachment.size : 0,
     inline,
     contentId:
@@ -163,7 +166,9 @@ function receivedAtMs(message: ParsedMessage): number {
 
 function splitAddresses(value: string | undefined): string[] {
   if (!value) return [];
-  return splitRecipientList(value).slice(0, MAX_RECIPIENTS);
+  return splitRecipientList(value)
+    .slice(0, MAX_RECIPIENTS)
+    .map((address) => address.slice(0, MAX_RECIPIENT_LENGTH));
 }
 
 function rolesFromFolder(

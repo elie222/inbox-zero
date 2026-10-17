@@ -14,11 +14,13 @@ export type InboxSection = z.infer<typeof inboxSectionSchema>;
 
 export const MAX_ATTACHMENT_CONTENT_ID_LENGTH = 1024;
 export const MAX_ATTACHMENT_ID_LENGTH = 2048;
+export const MAX_ATTACHMENT_FILENAME_LENGTH = 1024;
+export const MAX_ATTACHMENT_MIME_TYPE_LENGTH = 256;
 
 export const messageAttachmentDescriptorSchema = z.object({
   attachmentId: z.string().min(1).max(MAX_ATTACHMENT_ID_LENGTH),
-  filename: z.string().max(1024),
-  mimeType: z.string().max(256),
+  filename: z.string().max(MAX_ATTACHMENT_FILENAME_LENGTH),
+  mimeType: z.string().max(MAX_ATTACHMENT_MIME_TYPE_LENGTH),
   size: z.number().int().nonnegative(),
   inline: z.boolean(),
   contentId: z
@@ -32,15 +34,19 @@ export type MessageAttachmentDescriptor = z.infer<
 >;
 
 export const MAX_RECIPIENTS = 500;
+export const MAX_RECIPIENT_LENGTH = 4096;
 
 export const messageMetadataSchema = z.object({
   subject: z.string().max(16_384),
   preview: z.string().max(16_384),
   externalUrl: z.string().max(16_384).nullable().optional(),
   from: z.string().max(4096),
-  to: z.array(z.string().max(4096)).max(MAX_RECIPIENTS),
-  cc: z.array(z.string().max(4096)).max(MAX_RECIPIENTS),
-  bcc: z.array(z.string().max(4096)).max(MAX_RECIPIENTS).optional(),
+  to: z.array(z.string().max(MAX_RECIPIENT_LENGTH)).max(MAX_RECIPIENTS),
+  cc: z.array(z.string().max(MAX_RECIPIENT_LENGTH)).max(MAX_RECIPIENTS),
+  bcc: z
+    .array(z.string().max(MAX_RECIPIENT_LENGTH))
+    .max(MAX_RECIPIENTS)
+    .optional(),
   receivedAtMs: z.number().int(),
   read: z.boolean(),
   starred: z.boolean(),
