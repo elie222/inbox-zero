@@ -45,6 +45,7 @@ export type DesktopHealth = {
       eventLoopDelayMs: DesktopDurationSummary | null;
       sqliteReadMs: DesktopDurationSummary | null;
       sqliteWriteMs: DesktopDurationSummary | null;
+      mailCommandMs?: DesktopDurationSummary | null;
     } | null;
   } | null;
   mailboxBytes: number;
