@@ -34,6 +34,8 @@ export type ChildHealth = {
   /** From the call, so including time queued behind other transactions. */
   sqliteReadMs: DurationSummary | null;
   sqliteWriteMs: DurationSummary | null;
+  /** Archive, star, send and other commands, until the engine accepts them. */
+  mailCommandMs: DurationSummary | null;
 };
 
 /**
@@ -55,6 +57,7 @@ export function createUtilityChildRuntime(
   const eventLoopDelay = startEventLoopDelayMonitor();
   const sqliteReads = createDurationRecorder();
   const sqliteWrites = createDurationRecorder();
+  const mailCommands = createDurationRecorder();
 
   // Session cookies stay in the main process; it answers per request.
   function requestCookieHeader(url: string) {
@@ -82,6 +85,7 @@ export function createUtilityChildRuntime(
       eventLoopDelayMs: eventLoopDelay.drain(),
       sqliteReadMs: sqliteReads.drain(),
       sqliteWriteMs: sqliteWrites.drain(),
+      mailCommandMs: mailCommands.drain(),
     };
   }
 
@@ -116,8 +120,17 @@ export function createUtilityChildRuntime(
             }),
         });
         return null;
-      case "ipc":
-        return requireOwner().handleIpc(message.payload);
+      case "ipc": {
+        if (!isMailCommand(message.payload)) {
+          return requireOwner().handleIpc(message.payload);
+        }
+        const startedAt = performance.now();
+        try {
+          return await requireOwner().handleIpc(message.payload);
+        } finally {
+          mailCommands.record(performance.now() - startedAt);
+        }
+      }
       case "subscribe": {
         const { subscriptionId } = message;
         const unsubscribe = requireOwner().subscribe(
@@ -174,6 +187,15 @@ export function createUtilityChildRuntime(
       }
     },
   };
+}
+
+function isMailCommand(payload: unknown) {
+  const method = (payload as { method?: unknown } | null)?.method;
+  return (
+    method === "submitConversations" ||
+    method === "submitMetadata" ||
+    method === "submitSend"
+  );
 }
 
 function engineErrorMessage(error: unknown): ChildToMainMessage {

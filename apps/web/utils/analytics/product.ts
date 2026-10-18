@@ -55,6 +55,9 @@ export const PRODUCT_ANALYTICS_EVENTS = {
  * - `engine_loop_delay`: the same for the local mail engine process.
  * - `sqlite_read` / `sqlite_write`: mail database transactions, timed from
  *   the call so reads include time queued behind writes.
+ * - `mail_command`: archive, star, send and other mail commands, from the
+ *   request until the local engine accepts it. This is the delay a user feels
+ *   between pressing a shortcut and the email changing.
  * - `engine_running`, `engine_restarts` (engine crashes recovered from since
  *   the app started), `mailbox_bytes` (local database size) and
  *   `desktop_version`.
