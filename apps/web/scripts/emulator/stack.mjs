@@ -32,8 +32,10 @@ if (command === "serve-cron") {
   await resetIntegration();
 } else if (command === "down") {
   await down(undefined, ownerTokenArgument());
+} else if (command === "ports") {
+  await printPorts();
 } else {
-  console.log("Usage: node scripts/emulator/stack.mjs <up|down|reset>");
+  console.log("Usage: node scripts/emulator/stack.mjs <up|down|reset|ports>");
   process.exit(command === "help" ? 0 : 1);
 }
 
@@ -342,6 +344,38 @@ async function down(providedState, expectedOwner) {
     rmSync(statePath, { force: true });
 }
 
+async function printPorts() {
+  const state = await readStartupState(statePath);
+  if (!state) throw new Error("No emulator is running");
+  for (const [name, port] of loopbackPorts(state))
+    console.log(`${name} ${port}`);
+}
+
+// A device reaches the stack through `adb reverse tcp:<port> tcp:<port>` for
+// each of these, so it can keep the same 127.0.0.1 URLs as the host.
+function loopbackPorts(state) {
+  const [googleControlUrl, microsoftControlUrl] =
+    state.providerControlUrls ?? [];
+  const ports = new Map();
+  for (const [name, url] of [
+    ["base", state.baseUrl],
+    ["google", state.googleBaseUrl],
+    ["microsoft", state.microsoftBaseUrl],
+    ["control", state.controlUrl],
+    ["llm", state.llmUrl],
+    ["google-control", googleControlUrl],
+    ["microsoft-control", microsoftControlUrl],
+  ]) {
+    if (!url) continue;
+    const parsed = new URL(url);
+    const port = Number(
+      parsed.port || (parsed.protocol === "https:" ? 443 : 80),
+    );
+    if (![...ports.values()].includes(port)) ports.set(name, port);
+  }
+  return ports;
+}
+
 function printReady(state) {
   console.log(`BASE_URL=${state.baseUrl}`);
   console.log(`GOOGLE_BASE_URL=${state.googleBaseUrl}`);
@@ -458,6 +492,8 @@ function appEnv({
     APNS_ENVIRONMENT: "sandbox",
     APNS_TOPIC: "com.getinboxzero.app",
     APNS_TEAM_ID: "Z46U4K6CNL",
+    FCM_TRANSPORT: "fake",
+    FCM_PROJECT_ID: "inbox-zero-emulator",
     NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: "",
     NEXT_PUBLIC_POSTHOG_KEY: "",
     NEXT_PUBLIC_POSTHOG_API_HOST: "",

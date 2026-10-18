@@ -5,8 +5,19 @@ const upstream = new URL(process.argv[3]);
 if (upstream.protocol !== "http:" || upstream.hostname !== "127.0.0.1") {
   throw new Error("Test proxy upstream must stay on loopback");
 }
+const PROVIDERS = new Set(["google", "microsoft"]);
+const KINDS = new Set(["metadata", "send", "draft", "any"]);
+const MAX_COUNT = 100;
+const OPERATION_PATH =
+  /^\/api\/mail\/v1\/accounts\/([^/]+)\/operations\/[^/]+$/;
+const DRAFT_PATH = /^\/api\/user\/drafts(?:\/[^/]+)?$/;
+
+let loss = { provider: "google", kind: "metadata" };
 let remaining = 0;
 let dropped = 0;
+// Account ids are unique per stack, so a provider looked up once stays valid.
+const accountProviders = new Map();
+
 const server = createServer(async (request, response) => {
   const chunks = [];
   try {
@@ -18,18 +29,13 @@ const server = createServer(async (request, response) => {
   const body = Buffer.concat(chunks);
   if (request.url === "/__test-control/response-loss") {
     if (request.method === "POST") {
-      let intent;
-      try {
-        intent = JSON.parse(body.toString());
-      } catch {
+      const intent = parseLossIntent(body);
+      if (!intent) {
         response.writeHead(400).end();
         return;
       }
-      if (intent?.provider !== "google" || intent?.count !== 1) {
-        response.writeHead(400).end();
-        return;
-      }
-      remaining = 1;
+      loss = { provider: intent.provider, kind: intent.kind };
+      remaining = intent.count;
       dropped = 0;
     } else if (request.method === "DELETE") {
       remaining = 0;
@@ -50,15 +56,7 @@ const server = createServer(async (request, response) => {
     response.writeHead(400).end();
     return;
   }
-  let metadata = false;
-  if (request.method === "PUT" && /\/operations\/[^/]+$/.test(request.url)) {
-    try {
-      metadata =
-        JSON.parse(body.toString()).operation.intent.kind === "metadata";
-    } catch {}
-  }
-  const drop = metadata && remaining > 0;
-  if (drop) remaining -= 1;
+  const drop = await shouldDrop(request, target.pathname, body);
   const outgoing = httpRequest(
     upstream,
     {
@@ -92,4 +90,81 @@ for (const signal of ["SIGINT", "SIGTERM"]) {
     const forceClose = setTimeout(() => server.closeAllConnections(), 500);
     forceClose.unref();
   });
+}
+
+function parseLossIntent(body) {
+  let intent;
+  try {
+    intent = JSON.parse(body.toString());
+  } catch {
+    return null;
+  }
+  const kind = intent?.kind ?? "metadata";
+  if (
+    !PROVIDERS.has(intent?.provider) ||
+    !Number.isInteger(intent?.count) ||
+    intent.count < 1 ||
+    intent.count > MAX_COUNT ||
+    !KINDS.has(kind)
+  ) {
+    return null;
+  }
+  return { provider: intent.provider, count: intent.count, kind };
+}
+
+async function shouldDrop(request, pathname, body) {
+  if (remaining === 0) return false;
+  const write = lossCandidate(request, pathname, body);
+  if (!write || (loss.kind !== "any" && loss.kind !== write.kind)) return false;
+  const provider = await accountProvider(write.accountId, request.headers);
+  if (provider !== loss.provider || remaining === 0) return false;
+  remaining -= 1;
+  return true;
+}
+
+function lossCandidate(request, pathname, body) {
+  const operation = OPERATION_PATH.exec(pathname);
+  if (request.method === "PUT" && operation) {
+    let kind;
+    try {
+      kind = JSON.parse(body.toString()).operation.intent.kind;
+    } catch {
+      return null;
+    }
+    return { kind, accountId: decodeURIComponent(operation[1]) };
+  }
+  const accountId = request.headers["x-email-account-id"];
+  if (
+    (request.method === "POST" || request.method === "PUT") &&
+    DRAFT_PATH.test(pathname) &&
+    typeof accountId === "string"
+  ) {
+    return { kind: "draft", accountId };
+  }
+  return null;
+}
+
+async function accountProvider(accountId, headers) {
+  if (accountProviders.has(accountId)) return accountProviders.get(accountId);
+  const lookupHeaders = {};
+  for (const name of ["cookie", "authorization"]) {
+    if (headers[name]) lookupHeaders[name] = headers[name];
+  }
+  try {
+    const response = await fetch(
+      new URL("/api/user/email-accounts", upstream),
+      {
+        headers: lookupHeaders,
+        signal: AbortSignal.timeout(10_000),
+      },
+    );
+    if (!response.ok) return null;
+    const { emailAccounts } = await response.json();
+    for (const emailAccount of emailAccounts ?? []) {
+      accountProviders.set(emailAccount.id, emailAccount.account?.provider);
+    }
+  } catch {
+    return null;
+  }
+  return accountProviders.get(accountId) ?? null;
 }
