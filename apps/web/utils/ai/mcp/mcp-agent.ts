@@ -2,6 +2,8 @@ import { isStepCount, type ToolSet } from "ai";
 import { createGenerateText } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createMcpToolsForAgent } from "@/utils/ai/mcp/mcp-tools";
+import { createDocsTools } from "@/utils/ai/mcp/docs-tools";
+import prisma from "@/utils/prisma";
 import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 import type { EmailForLLM } from "@/utils/types";
 import { getEmailListPrompt, getUserInfoPrompt } from "@/utils/ai/helpers";
@@ -116,13 +118,24 @@ export async function mcpAgent(
 
   if (!messages || messages.length === 0) return null;
 
-  const { tools, cleanup } = await createMcpToolsForAgent(emailAccount.id);
-  const hasTools = Object.keys(tools).length > 0;
-
-  if (!hasTools) return null;
+  const [{ tools: mcpTools, cleanup }, docsSettings] = await Promise.all([
+    createMcpToolsForAgent(emailAccount.id),
+    prisma.emailAccount.findUnique({
+      where: { id: emailAccount.id },
+      select: { draftDocsUrls: true },
+    }),
+  ]);
+  const tools: ToolSet = {
+    ...(mcpTools as ToolSet),
+    ...createDocsTools(
+      docsSettings?.draftDocsUrls ?? [],
+      logger.with({ emailAccountId: emailAccount.id }),
+    ),
+  };
 
   try {
-    return await runMcpAgent(options, tools as ToolSet);
+    if (Object.keys(tools).length === 0) return null;
+    return await runMcpAgent(options, tools);
   } finally {
     await cleanup();
   }
