@@ -1,11 +1,13 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
+import { StreamableHTTPError } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { actionClient } from "@/utils/actions/safe-action";
 import {
   createCustomMcpServerBody,
   disconnectMcpConnectionBody,
   removeCustomMcpServerBody,
+  testMcpConnectionBody,
   toggleMcpConnectionBody,
   toggleMcpToolBody,
 } from "@/utils/actions/mcp.validation";
@@ -61,6 +63,45 @@ export const toggleMcpConnectionAction = actionClient
         where: { id: connectionId, emailAccountId },
         data: { isActive },
       });
+    },
+  );
+
+export const testMcpConnectionAction = actionClient
+  .metadata({ name: "testMcpConnection" })
+  .inputSchema(testMcpConnectionBody)
+  .action(
+    async ({
+      ctx: { emailAccountId, logger },
+      parsedInput: { connectionId },
+    }) => {
+      const connection = await prisma.mcpConnection.findUnique({
+        where: { id: connectionId, emailAccountId },
+        select: { isActive: true, integration: { select: { name: true } } },
+      });
+      if (!connection) throw new SafeError("Connection not found");
+      if (!connection.isActive) {
+        throw new SafeError("Resume this integration to test it.");
+      }
+
+      try {
+        const { toolsCount } = await syncMcpTools(
+          connection.integration.name,
+          emailAccountId,
+          logger,
+        );
+        return { toolsCount };
+      } catch (error) {
+        // A failed token refresh deactivates the connection
+        const latest = await prisma.mcpConnection.findUnique({
+          where: { id: connectionId, emailAccountId },
+          select: { isActive: true },
+        });
+        throw new SafeError(
+          !latest?.isActive || isAuthRejection(error)
+            ? "Authorization expired or was revoked. Reconnect and try again."
+            : "Could not reach the server. Check that it is online and try again.",
+        );
+      }
     },
   );
 
@@ -150,3 +191,17 @@ export const removeCustomMcpServerAction = actionClient
 
     if (!count) throw new SafeError("Server not found");
   });
+
+function isAuthRejection(error: unknown): boolean {
+  let current = error;
+  while (current instanceof Error) {
+    if (
+      current instanceof StreamableHTTPError &&
+      (current.code === 401 || current.code === 403)
+    ) {
+      return true;
+    }
+    current = current.cause;
+  }
+  return false;
+}
