@@ -109,7 +109,13 @@ export const updateDraftDocsUrlsAction = actionClient
       if (!urls.includes(url)) urls.push(url);
     }
 
-    if (urls.length > DRAFT_DOCS_BASIC_MAX_URLS) {
+    const current = await prisma.emailAccount.findUnique({
+      where: { id: emailAccountId },
+      select: { draftDocsUrls: true },
+    });
+    const isGrowing = urls.length > (current?.draftDocsUrls.length ?? 0);
+
+    if (isGrowing && urls.length > DRAFT_DOCS_BASIC_MAX_URLS) {
       const hasAccess = await checkHasAccess({
         userId,
         minimumTier: PremiumTier.PLUS_MONTHLY,

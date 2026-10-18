@@ -13,6 +13,7 @@ const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 const REQUEST_TIMEOUT_MS = 10_000;
 const MAX_PAGE_CHARS = 12_000;
 const MAX_CHILD_SITEMAPS = 3;
+const EMPTY_INDEX_TTL_SECONDS = 10 * 60;
 
 /**
  * Builds the page index for each docs source from its llms.txt, falling back
@@ -129,7 +130,14 @@ async function getSourceIndex(source: string): Promise<DocsIndexEntry[]> {
   const entries =
     (await getLlmsTxtIndex(source)) ?? (await getSitemapIndex(source)) ?? [];
 
-  await setCachedDocs("index", [source], entries);
+  // A fetch failure looks the same as a site without an index, so an empty
+  // result is only cached briefly
+  await setCachedDocs(
+    "index",
+    [source],
+    entries,
+    entries.length ? undefined : EMPTY_INDEX_TTL_SECONDS,
+  );
   return entries;
 }
 

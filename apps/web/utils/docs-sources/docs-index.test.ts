@@ -9,6 +9,14 @@ import {
 const sources = ["https://example.com/docs"];
 
 describe("parseLlmsTxt", () => {
+  it("parses a long hostile line in linear time", () => {
+    const started = performance.now();
+    parseLlmsTxt("[".repeat(200_000), "https://example.com/llms.txt", [
+      "https://example.com",
+    ]);
+    expect(performance.now() - started).toBeLessThan(500);
+  });
+
   it("extracts in-scope links with titles and descriptions", () => {
     const text = `# Example
 

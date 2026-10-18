@@ -28,11 +28,12 @@ export async function setCachedDocs<T>(
   kind: DocsCacheKind,
   keyParts: string[],
   value: T,
+  ttlSeconds = CACHE_TTL_SECONDS,
 ): Promise<void> {
   if (!isRedisConfigured()) return;
 
   try {
-    await redis.set(getKey(kind, keyParts), value, { ex: CACHE_TTL_SECONDS });
+    await redis.set(getKey(kind, keyParts), value, { ex: ttlSeconds });
   } catch (error) {
     logger.error("Failed to cache docs", { kind, error });
   }

@@ -6,7 +6,10 @@ export type DocsIndexEntry = {
   description?: string;
 };
 
-const MARKDOWN_LINK = /\[([^\]]+)\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)/;
+// Anchored to the start of the line so a hostile file can't force a retry from
+// every "[" on a long line
+const MARKDOWN_LINK =
+  /^\s*(?:[-*+]\s+)?\[([^\]\n]{1,300})\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)/;
 
 /**
  * Parses an llms.txt file (https://llmstxt.org): markdown link lines such as
@@ -53,8 +56,8 @@ export function parseSitemap(
   baseUrl: string,
   sources: string[],
 ): { entries: DocsIndexEntry[]; childSitemaps: string[] } {
-  const locs = [...xml.matchAll(/<loc>\s*([^<]+?)\s*<\/loc>/gi)]
-    .map((match) => resolveUrl(decodeXmlEntities(match[1]), baseUrl))
+  const locs = [...xml.matchAll(/<loc>([^<]*)<\/loc>/gi)]
+    .map((match) => resolveUrl(decodeXmlEntities(match[1].trim()), baseUrl))
     .filter((url): url is string => !!url);
 
   if (/<sitemapindex[\s>]/i.test(xml)) {

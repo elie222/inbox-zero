@@ -82,7 +82,7 @@ export function DraftDocsSites() {
           />
           <Button type="submit" size="sm" loading={isExecuting}>
             <Plus className="mr-2 h-4 w-4" />
-            Add
+            Add site
           </Button>
         </form>
       </LoadingContent>
