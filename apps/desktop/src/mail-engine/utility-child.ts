@@ -34,7 +34,7 @@ export type ChildHealth = {
   /** From the call, so including time queued behind other transactions. */
   sqliteReadMs: DurationSummary | null;
   sqliteWriteMs: DurationSummary | null;
-  /** Archive, star, send and other commands, until the engine accepts them. */
+  /** Archive, star, send and other commands, until accepted and shown in open views. */
   mailCommandMs: DurationSummary | null;
 };
 
