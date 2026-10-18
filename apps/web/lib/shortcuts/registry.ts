@@ -282,7 +282,7 @@ const SHORTCUT_DEFINITIONS = [
   {
     // `#` sits behind shift on US layouts and in front of it on others.
     id: "delete",
-    keys: ["shift+#", "#", "backspace"],
+    keys: ["shift+#", "#"],
     display: ["#"],
     scope: "mail",
     group: "Triage",

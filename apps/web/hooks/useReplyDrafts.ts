@@ -25,6 +25,9 @@ export function useReplyDrafts(
       engineReady,
     ],
     () => getReplyDrafts(emailAccountId, threadId, messageIds),
+    // The thread hides mailbox drafts until it knows which are open here, so
+    // a new message joining the thread must not send it back to loading.
+    { keepPreviousData: true },
   );
   useEffect(
     () =>
@@ -37,5 +40,5 @@ export function useReplyDrafts(
       }),
     [emailAccountId, threadId, mutate],
   );
-  return { drafts: data ?? [], error, isLoading };
+  return { drafts: data ?? [], error, isLoading: isLoading && !data };
 }
