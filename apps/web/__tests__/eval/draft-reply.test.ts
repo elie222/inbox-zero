@@ -1066,6 +1066,89 @@ Morgan`,
         TIMEOUT,
       );
 
+      test.each([
+        { styleLabel: "default style", writingStyle: null },
+        {
+          styleLabel: "terse custom style",
+          writingStyle:
+            "Short and casual. Usually one or two lines. No greetings or sign-offs.",
+        },
+      ])(
+        "answers each numbered question separately ($styleLabel)",
+        async ({ styleLabel, writingStyle }) => {
+          const messages = [
+            {
+              ...getEmail({
+                from: "Jordan Avery <jordan@prospect.example>",
+                to: emailAccount.email,
+                subject: "Questions before we switch",
+                content: `Hello,
+
+We're evaluating your scheduling tool as a replacement for our current one. Before we commit, I couldn't confirm a few things on your website:
+
+1. Does it sync with Outlook calendars, including shared team calendars?
+2. Can clients book without creating an account?
+3. Can we set different buffer times for different meeting types?
+4. Is there a way to export all bookings to CSV?
+
+Thanks for your help!
+
+Jordan`,
+              }),
+              date: new Date("2026-05-05T10:00:00Z"),
+            },
+          ];
+          const knowledgeBaseContent = `Calendar sync: Google and Outlook calendars are supported, including shared team calendars.
+Booking: clients book from a public link and never need an account.
+Meeting types: each meeting type has its own duration, buffer before, and buffer after.
+Exports: bookings can be exported to CSV from Settings > Data.`;
+
+          const result = await draftForEval({
+            messages,
+            emailAccount,
+            knowledgeBaseContent,
+            emailHistorySummary: null,
+            emailHistoryContext: null,
+            calendarAvailability: null,
+            writingStyle,
+            mcpContext: null,
+            meetingContext: null,
+          });
+
+          const testName = `numbered questions answered separately (${styleLabel})`;
+          const judgeResult = await judgeEvalOutput({
+            input: result.modelEvidence,
+            output: result.reply,
+            expected:
+              "A reply that answers all four numbered questions, each with its own clearly separated answer, in the sender's order. A numbered list or one short line per question both work. Answers stay brief and grounded in the knowledge base.",
+            criterion: {
+              name: "Mirrors the sender's numbered questions",
+              description:
+                "Each of the sender's four questions gets its own distinct, visually separated answer in the same order, so the sender can match every answer to their question at a glance. Merging several answers into one sentence or paragraph, or skipping a question, fails. Brevity within each answer is fine.",
+            },
+          });
+          const pass = judgeResult.pass;
+
+          evalReporter.record({
+            testName,
+            model: model.label,
+            pass,
+            expected: "four separated answers in the sender's order",
+            actual: formatSemanticJudgeActual(result.reply, judgeResult),
+          });
+
+          expect(
+            pass,
+            `Draft should answer each numbered question separately.\n\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
+              judgeResult,
+              null,
+              2,
+            )}`,
+          ).toBe(true);
+        },
+        TIMEOUT,
+      );
+
       test(
         "does not repeat a resolution contradicted by the sender",
         async () => {
