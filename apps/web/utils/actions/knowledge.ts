@@ -113,9 +113,10 @@ export const updateDraftDocsUrlsAction = actionClient
       where: { id: emailAccountId },
       select: { draftDocsUrls: true },
     });
-    const isGrowing = urls.length > (current?.draftDocsUrls.length ?? 0);
+    // Removals stay open after a downgrade; only adding a site needs the tier
+    const addsSite = urls.some((url) => !current?.draftDocsUrls.includes(url));
 
-    if (isGrowing && urls.length > DRAFT_DOCS_BASIC_MAX_URLS) {
+    if (addsSite && urls.length > DRAFT_DOCS_BASIC_MAX_URLS) {
       const hasAccess = await checkHasAccess({
         userId,
         minimumTier: PremiumTier.PLUS_MONTHLY,
