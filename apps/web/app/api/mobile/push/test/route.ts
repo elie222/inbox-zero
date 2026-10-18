@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { isFakeApnsTransport, takeRecordedApnsSends } from "@/utils/apns";
 import { withAuth } from "@/utils/middleware";
-import { sendMobilePushNotification } from "@/utils/mobile-push";
+import {
+  isFakePushTransport,
+  sendMobilePushNotification,
+  takeRecordedPushSends,
+} from "@/utils/mobile-push";
 
 const testPushSchema = z.object({
   title: z.string().min(1).max(256),
@@ -11,20 +14,20 @@ const testPushSchema = z.object({
 });
 
 export type TestPushResponse = {
-  sends: ReturnType<typeof takeRecordedApnsSends>;
+  sends: ReturnType<typeof takeRecordedPushSends>;
 };
 
 /**
- * Delivers a push through the fake APNs transport and returns what it recorded.
- * Production and the real APNs transport never expose this.
+ * Delivers a push through the fake APNs and FCM transports and returns what
+ * they recorded. Production and the real transports never expose this.
  */
 export const POST = withAuth("mobile/push/test", async (request) => {
-  if (!isFakeApnsTransport()) {
+  if (!isFakePushTransport()) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   const body = testPushSchema.parse(await request.json());
-  takeRecordedApnsSends();
+  takeRecordedPushSends();
   await sendMobilePushNotification({
     userId: request.auth.userId,
     deduplicationKey: `test:${crypto.randomUUID()}`,
@@ -38,6 +41,6 @@ export const POST = withAuth("mobile/push/test", async (request) => {
   });
 
   return NextResponse.json({
-    sends: takeRecordedApnsSends(),
+    sends: takeRecordedPushSends(),
   } satisfies TestPushResponse);
 });

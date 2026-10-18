@@ -58,6 +58,56 @@ describe("/api/mail/v1/devices", () => {
     );
   });
 
+  it("registers an Android FCM token", async () => {
+    const fcmToken = `${"dK3x_9-Q".repeat(3)}:APA91b${"Fz_x-9".repeat(22)}`;
+
+    const response = await POST(
+      request("POST", {
+        token: fcmToken,
+        platform: "android",
+        appVersion: "1.0.0",
+      }),
+      {} as never,
+    );
+
+    expect(prisma.mobilePushToken.upsert).toHaveBeenCalledWith({
+      where: { token: fcmToken },
+      create: {
+        token: fcmToken,
+        platform: MobilePushPlatform.ANDROID,
+        tokenType: MobilePushTokenType.FCM,
+        appVersion: "1.0.0",
+        userId: "user-1",
+      },
+      update: {
+        platform: MobilePushPlatform.ANDROID,
+        tokenType: MobilePushTokenType.FCM,
+        appVersion: "1.0.0",
+        userId: "user-1",
+      },
+    });
+    expect(response.status).toBe(200);
+
+    await DELETE(request("DELETE", { token: fcmToken }), {} as never);
+    expect(prisma.mobilePushToken.deleteMany).toHaveBeenCalledWith({
+      where: { token: fcmToken, userId: "user-1" },
+    });
+  });
+
+  it("rejects an Android token that is not an FCM registration token", async () => {
+    await expect(
+      POST(
+        request("POST", {
+          token: "ExponentPushToken[abc]",
+          platform: "android",
+        }),
+        {} as never,
+      ),
+    ).rejects.toThrow();
+
+    expect(prisma.mobilePushToken.upsert).not.toHaveBeenCalled();
+  });
+
   it("returns 400 for invalid JSON", async () => {
     const register = await POST(rawRequest("POST", "{"), {} as never);
     const unregister = await DELETE(rawRequest("DELETE", "{"), {} as never);

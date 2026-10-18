@@ -290,6 +290,13 @@ const parsedEnv = createEnv({
     // `fake` records sends in memory instead of contacting Apple. Emulator only.
     APNS_TRANSPORT: z.enum(["apns", "fake"]).optional(),
 
+    // FCM HTTP v1 for the native Android app. The service account JSON needs the
+    // Firebase Cloud Messaging API; FCM_PROJECT_ID defaults to its project_id.
+    FCM_SERVICE_ACCOUNT_JSON: z.string().min(1).optional(),
+    FCM_PROJECT_ID: z.string().min(1).optional(),
+    // `fake` records sends in memory instead of contacting Google. Emulator only.
+    FCM_TRANSPORT: z.enum(["fcm", "fake"]).optional(),
+
     TINYBIRD_TOKEN: z.string().optional(),
     TINYBIRD_DELETE_TOKEN: z.string().optional(),
     TINYBIRD_BASE_URL: z.string().default("https://api.us-east.tinybird.co/"),

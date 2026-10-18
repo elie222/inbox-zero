@@ -2151,6 +2151,7 @@ enum MobilePushPlatform {
 enum MobilePushTokenType {
   EXPO @map("expo")
   APNS @map("apns")
+  FCM  @map("fcm")
 }
 
 enum ActionType {
