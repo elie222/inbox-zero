@@ -203,6 +203,59 @@ describe("useEngineMailThreads", () => {
 
     expect(result.current.threads).toBe(afterEdit);
   });
+
+  it("reports an empty view as syncing until the first full sync completes", async () => {
+    const emptyView = (metadata: "partial" | "complete") => {
+      const snapshot = mailboxSnapshot([]);
+      if (!snapshot.data) throw new Error("expected mailbox data");
+      snapshot.data.coverage = [
+        {
+          accountId: "acc-1",
+          scopeId: "primary",
+          metadata,
+          content: "partial",
+          indexedContent: "partial",
+          lastCompletedSyncAtMs: metadata === "complete" ? 1 : null,
+        },
+      ];
+      return snapshot;
+    };
+    let snapshot = emptyView("partial");
+    const listeners = new Set<() => void>();
+    const client = {
+      observeMailbox: vi.fn(() => ({
+        getSnapshot: () => snapshot,
+        subscribe: (listener: () => void) => {
+          listeners.add(listener);
+          return () => listeners.delete(listener);
+        },
+        close: () => undefined,
+      })),
+      requestSync: vi.fn(async () => ({ status: "scheduled" as const })),
+    } as unknown as MailClient;
+    const clientWrapper = ({ children }: { children: ReactNode }) => (
+      <MailEngineProvider client={client}>{children}</MailEngineProvider>
+    );
+
+    const { result } = renderHook(
+      () =>
+        useEngineMailThreads({
+          emailAccountId: "acc-1",
+          query: { type: "inbox" } as ThreadsQuery,
+        }),
+      { wrapper: clientWrapper },
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.isSyncing).toBe(true);
+
+    act(() => {
+      snapshot = emptyView("complete");
+      for (const listener of listeners) listener();
+    });
+
+    expect(result.current.isSyncing).toBe(false);
+  });
 });
 
 function conversation(
