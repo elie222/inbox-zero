@@ -37,7 +37,10 @@ export function parseListUnsubscribeHeader(
 ) {
   if (!listUnsubscribeHeader) return [];
 
-  const parts = listUnsubscribeHeader.match(/<[^>]+>|[^,]+/g) || [];
+  // An unbracketed value must not start with whitespace, otherwise the gap
+  // after a comma is consumed as one and splits the next `<...>` URL on any
+  // comma inside it.
+  const parts = listUnsubscribeHeader.match(/<[^>]+>|[^,\s][^,]*/g) || [];
   return parts
     .map((part) => cleanUnsubscribeLink(part))
     .filter((part): part is string => Boolean(part));

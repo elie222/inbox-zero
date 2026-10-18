@@ -98,6 +98,25 @@ describe("parseListUnsubscribeHeader", () => {
     ]);
   });
 
+  it("keeps commas inside a bracketed URL that is not listed first", () => {
+    expect(
+      parseListUnsubscribeHeader(
+        "<mailto:unsubscribe@example.com>, <https://example.com/unsub?ids=12,34&t=abc>",
+      ),
+    ).toEqual([
+      "mailto:unsubscribe@example.com",
+      "https://example.com/unsub?ids=12,34&t=abc",
+    ]);
+  });
+
+  it("still splits unbracketed values on commas", () => {
+    expect(
+      parseListUnsubscribeHeader(
+        "https://example.com/unsub, mailto:unsubscribe@example.com",
+      ),
+    ).toEqual(["https://example.com/unsub", "mailto:unsubscribe@example.com"]);
+  });
+
   it("returns empty array for missing values", () => {
     expect(parseListUnsubscribeHeader()).toEqual([]);
   });
