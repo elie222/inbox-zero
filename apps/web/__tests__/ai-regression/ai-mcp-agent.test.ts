@@ -4,12 +4,22 @@ import { describe, expect, test, vi, beforeEach } from "vitest";
 import { mcpAgent } from "@/utils/ai/mcp/mcp-agent";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { getEmailAccount, getEmail } from "@/__tests__/helpers";
+import prisma from "@/utils/__mocks__/prisma";
+import { getDocsIndex, readDocsPage } from "@/utils/docs-sources/fetch-docs";
 
 // Run with: pnpm test-ai ai-regression/ai-mcp-agent
 
 // Mock the MCP tools creation to return actual tools for testing
 vi.mock("@/utils/ai/mcp/mcp-tools", () => ({
   createMcpToolsForAgent: vi.fn(),
+}));
+
+vi.mock("@/utils/prisma");
+
+vi.mock("@/utils/docs-sources/fetch-docs", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/docs-sources/fetch-docs")>()),
+  getDocsIndex: vi.fn(),
+  readDocsPage: vi.fn(),
 }));
 
 const TIMEOUT = 30_000; // Longer timeout for LLM calls
@@ -389,6 +399,57 @@ The requested page "${id}" could not be found or you don't have access to it.`;
         const hasHubSpot = toolNames.some((name) => name.includes("hubspot"));
         const hasNotion = toolNames.some((name) => name.includes("notion"));
         expect(hasHubSpot && hasNotion).toBe(true);
+      },
+      TIMEOUT,
+    );
+
+    test(
+      "looks up the user's docs when only docs sites are configured",
+      async () => {
+        const emailAccount = getTestEmailAccount();
+        const messages = [
+          getEmail({
+            id: "email-1",
+            from: "customer@acmecorp.com",
+            to: "support@test.com",
+            subject: "Rotating our API key",
+            content:
+              "Hi, we think our API key leaked. How do we rotate it, and will the old key stop working immediately?",
+          }),
+        ];
+
+        const { createMcpToolsForAgent } = await import(
+          "@/utils/ai/mcp/mcp-tools"
+        );
+        vi.mocked(createMcpToolsForAgent).mockResolvedValue({
+          tools: {},
+          cleanup: async () => {},
+        });
+        prisma.emailAccount.findUnique.mockResolvedValue({
+          draftDocsUrls: ["https://docs.test.com"],
+        } as never);
+        // Large enough that search ranks instead of returning the whole index,
+        // and titled in the docs' wording rather than the sender's
+        vi.mocked(getDocsIndex).mockResolvedValue([
+          ...Array.from({ length: 40 }, (_, index) => ({
+            title: `Release notes ${index}`,
+            url: `https://docs.test.com/changelog/${index}`,
+          })),
+          {
+            title: "Credential rotation",
+            url: "https://docs.test.com/security/credentials",
+          },
+        ]);
+        vi.mocked(readDocsPage).mockResolvedValue(
+          "URL: https://docs.test.com/security/credentials\n\nCredential rotation\n\nRotate a key from Settings > API > Rotate. The previous key keeps working for 24 hours so you can deploy the new one.",
+        );
+
+        const result = await mcpAgent({ emailAccount, messages });
+
+        expect(result?.response).toBeTruthy();
+        const toolNames = result?.getToolCalls().map((tc) => tc.toolName);
+        expect(toolNames).toContain("read_docs_page");
+        expect(result?.response).toMatch(/24/);
       },
       TIMEOUT,
     );

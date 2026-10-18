@@ -11,6 +11,8 @@ export const userCount = `${userMinCount}+`;
 
 export const KNOWLEDGE_BASIC_MAX_ITEMS = 1;
 export const KNOWLEDGE_BASIC_MAX_CHARS = 2000;
+export const DRAFT_DOCS_BASIC_MAX_URLS = 1;
+export const DRAFT_DOCS_MAX_URLS = 5;
 
 export const ConditionType = {
   AI: "AI",
