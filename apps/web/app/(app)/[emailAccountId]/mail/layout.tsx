@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import { cookies } from "next/headers";
+import { DeploymentUpdateNotice } from "@/app/(app)/[emailAccountId]/mail/DeploymentUpdateNotice";
 import { MailThemeScope } from "@/app/(app)/[emailAccountId]/mail/MailThemeScope";
 import {
   MAIL_LIST_WIDTH_BOUNDS,
@@ -33,6 +34,7 @@ export default async function MailLayout({
   return (
     <ShortcutsProvider scopes={MAIL_SHORTCUT_SCOPES}>
       <MailThemeScope />
+      <DeploymentUpdateNotice />
       {/* `contents` so the variables inherit without joining the flex layout. */}
       <div
         className="contents"
