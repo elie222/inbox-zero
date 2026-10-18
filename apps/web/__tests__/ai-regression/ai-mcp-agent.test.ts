@@ -428,13 +428,20 @@ The requested page "${id}" could not be found or you don't have access to it.`;
         prisma.emailAccount.findUnique.mockResolvedValue({
           draftDocsUrls: ["https://docs.test.com"],
         } as never);
+        // Large enough that search ranks instead of returning the whole index,
+        // and titled in the docs' wording rather than the sender's
         vi.mocked(getDocsIndex).mockResolvedValue([
-          { title: "Quickstart", url: "https://docs.test.com/quickstart" },
-          { title: "API keys", url: "https://docs.test.com/api-keys" },
-          { title: "Webhooks", url: "https://docs.test.com/webhooks" },
+          ...Array.from({ length: 40 }, (_, index) => ({
+            title: `Release notes ${index}`,
+            url: `https://docs.test.com/changelog/${index}`,
+          })),
+          {
+            title: "Credential rotation",
+            url: "https://docs.test.com/security/credentials",
+          },
         ]);
         vi.mocked(readDocsPage).mockResolvedValue(
-          "URL: https://docs.test.com/api-keys\n\nAPI keys\n\nRotate a key from Settings > API > Rotate. The previous key keeps working for 24 hours so you can deploy the new one.",
+          "URL: https://docs.test.com/security/credentials\n\nCredential rotation\n\nRotate a key from Settings > API > Rotate. The previous key keeps working for 24 hours so you can deploy the new one.",
         );
 
         const result = await mcpAgent({ emailAccount, messages });

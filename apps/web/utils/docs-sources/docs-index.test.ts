@@ -91,15 +91,20 @@ describe("searchDocsIndex", () => {
   );
 
   it("ranks title matches above path and description matches", () => {
-    const results = searchDocsIndex(entries, "verify webhook signatures");
+    const results = searchDocsIndex(entries, ["verify webhook signatures"]);
     expect(results.map((entry) => entry.title)).toEqual([
       "Webhook signatures",
       "Events",
     ]);
   });
 
+  it("finds pages that match any of several phrasings", () => {
+    const results = searchDocsIndex(entries, ["callback", "payload"]);
+    expect(results.map((entry) => entry.title)).toEqual(["Events"]);
+  });
+
   it("returns small indexes whole", () => {
     const small = entries.slice(0, 5);
-    expect(searchDocsIndex(small, "anything")).toEqual(small);
+    expect(searchDocsIndex(small, ["anything"])).toEqual(small);
   });
 });

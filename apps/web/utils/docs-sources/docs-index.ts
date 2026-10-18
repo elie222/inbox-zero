@@ -75,16 +75,20 @@ export function parseSitemap(
  */
 export function searchDocsIndex(
   entries: DocsIndexEntry[],
-  query: string,
+  queries: string[],
   { limit = 10, returnAllBelow = 30 } = {},
 ): DocsIndexEntry[] {
   if (entries.length <= returnAllBelow) return entries;
 
-  const terms = tokenize(query);
-  if (!terms.length) return entries.slice(0, limit);
+  const termSets = queries.map(tokenize).filter((terms) => terms.length);
+  if (!termSets.length) return entries.slice(0, limit);
 
   return entries
-    .map((entry, index) => ({ entry, index, score: scoreEntry(entry, terms) }))
+    .map((entry, index) => ({
+      entry,
+      index,
+      score: Math.max(...termSets.map((terms) => scoreEntry(entry, terms))),
+    }))
     .filter(({ score }) => score > 0)
     .sort((a, b) => b.score - a.score || a.index - b.index)
     .slice(0, limit)

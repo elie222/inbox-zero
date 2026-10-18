@@ -118,20 +118,19 @@ export async function mcpAgent(
 
   if (!messages || messages.length === 0) return null;
 
-  const [{ tools: mcpTools, cleanup }, docsSettings] = await Promise.all([
-    createMcpToolsForAgent(emailAccount.id),
-    prisma.emailAccount.findUnique({
-      where: { id: emailAccount.id },
-      select: { draftDocsUrls: true },
-    }),
-  ]);
-  const tools: ToolSet = {
-    ...(mcpTools as ToolSet),
-    ...createDocsTools(
-      docsSettings?.draftDocsUrls ?? [],
-      logger.with({ emailAccountId: emailAccount.id }),
-    ),
-  };
+  const docsSettings = await prisma.emailAccount.findUnique({
+    where: { id: emailAccount.id },
+    select: { draftDocsUrls: true },
+  });
+  const docsTools = createDocsTools(
+    docsSettings?.draftDocsUrls ?? [],
+    logger.with({ emailAccountId: emailAccount.id }),
+  );
+  const { tools: mcpTools, cleanup } = await createMcpToolsForAgent(
+    emailAccount.id,
+    { reservedToolNames: Object.keys(docsTools) },
+  );
+  const tools: ToolSet = { ...(mcpTools as ToolSet), ...docsTools };
 
   try {
     if (Object.keys(tools).length === 0) return null;

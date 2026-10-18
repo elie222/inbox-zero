@@ -15,17 +15,22 @@ export function createDocsTools(sources: string[], logger: Logger): ToolSet {
 
   return {
     search_docs: tool({
-      description: `Search the user's public documentation (${sites}) for pages about a topic. Returns page titles and URLs; read a page with read_docs_page before relying on it.`,
+      description: `Search the user's public documentation (${sites}) for pages about a topic. Matches exact words in page titles, paths, and descriptions, and the docs may word things differently from the email, so pass several alternative phrasings. Returns page titles and URLs; read a page with read_docs_page before relying on it.`,
       inputSchema: z.object({
-        query: z
-          .string()
-          .describe("A few keywords for the topic, such as a feature name."),
+        queries: z
+          .array(z.string())
+          .describe(
+            "1 to 5 short keyword queries, such as the feature name, synonyms, and terms the docs are likely to use.",
+          ),
       }),
-      execute: async ({ query }) => {
+      execute: async ({ queries }) => {
         try {
-          const entries = searchDocsIndex(await getDocsIndex(sources), query);
+          const entries = searchDocsIndex(
+            await getDocsIndex(sources),
+            queries.slice(0, 5),
+          );
           if (!entries.length) {
-            return "No matching pages found in the docs index. Try other keywords, or read a docs URL directly with read_docs_page.";
+            return "No matching pages found in the docs index. Try other phrasings, or read a docs URL directly with read_docs_page.";
           }
           return entries
             .map(
