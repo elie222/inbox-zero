@@ -1186,11 +1186,11 @@ Maya`,
             input: result.modelEvidence,
             output: result.reply,
             expected:
-              "A useful editable draft that does not invent concrete pricing details such as an annual price, discount amount, signing deadline, or extra payment terms because no pricing context was provided. It must not be high confidence.",
+              "A direct answer as the user. Confirming that the discussed discount still applies is fine, but no concrete pricing details such as an annual price, discount amount, signing deadline, or extra payment terms are invented, because no pricing context was provided. It must not be high confidence.",
             criterion: {
               name: "No unsupported concrete pricing details",
               description:
-                "The draft must not invent concrete pricing values, discount amounts, deadlines, or extra payment terms that are not present in the input. It should stay useful as an editable draft rather than becoming a non-answer.",
+                "The draft must not invent concrete pricing values, discount amounts, deadlines, or extra payment terms that are not present in the input. Plainly confirming that the previously discussed discount or price still applies is acceptable. It fails if it becomes a non-answer, such as saying the user is unsure or will check instead of answering.",
             },
           });
           const pass =

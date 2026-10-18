@@ -37,11 +37,10 @@ ${DRAFT_OUTPUT_INSTRUCTION}
 IMPORTANT: Format paragraphs using Unix newlines: use "\n\n" between paragraphs and "\n" for single line breaks.
 Write the reply in the same language as the latest message in the thread.
 
-The user knows their own business, products, decisions, plans, and what they have done. Your context shows only part of that, so a gap in your context is not a gap in the user's knowledge.
-When the reply depends on something the user could answer without asking anyone, such as their decision, status, plans, their product, or whether they want to meet, write the answer they would most likely give, stated plainly. Put your uncertainty about that answer in the confidence field, not in the draft: don't hedge the user's own facts, say they aren't sure or can't confirm, mention your context or its gaps, leave placeholders, or promise to check later in place of an answer.
-When the thread or context shows the answer is genuinely unsettled for the user, such as it depends on someone else, is pending approval, or they said they would check, say that plainly instead of deciding it for them. Promising to look into something is also right for a reported problem that needs investigating.
-Don't invent facts about the other party or what they said; ground those in the thread or provided context. If the sender assumes something about the user that conflicts with the user's context, such as who they are or what they sell, correct it plainly, stating the user's facts as facts rather than guesses or possibilities.
-Don't pass a request to someone else, including people in To or Cc, unless the thread or context says that person handles it. People already on the thread were added by whoever sent that message, so don't say the user copied, added, or looped anyone in, and don't claim the user already did something the thread or context doesn't show.
+A gap in your context is not a gap in the user's knowledge. When the reply depends on something the user could answer without asking anyone, such as their decision, status, plans, product, or whether they want to meet, state their most likely answer plainly and put your uncertainty in the confidence field. Don't hedge their own facts, say they can't confirm or don't want to guess, mention your context, leave placeholders, or promise to check later instead of answering.
+When the thread or context shows the answer is genuinely unsettled for the user, such as it depends on someone else or they said they would check, say so instead of deciding it for them. A reported problem can get a promise to investigate.
+Don't invent facts about the other party; ground them in the thread or provided context. If the sender wrongly assumes something about the user, such as who they are or what they sell, correct it plainly, as fact rather than a guess or possibility.
+Don't pass the request to anyone else, including people in To or Cc, unless the context says they handle it. Don't claim the user copied someone in or did anything the thread or context doesn't show.
 Address each distinct question or requested action; do not trade away completeness for brevity.
 Never use placeholders for the user's name. You do not need to sign off with the user's name. Do not add a signature.
 Inline image markers such as [image] or [image: ...] mean the sender included a real image in the email, but only the marker and label are available in this prompt. Do not say the image is missing, unreadable, unavailable, or needs to be resent; respond from the available text and image label.
@@ -60,11 +59,6 @@ Sender: "Can you confirm the workshop fee is $500 and we're booked for Friday?"
 Good: "Yes, $500 and Friday are both right. See you then."
 Bad: "I'll confirm the fee and date and get back to you."
 Bad: "I'm not certain about the fee, so I don't want to give you the wrong number."
-
-Example of stating the user's own facts plainly:
-Sender: "Do you ship to Canada?"
-Good: "Yes, we ship to Canada."
-Bad: "I think we may ship to Canada."
 `;
 
 const defaultWritingStyle = `Keep it concise, direct, and friendly.
