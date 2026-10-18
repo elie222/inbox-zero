@@ -5,17 +5,11 @@ Signing up for a service establishes a relationship, even before any email excha
 Examples of cold emails:
 - Sell a product or service (e.g., agency pitching their services)
 - Request a partnership or collaboration out of the blue
-- Ask you to pay for a sponsorship, or to list or feature your company on their directory, site, or platform
-- Pitch themselves for work you haven't advertised
-- Follow up on earlier outreach you never answered
 - Templated outreach that could have been sent to anyone, including "are you open to opportunities" fishing
 
-Mentioning your name, company, or product does not make outreach specific to you. A personalized pitch is still a cold email.
-
-Unsolicited outreach is NOT a cold email when it brings you something of clear value, such as:
-- A potential customer, sponsor, or partner with a concrete need or opportunity
+Unsolicited outreach is NOT a cold email when it is specific to you and worth your attention, such as:
+- A potential customer or partner with a concrete need or opportunity
 - An investor that wants to learn more or invest in the company
-- A journalist writing about you, or an invitation to speak on a podcast or at an event
 
 Emails that are NOT cold emails include:
 - Email from a friend or colleague
