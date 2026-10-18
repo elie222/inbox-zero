@@ -1081,15 +1081,17 @@ Morgan`,
               ...getEmail({
                 from: "Jordan Avery <jordan@prospect.example>",
                 to: emailAccount.email,
-                subject: "Questions before we switch",
+                subject: "Question about automatic sorting in Outlook",
                 content: `Hello,
 
-We're evaluating your scheduling tool as a replacement for our current one. Before we commit, I couldn't confirm a few things on your website:
+I'm evaluating your product as a replacement for the email assistant I use today. I'm on Microsoft 365 with the desktop Outlook app and want AI to sort incoming mail into folders so my inbox stays clear. Ideally I'd like to choose the folders and control how emails get sorted.
 
-1. Does it sync with Outlook calendars, including shared team calendars?
-2. Can clients book without creating an account?
-3. Can we set different buffer times for different meeting types?
-4. Is there a way to export all bookings to CSV?
+Your product looks promising, but I couldn't confirm a few capabilities on your website:
+
+1. Can it automatically sort emails and actually move them into Outlook folders?
+2. Does it keep running in the background without me approving each action or keeping an app open?
+3. Can I create my own folders?
+4. Can I control the sorting with rules, plain-language instructions, or by correcting mistakes so it learns?
 
 Thanks for your help!
 
@@ -1098,20 +1100,25 @@ Jordan`,
               date: new Date("2026-05-05T10:00:00Z"),
             },
           ];
-          const knowledgeBaseContent = `Calendar sync: Google and Outlook calendars are supported, including shared team calendars.
-Booking: clients book from a public link and never need an account.
-Meeting types: each meeting type has its own duration, buffer before, and buffer after.
-Exports: bookings can be exported to CSV from Settings > Data.`;
+          // Shaped like the research summary a docs lookup hands the drafter
+          const mcpContext = `The product supports Outlook and Microsoft 365, including moving messages into Outlook folders.
+
+- **Automatic sorting:** Rules use AI instructions, static conditions such as sender or subject, or both, and can move matching emails into folders.
+- **Runs automatically:** Enabled rules run as new mail arrives through the connected mailbox, with no approval needed for ordinary sorting and no app that must stay open.
+- **Custom folders:** Create folders in Outlook, then select them in rules.
+- **Control and corrections:** Write rules in plain language or build them manually, test them first, and use History > Fix to correct a mistake. The assistant also learns from corrections.
+
+If a Microsoft 365 tenant restricts app access, an administrator may need to approve the app before the account can be connected.`;
 
           const result = await draftForEval({
             messages,
             emailAccount,
-            knowledgeBaseContent,
+            knowledgeBaseContent: null,
             emailHistorySummary: null,
             emailHistoryContext: null,
             calendarAvailability: null,
             writingStyle,
-            mcpContext: null,
+            mcpContext,
             meetingContext: null,
           });
 
@@ -1120,7 +1127,7 @@ Exports: bookings can be exported to CSV from Settings > Data.`;
             input: result.modelEvidence,
             output: result.reply,
             expected:
-              "A reply that answers all four numbered questions, each with its own clearly separated answer, in the sender's order. A numbered list or one short line per question both work. Answers stay brief and grounded in the knowledge base.",
+              "A reply that answers all four numbered questions, each with its own clearly separated answer, in the sender's order. A numbered list or one short line per question both work. Answers stay brief and grounded in the provided context.",
             criterion: {
               name: "Mirrors the sender's numbered questions",
               description:
