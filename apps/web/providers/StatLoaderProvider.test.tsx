@@ -3,13 +3,18 @@ import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { StatLoaderProvider, useStatLoader } from "./StatLoaderProvider";
 
-const mocks = vi.hoisted(() => ({ accountId: "account-1", fetch: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  accountId: "account-1",
+  fetch: vi.fn(),
+  toastError: vi.fn(),
+  toastSuccess: vi.fn(),
+}));
 vi.mock("@/providers/EmailAccountProvider", () => ({
   useAccount: () => ({ emailAccountId: mocks.accountId }),
 }));
 vi.mock("@/components/Toast", () => ({
-  toastError: vi.fn(),
-  toastSuccess: vi.fn(),
+  toastError: mocks.toastError,
+  toastSuccess: mocks.toastSuccess,
 }));
 vi.mock("@/utils/actions/stats", () => ({
   loadEmailStatsAction: async () => undefined,
@@ -18,6 +23,8 @@ vi.mock("@/utils/actions/stats", () => ({
 beforeEach(() => {
   mocks.accountId = "account-1";
   mocks.fetch.mockReset();
+  mocks.toastError.mockReset();
+  mocks.toastSuccess.mockReset();
   vi.stubGlobal("fetch", mocks.fetch);
 });
 afterEach(() => {
@@ -89,6 +96,29 @@ describe("statistics request lifecycle", () => {
     await act(async () => result.current.onLoad(options));
     expect(mocks.fetch).toHaveBeenCalledTimes(2);
     expect(result.current.isLoading).toBe(false);
+  });
+
+  it("stops a manual import on failure, shows the error and permits retry", async () => {
+    mocks.fetch
+      .mockResolvedValueOnce(
+        new Response('{"error":"rate limited"}', { status: 429 }),
+      )
+      .mockResolvedValue(new Response("{}"));
+    const { result } = renderHook(useStatLoader, {
+      wrapper: StatLoaderProvider,
+    });
+
+    await act(async () => {
+      await expect(
+        result.current.onLoadBatch({ loadBefore: true, showToast: true }),
+      ).resolves.toBeUndefined();
+    });
+    expect(mocks.fetch).toHaveBeenCalledOnce();
+    expect(mocks.toastError).toHaveBeenCalledOnce();
+    expect(mocks.toastSuccess).not.toHaveBeenCalled();
+    expect(result.current.isLoading).toBe(false);
+    await act(async () => result.current.onLoad(options));
+    expect(mocks.fetch).toHaveBeenCalledTimes(2);
   });
 
   it("keeps the new account loading when an old account request finishes", async () => {

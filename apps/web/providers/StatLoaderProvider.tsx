@@ -108,15 +108,19 @@ export function StatLoaderProvider(props: { children: React.ReactNode }) {
   const onLoadBatch = useCallback(
     async (options: { loadBefore: boolean; showToast: boolean }) => {
       const batchSize = 50;
-      for (let i = 0; i < batchSize; i++) {
-        if (stopLoading) break;
-        console.log("Loading batch", i);
-        await onLoad({
-          ...options,
-          showToast: options.showToast && i === batchSize - 1,
-        });
+      try {
+        for (let i = 0; i < batchSize; i++) {
+          if (stopLoading) return;
+          console.log("Loading batch", i);
+          await onLoad({ ...options, showToast: false });
+        }
+        if (options.showToast) toastSuccess({ description: "Stats loaded!" });
+      } catch {
+        if (options.showToast)
+          toastError({ description: "Error loading stats." });
+      } finally {
+        setStopLoading(false);
       }
-      setStopLoading(false);
     },
     [onLoad, stopLoading],
   );
