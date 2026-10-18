@@ -580,7 +580,7 @@ describe("matchesStaticRule", () => {
 
   it("should treat pipes as literal characters in body field", () => {
     const rule = getStaticRule({
-      body: "Choose option A | B | C from the menu",
+      body: "choose option A | B | C from the menu",
     });
     const message = getMessage({
       headers: getHeaders(),
@@ -595,6 +595,21 @@ describe("matchesStaticRule", () => {
       textPlain: "Please choose option A to continue",
     });
     expect(matchesStaticRule(rule, message2, logger)).toBe(false);
+  });
+
+  it("should not treat a pipe in subject or body as an OR between words", () => {
+    const subjectRule = getStaticRule({ subject: "Alert | System" });
+    const bodyRule = getStaticRule({ body: "Alert | System" });
+
+    const unrelated = getMessage({
+      headers: getHeaders({ subject: "Monthly System update" }),
+      textPlain: "Alert from your bank",
+    });
+    expect(matchesStaticRule(subjectRule, unrelated, logger)).toBe(false);
+    expect(matchesStaticRule(bodyRule, unrelated, logger)).toBe(false);
+
+    const pipeOnlyRule = getStaticRule({ subject: "|" });
+    expect(matchesStaticRule(pipeOnlyRule, unrelated, logger)).toBe(false);
   });
 
   it("should handle empty patterns between pipes gracefully", () => {
