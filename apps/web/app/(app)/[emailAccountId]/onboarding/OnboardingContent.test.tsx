@@ -57,7 +57,9 @@ describe("onboarding persona analysis", () => {
   it("does not access the disposed cache when analysis finishes after navigation", async () => {
     const analysis = Promise.withResolvers<void>();
     mocks.analyzePersona.mockReturnValue(analysis.promise);
-    const { unmount } = render(<OnboardingContent signupIntent={null} />);
+    const { unmount } = render(
+      <OnboardingContent signupIntent="BOTH" step="emailsSorted" />,
+    );
     expect(mocks.analyzePersona).toHaveBeenCalledWith("account-test");
 
     unmount();
@@ -69,10 +71,23 @@ describe("onboarding persona analysis", () => {
   it("refreshes persona data when analysis finishes while onboarding is mounted", async () => {
     const analysis = Promise.withResolvers<void>();
     mocks.analyzePersona.mockReturnValue(analysis.promise);
-    render(<OnboardingContent signupIntent={null} />);
+    render(<OnboardingContent signupIntent="BOTH" step="emailsSorted" />);
 
     await act(async () => analysis.resolve());
 
     expect(mocks.mutate).toHaveBeenCalledOnce();
+  });
+
+  it("does not start an optional scan before the usage choice is saved", () => {
+    mocks.analyzePersona.mockResolvedValue(undefined);
+    render(<OnboardingContent signupIntent={null} />);
+
+    expect(mocks.analyzePersona).not.toHaveBeenCalled();
+  });
+
+  it("does not analyze a mailbox for email-client-only onboarding", () => {
+    render(<OnboardingContent signupIntent="MAIL_CLIENT" step="mailApp" />);
+
+    expect(mocks.analyzePersona).not.toHaveBeenCalled();
   });
 });

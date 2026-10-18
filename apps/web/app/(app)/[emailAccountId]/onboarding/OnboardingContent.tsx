@@ -250,7 +250,13 @@ export function OnboardingContent({
   };
 
   useEffect(() => {
-    if (clampedStep !== 1 || data?.personaAnalysis) return;
+    if (
+      clampedStep === 1 ||
+      !signupIntent ||
+      signupIntent === "MAIL_CLIENT" ||
+      data?.personaAnalysis
+    )
+      return;
 
     let disposed = false;
     analyzePersonaAction(emailAccountId)
@@ -265,7 +271,13 @@ export function OnboardingContent({
     return () => {
       disposed = true;
     };
-  }, [clampedStep, emailAccountId, data?.personaAnalysis, mutate]);
+  }, [
+    clampedStep,
+    signupIntent,
+    emailAccountId,
+    data?.personaAnalysis,
+    mutate,
+  ]);
 
   const renderStep = steps[currentStepIndex] || steps[0];
 
@@ -278,7 +290,9 @@ export function OnboardingContent({
     <>
       {/* Start ingesting provider email stats into the database early so the
           bulk-unsubscribe step's stats query has data by the time it runs */}
-      <EmailStatsPreloader />
+      {signupIntent && signupIntent !== "MAIL_CLIENT" && clampedStep > 1 && (
+        <EmailStatsPreloader />
+      )}
       {renderStep ? renderStep() : null}
     </>
   );

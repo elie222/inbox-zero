@@ -155,7 +155,7 @@ export function BulkUnsubscribe() {
   const { isLoading: isStatsLoaderLoading, onLoad } = useStatLoader();
   const refreshInterval = isStatsLoaderLoading ? 5000 : 1_000_000;
   useEffect(() => {
-    onLoad({ loadBefore: false, showToast: false });
+    onLoad({ loadBefore: false, showToast: false }).catch(() => undefined);
   }, [onLoad]);
 
   const { emailAccountId, userEmail } = useAccount();

@@ -19,7 +19,7 @@ import {
 } from "@/utils/parse/unsubscribe";
 
 const PAGE_SIZE = 20; // avoid setting too high because it will hit the rate limit
-const MAX_PAGES = 50;
+const MAX_PAGES = 1;
 
 export async function loadEmails(
   {
@@ -64,13 +64,12 @@ export async function loadEmails(
 
     nextPageToken = res.data.nextPageToken ?? undefined;
     loadedAfterMessages += res.data.messages?.length || 0;
+    if (res.data.messages?.length) pages++;
 
     if (!res.data.messages || res.data.messages.length < PAGE_SIZE) {
       hasMoreAfter = false;
       break;
     }
-
-    pages++;
 
     if (!nextPageToken) {
       hasMoreAfter = false;
@@ -110,6 +109,8 @@ export async function loadEmails(
     };
   }
 
+  // We have not inspected older history yet when the newer page used the budget.
+  hasMoreBefore = pages >= maxPages;
   nextPageToken = undefined;
   while (pages < maxPages) {
     logger.info("Before Page", { pages, nextPageToken });
@@ -124,13 +125,12 @@ export async function loadEmails(
 
     nextPageToken = res.data.nextPageToken ?? undefined;
     loadedBeforeMessages += res.data.messages?.length || 0;
+    if (res.data.messages?.length) pages++;
 
     if (!res.data.messages || res.data.messages.length < PAGE_SIZE) {
       hasMoreBefore = false;
       break;
     }
-
-    pages++;
 
     if (!nextPageToken) {
       hasMoreBefore = false;
