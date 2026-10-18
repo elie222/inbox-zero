@@ -72,10 +72,6 @@ export function DeleteSection() {
     );
   };
 
-  const handleConfirmCancellation = () => {
-    setHasConfirmedCancellation(true);
-  };
-
   const shouldBlockDeletion = hasSubscription && !hasConfirmedCancellation;
 
   return (
@@ -146,7 +142,13 @@ export function DeleteSection() {
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               {shouldBlockDeletion ? (
-                <AlertDialogAction onClick={handleConfirmCancellation}>
+                <AlertDialogAction
+                  onClick={(event) => {
+                    // Keep the dialog open so it advances to the delete confirmation
+                    event.preventDefault();
+                    setHasConfirmedCancellation(true);
+                  }}
+                >
                   I've already cancelled my subscription
                 </AlertDialogAction>
               ) : (

@@ -12,6 +12,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactNode,
 } from "react";
 import { parseAsString, useQueryState, useQueryStates } from "nuqs";
 import { toast } from "sonner";
@@ -109,6 +110,7 @@ import { prefixPath } from "@/utils/path";
 import { getMailAccountUrl } from "@/app/(app)/[emailAccountId]/mail/mail-account-url";
 import { redirectToSafeUrl } from "@/utils/redirect";
 import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
+import { LoadingMiniSpinner } from "@/components/Loading";
 import { LoadingContent } from "@/components/LoadingContent";
 import { useTeamCommentsAvailable } from "@/components/team-comments/use-team-comments-available";
 import { getEmailMessageCellActions } from "@/components/EmailMessageCellActions";
@@ -412,10 +414,9 @@ export function MailShell() {
     loadMore,
     refetch: refetchThreadList,
   } = isAllAccounts ? combinedThreadState : accountThreadState;
-  const providerState = isAllAccounts
+  const { isSyncing } = isAllAccounts
     ? combinedThreadState
     : accountThreadState;
-  const hasProviderResponse = searchSettled && providerState.hasRemoteResponse;
   const threads = searchSettled ? remoteThreads : EMPTY_SEARCH_THREADS;
   const searchViewIdentity = JSON.stringify([
     emailAccountId,
@@ -436,9 +437,20 @@ export function MailShell() {
     previousSearchFocus.current = next;
     if (next.index !== focusedIndex) setFocusedIndex(next.index);
   }, [orderedIds, focusedIndex, searchQuery, searchViewIdentity]);
-  let emptySearchMessage: string | undefined;
-  if (searchQuery && hasProviderResponse && !threads.length) {
-    emptySearchMessage = "No emails in this view";
+  // Local reads answer fast, so the list stays blank while one is in flight
+  // rather than flashing a spinner.
+  let emptyListMessage: ReactNode;
+  if (isLoading || !searchSettled) {
+    emptyListMessage = null;
+  } else if (isSyncing) {
+    emptyListMessage = (
+      <span className="inline-flex items-center gap-2">
+        <LoadingMiniSpinner />
+        Syncing your mail…
+      </span>
+    );
+  } else if (searchQuery) {
+    emptyListMessage = "No emails found";
   }
 
   const selection = useThreadSelection(orderedIds);
@@ -1487,15 +1499,12 @@ export function MailShell() {
                   <ScheduledEmailList />
                 ) : (
                   <LoadingContent
-                    loading={
-                      !threads.length &&
-                      (isLoading || (!!searchQuery && !searchSettled))
-                    }
+                    loading={false}
                     error={searchQuery ? undefined : error}
                   >
                     <ThreadList
                       threads={threads}
-                      emptyMessage={emptySearchMessage}
+                      emptyMessage={emptyListMessage}
                       layout={layout}
                       expandedPreview={expandedPreview}
                       userEmail={userEmail}
