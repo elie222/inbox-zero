@@ -169,9 +169,11 @@ jobs:
         working-directory: apps/desktop
         shell: pwsh
         run: |
-          $files = @(Get-ChildItem release/*.exe) + @(Get-ChildItem "release/win-*unpacked/Inbox Zero.exe")
-          if ($files.Count -eq 0) { throw "No Windows executables found" }
-          foreach ($file in $files) {
+          $installers = @(Get-ChildItem release/*.exe)
+          $apps = @(Get-ChildItem "release/win-*unpacked/Inbox Zero.exe")
+          if ($installers.Count -eq 0) { throw "No Windows installers found" }
+          if ($apps.Count -eq 0) { throw "No unpacked Windows app executables found" }
+          foreach ($file in $installers + $apps) {
             $signature = Get-AuthenticodeSignature -FilePath $file.FullName
             Write-Host "$($file.Name): $($signature.Status) $($signature.SignerCertificate.Subject)"
             if ($signature.Status -ne 'Valid') { throw "$($file.Name) is not validly signed" }
