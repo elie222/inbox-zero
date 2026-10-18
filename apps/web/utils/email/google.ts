@@ -1175,6 +1175,8 @@ export class GmailProvider implements EmailProvider {
     options?: {
       replyTo?: string;
       from?: string;
+      cc?: string;
+      bcc?: string;
       attachments?: MailAttachment[];
     },
   ): Promise<{ messageId: string }> {

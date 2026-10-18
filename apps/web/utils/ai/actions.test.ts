@@ -561,6 +561,39 @@ describe("runActionFunction", () => {
     expect(result).toEqual({ sentMessageIds: ["sent-msg1"] });
   });
 
+  it("sends replies to the configured CC and BCC recipients", async () => {
+    const client = createMockEmailProvider();
+
+    await runActionFunction({
+      client,
+      email,
+      action: {
+        id: "action-1",
+        type: ActionType.REPLY,
+        content: "Thanks",
+        cc: "manager@example.com",
+        bcc: "archive@example.com",
+      },
+      emailAccount,
+      executedRule: {
+        id: "executed-rule-1",
+        threadId: "thread-1",
+        emailAccountId: "account-1",
+        ruleId: "rule-1",
+      } as any,
+      logger,
+    });
+
+    expect(client.replyToEmail).toHaveBeenCalledWith(
+      expect.anything(),
+      "Thanks",
+      expect.objectContaining({
+        cc: "manager@example.com",
+        bcc: "archive@example.com",
+      }),
+    );
+  });
+
   it("passes static attachments into sent emails", async () => {
     const client = createMockEmailProvider();
 

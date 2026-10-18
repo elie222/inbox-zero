@@ -627,6 +627,42 @@ describe("replyToEmail", () => {
     expect(sendDraft).toHaveBeenCalledTimes(1);
     expect(result.id).toBe("draft-1");
   });
+
+  it("adds CC and BCC recipients to the reply draft", async () => {
+    const updateDraft = vi.fn(async () => ({}));
+    const client = createMockOutlookClient((path) => {
+      if (path === "/me/messages/message-1/createReply") {
+        return { post: vi.fn(async () => ({ id: "draft-1" }) as Message) };
+      }
+      if (path === "/me/messages/draft-1") return { patch: updateDraft };
+      if (path === "/me/messages/draft-1/send") {
+        return { post: vi.fn(async () => ({})) };
+      }
+      throw new Error(`Unexpected API path: ${path}`);
+    });
+
+    await replyToEmail(
+      client,
+      getMockMessage({ id: "message-1" }) as EmailForAction,
+      "Reply content",
+      createTestLogger(),
+      {
+        cc: "Manager <manager@example.com>",
+        bcc: "archive@example.com",
+      },
+    );
+
+    expect(updateDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ccRecipients: [
+          {
+            emailAddress: { address: "manager@example.com", name: "Manager" },
+          },
+        ],
+        bccRecipients: [{ emailAddress: { address: "archive@example.com" } }],
+      }),
+    );
+  });
 });
 
 describe("forwardEmail", () => {
