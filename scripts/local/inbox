@@ -25,6 +25,8 @@ ENV_FILE="$WEB/.env"
 STATE="$HOME/Library/Application Support/inbox-zero-local"
 PORT="${INBOX_PORT:-3000}"
 BASE="http://127.0.0.1:$PORT"
+# Private tailnet HTTPS port (Tailscale Serve, never Funnel). The Funnel on 443 stays webhook-only.
+SERVE_PORT="${INBOX_SERVE_PORT:-8443}"
 NODE_BIN="${INBOX_NODE_BIN:-/opt/homebrew/opt/node@24/bin}"
 PNPM=(npx -y pnpm@11.19.0)
 PROJECT="${INBOX_COMPOSE_PROJECT:-inbox-zero-services}"
@@ -88,7 +90,15 @@ ensure_ollama() {
   say "Ollama did not answer; AI features will fail. See $STATE/ollama.log"
 }
 
-build_stamp() { (cd "$REPO" && { git rev-parse HEAD; git status --porcelain -- apps packages; } | shasum | cut -d' ' -f1); }
+# NEXT_PUBLIC_ values are inlined at build time, so they are part of the stamp. Only their hash is
+# used; the lines themselves are never printed.
+build_stamp() {
+  (cd "$REPO" && {
+    git rev-parse HEAD
+    git status --porcelain -- apps packages
+    grep '^NEXT_PUBLIC_' "$ENV_FILE" 2>/dev/null | shasum
+  } | shasum | cut -d' ' -f1)
+}
 
 do_build() {
   say "Building the production app (several minutes, heavy on memory)..."
@@ -110,7 +120,7 @@ start_app() {
   say "Starting the app..."
   # exec so the recorded pid is the server itself, not a wrapper shell
   (cd "$WEB" && NODE_ENV=production NODE_OPTIONS=--max_old_space_size=2048 \
-    exec node node_modules/next/dist/bin/next start -p "$PORT" >"$STATE/app.log" 2>&1) &
+    exec node node_modules/next/dist/bin/next start -H 127.0.0.1 -p "$PORT" >"$STATE/app.log" 2>&1) &
   echo $! >"$STATE/app.pid"
   for _ in $(seq 1 60); do app_up && return 0; sleep 1; done
   die "app did not answer on $BASE; see $STATE/app.log"
@@ -122,12 +132,47 @@ start_cron() {
   echo $! >"$STATE/cron.pid"
 }
 
+# This Mac's MagicDNS name without the trailing dot; prints nothing on failure.
+tailnet_host() {
+  [ -x "$TAILSCALE" ] || return 0
+  "$TAILSCALE" status --json 2>/dev/null \
+    | python3 -c 'import sys, json; print(json.load(sys.stdin)["Self"]["DNSName"].rstrip("."))' 2>/dev/null
+  return 0
+}
+
+# Expose the app on the tailnet only (Tailscale Serve, never --funnel). Sets PRIVATE_URL when it works.
+PRIVATE_URL=""
+ensure_serve() {
+  local host out
+  [ -x "$TAILSCALE" ] || { say "Tailscale not found: no private phone access."; return 0; }
+  host="$(tailnet_host)"
+  [ -n "$host" ] || { say "Tailscale has no name for this Mac (signed in and on?): no private phone access."; return 0; }
+  if "$TAILSCALE" serve --bg --https="$SERVE_PORT" "http://127.0.0.1:$PORT" >/dev/null 2>&1; then
+    PRIVATE_URL="https://$host:$SERVE_PORT"
+    say "Private URL (tailnet only): $PRIVATE_URL"
+  else
+    say "Could not set up Tailscale Serve on :$SERVE_PORT: no private phone access."
+  fi
+  out="$("$TAILSCALE" serve status 2>/dev/null)"
+  if printf '%s\n' "$out" | grep -F ":$SERVE_PORT" | grep -qi 'funnel on'; then
+    say "WARNING: port $SERVE_PORT is PUBLIC (Funnel is on for it). Anyone on the internet can reach the sign-in page."
+    say "Fix now: tailscale serve --https=$SERVE_PORT off"
+  fi
+}
+
 check_funnel() {
+  local paths
   [ -x "$TAILSCALE" ] || { say "Tailscale not found: new mail will not reach the app (no webhook)."; return 0; }
   if "$TAILSCALE" funnel status 2>/dev/null | grep -q "/api/outlook/webhook"; then
     say "Webhook funnel: on"
   else
     say "Webhook funnel: OFF. New mail will not reach the app. Fix: tailscale funnel --bg --set-path /api/outlook/webhook http://127.0.0.1:$PORT/api/outlook/webhook"
+  fi
+  # Proxied paths listed after a "(Funnel on)" site and before the next "(tailnet only)" site.
+  paths="$("$TAILSCALE" funnel status 2>/dev/null \
+    | awk '/\(Funnel on\)/{on=1; next} /\(tailnet only\)/{on=0} on && /^\|--/' | wc -l | tr -d ' ')"
+  if [ "${paths:-0}" -gt 1 ]; then
+    say "WARNING: Funnel exposes more than the webhook path ($paths paths). Check: tailscale funnel status"
   fi
 }
 
@@ -164,9 +209,10 @@ cmd_start() {
   ensure_build
   start_app
   start_cron
+  ensure_serve
   check_funnel
   say "Inbox Zero is up: $BASE"
-  open "$BASE"
+  open "${PRIVATE_URL:-$BASE}"
 }
 
 cmd_stop() {
@@ -187,6 +233,13 @@ cmd_status() {
     docker ps --filter "name=$PROJECT" --format 'docker:    {{.Names}} {{.Status}}'
   else
     say "docker:   OrbStack not running"
+  fi
+  local host
+  host="$(tailnet_host)"
+  if [ -n "$host" ] && "$TAILSCALE" serve status 2>/dev/null | grep -qF "$host:$SERVE_PORT"; then
+    say "tailnet:  https://$host:$SERVE_PORT (private)"
+  else
+    say "tailnet serve: not set up"
   fi
   check_funnel
 }
