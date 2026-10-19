@@ -75,11 +75,12 @@ NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED=false
 
 ## Decision Models
 
-Some classification steps (rule selection, cold email detection, sender categorization, thread status) can use a decision model instead of an LLM. Decision models answer typed questions about structured state and return calibrated probabilities. They run through the AI SDK's decision model interface, so switching models is a config change:
+Some classification steps (rule selection, sender categorization, thread status) can use a decision model instead of an LLM. Cold email detection uses the LLM unless `DECISION_MODEL_COLD_EMAIL_ENABLED=true`. Decision models answer typed questions about structured state and return calibrated probabilities. They run through the AI SDK's decision model interface, so switching models is a config change:
 
 ```env
 DEFAULT_DECISION_MODEL=openrouter:typesafe/jev-1.13 # or openrouter:cloudflare/clef
 DEFAULT_DECISION_MODEL_ENABLED=false # true: on for users who haven't chosen; false: users opt in
+DECISION_MODEL_COLD_EMAIL_ENABLED=false # true: the decision model also detects cold email
 ```
 
 Use the same `provider:model` format as the `*_LLMS` variables. Supported providers are `openrouter`, `aigateway`, `openai`, and `typesafe`. Keys resolve the same way too: the provider's key (`OPENROUTER_API_KEY`, `AI_GATEWAY_API_KEY`, or `OPENAI_API_KEY`), falling back to `LLM_API_KEY`. Direct TypeSafe always needs `TYPESAFE_API_KEY`.

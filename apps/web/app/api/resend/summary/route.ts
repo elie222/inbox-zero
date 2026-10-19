@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { subDays } from "date-fns/subDays";
 import { subHours } from "date-fns/subHours";
 import { sendSummaryEmail } from "@inboxzero/transactional-email";
 import { withEmailAccount, withError } from "@/utils/middleware";
@@ -154,26 +155,6 @@ async function sendEmail({
     select: { id: true },
   });
 
-  const archivedActionWhere = {
-    type: ActionType.ARCHIVE,
-    createdAt: { gt: cutOffDate },
-    executedRule: {
-      emailAccountId,
-      automated: true,
-    },
-    OR: [
-      {
-        scheduledAction: {
-          is: { status: ScheduledActionStatus.COMPLETED },
-        },
-      },
-      {
-        scheduledAction: { is: null },
-        executedRule: { status: ExecutedRuleStatus.APPLIED },
-      },
-    ],
-  } satisfies Prisma.ExecutedActionWhereInput;
-
   const coldExecutedRuleWhere = coldEmailRule
     ? ({
         ruleId: coldEmailRule.id,
@@ -185,8 +166,7 @@ async function sendEmail({
   const [
     coldEmailCount,
     coldExecutedRules,
-    archivedEmailCount,
-    archivedActions,
+    { count: archivedEmailCount, actions: archivedActions },
   ] = await Promise.all([
     coldExecutedRuleWhere
       ? prisma.executedRule.count({ where: coldExecutedRuleWhere })
@@ -202,29 +182,7 @@ async function sendEmail({
           },
         })
       : Promise.resolve([]),
-    prisma.executedAction.count({
-      where: archivedActionWhere,
-    }),
-    prisma.executedAction.findMany({
-      where: archivedActionWhere,
-      orderBy: { createdAt: "desc" },
-      take: ARCHIVED_EMAIL_DISPLAY_LIMIT,
-      select: {
-        id: true,
-        createdAt: true,
-        executedRule: {
-          select: {
-            messageId: true,
-            rule: {
-              select: {
-                name: true,
-                systemType: true,
-              },
-            },
-          },
-        },
-      },
-    }),
+    getArchivedActions({ emailAccountId, cutOffDate }),
   ]);
 
   const messageIds = [
@@ -372,4 +330,74 @@ async function getMessages({
   }
 
   return messages;
+}
+
+// Immediate and delayed archives are queried separately so each can start from
+// an index; a single OR across the joined tables scans every ExecutedAction.
+async function getArchivedActions({
+  emailAccountId,
+  cutOffDate,
+}: {
+  emailAccountId: string;
+  cutOffDate: Date;
+}) {
+  const immediateWhere = {
+    type: ActionType.ARCHIVE,
+    createdAt: { gt: cutOffDate },
+    scheduledAction: { is: null },
+    executedRule: {
+      emailAccountId,
+      automated: true,
+      status: ExecutedRuleStatus.APPLIED,
+      // Immediate actions are created with their rule, but the rule's timestamp
+      // is taken before AI processing, so allow it to trail the action.
+      createdAt: { gt: subDays(cutOffDate, 1) },
+    },
+  } satisfies Prisma.ExecutedActionWhereInput;
+
+  // Delayed actions are created when they run, possibly long after the rule,
+  // so they are found through their scheduled action instead.
+  const delayedWhere = {
+    type: ActionType.ARCHIVE,
+    createdAt: { gt: cutOffDate },
+    scheduledAction: {
+      is: {
+        emailAccountId,
+        status: ScheduledActionStatus.COMPLETED,
+        executedAt: { gt: cutOffDate },
+      },
+    },
+    executedRule: { emailAccountId, automated: true },
+  } satisfies Prisma.ExecutedActionWhereInput;
+
+  const findArchivedActions = (where: Prisma.ExecutedActionWhereInput) =>
+    prisma.executedAction.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      take: ARCHIVED_EMAIL_DISPLAY_LIMIT,
+      select: {
+        id: true,
+        createdAt: true,
+        executedRule: {
+          select: {
+            messageId: true,
+            rule: { select: { name: true, systemType: true } },
+          },
+        },
+      },
+    });
+
+  const [immediateCount, delayedCount, immediateActions, delayedActions] =
+    await Promise.all([
+      prisma.executedAction.count({ where: immediateWhere }),
+      prisma.executedAction.count({ where: delayedWhere }),
+      findArchivedActions(immediateWhere),
+      findArchivedActions(delayedWhere),
+    ]);
+
+  const actions = [...immediateActions, ...delayedActions]
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .slice(0, ARCHIVED_EMAIL_DISPLAY_LIMIT);
+
+  return { count: immediateCount + delayedCount, actions };
 }

@@ -110,6 +110,10 @@ describe("aiChooseRule rule name resolution", () => {
     ["Conversations`", "Conversations"],
     ["To Reply Later',", "To Reply Later"],
     ["To Reply',", "To Reply"],
+    ["Conversations latest_marker", "Conversations"],
+    ["Conversations Ongoing threads", "Conversations"],
+    ["To Reply Later extra words", "To Reply Later"],
+    ["To Reply\tnow", "To Reply"],
   ])("resolves %j to %s", async (returnedName, expectedRule) => {
     generateObjectSpy.mockResolvedValue({
       object: { reasoning: "r", ruleName: returnedName, noMatchFound: false },
@@ -122,8 +126,10 @@ describe("aiChooseRule rule name resolution", () => {
 
   it.each([
     "Conversation",
-    "Conversations archive",
+    "Conversationsarchive",
+    "To Replying",
     "To",
+    "x",
   ])("does not resolve %j to a different rule", async (returnedName) => {
     generateObjectSpy.mockResolvedValue({
       object: { reasoning: "r", ruleName: returnedName, noMatchFound: false },

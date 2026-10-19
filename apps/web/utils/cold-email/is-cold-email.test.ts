@@ -7,6 +7,8 @@ import { env } from "@/env";
 import prisma from "@/utils/__mocks__/prisma";
 import { extractEmailAddress } from "@/utils/email";
 import { createGenerateObject } from "@/utils/llms";
+import { decideColdEmail } from "@/utils/decision-model/cold-email";
+import { runDecisionModelOrFallback } from "@/utils/decision-model/decision-model";
 
 const logger = createTestLogger();
 
@@ -36,6 +38,16 @@ vi.mock("@/utils/llms", () => ({
   createGenerateObject: vi.fn(() => vi.fn()),
 }));
 
+vi.mock("@/utils/decision-model/decision-model", () => ({
+  runDecisionModelOrFallback: vi.fn(
+    ({ decide }: { decide: (config: unknown) => unknown }) => decide({}),
+  ),
+}));
+
+vi.mock("@/utils/decision-model/cold-email", () => ({
+  decideColdEmail: vi.fn(),
+}));
+
 vi.mock("@/utils/llms/model", () => ({
   getModel: vi.fn(() => ({})),
 }));
@@ -48,6 +60,7 @@ describe("isColdEmail", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     env.WHITELIST_FROM = "welcome@service.example OR service.example";
+    env.DECISION_MODEL_COLD_EMAIL_ENABLED = false;
   });
 
   it("should recognize a known cold email sender even when from field format differs", async () => {
@@ -475,4 +488,54 @@ describe("isColdEmail", () => {
       aiReason: "pitch",
     });
   });
+
+  it("leaves cold email to the LLM unless the decision model is enabled for it", async () => {
+    vi.mocked(prisma.groupItem.findFirst).mockResolvedValue(null);
+    vi.mocked(createGenerateObject).mockReturnValue(
+      vi.fn().mockResolvedValue({
+        object: { coldEmail: false, reason: "not cold" },
+      }) as never,
+    );
+
+    await isColdEmail(getUndecidedInput());
+
+    expect(runDecisionModelOrFallback).not.toHaveBeenCalled();
+    expect(createGenerateObject).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks the decision model when it is enabled for cold email", async () => {
+    env.DECISION_MODEL_COLD_EMAIL_ENABLED = true;
+    vi.mocked(prisma.groupItem.findFirst).mockResolvedValue(null);
+    vi.mocked(decideColdEmail).mockResolvedValue({
+      coldEmail: true,
+      reason: "Decision model cold-email probability: 0.90",
+    });
+
+    const result = await isColdEmail(getUndecidedInput());
+
+    expect(decideColdEmail).toHaveBeenCalledTimes(1);
+    expect(createGenerateObject).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      isColdEmail: true,
+      reason: "ai",
+      aiReason: "Decision model cold-email probability: 0.90",
+    });
+  });
 });
+
+function getUndecidedInput() {
+  return {
+    logger,
+    email: {
+      id: "msg-ai",
+      from: "unknown@example.com",
+      to: "user@test.com",
+      subject: "Hello",
+      content: "Hello",
+      date: new Date(),
+    },
+    emailAccount: getEmailAccount({ id: "test-account-id" }),
+    provider: mockProvider as never,
+    coldEmailRule: { instructions: "test instructions", groupId: "group-id" },
+  };
+}

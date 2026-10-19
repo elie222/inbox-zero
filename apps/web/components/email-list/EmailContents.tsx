@@ -63,10 +63,8 @@ export function HtmlEmail({
     [inlineAttachments],
   );
   const [showReplies, setShowReplies] = useState(false);
-  const [renderHtml, setRenderHtml] = useState(
-    () =>
-      getPreparedEmailHtml({ messageId, sourceHtml: sanitizedHtml }) ??
-      sanitizedHtml,
+  const [renderHtml, setRenderHtml] = useState(() =>
+    getInitialRenderHtml({ messageId, sanitizedHtml }),
   );
   const { resolvedTheme } = useTheme();
   const isDarkMode = resolvedTheme === "dark";
@@ -75,13 +73,19 @@ export function HtmlEmail({
     let cancelled = false;
     const controller = new AbortController();
     const objectUrls: string[] = [];
-    setRenderHtml(
-      getPreparedEmailHtml({ messageId, sourceHtml: sanitizedHtml }) ??
-        sanitizedHtml,
-    );
+    setRenderHtml(getInitialRenderHtml({ messageId, sanitizedHtml }));
 
+    const preparedHtml = prepareSanitizedEmailHtml({
+      messageId,
+      sourceHtml: sanitizedHtml,
+    });
+    // Inline images download separately so a slow attachment doesn't hold
+    // back the body.
+    preparedHtml.then((html) => {
+      if (!cancelled) startTransition(() => setRenderHtml(html));
+    });
     Promise.all([
-      prepareSanitizedEmailHtml({ messageId, sourceHtml: sanitizedHtml }),
+      preparedHtml,
       loadInlineImageSources({
         emailAccountId,
         signal: controller.signal,
@@ -98,6 +102,7 @@ export function HtmlEmail({
           }
           return;
         }
+        if (!loadedObjectUrls.length) return;
         objectUrls.push(...loadedObjectUrls);
         startTransition(() =>
           setRenderHtml(rewriteInlineImageSources(rewrittenHtml, inlineImages)),
@@ -117,7 +122,7 @@ export function HtmlEmail({
   }, [emailAccountId, inlineImageIds, messageId, sanitizedHtml]);
 
   const { mainContent, quotedContent, hasQuotedContent } = useMemo(
-    () => splitEmailContent(renderHtml),
+    () => splitEmailContent(renderHtml ?? ""),
     [renderHtml],
   );
   const applyDarkTheme = shouldApplyDarkMailTheme(mainContent, isDarkMode);
@@ -164,6 +169,8 @@ export function HtmlEmail({
     onFocusMessage,
   };
 
+  if (renderHtml === null) return <div data-email-ready="false" />;
+
   return (
     <div className="relative min-w-0 overflow-x-hidden">
       <BufferedMailHtmlFrame
@@ -204,6 +211,19 @@ export function PlainEmail({ text }: { text: string }) {
   );
 
   return <MailPlainTextBody segments={segments} />;
+}
+
+// Showing the original html first would load remote images directly and then
+// reload them all through the proxy, so the body waits for the proxied html.
+function getInitialRenderHtml({
+  messageId,
+  sanitizedHtml,
+}: {
+  messageId: string;
+  sanitizedHtml: string;
+}) {
+  if (!IMAGE_PROXY_BASE_URL) return sanitizedHtml;
+  return getPreparedEmailHtml({ messageId, sourceHtml: sanitizedHtml }) ?? null;
 }
 
 async function loadInlineImageSources({

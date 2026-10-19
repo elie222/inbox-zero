@@ -173,6 +173,7 @@ model EmailAccount {
   role                           String? // the role confirmed by the user - previously `User.surveyRole`
   timezone                       String? // User's timezone (IANA tz database format, e.g., "America/Los_Angeles", "Asia/Jerusalem") - handles DST automatically
   calendarBookingLink            String? // User's calendar booking link
+  draftDocsUrls                  String[]  @default([]) // Public docs sites (origin + optional path prefix) that drafts may look things up in
 
   statsEmailFrequency       Frequency            @default(WEEKLY)
   summaryEmailFrequency     Frequency            @default(WEEKLY)
@@ -843,6 +844,7 @@ model ExecutedRule {
   @@index([emailAccountId, status, createdAt])
   @@index([emailAccountId, createdAt])
   @@index([emailAccountId, id])
+  @@index([emailAccountId, updatedAt, id])
   @@index([ruleId])
 }
 
@@ -2151,6 +2153,7 @@ enum MobilePushPlatform {
 enum MobilePushTokenType {
   EXPO @map("expo")
   APNS @map("apns")
+  FCM  @map("fcm")
 }
 
 enum ActionType {

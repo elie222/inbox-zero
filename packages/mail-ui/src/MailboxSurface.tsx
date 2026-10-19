@@ -32,7 +32,7 @@ export type MailboxThreadListProps<T> = {
   getKey: (item: T) => string;
   getGroupLabel?: (item: T) => string | null;
   renderItem: (input: MailboxThreadListRenderInput<T>) => ReactNode;
-  emptyMessage?: string;
+  emptyMessage?: ReactNode;
   selectionEnabled?: boolean;
   focusedIndex: number;
   isSelected: (key: string) => boolean;

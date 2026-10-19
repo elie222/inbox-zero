@@ -21,7 +21,6 @@ import { SentryIdentify } from "@/app/(app)/sentry-identify";
 import { AiAutomationStatusBanner } from "@/app/(app)/AiAutomationStatusBanner";
 import { ErrorMessages } from "@/app/(app)/ErrorMessages";
 import { DesktopMailIndicators } from "@/app/(app)/DesktopMailIndicators";
-import { DeploymentUpdateNotice } from "@/app/(app)/DeploymentUpdateNotice";
 import { ProviderRateLimitBanner } from "@/app/(app)/ProviderRateLimitBanner";
 import { MailEngineRuntime } from "@/utils/mail-engine/MailEngineHost";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -84,15 +83,16 @@ export default async function AppLayout({
     !bypassPremiumChecks || Boolean(process.env.FEEDBACK_WEBHOOK_URL);
 
   after(async () => {
-    const email = session.user.email;
+    const userId = session.user.id;
     try {
-      await prisma.user.update({
-        where: { email },
+      // updateMany: a cached session can briefly outlive a merged or deleted user.
+      await prisma.user.updateMany({
+        where: { id: userId },
         data: { lastLogin: new Date() },
       });
     } catch (error) {
-      logger.error("Failed to update last login", { email, error });
-      captureException(error, { userEmail: email });
+      logger.error("Failed to update last login", { userId, error });
+      captureException(error, { userId });
     }
   });
 
@@ -107,7 +107,6 @@ export default async function AppLayout({
               chatSidebarWidth={chatSidebarWidth}
             >
               <DesktopMailIndicators />
-              <DeploymentUpdateNotice />
               <AiAutomationStatusBanner />
               <ErrorMessages />
               <ProviderRateLimitBanner />

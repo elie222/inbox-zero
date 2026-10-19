@@ -48,6 +48,7 @@ import { assertRuleIsNotOrgManaged } from "@/utils/organizations/rules";
 import { env } from "@/env";
 import { ONE_WEEK_MINUTES } from "@/utils/date";
 import { createEmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/types";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
 import type { Logger } from "@/utils/logger";
 import { validateGmailLabelName } from "@/utils/gmail/label-validation";
@@ -319,6 +320,12 @@ export const createRulesOnboardingAction = actionClient
       });
       if (!emailAccount) throw new SafeError("User not found");
 
+      const emailProvider = await createEmailProvider({
+        emailAccountId,
+        provider,
+        logger,
+      });
+
       const promises: Promise<unknown>[] = [];
       const defaultSplitRulePromises: Array<
         ReturnType<typeof upsertSystemRule>
@@ -333,7 +340,7 @@ export const createRulesOnboardingAction = actionClient
         | "move_folder"
         | "move_folder_delayed" => value !== "none" && value !== undefined;
 
-      async function createSystemRuleForOnboarding(
+      function createSystemRuleForOnboarding(
         systemType: SystemType,
         userSelectedAction?: CategoryAction,
       ) {
@@ -344,13 +351,12 @@ export const createRulesOnboardingAction = actionClient
 
         const promise = (async () => {
           const actions = await getActionsFromCategoryAction({
-            emailAccountId,
             ruleName: name,
             categoryAction,
             label,
             hasDigest: false,
             draftReply: !!ruleConfiguration.draftReply,
-            provider,
+            emailProvider,
             logger,
             systemType,
           });
@@ -419,13 +425,12 @@ export const createRulesOnboardingAction = actionClient
       for (const customCategory of customCategories) {
         if (customCategory.action && isSet(customCategory.action)) {
           const actions = await getActionsFromCategoryAction({
-            emailAccountId,
             ruleName: customCategory.name,
             categoryAction: customCategory.action,
             label: customCategory.name,
             hasDigest: false,
             draftReply: false,
-            provider,
+            emailProvider,
             logger,
             systemType: undefined,
           });
@@ -842,32 +847,24 @@ async function resolveActionLabels<
 }
 
 async function getActionsFromCategoryAction({
-  emailAccountId,
   ruleName,
   categoryAction,
   label,
   draftReply,
   hasDigest,
-  provider,
+  emailProvider,
   logger,
   systemType,
 }: {
-  emailAccountId: string;
   ruleName: string;
   categoryAction: CategoryAction;
   label: string;
   hasDigest: boolean;
   draftReply: boolean;
-  provider: string;
+  emailProvider: EmailProvider;
   logger: Logger;
   systemType?: SystemType;
 }): Promise<RuleActionCreateData[]> {
-  const emailProvider = await createEmailProvider({
-    emailAccountId,
-    provider,
-    logger,
-  });
-
   function normalizeCategory(action: CategoryAction) {
     switch (action) {
       case "label_archive_delayed":

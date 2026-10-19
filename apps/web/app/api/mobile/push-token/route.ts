@@ -4,12 +4,19 @@ import {
   MobilePushPlatform,
   MobilePushTokenType,
 } from "@/generated/prisma/enums";
+import { FCM_REGISTRATION_TOKEN } from "@/utils/fcm";
 import { withAuth } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 
 const MOBILE_PUSH_PLATFORMS = {
   android: MobilePushPlatform.ANDROID,
   ios: MobilePushPlatform.IOS,
+} as const;
+
+const MOBILE_PUSH_TOKEN_TYPES = {
+  apns: MobilePushTokenType.APNS,
+  expo: MobilePushTokenType.EXPO,
+  fcm: MobilePushTokenType.FCM,
 } as const;
 
 const EXPO_PUSH_TOKEN = /^(?:Exponent|Expo)PushToken\[[A-Za-z0-9_-]+\]$/;
@@ -19,7 +26,7 @@ const pushTokenSchema = z
   .object({
     token: z.string().trim().min(1).max(4096),
     platform: z.enum(["android", "ios"]),
-    tokenType: z.enum(["expo", "apns"]).optional(),
+    tokenType: z.enum(["expo", "apns", "fcm"]).optional(),
     previousToken: z.string().trim().min(1).max(4096).optional(),
   })
   .superRefine((value, ctx) => {
@@ -57,6 +64,22 @@ const pushTokenSchema = z
         });
       }
     }
+    if (tokenType === "fcm") {
+      if (value.platform !== "android") {
+        ctx.addIssue({
+          code: "custom",
+          message: "FCM tokens are Android only",
+          path: ["platform"],
+        });
+      }
+      if (!FCM_REGISTRATION_TOKEN.test(value.token)) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Expected an FCM registration token",
+          path: ["token"],
+        });
+      }
+    }
   })
   .transform((value) => {
     const tokenType =
@@ -64,10 +87,7 @@ const pushTokenSchema = z
     return {
       token: value.token,
       platform: MOBILE_PUSH_PLATFORMS[value.platform],
-      tokenType:
-        tokenType === "apns"
-          ? MobilePushTokenType.APNS
-          : MobilePushTokenType.EXPO,
+      tokenType: MOBILE_PUSH_TOKEN_TYPES[tokenType],
       previousToken: value.previousToken,
     };
   });

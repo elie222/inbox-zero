@@ -98,6 +98,49 @@ describe("/api/mobile/push-token", () => {
     expect(prisma.mobilePushToken.upsert).not.toHaveBeenCalled();
   });
 
+  it("registers an Android FCM token, replacing the previous one", async () => {
+    const token = `dK3x9Q:APA91b${"Fz_x-9".repeat(24)}`;
+    const response = await POST(
+      request("POST", {
+        token,
+        platform: "android",
+        tokenType: "fcm",
+        previousToken: "old-fcm-token",
+      }),
+      {} as never,
+    );
+
+    expect(prisma.mobilePushToken.deleteMany).toHaveBeenCalledWith({
+      where: { token: "old-fcm-token", userId: "user-1" },
+    });
+    expect(prisma.mobilePushToken.upsert).toHaveBeenCalledWith({
+      where: { token },
+      create: {
+        token,
+        platform: MobilePushPlatform.ANDROID,
+        tokenType: MobilePushTokenType.FCM,
+        userId: "user-1",
+      },
+      update: {
+        platform: MobilePushPlatform.ANDROID,
+        tokenType: MobilePushTokenType.FCM,
+        userId: "user-1",
+      },
+    });
+    expect(response.status).toBe(200);
+  });
+
+  it.each([
+    { token: `dK3x9Q:APA91b${"Fz".repeat(40)}`, platform: "ios" },
+    { token: "not an fcm token", platform: "android" },
+  ])("rejects an invalid FCM registration %j", async (body) => {
+    await expect(
+      POST(request("POST", { ...body, tokenType: "fcm" }), {} as never),
+    ).rejects.toThrow();
+
+    expect(prisma.mobilePushToken.upsert).not.toHaveBeenCalled();
+  });
+
   it("only unregisters the authenticated user's token", async () => {
     const response = await DELETE(
       request("DELETE", { token: "ExpoPushToken[current-token]" }),

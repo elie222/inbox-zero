@@ -24,6 +24,7 @@ import { TeamSection } from "@/app/(app)/settings/TeamSection";
 import { BillingSection } from "@/app/(app)/[emailAccountId]/settings/BillingSection";
 import { CleanupDraftsSection } from "@/app/(app)/[emailAccountId]/settings/CleanupDraftsSection";
 import { SentMessageOpenTrackingSetting } from "@/app/(app)/[emailAccountId]/settings/SentMessageOpenTrackingSetting";
+import { SentWithSignatureSection } from "@/app/(app)/[emailAccountId]/settings/SentWithSignatureSection";
 import { useSlackNotifications } from "@/app/(app)/[emailAccountId]/settings/ConnectedAppsSection";
 import { DeleteSection } from "@/app/(app)/[emailAccountId]/settings/DeleteSection";
 import { ModelSection } from "@/app/(app)/[emailAccountId]/settings/ModelSection";
@@ -295,6 +296,7 @@ function EmailAccountSettingsCard({
       {expanded && (
         <>
           <SentMessageOpenTrackingSetting emailAccountId={emailAccount.id} />
+          <SentWithSignatureSection emailAccountId={emailAccount.id} />
           <OrgAnalyticsConsentSection emailAccountId={emailAccount.id} />
           <ToggleAllRulesSection emailAccountId={emailAccount.id} />
           <RuleImportExportSetting emailAccountId={emailAccount.id} />

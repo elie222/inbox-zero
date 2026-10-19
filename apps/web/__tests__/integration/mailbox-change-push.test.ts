@@ -12,6 +12,7 @@ import {
 } from "vitest";
 import { followMailboxSignal } from "../../../desktop/src/mail-engine/mailbox-signals";
 import { takeRecordedApnsSends } from "@/utils/apns";
+import { takeRecordedFcmSends } from "@/utils/fcm";
 import {
   createGmailTestHarness,
   createOutlookTestHarness,
@@ -24,6 +25,7 @@ const REDIS_URL = "redis://127.0.0.1:36379";
 const CONTAINER = "mailbox-change-push-redis";
 const DEVICE_A = "a".repeat(64);
 const DEVICE_B = "b".repeat(64);
+const ANDROID_DEVICE = `dK3x9Q:APA91b${"Fz_x-9".repeat(24)}`;
 const GMAIL_ACCOUNT = "account-gmail";
 const OUTLOOK_CREATED_ACCOUNT = "account-outlook-created";
 const OUTLOOK_MOVED_ACCOUNT = "account-outlook-moved";
@@ -33,6 +35,7 @@ const OUTLOOK_EMAIL = "outlook-push@example.com";
 const redisState = vi.hoisted(() => {
   process.env.REDIS_URL = "redis://127.0.0.1:36379";
   process.env.APNS_TRANSPORT = "fake";
+  process.env.FCM_TRANSPORT = "fake";
   process.env.GOOGLE_PUBSUB_VERIFICATION_TOKEN = "test-google-webhook-token";
   process.env.MICROSOFT_WEBHOOK_CLIENT_STATE = "mailbox-push-state";
   return {
@@ -88,7 +91,11 @@ vi.mock("@/utils/prisma", () => ({
     emailAccount: {
       findUnique: vi.fn(async () => ({
         user: {
-          mobilePushTokens: [{ token: DEVICE_A }, { token: DEVICE_B }],
+          mobilePushTokens: [
+            { token: DEVICE_A, tokenType: "APNS" },
+            { token: DEVICE_B, tokenType: "APNS" },
+            { token: ANDROID_DEVICE, tokenType: "FCM" },
+          ],
         },
       })),
     },
@@ -226,6 +233,7 @@ describe.skipIf(!process.env.RUN_INTEGRATION_TESTS)(
 
     beforeEach(async () => {
       takeRecordedApnsSends();
+      takeRecordedFcmSends();
       pendingAfter.tasks.length = 0;
       await redisState.client?.flushdb();
       accountLookup.getWebhookEmailAccount.mockImplementation(
@@ -267,6 +275,16 @@ describe.skipIf(!process.env.RUN_INTEGRATION_TESTS)(
         expect.objectContaining({ token: DEVICE_A, sandbox: true }),
         expect.objectContaining({ token: DEVICE_B, sandbox: true }),
       ]);
+      expect(takeRecordedFcmSends()).toEqual([
+        expect.objectContaining({
+          token: ANDROID_DEVICE,
+          message: {
+            token: ANDROID_DEVICE,
+            data: { emailAccountId: GMAIL_ACCOUNT, hint: "mailbox" },
+            android: { priority: "NORMAL" },
+          },
+        }),
+      ]);
 
       const repeat = await postGoogleWebhook(
         gmailWebhook(message.data.historyId),
@@ -279,6 +297,7 @@ describe.skipIf(!process.env.RUN_INTEGRATION_TESTS)(
         ),
       ).toBe(1);
       expect(takeRecordedApnsSends()).toEqual([]);
+      expect(takeRecordedFcmSends()).toEqual([]);
     });
 
     it("sends one silent push per device for an Outlook create and a move", async () => {

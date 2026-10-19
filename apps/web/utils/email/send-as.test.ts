@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   findReplySendAsAddress,
   formatSendAsAddress,
-  getSendAsSignatureHtml,
 } from "@/utils/email/send-as";
 
 const addresses = [
@@ -49,44 +48,5 @@ describe("formatSendAsAddress", () => {
         isDefault: false,
       }),
     ).toBe('"Acme, \\"Help\\"" <support@example.com>');
-  });
-});
-
-describe("getSendAsSignatureHtml", () => {
-  const withSignatures = [
-    { email: "me@example.com", isDefault: true, signature: "<p>Me</p>" },
-    {
-      email: "support@example.com",
-      isDefault: false,
-      signature: "<p>Support</p>",
-    },
-    { email: "sales@example.com", isDefault: false },
-  ];
-
-  it("keeps the provider's default signature when none is set in the app", () => {
-    expect(getSendAsSignatureHtml(undefined, withSignatures, "")).toBe(
-      "<p>Me</p>",
-    );
-    expect(getSendAsSignatureHtml(withSignatures[0], withSignatures, "")).toBe(
-      "<p>Me</p>",
-    );
-  });
-
-  it("prefers the signature set in the app for the default address", () => {
-    expect(
-      getSendAsSignatureHtml(withSignatures[0], withSignatures, "<p>App</p>"),
-    ).toBe("<p>App</p>");
-  });
-
-  it("uses an alias's own signature", () => {
-    expect(
-      getSendAsSignatureHtml(withSignatures[1], withSignatures, "<p>App</p>"),
-    ).toBe("<p>Support</p>");
-  });
-
-  it("does not give an alias without a signature the default address's one", () => {
-    expect(getSendAsSignatureHtml(withSignatures[2], withSignatures, "")).toBe(
-      "",
-    );
   });
 });

@@ -290,6 +290,10 @@ const parsedEnv = createEnv({
     // `fake` records sends in memory instead of contacting Apple. Emulator only.
     APNS_TRANSPORT: z.enum(["apns", "fake"]).optional(),
 
+    FCM_SERVICE_ACCOUNT_JSON: z.string().min(1).optional(),
+    FCM_PROJECT_ID: z.string().min(1).optional(),
+    FCM_TRANSPORT: z.enum(["fcm", "fake"]).optional(),
+
     TINYBIRD_TOKEN: z.string().optional(),
     TINYBIRD_DELETE_TOKEN: z.string().optional(),
     TINYBIRD_BASE_URL: z.string().default("https://api.us-east.tinybird.co/"),
@@ -358,6 +362,8 @@ const parsedEnv = createEnv({
       .optional(),
     // Whether users who haven't chosen get the decision model; otherwise opt-in
     DEFAULT_DECISION_MODEL_ENABLED: booleanString.optional().default(false),
+    // Also use the decision model for cold email detection; otherwise the LLM decides
+    DECISION_MODEL_COLD_EMAIL_ENABLED: booleanString.optional().default(false),
     TYPESAFE_API_KEY: z.string().optional(),
     IMAGE_PROXY_SIGNING_SECRET: z.string().min(16).optional(),
     // Set to true on the server that acts as the OAuth proxy (e.g., staging)

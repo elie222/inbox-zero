@@ -26,11 +26,7 @@ import {
   getColdEmailRule,
   isColdEmailRuleEnabled,
 } from "@/utils/cold-email/cold-email-rule";
-import {
-  checkColdEmailGuards,
-  checkColdEmailWithLlm,
-  isColdEmail,
-} from "@/utils/cold-email/is-cold-email";
+import { isColdEmail } from "@/utils/cold-email/is-cold-email";
 import { decisionModelChooseRule } from "@/utils/decision-model/choose-rule";
 import { getDecisionModelConfig } from "@/utils/decision-model/decision-model";
 import { checkSenderReplyHistory } from "@/utils/reply-tracker/check-sender-reply-history";
@@ -53,8 +49,6 @@ vi.mock("@/utils/cold-email/cold-email-rule", () => ({
 }));
 vi.mock("@/utils/cold-email/is-cold-email", () => ({
   isColdEmail: vi.fn(),
-  checkColdEmailGuards: vi.fn(),
-  checkColdEmailWithLlm: vi.fn(),
 }));
 vi.mock("@/utils/rule/classification-feedback", () => ({
   getClassificationFeedback: vi.fn().mockResolvedValue(null),
@@ -3088,7 +3082,6 @@ describe("findMatchingRules - decisionModel rule selection", () => {
       expect.objectContaining({
         decisionModel,
         rules: [expect.objectContaining({ id: "ai-rule" })],
-        coldEmailRule: null,
         classificationFeedback,
       }),
     );
@@ -3100,7 +3093,39 @@ describe("findMatchingRules - decisionModel rule selection", () => {
     expect(result.reasoning).toBe("Decision model reason");
   });
 
-  it("returns the cold email rule when the decisionModel picks Cold Email", async () => {
+  it("decides cold email with the LLM check before the decisionModel runs", async () => {
+    const coldEmailRule = getRule({
+      id: "cold-email-rule",
+      systemType: SystemType.COLD_EMAIL,
+    });
+    vi.mocked(getColdEmailRule).mockResolvedValue(coldEmailRule);
+    vi.mocked(isColdEmailRuleEnabled).mockReturnValue(true);
+    vi.mocked(isColdEmail).mockResolvedValue({
+      isColdEmail: true,
+      reason: "ai",
+      aiReason: "Unsolicited sales pitch",
+    });
+    vi.mocked(prisma.rule.findUniqueOrThrow).mockResolvedValue(coldEmailRule);
+
+    const result = await findMatchingRules({
+      rules: [coldEmailRule, getAiRule()],
+      message: getMessage(),
+      emailAccount: getEmailAccount(),
+      provider,
+      modelType: "default",
+      logger,
+    });
+
+    expect(isColdEmail).toHaveBeenCalledTimes(1);
+    expect(getDecisionModelConfig).not.toHaveBeenCalled();
+    expect(decisionModelChooseRule).not.toHaveBeenCalled();
+    expect(result.matches).toEqual([
+      { rule: coldEmailRule, matchReasons: [{ type: ConditionType.AI }] },
+    ]);
+    expect(result.reasoning).toBe("Unsolicited sales pitch");
+  });
+
+  it("asks the decisionModel only for the rule once the email is not cold", async () => {
     const coldEmailRule = getRule({
       id: "cold-email-rule",
       systemType: SystemType.COLD_EMAIL,
@@ -3108,11 +3133,14 @@ describe("findMatchingRules - decisionModel rule selection", () => {
     const aiRule = getAiRule();
     vi.mocked(getColdEmailRule).mockResolvedValue(coldEmailRule);
     vi.mocked(isColdEmailRuleEnabled).mockReturnValue(true);
-    vi.mocked(checkColdEmailGuards).mockResolvedValue(null);
-    vi.mocked(prisma.rule.findUniqueOrThrow).mockResolvedValue(coldEmailRule);
+    vi.mocked(isColdEmail).mockResolvedValue({
+      isColdEmail: false,
+      reason: "ai",
+    });
     vi.mocked(decisionModelChooseRule).mockResolvedValue({
-      type: "coldEmail",
-      reason: "Decision model cold",
+      type: "rules",
+      rules: [{ rule: aiRule, isPrimary: true }],
+      reason: "Decision model reason",
     });
 
     const result = await findMatchingRules({
@@ -3127,53 +3155,21 @@ describe("findMatchingRules - decisionModel rule selection", () => {
     expect(decisionModelChooseRule).toHaveBeenCalledWith(
       expect.objectContaining({
         rules: [expect.objectContaining({ id: "ai-rule" })],
-        coldEmailRule,
       }),
     );
-    expect(isColdEmail).not.toHaveBeenCalled();
     expect(result.matches).toEqual([
-      { rule: coldEmailRule, matchReasons: [{ type: ConditionType.AI }] },
+      { rule: aiRule, matchReasons: [{ type: ConditionType.AI }] },
     ]);
-    expect(result.reasoning).toBe("Decision model cold");
   });
 
-  it("returns the cold email rule from the guards without calling the decisionModel", async () => {
+  it("does not call the decisionModel when there are no candidates", async () => {
     const coldEmailRule = getRule({
       id: "cold-email-rule",
       systemType: SystemType.COLD_EMAIL,
     });
     vi.mocked(getColdEmailRule).mockResolvedValue(coldEmailRule);
     vi.mocked(isColdEmailRuleEnabled).mockReturnValue(true);
-    vi.mocked(checkColdEmailGuards).mockResolvedValue({
-      isColdEmail: true,
-      reason: "ai-already-labeled",
-    });
-    vi.mocked(prisma.rule.findUniqueOrThrow).mockResolvedValue(coldEmailRule);
-
-    const result = await findMatchingRules({
-      rules: [coldEmailRule, getAiRule()],
-      message: getMessage(),
-      emailAccount: getEmailAccount(),
-      provider,
-      modelType: "default",
-      logger,
-    });
-
-    expect(decisionModelChooseRule).not.toHaveBeenCalled();
-    expect(result.matches[0]?.rule.id).toBe("cold-email-rule");
-    expect(result.reasoning).toBe(
-      "The sender matches a learned pattern for this rule.",
-    );
-  });
-
-  it("does not call the decisionModel when there are no candidates and cold email is decided", async () => {
-    const coldEmailRule = getRule({
-      id: "cold-email-rule",
-      systemType: SystemType.COLD_EMAIL,
-    });
-    vi.mocked(getColdEmailRule).mockResolvedValue(coldEmailRule);
-    vi.mocked(isColdEmailRuleEnabled).mockReturnValue(true);
-    vi.mocked(checkColdEmailGuards).mockResolvedValue({
+    vi.mocked(isColdEmail).mockResolvedValue({
       isColdEmail: false,
       reason: "hasPreviousEmail",
     });
@@ -3210,20 +3206,12 @@ describe("findMatchingRules - decisionModel rule selection", () => {
     });
 
     expect(decisionModelChooseRule).not.toHaveBeenCalled();
-    expect(checkColdEmailGuards).not.toHaveBeenCalled();
     expect(aiChooseRule).toHaveBeenCalledTimes(1);
     expect(result.reasoning).toBe("LLM reason");
   });
 
-  it("lets the LLM choose the rule when the decision model is too close to call, without asking it about cold email again", async () => {
-    const coldEmailRule = getRule({
-      id: "cold-email-rule",
-      systemType: SystemType.COLD_EMAIL,
-    });
+  it("lets the LLM choose the rule when the decision model is too close to call", async () => {
     const aiRule = getAiRule();
-    vi.mocked(getColdEmailRule).mockResolvedValue(coldEmailRule);
-    vi.mocked(isColdEmailRuleEnabled).mockReturnValue(true);
-    vi.mocked(checkColdEmailGuards).mockResolvedValue(null);
     vi.mocked(decisionModelChooseRule).mockResolvedValue({
       type: "undecided",
       reason: "Decision model was too close to call (margin 0.02)",
@@ -3234,7 +3222,7 @@ describe("findMatchingRules - decisionModel rule selection", () => {
     });
 
     const result = await findMatchingRules({
-      rules: [coldEmailRule, aiRule],
+      rules: [aiRule],
       message: getMessage(),
       emailAccount: getEmailAccount(),
       provider,
@@ -3242,7 +3230,6 @@ describe("findMatchingRules - decisionModel rule selection", () => {
       logger,
     });
 
-    expect(checkColdEmailWithLlm).not.toHaveBeenCalled();
     expect(aiChooseRule).toHaveBeenCalledTimes(1);
     expect(result.matches).toEqual([
       { rule: aiRule, matchReasons: [{ type: ConditionType.AI }] },
@@ -3251,28 +3238,17 @@ describe("findMatchingRules - decisionModel rule selection", () => {
   });
 
   it("falls back to the LLM path when the decision model throws", async () => {
-    const coldEmailRule = getRule({
-      id: "cold-email-rule",
-      systemType: SystemType.COLD_EMAIL,
-    });
     const aiRule = getAiRule();
-    vi.mocked(getColdEmailRule).mockResolvedValue(coldEmailRule);
-    vi.mocked(isColdEmailRuleEnabled).mockReturnValue(true);
-    vi.mocked(checkColdEmailGuards).mockResolvedValue(null);
     vi.mocked(decisionModelChooseRule).mockRejectedValue(
       new Error("Decision model down"),
     );
-    vi.mocked(checkColdEmailWithLlm).mockResolvedValue({
-      isColdEmail: false,
-      reason: "ai",
-    });
     vi.mocked(aiChooseRule).mockResolvedValue({
       rules: [{ rule: aiRule }],
       reason: "LLM reason",
     });
 
     const result = await findMatchingRules({
-      rules: [coldEmailRule, aiRule],
+      rules: [aiRule],
       message: getMessage(),
       emailAccount: getEmailAccount(),
       provider,
@@ -3280,8 +3256,6 @@ describe("findMatchingRules - decisionModel rule selection", () => {
       logger,
     });
 
-    expect(checkColdEmailWithLlm).toHaveBeenCalledTimes(1);
-    expect(isColdEmail).not.toHaveBeenCalled();
     expect(aiChooseRule).toHaveBeenCalledTimes(1);
     expect(result.matches).toEqual([
       { rule: aiRule, matchReasons: [{ type: ConditionType.AI }] },
