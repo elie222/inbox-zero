@@ -232,9 +232,8 @@ function subscriptionOffers(): Offer[] {
     }),
     subscriptionOffer({
       name: `${tier.name} annual`,
-      price: tier.price.annually,
-      billingDuration: "P1M",
-      unitText: "month, billed annually",
+      price: tier.price.annually * 12,
+      billingDuration: "P1Y",
     }),
   ]);
 }
@@ -243,12 +242,10 @@ function subscriptionOffer({
   name,
   price,
   billingDuration,
-  unitText,
 }: {
   name: string;
   price: number;
   billingDuration: string;
-  unitText?: string;
 }): Offer {
   return {
     "@type": "Offer",
@@ -261,7 +258,6 @@ function subscriptionOffer({
       price,
       priceCurrency: "USD",
       billingDuration,
-      ...(unitText ? { unitText } : {}),
     },
   };
 }
