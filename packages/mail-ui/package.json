@@ -20,7 +20,9 @@
     "./MailReaderSurface": "./src/MailReaderSurface.tsx",
     "./sanitize-html": "./src/sanitize-html.ts",
     "./MailListToolbarSurface": "./src/MailListToolbarSurface.tsx",
-    "./MailAccountSwitcherTrigger": "./src/MailAccountSwitcherTrigger.tsx"
+    "./MailAccountSwitcherTrigger": "./src/MailAccountSwitcherTrigger.tsx",
+    "./image-preview": "./src/image-preview.ts",
+    "./inline-images": "./src/inline-images.ts"
   },
   "scripts": {
     "test": "vitest run",
@@ -29,15 +31,18 @@
   "dependencies": {
     "@inboxzero/mail-core": "workspace:*",
     "@inboxzero/mail-react": "workspace:*",
-    "dompurify": "3.4.15"
+    "dompurify": "3.4.15",
+    "utif2": "4.1.0"
   },
   "peerDependencies": {
     "react": ">=19",
     "react-dom": ">=19"
   },
   "devDependencies": {
+    "@types/node": "24.10.1",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",
+    "jsdom": "27.3.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "typescript": "6.0.3",

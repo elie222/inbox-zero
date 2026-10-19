@@ -18,6 +18,7 @@ export type MCPToolsResult = {
 
 export async function createMcpToolsForAgent(
   emailAccountId: string,
+  { reservedToolNames = [] }: { reservedToolNames?: string[] } = {},
 ): Promise<MCPToolsResult> {
   const logger = createScopedLogger("ai-mcp-tools").with({ emailAccountId });
 
@@ -115,6 +116,7 @@ export async function createMcpToolsForAgent(
 
     const allTools = mergeToolsWithConflictResolution(
       toolsByIntegration,
+      reservedToolNames,
       logger,
     );
 
@@ -145,6 +147,7 @@ export async function createMcpToolsForAgent(
  * Merges tools from multiple integrations, adding integration prefix only when there are naming conflicts.
  *
  * @param toolsByIntegration - Map of integration tools grouped by integration
+ * @param reservedToolNames - Names owned by non-MCP tools in the same tool set
  * @returns Merged tools with prefixes added only for conflicting names
  */
 function mergeToolsWithConflictResolution(
@@ -152,6 +155,7 @@ function mergeToolsWithConflictResolution(
     string,
     { toolPrefix: string; tools: Record<string, unknown> }
   >,
+  reservedToolNames: string[],
   logger: Logger,
 ): Record<string, unknown> {
   const allTools: Record<string, unknown> = {};
@@ -172,9 +176,9 @@ function mergeToolsWithConflictResolution(
     for (const [toolName, toolDef] of Object.entries(tools)) {
       const integrationsWithThisTool = toolNameToIntegrations.get(toolName)!;
 
-      // Only prefix if this tool name appears in multiple integrations
       const finalToolName =
-        integrationsWithThisTool.length > 1
+        integrationsWithThisTool.length > 1 ||
+        reservedToolNames.includes(toolName)
           ? `${toolPrefix}-${toolName}`
           : toolName;
 

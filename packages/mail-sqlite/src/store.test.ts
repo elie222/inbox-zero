@@ -101,6 +101,46 @@ describe("sqlite mail store", () => {
     await store.close();
   });
 
+  it("flags a conversation with attachments when any message has one", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const reply = messagePatch("m-reply", "c-attached", 2000, ["inbox"]);
+    reply.fields.hasAttachments = true;
+    await store.applySyncPage({
+      ownerId: "owner",
+      page: {
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "bootstrap",
+        from: { streamId: "primary", generation: "g1", checkpoint: null },
+        to: { streamId: "primary", generation: "g1", checkpoint: "1" },
+        changes: [
+          messagePatch("m-original", "c-attached", 1000, ["inbox"]),
+          reply,
+          messagePatch("m-plain", "c-plain", 500, ["inbox"]),
+        ],
+        requiredHydration: [],
+        roundComplete: true,
+      },
+    });
+
+    const { view } = await store.readMailboxView(inboxQuery);
+
+    expect(
+      view.conversations.map((row) => [
+        row.key.conversationId,
+        row.hasAttachments,
+      ]),
+    ).toEqual([
+      ["c-attached", true],
+      ["c-plain", false],
+    ]);
+    await store.close();
+  });
+
   it("keeps two inbox queries and counts aligned across archive, new mail, and reopen", async () => {
     const directory = await mkdtemp(join(tmpdir(), "mail-sqlite-"));
     const path = join(directory, "mailbox.sqlite");
@@ -844,6 +884,46 @@ describe("drafts, freeze, and uncertain settlement", () => {
     expect(operation.operation?.status).toBe("uncertain");
     await reopened.close();
     await rm(directory, { recursive: true, force: true });
+  });
+
+  it("sends from the draft's send-as address", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const saved = await store.saveDraft({
+      key: { accountId: "acc-1", draftId: "d-alias" },
+      expectedRevision: null,
+      content: {
+        from: "Support <support@example.com>",
+        to: ["ada@example.com"],
+        cc: [],
+        bcc: [],
+        subject: "Hi",
+        editableHtml: "<p>Hi</p>",
+        quotedHtml: "",
+      },
+    });
+    if (saved.status !== "saved") throw new Error("expected save");
+    await store.admitSend({
+      commandId: "send-alias",
+      draft: { accountId: "acc-1", draftId: "d-alias" },
+      draftRevision: saved.draftRevision,
+      replyTo: null,
+    });
+    const work = await store.claimWork({
+      ownerId: "owner",
+      nowMs: Date.now(),
+      leaseMs: 30_000,
+    });
+    if (work?.kind !== "command") throw new Error("expected command");
+    expect(work.operation.intent).toMatchObject({
+      kind: "send",
+      from: "Support <support@example.com>",
+    });
+    await store.close();
   });
 
   it("unfreezes a draft when a queued send is cancelled", async () => {
@@ -4610,6 +4690,10 @@ describe("outgoing sends in the conversation view", () => {
     expect(queued.messages.map((message) => message.key.messageId)).toEqual([
       "m1",
     ]);
+    const sendKey = { accountId: "acc-1", operationId: "send-1" };
+    expect((await store.readOperation(sendKey)).operation?.sentMessage).toBe(
+      null,
+    );
     expect(queued.outgoing).toEqual([
       {
         operationId: "send-1",
@@ -4626,6 +4710,9 @@ describe("outgoing sends in the conversation view", () => {
 
     await confirmSend(store, "sent-1");
 
+    expect((await store.readOperation(sendKey)).operation?.sentMessage).toEqual(
+      { messageId: "sent-1", conversationId: "c1" },
+    );
     const sent = await readThread(store);
     expect(sent.outgoing).toEqual([]);
     expect(

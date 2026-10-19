@@ -166,8 +166,12 @@ export function isRetryableError(errorInfo: ErrorInfo): {
       errorMessage,
     );
 
+  // Gmail is disabled for the account, so retrying only delays the failure.
+  const isMailServiceDisabled = /mail service not enabled/i.test(errorMessage);
+
   const isFailedPrecondition =
     !hasExistingPushClient &&
+    !isMailServiceDisabled &&
     status === 400 &&
     (String(reason).toLowerCase() === "failedprecondition" ||
       /precondition check failed/i.test(errorMessage));

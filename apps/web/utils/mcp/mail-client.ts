@@ -279,6 +279,7 @@ function serializeMail(
     replyTo: message.headers["reply-to"] ?? "",
     date: message.date,
     snippet: message.snippet,
+    html: includeBody ? message.textHtml || null : null,
     body: includeBody
       ? emailToContent(message, {
           maxLength: Number.MAX_SAFE_INTEGER,

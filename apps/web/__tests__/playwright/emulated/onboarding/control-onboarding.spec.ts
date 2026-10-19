@@ -1,6 +1,7 @@
 import { expect } from "@playwright/test";
 import { test } from "../playwright-test";
 import {
+  chooseSignupIntent,
   getPersistedOnboardingState,
   openControlOnboarding,
   resetOnboardingTestState,
@@ -18,7 +19,7 @@ test.afterEach(async () => {
 test("completes account setup and persists onboarding choices", async ({
   page,
 }, testInfo) => {
-  await openControlOnboarding(page);
+  const emailAccountId = await openControlOnboarding(page);
 
   await page.getByRole("button", { name: "Founder", exact: true }).click();
   await page.getByRole("button", { name: "Continue", exact: true }).click();
@@ -36,6 +37,13 @@ test("completes account setup and persists onboarding choices", async ({
   ).toBeVisible({ timeout: 60_000 });
 
   await page.getByRole("button", { name: "GitHub", exact: true }).click();
+  await chooseSignupIntent(page, "AI assistant");
+  await expect(
+    page.getByRole("heading", { name: "Your inbox, automatically sorted" }),
+  ).toBeVisible({ timeout: 60_000 });
+
+  // The feature tour depends on mailbox stats; jump to the setup steps.
+  await page.goto(`/${emailAccountId}/onboarding?step=labels`);
   await expect(
     page.getByRole("heading", {
       name: "How do you want your inbox organized?",

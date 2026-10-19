@@ -174,8 +174,15 @@ export function EmailMessage({
       getReplyDraftSessionId(draft.sessionMessageId, "reply") !==
         poppedOutDraftSessionId,
   );
-  const composingMailboxReply =
-    composeMode === "reply" && visibleDrafts.length > 0;
+  // A new reply's autosave can sync back as a mailbox draft before the thread
+  // knows the open composer saved it. Once open, the new reply keeps the
+  // editor instead of being swapped for that copy mid-sentence.
+  const [newReplyOpen, setNewReplyOpen] = useState(false);
+  const isNewReply =
+    composeMode === "reply" && (newReplyOpen || visibleDrafts.length === 0);
+  if (isNewReply !== newReplyOpen) setNewReplyOpen(isNewReply);
+  const shownDrafts = isNewReply ? [] : visibleDrafts;
+  const composingMailboxReply = composeMode === "reply" && !isNewReply;
   const isDraftRow = serverDrafts.some(
     (draft) => draft.message.id === message.id,
   );
@@ -375,10 +382,10 @@ export function EmailMessage({
 
           {message.attachments && <EmailAttachments message={message} />}
 
-          {visibleDrafts.map(({ message: draft, sessionMessageId }, index) => (
+          {shownDrafts.map(({ message: draft, sessionMessageId }, index) => (
             <ReplyPanel
               key={sessionMessageId}
-              autoScroll={!composeMode && index === visibleDrafts.length - 1}
+              autoScroll={!composeMode && index === shownDrafts.length - 1}
               draftBodyAvailable={!missingBodyIds?.has(draft.id)}
               draftMessage={draft}
               draftSessionMessageId={sessionMessageId}
@@ -515,7 +522,7 @@ function MessageHeader({
   const senderNameClassName = cn(
     "truncate text-sm",
     expanded
-      ? "max-w-40 shrink font-semibold text-foreground"
+      ? "min-w-0 font-semibold text-foreground"
       : "w-24 shrink-0 font-medium text-secondary-foreground sm:w-28",
   );
 
@@ -538,7 +545,7 @@ function MessageHeader({
           >
             {avatar}
             <span className={senderNameClassName}>{senderName}</span>
-            <span className="hidden min-w-0 truncate text-muted-foreground text-xs sm:block">
+            <span className="hidden min-w-0 shrink-[999] truncate text-muted-foreground text-xs sm:block">
               {recipientSummary(message.headers, userEmail)}
             </span>
             <span className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors group-hover/details:bg-muted group-hover/details:text-foreground">
@@ -853,6 +860,7 @@ const prepareReplyingToEmail = (
   return {
     // If following an email from yourself, use original recipients, otherwise reply to sender
     to: sentFromUser ? message.headers.to : message.headers.from,
+    fromHint: getFromHint(message),
     // If following an email from yourself, don't add "Re:" prefix
     subject: sentFromUser
       ? message.headers.subject
@@ -875,6 +883,7 @@ const prepareForwardingEmail = (
   unsent = false,
 ): ReplyingToEmail => ({
   to: "",
+  fromHint: getFromHint(message),
   subject: forwardEmailSubject(message.headers.subject),
   headerMessageId: undefined,
   threadId: message.threadId || undefined,
@@ -900,6 +909,7 @@ function prepareDraftReplyEmail(draft: ParsedMessage): ReplyingToEmail {
 
   return {
     to: draft.headers.to,
+    fromHint: draft.headers.from,
     subject: draft.headers.subject,
     headerMessageId: draft.headers["message-id"] || undefined,
     messageId: draft.id || undefined,
@@ -913,6 +923,13 @@ function prepareDraftReplyEmail(draft: ParsedMessage): ReplyingToEmail {
       draft.attachments?.length || draft.inline?.length,
     ),
   };
+}
+
+// Follow-ups to the user's own mail keep its sender; replies to received mail
+// go out from whichever of the user's addresses it was sent to.
+function getFromHint(message: ParsedMessage) {
+  if (message.labelIds?.includes("SENT")) return message.headers.from;
+  return [message.headers.to, message.headers.cc].filter(Boolean).join(", ");
 }
 
 function TranslationNotice({

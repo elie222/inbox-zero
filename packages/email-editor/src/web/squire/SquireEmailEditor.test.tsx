@@ -5,6 +5,7 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
 } from "@testing-library/react";
 import { createRef } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -214,6 +215,134 @@ describe("Squire email editor", () => {
     expect(handle().getValue().editableHtml).toBe(
       '<div>Bodyxxx<br></div><div data-smartmail="gmail_signature"><div><br></div><div>Sig</div></div>',
     );
+  });
+
+  it("replaces a collapsed signature and keeps the message", async () => {
+    const { handle, textbox } = await renderEditor({
+      initialHtml: "<div>Body</div>",
+      mode: "original",
+      preservedBlocks: [
+        { id: "signature", kind: "signature", html: "<div>Old</div>" },
+      ],
+    });
+
+    await act(async () => {
+      handle().replaceSignature("<div>New</div>");
+    });
+
+    expect(textbox().textContent).toBe("Body");
+    const value = handle().getValue();
+    expect(value.preservedBlockIds).not.toContain("signature");
+    expect(value.editableHtml).toBe(
+      '<div>Body</div><div data-smartmail="gmail_signature"><div><br></div><div>New</div></div>',
+    );
+  });
+
+  it("replaces a shown signature in place", async () => {
+    const { handle, textbox } = await renderEditor({
+      initialHtml: "<div>Body</div>",
+      mode: "original",
+      preservedBlocks: [
+        { id: "signature", kind: "signature", html: "<div>Old</div>" },
+      ],
+    });
+    fireEvent.click(await screen.findByRole("button", { name: /^Show/u }));
+
+    await act(async () => {
+      handle().replaceSignature("<div>New</div>");
+    });
+
+    expect(textbox().textContent).toContain("New");
+    expect(textbox().textContent).not.toContain("Old");
+    expect(
+      screen.getByRole("button", { name: "Remove signature" }),
+    ).toBeTruthy();
+  });
+
+  it("swaps in an image signature that shows proxied and sends its original URL", async () => {
+    const resolveRemoteImages = vi.fn(async (sources: string[]) =>
+      Object.fromEntries(
+        sources.map((source) => [
+          source,
+          `/api/image-proxy?u=${encodeURIComponent(source)}`,
+        ]),
+      ),
+    );
+    const { handle, textbox } = await renderEditor({
+      initialHtml: "<div>Body</div>",
+      mode: "original",
+      preservedBlocks: [
+        { id: "signature", kind: "signature", html: "<div>Old</div>" },
+      ],
+      resolveRemoteImages,
+    });
+    fireEvent.click(await screen.findByRole("button", { name: /^Show/u }));
+
+    await act(async () => {
+      handle().replaceSignature(SIGNATURE_FIXTURES.tableWithLogo);
+    });
+
+    const logo = textbox().querySelector("[data-smartmail] table img");
+    expect(logo?.getAttribute("src")).toBe(
+      "/api/image-proxy?u=https%3A%2F%2Fassets.example.com%2Flogo.png",
+    );
+    const { editableHtml } = handle().getValue();
+    expect(editableHtml).toContain('src="https://assets.example.com/logo.png"');
+    expect(editableHtml).toContain('alt="Example Company"');
+    expect(editableHtml).toContain("<table");
+    expect(editableHtml).not.toContain("image-proxy");
+    expect(editableHtml).not.toContain("data-original-src");
+    expect(editableHtml).not.toContain("Old");
+  });
+
+  it.each(
+    Object.entries(SIGNATURE_FIXTURES),
+  )("keeps a %s signature intact when swapped in while collapsed", async (_name, html) => {
+    const { handle, textbox } = await renderEditor({
+      initialHtml: "<div>Body</div>",
+      mode: "original",
+      preservedBlocks: [
+        { id: "signature", kind: "signature", html: "<div>Old</div>" },
+      ],
+    });
+
+    await act(async () => {
+      handle().replaceSignature(html);
+    });
+
+    expect(textbox().textContent).toBe("Body");
+    const sent = new DOMParser().parseFromString(
+      handle().getValue().editableHtml,
+      "text/html",
+    );
+    const signature = sent.querySelector("[data-smartmail]");
+    const expected = new DOMParser().parseFromString(html, "text/html").body;
+    expect(signature?.textContent?.replace(/\s+/gu, "")).toBe(
+      expected.textContent?.replace(/\s+/gu, ""),
+    );
+    expect(signature?.querySelectorAll("img").length).toBe(
+      expected.querySelectorAll("img").length,
+    );
+    expect(sent.body.textContent).not.toContain("Old");
+  });
+
+  it("adds a signature to a message without one and removes it again", async () => {
+    const { handle } = await renderEditor({
+      initialHtml: "<div>Body</div>",
+      mode: "original",
+    });
+
+    await act(async () => {
+      handle().replaceSignature("<div>New</div>");
+    });
+    expect(screen.getByRole("button", { name: "Show signature" })).toBeTruthy();
+    expect(handle().getValue().editableHtml).toContain("New");
+
+    await act(async () => {
+      handle().replaceSignature("");
+    });
+    expect(screen.queryByRole("button", { name: /signature/u })).toBeNull();
+    expect(handle().getValue().editableHtml).not.toContain("New");
   });
 
   it("keeps text typed below the signature below it when collapsed", async () => {
@@ -557,8 +686,12 @@ async function renderEditor(props: Partial<EmailEditorProps>) {
       {...props}
     />,
   );
-  // The Squire engine is loaded lazily.
-  await screen.findByRole("textbox", { name: "Email message" });
+  // The Squire engine is loaded lazily, and fills the textbox only once it
+  // attaches, which is when it makes the root editable.
+  const root = await screen.findByRole("textbox", { name: "Email message" });
+  await waitFor(() =>
+    expect(root.getAttribute("contenteditable")).toBe("true"),
+  );
   return {
     handle: () => {
       if (!ref.current) throw new Error("Editor handle is not ready");

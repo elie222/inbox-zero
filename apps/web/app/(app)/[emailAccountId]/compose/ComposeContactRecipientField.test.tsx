@@ -101,6 +101,28 @@ describe("compose contact suggestions", () => {
     ).toBeTruthy();
   });
 
+  it("turns a typed address into a recipient when the user moves on or types a separator", async () => {
+    env.NEXT_PUBLIC_CONTACTS_ENABLED = false;
+    render(<Harness />);
+    const input = screen.getByRole("combobox", { name: "To" });
+    fireEvent.change(input, { target: { value: "first@example.com" } });
+    fireEvent.blur(input);
+    expect(
+      await screen.findByRole("button", { name: "Remove first@example.com" }),
+    ).toBeTruthy();
+
+    fireEvent.change(input, { target: { value: "second@example.com" } });
+    fireEvent.keyDown(input, { key: "," });
+    expect(
+      await screen.findByRole("button", { name: "Remove second@example.com" }),
+    ).toBeTruthy();
+    expect((input as HTMLInputElement).value).toBe("");
+
+    fireEvent.change(input, { target: { value: "not-an-address" } });
+    fireEvent.blur(input);
+    expect((input as HTMLInputElement).value).toBe("not-an-address");
+  });
+
   it("keeps local suggestions available alongside the API reconnect-required prompt", async () => {
     env.NEXT_PUBLIC_CONTACTS_ENABLED = true;
     render(<Harness reconnectRequired />);

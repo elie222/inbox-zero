@@ -176,7 +176,7 @@ export function StepWho({
             <ScrollableFadeContainer
               ref={scrollContainerRef}
               className="grid gap-2 px-1 pt-6 pb-6"
-              fadeFromClass="from-slate-50"
+              fadeFromClass="from-slate-50 dark:from-background"
               height="h-[48svh] sm:h-[576px]"
             >
               {displayedRoles.map(({ value: roleName }) => {
@@ -224,7 +224,7 @@ export function StepWho({
                     setCustomRole(e.target.value),
                   autoFocus: true,
                 }}
-                className="w-full border-slate-300 focus:border-blue-600 focus:ring-blue-600 transition-all py-3 px-4 text-lg"
+                className="w-full border-slate-300 dark:border-border focus:border-blue-600 focus:ring-blue-600 transition-all py-3 px-4 text-lg"
               />
             </div>
           )}

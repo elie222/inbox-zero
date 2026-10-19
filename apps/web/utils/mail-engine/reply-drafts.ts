@@ -544,6 +544,7 @@ export async function restoreUnsentReplyDraft(input: {
   await createReplyDraftWriter(identity, current?.revision ?? 0).save({
     composeMode: "reply",
     values: {
+      ...(stored.content.from ? { from: stored.content.from } : {}),
       to: stored.content.to.join(", "),
       cc: stored.content.cc.join(", "),
       bcc: stored.content.bcc.join(", "),

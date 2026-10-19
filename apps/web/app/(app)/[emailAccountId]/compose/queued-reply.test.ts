@@ -261,6 +261,30 @@ describe("queueReaderEmail", () => {
     expect(handle.close).toHaveBeenCalledOnce();
   });
 
+  it("reports where the sent copy landed", async () => {
+    const handle = createHandle({ status: "executing" });
+    const client = createClient({ handle });
+    const pending = queueReaderEmail({
+      client,
+      email: createEmail(),
+      emailAccountId: "account",
+      messageIds: [],
+      online: true,
+      settlementTimeoutMs: 1000,
+      threadId: "local-compose-id",
+    });
+    await vi.waitFor(() => expect(handle.subscribe).toHaveBeenCalled());
+    handle.set({
+      status: "succeeded",
+      sentMessage: { messageId: "sent-1", conversationId: "thread-1" },
+    });
+    await expect(pending).resolves.toEqual({
+      messageId: "sent-1",
+      status: "sent",
+      threadId: "thread-1",
+    });
+  });
+
   it("does not turn an uncertain delivery into an automatic retry", async () => {
     const client = createClient({
       handle: createHandle({ status: "uncertain" }),

@@ -10,6 +10,7 @@ export function sendEmailToDraftContent(
   attachments: ComposeAttachmentReference[] = [],
 ): DraftContent {
   return {
+    ...(email.from ? { from: email.from } : {}),
     to: splitRecipientList(email.to).slice(0, 100),
     cc: splitRecipientList(email.cc ?? "").slice(0, 100),
     bcc: splitRecipientList(email.bcc ?? "").slice(0, 100),

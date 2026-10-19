@@ -184,7 +184,7 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
   const hasMore = suggestions.length > previewSenders.length;
 
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center bg-slate-50 px-4 py-10">
+    <div className="flex min-h-svh flex-col items-center justify-center bg-slate-50 dark:bg-background px-4 py-10">
       <div className="w-full max-w-xl">
         <div className="mb-6 text-center">
           <PageHeading className="mb-3">
@@ -199,9 +199,9 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
 
         <section
           aria-label="Senders you rarely read"
-          className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+          className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm"
         >
-          <ul className="divide-y divide-slate-100 py-1.5">
+          <ul className="divide-y divide-slate-100 dark:divide-border py-1.5">
             {previewSenders.map((item) => (
               <UnsubscribeSuggestionRow
                 key={item.name}
@@ -259,15 +259,15 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
 
 function LoadingBulkUnsubscribeStep() {
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center bg-slate-50 px-4 py-10">
+    <div className="flex min-h-svh flex-col items-center justify-center bg-slate-50 dark:bg-background px-4 py-10">
       <output className="w-full max-w-xl" aria-label="Loading senders">
         <div className="mb-6 flex flex-col items-center">
           <Skeleton className="mb-3 h-8 w-80 max-w-full" />
           <Skeleton className="h-5 w-96 max-w-full" />
         </div>
 
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <ul className="divide-y divide-slate-100 py-1.5">
+        <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+          <ul className="divide-y divide-slate-100 dark:divide-border py-1.5">
             {SKELETON_ROW_KEYS.map((key) => (
               <li key={key} className="flex items-center gap-3 px-4 py-2.5">
                 <Skeleton className="size-5 shrink-0 rounded-md" />
@@ -292,7 +292,7 @@ function LoadingBulkUnsubscribeStep() {
 
 function StaticBulkUnsubscribeStep({ onNext }: { onNext: () => void }) {
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center bg-slate-50 px-4 py-8">
+    <div className="flex min-h-svh flex-col items-center justify-center bg-slate-50 dark:bg-background px-4 py-8">
       <div className="flex flex-col items-center text-center max-w-md">
         <div className="mb-6 h-[240px] flex items-end justify-center">
           <BulkUnsubscribeIllustration />

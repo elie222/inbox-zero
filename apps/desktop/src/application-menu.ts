@@ -5,6 +5,7 @@ const PRODUCT_NAME = "Inbox Zero";
 export function configureDesktopApplicationMenu({
   checkForUpdates,
   createWindow,
+  openSettings,
   recordDiagnostics,
   updateReady = false,
   downloadPercent = null,
@@ -12,6 +13,7 @@ export function configureDesktopApplicationMenu({
 }: {
   checkForUpdates: () => void;
   createWindow: () => void;
+  openSettings: () => void;
   recordDiagnostics: () => void;
   updateReady?: boolean;
   downloadPercent?: number | null;
@@ -25,6 +27,11 @@ export function configureDesktopApplicationMenu({
   const checkForUpdatesItem: MenuItemConstructorOptions = {
     label: updateMenuLabel(updateReady, downloadPercent),
     click: checkForUpdates,
+  };
+  const settingsItem: MenuItemConstructorOptions = {
+    label: "Settings…",
+    accelerator: "CommandOrControl+,",
+    click: openSettings,
   };
   const recordDiagnosticsItem: MenuItemConstructorOptions = {
     label: "Record Diagnostics…",
@@ -52,6 +59,8 @@ export function configureDesktopApplicationMenu({
               { type: "separator" },
               checkForUpdatesItem,
               { type: "separator" },
+              settingsItem,
+              { type: "separator" },
               { role: "services" },
               { type: "separator" },
               { label: `Hide ${PRODUCT_NAME}`, role: "hide" },
@@ -74,7 +83,12 @@ export function configureDesktopApplicationMenu({
         { role: "close" },
         ...(platform === "darwin"
           ? []
-          : [{ type: "separator" as const }, { role: "quit" as const }]),
+          : [
+              { type: "separator" as const },
+              settingsItem,
+              { type: "separator" as const },
+              { role: "quit" as const },
+            ]),
       ],
     },
     { role: "editMenu" },

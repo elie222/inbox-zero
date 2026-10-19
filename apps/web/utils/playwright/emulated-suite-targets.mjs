@@ -52,6 +52,7 @@ const featureGroups = [
       "mail/compose-and-reply.spec.ts",
       "mail/contact-autocomplete.spec.ts",
       "mail/calendar-invitation.spec.ts",
+      "mail/send-as.spec.ts",
     ],
   },
   {

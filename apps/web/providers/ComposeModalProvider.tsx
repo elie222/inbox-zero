@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/utils";
+import { useCloseComposeOnMailExit } from "./useCloseComposeOnMailExit";
 
 export type PoppedOutReply = {
   emailAccountId: string;
@@ -65,8 +66,9 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
     poppedOutReply?.emailAccountId === emailAccountId
       ? poppedOutReply
       : undefined;
+  const isMailView = pathname.endsWith("/mail");
   const isAllAccountsMailView =
-    pathname.endsWith("/mail") && searchParams.get("accountScope") === "all";
+    isMailView && searchParams.get("accountScope") === "all";
   const { data: accountsData } = useAccounts(isAllAccountsMailView);
   const isOpen = isModalOpen && (!poppedOutReply || Boolean(reply));
   const returnOpenReply = useCallback(() => {
@@ -132,6 +134,7 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
     }),
     [openCompose, popOutReply, isOpen, reply?.draftSessionId],
   );
+  useCloseComposeOnMailExit({ isMailView, closeCompose });
 
   return (
     <ComposeModalContext.Provider value={contextValue}>

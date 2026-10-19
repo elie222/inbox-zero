@@ -28,6 +28,7 @@ describe("desktop application menu", () => {
     configureDesktopApplicationMenu({
       checkForUpdates,
       createWindow: vi.fn(),
+      openSettings: vi.fn(),
       recordDiagnostics: vi.fn(),
       platform: "win32",
     });
@@ -56,6 +57,7 @@ describe("desktop application menu", () => {
     configureDesktopApplicationMenu({
       checkForUpdates: vi.fn(),
       createWindow,
+      openSettings: vi.fn(),
       recordDiagnostics: vi.fn(),
       platform: "darwin",
     });
@@ -75,6 +77,7 @@ describe("desktop application menu", () => {
     configureDesktopApplicationMenu({
       checkForUpdates,
       createWindow: vi.fn(),
+      openSettings: vi.fn(),
       recordDiagnostics: vi.fn(),
       updateReady: true,
       platform: "darwin",
@@ -92,6 +95,7 @@ describe("desktop application menu", () => {
     configureDesktopApplicationMenu({
       checkForUpdates: vi.fn(),
       createWindow: vi.fn(),
+      openSettings: vi.fn(),
       recordDiagnostics: vi.fn(),
       downloadPercent: 42,
       platform: "darwin",
@@ -114,6 +118,7 @@ describe("desktop application menu", () => {
     configureDesktopApplicationMenu({
       checkForUpdates: vi.fn(),
       createWindow: vi.fn(),
+      openSettings: vi.fn(),
       recordDiagnostics,
       platform,
     });
@@ -124,5 +129,30 @@ describe("desktop application menu", () => {
     const submenu = help?.submenu as MenuItemConstructorOptions[];
     const record = submenu.find((item) => item.label === "Record Diagnostics…");
     expect(record?.click).toBe(recordDiagnostics);
+  });
+
+  it.each([
+    { platform: "darwin", menu: "Inbox Zero" },
+    { platform: "win32", menu: "File" },
+  ] as const)("offers Settings with Cmd/Ctrl+, in the $menu menu on $platform", ({
+    platform,
+    menu,
+  }) => {
+    const openSettings = vi.fn();
+    configureDesktopApplicationMenu({
+      checkForUpdates: vi.fn(),
+      createWindow: vi.fn(),
+      openSettings,
+      recordDiagnostics: vi.fn(),
+      platform,
+    });
+
+    const template: MenuItemConstructorOptions[] =
+      Menu.buildFromTemplate.mock.results[0].value;
+    const parent = template.find((item) => item.label === menu);
+    const submenu = parent?.submenu as MenuItemConstructorOptions[];
+    const settings = submenu.find((item) => item.label === "Settings…");
+    expect(settings?.accelerator).toBe("CommandOrControl+,");
+    expect(settings?.click).toBe(openSettings);
   });
 });

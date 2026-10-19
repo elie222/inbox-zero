@@ -58,15 +58,14 @@ export function BufferedThreadReader({
     const timeout = setTimeout(commit, Math.max(0, remaining));
     if (!dataReady) return () => clearTimeout(timeout);
     const reveal = () => {
-      const iframes = pendingRef.current?.querySelectorAll("iframe");
+      const bodies =
+        pendingRef.current?.querySelectorAll<HTMLElement>("[data-email-ready]");
       // React committing the message does not mean its srcDoc has been parsed
       // and measured. Keep the complete previous reader until both are ready.
       if (
         performance.now() < expiresAt &&
-        iframes &&
-        Array.from(iframes).some(
-          (iframe) => iframe.dataset.emailReady !== "true",
-        )
+        bodies &&
+        Array.from(bodies).some((body) => body.dataset.emailReady !== "true")
       ) {
         frame = requestAnimationFrame(reveal);
         return;

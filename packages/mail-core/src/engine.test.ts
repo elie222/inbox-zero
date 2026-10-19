@@ -70,6 +70,62 @@ describe("mail engine mailbox windows", () => {
   });
 });
 
+describe("mail engine command admission", () => {
+  it("answers a command once a view refresh covers it, even while more refreshes keep arriving", async () => {
+    const reads: Array<() => void> = [];
+    const store = {
+      readMailboxView: () =>
+        new Promise((resolve) => {
+          reads.push(() =>
+            resolve({
+              revision: { databaseEpoch: "test", sequence: reads.length },
+              view: { conversations: [] },
+            }),
+          );
+        }),
+      enqueueSearch: async () => ({ databaseEpoch: "test", sequence: 0 }),
+      admitConversations: async (command: { commandId: string }) => ({
+        status: "queued",
+        operation: { accountId: "acc-1", operationId: command.commandId },
+        revision: { databaseEpoch: "test", sequence: 1 },
+      }),
+      close: async () => {},
+    } as unknown as MailStore;
+    const engine = createMailEngine({
+      store,
+      source: idleSource(),
+      executor: idleExecutor(),
+      runtime: createHostRuntime(),
+    });
+    engine.observeMailbox(inboxQuery());
+    await waitUntil(() => reads.length === 1);
+    reads[0]();
+
+    let archived = false;
+    const archive = engine
+      .submitConversations(archiveCommand("archive"))
+      .then(() => {
+        archived = true;
+      });
+    await waitUntil(() => reads.length === 2);
+    // Sync, other windows, and the engine loop request refreshes all the time.
+    let laterAdmitted = false;
+    const later = engine
+      .submitConversations(archiveCommand("later"))
+      .then(() => {
+        laterAdmitted = true;
+      });
+    reads[1]();
+
+    await waitUntil(() => archived);
+    expect(laterAdmitted).toBe(false);
+    await waitUntil(() => reads.length === 3);
+    reads[2]();
+    await Promise.all([archive, later]);
+    await engine.close();
+  });
+});
+
 describe("mail engine idle catch-up scheduling", () => {
   it("emits committed incremental pages, excluding stale results", async () => {
     const onSyncPageCommitted = vi.fn();
@@ -530,6 +586,7 @@ function mailboxWindowStore(requestedPageCounts: number[]): MailStore {
               latestMessageAtMs: pageCount,
               unread: false,
               starred: false,
+              hasAttachments: false,
               labelIds: [],
               roles: ["inbox"],
               pendingOperationIds: [],
@@ -559,6 +616,24 @@ async function waitForReady(handle: QueryHandle<unknown>) {
     await new Promise((resolve) => setTimeout(resolve, 0));
   }
   throw new Error("mailbox window did not become ready");
+}
+
+async function waitUntil(condition: () => boolean) {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    if (condition()) return;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  throw new Error("condition was not met");
+}
+
+function archiveCommand(commandId: string) {
+  return {
+    accountId: "acc-1",
+    commandId,
+    conversations: [{ accountId: "acc-1", conversationId: commandId }],
+    change: { kind: "archive" as const },
+    observedRevision: { databaseEpoch: "test", sequence: 1 },
+  };
 }
 
 function idleSource(): MailboxSource {

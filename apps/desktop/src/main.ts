@@ -25,6 +25,7 @@ import {
   installDesktopLoadRecovery,
 } from "./load-recovery";
 import { configureDesktopApplicationMenu } from "./application-menu";
+import { installDesktopContextMenu } from "./context-menu";
 import { recordDesktopDiagnostics } from "./diagnostics";
 import {
   checkForDesktopUpdatesManually,
@@ -57,6 +58,7 @@ import {
 import { createMailNotifier } from "./mail-notifications";
 import { captureDesktopError, initDesktopSentry } from "./sentry";
 import { startEventLoopDelayMonitor } from "./health";
+import { readDesktopAttachment } from "./mail-engine/attachment";
 import { registerMailEnginePushIpc } from "./mail-engine/push-ipc";
 import {
   createDesktopMailProcessOwner,
@@ -139,7 +141,7 @@ function startDesktopApp() {
     if (typeof count !== "number" || !Number.isSafeInteger(count) || count < 0)
       return;
     unreadByContents.set(event.sender.id, count);
-    setUnreadBadge(Math.max(0, ...unreadByContents.values()));
+    applyUnreadBadge();
   });
   ipcMain.handle("desktop:open-window", (event, path: unknown) => {
     if (!isTrustedDesktopEvent(event)) return;
@@ -153,6 +155,15 @@ function startDesktopApp() {
   ipcMain.handle("mail-engine", (event, payload: unknown) => {
     if (!isTrustedDesktopEvent(event)) return { status: "invalid" };
     return getDesktopMailOwner().handleIpc(payload);
+  });
+  ipcMain.handle("desktop:read-attachment", (event, payload: unknown) => {
+    if (!isTrustedDesktopEvent(event))
+      throw new Error("Untrusted attachment request");
+    return readDesktopAttachment({
+      payload,
+      origin: appOrigin,
+      fetch: (url, init) => event.sender.session.fetch(url, init),
+    });
   });
   registerMailEnginePushIpc({
     ipcMain,
@@ -263,6 +274,9 @@ function startDesktopApp() {
           }).catch(logDesktopUpdateError);
         },
         createWindow: () => createAppWindow(),
+        openSettings: () => {
+          focusAppWindow().webContents.send("desktop:open-settings");
+        },
         recordDiagnostics: () => {
           recordDesktopDiagnostics({
             getMailOwner: () => desktopMailOwner,
@@ -390,6 +404,7 @@ function createAppWindow(options?: {
   const contentsId = window.webContents.id;
   windows.push(window);
   lastFocused = window;
+  applyUnreadBadge();
   rememberWindowUrl(window, startUrl);
   if (options?.isMaximized) window.maximize();
 
@@ -398,6 +413,7 @@ function createAppWindow(options?: {
   });
   window.on("focus", () => {
     lastFocused = window;
+    applyUnreadBadge();
     syncUpdateProgressBar();
   });
   window.on("blur", () => {
@@ -423,13 +439,18 @@ function createAppWindow(options?: {
     if (index !== -1) windows.splice(index, 1);
     unreadByContents.delete(contentsId);
     loadRecoveryByContents.delete(contentsId);
-    applyUnreadBadge();
     if (lastFocused === window) lastFocused = windows.at(-1) ?? null;
+    applyUnreadBadge();
     if (!isQuitting && windows.length > 0) persistWindowsNow();
   });
 
   applyNavigationPolicy(window.webContents);
   applyDesktopWindowDragRegion(window.webContents);
+  installDesktopContextMenu(window.webContents, {
+    openExternal: (url) => {
+      openExternal(url).catch(() => {});
+    },
+  });
   window.webContents.on("did-navigate", (_event, url) => {
     rememberWindowUrl(window, url);
   });
@@ -553,7 +574,11 @@ function isTrustedDesktopEvent(event: IpcMainEvent | IpcMainInvokeEvent) {
 }
 
 function applyUnreadBadge() {
-  setUnreadBadge(Math.max(0, ...unreadByContents.values()));
+  const count =
+    lastFocused && !lastFocused.isDestroyed()
+      ? (unreadByContents.get(lastFocused.webContents.id) ?? 0)
+      : 0;
+  setUnreadBadge(count);
 }
 
 function setUnreadBadge(count: number) {
