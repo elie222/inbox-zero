@@ -195,7 +195,7 @@ export function DeleteSection() {
               ) : (
                 <AlertDialogAction
                   className={buttonVariants({ variant: "destructive" })}
-                  disabled={!accountsData}
+                  disabled={!accountsData || Boolean(accountsError)}
                   onClick={handleDeleteAccount}
                 >
                   Delete account
