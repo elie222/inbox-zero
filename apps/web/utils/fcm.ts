@@ -8,7 +8,7 @@ const DEFAULT_TOKEN_URI = "https://oauth2.googleapis.com/token";
 const FCM_REQUEST_TIMEOUT_MS = 10_000;
 const DEFAULT_ALERT_CHANNEL_ID = "mail";
 
-export const FCM_REGISTRATION_TOKEN = /^[A-Za-z0-9_:-]{32,4096}$/;
+export const FCM_REGISTRATION_TOKEN = /^\S{1,4096}$/;
 
 export type FcmAlert = {
   title: string;

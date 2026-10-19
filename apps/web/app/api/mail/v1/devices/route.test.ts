@@ -98,7 +98,7 @@ describe("/api/mail/v1/devices", () => {
     await expect(
       POST(
         request("POST", {
-          token: "ExponentPushToken[abc]",
+          token: "not an fcm token",
           platform: "android",
         }),
         {} as never,
