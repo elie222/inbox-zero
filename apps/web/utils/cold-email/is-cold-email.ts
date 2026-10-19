@@ -48,8 +48,7 @@ type ColdEmailGuardsInput = {
 
 /**
  * Runs the deterministic cold-email checks (whitelist, same org, learned
- * patterns, prior contact). Returns null when only the AI check remains, so a
- * caller can run that check itself.
+ * patterns, prior contact). Returns null when only the AI check remains.
  */
 export async function checkColdEmailGuards({
   email,
@@ -154,25 +153,18 @@ export async function isColdEmail({
 
   if (guardResult) return guardResult;
 
-  return checkColdEmailWithAi({
-    email,
-    emailAccount,
-    coldEmailRule,
-    modelType,
-    logger,
-  });
-}
+  // Off by default: a false "cold" archives a real email, and in evals the
+  // decision model could not separate personalized pitches from legitimate outreach.
+  if (!env.DECISION_MODEL_COLD_EMAIL_ENABLED) {
+    return checkColdEmailWithLlm({
+      email,
+      emailAccount,
+      coldEmailRule,
+      modelType,
+      logger,
+    });
+  }
 
-/** The AI step of `isColdEmail`, for callers that already ran the guards. */
-export async function checkColdEmailWithAi({
-  email,
-  emailAccount,
-  coldEmailRule,
-  modelType,
-  logger,
-}: Omit<ColdEmailGuardsInput, "provider"> & {
-  modelType?: ModelType;
-}): Promise<ColdEmailResult> {
   return runDecisionModelOrFallback({
     emailAccount,
     logger,

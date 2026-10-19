@@ -83,6 +83,7 @@ describe("MCP mail client tools", () => {
     );
     expect(result.nextPageToken).toBe("next");
     expect(result.threads[0].messages[0].body).toBe("");
+    expect(result.threads[0].messages[0].html).toBeNull();
     expect(getThreadsWithQuery).toHaveBeenCalledWith(
       expect.objectContaining({
         query: { type: "sent" },
@@ -254,6 +255,26 @@ describe("MCP mail client tools", () => {
     await saveMailDraftForMcp("user", editor, logger);
     await browseMailForMcp("user", args, logger);
     expect(getLabels).toHaveBeenCalledTimes(3);
+  });
+  it("preserves HTML for the reader while retaining plain text for editing", async () => {
+    const html =
+      '<h2>Weekly update</h2><p>Read <a href="https://example.com/post?token=tracking">the article</a>.</p>';
+    const message = getMockMessage({
+      id: "html-message",
+      threadId: "html-thread",
+      textHtml: html,
+      textPlain: "Weekly update\nRead the article.",
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      getThread: vi.fn().mockResolvedValue({ messages: [message] }),
+    } as never);
+    const result = await readMailForMcp(
+      "user",
+      { emailAccountId: account.id, threadId: "html-thread" },
+      logger,
+    );
+    expect(result.messages[0].html).toBe(html);
+    expect(result.messages[0].body).toContain("Read the article");
   });
   it("resolves provider draft IDs instead of treating message IDs as drafts", async () => {
     const mail = getMockMessage({

@@ -25,35 +25,20 @@ export const NINETY_DAYS_MINUTES = ONE_DAY_MINUTES * 90;
 /**
  * Formats a date into a short string.
  * - If the date is today, returns the time (e.g., "3:44 PM").
- * - If the date is not today, returns the date (e.g., "JUL 5" or "AUG 13").
- * - Optionally includes the year (e.g., "JUL 5, 2024").
+ * - If the date is this year, returns the date (e.g., "JUL 5").
+ * - Otherwise includes the year (e.g., "JUL 5, 2024").
  * - Optionally returns the date part in lowercase (e.g., "jul 5").
  */
 export function formatShortDate(
   date: Date,
-  options: {
-    includeYear?: boolean;
-    lowercase?: boolean;
-  } = {
-    includeYear: false,
-    lowercase: false,
-  },
+  options: { lowercase?: boolean } = {},
 ) {
-  // if date is today, return the time. e.g. 12:30pm
-  // if date is before today then return the date. eg JUL 5th or AUG 13th
+  const now = new Date();
 
-  const today = new Date();
+  if (isSameDay(date, now)) return shortDateFormatter("time").format(date);
 
-  const isToday =
-    date.getDate() === today.getDate() &&
-    date.getMonth() === today.getMonth() &&
-    date.getFullYear() === today.getFullYear();
-
-  if (isToday) {
-    return shortDateFormatter("time").format(date);
-  }
   const formattedDate = shortDateFormatter(
-    options.includeYear ? "dateWithYear" : "date",
+    isSameYear(date, now) ? "date" : "dateWithYear",
   ).format(date);
 
   return options.lowercase ? formattedDate : formattedDate.toUpperCase();

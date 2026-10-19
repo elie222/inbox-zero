@@ -1,3 +1,4 @@
+import type { MailClient } from "@inboxzero/mail-core/engine";
 import { createMailIpcClient } from "@inboxzero/mail-core/protocol/mail-ipc-client";
 import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
 import {
@@ -36,4 +37,15 @@ export function createDesktopIpcMailClient(input?: {
       originalRequestSync(accountIds),
     );
   return client;
+}
+
+export async function startDesktopIpcMailClient(input: {
+  provider: "google" | "microsoft";
+  accountId: string;
+  publish: (client: MailClient) => Promise<void>;
+  onSyncError: (error: unknown) => void;
+}) {
+  const client = createDesktopIpcMailClient({ provider: input.provider });
+  await input.publish(client);
+  client.requestSync([input.accountId]).catch(input.onSyncError);
 }

@@ -21,7 +21,7 @@ import {
   getInlineImageContentIds,
   normalizeContentId,
   rewriteInlineImageSources,
-} from "@/utils/email/inline-images";
+} from "@inboxzero/mail-ui/inline-images";
 import { linkifyPlainText } from "@/utils/email/linkify-plain-text";
 import { splitEmailContent } from "@/utils/email/split-email-content.client";
 import {
@@ -29,7 +29,7 @@ import {
   getAttachmentUrl,
 } from "@/utils/attachments/download";
 import { queueAttachmentDownload } from "@/utils/attachments/download-queue";
-import { getAttachmentImagePreview } from "@/utils/attachments/image-preview";
+import { getAttachmentImagePreview } from "@inboxzero/mail-ui/image-preview";
 
 const NO_INLINE_ATTACHMENTS: ParsedMessage["inline"] = [];
 const INLINE_IMAGE_MAX_BYTES = 25 * 1024 * 1024;
@@ -54,11 +54,17 @@ export function HtmlEmail({
   onFocusMessage?: () => void;
 }) {
   const sanitizedHtml = useMemo(() => sanitizeEmailHtml(html), [html]);
+  // Message objects are rebuilt whenever the conversation republishes, so the
+  // effect keys on the attachments' identity rather than the array or its
+  // order. Re-running it would mint new object URLs and remount the frame
+  // without its images.
+  const inlineImageIds = useMemo(
+    () => serializeInlineImageIds(inlineAttachments),
+    [inlineAttachments],
+  );
   const [showReplies, setShowReplies] = useState(false);
-  const [renderHtml, setRenderHtml] = useState(
-    () =>
-      getPreparedEmailHtml({ messageId, sourceHtml: sanitizedHtml }) ??
-      sanitizedHtml,
+  const [renderHtml, setRenderHtml] = useState(() =>
+    getInitialRenderHtml({ messageId, sanitizedHtml }),
   );
   const { resolvedTheme } = useTheme();
   const isDarkMode = resolvedTheme === "dark";
@@ -67,18 +73,24 @@ export function HtmlEmail({
     let cancelled = false;
     const controller = new AbortController();
     const objectUrls: string[] = [];
-    setRenderHtml(
-      getPreparedEmailHtml({ messageId, sourceHtml: sanitizedHtml }) ??
-        sanitizedHtml,
-    );
+    setRenderHtml(getInitialRenderHtml({ messageId, sanitizedHtml }));
 
+    const preparedHtml = prepareSanitizedEmailHtml({
+      messageId,
+      sourceHtml: sanitizedHtml,
+    });
+    // Inline images download separately so a slow attachment doesn't hold
+    // back the body.
+    preparedHtml.then((html) => {
+      if (!cancelled) startTransition(() => setRenderHtml(html));
+    });
     Promise.all([
-      prepareSanitizedEmailHtml({ messageId, sourceHtml: sanitizedHtml }),
+      preparedHtml,
       loadInlineImageSources({
         emailAccountId,
         signal: controller.signal,
         html: sanitizedHtml,
-        inlineAttachments,
+        inlineImageIds,
         messageId,
       }),
     ]).then(
@@ -90,6 +102,7 @@ export function HtmlEmail({
           }
           return;
         }
+        if (!loadedObjectUrls.length) return;
         objectUrls.push(...loadedObjectUrls);
         startTransition(() =>
           setRenderHtml(rewriteInlineImageSources(rewrittenHtml, inlineImages)),
@@ -106,10 +119,10 @@ export function HtmlEmail({
       controller.abort();
       for (const objectUrl of objectUrls) URL.revokeObjectURL(objectUrl);
     };
-  }, [emailAccountId, inlineAttachments, messageId, sanitizedHtml]);
+  }, [emailAccountId, inlineImageIds, messageId, sanitizedHtml]);
 
   const { mainContent, quotedContent, hasQuotedContent } = useMemo(
-    () => splitEmailContent(renderHtml),
+    () => splitEmailContent(renderHtml ?? ""),
     [renderHtml],
   );
   const applyDarkTheme = shouldApplyDarkMailTheme(mainContent, isDarkMode);
@@ -156,6 +169,8 @@ export function HtmlEmail({
     onFocusMessage,
   };
 
+  if (renderHtml === null) return <div data-email-ready="false" />;
+
   return (
     <div className="relative min-w-0 overflow-x-hidden">
       <BufferedMailHtmlFrame
@@ -198,27 +213,36 @@ export function PlainEmail({ text }: { text: string }) {
   return <MailPlainTextBody segments={segments} />;
 }
 
+// Showing the original html first would load remote images directly and then
+// reload them all through the proxy, so the body waits for the proxied html.
+function getInitialRenderHtml({
+  messageId,
+  sanitizedHtml,
+}: {
+  messageId: string;
+  sanitizedHtml: string;
+}) {
+  if (!IMAGE_PROXY_BASE_URL) return sanitizedHtml;
+  return getPreparedEmailHtml({ messageId, sourceHtml: sanitizedHtml }) ?? null;
+}
+
 async function loadInlineImageSources({
   emailAccountId,
   signal,
   html,
-  inlineAttachments,
+  inlineImageIds,
   messageId,
 }: {
   emailAccountId: string | undefined;
   signal: AbortSignal;
   html: string;
-  inlineAttachments: ParsedMessage["inline"];
+  inlineImageIds: string;
   messageId: string;
 }): Promise<Record<string, string>> {
-  if (!emailAccountId || !inlineAttachments.length) return {};
-
-  const attachmentIdByContentId = new Map<string, string>();
-  for (const attachment of inlineAttachments) {
-    const contentId = normalizeContentId(attachment.headers["content-id"]);
-    if (contentId && attachment.attachmentId)
-      attachmentIdByContentId.set(contentId, attachment.attachmentId);
-  }
+  const attachmentIdByContentId = new Map<string, string>(
+    JSON.parse(inlineImageIds),
+  );
+  if (!emailAccountId || !attachmentIdByContentId.size) return {};
 
   const entries = await Promise.all(
     getInlineImageContentIds(html).map(async (contentId) => {
@@ -252,4 +276,14 @@ async function loadInlineImageSources({
   );
 
   return Object.fromEntries(entries.filter((entry) => entry !== undefined));
+}
+
+function serializeInlineImageIds(inlineAttachments: ParsedMessage["inline"]) {
+  const entries: [contentId: string, attachmentId: string][] = [];
+  for (const attachment of inlineAttachments) {
+    const contentId = normalizeContentId(attachment.headers["content-id"]);
+    if (contentId && attachment.attachmentId)
+      entries.push([contentId, attachment.attachmentId]);
+  }
+  return JSON.stringify(entries.sort(([a], [b]) => a.localeCompare(b)));
 }

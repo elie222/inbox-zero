@@ -89,6 +89,51 @@ test("switches between list and split reading layouts", async ({
   await expect(conversations).toBeVisible();
 });
 
+test("resizes the split-layout email list and remembers the width", async ({
+  page,
+}, testInfo) => {
+  const { conversations } = await openMail(page);
+  const layoutToggle = page.getByRole("button", {
+    name: "Switch list or split view",
+  });
+  const emptyReader = page.getByText("Nothing selected", { exact: true });
+  await layoutToggle.click();
+  await expect(emptyReader).toBeVisible();
+
+  const handle = page.getByRole("separator", { name: "Resize email list" });
+  const defaultWidth = await boxWidth(conversations);
+  const handleBox = await handle.boundingBox();
+  if (!handleBox) throw new Error("Resize handle is not rendered");
+  const handleX = handleBox.x + handleBox.width / 2;
+  const handleY = handleBox.y + handleBox.height / 2;
+
+  await page.mouse.move(handleX, handleY);
+  await page.mouse.down();
+  await page.mouse.move(handleX + 120, handleY, { steps: 6 });
+  await page.mouse.up();
+  await expect
+    .poll(async () => await boxWidth(conversations))
+    .toBeGreaterThan(defaultWidth + 100);
+  const draggedWidth = await boxWidth(conversations);
+  await capturePlaywrightCheckpoint(page, testInfo, "mail-resized-list");
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(emptyReader).toBeVisible();
+  await expect
+    .poll(async () => await boxWidth(conversations))
+    .toBeCloseTo(draggedWidth, -1);
+
+  await handle.dblclick();
+  await expect
+    .poll(async () => await boxWidth(conversations))
+    .toBeCloseTo(defaultWidth, -1);
+
+  // The layout preference outlives the test, so put the wide list back.
+  await layoutToggle.click();
+  await page.keyboard.press("Escape");
+  await expect(emptyReader).toBeHidden();
+});
+
 test("expands and shortens the conversation preview text", async ({
   page,
 }, testInfo) => {
@@ -154,4 +199,9 @@ async function expectStoredPreview(
 async function rowHeight(row: Locator) {
   const box = await row.boundingBox();
   return box?.height ?? 0;
+}
+
+async function boxWidth(locator: Locator) {
+  const box = await locator.boundingBox();
+  return box?.width ?? 0;
 }

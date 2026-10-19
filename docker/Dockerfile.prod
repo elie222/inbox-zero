@@ -148,8 +148,11 @@ RUN test -f apps/web/server.js \
 COPY docker/scripts /app/docker/scripts
 RUN chmod +x /app/docker/scripts/*.sh
 
-# Install Prisma CLI globally for migrations
-RUN npm install -g prisma@7.3.0
+# Install the Prisma CLI for migrations at the app's version so new schema
+# features are understood by `migrate deploy`
+COPY apps/web/package.json /tmp/web-package.json
+RUN npm install -g "prisma@$(node -p "require('/tmp/web-package.json').dependencies.prisma")" \
+ && rm /tmp/web-package.json
 # Set NODE_PATH so prisma/config imports resolve correctly
 ENV NODE_PATH=/usr/local/lib/node_modules
 

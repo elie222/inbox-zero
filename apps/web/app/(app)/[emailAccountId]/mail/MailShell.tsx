@@ -12,6 +12,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactNode,
 } from "react";
 import { parseAsString, useQueryState, useQueryStates } from "nuqs";
 import { toast } from "sonner";
@@ -25,6 +26,7 @@ import {
 import { MailShellSidebar } from "@/app/(app)/[emailAccountId]/mail/MailShellSidebar";
 import { MailSplitTabs } from "@/app/(app)/[emailAccountId]/mail/MailSplitTabs";
 import { SelectAllCheckbox } from "@/app/(app)/[emailAccountId]/mail/SelectAllCheckbox";
+import { MailListPanel } from "@/app/(app)/[emailAccountId]/mail/MailListPanel";
 import { MailReaderPane } from "@/app/(app)/[emailAccountId]/mail/MailReaderPane";
 import { MailTitlebarNav } from "@/app/(app)/[emailAccountId]/mail/MailTitlebarNav";
 import { ScheduledEmailList } from "@/app/(app)/[emailAccountId]/mail/ScheduledEmailList";
@@ -108,6 +110,7 @@ import { prefixPath } from "@/utils/path";
 import { getMailAccountUrl } from "@/app/(app)/[emailAccountId]/mail/mail-account-url";
 import { redirectToSafeUrl } from "@/utils/redirect";
 import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
+import { LoadingMiniSpinner } from "@/components/Loading";
 import { LoadingContent } from "@/components/LoadingContent";
 import { useTeamCommentsAvailable } from "@/components/team-comments/use-team-comments-available";
 import { getEmailMessageCellActions } from "@/components/EmailMessageCellActions";
@@ -311,6 +314,9 @@ export function MailShell() {
     (value: string) => setSearchDraft({ identity: searchEditIdentity, value }),
     [searchEditIdentity],
   );
+  // Picking the view that's already open leaves the URL unchanged, so an
+  // unsubmitted search would otherwise keep filtering the list.
+  const discardSearchDraft = useCallback(() => setSearchDraft(undefined), []);
 
   const combinedLabelSplits = useMemo(
     () => getPortableLabelSplits(settings?.splits ?? [], userLabels),
@@ -408,10 +414,9 @@ export function MailShell() {
     loadMore,
     refetch: refetchThreadList,
   } = isAllAccounts ? combinedThreadState : accountThreadState;
-  const providerState = isAllAccounts
+  const { isSyncing } = isAllAccounts
     ? combinedThreadState
     : accountThreadState;
-  const hasProviderResponse = searchSettled && providerState.hasRemoteResponse;
   const threads = searchSettled ? remoteThreads : EMPTY_SEARCH_THREADS;
   const searchViewIdentity = JSON.stringify([
     emailAccountId,
@@ -432,9 +437,20 @@ export function MailShell() {
     previousSearchFocus.current = next;
     if (next.index !== focusedIndex) setFocusedIndex(next.index);
   }, [orderedIds, focusedIndex, searchQuery, searchViewIdentity]);
-  let emptySearchMessage: string | undefined;
-  if (searchQuery && hasProviderResponse && !threads.length) {
-    emptySearchMessage = "No emails in this view";
+  // Local reads answer fast, so the list stays blank while one is in flight
+  // rather than flashing a spinner.
+  let emptyListMessage: ReactNode;
+  if (isLoading || !searchSettled) {
+    emptyListMessage = null;
+  } else if (isSyncing) {
+    emptyListMessage = (
+      <span className="inline-flex items-center gap-2">
+        <LoadingMiniSpinner />
+        Syncing your mail…
+      </span>
+    );
+  } else if (searchQuery) {
+    emptyListMessage = "No emails found";
   }
 
   const selection = useThreadSelection(orderedIds);
@@ -1404,22 +1420,14 @@ export function MailShell() {
         onSelectAccount={selectAccount}
         onSelectAllAccounts={selectAllAccounts}
         onMailboxItemDeleted={onMailboxItemDeleted}
+        onNavigate={discardSearchDraft}
       />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <MailEngineConnectionBanner />
         <div className="flex min-h-0 min-w-0 flex-1">
           {showList && (
-            <section
-              className={
-                layout === "split"
-                  ? "flex min-h-0 w-[clamp(258px,32vw,400px)] shrink-0 flex-col border-r border-border"
-                  : // min-w-0 matters: a flex item won't shrink below its content
-                    // width without it, so long snippets would widen the column
-                    // past the viewport instead of truncating.
-                    "flex min-h-0 min-w-0 flex-1 flex-col"
-              }
-            >
+            <MailListPanel layout={layout}>
               <ListToolbar
                 layout={layout}
                 isDesktopApp={isDesktopApp}
@@ -1491,15 +1499,12 @@ export function MailShell() {
                   <ScheduledEmailList />
                 ) : (
                   <LoadingContent
-                    loading={
-                      !threads.length &&
-                      (isLoading || (!!searchQuery && !searchSettled))
-                    }
+                    loading={false}
                     error={searchQuery ? undefined : error}
                   >
                     <ThreadList
                       threads={threads}
-                      emptyMessage={emptySearchMessage}
+                      emptyMessage={emptyListMessage}
                       layout={layout}
                       expandedPreview={expandedPreview}
                       userEmail={userEmail}
@@ -1526,7 +1531,7 @@ export function MailShell() {
                   </LoadingContent>
                 )}
               </MailPanelErrorBoundary>
-            </section>
+            </MailListPanel>
           )}
 
           {showReader ? (

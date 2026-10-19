@@ -27,7 +27,7 @@ overrides:
   jws: "4.0.1"
   linkify-it: "5.0.2"
   lodash: "4.18.1"
-  next: "16.3.8"
+  next: "16.4.1"
   postcss: "8.5.14"
   # express@5 depends on proxy-addr ^2.0.7. 2.0.7 treats an IPv4-mapped IPv6
   # trust subnet with an IPv4-sized prefix as trusting every IPv4 address
@@ -74,5 +74,5 @@ allowBuilds:
   workerd: true
 
 patchedDependencies:
-  '@better-auth/oauth-provider@1.7.4': patches/@better-auth__oauth-provider@1.7.4.patch
+  '@better-auth/oauth-provider@1.7.7': patches/@better-auth__oauth-provider@1.7.7.patch
   '@sqlite.org/sqlite-wasm@3.53.4-build1': patches/@sqlite.org__sqlite-wasm@3.53.4-build1.patch

@@ -34,6 +34,11 @@ export const operationStateSchema = z.object({
       retryable: z.boolean(),
     })
     .nullable(),
+  /** Where a succeeded send's copy landed, once the mailbox has stored it. */
+  sentMessage: z
+    .object({ messageId: z.string(), conversationId: z.string() })
+    .nullable()
+    .optional(),
 });
 export type OperationState = z.infer<typeof operationStateSchema>;
 
@@ -52,6 +57,7 @@ export const preparedOperationSchema = z.object({
       kind: z.literal("send"),
       frozenDraftId: z.string().min(1),
       frozenDraftRevision: z.number().int().nonnegative(),
+      from: z.string().max(4096).optional(),
       to: z.array(z.string().max(4096)).max(100),
       cc: z.array(z.string().max(4096)).max(100),
       bcc: z.array(z.string().max(4096)).max(100),

@@ -104,6 +104,7 @@ export async function syncMcpTools(
 
     throw new Error(
       `Failed to sync tools: ${error instanceof Error ? error.message : "Unknown error"}`,
+      { cause: error },
     );
   }
 }

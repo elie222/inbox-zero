@@ -4,15 +4,18 @@ import {
   type ChangeEvent,
   type KeyboardEvent,
   type ReactNode,
-  useEffect,
   useState,
 } from "react";
 import { ArrowUpIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AutosizeTextarea } from "@/components/ui/textarea";
+import { useIsOnline } from "@/hooks/useIsOnline";
 import { getActionErrorMessage } from "@/utils/error";
+import {
+  getMentionedMemberIds,
+  type MentionCandidate,
+} from "@/utils/team-comments/mentions";
 
-type MentionCandidate = { memberId: string; name: string };
 type SubmitResult =
   | (Parameters<typeof getActionErrorMessage>[0] & { data?: unknown })
   | undefined;
@@ -35,22 +38,13 @@ export function CommentComposer({
   }) => Promise<SubmitResult>;
 }) {
   const [body, setBody] = useState("");
-  const [mentioned, setMentioned] = useState<string[]>([]);
+  const [picked, setPicked] = useState<string[]>([]);
   const [highlighted, setHighlighted] = useState(0);
   const [mutationId, setMutationId] = useState(() => crypto.randomUUID());
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [online, setOnline] = useState(true);
-  useEffect(() => {
-    const update = () => setOnline(navigator.onLine);
-    update();
-    window.addEventListener("online", update);
-    window.addEventListener("offline", update);
-    return () => {
-      window.removeEventListener("online", update);
-      window.removeEventListener("offline", update);
-    };
-  }, []);
+  const online = useIsOnline();
+  const mentioned = getMentionedMemberIds(body, candidates, picked);
   const mentionQuery = body.match(/(?:^|\s)@([^\s@]*)$/)?.[1]?.toLowerCase();
   const suggestions =
     mentionQuery === undefined
@@ -78,7 +72,7 @@ export function CommentComposer({
           `${match.startsWith("@") ? "" : match[0]}@${candidate.name} `,
       ),
     );
-    setMentioned((current) => [...current, candidate.memberId]);
+    setPicked((current) => [...current, candidate.memberId]);
     setHighlighted(0);
   };
   const submit = async () => {
@@ -93,7 +87,7 @@ export function CommentComposer({
     setIsSubmitting(false);
     if (result?.data) {
       setBody("");
-      setMentioned([]);
+      setPicked([]);
       setMutationId(crypto.randomUUID());
     } else setError(getActionErrorMessage(result ?? {}));
   };
@@ -187,14 +181,16 @@ export function CommentComposer({
             onChange={(event: ChangeEvent<HTMLTextAreaElement>) => {
               const next = event.target.value;
               setBody(next);
-              setMentioned((current) =>
-                current.filter((id) => {
-                  const candidate = candidates.find(
-                    (entry) => entry.memberId === id,
-                  );
-                  return candidate && mentionsName(next, candidate.name);
-                }),
-              );
+              // A pick is only valid while its mention is still in the text;
+              // otherwise retyping an ambiguous name would reuse it.
+              setPicked((current) => {
+                const stillMentioned = getMentionedMemberIds(
+                  next,
+                  candidates,
+                  current,
+                );
+                return current.filter((id) => stillMentioned.includes(id));
+              });
             }}
             onKeyDown={onKeyDown}
             role="combobox"
@@ -231,12 +227,4 @@ export function CommentComposer({
       )}
     </div>
   );
-}
-
-function mentionsName(body: string, name: string) {
-  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(
-    `(?<![\\p{L}\\p{M}\\p{N}_])@${escaped}(?![\\p{L}\\p{M}\\p{N}_])`,
-    "u",
-  ).test(body);
 }

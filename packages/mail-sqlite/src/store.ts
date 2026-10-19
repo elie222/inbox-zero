@@ -1112,6 +1112,7 @@ export async function createSqliteMailStore(
           kind: "send" as const,
           frozenDraftId: input.draft.draftId,
           frozenDraftRevision: input.draftRevision,
+          ...(content.from ? { from: content.from } : {}),
           to: content.to,
           cc: content.cc,
           bcc: content.bcc,
@@ -1320,9 +1321,27 @@ export async function createSqliteMailStore(
       return driver.read(async (tx) => {
         const revision = await readRevision(tx);
         const row = await loadOperation(tx, key.accountId, key.operationId);
+        if (!row) return { revision, operation: null };
+        const sentMessageId =
+          row.sent_message_id == null ? null : String(row.sent_message_id);
+        const sent = sentMessageId
+          ? await tx.query(
+              "SELECT conversation_id FROM messages WHERE account_id = ? AND message_id = ?",
+              [key.accountId, sentMessageId],
+            )
+          : [];
         return {
           revision,
-          operation: row ? toOperationState(row) : null,
+          operation: {
+            ...toOperationState(row),
+            sentMessage:
+              sentMessageId && sent[0]
+                ? {
+                    messageId: sentMessageId,
+                    conversationId: String(sent[0].conversation_id),
+                  }
+                : null,
+          },
         };
       });
     },

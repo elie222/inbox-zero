@@ -68,6 +68,7 @@ export type CaptureExceptionContext = {
   userEmail?: string;
   // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   extra?: Record<string, any>;
+  tags?: Record<string, string>;
   sampleRate?: number;
 };
 
@@ -139,6 +140,7 @@ export function captureException(
 
   sentryCaptureException(error, {
     extra: Object.keys(sentryExtra).length > 0 ? sentryExtra : undefined,
+    ...(context.tags && { tags: context.tags }),
   });
 }
 
@@ -196,8 +198,7 @@ export function isInvalidGrantError(error: unknown): boolean {
 }
 
 export function isGmailInsufficientPermissionsError(error: unknown): boolean {
-  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
-  return (error as any)?.errors?.[0]?.reason === "insufficientPermissions";
+  return extractErrorInfo(error).reason === "insufficientPermissions";
 }
 
 export function isGmailRateLimitExceededError(error: unknown): boolean {
@@ -364,11 +365,23 @@ export function isOutlookItemNotFoundError(error: unknown): boolean {
   );
 }
 
+// The mailbox itself can't be used (unlicensed, soft-deleted, on-premise, or
+// full), so retrying or reporting won't help until the user fixes it.
+function isOutlookMailboxUnavailableError(error: unknown): boolean {
+  const message = (error as Record<string, unknown>)?.message;
+  return (
+    typeof message === "string" &&
+    (message.includes("The mailbox is either inactive, soft-deleted") ||
+      message.includes("failed with a permanent mailbox error"))
+  );
+}
+
 export function isKnownOutlookError(error: unknown): boolean {
   return (
     isOutlookThrottlingError(error) ||
     isOutlookAccessDeniedError(error) ||
-    isOutlookItemNotFoundError(error)
+    isOutlookItemNotFoundError(error) ||
+    isOutlookMailboxUnavailableError(error)
   );
 }
 

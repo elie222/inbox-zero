@@ -1,6 +1,7 @@
 const textEncoder = new TextEncoder();
 
 export const DEFAULT_ASSET_PROXY_TTL_SECONDS = 60 * 60 * 24 * 7;
+const EXPIRY_WINDOW_SECONDS = 60 * 60 * 24;
 
 export type AssetProxySignatureInput = {
   assetUrl: string;
@@ -126,7 +127,13 @@ function getExpiresAt({
         ? now
         : Date.now();
 
-  return Math.floor(nowMs / 1000) + ttlSeconds;
+  // Rounding up to a fixed window keeps an asset's URL identical across
+  // renders, so the browser and CDN caches can serve repeat views.
+  const windowSeconds = Math.min(ttlSeconds, EXPIRY_WINDOW_SECONDS);
+  const expiresAt = Math.floor(nowMs / 1000) + ttlSeconds;
+  if (windowSeconds <= 0) return expiresAt;
+
+  return Math.ceil(expiresAt / windowSeconds) * windowSeconds;
 }
 
 function toBase64Url(value: ArrayBuffer): string {

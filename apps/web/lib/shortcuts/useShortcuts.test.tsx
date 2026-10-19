@@ -55,6 +55,19 @@ describe("useShortcuts", () => {
     expect(snooze).toHaveBeenCalledOnce();
   });
 
+  // Backspace is the key pressed most while writing; if focus slips out of
+  // the editor it must not trash the conversation and the draft in it.
+  it("deletes with # but not with Backspace", () => {
+    const deleteThread = vi.fn();
+    renderShortcuts({ delete: deleteThread });
+
+    press({ key: "Backspace", code: "Backspace" });
+    expect(deleteThread).not.toHaveBeenCalled();
+
+    press({ key: "#", code: "Digit3", shiftKey: true });
+    expect(deleteThread).toHaveBeenCalledOnce();
+  });
+
   it("runs the search shortcut for slash", () => {
     const search = vi.fn();
     renderShortcuts({ search });

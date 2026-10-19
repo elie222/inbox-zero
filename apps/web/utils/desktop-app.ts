@@ -21,6 +21,7 @@ export type InboxZeroDesktopApi = {
   onMailEngineSnapshot?: (
     listener: (event: MailIpcSnapshotEvent) => void,
   ) => () => void;
+  onOpenSettings?: (listener: () => void) => () => void;
   wipeMailbox?: () => Promise<unknown>;
   getDesktopHealth?: () => Promise<DesktopHealth | null>;
 };
@@ -44,6 +45,7 @@ export type DesktopHealth = {
       eventLoopDelayMs: DesktopDurationSummary | null;
       sqliteReadMs: DesktopDurationSummary | null;
       sqliteWriteMs: DesktopDurationSummary | null;
+      mailCommandMs?: DesktopDurationSummary | null;
     } | null;
   } | null;
   mailboxBytes: number;

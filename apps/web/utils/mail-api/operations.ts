@@ -113,15 +113,14 @@ async function executeMetadataPerTarget(
   operation: PreparedMetadataOperation,
 ): Promise<ExecutionResult> {
   const targets: TargetOutcome[] = [];
-  const observations: ReturnType<typeof parsedMessagePatch>[] = [];
+  const observations: ProviderChange[] = [];
   for (const target of operation.intent.targets) {
     try {
       await applyChange(provider, operation.intent.change, [target.messageId]);
       try {
         const message = await provider.getMessage(target.messageId);
-        observations.push(
-          parsedMessagePatch(accountId, provider.name, message),
-        );
+        const patch = parsedMessagePatch(accountId, provider.name, message);
+        if (patch) observations.push(patch);
         if (!metadataChangeSatisfied(message, operation.intent.change)) {
           targets.push({
             key: target,
@@ -154,7 +153,7 @@ async function observeAppliedMetadata(
   operation: PreparedMetadataOperation,
 ): Promise<ExecutionResult> {
   const targets: TargetOutcome[] = [];
-  const observations: ReturnType<typeof parsedMessagePatch>[] = [];
+  const observations: ProviderChange[] = [];
   for (const batch of chunk(
     operation.intent.targets,
     METADATA_OBSERVATION_BATCH_SIZE,
@@ -169,9 +168,8 @@ async function observeAppliedMetadata(
     for (const target of batch) {
       const message = messagesById.get(target.messageId);
       if (message) {
-        observations.push(
-          parsedMessagePatch(accountId, provider.name, message),
-        );
+        const patch = parsedMessagePatch(accountId, provider.name, message);
+        if (patch) observations.push(patch);
         if (!metadataChangeSatisfied(message, operation.intent.change)) {
           targets.push({
             key: target,
@@ -215,11 +213,12 @@ async function inspectMetadataOperation(
   operation: PreparedMetadataOperation,
 ) {
   const targets: TargetOutcome[] = [];
-  const observations: ReturnType<typeof parsedMessagePatch>[] = [];
+  const observations: ProviderChange[] = [];
   for (const target of operation.intent.targets) {
     try {
       const message = await provider.getMessage(target.messageId);
-      observations.push(parsedMessagePatch(accountId, provider.name, message));
+      const patch = parsedMessagePatch(accountId, provider.name, message);
+      if (patch) observations.push(patch);
       const satisfied = metadataChangeSatisfied(
         message,
         operation.intent.change,
@@ -240,7 +239,7 @@ async function metadataResult(
   accountId: string,
   operation: PreparedMetadataOperation,
   targets: TargetOutcome[],
-  observations: ReturnType<typeof parsedMessagePatch>[],
+  observations: ProviderChange[],
 ) {
   const applied = targets.some((target) => target.outcome === "applied");
   const rejected = targets.every((target) => target.outcome === "rejected");
@@ -354,8 +353,11 @@ async function applyChange(
     }
     case "move": {
       if (!change.folderId) return;
+      const movedThreadIds = new Set<string>();
       for (const messageId of messageIds) {
         const message = await provider.getMessage(messageId);
+        if (movedThreadIds.has(message.threadId)) continue;
+        movedThreadIds.add(message.threadId);
         await provider.moveThreadToFolder(
           message.threadId,
           message.headers.to || "",
@@ -460,7 +462,7 @@ async function executeSnooze(
   }
 
   const targets: TargetOutcome[] = [];
-  const observations: ReturnType<typeof parsedMessagePatch>[] = [];
+  const observations: ProviderChange[] = [];
   for (const target of operation.intent.targets) {
     try {
       const message = await provider.getMessage(target.messageId);
@@ -477,9 +479,12 @@ async function executeSnooze(
           });
           continue;
         }
-        observations.push(
-          parsedMessagePatch(accountId, provider.name, archivedMessage),
+        const patch = parsedMessagePatch(
+          accountId,
+          provider.name,
+          archivedMessage,
         );
+        if (patch) observations.push(patch);
       } catch {
         // Mutation applied; catch-up can fill the observation.
       }
@@ -503,9 +508,12 @@ async function executeSnooze(
             });
             continue;
           }
-          observations.push(
-            parsedMessagePatch(accountId, provider.name, archivedMessage),
+          const patch = parsedMessagePatch(
+            accountId,
+            provider.name,
+            archivedMessage,
           );
+          if (patch) observations.push(patch);
         } catch {
           // Mutation applied; catch-up can fill the observation.
         }
@@ -790,6 +798,7 @@ function sendRequest(intent: SendIntent) {
       ? [intent.replyToMessageId]
       : [intent.frozenDraftId],
     email: {
+      ...(intent.from ? { from: intent.from } : {}),
       to: intent.to.join(", "),
       cc: intent.cc.join(", ") || undefined,
       bcc: intent.bcc.join(", ") || undefined,
@@ -930,11 +939,10 @@ async function observeSentMessage(
   if (!messageId) return { observations: [], bodies: [] };
   try {
     const message = await provider.getMessage(messageId);
+    const patch = parsedMessagePatch(accountId, provider.name, message);
+    if (!patch) return { observations: [], bodies: [] };
     const body = parsedMessageBodyObservation(accountId, message);
-    return {
-      observations: [parsedMessagePatch(accountId, provider.name, message)],
-      bodies: body ? [body] : [],
-    };
+    return { observations: [patch], bodies: body ? [body] : [] };
   } catch {
     return { observations: [], bodies: [] };
   }

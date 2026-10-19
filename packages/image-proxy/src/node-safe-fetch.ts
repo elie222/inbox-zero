@@ -14,11 +14,17 @@ export async function createSafeImageProxyFetch(
   try {
     resolved = await resolveSafeExternalHttpUrl(input.toString());
   } catch {
-    return new Response("Upstream host lookup failed", { status: 502 });
+    return new Response("Upstream host lookup failed", {
+      status: 502,
+      statusText: "Upstream host lookup failed",
+    });
   }
 
   if (!resolved) {
-    return new Response("Blocked upstream host", { status: 403 });
+    return new Response("Blocked upstream host", {
+      status: 403,
+      statusText: "Blocked upstream host",
+    });
   }
 
   return fetchWithPinnedLookup(resolved, init);

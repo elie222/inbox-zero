@@ -75,6 +75,7 @@ test("suggests contacts in every recipient field and reuses cached searches", as
   releaseSearch();
   await to.fill("");
 
+  await dialog.getByRole("button", { name: "Show Cc and Bcc" }).click();
   for (const name of ["Cc", "Bcc"]) {
     const field = dialog.getByRole("combobox", { name, exact: true });
     await field.fill("contact");
@@ -141,6 +142,7 @@ for (const theme of ["light", "dark"] as const) {
       await page.screenshot({
         path: join(shotDirectory, `${theme}-2-selected.png`),
       });
+    await dialog.getByRole("button", { name: "Show Cc and Bcc" }).click();
     for (const name of ["Cc", "Bcc"]) {
       const field = dialog.getByRole("combobox", { name, exact: true });
       await field.fill("bob");

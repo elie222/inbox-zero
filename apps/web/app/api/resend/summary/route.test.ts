@@ -99,25 +99,31 @@ describe("summary email route", () => {
         },
       });
     prisma.rule.findUnique.mockResolvedValue(null);
-    prisma.executedAction.count.mockResolvedValue(2);
-    prisma.executedAction.findMany.mockResolvedValue([
-      {
-        id: "archive-action-1",
-        createdAt: archivedAt,
-        executedRule: {
-          messageId: "archived-message-1",
-          rule: { name: "Marketing", systemType: SystemType.MARKETING },
+    // Immediate archives, then delayed archives.
+    prisma.executedAction.count
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(1);
+    prisma.executedAction.findMany
+      .mockResolvedValueOnce([
+        {
+          id: "archive-action-1",
+          createdAt: archivedAt,
+          executedRule: {
+            messageId: "archived-message-1",
+            rule: { name: "Marketing", systemType: SystemType.MARKETING },
+          },
         },
-      },
-      {
-        id: "archive-action-2",
-        createdAt: archivedAt,
-        executedRule: {
-          messageId: "archived-message-2",
-          rule: { name: "Newsletter", systemType: SystemType.NEWSLETTER },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: "archive-action-2",
+          createdAt: archivedAt,
+          executedRule: {
+            messageId: "archived-message-2",
+            rule: { name: "Newsletter", systemType: SystemType.NEWSLETTER },
+          },
         },
-      },
-    ]);
+      ]);
     prisma.emailAccount.update.mockResolvedValue({});
     mockCreateEmailProvider.mockResolvedValue({ getMessagesBatch });
 
@@ -219,17 +225,21 @@ describe("summary email route", () => {
         },
       });
     prisma.rule.findUnique.mockResolvedValue(null);
-    prisma.executedAction.count.mockResolvedValue(1);
-    prisma.executedAction.findMany.mockResolvedValue([
-      {
-        id: "archive-action-1",
-        createdAt: archivedAt,
-        executedRule: {
-          messageId: "archived-message-1",
-          rule: { name: "Marketing", systemType: SystemType.MARKETING },
+    prisma.executedAction.count
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(0);
+    prisma.executedAction.findMany
+      .mockResolvedValueOnce([
+        {
+          id: "archive-action-1",
+          createdAt: archivedAt,
+          executedRule: {
+            messageId: "archived-message-1",
+            rule: { name: "Marketing", systemType: SystemType.MARKETING },
+          },
         },
-      },
-    ]);
+      ])
+      .mockResolvedValueOnce([]);
     prisma.emailAccount.update.mockResolvedValue({});
 
     const response = await POST(
@@ -308,7 +318,7 @@ describe("summary email route", () => {
     });
   });
 
-  it("counts only completed archive actions in the weekly archive summary query", async () => {
+  it("counts applied immediate archives and completed delayed archives", async () => {
     prisma.emailAccount.findUnique
       .mockResolvedValueOnce({ lastSummaryEmailAt: null })
       .mockResolvedValueOnce({
@@ -331,24 +341,28 @@ describe("summary email route", () => {
       }),
     );
 
+    expect(prisma.executedAction.count).toHaveBeenCalledTimes(2);
     expect(prisma.executedAction.count).toHaveBeenCalledWith({
       where: expect.objectContaining({
         type: ActionType.ARCHIVE,
+        scheduledAction: { is: null },
         executedRule: expect.objectContaining({
           emailAccountId: "email-account-id",
           automated: true,
+          status: ExecutedRuleStatus.APPLIED,
         }),
-        OR: [
-          {
-            scheduledAction: {
-              is: { status: ScheduledActionStatus.COMPLETED },
-            },
-          },
-          {
-            scheduledAction: { is: null },
-            executedRule: { status: ExecutedRuleStatus.APPLIED },
-          },
-        ],
+      }),
+    });
+    expect(prisma.executedAction.count).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        type: ActionType.ARCHIVE,
+        scheduledAction: {
+          is: expect.objectContaining({
+            emailAccountId: "email-account-id",
+            status: ScheduledActionStatus.COMPLETED,
+          }),
+        },
+        executedRule: { emailAccountId: "email-account-id", automated: true },
       }),
     });
   });

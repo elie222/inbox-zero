@@ -34,12 +34,19 @@ import {
   type StepKey,
 } from "@/app/(app)/[emailAccountId]/onboarding/onboardingFlow";
 import { EmailStatsPreloader } from "@/components/EmailStatsPreloader";
+import { StepIntent } from "@/app/(app)/[emailAccountId]/onboarding/StepIntent";
+import { StepMailApp } from "@/app/(app)/[emailAccountId]/onboarding/StepMailApp";
+import type { SignupIntent } from "@/generated/prisma/enums";
 
 interface OnboardingContentProps {
+  signupIntent: SignupIntent | null;
   step?: string;
 }
 
-export function OnboardingContent({ step }: OnboardingContentProps) {
+export function OnboardingContent({
+  step,
+  signupIntent,
+}: OnboardingContentProps) {
   const { emailAccountId, provider, isLoading } = useAccount();
   const { data: membership, isLoading: isMembershipLoading } =
     useOrganizationMembership();
@@ -66,6 +73,8 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
     ),
     [STEP_KEYS.COMPANY_SIZE]: () => <StepCompanySize onNext={onNext} />,
     [STEP_KEYS.HOW_YOU_HEARD]: () => <StepHowYouHeard onNext={onNext} />,
+    [STEP_KEYS.INTENT]: () => <StepIntent onIntentSaved={onIntentSaved} />,
+    [STEP_KEYS.MAIL_APP]: () => <StepMailApp onNext={onNext} />,
     [STEP_KEYS.LABELS]: () => (
       <StepLabels
         provider={provider}
@@ -97,13 +106,16 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
     [STEP_KEYS.INBOX_PROCESSED]: () => <StepInboxProcessed onNext={onNext} />,
   };
 
-  const visibleStepKeys = getVisibleOnboardingStepKeys({
-    canInviteTeam,
-    autoDraftDisabled:
-      Boolean(env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED) ||
-      isDraftRepliesDisabledByRuleState(rules),
-    isSelfHosted: Boolean(env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS),
-  }).filter((key) => isDefined(stepMap[key]));
+  const getVisibleStepKeys = (intent: SignupIntent | null) =>
+    getVisibleOnboardingStepKeys({
+      canInviteTeam,
+      autoDraftDisabled:
+        Boolean(env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED) ||
+        isDraftRepliesDisabledByRuleState(rules),
+      isSelfHosted: Boolean(env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS),
+      signupIntent: intent,
+    }).filter((key) => isDefined(stepMap[key]));
+  const visibleStepKeys = getVisibleStepKeys(signupIntent);
   const steps = visibleStepKeys.map((key) => stepMap[key]).filter(isDefined);
 
   const { data, mutate } = usePersona();
@@ -116,7 +128,8 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
   const router = useRouter();
   const analytics = useOnboardingAnalytics("onboarding");
   const hasTrackedStart = useRef(false);
-  const { completeAndRedirect, destination } = useCompleteOnboarding();
+  const { completeAndRedirect, destination } =
+    useCompleteOnboarding(signupIntent);
 
   const getOnboardingStepPath = useCallback(
     (stepKey: string) =>
@@ -216,6 +229,25 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
     steps.length,
     getOnboardingStepPath,
   ]);
+
+  // The chosen intent decides which branch follows, so the next step is
+  // resolved against the new intent rather than the one this render used.
+  const onIntentSaved = (intent: SignupIntent) => {
+    const stepKeys = getVisibleStepKeys(intent);
+    const intentStepIndex = stepKeys.indexOf(STEP_KEYS.INTENT);
+    const nextKey = stepKeys[intentStepIndex + 1];
+
+    analytics.onNext({
+      step: intentStepIndex + 1,
+      stepKey: STEP_KEYS.INTENT,
+      totalSteps: stepKeys.length,
+      nextStep: intentStepIndex + 2,
+      nextStepKey: nextKey,
+      isOptional: false,
+    });
+
+    if (nextKey) router.push(getOnboardingStepPath(nextKey));
+  };
 
   useEffect(() => {
     if (clampedStep !== 1 || data?.personaAnalysis) return;

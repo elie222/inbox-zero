@@ -1235,7 +1235,7 @@ resource "random_password" "generated" {
 
 locals {
   database_url = format(
-    "postgresql://%s:%s@%s:%s/%s?schema=public&sslmode=require",
+    "postgresql://%s:%s@%s:%s/%s?schema=public&sslmode=verify-full",
     var.db_username,
     random_password.db_password.result,
     aws_db_instance.main.address,

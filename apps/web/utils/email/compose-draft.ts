@@ -17,6 +17,7 @@ export async function saveComposeDraft({
     // failures can retry an update without creating another mailbox draft.
     const draft = await provider.createDraft({
       to: content.to,
+      from: content.from,
       cc: content.cc,
       bcc: content.bcc,
       subject: content.subject,
@@ -77,6 +78,7 @@ export async function sendComposeDraft({
 function composeDraftTextUpdate(content: SendEmailBody) {
   return {
     to: content.to,
+    from: content.from,
     cc: content.cc ?? "",
     bcc: content.bcc ?? "",
     subject: content.subject,

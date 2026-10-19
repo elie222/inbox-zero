@@ -1,3 +1,4 @@
+import { MailEngineStartupError } from "./startup-error";
 import type { MailEngine } from "@inboxzero/mail-core/engine";
 import {
   observeByKind,
@@ -96,6 +97,9 @@ export function createMailWorkerHost(hooks: {
         id: "id" in message ? message.id : "worker",
         type: "error",
         message: error instanceof Error ? error.message : "worker_error",
+        ...(error instanceof MailEngineStartupError
+          ? { stage: error.stage, errorName: error.name }
+          : {}),
       });
     }
   }
