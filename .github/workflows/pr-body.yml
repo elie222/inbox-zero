@@ -1,0 +1,50 @@
+# pr-body: fails a pull request whose body has no Card, Solves or Size line.
+#
+# Solves: a PR that names no board card lands as an orphan and the agenda loses track of it.
+#
+# Same three checks as the flow repo's hooks/flow-pr-create.sh and n8n "Flow: PR Sync" (HTML comments are
+# stripped first, so template guidance never counts as an answer):
+#   Card:   Card: https://app.notion.com/p/<32 hex, dashes allowed>
+#   Solves: Solves: followed by text on the same line
+#   Size:   Size: S, M or L
+# No checkout and no secrets: the body arrives through an env var, never interpolated into the script.
+name: pr-body
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions: {}
+
+jobs:
+  pr-body:
+    name: pr-body
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Check the Card, Solves and Size lines
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          python3 - <<'PY'
+          import os, re, sys
+
+          CARD = re.compile(r"Card:[*_]*[ \t]*<?https://app\.notion\.com/p/"
+                            r"([0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{12})(?![0-9a-fA-F])")
+          SOLVES = re.compile(r"Solves:[*_]*[ \t]*[^\s*_]")
+          SIZE = re.compile(r"Size:[*_]*[ \t]*[SML](?![A-Za-z0-9])")
+          COMMENT = re.compile(r"<!--[\s\S]*?-->")
+          FIX = {
+              "Card": "Card: https://app.notion.com/p/<32 hex> (no card yet? /intake it first)",
+              "Solves": "Solves: <the problem, for whom>",
+              "Size": "Size: S|M|L",
+          }
+
+          text = COMMENT.sub("", os.environ.get("PR_BODY") or "")
+          missing = [name for name, rx in (("Card", CARD), ("Solves", SOLVES), ("Size", SIZE)) if not rx.search(text)]
+          for name in missing:
+              print("::error title=PR body is missing %s::Add a line: %s" % (name, FIX[name]))
+          if missing:
+              sys.exit("The PR body is missing %s. Edit the description; this check re-runs on edit." % ", ".join(missing))
+          print("Card, Solves and Size are present.")
+          PY
