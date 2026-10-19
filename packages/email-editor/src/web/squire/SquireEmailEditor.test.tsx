@@ -126,6 +126,20 @@ describe("Squire email editor", () => {
     expect(onStateChange).toHaveBeenCalled();
   });
 
+  it("sends no trailing line break after the signature is deleted", async () => {
+    const { handle, textbox } = await renderEditor({
+      preservedBlocks: [SIGNATURE],
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Show signature" }));
+    act(() => {
+      handle().insertText("Draft body");
+    });
+
+    await deleteSignature(textbox());
+
+    expect(handle().getValue().editableHtml).toBe("<div>Draft body</div>");
+  });
+
   it("undoes and redoes removing the signature", async () => {
     const { handle, textbox } = await renderEditor({
       preservedBlocks: [SIGNATURE],
@@ -206,7 +220,7 @@ describe("Squire email editor", () => {
     }
 
     expect(handle().getValue().editableHtml).toBe(
-      '<div>Bodyxxx<br></div><div data-smartmail="gmail_signature"><div><br></div><div>Sig</div></div>',
+      '<div>Bodyxxx</div><div data-smartmail="gmail_signature"><div><br></div><div>Sig</div></div>',
     );
   });
 

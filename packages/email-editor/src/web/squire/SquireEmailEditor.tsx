@@ -211,6 +211,7 @@ export const SquireEmailEditor = forwardRef<
   const serializeContent = useCallback(() => {
     const template = document.createElement("template");
     template.innerHTML = editorRef.current?.getHTML() ?? "";
+    removePlaceholderBreaks(template.content);
     const signature = signatureRef.current;
     if (
       signaturePresentRef.current &&
@@ -960,4 +961,14 @@ function escapeHtml(value: string) {
     .replace(/"/gu, "&quot;")
     .replace(/</gu, "&lt;")
     .replace(/>/gu, "&gt;");
+}
+
+// Squire keeps a <br> after a block's last text so the cursor has somewhere
+// to sit. Browsers don't draw it, but mail clients can show it as a blank
+// line. Blank lines of their own are separate blocks, so they are kept.
+function removePlaceholderBreaks(parent: ParentNode) {
+  for (const br of parent.querySelectorAll("br")) {
+    const previous = br.previousSibling;
+    if (!br.nextSibling && previous && previous.nodeName !== "BR") br.remove();
+  }
 }
