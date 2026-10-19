@@ -7,6 +7,17 @@ export type SendWarning =
 const ATTACHMENT_MENTION =
   /\b(attach|attached|attaching|attachment|attachments|enclosed)\b|\b(adjunto|adjunta|adjuntos|adjuntas|anexo|anexos|anexado|anbei|anhang|angehängt|ci-joint|allegato|allegati|bijlage|bijgevoegd)\b|pièces? jointes?/iu;
 
+// A signature or quoted thread can sit inside the editable body once it is
+// edited; its text isn't what the user is about to send as new content.
+const NOT_WRITTEN_BY_USER = [
+  '[data-smartmail="gmail_signature"]',
+  ".gmail_signature",
+  ".gmail_signature_prefix",
+  ".gmail_quote",
+  "blockquote",
+  "[data-email-preserved-kind]",
+].join(",");
+
 const PLACEHOLDER = /\[[^[\]\n]{1,60}\]/;
 
 export function getSendWarnings({
@@ -35,8 +46,9 @@ export function getEditableText(html: string) {
     /<(br|\/p|\/div|\/li|\/h[1-6])\b[^>]*>/gi,
     "$&\n",
   );
-  return (
-    new DOMParser().parseFromString(blockBreaks, "text/html").body
-      .textContent ?? ""
-  );
+  const body = new DOMParser().parseFromString(blockBreaks, "text/html").body;
+  for (const element of body.querySelectorAll(NOT_WRITTEN_BY_USER)) {
+    element.remove();
+  }
+  return body.textContent ?? "";
 }
