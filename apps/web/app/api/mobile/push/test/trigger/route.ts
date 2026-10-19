@@ -33,12 +33,7 @@ export type TriggerPushResponse = {
   sends: ReturnType<typeof takeRecordedPushSends>;
 };
 
-/**
- * Stands in for provider push, which the Gmail and Graph emulators never
- * deliver: runs the mailbox hint or To Reply alert path for one of the
- * caller's accounts and returns what the fake transports recorded.
- * Production and the real transports never expose this.
- */
+// Test-only: the provider emulators never deliver push.
 export const POST = withAuth("mobile/push/test/trigger", async (request) => {
   if (!isFakePushTransport()) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -98,7 +93,7 @@ export const POST = withAuth("mobile/push/test/trigger", async (request) => {
         },
       ],
       logger: request.logger,
-      // Seeded mail is older than the alert window, so judge it as just arrived.
+      // Seeded mail is older than the alert window.
       now: new Date(getMessageTimestamp(message)),
     });
   }

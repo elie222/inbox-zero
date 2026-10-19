@@ -8,7 +8,6 @@ const DEFAULT_TOKEN_URI = "https://oauth2.googleapis.com/token";
 const FCM_REQUEST_TIMEOUT_MS = 10_000;
 const DEFAULT_ALERT_CHANNEL_ID = "mail";
 
-// FCM registration tokens are opaque; they use URL-safe base64 plus a colon.
 export const FCM_REGISTRATION_TOKEN = /^[A-Za-z0-9_:-]{32,4096}$/;
 
 export type FcmAlert = {
@@ -73,7 +72,6 @@ export function isFcmConfigured() {
 }
 
 export function isStaleFcmToken(delivery: { errorCode: string | null }) {
-  // The app was uninstalled or the token rotated; it never becomes valid again.
   return (
     delivery.errorCode === "UNREGISTERED" || delivery.errorCode === "NOT_FOUND"
   );
@@ -163,8 +161,7 @@ function isBackgroundNotification(
 }
 
 function fcmMessage(token: string, notification: FcmNotification): FcmMessage {
-  // Android demotes high-priority messages that never show a notification, so
-  // silent hints stay at normal priority.
+  // Android demotes high-priority pushes that show no notification.
   if (isBackgroundNotification(notification)) {
     return {
       token,

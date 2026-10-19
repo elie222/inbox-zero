@@ -114,7 +114,6 @@ export function isFakePushTransport() {
   return isFakeApnsTransport() || isFakeFcmTransport();
 }
 
-/** Sends the fake APNs and FCM transports recorded, oldest first per transport. */
 export function takeRecordedPushSends() {
   return [
     ...takeRecordedApnsSends().map((send) => ({

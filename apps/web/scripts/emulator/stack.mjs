@@ -351,8 +351,6 @@ async function printPorts() {
     console.log(`${name} ${port}`);
 }
 
-// A device reaches the stack through `adb reverse tcp:<port> tcp:<port>` for
-// each of these, so it can keep the same 127.0.0.1 URLs as the host.
 function loopbackPorts(state) {
   const [googleControlUrl, microsoftControlUrl] =
     state.providerControlUrls ?? [];

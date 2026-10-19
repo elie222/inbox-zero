@@ -15,7 +15,6 @@ const DRAFT_PATH = /^\/api\/user\/drafts(?:\/[^/]+)?$/;
 let loss = { provider: "google", kind: "metadata" };
 let remaining = 0;
 let dropped = 0;
-// Account ids are unique per stack, so a provider looked up once stays valid.
 const accountProviders = new Map();
 
 const server = createServer(async (request, response) => {

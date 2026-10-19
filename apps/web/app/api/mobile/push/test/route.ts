@@ -17,10 +17,6 @@ export type TestPushResponse = {
   sends: ReturnType<typeof takeRecordedPushSends>;
 };
 
-/**
- * Delivers a push through the fake APNs and FCM transports and returns what
- * they recorded. Production and the real transports never expose this.
- */
 export const POST = withAuth("mobile/push/test", async (request) => {
   if (!isFakePushTransport()) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
