@@ -23,7 +23,7 @@ export function SharedConversationReader({
         <p>
           Select your organization membership from{" "}
           <Link href="/shared" className="text-primary underline">
-            Shared with me
+            Team
           </Link>
           .
         </p>
@@ -79,7 +79,7 @@ function AuthorizedReader({
           href={`/shared?memberId=${encodeURIComponent(memberId)}`}
           className="text-primary text-sm underline"
         >
-          Shared with me
+          Team
         </Link>
         <Button size="sm" variant="ghost" onClick={() => messages.mutate()}>
           Refresh email
