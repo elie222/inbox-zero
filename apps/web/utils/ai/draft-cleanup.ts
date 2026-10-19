@@ -3,7 +3,11 @@ import { ActionType, DraftEmailStatus } from "@/generated/prisma/enums";
 import { createEmailProvider } from "@/utils/email/provider";
 import { isDraftUnmodified } from "@/utils/ai/choose-rule/draft-management";
 import type { Logger } from "@/utils/logger";
-import { DEFAULT_AI_DRAFT_CLEANUP_DAYS } from "@/utils/ai/draft-cleanup-settings";
+import { subDays } from "date-fns/subDays";
+import {
+  DEFAULT_AI_DRAFT_CLEANUP_DAYS,
+  MIN_AI_DRAFT_CLEANUP_DAYS,
+} from "@/utils/ai/draft-cleanup-settings";
 import { withPrismaRetry } from "@/utils/prisma-retry";
 
 export async function cleanupAIDraftsForAccount({
@@ -177,11 +181,7 @@ export async function markTrackedDraftDeleted({
   }
 }
 
-export async function cleanupConfiguredAIDrafts({
-  logger,
-}: {
-  logger: Logger;
-}) {
+export async function getEmailAccountsWithStaleAIDrafts() {
   const emailAccounts = await prisma.emailAccount.findMany({
     where: {
       draftCleanupDays: { not: null },
@@ -193,60 +193,47 @@ export async function cleanupConfiguredAIDrafts({
               type: ActionType.DRAFT_EMAIL,
               draftId: { not: null },
               ...getDraftCleanupCandidateWhere(),
+              createdAt: { lt: subDays(new Date(), MIN_AI_DRAFT_CLEANUP_DAYS) },
             },
           },
         },
       },
     },
+    select: { id: true },
+  });
+
+  return emailAccounts.map((emailAccount) => emailAccount.id);
+}
+
+export async function cleanupConfiguredAIDraftsForAccount({
+  emailAccountId,
+  logger,
+}: {
+  emailAccountId: string;
+  logger: Logger;
+}) {
+  const emailAccount = await prisma.emailAccount.findUnique({
+    where: { id: emailAccountId },
     select: {
-      id: true,
       draftCleanupDays: true,
-      account: { select: { provider: true } },
+      account: { select: { provider: true, disconnectedAt: true } },
     },
   });
 
-  let total = 0;
-  let deleted = 0;
-  let skippedModified = 0;
-  let alreadyGone = 0;
-  let errors = 0;
-  let failedAccounts = 0;
-
-  for (const emailAccount of emailAccounts) {
-    if (emailAccount.draftCleanupDays === null) continue;
-
-    try {
-      const result = await cleanupAIDraftsForAccount({
-        emailAccountId: emailAccount.id,
-        provider: emailAccount.account.provider,
-        logger,
-        cleanupDays: emailAccount.draftCleanupDays,
-      });
-
-      total += result.total;
-      deleted += result.deleted;
-      skippedModified += result.skippedModified;
-      alreadyGone += result.alreadyGone;
-      errors += result.errors;
-    } catch (error) {
-      logger.error("Error cleaning up drafts for account", {
-        emailAccountId: emailAccount.id,
-        error,
-      });
-      failedAccounts++;
-      errors++;
-    }
+  if (
+    emailAccount?.draftCleanupDays == null ||
+    emailAccount.account.disconnectedAt
+  ) {
+    logger.info("Skipping draft cleanup: cleanup disabled or disconnected");
+    return null;
   }
 
-  return {
-    accountsChecked: emailAccounts.length,
-    failedAccounts,
-    total,
-    deleted,
-    skippedModified,
-    alreadyGone,
-    errors,
-  };
+  return cleanupAIDraftsForAccount({
+    emailAccountId,
+    provider: emailAccount.account.provider,
+    logger,
+    cleanupDays: emailAccount.draftCleanupDays,
+  });
 }
 
 export async function getConfiguredDraftCleanupDays(emailAccountId: string) {
