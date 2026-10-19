@@ -43,6 +43,66 @@ describe("mail engine tab channel", () => {
     handle.close();
   });
 
+  it("restores existing subscriptions when a new leader takes over", async () => {
+    const bus = createMemoryTabBus();
+    const stop = bindTabMailOwner({ client: stubClient({}), bus });
+    const follower = createTabFollowerClient({ accountId: "acc-1", bus });
+    const handle = follower.observeMailbox({
+      accountIds: ["acc-1"],
+      predicate: { kind: "role", role: "inbox" },
+      order: "newest_first",
+      pageSize: 25,
+      after: null,
+    });
+    await waitFor(() => handle.getSnapshot().status === "ready");
+    stop();
+    const next = stubClient({});
+    const observe = vi.spyOn(next, "observeMailbox");
+    const stopNext = bindTabMailOwner({ client: next, bus });
+    bus.post({ type: "ready" });
+    await waitFor(() => observe.mock.calls.length > 0);
+    expect(observe).toHaveBeenCalledOnce();
+    expect(handle.getSnapshot().status).toBe("ready");
+    handle.close();
+    disposeTabFollowerClient(follower);
+    stopNext();
+  });
+
+  it("does not rebuild subscriptions when another follower joins the same owner", () => {
+    const bus = createMemoryTabBus();
+    const owner = stubClient({});
+    const observe = vi.spyOn(owner, "observeMailbox");
+    const stop = bindTabMailOwner({ client: owner, bus });
+    const follower = createTabFollowerClient({ accountId: "acc-1", bus });
+    const handle = follower.observeMailbox({
+      accountIds: ["acc-1"],
+      predicate: { kind: "role", role: "inbox" },
+      order: "newest_first",
+      pageSize: 25,
+      after: null,
+    });
+    bus.post({ type: "hello", accountId: "acc-1" });
+    expect(observe).toHaveBeenCalledOnce();
+    handle.close();
+    disposeTabFollowerClient(follower);
+    stop();
+  });
+
+  it("forwards local contact suggestions from a follower tab to the owner", async () => {
+    const bus = createMemoryTabBus();
+    bindTabMailOwner({ client: stubClient({ onSubmit() {} }), bus });
+    const follower = createTabFollowerClient({ accountId: "acc-1", bus });
+
+    await expect(
+      follower.queryContactSuggestions?.({
+        accountId: "acc-1",
+        ownAddresses: [],
+        excludeEmails: [],
+        query: "ada",
+      }),
+    ).resolves.toEqual([{ emailAddress: "ada@example.com", name: "Ada" }]);
+  });
+
   it("does not throw when posting to a closed BroadcastChannel", () => {
     const channel = {
       postMessage() {
@@ -236,6 +296,9 @@ function stubClient(input: {
       return { databaseEpoch: "e", sequence: 1 };
     },
     async retainAccounts() {},
+    async queryContactSuggestions() {
+      return [{ emailAddress: "ada@example.com", name: "Ada" }];
+    },
   };
 }
 

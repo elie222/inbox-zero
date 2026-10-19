@@ -174,8 +174,15 @@ export function EmailMessage({
       getReplyDraftSessionId(draft.sessionMessageId, "reply") !==
         poppedOutDraftSessionId,
   );
-  const composingMailboxReply =
-    composeMode === "reply" && visibleDrafts.length > 0;
+  // A new reply's autosave can sync back as a mailbox draft before the thread
+  // knows the open composer saved it. Once open, the new reply keeps the
+  // editor instead of being swapped for that copy mid-sentence.
+  const [newReplyOpen, setNewReplyOpen] = useState(false);
+  const isNewReply =
+    composeMode === "reply" && (newReplyOpen || visibleDrafts.length === 0);
+  if (isNewReply !== newReplyOpen) setNewReplyOpen(isNewReply);
+  const shownDrafts = isNewReply ? [] : visibleDrafts;
+  const composingMailboxReply = composeMode === "reply" && !isNewReply;
   const isDraftRow = serverDrafts.some(
     (draft) => draft.message.id === message.id,
   );
@@ -375,10 +382,10 @@ export function EmailMessage({
 
           {message.attachments && <EmailAttachments message={message} />}
 
-          {visibleDrafts.map(({ message: draft, sessionMessageId }, index) => (
+          {shownDrafts.map(({ message: draft, sessionMessageId }, index) => (
             <ReplyPanel
               key={sessionMessageId}
-              autoScroll={!composeMode && index === visibleDrafts.length - 1}
+              autoScroll={!composeMode && index === shownDrafts.length - 1}
               draftBodyAvailable={!missingBodyIds?.has(draft.id)}
               draftMessage={draft}
               draftSessionMessageId={sessionMessageId}

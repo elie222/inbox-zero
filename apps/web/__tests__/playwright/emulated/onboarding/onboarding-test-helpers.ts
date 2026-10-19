@@ -10,6 +10,7 @@ type PreviousOnboardingState = {
   emailAccountId: string;
   onboardingAnswers: unknown;
   role: string | null;
+  signupIntent: string | null;
   surveyCompanySize: number | null;
   surveyRole: string | null;
   surveySource: string | null;
@@ -28,6 +29,7 @@ export async function setupOnboardingTestState() {
          ea.id AS "emailAccountId",
          u."completedOnboardingAt",
          u."onboardingAnswers",
+         u."signupIntent",
          u."surveyRole",
          u."surveyCompanySize",
          u."surveySource",
@@ -57,6 +59,7 @@ export async function setupOnboardingTestState() {
       `UPDATE "User"
        SET "completedOnboardingAt" = NULL,
            "onboardingAnswers" = NULL,
+           "signupIntent" = NULL,
            "surveyRole" = NULL,
            "surveyCompanySize" = NULL,
            "surveySource" = NULL
@@ -84,7 +87,8 @@ export async function resetOnboardingTestState() {
              "onboardingAnswers" = $3,
              "surveyRole" = $4,
              "surveyCompanySize" = $5,
-             "surveySource" = $6
+             "surveySource" = $6,
+             "signupIntent" = $7
          WHERE id = $1`,
         [
           state.userId,
@@ -95,6 +99,7 @@ export async function resetOnboardingTestState() {
           state.surveyRole,
           state.surveyCompanySize,
           state.surveySource,
+          state.signupIntent,
         ],
       );
       await client.query(`UPDATE "EmailAccount" SET role = $2 WHERE id = $1`, [
@@ -109,10 +114,36 @@ export async function resetOnboardingTestState() {
 
 export async function openControlOnboarding(page: Page) {
   const emailAccountId = await getEmailAccountId(page);
-  await page.goto(`/${emailAccountId}/onboarding?step=who`);
+  await page.goto(`/${emailAccountId}/onboarding`);
   await expect(
     page.getByRole("heading", { name: "What do you do?" }),
   ).toBeVisible({ timeout: 60_000 });
+  return emailAccountId;
+}
+
+export async function chooseSignupIntent(page: Page, option: string) {
+  await expect(
+    page.getByRole("heading", { name: "How do you want to use Inbox Zero?" }),
+  ).toBeVisible({ timeout: 60_000 });
+  await page.getByRole("button", { name: new RegExp(`^${option}`) }).click();
+}
+
+export async function getSignupIntentState() {
+  return withClient(async (client) => {
+    const result = await client.query<{
+      completed: boolean;
+      signupIntent: string | null;
+    }>(
+      `SELECT
+         u."completedOnboardingAt" IS NOT NULL AS completed,
+         u."signupIntent"
+       FROM "User" u
+       INNER JOIN "EmailAccount" ea ON ea."userId" = u.id
+       WHERE ea.email = $1`,
+      [PLAYWRIGHT_TEST_EMAIL],
+    );
+    return result.rows[0];
+  });
 }
 
 export async function getPersistedOnboardingState() {

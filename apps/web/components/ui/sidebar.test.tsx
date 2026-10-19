@@ -32,6 +32,28 @@ describe("SidebarProvider", () => {
       "chat-sidebar,left-sidebar",
     );
   });
+
+  it("leaves the shortcut to rich text editors for bold", () => {
+    render(
+      <SidebarProvider
+        defaultOpen="all"
+        sidebarNames={["left-sidebar"]}
+        keyboardShortcutName="left-sidebar"
+      >
+        <div contentEditable suppressContentEditableWarning>
+          <p data-testid="editor-text">Hello</p>
+        </div>
+        <SidebarState />
+      </SidebarProvider>,
+    );
+
+    fireEvent.keyDown(screen.getByTestId("editor-text"), {
+      key: "b",
+      metaKey: true,
+    });
+
+    expect(screen.getByRole("status").textContent).toBe("left-sidebar");
+  });
 });
 
 function SidebarState() {

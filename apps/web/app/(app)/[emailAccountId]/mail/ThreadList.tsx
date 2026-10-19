@@ -2,7 +2,14 @@
 
 import { addDays } from "date-fns/addDays";
 import { startOfDay } from "date-fns/startOfDay";
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { MailboxThreadList } from "@inboxzero/mail-ui/MailboxSurface";
 import { ThreadRow } from "@/app/(app)/[emailAccountId]/mail/ThreadRow";
 import type {
@@ -24,7 +31,7 @@ const NO_LABELS: EmailLabels = {};
 
 export type ThreadListProps = {
   threads: ListThread[];
-  emptyMessage?: string;
+  emptyMessage?: ReactNode;
   layout: MailLayoutMode;
   expandedPreview: boolean;
   userEmail: string;

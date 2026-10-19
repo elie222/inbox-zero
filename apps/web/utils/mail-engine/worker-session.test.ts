@@ -1,3 +1,4 @@
+import { MailEngineStartupError } from "./startup-error";
 import { describe, expect, it } from "vitest";
 import type { MailEngine } from "@inboxzero/mail-core/engine";
 import { createMailWorkerHost } from "./worker-session";
@@ -106,3 +107,32 @@ function stubEngine(): MailEngine {
     async close() {},
   } as MailEngine;
 }
+
+describe("worker startup diagnostics", () => {
+  it("sends the failed startup stage back to the page", async () => {
+    const posts: WorkerResponse[] = [];
+    const host = createMailWorkerHost({
+      createEngine: async () => {
+        throw new MailEngineStartupError(
+          "wasm-init",
+          new Error("WASM compilation failed"),
+        );
+      },
+      post: (message) => posts.push(message),
+    });
+    await host.handle({
+      id: "start",
+      type: "start",
+      input: { accountId: "test", provider: "google" },
+    });
+    expect(posts).toEqual([
+      {
+        id: "start",
+        type: "error",
+        message: "WASM compilation failed",
+        stage: "wasm-init",
+        errorName: "Error",
+      },
+    ]);
+  });
+});

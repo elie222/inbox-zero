@@ -143,6 +143,21 @@ describe("captureException", () => {
     vi.clearAllMocks();
   });
 
+  it("forwards diagnostic tags separately from extra context", () => {
+    const error = new Error("startup failed");
+    const tags = {
+      runtimeMode: "desktop-ipc",
+      platform: "desktop",
+      stage: "desktop-sync",
+    };
+    const extra = { worker: false, locks: false, opfs: false };
+    captureException(error, { tags, extra });
+    expect(mockSentryCaptureException).toHaveBeenCalledWith(error, {
+      tags,
+      extra,
+    });
+  });
+
   it("forwards attached LLM repair metadata to Sentry extra context", () => {
     const error = new Error("generation failed");
     const llmRepair = createLlmRepairMetadata();

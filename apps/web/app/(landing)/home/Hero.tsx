@@ -24,6 +24,7 @@ interface HeroProps {
   badgeVariant?: BadgeVariant;
   children?: React.ReactNode;
   cta?: React.ReactNode;
+  icon?: React.ReactNode;
   subtitle?: React.ReactNode;
   title?: React.ReactNode;
 }
@@ -35,9 +36,13 @@ export function Hero({
   badgeVariant = "blue",
   children,
   cta,
+  icon,
 }: HeroProps) {
   return (
-    <Section className={badge ? "mt-7 md:mt-7" : "mt-10 md:mt-20"}>
+    <Section className={badge || icon ? "mt-7 md:mt-7" : "mt-10 md:mt-20"}>
+      {icon ? (
+        <HeroReveal className="mb-7 flex justify-center">{icon}</HeroReveal>
+      ) : null}
       {badge ? (
         <HeroReveal className="mb-7 flex justify-center">
           <Badge variant={badgeVariant}>{badge}</Badge>
@@ -68,12 +73,8 @@ export function Hero({
   );
 }
 
-export function HeroVideoPlayer({
-  video,
-}: {
-  video?: { muxPlaybackId: string; thumbnailTime?: number; title: string };
-}) {
-  const muxThumbnail = video?.thumbnailTime !== undefined;
+export function HeroVideoPlayer({ video }: { video?: HeroVideo }) {
+  const thumbnail = getThumbnail(video);
 
   return (
     <HeroReveal className="relative w-full" delay={0.125 * 9}>
@@ -84,14 +85,10 @@ export function HeroVideoPlayer({
           title={video?.title}
         />
         <Image
-          src={
-            muxThumbnail
-              ? `https://image.mux.com/${video.muxPlaybackId}/thumbnail.jpg?time=${video.thumbnailTime}&width=2560`
-              : "/images/new-landing/video-thumbnail.webp"
-          }
+          src={thumbnail.src}
           alt={video?.title ?? "an organized inbox"}
-          width={2560}
-          height={muxThumbnail ? 1440 : 1404}
+          width={thumbnail.width}
+          height={thumbnail.height}
           sizes="(min-width: 1280px) 1152px, (min-width: 1024px) calc(100vw - 64px), calc(100vw - 48px)"
           preload
           className="h-auto w-full"
@@ -109,4 +106,27 @@ export function HeroContent() {
       <HeroVideoPlayer />
     </>
   );
+}
+
+type HeroVideo = {
+  muxPlaybackId: string;
+  thumbnailTime?: number;
+  thumbnail?: { src: string; width: number; height: number };
+  title: string;
+};
+
+function getThumbnail(video?: HeroVideo) {
+  if (video?.thumbnail) return video.thumbnail;
+  if (video?.thumbnailTime !== undefined) {
+    return {
+      src: `https://image.mux.com/${video.muxPlaybackId}/thumbnail.jpg?time=${video.thumbnailTime}&width=2560`,
+      width: 2560,
+      height: 1440,
+    };
+  }
+  return {
+    src: "/images/new-landing/video-thumbnail.webp",
+    width: 2560,
+    height: 1404,
+  };
 }

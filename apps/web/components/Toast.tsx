@@ -34,11 +34,15 @@ export function toastError(options: { title?: string; description: string }) {
 export function toastInfo(options: {
   title: string;
   description: string;
+  id?: string;
   duration?: number;
+  action?: { label: string; onClick: () => void };
 }) {
   return toast(options.title, {
     description: options.description,
+    id: options.id,
     duration: options.duration,
+    action: options.action,
   });
 }
 

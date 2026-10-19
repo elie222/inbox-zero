@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { withEmailProvider } from "@/utils/middleware";
 import type { EmailProvider } from "@/utils/email/types";
 import { threadsQuery } from "@/utils/threads/validation";
@@ -19,7 +20,10 @@ export const GET = withEmailProvider("threads/basic", async (request) => {
   const { emailAccountId } = request.auth;
 
   const { searchParams } = new URL(request.url);
-  const query = threadsQuery
+  // Object refinements make .pick() throw as of Zod 4.3. This route only
+  // reads these fields, so the inbox-wide refinements do not apply.
+  const query = z
+    .object(threadsQuery.shape)
     .pick({
       fromEmail: true,
       labelId: true,

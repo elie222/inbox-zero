@@ -67,6 +67,8 @@ export type MailSidebarProps = {
   activeFolderId: string | null;
   /** Builds the href for a row so the sidebar never owns routing. */
   hrefFor: (target: MailNavTarget) => string;
+  /** Runs when a row navigates in place, including to the view already open. */
+  onNavigate: () => void;
   labels: EmailLabel[];
   folders: OutlookFolder[];
   /** Keyed by provider label/folder id. Arrives after first paint; may be empty. */
@@ -164,6 +166,7 @@ export function MailSidebar({
   activeLabelId,
   activeFolderId,
   hrefFor,
+  onNavigate,
   labels,
   folders,
   countsById,
@@ -316,6 +319,7 @@ export function MailSidebar({
             href={
               unified ? undefined : hrefFor({ kind: "type", type: "inbox" })
             }
+            onNavigate={onNavigate}
             active={
               unified ||
               (!activeLabelId && !activeFolderId && activeType === "inbox")
@@ -343,6 +347,7 @@ export function MailSidebar({
                   <NavRow
                     key={type}
                     href={hrefFor({ kind: "type", type })}
+                    onNavigate={onNavigate}
                     active={
                       !activeLabelId && !activeFolderId && activeType === type
                     }
@@ -382,6 +387,7 @@ export function MailSidebar({
                     <NavRow
                       key={type}
                       href={hrefFor({ kind: "type", type })}
+                      onNavigate={onNavigate}
                       active={
                         !activeLabelId && !activeFolderId && activeType === type
                       }
@@ -415,6 +421,7 @@ export function MailSidebar({
                 >
                   <NavRow
                     href={hrefFor({ kind: "folder", folderId: folder.id })}
+                    onNavigate={onNavigate}
                     active={activeFolderId === folder.id}
                     icon={
                       <FolderIcon
@@ -469,6 +476,7 @@ export function MailSidebar({
                     collapsed={collapsed}
                     activeLabelId={activeLabelId}
                     hrefFor={hrefFor}
+                    onNavigate={onNavigate}
                     countsById={countsById}
                     labelSingular={labelSingular}
                     labelEditMode={labelEditMode}
@@ -506,6 +514,7 @@ export function MailSidebar({
                         collapsed={collapsed}
                         activeLabelId={activeLabelId}
                         hrefFor={hrefFor}
+                        onNavigate={onNavigate}
                         countsById={countsById}
                         labelSingular={labelSingular}
                         labelEditMode={labelEditMode}
@@ -563,6 +572,7 @@ function LabelBranch({
   MailSidebarProps,
   | "activeLabelId"
   | "hrefFor"
+  | "onNavigate"
   | "countsById"
   | "labelSingular"
   | "labelEditMode"
@@ -632,6 +642,7 @@ function LabelBranch({
           )}
           <NavRow
             href={props.hrefFor({ kind: "label", labelId: label.id })}
+            onNavigate={props.onNavigate}
             active={props.activeLabelId === label.id}
             icon={
               collapsed ? (
@@ -730,6 +741,7 @@ function GroupHeading({
 
 function NavRow({
   href,
+  onNavigate,
   active,
   icon,
   name,
@@ -739,6 +751,7 @@ function NavRow({
   collapsed,
 }: {
   href?: string;
+  onNavigate: () => void;
   active: boolean;
   icon: ReactNode;
   name: string;
@@ -762,6 +775,7 @@ function NavRow({
   const row = href ? (
     <Link
       href={href}
+      onNavigate={onNavigate}
       aria-current={active ? "page" : undefined}
       className={className}
     >

@@ -30,8 +30,10 @@ import {
 import { Chat } from "@/components/new-landing/icons/Chat";
 import { type Tier, tiers } from "@/app/(app)/premium/config";
 import { Briefcase } from "@/components/new-landing/icons/Briefcase";
+import { Mail } from "@/components/new-landing/icons/Mail";
 import { landingPageAnalytics } from "@/hooks/useAnalytics";
 import { cn } from "@/utils";
+import { MAIL_CLIENT_SIGNUP_PATH } from "@/utils/config";
 
 type PricingTier = Tier & {
   badges?: {
@@ -132,7 +134,7 @@ export function Pricing() {
             </Radio>
           ))}
         </RadioGroup>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid w-full grid-cols-1 lg:grid-cols-3 gap-6">
           {pricingTiers.map((tier, index) => (
             <CardWrapper key={tier.name}>
               <PricingCard
@@ -146,6 +148,46 @@ export function Pricing() {
             </CardWrapper>
           ))}
         </div>
+        <CardWrapper className="mt-6 w-full">
+          <Card variant="extra-rounding">
+            <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="text-gray-400">
+                  <Mail />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-title text-lg">Email app</h3>
+                    <Badge variant="blue">New</Badge>
+                  </div>
+                  <Paragraph size="sm" className="mt-1">
+                    A fast email app for Gmail and Outlook. Free on web,
+                    desktop, and iPhone.
+                  </Paragraph>
+                </div>
+              </div>
+              <Button size="lg" asChild>
+                <Link
+                  href={MAIL_CLIENT_SIGNUP_PATH}
+                  className="shrink-0 whitespace-nowrap"
+                  onClick={() =>
+                    landingPageAnalytics.pricingCtaClicked(posthog, {
+                      tier: "Email app",
+                      cta: "Get started free",
+                      frequency,
+                      defaultFrequency,
+                      frequencySource: chosenFrequency
+                        ? "user_selected"
+                        : "default",
+                    })
+                  }
+                >
+                  <span className="relative z-10">Get started free</span>
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </CardWrapper>
         <CardWrapper className="mt-6 w-full">
           <Card variant="extra-rounding">
             <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4">

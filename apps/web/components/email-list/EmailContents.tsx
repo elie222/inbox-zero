@@ -21,7 +21,7 @@ import {
   getInlineImageContentIds,
   normalizeContentId,
   rewriteInlineImageSources,
-} from "@/utils/email/inline-images";
+} from "@inboxzero/mail-ui/inline-images";
 import { linkifyPlainText } from "@/utils/email/linkify-plain-text";
 import { splitEmailContent } from "@/utils/email/split-email-content.client";
 import {
@@ -29,7 +29,7 @@ import {
   getAttachmentUrl,
 } from "@/utils/attachments/download";
 import { queueAttachmentDownload } from "@/utils/attachments/download-queue";
-import { getAttachmentImagePreview } from "@/utils/attachments/image-preview";
+import { getAttachmentImagePreview } from "@inboxzero/mail-ui/image-preview";
 
 const NO_INLINE_ATTACHMENTS: ParsedMessage["inline"] = [];
 const INLINE_IMAGE_MAX_BYTES = 25 * 1024 * 1024;

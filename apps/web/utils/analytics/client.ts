@@ -6,7 +6,7 @@ import { browserMailEngineCapabilities } from "@/utils/mail-engine/worker-protoc
 export function getClientAnalyticsProperties() {
   const mailEngineTransport = selectMailEngineRuntimeMode({
     desktopIpc: hasDesktopMailEngineIpc(),
-    opfs: browserMailEngineCapabilities().opfs,
+    ...browserMailEngineCapabilities(),
   });
 
   if (!getInboxZeroDesktopApp()) {

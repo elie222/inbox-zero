@@ -72,6 +72,7 @@ model User {
 
   // additional fields
   completedOnboardingAt   DateTime? // questions about the user. e.g. their role
+  signupIntent            SignupIntent? // which part of the product the user signed up for
   onboardingAnswers       Json?
   lastLogin               DateTime?
   utms                    Json?
@@ -131,6 +132,12 @@ model User {
   scimIdentityLinks      ScimIdentityLink[]
 }
 
+enum SignupIntent {
+  AI_ASSISTANT
+  MAIL_CLIENT
+  BOTH
+}
+
 enum ApiKeyScope {
   STATS_READ
   RULES_READ
@@ -166,6 +173,7 @@ model EmailAccount {
   role                           String? // the role confirmed by the user - previously `User.surveyRole`
   timezone                       String? // User's timezone (IANA tz database format, e.g., "America/Los_Angeles", "Asia/Jerusalem") - handles DST automatically
   calendarBookingLink            String? // User's calendar booking link
+  draftDocsUrls                  String[]  @default([]) // Public docs sites (origin + optional path prefix) that drafts may look things up in
 
   statsEmailFrequency       Frequency            @default(WEEKLY)
   summaryEmailFrequency     Frequency            @default(WEEKLY)

@@ -23,8 +23,7 @@ test("keeps keyboard focus in the composer and follows the message field order",
   await expect(toField).toBeFocused();
 
   for (const field of [
-    dialog.getByRole("combobox", { exact: true, name: "Cc" }),
-    dialog.getByRole("combobox", { exact: true, name: "Bcc" }),
+    dialog.getByRole("button", { name: "Show Cc and Bcc" }),
     dialog.getByPlaceholder("Subject"),
     dialog.getByRole("textbox", { name: "Email message" }),
     dialog.getByRole("button", { name: "Show signature" }),
@@ -39,6 +38,16 @@ test("keeps keyboard focus in the composer and follows the message field order",
     await page.keyboard.press("Tab");
     await expect(field).toBeFocused();
   }
+
+  await dialog.getByRole("button", { name: "Show Cc and Bcc" }).click();
+  await expect(
+    dialog.getByRole("combobox", { exact: true, name: "Cc" }),
+  ).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(
+    dialog.getByRole("combobox", { exact: true, name: "Bcc" }),
+  ).toBeFocused();
+  await dialog.getByRole("button", { name: "Discard draft" }).focus();
 
   // Focus wraps from the dialog's last control back to its first instead of
   // escaping the non-modal composer.

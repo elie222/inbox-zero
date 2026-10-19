@@ -1066,6 +1066,96 @@ Morgan`,
         TIMEOUT,
       );
 
+      test.each([
+        { styleLabel: "default style", writingStyle: null },
+        {
+          styleLabel: "terse custom style",
+          writingStyle:
+            "Short and casual. Usually one or two lines. No greetings or sign-offs.",
+        },
+      ])(
+        "answers each numbered question separately ($styleLabel)",
+        async ({ styleLabel, writingStyle }) => {
+          const messages = [
+            {
+              ...getEmail({
+                from: "Jordan Avery <jordan@prospect.example>",
+                to: emailAccount.email,
+                subject: "Question about automatic sorting in Outlook",
+                content: `Hello,
+
+I'm evaluating your product as a replacement for the email assistant I use today. I'm on Microsoft 365 with the desktop Outlook app and want AI to sort incoming mail into folders so my inbox stays clear. Ideally I'd like to choose the folders and control how emails get sorted.
+
+Your product looks promising, but I couldn't confirm a few capabilities on your website:
+
+1. Can it automatically sort emails and actually move them into Outlook folders?
+2. Does it keep running in the background without me approving each action or keeping an app open?
+3. Can I create my own folders?
+4. Can I control the sorting with rules, plain-language instructions, or by correcting mistakes so it learns?
+
+Thanks for your help!
+
+Jordan`,
+              }),
+              date: new Date("2026-05-05T10:00:00Z"),
+            },
+          ];
+          // Shaped like the research summary a docs lookup hands the drafter
+          const mcpContext = `The product supports Outlook and Microsoft 365, including moving messages into Outlook folders.
+
+- **Automatic sorting:** Rules use AI instructions, static conditions such as sender or subject, or both, and can move matching emails into folders.
+- **Runs automatically:** Enabled rules run as new mail arrives through the connected mailbox, with no approval needed for ordinary sorting and no app that must stay open.
+- **Custom folders:** Create folders in Outlook, then select them in rules.
+- **Control and corrections:** Write rules in plain language or build them manually, test them first, and use History > Fix to correct a mistake. The assistant also learns from corrections.
+
+If a Microsoft 365 tenant restricts app access, an administrator may need to approve the app before the account can be connected.`;
+
+          const result = await draftForEval({
+            messages,
+            emailAccount,
+            knowledgeBaseContent: null,
+            emailHistorySummary: null,
+            emailHistoryContext: null,
+            calendarAvailability: null,
+            writingStyle,
+            mcpContext,
+            meetingContext: null,
+          });
+
+          const testName = `numbered questions answered separately (${styleLabel})`;
+          const judgeResult = await judgeEvalOutput({
+            input: result.modelEvidence,
+            output: result.reply,
+            expected:
+              "A reply that answers all four numbered questions, each with its own clearly separated answer, in the sender's order. A numbered list or one short line per question both work. Answers stay brief and grounded in the provided context.",
+            criterion: {
+              name: "Mirrors the sender's numbered questions",
+              description:
+                "Each of the sender's four questions gets its own distinct, visually separated answer in the same order, so the sender can match every answer to their question at a glance. Merging several answers into one sentence or paragraph, or skipping a question, fails. Brevity within each answer is fine.",
+            },
+          });
+          const pass = judgeResult.pass;
+
+          evalReporter.record({
+            testName,
+            model: model.label,
+            pass,
+            expected: "four separated answers in the sender's order",
+            actual: formatSemanticJudgeActual(result.reply, judgeResult),
+          });
+
+          expect(
+            pass,
+            `Draft should answer each numbered question separately.\n\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
+              judgeResult,
+              null,
+              2,
+            )}`,
+          ).toBe(true);
+        },
+        TIMEOUT,
+      );
+
       test(
         "does not repeat a resolution contradicted by the sender",
         async () => {

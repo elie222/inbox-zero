@@ -25,6 +25,7 @@ import {
   installDesktopLoadRecovery,
 } from "./load-recovery";
 import { configureDesktopApplicationMenu } from "./application-menu";
+import { installDesktopContextMenu } from "./context-menu";
 import { recordDesktopDiagnostics } from "./diagnostics";
 import {
   checkForDesktopUpdatesManually,
@@ -57,6 +58,7 @@ import {
 import { createMailNotifier } from "./mail-notifications";
 import { captureDesktopError, initDesktopSentry } from "./sentry";
 import { startEventLoopDelayMonitor } from "./health";
+import { readDesktopAttachment } from "./mail-engine/attachment";
 import { registerMailEnginePushIpc } from "./mail-engine/push-ipc";
 import {
   createDesktopMailProcessOwner,
@@ -153,6 +155,15 @@ function startDesktopApp() {
   ipcMain.handle("mail-engine", (event, payload: unknown) => {
     if (!isTrustedDesktopEvent(event)) return { status: "invalid" };
     return getDesktopMailOwner().handleIpc(payload);
+  });
+  ipcMain.handle("desktop:read-attachment", (event, payload: unknown) => {
+    if (!isTrustedDesktopEvent(event))
+      throw new Error("Untrusted attachment request");
+    return readDesktopAttachment({
+      payload,
+      origin: appOrigin,
+      fetch: (url, init) => event.sender.session.fetch(url, init),
+    });
   });
   registerMailEnginePushIpc({
     ipcMain,
@@ -263,6 +274,9 @@ function startDesktopApp() {
           }).catch(logDesktopUpdateError);
         },
         createWindow: () => createAppWindow(),
+        openSettings: () => {
+          focusAppWindow().webContents.send("desktop:open-settings");
+        },
         recordDiagnostics: () => {
           recordDesktopDiagnostics({
             getMailOwner: () => desktopMailOwner,
@@ -432,6 +446,11 @@ function createAppWindow(options?: {
 
   applyNavigationPolicy(window.webContents);
   applyDesktopWindowDragRegion(window.webContents);
+  installDesktopContextMenu(window.webContents, {
+    openExternal: (url) => {
+      openExternal(url).catch(() => {});
+    },
+  });
   window.webContents.on("did-navigate", (_event, url) => {
     rememberWindowUrl(window, url);
   });

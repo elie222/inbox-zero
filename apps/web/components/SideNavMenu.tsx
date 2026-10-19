@@ -57,6 +57,7 @@ export function SideNavMenu({
           >
             <Link
               href={item.href}
+              target={item.target}
               onClick={() => {
                 const destinationAppPage = getAppPageFromNavItem({
                   name: item.name,
