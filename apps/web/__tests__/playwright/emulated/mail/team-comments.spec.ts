@@ -79,6 +79,9 @@ test("publisher shares with a teammate who never received the mail and both see 
       teammate.page,
       "A second message proves the complete conversation is rendered.",
     );
+    await expect(
+      teammate.page.locator('[data-sidebar="menu-button"][href="/shared"]'),
+    ).toHaveText("Team", { timeout: 30_000 });
     await capturePlaywrightCheckpoint(
       teammate.page,
       testInfo,

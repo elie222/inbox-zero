@@ -5,6 +5,7 @@ import type { TeamConversationsResponse } from "@/app/api/team-comments/conversa
 import type { TeamUnreadCountResponse } from "@/app/api/team-comments/unread-count/route";
 
 export const TEAM_HREF = "/shared";
+export const TEAM_UNREAD_COUNT_KEY = "/api/team-comments/unread-count";
 
 /** The Team nav entry is only for users in an organization. */
 export function useTeamNav() {
@@ -13,7 +14,7 @@ export function useTeamNav() {
   );
   const hasTeam = Boolean(memberships?.memberships.length);
   const { data: unread } = useSWR<TeamUnreadCountResponse>(
-    hasTeam ? "/api/team-comments/unread-count" : null,
+    hasTeam ? TEAM_UNREAD_COUNT_KEY : null,
     { refreshInterval: 60_000 },
   );
   return { hasTeam, unreadCount: unread?.count || null };
