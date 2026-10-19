@@ -55,6 +55,18 @@ test("publisher shares with a teammate who never received the mail and both see 
       team.publisher.id,
     );
 
+    await teammate.page.goto(`/${teammate.account.id}/mail`, {
+      waitUntil: "domcontentloaded",
+    });
+    const teamRow = teammate.page.getByRole("link", { name: /^Team/ });
+    await expect(teamRow).toHaveAttribute("href", "/shared");
+    await expect(teamRow).toContainText("1", { timeout: 30_000 });
+    await capturePlaywrightCheckpoint(
+      teammate.page,
+      testInfo,
+      "teammate-team-sidebar-unread",
+    );
+
     await teammate.page.goto(
       `/shared/${conversationId}?memberId=${team.memberIds.b}`,
       { waitUntil: "domcontentloaded" },
