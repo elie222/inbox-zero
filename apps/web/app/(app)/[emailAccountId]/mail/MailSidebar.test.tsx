@@ -103,6 +103,16 @@ describe("MailSidebar", () => {
     ]);
   });
 
+  it("links to Team with its unread count only for organization members", () => {
+    const { rerender } = renderSidebar();
+    expect(screen.queryByText("Team")).toBeNull();
+
+    rerender(sidebar({ team: { href: "/shared", unreadCount: 3 } }));
+    const row = screen.getByText("Team").closest("a");
+    expect(row?.getAttribute("href")).toBe("/shared");
+    expect(row?.textContent).toContain("3");
+  });
+
   it("opens the Mail group when one of its views is showing", () => {
     renderSidebar({ activeType: "trash" });
 

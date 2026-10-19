@@ -90,6 +90,8 @@ export type MailSidebarProps = {
   collapsibleCategories?: boolean;
   /** Icon-only rail: rows shrink to their icon and names move into tooltips. */
   collapsed?: boolean;
+  /** Shared conversations from teammates. Omitted for users outside an organization. */
+  team?: { href: string; unreadCount: number | null };
   footer?: ReactNode;
   unified?: boolean;
   className?: string;
@@ -184,6 +186,7 @@ export function MailSidebar({
   supportsLabelVisibility = false,
   collapsibleCategories = false,
   collapsed = false,
+  team,
   footer,
   unified = false,
   className,
@@ -330,6 +333,18 @@ export function MailSidebar({
             emphasizeCount
             collapsed={collapsed}
           />
+          {team && (
+            <NavRow
+              href={team.href}
+              onNavigate={onNavigate}
+              active={false}
+              icon={<Users2Icon className="size-4 shrink-0" />}
+              name="Team"
+              count={team.unreadCount}
+              emphasizeCount
+              collapsed={collapsed}
+            />
+          )}
         </nav>
 
         {!unified && (!collapsed || showMailboxRows) && (

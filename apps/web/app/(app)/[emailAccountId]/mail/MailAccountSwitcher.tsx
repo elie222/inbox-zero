@@ -4,9 +4,7 @@ import { MailAccountSwitcherTrigger } from "@inboxzero/mail-ui/MailAccountSwitch
 import { memo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
-  BellIcon,
   ChevronsUpDownIcon,
-  MessagesSquareIcon,
   PlusIcon,
   SettingsIcon,
   SlidersHorizontalIcon,
@@ -161,18 +159,6 @@ export const MailAccountSwitcher = memo(function MailAccountSwitcher({
             />
           ))}
           <DropdownMenuSeparator />
-          <DropdownMenuItem asChild className="gap-3 rounded-xl px-3 py-2">
-            <Link href="/shared">
-              <MessagesSquareIcon className="size-4 text-muted-foreground" />
-              Shared with me
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild className="gap-3 rounded-xl px-3 py-2">
-            <Link href="/shared/activity">
-              <BellIcon className="size-4 text-muted-foreground" />
-              Activity
-            </Link>
-          </DropdownMenuItem>
           <DropdownMenuItem
             className="gap-3 rounded-xl px-3 py-2"
             onSelect={openSettings}

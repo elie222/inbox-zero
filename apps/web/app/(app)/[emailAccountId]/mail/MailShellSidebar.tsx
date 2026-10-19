@@ -22,6 +22,7 @@ import {
 } from "@/app/(app)/[emailAccountId]/mail/panel-widths";
 import { PanelResizeHandle } from "@/components/PanelResizeHandle";
 import { Sidebar, useSidebar } from "@/components/ui/sidebar";
+import { TEAM_HREF, useTeamNav } from "@/components/team-comments/use-team-nav";
 import { useFolders } from "@/hooks/useFolders";
 import { useLabelCounts } from "@/hooks/useLabelCounts";
 import { useLabels } from "@/hooks/useLabels";
@@ -94,6 +95,7 @@ export const MailShellSidebar = memo(function MailShellSidebar({
     labels: allLabels,
     folders,
   });
+  const { hasTeam, unreadCount: teamUnreadCount } = useTeamNav();
   const { onOpen: openCompose } = useComposeModal();
   const { state: openSidebars } = useSidebar();
   const isMailSidebarOpen = openSidebars.includes("left-sidebar");
@@ -233,6 +235,11 @@ export const MailShellSidebar = memo(function MailShellSidebar({
             isOutlook ? OUTLOOK_LABEL_COLOR_OPTIONS : GMAIL_LABEL_COLORS
           }
           unified={isAllAccounts}
+          team={
+            hasTeam
+              ? { href: TEAM_HREF, unreadCount: teamUnreadCount }
+              : undefined
+          }
           footer={
             <MailAccountSwitcher
               isDesktopApp={isDesktopApp}
