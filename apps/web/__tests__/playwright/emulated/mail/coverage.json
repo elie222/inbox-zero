@@ -81,6 +81,7 @@
   "contact-autocomplete.spec.ts": [
     "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx"
   ],
+  "desktop-update-toast.spec.ts": ["app/(app)/DesktopUpdateToast.tsx"],
   "draft-deletion.spec.ts": [
     "app/(app)/[emailAccountId]/mail/ThreadRow.tsx",
     "components/email-list/EmailMessage.tsx",

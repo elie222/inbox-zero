@@ -119,6 +119,7 @@ const featureGroups = [
     specs: [
       "mail/account-selection.spec.ts",
       "mail/cached-settings.spec.ts",
+      "mail/desktop-update-toast.spec.ts",
       "mail/layout.spec.ts",
       "mail/theme.spec.ts",
     ],
