@@ -21,6 +21,47 @@ between scenarios. Stop it with:
 node scripts/emulator/stack.mjs down --owner-token <token>
 ```
 
+### Lost responses
+
+The proxy in front of Next can complete a write on the server and then drop
+its reply, so a client sees a lost response for work that actually happened.
+Arm it with:
+
+```sh
+curl -X POST "$CONTROL_URL/response-loss" \
+  -H "content-type: application/json" \
+  -d '{ "provider": "microsoft", "count": 2, "kind": "send" }'
+```
+
+- `provider`: `google` or `microsoft`, the provider of the mailbox the write
+  targets.
+- `count`: how many matching replies to drop, 1 to 100.
+- `kind`: `metadata` (default) or `send` for a `mail/v1` operation `PUT`,
+  `draft` for `POST`/`PUT /api/user/drafts`, or `any` for all of them.
+
+The proxy finds the mailbox's provider through `GET /api/user/email-accounts`
+with the caller's own session, so requests must carry it. `GET` returns
+`{ "remaining": <n>, "dropped": <n> }`; `DELETE` disarms it, and `reset` does
+too.
+
+### Android devices
+
+The stack binds to `127.0.0.1`. An Android emulator or device reaches it through
+`adb reverse`, which keeps the same loopback URLs, OAuth redirect URIs, and
+loopback checks:
+
+```sh
+node scripts/emulator/stack.mjs ports | while read -r name port; do
+  adb reverse "tcp:$port" "tcp:$port"
+done
+```
+
+`ports` prints one `<name> <port>` line per distinct port: `base`, `google`,
+`microsoft`, and in integration mode `llm`, `google-control`, and
+`microsoft-control` (`control` shares the `base` port). The stack sets no image
+proxy, so rendered mail returns `proxyBaseUrl: null` and remote images load
+from their own origin.
+
 ## Run
 
 Docker must be running. From a clone of this repo:
@@ -205,9 +246,9 @@ These use the same session cookie. Routes marked with the email-account header
 also require `X-Email-Account-ID`.
 
 The stack enables local Apple signed-transaction checks
-(`APPLE_IAP_LOCAL_TESTING=true`) and a fake APNs transport
-(`APNS_TRANSPORT=fake`). It does not set App Store Server API or APNs `.p8`
-secrets.
+(`APPLE_IAP_LOCAL_TESTING=true`) and fake APNs and FCM transports
+(`APNS_TRANSPORT=fake`, `FCM_TRANSPORT=fake`). It does not set App Store Server
+API, APNs `.p8`, or Firebase service account secrets.
 
 Delete the signed-in user. Response `{ "deleted": true }`. Sessions for that
 user are removed. An ownership conflict returns `400`
@@ -237,8 +278,9 @@ curl -X POST "$BASE_URL/api/apple/subscription/sync" \
   -d '{ "signedTransaction": "<jws>" }'
 ```
 
-Register an APNs device token, then send through the fake transport. The test
-route returns `{ "sends": [...] }` and is `404` unless `APNS_TRANSPORT=fake`.
+Register an APNs device token or an Android FCM registration token, then send
+through the fake transports. The test routes return `{ "sends": [...] }` and are
+`404` unless `APNS_TRANSPORT=fake` or `FCM_TRANSPORT=fake`.
 
 ```sh
 curl -X POST "$BASE_URL/api/mobile/push-token" \
@@ -250,11 +292,49 @@ curl -X POST "$BASE_URL/api/mobile/push-token" \
     "tokenType": "apns"
   }'
 
+curl -X POST "$BASE_URL/api/mobile/push-token" \
+  -H "content-type: application/json" \
+  -H "cookie: $SESSION_COOKIE" \
+  -d '{ "token": "<fcm registration token>", "platform": "android", "tokenType": "fcm" }'
+
 curl -X POST "$BASE_URL/api/mobile/push/test" \
   -H "content-type: application/json" \
   -H "cookie: $SESSION_COOKIE" \
   -d '{ "title": "Hello", "body": "From the emulator" }'
 ```
+
+`POST /api/mail/v1/devices` registers the device for silent mailbox hints:
+`{ "token": "<hex>", "appVersion": "2.0.4" }` for iOS, or
+`{ "token": "<fcm token>", "platform": "android", "appVersion": "1.0.0" }`.
+
+Each send carries `type`. An APNs send is
+`{ "type": "apns", "token", "topic", "sandbox", "payload" }`. An FCM send is
+`{ "type": "fcm", "token", "projectId", "message" }`, where `message` is the
+HTTP v1 message body: `data` with `android.priority: "NORMAL"` for a silent
+hint, or `notification`, `data`, and `android.priority: "HIGH"` with
+`android.notification.channel_id` (`mail` for To Reply, `otp` for codes) for an
+alert.
+
+The emulators never deliver Gmail or Graph push, so trigger the pushes that
+push would cause for one of your accounts:
+
+```sh
+curl -X POST "$BASE_URL/api/mobile/push/test/trigger" \
+  -H "content-type: application/json" \
+  -H "cookie: $SESSION_COOKIE" \
+  -d '{ "type": "mailbox", "emailAccountId": "'"$EMAIL_ACCOUNT_ID"'" }'
+
+curl -X POST "$BASE_URL/api/mobile/push/test/trigger" \
+  -H "content-type: application/json" \
+  -H "cookie: $SESSION_COOKIE" \
+  -d '{ "type": "to_reply", "emailAccountId": "'"$EMAIL_ACCOUNT_ID"'", "messageId": "'"$MESSAGE_ID"'" }'
+```
+
+`mailbox` runs the provider-webhook hint, including its 20-second per-account
+coalescing, so a second trigger inside that window records no sends. `to_reply`
+reads the message from the provider and sends the To Reply alert as if the
+message had just arrived; each message alerts once. Another user's account
+returns `404`.
 
 List, snooze, and unsnooze. `snoozedUntil` must be at least one minute ahead.
 List response `{ "threads": [{ "id", "threadId", "scheduledFor", "status" }] }`.

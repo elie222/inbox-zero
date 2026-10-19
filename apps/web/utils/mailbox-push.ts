@@ -1,6 +1,7 @@
 import "server-only";
 import { MobilePushTokenType } from "@/generated/prisma/enums";
 import { isApnsConfigured, deliverApnsNotifications } from "@/utils/apns";
+import { deliverFcmNotifications, isFcmConfigured } from "@/utils/fcm";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { publishLocalMailHint } from "@/utils/redis/local-mail-hints";
@@ -30,7 +31,11 @@ async function sendMailboxPushes({
   emailAccountId: string;
   logger: Logger;
 }) {
-  if (!isApnsConfigured()) return;
+  const tokenTypes = [
+    ...(isApnsConfigured() ? [MobilePushTokenType.APNS] : []),
+    ...(isFcmConfigured() ? [MobilePushTokenType.FCM] : []),
+  ];
+  if (tokenTypes.length === 0) return;
 
   const acquired = await reserveMailboxPush(emailAccountId, logger);
   if (!acquired) return;
@@ -41,26 +46,40 @@ async function sendMailboxPushes({
       user: {
         select: {
           mobilePushTokens: {
-            where: { tokenType: MobilePushTokenType.APNS },
-            select: { token: true },
+            where: { tokenType: { in: tokenTypes } },
+            select: { token: true, tokenType: true },
           },
         },
       },
     },
   });
-  const tokens = account?.user.mobilePushTokens.map((device) => device.token);
-  if (!tokens || tokens.length === 0) return;
+  const devices = account?.user.mobilePushTokens ?? [];
+  if (devices.length === 0) return;
 
-  const { unregisteredTokens } = await deliverApnsNotifications({
-    tokens,
-    notification: {
-      pushType: "background",
-      data: { emailAccountId, hint: "mailbox" },
-    },
-    logger,
-  });
+  const notification = {
+    pushType: "background" as const,
+    data: { emailAccountId, hint: "mailbox" },
+  };
+  const tokensOf = (tokenType: MobilePushTokenType) =>
+    devices
+      .filter((device) => device.tokenType === tokenType)
+      .map((device) => device.token);
+  const [apns, fcm] = await Promise.all([
+    deliverApnsNotifications({
+      tokens: tokensOf(MobilePushTokenType.APNS),
+      notification,
+      logger,
+    }),
+    deliverFcmNotifications({
+      tokens: tokensOf(MobilePushTokenType.FCM),
+      notification,
+      logger,
+    }),
+  ]);
 
-  const rejectedTokens = [...new Set(unregisteredTokens)];
+  const rejectedTokens = [
+    ...new Set([...apns.unregisteredTokens, ...fcm.unregisteredTokens]),
+  ];
   if (rejectedTokens.length === 0) return;
   await prisma.mobilePushToken.deleteMany({
     where: { token: { in: rejectedTokens } },
