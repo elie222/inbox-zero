@@ -41,16 +41,16 @@ describe("Playwright gallery artifact limits", () => {
   });
 
   it("rejects excessive file counts before decoding screenshots", () => {
-    for (let index = 0; index < 501; index++) {
+    for (let index = 0; index < 1501; index++) {
       writeFileSync(path.join(root, "results", `${index}.png`), "invalid");
     }
     const result = generateGallery();
     expect(result.status).not.toBe(0);
-    expect(result.stderr).toContain("maximum is 500");
+    expect(result.stderr).toContain("maximum is 1500");
   });
 
   it("rejects excessive total bytes before reading or decoding screenshots", () => {
-    for (let index = 0; index < 8; index++) {
+    for (let index = 0; index < 21; index++) {
       const file = path.join(root, "results", `${index}.png`);
       writeFileSync(file, "");
       truncateSync(file, 15 * 1024 * 1024);
