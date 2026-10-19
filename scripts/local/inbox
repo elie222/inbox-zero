@@ -12,7 +12,13 @@
 # State (pids, logs) lives in ~/Library/Application Support/inbox-zero-local.
 set -uo pipefail
 
-SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/$(basename "${BASH_SOURCE[0]}")"
+SRC="${BASH_SOURCE[0]}"
+while [ -L "$SRC" ]; do
+  d="$(cd "$(dirname "$SRC")" && pwd)"
+  SRC="$(readlink "$SRC")"
+  case "$SRC" in /*) ;; *) SRC="$d/$SRC" ;; esac
+done
+SCRIPT="$(cd "$(dirname "$SRC")" && pwd -P)/$(basename "$SRC")"
 REPO="${INBOX_REPO:-$(cd "$(dirname "$SCRIPT")/../.." && pwd -P)}"
 WEB="$REPO/apps/web"
 ENV_FILE="$WEB/.env"
