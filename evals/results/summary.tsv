@@ -1,0 +1,14 @@
+label	passed	failed	seconds	peak_mb
+lms__Qwen3.5-4B-MLX-4bit	41	21	721	7693
+lms__granite-4.2-3b-MLX-4bit	29	33	120	4287
+lms__gemma-4-e4b-it-4bit	45	17	131	7523
+lms__Qwen3.5-9B-MLX-4bit	47	15	160	9957
+ollama__gemma4_12b-it-qat	54	8	298	11264
+lms__gemma-4-26B-A4B-it-qat-4bit	49	13	132	20480
+llama__Qwen3.8-27B-Q4_K_M-MTP	43	19	638	12288
+lms__Qwen3.6-35B-A3B-4bit	48	14	129	23552
+lms__GLM-4.7-Flash-4bit	28	34	132	19456
+mlx__granite-4.2-3b-MLX-4bit	24	38	372	14336
+mlx__GLM-4.7-Flash-4bit	32	30	277	26624
+lms__gemma-4-12B-it-MLX-4bit	48	14	479	13312
+lms__gemma-4-12B-it-MLX-4bit__run2	48	14	488	12288
