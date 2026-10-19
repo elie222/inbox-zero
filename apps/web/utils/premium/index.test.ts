@@ -232,6 +232,33 @@ describe("digest access", () => {
     envMock.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS = false;
   });
 
+  it("includes Apple subscribers that the app treats as active after their stored expiry", () => {
+    const appleBranch = getPremiumUserFilter().user.premium.OR.find((branch) =>
+      branch.AND.some((condition) => "appleRevokedAt" in condition),
+    );
+
+    // Each status must keep cron jobs running for users the app still
+    // treats as premium (see hasActiveAppleSubscription).
+    for (const status of ["ACTIVE", "BILLING_GRACE_PERIOD", "BILLING_RETRY"]) {
+      expect(
+        hasActiveAppleSubscription(
+          new Date(Date.now() - 60 * 60 * 1000),
+          null,
+          status,
+        ),
+      ).toBe(true);
+      expect(appleBranch?.AND).toContainEqual({
+        OR: expect.arrayContaining([
+          {
+            appleSubscriptionStatus: {
+              in: expect.arrayContaining([status]),
+            },
+          },
+        ]),
+      });
+    }
+  });
+
   it("filters premium users by minimum tier when requested", () => {
     const filter = getPremiumUserFilter({ minimumTier: "PLUS_MONTHLY" });
 
