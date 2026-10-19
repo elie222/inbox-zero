@@ -767,9 +767,10 @@ export function MailShell() {
         removedOpenThreadKey !== null &&
         queuedThreadKeys.includes(removedOpenThreadKey);
       // If it didn't queue, go back, unless the user has since moved on.
+      // A closed reader can't tell staying put from navigating away.
       if (
         removedOpenThreadKey &&
-        autoAdvanceReader &&
+        advancedToKey &&
         !queuedOpenThread &&
         getOpenThreadKey() === advancedToKey
       ) {
