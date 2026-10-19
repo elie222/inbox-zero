@@ -323,6 +323,7 @@ function ComposeEmailFormContent({
       initialAttachments,
       replyingToEmail,
       initialSendAs,
+      sendAsAddresses,
       accountSignatureHtml,
       sentWithFooterHtml,
     }),
@@ -479,9 +480,14 @@ function ComposeEmailFormContent({
     if (!address) return;
     const previousSignature = getSendAsSignatureHtml(
       selectedSendAs,
+      sendAsAddresses,
       accountSignatureHtml,
     );
-    const nextSignature = getSendAsSignatureHtml(address, accountSignatureHtml);
+    const nextSignature = getSendAsSignatureHtml(
+      address,
+      sendAsAddresses,
+      accountSignatureHtml,
+    );
     setValue("from", formatSendAsAddress(address));
     if (nextSignature !== previousSignature)
       editorRef.current?.replaceSignature(

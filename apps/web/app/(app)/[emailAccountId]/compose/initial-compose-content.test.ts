@@ -2,7 +2,10 @@
 import { describe, expect, it } from "vitest";
 import type { StoredReplyDraft } from "@/utils/mail-engine/reply-drafts";
 import type { ComposeAttachment } from "./compose-attachments";
-import { createInitialComposeContent } from "./initial-compose-content";
+import {
+  createInitialComposeContent,
+  getSendAsSignatureHtml,
+} from "./initial-compose-content";
 
 describe("createInitialComposeContent", () => {
   it("gives a new reply the account signature followed by the footer", () => {
@@ -11,6 +14,7 @@ describe("createInitialComposeContent", () => {
       replyingToEmail: {
         quotedContentHtml: "<blockquote>Earlier</blockquote>",
       },
+      sendAsAddresses: [],
       accountSignatureHtml: "<div>Alex, Example Co</div>",
       sentWithFooterHtml: "<span>Footer</span>",
     });
@@ -33,6 +37,7 @@ describe("createInitialComposeContent", () => {
         '<p>See below</p><img src="cid:chart@local">',
       ),
       initialAttachments: [attachment],
+      sendAsAddresses: [],
       accountSignatureHtml: "",
       sentWithFooterHtml: "",
     });
@@ -51,6 +56,7 @@ describe("createInitialComposeContent", () => {
         '<p>See below</p><img src="cid:chart@local">',
       ),
       initialAttachments: [inlineImage()],
+      sendAsAddresses: [],
       accountSignatureHtml: "",
       sentWithFooterHtml: "",
     });
@@ -59,6 +65,41 @@ describe("createInitialComposeContent", () => {
       "cid:chart@local",
     );
     expect(content.attachments[0].managed).toBeFalsy();
+  });
+});
+
+describe("getSendAsSignatureHtml", () => {
+  const addresses = [
+    { email: "me@example.com", isDefault: true, signature: "<p>Me</p>" },
+    {
+      email: "support@example.com",
+      isDefault: false,
+      signature: "<p>Support</p>",
+    },
+    { email: "sales@example.com", isDefault: false },
+  ];
+
+  it("keeps the provider's default signature when none is set in the app", () => {
+    expect(getSendAsSignatureHtml(undefined, addresses, "")).toBe("<p>Me</p>");
+    expect(getSendAsSignatureHtml(addresses[0], addresses, "")).toBe(
+      "<p>Me</p>",
+    );
+  });
+
+  it("prefers the signature set in the app for the default address", () => {
+    expect(getSendAsSignatureHtml(addresses[0], addresses, "<p>App</p>")).toBe(
+      "<p>App</p>",
+    );
+  });
+
+  it("uses an alias's own signature", () => {
+    expect(getSendAsSignatureHtml(addresses[1], addresses, "<p>App</p>")).toBe(
+      "<p>Support</p>",
+    );
+  });
+
+  it("does not give an alias without a signature the default address's one", () => {
+    expect(getSendAsSignatureHtml(addresses[2], addresses, "")).toBe("");
   });
 });
 

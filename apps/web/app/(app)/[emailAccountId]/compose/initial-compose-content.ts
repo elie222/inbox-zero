@@ -13,6 +13,7 @@ export function createInitialComposeContent({
   initialAttachments,
   replyingToEmail,
   initialSendAs,
+  sendAsAddresses,
   accountSignatureHtml,
   sentWithFooterHtml,
 }: {
@@ -24,6 +25,7 @@ export function createInitialComposeContent({
     signatureHtml?: string;
   };
   initialSendAs?: SendAsAddress;
+  sendAsAddresses: SendAsAddress[];
   accountSignatureHtml: string;
   sentWithFooterHtml: string;
 }) {
@@ -74,7 +76,11 @@ export function createInitialComposeContent({
     quotedHtml: replyingToEmail?.quotedContentHtml,
     signatureHtml:
       replyingToEmail?.signatureHtml ??
-      getSendAsSignatureHtml(initialSendAs, accountSignatureHtml) ??
+      getSendAsSignatureHtml(
+        initialSendAs,
+        sendAsAddresses,
+        accountSignatureHtml,
+      ) ??
       undefined,
   });
   // The footer travels with the signature so it lands right after it and is
@@ -104,15 +110,17 @@ export function findSelectableSendAs(
   return findReplySendAsAddress(candidates, addresses);
 }
 
-// The default address keeps the signature set in Inbox Zero; an alias uses
-// its own when the provider has one.
+// Mail sent through the API gets no signature from the provider, so the
+// default address falls back to the provider's signature when none is set in
+// Inbox Zero. An alias uses its own when the provider has one.
 export function getSendAsSignatureHtml(
   address: SendAsAddress | undefined,
+  addresses: SendAsAddress[],
   accountSignatureHtml: string,
 ) {
-  if (address && !address.isDefault && address.signature)
-    return address.signature;
-  return accountSignatureHtml;
+  const sendAs = address ?? addresses.find((item) => item.isDefault);
+  if (sendAs?.isDefault) return accountSignatureHtml || sendAs.signature || "";
+  return sendAs?.signature || accountSignatureHtml;
 }
 
 export function withSentWithFooter(signatureHtml: string, footerHtml: string) {
