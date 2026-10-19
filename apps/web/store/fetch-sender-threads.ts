@@ -6,11 +6,12 @@ const SENDER_THREADS_PAGE_LIMIT = 100;
 
 export async function fetchAllSenderThreads({
   sender,
-  labelId,
+  scope,
   emailAccountId,
 }: {
   sender: string;
-  labelId?: string;
+  // Explicit because providers treat an unfiltered thread query as inbox-only.
+  scope: "inbox" | "all";
   emailAccountId: string;
 }) {
   const threads: GetThreadsResponse["threads"] = [];
@@ -22,7 +23,8 @@ export async function fetchAllSenderThreads({
       limit: String(SENDER_THREADS_PAGE_LIMIT),
     });
 
-    if (labelId) params.set("labelId", labelId);
+    if (scope === "inbox") params.set("labelId", "INBOX");
+    else params.set("type", "all");
     if (nextPageToken) params.set("nextPageToken", nextPageToken);
 
     const response = await fetchWithAccount({

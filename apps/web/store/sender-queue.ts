@@ -78,7 +78,7 @@ export function createSenderQueue(
 
       const { threads } = await fetchAllSenderThreads({
         sender,
-        labelId: inboxOnly ? "INBOX" : undefined,
+        scope: inboxOnly ? "inbox" : "all",
         emailAccountId,
       });
       if (accountWasCleared()) return false;

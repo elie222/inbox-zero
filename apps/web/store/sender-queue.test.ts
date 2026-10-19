@@ -242,12 +242,12 @@ describe("sender queue", () => {
 
     expect(mockFetchAllSenderThreads).toHaveBeenNthCalledWith(1, {
       sender: "delete@example.com",
-      labelId: undefined,
+      scope: "all",
       emailAccountId: "account-1",
     });
     expect(mockFetchAllSenderThreads).toHaveBeenNthCalledWith(2, {
       sender: "archive@example.com",
-      labelId: "INBOX",
+      scope: "inbox",
       emailAccountId: "account-1",
     });
   });
