@@ -6,7 +6,11 @@ import {
   validateWebhookAccount,
 } from "@/utils/webhook/validate-webhook-account";
 import { createEmailProvider } from "@/utils/email/provider";
-import { markMessageAsProcessing } from "@/utils/redis/message-processing";
+import {
+  markMessageAsProcessing,
+  releaseMessageProcessingLockOnRateLimit,
+} from "@/utils/redis/message-processing";
+import { ProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
 import { processHistoryItem } from "@/utils/webhook/process-history-item";
 import { captureException } from "@/utils/error";
 import { getMockParsedMessage } from "@/__tests__/mocks/email-provider.mock";
@@ -32,6 +36,7 @@ vi.mock("@/utils/redis/message-processing", () => ({
   clearOutboundMessageLock: vi.fn().mockResolvedValue(true),
   markMessageAsProcessing: vi.fn(),
   markOutboundMessageProcessed: vi.fn().mockResolvedValue(true),
+  releaseMessageProcessingLockOnRateLimit: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/utils/webhook/process-history-item", () => ({
@@ -91,7 +96,7 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
         hasAiAccess: true,
       },
     } as any);
-    vi.mocked(markMessageAsProcessing).mockResolvedValue(true);
+    vi.mocked(markMessageAsProcessing).mockResolvedValue("processing-token");
     vi.mocked(processHistoryItem).mockResolvedValue(undefined);
     vi.mocked(learnFromOutlookLabelRemoval).mockResolvedValue(undefined);
     vi.mocked(prisma.executedRule.findFirst).mockResolvedValue(null);
@@ -263,13 +268,41 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
     expect(learnFromOutlookLabelRemoval).not.toHaveBeenCalled();
   });
 
+  it("releases the processing lock when Outlook rate limits the message, so the catch-up can replay it", async () => {
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      getMessage: vi
+        .fn()
+        .mockResolvedValue(getMockParsedMessage({ labelIds: ["INBOX"] })),
+    } as any);
+    const rateLimitError = new ProviderRateLimitModeError({
+      provider: "microsoft",
+    });
+    vi.mocked(processHistoryItem).mockRejectedValue(rateLimitError);
+
+    await processHistoryForUser({
+      subscriptionId: "sub-123",
+      resourceData: mockResourceData as any,
+      logger,
+    });
+
+    expect(releaseMessageProcessingLockOnRateLimit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: rateLimitError,
+        provider: "microsoft",
+        userEmail: "user@test.com",
+        messageId: "message-123",
+        lockToken: "processing-token",
+      }),
+    );
+  });
+
   it("skips processing when lock cannot be acquired", async () => {
     const inboxMessage = getMockParsedMessage({ labelIds: ["INBOX"] });
     const mockProvider = {
       getMessage: vi.fn().mockResolvedValue(inboxMessage),
     };
     vi.mocked(createEmailProvider).mockResolvedValue(mockProvider as any);
-    vi.mocked(markMessageAsProcessing).mockResolvedValue(false);
+    vi.mocked(markMessageAsProcessing).mockResolvedValue(null);
 
     const result = await processHistoryForUser({
       subscriptionId: "sub-123",

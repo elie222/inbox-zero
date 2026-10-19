@@ -1,10 +1,12 @@
-import { redis } from "@/utils/redis";
+import { isEmailProviderRateLimitError } from "@/utils/email/is-provider-rate-limit-error";
+import type { Logger } from "@/utils/logger";
 import {
   acquireOwnedLock,
   clearOwnedLock,
   markOwnedLockProcessed,
 } from "@/utils/redis/owned-lock";
 
+const MESSAGE_PROCESSING_TTL_SECONDS = 60 * 5;
 const OUTBOUND_PROCESSING_TTL_SECONDS = 60 * 30;
 const OUTBOUND_PROCESSED_TTL_SECONDS = 60 * 60 * 24 * 30;
 const OUTBOUND_PROCESSED_STATUS = "processed";
@@ -19,24 +21,66 @@ function getProcessingKey({
   return `processing-message:${userEmail}:${messageId}`;
 }
 
+/** Returns a lock token, or null when another run is already processing the message. */
 export async function markMessageAsProcessing({
   userEmail,
   messageId,
 }: {
   userEmail: string;
   messageId: string;
-}): Promise<boolean> {
-  const result = await redis.set(
-    getProcessingKey({ userEmail, messageId }),
-    "true",
-    {
-      ex: 60 * 5, // 5 minutes
-      nx: true, // Only set if key doesn't exist
-    },
-  );
+}): Promise<string | null> {
+  return acquireOwnedLock({
+    key: getProcessingKey({ userEmail, messageId }),
+    processingTtlSeconds: MESSAGE_PROCESSING_TTL_SECONDS,
+  });
+}
 
-  // Redis returns "OK" if the key was set, and null if it was already set
-  return result === "OK";
+export async function releaseMessageProcessingLock({
+  userEmail,
+  messageId,
+  lockToken,
+}: {
+  userEmail: string;
+  messageId: string;
+  lockToken: string;
+}): Promise<boolean> {
+  return clearOwnedLock({
+    key: getProcessingKey({ userEmail, messageId }),
+    lockToken,
+  });
+}
+
+/**
+ * A rate-limited message is replayed by the provider's rate-limit catch-up,
+ * which would skip it while this run still holds the processing lock. Other
+ * failures keep the lock so the message isn't processed twice.
+ */
+export async function releaseMessageProcessingLockOnRateLimit({
+  error,
+  provider,
+  userEmail,
+  messageId,
+  lockToken,
+  logger,
+}: {
+  error: unknown;
+  provider: "google" | "microsoft";
+  userEmail: string;
+  messageId: string;
+  lockToken: string;
+  logger: Logger;
+}) {
+  if (!isEmailProviderRateLimitError({ error, provider })) return;
+
+  // Never throw from here: callers rethrow the rate-limit error, which is what
+  // keeps the history cursor from advancing past this message.
+  try {
+    await releaseMessageProcessingLock({ userEmail, messageId, lockToken });
+  } catch (releaseError) {
+    logger.warn("Failed to release message processing lock", {
+      error: releaseError,
+    });
+  }
 }
 
 type OutboundMessageKey = {

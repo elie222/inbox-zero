@@ -6,7 +6,11 @@ import {
   NewsletterStatus,
 } from "@/generated/prisma/enums";
 import type { gmail_v1 } from "@googleapis/gmail";
-import { markMessageAsProcessing } from "@/utils/redis/message-processing";
+import {
+  markMessageAsProcessing,
+  releaseMessageProcessingLockOnRateLimit,
+} from "@/utils/redis/message-processing";
+import { ProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
 import { GmailLabel } from "@/utils/gmail/label";
 import { getEmailAccount, createTestLogger } from "@/__tests__/helpers";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -19,8 +23,9 @@ vi.mock("@/utils/prisma");
 vi.mock("@/utils/redis/message-processing", () => ({
   acquireOutboundMessageLock: vi.fn().mockResolvedValue("lock-token-1"),
   clearOutboundMessageLock: vi.fn().mockResolvedValue(true),
-  markMessageAsProcessing: vi.fn().mockResolvedValue(true),
+  markMessageAsProcessing: vi.fn().mockResolvedValue("processing-token"),
   markOutboundMessageProcessed: vi.fn().mockResolvedValue(true),
+  releaseMessageProcessingLockOnRateLimit: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/utils/gmail/thread", () => ({
@@ -163,8 +168,36 @@ describe("processHistoryItem", () => {
     };
   }
 
+  it("hands a failed message's lock to the rate-limit release before rethrowing", async () => {
+    const rateLimitError = new ProviderRateLimitModeError({
+      provider: "google",
+    });
+    vi.mocked(createEmailProvider).mockResolvedValueOnce({
+      getMessage: vi.fn().mockRejectedValue(rateLimitError),
+    } as any);
+    const emailAccount = getDefaultEmailAccount();
+
+    await expect(
+      processHistoryItem(
+        createHistoryItem(),
+        { ...defaultOptions, emailAccount },
+        logger,
+      ),
+    ).rejects.toBe(rateLimitError);
+
+    expect(releaseMessageProcessingLockOnRateLimit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: rateLimitError,
+        provider: "google",
+        userEmail: emailAccount.email,
+        messageId: "123",
+        lockToken: "processing-token",
+      }),
+    );
+  });
+
   it("should skip if message is already being processed", async () => {
-    vi.mocked(markMessageAsProcessing).mockResolvedValueOnce(false);
+    vi.mocked(markMessageAsProcessing).mockResolvedValueOnce(null);
 
     const options = {
       ...defaultOptions,

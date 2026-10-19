@@ -5,7 +5,10 @@ import { createEmailProvider } from "@/utils/email/provider";
 import { handleLabelRemovedEvent } from "@/utils/webhook/google/process-label-removed-event";
 import { handleLabelAddedEvent } from "@/utils/webhook/google/process-label-added-event";
 import { processHistoryItem as processHistoryItemShared } from "@/utils/webhook/process-history-item";
-import { markMessageAsProcessing } from "@/utils/redis/message-processing";
+import {
+  markMessageAsProcessing,
+  releaseMessageProcessingLockOnRateLimit,
+} from "@/utils/redis/message-processing";
 import { GmailLabel } from "@/utils/gmail/label";
 import type { Logger } from "@/utils/logger";
 
@@ -46,29 +49,41 @@ export async function processHistoryItem(
   });
 
   const lockAndProcessShared = async () => {
-    const isFree = await markMessageAsProcessing({
+    const lockToken = await markMessageAsProcessing({
       userEmail: emailAccount.email,
       messageId,
     });
-    if (!isFree) {
+    if (!lockToken) {
       logger.info("Skipping. Message already being processed.");
       return;
     }
 
     logger.info("Gmail lock acquired, calling shared processor");
 
-    return processHistoryItemShared(
-      { messageId, threadId },
-      {
-        provider,
-        isNewMessage: type === HistoryEventType.MESSAGE_ADDED,
-        emailAccount,
-        hasAutomationRules,
-        hasAiAccess,
-        rules,
+    try {
+      return await processHistoryItemShared(
+        { messageId, threadId },
+        {
+          provider,
+          isNewMessage: type === HistoryEventType.MESSAGE_ADDED,
+          emailAccount,
+          hasAutomationRules,
+          hasAiAccess,
+          rules,
+          logger,
+        },
+      );
+    } catch (error) {
+      await releaseMessageProcessingLockOnRateLimit({
+        error,
+        provider: "google",
+        userEmail: emailAccount.email,
+        messageId,
+        lockToken,
         logger,
-      },
-    );
+      });
+      throw error;
+    }
   };
 
   // Handle Google-specific label events

@@ -5,7 +5,11 @@ import {
   clearOutboundMessageLock,
   markMessageAsProcessing,
   markOutboundMessageProcessed,
+  releaseMessageProcessingLock,
+  releaseMessageProcessingLockOnRateLimit,
 } from "@/utils/redis/message-processing";
+import { ProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
+import { createTestLogger } from "@/__tests__/helpers";
 
 vi.mock("node:crypto", () => ({
   randomUUID: vi.fn(() => "lock-uuid"),
@@ -31,11 +35,86 @@ describe("message-processing redis locks", () => {
       messageId: "message-1",
     });
 
-    expect(acquired).toBe(true);
+    expect(acquired).toBe("lock-uuid");
     expect(redis.set).toHaveBeenCalledWith(
       "processing-message:user@example.com:message-1",
-      "true",
+      "lock-uuid",
       { ex: 300, nx: true },
+    );
+  });
+
+  it("returns null when the message is already being processed", async () => {
+    vi.mocked(redis.set).mockResolvedValue(null);
+
+    const acquired = await markMessageAsProcessing({
+      userEmail: "user@example.com",
+      messageId: "message-1",
+    });
+
+    expect(acquired).toBeNull();
+  });
+
+  it("releases the processing lock after a provider rate limit so the catch-up can retry", async () => {
+    vi.mocked(redis.eval).mockResolvedValue(1);
+
+    await releaseMessageProcessingLockOnRateLimit({
+      error: new ProviderRateLimitModeError({ provider: "google" }),
+      provider: "google",
+      userEmail: "user@example.com",
+      messageId: "message-1",
+      lockToken: "lock-uuid",
+      logger: createTestLogger(),
+    });
+
+    expect(redis.eval).toHaveBeenCalledWith(
+      expect.any(String),
+      ["processing-message:user@example.com:message-1"],
+      ["lock-uuid"],
+    );
+  });
+
+  it("keeps the processing lock after a failure that is not a rate limit", async () => {
+    await releaseMessageProcessingLockOnRateLimit({
+      error: new Error("boom"),
+      provider: "google",
+      userEmail: "user@example.com",
+      messageId: "message-1",
+      lockToken: "lock-uuid",
+      logger: createTestLogger(),
+    });
+
+    expect(redis.eval).not.toHaveBeenCalled();
+  });
+
+  it("does not throw when releasing the lock fails, so the rate-limit error is kept", async () => {
+    vi.mocked(redis.eval).mockRejectedValue(new Error("redis down"));
+
+    await expect(
+      releaseMessageProcessingLockOnRateLimit({
+        error: new ProviderRateLimitModeError({ provider: "microsoft" }),
+        provider: "microsoft",
+        userEmail: "user@example.com",
+        messageId: "message-1",
+        lockToken: "lock-uuid",
+        logger: createTestLogger(),
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("releases the webhook processing lock only for its owner", async () => {
+    vi.mocked(redis.eval).mockResolvedValue(1);
+
+    const released = await releaseMessageProcessingLock({
+      userEmail: "user@example.com",
+      messageId: "message-1",
+      lockToken: "lock-uuid",
+    });
+
+    expect(released).toBe(true);
+    expect(redis.eval).toHaveBeenCalledWith(
+      expect.stringContaining('redis.call("DEL", KEYS[1])'),
+      ["processing-message:user@example.com:message-1"],
+      ["lock-uuid"],
     );
   });
 

@@ -41,7 +41,7 @@ const TEST_CATEGORY_NAME = process.env.TEST_CATEGORY_NAME || "To Reply";
 vi.mock("@/utils/redis/message-processing", () => ({
   acquireOutboundMessageLock: vi.fn().mockResolvedValue("lock-token-1"),
   clearOutboundMessageLock: vi.fn().mockResolvedValue(true),
-  markMessageAsProcessing: vi.fn().mockResolvedValue(true),
+  markMessageAsProcessing: vi.fn().mockResolvedValue("processing-token"),
   markOutboundMessageProcessed: vi.fn().mockResolvedValue(true),
 }));
 

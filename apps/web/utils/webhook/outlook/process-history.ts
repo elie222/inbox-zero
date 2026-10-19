@@ -8,7 +8,10 @@ import {
 import { createEmailProvider } from "@/utils/email/provider";
 import type { OutlookResourceData } from "@/utils/webhook/outlook/types";
 import { processHistoryItem } from "@/utils/webhook/process-history-item";
-import { markMessageAsProcessing } from "@/utils/redis/message-processing";
+import {
+  markMessageAsProcessing,
+  releaseMessageProcessingLockOnRateLimit,
+} from "@/utils/redis/message-processing";
 import {
   validateWebhookAccount,
   getWebhookEmailAccount,
@@ -133,11 +136,11 @@ export async function processHistoryForUser({
         }
 
         // Now acquire lock (only for INBOX/SENT messages)
-        const isFree = await markMessageAsProcessing({
+        const lockToken = await markMessageAsProcessing({
           userEmail: validatedEmailAccount.email,
           messageId: resourceData.id,
         });
-        if (!isFree) {
+        if (!lockToken) {
           logger.info("Skipping. Message already being processed.");
           return NextResponse.json({ ok: true });
         }
@@ -187,22 +190,34 @@ export async function processHistoryForUser({
           logger.info("Skipping rules. Rule already exists.");
         }
 
-        // Pass pre-fetched message to avoid refetching
-        await processHistoryItem(
-          { messageId: resourceData.id, message },
-          {
-            provider,
-            isNewMessage,
-            emailAccount: {
-              ...validatedEmailAccount,
-              account: { provider: accountProvider },
+        try {
+          // Pass pre-fetched message to avoid refetching
+          await processHistoryItem(
+            { messageId: resourceData.id, message },
+            {
+              provider,
+              isNewMessage,
+              emailAccount: {
+                ...validatedEmailAccount,
+                account: { provider: accountProvider },
+              },
+              hasAutomationRules,
+              hasAiAccess: userHasAiAccess,
+              rules: validatedEmailAccount.rules,
+              logger,
             },
-            hasAutomationRules,
-            hasAiAccess: userHasAiAccess,
-            rules: validatedEmailAccount.rules,
+          );
+        } catch (error) {
+          await releaseMessageProcessingLockOnRateLimit({
+            error,
+            provider: "microsoft",
+            userEmail: validatedEmailAccount.email,
+            messageId: resourceData.id,
+            lockToken,
             logger,
-          },
-        );
+          });
+          throw error;
+        }
 
         return NextResponse.json({ ok: true });
       },
