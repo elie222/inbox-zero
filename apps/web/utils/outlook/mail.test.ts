@@ -814,6 +814,65 @@ describe("draftEmail", () => {
     );
   });
 
+  it("addresses the draft to Reply-To instead of From", async () => {
+    const updateDraft = vi.fn(async () => ({ id: "draft-1" }) as Message);
+    const client = createMockOutlookClient((path) => {
+      if (path === "/me/messages/message-1") {
+        return { get: vi.fn(async () => ({ isRead: true })) };
+      }
+      if (path === "/me/messages/message-1/createReplyAll") {
+        return {
+          post: vi.fn(
+            async () =>
+              ({ id: "draft-1", conversationId: "conversation-1" }) as Message,
+          ),
+        };
+      }
+      if (path === "/me/messages/draft-1") return { patch: updateDraft };
+      throw new Error(`Unexpected API path: ${path}`);
+    });
+
+    await draftEmail(
+      client,
+      {
+        id: "message-1",
+        threadId: "conversation-1",
+        headers: {
+          from: "Website Forms <forms@site.com>",
+          "reply-to": "Jane Customer <jane@customer.com>",
+          to: "owner@example.com",
+          subject: "New contact form submission",
+          date: "2026-01-01T12:00:00.000Z",
+        },
+        rawRecipients: {
+          from: {
+            emailAddress: { address: "forms@site.com", name: "Website Forms" },
+          },
+          toRecipients: [{ emailAddress: { address: "owner@example.com" } }],
+          ccRecipients: [],
+        },
+        textPlain: "Original body",
+        textHtml: "<p>Original body</p>",
+      } as EmailForAction,
+      { content: "Thanks for reaching out" },
+      "owner@example.com",
+      createTestLogger(),
+    );
+
+    expect(updateDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        toRecipients: [
+          {
+            emailAddress: {
+              address: "jane@customer.com",
+              name: "Jane Customer",
+            },
+          },
+        ],
+      }),
+    );
+  });
+
   it("clears default reply-all CC and BCC recipients when no recipients are requested", async () => {
     const getOriginalReadStatus = vi.fn(async () => ({ isRead: true }));
     const createReplyAllDraft = vi.fn(

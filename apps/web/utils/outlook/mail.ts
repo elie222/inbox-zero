@@ -281,10 +281,14 @@ export async function draftEmail(
     },
   };
 
+  // Reply-To wins over From, as in buildReplyAllRecipients. Without one, the
+  // raw From recipient is used so its display name is kept as Outlook has it.
+  const rawFromRecipient = originalEmail.headers["reply-to"]
+    ? undefined
+    : originalEmail.rawRecipients?.from;
+
   const toRecipient =
-    overrideToRecipient ??
-    originalEmail.rawRecipients?.from ??
-    fallbackToRecipient;
+    overrideToRecipient ?? rawFromRecipient ?? fallbackToRecipient;
 
   // Build CC list from reply-all and args
   const ccAddresses = mergeAndDedupeRecipients(recipients.cc, args.cc);
