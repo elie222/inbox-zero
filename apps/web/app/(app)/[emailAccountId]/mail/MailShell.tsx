@@ -207,9 +207,8 @@ export function MailShell() {
         })),
     [accountsData?.emailAccounts],
   );
-  const accountLayout: MailLayoutMode =
+  const layout: MailLayoutMode =
     settings?.layout === MailLayout.SPLIT ? "split" : "list";
-  const layout = isAllAccounts ? "list" : accountLayout;
   const expandedPreview = settings?.expandedPreview ?? false;
 
   // Written through the SWR cache rather than mirrored in local state, so the
@@ -1182,7 +1181,7 @@ export function MailShell() {
         if (await undoLatestToast()) return;
         await undo();
       },
-      toggleLayout: isAllAccounts ? undefined : toggleLayout,
+      toggleLayout,
       togglePreview,
       help: () => setIsHelpOpen(true),
       search: isMailOverlayOpen
@@ -1446,7 +1445,6 @@ export function MailShell() {
                 expandedPreview={expandedPreview}
                 onTogglePreview={togglePreview}
                 onToggleAssistant={onToggleAssistant}
-                showLayoutToggle={!isAllAccounts}
                 selectAll={showSplitTabs ? null : selectAllCheckbox}
                 selectedCount={selection.selectedCount}
                 onArchiveSelected={archiveTargets}

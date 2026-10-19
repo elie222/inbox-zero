@@ -57,7 +57,6 @@ import { cn } from "@/utils";
 export type ListToolbarProps = {
   layout: MailLayoutMode;
   isDesktopApp: boolean;
-  showLayoutToggle?: boolean;
   expandedPreview: boolean;
   /** Committed search query. */
   searchQuery: string;
@@ -94,7 +93,6 @@ export type ListToolbarProps = {
 export const ListToolbar = memo(function ListToolbar({
   layout,
   isDesktopApp,
-  showLayoutToggle = true,
   expandedPreview,
   searchQuery = "",
   onSearch,
@@ -275,7 +273,7 @@ export const ListToolbar = memo(function ListToolbar({
         </Tooltip>
       ) : null}
 
-      {showLayoutToggle && selectedCount === 0 ? (
+      {selectedCount === 0 ? (
         <Tooltip
           shortcuts={[
             { id: "toggleLayout", label: "Switch list / split view" },
