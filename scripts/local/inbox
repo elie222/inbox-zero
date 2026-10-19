@@ -1,0 +1,196 @@
+#!/bin/bash
+# inbox: one-command local launcher for this fork (Mac, OrbStack, Ollama, Tailscale Funnel).
+#
+#   inbox start      start Postgres + Redis, Ollama, the production app and the cron loop
+#   inbox stop       stop all of it (--keep-services leaves Postgres and Redis running)
+#   inbox status     what is running
+#   inbox build      rebuild the production app (start does this when the code changed)
+#   inbox logs       follow the app log
+#
+# Replaces `pnpm dev` (about 3 GB, slow) with `next start` on a production build, and replaces
+# the old `cron` container with a small loop that calls the same endpoints.
+# State (pids, logs) lives in ~/Library/Application Support/inbox-zero-local.
+set -uo pipefail
+
+SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/$(basename "${BASH_SOURCE[0]}")"
+REPO="${INBOX_REPO:-$(cd "$(dirname "$SCRIPT")/../.." && pwd -P)}"
+WEB="$REPO/apps/web"
+ENV_FILE="$WEB/.env"
+STATE="$HOME/Library/Application Support/inbox-zero-local"
+PORT="${INBOX_PORT:-3000}"
+BASE="http://127.0.0.1:$PORT"
+NODE_BIN="${INBOX_NODE_BIN:-/opt/homebrew/opt/node@24/bin}"
+PNPM=(npx -y pnpm@11.19.0)
+PROJECT="${INBOX_COMPOSE_PROJECT:-inbox-zero-services}"
+# Containers the app needs, and the old prebuilt-image ones that must never take the port back.
+KEEP=("$PROJECT-db-1" "$PROJECT-redis-1" "$PROJECT-serverless-redis-http-1")
+OLD=("$PROJECT-web-1" "$PROJECT-cron-1" "$PROJECT-worker-1")
+TAILSCALE=/Applications/Tailscale.app/Contents/MacOS/Tailscale
+
+mkdir -p "$STATE"
+export PATH="$NODE_BIN:/opt/homebrew/bin:/usr/local/bin:$PATH"
+
+say() { printf '%s\n' "$*"; }
+die() { printf 'inbox: %s\n' "$*" >&2; exit 1; }
+pid_alive() { [ -f "$1" ] && kill -0 "$(cat "$1")" 2>/dev/null; }
+stop_pid() {
+  pid_alive "$1" || { rm -f "$1"; return 0; }
+  kill "$(cat "$1")" 2>/dev/null
+  for _ in 1 2 3 4 5 6 7 8 9 10; do pid_alive "$1" || break; sleep 1; done
+  pid_alive "$1" && kill -9 "$(cat "$1")" 2>/dev/null
+  rm -f "$1"
+}
+app_up() { curl -fsS -o /dev/null --max-time 3 "$BASE/api/health" 2>/dev/null; }
+ollama_up() { curl -fsS -o /dev/null --max-time 2 http://127.0.0.1:11434/api/tags 2>/dev/null; }
+
+ensure_docker() {
+  docker info >/dev/null 2>&1 && return 0
+  say "Starting OrbStack..."
+  open -a OrbStack
+  for _ in $(seq 1 45); do docker info >/dev/null 2>&1 && return 0; sleep 2; done
+  die "OrbStack did not come up in 90 s"
+}
+
+ensure_services() {
+  local c
+  # The old web/cron/worker containers have restart: always and would grab the port.
+  for c in "${OLD[@]}"; do
+    docker inspect "$c" >/dev/null 2>&1 || continue
+    docker update --restart=no "$c" >/dev/null
+    if [ "$(docker inspect -f '{{.State.Running}}' "$c")" = true ]; then
+      docker stop "$c" >/dev/null 2>&1 && say "Stopped old container $c"
+    fi
+  done
+  for c in "${KEEP[@]}"; do
+    docker inspect "$c" >/dev/null 2>&1 || die "container $c not found (set INBOX_COMPOSE_PROJECT if yours is named differently)"
+    docker start "$c" >/dev/null
+  done
+  for _ in $(seq 1 30); do
+    [ "$(docker inspect -f '{{.State.Health.Status}}' "${KEEP[0]}" 2>/dev/null)" = healthy ] && return 0
+    sleep 2
+  done
+  die "Postgres did not become healthy"
+}
+
+ensure_ollama() {
+  ollama_up && return 0
+  command -v ollama >/dev/null || { say "Ollama not installed; AI features will fail."; return 0; }
+  say "Starting Ollama..."
+  nohup ollama serve >"$STATE/ollama.log" 2>&1 &
+  echo $! >"$STATE/ollama.pid"
+  for _ in $(seq 1 20); do ollama_up && return 0; sleep 1; done
+  say "Ollama did not answer; AI features will fail. See $STATE/ollama.log"
+}
+
+build_stamp() { (cd "$REPO" && { git rev-parse HEAD; git status --porcelain -- apps packages; } | shasum | cut -d' ' -f1); }
+
+do_build() {
+  say "Building the production app (several minutes, heavy on memory)..."
+  (cd "$WEB" && "${PNPM[@]}" build) || die "build failed"
+  build_stamp >"$WEB/.next/.inbox-built-stamp"
+}
+
+ensure_build() {
+  if [ ! -f "$WEB/.next/BUILD_ID" ] || [ "$(cat "$WEB/.next/.inbox-built-stamp" 2>/dev/null)" != "$(build_stamp)" ]; then
+    do_build
+  fi
+}
+
+start_app() {
+  if app_up; then say "App already running."; return 0; fi
+  if lsof -iTCP:"$PORT" -sTCP:LISTEN -n -P >/dev/null 2>&1; then
+    die "port $PORT is taken: $(lsof -iTCP:"$PORT" -sTCP:LISTEN -n -P | tail -1 | cut -c1-60). Stop it (a dev server or the old container) and retry."
+  fi
+  say "Starting the app..."
+  # exec so the recorded pid is the server itself, not a wrapper shell
+  (cd "$WEB" && NODE_ENV=production NODE_OPTIONS=--max_old_space_size=2048 \
+    exec node node_modules/next/dist/bin/next start -p "$PORT" >"$STATE/app.log" 2>&1) &
+  echo $! >"$STATE/app.pid"
+  for _ in $(seq 1 60); do app_up && return 0; sleep 1; done
+  die "app did not answer on $BASE; see $STATE/app.log"
+}
+
+start_cron() {
+  pid_alive "$STATE/cron.pid" && return 0
+  nohup "$SCRIPT" cron-loop >"$STATE/cron.log" 2>&1 &
+  echo $! >"$STATE/cron.pid"
+}
+
+check_funnel() {
+  [ -x "$TAILSCALE" ] || { say "Tailscale not found: new mail will not reach the app (no webhook)."; return 0; }
+  if "$TAILSCALE" funnel status 2>/dev/null | grep -q "/api/outlook/webhook"; then
+    say "Webhook funnel: on"
+  else
+    say "Webhook funnel: OFF. New mail will not reach the app. Fix: tailscale funnel --bg --set-path /api/outlook/webhook http://127.0.0.1:$PORT/api/outlook/webhook"
+  fi
+}
+
+# The old cron container's seven loops, with the same endpoints and intervals.
+cron_loop() {
+  local secret
+  secret="$(grep -m1 '^CRON_SECRET=' "$ENV_FILE" | cut -d= -f2- | tr -d "\"'")"
+  [ -n "$secret" ] || die "CRON_SECRET is not set in $ENV_FILE"
+  local paths=(/api/cron/scheduled-actions /api/cron/automation-jobs /api/follow-up-reminders
+    /api/resend/digest/all /api/meeting-briefs /api/meeting-recorder/schedule /api/watch/all)
+  local every=(900 900 3600 1800 900 300 21600)
+  local next=() i now code
+  now=$(date +%s)
+  # Stagger the first run by a minute so the app is warm.
+  for i in "${!paths[@]}"; do next[$i]=$((now + 60)); done
+  while true; do
+    now=$(date +%s)
+    for i in "${!paths[@]}"; do
+      if [ "$now" -ge "${next[$i]}" ]; then
+        code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 600 \
+          -H "Authorization: Bearer $secret" "$BASE${paths[$i]}" || echo fail)
+        echo "$(date '+%F %T') ${paths[$i]} -> $code"
+        next[$i]=$((now + ${every[$i]}))
+      fi
+    done
+    sleep 30
+  done
+}
+
+cmd_start() {
+  ensure_docker
+  ensure_services
+  ensure_ollama
+  ensure_build
+  start_app
+  start_cron
+  check_funnel
+  say "Inbox Zero is up: $BASE"
+  open "$BASE"
+}
+
+cmd_stop() {
+  stop_pid "$STATE/cron.pid"
+  stop_pid "$STATE/app.pid"
+  stop_pid "$STATE/ollama.pid"
+  if [ "${1:-}" != "--keep-services" ] && docker info >/dev/null 2>&1; then
+    docker stop "${KEEP[@]}" >/dev/null 2>&1
+  fi
+  say "Stopped."
+}
+
+cmd_status() {
+  app_up && say "app:      up ($BASE)" || say "app:      down"
+  pid_alive "$STATE/cron.pid" && say "cron:     running (log: $STATE/cron.log)" || say "cron:     stopped"
+  ollama_up && say "ollama:   up" || say "ollama:   down"
+  if docker info >/dev/null 2>&1; then
+    docker ps --filter "name=$PROJECT" --format 'docker:    {{.Names}} {{.Status}}'
+  else
+    say "docker:   OrbStack not running"
+  fi
+  check_funnel
+}
+
+case "${1:-}" in
+  start) cmd_start ;;
+  stop) shift; cmd_stop "${1:-}" ;;
+  status) cmd_status ;;
+  build) do_build ;;
+  logs) tail -f "$STATE/app.log" ;;
+  cron-loop) cron_loop ;;
+  *) say "usage: inbox start|stop|status|build|logs"; exit 2 ;;
+esac
