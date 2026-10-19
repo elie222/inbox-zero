@@ -140,6 +140,21 @@ describe("Squire email editor", () => {
     expect(handle().getValue().editableHtml).toBe("<div>Draft body</div>");
   });
 
+  it("keeps a line break inside inline content followed by more text", async () => {
+    const { handle } = await renderEditor({
+      initialHtml:
+        "<div><b>123 Main St<br></b><i>Springfield</i></div><div>Body</div>",
+      mode: "original",
+    });
+    act(() => {
+      handle().insertText("x");
+    });
+
+    expect(handle().getValue().editableHtml).toContain(
+      "123 Main St<br></b><i>Springfield",
+    );
+  });
+
   it("undoes and redoes removing the signature", async () => {
     const { handle, textbox } = await renderEditor({
       preservedBlocks: [SIGNATURE],

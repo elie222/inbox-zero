@@ -963,12 +963,37 @@ function escapeHtml(value: string) {
     .replace(/>/gu, "&gt;");
 }
 
+const BLOCK_TAGS = new Set([
+  "BLOCKQUOTE",
+  "DIV",
+  "H1",
+  "H2",
+  "H3",
+  "H4",
+  "H5",
+  "H6",
+  "LI",
+  "P",
+  "PRE",
+  "TD",
+  "TH",
+]);
+
 // Squire keeps a <br> after a block's last text so the cursor has somewhere
 // to sit. Browsers don't draw it, but mail clients can show it as a blank
 // line. Blank lines of their own are separate blocks, so they are kept.
 function removePlaceholderBreaks(parent: ParentNode) {
   for (const br of parent.querySelectorAll("br")) {
     const previous = br.previousSibling;
-    if (!br.nextSibling && previous && previous.nodeName !== "BR") br.remove();
+    if (previous && previous.nodeName !== "BR" && endsBlock(br)) br.remove();
   }
+}
+
+function endsBlock(node: Node) {
+  let current: Node | null = node;
+  while (current && !current.nextSibling) {
+    current = current.parentNode;
+    if (!current || BLOCK_TAGS.has(current.nodeName)) return true;
+  }
+  return false;
 }
