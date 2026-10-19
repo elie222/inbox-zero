@@ -273,7 +273,6 @@ test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
     await expect(
       conversationWithSubject(page, conversations, "Archive Action Message"),
     ).toBeVisible();
-    await capturePlaywrightCheckpoint(page, testInfo, "mail-after-reconnect");
 
     await expect.poll(() => mailEngineOpfsExists(page)).toBe(true);
     await signOutFromAppNav(page);

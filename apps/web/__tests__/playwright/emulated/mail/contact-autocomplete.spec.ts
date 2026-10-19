@@ -133,11 +133,6 @@ for (const theme of ["light", "dark"] as const) {
       dialog.getByRole("button", { name: "Remove alice@example.com" }),
     ).toBeVisible();
     await expect(to).toHaveValue("");
-    await capturePlaywrightCheckpoint(
-      page,
-      testInfo,
-      `${theme}-local-selected`,
-    );
     if (shotDirectory)
       await page.screenshot({
         path: join(shotDirectory, `${theme}-2-selected.png`),

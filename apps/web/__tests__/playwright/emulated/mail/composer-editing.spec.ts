@@ -414,7 +414,6 @@ test("keeps editing state stable across formatting, links, paste, and files", as
 
   await editor.press("ArrowRight");
   await expect(formatting).toBeHidden();
-  await capturePlaywrightCheckpoint(page, testInfo, "composer-compact");
 
   await dialog.getByRole("button", { name: "Expand compose" }).click();
   await expect(dialog).toHaveAttribute("data-compose-expanded", "true");
@@ -549,7 +548,6 @@ test("edits a table signature with a hosted logo in place", async ({
       "src",
       /^https:\/\/assets\.example\.com/,
     );
-    await capturePlaywrightCheckpoint(page, testInfo, "table-signature");
 
     await selectEditorText(editor, "Head of Examples");
     await page.keyboard.type("Chief Example Officer");
