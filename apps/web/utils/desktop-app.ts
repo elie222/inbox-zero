@@ -15,6 +15,14 @@ export type InboxZeroDesktopApi = {
     provider: DesktopAuthProvider,
     options?: { callbackPath?: string },
   ) => Promise<void>;
+  /**
+   * Opens mailbox linking in the system browser and finishes it in the app.
+   * Resolves once the browser opens; the app navigates when linking completes.
+   */
+  startAccountLink?: (
+    provider: "google" | "microsoft",
+    options?: { reconnectEmailAccountId?: string },
+  ) => Promise<{ error?: string } | undefined>;
   mailEngine?: (payload: unknown) => Promise<unknown>;
   mailEngineSubscribe?: (input: unknown) => Promise<unknown>;
   mailEngineUnsubscribe?: (subscriptionId: string) => Promise<unknown>;

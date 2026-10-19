@@ -2,6 +2,7 @@ import { env } from "@/env";
 
 export const MOBILE_AUTH_WEB_CALLBACK_PATH = "/api/mobile-auth/callback";
 export const MOBILE_AUTH_APP_CALLBACK_PATH = "/auth-callback";
+export const DESKTOP_ACCOUNT_LINK_CALLBACK_PATH = "/account-link-callback";
 
 export const MOBILE_AUTH_RETURN_URL_MODES = [
   "app-link",
@@ -46,12 +47,22 @@ export function getMobileAuthAppCallbackUrl(
   return new URL(MOBILE_AUTH_APP_CALLBACK_PATH, baseUrl.origin);
 }
 
+export function getDesktopAccountLinkCallbackUrl(): URL {
+  return new URL(
+    getCustomSchemeCallbackUrl(
+      "DESKTOP_AUTH_ORIGIN",
+      DESKTOP_ACCOUNT_LINK_CALLBACK_PATH,
+    ),
+  );
+}
+
 export function getMobileAuthBaseUrlOrigin(): string {
   return new URL(env.NEXT_PUBLIC_BASE_URL).origin;
 }
 
 function getCustomSchemeCallbackUrl(
   envName: "MOBILE_AUTH_ORIGIN" | "DESKTOP_AUTH_ORIGIN",
+  path = MOBILE_AUTH_APP_CALLBACK_PATH,
 ): string {
   const origin = env[envName];
   if (!origin) {
@@ -61,5 +72,5 @@ function getCustomSchemeCallbackUrl(
   const normalized = origin.endsWith("://")
     ? origin
     : `${origin.replace(/\/+$/u, "")}/`;
-  return `${normalized}${MOBILE_AUTH_APP_CALLBACK_PATH.slice(1)}`;
+  return `${normalized}${path.slice(1)}`;
 }

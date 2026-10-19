@@ -11,6 +11,7 @@ const {
   mockClearOAuthCode,
   mockCaptureException,
   mockAuth,
+  mockStoreDesktopAccountLinkHandoff,
 } = vi.hoisted(() => ({
   mockValidateOAuthCallback: vi.fn(),
   mockHandleAccountLinking: vi.fn(),
@@ -20,6 +21,7 @@ const {
   mockClearOAuthCode: vi.fn(),
   mockCaptureException: vi.fn(),
   mockAuth: vi.fn(),
+  mockStoreDesktopAccountLinkHandoff: vi.fn(),
 }));
 
 vi.mock("@/env", () => ({
@@ -30,7 +32,12 @@ vi.mock("@/env", () => ({
     MICROSOFT_CLIENT_ID: "client-id",
     MICROSOFT_CLIENT_SECRET: "client-secret",
     MICROSOFT_TENANT_ID: "common",
+    DESKTOP_AUTH_ORIGIN: "inboxzero://",
   },
+}));
+
+vi.mock("@/utils/redis/desktop-account-link", () => ({
+  storeDesktopAccountLinkHandoff: mockStoreDesktopAccountLinkHandoff,
 }));
 
 vi.mock("@/utils/middleware", async () => {
@@ -112,6 +119,7 @@ vi.mock("@/utils/outlook/scopes", () => ({
   ],
 }));
 
+import { createDesktopLinkingState } from "@/utils/oauth/desktop-account-linking";
 import { generateSignedOAuthState } from "@/utils/oauth/state";
 import { GET } from "./route";
 
@@ -850,6 +858,86 @@ describe("outlook linking callback route", () => {
     consoleWarn.mockRestore();
   });
 });
+
+describe("outlook linking callback route from the desktop app", () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubGlobal("fetch", fetchMock);
+    mockStoreDesktopAccountLinkHandoff.mockResolvedValue("handoff-code");
+    mockAuth.mockResolvedValue(null);
+  });
+
+  it("hands the authorization to the app without linking or a browser session", async () => {
+    const { state, stateNonce } = createDesktopLinkingState({
+      userId: "user-123",
+      codeChallenge: "a".repeat(43),
+      reconnectEmailAccountId: null,
+    });
+
+    const response = await GET(
+      createDesktopRequest({ state, code: "provider-code" }),
+    );
+
+    expect(response.headers.get("location")).toBe(
+      "inboxzero://account-link-callback?code=handoff-code",
+    );
+    expect(mockStoreDesktopAccountLinkHandoff).toHaveBeenCalledWith({
+      provider: "microsoft",
+      providerCode: "provider-code",
+      userId: "user-123",
+      codeChallenge: "a".repeat(43),
+      stateNonce,
+      reconnectEmailAccountId: null,
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(mockHandleAccountLinking).not.toHaveBeenCalled();
+    expect(prisma.account.create).not.toHaveBeenCalled();
+  });
+
+  it("returns a provider error to the app", async () => {
+    const { state } = createDesktopLinkingState({
+      userId: "user-123",
+      codeChallenge: "a".repeat(43),
+      reconnectEmailAccountId: null,
+    });
+
+    const response = await GET(
+      createDesktopRequest({ state, error: "access_denied" }),
+    );
+
+    expect(response.headers.get("location")).toBe(
+      "inboxzero://account-link-callback?error=link_failed",
+    );
+    expect(mockStoreDesktopAccountLinkHandoff).not.toHaveBeenCalled();
+  });
+
+  it("treats a tampered desktop state as a normal callback that fails", async () => {
+    const { state } = createDesktopLinkingState({
+      userId: "user-123",
+      codeChallenge: "a".repeat(43),
+      reconnectEmailAccountId: null,
+    });
+    const tampered = `${state.split(".")[0]}.forged-signature`;
+
+    const response = await GET(
+      createDesktopRequest({ state: tampered, code: "provider-code" }),
+    );
+
+    expect(response.headers.get("location")).toContain("error=invalid_state");
+    expect(mockStoreDesktopAccountLinkHandoff).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+function createDesktopRequest(params: Record<string, string>) {
+  const url = new URL("http://localhost:3000/api/outlook/linking/callback");
+  for (const [key, value] of Object.entries(params)) {
+    url.searchParams.set(key, value);
+  }
+  return new NextRequest(url);
+}
 
 function createFetchFailedError(code: string) {
   const connectError = Object.assign(new Error(`connect ${code}`), { code });
