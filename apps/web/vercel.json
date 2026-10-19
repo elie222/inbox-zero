@@ -76,6 +76,16 @@
         }
       ]
     },
+    "app/api/cron/draft-cleanup/account/queue/route.ts": {
+      "experimentalTriggers": [
+        {
+          "type": "queue/v2beta",
+          "topic": "draft-cleanup",
+          "retryAfterSeconds": 60,
+          "maxDeliveries": 3
+        }
+      ]
+    },
     "app/api/resend/inbox-health/queue/route.ts": {
       "experimentalTriggers": [
         {
