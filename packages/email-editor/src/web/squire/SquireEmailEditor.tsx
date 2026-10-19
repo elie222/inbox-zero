@@ -138,7 +138,6 @@ export const SquireEmailEditor = forwardRef<
   const signaturePresentRef = useRef(false);
   const [expanded, setExpandedState] = useState(false);
   const expandedRef = useRef(false);
-  const [removeButtonTop, setRemoveButtonTop] = useState<number | null>(null);
 
   // An untouched draft is sent exactly as loaded; "dirty" means the content
   // differs from what was loaded, not merely that the DOM was touched.
@@ -243,14 +242,6 @@ export const SquireEmailEditor = forwardRef<
     propsRef.current.onStateChange?.(readState());
   }, [readState]);
 
-  const updateSignatureControls = useCallback(() => {
-    const signature = signatureRef.current;
-    const root = rootRef.current;
-    setRemoveButtonTop(
-      signature && root?.contains(signature) ? signature.offsetTop : null,
-    );
-  }, []);
-
   const updateEmptyState = useCallback(() => {
     const root = rootRef.current;
     if (!root) return;
@@ -300,7 +291,6 @@ export const SquireEmailEditor = forwardRef<
           image.setAttribute("src", proxied);
         }
       });
-      updateSignatureControls();
     };
 
     const resolver = propsRef.current.resolveRemoteImages;
@@ -329,7 +319,7 @@ export const SquireEmailEditor = forwardRef<
       .catch(() => {
         for (const source of pending) cache.delete(source);
       });
-  }, [updateSignatureControls]);
+  }, []);
   const resolveImagesRef = useRef(resolveImages);
   resolveImagesRef.current = resolveImages;
 
@@ -507,7 +497,6 @@ export const SquireEmailEditor = forwardRef<
       updateEmptyState();
       updateSelectionUi();
       updateSlashTrigger();
-      updateSignatureControls();
       resolveImages();
       emitState();
     };
@@ -646,29 +635,7 @@ export const SquireEmailEditor = forwardRef<
       if (selectionLeavesRoot) editor.moveCursorToEnd();
     }
     updateEmptyState();
-    updateSignatureControls();
-  }, [
-    editor,
-    expanded,
-    signaturePresent,
-    updateEmptyState,
-    updateSignatureControls,
-  ]);
-
-  const removeSignature = useCallback(() => {
-    const root = rootRef.current;
-    const signature = signatureRef.current;
-    if (!editor || !root || !signature) return;
-    editor.saveEditUndoState();
-    editor.modifyDocument(() => {
-      signature.remove();
-      ensureBlock(editor, root);
-    });
-    dirtyRef.current = true;
-    setSignaturePresent(false);
-    updateSignatureControls();
-    emitState();
-  }, [editor, emitState, setSignaturePresent, updateSignatureControls]);
+  }, [editor, expanded, signaturePresent, updateEmptyState]);
 
   const activeBlocks = useMemo(() => {
     const blocks: ActivePreservedBlock[] = [];
@@ -765,7 +732,6 @@ export const SquireEmailEditor = forwardRef<
         setSignaturePresent(Boolean(next));
         dirtyRef.current = true;
         updateEmptyState();
-        updateSignatureControls();
         resolveImages();
         emitState();
         return true;
@@ -798,7 +764,6 @@ export const SquireEmailEditor = forwardRef<
       resolveImages,
       setSignaturePresent,
       updateEmptyState,
-      updateSignatureControls,
     ],
   );
 
@@ -832,18 +797,6 @@ export const SquireEmailEditor = forwardRef<
             }
             tabIndex={0}
           />
-          {removeButtonTop !== null && (
-            <button
-              aria-label="Remove signature"
-              className={styles.squireRemoveSignature}
-              onClick={removeSignature}
-              onMouseDown={(event) => event.preventDefault()}
-              style={{ top: removeButtonTop }}
-              type="button"
-            >
-              ×
-            </button>
-          )}
           {activeBlocks.length > 0 && (
             <div className={styles.squirePreserved}>
               <PreservedBlocksToggle

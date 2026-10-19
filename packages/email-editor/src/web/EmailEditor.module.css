@@ -329,26 +329,6 @@
   cursor: text;
 }
 
-.squireRemoveSignature {
-  position: absolute;
-  right: 0.5rem;
-  width: 1.75rem;
-  height: 1.75rem;
-  font-size: 1.1rem;
-  color: var(--email-editor-muted-foreground);
-  cursor: pointer;
-  background: transparent;
-  border: 0;
-  border-radius: 999px;
-}
-
-.squireRemoveSignature:hover,
-.squireRemoveSignature:focus-visible {
-  color: var(--email-editor-foreground);
-  outline: none;
-  background: var(--email-editor-muted);
-}
-
 .squireToolbar {
   position: fixed;
   z-index: 100;

@@ -444,7 +444,17 @@ test("does not add a line break for the send shortcut", async ({
   await dialog.getByRole("button", { name: "Show signature" }).click();
   const signature = editor.locator("[data-smartmail]");
   await expect(signature).toBeVisible();
-  await dialog.getByRole("button", { name: "Remove signature" }).click();
+  // Select from the end of the body through the signature, then delete it.
+  await editor.evaluate((root) => {
+    const body = root.querySelector("[data-smartmail]")?.previousSibling;
+    if (!body) throw new Error("No body before the signature");
+    const range = document.createRange();
+    range.setStart(body, body.childNodes.length);
+    range.setEnd(root, root.childNodes.length);
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(range);
+  });
+  await editor.press("Backspace");
   await expect(signature).toHaveCount(0);
 
   await editor.press("ControlOrMeta+Enter");
