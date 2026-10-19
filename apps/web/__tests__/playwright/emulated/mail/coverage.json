@@ -64,7 +64,8 @@
   ],
   "compose-send-warnings.spec.ts": [
     "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
-    "app/(app)/[emailAccountId]/compose/send-warnings.ts"
+    "app/(app)/[emailAccountId]/compose/send-warnings.ts",
+    "app/(app)/[emailAccountId]/compose/SendWarningsDialog.tsx"
   ],
   "composer-editing.spec.ts": [
     "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",

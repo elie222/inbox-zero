@@ -56,16 +56,6 @@ import {
 } from "@/hooks/useHiddenDraftMessageIds";
 import { VoiceInput } from "@/components/voice/VoiceInput";
 import { toastError, toastSuccess } from "@/components/Toast";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -158,6 +148,7 @@ import {
   getSendWarnings,
   type SendWarning,
 } from "./send-warnings";
+import { SendWarningsDialog } from "./SendWarningsDialog";
 import {
   enqueueDraftOperation,
   waitForDraftOperations,
@@ -1867,31 +1858,11 @@ function ComposeEmailFormContent({
         resolveRemoteImages={resolveRemoteImages}
       />
 
-      <AlertDialog
-        open={sendWarnings.length > 0}
-        onOpenChange={(open) => {
-          if (!open) setSendWarnings([]);
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Send anyway?</AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-1">
-                {sendWarnings.map((warning) => (
-                  <p key={warning.type}>{getSendWarningMessage(warning)}</p>
-                ))}
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Go back</AlertDialogCancel>
-            <AlertDialogAction onClick={sendDespiteWarnings}>
-              Send anyway
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <SendWarningsDialog
+        warnings={sendWarnings}
+        onDismiss={() => setSendWarnings([])}
+        onSendAnyway={sendDespiteWarnings}
+      />
       {submissionError && (
         <p
           role="alert"
@@ -2265,11 +2236,4 @@ function formatAddressLabel(name: string | null | undefined, email: string) {
 function splitFromOption(value: string) {
   const separator = value.indexOf(":");
   return [value.slice(0, separator), value.slice(separator + 1)] as const;
-}
-
-function getSendWarningMessage(warning: SendWarning) {
-  if (warning.type === "missing-attachment") {
-    return "You mention an attachment, but nothing is attached.";
-  }
-  return `There's an unfilled placeholder: ${warning.placeholder}`;
 }
