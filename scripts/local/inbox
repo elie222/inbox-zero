@@ -4,7 +4,8 @@
 #   inbox start      start Postgres + Redis, Ollama, the production app and the cron loop
 #   inbox stop       stop all of it (--keep-services leaves Postgres and Redis running)
 #   inbox status     what is running
-#   inbox build      rebuild the production app (start does this when the code changed)
+#   inbox build      rebuild the production app: starts the DB first, installs deps if the lockfile
+#                    changed, regenerates Prisma (start does this when the code changed)
 #   inbox logs       follow the app log
 #
 # Replaces `pnpm dev` (about 3 GB, slow) with `next start` on a production build, and replaces
@@ -100,10 +101,22 @@ build_stamp() {
   } | shasum | cut -d' ' -f1)
 }
 
+# Hash of the lockfile; install only reruns when it differs from the last successful build's.
+lock_hash() { shasum "$REPO/pnpm-lock.yaml" 2>/dev/null | cut -d' ' -f1; }
+
 do_build() {
+  local lock
+  lock="$(lock_hash)"
+  if [ ! -d "$REPO/node_modules" ] || [ "$(cat "$STATE/lock.hash" 2>/dev/null)" != "$lock" ]; then
+    say "Dependencies changed; installing..."
+    (cd "$REPO" && "${PNPM[@]}" install --frozen-lockfile --prefer-offline) || die "pnpm install failed"
+  fi
+  # Always regenerate the Prisma client: a pulled schema change breaks the type check otherwise.
+  (cd "$WEB" && "${PNPM[@]}" exec prisma generate) || die "prisma generate failed"
   say "Building the production app (several minutes, heavy on memory)..."
   (cd "$WEB" && "${PNPM[@]}" build) || die "build failed"
   build_stamp >"$WEB/.next/.inbox-built-stamp"
+  printf '%s\n' "$lock" >"$STATE/lock.hash"
 }
 
 ensure_build() {
@@ -248,7 +261,7 @@ case "${1:-}" in
   start) cmd_start ;;
   stop) shift; cmd_stop "${1:-}" ;;
   status) cmd_status ;;
-  build) do_build ;;
+  build) ensure_docker; ensure_services; do_build ;;
   logs) tail -f "$STATE/app.log" ;;
   cron-loop) cron_loop ;;
   *) say "usage: inbox start|stop|status|build|logs"; exit 2 ;;
