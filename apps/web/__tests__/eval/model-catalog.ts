@@ -66,10 +66,9 @@ export const EVAL_MODEL_CATALOG: Record<string, EvalModel> = {
     label: "Claude Sonnet 5",
   },
   "claude-haiku-5.5": {
-    provider: "anthropic",
-    model: "claude-haiku-5-5",
+    provider: "openrouter",
+    model: "anthropic/claude-haiku-5.5",
     label: "Claude Haiku 5.5",
-    includeInAll: false,
   },
   "claude-haiku-4.5": {
     provider: "openrouter",
