@@ -140,6 +140,12 @@ describe("deliverFcmNotifications", () => {
           { status: 404 },
         );
       }
+      if (body.message.token === "wrong-project") {
+        return Response.json(
+          { error: { code: 404, status: "NOT_FOUND" } },
+          { status: 404 },
+        );
+      }
       if (body.message.token === "busy") {
         return Response.json(
           { error: { code: 503, status: "UNAVAILABLE" } },
@@ -150,7 +156,7 @@ describe("deliverFcmNotifications", () => {
     });
 
     const result = await deliverFcmNotifications({
-      tokens: ["ok", "stale", "busy"],
+      tokens: ["ok", "stale", "wrong-project", "busy"],
       notification: { title: "Alice", body: "Hello" },
       logger,
     });
@@ -164,7 +170,7 @@ describe("deliverFcmNotifications", () => {
         "https://fcm.googleapis.com/v1/projects/inbox-zero-test/messages:send",
       ]),
     );
-    expect(sent).toHaveLength(3);
+    expect(sent).toHaveLength(4);
     expect(sent.every(({ auth }) => auth === "Bearer access-1")).toBe(true);
   });
 

@@ -46,6 +46,7 @@ type FcmDelivery = {
   token: string;
   status: number;
   errorCode: string | null;
+  errorStatus: string | null;
 };
 
 const serviceAccountSchema = z.object({
@@ -72,9 +73,7 @@ export function isFcmConfigured() {
 }
 
 export function isStaleFcmToken(delivery: { errorCode: string | null }) {
-  return (
-    delivery.errorCode === "UNREGISTERED" || delivery.errorCode === "NOT_FOUND"
-  );
+  return delivery.errorCode === "UNREGISTERED";
 }
 
 export async function deliverFcmNotifications({
@@ -124,7 +123,12 @@ export async function deliverFcmNotifications({
         });
       } catch (error) {
         logger.warn("FCM request failed", { error });
-        return { token, status: 500, errorCode: null } satisfies FcmDelivery;
+        return {
+          token,
+          status: 500,
+          errorCode: null,
+          errorStatus: null,
+        } satisfies FcmDelivery;
       }
     }),
   );
@@ -147,6 +151,7 @@ export async function deliverFcmNotifications({
     }
     logger.warn("FCM rejected a notification", {
       errorCode: delivery.errorCode,
+      errorStatus: delivery.errorStatus,
       status: delivery.status,
     });
   }
@@ -281,16 +286,23 @@ async function postFcm({
   );
   if (response.ok) {
     await response.body?.cancel();
-    return { token: message.token, status: response.status, errorCode: null };
+    return {
+      token: message.token,
+      status: response.status,
+      errorCode: null,
+      errorStatus: null,
+    };
   }
   return {
     token: message.token,
     status: response.status,
-    errorCode: await fcmErrorCode(response),
+    ...(await fcmError(response)),
   };
 }
 
-async function fcmErrorCode(response: Response) {
+async function fcmError(
+  response: Response,
+): Promise<{ errorCode: string | null; errorStatus: string | null }> {
   try {
     const body = (await response.json()) as {
       error?: {
@@ -302,9 +314,12 @@ async function fcmErrorCode(response: Response) {
       (item) =>
         item["@type"] === "type.googleapis.com/google.firebase.fcm.v1.FcmError",
     );
-    return detail?.errorCode ?? body.error?.status ?? null;
+    return {
+      errorCode: detail?.errorCode ?? null,
+      errorStatus: body.error?.status ?? null,
+    };
   } catch {
-    return null;
+    return { errorCode: null, errorStatus: null };
   }
 }
 
