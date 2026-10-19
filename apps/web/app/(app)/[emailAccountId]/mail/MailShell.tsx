@@ -740,6 +740,7 @@ export function MailShell() {
       setOpenThread(
         nextRow ? getListThreadSelection(nextRow, emailAccountId) : null,
       );
+      return nextRow ? getListThreadKey(nextRow) : null;
     },
   );
   const runOn = useStableCallback(
@@ -751,20 +752,37 @@ export function MailShell() {
       const ids = actionTargets.map((target) => target.key);
       if (!ids.length) return;
       const hadSelection = selection.hasSelection;
+      const removedOpenThreadKey =
+        removeFromList && openThreadKey && ids.includes(openThreadKey)
+          ? openThreadKey
+          : null;
+      // Advance before the list drops the row, so focus moves straight to
+      // the next row instead of briefly landing on none.
+      const advancedToKey =
+        removedOpenThreadKey && autoAdvanceReader
+          ? advanceReaderPast(removedOpenThreadKey, ids)
+          : undefined;
       const queuedThreadKeys = await action(ids);
+      const queuedOpenThread =
+        removedOpenThreadKey !== null &&
+        queuedThreadKeys.includes(removedOpenThreadKey);
+      // If it didn't queue, go back, unless the user has since moved on.
+      if (
+        removedOpenThreadKey &&
+        autoAdvanceReader &&
+        !queuedOpenThread &&
+        getOpenThreadKey() === advancedToKey
+      ) {
+        setFocusedIndex(focusedIndex);
+        setOpenThread(openThreadSelection);
+      }
       if (!queuedThreadKeys.length) return;
       if (
-        removeFromList &&
-        openThreadKey &&
-        queuedThreadKeys.includes(openThreadKey) &&
-        // The user may have opened another thread while the action was queued.
-        getOpenThreadKey() === openThreadKey
+        queuedOpenThread &&
+        !autoAdvanceReader &&
+        getOpenThreadKey() === removedOpenThreadKey
       ) {
-        if (autoAdvanceReader) {
-          advanceReaderPast(openThreadKey, queuedThreadKeys);
-        } else {
-          setOpenThread(null);
-        }
+        setOpenThread(null);
       }
       selection.clear();
       if (hadSelection && queuedThreadKeys.length < ids.length) {
