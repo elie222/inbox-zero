@@ -1,10 +1,18 @@
 import { NextResponse } from "next/server";
-import { hasCronSecret, hasPostCronSecret } from "@/utils/cron";
+import {
+  getCronSecretHeader,
+  hasCronSecret,
+  hasPostCronSecret,
+} from "@/utils/cron";
 import { captureException } from "@/utils/error";
 import { type RequestWithLogger, withError } from "@/utils/middleware";
-import { cleanupConfiguredAIDrafts } from "@/utils/ai/draft-cleanup";
+import { getEmailAccountsWithStaleAIDrafts } from "@/utils/ai/draft-cleanup";
+import { enqueueBackgroundJob } from "@/utils/queue/dispatch";
+import type { DraftCleanupAccountBody } from "./account/validation";
 
 export const maxDuration = 300;
+const DRAFT_CLEANUP_TOPIC = "draft-cleanup";
+const ENQUEUE_SPACING_SECONDS = 1;
 
 export const GET = withError("cron/draft-cleanup", async (request) => {
   if (!hasCronSecret(request)) {
@@ -27,9 +35,37 @@ export const POST = withError("cron/draft-cleanup", async (request) => {
 });
 
 async function runDraftCleanup(request: RequestWithLogger) {
-  const result = await cleanupConfiguredAIDrafts({
-    logger: request.logger,
+  const logger = request.logger;
+  const emailAccountIds = await getEmailAccountsWithStaleAIDrafts();
+
+  let enqueued = 0;
+  for (const [index, emailAccountId] of emailAccountIds.entries()) {
+    try {
+      await enqueueBackgroundJob<DraftCleanupAccountBody>({
+        topic: DRAFT_CLEANUP_TOPIC,
+        body: { emailAccountId },
+        vercel: { delaySeconds: index * ENQUEUE_SPACING_SECONDS },
+        qstash: {
+          queueName: "draft-cleanup",
+          parallelism: 3,
+          path: "/api/cron/draft-cleanup/account",
+          headers: getCronSecretHeader(),
+        },
+        logger,
+      });
+      enqueued++;
+    } catch (error) {
+      logger.error("Failed to enqueue draft cleanup", {
+        emailAccountId,
+        error,
+      });
+    }
+  }
+
+  logger.info("Enqueued draft cleanup", {
+    accounts: emailAccountIds.length,
+    enqueued,
   });
 
-  return NextResponse.json(result);
+  return NextResponse.json({ accounts: emailAccountIds.length, enqueued });
 }
