@@ -13,6 +13,14 @@ describe("getEditableText", () => {
     expect(text).not.toContain("attach");
   });
 
+  it("keeps a block quote the user wrote", () => {
+    expect(
+      getEditableText(
+        "<div>Quick note:</div><blockquote>Contract attached below.</blockquote>",
+      ),
+    ).toContain("Contract attached below.");
+  });
+
   it("separates block elements so words don't run together", () => {
     expect(
       getEditableText("<div>Here's the file</div><div>attached</div>"),

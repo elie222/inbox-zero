@@ -14,7 +14,6 @@ const NOT_WRITTEN_BY_USER = [
   ".gmail_signature",
   ".gmail_signature_prefix",
   ".gmail_quote",
-  "blockquote",
   "[data-email-preserved-kind]",
 ].join(",");
 
