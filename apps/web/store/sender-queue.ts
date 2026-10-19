@@ -26,7 +26,10 @@ type QueueProgress = {
 
 type CreatePayload = (params: { labelId?: string }) => ThreadMutationPayload;
 
-export function createSenderQueue(createPayload: CreatePayload) {
+export function createSenderQueue(
+  createPayload: CreatePayload,
+  { inboxOnly = true }: { inboxOnly?: boolean } = {},
+) {
   const mutationPayload = createPayload({});
   const storageKey = senderQueueStorageKey(mutationPayload);
   const stored = readStoredQueue(storageKey);
@@ -75,7 +78,7 @@ export function createSenderQueue(createPayload: CreatePayload) {
 
       const { threads } = await fetchAllSenderThreads({
         sender,
-        labelId: "INBOX",
+        labelId: inboxOnly ? "INBOX" : undefined,
         emailAccountId,
       });
       if (accountWasCleared()) return false;
