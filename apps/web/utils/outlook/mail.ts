@@ -281,14 +281,19 @@ export async function draftEmail(
     },
   };
 
-  // Reply-To wins over From, as in buildReplyAllRecipients. Without one, the
-  // raw From recipient is used so its display name is kept as Outlook has it.
+  // Reply-To wins over From, as in buildReplyAllRecipients, and may list
+  // several addresses. Without one, the raw From recipient is used so its
+  // display name is kept as Outlook has it.
+  const replyToRecipients = originalEmail.headers["reply-to"]
+    ? buildGraphRecipients(recipients.to)
+    : undefined;
   const rawFromRecipient = originalEmail.headers["reply-to"]
     ? undefined
     : originalEmail.rawRecipients?.from;
 
-  const toRecipient =
-    overrideToRecipient ?? rawFromRecipient ?? fallbackToRecipient;
+  const toRecipients = overrideToRecipient
+    ? [overrideToRecipient]
+    : (replyToRecipients ?? [rawFromRecipient ?? fallbackToRecipient]);
 
   // Build CC list from reply-all and args
   const ccAddresses = mergeAndDedupeRecipients(recipients.cc, args.cc);
@@ -351,7 +356,7 @@ export async function draftEmail(
           contentType: "html",
           content: html,
         },
-        toRecipients: [toRecipient],
+        toRecipients,
         ccRecipients,
         bccRecipients,
       }),
