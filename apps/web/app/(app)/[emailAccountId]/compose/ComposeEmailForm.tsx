@@ -56,6 +56,16 @@ import {
 } from "@/hooks/useHiddenDraftMessageIds";
 import { VoiceInput } from "@/components/voice/VoiceInput";
 import { toastError, toastSuccess } from "@/components/Toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -143,6 +153,11 @@ import {
   UNDO_SEND_DELAY_MS,
 } from "./undo-send";
 import { getReplyToEmailPayload } from "./reply-to-email-payload";
+import {
+  getEditableText,
+  getSendWarnings,
+  type SendWarning,
+} from "./send-warnings";
 import {
   enqueueDraftOperation,
   waitForDraftOperations,
@@ -517,6 +532,9 @@ function ComposeEmailFormContent({
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const inlineImageInputRef = useRef<HTMLInputElement>(null);
   const sendAndMarkDoneButtonRef = useRef<HTMLButtonElement>(null);
+  const [sendWarnings, setSendWarnings] = useState<SendWarning[]>([]);
+  const skipSendWarningsRef = useRef(false);
+  const warnedSubmitterRef = useRef<HTMLElement | null>(null);
   const deliveryOptionsRef = useRef<DeliveryOptionsHandle>(null);
   const shortcutOwnerId = useId();
   const {
@@ -986,6 +1004,8 @@ function ComposeEmailFormContent({
       const submitter = (event?.nativeEvent as SubmitEvent | undefined)
         ?.submitter;
       const markDoneAfterSend = submitter === sendAndMarkDoneButtonRef.current;
+      const skipSendWarnings = skipSendWarningsRef.current;
+      skipSendWarningsRef.current = false;
       const recipients = resolveComposeRecipientFields({
         selectedRecipients: {
           to: data.to,
@@ -1048,6 +1068,20 @@ function ComposeEmailFormContent({
       if (!deliveryTimes.valid) {
         setSubmissionError(deliveryTimes.error);
         return;
+      }
+
+      if (!skipSendWarnings) {
+        const warnings = getSendWarnings({
+          text: getEditableText(editableHtml),
+          hasAttachments:
+            attachmentsRef.current.length > 0 ||
+            forwardedAttachments.length > 0,
+        });
+        if (warnings.length) {
+          warnedSubmitterRef.current = submitter ?? null;
+          setSendWarnings(warnings);
+          return;
+        }
       }
       setSubmissionError("");
       await stopProviderAutosave();
@@ -1332,6 +1366,7 @@ function ComposeEmailFormContent({
       client,
       flushDraft,
       forgetAttachedComposeFiles,
+      forwardedAttachments.length,
       getViewSentEmail,
       mutate,
       onClose,
@@ -1345,6 +1380,12 @@ function ComposeEmailFormContent({
       selectedEmailAccountId,
     ],
   );
+
+  const sendDespiteWarnings = useCallback(() => {
+    skipSendWarningsRef.current = true;
+    setSendWarnings([]);
+    formRef.current?.requestSubmit(warnedSubmitterRef.current);
+  }, []);
 
   const reconnectContacts = async () => {
     setIsReconnectingContacts(true);
@@ -1826,6 +1867,31 @@ function ComposeEmailFormContent({
         resolveRemoteImages={resolveRemoteImages}
       />
 
+      <AlertDialog
+        open={sendWarnings.length > 0}
+        onOpenChange={(open) => {
+          if (!open) setSendWarnings([]);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Send anyway?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-1">
+                {sendWarnings.map((warning) => (
+                  <p key={warning.type}>{getSendWarningMessage(warning)}</p>
+                ))}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Go back</AlertDialogCancel>
+            <AlertDialogAction onClick={sendDespiteWarnings}>
+              Send anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       {submissionError && (
         <p
           role="alert"
@@ -2199,4 +2265,11 @@ function formatAddressLabel(name: string | null | undefined, email: string) {
 function splitFromOption(value: string) {
   const separator = value.indexOf(":");
   return [value.slice(0, separator), value.slice(separator + 1)] as const;
+}
+
+function getSendWarningMessage(warning: SendWarning) {
+  if (warning.type === "missing-attachment") {
+    return "You mention an attachment, but nothing is attached.";
+  }
+  return `There's an unfilled placeholder: ${warning.placeholder}`;
 }
