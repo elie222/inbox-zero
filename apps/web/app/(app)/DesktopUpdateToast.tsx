@@ -3,7 +3,10 @@
 import { useEffect } from "react";
 import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
-import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
+import {
+  type DesktopUpdateStatus,
+  getInboxZeroDesktopApp,
+} from "@/utils/desktop-app";
 
 const DESKTOP_UPDATE_TOAST_ID = "desktop-app-update";
 
@@ -15,9 +18,12 @@ export function DesktopUpdateToast() {
     // Progress keeps arriving after someone closes the toast; don't reopen it
     // until the download finishes.
     let dismissedVersion: string | null = null;
+    let current: DesktopUpdateStatus = null;
 
     const unsubscribe = desktop.onUpdateStatus((status) => {
+      current = status;
       if (!status) {
+        dismissedVersion = null;
         toast.dismiss(DESKTOP_UPDATE_TOAST_ID);
         return;
       }
@@ -35,8 +41,12 @@ export function DesktopUpdateToast() {
             </div>
           ),
           duration: Number.POSITIVE_INFINITY,
+          // Sonner also calls this when the status clears the toast, which
+          // must not hide a retry of the same version.
           onDismiss: () => {
-            dismissedVersion = status.version;
+            if (current?.state === "downloading") {
+              dismissedVersion = current.version;
+            }
           },
         });
         return;

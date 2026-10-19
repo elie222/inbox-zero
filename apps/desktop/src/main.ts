@@ -124,7 +124,7 @@ type DesktopUpdateStatus =
 
 let downloadPercent: number | null = null;
 let updateStatus: DesktopUpdateStatus = null;
-const updateStatusSubscribers = new Set<WebContents>();
+const updateStatusSubscribers = new Map<WebContents, () => void>();
 let refreshDesktopMenu: (() => void) | undefined;
 
 const gotTheLock = app.requestSingleInstanceLock();
@@ -187,6 +187,10 @@ function startDesktopApp() {
     if (!isTrustedDesktopEvent(event)) return null;
     subscribeToUpdateStatus(event.sender);
     return updateStatus;
+  });
+  ipcMain.on("desktop:update-status-unsubscribe", (event) => {
+    if (!isTrustedDesktopEvent(event)) return;
+    updateStatusSubscribers.get(event.sender)?.();
   });
   ipcMain.handle("desktop:install-update", (event) => {
     if (!isTrustedDesktopEvent(event)) return;
@@ -285,7 +289,7 @@ function startDesktopApp() {
             () => {
               isQuitting = true;
             },
-            { showsProgressInApp: () => updateStatusSubscribers.size > 0 },
+            { showsProgressInApp: hasVisibleUpdateStatusSubscriber },
           ).catch(logDesktopUpdateError);
         },
         createWindow: () => createAppWindow(),
@@ -372,7 +376,7 @@ function setDownloadProgress(progress: DesktopDownloadProgress | null) {
 
 function setUpdateStatus(status: DesktopUpdateStatus) {
   updateStatus = status;
-  for (const contents of updateStatusSubscribers) {
+  for (const contents of updateStatusSubscribers.keys()) {
     contents.send("desktop:update-status", status);
   }
 }
@@ -381,14 +385,22 @@ function setUpdateStatus(status: DesktopUpdateStatus) {
 // subscription; the new page subscribes again if it shows update status.
 function subscribeToUpdateStatus(contents: WebContents) {
   if (updateStatusSubscribers.has(contents)) return;
-  updateStatusSubscribers.add(contents);
   const unsubscribe = () => {
     updateStatusSubscribers.delete(contents);
     contents.off("did-navigate", unsubscribe);
     contents.off("destroyed", unsubscribe);
   };
+  updateStatusSubscribers.set(contents, unsubscribe);
   contents.on("did-navigate", unsubscribe);
   contents.on("destroyed", unsubscribe);
+}
+
+// On macOS the last window hides instead of closing, so a toast there would
+// go unseen.
+function hasVisibleUpdateStatusSubscriber() {
+  return [...updateStatusSubscribers.keys()].some((contents) =>
+    BrowserWindow.fromWebContents(contents)?.isVisible(),
+  );
 }
 
 function syncUpdateProgressBar() {

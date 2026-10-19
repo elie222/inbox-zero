@@ -41,11 +41,16 @@ contextBridge.exposeInMainWorld("inboxZeroDesktop", {
     };
   },
   onUpdateStatus: (listener: (status: unknown) => void) => {
+    let subscribed = true;
     const handler = (_event: unknown, status: unknown) => listener(status);
     ipcRenderer.on("desktop:update-status", handler);
-    ipcRenderer.invoke("desktop:update-status").then(listener);
+    ipcRenderer.invoke("desktop:update-status").then((status) => {
+      if (subscribed) listener(status);
+    });
     return () => {
+      subscribed = false;
       ipcRenderer.removeListener("desktop:update-status", handler);
+      ipcRenderer.send("desktop:update-status-unsubscribe");
     };
   },
   installUpdate: () => ipcRenderer.invoke("desktop:install-update"),
