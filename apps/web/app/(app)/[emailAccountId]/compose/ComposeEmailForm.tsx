@@ -144,6 +144,12 @@ import {
 } from "./undo-send";
 import { getReplyToEmailPayload } from "./reply-to-email-payload";
 import {
+  getEditableText,
+  getSendWarnings,
+  type SendWarning,
+} from "./send-warnings";
+import { SendWarningsDialog } from "./SendWarningsDialog";
+import {
   enqueueDraftOperation,
   waitForDraftOperations,
 } from "./draft-operation-queue";
@@ -517,6 +523,9 @@ function ComposeEmailFormContent({
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const inlineImageInputRef = useRef<HTMLInputElement>(null);
   const sendAndMarkDoneButtonRef = useRef<HTMLButtonElement>(null);
+  const [sendWarnings, setSendWarnings] = useState<SendWarning[]>([]);
+  const skipSendWarningsRef = useRef(false);
+  const warnedSubmitterRef = useRef<HTMLElement | null>(null);
   const deliveryOptionsRef = useRef<DeliveryOptionsHandle>(null);
   const shortcutOwnerId = useId();
   const {
@@ -986,6 +995,8 @@ function ComposeEmailFormContent({
       const submitter = (event?.nativeEvent as SubmitEvent | undefined)
         ?.submitter;
       const markDoneAfterSend = submitter === sendAndMarkDoneButtonRef.current;
+      const skipSendWarnings = skipSendWarningsRef.current;
+      skipSendWarningsRef.current = false;
       const recipients = resolveComposeRecipientFields({
         selectedRecipients: {
           to: data.to,
@@ -1048,6 +1059,20 @@ function ComposeEmailFormContent({
       if (!deliveryTimes.valid) {
         setSubmissionError(deliveryTimes.error);
         return;
+      }
+
+      if (!skipSendWarnings) {
+        const warnings = getSendWarnings({
+          text: getEditableText(editableHtml),
+          hasAttachments:
+            attachmentsRef.current.length > 0 ||
+            forwardedAttachments.length > 0,
+        });
+        if (warnings.length) {
+          warnedSubmitterRef.current = submitter ?? null;
+          setSendWarnings(warnings);
+          return;
+        }
       }
       setSubmissionError("");
       await stopProviderAutosave();
@@ -1332,6 +1357,7 @@ function ComposeEmailFormContent({
       client,
       flushDraft,
       forgetAttachedComposeFiles,
+      forwardedAttachments.length,
       getViewSentEmail,
       mutate,
       onClose,
@@ -1345,6 +1371,12 @@ function ComposeEmailFormContent({
       selectedEmailAccountId,
     ],
   );
+
+  const sendDespiteWarnings = useCallback(() => {
+    skipSendWarningsRef.current = true;
+    setSendWarnings([]);
+    formRef.current?.requestSubmit(warnedSubmitterRef.current);
+  }, []);
 
   const reconnectContacts = async () => {
     setIsReconnectingContacts(true);
@@ -1826,6 +1858,11 @@ function ComposeEmailFormContent({
         resolveRemoteImages={resolveRemoteImages}
       />
 
+      <SendWarningsDialog
+        warnings={sendWarnings}
+        onDismiss={() => setSendWarnings([])}
+        onSendAnyway={sendDespiteWarnings}
+      />
       {submissionError && (
         <p
           role="alert"
