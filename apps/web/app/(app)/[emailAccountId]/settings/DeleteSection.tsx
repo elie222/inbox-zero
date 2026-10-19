@@ -41,6 +41,9 @@ export function DeleteSection() {
   } = useAccounts();
   const connectedEmails =
     accountsData?.emailAccounts.map((account) => account.email) ?? [];
+  const connectedEmailParts = new Intl.ListFormat("en", {
+    type: "conjunction",
+  }).formatToParts(connectedEmails);
   const hasAppleSubscription = hasActiveAppleSubscription(
     premium?.appleExpiresAt || null,
     premium?.appleRevokedAt || null,
@@ -86,10 +89,9 @@ export function DeleteSection() {
   return (
     <Item size="sm">
       <ItemContent>
-        <ItemTitle>Delete Inbox Zero account</ItemTitle>
+        <ItemTitle>Delete account</ItemTitle>
         <ItemDescription>
-          Deletes your Inbox Zero data and disconnects your email accounts. Your
-          emails are not deleted.
+          Removes your Inbox Zero data. Your emails aren't affected.
         </ItemDescription>
       </ItemContent>
       <ItemActions>
@@ -142,40 +144,36 @@ export function DeleteSection() {
                     </>
                   ) : (
                     <div className="space-y-3">
-                      <p>
-                        This permanently deletes your Inbox Zero account,
-                        including your rules, settings, and the data we store.
-                        It can't be undone.
-                      </p>
                       <LoadingContent
                         loading={isLoadingAccounts}
                         error={accountsError}
                       >
-                        {connectedEmails.length > 0 && (
-                          <div>
-                            <p>These email accounts will be disconnected:</p>
-                            <ul className="mt-1 list-disc pl-5 font-medium text-foreground">
-                              {connectedEmails.map((email) => (
-                                <li key={email}>{email}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </LoadingContent>
-                      <p>
-                        Your mailboxes and the emails in them are not deleted.
-                      </p>
-                      {connectedEmails.length > 1 && (
                         <p>
-                          Only want to remove one email account?{" "}
-                          <Link
-                            href="/accounts"
-                            className="text-foreground underline"
-                            onClick={() => setIsDialogOpen(false)}
-                          >
-                            Manage accounts
-                          </Link>
+                          This permanently deletes your Inbox Zero data and
+                          disconnects{" "}
+                          {connectedEmailParts.map((part, index) =>
+                            part.type === "element" ? (
+                              <span
+                                key={index}
+                                className="font-medium text-foreground"
+                              >
+                                {part.value}
+                              </span>
+                            ) : (
+                              part.value
+                            ),
+                          )}
+                          . Your emails aren't affected.
                         </p>
+                      </LoadingContent>
+                      {connectedEmails.length > 1 && (
+                        <Link
+                          href="/accounts"
+                          className="text-foreground underline"
+                          onClick={() => setIsDialogOpen(false)}
+                        >
+                          Remove just one account instead
+                        </Link>
                       )}
                     </div>
                   )}
@@ -200,7 +198,7 @@ export function DeleteSection() {
                   disabled={!accountsData}
                   onClick={handleDeleteAccount}
                 >
-                  Delete Inbox Zero account
+                  Delete account
                 </AlertDialogAction>
               )}
             </AlertDialogFooter>
