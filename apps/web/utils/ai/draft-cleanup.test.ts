@@ -129,6 +129,12 @@ describe("cleanupAIDraftsForAccount", () => {
         draftStatus: DraftEmailStatus.CLEANED_UP_UNUSED,
       },
     });
+    expect(mocks.prisma.executedAction.update).toHaveBeenCalledWith({
+      where: { id: "action-2" },
+      data: {
+        draftStatus: DraftEmailStatus.USER_EDITED,
+      },
+    });
     expect(result).toMatchObject({
       total: 2,
       deleted: 1,

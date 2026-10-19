@@ -95,6 +95,20 @@ export async function cleanupAIDraftsForAccount({
         : false;
 
       if (!isUnmodified) {
+        // Without the original content we can't tell, so it stays a candidate.
+        if (action.content) {
+          const statusData = getDraftCleanupStatusData({
+            draftStatus: action.draftStatus,
+            wasDraftSent: action.wasDraftSent,
+            status: DraftEmailStatus.USER_EDITED,
+          });
+          if (statusData) {
+            await prisma.executedAction.update({
+              where: { id: action.id },
+              data: statusData,
+            });
+          }
+        }
         skippedModified++;
         continue;
       }
