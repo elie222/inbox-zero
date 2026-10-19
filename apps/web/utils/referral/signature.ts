@@ -3,18 +3,15 @@ import { BRAND_NAME } from "@/utils/branding";
 const REFERRAL_SIGNATURE_PREFIX = "Drafted by";
 const REFERRAL_SIGNATURE_PRODUCT = "Inbox Zero";
 
-const REFERRAL_SIGNATURE_PATTERN = createSignaturePatterns(
-  REFERRAL_SIGNATURE_PREFIX,
-  REFERRAL_SIGNATURE_PRODUCT,
-);
-const SENT_WITH_SIGNATURE_PATTERN = createSignaturePatterns(
-  "Sent with",
-  BRAND_NAME,
-);
+type SignaturePatterns = { text: RegExp; html: RegExp };
+
+// Built on first use so importing this module reads no env (BRAND_NAME).
+let referralSignaturePattern: SignaturePatterns | undefined;
+let sentWithSignaturePattern: SignaturePatterns | undefined;
 
 export function stripBrandingSignatures(value: string) {
   return stripReferralSignature(value)
-    .replace(getSignaturePattern(value, SENT_WITH_SIGNATURE_PATTERN), "")
+    .replace(getSignaturePattern(value, getSentWithSignaturePattern()), "")
     .trim();
 }
 
@@ -24,20 +21,31 @@ export function renderReferralSignatureHtml(referralLink: string) {
 
 export function hasReferralSignature(value: string) {
   return (
-    value.search(getSignaturePattern(value, REFERRAL_SIGNATURE_PATTERN)) !== -1
+    value.search(getSignaturePattern(value, getReferralSignaturePattern())) !==
+    -1
   );
 }
 
 export function stripReferralSignature(value: string) {
   return value
-    .replace(getSignaturePattern(value, REFERRAL_SIGNATURE_PATTERN), "")
+    .replace(getSignaturePattern(value, getReferralSignaturePattern()), "")
     .trim();
 }
 
-function getSignaturePattern(
-  value: string,
-  patterns: { text: RegExp; html: RegExp },
-) {
+function getReferralSignaturePattern() {
+  referralSignaturePattern ??= createSignaturePatterns(
+    REFERRAL_SIGNATURE_PREFIX,
+    REFERRAL_SIGNATURE_PRODUCT,
+  );
+  return referralSignaturePattern;
+}
+
+function getSentWithSignaturePattern() {
+  sentWithSignaturePattern ??= createSignaturePatterns("Sent with", BRAND_NAME);
+  return sentWithSignaturePattern;
+}
+
+function getSignaturePattern(value: string, patterns: SignaturePatterns) {
   return /<\/?(?:html|body|div|p|br|span|a)(?:\s[^<>]*|\/?)>/i.test(value)
     ? patterns.html
     : patterns.text;

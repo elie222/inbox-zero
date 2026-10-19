@@ -14,6 +14,7 @@ import { addToKnowledgeBaseTool } from "./tools/rules/add-to-knowledge-base-tool
 import { createRuleTool } from "./tools/rules/create-rule-tool";
 import { getLearnedPatternsTool } from "./tools/rules/get-learned-patterns-tool";
 import { getRuleExecutionForMessageTool } from "./tools/rules/get-rule-execution-for-message-tool";
+import { runRulesOnEmailTool } from "./tools/rules/run-rules-on-email-tool";
 import { getUserRulesAndSettingsTool } from "./tools/rules/get-user-rules-and-settings-tool";
 import { updatePersonalInstructionsTool } from "./tools/rules/update-personal-instructions-tool";
 import { updateLearnedPatternsTool } from "./tools/rules/update-learned-patterns-tool";
@@ -186,7 +187,6 @@ export async function aiProcessAssistantChat({
     const freshRuleState = await loadFreshRuleContext({
       emailAccountId,
       chatLastSeenRulesRevision,
-      chatHasHistory: chatHasHistory ?? false,
     });
 
     if (freshRuleState) {
@@ -294,6 +294,7 @@ export async function aiProcessAssistantChat({
     manageInbox: manageInboxTool(toolOptions),
     getUserRulesAndSettings: getUserRulesAndSettingsTool(toolOptions),
     getRuleExecutionForMessage: getRuleExecutionForMessageTool(toolOptions),
+    runRulesOnEmail: runRulesOnEmailTool(toolOptions),
     getLearnedPatterns: getLearnedPatternsTool(toolOptions),
     createRule: createRuleTool(toolOptions),
     updateRule: updateRuleTool(toolOptions),
@@ -394,14 +395,10 @@ export async function aiProcessAssistantChat({
 export async function loadFreshRuleContext({
   emailAccountId,
   chatLastSeenRulesRevision,
-  chatHasHistory,
 }: {
   emailAccountId: string;
   chatLastSeenRulesRevision?: number | null;
-  chatHasHistory?: boolean;
 }) {
-  if (chatLastSeenRulesRevision == null && !chatHasHistory) return null;
-
   const knownRulesRevision = chatLastSeenRulesRevision ?? -1;
 
   const snapshot = await loadAssistantRuleSnapshot({ emailAccountId });
@@ -798,6 +795,7 @@ export function buildResolvedSystemPrompt({
     providerPolicy.inboxTriagePolicy,
     `Inbox workflows:
 - For inbox updates, "what came in today?", or recent-attention requests, search first with a tight time range in the user's timezone, then summarize into must handle now, can wait, and can archive or mark read.
+- The user's rules are in context. When triaging the inbox or answering what needs attention, use them: group emails by the rule that handles each.
 - Prioritize "To Reply" items as must handle. ${providerPolicy.missingContextPolicy}, infer urgency from sender, subject, and snippet.
 - For retroactive cleanup requests, use the inbox stats in context plus a search sample to understand the scale, read or unread ratio, and clutter, then recommend one next action.
 - For low-priority repeated senders, you may suggest bulk archive by sender as an option, but default to archiving the specific threads shown.

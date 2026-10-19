@@ -82,10 +82,10 @@ vi.mock("@/utils/redis", () => ({
 vi.mock("@/utils/prisma");
 
 vi.mock("@/utils/drive/document-extraction", () => ({
-  extractTextFromDocument: vi.fn().mockResolvedValue({
+  extractTextFromDocument: vi.fn(async () => ({
     text: latestMemorySafetyAttachmentFixture.content,
     truncated: false,
-  }),
+  })),
 }));
 
 vi.mock("@/env", async () => {

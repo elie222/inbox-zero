@@ -122,15 +122,17 @@ describe("loadFreshRuleContext", () => {
     } as any);
   }
 
-  it("returns null for a brand-new chat that has never seen rules", async () => {
+  it("loads the rule snapshot on the first turn of a brand-new chat", async () => {
+    mockRuleSnapshot({ rulesRevision: 0 });
+
     const result = await loadFreshRuleContext({
       emailAccountId: "account-1",
       chatLastSeenRulesRevision: null,
-      chatHasHistory: false,
     });
 
-    expect(result).toBeNull();
-    expect(prisma.emailAccount.findUnique).not.toHaveBeenCalled();
+    expect(prisma.emailAccount.findUnique).toHaveBeenCalled();
+    expect(result?.hasNewRuleState).toBe(true);
+    expect(result?.snapshot.rulesRevision).toBe(0);
   });
 
   it("hydrates read state without new rule state when the revision is unchanged", async () => {
@@ -139,7 +141,6 @@ describe("loadFreshRuleContext", () => {
     const result = await loadFreshRuleContext({
       emailAccountId: "account-1",
       chatLastSeenRulesRevision: 5,
-      chatHasHistory: true,
     });
 
     expect(result).not.toBeNull();
@@ -156,20 +157,18 @@ describe("loadFreshRuleContext", () => {
     const result = await loadFreshRuleContext({
       emailAccountId: "account-1",
       chatLastSeenRulesRevision: 5,
-      chatHasHistory: true,
     });
 
     expect(result?.hasNewRuleState).toBe(true);
     expect(result?.ruleReadState.rulesRevision).toBe(6);
   });
 
-  it("marks new rule state for a chat with history that never saw a revision", async () => {
+  it("marks new rule state for a chat that never saw a revision", async () => {
     mockRuleSnapshot({ rulesRevision: 0 });
 
     const result = await loadFreshRuleContext({
       emailAccountId: "account-1",
       chatLastSeenRulesRevision: null,
-      chatHasHistory: true,
     });
 
     expect(result?.hasNewRuleState).toBe(true);

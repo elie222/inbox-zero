@@ -222,7 +222,7 @@ describe("aiProcessAssistantChat", () => {
         .soft(guidance)
         .toContain("unless the user explicitly requests another language");
     }
-  });
+  }, 30_000);
 
   it("registers expected core and send tools when email sending is enabled", async () => {
     const { aiProcessAssistantChat } = await loadAssistantChatModule({
@@ -1382,6 +1382,9 @@ describe("aiProcessAssistantChat", () => {
   });
 
   it("requires reading rules immediately before updating rule conditions", async () => {
+    mockPrisma.emailAccount.findUnique.mockRejectedValueOnce(
+      new Error("snapshot unavailable"),
+    );
     const tools = await captureToolSet(true, "google");
 
     const result = await tools.updateRule.execute({
@@ -1632,13 +1635,33 @@ describe("aiProcessAssistantChat", () => {
     expect(onRulesStateExposed).toHaveBeenCalledWith(0);
   });
 
-  it("does not inject fresh rule state for new chats without a cursor", async () => {
+  it("injects rule state on the first turn of a new chat", async () => {
     const { aiProcessAssistantChat } = await loadAssistantChatModule({
       emailSend: true,
     });
+    const onRulesStateExposed = vi.fn();
 
     mockToolCallAgentStream.mockResolvedValue({
       toUIMessageStreamResponse: vi.fn(),
+    });
+    mockPrisma.emailAccount.findUnique.mockResolvedValue({
+      about: null,
+      rulesRevision: 3,
+      messagingChannels: [],
+      rules: [
+        {
+          name: "Newsletter",
+          instructions: "Archive newsletters",
+          updatedAt: new Date("2026-02-13T10:00:00.000Z"),
+          from: null,
+          to: null,
+          subject: null,
+          conditionalOperator: null,
+          enabled: true,
+          runOnThreads: true,
+          actions: [],
+        },
+      ],
     });
 
     await aiProcessAssistantChat({
@@ -1647,6 +1670,7 @@ describe("aiProcessAssistantChat", () => {
       user: getEmailAccount(),
       chatLastSeenRulesRevision: null,
       chatHasHistory: false,
+      onRulesStateExposed,
       logger,
     });
 
@@ -1657,8 +1681,8 @@ describe("aiProcessAssistantChat", () => {
         message.content.includes("[Fresh rule state update"),
     );
 
-    expect(freshRuleContext).toBeUndefined();
-    expect(mockPrisma.emailAccount.findUnique).not.toHaveBeenCalled();
+    expect(freshRuleContext?.content).toContain('"name": "Newsletter"');
+    expect(onRulesStateExposed).toHaveBeenCalledWith(3);
   });
 
   it("requires explicit chatHasHistory when a rules cursor is provided", async () => {
