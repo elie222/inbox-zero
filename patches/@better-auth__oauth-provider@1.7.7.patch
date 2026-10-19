@@ -1,5 +1,5 @@
 diff --git a/dist/authorize-K1WHCNih.mjs b/dist/authorize-K1WHCNih.mjs
-index 5fdd51c7da07656096bebbdd7b37a7b6b2490d92..e4dcb531706aaee87c824e452be165176597b487 100644
+index 892e39f..e6970df 100644
 --- a/dist/authorize-K1WHCNih.mjs
 +++ b/dist/authorize-K1WHCNih.mjs
 @@ -1708,7 +1708,14 @@ function validateClientRedirectUri(redirectUri, applicationType) {
@@ -18,3 +18,12 @@ index 5fdd51c7da07656096bebbdd7b37a7b6b2490d92..e4dcb531706aaee87c824e452be16517
  }
  function assertValidRegistrationJwks(jwks) {
  	const result = validatePublicClientJwks(jwks);
+@@ -4404,7 +4411,7 @@ const oauthProvider = (options) => {
+ 		onRequest: handleIssuerMetadataRequest,
+ 		init: async (ctx) => {
+ 			if (ctx.options.secondaryStorage && ctx.options.session?.storeSessionInDatabase !== true) throw new BetterAuthError("OAuth Provider requires `session.storeSessionInDatabase: true` when using secondaryStorage");
+-			await seedResources(ctx, opts);
++			await seedResources(ctx, opts).catch((error) => ctx.logger.error("oauth-provider: could not seed `resources` at startup; retrying on first resource access.", error));
+ 			logEnforcePerClientResourcesResolution(opts);
+ 			if (!opts.disableJwtPlugin) {
+ 				const jwtPluginOptions = getJwtPlugin(ctx)?.options;

@@ -32,12 +32,14 @@ vi.mock("@/utils/auth", () => ({
 import prisma from "@/utils/__mocks__/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
 import {
+  createRulesOnboardingAction,
   deleteRuleAction,
   enableDraftRepliesAction,
   toggleRuleAction,
   updateRuleAction,
 } from "@/utils/actions/rule";
 import { RULE_MANAGED_BY_ORGANIZATION_ERROR } from "@/utils/organizations/rules";
+import { SafeError } from "@/utils/error";
 
 describe("enableDraftRepliesAction", () => {
   beforeEach(() => {
@@ -310,5 +312,55 @@ describe("toggleRuleAction", () => {
 
     expect(result?.serverError).toBe(RULE_MANAGED_BY_ORGANIZATION_ERROR);
     expect(setRuleEnabledMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("createRulesOnboardingAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("fails the action without unhandled rejections when the provider cannot be created", async () => {
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown) => unhandled.push(reason);
+    process.on("unhandledRejection", onUnhandled);
+
+    (
+      prisma.emailAccount.findUnique as ReturnType<typeof vi.fn>
+    ).mockResolvedValue({
+      id: "ea_1",
+      email: "owner@example.com",
+      account: { userId: "u1", provider: "google" },
+    });
+    vi.mocked(createEmailProvider).mockRejectedValue(
+      new SafeError("No refresh token"),
+    );
+
+    try {
+      const result = await createRulesOnboardingAction(
+        "ea_1" as never,
+        [
+          {
+            key: SystemType.TO_REPLY,
+            name: "To Reply",
+            description: "",
+            action: "label",
+          },
+          {
+            key: null,
+            name: "Custom",
+            description: "",
+            action: "label",
+          },
+        ] as never,
+      );
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(result?.serverError).toBeDefined();
+      expect(unhandled).toEqual([]);
+      expect(createEmailProvider).toHaveBeenCalledTimes(1);
+    } finally {
+      process.off("unhandledRejection", onUnhandled);
+    }
   });
 });
