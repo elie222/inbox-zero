@@ -1,12 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { envMock, captureExceptionMock, cleanupDraftsMock } = vi.hoisted(() => ({
-  envMock: {
-    CRON_SECRET: "cron-secret",
-  },
-  captureExceptionMock: vi.fn(),
-  cleanupDraftsMock: vi.fn(),
-}));
+const { envMock, captureExceptionMock, getAccountsMock, enqueueMock } =
+  vi.hoisted(() => ({
+    envMock: {
+      CRON_SECRET: "cron-secret",
+    },
+    captureExceptionMock: vi.fn(),
+    getAccountsMock: vi.fn(),
+    enqueueMock: vi.fn(),
+  }));
 
 vi.mock("@/env", () => ({
   env: envMock,
@@ -17,7 +19,11 @@ vi.mock("@/utils/error", () => ({
 }));
 
 vi.mock("@/utils/ai/draft-cleanup", () => ({
-  cleanupConfiguredAIDrafts: (...args: unknown[]) => cleanupDraftsMock(...args),
+  getEmailAccountsWithStaleAIDrafts: () => getAccountsMock(),
+}));
+
+vi.mock("@/utils/queue/dispatch", () => ({
+  enqueueBackgroundJob: (...args: unknown[]) => enqueueMock(...args),
 }));
 
 vi.mock("@/utils/middleware", async () => {
@@ -34,10 +40,8 @@ describe("draft cleanup cron route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     envMock.CRON_SECRET = "cron-secret";
-    cleanupDraftsMock.mockResolvedValue({
-      deletedDrafts: 2,
-      skippedDrafts: 1,
-    });
+    getAccountsMock.mockResolvedValue(["account-1", "account-2"]);
+    enqueueMock.mockResolvedValue("vercel");
   });
 
   it("rejects GET requests without the cron bearer token", async () => {
@@ -47,11 +51,11 @@ describe("draft cleanup cron route", () => {
 
     expect(response.status).toBe(401);
     await expect(response.text()).resolves.toBe("Unauthorized");
-    expect(cleanupDraftsMock).not.toHaveBeenCalled();
+    expect(enqueueMock).not.toHaveBeenCalled();
     expect(captureExceptionMock).toHaveBeenCalledTimes(1);
   });
 
-  it("runs draft cleanup for GET requests with the cron bearer token", async () => {
+  it("enqueues one cleanup job per account for GET requests with the cron bearer token", async () => {
     const response = await GET(
       new Request("http://localhost:3000/api/cron/draft-cleanup", {
         headers: { authorization: "Bearer cron-secret" },
@@ -60,12 +64,10 @@ describe("draft cleanup cron route", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
-      deletedDrafts: 2,
-      skippedDrafts: 1,
+      accounts: 2,
+      enqueued: 2,
     });
-    expect(cleanupDraftsMock).toHaveBeenCalledWith({
-      logger: expect.anything(),
-    });
+    expect(enqueueMock).toHaveBeenCalledTimes(2);
     expect(captureExceptionMock).not.toHaveBeenCalled();
   });
 
@@ -79,11 +81,11 @@ describe("draft cleanup cron route", () => {
 
     expect(response.status).toBe(401);
     await expect(response.text()).resolves.toBe("Unauthorized");
-    expect(cleanupDraftsMock).not.toHaveBeenCalled();
+    expect(enqueueMock).not.toHaveBeenCalled();
     expect(captureExceptionMock).toHaveBeenCalledTimes(1);
   });
 
-  it("runs draft cleanup for POST requests with the cron secret in the body", async () => {
+  it("enqueues one cleanup job per account for POST requests with the cron secret in the body", async () => {
     const response = await POST(
       new Request("http://localhost:3000/api/cron/draft-cleanup", {
         method: "POST",
@@ -93,12 +95,39 @@ describe("draft cleanup cron route", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
-      deletedDrafts: 2,
-      skippedDrafts: 1,
+      accounts: 2,
+      enqueued: 2,
     });
-    expect(cleanupDraftsMock).toHaveBeenCalledWith({
-      logger: expect.anything(),
-    });
+    expect(enqueueMock).toHaveBeenCalledTimes(2);
     expect(captureExceptionMock).not.toHaveBeenCalled();
+  });
+
+  it("spaces out jobs and keeps enqueueing after a failure", async () => {
+    getAccountsMock.mockResolvedValue(["account-1", "account-2", "account-3"]);
+    enqueueMock
+      .mockResolvedValueOnce("vercel")
+      .mockRejectedValueOnce(new Error("queue unavailable"))
+      .mockResolvedValueOnce("vercel");
+
+    const response = await GET(
+      new Request("http://localhost:3000/api/cron/draft-cleanup", {
+        headers: { authorization: "Bearer cron-secret" },
+      }),
+    );
+
+    await expect(response.json()).resolves.toEqual({
+      accounts: 3,
+      enqueued: 2,
+    });
+    expect(enqueueMock).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({
+        body: { emailAccountId: "account-3" },
+        vercel: { delaySeconds: 2 },
+        qstash: expect.objectContaining({
+          path: "/api/cron/draft-cleanup/account",
+        }),
+      }),
+    );
   });
 });
