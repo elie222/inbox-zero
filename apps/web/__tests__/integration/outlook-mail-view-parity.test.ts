@@ -15,7 +15,14 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
     beforeAll(async () => {
       harness = await createOutlookTestHarness({
         email: EMAIL,
-        folders: [{ id: "projects-folder", display_name: "Projects" }],
+        folders: [
+          { id: "projects-folder", display_name: "Projects" },
+          {
+            id: "deleted-subfolder",
+            display_name: "Old Projects",
+            parent_folder_id: "deleteditems",
+          },
+        ],
         messages: [
           {
             microsoft_id: "project-message",
@@ -53,6 +60,18 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
             is_read: true,
             received_date_time: "2026-08-11T11:00:00Z",
           },
+          {
+            microsoft_id: "deleted-subfolder-message",
+            conversation_id: "deleted-subfolder-thread",
+            user_email: EMAIL,
+            from: { address: "sender@example.com" },
+            to_recipients: [{ address: EMAIL }],
+            subject: "Archived project",
+            body_content: "Update",
+            parent_folder_id: "deleted-subfolder",
+            is_read: true,
+            received_date_time: "2026-08-11T10:00:00Z",
+          },
         ],
       });
     });
@@ -83,7 +102,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       ]);
     });
 
-    it("finds a sender's mail in custom folders but not deleted items for all mail", async () => {
+    it("finds a sender's mail in custom folders but not in deleted items or their subfolders", async () => {
       const result = await harness.provider.getThreadsWithQuery({
         query: { type: "all", fromEmail: "sender@example.com" },
       });

@@ -1123,7 +1123,10 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
       "inbox",
       "custom-folder",
     ]);
-    expect(client.getRequestLog()[0].filter).not.toContain("parentFolderId");
+    const messagesRequest = client
+      .getRequestLog()
+      .find((request) => request.apiPath === "/me/messages");
+    expect(messagesRequest?.filter).not.toContain("parentFolderId");
   });
 
   it.each([

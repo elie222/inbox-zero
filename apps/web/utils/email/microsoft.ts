@@ -124,6 +124,7 @@ import {
 import {
   getOrCreateOutlookFolderIdByName,
   getOutlookFolderTree,
+  getOutlookChildFolders,
   flattenOutlookFolders,
   addOutlookSystemFolderTypes,
   deleteOutlookFolder,
@@ -2008,13 +2009,14 @@ export class OutlookProvider implements EmailProvider {
     );
     // Graph has no "all mail" folder, so search the whole mailbox and drop
     // junk and deleted items here, matching Gmail's All Mail.
-    const excludedFolderIds = new Set(
+    const excludedFolderIds =
       type === "all" && !hasExplicitLabelFilters && !folderId && !inboxSection
-        ? [resolvedFolderIds.deleteditems, resolvedFolderIds.junkemail].filter(
-            Boolean,
+        ? await getJunkAndDeletedFolderIds(
+            this.client,
+            resolvedFolderIds,
+            this.logger,
           )
-        : [],
-    );
+        : new Set<string>();
     const filtersPagesLocally = Boolean(domainFilter || excludedFolderIds.size);
     const maxResults = options.maxResults || 50;
 
@@ -2828,6 +2830,36 @@ function getRequiredOutlookThreadLabelIds({
     default:
       return [type];
   }
+}
+
+// Deleting a folder moves it under Deleted Items, so its mail keeps the
+// subfolder's ID as parentFolderId.
+async function getJunkAndDeletedFolderIds(
+  client: OutlookClient,
+  folderIds: Record<string, string>,
+  logger: Logger,
+) {
+  const rootIds = [folderIds.deleteditems, folderIds.junkemail].filter(
+    (id): id is string => Boolean(id),
+  );
+  const excludedIds = new Set(rootIds);
+  await Promise.all(
+    rootIds.map(async (rootId) => {
+      try {
+        const childFolders = await getOutlookChildFolders(
+          client,
+          rootId,
+          logger,
+        );
+        for (const folder of flattenOutlookFolders(childFolders)) {
+          excludedIds.add(folder.id);
+        }
+      } catch (error) {
+        logger.warn("Failed to load junk or deleted subfolders", { error });
+      }
+    }),
+  );
+  return excludedIds;
 }
 
 function getDefaultOutlookThreadFolderFilter({
