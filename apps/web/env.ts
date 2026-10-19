@@ -183,6 +183,7 @@ const parsedEnv = createEnv({
     PERPLEXITY_API_KEY: z.string().optional(),
     OLLAMA_BASE_URL: z.string().optional(),
     OLLAMA_MODEL: z.string().optional(),
+    LOCAL_LLM_THINKING: z.enum(["off", "on", "auto"]).default("off"),
     OPENAI_COMPATIBLE_BASE_URL: z.string().optional(),
     OPENAI_COMPATIBLE_MODEL: z.string().optional(),
     OPENAI_COMPATIBLE_AUTH_HEADER: z

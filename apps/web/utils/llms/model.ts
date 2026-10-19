@@ -279,6 +279,7 @@ function selectModel(
         provider: Provider.OLLAMA,
         modelName,
         model: createOllama({ baseURL })(modelName),
+        providerOptions: getLocalThinkingProviderOptions("ollama"),
       };
     }
     case Provider.OPENAI_COMPATIBLE: {
@@ -296,6 +297,7 @@ function selectModel(
         provider: Provider.OPENAI_COMPATIBLE,
         modelName,
         model: openaiCompatible(modelName),
+        providerOptions: getLocalThinkingProviderOptions("openai-compatible"),
       };
     }
     case Provider.CODEX_CLI: {
@@ -600,6 +602,19 @@ function getOpenAiCompatibleBaseUrl() {
     process.env.OPENAI_COMPATIBLE_BASE_URL ||
     "http://localhost:1234/v1"
   );
+}
+
+function getLocalThinkingProviderOptions(
+  provider: "ollama" | "openai-compatible",
+) {
+  const thinking = env.LOCAL_LLM_THINKING;
+  if (thinking === "auto") return;
+
+  const enabled = thinking === "on";
+  if (provider === "ollama") return { ollama: { think: enabled } };
+  return {
+    "openai-compatible": { chat_template_kwargs: { enable_thinking: enabled } },
+  };
 }
 
 function getOllamaBaseUrl(): string | undefined {
