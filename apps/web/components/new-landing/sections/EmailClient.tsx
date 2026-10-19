@@ -47,10 +47,10 @@ const reasons = [
 export function EmailClient() {
   return (
     <Section id={EMAIL_CLIENT_SECTION_ID}>
-      <SectionHeading>Fly through email on desktop and mobile</SectionHeading>
+      <SectionHeading>An open source email app</SectionHeading>
       <SectionSubtitle>
-        Every Gmail and Outlook account in one inbox, on the web, Mac, Windows,
-        and iPhone. Like Superhuman, but free.
+        A Superhuman alternative for Gmail and Outlook, on the web, Mac,
+        Windows, and iPhone. Web and desktop are open source.
       </SectionSubtitle>
       <SectionContent>
         <BlurFade inView>
