@@ -36,6 +36,7 @@ vi.mock("@/utils/redis/message-processing", () => ({
   acquireOutboundMessageLock: vi.fn().mockResolvedValue("lock-token-1"),
   clearOutboundMessageLock: vi.fn().mockResolvedValue(true),
   markMessageAsProcessing: vi.fn().mockResolvedValue("processing-token"),
+  releaseMessageProcessingLockOnRateLimit: vi.fn().mockResolvedValue(undefined),
   markOutboundMessageProcessed: vi.fn().mockResolvedValue(true),
 }));
 
