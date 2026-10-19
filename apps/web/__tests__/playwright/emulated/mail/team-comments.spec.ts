@@ -82,11 +82,6 @@ test("publisher shares with a teammate who never received the mail and both see 
     await expect(
       teammate.page.locator('[data-sidebar="menu-button"][href="/shared"]'),
     ).toHaveText("Team", { timeout: 30_000 });
-    await capturePlaywrightCheckpoint(
-      teammate.page,
-      testInfo,
-      "teammate-shared-reader-no-received-mail",
-    );
 
     const comment = "Synthetic internal decision for the team";
     await teammate.page.getByLabel("Internal comment").fill(comment);
@@ -99,11 +94,6 @@ test("publisher shares with a teammate who never received the mail and both see 
       page,
       testInfo,
       "publisher-synchronized-comment",
-    );
-    await capturePlaywrightCheckpoint(
-      teammate.page,
-      testInfo,
-      "teammate-synchronized-comment",
     );
 
     const afterComment = await readPublisherThread(
@@ -159,11 +149,6 @@ test("publisher shares with a teammate who never received the mail and both see 
     expect(afterReply.some((message) => message.body.includes(comment))).toBe(
       false,
     );
-    await capturePlaywrightCheckpoint(
-      page,
-      testInfo,
-      "publisher-external-reply-no-internal-comment",
-    );
 
     await page.close();
     await insertInboxMailInConversation(teammate.page, {
@@ -185,11 +170,6 @@ test("publisher shares with a teammate who never received the mail and both see 
       "new-provider-mail-and-internal-discussion",
     );
     await teammate.page.setViewportSize({ width: 390, height: 844 });
-    await capturePlaywrightCheckpoint(
-      teammate.page,
-      testInfo,
-      "narrow-shared-reader-light",
-    );
     await teammate.page.emulateMedia({ colorScheme: "dark" });
     await teammate.page.addInitScript(() =>
       localStorage.setItem("theme", "dark"),

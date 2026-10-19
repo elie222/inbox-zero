@@ -169,7 +169,6 @@ test("builds a split from conditions and shows only matching mail", async ({
   await expect(page.getByText("New split inbox")).toBeVisible();
   await expect(page.getByText(/Compiling/)).toBeHidden();
   await hideDevIndicator(page);
-  await capturePlaywrightCheckpoint(page, testInfo, "mail-new-split-library");
 
   await page.getByRole("button", { name: "Build your own" }).click();
   await expect(page.getByText("Show mail matching")).toBeVisible();
@@ -182,7 +181,6 @@ test("builds a split from conditions and shows only matching mail", async ({
     label: "Promotions",
   });
   await page.getByLabel("Split name").fill("Promos");
-  await capturePlaywrightCheckpoint(page, testInfo, "mail-new-split-builder");
 
   await page.getByRole("button", { name: "Add split" }).click();
 
@@ -204,7 +202,6 @@ test("builds a split from conditions and shows only matching mail", async ({
     isMicrosoft ? "Label_promotions" : "CATEGORY_PROMOTIONS",
   );
   await hideDevIndicator(page);
-  await capturePlaywrightCheckpoint(page, testInfo, "mail-split-edit");
 
   await page.getByRole("button", { name: "Add condition" }).click();
   await expect(page.getByLabel("Condition field")).toHaveCount(2);
