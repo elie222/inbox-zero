@@ -1099,6 +1099,36 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
     expect(client.getRequestLog()).toHaveLength(5);
   });
 
+  it("searches every folder except junk and deleted items for all mail", async () => {
+    const message = (id: string, parentFolderId: string) =>
+      createMessage({ id, conversationId: id, parentFolderId });
+    const client = createMockOutlookClient([], {
+      responsesByApiPath: {
+        "/me/messages": {
+          value: [
+            message("inbox", "inbox-folder-id"),
+            message("custom-folder", "custom-folder-id"),
+            message("deleted", "trash-folder-id"),
+            message("junk", "spam-folder-id"),
+          ],
+        },
+      },
+    });
+
+    const result = await new OutlookProvider(client).getThreadsWithQuery({
+      query: { type: "all", fromEmail: "sender@example.com" },
+    });
+
+    expect(result.threads.map((thread) => thread.id)).toEqual([
+      "inbox",
+      "custom-folder",
+    ]);
+    const messagesRequest = client
+      .getRequestLog()
+      .find((request) => request.apiPath === "/me/messages");
+    expect(messagesRequest?.filter).not.toContain("parentFolderId");
+  });
+
   it.each([
     { type: "draft" },
     { labelId: "DRAFT" },

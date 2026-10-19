@@ -124,6 +124,7 @@ import {
 import {
   getOrCreateOutlookFolderIdByName,
   getOutlookFolderTree,
+  getOutlookChildFolders,
   flattenOutlookFolders,
   addOutlookSystemFolderTypes,
   deleteOutlookFolder,
@@ -2006,6 +2007,17 @@ export class OutlookProvider implements EmailProvider {
       excludedLabelIds.size ||
         effectiveRequiredLabelIdsForLocalFiltering?.length,
     );
+    // Graph has no "all mail" folder, so search the whole mailbox and drop
+    // junk and deleted items here, matching Gmail's All Mail.
+    const excludedFolderIds =
+      type === "all" && !hasExplicitLabelFilters && !folderId && !inboxSection
+        ? await getJunkAndDeletedFolderIds(
+            this.client,
+            resolvedFolderIds,
+            this.logger,
+          )
+        : new Set<string>();
+    const filtersPagesLocally = Boolean(domainFilter || excludedFolderIds.size);
     const maxResults = options.maxResults || 50;
 
     const fetchThreadPage = async (pageToken?: string) => {
@@ -2113,6 +2125,12 @@ export class OutlookProvider implements EmailProvider {
           ),
         );
       }
+      if (excludedFolderIds.size) {
+        response.value = response.value.filter(
+          (message: Message) =>
+            !excludedFolderIds.has(message.parentFolderId ?? ""),
+        );
+      }
       const currentPageIndex = fetchedPages.length;
       fetchedPages.push({
         pageToken: nextPageTokenToFetch,
@@ -2132,11 +2150,11 @@ export class OutlookProvider implements EmailProvider {
       nextPageToken = response["@odata.nextLink"];
 
       // Graph search caps results and cannot preserve OData filters. Scan
-      // normal query pages instead, bounding sparse domain scans per request.
+      // normal query pages instead, bounding sparse local scans per request.
       if (
-        (!requiresLocalLabelFiltering && !domainFilter) ||
+        (!requiresLocalLabelFiltering && !filtersPagesLocally) ||
         !nextPageToken ||
-        (domainFilter && fetchedPages.length >= 5)
+        (filtersPagesLocally && fetchedPages.length >= 5)
       )
         break;
 
@@ -2814,6 +2832,36 @@ function getRequiredOutlookThreadLabelIds({
   }
 }
 
+// Deleting a folder moves it under Deleted Items, so its mail keeps the
+// subfolder's ID as parentFolderId.
+async function getJunkAndDeletedFolderIds(
+  client: OutlookClient,
+  folderIds: Record<string, string>,
+  logger: Logger,
+) {
+  const rootIds = [folderIds.deleteditems, folderIds.junkemail].filter(
+    (id): id is string => Boolean(id),
+  );
+  const excludedIds = new Set(rootIds);
+  await Promise.all(
+    rootIds.map(async (rootId) => {
+      try {
+        const childFolders = await getOutlookChildFolders(
+          client,
+          rootId,
+          logger,
+        );
+        for (const folder of flattenOutlookFolders(childFolders)) {
+          excludedIds.add(folder.id);
+        }
+      } catch (error) {
+        logger.warn("Failed to load junk or deleted subfolders", { error });
+      }
+    }),
+  );
+  return excludedIds;
+}
+
 function getDefaultOutlookThreadFolderFilter({
   folderIds,
   type,
@@ -2822,22 +2870,8 @@ function getDefaultOutlookThreadFolderFilter({
   type?: string | null;
 }): string | undefined {
   switch (type) {
-    case "all": {
-      const folderClauses: string[] = [];
-      if (folderIds.inbox) {
-        folderClauses.push(
-          `parentFolderId eq '${escapeODataString(folderIds.inbox)}'`,
-        );
-      }
-      if (folderIds.archive) {
-        folderClauses.push(
-          `parentFolderId eq '${escapeODataString(folderIds.archive)}'`,
-        );
-      }
-      return folderClauses.length > 0
-        ? `(${folderClauses.join(" or ")})`
-        : undefined;
-    }
+    case "all":
+      return;
     case "archive":
       return folderIds.archive
         ? `parentFolderId eq '${escapeODataString(folderIds.archive)}'`
