@@ -1,7 +1,3 @@
-import {
-  combineEmailHtml,
-  finalizeEditableEmailHtml,
-} from "@inboxzero/email-editor/core";
 import type { EmailEditorHandle } from "@inboxzero/email-editor/web";
 import type { MailClient } from "@inboxzero/mail-core/engine";
 import {
@@ -41,9 +37,9 @@ import { randomUuid } from "@/utils/uuid";
 import type { ComposeFormValues } from "./ComposeEmailForm";
 import {
   type ComposeAttachment,
-  getEditorInlineAttachments,
   toAttachmentReference,
 } from "./compose-attachments";
+import { buildComposeMessageHtml } from "./compose-message-html";
 import type { ComposeRecipientField } from "./compose-recipients";
 import {
   enqueueDraftOperation,
@@ -164,24 +160,17 @@ export function useComposeDraft({
   const getProviderDraftContent = () => {
     const content = getDraftContent();
     if (!content) return;
-    const blocks = new Set(content.preservedBlocks.map((block) => block.id));
     return {
       subject: content.values.subject ?? "",
       from: content.values.from,
       to: content.values.to ?? "",
       cc: content.values.cc ?? "",
       bcc: content.values.bcc ?? "",
-      messageHtml: combineEmailHtml({
-        editableHtml: finalizeEditableEmailHtml({
-          html: content.draft.editableHtml,
-          inlineAttachments: getEditorInlineAttachments(attachmentsRef.current),
-          mode: content.draft.mode,
-        }),
-        signatureHtml: blocks.has("signature")
-          ? content.draft.signatureHtml
-          : "",
-        quotedHtml: blocks.has("quote") ? content.draft.quotedHtml : "",
-      }),
+      messageHtml: buildComposeMessageHtml({
+        draft: content.draft,
+        preservedBlockIds: content.preservedBlocks.map((block) => block.id),
+        attachments: attachmentsRef.current,
+      }).messageHtml,
     };
   };
 
