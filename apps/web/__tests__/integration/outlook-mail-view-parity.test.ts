@@ -41,6 +41,18 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
             is_read: false,
             received_date_time: "2026-08-11T13:00:00Z",
           },
+          {
+            microsoft_id: "deleted-message",
+            conversation_id: "deleted-thread",
+            user_email: EMAIL,
+            from: { address: "sender@example.com" },
+            to_recipients: [{ address: EMAIL }],
+            subject: "Old update",
+            body_content: "Update",
+            parent_folder_id: "deleteditems",
+            is_read: true,
+            received_date_time: "2026-08-11T11:00:00Z",
+          },
         ],
       });
     });
@@ -67,6 +79,17 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       });
 
       expect(result.threads.map((thread) => thread.id)).toEqual([
+        "project-thread",
+      ]);
+    });
+
+    it("finds a sender's mail in custom folders but not deleted items for all mail", async () => {
+      const result = await harness.provider.getThreadsWithQuery({
+        query: { type: "all", fromEmail: "sender@example.com" },
+      });
+
+      expect(result.threads.map((thread) => thread.id).sort()).toEqual([
+        "inbox-thread",
         "project-thread",
       ]);
     });
