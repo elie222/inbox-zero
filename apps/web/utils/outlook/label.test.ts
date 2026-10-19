@@ -3,15 +3,21 @@ import { describe, expect, it, vi } from "vitest";
 import type { OutlookClient } from "@/utils/outlook/client";
 import { createTestLogger } from "@/__tests__/helpers";
 import {
+  archiveThread,
   createLabel,
   getLabel,
   getOrCreateLabels,
+  markReadThread,
   unarchiveThread,
   untrashThread,
   updateMessageCategories,
 } from "./label";
 
 const mockGetFolderIds = vi.fn();
+
+vi.mock("@inboxzero/tinybird", () => ({
+  publishArchive: vi.fn().mockResolvedValue(undefined),
+}));
 
 vi.mock("@/utils/outlook/message", () => ({
   getFolderIds: (...args: Parameters<typeof mockGetFolderIds>) =>
@@ -139,6 +145,45 @@ describe("unarchiveThread", () => {
     ).rejects.toThrow("Archive folder not found");
 
     expect(post).not.toHaveBeenCalled();
+  });
+});
+
+describe("long threads", () => {
+  // Graph returns 10 messages per page by default, so a long conversation
+  // spans several pages that all have to be followed.
+  const twoPages = [
+    { value: [{ id: "m1" }, { id: "m2" }], next: "https://graph/next" },
+    { value: [{ id: "m3" }] },
+  ];
+
+  it("archives every message in a thread that spans several pages", async () => {
+    const { client, post } = createPagingClient(twoPages);
+
+    const result = await archiveThread({
+      client,
+      threadId: "thread-1",
+      ownerEmail: "user@example.com",
+      actionSource: "automation",
+      logger: createTestLogger(),
+    });
+
+    expect(result).toEqual({ status: 200 });
+    expect(post).toHaveBeenCalledTimes(3);
+    expect(post).toHaveBeenCalledWith({ destinationId: "archive" });
+  });
+
+  it("marks every message read in a thread that spans several pages", async () => {
+    const { client, patch } = createPagingClient(twoPages);
+
+    await markReadThread({
+      client,
+      threadId: "thread-1",
+      read: true,
+      logger: createTestLogger(),
+    });
+
+    expect(patch).toHaveBeenCalledTimes(3);
+    expect(patch).toHaveBeenCalledWith({ isRead: true });
   });
 });
 
@@ -275,11 +320,13 @@ function createPagingClient(
   pages: { value: { id: string }[]; next?: string }[],
 ) {
   const post = vi.fn().mockResolvedValue(undefined);
+  const patch = vi.fn().mockResolvedValue(undefined);
   const filters: string[] = [];
   let pageIndex = 0;
 
   const api = vi.fn().mockImplementation((path: string) => {
     if (path.includes("/move")) return { post };
+    if (path.startsWith("/me/messages/")) return { patch };
 
     const builder = {
       filter: (value: string) => {
@@ -299,7 +346,7 @@ function createPagingClient(
     return builder;
   });
 
-  return { client: createMockOutlookClient(api), api, post, filters };
+  return { client: createMockOutlookClient(api), api, post, patch, filters };
 }
 
 function createMockOutlookClient(api: ReturnType<typeof vi.fn>) {

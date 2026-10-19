@@ -114,6 +114,7 @@ import type { SendEmailBody } from "@/utils/types/mail";
 import { getOutlookCategoryPreset } from "@/utils/outlook/category-colors";
 import { unwatchOutlook, watchOutlook } from "@/utils/outlook/watch";
 import { escapeODataString } from "@/utils/outlook/odata-escape";
+import { listThreadMessages } from "@/utils/outlook/thread-helpers";
 import { OutlookLabel } from "@/utils/outlook/constants";
 import { resolveOutlookCategoryName } from "@/utils/outlook/search-scope";
 import {
@@ -1063,9 +1064,6 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async getThreadMessagesInInbox(threadId: string): Promise<ParsedMessage[]> {
-    // Optimized: Direct API call filtering by inbox folder
-    const client = this.client.getClient();
-
     try {
       const folderIds = await getFolderIds(this.client, this.logger, {
         includeDrafts: false,
@@ -1076,20 +1074,17 @@ export class OutlookProvider implements EmailProvider {
         throw new Error("Could not resolve inbox folder ID");
       }
 
-      const escapedThreadId = escapeODataString(threadId);
-
-      const response = await client
-        .api("/me/messages")
-        .filter(
-          `conversationId eq '${escapedThreadId}' and parentFolderId eq '${escapeODataString(inboxFolderId)}'`,
-        )
-        .select(MESSAGE_SELECT_FIELDS)
-        .get();
+      const inboxMessages = await listThreadMessages({
+        client: this.client,
+        threadId,
+        logger: this.logger,
+        filter: `parentFolderId eq '${escapeODataString(inboxFolderId)}'`,
+      });
 
       // Convert to ParsedMessage format using existing helper
       const messages: ParsedMessage[] = [];
 
-      for (const message of response.value) {
+      for (const message of inboxMessages) {
         try {
           // Use the existing getMessage function to properly parse each message
           const parsedMessage = await getMessage(
@@ -1166,14 +1161,12 @@ export class OutlookProvider implements EmailProvider {
 
     const [allLabels, messages] = await Promise.all([
       this.getLabels(),
-      this.client
-        .getClient()
-        .api("/me/messages")
-        .filter(`conversationId eq '${escapeODataString(threadId)}'`)
-        .select("id,categories")
-        .get() as Promise<{
-        value: Array<{ id: string; categories?: string[] }>;
-      }>,
+      listThreadMessages<{ id: string; categories?: string[] }>({
+        client: this.client,
+        threadId,
+        logger: this.logger,
+        select: "id,categories",
+      }),
     ]);
 
     const labelIdsSet = new Set(labelIds);
@@ -1183,7 +1176,7 @@ export class OutlookProvider implements EmailProvider {
 
     if (!removeCategoryNames.length) return;
 
-    const messagesWithCategories = messages.value.filter((message) =>
+    const messagesWithCategories = messages.filter((message) =>
       message.categories?.some((cat) => removeCategoryNames.includes(cat)),
     );
 
