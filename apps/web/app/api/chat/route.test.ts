@@ -716,6 +716,8 @@ describe("chat route rule freshness persistence", () => {
           stepCount: 2,
           toolCallCount: 3,
           visibleTextProduced: true,
+          thinking: null,
+          durationMs: expect.any(Number),
         },
       });
       expect(consoleLogSpy.mock.calls.flat()).toEqual(

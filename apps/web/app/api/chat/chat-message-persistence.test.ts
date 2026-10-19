@@ -107,6 +107,8 @@ describe("mapUiMessagesToChatMessageRows", () => {
           stepCount: 2,
           toolCallCount: 3,
           visibleTextProduced: true,
+          thinking: "off",
+          durationMs: 8400,
         },
       },
     );
@@ -123,6 +125,8 @@ describe("mapUiMessagesToChatMessageRows", () => {
         stepCount: 2,
         toolCallCount: 3,
         visibleTextProduced: true,
+        thinking: "off",
+        durationMs: 8400,
       },
     });
   });

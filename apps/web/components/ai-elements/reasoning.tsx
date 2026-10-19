@@ -119,12 +119,12 @@ export type ReasoningTriggerProps = ComponentProps<
 
 const defaultGetThinkingMessage = (isStreaming: boolean, duration?: number) => {
   if (isStreaming) {
-    return <span className="animate-pulse">Thinking...</span>;
+    return <span className="animate-pulse">Thinking…</span>;
   }
-  if (duration === undefined || duration === 0) {
-    return <span>Thought for a few seconds</span>;
+  if (!duration) {
+    return <span>Thought</span>;
   }
-  return <span>Thought for {duration} seconds</span>;
+  return <span>Thought for {duration} s</span>;
 };
 
 export const ReasoningTrigger = memo(

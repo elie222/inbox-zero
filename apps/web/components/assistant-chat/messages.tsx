@@ -1,6 +1,8 @@
 import { Fragment, useMemo, type ReactNode } from "react";
 import { Overview } from "./overview";
 import { MessagePart } from "./message-part";
+import { StepRail } from "./step-rail";
+import { buildSegments, formatRunFooter, STARTING_STEP } from "./step-model";
 import { MessagingChannelHint } from "./messaging-channel-hint";
 import type { UseChatHelpers } from "@ai-sdk/react";
 import type { ChatMessage } from "@/components/assistant-chat/types";
@@ -14,7 +16,6 @@ import {
   ConversationScrollButton,
 } from "@/components/ai-elements/conversation";
 import { Message, MessageContent } from "@/components/ai-elements/message";
-import { Loader } from "@/components/ai-elements/loader";
 
 interface MessagesProps {
   footer?: ReactNode;
@@ -51,40 +52,67 @@ export function Messages({
           <div className="flex flex-1 flex-col gap-4">
             {messages.length === 0 && <Overview setInput={setInput} />}
 
-            {messages.map((message, index) => (
-              <Fragment key={message.id}>
-                <Message from={message.role}>
-                  <MessageContent variant="flat">
-                    {message.parts?.map((part, partIndex) => (
-                      <MessagePart
-                        key={`${message.id}-${partIndex}`}
-                        part={part}
-                        isStreaming={
-                          status === "streaming" &&
-                          partIndex === message.parts.length - 1
-                        }
-                        disableConfirm={disableConfirm}
-                        isPersistedMessage={persistedMessageIds.has(message.id)}
-                        messageId={message.id}
-                        partIndex={partIndex}
-                        threadLookup={emailLookup}
-                      />
-                    ))}
-                  </MessageContent>
-                </Message>
-                {index === firstAssistantIndex && <MessagingChannelHint />}
-              </Fragment>
-            ))}
+            {messages.map((message, index) => {
+              const isStreaming =
+                status === "streaming" && index === messages.length - 1;
+              const segments = buildSegments(message.parts ?? [], {
+                messageId: message.id,
+                isStreaming,
+              });
+              const usedRail = segments.some(
+                (segment) => segment.type === "rail",
+              );
+              const footer =
+                usedRail && !isStreaming
+                  ? formatRunFooter(message.metadata)
+                  : null;
+              const renderPart = (part: ChatMessage["parts"][number]) => (
+                <MessagePart
+                  part={part}
+                  disableConfirm={disableConfirm}
+                  isPersistedMessage={persistedMessageIds.has(message.id)}
+                  messageId={message.id}
+                  threadLookup={emailLookup}
+                />
+              );
+
+              return (
+                <Fragment key={message.id}>
+                  <Message from={message.role}>
+                    <MessageContent variant="flat">
+                      {segments.map((segment) =>
+                        segment.type === "rail" ? (
+                          <StepRail
+                            key={segment.key}
+                            steps={segment.steps}
+                            renderDetail={(step) =>
+                              step.part && renderPart(step.part)
+                            }
+                          />
+                        ) : (
+                          <Fragment key={segment.key}>
+                            {renderPart(segment.part)}
+                          </Fragment>
+                        ),
+                      )}
+                      {footer && (
+                        <p className="m-0 text-[13px] text-muted-foreground">
+                          {footer}
+                        </p>
+                      )}
+                    </MessageContent>
+                  </Message>
+                  {index === firstAssistantIndex && <MessagingChannelHint />}
+                </Fragment>
+              );
+            })}
 
             {status === "submitted" &&
               messages.length > 0 &&
               messages[messages.length - 1].role === "user" && (
                 <Message from="assistant">
                   <MessageContent variant="flat">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Loader />
-                      <span>Thinking...</span>
-                    </div>
+                    <StepRail steps={[STARTING_STEP]} />
                   </MessageContent>
                 </Message>
               )}

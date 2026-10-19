@@ -92,6 +92,8 @@ import {
   RuleSummaryText,
 } from "@/components/assistant-chat/rule-summary-card";
 import { getPendingEmailSubjectPrefix } from "@/components/assistant-chat/helpers";
+import { getManageInboxActionLabel } from "@/components/assistant-chat/step-model";
+import { useInStepRail } from "@/components/assistant-chat/step-rail";
 
 export type ThreadLookup = EmailLookup;
 
@@ -112,7 +114,7 @@ function getOutputField<T>(output: unknown, field: string): T | undefined {
 }
 
 export function BasicToolInfo({ text }: { text: string }) {
-  return <div className="text-xs text-muted-foreground">{text}</div>;
+  return <div className="text-[13px] text-muted-foreground">{text}</div>;
 }
 
 function SubtleToolCollapsible({
@@ -123,17 +125,19 @@ function SubtleToolCollapsible({
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const inRail = useInStepRail();
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
-      <CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground">
+      <CollapsibleTrigger className="flex items-center gap-1.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground">
         <ChevronRightIcon
           className={cn(
-            "size-3 shrink-0 transition-transform duration-200",
+            "size-3 shrink-0 transition-transform duration-200 motion-reduce:transition-none",
             open && "rotate-90",
           )}
         />
-        <span>{title}</span>
+        {/* The step's own label already names the tool. */}
+        <span>{inRail ? "Show Details" : title}</span>
       </CollapsibleTrigger>
       <CollapsibleContent>
         <div className="mt-2 space-y-3 rounded-md border p-3">{children}</div>
@@ -242,6 +246,7 @@ export function ManageInboxResult({
   isInProgress?: boolean;
 }) {
   const { provider, userEmail } = useAccount();
+  const inRail = useInStepRail();
   const outputAction = getOutputField<string>(output, "action");
   const action = parseManageInboxAction(input?.action || outputAction);
   const successCount = getOutputField<number>(output, "successCount");
@@ -282,7 +287,7 @@ export function ManageInboxResult({
 
   return (
     <CollapsibleToolCard
-      title={actionLabel}
+      title={inRail ? "Details" : actionLabel}
       badge={
         typeof completedCount === "number" ? (
           <Badge
@@ -350,6 +355,7 @@ export function ManageInboxResult({
 
 export function ManageSenderCategoryResult({ output }: { output: unknown }) {
   const { provider, userEmail } = useAccount();
+  const inRail = useInStepRail();
   const category = getOutputField<{ id: string | null; name: string }>(
     output,
     "category",
@@ -358,8 +364,9 @@ export function ManageSenderCategoryResult({ output }: { output: unknown }) {
   const senders = getOutputField<string[]>(output, "senders") ?? [];
   const categoryName = category?.name?.trim() || "Category";
 
+  // The rail node already says there was nothing to archive.
   if (senders.length === 0) {
-    return (
+    return inRail ? null : (
       <BasicToolInfo text={`No senders to archive in "${categoryName}"`} />
     );
   }
@@ -1933,51 +1940,6 @@ function parseManageInboxAction(
 ): ManageInboxAction | undefined {
   if (action === "remove_category_threads") return "remove_label_threads";
   return isManageInboxAction(action) ? action : undefined;
-}
-
-export function getManageInboxActionLabel({
-  action,
-  read,
-  labelApplied,
-  inProgress,
-}: {
-  action: ManageInboxAction | undefined;
-  read?: boolean;
-  labelApplied: boolean;
-  inProgress?: boolean;
-}) {
-  if (action === "bulk_archive_senders") {
-    return inProgress ? "Bulk archiving senders" : "Bulk archived senders";
-  }
-  if (action === "unsubscribe_senders") {
-    return inProgress ? "Unsubscribing senders" : "Unsubscribed senders";
-  }
-  if (action === "archive_threads") {
-    if (inProgress) {
-      return labelApplied
-        ? "Archiving and labeling emails"
-        : "Archiving emails";
-    }
-    return labelApplied ? "Archived and labeled emails" : "Archived emails";
-  }
-  if (action === "trash_threads") {
-    return inProgress ? "Trashing emails" : "Trashed emails";
-  }
-  if (action === "label_threads") {
-    return inProgress ? "Labeling emails" : "Labeled emails";
-  }
-  if (action === "remove_label_threads") {
-    return inProgress ? "Removing labels" : "Removed labels";
-  }
-  if (action === "mark_read_threads") {
-    if (inProgress) {
-      return read === false
-        ? "Marking emails as unread"
-        : "Marking emails as read";
-    }
-    return read === false ? "Marked emails as unread" : "Marked emails as read";
-  }
-  return "Updated emails";
 }
 
 function ToolSection({

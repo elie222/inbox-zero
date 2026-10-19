@@ -32,9 +32,12 @@ import type { GetCalendarEventsTool } from "@/utils/ai/assistant/chat-calendar-t
 
 // export type DataPart = { type: "append-message"; message: string };
 
-// export const messageMetadataSchema = z.object({ createdAt: z.string() });
-
-// export type MessageMetadata = z.infer<typeof messageMetadataSchema>;
+/** Sent with an assistant reply so the chat can show how it was produced. */
+export type MessageMetadata = {
+  model?: string;
+  thinking?: "on" | "off";
+  durationMs?: number;
+};
 
 export type ChatTools = {
   getAssistantCapabilities: GetAssistantCapabilitiesTool;
@@ -78,8 +81,7 @@ export type CustomUIDataTypes = {
 };
 
 export type ChatMessage = UIMessage<
-  // biome-ignore lint/complexity/noBannedTypes: ignore
-  {}, // MessageMetadata,
+  MessageMetadata,
   CustomUIDataTypes,
   ChatTools
 >;

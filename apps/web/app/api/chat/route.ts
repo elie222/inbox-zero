@@ -6,6 +6,7 @@ import {
   createUIMessageStreamResponse,
   type UIMessage,
 } from "ai";
+import { env } from "@/env";
 import { withEmailAccount } from "@/utils/middleware";
 import { FIRST_TIME_EVENTS, trackFirstTimeEvent } from "@/utils/posthog";
 import { getEmailAccountWithAi } from "@/utils/user/get";
@@ -309,6 +310,8 @@ export const POST = withEmailAccount("chat", async (request) => {
       stepCount: 0,
       toolCallCount: 0,
       visibleTextProduced: false,
+      thinking: null,
+      durationMs: null,
     };
     const result = await aiProcessAssistantChat({
       messages: modelMessages,
@@ -331,6 +334,7 @@ export const POST = withEmailAccount("chat", async (request) => {
       onModelResolved: (resolvedModel) => {
         assistantRun.provider = resolvedModel.provider;
         assistantRun.modelName = resolvedModel.modelName ?? null;
+        assistantRun.thinking = getThinkingMode(resolvedModel.provider);
       },
       onStepEnd: (step) => {
         assistantRun.stepCount += 1;
@@ -346,10 +350,18 @@ export const POST = withEmailAccount("chat", async (request) => {
     const stream = createUIMessageStream({
       generateId: () => streamId,
       execute: async ({ writer }) => {
+        const startedAt = Date.now();
         let responseMessage: UIMessage | null = null;
 
         for await (const chunk of result.toUIMessageStream({
           sendFinish: false,
+          messageMetadata: ({ part }) =>
+            part.type === "start"
+              ? {
+                  model: assistantRun.modelName ?? undefined,
+                  thinking: assistantRun.thinking ?? undefined,
+                }
+              : undefined,
           onEnd: ({ responseMessage: finishedResponseMessage }) => {
             responseMessage = finishedResponseMessage;
           },
@@ -358,6 +370,12 @@ export const POST = withEmailAccount("chat", async (request) => {
         }
 
         if (chatRun.abortSignal.aborted) return;
+
+        assistantRun.durationMs = Date.now() - startedAt;
+        writer.write({
+          type: "message-metadata",
+          messageMetadata: { durationMs: assistantRun.durationMs },
+        });
 
         const warning = getToolFailureWarning(responseMessage);
         if (!warning) return;
@@ -550,6 +568,11 @@ async function saveChatMessages(
     captureException(error, { extra: { chatId } });
     throw error;
   }
+}
+
+function getThinkingMode(provider: string): "on" | "off" | null {
+  if (provider !== "ollama" && provider !== "openai-compatible") return null;
+  return env.LOCAL_LLM_THINKING === "auto" ? null : env.LOCAL_LLM_THINKING;
 }
 
 function buildHiddenInlineActionMessage(

@@ -15,6 +15,8 @@ export type AssistantChatRunMetadata = {
   stepCount: number;
   toolCallCount: number;
   visibleTextProduced: boolean;
+  thinking: "on" | "off" | null;
+  durationMs: number | null;
 };
 
 export function mapUiMessagesToChatMessageRows(
@@ -89,6 +91,8 @@ function buildAssistantChatMessageMetadata(
       stepCount: assistantRun.stepCount,
       toolCallCount: assistantRun.toolCallCount,
       visibleTextProduced: assistantRun.visibleTextProduced,
+      thinking: assistantRun.thinking,
+      durationMs: assistantRun.durationMs,
     },
   };
 }
