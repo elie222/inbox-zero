@@ -254,19 +254,27 @@ test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
 
     await context.setOffline(false);
     // Confirm the browser can reach the server before testing a connected reload.
+    // The router replays navigations queued while offline, which can reload
+    // the page under this check.
     await expect
       .poll(() =>
-        page.evaluate(async () => {
-          try {
-            const response = await fetch("/api/auth/ok", {
-              cache: "no-store",
-              signal: AbortSignal.timeout(3000),
-            });
-            return response.ok;
-          } catch {
-            return false;
-          }
-        }),
+        page
+          .evaluate(async () => {
+            try {
+              const response = await fetch("/api/auth/ok", {
+                cache: "no-store",
+                signal: AbortSignal.timeout(3000),
+              });
+              return response.ok;
+            } catch {
+              return false;
+            }
+          })
+          .catch((error: unknown) => {
+            if (String(error).includes("Execution context was destroyed"))
+              return false;
+            throw error;
+          }),
       )
       .toBe(true);
     await page.reload({ waitUntil: "domcontentloaded", timeout: 15_000 });

@@ -1000,18 +1000,15 @@ const prepareReplyingToEmail = ({
   const sentFromUser = message.labelIds?.includes("SENT");
 
   const { html } = createReplyContent({ message });
+  const replyTo = message.headers["reply-to"] || message.headers.from;
   const replyAllCc =
     replyAll && !sentFromUser
-      ? buildReplyAllRecipients(
-          message.headers,
-          message.headers.from,
-          userEmail,
-        ).cc
+      ? buildReplyAllRecipients(message.headers, replyTo, userEmail).cc
       : undefined;
 
   return {
     // If following an email from yourself, use original recipients, otherwise reply to sender
-    to: sentFromUser ? message.headers.to : message.headers.from,
+    to: sentFromUser ? message.headers.to : replyTo,
     fromHint: getFromHint(message),
     // If following an email from yourself, don't add "Re:" prefix
     subject: sentFromUser

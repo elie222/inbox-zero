@@ -284,6 +284,32 @@ describe("EmailMessage reply", () => {
     expect(document.activeElement).toBe(editor);
   });
 
+  it("addresses the reply to the sender's Reply-To address", () => {
+    const message = createMessage("message-1");
+    render(
+      <EmailMessage
+        expanded
+        message={{
+          ...message,
+          headers: {
+            ...message.headers,
+            from: "Support <messages@helpdesk.example>",
+            "reply-to": "Support <session-123@helpdesk.example>",
+          },
+        }}
+        onSendSuccess={vi.fn()}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Reply" }));
+
+    expect(screen.getByTestId("composer").dataset.to).toBe(
+      "Support <session-123@helpdesk.example>",
+    );
+  });
+
   it("names To and Cc recipients in the recipient summary", () => {
     const message = createMessage("message-1");
     render(
@@ -392,6 +418,33 @@ describe("EmailMessage reply all", () => {
     const composer = screen.getByTestId("composer");
     expect(composer.dataset.to).toBe("sender@example.com");
     expect(composer.dataset.cc).toBe("sam@example.com, alex@example.com");
+  });
+
+  it("sends to the Reply-To address without copying it again", () => {
+    const message = createMessage("message-1");
+    render(
+      <EmailMessage
+        expanded
+        message={{
+          ...message,
+          headers: {
+            ...message.headers,
+            "reply-to": "list@example.com",
+            to: "user@example.com, list@example.com",
+            cc: "sam@example.com",
+          },
+        }}
+        onSendSuccess={vi.fn()}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Reply all" }));
+
+    const composer = screen.getByTestId("composer");
+    expect(composer.dataset.to).toBe("list@example.com");
+    expect(composer.dataset.cc).toBe("sam@example.com");
   });
 
   it("is not offered when the user is the only other recipient", () => {
