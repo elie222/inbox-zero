@@ -12,6 +12,7 @@ export const FCM_REGISTRATION_TOKEN = /^\S{1,4096}$/;
 
 export type FcmAlert = {
   title: string;
+  subtitle?: string;
   body: string;
   channelId?: string;
   expiration?: number;
@@ -182,7 +183,12 @@ function fcmMessage(token: string, notification: FcmNotification): FcmMessage {
 
   return {
     token,
-    notification: { title: notification.title, body: notification.body },
+    notification: {
+      title: notification.title,
+      body: notification.subtitle
+        ? `${notification.subtitle}\n${notification.body}`
+        : notification.body,
+    },
     ...(notification.data ? { data: notification.data } : {}),
     android: {
       priority: "HIGH",

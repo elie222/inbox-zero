@@ -30,6 +30,7 @@ type MobilePushToken = {
 
 type MobilePushNotification = {
   title: string;
+  subtitle?: string;
   body: string;
   sound?: "default";
   channelId?: string;
@@ -171,6 +172,7 @@ async function sendPushBatch({
   notification: MobilePushNotification;
   logger: Logger;
 }) {
+  const { subtitle, ...expoNotification } = notification;
   let response: Response;
   try {
     response = await fetch(EXPO_PUSH_URL, {
@@ -183,7 +185,10 @@ async function sendPushBatch({
       body: JSON.stringify(
         pushTokens.map(({ token }) => ({
           to: token,
-          ...notification,
+          ...expoNotification,
+          body: subtitle
+            ? `${subtitle}\n${notification.body}`
+            : notification.body,
         })),
       ),
     });
