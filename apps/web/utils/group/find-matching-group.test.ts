@@ -137,6 +137,26 @@ describe("findMatchingGroupItem", () => {
     ]);
   });
 
+  it("does not split a learned full header on a comma in its display name", () => {
+    const groupItems = [
+      {
+        type: GroupItemType.FROM,
+        value: "Acme, Inc <ann@acme.com>",
+        exclude: true,
+      },
+    ];
+
+    expect(
+      findMatchingGroupItem(
+        { from: "Acme Team <other@example.com>", subject: "" },
+        groupItems,
+      ),
+    ).toBeUndefined();
+    expect(
+      findMatchingGroupItem({ from: "ann@acme.com", subject: "" }, groupItems),
+    ).toBeNull();
+  });
+
   it("does not let an exclusion for one sender exclude a lookalike sender", () => {
     const groupItems = [
       { type: GroupItemType.FROM, value: "@acme.com", exclude: false },

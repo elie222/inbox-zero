@@ -15,9 +15,11 @@ export function isAddressLikeEmailPattern(pattern: string): boolean {
   return normalized.includes("@") || /^[^\s@]+\.[^\s@]+$/.test(normalized);
 }
 
-// Escape regex metacharacters, then turn the `*` glob into `.*`.
+// Escape regex metacharacters, then turn the `*` glob into `.*`. A run of `*`
+// becomes a single `.*`: adjacent `.*` terms backtrack badly on a long address
+// that doesn't match.
 export function globToRegexSource(pattern: string) {
-  return pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*");
+  return pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*+/g, ".*");
 }
 
 // Anchored: for from/to address patterns, so a pattern matches a whole address

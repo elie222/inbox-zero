@@ -1,5 +1,5 @@
 import prisma from "@/utils/prisma";
-import { extractEmailAddress } from "@/utils/email";
+import { extractEmailAddress, extractEmailAddresses } from "@/utils/email";
 import {
   createAnchoredAddressRegex,
   isAddressLikeEmailPattern,
@@ -124,18 +124,13 @@ function findBestMatchingItem<
 // static from conditions do. A substring match would let a learned
 // `ann@acme.com` catch `joann@acme.com` or `ann@acme.com.evil.io`, and with it
 // skip AI matching for every other rule. Other values, such as a display name,
-// can still appear anywhere in the From header. A value can list several
-// patterns, split the same way as static from conditions.
+// can still appear anywhere in the From header.
 function matchesFromItem(value: string, fromHeader: string) {
   const lowerFrom = fromHeader.toLowerCase();
   const senderAddress = extractEmailAddress(fromHeader).toLowerCase();
 
-  return splitEmailPatterns(value).some((part) => {
-    // A pattern saved as a full "Name <address>" header matches by its address.
-    const pattern = (
-      (part.includes("<") && extractEmailAddress(part)) ||
-      part
-    ).toLowerCase();
+  return getFromItemPatterns(value).some((part) => {
+    const pattern = part.toLowerCase();
 
     if (!isAddressLikeEmailPattern(pattern)) return lowerFrom.includes(pattern);
 
@@ -143,4 +138,15 @@ function matchesFromItem(value: string, fromHeader: string) {
       !!senderAddress && createAnchoredAddressRegex(pattern).test(senderAddress)
     );
   });
+}
+
+// A value saved as a full header ("Acme, Inc <ann@acme.com>") matches by its
+// addresses, so a comma in a display name isn't read as a separator that
+// leaves "Acme" behind as a keyword. Otherwise a value can list several
+// patterns, split the same way as static from conditions.
+function getFromItemPatterns(value: string) {
+  const headerAddresses = value.includes("<")
+    ? extractEmailAddresses(value)
+    : [];
+  return headerAddresses.length ? headerAddresses : splitEmailPatterns(value);
 }
