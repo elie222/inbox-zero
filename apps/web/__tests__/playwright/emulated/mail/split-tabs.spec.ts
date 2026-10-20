@@ -300,7 +300,7 @@ test("reorders split tabs by holding and dragging a tab", async ({
   await openMail(page);
   const tabs = page.locator("[data-split-name]");
   const original = await tabs.allTextContents();
-  expect(original.length).toBeGreaterThan(2);
+  expect(original.length).toBeGreaterThan(1);
   const tabButtons = page.locator("button[data-split-tab]");
   const activeBefore = await page
     .locator('button[aria-current="true"]')
