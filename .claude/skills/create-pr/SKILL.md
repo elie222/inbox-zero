@@ -44,6 +44,13 @@ Create a dedicated branch when on the base branch or when the current branch
 does not belong to these changes. Use a public-safe `feat/`, `fix/`, or `chore/`
 name unless repository instructions require another prefix.
 
+Before pushing, read the current branch name even if you did not choose it;
+tools can name a branch from the user's request. If it contains personal data
+(an email, a person's name, a username, a customer or company name, a domain),
+push under a public-safe remote name instead:
+`git push -u origin HEAD:<safe-name>`, then pass `--head <safe-name>` to
+`gh pr create`.
+
 Respect the user's staged selection. Otherwise stage explicit paths, never
 `git add .`:
 
