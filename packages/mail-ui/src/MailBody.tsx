@@ -464,11 +464,12 @@ function useMailHtmlFrame(
         (event.key === "Enter" && Boolean(reply)) ||
         (key === "f" && Boolean(forward)) ||
         (isNavigationKey && Boolean(navigate));
+      const isSelectAll =
+        (event.ctrlKey || event.metaKey) && key === "a" && !event.altKey;
       if (
         event.defaultPrevented ||
         event.altKey ||
-        event.ctrlKey ||
-        event.metaKey ||
+        ((event.ctrlKey || event.metaKey) && !isSelectAll) ||
         event.shiftKey ||
         event.isComposing
       )
@@ -480,6 +481,11 @@ function useMailHtmlFrame(
         )
       )
         return;
+      // The host may select the whole conversation rather than this body.
+      if (isSelectAll) {
+        forwardShortcut(event);
+        return;
+      }
       if (event.key === "Enter" && target?.closest?.("a, button")) return;
       const selection = observedDocument?.getSelection();
       if (selection && !selection.isCollapsed) {

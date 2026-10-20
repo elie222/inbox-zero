@@ -183,6 +183,7 @@ export function MailReaderSurface({
       <div
         className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-card"
         data-detail-selection-settled={detailSelectionSettled}
+        data-mail-reader=""
         data-testid="thread-reader"
       >
         <div className={readerMeasure({ layout })}>
