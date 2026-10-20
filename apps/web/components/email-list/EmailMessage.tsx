@@ -234,8 +234,10 @@ export function EmailMessage({
 
   const onCloseCompose = useCallback(() => {
     setComposeOverride("closed");
+    setPendingQuote(undefined);
   }, []);
   const closeMailboxDraft = (sessionMessageId: string) => {
+    setPendingQuote(undefined);
     if (composeMode === "reply") onCloseCompose();
     setDraftDismissed(sessionMessageId, true);
   };

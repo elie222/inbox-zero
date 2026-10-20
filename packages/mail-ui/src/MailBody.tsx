@@ -469,6 +469,14 @@ function useMailHtmlFrame(
         event.isComposing
       )
         return;
+      const target = event.target as HTMLElement | null;
+      if (
+        target?.closest?.(
+          'input, textarea, select, [contenteditable]:not([contenteditable="false"])',
+        )
+      )
+        return;
+      if (event.key === "Enter" && target?.closest?.("a, button")) return;
       const selection = observedDocument?.getSelection();
       if (selection && !selection.isCollapsed) {
         const quote = selection.toString().trim();
@@ -478,14 +486,6 @@ function useMailHtmlFrame(
         }
         return;
       }
-      const target = event.target as HTMLElement | null;
-      if (
-        target?.closest?.(
-          'input, textarea, select, [contenteditable]:not([contenteditable="false"])',
-        )
-      )
-        return;
-      if (event.key === "Enter" && target?.closest?.("a, button")) return;
       if (!handlesKey) {
         forwardShortcut(event);
         return;
