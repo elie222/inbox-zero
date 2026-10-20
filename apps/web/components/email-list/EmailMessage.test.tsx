@@ -76,6 +76,7 @@ vi.mock("@/app/(app)/[emailAccountId]/compose/ComposeEmailFormLazy", () => ({
       data-testid="composer"
       data-inline-reply="true"
       data-quote={quote}
+      data-to={replyingToEmail?.to}
       data-thread-id={replyingToEmail?.threadId}
       data-forwarded-message-id={replyingToEmail?.forwardedMessageId}
       data-forwarded-attachments={replyingToEmail?.forwardedAttachments
@@ -279,6 +280,32 @@ describe("EmailMessage reply", () => {
     expect(screen.getAllByTestId("composer")).toHaveLength(1);
     expect(screen.getByRole("textbox", { name: "Email message" })).toBe(editor);
     expect(document.activeElement).toBe(editor);
+  });
+
+  it("addresses the reply to the sender's Reply-To address", () => {
+    const message = createMessage("message-1");
+    render(
+      <EmailMessage
+        expanded
+        message={{
+          ...message,
+          headers: {
+            ...message.headers,
+            from: "Support <messages@helpdesk.example>",
+            "reply-to": "Support <session-123@helpdesk.example>",
+          },
+        }}
+        onSendSuccess={vi.fn()}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Reply" }));
+
+    expect(screen.getByTestId("composer").dataset.to).toBe(
+      "Support <session-123@helpdesk.example>",
+    );
   });
 
   it("names To and Cc recipients in the recipient summary", () => {

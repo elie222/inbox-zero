@@ -946,7 +946,9 @@ const prepareReplyingToEmail = (
 
   return {
     // If following an email from yourself, use original recipients, otherwise reply to sender
-    to: sentFromUser ? message.headers.to : message.headers.from,
+    to: sentFromUser
+      ? message.headers.to
+      : message.headers["reply-to"] || message.headers.from,
     fromHint: getFromHint(message),
     // If following an email from yourself, don't add "Re:" prefix
     subject: sentFromUser
