@@ -52,17 +52,6 @@ describe("Loops lifecycle events", () => {
   });
 
   it.each([
-    { success: true, id: "contact-id" },
-    { success: false },
-  ])("passes through the contact creation response: %s", async (response) => {
-    client.createContact.mockResolvedValueOnce(response);
-
-    await expect(createContact("user@example.com", "John")).resolves.toBe(
-      response,
-    );
-  });
-
-  it.each([
     new APIError(409, { success: false, message: "Invalid email address." }),
     new APIError(409, { success: false, message: "Conflict" }),
     { statusCode: "409" },

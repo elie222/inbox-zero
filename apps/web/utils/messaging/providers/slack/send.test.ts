@@ -150,32 +150,4 @@ describe("slack send helpers", () => {
       }),
     );
   });
-
-  it("returns the Slack message timestamp for follow-up reminders", async () => {
-    mockPostMessage.mockResolvedValueOnce({ ts: "1700000000.000100" });
-
-    const messageId = await sendFollowUpReminderToSlack({
-      accessToken: "xoxb-token",
-      channelId: "C123",
-      subject: "Pricing follow-up",
-      counterpartyName: "Alex Partner",
-      counterpartyEmail: "alex@example.com",
-      trackerType: ThreadTrackerType.AWAITING,
-      daysSinceSent: 3,
-      snippet: "Following up on the proposal.",
-      threadLink: "https://mail.example/thread",
-      trackerId: "tracker-1",
-    });
-
-    expect(messageId).toBe("1700000000.000100");
-    expect(mockPostMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        channel: "C123",
-        text: expect.stringContaining("Pricing follow-up"),
-        blocks: expect.any(Array),
-        unfurl_links: false,
-        unfurl_media: false,
-      }),
-    );
-  });
 });

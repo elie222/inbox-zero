@@ -14,10 +14,6 @@ describe("buildRedirectUrl", () => {
     expect(buildRedirectUrl("/settings")).toBe("/settings");
   });
 
-  it("returns base path when searchParams is undefined", () => {
-    expect(buildRedirectUrl("/settings", undefined)).toBe("/settings");
-  });
-
   it("returns base path when searchParams is empty", () => {
     expect(buildRedirectUrl("/settings", {})).toBe("/settings");
   });

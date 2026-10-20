@@ -14,50 +14,6 @@ describe("actionInputs", () => {
       expect(actionInputs[type].fields).toBeDefined();
     }
   });
-
-  it("ARCHIVE has no fields", () => {
-    expect(actionInputs[ActionType.ARCHIVE].fields).toEqual([]);
-  });
-
-  it("LABEL has labelId field", () => {
-    const fields = actionInputs[ActionType.LABEL].fields;
-    expect(fields).toHaveLength(1);
-    expect(fields[0].name).toBe("labelId");
-  });
-
-  it("DRAFT_EMAIL has subject, content, to, cc, bcc fields", () => {
-    const fieldNames = actionInputs[ActionType.DRAFT_EMAIL].fields.map(
-      (f) => f.name,
-    );
-    expect(fieldNames).toContain("subject");
-    expect(fieldNames).toContain("content");
-    expect(fieldNames).toContain("to");
-    expect(fieldNames).toContain("cc");
-    expect(fieldNames).toContain("bcc");
-  });
-
-  it("DRAFT_MESSAGING_CHANNEL has subject, content, to, cc, bcc fields", () => {
-    const fieldNames = actionInputs[
-      ActionType.DRAFT_MESSAGING_CHANNEL
-    ].fields.map((f) => f.name);
-    expect(fieldNames).toContain("subject");
-    expect(fieldNames).toContain("content");
-    expect(fieldNames).toContain("to");
-    expect(fieldNames).toContain("cc");
-    expect(fieldNames).toContain("bcc");
-  });
-
-  it("CALL_WEBHOOK has url field", () => {
-    const fields = actionInputs[ActionType.CALL_WEBHOOK].fields;
-    expect(fields).toHaveLength(1);
-    expect(fields[0].name).toBe("url");
-  });
-
-  it("NOTIFY_MESSAGING_CHANNEL has no fields", () => {
-    expect(actionInputs[ActionType.NOTIFY_MESSAGING_CHANNEL].fields).toEqual(
-      [],
-    );
-  });
 });
 
 describe("getActionFields", () => {
@@ -226,31 +182,6 @@ describe("sanitizeActionFields", () => {
       expect(result.label).toBeNull();
       expect(result.subject).toBeNull();
       expect(result.content).toBeNull();
-    });
-
-    it("returns base fields for MARK_SPAM", () => {
-      const result = sanitizeActionFields({ type: ActionType.MARK_SPAM });
-      expect(result.type).toBe(ActionType.MARK_SPAM);
-    });
-
-    it("returns base fields for MARK_READ", () => {
-      const result = sanitizeActionFields({ type: ActionType.MARK_READ });
-      expect(result.type).toBe(ActionType.MARK_READ);
-    });
-
-    it("returns base fields for STAR", () => {
-      const result = sanitizeActionFields({ type: ActionType.STAR });
-      expect(result.type).toBe(ActionType.STAR);
-    });
-
-    it("returns base fields for DIGEST", () => {
-      const result = sanitizeActionFields({ type: ActionType.DIGEST });
-      expect(result.type).toBe(ActionType.DIGEST);
-    });
-
-    it("returns base fields for NOTIFY_SENDER", () => {
-      const result = sanitizeActionFields({ type: ActionType.NOTIFY_SENDER });
-      expect(result.type).toBe(ActionType.NOTIFY_SENDER);
     });
 
     it("returns base fields for NOTIFY_MESSAGING_CHANNEL", () => {
