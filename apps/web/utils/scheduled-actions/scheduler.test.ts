@@ -120,6 +120,36 @@ describe("scheduler", () => {
   });
 
   describe("createScheduledAction", () => {
+    it("persists the folder and label targets for delayed actions", async () => {
+      prisma.scheduledAction.create.mockResolvedValue({
+        id: "scheduled-action-123",
+      } as any);
+
+      await createScheduledAction({
+        executedRuleId: "rule-123",
+        messageId: "msg-123",
+        threadId: "thread-123",
+        emailAccountId: "account-123",
+        scheduledFor: new Date("2026-05-02T10:00:00.000Z"),
+        actionItem: {
+          type: ActionType.MOVE_FOLDER,
+          delayInMinutes: 60,
+          label: "Receipts",
+          labelId: "Label_42",
+          folderName: "Receipts",
+          folderId: "folder-receipts",
+        },
+      });
+
+      expect(prisma.scheduledAction.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          labelId: "Label_42",
+          folderName: "Receipts",
+          folderId: "folder-receipts",
+        }),
+      });
+    });
+
     it("persists selectedAttachments for delayed actions", async () => {
       prisma.scheduledAction.create.mockResolvedValue({
         id: "scheduled-action-123",
