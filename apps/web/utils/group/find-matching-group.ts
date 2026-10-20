@@ -1,4 +1,10 @@
 import prisma from "@/utils/prisma";
+import { extractEmailAddress } from "@/utils/email";
+import {
+  createAnchoredAddressRegex,
+  isAddressLikeEmailPattern,
+  splitEmailPatterns,
+} from "@/utils/rule/email-from-pattern";
 import { generalizeSubject } from "@/utils/string";
 import type { ParsedMessage } from "@/utils/types";
 import { GroupItemSource, GroupItemType } from "@/generated/prisma/enums";
@@ -55,11 +61,8 @@ function matchesPattern<T extends Pick<GroupItem, "type" | "value">>(
 ): boolean {
   const { from, subject } = headers;
 
-  // from check
   if (item.type === GroupItemType.FROM && from) {
-    const lowerValue = item.value.toLowerCase();
-    const lowerFrom = from.toLowerCase();
-    return lowerValue.includes(lowerFrom) || lowerFrom.includes(lowerValue);
+    return matchesFromItem(item.value, from);
   }
 
   // subject check
@@ -114,5 +117,30 @@ function findBestMatchingItem<
     if (itemUpdatedAt === undefined && bestUpdatedAt !== undefined) return best;
 
     return item.exclude && !best.exclude ? item : best;
+  });
+}
+
+// Address and domain patterns must match the sender address on a boundary, as
+// static from conditions do. A substring match would let a learned
+// `ann@acme.com` catch `joann@acme.com` or `ann@acme.com.evil.io`, and with it
+// skip AI matching for every other rule. Other values, such as a display name,
+// can still appear anywhere in the From header. A value can list several
+// patterns, split the same way as static from conditions.
+function matchesFromItem(value: string, fromHeader: string) {
+  const lowerFrom = fromHeader.toLowerCase();
+  const senderAddress = extractEmailAddress(fromHeader).toLowerCase();
+
+  return splitEmailPatterns(value).some((part) => {
+    // A pattern saved as a full "Name <address>" header matches by its address.
+    const pattern = (
+      (part.includes("<") && extractEmailAddress(part)) ||
+      part
+    ).toLowerCase();
+
+    if (!isAddressLikeEmailPattern(pattern)) return lowerFrom.includes(pattern);
+
+    return (
+      !!senderAddress && createAnchoredAddressRegex(pattern).test(senderAddress)
+    );
   });
 }
