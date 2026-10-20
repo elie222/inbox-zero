@@ -1,5 +1,12 @@
 import { OpenedConversationAttachments } from "./OpenedConversationAttachments";
-import { useEffect, useMemo, useState, useRef, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+  useRef,
+  type ReactNode,
+} from "react";
 import { isSendCommandFor } from "@/app/(app)/[emailAccountId]/compose/queued-reply";
 import { useHotkeys } from "react-hotkeys-hook";
 import { isTypingTarget } from "@/lib/shortcuts/registry";
@@ -12,6 +19,7 @@ import { useReplyDrafts } from "@/hooks/useReplyDrafts";
 import { ThreadDeliveryStatus } from "@/components/email-list/ThreadDeliveryStatus";
 import { useHiddenDraftMessageIds } from "@/hooks/useHiddenDraftMessageIds";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/utils";
 import {
   getDraftSessionMessageId,
   getLatestDraftMessageId,
@@ -314,14 +322,12 @@ export function EmailThread({
   );
 
   return (
-    // White regardless of the surface it is dropped on: an email body renders
-    // on white inside its iframe, so anything else leaves each message boxed.
     <OpenedConversationAttachments
       allowUncached
       emailAccountId={emailAccountId}
       threadId={threadId}
     >
-      <div className="min-w-0 bg-card" ref={threadRef}>
+      <div className="min-w-0" ref={threadRef}>
         {renderToolbar?.({
           allExpanded,
           canExpand: organizedMessages.length > 1,
@@ -363,7 +369,8 @@ export function EmailThread({
           </div>
         )}
 
-        <ul className="relative pt-1">
+        <ul className="relative flex flex-col gap-2 pt-1">
+          {enableMessageNavigation && <SelectionBar selectedId={selectedId} />}
           {organizedMessages.map(({ message, draftMessages, outgoing }) => {
             const sendOperationId =
               outgoing?.operationId ?? sendOperationIds?.get(message.id);
@@ -612,4 +619,66 @@ function draftRecency(draft: ThreadMessage) {
   const value = draft.internalDate ?? draft.headers.date;
   const time = internalDateToDate(value, { fallbackToNow: false }).getTime();
   return Number.isNaN(time) ? 0 : time;
+}
+
+// One bar for the whole thread so it can slide between messages. It only
+// animates when the selection moves; layout changes (expanding, bodies
+// loading) reposition it instantly so it never trails the card.
+function SelectionBar({ selectedId }: { selectedId?: string }) {
+  const barRef = useRef<HTMLLIElement>(null);
+  const [position, setPosition] = useState<{
+    top: number;
+    height: number;
+    animate: boolean;
+  }>();
+  const previousId = useRef<string>(undefined);
+
+  useLayoutEffect(() => {
+    const list = barRef.current?.parentElement;
+    if (!list || !selectedId) {
+      setPosition(undefined);
+      return;
+    }
+    const measure = (animate: boolean) => {
+      const item = Array.from(
+        list.querySelectorAll<HTMLElement>(":scope > [data-thread-message-id]"),
+      ).find((element) => element.dataset.threadMessageId === selectedId);
+      // A sent reply stays hidden until its body loads; it shows the bar once
+      // it joins the layout and resizes the list.
+      if (!item || item.ariaHidden === "true") return setPosition(undefined);
+      setPosition({ top: item.offsetTop, height: item.offsetHeight, animate });
+    };
+    measure(
+      previousId.current !== undefined && previousId.current !== selectedId,
+    );
+    previousId.current = selectedId;
+    // The observer reports once on start; skipping it keeps the slide running.
+    let started = false;
+    const observer = new ResizeObserver(() => {
+      if (started) measure(false);
+      started = true;
+    });
+    observer.observe(list);
+    return () => observer.disconnect();
+  }, [selectedId]);
+
+  return (
+    <li
+      aria-hidden
+      ref={barRef}
+      role="presentation"
+      className={cn(
+        "pointer-events-none absolute top-0 left-0 z-10 w-1 rounded-l bg-primary",
+        !position && "hidden",
+        position?.animate &&
+          "transition-[transform,height] duration-200 ease-out motion-reduce:transition-none",
+      )}
+      style={
+        position && {
+          height: position.height,
+          transform: `translateY(${position.top}px)`,
+        }
+      }
+    />
+  );
 }

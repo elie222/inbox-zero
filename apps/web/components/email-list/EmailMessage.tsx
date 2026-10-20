@@ -350,12 +350,14 @@ export function EmailMessage({
         }
       }}
       className={cn(
-        "group/message min-w-0 border-l-2 border-transparent outline-none transition-colors focus-within:border-primary",
-        selected && "border-primary",
+        // Padding stays the same in both states so expanding doesn't shift
+        // the header. The thread draws a sliding selection bar when it tracks
+        // selection; otherwise the focused card draws its own.
+        "group/message relative min-w-0 rounded bg-card px-3 py-2.5 outline-none transition-colors sm:px-4",
+        selected === undefined &&
+          "before:absolute before:inset-y-0 before:left-0 before:w-1 before:rounded-l before:bg-primary before:opacity-0 focus-within:before:opacity-100",
         concealed && "invisible absolute inset-x-0",
-        expanded
-          ? "my-2 px-2 py-3 sm:px-5"
-          : "px-2 py-1.5 hover:bg-muted/40 sm:px-5",
+        !expanded && "hover:bg-muted/40",
       )}
     >
       <MessageHeader
