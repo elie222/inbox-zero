@@ -366,7 +366,9 @@ export function buildMailHtmlDocument({
     isDarkMode,
     documentKey,
     contentSecurityPolicy,
-    defaultFontCss,
+    // Keeps the body's selection the active color while focus is in the
+    // host, so a conversation-wide selection reads as one.
+    defaultFontCss: `${defaultFontCss}\n::selection { background-color: Highlight; }`,
     shouldDisableAuthoredDarkColorScheme: hasHeavyStyling,
   });
 }
@@ -413,7 +415,9 @@ function MailHtmlFrame({
     <iframe
       ref={iframeRef}
       srcDoc={document.srcDoc}
-      className="min-h-0 w-full"
+      // A selection in the host covering the frame would paint over it as one
+      // solid block; the body's own selection highlights its text instead.
+      className="min-h-0 w-full select-none"
       data-email-ready={height > 0}
       height={1}
       style={{
@@ -464,11 +468,12 @@ function useMailHtmlFrame(
         (event.key === "Enter" && Boolean(reply)) ||
         (key === "f" && Boolean(forward)) ||
         (isNavigationKey && Boolean(navigate));
+      const isSelectAll =
+        (event.ctrlKey || event.metaKey) && key === "a" && !event.altKey;
       if (
         event.defaultPrevented ||
         event.altKey ||
-        event.ctrlKey ||
-        event.metaKey ||
+        ((event.ctrlKey || event.metaKey) && !isSelectAll) ||
         event.shiftKey ||
         event.isComposing
       )
@@ -480,6 +485,11 @@ function useMailHtmlFrame(
         )
       )
         return;
+      // The host may select the whole conversation rather than this body.
+      if (isSelectAll) {
+        forwardShortcut(event);
+        return;
+      }
       if (event.key === "Enter" && target?.closest?.("a, button")) return;
       const selection = observedDocument?.getSelection();
       if (selection && !selection.isCollapsed) {

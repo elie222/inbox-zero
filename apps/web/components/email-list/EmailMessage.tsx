@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState, useRef, useEffect } from "react";
 import { useAction } from "next-safe-action/hooks";
 import {
   ForwardIcon,
+  ReplyAllIcon,
   ReplyIcon,
   ChevronsUpDownIcon,
   ChevronsDownUpIcon,
@@ -38,6 +39,7 @@ import { EmailAttachments } from "@/components/email-list/EmailAttachments";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
 import { formatReplySubject } from "@/utils/email/subject";
+import { buildReplyAllRecipients, formatCcList } from "@/utils/email/reply-all";
 import { isTypingTarget } from "@/lib/shortcuts/registry";
 import { useContactPhoto } from "@/hooks/useContactPhoto";
 import { toastError } from "@/components/Toast";
@@ -211,11 +213,13 @@ export function EmailMessage({
     draftSessionMessageId?: string;
   }>();
   const clearPendingQuote = useCallback(() => setPendingQuote(undefined), []);
+  const [replyAll, setReplyAll] = useState(false);
 
   const onReply = useCallback(
     (quote?: string) => {
       onStartCompose?.();
       composeSessionRef.current += 1;
+      setReplyAll(false);
       const savedDraft = serverDrafts[0];
       setPendingQuote(
         quote
@@ -237,6 +241,10 @@ export function EmailMessage({
     },
     [onExpand, onStartCompose, serverDrafts, setDraftDismissed],
   );
+  const onReplyAll = useCallback(() => {
+    onReply();
+    setReplyAll(true);
+  }, [onReply]);
   const onForward = useCallback(() => {
     onStartCompose?.();
     composeSessionRef.current += 1;
@@ -357,6 +365,7 @@ export function EmailMessage({
         onForward={onForward}
         onOpenSenderContext={onOpenSenderContext}
         onReply={onReply}
+        onReplyAll={onReplyAll}
         onToggle={onToggle}
         onToggleKeyDown={onMessageKeyDown}
         showDetails={showDetails}
@@ -458,6 +467,7 @@ export function EmailMessage({
               draftSessionMessageId={composerSessionMessageId}
               message={message}
               replyAnchor={replyAnchor}
+              replyAll={replyAll}
               onCloseCompose={onCloseComposeAfterSend}
               onRestore={onRestoreComposeAfterSend}
               onRestoreCompose={onRestoreCompose}
@@ -495,6 +505,7 @@ function MessageHeader({
   toggleDetails,
   showReplyButton,
   onReply,
+  onReplyAll,
   onForward,
   onOpenSenderContext,
   onToggle,
@@ -509,6 +520,7 @@ function MessageHeader({
   toggleDetails: (e: React.MouseEvent) => void;
   showReplyButton: boolean;
   onReply: () => void;
+  onReplyAll: () => void;
   onForward: () => void;
   onOpenSenderContext?: (message: ThreadMessage) => void;
   onToggle?: () => void;
@@ -533,6 +545,15 @@ function MessageHeader({
     !isSent &&
     Boolean(senderEmail) &&
     !isSameEmailAddress(senderEmail, userEmail);
+  // A reply already keeps the CC list, so reply all only adds the other To
+  // recipients. Replies to the user's own mail already go to everyone.
+  const canReplyAll =
+    !isSent &&
+    splitRecipientList(message.headers.to ?? "").some(
+      (recipient) =>
+        !isSameEmailAddress(recipient, userEmail) &&
+        !isSameEmailAddress(recipient, message.headers.from),
+    );
 
   // Collapsing is the thread's call, so a row is only interactive once it has
   // been handed a toggle.
@@ -649,6 +670,18 @@ function MessageHeader({
                     <span className="sr-only">Reply</span>
                   </Button>
                 </Tooltip>
+                {canReplyAll && (
+                  <Tooltip content="Reply all">
+                    <Button
+                      onClick={compose(onReplyAll)}
+                      size="iconXs"
+                      variant="ghostMuted"
+                    >
+                      <ReplyAllIcon className="size-3.5" />
+                      <span className="sr-only">Reply all</span>
+                    </Button>
+                  </Tooltip>
+                )}
                 <Tooltip shortcuts={["forward"]}>
                   <Button
                     onClick={compose(onForward)}
@@ -696,6 +729,7 @@ function ReplyPanel({
   autoScroll = false,
   bodyAvailable = true,
   replyAnchor,
+  replyAll = false,
   quote,
   onQuoteInserted,
   awaitSentReply,
@@ -718,10 +752,11 @@ function ReplyPanel({
   autoScroll?: boolean;
   bodyAvailable?: boolean;
   replyAnchor?: ParsedMessage;
+  replyAll?: boolean;
   quote?: string;
   onQuoteInserted?: () => void;
 }) {
-  const { emailAccountId } = useAccount();
+  const { emailAccountId, userEmail } = useAccount();
   const { popOutReply } = useComposeModal();
   const [handingOffSend, setHandingOffSend] = useState(false);
   const handoffStarted = useRef(false);
@@ -773,12 +808,25 @@ function ReplyPanel({
     if (composeMode === "reply") {
       if (draftSource) return prepareDraftReplyEmail(draftSource);
 
-      return prepareReplyingToEmail(message, replyAnchor);
+      return prepareReplyingToEmail({
+        message,
+        threadOn: replyAnchor,
+        replyAll,
+        userEmail,
+      });
     }
     return forwardSource
       ? prepareForwardingEmail(forwardSource, Boolean(replyAnchor))
       : undefined;
-  }, [composeMode, message, draftSource, forwardSource, replyAnchor]);
+  }, [
+    composeMode,
+    message,
+    draftSource,
+    forwardSource,
+    replyAnchor,
+    replyAll,
+    userEmail,
+  ]);
 
   const { executeAsync: discardDraft } = useAction(
     deleteDraftAction.bind(null, emailAccountId),
@@ -936,13 +984,28 @@ function recipientSummary(
   return names ? `to ${names}` : "";
 }
 
-const prepareReplyingToEmail = (
-  message: ParsedMessage,
-  threadOn: ParsedMessage = message,
-): ReplyingToEmail => {
+const prepareReplyingToEmail = ({
+  message,
+  threadOn = message,
+  replyAll,
+  userEmail,
+}: {
+  message: ParsedMessage;
+  threadOn?: ParsedMessage;
+  replyAll: boolean;
+  userEmail: string;
+}): ReplyingToEmail => {
   const sentFromUser = message.labelIds?.includes("SENT");
 
   const { html } = createReplyContent({ message });
+  const replyAllCc =
+    replyAll && !sentFromUser
+      ? buildReplyAllRecipients(
+          message.headers,
+          message.headers.from,
+          userEmail,
+        ).cc
+      : undefined;
 
   return {
     // If following an email from yourself, use original recipients, otherwise reply to sender
@@ -958,7 +1021,7 @@ const prepareReplyingToEmail = (
     messageId: threadOn.id || undefined,
     threadId: threadOn.threadId || undefined,
     // Keep original CC
-    cc: message.headers.cc,
+    cc: replyAllCc ? formatCcList(replyAllCc) : message.headers.cc,
     // Keep original BCC if available
     bcc: sentFromUser ? message.headers.bcc : "",
     references: threadOn.headers.references,

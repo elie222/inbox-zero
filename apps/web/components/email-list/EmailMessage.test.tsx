@@ -67,6 +67,7 @@ vi.mock("@/app/(app)/[emailAccountId]/compose/ComposeEmailFormLazy", () => ({
     quote?: string;
     replyingToEmail?: {
       to?: string;
+      cc?: string;
       threadId?: string;
       forwardedMessageId?: string;
       forwardedAttachments?: Array<{ filename: string }>;
@@ -78,6 +79,8 @@ vi.mock("@/app/(app)/[emailAccountId]/compose/ComposeEmailFormLazy", () => ({
       data-quote={quote}
       data-to={replyingToEmail?.to}
       data-thread-id={replyingToEmail?.threadId}
+      data-to={replyingToEmail?.to}
+      data-cc={replyingToEmail?.cc}
       data-forwarded-message-id={replyingToEmail?.forwardedMessageId}
       data-forwarded-attachments={replyingToEmail?.forwardedAttachments
         ?.map((attachment) => attachment.filename)
@@ -386,6 +389,51 @@ describe("EmailMessage pop out", () => {
     );
 
     expect(screen.queryByTestId("composer")).toBeNull();
+  });
+});
+
+describe("EmailMessage reply all", () => {
+  afterEach(cleanup);
+
+  it("copies the other recipients and leaves the user out", () => {
+    const message = createMessage("message-1");
+    render(
+      <EmailMessage
+        expanded
+        message={{
+          ...message,
+          headers: {
+            ...message.headers,
+            to: "user@example.com, Alex Kim <alex@example.com>",
+            cc: "sam@example.com",
+          },
+        }}
+        onSendSuccess={vi.fn()}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Reply all" }));
+
+    const composer = screen.getByTestId("composer");
+    expect(composer.dataset.to).toBe("sender@example.com");
+    expect(composer.dataset.cc).toBe("sam@example.com, alex@example.com");
+  });
+
+  it("is not offered when the user is the only other recipient", () => {
+    render(
+      <EmailMessage
+        expanded
+        message={createMessage("message-1")}
+        onSendSuccess={vi.fn()}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Reply" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Reply all" })).toBeNull();
   });
 });
 

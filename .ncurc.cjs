@@ -26,6 +26,7 @@ module.exports = {
     "tiptap-markdown",
     "react-resizable-panels",
     "recharts",
+    "@tanstack/react-table",
     "@chronark/zod-bird",
 
     // v9+ breaks the shadcn/ui date picker component
@@ -72,5 +73,11 @@ module.exports = {
     // Stay pinned until a dedicated formatting migration.
     "ultracite",
     "@biomejs/biome",
+
+    // Sentry JS v11 drops sendDefaultPii; its dataCollection defaults collect
+    // request bodies, headers, and gen AI inputs/outputs. Upgrade separately
+    // with an explicit dataCollection config.
+    "@sentry/nextjs",
+    "@sentry/electron",
   ],
 };
