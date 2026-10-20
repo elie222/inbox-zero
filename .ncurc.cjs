@@ -79,5 +79,9 @@ module.exports = {
     // with an explicit dataCollection config.
     "@sentry/nextjs",
     "@sentry/electron",
+
+    // 1.64's Chromium breaks the offline mailbox reconnect spec when it runs
+    // after other specs in the same CI batch.
+    "@playwright/test",
   ],
 };
