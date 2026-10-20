@@ -140,13 +140,10 @@ export function useReplyDraftPersistence({
     return () => {
       window.removeEventListener("pagehide", flush);
       document.removeEventListener("visibilitychange", flushWhenHidden);
-      // Navigation must wait for the final local write after the form unmounts.
-      const release = registerOpenComposer();
-      flush().then((saved) => {
-        if (saved || stopped.current || !writer) release();
-      });
+      // A reload must wait for the final local write after the form unmounts.
+      flush().finally(registerOpenComposer());
     };
-  }, [flush, writer]);
+  }, [flush]);
 
   useEffect(
     () => () => {
