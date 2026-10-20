@@ -86,6 +86,8 @@ function ManageServiceWorker() {
     // Reloading before the new worker takes control leaves it waiting, so the
     // reloaded page would prompt again and then reload a second time.
     const activateWaitingWorker = () => {
+      // Sonner closes a toast on action click without calling onDismiss.
+      isPromptVisible = false;
       markPrompted();
       const waiting = registration?.waiting;
       if (!waiting) {
