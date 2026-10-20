@@ -88,6 +88,29 @@ describe("engine search and body hydration", () => {
     expect(searchedPages).toEqual(["page-5"]);
     await engine.close();
   });
+
+  it("continues from the view's own page, not one left from an earlier session", async () => {
+    const { engine, store, searchedPages } = await pagedSearchEngine();
+    await store.enqueueSearch({
+      accountId: "acc-1",
+      predicate: bodySearchQuery().predicate,
+      page: "page-5",
+    });
+    const search = engine.observeMailboxWindow?.(bodySearchQuery());
+    if (!search) throw new Error("missing mailbox window handle");
+    await engine.runUntil(Date.now() + 500);
+    await engine.runUntil(Date.now() + 500);
+
+    await search.loadMore();
+    await engine.runUntil(Date.now() + 500);
+    await engine.runUntil(Date.now() + 500);
+
+    expect([...searchedPages].sort()).toEqual(
+      [null, "page-1", "page-5"].sort(),
+    );
+    expect(searchedPages.at(-1)).toBe("page-1");
+    await engine.close();
+  });
 });
 
 async function pagedSearchEngine() {

@@ -352,6 +352,10 @@ export function createMailEngine(input: {
         if (!lanesStarted) {
           lanesStarted = true;
           await startSyncLanes();
+          // Lane failures from an earlier run surface here too, since a busy
+          // queue may never reach the idle path that reports them.
+          reportSyncLaneErrors();
+          if (signal?.aborted || runtime.nowMs() >= deadlineMs) return;
         }
         const work = await store.claimWork({
           ownerId,
@@ -533,11 +537,13 @@ export function createMailEngine(input: {
               jobId: work.jobId,
               attemptId: work.attemptId,
             });
-            settleRemoteSearchPage(
-              work.accountId,
-              work.predicate,
-              searched.status === "ok" ? searched.value.nextPage : undefined,
-            );
+            settleRemoteSearchPage({
+              accountId: work.accountId,
+              predicate: work.predicate,
+              page: work.page,
+              nextPage:
+                searched.status === "ok" ? searched.value.nextPage : undefined,
+            });
           }
           continue;
         }
@@ -597,15 +603,16 @@ export function createMailEngine(input: {
         const key = remoteSearchKey(accountId, predicate);
         const search = remoteSearches.get(key);
         if (!search) {
-          remoteSearches.set(key, {
+          const created: RemoteSearch = {
             accountId,
             predicate,
             wantedPages,
             fetchedPages: 0,
             nextPage: null,
-            pending: true,
-          });
-          enqueueRemoteSearchPage(accountId, predicate, null);
+            pendingPage: undefined,
+          };
+          remoteSearches.set(key, created);
+          enqueueRemoteSearchPage(created, null);
           continue;
         }
         search.wantedPages = Math.max(search.wantedPages, wantedPages);
@@ -614,58 +621,52 @@ export function createMailEngine(input: {
     }
   }
 
-  function settleRemoteSearchPage(
-    accountId: string,
-    predicate: MailPredicate,
-    nextPage: string | null | undefined,
-  ) {
-    const key = remoteSearchKey(accountId, predicate);
+  function settleRemoteSearchPage(input: {
+    accountId: string;
+    predicate: MailPredicate;
+    page: string | null;
+    nextPage: string | null | undefined;
+  }) {
+    const key = remoteSearchKey(input.accountId, input.predicate);
+    const search = remoteSearches.get(key);
+    // A page no view is waiting on, like one queued before a restart, ends
+    // there instead of continuing into the next page.
+    if (!search || search.pendingPage !== input.page) return;
     // A failed search starts over the next time a view asks for it.
-    if (nextPage === undefined) {
+    if (input.nextPage === undefined) {
       remoteSearches.delete(key);
       return;
     }
-    // A page queued before a restart has no search state; it counts as the
-    // first page so its continuation waits for a view to ask for more.
-    const search = remoteSearches.get(key) ?? {
-      accountId,
-      predicate,
-      wantedPages: 1,
-      fetchedPages: 0,
-      nextPage: null,
-      pending: true,
-    };
     search.fetchedPages += 1;
-    search.nextPage = nextPage;
-    search.pending = false;
-    remoteSearches.set(key, search);
+    search.nextPage = input.nextPage;
+    search.pendingPage = undefined;
     continueRemoteSearch(search);
   }
 
   function continueRemoteSearch(search: RemoteSearch) {
     if (
-      search.pending ||
+      search.pendingPage !== undefined ||
       !search.nextPage ||
       search.fetchedPages >= search.wantedPages
     ) {
       return;
     }
-    search.pending = true;
-    enqueueRemoteSearchPage(
-      search.accountId,
-      search.predicate,
-      search.nextPage,
-    );
+    enqueueRemoteSearchPage(search, search.nextPage);
   }
 
-  function enqueueRemoteSearchPage(
-    accountId: string,
-    predicate: MailPredicate,
-    page: string | null,
-  ) {
-    store.enqueueSearch({ accountId, predicate, page }).catch(() => {
-      remoteSearches.delete(remoteSearchKey(accountId, predicate));
-    });
+  function enqueueRemoteSearchPage(search: RemoteSearch, page: string | null) {
+    search.pendingPage = page;
+    store
+      .enqueueSearch({
+        accountId: search.accountId,
+        predicate: search.predicate,
+        page,
+      })
+      .catch(() => {
+        remoteSearches.delete(
+          remoteSearchKey(search.accountId, search.predicate),
+        );
+      });
   }
 
   function forgetRemoteSearches(accountId: string) {
@@ -890,8 +891,12 @@ export function createMailEngine(input: {
       clearTimeout(timer);
       if (onAbort) signal?.removeEventListener("abort", onAbort);
     }
-    // Reports lane failures to the host loop. Each failing account already
-    // backs off on its own, so this is for visibility, not retry pacing.
+    reportSyncLaneErrors();
+  }
+
+  // Reports lane failures to the host loop. Each failing account already
+  // backs off on its own, so this is for visibility, not retry pacing.
+  function reportSyncLaneErrors() {
     const errors = syncLaneErrors.splice(0);
     if (errors.length === 1) throw errors[0];
     if (errors.length > 1) {
@@ -1388,7 +1393,8 @@ type RemoteSearch = {
   wantedPages: number;
   fetchedPages: number;
   nextPage: string | null;
-  pending: boolean;
+  // The page queued for this search, or undefined when none is.
+  pendingPage: string | null | undefined;
 };
 
 function remoteSearchKey(accountId: string, predicate: MailPredicate) {
