@@ -24,8 +24,7 @@ export function SharedEmptyState() {
         </EmptyMedia>
         <EmptyTitle>No shared conversations yet</EmptyTitle>
         <EmptyDescription>
-          Open any email, choose Comment, and @mention a teammate. The thread
-          shows up here for them, with comments only your team can see.
+          Share an email by @mentioning a teammate in a comment.
         </EmptyDescription>
       </EmptyHeader>
       <EmptyContent>
@@ -98,14 +97,20 @@ function SharedThreadIllustration() {
         className="fill-background stroke-blue-500 dark:stroke-blue-400"
         strokeWidth="1.5"
       />
-      <text
-        x="120"
-        y="79"
-        className="fill-blue-600 font-medium dark:fill-blue-400"
-        fontSize="10"
-      >
-        @teammate
-      </text>
+      <circle
+        cx="125"
+        cy="75"
+        r="5"
+        className="fill-blue-500 dark:fill-blue-400"
+      />
+      <rect
+        x="135"
+        y="71"
+        width="36"
+        height="8"
+        rx="4"
+        className="fill-blue-100 dark:fill-blue-500/30"
+      />
       <rect
         x="120"
         y="87"
