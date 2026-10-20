@@ -294,6 +294,42 @@ test("reorders splits with arrows and dragging and persists tab order", async ({
   await expect(tabs).toHaveText(original);
 });
 
+test("reorders split tabs by holding and dragging a tab", async ({
+  page,
+}, testInfo) => {
+  await openMail(page);
+  const tabs = page.locator("[data-split-name]");
+  const original = await tabs.allTextContents();
+  expect(original.length).toBeGreaterThan(2);
+  const tabButtons = page.locator("button[data-split-tab]");
+  const activeBefore = await page
+    .locator('button[aria-current="true"]')
+    .getAttribute("data-split-tab");
+
+  await tabButtons.nth(1).hover();
+  await page.mouse.down();
+  await page.waitForTimeout(500);
+  const target = await tabButtons.nth(0).boundingBox();
+  if (!target) throw new Error("Split tab is not visible");
+  await page.mouse.move(target.x + target.width / 3, target.y + 4, {
+    steps: 5,
+  });
+  const expected = [original[1], original[0], ...original.slice(2)];
+  await expect(tabs).toHaveText(expected);
+  await hideDevIndicator(page);
+  await capturePlaywrightCheckpoint(page, testInfo, "mail-split-tab-dragging");
+  await page.mouse.up();
+
+  await expect(tabs).toHaveText(expected);
+  // Dropping a tab moves it without switching to it.
+  await expect(page.locator('button[aria-current="true"]')).toHaveAttribute(
+    "data-split-tab",
+    activeBefore ?? "",
+  );
+  await page.reload();
+  await expect(tabs).toHaveText(expected);
+});
+
 test("Other excludes enabled splits and restores mail when a split is disabled", async ({
   page,
 }, testInfo) => {

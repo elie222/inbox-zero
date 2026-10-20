@@ -362,6 +362,7 @@ export function MailShell() {
       splits.map((split) => ({
         ...split,
         deletable: split.filters.length > 0,
+        reorderable: split.id !== "all" && split.id !== OTHER_SPLIT_ID,
       })),
     [splits],
   );

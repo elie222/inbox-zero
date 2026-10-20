@@ -183,16 +183,22 @@ export const MailSplitTabs = memo(function MailSplitTabs({
 
   const onReorder = useCallback(
     async (ids: string[]) => {
+      // Shown right away so a dropped tab doesn't jump back while saving.
+      if (settings) {
+        mutateSettings(
+          { ...settings, splits: orderSplits(settings.splits, ids) },
+          { revalidate: false },
+        );
+      }
       const result = await reorderMailSplitsAction(emailAccountId, { ids });
+      await mutateSettings();
       if (result?.serverError || result?.validationErrors) {
         toast.error(getActionErrorMessage(result));
-        await mutateSettings();
         return false;
       }
-      await mutateSettings();
       return true;
     },
-    [emailAccountId, mutateSettings],
+    [emailAccountId, mutateSettings, settings],
   );
 
   const onDelete = useCallback(
@@ -236,6 +242,7 @@ export const MailSplitTabs = memo(function MailSplitTabs({
         activeSplitId={activeSplitId}
         onSelect={onSelectSplit}
         onDelete={onDelete}
+        onReorder={isAllAccounts ? undefined : onReorder}
         onEdit={
           isAllAccounts
             ? undefined
@@ -274,3 +281,12 @@ export const MailSplitTabs = memo(function MailSplitTabs({
     </>
   );
 });
+
+/** Puts the given splits in that order within the slots they already hold. */
+function orderSplits<T extends { id: string }>(splits: T[], ids: string[]) {
+  const byId = new Map(splits.map((split) => [split.id, split]));
+  const ordered = ids.flatMap((id) => byId.get(id) ?? []);
+  const moved = new Set(ordered.map((split) => split.id));
+  let next = 0;
+  return splits.map((split) => (moved.has(split.id) ? ordered[next++] : split));
+}
