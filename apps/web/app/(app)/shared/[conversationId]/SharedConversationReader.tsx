@@ -33,7 +33,7 @@ export function SharedConversationReader({
     return (
       <main className="mx-auto max-w-3xl p-6">
         <p>
-          Select your organization membership from{" "}
+          Open this conversation from{" "}
           <Link href="/shared" className="text-primary underline">
             Team
           </Link>

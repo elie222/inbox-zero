@@ -99,16 +99,6 @@ export const useNavigation = () => {
         href: prefixPath(currentEmailAccountId, "/mail"),
         icon: InboxIcon,
       },
-      ...(hasTeam
-        ? [
-            {
-              name: "Team",
-              href: TEAM_HREF,
-              icon: Users2Icon,
-              count: teamUnreadCount ?? undefined,
-            },
-          ]
-        : []),
       {
         name: "Chat",
         href: prefixPath(currentEmailAccountId, "/assistant"),
@@ -134,7 +124,7 @@ export const useNavigation = () => {
           ]
         : []),
     ],
-    [currentEmailAccountId, showMeetingRecorder, hasTeam, teamUnreadCount],
+    [currentEmailAccountId, showMeetingRecorder],
   );
 
   const cleanupItems: NavItem[] = useMemo(
@@ -203,8 +193,24 @@ export const useNavigation = () => {
             },
           ]
         : []),
+      ...(hasTeam
+        ? [
+            {
+              name: "Team",
+              href: TEAM_HREF,
+              icon: Users2Icon,
+              count: teamUnreadCount ?? undefined,
+            },
+          ]
+        : []),
     ],
-    [currentEmailAccountId, showMeetingBriefs, showIntegrations],
+    [
+      currentEmailAccountId,
+      showMeetingBriefs,
+      showIntegrations,
+      hasTeam,
+      teamUnreadCount,
+    ],
   );
 
   return {

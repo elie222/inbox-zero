@@ -1,15 +1,17 @@
 import { NextResponse } from "next/server";
-import { withAuth } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 import { countUnreadConversations } from "@/utils/team-comments/activity";
 
 export type TeamUnreadCountResponse = Awaited<ReturnType<typeof getData>>;
 
-export const GET = withAuth("team-comments/unread-count", async (request) =>
-  NextResponse.json(await getData(request.auth.userId), {
-    headers: { "Cache-Control": "private, no-store" },
-  }),
+export const GET = withEmailAccount(
+  "team-comments/unread-count",
+  async (request) =>
+    NextResponse.json(await getData(request.auth.emailAccountId), {
+      headers: { "Cache-Control": "private, no-store" },
+    }),
 );
 
-async function getData(userId: string) {
-  return { count: await countUnreadConversations(userId) };
+async function getData(emailAccountId: string) {
+  return { count: await countUnreadConversations(emailAccountId) };
 }

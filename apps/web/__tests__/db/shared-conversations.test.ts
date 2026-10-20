@@ -207,8 +207,8 @@ describe.skipIf(!RUN_DB_TESTS)(
           logger,
         },
       );
-      expect(await countUnreadConversations(ids.aUserId)).toBe(1);
-      expect(await countUnreadConversations(ids.bUserId)).toBe(0);
+      expect(await countUnreadConversations(ids.aAccountId)).toBe(1);
+      expect(await countUnreadConversations(ids.bAccountId)).toBe(0);
 
       await markConversationRead(
         { userId: ids.aUserId, memberId: ids.aMemberId },
@@ -217,7 +217,7 @@ describe.skipIf(!RUN_DB_TESTS)(
           throughRevision: comment.revision,
         },
       );
-      expect(await countUnreadConversations(ids.aUserId)).toBe(0);
+      expect(await countUnreadConversations(ids.aAccountId)).toBe(0);
     });
 
     test("different concurrent mutations keep a consistent revision", async () => {
