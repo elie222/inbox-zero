@@ -194,6 +194,9 @@
     "components/email-list/EmailThread.tsx",
     "app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx"
   ],
+  "thread-select-all.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/thread-select-all.ts"
+  ],
   "thread-states.spec.ts": [
     "components/email-list/EmailThread.tsx",
     "components/email-list/ThreadDeliveryStatus.tsx",
