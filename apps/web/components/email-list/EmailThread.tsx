@@ -26,6 +26,9 @@ import { useSentMessageOpens } from "@/hooks/useSentMessageOpens";
 import type { OutgoingThreadMessage } from "@/utils/mail-engine/conversation-thread";
 
 const NO_OUTGOING: OutgoingThreadMessage[] = [];
+// A send that never reaches the thread, or a body that never measures, must not
+// hold its composer open.
+const SENT_REPLY_HANDOFF_TIMEOUT_MS = 1000;
 
 export function EmailThread({
   messages,
@@ -221,6 +224,48 @@ export function EmailThread({
         ]),
       ),
     );
+  const [sentReplyHandoff, setSentReplyHandoff] = useState<{
+    operationId: string;
+    release: () => void;
+  }>();
+  const awaitSentReply = (operationId: string) =>
+    new Promise<void>((release) =>
+      setSentReplyHandoff({ operationId, release }),
+    );
+  useEffect(() => {
+    if (!sentReplyHandoff) return;
+    const { operationId, release } = sentReplyHandoff;
+    let frame = 0;
+    const finish = () => {
+      release();
+      setSentReplyHandoff(undefined);
+    };
+    const timeout = setTimeout(finish, SENT_REPLY_HANDOFF_TIMEOUT_MS);
+    // The row commits before its html body has been prepared and measured.
+    const check = () => {
+      const row = Array.from(
+        threadRef.current?.querySelectorAll<HTMLElement>(
+          "[data-send-operation-id]",
+        ) ?? [],
+      ).find((item) => item.dataset.sendOperationId === operationId);
+      const bodies = row?.querySelectorAll<HTMLElement>("[data-email-ready]");
+      if (
+        bodies &&
+        Array.from(bodies).every((body) => body.dataset.emailReady === "true")
+      ) {
+        clearTimeout(timeout);
+        finish();
+        return;
+      }
+      frame = requestAnimationFrame(check);
+    };
+    check();
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(timeout);
+      release();
+    };
+  }, [sentReplyHandoff]);
   const [selectedMessageId, setSelectedMessageId] = useState<string>();
   const selectedId = organizedMessages.some(
     ({ message }) => message.id === selectedMessageId,
@@ -318,7 +363,7 @@ export function EmailThread({
           </div>
         )}
 
-        <ul className="pt-1">
+        <ul className="relative pt-1">
           {organizedMessages.map(({ message, draftMessages, outgoing }) => {
             const sendOperationId =
               outgoing?.operationId ?? sendOperationIds?.get(message.id);
@@ -377,6 +422,12 @@ export function EmailThread({
                 composerSessionMessageId={
                   sendOperationId ? `outgoing:${sendOperationId}` : undefined
                 }
+                sendOperationId={sendOperationId}
+                concealed={
+                  Boolean(sendOperationId) &&
+                  sentReplyHandoff?.operationId === sendOperationId
+                }
+                awaitSentReply={awaitSentReply}
                 onReplySent={() => {
                   // The sent reply lands below as the newest message; keep this
                   // one open and let selection fall through to the reply.

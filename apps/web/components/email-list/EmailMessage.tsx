@@ -86,6 +86,9 @@ export function EmailMessage({
   replyAnchor,
   composerSessionMessageId,
   onReplySent,
+  awaitSentReply,
+  sendOperationId,
+  concealed,
 }: {
   message: ThreadMessage;
   bodyAvailable?: boolean;
@@ -124,6 +127,15 @@ export function EmailMessage({
   composerSessionMessageId?: string;
   /** A reply or forward from this message just left its composer. */
   onReplySent?: () => void;
+  /**
+   * Resolves once a queued send's message is ready in the thread, so its
+   * composer can stay up until then instead of leaving a gap.
+   */
+  awaitSentReply?: (operationId: string) => Promise<void>;
+  /** The send this message came from, while it is outgoing or after it syncs. */
+  sendOperationId?: string;
+  /** Laid out but invisible, so its body loads before it replaces the composer that sent it. */
+  concealed?: boolean;
 }) {
   const { emailAccountId } = useAccount();
   const { poppedOutDraftSessionId } = useComposeModal();
@@ -303,7 +315,9 @@ export function EmailMessage({
     <li
       ref={messageRef}
       data-thread-message-id={message.id}
+      data-send-operation-id={sendOperationId}
       data-selected={selected}
+      aria-hidden={concealed || undefined}
       tabIndex={selected !== undefined || hasOpenComposer ? -1 : undefined}
       aria-current={selected || undefined}
       onFocusCapture={onSelect}
@@ -330,6 +344,7 @@ export function EmailMessage({
       className={cn(
         "group/message min-w-0 border-l-2 border-transparent outline-none transition-colors focus-within:border-primary",
         selected && "border-primary",
+        concealed && "invisible absolute inset-x-0",
         expanded
           ? "my-2 px-2 py-3 sm:px-5"
           : "px-2 py-1.5 hover:bg-muted/40 sm:px-5",
@@ -415,6 +430,7 @@ export function EmailMessage({
               onRestore={() => setDraftDismissed(sessionMessageId, false)}
               onSendSuccess={onSendSuccess}
               onSent={onReplySent}
+              awaitSentReply={awaitSentReply}
               onMarkDone={onMarkDone}
               onDraftDiscarded={onDraftDiscarded}
               quote={
@@ -447,6 +463,7 @@ export function EmailMessage({
               onRestoreCompose={onRestoreCompose}
               onSendSuccess={onSendSuccess}
               onSent={onReplySent}
+              awaitSentReply={awaitSentReply}
               onMarkDone={onMarkDone}
               onStartDiscard={onStartDiscard}
               refetch={refetch}
@@ -681,11 +698,13 @@ function ReplyPanel({
   replyAnchor,
   quote,
   onQuoteInserted,
+  awaitSentReply,
 }: {
   message: ParsedMessage;
   refetch: () => void;
   onSendSuccess: (messageId: string, threadId: string) => void;
   onSent?: () => void;
+  awaitSentReply?: (operationId: string) => Promise<void>;
   onMarkDone?: () => void;
   onCloseCompose: () => void;
   onRestore?: () => void;
@@ -704,6 +723,22 @@ function ReplyPanel({
 }) {
   const { emailAccountId } = useAccount();
   const { popOutReply } = useComposeModal();
+  const [handingOffSend, setHandingOffSend] = useState(false);
+  const handoffStarted = useRef(false);
+  // Also set on unmount: undo can restore a new composer in this one's place,
+  // and a late handoff must not close it.
+  const closed = useRef(false);
+  useEffect(() => {
+    closed.current = false;
+    return () => {
+      closed.current = true;
+    };
+  }, []);
+  const closeAfterSend = () => {
+    if (closed.current) return;
+    closed.current = true;
+    onCloseCompose();
+  };
   const replyTargetId = replyAnchor?.id ?? message.id;
   const draftSessionId = getReplyDraftSessionId(
     draftSessionMessageId ?? message.id,
@@ -821,7 +856,7 @@ function ReplyPanel({
     );
 
   return (
-    <div className="mt-5" ref={replyRef}>
+    <div className="mt-5" inert={handingOffSend} ref={replyRef}>
       <ComposeEmailFormLazy
         providerDraftMessageId={
           composeMode === "reply" ? draftMessage?.id : undefined
@@ -829,11 +864,27 @@ function ReplyPanel({
         draftKeyMessageId={replyTargetId}
         draftMode={composeMode}
         draftSessionId={draftSessionId}
-        onClose={() => {
-          onCloseCompose();
+        onClose={(queuedOperationId?: string) => {
+          // An offline send closes again once queued; the handoff closes it.
+          if (handoffStarted.current) return;
+          // Before the handoff, so this message stays open once the sent
+          // reply below it is the newest.
           onSent?.();
+          if (!queuedOperationId || !awaitSentReply) {
+            closeAfterSend();
+            return;
+          }
+          // Closing now would leave the thread without the reply until the
+          // sent message's body has loaded.
+          handoffStarted.current = true;
+          setHandingOffSend(true);
+          awaitSentReply(queuedOperationId).then(closeAfterSend);
         }}
-        onRestore={onRestore}
+        onRestore={() => {
+          // Undo restores a fresh composer, which needs this one closed first.
+          if (handoffStarted.current) closeAfterSend();
+          onRestore?.();
+        }}
         onDiscard={onDiscard}
         onPopOut={() => {
           popOutReply({

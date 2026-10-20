@@ -237,6 +237,28 @@ describe("HtmlEmail", () => {
     expect(fetch).toHaveBeenCalledOnce();
   });
 
+  // A sent reply keeps its row when the provider's copy replaces the outgoing
+  // one, and that copy needs its own proxy preparation.
+  it("keeps the current body on screen while a new message id is prepared", async () => {
+    const view = render(
+      <HtmlEmail html="<p>Reply</p>" messageId="outgoing:send-1" />,
+    );
+    const frame = await view.findByTitle("Email content preview");
+    const preparation = Promise.withResolvers<Response>();
+    vi.mocked(fetch).mockReturnValue(preparation.promise);
+
+    view.rerender(
+      <HtmlEmail html="<p>Reply</p><p>Sent</p>" messageId="sent-1" />,
+    );
+    await act(async () => {});
+
+    expect(view.getByTitle("Email content preview")).toBe(frame);
+
+    await act(async () =>
+      preparation.resolve(Response.json({ html: "<p>Reply</p><p>Sent</p>" })),
+    );
+  });
+
   it("keeps https images allowed when proxy rewriting leaves the html unchanged", async () => {
     vi.stubGlobal(
       "fetch",

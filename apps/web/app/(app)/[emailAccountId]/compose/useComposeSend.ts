@@ -98,7 +98,8 @@ export function useComposeSend({
   refetch?: () => void;
   onSuccess?: (messageId: string, threadId: string) => void;
   onMarkDone?: () => void;
-  onClose?: () => void;
+  /** Given the send's operation id when the email was queued to the outbox. */
+  onClose?: (queuedOperationId?: string) => void;
   onRestore?: () => void;
 }) {
   const { emailAccountId } = useAccount();
@@ -333,7 +334,7 @@ export function useComposeSend({
             attachments: attachmentsRef.current.flatMap(toAttachmentReference),
             online,
             threadId: readerThreadId,
-            onQueued: async () => {
+            onQueued: async (operationId) => {
               deliveryAccepted = true;
               showDraftAgain = hideSendingDraftMessages(
                 selectedEmailAccountId,
@@ -346,7 +347,7 @@ export function useComposeSend({
                   readerThreadId,
                 ]).catch(() => {});
               }
-              onClose?.();
+              onClose?.(operationId);
             },
           });
         } catch (error) {
