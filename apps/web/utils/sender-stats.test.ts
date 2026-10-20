@@ -18,6 +18,7 @@ function senderRow({
     from,
     fromName: "News",
     minFromName: "News",
+    fromNameCount: 1,
     count,
     inboxEmails: 1,
     readEmails: 0,

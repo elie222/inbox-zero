@@ -303,6 +303,61 @@ google:
       label_ids:
         - INBOX
       internal_date: "1786665600000"
+    - id: msg_playwright_pile_1
+      thread_id: thr_playwright_pile_1
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: Casino Bonus Hub <pile-1@example.com>
+      to: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Spoofed No-Address Mail
+      body_text: The database row for this thread has no sender address.
+      label_ids:
+        - INBOX
+        - UNREAD
+      internal_date: "1786579200000"
+    - id: msg_playwright_pile_2
+      thread_id: thr_playwright_pile_2
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: Casino Bonus Hub <pile-2@example.com>
+      to: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Spoofed No-Address Mail
+      body_text: The database row for this thread has no sender address.
+      label_ids:
+        - INBOX
+        - UNREAD
+      internal_date: "1786492800000"
+    - id: msg_playwright_pile_3
+      thread_id: thr_playwright_pile_3
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: Norton Renewal Center <pile-3@example.com>
+      to: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Spoofed No-Address Mail
+      body_text: The database row for this thread has no sender address.
+      label_ids:
+        - INBOX
+        - UNREAD
+      internal_date: "1786406400000"
+    - id: msg_playwright_pile_4
+      thread_id: thr_playwright_pile_4
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: MyChart Free Gift <pile-4@example.com>
+      to: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Spoofed No-Address Mail
+      body_text: The database row for this thread has no sender address.
+      label_ids:
+        - INBOX
+        - UNREAD
+      internal_date: "1786320000000"
+    - id: msg_playwright_pile_replied
+      thread_id: thr_playwright_pile_replied
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: Gift Card Desk <pile-replied@example.com>
+      to: __PLAYWRIGHT_TEST_EMAIL__
+      subject: A Conversation I Answered
+      body_text: The user replied in this thread, so it never joins the pile.
+      label_ids:
+        - INBOX
+        - UNREAD
+      internal_date: "1786233600000"
     - id: msg_playwright_calendar
       thread_id: thr_playwright_calendar
       user_email: __PLAYWRIGHT_TEST_EMAIL__

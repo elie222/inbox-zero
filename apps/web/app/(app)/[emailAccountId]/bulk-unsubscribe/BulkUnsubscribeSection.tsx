@@ -53,6 +53,7 @@ import { Card } from "@/components/ui/card";
 import { SearchBar } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/SearchBar";
 import { useToggleSelect } from "@/hooks/useToggleSelect";
 import { BulkActions } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/BulkActions";
+import { isNoAddressRow } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/NoAddressSpamPile";
 import { ArchiveProgress } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/ArchiveProgress";
 import { ClientOnly } from "@/components/ClientOnly";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -229,13 +230,16 @@ export function BulkUnsubscribe() {
 
   // Data is filtered, sorted, and limited by the backend. Senders that can
   // only be blocked are hidden from review unless asked for.
+  // The no-address pile is always shown: it can't be blocked, only moved.
   const rows = useMemo(
     () =>
       filter === "unhandled" && !includeWithoutUnsubscribeLink
-        ? data?.newsletters.filter((item) =>
-            getUserFacingUnsubscribeLink({
-              unsubscribeLink: item.unsubscribeLink,
-            }),
+        ? data?.newsletters.filter(
+            (item) =>
+              isNoAddressRow(item) ||
+              getUserFacingUnsubscribeLink({
+                unsubscribeLink: item.unsubscribeLink,
+              }),
           )
         : data?.newsletters,
     [data?.newsletters, filter, includeWithoutUnsubscribeLink],
@@ -283,7 +287,11 @@ export function BulkUnsubscribe() {
     selectItems,
     clearSelection,
     deselectItem,
-  } = useToggleSelect(rows?.map((item) => ({ id: item.name })) || []);
+  } = useToggleSelect(
+    rows
+      ?.filter((item) => !isNoAddressRow(item))
+      .map((item) => ({ id: item.name })) || [],
+  );
 
   const suggestedRows = useMemo(
     () => rows?.filter(isUnsubscribeSuggestion) ?? [],
@@ -297,14 +305,18 @@ export function BulkUnsubscribe() {
         : (rows ?? []),
     [isSuggestedMode, rows, selected],
   );
-  const visibleRowIds = useMemo(
-    () => visibleRows.map((row) => row.name),
+  const selectableRows = useMemo(
+    () => visibleRows.filter((row) => !isNoAddressRow(row)),
     [visibleRows],
   );
+  const visibleRowIds = useMemo(
+    () => selectableRows.map((row) => row.name),
+    [selectableRows],
+  );
   const isAllVisibleSelected =
-    visibleRows.length > 0 &&
-    visibleRows.every((row) => selected.get(row.name));
-  const isSomeVisibleSelected = visibleRows.some((row) =>
+    selectableRows.length > 0 &&
+    selectableRows.every((row) => selected.get(row.name));
+  const isSomeVisibleSelected = selectableRows.some((row) =>
     selected.get(row.name),
   );
 
@@ -379,7 +391,9 @@ export function BulkUnsubscribe() {
         labels={userLabels}
         mutate={mutate}
         selected={selectedRow?.name === item.name}
-        onSelectRow={() => setSelectedRow(item)}
+        onSelectRow={() =>
+          setSelectedRow(isNoAddressRow(item) ? undefined : item)
+        }
         hasUnsubscribeAccess={hasUnsubscribeAccess}
         refetchPremium={refetchPremium}
         openPremiumModal={openModal}

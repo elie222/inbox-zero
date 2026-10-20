@@ -90,7 +90,7 @@ const emulateSeedPath = writeEmulateSeed({
 });
 const emulateCommand =
   process.env.EMULATE_COMMAND ??
-  `npx emulate start --service ${mailProvider} --port ${emulatePort} --seed ${emulateSeedPath}`;
+  `npx emulate start --service ${mailProvider} --port ${emulatePort} --seed ${JSON.stringify(emulateSeedPath)}`;
 
 fs.mkdirSync(path.dirname(authStatePath), { recursive: true });
 process.env.DATABASE_URL = databaseUrl;

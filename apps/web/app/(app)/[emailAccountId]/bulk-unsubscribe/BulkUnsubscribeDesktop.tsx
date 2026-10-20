@@ -19,6 +19,11 @@ import { SenderIcon } from "@/components/SenderIcon";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/utils";
 import { isUnsubscribeSuggestion } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/suggestions";
+import {
+  isNoAddressRow,
+  NoAddressActionCell,
+  NoAddressSenderLabel,
+} from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/NoAddressSpamPile";
 
 export function BulkUnsubscribeDesktop({
   tableRows,
@@ -113,6 +118,8 @@ export function BulkUnsubscribeRowDesktop({
   readPercentage,
 }: RowProps) {
   const isSuggested = isUnsubscribeSuggestion(item);
+  // Nothing to open, select or act on by sender: it has no address.
+  const noAddress = isNoAddressRow(item);
 
   return (
     <TableRow
@@ -132,30 +139,37 @@ export function BulkUnsubscribeRowDesktop({
         if (!event.currentTarget.contains(target)) return;
         if (target.closest("button, a, input, [data-cell=checkbox]")) return;
         if (window.getSelection()?.toString()) return;
+        if (noAddress) return;
         onOpenNewsletter(item);
       }}
     >
       <TableCell className="w-10 pr-0" data-cell="checkbox">
-        <ButtonCheckbox
-          label={`Select ${item.fromName || item.name}`}
-          checked={checked}
-          onChange={(shiftKey) => onToggleSelect?.(item.name, shiftKey)}
-        />
+        {!noAddress && (
+          <ButtonCheckbox
+            label={`Select ${item.fromName || item.name}`}
+            checked={checked}
+            onChange={(shiftKey) => onToggleSelect?.(item.name, shiftKey)}
+          />
+        )}
       </TableCell>
       <TableCell className="min-w-0 py-3 pl-4" data-cell="from">
-        <div className="flex items-center gap-2 min-w-0">
-          <SenderIcon email={item.name} name={item.fromName} size={32} />
-          <div className="min-w-0 lg:flex lg:items-baseline lg:gap-2">
-            <div className="truncate font-medium">
-              {item.fromName || item.name}
-            </div>
-            {item.fromName && (
-              <div className="truncate text-xs text-muted-foreground lg:text-sm">
-                {item.name}
+        {noAddress ? (
+          <NoAddressSenderLabel fromNameCount={item.fromNameCount} />
+        ) : (
+          <div className="flex items-center gap-2 min-w-0">
+            <SenderIcon email={item.name} name={item.fromName} size={32} />
+            <div className="min-w-0 lg:flex lg:items-baseline lg:gap-2">
+              <div className="truncate font-medium">
+                {item.fromName || item.name}
               </div>
-            )}
+              {item.fromName && (
+                <div className="truncate text-xs text-muted-foreground lg:text-sm">
+                  {item.name}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </TableCell>
       <TableCell className="whitespace-nowrap" data-label="Emails">
         <span className="font-medium text-foreground/80">{item.value}</span>
@@ -186,19 +200,26 @@ export function BulkUnsubscribeRowDesktop({
       </TableCell>
       <TableCell className="w-auto sm:w-[300px] p-1" data-cell="actions">
         <div className="flex justify-end items-center gap-1">
-          <ActionCell
-            item={item}
-            hasUnsubscribeAccess={hasUnsubscribeAccess}
-            mutate={mutate}
-            refetchPremium={refetchPremium}
-            onOpenNewsletter={onOpenNewsletter}
-            selected={selected}
-            labels={labels}
-            openPremiumModal={openPremiumModal}
-            userEmail={userEmail}
-            emailAccountId={emailAccountId}
-            filter={filter}
-          />
+          {noAddress ? (
+            <NoAddressActionCell
+              emailAccountId={emailAccountId}
+              mutate={mutate}
+            />
+          ) : (
+            <ActionCell
+              item={item}
+              hasUnsubscribeAccess={hasUnsubscribeAccess}
+              mutate={mutate}
+              refetchPremium={refetchPremium}
+              onOpenNewsletter={onOpenNewsletter}
+              selected={selected}
+              labels={labels}
+              openPremiumModal={openPremiumModal}
+              userEmail={userEmail}
+              emailAccountId={emailAccountId}
+              filter={filter}
+            />
+          )}
         </div>
       </TableCell>
     </TableRow>

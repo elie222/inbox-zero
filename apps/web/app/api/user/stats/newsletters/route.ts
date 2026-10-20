@@ -85,6 +85,7 @@ async function getEmailMessages(
         maxFromName: email.fromName,
       }),
       value: email.count,
+      fromNameCount: email.fromNameCount,
       inboxEmails: email.inboxEmails,
       readEmails: email.readEmails,
       lastEmailAt: email.lastEmailAt,

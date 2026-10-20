@@ -85,6 +85,7 @@ vi.mock("sonner", () => ({
 }));
 
 import {
+  getBulkActionErrorMessage,
   useApproveButton,
   useAutoArchive,
   useBulkAutoArchive,
@@ -504,5 +505,45 @@ describe("bulk unsubscribe hooks", () => {
       expect(captureExceptionMock).not.toHaveBeenCalled();
       expect(queueArchiveSendersMock).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe("getBulkActionErrorMessage", () => {
+  it("shows the message of a thrown error", () => {
+    expect(
+      getBulkActionErrorMessage(new Error("Rate limited"), "Fallback"),
+    ).toBe("Rate limited");
+  });
+
+  it("shows a server error from an action result", () => {
+    expect(
+      getBulkActionErrorMessage(
+        { error: { serverError: "Mailbox is read-only" } },
+        "Fallback",
+      ),
+    ).toBe("Mailbox is read-only");
+  });
+
+  it("shows the field that failed validation instead of a bare failure", () => {
+    expect(
+      getBulkActionErrorMessage(
+        {
+          error: {
+            validationErrors: {
+              formErrors: [],
+              fieldErrors: { senderEmail: ["Invalid email"] },
+            },
+          },
+        },
+        "There was an error archiving the emails",
+      ),
+    ).toBe("Invalid email");
+  });
+
+  it("falls back when there is nothing to show", () => {
+    expect(getBulkActionErrorMessage({ error: {} }, "Fallback")).toBe(
+      "Fallback",
+    );
+    expect(getBulkActionErrorMessage(undefined, "Fallback")).toBe("Fallback");
   });
 });

@@ -16,6 +16,7 @@ import {
   assertActionSucceeded,
   captureException,
   EmailProviderRateLimitError,
+  getActionErrorMessage,
 } from "@/utils/error";
 import {
   addToArchiveSenderThreadQueue,
@@ -398,6 +399,7 @@ export function useUnsubscribe<T extends Row>({
       } else {
         captureException(error);
         toast.error(`Could not unsubscribe from ${item.name}`, {
+          description: getFailureReason(error),
           action: openPageAction,
         });
       }
@@ -612,7 +614,9 @@ export function useAutoArchive<T extends Row>({
       posthog.capture("Clicked Auto Archive");
     } catch (error) {
       captureException(error);
-      toast.error("Failed to enable auto archive");
+      toast.error("Failed to enable auto archive", {
+        description: getFailureReason(error),
+      });
     } finally {
       setAutoArchiveLoading(false);
     }
@@ -639,7 +643,9 @@ export function useAutoArchive<T extends Row>({
       await mutate();
     } catch (error) {
       captureException(error);
-      toast.error("Failed to disable auto archive");
+      toast.error("Failed to disable auto archive", {
+        description: getFailureReason(error),
+      });
     } finally {
       setAutoArchiveLoading(false);
     }
@@ -663,7 +669,9 @@ export function useAutoArchive<T extends Row>({
         });
       } catch (error) {
         captureException(error);
-        toast.error("Failed to enable auto archive");
+        toast.error("Failed to enable auto archive", {
+          description: getFailureReason(error),
+        });
       } finally {
         setAutoArchiveLoading(false);
       }
@@ -827,7 +835,9 @@ export function useApproveButton<T extends Row>({
       setOptimisticStatus(previousStatus);
       await mutate();
       captureException(error);
-      toast.error("Failed to update sender status");
+      toast.error("Failed to update sender status", {
+        description: getFailureReason(error),
+      });
     }
   };
 
@@ -903,9 +913,7 @@ export function useBulkArchive<T extends Row>({
     const promise = executeBulkArchive({
       froms: items.map((item) => item.name),
     }).then(async (result) => {
-      if (result?.serverError) {
-        throw new Error(result.serverError);
-      }
+      assertActionSucceeded(result);
 
       await mutate?.(undefined, { revalidate: true });
       return result;
@@ -1021,7 +1029,12 @@ export function useBulkDelete<T extends Row>({
   const onBulkDelete = (items: T[]) => {
     posthog.capture("Clicked Bulk Delete");
 
-    const promise = executeBulkTrash({ froms: items.map((item) => item.name) });
+    const promise = executeBulkTrash({
+      froms: items.map((item) => item.name),
+    }).then((result) => {
+      assertActionSucceeded(result);
+      return result;
+    });
 
     const displayNames = formatSenderNames(items);
 
@@ -1294,22 +1307,21 @@ async function refreshPremium(
   }
 }
 
-function getBulkActionErrorMessage(error: unknown, fallback: string) {
-  if (error instanceof Error) return error.message;
+export function getBulkActionErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error) return error.message || fallback;
 
-  if (
-    error &&
-    typeof error === "object" &&
-    "error" in error &&
-    error.error &&
-    typeof error.error === "object" &&
-    "serverError" in error.error &&
-    typeof error.error.serverError === "string"
-  ) {
-    return error.error.serverError;
+  if (error && typeof error === "object" && "error" in error) {
+    return getActionErrorMessage(
+      error.error as Parameters<typeof getActionErrorMessage>[0],
+      fallback,
+    );
   }
 
   return fallback;
+}
+
+function getFailureReason(error: unknown) {
+  return error instanceof Error && error.message ? error.message : undefined;
 }
 
 // An expected outcome (the sender's endpoint rejected or needs a person), not

@@ -2,6 +2,7 @@ import { z } from "zod";
 import prisma from "@/utils/prisma";
 import { Prisma } from "@/generated/prisma/client";
 import { SafeError } from "@/utils/error";
+import { excludeRepliedThreads } from "@/utils/no-address-pile";
 
 export const senderStatsOrderBySchema = z.enum([
   "emails",
@@ -15,6 +16,8 @@ export type SenderEmailStats = {
   from: string;
   fromName: string | null;
   minFromName: string | null;
+  /** Distinct display names; tells spoofed no-address mail apart. */
+  fromNameCount: number;
   count: number;
   inboxEmails: number;
   readEmails: number;
@@ -54,7 +57,8 @@ const senderStatsCursorSchema = z.object({
   v: z.literal(1),
   orderBy: senderStatsOrderBySchema,
   orderDirection: z.enum(["asc", "desc"]),
-  from: z.string().min(1).max(320),
+  // "" is the no-address pile, which can be the last row of a page.
+  from: z.string().max(320),
   count: z.number().int().positive().optional(),
   readEmails: z.number().int().nonnegative().optional(),
   archivedEmails: z.number().int().nonnegative().optional(),
@@ -119,6 +123,8 @@ export async function getSenderEmailStats(
     Prisma.sql`draft = false`,
     // Sent mail can lose the SENT label (e.g. moved out of Outlook's Sent Items)
     Prisma.sql`LOWER("from") <> (SELECT LOWER(email) FROM "EmailAccount" WHERE id = ${options.emailAccountId})`,
+    // The no-address pile can be moved in bulk, so it never holds a thread the user replied to.
+    Prisma.sql`("from" <> '' OR ${excludeRepliedThreads(options.emailAccountId)})`,
   );
 
   if (options.search) {
@@ -146,6 +152,7 @@ export async function getSenderEmailStats(
         LOWER("from") AS "from",
         MAX(NULLIF("fromName", '')) as "fromName",
         MIN(NULLIF("fromName", '')) as "minFromName",
+        COUNT(DISTINCT NULLIF("fromName", ''))::int as "fromNameCount",
         COUNT(*)::int as "count",
         SUM(CASE WHEN inbox = true THEN 1 ELSE 0 END)::int as "inboxEmails",
         SUM(CASE WHEN read = true THEN 1 ELSE 0 END)::int as "readEmails",
@@ -181,6 +188,7 @@ function toSenderEmailStats(result: SenderEmailStatsRow): SenderEmailStats {
     from: result.from,
     fromName: result.fromName,
     minFromName: result.minFromName,
+    fromNameCount: Number(result.fromNameCount),
     count: Number(result.count),
     inboxEmails: Number(result.inboxEmails),
     readEmails: Number(result.readEmails),
