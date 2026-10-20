@@ -328,11 +328,11 @@ export function EmailMessage({
         }
       }}
       className={cn(
-        "group/message min-w-0 border-l-2 border-transparent outline-none transition-colors focus-within:border-primary",
-        selected && "border-primary",
-        expanded
-          ? "my-2 px-2 py-3 sm:px-5"
-          : "px-2 py-1.5 hover:bg-muted/40 sm:px-5",
+        // Padding stays the same in both states so expanding doesn't shift
+        // the header. The selection bar is an inset shadow for the same reason.
+        "group/message min-w-0 rounded-lg border bg-card px-3 py-2.5 outline-none transition-[background-color,box-shadow] focus-within:shadow-[inset_2px_0_0_hsl(var(--primary))] sm:px-4",
+        selected && "shadow-[inset_2px_0_0_hsl(var(--primary))]",
+        !expanded && "hover:bg-muted/40",
       )}
     >
       <MessageHeader

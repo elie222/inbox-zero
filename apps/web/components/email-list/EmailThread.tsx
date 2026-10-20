@@ -318,7 +318,7 @@ export function EmailThread({
           </div>
         )}
 
-        <ul className="pt-1">
+        <ul className="flex flex-col gap-2 pt-1">
           {organizedMessages.map(({ message, draftMessages, outgoing }) => {
             const sendOperationId =
               outgoing?.operationId ?? sendOperationIds?.get(message.id);
