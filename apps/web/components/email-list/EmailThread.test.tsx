@@ -20,6 +20,13 @@ import {
 } from "@/components/email-list/EmailThread";
 import { hideSendingDraftMessages } from "@/hooks/useHiddenDraftMessageIds";
 
+class MockResizeObserver {
+  observe() {}
+  disconnect() {}
+}
+
+vi.stubGlobal("ResizeObserver", MockResizeObserver);
+
 const { discardDraft } = vi.hoisted(() => ({ discardDraft: vi.fn() }));
 
 vi.mock("next-safe-action/hooks", () => ({

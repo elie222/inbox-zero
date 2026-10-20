@@ -329,10 +329,11 @@ export function EmailMessage({
       }}
       className={cn(
         // Padding stays the same in both states so expanding doesn't shift
-        // the header. The selection bar is an overlay for the same reason; the
-        // card clips it so its outer edge follows the corners.
-        "group/message relative min-w-0 overflow-clip rounded-lg bg-card px-3 py-2.5 outline-none transition-colors before:absolute before:inset-y-0 before:left-0 before:w-1 before:bg-primary before:opacity-0 before:transition-opacity focus-within:before:opacity-100 sm:px-4",
-        selected && "before:opacity-100",
+        // the header. The thread draws a sliding selection bar when it tracks
+        // selection; otherwise the focused card draws its own.
+        "group/message relative min-w-0 rounded bg-card px-3 py-2.5 outline-none transition-colors sm:px-4",
+        selected === undefined &&
+          "before:absolute before:inset-y-0 before:left-0 before:w-1 before:rounded-l before:bg-primary before:opacity-0 focus-within:before:opacity-100",
         !expanded && "hover:bg-muted/40",
       )}
     >
