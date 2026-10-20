@@ -330,7 +330,7 @@ export function EmailMessage({
       className={cn(
         // Padding stays the same in both states so expanding doesn't shift
         // the header. The selection bar is an inset shadow for the same reason.
-        "group/message min-w-0 rounded-lg border bg-card px-3 py-2.5 outline-none transition-[background-color,box-shadow] focus-within:shadow-[inset_2px_0_0_hsl(var(--primary))] sm:px-4",
+        "group/message min-w-0 border bg-card px-3 py-2.5 outline-none transition-[background-color,box-shadow] focus-within:shadow-[inset_2px_0_0_hsl(var(--primary))] sm:px-4",
         selected && "shadow-[inset_2px_0_0_hsl(var(--primary))]",
         !expanded && "hover:bg-muted/40",
       )}
