@@ -60,7 +60,6 @@ export function SplitTabs({
   className,
 }: SplitTabsProps) {
   const tabsRef = useRef<HTMLDivElement>(null);
-  const activeTabRef = useRef<HTMLButtonElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   // The click that ends a drag would otherwise also open the dragged split.
   const suppressClickRef = useRef(false);
@@ -95,6 +94,7 @@ export function SplitTabs({
 
     const tab = event.currentTarget;
     const start = { x: event.clientX, y: event.clientY };
+    let cancelled = false;
     const initialOrder = splits.map(({ id }) => id);
     const reorderableIds = (ids: string[]) =>
       ids.filter((id) => splitsById.get(id)?.reorderable);
@@ -106,6 +106,7 @@ export function SplitTabs({
     };
 
     const onPointerMove = (moveEvent: globalThis.PointerEvent) => {
+      if (cancelled) return;
       const current = dragRef.current;
       if (!current) {
         const distance = Math.hypot(
@@ -165,7 +166,9 @@ export function SplitTabs({
       suppressClickRef.current = false;
     };
     const onKeyDown = (keyEvent: KeyboardEvent) => {
-      if (keyEvent.key === "Escape") endDrag(false);
+      if (keyEvent.key !== "Escape" || !dragRef.current) return;
+      cancelled = true;
+      endDrag(false);
     };
 
     const stop = () => {
@@ -200,7 +203,9 @@ export function SplitTabs({
       return;
     }
 
-    activeTabRef.current?.focus({ preventScroll: true });
+    tabs
+      .querySelector<HTMLButtonElement>('[data-split-tab][aria-current="true"]')
+      ?.focus({ preventScroll: true });
   }, [activeSplitId]);
 
   return (
@@ -228,7 +233,6 @@ export function SplitTabs({
                 type="button"
                 layout={drag ? "position" : false}
                 transition={TAB_MOVE_TRANSITION}
-                ref={active ? activeTabRef : undefined}
                 data-split-tab={split.id}
                 onClick={() => {
                   if (!suppressClickRef.current) onSelect(split.id);
