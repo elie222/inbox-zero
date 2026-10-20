@@ -1464,7 +1464,6 @@ export function MailShell() {
             <MailListPanel layout={layout}>
               <ListToolbar
                 layout={layout}
-                isDesktopApp={isDesktopApp}
                 searchQuery={searchParam ?? ""}
                 onSearch={setSearch}
                 searchValue={searchValue}
@@ -1569,12 +1568,7 @@ export function MailShell() {
 
           {showReader ? (
             <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-              {showList ? null : (
-                <MailTitlebarNav
-                  showHistory={isDesktopApp}
-                  className="px-3 pt-3"
-                />
-              )}
+              {showList ? null : <MailTitlebarNav className="px-3 pt-3" />}
               <MailReaderPane
                 readerEmailAccount={readerEmailAccount}
                 readerKey={openReaderThreadKey}
