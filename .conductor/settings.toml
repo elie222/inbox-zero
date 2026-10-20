@@ -10,7 +10,7 @@ default = true
 icon = "play"
 
 [scripts.run.evals]
-command = "EVAL_MODELS=deepseek-v4-flash-azure EVAL_RESULT_CACHE=readwrite pnpm --filter inbox-zero-ai test-ai __tests__/eval"
+command = "EVAL_RESULT_CACHE=readwrite pnpm --filter inbox-zero-ai test-ai __tests__/eval"
 icon = "flask-conical"
 
 [prompts]
