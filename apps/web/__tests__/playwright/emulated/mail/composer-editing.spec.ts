@@ -165,6 +165,37 @@ test("keeps the collapsed signature when typing after clicking below it", async 
   );
 });
 
+test("keeps the signature toggle above the expanded signature", async ({
+  page,
+}, testInfo) => {
+  await openMail(page);
+  await page.getByRole("button", { name: /^Compose/ }).click();
+
+  const dialog = page.getByRole("dialog", { name: "New Message" });
+  const editor = dialog.getByRole("textbox", { name: "Email message" });
+  await dialog.getByRole("button", { name: "Show signature" }).click();
+
+  const toggle = dialog.getByRole("button", { name: "Hide signature" });
+  const signature = editor.locator("[data-smartmail]");
+  await expect(toggle).toBeVisible();
+  await expect(signature).toBeVisible();
+
+  const toggleBox = await toggle.boundingBox();
+  const signatureBox = await signature.boundingBox();
+  if (!toggleBox || !signatureBox) {
+    throw new Error("Signature controls have no bounding box");
+  }
+  const signatureGap = signatureBox.y - (toggleBox.y + toggleBox.height);
+  expect(signatureGap).toBeGreaterThanOrEqual(0);
+  expect(signatureGap).toBeLessThanOrEqual(1);
+  expect(Math.abs(toggleBox.x - signatureBox.x)).toBeLessThanOrEqual(1);
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "composer-expanded-signature-toggle",
+  );
+});
+
 test("edits the signature and its links in place", async ({ page }) => {
   await openMail(page);
   await page.getByRole("button", { name: /^Compose/ }).click();
