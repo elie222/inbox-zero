@@ -197,6 +197,16 @@ describe("service worker updates", () => {
     expect(reload).toHaveBeenCalledTimes(1);
   });
 
+  it("leaves a waiting worker alone in a browser tab", async () => {
+    const { waiting } = setUpDesktopUpdate({ desktop: false });
+    const register = serwistState.serwist?.register;
+    const view = render(<GlobalProviders>mail</GlobalProviders>);
+    await waitFor(() => expect(register).toHaveBeenCalled());
+    serwistState.pathname += "/next";
+    view.rerender(<GlobalProviders>mail</GlobalProviders>);
+    expect(waiting.postMessage).not.toHaveBeenCalled();
+  });
+
   it("defers controller changes from another window while composing", async () => {
     const { registration, serviceWorker, reload } = setUpDesktopUpdate();
     const view = render(<GlobalProviders>mail</GlobalProviders>);
@@ -227,7 +237,7 @@ function wrapper({ children }: { children: ReactNode }) {
   );
 }
 
-function setUpDesktopUpdate() {
+function setUpDesktopUpdate({ desktop = true } = {}) {
   const waiting = { postMessage: vi.fn() };
   const registration = Object.assign(new EventTarget(), {
     waiting,
@@ -239,7 +249,7 @@ function setUpDesktopUpdate() {
   });
   const reload = vi.fn();
 
-  vi.stubGlobal("inboxZeroDesktop", { startAuth: vi.fn() });
+  if (desktop) vi.stubGlobal("inboxZeroDesktop", { startAuth: vi.fn() });
   vi.stubGlobal("navigator", { onLine: true, serviceWorker });
   vi.stubGlobal("location", { ...window.location, reload });
   serwistState.serwist = {

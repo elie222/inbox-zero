@@ -53,6 +53,16 @@ describe("safe reload", () => {
     cancel();
   });
 
+  it("ignores the hidden state of a page that is unloading", () => {
+    const reload = vi.fn();
+    const cancel = reloadAtNextSafeMoment(reload);
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+    window.dispatchEvent(new Event("pagehide"));
+    document.dispatchEvent(new Event("visibilitychange"));
+    expect(reload).not.toHaveBeenCalled();
+    cancel();
+  });
+
   it("runs on a safe route change and supports cancellation", () => {
     const reload = vi.fn();
     const cancel = reloadAtNextSafeMoment(reload);

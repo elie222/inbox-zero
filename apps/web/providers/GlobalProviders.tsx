@@ -103,6 +103,8 @@ function ManageServiceWorker() {
         registration.waiting.postMessage({ type: SKIP_WAITING });
         return;
       }
+      // Browser tabs pick up the new worker on their next full load.
+      if (!isDesktopApp) return;
       cancelPendingUpdate?.();
       cancelPendingUpdate = reloadAtNextSafeMoment(activateWaitingWorker);
     };

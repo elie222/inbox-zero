@@ -55,6 +55,8 @@ describe("stale action response", () => {
       fetch: vi.fn().mockResolvedValue(response),
       location: { reload },
       sessionStorage: createStorage(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
     });
     const close = composeOpen ? registerOpenComposer() : () => {};
     installStaleDeploymentReload();

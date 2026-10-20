@@ -1,5 +1,6 @@
 const openComposers = new Set<symbol>();
 const pendingReloads = new Set<() => void>();
+let unloading = false;
 
 // Every compose surface uses ComposeEmailFormLazy, including inline replies and drafts.
 export function registerOpenComposer() {
@@ -27,10 +28,10 @@ export function isSafeToReload() {
 export function reloadAtNextSafeMoment(reload: () => void) {
   pendingReloads.add(reload);
   document.addEventListener("visibilitychange", onVisibilityChange);
+  window.addEventListener("pagehide", onPageHide);
   return () => {
     pendingReloads.delete(reload);
-    if (!pendingReloads.size)
-      document.removeEventListener("visibilitychange", onVisibilityChange);
+    if (!pendingReloads.size) stopListening();
   };
 }
 
@@ -39,10 +40,21 @@ export function runPendingReloads() {
   if (!isSafeToReload()) return;
   const reloads = [...pendingReloads];
   pendingReloads.clear();
-  document.removeEventListener("visibilitychange", onVisibilityChange);
+  stopListening();
   for (const reload of reloads) reload();
 }
 
+function stopListening() {
+  document.removeEventListener("visibilitychange", onVisibilityChange);
+  window.removeEventListener("pagehide", onPageHide);
+}
+
+// An unloading page turns hidden right after pagehide. Activating a new
+// worker then would swap it under the page that is loading next.
+function onPageHide() {
+  unloading = true;
+}
+
 function onVisibilityChange() {
-  if (document.visibilityState === "hidden") runPendingReloads();
+  if (document.visibilityState === "hidden" && !unloading) runPendingReloads();
 }
