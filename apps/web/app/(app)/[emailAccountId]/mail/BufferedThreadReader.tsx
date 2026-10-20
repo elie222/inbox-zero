@@ -106,8 +106,10 @@ export function BufferedThreadReader({
           >
             {cloneElement(reader.content, {
               menu: replacing ? undefined : reader.content.props.menu,
+              // The outgoing reader keeps its selection bar so it doesn't
+              // blink off for the frames before the next thread swaps in.
               enableMessageNavigation:
-                !replacing && reader.content.props.enableMessageNavigation,
+                !pending && reader.content.props.enableMessageNavigation,
               detailSelectionSettled:
                 !replacing && reader.content.props.detailSelectionSettled,
             })}
