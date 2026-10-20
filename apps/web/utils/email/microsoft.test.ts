@@ -1102,6 +1102,35 @@ describe("OutlookProvider reply history", () => {
     );
   });
 
+  it("keeps searching when the first page only has lookalike addresses", async () => {
+    const nextLink =
+      "https://graph.microsoft.com/v1.0/me/mailFolders/sentitems/messages?$skiptoken=page-2";
+    const sentMessage = (id: string, address: string) => {
+      const message = createMessage({ id, parentFolderId: "sent-folder-id" });
+      message.from = { emailAddress: { address: "me@example.com" } };
+      message.toRecipients = [{ emailAddress: { address } }];
+      return message;
+    };
+    const client = createMockOutlookClient([], {
+      folderIdCache: {
+        sentitems: "sent-folder-id",
+        drafts: "drafts-folder-id",
+      },
+      categoryMapCache: new Map(),
+      responsesByApiPath: {
+        "/me/mailFolders/sentitems/messages": {
+          value: [sentMessage("sent-1", "bob@example.com.au")],
+          "@odata.nextLink": nextLink,
+        },
+        [nextLink]: { value: [sentMessage("sent-2", "bob@example.com")] },
+      },
+    });
+
+    await expect(
+      new OutlookProvider(client).checkIfReplySent("bob@example.com"),
+    ).resolves.toBe(true);
+  });
+
   it("does not count mail sent to a lookalike address as a reply", async () => {
     const provider = new OutlookProvider(
       createMailbox({ receivedFrom: {}, sentTo: ["bob@example.com.au"] }),

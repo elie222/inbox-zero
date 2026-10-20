@@ -148,6 +148,8 @@ import { requireSentMessageId } from "@/utils/email/sent-message-id";
 import { searchContacts } from "@/utils/outlook/contact";
 import { mapWithConcurrency } from "@/utils/async";
 
+const REPLY_SEARCH_MAX_PAGES = 3;
+
 export class OutlookProvider implements EmailProvider {
   readonly name = "microsoft";
   readonly localMailSyncStrategy = "folder-delta";
@@ -1849,19 +1851,28 @@ export class OutlookProvider implements EmailProvider {
     try {
       // Graph has no Gmail-style "from:me to:" query, and recipient
       // collections can't be filtered with $filter, so search Sent Items by
-      // participant and confirm the exact address on what comes back.
-      const { messages } = await queryBatchMessages(
-        this.client,
-        {
-          searchQuery: `participants:${sanitizeKqlValue(senderEmail)}`,
-          folderId: "sentitems",
-          maxResults: 10,
-        },
-        this.logger,
-      );
-      const sent =
-        filterMessagesForParticipant(messages, senderEmail.toLowerCase())
-          .length > 0;
+      // participant and confirm the exact address on what comes back. The
+      // search is fuzzy, so lookalike addresses can fill the first page.
+      const participant = senderEmail.toLowerCase();
+      let sent = false;
+      let pageToken: string | undefined;
+      for (let page = 0; page < REPLY_SEARCH_MAX_PAGES && !sent; page++) {
+        const response = await queryBatchMessages(
+          this.client,
+          {
+            searchQuery: `participants:${sanitizeKqlValue(senderEmail)}`,
+            folderId: "sentitems",
+            maxResults: 10,
+            pageToken,
+          },
+          this.logger,
+        );
+        sent =
+          filterMessagesForParticipant(response.messages, participant).length >
+          0;
+        pageToken = response.nextPageToken;
+        if (!pageToken) break;
+      }
       this.logger.info("Checked for sent reply", { senderEmail, sent });
       return sent;
     } catch (error) {
