@@ -43,7 +43,7 @@
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
     --sidebar-muted-foreground: var(--muted-foreground);
-    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary: 221.2 83.2% 53.3%; /* #2563EB, accent text on the sidebar: 4.95:1 on --sidebar-background */
     --sidebar-primary-foreground: 0 0% 98%;
     --sidebar-accent: 240 4.8% 95.9%;
     --sidebar-accent-foreground: 240 5.9% 10%;
@@ -87,7 +87,7 @@
     --sidebar-background: 220 7% 14%; /* #212326 */
     --sidebar-foreground: 220 6% 80%; /* #C9CBCF */
     --sidebar-muted-foreground: var(--muted-foreground);
-    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary: 213.1 93.9% 67.8%; /* #60A5FA, accent text on the sidebar: 6.19:1 on --sidebar-background */
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 220 7% 21%; /* #323439 */
     --sidebar-accent-foreground: 220 8% 95%;
