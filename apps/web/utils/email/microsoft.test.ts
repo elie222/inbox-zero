@@ -1092,6 +1092,36 @@ describe("OutlookProvider reply history", () => {
     ).resolves.toBe(10);
   });
 
+  it("counts across pages when the threshold is larger than one page", async () => {
+    const nextLink =
+      "https://graph.microsoft.com/v1.0/me/messages?$skiptoken=page-2";
+    const page = (prefix: string, count: number) =>
+      Array.from({ length: count }, (_, i) =>
+        createMessage({
+          id: `${prefix}-${i}`,
+          parentFolderId: "inbox-folder-id",
+        }),
+      );
+    const client = createMockOutlookClient([], {
+      folderIdCache: { inbox: "inbox-folder-id", drafts: "drafts-folder-id" },
+      categoryMapCache: new Map(),
+      responsesByApiPath: {
+        "/me/messages": {
+          value: page("first", 20),
+          "@odata.nextLink": nextLink,
+        },
+        [nextLink]: { value: page("second", 20) },
+      },
+    });
+
+    await expect(
+      new OutlookProvider(client).countReceivedMessages(
+        "sender@example.com",
+        30,
+      ),
+    ).resolves.toBe(30);
+  });
+
   it("finds a reply the user sent to the sender", async () => {
     const provider = new OutlookProvider(
       createMailbox({ receivedFrom: {}, sentTo: ["bob@example.com"] }),

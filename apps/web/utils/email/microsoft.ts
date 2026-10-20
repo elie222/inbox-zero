@@ -1894,16 +1894,26 @@ export class OutlookProvider implements EmailProvider {
         threshold,
       });
 
-      // Fetch up to the threshold number of messages
-      const { messages } = await queryBatchMessages(
-        this.client,
-        {
-          fromEmail: senderEmail,
-          maxResults: threshold,
-        },
-        this.logger,
-      );
-      const count = messages.length;
+      // queryBatchMessages returns at most 20 messages a page, so page until
+      // the threshold is reached.
+      let count = 0;
+      let pageToken: string | undefined;
+      do {
+        const response = await queryBatchMessages(
+          this.client,
+          {
+            fromEmail: senderEmail,
+            maxResults: threshold - count,
+            pageToken,
+          },
+          this.logger,
+        );
+        count += response.messages.length;
+        pageToken = response.messages.length
+          ? response.nextPageToken
+          : undefined;
+      } while (pageToken && count < threshold);
+      count = Math.min(count, threshold);
 
       this.logger.info("Received message count check result", {
         senderEmail,
