@@ -173,4 +173,49 @@ describe("sanitizeMailHtml", () => {
     expect(csp?.getAttribute("content")).toContain("img-src data:");
     expect(csp?.getAttribute("content")).not.toContain("https:");
   });
+
+  it("links bare URLs and addresses in html bodies", () => {
+    const sanitized = sanitizeMailHtml(
+      "<p>Via the settings: example.com/settings or <b>support@example.com</b>.</p>",
+    );
+    const parsedDocument = new DOMParser().parseFromString(
+      sanitized,
+      "text/html",
+    );
+    const links = [...parsedDocument.querySelectorAll("a")].map((link) => [
+      link.textContent,
+      link.getAttribute("href"),
+    ]);
+
+    expect(links).toEqual([
+      ["example.com/settings", "http://example.com/settings"],
+      ["support@example.com", "mailto:support@example.com"],
+    ]);
+    expect(parsedDocument.body.textContent).toBe(
+      "Via the settings: example.com/settings or support@example.com.",
+    );
+  });
+
+  it("leaves existing links, code, and styles as written", () => {
+    const sanitized = sanitizeMailHtml(`
+      <style>a { color: red } /* see example.com/theme */</style>
+      <a href="https://example.com/track?id=1">example.com/docs</a>
+      <code>curl https://api.example.com/v1</code>
+      <pre>open example.com/logs</pre>
+      <p>Version 2.4.9 of report.final ships today in backup.zip.</p>
+    `);
+    const parsedDocument = new DOMParser().parseFromString(
+      sanitized,
+      "text/html",
+    );
+    const links = [...parsedDocument.querySelectorAll("a")];
+
+    expect(links).toHaveLength(1);
+    expect(links[0]?.getAttribute("href")).toBe(
+      "https://example.com/track?id=1",
+    );
+    expect(parsedDocument.querySelector("style")?.textContent).toContain(
+      "example.com/theme",
+    );
+  });
 });

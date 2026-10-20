@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { linkifyPlainText } from "./linkify-plain-text";
+import { linkifyPlainText } from "./linkify";
 
 describe("linkifyPlainText", () => {
   it("finds web and email links while preserving the surrounding text", () => {
