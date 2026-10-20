@@ -222,7 +222,8 @@ describe("Provider Edge Cases", () => {
         deduplicationKey: `to-reply:${baseOptions.emailAccount.id}:arrival-message`,
         notification: {
           title: "Alex Example",
-          body: "Can you review this?",
+          subtitle: "Can you review this?",
+          body: "Hello World",
           sound: "default",
           data: {
             threadId: "provider-conversation",
