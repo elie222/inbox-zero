@@ -95,6 +95,18 @@ test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
     );
   };
   context.on("response", onResponse);
+  const cdp = await context.newCDPSession(page);
+  await cdp.send("Network.enable");
+  await cdp.send("Page.enable");
+  cdp.on("Network.requestWillBeSent", (e: any) => {
+    if (e.type !== "Document") return;
+    const frames = (e.initiator?.stack?.callFrames ?? []).slice(0, 12).map((f: any) => `${f.functionName || "<anon>"} ${f.url}:${f.lineNumber}:${f.columnNumber}`);
+    let parent = e.initiator?.stack?.parent; let depth = 0;
+    while (parent && depth < 6) { frames.push(`-- ${parent.description ?? "async"} --`); for (const f of parent.callFrames.slice(0, 8)) frames.push(`${f.functionName || "<anon>"} ${f.url}:${f.lineNumber}:${f.columnNumber}`); parent = parent.parent; depth++; }
+    console.log(`[NAVDEBUG] ${Date.now()} ${e.request.url} initiator=${e.initiator?.type}\n  ${frames.join("\n  ")}`);
+  });
+  cdp.on("Page.frameRequestedNavigation", (e: any) => console.log(`[NAVDEBUG] requested ${e.reason} ${e.disposition} ${e.url}`));
+  page.on("console", (m) => { if (/online|offline|reload/i.test(m.text())) console.log(`[PAGECONSOLE] ${m.text().slice(0, 200)}`); });
   const { conversations } = await openMail(page);
   await expect(
     conversationWithSubject(page, conversations, "Archive Action Message"),
@@ -252,6 +264,7 @@ test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
       await page.getByRole("button", { name: "Clear search" }).click();
     }
 
+    console.log(`[NAVDEBUG] ${Date.now()} going online`);
     await context.setOffline(false);
     // Confirm the browser can reach the server before testing a connected reload.
     await expect
