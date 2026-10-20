@@ -169,7 +169,10 @@
     "components/email-list/EmailMessage.tsx",
     "utils/parse/extract-reply.client.ts"
   ],
-  "split-tabs.spec.ts": ["app/(app)/[emailAccountId]/mail/SplitTabs.tsx"],
+  "split-tabs.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/SplitTabs.tsx",
+    "app/(app)/[emailAccountId]/mail/MailSplitTabs.tsx"
+  ],
   "starring.spec.ts": [
     "app/(app)/[emailAccountId]/mail/star-state.ts",
     "app/(app)/[emailAccountId]/mail/ThreadRow.tsx",
