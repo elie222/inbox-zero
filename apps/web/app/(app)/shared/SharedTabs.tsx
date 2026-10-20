@@ -10,7 +10,7 @@ export function SharedTabs() {
   return (
     <div>
       <div className="mb-4">
-        <PageHeading>Team</PageHeading>
+        <PageHeading>Discussions</PageHeading>
         <PageSubHeading className="mt-1">
           Email threads your teammates share with you to discuss in private
           comments.

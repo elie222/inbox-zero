@@ -196,7 +196,7 @@ export const useNavigation = () => {
       ...(hasTeam
         ? [
             {
-              name: "Team",
+              name: "Discussions",
               href: TEAM_HREF,
               icon: Users2Icon,
               count: teamUnreadCount ?? undefined,

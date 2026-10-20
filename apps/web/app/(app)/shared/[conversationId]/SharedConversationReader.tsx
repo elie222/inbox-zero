@@ -35,7 +35,7 @@ export function SharedConversationReader({
         <p>
           Open this conversation from{" "}
           <Link href="/shared" className="text-primary underline">
-            Team
+            Discussions
           </Link>
           .
         </p>
@@ -97,7 +97,7 @@ function AuthorizedReader({
         <Button asChild size="xs-2" variant="ghostMuted" className="-ml-2">
           <Link href={`/shared?memberId=${encodeURIComponent(memberId)}`}>
             <ArrowLeftIcon className="mr-1.5 size-3.5" />
-            Team
+            Discussions
           </Link>
         </Button>
         <Tooltip content="Refresh email">

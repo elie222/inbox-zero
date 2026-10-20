@@ -339,7 +339,7 @@ export function MailSidebar({
               onNavigate={onNavigate}
               active={false}
               icon={<Users2Icon className="size-4 shrink-0" />}
-              name="Team"
+              name="Discussions"
               count={team.unreadCount}
               emphasizeCount
               collapsed={collapsed}
