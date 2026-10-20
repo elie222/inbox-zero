@@ -120,11 +120,20 @@ export function getFoldedSteps(steps: RailStep[]) {
 
 export function formatRunFooter(
   metadata: ChatMessage["metadata"],
+  parts: ChatMessage["parts"] = [],
 ): string | null {
   if (!metadata) return null;
+  // The setting says what was asked for; reasoning parts say what happened.
+  const thought = parts.some(
+    (part) =>
+      part.type === "reasoning" &&
+      part.text.length > 0 &&
+      part.text !== "[REDACTED]",
+  );
+  const thinking = thought ? "on" : metadata.thinking;
   const items = [
     metadata.model,
-    metadata.thinking && `Thinking ${metadata.thinking}`,
+    thinking && `Thinking ${thinking}`,
     typeof metadata.durationMs === "number" &&
       `${(metadata.durationMs / 1000).toFixed(1)} s`,
   ].filter(Boolean);

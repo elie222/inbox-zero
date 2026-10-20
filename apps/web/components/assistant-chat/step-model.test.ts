@@ -348,6 +348,16 @@ describe("formatRunFooter", () => {
     ).toBe("gemma4 12B · Thinking off · 8.4 s");
   });
 
+  it("says thinking was on when the message holds reasoning, whatever the setting", () => {
+    const parts = [
+      { type: "reasoning", text: "Let me look.", state: "done" },
+    ] as unknown as Parts;
+    expect(
+      formatRunFooter({ model: "gemma4 12B", thinking: "off" }, parts),
+    ).toBe("gemma4 12B · Thinking on");
+    expect(formatRunFooter({ thinking: "off" }, [])).toBe("Thinking off");
+  });
+
   it("leaves out what the run did not report", () => {
     expect(formatRunFooter({ model: "claude-sonnet", durationMs: 2000 })).toBe(
       "claude-sonnet · 2.0 s",

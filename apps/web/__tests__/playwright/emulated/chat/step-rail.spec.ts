@@ -40,7 +40,7 @@ test("shows running, done and failed steps on the rail with a run footer", async
         await expect(rail.getByText("Couldn't read email")).toBeVisible();
         await expect(rail.getByText("Message was deleted")).toBeVisible();
 
-        const footer = page.getByText("gemma4 12B · Thinking off · 8.4 s");
+        const footer = page.getByText("gemma4 12B · Thinking on · 8.4 s");
         if (key === "midRun") {
           await expect(rail.getByText("Archiving emails…")).toBeVisible();
           await expect(footer).toHaveCount(0);

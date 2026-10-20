@@ -55,16 +55,28 @@ export function Messages({
             {messages.map((message, index) => {
               const isStreaming =
                 status === "streaming" && index === messages.length - 1;
-              const segments = buildSegments(message.parts ?? [], {
+              const builtSegments = buildSegments(message.parts ?? [], {
                 messageId: message.id,
                 isStreaming,
               });
+              // The reply has started but nothing is ready to show yet (the model
+              // is still reading the prompt), so keep the "Starting…" signal up.
+              const segments: typeof builtSegments =
+                isStreaming && builtSegments.length === 0
+                  ? [
+                      {
+                        type: "rail",
+                        key: `${message.id}-starting`,
+                        steps: [STARTING_STEP],
+                      },
+                    ]
+                  : builtSegments;
               const usedRail = segments.some(
                 (segment) => segment.type === "rail",
               );
               const footer =
                 usedRail && !isStreaming
-                  ? formatRunFooter(message.metadata)
+                  ? formatRunFooter(message.metadata, message.parts)
                   : null;
               const renderPart = (part: ChatMessage["parts"][number]) => (
                 <MessagePart

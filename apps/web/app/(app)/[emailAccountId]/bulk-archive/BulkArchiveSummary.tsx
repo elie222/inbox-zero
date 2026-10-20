@@ -10,6 +10,7 @@ const CLOCK_TICK_MS = 15_000;
 
 export function BulkArchiveSummary({
   inboxCount,
+  unreadCount,
   baselineCount,
   archivedCount,
   fetchedAt,
@@ -17,6 +18,7 @@ export function BulkArchiveSummary({
   onRefresh,
 }: {
   inboxCount: number;
+  unreadCount: number;
   baselineCount?: number;
   archivedCount: number;
   fetchedAt?: string;
@@ -26,30 +28,33 @@ export function BulkArchiveSummary({
   return (
     <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3 pt-4">
       <div>
-        <p className="text-sm text-muted-foreground">
-          In your inbox from these senders
-        </p>
-        <div className="mt-1 flex flex-wrap items-baseline gap-x-3">
+        <div className="flex flex-wrap items-baseline gap-x-2">
           <CountingNumber
             value={inboxCount}
             className="text-3xl font-semibold leading-9"
           />
-          {archivedCount > 0 && baselineCount !== undefined && (
-            <span className="text-sm text-muted-foreground">
-              was <span className="tabular-nums">{baselineCount}</span> ·{" "}
-              <span className="tabular-nums">{archivedCount}</span> archived
-              just now
-            </span>
-          )}
+          <p className="m-0 text-base text-muted-foreground">
+            {inboxCount === 1 ? "email" : "emails"} in your inbox from these
+            senders · <span className="tabular-nums">{unreadCount}</span> unread
+          </p>
         </div>
+        {archivedCount > 0 && baselineCount !== undefined && (
+          <p className="m-0 mt-1 text-[13px] text-muted-foreground">
+            <span className="tabular-nums">{baselineCount}</span> →{" "}
+            <span className="tabular-nums">{inboxCount}</span> ·{" "}
+            <span className="tabular-nums">{archivedCount}</span> archived just
+            now
+          </p>
+        )}
       </div>
       <div className="flex items-center gap-3">
-        {fetchedAt && <UpdatedAgo at={fetchedAt} />}
+        {fetchedAt && <UpdatedAgo key={fetchedAt} at={fetchedAt} />}
         <Button
           variant="outline"
           size="sm"
           onClick={onRefresh}
           disabled={isRefreshing}
+          aria-busy={isRefreshing}
         >
           <RefreshCwIcon
             className={cn(
@@ -57,7 +62,7 @@ export function BulkArchiveSummary({
               isRefreshing && "animate-spin motion-reduce:animate-none",
             )}
           />
-          Refresh
+          {isRefreshing ? "Refreshing…" : "Refresh"}
         </Button>
       </div>
     </div>

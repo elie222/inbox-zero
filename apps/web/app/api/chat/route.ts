@@ -28,6 +28,7 @@ import {
 } from "@/utils/ai/assistant/compact";
 import { getInboxStatsForChatContext } from "@/utils/ai/assistant/get-inbox-stats-for-chat-context";
 import { formatUtcDate } from "@/utils/date";
+import { getStreamErrorText } from "@/utils/ai/assistant/stream-error-text";
 import {
   buildUserChatMessageMetadata,
   mapUiMessagesToChatMessageRows,
@@ -355,6 +356,10 @@ export const POST = withEmailAccount("chat", async (request) => {
 
         for await (const chunk of result.toUIMessageStream({
           sendFinish: false,
+          onError: (error) => {
+            runLogger.error("Assistant chat step failed", { error });
+            return getStreamErrorText(error);
+          },
           messageMetadata: ({ part }) =>
             part.type === "start"
               ? {

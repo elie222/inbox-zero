@@ -266,7 +266,7 @@ test("holds the archived result with Undo and moves the header number", async ({
   await expect(
     newsletterCard(page).getByRole("button", { name: "Undo" }),
   ).toBeVisible();
-  await expect(page.getByText("was 5 · 2 archived just now")).toBeVisible();
+  await expect(page.getByText("5 → 3 · 2 archived just now")).toBeVisible();
   await expectHeaderCount(page, "3");
   await capturePlaywrightCheckpoint(
     page,
@@ -409,7 +409,7 @@ function marketingCard(page: Page) {
 
 async function expectHeaderCount(page: Page, count: string) {
   await expect(
-    page.getByText("In your inbox from these senders").locator(".."),
+    page.getByText(/emails? in your inbox from these senders/).locator(".."),
   ).toContainText(count);
 }
 
