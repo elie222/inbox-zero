@@ -1,4 +1,5 @@
-# pr-body: fails a pull request whose body has no Card, Solves or Size line.
+# pr-body: fails a pull request whose body has no Card, Solves or Size line, or that touches UI files
+# without a filled-in "Design check:" section (.github/scripts/flow-design-check.py; UI globs: design_ui_globs in .flow).
 #
 # Solves: a PR that names no board card lands as an orphan and the agenda loses track of it.
 #
@@ -14,7 +15,9 @@ on:
   pull_request:
     types: [opened, edited, synchronize, reopened]
 
-permissions: {}
+permissions:
+  contents: read
+  pull-requests: read
 
 jobs:
   pr-body:
@@ -48,3 +51,14 @@ jobs:
               sys.exit("The PR body is missing %s. Edit the description; this check re-runs on edit." % ", ".join(missing))
           print("Card, Solves and Size are present.")
           PY
+      - name: Check out the repo (for .flow and the design check script)
+        if: always()
+        uses: actions/checkout@v4
+      - name: Check the Design check section when UI files changed
+        if: always()
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          GITHUB_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: python3 .github/scripts/flow-design-check.py

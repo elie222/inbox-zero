@@ -17,3 +17,10 @@ Seen by Caleb: yes / no / n.a.
 
 ## What Changed
 
+Design check: <!-- Required when the diff touches UI files (the check lists which); delete this section otherwise. Load design-standards first. Answer each line with one of pass, fixed or n.a. plus a reason. -->
+- Wait signal and no double-fire (design-standards 4): pass / fixed / n.a.
+- Every state (loading, empty, error, pressed, disabled): pass / fixed / n.a.
+- Light and dark: pass / fixed / n.a.
+- Largest text and narrowest width: pass / fixed / n.a.
+- Casing and caption rules: pass / fixed / n.a.
+- Every number has a unit and a date: pass / fixed / n.a.
