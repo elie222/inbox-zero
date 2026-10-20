@@ -49,6 +49,7 @@ vi.mock("@/env", () => ({
 import { HtmlEmail, PlainEmail } from "./EmailContents";
 import { ShortcutsProvider } from "@/lib/shortcuts/ShortcutsProvider";
 import { useShortcuts } from "@/lib/shortcuts/useShortcuts";
+import type { ParsedMessage } from "@/utils/types";
 
 (globalThis as { React?: typeof React }).React = React;
 
@@ -583,7 +584,7 @@ describe("HtmlEmail", () => {
     );
 
     unmount();
-    expect(revokeObjectUrl).toHaveBeenCalledWith(objectUrl);
+    expect(revokeObjectUrl).not.toHaveBeenCalled();
   });
 
   it("keeps loaded cid images when the message is republished with the same attachments", async () => {
@@ -640,6 +641,84 @@ describe("HtmlEmail", () => {
     expect(createObjectUrl).toHaveBeenCalledOnce();
     expect(revokeObjectUrl).not.toHaveBeenCalled();
   });
+
+  it("keeps loaded cid images when the message is republished without attachment metadata", async () => {
+    const html = '<img src="cid:badge@inboxzero.local" />';
+    const objectUrl = "blob:https://app.example.com/badge";
+    fetchAttachment.mockResolvedValue(
+      new Blob(["image"], { type: "image/png" }),
+    );
+    vi.spyOn(URL, "createObjectURL").mockReturnValue(objectUrl);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ html }) }),
+    );
+    const renderEmail = (inlineAttachments: ParsedMessage["inline"]) => (
+      <HtmlEmail
+        emailAccountId="account-1"
+        html={html}
+        inlineAttachments={inlineAttachments}
+        messageId="message-sync-republished"
+      />
+    );
+
+    const { getByTitle, queryByTitle, rerender } = render(
+      renderEmail([inlineImageAttachment("badge@inboxzero.local")]),
+    );
+    await waitFor(() =>
+      expect(
+        getByTitle("Email content preview").getAttribute("srcdoc"),
+      ).toContain(`src="${objectUrl}"`),
+    );
+
+    rerender(renderEmail([]));
+    await act(async () => {});
+
+    expect(queryByTitle("Preparing email content preview")).toBeNull();
+    expect(
+      getByTitle("Email content preview").getAttribute("srcdoc"),
+    ).toContain(`src="${objectUrl}"`);
+    expect(fetchAttachment).toHaveBeenCalledOnce();
+  });
+
+  it("shows loaded cid images immediately when the email is reopened", async () => {
+    const html = '<img src="cid:chart@inboxzero.local" />';
+    const objectUrl = "blob:https://app.example.com/chart";
+    fetchAttachment.mockResolvedValue(
+      new Blob(["image"], { type: "image/png" }),
+    );
+    vi.spyOn(URL, "createObjectURL").mockReturnValue(objectUrl);
+    const revokeObjectUrl = vi.spyOn(URL, "revokeObjectURL");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ html }) }),
+    );
+    const renderEmail = () => (
+      <HtmlEmail
+        emailAccountId="account-1"
+        html={html}
+        inlineAttachments={[inlineImageAttachment("chart@inboxzero.local")]}
+        messageId="message-reopened-inline"
+      />
+    );
+
+    const firstRender = render(renderEmail());
+    await waitFor(() =>
+      expect(
+        firstRender.getByTitle("Email content preview").getAttribute("srcdoc"),
+      ).toContain(`src="${objectUrl}"`),
+    );
+    firstRender.unmount();
+
+    const { getByTitle } = render(renderEmail());
+
+    expect(
+      getByTitle("Email content preview").getAttribute("srcdoc"),
+    ).toContain(`src="${objectUrl}"`);
+    await act(async () => {});
+    expect(fetchAttachment).toHaveBeenCalledOnce();
+    expect(revokeObjectUrl).not.toHaveBeenCalled();
+  });
 });
 
 describe("PlainEmail", () => {
@@ -657,6 +736,21 @@ describe("PlainEmail", () => {
     expect(container.textContent).not.toContain("&#39;");
   });
 });
+
+function inlineImageAttachment(contentId: string) {
+  return {
+    attachmentId: `attachment-${contentId}`,
+    filename: "image.png",
+    headers: {
+      "content-description": "",
+      "content-id": `<${contentId}>`,
+      "content-transfer-encoding": "base64",
+      "content-type": "image/png",
+    },
+    mimeType: "image/png",
+    size: 1024,
+  };
+}
 
 function addEmailDocumentMarker(
   iframe: HTMLIFrameElement,

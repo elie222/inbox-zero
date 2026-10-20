@@ -33,6 +33,11 @@ import { getAttachmentImagePreview } from "@inboxzero/mail-ui/image-preview";
 
 const NO_INLINE_ATTACHMENTS: ParsedMessage["inline"] = [];
 const INLINE_IMAGE_MAX_BYTES = 25 * 1024 * 1024;
+const INLINE_IMAGE_CACHE_SIZE = 20;
+// Loaded inline images outlive the component so a remount or a republished
+// message object (e.g. a sync update without attachment metadata) repaints
+// with them instead of dropping back to unresolved cid: sources.
+const loadedInlineImages = new Map<string, Record<string, string>>();
 
 export function HtmlEmail({
   html,
@@ -72,7 +77,6 @@ export function HtmlEmail({
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
-    const objectUrls: string[] = [];
     setRenderHtml(getInitialRenderHtml({ messageId, sanitizedHtml }));
 
     const preparedHtml = prepareSanitizedEmailHtml({
@@ -82,7 +86,10 @@ export function HtmlEmail({
     // Inline images download separately so a slow attachment doesn't hold
     // back the body.
     preparedHtml.then((html) => {
-      if (!cancelled) startTransition(() => setRenderHtml(html));
+      if (!cancelled)
+        startTransition(() =>
+          setRenderHtml(withLoadedInlineImages(messageId, html)),
+        );
     });
     Promise.all([
       preparedHtml,
@@ -94,18 +101,10 @@ export function HtmlEmail({
         messageId,
       }),
     ]).then(
-      ([rewrittenHtml, inlineImages]) => {
-        const loadedObjectUrls = Object.values(inlineImages);
-        if (cancelled) {
-          for (const objectUrl of loadedObjectUrls) {
-            URL.revokeObjectURL(objectUrl);
-          }
-          return;
-        }
-        if (!loadedObjectUrls.length) return;
-        objectUrls.push(...loadedObjectUrls);
+      ([rewrittenHtml, loadedNewImages]) => {
+        if (cancelled || !loadedNewImages) return;
         startTransition(() =>
-          setRenderHtml(rewriteInlineImageSources(rewrittenHtml, inlineImages)),
+          setRenderHtml(withLoadedInlineImages(messageId, rewrittenHtml)),
         );
       },
       () => {
@@ -117,7 +116,6 @@ export function HtmlEmail({
     return () => {
       cancelled = true;
       controller.abort();
-      for (const objectUrl of objectUrls) URL.revokeObjectURL(objectUrl);
     };
   }, [emailAccountId, inlineImageIds, messageId, sanitizedHtml]);
 
@@ -222,8 +220,44 @@ function getInitialRenderHtml({
   messageId: string;
   sanitizedHtml: string;
 }) {
-  if (!IMAGE_PROXY_BASE_URL) return sanitizedHtml;
-  return getPreparedEmailHtml({ messageId, sourceHtml: sanitizedHtml }) ?? null;
+  const preparedHtml = IMAGE_PROXY_BASE_URL
+    ? getPreparedEmailHtml({ messageId, sourceHtml: sanitizedHtml })
+    : sanitizedHtml;
+  if (preparedHtml === undefined) return null;
+  return withLoadedInlineImages(messageId, preparedHtml);
+}
+
+function withLoadedInlineImages(messageId: string, html: string) {
+  const sources = loadedInlineImages.get(messageId);
+  if (!sources) return html;
+  loadedInlineImages.delete(messageId);
+  loadedInlineImages.set(messageId, sources);
+  return rewriteInlineImageSources(html, sources);
+}
+
+function storeLoadedInlineImage({
+  messageId,
+  contentId,
+  objectUrl,
+}: {
+  messageId: string;
+  contentId: string;
+  objectUrl: string;
+}) {
+  const sources = loadedInlineImages.get(messageId) ?? {};
+  if (sources[contentId]) {
+    URL.revokeObjectURL(objectUrl);
+    return;
+  }
+  sources[contentId] = objectUrl;
+  loadedInlineImages.delete(messageId);
+  loadedInlineImages.set(messageId, sources);
+
+  for (const [oldestMessageId, oldestSources] of loadedInlineImages) {
+    if (loadedInlineImages.size <= INLINE_IMAGE_CACHE_SIZE) break;
+    loadedInlineImages.delete(oldestMessageId);
+    for (const url of Object.values(oldestSources)) URL.revokeObjectURL(url);
+  }
 }
 
 async function loadInlineImageSources({
@@ -238,16 +272,17 @@ async function loadInlineImageSources({
   html: string;
   inlineImageIds: string;
   messageId: string;
-}): Promise<Record<string, string>> {
+}): Promise<boolean> {
   const attachmentIdByContentId = new Map<string, string>(
     JSON.parse(inlineImageIds),
   );
-  if (!emailAccountId || !attachmentIdByContentId.size) return {};
+  if (!emailAccountId || !attachmentIdByContentId.size) return false;
+  const loadedSources = loadedInlineImages.get(messageId);
 
-  const entries = await Promise.all(
+  const loaded = await Promise.all(
     getInlineImageContentIds(html).map(async (contentId) => {
       const attachmentId = attachmentIdByContentId.get(contentId);
-      if (!attachmentId) return;
+      if (!attachmentId || loadedSources?.[contentId]) return false;
 
       try {
         // Body images are content the user opened, so they skip the
@@ -267,15 +302,20 @@ async function loadInlineImageSources({
               signal: transferSignal,
             }),
         }).then(getAttachmentImagePreview);
-        if (!blob || signal.aborted) return;
-        return [contentId, URL.createObjectURL(blob)] as const;
+        if (!blob || signal.aborted) return false;
+        storeLoadedInlineImage({
+          messageId,
+          contentId,
+          objectUrl: URL.createObjectURL(blob),
+        });
+        return true;
       } catch {
-        return;
+        return false;
       }
     }),
   );
 
-  return Object.fromEntries(entries.filter((entry) => entry !== undefined));
+  return loaded.some(Boolean);
 }
 
 function serializeInlineImageIds(inlineAttachments: ParsedMessage["inline"]) {
