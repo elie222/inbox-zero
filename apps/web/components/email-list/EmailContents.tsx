@@ -91,7 +91,10 @@ export function HtmlEmail({
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
-    setRenderHtml(getInitialRenderHtml({ messageId, sanitizedHtml }));
+    const initialHtml = getInitialRenderHtml({ messageId, sanitizedHtml });
+    // A sent reply keeps its row when it syncs under a new id. Clearing the
+    // body while that id's html is prepared would blank the message.
+    if (initialHtml !== null) setRenderHtml(initialHtml);
 
     const preparedHtml = prepareSanitizedEmailHtml({
       messageId,
