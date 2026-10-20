@@ -141,7 +141,9 @@ export function useReplyDraftPersistence({
       window.removeEventListener("pagehide", flush);
       document.removeEventListener("visibilitychange", flushWhenHidden);
       // A reload must wait for the final local write after the form unmounts.
-      flush().finally(registerOpenComposer());
+      flush()
+        .catch(() => {})
+        .finally(registerOpenComposer());
     };
   }, [flush]);
 
