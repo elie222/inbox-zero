@@ -33,6 +33,7 @@ import { MailTitlebarNav } from "@/app/(app)/[emailAccountId]/mail/MailTitlebarN
 import { MailSearchFiltersForm } from "@/app/(app)/[emailAccountId]/mail/MailSearchFilters";
 import { OutlookSearchFiltersForm } from "@/app/(app)/[emailAccountId]/mail/OutlookSearchFilters";
 import {
+  MailSearchHint,
   MailSearchSuggestionList,
   suggestionOptionId,
   useMailSearchSuggestions,
@@ -347,6 +348,12 @@ function MailSearchInput({
     recentSearches,
   });
   const suggestionsOpen = suggestions.length > 0;
+  const hintOpen =
+    focused &&
+    !draft &&
+    !suggestionsOpen &&
+    !filtersOpen &&
+    !suggestionsDismissed;
   const highlightedIndex = activeIndex < suggestions.length ? activeIndex : -1;
 
   const commitSearch = (query: string) => {
@@ -400,6 +407,7 @@ function MailSearchInput({
                   suggestions={suggestions}
                 />
               ) : null}
+              {hintOpen ? <MailSearchHint /> : null}
             </>
           }
         >
