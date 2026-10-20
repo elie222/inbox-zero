@@ -226,33 +226,25 @@ export function sanitizeKqlValue(value: string): string {
 
 /**
  * Sanitizes a KQL field query (e.g., participants:email@example.com).
- * Does NOT wrap the entire query in outer quotes - only quotes the value if it contains spaces.
+ * Graph rejects an unquoted property-scoped $search with "character ':' is not valid",
+ * so the whole expression is quoted and the value is quoted inside it.
  */
 export function sanitizeKqlFieldQuery(query: string): string {
   const colonIndex = query.indexOf(":");
   if (colonIndex === -1) return query;
 
   const field = query.slice(0, colonIndex);
-  const value = query.slice(colonIndex + 1);
+  const value = unwrapQuotes(
+    query
+      .slice(colonIndex + 1)
+      .replace(OUTLOOK_SEARCH_DISALLOWED_CHARS, " ")
+      .replace(/\s+/g, " ")
+      .trim(),
+  ).trim();
 
-  if (!value) {
-    return `${field}:`;
-  }
+  if (!value) return `${field}:`;
 
-  let sanitizedValue = value
-    .replace(OUTLOOK_SEARCH_DISALLOWED_CHARS, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  const hasSpaces = sanitizedValue.includes(" ");
-
-  sanitizedValue = escapeSearchValue(sanitizedValue);
-
-  if (hasSpaces) {
-    return `${field}:"${sanitizedValue}"`;
-  }
-
-  return `${field}:${sanitizedValue}`;
+  return JSON.stringify(`${field}:"${escapeSearchValue(value)}"`);
 }
 
 /**
@@ -1322,4 +1314,10 @@ async function normalizeOutlookSearchIds(
     const id = message.id ? ids.get(message.id) : null;
     return id ? [{ ...message, id }] : [];
   });
+}
+
+function unwrapQuotes(value: string): string {
+  return value.length > 1 && value.startsWith('"') && value.endsWith('"')
+    ? value.slice(1, -1)
+    : value;
 }
