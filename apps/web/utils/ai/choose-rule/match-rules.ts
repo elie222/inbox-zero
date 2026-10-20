@@ -989,7 +989,7 @@ function matchesRulePattern(pattern: string, text: string) {
 
 // Escape regex metacharacters, then turn the `*` glob into `.*`.
 function globToRegexSource(pattern: string) {
-  return pattern.replace(/[.+?^${}()[\]\\]/g, "\\$&").replace(/\*/g, ".*");
+  return pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*");
 }
 
 // Unanchored: intended for subject/body keyword and display-name substring matching.
