@@ -52,7 +52,7 @@ jobs:
         shell: bash
         run: |
           jobs="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/jobs?per_page=100")"
-          result="$(jq -r '[.jobs[] | select(.name == "Web E2E") | .conclusion] | unique | if length <= 1 then (.[0] // "") else error("expected at most one Playwright job") end' <<<"$jobs")"
+          result="$(jq -r '[.jobs[] | select(.name == "Web E2E")] | if length == 0 then "" elif length == 1 then .[0].conclusion else error("expected at most one Web E2E job") end' <<<"$jobs")"
           # A run that never started (for example a pull request closed while
           # its run waited for approval) still completes as a failure, but it
           # has no jobs and nothing to publish.
