@@ -339,9 +339,7 @@ function startDesktopApp() {
       startDesktopAutoUpdate(undefined, {
         onUpdateReady: (version) => {
           desktopUpdateReady = true;
-          if (updateStatus?.state === "downloading") {
-            setUpdateStatus({ state: "ready", version });
-          }
+          setUpdateStatus({ state: "ready", version });
           setDownloadProgress(null);
         },
         onDownloadProgress: setDownloadProgress,

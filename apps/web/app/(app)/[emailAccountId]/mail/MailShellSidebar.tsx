@@ -21,6 +21,7 @@ import {
   MAIL_SIDEBAR_WIDTH_COOKIE,
 } from "@/app/(app)/[emailAccountId]/mail/panel-widths";
 import { PanelResizeHandle } from "@/components/PanelResizeHandle";
+import { DesktopUpdateMenuItem } from "@/components/DesktopUpdateMenuItem";
 import { Sidebar, useSidebar } from "@/components/ui/sidebar";
 import { TEAM_HREF, useTeamNav } from "@/components/team-comments/use-team-nav";
 import { useFolders } from "@/hooks/useFolders";
@@ -241,14 +242,17 @@ export const MailShellSidebar = memo(function MailShellSidebar({
               : undefined
           }
           footer={
-            <MailAccountSwitcher
-              isDesktopApp={isDesktopApp}
-              isAllAccounts={isAllAccounts}
-              onSelectAccount={onSelectAccount}
-              onSelectAll={onSelectAllAccounts}
-              variant="sidebar"
-              collapsed={!isMailSidebarOpen}
-            />
+            <>
+              <DesktopUpdateMenuItem />
+              <MailAccountSwitcher
+                isDesktopApp={isDesktopApp}
+                isAllAccounts={isAllAccounts}
+                onSelectAccount={onSelectAccount}
+                onSelectAll={onSelectAllAccounts}
+                variant="sidebar"
+                collapsed={!isMailSidebarOpen}
+              />
+            </>
           }
         />
         {isMailSidebarOpen ? (

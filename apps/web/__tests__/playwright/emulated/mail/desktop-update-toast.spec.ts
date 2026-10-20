@@ -36,6 +36,10 @@ test("shows desktop update download progress and restarts when ready", async ({
       ).pushUpdateStatus(value);
     }, status);
 
+  await expect(
+    page.getByRole("button", { name: "Restart to update", exact: true }),
+  ).toHaveCount(0);
+
   await pushUpdateStatus({
     state: "downloading",
     version: "0.2.0",
@@ -52,6 +56,9 @@ test("shows desktop update download progress and restarts when ready", async ({
   await expect(toast).toBeVisible();
   await expect(toast.getByRole("progressbar")).toBeVisible();
   await expect(toast).toContainText("42%");
+  await expect(
+    page.getByRole("button", { name: "Restart to update", exact: true }),
+  ).toHaveCount(0);
   await capturePlaywrightCheckpoint(
     page,
     testInfo,
@@ -59,15 +66,15 @@ test("shows desktop update download progress and restarts when ready", async ({
   );
 
   await pushUpdateStatus({ state: "ready", version: "0.2.0" });
-  const readyToast = page
-    .locator("[data-sonner-toast]")
-    .filter({ hasText: "Update ready" });
-  await expect(readyToast).toContainText(
-    "Restart Inbox Zero to finish updating to 0.2.0.",
-  );
+  await expect(toast).not.toBeVisible();
+  const restart = page.getByRole("button", {
+    name: "Restart to update",
+    exact: true,
+  });
+  await expect(restart).toBeVisible();
   await capturePlaywrightCheckpoint(page, testInfo, "desktop-update-ready");
 
-  await readyToast.getByRole("button", { name: "Restart" }).click();
+  await restart.click();
   await expect
     .poll(() =>
       page.evaluate(
