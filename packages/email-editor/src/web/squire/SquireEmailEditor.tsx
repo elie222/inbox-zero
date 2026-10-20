@@ -669,6 +669,30 @@ export const SquireEmailEditor = forwardRef<
         dirtyRef.current = true;
         return true;
       },
+      insertQuote: (text) => {
+        const currentEditor = editorRef.current;
+        const root = rootRef.current;
+        if (!currentEditor || !root || !text.trim()) return false;
+        currentEditor.focus();
+        const block = closestWithin(
+          currentEditor.getSelection().startContainer,
+          [...BLOCK_TAGS].join(","),
+          root,
+        );
+        // Squire merges the first inserted block into the caret's line, so a
+        // line with text needs an empty one in front to keep the quote apart.
+        const lead = block?.textContent?.trim() ? "<div><br></div>" : "";
+        const lines = text
+          .trim()
+          .split(/\r?\n/u)
+          .map((line) => `<div>${escapeHtml(line) || "<br>"}</div>`)
+          .join("");
+        currentEditor.insertHTML(
+          `${lead}<blockquote>${lines}</blockquote><div><br></div>`,
+        );
+        dirtyRef.current = true;
+        return true;
+      },
       insertInlineImage: ({ alt, contentId, previewUrl }) => {
         const currentEditor = editorRef.current;
         if (!currentEditor) return false;

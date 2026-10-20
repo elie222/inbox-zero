@@ -128,6 +128,9 @@ type ComposeEmailFormProps = {
   onRestore?: () => void;
   onDiscard?: (draftId?: string) => boolean | Promise<boolean>;
   onPopOut?: () => void;
+  /** Text to quote into the body; cleared through `onQuoteInserted`. */
+  quote?: string;
+  onQuoteInserted?: () => void;
 };
 
 export type ComposeFormValues = Omit<
@@ -279,6 +282,8 @@ function ComposeEmailFormContent({
   onRestore,
   onDiscard,
   onPopOut,
+  quote,
+  onQuoteInserted,
   localDraftIdentity,
   initialAttachments,
   initialProviderDraftId,
@@ -316,6 +321,7 @@ function ComposeEmailFormContent({
     return times.valid ? "" : times.error;
   });
   const editorInitialized = useRef(false);
+  const [editorReady, setEditorReady] = useState(false);
 
   const [initialComposer] = useState(() =>
     createInitialComposeContent({
@@ -423,11 +429,18 @@ function ComposeEmailFormContent({
     if (!editorInitialized.current) {
       queueMicrotask(() => {
         editorInitialized.current = true;
+        setEditorReady(true);
       });
       return;
     }
     captureDraft();
   };
+
+  // Inserted once the editor is live so the quote is captured into the draft.
+  useEffect(() => {
+    if (!quote || !editorReady) return;
+    if (editorRef.current?.insertQuote(quote)) onQuoteInserted?.();
+  }, [quote, editorReady, onQuoteInserted]);
 
   useEffect(() => {
     isMountedRef.current = true;

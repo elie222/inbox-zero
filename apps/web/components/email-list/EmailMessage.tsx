@@ -192,23 +192,39 @@ export function EmailMessage({
   const composeSessionRef = useRef(0);
   const messageRef = useRef<HTMLLIElement>(null);
 
-  const onReply = useCallback(() => {
-    onStartCompose?.();
-    composeSessionRef.current += 1;
-    const savedDraft = serverDrafts[0];
-    if (savedDraft) {
-      setDraftDismissed(savedDraft.sessionMessageId, false);
-      setComposeOverride("closed");
-      requestAnimationFrame(() => {
-        messageRef.current
-          ?.querySelector<HTMLElement>("[data-email-editor-content]")
-          ?.focus();
-      });
-    } else {
-      setComposeOverride("reply");
-    }
-    onExpand?.();
-  }, [onExpand, onStartCompose, serverDrafts, setDraftDismissed]);
+  // The selection a reply should quote, and which composer quotes it: a saved
+  // draft by its session, or the new reply when unset.
+  const [pendingQuote, setPendingQuote] = useState<{
+    text: string;
+    draftSessionMessageId?: string;
+  }>();
+  const clearPendingQuote = useCallback(() => setPendingQuote(undefined), []);
+
+  const onReply = useCallback(
+    (quote?: string) => {
+      onStartCompose?.();
+      composeSessionRef.current += 1;
+      const savedDraft = serverDrafts[0];
+      setPendingQuote(
+        quote
+          ? { text: quote, draftSessionMessageId: savedDraft?.sessionMessageId }
+          : undefined,
+      );
+      if (savedDraft) {
+        setDraftDismissed(savedDraft.sessionMessageId, false);
+        setComposeOverride("closed");
+        requestAnimationFrame(() => {
+          messageRef.current
+            ?.querySelector<HTMLElement>("[data-email-editor-content]")
+            ?.focus();
+        });
+      } else {
+        setComposeOverride("reply");
+      }
+      onExpand?.();
+    },
+    [onExpand, onStartCompose, serverDrafts, setDraftDismissed],
+  );
   const onForward = useCallback(() => {
     onStartCompose?.();
     composeSessionRef.current += 1;
@@ -218,8 +234,10 @@ export function EmailMessage({
 
   const onCloseCompose = useCallback(() => {
     setComposeOverride("closed");
+    setPendingQuote(undefined);
   }, []);
   const closeMailboxDraft = (sessionMessageId: string) => {
+    setPendingQuote(undefined);
     if (composeMode === "reply") onCloseCompose();
     setDraftDismissed(sessionMessageId, true);
   };
@@ -273,7 +291,7 @@ export function EmailMessage({
       event.preventDefault();
       event.stopPropagation();
       if (event.key === "Enter" && expanded && showReplyButton) {
-        onReply();
+        onReply(getSelectedText(event.currentTarget));
       } else {
         onToggle?.();
       }
@@ -399,6 +417,12 @@ export function EmailMessage({
               onSent={onReplySent}
               onMarkDone={onMarkDone}
               onDraftDiscarded={onDraftDiscarded}
+              quote={
+                pendingQuote?.draftSessionMessageId === sessionMessageId
+                  ? pendingQuote.text
+                  : undefined
+              }
+              onQuoteInserted={clearPendingQuote}
               onStartDiscard={() => {
                 closeMailboxDraft(sessionMessageId);
                 return {
@@ -427,6 +451,12 @@ export function EmailMessage({
               onStartDiscard={onStartDiscard}
               refetch={refetch}
               composeMode={composeMode}
+              quote={
+                pendingQuote && !pendingQuote.draftSessionMessageId
+                  ? pendingQuote.text
+                  : undefined
+              }
+              onQuoteInserted={clearPendingQuote}
             />
           )}
         </div>
@@ -649,6 +679,8 @@ function ReplyPanel({
   autoScroll = false,
   bodyAvailable = true,
   replyAnchor,
+  quote,
+  onQuoteInserted,
 }: {
   message: ParsedMessage;
   refetch: () => void;
@@ -667,6 +699,8 @@ function ReplyPanel({
   autoScroll?: boolean;
   bodyAvailable?: boolean;
   replyAnchor?: ParsedMessage;
+  quote?: string;
+  onQuoteInserted?: () => void;
 }) {
   const { emailAccountId } = useAccount();
   const { popOutReply } = useComposeModal();
@@ -821,6 +855,8 @@ function ReplyPanel({
         }}
         refetch={refetch}
         replyingToEmail={replyingToEmail}
+        quote={quote}
+        onQuoteInserted={onQuoteInserted}
       />
     </div>
   );
@@ -982,4 +1018,12 @@ function MessageBodyLoading() {
       Loading message…
     </p>
   );
+}
+
+// Plain-text bodies render in the page, so their selection is the window's.
+function getSelectedText(container: HTMLElement) {
+  const selection = window.getSelection();
+  if (!selection || selection.isCollapsed) return;
+  if (!container.contains(selection.anchorNode)) return;
+  return selection.toString().trim() || undefined;
 }
