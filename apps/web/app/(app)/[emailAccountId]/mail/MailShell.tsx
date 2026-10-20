@@ -60,6 +60,11 @@ import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider"
 import { MailProductFrame } from "@inboxzero/mail-ui/MailProductFrame";
 import { MailEngineConnectionBanner } from "@/utils/mail-engine/MailEngineConnectionBanner";
 import { useThreadSelection } from "@/app/(app)/[emailAccountId]/mail/use-thread-selection";
+import {
+  copySelectedThreadText,
+  findSelectAllReader,
+  selectThreadText,
+} from "@/app/(app)/[emailAccountId]/mail/thread-select-all";
 import { useWarmNeighbourThreads } from "@/app/(app)/[emailAccountId]/mail/use-warm-neighbour-threads";
 import { useMailPerformanceTelemetry } from "@/app/(app)/[emailAccountId]/mail/use-mail-performance-telemetry";
 import {
@@ -1167,7 +1172,13 @@ export function MailShell() {
       },
       switchAllAccounts: selectAllAccounts,
       select: () => selection.toggle(clampedIndex),
-      selectAll: selection.selectAll,
+      selectAll: (event) => {
+        const reader = openThreadId
+          ? findSelectAllReader(event, { readerFillsView: layout === "list" })
+          : null;
+        if (reader) selectThreadText(reader);
+        else selection.selectAll();
+      },
       // The cursor travels with the extension; without that, every repeat
       // re-extends from the same row and the range never grows.
       extendSelectionDown: () => extendSelection(1),
@@ -1231,6 +1242,11 @@ export function MailShell() {
   });
 
   useShortcuts(handlers, { isDesktopApp });
+
+  useEffect(() => {
+    document.addEventListener("copy", copySelectedThreadText);
+    return () => document.removeEventListener("copy", copySelectedThreadText);
+  }, []);
 
   // Senders the reader actually corresponds with, so "Describe it" can turn a
   // person's name into an address instead of guessing a domain.

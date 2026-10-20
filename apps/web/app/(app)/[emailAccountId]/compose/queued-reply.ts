@@ -38,7 +38,7 @@ type QueueReaderEmailOptions = {
   emailAccountId: string;
   messageIds: string[];
   online: boolean;
-  onQueued?: () => Promise<void>;
+  onQueued?: (operationId: string) => Promise<void>;
   mutationId?: string;
   holdForUndo?: boolean;
   /** The mailbox draft's saved copies, which the queued send replaces. */
@@ -124,7 +124,7 @@ async function queueReaderEmailOnce(
     }
     throw new Error(copy ?? "Could not queue this email. Try again.");
   }
-  await onQueued?.();
+  await onQueued?.(commandId);
   if (undoHoldUntil !== undefined) {
     return {
       status: "held",

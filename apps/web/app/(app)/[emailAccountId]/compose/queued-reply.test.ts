@@ -362,7 +362,7 @@ describe("queueReaderEmail", () => {
         notBeforeMs: outcome.holdUntil,
       }),
     );
-    expect(onQueued).toHaveBeenCalledOnce();
+    expect(onQueued).toHaveBeenCalledExactlyOnceWith("mutation");
     expect(client.observeOperation).not.toHaveBeenCalled();
   });
 

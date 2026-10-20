@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState, useRef, useEffect } from "react";
 import { useAction } from "next-safe-action/hooks";
 import {
   ForwardIcon,
+  ReplyAllIcon,
   ReplyIcon,
   ChevronsUpDownIcon,
   ChevronsDownUpIcon,
@@ -38,6 +39,7 @@ import { EmailAttachments } from "@/components/email-list/EmailAttachments";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
 import { formatReplySubject } from "@/utils/email/subject";
+import { buildReplyAllRecipients, formatCcList } from "@/utils/email/reply-all";
 import { isTypingTarget } from "@/lib/shortcuts/registry";
 import { useContactPhoto } from "@/hooks/useContactPhoto";
 import { toastError } from "@/components/Toast";
@@ -86,6 +88,9 @@ export function EmailMessage({
   replyAnchor,
   composerSessionMessageId,
   onReplySent,
+  awaitSentReply,
+  sendOperationId,
+  concealed,
 }: {
   message: ThreadMessage;
   bodyAvailable?: boolean;
@@ -124,6 +129,15 @@ export function EmailMessage({
   composerSessionMessageId?: string;
   /** A reply or forward from this message just left its composer. */
   onReplySent?: () => void;
+  /**
+   * Resolves once a queued send's message is ready in the thread, so its
+   * composer can stay up until then instead of leaving a gap.
+   */
+  awaitSentReply?: (operationId: string) => Promise<void>;
+  /** The send this message came from, while it is outgoing or after it syncs. */
+  sendOperationId?: string;
+  /** Laid out but invisible, so its body loads before it replaces the composer that sent it. */
+  concealed?: boolean;
 }) {
   const { emailAccountId } = useAccount();
   const { poppedOutDraftSessionId } = useComposeModal();
@@ -199,11 +213,13 @@ export function EmailMessage({
     draftSessionMessageId?: string;
   }>();
   const clearPendingQuote = useCallback(() => setPendingQuote(undefined), []);
+  const [replyAll, setReplyAll] = useState(false);
 
   const onReply = useCallback(
     (quote?: string) => {
       onStartCompose?.();
       composeSessionRef.current += 1;
+      setReplyAll(false);
       const savedDraft = serverDrafts[0];
       setPendingQuote(
         quote
@@ -225,6 +241,10 @@ export function EmailMessage({
     },
     [onExpand, onStartCompose, serverDrafts, setDraftDismissed],
   );
+  const onReplyAll = useCallback(() => {
+    onReply();
+    setReplyAll(true);
+  }, [onReply]);
   const onForward = useCallback(() => {
     onStartCompose?.();
     composeSessionRef.current += 1;
@@ -303,7 +323,9 @@ export function EmailMessage({
     <li
       ref={messageRef}
       data-thread-message-id={message.id}
+      data-send-operation-id={sendOperationId}
       data-selected={selected}
+      aria-hidden={concealed || undefined}
       tabIndex={selected !== undefined || hasOpenComposer ? -1 : undefined}
       aria-current={selected || undefined}
       onFocusCapture={onSelect}
@@ -334,6 +356,7 @@ export function EmailMessage({
         "group/message relative min-w-0 rounded bg-card px-3 py-2.5 outline-none transition-colors sm:px-4",
         selected === undefined &&
           "before:absolute before:inset-y-0 before:left-0 before:w-1 before:rounded-l before:bg-primary before:opacity-0 focus-within:before:opacity-100",
+        concealed && "invisible absolute inset-x-0",
         !expanded && "hover:bg-muted/40",
       )}
     >
@@ -344,6 +367,7 @@ export function EmailMessage({
         onForward={onForward}
         onOpenSenderContext={onOpenSenderContext}
         onReply={onReply}
+        onReplyAll={onReplyAll}
         onToggle={onToggle}
         onToggleKeyDown={onMessageKeyDown}
         showDetails={showDetails}
@@ -417,6 +441,7 @@ export function EmailMessage({
               onRestore={() => setDraftDismissed(sessionMessageId, false)}
               onSendSuccess={onSendSuccess}
               onSent={onReplySent}
+              awaitSentReply={awaitSentReply}
               onMarkDone={onMarkDone}
               onDraftDiscarded={onDraftDiscarded}
               quote={
@@ -444,11 +469,13 @@ export function EmailMessage({
               draftSessionMessageId={composerSessionMessageId}
               message={message}
               replyAnchor={replyAnchor}
+              replyAll={replyAll}
               onCloseCompose={onCloseComposeAfterSend}
               onRestore={onRestoreComposeAfterSend}
               onRestoreCompose={onRestoreCompose}
               onSendSuccess={onSendSuccess}
               onSent={onReplySent}
+              awaitSentReply={awaitSentReply}
               onMarkDone={onMarkDone}
               onStartDiscard={onStartDiscard}
               refetch={refetch}
@@ -480,6 +507,7 @@ function MessageHeader({
   toggleDetails,
   showReplyButton,
   onReply,
+  onReplyAll,
   onForward,
   onOpenSenderContext,
   onToggle,
@@ -494,6 +522,7 @@ function MessageHeader({
   toggleDetails: (e: React.MouseEvent) => void;
   showReplyButton: boolean;
   onReply: () => void;
+  onReplyAll: () => void;
   onForward: () => void;
   onOpenSenderContext?: (message: ThreadMessage) => void;
   onToggle?: () => void;
@@ -518,6 +547,15 @@ function MessageHeader({
     !isSent &&
     Boolean(senderEmail) &&
     !isSameEmailAddress(senderEmail, userEmail);
+  // A reply already keeps the CC list, so reply all only adds the other To
+  // recipients. Replies to the user's own mail already go to everyone.
+  const canReplyAll =
+    !isSent &&
+    splitRecipientList(message.headers.to ?? "").some(
+      (recipient) =>
+        !isSameEmailAddress(recipient, userEmail) &&
+        !isSameEmailAddress(recipient, message.headers.from),
+    );
 
   // Collapsing is the thread's call, so a row is only interactive once it has
   // been handed a toggle.
@@ -634,6 +672,18 @@ function MessageHeader({
                     <span className="sr-only">Reply</span>
                   </Button>
                 </Tooltip>
+                {canReplyAll && (
+                  <Tooltip content="Reply all">
+                    <Button
+                      onClick={compose(onReplyAll)}
+                      size="iconXs"
+                      variant="ghostMuted"
+                    >
+                      <ReplyAllIcon className="size-3.5" />
+                      <span className="sr-only">Reply all</span>
+                    </Button>
+                  </Tooltip>
+                )}
                 <Tooltip shortcuts={["forward"]}>
                   <Button
                     onClick={compose(onForward)}
@@ -681,13 +731,16 @@ function ReplyPanel({
   autoScroll = false,
   bodyAvailable = true,
   replyAnchor,
+  replyAll = false,
   quote,
   onQuoteInserted,
+  awaitSentReply,
 }: {
   message: ParsedMessage;
   refetch: () => void;
   onSendSuccess: (messageId: string, threadId: string) => void;
   onSent?: () => void;
+  awaitSentReply?: (operationId: string) => Promise<void>;
   onMarkDone?: () => void;
   onCloseCompose: () => void;
   onRestore?: () => void;
@@ -701,11 +754,28 @@ function ReplyPanel({
   autoScroll?: boolean;
   bodyAvailable?: boolean;
   replyAnchor?: ParsedMessage;
+  replyAll?: boolean;
   quote?: string;
   onQuoteInserted?: () => void;
 }) {
-  const { emailAccountId } = useAccount();
+  const { emailAccountId, userEmail } = useAccount();
   const { popOutReply } = useComposeModal();
+  const [handingOffSend, setHandingOffSend] = useState(false);
+  const handoffStarted = useRef(false);
+  // Also set on unmount: undo can restore a new composer in this one's place,
+  // and a late handoff must not close it.
+  const closed = useRef(false);
+  useEffect(() => {
+    closed.current = false;
+    return () => {
+      closed.current = true;
+    };
+  }, []);
+  const closeAfterSend = () => {
+    if (closed.current) return;
+    closed.current = true;
+    onCloseCompose();
+  };
   const replyTargetId = replyAnchor?.id ?? message.id;
   const draftSessionId = getReplyDraftSessionId(
     draftSessionMessageId ?? message.id,
@@ -740,12 +810,25 @@ function ReplyPanel({
     if (composeMode === "reply") {
       if (draftSource) return prepareDraftReplyEmail(draftSource);
 
-      return prepareReplyingToEmail(message, replyAnchor);
+      return prepareReplyingToEmail({
+        message,
+        threadOn: replyAnchor,
+        replyAll,
+        userEmail,
+      });
     }
     return forwardSource
       ? prepareForwardingEmail(forwardSource, Boolean(replyAnchor))
       : undefined;
-  }, [composeMode, message, draftSource, forwardSource, replyAnchor]);
+  }, [
+    composeMode,
+    message,
+    draftSource,
+    forwardSource,
+    replyAnchor,
+    replyAll,
+    userEmail,
+  ]);
 
   const { executeAsync: discardDraft } = useAction(
     deleteDraftAction.bind(null, emailAccountId),
@@ -823,7 +906,7 @@ function ReplyPanel({
     );
 
   return (
-    <div className="mt-5" ref={replyRef}>
+    <div className="mt-5" inert={handingOffSend} ref={replyRef}>
       <ComposeEmailFormLazy
         providerDraftMessageId={
           composeMode === "reply" ? draftMessage?.id : undefined
@@ -831,11 +914,27 @@ function ReplyPanel({
         draftKeyMessageId={replyTargetId}
         draftMode={composeMode}
         draftSessionId={draftSessionId}
-        onClose={() => {
-          onCloseCompose();
+        onClose={(queuedOperationId?: string) => {
+          // An offline send closes again once queued; the handoff closes it.
+          if (handoffStarted.current) return;
+          // Before the handoff, so this message stays open once the sent
+          // reply below it is the newest.
           onSent?.();
+          if (!queuedOperationId || !awaitSentReply) {
+            closeAfterSend();
+            return;
+          }
+          // Closing now would leave the thread without the reply until the
+          // sent message's body has loaded.
+          handoffStarted.current = true;
+          setHandingOffSend(true);
+          awaitSentReply(queuedOperationId).then(closeAfterSend);
         }}
-        onRestore={onRestore}
+        onRestore={() => {
+          // Undo restores a fresh composer, which needs this one closed first.
+          if (handoffStarted.current) closeAfterSend();
+          onRestore?.();
+        }}
         onDiscard={onDiscard}
         onPopOut={() => {
           popOutReply({
@@ -887,13 +986,28 @@ function recipientSummary(
   return names ? `to ${names}` : "";
 }
 
-const prepareReplyingToEmail = (
-  message: ParsedMessage,
-  threadOn: ParsedMessage = message,
-): ReplyingToEmail => {
+const prepareReplyingToEmail = ({
+  message,
+  threadOn = message,
+  replyAll,
+  userEmail,
+}: {
+  message: ParsedMessage;
+  threadOn?: ParsedMessage;
+  replyAll: boolean;
+  userEmail: string;
+}): ReplyingToEmail => {
   const sentFromUser = message.labelIds?.includes("SENT");
 
   const { html } = createReplyContent({ message });
+  const replyAllCc =
+    replyAll && !sentFromUser
+      ? buildReplyAllRecipients(
+          message.headers,
+          message.headers.from,
+          userEmail,
+        ).cc
+      : undefined;
 
   return {
     // If following an email from yourself, use original recipients, otherwise reply to sender
@@ -907,7 +1021,7 @@ const prepareReplyingToEmail = (
     messageId: threadOn.id || undefined,
     threadId: threadOn.threadId || undefined,
     // Keep original CC
-    cc: message.headers.cc,
+    cc: replyAllCc ? formatCcList(replyAllCc) : message.headers.cc,
     // Keep original BCC if available
     bcc: sentFromUser ? message.headers.bcc : "",
     references: threadOn.headers.references,

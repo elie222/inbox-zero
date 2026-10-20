@@ -31,7 +31,7 @@
   "dependencies": {
     "@inboxzero/mail-core": "workspace:*",
     "@inboxzero/mail-react": "workspace:*",
-    "dompurify": "3.4.15",
+    "dompurify": "3.4.17",
     "utif2": "4.1.0"
   },
   "peerDependencies": {
@@ -40,12 +40,12 @@
   },
   "devDependencies": {
     "@types/node": "24.10.1",
-    "@types/react": "19.2.18",
-    "@types/react-dom": "19.2.4",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
     "jsdom": "27.3.0",
-    "react": "19.3.0",
-    "react-dom": "19.3.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
     "typescript": "6.0.3",
-    "vitest": "4.1.10"
+    "vitest": "5.0.5"
   }
 }
