@@ -40,6 +40,7 @@ import type {
   MailboxCountsQuery,
   MailboxCountsView,
   MailboxView,
+  MailPredicate,
   QueryHandle,
 } from "./queries";
 import {
@@ -171,6 +172,7 @@ export function createMailEngine(input: {
     { retryAtMs: number; delayMs: number }
   >();
   const syncLaneErrors: unknown[] = [];
+  const remoteSearches = new Map<string, RemoteSearch>();
   let closed = false;
 
   return {
@@ -178,7 +180,7 @@ export function createMailEngine(input: {
       return store.readContactSuggestions(query);
     },
     observeMailbox(query) {
-      enqueueSearches(query);
+      requestRemoteSearchPages(query, 1);
       return queries.observe(mailboxQueryKey(query), () =>
         store.readMailboxView(query).then((result) => ({
           revision: result.revision,
@@ -195,8 +197,8 @@ export function createMailEngine(input: {
       );
     },
     observeMailboxWindow(query, options) {
-      enqueueSearches(query);
       let pageCount = normalizePageCount(options?.pageCount);
+      requestRemoteSearchPages(query, pageCount);
       const key = `mailbox-pages:${runtime.randomId()}`;
       const handle = queries.observe(key, () =>
         store.readMailboxWindow(query, pageCount).then((result) => ({
@@ -211,6 +213,7 @@ export function createMailEngine(input: {
         ...handle,
         async loadMore() {
           pageCount += 1;
+          requestRemoteSearchPages(query, pageCount);
           await queries.refreshKey(key);
         },
       };
@@ -306,6 +309,7 @@ export function createMailEngine(input: {
     async purgeAccount(accountId) {
       stopSyncLane(accountId);
       idleCatchUpGates.delete(accountId);
+      forgetRemoteSearches(accountId);
       const revision = await store.purgeAccount(accountId);
       await queries.refreshAll();
       return revision;
@@ -320,6 +324,7 @@ export function createMailEngine(input: {
         if (retained.has(account.accountId)) continue;
         stopSyncLane(account.accountId);
         idleCatchUpGates.delete(account.accountId);
+        forgetRemoteSearches(account.accountId);
         await store.purgeAccount(account.accountId);
         purged = true;
       }
@@ -518,13 +523,6 @@ export function createMailEngine(input: {
                 purpose: "body",
               });
             }
-            if (searched.value.nextPage) {
-              await store.enqueueSearch({
-                accountId: work.accountId,
-                predicate: work.predicate,
-                page: searched.value.nextPage,
-              });
-            }
             await queries.refreshAll();
           }
           if (
@@ -535,6 +533,11 @@ export function createMailEngine(input: {
               jobId: work.jobId,
               attemptId: work.attemptId,
             });
+            settleRemoteSearchPage(
+              work.accountId,
+              work.predicate,
+              searched.status === "ok" ? searched.value.nextPage : undefined,
+            );
           }
           continue;
         }
@@ -583,13 +586,91 @@ export function createMailEngine(input: {
     },
   };
 
-  function enqueueSearches(query: ConversationQuery) {
+  // Provider search fetches one page per page the user has scrolled to, so a
+  // broad term never pages through the whole mailbox in the background.
+  function requestRemoteSearchPages(
+    query: ConversationQuery,
+    wantedPages: number,
+  ) {
     for (const accountId of query.accountIds) {
       for (const predicate of extractTextPredicates(query.predicate)) {
-        store
-          .enqueueSearch({ accountId, predicate, page: null })
-          .catch(() => undefined);
+        const key = remoteSearchKey(accountId, predicate);
+        const search = remoteSearches.get(key);
+        if (!search) {
+          remoteSearches.set(key, {
+            accountId,
+            predicate,
+            wantedPages,
+            fetchedPages: 0,
+            nextPage: null,
+            pending: true,
+          });
+          enqueueRemoteSearchPage(accountId, predicate, null);
+          continue;
+        }
+        search.wantedPages = Math.max(search.wantedPages, wantedPages);
+        continueRemoteSearch(search);
       }
+    }
+  }
+
+  function settleRemoteSearchPage(
+    accountId: string,
+    predicate: MailPredicate,
+    nextPage: string | null | undefined,
+  ) {
+    const key = remoteSearchKey(accountId, predicate);
+    // A failed search starts over the next time a view asks for it.
+    if (nextPage === undefined) {
+      remoteSearches.delete(key);
+      return;
+    }
+    // A page queued before a restart has no search state; it counts as the
+    // first page so its continuation waits for a view to ask for more.
+    const search = remoteSearches.get(key) ?? {
+      accountId,
+      predicate,
+      wantedPages: 1,
+      fetchedPages: 0,
+      nextPage: null,
+      pending: true,
+    };
+    search.fetchedPages += 1;
+    search.nextPage = nextPage;
+    search.pending = false;
+    remoteSearches.set(key, search);
+    continueRemoteSearch(search);
+  }
+
+  function continueRemoteSearch(search: RemoteSearch) {
+    if (
+      search.pending ||
+      !search.nextPage ||
+      search.fetchedPages >= search.wantedPages
+    ) {
+      return;
+    }
+    search.pending = true;
+    enqueueRemoteSearchPage(
+      search.accountId,
+      search.predicate,
+      search.nextPage,
+    );
+  }
+
+  function enqueueRemoteSearchPage(
+    accountId: string,
+    predicate: MailPredicate,
+    page: string | null,
+  ) {
+    store.enqueueSearch({ accountId, predicate, page }).catch(() => {
+      remoteSearches.delete(remoteSearchKey(accountId, predicate));
+    });
+  }
+
+  function forgetRemoteSearches(accountId: string) {
+    for (const [key, search] of remoteSearches) {
+      if (search.accountId === accountId) remoteSearches.delete(key);
     }
   }
 
@@ -1299,6 +1380,19 @@ type CheckStamp = { atMs: number; requestCount: number };
 
 function idleGateDue(nextAtMs: number, nowMs: number, intervalMs: number) {
   return nextAtMs <= nowMs || nextAtMs - nowMs > intervalMs;
+}
+
+type RemoteSearch = {
+  accountId: string;
+  predicate: MailPredicate;
+  wantedPages: number;
+  fetchedPages: number;
+  nextPage: string | null;
+  pending: boolean;
+};
+
+function remoteSearchKey(accountId: string, predicate: MailPredicate) {
+  return `${accountId}:${JSON.stringify(predicate)}`;
 }
 
 function normalizePageCount(pageCount: number | undefined) {
