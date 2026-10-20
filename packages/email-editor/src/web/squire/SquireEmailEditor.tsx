@@ -128,6 +128,8 @@ export const SquireEmailEditor = forwardRef<
   const rootRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<EmailSquire | null>(null);
   const [editor, setEditor] = useState<EmailSquire | null>(null);
+  const squireBodyRef = useRef<HTMLDivElement>(null);
+  const preservedToggleRef = useRef<HTMLDivElement>(null);
 
   // The signature element is detached from the editable root while collapsed,
   // so select-all, deletes and typing can never change it unseen.
@@ -138,6 +140,7 @@ export const SquireEmailEditor = forwardRef<
   const signaturePresentRef = useRef(false);
   const [expanded, setExpandedState] = useState(false);
   const expandedRef = useRef(false);
+  const signatureExpanded = signaturePresent && expanded;
 
   // An untouched draft is sent exactly as loaded; "dirty" means the content
   // differs from what was loaded, not merely that the DOM was touched.
@@ -615,16 +618,17 @@ export const SquireEmailEditor = forwardRef<
   }, []);
 
   // Show or hide the signature to match the toggle.
-  useEffect(() => {
+  useLayoutEffect(() => {
     const root = rootRef.current;
     const signature = signatureRef.current;
-    if (!editor || !root || !signature) return;
-    const visible = signaturePresent && expanded;
+    const body = squireBodyRef.current;
+    const toggle = preservedToggleRef.current;
+    if (!editor || !root || !signature || !body || !toggle) return;
     const inRoot = root.contains(signature);
-    if (visible && !inRoot) {
+    if (signatureExpanded && !inRoot) {
       attachSignature(editor, root, signature, signatureTailRef.current);
       signatureTailRef.current = [];
-    } else if (!visible && inRoot) {
+    } else if (!signatureExpanded && inRoot) {
       const selection = editor.getSelection().startContainer;
       const selectionLeavesRoot =
         signature.contains(selection) ||
@@ -635,8 +639,38 @@ export const SquireEmailEditor = forwardRef<
       signatureTailRef.current = detachSignature(editor, root, signature);
       if (selectionLeavesRoot) editor.moveCursorToEnd();
     }
+
+    // Keep UI outside Squire's serialized and undoable document while
+    // visually anchoring it in the space reserved above the signature.
+    const positionToggle = () => {
+      if (!signatureExpanded) {
+        toggle.style.removeProperty("top");
+        return;
+      }
+      // History changes and account switches can replace the signature node
+      // without changing the expanded state that owns this observer.
+      const currentSignature = signatureRef.current;
+      if (!currentSignature || !root.contains(currentSignature)) return;
+      const signatureTop = currentSignature.getBoundingClientRect().top;
+      const bodyTop = body.getBoundingClientRect().top;
+      const toggleHeight = toggle.getBoundingClientRect().height;
+      toggle.style.top = `${signatureTop - bodyTop - toggleHeight}px`;
+    };
+    positionToggle();
     updateEmptyState();
-  }, [editor, expanded, signaturePresent, updateEmptyState]);
+
+    if (!signatureExpanded) return;
+    const resizeObserver =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(positionToggle);
+    resizeObserver?.observe(root);
+    window.addEventListener("resize", positionToggle);
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", positionToggle);
+    };
+  }, [editor, signatureExpanded, updateEmptyState]);
 
   const activeBlocks = useMemo(() => {
     const blocks: ActivePreservedBlock[] = [];
@@ -782,7 +816,11 @@ export const SquireEmailEditor = forwardRef<
           updateSlashTrigger();
         }}
       >
-        <div className={styles.squireBody}>
+        <div
+          className={styles.squireBody}
+          data-email-signature-expanded={signatureExpanded || undefined}
+          ref={squireBodyRef}
+        >
           <div
             aria-label="Email message"
             aria-multiline="true"
@@ -799,19 +837,24 @@ export const SquireEmailEditor = forwardRef<
             tabIndex={0}
           />
           {activeBlocks.length > 0 && (
-            <div className={styles.squirePreserved}>
+            <div
+              className={`${styles.squirePreserved} ${
+                signatureExpanded ? styles.signatureToggle : ""
+              }`}
+              ref={preservedToggleRef}
+            >
               <PreservedBlocksToggle
                 blocks={activeBlocks}
                 expanded={expanded}
                 onToggle={() => setExpanded(!expandedRef.current)}
               />
-              {quoteBlock && (
-                <div data-email-preserved-kind="quote">
-                  {expanded && (
-                    <QuotePreview previewHtml={quoteBlock.previewHtml} />
-                  )}
-                </div>
-              )}
+            </div>
+          )}
+          {quoteBlock && expanded && (
+            <div className={styles.squirePreserved}>
+              <div data-email-preserved-kind="quote">
+                <QuotePreview previewHtml={quoteBlock.previewHtml} />
+              </div>
             </div>
           )}
           <div
