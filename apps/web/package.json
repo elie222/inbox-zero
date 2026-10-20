@@ -241,7 +241,7 @@
   "devDependencies": {
     "@headlessui/tailwindcss": "0.2.2",
     "@microsoft/microsoft-graph-types": "2.43.1",
-    "@playwright/test": "1.64.1",
+    "@playwright/test": "1.62.1",
     "@serwist/cli": "9.5.13",
     "@testing-library/react": "16.3.3",
     "@types/email-reply-parser": "1.4.2",
