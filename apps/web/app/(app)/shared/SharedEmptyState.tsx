@@ -24,7 +24,7 @@ export function SharedEmptyState() {
         </EmptyMedia>
         <EmptyTitle>No shared conversations yet</EmptyTitle>
         <EmptyDescription>
-          Share an email by @mentioning a teammate in a comment.
+          Discuss an email privately by @mentioning a teammate in a comment.
         </EmptyDescription>
       </EmptyHeader>
       <EmptyContent>
