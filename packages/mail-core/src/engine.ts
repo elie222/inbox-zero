@@ -338,9 +338,16 @@ export function createMailEngine(input: {
         evictedForCurrentPressure = true;
         if (evictedBodies > 0) await queries.refreshAll();
       }
+      let lanesStarted = false;
       while (runtime.nowMs() < deadlineMs) {
         await yieldToHost();
         if (signal?.aborted || runtime.nowMs() >= deadlineMs) return;
+        // A backlog that never drains, like a broad search paging through the
+        // whole mailbox, must not keep new mail from syncing.
+        if (!lanesStarted) {
+          lanesStarted = true;
+          await startSyncLanes();
+        }
         const work = await store.claimWork({
           ownerId,
           nowMs: runtime.nowMs(),
