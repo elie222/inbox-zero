@@ -17,7 +17,6 @@ import type { Attachment as MailAttachment } from "nodemailer/lib/mailer";
 import { toMailerAttachments } from "@/utils/types/mail";
 import {
   getMessage,
-  getMessages,
   queryBatchMessages,
   queryMessagesWithAttachments,
   getCategoryMap,
@@ -1848,16 +1847,21 @@ export class OutlookProvider implements EmailProvider {
   }
   async checkIfReplySent(senderEmail: string): Promise<boolean> {
     try {
-      const query = `from:me to:${senderEmail}`;
-      const response = await getMessages(
+      // Graph has no Gmail-style "from:me to:" query, and recipient
+      // collections can't be filtered with $filter, so search Sent Items by
+      // participant and confirm the exact address on what comes back.
+      const { messages } = await queryBatchMessages(
         this.client,
         {
-          query,
-          maxResults: 1,
+          searchQuery: `participants:${sanitizeKqlValue(senderEmail)}`,
+          folderId: "sentitems",
+          maxResults: 10,
         },
         this.logger,
       );
-      const sent = (response.messages?.length ?? 0) > 0;
+      const sent =
+        filterMessagesForParticipant(messages, senderEmail.toLowerCase())
+          .length > 0;
       this.logger.info("Checked for sent reply", { senderEmail, sent });
       return sent;
     } catch (error) {
@@ -1874,22 +1878,21 @@ export class OutlookProvider implements EmailProvider {
     threshold: number,
   ): Promise<number> {
     try {
-      const query = `from:${senderEmail}`;
       this.logger.info("Checking received message count", {
         senderEmail,
         threshold,
       });
 
       // Fetch up to the threshold number of messages
-      const response = await getMessages(
+      const { messages } = await queryBatchMessages(
         this.client,
         {
-          query,
+          fromEmail: senderEmail,
           maxResults: threshold,
         },
         this.logger,
       );
-      const count = response.messages?.length ?? 0;
+      const count = messages.length;
 
       this.logger.info("Received message count check result", {
         senderEmail,
