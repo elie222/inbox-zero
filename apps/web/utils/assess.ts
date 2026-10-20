@@ -97,7 +97,7 @@ async function getForwardingAddressesCount(
 
 async function getEmailClients(client: EmailProvider, logger: Logger) {
   try {
-    const messages = await client.getSentMessages(20);
+    const messages = await client.getSentMessages(50);
 
     const clients = messages
       .filter((message) => message.headers["message-id"])

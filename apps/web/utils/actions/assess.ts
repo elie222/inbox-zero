@@ -10,15 +10,15 @@ import { actionClient } from "@/utils/actions/safe-action";
 import { createEmailProvider } from "@/utils/email/provider";
 import { SafeError } from "@/utils/error";
 import { scheduleAccountAnalysis } from "@/utils/ai/knowledge/schedule-account-analysis";
-import { whitelistInboxZeroAction } from "@/utils/actions/whitelist";
+import { whitelistInboxZero } from "@/utils/whitelist-inbox-zero";
 
-const SENT_MESSAGE_SAMPLE_POOL_SIZE = 20;
+const SENT_MESSAGE_SAMPLE_POOL_SIZE = 60;
 const STYLE_SAMPLE_SIZE = 20;
 
 // to help with onboarding and provide the best flow to new users
 export const assessAction = actionClient
   .metadata({ name: "assessUser" })
-  .action(async ({ ctx: { emailAccountId, provider, logger } }) => {
+  .action(async ({ ctx: { emailAccountId, userId, provider, logger } }) => {
     const emailAccount = await prisma.emailAccount.findUnique({
       where: { id: emailAccountId },
       select: { behaviorProfile: true },
@@ -42,7 +42,7 @@ export const assessAction = actionClient
           where: { id: emailAccountId },
           data: { behaviorProfile: result },
         });
-        await whitelistInboxZeroAction(emailAccountId);
+        await whitelistInboxZero({ userId, emailProvider });
         return true;
       },
     });

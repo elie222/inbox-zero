@@ -38,10 +38,8 @@ export async function schedulePersonaAnalysis({
         provider,
         logger,
       });
-      // Full Gmail messages cost 60 units each on newer projects. Leave
-      // headroom for statistics preloading and interactive mailbox requests.
       const { messages } = await emailProvider.getMessagesWithPagination({
-        maxResults: 20,
+        maxResults: 200,
       });
       if (!messages?.length) return false;
 

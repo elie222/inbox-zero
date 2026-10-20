@@ -1,4 +1,4 @@
-import { expect } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import { Client } from "pg";
 import Redis from "ioredis";
 import { test } from "../playwright-test";
@@ -73,6 +73,11 @@ test("Gmail throttling cannot block saving Both or navigating onboarding", async
       120,
     );
 
+    // The first onboarding step starts persona analysis.
+    await page.goto(`/${emailAccountId}/onboarding`);
+    await expect
+      .poll(() => getPersonaAnalysisStatus(page, emailAccountId))
+      .not.toBe("idle");
     await page.goto(`/${emailAccountId}/onboarding?step=intent`);
     await chooseSignupIntent(page, "Both");
     await expect(
@@ -83,12 +88,7 @@ test("Gmail throttling cannot block saving Both or navigating onboarding", async
       page.getByRole("heading", { name: "A chat that runs your email" }),
     ).toBeVisible({ timeout: 5000 });
     await expect
-      .poll(async () => {
-        const response = await page.request.get("/api/user/persona", {
-          headers: { "X-Email-Account-ID": emailAccountId },
-        });
-        return (await response.json()).analysisStatus;
-      })
+      .poll(() => getPersonaAnalysisStatus(page, emailAccountId))
       .toBe("cooldown");
     expect(await getSignupIntentState()).toEqual({
       completed: false,
@@ -101,6 +101,13 @@ test("Gmail throttling cannot block saving Both or navigating onboarding", async
     );
   });
 });
+
+async function getPersonaAnalysisStatus(page: Page, emailAccountId: string) {
+  const response = await page.request.get("/api/user/persona", {
+    headers: { "X-Email-Account-ID": emailAccountId },
+  });
+  return (await response.json()).analysisStatus;
+}
 
 async function withUnanalyzedAccount(
   emailAccountId: string,

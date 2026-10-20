@@ -16,9 +16,6 @@ vi.mock("@/components/Toast", () => ({
   toastError: mocks.toastError,
   toastSuccess: mocks.toastSuccess,
 }));
-vi.mock("@/utils/actions/stats", () => ({
-  loadEmailStatsAction: async () => undefined,
-}));
 
 beforeEach(() => {
   mocks.accountId = "account-1";

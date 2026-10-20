@@ -165,7 +165,7 @@ describe("background persona scheduling", () => {
     await drainAfter();
 
     expect(mocks.getMessages).toHaveBeenCalledTimes(2);
-    expect(mocks.getMessages).toHaveBeenNthCalledWith(1, { maxResults: 20 });
+    expect(mocks.getMessages).toHaveBeenNthCalledWith(1, { maxResults: 200 });
   });
 
   it("cools down after throttling and allows another attempt after expiry", async () => {
@@ -205,7 +205,7 @@ describe("background persona scheduling", () => {
     });
   });
 
-  it("persists completed analysis after the response using a bounded sample", async () => {
+  it("persists completed analysis after the response", async () => {
     mocks.getMessages.mockResolvedValue({ messages: [getMockMessage()] });
 
     expect(await analyzePersonaAction("account-1")).toMatchObject({
@@ -214,7 +214,7 @@ describe("background persona scheduling", () => {
     expect(prisma.emailAccount.update).not.toHaveBeenCalled();
     await drainAfter();
 
-    expect(mocks.getMessages).toHaveBeenCalledWith({ maxResults: 20 });
+    expect(mocks.getMessages).toHaveBeenCalledWith({ maxResults: 200 });
     expect(prisma.emailAccount.update).toHaveBeenCalledWith({
       where: { id: "account-1" },
       data: { personaAnalysis: persona },
@@ -283,16 +283,16 @@ describe("background persona scheduling", () => {
   it.each([
     assessAction,
     analyzeWritingStyleAction,
-  ])("bounds other startup samples and persists them after responding", async (action) => {
+  ])("persists other startup analysis after responding", async (action) => {
     mocks.getSentMessages.mockResolvedValue([getMockMessage()]);
     expect(await action("account-1")).toMatchObject({
       data: { status: "running" },
     });
     expect(prisma.emailAccount.update).not.toHaveBeenCalled();
     await drainAfter();
-    expect(mocks.getSentMessages).toHaveBeenCalledWith(20);
     expect(prisma.emailAccount.update).toHaveBeenCalledOnce();
   });
+
   it.each([
     assessAction,
     analyzeWritingStyleAction,
