@@ -159,10 +159,10 @@ export async function getConversationActivity(
 }
 
 /** Conversations with activity the user hasn't read, across all their memberships. */
-export async function countUnreadConversations(userId: string) {
+export async function countUnreadConversations(emailAccountId: string) {
   const participants = await prisma.conversationParticipant.findMany({
     where: {
-      member: { emailAccount: { userId } },
+      member: { emailAccountId },
       active: true,
       muted: false,
       conversation: { status: "ACTIVE" },
