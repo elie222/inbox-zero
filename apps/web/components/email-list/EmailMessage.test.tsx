@@ -77,7 +77,6 @@ vi.mock("@/app/(app)/[emailAccountId]/compose/ComposeEmailFormLazy", () => ({
       data-testid="composer"
       data-inline-reply="true"
       data-quote={quote}
-      data-to={replyingToEmail?.to}
       data-thread-id={replyingToEmail?.threadId}
       data-to={replyingToEmail?.to}
       data-cc={replyingToEmail?.cc}
@@ -419,6 +418,33 @@ describe("EmailMessage reply all", () => {
     const composer = screen.getByTestId("composer");
     expect(composer.dataset.to).toBe("sender@example.com");
     expect(composer.dataset.cc).toBe("sam@example.com, alex@example.com");
+  });
+
+  it("sends to the Reply-To address without copying it again", () => {
+    const message = createMessage("message-1");
+    render(
+      <EmailMessage
+        expanded
+        message={{
+          ...message,
+          headers: {
+            ...message.headers,
+            "reply-to": "list@example.com",
+            to: "user@example.com, list@example.com",
+            cc: "sam@example.com",
+          },
+        }}
+        onSendSuccess={vi.fn()}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Reply all" }));
+
+    const composer = screen.getByTestId("composer");
+    expect(composer.dataset.to).toBe("list@example.com");
+    expect(composer.dataset.cc).toBe("sam@example.com");
   });
 
   it("is not offered when the user is the only other recipient", () => {
