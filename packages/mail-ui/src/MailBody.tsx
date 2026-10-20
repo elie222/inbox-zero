@@ -250,6 +250,8 @@ export function buildMailHtmlDocument({
       html.includes("text-decoration") ||
       styleAttributeCount === 1);
 
+  // cid: images can only paint as broken until their attachment downloads
+  // and the html is rewritten to blob URLs, so they stay hidden until then.
   const defaultFontCss = hasHeavyStyling
     ? `
       :root {
@@ -263,6 +265,7 @@ export function buildMailHtmlDocument({
       }
       table { max-width: 100% !important; overflow-x: auto; }
       img { max-width: 100% !important; height: auto; }
+      img[src^="cid:" i] { visibility: hidden; }
   `
     : `
       :root {
@@ -282,6 +285,7 @@ export function buildMailHtmlDocument({
 
       table { max-width: 100% !important; overflow-x: auto; }
       img { max-width: 100% !important; height: auto; }
+      img[src^="cid:" i] { visibility: hidden; }
 
       body {
         font-family: ${SANS_FONT_STACK};

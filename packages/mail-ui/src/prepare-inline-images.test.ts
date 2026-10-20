@@ -59,6 +59,32 @@ describe("local mail inline images", () => {
     });
     expect(srcDoc).toContain("img-src data: blob:");
   });
+
+  it.each([
+    ["plain", "<p>Hello</p>"],
+    [
+      "designed",
+      '<table style="font-family: Arial"><tr><td>Hi</td></tr></table>',
+    ],
+  ])("hides cid images that have not been swapped to blob URLs in %s emails", (_kind, body) => {
+    const srcDoc = buildMailHtmlDocument({
+      html: sanitizeMailHtml(
+        `${body}<img src="cid:logo@example.test"><img src="CID:other@example.test"><img src="blob:local-image">`,
+      ),
+      isDarkMode: false,
+      documentKey: "test",
+      imageProxyBaseUrl: null,
+      imageProxyOrigin: null,
+    });
+    document.open();
+    document.write(srcDoc);
+    document.close();
+    const visibility = Array.from(document.querySelectorAll("img")).map(
+      (image) => getComputedStyle(image).visibility,
+    );
+
+    expect(visibility).toEqual(["hidden", "hidden", "visible"]);
+  });
   it("deduplicates repeated CIDs and leaves unresolved or unrelated images alone", async () => {
     vi.stubGlobal(
       "URL",
