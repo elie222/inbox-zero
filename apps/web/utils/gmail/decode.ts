@@ -1,4 +1,4 @@
-import he from "he";
+import * as he from "he";
 
 export function decodeHtmlEntities(text?: string | null) {
   if (!text) return "";

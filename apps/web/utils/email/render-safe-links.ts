@@ -1,4 +1,4 @@
-import he from "he";
+import * as he from "he";
 import { getSafeEmailLinkUrl } from "@/utils/email/safe-email-link-url";
 import { escapeHtml } from "@/utils/string";
 
