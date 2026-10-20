@@ -45,11 +45,6 @@ test("opens mail with settings cached before the split condition upgrade", async
     await expect(
       page.getByText("Something went wrong", { exact: true }),
     ).toBeHidden();
-    await capturePlaywrightCheckpoint(
-      page,
-      testInfo,
-      "mail-with-outdated-cached-settings",
-    );
 
     const responsePromise = page.waitForResponse("**/api/mail/settings");
     releaseSettings();

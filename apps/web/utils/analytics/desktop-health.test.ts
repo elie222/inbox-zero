@@ -15,6 +15,7 @@ describe("buildDesktopHealthProperties", () => {
             eventLoopDelayMs: { count: 180, p50Ms: 2, p95Ms: 40, maxMs: 900 },
             sqliteReadMs: null,
             sqliteWriteMs: { count: 12, p50Ms: 30, p95Ms: 120, maxMs: 400 },
+            mailCommandMs: { count: 5, p50Ms: 90, p95Ms: 2400, maxMs: 31_000 },
           },
         },
         mailboxBytes: 1024,
@@ -37,6 +38,10 @@ describe("buildDesktopHealthProperties", () => {
       sqlite_write_p50_ms: 30,
       sqlite_write_p95_ms: 120,
       sqlite_write_max_ms: 400,
+      mail_command_count: 5,
+      mail_command_p50_ms: 90,
+      mail_command_p95_ms: 2400,
+      mail_command_max_ms: 31_000,
     });
   });
 

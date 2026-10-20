@@ -138,7 +138,6 @@ export const SquireEmailEditor = forwardRef<
   const signaturePresentRef = useRef(false);
   const [expanded, setExpandedState] = useState(false);
   const expandedRef = useRef(false);
-  const [removeButtonTop, setRemoveButtonTop] = useState<number | null>(null);
 
   // An untouched draft is sent exactly as loaded; "dirty" means the content
   // differs from what was loaded, not merely that the DOM was touched.
@@ -212,6 +211,7 @@ export const SquireEmailEditor = forwardRef<
   const serializeContent = useCallback(() => {
     const template = document.createElement("template");
     template.innerHTML = editorRef.current?.getHTML() ?? "";
+    removePlaceholderBreaks(template.content);
     const signature = signatureRef.current;
     if (
       signaturePresentRef.current &&
@@ -242,14 +242,6 @@ export const SquireEmailEditor = forwardRef<
   const emitState = useCallback(() => {
     propsRef.current.onStateChange?.(readState());
   }, [readState]);
-
-  const updateSignatureControls = useCallback(() => {
-    const signature = signatureRef.current;
-    const root = rootRef.current;
-    setRemoveButtonTop(
-      signature && root?.contains(signature) ? signature.offsetTop : null,
-    );
-  }, []);
 
   const updateEmptyState = useCallback(() => {
     const root = rootRef.current;
@@ -300,7 +292,6 @@ export const SquireEmailEditor = forwardRef<
           image.setAttribute("src", proxied);
         }
       });
-      updateSignatureControls();
     };
 
     const resolver = propsRef.current.resolveRemoteImages;
@@ -329,7 +320,7 @@ export const SquireEmailEditor = forwardRef<
       .catch(() => {
         for (const source of pending) cache.delete(source);
       });
-  }, [updateSignatureControls]);
+  }, []);
   const resolveImagesRef = useRef(resolveImages);
   resolveImagesRef.current = resolveImages;
 
@@ -507,7 +498,6 @@ export const SquireEmailEditor = forwardRef<
       updateEmptyState();
       updateSelectionUi();
       updateSlashTrigger();
-      updateSignatureControls();
       resolveImages();
       emitState();
     };
@@ -646,29 +636,7 @@ export const SquireEmailEditor = forwardRef<
       if (selectionLeavesRoot) editor.moveCursorToEnd();
     }
     updateEmptyState();
-    updateSignatureControls();
-  }, [
-    editor,
-    expanded,
-    signaturePresent,
-    updateEmptyState,
-    updateSignatureControls,
-  ]);
-
-  const removeSignature = useCallback(() => {
-    const root = rootRef.current;
-    const signature = signatureRef.current;
-    if (!editor || !root || !signature) return;
-    editor.saveEditUndoState();
-    editor.modifyDocument(() => {
-      signature.remove();
-      ensureBlock(editor, root);
-    });
-    dirtyRef.current = true;
-    setSignaturePresent(false);
-    updateSignatureControls();
-    emitState();
-  }, [editor, emitState, setSignaturePresent, updateSignatureControls]);
+  }, [editor, expanded, signaturePresent, updateEmptyState]);
 
   const activeBlocks = useMemo(() => {
     const blocks: ActivePreservedBlock[] = [];
@@ -765,7 +733,6 @@ export const SquireEmailEditor = forwardRef<
         setSignaturePresent(Boolean(next));
         dirtyRef.current = true;
         updateEmptyState();
-        updateSignatureControls();
         resolveImages();
         emitState();
         return true;
@@ -798,7 +765,6 @@ export const SquireEmailEditor = forwardRef<
       resolveImages,
       setSignaturePresent,
       updateEmptyState,
-      updateSignatureControls,
     ],
   );
 
@@ -832,18 +798,6 @@ export const SquireEmailEditor = forwardRef<
             }
             tabIndex={0}
           />
-          {removeButtonTop !== null && (
-            <button
-              aria-label="Remove signature"
-              className={styles.squireRemoveSignature}
-              onClick={removeSignature}
-              onMouseDown={(event) => event.preventDefault()}
-              style={{ top: removeButtonTop }}
-              type="button"
-            >
-              ×
-            </button>
-          )}
           {activeBlocks.length > 0 && (
             <div className={styles.squirePreserved}>
               <PreservedBlocksToggle
@@ -1007,4 +961,39 @@ function escapeHtml(value: string) {
     .replace(/"/gu, "&quot;")
     .replace(/</gu, "&lt;")
     .replace(/>/gu, "&gt;");
+}
+
+const BLOCK_TAGS = new Set([
+  "BLOCKQUOTE",
+  "DIV",
+  "H1",
+  "H2",
+  "H3",
+  "H4",
+  "H5",
+  "H6",
+  "LI",
+  "P",
+  "PRE",
+  "TD",
+  "TH",
+]);
+
+// Squire keeps a <br> after a block's last text so the cursor has somewhere
+// to sit. Browsers don't draw it, but mail clients can show it as a blank
+// line. Blank lines of their own are separate blocks, so they are kept.
+function removePlaceholderBreaks(parent: ParentNode) {
+  for (const br of parent.querySelectorAll("br")) {
+    const previous = br.previousSibling;
+    if (previous && previous.nodeName !== "BR" && endsBlock(br)) br.remove();
+  }
+}
+
+function endsBlock(node: Node) {
+  let current: Node | null = node;
+  while (current && !current.nextSibling) {
+    current = current.parentNode;
+    if (!current || BLOCK_TAGS.has(current.nodeName)) return true;
+  }
+  return false;
 }

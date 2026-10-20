@@ -59,9 +59,6 @@ describe("Squire email editor", () => {
     expect(
       screen.getByRole("button", { name: "Show signature and quoted message" }),
     ).toBeTruthy();
-    expect(
-      screen.queryByRole("button", { name: "Remove signature" }),
-    ).toBeNull();
   });
 
   it("shows the full signature for editing when expanded", async () => {
@@ -72,9 +69,6 @@ describe("Squire email editor", () => {
     const signature = textbox().querySelector("[data-smartmail]");
     expect(signature?.querySelector("table")).toBeTruthy();
     expect(signature?.textContent).toContain("Head of Examples");
-    expect(
-      screen.getByRole("button", { name: "Remove signature" }),
-    ).toBeTruthy();
   });
 
   it("includes the collapsed signature in the edited body", async () => {
@@ -103,7 +97,7 @@ describe("Squire email editor", () => {
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Show signature" }));
-    fireEvent.click(screen.getByRole("button", { name: "Remove signature" }));
+    await deleteSignature(textbox());
 
     expect(textbox().querySelector("[data-smartmail]")).toBeNull();
     expect(screen.queryByRole("button", { name: /signature/u })).toBeNull();
@@ -132,20 +126,48 @@ describe("Squire email editor", () => {
     expect(onStateChange).toHaveBeenCalled();
   });
 
+  it("sends no trailing line break after the signature is deleted", async () => {
+    const { handle, textbox } = await renderEditor({
+      preservedBlocks: [SIGNATURE],
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Show signature" }));
+    act(() => {
+      handle().insertText("Draft body");
+    });
+
+    await deleteSignature(textbox());
+
+    expect(handle().getValue().editableHtml).toBe("<div>Draft body</div>");
+  });
+
+  it("keeps a line break inside inline content followed by more text", async () => {
+    const { handle } = await renderEditor({
+      initialHtml:
+        "<div><b>123 Main St<br></b><i>Springfield</i></div><div>Body</div>",
+      mode: "original",
+    });
+    act(() => {
+      handle().insertText("x");
+    });
+
+    expect(handle().getValue().editableHtml).toContain(
+      "123 Main St<br></b><i>Springfield",
+    );
+  });
+
   it("undoes and redoes removing the signature", async () => {
     const { handle, textbox } = await renderEditor({
       preservedBlocks: [SIGNATURE],
     });
     fireEvent.click(screen.getByRole("button", { name: "Show signature" }));
-    fireEvent.click(screen.getByRole("button", { name: "Remove signature" }));
+    await deleteSignature(textbox());
     expect(textbox().querySelector("[data-smartmail]")).toBeNull();
 
     await act(async () => {
       fireEvent.keyDown(textbox(), { key: "z", ctrlKey: true });
     });
     expect(textbox().querySelector("[data-smartmail]")).toBeTruthy();
-    // Back to the untouched draft: the original signature is re-attached.
-    expect(handle().getValue().preservedBlockIds).toContain("signature");
+    expect(handle().getValue().editableHtml).toContain("Example Person");
 
     await act(async () => {
       fireEvent.keyDown(textbox(), { key: "y", ctrlKey: true });
@@ -213,7 +235,7 @@ describe("Squire email editor", () => {
     }
 
     expect(handle().getValue().editableHtml).toBe(
-      '<div>Bodyxxx<br></div><div data-smartmail="gmail_signature"><div><br></div><div>Sig</div></div>',
+      '<div>Bodyxxx</div><div data-smartmail="gmail_signature"><div><br></div><div>Sig</div></div>',
     );
   });
 
@@ -254,9 +276,6 @@ describe("Squire email editor", () => {
 
     expect(textbox().textContent).toContain("New");
     expect(textbox().textContent).not.toContain("Old");
-    expect(
-      screen.getByRole("button", { name: "Remove signature" }),
-    ).toBeTruthy();
   });
 
   it("swaps in an image signature that shows proxied and sends its original URL", async () => {
@@ -700,4 +719,25 @@ async function renderEditor(props: Partial<EmailEditorProps>) {
     onStateChange,
     textbox: () => screen.getByRole("textbox", { name: "Email message" }),
   };
+}
+
+// Selects from the end of the body through the signature and deletes it, the
+// way a user removes a signature they don't want.
+async function deleteSignature(textbox: HTMLElement) {
+  const signature = textbox.querySelector("[data-smartmail]");
+  if (!signature?.previousSibling) throw new Error("No signature to delete");
+  const range = document.createRange();
+  range.setStart(
+    signature.previousSibling,
+    signature.previousSibling.childNodes.length,
+  );
+  range.setEnd(textbox, textbox.childNodes.length);
+  const selection = window.getSelection();
+  selection?.removeAllRanges();
+  selection?.addRange(range);
+  fireEvent.keyDown(textbox, { key: "Backspace" });
+  // Squire reports the edit asynchronously.
+  await waitFor(() =>
+    expect(screen.queryByRole("button", { name: /signature/u })).toBeNull(),
+  );
 }

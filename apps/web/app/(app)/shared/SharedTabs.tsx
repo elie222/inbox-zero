@@ -35,7 +35,7 @@ export function SharedTabs() {
   return (
     <div>
       <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
-        <PageHeading>Shared with me</PageHeading>
+        <PageHeading>Team</PageHeading>
         {options.length > 1 && memberId && (
           <Select value={memberId} onValueChange={setMemberId}>
             <SelectTrigger className="w-auto min-w-64">

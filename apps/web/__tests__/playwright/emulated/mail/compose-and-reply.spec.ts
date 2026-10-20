@@ -304,7 +304,6 @@ test("opens and sends a reply from the reader with Enter", async ({
   const replyBody = `A reply sent through the mail reader. ${testInfo.retry}`;
   await replyEditor.pressSequentially(replyBody);
   await expect(replyEditor).toContainText(replyBody);
-  await capturePlaywrightCheckpoint(page, testInfo, "inline-reply-divider");
   const sendButton = page.getByRole("button", { name: "Send", exact: true });
   await expect(sendButton).toHaveText("Send");
 

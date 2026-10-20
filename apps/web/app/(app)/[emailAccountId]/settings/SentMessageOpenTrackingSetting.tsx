@@ -77,8 +77,7 @@ export function SentMessageOpenTrackingSetting({
             <ItemContent>
               <ItemTitle>Read status</ItemTitle>
               <ItemDescription>
-                See when recipients open emails you send from the mail client.
-                Some apps block this, so an unopened status is not a guarantee.
+                See when recipients open emails you send.
               </ItemDescription>
             </ItemContent>
             <ItemActions>

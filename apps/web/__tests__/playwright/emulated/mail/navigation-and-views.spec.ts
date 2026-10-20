@@ -271,11 +271,6 @@ test("creates and edits a label and shows every keyboard workflow", async ({
     .click({ button: "right" });
   const editMenuItem = page.getByRole("menuitem", { name: "Edit" });
   await expect(editMenuItem).toBeVisible();
-  await capturePlaywrightCheckpoint(
-    page,
-    testInfo,
-    `${playwrightMailProvider}-label-context-menu`,
-  );
   await editMenuItem.click();
   const editDialog = page.getByRole("dialog", { name: `Edit ${labelType}` });
   if (playwrightMailProvider === "microsoft") {

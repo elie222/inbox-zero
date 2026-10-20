@@ -12,6 +12,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactNode,
 } from "react";
 import { parseAsString, useQueryState, useQueryStates } from "nuqs";
 import { toast } from "sonner";
@@ -109,6 +110,7 @@ import { prefixPath } from "@/utils/path";
 import { getMailAccountUrl } from "@/app/(app)/[emailAccountId]/mail/mail-account-url";
 import { redirectToSafeUrl } from "@/utils/redirect";
 import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
+import { LoadingMiniSpinner } from "@/components/Loading";
 import { LoadingContent } from "@/components/LoadingContent";
 import { useTeamCommentsAvailable } from "@/components/team-comments/use-team-comments-available";
 import { getEmailMessageCellActions } from "@/components/EmailMessageCellActions";
@@ -205,9 +207,8 @@ export function MailShell() {
         })),
     [accountsData?.emailAccounts],
   );
-  const accountLayout: MailLayoutMode =
+  const layout: MailLayoutMode =
     settings?.layout === MailLayout.SPLIT ? "split" : "list";
-  const layout = isAllAccounts ? "list" : accountLayout;
   const expandedPreview = settings?.expandedPreview ?? false;
 
   // Written through the SWR cache rather than mirrored in local state, so the
@@ -412,10 +413,9 @@ export function MailShell() {
     loadMore,
     refetch: refetchThreadList,
   } = isAllAccounts ? combinedThreadState : accountThreadState;
-  const providerState = isAllAccounts
+  const { isSyncing } = isAllAccounts
     ? combinedThreadState
     : accountThreadState;
-  const hasProviderResponse = searchSettled && providerState.hasRemoteResponse;
   const threads = searchSettled ? remoteThreads : EMPTY_SEARCH_THREADS;
   const searchViewIdentity = JSON.stringify([
     emailAccountId,
@@ -436,9 +436,20 @@ export function MailShell() {
     previousSearchFocus.current = next;
     if (next.index !== focusedIndex) setFocusedIndex(next.index);
   }, [orderedIds, focusedIndex, searchQuery, searchViewIdentity]);
-  let emptySearchMessage: string | undefined;
-  if (searchQuery && hasProviderResponse && !threads.length) {
-    emptySearchMessage = "No emails in this view";
+  // Local reads answer fast, so the list stays blank while one is in flight
+  // rather than flashing a spinner.
+  let emptyListMessage: ReactNode;
+  if (isLoading || !searchSettled) {
+    emptyListMessage = null;
+  } else if (isSyncing) {
+    emptyListMessage = (
+      <span className="inline-flex items-center gap-2">
+        <LoadingMiniSpinner />
+        Syncing your mail…
+      </span>
+    );
+  } else if (searchQuery) {
+    emptyListMessage = "No emails found";
   }
 
   const selection = useThreadSelection(orderedIds);
@@ -729,6 +740,7 @@ export function MailShell() {
       setOpenThread(
         nextRow ? getListThreadSelection(nextRow, emailAccountId) : null,
       );
+      return nextRow ? getListThreadKey(nextRow) : null;
     },
   );
   const runOn = useStableCallback(
@@ -740,20 +752,38 @@ export function MailShell() {
       const ids = actionTargets.map((target) => target.key);
       if (!ids.length) return;
       const hadSelection = selection.hasSelection;
+      const removedOpenThreadKey =
+        removeFromList && openThreadKey && ids.includes(openThreadKey)
+          ? openThreadKey
+          : null;
+      // Advance before the list drops the row, so focus moves straight to
+      // the next row instead of briefly landing on none.
+      const advancedToKey =
+        removedOpenThreadKey && autoAdvanceReader
+          ? advanceReaderPast(removedOpenThreadKey, ids)
+          : undefined;
       const queuedThreadKeys = await action(ids);
+      const queuedOpenThread =
+        removedOpenThreadKey !== null &&
+        queuedThreadKeys.includes(removedOpenThreadKey);
+      // If it didn't queue, go back, unless the user has since moved on.
+      // A closed reader can't tell staying put from navigating away.
+      if (
+        removedOpenThreadKey &&
+        advancedToKey &&
+        !queuedOpenThread &&
+        getOpenThreadKey() === advancedToKey
+      ) {
+        setFocusedIndex(focusedIndex);
+        setOpenThread(openThreadSelection);
+      }
       if (!queuedThreadKeys.length) return;
       if (
-        removeFromList &&
-        openThreadKey &&
-        queuedThreadKeys.includes(openThreadKey) &&
-        // The user may have opened another thread while the action was queued.
-        getOpenThreadKey() === openThreadKey
+        queuedOpenThread &&
+        !autoAdvanceReader &&
+        getOpenThreadKey() === removedOpenThreadKey
       ) {
-        if (autoAdvanceReader) {
-          advanceReaderPast(openThreadKey, queuedThreadKeys);
-        } else {
-          setOpenThread(null);
-        }
+        setOpenThread(null);
       }
       selection.clear();
       if (hadSelection && queuedThreadKeys.length < ids.length) {
@@ -1170,7 +1200,7 @@ export function MailShell() {
         if (await undoLatestToast()) return;
         await undo();
       },
-      toggleLayout: isAllAccounts ? undefined : toggleLayout,
+      toggleLayout,
       togglePreview,
       help: () => setIsHelpOpen(true),
       search: isMailOverlayOpen
@@ -1434,7 +1464,6 @@ export function MailShell() {
                 expandedPreview={expandedPreview}
                 onTogglePreview={togglePreview}
                 onToggleAssistant={onToggleAssistant}
-                showLayoutToggle={!isAllAccounts}
                 selectAll={showSplitTabs ? null : selectAllCheckbox}
                 selectedCount={selection.selectedCount}
                 onArchiveSelected={archiveTargets}
@@ -1487,15 +1516,12 @@ export function MailShell() {
                   <ScheduledEmailList />
                 ) : (
                   <LoadingContent
-                    loading={
-                      !threads.length &&
-                      (isLoading || (!!searchQuery && !searchSettled))
-                    }
+                    loading={false}
                     error={searchQuery ? undefined : error}
                   >
                     <ThreadList
                       threads={threads}
-                      emptyMessage={emptySearchMessage}
+                      emptyMessage={emptyListMessage}
                       layout={layout}
                       expandedPreview={expandedPreview}
                       userEmail={userEmail}

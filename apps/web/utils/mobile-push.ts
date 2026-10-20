@@ -1,6 +1,15 @@
 import chunk from "lodash/chunk";
 import { MobilePushTokenType } from "@/generated/prisma/enums";
-import { deliverApnsNotifications } from "@/utils/apns";
+import {
+  deliverApnsNotifications,
+  isFakeApnsTransport,
+  takeRecordedApnsSends,
+} from "@/utils/apns";
+import {
+  deliverFcmNotifications,
+  isFakeFcmTransport,
+  takeRecordedFcmSends,
+} from "@/utils/fcm";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 
@@ -62,10 +71,15 @@ export async function sendMobilePushNotification({
   );
 
   const expoTokens = claimedPushTokens.filter(
-    (pushToken) => pushToken.tokenType !== MobilePushTokenType.APNS,
+    (pushToken) =>
+      pushToken.tokenType !== MobilePushTokenType.APNS &&
+      pushToken.tokenType !== MobilePushTokenType.FCM,
   );
   const apnsTokens = claimedPushTokens.filter(
     (pushToken) => pushToken.tokenType === MobilePushTokenType.APNS,
+  );
+  const fcmTokens = claimedPushTokens.filter(
+    (pushToken) => pushToken.tokenType === MobilePushTokenType.FCM,
   );
 
   for (const pushTokenBatch of chunk(expoTokens, EXPO_PUSH_BATCH_SIZE)) {
@@ -78,31 +92,55 @@ export async function sendMobilePushNotification({
   }
 
   if (apnsTokens.length > 0) {
-    await sendApnsBatch({
+    await sendNativeBatch({
       pushTokens: apnsTokens,
       deduplicationKey,
-      notification,
-      logger,
+      deliver: (tokens) =>
+        deliverApnsNotifications({ tokens, notification, logger }),
+    });
+  }
+
+  if (fcmTokens.length > 0) {
+    await sendNativeBatch({
+      pushTokens: fcmTokens,
+      deduplicationKey,
+      deliver: (tokens) =>
+        deliverFcmNotifications({ tokens, notification, logger }),
     });
   }
 }
 
-async function sendApnsBatch({
+export function isFakePushTransport() {
+  return isFakeApnsTransport() || isFakeFcmTransport();
+}
+
+export function takeRecordedPushSends() {
+  return [
+    ...takeRecordedApnsSends().map((send) => ({
+      type: "apns" as const,
+      ...send,
+    })),
+    ...takeRecordedFcmSends().map((send) => ({
+      type: "fcm" as const,
+      ...send,
+    })),
+  ];
+}
+
+async function sendNativeBatch({
   pushTokens,
   deduplicationKey,
-  notification,
-  logger,
+  deliver,
 }: {
   pushTokens: MobilePushToken[];
   deduplicationKey: string;
-  notification: MobilePushNotification;
-  logger: Logger;
+  deliver: (
+    tokens: string[],
+  ) => Promise<{ unregisteredTokens: string[]; retryTokens: string[] }>;
 }) {
-  const { unregisteredTokens, retryTokens } = await deliverApnsNotifications({
-    tokens: pushTokens.map(({ token }) => token),
-    notification,
-    logger,
-  });
+  const { unregisteredTokens, retryTokens } = await deliver(
+    pushTokens.map(({ token }) => token),
+  );
   const unregisteredIds = pushTokens
     .filter((pushToken) => unregisteredTokens.includes(pushToken.token))
     .map(({ id }) => id);

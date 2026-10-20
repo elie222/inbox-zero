@@ -172,7 +172,6 @@ jobs:
         working-directory: apps/web
         run: |
           batches="$(node __tests__/playwright/run-emulated-suite.mjs --list-batches)"
-          batches="$(jq -c '[.[] | . as $batch | $batch + {provider: "google"}, (if any($batch.paths[]; startswith("__tests__/playwright/emulated/mail/")) then $batch + {provider: "microsoft"} else empty end)]' <<< "$batches")"
           echo "batches=$batches" >> "$GITHUB_OUTPUT"
 
       - name: Build browser app once

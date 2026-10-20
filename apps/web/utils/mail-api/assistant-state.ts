@@ -88,6 +88,9 @@ function cursorWhere(cursor: AssistantCursor | null) {
   if (!cursor) return {};
   if (cursor.kind === "legacy") return { id: { gt: cursor.id } };
   return {
+    // Redundant with the OR, but gives Postgres a range start on the
+    // (emailAccountId, updatedAt, id) index instead of scanning the account.
+    updatedAt: { gte: cursor.updatedAt },
     OR: [
       { updatedAt: { gt: cursor.updatedAt } },
       { updatedAt: cursor.updatedAt, id: { gt: cursor.id } },

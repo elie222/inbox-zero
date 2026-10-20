@@ -232,6 +232,30 @@ describe("EmailMessage reply", () => {
     expect(screen.getByRole("textbox", { name: "Email message" })).toBeTruthy();
   });
 
+  // Autosave puts the reply in the mailbox, and sync can bring that copy back
+  // before the thread learns it belongs to the open composer.
+  it("keeps typing in a new reply when a mailbox draft for it syncs in", () => {
+    const props = {
+      expanded: true,
+      message: createMessage("message-1"),
+      onSendSuccess: vi.fn(),
+      refetch: vi.fn(),
+      showReplyButton: true,
+    };
+    const view = render(<EmailMessage {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "Reply" }));
+    const editor = screen.getByRole("textbox", { name: "Email message" });
+    editor.focus();
+
+    view.rerender(
+      <EmailMessage {...props} draftMessages={[createMessage("draft-1")]} />,
+    );
+
+    expect(screen.getAllByTestId("composer")).toHaveLength(1);
+    expect(screen.getByRole("textbox", { name: "Email message" })).toBe(editor);
+    expect(document.activeElement).toBe(editor);
+  });
+
   it("names To and Cc recipients in the recipient summary", () => {
     const message = createMessage("message-1");
     render(

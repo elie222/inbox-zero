@@ -27,8 +27,6 @@ test.beforeAll(async () => {
   emulator = await createKnowledgeBaseMcpEmulator({ apiKey: API_KEY });
 });
 
-// afterAll rather than afterEach so the automatic final-state capture, taken
-// when the page fixture tears down, still shows the Plus integrations page.
 test.afterAll(async () => {
   await emulator?.close();
   if (!tierFixture) return;

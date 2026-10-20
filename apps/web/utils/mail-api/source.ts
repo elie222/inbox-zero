@@ -4,7 +4,12 @@ import type {
   MailboxSource,
   ScopeDescriptor,
 } from "@inboxzero/mail-core/ports/mailbox-source";
-import type { BodyObservation, SyncPosition } from "@inboxzero/mail-core/sync";
+import type { MessageKey, Provider } from "@inboxzero/mail-core/identities";
+import type {
+  BodyObservation,
+  ProviderChange,
+  SyncPosition,
+} from "@inboxzero/mail-core/sync";
 import {
   encodeMailboxSyncCursor,
   InvalidMailboxSyncCursorError,
@@ -132,11 +137,9 @@ export function createEmailProviderMailboxSource(input: {
           pageToken: token.pageToken,
           includeDrafts: true,
         });
-        const changes = syncPage.messages.map((message) =>
-          parsedMessagePatch(accountId, provider.name, message),
-        );
-        const { requiredHydration, bodies } = parsedMessageBodies(
+        const { changes, requiredHydration, bodies } = enumeratedObservations(
           accountId,
+          provider.name,
           syncPage.messages,
         );
         if (syncPage.nextPageToken) {
@@ -196,6 +199,10 @@ export function createEmailProviderMailboxSource(input: {
         if (page.reset) {
           return { status: "reset_required", scopeId: position.streamId };
         }
+        const patches = page.upsertedMessages.flatMap(
+          (message) =>
+            parsedMessagePatch(accountId, provider.name, message) ?? [],
+        );
         return {
           status: "page" as const,
           page: {
@@ -208,9 +215,7 @@ export function createEmailProviderMailboxSource(input: {
               checkpoint: page.cursor,
             },
             changes: [
-              ...page.upsertedMessages.map((message) =>
-                parsedMessagePatch(accountId, provider.name, message),
-              ),
+              ...patches,
               ...page.deletedMessageIds.map((messageId) => ({
                 kind: "message_deleted" as const,
                 key: { accountId, messageId },
@@ -226,10 +231,7 @@ export function createEmailProviderMailboxSource(input: {
             ],
             // Delta pages carry metadata only, so a body-derived flag such as
             // a meeting invitation must not stand in for the body.
-            requiredHydration: page.upsertedMessages.map((message) => ({
-              accountId,
-              messageId: message.id,
-            })),
+            requiredHydration: patches.map((patch) => patch.key),
             roundComplete: !page.hasMore,
           },
         };
@@ -252,16 +254,17 @@ export function createEmailProviderMailboxSource(input: {
             unresolved.push({ key, reason: "not_found" as const });
           }
         }
+        const changes: ProviderChange[] = [];
+        const bodies: BodyObservation[] = [];
+        for (const message of messages) {
+          const patch = parsedMessagePatch(accountId, provider.name, message);
+          if (!patch) continue;
+          changes.push(patch);
+          if (purpose === "body") bodies.push(hydratedBody(accountId, message));
+        }
         return {
           status: "ok" as const,
-          value: {
-            changes: messages.map((message) =>
-              parsedMessagePatch(accountId, provider.name, message),
-            ),
-            bodies:
-              purpose === "body" ? hydratedBodies(accountId, messages) : [],
-            unresolved,
-          },
+          value: { changes, bodies, unresolved },
         };
       } catch (error) {
         return mapProviderError(error);
@@ -282,7 +285,12 @@ export function createEmailProviderMailboxSource(input: {
             ? thread.messages
             : await provider.getThreadMessages(conversation.conversationId);
         const start = page ? Number(page) || 0 : 0;
-        const slice = messages.slice(start, start + pageSize);
+        const changes = messages
+          .slice(start, start + pageSize)
+          .flatMap(
+            (message) =>
+              parsedMessagePatch(accountId, provider.name, message) ?? [],
+          );
         return {
           status: "ok",
           value: {
@@ -290,13 +298,8 @@ export function createEmailProviderMailboxSource(input: {
             page: {
               conversation,
               resolutionId,
-              keys: slice.map((message) => ({
-                accountId,
-                messageId: message.id,
-              })),
-              changes: slice.map((message) =>
-                parsedMessagePatch(accountId, provider.name, message),
-              ),
+              keys: changes.map((change) => change.key),
+              changes,
               nextPage:
                 start + pageSize < messages.length
                   ? String(start + pageSize)
@@ -409,31 +412,38 @@ export function createEmailProviderMailboxSource(input: {
   };
 }
 
-function parsedMessageBodies(accountId: string, messages: ParsedMessage[]) {
-  const requiredHydration: Array<{ accountId: string; messageId: string }> = [];
+function enumeratedObservations(
+  accountId: string,
+  provider: Provider,
+  messages: ParsedMessage[],
+) {
+  const changes: ProviderChange[] = [];
+  const requiredHydration: MessageKey[] = [];
   const bodies: BodyObservation[] = [];
   for (const message of messages) {
+    const patch = parsedMessagePatch(accountId, provider, message);
+    if (!patch) continue;
+    changes.push(patch);
     const body = parsedMessageBodyObservation(accountId, message);
     if (body) bodies.push(body);
-    else requiredHydration.push({ accountId, messageId: message.id });
+    else requiredHydration.push(patch.key);
   }
-  return { requiredHydration, bodies };
+  return { changes, requiredHydration, bodies };
 }
 
-function hydratedBodies(
+function hydratedBody(
   accountId: string,
-  messages: ParsedMessage[],
-): BodyObservation[] {
-  return messages.map(
-    (message) =>
-      parsedMessageBodyObservation(accountId, message) ?? {
-        key: { accountId, messageId: message.id },
-        version: message.historyId || null,
-        html: null,
-        text: null,
-        attachments: [],
-        isMeetingInvitation: false,
-      },
+  message: ParsedMessage,
+): BodyObservation {
+  return (
+    parsedMessageBodyObservation(accountId, message) ?? {
+      key: { accountId, messageId: message.id },
+      version: message.historyId || null,
+      html: null,
+      text: null,
+      attachments: [],
+      isMeetingInvitation: false,
+    }
   );
 }
 

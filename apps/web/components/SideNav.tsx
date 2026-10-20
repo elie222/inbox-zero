@@ -27,6 +27,7 @@ import {
   PersonStandingIcon,
   RatioIcon,
   SendIcon,
+  SmartphoneIcon,
   SparklesIcon,
   Users2Icon,
   ZapIcon,
@@ -67,6 +68,7 @@ import { isGoogleProvider } from "@/utils/email/provider-types";
 import { NavUser } from "@/components/NavUser";
 import { PremiumCard } from "@/components/PremiumCard";
 import { FeedbackSidebarButton } from "@/components/FeedbackDialog";
+import { TEAM_HREF, useTeamNav } from "@/components/team-comments/use-team-nav";
 
 type NavItem = {
   name: string;
@@ -85,6 +87,7 @@ export const useNavigation = () => {
   const showMeetingBriefs = useMeetingBriefsEnabled();
   const showMeetingRecorder = useMeetingRecorderEnabled();
   const showIntegrations = useIntegrationsEnabled();
+  const { hasTeam, unreadCount: teamUnreadCount } = useTeamNav();
 
   const { emailAccount, emailAccountId, provider } = useAccount();
   const currentEmailAccountId = emailAccount?.id || emailAccountId;
@@ -96,6 +99,16 @@ export const useNavigation = () => {
         href: prefixPath(currentEmailAccountId, "/mail"),
         icon: InboxIcon,
       },
+      ...(hasTeam
+        ? [
+            {
+              name: "Team",
+              href: TEAM_HREF,
+              icon: Users2Icon,
+              count: teamUnreadCount ?? undefined,
+            },
+          ]
+        : []),
       {
         name: "Chat",
         href: prefixPath(currentEmailAccountId, "/assistant"),
@@ -121,7 +134,7 @@ export const useNavigation = () => {
           ]
         : []),
     ],
-    [currentEmailAccountId, showMeetingRecorder],
+    [currentEmailAccountId, showMeetingRecorder, hasTeam, teamUnreadCount],
   );
 
   const cleanupItems: NavItem[] = useMemo(
@@ -201,6 +214,15 @@ export const useNavigation = () => {
     moreItems,
   };
 };
+
+const getTheAppLinks: NavItem[] = [
+  {
+    name: "Get the app",
+    icon: SmartphoneIcon,
+    href: "/download",
+    target: "_blank",
+  },
+];
 
 const topMailLinks: NavItem[] = [
   {
@@ -351,6 +373,8 @@ export function SideNav({
 
       <SidebarFooter className="pb-4">
         <SideNavMenu items={visibleBottomLinks} activeHref={path} />
+
+        <SideNavMenu items={getTheAppLinks} activeHref={path} />
 
         {feedbackEnabled && (
           <SidebarMenu>

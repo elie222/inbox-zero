@@ -112,11 +112,6 @@ test("keeps the quote toggle between the reply and expanded history", async ({
   expect(Math.abs((await toggle.boundingBox())!.y - initialTop)).toBeLessThan(
     2,
   );
-  await capturePlaywrightCheckpoint(
-    page,
-    testInfo,
-    "mail-reader-quote-toggle-collapsed",
-  );
 });
 
 test("captures the rich message reader states", async ({ page }, testInfo) => {
@@ -179,20 +174,10 @@ test("captures the rich message reader states", async ({ page }, testInfo) => {
   const replyTooltip = page.getByRole("tooltip", { name: /Reply/ });
   await expect(replyTooltip).toContainText("Reply");
   await expect(replyTooltip.locator("kbd")).toHaveText("R");
-  await capturePlaywrightCheckpoint(
-    page,
-    testInfo,
-    "mail-reader-reply-shortcut",
-  );
   await message.getByRole("button", { name: "Forward", exact: true }).hover();
   const forwardTooltip = page.getByRole("tooltip", { name: /Forward/ });
   await expect(forwardTooltip).toContainText("Forward");
   await expect(forwardTooltip.locator("kbd")).toHaveText("F");
-  await capturePlaywrightCheckpoint(
-    page,
-    testInfo,
-    "mail-reader-reply-forward-shortcuts",
-  );
   // Leave the forward tooltip so it cannot steal collision space from the
   // actions menu once sender stats resolve. Hovering the subject can land
   // on the tooltip itself, which keeps it open.
@@ -264,11 +249,6 @@ test("captures the rich message reader states", async ({ page }, testInfo) => {
 
   await page.getByRole("button", { name: "Show details", exact: true }).click();
   await expect(page.getByText("From", { exact: true })).toBeVisible();
-  await capturePlaywrightCheckpoint(
-    page,
-    testInfo,
-    "mail-reader-message-details",
-  );
 
   await page.getByRole("button", { name: "Show quoted content" }).click();
   await expect(
@@ -277,11 +257,6 @@ test("captures the rich message reader states", async ({ page }, testInfo) => {
       .last()
       .getByText("This earlier quoted message is hidden until expanded."),
   ).toBeVisible();
-  await capturePlaywrightCheckpoint(
-    page,
-    testInfo,
-    "mail-reader-quoted-content",
-  );
 });
 
 test("offers to disable auto archive for an enabled sender", async ({

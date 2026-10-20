@@ -172,24 +172,6 @@ export function createMailEngine(input: {
   >();
   const syncLaneErrors: unknown[] = [];
   let closed = false;
-  let refreshGate: Promise<void> | null = null;
-  let refreshQueued = false;
-
-  async function refreshViews() {
-    refreshQueued = true;
-    if (refreshGate) return refreshGate;
-    refreshGate = drainRefreshes().finally(() => {
-      refreshGate = null;
-    });
-    return refreshGate;
-  }
-
-  async function drainRefreshes() {
-    while (refreshQueued) {
-      refreshQueued = false;
-      await queries.refreshAll();
-    }
-  }
 
   return {
     queryContactSuggestions(query) {
@@ -264,12 +246,12 @@ export function createMailEngine(input: {
     },
     async submitMetadata(command) {
       const admission = await store.admitMetadata(command);
-      await refreshViews();
+      await queries.refreshAll();
       return admission;
     },
     async submitConversations(command) {
       const admission = await store.admitConversations(command);
-      await refreshViews();
+      await queries.refreshAll();
       return admission;
     },
     saveDraft(inputDraft) {
@@ -280,13 +262,13 @@ export function createMailEngine(input: {
     },
     async submitSend(send) {
       const admission = await store.admitSend(send);
-      await refreshViews();
+      await queries.refreshAll();
       return admission;
     },
     async cancelOperation(key) {
       const local = await store.cancelOperation(key);
       if (local.status !== "too_late") {
-        await refreshViews();
+        await queries.refreshAll();
         return local;
       }
       const held = await store.readHeldSend(key);
@@ -297,7 +279,7 @@ export function createMailEngine(input: {
       });
       if (remote.status !== "cancelled") return { status: remote.status };
       const result = await store.cancelHeldSend(key);
-      await refreshViews();
+      await queries.refreshAll();
       return result;
     },
     async requestSync(accountIds) {
@@ -325,7 +307,7 @@ export function createMailEngine(input: {
       stopSyncLane(accountId);
       idleCatchUpGates.delete(accountId);
       const revision = await store.purgeAccount(accountId);
-      await refreshViews();
+      await queries.refreshAll();
       return revision;
     },
     async retainAccounts(accountIds) {
@@ -341,7 +323,7 @@ export function createMailEngine(input: {
         await store.purgeAccount(account.accountId);
         purged = true;
       }
-      if (purged) await refreshViews();
+      if (purged) await queries.refreshAll();
     },
     inspect() {
       return store.inspect();
@@ -354,7 +336,7 @@ export function createMailEngine(input: {
       } else if (!evictedForCurrentPressure) {
         const { evictedBodies } = await store.evictReplaceableContent();
         evictedForCurrentPressure = true;
-        if (evictedBodies > 0) await refreshViews();
+        if (evictedBodies > 0) await queries.refreshAll();
       }
       while (runtime.nowMs() < deadlineMs) {
         await yieldToHost();
@@ -386,7 +368,7 @@ export function createMailEngine(input: {
             operation: work.operation,
             result,
           });
-          await refreshViews();
+          await queries.refreshAll();
           continue;
         }
         if (work.kind === "inspect") {
@@ -400,7 +382,7 @@ export function createMailEngine(input: {
             operation: work.operation,
             result,
           });
-          await refreshViews();
+          await queries.refreshAll();
           continue;
         }
         if (work.kind === "prepare") {
@@ -434,7 +416,7 @@ export function createMailEngine(input: {
               session: work.session,
               code: "conversation_not_found",
             });
-            await refreshViews();
+            await queries.refreshAll();
             continue;
           }
           if (
@@ -449,7 +431,7 @@ export function createMailEngine(input: {
                 session: work.session,
                 code: "membership_unsupported",
               });
-              await refreshViews();
+              await queries.refreshAll();
             } else {
               await store.deferPreparation({
                 accountId: work.accountId,
@@ -479,7 +461,7 @@ export function createMailEngine(input: {
               });
             }
           }
-          await refreshViews();
+          await queries.refreshAll();
           continue;
         }
         if (work.kind === "hydrate") {
@@ -505,7 +487,7 @@ export function createMailEngine(input: {
               changes: hydrated.value.changes,
               bodies: hydrated.value.bodies,
             });
-            await refreshViews();
+            await queries.refreshAll();
             await store.completeJob({
               jobId: work.jobId,
               attemptId: work.attemptId,
@@ -536,7 +518,7 @@ export function createMailEngine(input: {
                 page: searched.value.nextPage,
               });
             }
-            await refreshViews();
+            await queries.refreshAll();
           }
           if (
             searched.status !== "paused" &&
@@ -563,7 +545,7 @@ export function createMailEngine(input: {
             bodies: changes.page.bodies,
           });
           if (applied.status === "committed") {
-            await refreshViews();
+            await queries.refreshAll();
             await noteConnection(work.session.accountId, "ok");
             notifySyncPageCommitted(changes.page);
           }
@@ -736,7 +718,7 @@ export function createMailEngine(input: {
         errorCode: null,
       };
     }
-    await refreshViews();
+    await queries.refreshAll();
   }
 
   // Each account syncs in its own lane, so a slow account or a slow request
@@ -877,7 +859,7 @@ export function createMailEngine(input: {
         session,
         scopeIds: discoveredScopes.map((scope) => scope.id),
       });
-      if (addedScopes) await refreshViews();
+      if (addedScopes) await queries.refreshAll();
     }
     const streamsById = new Map(
       account.streams.map((stream) => [stream.streamId, stream]),
@@ -1042,7 +1024,7 @@ export function createMailEngine(input: {
         } else {
           idleGate.nextStreamCatchUpAtMs.delete(stream.streamId);
         }
-        await refreshViews();
+        await queries.refreshAll();
         await noteConnection(session.accountId, "ok");
         notifySyncPageCommitted(changes.page);
       } else {
@@ -1235,7 +1217,7 @@ export function createMailEngine(input: {
         payload: entry.payload,
       })),
     });
-    await refreshViews();
+    await queries.refreshAll();
     return page.page.nextCursor !== (account.assistantCursor ?? null);
   }
 
@@ -1275,7 +1257,7 @@ export function createMailEngine(input: {
     const connection = CONNECTION_BY_SOURCE_STATUS[status];
     if (!connection) return;
     if (await store.recordConnection({ accountId, connection })) {
-      await refreshViews();
+      await queries.refreshAll();
     }
   }
 }

@@ -15,7 +15,9 @@ const APPLE_SUBSCRIPTION_HELP_URL = "https://support.apple.com/en-us/118428";
 
 export function ManageSubscription({
   premium,
+  compact,
 }: {
+  compact?: boolean;
   premium:
     | {
         appleExpiresAt?: string | Date | null | undefined;
@@ -28,6 +30,8 @@ export function ManageSubscription({
     | null
     | undefined;
 }) {
+  const size = compact ? "sm" : undefined;
+  const Icon = compact ? undefined : CreditCardIcon;
   const { loading: loadingBillingPortal, openBillingPortal } =
     useOpenBillingPortal();
   const hasAppleSubscription = hasActiveAppleSubscription(
@@ -43,37 +47,42 @@ export function ManageSubscription({
   return (
     <>
       {premium?.stripeSubscriptionStatus === "trialing" && (
-        <EndTrialButton variant="outline" />
+        <EndTrialButton variant="outline" size={size} showIcon={!compact} />
       )}
 
       {premium?.stripeSubscriptionId && (
-        <Button loading={loadingBillingPortal} onClick={openBillingPortal}>
-          <CreditCardIcon className="mr-2 h-4 w-4" />
+        <Button
+          variant={compact ? "outline" : undefined}
+          size={size}
+          Icon={Icon}
+          loading={loadingBillingPortal}
+          onClick={openBillingPortal}
+        >
           Manage{hasBothStripeAndLemon ? " Stripe" : ""} subscription
         </Button>
       )}
 
       {premium?.lemonSqueezyCustomerId && (
-        <Button asChild>
+        <Button asChild variant={compact ? "outline" : undefined} size={size}>
           <Link
             href={`https://${env.NEXT_PUBLIC_LEMON_STORE_ID}.lemonsqueezy.com/billing`}
             target="_blank"
             rel="noopener noreferrer"
           >
-            <CreditCardIcon className="mr-2 h-4 w-4" />
+            {Icon && <Icon className="mr-2 h-4 w-4" />}
             Manage{hasBothStripeAndLemon ? " Lemon" : ""} subscription
           </Link>
         </Button>
       )}
 
       {hasAppleSubscription && (
-        <Button asChild variant="outline">
+        <Button asChild variant="outline" size={size}>
           <Link
             href={APPLE_SUBSCRIPTION_HELP_URL}
             target="_blank"
             rel="noopener noreferrer"
           >
-            <CreditCardIcon className="mr-2 h-4 w-4" />
+            {Icon && <Icon className="mr-2 h-4 w-4" />}
             Manage in App Store
           </Link>
         </Button>

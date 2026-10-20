@@ -2,7 +2,6 @@ import { afterAll, describe, test } from "vitest";
 import { getEmail, getMockMessage } from "@/__tests__/helpers";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
-import { checkColdEmailWithLlm } from "@/utils/cold-email/is-cold-email";
 import { decisionModelChooseRule } from "@/utils/decision-model/choose-rule";
 import type { ParsedMessage } from "@/utils/types";
 import {
@@ -92,46 +91,6 @@ describe.runIf(shouldRunDecisionModelEvals)(
       );
     }
 
-    test(
-      "asks cold-email classification alongside rule choice",
-      async () => {
-        const email = getEmail({
-          from: "sales@agency.example",
-          subject: "Can we grow your pipeline?",
-          content:
-            "We have never met, but our agency can book qualified meetings for your company. Want a sales call?",
-        });
-
-        await compareDecision({
-          testName: "cold email alongside choose rule",
-          expected: true,
-          runJev: async () =>
-            (
-              await decisionModelChooseRule({
-                decisionModel: decisionModelConfig,
-                message: toParsedMessage(email),
-                emailAccount: lunaEmailAccount,
-                rules,
-                coldEmailRule: { instructions: "" },
-                classificationFeedback: null,
-                logger: decisionModelEvalLogger,
-              })
-            ).type === "coldEmail",
-          runLuna: async () =>
-            (
-              await checkColdEmailWithLlm({
-                email,
-                emailAccount: lunaEmailAccount,
-                coldEmailRule: null,
-                logger: decisionModelEvalLogger,
-              })
-            ).isColdEmail,
-          reporter,
-        });
-      },
-      DECISION_MODEL_EVAL_TIMEOUT,
-    );
-
     afterAll(() => reporter.printReport());
   },
 );
@@ -156,12 +115,10 @@ async function compareRuleSelection({
         message: toParsedMessage(email),
         emailAccount: lunaEmailAccount,
         rules,
-        coldEmailRule: null,
         classificationFeedback: null,
         logger: decisionModelEvalLogger,
       });
       if (result.type === "undecided") return ["Undecided"];
-      if (result.type === "coldEmail") return ["Cold Email"];
       return result.rules.map(({ rule }) => rule.name).sort();
     },
     runLuna: async () =>
@@ -185,6 +142,7 @@ function toParsedMessage(email: ReturnType<typeof getEmail>) {
     to: email.to,
     subject: email.subject,
     textPlain: email.content,
+    textHtml: "",
   });
   return {
     ...message,
