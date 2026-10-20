@@ -58,7 +58,7 @@ test("publisher shares with a teammate who never received the mail and both see 
     await teammate.page.goto(`/${teammate.account.id}/mail`, {
       waitUntil: "domcontentloaded",
     });
-    const teamRow = teammate.page.getByRole("link", { name: /^Team/ });
+    const teamRow = teammate.page.getByRole("link", { name: /^Discussions/ });
     await expect(teamRow).toHaveAttribute("href", "/shared");
     await expect(teamRow).toContainText("1", { timeout: 30_000 });
     await capturePlaywrightCheckpoint(
@@ -81,7 +81,7 @@ test("publisher shares with a teammate who never received the mail and both see 
     );
     await expect(
       teammate.page.locator('[data-sidebar="menu-button"][href="/shared"]'),
-    ).toHaveText("Team", { timeout: 30_000 });
+    ).toHaveText("Discussions", { timeout: 30_000 });
 
     const comment = "Synthetic internal decision for the team";
     await teammate.page.getByLabel("Internal comment").fill(comment);

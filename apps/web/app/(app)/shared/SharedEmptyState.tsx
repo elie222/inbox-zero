@@ -22,7 +22,7 @@ export function SharedEmptyState() {
         <EmptyMedia>
           <SharedThreadIllustration />
         </EmptyMedia>
-        <EmptyTitle>No shared conversations yet</EmptyTitle>
+        <EmptyTitle>No discussions yet</EmptyTitle>
         <EmptyDescription>
           Discuss an email privately by @mentioning a teammate in a comment.
         </EmptyDescription>
