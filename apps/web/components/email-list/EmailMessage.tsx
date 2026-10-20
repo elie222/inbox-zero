@@ -856,11 +856,7 @@ function ReplyPanel({
     );
 
   return (
-    <div
-      className={cn("mt-5", handingOffSend && "pointer-events-none")}
-      aria-busy={handingOffSend || undefined}
-      ref={replyRef}
-    >
+    <div className="mt-5" inert={handingOffSend} ref={replyRef}>
       <ComposeEmailFormLazy
         providerDraftMessageId={
           composeMode === "reply" ? draftMessage?.id : undefined

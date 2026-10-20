@@ -391,7 +391,9 @@ describe("EmailThread outgoing replies", () => {
       const sentRow = view.container.querySelector<HTMLElement>(
         '[data-send-operation-id="send-1"]',
       );
-      expect(screen.getByLabelText("Email message")).toBeTruthy();
+      expect(
+        screen.getByLabelText("Email message").closest("[inert]"),
+      ).toBeTruthy();
       expect(sentRow?.getAttribute("aria-hidden")).toBe("true");
 
       sentRow
