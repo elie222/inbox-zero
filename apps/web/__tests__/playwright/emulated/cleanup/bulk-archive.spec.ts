@@ -12,10 +12,14 @@ import {
   type CleanupFixture,
   openCleanupFeature,
   prepareCleanupFixture,
+  markMarketingInboxRead,
   restoreCleanupThreads,
+  seedBulkArchiveCounts,
 } from "./cleanup-test-helpers";
+import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 
 const ARCHIVE_SENDER = "cleanup-archive@example.com";
+const KEEP_SENDER = "cleanup-keep@example.com";
 const ARCHIVE_SUBJECT = "Cleanup Category Archive Candidate";
 const KEEP_SUBJECT = "Cleanup Category Keep Candidate";
 const BULK_ARCHIVE_THREAD_IDS = [
@@ -199,6 +203,114 @@ test("deletes a selected sender through the durable sender queue", async ({
   await assertOnlySelectedSenderWasRemovedFromInbox(page, fixture);
 });
 
+test("orders categories by read rate with one lead button and shows inbox and unread counts", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(360_000);
+  if (!fixture) throw new Error("Cleanup fixture was not initialized");
+  await stubMailboxSync(page, fixture.emailAccountId);
+  await seedCounts(page, fixture);
+  await openCleanupFeature(page, fixture, "bulk-archive");
+
+  await expect
+    .poll(async () =>
+      (await page.getByRole("heading", { level: 2 }).allTextContents()).slice(
+        0,
+        5,
+      ),
+    )
+    .toEqual(["Newsletter", "Marketing", "Notification", "Other", "Receipt"]);
+  await expect(
+    page.getByRole("button", { name: "Archive all", exact: true }),
+  ).toHaveCount(1);
+  await expect(
+    newsletterCard(page).getByRole("button", { name: "Archive all" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Review First", exact: true }),
+  ).toHaveCount(4);
+  await expect(newsletterCard(page)).toContainText("2 in inbox · 2 unread");
+  await expect(marketingCard(page)).toContainText("3 in inbox · 1 unread");
+  await expectHeaderCount(page, "5");
+  await capturePlaywrightCheckpoint(page, testInfo, "bulk-archive-counts-idle");
+
+  await marketingCard(page)
+    .getByRole("button", { name: "Review First" })
+    .click();
+  await expect(
+    page.getByText("1 of 1 selected", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    marketingCard(page).getByRole("button", { name: "Archive 1 of 1" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Archive all", exact: true }),
+  ).toHaveCount(1);
+});
+
+test("holds the archived result with Undo and moves the header number", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(360_000);
+  if (!fixture) throw new Error("Cleanup fixture was not initialized");
+  await stubMailboxSync(page, fixture.emailAccountId);
+  await seedCounts(page, fixture);
+  await openCleanupFeature(page, fixture, "bulk-archive");
+  await expectHeaderCount(page, "5");
+
+  await newsletterCard(page)
+    .getByRole("button", { name: "Archive all" })
+    .click();
+
+  await expect(newsletterCard(page)).toContainText("2 archived");
+  await expect(
+    newsletterCard(page).getByRole("button", { name: "Undo" }),
+  ).toBeVisible();
+  await expect(page.getByText("was 5 · 2 archived just now")).toBeVisible();
+  await expectHeaderCount(page, "3");
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "bulk-archive-counts-archived",
+  );
+
+  // The result lives in the header and the row; no second "complete" bar.
+  await expect(page.getByText(/senders processed/)).toHaveCount(0);
+
+  // The refetch after the archive finishes keeps the held result and the number.
+  await expect(newsletterCard(page)).toContainText("2 archived", {
+    timeout: 30_000,
+  });
+  await expectHeaderCount(page, "3");
+
+  await newsletterCard(page).getByRole("button", { name: "Undo" }).click();
+  await expect(
+    newsletterCard(page).getByRole("button", { name: "Archive all" }),
+  ).toBeVisible({ timeout: 30_000 });
+  await expect(newsletterCard(page)).toContainText("2 in inbox · 2 unread", {
+    timeout: 30_000,
+  });
+  await expectHeaderCount(page, "5");
+});
+
+test("refreshes the counts and the updated time on demand", async ({
+  page,
+}) => {
+  test.setTimeout(360_000);
+  if (!fixture) throw new Error("Cleanup fixture was not initialized");
+  await stubMailboxSync(page, fixture.emailAccountId);
+  await seedCounts(page, fixture);
+  await openCleanupFeature(page, fixture, "bulk-archive");
+  await expect(marketingCard(page)).toContainText("3 in inbox · 1 unread");
+  await expect(page.getByText("Updated just now")).toBeVisible();
+
+  await markMarketingInboxRead(fixture);
+  await page.getByRole("button", { name: "Refresh" }).click();
+
+  await expect(marketingCard(page)).toContainText("3 in inbox · 0 unread");
+  await expect(page.getByText("Updated just now")).toBeVisible();
+});
+
 async function selectOnlyArchiveSender(page: Page) {
   const card = newsletterCard(page);
   await card.click();
@@ -287,6 +399,41 @@ async function getThreadLabelIds(
       result.thread.messages.flatMap((message) => message.labelIds ?? []),
     ),
   );
+}
+
+function marketingCard(page: Page) {
+  return page
+    .locator('[role="button"]')
+    .filter({ has: page.getByRole("heading", { name: "Marketing" }) });
+}
+
+async function expectHeaderCount(page: Page, count: string) {
+  await expect(
+    page.getByText("In your inbox from these senders").locator(".."),
+  ).toContainText(count);
+}
+
+async function seedCounts(page: Page, cleanupFixture: CleanupFixture) {
+  const mailboxMessages: {
+    from: string;
+    messageId: string;
+    threadId: string;
+  }[] = [];
+  for (const [from, threadId] of [
+    [ARCHIVE_SENDER, CLEANUP_ARCHIVE_THREAD_ID],
+    [KEEP_SENDER, CLEANUP_KEEP_THREAD_ID],
+  ]) {
+    const response = await page.request.get(`/api/threads/${threadId}`, {
+      headers: { "X-Email-Account-ID": cleanupFixture.emailAccountId },
+    });
+    const { thread } = (await response.json()) as {
+      thread: { messages: { id: string }[] };
+    };
+    for (const message of thread.messages) {
+      mailboxMessages.push({ from, messageId: message.id, threadId });
+    }
+  }
+  await seedBulkArchiveCounts(cleanupFixture, mailboxMessages);
 }
 
 function newsletterCard(page: Page) {

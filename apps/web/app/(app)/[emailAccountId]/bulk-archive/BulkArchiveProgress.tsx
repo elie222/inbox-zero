@@ -32,7 +32,10 @@ export function BulkArchiveProgress({
     };
   }, [hasSettledProgress, onComplete]);
 
-  if ((!hasActiveProgress && !hasSettledProgress) || !totalItems) {
+  // The header number and each row's held result report a clean finish, so the
+  // bar only stays for a run that ended with failures.
+  const showsFailure = hasSettledProgress && failedItems > 0;
+  if ((!hasActiveProgress && !showsFailure) || !totalItems) {
     return null;
   }
 

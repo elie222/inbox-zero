@@ -1,9 +1,11 @@
 import type { CategoryWithRules } from "@/utils/category.server";
+import type { SenderMessageCounts } from "@/utils/bulk-archive/category-stats";
 
 export type EmailGroup = {
   address: string;
   name: string | null;
   category: CategoryWithRules | null;
+  counts?: SenderMessageCounts;
 };
 
 export type ConfidenceLevel = "high" | "medium" | "low";

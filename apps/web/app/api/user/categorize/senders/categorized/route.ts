@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
 import { getUserCategoriesWithRules } from "@/utils/category.server";
+import { emptySenderMessageCounts } from "@/utils/bulk-archive/category-stats";
+import { getSenderMessageCounts } from "@/utils/categorize/senders/get-sender-message-counts";
 
 export type CategorizedSendersResponse = Awaited<
   ReturnType<typeof getCategorizedSenders>
@@ -12,7 +14,7 @@ async function getCategorizedSenders({
 }: {
   emailAccountId: string;
 }) {
-  const [senders, categories, emailAccount] = await Promise.all([
+  const [senders, categories, emailAccount, messageCounts] = await Promise.all([
     prisma.newsletter.findMany({
       where: { emailAccountId, categoryId: { not: null } },
       select: {
@@ -27,10 +29,17 @@ async function getCategorizedSenders({
       where: { id: emailAccountId },
       select: { autoCategorizeSenders: true },
     }),
+    getSenderMessageCounts({ emailAccountId }),
   ]);
 
   return {
-    senders,
+    fetchedAt: new Date().toISOString(),
+    senders: senders.map((sender) => ({
+      ...sender,
+      counts:
+        messageCounts.get(sender.email.toLowerCase()) ??
+        emptySenderMessageCounts,
+    })),
     categories,
     autoCategorizeSenders: emailAccount?.autoCategorizeSenders ?? false,
   };

@@ -2,7 +2,10 @@ import { expect, type Locator, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { getEmailAccount } from "../account-test-helpers";
 
+const CLEANUP_MARKETING_SENDER = "cleanup-marketing@example.com";
+
 const CLEANUP_SENDERS = [
+  CLEANUP_MARKETING_SENDER,
   "cleanup-block@example.com",
   "cleanup-archive@example.com",
   "cleanup-keep@example.com",
@@ -137,6 +140,126 @@ export async function restoreCleanupThreads(
         { timeout: 120_000 },
       )
       .toBe(true);
+  }
+}
+
+type CleanupMailboxMessage = {
+  from: string;
+  messageId: string;
+  threadId: string;
+};
+
+/**
+ * Gives Newsletter a 40% read rate (2 of 5 stored messages, both inbox
+ * messages unread) and Marketing a 90% read rate (9 of 10 stored, 3 in the
+ * inbox, 1 unread). The two real mailbox messages keep their provider ids so
+ * archiving them flips the matching inbox flags.
+ */
+export async function seedBulkArchiveCounts(
+  fixture: CleanupFixture,
+  mailboxMessages: CleanupMailboxMessage[],
+) {
+  const client = await connectToDatabase();
+  const { emailAccountId } = fixture;
+
+  try {
+    const category = await client.query<{ id: string }>(
+      `SELECT id FROM "Category" WHERE "emailAccountId" = $1 AND name = 'Marketing'`,
+      [emailAccountId],
+    );
+    const marketingCategoryId = category.rows[0]?.id;
+    if (!marketingCategoryId) throw new Error("Marketing category not seeded");
+
+    await client.query(
+      `INSERT INTO "Newsletter" (id, "createdAt", "updatedAt", email, name, "emailAccountId", "categoryId")
+       VALUES ($1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $2, 'Cleanup Marketing', $3, $4)
+       ON CONFLICT (email, "emailAccountId") DO UPDATE
+       SET "categoryId" = EXCLUDED."categoryId", "updatedAt" = CURRENT_TIMESTAMP`,
+      [
+        `playwright_cleanup_marketing_${emailAccountId}`,
+        CLEANUP_MARKETING_SENDER,
+        emailAccountId,
+        marketingCategoryId,
+      ],
+    );
+
+    const rows = [
+      ...mailboxMessages.map((message) => ({
+        ...message,
+        read: false,
+        inbox: true,
+      })),
+      {
+        from: CLEANUP_NEWSLETTERS[0],
+        messageId: "playwright_cleanup_counts_newsletter_old_1",
+        threadId: "db_cleanup_counts_newsletter_old_1",
+        read: true,
+        inbox: false,
+      },
+      {
+        from: CLEANUP_NEWSLETTERS[0],
+        messageId: "playwright_cleanup_counts_newsletter_old_2",
+        threadId: "db_cleanup_counts_newsletter_old_2",
+        read: true,
+        inbox: false,
+      },
+      {
+        from: CLEANUP_NEWSLETTERS[0],
+        messageId: "playwright_cleanup_counts_newsletter_old_3",
+        threadId: "db_cleanup_counts_newsletter_old_3",
+        read: false,
+        inbox: false,
+      },
+      ...Array.from({ length: 10 }, (_, index) => ({
+        from: CLEANUP_MARKETING_SENDER,
+        messageId: `playwright_cleanup_counts_marketing_${index}`,
+        threadId: `db_cleanup_counts_marketing_${index}`,
+        read: index !== 0,
+        inbox: index < 3,
+      })),
+    ];
+
+    for (const row of rows) {
+      await client.query(
+        `INSERT INTO "EmailMessage" (
+           id, "createdAt", "updatedAt", "threadId", "messageId", date,
+           "from", "fromName", "fromDomain", "to", "unsubscribeLink",
+           read, sent, draft, inbox, "emailAccountId"
+         )
+         VALUES (
+           $1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $2, $3,
+           CURRENT_TIMESTAMP - INTERVAL '1 day', $4, $4, 'example.com',
+           'playwright-recipient@example.com', NULL, $5, false, false, $6, $7
+         )
+         ON CONFLICT ("emailAccountId", "threadId", "messageId") DO UPDATE
+         SET read = EXCLUDED.read, inbox = EXCLUDED.inbox,
+             "updatedAt" = CURRENT_TIMESTAMP`,
+        [
+          `playwright_cleanup_counts_${row.messageId}_${emailAccountId}`,
+          row.threadId,
+          row.messageId,
+          row.from,
+          row.read,
+          row.inbox,
+          emailAccountId,
+        ],
+      );
+    }
+  } finally {
+    await client.end();
+  }
+}
+
+export async function markMarketingInboxRead(fixture: CleanupFixture) {
+  const client = await connectToDatabase();
+  try {
+    await client.query(
+      `UPDATE "EmailMessage" SET read = true
+       WHERE "emailAccountId" = $1 AND "from" = $2`,
+      [fixture.emailAccountId, CLEANUP_MARKETING_SENDER],
+    );
+  } finally {
+    await client.end();
   }
 }
 

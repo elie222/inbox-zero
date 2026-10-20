@@ -9,7 +9,11 @@ import {
   BulkArchiveSettingsModal,
   type BulkActionType,
 } from "@/app/(app)/[emailAccountId]/bulk-archive/BulkArchiveSettingsModal";
-import { BulkArchiveCards } from "@/components/BulkArchiveCards";
+import { BulkArchiveSummary } from "@/app/(app)/[emailAccountId]/bulk-archive/BulkArchiveSummary";
+import {
+  BulkArchiveCards,
+  type HeldArchive,
+} from "@/components/BulkArchiveCards";
 import { useCategorizeProgress } from "@/app/(app)/[emailAccountId]/smart-categories/CategorizeProgress";
 import { CategorizeWithAiButton } from "@/app/(app)/[emailAccountId]/smart-categories/CategorizeWithAiButton";
 import type { CategorizedSendersResponse } from "@/app/api/user/categorize/senders/categorized/route";
@@ -26,14 +30,19 @@ export function BulkArchive() {
   const { isBulkCategorizing } = useCategorizeProgress();
   const [onboarding] = useQueryState("onboarding", parseAsBoolean);
   const [bulkAction, setBulkAction] = useState<BulkActionType>("archive");
+  const [archivedThisSession, setArchivedThisSession] = useState<{
+    baseline: number;
+    held: Record<string, HeldArchive>;
+  }>();
 
   // Fetch data with SWR and poll while categorization is in progress
-  const { data, error, isLoading, mutate } = useSWR<CategorizedSendersResponse>(
-    "/api/user/categorize/senders/categorized",
-    {
-      refreshInterval: isBulkCategorizing ? 2000 : undefined,
-    },
-  );
+  const { data, error, isLoading, isValidating, mutate } =
+    useSWR<CategorizedSendersResponse>(
+      "/api/user/categorize/senders/categorized",
+      {
+        refreshInterval: isBulkCategorizing ? 2000 : undefined,
+      },
+    );
 
   const senders = data?.senders ?? [];
   const categories = data?.categories ?? [];
@@ -45,9 +54,43 @@ export function BulkArchive() {
         address: sender.email,
         name: sender.name ?? null,
         category: categories.find((c) => c.id === sender.category?.id) || null,
+        counts: sender.counts,
       })),
     [senders, categories],
   );
+
+  const fetchedInboxCount = senders.reduce(
+    (total, sender) => total + sender.counts.inbox,
+    0,
+  );
+  const heldArchives = archivedThisSession?.held ?? {};
+  const archivedCount = Object.values(heldArchives).reduce(
+    (total, held) => total + held.count,
+    0,
+  );
+  // The stored counts lag the mail engine, so never show more than we know is left.
+  const inboxCount =
+    archivedThisSession && archivedCount > 0
+      ? Math.min(
+          fetchedInboxCount,
+          archivedThisSession.baseline - archivedCount,
+        )
+      : fetchedInboxCount;
+
+  const holdArchive = (categoryName: string, held: HeldArchive) =>
+    setArchivedThisSession((previous) => ({
+      baseline: previous?.baseline ?? fetchedInboxCount,
+      held: { ...previous?.held, [categoryName]: held },
+    }));
+
+  const releaseArchive = (categoryName: string) =>
+    setArchivedThisSession((previous) => {
+      if (!previous) return previous;
+      const { [categoryName]: _released, ...held } = previous.held;
+      return Object.keys(held).length
+        ? { baseline: previous.baseline, held }
+        : undefined;
+    });
 
   const handleProgressComplete = useCallback(() => {
     analytics.captureAction("bulk_archive_categorization_completed");
@@ -65,7 +108,7 @@ export function BulkArchive() {
     <LoadingContent loading={isLoading} error={error}>
       <EmailStatsPreloader />
       <PageWrapper>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
           <div className="flex items-center gap-2">
             <PageHeading>Bulk Archive</PageHeading>
             <TooltipExplanation text="Archive, delete, or mark emails as read in bulk by category to quickly clean up your inbox." />
@@ -94,12 +137,23 @@ export function BulkArchive() {
             />
           </div>
         </div>
+        <BulkArchiveSummary
+          inboxCount={inboxCount}
+          baselineCount={archivedThisSession?.baseline}
+          archivedCount={archivedCount}
+          fetchedAt={data?.fetchedAt}
+          isRefreshing={isValidating}
+          onRefresh={() => mutate()}
+        />
         <BulkArchiveProgress onComplete={handleProgressComplete} />
         <BulkArchiveCards
           emailGroups={emailGroups}
           categories={categories}
           bulkAction={bulkAction}
           onCategoryChange={mutate}
+          heldArchives={heldArchives}
+          onHoldArchive={holdArchive}
+          onReleaseArchive={releaseArchive}
         />
       </PageWrapper>
       <AutoCategorizationSetup

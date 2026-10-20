@@ -4,7 +4,14 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQueryState } from "nuqs";
 import groupBy from "lodash/groupBy";
-import { CheckIcon, ChevronDownIcon, MailIcon, PencilIcon } from "lucide-react";
+import {
+  CheckIcon,
+  ChevronDownIcon,
+  EyeIcon,
+  MailIcon,
+  PencilIcon,
+  Undo2Icon,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ButtonCheckbox } from "@/components/ButtonCheckbox";
@@ -51,17 +58,35 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { getCategoryStyle } from "@/components/bulk-archive/categoryIcons";
 import { defaultCategory } from "@/utils/categories";
 import type { EmailGroup } from "@/utils/bulk-archive/get-archive-candidates";
+import {
+  emptySenderMessageCounts,
+  orderByReadRate,
+  sumCategoryStats,
+} from "@/utils/bulk-archive/category-stats";
+import { enqueueThreadMailMutationBatch } from "@/utils/mail-engine/thread-mail-mutations";
+
+type ArchivedThread = { id: string; messages: readonly { id: string }[] };
+
+export type HeldArchive = { count: number; threads: ArchivedThread[] };
+
+const REFRESH_AFTER_UNDO_MS = 3000;
 
 export function BulkArchiveCards({
   emailGroups,
   categories,
   bulkAction,
   onCategoryChange,
+  heldArchives = {},
+  onHoldArchive,
+  onReleaseArchive,
 }: {
   emailGroups: EmailGroup[];
   categories: CategoryWithRules[];
   bulkAction: BulkActionType;
   onCategoryChange?: () => Promise<unknown>;
+  heldArchives?: Record<string, HeldArchive>;
+  onHoldArchive?: (categoryName: string, held: HeldArchive) => void;
+  onReleaseArchive?: (categoryName: string) => void;
 }) {
   const { emailAccountId, userEmail } = useAccount();
   const { queueArchiveSenders } = useArchiveSenderQueueActions(emailAccountId);
@@ -121,18 +146,18 @@ export function BulkArchiveCards({
     return grouped;
   }, [emailGroups, categoryMap, defaultCategoryNames]);
 
-  // Sort categories alphabetically, but always put Other and Uncategorized last
-  const sortedCategoryEntries = useMemo(
-    () =>
-      Object.entries(groupedEmails).sort(([a], [b]) => {
-        if (a === "Uncategorized") return 1;
-        if (b === "Uncategorized") return -1;
-        if (a === defaultCategory.OTHER.name) return 1;
-        if (b === defaultCategory.OTHER.name) return -1;
-        return a.localeCompare(b);
-      }),
-    [groupedEmails],
-  );
+  const { sortedCategoryEntries, leadCategoryName } = useMemo(() => {
+    const { ordered, leadName } = orderByReadRate(
+      Object.entries(groupedEmails).map(([name, senders]) => ({
+        name,
+        senders,
+        stats: sumCategoryStats(
+          senders.map((sender) => sender.counts ?? emptySenderMessageCounts),
+        ),
+      })),
+    );
+    return { sortedCategoryEntries: ordered, leadCategoryName: leadName };
+  }, [groupedEmails]);
 
   const toggleCategory = (categoryName: string) => {
     if (expandedCategory !== categoryName) {
@@ -264,9 +289,26 @@ export function BulkArchiveCards({
       if (failedToQueue) throw new Error("Some sender actions were not queued");
 
       if (bulkAction === "archive") {
+        const archivedThreads: ArchivedThread[] = [];
         await queueArchiveSenders({
           senders: selectedToProcess.map((sender) => sender.address),
+          onThreadsQueued: (threads) => archivedThreads.push(...threads),
         });
+        if (archivedThreads.length) {
+          const inboxCount = selectedToProcess.reduce(
+            (total, sender) => total + (sender.counts?.inbox ?? 0),
+            0,
+          );
+          onHoldArchive?.(categoryName, {
+            count:
+              inboxCount ||
+              archivedThreads.reduce(
+                (total, thread) => total + thread.messages.length,
+                0,
+              ),
+            threads: archivedThreads,
+          });
+        }
       }
 
       if (bulkAction !== "archive") {
@@ -281,9 +323,33 @@ export function BulkArchiveCards({
     }
   };
 
+  const handleUndo = async (categoryName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const held = heldArchives[categoryName];
+    if (!held) return;
+
+    setLoadingCategories((prev) => ({ ...prev, [categoryName]: true }));
+    try {
+      await enqueueThreadMailMutationBatch({
+        emailAccountId,
+        payload: { kind: "unarchive" },
+        threads: held.threads,
+      });
+      onReleaseArchive?.(categoryName);
+      // The inbox flags update once the mail engine has applied the move.
+      setTimeout(() => onCategoryChange?.(), REFRESH_AFTER_UNDO_MS);
+    } catch {
+      toastError({
+        description: "Couldn't move those emails back to your inbox",
+      });
+    } finally {
+      setLoadingCategories((prev) => ({ ...prev, [categoryName]: false }));
+    }
+  };
+
   return (
     <div className="space-y-3 py-4">
-      {sortedCategoryEntries.map(([categoryName, senders]) => {
+      {sortedCategoryEntries.map(({ name: categoryName, senders, stats }) => {
         const category = categoryMap[categoryName];
         const categoryStyle = getCategoryStyle(categoryName);
         const CategoryIcon = categoryStyle.icon;
@@ -301,6 +367,10 @@ export function BulkArchiveCards({
         const isArchived = archivedCategories[categoryName];
         const isLoading = loadingCategories[categoryName];
         const selectedCount = getSelectedCount(categoryName);
+        const held = heldArchives[categoryName];
+        const isLead = categoryName === leadCategoryName;
+        const showReviewFirst =
+          !isLead && !isExpanded && selectedCount === senders.length;
 
         return (
           <Card key={categoryName} className="overflow-hidden">
@@ -317,7 +387,7 @@ export function BulkArchiveCards({
               role="button"
               tabIndex={0}
             >
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-3">
                 <div className="flex items-center gap-3">
                   <div
                     className={cn(
@@ -346,14 +416,29 @@ export function BulkArchiveCards({
                     >
                       {categoryName}
                     </h2>
-                    <p className="text-sm text-muted-foreground">
-                      {senders.length} senders
-                      {isArchived &&
-                        ` ${actionLabels.completedLabel.toLowerCase()}`}
-                    </p>
+                    {held ? (
+                      <p className="flex items-center gap-1.5 whitespace-nowrap text-sm text-muted-foreground">
+                        <CheckIcon className="size-4 text-green-600 dark:text-green-500" />
+                        <span>
+                          <span className="tabular-nums">{held.count}</span>{" "}
+                          archived
+                        </span>
+                      </p>
+                    ) : (
+                      <p className="whitespace-nowrap text-sm text-muted-foreground">
+                        <span>
+                          <span className="tabular-nums">{stats.inbox}</span> in
+                          inbox ·
+                        </span>{" "}
+                        <span className="whitespace-nowrap">
+                          <span className="tabular-nums">{stats.unread}</span>{" "}
+                          unread
+                        </span>
+                      </p>
+                    )}
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="ml-auto flex items-center gap-3">
                   {isArchived ? (
                     <div className="flex items-center gap-2 text-green-600">
                       <CheckIcon className="size-5" />
@@ -361,14 +446,38 @@ export function BulkArchiveCards({
                         {actionLabels.completedLabel}
                       </span>
                     </div>
+                  ) : held ? (
+                    <Button
+                      onClick={(e) => handleUndo(categoryName, e)}
+                      size="sm"
+                      variant="outline"
+                      disabled={isLoading}
+                    >
+                      {isLoading ? (
+                        <ButtonLoader />
+                      ) : (
+                        <Undo2Icon className="mr-2 size-4" />
+                      )}
+                      Undo
+                    </Button>
+                  ) : showReviewFirst ? (
+                    <Button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleCategory(categoryName);
+                      }}
+                      size="sm"
+                      variant="outline"
+                    >
+                      <EyeIcon className="mr-2 size-4" />
+                      Review First
+                    </Button>
                   ) : (
                     <Button
                       onClick={(e) => handleCategoryAction(categoryName, e)}
                       size="sm"
                       disabled={isLoading}
-                      variant={
-                        bulkAction === "delete" ? "destructive" : "default"
-                      }
+                      variant={getActionVariant(isLead, bulkAction)}
                     >
                       {isLoading ? (
                         <ButtonLoader />
@@ -863,4 +972,9 @@ function ExpandedEmails({
       </div>
     </div>
   );
+}
+
+function getActionVariant(isLead: boolean, bulkAction: BulkActionType) {
+  if (!isLead) return "outline";
+  return bulkAction === "delete" ? "destructive" : "default";
 }

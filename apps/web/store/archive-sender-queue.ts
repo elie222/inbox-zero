@@ -15,7 +15,15 @@ export function useArchiveSenderQueueActions(emailAccountId: string) {
   const progress = useArchiveQueueProgress(emailAccountId);
 
   const queueArchiveSenders = useCallback(
-    async ({ senders }: { senders: string[] }) => {
+    async ({
+      senders,
+      onThreadsQueued,
+    }: {
+      senders: string[];
+      onThreadsQueued?: Parameters<
+        typeof addToArchiveSenderThreadQueue
+      >[0]["onThreadsQueued"];
+    }) => {
       let queuedSenders = 0;
 
       for (const sender of getUniqueSenders(senders)) {
@@ -23,6 +31,7 @@ export function useArchiveSenderQueueActions(emailAccountId: string) {
           const queued = await addToArchiveSenderThreadQueue({
             sender,
             emailAccountId,
+            onThreadsQueued,
           });
           if (queued) queuedSenders += 1;
         } catch {}

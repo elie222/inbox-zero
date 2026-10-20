@@ -256,7 +256,8 @@ async function metadataResult(
       receiptId: operation.key.operationId,
     };
   }
-  if (operation.intent.change.kind === "archive") {
+  const changeKind = operation.intent.change.kind;
+  if (changeKind === "archive" || changeKind === "unarchive") {
     const messageIds = targets
       .filter((target) => target.outcome === "applied")
       .map((target) => target.key.messageId);
@@ -266,11 +267,11 @@ async function metadataResult(
           emailAccountId: accountId,
           messageId: { in: messageIds },
         },
-        data: { inbox: false },
+        data: { inbox: changeKind === "unarchive" },
       });
     } catch (error) {
       // A stats write failure must not retry an already applied provider move.
-      logger.error("Failed to update archived EmailMessage records", {
+      logger.error("Failed to update EmailMessage inbox state", {
         emailAccountId: accountId,
         error,
       });

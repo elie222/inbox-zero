@@ -39,7 +39,7 @@ describe("BulkArchiveProgress", () => {
     mockUseArchiveQueueProgress.mockReturnValue(undefined);
   });
 
-  it("shows completed local queue progress", async () => {
+  it("shows nothing once a run finishes cleanly", async () => {
     mockUseArchiveQueueProgress.mockReturnValue({
       activeItems: 0,
       totalItems: 8,
@@ -47,21 +47,30 @@ describe("BulkArchiveProgress", () => {
       failedItems: 0,
       settledItems: 8,
     });
-
     const { BulkArchiveProgress } = await import(
       "@/app/(app)/[emailAccountId]/bulk-archive/BulkArchiveProgress"
     );
 
     render(<BulkArchiveProgress />);
 
-    expect(screen.getByText("0 remaining / 8 total")).toBeTruthy();
-    expect(mockProgressPanel).toHaveBeenCalledWith(
-      expect.objectContaining({
-        totalItems: 8,
-        remainingItems: 0,
-        completedText: "Archiving complete! 8 senders processed!",
-      }),
+    expect(mockProgressPanel).not.toHaveBeenCalled();
+  });
+
+  it("shows the bar while senders are still being archived", async () => {
+    mockUseArchiveQueueProgress.mockReturnValue({
+      activeItems: 3,
+      totalItems: 8,
+      completedItems: 5,
+      failedItems: 0,
+      settledItems: 5,
+    });
+    const { BulkArchiveProgress } = await import(
+      "@/app/(app)/[emailAccountId]/bulk-archive/BulkArchiveProgress"
     );
+
+    render(<BulkArchiveProgress />);
+
+    expect(screen.getByText("3 remaining / 8 total")).toBeTruthy();
   });
 
   it("settles failed work without presenting it as successful", async () => {

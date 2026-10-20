@@ -24,6 +24,10 @@ type QueueProgress = {
   totalItems: number;
 };
 
+type QueuedThread = Awaited<
+  ReturnType<typeof fetchAllSenderThreads>
+>["threads"][number];
+
 type CreatePayload = (params: { labelId?: string }) => ThreadMutationPayload;
 
 export function createSenderQueue(createPayload: CreatePayload) {
@@ -42,12 +46,14 @@ export function createSenderQueue(createPayload: CreatePayload) {
     sender,
     labelId,
     onSuccess,
+    onThreadsQueued,
     onError,
     emailAccountId,
   }: {
     sender: string;
     labelId?: string;
     onSuccess?: (totalThreads: number) => void;
+    onThreadsQueued?: (threads: QueuedThread[]) => void;
     onError?: (sender: string) => void;
     emailAccountId: string;
   }) {
@@ -110,6 +116,7 @@ export function createSenderQueue(createPayload: CreatePayload) {
         mutations,
       });
       removeTransientQueueItem(queueKey);
+      onThreadsQueued?.(threads);
       onSuccess?.(threads.length);
       return true;
     } catch (error) {
