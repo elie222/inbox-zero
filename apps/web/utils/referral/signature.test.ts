@@ -42,6 +42,14 @@ describe("branding signatures", () => {
     ).toBe(`${body}<div></div><div></div>`);
   });
 
+  it("removes the line breaks that separated a footer from the body", () => {
+    expect(
+      stripBrandingSignatures(
+        '<div dir="ltr">Thanks for the update.<br><br>Drafted by <a href="https://example.com">Inbox Zero</a>.</div>',
+      ),
+    ).toBe('<div dir="ltr">Thanks for the update.</div>');
+  });
+
   it("does not consume later content through malformed links", () => {
     const fragments = "Drafted by Inbox Zero [https:// ".repeat(10_000);
     const anchorFragments = "Sent with <a href=broken ".repeat(10_000);

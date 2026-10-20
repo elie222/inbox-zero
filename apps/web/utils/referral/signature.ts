@@ -50,8 +50,10 @@ function createSignaturePatterns(prefix: string, product: string) {
       `(?<=^|[\\r\\n])[^\\S\\r\\n]*${signature}(?=[^\\S\\r\\n]*(?:$|[\\r\\n]))`,
       "gi",
     ),
+    // Leading line breaks go with the footer, or the body keeps a blank line
+    // where it was.
     html: new RegExp(
-      `(?<=^|[\\r\\n>])[^\\S\\r\\n]*${signature}(?=[^\\S\\r\\n]*(?:$|[\\r\\n<]))`,
+      `(?:(?:<br\\s*\\/?>\\s*)+|(?<=^|[\\r\\n>])[^\\S\\r\\n]*)${signature}(?=[^\\S\\r\\n]*(?:$|[\\r\\n<]))`,
       "gi",
     ),
   };
