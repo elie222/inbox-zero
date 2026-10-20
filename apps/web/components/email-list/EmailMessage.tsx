@@ -329,9 +329,10 @@ export function EmailMessage({
       }}
       className={cn(
         // Padding stays the same in both states so expanding doesn't shift
-        // the header. The selection bar is an inset shadow for the same reason.
-        "group/message min-w-0 bg-card px-3 py-2.5 outline-none transition-[background-color,box-shadow] focus-within:shadow-[inset_3px_0_0_hsl(var(--primary))] sm:px-4",
-        selected && "shadow-[inset_3px_0_0_hsl(var(--primary))]",
+        // the header. The selection bar is an overlay for the same reason; the
+        // card clips it so its outer edge follows the corners.
+        "group/message relative min-w-0 overflow-clip rounded-lg bg-card px-3 py-2.5 outline-none transition-colors before:absolute before:inset-y-0 before:left-0 before:w-1 before:bg-primary before:opacity-0 before:transition-opacity focus-within:before:opacity-100 sm:px-4",
+        selected && "before:opacity-100",
         !expanded && "hover:bg-muted/40",
       )}
     >
