@@ -26,9 +26,12 @@ export function isSafeToReload() {
 }
 
 export function reloadAtNextSafeMoment(reload: () => void) {
+  // A page that is still queuing work is not unloading.
+  unloading = false;
   pendingReloads.add(reload);
   document.addEventListener("visibilitychange", onVisibilityChange);
   window.addEventListener("pagehide", onPageHide);
+  window.addEventListener("pageshow", onPageShow);
   return () => {
     pendingReloads.delete(reload);
     if (!pendingReloads.size) stopListening();
@@ -47,12 +50,18 @@ export function runPendingReloads() {
 function stopListening() {
   document.removeEventListener("visibilitychange", onVisibilityChange);
   window.removeEventListener("pagehide", onPageHide);
+  window.removeEventListener("pageshow", onPageShow);
 }
 
 // An unloading page turns hidden right after pagehide. Activating a new
 // worker then would swap it under the page that is loading next.
 function onPageHide() {
   unloading = true;
+}
+
+// A page restored from the back-forward cache is live again.
+function onPageShow() {
+  unloading = false;
 }
 
 function onVisibilityChange() {

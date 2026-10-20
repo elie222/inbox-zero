@@ -63,6 +63,17 @@ describe("safe reload", () => {
     cancel();
   });
 
+  it("resumes hidden reloads after a back-forward cache restore", () => {
+    const reload = vi.fn();
+    const cancel = reloadAtNextSafeMoment(reload);
+    window.dispatchEvent(new Event("pagehide"));
+    window.dispatchEvent(new Event("pageshow"));
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+    document.dispatchEvent(new Event("visibilitychange"));
+    expect(reload).toHaveBeenCalledTimes(1);
+    cancel();
+  });
+
   it("runs on a safe route change and supports cancellation", () => {
     const reload = vi.fn();
     const cancel = reloadAtNextSafeMoment(reload);
