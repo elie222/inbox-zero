@@ -1,12 +1,25 @@
 // @vitest-environment jsdom
-import { cleanup, render, renderHook, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  render,
+  renderHook,
+  waitFor,
+} from "@testing-library/react";
 import type { ReactNode } from "react";
 import { SWRConfig } from "swr";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { toast } from "sonner";
 import { useUser } from "@/hooks/useUser";
 import { GlobalProviders } from "./GlobalProviders";
 import { SWRProvider } from "./SWRProvider";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
+import { DESKTOP_WEB_UPDATE_PROMPT_COOLDOWN_MS } from "@/utils/desktop-app";
+import { SKIP_WAITING } from "@/utils/offline/mail-cache";
+
+const serwistState = vi.hoisted(() => ({
+  serwist: undefined as { register: () => Promise<unknown> } | undefined,
+}));
 
 vi.mock("@/providers/EmailAccountProvider", () => ({
   useAccount: () => ({ emailAccountId: "account-test" }),
@@ -15,15 +28,20 @@ vi.mock("@/utils/error", () => ({ captureException: vi.fn() }));
 vi.mock("next/navigation", () => ({ usePathname: () => "/welcome-upgrade" }));
 vi.mock("@serwist/next/react", () => ({
   SerwistProvider: ({ children }: { children: ReactNode }) => children,
-  useSerwist: () => ({ serwist: undefined }),
+  useSerwist: () => ({ serwist: serwistState.serwist }),
 }));
 vi.mock("nuqs/adapters/next/app", () => ({
   NuqsAdapter: ({ children }: { children: ReactNode }) => children,
 }));
+vi.mock("sonner", () => ({ toast: { info: vi.fn() } }));
 
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+  vi.mocked(toast.info).mockClear();
+  serwistState.serwist = undefined;
+  sessionStorage.clear();
 });
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -148,3 +166,56 @@ describe("global user-data fetching", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 });
+
+describe("desktop web update prompt", () => {
+  it("shows one prompt while it is open even as more updates arrive", async () => {
+    const { registration } = setUpDesktopUpdate();
+    render(<GlobalProviders>{null}</GlobalProviders>);
+    await waitFor(() => expect(toast.info).toHaveBeenCalledTimes(1));
+
+    const later = Date.now() + 2 * DESKTOP_WEB_UPDATE_PROMPT_COOLDOWN_MS;
+    vi.spyOn(Date, "now").mockReturnValue(later);
+    document.dispatchEvent(new Event("visibilitychange"));
+    await waitFor(() => expect(registration.update).toHaveBeenCalledTimes(2));
+
+    expect(toast.info).toHaveBeenCalledTimes(1);
+  });
+
+  it("reloads once the new version takes control instead of racing it", async () => {
+    const { serviceWorker, waiting, reload } = setUpDesktopUpdate();
+    render(<GlobalProviders>{null}</GlobalProviders>);
+    await waitFor(() => expect(toast.info).toHaveBeenCalledTimes(1));
+
+    const options = vi.mocked(toast.info).mock.calls[0][1];
+    const action = options?.action as { onClick: () => void };
+    act(() => action.onClick());
+
+    expect(waiting.postMessage).toHaveBeenCalledWith({ type: SKIP_WAITING });
+    expect(reload).not.toHaveBeenCalled();
+
+    serviceWorker.dispatchEvent(new Event("controllerchange"));
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+});
+
+function setUpDesktopUpdate() {
+  const waiting = { postMessage: vi.fn() };
+  const registration = Object.assign(new EventTarget(), {
+    waiting,
+    update: vi.fn().mockResolvedValue(undefined),
+  });
+  const serviceWorker = Object.assign(new EventTarget(), {
+    controller: { postMessage: vi.fn() },
+    getRegistration: vi.fn().mockResolvedValue(registration),
+  });
+  const reload = vi.fn();
+
+  vi.stubGlobal("inboxZeroDesktop", { startAuth: vi.fn() });
+  vi.stubGlobal("navigator", { onLine: true, serviceWorker });
+  vi.stubGlobal("location", { ...window.location, reload });
+  serwistState.serwist = {
+    register: vi.fn().mockResolvedValue(registration),
+  };
+
+  return { registration, serviceWorker, waiting, reload };
+}

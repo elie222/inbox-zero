@@ -22,6 +22,7 @@ import {
 
 const DESKTOP_WEB_UPDATE_TOAST_ID = "desktop-web-update";
 const DESKTOP_WEB_UPDATE_RELOAD_GRACE_MS = 3000;
+const DESKTOP_WEB_UPDATE_ACTIVATION_TIMEOUT_MS = 5000;
 
 export function GlobalProviders(props: { children: React.ReactNode }) {
   return (
@@ -61,6 +62,9 @@ function ManageServiceWorker() {
     let registration: ServiceWorkerRegistration | undefined;
     let stopWatchingForWaiting: (() => void) | undefined;
     let refreshing = false;
+    let isPromptVisible = false;
+    let reloadOnControllerChange = false;
+    let activationTimeout: number | undefined;
 
     const saveOfflineMail = () => {
       saveOfflineMailPage(
@@ -74,12 +78,32 @@ function ManageServiceWorker() {
       window.location.reload();
     };
 
+    const markPrompted = () => {
+      lastPromptedAt = Date.now();
+      writeDesktopWebUpdateLastPromptedAt(lastPromptedAt);
+    };
+
+    // Reloading before the new worker takes control leaves it waiting, so the
+    // reloaded page would prompt again and then reload a second time.
     const activateWaitingWorker = () => {
-      registration?.waiting?.postMessage({ type: SKIP_WAITING });
-      reloadForUpdate();
+      // Sonner closes a toast on action click without calling onDismiss.
+      isPromptVisible = false;
+      markPrompted();
+      const waiting = registration?.waiting;
+      if (!waiting) {
+        reloadForUpdate();
+        return;
+      }
+      reloadOnControllerChange = true;
+      waiting.postMessage({ type: SKIP_WAITING });
+      activationTimeout = window.setTimeout(
+        reloadForUpdate,
+        DESKTOP_WEB_UPDATE_ACTIVATION_TIMEOUT_MS,
+      );
     };
 
     const notifyAboutWaitingUpdate = () => {
+      if (isPromptVisible) return;
       const now = Date.now();
       if (
         !shouldPromptDesktopWebUpdate({
@@ -93,8 +117,8 @@ function ManageServiceWorker() {
         return;
       }
 
-      lastPromptedAt = now;
-      writeDesktopWebUpdateLastPromptedAt(now);
+      isPromptVisible = true;
+      markPrompted();
       toast.info("Update available", {
         action: {
           label: "Reload",
@@ -103,6 +127,10 @@ function ManageServiceWorker() {
         description: "Reload Inbox Zero to use the latest version.",
         duration: Number.POSITIVE_INFINITY,
         id: DESKTOP_WEB_UPDATE_TOAST_ID,
+        onDismiss: () => {
+          isPromptVisible = false;
+          markPrompted();
+        },
       });
     };
 
@@ -140,9 +168,10 @@ function ManageServiceWorker() {
     const onControllerChange = () => {
       saveOfflineMail();
       if (
-        hadController &&
-        isDesktopApp &&
-        Date.now() - pageLoadedAt >= DESKTOP_WEB_UPDATE_RELOAD_GRACE_MS
+        reloadOnControllerChange ||
+        (hadController &&
+          isDesktopApp &&
+          Date.now() - pageLoadedAt >= DESKTOP_WEB_UPDATE_RELOAD_GRACE_MS)
       ) {
         reloadForUpdate();
       }
@@ -194,6 +223,7 @@ function ManageServiceWorker() {
       .catch(() => {});
 
     return () => {
+      window.clearTimeout(activationTimeout);
       stopWatchingForWaiting?.();
       navigator.serviceWorker.removeEventListener(
         "controllerchange",
