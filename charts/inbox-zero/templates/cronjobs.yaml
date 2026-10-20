@@ -4,7 +4,7 @@
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: {{ include "inbox-zero.fullname" $ }}-{{ $name }}
+  name: {{ include "inbox-zero.fullname" $ | trunc (int (sub 51 (len $name))) | trimSuffix "-" }}-{{ $name }}
   labels:
     {{- include "inbox-zero.labels" $ | nindent 4 }}
     app.kubernetes.io/component: cron
