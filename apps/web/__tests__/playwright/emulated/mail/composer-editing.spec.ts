@@ -185,7 +185,9 @@ test("keeps the signature toggle above the expanded signature", async ({
   if (!toggleBox || !signatureBox) {
     throw new Error("Signature controls have no bounding box");
   }
-  expect(toggleBox.y + toggleBox.height).toBeLessThanOrEqual(signatureBox.y);
+  const signatureGap = signatureBox.y - (toggleBox.y + toggleBox.height);
+  expect(signatureGap).toBeGreaterThanOrEqual(0);
+  expect(signatureGap).toBeLessThanOrEqual(1);
   expect(Math.abs(toggleBox.x - signatureBox.x)).toBeLessThanOrEqual(1);
   await capturePlaywrightCheckpoint(
     page,

@@ -850,10 +850,12 @@ export const SquireEmailEditor = forwardRef<
               />
             </div>
           )}
-          {quoteBlock && expanded && (
+          {quoteBlock && (
             <div className={styles.squirePreserved}>
               <div data-email-preserved-kind="quote">
-                <QuotePreview previewHtml={quoteBlock.previewHtml} />
+                {expanded && (
+                  <QuotePreview previewHtml={quoteBlock.previewHtml} />
+                )}
               </div>
             </div>
           )}
