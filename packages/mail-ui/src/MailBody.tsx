@@ -22,7 +22,8 @@ export type MailPlainTextSegment =
 
 export type MailHtmlFrameCallbacks = {
   onForwardMessage?: () => void;
-  onReplyMessage?: () => void;
+  /** Gets the text selected in the message when the reply should quote it. */
+  onReplyMessage?: (quote?: string) => void;
   onNavigateMessage?: (direction: -1 | 1) => void;
   onFocusMessage?: () => void;
 };
@@ -465,10 +466,18 @@ function useMailHtmlFrame(
         event.ctrlKey ||
         event.metaKey ||
         event.shiftKey ||
-        event.isComposing ||
-        observedDocument?.getSelection()?.isCollapsed === false
+        event.isComposing
       )
         return;
+      const selection = observedDocument?.getSelection();
+      if (selection && !selection.isCollapsed) {
+        const quote = selection.toString().trim();
+        if (event.key === "Enter" && reply && quote) {
+          event.preventDefault();
+          reply(quote);
+        }
+        return;
+      }
       const target = event.target as HTMLElement | null;
       if (
         target?.closest?.(

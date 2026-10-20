@@ -45,7 +45,7 @@ vi.mock("@/components/Tooltip", () => ({
 }));
 vi.mock("@/components/email-list/EmailContents", () => ({
   HtmlEmail: () => null,
-  PlainEmail: () => null,
+  PlainEmail: ({ text }: { text: string }) => <p>{text}</p>,
 }));
 vi.mock("@/components/email-list/EmailAttachments", () => ({
   EmailAttachments: () => null,
@@ -60,9 +60,11 @@ vi.mock("@/app/(app)/[emailAccountId]/compose/ComposeEmailFormLazy", () => ({
     onDiscard,
     onPopOut,
     replyingToEmail,
+    quote,
   }: {
     onDiscard: () => void;
     onPopOut?: () => void;
+    quote?: string;
     replyingToEmail?: {
       to?: string;
       threadId?: string;
@@ -73,6 +75,7 @@ vi.mock("@/app/(app)/[emailAccountId]/compose/ComposeEmailFormLazy", () => ({
     <div
       data-testid="composer"
       data-inline-reply="true"
+      data-quote={quote}
       data-thread-id={replyingToEmail?.threadId}
       data-forwarded-message-id={replyingToEmail?.forwardedMessageId}
       data-forwarded-attachments={replyingToEmail?.forwardedAttachments
@@ -230,6 +233,28 @@ describe("EmailMessage reply", () => {
       />,
     );
     expect(screen.getByRole("textbox", { name: "Email message" })).toBeTruthy();
+  });
+
+  it("quotes the selected text when Enter opens the reply", () => {
+    render(
+      <EmailMessage
+        expanded
+        message={createMessage("message-1")}
+        onSendSuccess={vi.fn()}
+        refetch={vi.fn()}
+        selected
+        showReplyButton
+      />,
+    );
+    const body = screen.getByText("Message body");
+    const range = document.createRange();
+    range.selectNodeContents(body);
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(range);
+
+    fireEvent.keyDown(screen.getByRole("listitem"), { key: "Enter" });
+
+    expect(screen.getByTestId("composer").dataset.quote).toBe("Message body");
   });
 
   // Autosave puts the reply in the mailbox, and sync can bring that copy back

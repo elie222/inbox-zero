@@ -417,6 +417,35 @@ describe("Squire email editor", () => {
     expect(screen.queryByRole("button", { name: /signature/u })).toBeNull();
   });
 
+  it("quotes text and leaves the caret on a new line below it", async () => {
+    const { handle, textbox } = await renderEditor({});
+
+    act(() => {
+      handle().insertQuote("First <line>\nSecond line");
+      handle().insertText("My answer");
+    });
+
+    expect(textbox().innerHTML).toBe(
+      "<blockquote><div>First &lt;line&gt;</div><div>Second line</div></blockquote><div>My answer</div>",
+    );
+  });
+
+  it("keeps a quote off a line that already has text", async () => {
+    const { handle } = await renderEditor({
+      initialHtml: "<div>Thanks</div>",
+      mode: "edited",
+    });
+
+    act(() => {
+      handle().insertQuote("Quoted");
+      handle().insertText("Reply");
+    });
+
+    expect(handle().getValue().editableHtml).toBe(
+      "<div>Thanks</div><blockquote><div>Quoted</div></blockquote><div>Reply</div>",
+    );
+  });
+
   it("collapses a signature restored from an earlier session", async () => {
     const { handle, textbox } = await renderEditor({
       initialHtml:

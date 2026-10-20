@@ -48,7 +48,7 @@ export function HtmlEmail({
   messageId: string;
   emailAccountId?: string;
   inlineAttachments?: ParsedMessage["inline"];
-  onReplyMessage?: () => void;
+  onReplyMessage?: (quote?: string) => void;
   onForwardMessage?: () => void;
   onNavigateMessage?: (direction: -1 | 1) => void;
   onFocusMessage?: () => void;
