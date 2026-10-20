@@ -22,9 +22,18 @@ export type InboxZeroDesktopApi = {
     listener: (event: MailIpcSnapshotEvent) => void,
   ) => () => void;
   onOpenSettings?: (listener: () => void) => () => void;
+  onUpdateStatus?: (
+    listener: (status: DesktopUpdateStatus) => void,
+  ) => () => void;
+  installUpdate?: () => Promise<void>;
   wipeMailbox?: () => Promise<unknown>;
   getDesktopHealth?: () => Promise<DesktopHealth | null>;
 };
+
+export type DesktopUpdateStatus =
+  | { state: "downloading"; version: string; percent: number }
+  | { state: "ready"; version: string }
+  | null;
 
 type DesktopDurationSummary = {
   count: number;
