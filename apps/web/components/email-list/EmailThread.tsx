@@ -269,14 +269,12 @@ export function EmailThread({
   );
 
   return (
-    // White regardless of the surface it is dropped on: an email body renders
-    // on white inside its iframe, so anything else leaves each message boxed.
     <OpenedConversationAttachments
       allowUncached
       emailAccountId={emailAccountId}
       threadId={threadId}
     >
-      <div className="min-w-0 bg-card" ref={threadRef}>
+      <div className="min-w-0" ref={threadRef}>
         {renderToolbar?.({
           allExpanded,
           canExpand: organizedMessages.length > 1,
