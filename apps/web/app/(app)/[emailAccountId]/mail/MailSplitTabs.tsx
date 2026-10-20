@@ -183,6 +183,9 @@ export const MailSplitTabs = memo(function MailSplitTabs({
 
   const onReorder = useCallback(
     async (ids: string[]) => {
+      // With no split picked, the first tab is shown, so moving another tab to
+      // the front would otherwise switch the view.
+      if (activeSplitId) onSelectSplit(activeSplitId);
       // Shown right away so a dropped tab doesn't jump back while saving.
       if (settings) {
         mutateSettings(
@@ -198,7 +201,7 @@ export const MailSplitTabs = memo(function MailSplitTabs({
       }
       return true;
     },
-    [emailAccountId, mutateSettings, settings],
+    [activeSplitId, emailAccountId, mutateSettings, onSelectSplit, settings],
   );
 
   const onDelete = useCallback(
