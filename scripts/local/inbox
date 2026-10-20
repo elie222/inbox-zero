@@ -81,11 +81,24 @@ ensure_services() {
   die "Postgres did not become healthy"
 }
 
+# Ollama sizes its context from free memory, which on this Mac means the model's full 262k. That
+# makes every chat reply slow (about 2 min). The launcher owns the server so it can set a smaller
+# context; INBOX_OLLAMA_CTX overrides the 32k default. Ollama's /v1 endpoint ignores a per-request size.
+OLLAMA_CTX="${INBOX_OLLAMA_CTX:-32768}"
 ensure_ollama() {
-  ollama_up && return 0
   command -v ollama >/dev/null || { say "Ollama not installed; AI features will fail."; return 0; }
+  if ollama_up; then
+    pid_alive "$STATE/ollama.pid" && return 0
+    say "Restarting Ollama with a ${OLLAMA_CTX}-token context (it was sized from free memory)..."
+    # The menu-bar app respawns its own server, so it has to go first.
+    osascript -e 'quit app "Ollama"' >/dev/null 2>&1
+    pkill -x Ollama 2>/dev/null
+    sleep 1
+    pkill -x ollama 2>/dev/null
+    for _ in $(seq 1 15); do ollama_up || break; sleep 1; done
+  fi
   say "Starting Ollama..."
-  nohup ollama serve >"$STATE/ollama.log" 2>&1 &
+  OLLAMA_CONTEXT_LENGTH="$OLLAMA_CTX" nohup ollama serve >"$STATE/ollama.log" 2>&1 &
   echo $! >"$STATE/ollama.pid"
   for _ in $(seq 1 20); do ollama_up && return 0; sleep 1; done
   say "Ollama did not answer; AI features will fail. See $STATE/ollama.log"
