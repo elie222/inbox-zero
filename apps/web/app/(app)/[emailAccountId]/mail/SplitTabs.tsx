@@ -122,9 +122,6 @@ export function SplitTabs({
 
     const finish = (commit: boolean) => {
       suppressClickRef.current = true;
-      setTimeout(() => {
-        suppressClickRef.current = false;
-      });
       setDrag(null);
       const ids = reorderableIds(drag.order);
       const unchanged =
@@ -133,14 +130,20 @@ export function SplitTabs({
     };
 
     const onPointerMove = (event: globalThis.PointerEvent) => {
-      const targetId = document
+      const target = document
         .elementFromPoint(event.clientX, event.clientY)
-        ?.closest<HTMLElement>("[data-split-tab]")?.dataset.splitTab;
-      if (!targetId || targetId === drag.id) return;
+        ?.closest<HTMLElement>("[data-split-tab]");
+      const targetId = target?.dataset.splitTab;
+      if (!target || !targetId || targetId === drag.id) return;
       if (!splitsById.get(targetId)?.reorderable) return;
 
+      // Placing by the target's midpoint, rather than swapping on entry, keeps
+      // tabs of different widths from swapping back under a still pointer.
+      const { left, width } = target.getBoundingClientRect();
+      const after = event.clientX > left + width / 2;
       const order = drag.order.filter((id) => id !== drag.id);
-      order.splice(drag.order.indexOf(targetId), 0, drag.id);
+      order.splice(order.indexOf(targetId) + (after ? 1 : 0), 0, drag.id);
+      if (order.join() === drag.order.join()) return;
       setDrag({ id: drag.id, order });
     };
     const onPointerUp = () => finish(true);
@@ -161,12 +164,20 @@ export function SplitTabs({
     };
   }, [drag, splits, splitsById, onReorder]);
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    // The release that ends the gesture is followed by its click, so the flag
+    // clears just after it, including when Esc cancelled the drag earlier.
+    const clearSuppressedClick = () => {
+      setTimeout(() => {
+        suppressClickRef.current = false;
+      });
+    };
+    window.addEventListener("pointerup", clearSuppressedClick);
+    return () => {
+      window.removeEventListener("pointerup", clearSuppressedClick);
       if (holdRef.current) clearTimeout(holdRef.current.timer);
-    },
-    [],
-  );
+    };
+  }, []);
 
   useEffect(() => {
     const tabs = tabsRef.current;
