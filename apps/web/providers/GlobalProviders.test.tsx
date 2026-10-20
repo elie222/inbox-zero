@@ -169,14 +169,14 @@ describe("global user-data fetching", () => {
 
 describe("desktop web update prompt", () => {
   it("shows one prompt while it is open even as more updates arrive", async () => {
-    const { serviceWorker } = setUpDesktopUpdate();
+    const { registration } = setUpDesktopUpdate();
     render(<GlobalProviders>{null}</GlobalProviders>);
     await waitFor(() => expect(toast.info).toHaveBeenCalledTimes(1));
 
     const later = Date.now() + 2 * DESKTOP_WEB_UPDATE_PROMPT_COOLDOWN_MS;
     vi.spyOn(Date, "now").mockReturnValue(later);
     document.dispatchEvent(new Event("visibilitychange"));
-    await waitFor(() => expect(serviceWorker.update).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(registration.update).toHaveBeenCalledTimes(2));
 
     expect(toast.info).toHaveBeenCalledTimes(1);
   });
@@ -207,16 +207,15 @@ function setUpDesktopUpdate() {
   const serviceWorker = Object.assign(new EventTarget(), {
     controller: { postMessage: vi.fn() },
     getRegistration: vi.fn().mockResolvedValue(registration),
-    update: registration.update,
   });
   const reload = vi.fn();
 
   vi.stubGlobal("inboxZeroDesktop", { startAuth: vi.fn() });
-  vi.stubGlobal("navigator", Object.assign(navigator, { serviceWorker }));
+  vi.stubGlobal("navigator", { onLine: true, serviceWorker });
   vi.stubGlobal("location", { ...window.location, reload });
   serwistState.serwist = {
     register: vi.fn().mockResolvedValue(registration),
   };
 
-  return { serviceWorker, waiting, reload };
+  return { registration, serviceWorker, waiting, reload };
 }
