@@ -79,6 +79,8 @@ export async function replyToEmail(
   options?: {
     replyTo?: string;
     from?: string;
+    cc?: string;
+    bcc?: string;
     attachments?: Attachment[];
   },
 ) {
@@ -102,6 +104,8 @@ export async function replyToEmail(
     options?.from,
     replyDraft.from?.emailAddress?.address,
   );
+  const ccRecipients = buildGraphRecipients(options?.cc);
+  const bccRecipients = buildGraphRecipients(options?.bcc);
 
   // Update the draft with our content
   await withMicrosoftGraphWriteRetry(
@@ -115,6 +119,8 @@ export async function replyToEmail(
             content: html,
           },
           ...(fromField ? { from: fromField } : {}),
+          ...(ccRecipients ? { ccRecipients } : {}),
+          ...(bccRecipients ? { bccRecipients } : {}),
           ...(options?.replyTo
             ? {
                 replyTo: [{ emailAddress: { address: options.replyTo } }],

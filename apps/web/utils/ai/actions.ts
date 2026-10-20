@@ -344,7 +344,11 @@ const reply: ActionFunction<{
       textHtml: email.textHtml,
     },
     args.content,
-    { attachments },
+    {
+      attachments,
+      cc: args.cc ?? undefined,
+      bcc: args.bcc ?? undefined,
+    },
   );
   return { sentMessageIds: [messageId] };
 };

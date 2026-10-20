@@ -207,6 +207,8 @@ export async function replyToEmail(
   from?: string,
   options?: {
     replyTo?: string;
+    cc?: string;
+    bcc?: string;
     attachments?: Attachment[];
   },
 ) {
@@ -225,6 +227,8 @@ export async function replyToEmail(
   const raw = await createRawMailMessage({
     to: message.headers["reply-to"] || message.headers.from,
     from,
+    cc: options?.cc,
+    bcc: options?.bcc,
     replyTo: options?.replyTo,
     subject: formatReplySubject(message.headers.subject),
     messageText,
