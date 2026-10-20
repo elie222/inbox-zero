@@ -1,9 +1,62 @@
 import { describe, expect, it, vi } from "vitest";
 import { createTestLogger } from "@/__tests__/helpers";
+import type { OutlookClient } from "@/utils/outlook/client";
 import {
+  listThreadMessages,
+  OutlookThreadPaginationError,
   processThreadMessagesFallback,
   runThreadMessageMutation,
 } from "./thread-helpers";
+
+vi.mock("@/utils/outlook/retry", () => ({
+  withMicrosoftGraphRetry: <T>(operation: () => Promise<T>) => operation(),
+}));
+
+describe("listThreadMessages", () => {
+  it("lists every page of a conversation within the requested folder", async () => {
+    const { client, get, filters } = createListClient([
+      {
+        value: [{ id: "m1" }, { id: "m2" }],
+        "@odata.nextLink":
+          "https://graph.microsoft.com/v1.0/me/messages?$skip=100",
+      },
+      { value: [{ id: "m2" }, { id: "m3" }] },
+    ]);
+
+    const messages = await listThreadMessages({
+      client,
+      threadId: "conv'1",
+      select: "id",
+      folderId: "inbox-id",
+      logger: createTestLogger(),
+    });
+
+    expect(messages.map((message) => message.id)).toEqual(["m1", "m2", "m3"]);
+    expect(get).toHaveBeenCalledTimes(2);
+    expect(filters).toEqual([
+      "conversationId eq 'conv''1' and parentFolderId eq 'inbox-id'",
+    ]);
+  });
+
+  it("refuses to follow a next page link outside Microsoft Graph", async () => {
+    const { client, get } = createListClient([
+      {
+        value: [{ id: "m1" }],
+        "@odata.nextLink": "https://attacker.example/me/messages?$skip=100",
+      },
+    ]);
+
+    await expect(
+      listThreadMessages({
+        client,
+        threadId: "conv1",
+        select: "id",
+        logger: createTestLogger(),
+      }),
+    ).rejects.toBeInstanceOf(OutlookThreadPaginationError);
+    expect(get).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe("runThreadMessageMutation", () => {
   it("limits concurrent thread mutations", async () => {
@@ -165,4 +218,25 @@ function mockClient(messages: { id: string; conversationId: string }[]) {
     }),
     get,
   };
+}
+
+function createListClient(
+  pages: { value: { id: string }[]; "@odata.nextLink"?: string }[],
+) {
+  const filters: string[] = [];
+  const get = vi.fn();
+  for (const page of pages) get.mockResolvedValueOnce(page);
+  const builder = {
+    filter: (value: string) => {
+      filters.push(value);
+      return builder;
+    },
+    select: () => builder,
+    top: () => builder,
+    get,
+  };
+  const client = {
+    getClient: () => ({ api: () => builder }),
+  } as unknown as OutlookClient;
+  return { client, get, filters };
 }

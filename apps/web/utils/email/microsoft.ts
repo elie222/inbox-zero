@@ -61,6 +61,7 @@ import {
   updateMessageCategories,
 } from "@/utils/outlook/label";
 import { trashThread } from "@/utils/outlook/trash";
+import { listThreadMessages } from "@/utils/outlook/thread-helpers";
 import { markNotSpam, markSpam } from "@/utils/outlook/spam";
 import { handlePreviousDraftDeletion } from "@/utils/ai/choose-rule/draft-management";
 import { type Logger, createScopedLogger } from "@/utils/logger";
@@ -1066,9 +1067,6 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async getThreadMessagesInInbox(threadId: string): Promise<ParsedMessage[]> {
-    // Optimized: Direct API call filtering by inbox folder
-    const client = this.client.getClient();
-
     try {
       const folderIds = await getFolderIds(this.client, this.logger, {
         includeDrafts: false,
@@ -1079,20 +1077,18 @@ export class OutlookProvider implements EmailProvider {
         throw new Error("Could not resolve inbox folder ID");
       }
 
-      const escapedThreadId = escapeODataString(threadId);
-
-      const response = await client
-        .api("/me/messages")
-        .filter(
-          `conversationId eq '${escapedThreadId}' and parentFolderId eq '${escapeODataString(inboxFolderId)}'`,
-        )
-        .select(MESSAGE_SELECT_FIELDS)
-        .get();
+      const threadMessages = await listThreadMessages({
+        client: this.client,
+        threadId,
+        select: "id",
+        folderId: inboxFolderId,
+        logger: this.logger,
+      });
 
       // Convert to ParsedMessage format using existing helper
       const messages: ParsedMessage[] = [];
 
-      for (const message of response.value) {
+      for (const message of threadMessages) {
         try {
           // Use the existing getMessage function to properly parse each message
           const parsedMessage = await getMessage(
@@ -1169,14 +1165,12 @@ export class OutlookProvider implements EmailProvider {
 
     const [allLabels, messages] = await Promise.all([
       this.getLabels(),
-      this.client
-        .getClient()
-        .api("/me/messages")
-        .filter(`conversationId eq '${escapeODataString(threadId)}'`)
-        .select("id,categories")
-        .get() as Promise<{
-        value: Array<{ id: string; categories?: string[] }>;
-      }>,
+      listThreadMessages<{ id: string; categories?: string[] }>({
+        client: this.client,
+        threadId,
+        select: "id,categories",
+        logger: this.logger,
+      }),
     ]);
 
     const labelIdsSet = new Set(labelIds);
@@ -1186,7 +1180,7 @@ export class OutlookProvider implements EmailProvider {
 
     if (!removeCategoryNames.length) return;
 
-    const messagesWithCategories = messages.value.filter((message) =>
+    const messagesWithCategories = messages.filter((message) =>
       message.categories?.some((cat) => removeCategoryNames.includes(cat)),
     );
 
@@ -1670,31 +1664,15 @@ export class OutlookProvider implements EmailProvider {
   async getLatestMessageInThread(
     threadId: string,
   ): Promise<ParsedMessage | null> {
-    const escapedThreadId = escapeODataString(threadId);
     // A whole conversation with bodies can be megabytes, and Graph sometimes
     // ends such 200 responses mid-body. Pick the latest message from metadata,
     // then fetch only that one in full.
-    const messages: Message[] = [];
-    let nextLink: string | undefined;
-    do {
-      const pageLink = nextLink;
-      const page: { value?: Message[]; "@odata.nextLink"?: string } =
-        await withMicrosoftGraphRetry(
-          () =>
-            pageLink
-              ? this.client.getClient().api(pageLink).get()
-              : this.client
-                  .getClient()
-                  .api("/me/messages")
-                  .filter(`conversationId eq '${escapedThreadId}'`)
-                  .select(MESSAGE_LIST_SELECT_FIELDS)
-                  .top(100)
-                  .get(),
-          this.logger,
-        );
-      messages.push(...(page.value ?? []));
-      nextLink = page["@odata.nextLink"];
-    } while (nextLink);
+    const messages = await listThreadMessages<Message & { id: string }>({
+      client: this.client,
+      threadId,
+      select: MESSAGE_LIST_SELECT_FIELDS,
+      logger: this.logger,
+    });
 
     const parsedMessages: ParsedMessage[] = messages
       .filter((message: Message) => !message.isDraft)

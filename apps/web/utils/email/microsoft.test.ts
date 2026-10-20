@@ -936,7 +936,7 @@ describe("OutlookProvider.removeThreadLabels", () => {
     const get = vi.fn().mockResolvedValue({ value: messages });
     const api = vi.fn((path: string) => {
       if (path === "/me/messages") {
-        return { filter: () => ({ select: () => ({ get }) }) };
+        return { filter: () => ({ select: () => ({ top: () => ({ get }) }) }) };
       }
       const message = messages.find((m) => path.endsWith(`/${m.id}`));
       const request = {
