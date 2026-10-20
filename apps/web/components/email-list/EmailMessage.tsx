@@ -868,7 +868,7 @@ function ReplyPanel({
         draftKeyMessageId={replyTargetId}
         draftMode={composeMode}
         draftSessionId={draftSessionId}
-        onClose={(queuedOperationId) => {
+        onClose={(queuedOperationId?: string) => {
           // An offline send closes again once queued; the handoff closes it.
           if (handoffStarted.current) return;
           // Before the handoff, so this message stays open once the sent
