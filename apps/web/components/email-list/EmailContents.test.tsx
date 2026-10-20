@@ -719,6 +719,56 @@ describe("HtmlEmail", () => {
     expect(fetchAttachment).toHaveBeenCalledOnce();
     expect(revokeObjectUrl).not.toHaveBeenCalled();
   });
+
+  it("does not revoke inline images of mounted messages when the cache is full", async () => {
+    fetchAttachment.mockResolvedValue(
+      new Blob(["image"], { type: "image/png" }),
+    );
+    const createObjectUrl = vi
+      .spyOn(URL, "createObjectURL")
+      .mockImplementation(
+        () =>
+          `blob:https://app.example.com/thread-${createObjectUrl.mock.calls.length}`,
+      );
+    const revokeObjectUrl = vi.spyOn(URL, "revokeObjectURL");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_input: string, init?: RequestInit) =>
+        Response.json({ html: JSON.parse(String(init?.body)).html }),
+      ),
+    );
+    const messageIds = Array.from(
+      { length: 21 },
+      (_, index) => `message-long-thread-${index}`,
+    );
+
+    const { unmount } = render(
+      <div>
+        {messageIds.map((messageId) => (
+          <HtmlEmail
+            key={messageId}
+            emailAccountId="account-1"
+            html={`<img src="cid:${messageId}@inboxzero.local" />`}
+            inlineAttachments={[
+              inlineImageAttachment(`${messageId}@inboxzero.local`),
+            ]}
+            messageId={messageId}
+          />
+        ))}
+      </div>,
+    );
+    await waitFor(() => expect(createObjectUrl).toHaveBeenCalledTimes(21));
+    const threadUrls = createObjectUrl.mock.results.map(
+      (result) => result.value,
+    );
+    const revokedThreadUrls = () =>
+      revokeObjectUrl.mock.calls.filter(([url]) => threadUrls.includes(url));
+
+    expect(revokedThreadUrls()).toEqual([]);
+
+    unmount();
+    expect(revokedThreadUrls()).not.toEqual([]);
+  });
 });
 
 describe("PlainEmail", () => {

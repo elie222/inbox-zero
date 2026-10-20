@@ -38,6 +38,7 @@ const INLINE_IMAGE_CACHE_SIZE = 20;
 // message object (e.g. a sync update without attachment metadata) repaints
 // with them instead of dropping back to unresolved cid: sources.
 const loadedInlineImages = new Map<string, Record<string, string>>();
+const mountedInlineImageMessages = new Map<string, number>();
 
 export function HtmlEmail({
   html,
@@ -73,6 +74,19 @@ export function HtmlEmail({
   );
   const { resolvedTheme } = useTheme();
   const isDarkMode = resolvedTheme === "dark";
+
+  useEffect(() => {
+    mountedInlineImageMessages.set(
+      messageId,
+      (mountedInlineImageMessages.get(messageId) ?? 0) + 1,
+    );
+    return () => {
+      const count = (mountedInlineImageMessages.get(messageId) ?? 1) - 1;
+      if (count > 0) mountedInlineImageMessages.set(messageId, count);
+      else mountedInlineImageMessages.delete(messageId);
+      evictLoadedInlineImages();
+    };
+  }, [messageId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -252,9 +266,15 @@ function storeLoadedInlineImage({
   sources[contentId] = objectUrl;
   loadedInlineImages.delete(messageId);
   loadedInlineImages.set(messageId, sources);
+  evictLoadedInlineImages();
+}
 
+// Mounted messages are skipped because their frames may still be showing the
+// object URLs; they become evictable once their last reader unmounts.
+function evictLoadedInlineImages() {
   for (const [oldestMessageId, oldestSources] of loadedInlineImages) {
     if (loadedInlineImages.size <= INLINE_IMAGE_CACHE_SIZE) break;
+    if (mountedInlineImageMessages.has(oldestMessageId)) continue;
     loadedInlineImages.delete(oldestMessageId);
     for (const url of Object.values(oldestSources)) URL.revokeObjectURL(url);
   }
