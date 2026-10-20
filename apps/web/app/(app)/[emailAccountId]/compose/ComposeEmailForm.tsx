@@ -618,7 +618,9 @@ function ComposeEmailFormContent({
         pendingRecipientsRef={pendingRecipientsRef}
         onPendingRecipientChange={updatePendingRecipient}
         focusRecipientField={focusRecipientField}
-        subjectRegisterProps={register("subject", { required: true })}
+        // Inline replies hide the subject, so a required one would block send
+        // with no visible error when the thread or draft has none.
+        subjectRegisterProps={register("subject", { required: !isInlineReply })}
         subjectError={errors.subject}
         popOutButton={popOutButton}
       />

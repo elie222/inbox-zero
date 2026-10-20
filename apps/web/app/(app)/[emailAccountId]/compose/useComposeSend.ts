@@ -183,6 +183,7 @@ export function useComposeSend({
       });
       const enrichedData: SendEmailBody = {
         ...data,
+        subject: data.subject ?? "",
         ...recipients,
         replyToEmail: getReplyToEmailPayload(data.replyToEmail),
         messageHtml,
