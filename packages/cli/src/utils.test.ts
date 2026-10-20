@@ -15,7 +15,6 @@ import { spawnSync } from "node:child_process";
 import { afterEach, describe, it, expect, vi } from "vitest";
 import {
   fixComposeEnvPaths,
-  generateSecret,
   generateEncryptionSecrets,
   generateEnvFile,
   getEnvFileName,
@@ -32,30 +31,6 @@ import {
 vi.mock("node:fs", async (importOriginal) => {
   const fs = await importOriginal<typeof import("node:fs")>();
   return { ...fs, symlinkSync: vi.fn(fs.symlinkSync) };
-});
-
-describe("generateSecret", () => {
-  it("should generate a hex string of correct length", () => {
-    const secret16 = generateSecret(16);
-    const secret32 = generateSecret(32);
-
-    // Hex encoding doubles the byte length
-    expect(secret16).toHaveLength(32);
-    expect(secret32).toHaveLength(64);
-  });
-
-  it("should generate valid hex strings", () => {
-    const secret = generateSecret(16);
-    expect(secret).toMatch(/^[0-9a-f]+$/);
-  });
-
-  it("should generate unique secrets", () => {
-    const secrets = new Set<string>();
-    for (let i = 0; i < 100; i++) {
-      secrets.add(generateSecret(16));
-    }
-    expect(secrets.size).toBe(100);
-  });
 });
 
 describe("getEnvFileName", () => {

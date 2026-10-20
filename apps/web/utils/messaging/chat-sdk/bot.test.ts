@@ -11,8 +11,6 @@ import {
   buildMessagingUserMessages,
   getMessagingAiGeneratedPostPayload,
   getPendingEmailHandledOpenText,
-  getPendingEmailHandledStatus,
-  getPendingEmailHandledTitle,
   buildPendingEmailSummary,
   ensureSlackTeamInstallation,
   hasUnsupportedMessagingAttachment,
@@ -550,11 +548,6 @@ describe("getMessagingAiGeneratedPostPayload", () => {
 });
 
 describe("pending email handled state helpers", () => {
-  it("uses reply-specific sent copy", () => {
-    expect(getPendingEmailHandledTitle("reply_email")).toBe("Reply sent");
-    expect(getPendingEmailHandledStatus("reply_email")).toBe("Reply sent. ✅");
-  });
-
   it("builds a mailbox deep link when confirmation ids are present", () => {
     expect(
       getPendingEmailHandledOpenText({

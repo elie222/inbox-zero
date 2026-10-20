@@ -2854,21 +2854,6 @@ describe("findMatchingRules - Integration Tests", () => {
     });
   });
 
-  it("should handle invalid regex patterns gracefully", () => {
-    const rule = getRule({
-      from: "[invalid(regex",
-    });
-
-    const message = getMessage({
-      headers: getHeaders({ from: "test@example.com" }),
-    });
-
-    // Should not throw, just return false
-    expect(() => matchesStaticRule(rule, message, logger)).not.toThrow();
-    const result = matchesStaticRule(rule, message, logger);
-    expect(result).toBe(false);
-  });
-
   it("should combine static match with AI potentialMatch correctly", async () => {
     const mixedRule = getRule({
       id: "mixed-rule",

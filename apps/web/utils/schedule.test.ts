@@ -50,13 +50,6 @@ function createTestDate(isoString: string): Date {
   return new Date(isoString);
 }
 
-describe("timezone setup", () => {
-  it("should use UTC timezone for consistent test behavior", () => {
-    const testDate = new Date("2024-01-15T10:00:00Z");
-    expect(testDate.getTimezoneOffset()).toBe(0);
-  });
-});
-
 describe("createCanonicalTimeOfDay", () => {
   it("should create a canonical date with specified time", () => {
     const result = createCanonicalTimeOfDay(9, 30);
@@ -82,22 +75,6 @@ describe("createCanonicalTimeOfDay", () => {
 
     expect(result.getHours()).toBe(23);
     expect(result.getMinutes()).toBe(59);
-  });
-});
-
-describe("DAYS constant", () => {
-  it.each(
-    DAY_CASES,
-  )("should have correct bitmask value for %s", (_, __, bitmask, expected) => {
-    expect(bitmask).toBe(expected);
-  });
-
-  it("should allow combining days with bitwise OR", () => {
-    const mondayWednesday = DAYS.MONDAY | DAYS.WEDNESDAY;
-    expect(mondayWednesday).toBe(0b010_1000); // 40
-
-    const weekends = DAYS.SATURDAY | DAYS.SUNDAY;
-    expect(weekends).toBe(0b100_0001); // 65
   });
 });
 

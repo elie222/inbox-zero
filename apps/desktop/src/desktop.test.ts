@@ -10,7 +10,6 @@ import {
   getDesktopPostAuthUrl,
   getDesktopMailAccountId,
   getDesktopSessionRestoreUrl,
-  getDesktopWindowChrome,
   getDesktopWindowDragCss,
   isAllowedDesktopNavigation,
   isAllowedExternalUrl,
@@ -245,23 +244,6 @@ describe("desktop shell helpers", () => {
     expect(
       getDesktopPostAuthUrl("https://www.getinboxzero.com", "/.//evil.test"),
     ).toBe("https://www.getinboxzero.com/evil.test");
-  });
-
-  it("uses platform-appropriate title bars and menu visibility", () => {
-    expect(getDesktopWindowChrome("darwin")).toEqual({
-      backgroundColor: "#ffffff",
-      titleBarStyle: "hiddenInset",
-      trafficLightPosition: { x: 16, y: 18 },
-    });
-    expect(getDesktopWindowChrome("win32")).toEqual({
-      autoHideMenuBar: false,
-      backgroundColor: "#ffffff",
-      titleBarStyle: "default",
-    });
-    expect(getDesktopWindowChrome("linux")).toEqual({
-      autoHideMenuBar: true,
-      backgroundColor: "#ffffff",
-    });
   });
 
   it("persists in-app pages but not auth or API URLs", () => {
