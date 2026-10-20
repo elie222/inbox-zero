@@ -601,18 +601,29 @@ describe("Models", () => {
       expect(result.providerOptions).toBeUndefined();
     });
 
-    it.each([
-      ["off", false],
-      ["on", true],
-    ] as const)("should send enable_thinking for OpenAI-compatible when LOCAL_LLM_THINKING is %s", (setting, enableThinking) => {
+    it("should send enable_thinking=false and reasoning_effort none for OpenAI-compatible when LOCAL_LLM_THINKING is off", () => {
       setDefaultLlms(Provider.OPENAI_COMPATIBLE, "llama-3.2-3b-instruct");
-      vi.mocked(env).LOCAL_LLM_THINKING = setting;
+      vi.mocked(env).LOCAL_LLM_THINKING = "off";
 
       const result = getModel(defaultUserAi());
 
       expect(result.providerOptions).toEqual({
         "openai-compatible": {
-          chat_template_kwargs: { enable_thinking: enableThinking },
+          chat_template_kwargs: { enable_thinking: false },
+          reasoningEffort: "none",
+        },
+      });
+    });
+
+    it("should send only enable_thinking=true for OpenAI-compatible when LOCAL_LLM_THINKING is on", () => {
+      setDefaultLlms(Provider.OPENAI_COMPATIBLE, "llama-3.2-3b-instruct");
+      vi.mocked(env).LOCAL_LLM_THINKING = "on";
+
+      const result = getModel(defaultUserAi());
+
+      expect(result.providerOptions).toEqual({
+        "openai-compatible": {
+          chat_template_kwargs: { enable_thinking: true },
         },
       });
     });
