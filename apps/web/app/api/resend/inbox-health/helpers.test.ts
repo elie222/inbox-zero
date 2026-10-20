@@ -44,6 +44,23 @@ describe("getInboxHealthEmailData", () => {
     expect(getInboxHealthEmailData(senders)).toBeNull();
   });
 
+  it("does not count low-read senders without an unsubscribe link", () => {
+    const missing = makeSender({
+      name: "missing@example.com",
+      value: 100,
+      unsubscribeLink: null,
+    });
+
+    expect(getInboxHealthEmailData([...makeSenders(4), missing])).toBeNull();
+
+    const data = getInboxHealthEmailData([...makeSenders(5), missing]);
+    expect(data?.suggestionCount).toBe(5);
+    expect(data?.yearlyEmailsAvoided).toBe(200);
+    expect(data?.senders.map((sender) => sender.email)).not.toContain(
+      missing.name,
+    );
+  });
+
   it("builds email data when there are at least 5 suggestions", () => {
     const senders = [
       makeSender({ name: "a@example.com", fromName: "A", value: 30 }),
@@ -149,6 +166,7 @@ function makeSender(
   overrides: Partial<InboxHealthSenderStats> & { name: string },
 ): InboxHealthSenderStats {
   return {
+    unsubscribeLink: "https://example.com/unsubscribe",
     fromName: "Sender",
     value: 10,
     readEmails: 0,
