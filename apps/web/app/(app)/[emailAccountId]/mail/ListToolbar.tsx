@@ -56,7 +56,6 @@ import { cn } from "@/utils";
 
 export type ListToolbarProps = {
   layout: MailLayoutMode;
-  isDesktopApp: boolean;
   expandedPreview: boolean;
   /** Committed search query. */
   searchQuery: string;
@@ -92,7 +91,6 @@ export type ListToolbarProps = {
 
 export const ListToolbar = memo(function ListToolbar({
   layout,
-  isDesktopApp,
   expandedPreview,
   searchQuery = "",
   onSearch,
@@ -122,7 +120,7 @@ export const ListToolbar = memo(function ListToolbar({
 
   return (
     <MailListToolbarSurface>
-      <MailTitlebarNav showHistory={isDesktopApp} />
+      <MailTitlebarNav />
       {selectAll}
 
       {/* Selection swaps the toolbar's controls in place so the list never
