@@ -46,6 +46,23 @@ describe("convertMessage", () => {
     expect(result.headers.bcc).toBe("hidden@example.com");
   });
 
+  it("maps Reply-To so replies reach the address the sender asked for", () => {
+    const result = convertMessage({
+      from: {
+        emailAddress: { name: "Website Forms", address: "forms@site.com" },
+      },
+      replyTo: [
+        {
+          emailAddress: { name: "Jane Customer", address: "jane@customer.com" },
+        },
+      ],
+    });
+
+    expect(result.headers["reply-to"]).toBe(
+      "Jane Customer <jane@customer.com>",
+    );
+  });
+
   it("preserves BCC recipients from a provider draft", () => {
     const result = convertMessage({
       bccRecipients: [

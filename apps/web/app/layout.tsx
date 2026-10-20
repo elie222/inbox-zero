@@ -158,6 +158,10 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // Vercel only serves the /_vercel/* analytics scripts on its own platform;
+  // elsewhere they 404 and are blocked by strict MIME checking.
+  const isVercel = process.env.VERCEL === "1";
+
   return (
     <html lang="en" className="h-full" suppressHydrationWarning>
       <body
@@ -188,10 +192,10 @@ export default async function RootLayout({
             <Toaster />
           </GlobalProviders>
         </PostHogProvider>
-        <Analytics />
+        {isVercel && <Analytics />}
         <AxiomWebVitals />
         <UTM />
-        <SpeedInsights />
+        {isVercel && <SpeedInsights />}
         <WithCookieConsent>
           {env.NEXT_PUBLIC_DUB_REFER_DOMAIN && (
             <DubAnalytics

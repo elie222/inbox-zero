@@ -22,7 +22,7 @@ import { resolveMicrosoftGraphNextLink } from "@/utils/outlook/page-token";
 // Standard fields to select when fetching messages from Microsoft Graph API
 // internetMessageId is the RFC 5322 Message-ID header, needed for cross-provider email threading
 export const MESSAGE_LIST_SELECT_FIELDS =
-  "id,conversationId,conversationIndex,internetMessageId,subject,bodyPreview,from,sender,toRecipients,ccRecipients,receivedDateTime,createdDateTime,isDraft,isRead,flag,categories,parentFolderId,hasAttachments,webLink,inferenceClassification";
+  "id,conversationId,conversationIndex,internetMessageId,subject,bodyPreview,from,sender,replyTo,toRecipients,ccRecipients,receivedDateTime,createdDateTime,isDraft,isRead,flag,categories,parentFolderId,hasAttachments,webLink,inferenceClassification";
 export const MESSAGE_SELECT_FIELDS = `${MESSAGE_LIST_SELECT_FIELDS},bccRecipients,body,internetMessageHeaders`;
 
 // contentId belongs to fileAttachment, so selecting it without this type cast
@@ -1147,6 +1147,7 @@ export function convertMessage(
           message.from?.emailAddress?.address,
         ) || "",
       to: formatRecipientsList(message.toRecipients) || "",
+      "reply-to": formatRecipientsList(message.replyTo),
       cc: formatRecipientsList(message.ccRecipients),
       bcc: formatRecipientsList(message.bccRecipients),
       subject: message.subject || "",
