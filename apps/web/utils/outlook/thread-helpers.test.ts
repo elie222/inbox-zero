@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createTestLogger } from "@/__tests__/helpers";
 import type { OutlookClient } from "@/utils/outlook/client";
+import { extractErrorInfo } from "@/utils/outlook/retry";
 import {
   listThreadMessages,
   OutlookThreadPaginationError,
@@ -8,7 +9,8 @@ import {
   runThreadMessageMutation,
 } from "./thread-helpers";
 
-vi.mock("@/utils/outlook/retry", () => ({
+vi.mock("@/utils/outlook/retry", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/outlook/retry")>()),
   withMicrosoftGraphRetry: <T>(operation: () => Promise<T>) => operation(),
 }));
 
@@ -55,6 +57,34 @@ describe("listThreadMessages", () => {
       }),
     ).rejects.toBeInstanceOf(OutlookThreadPaginationError);
     expect(get).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a later page's Graph throttling status visible to rate-limit handling", async () => {
+    const throttled = Object.assign(new Error("Too many requests"), {
+      statusCode: 429,
+      code: "TooManyRequests",
+    });
+    const { client, get } = createListClient([
+      {
+        value: [{ id: "m1" }],
+        "@odata.nextLink":
+          "https://graph.microsoft.com/v1.0/me/messages?$skip=100",
+      },
+    ]);
+    get.mockRejectedValueOnce(throttled);
+
+    const error = await listThreadMessages({
+      client,
+      threadId: "conv1",
+      select: "id",
+      logger: createTestLogger(),
+    }).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(OutlookThreadPaginationError);
+    expect(extractErrorInfo(error)).toMatchObject({
+      status: 429,
+      code: "TooManyRequests",
+    });
   });
 });
 

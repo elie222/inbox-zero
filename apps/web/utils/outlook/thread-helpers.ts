@@ -13,9 +13,24 @@ const MAX_THREAD_MESSAGE_PAGES = 50;
 // fallbacks are for Graph rejecting the conversation filter itself; running
 // them here would act on part of the thread and report success.
 export class OutlookThreadPaginationError extends Error {
+  statusCode?: unknown;
+  status?: unknown;
+  code?: unknown;
+  body?: unknown;
+
   constructor(message: string, options?: ErrorOptions) {
     super(message, options);
     this.name = "OutlookThreadPaginationError";
+    // Keep the Graph error's status and code readable by retry and
+    // rate-limit handling, which inspect the thrown error directly.
+    const cause = options?.cause;
+    if (cause && typeof cause === "object") {
+      const { statusCode, status, code, body } = cause as Record<
+        string,
+        unknown
+      >;
+      Object.assign(this, { statusCode, status, code, body });
+    }
   }
 }
 
