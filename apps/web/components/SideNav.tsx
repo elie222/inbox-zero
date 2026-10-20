@@ -49,6 +49,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { SetupProgressCard } from "@/components/SetupProgressCard";
+import { DesktopUpdateMenuItem } from "@/components/DesktopUpdateMenuItem";
 import { SideNavMenu } from "@/components/SideNavMenu";
 import { CommandShortcut } from "@/components/ui/command";
 import { useSplitLabels } from "@/hooks/useLabels";
@@ -378,6 +379,7 @@ export function SideNav({
       <PremiumCard isCollapsed={!state.includes("left-sidebar")} />
 
       <SidebarFooter className="pb-4">
+        <DesktopUpdateMenuItem />
         <SideNavMenu items={visibleBottomLinks} activeHref={path} />
 
         <SideNavMenu items={getTheAppLinks} activeHref={path} />

@@ -12,6 +12,7 @@ import {
   type ReplyDraftContent,
   type ReplyDraftIdentity,
 } from "@/utils/mail-engine/reply-drafts";
+import { registerOpenComposer } from "@/utils/safe-reload";
 
 type DraftDeliveryTimes = { sendAt?: string; remindAt?: string };
 
@@ -139,7 +140,10 @@ export function useReplyDraftPersistence({
     return () => {
       window.removeEventListener("pagehide", flush);
       document.removeEventListener("visibilitychange", flushWhenHidden);
-      flush().catch(() => {});
+      // A reload must wait for the final local write after the form unmounts.
+      flush()
+        .catch(() => {})
+        .finally(registerOpenComposer());
     };
   }, [flush]);
 

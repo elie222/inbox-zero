@@ -14,10 +14,11 @@ import { useUser } from "@/hooks/useUser";
 import { GlobalProviders } from "./GlobalProviders";
 import { SWRProvider } from "./SWRProvider";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
-import { DESKTOP_WEB_UPDATE_PROMPT_COOLDOWN_MS } from "@/utils/desktop-app";
+import { registerOpenComposer } from "@/utils/safe-reload";
 import { SKIP_WAITING } from "@/utils/offline/mail-cache";
 
 const serwistState = vi.hoisted(() => ({
+  pathname: "/welcome-upgrade",
   serwist: undefined as { register: () => Promise<unknown> } | undefined,
 }));
 
@@ -25,7 +26,9 @@ vi.mock("@/providers/EmailAccountProvider", () => ({
   useAccount: () => ({ emailAccountId: "account-test" }),
 }));
 vi.mock("@/utils/error", () => ({ captureException: vi.fn() }));
-vi.mock("next/navigation", () => ({ usePathname: () => "/welcome-upgrade" }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => serwistState.pathname,
+}));
 vi.mock("@serwist/next/react", () => ({
   SerwistProvider: ({ children }: { children: ReactNode }) => children,
   useSerwist: () => ({ serwist: serwistState.serwist }),
@@ -41,22 +44,10 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.mocked(toast.info).mockClear();
   serwistState.serwist = undefined;
+  serwistState.pathname = "/welcome-upgrade";
+  vi.useRealTimers();
   sessionStorage.clear();
 });
-
-function wrapper({ children }: { children: ReactNode }) {
-  return (
-    <SWRConfig
-      value={{
-        provider: () => new Map(),
-        fetcher: undefined,
-        shouldRetryOnError: false,
-      }}
-    >
-      <GlobalProviders>{children}</GlobalProviders>
-    </SWRConfig>
-  );
-}
 
 describe("global user-data fetching", () => {
   it("loads the signed-in user outside the mailbox providers", async () => {
@@ -167,38 +158,86 @@ describe("global user-data fetching", () => {
   });
 });
 
-describe("desktop web update prompt", () => {
-  it("shows one prompt while it is open even as more updates arrive", async () => {
-    const { registration } = setUpDesktopUpdate();
-    render(<GlobalProviders>{null}</GlobalProviders>);
-    await waitFor(() => expect(toast.info).toHaveBeenCalledTimes(1));
-
-    const later = Date.now() + 2 * DESKTOP_WEB_UPDATE_PROMPT_COOLDOWN_MS;
-    vi.spyOn(Date, "now").mockReturnValue(later);
-    document.dispatchEvent(new Event("visibilitychange"));
-    await waitFor(() => expect(registration.update).toHaveBeenCalledTimes(2));
-
-    expect(toast.info).toHaveBeenCalledTimes(1);
+describe("service worker updates", () => {
+  it.each([
+    "hidden",
+    "route",
+  ])("activates a waiting worker only at a safe %s moment", async (moment) => {
+    const { registration, serviceWorker, waiting, reload } =
+      setUpDesktopUpdate();
+    const view = render(<GlobalProviders>mail</GlobalProviders>);
+    await waitFor(() => expect(registration.update).toHaveBeenCalled());
+    vi.useFakeTimers();
+    expect(toast.info).not.toHaveBeenCalled();
+    expect(waiting.postMessage).not.toHaveBeenCalled();
+    const close = registerOpenComposer();
+    const nextMoment = () => {
+      if (moment === "hidden") {
+        vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+        document.dispatchEvent(new Event("visibilitychange"));
+      } else {
+        serwistState.pathname += "/next";
+        view.rerender(<GlobalProviders>mail</GlobalProviders>);
+      }
+    };
+    act(nextMoment);
+    expect(waiting.postMessage).not.toHaveBeenCalled();
+    close();
+    act(nextMoment);
+    expect(waiting.postMessage).toHaveBeenCalledExactlyOnceWith({
+      type: SKIP_WAITING,
+    });
+    // Editing can begin while the worker is activating.
+    const stopEditing = registerOpenComposer();
+    act(() => serviceWorker.dispatchEvent(new Event("controllerchange")));
+    act(() => vi.advanceTimersByTime(5000));
+    expect(reload).not.toHaveBeenCalled();
+    stopEditing();
+    act(nextMoment);
+    expect(reload).toHaveBeenCalledTimes(1);
   });
 
-  it("reloads once the new version takes control instead of racing it", async () => {
-    const { serviceWorker, waiting, reload } = setUpDesktopUpdate();
-    render(<GlobalProviders>{null}</GlobalProviders>);
-    await waitFor(() => expect(toast.info).toHaveBeenCalledTimes(1));
+  it("leaves a waiting worker alone in a browser tab", async () => {
+    const { waiting } = setUpDesktopUpdate({ desktop: false });
+    const register = serwistState.serwist?.register;
+    const view = render(<GlobalProviders>mail</GlobalProviders>);
+    await waitFor(() => expect(register).toHaveBeenCalled());
+    serwistState.pathname += "/next";
+    view.rerender(<GlobalProviders>mail</GlobalProviders>);
+    expect(waiting.postMessage).not.toHaveBeenCalled();
+  });
 
-    const options = vi.mocked(toast.info).mock.calls[0][1];
-    const action = options?.action as { onClick: () => void };
-    act(() => action.onClick());
-
-    expect(waiting.postMessage).toHaveBeenCalledWith({ type: SKIP_WAITING });
+  it("defers controller changes from another window while composing", async () => {
+    const { registration, serviceWorker, reload } = setUpDesktopUpdate();
+    const view = render(<GlobalProviders>mail</GlobalProviders>);
+    await waitFor(() => expect(registration.update).toHaveBeenCalled());
+    vi.useFakeTimers();
+    const close = registerOpenComposer();
+    act(() => vi.advanceTimersByTime(3000));
+    act(() => serviceWorker.dispatchEvent(new Event("controllerchange")));
     expect(reload).not.toHaveBeenCalled();
-
-    serviceWorker.dispatchEvent(new Event("controllerchange"));
+    close();
+    serwistState.pathname = "/account/automation";
+    view.rerender(<GlobalProviders>mail</GlobalProviders>);
     expect(reload).toHaveBeenCalledTimes(1);
   });
 });
 
-function setUpDesktopUpdate() {
+function wrapper({ children }: { children: ReactNode }) {
+  return (
+    <SWRConfig
+      value={{
+        provider: () => new Map(),
+        fetcher: undefined,
+        shouldRetryOnError: false,
+      }}
+    >
+      <GlobalProviders>{children}</GlobalProviders>
+    </SWRConfig>
+  );
+}
+
+function setUpDesktopUpdate({ desktop = true } = {}) {
   const waiting = { postMessage: vi.fn() };
   const registration = Object.assign(new EventTarget(), {
     waiting,
@@ -210,7 +249,7 @@ function setUpDesktopUpdate() {
   });
   const reload = vi.fn();
 
-  vi.stubGlobal("inboxZeroDesktop", { startAuth: vi.fn() });
+  if (desktop) vi.stubGlobal("inboxZeroDesktop", { startAuth: vi.fn() });
   vi.stubGlobal("navigator", { onLine: true, serviceWorker });
   vi.stubGlobal("location", { ...window.location, reload });
   serwistState.serwist = {
