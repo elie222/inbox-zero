@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
 import type { MailPredicate } from "@inboxzero/mail-core/queries";
 import { labelNamesToAccountScopedPredicate } from "@/app/(app)/[emailAccountId]/mail/use-combined-mail-threads";
@@ -43,10 +43,20 @@ export function useSplitCounts({
         : undefined,
     [labelsByAccount, portableLabelSplits, stableAccountIds],
   );
-  const targets = useMemo(
+  const nextTargets = useMemo(
     () => splitCountTargets({ splits, overrides }),
     [overrides, splits],
   );
+  // Settings refreshes and reorders hand over new split objects with the same
+  // conditions. Reopening the count observer for those blanks every count.
+  const targetsKey = JSON.stringify(
+    nextTargets.toSorted((a, b) => a.id.localeCompare(b.id)),
+  );
+  const stableTargetsRef = useRef({ key: targetsKey, targets: nextTargets });
+  if (stableTargetsRef.current.key !== targetsKey) {
+    stableTargetsRef.current = { key: targetsKey, targets: nextTargets };
+  }
+  const targets = stableTargetsRef.current.targets;
   const [countsById, setCountsById] = useState(EMPTY_COUNTS);
 
   useEffect(() => {

@@ -294,9 +294,7 @@ test("reorders splits with arrows and dragging and persists tab order", async ({
   await expect(tabs).toHaveText(original);
 });
 
-test("reorders split tabs by holding and dragging a tab", async ({
-  page,
-}, testInfo) => {
+test("reorders split tabs by dragging a tab", async ({ page }, testInfo) => {
   await openMail(page);
   const tabs = page.locator("[data-split-name]");
   const original = await tabs.allTextContents();
@@ -308,7 +306,6 @@ test("reorders split tabs by holding and dragging a tab", async ({
 
   await tabButtons.nth(1).hover();
   await page.mouse.down();
-  await page.waitForTimeout(500);
   const target = await tabButtons.nth(0).boundingBox();
   if (!target) throw new Error("Split tab is not visible");
   await page.mouse.move(target.x + target.width / 3, target.y + 4, {
