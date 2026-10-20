@@ -1,6 +1,7 @@
 "use client";
 
-import { PlusIcon } from "lucide-react";
+import { GripVerticalIcon, PlusIcon } from "lucide-react";
+import { motion } from "motion/react";
 import {
   type PointerEvent,
   type ReactNode,
@@ -9,6 +10,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -59,16 +61,16 @@ export function SplitTabs({
 }: SplitTabsProps) {
   const tabsRef = useRef<HTMLDivElement>(null);
   const activeTabRef = useRef<HTMLButtonElement>(null);
-  const holdRef = useRef<{
-    timer: ReturnType<typeof setTimeout>;
-    x: number;
-    y: number;
-  } | null>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
   // The click that ends a drag would otherwise also open the dragged split.
   const suppressClickRef = useRef(false);
-  const [drag, setDrag] = useState<{ id: string; order: string[] } | null>(
-    null,
-  );
+  const stopTrackingRef = useRef<(() => void) | null>(null);
+  const [drag, setDrag] = useState<DragState | null>(null);
+  const dragRef = useRef<DragState | null>(null);
+  const updateDrag = (next: DragState | null) => {
+    dragRef.current = next;
+    setDrag(next);
+  };
 
   const splitsById = useMemo(
     () => new Map(splits.map((split) => [split.id, split])),
@@ -77,107 +79,114 @@ export function SplitTabs({
   const orderedSplits = drag
     ? drag.order.flatMap((id) => splitsById.get(id) ?? [])
     : splits;
+  const draggedSplit = drag ? splitsById.get(drag.id) : undefined;
+  const draggedCountLabel = draggedSplit
+    ? splitCountLabel(countsById?.get(draggedSplit.id))
+    : null;
 
-  const cancelHold = () => {
-    if (holdRef.current) clearTimeout(holdRef.current.timer);
-    holdRef.current = null;
-  };
-
-  const startHold = (
+  // Window listeners follow the pointer off the tab, and keep working while
+  // React moves the dragged tab's node as the order changes.
+  const trackPress = (
     event: PointerEvent<HTMLButtonElement>,
     split: MailSplitTab,
   ) => {
-    cancelHold();
+    stopTrackingRef.current?.();
     if (!onReorder || !split.reorderable || event.button !== 0) return;
-    holdRef.current = {
-      x: event.clientX,
-      y: event.clientY,
-      timer: setTimeout(() => {
-        holdRef.current = null;
-        setDrag({ id: split.id, order: splits.map(({ id }) => id) });
-      }, LONG_PRESS_MS),
-    };
-  };
 
-  // Moving the pointer before the hold completes is a normal click or a
-  // text selection, not a drag.
-  const moveDuringHold = (event: PointerEvent<HTMLButtonElement>) => {
-    const hold = holdRef.current;
-    if (
-      hold &&
-      Math.hypot(event.clientX - hold.x, event.clientY - hold.y) >
-        HOLD_MOVE_TOLERANCE_PX
-    ) {
-      cancelHold();
-    }
-  };
-
-  // Tracked on the window because React moves the dragged tab's DOM node as
-  // the order changes, which would drop pointer capture on the tab itself.
-  useEffect(() => {
-    if (!drag) return;
-
+    const tab = event.currentTarget;
+    const start = { x: event.clientX, y: event.clientY };
+    const initialOrder = splits.map(({ id }) => id);
     const reorderableIds = (ids: string[]) =>
       ids.filter((id) => splitsById.get(id)?.reorderable);
 
-    const finish = (commit: boolean) => {
-      suppressClickRef.current = true;
-      setDrag(null);
-      const ids = reorderableIds(drag.order);
-      const unchanged =
-        ids.join() === reorderableIds(splits.map(({ id }) => id)).join();
-      if (commit && !unchanged) onReorder?.(ids);
+    const moveOverlay = (x: number, y: number) => {
+      const current = dragRef.current;
+      if (!overlayRef.current || !current) return;
+      overlayRef.current.style.transform = `translate(${x - current.offsetX}px, ${y - current.offsetY}px)`;
     };
 
-    const onPointerMove = (event: globalThis.PointerEvent) => {
-      const target = document
-        .elementFromPoint(event.clientX, event.clientY)
-        ?.closest<HTMLElement>("[data-split-tab]");
-      const targetId = target?.dataset.splitTab;
-      if (!target || !targetId || targetId === drag.id) return;
-      if (!splitsById.get(targetId)?.reorderable) return;
+    const onPointerMove = (moveEvent: globalThis.PointerEvent) => {
+      const current = dragRef.current;
+      if (!current) {
+        const distance = Math.hypot(
+          moveEvent.clientX - start.x,
+          moveEvent.clientY - start.y,
+        );
+        if (distance < DRAG_START_PX) return;
+        const rect = tab.getBoundingClientRect();
+        suppressClickRef.current = true;
+        document.body.style.cursor = "grabbing";
+        updateDrag({
+          id: split.id,
+          order: initialOrder,
+          width: rect.width,
+          height: rect.height,
+          offsetX: start.x - rect.left,
+          offsetY: start.y - rect.top,
+          x: moveEvent.clientX,
+          y: moveEvent.clientY,
+        });
+        return;
+      }
 
-      // Placing by the target's midpoint, rather than swapping on entry, keeps
-      // tabs of different widths from swapping back under a still pointer.
-      const { left, width } = target.getBoundingClientRect();
-      const after = event.clientX > left + width / 2;
-      const order = drag.order.filter((id) => id !== drag.id);
-      order.splice(order.indexOf(targetId) + (after ? 1 : 0), 0, drag.id);
-      if (order.join() === drag.order.join()) return;
-      setDrag({ id: drag.id, order });
+      moveOverlay(moveEvent.clientX, moveEvent.clientY);
+      const order = orderForPointer({
+        container: tabsRef.current,
+        drag: current,
+        x: moveEvent.clientX,
+        y: moveEvent.clientY,
+        isReorderable: (id) => !!splitsById.get(id)?.reorderable,
+      });
+      if (order) updateDrag({ ...current, order });
     };
-    const onPointerUp = () => finish(true);
-    const onPointerCancel = () => finish(false);
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") finish(false);
+
+    const endDrag = (commit: boolean) => {
+      const current = dragRef.current;
+      if (!current) return;
+      document.body.style.cursor = "";
+      updateDrag(null);
+      const ids = reorderableIds(current.order);
+      if (commit && ids.join() !== reorderableIds(initialOrder).join()) {
+        onReorder(ids);
+      }
+    };
+
+    const onPointerUp = () => {
+      endDrag(true);
+      stop();
+      // The release is followed by its click, so the flag clears after it.
+      setTimeout(() => {
+        suppressClickRef.current = false;
+      });
+    };
+    const onPointerCancel = () => {
+      endDrag(false);
+      stop();
+      suppressClickRef.current = false;
+    };
+    const onKeyDown = (keyEvent: KeyboardEvent) => {
+      if (keyEvent.key === "Escape") endDrag(false);
+    };
+
+    const stop = () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerCancel);
+      window.removeEventListener("keydown", onKeyDown);
+      stopTrackingRef.current = null;
     };
 
     window.addEventListener("pointermove", onPointerMove);
     window.addEventListener("pointerup", onPointerUp);
     window.addEventListener("pointercancel", onPointerCancel);
     window.addEventListener("keydown", onKeyDown);
-    return () => {
-      window.removeEventListener("pointermove", onPointerMove);
-      window.removeEventListener("pointerup", onPointerUp);
-      window.removeEventListener("pointercancel", onPointerCancel);
-      window.removeEventListener("keydown", onKeyDown);
+    stopTrackingRef.current = () => {
+      endDrag(false);
+      stop();
     };
-  }, [drag, splits, splitsById, onReorder]);
+  };
 
-  useEffect(() => {
-    // The release that ends the gesture is followed by its click, so the flag
-    // clears just after it, including when Esc cancelled the drag earlier.
-    const clearSuppressedClick = () => {
-      setTimeout(() => {
-        suppressClickRef.current = false;
-      });
-    };
-    window.addEventListener("pointerup", clearSuppressedClick);
-    return () => {
-      window.removeEventListener("pointerup", clearSuppressedClick);
-      if (holdRef.current) clearTimeout(holdRef.current.timer);
-    };
-  }, []);
+  useEffect(() => () => stopTrackingRef.current?.(), []);
 
   useEffect(() => {
     const tabs = tabsRef.current;
@@ -201,7 +210,7 @@ export function SplitTabs({
         // Padded to sit under the toolbar's search field rather than against
         // the column edge, and ruled off so the tabs read as a header for the
         // list instead of crowding the first row.
-        "flex flex-wrap items-center gap-1 border-border border-b px-3 pb-2",
+        "relative flex flex-wrap items-center gap-1 border-border border-b px-3 pb-2",
         className,
       )}
     >
@@ -210,21 +219,23 @@ export function SplitTabs({
         const active = split.id === activeSplitId;
         const dragging = drag?.id === split.id;
         const countLabel = splitCountLabel(countsById?.get(split.id));
+        const draggable = !!onReorder && !!split.reorderable;
 
         return (
           <ContextMenu key={split.id}>
             <ContextMenuTrigger asChild disabled={!split.deletable}>
-              <button
+              <motion.button
                 type="button"
+                layout={drag ? "position" : false}
+                transition={TAB_MOVE_TRANSITION}
                 ref={active ? activeTabRef : undefined}
                 data-split-tab={split.id}
                 onClick={() => {
                   if (!suppressClickRef.current) onSelect(split.id);
                 }}
-                onPointerDown={(event) => startHold(event, split)}
-                onPointerMove={moveDuringHold}
-                onPointerUp={cancelHold}
-                onPointerLeave={cancelHold}
+                onPointerDown={(event: PointerEvent<HTMLButtonElement>) =>
+                  trackPress(event, split)
+                }
                 // The count sits in this button, so innerText includes it.
                 // The accessible name stays the split itself.
                 aria-label={split.name}
@@ -233,13 +244,23 @@ export function SplitTabs({
                   countLabel ? `${countLabel} in this view` : undefined
                 }
                 className={cn(
-                  "flex select-none items-center gap-1 rounded-full py-0.5 pr-2 pl-2.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  "group relative flex select-none items-center gap-1 rounded-full py-0.5 pr-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  draggable ? "pl-3.5" : "pl-2.5",
                   active
                     ? "bg-primary/10 font-medium text-primary"
                     : "text-muted-foreground hover:bg-accent hover:text-foreground",
-                  dragging && "cursor-grabbing ring-1 ring-border",
+                  dragging && "opacity-40",
                 )}
               >
+                {draggable && (
+                  <GripVerticalIcon
+                    aria-hidden="true"
+                    className={cn(
+                      "absolute left-0.5 size-3 opacity-0 transition-opacity",
+                      !drag && "group-hover:opacity-60",
+                    )}
+                  />
+                )}
                 <span data-split-name>{split.name}</span>
                 {countLabel ? (
                   <span
@@ -252,7 +273,7 @@ export function SplitTabs({
                     {countLabel}
                   </span>
                 ) : null}
-              </button>
+              </motion.button>
             </ContextMenuTrigger>
             <ContextMenuContent className="w-44">
               {onEdit && (
@@ -271,6 +292,30 @@ export function SplitTabs({
         );
       })}
 
+      {drag && draggedSplit
+        ? createPortal(
+            <div
+              ref={overlayRef}
+              aria-hidden="true"
+              className="pointer-events-none fixed top-0 left-0 z-50 flex items-center gap-1 rounded-full bg-background py-0.5 pr-2 pl-3.5 text-foreground text-xs shadow-lg ring-1 ring-border"
+              style={{
+                width: drag.width,
+                height: drag.height,
+                transform: `translate(${drag.x - drag.offsetX}px, ${drag.y - drag.offsetY}px)`,
+              }}
+            >
+              <GripVerticalIcon className="absolute left-0.5 size-3 opacity-60" />
+              <span>{draggedSplit.name}</span>
+              {draggedCountLabel ? (
+                <span className="font-normal tabular-nums opacity-70">
+                  {draggedCountLabel}
+                </span>
+              ) : null}
+            </div>,
+            document.body,
+          )
+        : null}
+
       {canCreateSplits && (
         <button
           type="button"
@@ -285,8 +330,66 @@ export function SplitTabs({
   );
 }
 
-const LONG_PRESS_MS = 300;
-const HOLD_MOVE_TOLERANCE_PX = 5;
+type DragState = {
+  id: string;
+  order: string[];
+  width: number;
+  height: number;
+  /** Where the tab was grabbed, so it stays under the pointer at that spot. */
+  offsetX: number;
+  offsetY: number;
+  x: number;
+  y: number;
+};
+
+const DRAG_START_PX = 4;
+const TAB_MOVE_TRANSITION = { duration: 0.15, ease: "easeOut" } as const;
+
+/**
+ * The order with the dragged tab placed before or after the tab under the
+ * pointer, by which half of it the pointer is in. Reads layout boxes rather
+ * than on-screen rects, so tabs still sliding into place don't cause swaps.
+ */
+function orderForPointer({
+  container,
+  drag,
+  x,
+  y,
+  isReorderable,
+}: {
+  container: HTMLElement | null;
+  drag: DragState;
+  x: number;
+  y: number;
+  isReorderable: (id: string) => boolean;
+}): string[] | null {
+  if (!container) return null;
+  const origin = container.getBoundingClientRect();
+  const pointerX = x - origin.left;
+  const pointerY = y - origin.top;
+
+  for (const tab of container.querySelectorAll<HTMLElement>(
+    "[data-split-tab]",
+  )) {
+    const targetId = tab.dataset.splitTab;
+    if (!targetId || targetId === drag.id || !isReorderable(targetId)) continue;
+    const { offsetLeft, offsetTop, offsetWidth, offsetHeight } = tab;
+    if (
+      pointerX < offsetLeft ||
+      pointerX > offsetLeft + offsetWidth ||
+      pointerY < offsetTop ||
+      pointerY > offsetTop + offsetHeight
+    ) {
+      continue;
+    }
+
+    const after = pointerX > offsetLeft + offsetWidth / 2;
+    const order = drag.order.filter((id) => id !== drag.id);
+    order.splice(order.indexOf(targetId) + (after ? 1 : 0), 0, drag.id);
+    return order.join() === drag.order.join() ? null : order;
+  }
+  return null;
+}
 
 function splitCountLabel(count: number | undefined): string | null {
   if (count == null || !Number.isFinite(count) || count <= 0) return null;
