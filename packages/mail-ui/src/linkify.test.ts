@@ -31,6 +31,23 @@ describe("linkifyPlainText", () => {
     ]);
   });
 
+  it("links bare domains and addresses on any TLD, but not bare file-like names", () => {
+    const text =
+      "See example.com, mail person@example.zip, or open report.final.";
+
+    expect(linkifyPlainText(text)).toEqual([
+      { type: "text", text: "See " },
+      { type: "link", text: "example.com", href: "http://example.com/" },
+      { type: "text", text: ", mail " },
+      {
+        type: "link",
+        text: "person@example.zip",
+        href: "mailto:person@example.zip",
+      },
+      { type: "text", text: ", or open report.final." },
+    ]);
+  });
+
   it("leaves unsupported protocols as plain text", () => {
     const text = "Files: ftp://example.com/file";
 

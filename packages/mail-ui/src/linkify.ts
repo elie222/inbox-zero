@@ -1,12 +1,12 @@
-import LinkifyIt, { type Match } from "linkify-it";
+import { LinkifyIt, type Match } from "linkify-it";
 import tlds from "tlds";
 import type { MailPlainTextSegment } from "./MailBody";
 import { getSafeEmailLinkUrl } from "./safe-link-url";
 
-const linkify = new LinkifyIt().tlds(tlds).add("ftp:", null);
+const linkify = new LinkifyIt({ fuzzyLink: true }).tlds(tlds).add("ftp:", null);
 // The full TLD list includes words like "zip" and "final", so a bare name such
 // as "report.final" is only a link when its TLD is a common one.
-const commonTldLinkify = new LinkifyIt();
+const commonTldLinkify = new LinkifyIt({ fuzzyLink: true });
 
 // Text in these elements is code, styling, or an existing link, so a URL-like
 // string there must stay as written.
@@ -42,18 +42,17 @@ export function linkifyPlainText(text: string): MailPlainTextSegment[] {
 export function linkifyHtml(root: Element) {
   const document = root.ownerDocument;
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  const textNodes: Text[] = [];
+  const linkableNodes: { node: Text; segments: MailPlainTextSegment[] }[] = [];
   while (walker.nextNode()) {
     const node = walker.currentNode as Text;
-    if (!linkify.pretest(node.data)) continue;
     if (node.parentElement?.closest(NON_LINKABLE_ANCESTORS)) continue;
-    textNodes.push(node);
+    const segments = linkifyPlainText(node.data);
+    if (segments.some((segment) => segment.type === "link")) {
+      linkableNodes.push({ node, segments });
+    }
   }
 
-  for (const node of textNodes) {
-    const segments = linkifyPlainText(node.data);
-    if (!segments.some((segment) => segment.type === "link")) continue;
-
+  for (const { node, segments } of linkableNodes) {
     const fragment = document.createDocumentFragment();
     for (const segment of segments) {
       if (segment.type === "text") {
