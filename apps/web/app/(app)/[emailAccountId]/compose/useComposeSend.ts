@@ -99,7 +99,7 @@ export function useComposeSend({
   refetch?: () => void;
   onSuccess?: (messageId: string, threadId: string) => void;
   onMarkDone?: () => void;
-  onSubmitting?: (operationId: string) => void;
+  onSubmitting?: (operationId: string) => () => void;
   /** Given the send's operation id when the email was queued to the outbox. */
   onClose?: (queuedOperationId?: string) => void;
   onRestore?: () => void;

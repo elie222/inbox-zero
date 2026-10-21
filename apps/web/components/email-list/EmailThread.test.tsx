@@ -473,6 +473,63 @@ describe("EmailThread outgoing replies", () => {
     }
   });
 
+  it("keeps a sending mailbox draft's composer until its sent reply takes over", async () => {
+    vi.useFakeTimers();
+    Element.prototype.scrollIntoView = vi.fn();
+    htmlBodyReady.current = false;
+    let showDraftAgain = () => {};
+    try {
+      const parent = createReaderMessage("parent", "1000");
+      const draft = createReaderDraft("draft-1", "2000");
+      const view = render(
+        <EmailThread
+          messages={[parent, draft]}
+          refetch={vi.fn()}
+          showReplyButton
+        />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Submit send" }));
+      act(() => {
+        showDraftAgain = hideSendingDraftMessages("account-1", ["draft-1"]);
+      });
+      view.rerender(
+        <EmailThread
+          messages={[parent, draft]}
+          outgoing={[
+            {
+              operationId: "send-1",
+              status: "verifying",
+              message: {
+                ...createSentMessage("outgoing:send-1", "3000"),
+                textHtml: "<p>Reply</p>",
+              },
+            },
+          ]}
+          refetch={vi.fn()}
+          showReplyButton
+        />,
+      );
+      expect(screen.getByLabelText("Email message")).toBeTruthy();
+
+      fireEvent.click(screen.getByRole("button", { name: "Queue send" }));
+      view.container
+        .querySelector('[data-send-operation-id="send-1"] [data-email-ready]')
+        ?.setAttribute("data-email-ready", "true");
+      await act(async () => vi.advanceTimersByTimeAsync(20));
+
+      expect(screen.queryByLabelText("Email message")).toBeNull();
+      expect(
+        view.container
+          .querySelector('[data-send-operation-id="send-1"]')
+          ?.hasAttribute("aria-hidden"),
+      ).toBe(false);
+    } finally {
+      act(() => showDraftAgain());
+      htmlBodyReady.current = true;
+      vi.useRealTimers();
+    }
+  });
+
   it("closes the composer if the sent reply never shows in the thread", async () => {
     vi.useFakeTimers();
     Element.prototype.scrollIntoView = vi.fn();
@@ -1047,7 +1104,7 @@ function MockComposer({
   draftKeyMessageId?: string;
   draftSessionId?: string;
   providerDraftMessageId?: string;
-  onSubmitting?: (operationId: string) => void;
+  onSubmitting?: (operationId: string) => () => void;
   onClose?: (queuedOperationId?: string) => void;
   onDiscard?: () => void;
 }) {
@@ -1065,7 +1122,12 @@ function MockComposer({
       <button onClick={() => onClose?.()} type="button">
         Send
       </button>
-      <button onClick={() => onSubmitting?.("send-1")} type="button">
+      <button
+        onClick={() => {
+          onSubmitting?.("send-1");
+        }}
+        type="button"
+      >
         Submit send
       </button>
       <button onClick={() => onClose?.("send-1")} type="button">

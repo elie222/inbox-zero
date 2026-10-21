@@ -131,7 +131,7 @@ export function EmailMessage({
   /** A reply or forward from this message just left its composer. */
   onReplySent?: () => void;
   /** Hides a send's message as soon as it can reach the thread, before its composer hands off to it. */
-  concealSentReply?: (operationId: string) => void;
+  concealSentReply?: (operationId: string) => () => void;
   /**
    * Resolves once a queued send's message is ready in the thread, so its
    * composer can stay up until then instead of leaving a gap.
@@ -746,7 +746,7 @@ function ReplyPanel({
   refetch: () => void;
   onSendSuccess: (messageId: string, threadId: string) => void;
   onSent?: () => void;
-  concealSentReply?: (operationId: string) => void;
+  concealSentReply?: (operationId: string) => () => void;
   awaitSentReply?: (operationId: string) => Promise<void>;
   onMarkDone?: () => void;
   onCloseCompose: () => void;

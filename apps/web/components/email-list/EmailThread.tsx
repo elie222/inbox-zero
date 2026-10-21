@@ -100,6 +100,17 @@ export function EmailThread({
   );
   const { data: sentMessageOpens } = useSentMessageOpens(threadId || null);
   const hiddenDraftMessageIds = useHiddenDraftMessageIds(emailAccountId);
+  // Concealed from the moment the send is submitted, because the thread can
+  // render its message before the composer learns the send was queued. Its
+  // mailbox draft stays shown until then too, since hiding the draft would
+  // remove the composer before the message can take its place.
+  const [sentReplyHandoff, setSentReplyHandoff] = useState<{
+    operationId: string;
+    hiddenDraftMessageIds: string[];
+    release?: () => void;
+  }>();
+  const shownHiddenDraftMessageIds =
+    sentReplyHandoff?.hiddenDraftMessageIds ?? hiddenDraftMessageIds;
   const organizedMessages = useMemo(
     (): Array<{
       message: ThreadMessage;
@@ -111,7 +122,7 @@ export function EmailThread({
           ...localDrafts.flatMap(
             (draft) => draft.content?.providerDraftMessageIds ?? [],
           ),
-          ...hiddenDraftMessageIds,
+          ...shownHiddenDraftMessageIds,
           // Opening a mailbox copy before the local lookup creates a second session.
           ...(draftsLoading ? messages.map((message) => message.id) : []),
         ]),
@@ -130,7 +141,7 @@ export function EmailThread({
       emailAccountId,
       localDrafts,
       draftsLoading,
-      hiddenDraftMessageIds,
+      shownHiddenDraftMessageIds,
       outgoing,
       userEmail,
     ],
@@ -232,17 +243,25 @@ export function EmailThread({
         ]),
       ),
     );
-  // Concealed from the moment the send is submitted, because the thread can
-  // render its message before the composer learns the send was queued.
-  const [sentReplyHandoff, setSentReplyHandoff] = useState<{
-    operationId: string;
-    release?: () => void;
-  }>();
-  const concealSentReply = (operationId: string) =>
-    setSentReplyHandoff({ operationId });
+  const concealSentReply = (operationId: string) => {
+    setSentReplyHandoff({ operationId, hiddenDraftMessageIds });
+    return () =>
+      setSentReplyHandoff((current) =>
+        current?.operationId === operationId && !current.release
+          ? undefined
+          : current,
+      );
+  };
   const awaitSentReply = (operationId: string) =>
     new Promise<void>((release) =>
-      setSentReplyHandoff({ operationId, release }),
+      setSentReplyHandoff((current) => ({
+        operationId,
+        release,
+        hiddenDraftMessageIds:
+          current?.operationId === operationId
+            ? current.hiddenDraftMessageIds
+            : hiddenDraftMessageIds,
+      })),
     );
   useEffect(() => {
     if (!sentReplyHandoff?.release) return;

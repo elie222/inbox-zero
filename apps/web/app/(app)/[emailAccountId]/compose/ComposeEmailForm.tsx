@@ -125,7 +125,7 @@ type ComposeEmailFormProps = {
   onSuccess?: (messageId: string, threadId: string) => void;
   onMarkDone?: () => void;
   /** Given the send's operation id just before it is queued to the outbox. */
-  onSubmitting?: (operationId: string) => void;
+  onSubmitting?: (operationId: string) => () => void;
   onClose?: (queuedOperationId?: string) => void;
   onRestore?: () => void;
   onDiscard?: (draftId?: string) => boolean | Promise<boolean>;
