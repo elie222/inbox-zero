@@ -176,21 +176,6 @@ export function ThreadActionsMenu({
             canManageAutoArchive ||
             senderEmail) && <DropdownMenuSeparator />}
 
-          {onTranslate && (
-            <DropdownMenuItem onSelect={onTranslate}>
-              <LanguagesIcon className="mr-2 size-4" />
-              Translate
-              <MenuShortcut id="translate" />
-            </DropdownMenuItem>
-          )}
-
-          {onPrint && (
-            <DropdownMenuItem onSelect={onPrint}>
-              <PrinterIcon className="mr-2 size-4" />
-              Print
-            </DropdownMenuItem>
-          )}
-
           {onComment && (
             <DropdownMenuItem onSelect={onComment}>
               <MessageSquareIcon className="mr-2 size-4" />
@@ -222,6 +207,21 @@ export function ThreadActionsMenu({
               Create rule for sender
             </DropdownMenuItem>
           ) : null}
+
+          {onTranslate && (
+            <DropdownMenuItem onSelect={onTranslate}>
+              <LanguagesIcon className="mr-2 size-4" />
+              Translate
+              <MenuShortcut id="translate" />
+            </DropdownMenuItem>
+          )}
+
+          {onPrint && (
+            <DropdownMenuItem onSelect={onPrint}>
+              <PrinterIcon className="mr-2 size-4" />
+              Print
+            </DropdownMenuItem>
+          )}
 
           {openUrl ? <DropdownMenuSeparator /> : null}
 
