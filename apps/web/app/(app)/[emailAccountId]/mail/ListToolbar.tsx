@@ -29,7 +29,6 @@ import {
   Trash2Icon,
   XIcon,
 } from "lucide-react";
-import { MailTitlebarNav } from "@/app/(app)/[emailAccountId]/mail/MailTitlebarNav";
 import { MailSearchFiltersForm } from "@/app/(app)/[emailAccountId]/mail/MailSearchFilters";
 import { OutlookSearchFiltersForm } from "@/app/(app)/[emailAccountId]/mail/OutlookSearchFilters";
 import {
@@ -121,7 +120,6 @@ export const ListToolbar = memo(function ListToolbar({
 
   return (
     <MailListToolbarSurface>
-      <MailTitlebarNav />
       {selectAll}
 
       {/* Selection swaps the toolbar's controls in place so the list never

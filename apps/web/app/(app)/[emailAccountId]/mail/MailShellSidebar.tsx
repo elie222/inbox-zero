@@ -200,7 +200,9 @@ export const MailShellSidebar = memo(function MailShellSidebar({
       style={
         {
           "--sidebar-width": `var(--mail-sidebar-width, ${MAIL_SIDEBAR_DEFAULT_WIDTH}px)`,
-          "--sidebar-width-icon": `${MAIL_SIDEBAR_RAIL_WIDTH}px`,
+          // The mac desktop shell sets the traffic-light width; the rail grows
+          // so the lights sit inside it instead of across its border.
+          "--sidebar-width-icon": `max(${MAIL_SIDEBAR_RAIL_WIDTH}px, var(--desktop-traffic-lights-width, 0px) + 8px)`,
         } as CSSProperties
       }
     >

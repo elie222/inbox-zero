@@ -28,7 +28,6 @@ import { MailSplitTabs } from "@/app/(app)/[emailAccountId]/mail/MailSplitTabs";
 import { SelectAllCheckbox } from "@/app/(app)/[emailAccountId]/mail/SelectAllCheckbox";
 import { MailListPanel } from "@/app/(app)/[emailAccountId]/mail/MailListPanel";
 import { MailReaderPane } from "@/app/(app)/[emailAccountId]/mail/MailReaderPane";
-import { MailTitlebarNav } from "@/app/(app)/[emailAccountId]/mail/MailTitlebarNav";
 import { ScheduledEmailList } from "@/app/(app)/[emailAccountId]/mail/ScheduledEmailList";
 import type { MailboxItem } from "@/app/(app)/[emailAccountId]/mail/MailboxItemContextMenu";
 import { ListSenderCommands } from "@/app/(app)/[emailAccountId]/mail/ListSenderCommands";
@@ -1569,7 +1568,6 @@ export function MailShell() {
 
           {showReader ? (
             <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-              {showList ? null : <MailTitlebarNav className="px-3 pt-3" />}
               <MailReaderPane
                 readerEmailAccount={readerEmailAccount}
                 readerKey={openReaderThreadKey}
