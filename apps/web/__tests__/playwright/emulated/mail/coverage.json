@@ -126,6 +126,14 @@
     "hooks/useThreadPlans.ts",
     "utils/threads/load.ts"
   ],
+  "message-tools.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx",
+    "app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx",
+    "app/(app)/[emailAccountId]/mail/MessageSourceDialog.tsx",
+    "app/(app)/[emailAccountId]/mail/print-messages.ts",
+    "app/(app)/[emailAccountId]/mail/message-source.ts",
+    "app/api/messages/source/route.ts"
+  ],
   "message-overflow.spec.ts": ["components/email-list/EmailContents.tsx"],
   "navigation-and-views.spec.ts": [
     "app/(app)/[emailAccountId]/mail/MailSidebar.tsx",

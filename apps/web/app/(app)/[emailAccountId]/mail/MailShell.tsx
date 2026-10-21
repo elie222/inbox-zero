@@ -30,7 +30,7 @@ import { MailReaderPane } from "@/app/(app)/[emailAccountId]/mail/MailReaderPane
 import { ScheduledEmailList } from "@/app/(app)/[emailAccountId]/mail/ScheduledEmailList";
 import type { MailboxItem } from "@/app/(app)/[emailAccountId]/mail/MailboxItemContextMenu";
 import { ListSenderCommands } from "@/app/(app)/[emailAccountId]/mail/ListSenderCommands";
-import { extractEmailAddress } from "@/utils/email";
+import { extractEmailAddress, isSameEmailAddress } from "@/utils/email";
 import { LabelPickerDialog } from "@/app/(app)/[emailAccountId]/mail/LabelPickerDialog";
 import { ThreadList } from "@/app/(app)/[emailAccountId]/mail/ThreadList";
 import { useStableCallback } from "@/app/(app)/[emailAccountId]/mail/use-stable-callback";
@@ -118,6 +118,8 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { useTeamCommentsAvailable } from "@/components/team-comments/use-team-comments-available";
 import { getEmailMessageCellActions } from "@/components/EmailMessageCellActions";
 import type { ThreadsQuery } from "@/utils/threads/validation";
+import { getConversationSubject } from "@/utils/email/subject";
+import { printMessages } from "@/app/(app)/[emailAccountId]/mail/print-messages";
 
 // Module-level so an "empty" reader doesn't hand children a new array each render.
 const NO_MESSAGES: ThreadMessage[] = [];
@@ -557,6 +559,28 @@ export function MailShell() {
       });
     };
   }, [openMessages, readerEmailAccountId, translateThread]);
+  const readerEmail = readerEmailAccount?.email;
+  const lastReceivedMessage = useMemo(() => {
+    if (!readerEmail) return null;
+    return (
+      openMessages.findLast(
+        (message) =>
+          !message.labelIds?.includes(GmailLabel.DRAFT) &&
+          !isSameEmailAddress(message.headers.from, readerEmail),
+      ) ?? null
+    );
+  }, [openMessages, readerEmail]);
+  const printOpenThread = useMemo(() => {
+    const messages = openMessages.filter(
+      (message) => !message.labelIds?.includes(GmailLabel.DRAFT),
+    );
+    if (!messages.length) return;
+    return () =>
+      printMessages({
+        subject: getConversationSubject(messages) ?? "",
+        messages,
+      });
+  }, [openMessages]);
   const teamCommentsAvailable = useTeamCommentsAvailable(readerEmailAccountId);
   const openTeamComments = useMemo(
     () =>
@@ -1578,6 +1602,7 @@ export function MailShell() {
                   openThreadSelection?.emailAccountId === emailAccountId
                 }
                 lastMessage={openMessages.at(-1) ?? null}
+                lastReceivedMessage={lastReceivedMessage}
                 isStarred={allStarred}
                 onToggleStar={starTargets}
                 onMarkSpam={markSpamTargets}
@@ -1586,6 +1611,7 @@ export function MailShell() {
                 onMove={canLabel ? openMovePicker : undefined}
                 onTranslate={translateOpenThread}
                 onComment={openTeamComments}
+                onPrint={printOpenThread}
                 isMenuOpen={isMenuOpen}
                 onMenuOpenChange={setIsMenuOpen}
                 enableMessageNavigation={!sidePanelThreadId}

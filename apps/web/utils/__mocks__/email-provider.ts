@@ -47,6 +47,7 @@ export const createMockEmailProvider = (
   getLabelById: vi.fn().mockResolvedValue(null),
   getLabelByName: vi.fn().mockResolvedValue(null),
   getMessageByRfc822MessageId: vi.fn().mockResolvedValue(null),
+  getMessageSource: vi.fn().mockResolvedValue(Buffer.from("")),
   getFolders: vi.fn().mockResolvedValue([]),
   getFolderCounts: vi.fn().mockResolvedValue([]),
   getSendAsAddresses: vi.fn().mockResolvedValue([]),

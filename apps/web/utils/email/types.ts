@@ -313,6 +313,8 @@ export interface EmailProvider {
   getMessageByRfc822MessageId(
     rfc822MessageId: string,
   ): Promise<ParsedMessage | null>;
+  /** The raw RFC 822 source of a message. */
+  getMessageSource(messageId: string): Promise<Buffer>;
   getMessagesBatch(messageIds: string[]): Promise<ParsedMessage[]>;
   getMessagesFromSender(options: {
     senderEmail: string;
