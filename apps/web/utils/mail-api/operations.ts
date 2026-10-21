@@ -29,6 +29,8 @@ import {
 } from "@/utils/scheduled-email/service";
 import type { ScheduledEmail } from "@/generated/prisma/client";
 import { createScopedLogger } from "@/utils/logger";
+import { isEmailProviderRateLimitError } from "@/utils/email/is-provider-rate-limit-error";
+import { isProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
 import {
   activatePreparedSnoozedThread,
   cancelSnoozedThreadByClientMutationId,
@@ -43,10 +45,17 @@ const logger = createScopedLogger("mail-api/operations");
 const HELD_SEND_POLL_MS = 2000;
 const BLOCKED_HELD_SEND_RETRY_MS = 60_000;
 const METADATA_OBSERVATION_BATCH_SIZE = 20;
+const RATE_LIMIT_RETRY_MS = 15_000;
 type SendIntent = Extract<PreparedOperation["intent"], { kind: "send" }>;
 type PreparedMetadataOperation = PreparedOperation & {
   intent: Extract<PreparedOperation["intent"], { kind: "metadata" }>;
 };
+type MessagePatch = Extract<ProviderChange, { kind: "message_patch" }>;
+type ObservedTargets = {
+  targets: TargetOutcome[];
+  observations: MessagePatch[];
+};
+type NotDispatched = Extract<ExecutionResult, { status: "not_dispatched" }>;
 
 export function createEmailProviderOperationExecutor(input: {
   provider: EmailProvider;
@@ -71,26 +80,10 @@ export function createEmailProviderOperationExecutor(input: {
           },
         });
       }
-      const metadataOperation = { ...operation, intent: operation.intent };
-      try {
-        await applyChange(
-          provider,
-          operation.intent.change,
-          operation.intent.targets.map((target) => target.messageId),
-        );
-      } catch (error) {
-        if (isAuthError(error)) {
-          return {
-            status: "not_dispatched",
-            reason: "blocked_auth",
-            retryAfterMs: null,
-          };
-        }
-        // One bad message fails the whole bulk call; per-message retries
-        // isolate it so the rest still apply.
-        return executeMetadataPerTarget(provider, accountId, metadataOperation);
-      }
-      return observeAppliedMetadata(provider, accountId, metadataOperation);
+      return executeMetadata(provider, accountId, {
+        ...operation,
+        intent: operation.intent,
+      });
     },
     async inspect({ operation }) {
       if (operation.intent.kind === "send") {
@@ -99,22 +92,81 @@ export function createEmailProviderOperationExecutor(input: {
       if (operation.intent.kind !== "metadata") {
         return { status: "uncertain", receiptId: operation.key.operationId };
       }
-      return inspectMetadataOperation(provider, accountId, {
-        ...operation,
-        intent: operation.intent,
-      });
+      const metadataOperation = { ...operation, intent: operation.intent };
+      if (operation.intent.change.kind === "snooze") {
+        return inspectMetadataOperation(provider, accountId, metadataOperation);
+      }
+      return inspectAndRepairMetadata(provider, accountId, metadataOperation);
     },
   };
 }
 
-async function executeMetadataPerTarget(
+async function executeMetadata(
   provider: EmailProvider,
   accountId: string,
   operation: PreparedMetadataOperation,
 ): Promise<ExecutionResult> {
+  const applied = await applyMetadataTargets(provider, accountId, operation);
+  if ("status" in applied) return applied;
+  return metadataResult(
+    accountId,
+    operation,
+    applied.targets,
+    applied.observations,
+  );
+}
+
+async function applyMetadataTargets(
+  provider: EmailProvider,
+  accountId: string,
+  operation: PreparedMetadataOperation,
+): Promise<ObservedTargets | NotDispatched> {
+  try {
+    await applyChange(
+      provider,
+      operation.intent.change,
+      operation.intent.targets.map((target) => target.messageId),
+    );
+  } catch (error) {
+    if (isAuthError(error)) {
+      return {
+        status: "not_dispatched",
+        reason: "blocked_auth",
+        retryAfterMs: null,
+      };
+    }
+    // Retrying message by message would only spend more of the same quota.
+    if (isEmailProviderRateLimitError({ error, provider: provider.name })) {
+      return {
+        status: "not_dispatched",
+        reason: "throttled",
+        retryAfterMs: rateLimitRetryAfterMs(error),
+      };
+    }
+    // One bad message fails the whole bulk call; per-message retries
+    // isolate it so the rest still apply.
+    return applyMetadataPerTarget(provider, accountId, operation);
+  }
+  return observeMetadataTargets(provider, accountId, operation, {
+    justApplied: true,
+  });
+}
+
+async function applyMetadataPerTarget(
+  provider: EmailProvider,
+  accountId: string,
+  operation: PreparedMetadataOperation,
+): Promise<ObservedTargets | NotDispatched> {
   const targets: TargetOutcome[] = [];
-  const observations: ProviderChange[] = [];
+  const observations: MessagePatch[] = [];
+  let throttled = false;
   for (const target of operation.intent.targets) {
+    // The rest stay uncertain, so a later inspection applies them once the
+    // provider allows it.
+    if (throttled) {
+      targets.push({ key: target, outcome: "uncertain", code: "throttled" });
+      continue;
+    }
     try {
       await applyChange(provider, operation.intent.change, [target.messageId]);
       try {
@@ -141,19 +193,82 @@ async function executeMetadataPerTarget(
           retryAfterMs: null,
         };
       }
+      if (isEmailProviderRateLimitError({ error, provider: provider.name })) {
+        throttled = true;
+        targets.push({ key: target, outcome: "uncertain", code: "throttled" });
+        continue;
+      }
       targets.push(failedTargetOutcome(target, error));
     }
   }
-  return metadataResult(accountId, operation, targets, observations);
+  return { targets, observations };
 }
 
-async function observeAppliedMetadata(
+// Metadata changes are idempotent, so inspection applies again whatever has
+// not landed. Only reading it back would leave an unapplied change unapplied
+// forever.
+async function inspectAndRepairMetadata(
   provider: EmailProvider,
   accountId: string,
   operation: PreparedMetadataOperation,
 ): Promise<ExecutionResult> {
+  const observed = await observeMetadataTargets(
+    provider,
+    accountId,
+    operation,
+    {
+      justApplied: false,
+    },
+  );
+  const unapplied = new Set(
+    observed.targets
+      .filter((target) => target.outcome !== "applied")
+      .map((target) => target.key.messageId),
+  );
+  if (unapplied.size === 0) {
+    return metadataResult(
+      accountId,
+      operation,
+      observed.targets,
+      observed.observations,
+    );
+  }
+  const repaired = await applyMetadataTargets(provider, accountId, {
+    ...operation,
+    intent: {
+      ...operation.intent,
+      targets: operation.intent.targets.filter((target) =>
+        unapplied.has(target.messageId),
+      ),
+    },
+  });
+  if ("status" in repaired) return repaired;
+  const stillCurrent = (key: { messageId: string }) =>
+    !unapplied.has(key.messageId);
+  return metadataResult(
+    accountId,
+    operation,
+    [
+      ...observed.targets.filter((target) => stillCurrent(target.key)),
+      ...repaired.targets,
+    ],
+    [
+      ...observed.observations.filter((change) => stillCurrent(change.key)),
+      ...repaired.observations,
+    ],
+  );
+}
+
+// A message that can't be read back counts as applied only right after the
+// provider accepted the change; on inspection nothing says it ever landed.
+async function observeMetadataTargets(
+  provider: EmailProvider,
+  accountId: string,
+  operation: PreparedMetadataOperation,
+  { justApplied }: { justApplied: boolean },
+): Promise<ObservedTargets> {
   const targets: TargetOutcome[] = [];
-  const observations: ProviderChange[] = [];
+  const observations: MessagePatch[] = [];
   for (const batch of chunk(
     operation.intent.targets,
     METADATA_OBSERVATION_BATCH_SIZE,
@@ -167,22 +282,24 @@ async function observeAppliedMetadata(
     );
     for (const target of batch) {
       const message = messagesById.get(target.messageId);
-      if (message) {
-        const patch = parsedMessagePatch(accountId, provider.name, message);
-        if (patch) observations.push(patch);
-        if (!metadataChangeSatisfied(message, operation.intent.change)) {
-          targets.push({
-            key: target,
-            outcome: "uncertain",
-            code: "not_applied",
-          });
-          continue;
-        }
+      if (!message) {
+        targets.push(
+          justApplied
+            ? { key: target, outcome: "applied", code: null }
+            : { key: target, outcome: "uncertain", code: "unobserved" },
+        );
+        continue;
       }
-      targets.push({ key: target, outcome: "applied", code: null });
+      const patch = parsedMessagePatch(accountId, provider.name, message);
+      if (patch) observations.push(patch);
+      targets.push(
+        metadataChangeSatisfied(message, operation.intent.change)
+          ? { key: target, outcome: "applied", code: null }
+          : { key: target, outcome: "uncertain", code: "not_applied" },
+      );
     }
   }
-  return metadataResult(accountId, operation, targets, observations);
+  return { targets, observations };
 }
 
 // One failed read rejects a whole provider batch, so retry individually to
@@ -964,4 +1081,13 @@ function sentMessageIdFromResult(result: unknown) {
     return null;
   }
   return typeof result.messageId === "string" ? result.messageId : null;
+}
+
+function rateLimitRetryAfterMs(error: unknown) {
+  const retryAtMs =
+    isProviderRateLimitModeError(error) && error.retryAt
+      ? Date.parse(error.retryAt)
+      : Number.NaN;
+  const remainingMs = retryAtMs - Date.now();
+  return remainingMs > 0 ? remainingMs : RATE_LIMIT_RETRY_MS;
 }

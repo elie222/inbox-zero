@@ -183,6 +183,71 @@ describe("backend mailbox source", () => {
     ]);
   });
 
+  it("resolves several conversations in one membership request", async () => {
+    const paths: string[] = [];
+    const source = createBackendMailboxSource({
+      accountId: "acc-1",
+      request: async (input) => {
+        paths.push(input.path);
+        return {
+          status: 200,
+          json: {
+            protocolVersion: MAIL_PROTOCOL_VERSION,
+            requestId: "r1",
+            results: [
+              { status: "not_found" },
+              { status: "paused", retryAfterMs: 15_000, reason: "throttled" },
+            ],
+          },
+        };
+      },
+    });
+
+    const results = await source.readConversationMembershipBatch(
+      membershipBatchInput(),
+    );
+
+    expect(paths).toEqual([
+      "/api/mail/v1/accounts/acc-1/conversation-membership/batch",
+    ]);
+    expect(results).toEqual([
+      { status: "ok", value: { status: "not_found" } },
+      { status: "paused", retryAfterMs: 15_000, reason: "throttled" },
+    ]);
+  });
+
+  it("falls back to one membership request per conversation when the server has no batch route", async () => {
+    const paths: string[] = [];
+    const source = createBackendMailboxSource({
+      accountId: "acc-1",
+      request: async (input) => {
+        paths.push(input.path);
+        if (input.path.endsWith("/conversation-membership/batch")) {
+          return { status: 404, json: null };
+        }
+        return {
+          status: 200,
+          json: {
+            protocolVersion: MAIL_PROTOCOL_VERSION,
+            requestId: "r1",
+            status: "not_found",
+          },
+        };
+      },
+    });
+
+    await source.readConversationMembershipBatch(membershipBatchInput());
+    await source.readConversationMembershipBatch(membershipBatchInput());
+
+    expect(paths).toEqual([
+      "/api/mail/v1/accounts/acc-1/conversation-membership/batch",
+      "/api/mail/v1/accounts/acc-1/conversation-membership",
+      "/api/mail/v1/accounts/acc-1/conversation-membership",
+      "/api/mail/v1/accounts/acc-1/conversation-membership",
+      "/api/mail/v1/accounts/acc-1/conversation-membership",
+    ]);
+  });
+
   it("drops a search the server will never accept instead of retrying it", async () => {
     const source = createBackendMailboxSource({
       accountId: "acc-1",
@@ -329,6 +394,36 @@ describe("backend mailbox source", () => {
 });
 
 describe("backend operation executor", () => {
+  it("waits out a rate-limit rejection that came before the operation ran", async () => {
+    const executor = createBackendOperationExecutor({
+      accountId: "acc-1",
+      request: async () => ({
+        status: 429,
+        json: { error: "Gmail is temporarily rate limiting this account" },
+      }),
+    });
+    const result = await executor.execute({
+      operation: {
+        key: { accountId: "acc-1", operationId: "op-1" },
+        session: { accountId: "acc-1", generation: "g1" },
+        authority: "backend",
+        payloadHash: "hash",
+        intent: {
+          kind: "metadata",
+          targets: [{ accountId: "acc-1", messageId: "m1" }],
+          change: { kind: "archive" },
+        },
+      },
+      attemptId: "attempt-1",
+      signal: new AbortController().signal,
+    });
+    expect(result).toEqual({
+      status: "not_dispatched",
+      reason: "throttled",
+      retryAfterMs: 30_000,
+    });
+  });
+
   it("inspects over POST so Chromium can send the operation body", async () => {
     let method: string | undefined;
     let body: unknown;
@@ -434,5 +529,19 @@ function batchInput() {
     })),
     pageSize: 50,
     signal: new AbortController().signal,
+  };
+}
+
+function membershipBatchInput() {
+  return {
+    session: { accountId: "acc-1", generation: "g1" },
+    requestId: "r1",
+    signal: new AbortController().signal,
+    pageSize: 100,
+    reads: ["c1", "c2"].map((conversationId) => ({
+      conversation: { accountId: "acc-1", conversationId },
+      resolutionId: `res-${conversationId}`,
+      page: null,
+    })),
   };
 }

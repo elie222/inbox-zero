@@ -14,6 +14,7 @@ import {
   holdEmailForUndo,
 } from "@/utils/scheduled-email/service";
 import type { ScheduledEmail } from "@/generated/prisma/client";
+import { ProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
@@ -236,19 +237,24 @@ describe("createEmailProviderOperationExecutor", () => {
     ).toEqual(["kept:applied", "missing:rejected"]);
   });
 
-  it("does not confirm inspected archive when the provider message is still in the inbox", async () => {
+  it("applies an inspected archive again when the provider still has it in the inbox", async () => {
+    const inbox = new Set(["m1"]);
+    const archiveMessages = vi.fn(async (ids: string[]) => {
+      for (const id of ids) inbox.delete(id);
+    });
     const executor = createEmailProviderOperationExecutor({
       accountId: "acc-1",
       provider: {
         name: "google",
-        async getMessage(id: string) {
-          return {
+        archiveMessages,
+        async getMessagesBatch(ids: string[]) {
+          return ids.map((id) => ({
             id,
             threadId: `t-${id}`,
             headers: { from: "ada@example.com", to: "me@example.com" },
-            labelIds: ["INBOX"],
+            labelIds: inbox.has(id) ? ["INBOX"] : [],
             snippet: id,
-          };
+          }));
         },
       } as unknown as EmailProvider,
     });
@@ -257,31 +263,7 @@ describe("createEmailProviderOperationExecutor", () => {
       receiptId: "bulk-1",
       signal: new AbortController().signal,
     });
-    expect(result).toEqual({ status: "uncertain", receiptId: "bulk-1" });
-    expect(prisma.emailMessage.updateMany).not.toHaveBeenCalled();
-  });
-
-  it("confirms inspected archive after the provider message leaves the inbox", async () => {
-    const executor = createEmailProviderOperationExecutor({
-      accountId: "acc-1",
-      provider: {
-        name: "google",
-        async getMessage(id: string) {
-          return {
-            id,
-            threadId: `t-${id}`,
-            headers: { from: "ada@example.com", to: "me@example.com" },
-            labelIds: [],
-            snippet: id,
-          };
-        },
-      } as unknown as EmailProvider,
-    });
-    const result = await executor.inspect({
-      operation: metadataOperation([{ accountId: "acc-1", messageId: "m1" }]),
-      receiptId: "bulk-1",
-      signal: new AbortController().signal,
-    });
+    expect(archiveMessages).toHaveBeenCalledExactlyOnceWith(["m1"]);
     expect(result.status).toBe("confirmed");
     if (result.status !== "confirmed") throw new Error("expected confirmed");
     expect(result.targets).toEqual([
@@ -291,6 +273,81 @@ describe("createEmailProviderOperationExecutor", () => {
         code: null,
       },
     ]);
+  });
+
+  it("applies an inspected archive again only to messages still in the inbox", async () => {
+    const inbox = new Set(["still-inbox"]);
+    const archiveMessages = vi.fn(async (ids: string[]) => {
+      for (const id of ids) inbox.delete(id);
+    });
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        archiveMessages,
+        async getMessagesBatch(ids: string[]) {
+          return ids.map((id) => ({
+            id,
+            threadId: `t-${id}`,
+            headers: { from: "ada@example.com", to: "me@example.com" },
+            labelIds: inbox.has(id) ? ["INBOX"] : [],
+            snippet: id,
+          }));
+        },
+      } as unknown as EmailProvider,
+    });
+    const operation = metadataOperation([
+      { accountId: "acc-1", messageId: "archived" },
+      { accountId: "acc-1", messageId: "still-inbox" },
+    ]);
+    const first = await executor.inspect({
+      operation,
+      receiptId: "bulk-1",
+      signal: new AbortController().signal,
+    });
+    const second = await executor.inspect({
+      operation,
+      receiptId: "bulk-1",
+      signal: new AbortController().signal,
+    });
+    expect(archiveMessages).toHaveBeenCalledExactlyOnceWith(["still-inbox"]);
+    expect(first.status).toBe("confirmed");
+    expect(second.status).toBe("confirmed");
+  });
+
+  it("backs off without per-message retries when the provider rate limits the bulk call", async () => {
+    const archiveMessages = vi.fn(async () => {
+      throw new ProviderRateLimitModeError({
+        provider: "google",
+        retryAt: new Date(Date.now() + 60_000),
+      });
+    });
+    const getMessage = vi.fn();
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        archiveMessages,
+        getMessage,
+      } as unknown as EmailProvider,
+    });
+    const result = await executor.execute({
+      operation: metadataOperation([
+        { accountId: "acc-1", messageId: "m1" },
+        { accountId: "acc-1", messageId: "m2" },
+      ]),
+      attemptId: "a1",
+      signal: new AbortController().signal,
+    });
+    expect(archiveMessages).toHaveBeenCalledTimes(1);
+    expect(getMessage).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      status: "not_dispatched",
+      reason: "throttled",
+    });
+    if (result.status !== "not_dispatched")
+      throw new Error("expected throttle");
+    expect(result.retryAfterMs).toBeGreaterThan(50_000);
   });
 
   it("uses the provider not-spam boundary for set_spam false", async () => {

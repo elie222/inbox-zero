@@ -69,6 +69,10 @@ export function createRoutedBackendAdapter(input: {
         sourceFor(request.session.accountId).readConversationMembership(
           request,
         ),
+      readConversationMembershipBatch: (request) =>
+        sourceFor(request.session.accountId).readConversationMembershipBatch(
+          request,
+        ),
       search: (request) => sourceFor(request.session.accountId).search(request),
       readAttachment: (request) =>
         sourceFor(request.key.accountId).readAttachment(request),

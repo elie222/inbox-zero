@@ -11,6 +11,8 @@ import {
   changesBatchResultSchema,
   changesRequestSchema,
   changesResultSchema,
+  conversationMembershipBatchRequestSchema,
+  conversationMembershipBatchResultSchema,
   conversationMembershipRequestSchema,
   conversationMembershipResultSchema,
   enumerationRequestSchema,
@@ -46,7 +48,9 @@ export type MailHttpRequestFn = (input: {
 }>;
 
 export type BackendMailboxSource = MailboxSource &
-  Required<Pick<MailboxSource, "readChangesBatch">>;
+  Required<
+    Pick<MailboxSource, "readChangesBatch" | "readConversationMembershipBatch">
+  >;
 
 export function createBackendMailboxSource(input: {
   request: MailHttpRequestFn;
@@ -84,7 +88,39 @@ export function createBackendMailboxSource(input: {
     }
     return changesResultSchema.parse(response.json);
   };
+  const readConversationMembership: MailboxSource["readConversationMembership"] =
+    async ({
+      session,
+      requestId,
+      conversation,
+      resolutionId,
+      page,
+      pageSize,
+      signal,
+    }) => {
+      const response = await request({
+        method: "POST",
+        path: `${base}/conversation-membership`,
+        body: conversationMembershipRequestSchema.parse({
+          protocolVersion: MAIL_PROTOCOL_VERSION,
+          requestId,
+          session,
+          conversation,
+          resolutionId,
+          page,
+          pageSize,
+        }),
+        signal,
+      });
+      const error = readError(response);
+      if (error) return mapReadError(error);
+      return {
+        status: "ok",
+        value: conversationMembershipResultSchema.parse(response.json),
+      };
+    };
   let changesBatchUnsupported = false;
+  let membershipBatchUnsupported = false;
   return {
     async describe({ requestId, signal }) {
       const response = await request({
@@ -288,35 +324,65 @@ export function createBackendMailboxSource(input: {
         },
       };
     },
-    async readConversationMembership({
+    readConversationMembership,
+    async readConversationMembershipBatch({
       session,
       requestId,
-      conversation,
-      resolutionId,
-      page,
+      reads,
       pageSize,
       signal,
     }) {
+      const readEach = async () => {
+        const results = [];
+        for (const read of reads) {
+          results.push(
+            await readConversationMembership({
+              session,
+              requestId: read.resolutionId,
+              ...read,
+              pageSize,
+              signal,
+            }),
+          );
+        }
+        return results;
+      };
+      if (membershipBatchUnsupported) return readEach();
       const response = await request({
         method: "POST",
-        path: `${base}/conversation-membership`,
-        body: conversationMembershipRequestSchema.parse({
+        path: `${base}/conversation-membership/batch`,
+        body: conversationMembershipBatchRequestSchema.parse({
           protocolVersion: MAIL_PROTOCOL_VERSION,
           requestId,
           session,
-          conversation,
-          resolutionId,
-          page,
+          reads,
           pageSize,
         }),
         signal,
       });
+      // Servers that predate the batch route answer with a plain 404.
+      if (response.status === 404 && !parseError(response)) {
+        membershipBatchUnsupported = true;
+        return readEach();
+      }
       const error = readError(response);
-      if (error) return mapReadError(error);
-      return {
-        status: "ok",
-        value: conversationMembershipResultSchema.parse(response.json),
-      };
+      if (error) {
+        const mapped = mapReadError(error);
+        return reads.map(() => mapped);
+      }
+      const parsed = conversationMembershipBatchResultSchema.parse(
+        response.json,
+      );
+      if (parsed.results.length !== reads.length) {
+        throw new Error(
+          "Conversation membership batch returned the wrong number of results",
+        );
+      }
+      return parsed.results.map((result) =>
+        result.status === "paused" || result.status === "blocked_auth"
+          ? result
+          : { status: "ok" as const, value: result },
+      );
     },
     async search({ session, requestId, predicate, page, pageSize, signal }) {
       const response = await request({
@@ -407,7 +473,7 @@ export function createBackendOperationExecutor(input: {
         }),
         signal,
       });
-      const error = parseError(response);
+      const error = readExecutionError(response);
       if (error) return mapExecutionError(error);
       return operationAdmitResultSchema.parse(response.json);
     },
@@ -425,7 +491,7 @@ export function createBackendOperationExecutor(input: {
         }),
         signal,
       });
-      const error = parseError(response);
+      const error = readExecutionError(response);
       if (error) return mapExecutionError(error);
       return operationAdmitResultSchema.parse(response.json);
     },
@@ -554,8 +620,19 @@ function mapReadError(error: Pick<MailHttpError, "error">) {
   };
 }
 
-function mapExecutionError(error: NonNullable<ReturnType<typeof parseError>>) {
-  if (!error) return { status: "uncertain" as const, receiptId: null };
+// Auth and rate-limit middleware reject before the handler runs, so their
+// unstructured answers mean the operation was never dispatched. Any other
+// unstructured failure may have come after the provider call.
+function readExecutionError(response: { status: number; json: unknown }) {
+  const structured = parseError(response);
+  if (structured) return structured;
+  if (response.status === 401 || response.status === 429) {
+    return readError(response);
+  }
+  return null;
+}
+
+function mapExecutionError(error: Pick<MailHttpError, "error">) {
   if (error.error.code === "blocked_auth") {
     return {
       status: "not_dispatched" as const,

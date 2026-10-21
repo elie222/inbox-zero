@@ -16,7 +16,10 @@ import {
   syncPositionSchema,
 } from "../sync";
 import { preparedOperationSchema, targetOutcomeSchema } from "../operations";
-import { MAX_CHANGES_BATCH_READS } from "../ports/mailbox-source";
+import {
+  MAX_CHANGES_BATCH_READS,
+  MAX_MEMBERSHIP_BATCH_READS,
+} from "../ports/mailbox-source";
 
 export const mailProtocolVersionSchema = z.literal(MAIL_PROTOCOL_VERSION);
 
@@ -244,6 +247,45 @@ export const conversationMembershipResultSchema = z.discriminatedUnion(
     }),
   ],
 );
+
+const conversationMembershipReadSchema = z.object({
+  conversation: conversationKeySchema,
+  resolutionId: z.string().min(1).max(128),
+  page: z.string().max(16_384).nullable(),
+});
+
+export const conversationMembershipBatchRequestSchema = z.object({
+  protocolVersion: mailProtocolVersionSchema,
+  requestId: z.string().min(1).max(128),
+  session: accountSessionSchema,
+  reads: z
+    .array(conversationMembershipReadSchema)
+    .min(1)
+    .max(MAX_MEMBERSHIP_BATCH_READS),
+  pageSize: z.number().int().min(1).max(100),
+});
+
+export const conversationMembershipBatchResultSchema = z.object({
+  protocolVersion: mailProtocolVersionSchema,
+  requestId: z.string(),
+  results: z.array(
+    z.discriminatedUnion("status", [
+      z.object({
+        status: z.literal("page"),
+        page: conversationMembershipPageSchema,
+      }),
+      z.object({ status: z.literal("not_found") }),
+      z.object({ status: z.literal("restart_required") }),
+      z.object({ status: z.literal("unsupported") }),
+      z.object({
+        status: z.literal("paused"),
+        retryAfterMs: z.number().int(),
+        reason: z.enum(["throttled", "unavailable"]),
+      }),
+      z.object({ status: z.literal("blocked_auth") }),
+    ]),
+  ),
+});
 
 export const searchRequestSchema = z.object({
   protocolVersion: mailProtocolVersionSchema,

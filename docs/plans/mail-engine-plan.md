@@ -1145,7 +1145,7 @@ The repository exposes meaningful atomic operations rather than a public generic
 | Store operation | Required atomic behavior |
 | --- | --- |
 | `admitCommand` | Validate selection/draft revision and deduplicate immutable admission intent/hash. Exact-target or already-complete commands freeze executable targets/hash and derive effects immediately; incomplete conversation commands persist preparation state/references only, with no executable payload/hash or command mailbox effects until `finishPreparation`. Increment revision for committed state |
-| `applyPreparationPage` | Validate resolution/account/owner/continuation, stage exact candidate keys and observations/required jobs with progress; no executable partial target set |
+| `applyPreparationResults` | For a batch of conversations under one claim, validate resolution/account/owner/continuation, stage exact candidate keys and observations/required jobs with progress, and drop conversations the provider no longer has; no executable partial target set |
 | `finishPreparation` | Require completed membership for every targeted conversation, freeze targets/executable payload hash, queue command and derive effects in the same commit |
 | `claimWork` | Claim only eligible dependency-safe work, persist attempt/owner fence, return bounded work description |
 | `applySyncPage` | Check generation/fence/input position; apply provider observations; persist required jobs and progress; recompute affected effective state |
