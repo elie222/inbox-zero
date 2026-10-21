@@ -1,6 +1,7 @@
 import prisma from "@/utils/prisma";
 import { ActionType, DraftEmailStatus } from "@/generated/prisma/enums";
 import { createEmailProvider } from "@/utils/email/provider";
+import { classifyEmailAccountProviderIssue } from "@/utils/email/provider-health";
 import { isDraftUnmodified } from "@/utils/ai/choose-rule/draft-management";
 import type { Logger } from "@/utils/logger";
 import { subDays } from "date-fns/subDays";
@@ -242,12 +243,27 @@ export async function cleanupConfiguredAIDraftsForAccount({
     return null;
   }
 
-  return cleanupAIDraftsForAccount({
-    emailAccountId,
-    provider: emailAccount.account.provider,
-    logger,
-    cleanupDays: emailAccount.draftCleanupDays,
-  });
+  try {
+    return await cleanupAIDraftsForAccount({
+      emailAccountId,
+      provider: emailAccount.account.provider,
+      logger,
+      cleanupDays: emailAccount.draftCleanupDays,
+    });
+  } catch (error) {
+    if (
+      classifyEmailAccountProviderIssue({
+        error,
+        provider: emailAccount.account.provider as "google" | "microsoft",
+      })
+    ) {
+      logger.warn("Skipping draft cleanup: account needs reconnect", {
+        error,
+      });
+      return null;
+    }
+    throw error;
+  }
 }
 
 export async function getConfiguredDraftCleanupDays(emailAccountId: string) {

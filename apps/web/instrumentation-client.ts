@@ -22,6 +22,10 @@ Sentry.init({
   // Setting this option to true will print useful information to the console while you're setting up Sentry.
   debug: false,
 
+  // Errors thrown by browser extensions, link scanners, and injected scripts.
+  ignoreErrors: [/Object Not Found Matching Id:\d+, MethodName:\w+/],
+  denyUrls: [/\/executors\/\d+\.js/],
+
   // Redact PII/secrets before sending to Sentry (third party).
   beforeSend,
   beforeSendTransaction,
