@@ -55,6 +55,7 @@ import type { ThreadMessage } from "@/components/email-list/types";
 import { useMailThreads } from "@/app/(app)/[emailAccountId]/mail/use-mail-threads";
 import { useCombinedMailThreads } from "@/app/(app)/[emailAccountId]/mail/use-combined-mail-threads";
 import { useThreadActions } from "@/app/(app)/[emailAccountId]/mail/use-thread-actions";
+import { useOptimisticArchive } from "@/app/(app)/[emailAccountId]/mail/use-optimistic-archive";
 import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
 import { MailProductFrame } from "@inboxzero/mail-ui/MailProductFrame";
 import { MailEngineConnectionBanner } from "@/utils/mail-engine/MailEngineConnectionBanner";
@@ -108,6 +109,7 @@ import {
   otherMailSplitQuery,
   mailSplitToThreadsQuery,
   mailTypeToThreadsQuery,
+  threadListQueryRequiresInbox,
 } from "@/utils/split-inbox/split-query";
 import { getActionErrorMessage } from "@/utils/error";
 import { prefixPath } from "@/utils/path";
@@ -422,7 +424,11 @@ export function MailShell() {
   const { isSyncing } = isAllAccounts
     ? combinedThreadState
     : accountThreadState;
-  const threads = searchSettled ? remoteThreads : EMPTY_SEARCH_THREADS;
+  const { threads, archive: optimisticArchive } = useOptimisticArchive(
+    searchSettled ? remoteThreads : EMPTY_SEARCH_THREADS,
+    isAllAccounts ? !searchQuery : threadListQueryRequiresInbox(query),
+    JSON.stringify([emailAccountId, isAllAccounts]),
+  );
   const searchViewIdentity = JSON.stringify([
     emailAccountId,
     isAllAccounts,
@@ -789,7 +795,7 @@ export function MailShell() {
         setFocusedIndex(focusedIndex);
         setOpenThread(openThreadSelection);
       }
-      if (!queuedThreadKeys.length) return;
+      if (!queuedThreadKeys.length && !hadSelection) return;
       if (
         queuedOpenThread &&
         !autoAdvanceReader &&
@@ -884,8 +890,8 @@ export function MailShell() {
     readerSelectionSettled,
   ]);
   const archiveTargets = useCallback(
-    () => runOn(archive, true, true),
-    [archive, runOn],
+    () => runOn((ids) => optimisticArchive(ids, archive), true, true),
+    [archive, optimisticArchive, runOn],
   );
   // Archiving again would be a no-op, so archived targets offer the way back.
   const moveToInboxTargets = useCallback(
