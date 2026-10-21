@@ -3,6 +3,7 @@ import type { ParsedMessage } from "@/utils/types";
 import prisma from "@/utils/__mocks__/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
 import { ActionType, DraftEmailStatus } from "@/generated/prisma/enums";
+import { Prisma } from "@/generated/prisma/client";
 import { cleanupThreadAIDrafts, trackSentDraftStatus } from "./draft-tracking";
 
 const similarityMocks = vi.hoisted(() => ({
@@ -130,6 +131,49 @@ describe("trackSentDraftStatus", () => {
       provider,
       logger,
     });
+  });
+
+  it("treats a send log recorded concurrently for the same draft as already tracked", async () => {
+    vi.mocked(prisma.executedAction.findFirst).mockResolvedValue({
+      id: "action-1",
+      draftId: "draft-1",
+      content: "Thanks for reaching out.",
+      executedRuleId: "executed-rule-1",
+      executedRule: { messageId: "source-1" },
+    } as any);
+    vi.mocked(calculateSimilarity).mockReturnValue(0.9);
+    vi.mocked(prisma.$transaction).mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+        code: "P2002",
+        clientVersion: "7.8.0",
+        meta: {
+          modelName: "DraftSendLog",
+          driverAdapterError: {
+            cause: {
+              kind: "UniqueConstraintViolation",
+              constraint: { fields: ["executedActionId"] },
+            },
+          },
+        },
+      }),
+    );
+
+    await expect(
+      trackSentDraftStatus({
+        emailAccountId: "account-1",
+        message: createSentMessage(),
+        provider: {
+          getDraft: vi.fn().mockResolvedValue(null),
+          getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
+        } as any,
+        logger,
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(saveDraftSendLogReplyMemory).not.toHaveBeenCalled();
+    expect(
+      replaceMessagingDraftNotificationsWithDraftSentState,
+    ).not.toHaveBeenCalled();
   });
 
   it("collapses stale messaging draft notifications when the user replies on the web", async () => {
