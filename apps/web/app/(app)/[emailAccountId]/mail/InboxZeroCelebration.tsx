@@ -139,12 +139,16 @@ function SunriseScene({ reduceMotion }: { reduceMotion: boolean }) {
                 ? { opacity: 0.7 }
                 : { opacity: [0.35, 0.8, 0.35], scaleX: [0.85, 1, 0.85] }
             }
-            transition={{
-              delay: 1 + index * 0.15,
-              duration: 3.2,
-              repeat: Number.POSITIVE_INFINITY,
-              ease: "easeInOut",
-            }}
+            transition={
+              reduceMotion
+                ? { duration: 0 }
+                : {
+                    delay: 1 + index * 0.15,
+                    duration: 3.2,
+                    repeat: Number.POSITIVE_INFINITY,
+                    ease: "easeInOut",
+                  }
+            }
             style={{ transformOrigin: `180px ${line.y}px` }}
           />
         ))}
