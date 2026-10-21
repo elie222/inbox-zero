@@ -107,7 +107,7 @@ export function EmailThread({
   // take its place.
   const [sentReplyHandoff, setSentReplyHandoff] = useState<{
     operationId: string;
-    heldDrafts: HeldDrafts;
+    heldDrafts: ThreadMessage[];
     release?: () => void;
   }>();
   const heldDrafts = sentReplyHandoff?.heldDrafts;
@@ -115,8 +115,15 @@ export function EmailThread({
     () => (heldDrafts ? withHeldDrafts(messages, heldDrafts) : messages),
     [messages, heldDrafts],
   );
-  const shownHiddenDraftMessageIds =
-    heldDrafts?.hiddenMessageIds ?? hiddenDraftMessageIds;
+  const shownHiddenDraftMessageIds = useMemo(
+    () =>
+      heldDrafts
+        ? hiddenDraftMessageIds.filter(
+            (id) => !heldDrafts.some((draft) => draft.id === id),
+          )
+        : hiddenDraftMessageIds,
+    [hiddenDraftMessageIds, heldDrafts],
+  );
   const organizedMessages = useMemo(
     (): Array<{
       message: ThreadMessage;
@@ -254,12 +261,12 @@ export function EmailThread({
         ]),
       ),
     );
-  const currentDrafts = (): HeldDrafts => ({
-    messages: messages.filter((message) =>
-      message.labelIds?.includes(GmailLabel.DRAFT),
-    ),
-    hiddenMessageIds: hiddenDraftMessageIds,
-  });
+  const currentDrafts = () =>
+    messages.filter(
+      (message) =>
+        message.labelIds?.includes(GmailLabel.DRAFT) &&
+        !hiddenDraftMessageIds.includes(message.id),
+    );
   const concealSentReply = (operationId: string) => {
     setSentReplyHandoff({ operationId, heldDrafts: currentDrafts() });
     return () =>
@@ -621,11 +628,9 @@ export function organizeThreadMessages(messages: ThreadMessage[]) {
   }));
 }
 
-type HeldDrafts = { messages: ThreadMessage[]; hiddenMessageIds: string[] };
-
-function withHeldDrafts(messages: ThreadMessage[], held: HeldDrafts) {
+function withHeldDrafts(messages: ThreadMessage[], held: ThreadMessage[]) {
   const ids = new Set(messages.map((message) => message.id));
-  const missing = held.messages.filter((draft) => !ids.has(draft.id));
+  const missing = held.filter((draft) => !ids.has(draft.id));
   return missing.length ? [...messages, ...missing] : messages;
 }
 

@@ -531,6 +531,43 @@ describe("EmailThread outgoing replies", () => {
     }
   });
 
+  it("still hides other drafts while a sent reply is handed off", () => {
+    let showDraftAgain = () => {};
+    try {
+      const parent = createReaderMessage("parent", "1000");
+      const view = render(
+        <EmailThread
+          messages={[parent, createReaderDraft("draft-1", "2000")]}
+          refetch={vi.fn()}
+          showReplyButton
+        />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Submit send" }));
+      act(() => {
+        showDraftAgain = hideSendingDraftMessages("account-1", ["draft-2"]);
+      });
+      view.rerender(
+        <EmailThread
+          messages={[
+            parent,
+            createReaderDraft("draft-1", "2000"),
+            createReaderDraft("draft-2", "2500"),
+          ]}
+          refetch={vi.fn()}
+          showReplyButton
+        />,
+      );
+
+      expect(
+        screen
+          .getAllByRole("textbox", { name: "Email message" })
+          .map((editor) => editor.dataset.providerDraftMessageId),
+      ).toEqual(["draft-1"]);
+    } finally {
+      act(() => showDraftAgain());
+    }
+  });
+
   it("closes the composer if the sent reply never shows in the thread", async () => {
     vi.useFakeTimers();
     Element.prototype.scrollIntoView = vi.fn();
