@@ -412,6 +412,7 @@ function ComposeEmailFormContent({
     draftSaveError,
     providerAutosaveError,
     discard,
+    isDiscarding,
   } = draft;
   const {
     forwardedAttachments,
@@ -766,7 +767,7 @@ function ComposeEmailFormContent({
               <Button
                 aria-label="Discard draft"
                 className="hover:bg-transparent"
-                disabled={isSubmitting}
+                disabled={isSubmitting || isDiscarding}
                 onClick={handleDiscard}
                 size="icon"
                 type="button"

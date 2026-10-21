@@ -309,8 +309,13 @@ export function useComposeDraft({
     [emailAccountId],
   );
 
+  const discarding = useRef(false);
+  const [isDiscarding, setIsDiscarding] = useState(false);
   const discard = useCallback(
     async (onDiscard: (draftId?: string) => boolean | Promise<boolean>) => {
+      if (discarding.current) return;
+      discarding.current = true;
+      setIsDiscarding(true);
       try {
         await stopProviderAutosave();
         await waitForDraftOperations(draftQueueKey);
@@ -353,6 +358,9 @@ export function useComposeDraft({
               ? error.message
               : "Could not discard this draft.",
         });
+      } finally {
+        discarding.current = false;
+        setIsDiscarding(false);
       }
     },
     [
@@ -387,6 +395,7 @@ export function useComposeDraft({
     followDraftMessage,
     forgetAttachedComposeFiles,
     discard,
+    isDiscarding,
   };
 }
 
