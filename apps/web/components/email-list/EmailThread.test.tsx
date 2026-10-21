@@ -494,7 +494,8 @@ describe("EmailThread outgoing replies", () => {
       });
       view.rerender(
         <EmailThread
-          messages={[parent, draft]}
+          // Admitting the send drops the mailbox draft it replaces.
+          messages={[parent]}
           outgoing={[
             {
               operationId: "send-1",
