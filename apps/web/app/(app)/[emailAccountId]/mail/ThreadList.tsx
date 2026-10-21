@@ -138,7 +138,6 @@ export const ThreadList = memo(function ThreadList({
             index={row.index}
             isFocused={row.isFocused}
             isSelected={row.isSelected}
-            key={row.rowKey}
             layout={layout}
             onOpen={row.onOpen}
             onSelectRangeTo={row.onSelectRangeTo}

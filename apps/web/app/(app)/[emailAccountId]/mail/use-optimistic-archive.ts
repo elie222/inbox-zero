@@ -12,7 +12,7 @@ export function useOptimisticArchive(
   const rowPositions = useRef<Map<string, number> | undefined>(undefined);
   const visibleThreads = useMemo(
     () =>
-      enabled
+      enabled && pending.size > 0
         ? threads.filter(
             (thread) =>
               !pending.has(JSON.stringify([scope, getListThreadKey(thread)])),
@@ -69,6 +69,7 @@ export function useOptimisticArchive(
         return [];
       } finally {
         setPending((current) => {
+          if (!scopedKeys.some((key) => current.has(key))) return current;
           const next = new Set(current);
           for (const key of scopedKeys) next.delete(key);
           return next;

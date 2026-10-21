@@ -16,22 +16,16 @@ describe("optimistic archive", () => {
       ({ scope }) => useOptimisticArchive(threads, true, scope),
       { initialProps: { scope: "one-account" } },
     );
-    let accept!: (keys: string[]) => void;
+    const admission = Promise.withResolvers<string[]>();
     let archive!: Promise<string[]>;
     act(() => {
-      archive = result.current.archive(
-        ["one"],
-        () =>
-          new Promise((resolve) => {
-            accept = resolve;
-          }),
-      );
+      archive = result.current.archive(["one"], () => admission.promise);
     });
     expect(result.current.threads).toHaveLength(2);
     rerender({ scope: "another-account" });
     expect(result.current.threads).toEqual(threads);
     await act(async () => {
-      accept(["one"]);
+      admission.resolve(["one"]);
       await archive;
     });
     expect(result.current.threads).toEqual(threads);
@@ -42,14 +36,10 @@ describe("optimistic archive", () => {
       ({ rows }) => useOptimisticArchive(rows, true, "account"),
       { initialProps: { rows: threads } },
     );
-    let accept!: (keys: string[]) => void;
-    const submit = () =>
-      new Promise<string[]>((resolve) => {
-        accept = resolve;
-      });
+    const admission = Promise.withResolvers<string[]>();
     let archive!: Promise<string[]>;
     act(() => {
-      archive = result.current.archive(["one"], submit);
+      archive = result.current.archive(["one"], () => admission.promise);
     });
     expect(result.current.threads.map((thread) => thread.id)).toEqual([
       "two",
@@ -57,7 +47,7 @@ describe("optimistic archive", () => {
     ]);
     rerender({ rows: threads.slice(1) });
     await act(async () => {
-      accept(["one"]);
+      admission.resolve(["one"]);
       await archive;
     });
     expect(result.current.threads.map((thread) => thread.id)).toEqual([
@@ -74,23 +64,17 @@ describe("optimistic archive", () => {
       ({ rows }) => useOptimisticArchive(rows, true, "account"),
       { initialProps: { rows: threads } },
     );
-    let accept!: (keys: string[]) => void;
+    const admission = Promise.withResolvers<string[]>();
     let archive!: Promise<string[]>;
     act(() => {
-      archive = result.current.archive(
-        ["one", "two"],
-        () =>
-          new Promise((resolve) => {
-            accept = resolve;
-          }),
-      );
+      archive = result.current.archive(["one", "two"], () => admission.promise);
     });
     expect(result.current.threads.map((thread) => thread.id)).toEqual([
       "three",
     ]);
     rerender({ rows: threads.slice(1) });
     await act(async () => {
-      accept(["one"]);
+      admission.resolve(["one"]);
       await archive;
     });
     expect(result.current.threads.map((thread) => thread.id)).toEqual([
@@ -117,20 +101,14 @@ describe("optimistic archive", () => {
     const { result } = renderHook(() =>
       useOptimisticArchive(threads, false, "account"),
     );
-    let accept!: (keys: string[]) => void;
+    const admission = Promise.withResolvers<string[]>();
     let archive!: Promise<string[]>;
     act(() => {
-      archive = result.current.archive(
-        ["one"],
-        () =>
-          new Promise((resolve) => {
-            accept = resolve;
-          }),
-      );
+      archive = result.current.archive(["one"], () => admission.promise);
     });
     expect(result.current.threads).toEqual(threads);
     await act(async () => {
-      accept(["one"]);
+      admission.resolve(["one"]);
       await archive;
     });
   });
