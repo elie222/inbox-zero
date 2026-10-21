@@ -1,41 +1,22 @@
-"use client";
-
-import { motion, useReducedMotion } from "framer-motion";
-
 export function InboxZeroCelebration({ splitName }: { splitName?: string }) {
-  const reduceMotion = useReducedMotion();
-  const rise = (delay: number) =>
-    reduceMotion
-      ? { initial: false as const }
-      : {
-          initial: { opacity: 0, y: 8 },
-          animate: { opacity: 1, y: 0 },
-          transition: { duration: 0.8, delay, ease: [0.22, 1, 0.36, 1] },
-        };
-
   return (
     <div className="mx-auto flex max-w-md flex-col items-center gap-6 pt-4">
-      <SunriseScene reduceMotion={!!reduceMotion} />
+      <SunriseScene />
       <div className="flex flex-col items-center gap-1.5">
-        <motion.h2
-          className="font-title text-2xl text-foreground tracking-tight"
-          {...rise(0.9)}
-        >
+        <h2 className="font-title text-2xl text-foreground tracking-tight">
           {splitName ? "All clear" : "Inbox zero"}
-        </motion.h2>
-        <motion.p className="text-muted-foreground text-sm" {...rise(1.1)}>
+        </h2>
+        <p className="text-muted-foreground text-sm">
           {splitName
             ? `Nothing left in ${splitName}.`
             : "You're all caught up. Enjoy the quiet."}
-        </motion.p>
+        </p>
       </div>
     </div>
   );
 }
 
-function SunriseScene({ reduceMotion }: { reduceMotion: boolean }) {
-  const sunY = 112;
-
+function SunriseScene() {
   return (
     <svg
       aria-hidden="true"
@@ -92,26 +73,8 @@ function SunriseScene({ reduceMotion }: { reduceMotion: boolean }) {
         <rect fill="url(#iz-sky)" height="200" width="360" />
 
         <g clipPath="url(#iz-above-water)">
-          <motion.g
-            initial={reduceMotion ? false : { y: 46 }}
-            animate={{ y: 0 }}
-            transition={{ duration: 1.6, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <motion.circle
-              cx="180"
-              cy={sunY}
-              fill="url(#iz-glow)"
-              r="70"
-              animate={reduceMotion ? undefined : { scale: [1, 1.06, 1] }}
-              transition={{
-                duration: 5,
-                repeat: Number.POSITIVE_INFINITY,
-                ease: "easeInOut",
-              }}
-              style={{ transformOrigin: `180px ${sunY}px` }}
-            />
-            <circle cx="180" cy={sunY} fill="url(#iz-sun)" r="30" />
-          </motion.g>
+          <circle cx="180" cy="112" fill="url(#iz-glow)" r="70" />
+          <circle cx="180" cy="112" fill="url(#iz-sun)" r="30" />
 
           <path
             d="M0 118 C40 96 78 92 116 108 C150 122 176 104 214 98 C258 90 300 104 360 96 L360 140 L0 140 Z"
@@ -124,37 +87,21 @@ function SunriseScene({ reduceMotion }: { reduceMotion: boolean }) {
         </g>
 
         <rect fill="url(#iz-water)" height="60" width="360" y="140" />
-        {REFLECTIONS.map((line, index) => (
-          <motion.rect
+        {REFLECTIONS.map((line) => (
+          <rect
             key={line.y}
             fill="#fdba74"
             height="2.5"
+            opacity="0.7"
             rx="1.25"
             width={line.width}
             x={180 - line.width / 2}
             y={line.y}
-            initial={reduceMotion ? false : { opacity: 0, scaleX: 0.4 }}
-            animate={
-              reduceMotion
-                ? { opacity: 0.7 }
-                : { opacity: [0.35, 0.8, 0.35], scaleX: [0.85, 1, 0.85] }
-            }
-            transition={
-              reduceMotion
-                ? { duration: 0 }
-                : {
-                    delay: 1 + index * 0.15,
-                    duration: 3.2,
-                    repeat: Number.POSITIVE_INFINITY,
-                    ease: "easeInOut",
-                  }
-            }
-            style={{ transformOrigin: `180px ${line.y}px` }}
           />
         ))}
 
         {BIRDS.map((bird) => (
-          <motion.path
+          <path
             key={bird.x}
             d={`M${bird.x} ${bird.y} q4 -4 8 0 q4 -4 8 0`}
             fill="none"
@@ -162,19 +109,6 @@ function SunriseScene({ reduceMotion }: { reduceMotion: boolean }) {
             strokeLinecap="round"
             strokeOpacity="0.55"
             strokeWidth="1.5"
-            initial={reduceMotion ? false : { opacity: 0, x: -12 }}
-            animate={
-              reduceMotion ? { opacity: 1 } : { opacity: 1, x: [0, 10, 0] }
-            }
-            transition={{
-              opacity: { delay: bird.delay, duration: 0.8 },
-              x: {
-                delay: bird.delay,
-                duration: 9,
-                repeat: Number.POSITIVE_INFINITY,
-                ease: "easeInOut",
-              },
-            }}
           />
         ))}
       </g>
@@ -190,7 +124,7 @@ const REFLECTIONS = [
 ];
 
 const BIRDS = [
-  { x: 228, y: 52, delay: 1.2 },
-  { x: 250, y: 42, delay: 1.4 },
-  { x: 118, y: 64, delay: 1.6 },
+  { x: 228, y: 52 },
+  { x: 250, y: 42 },
+  { x: 118, y: 64 },
 ];
