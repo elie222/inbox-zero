@@ -7,9 +7,8 @@ import { Button } from "@/components/ui/button";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { toastError } from "@/components/Toast";
-import { getAccountLinkingUrl } from "@/utils/account-linking";
+import { startAccountLinking } from "@/utils/account-linking";
 import { BRAND_NAME } from "@/utils/branding";
-import { redirectToSafeUrl } from "@/utils/redirect";
 
 export default function PermissionsConsentPage() {
   const { emailAccountId, provider, isLoading: accountLoading } = useAccount();
@@ -21,10 +20,9 @@ export default function PermissionsConsentPage() {
 
     try {
       const accountProvider = provider === "microsoft" ? "microsoft" : "google";
-      const url = await getAccountLinkingUrl(accountProvider, {
+      await startAccountLinking(accountProvider, {
         reconnectEmailAccountId: emailAccountId,
       });
-      redirectToSafeUrl(url, { allowExternal: true });
     } catch (error) {
       toastError({
         title: "Error initiating reconnection",

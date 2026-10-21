@@ -37,6 +37,9 @@ import {
 import {
   DESKTOP_PROTOCOL,
   findDesktopProtocolUrl,
+  getDesktopAccountLinkOptions,
+  getDesktopAccountLinkRedirectUrl,
+  getDesktopApiErrorMessage,
   getDesktopAppOrigin,
   getDesktopBrowserStartUrl,
   getDesktopHomeUrl,
@@ -48,9 +51,12 @@ import {
   getDesktopWindowDragCss,
   isAllowedDesktopNavigation,
   isAllowedExternalUrl,
+  isDesktopAccountLinkCallbackUrl,
+  isDesktopAccountLinkProvider,
   isDesktopAuthProvider,
   isDesktopLocalMailUrl,
   normalizeDesktopCallbackPath,
+  parseDesktopAccountLinkCallback,
   parseDesktopAuthCallback,
   resolveDesktopStartUrl,
   shouldSmokeLocalMail,
@@ -98,6 +104,9 @@ let lastFocused: BrowserWindow | null = null;
 let persistWindowsTimer: ReturnType<typeof setTimeout> | undefined;
 let pendingAuthProof: { verifier: string; expiresAt: number } | null = null;
 const handledAuthStates = new Set<string>();
+let pendingAccountLinkProof: { verifier: string; expiresAt: number } | null =
+  null;
+const handledAccountLinkCodes = new Set<string>();
 let pendingAuthUrl: string | null = null;
 let pendingCallbackPath: string | null = null;
 let isQuitting = false;
@@ -214,9 +223,7 @@ function startDesktopApp() {
 
   app.on("second-instance", (_event, argv) => {
     const protocolUrl = findDesktopProtocolUrl(argv);
-    if (protocolUrl) {
-      handleAuthCallbackUrl(protocolUrl).catch(reportSignInError);
-    }
+    if (protocolUrl) handleDesktopProtocolUrl(protocolUrl);
     focusAppWindow();
   });
 
@@ -233,7 +240,7 @@ function startDesktopApp() {
   app.on("open-url", (event, url) => {
     event.preventDefault();
     if (app.isReady()) {
-      handleAuthCallbackUrl(url).catch(reportSignInError);
+      handleDesktopProtocolUrl(url);
       return;
     }
     pendingAuthUrl = url;
@@ -263,6 +270,45 @@ function startDesktopApp() {
         pendingAuthProof = null;
         persistPendingCallbackPath(null);
         throw error;
+      }
+    },
+  );
+
+  ipcMain.handle(
+    "desktop-account-link:start",
+    async (event, provider: unknown, options: unknown) => {
+      if (
+        !isTrustedDesktopEvent(event) ||
+        !isDesktopAccountLinkProvider(provider)
+      ) {
+        return { error: "Unsupported account provider" };
+      }
+      const verifier = randomBytes(32).toString("base64url");
+      const challenge = createHash("sha256")
+        .update(verifier)
+        .digest("base64url");
+      try {
+        const start = await requestAccountLinkUrl(event.sender.session, {
+          provider,
+          codeChallenge: challenge,
+          ...getDesktopAccountLinkOptions(options),
+        });
+        if ("redirectPath" in start) {
+          await event.sender
+            .loadURL(new URL(start.redirectPath, appOrigin).toString())
+            .catch(() => {});
+          return {};
+        }
+        pendingAccountLinkProof = {
+          verifier,
+          expiresAt: Date.now() + DESKTOP_AUTH_PROOF_TTL_MS,
+        };
+        await openExternal(start.url);
+        return {};
+      } catch (error) {
+        pendingAccountLinkProof = null;
+        captureDesktopError(error, { area: "account-link" });
+        return { error: getAccountLinkErrorMessage(error) };
       }
     },
   );
@@ -333,7 +379,7 @@ function startDesktopApp() {
       pendingAuthUrl ?? findDesktopProtocolUrl(process.argv);
     pendingAuthUrl = null;
     if (startupAuthUrl) {
-      await handleAuthCallbackUrl(startupAuthUrl);
+      await handleDesktopProtocolUrl(startupAuthUrl);
     }
     if (!shouldSmokeLocalMail()) {
       startDesktopAutoUpdate(undefined, {
@@ -728,6 +774,13 @@ function showWindow(window: BrowserWindow) {
   window.focus();
 }
 
+function handleDesktopProtocolUrl(url: string) {
+  if (isDesktopAccountLinkCallbackUrl(url)) {
+    return handleAccountLinkCallbackUrl(url).catch(reportAccountLinkError);
+  }
+  return handleAuthCallbackUrl(url).catch(reportSignInError);
+}
+
 async function handleAuthCallbackUrl(url: string) {
   const window = focusAppWindow();
   const callback = parseDesktopAuthCallback(url);
@@ -785,6 +838,105 @@ async function exchangeAuthCode(
   }
 }
 
+async function handleAccountLinkCallbackUrl(url: string) {
+  const window = focusAppWindow();
+  const callback = parseDesktopAccountLinkCallback(url);
+  if (!callback.ok) {
+    showAccountLinkError(new Error(callback.error));
+    return;
+  }
+  // A browser that repeats the callback request hands back the same code.
+  if (handledAccountLinkCodes.has(callback.code)) return;
+  handledAccountLinkCodes.add(callback.code);
+
+  try {
+    const proof = pendingAccountLinkProof;
+    if (!proof || proof.expiresAt <= Date.now()) {
+      throw new Error(
+        "Start connecting the account again from the desktop app",
+      );
+    }
+    const redirectPath = await completeAccountLink(
+      window.webContents.session,
+      callback.code,
+      proof.verifier,
+    );
+    if (pendingAccountLinkProof === proof) pendingAccountLinkProof = null;
+    await window
+      .loadURL(getDesktopAccountLinkRedirectUrl(appOrigin, redirectPath))
+      .catch(() => {});
+  } catch (error) {
+    handledAccountLinkCodes.delete(callback.code);
+    reportAccountLinkError(error);
+  }
+}
+
+async function requestAccountLinkUrl(
+  session: Session,
+  body: {
+    provider: string;
+    codeChallenge: string;
+    reconnectEmailAccountId?: string;
+  },
+): Promise<{ url: string } | { redirectPath: string }> {
+  const response = await session.fetch(
+    new URL("/api/desktop-account-link/start", appOrigin).toString(),
+    {
+      method: "POST",
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    },
+  );
+  const data: unknown = await response.json().catch(() => null);
+  if (!response.ok) {
+    const redirectPath = normalizeDesktopCallbackPath(
+      data && typeof data === "object" && "redirectTo" in data
+        ? data.redirectTo
+        : null,
+    );
+    if (response.status === 401 && redirectPath) return { redirectPath };
+    throw new Error(
+      getDesktopApiErrorMessage(data) ??
+        "Could not start connecting the account",
+    );
+  }
+  if (
+    !data ||
+    typeof data !== "object" ||
+    !("url" in data) ||
+    typeof data.url !== "string"
+  ) {
+    throw new Error("Could not start connecting the account");
+  }
+  return { url: data.url };
+}
+
+async function completeAccountLink(
+  session: Session,
+  code: string,
+  codeVerifier: string,
+): Promise<unknown> {
+  const response = await session.fetch(
+    new URL("/api/desktop-account-link/complete", appOrigin).toString(),
+    {
+      method: "POST",
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ code, codeVerifier }),
+    },
+  );
+  const data: unknown = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(
+      getDesktopApiErrorMessage(data) ?? "Could not connect the account",
+    );
+  }
+  return data && typeof data === "object" && "redirectPath" in data
+    ? data.redirectPath
+    : null;
+}
+
 function consumePostAuthUrl() {
   return getDesktopPostAuthUrl(appOrigin, consumePendingCallbackPath());
 }
@@ -834,6 +986,24 @@ async function openExternal(url: string) {
 function reportSignInError(error: unknown) {
   captureDesktopError(error, { area: "sign-in" });
   showSignInError(error);
+}
+
+function reportAccountLinkError(error: unknown) {
+  captureDesktopError(error, { area: "account-link" });
+  showAccountLinkError(error);
+}
+
+function showAccountLinkError(error: unknown) {
+  dialog.showErrorBox(
+    "Could not connect account",
+    getAccountLinkErrorMessage(error),
+  );
+}
+
+function getAccountLinkErrorMessage(error: unknown) {
+  return error instanceof Error
+    ? error.message
+    : "Could not connect the account";
 }
 
 function showSignInError(error: unknown) {
