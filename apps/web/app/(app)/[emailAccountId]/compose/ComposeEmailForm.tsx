@@ -681,6 +681,7 @@ function ComposeEmailFormContent({
         <div className="flex flex-wrap items-center gap-1">
           <Tooltip
             shortcuts={onMarkDone ? ["send", "sendAndMarkDone"] : ["send"]}
+            showShortcutLabels={!!onMarkDone}
           >
             <Button disabled={isSubmitting} type="submit" variant="gradient">
               {isSubmitting && <ButtonLoader />}
