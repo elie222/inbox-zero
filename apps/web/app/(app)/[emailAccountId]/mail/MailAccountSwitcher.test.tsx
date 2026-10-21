@@ -179,7 +179,6 @@ function renderSwitcher({
       isDesktopApp
       onSelectAccount={onSelectAccount}
       onSelectAll={vi.fn()}
-      variant="compact"
     />,
   );
 }

@@ -1530,7 +1530,7 @@ async function openNamedMailbox(window: BrowserWindow, name: string) {
         (() => {
           const mail = [...document.querySelectorAll("button")].find((button) =>
             [...button.querySelectorAll("span")].some(
-              (span) => span.textContent?.trim() === "Mail",
+              (span) => span.textContent?.trim() === "More",
             ),
           );
           if (mail instanceof HTMLElement) mail.click();
@@ -1853,7 +1853,7 @@ async function openDraftsMailbox(window: BrowserWindow) {
         (() => {
           const mail = [...document.querySelectorAll("button")].find((button) =>
             [...button.querySelectorAll("span")].some(
-              (span) => span.textContent?.trim() === "Mail",
+              (span) => span.textContent?.trim() === "More",
             ),
           );
           if (mail instanceof HTMLElement) mail.click();
@@ -1891,7 +1891,7 @@ async function openSentMailbox(window: BrowserWindow) {
         (() => {
           const mail = [...document.querySelectorAll("button")].find((button) =>
             [...button.querySelectorAll("span")].some(
-              (span) => span.textContent?.trim() === "Mail",
+              (span) => span.textContent?.trim() === "More",
             ),
           );
           if (mail instanceof HTMLElement) mail.click();

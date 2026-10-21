@@ -18,7 +18,6 @@ import { parseAsString, useQueryState, useQueryStates } from "nuqs";
 import { toast } from "sonner";
 import { ListToolbar } from "@/app/(app)/[emailAccountId]/mail/ListToolbar";
 import { getMailSearchFolders } from "@/app/(app)/[emailAccountId]/mail/outlook-folder-list";
-import { MailAccountSwitcher } from "@/app/(app)/[emailAccountId]/mail/MailAccountSwitcher";
 import {
   getMailNavPath,
   MAIL_SCHEDULED_TYPE,
@@ -166,6 +165,7 @@ export function MailShell() {
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [isDesktopApp, setIsDesktopApp] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isMailNavOpen, setIsMailNavOpen] = useState(false);
   const [labelPicker, setLabelPicker] = useState<{
     mode: "label" | "move";
     targets: ThreadSelection[];
@@ -1431,15 +1431,6 @@ export function MailShell() {
 
   return (
     <MailProductFrame
-      accountSwitcher={
-        <MailAccountSwitcher
-          isDesktopApp={isDesktopApp}
-          isAllAccounts={isAllAccounts}
-          onSelectAccount={selectAccount}
-          onSelectAll={selectAllAccounts}
-          variant="compact"
-        />
-      }
       floating={senderCommandsPanel}
       dialogs={labelPickerDialog}
     >
@@ -1455,6 +1446,8 @@ export function MailShell() {
         onSelectAllAccounts={selectAllAccounts}
         onMailboxItemDeleted={onMailboxItemDeleted}
         onNavigate={discardSearchDraft}
+        isMobileNavOpen={isMailNavOpen}
+        onMobileNavOpenChange={setIsMailNavOpen}
       />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -1463,6 +1456,7 @@ export function MailShell() {
           {showList && (
             <MailListPanel layout={layout}>
               <ListToolbar
+                onOpenMailNav={() => setIsMailNavOpen(true)}
                 layout={layout}
                 searchQuery={searchParam ?? ""}
                 onSearch={setSearch}

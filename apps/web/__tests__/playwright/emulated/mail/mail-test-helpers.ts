@@ -85,13 +85,13 @@ export async function expectThreadReaderBody(
 }
 
 /**
- * Mailboxes other than the inbox sit behind the collapsed "Mail" group, which
+ * Mailboxes other than the inbox sit behind the collapsed "More" group, which
  * stays open once a view inside it is showing.
  */
 export async function openMailboxFromSidebar(page: Page, name: string) {
   const link = page.getByRole("link", { name: new RegExp(`^${name}`) });
   if (!(await link.isVisible())) {
-    await page.getByRole("button", { name: "Mail", exact: true }).click();
+    await page.getByRole("button", { name: "More", exact: true }).click();
   }
   await link.click();
 }

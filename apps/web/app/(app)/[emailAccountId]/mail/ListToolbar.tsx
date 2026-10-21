@@ -19,6 +19,7 @@ import {
   ColumnsIcon,
   MailIcon,
   MailOpenIcon,
+  PanelLeftIcon,
   RowsIcon,
   SearchIcon,
   SparklesIcon,
@@ -88,6 +89,8 @@ export type ListToolbarProps = {
   /** Omitted when the current view can't label (combined inboxes). */
   onLabelSelected?: () => void;
   onClearSelection: () => void;
+  /** Opens the mail navigation panel on screens too narrow for the rail. */
+  onOpenMailNav: () => void;
 };
 
 export const ListToolbar = memo(function ListToolbar({
@@ -116,6 +119,7 @@ export const ListToolbar = memo(function ListToolbar({
   onStarSelected,
   onLabelSelected,
   onClearSelection,
+  onOpenMailNav,
 }: ListToolbarProps) {
   const LayoutIcon = layout === "split" ? ColumnsIcon : RowsIcon;
   const { state } = useSidebar();
@@ -130,6 +134,14 @@ export const ListToolbar = memo(function ListToolbar({
           "lg:pl-[max(0.75rem,calc(var(--desktop-traffic-lights-width,0px)-2.5rem))]",
       )}
     >
+      <button
+        type="button"
+        onClick={onOpenMailNav}
+        aria-label="Open navigation"
+        className={cn(toolbarButton, "w-8 justify-center px-0 lg:hidden")}
+      >
+        <PanelLeftIcon className="size-3.5" />
+      </button>
       {selectAll}
 
       {/* Selection swaps the toolbar's controls in place so the list never
