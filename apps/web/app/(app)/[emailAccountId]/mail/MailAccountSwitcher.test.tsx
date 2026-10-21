@@ -13,19 +13,13 @@ import { MailAccountSwitcher } from "./MailAccountSwitcher";
 
 (globalThis as { React?: typeof React }).React = React;
 
-const {
-  menuState,
-  mockOpenSettings,
-  mockOpenWindow,
-  mockUseAccounts,
-  mockUseAccount,
-} = vi.hoisted(() => ({
-  menuState: { forceOpen: true },
-  mockOpenSettings: vi.fn(),
-  mockOpenWindow: vi.fn().mockResolvedValue(undefined),
-  mockUseAccounts: vi.fn(),
-  mockUseAccount: vi.fn(),
-}));
+const { menuState, mockOpenWindow, mockUseAccounts, mockUseAccount } =
+  vi.hoisted(() => ({
+    menuState: { forceOpen: true },
+    mockOpenWindow: vi.fn().mockResolvedValue(undefined),
+    mockUseAccounts: vi.fn(),
+    mockUseAccount: vi.fn(),
+  }));
 
 vi.mock("next/link", () => ({
   default: ({
@@ -39,10 +33,6 @@ vi.mock("next/link", () => ({
 
 vi.mock("@/hooks/useAccounts", () => ({
   useAccounts: () => mockUseAccounts(),
-}));
-
-vi.mock("@/hooks/useSettingsDialog", () => ({
-  useSettingsDialog: () => ({ openSettings: mockOpenSettings }),
 }));
 
 vi.mock("@/providers/EmailAccountProvider", () => ({
@@ -173,14 +163,6 @@ describe("MailAccountSwitcher", () => {
 
     expect(onSelectAccount).toHaveBeenCalledWith("account-2");
     expect(mockOpenWindow).not.toHaveBeenCalled();
-  });
-
-  it("opens the settings dialog from the account menu", async () => {
-    renderSwitcher({ onSelectAccount: vi.fn() });
-
-    selectMenuItem(await screen.findByRole("menuitem", { name: "Settings" }));
-
-    expect(mockOpenSettings).toHaveBeenCalledOnce();
   });
 
   it("does not leave focus on the trigger after the menu closes", async () => {

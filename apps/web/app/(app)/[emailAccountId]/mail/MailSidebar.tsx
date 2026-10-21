@@ -18,6 +18,7 @@ import {
   PenLineIcon,
   PlusIcon,
   SendIcon,
+  SettingsIcon,
   ShieldAlertIcon,
   SparklesIcon,
   StarIcon,
@@ -80,6 +81,7 @@ export type MailSidebarProps = {
   emailAccountId: string;
   hideToggle?: boolean;
   onCompose: () => void;
+  onOpenSettings: () => void;
   onCreateLabel: (name: string) => void;
   onEditMailboxItem: (edit: MailboxItemEdit) => Promise<boolean>;
   onDeleteMailboxItem: (item: MailboxItem) => Promise<boolean>;
@@ -180,6 +182,7 @@ export function MailSidebar({
   emailAccountId,
   hideToggle,
   onCompose,
+  onOpenSettings,
   onCreateLabel,
   onEditMailboxItem,
   onDeleteMailboxItem,
@@ -320,18 +323,6 @@ export function MailSidebar({
             emphasizeCount
             collapsed={collapsed}
           />
-          {team && (
-            <NavRow
-              href={team.href}
-              onNavigate={onNavigate}
-              active={false}
-              icon={<Users2Icon className="size-4 shrink-0" />}
-              name="Discussions"
-              count={team.unreadCount}
-              emphasizeCount
-              collapsed={collapsed}
-            />
-          )}
         </nav>
 
         {!unified && (!collapsed || showMailboxRows) && (
@@ -560,6 +551,29 @@ export function MailSidebar({
           </>
         ) : null}
       </div>
+      <nav className="flex shrink-0 flex-col gap-px pt-2">
+        {team && (
+          <NavRow
+            href={team.href}
+            onNavigate={onNavigate}
+            active={false}
+            icon={<Users2Icon className="size-4 shrink-0" />}
+            name="Discussions"
+            count={team.unreadCount}
+            emphasizeCount
+            collapsed={collapsed}
+          />
+        )}
+        <NavRow
+          onClick={onOpenSettings}
+          onNavigate={onNavigate}
+          active={false}
+          icon={<SettingsIcon className="size-4 shrink-0" />}
+          name="Settings"
+          count={null}
+          collapsed={collapsed}
+        />
+      </nav>
       {footer}
     </aside>
   );
@@ -743,6 +757,7 @@ function GroupHeading({
 
 function NavRow({
   href,
+  onClick,
   onNavigate,
   active,
   icon,
@@ -753,6 +768,8 @@ function NavRow({
   collapsed,
 }: {
   href?: string;
+  /** For rows that open something in place rather than navigating. */
+  onClick?: () => void;
   onNavigate: () => void;
   active: boolean;
   icon: ReactNode;
@@ -774,20 +791,35 @@ function NavRow({
   const className = cn(presentation.className);
   const content = presentation.content;
 
-  const row = href ? (
-    <Link
-      href={href}
-      onNavigate={onNavigate}
-      aria-current={active ? "page" : undefined}
-      className={className}
-    >
-      {content}
-    </Link>
-  ) : (
-    <div aria-current={active ? "page" : undefined} className={className}>
-      {content}
-    </div>
-  );
+  let row: ReactNode;
+  if (href) {
+    row = (
+      <Link
+        href={href}
+        onNavigate={onNavigate}
+        aria-current={active ? "page" : undefined}
+        className={className}
+      >
+        {content}
+      </Link>
+    );
+  } else if (onClick) {
+    row = (
+      <button
+        type="button"
+        onClick={onClick}
+        className={cn(className, "text-left")}
+      >
+        {content}
+      </button>
+    );
+  } else {
+    row = (
+      <div aria-current={active ? "page" : undefined} className={className}>
+        {content}
+      </div>
+    );
+  }
 
   if (!collapsed) return row;
 

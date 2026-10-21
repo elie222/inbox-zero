@@ -7,7 +7,6 @@ import {
   CheckIcon,
   ChevronsUpDownIcon,
   PlusIcon,
-  SettingsIcon,
   SlidersHorizontalIcon,
 } from "lucide-react";
 import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
@@ -29,7 +28,6 @@ import {
 } from "@/components/ui/tooltip";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useAccounts } from "@/hooks/useAccounts";
-import { useSettingsDialog } from "@/hooks/useSettingsDialog";
 import {
   formatShortcutKeys,
   getShortcut,
@@ -54,7 +52,6 @@ export const MailAccountSwitcher = memo(function MailAccountSwitcher({
 }) {
   const { data, mutate } = useAccounts();
   const { emailAccount } = useAccount();
-  const { openSettings } = useSettingsDialog();
   const [isSelectionOpen, setIsSelectionOpen] = useState(false);
 
   if (!data) return null;
@@ -148,14 +145,6 @@ export const MailAccountSwitcher = memo(function MailAccountSwitcher({
               }
             />
           ))}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            className="gap-3 rounded-xl px-3 py-2"
-            onSelect={openSettings}
-          >
-            <SettingsIcon className="size-4 text-muted-foreground" />
-            Settings
-          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild className="gap-3 rounded-xl p-3">
             <Link href="/accounts">
