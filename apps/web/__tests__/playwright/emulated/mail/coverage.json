@@ -7,6 +7,9 @@
     "app/(app)/[emailAccountId]/mail/use-thread-actions.ts",
     "utils/mail-engine/MailEngineHost.tsx"
   ],
+  "archive-feedback.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/use-optimistic-archive.ts"
+  ],
   "assistant-catch-up.spec.ts": [
     "utils/mail-engine/create-browser-engine.ts",
     "utils/mail-engine/engine-worker.ts",
