@@ -1123,12 +1123,20 @@ describe("OutlookProvider reply history", () => {
   });
 
   it("finds a reply the user sent to the sender", async () => {
-    const provider = new OutlookProvider(
-      createMailbox({ receivedFrom: {}, sentTo: ["bob@example.com"] }),
-    );
+    const client = createMailbox({
+      receivedFrom: {},
+      sentTo: ["bob@example.com"],
+    });
 
-    await expect(provider.checkIfReplySent("bob@example.com")).resolves.toBe(
-      true,
+    await expect(
+      new OutlookProvider(client).checkIfReplySent("bob@example.com"),
+    ).resolves.toBe(true);
+    // Graph rejects an unquoted property-scoped $search.
+    expect(client.getRequestLog()).toContainEqual(
+      expect.objectContaining({
+        apiPath: "/me/mailFolders/sentitems/messages",
+        search: '"participants:\\"bob@example.com\\""',
+      }),
     );
   });
 
