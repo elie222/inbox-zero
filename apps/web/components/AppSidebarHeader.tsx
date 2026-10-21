@@ -32,10 +32,13 @@ export function AppSidebarHeader({
   active,
   emailAccountId,
   collapsed,
+  hideToggle = false,
 }: {
   active: AppSection;
   emailAccountId: string;
   collapsed: boolean;
+  /** For sheets, which close on their own rather than collapsing. */
+  hideToggle?: boolean;
 }) {
   if (collapsed) {
     return (
@@ -62,7 +65,7 @@ export function AppSidebarHeader({
         emailAccountId={emailAccountId}
         collapsed={false}
       />
-      <SidebarTrigger name="left-sidebar" />
+      {hideToggle ? null : <SidebarTrigger name="left-sidebar" />}
     </div>
   );
 }
@@ -118,13 +121,12 @@ function AppSectionSwitcher({
             href={prefixPath(emailAccountId, section.path)}
             aria-current={isActive ? "page" : undefined}
             className={cn(
-              "flex items-center justify-center gap-1.5 rounded-md px-2 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "flex items-center justify-center rounded-md px-2 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               isActive
                 ? "bg-background font-medium text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
-            <section.icon className="size-3.5 shrink-0" />
             {section.name}
           </Link>
         );

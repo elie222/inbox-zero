@@ -166,6 +166,7 @@ export function MailShell() {
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [isDesktopApp, setIsDesktopApp] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isMailNavOpen, setIsMailNavOpen] = useState(false);
   const [labelPicker, setLabelPicker] = useState<{
     mode: "label" | "move";
     targets: ThreadSelection[];
@@ -1455,6 +1456,8 @@ export function MailShell() {
         onSelectAllAccounts={selectAllAccounts}
         onMailboxItemDeleted={onMailboxItemDeleted}
         onNavigate={discardSearchDraft}
+        isMobileNavOpen={isMailNavOpen}
+        onMobileNavOpenChange={setIsMailNavOpen}
       />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -1463,6 +1466,7 @@ export function MailShell() {
           {showList && (
             <MailListPanel layout={layout}>
               <ListToolbar
+                onOpenMailNav={() => setIsMailNavOpen(true)}
                 layout={layout}
                 searchQuery={searchParam ?? ""}
                 onSearch={setSearch}

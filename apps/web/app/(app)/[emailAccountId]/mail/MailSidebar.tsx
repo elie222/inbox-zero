@@ -78,6 +78,7 @@ export type MailSidebarProps = {
   labelSingular: string;
   /** Builds the app section links in the shared sidebar header. */
   emailAccountId: string;
+  hideToggle?: boolean;
   onCompose: () => void;
   onCreateLabel: (name: string) => void;
   onEditMailboxItem: (edit: MailboxItemEdit) => Promise<boolean>;
@@ -177,6 +178,7 @@ export function MailSidebar({
   labelsHeading,
   labelSingular,
   emailAccountId,
+  hideToggle,
   onCompose,
   onCreateLabel,
   onEditMailboxItem,
@@ -270,6 +272,7 @@ export function MailSidebar({
         active="mail"
         emailAccountId={emailAccountId}
         collapsed={collapsed}
+        hideToggle={hideToggle}
       />
 
       <ShortcutTooltip
