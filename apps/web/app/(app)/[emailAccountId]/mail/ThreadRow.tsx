@@ -27,6 +27,7 @@ import { cn } from "@/utils";
 import { internalDateToDate } from "@/utils/date";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { GmailLabel } from "@/utils/gmail/label";
+import { getConversationSubject } from "@/utils/email/subject";
 
 export type ThreadRowProps = {
   thread: ListThread;
@@ -163,7 +164,7 @@ export const ThreadRow = memo(function ThreadRow({
       rowRef={rowRef}
       selectionEnabled={selectionEnabled}
       snippet={decodeSnippet(thread.snippet || message.snippet)}
-      subject={message.headers.subject}
+      subject={getConversationSubject(thread.messages)}
     />
   );
 });

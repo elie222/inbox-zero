@@ -70,7 +70,7 @@ test("keeps the quote toggle between the reply and expanded history", async ({
   await conversationWithSubject(
     page,
     conversations,
-    "Re: Reader Visual Message",
+    "Reader Visual Message",
   ).click();
   const frame = page
     .frameLocator('iframe[title="Email content preview"]')
@@ -124,11 +124,11 @@ test("captures the rich message reader states", async ({ page }, testInfo) => {
   await conversationWithSubject(
     page,
     conversations,
-    "Re: Reader Visual Message",
+    "Reader Visual Message",
   ).click();
 
   await expect(
-    page.getByRole("heading", { name: "Re: Reader Visual Message" }),
+    page.getByRole("heading", { name: "Reader Visual Message" }),
   ).toBeVisible();
 
   const emailFrame = page
@@ -166,9 +166,7 @@ test("captures the rich message reader states", async ({ page }, testInfo) => {
   await capturePlaywrightCheckpoint(page, testInfo, "mail-reader-toolbar");
 
   const message = page.locator("[data-thread-message-id]").last();
-  await page
-    .getByRole("heading", { name: "Re: Reader Visual Message" })
-    .hover();
+  await page.getByRole("heading", { name: "Reader Visual Message" }).hover();
   await message.hover();
   await message.getByRole("button", { name: "Reply", exact: true }).hover();
   const replyTooltip = page.getByRole("tooltip", { name: /Reply/ });
@@ -278,7 +276,7 @@ test("offers to disable auto archive for an enabled sender", async ({
   await conversationWithSubject(
     page,
     conversations,
-    "Re: Reader Visual Message",
+    "Reader Visual Message",
   ).click();
 
   await page.getByRole("button", { name: /^More actions/ }).click();
@@ -321,10 +319,10 @@ test("opens the sender profile beside the reader", async ({
   await conversationWithSubject(
     page,
     conversations,
-    "Re: Reader Visual Message",
+    "Reader Visual Message",
   ).click();
   const subject = page.getByRole("heading", {
-    name: "Re: Reader Visual Message",
+    name: "Reader Visual Message",
   });
   await expect(subject).toBeVisible();
 
