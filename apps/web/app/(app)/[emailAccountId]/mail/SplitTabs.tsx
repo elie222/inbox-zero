@@ -120,7 +120,6 @@ export function SplitTabs({
         updateDrag({
           id: split.id,
           order: initialOrder,
-          width: rect.width,
           height: rect.height,
           offsetX: start.x - rect.left,
           offsetY: start.y - rect.top,
@@ -224,7 +223,6 @@ export function SplitTabs({
         const active = split.id === activeSplitId;
         const dragging = drag?.id === split.id;
         const countLabel = splitCountLabel(countsById?.get(split.id));
-        const draggable = !!onReorder && !!split.reorderable;
 
         return (
           <ContextMenu key={split.id}>
@@ -248,23 +246,13 @@ export function SplitTabs({
                   countLabel ? `${countLabel} in this view` : undefined
                 }
                 className={cn(
-                  "group relative flex select-none items-center gap-1 rounded-full py-0.5 pr-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  draggable ? "pl-3.5" : "pl-2.5",
+                  "flex select-none items-center gap-1 rounded-full py-0.5 pr-2 pl-2.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   active
                     ? "bg-primary/10 font-medium text-primary"
                     : "text-muted-foreground hover:bg-accent hover:text-foreground",
                   dragging && "opacity-40",
                 )}
               >
-                {draggable && (
-                  <GripVerticalIcon
-                    aria-hidden="true"
-                    className={cn(
-                      "absolute left-0.5 size-3 opacity-0 transition-opacity",
-                      !drag && "group-hover:opacity-60",
-                    )}
-                  />
-                )}
                 <span data-split-name>{split.name}</span>
                 {countLabel ? (
                   <span
@@ -301,14 +289,13 @@ export function SplitTabs({
             <div
               ref={overlayRef}
               aria-hidden="true"
-              className="pointer-events-none fixed top-0 left-0 z-50 flex items-center gap-1 rounded-full bg-background py-0.5 pr-2 pl-3.5 text-foreground text-xs shadow-lg ring-1 ring-border"
+              className="pointer-events-none fixed top-0 left-0 z-50 flex items-center gap-1 rounded-full bg-background py-0.5 pr-2 pl-1 text-foreground text-xs shadow-lg ring-1 ring-border"
               style={{
-                width: drag.width,
                 height: drag.height,
                 transform: `translate(${drag.x - drag.offsetX}px, ${drag.y - drag.offsetY}px)`,
               }}
             >
-              <GripVerticalIcon className="absolute left-0.5 size-3 opacity-60" />
+              <GripVerticalIcon className="size-3 opacity-60" />
               <span>{draggedSplit.name}</span>
               {draggedCountLabel ? (
                 <span className="font-normal tabular-nums opacity-70">
@@ -337,7 +324,6 @@ export function SplitTabs({
 type DragState = {
   id: string;
   order: string[];
-  width: number;
   height: number;
   /** Where the tab was grabbed, so it stays under the pointer at that spot. */
   offsetX: number;
