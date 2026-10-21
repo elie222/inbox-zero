@@ -22,7 +22,7 @@ import {
   normalizeContentId,
   rewriteInlineImageSources,
 } from "@inboxzero/mail-ui/inline-images";
-import { linkifyPlainText } from "@/utils/email/linkify-plain-text";
+import { linkifyPlainText } from "@inboxzero/mail-ui/linkify";
 import { splitEmailContent } from "@/utils/email/split-email-content.client";
 import {
   fetchAttachment,

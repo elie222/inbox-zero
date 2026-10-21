@@ -140,6 +140,25 @@ describe("Squire email editor", () => {
     expect(handle().getValue().editableHtml).toBe("<div>Draft body</div>");
   });
 
+  it("sends a typed URL as a link even when nothing was typed after it", async () => {
+    const { handle, textbox } = await renderEditor({
+      initialHtml: "<div>Body</div>",
+      mode: "original",
+    });
+    // Squire links a URL only once a space or Enter follows it, so a URL at
+    // the end of the message reaches send as plain text.
+    const typed = document.createElement("div");
+    typed.textContent = "See example.com/settings";
+    await act(async () => {
+      textbox().append(typed);
+    });
+
+    const { editableHtml } = handle().getValue();
+    expect(editableHtml).toContain(
+      '<a href="http://example.com/settings" rel="noopener noreferrer" target="_blank">example.com/settings</a>',
+    );
+  });
+
   it("keeps a line break inside inline content followed by more text", async () => {
     const { handle } = await renderEditor({
       initialHtml:

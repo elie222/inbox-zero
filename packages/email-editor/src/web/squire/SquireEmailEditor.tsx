@@ -215,6 +215,9 @@ export const SquireEmailEditor = forwardRef<
     const template = document.createElement("template");
     template.innerHTML = editorRef.current?.getHTML() ?? "";
     removePlaceholderBreaks(template.content);
+    // Squire links a typed URL only once a space or Enter follows it, so a
+    // URL that ends the message would otherwise go out as plain text.
+    editorRef.current?.addDetectedLinks(template.content, template.content);
     const signature = signatureRef.current;
     if (
       signaturePresentRef.current &&

@@ -1,4 +1,5 @@
 import DOMPurify from "dompurify";
+import { linkifyHtml } from "./linkify";
 
 export function sanitizeMailHtml(html: string) {
   const root = DOMPurify.sanitize(html, {
@@ -12,6 +13,8 @@ export function sanitizeMailHtml(html: string) {
   for (const image of root.querySelectorAll("img")) {
     if (isTrackingPixel(image)) image.remove();
   }
+
+  linkifyHtml(root);
 
   return `<!doctype html>${root.outerHTML}`;
 }
