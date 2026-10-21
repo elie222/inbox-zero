@@ -38,6 +38,8 @@ type QueueReaderEmailOptions = {
   emailAccountId: string;
   messageIds: string[];
   online: boolean;
+  /** Called with the send's operation id just before it can appear in the thread. */
+  onSubmitting?: (operationId: string) => void;
   onQueued?: (operationId: string) => Promise<void>;
   mutationId?: string;
   holdForUndo?: boolean;
@@ -82,6 +84,7 @@ async function queueReaderEmailOnce(
     emailAccountId,
     messageIds,
     online,
+    onSubmitting,
     onQueued,
     holdForUndo,
     providerDraftMessageIds,
@@ -107,6 +110,7 @@ async function queueReaderEmailOnce(
   const undoHoldUntil = holdForUndo
     ? getUndoSendHoldUntil(online, nowMs)
     : undefined;
+  onSubmitting?.(commandId);
   const admission = await client.submitSend({
     commandId,
     conversationId: threadId,

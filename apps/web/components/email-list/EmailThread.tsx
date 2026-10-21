@@ -232,16 +232,20 @@ export function EmailThread({
         ]),
       ),
     );
+  // Concealed from the moment the send is submitted, because the thread can
+  // render its message before the composer learns the send was queued.
   const [sentReplyHandoff, setSentReplyHandoff] = useState<{
     operationId: string;
-    release: () => void;
+    release?: () => void;
   }>();
+  const concealSentReply = (operationId: string) =>
+    setSentReplyHandoff({ operationId });
   const awaitSentReply = (operationId: string) =>
     new Promise<void>((release) =>
       setSentReplyHandoff({ operationId, release }),
     );
   useEffect(() => {
-    if (!sentReplyHandoff) return;
+    if (!sentReplyHandoff?.release) return;
     const { operationId, release } = sentReplyHandoff;
     let frame = 0;
     const finish = () => {
@@ -434,6 +438,7 @@ export function EmailThread({
                   Boolean(sendOperationId) &&
                   sentReplyHandoff?.operationId === sendOperationId
                 }
+                concealSentReply={concealSentReply}
                 awaitSentReply={awaitSentReply}
                 onReplySent={() => {
                   // The sent reply lands below as the newest message; keep this
