@@ -549,16 +549,17 @@ async function emailProviderMiddleware(
 
     return providerReq;
   } catch (error) {
+    // Known errors (revoked access, rate-limit mode) are logged where they're
+    // raised, and withMiddleware applies shared error handling.
+    if (error instanceof SafeError || isProviderRateLimitModeError(error)) {
+      throw error;
+    }
+
     emailAccountReq.logger.error("Failed to create email provider", {
       error,
       emailAccountId,
       userId,
     });
-
-    // Re-throw known errors so withMiddleware can apply shared error handling.
-    if (error instanceof SafeError || isProviderRateLimitModeError(error)) {
-      throw error;
-    }
 
     return NextResponse.json(
       { error: "Failed to initialize email provider" },

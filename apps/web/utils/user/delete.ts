@@ -175,10 +175,15 @@ async function deleteUserRows({
       logger,
     );
     // Members restrict email account deletion, so they go first.
-    const [, deletedUser] = await prisma.$transaction([
-      prisma.member.deleteMany({ where: { emailAccount: { userId } } }),
-      prisma.user.deleteMany({ where: { id: userId } }),
-    ]);
+    // Deleting the user cascades through all remaining account data, which
+    // can outlast the default 5s transaction timeout for large accounts.
+    const [, deletedUser] = await prisma.$transaction(
+      [
+        prisma.member.deleteMany({ where: { emailAccount: { userId } } }),
+        prisma.user.deleteMany({ where: { id: userId } }),
+      ],
+      { timeout: 60_000 },
+    );
     await notifyConversations();
 
     // PostHog tracks the completed delete after the database delete succeeds.
