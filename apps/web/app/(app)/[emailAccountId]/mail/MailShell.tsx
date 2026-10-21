@@ -32,6 +32,7 @@ import type { MailboxItem } from "@/app/(app)/[emailAccountId]/mail/MailboxItemC
 import { ListSenderCommands } from "@/app/(app)/[emailAccountId]/mail/ListSenderCommands";
 import { extractEmailAddress } from "@/utils/email";
 import { LabelPickerDialog } from "@/app/(app)/[emailAccountId]/mail/LabelPickerDialog";
+import { InboxZeroCelebration } from "@/app/(app)/[emailAccountId]/mail/InboxZeroCelebration";
 import { ThreadList } from "@/app/(app)/[emailAccountId]/mail/ThreadList";
 import { useStableCallback } from "@/app/(app)/[emailAccountId]/mail/use-stable-callback";
 import { useTranslateThread } from "@/app/(app)/[emailAccountId]/mail/use-thread-translation";
@@ -455,6 +456,12 @@ export function MailShell() {
     );
   } else if (searchQuery) {
     emptyListMessage = "No emails found";
+  } else if (!scopeQuery) {
+    emptyListMessage = (
+      <InboxZeroCelebration
+        splitName={activeSplit?.id === "all" ? undefined : activeSplit?.name}
+      />
+    );
   }
 
   const selection = useThreadSelection(orderedIds);
