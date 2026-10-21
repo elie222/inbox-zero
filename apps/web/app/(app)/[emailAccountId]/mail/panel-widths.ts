@@ -1,7 +1,8 @@
 import type { PanelWidthBounds } from "@/utils/panel-width";
 
 export const MAIL_SIDEBAR_WIDTH_COOKIE = "mail-sidebar-width";
-export const MAIL_SIDEBAR_DEFAULT_WIDTH = 236;
+// Matches the app sidebar so the shared header doesn't shift between them.
+export const MAIL_SIDEBAR_DEFAULT_WIDTH = 256;
 export const MAIL_SIDEBAR_WIDTH_BOUNDS: PanelWidthBounds = {
   min: 180,
   max: 440,

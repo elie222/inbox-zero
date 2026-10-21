@@ -264,7 +264,7 @@ export function MailSidebar({
     <aside
       className={cn(
         // The padding matches the app sidebar so the shared header lines up.
-        "flex w-[236px] shrink-0 flex-col overflow-hidden border-border border-r bg-sidebar px-2 pt-2 pb-2.5",
+        "flex w-[256px] shrink-0 flex-col overflow-hidden border-border border-r bg-sidebar px-2 pt-2 pb-2.5",
         className,
       )}
     >
@@ -341,7 +341,7 @@ export function MailSidebar({
               expanded={showMailboxes}
               onToggle={() => setShowMailboxes((open) => !open)}
             >
-              Mail
+              More
             </GroupHeading>
             {showMailboxRows && (
               <nav className="flex flex-col gap-px">
