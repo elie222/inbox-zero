@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useStableCallback } from "./use-stable-callback";
 import { getListThreadKey, type ListThread } from "./types";
@@ -9,6 +9,7 @@ export function useOptimisticArchive(
   scope: string,
 ) {
   const [pending, setPending] = useState(new Set<string>());
+  const rowPositions = useRef<Map<string, number> | undefined>(undefined);
   const visibleThreads = useMemo(
     () =>
       enabled
@@ -19,11 +20,46 @@ export function useOptimisticArchive(
         : threads,
     [enabled, pending, scope, threads],
   );
+  useLayoutEffect(() => {
+    const previousPositions = rowPositions.current;
+    rowPositions.current = undefined;
+    if (!previousPositions) return;
+
+    for (const thread of visibleThreads) {
+      const key = getListThreadKey(thread);
+      const previousTop = previousPositions.get(key);
+      if (previousTop === undefined) continue;
+      const row = document.querySelector<HTMLElement>(
+        `[data-mail-thread-key="${CSS.escape(key)}"]`,
+      );
+      if (!row) continue;
+      for (const animation of row.getAnimations()) {
+        if (animation.id === "mail-archive-shift") animation.cancel();
+      }
+      const offset = previousTop - row.getBoundingClientRect().top;
+      if (!offset) continue;
+      // Hold the empty space while focus moves on, then let the remaining rows close it.
+      const animation = row.animate(
+        [
+          { transform: `translateY(${offset}px)` },
+          { transform: "translateY(0)" },
+        ],
+        {
+          delay: 100,
+          duration: 100,
+          easing: "cubic-bezier(0.2, 0, 0, 1)",
+          fill: "backwards",
+        },
+      );
+      animation.id = "mail-archive-shift";
+    }
+  }, [visibleThreads]);
   const archive = useStableCallback(
     async (keys: string[], submit: (keys: string[]) => Promise<string[]>) => {
       const scopedKeys = keys.map((key) => JSON.stringify([scope, key]));
       if (enabled) {
-        if (keys.length === 1) animateArchiveRow(keys[0]);
+        if (keys.length === 1)
+          rowPositions.current = animateArchiveRow(keys[0]);
         setPending((current) => new Set([...current, ...scopedKeys]));
       }
       try {
@@ -50,6 +86,18 @@ function animateArchiveRow(key: string) {
   if (!row) return;
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   const bounds = row.getBoundingClientRect();
+  if (!bounds.height || !bounds.width) return;
+  const rows = Array.from(
+    document.querySelectorAll<HTMLElement>("[data-mail-thread-key]"),
+  );
+  const positions = new Map<string, number>();
+  // Offscreen rows do not need motion or layout measurements.
+  for (let index = rows.indexOf(row) + 1; index < rows.length; index++) {
+    const nextRow = rows[index];
+    const top = nextRow.getBoundingClientRect().top;
+    if (top > window.innerHeight + bounds.height) break;
+    positions.set(nextRow.dataset.mailThreadKey!, top);
+  }
   // Keep a visual copy so keyboard focus and the live list can advance immediately.
   const ghost = row.cloneNode(true) as HTMLElement;
   ghost.removeAttribute("data-mail-thread-key");
@@ -73,7 +121,8 @@ function animateArchiveRow(key: string) {
       { transform: "translateX(0)", opacity: 1 },
       { transform: "translateX(-32px)", opacity: 0 },
     ],
-    { duration: 140, easing: "cubic-bezier(0.2, 0, 0, 1)", fill: "forwards" },
+    { duration: 80, easing: "cubic-bezier(0.2, 0, 0, 1)", fill: "forwards" },
   );
   animation.finished.finally(() => ghost.remove()).catch(() => {});
+  return positions;
 }

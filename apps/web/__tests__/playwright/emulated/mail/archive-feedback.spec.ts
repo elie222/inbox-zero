@@ -57,16 +57,30 @@ test("archives from the keyboard with immediate feedback and supports undo", asy
         ).find((element) =>
           element.textContent?.includes("Archive Action Message"),
         )!;
+        const rowKey = row.parentElement!.getAttribute("data-mail-thread-key")!;
+        const nextKey = row.parentElement!.nextElementSibling!.getAttribute(
+          "data-mail-thread-key",
+        )!;
+        const rowSelector = `[data-mail-thread-key="${CSS.escape(rowKey)}"]`;
+        const nextSelector = `[data-mail-thread-key="${CSS.escape(nextKey)}"] [role="option"]`;
+        const nextInitialTop = document
+          .querySelector(nextSelector)!
+          .getBoundingClientRect().top;
         const samples: Array<{
           ms: number;
           inList: boolean;
           exitOpacity: string | null;
+          nextTop: number;
+          nextFocused: boolean;
         }> = [];
         const sample = () => {
           const ghost = document.querySelector("[data-archive-exit]");
+          const nextRow = document.querySelector(nextSelector)!;
           samples.push({
             ms: performance.now() - startedAt,
-            inList: row.isConnected,
+            inList: Boolean(document.querySelector(rowSelector)),
+            nextTop: nextRow.getBoundingClientRect().top,
+            nextFocused: nextRow.getAttribute("tabindex") === "0",
             exitOpacity: ghost
               ? getComputedStyle(ghost.firstElementChild ?? ghost).opacity
               : null,
@@ -78,6 +92,7 @@ test("archives from the keyboard with immediate feedback and supports undo", asy
         Object.assign(window, {
           archiveTiming: {
             startedAt,
+            nextInitialTop,
             epochMs: performance.timeOrigin + startedAt,
             samples,
           },
@@ -105,10 +120,13 @@ test("archives from the keyboard with immediate feedback and supports undo", asy
       (
         window as unknown as {
           archiveTiming: {
+            nextInitialTop: number;
             samples: Array<{
               ms: number;
               inList: boolean;
               exitOpacity: string | null;
+              nextTop: number;
+              nextFocused: boolean;
             }>;
           };
         }
@@ -119,6 +137,9 @@ test("archives from the keyboard with immediate feedback and supports undo", asy
     true,
   );
   expect(timing.samples.every((sample) => !sample.inList)).toBe(true);
+  expect(timing.samples[0].nextFocused).toBe(true);
+  expect(timing.samples[0].nextTop).toBeCloseTo(timing.nextInitialTop, 0);
+  expect(timing.samples.at(-1)!.nextTop).toBeLessThan(timing.nextInitialTop);
   await testInfo.attach("archive-timing", {
     body: JSON.stringify(timing, null, 2),
     contentType: "application/json",
