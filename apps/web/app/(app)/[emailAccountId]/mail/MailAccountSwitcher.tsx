@@ -96,6 +96,9 @@ export const MailAccountSwitcher = memo(function MailAccountSwitcher({
         <DropdownMenuContent
           align="start"
           className="w-[--radix-dropdown-menu-trigger-width] min-w-72 rounded-2xl p-2 shadow-xl"
+          // A focused trigger reopens the menu on ArrowUp/ArrowDown, which
+          // would swallow mail list navigation after closing the switcher.
+          onCloseAutoFocus={(event) => event.preventDefault()}
           side="top"
           sideOffset={8}
         >
