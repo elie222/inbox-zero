@@ -314,6 +314,9 @@ describe("desktop shell helpers", () => {
     expect(DESKTOP_WINDOW_DRAG_CSS).toContain("padding-top: 52px");
     expect(DESKTOP_WINDOW_DRAG_CSS).toContain("[data-desktop-mac-end]");
     expect(DESKTOP_WINDOW_DRAG_CSS).toContain(
+      "[data-desktop-mac-titlebar-toggle]",
+    );
+    expect(DESKTOP_WINDOW_DRAG_CSS).toContain(
       "--desktop-traffic-lights-width: 78px",
     );
   });

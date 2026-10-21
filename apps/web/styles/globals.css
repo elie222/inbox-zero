@@ -311,6 +311,12 @@ html[data-mac-desktop] [data-hide-on-desktop-mac] {
   display: none !important;
 }
 
+html[data-mac-desktop] [data-desktop-mac-titlebar-toggle] {
+  position: absolute;
+  top: 4px;
+  left: calc(var(--desktop-traffic-lights-width) - 0.5rem);
+}
+
 html[data-mac-desktop] [data-desktop-mac-end] {
   flex: none;
   margin-left: auto;
