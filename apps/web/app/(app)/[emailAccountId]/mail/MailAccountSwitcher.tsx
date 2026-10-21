@@ -37,21 +37,18 @@ import {
 } from "@/lib/shortcuts/registry";
 import { getMailAccountUrl } from "@/app/(app)/[emailAccountId]/mail/mail-account-url";
 import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
-import { cn } from "@/utils";
 
 export const MailAccountSwitcher = memo(function MailAccountSwitcher({
   isAllAccounts,
   isDesktopApp,
   onSelectAccount,
   onSelectAll,
-  variant,
   collapsed = false,
 }: {
   isAllAccounts: boolean;
   isDesktopApp: boolean;
   onSelectAccount: (accountId: string) => void;
   onSelectAll: () => void;
-  variant: "compact" | "sidebar";
   /** Icon-only rail: the trigger shrinks to the account avatar. */
   collapsed?: boolean;
 }) {
@@ -81,14 +78,7 @@ export const MailAccountSwitcher = memo(function MailAccountSwitcher({
   }
 
   return (
-    <div
-      className={cn(
-        "shrink-0 border-border border-t pt-2",
-        variant === "compact"
-          ? "bg-background px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] lg:hidden"
-          : "mt-2 hidden lg:block",
-      )}
-    >
+    <div className="mt-2 shrink-0 border-border border-t pt-2">
       <DropdownMenu>
         <RailTooltip label={collapsed ? activeLabel : null}>
           <DropdownMenuTrigger asChild>
@@ -100,18 +90,12 @@ export const MailAccountSwitcher = memo(function MailAccountSwitcher({
               label={activeLabel}
               email={activeEmail}
               collapsed={collapsed}
-              compact={variant === "compact"}
             />
           </DropdownMenuTrigger>
         </RailTooltip>
         <DropdownMenuContent
           align="start"
-          className={cn(
-            "rounded-2xl p-2 shadow-xl",
-            variant === "compact"
-              ? "w-[calc(100vw-1.5rem)]"
-              : "w-[--radix-dropdown-menu-trigger-width] min-w-72",
-          )}
+          className="w-[--radix-dropdown-menu-trigger-width] min-w-72 rounded-2xl p-2 shadow-xl"
           side="top"
           sideOffset={8}
         >

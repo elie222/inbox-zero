@@ -201,6 +201,14 @@ export const MailShellSidebar = memo(function MailShellSidebar({
     onNavigate();
     onMobileNavOpenChange(false);
   };
+  const selectAccountFromSheet = (accountId: string) => {
+    onMobileNavOpenChange(false);
+    onSelectAccount(accountId);
+  };
+  const selectAllAccountsFromSheet = () => {
+    onMobileNavOpenChange(false);
+    onSelectAllAccounts();
+  };
   const composeFromSheet = () => {
     onMobileNavOpenChange(false);
     openCompose();
@@ -253,9 +261,10 @@ export const MailShellSidebar = memo(function MailShellSidebar({
           <MailAccountSwitcher
             isDesktopApp={isDesktopApp}
             isAllAccounts={isAllAccounts}
-            onSelectAccount={onSelectAccount}
-            onSelectAll={onSelectAllAccounts}
-            variant="sidebar"
+            onSelectAccount={inSheet ? selectAccountFromSheet : onSelectAccount}
+            onSelectAll={
+              inSheet ? selectAllAccountsFromSheet : onSelectAllAccounts
+            }
             collapsed={collapsed}
           />
         </>

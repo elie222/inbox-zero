@@ -18,7 +18,6 @@ import { parseAsString, useQueryState, useQueryStates } from "nuqs";
 import { toast } from "sonner";
 import { ListToolbar } from "@/app/(app)/[emailAccountId]/mail/ListToolbar";
 import { getMailSearchFolders } from "@/app/(app)/[emailAccountId]/mail/outlook-folder-list";
-import { MailAccountSwitcher } from "@/app/(app)/[emailAccountId]/mail/MailAccountSwitcher";
 import {
   getMailNavPath,
   MAIL_SCHEDULED_TYPE,
@@ -1432,15 +1431,6 @@ export function MailShell() {
 
   return (
     <MailProductFrame
-      accountSwitcher={
-        <MailAccountSwitcher
-          isDesktopApp={isDesktopApp}
-          isAllAccounts={isAllAccounts}
-          onSelectAccount={selectAccount}
-          onSelectAll={selectAllAccounts}
-          variant="compact"
-        />
-      }
       floating={senderCommandsPanel}
       dialogs={labelPickerDialog}
     >
