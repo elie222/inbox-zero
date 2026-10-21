@@ -277,6 +277,7 @@ export function MailSidebar({
 
       <ShortcutTooltip
         shortcuts={[{ id: "compose", label: "Compose" }]}
+        showShortcutLabels={collapsed}
         side={collapsed ? "right" : "bottom"}
       >
         {collapsed ? (
