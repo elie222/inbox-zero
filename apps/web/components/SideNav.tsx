@@ -305,7 +305,7 @@ export function SideNav({
     [showMailNav],
   );
 
-  const { state } = useSidebar();
+  const { state, isMobile } = useSidebar();
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -313,7 +313,8 @@ export function SideNav({
         <AppSidebarHeader
           active="assistant"
           emailAccountId={navigation.emailAccountId}
-          collapsed={!state.includes("left-sidebar")}
+          // The phone sheet always shows the full sidebar.
+          collapsed={!isMobile && !state.includes("left-sidebar")}
         />
         <AccountSwitcher />
       </SidebarHeader>
