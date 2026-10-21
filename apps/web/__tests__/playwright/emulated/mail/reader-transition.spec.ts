@@ -305,7 +305,11 @@ test("keeps the reader complete during rapid navigation and archive bursts", asy
         blank:
           !body.trim() ||
           bodies.some((frame) => frame.getBoundingClientRect().height <= 1),
-        mismatch: Boolean(body.trim()) && !body.includes(`Body for ${subject}`),
+        mismatch: bodies.some(
+          (frame) =>
+            frame.contentDocument?.querySelector("p")?.textContent?.trim() !==
+            `Body for ${subject}`,
+        ),
         unfinished: bodies.some((frame) => frame.dataset.emailReady !== "true"),
       });
       if (!capture.stopped) requestAnimationFrame(sample);
