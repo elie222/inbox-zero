@@ -45,11 +45,10 @@ does not belong to these changes. Use a public-safe `feat/`, `fix/`, or `chore/`
 name unless repository instructions require another prefix.
 
 Before pushing, read the current branch name even if you did not choose it;
-tools can name a branch from the user's request. If it contains personal data
-(an email, a person's name, a username, a customer or company name, a domain),
-push under a public-safe remote name instead:
-`git push -u origin HEAD:<safe-name>`, then pass `--head <safe-name>` to
-`gh pr create`.
+tools can name a branch from the user's request. If it contains anything the
+Boundaries above rule out (an email, a person's name, a username, a customer or
+company name, a domain, an account ID, a token), rename the local branch to a
+public-safe name with `git branch -m <safe-name>` before the first push.
 
 Respect the user's staged selection. Otherwise stage explicit paths, never
 `git add .`:
