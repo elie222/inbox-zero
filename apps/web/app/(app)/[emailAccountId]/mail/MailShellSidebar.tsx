@@ -1,6 +1,12 @@
 "use client";
 
-import { type CSSProperties, memo, useCallback, useRef } from "react";
+import {
+  type CSSProperties,
+  memo,
+  useCallback,
+  useEffect,
+  useRef,
+} from "react";
 import { toast } from "sonner";
 import { MailAccountSwitcher } from "@/app/(app)/[emailAccountId]/mail/MailAccountSwitcher";
 import {
@@ -196,6 +202,19 @@ export const MailShellSidebar = memo(function MailShellSidebar({
       terminology.label.singularCapitalized,
     ],
   );
+
+  // The panel's overlay isn't covered by lg:hidden, so close the panel once
+  // the window is wide enough for the rail.
+  useEffect(() => {
+    if (!isMobileNavOpen) return;
+    const wide = window.matchMedia("(min-width: 1024px)");
+    const closeWhenWide = () => {
+      if (wide.matches) onMobileNavOpenChange(false);
+    };
+    closeWhenWide();
+    wide.addEventListener("change", closeWhenWide);
+    return () => wide.removeEventListener("change", closeWhenWide);
+  }, [isMobileNavOpen, onMobileNavOpenChange]);
 
   const navigateFromSheet = () => {
     onNavigate();
