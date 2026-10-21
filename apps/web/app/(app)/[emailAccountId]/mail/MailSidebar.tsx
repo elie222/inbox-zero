@@ -31,6 +31,7 @@ import type { MailboxLabelCount } from "@/utils/mail-engine/label-count-targets"
 import { Tooltip as ShortcutTooltip } from "@/components/Tooltip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SidebarRailToggle } from "@/components/SidebarRailToggle";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import {
   Tooltip,
@@ -261,14 +262,14 @@ export function MailSidebar({
   return (
     <aside
       className={cn(
-        "flex w-[236px] shrink-0 flex-col overflow-hidden border-border border-r bg-sidebar pt-3 pb-2.5",
-        collapsed ? "px-1.5" : "px-2.5",
+        "flex w-[236px] shrink-0 flex-col overflow-hidden border-border border-r bg-sidebar pb-2.5",
+        // Collapsed, the padding matches the app sidebar's rail.
+        collapsed ? "px-2 pt-2" : "px-2.5 pt-3",
         className,
       )}
     >
-      {/* Collapsed, the toggle moves beside the traffic lights (`MailTitlebarNav`). */}
       {collapsed ? (
-        <div data-desktop-mac-titlebar-spacer className="shrink-0" />
+        <SidebarRailToggle name="left-sidebar" />
       ) : (
         <div className="mb-2.5 flex shrink-0 items-center gap-1">
           <Link
@@ -298,7 +299,7 @@ export function MailSidebar({
             size="icon"
             onClick={onCompose}
             aria-label="Compose"
-            className="mb-3.5 size-10 shrink-0 self-center rounded-xl"
+            className="mb-2 size-8 shrink-0 self-center rounded-lg"
           >
             <PenLineIcon className="size-4" />
           </Button>

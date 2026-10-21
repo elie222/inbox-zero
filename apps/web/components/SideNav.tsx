@@ -68,6 +68,7 @@ import { prefixPath } from "@/utils/path";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { NavUser } from "@/components/NavUser";
 import { PremiumCard } from "@/components/PremiumCard";
+import { SidebarRailToggle } from "@/components/SidebarRailToggle";
 import { FeedbackSidebarButton } from "@/components/FeedbackDialog";
 import { TEAM_HREF, useTeamNav } from "@/components/team-comments/use-team-nav";
 
@@ -325,9 +326,7 @@ export function SideNav({
             <SidebarTrigger name="left-sidebar" className="ml-auto" />
           </div>
         ) : (
-          <div data-desktop-mac-titlebar-spacer className="pb-2">
-            <SidebarTrigger name="left-sidebar" />
-          </div>
+          <SidebarRailToggle name="left-sidebar" />
         )}
         <AccountSwitcher />
       </SidebarHeader>

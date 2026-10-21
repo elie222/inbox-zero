@@ -295,10 +295,11 @@
   }
 }
 
-/* Mac desktop shell: leave the traffic-light row empty. Height is set on
+/* Mac desktop shell: leave the traffic-light row empty. Sizes are set on
    :root by the Electron shell (and by html[data-mac-desktop] before paint).
    Do not require the html flag here — hydration can remove it. */
 html[data-mac-desktop] {
+  --desktop-traffic-lights-width: 78px;
   --desktop-traffic-lights-height: 52px;
 }
 

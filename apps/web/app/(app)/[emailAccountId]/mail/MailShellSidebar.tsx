@@ -16,7 +16,6 @@ import type {
 } from "@/app/(app)/[emailAccountId]/mail/MailboxItemContextMenu";
 import {
   MAIL_SIDEBAR_DEFAULT_WIDTH,
-  MAIL_SIDEBAR_RAIL_WIDTH,
   MAIL_SIDEBAR_WIDTH_BOUNDS,
   MAIL_SIDEBAR_WIDTH_COOKIE,
 } from "@/app/(app)/[emailAccountId]/mail/panel-widths";
@@ -200,7 +199,6 @@ export const MailShellSidebar = memo(function MailShellSidebar({
       style={
         {
           "--sidebar-width": `var(--mail-sidebar-width, ${MAIL_SIDEBAR_DEFAULT_WIDTH}px)`,
-          "--sidebar-width-icon": `${MAIL_SIDEBAR_RAIL_WIDTH}px`,
         } as CSSProperties
       }
     >

@@ -29,7 +29,6 @@ import {
   Trash2Icon,
   XIcon,
 } from "lucide-react";
-import { MailTitlebarNav } from "@/app/(app)/[emailAccountId]/mail/MailTitlebarNav";
 import { MailSearchFiltersForm } from "@/app/(app)/[emailAccountId]/mail/MailSearchFilters";
 import { OutlookSearchFiltersForm } from "@/app/(app)/[emailAccountId]/mail/OutlookSearchFilters";
 import {
@@ -46,6 +45,7 @@ import { parseMailSearchQuery } from "@/app/(app)/[emailAccountId]/mail/mail-sea
 import { parseOutlookSearchQuery } from "@/app/(app)/[emailAccountId]/mail/outlook-search-query";
 import type { MailLayoutMode } from "@/app/(app)/[emailAccountId]/mail/types";
 import { Tooltip } from "@/components/Tooltip";
+import { useSidebar } from "@/components/ui/sidebar";
 import {
   Popover,
   PopoverAnchor,
@@ -118,10 +118,18 @@ export const ListToolbar = memo(function ListToolbar({
   onClearSelection,
 }: ListToolbarProps) {
   const LayoutIcon = layout === "split" ? ColumnsIcon : RowsIcon;
+  const { state } = useSidebar();
+  const isSidebarCollapsed = !state.includes("left-sidebar");
 
   return (
-    <MailListToolbarSurface>
-      <MailTitlebarNav />
+    <MailListToolbarSurface
+      className={cn(
+        // The collapsed rail is narrower than the mac traffic lights, so the
+        // toolbar starts after them.
+        isSidebarCollapsed &&
+          "lg:pl-[max(0.75rem,calc(var(--desktop-traffic-lights-width,0px)-2.5rem))]",
+      )}
+    >
       {selectAll}
 
       {/* Selection swaps the toolbar's controls in place so the list never
