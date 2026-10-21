@@ -52,13 +52,15 @@ test("archives from the keyboard with immediate feedback and supports undo", asy
       (event) => {
         if (event.key !== "e") return;
         const startedAt = performance.now();
-        const row = Array.from(
-          document.querySelectorAll('[role="option"]'),
-        ).find((element) =>
+        const rows = Array.from(
+          document.querySelectorAll('[role="listbox"] [role="option"]'),
+        );
+        const row = rows.find((element) =>
           element.textContent?.includes("Archive Action Message"),
         )!;
         const rowKey = row.parentElement!.getAttribute("data-mail-thread-key")!;
-        const nextKey = row.parentElement!.nextElementSibling!.getAttribute(
+        const nextRow = rows[rows.indexOf(row) + 1];
+        const nextKey = nextRow.parentElement!.getAttribute(
           "data-mail-thread-key",
         )!;
         const rowSelector = `[data-mail-thread-key="${CSS.escape(rowKey)}"]`;
