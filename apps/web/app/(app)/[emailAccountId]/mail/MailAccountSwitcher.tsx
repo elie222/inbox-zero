@@ -4,6 +4,7 @@ import { MailAccountSwitcherTrigger } from "@inboxzero/mail-ui/MailAccountSwitch
 import { memo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
+  CheckIcon,
   ChevronsUpDownIcon,
   PlusIcon,
   SettingsIcon,
@@ -122,9 +123,10 @@ export const MailAccountSwitcher = memo(function MailAccountSwitcher({
                   onSelect={onSelectAll}
                 >
                   <AllAccountsIcon />
-                  <span className="font-medium">All accounts</span>
+                  <span className="flex-1 font-medium">All accounts</span>
+                  {isAllAccounts && <CurrentAccountCheck />}
                   {isDesktopApp && (
-                    <Kbd className="ml-auto shrink-0">
+                    <Kbd className="shrink-0">
                       {getShortcutHint("switchAllAccounts")}
                     </Kbd>
                   )}
@@ -148,6 +150,7 @@ export const MailAccountSwitcher = memo(function MailAccountSwitcher({
           {data.emailAccounts.map((account, index) => (
             <AccountItem
               account={account}
+              isActive={!isAllAccounts && account.id === emailAccount?.id}
               isDesktopApp={isDesktopApp}
               key={account.id}
               onSelect={onSelectAccount}
@@ -192,11 +195,13 @@ export const MailAccountSwitcher = memo(function MailAccountSwitcher({
 
 function AccountItem({
   account,
+  isActive,
   isDesktopApp,
   onSelect,
   shortcutKey,
 }: {
   account: GetEmailAccountsResponse["emailAccounts"][number];
+  isActive: boolean;
   isDesktopApp: boolean;
   onSelect: (accountId: string) => void;
   shortcutKey: string | undefined;
@@ -245,6 +250,7 @@ function AccountItem({
           </span>
         ) : null}
       </span>
+      {isActive && <CurrentAccountCheck />}
       {shortcutKey && (
         <Kbd className="shrink-0">
           {formatShortcutKeys({
@@ -255,6 +261,10 @@ function AccountItem({
       )}
     </DropdownMenuItem>
   );
+}
+
+function CurrentAccountCheck() {
+  return <CheckIcon aria-label="Current account" className="size-4 shrink-0" />;
 }
 
 function AllAccountsIcon() {
