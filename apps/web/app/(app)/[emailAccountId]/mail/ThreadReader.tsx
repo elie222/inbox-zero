@@ -28,6 +28,7 @@ import { useHiddenDraftMessageIds } from "@/hooks/useHiddenDraftMessageIds";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
 import { PublisherDiscussion } from "@/components/team-comments/PublisherDiscussion";
 import type { OutgoingThreadMessage } from "@/utils/mail-engine/conversation-thread";
+import { getConversationSubject } from "@/utils/email/subject";
 
 const SenderContextPanel = dynamic(
   () =>
@@ -194,7 +195,11 @@ export function ThreadReader({
       onBackToInbox={onBackToInbox}
       onRemoveLabel={onRemoveLabel}
       subject={
-        translatedSubject ?? headerMessage?.headers.subject ?? "Conversation"
+        translatedSubject ??
+        getConversationSubject(
+          thread?.messages.length ? thread.messages : messages,
+        ) ??
+        "Conversation"
       }
     />
   );
