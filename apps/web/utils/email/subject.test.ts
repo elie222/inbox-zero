@@ -20,6 +20,15 @@ describe("getConversationSubject", () => {
     ).toBe("Project update");
   });
 
+  it("skips a trashed first message, as the mailbox list does", () => {
+    expect(
+      getConversationSubject([
+        message("Project update", ["TRASH"]),
+        message("Re: Project update", ["INBOX"]),
+      ]),
+    ).toBe("Re: Project update");
+  });
+
   it("uses the latest draft when the conversation has nothing else", () => {
     expect(
       getConversationSubject([

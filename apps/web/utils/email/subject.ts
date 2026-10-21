@@ -20,14 +20,18 @@ export function formatReplySubject(subject: string): string {
 
 /**
  * A conversation is titled by its first message, as Gmail and Outlook do, so a
- * reply's "Re:" subject never renames it. A draft only titles a conversation
- * that has nothing else. Expects messages oldest first.
+ * reply's "Re:" subject never renames it. Drafts and trashed messages only
+ * title a conversation that has nothing else, matching the mail engine's list.
+ * Expects messages oldest first.
  */
 export function getConversationSubject(
   messages: Array<{ headers: { subject?: string }; labelIds?: string[] }>,
 ) {
   const message =
-    messages.find((item) => !item.labelIds?.includes(GmailLabel.DRAFT)) ??
-    messages.at(-1);
+    messages.find(
+      (item) =>
+        !item.labelIds?.includes(GmailLabel.DRAFT) &&
+        !item.labelIds?.includes(GmailLabel.TRASH),
+    ) ?? messages.at(-1);
   return message?.headers.subject;
 }
