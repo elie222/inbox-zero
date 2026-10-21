@@ -394,6 +394,30 @@ describe("backend mailbox source", () => {
 });
 
 describe("backend operation executor", () => {
+  it("treats an unstructured server failure as uncertain instead of throwing", async () => {
+    const executor = createBackendOperationExecutor({
+      accountId: "acc-1",
+      request: async () => ({ status: 504, json: null }),
+    });
+    await expect(
+      executor.execute({
+        operation: {
+          key: { accountId: "acc-1", operationId: "op-1" },
+          session: { accountId: "acc-1", generation: "g1" },
+          authority: "backend",
+          payloadHash: "hash",
+          intent: {
+            kind: "metadata",
+            targets: [{ accountId: "acc-1", messageId: "m1" }],
+            change: { kind: "archive" },
+          },
+        },
+        attemptId: "attempt-1",
+        signal: new AbortController().signal,
+      }),
+    ).resolves.toEqual({ status: "uncertain", receiptId: null });
+  });
+
   it("waits out a rate-limit rejection that came before the operation ran", async () => {
     const executor = createBackendOperationExecutor({
       accountId: "acc-1",

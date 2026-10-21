@@ -473,8 +473,8 @@ export function createBackendOperationExecutor(input: {
         }),
         signal,
       });
-      const error = readExecutionError(response);
-      if (error) return mapExecutionError(error);
+      const failure = executionFailure(response);
+      if (failure) return failure;
       return operationAdmitResultSchema.parse(response.json);
     },
     async inspect({ operation, receiptId, signal }) {
@@ -491,8 +491,8 @@ export function createBackendOperationExecutor(input: {
         }),
         signal,
       });
-      const error = readExecutionError(response);
-      if (error) return mapExecutionError(error);
+      const failure = executionFailure(response);
+      if (failure) return failure;
       return operationAdmitResultSchema.parse(response.json);
     },
     async cancel({ operation, signal }) {
@@ -622,14 +622,17 @@ function mapReadError(error: Pick<MailHttpError, "error">) {
 
 // Auth and rate-limit middleware reject before the handler runs, so their
 // unstructured answers mean the operation was never dispatched. Any other
-// unstructured failure may have come after the provider call.
-function readExecutionError(response: { status: number; json: unknown }) {
+// unstructured failure may have come after the provider call, so it is
+// uncertain and settles through inspection.
+function executionFailure(response: { status: number; json: unknown }) {
+  if (response.status < 400) return null;
   const structured = parseError(response);
-  if (structured) return structured;
+  if (structured) return mapExecutionError(structured);
   if (response.status === 401 || response.status === 429) {
-    return readError(response);
+    const error = readError(response);
+    if (error) return mapExecutionError(error);
   }
-  return null;
+  return { status: "uncertain" as const, receiptId: null };
 }
 
 function mapExecutionError(error: Pick<MailHttpError, "error">) {
