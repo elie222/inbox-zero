@@ -38,6 +38,11 @@ type QueueReaderEmailOptions = {
   emailAccountId: string;
   messageIds: string[];
   online: boolean;
+  /**
+   * Called with the send's operation id just before it can appear in the
+   * thread. What it returns is called if the send is not admitted.
+   */
+  onSubmitting?: (operationId: string) => () => void;
   onQueued?: (operationId: string) => Promise<void>;
   mutationId?: string;
   holdForUndo?: boolean;
@@ -82,6 +87,7 @@ async function queueReaderEmailOnce(
     emailAccountId,
     messageIds,
     online,
+    onSubmitting,
     onQueued,
     holdForUndo,
     providerDraftMessageIds,
@@ -107,17 +113,24 @@ async function queueReaderEmailOnce(
   const undoHoldUntil = holdForUndo
     ? getUndoSendHoldUntil(online, nowMs)
     : undefined;
-  const admission = await client.submitSend({
-    commandId,
-    conversationId: threadId,
-    draft: { accountId: emailAccountId, draftId },
-    draftRevision,
-    notBeforeMs: !online ? nowMs + OFFLINE_DISPATCH_HOLD_MS : undoHoldUntil,
-    replyTo: messageIds[0]
-      ? { accountId: emailAccountId, messageId: messageIds[0] }
-      : null,
-  });
+  const revertSubmitting = onSubmitting?.(commandId);
+  const admission = await client
+    .submitSend({
+      commandId,
+      conversationId: threadId,
+      draft: { accountId: emailAccountId, draftId },
+      draftRevision,
+      notBeforeMs: !online ? nowMs + OFFLINE_DISPATCH_HOLD_MS : undoHoldUntil,
+      replyTo: messageIds[0]
+        ? { accountId: emailAccountId, messageId: messageIds[0] }
+        : null,
+    })
+    .catch((error: unknown) => {
+      revertSubmitting?.();
+      throw error;
+    });
   if (admission.status === "rejected") {
+    revertSubmitting?.();
     const copy = admissionRejectionCopy(admission.code);
     if (!copy && admission.code === "invalid") {
       throw new ConflictingSendError();

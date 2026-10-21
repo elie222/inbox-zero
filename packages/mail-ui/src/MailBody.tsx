@@ -9,6 +9,7 @@ import {
 import type { MessageAttachmentDescriptor } from "@inboxzero/mail-core/messages";
 import type { MailUiHost } from "./host";
 import { prepareInlineImages } from "./prepare-inline-images";
+import { linkifyPlainText } from "./linkify";
 import { sanitizeMailHtml } from "./sanitize-html";
 
 const SANS_FONT_STACK = `ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`;
@@ -148,7 +149,7 @@ export function MailMessageBody({
     );
   }
 
-  return <MailPlainTextBody segments={[{ type: "text", text: text ?? "" }]} />;
+  return <MailPlainTextBody segments={linkifyPlainText(text ?? "")} />;
 }
 
 export function MailPlainTextBody({

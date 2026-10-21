@@ -13,6 +13,9 @@ import {
 
 // A send goes out once its 30-second undo window closes.
 export const UNDO_WINDOW_SEND_TIMEOUT_MS = 60_000;
+// A sent reply's row stays hidden until it takes over from its composer.
+const VISIBLE_THREAD_MESSAGE =
+  'li[data-thread-message-id]:not([aria-hidden="true"])';
 const DEFAULT_SPLIT_RULE_ID = "playwright-default-split-rule";
 const DEFAULT_SPLIT_ACTION_ID = "playwright-default-split-action";
 const DEFAULT_SPLIT_LABEL_ID = "Label_project";
@@ -156,22 +159,25 @@ export async function readLatestMailMutation(
  * composer, so a check can see the frames a screenshot would miss.
  */
 export async function watchReplyHandoff(page: Page, replyText: string) {
-  const rowsBefore = await page.locator("li[data-thread-message-id]").count();
-  await page.evaluate((text) => {
-    const frames: ReplyHandoffFrame[] = [];
-    const state = window as unknown as ReplyHandoffWindow;
-    state.__replyHandoff = { frames, raf: 0 };
-    const sample = () => {
-      frames.push({
-        composer: Array.from(
-          document.querySelectorAll('[contenteditable="true"]'),
-        ).some((element) => element.textContent?.includes(text)),
-        rows: document.querySelectorAll("li[data-thread-message-id]").length,
-      });
-      state.__replyHandoff.raf = requestAnimationFrame(sample);
-    };
-    sample();
-  }, replyText);
+  const rowsBefore = await page.locator(VISIBLE_THREAD_MESSAGE).count();
+  await page.evaluate(
+    ({ text, selector }) => {
+      const frames: ReplyHandoffFrame[] = [];
+      const state = window as unknown as ReplyHandoffWindow;
+      state.__replyHandoff = { frames, raf: 0 };
+      const sample = () => {
+        frames.push({
+          composer: Array.from(
+            document.querySelectorAll('[contenteditable="true"]'),
+          ).some((element) => element.textContent?.includes(text)),
+          rows: document.querySelectorAll(selector).length,
+        });
+        state.__replyHandoff.raf = requestAnimationFrame(sample);
+      };
+      sample();
+    },
+    { text: replyText, selector: VISIBLE_THREAD_MESSAGE },
+  );
   return {
     rowsBefore,
     stop: () =>
@@ -193,6 +199,9 @@ export function expectSeamlessReplyHandoff(
 ) {
   const firstClosed = frames.findIndex((frame) => !frame.composer);
   expect(firstClosed).toBeGreaterThanOrEqual(0);
+  expect(
+    frames.filter((frame) => frame.composer && frame.rows > rowsBefore),
+  ).toEqual([]);
   expect(
     frames.filter((frame) => !frame.composer && frame.rows <= rowsBefore),
   ).toEqual([]);
