@@ -5,7 +5,6 @@ import Link from "next/link";
 import { getMailSidebarRowPresentation } from "@inboxzero/mail-ui/MailSidebarRow";
 import {
   ArchiveIcon,
-  ArrowLeftIcon,
   BellIcon,
   ChevronDownIcon,
   ChevronRightIcon,
@@ -31,8 +30,7 @@ import type { MailboxLabelCount } from "@/utils/mail-engine/label-count-targets"
 import { Tooltip as ShortcutTooltip } from "@/components/Tooltip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { SidebarRailToggle } from "@/components/SidebarRailToggle";
-import { SidebarTrigger } from "@/components/ui/sidebar";
+import { AppSidebarHeader } from "@/components/AppSidebarHeader";
 import {
   Tooltip,
   TooltipContent,
@@ -78,7 +76,8 @@ export type MailSidebarProps = {
   categoryHeading: string;
   labelsHeading: string;
   labelSingular: string;
-  backToAppHref: string;
+  /** Builds the app section links in the shared sidebar header. */
+  emailAccountId: string;
   onCompose: () => void;
   onCreateLabel: (name: string) => void;
   onEditMailboxItem: (edit: MailboxItemEdit) => Promise<boolean>;
@@ -177,7 +176,7 @@ export function MailSidebar({
   categoryHeading,
   labelsHeading,
   labelSingular,
-  backToAppHref,
+  emailAccountId,
   onCompose,
   onCreateLabel,
   onEditMailboxItem,
@@ -262,32 +261,16 @@ export function MailSidebar({
   return (
     <aside
       className={cn(
-        "flex w-[236px] shrink-0 flex-col overflow-hidden border-border border-r bg-sidebar pb-2.5",
-        // Collapsed, the padding matches the app sidebar's rail.
-        collapsed ? "px-2 pt-2" : "px-2.5 pt-3",
+        // The padding matches the app sidebar so the shared header lines up.
+        "flex w-[236px] shrink-0 flex-col overflow-hidden border-border border-r bg-sidebar px-2 pt-2 pb-2.5",
         className,
       )}
     >
-      {collapsed ? (
-        <SidebarRailToggle name="left-sidebar" />
-      ) : (
-        <div className="mb-2.5 flex shrink-0 items-center gap-1">
-          <Link
-            href={backToAppHref}
-            data-desktop-mac-end
-            className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-muted-foreground text-xs hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <ArrowLeftIcon className="size-3.5 shrink-0" />
-            <span className="flex-1 truncate" data-hide-on-desktop-mac>
-              Inbox Zero
-            </span>
-          </Link>
-          <SidebarTrigger
-            name="left-sidebar"
-            className="size-6 shrink-0 text-muted-foreground"
-          />
-        </div>
-      )}
+      <AppSidebarHeader
+        active="mail"
+        emailAccountId={emailAccountId}
+        collapsed={collapsed}
+      />
 
       <ShortcutTooltip
         shortcuts={[{ id: "compose", label: "Compose" }]}

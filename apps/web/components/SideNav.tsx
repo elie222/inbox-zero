@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
-import Link from "next/link";
 import { useQueryState } from "nuqs";
 import { getEmailTerminology } from "@/utils/terminology";
 import {
@@ -32,7 +31,6 @@ import {
   Users2Icon,
   ZapIcon,
 } from "lucide-react";
-import { Logo } from "@/components/Logo";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
 import {
   Sidebar,
@@ -46,7 +44,6 @@ import {
   SidebarMenuItem,
   SidebarMenu,
   useSidebar,
-  SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { SetupProgressCard } from "@/components/SetupProgressCard";
 import { DesktopUpdateMenuItem } from "@/components/DesktopUpdateMenuItem";
@@ -68,7 +65,7 @@ import { prefixPath } from "@/utils/path";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { NavUser } from "@/components/NavUser";
 import { PremiumCard } from "@/components/PremiumCard";
-import { SidebarRailToggle } from "@/components/SidebarRailToggle";
+import { AppSidebarHeader } from "@/components/AppSidebarHeader";
 import { FeedbackSidebarButton } from "@/components/FeedbackDialog";
 import { TEAM_HREF, useTeamNav } from "@/components/team-comments/use-team-nav";
 
@@ -97,17 +94,12 @@ export const useNavigation = () => {
   const manageItems: NavItem[] = useMemo(
     () => [
       {
-        name: "Inbox",
-        href: prefixPath(currentEmailAccountId, "/mail"),
-        icon: InboxIcon,
-      },
-      {
         name: "Chat",
         href: prefixPath(currentEmailAccountId, "/assistant"),
         icon: MessageSquareIcon,
       },
       {
-        name: "Assistant",
+        name: "Rules",
         href: prefixPath(currentEmailAccountId, "/automation"),
         icon: SparklesIcon,
       },
@@ -216,7 +208,7 @@ export const useNavigation = () => {
   );
 
   return {
-    homeHref: prefixPath(currentEmailAccountId, "/automation"),
+    emailAccountId: currentEmailAccountId,
     manageItems,
     cleanupItems,
     moreItems,
@@ -318,16 +310,11 @@ export function SideNav({
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader className="gap-0 pb-0">
-        {state.includes("left-sidebar") ? (
-          <div className="flex items-center rounded-md pl-2 pr-0.5 py-3 text-foreground">
-            <Link href={navigation.homeHref} data-hide-on-desktop-mac>
-              <Logo className="h-3.5" />
-            </Link>
-            <SidebarTrigger name="left-sidebar" className="ml-auto" />
-          </div>
-        ) : (
-          <SidebarRailToggle name="left-sidebar" />
-        )}
+        <AppSidebarHeader
+          active="assistant"
+          emailAccountId={navigation.emailAccountId}
+          collapsed={!state.includes("left-sidebar")}
+        />
         <AccountSwitcher />
       </SidebarHeader>
 

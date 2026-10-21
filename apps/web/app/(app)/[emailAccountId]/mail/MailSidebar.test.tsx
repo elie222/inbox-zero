@@ -43,7 +43,7 @@ function sidebar(overrides: Partial<MailSidebarProps> = {}) {
       categoryHeading="Categories"
       labelsHeading="Labels"
       labelSingular="label"
-      backToAppHref="/automation"
+      emailAccountId="account-1"
       onNavigate={vi.fn()}
       onCompose={vi.fn()}
       onCreateLabel={vi.fn()}
@@ -78,7 +78,7 @@ describe("MailSidebar", () => {
     );
     expect(screen.queryByText("Sent")).toBeNull();
 
-    fireEvent.click(screen.getByText("Mail"));
+    fireEvent.click(screen.getByRole("button", { name: "Mail" }));
 
     expect(
       [
@@ -187,7 +187,7 @@ describe("MailSidebar", () => {
   it("leaves the extra views out of the combined inbox", () => {
     renderSidebar({ unified: true });
 
-    expect(screen.queryByText("Mail")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Mail" })).toBeNull();
     expect(screen.getByText("All inboxes")).toBeDefined();
   });
 });
