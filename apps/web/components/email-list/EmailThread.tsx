@@ -100,6 +100,30 @@ export function EmailThread({
   );
   const { data: sentMessageOpens } = useSentMessageOpens(threadId || null);
   const hiddenDraftMessageIds = useHiddenDraftMessageIds(emailAccountId);
+  // Concealed from the moment the send is submitted, because the thread can
+  // render its message before the composer learns the send was queued. The
+  // drafts shown at submit stay shown until then too: a send drops the mailbox
+  // draft it replaces, which would remove its composer before the message can
+  // take its place.
+  const [sentReplyHandoff, setSentReplyHandoff] = useState<{
+    operationId: string;
+    heldDrafts: ThreadMessage[];
+    release?: () => void;
+  }>();
+  const heldDrafts = sentReplyHandoff?.heldDrafts;
+  const threadMessages = useMemo(
+    () => (heldDrafts ? withHeldDrafts(messages, heldDrafts) : messages),
+    [messages, heldDrafts],
+  );
+  const shownHiddenDraftMessageIds = useMemo(
+    () =>
+      heldDrafts
+        ? hiddenDraftMessageIds.filter(
+            (id) => !heldDrafts.some((draft) => draft.id === id),
+          )
+        : hiddenDraftMessageIds,
+    [hiddenDraftMessageIds, heldDrafts],
+  );
   const organizedMessages = useMemo(
     (): Array<{
       message: ThreadMessage;
@@ -107,14 +131,19 @@ export function EmailThread({
       outgoing?: OutgoingThreadMessage;
     }> => [
       ...organizeThreadMessages(
-        withoutDraftMessages(withoutReplacedDrafts(messages, emailAccountId), [
-          ...localDrafts.flatMap(
-            (draft) => draft.content?.providerDraftMessageIds ?? [],
-          ),
-          ...hiddenDraftMessageIds,
-          // Opening a mailbox copy before the local lookup creates a second session.
-          ...(draftsLoading ? messages.map((message) => message.id) : []),
-        ]),
+        withoutDraftMessages(
+          withoutReplacedDrafts(threadMessages, emailAccountId),
+          [
+            ...localDrafts.flatMap(
+              (draft) => draft.content?.providerDraftMessageIds ?? [],
+            ),
+            ...shownHiddenDraftMessageIds,
+            // Opening a mailbox copy before the local lookup creates a second session.
+            ...(draftsLoading
+              ? threadMessages.map((message) => message.id)
+              : []),
+          ],
+        ),
       ),
       ...outgoing.map((item) => ({
         message: {
@@ -126,11 +155,11 @@ export function EmailThread({
       })),
     ],
     [
-      messages,
+      threadMessages,
       emailAccountId,
       localDrafts,
       draftsLoading,
-      hiddenDraftMessageIds,
+      shownHiddenDraftMessageIds,
       outgoing,
       userEmail,
     ],
@@ -232,16 +261,34 @@ export function EmailThread({
         ]),
       ),
     );
-  const [sentReplyHandoff, setSentReplyHandoff] = useState<{
-    operationId: string;
-    release: () => void;
-  }>();
+  const currentDrafts = () =>
+    messages.filter(
+      (message) =>
+        message.labelIds?.includes(GmailLabel.DRAFT) &&
+        !hiddenDraftMessageIds.includes(message.id),
+    );
+  const concealSentReply = (operationId: string) => {
+    setSentReplyHandoff({ operationId, heldDrafts: currentDrafts() });
+    return () =>
+      setSentReplyHandoff((current) =>
+        current?.operationId === operationId && !current.release
+          ? undefined
+          : current,
+      );
+  };
   const awaitSentReply = (operationId: string) =>
     new Promise<void>((release) =>
-      setSentReplyHandoff({ operationId, release }),
+      setSentReplyHandoff((current) => ({
+        operationId,
+        release,
+        heldDrafts:
+          current?.operationId === operationId
+            ? current.heldDrafts
+            : currentDrafts(),
+      })),
     );
   useEffect(() => {
-    if (!sentReplyHandoff) return;
+    if (!sentReplyHandoff?.release) return;
     const { operationId, release } = sentReplyHandoff;
     let frame = 0;
     const finish = () => {
@@ -434,6 +481,7 @@ export function EmailThread({
                   Boolean(sendOperationId) &&
                   sentReplyHandoff?.operationId === sendOperationId
                 }
+                concealSentReply={concealSentReply}
                 awaitSentReply={awaitSentReply}
                 onReplySent={() => {
                   // The sent reply lands below as the newest message; keep this
@@ -578,6 +626,12 @@ export function organizeThreadMessages(messages: ThreadMessage[]) {
       draftsByMessageId.get(message.id) ?? [],
     ),
   }));
+}
+
+function withHeldDrafts(messages: ThreadMessage[], held: ThreadMessage[]) {
+  const ids = new Set(messages.map((message) => message.id));
+  const missing = held.filter((draft) => !ids.has(draft.id));
+  return missing.length ? [...messages, ...missing] : messages;
 }
 
 // A saved draft's old and new Gmail messages can both be in the conversation

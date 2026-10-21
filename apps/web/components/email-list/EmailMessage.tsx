@@ -88,6 +88,7 @@ export function EmailMessage({
   replyAnchor,
   composerSessionMessageId,
   onReplySent,
+  concealSentReply,
   awaitSentReply,
   sendOperationId,
   concealed,
@@ -129,6 +130,8 @@ export function EmailMessage({
   composerSessionMessageId?: string;
   /** A reply or forward from this message just left its composer. */
   onReplySent?: () => void;
+  /** Hides a send's message as soon as it can reach the thread, before its composer hands off to it. */
+  concealSentReply?: (operationId: string) => () => void;
   /**
    * Resolves once a queued send's message is ready in the thread, so its
    * composer can stay up until then instead of leaving a gap.
@@ -441,6 +444,7 @@ export function EmailMessage({
               onRestore={() => setDraftDismissed(sessionMessageId, false)}
               onSendSuccess={onSendSuccess}
               onSent={onReplySent}
+              concealSentReply={concealSentReply}
               awaitSentReply={awaitSentReply}
               onMarkDone={onMarkDone}
               onDraftDiscarded={onDraftDiscarded}
@@ -475,6 +479,7 @@ export function EmailMessage({
               onRestoreCompose={onRestoreCompose}
               onSendSuccess={onSendSuccess}
               onSent={onReplySent}
+              concealSentReply={concealSentReply}
               awaitSentReply={awaitSentReply}
               onMarkDone={onMarkDone}
               onStartDiscard={onStartDiscard}
@@ -734,12 +739,14 @@ function ReplyPanel({
   replyAll = false,
   quote,
   onQuoteInserted,
+  concealSentReply,
   awaitSentReply,
 }: {
   message: ParsedMessage;
   refetch: () => void;
   onSendSuccess: (messageId: string, threadId: string) => void;
   onSent?: () => void;
+  concealSentReply?: (operationId: string) => () => void;
   awaitSentReply?: (operationId: string) => Promise<void>;
   onMarkDone?: () => void;
   onCloseCompose: () => void;
@@ -914,6 +921,7 @@ function ReplyPanel({
         draftKeyMessageId={replyTargetId}
         draftMode={composeMode}
         draftSessionId={draftSessionId}
+        onSubmitting={concealSentReply}
         onClose={(queuedOperationId?: string) => {
           // An offline send closes again once queued; the handoff closes it.
           if (handoffStarted.current) return;
