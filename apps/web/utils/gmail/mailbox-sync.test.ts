@@ -258,6 +258,42 @@ describe("getGmailMailboxSyncPage", () => {
     expect(gmail.users.getProfile).toHaveBeenCalled();
   });
 
+  it("rebuilds from snapshot when one history page names more messages than a sync page holds", async () => {
+    vi.mocked(getHistory).mockResolvedValue({
+      history: [
+        {
+          labelsRemoved: Array.from({ length: 1001 }, (_, index) => ({
+            message: { id: `bulk-${index}`, threadId: `thread-${index}` },
+          })),
+        },
+      ],
+      historyId: "200",
+    });
+    vi.mocked(getMessagesBatch).mockResolvedValue([]);
+    const gmail = {
+      users: {
+        getProfile: vi.fn().mockResolvedValue({ data: { historyId: "300" } }),
+        messages: { list: vi.fn().mockResolvedValue({ data: {} }) },
+      },
+    };
+
+    const page = await getGmailMailboxSyncPage({
+      gmail: gmail as never,
+      accessToken: "access-token",
+      logger,
+      cursor: encodeMailboxSyncCursor({
+        version: 1,
+        provider: "google",
+        phase: "delta",
+        historyId: "100",
+        after: "2026-07-01T00:00:00.000Z",
+      }),
+      limit: 100,
+    });
+
+    expect(page.reset).toBe(true);
+  });
+
   it("writes current labels for an archived message instead of deleting it", async () => {
     vi.mocked(getHistory).mockResolvedValue({
       history: [

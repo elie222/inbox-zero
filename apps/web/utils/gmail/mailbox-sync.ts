@@ -1,4 +1,5 @@
 import type { gmail_v1 } from "@googleapis/gmail";
+import { MAX_SYNC_PAGE_CHANGES } from "@inboxzero/mail-core/sync";
 import {
   compactMailboxSyncMessage,
   decodeMailboxSyncCursor,
@@ -73,6 +74,22 @@ export async function getGmailMailboxSyncPage({
     );
     const { upsertIds, deletedIds, changedThreadIds } =
       getGmailMailboxChangeIds(response.history ?? []);
+    // maxResults bounds history records, not messages, so a bulk label change
+    // can name more messages than one sync page may carry. The cursor can't
+    // split a record, so resync from a snapshot instead of failing forever.
+    if (upsertIds.length + deletedIds.size > MAX_SYNC_PAGE_CHANGES) {
+      logger.warn("Gmail history page too large, resetting mailbox sync", {
+        changeCount: upsertIds.length + deletedIds.size,
+      });
+      return getGmailSnapshotPage({
+        gmail,
+        accessToken,
+        logger,
+        after: new Date(decoded.after),
+        limit,
+        reset: true,
+      });
+    }
     const fetched = await getGmailSyncMessages({
       gmail,
       messageIds: upsertIds,
