@@ -71,7 +71,7 @@ function animateArchiveRow(key: string) {
   const animation = (ghost.firstElementChild ?? ghost).animate(
     [
       { transform: "translateX(0)", opacity: 1 },
-      { transform: "translateX(32px)", opacity: 0 },
+      { transform: "translateX(-32px)", opacity: 0 },
     ],
     { duration: 140, easing: "cubic-bezier(0.2, 0, 0, 1)", fill: "forwards" },
   );
