@@ -267,9 +267,9 @@ export function MailSidebar({
       )}
     >
       {collapsed ? (
-        // Tucks the toggle just under the mac traffic lights rather than
-        // clearing the whole titlebar row.
-        <div className="mb-2.5 flex shrink-0 justify-center pt-[max(0px,calc(var(--desktop-traffic-lights-height,0px)-24px))]">
+        // Starts the toggle right where the mac titlebar drag region ends, so
+        // all of it stays clickable.
+        <div className="mb-2.5 flex shrink-0 justify-center pt-[max(0px,calc(var(--desktop-traffic-lights-height,0px)-12px))]">
           <SidebarTrigger
             name="left-sidebar"
             className="size-8 text-muted-foreground"
