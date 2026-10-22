@@ -781,6 +781,53 @@ describe("createEmailProviderMailboxSource", () => {
     });
   });
 
+  it("starts the Gmail catch-up from history, not from the middle of a mailbox listing", async () => {
+    // Asking for one message from a mailbox with more than one returns a
+    // snapshot cursor that still has the rest of the listing to page through.
+    const getMailboxSyncPage = vi.fn().mockResolvedValue({
+      cursor: encodeMailboxSyncCursor({
+        version: 1,
+        provider: "google",
+        phase: "snapshot",
+        historyId: "1000",
+        after: "1970-01-01T00:00:00.000Z",
+        pageToken: "page-2",
+      }),
+      reset: true,
+      upsertedMessages: [],
+      deletedMessageIds: [],
+      hasMore: true,
+    });
+    const source = createEmailProviderMailboxSource({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        getMailboxSyncPage,
+      } as unknown as EmailProvider,
+    });
+
+    const bootstrap = await source.beginBootstrap({
+      session: { accountId: "acc-1", generation: "g1" },
+      requestId: "r-bootstrap",
+      signal: new AbortController().signal,
+      scope: { id: "primary", kind: "account", folderId: null },
+      afterMs: null,
+    });
+
+    expect(bootstrap.status).toBe("ok");
+    if (bootstrap.status !== "ok") throw new Error("expected ok");
+    const checkpoint = decodeMailboxSyncCursor(
+      bootstrap.value.catchUpFrom.checkpoint ?? "",
+      "google",
+    );
+    expect(checkpoint).toMatchObject({
+      phase: "delta",
+      historyId: "1000",
+      after: "1970-01-01T00:00:00.000Z",
+    });
+    expect(checkpoint).not.toHaveProperty("pageToken");
+  });
+
   it("stores a provider history cursor when enumeration finishes", async () => {
     const cursor = encodeMailboxSyncCursor({
       version: 1,
