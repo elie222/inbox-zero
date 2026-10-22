@@ -1,12 +1,20 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { prepareOutgoingInlineImages } from "./outgoing-inline-images";
 import {
   inlineImageCacheKey,
+  retainInlineImages,
+  storeLoadedInlineImage,
   withLoadedInlineImages,
 } from "./inline-image-cache";
 
-afterEach(() => vi.unstubAllGlobals());
+beforeEach(() => vi.useFakeTimers());
+
+afterEach(async () => {
+  await vi.runOnlyPendingTimersAsync();
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+});
 
 describe("outgoing inline images", () => {
   it("keeps an independent preview through the queued-to-confirmed message handoff", async () => {
@@ -52,6 +60,71 @@ describe("outgoing inline images", () => {
       ),
     ).toBe(html);
     expect(createObjectURL).toHaveBeenCalledWith(blob);
+  });
+
+  it.each([
+    false,
+    true,
+  ])("protects a new preview in a fully mounted cache (reader mounts: %s)", async (mountReader) => {
+    const revokeObjectURL = vi.fn();
+    vi.stubGlobal(
+      "URL",
+      class extends URL {
+        static createObjectURL = vi
+          .fn()
+          .mockReturnValue("blob:pending-preview");
+        static revokeObjectURL = revokeObjectURL;
+      },
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue({ ok: true, blob: async () => new Blob(["image"]) }),
+    );
+    const releaseMounted = Array.from({ length: 20 }, (_, index) => {
+      const messageId = `mounted-${mountReader}-${index}`;
+      const release = retainInlineImages(messageId);
+      storeLoadedInlineImage({
+        messageId,
+        contentId: "image",
+        objectUrl: `blob:${messageId}`,
+      });
+      return release;
+    });
+    let releaseReader: (() => void) | undefined;
+    try {
+      const publish = await prepareOutgoingInlineImages("acc-1", [
+        {
+          disposition: "inline",
+          contentId: "image",
+          previewUrl: "blob:composer-preview",
+        },
+      ]);
+      const operationId = `pending-${mountReader}`;
+      publish(operationId);
+      const key = inlineImageCacheKey("acc-1", "", operationId);
+      const html = '<img src="cid:image">';
+      expect(withLoadedInlineImages(key, html)).toContain(
+        'src="blob:pending-preview"',
+      );
+      if (mountReader) releaseReader = retainInlineImages(key);
+      await vi.advanceTimersByTimeAsync(30_000);
+      if (mountReader) {
+        expect(withLoadedInlineImages(key, html)).toContain(
+          'src="blob:pending-preview"',
+        );
+        expect(revokeObjectURL).not.toHaveBeenCalledWith(
+          "blob:pending-preview",
+        );
+      } else {
+        expect(withLoadedInlineImages(key, html)).toBe(html);
+        expect(revokeObjectURL).toHaveBeenCalledWith("blob:pending-preview");
+      }
+    } finally {
+      releaseReader?.();
+      for (const release of releaseMounted) release();
+    }
   });
 
   it("does not block sending when a local preview cannot be read", async () => {

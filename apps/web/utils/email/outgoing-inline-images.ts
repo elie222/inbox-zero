@@ -1,6 +1,7 @@
 import { normalizeContentId } from "@inboxzero/mail-ui/inline-images";
 import {
   inlineImageCacheKey,
+  retainInlineImages,
   storeLoadedInlineImage,
 } from "@/utils/email/inline-image-cache";
 
@@ -35,10 +36,16 @@ export async function prepareOutgoingInlineImages(
     }),
   );
   return (operationId: string) => {
+    if (!previews.some(Boolean)) return;
+    const messageId = inlineImageCacheKey(accountId, "", operationId);
+    // The outgoing row mounts after publication. A short lease bridges that
+    // gap; mounted readers retain their own reference after the lease expires.
+    const release = retainInlineImages(messageId);
+    setTimeout(release, 30_000);
     for (const preview of previews) {
       if (!preview) continue;
       storeLoadedInlineImage({
-        messageId: inlineImageCacheKey(accountId, "", operationId),
+        messageId,
         contentId: preview.contentId,
         objectUrl: URL.createObjectURL(preview.blob),
       });
