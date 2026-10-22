@@ -169,6 +169,7 @@ overrides:
   '@types/react-dom': 19.2.4
   '@xmldom/xmldom': 0.8.13
   axios: 1.16.1
+  dompurify: 3.4.17
   fast-xml-parser: 5.8.0
   ioredis: 6.0.0
   js-yaml: 3.14.2
@@ -8643,9 +8644,6 @@ packages:
   domhandler@5.0.3:
     resolution: {integrity: sha512-cgwlv/1iFQiFnU96XXgROh8xTeetsnJiDsTc7TYCLFd9+/WNkIqPTxiM/8pSd8VIrhXGTf1Ny1q1hquVqDJB5w==}
     engines: {node: '>= 4'}
-
-  dompurify@3.4.15:
-    resolution: {integrity: sha512-EUBjM+B+lkDE41iE82DDSCfkoPGfXx8IxFxPMjNzm/Uk4xDet77rTN9wqlxlVg71kK7XGuUMv6wUxJUwwv+Xyw==}
 
   dompurify@3.4.17:
     resolution: {integrity: sha512-B/pSlYVHQ58kqISD/yDjuJ1yfzI34m1gF4lAod2bwSRhiN4K5Cl3H8Af7hqB2PmTL911tdEudnnXn5FnhRoz0w==}
@@ -21831,10 +21829,6 @@ snapshots:
     dependencies:
       domelementtype: 2.3.0
 
-  dompurify@3.4.15:
-    optionalDependencies:
-      '@types/trusted-types': 2.0.7
-
   dompurify@3.4.17:
     optionalDependencies:
       '@types/trusted-types': 2.0.7
@@ -23307,7 +23301,7 @@ snapshots:
 
   isomorphic-dompurify@2.36.0(@noble/hashes@2.2.0)(supports-color@8.1.1):
     dependencies:
-      dompurify: 3.4.15
+      dompurify: 3.4.17
       jsdom: 28.1.0(@noble/hashes@2.2.0)(supports-color@8.1.1)
     transitivePeerDependencies:
       - '@noble/hashes'
@@ -25096,7 +25090,7 @@ snapshots:
       '@posthog/core': 1.59.1
       '@posthog/types': 1.416.0
       core-js: 3.49.0
-      dompurify: 3.4.15
+      dompurify: 3.4.17
       fflate: 0.4.8
       preact: 10.29.3
       query-selector-shadow-dom: 1.0.1
