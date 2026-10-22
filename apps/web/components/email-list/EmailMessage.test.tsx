@@ -329,7 +329,7 @@ describe("EmailMessage reply", () => {
       />,
     );
 
-    expect(screen.getByText("to me, Alex, Jane, Sam")).toBeTruthy();
+    expect(screen.getByText("me, Alex, Jane, Sam")).toBeTruthy();
   });
 });
 
