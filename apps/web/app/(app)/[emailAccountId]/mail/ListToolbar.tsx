@@ -129,9 +129,9 @@ export const ListToolbar = memo(function ListToolbar({
     <MailListToolbarSurface
       className={cn(
         // The collapsed rail is narrower than the mac traffic lights, so the
-        // toolbar starts after them.
+        // toolbar starts after them and the sidebar toggle lifted beside them.
         isSidebarCollapsed &&
-          "lg:pl-[max(0.75rem,calc(var(--desktop-traffic-lights-width,0px)-2.5rem))]",
+          "lg:pl-[max(0.75rem,calc(var(--desktop-traffic-lights-width,0px)-0.75rem))]",
       )}
     >
       <button
