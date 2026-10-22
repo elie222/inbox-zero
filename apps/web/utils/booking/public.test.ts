@@ -1020,8 +1020,14 @@ describe("public booking", () => {
         }
         return [
           {
-            start: ownEvent.start < windowStart ? windowStart : ownEvent.start,
-            end: ownEvent.end > windowEnd ? windowEnd : ownEvent.end,
+            start: (ownEvent.start < windowStart
+              ? windowStart
+              : ownEvent.start
+            ).toISOString(),
+            end: (ownEvent.end > windowEnd
+              ? windowEnd
+              : ownEvent.end
+            ).toISOString(),
           },
         ];
       },
