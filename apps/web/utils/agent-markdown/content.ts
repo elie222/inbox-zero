@@ -69,7 +69,7 @@ Contact sales for SSO, SCIM, on-premise deployment, and a dedicated account mana
 
 - [Pricing page](${base}/pricing)
 - [Product home](${base}/)
-- [Talk to sales](${base}/sales)
+- [Talk to sales](https://www.getinboxzero.com/sales)
 - [Agent resources](${base}/llms.txt)
 - [Documentation](${DOCS_ORIGIN}/)
 ${branding.supportEmail ? `- Support: ${branding.supportEmail}\n` : ""}`;
