@@ -2713,7 +2713,16 @@ async function postMessagingThreadMessage({
   logMeta?: Record<string, unknown>;
 }): Promise<void> {
   try {
-    await thread.post(message);
+    await thread.post(
+      thread.adapter.name === "teams"
+        ? Card({
+            children: message
+              .split("\n")
+              .filter(Boolean)
+              .map((line) => CardText(line)),
+          })
+        : message,
+    );
   } catch (error) {
     logger.error(errorLogMessage, {
       ...logMeta,
