@@ -34,6 +34,7 @@ import {
   toAbsoluteUrl,
 } from "@/utils/branding";
 import { isIndexingAllowed } from "@/utils/indexing";
+import { isMcpServerAvailable } from "@/utils/mcp/config";
 
 const aeonikFont = localFont({
   src: "../styles/aeonik-medium.woff",
@@ -177,6 +178,34 @@ export default async function RootLayout({
 
   return (
     <html lang="en" className="h-full" suppressHydrationWarning>
+      <head>
+        <link
+          rel="alternate"
+          type="text/plain"
+          href="/llms.txt"
+          title={`${BRAND_NAME} agent resources`}
+        />
+        <link
+          rel="help"
+          href="https://docs.getinboxzero.com/essentials/getting-started"
+          title="Getting started"
+        />
+        {env.NEXT_PUBLIC_EXTERNAL_API_ENABLED && (
+          <link
+            rel="service-desc"
+            type="application/vnd.oai.openapi+json;version=3.1"
+            href="/openapi.json"
+            title={`${BRAND_NAME} API`}
+          />
+        )}
+        {isMcpServerAvailable() && (
+          <link
+            rel="service-doc"
+            href="https://docs.getinboxzero.com/essentials/mcp"
+            title="Connect to the mailbox MCP server"
+          />
+        )}
+      </head>
       <body
         className={`h-full ${env.NEXT_PUBLIC_USE_AEONIK_FONT ? aeonikFont.variable : ""} ${geist.variable} font-sans antialiased`}
       >
