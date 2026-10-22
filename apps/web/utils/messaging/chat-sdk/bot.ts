@@ -2716,10 +2716,7 @@ async function postMessagingThreadMessage({
     await thread.post(
       thread.adapter.name === "teams"
         ? Card({
-            children: message
-              .split("\n")
-              .filter(Boolean)
-              .map((line) => CardText(line)),
+            children: [CardText(message)],
           })
         : message,
     );
