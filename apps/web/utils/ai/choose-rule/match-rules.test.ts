@@ -116,6 +116,72 @@ describe("matchesStaticRule", () => {
     expect(matchesStaticRule(rule, message, logger)).toBe(true);
   });
 
+  describe("body conditions on HTML-only emails", () => {
+    // Outlook returns most bodies as HTML only, and many senders send no
+    // text/plain part, so textPlain is empty for these messages.
+    const newsletterHtml = `<html><head><style>.footer { font-family: Arial; }</style></head>
+      <body><table><tr><td>
+        <p>Your weekly product digest is here.</p>
+        <p class="footer">You are receiving this email because you signed up for product updates and news from our team, so you can manage your email preferences or <a href="https://example.com/u/123">unsubscribe</a> at any time.</p>
+      </td></tr></table></body></html>`;
+
+    it("matches the visible text of an HTML-only email", () => {
+      const rule = getStaticRule({ body: "*unsubscribe*" });
+      const message = getMessage({
+        headers: getHeaders(),
+        textPlain: "",
+        textHtml: newsletterHtml,
+      });
+
+      expect(matchesStaticRule(rule, message, logger)).toBe(true);
+    });
+
+    it("matches a phrase inside a long paragraph", () => {
+      const rule = getStaticRule({ body: "*manage your email preferences*" });
+      const message = getMessage({
+        headers: getHeaders(),
+        textPlain: "",
+        textHtml: newsletterHtml,
+      });
+
+      expect(matchesStaticRule(rule, message, logger)).toBe(true);
+    });
+
+    it("matches a heading in the case the reader sees it", () => {
+      const rule = getStaticRule({ body: "*Your Order Has Shipped*" });
+      const message = getMessage({
+        headers: getHeaders(),
+        textPlain: "",
+        textHtml:
+          "<h1>Your Order Has Shipped</h1><p>It should arrive on Friday.</p>",
+      });
+
+      expect(matchesStaticRule(rule, message, logger)).toBe(true);
+    });
+
+    it("does not match HTML markup or styles that the reader never sees", () => {
+      const rule = getStaticRule({ body: "*font-family*" });
+      const message = getMessage({
+        headers: getHeaders(),
+        textPlain: "",
+        textHtml: newsletterHtml,
+      });
+
+      expect(matchesStaticRule(rule, message, logger)).toBe(false);
+    });
+
+    it("uses the text part when the email has one", () => {
+      const rule = getStaticRule({ body: "*unsubscribe*" });
+      const message = getMessage({
+        headers: getHeaders(),
+        textPlain: "Your weekly product digest is here.",
+        textHtml: newsletterHtml,
+      });
+
+      expect(matchesStaticRule(rule, message, logger)).toBe(false);
+    });
+  });
+
   it("should match @domain.com", () => {
     const rule = getStaticRule({ from: "@domain.com" });
     const message = getMessage({
