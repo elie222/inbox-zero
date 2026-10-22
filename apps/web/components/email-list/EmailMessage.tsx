@@ -419,6 +419,7 @@ export function EmailMessage({
                 emailAccountId={emailAccountId}
                 html={message.textHtml}
                 inlineAttachments={message.inline}
+                sendOperationId={sendOperationId}
                 messageId={message.id}
               />
             ) : (
