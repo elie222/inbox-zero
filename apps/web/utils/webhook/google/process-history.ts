@@ -4,7 +4,12 @@ import * as Sentry from "@sentry/nextjs";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import { cleanupInvalidTokens } from "@/utils/auth/cleanup-invalid-tokens";
 import { GmailLabel } from "@/utils/gmail/label";
-import { captureException, isInvalidGrantError } from "@/utils/error";
+import {
+  captureException,
+  isHandledUserKeyError,
+  isInvalidGrantError,
+  isKnownApiError,
+} from "@/utils/error";
 import { isEmailProviderRateLimitError } from "@/utils/email/is-provider-rate-limit-error";
 import {
   HistoryEventType,
@@ -333,7 +338,11 @@ async function processHistory(options: ProcessHistoryOptions, logger: Logger) {
           userEmail,
           extra: { messageId: event.item.message?.id },
         });
-        logger.error("Error processing history item", { error });
+        if (isKnownApiError(error) || isHandledUserKeyError(error)) {
+          logger.warn("Error processing history item", { error });
+        } else {
+          logger.error("Error processing history item", { error });
+        }
       }
     }
 

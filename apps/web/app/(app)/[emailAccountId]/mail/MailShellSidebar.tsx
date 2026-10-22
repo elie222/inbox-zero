@@ -33,6 +33,7 @@ import { TEAM_HREF, useTeamNav } from "@/components/team-comments/use-team-nav";
 import { useFolders } from "@/hooks/useFolders";
 import { useLabelCounts } from "@/hooks/useLabelCounts";
 import { useLabels } from "@/hooks/useLabels";
+import { useSettingsDialog } from "@/hooks/useSettingsDialog";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
 import type { EmailLabel } from "@/providers/email-label-types";
@@ -108,6 +109,7 @@ export const MailShellSidebar = memo(function MailShellSidebar({
   });
   const { hasTeam, unreadCount: teamUnreadCount } = useTeamNav();
   const { onOpen: openCompose } = useComposeModal();
+  const { openSettings } = useSettingsDialog();
   const { state: openSidebars } = useSidebar();
   const isMailSidebarOpen = openSidebars.includes("left-sidebar");
 
@@ -232,6 +234,10 @@ export const MailShellSidebar = memo(function MailShellSidebar({
     onMobileNavOpenChange(false);
     openCompose();
   };
+  const openSettingsFromSheet = () => {
+    onMobileNavOpenChange(false);
+    openSettings();
+  };
   const renderMailSidebar = ({
     collapsed,
     inSheet,
@@ -262,6 +268,7 @@ export const MailShellSidebar = memo(function MailShellSidebar({
       labelSingular={terminology.label.singular}
       emailAccountId={emailAccountId}
       onCompose={inSheet ? composeFromSheet : openCompose}
+      onOpenSettings={inSheet ? openSettingsFromSheet : openSettings}
       onCreateLabel={onCreateLabel}
       onEditMailboxItem={onEditMailboxItem}
       onDeleteMailboxItem={onDeleteMailboxItem}

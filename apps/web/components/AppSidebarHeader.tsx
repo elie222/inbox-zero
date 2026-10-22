@@ -55,17 +55,18 @@ export function AppSidebarHeader({
     );
   }
 
+  // On mac desktop the toggle moves up beside the traffic lights, so the
+  // switcher only needs to clear the lights rather than a full titlebar row.
   return (
-    <div
-      data-desktop-mac-titlebar-spacer
-      className="flex shrink-0 items-center gap-1 pb-2"
-    >
+    <div className="relative flex shrink-0 items-center gap-1 pt-[max(0px,calc(var(--desktop-traffic-lights-height,0px)-1rem))] pb-2">
       <AppSectionSwitcher
         active={active}
         emailAccountId={emailAccountId}
         collapsed={false}
       />
-      {hideToggle ? null : <SidebarTrigger name="left-sidebar" />}
+      {hideToggle ? null : (
+        <SidebarTrigger name="left-sidebar" data-desktop-mac-titlebar-toggle />
+      )}
     </div>
   );
 }

@@ -46,6 +46,7 @@ function sidebar(overrides: Partial<MailSidebarProps> = {}) {
       emailAccountId="account-1"
       onNavigate={vi.fn()}
       onCompose={vi.fn()}
+      onOpenSettings={vi.fn()}
       onCreateLabel={vi.fn()}
       onEditMailboxItem={vi.fn()}
       onDeleteMailboxItem={vi.fn()}
@@ -111,6 +112,15 @@ describe("MailSidebar", () => {
     const row = screen.getByText("Discussions").closest("a");
     expect(row?.getAttribute("href")).toBe("/shared");
     expect(row?.textContent).toContain("3");
+  });
+
+  it("opens settings from the sidebar", () => {
+    const onOpenSettings = vi.fn();
+    renderSidebar({ onOpenSettings });
+
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+
+    expect(onOpenSettings).toHaveBeenCalledOnce();
   });
 
   it("opens the More group when one of its views is showing", () => {

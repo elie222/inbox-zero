@@ -412,6 +412,7 @@ function ComposeEmailFormContent({
     draftSaveError,
     providerAutosaveError,
     discard,
+    isDiscarding,
   } = draft;
   const {
     forwardedAttachments,
@@ -680,6 +681,7 @@ function ComposeEmailFormContent({
         <div className="flex flex-wrap items-center gap-1">
           <Tooltip
             shortcuts={onMarkDone ? ["send", "sendAndMarkDone"] : ["send"]}
+            showShortcutLabels={!!onMarkDone}
           >
             <Button disabled={isSubmitting} type="submit" variant="gradient">
               {isSubmitting && <ButtonLoader />}
@@ -766,7 +768,7 @@ function ComposeEmailFormContent({
               <Button
                 aria-label="Discard draft"
                 className="hover:bg-transparent"
-                disabled={isSubmitting}
+                disabled={isSubmitting || isDiscarding}
                 onClick={handleDiscard}
                 size="icon"
                 type="button"

@@ -39,7 +39,7 @@ import {
 import { labelVisibility, messageVisibility } from "@/utils/gmail/constants";
 import type { InboxZeroLabel } from "@/utils/label";
 import type { ThreadsQuery } from "@/utils/threads/validation";
-import { getMessageByRfc822Id } from "@/utils/gmail/message";
+import { getMessageByRfc822Id, getRawMessage } from "@/utils/gmail/message";
 import {
   buildMailMessage,
   draftEmail,
@@ -302,6 +302,10 @@ export class GmailProvider implements EmailProvider {
   ): Promise<ParsedMessage> {
     const message = await getMessage(messageId, this.client, "full");
     return parseMessage(message, options);
+  }
+
+  async getMessageSource(messageId: string): Promise<Buffer> {
+    return getRawMessage(messageId, this.client);
   }
 
   async getMessageByRfc822MessageId(

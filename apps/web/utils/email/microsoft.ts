@@ -17,6 +17,7 @@ import type { Attachment as MailAttachment } from "nodemailer/lib/mailer";
 import { toMailerAttachments } from "@/utils/types/mail";
 import {
   getMessage,
+  getRawMessage,
   queryBatchMessages,
   queryMessagesWithAttachments,
   getCategoryMap,
@@ -312,6 +313,10 @@ export class OutlookProvider implements EmailProvider {
     options?: { includeCalendarContent?: boolean },
   ): Promise<ParsedMessage> {
     return getMessage(messageId, this.client, this.logger, options);
+  }
+
+  async getMessageSource(messageId: string): Promise<Buffer> {
+    return getRawMessage(messageId, this.client, this.logger);
   }
 
   async getMessageByRfc822MessageId(

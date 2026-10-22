@@ -1,4 +1,4 @@
-import { captureException } from "@/utils/error";
+import { captureException, SafeError } from "@/utils/error";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
 import type { Logger } from "@/utils/logger";
 
@@ -23,11 +23,16 @@ export async function logReplyTrackerError({
   context,
   capture,
 }: LogReplyTrackerErrorArgs) {
+  // SafeErrors are expected account states (usage limits, blocked content,
+  // unavailable model settings), not bugs to report.
+  const isExpected = error instanceof SafeError;
+
   await logErrorWithDedupe({
     logger,
     message,
     error,
     context,
+    level: isExpected ? "warn" : "error",
     dedupeKeyParts: {
       scope: `reply-tracker/${scope}`,
       emailAccountId,
@@ -35,7 +40,7 @@ export async function logReplyTrackerError({
     },
   });
 
-  if (capture) {
+  if (capture && !isExpected) {
     captureException(error, { emailAccountId });
   }
 }

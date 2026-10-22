@@ -14,6 +14,7 @@ import {
   CONVERSATION_PAGE_SIZE,
   requestMissingMessageContent,
 } from "@/utils/mail-engine/conversation-thread";
+import { prepareEmailHtml } from "@/utils/email/prepare-html.client";
 
 type WarmObservation = {
   handle: QueryHandle<ConversationView>;
@@ -82,9 +83,27 @@ function observe(client: MailClient, target: WarmTarget): WarmObservation {
     { after: null, pageSize: CONVERSATION_PAGE_SIZE },
   );
   const requested = new Set<string>();
+  let preparedSource: { messageId: string; html: string } | null = null;
   const warmContent = () => {
     const view = handle.getSnapshot().data;
-    if (view) requestMissingMessageContent(client, view, requested);
+    if (!view) return;
+    requestMissingMessageContent(client, view, requested);
+    // The newest body opens expanded. Preparing its proxy URLs here keeps
+    // that request off the navigation path without preparing the whole history.
+    const message = view.messages.at(-1);
+    if (message?.content.status !== "available" || !message.content.html)
+      return;
+    const source = {
+      messageId: message.key.messageId,
+      html: message.content.html,
+    };
+    if (
+      source.messageId === preparedSource?.messageId &&
+      source.html === preparedSource.html
+    )
+      return;
+    preparedSource = source;
+    prepareEmailHtml(source);
   };
   const unsubscribe = handle.subscribe(warmContent);
   warmContent();

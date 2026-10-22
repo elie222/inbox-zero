@@ -16,6 +16,50 @@ afterEach(() => {
 });
 
 describe("BufferedThreadReader", () => {
+  it("reveals the first header and body together once the body is ready", () => {
+    const onReady = vi.fn();
+    const { rerender } = render(
+      <BufferedThreadReader threadKey="one" dataReady onReady={onReady}>
+        {reader("one", "First thread", false)}
+      </BufferedThreadReader>,
+    );
+    expect(
+      screen.getByText("First thread").closest("[aria-hidden]"),
+    ).not.toBeNull();
+    expect(onReady).not.toHaveBeenCalled();
+
+    rerender(
+      <BufferedThreadReader threadKey="one" dataReady onReady={onReady}>
+        {reader("one", "First thread", true)}
+      </BufferedThreadReader>,
+    );
+    expect(
+      screen.getByText("First thread").closest("[aria-hidden]"),
+    ).toBeNull();
+    expect(onReady).toHaveBeenCalledWith("one");
+  });
+
+  it("bounds the wait for the first body without extending it on updates", () => {
+    const onReady = vi.fn();
+    const { rerender } = render(
+      <BufferedThreadReader threadKey="one" dataReady={false} onReady={onReady}>
+        {reader("one", "First thread", false)}
+      </BufferedThreadReader>,
+    );
+    act(() => vi.advanceTimersByTime(1500));
+    rerender(
+      <BufferedThreadReader threadKey="one" dataReady onReady={onReady}>
+        {reader("one", "First thread", false)}
+      </BufferedThreadReader>,
+    );
+    expect(onReady).not.toHaveBeenCalled();
+    act(() => vi.advanceTimersByTime(500));
+    expect(
+      screen.getByText("First thread").closest("[aria-hidden]"),
+    ).toBeNull();
+    expect(onReady).toHaveBeenCalledWith("one");
+  });
+
   it("stops showing the previous thread when the next one never loads", () => {
     const onReady = vi.fn();
     const { rerender } = render(

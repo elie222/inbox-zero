@@ -30,8 +30,9 @@ import { MailReaderPane } from "@/app/(app)/[emailAccountId]/mail/MailReaderPane
 import { ScheduledEmailList } from "@/app/(app)/[emailAccountId]/mail/ScheduledEmailList";
 import type { MailboxItem } from "@/app/(app)/[emailAccountId]/mail/MailboxItemContextMenu";
 import { ListSenderCommands } from "@/app/(app)/[emailAccountId]/mail/ListSenderCommands";
-import { extractEmailAddress } from "@/utils/email";
+import { extractEmailAddress, isSameEmailAddress } from "@/utils/email";
 import { LabelPickerDialog } from "@/app/(app)/[emailAccountId]/mail/LabelPickerDialog";
+import { InboxZeroCelebration } from "@/app/(app)/[emailAccountId]/mail/InboxZeroCelebration";
 import { ThreadList } from "@/app/(app)/[emailAccountId]/mail/ThreadList";
 import { useStableCallback } from "@/app/(app)/[emailAccountId]/mail/use-stable-callback";
 import { useTranslateThread } from "@/app/(app)/[emailAccountId]/mail/use-thread-translation";
@@ -54,6 +55,7 @@ import type { ThreadMessage } from "@/components/email-list/types";
 import { useMailThreads } from "@/app/(app)/[emailAccountId]/mail/use-mail-threads";
 import { useCombinedMailThreads } from "@/app/(app)/[emailAccountId]/mail/use-combined-mail-threads";
 import { useThreadActions } from "@/app/(app)/[emailAccountId]/mail/use-thread-actions";
+import { useOptimisticArchive } from "@/app/(app)/[emailAccountId]/mail/use-optimistic-archive";
 import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
 import { MailProductFrame } from "@inboxzero/mail-ui/MailProductFrame";
 import { MailEngineConnectionBanner } from "@/utils/mail-engine/MailEngineConnectionBanner";
@@ -107,6 +109,7 @@ import {
   otherMailSplitQuery,
   mailSplitToThreadsQuery,
   mailTypeToThreadsQuery,
+  threadListQueryRequiresInbox,
 } from "@/utils/split-inbox/split-query";
 import { getActionErrorMessage } from "@/utils/error";
 import { prefixPath } from "@/utils/path";
@@ -118,6 +121,8 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { useTeamCommentsAvailable } from "@/components/team-comments/use-team-comments-available";
 import { getEmailMessageCellActions } from "@/components/EmailMessageCellActions";
 import type { ThreadsQuery } from "@/utils/threads/validation";
+import { getConversationSubject } from "@/utils/email/subject";
+import { printMessages } from "@/app/(app)/[emailAccountId]/mail/print-messages";
 
 // Module-level so an "empty" reader doesn't hand children a new array each render.
 const NO_MESSAGES: ThreadMessage[] = [];
@@ -421,7 +426,11 @@ export function MailShell() {
   const { isSyncing } = isAllAccounts
     ? combinedThreadState
     : accountThreadState;
-  const threads = searchSettled ? remoteThreads : EMPTY_SEARCH_THREADS;
+  const { threads, archive: optimisticArchive } = useOptimisticArchive(
+    searchSettled ? remoteThreads : EMPTY_SEARCH_THREADS,
+    isAllAccounts ? !searchQuery : threadListQueryRequiresInbox(query),
+    JSON.stringify([emailAccountId, isAllAccounts]),
+  );
   const searchViewIdentity = JSON.stringify([
     emailAccountId,
     isAllAccounts,
@@ -455,6 +464,12 @@ export function MailShell() {
     );
   } else if (searchQuery) {
     emptyListMessage = "No emails found";
+  } else if (!scopeQuery) {
+    emptyListMessage = (
+      <InboxZeroCelebration
+        splitName={activeSplit?.id === "all" ? undefined : activeSplit?.name}
+      />
+    );
   }
 
   const selection = useThreadSelection(orderedIds);
@@ -557,6 +572,28 @@ export function MailShell() {
       });
     };
   }, [openMessages, readerEmailAccountId, translateThread]);
+  const readerEmail = readerEmailAccount?.email;
+  const lastReceivedMessage = useMemo(() => {
+    if (!readerEmail) return null;
+    return (
+      openMessages.findLast(
+        (message) =>
+          !message.labelIds?.includes(GmailLabel.DRAFT) &&
+          !isSameEmailAddress(message.headers.from, readerEmail),
+      ) ?? null
+    );
+  }, [openMessages, readerEmail]);
+  const printOpenThread = useMemo(() => {
+    const messages = openMessages.filter(
+      (message) => !message.labelIds?.includes(GmailLabel.DRAFT),
+    );
+    if (!messages.length) return;
+    return () =>
+      printMessages({
+        subject: getConversationSubject(messages) ?? "",
+        messages,
+      });
+  }, [openMessages]);
   const teamCommentsAvailable = useTeamCommentsAvailable(readerEmailAccountId);
   const openTeamComments = useMemo(
     () =>
@@ -782,7 +819,7 @@ export function MailShell() {
         setFocusedIndex(focusedIndex);
         setOpenThread(openThreadSelection);
       }
-      if (!queuedThreadKeys.length) return;
+      if (!queuedThreadKeys.length && !hadSelection) return;
       if (
         queuedOpenThread &&
         !autoAdvanceReader &&
@@ -877,8 +914,8 @@ export function MailShell() {
     readerSelectionSettled,
   ]);
   const archiveTargets = useCallback(
-    () => runOn(archive, true, true),
-    [archive, runOn],
+    () => runOn((ids) => optimisticArchive(ids, archive), true, true),
+    [archive, optimisticArchive, runOn],
   );
   // Archiving again would be a no-op, so archived targets offer the way back.
   const moveToInboxTargets = useCallback(
@@ -1578,6 +1615,7 @@ export function MailShell() {
                   openThreadSelection?.emailAccountId === emailAccountId
                 }
                 lastMessage={openMessages.at(-1) ?? null}
+                lastReceivedMessage={lastReceivedMessage}
                 isStarred={allStarred}
                 onToggleStar={starTargets}
                 onMarkSpam={markSpamTargets}
@@ -1586,6 +1624,7 @@ export function MailShell() {
                 onMove={canLabel ? openMovePicker : undefined}
                 onTranslate={translateOpenThread}
                 onComment={openTeamComments}
+                onPrint={printOpenThread}
                 isMenuOpen={isMenuOpen}
                 onMenuOpenChange={setIsMenuOpen}
                 enableMessageNavigation={!sidePanelThreadId}

@@ -1132,6 +1132,7 @@ function TranslationNotice({
 function MessageBodyLoading() {
   return (
     <p
+      data-email-ready="false"
       className="flex items-center gap-2 text-muted-foreground text-sm"
       role="status"
     >
