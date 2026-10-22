@@ -663,6 +663,7 @@ function MessageHeader({
             <Tooltip content="View public profile">
               <Button
                 aria-label={`View public profile for ${senderName}`}
+                className="transition-opacity focus-visible:opacity-100 group-hover/message:opacity-100 sm:opacity-0"
                 onClick={(event) => {
                   event.stopPropagation();
                   onOpenSenderContext?.(message);
