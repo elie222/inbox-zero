@@ -273,6 +273,108 @@ describe("trackSentDraftStatus", () => {
     );
   });
 
+  describe("drafts Inbox Zero already deleted", () => {
+    // Newest first, as the query orders them.
+    function useDraftActions(
+      actions: Array<{
+        id: string;
+        draftStatus: DraftEmailStatus | null;
+        wasDraftSent?: boolean | null;
+      }>,
+    ) {
+      vi.mocked(prisma.executedAction.findFirst).mockImplementation((async ({
+        where,
+      }: {
+        where: Record<string, unknown>;
+      }) => {
+        const action = actions.find((candidate) =>
+          matchesWhere(where, { wasDraftSent: null, ...candidate }),
+        );
+        return action
+          ? {
+              ...action,
+              draftId: `draft-${action.id}`,
+              content: "Thanks for reaching out.",
+              executedRuleId: "executed-rule-1",
+              executedRule: { messageId: "source-1" },
+            }
+          : null;
+      }) as any);
+    }
+
+    function trackManualReply() {
+      return trackSentDraftStatus({
+        emailAccountId: "account-1",
+        message: createSentMessage(),
+        provider: {
+          // The draft is gone because Inbox Zero deleted it.
+          getDraft: vi.fn().mockResolvedValue(null),
+          getMessage: vi.fn().mockResolvedValue(createSourceMessage()),
+        } as any,
+        logger,
+      });
+    }
+
+    beforeEach(() => {
+      vi.mocked(calculateSimilarity).mockReturnValue(0.1);
+      vi.mocked(isMeaningfulDraftEdit).mockReturnValue(true);
+    });
+
+    it("does not record a reply the user wrote themselves as a sent AI draft", async () => {
+      useDraftActions([
+        { id: "action-1", draftStatus: DraftEmailStatus.CLEANED_UP_UNUSED },
+      ]);
+
+      await trackManualReply();
+
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(prisma.executedAction.update).not.toHaveBeenCalled();
+      expect(
+        replaceMessagingDraftNotificationsWithDraftSentState,
+      ).not.toHaveBeenCalled();
+      expect(saveDraftSendLogReplyMemory).not.toHaveBeenCalled();
+    });
+
+    it("still tracks an older draft the user kept and edited", async () => {
+      useDraftActions([
+        { id: "action-2", draftStatus: DraftEmailStatus.CLEANED_UP_UNUSED },
+        { id: "action-1", draftStatus: DraftEmailStatus.USER_EDITED },
+      ]);
+
+      await trackManualReply();
+
+      expect(prisma.executedAction.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: "action-1" } }),
+      );
+    });
+
+    it("still tracks legacy drafts migrated to cleaned up without being deleted", async () => {
+      useDraftActions([
+        {
+          id: "action-1",
+          draftStatus: DraftEmailStatus.CLEANED_UP_UNUSED,
+          wasDraftSent: false,
+        },
+      ]);
+
+      await trackManualReply();
+
+      expect(prisma.executedAction.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: "action-1" } }),
+      );
+    });
+
+    it("still tracks drafts saved before draft statuses existed", async () => {
+      useDraftActions([{ id: "action-1", draftStatus: null }]);
+
+      await trackManualReply();
+
+      expect(prisma.executedAction.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: "action-1" } }),
+      );
+    });
+  });
+
   it("marks missing drafts as likely sent when the sent reply is similar enough", async () => {
     vi.mocked(prisma.executedAction.findFirst).mockResolvedValue({
       id: "action-1",
@@ -603,7 +705,7 @@ describe("cleanupThreadAIDrafts", () => {
 
     const provider = {
       getDraft: vi.fn().mockResolvedValue(draftDetails),
-      deleteDraft: vi.fn().mockResolvedValue(undefined),
+      deleteDraft: vi.fn().mockResolvedValue(true),
     };
 
     await cleanupThreadAIDrafts({
@@ -628,6 +730,36 @@ describe("cleanupThreadAIDrafts", () => {
     });
   });
 
+  it("does not record a draft as cleaned up when the provider kept it", async () => {
+    vi.mocked(prisma.executedAction.findMany).mockResolvedValue([
+      { id: "action-1", draftId: "draft-1", content: "Generated reply" },
+    ] as any);
+    vi.mocked(calculateSimilarity).mockReturnValue(0.93);
+    vi.mocked(isDraftUnmodified).mockReturnValue(true);
+
+    // Outlook refuses the If-Match delete when the user edited the draft
+    // after we read it, so the draft is still there to be sent.
+    const provider = {
+      getDraft: vi.fn().mockResolvedValue(
+        createDraftMessage({
+          textPlain: "Generated reply\n\nOn Monday wrote:\n> Quote",
+        }),
+      ),
+      deleteDraft: vi.fn().mockResolvedValue(false),
+    };
+
+    await cleanupThreadAIDrafts({
+      threadId: "thread-1",
+      emailAccountId: "account-1",
+      provider: provider as any,
+      logger,
+      excludeMessageId: "message-2",
+    });
+
+    expect(provider.deleteDraft).toHaveBeenCalledWith("draft-1");
+    expect(prisma.executedAction.update).not.toHaveBeenCalled();
+  });
+
   it("transitions replied-without-draft records after deleting stale drafts", async () => {
     const draftDetails = createDraftMessage({
       textPlain: "Generated reply",
@@ -646,7 +778,7 @@ describe("cleanupThreadAIDrafts", () => {
 
     const provider = {
       getDraft: vi.fn().mockResolvedValue(draftDetails),
-      deleteDraft: vi.fn().mockResolvedValue(undefined),
+      deleteDraft: vi.fn().mockResolvedValue(true),
     };
 
     await cleanupThreadAIDrafts({
@@ -683,7 +815,7 @@ describe("cleanupThreadAIDrafts", () => {
           textPlain: "Generated reply\n\nUser edit",
         }),
       ),
-      deleteDraft: vi.fn().mockResolvedValue(undefined),
+      deleteDraft: vi.fn().mockResolvedValue(true),
     };
 
     await cleanupThreadAIDrafts({
@@ -793,4 +925,40 @@ function createDraftMessage({
     textPlain,
     textHtml,
   } as ParsedMessage;
+}
+
+// Applies the draftStatus part of a Prisma where clause to a row, so tests
+// exercise which drafts the query can pick rather than its exact shape.
+function matchesWhere(
+  where: Record<string, unknown>,
+  row: { draftStatus: DraftEmailStatus | null; wasDraftSent: boolean | null },
+): boolean {
+  const { OR, NOT, AND, draftStatus, wasDraftSent } = where as {
+    OR?: Record<string, unknown>[];
+    NOT?: Record<string, unknown>;
+    AND?: Record<string, unknown>[];
+    draftStatus?: unknown;
+    wasDraftSent?: boolean | null;
+  };
+  if (OR && !OR.some((clause) => matchesWhere(clause, row))) return false;
+  if (AND && !AND.every((clause) => matchesWhere(clause, row))) return false;
+  if (NOT && matchesWhere(NOT, row)) return false;
+  if (wasDraftSent !== undefined && row.wasDraftSent !== wasDraftSent) {
+    return false;
+  }
+  if (draftStatus === undefined) return true;
+  if (draftStatus === null) return row.draftStatus === null;
+  if (typeof draftStatus === "string") return row.draftStatus === draftStatus;
+
+  const filter = draftStatus as {
+    not?: DraftEmailStatus;
+    in?: DraftEmailStatus[];
+    notIn?: DraftEmailStatus[];
+  };
+  // SQL comparisons never match NULL, which Prisma follows for not/in/notIn.
+  if (row.draftStatus === null) return false;
+  if (filter.not !== undefined && row.draftStatus === filter.not) return false;
+  if (filter.in && !filter.in.includes(row.draftStatus)) return false;
+  if (filter.notIn?.includes(row.draftStatus)) return false;
+  return true;
 }

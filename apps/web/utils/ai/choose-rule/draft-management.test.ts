@@ -35,7 +35,7 @@ const executedRule = {
 
 describe("handlePreviousDraftDeletion", () => {
   const mockGetDraft = vi.fn();
-  const mockDeleteDraft = vi.fn();
+  const mockDeleteDraft = vi.fn().mockResolvedValue(true);
   const mockClient = {
     getDraft: mockGetDraft,
     deleteDraft: mockDeleteDraft,
