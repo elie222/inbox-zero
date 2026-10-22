@@ -1032,6 +1032,154 @@ describe("OutlookProvider.searchMessages", () => {
   });
 });
 
+describe("OutlookProvider reply history", () => {
+  // A fake Graph mailbox that answers the way Graph does: a subject search for
+  // "from:..." matches nothing, an exact sender filter returns that sender's
+  // mail, and a Sent Items participant search returns mail sent to them.
+  function createMailbox({
+    receivedFrom,
+    sentTo,
+  }: {
+    receivedFrom: Record<string, number>;
+    sentTo: string[];
+  }) {
+    return createMockOutlookClient([], {
+      folderIdCache: {
+        inbox: "inbox-folder-id",
+        sentitems: "sent-folder-id",
+        drafts: "drafts-folder-id",
+      },
+      categoryMapCache: new Map(),
+      responsesByApiPath: {
+        "/me/messages": ({ filter }) => {
+          const sender = filter?.match(
+            /^from\/emailAddress\/address eq '(.+)'$/,
+          )?.[1];
+          const count = sender ? (receivedFrom[sender] ?? 0) : 0;
+          return {
+            value: Array.from({ length: Math.min(count, 10) }, (_, i) =>
+              createMessage({
+                id: `received-${i}`,
+                parentFolderId: "inbox-folder-id",
+              }),
+            ),
+          };
+        },
+        "/me/mailFolders/sentitems/messages": ({ search }) => ({
+          value: sentTo
+            .filter((address) => search?.includes(address.split("@")[0]))
+            .map((address, i) => {
+              const message = createMessage({
+                id: `sent-${i}`,
+                parentFolderId: "sent-folder-id",
+              });
+              message.from = { emailAddress: { address: "me@example.com" } };
+              message.toRecipients = [{ emailAddress: { address } }];
+              return message;
+            }),
+        }),
+      },
+    });
+  }
+
+  it("counts the mail a sender has sent, so bulk senders can skip To Reply", async () => {
+    const provider = new OutlookProvider(
+      createMailbox({ receivedFrom: { "alerts@vendor.com": 50 }, sentTo: [] }),
+    );
+
+    await expect(
+      provider.countReceivedMessages("alerts@vendor.com", 10),
+    ).resolves.toBe(10);
+  });
+
+  it("counts across pages when the threshold is larger than one page", async () => {
+    const nextLink =
+      "https://graph.microsoft.com/v1.0/me/messages?$skiptoken=page-2";
+    const page = (prefix: string, count: number) =>
+      Array.from({ length: count }, (_, i) =>
+        createMessage({
+          id: `${prefix}-${i}`,
+          parentFolderId: "inbox-folder-id",
+        }),
+      );
+    const client = createMockOutlookClient([], {
+      folderIdCache: { inbox: "inbox-folder-id", drafts: "drafts-folder-id" },
+      categoryMapCache: new Map(),
+      responsesByApiPath: {
+        "/me/messages": {
+          value: page("first", 20),
+          "@odata.nextLink": nextLink,
+        },
+        [nextLink]: { value: page("second", 20) },
+      },
+    });
+
+    await expect(
+      new OutlookProvider(client).countReceivedMessages(
+        "sender@example.com",
+        30,
+      ),
+    ).resolves.toBe(30);
+  });
+
+  it("finds a reply the user sent to the sender", async () => {
+    const client = createMailbox({
+      receivedFrom: {},
+      sentTo: ["bob@example.com"],
+    });
+
+    await expect(
+      new OutlookProvider(client).checkIfReplySent("bob@example.com"),
+    ).resolves.toBe(true);
+    // Graph rejects an unquoted property-scoped $search.
+    expect(client.getRequestLog()).toContainEqual(
+      expect.objectContaining({
+        apiPath: "/me/mailFolders/sentitems/messages",
+        search: '"participants:\\"bob@example.com\\""',
+      }),
+    );
+  });
+
+  it("keeps searching when the first page only has lookalike addresses", async () => {
+    const nextLink =
+      "https://graph.microsoft.com/v1.0/me/mailFolders/sentitems/messages?$skiptoken=page-2";
+    const sentMessage = (id: string, address: string) => {
+      const message = createMessage({ id, parentFolderId: "sent-folder-id" });
+      message.from = { emailAddress: { address: "me@example.com" } };
+      message.toRecipients = [{ emailAddress: { address } }];
+      return message;
+    };
+    const client = createMockOutlookClient([], {
+      folderIdCache: {
+        sentitems: "sent-folder-id",
+        drafts: "drafts-folder-id",
+      },
+      categoryMapCache: new Map(),
+      responsesByApiPath: {
+        "/me/mailFolders/sentitems/messages": {
+          value: [sentMessage("sent-1", "bob@example.com.au")],
+          "@odata.nextLink": nextLink,
+        },
+        [nextLink]: { value: [sentMessage("sent-2", "bob@example.com")] },
+      },
+    });
+
+    await expect(
+      new OutlookProvider(client).checkIfReplySent("bob@example.com"),
+    ).resolves.toBe(true);
+  });
+
+  it("does not count mail sent to a lookalike address as a reply", async () => {
+    const provider = new OutlookProvider(
+      createMailbox({ receivedFrom: {}, sentTo: ["bob@example.com.au"] }),
+    );
+
+    await expect(provider.checkIfReplySent("bob@example.com")).resolves.toBe(
+      false,
+    );
+  });
+});
+
 describe("OutlookProvider.getThreadsWithQuery", () => {
   it("pages domain filters without dropping inbox, unread, or date constraints", async () => {
     const next =

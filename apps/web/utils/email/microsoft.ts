@@ -17,7 +17,6 @@ import type { Attachment as MailAttachment } from "nodemailer/lib/mailer";
 import { toMailerAttachments } from "@/utils/types/mail";
 import {
   getMessage,
-  getMessages,
   getRawMessage,
   queryBatchMessages,
   queryMessagesWithAttachments,
@@ -150,6 +149,8 @@ import { getOutlookMailboxSyncPage } from "@/utils/outlook/mailbox-sync";
 import { requireSentMessageId } from "@/utils/email/sent-message-id";
 import { searchContacts } from "@/utils/outlook/contact";
 import { mapWithConcurrency } from "@/utils/async";
+
+const REPLY_SEARCH_MAX_PAGES = 3;
 
 export class OutlookProvider implements EmailProvider {
   readonly name = "microsoft";
@@ -1831,16 +1832,30 @@ export class OutlookProvider implements EmailProvider {
   }
   async checkIfReplySent(senderEmail: string): Promise<boolean> {
     try {
-      const query = `from:me to:${senderEmail}`;
-      const response = await getMessages(
-        this.client,
-        {
-          query,
-          maxResults: 1,
-        },
-        this.logger,
-      );
-      const sent = (response.messages?.length ?? 0) > 0;
+      // Graph has no Gmail-style "from:me to:" query, and recipient
+      // collections can't be filtered with $filter, so search Sent Items by
+      // participant and confirm the exact address on what comes back. The
+      // search is fuzzy, so lookalike addresses can fill the first page.
+      const participant = senderEmail.toLowerCase();
+      let sent = false;
+      let pageToken: string | undefined;
+      for (let page = 0; page < REPLY_SEARCH_MAX_PAGES && !sent; page++) {
+        const response = await queryBatchMessages(
+          this.client,
+          {
+            searchQuery: `participants:${sanitizeKqlValue(senderEmail)}`,
+            folderId: "sentitems",
+            maxResults: 10,
+            pageToken,
+          },
+          this.logger,
+        );
+        sent =
+          filterMessagesForParticipant(response.messages, participant).length >
+          0;
+        pageToken = response.nextPageToken;
+        if (!pageToken) break;
+      }
       this.logger.info("Checked for sent reply", { senderEmail, sent });
       return sent;
     } catch (error) {
@@ -1857,22 +1872,31 @@ export class OutlookProvider implements EmailProvider {
     threshold: number,
   ): Promise<number> {
     try {
-      const query = `from:${senderEmail}`;
       this.logger.info("Checking received message count", {
         senderEmail,
         threshold,
       });
 
-      // Fetch up to the threshold number of messages
-      const response = await getMessages(
-        this.client,
-        {
-          query,
-          maxResults: threshold,
-        },
-        this.logger,
-      );
-      const count = response.messages?.length ?? 0;
+      // queryBatchMessages returns at most 20 messages a page, so page until
+      // the threshold is reached.
+      let count = 0;
+      let pageToken: string | undefined;
+      do {
+        const response = await queryBatchMessages(
+          this.client,
+          {
+            fromEmail: senderEmail,
+            maxResults: threshold - count,
+            pageToken,
+          },
+          this.logger,
+        );
+        count += response.messages.length;
+        pageToken = response.messages.length
+          ? response.nextPageToken
+          : undefined;
+      } while (pageToken && count < threshold);
+      count = Math.min(count, threshold);
 
       this.logger.info("Received message count check result", {
         senderEmail,
