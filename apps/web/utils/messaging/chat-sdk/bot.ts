@@ -79,6 +79,7 @@ import {
   getMessagingAdapterRegistry,
   type MessagingAdapters,
 } from "@/utils/messaging/chat-sdk/adapters";
+import { buildTeamsTextCard } from "@/utils/messaging/providers/teams/format";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import prisma from "@/utils/prisma";
 import {
@@ -2714,14 +2715,7 @@ async function postMessagingThreadMessage({
 }): Promise<void> {
   try {
     await thread.post(
-      thread.adapter.name === "teams"
-        ? Card({
-            children: message
-              .split("\n")
-              .filter(Boolean)
-              .map((line) => CardText(line)),
-          })
-        : message,
+      thread.adapter.name === "teams" ? buildTeamsTextCard(message) : message,
     );
   } catch (error) {
     logger.error(errorLogMessage, {
@@ -2952,7 +2946,7 @@ function getMessagingAssistantPostPayload({
     return { raw: markdownToSlackMrkdwn(text) };
   }
 
-  return { markdown: text };
+  return buildTeamsTextCard(text);
 }
 
 export function getMessagingAiGeneratedPostPayload({

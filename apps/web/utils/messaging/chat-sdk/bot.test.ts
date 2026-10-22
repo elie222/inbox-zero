@@ -1,3 +1,4 @@
+import { cardToAdaptiveCard } from "@chat-adapter/teams";
 import { cardToBlockKit } from "@chat-adapter/slack";
 import type { KnownBlock } from "@slack/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -513,17 +514,18 @@ describe("postPendingEmailCard", () => {
 });
 
 describe("getMessagingAiGeneratedPostPayload", () => {
-  it("adds an AI content disclosure to Teams assistant messages", () => {
-    expect(
-      getMessagingAiGeneratedPostPayload({
-        provider: "teams",
-        text: "Here is your summary.",
-      }),
-    ).toEqual({
-      markdown: expect.stringContaining(
-        "AI-generated content may be inaccurate",
-      ),
+  it("preserves email addresses and the AI disclosure in Teams assistant messages", () => {
+    const payload = getMessagingAiGeneratedPostPayload({
+      provider: "teams",
+      text: "Contact user@example.com about this summary.",
     });
+    expect(payload).toHaveProperty("type", "card");
+    const rendered = JSON.stringify(
+      cardToAdaptiveCard(payload as Parameters<typeof cardToAdaptiveCard>[0]),
+    );
+    expect(rendered).toContain("user@example.com");
+    expect(rendered).toContain("AI-generated content may be inaccurate");
+    expect(rendered).not.toContain("<at>");
   });
 
   it("uses Slack text instead of markdown_text for assistant messages", () => {
