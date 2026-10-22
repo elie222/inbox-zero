@@ -28,10 +28,13 @@ export async function sendTeamsInstallationWelcome(activity: unknown) {
   const { id, conversation, serviceUrl } = parsed.data;
   const state = bot.getState();
   const key = `teams:welcome:${conversation.id}:${id}`;
-  if (!(await state.setIfNotExists(key, true, 24 * 60 * 60 * 1000))) return;
+  if (await state.get(key)) return;
+  const lock = await state.acquireLock(key, 15_000);
+  if (!lock) throw new Error("Teams welcome delivery is already in progress");
 
   const baseUrl = env.NEXT_PUBLIC_BASE_URL.replace(/\/$/, "");
   try {
+    if (await state.get(key)) return;
     await adapter.postMessage(
       encodeThreadId({ conversationId: conversation.id, serviceUrl }),
       Card({
@@ -55,8 +58,8 @@ export async function sendTeamsInstallationWelcome(activity: unknown) {
         ],
       }),
     );
-  } catch (error) {
-    await state.delete(key);
-    throw error;
+    await state.set(key, true, 24 * 60 * 60 * 1000);
+  } finally {
+    await state.releaseLock(lock);
   }
 }

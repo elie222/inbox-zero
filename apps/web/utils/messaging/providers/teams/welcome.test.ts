@@ -1,6 +1,6 @@
 import { createMemoryState } from "@chat-adapter/state-memory";
 import { cardToAdaptiveCard, decodeThreadId } from "@chat-adapter/teams";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getMessagingChatSdkBot } from "@/utils/messaging/chat-sdk/bot";
 import { sendTeamsInstallationWelcome } from "./welcome";
 
@@ -28,6 +28,8 @@ beforeEach(async () => {
   } as unknown as ReturnType<typeof getMessagingChatSdkBot>);
   postMessage.mockResolvedValue({ id: "welcome" });
 });
+
+afterEach(() => vi.useRealTimers());
 
 describe("sendTeamsInstallationWelcome", () => {
   it("welcomes a personal install once and preserves setup commands and contact details", async () => {
@@ -60,6 +62,23 @@ describe("sendTeamsInstallationWelcome", () => {
   ])("ignores activities that are not new personal installs: %j", async (input) => {
     await sendTeamsInstallationWelcome(input);
     expect(postMessage).not.toHaveBeenCalled();
+  });
+
+  it("recovers an interrupted delivery after its short claim expires", async () => {
+    vi.useFakeTimers();
+    const state = getMessagingChatSdkBot().bot.getState();
+    await state.acquireLock(
+      "teams:welcome:personal-conversation:install-event",
+      15_000,
+    );
+    await expect(sendTeamsInstallationWelcome(activity)).rejects.toThrow(
+      "already in progress",
+    );
+    expect(postMessage).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(15_001);
+    await sendTeamsInstallationWelcome(activity);
+    await sendTeamsInstallationWelcome(activity);
+    expect(postMessage).toHaveBeenCalledTimes(1);
   });
 
   it("allows a failed delivery to be retried", async () => {
