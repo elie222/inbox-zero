@@ -41,10 +41,11 @@ export function AppSidebarHeader({
   hideToggle?: boolean;
 }) {
   // On mac desktop the toggle is lifted beside the traffic lights in both
-  // states, so the header only needs to clear the lights.
+  // states, so the header only needs to clear the lights' drag region, which
+  // swallows clicks. The sidebars sit 0.5rem below the window top.
   if (collapsed) {
     return (
-      <div className="flex flex-col items-start pt-[max(0px,calc(var(--desktop-traffic-lights-height,0px)-1rem))]">
+      <div className="flex flex-col items-start pt-[max(0px,calc(var(--desktop-traffic-lights-height,0px)-0.5rem))]">
         <SidebarTrigger
           name="left-sidebar"
           className="mb-2"
@@ -60,7 +61,7 @@ export function AppSidebarHeader({
   }
 
   return (
-    <div className="flex shrink-0 items-center gap-1 pt-[max(0px,calc(var(--desktop-traffic-lights-height,0px)-1rem))] pb-2">
+    <div className="flex shrink-0 items-center gap-1 pt-[max(0px,calc(var(--desktop-traffic-lights-height,0px)-0.5rem))] pb-2">
       <AppSectionSwitcher
         active={active}
         emailAccountId={emailAccountId}
