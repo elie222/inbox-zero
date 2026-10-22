@@ -285,21 +285,21 @@ export function MailSidebar({
       >
         {collapsed ? (
           <Button
-            variant="gradient"
+            variant="outline"
             size="icon"
             onClick={onCompose}
             aria-label="Compose"
             className="mb-2 size-8 shrink-0 self-center rounded-lg"
           >
-            <PenLineIcon className="size-4" />
+            <PenLineIcon className="size-4 text-blue-600 dark:text-blue-400" />
           </Button>
         ) : (
           <Button
-            variant="gradient"
+            variant="outline"
             onClick={onCompose}
             className="mb-3.5 w-full shrink-0 justify-start gap-2 rounded-xl px-3"
           >
-            <PenLineIcon className="size-4 shrink-0" />
+            <PenLineIcon className="size-4 shrink-0 text-blue-600 dark:text-blue-400" />
             Compose
           </Button>
         )}
