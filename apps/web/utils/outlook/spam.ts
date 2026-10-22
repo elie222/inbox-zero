@@ -1,6 +1,8 @@
 import type { OutlookClient } from "@/utils/outlook/client";
 import { withMicrosoftGraphWriteRetry } from "@/utils/outlook/retry";
 import {
+  listThreadMessages,
+  OutlookThreadPaginationError,
   processThreadMessagesFallback,
   runThreadMessageMutation,
 } from "@/utils/outlook/thread-helpers";
@@ -54,15 +56,15 @@ async function moveThreadToSpamState({
   noMessagesMessage: string;
 }) {
   try {
-    const escapedThreadId = threadId.replace(/'/g, "''");
-    const messages = await client
-      .getClient()
-      .api("/me/messages")
-      .filter(`conversationId eq '${escapedThreadId}'`)
-      .get();
+    const messages = await listThreadMessages({
+      client,
+      threadId,
+      select: "id",
+      logger,
+    });
 
     await runThreadMessageMutation({
-      messageIds: messages.value.map((message: { id: string }) => message.id),
+      messageIds: messages.map((message) => message.id),
       threadId,
       logger,
       messageHandler: (messageId) =>
@@ -78,6 +80,7 @@ async function moveThreadToSpamState({
       throwIfAllFail: true,
     });
   } catch (error) {
+    if (error instanceof OutlookThreadPaginationError) throw error;
     logger.warn("Filter failed, trying alternative approach", {
       threadId,
       error,
