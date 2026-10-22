@@ -528,6 +528,19 @@ describe("getMessagingAiGeneratedPostPayload", () => {
     expect(rendered).not.toContain("<at>");
   });
 
+  it("keeps lists and paragraph breaks together in Teams assistant replies", () => {
+    const text = "1. First item\n2. Second item\n\nA separate paragraph.";
+    const payload = getMessagingAiGeneratedPostPayload({
+      provider: "teams",
+      text,
+    });
+    expect(
+      cardToAdaptiveCard(payload as Parameters<typeof cardToAdaptiveCard>[0]),
+    ).toMatchObject({
+      body: [{ text: expect.stringContaining(text) }],
+    });
+  });
+
   it("uses Slack text instead of markdown_text for assistant messages", () => {
     expect(
       getMessagingAiGeneratedPostPayload({
