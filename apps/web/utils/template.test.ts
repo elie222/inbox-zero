@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { hasVariables } from "./template";
 
 describe("hasVariables", () => {
-  it.each([
+  it.each<[string | null | undefined, boolean]>([
     ["Hello {{ name }}", true],
     ["Hello {{\nname\n}}", true],
     ["{{}}", true],
