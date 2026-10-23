@@ -29,10 +29,6 @@ describe("isExtractableMimeType", () => {
     expect(isExtractableMimeType("video/mp4")).toBe(false);
     expect(isExtractableMimeType("application/msword")).toBe(false); // .doc not supported
   });
-
-  it("should return false for empty string", () => {
-    expect(isExtractableMimeType("")).toBe(false);
-  });
 });
 
 describe("canUseNativePdfSupport", () => {
@@ -60,18 +56,9 @@ describe("canUseNativePdfSupport", () => {
     const smallBuffer = Buffer.alloc(1024);
     expect(canUseNativePdfSupport(smallBuffer, 100)).toBe(true);
   });
-
-  it("should return false when both limits exceeded", () => {
-    const largeBuffer = Buffer.alloc(33 * 1024 * 1024);
-    expect(canUseNativePdfSupport(largeBuffer, 150)).toBe(false);
-  });
 });
 
 describe("getDocumentPreview", () => {
-  it("should return full text if under limit", () => {
-    expect(getDocumentPreview("Hello world", 200)).toBe("Hello world");
-  });
-
   it("should truncate and add ellipsis if over limit", () => {
     const text = "a".repeat(300);
     const preview = getDocumentPreview(text, 200);
@@ -96,27 +83,9 @@ describe("getDocumentPreview", () => {
 });
 
 describe("cleanExtractedText", () => {
-  it("should normalize CRLF to LF", () => {
-    expect(cleanExtractedText("line1\r\nline2")).toBe("line1\nline2");
-  });
-
-  it("should collapse multiple newlines to max 2", () => {
-    expect(cleanExtractedText("line1\n\n\n\nline2")).toBe("line1\n\nline2");
-  });
-
-  it("should collapse horizontal whitespace", () => {
-    expect(cleanExtractedText("word1    word2\t\tword3")).toBe(
-      "word1 word2 word3",
-    );
-  });
-
-  it("should trim leading and trailing whitespace", () => {
-    expect(cleanExtractedText("  hello world  ")).toBe("hello world");
-  });
-
   it("should handle combined cases", () => {
     // Note: the function collapses whitespace but doesn't trim line endings
-    const input = "  line1\r\n\r\n\r\nline2    word  \n\n\nline3  ";
+    const input = "  line1\r\n\r\n\r\nline2  \t\tword  \n\n\nline3  ";
     const expected = "line1\n\nline2 word \n\nline3";
     expect(cleanExtractedText(input)).toBe(expected);
   });

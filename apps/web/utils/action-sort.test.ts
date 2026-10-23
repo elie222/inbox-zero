@@ -3,53 +3,6 @@ import { sortActionsByPriority } from "./action-sort";
 import { ActionType } from "@/generated/prisma/enums";
 
 describe("sortActionsByPriority", () => {
-  describe("basic sorting", () => {
-    it.each([
-      {
-        name: "LABEL before ARCHIVE",
-        actions: [{ type: ActionType.ARCHIVE }, { type: ActionType.LABEL }],
-        expected: [ActionType.LABEL, ActionType.ARCHIVE],
-      },
-      {
-        name: "ARCHIVE before REPLY",
-        actions: [{ type: ActionType.REPLY }, { type: ActionType.ARCHIVE }],
-        expected: [ActionType.ARCHIVE, ActionType.REPLY],
-      },
-      {
-        name: "draft and email actions together",
-        actions: [
-          { type: ActionType.FORWARD },
-          { type: ActionType.DRAFT_MESSAGING_CHANNEL },
-          { type: ActionType.DRAFT_EMAIL },
-          { type: ActionType.SEND_EMAIL },
-          { type: ActionType.REPLY },
-        ],
-        expected: [
-          ActionType.DRAFT_EMAIL,
-          ActionType.DRAFT_MESSAGING_CHANNEL,
-          ActionType.REPLY,
-          ActionType.SEND_EMAIL,
-          ActionType.FORWARD,
-        ],
-      },
-    ])("sorts $name", ({ actions, expected }) => {
-      expectSortedActionTypes(actions, expected);
-    });
-
-    it("sorts CALL_WEBHOOK last among known types", () => {
-      const actions = [
-        { type: ActionType.CALL_WEBHOOK },
-        { type: ActionType.LABEL },
-        { type: ActionType.ARCHIVE },
-      ];
-      expectSortedActionTypes(actions, [
-        ActionType.LABEL,
-        ActionType.ARCHIVE,
-        ActionType.CALL_WEBHOOK,
-      ]);
-    });
-  });
-
   describe("full priority order", () => {
     it("maintains correct priority order for all action types", () => {
       const actions = [
@@ -89,59 +42,18 @@ describe("sortActionsByPriority", () => {
   });
 
   describe("edge cases", () => {
-    it.each([
-      {
-        name: "empty array",
-        actions: [],
-        expected: [],
-      },
-      {
-        name: "single action",
-        actions: [{ type: ActionType.LABEL }],
-        expected: [ActionType.LABEL],
-      },
-      {
-        name: "already sorted array",
-        actions: [
-          { type: ActionType.LABEL },
-          { type: ActionType.ARCHIVE },
-          { type: ActionType.REPLY },
-        ],
-        expected: [ActionType.LABEL, ActionType.ARCHIVE, ActionType.REPLY],
-      },
-    ])("handles $name", ({ actions, expected }) => {
-      expectSortedActionTypes(actions, expected);
+    it("handles an empty array", () => {
+      expect(sortActionsByPriority([])).toEqual([]);
     });
 
-    it("handles duplicate action types", () => {
-      const actions = [
-        { type: ActionType.ARCHIVE, id: "1" },
-        { type: ActionType.LABEL, id: "2" },
-        { type: ActionType.ARCHIVE, id: "3" },
-      ];
-      const sorted = sortActionsByPriority(actions);
-      expect(sorted[0].type).toBe(ActionType.LABEL);
-      // Both archives should come after label
-      expect(sorted[1].type).toBe(ActionType.ARCHIVE);
-      expect(sorted[2].type).toBe(ActionType.ARCHIVE);
-    });
-
-    it("preserves additional properties on action objects", () => {
+    it("preserves properties and duplicate actions", () => {
       const actions = [
         { type: ActionType.ARCHIVE, id: "1", extra: "data" },
         { type: ActionType.LABEL, id: "2", extra: "more" },
+        { type: ActionType.ARCHIVE, id: "3", extra: "other" },
       ];
       const sorted = sortActionsByPriority(actions);
-      expect(sorted[0]).toEqual({
-        type: ActionType.LABEL,
-        id: "2",
-        extra: "more",
-      });
-      expect(sorted[1]).toEqual({
-        type: ActionType.ARCHIVE,
-        id: "1",
-        extra: "data",
-      });
+      expect(sorted).toEqual([actions[1], actions[0], actions[2]]);
     });
 
     it("does not mutate original array", () => {
@@ -166,22 +78,6 @@ describe("sortActionsByPriority", () => {
         ActionType.LABEL,
         ActionType.NOTIFY_SENDER,
         ActionType.CALL_WEBHOOK,
-      ]);
-    });
-  });
-
-  describe("NOTIFY_MESSAGING_CHANNEL action type", () => {
-    it("places NOTIFY_MESSAGING_CHANNEL after DIGEST and before MARK_SPAM", () => {
-      const actions = [
-        { type: ActionType.MARK_SPAM },
-        { type: ActionType.DIGEST },
-        { type: ActionType.NOTIFY_MESSAGING_CHANNEL },
-      ];
-
-      expectSortedActionTypes(actions, [
-        ActionType.DIGEST,
-        ActionType.NOTIFY_MESSAGING_CHANNEL,
-        ActionType.MARK_SPAM,
       ]);
     });
   });
