@@ -816,18 +816,18 @@ export async function handleSlackRuleNotificationModalSubmit({
     }
   }
 
-  await prisma.executedAction.updateMany({
-    where: {
-      id: {
-        in: [context.id, mailboxDraftAction?.id].filter(Boolean) as string[],
-      },
-    },
-    data: {
-      content: nextContent,
-    },
-  });
-
   try {
+    await prisma.executedAction.updateMany({
+      where: {
+        id: {
+          in: [context.id, mailboxDraftAction?.id].filter(Boolean) as string[],
+        },
+      },
+      data: {
+        content: nextContent,
+      },
+    });
+
     await sendDraftReplyFromNotification({
       context: { ...context, content: nextContent },
       logger,
