@@ -542,10 +542,14 @@ export class GmailProvider implements EmailProvider {
   async unarchiveMessages(messageIds: string[]): Promise<void> {
     for (const ids of chunk([...new Set(messageIds)], 1000)) {
       if (!ids.length) continue;
-      await this.client.users.messages.batchModify({
-        userId: "me",
-        requestBody: { ids, addLabelIds: [GmailLabel.INBOX] },
-      });
+      await this.withRateLimitTracking("unarchive-messages", () =>
+        withGmailRetry(() =>
+          this.client.users.messages.batchModify({
+            userId: "me",
+            requestBody: { ids, addLabelIds: [GmailLabel.INBOX] },
+          }),
+        ),
+      );
     }
   }
 
@@ -619,14 +623,18 @@ export class GmailProvider implements EmailProvider {
     });
 
     try {
-      await this.client.users.messages.batchModify({
-        userId: "me",
-        requestBody: {
-          ids: messageIds,
-          ...(labelId ? { addLabelIds: [labelId] } : {}),
-          removeLabelIds: [GmailLabel.INBOX],
-        },
-      });
+      await this.withRateLimitTracking("archive-messages", () =>
+        withGmailRetry(() =>
+          this.client.users.messages.batchModify({
+            userId: "me",
+            requestBody: {
+              ids: messageIds,
+              ...(labelId ? { addLabelIds: [labelId] } : {}),
+              removeLabelIds: [GmailLabel.INBOX],
+            },
+          }),
+        ),
+      );
     } catch (error) {
       log.error("Failed to archive messages bulk", { error });
       throw error;

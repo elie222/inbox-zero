@@ -708,6 +708,51 @@ describe("createEmailProviderMailboxSource", () => {
     });
   });
 
+  it("stops reading conversation membership once the provider rate limits", async () => {
+    const getThread = vi.fn(async (conversationId: string) => {
+      if (conversationId === "c2") {
+        throw new ProviderRateLimitModeError({ provider: "google" });
+      }
+      return {
+        messages: [
+          {
+            id: `m-${conversationId}`,
+            threadId: conversationId,
+            headers: { from: "ada@example.com" },
+            labelIds: ["INBOX"],
+            snippet: conversationId,
+          },
+        ],
+        historyId: "h1",
+      };
+    });
+    const source = createEmailProviderMailboxSource({
+      accountId: "acc-1",
+      provider: { name: "google", getThread } as unknown as EmailProvider,
+    });
+    const results = await source.readConversationMembershipBatch({
+      session: { accountId: "acc-1", generation: "g1" },
+      requestId: "r1",
+      signal: new AbortController().signal,
+      pageSize: 100,
+      reads: ["c1", "c2", "c3", "c4", "c5"].map((conversationId) => ({
+        conversation: { accountId: "acc-1", conversationId },
+        resolutionId: `res-${conversationId}`,
+        page: null,
+      })),
+    });
+    expect(results.map((result) => result.status)).toEqual([
+      "ok",
+      "paused",
+      "ok",
+      "paused",
+      "paused",
+    ]);
+    expect(results[1]).toMatchObject({ reason: "throttled" });
+    // Reads already in flight finish; none start after the throttle.
+    expect(getThread.mock.calls.map(([id]) => id)).toEqual(["c1", "c2", "c3"]);
+  });
+
   it("enumerates mailbox pages including drafts", async () => {
     const getMessagesWithPagination = vi.fn().mockResolvedValue({
       messages: [],

@@ -17,6 +17,7 @@ import type {
   MessageKey,
   OperationKey,
 } from "../identities";
+import type { ConversationMembershipRead } from "./mailbox-source";
 import type {
   OperationState,
   OperationStatus,
@@ -104,9 +105,7 @@ export type ClaimedWork =
       commandId: string;
       accountId: string;
       session: AccountSession;
-      conversation: ConversationKey;
-      resolutionId: string;
-      page: string | null;
+      reads: ConversationMembershipRead[];
     }
   | {
       kind: "hydrate";
@@ -234,14 +233,27 @@ export interface MailStore {
   }): Promise<
     { status: "committed"; revision: LocalRevision } | { status: "stale" }
   >;
-  applyPreparationPage(input: {
+  /**
+   * Records the membership read for each resolved conversation in one claim,
+   * then releases the claim so unresolved conversations retry at
+   * `nextAttemptAtMs`. A conversation the provider no longer has drops out
+   * of the command instead of failing it.
+   */
+  applyPreparationResults(input: {
     accountId: string;
     commandId: string;
     attemptId: string;
     session: AccountSession;
-    previousPage: string | null;
-    page: ConversationMembershipPage;
-  }): Promise<Admission | { status: "stale" }>;
+    results: Array<{
+      read: ConversationMembershipRead;
+      membership:
+        | { status: "page"; page: ConversationMembershipPage }
+        | { status: "not_found" };
+    }>;
+    nextAttemptAtMs: number | null;
+  }): Promise<
+    { status: "committed"; revision: LocalRevision } | { status: "stale" }
+  >;
   applySyncPage(input: {
     page: SyncPage;
     ownerId: string;
@@ -276,14 +288,6 @@ export interface MailStore {
     page: string;
     nextAttemptAtMs: number;
     errorCode: string;
-  }): Promise<
-    { status: "committed"; revision: LocalRevision } | { status: "stale" }
-  >;
-  deferPreparation(input: {
-    accountId: string;
-    commandId: string;
-    attemptId: string;
-    nextAttemptAtMs: number | null;
   }): Promise<
     { status: "committed"; revision: LocalRevision } | { status: "stale" }
   >;

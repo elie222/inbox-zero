@@ -18,12 +18,14 @@ import type {
 } from "./identities";
 import type { OperationState } from "./operations";
 import {
+  type ConversationMembershipResult,
   MAX_CHANGES_BATCH_READS,
   type MailboxSource,
   type SyncReadResult,
 } from "./ports/mailbox-source";
 import type {
   AccountSyncState,
+  ClaimedWork,
   MailStore,
   SyncStreamPosition,
 } from "./ports/mail-store";
@@ -402,80 +404,63 @@ export function createMailEngine(input: {
           continue;
         }
         if (work.kind === "prepare") {
-          const membership = await source.readConversationMembership({
-            session: work.session,
-            requestId: work.resolutionId,
-            signal: signal ?? new AbortController().signal,
-            conversation: work.conversation,
-            resolutionId: work.resolutionId,
-            page: work.page,
-            pageSize: 100,
-          });
-          if (membership.status !== "ok") {
-            await store.deferPreparation({
-              accountId: work.accountId,
-              commandId: work.commandId,
-              attemptId: work.attemptId,
-              nextAttemptAtMs:
-                membership.status === "paused"
-                  ? runtime.nowMs() + membership.retryAfterMs
-                  : runtime.nowMs() + 60_000,
-            });
-            await noteConnection(work.accountId, membership.status);
-            continue;
-          }
-          if (membership.value.status === "not_found") {
+          const results = await readMembership(
+            work,
+            signal ?? new AbortController().signal,
+          );
+          if (
+            results.some(
+              (result) =>
+                result?.status === "ok" &&
+                result.value.status === "unsupported",
+            )
+          ) {
             await store.failPreparation({
               accountId: work.accountId,
               commandId: work.commandId,
               attemptId: work.attemptId,
               session: work.session,
-              code: "conversation_not_found",
+              code: "membership_unsupported",
             });
             await queries.refreshAll();
             continue;
           }
-          if (
-            membership.value.status === "unsupported" ||
-            membership.value.status === "restart_required"
-          ) {
-            if (membership.value.status === "unsupported") {
-              await store.failPreparation({
-                accountId: work.accountId,
-                commandId: work.commandId,
-                attemptId: work.attemptId,
-                session: work.session,
-                code: "membership_unsupported",
-              });
-              await queries.refreshAll();
-            } else {
-              await store.deferPreparation({
-                accountId: work.accountId,
-                commandId: work.commandId,
-                attemptId: work.attemptId,
-                nextAttemptAtMs: runtime.nowMs() + 1000,
-              });
+          const resolved: Parameters<
+            MailStore["applyPreparationResults"]
+          >[0]["results"] = [];
+          let retryAfterMs: number | null = null;
+          let failedStatus: string | null = null;
+          for (const [index, read] of work.reads.entries()) {
+            const result = results[index];
+            if (
+              result?.status === "ok" &&
+              (result.value.status === "page" ||
+                result.value.status === "not_found")
+            ) {
+              resolved.push({ read, membership: result.value });
+              continue;
             }
-            continue;
+            retryAfterMs = Math.max(
+              retryAfterMs ?? 0,
+              membershipRetryAfterMs(result),
+            );
+            if (result && result.status !== "ok") failedStatus = result.status;
           }
-          if (membership.value.status === "page") {
-            const prepared = await store.applyPreparationPage({
+          const applied = await store.applyPreparationResults({
+            accountId: work.accountId,
+            commandId: work.commandId,
+            attemptId: work.attemptId,
+            session: work.session,
+            results: resolved,
+            nextAttemptAtMs:
+              retryAfterMs === null ? null : runtime.nowMs() + retryAfterMs,
+          });
+          if (failedStatus) await noteConnection(work.accountId, failedStatus);
+          if (applied.status !== "stale") {
+            await store.finishPreparation({
               accountId: work.accountId,
               commandId: work.commandId,
-              attemptId: work.attemptId,
-              session: work.session,
-              previousPage: work.page,
-              page: membership.value.page,
             });
-            if (
-              prepared.status !== "stale" &&
-              !membership.value.page.nextPage
-            ) {
-              await store.finishPreparation({
-                accountId: work.accountId,
-                commandId: work.commandId,
-              });
-            }
           }
           await queries.refreshAll();
           continue;
@@ -1346,6 +1331,31 @@ export function createMailEngine(input: {
     }
   }
 
+  async function readMembership(
+    work: Extract<ClaimedWork, { kind: "prepare" }>,
+    signal: AbortSignal,
+  ): Promise<ConversationMembershipResult[]> {
+    const context = {
+      session: work.session,
+      requestId: work.attemptId,
+      signal,
+      pageSize: 100,
+    };
+    if (source.readConversationMembershipBatch) {
+      return source.readConversationMembershipBatch({
+        ...context,
+        reads: work.reads,
+      });
+    }
+    const results: ConversationMembershipResult[] = [];
+    for (const read of work.reads) {
+      results.push(
+        await source.readConversationMembership({ ...context, ...read }),
+      );
+    }
+    return results;
+  }
+
   async function noteConnection(accountId: string, status: string) {
     const connection = CONNECTION_BY_SOURCE_STATUS[status];
     if (!connection) return;
@@ -1434,4 +1444,12 @@ function defaultRandomId(): string {
  */
 function yieldToHost() {
   return new Promise<void>((resolve) => setTimeout(resolve, 0));
+}
+
+function membershipRetryAfterMs(
+  result: ConversationMembershipResult | undefined,
+) {
+  if (result?.status === "paused") return result.retryAfterMs;
+  if (result?.status === "blocked_auth") return 60_000;
+  return 1000;
 }
