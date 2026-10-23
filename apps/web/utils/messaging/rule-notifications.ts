@@ -778,6 +778,15 @@ export async function handleSlackRuleNotificationModalSubmit({
     return { action: "close" };
   }
 
+  if (!(await claimDraftSend(context))) {
+    return {
+      action: "errors",
+      errors: {
+        [SLACK_DRAFT_EDIT_FIELD_ID]: "That draft has already been handled.",
+      },
+    };
+  }
+
   const mailboxDraftAction = getMailboxDraftActionForMessagingDraft(context);
 
   if (mailboxDraftAction?.draftId) {
@@ -791,6 +800,7 @@ export async function handleSlackRuleNotificationModalSubmit({
           : {}),
       });
     } catch (error) {
+      await releaseDraftSendClaim(context);
       logger.warn("Failed to sync edited Slack draft back to email draft", {
         executedActionId: context.id,
         mailboxDraftActionId: mailboxDraftAction.id,
@@ -832,6 +842,7 @@ export async function handleSlackRuleNotificationModalSubmit({
       },
     });
   } catch (error) {
+    await releaseDraftSendClaim(context);
     logger.warn("Failed to send edited Slack draft notification reply", {
       executedActionId: context.id,
       error,

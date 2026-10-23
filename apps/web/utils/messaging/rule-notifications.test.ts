@@ -318,6 +318,42 @@ describe("handleRuleNotificationAction", () => {
     );
   });
 
+  it("tells the user when an edited draft was already sent", async () => {
+    const provider = createDraftReplyProvider();
+    mockCreateEmailProvider.mockResolvedValue(provider);
+    mockNotificationContext({
+      id: "action-1",
+      type: ActionType.DRAFT_EMAIL,
+      content: "Thanks for the note.",
+      draftId: "draft-1",
+      subject: "Re: Test subject",
+    });
+    prisma.executedAction.updateMany.mockResolvedValueOnce({
+      count: 0,
+    } as never);
+
+    const { handleSlackRuleNotificationModalSubmit } = await import(
+      "./rule-notifications"
+    );
+    const response = await handleSlackRuleNotificationModalSubmit({
+      event: {
+        privateMetadata: "action-1",
+        values: { draft_content: "Edited draft body" },
+        user: { userId: "user-1" },
+        raw: { team: { id: "team-1" } },
+        relatedMessage: { edit: vi.fn() },
+      } as never,
+      logger,
+    });
+
+    expect(provider.updateDraft).not.toHaveBeenCalled();
+    expect(provider.sendDraft).not.toHaveBeenCalled();
+    expect(response).toEqual({
+      action: "errors",
+      errors: { draft_content: "That draft has already been handled." },
+    });
+  });
+
   it("lets the user retry when sending the reply fails", async () => {
     const provider = createDraftReplyProvider();
     provider.sendDraft.mockRejectedValue(new Error("provider down"));
