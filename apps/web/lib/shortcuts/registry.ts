@@ -447,6 +447,14 @@ const SHORTCUT_DEFINITIONS = [
     allowWhileTyping: true,
     capture: true,
   },
+  {
+    id: "toggleAssistant",
+    keys: ["mod+j"],
+    scope: "mail",
+    group: "Assistant & rules",
+    label: "Assistant",
+    allowWhileTyping: true,
+  },
 ] as const satisfies readonly ShortcutEntry[];
 
 export type ShortcutId = (typeof SHORTCUT_DEFINITIONS)[number]["id"];

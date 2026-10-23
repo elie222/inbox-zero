@@ -310,7 +310,7 @@ export const ListToolbar = memo(function ListToolbar({
       ) : null}
 
       {selectedCount === 0 ? (
-        <Tooltip content="Assistant">
+        <Tooltip shortcuts={["toggleAssistant"]}>
           <button
             type="button"
             onClick={onToggleAssistant}

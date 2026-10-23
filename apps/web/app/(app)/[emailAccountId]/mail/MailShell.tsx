@@ -1151,6 +1151,9 @@ export function MailShell() {
     senderCommandContext?.threadId === singleActionTarget?.selection.threadId
       ? senderCommandContext
       : null;
+  const onToggleAssistant = useStableCallback(() =>
+    toggleSidebar(["chat-sidebar"]),
+  );
   // `useShortcuts` keeps handlers in a ref, so these need no memoization.
   const handlers: ShortcutHandlers = (() => {
     if (sidePanelThreadId || labelPicker) return {};
@@ -1251,6 +1254,7 @@ export function MailShell() {
       },
       toggleLayout,
       togglePreview,
+      toggleAssistant: onToggleAssistant,
       help: () => setIsHelpOpen(true),
       search: isMailOverlayOpen
         ? undefined
@@ -1393,9 +1397,6 @@ export function MailShell() {
         threadId: sentThreadId,
       });
     },
-  );
-  const onToggleAssistant = useStableCallback(() =>
-    toggleSidebar(["chat-sidebar"]),
   );
   const searchFolders = useMemo(
     () =>
