@@ -818,6 +818,37 @@ describe("runRules draft attribution persistence", () => {
   });
 });
 
+describe("runRules saved delays on actions that can't be delayed", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("runs the action now instead of dropping it", async () => {
+    // Saved before the API rejected this: the scheduler only accepts
+    // delayable action types, so this webhook would never run.
+    const webhookAction = getAction({
+      id: "webhook-action-1",
+      type: ActionType.CALL_WEBHOOK,
+      url: "https://example.com/webhook",
+      delayInMinutes: 30,
+    });
+    const webhookRule = createRule("webhook-rule", null, [webhookAction]);
+
+    mockMatchingRules([{ rule: webhookRule, matchReasons: [] }]);
+    prisma.executedRule.findFirst.mockResolvedValue(null);
+    vi.mocked(getActionItemsWithAiArgs).mockResolvedValue([
+      webhookAction,
+    ] as any);
+    vi.mocked(executeAct).mockResolvedValue(ExecutedRuleStatus.APPLIED);
+    mockExecutedRuleCreate({ rule: webhookRule, actionItems: [webhookAction] });
+
+    const results = await runRulesWithDefaults({ rules: [webhookRule] });
+
+    expect(executeAct).toHaveBeenCalled();
+    expect(results[0]?.status).toBe(ExecutedRuleStatus.APPLIED);
+  });
+});
+
 describe("runRules outbound guardrails", () => {
   beforeEach(() => {
     vi.clearAllMocks();
