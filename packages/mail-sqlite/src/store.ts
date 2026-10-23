@@ -1831,6 +1831,10 @@ export async function createSqliteMailStore(
     },
     async recordConnection(input) {
       return driver.write(async (tx) => {
+        const previous = await tx.query(
+          "SELECT connection FROM accounts WHERE account_id = ?",
+          [input.accountId],
+        );
         // Every sync request reports its connection; only a change should
         // republish the views.
         const updated = await tx.execute(
@@ -1838,6 +1842,21 @@ export async function createSqliteMailStore(
           [input.connection, input.accountId, input.connection],
         );
         if (updated.changedRows === 0) return false;
+        if (
+          input.connection === "ready" &&
+          previous[0]?.connection === "blocked_auth"
+        ) {
+          // claimWork never picks up blocked_auth, so a command that hit an
+          // expired token would stay pending forever. Sync recovering from its
+          // own auth failure is the signal that the credentials work again;
+          // recovering from offline, or reporting ready again, is not.
+          await tx.execute(
+            `UPDATE operations
+             SET status = 'queued', next_attempt_at_ms = NULL, claimed_by = NULL, claimed_until_ms = NULL
+             WHERE account_id = ? AND status = 'blocked_auth'`,
+            [input.accountId],
+          );
+        }
         await bumpRevision(tx);
         return true;
       });
