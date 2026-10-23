@@ -38,6 +38,7 @@ import {
   normalizeSelectArgValue,
 } from "@/utils/mcp/tool-specs";
 import { assertNoSenderOnlyOverlap } from "@/utils/rule/sender-scope-overlap";
+import { canActionBeDelayed } from "@/utils/delayed-actions";
 import { isIntegrationActionEnabledForEmailAccountId } from "@/utils/integration-action.server";
 
 export type RuleActionCreateData = Omit<
@@ -979,10 +980,9 @@ function addNestedActionOwnershipToInputs(
   emailAccountId: string,
 ): Prisma.ActionCreateManyRuleInput[] {
   return actions.map((action) => {
-    const actionWithSupportedDelay =
-      action.type === ActionType.INTEGRATION
-        ? { ...action, delayInMinutes: null }
-        : action;
+    const actionWithSupportedDelay = canActionBeDelayed(action.type)
+      ? action
+      : { ...action, delayInMinutes: null };
 
     return addNestedActionOwnershipToInput(
       actionWithSupportedDelay,

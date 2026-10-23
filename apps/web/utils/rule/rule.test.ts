@@ -838,6 +838,47 @@ describe("integration action access", () => {
   });
 });
 
+describe("unsupported action delays", () => {
+  beforeEach(resetRuleMocks);
+
+  it("saves a delay on an action that can't be delayed as no delay", async () => {
+    prisma.rule.findFirst.mockResolvedValue({
+      from: null,
+      actions: [],
+    } as never);
+    prisma.rule.update.mockResolvedValue({
+      id: RULE_ID,
+      actions: [],
+      group: null,
+    } as never);
+
+    await updateRuleActions({
+      ruleId: RULE_ID,
+      actions: [
+        {
+          ...webhookRuleAction("https://example.com/hook"),
+          delayInMinutes: 30,
+        },
+        { ...archiveAction(), delayInMinutes: 30 },
+      ],
+      provider: "gmail",
+      emailAccountId: EMAIL_ACCOUNT_ID,
+      logger,
+    });
+
+    const savedActions = (
+      prisma.rule.update.mock.calls[0][0].data.actions as any
+    ).createMany.data;
+    expect(savedActions).toEqual([
+      expect.objectContaining({
+        type: ActionType.CALL_WEBHOOK,
+        delayInMinutes: null,
+      }),
+      expect.objectContaining({ type: ActionType.ARCHIVE, delayInMinutes: 30 }),
+    ]);
+  });
+});
+
 describe("draft messaging actions", () => {
   beforeEach(resetRuleMocks);
 
