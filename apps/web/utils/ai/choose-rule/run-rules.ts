@@ -1,4 +1,5 @@
 import { after } from "next/server";
+import { canActionBeDelayed } from "@/utils/delayed-actions";
 import type { ParsedMessage, RuleWithActions } from "@/utils/types";
 import {
   ActionType,
@@ -443,8 +444,13 @@ async function executeMatchedRule(
     };
   }
 
+  // The scheduler only accepts delayable types, so a delay saved on any
+  // other action (e.g. through the API before it was validated) would make
+  // it never run. Run those now instead.
   const { immediateActions, delayedActions } = groupBy(actionItems, (item) =>
-    item.delayInMinutes != null && item.delayInMinutes > 0
+    item.delayInMinutes != null &&
+    item.delayInMinutes > 0 &&
+    canActionBeDelayed(item.type)
       ? "delayedActions"
       : "immediateActions",
   );
