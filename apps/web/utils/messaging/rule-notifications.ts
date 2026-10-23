@@ -902,7 +902,7 @@ async function handleDraftSend({
   event: ActionEvent;
   logger: Logger;
 }) {
-  if (!canSendDraft(context.messagingMessageStatus)) {
+  if (!(await claimDraftSend(context))) {
     await postNotificationFeedback({
       event,
       logger,
@@ -928,6 +928,7 @@ async function handleDraftSend({
       });
     }
   } catch (error) {
+    await releaseDraftSendClaim(context);
     logger.warn("Failed to send Slack draft notification reply", {
       executedActionId: context.id,
       error,
@@ -2579,6 +2580,40 @@ function canSendDraft(status: MessagingMessageStatus | null) {
 
 function canEditDraft(status: MessagingMessageStatus | null) {
   return canSendDraft(status);
+}
+
+// Status loaded with the notification can be stale: a second tap, or Slack
+// retrying the interaction, must not send the reply twice.
+async function claimDraftSend(context: NotificationContext) {
+  const claimed = await prisma.executedAction.updateMany({
+    where: {
+      id: context.id,
+      OR: [
+        { messagingMessageStatus: null },
+        {
+          messagingMessageStatus: {
+            notIn: [
+              MessagingMessageStatus.DRAFT_SENT,
+              MessagingMessageStatus.DISMISSED,
+              MessagingMessageStatus.EXPIRED,
+            ],
+          },
+        },
+      ],
+    },
+    data: { messagingMessageStatus: MessagingMessageStatus.DRAFT_SENT },
+  });
+  return claimed.count > 0;
+}
+
+async function releaseDraftSendClaim(context: NotificationContext) {
+  await prisma.executedAction.updateMany({
+    where: {
+      id: context.id,
+      messagingMessageStatus: MessagingMessageStatus.DRAFT_SENT,
+    },
+    data: { messagingMessageStatus: context.messagingMessageStatus },
+  });
 }
 
 function isSlackError(
