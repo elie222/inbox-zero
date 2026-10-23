@@ -1955,7 +1955,11 @@ describe("drafts, freeze, and uncertain settlement", () => {
     await store.settleAttempt({
       attemptId: execute.attemptId,
       operation: execute.operation,
-      result: { status: "not_dispatched", reason: "blocked_auth" },
+      result: {
+        status: "not_dispatched",
+        reason: "blocked_auth",
+        retryAfterMs: 5000,
+      },
     });
     // Sync keeps working (no reconnect happened), so a retry would hit the
     // same auth error again.
@@ -2006,7 +2010,11 @@ describe("drafts, freeze, and uncertain settlement", () => {
     await store.settleAttempt({
       attemptId: execute.attemptId,
       operation: execute.operation,
-      result: { status: "not_dispatched", reason: "blocked_auth" },
+      result: {
+        status: "not_dispatched",
+        reason: "blocked_auth",
+        retryAfterMs: 5000,
+      },
     });
     // A network blip is not a reconnect, so a retry would hit the same auth
     // error again.
