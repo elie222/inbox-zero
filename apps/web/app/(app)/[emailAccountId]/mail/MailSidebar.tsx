@@ -27,6 +27,7 @@ import {
   Users2Icon,
 } from "lucide-react";
 import type { MailboxLabelCount } from "@/utils/mail-engine/label-count-targets";
+import { Kbd } from "@/components/Kbd";
 import { Tooltip as ShortcutTooltip } from "@/components/Tooltip";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
@@ -37,6 +38,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { getShortcutHint } from "@/lib/shortcuts/registry";
 import type { EmailLabel } from "@/providers/email-label-types";
 import { GmailLabel } from "@/utils/gmail/label";
 import { cn } from "@/utils";
@@ -278,11 +280,11 @@ export function MailSidebar({
         hideToggle={hideToggle}
       />
 
-      <ShortcutTooltip
-        shortcuts={[{ id: "compose", label: "Compose" }]}
-        side={collapsed ? "right" : "bottom"}
-      >
-        {collapsed ? (
+      {collapsed ? (
+        <ShortcutTooltip
+          shortcuts={[{ id: "compose", label: "Compose" }]}
+          side="right"
+        >
           <Button
             variant="outline"
             size="icon"
@@ -292,18 +294,19 @@ export function MailSidebar({
           >
             <PenLineIcon className="size-4 text-blue-600 dark:text-blue-400" />
           </Button>
-        ) : (
-          <Button
-            variant="outline"
-            onClick={onCompose}
-            // The 9px inset plus the border lines the icon up with the rows below.
-            className="mb-3 w-full shrink-0 justify-start gap-2.5 rounded-xl px-[9px]"
-          >
-            <PenLineIcon className="size-4 shrink-0 text-blue-600 dark:text-blue-400" />
-            Compose
-          </Button>
-        )}
-      </ShortcutTooltip>
+        </ShortcutTooltip>
+      ) : (
+        <Button
+          variant="outline"
+          onClick={onCompose}
+          // The 9px inset plus the border lines the icon up with the rows below.
+          className="mb-3 w-full shrink-0 justify-start gap-2.5 rounded-xl px-[9px]"
+        >
+          <PenLineIcon className="size-4 shrink-0 text-blue-600 dark:text-blue-400" />
+          <span className="flex-1 text-left">Compose</span>
+          <Kbd>{getShortcutHint("compose")}</Kbd>
+        </Button>
+      )}
 
       {/* The negative margin lets the scrollbar sit in the sidebar's own
           padding, so a platform-width bar can't crowd the unread counts. */}
