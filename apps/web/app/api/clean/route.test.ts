@@ -190,6 +190,30 @@ describe("cleanThread", () => {
       );
     });
 
+    it("keeps a past calendar invite thread with a starred message", async () => {
+      vi.mocked(getCalendarEventStatus).mockImplementation((message) =>
+        message.id === "msg-1"
+          ? { isEvent: true, timing: "past" }
+          : { isEvent: false },
+      );
+      mockGetThreadMessages.mockResolvedValue([
+        getMockMessage({ id: "msg-1", subject: "Invitation: Sync" }),
+        getMockMessage({
+          id: "msg-2",
+          subject: "Re: Invitation: Sync",
+          labelIds: [GmailLabel.STARRED],
+        }),
+      ]);
+
+      await cleanThread(getDefaultParams());
+
+      expect(mockPublishToQstash).toHaveBeenCalledWith(
+        "/api/clean/gmail",
+        expect.objectContaining({ markDone: false }),
+        expect.any(Object),
+      );
+    });
+
     it("still archives a newsletter thread with nothing to keep", async () => {
       mockGetThreadMessages.mockResolvedValue([newsletter]);
 
