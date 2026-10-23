@@ -1838,6 +1838,19 @@ export async function createSqliteMailStore(
           [input.connection, input.accountId, input.connection],
         );
         if (updated.changedRows === 0) return false;
+        if (input.connection === "ready") {
+          // claimWork never picks up blocked_auth, so a command that hit an
+          // expired token would stay pending forever. The account coming back
+          // to ready is the signal that its credentials work again. Releasing
+          // only on this change, not on every ready report, avoids retrying a
+          // command whose auth failure sync doesn't share.
+          await tx.execute(
+            `UPDATE operations
+             SET status = 'queued', next_attempt_at_ms = NULL, claimed_by = NULL, claimed_until_ms = NULL
+             WHERE account_id = ? AND status = 'blocked_auth'`,
+            [input.accountId],
+          );
+        }
         await bumpRevision(tx);
         return true;
       });

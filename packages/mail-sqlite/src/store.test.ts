@@ -1860,6 +1860,66 @@ describe("drafts, freeze, and uncertain settlement", () => {
     await store.close();
   });
 
+  it("resumes a blocked_auth command once the account connects again", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const saved = await store.saveDraft({
+      key: { accountId: "acc-1", draftId: "d-reauth" },
+      expectedRevision: null,
+      content: {
+        to: ["ada@example.com"],
+        cc: [],
+        bcc: [],
+        subject: "Hi",
+        editableHtml: "<p>Hi</p>",
+        quotedHtml: "",
+      },
+    });
+    if (saved.status !== "saved") throw new Error("expected save");
+    await store.admitSend({
+      commandId: "send-reauth",
+      draft: { accountId: "acc-1", draftId: "d-reauth" },
+      draftRevision: saved.draftRevision,
+      replyTo: null,
+    });
+    const execute = await store.claimWork({
+      ownerId: "owner",
+      nowMs: Date.now(),
+      leaseMs: 30_000,
+    });
+    if (execute?.kind !== "command") throw new Error("expected command");
+    await store.settleAttempt({
+      attemptId: execute.attemptId,
+      operation: execute.operation,
+      result: {
+        status: "not_dispatched",
+        reason: "blocked_auth",
+        retryAfterMs: 5000,
+      },
+    });
+    // Sync sees the same expired token, then the user reconnects.
+    await store.recordConnection({
+      accountId: "acc-1",
+      connection: "blocked_auth",
+    });
+    await store.recordConnection({ accountId: "acc-1", connection: "ready" });
+
+    const resumed = await store.claimWork({
+      ownerId: "owner",
+      nowMs: Date.now(),
+      leaseMs: 30_000,
+    });
+    expect(resumed).toMatchObject({
+      kind: "command",
+      operation: { key: { operationId: "send-reauth" } },
+    });
+    await store.close();
+  });
+
   it("reclaims an executing command after the lease expires", async () => {
     const store = await createSqliteMailStore(createNodeSqliteDriver());
     await store.ensureAccount({
