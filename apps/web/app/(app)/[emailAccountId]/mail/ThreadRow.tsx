@@ -11,7 +11,6 @@ import type {
   ListThread,
   MailLayoutMode,
 } from "@/app/(app)/[emailAccountId]/mail/types";
-import { EmailDate } from "@/components/email-list/EmailDate";
 import { SentMessageOpenStatus } from "@/components/email-list/SentMessageOpenStatus";
 import { getEmailThreadLabels } from "@/components/EmailMessageCellLabels";
 import { Tooltip } from "@/components/Tooltip";
@@ -24,7 +23,7 @@ import {
 } from "@/components/ui/avatar";
 import type { EmailLabels } from "@/providers/email-label-types";
 import { cn } from "@/utils";
-import { internalDateToDate } from "@/utils/date";
+import { formatShortDate, internalDateToDate } from "@/utils/date";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { GmailLabel } from "@/utils/gmail/label";
 import { getConversationSubject } from "@/utils/email/subject";
@@ -121,10 +120,11 @@ export const ThreadRow = memo(function ThreadRow({
           {sentMessageOpen ? (
             <SentMessageOpenStatus compact open={sentMessageOpen} />
           ) : null}
-          <EmailDate
-            className="font-normal text-xs"
-            date={internalDateToDate(message.internalDate)}
-          />
+          <span className="text-muted-foreground text-xs">
+            {formatShortDate(internalDateToDate(message.internalDate), {
+              lowercase: true,
+            })}
+          </span>
         </div>
       }
       expandedPreview={expandedPreview}
