@@ -31,8 +31,6 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     env:
-      CSC_LINK: ${{ matrix.os == 'macos-latest' && secrets.MAC_CSC_LINK || secrets.WIN_CSC_LINK }}
-      CSC_KEY_PASSWORD: ${{ matrix.os == 'macos-latest' && secrets.MAC_CSC_KEY_PASSWORD || secrets.WIN_CSC_KEY_PASSWORD }}
       APPLE_API_KEY_ID: ${{ matrix.os == 'macos-latest' && secrets.APPLE_API_KEY_ID || '' }}
       APPLE_API_ISSUER: ${{ matrix.os == 'macos-latest' && secrets.APPLE_API_ISSUER || '' }}
       APPLE_TEAM_ID: ${{ matrix.os == 'macos-latest' && secrets.APPLE_TEAM_ID || '' }}
@@ -94,12 +92,26 @@ jobs:
         shell: bash
         env:
           INBOX_ZERO_SENTRY_DSN: ${{ secrets.DESKTOP_SENTRY_DSN }}
+          AZURE_TENANT_ID: ${{ runner.os == 'Windows' && secrets.AZURE_SIGNING_TENANT_ID || '' }}
+          AZURE_CLIENT_ID: ${{ runner.os == 'Windows' && secrets.AZURE_SIGNING_CLIENT_ID || '' }}
+          AZURE_CLIENT_SECRET: ${{ runner.os == 'Windows' && secrets.AZURE_SIGNING_CLIENT_SECRET || '' }}
+          AZURE_SIGNING_PUBLISHER_NAME: ${{ vars.AZURE_SIGNING_PUBLISHER_NAME }}
+          AZURE_SIGNING_ENDPOINT: ${{ vars.AZURE_SIGNING_ENDPOINT }}
+          AZURE_SIGNING_ACCOUNT_NAME: ${{ vars.AZURE_SIGNING_ACCOUNT_NAME }}
+          AZURE_SIGNING_CERTIFICATE_PROFILE: ${{ vars.AZURE_SIGNING_CERTIFICATE_PROFILE }}
         run: |
-          if [ "${{ runner.os }}" = "macOS" ]; then
-            unset CSC_LINK CSC_KEY_PASSWORD
+          sign_args=()
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            sign_args=(
+              -c.win.forceCodeSigning=true
+              "-c.win.azureSignOptions.publisherName=$AZURE_SIGNING_PUBLISHER_NAME"
+              "-c.win.azureSignOptions.endpoint=$AZURE_SIGNING_ENDPOINT"
+              "-c.win.azureSignOptions.codeSigningAccountName=$AZURE_SIGNING_ACCOUNT_NAME"
+              "-c.win.azureSignOptions.certificateProfileName=$AZURE_SIGNING_CERTIFICATE_PROFILE"
+            )
           fi
           pnpm build
-          pnpm exec electron-builder ${{ matrix.args }} --publish never
+          pnpm exec electron-builder ${{ matrix.args }} "${sign_args[@]}" --publish never
 
       - name: Require update metadata
         working-directory: apps/desktop
@@ -151,6 +163,22 @@ jobs:
             echo "Expected both arm64 and x64 app bundles (arm=$has_arm x64=$has_x64)" >&2
             exit 1
           fi
+
+      - name: Verify Windows signatures
+        if: runner.os == 'Windows'
+        working-directory: apps/desktop
+        shell: pwsh
+        run: |
+          $installers = @(Get-ChildItem release/*.exe)
+          $apps = @(Get-ChildItem "release/win-*unpacked/Inbox Zero.exe")
+          if ($installers.Count -eq 0) { throw "No Windows installers found" }
+          if ($apps.Count -eq 0) { throw "No unpacked Windows app executables found" }
+          foreach ($file in $installers + $apps) {
+            $signature = Get-AuthenticodeSignature -FilePath $file.FullName
+            Write-Host "$($file.Name): $($signature.Status) $($signature.SignerCertificate.Subject)"
+            if ($signature.Status -ne 'Valid') { throw "$($file.Name) is not validly signed" }
+            if (-not $signature.TimeStamperCertificate) { throw "$($file.Name) is not timestamped" }
+          }
 
       - name: Clean up macOS signing files
         if: always() && runner.os == 'macOS'
