@@ -56,7 +56,10 @@ import {
 } from "@/utils/ai/choose-rule/draft-management";
 import type { ParsedMessage } from "@/utils/types";
 import * as he from "he";
-import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
+import {
+  DRAFT_REPLY_ACTION_TYPES,
+  isDraftReplyActionType,
+} from "@/utils/actions/draft-reply";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
 import {
   isMessagingChannelOperational,
@@ -778,6 +781,15 @@ export async function handleSlackRuleNotificationModalSubmit({
     return { action: "close" };
   }
 
+  if (!(await claimDraftSend(context))) {
+    return {
+      action: "errors",
+      errors: {
+        [SLACK_DRAFT_EDIT_FIELD_ID]: "That draft has already been handled.",
+      },
+    };
+  }
+
   const mailboxDraftAction = getMailboxDraftActionForMessagingDraft(context);
 
   if (mailboxDraftAction?.draftId) {
@@ -791,6 +803,7 @@ export async function handleSlackRuleNotificationModalSubmit({
           : {}),
       });
     } catch (error) {
+      await releaseDraftSendClaim(context);
       logger.warn("Failed to sync edited Slack draft back to email draft", {
         executedActionId: context.id,
         mailboxDraftActionId: mailboxDraftAction.id,
@@ -806,18 +819,18 @@ export async function handleSlackRuleNotificationModalSubmit({
     }
   }
 
-  await prisma.executedAction.updateMany({
-    where: {
-      id: {
-        in: [context.id, mailboxDraftAction?.id].filter(Boolean) as string[],
-      },
-    },
-    data: {
-      content: nextContent,
-    },
-  });
-
   try {
+    await prisma.executedAction.updateMany({
+      where: {
+        id: {
+          in: [context.id, mailboxDraftAction?.id].filter(Boolean) as string[],
+        },
+      },
+      data: {
+        content: nextContent,
+      },
+    });
+
     await sendDraftReplyFromNotification({
       context: { ...context, content: nextContent },
       logger,
@@ -832,6 +845,7 @@ export async function handleSlackRuleNotificationModalSubmit({
       },
     });
   } catch (error) {
+    await releaseDraftSendClaim(context);
     logger.warn("Failed to send edited Slack draft notification reply", {
       executedActionId: context.id,
       error,
@@ -902,7 +916,7 @@ async function handleDraftSend({
   event: ActionEvent;
   logger: Logger;
 }) {
-  if (!canSendDraft(context.messagingMessageStatus)) {
+  if (!(await claimDraftSend(context))) {
     await postNotificationFeedback({
       event,
       logger,
@@ -928,6 +942,7 @@ async function handleDraftSend({
       });
     }
   } catch (error) {
+    await releaseDraftSendClaim(context);
     logger.warn("Failed to send Slack draft notification reply", {
       executedActionId: context.id,
       error,
@@ -2579,6 +2594,59 @@ function canSendDraft(status: MessagingMessageStatus | null) {
 
 function canEditDraft(status: MessagingMessageStatus | null) {
   return canSendDraft(status);
+}
+
+// Status loaded with the notification can be stale: a second tap, or Slack
+// retrying the interaction, must not send the reply twice.
+async function claimDraftSend(context: NotificationContext) {
+  const claimed = await prisma.executedAction.updateMany({
+    where: {
+      id: context.id,
+      OR: [
+        { messagingMessageStatus: null },
+        {
+          messagingMessageStatus: {
+            notIn: [
+              MessagingMessageStatus.DRAFT_SENT,
+              MessagingMessageStatus.DISMISSED,
+              MessagingMessageStatus.EXPIRED,
+            ],
+          },
+        },
+      ],
+    },
+    data: { messagingMessageStatus: MessagingMessageStatus.DRAFT_SENT },
+  });
+  if (claimed.count === 0) return false;
+
+  // Other notifications for the same rule run reply to the same thread, so
+  // only one of them may send. Checking after our own claim means two racing
+  // notifications can't both miss each other.
+  const claimedSibling = await prisma.executedAction.findFirst({
+    where: {
+      id: { not: context.id },
+      executedRuleId: context.executedRule.id,
+      type: { in: [...DRAFT_REPLY_ACTION_TYPES] },
+      messagingMessageStatus: MessagingMessageStatus.DRAFT_SENT,
+    },
+    select: { id: true },
+  });
+  if (claimedSibling) {
+    await releaseDraftSendClaim(context);
+    return false;
+  }
+
+  return true;
+}
+
+async function releaseDraftSendClaim(context: NotificationContext) {
+  await prisma.executedAction.updateMany({
+    where: {
+      id: context.id,
+      messagingMessageStatus: MessagingMessageStatus.DRAFT_SENT,
+    },
+    data: { messagingMessageStatus: context.messagingMessageStatus },
+  });
 }
 
 function isSlackError(

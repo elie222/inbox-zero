@@ -84,6 +84,7 @@ describe("handleRuleNotificationAction", () => {
     mockTelegramPostMessage.mockResolvedValue({ id: "telegram-message-1" });
     mockTelegramEditMessage.mockResolvedValue({ id: "telegram-message-1" });
     prisma.executedAction.findMany.mockResolvedValue([] as never);
+    prisma.executedAction.updateMany.mockResolvedValue({ count: 1 } as never);
   });
 
   it.each([
@@ -283,6 +284,146 @@ describe("handleRuleNotificationAction", () => {
       },
     });
     expect(editMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not send the reply again when Send is tapped twice", async () => {
+    const provider = createDraftReplyProvider();
+    mockCreateEmailProvider.mockResolvedValue(provider);
+    mockNotificationContext({
+      id: "action-1",
+      type: ActionType.DRAFT_EMAIL,
+      content: "Thanks for the note.",
+      draftId: "draft-1",
+      subject: "Re: Test subject",
+    });
+    prisma.executedAction.updateMany.mockResolvedValue({ count: 0 } as never);
+
+    const postEphemeral = vi.fn();
+    const event = createSlackActionEvent({
+      actionId: "rule_draft_send",
+      value: "action-1",
+      postEphemeral,
+    });
+
+    const { handleRuleNotificationAction } = await import(
+      "./rule-notifications"
+    );
+    await handleRuleNotificationAction({ event, logger });
+
+    expect(provider.sendDraft).not.toHaveBeenCalled();
+    expect(postEphemeral).toHaveBeenCalledWith(
+      event.user,
+      "That draft has already been handled.",
+      { fallbackToDM: false },
+    );
+  });
+
+  it("does not send when another notification for the rule already claimed the reply", async () => {
+    const provider = createDraftReplyProvider();
+    mockCreateEmailProvider.mockResolvedValue(provider);
+    mockNotificationContext({
+      id: "action-1",
+      type: ActionType.DRAFT_EMAIL,
+      content: "Thanks for the note.",
+      draftId: "draft-1",
+      subject: "Re: Test subject",
+    });
+    prisma.executedAction.findFirst.mockResolvedValue({
+      id: "sibling-action",
+    } as never);
+
+    const postEphemeral = vi.fn();
+    const event = createSlackActionEvent({
+      actionId: "rule_draft_send",
+      value: "action-1",
+      postEphemeral,
+    });
+
+    const { handleRuleNotificationAction } = await import(
+      "./rule-notifications"
+    );
+    await handleRuleNotificationAction({ event, logger });
+
+    expect(provider.sendDraft).not.toHaveBeenCalled();
+    expect(prisma.executedAction.updateMany).toHaveBeenLastCalledWith({
+      where: {
+        id: "action-1",
+        messagingMessageStatus: MessagingMessageStatus.DRAFT_SENT,
+      },
+      data: { messagingMessageStatus: null },
+    });
+    expect(postEphemeral).toHaveBeenCalledWith(
+      event.user,
+      "That draft has already been handled.",
+      { fallbackToDM: false },
+    );
+  });
+
+  it("tells the user when an edited draft was already sent", async () => {
+    const provider = createDraftReplyProvider();
+    mockCreateEmailProvider.mockResolvedValue(provider);
+    mockNotificationContext({
+      id: "action-1",
+      type: ActionType.DRAFT_EMAIL,
+      content: "Thanks for the note.",
+      draftId: "draft-1",
+      subject: "Re: Test subject",
+    });
+    prisma.executedAction.updateMany.mockResolvedValueOnce({
+      count: 0,
+    } as never);
+
+    const { handleSlackRuleNotificationModalSubmit } = await import(
+      "./rule-notifications"
+    );
+    const response = await handleSlackRuleNotificationModalSubmit({
+      event: {
+        privateMetadata: "action-1",
+        values: { draft_content: "Edited draft body" },
+        user: { userId: "user-1" },
+        raw: { team: { id: "team-1" } },
+        relatedMessage: { edit: vi.fn() },
+      } as never,
+      logger,
+    });
+
+    expect(provider.updateDraft).not.toHaveBeenCalled();
+    expect(provider.sendDraft).not.toHaveBeenCalled();
+    expect(response).toEqual({
+      action: "errors",
+      errors: { draft_content: "That draft has already been handled." },
+    });
+  });
+
+  it("lets the user retry when sending the reply fails", async () => {
+    const provider = createDraftReplyProvider();
+    provider.sendDraft.mockRejectedValue(new Error("provider down"));
+    mockCreateEmailProvider.mockResolvedValue(provider);
+    mockNotificationContext({
+      id: "action-1",
+      type: ActionType.DRAFT_EMAIL,
+      content: "Thanks for the note.",
+      draftId: "draft-1",
+      subject: "Re: Test subject",
+    });
+
+    const event = createSlackActionEvent({
+      actionId: "rule_draft_send",
+      value: "action-1",
+    });
+
+    const { handleRuleNotificationAction } = await import(
+      "./rule-notifications"
+    );
+    await handleRuleNotificationAction({ event, logger });
+
+    expect(prisma.executedAction.updateMany).toHaveBeenLastCalledWith({
+      where: {
+        id: "action-1",
+        messagingMessageStatus: MessagingMessageStatus.DRAFT_SENT,
+      },
+      data: { messagingMessageStatus: null },
+    });
   });
 
   it("collapses sibling draft notifications when a draft is sent from Slack", async () => {
@@ -2780,6 +2921,52 @@ describe("replaceMessagingDraftNotificationsWithHandledOnWebState", () => {
     );
   });
 });
+
+function createDraftReplyProvider() {
+  return {
+    sendDraft: vi
+      .fn()
+      .mockResolvedValue({ messageId: "sent-1", threadId: "thread-1" }),
+    updateDraft: vi.fn().mockResolvedValue(undefined),
+    sendEmailWithHtml: vi.fn().mockResolvedValue(undefined),
+    getDraft: vi.fn().mockResolvedValue({
+      id: "draft-1",
+      threadId: "thread-1",
+      textPlain: "Thanks for the note.",
+      subject: "Re: Test subject",
+      date: new Date().toISOString(),
+      snippet: "Thanks for the note.",
+      historyId: "1",
+      internalDate: "1",
+      headers: {
+        from: "user@example.com",
+        to: "sender@example.com",
+        subject: "Re: Test subject",
+        date: "Mon, 1 Jan 2024 12:00:00 +0000",
+      },
+      labelIds: [],
+      inline: [],
+    } satisfies ParsedMessage),
+    getMessage: vi.fn().mockResolvedValue({
+      id: "message-1",
+      threadId: "thread-1",
+      textPlain: "Original message body",
+      subject: "Test subject",
+      date: new Date().toISOString(),
+      snippet: "Original message body",
+      historyId: "2",
+      internalDate: "2",
+      headers: {
+        from: "sender@example.com",
+        to: "user@example.com",
+        subject: "Test subject",
+        date: "Mon, 1 Jan 2024 11:00:00 +0000",
+      },
+      labelIds: [],
+      inline: [],
+    } satisfies ParsedMessage),
+  };
+}
 
 function mockNotificationContext(
   options: Parameters<typeof getNotificationContext>[0],
