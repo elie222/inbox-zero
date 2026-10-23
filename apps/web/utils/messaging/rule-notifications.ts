@@ -56,7 +56,10 @@ import {
 } from "@/utils/ai/choose-rule/draft-management";
 import type { ParsedMessage } from "@/utils/types";
 import * as he from "he";
-import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
+import {
+  DRAFT_REPLY_ACTION_TYPES,
+  isDraftReplyActionType,
+} from "@/utils/actions/draft-reply";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
 import {
   isMessagingChannelOperational,
@@ -2614,7 +2617,26 @@ async function claimDraftSend(context: NotificationContext) {
     },
     data: { messagingMessageStatus: MessagingMessageStatus.DRAFT_SENT },
   });
-  return claimed.count > 0;
+  if (claimed.count === 0) return false;
+
+  // Other notifications for the same rule run reply to the same thread, so
+  // only one of them may send. Checking after our own claim means two racing
+  // notifications can't both miss each other.
+  const claimedSibling = await prisma.executedAction.findFirst({
+    where: {
+      id: { not: context.id },
+      executedRuleId: context.executedRule.id,
+      type: { in: [...DRAFT_REPLY_ACTION_TYPES] },
+      messagingMessageStatus: MessagingMessageStatus.DRAFT_SENT,
+    },
+    select: { id: true },
+  });
+  if (claimedSibling) {
+    await releaseDraftSendClaim(context);
+    return false;
+  }
+
+  return true;
 }
 
 async function releaseDraftSendClaim(context: NotificationContext) {

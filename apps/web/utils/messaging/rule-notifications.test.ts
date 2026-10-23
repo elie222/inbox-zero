@@ -318,6 +318,47 @@ describe("handleRuleNotificationAction", () => {
     );
   });
 
+  it("does not send when another notification for the rule already claimed the reply", async () => {
+    const provider = createDraftReplyProvider();
+    mockCreateEmailProvider.mockResolvedValue(provider);
+    mockNotificationContext({
+      id: "action-1",
+      type: ActionType.DRAFT_EMAIL,
+      content: "Thanks for the note.",
+      draftId: "draft-1",
+      subject: "Re: Test subject",
+    });
+    prisma.executedAction.findFirst.mockResolvedValue({
+      id: "sibling-action",
+    } as never);
+
+    const postEphemeral = vi.fn();
+    const event = createSlackActionEvent({
+      actionId: "rule_draft_send",
+      value: "action-1",
+      postEphemeral,
+    });
+
+    const { handleRuleNotificationAction } = await import(
+      "./rule-notifications"
+    );
+    await handleRuleNotificationAction({ event, logger });
+
+    expect(provider.sendDraft).not.toHaveBeenCalled();
+    expect(prisma.executedAction.updateMany).toHaveBeenLastCalledWith({
+      where: {
+        id: "action-1",
+        messagingMessageStatus: MessagingMessageStatus.DRAFT_SENT,
+      },
+      data: { messagingMessageStatus: null },
+    });
+    expect(postEphemeral).toHaveBeenCalledWith(
+      event.user,
+      "That draft has already been handled.",
+      { fallbackToDM: false },
+    );
+  });
+
   it("tells the user when an edited draft was already sent", async () => {
     const provider = createDraftReplyProvider();
     mockCreateEmailProvider.mockResolvedValue(provider);
