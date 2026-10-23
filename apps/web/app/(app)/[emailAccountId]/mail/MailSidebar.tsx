@@ -299,6 +299,8 @@ export function MailSidebar({
         <Button
           variant="outline"
           onClick={onCompose}
+          aria-label="Compose"
+          aria-keyshortcuts="c"
           // The 9px inset plus the border lines the icon up with the rows below.
           className="mb-3 w-full shrink-0 justify-start gap-2.5 rounded-xl px-[9px]"
         >
