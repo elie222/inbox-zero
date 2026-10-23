@@ -51,6 +51,7 @@ export type ThreadListProps = {
   /** Identity of the current view so prefetch state does not leak across splits. */
   listKey: string;
   showSentOpenStatus?: boolean;
+  onScrolledChange?: (scrolled: boolean) => void;
 };
 
 export const ThreadList = memo(function ThreadList({
@@ -73,6 +74,7 @@ export const ThreadList = memo(function ThreadList({
   onLoadMore,
   listKey,
   showSentOpenStatus = false,
+  onScrolledChange,
 }: ThreadListProps) {
   const isMobile = useIsMobile();
   const dayStart = useDayStart();
@@ -127,6 +129,7 @@ export const ThreadList = memo(function ThreadList({
       }
       onLoadMore={onLoadMore}
       onOpen={onOpenThread}
+      onScrolledChange={onScrolledChange}
       onSelectRangeTo={onSelectRangeTo}
       onToggleSelect={onToggleSelect}
       renderItem={(row) => (
