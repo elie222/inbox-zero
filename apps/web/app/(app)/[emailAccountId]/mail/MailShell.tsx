@@ -171,6 +171,7 @@ export function MailShell() {
   const [isDesktopApp, setIsDesktopApp] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMailNavOpen, setIsMailNavOpen] = useState(false);
+  const [isListScrolled, setIsListScrolled] = useState(false);
   const [labelPicker, setLabelPicker] = useState<{
     mode: "label" | "move";
     targets: ThreadSelection[];
@@ -1540,6 +1541,7 @@ export function MailShell() {
                     isAllAccounts ? combinedLabelSplits : undefined
                   }
                   labelsByAccount={isAllAccounts ? labelsByAccount : undefined}
+                  showDivider={isListScrolled}
                 />
               )}
               {isAllAccounts && combinedThreadState.failedAccountIds.length ? (
@@ -1585,6 +1587,7 @@ export function MailShell() {
                       showSentOpenStatus={
                         scopeType === "sent" && !isAllAccounts
                       }
+                      onScrolledChange={setIsListScrolled}
                       listKey={
                         isAllAccounts
                           ? `all-accounts:${searchQuery ?? displayedActiveSplitId}`

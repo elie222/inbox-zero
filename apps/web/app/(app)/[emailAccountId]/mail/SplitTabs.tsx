@@ -216,9 +216,9 @@ export function SplitTabs({
       ref={tabsRef}
       className={cn(
         // Padded to sit under the toolbar's search field rather than against
-        // the column edge. The active tab's underline sits on the rule that
-        // separates the tabs from the list.
-        "relative flex flex-wrap items-center gap-5 border-border border-b px-3",
+        // the column edge. The rule stays transparent unless the caller shows
+        // it, so the active tab's underline carries the edge on its own.
+        "relative flex flex-wrap items-center gap-5 border-transparent border-b px-3 transition-colors",
         className,
       )}
     >
