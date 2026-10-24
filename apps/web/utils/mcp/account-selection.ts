@@ -1,5 +1,6 @@
 import type { Prisma } from "@/generated/prisma/client";
 import prisma from "@/utils/prisma";
+import { EMAIL_ACCOUNT_ORDER_BY } from "@/utils/email-account-order";
 
 const mcpEmailAccountSelect = {
   id: true,
@@ -25,7 +26,7 @@ export async function listMcpEmailAccounts(userId: string) {
   const accounts = await prisma.emailAccount.findMany({
     where: { userId },
     select: mcpEmailAccountSelect,
-    orderBy: { createdAt: "asc" },
+    orderBy: EMAIL_ACCOUNT_ORDER_BY,
   });
 
   return accounts.map(toMcpEmailAccount);
@@ -54,7 +55,7 @@ export async function resolveMcpEmailAccount({
     where,
     select: mcpEmailAccountSelect,
     ...(!emailAccountId &&
-      !emailAddress && { orderBy: { createdAt: "asc" as const } }),
+      !emailAddress && { orderBy: EMAIL_ACCOUNT_ORDER_BY }),
   });
 
   if (!account) {

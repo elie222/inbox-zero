@@ -1,7 +1,17 @@
 "use client";
 
 import { MailAccountSwitcherTrigger } from "@inboxzero/mail-ui/MailAccountSwitcherTrigger";
-import { memo, useRef, useState, type ReactNode } from "react";
+import {
+  memo,
+  type PointerEvent,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { motion } from "motion/react";
+import { toast } from "sonner";
 import Link from "next/link";
 import {
   CheckIcon,
@@ -35,6 +45,9 @@ import {
 } from "@/lib/shortcuts/registry";
 import { getMailAccountUrl } from "@/app/(app)/[emailAccountId]/mail/mail-account-url";
 import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
+import { reorderEmailAccountsAction } from "@/utils/actions/all-accounts";
+import { getActionErrorMessage } from "@/utils/error";
+import { cn } from "@/utils";
 
 export const MailAccountSwitcher = memo(function MailAccountSwitcher({
   isAllAccounts,
@@ -53,6 +66,27 @@ export const MailAccountSwitcher = memo(function MailAccountSwitcher({
   const { data, mutate } = useAccounts();
   const { emailAccount } = useAccount();
   const [isSelectionOpen, setIsSelectionOpen] = useState(false);
+
+  const onReorder = useCallback(
+    async (emailAccountIds: string[]) => {
+      // Shown right away so a dropped account doesn't jump back while saving.
+      if (data) {
+        mutate(
+          {
+            ...data,
+            emailAccounts: orderAccounts(data.emailAccounts, emailAccountIds),
+          },
+          { revalidate: false },
+        );
+      }
+      const result = await reorderEmailAccountsAction({ emailAccountIds });
+      await mutate();
+      if (result?.serverError || result?.validationErrors) {
+        toast.error(getActionErrorMessage(result));
+      }
+    },
+    [data, mutate],
+  );
 
   if (!data) return null;
 
@@ -131,20 +165,13 @@ export const MailAccountSwitcher = memo(function MailAccountSwitcher({
               <DropdownMenuSeparator />
             </>
           ) : null}
-          {data.emailAccounts.map((account, index) => (
-            <AccountItem
-              account={account}
-              isActive={!isAllAccounts && account.id === emailAccount?.id}
-              isDesktopApp={isDesktopApp}
-              key={account.id}
-              onSelect={onSelectAccount}
-              shortcutKey={
-                isDesktopApp
-                  ? getShortcut("switchAccount").keys[index]
-                  : undefined
-              }
-            />
-          ))}
+          <AccountList
+            accounts={data.emailAccounts}
+            activeAccountId={isAllAccounts ? null : (emailAccount?.id ?? null)}
+            isDesktopApp={isDesktopApp}
+            onReorder={onReorder}
+            onSelect={onSelectAccount}
+          />
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild className="gap-3 rounded-xl p-3">
             <Link href="/accounts">
@@ -169,17 +196,170 @@ export const MailAccountSwitcher = memo(function MailAccountSwitcher({
   );
 });
 
+/**
+ * Accounts can be held and dragged into a new order, like split tabs. The
+ * list lives inside the menu content, so closing the menu ends any drag.
+ */
+function AccountList({
+  accounts,
+  activeAccountId,
+  isDesktopApp,
+  onReorder,
+  onSelect,
+}: {
+  accounts: EmailAccount[];
+  activeAccountId: string | null;
+  isDesktopApp: boolean;
+  onReorder: (emailAccountIds: string[]) => void;
+  onSelect: (accountId: string) => void;
+}) {
+  const listRef = useRef<HTMLDivElement>(null);
+  // The release that ends a drag would otherwise select the account under it.
+  const suppressSelectRef = useRef(false);
+  const stopTrackingRef = useRef<(() => void) | null>(null);
+  const [drag, setDrag] = useState<DragState | null>(null);
+  const dragRef = useRef<DragState | null>(null);
+  const updateDrag = (next: DragState | null) => {
+    dragRef.current = next;
+    setDrag(next);
+  };
+
+  const accountsById = new Map(
+    accounts.map((account) => [account.id, account]),
+  );
+  const orderedAccounts = drag
+    ? drag.order.flatMap((id) => accountsById.get(id) ?? [])
+    : accounts;
+
+  // Window listeners follow the pointer off the item, and keep working while
+  // React moves the dragged item's node as the order changes.
+  const trackPress = (
+    event: PointerEvent<HTMLDivElement>,
+    accountId: string,
+  ) => {
+    stopTrackingRef.current?.();
+    if (accounts.length < 2 || event.button !== 0) return;
+
+    const start = { x: event.clientX, y: event.clientY };
+    const initialOrder = accounts.map(({ id }) => id);
+    let cancelled = false;
+
+    const onPointerMove = (moveEvent: globalThis.PointerEvent) => {
+      if (cancelled) return;
+      const current = dragRef.current;
+      if (!current) {
+        const distance = Math.hypot(
+          moveEvent.clientX - start.x,
+          moveEvent.clientY - start.y,
+        );
+        if (distance < DRAG_START_PX) return;
+        suppressSelectRef.current = true;
+        document.body.style.cursor = "grabbing";
+        updateDrag({ id: accountId, order: initialOrder });
+        return;
+      }
+
+      const order = orderForPointer({
+        container: listRef.current,
+        drag: current,
+        y: moveEvent.clientY,
+      });
+      if (order) updateDrag({ ...current, order });
+    };
+
+    const endDrag = (commit: boolean) => {
+      const current = dragRef.current;
+      if (!current) return;
+      document.body.style.cursor = "";
+      updateDrag(null);
+      if (commit && current.order.join() !== initialOrder.join()) {
+        onReorder(current.order);
+      }
+    };
+
+    const onPointerUp = () => {
+      endDrag(true);
+      stop();
+      // The release is followed by its click, so the flag clears after it.
+      setTimeout(() => {
+        suppressSelectRef.current = false;
+      });
+    };
+    const onPointerCancel = () => {
+      endDrag(false);
+      stop();
+      suppressSelectRef.current = false;
+    };
+    const onKeyDown = (keyEvent: KeyboardEvent) => {
+      if (keyEvent.key !== "Escape" || !dragRef.current) return;
+      cancelled = true;
+      endDrag(false);
+    };
+
+    const stop = () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerCancel);
+      window.removeEventListener("keydown", onKeyDown);
+      stopTrackingRef.current = null;
+    };
+
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointercancel", onPointerCancel);
+    window.addEventListener("keydown", onKeyDown);
+    stopTrackingRef.current = () => {
+      endDrag(false);
+      stop();
+    };
+  };
+
+  useEffect(() => () => stopTrackingRef.current?.(), []);
+
+  return (
+    <div ref={listRef} className="relative">
+      {orderedAccounts.map((account, index) => (
+        <motion.div
+          data-account-id={account.id}
+          key={account.id}
+          layout={drag ? "position" : false}
+          transition={ITEM_MOVE_TRANSITION}
+          className={cn(drag?.id === account.id && "opacity-40")}
+        >
+          <AccountItem
+            account={account}
+            isActive={account.id === activeAccountId}
+            isDesktopApp={isDesktopApp}
+            onPress={(event) => trackPress(event, account.id)}
+            onSelect={onSelect}
+            shouldSuppressSelect={() => suppressSelectRef.current}
+            shortcutKey={
+              isDesktopApp
+                ? getShortcut("switchAccount").keys[index]
+                : undefined
+            }
+          />
+        </motion.div>
+      ))}
+    </div>
+  );
+}
+
 function AccountItem({
   account,
   isActive,
   isDesktopApp,
+  onPress,
   onSelect,
+  shouldSuppressSelect,
   shortcutKey,
 }: {
-  account: GetEmailAccountsResponse["emailAccounts"][number];
+  account: EmailAccount;
   isActive: boolean;
   isDesktopApp: boolean;
+  onPress: (event: PointerEvent<HTMLDivElement>) => void;
   onSelect: (accountId: string) => void;
+  shouldSuppressSelect: () => boolean;
   shortcutKey: string | undefined;
 }) {
   // Radix onSelect receives a CustomEvent without metaKey/ctrlKey.
@@ -187,10 +367,11 @@ function AccountItem({
 
   return (
     <DropdownMenuItem
-      className="gap-3 rounded-xl p-3"
+      className="select-none gap-3 rounded-xl p-3"
       onPointerDown={(event) => {
         openInNewWindow.current =
           isDesktopApp && isDesktopNewWindowClick(event);
+        onPress(event);
       }}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
@@ -198,7 +379,12 @@ function AccountItem({
             isDesktopApp && isDesktopNewWindowClick(event);
         }
       }}
-      onSelect={() => {
+      onSelect={(event) => {
+        if (shouldSuppressSelect()) {
+          // Keeps the menu open on the reordered list.
+          event.preventDefault();
+          return;
+        }
         const shouldOpenWindow = openInNewWindow.current;
         openInNewWindow.current = false;
         if (shouldOpenWindow) {
@@ -258,4 +444,54 @@ function isDesktopNewWindowClick(event: {
   ctrlKey: boolean;
 }) {
   return event.metaKey || event.ctrlKey;
+}
+
+type EmailAccount = GetEmailAccountsResponse["emailAccounts"][number];
+
+type DragState = {
+  id: string;
+  order: string[];
+};
+
+const DRAG_START_PX = 4;
+const ITEM_MOVE_TRANSITION = { duration: 0.15, ease: "easeOut" } as const;
+
+/**
+ * The order with the dragged account placed above or below the account under
+ * the pointer, by which half of it the pointer is in. Reads layout boxes rather
+ * than on-screen rects, so items still sliding into place don't cause swaps.
+ */
+function orderForPointer({
+  container,
+  drag,
+  y,
+}: {
+  container: HTMLElement | null;
+  drag: DragState;
+  y: number;
+}): string[] | null {
+  if (!container) return null;
+  const pointerY = y - container.getBoundingClientRect().top;
+
+  for (const item of container.querySelectorAll<HTMLElement>(
+    "[data-account-id]",
+  )) {
+    const targetId = item.dataset.accountId;
+    if (!targetId || targetId === drag.id) continue;
+    const { offsetTop, offsetHeight } = item;
+    if (pointerY < offsetTop || pointerY > offsetTop + offsetHeight) continue;
+
+    const below = pointerY > offsetTop + offsetHeight / 2;
+    const order = drag.order.filter((id) => id !== drag.id);
+    order.splice(order.indexOf(targetId) + (below ? 1 : 0), 0, drag.id);
+    return order.join() === drag.order.join() ? null : order;
+  }
+  return null;
+}
+
+function orderAccounts(accounts: EmailAccount[], ids: string[]) {
+  const accountsById = new Map(
+    accounts.map((account) => [account.id, account]),
+  );
+  return ids.flatMap((id) => accountsById.get(id) ?? []);
 }
