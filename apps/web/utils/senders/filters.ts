@@ -157,8 +157,11 @@ function filterMatchesSender(filter: EmailFilter, fromEmail: string) {
   const rawFilterFrom = filter.criteria?.from?.trim().toLowerCase();
   if (!rawFilterFrom) return false;
 
-  const normalizedFilterFrom =
-    extractEmailAddress(rawFilterFrom).toLowerCase() || rawFilterFrom;
-
-  return normalizedFilterFrom.includes(from);
+  // A filter's from can list several senders ("a@x.com OR b@x.com",
+  // "{a@x.com b@x.com}") or include a display name. Compare whole addresses:
+  // a substring check made a filter for newsletter@shop.com match
+  // letter@shop.com, so acting on one sender removed another's filter.
+  return rawFilterFrom
+    .split(/[\s,{}()]+/)
+    .some((token) => extractEmailAddress(token).toLowerCase() === from);
 }
