@@ -28,13 +28,26 @@ export function getDigestScheduleProgression(
       ? schedule.nextOccurrenceAt
       : now;
 
-  return {
+  const nextOccurrenceAt = calculateNextScheduleDate({
+    ...schedule,
     lastOccurrenceAt,
-    nextOccurrenceAt: calculateNextScheduleDate({
-      ...schedule,
+  });
+
+  // A schedule that fell more than one interval behind (paused account,
+  // lapsed plan, cron outage) would still be due after one step, and every
+  // dispatch run would send another digest until it caught up. Skip ahead to
+  // the first slot after now instead.
+  if (nextOccurrenceAt && nextOccurrenceAt <= now) {
+    return {
       lastOccurrenceAt,
-    }),
-  };
+      nextOccurrenceAt: calculateNextScheduleDate({
+        ...schedule,
+        lastOccurrenceAt: now,
+      }),
+    };
+  }
+
+  return { lastOccurrenceAt, nextOccurrenceAt };
 }
 
 export function getEstimatedDigestDeliveryAt(

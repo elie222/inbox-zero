@@ -71,6 +71,40 @@ describe("getDigestScheduleProgression", () => {
     );
   });
 
+  it("skips to the next slot after now when the schedule fell days behind", () => {
+    const progression = getDigestScheduleProgression(
+      {
+        intervalDays: 1,
+        occurrences: 1,
+        daysOfWeek: null,
+        timeOfDay: createCanonicalTimeOfDay(9, 0),
+        nextOccurrenceAt: new Date("2026-01-01T09:00:00.000Z"),
+      },
+      new Date("2026-01-10T09:30:00.000Z"),
+    );
+
+    expect(progression.nextOccurrenceAt).toEqual(
+      new Date("2026-01-11T09:00:00.000Z"),
+    );
+  });
+
+  it("keeps a weekly schedule on its weekday after falling weeks behind", () => {
+    const progression = getDigestScheduleProgression(
+      {
+        intervalDays: 7,
+        occurrences: 1,
+        daysOfWeek: 0b010_0000, // Monday
+        timeOfDay: createCanonicalTimeOfDay(9, 0),
+        nextOccurrenceAt: new Date("2026-01-05T09:00:00.000Z"),
+      },
+      new Date("2026-02-04T12:00:00.000Z"),
+    );
+
+    expect(progression.nextOccurrenceAt).toEqual(
+      new Date("2026-02-09T09:00:00.000Z"),
+    );
+  });
+
   it("falls back to current time when next occurrence is not set", () => {
     const now = new Date("2026-01-10T10:00:00.000Z");
 
