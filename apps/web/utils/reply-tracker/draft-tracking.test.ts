@@ -726,6 +726,7 @@ describe("cleanupThreadAIDrafts", () => {
       where: { id: "action-1" },
       data: {
         draftStatus: DraftEmailStatus.CLEANED_UP_UNUSED,
+        wasDraftSent: null,
       },
     });
   });
@@ -794,6 +795,7 @@ describe("cleanupThreadAIDrafts", () => {
       where: { id: "action-1" },
       data: {
         draftStatus: DraftEmailStatus.CLEANED_UP_UNUSED,
+        wasDraftSent: null,
       },
     });
   });

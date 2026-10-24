@@ -601,6 +601,7 @@ function expectDraftCleanedUp({
     where: { id: "action-111" },
     data: {
       draftStatus: DraftEmailStatus.CLEANED_UP_UNUSED,
+      wasDraftSent: null,
     },
   });
 }

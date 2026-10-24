@@ -396,7 +396,9 @@ export async function cleanupThreadAIDrafts({
                 () =>
                   prisma.executedAction.update({
                     where: { id: action.id },
-                    data: statusData,
+                    // Clear the legacy flag so the deleted draft isn't taken
+                    // for an unmigrated legacy row by sent-draft tracking.
+                    data: { ...statusData, wasDraftSent: null },
                   }),
                 { logger },
               );
