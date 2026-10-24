@@ -158,6 +158,8 @@ model EmailAccount {
   name  String? // Name associated with the Google account
   image String? // Profile image URL from the Google account
 
+  sortOrder Int? // Position in the user's account switcher; null sorts last, by createdAt
+
   about                          String?
   writingStyle                   String?
   signature                      String? // User's email signature from provider or manually set

@@ -13,13 +13,19 @@ import { MailAccountSwitcher } from "./MailAccountSwitcher";
 
 (globalThis as { React?: typeof React }).React = React;
 
-const { menuState, mockOpenWindow, mockUseAccounts, mockUseAccount } =
-  vi.hoisted(() => ({
-    menuState: { forceOpen: true },
-    mockOpenWindow: vi.fn().mockResolvedValue(undefined),
-    mockUseAccounts: vi.fn(),
-    mockUseAccount: vi.fn(),
-  }));
+const {
+  menuState,
+  mockOpenWindow,
+  mockReorderEmailAccounts,
+  mockUseAccounts,
+  mockUseAccount,
+} = vi.hoisted(() => ({
+  menuState: { forceOpen: true },
+  mockOpenWindow: vi.fn().mockResolvedValue(undefined),
+  mockReorderEmailAccounts: vi.fn().mockResolvedValue({}),
+  mockUseAccounts: vi.fn(),
+  mockUseAccount: vi.fn(),
+}));
 
 vi.mock("next/link", () => ({
   default: ({
@@ -41,6 +47,10 @@ vi.mock("@/providers/EmailAccountProvider", () => ({
 
 vi.mock("@/utils/desktop-app", () => ({
   getInboxZeroDesktopApp: () => ({ openWindow: mockOpenWindow }),
+}));
+
+vi.mock("@/utils/actions/all-accounts", () => ({
+  reorderEmailAccountsAction: mockReorderEmailAccounts,
 }));
 
 vi.mock("./AllAccountsSelectionDialog", () => ({
@@ -165,6 +175,34 @@ describe("MailAccountSwitcher", () => {
     expect(mockOpenWindow).not.toHaveBeenCalled();
   });
 
+  it("moves a dragged account and saves the new order without switching to it", async () => {
+    const onSelectAccount = vi.fn();
+    renderSwitcher({ onSelectAccount });
+
+    const personal = await screen.findByRole("menuitem", { name: /personal/i });
+    stubAccountRows();
+    fireEvent.pointerDown(personal, { button: 0, clientX: 10, clientY: 75 });
+    fireEvent.pointerMove(window, { clientX: 10, clientY: 60 });
+    fireEvent.pointerMove(window, { clientX: 10, clientY: 10 });
+
+    await waitFor(() =>
+      expect(accountNames()).toEqual([
+        expect.stringMatching(/personal/i),
+        expect.stringMatching(/work/i),
+      ]),
+    );
+
+    fireEvent.pointerUp(window, { button: 0 });
+    fireEvent.click(screen.getByRole("menuitem", { name: /work/i }));
+
+    await waitFor(() =>
+      expect(mockReorderEmailAccounts).toHaveBeenCalledWith({
+        emailAccountIds: ["account-2", "account-1"],
+      }),
+    );
+    expect(onSelectAccount).not.toHaveBeenCalled();
+  });
+
   it("does not leave focus on the trigger after the menu closes", async () => {
     menuState.forceOpen = false;
     renderSwitcher({ onSelectAccount: vi.fn() });
@@ -209,4 +247,23 @@ function selectMenuItem(
     ...modifiers,
   });
   fireEvent.click(item);
+}
+
+/** jsdom has no layout, so give each account row a 50px slot in list order. */
+function stubAccountRows() {
+  for (const row of document.querySelectorAll<HTMLElement>(
+    "[data-account-id]",
+  )) {
+    Object.defineProperty(row, "offsetHeight", { get: () => 50 });
+    Object.defineProperty(row, "offsetTop", {
+      get: () =>
+        [...document.querySelectorAll("[data-account-id]")].indexOf(row) * 50,
+    });
+  }
+}
+
+function accountNames() {
+  return [...document.querySelectorAll("[data-account-id]")].map(
+    (row) => row.textContent ?? "",
+  );
 }
