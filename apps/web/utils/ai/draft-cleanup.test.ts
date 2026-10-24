@@ -42,6 +42,7 @@ describe("cleanupAIDraftsForAccount", () => {
     vi.useRealTimers();
     vi.clearAllMocks();
     mocks.createEmailProvider.mockResolvedValue(mocks.provider);
+    mocks.provider.deleteDraft.mockResolvedValue(true);
   });
 
   it("uses the provided cleanup window", async () => {
@@ -386,6 +387,7 @@ describe("cleanupConfiguredAIDraftsForAccount", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.createEmailProvider.mockResolvedValue(mocks.provider);
+    mocks.provider.deleteDraft.mockResolvedValue(true);
   });
 
   it("cleans up with the account's configured window", async () => {
