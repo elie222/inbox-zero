@@ -78,6 +78,9 @@ apps/web/generated
 # docker compose override file
 docker-compose.override.yaml
 docker-compose.override.yml
+# PC-only compose file and the .before-* backups next to it hold real values
+docker-compose.pc.yml
+*.before-*
 
 # Private submodule configuration (generated at build time)
 .gitmodules
