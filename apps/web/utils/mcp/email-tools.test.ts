@@ -132,4 +132,27 @@ describe("MCP email tools", () => {
       sent: false,
     });
   });
+
+  it("drafts a reply inside the original thread when given a message id", async () => {
+    const createDraft = vi.fn().mockResolvedValue({ id: "draft-2" });
+    vi.mocked(createEmailProvider).mockResolvedValue({ createDraft } as never);
+
+    const result = await createDraftForMcp({
+      userId: "user_1",
+      to: "contact@example.com",
+      subject: "Re: Thursday",
+      body: "Works for me.",
+      replyToMessageId: "message-1",
+      logger,
+    });
+
+    expect(createDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ replyToMessageId: "message-1" }),
+    );
+    expect(result).toMatchObject({
+      draftId: "draft-2",
+      replyToMessageId: "message-1",
+      sent: false,
+    });
+  });
 });

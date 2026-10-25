@@ -182,7 +182,7 @@ export async function handleMcpServerRequest(
     {
       title: "Create draft",
       description:
-        "Create a mailbox draft with a recipient, subject, and body. Saves the draft for review without sending email.",
+        "Create a mailbox draft with a recipient, subject, and body. Pass replyToMessageId to draft a reply inside an existing thread. Saves the draft for review without sending email.",
       inputSchema: createDraftInputShape,
       annotations: { ...mailboxWriteAnnotations, title: "Create draft" },
     },
@@ -192,6 +192,10 @@ export async function handleMcpServerRequest(
         to: String(args.to),
         subject: String(args.subject),
         body: String(args.body),
+        replyToMessageId:
+          typeof args.replyToMessageId === "string"
+            ? args.replyToMessageId
+            : undefined,
         emailAccountId:
           typeof args.emailAccountId === "string"
             ? args.emailAccountId

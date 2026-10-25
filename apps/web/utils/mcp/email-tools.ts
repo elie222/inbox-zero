@@ -49,6 +49,14 @@ export const createDraftInputShape = {
     .describe(
       "Draft body. Plain text is converted to HTML. This creates a mailbox draft and does not send.",
     ),
+  replyToMessageId: z
+    .string()
+    .trim()
+    .min(1)
+    .optional()
+    .describe(
+      "messageId from search_inbox or read_thread. Set it to save the draft as a reply in that message's thread; omit it for a new message.",
+    ),
 };
 
 export async function searchInboxForMcp({
@@ -135,6 +143,7 @@ export async function createDraftForMcp({
   to,
   subject,
   body,
+  replyToMessageId,
   emailAccountId,
   emailAddress,
   logger,
@@ -143,6 +152,7 @@ export async function createDraftForMcp({
   to: string;
   subject: string;
   body: string;
+  replyToMessageId?: string;
   emailAccountId?: string;
   emailAddress?: string;
   logger: Logger;
@@ -161,6 +171,7 @@ export async function createDraftForMcp({
     to,
     subject,
     messageHtml: bodyToHtml(body),
+    replyToMessageId,
   });
   if (!draft.id) {
     throw new Error("Mailbox draft could not be created.");
@@ -171,6 +182,7 @@ export async function createDraftForMcp({
     draftId: draft.id,
     to,
     subject,
+    replyToMessageId: replyToMessageId ?? null,
     sent: false,
   };
 }

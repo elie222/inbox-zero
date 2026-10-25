@@ -12,7 +12,7 @@ Connect to the Inbox Zero MCP server configured in `mcp.json` (OAuth, Streamable
 - `list_email_accounts` first when the user has more than one inbox. Pass `emailAccountId` or `emailAddress` on later calls.
 - `search_inbox` for message metadata and snippets. Do not treat snippets as full bodies.
 - `read_thread` for truncated plain-text bodies after you have a `threadId`.
-- `create_draft` to save a mailbox draft. This does not send. Never invent a send tool.
+- `create_draft` to save a mailbox draft. This does not send. Never invent a send tool. For a reply, pass the `messageId` you are answering as `replyToMessageId` so the draft lands in that thread.
 - Rule tools (`list_rules`, `get_rule`, `create_rule`, `update_rule`, `delete_rule`) and stats tools manage automation and analytics, not mail delivery.
 
 ## Safety
