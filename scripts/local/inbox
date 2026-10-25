@@ -213,8 +213,10 @@ warn_other_copies() {
   self="$(tailnet_host)"
   peers="$("$TAILSCALE" status --json 2>/dev/null | python3 -c '
 import sys, json
-for p in (json.load(sys.stdin).get("Peer") or {}).values():
-    if p.get("Online") and p.get("DNSName"):
+st = json.load(sys.stdin)
+me = (st.get("Self") or {}).get("UserID")
+for p in (st.get("Peer") or {}).values():
+    if p.get("UserID") == me and p.get("Online") and p.get("DNSName"):
         print(p["DNSName"].rstrip("."))' 2>/dev/null)"
   for peer in $peers; do
     [ "$peer" = "$self" ] && continue
