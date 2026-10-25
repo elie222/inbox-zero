@@ -77,7 +77,7 @@ export function AppSidebarHeader({
       </div>
       <span
         data-hide-on-desktop-mac
-        className="mt-2 block truncate border-t border-sidebar-border px-2 pt-1.5 text-[13px] font-semibold text-sidebar-primary"
+        className="mt-2 block truncate border-t border-sidebar-border px-2 pt-1.5 text-[13px] font-semibold uppercase text-sidebar-primary"
       >
         Pure Local
       </span>
