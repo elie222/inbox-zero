@@ -18,6 +18,9 @@ const {
   processMeetingBriefingsMock: vi.fn(),
 }));
 
+vi.mock("@/utils/outlook/mailbox-claim", () => ({
+  getStandbyResponse: vi.fn().mockResolvedValue(null),
+}));
 vi.mock("@/env", () => ({
   env: envMock,
 }));

@@ -10,6 +10,7 @@ import type { Logger } from "@/utils/logger";
 import { runWithBoundedConcurrency } from "@/utils/async";
 import { isVercelQueueDispatchEnabled } from "@/utils/queue/vercel";
 import { getEligibleFollowUpReminderEmailAccountIds } from "@/utils/follow-up/process";
+import { getStandbyResponse } from "@/utils/outlook/mailbox-claim";
 
 export const maxDuration = 800;
 const FOLLOW_UP_REMINDER_ACCOUNT_PATH = "/api/follow-up-reminders/account";
@@ -24,6 +25,9 @@ export const GET = withError("follow-up-reminders", async (request) => {
     );
     return new Response("Unauthorized", { status: 401 });
   }
+
+  const standby = await getStandbyResponse(request.logger);
+  if (standby) return standby;
 
   if (!env.NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED) {
     request.logger.warn("Follow-up reminders feature is disabled");
@@ -40,6 +44,9 @@ export const POST = withError("follow-up-reminders", async (request) => {
     );
     return new Response("Unauthorized", { status: 401 });
   }
+
+  const standby = await getStandbyResponse(request.logger);
+  if (standby) return standby;
 
   if (!env.NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED) {
     request.logger.warn("Follow-up reminders feature is disabled");

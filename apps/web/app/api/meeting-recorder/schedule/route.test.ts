@@ -19,6 +19,9 @@ const {
   sweepRecordingsMock: vi.fn(),
 }));
 
+vi.mock("@/utils/outlook/mailbox-claim", () => ({
+  getStandbyResponse: vi.fn().mockResolvedValue(null),
+}));
 vi.mock("@/utils/prisma");
 vi.mock("@/env", () => ({ env: envMock }));
 vi.mock("@/utils/cron", () => ({

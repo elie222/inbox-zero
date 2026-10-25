@@ -14,6 +14,7 @@ import {
 import { withError } from "@/utils/middleware";
 import { getPremiumUserFilter } from "@/utils/premium";
 import prisma from "@/utils/prisma";
+import { getStandbyResponse } from "@/utils/outlook/mailbox-claim";
 
 export const maxDuration = 800;
 const MEETING_RECORDER_ACCOUNT_CONCURRENCY = 5;
@@ -26,6 +27,9 @@ export const GET = withError("meeting-recorder/schedule", async (request) => {
     return new Response("Unauthorized", { status: 401 });
   }
 
+  const standby = await getStandbyResponse(request.logger);
+  if (standby) return standby;
+
   return NextResponse.json(await scheduleAllMeetingRecordings(request.logger));
 });
 
@@ -36,6 +40,9 @@ export const POST = withError("meeting-recorder/schedule", async (request) => {
     );
     return new Response("Unauthorized", { status: 401 });
   }
+
+  const standby = await getStandbyResponse(request.logger);
+  if (standby) return standby;
 
   return NextResponse.json(await scheduleAllMeetingRecordings(request.logger));
 });

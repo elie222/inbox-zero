@@ -14,6 +14,7 @@ import { markQStashActionAsExecuting } from "@/utils/scheduled-actions/scheduler
 import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
 import { processDueSnoozedThreads } from "@/utils/snooze/process-due";
+import { getStandbyResponse } from "@/utils/outlook/mailbox-claim";
 
 export const maxDuration = 300;
 
@@ -27,6 +28,9 @@ export const GET = withError("cron/scheduled-actions", async (request) => {
     return new Response("Unauthorized", { status: 401 });
   }
 
+  const standby = await getStandbyResponse(request.logger);
+  if (standby) return standby;
+
   const result = await processScheduledMail(request.logger);
 
   return NextResponse.json(result);
@@ -39,6 +43,9 @@ export const POST = withError("cron/scheduled-actions", async (request) => {
     );
     return new Response("Unauthorized", { status: 401 });
   }
+
+  const standby = await getStandbyResponse(request.logger);
+  if (standby) return standby;
 
   const result = await processScheduledMail(request.logger);
 

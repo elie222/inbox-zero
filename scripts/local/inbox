@@ -2,6 +2,7 @@
 # inbox: one-command local launcher for this fork (Mac, OrbStack, Ollama, Tailscale Funnel).
 #
 #   inbox start      start Postgres + Redis, Ollama, the production app and the cron loop
+#                    (--takeover moves mailbox ownership here from another copy)
 #   inbox stop       stop all of it (--keep-services leaves Postgres and Redis running)
 #   inbox status     what is running
 #   inbox build      rebuild the production app: starts the DB first, installs deps if the lockfile
@@ -202,10 +203,55 @@ check_funnel() {
   fi
 }
 
+cron_secret() { grep -m1 '^CRON_SECRET=' "$ENV_FILE" | cut -d= -f2- | tr -d "\"'"; }
+
+# Other Inbox Zero copies on the tailnet. Only a warning: the copy that owns the mailbox is
+# decided by Microsoft's webhook list (see apps/web/utils/outlook/mailbox-claim.ts).
+warn_other_copies() {
+  local self peers peer
+  [ -x "$TAILSCALE" ] || return 0
+  self="$(tailnet_host)"
+  peers="$("$TAILSCALE" status --json 2>/dev/null | python3 -c '
+import sys, json
+for p in (json.load(sys.stdin).get("Peer") or {}).values():
+    if p.get("Online") and p.get("DNSName"):
+        print(p["DNSName"].rstrip("."))' 2>/dev/null)"
+  for peer in $peers; do
+    [ "$peer" = "$self" ] && continue
+    if curl -fsS --max-time 3 "https://$peer:$SERVE_PORT/api/health" 2>/dev/null | grep -q '"ok"'; then
+      say "Another Inbox Zero copy is running at https://$peer:$SERVE_PORT"
+    fi
+  done
+}
+
+# Prints who owns the mailbox. With "takeover", first moves ownership to this copy.
+show_claim() {
+  local secret out
+  secret="$(cron_secret)"
+  [ -n "$secret" ] || return 0
+  if [ "${1:-}" = takeover ]; then
+    say "Taking over the mailbox from other copies..."
+    curl -fsS --max-time 120 -X POST -H 'Content-Type: application/json' \
+      -d "{\"CRON_SECRET\":\"$secret\"}" "$BASE/api/outlook/watch/takeover" >/dev/null \
+      || say "Takeover failed; see $STATE/app.log"
+  fi
+  out="$(curl -fsS --max-time 30 -H "Authorization: Bearer $secret" "$BASE/api/outlook/watch/claim" 2>/dev/null)" \
+    || { say "mailbox:  could not check ownership"; return 0; }
+  printf '%s' "$out" | python3 -c '
+import sys, json
+for r in json.load(sys.stdin).get("results", []):
+    if r.get("status") == "owner":
+        print("mailbox:  owned by this copy")
+    elif r.get("status") == "error":
+        print("mailbox:  could not check ownership: " + r.get("error", ""))
+    else:
+        print("mailbox:  STANDBY, owned by " + ", ".join(r.get("ownerHosts", [])) + " (inbox start --takeover moves it here)")'
+}
+
 # The old cron container's seven loops, with the same endpoints and intervals.
 cron_loop() {
   local secret
-  secret="$(grep -m1 '^CRON_SECRET=' "$ENV_FILE" | cut -d= -f2- | tr -d "\"'")"
+  secret="$(cron_secret)"
   [ -n "$secret" ] || die "CRON_SECRET is not set in $ENV_FILE"
   local paths=(/api/cron/scheduled-actions /api/cron/automation-jobs /api/follow-up-reminders
     /api/resend/digest/all /api/meeting-briefs /api/meeting-recorder/schedule /api/watch/all)
@@ -229,6 +275,7 @@ cron_loop() {
 }
 
 cmd_start() {
+  warn_other_copies
   ensure_docker
   ensure_services
   ensure_ollama
@@ -237,6 +284,7 @@ cmd_start() {
   start_cron
   ensure_serve
   check_funnel
+  if [ "${1:-}" = --takeover ]; then show_claim takeover; else show_claim; fi
   say "Inbox Zero is up: $BASE"
   open "${PRIVATE_URL:-$BASE}"
 }
@@ -268,14 +316,15 @@ cmd_status() {
     say "tailnet serve: not set up"
   fi
   check_funnel
+  app_up && show_claim
 }
 
 case "${1:-}" in
-  start) cmd_start ;;
+  start) shift; cmd_start "${1:-}" ;;
   stop) shift; cmd_stop "${1:-}" ;;
   status) cmd_status ;;
   build) ensure_docker; ensure_services; do_build ;;
   logs) tail -f "$STATE/app.log" ;;
   cron-loop) cron_loop ;;
-  *) say "usage: inbox start|stop|status|build|logs"; exit 2 ;;
+  *) say "usage: inbox start [--takeover]|stop|status|build|logs"; exit 2 ;;
 esac

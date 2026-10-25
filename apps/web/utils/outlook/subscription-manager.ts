@@ -3,6 +3,7 @@ import { captureException } from "@/utils/error";
 import type { EmailProvider } from "@/utils/email/types";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { Logger } from "@/utils/logger";
+import { checkMailboxClaim } from "@/utils/outlook/mailbox-claim";
 import {
   parseSubscriptionHistory,
   cleanupOldHistoryEntries,
@@ -304,6 +305,8 @@ export async function createManagedOutlookSubscription({
   logger: Logger;
   forceRefresh?: boolean;
 }): Promise<{ expirationDate: Date; subscriptionId: string } | null> {
+  if (await isMailboxOwnedElsewhere(emailAccountId, logger)) return null;
+
   const provider = await createEmailProvider({
     emailAccountId,
     provider: "microsoft",
@@ -316,4 +319,21 @@ export async function createManagedOutlookSubscription({
   );
 
   return manager.createAndPersistSubscription({ forceRefresh });
+}
+
+async function isMailboxOwnedElsewhere(emailAccountId: string, logger: Logger) {
+  try {
+    const claim = await checkMailboxClaim({ emailAccountId, logger });
+    if (claim.status === "owner") return false;
+
+    logger.warn("Not watching: mailbox owned by another copy", {
+      emailAccountId,
+      ownerHosts: claim.ownerHosts,
+    });
+    return true;
+  } catch (error) {
+    // Failing open keeps a single copy working when Microsoft is unreachable.
+    logger.warn("Failed to check mailbox claim", { emailAccountId, error });
+    return false;
+  }
 }

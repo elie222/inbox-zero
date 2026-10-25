@@ -7,6 +7,7 @@ One command starts the whole Inbox Zero stack on a production build. It replaces
 | Command | What it does |
 | --- | --- |
 | `inbox start` | Starts everything (see below) |
+| `inbox start --takeover` | Starts everything and moves mailbox ownership here from another copy |
 | `inbox stop` | Stops the app and the cron loop, then the services |
 | `inbox stop --keep-services` | Stops the app and cron loop, leaves Postgres, Redis and Ollama running |
 | `inbox status` | Shows what is running |
@@ -33,6 +34,18 @@ One command starts the whole Inbox Zero stack on a production build. It replaces
 | watch renewal | 6 h |
 
 Then it turns on Tailscale Serve for private phone access (see below), checks the webhook Funnel, and opens the private URL (or `http://127.0.0.1:3000` if Serve is not available).
+
+## Only one copy acts on the mailbox
+
+Two copies (say the Mac and the PC) on one Outlook mailbox would both run your rules on every new email. Each copy points its Outlook webhook at its own address, and Microsoft lists every webhook the app holds for the mailbox. That list decides the owner:
+
+- A copy whose address doesn't hold the live webhook stands by. It doesn't renew its webhook, and the cron jobs answer `{"skipped":"standby"}` instead of acting on mail.
+- If both copies hold a webhook, the one whose host name sorts first keeps it, and the other drops its own. Both sides reach the same answer without talking to each other.
+- `inbox start --takeover` removes the other copies' webhooks and claims the mailbox here. The other copy notices within about 10 minutes and stands by.
+- `inbox start` also warns when another copy answers on the tailnet at `:8443`.
+- `inbox status` shows `mailbox: owned by this copy` or `mailbox: STANDBY, owned by <host>`.
+
+The webhook URL is what tells copies apart, so each copy needs its own `WEBHOOK_URL`.
 
 ## Private phone access
 

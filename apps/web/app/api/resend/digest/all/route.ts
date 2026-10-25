@@ -7,6 +7,7 @@ import { captureException } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
 import { getPremiumUserFilter } from "@/utils/premium";
 import { enqueueBackgroundJob } from "@/utils/queue/dispatch";
+import { getStandbyResponse } from "@/utils/outlook/mailbox-claim";
 
 export const maxDuration = 300;
 const RESEND_DIGEST_TOPIC = "resend-digest";
@@ -16,6 +17,9 @@ export const GET = withError("cron/resend/digest/all", async (request) => {
     captureException(new Error("Unauthorized request: api/resend/digest/all"));
     return new Response("Unauthorized", { status: 401 });
   }
+
+  const standby = await getStandbyResponse(request.logger);
+  if (standby) return standby;
 
   const result = await sendDigestAllUpdate(request.logger);
 
@@ -29,6 +33,9 @@ export const POST = withError("cron/resend/digest/all", async (request) => {
     );
     return new Response("Unauthorized", { status: 401 });
   }
+
+  const standby = await getStandbyResponse(request.logger);
+  if (standby) return standby;
 
   const result = await sendDigestAllUpdate(request.logger);
 

@@ -13,6 +13,7 @@ import {
   isAutomationMessagingChannelReady,
   SUPPORTED_AUTOMATION_MESSAGING_PROVIDERS,
 } from "@/utils/automation-jobs/messaging-channel";
+import { getStandbyResponse } from "@/utils/outlook/mailbox-claim";
 
 export const maxDuration = 300;
 
@@ -27,6 +28,9 @@ export const GET = withError("cron/automation-jobs", async (request) => {
     return new Response("Unauthorized", { status: 401 });
   }
 
+  const standby = await getStandbyResponse(request.logger);
+  if (standby) return standby;
+
   const result = await enqueueDueAutomationJobs(request.logger);
   return NextResponse.json(result);
 });
@@ -38,6 +42,9 @@ export const POST = withError("cron/automation-jobs", async (request) => {
     );
     return new Response("Unauthorized", { status: 401 });
   }
+
+  const standby = await getStandbyResponse(request.logger);
+  if (standby) return standby;
 
   const result = await enqueueDueAutomationJobs(request.logger);
   return NextResponse.json(result);

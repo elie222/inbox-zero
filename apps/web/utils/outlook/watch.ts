@@ -6,13 +6,7 @@ import { withMicrosoftGraphWriteRetry } from "@/utils/outlook/retry";
 import type { Logger } from "@/utils/logger";
 
 export async function watchOutlook(client: Client, logger: Logger) {
-  const base = env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL;
-
-  // must be https
-  const notificationUrl = new URL("/api/outlook/webhook", base);
-  if (notificationUrl.protocol === "http:") {
-    notificationUrl.protocol = "https:";
-  }
+  const notificationUrl = getOutlookNotificationUrl();
 
   const subscriptionPayload = {
     changeType: "created,updated",
@@ -43,4 +37,15 @@ export async function unwatchOutlook(
     () => client.api(`/subscriptions/${subscriptionId}`).delete(),
     logger,
   );
+}
+
+export function getOutlookNotificationUrl() {
+  const base = env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL;
+
+  // must be https
+  const notificationUrl = new URL("/api/outlook/webhook", base);
+  if (notificationUrl.protocol === "http:") {
+    notificationUrl.protocol = "https:";
+  }
+  return notificationUrl;
 }

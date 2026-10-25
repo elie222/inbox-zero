@@ -7,6 +7,7 @@ import type { Logger } from "@/utils/logger";
 import { getPremiumUserFilter } from "@/utils/premium";
 import { processMeetingBriefings } from "@/utils/meeting-briefs/process";
 import { runWithBoundedConcurrency } from "@/utils/async";
+import { getStandbyResponse } from "@/utils/outlook/mailbox-claim";
 
 export const maxDuration = 800;
 const MEETING_BRIEFING_ACCOUNT_CONCURRENCY = 5;
@@ -16,6 +17,9 @@ export const GET = withError("meeting-briefs", async (request) => {
     captureException(new Error("Unauthorized request: api/meeting-briefs"));
     return new Response("Unauthorized", { status: 401 });
   }
+
+  const standby = await getStandbyResponse(request.logger);
+  if (standby) return standby;
 
   const result = await processAllMeetingBriefings(request.logger);
 
@@ -29,6 +33,9 @@ export const POST = withError("meeting-briefs", async (request) => {
     );
     return new Response("Unauthorized", { status: 401 });
   }
+
+  const standby = await getStandbyResponse(request.logger);
+  if (standby) return standby;
 
   const result = await processAllMeetingBriefings(request.logger);
 
