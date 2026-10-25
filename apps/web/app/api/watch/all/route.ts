@@ -5,6 +5,8 @@ import { captureException } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
 import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
 import { notifyLapsedWatches } from "@/utils/email/notify-lapsed-watches";
+import { clearWatchLapsedErrorIfResolved } from "@/utils/error-messages";
+import { getStandbyEmailAccounts } from "@/utils/outlook/mailbox-claim";
 
 export const maxDuration = 800;
 
@@ -27,6 +29,24 @@ export const POST = withError("watch/all", async (request) => {
 });
 
 async function watchAllEmails(logger: Logger) {
+  const standbyAccounts = await getStandbyEmailAccounts(logger);
+  if (standbyAccounts.length > 0) {
+    // The copy that owns the mailbox keeps the watch healthy, and this copy
+    // never renews, so any lapsed notice here is stale and can't clear itself.
+    for (const { id, userId } of standbyAccounts) {
+      await clearWatchLapsedErrorIfResolved({
+        userId,
+        emailAccountId: id,
+        logger,
+      });
+    }
+
+    return NextResponse.json({
+      skipped: "standby",
+      ownerHosts: standbyAccounts[0].ownerHosts,
+    });
+  }
+
   try {
     const results = await ensureEmailAccountsWatched({ userIds: null, logger });
 

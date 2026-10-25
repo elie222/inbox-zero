@@ -1,13 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestLogger } from "@/__tests__/helpers";
 import { getOutlookClientForEmailId } from "@/utils/email-account-client";
+import prisma from "@/utils/prisma";
+import { redis } from "@/utils/redis";
 import {
   checkMailboxClaim,
+  getStandbyEmailAccounts,
+  getStandbyResponse,
   takeOverMailbox,
 } from "@/utils/outlook/mailbox-claim";
 
 vi.mock("server-only", () => ({}));
-vi.mock("@/utils/prisma", () => ({ default: {} }));
+vi.mock("@/utils/prisma", () => ({
+  default: { emailAccount: { findMany: vi.fn() } },
+}));
 vi.mock("@/utils/redis", () => ({
   redis: { get: vi.fn(), set: vi.fn() },
 }));
@@ -111,6 +117,57 @@ describe("mailbox claim", () => {
 
     expect(result.releasedHosts).toEqual(["pc.example.ts.net"]);
     expect(deleted).toEqual(["theirs"]);
+  });
+
+  describe("standby accounts", () => {
+    beforeEach(() => {
+      vi.mocked(redis.get).mockResolvedValue(null);
+      vi.mocked(prisma.emailAccount.findMany).mockResolvedValue([
+        { id: "owned", userId: "user-1" },
+        { id: "standing-by", userId: "user-2" },
+      ] as never);
+      vi.mocked(getOutlookClientForEmailId).mockImplementation((async ({
+        emailAccountId: id,
+      }: {
+        emailAccountId: string;
+      }) => ({
+        getClient: () => ({
+          api: () => ({
+            get: async () => ({
+              value: [
+                id === "owned"
+                  ? subscription("mine", MAC)
+                  : subscription("theirs", PC),
+              ],
+            }),
+            delete: async () => {},
+          }),
+        }),
+      })) as never);
+    });
+
+    it("lists only the accounts owned by another copy", async () => {
+      await expect(getStandbyEmailAccounts(logger)).resolves.toEqual([
+        {
+          id: "standing-by",
+          userId: "user-2",
+          ownerHosts: ["pc.example.ts.net"],
+        },
+      ]);
+    });
+
+    it("answers with the standby response, or null when every account is owned", async () => {
+      const response = await getStandbyResponse(logger);
+      await expect(response?.json()).resolves.toEqual({
+        skipped: "standby",
+        ownerHosts: ["pc.example.ts.net"],
+      });
+
+      vi.mocked(prisma.emailAccount.findMany).mockResolvedValue([
+        { id: "owned", userId: "user-1" },
+      ] as never);
+      await expect(getStandbyResponse(logger)).resolves.toBeNull();
+    });
   });
 });
 

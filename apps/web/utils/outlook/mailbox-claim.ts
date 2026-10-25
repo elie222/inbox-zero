@@ -92,26 +92,35 @@ export async function takeOverMailbox({
  * copy is owned elsewhere.
  */
 export async function getStandbyResponse(logger: Logger) {
+  const [first] = await getStandbyEmailAccounts(logger);
+  if (!first) return null;
+
+  return NextResponse.json({
+    skipped: "standby",
+    ownerHosts: first.ownerHosts,
+  });
+}
+
+export async function getStandbyEmailAccounts(logger: Logger) {
   const emailAccounts = await prisma.emailAccount.findMany({
     where: { account: { provider: "microsoft" } },
-    select: { id: true },
+    select: { id: true, userId: true },
   });
 
-  for (const { id: emailAccountId } of emailAccounts) {
-    const claim = await getCachedOrCheckClaim(emailAccountId, logger);
+  const standby: { id: string; userId: string; ownerHosts: string[] }[] = [];
+
+  for (const { id, userId } of emailAccounts) {
+    const claim = await getCachedOrCheckClaim(id, logger);
     if (claim?.status === "standby") {
       logger.warn("Skipping cron job: mailbox owned by another copy", {
-        emailAccountId,
+        emailAccountId: id,
         ownerHosts: claim.ownerHosts,
       });
-      return NextResponse.json({
-        skipped: "standby",
-        ownerHosts: claim.ownerHosts,
-      });
+      standby.push({ id, userId, ownerHosts: claim.ownerHosts });
     }
   }
 
-  return null;
+  return standby;
 }
 
 export function resolveClaim({
