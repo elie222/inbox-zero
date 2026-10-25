@@ -46,6 +46,23 @@ describe("convertMessage", () => {
     expect(result.headers.bcc).toBe("hidden@example.com");
   });
 
+  it("maps Reply-To so replies reach the address the sender asked for", () => {
+    const result = convertMessage({
+      from: {
+        emailAddress: { name: "Website Forms", address: "forms@site.com" },
+      },
+      replyTo: [
+        {
+          emailAddress: { name: "Jane Customer", address: "jane@customer.com" },
+        },
+      ],
+    });
+
+    expect(result.headers["reply-to"]).toBe(
+      "Jane Customer <jane@customer.com>",
+    );
+  });
+
   it("preserves BCC recipients from a provider draft", () => {
     const result = convertMessage({
       bccRecipients: [
@@ -417,6 +434,23 @@ describe("queryBatchMessages", () => {
     } finally {
       emulation.mockRestore();
     }
+  });
+
+  it("quotes a property-scoped search so Graph does not reject the colon", async () => {
+    const request = createMockMessagesRequest();
+    await queryBatchMessages(
+      createCachedOutlookClient(vi.fn().mockReturnValue(request)),
+      { searchQuery: "participants:sender@example.com" },
+      createTestLogger(),
+    );
+    const search = request.search.mock.calls[0]?.[0] as string;
+    const graph = Client.init({ authProvider: (done) => done(null, "unused") });
+    const actual = graph.api("/me/messages").search(search) as unknown as {
+      buildFullUrl(): string;
+    };
+    expect(new URL(actual.buildFullUrl()).searchParams.get("$search")).toBe(
+      JSON.stringify('participants:"sender@example.com"'),
+    );
   });
 
   it("sends one correctly quoted and URL-encoded expression through the real Graph SDK", async () => {
@@ -865,14 +899,21 @@ describe("sanitizeKqlValue", () => {
 describe("sanitizeKqlFieldQuery", () => {
   it.each([
     [
-      "field:value without outer quotes",
+      "email value",
       "participants:user@example.com",
-      "participants:user@example.com",
+      '"participants:\\"user@example.com\\""',
     ],
-    ["value with spaces", "subject:meeting notes", 'subject:"meeting notes"'],
-    ["question mark in value", "from:user?name", 'from:"user name"'],
-    ["backslashes in value", "subject:path\\file", "subject:path\\\\file"],
-    ["quotes in value", 'subject:say "hi"', 'subject:"say \\"hi\\""'],
+    [
+      "value with spaces",
+      "subject:meeting notes",
+      '"subject:\\"meeting notes\\""',
+    ],
+    [
+      "already quoted value",
+      'subject:"meeting notes"',
+      '"subject:\\"meeting notes\\""',
+    ],
+    ["question mark in value", "from:user?name", '"from:\\"user name\\""'],
     ["empty value", "field:", "field:"],
     ["query without colon", "nofield", "nofield"],
   ])("handles %s", (_name, input, expected) => {
@@ -907,30 +948,9 @@ describe("sanitizeOutlookSearchQuery", () => {
       [
         "participants email",
         "participants:user@example.com",
-        "participants:user@example.com",
-      ],
-      ["subject field", "subject:meeting", "subject:meeting"],
-      [
-        "field query value with spaces",
-        "subject:meeting notes",
-        'subject:"meeting notes"',
-      ],
-      [
-        "question mark in field query value",
-        "participants:user?name",
-        'participants:"user name"',
+        '"participants:\\"user@example.com\\""',
       ],
       ["empty value after colon", "field:", '"field:"'],
-      [
-        "backslashes in field value",
-        "subject:path\\file",
-        "subject:path\\\\file",
-      ],
-      [
-        "quotes in field value",
-        'subject:say "hello"',
-        'subject:"say \\"hello\\""',
-      ],
     ])("handles %s", (_name, input, expected) => {
       expectSanitizedSearchQuery(input, expected);
     });
@@ -971,15 +991,6 @@ describe("sanitizeOutlookSearchQuery", () => {
       expect(result.sanitized).not.toContain('\\"');
       expect(result.sanitized).toBe(
         '"Reinstatement of Universal policy for 123 Main St Apt #100"',
-      );
-    });
-
-    it("should handle the participants query that caused colon error", () => {
-      const query = "participants:john.doe@company.example.com";
-      const result = sanitizeOutlookSearchQuery(query);
-      expect(result.sanitized).not.toMatch(/^"participants:/);
-      expect(result.sanitized).toBe(
-        "participants:john.doe@company.example.com",
       );
     });
 

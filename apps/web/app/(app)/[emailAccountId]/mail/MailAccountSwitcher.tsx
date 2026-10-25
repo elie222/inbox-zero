@@ -4,11 +4,9 @@ import { MailAccountSwitcherTrigger } from "@inboxzero/mail-ui/MailAccountSwitch
 import { memo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
-  BellIcon,
+  CheckIcon,
   ChevronsUpDownIcon,
-  MessagesSquareIcon,
   PlusIcon,
-  SettingsIcon,
   SlidersHorizontalIcon,
 } from "lucide-react";
 import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
@@ -30,7 +28,6 @@ import {
 } from "@/components/ui/tooltip";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useAccounts } from "@/hooks/useAccounts";
-import { useSettingsDialog } from "@/hooks/useSettingsDialog";
 import {
   formatShortcutKeys,
   getShortcut,
@@ -38,27 +35,23 @@ import {
 } from "@/lib/shortcuts/registry";
 import { getMailAccountUrl } from "@/app/(app)/[emailAccountId]/mail/mail-account-url";
 import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
-import { cn } from "@/utils";
 
 export const MailAccountSwitcher = memo(function MailAccountSwitcher({
   isAllAccounts,
   isDesktopApp,
   onSelectAccount,
   onSelectAll,
-  variant,
   collapsed = false,
 }: {
   isAllAccounts: boolean;
   isDesktopApp: boolean;
   onSelectAccount: (accountId: string) => void;
   onSelectAll: () => void;
-  variant: "compact" | "sidebar";
   /** Icon-only rail: the trigger shrinks to the account avatar. */
   collapsed?: boolean;
 }) {
   const { data, mutate } = useAccounts();
   const { emailAccount } = useAccount();
-  const { openSettings } = useSettingsDialog();
   const [isSelectionOpen, setIsSelectionOpen] = useState(false);
 
   if (!data) return null;
@@ -82,14 +75,7 @@ export const MailAccountSwitcher = memo(function MailAccountSwitcher({
   }
 
   return (
-    <div
-      className={cn(
-        "shrink-0 border-border border-t pt-2",
-        variant === "compact"
-          ? "bg-background px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] lg:hidden"
-          : "mt-2 hidden lg:block",
-      )}
-    >
+    <div className="mt-2 shrink-0 border-border border-t pt-2">
       <DropdownMenu>
         <RailTooltip label={collapsed ? activeLabel : null}>
           <DropdownMenuTrigger asChild>
@@ -101,18 +87,15 @@ export const MailAccountSwitcher = memo(function MailAccountSwitcher({
               label={activeLabel}
               email={activeEmail}
               collapsed={collapsed}
-              compact={variant === "compact"}
             />
           </DropdownMenuTrigger>
         </RailTooltip>
         <DropdownMenuContent
           align="start"
-          className={cn(
-            "rounded-2xl p-2 shadow-xl",
-            variant === "compact"
-              ? "w-[calc(100vw-1.5rem)]"
-              : "w-[--radix-dropdown-menu-trigger-width] min-w-72",
-          )}
+          className="w-[--radix-dropdown-menu-trigger-width] min-w-72 rounded-2xl p-2 shadow-xl"
+          // A focused trigger reopens the menu on ArrowUp/ArrowDown, which
+          // would swallow mail list navigation after closing the switcher.
+          onCloseAutoFocus={(event) => event.preventDefault()}
           side="top"
           sideOffset={8}
         >
@@ -124,9 +107,10 @@ export const MailAccountSwitcher = memo(function MailAccountSwitcher({
                   onSelect={onSelectAll}
                 >
                   <AllAccountsIcon />
-                  <span className="font-medium">All accounts</span>
+                  <span className="flex-1 font-medium">All accounts</span>
+                  {isAllAccounts && <CurrentAccountCheck />}
                   {isDesktopApp && (
-                    <Kbd className="ml-auto shrink-0">
+                    <Kbd className="shrink-0">
                       {getShortcutHint("switchAllAccounts")}
                     </Kbd>
                   )}
@@ -150,6 +134,7 @@ export const MailAccountSwitcher = memo(function MailAccountSwitcher({
           {data.emailAccounts.map((account, index) => (
             <AccountItem
               account={account}
+              isActive={!isAllAccounts && account.id === emailAccount?.id}
               isDesktopApp={isDesktopApp}
               key={account.id}
               onSelect={onSelectAccount}
@@ -160,26 +145,6 @@ export const MailAccountSwitcher = memo(function MailAccountSwitcher({
               }
             />
           ))}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem asChild className="gap-3 rounded-xl px-3 py-2">
-            <Link href="/shared">
-              <MessagesSquareIcon className="size-4 text-muted-foreground" />
-              Shared with me
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild className="gap-3 rounded-xl px-3 py-2">
-            <Link href="/shared/activity">
-              <BellIcon className="size-4 text-muted-foreground" />
-              Activity
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            className="gap-3 rounded-xl px-3 py-2"
-            onSelect={openSettings}
-          >
-            <SettingsIcon className="size-4 text-muted-foreground" />
-            Settings
-          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild className="gap-3 rounded-xl p-3">
             <Link href="/accounts">
@@ -206,11 +171,13 @@ export const MailAccountSwitcher = memo(function MailAccountSwitcher({
 
 function AccountItem({
   account,
+  isActive,
   isDesktopApp,
   onSelect,
   shortcutKey,
 }: {
   account: GetEmailAccountsResponse["emailAccounts"][number];
+  isActive: boolean;
   isDesktopApp: boolean;
   onSelect: (accountId: string) => void;
   shortcutKey: string | undefined;
@@ -259,6 +226,7 @@ function AccountItem({
           </span>
         ) : null}
       </span>
+      {isActive && <CurrentAccountCheck />}
       {shortcutKey && (
         <Kbd className="shrink-0">
           {formatShortcutKeys({
@@ -269,6 +237,10 @@ function AccountItem({
       )}
     </DropdownMenuItem>
   );
+}
+
+function CurrentAccountCheck() {
+  return <CheckIcon aria-label="Current account" className="size-4 shrink-0" />;
 }
 
 function AllAccountsIcon() {

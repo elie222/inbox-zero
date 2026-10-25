@@ -59,7 +59,6 @@ test("switches between list and split reading layouts", async ({
   const { conversations } = await openMail(page);
   const emptyReader = page.getByText("Nothing selected", { exact: true });
   await expect(emptyReader).toBeHidden();
-  await capturePlaywrightCheckpoint(page, testInfo, "mail-list-layout");
 
   await page.getByRole("button", { name: "Switch list or split view" }).click();
   await expect(emptyReader).toBeVisible();

@@ -45,7 +45,7 @@ vi.mock("@/components/Tooltip", () => ({
 }));
 vi.mock("@/components/email-list/EmailContents", () => ({
   HtmlEmail: () => null,
-  PlainEmail: () => null,
+  PlainEmail: ({ text }: { text: string }) => <p>{text}</p>,
 }));
 vi.mock("@/components/email-list/EmailAttachments", () => ({
   EmailAttachments: () => null,
@@ -60,11 +60,14 @@ vi.mock("@/app/(app)/[emailAccountId]/compose/ComposeEmailFormLazy", () => ({
     onDiscard,
     onPopOut,
     replyingToEmail,
+    quote,
   }: {
     onDiscard: () => void;
     onPopOut?: () => void;
+    quote?: string;
     replyingToEmail?: {
       to?: string;
+      cc?: string;
       threadId?: string;
       forwardedMessageId?: string;
       forwardedAttachments?: Array<{ filename: string }>;
@@ -73,7 +76,10 @@ vi.mock("@/app/(app)/[emailAccountId]/compose/ComposeEmailFormLazy", () => ({
     <div
       data-testid="composer"
       data-inline-reply="true"
+      data-quote={quote}
       data-thread-id={replyingToEmail?.threadId}
+      data-to={replyingToEmail?.to}
+      data-cc={replyingToEmail?.cc}
       data-forwarded-message-id={replyingToEmail?.forwardedMessageId}
       data-forwarded-attachments={replyingToEmail?.forwardedAttachments
         ?.map((attachment) => attachment.filename)
@@ -232,6 +238,28 @@ describe("EmailMessage reply", () => {
     expect(screen.getByRole("textbox", { name: "Email message" })).toBeTruthy();
   });
 
+  it("quotes the selected text when Enter opens the reply", () => {
+    render(
+      <EmailMessage
+        expanded
+        message={createMessage("message-1")}
+        onSendSuccess={vi.fn()}
+        refetch={vi.fn()}
+        selected
+        showReplyButton
+      />,
+    );
+    const body = screen.getByText("Message body");
+    const range = document.createRange();
+    range.selectNodeContents(body);
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(range);
+
+    fireEvent.keyDown(screen.getByRole("listitem"), { key: "Enter" });
+
+    expect(screen.getByTestId("composer").dataset.quote).toBe("Message body");
+  });
+
   // Autosave puts the reply in the mailbox, and sync can bring that copy back
   // before the thread learns it belongs to the open composer.
   it("keeps typing in a new reply when a mailbox draft for it syncs in", () => {
@@ -256,6 +284,32 @@ describe("EmailMessage reply", () => {
     expect(document.activeElement).toBe(editor);
   });
 
+  it("addresses the reply to the sender's Reply-To address", () => {
+    const message = createMessage("message-1");
+    render(
+      <EmailMessage
+        expanded
+        message={{
+          ...message,
+          headers: {
+            ...message.headers,
+            from: "Support <messages@helpdesk.example>",
+            "reply-to": "Support <session-123@helpdesk.example>",
+          },
+        }}
+        onSendSuccess={vi.fn()}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Reply" }));
+
+    expect(screen.getByTestId("composer").dataset.to).toBe(
+      "Support <session-123@helpdesk.example>",
+    );
+  });
+
   it("names To and Cc recipients in the recipient summary", () => {
     const message = createMessage("message-1");
     render(
@@ -275,7 +329,7 @@ describe("EmailMessage reply", () => {
       />,
     );
 
-    expect(screen.getByText("to me, Alex, Jane, Sam")).toBeTruthy();
+    expect(screen.getByText("me, Alex, Jane, Sam")).toBeTruthy();
   });
 });
 
@@ -334,6 +388,78 @@ describe("EmailMessage pop out", () => {
     );
 
     expect(screen.queryByTestId("composer")).toBeNull();
+  });
+});
+
+describe("EmailMessage reply all", () => {
+  afterEach(cleanup);
+
+  it("copies the other recipients and leaves the user out", () => {
+    const message = createMessage("message-1");
+    render(
+      <EmailMessage
+        expanded
+        message={{
+          ...message,
+          headers: {
+            ...message.headers,
+            to: "user@example.com, Alex Kim <alex@example.com>",
+            cc: "sam@example.com",
+          },
+        }}
+        onSendSuccess={vi.fn()}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Reply all" }));
+
+    const composer = screen.getByTestId("composer");
+    expect(composer.dataset.to).toBe("sender@example.com");
+    expect(composer.dataset.cc).toBe("sam@example.com, alex@example.com");
+  });
+
+  it("sends to the Reply-To address without copying it again", () => {
+    const message = createMessage("message-1");
+    render(
+      <EmailMessage
+        expanded
+        message={{
+          ...message,
+          headers: {
+            ...message.headers,
+            "reply-to": "list@example.com",
+            to: "user@example.com, list@example.com",
+            cc: "sam@example.com",
+          },
+        }}
+        onSendSuccess={vi.fn()}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Reply all" }));
+
+    const composer = screen.getByTestId("composer");
+    expect(composer.dataset.to).toBe("list@example.com");
+    expect(composer.dataset.cc).toBe("sam@example.com");
+  });
+
+  it("is not offered when the user is the only other recipient", () => {
+    render(
+      <EmailMessage
+        expanded
+        message={createMessage("message-1")}
+        onSendSuccess={vi.fn()}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Reply" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Reply all" })).toBeNull();
   });
 });
 

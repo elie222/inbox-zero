@@ -2,11 +2,16 @@ import type { MenuItemConstructorOptions } from "electron";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { configureDesktopApplicationMenu } from "./application-menu";
 
-const { app, Menu } = vi.hoisted(() => ({
+const { app, BrowserWindow, Menu } = vi.hoisted(() => ({
   app: {
     getVersion: vi.fn(() => "0.2.0"),
     setAboutPanelOptions: vi.fn(),
     showAboutPanel: vi.fn(),
+  },
+  BrowserWindow: class {
+    webContents = {
+      navigationHistory: { goBack: vi.fn(), goForward: vi.fn() },
+    };
   },
   Menu: {
     buildFromTemplate: vi.fn(
@@ -16,7 +21,7 @@ const { app, Menu } = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("electron", () => ({ app, Menu }));
+vi.mock("electron", () => ({ app, BrowserWindow, Menu }));
 
 describe("desktop application menu", () => {
   beforeEach(() => {
@@ -154,5 +159,32 @@ describe("desktop application menu", () => {
     const settings = submenu.find((item) => item.label === "Settings…");
     expect(settings?.accelerator).toBe("CommandOrControl+,");
     expect(settings?.click).toBe(openSettings);
+  });
+
+  it("navigates the focused window's history with Cmd/Ctrl+[ and Cmd/Ctrl+]", () => {
+    configureDesktopApplicationMenu({
+      checkForUpdates: vi.fn(),
+      createWindow: vi.fn(),
+      openSettings: vi.fn(),
+      recordDiagnostics: vi.fn(),
+      platform: "darwin",
+    });
+
+    const template: MenuItemConstructorOptions[] =
+      Menu.buildFromTemplate.mock.results[0].value;
+    const view = template.find((item) => item.label === "View");
+    const submenu = view?.submenu as MenuItemConstructorOptions[];
+    const back = submenu.find((item) => item.label === "Back");
+    const forward = submenu.find((item) => item.label === "Forward");
+    expect(back?.accelerator).toBe("CommandOrControl+[");
+    expect(forward?.accelerator).toBe("CommandOrControl+]");
+
+    const window = new BrowserWindow();
+    back?.click?.({} as never, window as never, {} as never);
+    expect(window.webContents.navigationHistory.goBack).toHaveBeenCalledOnce();
+    forward?.click?.({} as never, window as never, {} as never);
+    expect(
+      window.webContents.navigationHistory.goForward,
+    ).toHaveBeenCalledOnce();
   });
 });

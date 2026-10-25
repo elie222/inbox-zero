@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BulkArchiveCards } from "@/components/BulkArchiveCards";
 import { useThreads } from "@/hooks/useThreads";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { addToDeleteSenderQueue } from "@/store/delete-sender-queue";
 
 vi.mock("nuqs", () => ({
   useQueryState: () => ["Uncategorized", vi.fn()],
@@ -168,6 +169,42 @@ describe("Bulk Archive sender preview", () => {
       );
       expect(screen.getByRole("button", { name: "Undo" })).toBeTruthy();
       expect(screen.queryByRole("button", { name: "Archive all" })).toBeNull();
+    });
+  });
+
+  it("deletes only the senders still selected after one is deselected", async () => {
+    vi.mocked(useAccount).mockReturnValue({
+      emailAccountId: "account-1",
+      userEmail: "user@example.com",
+      provider: "google",
+    } as ReturnType<typeof useAccount>);
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    render(
+      <BulkArchiveCards
+        emailGroups={[
+          { address: "keep@example.com", name: null, category: null },
+          { address: "remove@example.com", name: null, category: null },
+        ]}
+        categories={[]}
+        bulkAction="delete"
+      />,
+    );
+
+    const keepCheckbox = screen.getByRole("checkbox", {
+      name: "Select keep@example.com",
+    });
+    fireEvent.click(keepCheckbox);
+    expect(keepCheckbox.getAttribute("aria-checked")).toBe("false");
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete 1 of 2" }));
+
+    await vi.waitFor(() =>
+      expect(addToDeleteSenderQueue).toHaveBeenCalledTimes(1),
+    );
+    expect(addToDeleteSenderQueue).toHaveBeenCalledWith({
+      sender: "remove@example.com",
+      emailAccountId: "account-1",
     });
   });
 });

@@ -75,6 +75,14 @@ export async function aiChooseRule<
     };
   }
 
+  // The model claimed a match but named no rule we offered (an invented name,
+  // or no name at all). Fail loudly instead of recording the email as skipped.
+  if (!rulesWithMetadata.length) {
+    throw new Error(
+      `AI rule selection claimed a match but did not resolve to any offered rule (returned ${aiResponse.matchedRules.length} rule name(s) for ${orderedRules.length} candidate(s))`,
+    );
+  }
+
   return {
     rules: rulesWithMetadata,
     reason: aiResponse.reasoning,

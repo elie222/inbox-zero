@@ -243,11 +243,6 @@ test("serves two accounts through one owner and takes over when that owner leave
       window.__inboxZeroMailInspect?.read(),
     );
     expect(diagnostics).toMatchObject({ accountId: secondAccount.id });
-    await capturePlaywrightCheckpoint(
-      other,
-      testInfo,
-      "mail-engine-second-account-follower",
-    );
 
     await page.goto("about:blank");
     await expect

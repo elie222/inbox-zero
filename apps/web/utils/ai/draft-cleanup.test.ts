@@ -403,6 +403,42 @@ describe("cleanupConfiguredAIDraftsForAccount", () => {
     expect(result).toMatchObject({ total: 0, cleanupDays: 30 });
   });
 
+  it("skips instead of failing when the account's grant was revoked", async () => {
+    mocks.prisma.emailAccount.findUnique.mockResolvedValue({
+      draftCleanupDays: 14,
+      account: { provider: "google", disconnectedAt: null },
+    });
+    mocks.prisma.executedAction.findMany.mockResolvedValue([
+      { id: "action-1", draftId: "draft-1", content: "Thanks." },
+    ]);
+    mocks.createEmailProvider.mockRejectedValue(new Error("invalid_grant"));
+
+    const result = await cleanupConfiguredAIDraftsForAccount({
+      emailAccountId: "email-account-1",
+      logger,
+    });
+
+    expect(result).toBeNull();
+  });
+
+  it("rethrows unrelated failures", async () => {
+    mocks.prisma.emailAccount.findUnique.mockResolvedValue({
+      draftCleanupDays: 14,
+      account: { provider: "google", disconnectedAt: null },
+    });
+    mocks.prisma.executedAction.findMany.mockResolvedValue([
+      { id: "action-1", draftId: "draft-1", content: "Thanks." },
+    ]);
+    mocks.createEmailProvider.mockRejectedValue(new Error("boom"));
+
+    await expect(
+      cleanupConfiguredAIDraftsForAccount({
+        emailAccountId: "email-account-1",
+        logger,
+      }),
+    ).rejects.toThrow("boom");
+  });
+
   it.each([
     [
       "cleanup is turned off",

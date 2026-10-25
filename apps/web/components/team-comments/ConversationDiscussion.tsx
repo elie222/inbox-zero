@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useAction } from "next-safe-action/hooks";
+import { useSWRConfig } from "swr";
 import {
   BellIcon,
   BellOffIcon,
@@ -41,6 +42,7 @@ import {
 import { formatShortDate } from "@/utils/date";
 import { getActionErrorMessage } from "@/utils/error";
 import { getMentionPattern } from "@/utils/team-comments/mentions";
+import { TEAM_UNREAD_COUNT_KEY } from "@/components/team-comments/use-team-nav";
 
 type ConversationDiscussionProps = {
   memberId: string;
@@ -72,6 +74,7 @@ export function ConversationDiscussionView({
   const { executeAsync: stop } = useAction(stopSharingAction);
   const { executeAsync: mute } = useAction(setConversationMutedAction);
   const { executeAsync: markRead } = useAction(markConversationReadAction);
+  const { mutate } = useSWRConfig();
   const { executeAsync: postComment } = useAction(postCommentAction);
   const [error, setError] = useState("");
   const markedPosition = useRef("");
@@ -95,7 +98,9 @@ export function ConversationDiscussionView({
     pendingPosition.current = position;
     markRead({ memberId, conversationId, throughRevision: loadedRevision })
       .then((result) => {
-        if (result?.data) markedPosition.current = position;
+        if (!result?.data) return;
+        markedPosition.current = position;
+        mutate(TEAM_UNREAD_COUNT_KEY);
       })
       .catch(() => {})
       .finally(() => {
@@ -108,6 +113,7 @@ export function ConversationDiscussionView({
     memberId,
     conversationId,
     markRead,
+    mutate,
   ]);
   const summaryErrorStatus = (summary.error as { status?: number } | undefined)
     ?.status;

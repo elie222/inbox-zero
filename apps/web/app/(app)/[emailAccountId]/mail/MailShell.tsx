@@ -18,7 +18,6 @@ import { parseAsString, useQueryState, useQueryStates } from "nuqs";
 import { toast } from "sonner";
 import { ListToolbar } from "@/app/(app)/[emailAccountId]/mail/ListToolbar";
 import { getMailSearchFolders } from "@/app/(app)/[emailAccountId]/mail/outlook-folder-list";
-import { MailAccountSwitcher } from "@/app/(app)/[emailAccountId]/mail/MailAccountSwitcher";
 import {
   getMailNavPath,
   MAIL_SCHEDULED_TYPE,
@@ -28,12 +27,12 @@ import { MailSplitTabs } from "@/app/(app)/[emailAccountId]/mail/MailSplitTabs";
 import { SelectAllCheckbox } from "@/app/(app)/[emailAccountId]/mail/SelectAllCheckbox";
 import { MailListPanel } from "@/app/(app)/[emailAccountId]/mail/MailListPanel";
 import { MailReaderPane } from "@/app/(app)/[emailAccountId]/mail/MailReaderPane";
-import { MailTitlebarNav } from "@/app/(app)/[emailAccountId]/mail/MailTitlebarNav";
 import { ScheduledEmailList } from "@/app/(app)/[emailAccountId]/mail/ScheduledEmailList";
 import type { MailboxItem } from "@/app/(app)/[emailAccountId]/mail/MailboxItemContextMenu";
 import { ListSenderCommands } from "@/app/(app)/[emailAccountId]/mail/ListSenderCommands";
-import { extractEmailAddress } from "@/utils/email";
+import { extractEmailAddress, isSameEmailAddress } from "@/utils/email";
 import { LabelPickerDialog } from "@/app/(app)/[emailAccountId]/mail/LabelPickerDialog";
+import { InboxZeroCelebration } from "@/app/(app)/[emailAccountId]/mail/InboxZeroCelebration";
 import { ThreadList } from "@/app/(app)/[emailAccountId]/mail/ThreadList";
 import { useStableCallback } from "@/app/(app)/[emailAccountId]/mail/use-stable-callback";
 import { useTranslateThread } from "@/app/(app)/[emailAccountId]/mail/use-thread-translation";
@@ -56,10 +55,16 @@ import type { ThreadMessage } from "@/components/email-list/types";
 import { useMailThreads } from "@/app/(app)/[emailAccountId]/mail/use-mail-threads";
 import { useCombinedMailThreads } from "@/app/(app)/[emailAccountId]/mail/use-combined-mail-threads";
 import { useThreadActions } from "@/app/(app)/[emailAccountId]/mail/use-thread-actions";
+import { useOptimisticArchive } from "@/app/(app)/[emailAccountId]/mail/use-optimistic-archive";
 import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
 import { MailProductFrame } from "@inboxzero/mail-ui/MailProductFrame";
 import { MailEngineConnectionBanner } from "@/utils/mail-engine/MailEngineConnectionBanner";
 import { useThreadSelection } from "@/app/(app)/[emailAccountId]/mail/use-thread-selection";
+import {
+  copySelectedThreadText,
+  findSelectAllReader,
+  selectThreadText,
+} from "@/app/(app)/[emailAccountId]/mail/thread-select-all";
 import { useWarmNeighbourThreads } from "@/app/(app)/[emailAccountId]/mail/use-warm-neighbour-threads";
 import { useMailPerformanceTelemetry } from "@/app/(app)/[emailAccountId]/mail/use-mail-performance-telemetry";
 import {
@@ -104,6 +109,7 @@ import {
   otherMailSplitQuery,
   mailSplitToThreadsQuery,
   mailTypeToThreadsQuery,
+  threadListQueryRequiresInbox,
 } from "@/utils/split-inbox/split-query";
 import { getActionErrorMessage } from "@/utils/error";
 import { prefixPath } from "@/utils/path";
@@ -115,6 +121,8 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { useTeamCommentsAvailable } from "@/components/team-comments/use-team-comments-available";
 import { getEmailMessageCellActions } from "@/components/EmailMessageCellActions";
 import type { ThreadsQuery } from "@/utils/threads/validation";
+import { getConversationSubject } from "@/utils/email/subject";
+import { printMessages } from "@/app/(app)/[emailAccountId]/mail/print-messages";
 
 // Module-level so an "empty" reader doesn't hand children a new array each render.
 const NO_MESSAGES: ThreadMessage[] = [];
@@ -162,6 +170,8 @@ export function MailShell() {
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [isDesktopApp, setIsDesktopApp] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isMailNavOpen, setIsMailNavOpen] = useState(false);
+  const [isListScrolled, setIsListScrolled] = useState(false);
   const [labelPicker, setLabelPicker] = useState<{
     mode: "label" | "move";
     targets: ThreadSelection[];
@@ -357,6 +367,7 @@ export function MailShell() {
       splits.map((split) => ({
         ...split,
         deletable: split.filters.length > 0,
+        reorderable: split.id !== "all" && split.id !== OTHER_SPLIT_ID,
       })),
     [splits],
   );
@@ -416,7 +427,11 @@ export function MailShell() {
   const { isSyncing } = isAllAccounts
     ? combinedThreadState
     : accountThreadState;
-  const threads = searchSettled ? remoteThreads : EMPTY_SEARCH_THREADS;
+  const { threads, archive: optimisticArchive } = useOptimisticArchive(
+    searchSettled ? remoteThreads : EMPTY_SEARCH_THREADS,
+    isAllAccounts ? !searchQuery : threadListQueryRequiresInbox(query),
+    JSON.stringify([emailAccountId, isAllAccounts]),
+  );
   const searchViewIdentity = JSON.stringify([
     emailAccountId,
     isAllAccounts,
@@ -450,6 +465,12 @@ export function MailShell() {
     );
   } else if (searchQuery) {
     emptyListMessage = "No emails found";
+  } else if (!scopeQuery) {
+    emptyListMessage = (
+      <InboxZeroCelebration
+        splitName={activeSplit?.id === "all" ? undefined : activeSplit?.name}
+      />
+    );
   }
 
   const selection = useThreadSelection(orderedIds);
@@ -552,6 +573,28 @@ export function MailShell() {
       });
     };
   }, [openMessages, readerEmailAccountId, translateThread]);
+  const readerEmail = readerEmailAccount?.email;
+  const lastReceivedMessage = useMemo(() => {
+    if (!readerEmail) return null;
+    return (
+      openMessages.findLast(
+        (message) =>
+          !message.labelIds?.includes(GmailLabel.DRAFT) &&
+          !isSameEmailAddress(message.headers.from, readerEmail),
+      ) ?? null
+    );
+  }, [openMessages, readerEmail]);
+  const printOpenThread = useMemo(() => {
+    const messages = openMessages.filter(
+      (message) => !message.labelIds?.includes(GmailLabel.DRAFT),
+    );
+    if (!messages.length) return;
+    return () =>
+      printMessages({
+        subject: getConversationSubject(messages) ?? "",
+        messages,
+      });
+  }, [openMessages]);
   const teamCommentsAvailable = useTeamCommentsAvailable(readerEmailAccountId);
   const openTeamComments = useMemo(
     () =>
@@ -740,6 +783,7 @@ export function MailShell() {
       setOpenThread(
         nextRow ? getListThreadSelection(nextRow, emailAccountId) : null,
       );
+      return nextRow ? getListThreadKey(nextRow) : null;
     },
   );
   const runOn = useStableCallback(
@@ -751,20 +795,38 @@ export function MailShell() {
       const ids = actionTargets.map((target) => target.key);
       if (!ids.length) return;
       const hadSelection = selection.hasSelection;
+      const removedOpenThreadKey =
+        removeFromList && openThreadKey && ids.includes(openThreadKey)
+          ? openThreadKey
+          : null;
+      // Advance before the list drops the row, so focus moves straight to
+      // the next row instead of briefly landing on none.
+      const advancedToKey =
+        removedOpenThreadKey && autoAdvanceReader
+          ? advanceReaderPast(removedOpenThreadKey, ids)
+          : undefined;
       const queuedThreadKeys = await action(ids);
-      if (!queuedThreadKeys.length) return;
+      const queuedOpenThread =
+        removedOpenThreadKey !== null &&
+        queuedThreadKeys.includes(removedOpenThreadKey);
+      // If it didn't queue, go back, unless the user has since moved on.
+      // A closed reader can't tell staying put from navigating away.
       if (
-        removeFromList &&
-        openThreadKey &&
-        queuedThreadKeys.includes(openThreadKey) &&
-        // The user may have opened another thread while the action was queued.
-        getOpenThreadKey() === openThreadKey
+        removedOpenThreadKey &&
+        advancedToKey &&
+        !queuedOpenThread &&
+        getOpenThreadKey() === advancedToKey
       ) {
-        if (autoAdvanceReader) {
-          advanceReaderPast(openThreadKey, queuedThreadKeys);
-        } else {
-          setOpenThread(null);
-        }
+        setFocusedIndex(focusedIndex);
+        setOpenThread(openThreadSelection);
+      }
+      if (!queuedThreadKeys.length && !hadSelection) return;
+      if (
+        queuedOpenThread &&
+        !autoAdvanceReader &&
+        getOpenThreadKey() === removedOpenThreadKey
+      ) {
+        setOpenThread(null);
       }
       selection.clear();
       if (hadSelection && queuedThreadKeys.length < ids.length) {
@@ -853,8 +915,8 @@ export function MailShell() {
     readerSelectionSettled,
   ]);
   const archiveTargets = useCallback(
-    () => runOn(archive, true, true),
-    [archive, runOn],
+    () => runOn((ids) => optimisticArchive(ids, archive), true, true),
+    [archive, optimisticArchive, runOn],
   );
   // Archiving again would be a no-op, so archived targets offer the way back.
   const moveToInboxTargets = useCallback(
@@ -1089,6 +1151,9 @@ export function MailShell() {
     senderCommandContext?.threadId === singleActionTarget?.selection.threadId
       ? senderCommandContext
       : null;
+  const onToggleAssistant = useStableCallback(() =>
+    toggleSidebar(["chat-sidebar"]),
+  );
   // `useShortcuts` keeps handlers in a ref, so these need no memoization.
   const handlers: ShortcutHandlers = (() => {
     if (sidePanelThreadId || labelPicker) return {};
@@ -1148,7 +1213,13 @@ export function MailShell() {
       },
       switchAllAccounts: selectAllAccounts,
       select: () => selection.toggle(clampedIndex),
-      selectAll: selection.selectAll,
+      selectAll: (event) => {
+        const reader = openThreadId
+          ? findSelectAllReader(event, { readerFillsView: layout === "list" })
+          : null;
+        if (reader) selectThreadText(reader);
+        else selection.selectAll();
+      },
       // The cursor travels with the extension; without that, every repeat
       // re-extends from the same row and the range never grows.
       extendSelectionDown: () => extendSelection(1),
@@ -1183,6 +1254,7 @@ export function MailShell() {
       },
       toggleLayout,
       togglePreview,
+      toggleAssistant: onToggleAssistant,
       help: () => setIsHelpOpen(true),
       search: isMailOverlayOpen
         ? undefined
@@ -1212,6 +1284,11 @@ export function MailShell() {
   });
 
   useShortcuts(handlers, { isDesktopApp });
+
+  useEffect(() => {
+    document.addEventListener("copy", copySelectedThreadText);
+    return () => document.removeEventListener("copy", copySelectedThreadText);
+  }, []);
 
   // Senders the reader actually corresponds with, so "Describe it" can turn a
   // person's name into an address instead of guessing a domain.
@@ -1321,9 +1398,6 @@ export function MailShell() {
       });
     },
   );
-  const onToggleAssistant = useStableCallback(() =>
-    toggleSidebar(["chat-sidebar"]),
-  );
   const searchFolders = useMemo(
     () =>
       isOutlook && !isAllAccounts
@@ -1396,15 +1470,6 @@ export function MailShell() {
 
   return (
     <MailProductFrame
-      accountSwitcher={
-        <MailAccountSwitcher
-          isDesktopApp={isDesktopApp}
-          isAllAccounts={isAllAccounts}
-          onSelectAccount={selectAccount}
-          onSelectAll={selectAllAccounts}
-          variant="compact"
-        />
-      }
       floating={senderCommandsPanel}
       dialogs={labelPickerDialog}
     >
@@ -1420,6 +1485,8 @@ export function MailShell() {
         onSelectAllAccounts={selectAllAccounts}
         onMailboxItemDeleted={onMailboxItemDeleted}
         onNavigate={discardSearchDraft}
+        isMobileNavOpen={isMailNavOpen}
+        onMobileNavOpenChange={setIsMailNavOpen}
       />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -1428,8 +1495,8 @@ export function MailShell() {
           {showList && (
             <MailListPanel layout={layout}>
               <ListToolbar
+                onOpenMailNav={() => setIsMailNavOpen(true)}
                 layout={layout}
-                isDesktopApp={isDesktopApp}
                 searchQuery={searchParam ?? ""}
                 onSearch={setSearch}
                 searchValue={searchValue}
@@ -1475,6 +1542,7 @@ export function MailShell() {
                     isAllAccounts ? combinedLabelSplits : undefined
                   }
                   labelsByAccount={isAllAccounts ? labelsByAccount : undefined}
+                  showDivider={isListScrolled}
                 />
               )}
               {isAllAccounts && combinedThreadState.failedAccountIds.length ? (
@@ -1520,6 +1588,7 @@ export function MailShell() {
                       showSentOpenStatus={
                         scopeType === "sent" && !isAllAccounts
                       }
+                      onScrolledChange={setIsListScrolled}
                       listKey={
                         isAllAccounts
                           ? `all-accounts:${searchQuery ?? displayedActiveSplitId}`
@@ -1534,12 +1603,6 @@ export function MailShell() {
 
           {showReader ? (
             <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-              {showList ? null : (
-                <MailTitlebarNav
-                  showHistory={isDesktopApp}
-                  className="px-3 pt-3"
-                />
-              )}
               <MailReaderPane
                 readerEmailAccount={readerEmailAccount}
                 readerKey={openReaderThreadKey}
@@ -1556,6 +1619,7 @@ export function MailShell() {
                   openThreadSelection?.emailAccountId === emailAccountId
                 }
                 lastMessage={openMessages.at(-1) ?? null}
+                lastReceivedMessage={lastReceivedMessage}
                 isStarred={allStarred}
                 onToggleStar={starTargets}
                 onMarkSpam={markSpamTargets}
@@ -1564,6 +1628,7 @@ export function MailShell() {
                 onMove={canLabel ? openMovePicker : undefined}
                 onTranslate={translateOpenThread}
                 onComment={openTeamComments}
+                onPrint={printOpenThread}
                 isMenuOpen={isMenuOpen}
                 onMenuOpenChange={setIsMenuOpen}
                 enableMessageNavigation={!sidePanelThreadId}

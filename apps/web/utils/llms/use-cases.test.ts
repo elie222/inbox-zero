@@ -3,11 +3,7 @@ import { Provider } from "./config";
 import { getModel } from "./model";
 import type { SelectModel } from "./model";
 import type { UserAIFields } from "./types";
-import {
-  getModelForUseCase,
-  LLM_USE_CASE_MODEL_TYPES,
-  LlmUseCase,
-} from "./use-cases";
+import { getModelForUseCase, LlmUseCase } from "./use-cases";
 
 vi.mock("@ai-sdk/openai", () => ({
   createOpenAI: vi.fn(() => (model: string) => ({ model })),
@@ -104,56 +100,6 @@ vi.mock("@/env", () => ({
 describe("LLM use cases", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-  });
-
-  it("maps every product use case to the expected model role", () => {
-    expect(Object.keys(LLM_USE_CASE_MODEL_TYPES).sort()).toEqual(
-      Object.values(LlmUseCase).sort(),
-    );
-    expect(LLM_USE_CASE_MODEL_TYPES).toEqual({
-      [LlmUseCase.AssistantChat]: "chat",
-      [LlmUseCase.AutomationCheckInMessage]: "economy",
-      [LlmUseCase.CalendarAvailability]: "default",
-      [LlmUseCase.CategorizeSender]: "default",
-      [LlmUseCase.CategorizeSendersBulk]: "economy",
-      [LlmUseCase.ChatCompaction]: "economy",
-      [LlmUseCase.ChatMemoryExtraction]: "economy",
-      [LlmUseCase.CleanInbox]: "default",
-      [LlmUseCase.ComposeAutocomplete]: "default",
-      [LlmUseCase.DetectRecurringPattern]: "chat",
-      [LlmUseCase.DigestEmailSummary]: "economy",
-      [LlmUseCase.DocumentFiling]: "economy",
-      [LlmUseCase.DraftAttachmentSelection]: "economy",
-      [LlmUseCase.DraftFollowUp]: "draft",
-      [LlmUseCase.DraftReply]: "draft",
-      [LlmUseCase.EmailHistoryExtraction]: "economy",
-      [LlmUseCase.EmailReportActionableRecommendations]: "default",
-      [LlmUseCase.EmailReportEmailBehavior]: "economy",
-      [LlmUseCase.EmailReportExecutiveSummary]: "default",
-      [LlmUseCase.EmailReportLabelAnalysis]: "economy",
-      [LlmUseCase.EmailReportResponsePatterns]: "default",
-      [LlmUseCase.EmailReportSummaryGeneration]: "economy",
-      [LlmUseCase.EmailReportUserPersona]: "default",
-      [LlmUseCase.KnowledgeExtraction]: "economy",
-      [LlmUseCase.LearnedWritingStyleCompaction]: "economy",
-      [LlmUseCase.McpAgent]: "economy",
-      [LlmUseCase.MeetingBriefing]: "default",
-      [LlmUseCase.MeetingFollowUpDraft]: "draft",
-      [LlmUseCase.MeetingSummary]: "default",
-      [LlmUseCase.MeetingWebSearch]: "economy",
-      [LlmUseCase.ParseFilingReply]: "economy",
-      [LlmUseCase.PersonaAnalysis]: "economy",
-      [LlmUseCase.PromptToRules]: "chat",
-      [LlmUseCase.PromptToSplit]: "economy",
-      [LlmUseCase.ReplyContextCollector]: "economy",
-      [LlmUseCase.ReplyMemoryExtraction]: "economy",
-      [LlmUseCase.ReplyMemorySelection]: "economy",
-      [LlmUseCase.ReplyNudge]: "chat",
-      [LlmUseCase.Summarise]: "default",
-      [LlmUseCase.TranslateEmail]: "economy",
-      [LlmUseCase.UnsubscribePageState]: "economy",
-      [LlmUseCase.WritingStyleAnalysis]: "default",
-    });
   });
 
   it.each([

@@ -65,7 +65,6 @@ test("schedules a reply with a reminder, persists it and cancels both", async ({
       page.getByRole("heading", { name: "Reply Workflow Message" }),
     ).toBeVisible();
     await expect(delivery.getByText(/^Scheduled for/)).toHaveCount(0);
-    await capturePlaywrightCheckpoint(page, testInfo, "19-scheduled-cancelled");
   } finally {
     await withClient((client) =>
       client.query(

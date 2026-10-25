@@ -21,6 +21,7 @@ import { SentryIdentify } from "@/app/(app)/sentry-identify";
 import { AiAutomationStatusBanner } from "@/app/(app)/AiAutomationStatusBanner";
 import { ErrorMessages } from "@/app/(app)/ErrorMessages";
 import { DesktopMailIndicators } from "@/app/(app)/DesktopMailIndicators";
+import { DesktopUpdateToast } from "@/app/(app)/DesktopUpdateToast";
 import { ProviderRateLimitBanner } from "@/app/(app)/ProviderRateLimitBanner";
 import { MailEngineRuntime } from "@/utils/mail-engine/MailEngineHost";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -107,6 +108,7 @@ export default async function AppLayout({
               chatSidebarWidth={chatSidebarWidth}
             >
               <DesktopMailIndicators />
+              <DesktopUpdateToast />
               <AiAutomationStatusBanner />
               <ErrorMessages />
               <ProviderRateLimitBanner />

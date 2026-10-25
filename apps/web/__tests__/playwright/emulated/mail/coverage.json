@@ -7,6 +7,9 @@
     "app/(app)/[emailAccountId]/mail/use-thread-actions.ts",
     "utils/mail-engine/MailEngineHost.tsx"
   ],
+  "archive-feedback.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/use-optimistic-archive.ts"
+  ],
   "assistant-catch-up.spec.ts": [
     "utils/mail-engine/create-browser-engine.ts",
     "utils/mail-engine/engine-worker.ts",
@@ -81,6 +84,7 @@
   "contact-autocomplete.spec.ts": [
     "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx"
   ],
+  "desktop-update-toast.spec.ts": ["app/(app)/DesktopUpdateToast.tsx"],
   "draft-deletion.spec.ts": [
     "app/(app)/[emailAccountId]/mail/ThreadRow.tsx",
     "components/email-list/EmailMessage.tsx",
@@ -89,6 +93,12 @@
   "draft-send-recovery.spec.ts": [
     "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
     "components/email-list/ThreadDeliveryStatus.tsx"
+  ],
+  "inline-image-send.spec.ts": [
+    "app/(app)/[emailAccountId]/compose/useComposeSend.ts",
+    "components/email-list/EmailContents.tsx",
+    "utils/email/inline-image-cache.ts",
+    "utils/email/outgoing-inline-images.ts"
   ],
   "layout.spec.ts": [
     "app/(app)/[emailAccountId]/mail/ThreadList.tsx",
@@ -124,6 +134,14 @@
     "components/email-list/EmailMessage.tsx",
     "hooks/useThreadPlans.ts",
     "utils/threads/load.ts"
+  ],
+  "message-tools.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx",
+    "app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx",
+    "app/(app)/[emailAccountId]/mail/MessageSourceDialog.tsx",
+    "app/(app)/[emailAccountId]/mail/print-messages.ts",
+    "app/(app)/[emailAccountId]/mail/message-source.ts",
+    "app/api/messages/source/route.ts"
   ],
   "message-overflow.spec.ts": ["components/email-list/EmailContents.tsx"],
   "navigation-and-views.spec.ts": [
@@ -168,7 +186,10 @@
     "components/email-list/EmailMessage.tsx",
     "utils/parse/extract-reply.client.ts"
   ],
-  "split-tabs.spec.ts": ["app/(app)/[emailAccountId]/mail/SplitTabs.tsx"],
+  "split-tabs.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/SplitTabs.tsx",
+    "app/(app)/[emailAccountId]/mail/MailSplitTabs.tsx"
+  ],
   "starring.spec.ts": [
     "app/(app)/[emailAccountId]/mail/star-state.ts",
     "app/(app)/[emailAccountId]/mail/ThreadRow.tsx",
@@ -192,6 +213,9 @@
   "thread-navigation.spec.ts": [
     "components/email-list/EmailThread.tsx",
     "app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx"
+  ],
+  "thread-select-all.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/thread-select-all.ts"
   ],
   "thread-states.spec.ts": [
     "components/email-list/EmailThread.tsx",

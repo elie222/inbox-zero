@@ -34,6 +34,22 @@ describe("deliverFcmNotifications", () => {
     vi.useRealTimers();
   });
 
+  it("folds the subtitle into the notification body", async () => {
+    await deliverFcmNotifications({
+      tokens: ["test-token"],
+      notification: {
+        title: "Alex",
+        subtitle: "Project plan",
+        body: "Please review the plan.",
+      },
+      logger,
+    });
+    expect(takeRecordedFcmSends()[0]?.message.notification).toEqual({
+      title: "Alex",
+      body: "Project plan\nPlease review the plan.",
+    });
+  });
+
   it("records a silent mailbox hint as a normal-priority data message", async () => {
     const result = await deliverFcmNotifications({
       tokens: [token],

@@ -72,6 +72,16 @@ describe("getSenderEmailStats", () => {
     expect(page.senders[0]?.lastEmailAt).toBe(1_700_000_000_000);
   });
 
+  it("prefers unsubscribe links containing HTTP(S) or mailto with the original maximum as fallback", async () => {
+    vi.mocked(prisma.$queryRaw).mockResolvedValue([] as never);
+
+    await getSenderEmailStats({ emailAccountId: "account-1" });
+
+    expect(sentSql().text.replace(/\s+/g, " ")).toContain(
+      `COALESCE(MAX("unsubscribeLink") FILTER (WHERE "unsubscribeLink" ~* '(https?|mailto):'), MAX("unsubscribeLink")) as "unsubscribeLink"`,
+    );
+  });
+
   it("pages with an opaque cursor and keeps the cursor values out of the SQL text", async () => {
     const maliciousFrom = "news@example.com' OR 1=1 --";
     vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([

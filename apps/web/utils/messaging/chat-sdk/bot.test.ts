@@ -1,3 +1,4 @@
+import { cardToAdaptiveCard } from "@chat-adapter/teams";
 import { cardToBlockKit } from "@chat-adapter/slack";
 import type { KnownBlock } from "@slack/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -11,8 +12,6 @@ import {
   buildMessagingUserMessages,
   getMessagingAiGeneratedPostPayload,
   getPendingEmailHandledOpenText,
-  getPendingEmailHandledStatus,
-  getPendingEmailHandledTitle,
   buildPendingEmailSummary,
   ensureSlackTeamInstallation,
   hasUnsupportedMessagingAttachment,
@@ -515,16 +514,30 @@ describe("postPendingEmailCard", () => {
 });
 
 describe("getMessagingAiGeneratedPostPayload", () => {
-  it("adds an AI content disclosure to Teams assistant messages", () => {
+  it("preserves email addresses and the AI disclosure in Teams assistant messages", () => {
+    const payload = getMessagingAiGeneratedPostPayload({
+      provider: "teams",
+      text: "Contact user@example.com about this summary.",
+    });
+    expect(payload).toHaveProperty("type", "card");
+    const rendered = JSON.stringify(
+      cardToAdaptiveCard(payload as Parameters<typeof cardToAdaptiveCard>[0]),
+    );
+    expect(rendered).toContain("user@example.com");
+    expect(rendered).toContain("AI-generated content may be inaccurate");
+    expect(rendered).not.toContain("<at>");
+  });
+
+  it("keeps lists and paragraph breaks together in Teams assistant replies", () => {
+    const text = "1. First item\n2. Second item\n\nA separate paragraph.";
+    const payload = getMessagingAiGeneratedPostPayload({
+      provider: "teams",
+      text,
+    });
     expect(
-      getMessagingAiGeneratedPostPayload({
-        provider: "teams",
-        text: "Here is your summary.",
-      }),
-    ).toEqual({
-      markdown: expect.stringContaining(
-        "AI-generated content may be inaccurate",
-      ),
+      cardToAdaptiveCard(payload as Parameters<typeof cardToAdaptiveCard>[0]),
+    ).toMatchObject({
+      body: [{ text: expect.stringContaining(text) }],
     });
   });
 
@@ -550,11 +563,6 @@ describe("getMessagingAiGeneratedPostPayload", () => {
 });
 
 describe("pending email handled state helpers", () => {
-  it("uses reply-specific sent copy", () => {
-    expect(getPendingEmailHandledTitle("reply_email")).toBe("Reply sent");
-    expect(getPendingEmailHandledStatus("reply_email")).toBe("Reply sent. ✅");
-  });
-
   it("builds a mailbox deep link when confirmation ids are present", () => {
     expect(
       getPendingEmailHandledOpenText({

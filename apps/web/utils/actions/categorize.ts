@@ -112,12 +112,15 @@ export const upsertDefaultCategoriesAction = actionClient
       )?.description;
 
       if (enabled) {
-        await upsertCategory({
-          emailAccountId,
-          newCategory: { name, description },
-        });
-      } else {
-        if (id) await deleteCategory({ emailAccountId, categoryId: id });
+        // An existing category keeps its (possibly user-edited) description.
+        if (!id) {
+          await upsertCategory({
+            emailAccountId,
+            newCategory: { name, description },
+          });
+        }
+      } else if (id) {
+        await deleteCategory({ emailAccountId, categoryId: id });
       }
     }
 
@@ -128,10 +131,13 @@ export const createCategoryAction = actionClient
   .metadata({ name: "createCategory" })
   .inputSchema(createCategoryBody)
   .action(
-    async ({ ctx: { emailAccountId }, parsedInput: { name, description } }) => {
+    async ({
+      ctx: { emailAccountId },
+      parsedInput: { id, name, description },
+    }) => {
       await upsertCategory({
         emailAccountId,
-        newCategory: { name, description },
+        newCategory: { id, name, description },
       });
 
       revalidatePath(prefixPath(emailAccountId, "/smart-categories"));

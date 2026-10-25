@@ -947,6 +947,7 @@ async function deleteAllFromSender({
   const deletion = (async () => {
     const { threads } = await fetchAllSenderThreads({
       sender: name,
+      scope: "all",
       emailAccountId,
     });
     if (threads.length) {

@@ -11,7 +11,6 @@ export type MailReaderToolbarButton = {
     | "mark_unread";
   ariaLabel: string;
   title?: string;
-  variant: "ghost" | "outline";
   icon?: ReactNode;
   label?: ReactNode;
   onClick: () => void;
@@ -77,7 +76,6 @@ export function MailReaderToolbar({
           action: "back",
           ariaLabel: "Back to inbox",
           title: "Back to inbox",
-          variant: "ghost",
           icon: icons?.back,
           onClick: onBackToInbox,
         })}
@@ -112,7 +110,6 @@ export function MailReaderToolbar({
               action: expansionAction,
               ariaLabel: expansionLabel,
               title: expansionLabel,
-              variant: "ghost",
               icon: icons?.[expansionAction],
               onClick: messageExpansion.onToggleAll,
             })
@@ -122,14 +119,12 @@ export function MailReaderToolbar({
             ? {
                 action: "move_to_inbox",
                 ariaLabel: "Move to inbox",
-                variant: "outline",
                 icon: icons?.move_to_inbox,
                 onClick: onMoveToInbox,
               }
             : {
                 action: "archive",
                 ariaLabel: "Archive",
-                variant: "outline",
                 icon: icons?.archive,
                 onClick: onArchive,
               },
@@ -137,7 +132,6 @@ export function MailReaderToolbar({
         {actionButton({
           action: readAction,
           ariaLabel: readLabel,
-          variant: "outline",
           icon: icons?.[readAction],
           onClick: isUnread ? onMarkRead : onMarkUnread,
         })}
@@ -181,8 +175,9 @@ export function MailReaderSurface({
   return (
     <div className="flex min-h-0 min-w-0 flex-1" ref={containerRef}>
       <div
-        className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-card"
+        className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-muted dark:bg-background"
         data-detail-selection-settled={detailSelectionSettled}
+        data-mail-reader=""
         data-testid="thread-reader"
       >
         <div className={readerMeasure({ layout })}>

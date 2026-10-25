@@ -156,7 +156,7 @@ export async function getSenderEmailStats(
         COUNT(*)::int as "count",
         SUM(CASE WHEN inbox = true THEN 1 ELSE 0 END)::int as "inboxEmails",
         SUM(CASE WHEN read = true THEN 1 ELSE 0 END)::int as "readEmails",
-        MAX("unsubscribeLink") as "unsubscribeLink",
+        COALESCE(MAX("unsubscribeLink") FILTER (WHERE "unsubscribeLink" ~* '(https?|mailto):'), MAX("unsubscribeLink")) as "unsubscribeLink",
         (EXTRACT(EPOCH FROM MAX("date")) * 1000)::bigint as "lastEmailAt"
       FROM "EmailMessage"
       ${whereClause}

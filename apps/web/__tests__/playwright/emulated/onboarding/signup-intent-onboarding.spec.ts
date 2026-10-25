@@ -44,7 +44,6 @@ test("email app users get a short intro and land in mail without the paywall", a
   await expect(
     page.getByRole("listbox", { name: "Conversations" }),
   ).toBeVisible({ timeout: 60_000 });
-  await capturePlaywrightCheckpoint(page, testInfo, "email-client-only-mail");
   expect(await getSignupIntentState()).toEqual({
     completed: true,
     signupIntent: "MAIL_CLIENT",

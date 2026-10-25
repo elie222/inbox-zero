@@ -124,10 +124,15 @@ type ComposeEmailFormProps = {
   refetch?: () => void;
   onSuccess?: (messageId: string, threadId: string) => void;
   onMarkDone?: () => void;
-  onClose?: () => void;
+  /** Given the send's operation id just before it is queued to the outbox. */
+  onSubmitting?: (operationId: string) => () => void;
+  onClose?: (queuedOperationId?: string) => void;
   onRestore?: () => void;
   onDiscard?: (draftId?: string) => boolean | Promise<boolean>;
   onPopOut?: () => void;
+  /** Text to quote into the body; cleared through `onQuoteInserted`. */
+  quote?: string;
+  onQuoteInserted?: () => void;
 };
 
 export type ComposeFormValues = Omit<
@@ -275,10 +280,13 @@ function ComposeEmailFormContent({
   refetch,
   onSuccess,
   onMarkDone,
+  onSubmitting,
   onClose,
   onRestore,
   onDiscard,
   onPopOut,
+  quote,
+  onQuoteInserted,
   localDraftIdentity,
   initialAttachments,
   initialProviderDraftId,
@@ -316,6 +324,7 @@ function ComposeEmailFormContent({
     return times.valid ? "" : times.error;
   });
   const editorInitialized = useRef(false);
+  const [editorReady, setEditorReady] = useState(false);
 
   const [initialComposer] = useState(() =>
     createInitialComposeContent({
@@ -323,6 +332,7 @@ function ComposeEmailFormContent({
       initialAttachments,
       replyingToEmail,
       initialSendAs,
+      sendAsAddresses,
       accountSignatureHtml,
       sentWithFooterHtml,
     }),
@@ -402,6 +412,7 @@ function ComposeEmailFormContent({
     draftSaveError,
     providerAutosaveError,
     discard,
+    isDiscarding,
   } = draft;
   const {
     forwardedAttachments,
@@ -422,11 +433,18 @@ function ComposeEmailFormContent({
     if (!editorInitialized.current) {
       queueMicrotask(() => {
         editorInitialized.current = true;
+        setEditorReady(true);
       });
       return;
     }
     captureDraft();
   };
+
+  // Inserted once the editor is live so the quote is captured into the draft.
+  useEffect(() => {
+    if (!quote || !editorReady) return;
+    if (editorRef.current?.insertQuote(quote)) onQuoteInserted?.();
+  }, [quote, editorReady, onQuoteInserted]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -458,6 +476,7 @@ function ComposeEmailFormContent({
       refetch,
       onSuccess,
       onMarkDone,
+      onSubmitting,
       onClose,
       onRestore,
     });
@@ -479,9 +498,14 @@ function ComposeEmailFormContent({
     if (!address) return;
     const previousSignature = getSendAsSignatureHtml(
       selectedSendAs,
+      sendAsAddresses,
       accountSignatureHtml,
     );
-    const nextSignature = getSendAsSignatureHtml(address, accountSignatureHtml);
+    const nextSignature = getSendAsSignatureHtml(
+      address,
+      sendAsAddresses,
+      accountSignatureHtml,
+    );
     setValue("from", formatSendAsAddress(address));
     if (nextSignature !== previousSignature)
       editorRef.current?.replaceSignature(
@@ -599,7 +623,9 @@ function ComposeEmailFormContent({
         pendingRecipientsRef={pendingRecipientsRef}
         onPendingRecipientChange={updatePendingRecipient}
         focusRecipientField={focusRecipientField}
-        subjectRegisterProps={register("subject", { required: true })}
+        // Inline replies hide the subject, so a required one would block send
+        // with no visible error when the thread or draft has none.
+        subjectRegisterProps={register("subject", { required: !isInlineReply })}
         subjectError={errors.subject}
         popOutButton={popOutButton}
       />
@@ -655,6 +681,7 @@ function ComposeEmailFormContent({
         <div className="flex flex-wrap items-center gap-1">
           <Tooltip
             shortcuts={onMarkDone ? ["send", "sendAndMarkDone"] : ["send"]}
+            showShortcutLabels={!!onMarkDone}
           >
             <Button disabled={isSubmitting} type="submit" variant="gradient">
               {isSubmitting && <ButtonLoader />}
@@ -741,7 +768,7 @@ function ComposeEmailFormContent({
               <Button
                 aria-label="Discard draft"
                 className="hover:bg-transparent"
-                disabled={isSubmitting}
+                disabled={isSubmitting || isDiscarding}
                 onClick={handleDiscard}
                 size="icon"
                 type="button"

@@ -13,6 +13,7 @@ import {
 } from "@/hooks/useHiddenDraftMessageIds";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { scheduleEmailAction } from "@/utils/actions/scheduled-email";
+import { prepareOutgoingInlineImages } from "@/utils/email/outgoing-inline-images";
 import { getActionErrorMessage } from "@/utils/error";
 import {
   getDraftSessionMessageIds,
@@ -74,6 +75,7 @@ export function useComposeSend({
   refetch,
   onSuccess,
   onMarkDone,
+  onSubmitting,
   onClose,
   onRestore,
 }: {
@@ -98,7 +100,9 @@ export function useComposeSend({
   refetch?: () => void;
   onSuccess?: (messageId: string, threadId: string) => void;
   onMarkDone?: () => void;
-  onClose?: () => void;
+  onSubmitting?: (operationId: string) => () => void;
+  /** Given the send's operation id when the email was queued to the outbox. */
+  onClose?: (queuedOperationId?: string) => void;
   onRestore?: () => void;
 }) {
   const { emailAccountId } = useAccount();
@@ -183,6 +187,7 @@ export function useComposeSend({
       });
       const enrichedData: SendEmailBody = {
         ...data,
+        subject: data.subject ?? "",
         ...recipients,
         replyToEmail: getReplyToEmailPayload(data.replyToEmail),
         messageHtml,
@@ -321,6 +326,10 @@ export function useComposeSend({
         let outcome: Awaited<ReturnType<typeof queueReaderEmail>>;
         let showDraftAgain = () => {};
         try {
+          const publishInlineImages = await prepareOutgoingInlineImages(
+            selectedEmailAccountId,
+            attachmentsRef.current,
+          );
           outcome = await queueReaderEmail({
             client,
             email: enrichedData,
@@ -332,7 +341,11 @@ export function useComposeSend({
             attachments: attachmentsRef.current.flatMap(toAttachmentReference),
             online,
             threadId: readerThreadId,
-            onQueued: async () => {
+            onSubmitting: (operationId) => {
+              publishInlineImages(operationId);
+              return onSubmitting?.(operationId) ?? (() => {});
+            },
+            onQueued: async (operationId) => {
               deliveryAccepted = true;
               showDraftAgain = hideSendingDraftMessages(
                 selectedEmailAccountId,
@@ -345,7 +358,7 @@ export function useComposeSend({
                   readerThreadId,
                 ]).catch(() => {});
               }
-              onClose?.();
+              onClose?.(operationId);
             },
           });
         } catch (error) {
@@ -505,6 +518,7 @@ export function useComposeSend({
       onClose,
       onRestore,
       onMarkDone,
+      onSubmitting,
       onSuccess,
       preservedBlocks,
       providerDraftMessageId,

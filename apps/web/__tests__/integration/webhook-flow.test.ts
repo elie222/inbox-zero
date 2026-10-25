@@ -166,19 +166,19 @@ const SEED_MESSAGES = [
   {
     id: "msg_inbound",
     user_email: TEST_EMAIL,
-    from: "customer@external.com",
+    from: "customer@example.com",
     to: TEST_EMAIL,
     subject: "Support request #1234",
     body_text: "I need help with my account.",
     body_html: "<p>I need help with my account.</p>",
     label_ids: ["INBOX", "UNREAD"],
-    internal_date: "1711900000000",
+    internal_date: String(Date.now()),
   },
   {
     id: "msg_outbound",
     user_email: TEST_EMAIL,
     from: TEST_EMAIL,
-    to: "colleague@external.com",
+    to: "colleague@example.com",
     subject: "Meeting notes",
     body_text: "Here are the notes from today.",
     label_ids: ["SENT"],
@@ -187,12 +187,12 @@ const SEED_MESSAGES = [
   {
     id: "msg_second_inbound",
     user_email: TEST_EMAIL,
-    from: "newsletter@updates.com",
+    from: "newsletter@example.com",
     to: TEST_EMAIL,
     subject: "Weekly digest",
     body_text: "Here is your weekly update.",
     label_ids: ["INBOX", "UNREAD"],
-    internal_date: "1711900120000",
+    internal_date: String(Date.now()),
   },
 ];
 
@@ -275,7 +275,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       expect(capturedRunRulesCall).not.toBeNull();
       const capturedMessage = capturedRunRulesCall!.message as any;
       expect(capturedMessage.id).toBe("msg_inbound");
-      expect(capturedMessage.headers.from).toContain("customer@external.com");
+      expect(capturedMessage.headers.from).toContain("customer@example.com");
       expect(capturedMessage.headers.subject).toBe("Support request #1234");
 
       const after = await harness.gmailClient.users.messages.get({

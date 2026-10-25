@@ -19,6 +19,7 @@ import {
   ColumnsIcon,
   MailIcon,
   MailOpenIcon,
+  PanelLeftIcon,
   RowsIcon,
   SearchIcon,
   SparklesIcon,
@@ -29,10 +30,10 @@ import {
   Trash2Icon,
   XIcon,
 } from "lucide-react";
-import { MailTitlebarNav } from "@/app/(app)/[emailAccountId]/mail/MailTitlebarNav";
 import { MailSearchFiltersForm } from "@/app/(app)/[emailAccountId]/mail/MailSearchFilters";
 import { OutlookSearchFiltersForm } from "@/app/(app)/[emailAccountId]/mail/OutlookSearchFilters";
 import {
+  MailSearchHint,
   MailSearchSuggestionList,
   suggestionOptionId,
   useMailSearchSuggestions,
@@ -45,6 +46,7 @@ import { parseMailSearchQuery } from "@/app/(app)/[emailAccountId]/mail/mail-sea
 import { parseOutlookSearchQuery } from "@/app/(app)/[emailAccountId]/mail/outlook-search-query";
 import type { MailLayoutMode } from "@/app/(app)/[emailAccountId]/mail/types";
 import { Tooltip } from "@/components/Tooltip";
+import { useSidebar } from "@/components/ui/sidebar";
 import {
   Popover,
   PopoverAnchor,
@@ -56,7 +58,6 @@ import { cn } from "@/utils";
 
 export type ListToolbarProps = {
   layout: MailLayoutMode;
-  isDesktopApp: boolean;
   expandedPreview: boolean;
   /** Committed search query. */
   searchQuery: string;
@@ -88,11 +89,12 @@ export type ListToolbarProps = {
   /** Omitted when the current view can't label (combined inboxes). */
   onLabelSelected?: () => void;
   onClearSelection: () => void;
+  /** Opens the mail navigation panel on screens too narrow for the rail. */
+  onOpenMailNav: () => void;
 };
 
 export const ListToolbar = memo(function ListToolbar({
   layout,
-  isDesktopApp,
   expandedPreview,
   searchQuery = "",
   onSearch,
@@ -117,12 +119,29 @@ export const ListToolbar = memo(function ListToolbar({
   onStarSelected,
   onLabelSelected,
   onClearSelection,
+  onOpenMailNav,
 }: ListToolbarProps) {
   const LayoutIcon = layout === "split" ? ColumnsIcon : RowsIcon;
+  const { state } = useSidebar();
+  const isSidebarCollapsed = !state.includes("left-sidebar");
 
   return (
-    <MailListToolbarSurface>
-      <MailTitlebarNav showHistory={isDesktopApp} />
+    <MailListToolbarSurface
+      className={cn(
+        // The collapsed rail is narrower than the mac traffic lights, so the
+        // toolbar starts after them and the sidebar toggle lifted beside them.
+        isSidebarCollapsed &&
+          "lg:pl-[max(0.75rem,calc(var(--desktop-traffic-lights-width,0px)-0.75rem))]",
+      )}
+    >
+      <button
+        type="button"
+        onClick={onOpenMailNav}
+        aria-label="Open navigation"
+        className={cn(toolbarButton, "w-8 justify-center px-0 lg:hidden")}
+      >
+        <PanelLeftIcon className="size-3.5" />
+      </button>
       {selectAll}
 
       {/* Selection swaps the toolbar's controls in place so the list never
@@ -291,15 +310,12 @@ export const ListToolbar = memo(function ListToolbar({
       ) : null}
 
       {selectedCount === 0 ? (
-        <Tooltip content="Assistant">
+        <Tooltip shortcuts={["toggleAssistant"]}>
           <button
             type="button"
             onClick={onToggleAssistant}
             aria-label="Toggle the assistant"
-            className={cn(
-              toolbarButton,
-              "w-8 justify-center border-blue-600 bg-blue-600 px-0 text-white hover:border-blue-700 hover:bg-blue-700 hover:text-white dark:border-blue-700 dark:bg-blue-700 dark:hover:border-blue-800 dark:hover:bg-blue-800",
-            )}
+            className={cn(toolbarButton, "w-8 justify-center px-0")}
           >
             <SparklesIcon className="size-3.5" />
           </button>
@@ -347,6 +363,12 @@ function MailSearchInput({
     recentSearches,
   });
   const suggestionsOpen = suggestions.length > 0;
+  const hintOpen =
+    focused &&
+    !draft &&
+    !suggestionsOpen &&
+    !filtersOpen &&
+    !suggestionsDismissed;
   const highlightedIndex = activeIndex < suggestions.length ? activeIndex : -1;
 
   const commitSearch = (query: string) => {
@@ -400,6 +422,7 @@ function MailSearchInput({
                   suggestions={suggestions}
                 />
               ) : null}
+              {hintOpen ? <MailSearchHint /> : null}
             </>
           }
         >
@@ -552,4 +575,4 @@ function AdvancedSearchForm({
 }
 
 const toolbarButton =
-  "flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-border bg-background px-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";

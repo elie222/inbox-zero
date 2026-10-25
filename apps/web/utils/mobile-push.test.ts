@@ -50,6 +50,7 @@ describe("sendMobilePushNotification", () => {
       expect.objectContaining({
         to: "ExponentPushToken[first]",
         title: "Verification code",
+        body: "Your verification code is 123456",
         expiration: new Date("2026-07-31T12:15:00.000Z").getTime() / 1000,
         data: {
           type: "otp",
@@ -59,6 +60,30 @@ describe("sendMobilePushNotification", () => {
       expect.objectContaining({
         to: "ExponentPushToken[second]",
       }),
+    ]);
+  });
+
+  it("folds the subtitle into the Expo body without sending a subtitle field", async () => {
+    mockClaimedTokens([{ id: "token-1", token: "ExponentPushToken[first]" }]);
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(Response.json({ data: [{ status: "ok" }] }));
+    await sendMobilePushNotification({
+      userId: "user-1",
+      deduplicationKey: "to-reply:account-1:message-1",
+      notification: {
+        title: "Alex",
+        subtitle: "Project plan",
+        body: "Please review the plan.",
+      },
+      logger,
+    });
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual([
+      {
+        to: "ExponentPushToken[first]",
+        title: "Alex",
+        body: "Project plan\nPlease review the plan.",
+      },
     ]);
   });
 

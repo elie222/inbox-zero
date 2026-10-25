@@ -8,8 +8,15 @@ import { GoogleTagManager } from "@next/third-parties/google";
 import { Analytics as DubAnalytics } from "@dub/analytics/react";
 import { Geist } from "next/font/google";
 import localFont from "next/font/local";
-import type { WebApplication, WithContext } from "schema-dts";
+import type {
+  Graph,
+  Offer,
+  Organization,
+  SoftwareApplication,
+  WebSite,
+} from "schema-dts";
 import "../styles/globals.css";
+import { tiers } from "@/app/(app)/premium/config";
 import { PostHogPageview, PostHogProvider } from "@/providers/PostHogProvider";
 import { env } from "@/env";
 import { GlobalProviders } from "@/providers/GlobalProviders";
@@ -27,6 +34,7 @@ import {
   toAbsoluteUrl,
 } from "@/utils/branding";
 import { isIndexingAllowed } from "@/utils/indexing";
+import { isMcpServerAvailable } from "@/utils/mcp/config";
 
 const aeonikFont = localFont({
   src: "../styles/aeonik-medium.woff",
@@ -46,27 +54,57 @@ const description =
 
 const indexingAllowed = isIndexingAllowed(env.NEXT_PUBLIC_BASE_URL);
 
-// JSON-LD structured data
-const jsonLd: WithContext<WebApplication> = {
-  "@context": "https://schema.org",
-  "@type": "WebApplication",
+const organizationId = toAbsoluteUrl("/#organization");
+const websiteId = toAbsoluteUrl("/#website");
+
+const organization: Organization = {
+  "@type": "Organization",
+  "@id": organizationId,
   name: BRAND_NAME,
   url: env.NEXT_PUBLIC_BASE_URL,
-  description,
-  applicationCategory: "ProductivityApplication",
-  operatingSystem: "Web Browser",
-  offers: {
-    "@type": "Offer",
-    price: "20.00",
-    priceCurrency: "USD",
-    priceSpecification: {
-      "@type": "UnitPriceSpecification",
-      price: 20,
-      priceCurrency: "USD",
-      billingDuration: "P1M",
-    },
-    availability: "https://schema.org/InStock",
+  logo: {
+    "@type": "ImageObject",
+    url: toAbsoluteUrl(BRAND_ICON_URL),
   },
+  sameAs: [
+    "https://x.com/inboxzero_ai",
+    "https://github.com/elie222/inbox-zero",
+  ],
+  ...(SUPPORT_EMAIL
+    ? {
+        contactPoint: {
+          "@type": "ContactPoint" as const,
+          email: SUPPORT_EMAIL,
+          contactType: "customer support",
+        },
+      }
+    : {}),
+  address: {
+    "@type": "PostalAddress",
+    streetAddress: "131 Continental Dr, Suite 305",
+    addressLocality: "Newark",
+    addressRegion: "DE",
+    postalCode: "19713",
+    addressCountry: "US",
+  },
+};
+
+const website: WebSite = {
+  "@type": "WebSite",
+  "@id": websiteId,
+  name: BRAND_NAME,
+  alternateName: ["InboxZero", "getinboxzero"],
+  url: env.NEXT_PUBLIC_BASE_URL,
+  publisher: { "@id": organizationId },
+};
+
+const softwareApplication: SoftwareApplication = {
+  "@type": "SoftwareApplication",
+  name: BRAND_NAME,
+  description,
+  applicationCategory: "BusinessApplication",
+  operatingSystem: "Web",
+  url: env.NEXT_PUBLIC_BASE_URL,
   featureList: [
     "AI Email Assistant",
     "Email Automation",
@@ -75,37 +113,13 @@ const jsonLd: WithContext<WebApplication> = {
     "Email Analytics",
     "Newsletter Management",
   ],
-  publisher: {
-    "@type": "Organization",
-    "@id": toAbsoluteUrl("/#organization"),
-    name: BRAND_NAME,
-    url: env.NEXT_PUBLIC_BASE_URL,
-    logo: {
-      "@type": "ImageObject",
-      url: toAbsoluteUrl(BRAND_ICON_URL),
-    },
-    sameAs: [
-      "https://x.com/inboxzero_ai",
-      "https://github.com/elie222/inbox-zero",
-    ],
-    ...(SUPPORT_EMAIL
-      ? {
-          contactPoint: {
-            "@type": "ContactPoint" as const,
-            email: SUPPORT_EMAIL,
-            contactType: "customer support",
-          },
-        }
-      : {}),
-    address: {
-      "@type": "PostalAddress",
-      streetAddress: "131 Continental Dr, Suite 305",
-      addressLocality: "Newark",
-      addressRegion: "DE",
-      postalCode: "19713",
-      addressCountry: "US",
-    },
-  },
+  offers: subscriptionOffers(),
+  publisher: { "@id": organizationId },
+};
+
+const jsonLd: Graph = {
+  "@context": "https://schema.org",
+  "@graph": [organization, website, softwareApplication],
 };
 
 export const metadata: Metadata = {
@@ -158,8 +172,40 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // Vercel only serves the /_vercel/* analytics scripts on its own platform;
+  // elsewhere they 404 and are blocked by strict MIME checking.
+  const isVercel = process.env.VERCEL === "1";
+
   return (
     <html lang="en" className="h-full" suppressHydrationWarning>
+      <head>
+        <link
+          rel="alternate"
+          type="text/plain"
+          href="/llms.txt"
+          title={`${BRAND_NAME} agent resources`}
+        />
+        <link
+          rel="help"
+          href="https://docs.getinboxzero.com/essentials/getting-started"
+          title="Getting started"
+        />
+        {env.NEXT_PUBLIC_EXTERNAL_API_ENABLED && (
+          <link
+            rel="service-desc"
+            type="application/vnd.oai.openapi+json;version=3.1"
+            href="/openapi.json"
+            title={`${BRAND_NAME} API`}
+          />
+        )}
+        {isMcpServerAvailable() && (
+          <link
+            rel="service-doc"
+            href="https://docs.getinboxzero.com/essentials/mcp"
+            title="Connect to the mailbox MCP server"
+          />
+        )}
+      </head>
       <body
         className={`h-full ${env.NEXT_PUBLIC_USE_AEONIK_FONT ? aeonikFont.variable : ""} ${geist.variable} font-sans antialiased`}
       >
@@ -188,10 +234,10 @@ export default async function RootLayout({
             <Toaster />
           </GlobalProviders>
         </PostHogProvider>
-        <Analytics />
+        {isVercel && <Analytics />}
         <AxiomWebVitals />
         <UTM />
-        <SpeedInsights />
+        {isVercel && <SpeedInsights />}
         <WithCookieConsent>
           {env.NEXT_PUBLIC_DUB_REFER_DOMAIN && (
             <DubAnalytics
@@ -208,4 +254,43 @@ export default async function RootLayout({
       </body>
     </html>
   );
+}
+
+function subscriptionOffers(): Offer[] {
+  return tiers.flatMap((tier) => [
+    subscriptionOffer({
+      name: tier.name,
+      price: tier.price.monthly,
+      billingDuration: "P1M",
+    }),
+    subscriptionOffer({
+      name: `${tier.name} annual`,
+      price: tier.price.annually * 12,
+      billingDuration: "P1Y",
+    }),
+  ]);
+}
+
+function subscriptionOffer({
+  name,
+  price,
+  billingDuration,
+}: {
+  name: string;
+  price: number;
+  billingDuration: string;
+}): Offer {
+  return {
+    "@type": "Offer",
+    name,
+    price: price.toFixed(2),
+    priceCurrency: "USD",
+    availability: "https://schema.org/InStock",
+    priceSpecification: {
+      "@type": "UnitPriceSpecification",
+      price,
+      priceCurrency: "USD",
+      billingDuration,
+    },
+  };
 }
