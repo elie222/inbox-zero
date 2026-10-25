@@ -25,11 +25,17 @@ import {
 import {
   createDraftForMcp,
   createDraftInputShape,
+  labelThreadForMcp,
+  labelThreadInputShape,
   mcpAccountSelectorShape,
   readThreadForMcp,
   readThreadInputShape,
+  runRulesForMcp,
+  runRulesInputShape,
   searchInboxForMcp,
   searchInboxInputShape,
+  updateThreadForMcp,
+  updateThreadInputShape,
 } from "@/utils/mcp/email-tools";
 
 const logger = createScopedLogger("mcp-server");
@@ -82,7 +88,7 @@ export async function handleMcpServerRequest(
     { name: `${BRAND_NAME} MCP`, version: "1.0.0" },
     {
       instructions:
-        "Use list_email_accounts when targeting a specific inbox. Search and read tools return mail; create_draft saves a mailbox draft and never sends. Rule and stats tools accept emailAccountId or emailAddress and default to the first linked account.",
+        "Use list_email_accounts when targeting a specific inbox. Search and read tools return mail; create_draft saves a mailbox draft and never sends; update_thread archives or marks threads; label_thread adds or removes a label; run_rules runs the user's rules on one email. Rule and stats tools accept emailAccountId or emailAddress and default to the first linked account.",
     },
   );
 
@@ -202,6 +208,71 @@ export async function handleMcpServerRequest(
             : undefined,
         emailAddress:
           typeof args.emailAddress === "string" ? args.emailAddress : undefined,
+        logger: toolLogger,
+      }),
+    ),
+  );
+
+  server.registerTool(
+    "update_thread",
+    {
+      title: "Update thread",
+      description:
+        "Archive, unarchive, mark read or mark unread one inbox thread by thread ID. Archiving only moves the thread out of the inbox and can be undone with unarchive; nothing is deleted or sent.",
+      inputSchema: updateThreadInputShape,
+      annotations: { ...mailboxWriteAnnotations, title: "Update thread" },
+    },
+    runTool("update_thread", "mcp:write", async (args) =>
+      updateThreadForMcp({
+        userId,
+        threadId: String(args.threadId),
+        action: args.action as
+          | "archive"
+          | "unarchive"
+          | "mark_read"
+          | "mark_unread",
+        ...accountSelector(args),
+        logger: toolLogger,
+      }),
+    ),
+  );
+
+  server.registerTool(
+    "label_thread",
+    {
+      title: "Label thread",
+      description:
+        "Add or remove an existing label (an Outlook category or Gmail label) on every message in one thread. It never creates or deletes labels; an unknown name fails and lists the existing labels.",
+      inputSchema: labelThreadInputShape,
+      annotations: { ...mailboxWriteAnnotations, title: "Label thread" },
+    },
+    runTool("label_thread", "mcp:write", async (args) =>
+      labelThreadForMcp({
+        userId,
+        threadId: String(args.threadId),
+        labelName: String(args.labelName),
+        remove: args.remove === true,
+        ...accountSelector(args),
+        logger: toolLogger,
+      }),
+    ),
+  );
+
+  server.registerTool(
+    "run_rules",
+    {
+      title: "Run rules",
+      description:
+        "Run the user's enabled rules on one email by message ID and report which rule matches, why, and its actions. apply=false is a preview and changes nothing. apply=true runs the matched rule's actions (for example labelling, archiving or drafting), the same as when new mail arrives; an email that was already processed returns its earlier result instead of running again. Prefer apply=false unless the user asked to apply the rules.",
+      inputSchema: runRulesInputShape,
+      annotations: { ...ruleWriteAnnotations, title: "Run rules" },
+    },
+    runTool("run_rules", "mcp:write", async (args) =>
+      runRulesForMcp({
+        userId,
+        messageId: String(args.messageId),
+        apply: args.apply === true,
+        ...accountSelector(args),
         logger: toolLogger,
       }),
     ),

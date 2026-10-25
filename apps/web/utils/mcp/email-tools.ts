@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { runRulesOnMessage } from "@/utils/ai/choose-rule/run-rules-on-message";
 import { createEmailProvider } from "@/utils/email/provider";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { resolveMcpEmailAccount } from "@/utils/mcp/account-selection";
@@ -9,6 +10,7 @@ import type { ParsedMessage } from "@/utils/types";
 const SEARCH_INBOX_MAX_RESULTS = 20;
 const READ_THREAD_MAX_MESSAGES = 20;
 const READ_MESSAGE_MAX_LENGTH = 4000;
+const LABEL_NAMES_IN_ERROR = 50;
 
 export const mcpAccountSelectorShape = {
   emailAccountId: z.string().optional(),
@@ -56,6 +58,54 @@ export const createDraftInputShape = {
     .optional()
     .describe(
       "messageId from search_inbox or read_thread. Set it to save the draft as a reply in that message's thread; omit it for a new message.",
+    ),
+};
+
+export const updateThreadInputShape = {
+  ...mcpAccountSelectorShape,
+  threadId: z
+    .string()
+    .trim()
+    .min(1)
+    .describe("threadId from search_inbox or read_thread."),
+  action: z
+    .enum(["archive", "unarchive", "mark_read", "mark_unread"])
+    .describe(
+      "archive moves the thread out of the inbox (nothing is deleted); unarchive moves it back; mark_read and mark_unread set its read state.",
+    ),
+};
+
+export const labelThreadInputShape = {
+  ...mcpAccountSelectorShape,
+  threadId: z
+    .string()
+    .trim()
+    .min(1)
+    .describe("threadId from search_inbox or read_thread."),
+  labelName: z
+    .string()
+    .trim()
+    .min(1)
+    .describe(
+      "Name of an existing label (Outlook category or Gmail label), matched exactly.",
+    ),
+  remove: z
+    .boolean()
+    .optional()
+    .describe("true removes the label from the thread; omit to add it."),
+};
+
+export const runRulesInputShape = {
+  ...mcpAccountSelectorShape,
+  messageId: z
+    .string()
+    .trim()
+    .min(1)
+    .describe("messageId from search_inbox or read_thread."),
+  apply: z
+    .boolean()
+    .describe(
+      "false previews which rule would match and its actions without changing anything. true runs the matched rule's actions.",
     ),
 };
 
@@ -184,6 +234,146 @@ export async function createDraftForMcp({
     subject,
     replyToMessageId: replyToMessageId ?? null,
     sent: false,
+  };
+}
+
+export async function updateThreadForMcp({
+  userId,
+  threadId,
+  action,
+  emailAccountId,
+  emailAddress,
+  logger,
+}: {
+  userId: string;
+  threadId: string;
+  action: "archive" | "unarchive" | "mark_read" | "mark_unread";
+  emailAccountId?: string;
+  emailAddress?: string;
+  logger: Logger;
+}) {
+  const emailAccount = await resolveMcpEmailAccount({
+    userId,
+    emailAccountId,
+    emailAddress,
+  });
+  const emailProvider = await createEmailProvider({
+    emailAccountId: emailAccount.id,
+    provider: emailAccount.provider,
+    logger,
+  });
+
+  if (action === "archive")
+    await emailProvider.archiveThread(threadId, emailAccount.email);
+  else if (action === "unarchive")
+    await emailProvider.unarchiveThread(threadId);
+  else await emailProvider.markReadThread(threadId, action === "mark_read");
+
+  return { emailAccount, threadId, action, applied: true };
+}
+
+export async function labelThreadForMcp({
+  userId,
+  threadId,
+  labelName,
+  remove,
+  emailAccountId,
+  emailAddress,
+  logger,
+}: {
+  userId: string;
+  threadId: string;
+  labelName: string;
+  remove?: boolean;
+  emailAccountId?: string;
+  emailAddress?: string;
+  logger: Logger;
+}) {
+  const emailAccount = await resolveMcpEmailAccount({
+    userId,
+    emailAccountId,
+    emailAddress,
+  });
+  const emailProvider = await createEmailProvider({
+    emailAccountId: emailAccount.id,
+    provider: emailAccount.provider,
+    logger,
+  });
+
+  const label = await emailProvider.getLabelByName(labelName);
+  if (!label) {
+    const labels = await emailProvider.getLabels();
+    const names = labels.map((l) => l.name).slice(0, LABEL_NAMES_IN_ERROR);
+    throw new Error(
+      `Label "${labelName}" not found. Existing labels: ${names.join(", ") || "none"}.`,
+    );
+  }
+
+  if (remove) {
+    await emailProvider.removeThreadLabel(threadId, label.id);
+  } else {
+    const messages = await emailProvider.getThreadMessages(threadId);
+    for (const message of messages) {
+      await emailProvider.labelMessage({
+        messageId: message.id,
+        labelId: label.id,
+        labelName: label.name,
+      });
+    }
+  }
+
+  return {
+    emailAccount,
+    threadId,
+    labelName: label.name,
+    removed: Boolean(remove),
+    applied: true,
+  };
+}
+
+export async function runRulesForMcp({
+  userId,
+  messageId,
+  apply,
+  emailAccountId,
+  emailAddress,
+  logger,
+}: {
+  userId: string;
+  messageId: string;
+  apply: boolean;
+  emailAccountId?: string;
+  emailAddress?: string;
+  logger: Logger;
+}) {
+  const emailAccount = await resolveMcpEmailAccount({
+    userId,
+    emailAccountId,
+    emailAddress,
+  });
+  const results = await runRulesOnMessage({
+    emailAccountId: emailAccount.id,
+    provider: emailAccount.provider,
+    messageId,
+    isTest: !apply,
+    logger: logger.with({ messageId }),
+  });
+
+  return {
+    emailAccount,
+    messageId,
+    preview: !apply,
+    results: results.map((result) => ({
+      ruleName: result.rule?.name ?? null,
+      reason: result.reason ?? null,
+      status: result.status,
+      alreadyProcessed: result.existing ?? false,
+      actions: (result.actionItems ?? []).map((item) => ({
+        type: item.type,
+        label: item.label ?? null,
+        folderName: item.folderName ?? null,
+      })),
+    })),
   };
 }
 

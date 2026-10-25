@@ -212,6 +212,9 @@ describe("MCP tool permissions and rule writes", () => {
 
   it.each([
     "create_draft",
+    "update_thread",
+    "label_thread",
+    "run_rules",
     "create_rule",
     "update_rule",
     "delete_rule",

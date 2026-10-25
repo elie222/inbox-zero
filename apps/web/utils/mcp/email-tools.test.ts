@@ -3,14 +3,21 @@ import { createEmailProvider } from "@/utils/email/provider";
 import { resolveMcpEmailAccount } from "@/utils/mcp/account-selection";
 import { createTestLogger } from "@/__tests__/helpers";
 import type { ParsedMessage } from "@/utils/types";
+import { runRulesOnMessage } from "@/utils/ai/choose-rule/run-rules-on-message";
 import {
   createDraftForMcp,
+  labelThreadForMcp,
   readThreadForMcp,
+  runRulesForMcp,
   searchInboxForMcp,
+  updateThreadForMcp,
 } from "./email-tools";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/email/provider");
+vi.mock("@/utils/ai/choose-rule/run-rules-on-message", () => ({
+  runRulesOnMessage: vi.fn(),
+}));
 vi.mock("@/utils/mcp/account-selection", () => ({
   resolveMcpEmailAccount: vi.fn(),
 }));
@@ -153,6 +160,119 @@ describe("MCP email tools", () => {
       draftId: "draft-2",
       replyToMessageId: "message-1",
       sent: false,
+    });
+  });
+
+  it("archives a thread for the mailbox owner without deleting it", async () => {
+    const archiveThread = vi.fn();
+    const trashThread = vi.fn();
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      archiveThread,
+      trashThread,
+    } as never);
+
+    const result = await updateThreadForMcp({
+      userId: "user_1",
+      threadId: "thread-1",
+      action: "archive",
+      logger,
+    });
+
+    expect(archiveThread).toHaveBeenCalledWith("thread-1", "owner@example.com");
+    expect(trashThread).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ action: "archive", applied: true });
+  });
+
+  it("marks a thread unread", async () => {
+    const markReadThread = vi.fn();
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      markReadThread,
+    } as never);
+
+    await updateThreadForMcp({
+      userId: "user_1",
+      threadId: "thread-1",
+      action: "mark_unread",
+      logger,
+    });
+
+    expect(markReadThread).toHaveBeenCalledWith("thread-1", false);
+  });
+
+  it("labels every message in the thread with an existing label", async () => {
+    const labelMessage = vi.fn().mockResolvedValue({});
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      getLabelByName: vi.fn().mockResolvedValue({ id: "label-1", name: "FYI" }),
+      getThreadMessages: vi
+        .fn()
+        .mockResolvedValue([message(), message({ id: "message-2" })]),
+      labelMessage,
+    } as never);
+
+    await labelThreadForMcp({
+      userId: "user_1",
+      threadId: "thread-1",
+      labelName: "FYI",
+      logger,
+    });
+
+    expect(labelMessage).toHaveBeenCalledTimes(2);
+    expect(labelMessage).toHaveBeenCalledWith({
+      messageId: "message-2",
+      labelId: "label-1",
+      labelName: "FYI",
+    });
+  });
+
+  it("does not create a label that does not exist and lists the real ones", async () => {
+    const createLabel = vi.fn();
+    const labelMessage = vi.fn();
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      getLabelByName: vi.fn().mockResolvedValue(null),
+      getLabels: vi.fn().mockResolvedValue([{ id: "l1", name: "Newsletter" }]),
+      createLabel,
+      labelMessage,
+    } as never);
+
+    await expect(
+      labelThreadForMcp({
+        userId: "user_1",
+        threadId: "thread-1",
+        labelName: "Invented",
+        logger,
+      }),
+    ).rejects.toThrow("Newsletter");
+    expect(createLabel).not.toHaveBeenCalled();
+    expect(labelMessage).not.toHaveBeenCalled();
+  });
+
+  it("previews rules without applying them unless asked", async () => {
+    vi.mocked(runRulesOnMessage).mockResolvedValue([
+      {
+        rule: { name: "Newsletter" },
+        reason: "Bulk sender",
+        status: "SKIPPED",
+        actionItems: [{ type: "ARCHIVE", label: null, folderName: null }],
+      },
+    ] as never);
+
+    const result = await runRulesForMcp({
+      userId: "user_1",
+      messageId: "message-1",
+      apply: false,
+      logger,
+    });
+
+    expect(runRulesOnMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emailAccountId: "account_1",
+        messageId: "message-1",
+        isTest: true,
+      }),
+    );
+    expect(result).toMatchObject({
+      preview: true,
+      results: [{ ruleName: "Newsletter", actions: [{ type: "ARCHIVE" }] }],
     });
   });
 });
