@@ -2,11 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createEmailProvider } from "@/utils/email/provider";
 import { resolveMcpEmailAccount } from "@/utils/mcp/account-selection";
 import { createTestLogger } from "@/__tests__/helpers";
+import type { OutlookFolder } from "@/utils/outlook/folders";
 import type { ParsedMessage } from "@/utils/types";
 import { runRulesOnMessage } from "@/utils/ai/choose-rule/run-rules-on-message";
 import {
   createDraftForMcp,
+  deleteFolderForMcp,
   labelThreadForMcp,
+  listFoldersForMcp,
   readThreadForMcp,
   runRulesForMcp,
   searchInboxForMcp,
@@ -275,4 +278,99 @@ describe("MCP email tools", () => {
       results: [{ ruleName: "Newsletter", actions: [{ type: "ARCHIVE" }] }],
     });
   });
+
+  describe("folders", () => {
+    const outlookAccount = { ...emailAccount, provider: "microsoft" };
+    const folderTree = [
+      folder({ id: "inbox", displayName: "Inbox", systemType: "INBOX" }),
+      folder({
+        id: "projects",
+        displayName: "Projects",
+        childFolderCount: 1,
+        childFolders: [folder({ id: "old", displayName: "Old" })],
+      }),
+      folder({ id: "receipts", displayName: "Receipts", totalItemCount: 3 }),
+    ];
+
+    function mockOutlook() {
+      const deleteFolder = vi.fn().mockResolvedValue(undefined);
+      vi.mocked(resolveMcpEmailAccount).mockResolvedValue(outlookAccount);
+      vi.mocked(createEmailProvider).mockResolvedValue({
+        getFolders: vi.fn().mockResolvedValue(folderTree),
+        deleteFolder,
+      } as never);
+      return { deleteFolder };
+    }
+
+    it("lists nested folders and marks only empty custom folders deletable", async () => {
+      mockOutlook();
+
+      const result = await listFoldersForMcp({ userId: "user_1", logger });
+
+      expect(result.folders).toEqual([
+        expect.objectContaining({ folderId: "inbox", canDelete: false }),
+        expect.objectContaining({
+          folderId: "projects",
+          subfolders: 1,
+          canDelete: false,
+        }),
+        expect.objectContaining({
+          folderId: "old",
+          path: "Projects ⦙ Old",
+          canDelete: true,
+        }),
+        expect.objectContaining({
+          folderId: "receipts",
+          total: 3,
+          canDelete: false,
+        }),
+      ]);
+    });
+
+    it.each([
+      ["a system folder", "inbox", "system folder"],
+      ["a folder that still holds mail", "receipts", "3 emails"],
+      ["a folder with subfolders", "projects", "1 subfolder"],
+      ["an unknown folder", "missing", "list_folders"],
+    ])("refuses to delete %s", async (_case, folderId, message) => {
+      const { deleteFolder } = mockOutlook();
+
+      await expect(
+        deleteFolderForMcp({ userId: "user_1", folderId, logger }),
+      ).rejects.toThrow(message);
+      expect(deleteFolder).not.toHaveBeenCalled();
+    });
+
+    it("deletes an empty custom folder", async () => {
+      const { deleteFolder } = mockOutlook();
+
+      const result = await deleteFolderForMcp({
+        userId: "user_1",
+        folderId: "old",
+        logger,
+      });
+
+      expect(deleteFolder).toHaveBeenCalledWith("old");
+      expect(result).toMatchObject({ path: "Projects ⦙ Old", deleted: true });
+    });
+
+    it("refuses Gmail accounts before touching the mailbox", async () => {
+      await expect(
+        deleteFolderForMcp({ userId: "user_1", folderId: "old", logger }),
+      ).rejects.toThrow("Outlook");
+      expect(createEmailProvider).not.toHaveBeenCalled();
+    });
+  });
 });
+
+function folder(overrides: Partial<OutlookFolder> = {}): OutlookFolder {
+  return {
+    id: "folder",
+    displayName: "Folder",
+    childFolders: [],
+    childFolderCount: 0,
+    totalItemCount: 0,
+    unreadItemCount: 0,
+    ...overrides,
+  };
+}

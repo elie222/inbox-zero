@@ -1,8 +1,13 @@
 import { z } from "zod";
 import { runRulesOnMessage } from "@/utils/ai/choose-rule/run-rules-on-message";
 import { createEmailProvider } from "@/utils/email/provider";
+import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { resolveMcpEmailAccount } from "@/utils/mcp/account-selection";
+import {
+  flattenOutlookFolders,
+  type OutlookFolder,
+} from "@/utils/outlook/folders";
 import { textToHtmlParagraphs } from "@/utils/string";
 import type { Logger } from "@/utils/logger";
 import type { ParsedMessage } from "@/utils/types";
@@ -107,6 +112,13 @@ export const runRulesInputShape = {
     .describe(
       "false previews which rule would match and its actions without changing anything. true runs the matched rule's actions.",
     ),
+};
+
+export const listFoldersInputShape = mcpAccountSelectorShape;
+
+export const deleteFolderInputShape = {
+  ...mcpAccountSelectorShape,
+  folderId: z.string().trim().min(1).describe("folderId from list_folders."),
 };
 
 export async function searchInboxForMcp({
@@ -331,6 +343,81 @@ export async function labelThreadForMcp({
   };
 }
 
+export async function listFoldersForMcp({
+  userId,
+  emailAccountId,
+  emailAddress,
+  logger,
+}: {
+  userId: string;
+  emailAccountId?: string;
+  emailAddress?: string;
+  logger: Logger;
+}) {
+  const { emailAccount, folders } = await getOutlookFoldersForMcp({
+    userId,
+    emailAccountId,
+    emailAddress,
+    logger,
+  });
+
+  return {
+    emailAccount,
+    folders: folders.map((folder) => ({
+      folderId: folder.id,
+      path: folder.path,
+      total: folder.totalItemCount ?? 0,
+      unread: folder.unreadItemCount ?? 0,
+      subfolders: subfolderCount(folder),
+      ...(folder.systemType ? { systemType: folder.systemType } : {}),
+      canDelete: getFolderDeleteBlocker(folder) === null,
+    })),
+  };
+}
+
+export async function deleteFolderForMcp({
+  userId,
+  folderId,
+  emailAccountId,
+  emailAddress,
+  logger,
+}: {
+  userId: string;
+  folderId: string;
+  emailAccountId?: string;
+  emailAddress?: string;
+  logger: Logger;
+}) {
+  const { emailAccount, emailProvider, folders } =
+    await getOutlookFoldersForMcp({
+      userId,
+      emailAccountId,
+      emailAddress,
+      logger,
+    });
+
+  const folder = folders.find((f) => f.id === folderId);
+  if (!folder)
+    throw new Error(
+      `Folder ${folderId} not found. Call list_folders for current folder IDs.`,
+    );
+
+  // Enforced here rather than in the tool description, so a client that skips
+  // list_folders still cannot delete mail along with a folder.
+  const blocker = getFolderDeleteBlocker(folder);
+  if (blocker) throw new Error(`Not deleted: "${folder.path}" ${blocker}.`);
+
+  await emailProvider.deleteFolder(folder.id);
+  logger.info("Deleted empty folder via MCP", { folderId: folder.id });
+
+  return {
+    emailAccount,
+    folderId: folder.id,
+    path: folder.path,
+    deleted: true,
+  };
+}
+
 export async function runRulesForMcp({
   userId,
   messageId,
@@ -407,4 +494,50 @@ function toThreadMessage(message: ParsedMessage) {
 function bodyToHtml(body: string) {
   if (/<[a-z][\s\S]*>/i.test(body)) return body;
   return textToHtmlParagraphs(body);
+}
+
+async function getOutlookFoldersForMcp({
+  userId,
+  emailAccountId,
+  emailAddress,
+  logger,
+}: {
+  userId: string;
+  emailAccountId?: string;
+  emailAddress?: string;
+  logger: Logger;
+}) {
+  const emailAccount = await resolveMcpEmailAccount({
+    userId,
+    emailAccountId,
+    emailAddress,
+  });
+  if (!isMicrosoftProvider(emailAccount.provider))
+    throw new Error(
+      "Folders are only available for Outlook accounts. Gmail uses labels.",
+    );
+
+  const emailProvider = await createEmailProvider({
+    emailAccountId: emailAccount.id,
+    provider: emailAccount.provider,
+    logger,
+  });
+  const folders = flattenOutlookFolders(await emailProvider.getFolders());
+
+  return { emailAccount, emailProvider, folders };
+}
+
+function getFolderDeleteBlocker(folder: OutlookFolder) {
+  if (folder.systemType) return "is a system folder";
+  const total = folder.totalItemCount ?? 0;
+  if (total > 0)
+    return `still holds ${total} email${total === 1 ? "" : "s"}; archive or move them first`;
+  const subfolders = subfolderCount(folder);
+  if (subfolders > 0)
+    return `has ${subfolders} subfolder${subfolders === 1 ? "" : "s"}; delete those first`;
+  return null;
+}
+
+function subfolderCount(folder: OutlookFolder) {
+  return Math.max(folder.childFolderCount ?? 0, folder.childFolders.length);
 }

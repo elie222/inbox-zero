@@ -25,8 +25,12 @@ import {
 import {
   createDraftForMcp,
   createDraftInputShape,
+  deleteFolderForMcp,
+  deleteFolderInputShape,
   labelThreadForMcp,
   labelThreadInputShape,
+  listFoldersForMcp,
+  listFoldersInputShape,
   mcpAccountSelectorShape,
   readThreadForMcp,
   readThreadInputShape,
@@ -88,7 +92,7 @@ export async function handleMcpServerRequest(
     { name: `${BRAND_NAME} MCP`, version: "1.0.0" },
     {
       instructions:
-        "Use list_email_accounts when targeting a specific inbox. Search and read tools return mail; create_draft saves a mailbox draft and never sends; update_thread archives or marks threads; label_thread adds or removes a label; run_rules runs the user's rules on one email. Rule and stats tools accept emailAccountId or emailAddress and default to the first linked account.",
+        "Use list_email_accounts when targeting a specific inbox. Search and read tools return mail; create_draft saves a mailbox draft and never sends; update_thread archives or marks threads; label_thread adds or removes a label; list_folders and delete_folder manage Outlook folders; run_rules runs the user's rules on one email. Rule and stats tools accept emailAccountId or emailAddress and default to the first linked account.",
     },
   );
 
@@ -252,6 +256,47 @@ export async function handleMcpServerRequest(
         threadId: String(args.threadId),
         labelName: String(args.labelName),
         remove: args.remove === true,
+        ...accountSelector(args),
+        logger: toolLogger,
+      }),
+    ),
+  );
+
+  server.registerTool(
+    "list_folders",
+    {
+      title: "List folders",
+      description:
+        "List the Outlook account's mail folders with their path, email count, unread count and subfolder count. canDelete marks the folders delete_folder will accept. Outlook only; Gmail has labels instead of folders.",
+      inputSchema: listFoldersInputShape,
+      annotations: { ...mailboxReadAnnotations, title: "List folders" },
+    },
+    runTool("list_folders", "mcp:read", async (args) =>
+      listFoldersForMcp({
+        userId,
+        ...accountSelector(args),
+        logger: toolLogger,
+      }),
+    ),
+  );
+
+  server.registerTool(
+    "delete_folder",
+    {
+      title: "Delete folder",
+      description:
+        "Delete one empty Outlook folder by folderId from list_folders. Refuses system folders (Inbox, Sent, Drafts, Archive, Deleted Items, Junk) and any folder that still holds email or subfolders; archive or move its mail first.",
+      inputSchema: deleteFolderInputShape,
+      annotations: {
+        ...mailboxWriteAnnotations,
+        destructiveHint: true,
+        title: "Delete folder",
+      },
+    },
+    runTool("delete_folder", "mcp:write", async (args) =>
+      deleteFolderForMcp({
+        userId,
+        folderId: String(args.folderId),
         ...accountSelector(args),
         logger: toolLogger,
       }),
