@@ -14,9 +14,12 @@ const READER_MIN_WIDTH = "360px";
 
 export function MailListPanel({
   layout,
+  inert = false,
   children,
 }: {
   layout: MailLayoutMode;
+  /** Painted but not interactive, as while an opening email replaces it. */
+  inert?: boolean;
   children: React.ReactNode;
 }) {
   // Dragging writes straight to the CSS variable: re-rendering MailShell on
@@ -39,7 +42,7 @@ export function MailListPanel({
       // min-w-0 matters: a flex item won't shrink below its content width
       // without it, so long snippets would widen the column past the viewport
       // instead of truncating.
-      <section className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <section className="flex min-h-0 min-w-0 flex-1 flex-col" inert={inert}>
         {children}
       </section>
     );

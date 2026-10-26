@@ -97,6 +97,7 @@ import { useFolders } from "@/hooks/useFolders";
 import { useMailSettings } from "@/hooks/useMailSettings";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useThread } from "@/hooks/useThread";
+import { cn } from "@/utils";
 import { useShortcuts } from "@/lib/shortcuts/useShortcuts";
 import type { ShortcutHandlers } from "@/lib/shortcuts/registry";
 import { updateMailPreferencesAction } from "@/utils/actions/mail-split";
@@ -511,7 +512,12 @@ export function MailShell() {
     ? threads.find((thread) => getListThreadKey(thread) === openThreadKey)
     : undefined;
   const readAttemptedForOpenThread = useRef<string | null>(null);
-  useWarmNeighbourThreads({ threads, openThreadKey, emailAccountId });
+  const warmThread = useWarmNeighbourThreads({
+    threads,
+    activeThreadKey:
+      openThreadKey ?? (focusedThread ? getListThreadKey(focusedThread) : null),
+    emailAccountId,
+  });
 
   // Defer the pair as one value: rendering a new id with the previous account
   // would be worse than fetching eagerly when J/K moves between account rows.
@@ -1141,6 +1147,17 @@ export function MailShell() {
     setSearchParam,
   ]);
 
+  // The field can be rendered but inert while the list is held during an open,
+  // so the request stays pending until focus actually lands.
+  const focusPendingSearch = useCallback(() => {
+    const input = searchInputRef.current;
+    if (!input) return;
+    input.focus();
+    if (document.activeElement !== input) return;
+    pendingSearchFocusRef.current = false;
+    input.select();
+  }, []);
+
   const closeReader = useCallback(() => {
     setOpenThread(null);
   }, [setOpenThread]);
@@ -1262,12 +1279,7 @@ export function MailShell() {
             if (selection.hasSelection) selection.clear();
             if (layout === "list" && openThreadId) closeReader();
             pendingSearchFocusRef.current = true;
-            const input = searchInputRef.current;
-            if (input) {
-              pendingSearchFocusRef.current = false;
-              input.focus();
-              input.select();
-            }
+            focusPendingSearch();
           },
     };
   })();
@@ -1275,12 +1287,7 @@ export function MailShell() {
   useLayoutEffect(() => {
     // The search field remounts when selection clears or the list returns, so
     // consume a pending `/` focus after whichever commit actually rendered it.
-    if (!pendingSearchFocusRef.current) return;
-    const input = searchInputRef.current;
-    if (!input) return;
-    pendingSearchFocusRef.current = false;
-    input.focus();
-    input.select();
+    if (pendingSearchFocusRef.current) focusPendingSearch();
   });
 
   useShortcuts(handlers, { isDesktopApp });
@@ -1422,7 +1429,18 @@ export function MailShell() {
     [threadCount, selectedCount, selectAll, clearSelection],
   );
 
-  const showList = layout === "split" || !openThreadSelection;
+  // Opening from the list keeps the list on screen while the reader prepares
+  // the email out of sight, so the finished email replaces it in one frame.
+  // Once a thread is showing, the reader buffers moves between threads itself.
+  const readerPreparing =
+    layout === "list" &&
+    Boolean(openReaderThreadKey && readerEmailAccount) &&
+    visibleReaderThreadKey === undefined;
+  if (layout === "list" && !openReaderThreadKey && visibleReaderThreadKey) {
+    setVisibleReaderThreadKey(undefined);
+  }
+  const showList =
+    layout === "split" || !openThreadSelection || readerPreparing;
   const showReader = layout === "split" || Boolean(openThreadSelection);
   const readerUserLabels = isAllAccounts
     ? (labelsByAccount[openThreadSelection?.emailAccountId ?? ""] ?? NO_LABELS)
@@ -1491,9 +1509,9 @@ export function MailShell() {
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <MailEngineConnectionBanner />
-        <div className="flex min-h-0 min-w-0 flex-1">
+        <div className="relative flex min-h-0 min-w-0 flex-1">
           {showList && (
-            <MailListPanel layout={layout}>
+            <MailListPanel layout={layout} inert={readerPreparing}>
               <ListToolbar
                 onOpenMailNav={() => setIsMailNavOpen(true)}
                 layout={layout}
@@ -1580,6 +1598,7 @@ export function MailShell() {
                       isSelected={selection.isSelected}
                       selectedCount={selection.selectedCount}
                       onOpenThread={openAt}
+                      onHoverThread={warmThread}
                       onToggleSelect={selection.toggle}
                       onSelectRangeTo={selection.selectRangeTo}
                       showLoadMore={hasMore}
@@ -1602,7 +1621,12 @@ export function MailShell() {
           )}
 
           {showReader ? (
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <div
+              className={cn(
+                "flex min-h-0 min-w-0 flex-1 flex-col",
+                readerPreparing && "invisible absolute inset-0",
+              )}
+            >
               <MailReaderPane
                 readerEmailAccount={readerEmailAccount}
                 readerKey={openReaderThreadKey}

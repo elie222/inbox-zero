@@ -115,6 +115,31 @@ describe("BufferedThreadReader", () => {
     expect(onReady).toHaveBeenLastCalledWith("two");
   });
 
+  it("keeps the empty reader until the first thread's body is prepared", () => {
+    const onReady = vi.fn();
+    const { rerender } = render(
+      <BufferedThreadReader threadKey="empty" dataReady onReady={onReady}>
+        {emptyReader()}
+      </BufferedThreadReader>,
+    );
+
+    rerender(
+      <BufferedThreadReader threadKey="one" dataReady onReady={onReady}>
+        {reader("one", "First thread", false)}
+      </BufferedThreadReader>,
+    );
+    expect(screen.getByText("Nothing selected")).toBeTruthy();
+    expect(screen.queryByRole("status")).toBeNull();
+
+    rerender(
+      <BufferedThreadReader threadKey="one" dataReady onReady={onReady}>
+        {reader("one", "First thread", true)}
+      </BufferedThreadReader>,
+    );
+    expect(screen.queryByText("Nothing selected")).toBeNull();
+    expect(onReady).toHaveBeenLastCalledWith("one");
+  });
+
   it("keeps the selection bar on the previous thread while the next one loads", () => {
     const onReady = vi.fn();
     const { rerender } = render(
@@ -148,13 +173,19 @@ function reader(threadId: string, text: string, bodyReady?: boolean) {
   ) as unknown as ReactElement<ThreadReaderProps>;
 }
 
+function emptyReader() {
+  return (
+    <Reader threadId={null} text="Nothing selected" enableMessageNavigation />
+  ) as unknown as ReactElement<ThreadReaderProps>;
+}
+
 function Reader({
   threadId,
   text,
   bodyReady,
   enableMessageNavigation,
 }: {
-  threadId: string;
+  threadId: string | null;
   text: string;
   bodyReady?: boolean;
   enableMessageNavigation: boolean;
@@ -162,7 +193,7 @@ function Reader({
   return (
     <div>
       {enableMessageNavigation && (
-        <div data-testid="selection-bar" data-thread-id={threadId} />
+        <div data-testid="selection-bar" data-thread-id={threadId ?? ""} />
       )}
       {text}
       {bodyReady !== undefined && <div data-email-ready={bodyReady} />}
