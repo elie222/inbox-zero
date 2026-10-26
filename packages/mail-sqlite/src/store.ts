@@ -1446,6 +1446,42 @@ export async function createSqliteMailStore(
         return inserted > 0;
       });
     },
+    async retireSyncScope(input) {
+      await driver.write(async (tx) => {
+        if (!(await accountGenerationMatches(tx, input.session))) return;
+        const params = [input.session.accountId, input.scopeId];
+        for (const table of [
+          "bootstrap_seen_messages",
+          "bootstrap_existing_messages",
+          "bootstrap_scans",
+          "coverage",
+        ]) {
+          await tx.execute(
+            `DELETE FROM ${table} WHERE account_id = ? AND scope_id = ?`,
+            params,
+          );
+        }
+        await tx.execute(
+          "DELETE FROM sync_streams WHERE account_id = ? AND stream_id = ?",
+          params,
+        );
+        await snapshotBootstrapExistingMessages(
+          tx,
+          input.session.accountId,
+          input.scopeId,
+        );
+        await clearStaleBootstrapScopeMembership(
+          tx,
+          input.session.accountId,
+          input.scopeId,
+        );
+        await tx.execute(
+          "DELETE FROM bootstrap_existing_messages WHERE account_id = ? AND scope_id = ?",
+          params,
+        );
+        await bumpRevision(tx);
+      });
+    },
     async readAccountSyncStates() {
       return driver.read(async (tx) => {
         const accounts = await tx.query(

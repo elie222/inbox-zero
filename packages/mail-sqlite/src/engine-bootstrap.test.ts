@@ -574,7 +574,201 @@ describe("engine bootstrap coverage", () => {
     ).toBeNull();
     await afterRestart.close();
   });
+
+  it("retires a folder stream that folder discovery no longer lists", async () => {
+    let now = 1000;
+    const source = folderSource(["kept", "gone"]);
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "microsoft",
+      generation: "g1",
+    });
+    const engine = createMailEngine({
+      store,
+      source,
+      executor: uncertainExecutor(),
+      runtime: createHostRuntime({ nowMs: () => now }),
+    });
+    await engine.requestSync(["acc-1"]);
+    await engine.runUntil(now + 5000);
+    await vi.waitFor(async () =>
+      expect(await streamIds(store)).toEqual(["gone", "kept"]),
+    );
+
+    source.folders = ["kept"];
+    source.resetFolders.add("kept");
+    source.resetFolders.add("gone");
+    source.begun.length = 0;
+    now += 11 * 60_000;
+    await engine.requestSync(["acc-1"]);
+    await engine.runUntil(now + 5000);
+    await vi.waitFor(async () =>
+      expect(await streamIds(store)).toEqual(["kept"]),
+    );
+
+    expect(source.begun).toEqual(["kept"]);
+    const inspection = await store.inspect();
+    expect(
+      inspection.messages.find((row) => row.messageId === "m-gone")?.confirmed
+        .folderId,
+    ).toBeNull();
+    expect(
+      inspection.messages.find((row) => row.messageId === "m-kept")?.confirmed
+        .folderId,
+    ).toBe("kept");
+    expect(
+      (await engine.getDiagnostics("acc-1")).coverage.map(
+        (coverage) => coverage.scopeId,
+      ),
+    ).not.toContain("gone");
+
+    const readsBefore = source.reads.filter((id) => id === "gone").length;
+    now += 11 * 60_000;
+    await engine.requestSync(["acc-1"]);
+    await engine.runUntil(now + 5000);
+    expect(source.reads.filter((id) => id === "gone").length).toBe(readsBefore);
+    await engine.close();
+  });
+
+  it("keeps a folder stream when folder discovery fails", async () => {
+    let now = 1000;
+    const source = folderSource(["gone"]);
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "microsoft",
+      generation: "g1",
+    });
+    const engine = createMailEngine({
+      store,
+      source,
+      executor: uncertainExecutor(),
+      runtime: createHostRuntime({ nowMs: () => now }),
+    });
+    await engine.requestSync(["acc-1"]);
+    await engine.runUntil(now + 5000);
+    await vi.waitFor(async () =>
+      expect(await streamIds(store)).toEqual(["gone"]),
+    );
+
+    source.discoveryFails = true;
+    source.resetFolders.add("gone");
+    source.begun.length = 0;
+    now += 11 * 60_000;
+    await engine.requestSync(["acc-1"]);
+    await engine.runUntil(now + 5000);
+    await vi.waitFor(() => expect(source.begun).toEqual(["gone"]));
+
+    expect(await streamIds(store)).toEqual(["gone"]);
+    await engine.close();
+  });
 });
+
+async function streamIds(
+  store: Awaited<ReturnType<typeof createSqliteMailStore>>,
+) {
+  const inspection = await store.inspect();
+  return inspection.streams.map((stream) => stream.streamId).sort();
+}
+
+function folderSource(initialFolders: string[]) {
+  const state = {
+    folders: initialFolders,
+    resetFolders: new Set<string>(),
+    discoveryFails: false,
+    begun: [] as string[],
+    reads: [] as string[],
+  };
+  const source: MailboxSource = {
+    async describe() {
+      return {
+        status: "ok",
+        value: {
+          strategy: "folder_delta",
+          supportedChanges: ["archive"],
+          maxPageSize: 50,
+          maxHydrationBatch: 20,
+        },
+      };
+    },
+    async discoverScopes() {
+      if (state.discoveryFails) {
+        return { status: "paused", retryAfterMs: 1000, reason: "unavailable" };
+      }
+      return {
+        status: "ok",
+        value: {
+          scopes: state.folders.map((id) => ({
+            id,
+            kind: "folder" as const,
+            folderId: id,
+          })),
+          nextPage: null,
+        },
+      };
+    },
+    async beginBootstrap({ scope }) {
+      state.begun.push(scope.id);
+      return {
+        status: "ok",
+        value: {
+          bootstrapId: "boot",
+          enumerationToken: scope.id,
+          catchUpFrom: null,
+        },
+      };
+    },
+    async enumerate({ page }) {
+      const patch = messagePatch(`m-${page}`, `c-${page}`, []);
+      return {
+        status: "ok",
+        value: {
+          bootstrapId: "boot",
+          scopeId: page,
+          changes: [
+            {
+              ...patch,
+              fields: { ...patch.fields, folderId: page, labelIds: [] },
+            },
+          ],
+          requiredHydration: [],
+          bodies: [],
+          nextPage: null,
+          catchUpFrom: {
+            streamId: page,
+            generation: "g1",
+            checkpoint: `delta:${page}`,
+          },
+        },
+      };
+    },
+    async readChanges({ position }) {
+      state.reads.push(position.streamId);
+      if (state.resetFolders.has(position.streamId)) {
+        state.resetFolders.delete(position.streamId);
+        return { status: "reset_required", scopeId: position.streamId };
+      }
+      return { status: "paused", retryAfterMs: 0, reason: "unavailable" };
+    },
+    async hydrate() {
+      return {
+        status: "ok",
+        value: { changes: [], bodies: [], unresolved: [] },
+      };
+    },
+    async readConversationMembership() {
+      return { status: "ok", value: { status: "unsupported" } };
+    },
+    async search() {
+      return { status: "unsupported" };
+    },
+    async readAttachment() {
+      return { status: "paused", retryAfterMs: 0, reason: "unavailable" };
+    },
+  };
+  return Object.assign(state, source);
+}
 
 function uncertainExecutor() {
   return {
