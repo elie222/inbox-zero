@@ -720,6 +720,7 @@ describe("queryBatchMessages", () => {
   it.each([
     ["search pages", "$search=%22report%22&$top=20&$skip=40"],
     ["oversized pages", "$top=1000&$skip=40"],
+    ["skiptoken pages", "$skiptoken=abc&$top=20&$skip=40"],
   ])("does not read %s one message at a time", async (_name, query) => {
     const notFound = Object.assign(new Error("Item not found"), {
       statusCode: 404,

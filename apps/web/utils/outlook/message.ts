@@ -1362,6 +1362,7 @@ async function getContinuationPage(
     if (
       !isNotFoundError(error) ||
       url.searchParams.has("$search") ||
+      url.searchParams.has("$skiptoken") ||
       !(skip >= 0) ||
       !(top > 0 && top <= MAX_CONTINUATION_PAGE_SIZE)
     )
