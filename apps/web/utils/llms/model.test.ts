@@ -399,12 +399,12 @@ describe("Models", () => {
       const userAi = defaultUserAi({
         aiApiKey: "user-api-key",
         aiProvider: Provider.GROQ,
-        aiModel: "llama-3.3-70b-versatile",
+        aiModel: "openai/gpt-oss-120b",
       });
 
       const result = getModel(userAi);
       expect(result.provider).toBe(Provider.GROQ);
-      expect(result.modelName).toBe("llama-3.3-70b-versatile");
+      expect(result.modelName).toBe("openai/gpt-oss-120b");
       expect(result.model).toBeDefined();
     });
 
