@@ -138,14 +138,15 @@ export async function handleMcpServerRequest(
     {
       title: "Search inbox",
       description:
-        "Search one inbox and return message metadata and snippets. Does not return full message bodies, send email, or change mail.",
+        "Search one inbox, or one Outlook folder by folderId, and return message metadata and snippets. Does not return full message bodies, send email, or change mail.",
       inputSchema: searchInboxInputShape,
       annotations: { ...mailboxReadAnnotations, title: "Search inbox" },
     },
     runTool("search_inbox", "mcp:read", async (args) =>
       searchInboxForMcp({
         userId,
-        query: String(args.query),
+        query: typeof args.query === "string" ? args.query : undefined,
+        folderId: typeof args.folderId === "string" ? args.folderId : undefined,
         maxResults:
           typeof args.maxResults === "number" ? args.maxResults : undefined,
         pageToken:
@@ -267,7 +268,7 @@ export async function handleMcpServerRequest(
     {
       title: "List folders",
       description:
-        "List the Outlook account's mail folders with their path, email count, unread count and subfolder count. canDelete marks the folders delete_folder will accept. Outlook only; Gmail has labels instead of folders.",
+        "List the Outlook account's mail folders with their path, email count, unread count and subfolder count. canDelete marks the folders delete_folder will accept; when false, deleteBlockedReason says why. Outlook only; Gmail has labels instead of folders.",
       inputSchema: listFoldersInputShape,
       annotations: { ...mailboxReadAnnotations, title: "List folders" },
     },

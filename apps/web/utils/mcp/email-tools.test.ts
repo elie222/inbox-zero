@@ -89,6 +89,55 @@ describe("MCP email tools", () => {
     expect(JSON.stringify(result)).not.toContain("SECRET BODY");
   });
 
+  it("lists one folder's mail when given a folderId and no query", async () => {
+    const searchMessages = vi.fn().mockResolvedValue({ messages: [message()] });
+    vi.mocked(resolveMcpEmailAccount).mockResolvedValue({
+      ...emailAccount,
+      provider: "microsoft",
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      searchMessages,
+    } as never);
+
+    const result = await searchInboxForMcp({
+      userId: "user_1",
+      folderId: "marketing",
+      logger,
+    });
+
+    expect(searchMessages).toHaveBeenCalledWith(
+      expect.objectContaining({ query: "", folderId: "marketing" }),
+    );
+    expect(result).toMatchObject({
+      folderId: "marketing",
+      messages: [{ messageId: "message-1" }],
+    });
+  });
+
+  it("refuses a search with neither a query nor a folderId", async () => {
+    const searchMessages = vi.fn();
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      searchMessages,
+    } as never);
+
+    await expect(
+      searchInboxForMcp({ userId: "user_1", logger }),
+    ).rejects.toThrow("query or folderId");
+    expect(searchMessages).not.toHaveBeenCalled();
+  });
+
+  it("refuses a folderId on a Gmail account", async () => {
+    const searchMessages = vi.fn();
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      searchMessages,
+    } as never);
+
+    await expect(
+      searchInboxForMcp({ userId: "user_1", folderId: "Label_1", logger }),
+    ).rejects.toThrow("only available for Outlook");
+    expect(searchMessages).not.toHaveBeenCalled();
+  });
+
   it("reads the latest messages in a thread", async () => {
     const getThreadMessages = vi.fn().mockResolvedValue([
       message({ id: "old", textPlain: "older" }),
@@ -308,11 +357,16 @@ describe("MCP email tools", () => {
       const result = await listFoldersForMcp({ userId: "user_1", logger });
 
       expect(result.folders).toEqual([
-        expect.objectContaining({ folderId: "inbox", canDelete: false }),
+        expect.objectContaining({
+          folderId: "inbox",
+          canDelete: false,
+          deleteBlockedReason: "is a system folder",
+        }),
         expect.objectContaining({
           folderId: "projects",
           subfolders: 1,
           canDelete: false,
+          deleteBlockedReason: "has 1 subfolder; delete those first",
         }),
         expect.objectContaining({
           folderId: "old",
@@ -323,8 +377,11 @@ describe("MCP email tools", () => {
           folderId: "receipts",
           total: 3,
           canDelete: false,
+          deleteBlockedReason:
+            "still holds 3 emails; archive or move them first",
         }),
       ]);
+      expect(result.folders[2]).not.toHaveProperty("deleteBlockedReason");
     });
 
     it.each([

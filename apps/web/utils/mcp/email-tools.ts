@@ -28,8 +28,17 @@ export const searchInboxInputShape = {
     .string()
     .trim()
     .min(1)
+    .optional()
     .describe(
-      "Search query using the mailbox provider's search syntax (Gmail or Outlook).",
+      "Search query using the mailbox provider's search syntax (Gmail or Outlook). Required unless folderId is given.",
+    ),
+  folderId: z
+    .string()
+    .trim()
+    .min(1)
+    .optional()
+    .describe(
+      "folderId from list_folders. Limits results to that Outlook folder; without a query it lists the folder's mail, newest first.",
     ),
   maxResults: z.number().int().min(1).max(SEARCH_INBOX_MAX_RESULTS).optional(),
   pageToken: z.string().optional(),
@@ -124,6 +133,7 @@ export const deleteFolderInputShape = {
 export async function searchInboxForMcp({
   userId,
   query,
+  folderId,
   maxResults,
   pageToken,
   emailAccountId,
@@ -131,25 +141,35 @@ export async function searchInboxForMcp({
   logger,
 }: {
   userId: string;
-  query: string;
+  query?: string;
+  folderId?: string;
   maxResults?: number;
   pageToken?: string;
   emailAccountId?: string;
   emailAddress?: string;
   logger: Logger;
 }) {
+  if (!query && !folderId)
+    throw new Error("Give a query or folderId to search.");
+
   const emailAccount = await resolveMcpEmailAccount({
     userId,
     emailAccountId,
     emailAddress,
   });
+  if (folderId && !isMicrosoftProvider(emailAccount.provider))
+    throw new Error(
+      "folderId is only available for Outlook accounts. Gmail uses labels; search with a label: query instead.",
+    );
+
   const emailProvider = await createEmailProvider({
     emailAccountId: emailAccount.id,
     provider: emailAccount.provider,
     logger,
   });
   const searchResult = await emailProvider.searchMessages({
-    query,
+    query: query ?? "",
+    folderId,
     maxResults: maxResults ?? 10,
     pageToken,
   });
@@ -157,6 +177,7 @@ export async function searchInboxForMcp({
   return {
     emailAccount,
     query,
+    folderId,
     nextPageToken: searchResult.nextPageToken,
     hasMore: Boolean(searchResult.nextPageToken),
     messages: searchResult.messages.map(toSearchResultMessage),
@@ -363,15 +384,19 @@ export async function listFoldersForMcp({
 
   return {
     emailAccount,
-    folders: folders.map((folder) => ({
-      folderId: folder.id,
-      path: folder.path,
-      total: folder.totalItemCount ?? 0,
-      unread: folder.unreadItemCount ?? 0,
-      subfolders: subfolderCount(folder),
-      ...(folder.systemType ? { systemType: folder.systemType } : {}),
-      canDelete: getFolderDeleteBlocker(folder) === null,
-    })),
+    folders: folders.map((folder) => {
+      const blocker = getFolderDeleteBlocker(folder);
+      return {
+        folderId: folder.id,
+        path: folder.path,
+        total: folder.totalItemCount ?? 0,
+        unread: folder.unreadItemCount ?? 0,
+        subfolders: subfolderCount(folder),
+        ...(folder.systemType ? { systemType: folder.systemType } : {}),
+        canDelete: blocker === null,
+        ...(blocker ? { deleteBlockedReason: blocker } : {}),
+      };
+    }),
   };
 }
 
