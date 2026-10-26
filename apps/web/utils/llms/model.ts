@@ -279,6 +279,7 @@ function selectModel(
         provider: Provider.OLLAMA,
         modelName,
         model: createOllama({ baseURL })(modelName),
+        providerOptions: getLocalThinkingProviderOptions("ollama"),
       };
     }
     case Provider.OPENAI_COMPATIBLE: {
@@ -296,6 +297,7 @@ function selectModel(
         provider: Provider.OPENAI_COMPATIBLE,
         modelName,
         model: openaiCompatible(modelName),
+        providerOptions: getLocalThinkingProviderOptions("openai-compatible"),
       };
     }
     case Provider.CODEX_CLI: {
@@ -600,6 +602,25 @@ function getOpenAiCompatibleBaseUrl() {
     process.env.OPENAI_COMPATIBLE_BASE_URL ||
     "http://localhost:1234/v1"
   );
+}
+
+function getLocalThinkingProviderOptions(
+  provider: "ollama" | "openai-compatible",
+) {
+  const thinking = env.LOCAL_LLM_THINKING;
+  if (thinking === "auto") return;
+
+  const enabled = thinking === "on";
+  if (provider === "ollama") return { ollama: { think: enabled } };
+  // Ollama's /v1 endpoint ignores chat_template_kwargs and think; it only
+  // honours reasoning_effort. MLX and llama.cpp read chat_template_kwargs and
+  // ignore reasoning_effort, so we send both when thinking is off.
+  return {
+    "openai-compatible": {
+      chat_template_kwargs: { enable_thinking: enabled },
+      ...(enabled ? {} : { reasoningEffort: "none" }),
+    },
+  };
 }
 
 function getOllamaBaseUrl(): string | undefined {
