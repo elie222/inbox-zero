@@ -97,7 +97,36 @@ export function configureDesktopApplicationMenu({
             ]),
       ],
     },
-    { role: "editMenu" },
+    {
+      label: "Edit",
+      submenu: [
+        { role: "undo" },
+        { role: "redo" },
+        { type: "separator" },
+        { role: "cut" },
+        { role: "copy" },
+        { role: "paste" },
+        // Electron's macOS default is ⌘⌥⇧V; browsers use ⌘⇧V.
+        {
+          role: "pasteAndMatchStyle",
+          accelerator: "CommandOrControl+Shift+V",
+        },
+        { role: "delete" },
+        { role: "selectAll" },
+        ...(platform === "darwin"
+          ? [
+              { type: "separator" as const },
+              {
+                label: "Speech",
+                submenu: [
+                  { role: "startSpeaking" as const },
+                  { role: "stopSpeaking" as const },
+                ],
+              },
+            ]
+          : []),
+      ],
+    },
     {
       label: "View",
       submenu: [

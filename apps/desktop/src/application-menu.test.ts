@@ -161,6 +161,28 @@ describe("desktop application menu", () => {
     expect(settings?.click).toBe(openSettings);
   });
 
+  it.each([
+    "darwin",
+    "win32",
+  ] as const)("pastes as plain text with Cmd/Ctrl+Shift+V on %s", (platform) => {
+    configureDesktopApplicationMenu({
+      checkForUpdates: vi.fn(),
+      createWindow: vi.fn(),
+      openSettings: vi.fn(),
+      recordDiagnostics: vi.fn(),
+      platform,
+    });
+
+    const template: MenuItemConstructorOptions[] =
+      Menu.buildFromTemplate.mock.results[0].value;
+    const edit = template.find((item) => item.label === "Edit");
+    const submenu = edit?.submenu as MenuItemConstructorOptions[];
+    const pastePlain = submenu.find(
+      (item) => item.role === "pasteAndMatchStyle",
+    );
+    expect(pastePlain?.accelerator).toBe("CommandOrControl+Shift+V");
+  });
+
   it("navigates the focused window's history with Cmd/Ctrl+[ and Cmd/Ctrl+]", () => {
     configureDesktopApplicationMenu({
       checkForUpdates: vi.fn(),
