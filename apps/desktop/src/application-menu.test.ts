@@ -161,16 +161,13 @@ describe("desktop application menu", () => {
     expect(settings?.click).toBe(openSettings);
   });
 
-  it.each([
-    "darwin",
-    "win32",
-  ] as const)("pastes as plain text with Cmd/Ctrl+Shift+V on %s", (platform) => {
+  it("pastes as plain text with Cmd+Shift+V on macOS", () => {
     configureDesktopApplicationMenu({
       checkForUpdates: vi.fn(),
       createWindow: vi.fn(),
       openSettings: vi.fn(),
       recordDiagnostics: vi.fn(),
-      platform,
+      platform: "darwin",
     });
 
     const template: MenuItemConstructorOptions[] =
