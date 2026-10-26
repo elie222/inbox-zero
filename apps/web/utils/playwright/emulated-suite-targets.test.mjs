@@ -13,6 +13,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, expect, test } from "vitest";
 import {
+  assignPlaywrightProviders,
   batchPlaywrightTargets,
   expandPlaywrightTargets,
   getPlaywrightSpecPathFromTargetName,
@@ -102,6 +103,52 @@ test("focused selections keep their feature names without adding unselected spec
   };
   expect(batchPlaywrightTargets([target])).toEqual([
     { name: "mail-send", paths: [target.path], timeoutMinutes: 12 },
+  ]);
+});
+
+test("only provider-dependent mail specs also run on Microsoft", () => {
+  const targets = [
+    "mail/thread-navigation.spec.ts",
+    "mail/manual-label.spec.ts",
+    "mail/theme.spec.ts",
+    "settings/appearance.spec.ts",
+  ].map((spec) => ({
+    name: getPlaywrightTargetName(spec),
+    path: `__tests__/playwright/emulated/${spec}`,
+  }));
+  const batches = assignPlaywrightProviders(batchPlaywrightTargets(targets));
+  expect(
+    batches.map(({ name, provider, paths, timeoutMinutes }) => ({
+      name,
+      provider,
+      specs: paths.map((spec) => spec.split("/").at(-1)),
+      timeoutMinutes,
+    })),
+  ).toEqual([
+    {
+      name: "mail-threads",
+      provider: "google",
+      specs: ["thread-navigation.spec.ts", "manual-label.spec.ts"],
+      timeoutMinutes: 20,
+    },
+    {
+      name: "mail-threads",
+      provider: "microsoft",
+      specs: ["manual-label.spec.ts"],
+      timeoutMinutes: 12,
+    },
+    {
+      name: "mail-preferences",
+      provider: "google",
+      specs: ["theme.spec.ts"],
+      timeoutMinutes: 12,
+    },
+    {
+      name: "settings",
+      provider: "google",
+      specs: ["appearance.spec.ts"],
+      timeoutMinutes: 12,
+    },
   ]);
 });
 

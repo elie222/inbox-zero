@@ -1,4 +1,4 @@
-import he from "he";
+import * as he from "he";
 
 export function escapeHtml(text: string | null | undefined): string {
   if (!text) return "";

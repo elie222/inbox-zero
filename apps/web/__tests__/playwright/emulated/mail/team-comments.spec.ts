@@ -55,6 +55,18 @@ test("publisher shares with a teammate who never received the mail and both see 
       team.publisher.id,
     );
 
+    await teammate.page.goto(`/${teammate.account.id}/mail`, {
+      waitUntil: "domcontentloaded",
+    });
+    const teamRow = teammate.page.getByRole("link", { name: /^Discussions/ });
+    await expect(teamRow).toHaveAttribute("href", "/shared");
+    await expect(teamRow).toContainText("1", { timeout: 30_000 });
+    await capturePlaywrightCheckpoint(
+      teammate.page,
+      testInfo,
+      "teammate-team-sidebar-unread",
+    );
+
     await teammate.page.goto(
       `/shared/${conversationId}?memberId=${team.memberIds.b}`,
       { waitUntil: "domcontentloaded" },
@@ -67,11 +79,9 @@ test("publisher shares with a teammate who never received the mail and both see 
       teammate.page,
       "A second message proves the complete conversation is rendered.",
     );
-    await capturePlaywrightCheckpoint(
-      teammate.page,
-      testInfo,
-      "teammate-shared-reader-no-received-mail",
-    );
+    await expect(
+      teammate.page.locator('[data-sidebar="menu-button"][href="/shared"]'),
+    ).toHaveText("Discussions", { timeout: 30_000 });
 
     const comment = "Synthetic internal decision for the team";
     await teammate.page.getByLabel("Internal comment").fill(comment);
@@ -84,11 +94,6 @@ test("publisher shares with a teammate who never received the mail and both see 
       page,
       testInfo,
       "publisher-synchronized-comment",
-    );
-    await capturePlaywrightCheckpoint(
-      teammate.page,
-      testInfo,
-      "teammate-synchronized-comment",
     );
 
     const afterComment = await readPublisherThread(
@@ -144,11 +149,6 @@ test("publisher shares with a teammate who never received the mail and both see 
     expect(afterReply.some((message) => message.body.includes(comment))).toBe(
       false,
     );
-    await capturePlaywrightCheckpoint(
-      page,
-      testInfo,
-      "publisher-external-reply-no-internal-comment",
-    );
 
     await page.close();
     await insertInboxMailInConversation(teammate.page, {
@@ -170,11 +170,6 @@ test("publisher shares with a teammate who never received the mail and both see 
       "new-provider-mail-and-internal-discussion",
     );
     await teammate.page.setViewportSize({ width: 390, height: 844 });
-    await capturePlaywrightCheckpoint(
-      teammate.page,
-      testInfo,
-      "narrow-shared-reader-light",
-    );
     await teammate.page.emulateMedia({ colorScheme: "dark" });
     await teammate.page.addInitScript(() =>
       localStorage.setItem("theme", "dark"),

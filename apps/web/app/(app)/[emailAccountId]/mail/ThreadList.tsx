@@ -51,6 +51,7 @@ export type ThreadListProps = {
   /** Identity of the current view so prefetch state does not leak across splits. */
   listKey: string;
   showSentOpenStatus?: boolean;
+  onScrolledChange?: (scrolled: boolean) => void;
 };
 
 export const ThreadList = memo(function ThreadList({
@@ -73,6 +74,7 @@ export const ThreadList = memo(function ThreadList({
   onLoadMore,
   listKey,
   showSentOpenStatus = false,
+  onScrolledChange,
 }: ThreadListProps) {
   const isMobile = useIsMobile();
   const dayStart = useDayStart();
@@ -127,36 +129,38 @@ export const ThreadList = memo(function ThreadList({
       }
       onLoadMore={onLoadMore}
       onOpen={onOpenThread}
+      onScrolledChange={onScrolledChange}
       onSelectRangeTo={onSelectRangeTo}
       onToggleSelect={onToggleSelect}
       renderItem={(row) => (
-        <ThreadRow
-          compact={isMobile}
-          expandedPreview={expandedPreview}
-          hasAnySelection={row.hasAnySelection}
-          index={row.index}
-          isFocused={row.isFocused}
-          isSelected={row.isSelected}
-          key={row.rowKey}
-          layout={layout}
-          onOpen={row.onOpen}
-          onSelectRangeTo={row.onSelectRangeTo}
-          onToggleSelect={row.onToggleSelect}
-          rowRef={row.rowRef}
-          selectionEnabled={row.selectionEnabled}
-          sentMessageOpen={
-            showSentOpenStatus
-              ? sentMessageOpens?.opens[row.item.messages.at(-1)?.id ?? ""]
-              : undefined
-          }
-          thread={row.item}
-          userEmail={userEmail}
-          userLabels={
-            "account" in row.item
-              ? (labelsByAccount?.[row.item.account.id] ?? NO_LABELS)
-              : userLabels
-          }
-        />
+        <div data-mail-thread-key={row.rowKey} key={row.rowKey}>
+          <ThreadRow
+            compact={isMobile}
+            expandedPreview={expandedPreview}
+            hasAnySelection={row.hasAnySelection}
+            index={row.index}
+            isFocused={row.isFocused}
+            isSelected={row.isSelected}
+            layout={layout}
+            onOpen={row.onOpen}
+            onSelectRangeTo={row.onSelectRangeTo}
+            onToggleSelect={row.onToggleSelect}
+            rowRef={row.rowRef}
+            selectionEnabled={row.selectionEnabled}
+            sentMessageOpen={
+              showSentOpenStatus
+                ? sentMessageOpens?.opens[row.item.messages.at(-1)?.id ?? ""]
+                : undefined
+            }
+            thread={row.item}
+            userEmail={userEmail}
+            userLabels={
+              "account" in row.item
+                ? (labelsByAccount?.[row.item.account.id] ?? NO_LABELS)
+                : userLabels
+            }
+          />
+        </div>
       )}
       selectedCount={selectedCount}
       selectionEnabled={selectionEnabled}

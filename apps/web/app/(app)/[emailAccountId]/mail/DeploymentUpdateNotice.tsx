@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { toastInfo } from "@/components/Toast";
+import { reloadAtNextSafeMoment } from "@/utils/safe-reload";
 import type { DeploymentResponse } from "@/app/api/deployment/route";
 
 const CHECK_INTERVAL_MS = 10 * 60 * 1000;
@@ -9,7 +9,7 @@ const MIN_CHECK_GAP_MS = 60 * 1000;
 
 // Mail tabs stay open for days, past the host's skew protection window. Once a
 // tab's deployment is gone, its server actions and lazy chunks can fail with
-// errors that make no sense to the user, so ask for a reload instead.
+// errors that make no sense to the user, so reload at the next safe moment.
 export function DeploymentUpdateNotice() {
   useEffect(() => {
     const tabDeploymentId = process.env.NEXT_DEPLOYMENT_ID;
@@ -27,13 +27,7 @@ export function DeploymentUpdateNotice() {
         if (!deploymentId || deploymentId === tabDeploymentId || notified)
           return;
         notified = true;
-        toastInfo({
-          id: "deployment-update",
-          title: "Inbox Zero has been updated",
-          description: "Reload to get the latest version.",
-          duration: Number.POSITIVE_INFINITY,
-          action: { label: "Reload", onClick: () => window.location.reload() },
-        });
+        reloadAtNextSafeMoment(() => window.location.reload());
       } catch {
         // Offline or mid-deploy; the next check will try again.
       }

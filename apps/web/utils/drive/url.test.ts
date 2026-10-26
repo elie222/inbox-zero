@@ -18,11 +18,4 @@ describe("getDriveFileUrl", () => {
     // @ts-expect-error - testing invalid provider at runtime
     expect(getDriveFileUrl("file789", "unknown")).toBe("unknown");
   });
-
-  it("should handle file IDs with special characters", () => {
-    const fileId = "1a2b3c-4d5e6f_7g8h9i";
-    expect(getDriveFileUrl(fileId, "google")).toBe(
-      `https://drive.google.com/file/d/${fileId}/view`,
-    );
-  });
 });

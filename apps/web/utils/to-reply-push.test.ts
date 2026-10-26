@@ -5,6 +5,8 @@ import { ExecutedRuleStatus, SystemType } from "@/generated/prisma/enums";
 import { sendMobilePushNotification } from "@/utils/mobile-push";
 import { sendToReplyPushNotification } from "./to-reply-push";
 
+vi.mock("server-only", () => ({}));
+
 vi.mock("@/utils/mobile-push", () => ({
   sendMobilePushNotification: vi.fn().mockResolvedValue(undefined),
 }));
@@ -20,6 +22,9 @@ const options = {
     threadId: "thread-1",
     internalDate: String(now.getTime() - 60_000),
     subject: "",
+    textHtml: "",
+    textPlain: "",
+    snippet: "",
     headers: {
       from: "<alex@example.com>",
       to: "user@example.com",
@@ -62,6 +67,81 @@ describe("sendToReplyPushNotification", () => {
           type: "to_reply",
         },
       },
+    });
+  });
+
+  it.each([
+    {
+      textPlain: "  Please\t review\n\n the plan.  ",
+      textHtml: "",
+      snippet: "",
+    },
+    {
+      textHtml: "<p>Please review&nbsp; the plan.</p>",
+      textPlain: "",
+      snippet: "",
+    },
+    { snippet: "Please review&nbsp; the plan.", textHtml: "", textPlain: "" },
+    {
+      textPlain:
+        "Please review the plan.\n\nOn Mon, Oct 19, 2026, Alex <alex@example.com> wrote:\n> Earlier message.",
+      textHtml: "",
+      snippet: "",
+    },
+  ])("sends a plain preview from the existing message: %j", async (content) => {
+    await sendToReplyPushNotification({
+      ...options,
+      message: {
+        ...options.message,
+        ...content,
+        subject: "  Project plan  ",
+        headers: {
+          ...options.message.headers,
+          from: "Alex <alex@example.com>",
+        },
+      },
+    });
+    const { notification } = vi.mocked(sendMobilePushNotification).mock
+      .calls[0][0];
+    expect(notification).toEqual({
+      title: "Alex",
+      subtitle: "Project plan",
+      body: "Please review the plan.",
+      sound: "default",
+      data: {
+        threadId: "thread-1",
+        emailAccountId: "account-1",
+        messageId: "message-1",
+        type: "to_reply",
+      },
+    });
+  });
+
+  it("keeps the subject as the body when the preview is whitespace only", async () => {
+    await sendToReplyPushNotification({
+      ...options,
+      message: {
+        ...options.message,
+        subject: "Project plan",
+        textPlain: " \t\n ",
+      },
+    });
+    const { notification } = vi.mocked(sendMobilePushNotification).mock
+      .calls[0][0];
+    expect(notification.body).toBe("Project plan");
+    expect(notification).not.toHaveProperty("subtitle");
+  });
+
+  it("uses the no-subject fallback as the subtitle when there is a preview", async () => {
+    await sendToReplyPushNotification({
+      ...options,
+      message: { ...options.message, textPlain: "Please review the plan." },
+    });
+    const { notification } = vi.mocked(sendMobilePushNotification).mock
+      .calls[0][0];
+    expect(notification).toMatchObject({
+      subtitle: "(no subject)",
+      body: "Please review the plan.",
     });
   });
 
@@ -151,6 +231,7 @@ describe("sendToReplyPushNotification", () => {
       message: {
         ...options.message,
         subject: "S".repeat(1000),
+        textPlain: "Preview ".repeat(200),
         headers: {
           ...options.message.headers,
           from: `${"N".repeat(1000)} <alex@example.com>`,
@@ -160,7 +241,9 @@ describe("sendToReplyPushNotification", () => {
     const { notification } = vi.mocked(sendMobilePushNotification).mock
       .calls[0][0];
     expect(notification.title.length).toBeLessThanOrEqual(103);
-    expect(notification.body.length).toBeLessThanOrEqual(203);
+    expect(notification.subtitle?.length).toBeLessThanOrEqual(203);
+    expect(notification.body.length).toBe(203);
+    expect(notification.body).toMatch(/^Preview .*\.\.\.$/);
   });
 
   it("contains push failures", async () => {

@@ -78,6 +78,11 @@ export function SideNavMenu({
             >
               <item.icon />
               <span>{item.name}</span>
+              {item.count ? (
+                <span className="ml-auto text-xs tabular-nums">
+                  {item.count}
+                </span>
+              ) : null}
               {item.new && (
                 <Badge variant="green" className="ml-auto text-[10px]">
                   New!

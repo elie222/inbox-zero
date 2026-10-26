@@ -55,7 +55,7 @@ import {
   stripQuotedContent,
 } from "@/utils/ai/choose-rule/draft-management";
 import type { ParsedMessage } from "@/utils/types";
-import he from "he";
+import * as he from "he";
 import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
 import {

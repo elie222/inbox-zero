@@ -188,9 +188,9 @@ describe("runDecisionModel", () => {
       logger,
     });
 
-    expect(doDecide.mock.calls[0]?.[0].state).toStrictEqual({
-      email: { subject: "Hi" },
-    });
+    expect(doDecide.mock.calls[0]?.[0].state).toStrictEqual([
+      { type: "json", value: { email: { subject: "Hi" } } },
+    ]);
   });
 
   it("records usage and provider-reported cost for the configured model", async () => {

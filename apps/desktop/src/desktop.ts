@@ -285,8 +285,9 @@ export const DESKTOP_MAC_TITLEBAR_HEIGHT = 52;
 export const DESKTOP_MAC_TRAFFIC_LIGHTS_WIDTH = 78;
 /** Web chrome marked with this is hidden by the Mac desktop stylesheet. */
 export const DESKTOP_MAC_HIDE_ATTRIBUTE = "data-hide-on-desktop-mac";
-export const DESKTOP_MAC_TITLEBAR_SPACER_ATTRIBUTE =
-  "data-desktop-mac-titlebar-spacer";
+/** Lifts the sidebar toggle into the titlebar, just right of the traffic lights. */
+export const DESKTOP_MAC_TITLEBAR_TOGGLE_ATTRIBUTE =
+  "data-desktop-mac-titlebar-toggle";
 export const DESKTOP_MAC_END_ATTRIBUTE = "data-desktop-mac-end";
 
 export function getDesktopWindowChrome(platform = process.platform): {
@@ -349,8 +350,11 @@ html::after {
   display: none !important;
 }
 
-[${DESKTOP_MAC_TITLEBAR_SPACER_ATTRIBUTE}] {
-  padding-top: ${DESKTOP_MAC_TITLEBAR_HEIGHT}px;
+[${DESKTOP_MAC_TITLEBAR_TOGGLE_ATTRIBUTE}] {
+  position: fixed;
+  top: 12px;
+  left: ${DESKTOP_MAC_TRAFFIC_LIGHTS_WIDTH}px;
+  z-index: 30;
 }
 
 [${DESKTOP_MAC_END_ATTRIBUTE}] {

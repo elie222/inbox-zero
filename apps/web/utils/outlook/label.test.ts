@@ -3,15 +3,20 @@ import { describe, expect, it, vi } from "vitest";
 import type { OutlookClient } from "@/utils/outlook/client";
 import { createTestLogger } from "@/__tests__/helpers";
 import {
+  archiveThread,
   createLabel,
   getLabel,
   getOrCreateLabels,
+  labelThread,
+  markReadThread,
   unarchiveThread,
   untrashThread,
   updateMessageCategories,
 } from "./label";
 
 const mockGetFolderIds = vi.fn();
+
+vi.mock("@inboxzero/tinybird", () => ({ publishArchive: vi.fn() }));
 
 vi.mock("@/utils/outlook/message", () => ({
   getFolderIds: (...args: Parameters<typeof mockGetFolderIds>) =>
@@ -106,11 +111,99 @@ describe("getOrCreateLabels", () => {
   });
 });
 
+// Graph returns a conversation 10 messages at a time unless asked for more, so
+// these threads span two pages to prove the later messages are not skipped.
+const SECOND_PAGE_LINK =
+  "https://graph.microsoft.com/v1.0/me/messages?$skip=100";
+
+describe("archiveThread", () => {
+  it("archives every message in a thread that spans more than one page", async () => {
+    const { client, post, postedPaths } = createPagingClient([
+      { value: [{ id: "m1" }, { id: "m2" }], next: SECOND_PAGE_LINK },
+      { value: [{ id: "m3" }] },
+    ]);
+
+    await archiveThread({
+      client,
+      threadId: "thread-1",
+      ownerEmail: "user@example.com",
+      actionSource: "user",
+      logger: createTestLogger(),
+    });
+
+    expect(post).toHaveBeenCalledWith({ destinationId: "archive" });
+    expect(postedPaths).toEqual([
+      "/me/messages/m1/move",
+      "/me/messages/m2/move",
+      "/me/messages/m3/move",
+    ]);
+  });
+
+  it("fails without archiving part of the thread when a later page fails", async () => {
+    const { client, post } = createPagingClient([
+      { value: [{ id: "m1" }], next: SECOND_PAGE_LINK },
+      { error: Object.assign(new Error("Access denied"), { statusCode: 403 }) },
+    ]);
+
+    await expect(
+      archiveThread({
+        client,
+        threadId: "thread-1",
+        ownerEmail: "user@example.com",
+        actionSource: "user",
+        logger: createTestLogger(),
+      }),
+    ).rejects.toThrow("Access denied");
+
+    expect(post).not.toHaveBeenCalled();
+  });
+});
+
+describe("markReadThread", () => {
+  it("marks every message read in a thread that spans more than one page", async () => {
+    const { client, patch, patchedPaths } = createPagingClient([
+      { value: [{ id: "m1" }], next: SECOND_PAGE_LINK },
+      { value: [{ id: "m2" }] },
+    ]);
+
+    await markReadThread({
+      client,
+      threadId: "thread-1",
+      read: true,
+      logger: createTestLogger(),
+    });
+
+    expect(patch).toHaveBeenCalledWith({ isRead: true });
+    expect(patchedPaths).toEqual(["/me/messages/m1", "/me/messages/m2"]);
+  });
+});
+
+describe("labelThread", () => {
+  it("labels every message in a thread that spans more than one page", async () => {
+    const { client, patchedPaths } = createPagingClient([
+      { value: [{ id: "m1" }], next: SECOND_PAGE_LINK },
+      { value: [{ id: "m2" }] },
+    ]);
+
+    await labelThread({
+      client,
+      threadId: "thread-1",
+      categories: ["Receipts"],
+      logger: createTestLogger(),
+    });
+
+    expect(patchedPaths).toEqual(["/me/messages/m1", "/me/messages/m2"]);
+  });
+});
+
 describe("unarchiveThread", () => {
   it("moves every archived message back, following paged results", async () => {
     mockGetFolderIds.mockResolvedValue({ archive: "archive-id" });
     const { client, post, filters } = createPagingClient([
-      { value: [{ id: "m1" }, { id: "m2" }], next: "https://graph/next" },
+      {
+        value: [{ id: "m1" }, { id: "m2" }],
+        next: "https://graph.microsoft.com/v1.0/me/messages?$skip=100",
+      },
       { value: [{ id: "m3" }] },
     ]);
 
@@ -146,7 +239,10 @@ describe("untrashThread", () => {
   it("moves every deleted message back, following paged results", async () => {
     mockGetFolderIds.mockResolvedValue({ deleteditems: "deleted-id" });
     const { client, post, filters } = createPagingClient([
-      { value: [{ id: "m1" }, { id: "m2" }], next: "https://graph/next" },
+      {
+        value: [{ id: "m1" }, { id: "m2" }],
+        next: "https://graph.microsoft.com/v1.0/me/messages?$skip=100",
+      },
       { value: [{ id: "m3" }] },
     ]);
 
@@ -272,14 +368,32 @@ function createCategoryClient(
 }
 
 function createPagingClient(
-  pages: { value: { id: string }[]; next?: string }[],
+  pages: ({ value: { id: string }[]; next?: string } | { error: Error })[],
 ) {
   const post = vi.fn().mockResolvedValue(undefined);
+  const patch = vi.fn().mockResolvedValue(undefined);
+  const postedPaths: string[] = [];
+  const patchedPaths: string[] = [];
   const filters: string[] = [];
   let pageIndex = 0;
 
   const api = vi.fn().mockImplementation((path: string) => {
-    if (path.includes("/move")) return { post };
+    if (path.includes("/move")) {
+      return {
+        post: (body: unknown) => {
+          postedPaths.push(path);
+          return post(body);
+        },
+      };
+    }
+    if (/^\/me\/messages\/[^/?]+$/.test(path)) {
+      return {
+        patch: (body: unknown) => {
+          patchedPaths.push(path);
+          return patch(body);
+        },
+      };
+    }
 
     const builder = {
       filter: (value: string) => {
@@ -290,6 +404,7 @@ function createPagingClient(
       top: () => builder,
       get: vi.fn().mockImplementation(() => {
         const page = pages[pageIndex++];
+        if ("error" in page) return Promise.reject(page.error);
         return Promise.resolve({
           value: page.value,
           ...(page.next ? { "@odata.nextLink": page.next } : {}),
@@ -299,7 +414,15 @@ function createPagingClient(
     return builder;
   });
 
-  return { client: createMockOutlookClient(api), api, post, filters };
+  return {
+    client: createMockOutlookClient(api),
+    api,
+    post,
+    patch,
+    postedPaths,
+    patchedPaths,
+    filters,
+  };
 }
 
 function createMockOutlookClient(api: ReturnType<typeof vi.fn>) {

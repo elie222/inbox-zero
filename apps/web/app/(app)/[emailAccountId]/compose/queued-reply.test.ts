@@ -207,6 +207,7 @@ describe("queueReaderEmail", () => {
       status: "rejected",
       code: "invalid",
     });
+    const revertSubmitting = vi.fn();
     await expect(
       queueReaderEmail({
         client,
@@ -215,10 +216,13 @@ describe("queueReaderEmail", () => {
         messageIds: ["message"],
         mutationId: "mutation",
         online: true,
+        onSubmitting: () => revertSubmitting,
         threadId: "thread",
       }),
     ).rejects.toThrow("different content");
     expect(client.submitSend).toHaveBeenCalledOnce();
+    // The pending send's message must not stay hidden as if this one replaced it.
+    expect(revertSubmitting).toHaveBeenCalledOnce();
   });
 
   it("explains a full command queue instead of a generic send failure", async () => {
@@ -362,7 +366,7 @@ describe("queueReaderEmail", () => {
         notBeforeMs: outcome.holdUntil,
       }),
     );
-    expect(onQueued).toHaveBeenCalledOnce();
+    expect(onQueued).toHaveBeenCalledExactlyOnceWith("mutation");
     expect(client.observeOperation).not.toHaveBeenCalled();
   });
 

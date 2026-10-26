@@ -144,6 +144,7 @@ describe("bulk unsubscribe hooks", () => {
 
       expect(fetchAllSenderThreadsMock).toHaveBeenCalledWith({
         sender: SENDER,
+        scope: "all",
         emailAccountId: EMAIL_ACCOUNT_ID,
       });
       expect(enqueueThreadMailMutationBatchMock).toHaveBeenCalledWith({

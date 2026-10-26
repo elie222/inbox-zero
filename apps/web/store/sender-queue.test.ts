@@ -225,6 +225,33 @@ describe("sender queue", () => {
     );
   });
 
+  it("deletes a sender's mail outside the inbox but archives only inbox mail", async () => {
+    const { addToDeleteSenderQueue } = await import("./delete-sender-queue");
+    const { addToArchiveSenderThreadQueue } = await import(
+      "./archive-sender-queue"
+    );
+
+    await addToDeleteSenderQueue({
+      sender: "delete@example.com",
+      emailAccountId: "account-1",
+    });
+    await addToArchiveSenderThreadQueue({
+      sender: "archive@example.com",
+      emailAccountId: "account-1",
+    });
+
+    expect(mockFetchAllSenderThreads).toHaveBeenNthCalledWith(1, {
+      sender: "delete@example.com",
+      scope: "all",
+      emailAccountId: "account-1",
+    });
+    expect(mockFetchAllSenderThreads).toHaveBeenNthCalledWith(2, {
+      sender: "archive@example.com",
+      scope: "inbox",
+      emailAccountId: "account-1",
+    });
+  });
+
   it("drops sender-queue keys and leaves unrelated session storage", async () => {
     installMemorySessionStorage();
     sessionStorage.setItem(

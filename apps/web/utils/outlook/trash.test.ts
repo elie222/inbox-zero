@@ -90,6 +90,7 @@ function setup() {
   const api = vi.fn((path: string) => ({
     filter: vi.fn().mockReturnThis(),
     select: vi.fn().mockReturnThis(),
+    top: vi.fn().mockReturnThis(),
     get,
     post: (body: unknown) => post(path, body),
   }));

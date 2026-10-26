@@ -11,6 +11,7 @@ import type {
   SyncPosition,
 } from "@inboxzero/mail-core/sync";
 import {
+  decodeMailboxSyncCursor,
   encodeMailboxSyncCursor,
   InvalidMailboxSyncCursorError,
 } from "@/utils/email/mailbox-sync";
@@ -459,7 +460,11 @@ async function catchUpCheckpoint(
       folderId,
       limit: 1,
     });
-    if (page.cursor) return page.cursor;
+    if (page.cursor) {
+      return provider.name === "google"
+        ? toGmailDeltaCursor(page.cursor)
+        : page.cursor;
+    }
   } catch (error) {
     if (provider.name === "microsoft") throw error;
     // Fall back to the newest numeric Gmail history id we already fetched.
@@ -665,4 +670,20 @@ function searchMessageFields(accountId: string, message: ParsedMessage) {
         ? convertEmailHtmlToText({ htmlText: message.textHtml })
         : message.textPlain),
   };
+}
+
+// A one-message Gmail sync page on a mailbox with more mail comes back as a
+// snapshot cursor mid-listing. Catching up from it would re-list the whole
+// mailbox before any new mail shows. Its historyId was captured before the
+// listing began, so continuing from history there misses nothing.
+function toGmailDeltaCursor(cursor: string): string {
+  const decoded = decodeMailboxSyncCursor(cursor, "google");
+  if (decoded.phase !== "snapshot") return cursor;
+  return encodeMailboxSyncCursor({
+    version: 1,
+    provider: "google",
+    phase: "delta",
+    historyId: decoded.historyId,
+    after: decoded.after,
+  });
 }

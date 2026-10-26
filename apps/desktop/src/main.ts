@@ -30,6 +30,7 @@ import { recordDesktopDiagnostics } from "./diagnostics";
 import {
   checkForDesktopUpdatesManually,
   installDownloadedDesktopUpdate,
+  type DesktopDownloadProgress,
   logDesktopUpdateError,
   startDesktopAutoUpdate,
 } from "./auto-update";
@@ -116,7 +117,14 @@ const mailNotifier = createMailNotifier({
   createNotification: (options) => new Notification(options),
   openWindow: openAppWindow,
 });
+type DesktopUpdateStatus =
+  | ({ state: "downloading" } & DesktopDownloadProgress)
+  | { state: "ready"; version: string }
+  | null;
+
 let downloadPercent: number | null = null;
+let updateStatus: DesktopUpdateStatus = null;
+const updateStatusSubscribers = new Map<WebContents, () => void>();
 let refreshDesktopMenu: (() => void) | undefined;
 
 const gotTheLock = app.requestSingleInstanceLock();
@@ -174,6 +182,19 @@ function startDesktopApp() {
     if (!isTrustedDesktopEvent(event)) return { status: "invalid" };
     await wipeDesktopMailOwner();
     return { status: "ok" };
+  });
+  ipcMain.handle("desktop:update-status", (event) => {
+    if (!isTrustedDesktopEvent(event)) return null;
+    subscribeToUpdateStatus(event.sender);
+    return updateStatus;
+  });
+  ipcMain.on("desktop:update-status-unsubscribe", (event) => {
+    if (!isTrustedDesktopEvent(event)) return;
+    updateStatusSubscribers.get(event.sender)?.();
+  });
+  ipcMain.handle("desktop:install-update", (event) => {
+    if (!isTrustedDesktopEvent(event)) return;
+    installUpdate();
   });
   const mainEventLoopDelay = startEventLoopDelayMonitor();
   let lastHealthReadAt = Date.now();
@@ -255,11 +276,6 @@ function startDesktopApp() {
 
   app.whenReady().then(async () => {
     let desktopUpdateReady = false;
-    const installUpdate = () => {
-      installDownloadedDesktopUpdate(() => {
-        isQuitting = true;
-      }).catch(logDesktopUpdateError);
-    };
     const applyDesktopMenu = () => {
       configureDesktopApplicationMenu({
         updateReady: desktopUpdateReady,
@@ -269,9 +285,12 @@ function startDesktopApp() {
             installUpdate();
             return;
           }
-          checkForDesktopUpdatesManually(() => {
-            isQuitting = true;
-          }).catch(logDesktopUpdateError);
+          checkForDesktopUpdatesManually(
+            () => {
+              isQuitting = true;
+            },
+            { showsProgressInApp: hasVisibleUpdateStatusSubscriber },
+          ).catch(logDesktopUpdateError);
         },
         createWindow: () => createAppWindow(),
         openSettings: () => {
@@ -318,11 +337,12 @@ function startDesktopApp() {
     }
     if (!shouldSmokeLocalMail()) {
       startDesktopAutoUpdate(undefined, {
-        onUpdateReady: () => {
+        onUpdateReady: (version) => {
           desktopUpdateReady = true;
-          setDownloadPercent(null);
+          setUpdateStatus({ state: "ready", version });
+          setDownloadProgress(null);
         },
-        onDownloadProgress: setDownloadPercent,
+        onDownloadProgress: setDownloadProgress,
       }).catch(logDesktopUpdateError);
     }
   });
@@ -338,10 +358,47 @@ function startDesktopApp() {
   });
 }
 
-function setDownloadPercent(percent: number | null) {
-  downloadPercent = percent;
+function installUpdate() {
+  installDownloadedDesktopUpdate(() => {
+    isQuitting = true;
+  }).catch(logDesktopUpdateError);
+}
+
+function setDownloadProgress(progress: DesktopDownloadProgress | null) {
+  downloadPercent = progress?.percent ?? null;
+  if (progress) setUpdateStatus({ state: "downloading", ...progress });
+  else if (updateStatus?.state === "downloading") setUpdateStatus(null);
   refreshDesktopMenu?.();
   syncUpdateProgressBar();
+}
+
+function setUpdateStatus(status: DesktopUpdateStatus) {
+  updateStatus = status;
+  for (const contents of updateStatusSubscribers.keys()) {
+    contents.send("desktop:update-status", status);
+  }
+}
+
+// A full navigation can land on a page that never subscribes, so it drops the
+// subscription; the new page subscribes again if it shows update status.
+function subscribeToUpdateStatus(contents: WebContents) {
+  if (updateStatusSubscribers.has(contents)) return;
+  const unsubscribe = () => {
+    updateStatusSubscribers.delete(contents);
+    contents.off("did-navigate", unsubscribe);
+    contents.off("destroyed", unsubscribe);
+  };
+  updateStatusSubscribers.set(contents, unsubscribe);
+  contents.on("did-navigate", unsubscribe);
+  contents.on("destroyed", unsubscribe);
+}
+
+// On macOS the last window hides instead of closing, so a toast there would
+// go unseen.
+function hasVisibleUpdateStatusSubscriber() {
+  return [...updateStatusSubscribers.keys()].some((contents) =>
+    BrowserWindow.fromWebContents(contents)?.isVisible(),
+  );
 }
 
 function syncUpdateProgressBar() {

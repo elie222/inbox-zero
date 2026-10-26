@@ -164,7 +164,7 @@ export function BulkArchiveCards({
   const toggleSenderSelection = (senderAddress: string) => {
     setSelectedSenders((prev) => ({
       ...prev,
-      [senderAddress]: !prev[senderAddress],
+      [senderAddress]: prev[senderAddress] === false,
     }));
   };
 

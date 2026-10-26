@@ -30,7 +30,9 @@ export async function buildDraftReplyBody({
   });
 
   if (emailAccount?.signature) {
-    body = `${body}\n\n${emailAccount.signature}`;
+    // The marker lets the composer separate the signature again even when a
+    // provider normalizes its inner HTML before the draft is reopened.
+    body = `${body}\n\n<div class="gmail_signature" data-smartmail="gmail_signature">${emailAccount.signature}</div>`;
   }
 
   if (

@@ -2,6 +2,10 @@ import { expect, type Locator, type Page } from "@playwright/test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
 import {
+  createSecondEmailAccount,
+  deleteSecondEmailAccount,
+} from "./account-test-helpers";
+import {
   conversationWithSubject,
   expectThreadReaderBody,
   openMail,
@@ -55,7 +59,6 @@ test("switches between list and split reading layouts", async ({
   const { conversations } = await openMail(page);
   const emptyReader = page.getByText("Nothing selected", { exact: true });
   await expect(emptyReader).toBeHidden();
-  await capturePlaywrightCheckpoint(page, testInfo, "mail-list-layout");
 
   await page.getByRole("button", { name: "Switch list or split view" }).click();
   await expect(emptyReader).toBeVisible();
@@ -87,6 +90,44 @@ test("switches between list and split reading layouts", async ({
   await page.getByRole("button", { name: "Switch list or split view" }).click();
   await page.keyboard.press("Escape");
   await expect(conversations).toBeVisible();
+});
+
+test("uses the split reading layout in All Accounts", async ({
+  page,
+}, testInfo) => {
+  const { emailAccountId } = await openMail(page);
+  const secondAccount = await createSecondEmailAccount(emailAccountId);
+
+  try {
+    await page.goto(`/${emailAccountId}/mail?accountScope=all`, {
+      waitUntil: "domcontentloaded",
+    });
+    const conversations = page.getByRole("listbox", { name: "Conversations" });
+    await expect(conversations).toBeVisible({ timeout: 60_000 });
+    const layoutToggle = page.getByRole("button", {
+      name: "Switch list or split view",
+    });
+    const emptyReader = page.getByText("Nothing selected", { exact: true });
+
+    await layoutToggle.click();
+    await expect(emptyReader).toBeVisible();
+
+    await conversationWithSubject(page, conversations, "Project Label Message")
+      .first()
+      .click();
+    await expectThreadReaderBody(
+      page,
+      "This conversation is visible in the seeded project label.",
+    );
+    await expect(conversations).toBeVisible();
+    await capturePlaywrightCheckpoint(page, testInfo, "all-accounts-split");
+
+    await page.keyboard.press("Escape");
+    await layoutToggle.click();
+    await expect(emptyReader).toBeHidden();
+  } finally {
+    await deleteSecondEmailAccount(secondAccount.accountId);
+  }
 });
 
 test("resizes the split-layout email list and remembers the width", async ({

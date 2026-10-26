@@ -3,9 +3,11 @@
 import { cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { toastInfo } from "@/components/Toast";
+import { reloadAtNextSafeMoment } from "@/utils/safe-reload";
 import { DeploymentUpdateNotice } from "./DeploymentUpdateNotice";
 
 vi.mock("@/components/Toast", () => ({ toastInfo: vi.fn() }));
+vi.mock("@/utils/safe-reload", () => ({ reloadAtNextSafeMoment: vi.fn() }));
 
 describe("DeploymentUpdateNotice", () => {
   beforeEach(() => {
@@ -19,21 +21,21 @@ describe("DeploymentUpdateNotice", () => {
     vi.clearAllMocks();
   });
 
-  it("asks once for a reload after a newer deployment goes live", async () => {
+  it("reloads quietly at the next safe moment after a newer deployment goes live", async () => {
     const fetchMock = stubDeployment("dpl_newer");
+    const reload = vi.fn();
+    vi.stubGlobal("location", { ...window.location, reload });
     render(<DeploymentUpdateNotice />);
 
-    await waitFor(() => expect(toastInfo).toHaveBeenCalledOnce());
-    expect(toastInfo).toHaveBeenCalledWith(
-      expect.objectContaining({
-        action: expect.objectContaining({ label: "Reload" }),
-      }),
-    );
+    await waitFor(() => expect(reloadAtNextSafeMoment).toHaveBeenCalledOnce());
+    expect(toastInfo).not.toHaveBeenCalled();
+    vi.mocked(reloadAtNextSafeMoment).mock.calls[0][0]();
+    expect(reload).toHaveBeenCalledOnce();
 
     window.dispatchEvent(new Event("focus"));
     await Promise.resolve();
     expect(fetchMock).toHaveBeenCalledOnce();
-    expect(toastInfo).toHaveBeenCalledOnce();
+    expect(reloadAtNextSafeMoment).toHaveBeenCalledOnce();
   });
 
   it("stays quiet while the tab runs the live deployment", async () => {
@@ -42,7 +44,7 @@ describe("DeploymentUpdateNotice", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
     await Promise.resolve();
-    expect(toastInfo).not.toHaveBeenCalled();
+    expect(reloadAtNextSafeMoment).not.toHaveBeenCalled();
   });
 
   it("does not check when the build has no deployment id", () => {
