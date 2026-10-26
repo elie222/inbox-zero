@@ -1147,6 +1147,17 @@ export function MailShell() {
     setSearchParam,
   ]);
 
+  // The field can be rendered but inert while the list is held during an open,
+  // so the request stays pending until focus actually lands.
+  const focusPendingSearch = useCallback(() => {
+    const input = searchInputRef.current;
+    if (!input) return;
+    input.focus();
+    if (document.activeElement !== input) return;
+    pendingSearchFocusRef.current = false;
+    input.select();
+  }, []);
+
   const closeReader = useCallback(() => {
     setOpenThread(null);
   }, [setOpenThread]);
@@ -1268,12 +1279,7 @@ export function MailShell() {
             if (selection.hasSelection) selection.clear();
             if (layout === "list" && openThreadId) closeReader();
             pendingSearchFocusRef.current = true;
-            const input = searchInputRef.current;
-            if (input) {
-              pendingSearchFocusRef.current = false;
-              input.focus();
-              input.select();
-            }
+            focusPendingSearch();
           },
     };
   })();
@@ -1281,12 +1287,7 @@ export function MailShell() {
   useLayoutEffect(() => {
     // The search field remounts when selection clears or the list returns, so
     // consume a pending `/` focus after whichever commit actually rendered it.
-    if (!pendingSearchFocusRef.current) return;
-    const input = searchInputRef.current;
-    if (!input) return;
-    pendingSearchFocusRef.current = false;
-    input.focus();
-    input.select();
+    if (pendingSearchFocusRef.current) focusPendingSearch();
   });
 
   useShortcuts(handlers, { isDesktopApp });
@@ -1510,7 +1511,7 @@ export function MailShell() {
         <MailEngineConnectionBanner />
         <div className="relative flex min-h-0 min-w-0 flex-1">
           {showList && (
-            <MailListPanel layout={layout}>
+            <MailListPanel layout={layout} inert={readerPreparing}>
               <ListToolbar
                 onOpenMailNav={() => setIsMailNavOpen(true)}
                 layout={layout}
