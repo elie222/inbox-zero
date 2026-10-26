@@ -97,6 +97,7 @@ import { useFolders } from "@/hooks/useFolders";
 import { useMailSettings } from "@/hooks/useMailSettings";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useThread } from "@/hooks/useThread";
+import { cn } from "@/utils";
 import { useShortcuts } from "@/lib/shortcuts/useShortcuts";
 import type { ShortcutHandlers } from "@/lib/shortcuts/registry";
 import { updateMailPreferencesAction } from "@/utils/actions/mail-split";
@@ -511,7 +512,12 @@ export function MailShell() {
     ? threads.find((thread) => getListThreadKey(thread) === openThreadKey)
     : undefined;
   const readAttemptedForOpenThread = useRef<string | null>(null);
-  useWarmNeighbourThreads({ threads, openThreadKey, emailAccountId });
+  const warmThread = useWarmNeighbourThreads({
+    threads,
+    activeThreadKey:
+      openThreadKey ?? (focusedThread ? getListThreadKey(focusedThread) : null),
+    emailAccountId,
+  });
 
   // Defer the pair as one value: rendering a new id with the previous account
   // would be worse than fetching eagerly when J/K moves between account rows.
@@ -1422,7 +1428,18 @@ export function MailShell() {
     [threadCount, selectedCount, selectAll, clearSelection],
   );
 
-  const showList = layout === "split" || !openThreadSelection;
+  // Opening from the list keeps the list on screen while the reader prepares
+  // the email out of sight, so the finished email replaces it in one frame.
+  // Once a thread is showing, the reader buffers moves between threads itself.
+  const readerPreparing =
+    layout === "list" &&
+    Boolean(openReaderThreadKey && readerEmailAccount) &&
+    visibleReaderThreadKey === undefined;
+  if (layout === "list" && !openReaderThreadKey && visibleReaderThreadKey) {
+    setVisibleReaderThreadKey(undefined);
+  }
+  const showList =
+    layout === "split" || !openThreadSelection || readerPreparing;
   const showReader = layout === "split" || Boolean(openThreadSelection);
   const readerUserLabels = isAllAccounts
     ? (labelsByAccount[openThreadSelection?.emailAccountId ?? ""] ?? NO_LABELS)
@@ -1491,7 +1508,7 @@ export function MailShell() {
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <MailEngineConnectionBanner />
-        <div className="flex min-h-0 min-w-0 flex-1">
+        <div className="relative flex min-h-0 min-w-0 flex-1">
           {showList && (
             <MailListPanel layout={layout}>
               <ListToolbar
@@ -1580,6 +1597,7 @@ export function MailShell() {
                       isSelected={selection.isSelected}
                       selectedCount={selection.selectedCount}
                       onOpenThread={openAt}
+                      onHoverThread={warmThread}
                       onToggleSelect={selection.toggle}
                       onSelectRangeTo={selection.selectRangeTo}
                       showLoadMore={hasMore}
@@ -1602,7 +1620,12 @@ export function MailShell() {
           )}
 
           {showReader ? (
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <div
+              className={cn(
+                "flex min-h-0 min-w-0 flex-1 flex-col",
+                readerPreparing && "invisible absolute inset-0",
+              )}
+            >
               <MailReaderPane
                 readerEmailAccount={readerEmailAccount}
                 readerKey={openReaderThreadKey}
