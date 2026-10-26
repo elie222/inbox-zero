@@ -251,7 +251,7 @@ export function SplitTabs({
                     countLabel ? `${countLabel} in this view` : undefined
                   }
                   className={cn(
-                    "relative flex select-none items-center gap-1.5 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    "relative flex select-none items-center gap-1.5 py-2 text-sm focus-visible:outline-none",
                     active
                       ? "font-medium text-foreground"
                       : "text-muted-foreground hover:text-foreground",
