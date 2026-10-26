@@ -245,7 +245,7 @@
 .preservedToggle {
   display: flex;
   align-items: center;
-  min-height: 2.25rem;
+  min-height: var(--email-editor-preserved-toggle-height);
   padding: 0.25rem 0;
   font-size: 0.75rem;
   color: inherit;
@@ -259,10 +259,6 @@
 .preservedToggle:focus-visible {
   color: var(--email-editor-foreground);
   outline: none;
-}
-
-[data-inline-reply="true"] .preservedToggle {
-  min-height: 1.5rem;
 }
 
 .quotePreview {
@@ -286,10 +282,29 @@
 }
 
 .squireBody {
+  --email-editor-preserved-toggle-height: 2.25rem;
+
   position: relative;
   display: flex;
   flex-direction: column;
   min-height: var(--email-editor-content-min-height, 200px);
+}
+
+[data-inline-reply="true"] .squireBody {
+  --email-editor-preserved-toggle-height: 1.5rem;
+}
+
+.squireBody[data-email-signature-expanded="true"]
+  .squireContent
+  > [data-smartmail] {
+  margin-top: var(--email-editor-preserved-toggle-height);
+}
+
+.signatureToggle {
+  position: absolute;
+  right: 0;
+  left: 0;
+  z-index: 1;
 }
 
 .squireBody[data-email-editor-empty] > .squireContent > :first-child::before {
@@ -327,26 +342,6 @@
   flex: 1;
   min-height: 0.75rem;
   cursor: text;
-}
-
-.squireRemoveSignature {
-  position: absolute;
-  right: 0.5rem;
-  width: 1.75rem;
-  height: 1.75rem;
-  font-size: 1.1rem;
-  color: var(--email-editor-muted-foreground);
-  cursor: pointer;
-  background: transparent;
-  border: 0;
-  border-radius: 999px;
-}
-
-.squireRemoveSignature:hover,
-.squireRemoveSignature:focus-visible {
-  color: var(--email-editor-foreground);
-  outline: none;
-  background: var(--email-editor-muted);
 }
 
 .squireToolbar {

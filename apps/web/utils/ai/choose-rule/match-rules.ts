@@ -14,6 +14,7 @@ import { ConditionType } from "@/utils/config";
 import prisma from "@/utils/prisma";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
+import { convertEmailHtmlToText } from "@/utils/mail";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Logger } from "@/utils/logger";
 import type {
@@ -30,6 +31,8 @@ import {
 import { isCalendarInvite } from "@/utils/parse/calender-event";
 import { checkSenderReplyHistory } from "@/utils/reply-tracker/check-sender-reply-history";
 import {
+  createAnchoredAddressRegex,
+  globToRegexSource,
   isAddressLikeEmailPattern,
   splitEmailPatterns,
 } from "@/utils/rule/email-from-pattern";
@@ -730,7 +733,7 @@ export function matchesStaticRule(
     ? matchesTextPattern(subject, message.headers.subject, log)
     : true;
   const bodyMatch = body
-    ? matchesTextPattern(body, message.textPlain || "", log)
+    ? matchesTextPattern(body, getStaticMatchBodyText(message), log)
     : true;
 
   return fromMatch && toMatch && subjectMatch && bodyMatch;
@@ -987,31 +990,9 @@ function matchesRulePattern(pattern: string, text: string) {
   return createRulePatternRegex(pattern).test(text);
 }
 
-// Escape regex metacharacters, then turn the `*` glob into `.*`.
-function globToRegexSource(pattern: string) {
-  return pattern.replace(/[.+?^${}()[\]\\]/g, "\\$&").replace(/\*/g, ".*");
-}
-
 // Unanchored: intended for subject/body keyword and display-name substring matching.
 function createRulePatternRegex(pattern: string) {
   return new RegExp(globToRegexSource(pattern));
-}
-
-// Anchored: for from/to address patterns, so a pattern matches a whole address
-// boundary and cannot be satisfied by a spoofed prefix/suffix (e.g. a rule for
-// `boss@company.com` must not match `boss@company.com.evil.com`).
-function createAnchoredAddressRegex(pattern: string) {
-  // `@domain` → any local part, exact domain (no subdomain), e.g. user@domain.
-  if (pattern.startsWith("@")) {
-    return new RegExp(`^.*${globToRegexSource(pattern)}$`);
-  }
-  // `local@domain` → exact address (local part may contain `*` wildcards).
-  if (pattern.includes("@")) {
-    return new RegExp(`^${globToRegexSource(pattern)}$`);
-  }
-  // Bare domain → addresses at that domain or a subdomain (`@domain`/`.domain`),
-  // but not a lookalike domain (e.g. `example.com` must not match myexample.com).
-  return new RegExp(`^.*[@.]${globToRegexSource(pattern)}$`);
 }
 
 function matchesEmailFieldPattern({
@@ -1064,4 +1045,19 @@ function logInvalidEmailMatchPattern({
 }) {
   logger.error("Invalid email match pattern");
   logger.trace("Invalid email match pattern details", { pattern, error });
+}
+
+// Outlook returns most bodies as HTML only, and many senders send no
+// text/plain part, so match the HTML's visible text rather than an empty
+// string. Matching is case-sensitive and `*` doesn't cross line breaks, so
+// keep headings in the case the reader sees and don't wrap lines, either of
+// which would stop a phrase from matching.
+function getStaticMatchBodyText(message: ParsedMessage) {
+  if (message.textPlain) return message.textPlain;
+  if (!message.textHtml) return "";
+  return convertEmailHtmlToText({
+    htmlText: message.textHtml,
+    wordwrap: false,
+    uppercaseHeadings: false,
+  });
 }

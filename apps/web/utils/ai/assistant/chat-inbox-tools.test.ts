@@ -9,9 +9,7 @@ import {
   forwardEmailTool,
   getAccountOverviewTool,
   getSenderCategorizationStatusTool,
-  getSenderCategoryOverviewTool,
   manageInboxTool,
-  manageSenderCategoryTool,
   replyEmailTool,
   searchInboxTool,
   sendEmailTool,
@@ -2149,36 +2147,6 @@ describe("chat inbox tools - sender categories", () => {
     mockValidateUserAndAiAccess.mockResolvedValue(undefined);
   });
 
-  it("getSenderCategoryOverview returns the shared overview payload", async () => {
-    mockGetCategoryOverview.mockResolvedValue({
-      autoCategorizeSenders: true,
-      categorization: {
-        status: "completed",
-        totalItems: 4,
-        completedItems: 4,
-        remainingItems: 0,
-        message: "Sender categorization completed for 4 senders.",
-      },
-      categorizedSenderCount: 12,
-      uncategorizedSenderCount: 3,
-      categories: [],
-    });
-
-    const toolInstance = getSenderCategoryOverviewTool({
-      email: TEST_EMAIL,
-      emailAccountId: "email-account-1",
-      logger,
-    });
-
-    const result = await (toolInstance.execute as any)({});
-
-    expect(mockGetCategoryOverview).toHaveBeenCalledWith({
-      emailAccountId: "email-account-1",
-    });
-    expect(createEmailProvider).not.toHaveBeenCalled();
-    expect(result.categorizedSenderCount).toBe(12);
-  });
-
   it("startSenderCategorization delegates to the shared start helper", async () => {
     vi.mocked(createEmailProvider).mockResolvedValue({
       provider: "google",
@@ -2328,41 +2296,5 @@ describe("chat inbox tools - sender categories", () => {
     });
 
     vi.useRealTimers();
-  });
-
-  it("manageSenderCategory delegates to the archive helper", async () => {
-    vi.mocked(createEmailProvider).mockResolvedValue({
-      provider: "google",
-    } as any);
-    mockArchiveCategory.mockResolvedValue({
-      success: true,
-      action: "archive_category",
-      category: { id: "cat-1", name: "Newsletters" },
-      sendersCount: 6,
-      senders: ["one@example.com"],
-      message: 'Archived mail from 6 senders in "Newsletters".',
-    });
-
-    const toolInstance = manageSenderCategoryTool({
-      email: TEST_EMAIL,
-      emailAccountId: "email-account-1",
-      provider: "google",
-      logger,
-    });
-
-    const result = await (toolInstance.execute as any)({
-      action: "archive_category",
-      categoryId: "cat-1",
-    });
-
-    expect(mockArchiveCategory).toHaveBeenCalledWith({
-      email: TEST_EMAIL,
-      emailAccountId: "email-account-1",
-      emailProvider: { provider: "google" },
-      logger,
-      categoryId: "cat-1",
-      categoryName: undefined,
-    });
-    expect(result.sendersCount).toBe(6);
   });
 });

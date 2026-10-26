@@ -7,7 +7,6 @@ import {
   isSentMessageOpenPixelUrl,
   isSentMessageOpenToken,
   mergeSentMessageOpenResponses,
-  sentMessageOpenPath,
   stripSentMessageOpenPixels,
 } from "./sent-message-open";
 
@@ -111,12 +110,6 @@ describe("isSameOriginSentMessageOpenRequest", () => {
         referer: null,
       }),
     ).toBe(false);
-  });
-});
-
-describe("sentMessageOpenPath", () => {
-  it("builds the public pixel path", () => {
-    expect(sentMessageOpenPath(token)).toBe(`/t/${token}`);
   });
 });
 

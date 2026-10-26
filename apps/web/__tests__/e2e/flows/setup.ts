@@ -25,7 +25,10 @@ import { logStep } from "./helpers/logging";
 vi.mock("@/utils/redis/message-processing", () => ({
   acquireOutboundMessageLock: vi.fn().mockResolvedValue("lock-token-1"),
   clearOutboundMessageLock: vi.fn().mockResolvedValue(true),
-  markMessageAsProcessing: vi.fn().mockResolvedValue(true),
+  withMessageProcessingLock: vi.fn(async (_key, fn) => {
+    await fn();
+    return { skipped: false };
+  }),
   markOutboundMessageProcessed: vi.fn().mockResolvedValue(true),
 }));
 

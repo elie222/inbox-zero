@@ -110,7 +110,7 @@ export const EVAL_MODEL_CATALOG: Record<string, EvalModel> = {
 /**
  * Returns the list of models to evaluate against.
  *
- * - Not set:                         single run with default env-configured model
+ * - Not set:                         single run with the default model from describeEvalMatrix
  * - EVAL_MODELS=all                  every model in the catalog
  * - EVAL_MODELS=gemini-2.5-flash     single model by shorthand
  * - EVAL_MODELS=gemini-2.5-flash,gpt-5.4-mini   comma-separated shorthand picks

@@ -304,7 +304,6 @@ test("opens and sends a reply from the reader with Enter", async ({
   const replyBody = `A reply sent through the mail reader. ${testInfo.retry}`;
   await replyEditor.pressSequentially(replyBody);
   await expect(replyEditor).toContainText(replyBody);
-  await capturePlaywrightCheckpoint(page, testInfo, "inline-reply-divider");
   const sendButton = page.getByRole("button", { name: "Send", exact: true });
   await expect(sendButton).toHaveText("Send");
 
@@ -800,7 +799,7 @@ test("shows the files a forward carries", async ({ page }, testInfo) => {
   await conversationWithSubject(
     page,
     conversations,
-    "Re: Reader Visual Message",
+    "Reader Visual Message",
   ).click();
   const sourceMessage = page
     .locator("[data-thread-message-id]")

@@ -21,7 +21,7 @@ test("opens a complete conversation and updates its read state", async ({
   const readerConversation = conversationWithSubject(
     page,
     conversations,
-    "Re: Reader Navigation Message",
+    "Reader Navigation Message",
   );
   await expect(readerConversation).toBeVisible();
   await expect(
@@ -39,7 +39,7 @@ test("opens a complete conversation and updates its read state", async ({
   await readerConversation.click();
 
   await expect(
-    page.getByRole("heading", { name: "Re: Reader Navigation Message" }),
+    page.getByRole("heading", { name: "Reader Navigation Message" }),
   ).toBeVisible();
   await expectThreadReaderBody(
     page,
@@ -120,12 +120,12 @@ test("opens a conversation from the engine without a thread-detail HTTP fetch", 
   const readerConversation = conversationWithSubject(
     page,
     conversations,
-    "Re: Reader Navigation Message",
+    "Reader Navigation Message",
   );
   await readerConversation.click();
   await expect.poll(() => threadDetailRequestCount).toBe(0);
   await expect(
-    page.getByRole("heading", { name: "Re: Reader Navigation Message" }),
+    page.getByRole("heading", { name: "Reader Navigation Message" }),
   ).toBeVisible();
   await expect(page.getByTestId("thread-reader")).toHaveAttribute(
     "data-detail-selection-settled",
@@ -135,7 +135,7 @@ test("opens a conversation from the engine without a thread-detail HTTP fetch", 
   releaseFirstRequest.resolve();
 
   await expect(
-    page.getByRole("heading", { name: "Re: Reader Navigation Message" }),
+    page.getByRole("heading", { name: "Reader Navigation Message" }),
   ).toBeVisible();
   await expectThreadReaderBody(
     page,
@@ -271,11 +271,6 @@ test("creates and edits a label and shows every keyboard workflow", async ({
     .click({ button: "right" });
   const editMenuItem = page.getByRole("menuitem", { name: "Edit" });
   await expect(editMenuItem).toBeVisible();
-  await capturePlaywrightCheckpoint(
-    page,
-    testInfo,
-    `${playwrightMailProvider}-label-context-menu`,
-  );
   await editMenuItem.click();
   const editDialog = page.getByRole("dialog", { name: `Edit ${labelType}` });
   if (playwrightMailProvider === "microsoft") {

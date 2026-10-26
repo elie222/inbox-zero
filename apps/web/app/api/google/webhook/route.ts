@@ -1,4 +1,5 @@
 import { after, NextResponse } from "next/server";
+import { z } from "zod";
 import { withError } from "@/utils/middleware";
 import { env } from "@/env";
 import { processHistoryForUser } from "@/utils/webhook/google/process-history";
@@ -46,6 +47,16 @@ export const POST = withError("google/webhook", async (request) => {
 
   const body = await request.json();
   const decodedData = decodeHistoryId(body);
+
+  // A malformed payload can never be processed; report it as a client error
+  // rather than letting a TypeError surface as a 500.
+  if (!decodedData) {
+    logger.warn("Invalid Gmail Pub/Sub notification payload");
+    return NextResponse.json(
+      { message: "Invalid Pub/Sub message payload" },
+      { status: 400 },
+    );
+  }
 
   logger = logger.with({
     email: decodedData.emailAddress,
@@ -141,24 +152,29 @@ async function processWebhookAsync(
   }
 }
 
+const gmailNotificationSchema = z.object({
+  emailAddress: z.string().min(1),
+  historyId: z
+    .union([z.number(), z.string()])
+    .transform((historyId) =>
+      typeof historyId === "number" ? historyId.toString() : historyId.trim(),
+    )
+    .pipe(z.string().regex(/^\d+$/)),
+});
+
 function decodeHistoryId(body: { message?: { data?: string } }) {
   const data = body?.message?.data;
-
-  if (!data) throw new Error("No data found");
+  if (!data) return null;
 
   // data is base64url-encoded JSON
   const base64 = data.replace(/-/g, "+").replace(/_/g, "/");
-  const decodedData: { emailAddress: string; historyId: number | string } =
-    JSON.parse(Buffer.from(base64, "base64").toString());
+  let decoded: unknown;
+  try {
+    decoded = JSON.parse(Buffer.from(base64, "base64").toString());
+  } catch {
+    return null;
+  }
 
-  const historyId = normalizeHistoryId(decodedData.historyId);
-
-  return { emailAddress: decodedData.emailAddress, historyId };
-}
-
-function normalizeHistoryId(historyId: number | string) {
-  const normalized =
-    typeof historyId === "number" ? historyId.toString() : historyId.trim();
-  if (!/^\d+$/.test(normalized)) throw new Error("Invalid historyId");
-  return normalized;
+  const result = gmailNotificationSchema.safeParse(decoded);
+  return result.success ? result.data : null;
 }

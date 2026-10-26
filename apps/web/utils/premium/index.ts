@@ -291,9 +291,20 @@ export function getPremiumUserFilter({
       premium: {
         OR: [
           {
+            // Matches hasActiveAppleSubscription: grace-period and billing-retry
+            // subscriptions stay active after their stored expiry has passed.
             AND: [
-              { appleExpiresAt: { gt: now } },
               { appleRevokedAt: null },
+              {
+                OR: [
+                  { appleExpiresAt: { gt: now } },
+                  {
+                    appleSubscriptionStatus: {
+                      in: [...APPLE_ACTIVE_STATUSES],
+                    },
+                  },
+                ],
+              },
               ...tierFilter,
             ],
           },

@@ -1,4 +1,4 @@
-import he from "he";
+import * as he from "he";
 import { isHost } from "@/utils/meeting-recorder/normalize-meeting-url";
 
 // Keep these hosts in sync with normalizeMeetingUrl: links extracted here

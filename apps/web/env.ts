@@ -290,6 +290,10 @@ const parsedEnv = createEnv({
     // `fake` records sends in memory instead of contacting Apple. Emulator only.
     APNS_TRANSPORT: z.enum(["apns", "fake"]).optional(),
 
+    FCM_SERVICE_ACCOUNT_JSON: z.string().min(1).optional(),
+    FCM_PROJECT_ID: z.string().min(1).optional(),
+    FCM_TRANSPORT: z.enum(["fcm", "fake"]).optional(),
+
     TINYBIRD_TOKEN: z.string().optional(),
     TINYBIRD_DELETE_TOKEN: z.string().optional(),
     TINYBIRD_BASE_URL: z.string().default("https://api.us-east.tinybird.co/"),

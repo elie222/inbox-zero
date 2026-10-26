@@ -1,7 +1,7 @@
 import groupBy from "lodash/groupBy";
 import sortBy from "lodash/sortBy";
 import { capitalCase } from "capital-case";
-import he from "he";
+import * as he from "he";
 import { HoverCard } from "@/components/HoverCard";
 import { Badge } from "@/components/Badge";
 import { conditionTypesToString } from "@/utils/condition";

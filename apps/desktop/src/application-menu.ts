@@ -1,4 +1,10 @@
-import { app, Menu, type MenuItemConstructorOptions } from "electron";
+import {
+  app,
+  type BaseWindow,
+  BrowserWindow,
+  Menu,
+  type MenuItemConstructorOptions,
+} from "electron";
 
 const PRODUCT_NAME = "Inbox Zero";
 
@@ -92,7 +98,31 @@ export function configureDesktopApplicationMenu({
       ],
     },
     { role: "editMenu" },
-    { role: "viewMenu" },
+    {
+      label: "View",
+      submenu: [
+        {
+          label: "Back",
+          accelerator: "CommandOrControl+[",
+          click: (_item, window) => navigationHistory(window)?.goBack(),
+        },
+        {
+          label: "Forward",
+          accelerator: "CommandOrControl+]",
+          click: (_item, window) => navigationHistory(window)?.goForward(),
+        },
+        { type: "separator" },
+        { role: "reload" },
+        { role: "forceReload" },
+        { role: "toggleDevTools" },
+        { type: "separator" },
+        { role: "resetZoom" },
+        { role: "zoomIn" },
+        { role: "zoomOut" },
+        { type: "separator" },
+        { role: "togglefullscreen" },
+      ],
+    },
     { role: "windowMenu" },
     { role: "help", submenu: helpSubmenu },
   ];
@@ -104,4 +134,10 @@ function updateMenuLabel(updateReady: boolean, downloadPercent: number | null) {
   if (updateReady) return "Restart to Update";
   if (downloadPercent === null) return "Check for Updates…";
   return `Downloading update… ${downloadPercent}%`;
+}
+
+function navigationHistory(window: BaseWindow | undefined) {
+  return window instanceof BrowserWindow
+    ? window.webContents.navigationHistory
+    : null;
 }

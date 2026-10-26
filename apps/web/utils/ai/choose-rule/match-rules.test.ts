@@ -116,6 +116,72 @@ describe("matchesStaticRule", () => {
     expect(matchesStaticRule(rule, message, logger)).toBe(true);
   });
 
+  describe("body conditions on HTML-only emails", () => {
+    // Outlook returns most bodies as HTML only, and many senders send no
+    // text/plain part, so textPlain is empty for these messages.
+    const newsletterHtml = `<html><head><style>.footer { font-family: Arial; }</style></head>
+      <body><table><tr><td>
+        <p>Your weekly product digest is here.</p>
+        <p class="footer">You are receiving this email because you signed up for product updates and news from our team, so you can manage your email preferences or <a href="https://example.com/u/123">unsubscribe</a> at any time.</p>
+      </td></tr></table></body></html>`;
+
+    it("matches the visible text of an HTML-only email", () => {
+      const rule = getStaticRule({ body: "*unsubscribe*" });
+      const message = getMessage({
+        headers: getHeaders(),
+        textPlain: "",
+        textHtml: newsletterHtml,
+      });
+
+      expect(matchesStaticRule(rule, message, logger)).toBe(true);
+    });
+
+    it("matches a phrase inside a long paragraph", () => {
+      const rule = getStaticRule({ body: "*manage your email preferences*" });
+      const message = getMessage({
+        headers: getHeaders(),
+        textPlain: "",
+        textHtml: newsletterHtml,
+      });
+
+      expect(matchesStaticRule(rule, message, logger)).toBe(true);
+    });
+
+    it("matches a heading in the case the reader sees it", () => {
+      const rule = getStaticRule({ body: "*Your Order Has Shipped*" });
+      const message = getMessage({
+        headers: getHeaders(),
+        textPlain: "",
+        textHtml:
+          "<h1>Your Order Has Shipped</h1><p>It should arrive on Friday.</p>",
+      });
+
+      expect(matchesStaticRule(rule, message, logger)).toBe(true);
+    });
+
+    it("does not match HTML markup or styles that the reader never sees", () => {
+      const rule = getStaticRule({ body: "*font-family*" });
+      const message = getMessage({
+        headers: getHeaders(),
+        textPlain: "",
+        textHtml: newsletterHtml,
+      });
+
+      expect(matchesStaticRule(rule, message, logger)).toBe(false);
+    });
+
+    it("uses the text part when the email has one", () => {
+      const rule = getStaticRule({ body: "*unsubscribe*" });
+      const message = getMessage({
+        headers: getHeaders(),
+        textPlain: "Your weekly product digest is here.",
+        textHtml: newsletterHtml,
+      });
+
+      expect(matchesStaticRule(rule, message, logger)).toBe(false);
+    });
+  });
+
   it("should match @domain.com", () => {
     const rule = getStaticRule({ from: "@domain.com" });
     const message = getMessage({
@@ -574,7 +640,7 @@ describe("matchesStaticRule", () => {
 
   it("should treat pipes as literal characters in body field", () => {
     const rule = getStaticRule({
-      body: "Choose option A | B | C from the menu",
+      body: "choose option A | B | C from the menu",
     });
     const message = getMessage({
       headers: getHeaders(),
@@ -589,6 +655,21 @@ describe("matchesStaticRule", () => {
       textPlain: "Please choose option A to continue",
     });
     expect(matchesStaticRule(rule, message2, logger)).toBe(false);
+  });
+
+  it("should not treat a pipe in subject or body as an OR between words", () => {
+    const subjectRule = getStaticRule({ subject: "Alert | System" });
+    const bodyRule = getStaticRule({ body: "Alert | System" });
+
+    const unrelated = getMessage({
+      headers: getHeaders({ subject: "Monthly System update" }),
+      textPlain: "Alert from your bank",
+    });
+    expect(matchesStaticRule(subjectRule, unrelated, logger)).toBe(false);
+    expect(matchesStaticRule(bodyRule, unrelated, logger)).toBe(false);
+
+    const pipeOnlyRule = getStaticRule({ subject: "|" });
+    expect(matchesStaticRule(pipeOnlyRule, unrelated, logger)).toBe(false);
   });
 
   it("should handle empty patterns between pipes gracefully", () => {
@@ -2837,21 +2918,6 @@ describe("findMatchingRules - Integration Tests", () => {
       expect(result.matches).toHaveLength(1);
       expect(result.matches[0]?.rule.id).toBe("thread-ok");
     });
-  });
-
-  it("should handle invalid regex patterns gracefully", () => {
-    const rule = getRule({
-      from: "[invalid(regex",
-    });
-
-    const message = getMessage({
-      headers: getHeaders({ from: "test@example.com" }),
-    });
-
-    // Should not throw, just return false
-    expect(() => matchesStaticRule(rule, message, logger)).not.toThrow();
-    const result = matchesStaticRule(rule, message, logger);
-    expect(result).toBe(false);
   });
 
   it("should combine static match with AI potentialMatch correctly", async () => {

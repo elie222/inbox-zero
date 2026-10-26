@@ -3,6 +3,8 @@ import {
   type Experimental_DecisionModelV4,
   type Experimental_DecisionModelV4Answer,
   type Experimental_DecisionModelV4Question,
+  type Experimental_DecisionModelV4State,
+  UnsupportedFunctionalityError,
 } from "@ai-sdk/provider";
 import { z } from "zod";
 
@@ -63,7 +65,7 @@ export function createSystemOneDecisionModel({
         },
         body: JSON.stringify({
           model: modelId,
-          state,
+          state: toSystemOneState(state),
           questions: Object.fromEntries(
             Object.entries(questions).map(([id, question]) => [
               id,
@@ -118,6 +120,16 @@ export function createSystemOneDecisionModel({
       };
     },
   };
+}
+
+function toSystemOneState(state: Experimental_DecisionModelV4State) {
+  const [part, ...rest] = state;
+  if (part?.type !== "json" || rest.length > 0) {
+    throw new UnsupportedFunctionalityError({
+      functionality: "decision state other than a single JSON part",
+    });
+  }
+  return part.value;
 }
 
 function toSystemOneQuestion(question: Experimental_DecisionModelV4Question) {

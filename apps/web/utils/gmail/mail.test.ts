@@ -8,6 +8,7 @@ import {
   buildReplyMessageText,
   createMail,
   forwardEmail,
+  replyToEmail,
   convertTextToHtmlParagraphs,
   stripHtmlTagsForPlainText,
 } from "@/utils/gmail/mail";
@@ -201,6 +202,42 @@ it.each([
       { signal: undefined },
     );
   }
+});
+
+describe("replyToEmail", () => {
+  it("adds CC and BCC recipients to the sent reply", async () => {
+    const send = vi.fn().mockResolvedValue({ data: { id: "sent-1" } });
+    const gmail = {
+      users: { messages: { send } },
+    } as unknown as gmail_v1.Gmail;
+
+    await replyToEmail(
+      gmail,
+      {
+        threadId: "thread-1",
+        headers: {
+          from: "sender@example.com",
+          to: "owner@example.com",
+          subject: "Question",
+          date: "2026-01-01",
+          "message-id": "<original@example>",
+        },
+        textPlain: "Original",
+        textHtml: "<p>Original</p>",
+      },
+      "Thanks",
+      "owner@example.com",
+      { cc: "manager@example.com", bcc: "archive@example.com" },
+    );
+
+    const raw = Buffer.from(
+      send.mock.calls[0][0].requestBody.raw,
+      "base64url",
+    ).toString("utf8");
+    expect(raw).toContain("To: sender@example.com");
+    expect(raw).toContain("Cc: manager@example.com");
+    expect(raw).toContain("Bcc: archive@example.com");
+  });
 });
 
 vi.mock("@/utils/mail", async (importOriginal) => ({

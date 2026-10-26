@@ -152,6 +152,50 @@ describe("mail client queries", () => {
     }
   });
 
+  it("titles a conversation by its first message, not a newer reply", async () => {
+    const store = await createSqliteMailStore(
+      createNodeSqliteDriver(":memory:"),
+    );
+    try {
+      await store.ensureAccount({
+        accountId: "acc-1",
+        provider: "google",
+        generation: "g1",
+      });
+      const original = messagePatch("original", "conversation", 1000, [
+        "inbox",
+      ]);
+      original.fields.subject = "Original subject";
+      const reply = messagePatch("reply", "conversation", 2000, ["sent"]);
+      reply.fields.subject = "Re: Original subject";
+      await store.applySyncPage({
+        ownerId: "owner",
+        page: {
+          session: { accountId: "acc-1", generation: "g1" },
+          requestId: "bootstrap",
+          from: { streamId: "primary", generation: "g1", checkpoint: null },
+          to: { streamId: "primary", generation: "g1", checkpoint: "1" },
+          changes: [original, reply],
+          requiredHydration: [],
+          roundComplete: true,
+        },
+      });
+      const result = await store.readMailboxView({
+        accountIds: ["acc-1"],
+        predicate: mailboxPredicate("all"),
+        order: "newest_first",
+        pageSize: 25,
+        after: null,
+      });
+      expect(result.view.conversations[0]).toMatchObject({
+        subject: "Original subject",
+        preview: "reply",
+      });
+    } finally {
+      await store.close();
+    }
+  });
+
   it("counts archive unreads from the whole conversation", async () => {
     const directory = await mkdtemp(join(tmpdir(), "mail-archive-unread-"));
     const store = await createSqliteMailStore(

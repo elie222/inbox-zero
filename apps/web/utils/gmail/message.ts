@@ -131,6 +131,17 @@ export async function getMessage(
   });
 }
 
+/** The message exactly as the server stores it, headers and MIME parts included. */
+export async function getRawMessage(
+  messageId: string,
+  gmail: gmail_v1.Gmail,
+): Promise<Buffer> {
+  const message = await withGmailRetry(() =>
+    gmail.users.messages.get({ userId: "me", id: messageId, format: "raw" }),
+  );
+  return Buffer.from(message.data.raw ?? "", "base64url");
+}
+
 export async function getMessageByRfc822Id(
   rfc822MessageId: string,
   gmail: gmail_v1.Gmail,

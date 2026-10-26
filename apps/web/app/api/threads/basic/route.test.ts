@@ -43,6 +43,25 @@ describe("GET /api/threads/basic", () => {
     vi.clearAllMocks();
   });
 
+  it("passes the thread type to the provider so callers can search all mail", async () => {
+    mockGetThreadsWithQuery.mockResolvedValue({ threads: [] });
+
+    await GET(
+      new NextRequest(
+        "http://localhost:3000/api/threads/basic?fromEmail=sender%40example.com&type=all",
+      ),
+    );
+
+    expect(mockGetThreadsWithQuery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: expect.objectContaining({
+          fromEmail: "sender@example.com",
+          type: "all",
+        }),
+      }),
+    );
+  });
+
   it("preserves provider rate limits as a known 429 response", async () => {
     mockGetThreadsWithQuery.mockRejectedValue(
       new Error("Batch request failed", {

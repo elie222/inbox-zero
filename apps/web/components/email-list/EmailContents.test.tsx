@@ -49,6 +49,7 @@ vi.mock("@/env", () => ({
 import { HtmlEmail, PlainEmail } from "./EmailContents";
 import { ShortcutsProvider } from "@/lib/shortcuts/ShortcutsProvider";
 import { useShortcuts } from "@/lib/shortcuts/useShortcuts";
+import type { ParsedMessage } from "@/utils/types";
 
 (globalThis as { React?: typeof React }).React = React;
 
@@ -234,6 +235,28 @@ describe("HtmlEmail", () => {
     expect(iframe.style.height).toBe("");
     await act(async () => {});
     expect(fetch).toHaveBeenCalledOnce();
+  });
+
+  // A sent reply keeps its row when the provider's copy replaces the outgoing
+  // one, and that copy needs its own proxy preparation.
+  it("keeps the current body on screen while a new message id is prepared", async () => {
+    const view = render(
+      <HtmlEmail html="<p>Reply</p>" messageId="outgoing:send-1" />,
+    );
+    const frame = await view.findByTitle("Email content preview");
+    const preparation = Promise.withResolvers<Response>();
+    vi.mocked(fetch).mockReturnValue(preparation.promise);
+
+    view.rerender(
+      <HtmlEmail html="<p>Reply</p><p>Sent</p>" messageId="sent-1" />,
+    );
+    await act(async () => {});
+
+    expect(view.getByTitle("Email content preview")).toBe(frame);
+
+    await act(async () =>
+      preparation.resolve(Response.json({ html: "<p>Reply</p><p>Sent</p>" })),
+    );
   });
 
   it("keeps https images allowed when proxy rewriting leaves the html unchanged", async () => {
@@ -583,7 +606,7 @@ describe("HtmlEmail", () => {
     );
 
     unmount();
-    expect(revokeObjectUrl).toHaveBeenCalledWith(objectUrl);
+    expect(revokeObjectUrl).not.toHaveBeenCalled();
   });
 
   it("keeps loaded cid images when the message is republished with the same attachments", async () => {
@@ -640,6 +663,134 @@ describe("HtmlEmail", () => {
     expect(createObjectUrl).toHaveBeenCalledOnce();
     expect(revokeObjectUrl).not.toHaveBeenCalled();
   });
+
+  it("keeps loaded cid images when the message is republished without attachment metadata", async () => {
+    const html = '<img src="cid:badge@inboxzero.local" />';
+    const objectUrl = "blob:https://app.example.com/badge";
+    fetchAttachment.mockResolvedValue(
+      new Blob(["image"], { type: "image/png" }),
+    );
+    vi.spyOn(URL, "createObjectURL").mockReturnValue(objectUrl);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ html }) }),
+    );
+    const renderEmail = (inlineAttachments: ParsedMessage["inline"]) => (
+      <HtmlEmail
+        emailAccountId="account-1"
+        html={html}
+        inlineAttachments={inlineAttachments}
+        messageId="message-sync-republished"
+      />
+    );
+
+    const { getByTitle, queryByTitle, rerender } = render(
+      renderEmail([inlineImageAttachment("badge@inboxzero.local")]),
+    );
+    await waitFor(() =>
+      expect(
+        getByTitle("Email content preview").getAttribute("srcdoc"),
+      ).toContain(`src="${objectUrl}"`),
+    );
+
+    rerender(renderEmail([]));
+    await act(async () => {});
+
+    expect(queryByTitle("Preparing email content preview")).toBeNull();
+    expect(
+      getByTitle("Email content preview").getAttribute("srcdoc"),
+    ).toContain(`src="${objectUrl}"`);
+    expect(fetchAttachment).toHaveBeenCalledOnce();
+  });
+
+  it("shows loaded cid images immediately when the email is reopened", async () => {
+    const html = '<img src="cid:chart@inboxzero.local" />';
+    const objectUrl = "blob:https://app.example.com/chart";
+    fetchAttachment.mockResolvedValue(
+      new Blob(["image"], { type: "image/png" }),
+    );
+    vi.spyOn(URL, "createObjectURL").mockReturnValue(objectUrl);
+    const revokeObjectUrl = vi.spyOn(URL, "revokeObjectURL");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ html }) }),
+    );
+    const renderEmail = () => (
+      <HtmlEmail
+        emailAccountId="account-1"
+        html={html}
+        inlineAttachments={[inlineImageAttachment("chart@inboxzero.local")]}
+        messageId="message-reopened-inline"
+      />
+    );
+
+    const firstRender = render(renderEmail());
+    await waitFor(() =>
+      expect(
+        firstRender.getByTitle("Email content preview").getAttribute("srcdoc"),
+      ).toContain(`src="${objectUrl}"`),
+    );
+    firstRender.unmount();
+
+    const { getByTitle } = render(renderEmail());
+
+    expect(
+      getByTitle("Email content preview").getAttribute("srcdoc"),
+    ).toContain(`src="${objectUrl}"`);
+    await act(async () => {});
+    expect(fetchAttachment).toHaveBeenCalledOnce();
+    expect(revokeObjectUrl).not.toHaveBeenCalled();
+  });
+
+  it("does not revoke inline images of mounted messages when the cache is full", async () => {
+    fetchAttachment.mockResolvedValue(
+      new Blob(["image"], { type: "image/png" }),
+    );
+    const createObjectUrl = vi
+      .spyOn(URL, "createObjectURL")
+      .mockImplementation(
+        () =>
+          `blob:https://app.example.com/thread-${createObjectUrl.mock.calls.length}`,
+      );
+    const revokeObjectUrl = vi.spyOn(URL, "revokeObjectURL");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_input: string, init?: RequestInit) =>
+        Response.json({ html: JSON.parse(String(init?.body)).html }),
+      ),
+    );
+    const messageIds = Array.from(
+      { length: 21 },
+      (_, index) => `message-long-thread-${index}`,
+    );
+
+    const { unmount } = render(
+      <div>
+        {messageIds.map((messageId) => (
+          <HtmlEmail
+            key={messageId}
+            emailAccountId="account-1"
+            html={`<img src="cid:${messageId}@inboxzero.local" />`}
+            inlineAttachments={[
+              inlineImageAttachment(`${messageId}@inboxzero.local`),
+            ]}
+            messageId={messageId}
+          />
+        ))}
+      </div>,
+    );
+    await waitFor(() => expect(createObjectUrl).toHaveBeenCalledTimes(21));
+    const threadUrls = createObjectUrl.mock.results.map(
+      (result) => result.value,
+    );
+    const revokedThreadUrls = () =>
+      revokeObjectUrl.mock.calls.filter(([url]) => threadUrls.includes(url));
+
+    expect(revokedThreadUrls()).toEqual([]);
+
+    unmount();
+    expect(revokedThreadUrls()).not.toEqual([]);
+  });
 });
 
 describe("PlainEmail", () => {
@@ -657,6 +808,21 @@ describe("PlainEmail", () => {
     expect(container.textContent).not.toContain("&#39;");
   });
 });
+
+function inlineImageAttachment(contentId: string) {
+  return {
+    attachmentId: `attachment-${contentId}`,
+    filename: "image.png",
+    headers: {
+      "content-description": "",
+      "content-id": `<${contentId}>`,
+      "content-transfer-encoding": "base64",
+      "content-type": "image/png",
+    },
+    mimeType: "image/png",
+    size: 1024,
+  };
+}
 
 function addEmailDocumentMarker(
   iframe: HTMLIFrameElement,

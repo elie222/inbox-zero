@@ -108,7 +108,7 @@ function renderButton(button: MailReaderToolbarButton) {
       onClick={button.onClick}
       size="iconXs"
       title={button.title}
-      variant={button.variant}
+      variant="ghost"
     >
       {button.icon}
     </Button>

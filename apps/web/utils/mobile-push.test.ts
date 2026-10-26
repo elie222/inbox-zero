@@ -3,11 +3,18 @@ import { createTestLogger } from "@/__tests__/helpers";
 import { MobilePushTokenType } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
 import { deliverApnsNotifications } from "@/utils/apns";
+import { deliverFcmNotifications } from "@/utils/fcm";
 import { sendMobilePushNotification } from "./mobile-push";
 
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/apns", () => ({
   deliverApnsNotifications: vi.fn(async () => ({
+    unregisteredTokens: [],
+    retryTokens: [],
+  })),
+}));
+vi.mock("@/utils/fcm", () => ({
+  deliverFcmNotifications: vi.fn(async () => ({
     unregisteredTokens: [],
     retryTokens: [],
   })),
@@ -43,6 +50,7 @@ describe("sendMobilePushNotification", () => {
       expect.objectContaining({
         to: "ExponentPushToken[first]",
         title: "Verification code",
+        body: "Your verification code is 123456",
         expiration: new Date("2026-07-31T12:15:00.000Z").getTime() / 1000,
         data: {
           type: "otp",
@@ -52,6 +60,30 @@ describe("sendMobilePushNotification", () => {
       expect.objectContaining({
         to: "ExponentPushToken[second]",
       }),
+    ]);
+  });
+
+  it("folds the subtitle into the Expo body without sending a subtitle field", async () => {
+    mockClaimedTokens([{ id: "token-1", token: "ExponentPushToken[first]" }]);
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(Response.json({ data: [{ status: "ok" }] }));
+    await sendMobilePushNotification({
+      userId: "user-1",
+      deduplicationKey: "to-reply:account-1:message-1",
+      notification: {
+        title: "Alex",
+        subtitle: "Project plan",
+        body: "Please review the plan.",
+      },
+      logger,
+    });
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual([
+      {
+        to: "ExponentPushToken[first]",
+        title: "Alex",
+        body: "Project plan\nPlease review the plan.",
+      },
     ]);
   });
 
@@ -216,6 +248,50 @@ describe("sendMobilePushNotification", () => {
         notification: expect.objectContaining({ title: "Verification code" }),
       }),
     );
+  });
+
+  it("sends FCM tokens through FCM, pruning stale ones and releasing retryable ones", async () => {
+    mockClaimedTokens([
+      { id: "fcm-ok", token: "fcm-ok", tokenType: MobilePushTokenType.FCM },
+      {
+        id: "fcm-stale",
+        token: "fcm-stale",
+        tokenType: MobilePushTokenType.FCM,
+      },
+      {
+        id: "fcm-busy",
+        token: "fcm-busy",
+        tokenType: MobilePushTokenType.FCM,
+      },
+    ]);
+    vi.mocked(deliverFcmNotifications).mockResolvedValueOnce({
+      unregisteredTokens: ["fcm-stale"],
+      retryTokens: ["fcm-busy"],
+    });
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+
+    await sendNotification();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(deliverApnsNotifications).not.toHaveBeenCalled();
+    expect(deliverFcmNotifications).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tokens: ["fcm-ok", "fcm-stale", "fcm-busy"],
+        notification: expect.objectContaining({
+          title: "Verification code",
+          channelId: "otp",
+        }),
+      }),
+    );
+    expect(prisma.mobilePushToken.deleteMany).toHaveBeenCalledWith({
+      where: { id: { in: ["fcm-stale"] } },
+    });
+    expect(prisma.mobilePushDelivery.deleteMany).toHaveBeenCalledWith({
+      where: {
+        deduplicationKey: "otp:account-1:message-1",
+        mobilePushTokenId: { in: ["fcm-busy"] },
+      },
+    });
   });
 
   it("keeps claims when Expo returns fewer tickets than requested", async () => {
