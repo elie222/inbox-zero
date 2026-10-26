@@ -717,6 +717,28 @@ describe("queryBatchMessages", () => {
     ).rejects.toBe(notFound);
   });
 
+  it.each([
+    ["search pages", "$search=%22report%22&$top=20&$skip=40"],
+    ["oversized pages", "$top=1000&$skip=40"],
+  ])("does not read %s one message at a time", async (_name, query) => {
+    const notFound = Object.assign(new Error("Item not found"), {
+      statusCode: 404,
+      code: "ErrorItemNotFound",
+    });
+    const api = vi.fn(() => ({ get: () => Promise.reject(notFound) }));
+
+    await expect(
+      queryBatchMessages(
+        createCachedOutlookClient(api),
+        {
+          pageToken: `https://graph.microsoft.com/v1.0/me/messages?${query}`,
+        },
+        createTestLogger(),
+      ),
+    ).rejects.toBe(notFound);
+    expect(api).toHaveBeenCalledTimes(1);
+  });
+
   it("resolves well-known folder names on continuation pages", async () => {
     const request = createMockMessagesRequest();
     request.get.mockResolvedValue({

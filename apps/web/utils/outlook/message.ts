@@ -1339,6 +1339,9 @@ function unwrapQuotes(value: string): string {
 
 type MessagesPage = { value: Message[]; "@odata.nextLink"?: string };
 
+// Page tokens come from the client, so cap how many single reads one can trigger.
+const MAX_CONTINUATION_PAGE_SIZE = 20;
+
 // Graph fails a whole page with a 404 when one message in it can't be read,
 // and that page fails the same way on every retry. Reading the page one message
 // at a time drops only the unreadable message so paging can move past it.
@@ -1356,7 +1359,13 @@ async function getContinuationPage(
     const url = new URL(nextLink);
     const skip = Number(url.searchParams.get("$skip") ?? Number.NaN);
     const top = Number(url.searchParams.get("$top") ?? Number.NaN);
-    if (!isNotFoundError(error) || !(skip >= 0) || !(top > 0)) throw error;
+    if (
+      !isNotFoundError(error) ||
+      url.searchParams.has("$search") ||
+      !(skip >= 0) ||
+      !(top > 0 && top <= MAX_CONTINUATION_PAGE_SIZE)
+    )
+      throw error;
 
     const messages: Message[] = [];
     let unreadableCount = 0;
