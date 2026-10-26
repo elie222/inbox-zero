@@ -44,9 +44,12 @@ test("never paints an empty reader when moving between loaded HTML threads", asy
           ?.checkVisibility({ visibilityProperty: true }),
       );
       samples.push({
+        // A reader revealed before its thread loads shows only its spinner.
         unfinished: readers.some((reader) =>
           Array.from(
-            reader.querySelectorAll('[data-email-ready="false"]'),
+            reader.querySelectorAll(
+              '[data-email-ready="false"], [aria-label="Loading email"]',
+            ),
           ).some((body) => body.checkVisibility({ visibilityProperty: true })),
         ),
         // Opening from the list swaps the list for the finished email, with
