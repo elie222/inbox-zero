@@ -32,9 +32,10 @@ export class OutlookSubscriptionManager {
     expirationDate: Date;
     subscriptionId?: string;
     changed: boolean;
+    cancelledSubscriptionId?: string;
   } | null> {
     const forceRefresh = options?.forceRefresh === true;
-    let cancelledExisting = false;
+    let cancelledSubscriptionId: string | undefined;
     try {
       const existing = await this.getExistingSubscription();
 
@@ -83,8 +84,9 @@ export class OutlookSubscriptionManager {
 
       // Graph rejects a second subscription for the same resource and change
       // types (409), so the old one has to go before the new one is created.
-      await this.cancelSubscription(existing?.subscriptionId);
-      cancelledExisting = Boolean(existing?.subscriptionId);
+      if (await this.cancelSubscription(existing?.subscriptionId)) {
+        cancelledSubscriptionId = existing?.subscriptionId ?? undefined;
+      }
 
       const subscription = await this.client.watchEmails();
 
@@ -97,12 +99,13 @@ export class OutlookSubscriptionManager {
             expirationDate: subscription.expirationDate,
             subscriptionId: subscription.subscriptionId,
             changed: true,
+            cancelledSubscriptionId,
           }
         : null;
     } catch (error) {
       this.logger.error("Failed to create subscription", { error });
       captureException(error, { emailAccountId: this.emailAccountId });
-      if (cancelledExisting) await this.markSubscriptionLapsed();
+      await this.markSubscriptionLapsed(cancelledSubscriptionId);
       return null;
     }
   }
@@ -158,10 +161,16 @@ export class OutlookSubscriptionManager {
    * expired lets the renewal cron retry this account first and the lapse
    * notifier warn the user if it stays down.
    */
-  private async markSubscriptionLapsed() {
+  private async markSubscriptionLapsed(cancelledSubscriptionId?: string) {
+    if (!cancelledSubscriptionId) return;
     try {
-      await prisma.emailAccount.update({
-        where: { id: this.emailAccountId },
+      // Only while the row still points at what we cancelled, so a concurrent
+      // renewal that saved a replacement isn't marked lapsed.
+      await prisma.emailAccount.updateMany({
+        where: {
+          id: this.emailAccountId,
+          watchEmailsSubscriptionId: cancelledSubscriptionId,
+        },
         data: { watchEmailsExpirationDate: new Date() },
       });
     } catch (error) {
@@ -169,18 +178,22 @@ export class OutlookSubscriptionManager {
     }
   }
 
-  private async cancelSubscription(subscriptionId: string | null | undefined) {
-    if (!subscriptionId) return;
+  private async cancelSubscription(
+    subscriptionId: string | null | undefined,
+  ): Promise<boolean> {
+    if (!subscriptionId) return false;
 
     try {
       await this.client.unwatchEmails(subscriptionId);
       this.logger.info("Canceled existing subscription", { subscriptionId });
+      return true;
     } catch (error) {
       // The subscription might already be expired/invalid
       this.logger.warn(
         "Failed to cancel existing subscription (may already be expired)",
         { subscriptionId, error },
       );
+      return false;
     }
   }
 
