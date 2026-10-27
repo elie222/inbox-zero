@@ -262,6 +262,13 @@ test("navigates drafts and sent mail from the sidebar", async ({
   await expect(
     page.getByRole("heading", { name: "Sent", exact: true }),
   ).toHaveCount(0);
+
+  await openMailboxFromSidebar(page, "Drafts");
+  await page.getByRole("button", { name: "Go to inbox" }).click();
+  await expect(page).toHaveURL(/type=inbox/);
+  await expect(
+    page.getByRole("heading", { name: "Drafts", exact: true }),
+  ).toHaveCount(0);
 });
 
 test("creates and edits a label and shows every keyboard workflow", async ({
