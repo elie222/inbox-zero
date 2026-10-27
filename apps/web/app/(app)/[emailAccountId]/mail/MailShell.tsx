@@ -19,8 +19,10 @@ import { toast } from "sonner";
 import { ListToolbar } from "@/app/(app)/[emailAccountId]/mail/ListToolbar";
 import { getMailSearchFolders } from "@/app/(app)/[emailAccountId]/mail/outlook-folder-list";
 import {
+  getMailCategories,
   getMailNavPath,
   MAIL_SCHEDULED_TYPE,
+  MAILBOX_ITEMS,
 } from "@/app/(app)/[emailAccountId]/mail/MailSidebar";
 import { MailShellSidebar } from "@/app/(app)/[emailAccountId]/mail/MailShellSidebar";
 import { MailSplitTabs } from "@/app/(app)/[emailAccountId]/mail/MailSplitTabs";
@@ -37,6 +39,10 @@ import { ThreadList } from "@/app/(app)/[emailAccountId]/mail/ThreadList";
 import { useStableCallback } from "@/app/(app)/[emailAccountId]/mail/use-stable-callback";
 import { useTranslateThread } from "@/app/(app)/[emailAccountId]/mail/use-thread-translation";
 import { GmailLabel } from "@/utils/gmail/label";
+import {
+  flattenOutlookFolders,
+  type OutlookFolder,
+} from "@/utils/outlook/folders";
 import {
   getComposeTargetMessageId,
   getActiveThreadIndex,
@@ -1207,6 +1213,12 @@ export function MailShell() {
             if (selection.hasSelection) selection.clear();
             else if (layout === "list" && openThreadId) closeReader();
             else if (searchValue) setSearch("");
+            else if (isScoped) {
+              setOpenThread(null);
+              setScopeType("inbox");
+              setScopeLabelId(null);
+              setScopeFolderId(null);
+            }
           },
       nextSplit: () => {
         const index = splits.findIndex(
@@ -1413,6 +1425,20 @@ export function MailShell() {
     [folders, isAllAccounts, isOutlook],
   );
   const showSplitTabs = !isScoped && !searchQuery;
+  // With the sidebar collapsed to its rail, this is the only sign that the
+  // list isn't the inbox.
+  const scopeTitle =
+    isScoped && !searchQuery
+      ? getScopeTitle({
+          scopeType,
+          scopeLabelId,
+          scopeFolderId,
+          labels: allLabels,
+          folders,
+          isGoogle,
+          isOutlook,
+        })
+      : null;
   const threadCount = threads.length;
   const { selectedCount, selectAll, clear: clearSelection } = selection;
   // Only offered once something is selected, so the tabs sit flush otherwise.
@@ -1563,6 +1589,11 @@ export function MailShell() {
                   showDivider={isListScrolled}
                 />
               )}
+              {scopeTitle ? (
+                <h2 className="truncate px-3 py-2 font-semibold text-base">
+                  {scopeTitle}
+                </h2>
+              ) : null}
               {isAllAccounts && combinedThreadState.failedAccountIds.length ? (
                 <div className="border-border border-b bg-amber-50 px-3 py-2 text-amber-900 text-xs dark:bg-amber-950/30 dark:text-amber-200">
                   Some inboxes couldn&apos;t be loaded. Try again shortly or
@@ -1689,6 +1720,38 @@ export function MailShell() {
         </div>
       </div>
     </MailProductFrame>
+  );
+}
+
+function getScopeTitle({
+  scopeType,
+  scopeLabelId,
+  scopeFolderId,
+  labels,
+  folders,
+  isGoogle,
+  isOutlook,
+}: {
+  scopeType: string | null;
+  scopeLabelId: string | null;
+  scopeFolderId: string | null;
+  labels: { id: string; name: string }[];
+  folders: OutlookFolder[];
+  isGoogle: boolean;
+  isOutlook: boolean;
+}): string | null {
+  if (scopeLabelId)
+    return labels.find((label) => label.id === scopeLabelId)?.name ?? null;
+  if (scopeFolderId)
+    return (
+      flattenOutlookFolders(folders).find(
+        (folder) => folder.id === scopeFolderId,
+      )?.displayName ?? null
+    );
+  return (
+    [...MAILBOX_ITEMS, ...getMailCategories({ isGoogle, isOutlook })].find(
+      (item) => item.type === scopeType,
+    )?.name ?? null
   );
 }
 
