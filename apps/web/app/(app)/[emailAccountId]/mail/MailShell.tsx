@@ -1171,11 +1171,18 @@ export function MailShell() {
   }, [setOpenThread]);
 
   const goToInbox = useCallback(() => {
+    selection.clear();
     setOpenThread(null);
     setScopeType("inbox");
     setScopeLabelId(null);
     setScopeFolderId(null);
-  }, [setOpenThread, setScopeFolderId, setScopeLabelId, setScopeType]);
+  }, [
+    selection.clear,
+    setOpenThread,
+    setScopeFolderId,
+    setScopeLabelId,
+    setScopeType,
+  ]);
 
   const senderCommands =
     senderCommandContext?.emailAccountId ===
