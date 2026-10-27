@@ -310,7 +310,7 @@ describe("EmailMessage reply", () => {
     );
   });
 
-  it("names To and Cc recipients in the recipient summary", () => {
+  it("shows exact To and Cc addresses once in the recipient summary", () => {
     const message = createMessage("message-1");
     render(
       <EmailMessage
@@ -329,7 +329,7 @@ describe("EmailMessage reply", () => {
       />,
     );
 
-    expect(screen.getByText("to me, Alex, Jane, Sam")).toBeTruthy();
+    expect(screen.getByText("→ alex@example.com, user@example.com, jane@example.com, sam@example.com")).toBeTruthy();
   });
 });
 

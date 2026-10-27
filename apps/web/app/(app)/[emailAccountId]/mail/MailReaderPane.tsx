@@ -106,6 +106,7 @@ export const MailReaderPane = memo(function MailReaderPane({
       resetKey={readerKey ?? "empty"}
       title="Unable to show this conversation"
       onBack={onClose}
+      onError={() => onReady(readerKey ?? "empty")}
     >
       <div
         className={

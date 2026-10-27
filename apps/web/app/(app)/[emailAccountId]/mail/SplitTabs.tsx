@@ -1,11 +1,12 @@
 "use client";
 
 import { GripVerticalIcon, PlusIcon } from "lucide-react";
-import { motion } from "motion/react";
+import { LayoutGroup, motion, useReducedMotion } from "motion/react";
 import {
   type PointerEvent,
   type ReactNode,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -67,6 +68,9 @@ export function SplitTabs({
   const suppressClickRef = useRef(false);
   const stopTrackingRef = useRef<(() => void) | null>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
+  // Scopes the sliding underline so two mounted tab bars never trade it.
+  const underlineGroupId = useId();
+  const reduceMotion = useReducedMotion();
   const dragRef = useRef<DragState | null>(null);
   const updateDrag = (next: DragState | null) => {
     dragRef.current = next;
@@ -214,75 +218,91 @@ export function SplitTabs({
       ref={tabsRef}
       className={cn(
         // Padded to sit under the toolbar's search field rather than against
-        // the column edge, and ruled off so the tabs read as a header for the
-        // list instead of crowding the first row.
-        "relative flex flex-wrap items-center gap-1 border-border border-b px-3 pb-2",
+        // the column edge. The rule stays transparent unless the caller shows
+        // it, so the active tab's underline carries the edge on its own.
+        "relative flex flex-wrap items-center gap-5 border-transparent border-b px-3 transition-colors",
         className,
       )}
     >
       {leading ? <span className="mr-1.5 flex">{leading}</span> : null}
-      {orderedSplits.map((split) => {
-        const active = selectedSplitIds.has(split.id);
-        const dragging = drag?.id === split.id;
-        const countLabel = splitCountLabel(countsById?.get(split.id));
+      <LayoutGroup id={underlineGroupId}>
+        {orderedSplits.map((split) => {
+          const active = selectedSplitIds.has(split.id);
+          const dragging = drag?.id === split.id;
+          const countLabel = splitCountLabel(countsById?.get(split.id));
 
-        return (
-          <ContextMenu key={split.id}>
-            <ContextMenuTrigger asChild>
-              <motion.button
-                type="button"
-                layout={drag ? "position" : false}
-                transition={TAB_MOVE_TRANSITION}
-                data-split-tab={split.id}
-                onClick={() => {
-                  if (!suppressClickRef.current) onSelect(split.id);
-                }}
-                onPointerDown={(event: PointerEvent<HTMLButtonElement>) =>
-                  trackPress(event, split)
-                }
-                // The count sits in this button, so innerText includes it.
-                // The accessible name stays the split itself.
-                aria-label={split.name}
-                aria-pressed={active}
-                aria-current={split.id === activeSplitId ? "true" : undefined}
-                aria-description={
-                  countLabel ? `${countLabel} in this view` : undefined
-                }
-                className={cn(
-                  "flex select-none items-center gap-1 rounded-full py-0.5 pr-2 pl-2.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  active
-                    ? "bg-primary/10 font-medium text-primary"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground",
-                  dragging && "opacity-40",
+          return (
+            <ContextMenu key={split.id}>
+              <ContextMenuTrigger asChild>
+                <motion.button
+                  type="button"
+                  layout={drag ? "position" : false}
+                  transition={TAB_MOVE_TRANSITION}
+                  data-split-tab={split.id}
+                  onClick={() => {
+                    if (!suppressClickRef.current) onSelect(split.id);
+                  }}
+                  onPointerDown={(event: PointerEvent<HTMLButtonElement>) =>
+                    trackPress(event, split)
+                  }
+                  // The count sits in this button, so innerText includes it.
+                  // The accessible name stays the split itself.
+                  aria-label={split.name}
+                  aria-pressed={active}
+                  aria-current={split.id === activeSplitId ? "true" : undefined}
+                  aria-description={
+                    countLabel ? `${countLabel} in this view` : undefined
+                  }
+                  className={cn(
+                    "relative flex select-none items-center gap-1.5 py-2 text-sm focus-visible:outline-none",
+                    active
+                      ? "font-medium text-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                    dragging && "opacity-40",
+                  )}
+                >
+                  <span data-split-name>{split.name}</span>
+                  {countLabel ? (
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        "font-normal text-muted-foreground tabular-nums",
+                        !active && "opacity-70",
+                      )}
+                    >
+                      {countLabel}
+                    </span>
+                  ) : null}
+                  {active ? (
+                    <motion.span
+                      aria-hidden="true"
+                      layoutId={
+                        selectedSplitIds.size === 1
+                          ? "split-tab-underline"
+                          : undefined
+                      }
+                      transition={
+                        reduceMotion ? { duration: 0 } : UNDERLINE_TRANSITION
+                      }
+                      className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-primary"
+                    />
+                  ) : null}
+                </motion.button>
+              </ContextMenuTrigger>
+              <ContextMenuContent className="w-44">
+                {split.deletable && onEdit && (
+                  <ContextMenuItem onSelect={() => onEdit(split.id)}>
+                    Edit filters and name
+                  </ContextMenuItem>
                 )}
-              >
-                <span data-split-name>{split.name}</span>
-                {countLabel ? (
-                  <span
-                    aria-hidden="true"
-                    className={cn(
-                      "font-normal tabular-nums",
-                      active ? "text-primary/70" : "opacity-70",
-                    )}
-                  >
-                    {countLabel}
-                  </span>
-                ) : null}
-              </motion.button>
-            </ContextMenuTrigger>
-            <ContextMenuContent className="w-44">
-              <ContextMenuItem onSelect={() => onFocus(split.id)}>
-                Focus
-              </ContextMenuItem>
-              {split.deletable && onEdit && (
-                <ContextMenuItem onSelect={() => onEdit(split.id)}>
-                  Edit filters and name
+                <ContextMenuItem onSelect={() => onFocus(split.id)}>
+                  Focus
                 </ContextMenuItem>
-              )}
-            </ContextMenuContent>
-          </ContextMenu>
-        );
-      })}
+              </ContextMenuContent>
+            </ContextMenu>
+          );
+        })}
+      </LayoutGroup>
 
       {drag && draggedSplit
         ? createPortal(
@@ -334,6 +354,7 @@ type DragState = {
 
 const DRAG_START_PX = 4;
 const TAB_MOVE_TRANSITION = { duration: 0.15, ease: "easeOut" } as const;
+const UNDERLINE_TRANSITION = { duration: 0.2, ease: "easeOut" } as const;
 
 /**
  * The order with the dragged tab placed before or after the tab under the

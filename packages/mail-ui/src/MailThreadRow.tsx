@@ -145,7 +145,7 @@ export function MailThreadRow({
       aria-selected={isSelected}
       data-mail-thread-row
       className={cx(
-        "group relative flex cursor-pointer border-b border-border/60 outline-none",
+        "group relative flex cursor-pointer border-border/40 border-b outline-none",
         isWide
           ? cx(
               "gap-2.5 py-2 pr-5 pl-3",

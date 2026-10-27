@@ -236,3 +236,62 @@ describe("browser engine startup", () => {
     });
   });
 });
+
+describe("browser engine observations", () => {
+  it("starts a new observation from an identical live one's snapshot", async () => {
+    const observed: { handleId: string; args: unknown[] }[] = [];
+    class ObservingWorker extends FailingWorker {
+      postMessage(message: {
+        id: string;
+        type?: string;
+        handleId?: string;
+        args?: unknown[];
+      }) {
+        if (message.type === "observe" && message.handleId)
+          observed.push({
+            handleId: message.handleId,
+            args: message.args ?? [],
+          });
+        queueMicrotask(() =>
+          this.listeners.get("message")?.({
+            data: { id: message.id, type: "ok" },
+          }),
+        );
+      }
+      publish(handleId: string, snapshot: unknown) {
+        this.listeners.get("message")?.({
+          data: { type: "snapshot", handleId, snapshot },
+        });
+      }
+    }
+    vi.stubGlobal("Worker", ObservingWorker);
+    const engine = await createBrowserMailEngine({
+      accountId: "test-account",
+      provider: "google",
+    });
+    const key = { accountId: "acc-1", conversationId: "t1" };
+    const page = { after: null, pageSize: 50 };
+    const warm = engine.observeConversation(key, page);
+    const ready = {
+      status: "ready",
+      revision: { databaseEpoch: "db", sequence: 1 },
+      data: { key, messages: [], nextPage: null, coverage: [] },
+      refreshing: false,
+      error: null,
+    };
+    (FailingWorker.latest as ObservingWorker).publish(
+      observed[0].handleId,
+      ready,
+    );
+
+    expect(
+      engine
+        .observeConversation({ ...key, conversationId: "t2" }, page)
+        .getSnapshot().status,
+    ).toBe("loading");
+    expect(engine.observeConversation(key, page).getSnapshot()).toEqual(ready);
+    warm.close();
+    expect(engine.observeConversation(key, page).getSnapshot()).toEqual(ready);
+    await engine.close();
+  });
+});

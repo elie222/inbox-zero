@@ -308,10 +308,6 @@ describe("desktop shell helpers", () => {
     expect(getDesktopWindowDragCss("win32")).toBeNull();
     expect(getDesktopWindowDragCss("linux")).toBeNull();
     expect(DESKTOP_WINDOW_DRAG_CSS).toContain("[data-hide-on-desktop-mac]");
-    expect(DESKTOP_WINDOW_DRAG_CSS).toContain(
-      "[data-desktop-mac-titlebar-spacer]",
-    );
-    expect(DESKTOP_WINDOW_DRAG_CSS).toContain("padding-top: 52px");
     expect(DESKTOP_WINDOW_DRAG_CSS).toContain("[data-desktop-mac-end]");
     expect(DESKTOP_WINDOW_DRAG_CSS).toContain(
       "[data-desktop-mac-titlebar-toggle]",

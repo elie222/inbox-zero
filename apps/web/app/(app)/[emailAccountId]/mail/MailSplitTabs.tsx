@@ -54,6 +54,7 @@ export const MailSplitTabs = memo(function MailSplitTabs({
   portableLabelSplits,
   labelsByAccount,
   leading,
+  showDivider,
 }: {
   splits: (MailSplit & MailSplitTab)[];
   activeSplitId: string | null;
@@ -68,6 +69,8 @@ export const MailSplitTabs = memo(function MailSplitTabs({
   portableLabelSplits?: PortableLabelSplit[];
   labelsByAccount?: Record<string, EmailLabels>;
   leading?: ReactNode;
+  /** Shown once the list scrolls under the tabs. */
+  showDivider: boolean;
 }) {
   const { emailAccountId, provider } = useAccount();
   const isGoogle = isGoogleProvider(provider);
@@ -240,6 +243,7 @@ export const MailSplitTabs = memo(function MailSplitTabs({
   return (
     <>
       <SplitTabs
+        className={showDivider ? "border-border" : undefined}
         splits={splits}
         countsById={countsById}
         leading={leading}

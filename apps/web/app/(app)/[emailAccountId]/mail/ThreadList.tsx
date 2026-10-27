@@ -43,6 +43,7 @@ export type ThreadListProps = {
   isSelected: (threadId: string) => boolean;
   selectedCount: number;
   onOpenThread: (index: number) => void;
+  onHoverThread?: (thread: ListThread) => void;
   onToggleSelect: (index: number) => void;
   onSelectRangeTo: (index: number) => void;
   showLoadMore: boolean;
@@ -51,6 +52,7 @@ export type ThreadListProps = {
   /** Identity of the current view so prefetch state does not leak across splits. */
   listKey: string;
   showSentOpenStatus?: boolean;
+  onScrolledChange?: (scrolled: boolean) => void;
 };
 
 export const ThreadList = memo(function ThreadList({
@@ -66,6 +68,7 @@ export const ThreadList = memo(function ThreadList({
   isSelected,
   selectedCount,
   onOpenThread,
+  onHoverThread,
   onToggleSelect,
   onSelectRangeTo,
   showLoadMore,
@@ -73,6 +76,7 @@ export const ThreadList = memo(function ThreadList({
   onLoadMore,
   listKey,
   showSentOpenStatus = false,
+  onScrolledChange,
 }: ThreadListProps) {
   const isMobile = useIsMobile();
   const dayStart = useDayStart();
@@ -127,6 +131,7 @@ export const ThreadList = memo(function ThreadList({
       }
       onLoadMore={onLoadMore}
       onOpen={onOpenThread}
+      onScrolledChange={onScrolledChange}
       onSelectRangeTo={onSelectRangeTo}
       onToggleSelect={onToggleSelect}
       renderItem={(row) => (
@@ -136,6 +141,7 @@ export const ThreadList = memo(function ThreadList({
             "account" in row.item ? row.item.account.id : undefined
           }
           key={row.rowKey}
+          onPointerEnter={() => onHoverThread?.(row.item)}
         >
           <ThreadRow
             compact={isMobile}

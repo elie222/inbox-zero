@@ -94,6 +94,12 @@
     "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
     "components/email-list/ThreadDeliveryStatus.tsx"
   ],
+  "inline-image-send.spec.ts": [
+    "app/(app)/[emailAccountId]/compose/useComposeSend.ts",
+    "components/email-list/EmailContents.tsx",
+    "utils/email/inline-image-cache.ts",
+    "utils/email/outgoing-inline-images.ts"
+  ],
   "layout.spec.ts": [
     "app/(app)/[emailAccountId]/mail/ThreadList.tsx",
     "app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx",

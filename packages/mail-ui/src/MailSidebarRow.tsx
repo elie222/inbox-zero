@@ -24,7 +24,9 @@ export function getMailSidebarRowPresentation({
       ? "relative mx-auto size-8 justify-center"
       : "gap-2.5 px-2.5 py-1.5",
     nested && "pl-7",
-    getRowStateClassName({ active, collapsed }),
+    active
+      ? "bg-blue-50 font-medium text-foreground dark:bg-blue-950/40 [&>svg]:text-blue-600 dark:[&>svg]:text-blue-400"
+      : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
   );
   const content = collapsed ? (
     <>
@@ -55,19 +57,4 @@ export function getMailSidebarRowPresentation({
   );
 
   return { className, content };
-}
-
-function getRowStateClassName({
-  active,
-  collapsed,
-}: {
-  active: boolean;
-  collapsed?: boolean;
-}) {
-  if (!active)
-    return "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground";
-  // The rail matches the app sidebar's collapsed rows.
-  if (collapsed)
-    return "bg-sidebar-accent font-medium text-sidebar-accent-foreground";
-  return "bg-card font-medium text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.04),0_0_0_1px_rgba(17,24,39,0.05)]";
 }

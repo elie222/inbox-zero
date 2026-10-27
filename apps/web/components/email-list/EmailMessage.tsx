@@ -383,14 +383,11 @@ export function EmailMessage({
       {expanded && (
         // Aligns the body with the sender's name rather than the avatar.
         <div className="min-w-0 pt-3 sm:pl-9">
-          {showDetails && <EmailDetails message={message} />}
-
           {message.attachments?.length ? (
             <div className="mb-4">
               <EmailAttachments message={message} />
             </div>
           ) : null}
-
           {isCalendarInvitationMessage(message) && (
             <CalendarInvitation key={message.id} messageId={message.id} />
           )}
@@ -427,6 +424,7 @@ export function EmailMessage({
                 emailAccountId={emailAccountId}
                 html={message.textHtml}
                 inlineAttachments={message.inline}
+                sendOperationId={sendOperationId}
                 messageId={message.id}
               />
             ) : (
@@ -551,6 +549,7 @@ function MessageHeader({
     emailAccountId,
   });
   const senderImage = isSent ? emailAccount?.image : contactPhoto;
+  const recipients = recipientSummary(message.headers, userEmail);
   const canResearchSender =
     Boolean(onOpenSenderContext) &&
     !isSent &&
@@ -601,7 +600,7 @@ function MessageHeader({
   const senderNameClassName = cn(
     "truncate text-sm",
     expanded
-      ? "min-w-0 font-semibold text-foreground"
+      ? "min-w-0 font-medium text-foreground"
       : "w-24 shrink-0 font-medium text-secondary-foreground sm:w-28",
   );
 
@@ -609,39 +608,60 @@ function MessageHeader({
     <div
       {...toggleProps}
       className={cn(
-        "flex min-w-0 items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "flex min-w-0 gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        expanded && showDetails ? "items-start" : "items-center",
         onToggle && "cursor-pointer",
       )}
     >
       {expanded ? (
         <>
-          <button
-            aria-expanded={showDetails}
-            aria-label={showDetails ? "Hide details" : "Show details"}
-            className="group/details flex min-w-0 items-center gap-2 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            onClick={toggleDetails}
-            type="button"
-          >
-            {avatar}
-            <span className={senderNameClassName}>{senderName}</span>
-            <span
-              className="hidden min-w-0 shrink-[999] truncate text-muted-foreground text-xs sm:block"
-              title={recipientSummary(message.headers, userEmail)}
+          {showDetails ? (
+            // Not one big toggle like the summary, so addresses stay
+            // selectable and a click inside doesn't collapse the message.
+            // biome-ignore lint/a11y/useKeyWithClickEvents: the button inside toggles from the keyboard
+            <div
+              className="flex min-w-0 flex-1 cursor-auto items-start gap-2"
+              onClick={(event) => event.stopPropagation()}
             >
-              {recipientSummary(message.headers, userEmail)}
-            </span>
-            <span className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors group-hover/details:bg-muted group-hover/details:text-foreground">
-              {showDetails ? (
-                <ChevronsDownUpIcon className="size-3.5" />
-              ) : (
-                <ChevronsUpDownIcon className="size-3.5" />
+              {avatar}
+              <EmailDetails message={message}>
+                <Button
+                  aria-expanded
+                  aria-label="Hide details"
+                  onClick={toggleDetails}
+                  size="iconXs"
+                  variant="ghostMuted"
+                >
+                  <ChevronsDownUpIcon className="size-3.5" />
+                </Button>
+              </EmailDetails>
+            </div>
+          ) : (
+            <button
+              aria-expanded={false}
+              aria-label="Show details"
+              className="group/details flex min-w-0 items-center gap-2 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={toggleDetails}
+              type="button"
+            >
+              {avatar}
+              <span className={senderNameClassName}>{senderName}</span>
+              {recipients && (
+                <span
+                  className="hidden min-w-0 shrink-[999] truncate text-muted-foreground text-xs sm:block"
+                  title={recipients}
+                >
+                  {recipients}
+                </span>
               )}
-            </span>
-          </button>
+              <ChevronsUpDownIcon className="size-3.5 shrink-0 text-muted-foreground transition-opacity group-hover/details:opacity-100 group-focus-visible/details:opacity-100 sm:opacity-0" />
+            </button>
+          )}
           {canResearchSender && (
             <Tooltip content="View public profile">
               <Button
                 aria-label={`View public profile for ${senderName}`}
+                className="transition-opacity focus-visible:opacity-100 group-hover/message:opacity-100 sm:opacity-0"
                 onClick={(event) => {
                   event.stopPropagation();
                   onOpenSenderContext?.(message);
@@ -990,17 +1010,6 @@ function resolveComposeMode(
   return mode;
 }
 
-function recipientSummary(
-  { to, cc }: { to?: string; cc?: string },
-  userEmail: string,
-) {
-  const addresses = formatRecipientAddresses([
-    ...splitRecipientList(to ?? ""),
-    ...splitRecipientList(cc ?? ""),
-  ]);
-  return addresses ? `→ ${addresses}` : userEmail ? `→ ${userEmail}` : "";
-}
-
 const prepareReplyingToEmail = ({
   message,
   threadOn = message,
@@ -1155,4 +1164,15 @@ function getSelectedText(container: HTMLElement) {
   if (!selection || selection.isCollapsed) return;
   if (!container.contains(selection.anchorNode)) return;
   return selection.toString().trim() || undefined;
+}
+
+function recipientSummary(
+  { to, cc }: { to?: string; cc?: string },
+  userEmail: string,
+) {
+  const addresses = formatRecipientAddresses([
+    ...splitRecipientList(to ?? ""),
+    ...splitRecipientList(cc ?? ""),
+  ]);
+  return addresses ? `→ ${addresses}` : userEmail ? `→ ${userEmail}` : "";
 }
