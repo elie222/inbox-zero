@@ -15,6 +15,7 @@ import {
   type ReactNode,
 } from "react";
 import { parseAsString, useQueryState, useQueryStates } from "nuqs";
+import { ChevronLeftIcon } from "lucide-react";
 import { toast } from "sonner";
 import { ListToolbar } from "@/app/(app)/[emailAccountId]/mail/ListToolbar";
 import { getMailSearchFolders } from "@/app/(app)/[emailAccountId]/mail/outlook-folder-list";
@@ -39,6 +40,7 @@ import { ThreadList } from "@/app/(app)/[emailAccountId]/mail/ThreadList";
 import { useStableCallback } from "@/app/(app)/[emailAccountId]/mail/use-stable-callback";
 import { useTranslateThread } from "@/app/(app)/[emailAccountId]/mail/use-thread-translation";
 import { GmailLabel } from "@/utils/gmail/label";
+import { Tooltip } from "@/components/Tooltip";
 import {
   flattenOutlookFolders,
   type OutlookFolder,
@@ -1168,6 +1170,13 @@ export function MailShell() {
     setOpenThread(null);
   }, [setOpenThread]);
 
+  const goToInbox = useCallback(() => {
+    setOpenThread(null);
+    setScopeType("inbox");
+    setScopeLabelId(null);
+    setScopeFolderId(null);
+  }, [setOpenThread, setScopeFolderId, setScopeLabelId, setScopeType]);
+
   const senderCommands =
     senderCommandContext?.emailAccountId ===
       singleActionTarget?.selection.emailAccountId &&
@@ -1213,12 +1222,7 @@ export function MailShell() {
             if (selection.hasSelection) selection.clear();
             else if (layout === "list" && openThreadId) closeReader();
             else if (searchValue) setSearch("");
-            else if (isScoped) {
-              setOpenThread(null);
-              setScopeType("inbox");
-              setScopeLabelId(null);
-              setScopeFolderId(null);
-            }
+            else if (isScoped) goToInbox();
           },
       nextSplit: () => {
         const index = splits.findIndex(
@@ -1590,9 +1594,23 @@ export function MailShell() {
                 />
               )}
               {scopeTitle ? (
-                <h2 className="truncate px-3 py-2 font-semibold text-base">
-                  {scopeTitle}
-                </h2>
+                <div className="flex items-center gap-1 px-1.5 py-1">
+                  <Tooltip
+                    shortcuts={[{ id: "backToList", label: "Go to inbox" }]}
+                  >
+                    <button
+                      type="button"
+                      onClick={goToInbox}
+                      aria-label="Go to inbox"
+                      className="flex size-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <ChevronLeftIcon className="size-4" />
+                    </button>
+                  </Tooltip>
+                  <h2 className="truncate font-semibold text-base">
+                    {scopeTitle}
+                  </h2>
+                </div>
               ) : null}
               {isAllAccounts && combinedThreadState.failedAccountIds.length ? (
                 <div className="border-border border-b bg-amber-50 px-3 py-2 text-amber-900 text-xs dark:bg-amber-950/30 dark:text-amber-200">
