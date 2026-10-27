@@ -119,6 +119,32 @@ describe("OutlookSubscriptionManager", () => {
       );
     });
 
+    it("marks the stored subscription expired when the replacement can't be created", async () => {
+      const now = new Date("2026-04-14T12:00:00Z");
+      vi.useFakeTimers();
+      vi.setSystemTime(now);
+      vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
+        watchEmailsSubscriptionId: "old-subscription-id",
+        watchEmailsExpirationDate: new Date("2026-04-14T20:00:00Z"),
+      } as any);
+      vi.mocked(mockProvider.watchEmails).mockRejectedValue(
+        new Error("Graph 503"),
+      );
+
+      const result = await manager.createSubscription();
+
+      expect(result).toBeNull();
+      expect(mockProvider.unwatchEmails).toHaveBeenCalledWith(
+        "old-subscription-id",
+      );
+      expect(prisma.emailAccount.update).toHaveBeenCalledWith({
+        where: { id: emailAccountId },
+        data: { watchEmailsExpirationDate: now },
+      });
+
+      vi.useRealTimers();
+    });
+
     it("should return null if creating new subscription fails", async () => {
       // Mock no existing subscription
       vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({

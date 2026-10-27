@@ -34,6 +34,7 @@ export class OutlookSubscriptionManager {
     changed: boolean;
   } | null> {
     const forceRefresh = options?.forceRefresh === true;
+    let cancelledExisting = false;
     try {
       const existing = await this.getExistingSubscription();
 
@@ -80,7 +81,10 @@ export class OutlookSubscriptionManager {
         this.logger.info("No existing subscription found; creating new");
       }
 
+      // Graph rejects a second subscription for the same resource and change
+      // types (409), so the old one has to go before the new one is created.
       await this.cancelSubscription(existing?.subscriptionId);
+      cancelledExisting = Boolean(existing?.subscriptionId);
 
       const subscription = await this.client.watchEmails();
 
@@ -98,6 +102,7 @@ export class OutlookSubscriptionManager {
     } catch (error) {
       this.logger.error("Failed to create subscription", { error });
       captureException(error, { emailAccountId: this.emailAccountId });
+      if (cancelledExisting) await this.markSubscriptionLapsed();
       return null;
     }
   }
@@ -145,6 +150,23 @@ export class OutlookSubscriptionManager {
       expirationDate: result.expirationDate,
       subscriptionId: result.subscriptionId,
     };
+  }
+
+  /**
+   * After the old subscription is cancelled but no replacement was saved, the
+   * stored expiry still looks days away while nothing is delivering. Marking it
+   * expired lets the renewal cron retry this account first and the lapse
+   * notifier warn the user if it stays down.
+   */
+  private async markSubscriptionLapsed() {
+    try {
+      await prisma.emailAccount.update({
+        where: { id: this.emailAccountId },
+        data: { watchEmailsExpirationDate: new Date() },
+      });
+    } catch (error) {
+      this.logger.error("Failed to mark subscription as lapsed", { error });
+    }
   }
 
   private async cancelSubscription(subscriptionId: string | null | undefined) {
