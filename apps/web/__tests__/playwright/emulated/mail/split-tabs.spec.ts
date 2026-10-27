@@ -80,7 +80,8 @@ test("toggles tag selection and focuses a tag in single and combined inboxes", a
       [emailAccountId],
     );
     await client.query(
-      `INSERT INTO "MailSplitFilter" (id,"mailSplitId",kind,value,"order") VALUES ('multi-tag-label','multi-tag-marketing','LABEL','Label_project',0)`,
+      `INSERT INTO "MailSplitFilter" (id,"mailSplitId",kind,value,"order") VALUES (gen_random_uuid()::text,$1,'LABEL','Label_project',0)`,
+      [rows[0].id],
     );
   });
   for (const scope of ["single", "all"]) {
