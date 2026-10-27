@@ -168,6 +168,35 @@ describe("OutlookSubscriptionManager", () => {
       });
     });
 
+    it("keeps the replacement unmarked when cancelling it as an orphan fails", async () => {
+      vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
+        watchEmailsSubscriptionId: "old-subscription-id",
+        watchEmailsExpirationDate: new Date(Date.now() + 60 * 60 * 1000),
+        createdAt: new Date("2026-03-01T00:00:00Z"),
+      } as any);
+      vi.mocked(mockProvider.watchEmails).mockResolvedValue({
+        subscriptionId: "new-subscription-id",
+        expirationDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+      });
+      vi.mocked(prisma.emailAccount.update).mockRejectedValueOnce(
+        new Error("db down"),
+      );
+      vi.mocked(mockProvider.unwatchEmails)
+        .mockResolvedValueOnce(undefined as never)
+        .mockRejectedValueOnce(new Error("Graph 503"));
+
+      const result = await manager.createAndPersistSubscription();
+
+      expect(result).toBeNull();
+      expect(prisma.emailAccount.updateMany).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            watchEmailsSubscriptionId: "new-subscription-id",
+          }),
+        }),
+      );
+    });
+
     it("leaves the stored subscription alone when cancelling it failed", async () => {
       vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
         watchEmailsSubscriptionId: "old-subscription-id",

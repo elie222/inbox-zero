@@ -136,8 +136,10 @@ export class OutlookSubscriptionManager {
           error,
         });
 
+        let cancelledReplacement = false;
         try {
           await this.client.unwatchEmails(result.subscriptionId);
+          cancelledReplacement = true;
           this.logger.info("Canceled orphaned subscription after DB failure", {
             subscriptionId: result.subscriptionId,
           });
@@ -149,10 +151,12 @@ export class OutlookSubscriptionManager {
         }
 
         captureException(error, { emailAccountId: this.emailAccountId });
-        // The save can fail after writing the replacement (the concurrency
-        // check reads again), so whichever of the two is stored is now dead.
         await this.markSubscriptionLapsed(result.cancelledSubscriptionId);
-        await this.markSubscriptionLapsed(result.subscriptionId);
+        // The save can fail after writing the replacement (the concurrency
+        // check reads again); if so and we cancelled it, it is dead too.
+        if (cancelledReplacement) {
+          await this.markSubscriptionLapsed(result.subscriptionId);
+        }
         return null;
       }
     }
