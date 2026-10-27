@@ -692,18 +692,29 @@ export function MailShell() {
   // Undo brings the thread back into the list, so return focus to it, and to
   // the reader if one is showing, rather than leaving it where archive advanced.
   const [restoredFocusKey, setRestoredFocusKey] = useState<string>();
+  // Archiving the last row closes the reader, so the open state has to be
+  // remembered from before the action rather than read at undo time.
+  const removedOpenThreadKeyRef = useRef<string | null>(null);
   const focusRestoredThread = useStableCallback(
     (targets: ThreadActionTarget[]) => {
-      const target = targets[0];
+      const wasOpen = targets.find(
+        (target) => target.key === removedOpenThreadKeyRef.current,
+      );
+      const target = wasOpen ?? targets[0];
       if (!target) return;
-      setRestoredFocusKey(target.key);
-      if (layout === "split" || openThreadId) {
+      const selection = {
+        emailAccountId: target.emailAccountId,
+        threadId: target.threadId,
+      };
+      setRestoredFocusKey(
+        isAllAccounts
+          ? (getThreadSelectionKey(selection) ?? undefined)
+          : selection.threadId,
+      );
+      if (wasOpen || layout === "split" || openThreadId) {
         setReplyToMessageId(undefined);
         setForwardToMessageId(undefined);
-        setOpenThread({
-          emailAccountId: target.emailAccountId,
-          threadId: target.threadId,
-        });
+        setOpenThread(selection);
       }
     },
   );
@@ -842,6 +853,9 @@ export function MailShell() {
         removeFromList && openThreadKey && ids.includes(openThreadKey)
           ? openThreadKey
           : null;
+      if (removedOpenThreadKey) {
+        removedOpenThreadKeyRef.current = removedOpenThreadKey;
+      }
       // Advance before the list drops the row, so focus moves straight to
       // the next row instead of briefly landing on none.
       const advancedToKey =
