@@ -145,6 +145,7 @@ export class OutlookSubscriptionManager {
         }
 
         captureException(error, { emailAccountId: this.emailAccountId });
+        await this.markSubscriptionLapsed(result.cancelledSubscriptionId);
         return null;
       }
     }
