@@ -161,6 +161,7 @@ describe("OutlookSubscriptionManager", () => {
 
       // Assert
       expect(result).toBeNull();
+      expect(prisma.emailAccount.update).not.toHaveBeenCalled();
     });
 
     it("should renew a subscription once it is older than a day", async () => {
