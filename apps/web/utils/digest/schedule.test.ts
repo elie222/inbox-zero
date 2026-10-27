@@ -123,6 +123,24 @@ describe("getDigestScheduleProgression", () => {
     );
   });
 
+  it("still returns a future slot when the schedule is years behind", () => {
+    const now = new Date("2026-01-10T09:30:00.000Z");
+    const progression = getDigestScheduleProgression(
+      {
+        intervalDays: 1,
+        occurrences: 1,
+        daysOfWeek: null,
+        timeOfDay: createCanonicalTimeOfDay(9, 0),
+        nextOccurrenceAt: new Date("2019-01-01T09:00:00.000Z"),
+      },
+      now,
+    );
+
+    expect(progression.nextOccurrenceAt).toEqual(
+      new Date("2026-01-11T09:00:00.000Z"),
+    );
+  });
+
   it("falls back to current time when next occurrence is not set", () => {
     const now = new Date("2026-01-10T10:00:00.000Z");
 

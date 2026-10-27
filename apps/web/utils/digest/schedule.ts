@@ -52,6 +52,14 @@ export function getDigestScheduleProgression(
     });
   }
 
+  // Only reached if the cap ran out; a future slot matters more than phase.
+  if (nextOccurrenceAt && nextOccurrenceAt <= now) {
+    nextOccurrenceAt = calculateNextScheduleDate({
+      ...schedule,
+      lastOccurrenceAt: now,
+    });
+  }
+
   return { lastOccurrenceAt, nextOccurrenceAt };
 }
 
