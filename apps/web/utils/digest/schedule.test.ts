@@ -105,6 +105,24 @@ describe("getDigestScheduleProgression", () => {
     );
   });
 
+  it("keeps an every-three-days schedule on its original days when catching up", () => {
+    const progression = getDigestScheduleProgression(
+      {
+        intervalDays: 3,
+        occurrences: 1,
+        daysOfWeek: null,
+        timeOfDay: createCanonicalTimeOfDay(9, 0),
+        nextOccurrenceAt: new Date("2026-01-01T09:00:00.000Z"),
+      },
+      new Date("2026-01-11T08:00:00.000Z"),
+    );
+
+    // Slots are Jan 1, 4, 7, 10, 13...
+    expect(progression.nextOccurrenceAt).toEqual(
+      new Date("2026-01-13T09:00:00.000Z"),
+    );
+  });
+
   it("falls back to current time when next occurrence is not set", () => {
     const now = new Date("2026-01-10T10:00:00.000Z");
 

@@ -3,6 +3,9 @@ import { calculateNextScheduleDate } from "@/utils/schedule";
 
 export const DIGEST_DISPATCH_INTERVAL_MINUTES = 5;
 
+// Several years of daily slots; only guards against a schedule that never advances.
+const MAX_CATCH_UP_STEPS = 2000;
+
 type DigestScheduleForProgression = Pick<
   Schedule,
   | "intervalDays"
@@ -28,23 +31,25 @@ export function getDigestScheduleProgression(
       ? schedule.nextOccurrenceAt
       : now;
 
-  const nextOccurrenceAt = calculateNextScheduleDate({
+  let nextOccurrenceAt = calculateNextScheduleDate({
     ...schedule,
     lastOccurrenceAt,
   });
 
   // A schedule that fell more than one interval behind (paused account,
   // lapsed plan, cron outage) would still be due after one step, and every
-  // dispatch run would send another digest until it caught up. Skip ahead to
-  // the first slot after now instead.
-  if (nextOccurrenceAt && nextOccurrenceAt <= now) {
-    return {
-      lastOccurrenceAt,
-      nextOccurrenceAt: calculateNextScheduleDate({
-        ...schedule,
-        lastOccurrenceAt: now,
-      }),
-    };
+  // dispatch run would send another digest until it caught up. Keep stepping
+  // from the scheduled slots, not from now, so every-N-days and every-other-
+  // week schedules stay on their original days.
+  for (
+    let steps = 0;
+    nextOccurrenceAt && nextOccurrenceAt <= now && steps < MAX_CATCH_UP_STEPS;
+    steps++
+  ) {
+    nextOccurrenceAt = calculateNextScheduleDate({
+      ...schedule,
+      lastOccurrenceAt: nextOccurrenceAt,
+    });
   }
 
   return { lastOccurrenceAt, nextOccurrenceAt };
