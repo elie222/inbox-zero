@@ -168,6 +168,7 @@ describe("findAutoArchiveFilters", () => {
       archiveFilter("or", "a@shop.com OR b@shop.com"),
       archiveFilter("braces", "{c@shop.com d@shop.com}"),
       archiveFilter("named", "Shop News <News@Shop.com>"),
+      archiveFilter("pipe", "e@shop.com|f@shop.com"),
     ];
 
     expect(
@@ -181,5 +182,8 @@ describe("findAutoArchiveFilters", () => {
         (f) => f.id,
       ),
     ).toEqual(["named"]);
+    expect(
+      findAutoArchiveFilters(filters, "f@shop.com", gmail).map((f) => f.id),
+    ).toEqual(["pipe"]);
   });
 });
