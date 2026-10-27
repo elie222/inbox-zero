@@ -1213,6 +1213,12 @@ export function MailShell() {
             if (selection.hasSelection) selection.clear();
             else if (layout === "list" && openThreadId) closeReader();
             else if (searchValue) setSearch("");
+            else if (isScoped) {
+              setOpenThread(null);
+              setScopeType("inbox");
+              setScopeLabelId(null);
+              setScopeFolderId(null);
+            }
           },
       nextSplit: () => {
         const index = splits.findIndex(

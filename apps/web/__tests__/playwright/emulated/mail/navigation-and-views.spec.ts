@@ -256,6 +256,12 @@ test("navigates drafts and sent mail from the sidebar", async ({
     page.getByRole("heading", { name: "Sent", exact: true }),
   ).toBeVisible();
   await capturePlaywrightCheckpoint(page, testInfo, "sent-mailbox-title");
+
+  await page.keyboard.press("Escape");
+  await expect(page).toHaveURL(/type=inbox/);
+  await expect(
+    page.getByRole("heading", { name: "Sent", exact: true }),
+  ).toHaveCount(0);
 });
 
 test("creates and edits a label and shows every keyboard workflow", async ({
