@@ -23,6 +23,8 @@ import {
   getMailPermissions,
 } from "@/utils/mcp/mail-client-ui";
 import {
+  archiveFolderForMcp,
+  archiveFolderInputShape,
   createDraftForMcp,
   createDraftInputShape,
   deleteFolderForMcp,
@@ -92,7 +94,7 @@ export async function handleMcpServerRequest(
     { name: `${BRAND_NAME} MCP`, version: "1.0.0" },
     {
       instructions:
-        "Use list_email_accounts when targeting a specific inbox. Search and read tools return mail; create_draft saves a mailbox draft and never sends; update_thread archives or marks threads; label_thread adds or removes a label; list_folders and delete_folder manage Outlook folders; run_rules runs the user's rules on one email. Rule and stats tools accept emailAccountId or emailAddress and default to the first linked account.",
+        "Use list_email_accounts when targeting a specific inbox. Search and read tools return mail; create_draft saves a mailbox draft and never sends; update_thread archives or marks threads; label_thread adds or removes a label; list_folders, archive_folder and delete_folder manage Outlook folders; run_rules runs the user's rules on one email. Rule and stats tools accept emailAccountId or emailAddress and default to the first linked account.",
     },
   );
 
@@ -223,7 +225,7 @@ export async function handleMcpServerRequest(
     {
       title: "Update thread",
       description:
-        "Archive, unarchive, mark read or mark unread one inbox thread by thread ID. Archiving only moves the thread out of the inbox and can be undone with unarchive; nothing is deleted or sent.",
+        "Archive, unarchive, trash, mark read or mark unread one inbox thread by thread ID. Archiving only moves the thread out of the inbox and can be undone with unarchive. Trash moves it to Deleted Items or Trash, where it can still be restored; no tool permanently deletes mail or empties the trash. Nothing is sent.",
       inputSchema: updateThreadInputShape,
       annotations: { ...mailboxWriteAnnotations, title: "Update thread" },
     },
@@ -234,6 +236,7 @@ export async function handleMcpServerRequest(
         action: args.action as
           | "archive"
           | "unarchive"
+          | "trash"
           | "mark_read"
           | "mark_unread",
         ...accountSelector(args),
@@ -282,11 +285,30 @@ export async function handleMcpServerRequest(
   );
 
   server.registerTool(
+    "archive_folder",
+    {
+      title: "Archive folder",
+      description:
+        "Move every email in one Outlook folder to Archive in a single call, by folderId from list_folders. Nothing is deleted and the folder stays; use this to empty a folder before delete_folder. Refuses system folders. Returns how many emails moved and how many failed.",
+      inputSchema: archiveFolderInputShape,
+      annotations: { ...mailboxWriteAnnotations, title: "Archive folder" },
+    },
+    runTool("archive_folder", "mcp:write", async (args) =>
+      archiveFolderForMcp({
+        userId,
+        folderId: String(args.folderId),
+        ...accountSelector(args),
+        logger: toolLogger,
+      }),
+    ),
+  );
+
+  server.registerTool(
     "delete_folder",
     {
       title: "Delete folder",
       description:
-        "Delete one empty Outlook folder by folderId from list_folders. Refuses system folders (Inbox, Sent, Drafts, Archive, Deleted Items, Junk) and any folder that still holds email or subfolders; archive or move its mail first.",
+        "Delete one empty Outlook folder by folderId from list_folders. Refuses system folders (Inbox, Sent, Drafts, Archive, Deleted Items, Junk) and any folder that still holds email or subfolders; empty it first with archive_folder.",
       inputSchema: deleteFolderInputShape,
       annotations: {
         ...mailboxWriteAnnotations,

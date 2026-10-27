@@ -214,6 +214,7 @@ describe("MCP tool permissions and rule writes", () => {
     "create_draft",
     "update_thread",
     "label_thread",
+    "archive_folder",
     "delete_folder",
     "run_rules",
     "create_rule",

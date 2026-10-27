@@ -16,6 +16,7 @@ const SEARCH_INBOX_MAX_RESULTS = 20;
 const READ_THREAD_MAX_MESSAGES = 20;
 const READ_MESSAGE_MAX_LENGTH = 4000;
 const LABEL_NAMES_IN_ERROR = 50;
+const ARCHIVE_FOLDER_MAX_MESSAGES = 1000;
 
 export const mcpAccountSelectorShape = {
   emailAccountId: z.string().optional(),
@@ -83,9 +84,9 @@ export const updateThreadInputShape = {
     .min(1)
     .describe("threadId from search_inbox or read_thread."),
   action: z
-    .enum(["archive", "unarchive", "mark_read", "mark_unread"])
+    .enum(["archive", "unarchive", "trash", "mark_read", "mark_unread"])
     .describe(
-      "archive moves the thread out of the inbox (nothing is deleted); unarchive moves it back; mark_read and mark_unread set its read state.",
+      "archive moves the thread out of the inbox (nothing is deleted); unarchive moves it back; trash moves it to Deleted Items (Outlook) or Trash (Gmail), where it can still be restored; mark_read and mark_unread set its read state.",
     ),
 };
 
@@ -129,6 +130,8 @@ export const deleteFolderInputShape = {
   ...mcpAccountSelectorShape,
   folderId: z.string().trim().min(1).describe("folderId from list_folders."),
 };
+
+export const archiveFolderInputShape = deleteFolderInputShape;
 
 export async function searchInboxForMcp({
   userId,
@@ -280,7 +283,7 @@ export async function updateThreadForMcp({
 }: {
   userId: string;
   threadId: string;
-  action: "archive" | "unarchive" | "mark_read" | "mark_unread";
+  action: "archive" | "unarchive" | "trash" | "mark_read" | "mark_unread";
   emailAccountId?: string;
   emailAddress?: string;
   logger: Logger;
@@ -300,6 +303,8 @@ export async function updateThreadForMcp({
     await emailProvider.archiveThread(threadId, emailAccount.email);
   else if (action === "unarchive")
     await emailProvider.unarchiveThread(threadId);
+  else if (action === "trash")
+    await emailProvider.trashThread(threadId, emailAccount.email, "automation");
   else await emailProvider.markReadThread(threadId, action === "mark_read");
 
   return { emailAccount, threadId, action, applied: true };
@@ -440,6 +445,80 @@ export async function deleteFolderForMcp({
     folderId: folder.id,
     path: folder.path,
     deleted: true,
+  };
+}
+
+export async function archiveFolderForMcp({
+  userId,
+  folderId,
+  emailAccountId,
+  emailAddress,
+  logger,
+}: {
+  userId: string;
+  folderId: string;
+  emailAccountId?: string;
+  emailAddress?: string;
+  logger: Logger;
+}) {
+  const { emailAccount, emailProvider, folders } =
+    await getOutlookFoldersForMcp({
+      userId,
+      emailAccountId,
+      emailAddress,
+      logger,
+    });
+
+  const folder = folders.find((f) => f.id === folderId);
+  if (!folder)
+    throw new Error(
+      `Folder ${folderId} not found. Call list_folders for current folder IDs.`,
+    );
+  if (folder.systemType)
+    throw new Error(`Not archived: "${folder.path}" is a system folder.`);
+
+  // Only this folder's messages move, so a thread's replies elsewhere stay put.
+  const threads = new Map<string, string[]>();
+  let pageToken: string | undefined;
+  let collected = 0;
+  do {
+    const page = await emailProvider.searchMessages({
+      query: "",
+      folderId: folder.id,
+      maxResults: SEARCH_INBOX_MAX_RESULTS,
+      pageToken,
+    });
+    for (const message of page.messages) {
+      threads.set(message.threadId, [
+        ...(threads.get(message.threadId) ?? []),
+        message.id,
+      ]);
+    }
+    collected += page.messages.length;
+    pageToken = page.nextPageToken;
+  } while (pageToken && collected < ARCHIVE_FOLDER_MAX_MESSAGES);
+
+  const result = await emailProvider.bulkArchiveThreads(
+    [...threads].map(([threadId, messageIds]) => ({ threadId, messageIds })),
+    emailAccount.email,
+  );
+  const failed = new Set(result.failedThreadIds);
+  const archived = [...threads]
+    .filter(([threadId]) => !failed.has(threadId))
+    .reduce((sum, [, messageIds]) => sum + messageIds.length, 0);
+  logger.info("Archived folder via MCP", {
+    folderId: folder.id,
+    archived,
+    failedThreads: failed.size,
+  });
+
+  return {
+    emailAccount,
+    folderId: folder.id,
+    path: folder.path,
+    archived,
+    failed: collected - archived,
+    moreLeft: Boolean(pageToken),
   };
 }
 

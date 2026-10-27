@@ -6,6 +6,7 @@ import type { OutlookFolder } from "@/utils/outlook/folders";
 import type { ParsedMessage } from "@/utils/types";
 import { runRulesOnMessage } from "@/utils/ai/choose-rule/run-rules-on-message";
 import {
+  archiveFolderForMcp,
   createDraftForMcp,
   deleteFolderForMcp,
   labelThreadForMcp,
@@ -251,6 +252,27 @@ describe("MCP email tools", () => {
     expect(markReadThread).toHaveBeenCalledWith("thread-1", false);
   });
 
+  it("moves a thread to the trash, where it can still be restored", async () => {
+    const trashThread = vi.fn();
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      trashThread,
+    } as never);
+
+    const result = await updateThreadForMcp({
+      userId: "user_1",
+      threadId: "thread-1",
+      action: "trash",
+      logger,
+    });
+
+    expect(trashThread).toHaveBeenCalledWith(
+      "thread-1",
+      emailAccount.email,
+      "automation",
+    );
+    expect(result).toMatchObject({ action: "trash", applied: true });
+  });
+
   it("labels every message in the thread with an existing label", async () => {
     const labelMessage = vi.fn().mockResolvedValue({});
     vi.mocked(createEmailProvider).mockResolvedValue({
@@ -343,12 +365,30 @@ describe("MCP email tools", () => {
 
     function mockOutlook() {
       const deleteFolder = vi.fn().mockResolvedValue(undefined);
+      const searchMessages = vi
+        .fn()
+        .mockResolvedValueOnce({
+          messages: [
+            message({ id: "r1", threadId: "ta" }),
+            message({ id: "r2", threadId: "ta" }),
+          ],
+          nextPageToken: "page-2",
+        })
+        .mockResolvedValueOnce({
+          messages: [message({ id: "r3", threadId: "tb" })],
+        });
+      const bulkArchiveThreads = vi.fn().mockResolvedValue({
+        succeededThreadIds: ["ta"],
+        failedThreadIds: ["tb"],
+      });
       vi.mocked(resolveMcpEmailAccount).mockResolvedValue(outlookAccount);
       vi.mocked(createEmailProvider).mockResolvedValue({
         getFolders: vi.fn().mockResolvedValue(folderTree),
         deleteFolder,
+        searchMessages,
+        bulkArchiveThreads,
       } as never);
-      return { deleteFolder };
+      return { deleteFolder, searchMessages, bulkArchiveThreads };
     }
 
     it("lists nested folders and marks only empty custom folders deletable", async () => {
@@ -416,6 +456,45 @@ describe("MCP email tools", () => {
         deleteFolderForMcp({ userId: "user_1", folderId: "old", logger }),
       ).rejects.toThrow("Outlook");
       expect(createEmailProvider).not.toHaveBeenCalled();
+    });
+
+    it("archives every email in a folder in one call and reports failures", async () => {
+      const { searchMessages, bulkArchiveThreads } = mockOutlook();
+
+      const result = await archiveFolderForMcp({
+        userId: "user_1",
+        folderId: "receipts",
+        logger,
+      });
+
+      expect(searchMessages).toHaveBeenCalledTimes(2);
+      expect(searchMessages).toHaveBeenLastCalledWith(
+        expect.objectContaining({ folderId: "receipts", pageToken: "page-2" }),
+      );
+      expect(bulkArchiveThreads).toHaveBeenCalledWith(
+        [
+          { threadId: "ta", messageIds: ["r1", "r2"] },
+          { threadId: "tb", messageIds: ["r3"] },
+        ],
+        outlookAccount.email,
+      );
+      expect(result).toMatchObject({
+        path: "Receipts",
+        archived: 2,
+        failed: 1,
+      });
+    });
+
+    it.each([
+      ["a system folder", "inbox", "system folder"],
+      ["an unknown folder", "missing", "list_folders"],
+    ])("refuses to archive %s", async (_case, folderId, message) => {
+      const { bulkArchiveThreads } = mockOutlook();
+
+      await expect(
+        archiveFolderForMcp({ userId: "user_1", folderId, logger }),
+      ).rejects.toThrow(message);
+      expect(bulkArchiveThreads).not.toHaveBeenCalled();
     });
   });
 });
