@@ -62,7 +62,10 @@ import {
 import type { ThreadMessage } from "@/components/email-list/types";
 import { useMailThreads } from "@/app/(app)/[emailAccountId]/mail/use-mail-threads";
 import { useCombinedMailThreads } from "@/app/(app)/[emailAccountId]/mail/use-combined-mail-threads";
-import { useThreadActions } from "@/app/(app)/[emailAccountId]/mail/use-thread-actions";
+import {
+  type ThreadActionTarget,
+  useThreadActions,
+} from "@/app/(app)/[emailAccountId]/mail/use-thread-actions";
 import { useOptimisticArchive } from "@/app/(app)/[emailAccountId]/mail/use-optimistic-archive";
 import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
 import { MailProductFrame } from "@inboxzero/mail-ui/MailProductFrame";
@@ -686,6 +689,31 @@ export function MailShell() {
     selection.selectedIds,
     threads,
   ]);
+  // Undo brings the thread back into the list, so return focus to it, and to
+  // the reader if one is showing, rather than leaving it where archive advanced.
+  const [restoredFocusKey, setRestoredFocusKey] = useState<string>();
+  const focusRestoredThread = useStableCallback(
+    (targets: ThreadActionTarget[]) => {
+      const target = targets[0];
+      if (!target) return;
+      setRestoredFocusKey(target.key);
+      if (layout === "split" || openThreadId) {
+        setReplyToMessageId(undefined);
+        setForwardToMessageId(undefined);
+        setOpenThread({
+          emailAccountId: target.emailAccountId,
+          threadId: target.threadId,
+        });
+      }
+    },
+  );
+  useLayoutEffect(() => {
+    if (!restoredFocusKey) return;
+    const index = orderedIds.indexOf(restoredFocusKey);
+    if (index < 0) return;
+    setFocusedIndex(index);
+    setRestoredFocusKey(undefined);
+  }, [orderedIds, restoredFocusKey]);
   const {
     archive,
     moveToInbox,
@@ -697,6 +725,7 @@ export function MailShell() {
     undo,
   } = useThreadActions({
     emailAccountId,
+    onRestore: focusRestoredThread,
     readerTarget,
     threads,
   });
