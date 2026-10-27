@@ -75,8 +75,8 @@ test("toggles tag selection and focuses a tag in single and combined inboxes", a
   await page.addInitScript(() => localStorage.setItem("theme", "dark"));
   const emailAccountId = await getEmailAccountId(page);
   await withClient(async (client) => {
-    await client.query(
-      `INSERT INTO "MailSplit" (id,"updatedAt","emailAccountId",name,"matchAll","order") VALUES ('multi-tag-marketing',NOW(),$1,'Marketing',true,3)`,
+    const { rows } = await client.query(
+      `INSERT INTO "MailSplit" (id,"updatedAt","emailAccountId",name,"matchAll","order") VALUES (gen_random_uuid()::text,NOW(),$1,'Marketing',true,3) RETURNING id`,
       [emailAccountId],
     );
     await client.query(
