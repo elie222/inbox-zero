@@ -56,6 +56,7 @@ export function EmailThread({
   renderToolbar,
   renderMessageMenu,
   enableMessageNavigation = false,
+  enableArrowNavigation = true,
 }: {
   messages: ThreadMessage[];
   missingBodyIds?: Set<string>;
@@ -79,6 +80,7 @@ export function EmailThread({
   onThreadDiscarded?: () => void;
   withHeader?: boolean;
   enableMessageNavigation?: boolean;
+  enableArrowNavigation?: boolean;
   renderMessageMenu?: (message: ThreadMessage) => ReactNode;
   renderToolbar?: (controls: {
     allExpanded: boolean;
@@ -351,7 +353,7 @@ export function EmailThread({
     "arrowup,arrowdown",
     (event) => selectRelativeMessage(event.key === "ArrowUp" ? -1 : 1),
     {
-      enabled: enableMessageNavigation,
+      enabled: enableMessageNavigation && enableArrowNavigation,
       scopes: ["mail"],
       useKey: true,
       preventDefault: true,
@@ -437,7 +439,7 @@ export function EmailThread({
                 bodyAvailable={!missingBodyIds?.has(message.id)}
                 missingBodyIds={missingBodyIds}
                 onNavigateMessage={
-                  enableMessageNavigation
+                  enableMessageNavigation && enableArrowNavigation
                     ? (direction) =>
                         selectRelativeMessage(direction, message.id)
                     : undefined

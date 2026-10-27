@@ -473,10 +473,12 @@ export function useComposeSend({
       } catch (error) {
         // biome-ignore lint/suspicious/noConsole: send failures stay visible in the browser console
         console.error(error);
-        setSubmissionError(
-          "Could not confirm delivery. Check the thread status before trying again.",
-        );
-        toastError({ description: "There was an error sending the email :(" });
+        const description =
+          error instanceof Error
+            ? error.message
+            : "Could not prepare this email for sending. Your draft is still saved on this device.";
+        setSubmissionError(description);
+        toastError({ description });
       } finally {
         if (!deliveryAccepted) resumeProviderAutosave();
       }

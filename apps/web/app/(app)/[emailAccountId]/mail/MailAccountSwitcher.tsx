@@ -35,6 +35,7 @@ import {
 } from "@/lib/shortcuts/registry";
 import { getMailAccountUrl } from "@/app/(app)/[emailAccountId]/mail/mail-account-url";
 import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
+import { useMailAccountTheme } from "@/providers/MailAccountThemeProvider";
 
 export const MailAccountSwitcher = memo(function MailAccountSwitcher({
   isAllAccounts,
@@ -53,6 +54,9 @@ export const MailAccountSwitcher = memo(function MailAccountSwitcher({
   const { data, mutate } = useAccounts();
   const { emailAccount } = useAccount();
   const [isSelectionOpen, setIsSelectionOpen] = useState(false);
+  const menuTheme = useMailAccountTheme(
+    isAllAccounts ? null : emailAccount?.id,
+  );
 
   if (!data) return null;
 
@@ -92,7 +96,8 @@ export const MailAccountSwitcher = memo(function MailAccountSwitcher({
         </RailTooltip>
         <DropdownMenuContent
           align="start"
-          className="w-[--radix-dropdown-menu-trigger-width] min-w-72 rounded-2xl p-2 shadow-xl"
+          className="mail-account-theme w-[--radix-dropdown-menu-trigger-width] min-w-72 rounded-2xl p-2 shadow-xl"
+          style={menuTheme}
           // A focused trigger reopens the menu on ArrowUp/ArrowDown, which
           // would swallow mail list navigation after closing the switcher.
           onCloseAutoFocus={(event) => event.preventDefault()}
@@ -184,6 +189,7 @@ function AccountItem({
 }) {
   // Radix onSelect receives a CustomEvent without metaKey/ctrlKey.
   const openInNewWindow = useRef(false);
+  const accountTheme = useMailAccountTheme(account.id);
 
   return (
     <DropdownMenuItem
@@ -211,11 +217,16 @@ function AccountItem({
         onSelect(account.id);
       }}
     >
-      <ProfileImage
-        className="size-10"
-        image={account.image}
-        label={account.name || account.email}
-      />
+      <span
+        className="mail-account-theme mail-account-badge rounded-full p-0.5"
+        style={accountTheme}
+      >
+        <ProfileImage
+          className="size-9"
+          image={account.image}
+          label={account.name || account.email}
+        />
+      </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate font-medium">
           {account.name || account.email}
@@ -246,9 +257,9 @@ function CurrentAccountCheck() {
 function AllAccountsIcon() {
   return (
     <span className="flex size-8 shrink-0 items-center justify-center gap-0.5 rounded-full bg-muted">
-      <span className="size-2 rounded-full bg-blue-600" />
-      <span className="size-2 rounded-full bg-violet-500" />
-      <span className="size-2 rounded-full bg-emerald-500" />
+      <span className="size-2 rounded-full bg-muted-foreground/90" />
+      <span className="size-2 rounded-full bg-muted-foreground/60" />
+      <span className="size-2 rounded-full bg-muted-foreground/40" />
     </span>
   );
 }

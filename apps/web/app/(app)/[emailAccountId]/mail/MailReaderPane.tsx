@@ -13,6 +13,7 @@ import type { ThreadSelection } from "@/app/(app)/[emailAccountId]/mail/types";
 import type { ThreadMessage } from "@/components/email-list/types";
 import { useThreadPlans } from "@/hooks/useThreadPlans";
 import { EmailAccountScopeProvider } from "@/providers/EmailAccountProvider";
+import { useMailAccountTheme } from "@/providers/MailAccountThemeProvider";
 
 const NO_PLANS: never[] = [];
 
@@ -71,6 +72,7 @@ export const MailReaderPane = memo(function MailReaderPane({
   isMenuOpen: boolean;
   onMenuOpenChange: (open: boolean) => void;
 }) {
+  const readerTheme = useMailAccountTheme(readerEmailAccount?.id);
   const { data: planData } = useThreadPlans({
     threadId: planSelection?.threadId,
     emailAccountId: planSelection?.emailAccountId,
@@ -105,37 +107,49 @@ export const MailReaderPane = memo(function MailReaderPane({
       title="Unable to show this conversation"
       onBack={onClose}
     >
-      <EmailAccountScopeProvider emailAccount={readerEmailAccount}>
-        <BufferedThreadReader
-          key={readerEmailAccount?.id ?? "empty"}
-          threadKey={readerKey ?? "empty"}
-          dataReady={dataReady}
-          onReady={onReady}
-        >
-          <ThreadReader
-            {...readerProps}
-            onBackToInbox={onClose}
-            renderMessageMenu={renderMessageMenu}
-            menu={
-              <ThreadActionsMenu
-                message={lastMessage}
-                receivedMessage={lastReceivedMessage}
-                isStarred={isStarred}
-                onToggleStar={onToggleStar}
-                onMarkSpam={onMarkSpam}
-                onDelete={onDelete}
-                onLabel={onLabel}
-                onMove={onMove}
-                onTranslate={onTranslate}
-                onComment={onComment}
-                onPrint={onPrint}
-                open={isMenuOpen}
-                onOpenChange={onMenuOpenChange}
-              />
-            }
-          />
-        </BufferedThreadReader>
-      </EmailAccountScopeProvider>
+      <div
+        className={
+          readerKey
+            ? "mail-account-theme mail-account-reader flex min-h-0 min-w-0 flex-1 flex-col bg-background"
+            : "flex min-h-0 min-w-0 flex-1 flex-col"
+        }
+        data-mail-reader-account-id={
+          readerKey ? readerEmailAccount?.id : undefined
+        }
+        style={readerKey ? readerTheme : undefined}
+      >
+        <EmailAccountScopeProvider emailAccount={readerEmailAccount}>
+          <BufferedThreadReader
+            key={readerEmailAccount?.id ?? "empty"}
+            threadKey={readerKey ?? "empty"}
+            dataReady={dataReady}
+            onReady={onReady}
+          >
+            <ThreadReader
+              {...readerProps}
+              onBackToInbox={onClose}
+              renderMessageMenu={renderMessageMenu}
+              menu={
+                <ThreadActionsMenu
+                  message={lastMessage}
+                  receivedMessage={lastReceivedMessage}
+                  isStarred={isStarred}
+                  onToggleStar={onToggleStar}
+                  onMarkSpam={onMarkSpam}
+                  onDelete={onDelete}
+                  onLabel={onLabel}
+                  onMove={onMove}
+                  onTranslate={onTranslate}
+                  onComment={onComment}
+                  onPrint={onPrint}
+                  open={isMenuOpen}
+                  onOpenChange={onMenuOpenChange}
+                />
+              }
+            />
+          </BufferedThreadReader>
+        </EmailAccountScopeProvider>
+      </div>
     </MailPanelErrorBoundary>
   );
 });

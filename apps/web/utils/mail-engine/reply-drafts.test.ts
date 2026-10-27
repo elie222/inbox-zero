@@ -273,13 +273,13 @@ describe("local reply drafts", () => {
     setActiveMailClient(null);
   });
 
-  it("does not repeat an uncertain creation or revive a discarded compose", async () => {
+  it("allows the server to recover an uncertain creation but never revives a discarded compose", async () => {
     const writer = createReplyDraftWriter(identity);
     await writer.save({ ...content, requestId: "compose-1" });
     await updateReplyDraftProviderState(identity, "compose-1");
     await expect(
       updateReplyDraftProviderState(identity, "compose-1"),
-    ).rejects.toThrow(/could not be confirmed/);
+    ).resolves.toBeUndefined();
     await writer.clear();
     await expect(
       updateReplyDraftProviderState(identity, "compose-1"),

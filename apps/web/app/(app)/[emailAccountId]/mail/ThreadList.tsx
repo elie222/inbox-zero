@@ -130,7 +130,13 @@ export const ThreadList = memo(function ThreadList({
       onSelectRangeTo={onSelectRangeTo}
       onToggleSelect={onToggleSelect}
       renderItem={(row) => (
-        <div data-mail-thread-key={row.rowKey} key={row.rowKey}>
+        <div
+          data-mail-thread-key={row.rowKey}
+          data-mail-account-id={
+            "account" in row.item ? row.item.account.id : undefined
+          }
+          key={row.rowKey}
+        >
           <ThreadRow
             compact={isMobile}
             expandedPreview={expandedPreview}

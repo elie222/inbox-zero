@@ -2,7 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { auth, calendar } from "@googleapis/calendar";
 import { createTestLogger } from "@/__tests__/helpers";
 import prisma from "@/utils/__mocks__/prisma";
-import { getCalendarClientWithRefresh } from "@/utils/calendar/client";
+import {
+  getCalendarClientWithRefresh,
+  getCalendarOAuth2Client,
+} from "@/utils/calendar/client";
 import {
   getGoogleApiRootUrl,
   getGoogleOauthClientOptions,
@@ -10,11 +13,13 @@ import {
 
 vi.mock("@/utils/prisma");
 
-vi.mock("@/env", () => ({
-  env: {
+const { calendarEnv } = vi.hoisted(() => ({
+  calendarEnv: {
     NEXT_PUBLIC_BASE_URL: "http://localhost:3000",
+    GOOGLE_CALENDAR_REDIRECT_URI: undefined as string | undefined,
   },
 }));
+vi.mock("@/env", () => ({ env: calendarEnv }));
 
 vi.mock("@/utils/gmail/oauth", () => ({
   getGoogleApiRootUrl: vi.fn(() => "http://localhost:4444"),
@@ -47,7 +52,22 @@ vi.mock("@googleapis/calendar", () => ({
 describe("google calendar client", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    calendarEnv.GOOGLE_CALENDAR_REDIRECT_URI = undefined;
     prisma.calendarConnection.updateMany.mockResolvedValue({ count: 1 } as any);
+  });
+  it("uses the same configured registered redirect for Calendar authorization and token exchange", () => {
+    calendarEnv.GOOGLE_CALENDAR_REDIRECT_URI =
+      "http://localhost:3000/api/google/linking/callback";
+    getCalendarOAuth2Client();
+    expect(getGoogleOauthClientOptions).toHaveBeenLastCalledWith(
+      calendarEnv.GOOGLE_CALENDAR_REDIRECT_URI,
+    );
+  });
+  it("retains the normal Calendar callback when no override is configured", () => {
+    getCalendarOAuth2Client();
+    expect(getGoogleOauthClientOptions).toHaveBeenLastCalledWith(
+      "http://localhost:3000/api/google/calendar/callback",
+    );
   });
 
   it("saves refreshed tokens to the requested calendar connection", async () => {

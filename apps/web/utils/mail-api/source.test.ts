@@ -6,12 +6,24 @@ import {
   InvalidMailboxSyncCursorError,
 } from "@/utils/email/mailbox-sync";
 import { ProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
+import {
+  LocalMailSyncPausedError,
+  withLocalMailSyncBudget,
+} from "@/utils/email/local-mail-sync-budget";
 import { syncPageSchema } from "@inboxzero/mail-core/sync";
 import { createEmailProviderMailboxSource } from "./source";
 import type { EmailProvider } from "@/utils/email/types";
 import type { ParsedMessage } from "@/utils/types";
 
 vi.mock("server-only", () => ({}));
+vi.mock("@/utils/email/local-mail-sync-budget", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("@/utils/email/local-mail-sync-budget")
+  >()),
+  withLocalMailSyncBudget: vi.fn(async (_input, operation) =>
+    operation(new AbortController().signal),
+  ),
+}));
 
 describe("createEmailProviderMailboxSource", () => {
   it("continues provider search after the first page", async () => {
@@ -737,10 +749,49 @@ describe("createEmailProviderMailboxSource", () => {
       pageSize: 50,
     });
     expect(getMessagesWithPagination).toHaveBeenCalledWith({
-      maxResults: 50,
+      maxResults: 20,
       pageToken: undefined,
       includeDrafts: true,
     });
+  });
+
+  it("defers Gmail enumeration without fetching or losing its cursor when the shared budget is exhausted", async () => {
+    const getMessagesWithPagination = vi.fn();
+    vi.mocked(withLocalMailSyncBudget).mockRejectedValueOnce(
+      new LocalMailSyncPausedError(45_000),
+    );
+    const source = createEmailProviderMailboxSource({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        getMessagesWithPagination,
+      } as unknown as EmailProvider,
+    });
+    const page = JSON.stringify({ pageToken: "resume-here" });
+    await expect(
+      source.enumerate({
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "r-budget",
+        signal: new AbortController().signal,
+        bootstrapId: "mailbox",
+        page,
+        pageSize: 50,
+      }),
+    ).resolves.toEqual({
+      status: "paused",
+      retryAfterMs: 45_000,
+      reason: "throttled",
+    });
+    expect(getMessagesWithPagination).not.toHaveBeenCalled();
+    expect(withLocalMailSyncBudget).toHaveBeenLastCalledWith(
+      {
+        emailAccountId: "acc-1",
+        provider: "google",
+        priority: "backfill",
+        cost: 1205,
+      },
+      expect.any(Function),
+    );
   });
 
   it("advertises and uses the Outlook list page size for Microsoft enumeration", async () => {

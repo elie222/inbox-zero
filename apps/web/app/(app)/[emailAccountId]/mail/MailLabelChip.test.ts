@@ -3,6 +3,7 @@ import {
   CHIP_COLORS,
   chipColorForLabel,
   contrastingTextColor,
+  labelColorStyle,
 } from "@/app/(app)/[emailAccountId]/mail/MailLabelChip";
 
 describe("chipColorForLabel", () => {
@@ -46,6 +47,42 @@ describe("chipColorForLabel", () => {
     expect(chipColorForLabel("Newsletters")).not.toBe(
       chipColorForLabel("Newsletter"),
     );
+  });
+});
+
+describe("labelColorStyle", () => {
+  it("does not let different account provider colors override standard AI labels", () => {
+    for (const name of [
+      "Notification",
+      "  NOTIFICATION  ",
+      "To Reply",
+      "Marketing",
+    ]) {
+      expect(
+        labelColorStyle(name, {
+          backgroundColor: "#ff0000",
+          textColor: "#ffffff",
+        }),
+      ).toBeUndefined();
+      expect(
+        labelColorStyle(name, {
+          backgroundColor: "#00ff00",
+          textColor: "#000000",
+        }),
+      ).toBeUndefined();
+    }
+  });
+
+  it("retains an explicitly chosen provider color for custom labels", () => {
+    expect(
+      labelColorStyle("Project Alpha", {
+        backgroundColor: "#123456",
+        textColor: "#abcdef",
+      }),
+    ).toEqual({
+      "--mail-label-background-color": "#123456",
+      "--mail-label-text-color": "#abcdef",
+    });
   });
 });
 

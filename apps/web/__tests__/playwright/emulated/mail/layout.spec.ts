@@ -12,6 +12,28 @@ import {
 } from "./mail-test-helpers";
 import type { MailSettingsResponse } from "@/app/api/mail/settings/route";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
+import { getEmailAccount } from "../account-test-helpers";
+
+test("returns from Assistant to All Accounts mail", async ({
+  page,
+}, testInfo) => {
+  await openMail(page);
+  await page
+    .getByRole("navigation", { name: "App sections" })
+    .getByRole("link", { name: "Assistant", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/automation/);
+  const mail = page
+    .getByRole("navigation", { name: "App sections" })
+    .getByRole("link", { name: "Mail", exact: true });
+  await expect(mail).toHaveAttribute("href", /accountScope=all.*split=all/);
+  await mail.click();
+  await expect(
+    page.getByRole("button", { name: "All accounts", exact: true }),
+  ).toBeVisible({ timeout: 60_000 });
+  await expect(page).toHaveURL(/accountScope=all/);
+  await capturePlaywrightCheckpoint(page, testInfo, "assistant-to-all-mail");
+});
 
 test("refreshes date groups after midnight when the tab resumes", async ({
   page,
@@ -92,10 +114,57 @@ test("switches between list and split reading layouts", async ({
   await expect(conversations).toBeVisible();
 });
 
+test("keeps arrow keys navigating conversations with a split preview open", async ({
+  page,
+}, testInfo) => {
+  const { conversations } = await openMail(page);
+  await page.getByRole("button", { name: "Switch list or split view" }).click();
+  await expect(
+    page.getByText("Nothing selected", { exact: true }),
+  ).toBeVisible();
+
+  const rows = conversations.getByRole("option");
+  const firstSubject = await rows
+    .nth(0)
+    .locator("[data-mail-thread-subject]")
+    .innerText();
+  const secondSubject = await rows
+    .nth(1)
+    .locator("[data-mail-thread-subject]")
+    .innerText();
+  const reader = page.getByTestId("thread-reader");
+  await rows.nth(0).click();
+  await expect(
+    reader.getByRole("heading", { name: firstSubject, exact: true }),
+  ).toBeVisible();
+  await page.keyboard.press("ArrowDown");
+  await expect(
+    reader.getByRole("heading", { name: secondSubject, exact: true }),
+  ).toBeVisible();
+  await reader
+    .getByRole("heading", { name: secondSubject, exact: true })
+    .click();
+  await page.keyboard.press("ArrowUp");
+  await expect(
+    reader.getByRole("heading", { name: firstSubject, exact: true }),
+  ).toBeVisible();
+  await expect(conversations).toBeVisible();
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "mail-split-arrow-navigation",
+  );
+
+  await page.getByRole("button", { name: "Switch list or split view" }).click();
+  await page.keyboard.press("Escape");
+});
+
 test("uses the split reading layout in All Accounts", async ({
   page,
 }, testInfo) => {
+  await page.addInitScript(() => localStorage.setItem("theme", "dark"));
   const { emailAccountId } = await openMail(page);
+  const primaryAccount = await getEmailAccount(page);
   const secondAccount = await createSecondEmailAccount(emailAccountId);
 
   try {
@@ -120,6 +189,14 @@ test("uses the split reading layout in All Accounts", async ({
       "This conversation is visible in the seeded project label.",
     );
     await expect(conversations).toBeVisible();
+    await expect(
+      conversations
+        .getByTitle(`→ ${primaryAccount.email}`, { exact: true })
+        .first(),
+    ).toBeVisible();
+    await expect(
+      page.getByTitle(`→ ${primaryAccount.email}`, { exact: true }).first(),
+    ).toBeVisible();
     await capturePlaywrightCheckpoint(page, testInfo, "all-accounts-split");
 
     await page.keyboard.press("Escape");

@@ -58,6 +58,7 @@ import { useThreadActions } from "@/app/(app)/[emailAccountId]/mail/use-thread-a
 import { useOptimisticArchive } from "@/app/(app)/[emailAccountId]/mail/use-optimistic-archive";
 import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
 import { MailProductFrame } from "@inboxzero/mail-ui/MailProductFrame";
+import { useMailAccountTheme } from "@/providers/MailAccountThemeProvider";
 import { MailEngineConnectionBanner } from "@/utils/mail-engine/MailEngineConnectionBanner";
 import { useThreadSelection } from "@/app/(app)/[emailAccountId]/mail/use-thread-selection";
 import {
@@ -121,6 +122,12 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { useTeamCommentsAvailable } from "@/components/team-comments/use-team-comments-available";
 import { getEmailMessageCellActions } from "@/components/EmailMessageCellActions";
 import type { ThreadsQuery } from "@/utils/threads/validation";
+import {
+  readSplitSelection,
+  selectedSplitIds,
+  splitSelectionPredicate,
+  toggleSplitSelection,
+} from "@/utils/split-inbox/split-selection";
 import { getConversationSubject } from "@/utils/email/subject";
 import { printMessages } from "@/app/(app)/[emailAccountId]/mail/print-messages";
 
@@ -189,6 +196,9 @@ export function MailShell() {
   }, []);
 
   const isAllAccounts = accountScope === "all";
+  const mailboxTheme = useMailAccountTheme(
+    isAllAccounts ? null : emailAccountId,
+  );
   const setOpenThread = useCallback(
     (selection: ThreadSelection | null) => {
       setIsMenuOpen(false);
@@ -370,9 +380,35 @@ export function MailShell() {
       })),
     [splits],
   );
+  const splitSelection = useMemo(
+    () => readSplitSelection(activeSplitId, splits),
+    [activeSplitId, splits],
+  );
+  const checkedSplitIds = useMemo(
+    () => selectedSplitIds(splitSelection, splits),
+    [splitSelection, splits],
+  );
   const activeSplit =
-    splits.find((split) => split.id === activeSplitId) ?? splits[0];
-  const displayedActiveSplitId = activeSplit?.id ?? null;
+    splitSelection.mode === "exclude" && !splitSelection.ids.length
+      ? splits.find(
+          (split) => !split.filters.length && split.id !== OTHER_SPLIT_ID,
+        )
+      : splitSelection.mode === "include" && splitSelection.ids.length === 1
+        ? splits.find((split) => split.id === splitSelection.ids[0])
+        : undefined;
+  const displayedActiveSplitId = activeSplit?.id ?? activeSplitId ?? "all";
+  const noTagsSelected =
+    !searchQuery &&
+    !scopeQuery &&
+    splitSelection.mode === "include" &&
+    !splitSelection.ids.length;
+  const selectedSplitPredicate = useMemo(
+    () =>
+      !searchQuery && !scopeQuery
+        ? splitSelectionPredicate(splitSelection, splits)
+        : undefined,
+    [searchQuery, scopeQuery, splitSelection, splits],
+  );
   const activeCombinedLabelNames = combinedLabelSplits.find(
     (split) => split.id === displayedActiveSplitId,
   )?.labelNames;
@@ -391,12 +427,17 @@ export function MailShell() {
   const accountThreadState = useMailThreads({
     emailAccountId,
     query,
-    enabled: !isAllAccounts && searchSettled && !isScheduledView,
+    predicate: selectedSplitPredicate,
+    enabled:
+      !isAllAccounts && searchSettled && !isScheduledView && !noTagsSelected,
   });
   const combinedThreadState = useCombinedMailThreads({
     accounts: combinedAccounts,
     emailAccountId,
-    enabled: isAllAccounts && searchSettled,
+    enabled: isAllAccounts && searchSettled && !noTagsSelected,
+    splitSelection: searchQuery ? undefined : splitSelection,
+    splits,
+    portableLabelSplits: combinedLabelSplits,
     isUnread:
       !searchQuery &&
       !!activeSplit?.filters.length &&
@@ -453,7 +494,9 @@ export function MailShell() {
   // Local reads answer fast, so the list stays blank while one is in flight
   // rather than flashing a spinner.
   let emptyListMessage: ReactNode;
-  if (isLoading || !searchSettled) {
+  if (noTagsSelected) {
+    emptyListMessage = "No tags selected";
+  } else if (isLoading || !searchSettled) {
     emptyListMessage = null;
   } else if (isSyncing) {
     emptyListMessage = (
@@ -473,6 +516,18 @@ export function MailShell() {
   }
 
   const selection = useThreadSelection(orderedIds);
+  const onToggleSplit = useStableCallback((id: string) => {
+    setActiveSplitId(toggleSplitSelection(activeSplitId, id, splits));
+    selection.clear();
+    setFocusedIndex(0);
+    setOpenThread(null);
+  });
+  const onFocusSplit = useStableCallback((id: string | null) => {
+    setActiveSplitId(id);
+    selection.clear();
+    setFocusedIndex(0);
+    setOpenThread(null);
+  });
 
   const clampIndex = useCallback(
     (index: number) =>
@@ -1121,7 +1176,9 @@ export function MailShell() {
             (filter) => filter.kind === MailSplitFilterKind.UNREAD,
           ),
       ) &&
-      !combinedLabelSplits.some((split) => split.id === activeSplitId)
+      !combinedLabelSplits.some((split) => split.id === activeSplitId) &&
+      activeSplitId !== "none" &&
+      !activeSplitId?.startsWith("{")
     ) {
       setActiveSplitId(null);
     }
@@ -1163,11 +1220,13 @@ export function MailShell() {
           ? senderCommands?.toggleAutoArchive
           : undefined,
       next: (event) => {
-        if (openThreadId && event?.key === "ArrowDown") return;
+        if (layout === "list" && openThreadId && event?.key === "ArrowDown")
+          return;
         move(1);
       },
       previous: (event) => {
-        if (openThreadId && event?.key === "ArrowUp") return;
+        if (layout === "list" && openThreadId && event?.key === "ArrowUp")
+          return;
         move(-1);
       },
       open: openThreadId
@@ -1468,6 +1527,8 @@ export function MailShell() {
 
   return (
     <MailProductFrame
+      className="mail-account-theme mail-shell flex min-h-0 flex-1 flex-col bg-background"
+      style={mailboxTheme}
       floating={senderCommandsPanel}
       dialogs={labelPickerDialog}
     >
@@ -1532,7 +1593,9 @@ export function MailShell() {
                   leading={selectAllCheckbox}
                   splits={splitTabs}
                   activeSplitId={displayedActiveSplitId}
-                  onSelectSplit={setActiveSplitId}
+                  onSelectSplit={onFocusSplit}
+                  onToggleSplit={onToggleSplit}
+                  selectedSplitIds={checkedSplitIds}
                   isAllAccounts={isAllAccounts}
                   getSenders={getSplitSenders}
                   countAccountIds={splitCountAccountIds}
@@ -1579,7 +1642,7 @@ export function MailShell() {
                       onOpenThread={openAt}
                       onToggleSelect={selection.toggle}
                       onSelectRangeTo={selection.selectRangeTo}
-                      showLoadMore={hasMore}
+                      showLoadMore={!noTagsSelected && hasMore}
                       isLoadingMore={isLoadingMore}
                       onLoadMore={loadMore}
                       showSentOpenStatus={
@@ -1588,7 +1651,7 @@ export function MailShell() {
                       listKey={
                         isAllAccounts
                           ? `all-accounts:${searchQuery ?? displayedActiveSplitId}`
-                          : JSON.stringify(query)
+                          : JSON.stringify([query, displayedActiveSplitId])
                       }
                     />
                   </LoadingContent>

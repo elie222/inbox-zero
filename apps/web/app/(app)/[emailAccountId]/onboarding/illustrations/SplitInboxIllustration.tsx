@@ -137,7 +137,14 @@ export function SplitInboxIllustration() {
             activeSplitId={activeSplitId}
             countsById={countsById}
             onSelect={noop}
-            onDelete={noop}
+            onFocus={noop}
+            selectedSplitIds={
+              new Set(
+                activeSplitId === "all"
+                  ? splits.map((split) => split.id)
+                  : [activeSplitId],
+              )
+            }
             onNewSplit={noop}
             canCreateSplits
           />

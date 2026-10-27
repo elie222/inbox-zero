@@ -46,6 +46,8 @@ export const MailSplitTabs = memo(function MailSplitTabs({
   splits,
   activeSplitId,
   onSelectSplit,
+  onToggleSplit,
+  selectedSplitIds,
   isAllAccounts,
   getSenders,
   countAccountIds,
@@ -56,6 +58,8 @@ export const MailSplitTabs = memo(function MailSplitTabs({
   splits: (MailSplit & MailSplitTab)[];
   activeSplitId: string | null;
   onSelectSplit: (splitId: string | null) => void;
+  onToggleSplit: (splitId: string) => void;
+  selectedSplitIds: ReadonlySet<string>;
   isAllAccounts: boolean;
   /** Senders the user corresponds with, read when a split is described. */
   getSenders: () => string[];
@@ -183,9 +187,6 @@ export const MailSplitTabs = memo(function MailSplitTabs({
 
   const onReorder = useCallback(
     async (ids: string[]) => {
-      // With no split picked, the first tab is shown, so moving another tab to
-      // the front would otherwise switch the view.
-      if (activeSplitId) onSelectSplit(activeSplitId);
       // Shown right away so a dropped tab doesn't jump back while saving.
       if (settings) {
         mutateSettings(
@@ -201,7 +202,7 @@ export const MailSplitTabs = memo(function MailSplitTabs({
       }
       return true;
     },
-    [activeSplitId, emailAccountId, mutateSettings, onSelectSplit, settings],
+    [emailAccountId, mutateSettings, settings],
   );
 
   const onDelete = useCallback(
@@ -243,8 +244,9 @@ export const MailSplitTabs = memo(function MailSplitTabs({
         countsById={countsById}
         leading={leading}
         activeSplitId={activeSplitId}
-        onSelect={onSelectSplit}
-        onDelete={onDelete}
+        onSelect={onToggleSplit}
+        onFocus={onSelectSplit}
+        selectedSplitIds={selectedSplitIds}
         onReorder={isAllAccounts ? undefined : onReorder}
         onEdit={
           isAllAccounts

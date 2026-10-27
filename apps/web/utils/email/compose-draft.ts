@@ -63,13 +63,16 @@ export async function sendComposeDraft({
   draftId,
   provider,
   email,
+  onBeforeSend,
 }: {
   draftId: string;
   provider: EmailProvider;
   email: SendEmailBody;
+  onBeforeSend?: () => void;
 }) {
   ensureEmailSendingEnabled();
   await provider.updateDraft(draftId, composeDraftTextUpdate(email));
+  onBeforeSend?.();
   return provider.sendDraft(draftId);
 }
 

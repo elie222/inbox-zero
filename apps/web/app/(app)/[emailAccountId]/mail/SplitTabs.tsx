@@ -34,7 +34,8 @@ export type SplitTabsProps = {
   /** Conversations currently in each split. Missing entries and zeros stay blank. */
   countsById?: ReadonlyMap<string, number>;
   onSelect: (splitId: string) => void;
-  onDelete: (splitId: string) => void;
+  onFocus: (splitId: string) => void;
+  selectedSplitIds: ReadonlySet<string>;
   onEdit?: (splitId: string) => void;
   /** Receives every reorderable split id in its new order. */
   onReorder?: (ids: string[]) => void;
@@ -51,7 +52,8 @@ export function SplitTabs({
   activeSplitId,
   countsById,
   onSelect,
-  onDelete,
+  onFocus,
+  selectedSplitIds,
   onEdit,
   onReorder,
   onNewSplit,
@@ -220,13 +222,13 @@ export function SplitTabs({
     >
       {leading ? <span className="mr-1.5 flex">{leading}</span> : null}
       {orderedSplits.map((split) => {
-        const active = split.id === activeSplitId;
+        const active = selectedSplitIds.has(split.id);
         const dragging = drag?.id === split.id;
         const countLabel = splitCountLabel(countsById?.get(split.id));
 
         return (
           <ContextMenu key={split.id}>
-            <ContextMenuTrigger asChild disabled={!split.deletable}>
+            <ContextMenuTrigger asChild>
               <motion.button
                 type="button"
                 layout={drag ? "position" : false}
@@ -241,7 +243,8 @@ export function SplitTabs({
                 // The count sits in this button, so innerText includes it.
                 // The accessible name stays the split itself.
                 aria-label={split.name}
-                aria-current={active ? "true" : undefined}
+                aria-pressed={active}
+                aria-current={split.id === activeSplitId ? "true" : undefined}
                 aria-description={
                   countLabel ? `${countLabel} in this view` : undefined
                 }
@@ -268,17 +271,14 @@ export function SplitTabs({
               </motion.button>
             </ContextMenuTrigger>
             <ContextMenuContent className="w-44">
-              {onEdit && (
+              <ContextMenuItem onSelect={() => onFocus(split.id)}>
+                Focus
+              </ContextMenuItem>
+              {split.deletable && onEdit && (
                 <ContextMenuItem onSelect={() => onEdit(split.id)}>
                   Edit filters and name
                 </ContextMenuItem>
               )}
-              <ContextMenuItem
-                className="text-destructive focus:text-destructive"
-                onSelect={() => onDelete(split.id)}
-              >
-                Turn off split
-              </ContextMenuItem>
             </ContextMenuContent>
           </ContextMenu>
         );

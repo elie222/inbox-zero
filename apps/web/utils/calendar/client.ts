@@ -31,7 +31,8 @@ const getAuth = ({ accessToken, refreshToken, expiresAt }: AuthOptions) => {
 export function getCalendarOAuth2Client() {
   return new auth.OAuth2(
     getGoogleOauthClientOptions(
-      `${env.NEXT_PUBLIC_BASE_URL}/api/google/calendar/callback`,
+      env.GOOGLE_CALENDAR_REDIRECT_URI ??
+        `${env.NEXT_PUBLIC_BASE_URL}/api/google/calendar/callback`,
     ),
   );
 }

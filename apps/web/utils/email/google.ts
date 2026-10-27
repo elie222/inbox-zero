@@ -985,6 +985,7 @@ export class GmailProvider implements EmailProvider {
   }
 
   async createDraft(params: {
+    onCreated?: (draftId: string) => Promise<void>;
     to: string;
     from?: string;
     cc?: string;
@@ -1049,6 +1050,7 @@ export class GmailProvider implements EmailProvider {
     );
 
     this.logger.info("Gmail draft created", { draftId: result.id });
+    if (result.id) await params.onCreated?.(result.id);
     return { id: result.id || "" };
   }
 

@@ -25,10 +25,8 @@ import { isGmailLabelColor } from "@/utils/gmail/label-colors";
 import { getOutlookCategoryPreset } from "@/utils/outlook/category-colors";
 import { markTrackedDraftDeleted } from "@/utils/ai/draft-cleanup";
 
-import {
-  saveComposeDraft,
-  discardComposeDraft,
-} from "@/utils/email/compose-draft";
+import { discardComposeDraft } from "@/utils/email/compose-draft";
+import { saveComposeDraftWithReceipt } from "@/utils/email/compose-draft-save";
 
 const isStatusOk = (status: number) => status >= 200 && status < 300;
 
@@ -534,8 +532,9 @@ export const saveComposeDraftAction = actionClient
         provider: providerName,
         logger,
       });
-      const saved = await saveComposeDraft({
+      const saved = await saveComposeDraftWithReceipt({
         provider,
+        emailAccountId,
         ...parsedInput,
       });
       return saved;
@@ -556,6 +555,10 @@ export const discardComposeDraftAction = actionClient
         logger,
       });
       await discardComposeDraft({ provider, ...parsedInput });
+      await prisma.composeDraftSave.updateMany({
+        where: { emailAccountId, draftId: parsedInput.draftId },
+        data: { status: "DISCARDED" },
+      });
       return { success: true };
     },
   );

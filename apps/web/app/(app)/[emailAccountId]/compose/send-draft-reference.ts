@@ -10,9 +10,12 @@ export async function resolveSendDraftId(
   if (providerDraftId) return providerDraftId;
   const local = identity ? await getReplyDraft(identity) : undefined;
   const draftId = local?.content?.providerDraftId;
-  if (!draftId && local?.content?.providerDraftCreationUnconfirmed)
+  if (!draftId && local?.content?.attachments.length) {
     throw new Error(
-      "Mailbox draft creation could not be confirmed. Check Drafts in Gmail or Outlook before sending.",
+      "Could not confirm the mailbox draft holding this email's attachments. Your draft is still saved on this device.",
     );
+  }
+  // Creating a mailbox draft never sends it. The outbox owns send deduplication;
+  // the caller still requires a confirmed provider draft for attachments.
   return draftId;
 }

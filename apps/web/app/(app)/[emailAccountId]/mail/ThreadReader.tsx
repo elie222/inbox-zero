@@ -241,6 +241,7 @@ export function ThreadReader({
           renderToolbar={renderToolbar}
           renderMessageMenu={renderMessageMenu}
           enableMessageNavigation={enableMessageNavigation}
+          enableArrowNavigation={layout === "list"}
           autoOpenReplyForMessageId={autoOpenReplyForMessageId}
           autoOpenForwardForMessageId={autoOpenForwardForMessageId}
           key={threadId}

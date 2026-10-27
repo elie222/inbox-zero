@@ -1,10 +1,24 @@
 /** @vitest-environment jsdom */
 
 import { describe, expect, it } from "vitest";
-import { EMAIL_DOCUMENT_MARKER, buildMailHtmlDocument } from "./MailBody";
+import {
+  EMAIL_DOCUMENT_MARKER,
+  buildMailHtmlDocument,
+  getMailHtmlDocumentKey,
+} from "./MailBody";
 import { sanitizeMailHtml } from "./sanitize-html";
 
 describe("sanitizeMailHtml", () => {
+  it("replaces a buffered dark document when its account palette changes", () => {
+    const html = "<p>Same conversation body</p>";
+    expect(getMailHtmlDocumentKey(html, true, "165 14% 16%")).not.toBe(
+      getMailHtmlDocumentKey(html, true, "285 14% 16%"),
+    );
+    expect(getMailHtmlDocumentKey(html, false, "165 14% 16%")).toBe(
+      getMailHtmlDocumentKey(html, false, "285 14% 16%"),
+    );
+  });
+
   it("removes executable content from complete email documents", () => {
     const sanitized = sanitizeMailHtml(`
       <html>

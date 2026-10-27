@@ -1,3 +1,32 @@
+# Open Inbox Zero
+
+**Powered by OpenRouter.** This is a fork of [Inbox Zero](https://github.com/elie222/inbox-zero), with an optional local OpenRouter gateway, persistent background automation, and mailbox usability improvements. Upstream's other AI providers remain available.
+
+### Added functionality
+
+- **Quota-aware OpenRouter AI:** a loopback-only gateway with persistent request counters, configurable minute/day limits, UTC-day reset, a full cooldown after each request batch, and a free-model-only mode. With a 1,000-request budget, 100 calls are reserved for new mail and interactive use.
+- **Ten emails per bulk classification:** older messages can receive different tags in a single AI call. Decisions are saved before label writes, so a provider retry can reuse them.
+- **Priority for new mail:** independent mailbox polling every five seconds, a persistent work queue, and execution capacity reserved for recent arrivals. AI latency and provider limits still affect completion time.
+- **Combined inbox by default:** returning from Assistant opens All Accounts. Account colors distinguish messages; the combined view uses a neutral dark palette.
+- **Compact split reader:** a separate preview column, Up/Down email navigation, recipient addresses beside senders, tags before sender names, attachments above message bodies, and subdued marketing rows.
+- **Tag selection controls:** toggle individual tags, select or deselect all, or use the context-menu Focus action without disabling automation rules.
+- **Recoverable drafts and reliable sends:** account-scoped PostgreSQL creation receipts recover lost responses; Outlook records draft IDs before follow-up updates. Attachment preservation, send deduplication, and accurate pre-send failure reporting protect the draft-to-send flow.
+- **Windows background services:** a readiness-checking launcher and optional sign-in startup. A separate scheduled-mail worker handles Send later, reminders, and snoozes every 15 seconds, independently of AI quotas.
+- **Provider fixes:** Outlook ISO arrival dates retain their real timestamps, and signed Google Calendar state can use an explicitly registered callback.
+- **Local font assets:** Inter is bundled with its license, removing a build-time font download.
+
+### Run this edition
+
+See **[LOCAL-SETUP.md](LOCAL-SETUP.md)** for prerequisites, private configuration, Windows setup, OAuth callbacks, quota behavior, and verification commands. Microsoft account setup is covered in **[OUTLOOK-SETUP.md](OUTLOOK-SETUP.md)**.
+
+The gateway defaults to **20 requests/minute and 50/day**. Set the daily budget to 1,000 only when your OpenRouter account has the corresponding allowance; changing a local setting does not upgrade an account. See [OpenRouter's published limits](https://openrouter.ai/pricing). Mail content selected for AI processing is sent to OpenRouter and the selected model provider.
+
+Validation includes focused unit tests, browser recovery tests, production builds, and delivery/reply/forward/attachment/scheduling checks between controlled mailboxes. Credentials, mailbox databases, runtime logs, and private screenshots are not included in this repository.
+
+Upstream licensing and its additional terms remain unchanged; see [LICENSE](LICENSE). Inter's separate license is included beside the font. The original upstream README follows.
+
+---
+
 [![](apps/web/app/opengraph-image.jpg)](https://www.getinboxzero.com)
 
 <p align="center">

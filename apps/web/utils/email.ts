@@ -110,6 +110,19 @@ export function formatRecipientNames(recipients: string[], userEmail: string) {
   return (includesMe ? ["me", ...names] : names).join(", ");
 }
 
+export function formatRecipientAddresses(recipients: string[]) {
+  const seen = new Set<string>();
+  return recipients
+    .flatMap((recipient) => {
+      const address = extractEmailAddress(recipient);
+      const key = address.toLowerCase();
+      if (!address || seen.has(key)) return [];
+      seen.add(key);
+      return [address];
+    })
+    .join(", ");
+}
+
 export function messageRepliesToSourceSender({
   sentMessage,
   sourceMessage,

@@ -11,14 +11,14 @@ import {
 // https://developers.google.com/workspace/gmail/api/reference/quota
 // https://learn.microsoft.com/en-us/graph/throttling-limits#outlook-service-limits
 const policies = {
-  google: { account: 1200, app: 120_000, maximumCost: 500 },
+  google: { account: 4000, app: 120_000, maximumCost: 2000 },
   microsoft: { account: 60, app: 600, maximumCost: 1 },
 };
 export const gmailMailSyncCosts = {
   profile: 1,
   list: 5,
   history: 2,
-  message: 20,
+  message: 60, // Gmail charges full-body reads more than metadata reads.
 } as const;
 
 type Input = {

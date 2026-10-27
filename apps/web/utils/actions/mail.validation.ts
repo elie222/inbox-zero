@@ -83,6 +83,8 @@ export const updateDraftBody = z.object({
 
 export const saveComposeDraftBody = z.object({
   draftId: z.string().min(1).optional(),
+  requestId: z.string().min(1).max(128).optional(),
+  creationUnconfirmed: z.boolean().optional(),
   content: sendEmailBody,
 });
 export const composeDraftParams = z.object({

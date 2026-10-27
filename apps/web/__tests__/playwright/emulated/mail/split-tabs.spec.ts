@@ -1,6 +1,6 @@
 import { MAX_MAIL_SPLITS } from "@/utils/split-inbox/split-constants";
 import { INITIAL_MAIL_SPLITS } from "@/utils/split-inbox/initial-splits";
-import { expect } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
 import { playwrightMailProvider } from "../mail-provider";
@@ -54,6 +54,92 @@ async function hideDevIndicator(page: Parameters<typeof openMail>[0]) {
   });
 }
 
+async function focusSplit(page: Page, tab: Locator) {
+  await tab.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Focus", exact: true }).click();
+}
+
+async function turnOffSavedSplit(page: Page, tab: Locator) {
+  await page.keyboard.press("Escape");
+  const name = await tab.getAttribute("aria-label");
+  await page.getByRole("button", { name: "New split", exact: true }).click();
+  await page
+    .getByRole("button", { name: `Turn off the ${name} split`, exact: true })
+    .click();
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+}
+
+test("toggles tag selection and focuses a tag in single and combined inboxes", async ({
+  page,
+}, testInfo) => {
+  await page.addInitScript(() => localStorage.setItem("theme", "dark"));
+  const emailAccountId = await getEmailAccountId(page);
+  await withClient(async (client) => {
+    await client.query(
+      `INSERT INTO "MailSplit" (id,"updatedAt","emailAccountId",name,"matchAll","order") VALUES ('multi-tag-marketing',NOW(),$1,'Marketing',true,3)`,
+      [emailAccountId],
+    );
+    await client.query(
+      `INSERT INTO "MailSplitFilter" (id,"mailSplitId",kind,value,"order") VALUES ('multi-tag-label','multi-tag-marketing','LABEL','Label_project',0)`,
+    );
+  });
+  for (const scope of ["single", "all"]) {
+    await page.goto(
+      `/${emailAccountId}/mail?split=all${scope === "all" ? "&accountScope=all" : ""}`,
+    );
+    const rows = page.getByRole("listbox", { name: "Conversations" });
+    const all = page.getByRole("button", { name: "All", exact: true });
+    const marketing = page.getByRole("button", {
+      name: "Marketing",
+      exact: true,
+    });
+    await expect(marketing).toBeVisible({ timeout: 60_000 });
+    await expect(all).toHaveAttribute("aria-pressed", "true");
+    await expect(marketing).toHaveAttribute("aria-pressed", "true");
+    const project = conversationWithSubject(
+      page,
+      rows,
+      "Project Label Message",
+    );
+    await expect(project.first()).toBeVisible({ timeout: 60_000 });
+    await marketing.click();
+    await expect(all).toHaveAttribute("aria-pressed", "false");
+    await expect(marketing).toHaveAttribute("aria-pressed", "false");
+    await expect(project).toHaveCount(0);
+    await page.reload();
+    await expect(marketing).toHaveAttribute("aria-pressed", "false");
+    await expect(project).toHaveCount(0);
+    await focusSplit(page, marketing);
+    await expect(marketing).toHaveAttribute("aria-pressed", "true");
+    await expect(all).toHaveAttribute("aria-pressed", "false");
+    await expect(
+      page.getByRole("button", { name: "Unread", exact: true }),
+    ).toHaveAttribute("aria-pressed", "false");
+    await expect(project.first()).toBeVisible();
+    await expect(rows.getByRole("option")).toHaveCount(1);
+    await marketing.click({ button: "right" });
+    await expect(
+      page.getByRole("menuitem", { name: "Turn off split" }),
+    ).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await capturePlaywrightCheckpoint(page, testInfo, `${scope}-focused-tag`);
+    await all.click();
+    await expect(marketing).toHaveAttribute("aria-pressed", "true");
+    await all.click();
+    await expect(all).toHaveAttribute("aria-pressed", "false");
+    await expect(marketing).toHaveAttribute("aria-pressed", "false");
+    await expect(rows.getByRole("option")).toHaveCount(0);
+    await expect(
+      page.getByText("No tags selected", { exact: true }),
+    ).toBeVisible();
+    await capturePlaywrightCheckpoint(
+      page,
+      testInfo,
+      `${scope}-no-tags-selected`,
+    );
+  }
+});
+
 test("restores a deleted All tab and protects it from removal", async ({
   page,
 }, testInfo) => {
@@ -86,6 +172,7 @@ test("restores a deleted All tab and protects it from removal", async ({
   await expect(
     page.getByRole("menuitem", { name: "Turn off split" }),
   ).toBeHidden();
+  await page.keyboard.press("Escape");
   await capturePlaywrightCheckpoint(page, testInfo, "mail-protected-all-split");
   await page.getByRole("button", { name: "New split", exact: true }).click();
   await expect(
@@ -123,7 +210,7 @@ test("moves focus with the active split when cycling by keyboard", async ({
 
   const activeSplit = page.locator('button[aria-current="true"]');
   await expect(activeSplit).toBeVisible();
-  await activeSplit.click();
+  await activeSplit.focus();
 
   await page.keyboard.press("Tab");
 
@@ -209,7 +296,7 @@ test("builds a split from conditions and shows only matching mail", async ({
   await expect(promosSplit).toBeVisible();
 
   await promosSplit.click({ button: "right" });
-  await page.getByRole("menuitem", { name: "Turn off split" }).click();
+  await turnOffSavedSplit(page, promosSplit);
   await expect(promosSplit).toHaveCount(0);
 });
 
@@ -258,7 +345,7 @@ test("turns a prepared split on from the library", async ({
   );
 
   await templateSplit.click({ button: "right" });
-  await page.getByRole("menuitem", { name: "Turn off split" }).click();
+  await turnOffSavedSplit(page, templateSplit);
   await expect(templateSplit).toHaveCount(0);
 });
 
@@ -339,8 +426,14 @@ test("Other excludes enabled splits and restores mail when a split is disabled",
   await page
     .getByRole("button", { name: "Unread", exact: true })
     .click({ button: "right" });
-  await page.getByRole("menuitem", { name: "Turn off split" }).click();
-  await page.getByRole("button", { name: "Other", exact: true }).click();
+  await turnOffSavedSplit(
+    page,
+    page.getByRole("button", { name: "Unread", exact: true }),
+  );
+  await focusSplit(
+    page,
+    page.getByRole("button", { name: "Other", exact: true }),
+  );
   const promotion = conversationWithSubject(
     page,
     conversations,
@@ -374,7 +467,10 @@ test("Other excludes enabled splits and restores mail when a split is disabled",
   await page.getByLabel("Split name").fill("Promos");
   await page.getByRole("button", { name: "Add split" }).click();
   await expect(promotion).toBeVisible();
-  await page.getByRole("button", { name: "Other", exact: true }).click();
+  await focusSplit(
+    page,
+    page.getByRole("button", { name: "Other", exact: true }),
+  );
   await expect(promotion).toHaveCount(0);
   await capturePlaywrightCheckpoint(
     page,
@@ -385,8 +481,14 @@ test("Other excludes enabled splits and restores mail when a split is disabled",
   await page
     .getByRole("button", { name: "Promos", exact: true })
     .click({ button: "right" });
-  await page.getByRole("menuitem", { name: "Turn off split" }).click();
-  await page.getByRole("button", { name: "Other", exact: true }).click();
+  await turnOffSavedSplit(
+    page,
+    page.getByRole("button", { name: "Promos", exact: true }),
+  );
+  await focusSplit(
+    page,
+    page.getByRole("button", { name: "Other", exact: true }),
+  );
   await expect(
     page.getByRole("button", { name: "Other", exact: true }),
   ).toHaveAttribute("aria-current", "true");

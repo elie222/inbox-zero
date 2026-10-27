@@ -148,7 +148,8 @@ function useShortcutBucket(
     // Hotkeys are matched on the typed character so they survive keyboard
     // layouts that move `#` or `?`.
     useKey: true,
-    enableOnFormTags: bucket.allowWhileTyping,
+    // Mail rows use role="option", which the hotkey library treats as a field.
+    enableOnFormTags: bucket.allowWhileTyping ? true : ["option"],
     enableOnContentEditable: bucket.allowWhileTyping,
     delimiter: HOTKEYS_DELIMITER,
     eventListenerOptions: bucket.capture ? { capture: true } : undefined,
@@ -207,6 +208,13 @@ function resolveTarget(
   hotkeysEvent: HotkeysEvent,
 ): ShortcutTarget | undefined {
   if (!bucket.allowWhileTyping && isTypingTarget(event.target)) return;
+  if (
+    !bucket.allowWhileTyping &&
+    event.target instanceof Element &&
+    event.target.getAttribute("role") === "option" &&
+    !event.target.closest("[data-mail-thread-key]")
+  )
+    return;
   const target = bucket.targets.get(hotkeysEvent.hotkey);
   if (
     target?.type === "entry" &&

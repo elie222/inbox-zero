@@ -78,6 +78,46 @@ describe("useShortcuts", () => {
     expect(event.defaultPrevented).toBe(true);
   });
 
+  it("navigates mail rows without scrolling when a conversation option has focus", () => {
+    const next = vi.fn();
+    const previous = vi.fn();
+    renderShortcuts({ next, previous });
+    const row = document.createElement("div");
+    row.dataset.mailThreadKey = "account:thread";
+    const option = document.createElement("div");
+    option.setAttribute("role", "option");
+    row.append(option);
+    document.body.append(row);
+    try {
+      expect(
+        press({ key: "ArrowDown", code: "ArrowDown" }, option).defaultPrevented,
+      ).toBe(true);
+      expect(next).toHaveBeenCalledOnce();
+      expect(
+        press({ key: "ArrowUp", code: "ArrowUp" }, option).defaultPrevented,
+      ).toBe(true);
+      expect(previous).toHaveBeenCalledOnce();
+    } finally {
+      row.remove();
+    }
+  });
+
+  it("leaves arrow keys to options outside the mail conversation list", () => {
+    const next = vi.fn();
+    renderShortcuts({ next });
+    const option = document.createElement("div");
+    option.setAttribute("role", "option");
+    document.body.append(option);
+    try {
+      expect(
+        press({ key: "ArrowDown", code: "ArrowDown" }, option).defaultPrevented,
+      ).toBe(false);
+      expect(next).not.toHaveBeenCalled();
+    } finally {
+      option.remove();
+    }
+  });
+
   it("leaves slash to the field while the user is typing", () => {
     const search = vi.fn();
     renderShortcuts({ search });

@@ -30,6 +30,7 @@ import {
 } from "@/utils/attachments/download";
 import { queueAttachmentDownload } from "@/utils/attachments/download-queue";
 import { getAttachmentImagePreview } from "@inboxzero/mail-ui/image-preview";
+import { useMailAccountTheme } from "@/providers/MailAccountThemeProvider";
 
 const NO_INLINE_ATTACHMENTS: ParsedMessage["inline"] = [];
 const INLINE_IMAGE_MAX_BYTES = 25 * 1024 * 1024;
@@ -74,6 +75,8 @@ export function HtmlEmail({
   );
   const { resolvedTheme } = useTheme();
   const isDarkMode = resolvedTheme === "dark";
+  const accountTheme = useMailAccountTheme(emailAccountId);
+  const darkBackgroundHsl = `${accountTheme["--mail-hue"]} ${accountTheme["--mail-saturation"]} 16%`;
 
   useEffect(() => {
     mountedInlineImageMessages.set(
@@ -147,8 +150,9 @@ export function HtmlEmail({
   );
 
   const documentKey = useMemo(
-    () => getMailHtmlDocumentKey(mainContent, applyDarkTheme),
-    [mainContent, applyDarkTheme],
+    () =>
+      getMailHtmlDocumentKey(mainContent, applyDarkTheme, darkBackgroundHsl),
+    [mainContent, applyDarkTheme, darkBackgroundHsl],
   );
   const srcDoc = useMemo(
     () =>
@@ -158,13 +162,19 @@ export function HtmlEmail({
         imageProxyBaseUrl: IMAGE_PROXY_BASE_URL,
         imageProxyOrigin: IMAGE_PROXY_ORIGIN,
         documentKey,
+        darkBackgroundHsl,
       }),
-    [mainContent, applyDarkTheme, documentKey],
+    [mainContent, applyDarkTheme, documentKey, darkBackgroundHsl],
   );
 
   const quotedDocumentKey = useMemo(
-    () => getMailHtmlDocumentKey(quotedContent, applyQuotedDarkTheme),
-    [quotedContent, applyQuotedDarkTheme],
+    () =>
+      getMailHtmlDocumentKey(
+        quotedContent,
+        applyQuotedDarkTheme,
+        darkBackgroundHsl,
+      ),
+    [quotedContent, applyQuotedDarkTheme, darkBackgroundHsl],
   );
   const quotedSrcDoc = useMemo(
     () =>
@@ -174,8 +184,9 @@ export function HtmlEmail({
         imageProxyBaseUrl: IMAGE_PROXY_BASE_URL,
         imageProxyOrigin: IMAGE_PROXY_ORIGIN,
         documentKey: quotedDocumentKey,
+        darkBackgroundHsl,
       }),
-    [quotedContent, applyQuotedDarkTheme, quotedDocumentKey],
+    [quotedContent, applyQuotedDarkTheme, quotedDocumentKey, darkBackgroundHsl],
   );
   const callbacks = {
     onForwardMessage,

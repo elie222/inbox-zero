@@ -3,6 +3,7 @@
 import { memo, useMemo, type Ref } from "react";
 import { PaperclipIcon } from "lucide-react";
 import { MailThreadRow } from "@inboxzero/mail-ui/MailThreadRow";
+import { useMailAccountTheme } from "@/providers/MailAccountThemeProvider";
 import { isThreadStarred } from "@/app/(app)/[emailAccountId]/mail/star-state";
 import { MailLabelChip } from "@/app/(app)/[emailAccountId]/mail/MailLabelChip";
 import { isThreadUnread } from "@/app/(app)/[emailAccountId]/mail/read-state";
@@ -17,11 +18,6 @@ import { getEmailThreadLabels } from "@/components/EmailMessageCellLabels";
 import { Tooltip } from "@/components/Tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
 import { mailCheckboxClassName } from "@/app/(app)/[emailAccountId]/mail/SelectAllCheckbox";
-import {
-  Avatar,
-  AvatarFallbackColor,
-  AvatarImage,
-} from "@/components/ui/avatar";
 import type { EmailLabels } from "@/providers/email-label-types";
 import { cn } from "@/utils";
 import { internalDateToDate } from "@/utils/date";
@@ -83,6 +79,7 @@ export const ThreadRow = memo(function ThreadRow({
     [thread.messages, userLabels],
   );
   const account = "account" in thread ? thread.account : null;
+  const accountTheme = useMailAccountTheme(account?.id);
   const accountEmail = account?.email ?? userEmail;
   const participantSummary = useMemo(
     () =>
@@ -96,6 +93,9 @@ export const ThreadRow = memo(function ThreadRow({
   if (!message) return null;
 
   const chips = labels.slice(0, layout === "list" && !compact ? 3 : 2);
+  const isMarketing = labels.some(
+    (label) => label.name.trim().toLowerCase() === "marketing",
+  );
   const isDraft = thread.messages.some((message) =>
     message.labelIds?.includes(GmailLabel.DRAFT),
   );
@@ -105,7 +105,13 @@ export const ThreadRow = memo(function ThreadRow({
 
   return (
     <MailThreadRow
-      accountAvatar={account ? <AccountAvatar account={account} /> : null}
+      className={cn(
+        account && "mail-account-theme mail-account-row",
+        isMarketing && "mail-marketing-row",
+      )}
+      style={account ? accountTheme : undefined}
+      accountLabel={account ? account.name || account.email : undefined}
+      accountEmail={accountEmail}
       compact={compact}
       date={
         <div className="flex items-center justify-end gap-1.5">
@@ -168,26 +174,3 @@ export const ThreadRow = memo(function ThreadRow({
     />
   );
 });
-
-function AccountAvatar({
-  account,
-}: {
-  account: { email: string; image: string | null; name: string | null };
-}) {
-  const label = account.name || account.email;
-  const initial = label.trim().at(0)?.toUpperCase() || "A";
-
-  return (
-    <Avatar
-      aria-label={`Inbox: ${label}`}
-      className="size-5"
-      title={account.email}
-    >
-      <AvatarImage alt="" src={account.image || undefined} />
-      <AvatarFallbackColor
-        className="text-[10px] font-medium"
-        content={initial}
-      />
-    </Avatar>
-  );
-}

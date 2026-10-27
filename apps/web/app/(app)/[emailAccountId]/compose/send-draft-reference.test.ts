@@ -48,16 +48,16 @@ it("recovers the provider reference persisted by a previous composer", async () 
   );
 });
 
-it("does not send a new copy when mailbox draft creation was not confirmed", async () => {
+it("does not confuse an unconfirmed draft save with an attempted send", async () => {
   vi.mocked(getReplyDraft).mockResolvedValue({
     ...identity,
     revision: 1,
     updatedAt: 0,
     content: { ...content, providerDraftCreationUnconfirmed: true },
   });
-  await expect(resolveSendDraftId(undefined, identity)).rejects.toThrow(
-    /Check Drafts/,
-  );
+  await expect(
+    resolveSendDraftId(undefined, identity),
+  ).resolves.toBeUndefined();
 });
 
 it("does not invent a provider draft for an ordinary reply", async () => {
@@ -65,4 +65,22 @@ it("does not invent a provider draft for an ordinary reply", async () => {
   await expect(
     resolveSendDraftId(undefined, identity),
   ).resolves.toBeUndefined();
+});
+
+it("keeps attachment-bearing replies blocked until their mailbox draft is confirmed", async () => {
+  vi.mocked(getReplyDraft).mockResolvedValue({
+    ...identity,
+    revision: 1,
+    updatedAt: 0,
+    content: {
+      ...content,
+      providerDraftCreationUnconfirmed: true,
+      attachments: [
+        { filename: "report.pdf" },
+      ] as ReplyDraftContent["attachments"],
+    },
+  });
+  await expect(resolveSendDraftId(undefined, identity)).rejects.toThrow(
+    /mailbox draft holding this email's attachments/,
+  );
 });

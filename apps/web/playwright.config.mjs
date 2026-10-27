@@ -264,7 +264,10 @@ export default defineConfig({
               MICROSOFT_CLIENT_SECRET: microsoftClientSecret,
               MICROSOFT_WEBHOOK_CLIENT_STATE: microsoftWebhookClientState,
             }
-          : { GOOGLE_BASE_URL: emulateBaseUrl }),
+          : {
+              GOOGLE_BASE_URL: emulateBaseUrl,
+              GOOGLE_CALENDAR_REDIRECT_URI: `${baseURL}/api/google/calendar/callback`,
+            }),
         GOOGLE_PUBSUB_TOPIC_NAME:
           process.env.GOOGLE_PUBSUB_TOPIC_NAME ?? "topic",
         GOOGLE_PUBSUB_VERIFICATION_TOKEN:

@@ -33,8 +33,18 @@ import {
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import { SafeError } from "@/utils/error";
 import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
+import { isGoogleCalendarCallback } from "@/utils/calendar/shared-oauth-callback";
+import { handleCalendarCallback } from "@/utils/calendar/handle-calendar-callback";
+import { createGoogleCalendarProvider } from "@/utils/calendar/providers/google";
 
 export const GET = withError("google/linking/callback", async (request) => {
+  if (isGoogleCalendarCallback(request)) {
+    return handleCalendarCallback(
+      request,
+      createGoogleCalendarProvider(request.logger),
+      request.logger,
+    );
+  }
   const actorSession = await auth(request.headers);
   const actorUserId = actorSession?.user.id ?? null;
   let logger = request.logger.with({

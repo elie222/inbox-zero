@@ -715,6 +715,7 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async createDraft(params: {
+    onCreated?: (draftId: string) => Promise<void>;
     to: string;
     cc?: string;
     bcc?: string;
@@ -754,6 +755,7 @@ export class OutlookProvider implements EmailProvider {
         this.logger,
       );
 
+      if (draft.id) await params.onCreated?.(draft.id);
       // Update the draft with our content
       await withMicrosoftGraphWriteRetry(
         () =>
@@ -787,6 +789,7 @@ export class OutlookProvider implements EmailProvider {
     );
 
     this.logger.info("Created standalone draft", { draftId: draft.id });
+    if (draft.id) await params.onCreated?.(draft.id);
     return { id: draft.id };
   }
 

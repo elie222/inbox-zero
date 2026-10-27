@@ -195,7 +195,7 @@ describe("Gmail bounded hydration", () => {
     expect(page.messages).toHaveLength(25);
     expect(withLocalMailSyncBudget).toHaveBeenCalledTimes(1);
     expect(withLocalMailSyncBudget).toHaveBeenCalledWith(
-      expect.objectContaining({ cost: 500, priority: "backfill" }),
+      expect.objectContaining({ cost: 1500, priority: "backfill" }),
       expect.any(Function),
     );
     expect(gmail.users.messages.get).toHaveBeenCalledTimes(25);

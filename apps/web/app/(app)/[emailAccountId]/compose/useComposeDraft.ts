@@ -40,7 +40,10 @@ import {
   toAttachmentReference,
 } from "./compose-attachments";
 import { buildComposeMessageHtml } from "./compose-message-html";
-import type { ComposeRecipientField } from "./compose-recipients";
+import {
+  type ComposeRecipientField,
+  resolveComposeRecipientFields,
+} from "./compose-recipients";
 import {
   enqueueDraftOperation,
   waitForDraftOperations,
@@ -160,12 +163,20 @@ export function useComposeDraft({
   const getProviderDraftContent = () => {
     const content = getDraftContent();
     if (!content) return;
+    const recipients = resolveComposeRecipientFields({
+      selectedRecipients: {
+        to: getValues("to"),
+        cc: getValues("cc"),
+        bcc: getValues("bcc"),
+      },
+      pendingRecipients: pendingRecipientsRef.current,
+    });
     return {
       subject: content.values.subject ?? "",
       from: content.values.from,
-      to: content.values.to ?? "",
-      cc: content.values.cc ?? "",
-      bcc: content.values.bcc ?? "",
+      to: recipients.to,
+      cc: recipients.cc ?? "",
+      bcc: recipients.bcc ?? "",
       messageHtml: buildComposeMessageHtml({
         draft: content.draft,
         preservedBlockIds: content.preservedBlocks.map((block) => block.id),
@@ -209,24 +220,25 @@ export function useComposeDraft({
       await forgetReplyDraftProvider(localDraftIdentity, deletedDraftId);
     captureLocalDraft();
     await flushDraft();
+    const content = getProviderDraftContent();
+    if (!content) throw new Error("This draft is not ready to save yet.");
+    const creationUnconfirmed = (await getReplyDraft(localDraftIdentity))
+      ?.content?.providerDraftCreationUnconfirmed;
     let draftId = await updateReplyDraftProviderState(
       localDraftIdentity,
       requestId,
     );
     let createdMessageId: string | null = null;
     if (!draftId) {
-      const content = getProviderDraftContent();
-      if (!content) throw new Error("This draft is not ready to save yet.");
       const created = await saveComposeDraftAction(emailAccountId, {
+        requestId,
+        creationUnconfirmed,
         content: {
           ...content,
           replyToEmail: getReplyToEmailPayload(getValues("replyToEmail")),
         },
       });
-      if (!created?.data)
-        throw new Error(
-          "Mailbox draft creation could not be confirmed. Check Drafts in Gmail or Outlook; your message is still saved on this device.",
-        );
+      if (!created?.data) throw new Error(getDraftSyncErrorMessage(created));
       draftId = created.data.draftId;
       createdMessageId = created.data.messageId;
     }

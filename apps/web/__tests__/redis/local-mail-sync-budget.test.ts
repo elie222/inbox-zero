@@ -31,7 +31,7 @@ const input = {
   emailAccountId: "account-1",
   provider: "google" as const,
   priority: "backfill" as const,
-  cost: 500,
+  cost: 1500,
 };
 let created = false;
 
@@ -135,12 +135,12 @@ describe.skipIf(!process.env.RUN_INTEGRATION_TESTS)(
         "300000",
       );
       await expect(
-        withLocalMailSyncBudget({ ...input, cost: 200 }, async () => undefined),
+        withLocalMailSyncBudget({ ...input, cost: 600 }, async () => undefined),
       ).rejects.toBeInstanceOf(LocalMailSyncPausedError);
       expect(await command("HGET", key, "tokens")).toBe("0");
       await command("DEL", "local-mail-budget:google:account-1:recovery");
       await expect(
-        withLocalMailSyncBudget({ ...input, cost: 200 }, async () => "resumed"),
+        withLocalMailSyncBudget({ ...input, cost: 600 }, async () => "resumed"),
       ).resolves.toBe("resumed");
     });
 

@@ -222,6 +222,7 @@ export interface EmailProvider {
     labelName?: string;
   }): Promise<{ status: number }>;
   createDraft(params: {
+    onCreated?: (draftId: string) => Promise<void>;
     to: string;
     from?: string;
     cc?: string;

@@ -656,6 +656,11 @@ function EmailPreview({
       threadId={threadId}
       allowUncached
     >
+      {lastMessage.attachments?.length ? (
+        <div className="mb-4">
+          <EmailAttachments message={lastMessage} />
+        </div>
+      ) : null}
       {lastMessage.textHtml ? (
         <HtmlEmail
           // A newer message is a different email, not an update of this one.
@@ -674,10 +679,6 @@ function EmailPreview({
           }
         />
       )}
-
-      {lastMessage.attachments?.length ? (
-        <EmailAttachments message={lastMessage} />
-      ) : null}
     </OpenedConversationAttachments>
   );
 

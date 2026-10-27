@@ -9,6 +9,16 @@ import type { LabelsResponse } from "@/app/api/labels/route";
 import type { EmailLabels } from "@/providers/email-label-types";
 import type { CombinedListThread } from "@/utils/threads/load-combined";
 import type { ThreadsQuery } from "@/utils/threads/validation";
+import {
+  splitSelectionPredicate,
+  type SplitSelection,
+} from "@/utils/split-inbox/split-selection";
+import {
+  type MailSplit,
+  type PortableLabelSplit,
+  mailSplitToThreadsQuery,
+} from "@/utils/split-inbox/split-query";
+import { threadsQueryToPredicate } from "@/utils/mail-engine/threads-query";
 
 const EMPTY_LABELS_BY_ACCOUNT: Record<string, EmailLabels> = {};
 const MAX_MAIL_PREDICATE_CHILDREN = 32;
@@ -20,6 +30,9 @@ export function useCombinedMailThreads({
   isUnread,
   labelNames,
   searchQuery,
+  splitSelection,
+  splits = [],
+  portableLabelSplits = [],
 }: {
   accounts: CombinedListThread["account"][];
   emailAccountId: string;
@@ -27,6 +40,9 @@ export function useCombinedMailThreads({
   isUnread: boolean;
   labelNames?: string[];
   searchQuery?: string;
+  splitSelection?: SplitSelection;
+  splits?: MailSplit[];
+  portableLabelSplits?: PortableLabelSplit[];
 }) {
   const accountIds = useMemo(
     () => accounts.map((account) => account.id),
@@ -39,14 +55,34 @@ export function useCombinedMailThreads({
   const labelsByAccount = useLabelsByAccount(enabled ? accountIds : []);
   const predicate = useMemo(
     () =>
-      labelNames?.length
-        ? labelNamesToAccountScopedPredicate({
-            accountIds,
-            labelsByAccount,
-            labelNames,
+      splitSelection
+        ? splitSelectionPredicate(splitSelection, splits, (split) => {
+            const portable = portableLabelSplits.find(
+              (item) => item.id === split.id,
+            );
+            return portable
+              ? labelNamesToAccountScopedPredicate({
+                  accountIds,
+                  labelsByAccount,
+                  labelNames: portable.labelNames,
+                })
+              : threadsQueryToPredicate(mailSplitToThreadsQuery(split));
           })
-        : undefined,
-    [accountIds, labelNames, labelsByAccount],
+        : labelNames?.length
+          ? labelNamesToAccountScopedPredicate({
+              accountIds,
+              labelsByAccount,
+              labelNames,
+            })
+          : undefined,
+    [
+      accountIds,
+      labelNames,
+      labelsByAccount,
+      splitSelection,
+      splits,
+      portableLabelSplits,
+    ],
   );
   const query = useMemo<ThreadsQuery>(() => {
     if (searchQuery) return { q: searchQuery };
@@ -56,16 +92,24 @@ export function useCombinedMailThreads({
     if (isUnread) return { type: "unread" };
     return { type: "inbox" };
   }, [isUnread, labelNames, searchQuery]);
+  const waitingForLabels = Boolean(
+    splitSelection &&
+      portableLabelSplits.some((split) =>
+        splitSelection.ids.includes(split.id),
+      ) &&
+      !Object.keys(labelsByAccount).length,
+  );
   const state = useEngineMailThreads({
     emailAccountId,
     accountIds: accountIds.length ? accountIds : [emailAccountId],
     accounts: accountsById,
     query,
     predicate: searchQuery ? undefined : predicate,
-    enabled,
+    enabled: enabled && !waitingForLabels,
   });
   return {
     ...state,
+    isLoading: state.isLoading || (enabled && waitingForLabels),
     labelsByAccount,
   };
 }

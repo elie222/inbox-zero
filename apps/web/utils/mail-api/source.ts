@@ -22,6 +22,11 @@ import {
   parsedMessagePatch,
 } from "@/utils/mail-api/observations";
 import { isProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
+import {
+  gmailMailSyncCosts,
+  LocalMailSyncPausedError,
+  withLocalMailSyncBudget,
+} from "@/utils/email/local-mail-sync-budget";
 import { extractErrorInfo as extractGmailErrorInfo } from "@/utils/gmail/retry";
 import { extractErrorInfo as extractOutlookErrorInfo } from "@/utils/outlook/retry";
 import type { ParsedMessage } from "@/utils/types";
@@ -132,12 +137,35 @@ export function createEmailProviderMailboxSource(input: {
     async enumerate({ page, session, pageSize }) {
       try {
         const token = JSON.parse(page) as BootstrapToken;
-        const syncPage = await provider.getMessagesWithPagination({
-          maxResults: Math.min(pageSize, maxPageSize),
-          folderId: token.folderId ?? undefined,
-          pageToken: token.pageToken,
-          includeDrafts: true,
-        });
+        // Bootstrap also reads full bodies; reserve its cost before fetching so
+        // another page cannot flood Gmail while history catch-up is running.
+        const limit = Math.min(pageSize, maxPageSize, 20);
+        const enumeratePage = () =>
+          provider.getMessagesWithPagination({
+            maxResults: limit,
+            folderId: token.folderId ?? undefined,
+            pageToken: token.pageToken,
+            includeDrafts: true,
+          });
+        const syncPage =
+          provider.name === "google"
+            ? await withLocalMailSyncBudget(
+                {
+                  emailAccountId: accountId,
+                  provider: "google",
+                  priority: "backfill",
+                  cost:
+                    gmailMailSyncCosts.list +
+                    limit * gmailMailSyncCosts.message,
+                },
+                async (signal) => {
+                  signal.throwIfAborted();
+                  const page = await enumeratePage();
+                  signal.throwIfAborted();
+                  return page;
+                },
+              )
+            : await enumeratePage();
         const { changes, requiredHydration, bodies } = enumeratedObservations(
           accountId,
           provider.name,
@@ -556,6 +584,13 @@ function isRejectedProviderRequest(error: unknown) {
 }
 
 function mapProviderError(error: unknown) {
+  if (error instanceof LocalMailSyncPausedError) {
+    return {
+      status: "paused" as const,
+      retryAfterMs: error.retryAfterMs,
+      reason: "throttled" as const,
+    };
+  }
   if (isProviderRateLimitModeError(error)) {
     return {
       status: "paused" as const,

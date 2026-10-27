@@ -1,4 +1,4 @@
-import type { MouseEventHandler, ReactNode, Ref } from "react";
+import type { CSSProperties, MouseEventHandler, ReactNode, Ref } from "react";
 import { cx } from "./utils";
 
 export type MailThreadRowSelectionInput = {
@@ -9,6 +9,8 @@ export type MailThreadRowSelectionInput = {
 };
 
 export type MailThreadRowProps = {
+  className?: string;
+  style?: CSSProperties;
   index: number;
   layout: "list" | "split";
   participantSummary: string;
@@ -16,7 +18,8 @@ export type MailThreadRowProps = {
   snippet: ReactNode;
   date: ReactNode;
   labels?: ReactNode[];
-  accountAvatar?: ReactNode;
+  accountLabel?: string;
+  accountEmail?: string;
   actions?: ReactNode;
   isUnread: boolean;
   isStarred: boolean;
@@ -36,6 +39,8 @@ export type MailThreadRowProps = {
 };
 
 export function MailThreadRow({
+  className,
+  style,
   index,
   layout,
   participantSummary,
@@ -43,7 +48,8 @@ export function MailThreadRow({
   snippet,
   date,
   labels = [],
-  accountAvatar,
+  accountLabel,
+  accountEmail,
   actions,
   isUnread,
   isStarred,
@@ -77,7 +83,7 @@ export function MailThreadRow({
         })
       : null;
   const draftMarker = isDraft ? (
-    <span className="shrink-0 text-primary text-sm">Draft</span>
+    <span className="shrink-0 text-muted-foreground text-sm">Draft</span>
   ) : null;
   const messageCountMarker =
     messageCount > 1 ? (
@@ -86,23 +92,39 @@ export function MailThreadRow({
       </span>
     ) : null;
   const participantLine = (
-    <>
+    <span className="flex min-w-0 flex-1 items-center gap-1.5">
+      {labels.length ? (
+        <span
+          className="flex min-w-0 max-w-[35%] shrink-0 items-center gap-1 overflow-hidden"
+          data-mail-thread-labels
+        >
+          {labels}
+        </span>
+      ) : null}
       <span
         className={cx(
           "min-w-0 truncate text-foreground text-sm",
           isUnread && "font-semibold",
         )}
+        data-mail-thread-sender
       >
         {participantSummary}
       </span>
+      {accountEmail ? (
+        <span
+          className="min-w-0 max-w-[45%] shrink-0 truncate font-normal text-muted-foreground text-[11px]"
+          title={`→ ${accountEmail}`}
+          data-mail-thread-recipient
+        >
+          → {accountEmail}
+        </span>
+      ) : null}
       {draftMarker}
       {messageCountMarker}
-    </>
+    </span>
   );
   const headline = (
     <>
-      {accountAvatar}
-      {labels}
       <span
         className={cx(
           "truncate whitespace-nowrap text-sm",
@@ -121,17 +143,19 @@ export function MailThreadRow({
   return (
     <div
       aria-selected={isSelected}
+      data-mail-thread-row
       className={cx(
         "group relative flex cursor-pointer border-b border-border/60 outline-none",
         isWide
           ? cx(
-              "gap-2.5 py-2.5 pr-5 pl-3",
+              "gap-2.5 py-2 pr-5 pl-3",
               expandedPreview ? "items-start" : "items-center",
             )
-          : "items-start gap-2 px-3.5 py-2.5",
+          : "items-start gap-2 px-3.5 py-2",
         rowBackground({ isSelected, isFocused }),
         isFocused &&
           "before:absolute before:inset-y-1 before:left-0 before:w-0.5 before:rounded-full before:bg-primary before:content-['']",
+        className,
       )}
       onClick={(event) => {
         if (selectionEnabled && event.shiftKey) onSelectRangeTo(index);
@@ -143,9 +167,13 @@ export function MailThreadRow({
         onOpen(index);
       }}
       ref={rowRef}
+      style={style}
       role="option"
       tabIndex={isFocused ? 0 : -1}
     >
+      {accountLabel ? (
+        <span className="sr-only">Inbox: {accountLabel}</span>
+      ) : null}
       {isStarred && <span className="sr-only">Starred conversation</span>}
       <span
         className={cx(
@@ -174,7 +202,7 @@ export function MailThreadRow({
 
       {isWide ? (
         <>
-          <div className="flex w-64 shrink-0 items-baseline gap-1 overflow-hidden whitespace-nowrap">
+          <div className="flex w-[28rem] shrink-0 items-center gap-1.5 overflow-hidden whitespace-nowrap">
             {participantLine}
           </div>
           {expandedPreview ? (
@@ -198,7 +226,7 @@ export function MailThreadRow({
         </>
       ) : (
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <div className="flex items-baseline gap-1">
+          <div className="flex items-center gap-1.5">
             {participantLine}
             <div className="ml-auto shrink-0">{date}</div>
           </div>
@@ -221,10 +249,6 @@ export function MailThreadRow({
           >
             {snippet}
           </div>
-          {accountAvatar ? <div className="pt-1">{accountAvatar}</div> : null}
-          {labels.length ? (
-            <div className="flex flex-wrap gap-1 pt-1">{labels}</div>
-          ) : null}
         </div>
       )}
       {actions ? <div className="ml-auto shrink-0">{actions}</div> : null}

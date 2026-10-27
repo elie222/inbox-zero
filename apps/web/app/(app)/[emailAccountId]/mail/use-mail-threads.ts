@@ -13,10 +13,12 @@ import type { ThreadsQuery } from "@/utils/threads/validation";
 export function useMailThreads({
   emailAccountId,
   query,
+  predicate: filterPredicate,
   enabled = true,
 }: {
   emailAccountId: string;
   query: ThreadsQuery;
+  predicate?: MailPredicate;
   enabled?: boolean;
 }) {
   const hiddenDraftMessageIds = useHiddenDraftMessageIds(emailAccountId);
@@ -25,11 +27,11 @@ export function useMailThreads({
     () =>
       query.type === "draft" && hiddenDraftMessageIds.length
         ? withoutHiddenDrafts(
-            threadsQueryToPredicate(query),
+            filterPredicate ?? threadsQueryToPredicate(query),
             hiddenDraftMessageIds,
           )
-        : undefined,
-    [query, hiddenDraftMessageIds],
+        : filterPredicate,
+    [query, hiddenDraftMessageIds, filterPredicate],
   );
   return useEngineMailThreads({
     emailAccountId,

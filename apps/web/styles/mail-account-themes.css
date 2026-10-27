@@ -1,0 +1,76 @@
+/* Account colors stay in the application chrome; sender-authored HTML and
+   images retain their own colors. Zero saturation gives All accounts a neutral
+   frame, while nested rows and the reader opt into their owning account. */
+.dark .mail-account-theme {
+  --background: var(--mail-hue) var(--mail-saturation) 13%;
+  --foreground: 0 0% 92%;
+  --card: var(--mail-hue) var(--mail-saturation) 16%;
+  --card-foreground: 0 0% 92%;
+  --popover: var(--mail-hue) var(--mail-saturation) 16%;
+  --popover-foreground: 0 0% 92%;
+  --muted: var(--mail-hue) var(--mail-saturation) 19%;
+  --muted-foreground: 0 0% 66%;
+  --secondary: var(--mail-hue) var(--mail-saturation) 22%;
+  --secondary-foreground: 0 0% 88%;
+  --accent: var(--mail-hue) var(--mail-saturation) 24%;
+  --accent-foreground: 0 0% 95%;
+  --primary: var(--mail-hue) calc(var(--mail-saturation) * 2) 72%;
+  --primary-foreground: 0 0% 10%;
+  --border: var(--mail-hue) var(--mail-saturation) 24%;
+  --border-strong: var(--mail-hue) var(--mail-saturation) 31%;
+  --input: var(--border);
+  --ring: var(--primary);
+  --sidebar-background: var(--mail-hue) var(--mail-saturation) 11%;
+  --sidebar-foreground: 0 0% 83%;
+  --sidebar-muted-foreground: var(--muted-foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--muted);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+  --button-gradient: linear-gradient(
+    180deg,
+    hsl(var(--mail-hue) var(--mail-saturation) 26%),
+    hsl(var(--mail-hue) var(--mail-saturation) 31%)
+  );
+  --button-gradient-border: var(--mail-hue) var(--mail-saturation) 39%;
+  --button-gradient-shadow: var(--mail-hue) var(--mail-saturation) 25%;
+}
+
+.dark .mail-account-theme .mail-assistant-toggle {
+  color: hsl(var(--foreground));
+  background-color: hsl(var(--accent));
+  border-color: hsl(var(--border-strong));
+}
+
+.dark .mail-account-theme .mail-assistant-toggle:hover {
+  background-color: hsl(var(--secondary));
+}
+
+.dark .mail-account-row {
+  background-color: hsl(var(--background));
+  box-shadow: inset 2px 0 hsl(var(--mail-hue) 22% 38%);
+}
+
+.dark .mail-marketing-row {
+  --foreground: 0 0% 74%;
+  --muted-foreground: 0 0% 60%;
+}
+
+.dark .mail-account-row:hover {
+  background-color: hsl(var(--muted));
+}
+
+.dark .mail-account-row[tabindex="0"],
+.dark .mail-account-row[aria-selected="true"] {
+  background-color: hsl(var(--accent));
+}
+
+.dark .mail-account-badge {
+  background-color: hsl(var(--mail-hue) 22% 38%);
+}
+
+.dark .mail-account-reader {
+  box-shadow: inset 0 2px hsl(var(--mail-hue) 22% 38%);
+}

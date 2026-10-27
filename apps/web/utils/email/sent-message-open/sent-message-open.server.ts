@@ -154,12 +154,14 @@ export async function sendHtmlEmailWithOpenTracking({
   email,
   emailProvider,
   logger,
+  onBeforeSend,
 }: {
   emailAccountId: string;
   threadId?: string | null;
   email: SendEmailBody;
   emailProvider: EmailProvider;
   logger: Logger;
+  onBeforeSend?: () => void;
 }) {
   const prepared = await withSentMessageOpenTracking({
     emailAccountId,
@@ -167,13 +169,18 @@ export async function sendHtmlEmailWithOpenTracking({
     email,
     logger,
   });
-  const result = email.providerDraftId
-    ? await sendComposeDraft({
-        draftId: email.providerDraftId,
-        provider: emailProvider,
-        email: prepared.email,
-      })
-    : await emailProvider.sendEmailWithHtml(prepared.email);
+  let result: { messageId: string; threadId: string };
+  if (email.providerDraftId) {
+    result = await sendComposeDraft({
+      draftId: email.providerDraftId,
+      provider: emailProvider,
+      email: prepared.email,
+      onBeforeSend,
+    });
+  } else {
+    onBeforeSend?.();
+    result = await emailProvider.sendEmailWithHtml(prepared.email);
+  }
   await associateSentMessageOpen({
     token: prepared.token,
     messageId: result.messageId,

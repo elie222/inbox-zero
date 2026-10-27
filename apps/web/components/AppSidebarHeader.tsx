@@ -14,7 +14,12 @@ import { prefixPath } from "@/utils/path";
 type AppSection = "mail" | "assistant";
 
 const SECTIONS = [
-  { id: "mail", name: "Mail", path: "/mail", icon: MailIcon },
+  {
+    id: "mail",
+    name: "Mail",
+    path: "/mail?accountScope=all&split=all",
+    icon: MailIcon,
+  },
   {
     id: "assistant",
     name: "Assistant",

@@ -2376,6 +2376,32 @@ function createMessage(input: {
 }
 
 describe("OutlookProvider.createDraft", () => {
+  it("records the created reply before attempting a content patch that may fail", async () => {
+    const events: string[] = [];
+    const post = vi.fn().mockResolvedValue({ id: "reply-draft" });
+    const patch = vi.fn().mockImplementation(async () => {
+      events.push("patch");
+      throw new Error("patch failed");
+    });
+    const provider = new OutlookProvider(
+      { getClient: () => ({ api: () => ({ post, patch }) }) } as never,
+      createTestLogger(),
+    );
+    await expect(
+      provider.createDraft({
+        to: "recipient@example.com",
+        subject: "Re: Example",
+        messageHtml: "<p>Reply</p>",
+        replyToMessageId: "parent-1",
+        onCreated: async (id) => {
+          expect(id).toBe("reply-draft");
+          events.push("receipt");
+        },
+      }),
+    ).rejects.toThrow("patch failed");
+    expect(events[0]).toBe("receipt");
+    expect(events[1]).toBe("patch");
+  });
   it("addresses every recipient in a comma-separated list", async () => {
     const post = vi.fn().mockResolvedValue({ id: "draft-1" });
     const provider = new OutlookProvider(

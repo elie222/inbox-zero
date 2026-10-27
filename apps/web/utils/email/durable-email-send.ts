@@ -77,22 +77,38 @@ export async function executeDurableEmailSend({
       : { status: "retry" as const };
   }
 
-  let stage: "provider_setup" | "send" | "persist_result" = "provider_setup";
+  let stage: "provider_setup" | "prepare" | "send" | "persist_result" =
+    "provider_setup";
   try {
     const emailProvider = await getEmailProvider();
-    stage = "send";
+    stage = "prepare";
     const result = await sendHtmlEmailWithOpenTracking({
       emailAccountId,
       threadId: input.threadId,
       email: input.email,
       emailProvider,
       logger,
+      onBeforeSend: () => {
+        stage = "send";
+      },
     });
     stage = "persist_result";
     await prisma.emailSendOperation.update({
       where: { id: existing.id },
       data: { result, status: EmailSendOperationStatus.SENT },
     });
+    if (input.email.providerDraftId) {
+      await prisma.composeDraftSave
+        .updateMany({
+          where: { emailAccountId, draftId: input.email.providerDraftId },
+          data: { status: "SENT" },
+        })
+        .catch(() =>
+          logger.warn(
+            "Could not mark the sent draft receipt; delivery is confirmed",
+          ),
+        );
+    }
     return { status: "applied" as const, result };
   } catch (error) {
     logger.error("Email send operation failed", { error, stage });
@@ -121,7 +137,8 @@ export async function executeDurableEmailSend({
     // so the outcome is known and the operation can be retried later.
     if (
       stage === "provider_setup" ||
-      (stage === "send" && error instanceof SafeError)
+      stage === "prepare" ||
+      ((stage as string) === "send" && error instanceof SafeError)
     ) {
       await prisma.emailSendOperation.deleteMany({
         where: { id: existing.id },
@@ -131,7 +148,9 @@ export async function executeDurableEmailSend({
         error:
           error instanceof SafeError
             ? (error.safeMessage ?? error.message)
-            : "Could not prepare the email account. Please try again.",
+            : stage === "prepare"
+              ? "Could not save the draft before sending. Your email was not sent; please retry."
+              : "Could not prepare the email account. Please try again.",
       };
     }
     await prisma.emailSendOperation.updateMany({

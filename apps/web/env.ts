@@ -84,6 +84,10 @@ const parsedEnv = createEnv({
       ),
     GOOGLE_CLIENT_ID: z.string().min(1),
     GOOGLE_CLIENT_SECRET: z.string().min(1),
+    GOOGLE_CALENDAR_REDIRECT_URI: z.preprocess(
+      optionalEnvValue,
+      z.string().url().optional(),
+    ),
     // Local Google emulation only; used for both OAuth and resource APIs.
     GOOGLE_BASE_URL: z.string().url().optional(),
     // Local Microsoft emulation only; used for both OAuth and Microsoft Graph APIs.
@@ -179,6 +183,14 @@ const parsedEnv = createEnv({
     GROQ_API_KEY: z.string().optional(),
     CEREBRAS_API_KEY: z.string().optional(),
     OPENROUTER_API_KEY: z.string().optional(),
+    OPENROUTER_BASE_URL: z.string().url().optional(),
+    OPENROUTER_REQUESTS_PER_MINUTE: z.coerce
+      .number()
+      .int()
+      .positive()
+      .optional(),
+    OPENROUTER_REQUESTS_PER_DAY: z.coerce.number().int().positive().optional(),
+    OPENROUTER_FREE_ONLY: booleanString.optional(),
     AI_GATEWAY_API_KEY: z.string().optional(),
     PERPLEXITY_API_KEY: z.string().optional(),
     OLLAMA_BASE_URL: z.string().optional(),

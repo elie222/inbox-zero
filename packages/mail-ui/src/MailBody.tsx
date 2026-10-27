@@ -235,6 +235,7 @@ export function buildMailHtmlDocument({
   imageProxyOrigin,
   documentKey,
   allowRemoteImages = true,
+  darkBackgroundHsl = "220 7% 19%",
 }: {
   html: string;
   isDarkMode: boolean;
@@ -242,6 +243,7 @@ export function buildMailHtmlDocument({
   imageProxyOrigin: string | null;
   documentKey: string;
   allowRemoteImages?: boolean;
+  darkBackgroundHsl?: string;
 }) {
   const styleAttributeCount = (html.match(/style=/gi) || []).length;
   const hasHeavyStyling = isDesignedHtmlEmail(html);
@@ -282,7 +284,7 @@ export function buildMailHtmlDocument({
         color-scheme: dark;
         --foreground: 220 8% 92%;
         --muted-foreground: 220 5% 62%;
-        --background: 220 7% 19%;
+        --background: ${darkBackgroundHsl};
       }
 
       table { max-width: 100% !important; overflow-x: auto; }
@@ -378,8 +380,12 @@ export function shouldApplyDarkMailTheme(html: string, isDarkMode: boolean) {
   return isDarkMode && !isDesignedHtmlEmail(html);
 }
 
-export function getMailHtmlDocumentKey(html: string, isDarkMode: boolean) {
-  const source = `${isDarkMode ? "1" : "0"}:${html}`;
+export function getMailHtmlDocumentKey(
+  html: string,
+  isDarkMode: boolean,
+  darkBackgroundHsl = "220 7% 19%",
+) {
+  const source = `${isDarkMode ? darkBackgroundHsl : "0"}:${html}`;
   let hash = 2_166_136_261;
   for (let index = 0; index < source.length; index += 1) {
     hash ^= source.charCodeAt(index);

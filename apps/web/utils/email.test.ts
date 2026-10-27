@@ -14,9 +14,23 @@ import {
   isSameOrganization,
   getInitials,
   formatRecipientNames,
+  formatRecipientAddresses,
 } from "./email";
 
 describe("email utils", () => {
+  it("shows actual recipient addresses rather than me or display names", () => {
+    expect(
+      formatRecipientAddresses([
+        "Daniel <daniel@example.com>",
+        "Jane Doe <jane@example.com>",
+        "DANIEL@example.com",
+      ]),
+    ).toBe("daniel@example.com, jane@example.com");
+    expect(formatRecipientAddresses(["Team <team+inbox@example.com>"])).toBe(
+      "team+inbox@example.com",
+    );
+    expect(formatRecipientAddresses([])).toBe("");
+  });
   describe("getInitials", () => {
     it("keeps astral characters whole", () => {
       expect(getInitials("𐐷 Smith")).toBe("𐐏S");

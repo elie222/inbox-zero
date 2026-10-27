@@ -12,8 +12,19 @@ vi.mock("@/utils/email/sent-message-open/sent-message-open.server", () => ({
   sendHtmlEmailWithOpenTracking: ({
     email,
     emailProvider,
-  }: Parameters<typeof sendHtmlEmailWithOpenTracking>[0]) =>
-    emailProvider.sendEmailWithHtml(email),
+    onBeforeSend,
+  }: Parameters<typeof sendHtmlEmailWithOpenTracking>[0]) => {
+    if (email.providerDraftId) {
+      return emailProvider
+        .updateDraft(email.providerDraftId, { messageHtml: email.messageHtml })
+        .then(() => {
+          onBeforeSend?.();
+          return emailProvider.sendDraft(email.providerDraftId!);
+        });
+    }
+    onBeforeSend?.();
+    return emailProvider.sendEmailWithHtml(email);
+  },
 }));
 
 const input = {
@@ -80,6 +91,27 @@ describe("executeDurableEmailSend", () => {
     });
 
     expect(outcome.status).toBe("rejected");
+    expect(prisma.emailSendOperation.deleteMany).toHaveBeenCalled();
+    expect(prisma.emailSendOperation.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("keeps a failed draft update retryable and never reports an attempted delivery", async () => {
+    const provider = createMockEmailProvider({
+      updateDraft: vi.fn().mockRejectedValue(new Error("connection reset")),
+      sendDraft: vi.fn(),
+    });
+    const outcome = await executeDurableEmailSend({
+      logger: createScopedLogger("test"),
+      emailAccountId: "account",
+      getEmailProvider: async () => provider,
+      input: {
+        ...input,
+        email: { ...input.email, providerDraftId: "draft-1" },
+      },
+      provider: "google",
+    });
+    expect(outcome).toMatchObject({ status: "rejected" });
+    expect(provider.sendDraft).not.toHaveBeenCalled();
     expect(prisma.emailSendOperation.deleteMany).toHaveBeenCalled();
     expect(prisma.emailSendOperation.updateMany).not.toHaveBeenCalled();
   });

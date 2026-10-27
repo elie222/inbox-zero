@@ -14,7 +14,7 @@ import { Tooltip } from "@/components/Tooltip";
 import {
   extractEmailAddress,
   extractNameFromEmail,
-  formatRecipientNames,
+  formatRecipientAddresses,
   getInitials,
   isSameEmailAddress,
   splitRecipientList,
@@ -385,6 +385,12 @@ export function EmailMessage({
         <div className="min-w-0 pt-3 sm:pl-9">
           {showDetails && <EmailDetails message={message} />}
 
+          {message.attachments?.length ? (
+            <div className="mb-4">
+              <EmailAttachments message={message} />
+            </div>
+          ) : null}
+
           {isCalendarInvitationMessage(message) && (
             <CalendarInvitation key={message.id} messageId={message.id} />
           )}
@@ -426,8 +432,6 @@ export function EmailMessage({
             ) : (
               <PlainEmail text={message.textPlain || ""} />
             ))}
-
-          {message.attachments && <EmailAttachments message={message} />}
 
           {shownDrafts.map(({ message: draft, sessionMessageId }, index) => (
             <ReplyPanel
@@ -620,7 +624,10 @@ function MessageHeader({
           >
             {avatar}
             <span className={senderNameClassName}>{senderName}</span>
-            <span className="hidden min-w-0 shrink-[999] truncate text-muted-foreground text-xs sm:block">
+            <span
+              className="hidden min-w-0 shrink-[999] truncate text-muted-foreground text-xs sm:block"
+              title={recipientSummary(message.headers, userEmail)}
+            >
               {recipientSummary(message.headers, userEmail)}
             </span>
             <span className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors group-hover/details:bg-muted group-hover/details:text-foreground">
@@ -987,11 +994,11 @@ function recipientSummary(
   { to, cc }: { to?: string; cc?: string },
   userEmail: string,
 ) {
-  const names = formatRecipientNames(
-    [...splitRecipientList(to ?? ""), ...splitRecipientList(cc ?? "")],
-    userEmail,
-  );
-  return names ? `to ${names}` : "";
+  const addresses = formatRecipientAddresses([
+    ...splitRecipientList(to ?? ""),
+    ...splitRecipientList(cc ?? ""),
+  ]);
+  return addresses ? `→ ${addresses}` : userEmail ? `→ ${userEmail}` : "";
 }
 
 const prepareReplyingToEmail = ({
