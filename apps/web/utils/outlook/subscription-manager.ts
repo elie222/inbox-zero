@@ -90,18 +90,22 @@ export class OutlookSubscriptionManager {
 
       const subscription = await this.client.watchEmails();
 
+      if (!subscription?.subscriptionId) {
+        this.logger.warn("Subscription creation returned no subscription");
+        await this.markSubscriptionLapsed(cancelledSubscriptionId);
+        return null;
+      }
+
       this.logger.info("Successfully created new subscription", {
-        subscriptionId: subscription?.subscriptionId,
+        subscriptionId: subscription.subscriptionId,
       });
 
-      return subscription
-        ? {
-            expirationDate: subscription.expirationDate,
-            subscriptionId: subscription.subscriptionId,
-            changed: true,
-            cancelledSubscriptionId,
-          }
-        : null;
+      return {
+        expirationDate: subscription.expirationDate,
+        subscriptionId: subscription.subscriptionId,
+        changed: true,
+        cancelledSubscriptionId,
+      };
     } catch (error) {
       this.logger.error("Failed to create subscription", { error });
       captureException(error, { emailAccountId: this.emailAccountId });
@@ -145,7 +149,10 @@ export class OutlookSubscriptionManager {
         }
 
         captureException(error, { emailAccountId: this.emailAccountId });
+        // The save can fail after writing the replacement (the concurrency
+        // check reads again), so whichever of the two is stored is now dead.
         await this.markSubscriptionLapsed(result.cancelledSubscriptionId);
+        await this.markSubscriptionLapsed(result.subscriptionId);
         return null;
       }
     }

@@ -149,6 +149,25 @@ describe("OutlookSubscriptionManager", () => {
       vi.useRealTimers();
     });
 
+    it("marks the cancelled subscription lapsed when creation returns nothing", async () => {
+      vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
+        watchEmailsSubscriptionId: "old-subscription-id",
+        watchEmailsExpirationDate: new Date(Date.now() + 60 * 60 * 1000),
+      } as any);
+      vi.mocked(mockProvider.watchEmails).mockResolvedValue(null as never);
+
+      const result = await manager.createSubscription();
+
+      expect(result).toBeNull();
+      expect(prisma.emailAccount.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: emailAccountId,
+          watchEmailsSubscriptionId: "old-subscription-id",
+        },
+        data: { watchEmailsExpirationDate: expect.any(Date) },
+      });
+    });
+
     it("leaves the stored subscription alone when cancelling it failed", async () => {
       vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
         watchEmailsSubscriptionId: "old-subscription-id",
@@ -191,6 +210,14 @@ describe("OutlookSubscriptionManager", () => {
         where: {
           id: emailAccountId,
           watchEmailsSubscriptionId: "old-subscription-id",
+        },
+        data: { watchEmailsExpirationDate: expect.any(Date) },
+      });
+      // In case the replacement was already written before the save failed.
+      expect(prisma.emailAccount.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: emailAccountId,
+          watchEmailsSubscriptionId: "new-subscription-id",
         },
         data: { watchEmailsExpirationDate: expect.any(Date) },
       });
