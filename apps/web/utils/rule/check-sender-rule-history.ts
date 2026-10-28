@@ -5,10 +5,6 @@ import type { EmailProvider } from "@/utils/email/types";
 import { extractEmailAddress } from "@/utils/email";
 import { ExecutedRuleStatus } from "@/generated/prisma/enums";
 
-// One classification is not a pattern: a transactional sender can send a
-// receipt today and a customer request tomorrow.
-const MIN_CONSISTENT_RULE_MATCHES = 5;
-
 export interface SenderRuleHistory {
   consistentRuleName?: string;
   hasConsistentRule: boolean;
@@ -105,10 +101,7 @@ export async function checkSenderRuleHistory({
   let hasConsistentRule = false;
   let consistentRuleName: string | undefined;
 
-  if (
-    totalRuleMatches >= MIN_CONSISTENT_RULE_MATCHES &&
-    ruleMatches.size === 1
-  ) {
+  if (totalRuleMatches > 0 && ruleMatches.size === 1) {
     // All rule executions were for the same rule
     const [[, ruleInfo]] = Array.from(ruleMatches.entries());
     hasConsistentRule = true;

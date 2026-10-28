@@ -149,8 +149,7 @@ async function process({
         uniqueRulesMatched: senderHistory.ruleMatches.size,
       });
 
-      // Too few classifications isn't a verdict, so a later email can check again
-      if (senderHistory.ruleMatches.size > 1) {
+      if (senderHistory.totalEmails > 0) {
         await savePatternCheck({ emailAccountId, from });
       }
 

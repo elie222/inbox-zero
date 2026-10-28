@@ -41,8 +41,61 @@ describe("checkSenderRuleHistory", () => {
     });
   });
 
-  it("returns a consistent rule once enough emails match the same rule", async () => {
-    mockSenderMessagesWithRules(mockProvider, new Array(5).fill("Newsletter"));
+  it("should return consistent rule when all emails match the same rule", async () => {
+    const mockMessages = [
+      getMockMessage({
+        id: "msg1",
+        threadId: "thread1",
+        subject: "Test 1",
+        snippet: "Test message 1",
+        textPlain: "Test content 1",
+        textHtml: "<p>Test content 1</p>",
+      }),
+      getMockMessage({
+        id: "msg2",
+        threadId: "thread2",
+        subject: "Test 2",
+        snippet: "Test message 2",
+        textPlain: "Test content 2",
+        textHtml: "<p>Test content 2</p>",
+      }),
+      getMockMessage({
+        id: "msg3",
+        threadId: "thread3",
+        subject: "Test 3",
+        snippet: "Test message 3",
+        textPlain: "Test content 3",
+        textHtml: "<p>Test content 3</p>",
+      }),
+    ];
+
+    vi.mocked(mockProvider.getMessagesFromSender).mockResolvedValue({
+      messages: mockMessages,
+      nextPageToken: undefined,
+    });
+
+    const mockExecutedRules = [
+      getMockExecutedRule({
+        messageId: "msg1",
+        threadId: "thread1",
+        ruleId: "rule1",
+        ruleName: "Newsletter",
+      }),
+      getMockExecutedRule({
+        messageId: "msg2",
+        threadId: "thread2",
+        ruleId: "rule1",
+        ruleName: "Newsletter",
+      }),
+      getMockExecutedRule({
+        messageId: "msg3",
+        threadId: "thread3",
+        ruleId: "rule1",
+        ruleName: "Newsletter",
+      }),
+    ];
+
+    prisma.executedRule.findMany.mockResolvedValue(mockExecutedRules as any);
 
     const result = await checkSenderRuleHistory({
       emailAccountId: "test-email-account",
@@ -51,38 +104,32 @@ describe("checkSenderRuleHistory", () => {
       logger,
     });
 
-    expect(result.totalEmails).toBe(5);
+    expect(result.totalEmails).toBe(3);
     expect(result.hasConsistentRule).toBe(true);
     expect(result.consistentRuleName).toBe("Newsletter");
-    expect(prisma.executedRule.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          emailAccountId: "test-email-account",
-          messageId: { in: ["msg1", "msg2", "msg3", "msg4", "msg5"] },
-        }),
-      }),
-    );
-  });
-
-  it("does not treat a single classified email as a consistent rule", async () => {
-    mockSenderMessagesWithRules(mockProvider, [
-      "Notification",
-      null,
-      null,
-      null,
-      null,
-    ]);
-
-    const result = await checkSenderRuleHistory({
-      emailAccountId: "test-email-account",
-      from: "test@example.com",
-      provider: mockProvider,
-      logger,
-    });
-
-    expect(result.totalEmails).toBe(5);
     expect(result.ruleMatches.size).toBe(1);
-    expect(result.hasConsistentRule).toBe(false);
+
+    // Verify database query was called with correct message IDs
+    expect(prisma.executedRule.findMany).toHaveBeenCalledWith({
+      where: {
+        emailAccountId: "test-email-account",
+        status: "APPLIED",
+        messageId: { in: ["msg1", "msg2", "msg3"] },
+        rule: {
+          enabled: true,
+        },
+      },
+      select: {
+        messageId: true,
+        threadId: true,
+        rule: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
   });
 
   it("should return no consistent rule when emails match different rules", async () => {
@@ -281,6 +328,7 @@ describe("checkSenderRuleHistory", () => {
 
     expect(result.totalEmails).toBe(2);
     expect(result.ruleMatches.size).toBe(1); // Only one executed rule found
+    expect(result.hasConsistentRule).toBe(true); // Only one rule type exists
   });
 
   it("should handle duplicate message IDs correctly", async () => {
@@ -362,37 +410,8 @@ describe("checkSenderRuleHistory", () => {
     });
 
     expect(result.totalEmails).toBe(2);
-    expect(result.ruleMatches.size).toBe(1); // Only one executed rule found
-    expect(result.ruleMatches.get("rule1")?.count).toBe(1);
+    expect(result.ruleMatches.size).toBe(1);
+    expect(result.hasConsistentRule).toBe(true); // Single rule type
+    expect(result.consistentRuleName).toBe("Newsletter");
   });
 });
-
-function mockSenderMessagesWithRules(
-  provider: ReturnType<typeof createMockEmailProvider>,
-  ruleNames: (string | null)[],
-) {
-  const messages = ruleNames.map((_, index) =>
-    getMockMessage({
-      id: `msg${index + 1}`,
-      threadId: `thread${index + 1}`,
-    }),
-  );
-  vi.mocked(provider.getMessagesFromSender).mockResolvedValue({
-    messages,
-    nextPageToken: undefined,
-  });
-  prisma.executedRule.findMany.mockResolvedValue(
-    ruleNames.flatMap((ruleName, index) =>
-      ruleName
-        ? [
-            getMockExecutedRule({
-              messageId: `msg${index + 1}`,
-              threadId: `thread${index + 1}`,
-              ruleId: `rule-${ruleName}`,
-              ruleName,
-            }),
-          ]
-        : [],
-    ) as any,
-  );
-}
