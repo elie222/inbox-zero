@@ -23,7 +23,9 @@ vi.mock("@/utils/rule/learned-patterns", () => ({
   removeAiLearnedPattern: vi.fn().mockResolvedValue(0),
 }));
 vi.mock("@/utils/rule/classification-feedback", () => ({
-  saveClassificationFeedback: vi.fn().mockResolvedValue(undefined),
+  saveClassificationFeedback: vi
+    .fn()
+    .mockResolvedValue({ createdAt: new Date("2026-01-01T12:00:00Z") }),
 }));
 
 const logger = createTestLogger();
@@ -123,7 +125,12 @@ describe("recordLabelRemovalLearning", () => {
 
     expect(prisma.classificationFeedback.count).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ createdAt: { gte: windowStart } }),
+        where: expect.objectContaining({
+          createdAt: {
+            gte: windowStart,
+            lte: new Date("2026-01-01T12:00:00Z"),
+          },
+        }),
       }),
     );
     expect(prisma.classificationFeedback.findFirst).toHaveBeenCalledWith(
@@ -149,6 +156,34 @@ describe("recordLabelRemovalLearning", () => {
       reason: "Label removed",
       source: GroupItemSource.LABEL_REMOVED,
     });
+  });
+
+  it("does not turn same-occasion removals into an exclusion on a delayed retry", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-01-01T12:30:00Z"));
+    const firstRemovalAt = new Date("2026-01-01T11:55:00Z");
+    prisma.classificationFeedback.findFirst.mockImplementation(async (args) => {
+      const cutoff = (args?.where?.createdAt as { lt: Date }).lt;
+      return firstRemovalAt < cutoff ? earlierRemoval : null;
+    });
+
+    await recordLabelRemovalLearning(removal);
+
+    expect(saveLearnedPattern).not.toHaveBeenCalled();
+  });
+
+  it("retries exclusion learning after feedback was saved but learning failed", async () => {
+    prisma.classificationFeedback.findFirst.mockResolvedValue(earlierRemoval);
+    vi.mocked(saveLearnedPattern).mockRejectedValueOnce(
+      new Error("Learning unavailable"),
+    );
+
+    await expect(recordLabelRemovalLearning(removal)).rejects.toThrow(
+      "Learning unavailable",
+    );
+    await recordLabelRemovalLearning(removal);
+
+    expect(saveLearnedPattern).toHaveBeenCalledTimes(2);
   });
 
   it("records feedback but does not learn when the removal is flagged as bulk", async () => {

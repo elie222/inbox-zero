@@ -50,7 +50,7 @@ export async function saveClassificationFeedback({
   };
 
   try {
-    await prisma.classificationFeedback.upsert({
+    return await prisma.classificationFeedback.upsert({
       where: {
         emailAccountId_sender_ruleId_messageId_eventType: uniqueFeedbackKey,
       },
@@ -63,6 +63,7 @@ export async function saveClassificationFeedback({
         eventType,
       },
       update: {},
+      select: { createdAt: true },
     });
   } catch (error) {
     if (
@@ -81,6 +82,13 @@ export async function saveClassificationFeedback({
       ruleId,
       messageId,
       eventType,
+    });
+
+    return prisma.classificationFeedback.findUniqueOrThrow({
+      where: {
+        emailAccountId_sender_ruleId_messageId_eventType: uniqueFeedbackKey,
+      },
+      select: { createdAt: true },
     });
   }
 }

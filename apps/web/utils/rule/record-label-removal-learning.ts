@@ -66,7 +66,7 @@ export async function recordLabelRemovalLearning({
 
   // Every removal is recorded as feedback so the AI sees it as a hint for the
   // sender's next email. Only a repeat removal becomes a deterministic exclusion.
-  await saveClassificationFeedback({
+  const feedback = await saveClassificationFeedback({
     emailAccountId,
     sender,
     ruleId,
@@ -83,7 +83,10 @@ export async function recordLabelRemovalLearning({
     return;
   }
 
-  const windowStart = subMinutes(new Date(), BULK_LABEL_REMOVAL_WINDOW_MINUTES);
+  const windowStart = subMinutes(
+    feedback.createdAt,
+    BULK_LABEL_REMOVAL_WINDOW_MINUTES,
+  );
 
   // Gmail history pages and Outlook change notifications can both split one
   // sweep across many webhook calls, so also look at what was recorded recently.
@@ -92,7 +95,7 @@ export async function recordLabelRemovalLearning({
       emailAccountId,
       ruleId,
       eventType: ClassificationFeedbackEventType.LABEL_REMOVED,
-      createdAt: { gte: windowStart },
+      createdAt: { gte: windowStart, lte: feedback.createdAt },
     },
   });
 

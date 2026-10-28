@@ -24,7 +24,9 @@ vi.mock("@/utils/prisma", () => ({
       findMany: vi.fn().mockResolvedValue([]),
     },
     classificationFeedback: {
-      upsert: vi.fn().mockResolvedValue(undefined),
+      upsert: vi
+        .fn()
+        .mockResolvedValue({ createdAt: new Date("2026-01-01T12:00:00Z") }),
       findFirst: vi.fn().mockResolvedValue({ id: "earlier-removal" }),
       count: vi.fn().mockResolvedValue(0),
     },
