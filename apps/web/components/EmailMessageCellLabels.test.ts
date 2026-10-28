@@ -23,6 +23,26 @@ describe("getEmailMessageCellLabels", () => {
     expect(labels).toEqual([{ id: "label-calendar", name: "Calendar" }]);
   });
 
+  it("hides labels the user set to hide in the message list", () => {
+    const labels = getEmailMessageCellLabels({
+      labelIds: ["label-receipts", "label-calendar"],
+      userLabels: {
+        "label-receipts": {
+          id: "label-receipts",
+          name: "Receipts",
+          messageListVisibility: "hide",
+        },
+        "label-calendar": {
+          id: "label-calendar",
+          name: "Calendar",
+          messageListVisibility: "show",
+        },
+      },
+    });
+
+    expect(labels).toEqual([{ id: "label-calendar", name: "Calendar" }]);
+  });
+
   it("does not infer Outlook sent mail as archived just because it is outside the inbox", () => {
     const labels = getEmailMessageCellLabels({
       labelIds: ["SENT", "Awaiting Reply"],

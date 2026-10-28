@@ -4,7 +4,12 @@ import { createScopedLogger } from "@/utils/logger";
 import { createGenerateObject } from "@/utils/llms/index";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
-import { getEmailListPrompt, getTodayForLLM } from "@/utils/ai/helpers";
+import {
+  getEmailListPrompt,
+  getTodayForLLM,
+  getUserAboutPrompt,
+  getWritingStylePrompt,
+} from "@/utils/ai/helpers";
 import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 import { appendOllamaOnlySystemGuidance } from "@/utils/llms/ollama-guidance";
 import type { ReplyContextCollectorResult } from "@/utils/ai/reply/reply-context-collector";
@@ -21,7 +26,7 @@ const logger = createScopedLogger("DraftReply");
 const DRAFT_OUTPUT_INSTRUCTION =
   "Return plain text only. Do not use HTML tags. If a clickable link is necessary, use markdown links in the format [Label](https://example.com/path) or [Label](mailto:name@example.com).";
 
-const systemPrompt = `You are an expert assistant that drafts email replies.
+const systemPrompt = `You write email replies as the user, in their voice. The user reviews and edits every draft before it is sent.
 
 Use context from the previous emails and the provided knowledge base to make it relevant and accurate.
 Current thread facts override advisory context. Do not ask for details already present there.
@@ -32,12 +37,13 @@ ${DRAFT_OUTPUT_INSTRUCTION}
 IMPORTANT: Format paragraphs using Unix newlines: use "\n\n" between paragraphs and "\n" for single line breaks.
 Write the reply in the same language as the latest message in the thread.
 
-IMPORTANT: Use placeholders sparingly! Only use them where you have limited information.
+A gap in your context is not a gap in the user's knowledge. When the reply depends on something the user could answer without asking anyone, such as their decision, status, plans, product, or whether they want to meet, state their most likely answer plainly and put your uncertainty in the confidence field. Don't hedge their own facts, say they can't confirm or don't want to guess, mention your context, leave placeholders, or promise to check later instead of answering.
+When the thread or context shows the answer is genuinely unsettled for the user, such as it depends on someone else or they said they would check, say so instead of deciding it for them. A reported problem can get a promise to investigate.
+Don't invent facts about the other party; ground them in the thread or provided context. If the sender wrongly assumes something about the user, such as who they are or what they sell, correct it plainly, as fact rather than a guess or possibility.
+Don't pass the request to anyone else, including people in To or Cc, unless the context says they handle it. Don't claim the user copied someone in or did anything the thread or context doesn't show.
+Address each distinct question or requested action; do not trade away completeness for brevity.
+When the sender asks several separate questions, answer each one on its own, in their order, so they can match every answer to its question. If they numbered or bulleted them, reply with the same numbering or bullets. Keep each answer brief.
 Never use placeholders for the user's name. You do not need to sign off with the user's name. Do not add a signature.
-Do not invent information.
-Ground facts, terms, statuses, dates, approvals, attachments, completed actions, and external changes in the thread or provided context.
-Address each distinct question or requested action that the available context can answer; do not trade away completeness for brevity.
-When key context is missing, still draft the most useful reply you can, but use lower confidence when the draft relies on assumptions or user-fillable details.
 Inline image markers such as [image] or [image: ...] mean the sender included a real image in the email, but only the marker and label are available in this prompt. Do not say the image is missing, unreadable, unavailable, or needs to be resent; respond from the available text and image label.
 Treat email dates as message metadata, not calendar context.
 Do not use em dashes unless the provided writing style explicitly calls for them.
@@ -48,6 +54,12 @@ Write an email that follows up on the previous conversation.
 Your reply should aim to continue the conversation or provide new information based on the context or knowledge base. If you have nothing substantial to add, keep the reply minimal.
 By default, keep replies concise, direct, friendly, plainspoken, and no longer than needed. Prefer short declarative sentences over polished or overly elaborate phrasing.
 The user's writing style can override these defaults.
+
+Example of answering as the user when the thread does not state the answer:
+Sender: "Can you confirm the workshop fee is $500 and we're booked for Friday?"
+Good: "Yes, $500 and Friday are both right. See you then."
+Bad: "I'll confirm the fee and date and get back to you."
+Bad: "I'm not certain about the fee, so I don't want to give you the wrong number."
 `;
 
 const defaultWritingStyle = `Keep it concise, direct, and friendly.
@@ -73,8 +85,104 @@ type DraftEmailAccount = EmailAccountWithAI & {
   bookingLinks?: { slug: string }[];
 };
 
-const getUserPrompt = ({
+export type DraftReplyInput = {
+  messages: (EmailForLLM & { to: string })[];
+  emailAccount: DraftEmailAccount;
+  knowledgeBaseContent: string | null;
+  replyMemoryContent?: string | null;
+  emailHistorySummary: string | null;
+  emailHistoryContext: ReplyContextCollectorResult | null;
+  senderReplyExamples?: string | null;
+  calendarAvailability: CalendarAvailabilityContext | null;
+  writingStyle: string | null;
+  learnedWritingStyle?: string | null;
+  mcpContext: string | null;
+  meetingContext: string | null;
+  recordedMeetingContext?: string | null;
+  attachmentContext?: string | null;
+  hasConfiguredSignature?: boolean;
+  currentDate?: Date;
+};
+
+type DraftReplyModelContextInput = {
+  emailAccount: Pick<
+    DraftEmailAccount,
+    "about" | "timezone" | "calendarBookingLink" | "bookingLinks"
+  >;
+  knowledgeBaseContent: string | null;
+  replyMemoryContent: string | null;
+  emailHistorySummary: string | null;
+  emailHistoryContext: ReplyContextCollectorResult | null;
+  senderReplyExamples: string | null;
+  calendarAvailability: CalendarAvailabilityContext | null;
+  writingStyle: string | null;
+  learnedWritingStyle: string | null;
+  mcpContext: string | null;
+  meetingContext: string | null;
+  recordedMeetingContext: string | null;
+  attachmentContext: string | null;
+  hasConfiguredSignature: boolean;
+};
+
+export type DraftReplyModelEvidence = {
+  thread: string;
+  context: string;
+  temporalAndIdentityContext: string;
+};
+
+const getUserPrompt = (input: DraftReplyInput) => {
+  const { thread, context, temporalAndIdentityContext } =
+    buildDraftReplyModelEvidence(input);
+
+  return `${context}
+
+Here is the context of the email thread (from oldest to newest):
+${thread}
+
+Please write a reply to the email.
+Answer the sender directly as the user. If the answer depends on something only the user knows, write their most likely answer; they will edit it if it's wrong.
+${temporalAndIdentityContext}`;
+};
+
+export function buildDraftReplyModelEvidence({
   messages,
+  emailAccount,
+  currentDate = new Date(),
+  replyMemoryContent = null,
+  senderReplyExamples = null,
+  learnedWritingStyle = null,
+  attachmentContext = null,
+  hasConfiguredSignature = false,
+  recordedMeetingContext = null,
+  ...modelContextInput
+}: DraftReplyInput): DraftReplyModelEvidence {
+  const modelContext = buildDraftReplyModelContext({
+    ...modelContextInput,
+    emailAccount,
+    replyMemoryContent,
+    senderReplyExamples,
+    learnedWritingStyle,
+    attachmentContext,
+    hasConfiguredSignature,
+    recordedMeetingContext,
+  });
+  const thread = getEmailListPrompt({ messages, messageMaxLength: 3000 });
+  const temporalAndIdentityContext = `${getTodayForLLM(currentDate)}
+IMPORTANT: You are writing an email as ${emailAccount.email}. Write the reply from their perspective.`;
+
+  return {
+    thread,
+    context: modelContext,
+    temporalAndIdentityContext,
+  };
+}
+
+/**
+ * The complete non-thread context shown to the drafting model. Eval judges use
+ * this same resolved representation so product precedence and formatting rules
+ * cannot drift between generation and grading.
+ */
+export function buildDraftReplyModelContext({
   emailAccount,
   knowledgeBaseContent,
   replyMemoryContent,
@@ -89,33 +197,18 @@ const getUserPrompt = ({
   recordedMeetingContext,
   attachmentContext,
   hasConfiguredSignature,
-  currentDate,
-}: {
-  messages: (EmailForLLM & { to: string })[];
-  emailAccount: DraftEmailAccount;
-  knowledgeBaseContent: string | null;
-  replyMemoryContent: string | null;
-  emailHistorySummary: string | null;
-  emailHistoryContext: ReplyContextCollectorResult | null;
-  senderReplyExamples: string | null;
-  calendarAvailability: CalendarAvailabilityContext | null;
-  writingStyle: string | null;
-  learnedWritingStyle: string | null;
-  mcpContext: string | null;
-  meetingContext: string | null;
-  recordedMeetingContext: string | null;
-  attachmentContext: string | null;
-  hasConfiguredSignature: boolean;
-  currentDate?: Date;
-}) => {
-  const userAbout = emailAccount.about
-    ? `Context about the user:
-
-<userAbout>
-${emailAccount.about}
-</userAbout>
-`
-    : "";
+}: DraftReplyModelContextInput): string {
+  const normalizedWritingStyle = writingStyle?.trim() || null;
+  const normalizedLearnedWritingStyle = learnedWritingStyle?.trim() || null;
+  const customWritingStyle =
+    normalizedWritingStyle || normalizedLearnedWritingStyle;
+  const effectiveWritingStyle = customWritingStyle
+    ? `${customWritingStyle}\n\n${LENGTH_DISCIPLINE}`
+    : defaultWritingStyle;
+  const advisoryLearnedWritingStyle = normalizedWritingStyle
+    ? normalizedLearnedWritingStyle
+    : null;
+  const userAbout = getUserAboutPrompt(emailAccount.about);
 
   const relevantKnowledge = knowledgeBaseContent
     ? `Relevant knowledge base content:
@@ -172,20 +265,13 @@ ${senderReplyExamples}
 `
     : "";
 
-  const writingStylePrompt = writingStyle
-    ? `Writing style:
+  const writingStylePrompt = getWritingStylePrompt(effectiveWritingStyle);
 
-<writing_style>
-${writingStyle}
-</writing_style>
-`
-    : "";
-
-  const learnedWritingStylePrompt = learnedWritingStyle
+  const learnedWritingStylePrompt = advisoryLearnedWritingStyle
     ? `Learned writing style from prior draft edits. This is advisory and lower priority than any explicit writing style provided by the user.
 
 <learned_writing_style>
-${learnedWritingStyle}
+${advisoryLearnedWritingStyle}
 </learned_writing_style>
 `
     : "";
@@ -218,7 +304,6 @@ ${mcpContext}
       : "";
 
   const upcomingMeetingsContext = meetingContext || "";
-  const recordedMeetingsContext = recordedMeetingContext || "";
   const selectedAttachments = attachmentContext
     ? `Selected PDF attachments that will be included with this draft:
 
@@ -247,16 +332,9 @@ ${schedulingContext}
 ${mcpToolsContext}
 ${missingExternalContext}
 ${upcomingMeetingsContext}
-${recordedMeetingsContext}
-${selectedAttachments}
-
-Here is the context of the email thread (from oldest to newest):
-${getEmailListPrompt({ messages, messageMaxLength: 3000 })}
-
-Please write a reply to the email.
-${getTodayForLLM(currentDate)}
-IMPORTANT: You are writing an email as ${emailAccount.email}. Write the reply from their perspective.`;
-};
+${recordedMeetingContext || ""}
+${selectedAttachments}`;
+}
 
 const llmDraftConfidenceSchema = z.enum(["LOW", "MEDIUM", "HIGH"]);
 
@@ -267,7 +345,7 @@ const draftSchema = z.object({
       "The complete email reply draft incorporating knowledge base information",
     ),
   confidence: llmDraftConfidenceSchema.describe(
-    "Use HIGH only when the draft is complete, grounded, and does not depend on missing facts, unavailable calendar/business state, assumptions, or user-fillable details. Use MEDIUM for useful drafts that rely on reasonable assumptions, missing facts, or user-fillable details. Use LOW when the draft is highly uncertain, likely needs broader thread/context review, or mainly asks/checks/follows up.",
+    "Use HIGH only when the draft is complete, grounded, and does not depend on missing facts, pending checks or follow-ups, unavailable calendar/business state, assumptions, or user-fillable details. Use MEDIUM for useful drafts that rely on reasonable assumptions, missing facts, or user-fillable details. Use LOW when the draft is highly uncertain, likely needs broader thread/context review, or mainly asks/checks/follows up.",
   ),
 });
 
@@ -277,41 +355,16 @@ export type DraftReplyResult = {
   attribution: DraftAttribution | null;
 };
 
-export async function aiDraftReplyWithConfidence({
-  messages,
-  emailAccount,
-  knowledgeBaseContent,
-  replyMemoryContent = null,
-  emailHistorySummary,
-  emailHistoryContext,
-  senderReplyExamples = null,
-  calendarAvailability,
-  writingStyle,
-  learnedWritingStyle = null,
-  mcpContext,
-  meetingContext,
-  recordedMeetingContext = null,
-  attachmentContext = null,
-  hasConfiguredSignature = false,
-  currentDate,
-}: {
-  messages: (EmailForLLM & { to: string })[];
-  emailAccount: DraftEmailAccount;
-  knowledgeBaseContent: string | null;
-  replyMemoryContent?: string | null;
-  emailHistorySummary: string | null;
-  emailHistoryContext: ReplyContextCollectorResult | null;
-  senderReplyExamples?: string | null;
-  calendarAvailability: CalendarAvailabilityContext | null;
-  writingStyle: string | null;
-  learnedWritingStyle?: string | null;
-  mcpContext: string | null;
-  meetingContext: string | null;
-  recordedMeetingContext?: string | null;
-  attachmentContext?: string | null;
-  hasConfiguredSignature?: boolean;
-  currentDate?: Date;
-}): Promise<DraftReplyResult> {
+export async function aiDraftReplyWithConfidence(
+  input: DraftReplyInput,
+): Promise<DraftReplyResult> {
+  const {
+    messages,
+    emailAccount,
+    knowledgeBaseContent,
+    emailHistorySummary,
+    calendarAvailability,
+  } = input;
   logger.info("Drafting email reply", {
     messageCount: messages.length,
     hasKnowledge: !!knowledgeBaseContent,
@@ -324,35 +377,7 @@ export async function aiDraftReplyWithConfidence({
       : null,
   });
 
-  const normalizedWritingStyle = writingStyle?.trim() || null;
-  const normalizedLearnedWritingStyle = learnedWritingStyle?.trim() || null;
-  const customWritingStyle =
-    normalizedWritingStyle || normalizedLearnedWritingStyle;
-  const effectiveWritingStyle = customWritingStyle
-    ? `${customWritingStyle}\n\n${LENGTH_DISCIPLINE}`
-    : defaultWritingStyle;
-  const advisoryLearnedWritingStyle = normalizedWritingStyle
-    ? normalizedLearnedWritingStyle
-    : null;
-
-  const prompt = getUserPrompt({
-    messages,
-    emailAccount,
-    knowledgeBaseContent,
-    replyMemoryContent,
-    emailHistorySummary,
-    emailHistoryContext,
-    senderReplyExamples,
-    calendarAvailability,
-    writingStyle: effectiveWritingStyle,
-    learnedWritingStyle: advisoryLearnedWritingStyle,
-    mcpContext,
-    meetingContext,
-    recordedMeetingContext,
-    attachmentContext,
-    hasConfiguredSignature,
-    currentDate,
-  });
+  const prompt = getUserPrompt(input);
 
   const modelOptions = getModelForUseCase(
     emailAccount.user,
@@ -371,11 +396,11 @@ export async function aiDraftReplyWithConfidence({
   const generate = () =>
     generateObject({
       ...modelOptions,
-      system: appendOllamaOnlySystemGuidance(
-        { system: systemPrompt },
+      instructions: appendOllamaOnlySystemGuidance(
+        { instructions: systemPrompt },
         modelOptions,
         OLLAMA_DRAFT_RESPONSE_GUIDANCE,
-      ).system,
+      ).instructions,
       prompt,
       schema: draftSchema,
     });
@@ -399,59 +424,8 @@ export async function aiDraftReplyWithConfidence({
   };
 }
 
-export async function aiDraftReply({
-  messages,
-  emailAccount,
-  knowledgeBaseContent,
-  replyMemoryContent = null,
-  emailHistorySummary,
-  emailHistoryContext,
-  senderReplyExamples = null,
-  calendarAvailability,
-  writingStyle,
-  learnedWritingStyle = null,
-  mcpContext,
-  meetingContext,
-  recordedMeetingContext = null,
-  attachmentContext = null,
-  hasConfiguredSignature = false,
-  currentDate,
-}: {
-  messages: (EmailForLLM & { to: string })[];
-  emailAccount: DraftEmailAccount;
-  knowledgeBaseContent: string | null;
-  replyMemoryContent?: string | null;
-  emailHistorySummary: string | null;
-  emailHistoryContext: ReplyContextCollectorResult | null;
-  senderReplyExamples?: string | null;
-  calendarAvailability: CalendarAvailabilityContext | null;
-  writingStyle: string | null;
-  learnedWritingStyle?: string | null;
-  mcpContext: string | null;
-  meetingContext: string | null;
-  recordedMeetingContext?: string | null;
-  attachmentContext?: string | null;
-  hasConfiguredSignature?: boolean;
-  currentDate?: Date;
-}) {
-  const result = await aiDraftReplyWithConfidence({
-    messages,
-    emailAccount,
-    knowledgeBaseContent,
-    replyMemoryContent,
-    emailHistorySummary,
-    emailHistoryContext,
-    senderReplyExamples,
-    calendarAvailability,
-    writingStyle,
-    learnedWritingStyle,
-    mcpContext,
-    meetingContext,
-    recordedMeetingContext,
-    attachmentContext,
-    hasConfiguredSignature,
-    currentDate,
-  });
+export async function aiDraftReply(input: DraftReplyInput) {
+  const result = await aiDraftReplyWithConfidence(input);
 
   return result.reply;
 }

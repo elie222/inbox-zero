@@ -11,6 +11,8 @@ export type ArchivedEmailSummaryItem = {
   ruleName: string;
   sentAt: Date;
   subject: string;
+  url?: string;
+  senderUrl?: string;
 };
 
 type ArchivedActionSummary = {
@@ -24,9 +26,14 @@ type ArchivedActionSummary = {
 export function buildArchivedEmailSummaryItems({
   archivedActions,
   messageMap,
+  getEmailLinks,
 }: {
   archivedActions: ArchivedActionSummary[];
   messageMap: Record<string, ParsedMessage | undefined>;
+  getEmailLinks: (message: ParsedMessage) => {
+    url: string;
+    senderUrl?: string;
+  };
 }): ArchivedEmailSummaryItem[] {
   return archivedActions.flatMap((action) => {
     const message = messageMap[action.executedRule.messageId];
@@ -46,6 +53,7 @@ export function buildArchivedEmailSummaryItems({
       subject: message.headers.subject || decodeSnippet(message.snippet) || "",
       sentAt: action.createdAt,
       ruleName: getArchivedRuleName(action.executedRule.rule),
+      ...getEmailLinks(message),
     };
   });
 }

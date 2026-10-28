@@ -1,38 +1,36 @@
-import { describe, it, expect } from "vitest";
 import {
-  generateSecret,
+  existsSync,
+  lstatSync,
+  readlinkSync,
+  rmSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { spawnSync } from "node:child_process";
+import { afterEach, describe, it, expect, vi } from "vitest";
+import {
+  fixComposeEnvPaths,
+  generateEncryptionSecrets,
   generateEnvFile,
   getEnvFileName,
+  getComposeCommand,
   isSensitiveKey,
   parseEnvFile,
   parsePortConflict,
+  syncManagedComposeEnv,
   updateEnvValue,
   redactValue,
   type EnvConfig,
 } from "./utils";
 
-describe("generateSecret", () => {
-  it("should generate a hex string of correct length", () => {
-    const secret16 = generateSecret(16);
-    const secret32 = generateSecret(32);
-
-    // Hex encoding doubles the byte length
-    expect(secret16).toHaveLength(32);
-    expect(secret32).toHaveLength(64);
-  });
-
-  it("should generate valid hex strings", () => {
-    const secret = generateSecret(16);
-    expect(secret).toMatch(/^[0-9a-f]+$/);
-  });
-
-  it("should generate unique secrets", () => {
-    const secrets = new Set<string>();
-    for (let i = 0; i < 100; i++) {
-      secrets.add(generateSecret(16));
-    }
-    expect(secrets.size).toBe(100);
-  });
+vi.mock("node:fs", async (importOriginal) => {
+  const fs = await importOriginal<typeof import("node:fs")>();
+  return { ...fs, symlinkSync: vi.fn(fs.symlinkSync) };
 });
 
 describe("getEnvFileName", () => {
@@ -54,7 +52,7 @@ describe("getEnvFileName", () => {
 describe("generateEnvFile", () => {
   const baseTemplate = `# Test template
 DATABASE_URL=placeholder
-UPSTASH_REDIS_URL=placeholder
+REDIS_HTTP_URL=placeholder
 AUTH_SECRET=
 GOOGLE_CLIENT_ID=
 MICROSOFT_CLIENT_ID=
@@ -68,8 +66,8 @@ LLM_API_KEY=
 
   const baseEnv: EnvConfig = {
     DATABASE_URL: "postgresql://user:pass@db:5432/test",
-    UPSTASH_REDIS_URL: "http://redis:80",
-    UPSTASH_REDIS_TOKEN: "token123",
+    REDIS_HTTP_URL: "http://redis:80",
+    REDIS_HTTP_TOKEN: "token123",
     AUTH_SECRET: "secret123",
     GOOGLE_CLIENT_ID: "google-id",
     GOOGLE_CLIENT_SECRET: "google-secret",
@@ -241,6 +239,32 @@ OPENAI_COMPATIBLE_MODEL=
     );
   });
 
+  it("should handle Cerebras provider settings", () => {
+    const cerebrasEnv: EnvConfig = {
+      ...baseEnv,
+      LLM_API_KEY: undefined,
+      DEFAULT_LLMS: "cerebras:qwen-3.8-27b",
+      CHAT_LLMS: "cerebras:qwen-3.8-27b",
+      CEREBRAS_API_KEY: "csk-test",
+    };
+
+    const templateWithCerebras = `${baseTemplate}
+CEREBRAS_API_KEY=
+`;
+
+    const result = generateEnvFile({
+      env: cerebrasEnv,
+      useDockerInfra: false,
+      llmProvider: "cerebras",
+      template: templateWithCerebras,
+    });
+
+    expect(result).toContain("CEREBRAS_API_KEY=csk-test");
+    expect(result).toContain("LLM_API_KEY=csk-test");
+    expect(result).toContain("DEFAULT_LLMS=cerebras:qwen-3.8-27b");
+    expect(result).toContain("CHAT_LLMS=cerebras:qwen-3.8-27b");
+  });
+
   it("should handle commented lines in template", () => {
     const templateWithComments = `# Config
 # DATABASE_URL=commented-placeholder
@@ -320,7 +344,7 @@ AUTH_SECRET=
 # POSTGRES_PASSWORD=password
 # POSTGRES_DB=inboxzero
 # DATABASE_URL="postgresql://postgres:password@localhost:5432/inboxzero"
-# UPSTASH_REDIS_URL="http://localhost:8079"
+# REDIS_HTTP_URL="http://localhost:8079"
 
 # =============================================================================
 # App Configuration
@@ -367,7 +391,7 @@ LLM_API_KEY=
 # =============================================================================
 # Redis
 # =============================================================================
-UPSTASH_REDIS_TOKEN=
+REDIS_HTTP_TOKEN=
 REDIS_URL= # used for subscriptions and BullMQ worker
 QUEUE_BACKEND= # bullmq | qstash | internal
 `;
@@ -379,8 +403,8 @@ QUEUE_BACKEND= # bullmq | qstash | internal
       POSTGRES_DB: "inboxzero",
       DATABASE_URL:
         "postgresql://postgres:supersecretpassword123@db:5432/inboxzero",
-      UPSTASH_REDIS_URL: "http://serverless-redis-http:80",
-      UPSTASH_REDIS_TOKEN: "redis-token-abc123",
+      REDIS_HTTP_URL: "http://serverless-redis-http:80",
+      REDIS_HTTP_TOKEN: "redis-token-abc123",
       QUEUE_BACKEND: "internal",
       // App
       NEXT_PUBLIC_BASE_URL: "https://mail.example.com",
@@ -422,7 +446,7 @@ POSTGRES_USER=postgres
 POSTGRES_PASSWORD=supersecretpassword123
 POSTGRES_DB=inboxzero
 DATABASE_URL="postgresql://postgres:supersecretpassword123@db:5432/inboxzero"
-UPSTASH_REDIS_URL="http://serverless-redis-http:80"
+REDIS_HTTP_URL="http://serverless-redis-http:80"
 
 # =============================================================================
 # App Configuration
@@ -469,7 +493,7 @@ LLM_API_KEY=sk-ant-api-key-value
 # =============================================================================
 # Redis
 # =============================================================================
-UPSTASH_REDIS_TOKEN=redis-token-abc123
+REDIS_HTTP_TOKEN=redis-token-abc123
 REDIS_URL= # used for subscriptions and BullMQ worker
 QUEUE_BACKEND=internal
 `;
@@ -479,16 +503,16 @@ QUEUE_BACKEND=internal
 
   it("should not write undefined string when env values are undefined", () => {
     const template = `DATABASE_URL=placeholder
-UPSTASH_REDIS_URL=placeholder
+REDIS_HTTP_URL=placeholder
 AUTH_SECRET=
 `;
 
-    // Only set AUTH_SECRET, leave DATABASE_URL and UPSTASH_REDIS_URL undefined
+    // Only set AUTH_SECRET, leave DATABASE_URL and REDIS_HTTP_URL undefined
     const result = generateEnvFile({
       env: {
         AUTH_SECRET: "secret123",
         DATABASE_URL: undefined,
-        UPSTASH_REDIS_URL: undefined,
+        REDIS_HTTP_URL: undefined,
       },
       useDockerInfra: false,
       llmProvider: "anthropic",
@@ -500,7 +524,7 @@ AUTH_SECRET=
     expect(result).not.toContain("=undefined");
     // Original placeholders should remain since we didn't set them
     expect(result).toContain("DATABASE_URL=placeholder");
-    expect(result).toContain("UPSTASH_REDIS_URL=placeholder");
+    expect(result).toContain("REDIS_HTTP_URL=placeholder");
     expect(result).toContain("AUTH_SECRET=secret123");
   });
 });
@@ -641,6 +665,7 @@ describe("isSensitiveKey", () => {
   it("should identify known sensitive keys", () => {
     expect(isSensitiveKey("LLM_API_KEY")).toBe(true);
     expect(isSensitiveKey("ANTHROPIC_API_KEY")).toBe(true);
+    expect(isSensitiveKey("CEREBRAS_API_KEY")).toBe(true);
     expect(isSensitiveKey("AUTH_SECRET")).toBe(true);
     expect(isSensitiveKey("CRON_SECRET")).toBe(true);
   });
@@ -684,4 +709,300 @@ describe("parsePortConflict", () => {
     expect(parsePortConflict("network timeout")).toBeNull();
     expect(parsePortConflict("")).toBeNull();
   });
+});
+
+describe("setup encryption secrets", () => {
+  it("preserves existing encryption material when reconfiguring", () => {
+    const existing = parseEnvFile(
+      'EMAIL_ENCRYPT_SECRET="existing#secret" # keep\nEMAIL_ENCRYPT_SALT=existing-salt # keep',
+    );
+    expect(generateEncryptionSecrets(existing)).toEqual({
+      EMAIL_ENCRYPT_SECRET: "existing#secret",
+      EMAIL_ENCRYPT_SALT: "existing-salt",
+    });
+  });
+
+  it("generates missing material for a fresh installation", () => {
+    expect(generateEncryptionSecrets({})).toEqual({
+      EMAIL_ENCRYPT_SECRET: expect.stringMatching(/^[a-f0-9]{64}$/),
+      EMAIL_ENCRYPT_SALT: expect.stringMatching(/^[a-f0-9]{32}$/),
+    });
+  });
+
+  it("ignores inline comments when reusing a database password", () => {
+    expect(
+      parseEnvFile("POSTGRES_PASSWORD=password # change this for production")
+        .POSTGRES_PASSWORD,
+    ).toBe("password");
+  });
+});
+
+it("preserves hashes in unquoted Compose database passwords", () => {
+  expect(
+    parseEnvFile("POSTGRES_PASSWORD=abc#def # comment").POSTGRES_PASSWORD,
+  ).toBe("abc#def");
+});
+
+it("keeps a commented empty database password empty", () => {
+  expect(
+    parseEnvFile("POSTGRES_PASSWORD= # set a password").POSTGRES_PASSWORD,
+  ).toBe("");
+});
+
+describe("syncManagedComposeEnv", () => {
+  const directories: string[] = [];
+  afterEach(() => {
+    for (const directory of directories.splice(0)) {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("creates a managed root env for the default repo config", () => {
+    const repoRoot = mkdtempSync(join(tmpdir(), "inbox-zero-cli-"));
+    directories.push(repoRoot);
+    const appDir = join(repoRoot, "apps", "web");
+    const appEnv = join(appDir, ".env");
+
+    mkdirSync(appDir, { recursive: true });
+    writeFileSync(appEnv, "FOO=bar\n");
+
+    syncManagedComposeEnv({ envFile: appEnv, repoRoot });
+
+    expect(readFileSync(join(repoRoot, ".env"), "utf-8")).toBe("FOO=bar\n");
+    expect(readlinkSync(join(repoRoot, ".env"))).toBe("apps/web/.env");
+  });
+
+  it("refreshes a managed copied root env after later updates", () => {
+    const repoRoot = mkdtempSync(join(tmpdir(), "inbox-zero-cli-"));
+    directories.push(repoRoot);
+    const appDir = join(repoRoot, "apps", "web");
+    const appEnv = join(appDir, ".env");
+    const rootEnv = join(repoRoot, ".env");
+
+    mkdirSync(appDir, { recursive: true });
+    writeFileSync(appEnv, "FOO=one\n");
+    vi.mocked(symlinkSync).mockImplementationOnce(() => {
+      throw new Error("symlinks unavailable");
+    });
+    syncManagedComposeEnv({ envFile: appEnv, repoRoot });
+    expect(lstatSync(rootEnv).isFile()).toBe(true);
+    writeFileSync(appEnv, "FOO=two\n");
+
+    syncManagedComposeEnv({ envFile: appEnv, repoRoot });
+
+    expect(readFileSync(rootEnv, "utf-8")).toBe("FOO=two\n");
+  });
+
+  it("preserves a user replacement when a copied file's marker is stale", () => {
+    const repoRoot = mkdtempSync(join(tmpdir(), "inbox-zero-cli-"));
+    directories.push(repoRoot);
+    const appEnv = join(repoRoot, "apps/web/.env");
+    const rootEnv = join(repoRoot, ".env");
+    mkdirSync(join(repoRoot, "apps/web"), { recursive: true });
+    writeFileSync(appEnv, "FOO=original\n");
+    vi.mocked(symlinkSync).mockImplementationOnce(() => {
+      throw new Error("symlinks unavailable");
+    });
+    syncManagedComposeEnv({ envFile: appEnv, repoRoot });
+    writeFileSync(rootEnv, "FOO=user-replacement\n");
+    writeFileSync(appEnv, "FOO=new\n");
+
+    expect(syncManagedComposeEnv({ envFile: appEnv, repoRoot })).toBeTruthy();
+    expect(readFileSync(rootEnv, "utf-8")).toBe("FOO=user-replacement\n");
+  });
+
+  it("preserves files with legacy or invalid markers", () => {
+    const repoRoot = mkdtempSync(join(tmpdir(), "inbox-zero-cli-"));
+    directories.push(repoRoot);
+    const appEnv = join(repoRoot, "apps/web/.env");
+    mkdirSync(join(repoRoot, "apps/web"), { recursive: true });
+    writeFileSync(appEnv, "FOO=new\n");
+    writeFileSync(join(repoRoot, ".env"), "FOO=manual\n");
+    for (const marker of ["apps/web/.env", "null", "{}", "invalid-json"]) {
+      writeFileSync(join(repoRoot, ".env.inbox-zero-managed"), marker);
+      expect(syncManagedComposeEnv({ envFile: appEnv, repoRoot })).toBeTruthy();
+      expect(readFileSync(join(repoRoot, ".env"), "utf-8")).toBe(
+        "FOO=manual\n",
+      );
+    }
+  });
+
+  it("does not overwrite an unmanaged root env file", () => {
+    const repoRoot = mkdtempSync(join(tmpdir(), "inbox-zero-cli-"));
+    directories.push(repoRoot);
+    const appDir = join(repoRoot, "apps", "web");
+    const appEnv = join(appDir, ".env");
+    const rootEnv = join(repoRoot, ".env");
+
+    mkdirSync(appDir, { recursive: true });
+    writeFileSync(appEnv, "FOO=managed\n");
+    writeFileSync(rootEnv, "FOO=manual\n");
+
+    syncManagedComposeEnv({ envFile: appEnv, repoRoot });
+
+    expect(readFileSync(rootEnv, "utf-8")).toBe("FOO=manual\n");
+  });
+
+  it("does not overwrite an unmanaged root env symlink", () => {
+    const repoRoot = mkdtempSync(join(tmpdir(), "inbox-zero-cli-"));
+    directories.push(repoRoot);
+    const appDir = join(repoRoot, "apps", "web");
+    const appEnv = join(appDir, ".env");
+    const manualEnv = join(repoRoot, ".env.manual");
+    const rootEnv = join(repoRoot, ".env");
+
+    mkdirSync(appDir, { recursive: true });
+    writeFileSync(appEnv, "FOO=managed\n");
+    writeFileSync(manualEnv, "FOO=manual\n");
+    symlinkSync(".env.manual", rootEnv);
+
+    syncManagedComposeEnv({ envFile: appEnv, repoRoot });
+
+    expect(readFileSync(rootEnv, "utf-8")).toBe("FOO=manual\n");
+  });
+
+  it("preserves a retargeted symlink even when an old marker remains", () => {
+    const repoRoot = mkdtempSync(join(tmpdir(), "inbox-zero-cli-"));
+    directories.push(repoRoot);
+    const appDir = join(repoRoot, "apps", "web");
+    const appEnv = join(appDir, ".env");
+    const rootEnv = join(repoRoot, ".env");
+
+    mkdirSync(appDir, { recursive: true });
+    writeFileSync(appEnv, "FOO=managed\n");
+    writeFileSync(join(repoRoot, ".env.inbox-zero-managed"), "apps/web/.env");
+    symlinkSync(".env.previous", rootEnv);
+
+    syncManagedComposeEnv({ envFile: appEnv, repoRoot });
+
+    expect(readlinkSync(rootEnv)).toBe(".env.previous");
+    expect(existsSync(join(repoRoot, ".env.previous"))).toBe(false);
+  });
+
+  it("preserves dangling unmanaged symlinks without writing their targets", () => {
+    const repoRoot = mkdtempSync(join(tmpdir(), "inbox-zero-cli-"));
+    directories.push(repoRoot);
+    const appEnv = join(repoRoot, "apps/web/.env");
+    mkdirSync(join(repoRoot, "apps/web"), { recursive: true });
+    writeFileSync(appEnv, "FOO=managed\n");
+    symlinkSync(".env.manual", join(repoRoot, ".env"));
+
+    expect(syncManagedComposeEnv({ envFile: appEnv, repoRoot })).toBeTruthy();
+
+    expect(readlinkSync(join(repoRoot, ".env"))).toBe(".env.manual");
+    expect(existsSync(join(repoRoot, ".env.manual"))).toBe(false);
+    expect(existsSync(join(repoRoot, ".env.inbox-zero-managed"))).toBe(false);
+  });
+
+  it("does not claim ownership of an identical user-managed file", () => {
+    const repoRoot = mkdtempSync(join(tmpdir(), "inbox-zero-cli-"));
+    directories.push(repoRoot);
+    const appEnv = join(repoRoot, "apps/web/.env");
+    mkdirSync(join(repoRoot, "apps/web"), { recursive: true });
+    writeFileSync(appEnv, "FOO=one\n");
+    writeFileSync(join(repoRoot, ".env"), "FOO=one\n");
+    syncManagedComposeEnv({ envFile: appEnv, repoRoot });
+    writeFileSync(appEnv, "FOO=two\n");
+
+    expect(syncManagedComposeEnv({ envFile: appEnv, repoRoot })).toBeTruthy();
+
+    expect(readFileSync(join(repoRoot, ".env"), "utf-8")).toBe("FOO=one\n");
+    expect(lstatSync(join(repoRoot, ".env")).isFile()).toBe(true);
+    expect(existsSync(join(repoRoot, ".env.inbox-zero-managed"))).toBe(false);
+  });
+
+  it("does not attach a standalone configuration to a detected repository", () => {
+    const repoRoot = mkdtempSync(join(tmpdir(), "inbox-zero-cli-"));
+    directories.push(repoRoot);
+    const standaloneDir = join(repoRoot, "standalone");
+    mkdirSync(standaloneDir);
+    const envFile = join(standaloneDir, ".env");
+    writeFileSync(envFile, "FOO=standalone\n");
+
+    syncManagedComposeEnv({ envFile, repoRoot });
+
+    expect(existsSync(join(repoRoot, ".env"))).toBe(false);
+  });
+
+  it("skips named env files because they use explicit compose env-file flags", () => {
+    const repoRoot = mkdtempSync(join(tmpdir(), "inbox-zero-cli-"));
+    directories.push(repoRoot);
+    const appDir = join(repoRoot, "apps", "web");
+    const namedEnv = join(appDir, ".env.staging");
+
+    mkdirSync(appDir, { recursive: true });
+    writeFileSync(namedEnv, "FOO=bar\n");
+
+    syncManagedComposeEnv({ envFile: namedEnv, repoRoot });
+
+    expect(() => readFileSync(join(repoRoot, ".env"), "utf-8")).toThrow();
+  });
+});
+
+describe("Compose environment selection", () => {
+  it.each([
+    "./apps/web/.env.staging",
+    "./.env.staging",
+  ])("keeps named app and Compose settings together for %s", (composeEnvFile) => {
+    const content = generateEnvFile({
+      env: {
+        AUTH_SECRET: "staging-secret",
+        REDIS_HTTP_TOKEN: "staging-token",
+      },
+      useDockerInfra: true,
+      llmProvider: "openai",
+      template: "",
+      composeEnvFile,
+    });
+    expect(parseEnvFile(content)).toMatchObject({
+      INBOX_ZERO_ENV_FILE: composeEnvFile,
+      AUTH_SECRET: "staging-secret",
+      REDIS_HTTP_TOKEN: "staging-token",
+    });
+  });
+
+  it("adapts both current and legacy Compose env paths for standalone installs", () => {
+    expect(
+      fixComposeEnvPaths(
+        // biome-ignore lint/suspicious/noTemplateCurlyInString: Docker Compose interpolation, not JavaScript.
+        "- path: ${INBOX_ZERO_ENV_FILE:-./apps/web/.env}\n- path: ./apps/web/.env\n- ./apps/web/.env",
+      ),
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: Docker Compose interpolation, not JavaScript.
+    ).toBe("- path: ${INBOX_ZERO_ENV_FILE:-./.env}\n- path: ./.env\n- ./.env");
+  });
+});
+
+describe("getComposeCommand", () => {
+  it("preserves paths containing spaces and shell metacharacters", () => {
+    const envFile = "/tmp/repo's $SHELL `ignored`/.env.staging";
+    const composeFile = "/tmp/repo's $SHELL `ignored`/docker-compose.yml";
+    const command = getComposeCommand(envFile, composeFile, "linux");
+    const result = spawnSync(
+      "sh",
+      ["-c", `docker() { printf '%s\\n' "$@"; }; ${command}`],
+      {
+        encoding: "utf-8",
+      },
+    );
+    expect(result.status).toBe(0);
+    expect(result.stdout.trim().split("\n")).toEqual([
+      "compose",
+      "--env-file",
+      envFile,
+      "-f",
+      composeFile,
+    ]);
+  });
+});
+
+it("prints literal PowerShell paths on Windows", () => {
+  expect(
+    getComposeCommand(
+      "C:/repo's $env:USER/.env",
+      "C:/repo's $env:USER/compose.yml",
+      "win32",
+    ),
+  ).toBe(
+    "docker compose --env-file 'C:/repo''s $env:USER/.env' -f 'C:/repo''s $env:USER/compose.yml'",
+  );
 });

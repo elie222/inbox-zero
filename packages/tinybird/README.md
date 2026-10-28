@@ -42,6 +42,10 @@ Validate and deploy the project to Tinybird Cloud:
 uvx --from tinybird@latest tb --cloud deploy --check
 ```
 
+Removing a datasource from the project deletes it and its data on the next
+deploy. Forward asks for confirmation first; review the `--check` output, then
+deploy with `--allow-destructive-operations`.
+
 Tinybird Forward deployments replace the Classic `tb push` workflow. Keep
 resource definitions and `TOKEN` directives in `packages/tinybird/project` so
 deployments remain reproducible from Git.

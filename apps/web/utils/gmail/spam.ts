@@ -18,3 +18,21 @@ export async function markSpam(options: {
     }),
   );
 }
+
+export async function markNotSpam(options: {
+  gmail: gmail_v1.Gmail;
+  threadId: string;
+}) {
+  const { gmail, threadId } = options;
+
+  return withGmailRetry(() =>
+    gmail.users.threads.modify({
+      userId: "me",
+      id: threadId,
+      requestBody: {
+        addLabelIds: [GmailLabel.INBOX],
+        removeLabelIds: [GmailLabel.SPAM],
+      },
+    }),
+  );
+}

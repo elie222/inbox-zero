@@ -107,15 +107,6 @@ export function useThreadSelection(orderedIds: string[]) {
     [orderedIds, selectedIds],
   );
 
-  // Acting on a selection consumes it; acting with none targets the focused row.
-  const targetIds = useCallback(
-    (focusedId: string | undefined) => {
-      if (selectedIds.size) return [...selectedIds];
-      return focusedId ? [focusedId] : [];
-    },
-    [selectedIds],
-  );
-
   return useMemo(
     () => ({
       selectedIds,
@@ -127,9 +118,8 @@ export function useThreadSelection(orderedIds: string[]) {
       selectRangeTo,
       extendTo,
       clear,
-      targetIds,
     }),
-    [selectedIds, toggle, selectAll, selectRangeTo, extendTo, clear, targetIds],
+    [selectedIds, toggle, selectAll, selectRangeTo, extendTo, clear],
   );
 }
 

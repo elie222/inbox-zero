@@ -377,9 +377,8 @@ function ConnectedChannelRow({
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 shrink-0 hover:bg-destructive/10 hover:text-destructive"
+              variant="destructiveGhost"
+              size="iconXs"
               disabled={disconnectStatus === "executing"}
               onClick={() => executeDisconnect({ channelId: channel.id })}
             >
@@ -474,8 +473,7 @@ export function useSlackNotifications({
       onSlackConnected?.(searchParams.get("slack_email_account_id"));
       toastSuccess({
         title: "Slack connected",
-        description:
-          "Next, choose a private channel in Connected Apps for meeting brief and attachment notifications.",
+        description: "Next, open Channels to choose where Slack messages go.",
       });
     }
     if (message === "processing") {

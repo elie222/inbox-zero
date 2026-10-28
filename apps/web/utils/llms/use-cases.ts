@@ -26,7 +26,6 @@ export const LlmUseCase = {
   EmailReportResponsePatterns: "email-report-response-patterns",
   EmailReportSummaryGeneration: "email-report-summary-generation",
   EmailReportUserPersona: "email-report-user-persona",
-  FindSnippets: "find-snippets",
   KnowledgeExtraction: "knowledge-extraction",
   LearnedWritingStyleCompaction: "learned-writing-style-compaction",
   McpAgent: "mcp-agent",
@@ -34,7 +33,6 @@ export const LlmUseCase = {
   MeetingFollowUpDraft: "meeting-follow-up-draft",
   MeetingSummary: "meeting-summary",
   MeetingWebSearch: "meeting-web-search",
-  OnboardingChat: "onboarding-chat",
   ParseFilingReply: "parse-filing-reply",
   PersonaAnalysis: "persona-analysis",
   PromptToRules: "prompt-to-rules",
@@ -45,6 +43,7 @@ export const LlmUseCase = {
   ReplyNudge: "reply-nudge",
   Summarise: "summarise",
   TranslateEmail: "translate-email",
+  UnsubscribePageState: "unsubscribe-page-state",
   WritingStyleAnalysis: "writing-style-analysis",
 } as const;
 
@@ -74,7 +73,6 @@ export const LLM_USE_CASE_MODEL_TYPES = {
   [LlmUseCase.EmailReportResponsePatterns]: "default",
   [LlmUseCase.EmailReportSummaryGeneration]: "economy",
   [LlmUseCase.EmailReportUserPersona]: "default",
-  [LlmUseCase.FindSnippets]: "chat",
   [LlmUseCase.KnowledgeExtraction]: "economy",
   [LlmUseCase.LearnedWritingStyleCompaction]: "economy",
   [LlmUseCase.McpAgent]: "economy",
@@ -82,7 +80,6 @@ export const LLM_USE_CASE_MODEL_TYPES = {
   [LlmUseCase.MeetingFollowUpDraft]: "draft",
   [LlmUseCase.MeetingSummary]: "default",
   [LlmUseCase.MeetingWebSearch]: "economy",
-  [LlmUseCase.OnboardingChat]: "chat",
   [LlmUseCase.ParseFilingReply]: "economy",
   [LlmUseCase.PersonaAnalysis]: "economy",
   [LlmUseCase.PromptToRules]: "chat",
@@ -93,6 +90,7 @@ export const LLM_USE_CASE_MODEL_TYPES = {
   [LlmUseCase.ReplyNudge]: "chat",
   [LlmUseCase.Summarise]: "default",
   [LlmUseCase.TranslateEmail]: "economy",
+  [LlmUseCase.UnsubscribePageState]: "economy",
   [LlmUseCase.WritingStyleAnalysis]: "default",
 } as const satisfies Record<LlmUseCase, ModelType>;
 

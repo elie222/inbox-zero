@@ -21,6 +21,17 @@ describe("syncMcpTools", () => {
     prisma.$transaction.mockResolvedValue([]);
   });
 
+  function mockCustomIntegration() {
+    prisma.mcpIntegration.findFirst.mockResolvedValue({
+      name: "custom_abc",
+      displayName: "My knowledge base",
+      serverUrl: "https://mcp.example.com/mcp",
+      authType: "API_TOKEN",
+    } as unknown as Awaited<
+      ReturnType<typeof prisma.mcpIntegration.findFirst>
+    >);
+  }
+
   function mockConnection(
     existingTools: { name: string; isEnabled: boolean }[],
     integrationName = "notion",
@@ -116,6 +127,100 @@ describe("syncMcpTools", () => {
           isEnabled: true,
         }),
       ],
+    });
+  });
+
+  it("only enables custom server tools the server annotates as read-only", async () => {
+    mockCustomIntegration();
+    mockConnection([], "custom_abc");
+    mockListMcpTools.mockResolvedValue([
+      { name: "search_docs", readOnlyHint: true },
+      { name: "delete_doc", readOnlyHint: false },
+      { name: "unannotated_tool" },
+    ]);
+
+    await syncMcpTools("custom_abc", "email-account-1", logger);
+
+    expect(prisma.mcpTool.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({ name: "search_docs", isEnabled: true }),
+        expect.objectContaining({ name: "delete_doc", isEnabled: false }),
+        expect.objectContaining({ name: "unannotated_tool", isEnabled: false }),
+      ],
+    });
+  });
+
+  it("never stores custom server tools as write tools", async () => {
+    mockCustomIntegration();
+    mockConnection([], "custom_abc");
+    mockListMcpTools.mockResolvedValue([
+      { name: "add-tasks", readOnlyHint: false },
+    ]);
+
+    await syncMcpTools("custom_abc", "email-account-1", logger);
+
+    expect(prisma.mcpTool.createMany).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ name: "add-tasks", isWrite: false })],
+    });
+  });
+
+  it("keeps the read-only custom tools when the cap drops the rest", async () => {
+    mockCustomIntegration();
+    mockConnection([], "custom_abc");
+    mockListMcpTools.mockResolvedValue([
+      ...Array.from({ length: 60 }, (_, index) => ({
+        name: `write_${index}`,
+        readOnlyHint: false,
+      })),
+      { name: "search_docs", readOnlyHint: true },
+    ]);
+
+    await syncMcpTools("custom_abc", "email-account-1", logger);
+
+    expect(prisma.mcpTool.createMany).toHaveBeenCalledWith({
+      data: expect.arrayContaining([
+        expect.objectContaining({ name: "search_docs", isEnabled: true }),
+      ]),
+    });
+  });
+
+  it("caps how many custom server tools it stores and truncates descriptions", async () => {
+    mockCustomIntegration();
+    mockConnection([], "custom_abc");
+    mockListMcpTools.mockResolvedValue(
+      Array.from({ length: 60 }, (_, index) => ({
+        name: `tool_${index}`,
+        description: "x".repeat(2000),
+        readOnlyHint: true,
+      })),
+    );
+
+    const result = await syncMcpTools("custom_abc", "email-account-1", logger);
+
+    expect(result.toolsCount).toBe(50);
+    expect(prisma.mcpTool.createMany).toHaveBeenCalledWith({
+      data: expect.arrayContaining([
+        expect.objectContaining({
+          name: "tool_0",
+          description: "x".repeat(1000),
+        }),
+      ]),
+    });
+  });
+
+  it("skips custom server tools whose names model providers reject", async () => {
+    mockCustomIntegration();
+    mockConnection([], "custom_abc");
+    mockListMcpTools.mockResolvedValue([
+      { name: "search_docs", readOnlyHint: true },
+      { name: "docs.fetch", readOnlyHint: true },
+      { name: "x".repeat(65), readOnlyHint: true },
+    ]);
+
+    await syncMcpTools("custom_abc", "email-account-1", logger);
+
+    expect(prisma.mcpTool.createMany).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ name: "search_docs" })],
     });
   });
 

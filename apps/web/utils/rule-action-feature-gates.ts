@@ -8,7 +8,7 @@ import { SafeError } from "@/utils/error";
 import {
   isWebhookActionEnabled,
   WEBHOOK_ACTION_DISABLED_MESSAGE,
-} from "@/utils/webhook-action";
+} from "@/utils/outbound-webhook/action";
 
 const RULE_ACTION_FEATURE_GATES = [
   {

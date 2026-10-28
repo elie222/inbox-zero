@@ -41,6 +41,24 @@ describe("compareScreenshotsWithBaseline", () => {
     });
   });
 
+  it("matches a capture from a retried test to the same capture on main", () => {
+    const retried = getScreenshot({
+      hash: "a".repeat(64),
+      source: "mail_sreader.spec.ts/reader-emulated-retry1/final-state.png",
+    });
+    const baseline = createScreenshotManifest([
+      {
+        ...retried,
+        comparison: "unavailable",
+        source: "mail_sreader.spec.ts/reader-emulated/final-state.png",
+      },
+    ]);
+
+    expect(
+      compareScreenshotsWithBaseline([retried], baseline).screenshots,
+    ).toEqual([{ ...retried, comparison: "unchanged" }]);
+  });
+
   it("does not claim screenshots are new without a valid baseline", () => {
     const screenshot = getScreenshot();
 

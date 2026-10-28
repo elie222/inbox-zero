@@ -7,10 +7,12 @@ generator client {
   output                 = "../generated/prisma"
   generatedFileExtension = "ts"
   importFileExtension    = "ts"
+  previewFeatures        = ["partialIndexes"]
 }
 
 // Account, User, Session, and VerificationToken based on: https://authjs.dev/reference/adapter/prisma
 model Account {
+  password              String?
   id                    String        @id @default(cuid())
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt
@@ -34,20 +36,24 @@ model Account {
   @@index([userId])
 }
 
-// not in use. we only use jwt for sessions
 model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  ipAddress    String?
-  userAgent    String?
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id              String   @id @default(cuid())
+  sessionToken    String   @unique
+  userId          String
+  expires         DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  emailOtp        Boolean  @default(false)
+  emailOtpVersion Int      @default(0)
+  ipAddress       String?
+  userAgent       String?
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   activeOrganizationId String?
   activeOrganization   Organization? @relation(fields: [activeOrganizationId], references: [id], onDelete: SetNull)
+
+  oauthRefreshTokenRecords OauthRefreshToken[]
+  oauthAccessTokenRecords  OauthAccessToken[]
 
   @@index([userId])
   @@index([activeOrganizationId])
@@ -66,6 +72,7 @@ model User {
 
   // additional fields
   completedOnboardingAt   DateTime? // questions about the user. e.g. their role
+  signupIntent            SignupIntent? // which part of the product the user signed up for
   onboardingAnswers       Json?
   lastLogin               DateTime?
   utms                    Json?
@@ -82,10 +89,15 @@ model User {
   surveyImprovements String? // open text: what user wants to improve
 
   // settings
-  aiProvider    String?
-  aiModel       String?
-  aiApiKey      String?
-  webhookSecret String?
+  mcpServerEnabled  Boolean  @default(false)
+  mcpTokenVersion   Int      @default(0)
+  emailOtpEnabled   Boolean  @default(false)
+  emailOtpVersion   Int      @default(0)
+  aiProvider        String?
+  aiModel           String?
+  aiApiKey          String?
+  decisionModelEnabled Boolean? // null follows DEFAULT_DECISION_MODEL_ENABLED
+  webhookSecret     String?
 
   // referral system
   referralCode String? @unique // User's own referral code
@@ -104,8 +116,26 @@ model User {
   // Referral relationships
   referralsMade    Referral[]        @relation("ReferrerUser")
   referralReceived Referral?         @relation("ReferredUser")
-  scimProviders    ScimProvider[]
   mobilePushTokens MobilePushToken[]
+
+  oauthClientRecords       OauthClient[]
+  oauthRefreshTokenRecords OauthRefreshToken[]
+  oauthAccessTokenRecords  OauthAccessToken[]
+  oauthConsentRecords      OauthConsent[]
+
+  ssoProviders           SsoProvider[]
+  scimAccessDisabled     Boolean                 @default(false)
+  scimIdentityTombstones ScimIdentityTombstone[]
+  scimSubject            ScimSubject?
+  scimUsers              ScimUser[]
+  scimProjectionGrants   ScimProjectionGrant[]
+  scimIdentityLinks      ScimIdentityLink[]
+}
+
+enum SignupIntent {
+  AI_ASSISTANT
+  MAIL_CLIENT
+  BOTH
 }
 
 enum ApiKeyScope {
@@ -115,6 +145,7 @@ enum ApiKeyScope {
   SETTINGS_READ
   SETTINGS_WRITE
   ASSISTANT_CHAT
+  SENDERS_UNSUBSCRIBE
 }
 
 // Migrating over to the new settings model. Currently most settings are in the User model, but will be moved to this model in the future.
@@ -131,6 +162,8 @@ model EmailAccount {
   writingStyle                   String?
   signature                      String? // User's email signature from provider or manually set
   includeReferralSignature       Boolean   @default(false)
+  includeSentWithSignature       Boolean   @default(true) // "Sent with <brand>" footer on emails sent from the mail client
+  sentMessageOpenTrackingEnabled Boolean   @default(true) // show when sent mail-client emails are opened
   watchEmailsExpirationDate      DateTime?
   watchEmailsSubscriptionId      String? // For Outlook subscription ID
   watchEmailsSubscriptionHistory Json? // Historical Outlook subscription IDs: [{ subscriptionId, createdAt, replacedAt }]
@@ -140,6 +173,7 @@ model EmailAccount {
   role                           String? // the role confirmed by the user - previously `User.surveyRole`
   timezone                       String? // User's timezone (IANA tz database format, e.g., "America/Los_Angeles", "Asia/Jerusalem") - handles DST automatically
   calendarBookingLink            String? // User's calendar booking link
+  draftDocsUrls                  String[]  @default([]) // Public docs sites (origin + optional path prefix) that drafts may look things up in
 
   statsEmailFrequency       Frequency            @default(WEEKLY)
   summaryEmailFrequency     Frequency            @default(WEEKLY)
@@ -157,7 +191,8 @@ model EmailAccount {
   allowHiddenAiDraftLinks   Boolean              @default(false)
   rulesRevision             Int                  @default(0)
 
-  mailLayout MailLayout @default(LIST)
+  mailLayout          MailLayout @default(LIST)
+  mailExpandedPreview Boolean    @default(false)
 
   includeInAllAccounts Boolean @default(true)
 
@@ -187,28 +222,31 @@ model EmailAccount {
   accountId String  @unique
   account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
-  labels               Label[]
-  rules                Rule[]
-  executedRules        ExecutedRule[]
-  newsletters          Newsletter[]
-  coldEmails           ColdEmail[] // @deprecated - kept for backward compatibility during migration
-  groups               Group[]
-  categories           Category[]
-  threadTrackers       ThreadTracker[]
-  cleanupJobs          CleanupJob[]
-  cleanupThreads       CleanupThread[]
-  emailMessages        EmailMessage[]
-  emailTokens          EmailToken[]
-  knowledge            Knowledge[]
-  replyMemories        ReplyMemory[]
-  chats                Chat[]
-  chatMemories         ChatMemory[]
-  digests              Digest[]
-  scheduledActions     ScheduledAction[]
-  snoozedThreads       SnoozedThread[]
+  labels              Label[]
+  rules               Rule[]
+  executedRules       ExecutedRule[]
+  newsletters         Newsletter[]
+  coldEmails          ColdEmail[] // @deprecated - kept for backward compatibility during migration
+  groups              Group[]
+  categories          Category[]
+  threadTrackers      ThreadTracker[]
+  cleanupJobs         CleanupJob[]
+  cleanupThreads      CleanupThread[]
+  emailMessages       EmailMessage[]
+  emailTokens         EmailToken[]
+  knowledge           Knowledge[]
+  snippets            Snippet[]
+  replyMemories       ReplyMemory[]
+  chats               Chat[]
+  chatMemories        ChatMemory[]
+  digests             Digest[]
+  scheduledActions    ScheduledAction[]
+  snoozedThreads      SnoozedThread[]
   emailSendOperations EmailSendOperation[]
-  responseTimes        ResponseTime[]
-  actions              Action[]
+  sentMessageOpens    SentMessageOpen[]
+  scheduledEmails     ScheduledEmail[]
+  responseTimes       ResponseTime[]
+  actions             Action[]
 
   members                Member[]
   invitations            Invitation[]
@@ -218,6 +256,7 @@ model EmailAccount {
   bookingLinks           BookingLink[]
   bookings               Booking[]
   mcpConnections         McpConnection[]
+  mcpIntegrations        McpIntegration[]
   meetingBriefings       MeetingBriefing[]
   meetings               Meeting[]
   meetingRecordings      MeetingRecording[]
@@ -236,38 +275,57 @@ model EmailAccount {
   @@index([watchEmailsSubscriptionHistory(ops: JsonbPathOps)], type: Gin)
 }
 
-// A saved filter shown as a tab above the mail list. `value` holds the label id for
-// LABEL splits and the provider category for CATEGORY splits; it is unused for INBOX/UNREAD.
+// A saved filter shown as a tab above the mail list. `values` holds one or more label
+// ids for LABEL splits and a single provider category for CATEGORY splits; it is empty
+// for INBOX/UNREAD.
 model MailSplit {
-  id        String        @id @default(cuid())
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   name      String
-  kind      MailSplitKind
-  value     String?
   order     Int
+  /// Whether every filter must match, or any one of them ("Show mail matching
+  /// all/any of these conditions"). A split with no filters is the plain inbox.
+  matchAll  Boolean  @default(true)
 
   emailAccountId String
-  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  emailAccount   EmailAccount      @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  filters        MailSplitFilter[]
 
   @@unique([emailAccountId, name])
-  @@unique([emailAccountId, order])
+  @@index([emailAccountId, order])
+}
+
+/// One condition row in the split builder. A split may hold several of the same
+/// kind (two senders, two labels), so kind is deliberately not unique per split.
+model MailSplitFilter {
+  id    String              @id @default(cuid())
+  kind  MailSplitFilterKind
+  value String?
+  order Int
+
+  mailSplitId String
+  mailSplit   MailSplit @relation(fields: [mailSplitId], references: [id], onDelete: Cascade)
+
+  @@unique([mailSplitId, order])
+  @@index([mailSplitId])
+  @@index([kind, value])
 }
 
 model Organization {
-  id           String             @id @default(cuid())
-  name         String
-  slug         String             @unique
-  logo         String?
-  metadata     Json?
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
-  members      Member[]
-  SsoProvider  SsoProvider?
-  ScimProvider ScimProvider[]
-  sessions     Session[]
-  invitations  Invitation[]
-  rules        OrganizationRule[]
+  id            String             @id @default(cuid())
+  name          String
+  slug          String             @unique
+  logo          String?
+  metadata      Json?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  members       Member[]
+  SsoProvider   SsoProvider?
+  sessions      Session[]
+  invitations   Invitation[]
+  rules         OrganizationRule[]
+  conversations Conversation[]
 }
 
 // Org-managed rule, materialized into a normal member Rule (+ Action) copy per
@@ -325,18 +383,89 @@ model OrganizationRuleAction {
 }
 
 model Member {
-  id                     String       @id @default(cuid())
-  organizationId         String
-  emailAccountId         String
-  role                   String       @default("member") // "owner" | "admin" | "member"
-  allowOrgAdminAnalytics Boolean      @default(false)
-  createdAt              DateTime     @default(now())
-  updatedAt              DateTime     @updatedAt
-  organization           Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  emailAccount           EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Restrict)
+  id                       String                    @id @default(cuid())
+  organizationId           String
+  emailAccountId           String
+  role                     String                    @default("member") // "owner" | "admin" | "member"
+  allowOrgAdminAnalytics   Boolean                   @default(false)
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  organization             Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  emailAccount             EmailAccount              @relation(fields: [emailAccountId], references: [id], onDelete: Restrict)
+  conversations            Conversation[]
+  conversationParticipants ConversationParticipant[]
+  conversationComments     ConversationComment[]
 
   @@unique([organizationId, emailAccountId])
   @@unique([emailAccountId])
+}
+
+model Conversation {
+  id             String                    @id @default(cuid())
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+  organizationId String
+  organization   Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  publisherId    String
+  publisher      Member                    @relation(fields: [publisherId], references: [id], onDelete: Cascade)
+  threadId       String
+  status         ConversationStatus        @default(ACTIVE)
+  revision       Int                       @default(0)
+  generation     Int                       @default(1)
+  participants   ConversationParticipant[]
+  comments       ConversationComment[]
+
+  @@unique([publisherId, threadId])
+  @@index([organizationId])
+}
+
+model ConversationParticipant {
+  id             String                 @id @default(cuid())
+  conversationId String
+  conversation   Conversation           @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  memberId       String
+  member         Member                 @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  generation     Int
+  active         Boolean                @default(true)
+  readRevision   Int                    @default(0)
+  muted          Boolean                @default(false)
+  createdAt      DateTime               @default(now())
+  activity       ConversationActivity[]
+
+  @@unique([conversationId, memberId, generation])
+  @@index([memberId])
+}
+
+model ConversationComment {
+  id               String                 @id @default(cuid())
+  conversationId   String
+  conversation     Conversation           @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  // SetNull keeps the discussion readable after the author leaves the organization.
+  authorMemberId   String?
+  author           Member?                @relation(fields: [authorMemberId], references: [id], onDelete: SetNull)
+  clientMutationId String
+  body             String                 @db.Text
+  revision         Int
+  deletedAt        DateTime?
+  createdAt        DateTime               @default(now())
+  activity         ConversationActivity[]
+
+  @@unique([conversationId, revision])
+  @@unique([conversationId, authorMemberId, clientMutationId])
+}
+
+model ConversationActivity {
+  id            String                   @id @default(cuid())
+  participantId String
+  participant   ConversationParticipant  @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  commentId     String?
+  comment       ConversationComment?     @relation(fields: [commentId], references: [id], onDelete: SetNull)
+  kind          ConversationActivityKind
+  revision      Int
+  createdAt     DateTime                 @default(now())
+
+  @@unique([participantId, kind, revision])
+  @@index([participantId, createdAt, id])
 }
 
 model Invitation {
@@ -367,6 +496,8 @@ model Verification {
 }
 
 model SsoProvider {
+  userId         String?
+  user           User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
   id             String        @id @default(cuid())
   issuer         String
   oidcConfig     String?
@@ -380,22 +511,6 @@ model SsoProvider {
 
   @@index([emailAccountId])
   @@map("ssoProvider")
-}
-
-model ScimProvider {
-  id             String        @id @default(cuid())
-  providerId     String        @unique
-  scimToken      String        @unique
-  organizationId String?
-  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  userId         String?
-  user           User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-
-  @@index([organizationId])
-  @@index([userId])
-  @@map("scimProvider")
 }
 
 model Digest {
@@ -480,23 +595,25 @@ model Premium {
   lemonSubscriptionStatus        String?
 
   // stripe
-  stripeCustomerId              String?   @unique
-  stripeSubscriptionId          String?   @unique
-  stripeSubscriptionItemId      String?   @unique
-  stripePriceId                 String?
-  stripeProductId               String?
-  stripeSubscriptionStatus      String? // The current status from Stripe (e.g., 'active', 'trialing', 'past_due', 'canceled', 'unpaid').
-  stripeCancelAtPeriodEnd       Boolean? // If true, the subscription is set to cancel automatically at the end of the current billing period, rather than renew.
-  stripeRenewsAt                DateTime? // Timestamp for when the current billing period ends and the subscription attempts renewal (if not canceling). Derived from `current_period_end`.
-  stripeTrialEnd                DateTime? // Timestamp for when the free trial period ends (if applicable). Important for managing trial-to-paid transitions.
-  stripeTrialConvertedAt        DateTime? // Timestamp for when a Stripe trial converted from `trialing` to `active`. Historical data.
-  stripeCancellationInitiatedAt DateTime? // Timestamp for when the user actually initiated cancellation (clicked cancel). Distinct from `stripeCanceledAt`, which is when Stripe processes the scheduled cancellation at period end.
-  stripeCanceledAt              DateTime? // Timestamp for when the subscription was definitively marked as canceled in Stripe (might be immediate or after period end). Historical data.
-  stripeEndedAt                 DateTime? // Timestamp for when the subscription ended permanently for any reason (cancellation, final payment failure). Historical data.
-  stripeAiOverageLastInvoiceId  String?
-  stripeAiOverageLastPeriodEnd  DateTime?
-  stripeAiOverageLastUnits      Int?
-  stripeInvoiceEmailsEnabled    Boolean   @default(false)
+  stripeCustomerId               String?   @unique
+  stripeSubscriptionId           String?   @unique
+  stripeSubscriptionItemId       String?   @unique
+  stripePriceId                  String?
+  stripeProductId                String?
+  stripeSubscriptionStatus       String? // The current status from Stripe (e.g., 'active', 'trialing', 'past_due', 'canceled', 'unpaid').
+  stripeCancelAt                 DateTime? // Scheduled cancellation time from Stripe, including custom cancellation dates.
+  stripeCancelAtPeriodEnd        Boolean? // If true, the subscription is set to cancel automatically at the end of the current billing period, rather than renew.
+  stripeRenewsAt                 DateTime? // Timestamp for when the current billing period ends and the subscription attempts renewal (if not canceling). Derived from `current_period_end`.
+  stripeTrialEnd                 DateTime? // Timestamp for when the free trial period ends (if applicable). Important for managing trial-to-paid transitions.
+  stripeTrialConversionInvoiceId String? // Stable payment identity for retrying trial conversion side effects.
+  stripeTrialConvertedAt         DateTime? // Timestamp of the first successful positive subscription invoice payment after a Stripe trial. Historical data.
+  stripeCancellationInitiatedAt  DateTime? // Timestamp of the event that first scheduled cancellation. Does not identify who initiated it.
+  stripeCanceledAt               DateTime? // Stripe canceled_at: when cancellation was requested, which can precede the effective end in stripeEndedAt. Historical data.
+  stripeEndedAt                  DateTime? // Timestamp for when the subscription ended permanently for any reason (cancellation, final payment failure). Historical data.
+  stripeAiOverageLastInvoiceId   String?
+  stripeAiOverageLastPeriodEnd   DateTime?
+  stripeAiOverageLastUnits       Int?
+  stripeInvoiceEmailsEnabled     Boolean   @default(false)
 
   // apple app store
   appleOriginalTransactionId       String?   @unique
@@ -533,7 +650,18 @@ model Premium {
   @@index([pendingInvites])
 }
 
-// not in use as it's only used for passwordless login
+// Admin grant for an email that has not signed up yet. Applied and deleted on sign-up.
+model PendingPremiumGrant {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  email               String      @unique
+  tier                PremiumTier
+  count               Int         @default(1)
+  emailAccountsAccess Int?
+}
+
 model VerificationToken {
   id         String   @id @default(cuid())
   createdAt  DateTime @default(now())
@@ -716,6 +844,7 @@ model ExecutedRule {
   @@index([emailAccountId, status, createdAt])
   @@index([emailAccountId, createdAt])
   @@index([emailAccountId, id])
+  @@index([emailAccountId, updatedAt, id])
   @@index([ruleId])
 }
 
@@ -770,6 +899,7 @@ model ExecutedAction {
   @@index([executionStatus, createdAt])
   @@index([sentMessageIds], type: Gin)
   @@index([messagingChannelId, createdAt])
+  @@index([draftStatus, createdAt], map: "ExecutedAction_draftStatus_createdAt_draft_idx", where: raw("\"draftId\" IS NOT NULL"))
 }
 
 model ScheduledAction {
@@ -827,6 +957,56 @@ model SnoozedThread {
   @@index([emailAccountId, threadId, status])
 }
 
+model ScheduledEmail {
+  id                  String               @id @default(cuid())
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  emailAccountId      String
+  emailAccount        EmailAccount         @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  clientMutationId    String
+  payloadHash         String
+  payload             Json
+  threadId            String?
+  sendAt              DateTime
+  status              ScheduledEmailStatus @default(PENDING)
+  processingStartedAt DateTime?
+  executionQueuedAt   DateTime?
+  sentAt              DateTime?
+  error               String?
+  remindAt            DateTime?
+  reminderStatus      EmailReminderStatus  @default(NONE)
+  reminderStartedAt   DateTime?
+  // A just-sent email the server holds for the undo window, not one the user scheduled.
+  heldForUndo         Boolean              @default(false)
+  // The mailbox draft's saved copies, which the thread hides while the send is pending.
+  draftMessageIds     String[]             @default([])
+
+  @@unique([emailAccountId, clientMutationId])
+  @@index([status, sendAt])
+  @@index([status, processingStartedAt])
+  @@index([reminderStatus, remindAt])
+  @@index([reminderStatus, reminderStartedAt])
+  @@index([emailAccountId, threadId])
+}
+
+enum ScheduledEmailStatus {
+  PENDING
+  PROCESSING
+  SENT
+  BLOCKED_AUTH
+  UNCERTAIN
+  FAILED
+  CANCELLED
+}
+
+enum EmailReminderStatus {
+  NONE
+  PENDING
+  PROCESSING
+  COMPLETED
+  CANCELLED
+}
+
 model EmailSendOperation {
   id                  String                   @id @default(cuid())
   createdAt           DateTime                 @default(now())
@@ -842,6 +1022,28 @@ model EmailSendOperation {
 
   @@unique([emailAccountId, clientMutationId])
   @@index([status, updatedAt])
+}
+
+// Open status for emails sent from the mail client. A unique token is embedded
+// as a 1x1 image; loading that image records that the message was displayed.
+model SentMessageOpen {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  token     String   @unique
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  threadId  String?
+  messageId String?
+
+  firstOpenedAt DateTime?
+  lastOpenedAt  DateTime?
+  openCount     Int       @default(0)
+
+  @@unique([emailAccountId, messageId])
+  @@index([emailAccountId, threadId])
 }
 
 // Notes:
@@ -1090,6 +1292,20 @@ model Knowledge {
   @@unique([emailAccountId, title])
 }
 
+model Snippet {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  shortcut  String
+  content   String
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([emailAccountId, shortcut])
+  @@index([emailAccountId])
+}
+
 model ReplyMemory {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
@@ -1223,8 +1439,10 @@ model Chat {
 
   name String?
 
-  compactionCount       Int  @default(0)
+  compactionCount       Int     @default(0)
   lastSeenRulesRevision Int?
+  activeStreamId        String?
+  activeStreamStartedAt DateTime?
 
   messages       ChatMessage[]
   compactions    ChatCompaction[]
@@ -1357,7 +1575,7 @@ model AvailabilitySchedule {
 
   name      String
   isDefault Boolean @default(false)
-  timezone  String
+  timezone  String  @default("UTC") // Deprecated: schedules use EmailAccount.timezone. Drop once no deployment reads it.
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
@@ -1736,6 +1954,7 @@ model DocumentFiling {
 
   notificationMessageId String?   @unique
   notificationSentAt    DateTime?
+  notificationBatchId   String?
 
   driveConnectionId String
   driveConnection   DriveConnection @relation(fields: [driveConnectionId], references: [id], onDelete: Cascade)
@@ -1744,6 +1963,7 @@ model DocumentFiling {
 
   @@unique([emailAccountId, messageId, attachmentId])
   @@index([emailAccountId, status])
+  @@index([emailAccountId, notificationBatchId])
   @@index([driveConnectionId])
   @@index([messageId])
 }
@@ -1838,7 +2058,22 @@ model McpIntegration {
   oauthClientId     String?
   oauthClientSecret String?
 
+  // Set only for custom servers registered by a user. Null for built-in integrations.
+  displayName    String?
+  serverUrl      String?
+  authType       McpAuthType?
+  emailAccountId String?
+  emailAccount   EmailAccount? @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
   connections McpConnection[]
+
+  @@index([emailAccountId])
+}
+
+enum McpAuthType {
+  OAUTH
+  API_TOKEN
+  NONE
 }
 
 model McpConnection {
@@ -1882,11 +2117,13 @@ model McpTool {
 }
 
 model MobilePushToken {
-  id        String             @id @default(cuid())
-  createdAt DateTime           @default(now())
-  updatedAt DateTime           @updatedAt
-  token     String             @unique
-  platform  MobilePushPlatform
+  id         String              @id @default(cuid())
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+  token      String              @unique
+  platform   MobilePushPlatform
+  tokenType  MobilePushTokenType @default(EXPO)
+  appVersion String?
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -1912,6 +2149,12 @@ model MobilePushDelivery {
 enum MobilePushPlatform {
   ANDROID @map("android")
   IOS     @map("ios")
+}
+
+enum MobilePushTokenType {
+  EXPO @map("expo")
+  APNS @map("apns")
+  FCM  @map("fcm")
 }
 
 enum ActionType {
@@ -1960,11 +2203,13 @@ enum MailLayout {
   SPLIT
 }
 
-enum MailSplitKind {
-  INBOX
+enum MailSplitFilterKind {
   UNREAD
+  STARRED
   LABEL
   CATEGORY
+  FROM
+  OLDER_THAN
 }
 
 enum DraftReplyConfidence {
@@ -1979,6 +2224,7 @@ enum DraftEmailStatus {
   REPLIED_WITHOUT_DRAFT
   CLEANED_UP_UNUSED
   MISSING_FROM_PROVIDER
+  USER_EDITED
 }
 
 enum ReplyMemoryKind {
@@ -2104,6 +2350,7 @@ enum SystemType {
   CALENDAR
   RECEIPT
   NOTIFICATION
+  OTP
 }
 
 enum ReferralStatus {
@@ -2206,4 +2453,442 @@ enum AutomationJobRunStatus {
   SENT
   SKIPPED
   FAILED
+}
+
+enum ConversationStatus {
+  ACTIVE
+  STOPPED
+}
+
+enum ConversationActivityKind {
+  INVITED
+  COMMENT
+  MENTION
+}
+
+model OauthClient {
+  id                               String                @id @default(cuid())
+  clientId                         String
+  clientSecret                     String?
+  clientDiscoveryId                String?
+  disabled                         Boolean?              @default(false)
+  skipConsent                      Boolean?
+  enableEndSession                 Boolean?
+  subjectType                      String?
+  scopes                           String[]
+  clientCredentialsScopes          String[]              @default([])
+  userId                           String?
+  user                             User?                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt                        DateTime?
+  updatedAt                        DateTime?
+  name                             String?
+  uri                              String?
+  icon                             String?
+  contacts                         String[]
+  tos                              String?
+  policy                           String?
+  softwareId                       String?
+  softwareVersion                  String?
+  softwareStatement                String?
+  redirectUris                     String[]
+  postLogoutRedirectUris           String[]
+  backchannelLogoutUri             String?
+  backchannelLogoutSessionRequired Boolean?
+  tokenEndpointAuthMethod          String?
+  applicationType                  String?
+  jwks                             String?
+  jwksUri                          String?
+  grantTypes                       String[]
+  responseTypes                    String[]
+  requirePKCE                      Boolean?
+  dpopBoundAccessTokens            Boolean?              @default(false)
+  referenceId                      String?
+  metadata                         Json?
+  oauthClientResources             OauthClientResource[]
+  oauthrefreshtokens               OauthRefreshToken[]
+  oauthaccesstokens                OauthAccessToken[]
+  oauthconsents                    OauthConsent[]
+
+  @@unique([clientId])
+  @@index([userId])
+}
+
+model OauthRefreshToken {
+  id                      String             @id @default(cuid())
+  token                   String
+  clientId                String
+  client                  OauthClient        @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+  sessionId               String?
+  session                 Session?           @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  userId                  String
+  user                    User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  referenceId             String?
+  authorizationCodeId     String?
+  resources               String[]
+  requestedUserInfoClaims String[]
+  expiresAt               DateTime
+  createdAt               DateTime
+  revoked                 DateTime?
+  rotatedAt               DateTime?
+  rotationReplayResponse  String?
+  rotationReplayExpiresAt DateTime?
+  authTime                DateTime?
+  confirmation            Json?
+  scopes                  String[]
+  oauthaccesstokens       OauthAccessToken[]
+
+  @@unique([token])
+  @@index([clientId])
+  @@index([sessionId])
+  @@index([userId])
+  @@index([authorizationCodeId])
+}
+
+model OauthAccessToken {
+  id                      String             @id @default(cuid())
+  token                   String
+  clientId                String
+  client                  OauthClient        @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+  sessionId               String?
+  session                 Session?           @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  userId                  String?
+  user                    User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  referenceId             String?
+  authorizationCodeId     String?
+  resources               String[]
+  requestedUserInfoClaims String[]
+  refreshId               String?
+  refresh                 OauthRefreshToken? @relation(fields: [refreshId], references: [id], onDelete: Cascade)
+  expiresAt               DateTime
+  createdAt               DateTime
+  revoked                 DateTime?
+  confirmation            Json?
+  scopes                  String[]
+
+  @@unique([token])
+  @@index([clientId])
+  @@index([sessionId])
+  @@index([userId])
+  @@index([authorizationCodeId])
+  @@index([refreshId])
+}
+
+model OauthConsent {
+  id                      String      @id @default(cuid())
+  clientId                String
+  client                  OauthClient @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+  userId                  String?
+  user                    User?       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  referenceId             String?
+  resources               String[]
+  requestedUserInfoClaims String[]
+  scopes                  String[]
+  createdAt               DateTime
+  updatedAt               DateTime
+
+  @@unique([clientId, userId])
+  @@index([userId])
+}
+
+model Jwks {
+  id         String    @id @default(cuid())
+  publicKey  String
+  privateKey String
+  createdAt  DateTime
+  expiresAt  DateTime?
+  alg        String?
+  crv        String?
+}
+
+model OauthResource {
+  id                            String                @id @default(cuid())
+  identifier                    String
+  name                          String
+  accessTokenTtl                Int?
+  refreshTokenTtl               Int?
+  signingAlgorithm              String?
+  signingKeyId                  String?
+  allowedScopes                 String[]
+  customClaims                  Json?
+  dpopBoundAccessTokensRequired Boolean?              @default(false)
+  disabled                      Boolean?              @default(false)
+  createdAt                     DateTime?
+  updatedAt                     DateTime?
+  policyVersion                 Int?                  @default(1)
+  metadata                      Json?
+  oauthClientResources          OauthClientResource[]
+
+  @@unique([identifier])
+}
+
+model OauthClientResource {
+  id            String        @id @default(cuid())
+  clientId      String
+  client        OauthClient   @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+  resourceId    String
+  oauthResource OauthResource @relation(fields: [resourceId], references: [identifier], onDelete: Cascade)
+  metadata      Json?
+  createdAt     DateTime?
+
+  @@unique([clientId, resourceId], map: "oauthClientResource_clientId_resourceId_uidx")
+  @@index([clientId])
+  @@index([resourceId])
+}
+
+model OauthClientAssertion {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+}
+
+model ScimManagedConnection {
+  id                          String                       @id @default(cuid())
+  creationRequestId           String
+  connectionId                String
+  provisioningDomainId        String
+  status                      String
+  revision                    Int
+  createdAt                   DateTime
+  createdBy                   String
+  decommissionStartedAt       DateTime?
+  decommissionStartedBy       String?
+  decommissionedAt            DateTime?
+  decommissionedBy            String?
+  scimmanagedcredentials      ScimManagedCredential[]
+  scimmanagedconnectionevents ScimManagedConnectionEvent[]
+
+  @@unique([creationRequestId])
+  @@unique([connectionId])
+  @@index([provisioningDomainId])
+  @@map("scimManagedConnection")
+}
+
+model ScimManagedCredential {
+  id                    String                @id @default(cuid())
+  connectionRecordId    String
+  scimmanagedconnection ScimManagedConnection @relation(fields: [connectionRecordId], references: [id], onDelete: Cascade)
+  credentialId          String
+  tokenDigest           String
+  hashVersion           String
+  activeSlotKey         String
+  status                String
+  serializedScopes      String
+  expiresAt             DateTime
+  createdAt             DateTime
+  createdBy             String
+  lastUsedAt            DateTime?
+  revokedAt             DateTime?
+  revokedBy             String?
+  decommissionedAt      DateTime?
+
+  @@unique([credentialId])
+  @@unique([activeSlotKey])
+  @@index([connectionRecordId])
+  @@map("scimManagedCredential")
+}
+
+model ScimManagedConnectionEvent {
+  id                    String                @id @default(cuid())
+  connectionRecordId    String
+  scimmanagedconnection ScimManagedConnection @relation(fields: [connectionRecordId], references: [id], onDelete: Cascade)
+  eventKey              String
+  sequence              Int
+  type                  String
+  actorId               String
+  credentialId          String?
+  createdAt             DateTime
+
+  @@unique([eventKey])
+  @@index([connectionRecordId])
+  @@map("scimManagedConnectionEvent")
+}
+
+model ScimConnectionBinding {
+  id                              String    @id @default(cuid())
+  connectionId                    String
+  connectionKey                   String
+  provisioningDomainId            String
+  createdAt                       DateTime
+  decommissionedAt                DateTime?
+  decommissionStatus              String    @default("active")
+  decommissionCursorUserId        String?
+  decommissionReconciledUserCount Int       @default(0)
+  decommissionBatchCount          Int       @default(0)
+  decommissionRevision            Int       @default(0)
+  decommissionCompletedAt         DateTime?
+  decommissionLeaseId             String?
+  decommissionLeaseExpiresAt      DateTime?
+
+  @@unique([connectionKey])
+  @@index([connectionId])
+  @@map("scimConnectionBinding")
+}
+
+model ScimIdentityTombstone {
+  id                   String   @id @default(cuid())
+  connectionId         String
+  provisioningDomainId String
+  externalId           String
+  externalIdKey        String
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profile              String
+  deletedAt            DateTime
+
+  @@unique([externalIdKey])
+  @@index([connectionId])
+  @@index([provisioningDomainId])
+  @@index([userId])
+  @@map("scimIdentityTombstone")
+}
+
+model ScimSubject {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profileSourceId String?
+  revision        Int
+  createdAt       DateTime
+  updatedAt       DateTime
+
+  @@unique([userId])
+  @@index([profileSourceId])
+  @@map("scimSubject")
+}
+
+model ScimUser {
+  id                   String                @id @default(cuid())
+  connectionId         String
+  provisioningDomainId String
+  userId               String
+  user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  connectionUserKey    String
+  userName             String
+  userNameKey          String
+  primaryEmail         String
+  workEmailValueIndex  String
+  emailValueIndex      String
+  displayName          String
+  formattedName        String
+  givenName            String?
+  familyName           String?
+  serializedEmails     String
+  serializedAttributes String?
+  externalId           String?
+  externalIdKey        String?
+  active               Boolean
+  orderKey             String
+  createdAt            DateTime
+  updatedAt            DateTime
+  scimProjectionGrants ScimProjectionGrant[]
+  scimGroupMembers     ScimGroupMember[]
+
+  @@unique([connectionUserKey])
+  @@unique([userNameKey])
+  @@unique([externalIdKey])
+  @@unique([orderKey])
+  @@index([connectionId])
+  @@index([provisioningDomainId])
+  @@index([userId])
+  @@map("scimUser")
+}
+
+model ScimProjectionGrant {
+  id                   String   @id @default(cuid())
+  connectionId         String
+  provisioningDomainId String
+  scimUserId           String
+  scimUser             ScimUser @relation(fields: [scimUserId], references: [id], onDelete: Cascade)
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourceKind           String
+  sourceId             String
+  sourceValue          String?
+  role                 String
+  grantKey             String
+  createdAt            DateTime
+  updatedAt            DateTime
+
+  @@unique([grantKey])
+  @@index([connectionId])
+  @@index([provisioningDomainId])
+  @@index([scimUserId])
+  @@index([userId])
+  @@map("scimProjectionGrant")
+}
+
+model ScimGroup {
+  id                   String            @id @default(cuid())
+  connectionId         String
+  provisioningDomainId String
+  revision             Int               @default(0)
+  displayName          String
+  displayNameKey       String
+  externalId           String?
+  externalIdKey        String?
+  orderKey             String
+  createdAt            DateTime
+  updatedAt            DateTime
+  scimGroupMembers     ScimGroupMember[]
+
+  @@unique([displayNameKey])
+  @@unique([externalIdKey])
+  @@unique([orderKey])
+  @@index([connectionId])
+  @@index([provisioningDomainId])
+  @@map("scimGroup")
+}
+
+model ScimGroupMember {
+  id            String    @id @default(cuid())
+  connectionId  String
+  groupId       String
+  scimGroup     ScimGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  scimUserId    String
+  scimUser      ScimUser  @relation(fields: [scimUserId], references: [id], onDelete: Cascade)
+  membershipKey String
+  createdAt     DateTime
+
+  @@unique([membershipKey])
+  @@index([connectionId])
+  @@index([groupId])
+  @@index([scimUserId])
+  @@map("scimGroupMember")
+}
+
+model ScimIdentityLink {
+  id           String @id @default(cuid())
+  connectionId String
+  externalId   String
+  userId       String
+  user         User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([connectionId, externalId])
+  @@index([userId])
+}
+
+// Loops includes loopName and campaignName only on *.email.sent webhooks.
+// Later engagement events identify the same email by id, so the name is remembered here.
+model LoopsEmailSource {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Shared by every recipient of one sent version of a workflow or campaign email.
+  emailMessageId String? @unique
+
+  loopId       String?
+  loopName     String?
+  campaignId   String?
+  campaignName String?
+  sourceType   String?
+  // When this send happened in Loops. Name fallback uses this, so a retry of an
+  // older send cannot outrank a newer version.
+  eventTime    DateTime?
+
+  // One unversioned row per workflow or campaign, so a name learned without an
+  // email version cannot overwrite a version-specific row.
+  @@unique([loopId], map: "LoopsEmailSource_loopId_unversioned_key", where: { emailMessageId: null, loopId: { not: null } })
+  @@unique([campaignId], map: "LoopsEmailSource_campaignId_unversioned_key", where: { emailMessageId: null, campaignId: { not: null } })
+  @@index([loopId])
+  @@index([campaignId])
 }

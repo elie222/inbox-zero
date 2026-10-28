@@ -75,7 +75,7 @@ test("persists personalization, drafting, and advanced settings", async ({
     });
 
   const writingStyleItem = getAutomationSettingsCard(page, "Writing style");
-  await writingStyleItem.getByRole("button", { name: "Set" }).click();
+  await writingStyleItem.getByRole("button", { name: "Edit" }).click();
   const writingStyleDialog = page.getByRole("dialog", {
     name: "Writing style",
   });

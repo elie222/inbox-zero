@@ -1,0 +1,239 @@
+{
+  "account-selection.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/MailSidebar.tsx",
+    "app/(app)/[emailAccountId]/mail/use-combined-mail-threads.ts"
+  ],
+  "archive-reconciliation.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/use-thread-actions.ts",
+    "utils/mail-engine/MailEngineHost.tsx"
+  ],
+  "archive-feedback.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/use-optimistic-archive.ts"
+  ],
+  "assistant-catch-up.spec.ts": [
+    "utils/mail-engine/create-browser-engine.ts",
+    "utils/mail-engine/engine-worker.ts",
+    "utils/mail-api/assistant-state.ts",
+    "app/api/mail/v1/accounts/[accountId]/assistant-state/route.ts",
+    "utils/mail-engine/MailEngineHost.tsx"
+  ],
+  "hosted-electron-send.spec.ts": [
+    "utils/mail-engine/MailEngineHost.tsx",
+    "utils/mail-engine/desktop-ipc.ts",
+    "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
+    "app/(app)/[emailAccountId]/compose/undo-send.ts"
+  ],
+  "hosted-electron-archive.spec.ts": [
+    "utils/mail-engine/MailEngineHost.tsx",
+    "utils/mail-engine/desktop-ipc.ts",
+    "utils/mail-engine/runtime-mode.ts",
+    "utils/mail-engine/MailEngineConnectionBanner.tsx",
+    "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
+    "app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx",
+    "utils/mail-api/assistant-state.ts",
+    "app/api/mail/v1/accounts/[accountId]/assistant-state/route.ts"
+  ],
+  "attachment-previews.spec.ts": ["components/email-list/EmailAttachments.tsx"],
+  "cached-settings.spec.ts": ["hooks/useMailSettings.ts"],
+  "calendar-invitation.spec.ts": [
+    "components/email-list/CalendarInvitation.tsx"
+  ],
+  "command-palette.spec.ts": [
+    "components/CommandK.tsx",
+    "store/command-palette.ts",
+    "app/(app)/[emailAccountId]/mail/snooze-command-palette.ts",
+    "app/(app)/[emailAccountId]/mail/ShortcutsDialog.tsx"
+  ],
+  "compose-and-reply.spec.ts": [
+    "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
+    "components/email-list/EmailThread.tsx",
+    "components/email-list/ThreadDeliveryStatus.tsx",
+    "components/ShortcutTooltipContent.tsx"
+  ],
+  "compose-attachment-send.spec.ts": [
+    "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
+    "app/(app)/[emailAccountId]/compose/compose-attachments.ts",
+    "app/(app)/[emailAccountId]/compose/upload-draft-attachment.ts",
+    "app/(app)/[emailAccountId]/compose/useComposeDraftAttachments.ts",
+    "app/api/user/drafts/[draftId]/attachments/route.ts",
+    "app/api/user/drafts/[draftId]/attachments/uploads/[uploadId]/route.ts",
+    "app/api/user/drafts/[draftId]/attachments/uploads/route.ts",
+    "app/api/user/drafts/[draftId]/attachments/[attachmentId]/route.ts",
+    "utils/email/compose-draft.ts",
+    "utils/email/draft-attachment-upload.ts",
+    "utils/gmail/draft-attachments.ts",
+    "utils/gmail/resumable-draft-upload.ts",
+    "utils/outlook/draft-attachments.ts"
+  ],
+  "compose-send-warnings.spec.ts": [
+    "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
+    "app/(app)/[emailAccountId]/compose/send-warnings.ts",
+    "app/(app)/[emailAccountId]/compose/SendWarningsDialog.tsx"
+  ],
+  "composer-editing.spec.ts": [
+    "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
+    "components/ShortcutTooltipContent.tsx"
+  ],
+  "compose-drafts.spec.ts": [
+    "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
+    "components/email-list/EmailThread.tsx",
+    "hooks/useProviderDraftAutosave.ts",
+    "hooks/useReplyDrafts.ts",
+    "utils/email/compose-draft.ts"
+  ],
+  "contact-autocomplete.spec.ts": [
+    "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx"
+  ],
+  "desktop-update-toast.spec.ts": ["app/(app)/DesktopUpdateToast.tsx"],
+  "draft-deletion.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/ThreadRow.tsx",
+    "components/email-list/EmailMessage.tsx",
+    "app/(app)/[emailAccountId]/mail/use-mail-threads.ts"
+  ],
+  "draft-send-recovery.spec.ts": [
+    "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
+    "components/email-list/ThreadDeliveryStatus.tsx"
+  ],
+  "inline-image-send.spec.ts": [
+    "app/(app)/[emailAccountId]/compose/useComposeSend.ts",
+    "components/email-list/EmailContents.tsx",
+    "utils/email/inline-image-cache.ts",
+    "utils/email/outgoing-inline-images.ts"
+  ],
+  "layout.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/ThreadList.tsx",
+    "app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx",
+    "app/(app)/[emailAccountId]/mail/MailListPanel.tsx",
+    "components/PanelResizeHandle.tsx"
+  ],
+  "mail-engine-inspect.spec.ts": [
+    "utils/mail-engine/MailEngineHost.tsx",
+    "utils/mail-engine/MailEngineConnectionBanner.tsx",
+    "utils/mail-engine/connection-notice.ts",
+    "utils/mail-engine/coverage.ts",
+    "app/(app)/[emailAccountId]/mail/use-engine-mail-threads.ts"
+  ],
+  "mail-engine-startup.spec.ts": [
+    "utils/mail-engine/MailEngineHost.tsx",
+    "utils/mail-engine/create-browser-engine.ts",
+    "utils/mail-engine/engine-worker.ts"
+  ],
+  "mail-queue.spec.ts": [
+    "app/(app)/[emailAccountId]/debug/mail-queue/page.tsx",
+    "app/(app)/[emailAccountId]/debug/page.tsx"
+  ],
+  "manual-label.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx",
+    "app/(app)/[emailAccountId]/mail/MailLabelChip.tsx",
+    "app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx"
+  ],
+  "message-actions.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx",
+    "app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx",
+    "app/api/user/thread-plans/route.ts",
+    "components/email-list/EmailMessage.tsx",
+    "hooks/useThreadPlans.ts",
+    "utils/threads/load.ts"
+  ],
+  "message-tools.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx",
+    "app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx",
+    "app/(app)/[emailAccountId]/mail/MessageSourceDialog.tsx",
+    "app/(app)/[emailAccountId]/mail/print-messages.ts",
+    "app/(app)/[emailAccountId]/mail/message-source.ts",
+    "app/api/messages/source/route.ts"
+  ],
+  "message-overflow.spec.ts": ["components/email-list/EmailContents.tsx"],
+  "navigation-and-views.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/MailSidebar.tsx",
+    "app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx",
+    "app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx"
+  ],
+  "offline-loading.spec.ts": [
+    "app/sw.ts",
+    "providers/GlobalProviders.tsx",
+    "utils/offline/clear-mail-cache.ts",
+    "utils/offline/mail-cache.ts",
+    "utils/user.ts",
+    "utils/mail-engine/wasm-sqlite.ts",
+    "utils/mail-engine/active-client.ts"
+  ],
+  "plain-text-links.spec.ts": ["components/email-list/EmailMessage.tsx"],
+  "reader-transition.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/BufferedThreadReader.tsx",
+    "components/email-list/EmailContents.tsx"
+  ],
+  "reader-visuals.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/ThreadReader.tsx",
+    "components/email-list/EmailContents.tsx",
+    "components/ShortcutTooltipContent.tsx",
+    "components/ui/tooltip.tsx"
+  ],
+  "scheduled-replies.spec.ts": [
+    "components/email-list/ThreadDeliveryStatus.tsx",
+    "components/email-list/EmailThread.tsx",
+    "hooks/useProviderDraftAutosave.ts",
+    "utils/scheduled-email/service.ts"
+  ],
+  "search.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/ListToolbar.tsx",
+    "app/(app)/[emailAccountId]/mail/MailSearchSuggestions.tsx",
+    "store/mail-search-history.ts",
+    "app/(app)/[emailAccountId]/mail/use-mail-threads.ts"
+  ],
+  "server-drafts.spec.ts": [
+    "components/email-list/EmailThread.tsx",
+    "components/email-list/EmailMessage.tsx",
+    "utils/parse/extract-reply.client.ts"
+  ],
+  "split-tabs.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/SplitTabs.tsx",
+    "app/(app)/[emailAccountId]/mail/MailSplitTabs.tsx"
+  ],
+  "starring.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/star-state.ts",
+    "app/(app)/[emailAccountId]/mail/ThreadRow.tsx",
+    "app/(app)/[emailAccountId]/mail/ListToolbar.tsx",
+    "app/(app)/[emailAccountId]/mail/mail-command-palette.ts",
+    "app/(app)/[emailAccountId]/mail/use-thread-actions.ts",
+    "components/CommandK.tsx",
+    "lib/shortcuts/registry.ts"
+  ],
+  "team-comments-access.spec.ts": [
+    "utils/team-comments/access.ts",
+    "utils/team-comments/conversations.ts",
+    "components/team-comments/ConversationDiscussion.tsx"
+  ],
+  "team-comments.spec.ts": [
+    "components/team-comments/PublisherDiscussion.tsx",
+    "components/team-comments/ConversationDiscussion.tsx",
+    "app/(app)/shared/[conversationId]/SharedConversationReader.tsx"
+  ],
+  "theme.spec.ts": ["components/CommandK.tsx", "components/theme-provider.tsx"],
+  "thread-navigation.spec.ts": [
+    "components/email-list/EmailThread.tsx",
+    "app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx"
+  ],
+  "thread-select-all.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/thread-select-all.ts"
+  ],
+  "thread-states.spec.ts": [
+    "components/email-list/EmailThread.tsx",
+    "components/email-list/ThreadDeliveryStatus.tsx",
+    "utils/mail-engine/engine-delivery.ts"
+  ],
+  "triage-actions.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/ListToolbar.tsx",
+    "app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx",
+    "app/(app)/[emailAccountId]/mail/use-thread-actions.ts",
+    "app/(app)/[emailAccountId]/mail/use-thread-selection.ts",
+    "app/(app)/[emailAccountId]/mail/MailSidebar.tsx",
+    "utils/mail-engine/worker-protocol.ts",
+    "utils/mail-engine/admission-notice.ts"
+  ],
+  "send-as.spec.ts": [
+    "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
+    "app/api/user/send-as/route.ts",
+    "utils/email/send-as.ts"
+  ]
+}

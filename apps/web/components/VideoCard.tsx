@@ -4,16 +4,10 @@ import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { PlayIcon, X } from "lucide-react";
 import { CardGreen } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogTrigger,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { MutedText } from "@/components/Typography";
-import { MuxVideo } from "@/components/MuxVideo";
-import { YouTubeVideo } from "@/components/YouTubeVideo";
+import { VideoPlayerDialog } from "@/components/VideoPlayerDialog";
 import {
   useVideoAnalytics,
   type VideoAnalyticsConfig,
@@ -29,10 +23,7 @@ type VideoCardBaseProps = React.HTMLAttributes<HTMLDivElement> & {
   icon?: React.ReactNode;
   title: string;
   description: string;
-  videoSrc?: string;
-  thumbnailSrc?: string;
-  muxPlaybackId?: string;
-  youtubeVideoId?: string;
+  muxPlaybackId: string;
 };
 
 type DismissibleVideoCardProps = VideoCardBaseProps & {
@@ -51,9 +42,7 @@ export function DismissibleVideoCard({
   const analytics = useVideoAnalytics(
     videoAnalyticsConfig
       ? {
-          ...(props.muxPlaybackId
-            ? { muxPlaybackId: props.muxPlaybackId }
-            : { youtubeVideoId: props.youtubeVideoId }),
+          muxPlaybackId: props.muxPlaybackId,
           page: videoAnalyticsConfig.page,
           surface: videoAnalyticsConfig.surface,
           title: videoAnalyticsConfig.title ?? props.title,
@@ -100,10 +89,7 @@ const VideoCard = React.forwardRef<
       icon,
       title,
       description,
-      videoSrc,
-      thumbnailSrc,
       muxPlaybackId,
-      youtubeVideoId,
       analytics,
       onClose,
       ...props
@@ -163,12 +149,7 @@ const VideoCard = React.forwardRef<
                   >
                     <div className="relative w-32 h-20 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
                       <Image
-                        src={
-                          muxPlaybackId
-                            ? `https://image.mux.com/${muxPlaybackId}/thumbnail.jpg`
-                            : thumbnailSrc ||
-                              "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAAWgmWQ0AAAAASUVORK5CYII="
-                        }
+                        src={`https://image.mux.com/${muxPlaybackId}/thumbnail.jpg`}
                         alt={title}
                         fill
                         className="object-cover transition-all duration-200 group-hover:scale-105"
@@ -182,43 +163,14 @@ const VideoCard = React.forwardRef<
                     </div>
                   </button>
                 </DialogTrigger>
-                <DialogContent className="max-w-6xl border-0 bg-transparent p-0 overflow-hidden">
-                  <DialogTitle className="sr-only">Video: {title}</DialogTitle>
-                  <div className="relative aspect-video w-full overflow-hidden rounded-lg">
-                    {muxPlaybackId ? (
-                      <MuxVideo
-                        playbackId={muxPlaybackId}
-                        className="size-full rounded-lg"
-                        playerClassName="size-full rounded-lg"
-                        playerStyle={{ overflow: "hidden" }}
-                        title={title}
-                        autoPlay
-                        onVideoCompleted={analytics.trackCompleted}
-                        onVideoProgress={analytics.trackProgress}
-                        onVideoStarted={analytics.trackStarted}
-                      />
-                    ) : youtubeVideoId ? (
-                      <YouTubeVideo
-                        videoId={youtubeVideoId}
-                        title={`Video: ${title}`}
-                        onVideoCompleted={analytics.trackCompleted}
-                        onVideoProgress={analytics.trackProgress}
-                        onVideoStarted={analytics.trackStarted}
-                        opts={{
-                          playerVars: { autoplay: 1 },
-                        }}
-                      />
-                    ) : (
-                      <iframe
-                        src={`${videoSrc}${videoSrc?.includes("?") ? "&" : "?"}autoplay=1&rel=0`}
-                        className="size-full rounded-lg"
-                        title={`Video: ${title}`}
-                        allowFullScreen
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                      />
-                    )}
-                  </div>
-                </DialogContent>
+                <VideoPlayerDialog
+                  title={title}
+                  description={description}
+                  muxPlaybackId={muxPlaybackId}
+                  onVideoCompleted={analytics.trackCompleted}
+                  onVideoProgress={analytics.trackProgress}
+                  onVideoStarted={analytics.trackStarted}
+                />
               </Dialog>
             </div>
           </div>

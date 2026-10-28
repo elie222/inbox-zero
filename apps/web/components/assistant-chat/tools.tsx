@@ -6,14 +6,6 @@ import type { CreateRuleTool } from "@/utils/ai/assistant/tools/rules/create-rul
 import type { UpdatePersonalInstructionsTool } from "@/utils/ai/assistant/tools/rules/update-personal-instructions-tool";
 import type { UpdateLearnedPatternsTool } from "@/utils/ai/assistant/tools/rules/update-learned-patterns-tool";
 import type {
-  UpdateRuleActionsOutput,
-  UpdateRuleActionsTool,
-} from "@/utils/ai/assistant/tools/rules/update-rule-actions-tool";
-import type {
-  UpdateRuleConditionsOutput,
-  UpdateRuleConditionsTool,
-} from "@/utils/ai/assistant/tools/rules/update-rule-conditions-tool";
-import type {
   UpdateRuleOutput,
   UpdateRuleTool,
 } from "@/utils/ai/assistant/tools/rules/update-rule-tool";
@@ -763,9 +755,9 @@ function EmailActionResult({
           <div className="flex items-center gap-1">
             {!isConfirmed && requiresConfirmation && (
               <Button
-                variant="ghost"
+                variant="ghostMuted"
                 size="sm"
-                className="h-8 gap-1.5 text-xs text-muted-foreground"
+                className="h-8 gap-1.5 text-xs"
                 onClick={() => setIsEditing(true)}
               >
                 <PencilIcon className="size-3.5" />
@@ -791,9 +783,9 @@ function EmailActionResult({
             </Button>
             {externalUrl && (
               <Button
-                variant="ghost"
+                variant="ghostMuted"
                 size="sm"
-                className="h-8 gap-1.5 text-xs text-muted-foreground"
+                className="h-8 gap-1.5 text-xs"
                 asChild
               >
                 <a href={externalUrl} target="_blank" rel="noopener noreferrer">
@@ -1178,10 +1170,10 @@ export function UpdatedRuleConditions({
   actions,
   preview,
 }: {
-  args: UpdateRuleConditionsTool["input"];
+  args: { ruleName: string; condition: ConditionTextInput };
   ruleId: string;
-  originalConditions?: UpdateRuleConditionsOutput["originalConditions"];
-  updatedConditions?: UpdateRuleConditionsOutput["updatedConditions"];
+  originalConditions?: ConditionTextInput;
+  updatedConditions?: ConditionTextInput;
   actions?: Array<{ type: string; fields?: RuleActionFields | null }>;
   preview?: boolean;
 }) {
@@ -1237,10 +1229,13 @@ export function UpdatedRuleActions({
   condition,
   preview,
 }: {
-  args: UpdateRuleActionsTool["input"];
+  args: {
+    ruleName: string;
+    actions: Array<{ type: string; fields?: RuleActionFields | null }>;
+  };
   ruleId: string;
-  originalActions?: UpdateRuleActionsOutput["originalActions"];
-  updatedActions?: UpdateRuleActionsOutput["updatedActions"];
+  originalActions?: LegacyRuleActionForDiff[];
+  updatedActions?: LegacyRuleActionForDiff[];
   condition?: {
     aiInstructions?: string | null;
     static?: {
@@ -1404,11 +1399,7 @@ export function UpdatedLearnedPatterns({
 }) {
   const actions = preview ? (
     <Tooltip content="Edit rule">
-      <Button
-        variant="ghost"
-        size="sm"
-        className="h-8 w-8 p-0 text-muted-foreground"
-      >
+      <Button variant="ghostMuted" size="iconSm">
         <PencilIcon className="size-4" />
       </Button>
     </Tooltip>
@@ -1658,9 +1649,9 @@ export function AddToKnowledgeBase({
       actions={
         <div className="self-center">
           <Button
-            variant="ghost"
+            variant="ghostMuted"
             size="sm"
-            className="h-8 px-2 text-muted-foreground hover:text-foreground"
+            className="h-8 px-2"
             onClick={() => setTab("rules")}
           >
             View Knowledge Base
@@ -1692,9 +1683,8 @@ function RuleActions({
       <RuleEditToggleActions ruleId={ruleId} initialEnabled={initialEnabled} />
       <Tooltip content="Delete rule">
         <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 w-8 p-0 text-muted-foreground"
+          variant="ghostMuted"
+          size="iconSm"
           onClick={async () => {
             const yes = confirm("Are you sure you want to delete this rule?");
             if (yes) {
@@ -1740,9 +1730,8 @@ function RuleEditToggleActions({
     <>
       <Tooltip content="Edit rule">
         <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 w-8 p-0 text-muted-foreground"
+          variant="ghostMuted"
+          size="iconSm"
           onClick={() => ruleDialog.onOpen({ ruleId })}
         >
           <PencilIcon className="size-4" />
@@ -1784,11 +1773,7 @@ function RuleActionsPreview({ enabled = true }: { enabled?: boolean }) {
     <div className="flex items-center gap-1.5">
       <RuleEditToggleActionsPreview enabled={enabled} />
       <Tooltip content="Delete rule">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 w-8 p-0 text-muted-foreground"
-        >
+        <Button variant="ghostMuted" size="iconSm">
           <TrashIcon className="size-4" />
         </Button>
       </Tooltip>
@@ -1804,11 +1789,7 @@ function RuleEditToggleActionsPreview({
   return (
     <>
       <Tooltip content="Edit rule">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 w-8 p-0 text-muted-foreground"
-        >
+        <Button variant="ghostMuted" size="iconSm">
           <PencilIcon className="size-4" />
         </Button>
       </Tooltip>
@@ -1824,9 +1805,8 @@ function LearnedPatternsActions({ ruleId }: { ruleId: string }) {
     <>
       <Tooltip content="Edit rule">
         <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 w-8 p-0 text-muted-foreground"
+          variant="ghostMuted"
+          size="iconSm"
           onClick={() => ruleDialog.onOpen({ ruleId })}
         >
           <PencilIcon className="size-4" />
@@ -2317,6 +2297,12 @@ function ToolEmailRows({ emails }: { emails: ToolEmailRow[] }) {
     </EmailLookupProvider>
   );
 }
+
+type LegacyRuleActionForDiff = {
+  type: string;
+  fields: Record<string, string | null>;
+  delayInMinutes?: number | null;
+};
 
 type ConditionTextInput = {
   aiInstructions?: string | null;

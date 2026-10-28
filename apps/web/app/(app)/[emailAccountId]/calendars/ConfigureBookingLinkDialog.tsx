@@ -1,10 +1,14 @@
 "use client";
 
 import { useState, type ChangeEvent } from "react";
-import { Trash2, X } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { Input, Label } from "@/components/Input";
 import { Button } from "@/components/ui/button";
+import {
+  BookingLinkDialog,
+  BookingLinkDialogFooter,
+} from "./BookingLinkDialog";
 import {
   Item,
   ItemActions,
@@ -12,12 +16,6 @@ import {
   ItemDescription,
   ItemTitle,
 } from "@/components/ui/item";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -69,30 +67,11 @@ export function ConfigureBookingLinkDialog({
       : `/book/${link.slug}`;
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent
-        className="grid max-w-xl grid-rows-[auto_auto_1fr_auto] gap-0 p-0 sm:rounded-2xl"
-        hideCloseButton
-      >
-        <div className="flex items-start justify-between gap-3 border-b px-6 pb-4 pt-5">
-          <div>
-            <DialogTitle className="text-xl font-medium">
-              Configure booking link
-            </DialogTitle>
-            <DialogDescription className="mt-1 font-mono text-xs">
-              {publicUrl}
-            </DialogDescription>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-sm p-1 text-muted-foreground hover:text-foreground"
-            aria-label="Close"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
-
+    <BookingLinkDialog
+      title="Configure booking link"
+      description={publicUrl}
+      onClose={onClose}
+      navigation={
         <div className="border-b px-6">
           <div className="flex gap-2">
             <TabButton
@@ -109,11 +88,11 @@ export function ConfigureBookingLinkDialog({
             </TabButton>
           </div>
         </div>
-
-        {tab === "general" && <GeneralTab link={link} onSaved={onSaved} />}
-        {tab === "advanced" && <AdvancedTab link={link} onSaved={onSaved} />}
-      </DialogContent>
-    </Dialog>
+      }
+    >
+      {tab === "general" && <GeneralTab link={link} onSaved={onSaved} />}
+      {tab === "advanced" && <AdvancedTab link={link} onSaved={onSaved} />}
+    </BookingLinkDialog>
   );
 }
 
@@ -432,11 +411,11 @@ function AdvancedTab({
         </Item>
       </div>
 
-      <div className="flex items-center justify-end gap-2 border-t px-6 py-3">
+      <BookingLinkDialogFooter>
         <Button variant="outline" onClick={onSaved}>
           Close
         </Button>
-      </div>
+      </BookingLinkDialogFooter>
     </>
   );
 }
@@ -450,14 +429,14 @@ function DialogFooter({
   loading: boolean;
 }) {
   return (
-    <div className="flex items-center justify-end gap-2 border-t px-6 py-3">
+    <BookingLinkDialogFooter>
       <Button variant="outline" onClick={onSaved}>
         Cancel
       </Button>
       <Button onClick={onSave} loading={loading}>
         Save
       </Button>
-    </div>
+    </BookingLinkDialogFooter>
   );
 }
 

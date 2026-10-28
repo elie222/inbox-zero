@@ -14,11 +14,12 @@ import {
   FileTextIcon,
   BrushIcon,
   ZapIcon,
+  InboxIcon,
   MailsIcon,
 } from "lucide-react";
 import type { Command } from "@/lib/commands/types";
+import { useSettingsDialog } from "@/hooks/useSettingsDialog";
 import { useRules } from "@/hooks/useRules";
-import { useUser } from "@/hooks/useUser";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import {
@@ -27,6 +28,10 @@ import {
   useMeetingBriefsEnabled,
 } from "@/hooks/useFeatureFlags";
 import { isGoogleProvider } from "@/utils/email/provider-types";
+import {
+  getMailNavPath,
+  MAILBOX_ITEMS,
+} from "@/app/(app)/[emailAccountId]/mail/MailSidebar";
 
 export function useCommandPaletteCommands({
   enabled = true,
@@ -34,20 +39,57 @@ export function useCommandPaletteCommands({
   enabled?: boolean;
 } = {}) {
   const router = useRouter();
+  const { openSettings } = useSettingsDialog();
   const { emailAccountId, provider } = useAccount();
   const { data: rulesData, isLoading: rulesLoading } = useRules(
     undefined,
     enabled,
   );
-  const { data: user, isLoading: userLoading } = useUser(enabled);
   const showCleaner = useCleanerEnabled();
   const showMeetingBriefs = useMeetingBriefsEnabled();
   const showIntegrations = useIntegrationsEnabled();
 
   const commands = useMemo<Command[]>(() => {
-    if (!enabled) return [];
+    const generalSettingsCommands: Command[] = [
+      {
+        id: "settings-general",
+        label: "Settings",
+        description: "General account settings",
+        icon: SettingsIcon,
+        section: "settings",
+        priority: 1,
+        keywords: ["settings", "preferences", "configuration"],
+        action: () => {
+          openSettings();
+        },
+      },
+    ];
+    // Kept even while a conversation is selected: jumping to another mailbox
+    // is as likely then as from anywhere else.
+    const mailboxCommands: Command[] = MAILBOX_ITEMS.map((item, index) => ({
+      id: `nav-mailbox-${item.type}`,
+      label: `Go to ${item.name}`,
+      icon: item.Icon,
+      section: "navigation",
+      priority: index + 30,
+      keywords: [item.name.toLowerCase(), "mailbox", "folder"],
+      action: () =>
+        router.push(
+          prefixPath(
+            emailAccountId,
+            getMailNavPath({ kind: "type", type: item.type }),
+          ),
+        ),
+    }));
+    if (!enabled) return [...mailboxCommands, ...generalSettingsCommands];
 
     const navigationItems = [
+      {
+        name: "Mail",
+        href: prefixPath(emailAccountId, "/mail"),
+        icon: InboxIcon,
+        keywords: ["mail", "inbox", "email"],
+      },
       {
         name: "Assistant",
         href: prefixPath(emailAccountId, "/automation"),
@@ -123,16 +165,6 @@ export function useCommandPaletteCommands({
 
     const settingsCommands: Command[] = [
       {
-        id: "settings-general",
-        label: "Settings",
-        description: "General account settings",
-        icon: SettingsIcon,
-        section: "settings",
-        priority: 1,
-        keywords: ["settings", "preferences", "configuration"],
-        action: () => router.push("/settings"),
-      },
-      {
         id: "settings-assistant",
         label: "Assistant Settings",
         description: "Configure AI assistant behavior",
@@ -187,39 +219,27 @@ export function useCommandPaletteCommands({
         router.push(prefixPath(emailAccountId, `/assistant/rule/${rule.id}`)),
     }));
 
-    const accountCommands: Command[] = (user?.emailAccounts ?? [])
-      .filter((account) => account.id !== emailAccountId)
-      .map((account, index) => ({
-        id: `account-${account.id}`,
-        label: `Switch to ${account.email}`,
-        description: account.name || undefined,
-        icon: UserIcon,
-        section: "accounts" as const,
-        priority: index + 1,
-        keywords: ["switch", "account", account.email?.toLowerCase() || ""],
-        action: () => router.push(prefixPath(account.id, "/automation")),
-      }));
-
     return [
       ...navigationCommands,
+      ...mailboxCommands,
+      ...generalSettingsCommands,
       ...settingsCommands,
       ...ruleCommands,
-      ...accountCommands,
     ];
   }, [
     emailAccountId,
     enabled,
     provider,
+    openSettings,
     router,
     rulesData,
     showCleaner,
     showIntegrations,
     showMeetingBriefs,
-    user?.emailAccounts,
   ]);
 
   return {
     commands,
-    isLoading: enabled && (rulesLoading || userLoading),
+    isLoading: enabled && rulesLoading,
   };
 }

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { DRAFT_DOCS_MAX_URLS } from "@/utils/config";
 
 export const createKnowledgeBody = z.object({
   title: z.string().min(1, "Title is required"),
@@ -20,3 +21,12 @@ export const deleteKnowledgeBody = z.object({
 });
 
 export type DeleteKnowledgeBody = z.infer<typeof deleteKnowledgeBody>;
+
+export const updateDraftDocsUrlsBody = z.object({
+  urls: z
+    .array(z.string().trim().min(1))
+    .max(
+      DRAFT_DOCS_MAX_URLS,
+      `You can add up to ${DRAFT_DOCS_MAX_URLS} documentation sites`,
+    ),
+});

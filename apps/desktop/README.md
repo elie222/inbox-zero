@@ -1,6 +1,6 @@
 # Desktop app
 
-Electron shell around the hosted Inbox Zero web app. There is no backend in this package: the window loads the same Next.js origin a browser does.
+Electron shell for the hosted Inbox Zero web app.
 
 ## Run
 
@@ -16,11 +16,30 @@ Against a local web app:
 INBOX_ZERO_APP_URL=http://localhost:3000 pnpm --filter @inboxzero/desktop dev
 ```
 
-Sign-in opens the system browser, then returns through `inboxzero://` and `/api/mobile-auth/exchange-code`. Google and Microsoft OAuth are not completed inside the Electron window.
+Sign-in uses the system browser and returns through `inboxzero://`. The web app's `DESKTOP_AUTH_ORIGIN` defaults to this scheme.
 
-The window remembers the last in-app page (stored in `userData/last-app-url`) and restores it on launch instead of going through `/login` redirects. On macOS, closing the window hides it so reopening from the dock is instant; quit with Cmd+Q.
+## Multiple windows
 
-The web app defaults `DESKTOP_AUTH_ORIGIN` to `inboxzero://`, the same scheme as mobile. Override that only if the desktop protocol scheme changes.
+File → New Window (⌘N / Ctrl+N) opens another mailbox window. ⌘-click or Ctrl-click an account in the switcher to open that inbox in its own window. Each window keeps its own account and size; they are restored on the next launch.
+
+Clicking a new-mail notification focuses a window already showing that account, or opens one if needed.
+
+## Mail badge and notifications
+
+The macOS Dock badge shows the combined unread inbox count across connected accounts, refreshed about once a minute and on focus. Linux uses the supported launcher badge; Windows does not currently display a numeric badge.
+
+New unread inbox mail produces a native notification while the app is in the background. Clicking it opens that account's inbox. Alerts contain no sender or subject preview. Mail from before app startup or more than five minutes ago is suppressed, and repeated sync results do not replay alerts. Notifications follow the existing mailbox sync schedule (normally about a minute), rather than a server push channel.
+
+The app must remain running; hiding the Mac window is supported, fully quitting stops updates. macOS notifications require a signed app and notification permission in System Settings. Use the OS notification settings to disable alerts or sounds. Both the desktop release and hosted web changes are needed; older desktop versions safely ignore the new integration.
+
+## Record diagnostics
+
+Help → Record Diagnostics… captures 30 seconds of performance data while the user reproduces a slowdown (clicking the progress notification stops early). It writes an `Inbox-Zero-Diagnostics-<timestamp>` folder to Downloads and reveals it:
+
+- `trace.json.gz`: a Chromium trace of the main and renderer processes (timeline, task, IPC, and sampled JS stack categories). Open it in the DevTools Performance panel or [Perfetto](https://ui.perfetto.dev). Paint, layer, and screenshot categories are excluded, and URL query strings are stripped.
+- `diagnostics.json`: app, Electron, and OS versions, per-process CPU and memory, system memory, mail database file sizes, and local mail engine sync and queue counts. It contains no messages, subjects, or addresses.
+
+When Sentry is configured, the app offers to send both files as attachments on a `User diagnostics` event (tag `area: diagnostics`) and shows the event ID for the user to quote to support.
 
 ## Package
 
@@ -29,21 +48,24 @@ pnpm --filter @inboxzero/desktop dist:mac
 pnpm --filter @inboxzero/desktop dist:win
 ```
 
-Installers land in `apps/desktop/release/`. Use `pnpm dev` for unsigned local testing; packaged macOS builds require the Developer ID certificate configured below.
-
-The Mac app is distributed directly as a signed and notarized DMG/ZIP. It is not a Mac App Store build, so it does not use Apple's App Sandbox or Mac App Store update and payment policies.
+Installers land in `apps/desktop/release/`. macOS packaging requires a Developer ID certificate and notarization credentials.
 
 ## Release
 
-Push a `desktop-v*` tag or run the **Desktop Release** workflow. That builds macOS (dmg/zip, arm64 + x64) and Windows (NSIS, x64 + arm64) and can publish a GitHub Release.
+Push a `desktop-v*` tag to build and publish a release, or run the [Desktop Release workflow](../../.github/workflows/desktop-release.yml) manually with optional publishing. It packages macOS (DMG/ZIP) and Windows (NSIS) for arm64 and x64.
 
 The macOS release requires these GitHub secrets:
 
 - `MAC_CSC_LINK` / `MAC_CSC_KEY_PASSWORD` — Developer ID Application `.p12` (base64) for signed Mac builds
 - `APPLE_API_KEY_ID` / `APPLE_API_ISSUER` / `APPLE_API_KEY_P8` / `APPLE_TEAM_ID` — Apple credentials used to notarize the signed build
 
-Windows signing uses `WIN_CSC_LINK` / `WIN_CSC_KEY_PASSWORD` for the Authenticode `.p12`.
+The Windows release is signed with Azure Artifact Signing and fails if signing doesn't happen. It requires:
 
-`electron-builder.yml` keeps `mac.notarize` enabled. App Store Connect API credentials are also accepted by Apple's notarization service; using them here does not make the output a Mac App Store build.
+- `AZURE_SIGNING_TENANT_ID` / `AZURE_SIGNING_CLIENT_ID` secrets: an Entra app registration with the Certificate Profile Signer role on the signing account. It has no client secret; the job logs in through GitHub OIDC, so the app needs a federated credential for subject `repo:elie222/inbox-zero:environment:desktop-release`
+- `AZURE_SIGNING_PUBLISHER_NAME` / `AZURE_SIGNING_ENDPOINT` / `AZURE_SIGNING_ACCOUNT_NAME` / `AZURE_SIGNING_CERTIFICATE_PROFILE` variables: the certificate's subject CN, the account's regional endpoint (for example `https://eus.codesigning.azure.net/`), the signing account name, and the certificate profile name
 
-Packaged apps check `https://github.com/elie222/inbox-zero/releases/download/desktop-updates` for `latest-mac.yml` / `latest.yml`. That feed is a stable GitHub release; the installers stay on `desktop-v*` releases.
+Local `pnpm dist:win` builds stay unsigned.
+
+Error reporting from the main process (including renderer, GPU, and native crashes) uses the optional `DESKTOP_SENTRY_DSN` secret, injected at build time as `INBOX_ZERO_SENTRY_DSN`. Builds without it, including local development, don't report to Sentry.
+
+Auto-update metadata (`latest-mac.yml` / `latest.yml`) is published to the `desktop-updates` release; installers stay on `desktop-v*` releases.

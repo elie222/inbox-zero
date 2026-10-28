@@ -1,4 +1,6 @@
-export const DEFAULT_COLD_EMAIL_PROMPT = `Cold emails are unsolicited outreach from someone you have no existing relationship with, sent to get something from you rather than because you need it. The aim is to recognize outreach that doesn't matter to you while not mistaking outreach that does.
+export const DEFAULT_COLD_EMAIL_PROMPT = `Cold emails are unsolicited outreach from someone you have no existing relationship with, sent to get something from you rather than because you need it.
+
+Signing up for a service establishes a relationship, even before any email exchange. Its onboarding, trial reminders, and account messages are not cold outreach, even with promotional content. An unsolicited trial offer does not establish that relationship.
 
 Examples of cold emails:
 - Sell a product or service (e.g., agency pitching their services)

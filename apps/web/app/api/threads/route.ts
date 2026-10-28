@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { resolveNativeThreadsQuery } from "@/utils/split-inbox/native-categories";
 import { withEmailProvider } from "@/utils/middleware";
 import { threadsQuery, threadsView } from "@/utils/threads/validation";
 import { loadThreads, toListThreads } from "@/utils/threads/load";
@@ -16,18 +17,29 @@ export const GET = withEmailProvider(
     const fromEmail = searchParams.get("fromEmail");
     const type = searchParams.get("type");
     const folderId = searchParams.get("folderId");
-    const inboxSection = searchParams.get("inboxSection");
+    const rawInboxSection = searchParams.get("inboxSection");
+    const inboxSection =
+      rawInboxSection === "focused" || rawInboxSection === "other"
+        ? rawInboxSection
+        : undefined;
+    const category =
+      searchParams.get("category") ??
+      (rawInboxSection && !inboxSection ? rawInboxSection : undefined);
     const nextPageToken = searchParams.get("nextPageToken");
     const q = searchParams.get("q");
     const labelId = searchParams.get("labelId");
-    const labelIds = searchParams
-      .getAll("labelIds")
-      .flatMap((value) => value.split(","))
-      .map((labelId) => labelId.trim())
-      .filter(Boolean);
+    const readLabelIds = (key: string) =>
+      searchParams
+        .getAll(key)
+        .flatMap((value) => value.split(","))
+        .map((labelId) => labelId.trim())
+        .filter(Boolean);
+    const labelIds = readLabelIds("labelIds");
+    const anyLabelIds = readLabelIds("anyLabelIds");
     const after = searchParams.get("after");
     const before = searchParams.get("before");
     const isUnread = searchParams.get("isUnread");
+    const anyOf = searchParams.get("anyOf");
     const view = threadsView.parse(searchParams.get("view"));
 
     const query = threadsQuery.parse({
@@ -36,18 +48,28 @@ export const GET = withEmailProvider(
       type,
       folderId,
       inboxSection,
+      category,
+      splitId: searchParams.get("splitId"),
       nextPageToken,
       q,
       labelId,
       labelIds: labelIds.length ? labelIds : undefined,
+      anyLabelIds: anyLabelIds.length ? anyLabelIds : undefined,
       after,
       before,
       isUnread,
+      anyOf,
+      excludeSplits: searchParams.get("excludeSplits"),
     });
 
     try {
-      const threads = await loadThreads({
+      const resolved = await resolveNativeThreadsQuery({
+        emailAccountId,
+        emailProvider,
         query,
+      });
+      const threads = await loadThreads({
+        query: resolved,
         emailAccountId,
         emailProvider,
         messageFormat: view === "list" ? "metadata" : "full",

@@ -27,7 +27,7 @@ export async function judgeSendReady({
     model,
     providerOptions,
     schema: judgeSchema,
-    system: buildJudgeSystemPrompt(),
+    instructions: buildJudgeSystemPrompt(),
     prompt: buildPrompt({ inboundThread, draft, groundTruth, context }),
     temperature: 0,
     maxRetries: 2,

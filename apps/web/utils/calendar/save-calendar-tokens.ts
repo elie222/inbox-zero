@@ -57,3 +57,49 @@ function getExpectedExpiresAtWhere(expectedExpiresAt: number | null) {
     lt: new Date(expectedExpiresAt + 1),
   };
 }
+
+export async function markCalendarConnectionDisconnected({
+  emailAccountId,
+  provider,
+  accessToken,
+  refreshToken,
+  logger,
+}: {
+  emailAccountId: string;
+  provider: "google" | "microsoft";
+  accessToken: string | null;
+  refreshToken: string;
+  logger: Logger;
+}) {
+  try {
+    // Tokens are encrypted at rest, so compare the decrypted values before
+    // guarding the write against a concurrent refresh or reconnect.
+    const connections = await prisma.calendarConnection.findMany({
+      where: { emailAccountId, provider, isConnected: true },
+      select: {
+        id: true,
+        accessToken: true,
+        refreshToken: true,
+        updatedAt: true,
+      },
+    });
+    for (const connection of connections) {
+      if (
+        connection.refreshToken !== refreshToken ||
+        connection.accessToken !== accessToken
+      )
+        continue;
+
+      await prisma.calendarConnection.updateMany({
+        where: {
+          id: connection.id,
+          updatedAt: connection.updatedAt,
+          isConnected: true,
+        },
+        data: { isConnected: false },
+      });
+    }
+  } catch (error) {
+    logger.error("Failed to mark calendar disconnected", { error, provider });
+  }
+}

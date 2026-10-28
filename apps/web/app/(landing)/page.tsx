@@ -9,10 +9,15 @@ import { BulkUnsubscribe } from "@/components/new-landing/sections/BulkUnsubscri
 import { OrganizedInbox } from "@/components/new-landing/sections/OrganizedInbox";
 import { PreWrittenDrafts } from "@/components/new-landing/sections/PreWrittenDrafts";
 import { ManageFromAnywhere } from "@/components/new-landing/sections/ManageFromAnywhere";
+import {
+  EMAIL_CLIENT_SECTION_ID,
+  EmailClient,
+} from "@/components/new-landing/sections/EmailClient";
 import { BasicLayout } from "@/components/layouts/BasicLayout";
 import { FAQs } from "@/app/(landing)/home/FAQs";
 import { FinalCTA } from "@/app/(landing)/home/FinalCTA";
 import { WordReveal } from "@/components/new-landing/common/WordReveal";
+import { SectionLink } from "@/components/new-landing/common/SectionLink";
 import { env } from "@/env";
 import { BRAND_NAME } from "@/utils/branding";
 
@@ -33,6 +38,11 @@ export default function NewLanding() {
   return (
     <BasicLayout>
       <Hero
+        badge={
+          <SectionLink sectionId={EMAIL_CLIENT_SECTION_ID}>
+            New: Inbox Zero Mail app →
+          </SectionLink>
+        }
         title={
           <WordReveal
             spaceBetween="w-2 md:w-3"
@@ -67,6 +77,7 @@ export default function NewLanding() {
         subtitle="When you check your inbox, every email needing a response will have a pre-drafted reply in your tone, ready for you to send."
       />
       <ManageFromAnywhere />
+      <EmailClient />
       <StartedInMinutes
         title="Get started in minutes"
         subtitle="One-click setup. Start organizing and drafting replies in minutes."

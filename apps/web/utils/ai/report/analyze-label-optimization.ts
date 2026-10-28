@@ -63,7 +63,7 @@ Each suggestion should include the reason and expected impact.`;
 
   const result = await generateObject({
     ...modelOptions,
-    system,
+    instructions: system,
     prompt,
     schema: labelAnalysisSchema,
   });

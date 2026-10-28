@@ -4,7 +4,7 @@ import type { Logger } from "@/utils/logger";
 import {
   withMicrosoftGraphRetry,
   withMicrosoftGraphWriteRetry,
-} from "@/utils/microsoft/retry";
+} from "@/utils/outlook/retry";
 
 export type OutlookSystemFolder =
   | "INBOX"
@@ -274,4 +274,19 @@ export async function deleteOutlookFolder(
         .delete(),
     logger,
   );
+}
+
+export function flattenOutlookFolders(
+  folders: OutlookFolder[],
+  parentPath = "",
+): Array<OutlookFolder & { path: string }> {
+  return folders.flatMap((folder) => {
+    const path = parentPath
+      ? `${parentPath}${FOLDER_SEPARATOR}${folder.displayName}`
+      : folder.displayName;
+    return [
+      { ...folder, path },
+      ...flattenOutlookFolders(folder.childFolders, path),
+    ];
+  });
 }

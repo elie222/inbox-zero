@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ActionType } from "@/generated/prisma/enums";
 import { ruleRequestBodySchema, rulesResponseSchema } from "./validation";
 import { DELETE_EMAIL_ACTION_DISABLED_MESSAGE } from "@/utils/delete-email-action";
-import { WEBHOOK_ACTION_DISABLED_MESSAGE } from "@/utils/webhook-action";
+import { WEBHOOK_ACTION_DISABLED_MESSAGE } from "@/utils/outbound-webhook/action";
 
 const { mockEnv } = vi.hoisted(() => ({
   mockEnv: {

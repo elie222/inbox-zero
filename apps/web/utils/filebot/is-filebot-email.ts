@@ -10,6 +10,10 @@ import {
 // In dev: hello+ai-test@example.com
 const FILEBOT_SUFFIX = `ai${env.NODE_ENV === "development" ? "-test" : ""}`;
 const FILEBOT_DISPLAY_NAME = "Inbox Zero Assistant";
+// Subjects written by utils/drive/filing-notifications.ts. Matched as a fallback
+// because some providers drop the Reply-To and From display name on replies.
+const FILEBOT_NOTIFICATION_SUBJECT =
+  /^(?:re:\s*)*(?:✓ Filed |📄 Where should I file |📄 Filing update for )/i;
 
 /**
  * Check if any recipient in the email is a filebot reply address.
@@ -110,12 +114,67 @@ export function isFilebotNotificationMessage({
 }
 
 /**
+ * Check whether a thread message belongs to the user's exchange with the filing
+ * assistant: a notification the app sent into the thread, or the user's reply
+ * to one. Neither is a turn in the real conversation.
+ */
+export function isFilebotConversationMessage({
+  userEmail,
+  message,
+}: {
+  userEmail: string;
+  message: {
+    headers: {
+      from: string;
+      to: string;
+      subject?: string;
+      "reply-to"?: string;
+    };
+  };
+}): boolean {
+  const { from, to, subject } = message.headers;
+
+  if (
+    isFilebotNotificationMessage({
+      userEmail,
+      from,
+      to,
+      replyTo: message.headers["reply-to"],
+    })
+  ) {
+    return true;
+  }
+
+  const normalizedUserEmail = userEmail.toLowerCase();
+  if (extractEmailAddress(from)?.toLowerCase() !== normalizedUserEmail) {
+    return false;
+  }
+
+  if (isFilebotEmail({ userEmail, emailToCheck: to })) return true;
+
+  const isSelfAddressed = extractEmailAddresses(to).some(
+    (email) => email.toLowerCase() === normalizedUserEmail,
+  );
+
+  return (
+    isSelfAddressed && FILEBOT_NOTIFICATION_SUBJECT.test(subject?.trim() ?? "")
+  );
+}
+
+/**
  * Build a regex pattern for filebot emails.
- * Domain is case-insensitive (per email standards), but the filebot suffix is case-sensitive for security.
+ * The user's local part and domain are case-insensitive, since providers deliver
+ * either casing to the same mailbox. The filebot suffix is case-sensitive for security.
  */
 function buildFilebotPattern(localPart: string, domain: string): RegExp {
-  // Make domain case-insensitive by matching either case for each letter
-  const caseInsensitiveDomain = domain
+  return new RegExp(
+    `^${caseInsensitivePattern(localPart)}\\+${FILEBOT_SUFFIX}@${caseInsensitivePattern(domain)}$`,
+  );
+}
+
+// Match either case for each letter, without making the whole pattern case-insensitive
+function caseInsensitivePattern(str: string): string {
+  return str
     .split("")
     .map((char) => {
       if (/[a-zA-Z]/.test(char)) {
@@ -124,9 +183,6 @@ function buildFilebotPattern(localPart: string, domain: string): RegExp {
       return escapeRegex(char);
     })
     .join("");
-  return new RegExp(
-    `^${escapeRegex(localPart)}\\+${FILEBOT_SUFFIX}@${caseInsensitiveDomain}$`,
-  );
 }
 
 function escapeRegex(str: string): string {

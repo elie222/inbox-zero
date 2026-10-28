@@ -53,7 +53,7 @@ describe("mobile auth browser-start route", () => {
       new Response(
         JSON.stringify({
           redirect: false,
-          url: "https://accounts.google.com/o/oauth2/v2/auth?client_id=client",
+          url: "https://accounts.google.com/o/oauth2/v2/auth?client_id=client&state=provider-state",
         }),
         {
           headers: {
@@ -70,20 +70,23 @@ describe("mobile auth browser-start route", () => {
   it("starts desktop OAuth in the current browser and copies the OAuth state cookie", async () => {
     const response = await GET(
       new NextRequest(
-        "https://www.getinboxzero.com/api/mobile-auth/browser-start?provider=google",
+        "https://www.getinboxzero.com/api/mobile-auth/browser-start?provider=google&codeChallenge=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       ),
       {} as never,
     );
 
     expect(response.status).toBe(302);
     expect(response.headers.get("location")).toBe(
-      "https://accounts.google.com/o/oauth2/v2/auth?client_id=client",
+      "https://accounts.google.com/o/oauth2/v2/auth?client_id=client&state=provider-state",
     );
     expect(response.headers.get("set-cookie")).toContain(
       "__Secure-better-auth.oauth_state=encrypted-oauth-state",
     );
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect(storeMobileAuthStateMock).toHaveBeenCalledWith({
+      codeChallenge: "a".repeat(43),
+      provider: "google",
+      completionToken: "state-1234567890",
       returnUrlMode: "desktop-scheme",
       state: "state-1234567890",
     });
@@ -91,11 +94,11 @@ describe("mobile auth browser-start route", () => {
     await expect(signInRequest.json()).resolves.toEqual({
       provider: "google",
       callbackURL:
-        "https://www.getinboxzero.com/api/mobile-auth/callback?state=state-1234567890",
+        "https://www.getinboxzero.com/api/mobile-auth/callback?state=state-1234567890&completion=state-1234567890",
       errorCallbackURL:
         "https://www.getinboxzero.com/api/mobile-auth/callback?state=state-1234567890",
       newUserCallbackURL:
-        "https://www.getinboxzero.com/api/mobile-auth/callback?state=state-1234567890",
+        "https://www.getinboxzero.com/api/mobile-auth/callback?state=state-1234567890&completion=state-1234567890",
       disableRedirect: true,
     });
   });
@@ -109,6 +112,37 @@ describe("mobile auth browser-start route", () => {
         {} as never,
       ),
     ).rejects.toThrow(/Invalid option/);
+    expect(handlerMock).not.toHaveBeenCalled();
+  });
+
+  it("directs older desktop clients to update when the PKCE challenge is missing", async () => {
+    const response = await GET(
+      new NextRequest(
+        "https://www.getinboxzero.com/api/mobile-auth/browser-start?provider=google",
+      ),
+      {} as never,
+    );
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe(
+      "https://www.getinboxzero.com/login/desktop-update-required",
+    );
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(handlerMock).not.toHaveBeenCalled();
+  });
+
+  it("directs invalid desktop auth requests to update without starting OAuth", async () => {
+    const response = await GET(
+      new NextRequest(
+        "https://www.getinboxzero.com/api/mobile-auth/browser-start?provider=google&codeChallenge=invalid",
+      ),
+      {} as never,
+    );
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe(
+      "https://www.getinboxzero.com/login/desktop-update-required",
+    );
     expect(handlerMock).not.toHaveBeenCalled();
   });
 });

@@ -2,7 +2,12 @@ import { type InferUITool, tool } from "ai";
 import { z } from "zod";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { Logger } from "@/utils/logger";
-import { FOLDER_SEPARATOR, type OutlookFolder } from "@/utils/outlook/folders";
+import {
+  FOLDER_SEPARATOR,
+  flattenOutlookFolders,
+  type OutlookFolder,
+} from "@/utils/outlook/folders";
+import { findFolderMatch } from "@/utils/outlook/search-scope";
 import { posthogCaptureEvent } from "@/utils/posthog";
 
 type FolderToolOptions = {
@@ -35,7 +40,7 @@ export const listFoldersTool = ({
 }: FolderToolOptions) =>
   tool({
     description:
-      "List Outlook mail folders for this account. Use this before moving threads to a folder when the exact folder name is unclear. Returns folder names and paths only; internal folder IDs are not shown.",
+      "List Outlook mail folders for this account. Use this to find folders before searching or moving threads. Returns names, paths, and IDs; use a folder ID in searchInbox folderName when names are ambiguous.",
     inputSchema: z.object({}),
     execute: async () => {
       trackToolCall({ tool: "list_folders", email, logger });
@@ -47,7 +52,7 @@ export const listFoldersTool = ({
           logger,
         });
         const folders = await emailProvider.getFolders();
-        const flattenedFolders = flattenFolders(folders).map(toVisibleFolder);
+        const flattenedFolders = flattenFolders(folders);
 
         return {
           folders: flattenedFolders,
@@ -221,24 +226,13 @@ type FolderReference = FlattenedFolder & {
   id: string;
 };
 
-function flattenFolders(
-  folders: OutlookFolder[],
-  parentPath?: string,
-): FolderReference[] {
-  return folders.flatMap((folder) => {
-    const path = parentPath
-      ? `${parentPath}${FOLDER_SEPARATOR}${folder.displayName}`
-      : folder.displayName;
-    return [
-      {
-        id: folder.id,
-        name: folder.displayName,
-        path,
-        childFolderCount: folder.childFolderCount ?? folder.childFolders.length,
-      },
-      ...flattenFolders(folder.childFolders, path),
-    ];
-  });
+function flattenFolders(folders: OutlookFolder[]): FolderReference[] {
+  return flattenOutlookFolders(folders).map((folder) => ({
+    id: folder.id,
+    name: folder.displayName,
+    path: folder.path,
+    childFolderCount: folder.childFolderCount ?? folder.childFolders.length,
+  }));
 }
 
 function toVisibleFolder(folder: FolderReference): FlattenedFolder {
@@ -249,48 +243,12 @@ function toVisibleFolder(folder: FolderReference): FlattenedFolder {
   };
 }
 
-function findFolderMatch(folders: FolderReference[], nameOrPath: string) {
-  const normalizedInput = normalizeFolderText(nameOrPath);
-  const pathMatch = folders.find(
-    (folder) => normalizeFolderText(folder.path) === normalizedInput,
-  );
-
-  if (pathMatch) return { folder: pathMatch };
-
-  const nameMatches = folders.filter(
-    (folder) => normalizeFolderText(folder.name) === normalizedInput,
-  );
-
-  if (nameMatches.length > 1) return { ambiguous: true };
-  if (nameMatches[0]) return { folder: nameMatches[0] };
-
-  const pathAliasMatches = folders.filter(
-    (folder) =>
-      normalizeFolderPath(folder.path) === normalizeFolderPath(nameOrPath),
-  );
-
-  if (pathAliasMatches.length > 1) return { ambiguous: true };
-  return { folder: pathAliasMatches[0] };
-}
-
 function isFolderPath(nameOrPath: string) {
   return (
     nameOrPath.includes(FOLDER_SEPARATOR) ||
     nameOrPath.includes("/") ||
     nameOrPath.includes("\\")
   );
-}
-
-function normalizeFolderPath(path: string) {
-  return path
-    .split(FOLDER_SEPARATOR)
-    .flatMap((segment) => segment.split(/[\\/]/))
-    .map(normalizeFolderText)
-    .join(FOLDER_SEPARATOR);
-}
-
-function normalizeFolderText(value: string) {
-  return value.trim().toLowerCase();
 }
 
 async function trackToolCall({

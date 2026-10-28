@@ -221,6 +221,61 @@ Claim your listing: https://stackpicker.example/claim`,
     }),
   },
   {
+    name: "discovery site that already listed us",
+    category: "link building",
+    expected: true,
+    email: getEmail({
+      from: "Brightfind <brightfind.team@mailbox.example>",
+      subject: "Acme is now on Brightfind",
+      content: `Hi,
+
+I came across Acme and added it to Brightfind, a site for discovering new products and side projects. No payment needed, and you can claim the page anytime: https://brightfind.example/p/acme
+
+I liked how Acme handles support routing. If the page is useful, I'd really appreciate a share with your audience, since it helps Brightfind grow.
+
+Cheers,
+Ravi`,
+      date,
+    }),
+  },
+  {
+    name: "self-serve founder story platform",
+    category: "content placement",
+    expected: true,
+    email: getEmail({
+      from: "Nadia at Builder Notes <editorial@buildernotes.example>",
+      subject: "Your Acme story on Builder Notes",
+      content: `Hi,
+
+I read your post about why you started Acme, especially the part about building the first version on weekends.
+
+Builder Notes publishes stories written by founders themselves. Yours would fit well. It's free and takes about 7 minutes to submit: https://buildernotes.example/join
+
+Interested?
+
+Nadia`,
+      date,
+    }),
+  },
+  {
+    name: "hackathon asking us to fund a cash prize",
+    category: "sponsorship ask",
+    expected: true,
+    email: getEmail({
+      from: "Tomas Reiter <tomas@elmrow.example>",
+      subject: "Spring Build Weekend × Acme",
+      content: `Hi,
+
+I organize Spring Build Weekend, a student hackathon at Elm Row with around 120 engineers from local universities.
+
+We'd love Acme to sponsor a cash prize for one of the tracks. Sponsors get a judging seat and a booth to meet the participants.
+
+Best,
+Tomas`,
+      date,
+    }),
+  },
+  {
     // A pitch for their marketplace, but also a possible distribution channel.
     name: "resell marketplace vendor selection",
     category: "partnership ask",
@@ -689,6 +744,105 @@ I teach a small online course on email habits and would like to include two diag
     }),
   },
   // Not cold: automated and bulk mail belongs to other rules
+  {
+    name: "signup lifecycle: welcome tour with promotional feature descriptions",
+    category: "onboarding",
+    expected: false,
+    email: getEmail({
+      from: "Support <team@notebrook.example>",
+      subject: "Explore your new workspace",
+      content: `Welcome to NoteBrook! Here's a quick tour to help you get started.
+
+Capture ideas anywhere. Your notebook syncs across your phone and computer, so your thoughts are always at hand. Turn notes into tasks and share them with your team. It's all ready in your workspace.
+
+Make it yours: choose a template, invite a teammate, or install the desktop app for quick capture. Open your workspace to try these features today.
+
+Questions? Reply here for help.
+The NoteBrook team`,
+      date,
+    }),
+  },
+  {
+    name: "signup lifecycle: activation reminder for an email platform",
+    category: "onboarding",
+    expected: false,
+    email: getEmail({
+      from: "MailHarbor <start@mailharbor.example>",
+      subject: "Your workspace is waiting",
+      content: `Thanks for creating your MailHarbor account. You haven't connected an inbox yet. Connect it from your dashboard to activate your complimentary trial and start organizing messages. Need a hand? Reply and our team will help.`,
+      date,
+    }),
+  },
+  {
+    name: "signup lifecycle: personal onboarding offer from a founder",
+    category: "onboarding",
+    expected: false,
+    email: getEmail({
+      from: "Founder <founder@taskgrove.example>",
+      subject: "Can I help with setup?",
+      content: `Hi, I built TaskGrove and saw you created a workspace yesterday. If you'd like help importing your team's projects, book a short call with me. Your account includes two weeks on the team plan at no charge. I'd love to hear what you're hoping to use it for.`,
+      date,
+    }),
+  },
+  {
+    name: "signup lifecycle: trial expiry with upgrade call to action",
+    category: "onboarding",
+    expected: false,
+    email: getEmail({
+      from: "ChartNest <accounts@chartnest.example>",
+      subject: "Keep your dashboards running",
+      content:
+        "Your ChartNest trial ends in three days. The dashboards you created will become read-only unless you choose a plan. Upgrade in your workspace to keep scheduled reports and invite more teammates. Your saved reports remain available on the free plan.",
+      date,
+    }),
+  },
+  {
+    name: "signup lifecycle: Spanish setup follow-up",
+    category: "onboarding",
+    expected: false,
+    email: getEmail({
+      from: "Equipo <hola@reservanube.example>",
+      subject: "Completa tu página de reservas",
+      content:
+        "Gracias por registrarte en ReservaNube. Tu cuenta ya está creada; falta conectar tu calendario y definir tus horarios. Entra en tu panel para terminar la configuración y empezar a recibir reservas durante tu prueba gratuita. Si necesitas ayuda, responde a este correo.",
+      date,
+    }),
+  },
+  {
+    name: "signup lifecycle: transactional subscription receipt",
+    category: "transactional",
+    expected: false,
+    email: getEmail({
+      from: "FileMeadow billing <receipts@filemeadow.example>",
+      subject: "Your monthly subscription receipt",
+      content:
+        "Payment received for your FileMeadow workspace subscription. Your plan renews next month. Download your invoice or manage billing from your account settings. Thank you for using FileMeadow.",
+      date,
+    }),
+  },
+  {
+    name: "signup lifecycle: unsolicited free trial pitch",
+    category: "vendor pitch",
+    expected: true,
+    email: getEmail({
+      from: "Sales <sales@pipelinefern.example>",
+      subject: "A trial for your sales team",
+      content:
+        "I found your company in a startup directory and thought PipelineFern could help your sales team find more leads. Would you be open to trying our platform free for two weeks? I can walk you through it on a quick demo call.",
+      date,
+    }),
+  },
+  {
+    name: "signup lifecycle: unsolicited account provisioning disguised as onboarding",
+    category: "vendor pitch",
+    expected: true,
+    email: getEmail({
+      from: "Growth <growth@reachwillow.example>",
+      subject: "Welcome to your new workspace",
+      content: `You don't know us yet. I found your company online and went ahead and created a ReachWillow account for you, loaded with prospects who could buy your product. Activate it today and book a demo so I can show you our paid lead generation plans.`,
+      date,
+    }),
+  },
   {
     name: "marketing newsletter with unsubscribe",
     category: "automated",

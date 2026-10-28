@@ -29,6 +29,24 @@ describe("provider health", () => {
     );
   });
 
+  it("releases cleanup deduplication when the failed credentials have been superseded", async () => {
+    vi.mocked(cleanupInvalidTokens).mockResolvedValueOnce({
+      status: "skipped",
+    });
+    await recordEmailAccountProviderIssue({
+      emailAccountId: "email-account-1",
+      provider: "google",
+      error: new Error("invalid_grant"),
+      failedAccessToken: "old-token",
+      operation: "getMessage",
+      logger: createMockLogger(),
+    });
+    expect(releaseProviderIssueCleanupClaimInRedis).toHaveBeenCalledWith({
+      emailAccountId: "email-account-1",
+      reason: "invalid_grant",
+    });
+  });
+
   it("records missing refresh token failures as reconnect-required issues", async () => {
     const logger = createMockLogger();
 
@@ -156,7 +174,7 @@ describe("provider health", () => {
     expect(claimProviderIssueCleanupInRedis).not.toHaveBeenCalled();
   });
 
-  it("records Outlook authorization failures case-insensitively", async () => {
+  it("does not disconnect Outlook accounts for message access denials", async () => {
     const logger = createScopedLogger("provider-health-test");
 
     await recordEmailAccountProviderIssue({
@@ -167,11 +185,8 @@ describe("provider health", () => {
       operation: "getMessage",
     });
 
-    expect(cleanupInvalidTokens).toHaveBeenCalledWith({
-      emailAccountId: "email-account-1",
-      reason: "insufficient_permissions",
-      logger,
-    });
+    expect(cleanupInvalidTokens).not.toHaveBeenCalled();
+    expect(claimProviderIssueCleanupInRedis).not.toHaveBeenCalled();
   });
 
   it("does not disconnect Outlook accounts for code-only access denials", async () => {

@@ -64,7 +64,7 @@ export function buildCreateRuleSchemaFromChatToolInput(
       fields: action.fields
         ? buildProviderRuleActionFields({ provider, fields: action.fields })
         : null,
-      delayInMinutes: null,
+      delayInMinutes: action.delayInMinutes ?? null,
     })),
   };
 }

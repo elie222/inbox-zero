@@ -1,12 +1,12 @@
+import type { Prisma } from "@/generated/prisma/client";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
 import { isOnHigherTier } from "@/utils/premium";
 
 /**
- * Transfer premium subscription from source user to target user during account merge
- * This ensures premium subscriptions are preserved when accounts are merged
+ * Prepare premium mutations to execute atomically with the account merge
  */
-export async function transferPremiumDuringMerge({
+export async function getPremiumTransferOperations({
   sourceUserId,
   targetUserId,
   logger,
@@ -15,7 +15,7 @@ export async function transferPremiumDuringMerge({
   targetUserId: string;
   logger: Logger;
 }) {
-  logger.info("Starting premium transfer during user merge", {
+  logger.info("Preparing premium transfer during user merge", {
     sourceUserId,
     targetUserId,
   });
@@ -28,27 +28,13 @@ export async function transferPremiumDuringMerge({
         email: true,
         premiumId: true,
         premiumAdminId: true,
-        premium: {
-          select: {
-            id: true,
-            tier: true,
-            users: { select: { id: true, email: true } },
-            admins: { select: { id: true, email: true } },
-          },
-        },
-        premiumAdmin: {
-          select: {
-            id: true,
-            users: { select: { id: true, email: true } },
-            admins: { select: { id: true, email: true } },
-          },
-        },
+        premium: { select: { tier: true } },
       },
     });
 
     if (!sourceUser) {
       logger.warn("Source user not found", { sourceUserId });
-      return;
+      return [];
     }
 
     const targetUser = await prisma.user.findUnique({
@@ -58,12 +44,7 @@ export async function transferPremiumDuringMerge({
         email: true,
         premiumId: true,
         premiumAdminId: true,
-        premium: {
-          select: {
-            id: true,
-            tier: true,
-          },
-        },
+        premium: { select: { tier: true } },
       },
     });
 
@@ -72,7 +53,8 @@ export async function transferPremiumDuringMerge({
       throw new Error(`Target user ${targetUserId} not found`);
     }
 
-    const operations: Promise<unknown>[] = [];
+    const operations: Prisma.PrismaPromise<unknown>[] = [];
+    let resultingPremiumId = targetUser.premiumId;
 
     // Handle premium subscription scenarios
     if (sourceUser.premiumId && targetUser.premiumId) {
@@ -102,14 +84,7 @@ export async function transferPremiumDuringMerge({
         shouldUseSourcePremium &&
         sourceUser.premiumId !== targetUser.premiumId
       ) {
-        // Update target user to use source's premium (atomic operation that handles the relationship change)
-        operations.push(
-          prisma.user.update({
-            where: { id: targetUserId },
-            data: { premiumId: sourceUser.premiumId },
-          }),
-        );
-
+        resultingPremiumId = sourceUser.premiumId;
         logger.info(
           "Target user's premium subscription replaced with source user's higher tier premium",
           { chosenTier: sourceTier },
@@ -120,21 +95,14 @@ export async function transferPremiumDuringMerge({
           { chosenTier: targetTier },
         );
       }
-    } else if (sourceUser.premiumId && sourceUser.premium) {
+    } else if (sourceUser.premiumId) {
       // Only source user has premium - transfer to target
       logger.info("Transferring premium subscription from source to target", {
         premiumId: sourceUser.premiumId,
         sourceUserId,
         targetUserId,
       });
-
-      // Update target user to use source's premium
-      operations.push(
-        prisma.user.update({
-          where: { id: targetUserId },
-          data: { premiumId: sourceUser.premiumId },
-        }),
-      );
+      resultingPremiumId = sourceUser.premiumId;
     } else if (targetUser.premiumId) {
       // Only target user has premium - no action needed, they keep their premium
       logger.info("Target user already has premium, no transfer needed", {
@@ -149,70 +117,49 @@ export async function transferPremiumDuringMerge({
       });
     }
 
-    // Handle premium admin transfer (user is a premium admin)
-    if (sourceUser.premiumAdminId && sourceUser.premiumAdmin) {
-      logger.info("Transferring premium admin rights", {
-        premiumId: sourceUser.premiumAdminId,
-        sourceUserId,
-        targetUserId,
+    // A user administers at most one premium. Prefer admin rights over the
+    // premium the merged user ends up on, so they can still manage billing.
+    const resultingPremiumAdminId =
+      [targetUser.premiumAdminId, sourceUser.premiumAdminId].find(
+        (premiumAdminId) =>
+          premiumAdminId && premiumAdminId === resultingPremiumId,
+      ) ??
+      targetUser.premiumAdminId ??
+      sourceUser.premiumAdminId;
+
+    if (
+      sourceUser.premiumAdminId &&
+      sourceUser.premiumAdminId !== resultingPremiumAdminId
+    ) {
+      logger.warn("Source user's premium admin rights not transferred", {
+        sourcePremiumAdminId: sourceUser.premiumAdminId,
+        resultingPremiumAdminId,
       });
+    }
 
-      if (targetUser.premiumAdminId) {
-        logger.warn(
-          "Target user already has premium admin rights, will merge",
-          {
-            sourcePremiumAdminId: sourceUser.premiumAdminId,
-            targetPremiumAdminId: targetUser.premiumAdminId,
-          },
-        );
-      }
-
-      // Connect target user as admin to source premium admin
+    if (
+      resultingPremiumId !== targetUser.premiumId ||
+      resultingPremiumAdminId !== targetUser.premiumAdminId
+    ) {
       operations.push(
-        prisma.premium.update({
-          where: { id: sourceUser.premiumAdminId },
+        prisma.user.update({
+          where: { id: targetUserId },
           data: {
-            admins: {
-              connect: { id: targetUserId },
-            },
+            premiumId: resultingPremiumId,
+            premiumAdminId: resultingPremiumAdminId,
           },
         }),
       );
-
-      // Update target user's premiumAdminId if they don't have one
-      if (!targetUser.premiumAdminId) {
-        operations.push(
-          prisma.user.update({
-            where: { id: targetUserId },
-            data: { premiumAdminId: sourceUser.premiumAdminId },
-          }),
-        );
-      }
     }
 
-    // Execute all premium transfer operations
-    if (operations.length > 0) {
-      logger.info("Executing premium transfer operations", {
-        operationCount: operations.length,
-        sourceUserId,
-        targetUserId,
-      });
-
-      await Promise.all(operations);
-
-      logger.info("Premium transfer completed successfully", {
-        sourceUserId,
-        targetUserId,
-      });
-    } else {
-      logger.info("No premium to transfer", { sourceUserId, targetUserId });
-    }
+    return operations;
   } catch (error) {
-    logger.error("Failed to transfer premium during user merge", {
+    logger.error("Failed to prepare premium transfer during user merge", {
       sourceUserId,
       targetUserId,
       error,
     });
-    // Don't rethrow - we want the merge to continue even if premium transfer fails
+    // Keep the existing best-effort behavior for unavailable premium metadata.
+    return [];
   }
 }

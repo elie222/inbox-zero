@@ -156,6 +156,49 @@ export async function handleAccountLinking({
   };
 }
 
+// A linked Account row is also the credential Better Auth accepts for provider
+// sign-in, and disabling email codes only clears their sessions. Linking from an
+// email-code session would therefore leave behind access that outlives the code,
+// so both the authorize and callback halves of every provider flow refuse it.
+const EMAIL_CODE_SESSION_BLOCKED_LOG =
+  "Blocked mailbox linking from an email code session";
+
+export function getMailboxLinkingBlockedResponse(request: {
+  auth: { emailOtp?: boolean };
+  logger: Logger;
+}) {
+  if (!request.auth.emailOtp) return null;
+
+  request.logger.warn(EMAIL_CODE_SESSION_BLOCKED_LOG);
+
+  return NextResponse.json(
+    {
+      error: "Sign in with your connected provider to connect a mailbox.",
+      isKnownError: true,
+    },
+    { status: 403 },
+  );
+}
+
+export function getMailboxLinkingBlockedRedirect({
+  session,
+  logger,
+  stateCookieName,
+}: {
+  session: { session: { emailOtp?: boolean } } | null;
+  logger: Logger;
+  stateCookieName: string;
+}) {
+  if (!session?.session.emailOtp) return null;
+
+  logger.warn(EMAIL_CODE_SESSION_BLOCKED_LOG);
+
+  return createAccountLinkingRedirect({
+    query: { error: "provider_sign_in_required" },
+    stateCookieName,
+  });
+}
+
 export async function hasActiveAccountLinkingUser({
   targetUserId,
   logger,

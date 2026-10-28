@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -143,13 +144,14 @@ export function CalendarConnectionCard({
   return (
     <Card>
       <CardHeader className="p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex min-w-0 items-center gap-3">
+        <div className="flex items-center justify-between gap-2 sm:gap-0">
+          <div className="flex min-w-0 items-center gap-3 max-sm:flex-1">
             <Image
               src={providerInfo.icon}
               alt={providerInfo.alt}
               width={32}
               height={32}
+              className="shrink-0"
               unoptimized
             />
             <div className="min-w-0">
@@ -168,14 +170,15 @@ export function CalendarConnectionCard({
           <div className="flex shrink-0 items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button
+                <Button
                   type="button"
                   aria-label="Calendar options"
                   disabled={isDisconnecting}
-                  className="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                  variant="ghostMuted"
+                  size="iconSm"
                 >
                   <MoreHorizontalIcon className="size-4" />
-                </button>
+                </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem

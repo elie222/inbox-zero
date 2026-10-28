@@ -17,6 +17,7 @@ export const LLM_PROVIDER_OPTIONS = [
   },
   { value: "bedrock", label: "AWS Bedrock" },
   { value: "groq", label: "Groq" },
+  { value: "cerebras", label: "Cerebras", hint: "fast inference" },
   { value: "ollama", label: "Ollama", hint: "self-hosted" },
   {
     value: "openai-compatible",
@@ -32,32 +33,40 @@ const LLM_LINKS: Record<string, string> = {
   openrouter: "https://openrouter.ai/settings/keys",
   aigateway: "https://vercel.com/docs/ai-gateway",
   groq: "https://console.groq.com/keys",
+  cerebras: "https://cloud.cerebras.ai",
 };
 
 const DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434/api";
 
 const DEFAULT_MODELS = {
   anthropic: {
-    default: "claude-sonnet-4-6",
-    economy: "claude-haiku-4-5-20251001",
+    default: "claude-sonnet-5",
+    economy: "claude-haiku-4-5",
   },
-  openai: { default: "gpt-5.4-mini", economy: "gpt-5.4-nano" },
-  google: { default: "gemini-3-flash", economy: "gemini-2-5-flash" },
+  openai: { default: "gpt-6-luna", economy: "gpt-6-luna" },
+  google: {
+    default: "gemini-3.8-flash",
+    economy: "gemini-3.1-flash-lite",
+  },
   openrouter: {
-    default: "anthropic/claude-sonnet-4.6",
-    economy: "anthropic/claude-haiku-4.5",
+    default: "anthropic/claude-sonnet-5",
+    economy: "openai/gpt-6-luna",
   },
   aigateway: {
-    default: "anthropic/claude-sonnet-4.6",
-    economy: "anthropic/claude-haiku-4.5",
+    default: "anthropic/claude-sonnet-5",
+    economy: "openai/gpt-6-luna",
   },
   bedrock: {
-    default: "global.anthropic.claude-sonnet-4-6",
+    default: "global.anthropic.claude-sonnet-5",
     economy: "global.anthropic.claude-haiku-4-5-20251001-v1:0",
   },
   groq: {
     default: "llama-3.3-70b-versatile",
     economy: "llama-3.1-8b-instant",
+  },
+  cerebras: {
+    default: "qwen-3.8-27b",
+    economy: "gpt-oss-120b",
   },
 } as const;
 

@@ -15,9 +15,9 @@ import {
   type RecallWebhookPayload,
 } from "@/utils/recall/types";
 import {
-  getRecallWebhookSecretFingerprint,
-  verifyRecallWebhook,
-} from "@/utils/recall/verify-webhook";
+  getWebhookSecretFingerprint,
+  verifyStandardWebhook,
+} from "@/utils/webhooks/verify-standard-webhook";
 
 export const POST = withError("recall/webhook", async (request) => {
   const logger = request.logger;
@@ -29,7 +29,7 @@ export const POST = withError("recall/webhook", async (request) => {
 
   const rawBody = await request.text();
 
-  const verification = verifyRecallWebhook({
+  const verification = verifyStandardWebhook({
     secret: env.RECALL_WEBHOOK_SECRET,
     headers: request.headers,
     rawBody,
@@ -37,7 +37,7 @@ export const POST = withError("recall/webhook", async (request) => {
   if (!verification.verified) {
     logger.warn("Rejected Recall webhook with an invalid signature", {
       verificationFailureReason: verification.reason,
-      webhookSecretFingerprint: getRecallWebhookSecretFingerprint(
+      webhookSecretFingerprint: getWebhookSecretFingerprint(
         env.RECALL_WEBHOOK_SECRET,
       ),
       ...(verification.reason === "missing_headers" && {

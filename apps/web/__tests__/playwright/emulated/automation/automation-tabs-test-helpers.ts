@@ -78,7 +78,7 @@ export async function expectVisibleAfterTransientFetch(
       return;
     } catch (error) {
       const hasTransientFetchError = await page
-        .getByText("Failed to fetch")
+        .getByText("Couldn't connect to Inbox Zero")
         .first()
         .isVisible()
         .catch(() => false);
@@ -126,6 +126,59 @@ export async function seedAutomationHistory(emailAccountId: string) {
        VALUES ($1, 'ARCHIVE', 'SUCCEEDED', CURRENT_TIMESTAMP, $2,
                CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
       [`${HISTORY_EXECUTED_RULE_ID}-archive`, HISTORY_EXECUTED_RULE_ID],
+    );
+  });
+}
+
+export async function seedAutomationThreadHistory(
+  emailAccountId: string,
+  additionalThreads = 0,
+  olderMessageCount = 51,
+) {
+  await seedAutomationHistory(emailAccountId);
+  await withClient(async (client) => {
+    await client.query(
+      `INSERT INTO "ExecutedRule"
+         (id, "threadId", "messageId", status, automated, reason, "ruleId",
+          "emailAccountId", "createdAt", "updatedAt")
+       SELECT $1 || '-' || n, 'thr_playwright_1', 'history-message-' || n,
+              'APPLIED', true, 'Older conversation message', $2, $3,
+              CURRENT_TIMESTAMP - n * INTERVAL '1 minute', CURRENT_TIMESTAMP
+       FROM generate_series(1, $4::int) AS n`,
+      [
+        HISTORY_EXECUTED_RULE_ID,
+        HISTORY_RULE_ID,
+        emailAccountId,
+        olderMessageCount,
+      ],
+    );
+    await client.query(
+      `INSERT INTO "ExecutedRule"
+         (id, "threadId", "messageId", status, automated, reason, "ruleId",
+          "emailAccountId", "createdAt", "updatedAt")
+       VALUES ($1, 'thr_playwright_1', 'msg_playwright_1', 'APPLIED', false,
+               'Second execution on the latest message', $2, $3,
+               CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      [
+        `${HISTORY_EXECUTED_RULE_ID}-duplicate`,
+        HISTORY_RULE_ID,
+        emailAccountId,
+      ],
+    );
+    await client.query(
+      `INSERT INTO "ExecutedRule"
+         (id, "threadId", "messageId", status, automated, reason, "ruleId",
+          "emailAccountId", "createdAt", "updatedAt")
+       SELECT $1 || '-thread-' || n, 'history-thread-' || n, 'history-single-message-' || n,
+              'APPLIED', true, 'Another conversation', $2, $3,
+              CURRENT_TIMESTAMP - INTERVAL '1 day', CURRENT_TIMESTAMP
+       FROM generate_series(1, $4::int) AS n`,
+      [
+        HISTORY_EXECUTED_RULE_ID,
+        HISTORY_RULE_ID,
+        emailAccountId,
+        additionalThreads,
+      ],
     );
   });
 }
@@ -204,9 +257,11 @@ export async function seedAutomationSettings(emailAccountId: string) {
       [emailAccountId, KNOWLEDGE_TITLE, UPDATED_KNOWLEDGE_TITLE],
     );
     await client.query(
+      // The app analyzes the writing style on first visit whenever it is
+      // empty, so seed one to keep that background write out of the test.
       `UPDATE "EmailAccount"
        SET about = NULL,
-           "writingStyle" = NULL,
+           "writingStyle" = 'Seeded writing style',
            signature = NULL,
            "includeReferralSignature" = false,
            "multiRuleSelectionEnabled" = false,
@@ -345,9 +400,10 @@ export async function getKnowledgeState(emailAccountId: string) {
 }
 
 async function deleteAutomationHistory(client: Client) {
-  await client.query(`DELETE FROM "ExecutedRule" WHERE id = $1`, [
-    HISTORY_EXECUTED_RULE_ID,
-  ]);
+  await client.query(
+    `DELETE FROM "ExecutedRule" WHERE id = $1 OR "ruleId" = $2`,
+    [HISTORY_EXECUTED_RULE_ID, HISTORY_RULE_ID],
+  );
   await client.query(`DELETE FROM "Rule" WHERE id = $1`, [HISTORY_RULE_ID]);
 }
 

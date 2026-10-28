@@ -52,14 +52,20 @@ export type ThreadWithPayloadMessages = gmail_v1.Schema$Thread & {
 export interface ParsedMessage {
   attachments?: Attachment[];
   bodyContentType?: "text" | "html"; // For Outlook: indicates which format the body was originally in
+  calendarContent?: string;
+  // For Outlook: the event the mailbox created on the user's calendar for this invitation
+  calendarEventId?: string;
   conversationIndex?: string | null;
   date: string;
   externalUrl?: string;
+  hasAttachment?: boolean;
   headers: ParsedMessageHeaders;
   historyId: string;
   id: string;
-  inline: Inline[];
+  inboxSection?: "focused" | "other" | null;
+  inline: Attachment[];
   internalDate?: string | null;
+  isMeetingInvitation?: boolean;
   labelIds?: string[];
   parentFolderId?: string;
   // For Outlook: store raw recipient data to avoid double conversion
@@ -91,21 +97,6 @@ interface Headers {
   "content-type": string;
 }
 
-interface Inline {
-  attachmentId: string;
-  filename: string;
-  headers: Headers2;
-  mimeType: string;
-  size: number;
-}
-
-interface Headers2 {
-  "content-description": string;
-  "content-id": string;
-  "content-transfer-encoding": string;
-  "content-type": string;
-}
-
 export interface ParsedMessageHeaders {
   bcc?: string;
   cc?: string;
@@ -113,6 +104,7 @@ export interface ParsedMessageHeaders {
   from: string;
   "in-reply-to"?: string;
   "list-unsubscribe"?: string;
+  "list-unsubscribe-post"?: string;
   "message-id"?: string;
   references?: string;
   "reply-to"?: string;

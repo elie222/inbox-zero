@@ -12,9 +12,18 @@ import {
   getNewsletterSenderDisplayName,
   messageRepliesToSourceSender,
   isSameOrganization,
+  getInitials,
+  formatRecipientNames,
 } from "./email";
 
 describe("email utils", () => {
+  describe("getInitials", () => {
+    it("keeps astral characters whole", () => {
+      expect(getInitials("𐐷 Smith")).toBe("𐐏S");
+      expect(getInitials("😀")).toBe("😀");
+    });
+  });
+
   describe("extractNameFromEmail", () => {
     it.each([
       ["formatted sender", "John Doe <john.doe@gmail.com>", "John Doe"],
@@ -24,9 +33,36 @@ describe("email utils", () => {
         "john.doe@gmail.com",
       ],
       ["plain email", "john.doe@gmail.com", "john.doe@gmail.com"],
+      [
+        "quoted name with a comma",
+        '"Doe, John" <john@example.com>',
+        "Doe, John",
+      ],
+      [
+        "quoted name with an escaped quote",
+        '"John \\"JD\\" Doe" <john@example.com>',
+        'John "JD" Doe',
+      ],
       ["empty input", "", ""],
     ])("handles %s", (_caseName, input, expected) => {
       expect(extractNameFromEmail(input)).toBe(expected);
+    });
+  });
+
+  describe("formatRecipientNames", () => {
+    it("lists recipients by given name, the account first as me, without duplicates", () => {
+      expect(
+        formatRecipientNames(
+          [
+            '"Doe, John" <john@example.com>',
+            "Jane Smith <jane@example.com>",
+            "User <user@example.com>",
+            "noname@example.com",
+            "JOHN@example.com",
+          ],
+          "user@example.com",
+        ),
+      ).toBe("me, John, Jane, noname@example.com");
     });
   });
 
@@ -144,6 +180,11 @@ describe("email utils", () => {
         "comma inside quoted display name",
         '"Doe, John" <john@example.com>, jane@example.com',
         ['"Doe, John" <john@example.com>', "jane@example.com"],
+      ],
+      [
+        "escaped quote and comma inside quoted display name",
+        '"John \\"JD\\", Doe" <john@example.com>, jane@example.com',
+        ['"John \\"JD\\", Doe" <john@example.com>', "jane@example.com"],
       ],
     ])("splits %s", (_caseName, input, expected) => {
       expect(splitRecipientList(input)).toEqual(expected);

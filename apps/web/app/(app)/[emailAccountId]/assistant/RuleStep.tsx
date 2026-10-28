@@ -23,9 +23,9 @@ function DeleteButton({
 }) {
   return (
     <Button
-      size="icon"
+      size="iconSm"
       variant="ghost"
-      className="size-8 mt-1"
+      className="mt-1"
       aria-label={ariaLabel}
       onClick={onClick}
     >
@@ -72,9 +72,9 @@ function OptionsMenu({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
-          size="icon"
+          size="iconSm"
           variant="ghost"
-          className="size-8 mt-1"
+          className="mt-1"
           aria-label="More options"
         >
           <MoreHorizontalIcon className="size-4 text-muted-foreground" />
@@ -181,7 +181,9 @@ function CardLayoutRight({
   className?: string;
 }) {
   return (
-    <div className={cn("space-y-2 mx-auto w-full", className)}>{children}</div>
+    <div className={cn("min-w-0 space-y-2 mx-auto w-full", className)}>
+      {children}
+    </div>
   );
 }
 
@@ -218,7 +220,7 @@ export function RuleStep({
 }) {
   return (
     <div className="flex items-start gap-3">
-      <div className="relative flex-1">
+      <div className="relative min-w-0 flex-1">
         <CardLayout>
           {leftContent && <div className="shrink-0">{leftContent}</div>}
           <CardLayoutRight>{rightContent}</CardLayoutRight>

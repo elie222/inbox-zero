@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const bcp47LanguageTag = z
+export const bcp47LanguageTag = z
   .string()
   .trim()
   .min(2)

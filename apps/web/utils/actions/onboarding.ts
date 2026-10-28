@@ -3,13 +3,13 @@
 import { after } from "next/server";
 import {
   saveOnboardingAnswersBody,
-  saveOnboardingChatAnswersBody,
   saveOnboardingFeaturesSchema,
+  saveSignupIntentSchema,
 } from "@/utils/actions/onboarding.validation";
 import { actionClientUser } from "@/utils/actions/safe-action";
 import prisma from "@/utils/prisma";
 import { updateContactCompanySize, updateContactRole } from "@inboxzero/loops";
-import { trackOnboardingAnswer } from "@/utils/posthog";
+import { trackOnboardingAnswer, trackSignupIntent } from "@/utils/posthog";
 
 export const completedOnboardingAction = actionClientUser
   .metadata({ name: "completedOnboarding" })
@@ -18,6 +18,26 @@ export const completedOnboardingAction = actionClientUser
       where: { id: userId, completedOnboardingAt: null },
       data: { completedOnboardingAt: new Date() },
     });
+  });
+
+export const saveSignupIntentAction = actionClientUser
+  .metadata({ name: "saveSignupIntent" })
+  .inputSchema(saveSignupIntentSchema)
+  .action(async ({ parsedInput: { intent }, ctx: { userId, userEmail } }) => {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { signupIntent: intent },
+    });
+
+    // Email-client-only users skip the AI setup steps and the upgrade page.
+    if (intent === "MAIL_CLIENT") {
+      await prisma.user.updateMany({
+        where: { id: userId, completedOnboardingAt: null },
+        data: { completedOnboardingAt: new Date() },
+      });
+    }
+
+    after(() => trackSignupIntent(userEmail, intent));
   });
 
 export const saveOnboardingAnswersAction = actionClientUser
@@ -153,47 +173,6 @@ export const saveOnboardingAnswersAction = actionClientUser
             : null,
         ]);
       });
-    },
-  );
-
-// Stores the full transcript of answers from the chat onboarding variant.
-// Called after each answer with the accumulated list so partial data survives
-// abandonment. Role is saved separately via updateEmailAccountRoleAction.
-export const saveOnboardingChatAnswersAction = actionClientUser
-  .metadata({ name: "saveOnboardingChatAnswers" })
-  .inputSchema(saveOnboardingChatAnswersBody)
-  .action(
-    async ({
-      parsedInput: { answers },
-      ctx: { userId, userEmail, logger },
-    }) => {
-      // "discovery" is the pain-point key in the LLM-guided flow; "struggle"
-      // was its name in the earlier scripted flow
-      const painPointKeys = ["discovery", "struggle"];
-      const struggle = answers.find((a) =>
-        painPointKeys.includes(a.key),
-      )?.answer;
-      const latestAnswer = answers.at(-1);
-
-      await prisma.user.update({
-        where: { id: userId },
-        data: {
-          onboardingAnswers: { surveyId: "chat-onboarding", answers },
-          ...(struggle ? { surveyGoal: struggle } : {}),
-        },
-      });
-
-      if (struggle && painPointKeys.includes(latestAnswer?.key ?? "")) {
-        after(async () => {
-          await trackOnboardingAnswer(userEmail, {
-            surveyGoal: struggle,
-          }).catch((error) => {
-            logger.error("PostHog: Error tracking chat onboarding answers", {
-              error,
-            });
-          });
-        });
-      }
     },
   );
 

@@ -1,3 +1,4 @@
+import { buildMeetingBriefingBlocks } from "@/utils/messaging/providers/slack/messages/meeting-briefing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import {
@@ -38,6 +39,7 @@ const event: CalendarEvent = {
 } as any;
 
 const briefingContent = {
+  priorities: [],
   guests: [],
   internalTeamMembers: [],
 } as any;
@@ -48,6 +50,62 @@ describe("sendBriefing", () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       meetingBriefsSendEmail: false,
     } as any);
+  });
+
+  it("delivers meeting priorities before attendee context in messaging apps", async () => {
+    prisma.messagingChannel.findMany.mockResolvedValue([
+      {
+        id: "channel",
+        provider: MessagingProvider.TEAMS,
+        isConnected: true,
+        accessToken: null,
+        teamId: "team",
+        providerUserId: "recipient",
+        routes: [
+          {
+            purpose: MessagingRoutePurpose.MEETING_BRIEFS,
+            targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
+            targetId: "recipient",
+          },
+        ],
+      },
+    ] as any);
+    const content = {
+      priorities: ["Confirm the maintenance window before approving release."],
+      guests: [
+        {
+          name: "Partner",
+          email: "partner@example.com",
+          bullets: ["Technical contact"],
+        },
+      ],
+    };
+    await sendBriefing({
+      event,
+      briefingContent: content,
+      internalTeamMembers: [],
+      emailAccountId: "account",
+      userEmail: "user@example.com",
+      provider: "google",
+      userTimezone: null,
+      logger,
+    });
+    const message = vi.mocked(sendAutomationMessage).mock.calls[0][0].text;
+    expect(message).toContain(content.priorities[0]);
+    expect(message.indexOf(content.priorities[0])).toBeLessThan(
+      message.indexOf("Technical contact"),
+    );
+    const slack = JSON.stringify(
+      buildMeetingBriefingBlocks({
+        meetingTitle: "Review",
+        formattedTime: "10:00 AM",
+        briefingContent: content,
+      }),
+    );
+    expect(slack).toContain(content.priorities[0]);
+    expect(slack.indexOf(content.priorities[0])).toBeLessThan(
+      slack.indexOf("Technical contact"),
+    );
   });
 
   it("skips Slack delivery when the channel is missing a provider user id", async () => {

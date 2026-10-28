@@ -230,7 +230,11 @@ describe("createInvitationAction", () => {
       role: "admin",
     } as any);
     prisma.invitation.findMany.mockResolvedValue([
-      { email: "existing@test.com" },
+      {
+        id: "inv_existing",
+        email: "existing@test.com",
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+      },
     ] as any);
     prisma.invitation.create.mockResolvedValueOnce({ id: "inv_2" } as any);
     prisma.organization.findUnique.mockResolvedValue({ name: "Acme" } as any);
@@ -254,6 +258,66 @@ describe("createInvitationAction", () => {
         { email: "fresh@test.com", success: true },
       ],
     });
+  });
+
+  it("replaces an expired pending invitation instead of reporting it as already invited", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      id: "ea_inviter",
+      email: "inviter@test.com",
+      name: "Inviter",
+      account: { userId: "u1", provider: "google" },
+    } as any);
+    prisma.member.findFirst.mockResolvedValueOnce({
+      organizationId: "org_1",
+      emailAccountId: "ea_inviter",
+      role: "owner",
+    } as any);
+    prisma.invitation.findMany.mockResolvedValue([
+      {
+        id: "inv_expired",
+        email: "expired@test.com",
+        expiresAt: new Date(Date.now() - 1000 * 60 * 60),
+      },
+    ] as any);
+    prisma.invitation.create.mockResolvedValueOnce({ id: "inv_new" } as any);
+    prisma.organization.findUnique.mockResolvedValue({ name: "Acme" } as any);
+
+    const res = await inviteMembersAction({
+      organizationId: "org_1",
+      invitations: [{ email: "expired@test.com", role: "admin" }],
+    });
+
+    expect(prisma.invitation.deleteMany).toHaveBeenCalledWith({
+      where: { id: { in: ["inv_expired"] }, status: "pending" },
+    });
+    expect(prisma.invitation.create).toHaveBeenCalledTimes(1);
+    expect(mockSendOrganizationInvitation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: "expired@test.com",
+        invitationId: "inv_new",
+      }),
+    );
+    expect(res?.data).toEqual({
+      results: [{ email: "expired@test.com", success: true }],
+    });
+  });
+
+  it("tells the recipient when their invitation has expired", async () => {
+    prisma.invitation.findUnique.mockResolvedValue({
+      id: "inv_1",
+      organizationId: "org_1",
+      email: "user@test.com",
+      role: "member",
+      status: "pending",
+      expiresAt: new Date(Date.now() - 1000 * 60 * 60),
+    } as any);
+
+    const res = await handleInvitationAction({ invitationId: "inv_1" } as any);
+
+    expect(prisma.member.create).not.toHaveBeenCalled();
+    expect(res?.serverError).toBe(
+      "This invitation has expired. Ask your organization admin to send a new one.",
+    );
   });
 
   it("blocks non-owners from assigning the owner role", async () => {

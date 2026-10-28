@@ -1,3 +1,5 @@
+import { addDays } from "date-fns/addDays";
+import { startOfDay } from "date-fns/startOfDay";
 import type { ThreadsResponse } from "@/app/api/threads/route";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 import { runAiRules } from "@/utils/queue/email-actions";
@@ -15,12 +17,14 @@ export async function onRun(
     startDate,
     endDate,
     includeRead,
+    generateDraftReplies = false,
     rerun,
     maxEmails,
   }: {
     startDate: Date;
     endDate?: Date;
     includeRead?: boolean;
+    generateDraftReplies?: boolean;
     rerun?: boolean;
     maxEmails?: number;
   },
@@ -34,6 +38,8 @@ export async function onRun(
   let totalProcessed = 0;
   let aborted = false;
   const abortController = new AbortController();
+  // Provider "before" filters are exclusive; the selected calendar day is inclusive.
+  const before = endDate ? startOfDay(addDays(endDate, 1)) : undefined;
 
   function abort() {
     aborted = true;
@@ -48,7 +54,7 @@ export async function onRun(
         type: "inbox",
         limit: BATCH_SIZE,
         after: startDate,
-        ...(endDate ? { before: endDate } : {}),
+        ...(before ? { before } : {}),
         ...(!includeRead ? { isUnread: true } : {}),
         ...(nextPageToken ? { nextPageToken } : {}),
       };
@@ -109,12 +115,10 @@ export async function onRun(
       if (completeIfCancelled()) return;
 
       onThreadsQueued(threadsToQueue);
-      await runAiRules(
-        emailAccountId,
-        threadsToQueue,
-        !!rerun,
-        abortController.signal,
-      );
+      await runAiRules(emailAccountId, threadsToQueue, !!rerun, {
+        signal: abortController.signal,
+        skipDraftReplies: !generateDraftReplies,
+      });
       totalProcessed += threadsToQueue.length;
 
       if (maxEmails !== undefined && totalProcessed >= maxEmails) break;

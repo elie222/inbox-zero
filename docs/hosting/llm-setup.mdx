@@ -28,6 +28,7 @@ Use one of these provider values before the colon in `*_LLMS` entries:
 | [Google Vertex AI](https://ai-sdk.dev/providers/ai-sdk-providers/google-vertex) | `vertex` |
 | [OpenRouter](https://openrouter.ai/docs/quickstart) | `openrouter` |
 | [Groq](https://console.groq.com/docs/quickstart) | `groq` |
+| [Cerebras](https://inference-docs.cerebras.ai/quickstart) | `cerebras` |
 | [Vercel AI Gateway](https://ai-sdk.dev/providers/ai-sdk-providers/ai-gateway) | `aigateway` |
 | [AWS Bedrock](https://ai-sdk.dev/providers/ai-sdk-providers/amazon-bedrock) | `bedrock` |
 | [Ollama](https://ollama.com/) | `ollama` |
@@ -50,8 +51,8 @@ Each value is an ordered comma-separated list in `provider:model` format. The fi
 Minimal example:
 
 ```env
-DEFAULT_LLMS=openai:gpt-5.4-mini
-ECONOMY_LLMS=openai:gpt-5.4-nano
+DEFAULT_LLMS=openai:gpt-6-luna
+ECONOMY_LLMS=openai:gpt-6-luna
 LLM_API_KEY=sk-...
 ```
 
@@ -72,10 +73,25 @@ NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED=false
 
 `ALLOW` preserves the default behavior. `REDACT` replaces matched values before the LLM request. `BLOCK` stops the request when a match is found. Leave `NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED=false` to let users choose per account in Settings, or set it to `true` to enforce the deployment default for all accounts and hide the setting from the UI.
 
+## Decision Models
+
+Some classification steps (rule selection, sender categorization, thread status) can use a decision model instead of an LLM. Cold email detection uses the LLM unless `DECISION_MODEL_COLD_EMAIL_ENABLED=true`. Decision models answer typed questions about structured state and return calibrated probabilities. They run through the AI SDK's decision model interface, so switching models is a config change:
+
+```env
+DEFAULT_DECISION_MODEL=openrouter:typesafe/jev-1.13 # or openrouter:cloudflare/clef
+DEFAULT_DECISION_MODEL_ENABLED=false # true: on for users who haven't chosen; false: users opt in
+DECISION_MODEL_COLD_EMAIL_ENABLED=false # true: the decision model also detects cold email
+```
+
+Use the same `provider:model` format as the `*_LLMS` variables. Supported providers are `openrouter`, `aigateway`, `openai`, and `typesafe`. Keys resolve the same way too: the provider's key (`OPENROUTER_API_KEY`, `AI_GATEWAY_API_KEY`, or `OPENAI_API_KEY`), falling back to `LLM_API_KEY`. Direct TypeSafe always needs `TYPESAFE_API_KEY`.
+
+The decision model receives the same email content as the LLM it replaces, with the same sensitive data policy applied. Users who set their own AI key are not enrolled by default. If a decision call fails, that step falls back to the configured LLM.
+
 ## Provider-specific details
 
 - `azure-foundry` requires `AZURE_FOUNDRY_API_KEY` and `AZURE_FOUNDRY_BASE_URL`. Use the deployment name as the model portion of the `azure-foundry:<deployment>` entry.
-- `openai-compatible` also requires `OPENAI_COMPATIBLE_BASE_URL`. Set `OPENAI_COMPATIBLE_AUTH_HEADER=api-key` when the server expects an `api-key` header instead of bearer authorization.
+- `cerebras` uses `CEREBRAS_API_KEY` (or `LLM_API_KEY`) against `https://api.cerebras.ai/v1`. Example chat model: `CHAT_LLMS=cerebras:qwen-3.8-27b`.
+- `openai-compatible` also requires `OPENAI_COMPATIBLE_BASE_URL`. Set `OPENAI_COMPATIBLE_AUTH_HEADER=api-key` when the server expects an `api-key` header instead of bearer authorization. This can point at Cerebras (`https://api.cerebras.ai/v1`) if you do not want the dedicated provider, but then you cannot also use a local OpenAI-compatible server.
 - `ollama` can use `OLLAMA_BASE_URL` and `OLLAMA_MODEL`.
 
 ## Fallbacks
@@ -83,9 +99,9 @@ NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED=false
 Add fallbacks by adding more entries to the same role list:
 
 ```env
-DEFAULT_LLMS=openrouter:anthropic/claude-sonnet-4.6,openai:gpt-5.4-mini
-ECONOMY_LLMS=openrouter:google/gemini-2.5-flash,openai:gpt-5.4-nano
-CHAT_LLMS=openrouter:anthropic/claude-haiku-4.5,openai:gpt-5.4-mini
+DEFAULT_LLMS=openrouter:anthropic/claude-sonnet-5,openai:gpt-6-luna
+ECONOMY_LLMS=openrouter:openai/gpt-6-luna,google:gemini-3.1-flash-lite
+CHAT_LLMS=openrouter:anthropic/claude-haiku-4.5,openai:gpt-6-luna
 ```
 
 Unsupported providers, entries without configured credentials, entries without models, and duplicates are skipped with warnings.
@@ -123,7 +139,7 @@ Claude Code example:
 
 ```bash
 cd apps/web
-pnpm add ai-sdk-provider-claude-code@3.1.0
+pnpm add ai-sdk-provider-claude-code@4.3.1
 claude auth login
 ```
 

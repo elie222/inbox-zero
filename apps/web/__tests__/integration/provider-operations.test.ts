@@ -326,6 +326,18 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
 
     providerTestSuite(() => harness, "Outlook");
 
+    test("getThreadsWithParticipant finds threads with a sender", async () => {
+      const threads = await harness.provider.getThreadsWithParticipant({
+        participantEmail: "carol@example.com",
+      });
+
+      expect(
+        threads.flatMap((thread) =>
+          thread.messages.map((message) => message.headers.subject),
+        ),
+      ).toEqual(["Label this"]);
+    });
+
     test("exposes inline file attachment metadata through the Graph query contract", async () => {
       const graphFetch = globalThis.fetch;
       let attachmentExpand: string | null = null;

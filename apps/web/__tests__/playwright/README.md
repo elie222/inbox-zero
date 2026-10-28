@@ -19,9 +19,36 @@ Within `emulated/`, group specs by product area, such as `mail/` or
 `automation/`. Keep setup files inside the boundary they support so
 real-provider tests cannot accidentally reuse emulated authentication state.
 
-The package-level emulated command runs each product area with a fresh Next and
-emulator process, then merges their reports. This prevents the development
-server's compiled route graph from exhausting its heap during the full suite.
+`billing/` drives the signup-to-paying-customer path against the in-repo Stripe
+emulator in `__tests__/emulators/stripe.ts`. The emulator serves the Stripe API,
+the hosted checkout page the browser is redirected to, and signed webhooks back
+into the app, so a spec can follow a real checkout through to the `Premium`
+row. Specs drive Stripe-side events through its control endpoints; run it
+outside Playwright with `pnpm emulate:stripe`.
+
+Every model role is pointed at the in-repo LLM emulator in
+`__tests__/emulators/llm.ts`, an OpenAI-compatible server the app reaches
+through the real AI SDK. By default it returns the smallest answer that
+satisfies the request: a schema-valid object for structured calls, schema-valid
+arguments for forced tool calls, and a short line of text otherwise. Specs that
+need a particular answer register one with `POST /__emulator/replies` on
+`PLAYWRIGHT_LLM_BASE_URL`, matched by a prompt substring, and can read what the
+app asked from `GET /__emulator/requests`. Run it outside Playwright with
+`pnpm emulate:llm`.
+
+The package-level emulated command runs each spec with a fresh Next process,
+emulator, and authenticated mailbox, then merges the reports. Tests inside a
+spec remain serial. This avoids state leaking between specs and bounds the
+development server's compiled route graph. CI selects the affected specs once
+and distributes them across at most 20 matrix jobs. Each job installs dependencies,
+browsers, and database services once, then runs its specs sequentially with the
+same per-spec isolation. Selections of 20 or fewer specs retain one job per spec.
+The selection job lists each batch's specs in its GitHub summary; each test job
+reports per-spec durations and exit statuses. A failing spec does not skip the
+remaining specs in its batch, and any failure fails the combined `Web E2E` check.
+CI bounds each Playwright invocation to eight minutes, including cold web-server
+startup and authentication setup. Each job gets four additional minutes for
+dependency installation and artifact handling, plus eight minutes per selected spec.
 Pass one or more areas or spec paths when iterating on focused flows:
 
 ```sh
@@ -30,36 +57,73 @@ pnpm -F inbox-zero-ai test:playwright:emulated mail/layout.spec.ts
 pnpm -F inbox-zero-ai test:playwright:emulated automation settings
 ```
 
-Every emulated product test stores a stable final-state screenshot when it
-passes and Playwright's automatic failure screenshot when it fails. The shared
+An emulated product test that passes without capturing a checkpoint stores a
+stable final-state screenshot, and every failing test stores Playwright's
+automatic failure screenshot. The shared
 fixture also attaches `browser-evidence` JSON containing the final URL and
 title, console errors, uncaught page errors, failed network requests, and HTTP
 error responses. Uncaught page errors fail otherwise-passing tests unless a
 flow explicitly expects browser errors while simulating a network outage.
 
 Use `capturePlaywrightCheckpoint` from `emulated/playwright-evidence.ts` for
-meaningful intermediate states. It writes the screenshot where the public
+meaningful states that reviewers should see. Capture distinct UI states only,
+not every step: a test with checkpoints skips the final-state screenshot, so
+end on a checkpoint when the outcome is worth showing. It writes the screenshot where the public
 gallery can compare it with `main` and attaches the same image to the full
 Playwright report.
 
 The emulated project runs when browser-facing files change in pull requests or
 on `main`, plus the daily schedule and manual dispatches. Pull requests run only
-the affected product areas. The selector traces imports from each tested Next.js
-route, combines those results with explicit product boundaries, and runs an
-entire area when its product code changes or only a spec when that spec changes.
+the affected product areas and features. The selector traces imports from each
+tested Next.js route and combines those results with explicit product boundaries.
+An area's optional `coverage.json` maps each spec filename to the app-relative
+component or hook entry points that its assertions and screenshots exercise.
+For example, the mail split-tabs spec owns `SplitTabs.tsx`; changes to that
+component or its imported split picker select the same spec. Multiple matching
+specs are combined, including any specs directly changed by the PR.
+
+Declare the feature being exercised, rather than its whole page or shell, and
+reuse existing specs and screenshot checkpoints. Shared app dependencies, route
+entry points, and area files with no matching feature keep the whole area.
+Missing entry points or a spec without a declaration also disable narrowing for
+that area. Areas without a manifest retain their existing selection behavior.
+Mail is the first area with feature declarations. Explicit shared-feature entry
+points in `sharedFeatureMappings` use focused cross-page coverage: command-palette
+changes run its command, starring, theme, and settings-dialog specs. This mapping
+does not extend to those entry points' imported foundations. Missing target specs
+fall back to broad coverage, and other files in the PR still add their own tests.
+
+On PRs, UI dependencies under `utils/` and `lib/` also trigger selection; unrelated
+utilities with no connection to tested routes are skipped. Unit-test changes
+alone do not select browser tests.
 Shared Playwright setup and configuration changes use the full suite. Pushes to
 `main`, scheduled runs, and manual runs also keep the full suite as a backstop.
 
-CI captures the final state of every selected test, and tests can add
-intentional checkpoint screenshots for important intermediate states. Every
+Run `node apps/web/scripts/measure-playwright-selection.mjs` from the repository
+root to record selected spec counts for representative changes. An optional
+first argument loads another selector module, allowing before/after comparisons
+against the same source tree. These are spec-count measurements, not wall-clock
+predictions; see [the initial comparison](selection-comparison.md).
+
+CI captures each selected test's checkpoints, or its final state when it has
+none. Every
 failure also retains its trace and video.
 
 After each pull request run, a trusted follow-up workflow publishes a
 screenshot-only gallery, compares its checkpoints with the latest successful
 `main` run, and adds or updates a pull request comment with the gallery link.
+The comment also embeds the frames most worth a look: failure captures, new
+checkpoints, changed checkpoints from specs the pull request touched, and the
+changed checkpoints with the largest share of differing pixels against `main`.
+Hash comparison alone flags most captures as changed because of timestamps and
+other drift, so the pixel ranking is what surfaces real visual changes.
 The full HTML report stays private to the GitHub Actions artifact for pull
 requests because it was generated from contributor-controlled code. Successful
 and failed `main` runs also publish the full report and visual history to the
-public Playwright dashboard:
+public Playwright dashboard. Galleries accept up to 500 PNGs totaling 100 MiB;
+individual image validation and artifact traversal limits also apply. This
+allows full-suite galleries with more than 100 checkpoints without unbounded
+artifact processing.
+
 
 <https://izghactions.fsn1.your-objectstorage.com/playwright/index.html>

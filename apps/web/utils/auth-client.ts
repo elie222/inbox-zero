@@ -1,32 +1,28 @@
 import { createAuthClient } from "better-auth/react";
 import { ssoClient } from "@better-auth/sso/client";
-import {
-  genericOAuthClient,
-  organizationClient,
-} from "better-auth/client/plugins";
+import { emailOTPClient, organizationClient } from "better-auth/client/plugins";
 
-export const { signIn, signOut, signUp, useSession, getSession, sso } =
-  createAuthClient({
-    plugins: [ssoClient(), organizationClient()],
-  });
+export const {
+  signIn,
+  signOut,
+  signUp,
+  useSession,
+  getSession,
+  sso,
+  emailOtp,
+} = createAuthClient({
+  plugins: [ssoClient(), organizationClient(), emailOTPClient()],
+});
 
-function createGenericOauthAuthClient() {
-  return createAuthClient({
-    plugins: [genericOAuthClient()],
-  });
-}
-
-export async function signInWithOauth2(
-  options: Parameters<
-    ReturnType<typeof createGenericOauthAuthClient>["signIn"]["oauth2"]
-  >[0],
+export async function signInWithSocialRedirect(
+  options: Parameters<typeof signIn.social>[0],
 ) {
-  const response = await fetch("/api/auth/sign-in/oauth2", {
+  const response = await fetch("/api/auth/sign-in/social", {
     method: "POST",
     headers: {
       "content-type": "application/json",
     },
-    body: JSON.stringify(options),
+    body: JSON.stringify({ ...options, disableRedirect: true }),
   });
 
   const payload = await parseOauth2Response(response);

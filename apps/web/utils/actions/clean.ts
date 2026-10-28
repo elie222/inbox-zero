@@ -45,7 +45,11 @@ export const cleanInboxAction = actionClient
 
       const premium = await getUserPremium({ userId });
       if (!premium) throw new SafeError("User not premium");
-      if (!isActivePremium(premium)) throw new SafeError("Premium not active");
+      if (!isActivePremium(premium)) {
+        throw new SafeError(
+          "Deep Clean requires an active paid subscription. It isn't available during the free trial.",
+        );
+      }
 
       const emailProvider = await createEmailProvider({
         emailAccountId,
@@ -106,14 +110,15 @@ export const cleanInboxAction = actionClient
                 excludeLabelNames: [inboxZeroLabels.processed.name],
               },
               maxResults: Math.min(maxEmails || 100, 100),
+              pageToken: nextPageToken ?? undefined,
             });
+
+          nextPageToken = pageToken;
 
           logger.info("Fetched threads", {
             threadCount: threads.length,
             nextPageToken,
           });
-
-          nextPageToken = pageToken;
 
           if (threads.length === 0) break;
 

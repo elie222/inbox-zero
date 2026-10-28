@@ -78,7 +78,7 @@ Analyze the data and identify:
 
   const result = await generateObject({
     ...modelOptions,
-    system,
+    instructions: system,
     prompt,
     schema: userPersonaSchema,
   });

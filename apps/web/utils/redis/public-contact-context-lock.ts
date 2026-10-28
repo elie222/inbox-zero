@@ -45,5 +45,5 @@ function getLockKey(email: string) {
 }
 
 function isRedisConfigured() {
-  return Boolean(env.UPSTASH_REDIS_URL && env.UPSTASH_REDIS_TOKEN);
+  return Boolean(env.REDIS_HTTP_URL && env.REDIS_HTTP_TOKEN);
 }

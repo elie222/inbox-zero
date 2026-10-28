@@ -27,8 +27,9 @@ vi.mock("@/utils/prisma", () => ({
       deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
     },
     classificationFeedback: {
-      count: vi.fn().mockResolvedValue(0),
+      upsert: vi.fn().mockResolvedValue(undefined),
       findFirst: vi.fn().mockResolvedValue({ id: "earlier-removal" }),
+      count: vi.fn().mockResolvedValue(0),
     },
   },
 }));

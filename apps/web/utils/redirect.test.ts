@@ -14,10 +14,6 @@ describe("buildRedirectUrl", () => {
     expect(buildRedirectUrl("/settings")).toBe("/settings");
   });
 
-  it("returns base path when searchParams is undefined", () => {
-    expect(buildRedirectUrl("/settings", undefined)).toBe("/settings");
-  });
-
   it("returns base path when searchParams is empty", () => {
     expect(buildRedirectUrl("/settings", {})).toBe("/settings");
   });
@@ -121,6 +117,32 @@ describe("getSafeRedirectUrl", () => {
     expect(
       getSafeRedirectUrl("http://example.com/oauth", {
         allowExternal: true,
+        fallbackUrl: "/login",
+      }),
+    ).toBe("/login");
+  });
+
+  it("hands native MCP OAuth callbacks back to the client only when explicitly allowed", () => {
+    const cursorCallback =
+      "cursor://anysphere.cursor-mcp/oauth/callback?code=abc&state=xyz";
+
+    expect(getSafeRedirectUrl(cursorCallback, { allowExternal: true })).toBe(
+      "/",
+    );
+    expect(
+      getSafeRedirectUrl(cursorCallback, {
+        allowNativeOAuthRedirect: true,
+        fallbackUrl: "/login",
+      }),
+    ).toBe(cursorCallback);
+    expect(
+      getSafeRedirectUrl("http://127.0.0.1:8787/callback?code=abc", {
+        allowNativeOAuthRedirect: true,
+      }),
+    ).toBe("http://127.0.0.1:8787/callback?code=abc");
+    expect(
+      getSafeRedirectUrl("javascript:alert(1)", {
+        allowNativeOAuthRedirect: true,
         fallbackUrl: "/login",
       }),
     ).toBe("/login");

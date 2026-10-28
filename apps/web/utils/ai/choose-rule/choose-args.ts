@@ -1,7 +1,10 @@
 import { z } from "zod";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { ModelType } from "@/utils/llms/model";
-import type { DraftReplyConfidence } from "@/generated/prisma/enums";
+import {
+  ActionType,
+  type DraftReplyConfidence,
+} from "@/generated/prisma/enums";
 import type { Action } from "@/generated/prisma/client";
 import {
   type RuleWithActions,
@@ -25,10 +28,17 @@ import {
   isAiFilledArgValue,
 } from "@/utils/mcp/tool-specs";
 import type { SelectedAttachment } from "@/utils/attachments/source-schema";
+import { escapeHtml } from "@/utils/string";
 
 const MODULE = "choose-args";
 
 const INTEGRATION_ARGS_FIELD_PREFIX = "integrationArgs.";
+
+// These bodies are rendered as HTML by the email providers.
+const HTML_REPLY_BODY_ACTION_TYPES = new Set<ActionType>([
+  ActionType.DRAFT_EMAIL,
+  ActionType.REPLY,
+]);
 
 export type EmailAccountForDrafting = EmailAccountWithAI & {
   draftReplyConfidence: DraftReplyConfidence;
@@ -233,9 +243,12 @@ export function combineActionsWithAiArgs(
       ) {
         const originalValue = action[field];
         if (typeof originalValue === "string") {
+          const resolvedVars = vars as Record<`var${number}`, string>;
           (updatedAction[field] as string) = mergeTemplateWithVars(
             originalValue,
-            vars as Record<`var${number}`, string>,
+            field === "content" && HTML_REPLY_BODY_ACTION_TYPES.has(action.type)
+              ? escapeTemplateVars(resolvedVars)
+              : resolvedVars,
           );
         }
       }
@@ -504,4 +517,11 @@ export function mergeTemplateWithVars(
   }
 
   return result;
+}
+
+// AI-filled values are untrusted; the user's own template text is kept as written.
+function escapeTemplateVars(vars: Record<`var${number}`, string>) {
+  return Object.fromEntries(
+    Object.entries(vars).map(([key, value]) => [key, escapeHtml(value)]),
+  ) as Record<`var${number}`, string>;
 }

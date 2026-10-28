@@ -4,8 +4,9 @@
 # ECS deployment. It provides a standard Redis connection for the ioredis
 # subscriber (used for real-time features).
 #
-# Note: Regular Redis caching works with ElastiCache. Upstash/QStash features
-# are specific to Upstash, so keep those configured separately if you use them.
+# Note: REDIS_URL is a standard Redis connection (ElastiCache works).
+# REDIS_HTTP_URL speaks the Upstash REST protocol, so point it at Upstash or
+# serverless-redis-http. QStash stays Upstash-specific.
 #
 # Cost estimate for provisioned instances:
 #   - cache.t4g.micro:  ~$12/mo (0.5 GiB, good for <100 users)

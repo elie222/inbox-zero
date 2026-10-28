@@ -26,7 +26,7 @@ export function shouldRunEvalTests(): boolean {
  * Runs a describe block for each model in the eval matrix.
  *
  * When EVAL_MODELS is not set, runs a single block using the catalog's
- * default model (gpt-5.6-luna), so results are comparable across
+ * default model (gpt-6-luna), so results are comparable across
  * machines regardless of local env model configuration.
  *
  * When EVAL_MODELS=all or a JSON array, runs one block per model
@@ -48,7 +48,7 @@ export function describeEvalMatrix(
   const models = getEvalModels();
 
   if (models.length === 0) {
-    const fallback = EVAL_MODEL_CATALOG["gpt-5.6-luna"];
+    const fallback = EVAL_MODEL_CATALOG["gpt-6-luna"];
     describe(name, () => {
       fn(fallback, getEmailAccountForModel(fallback, overrides));
     });
@@ -90,6 +90,8 @@ function hasConfiguredProvider(provider: string): boolean {
       return Boolean(process.env.GOOGLE_VERTEX_PROJECT);
     case Provider.GROQ:
       return Boolean(process.env.GROQ_API_KEY);
+    case Provider.CEREBRAS:
+      return Boolean(process.env.CEREBRAS_API_KEY);
     case Provider.BEDROCK:
       return Boolean(
         process.env.BEDROCK_ACCESS_KEY &&
@@ -115,6 +117,7 @@ function hasAnyConfiguredProvider(): boolean {
       process.env.GOOGLE_API_KEY ||
       process.env.GOOGLE_VERTEX_PROJECT ||
       process.env.GROQ_API_KEY ||
+      process.env.CEREBRAS_API_KEY ||
       process.env.OPENROUTER_API_KEY ||
       hasAzureFoundryCredentials() ||
       process.env.AI_GATEWAY_API_KEY ||

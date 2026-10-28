@@ -70,6 +70,17 @@ export const updateEmailAccountTimezoneAction = actionClient
     });
   });
 
+export const fillMissingTimezoneAction = actionClient
+  .metadata({ name: "fillMissingTimezone" })
+  .inputSchema(updateTimezoneBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { timezone } }) => {
+    const result = await prisma.emailAccount.updateMany({
+      where: { id: emailAccountId, timezone: null },
+      data: { timezone },
+    });
+    return { updated: result.count > 0 };
+  });
+
 export const updateCalendarBookingLinkAction = actionClient
   .metadata({ name: "updateBookingLink" })
   .inputSchema(updateBookingLinkBody)

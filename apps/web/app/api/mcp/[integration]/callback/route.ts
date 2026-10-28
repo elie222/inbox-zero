@@ -9,7 +9,7 @@ import {
 } from "@/utils/oauth/state";
 import { prefixPath } from "@/utils/path";
 import prisma from "@/utils/prisma";
-import { findIntegration } from "@/utils/mcp/integrations";
+import { resolveMcpIntegration } from "@/utils/mcp/resolve-integration";
 import { syncMcpTools } from "@/utils/mcp/sync-tools";
 import { handleOAuthCallback } from "@/utils/mcp/oauth";
 import { env } from "@/env";
@@ -27,16 +27,6 @@ const CALLBACK_RESULT_TTL_SECONDS = 600;
 export const GET = withError("mcp/callback", async (request, { params }) => {
   const logger = request.logger;
   const { integration } = await params;
-
-  const integrationConfig = findIntegration(integration);
-
-  if (!integrationConfig) {
-    throw new SafeError(`Integration ${integration} not found`);
-  }
-
-  if (integrationConfig.authType !== "oauth") {
-    throw new SafeError(`Integration ${integration} does not support OAuth`);
-  }
 
   const searchParams = request.nextUrl.searchParams;
   const code = searchParams.get("code");
@@ -153,6 +143,21 @@ export const GET = withError("mcp/callback", async (request, { params }) => {
     return buildRedirectResponse(redirectUrl);
   }
 
+  // Custom servers are scoped to their email account, so resolve only once the
+  // state proves which account this callback belongs to
+  const integrationConfig = await resolveMcpIntegration({
+    name: integration,
+    emailAccountId,
+  });
+
+  if (!integrationConfig) {
+    throw new SafeError(`Integration ${integration} not found`);
+  }
+
+  if (integrationConfig.authType !== "oauth") {
+    throw new SafeError(`Integration ${integration} does not support OAuth`);
+  }
+
   if (isOAuthCodeStoreConfigured()) {
     const claim = await claimOAuthCodeAndWait(code);
     if (claim.status === "error" && claim.stage === "claim") {
@@ -191,7 +196,7 @@ export const GET = withError("mcp/callback", async (request, { params }) => {
     const redirectUri = `${env.NEXT_PUBLIC_BASE_URL}/api/mcp/${integration}/callback`;
 
     await handleOAuthCallback({
-      integration,
+      integration: integrationConfig,
       code,
       codeVerifier: storedCodeVerifier,
       redirectUri,

@@ -3,7 +3,7 @@ import { GmailLabel } from "@/utils/gmail/label";
 
 /**
  * A thread is unread when any of its messages is unread. The row's styling, the
- * reader's ⋯ menu and the update below all have to agree on that, so they read it here.
+ * reader's read toggle and the update below all have to agree on that, so they read it here.
  * Both providers normalise to these ids, so this is not a provider branch.
  */
 export function isThreadUnread(
@@ -11,6 +11,36 @@ export function isThreadUnread(
 ) {
   return messages.some((message) =>
     message.labelIds?.includes(GmailLabel.UNREAD),
+  );
+}
+
+/** Inbox and unread views are INBOX-scoped, so archive is dropping this label. */
+export function isThreadInInbox(
+  messages: readonly { labelIds?: string[] | null }[],
+) {
+  return messages.some((message) =>
+    message.labelIds?.includes(GmailLabel.INBOX),
+  );
+}
+
+/**
+ * Matches the Archived view: out of the inbox and not in trash or spam, so
+ * archiving again would do nothing and moving back to the inbox is the action.
+ */
+export function isThreadArchived(
+  messages: readonly { labelIds?: string[] | null }[],
+) {
+  return (
+    messages.length > 0 &&
+    messages.every(
+      (message) =>
+        !message.labelIds?.some(
+          (labelId) =>
+            labelId === GmailLabel.INBOX ||
+            labelId === GmailLabel.TRASH ||
+            labelId === GmailLabel.SPAM,
+        ),
+    )
   );
 }
 

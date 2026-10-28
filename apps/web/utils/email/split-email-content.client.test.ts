@@ -4,15 +4,96 @@ import { describe, expect, it } from "vitest";
 import { splitEmailContent } from "./split-email-content.client";
 
 describe("splitEmailContent", () => {
+  it("preserves styled quote ancestors and following content without repeating the reply", () => {
+    const result = splitEmailContent(
+      '<!doctype html><html><head><style>.wrapper { color: red; }</style></head><body style="background: #222"><div class="wrapper"><p>Current reply</p><div class="gmail_quote">History</div><p>Following history</p></div><p>Older history</p></body></html>',
+    );
+    const quoted = new DOMParser().parseFromString(
+      result.quotedContent,
+      "text/html",
+    );
+    expect(quoted.body.style.backgroundColor).toBe("rgb(34, 34, 34)");
+    expect(quoted.body.textContent).toBe(
+      "HistoryFollowing historyOlder history",
+    );
+    expect(quoted.querySelector(".wrapper .gmail_quote")?.textContent).toBe(
+      "History",
+    );
+    expect(quoted.head.querySelector("style")?.textContent).toContain(
+      ".wrapper",
+    );
+    expect(result.mainContent).not.toContain("History");
+  });
+
+  it("preserves styles in HTML fragments without document tags", () => {
+    const result = splitEmailContent(
+      '<style>.gmail_quote { color: red; }</style><p>Reply</p><div class="gmail_quote">History</div>',
+    );
+    const quoted = new DOMParser().parseFromString(
+      result.quotedContent,
+      "text/html",
+    );
+    expect(quoted.head.querySelector("style")?.textContent).toBe(
+      ".gmail_quote { color: red; }",
+    );
+    expect(quoted.body.textContent).toBe("History");
+  });
+
+  it("removes blank quote spacing without removing reply content", () => {
+    const result = splitEmailContent(
+      '<p>Reply</p><br><div dir="ltr"></div><br><div class="gmail_quote">History</div>',
+    );
+    expect(result.mainContent).toBe("<p>Reply</p>");
+  });
+  it("preserves trailing images and styled content before a quote", () => {
+    const content =
+      '<div><img src="cid:signature"></div><div style="height:20px"></div>';
+    expect(
+      splitEmailContent(`${content}<div class="gmail_quote">History</div>`)
+        .mainContent,
+    ).toBe(content);
+  });
   it("collapses a Gmail quote container", () => {
     const result = splitEmailContent(
       '<div>Current reply</div><div class="gmail_quote_container"><div>Earlier message</div></div>',
     );
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       mainContent: "<div>Current reply</div>",
       hasQuotedContent: true,
     });
+  });
+
+  it("preserves document-level styles when collapsing quoted content", () => {
+    const result = splitEmailContent(
+      '<!doctype html><html><head><style>p { margin: 0; }</style></head><body style="background: #222; color: #eee"><p>Current reply</p><div class="gmail_quote">Earlier message</div></body></html>',
+    );
+    const parsedDocument = new DOMParser().parseFromString(
+      result.mainContent,
+      "text/html",
+    );
+
+    expect(result.hasQuotedContent).toBe(true);
+    expect(result.mainContent).toMatch(/^<!doctype html>/i);
+    expect(parsedDocument.body.getAttribute("style")).toBe(
+      "background: #222; color: #eee",
+    );
+    expect(parsedDocument.head.querySelector("style")?.textContent).toContain(
+      "p { margin: 0; }",
+    );
+    expect(parsedDocument.body.textContent).toBe("Current reply");
+  });
+
+  it("preserves legacy doctype identifiers when collapsing quoted content", () => {
+    const legacyDoctype =
+      '<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">';
+    const result = splitEmailContent(
+      `${legacyDoctype}<html><body><p>Current reply</p><div class="gmail_quote">Earlier message</div></body></html>`,
+    );
+
+    expect(result.mainContent).toMatch(
+      /^<!DOCTYPE html PUBLIC "-\/\/W3C\/\/DTD HTML 4\.01 Transitional\/\/EN" "http:\/\/www\.w3\.org\/TR\/html4\/loose\.dtd">/,
+    );
   });
 
   it("collapses a provider-prefixed Outlook reply header and all later content", () => {
@@ -25,7 +106,7 @@ describe("splitEmailContent", () => {
       ].join(""),
     );
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       mainContent: "<div>Current reply</div>",
       hasQuotedContent: true,
     });
@@ -44,7 +125,7 @@ describe("splitEmailContent", () => {
       ].join(""),
     );
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       mainContent:
         '<div class="WordSection1"><p class="MsoNormal">Current reply</p></div>',
       hasQuotedContent: true,
@@ -80,8 +161,9 @@ describe("splitEmailContent", () => {
       "</div>",
     ].join("");
 
-    expect(splitEmailContent(html)).toEqual({
+    expect(splitEmailContent(html)).toMatchObject({
       mainContent: html,
+      quotedContent: "",
       hasQuotedContent: false,
     });
   });
@@ -95,7 +177,7 @@ describe("splitEmailContent", () => {
       ].join(""),
     );
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       mainContent: "<div>Current reply</div>",
       hasQuotedContent: true,
     });
@@ -106,8 +188,39 @@ describe("splitEmailContent", () => {
       '<div>Current reply</div><blockquote type="cite">Earlier message</blockquote>',
     );
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       mainContent: "<div>Current reply</div>",
+      hasQuotedContent: true,
+    });
+  });
+
+  it("preserves content the sender formatted as a Gmail quote", () => {
+    const html = [
+      '<div dir="ltr"><div>I got this error:</div><div><br></div>',
+      '<blockquote class="gmail_quote" style="margin:0px 0px 0px 0.8ex;border-left:1px solid rgb(204,204,204);padding-left:1ex">',
+      "<pre>Error: something failed</pre>",
+      "</blockquote>",
+      '<div class="gmail_signature">Signature</div></div>',
+    ].join("");
+
+    expect(splitEmailContent(html)).toMatchObject({
+      mainContent: html,
+      quotedContent: "",
+      hasQuotedContent: false,
+    });
+  });
+
+  it("collapses a Gmail reply quote with an attribution line", () => {
+    const result = splitEmailContent(
+      [
+        '<div dir="ltr">Current reply</div><br>',
+        '<div class="gmail_quote"><div dir="ltr" class="gmail_attr">Earlier, someone wrote:<br></div>',
+        '<blockquote class="gmail_quote">Earlier message</blockquote></div>',
+      ].join(""),
+    );
+
+    expect(result).toMatchObject({
+      mainContent: '<div dir="ltr">Current reply</div>',
       hasQuotedContent: true,
     });
   });
@@ -116,8 +229,9 @@ describe("splitEmailContent", () => {
     const html =
       "<div>A regular message</div><blockquote>A cited passage</blockquote>";
 
-    expect(splitEmailContent(html)).toEqual({
+    expect(splitEmailContent(html)).toMatchObject({
       mainContent: html,
+      quotedContent: "",
       hasQuotedContent: false,
     });
   });

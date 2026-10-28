@@ -1,4 +1,7 @@
-import type { OutlookFolder } from "@/utils/outlook/folders";
+import {
+  flattenOutlookFolders,
+  type OutlookFolder,
+} from "@/utils/outlook/folders";
 
 export type MailSidebarFolder = OutlookFolder & { depth: number };
 
@@ -8,7 +11,18 @@ export function getMailSidebarFolders(
 ): MailSidebarFolder[] {
   return folders.flatMap((folder) => {
     const childDepth = folder.systemType ? depth : depth + 1;
-    const children = getMailSidebarFolders(folder.childFolders, childDepth);
+    const children = getMailSidebarFolders(
+      folder.childFolders ?? [],
+      childDepth,
+    );
     return folder.systemType ? children : [{ ...folder, depth }, ...children];
   });
+}
+
+export function getMailSearchFolders(
+  folders: OutlookFolder[],
+): { name: string }[] {
+  return flattenOutlookFolders(folders)
+    .filter((folder) => !folder.systemType)
+    .map((folder) => ({ name: folder.path }));
 }

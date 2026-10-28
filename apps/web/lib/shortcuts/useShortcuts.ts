@@ -1,6 +1,13 @@
 "use client";
 
-import { type RefObject, useCallback, useMemo, useRef, useState } from "react";
+import {
+  type RefObject,
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { type HotkeyCallback, useHotkeys } from "react-hotkeys-hook";
 import {
   createSequencePrefixTracker,
@@ -13,10 +20,13 @@ import {
   type ShortcutScope,
   SHORTCUTS,
 } from "@/lib/shortcuts/registry";
+import { trackMailAction } from "@/utils/analytics/mail-usage";
 
 type HotkeysEvent = Parameters<HotkeyCallback>[1];
 
 type SequenceTracker = ReturnType<typeof createSequencePrefixTracker>;
+
+const HOTKEYS_DELIMITER = "|";
 
 type ShortcutTarget =
   | { type: "entry"; entry: ShortcutEntry }
@@ -25,40 +35,56 @@ type ShortcutTarget =
 type ShortcutBucket = {
   scope: ShortcutScope;
   allowWhileTyping: boolean;
-  /** Comma separated hotkeys, the shape react-hotkeys-hook expects. */
-  keys: string;
+  capture: boolean;
+  /** Kept as entries so the comma key is distinct from the list delimiter. */
+  keys: string[];
   targets: Map<string, ShortcutTarget>;
 };
 
 // react-hotkeys-hook takes scope and typing behaviour per hook, so bindings are
 // registered as one hook per combination rather than one hook per shortcut.
 const BUCKET_SPECS = [
-  { scope: "global", allowWhileTyping: false },
-  { scope: "global", allowWhileTyping: true },
-  { scope: "mail", allowWhileTyping: false },
-  { scope: "mail", allowWhileTyping: true },
+  { scope: "global", allowWhileTyping: false, capture: false },
+  { scope: "global", allowWhileTyping: false, capture: true },
+  { scope: "global", allowWhileTyping: true, capture: false },
+  { scope: "global", allowWhileTyping: true, capture: true },
+  { scope: "mail", allowWhileTyping: false, capture: false },
+  { scope: "mail", allowWhileTyping: false, capture: true },
+  { scope: "mail", allowWhileTyping: true, capture: false },
+  { scope: "mail", allowWhileTyping: true, capture: true },
 ] as const satisfies readonly {
   scope: ShortcutScope;
   allowWhileTyping: boolean;
+  capture: boolean;
 }[];
 
 /**
- * Binds the registry entries the caller supplies a handler for. A shortcut with
- * no handler stays unbound, so its key keeps its browser default.
+ * Binds the registry entries the caller supplies a handler for. Entries without
+ * a handler and desktop-only entries outside Electron keep their browser default.
  */
-export function useShortcuts(handlers: ShortcutHandlers): void {
+export function useShortcuts(
+  handlers: ShortcutHandlers,
+  { isDesktopApp = false }: { isDesktopApp?: boolean } = {},
+): void {
   const handlersRef = useRef(handlers);
-  handlersRef.current = handlers;
+  useLayoutEffect(() => {
+    // Suspended renders must not replace the visible screen's handlers.
+    handlersRef.current = handlers;
+  }, [handlers]);
 
   const [sequence] = useState(createSequencePrefixTracker);
 
-  const signature = activeShortcutIds(handlers).join(",");
+  const signature = activeShortcutIds(handlers, isDesktopApp).join(",");
   const buckets = useMemo(() => buildBuckets(signature), [signature]);
 
   useShortcutBucket(buckets[0], handlersRef, sequence);
   useShortcutBucket(buckets[1], handlersRef, sequence);
   useShortcutBucket(buckets[2], handlersRef, sequence);
   useShortcutBucket(buckets[3], handlersRef, sequence);
+  useShortcutBucket(buckets[4], handlersRef, sequence);
+  useShortcutBucket(buckets[5], handlersRef, sequence);
+  useShortcutBucket(buckets[6], handlersRef, sequence);
+  useShortcutBucket(buckets[7], handlersRef, sequence);
 }
 
 function useShortcutBucket(
@@ -97,7 +123,13 @@ function useShortcutBucket(
       const { entry } = target;
       const handler =
         handlersRef.current[entry.id as ShortcutId] ?? entry.action;
-      handler?.(event);
+      if (!handler) return;
+      handler(event);
+      trackMailAction({
+        action: entry.id,
+        source: "shortcut",
+        shortcut: hotkeysEvent.hotkey,
+      });
     },
     [bucket, handlersRef, sequence],
   );
@@ -111,20 +143,29 @@ function useShortcutBucket(
   );
 
   useHotkeys(bucket.keys, onHotkey, {
+    enabled: bucket.keys.length > 0,
     scopes: [bucket.scope],
     // Hotkeys are matched on the typed character so they survive keyboard
     // layouts that move `#` or `?`.
     useKey: true,
     enableOnFormTags: bucket.allowWhileTyping,
     enableOnContentEditable: bucket.allowWhileTyping,
+    delimiter: HOTKEYS_DELIMITER,
+    eventListenerOptions: bucket.capture ? { capture: true } : undefined,
     sequenceTimeoutMs: SEQUENCE_TIMEOUT_MS,
+    ignoreEventWhen: (event: KeyboardEvent) => event.defaultPrevented,
     preventDefault,
   });
 }
 
-function activeShortcutIds(handlers: ShortcutHandlers): string[] {
+function activeShortcutIds(
+  handlers: ShortcutHandlers,
+  isDesktopApp: boolean,
+): string[] {
   return SHORTCUTS.filter(
-    (entry) => handlers[entry.id as ShortcutId] ?? entry.action,
+    (entry) =>
+      (!entry.desktopOnly || isDesktopApp) &&
+      (handlers[entry.id as ShortcutId] ?? entry.action),
   ).map((entry) => entry.id);
 }
 
@@ -138,6 +179,7 @@ function buildBuckets(signature: string): ShortcutBucket[] {
       if (!activeIds.has(entry.id)) continue;
       if (entry.scope !== spec.scope) continue;
       if (!!entry.allowWhileTyping !== spec.allowWhileTyping) continue;
+      if (!!entry.capture !== spec.capture) continue;
 
       for (const key of entry.keys) {
         targets.set(key, { type: "entry", entry });
@@ -152,7 +194,8 @@ function buildBuckets(signature: string): ShortcutBucket[] {
     return {
       scope: spec.scope,
       allowWhileTyping: spec.allowWhileTyping,
-      keys: [...targets.keys()].join(","),
+      capture: spec.capture,
+      keys: [...targets.keys()],
       targets,
     };
   });
@@ -175,7 +218,7 @@ function resolveTarget(
   }
   if (
     target?.type === "entry" &&
-    (target.entry.id === "open" || target.entry.id === "nextSplit") &&
+    ["backToList", "open", "nextSplit", "search"].includes(target.entry.id) &&
     event.target instanceof Element &&
     event.target.closest('[role="dialog"]')
   ) {

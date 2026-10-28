@@ -4,6 +4,7 @@ import prisma from "@/utils/prisma";
 import { getEmailProviderRateLimitState } from "@/utils/email/rate-limit";
 import {
   LAST_EMAIL_ACCOUNT_COOKIE,
+  ownedLastEmailAccountId,
   parseLastEmailAccountCookieValue,
 } from "@/utils/cookies";
 import { withAuth } from "@/utils/middleware";
@@ -14,7 +15,7 @@ export type GetEmailAccountsResponse = Awaited<
 
 async function getEmailAccounts({ userId }: { userId: string }) {
   const cookieStore = await cookies();
-  const lastEmailAccountId = parseLastEmailAccountCookieValue({
+  const lastEmailAccountCookieId = parseLastEmailAccountCookieValue({
     userId,
     cookieValue: cookieStore.get(LAST_EMAIL_ACCOUNT_COOKIE)?.value,
   });
@@ -84,7 +85,13 @@ async function getEmailAccounts({ userId }: { userId: string }) {
     return { ...account, isPrimary: false };
   });
 
-  return { emailAccounts: accountsWithNames, lastEmailAccountId };
+  return {
+    emailAccounts: accountsWithNames,
+    lastEmailAccountId: ownedLastEmailAccountId(
+      lastEmailAccountCookieId,
+      emailAccounts.map((account) => account.id),
+    ),
+  };
 }
 
 export const GET = withAuth("user/email-accounts", async (request) => {

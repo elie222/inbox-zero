@@ -1,3 +1,4 @@
+import { processDueScheduledEmails } from "@/utils/scheduled-email/service";
 import { NextResponse } from "next/server";
 import { withError } from "@/utils/middleware";
 import { hasCronSecret, hasPostCronSecret } from "@/utils/cron";
@@ -144,16 +145,23 @@ async function processScheduledActions(logger: Logger) {
 
 async function processScheduledMail(logger: Logger) {
   if (!env.QSTASH_TOKEN) {
-    const [scheduledActions, snoozedThreads] = await Promise.all([
-      processScheduledActions(logger),
-      processDueSnoozedThreads(logger),
-    ]);
-    return { scheduledActions, snoozedThreads };
+    const [scheduledActions, snoozedThreads, scheduledEmails] =
+      await Promise.all([
+        processScheduledActions(logger),
+        processDueSnoozedThreads(logger),
+        processDueScheduledEmails(logger),
+      ]);
+    return { scheduledActions, snoozedThreads, scheduledEmails };
   }
 
   logger.info("QStash configured; checking snoozed thread fallback");
+  const [snoozedThreads, scheduledEmails] = await Promise.all([
+    processDueSnoozedThreads(logger),
+    processDueScheduledEmails(logger),
+  ]);
   return {
+    scheduledEmails,
     scheduledActions: { skipped: true, reason: "qstash-configured" },
-    snoozedThreads: await processDueSnoozedThreads(logger),
+    snoozedThreads,
   };
 }

@@ -187,10 +187,10 @@ export const AdminUserControls = () => {
           description: "User deleted",
         });
       },
-      onError: () => {
+      onError: (error) => {
         toastError({
           title: "Error deleting user",
-          description: "Error deleting user",
+          description: getActionErrorMessage(error.error),
         });
       },
     },

@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  getComposeTargetMessageId,
   getActiveThreadIndex,
+  getSearchFocus,
+  groupThreadsByDate,
   getNextThreadAfterRemoval,
-  getThreadActionTargetIds,
+  resolveThreadActionTargets,
   scrollElementIntoContainer,
   shouldPrefetchMoreThreads,
   THREAD_PREFETCH_REMAINING,
@@ -40,25 +43,61 @@ describe("getActiveThreadIndex", () => {
   });
 });
 
-describe("getThreadActionTargetIds", () => {
+describe("resolveThreadActionTargets", () => {
   it("targets an open reader that is missing from the current list", () => {
     expect(
-      getThreadActionTargetIds({
-        openThreadId: "missing",
-        activeThreadId: undefined,
-        selectedThreadIds: ["one"],
+      resolveThreadActionTargets({
+        focusedKey: undefined,
+        listTargets: [target("one", "account-1")],
+        openTarget: target("missing", "account-1"),
+        selectedKeys: ["one"],
       }),
-    ).toEqual(["missing"]);
+    ).toEqual([target("missing", "account-1")]);
   });
 
-  it("preserves an explicit selection when the open reader is in the list", () => {
+  it("preserves row selection when a listed reader is open", () => {
     expect(
-      getThreadActionTargetIds({
-        openThreadId: "two",
-        activeThreadId: "two",
-        selectedThreadIds: ["one", "two"],
+      resolveThreadActionTargets({
+        focusedKey: "two",
+        listTargets: [target("one", "account-1"), target("two", "account-1")],
+        openTarget: target("two", "account-1"),
+        selectedKeys: ["one", "two"],
       }),
-    ).toEqual(["one", "two"]);
+    ).toEqual([target("one", "account-1"), target("two", "account-1")]);
+  });
+
+  it("drops selected rows that disappeared from the filtered list", () => {
+    expect(
+      resolveThreadActionTargets({
+        focusedKey: "visible",
+        listTargets: [target("visible", "account-1")],
+        openTarget: undefined,
+        selectedKeys: ["filtered", "visible"],
+      }),
+    ).toEqual([target("visible", "account-1")]);
+  });
+
+  it("retains account ownership for cross-account selections", () => {
+    expect(
+      resolveThreadActionTargets({
+        focusedKey: "account-1:shared",
+        listTargets: [
+          target("account-1:shared", "account-1", "shared"),
+          target("account-2:shared", "account-2", "shared"),
+        ],
+        openTarget: undefined,
+        selectedKeys: ["account-1:shared", "account-2:shared"],
+      }).map(({ key, selection }) => ({ key, selection })),
+    ).toEqual([
+      {
+        key: "account-1:shared",
+        selection: { emailAccountId: "account-1", threadId: "shared" },
+      },
+      {
+        key: "account-2:shared",
+        selection: { emailAccountId: "account-2", threadId: "shared" },
+      },
+    ]);
   });
 });
 
@@ -258,6 +297,150 @@ describe("scrollElementIntoContainer", () => {
   });
 });
 
+describe("groupThreadsByDate", () => {
+  const now = new Date("2025-09-05T12:00:00");
+
+  it("groups consecutive threads under one heading and keeps list positions", () => {
+    const groups = groupThreadsByDate(
+      [
+        createDatedThread("2025-09-05T11:00:00"),
+        createDatedThread("2025-09-05T08:00:00"),
+        createDatedThread("2025-09-04T18:00:00"),
+        createDatedThread("2025-09-01T18:00:00"),
+        createDatedThread("2025-08-30T18:00:00"),
+        createDatedThread("2025-08-02T18:00:00"),
+      ],
+      now,
+    );
+
+    expect(
+      groups.map((group) => ({
+        label: group.label,
+        startIndex: group.startIndex,
+        count: group.threads.length,
+      })),
+    ).toEqual([
+      { label: "Today", startIndex: 0, count: 2 },
+      { label: "Yesterday", startIndex: 2, count: 1 },
+      { label: "Last 7 days", startIndex: 3, count: 2 },
+      { label: "August", startIndex: 5, count: 1 },
+    ]);
+  });
+
+  it("dates a thread by its latest message", () => {
+    const thread = {
+      messages: [
+        { internalDate: "2025-08-01T09:00:00" },
+        { internalDate: "2025-09-05T09:00:00" },
+      ],
+    };
+
+    expect(groupThreadsByDate([thread], now)[0].label).toBe("Today");
+  });
+
+  it("gives undated threads no heading instead of dating them now", () => {
+    const groups = groupThreadsByDate(
+      [
+        createDatedThread("2025-09-05T11:00:00"),
+        { messages: [{ internalDate: undefined }] },
+        { messages: [{ internalDate: "not-a-date" }] },
+      ],
+      now,
+    );
+
+    expect(
+      groups.map((group) => ({
+        label: group.label,
+        count: group.threads.length,
+      })),
+    ).toEqual([
+      { label: "Today", count: 1 },
+      { label: null, count: 2 },
+    ]);
+  });
+
+  it("starts a new group when the list is not date-ordered", () => {
+    const groups = groupThreadsByDate(
+      [
+        createDatedThread("2025-09-05T11:00:00"),
+        createDatedThread("2025-09-04T11:00:00"),
+        createDatedThread("2025-09-05T09:00:00"),
+      ],
+      now,
+    );
+
+    expect(groups.map((group) => group.label)).toEqual([
+      "Today",
+      "Yesterday",
+      "Today",
+    ]);
+  });
+});
+
+describe("getSearchFocus", () => {
+  it("retains the cached match through an empty refresh before provider results reorder it", () => {
+    const cached = getSearchFocus({
+      view: "query",
+      focusedIndex: 0,
+      orderedIds: ["cached"],
+    });
+    const refreshing = getSearchFocus({
+      previous: cached,
+      view: "query",
+      focusedIndex: 0,
+      orderedIds: [],
+    });
+    const provider = getSearchFocus({
+      previous: refreshing,
+      view: "query",
+      focusedIndex: 0,
+      orderedIds: ["new", "cached"],
+    });
+    expect(provider).toEqual({ view: "query", key: "cached", index: 1 });
+  });
+  it("keeps focus inside a shorter result set when the retained row disappears", () => {
+    const focus = getSearchFocus({
+      previous: { view: "query", key: "gone", index: 3 },
+      view: "query",
+      focusedIndex: 3,
+      orderedIds: ["a", "b"],
+    });
+    expect(focus.index).toBeLessThan(2);
+    expect(focus.key).toBeDefined();
+  });
+  it("does not restore a prior query's cursor after changing views", () => {
+    const previous = { view: "old", key: "cached", index: 0 };
+    const refreshing = getSearchFocus({
+      previous,
+      view: "new",
+      focusedIndex: 0,
+      orderedIds: [],
+    });
+    expect(
+      getSearchFocus({
+        previous: refreshing,
+        view: "new",
+        focusedIndex: 0,
+        orderedIds: ["new", "cached"],
+      }).index,
+    ).toBe(0);
+  });
+  it("honors explicit cursor movement instead of restoring a previous row", () => {
+    expect(
+      getSearchFocus({
+        previous: { view: "query", key: "cached", index: 0 },
+        view: "query",
+        focusedIndex: 1,
+        orderedIds: ["cached", "new"],
+      }).key,
+    ).toBe("new");
+  });
+});
+
+function createDatedThread(internalDate: string) {
+  return { messages: [{ internalDate }] };
+}
+
 function createBox({
   top,
   bottom,
@@ -282,3 +465,34 @@ function createBox({
     }),
   } as HTMLElement;
 }
+
+function target(key: string, emailAccountId: string, threadId = key) {
+  return {
+    key,
+    selection: { emailAccountId, threadId },
+    thread: { key },
+  };
+}
+
+describe("getComposeTargetMessageId", () => {
+  it("targets the latest delivered message when saved drafts follow it", () => {
+    expect(
+      getComposeTargetMessageId([
+        { id: "incoming", labelIds: ["INBOX"] },
+        { id: "sent", labelIds: ["SENT"] },
+        { id: "saved-reply", labelIds: ["DRAFT"] },
+        { id: "saved-forward", labelIds: ["DRAFT"] },
+      ]),
+    ).toBe("sent");
+  });
+
+  it("keeps a draft-only conversation editable", () => {
+    expect(
+      getComposeTargetMessageId([{ id: "draft", labelIds: ["DRAFT"] }]),
+    ).toBe("draft");
+  });
+
+  it("waits for a message when the thread has not loaded", () => {
+    expect(getComposeTargetMessageId([])).toBeUndefined();
+  });
+});

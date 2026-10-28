@@ -62,10 +62,11 @@ describe("createMcpToolsForAgent", () => {
     const result = await createMcpToolsForAgent("email-account-1");
 
     // The MCP endpoint keeps its /mcp suffix (unlike the OAuth discovery URL)
-    expect(mockCreateMcpTransport).toHaveBeenCalledWith(
-      "https://mcp.notion.com/mcp",
-      "auth-token",
-    );
+    expect(mockCreateMcpTransport).toHaveBeenCalledWith({
+      url: "https://mcp.notion.com/mcp",
+      headers: { Authorization: "Bearer auth-token" },
+      fetch: undefined,
+    });
     expect(Object.keys(result.tools)).toEqual(["notion-search"]);
   });
 
@@ -150,5 +151,88 @@ describe("createMcpToolsForAgent", () => {
 
     expect(mockCreateMCPClient).toHaveBeenCalledTimes(2);
     expect(Object.keys(result.tools)).toEqual(["notion-search"]);
+  });
+
+  it("keeps conflicting custom server tools within provider name limits", async () => {
+    const firstServer = `custom_${"a".repeat(32)}`;
+    const secondServer = `custom_${"b".repeat(32)}`;
+    const toolName = "search_knowledge_base_articles";
+    mockConnections([
+      {
+        id: "connection-1",
+        integration: { id: "integration-1", name: firstServer },
+        tools: [{ name: toolName }],
+      },
+      {
+        id: "connection-2",
+        integration: { id: "integration-2", name: secondServer },
+        tools: [{ name: toolName }],
+      },
+    ]);
+    prisma.mcpIntegration.findFirst.mockImplementation(((args: {
+      where: { name: string };
+    }) =>
+      Promise.resolve({
+        name: args.where.name,
+        displayName: "Knowledge base",
+        serverUrl: "https://mcp.example.com/mcp",
+        authType: "API_TOKEN",
+      })) as never);
+    mockCreateMCPClient.mockResolvedValue({
+      tools: vi
+        .fn()
+        .mockResolvedValue({ [toolName]: { description: "search" } }),
+      close: vi.fn(),
+    });
+
+    const result = await createMcpToolsForAgent("email-account-1");
+
+    expect(Object.keys(result.tools).sort()).toEqual([
+      `custom_aaaaaaaa-${toolName}`,
+      `custom_bbbbbbbb-${toolName}`,
+    ]);
+  });
+
+  it("drops tools whose names model providers reject", async () => {
+    mockConnections([
+      {
+        id: "connection-1",
+        integration: { id: "integration-1", name: "notion" },
+        tools: [{ name: "notion-search" }, { name: "notion.fetch" }],
+      },
+    ]);
+    mockCreateMCPClient.mockResolvedValue({
+      tools: vi.fn().mockResolvedValue({
+        "notion-search": { description: "search" },
+        "notion.fetch": { description: "fetch" },
+      }),
+      close: vi.fn(),
+    });
+
+    const result = await createMcpToolsForAgent("email-account-1");
+
+    expect(Object.keys(result.tools)).toEqual(["notion-search"]);
+  });
+
+  it("prefixes an integration tool whose name is reserved by another tool", async () => {
+    mockConnections([
+      {
+        id: "connection-1",
+        integration: { id: "integration-1", name: "notion" },
+        tools: [{ name: "search_docs" }],
+      },
+    ]);
+    mockCreateMCPClient.mockResolvedValue({
+      tools: vi.fn().mockResolvedValue({
+        search_docs: { description: "search" },
+      }),
+      close: vi.fn(),
+    });
+
+    const result = await createMcpToolsForAgent("email-account-1", {
+      reservedToolNames: ["search_docs"],
+    });
+
+    expect(Object.keys(result.tools)).toEqual(["notion-search_docs"]);
   });
 });

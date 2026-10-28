@@ -1,0 +1,19 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "inbox-zero-mcp",
+  "description": "Connect Cursor to Inbox Zero mail, drafts, rules, and email stats over MCP.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Inbox Zero"
+  },
+  "homepage": "https://docs.getinboxzero.com/essentials/mcp",
+  "repository": "https://github.com/elie222/inbox-zero",
+  "license": "AGPL-3.0",
+  "keywords": [
+    "inbox-zero",
+    "email",
+    "mcp",
+    "gmail",
+    "outlook"
+  ]
+}

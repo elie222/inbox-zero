@@ -44,6 +44,7 @@ export type PublicContactContextResult =
       reason:
         | "personal_email"
         | "search_unavailable"
+        | "research_failed"
         | "cache_unavailable"
         | "research_in_progress"
         | "not_found";
@@ -119,7 +120,7 @@ export async function getPublicContactContext({
     const researchStartedAt = new Date();
     const result = await generateText({
       model: searchModelOptions.model,
-      system: `Research public professional information about an email sender.
+      instructions: `Research public professional information about an email sender.
 
 Use web search before answering. Return only facts supported by public web pages.
 Never use or return email contents, the Inbox Zero user's identity, relationship or communication history, private contact details, home addresses, family details, protected traits, personal social accounts, or unsupported inferences.
@@ -133,7 +134,6 @@ Return JSON matching the provided schema, including direct public source URLs.`,
 </public_identity>`,
       tools: webSearch.tools,
       providerOptions: webSearch.providerOptions,
-      toolChoice: webSearch.toolChoice,
       output: Output.object({
         schema: publicContactResearchSchema,
         name: "public_contact_research",
@@ -169,7 +169,7 @@ Return JSON matching the provided schema, including direct public source URLs.`,
   } catch (error) {
     logger.error("Public contact research failed");
     logger.trace("Public contact research failure details", { error });
-    return { status: "unavailable", reason: "search_unavailable" };
+    return { status: "unavailable", reason: "research_failed" };
   } finally {
     await releasePublicContactResearchLock(
       identity.data.email,

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { OutlookFolder } from "@/utils/outlook/folders";
-import { getMailSidebarFolders } from "./outlook-folder-list";
+import { FOLDER_SEPARATOR } from "@/utils/outlook/folders";
+import {
+  getMailSearchFolders,
+  getMailSidebarFolders,
+} from "./outlook-folder-list";
 
 function folder(
   id: string,
@@ -19,6 +23,25 @@ function folder(
 }
 
 describe("getMailSidebarFolders", () => {
+  it("keeps folders with missing child arrays without crashing", () => {
+    const leaf = folder("leaf");
+    Reflect.deleteProperty(leaf, "childFolders");
+    const systemFolder = folder("sent", [], "SENT");
+    Reflect.deleteProperty(systemFolder, "childFolders");
+
+    const result = getMailSidebarFolders([
+      folder("parent", [leaf]),
+      systemFolder,
+      folder("sibling"),
+    ]);
+
+    expect(result.map(({ id, depth }) => ({ id, depth }))).toEqual([
+      { id: "parent", depth: 0 },
+      { id: "leaf", depth: 1 },
+      { id: "sibling", depth: 0 },
+    ]);
+  });
+
   it("omits duplicate system rows but keeps folders nested below them", () => {
     const result = getMailSidebarFolders([
       folder(
@@ -43,5 +66,19 @@ describe("getMailSidebarFolders", () => {
         folder("sent-id", [], "SENT"),
       ]),
     ).toEqual([]);
+  });
+});
+
+describe("getMailSearchFolders", () => {
+  it("lists custom folder paths and skips well-known folders", () => {
+    expect(
+      getMailSearchFolders([
+        folder("inbox-id", [folder("Projects")], "INBOX"),
+        folder("Clients"),
+      ]),
+    ).toEqual([
+      { name: `inbox-id${FOLDER_SEPARATOR}Projects` },
+      { name: "Clients" },
+    ]);
   });
 });

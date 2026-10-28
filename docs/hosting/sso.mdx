@@ -6,7 +6,7 @@ description: 'Configure SAML SSO and SCIM user provisioning for organization dep
 Inbox Zero supports SAML SSO and SCIM user provisioning for organization deployments.
 
 <Info>
-  If you use the hosted Inbox Zero cloud platform, contact sales to enable SSO or SCIM for your organization. If you self-host Inbox Zero, an app admin configures SSO and SCIM from the admin page.
+  If you use the hosted Inbox Zero cloud platform, contact sales to enable SSO or SCIM for your organization. If you self-host Inbox Zero, an app admin configures SSO from the admin page; SCIM credentials are managed in the same admin page.
 </Info>
 
 ## When to Use This
@@ -36,14 +36,14 @@ Use SSO and SCIM when your organization wants to manage Inbox Zero access throug
 The ACS callback URL uses this format:
 
 ```txt
-https://your-domain.com/api/auth/sso/saml2/callback/{providerId}
+https://your-domain.com/api/auth/sso/saml2/sp/acs/{providerId}
 ```
 
 Users sign in through `/login/sso` using their email and the organization slug (a slugified form of the organization name you registered).
 
 ## Configure SCIM
 
-SCIM requires a registered SSO provider. As an app admin, generate a SCIM bearer token for the same provider ID, then configure your identity provider with:
+SCIM requires a registered organization SSO provider and a separate `SCIM_CREDENTIAL_HASH_SECRET` (generate it with `openssl rand -hex 32`). Keep this secret stable. Open `/admin` → **SCIM provisioning**, enter the registered SSO provider ID and expiry, and select **Create SCIM connection**. Save the displayed token, connection ID, and credential ID securely. Use **Revoke a credential** in the same section to revoke it. Configure your identity provider with:
 
 | Setting | Value |
 | ------- | ----- |
@@ -51,7 +51,7 @@ SCIM requires a registered SSO provider. As an app admin, generate a SCIM bearer
 | Authentication | Bearer token |
 | Supported resource | Users |
 
-Keep the SCIM token secret. Rotate it if it is exposed.
+Keep the SCIM token secret. Revoke it if exposed. Existing identities require reviewed `ScimIdentityLink` records keyed by connection ID and immutable external ID; email addresses never authorize account linking. Deprovisioning disables new logins and removes stored sessions. Existing session cookies may remain usable for up to the configured cookie-cache expiry (currently five minutes). SCIM does not grant application organization roles automatically. See the [1.7 cutover checklist](https://github.com/elie222/inbox-zero/blob/main/docs/better-auth-1.7-upgrade.md) for legacy deployments.
 
 ## Managed Setup
 

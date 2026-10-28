@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 
-import { act, cleanup, render } from "@testing-library/react";
+import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ShortcutHandlers } from "@/lib/shortcuts/registry";
 import { CommandK } from "./CommandK";
+import { admissionRejectionCopy } from "@/utils/mail-engine/admission-notice";
 
 const displayedEmail = vi.hoisted(() => ({
   showEmail: vi.fn(),
@@ -18,12 +19,23 @@ const thread = vi.hoisted(() => ({
   } as { thread: { id: string; messages: { id: string }[] } } | undefined,
   isLoading: false,
 }));
-const outbox = vi.hoisted(() => ({ enqueue: vi.fn() }));
+const mail = vi.hoisted(() => ({
+  client: {
+    getDiagnostics: vi.fn(),
+    submitConversations: vi.fn(),
+  },
+}));
+vi.mock("@inboxzero/mail-react/MailEngineProvider", () => ({
+  useOptionalMailClient: () => mail.client,
+}));
 const notifications = vi.hoisted(() => ({ error: vi.fn() }));
 const shortcuts = vi.hoisted(() => ({
   handlers: undefined as ShortcutHandlers | undefined,
 }));
 
+vi.mock("@/components/AccountCommandList", () => ({
+  AccountCommandList: () => null,
+}));
 vi.mock("@/hooks/useDisplayedEmail", () => ({
   useDisplayedEmail: () => ({
     threadId: displayedEmail.threadId,
@@ -38,9 +50,6 @@ vi.mock("@/providers/EmailAccountProvider", () => ({
 }));
 vi.mock("@/providers/ComposeModalProvider", () => ({
   useComposeModal: () => ({ onOpen: vi.fn() }),
-}));
-vi.mock("@/utils/email-cache/thread-mail-mutations", () => ({
-  enqueueThreadMailMutationBatch: outbox.enqueue,
 }));
 vi.mock("@/components/Toast", () => ({ toastError: notifications.error }));
 vi.mock("@/hooks/useCommandPaletteCommands", () => ({
@@ -61,6 +70,9 @@ vi.mock("@/lib/shortcuts/registry", () => ({
 vi.mock("@/app/(app)/[emailAccountId]/mail/mail-command-palette", () => ({
   buildMailCommandPalette: () => [],
 }));
+vi.mock("@/app/(app)/[emailAccountId]/mail/ShortcutsDialog", () => ({
+  ShortcutsDialog: () => null,
+}));
 vi.mock("@/app/(app)/[emailAccountId]/mail/snooze-command-palette", () => ({
   buildSnoozeCommandPalette: () => [],
 }));
@@ -76,7 +88,7 @@ vi.mock("@/components/ui/command", () => ({
   CommandShortcut: () => null,
 }));
 
-describe("CommandK side-panel archive", () => {
+describe("CommandK side-panel actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     displayedEmail.threadId = "thread-1";
@@ -87,40 +99,46 @@ describe("CommandK side-panel archive", () => {
       },
     };
     thread.isLoading = false;
-    outbox.enqueue.mockResolvedValue({ batchId: "batch", mutations: [] });
+    mail.client.getDiagnostics.mockResolvedValue({ revision: 1 });
+    mail.client.submitConversations.mockResolvedValue({ status: "queued" });
     shortcuts.handlers = undefined;
   });
 
   afterEach(cleanup);
 
-  it("persists the complete thread snapshot before closing the viewer", async () => {
-    const persisted = Promise.withResolvers<{
-      batchId: string;
-      mutations: never[];
-    }>();
-    outbox.enqueue.mockReturnValue(persisted.promise);
-    render(<CommandK />);
+  it("queues archive through the engine before closing the viewer", async () => {
+    const persisted = Promise.withResolvers<{ status: string }>();
+    mail.client.submitConversations.mockReturnValue(persisted.promise);
+    render(<CommandK feedbackEnabled />);
 
     let archive: Promise<void> | undefined;
     act(() => {
       archive = shortcuts.handlers?.archive?.() as Promise<void> | undefined;
     });
 
-    expect(outbox.enqueue).toHaveBeenCalledWith({
-      emailAccountId: "account-1",
-      payload: { kind: "archive" },
-      threads: [thread.data?.thread],
-    });
+    await waitFor(() =>
+      expect(mail.client.submitConversations).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accountId: "account-1",
+          conversations: [
+            { accountId: "account-1", conversationId: "thread-1" },
+          ],
+          change: { kind: "archive" },
+        }),
+      ),
+    );
     expect(displayedEmail.showEmail).not.toHaveBeenCalled();
 
-    persisted.resolve({ batchId: "batch", mutations: [] });
+    persisted.resolve({ status: "queued" });
     await act(async () => archive);
     expect(displayedEmail.showEmail).toHaveBeenCalledWith(null);
   });
 
   it("keeps the viewer open when durable storage fails", async () => {
-    outbox.enqueue.mockRejectedValue(new Error("storage unavailable"));
-    render(<CommandK />);
+    mail.client.submitConversations.mockRejectedValue(
+      new Error("storage unavailable"),
+    );
+    render(<CommandK feedbackEnabled />);
 
     await act(async () => shortcuts.handlers?.archive?.());
 
@@ -130,19 +148,67 @@ describe("CommandK side-panel archive", () => {
     });
   });
 
+  it("explains a full command queue instead of a generic archive failure", async () => {
+    mail.client.submitConversations.mockResolvedValue({
+      status: "rejected",
+      code: "queue_full",
+    });
+    render(<CommandK feedbackEnabled />);
+
+    await act(async () => shortcuts.handlers?.archive?.());
+
+    expect(displayedEmail.showEmail).not.toHaveBeenCalled();
+    expect(notifications.error).toHaveBeenCalledWith({
+      description: admissionRejectionCopy("queue_full"),
+    });
+  });
+
+  it("keeps star bound while the side-panel thread is loading", async () => {
+    thread.data = undefined;
+    thread.isLoading = true;
+    render(<CommandK feedbackEnabled />);
+    await act(async () => shortcuts.handlers?.star?.());
+    expect(mail.client.submitConversations).not.toHaveBeenCalled();
+    expect(notifications.error).toHaveBeenCalledWith({
+      description: "Email is still loading",
+    });
+  });
+
+  it("stars the displayed thread through the engine", async () => {
+    render(<CommandK feedbackEnabled />);
+    await act(async () => shortcuts.handlers?.star?.());
+    expect(mail.client.submitConversations).toHaveBeenCalledWith(
+      expect.objectContaining({
+        change: { kind: "set_starred", starred: true },
+      }),
+    );
+  });
+
   it("keeps archive bound while the full thread snapshot is loading", async () => {
     thread.data = undefined;
     thread.isLoading = true;
-    render(<CommandK />);
+    render(<CommandK feedbackEnabled />);
 
     expect(shortcuts.handlers?.archive).toBeTypeOf("function");
 
     await act(async () => shortcuts.handlers?.archive?.());
 
-    expect(outbox.enqueue).not.toHaveBeenCalled();
+    expect(mail.client.submitConversations).not.toHaveBeenCalled();
     expect(displayedEmail.showEmail).not.toHaveBeenCalled();
     expect(notifications.error).toHaveBeenCalledWith({
       description: "Email is still loading",
+    });
+  });
+
+  it("opens a forward composer for the latest side-panel message", () => {
+    render(<CommandK feedbackEnabled />);
+
+    act(() => shortcuts.handlers?.forward?.());
+
+    expect(displayedEmail.showEmail).toHaveBeenCalledWith({
+      threadId: "thread-1",
+      autoOpenForwardForMessageId: "message-2",
+      showReplyButton: true,
     });
   });
 });

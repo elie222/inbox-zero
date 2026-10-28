@@ -16,6 +16,7 @@ export default async function WelcomeRedirectPage(props: {
     where: { id: session.user.id },
     select: {
       completedOnboardingAt: true,
+      signupIntent: true,
       premiumId: true,
     },
   });
@@ -24,8 +25,22 @@ export default async function WelcomeRedirectPage(props: {
   if (!user) redirect("/logout");
   if (searchParams.force) redirect("/onboarding");
   if (user.completedOnboardingAt) {
+    // Opening the email app from an AI-assistant account means they now use
+    // both.
+    if (
+      searchParams.mode === "mail" &&
+      (!user.signupIntent || user.signupIntent === "AI_ASSISTANT")
+    ) {
+      await prisma.user.update({
+        where: { id: session.user.id },
+        data: { signupIntent: "BOTH" },
+      });
+    }
+
     await redirectToEmailAccountPath(
-      searchParams.mode === "mail" ? "/mail" : "/automation",
+      searchParams.mode === "mail" || user.signupIntent === "MAIL_CLIENT"
+        ? "/mail"
+        : "/automation",
     );
   }
 

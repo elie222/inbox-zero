@@ -10,7 +10,7 @@ import {
 import {
   fetchGoogleOpenIdProfile,
   isGoogleOauthEmulationEnabled,
-} from "@/utils/google/oauth";
+} from "@/utils/gmail/oauth";
 
 const logger = createTestLogger();
 const getToken = vi.fn();
@@ -22,7 +22,7 @@ vi.mock("@/utils/calendar/client", () => ({
   getCalendarOAuth2Client: vi.fn(),
 }));
 
-vi.mock("@/utils/google/oauth", () => ({
+vi.mock("@/utils/gmail/oauth", () => ({
   fetchGoogleOpenIdProfile: vi.fn(),
   isGoogleOauthEmulationEnabled: vi.fn(),
 }));

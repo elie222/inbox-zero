@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
-import Link from "next/link";
 import { useQueryState } from "nuqs";
 import { getEmailTerminology } from "@/utils/terminology";
 import {
@@ -27,11 +26,11 @@ import {
   PersonStandingIcon,
   RatioIcon,
   SendIcon,
+  SmartphoneIcon,
   SparklesIcon,
   Users2Icon,
   ZapIcon,
 } from "lucide-react";
-import { Logo } from "@/components/Logo";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
 import {
   Sidebar,
@@ -45,14 +44,15 @@ import {
   SidebarMenuItem,
   SidebarMenu,
   useSidebar,
-  SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { SetupProgressCard } from "@/components/SetupProgressCard";
+import { DesktopUpdateMenuItem } from "@/components/DesktopUpdateMenuItem";
 import { SideNavMenu } from "@/components/SideNavMenu";
 import { CommandShortcut } from "@/components/ui/command";
 import { useSplitLabels } from "@/hooks/useLabels";
 import type { EmailLabel } from "@/providers/email-label-types";
 import { LoadingContent } from "@/components/LoadingContent";
+import { env } from "@/env";
 import {
   useCleanerEnabled,
   useIntegrationsEnabled,
@@ -65,8 +65,9 @@ import { prefixPath } from "@/utils/path";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { NavUser } from "@/components/NavUser";
 import { PremiumCard } from "@/components/PremiumCard";
-import { FeedbackDialog } from "@/components/FeedbackDialog";
-import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
+import { AppSidebarHeader } from "@/components/AppSidebarHeader";
+import { FeedbackSidebarButton } from "@/components/FeedbackDialog";
+import { TEAM_HREF, useTeamNav } from "@/components/team-comments/use-team-nav";
 
 type NavItem = {
   name: string;
@@ -85,33 +86,20 @@ export const useNavigation = () => {
   const showMeetingBriefs = useMeetingBriefsEnabled();
   const showMeetingRecorder = useMeetingRecorderEnabled();
   const showIntegrations = useIntegrationsEnabled();
-  const [isDesktopApp, setIsDesktopApp] = useState(false);
-
-  useEffect(() => {
-    setIsDesktopApp(Boolean(getInboxZeroDesktopApp()));
-  }, []);
+  const { hasTeam, unreadCount: teamUnreadCount } = useTeamNav();
 
   const { emailAccount, emailAccountId, provider } = useAccount();
   const currentEmailAccountId = emailAccount?.id || emailAccountId;
 
   const manageItems: NavItem[] = useMemo(
     () => [
-      ...(isDesktopApp
-        ? [
-            {
-              name: "Inbox",
-              href: prefixPath(currentEmailAccountId, "/mail"),
-              icon: InboxIcon,
-            },
-          ]
-        : []),
       {
         name: "Chat",
         href: prefixPath(currentEmailAccountId, "/assistant"),
         icon: MessageSquareIcon,
       },
       {
-        name: "Assistant",
+        name: "Rules",
         href: prefixPath(currentEmailAccountId, "/automation"),
         icon: SparklesIcon,
       },
@@ -130,7 +118,7 @@ export const useNavigation = () => {
           ]
         : []),
     ],
-    [currentEmailAccountId, isDesktopApp, showMeetingRecorder],
+    [currentEmailAccountId, showMeetingRecorder],
   );
 
   const cleanupItems: NavItem[] = useMemo(
@@ -180,12 +168,16 @@ export const useNavigation = () => {
             },
           ]
         : []),
-      {
-        name: "Attachments",
-        href: prefixPath(currentEmailAccountId, "/drive"),
-        icon: HardDriveIcon,
-        new: false,
-      },
+      ...(env.NEXT_PUBLIC_SMART_FILING_ENABLED === false
+        ? []
+        : [
+            {
+              name: "Attachments",
+              href: prefixPath(currentEmailAccountId, "/drive"),
+              icon: HardDriveIcon,
+              new: false,
+            },
+          ]),
       ...(showIntegrations
         ? [
             {
@@ -195,17 +187,42 @@ export const useNavigation = () => {
             },
           ]
         : []),
+      ...(hasTeam
+        ? [
+            {
+              name: "Discussions",
+              href: TEAM_HREF,
+              icon: Users2Icon,
+              count: teamUnreadCount ?? undefined,
+            },
+          ]
+        : []),
     ],
-    [currentEmailAccountId, showMeetingBriefs, showIntegrations],
+    [
+      currentEmailAccountId,
+      showMeetingBriefs,
+      showIntegrations,
+      hasTeam,
+      teamUnreadCount,
+    ],
   );
 
   return {
-    homeHref: prefixPath(currentEmailAccountId, "/automation"),
+    emailAccountId: currentEmailAccountId,
     manageItems,
     cleanupItems,
     moreItems,
   };
 };
+
+const getTheAppLinks: NavItem[] = [
+  {
+    name: "Get the app",
+    icon: SmartphoneIcon,
+    href: "/download",
+    target: "_blank",
+  },
+];
 
 const topMailLinks: NavItem[] = [
   {
@@ -288,23 +305,17 @@ export function SideNav({
     [showMailNav],
   );
 
-  const { state } = useSidebar();
+  const { state, isMobile } = useSidebar();
 
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader className="gap-0 pb-0">
-        {state.includes("left-sidebar") ? (
-          <div className="flex items-center rounded-md pl-2 pr-0.5 py-3 text-foreground">
-            <Link href={navigation.homeHref} data-hide-on-desktop-mac>
-              <Logo className="h-3.5" />
-            </Link>
-            <SidebarTrigger name="left-sidebar" className="ml-auto" />
-          </div>
-        ) : (
-          <div data-desktop-mac-titlebar-spacer className="pb-2">
-            <SidebarTrigger name="left-sidebar" />
-          </div>
-        )}
+        <AppSidebarHeader
+          active="assistant"
+          emailAccountId={navigation.emailAccountId}
+          // The phone sheet always shows the full sidebar.
+          collapsed={!isMobile && !state.includes("left-sidebar")}
+        />
         <AccountSwitcher />
       </SidebarHeader>
 
@@ -355,12 +366,15 @@ export function SideNav({
       <PremiumCard isCollapsed={!state.includes("left-sidebar")} />
 
       <SidebarFooter className="pb-4">
+        <DesktopUpdateMenuItem />
         <SideNavMenu items={visibleBottomLinks} activeHref={path} />
+
+        <SideNavMenu items={getTheAppLinks} activeHref={path} />
 
         {feedbackEnabled && (
           <SidebarMenu>
             <SidebarMenuItem>
-              <FeedbackDialog />
+              <FeedbackSidebarButton />
             </SidebarMenuItem>
           </SidebarMenu>
         )}

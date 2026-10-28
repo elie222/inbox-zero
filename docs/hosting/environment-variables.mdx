@@ -43,9 +43,11 @@ Reference for environment variables relevant to self-hosting Inbox Zero. Hosted-
 | `GOOGLE_PUBSUB_TOPIC_NAME` | Yes | Full topic name (e.g., `projects/my-project/topics/gmail`) | — |
 | `GOOGLE_PUBSUB_VERIFICATION_TOKEN` | Yes* | Token for webhook verification | — |
 | **Redis** ||||
-| `UPSTASH_REDIS_URL` | No* | Upstash Redis URL or any Upstash-compatible HTTP Redis endpoint (*required if not using Docker Compose with local Redis) | — |
-| `UPSTASH_REDIS_TOKEN` | No* | Upstash Redis token or serverless-redis-http token (*required if not using Docker Compose) | — |
+| `REDIS_HTTP_URL` | No* | HTTP Redis endpoint for caching and rate limits. Accepts Upstash, Vercel KV, or your own [serverless-redis-http](https://github.com/hiett/serverless-redis-http) proxy (*required if not using Docker Compose with local Redis) | — |
+| `REDIS_HTTP_TOKEN` | No* | Token for `REDIS_HTTP_URL` (*required if not using Docker Compose) | — |
 | `REDIS_URL` | No | Redis URL for subscriptions and the optional BullMQ worker | — |
+| `UPSTASH_REDIS_URL` | Deprecated | Legacy alias for `REDIS_HTTP_URL`. Still read when `REDIS_HTTP_URL` is unset | — |
+| `UPSTASH_REDIS_TOKEN` | Deprecated | Legacy alias for `REDIS_HTTP_TOKEN`. Still read when `REDIS_HTTP_TOKEN` is unset | — |
 | **Image Proxy (Optional)** ||||
 | `NEXT_PUBLIC_IMAGE_PROXY_BASE_URL` | No | Base URL for the optional remote-image proxy. Example: `https://img.example.com/proxy` | — |
 | `NEXT_PUBLIC_IMAGE_PROXY_USE_APP_ROUTE` | No | Set to `true` to proxy remote images through the app's own Next.js route at `/api/image-proxy` instead of a separate proxy service | `false` |
@@ -80,8 +82,13 @@ Reference for environment variables relevant to self-hosting Inbox Zero. Hosted-
 | `GOOGLE_API_KEY` | No | Google Gemini API key | — |
 | `GOOGLE_THINKING_BUDGET` | No | Override the thinking budget for Gemini 2.x/2.5 models used through Google, Vertex, or AI Gateway. Set to `0` to omit the budget. Gemini 3 models still use minimal thinking. | `128` |
 | `GROQ_API_KEY` | No | Groq API key | — |
+| `CEREBRAS_API_KEY` | No | Cerebras API key | — |
 | `OPENROUTER_API_KEY` | No | OpenRouter API key | — |
 | `AI_GATEWAY_API_KEY` | No | AI Gateway API key | — |
+| `DEFAULT_DECISION_MODEL` | No | Optional decision model as `provider:model`, for example `openrouter:cloudflare/clef`. Providers: `openrouter`, `aigateway`, `openai`, `typesafe`. Uses that provider's key, or `LLM_API_KEY` (except `typesafe`, which needs `TYPESAFE_API_KEY`). See [LLM Setup](/hosting/llm-setup#decision-models). | — |
+| `DEFAULT_DECISION_MODEL_ENABLED` | No | Turn the decision model on for users who haven't chosen; otherwise users opt in | `false` |
+| `DECISION_MODEL_COLD_EMAIL_ENABLED` | No | Also use the decision model for cold email detection. When off, cold email detection always uses the LLM | `false` |
+| `TYPESAFE_API_KEY` | No | TypeSafe API key, for `typesafe:` decision models | — |
 | `PERPLEXITY_API_KEY` | No | Perplexity API key for guest research for meeting briefs | — |
 | **Azure OpenAI** ||||
 | `AZURE_API_KEY` | No | Azure OpenAI API key (required when `azure` is used and `LLM_API_KEY` is not set) | — |
@@ -156,11 +163,15 @@ Reference for environment variables relevant to self-hosting Inbox Zero. Hosted-
 | `AUTO_JOIN_ORGANIZATION_ENABLED` | No | Automatically add new users to the single organization on sign-up. Only enable this if your deployment explicitly wants automatic org membership. | `false` |
 | `AUTO_ENABLE_ORG_ANALYTICS` | No | Default new organization memberships to analytics enabled | `false` |
 | `SSO_LOGIN_ENABLED` | No | Show and allow SSO login. Configuring an SSO provider is a separate admin setup step. | `false` |
+| `UNSUBSCRIBE_WORKER_URL` | No | HTTPS URL of an optional isolated browser unsubscribe worker. Leave unset to keep the existing HTTP unsubscribe flow. Docker Compose does not start this worker. | — |
+| `UNSUBSCRIBE_WORKER_SECRET` | No* | Shared secret (at least 32 characters). Required when `UNSUBSCRIBE_WORKER_URL` is set. | — |
 | `NEXT_PUBLIC_SELF_HOSTED_LOGIN_FOOTER_TEXT` | No | Self-hosted login footer notice. When unset, the default login footer notice is shown. Set to `none` to hide the notice. | Default notice |
 | **Feature Flags** ||||
 | `NEXT_PUBLIC_CONTACTS_ENABLED` | No | Enable Gmail and Outlook contact suggestions while composing | `false` |
+| `NEXT_PUBLIC_COOKIE_CONSENT_ENABLED` | No | Show a cookie banner to visitors in EU, EEA, UK and Swiss time zones, and hold back ad tracking, attribution cookies and session recordings until they accept. Analytics keep running without storing anything on the device. | `false` |
 | `NEXT_PUBLIC_EMAIL_SEND_ENABLED` | No | Enable email sending | `true` |
-| `NEXT_PUBLIC_EXTERNAL_API_ENABLED` | No | Enable external API endpoints, API keys, and API key UI. Also set `API_KEY_SALT`. | `false` |
+| `NEXT_PUBLIC_EXTERNAL_API_ENABLED` | No | Enable external API endpoints, API keys, and API key UI. Also set `API_KEY_SALT`. Required for the MCP server. | `false` |
+| `MCP_SERVER_ENABLED` | No | Enable the remote OAuth MCP server at `/mcp`. Requires `NEXT_PUBLIC_EXTERNAL_API_ENABLED=true`. | `false` |
 | `NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED` | No | Enable outgoing webhook rule actions and the webhook-secret UI | `true` |
 | `NEXT_PUBLIC_AI_MODEL_SETTINGS_DISABLED` | No | Hide user AI model settings and reject account-level changes. | `false` |
 | `NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS` | No | Bypass premium checks (recommended for self-hosting) | `true` |
@@ -169,7 +180,7 @@ Reference for environment variables relevant to self-hosting Inbox Zero. Hosted-
 | `NEXT_PUBLIC_MEETING_RECORDER_ENABLED` | No | Show the Meeting Recorder in the app. Recording also requires Recall.ai credentials, its signed webhook, and the meeting-recorder scheduling job; without them nothing records. | `false` |
 | `NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED` | No | Enable follow-up reminders, which allows users to add labels to emails for automatic follow-up tracking. Requires the follow-up reminders cron job to be running. | `false` |
 | `NEXT_PUBLIC_INTEGRATIONS_ENABLED` | No | Enable the integrations feature, allowing users to connect external services. | `false` |
-| `NEXT_PUBLIC_SMART_FILING_ENABLED` | No | Enable the Smart Filing feature for automatic document organization from email attachments. | `false` |
+| `NEXT_PUBLIC_SMART_FILING_ENABLED` | No | Set to `false` to hide Attachments (Smart Filing) from the sidebar. Shown when unset. | `true` |
 | `NEXT_PUBLIC_CLEANER_ENABLED` | No | Enable the newer cleaner/bulk cleanup experience | `false` |
 | `NEXT_PUBLIC_DELETE_EMAIL_ACTION_ENABLED` | No | Enable delete/trash actions for automation rules, including rules created through the external API. | `false` |
 | `NEXT_PUBLIC_BOOKING_LINKS_ENABLED` | No | Enable first-party booking links and availability pages. | `false` |

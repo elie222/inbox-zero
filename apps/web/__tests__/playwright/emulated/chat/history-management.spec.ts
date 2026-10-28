@@ -1,12 +1,7 @@
 import { expect } from "@playwright/test";
 import { test } from "../playwright-test";
 import { getEmailAccountId } from "../account-test-helpers";
-import {
-  cleanupSeededChat,
-  getChatState,
-  markAssistantOnboardingViewed,
-  seedChat,
-} from "./chat-test-helpers";
+import { cleanupSeededChat, getChatState, seedChat } from "./chat-test-helpers";
 
 const SERVER_ACTION_TIMEOUT_MS = 120_000;
 
@@ -19,7 +14,6 @@ test("opens, renames, starts fresh from, and deletes persisted chats", async ({
 }) => {
   const emailAccountId = await getEmailAccountId(page);
   await seedChat(emailAccountId);
-  await markAssistantOnboardingViewed(page);
 
   await page.goto(`/${emailAccountId}/assistant`);
   await expect(page).toHaveURL(new RegExp(`/${emailAccountId}/assistant`));

@@ -8,8 +8,8 @@ import {
 
 vi.mock("@/env", () => ({
   env: {
-    UPSTASH_REDIS_TOKEN: "token",
-    UPSTASH_REDIS_URL: "https://redis.example.com",
+    REDIS_HTTP_TOKEN: "token",
+    REDIS_HTTP_URL: "https://redis.example.com",
   },
 }));
 

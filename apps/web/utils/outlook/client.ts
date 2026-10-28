@@ -13,7 +13,7 @@ import {
   getMicrosoftGraphClientOptions,
   getMicrosoftOauthAuthorizeUrl,
   requestMicrosoftToken,
-} from "@/utils/microsoft/oauth";
+} from "@/utils/outlook/oauth";
 import { SCOPES } from "@/utils/outlook/scopes";
 import { isInvalidGrantError, SafeError } from "@/utils/error";
 
@@ -175,6 +175,15 @@ export const getOutlookClientWithRefresh = async ({
   if (!refreshToken) {
     // expected for disconnected accounts
     logger.warn("No refresh token", { emailAccountId });
+    await cleanupInvalidTokens({
+      emailAccountId,
+      reason: "invalid_grant",
+      failedAccessToken: accessToken ?? undefined,
+      failedRefreshToken: null,
+      logger,
+    }).catch((error) =>
+      logger.warn("Failed to record missing refresh token", { error }),
+    );
     throw new SafeError("No refresh token");
   }
 
@@ -231,6 +240,8 @@ export const getOutlookClientWithRefresh = async ({
       // AADSTS50076 = MFA required (Conditional Access policy)
       // AADSTS50079 = MFA registration required
       // AADSTS50158 = External security challenge not satisfied
+      // AADSTS530003 = Device must be managed (Conditional Access policy)
+      // AADSTS9002313 = Malformed request, e.g. a corrupt refresh token
       // Invalid grants are handled by isInvalidGrantError.
       const requiresReauth =
         isInvalidGrantError(errorMessage) ||
@@ -243,7 +254,9 @@ export const getOutlookClientWithRefresh = async ({
         errorMessage.includes("AADSTS54005") ||
         errorMessage.includes("AADSTS50076") ||
         errorMessage.includes("AADSTS50079") ||
-        errorMessage.includes("AADSTS50158");
+        errorMessage.includes("AADSTS50158") ||
+        errorMessage.includes("AADSTS530003") ||
+        errorMessage.includes("AADSTS9002313");
 
       if (requiresReauth) {
         logger.warn(
@@ -257,8 +270,14 @@ export const getOutlookClientWithRefresh = async ({
         await cleanupInvalidTokens({
           emailAccountId,
           reason: "invalid_grant",
+          failedAccessToken: accessToken ?? undefined,
+          failedRefreshToken: refreshToken,
           logger,
-        });
+        }).catch((cleanupError) =>
+          logger.warn("Failed to clean up invalid Outlook tokens", {
+            cleanupError,
+          }),
+        );
 
         throw new SafeError(
           "Your Microsoft authorization has expired. Please sign out and log in again to reconnect your account.",
@@ -294,7 +313,11 @@ export const getAccessTokenFromClient = (client: OutlookClient): string =>
   client.getAccessToken();
 
 // Helper function to get the OAuth2 URL for linking accounts
-export function getLinkingOAuth2Url() {
+export function getLinkingOAuth2Url({
+  loginHint,
+}: {
+  loginHint?: string;
+} = {}) {
   if (!env.MICROSOFT_CLIENT_ID) {
     throw new Error("Microsoft login not enabled - missing client ID");
   }
@@ -307,6 +330,10 @@ export function getLinkingOAuth2Url() {
     // we can't use select_account because we need a new refresh token if the users is stale
     prompt: "consent",
   });
+
+  // Reconnects target one mailbox, so point Microsoft at it rather than letting
+  // whichever account the browser is already signed into decide.
+  if (loginHint) params.set("login_hint", loginHint);
 
   return `${getMicrosoftOauthAuthorizeUrl()}?${params.toString()}`;
 }

@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { OutlookClient } from "@/utils/outlook/client";
 import { createTestLogger } from "@/__tests__/helpers";
-import { moveMessagesForSenders, moveThreadsInBatches } from "./batch";
+import {
+  getThreadParticipantMessagesInBatches,
+  moveMessagesForSenders,
+  moveThreadsInBatches,
+} from "./batch";
 
 const mockGetFolderIds = vi.fn();
 const mockUpdateEmailMessagesForSender = vi.fn();
@@ -20,6 +24,103 @@ vi.mock("@/utils/email/bulk-action-tracking", () => ({
     ...args: Parameters<typeof mockPublishBulkActionToTinybird>
   ) => mockPublishBulkActionToTinybird(...args),
 }));
+
+describe("getThreadParticipantMessagesInBatches", () => {
+  it("preserves successful participants without continuing after throttling", async () => {
+    const batchPost = vi.fn().mockResolvedValue({
+      responses: [
+        { id: "thread-0", status: 429 },
+        {
+          id: "thread-1",
+          status: 200,
+          body: {
+            value: [{ id: "message-1" }],
+            "@odata.nextLink":
+              "https://graph.microsoft.com/v1.0/me/messages?$skiptoken=next",
+          },
+        },
+      ],
+    });
+    const result = await getThreadParticipantMessagesInBatches({
+      client: createMockOutlookClient({
+        listMessages: async () => ({ value: [] }),
+        batchPost,
+      }),
+      threadIds: Array.from(
+        { length: 21 },
+        (_, index) => `conversation-${index}`,
+      ),
+      logger: createTestLogger(),
+    });
+    expect(batchPost).toHaveBeenCalledTimes(1);
+    expect(result.get("conversation-1")).toEqual([{ id: "message-1" }]);
+    expect(result.has("conversation-0")).toBe(false);
+    expect(result.has("conversation-20")).toBe(false);
+  });
+
+  it("filters by conversation and follows continuation pages", async () => {
+    const nextLink =
+      "https://graph.microsoft.com/v1.0/me/messages?$skiptoken=next-page";
+    const batchPost = vi.fn(
+      async (body: {
+        requests: Array<{ id: string; url: string; method: string }>;
+      }) => {
+        const request = body.requests.at(0);
+        if (!request) throw new Error("Expected participant batch request");
+
+        if (batchPost.mock.calls.length === 1) {
+          const requestUrl = new URL(
+            request.url,
+            "https://graph.microsoft.com",
+          );
+          expect(requestUrl.searchParams.get("$filter")).toBe(
+            "conversationId eq 'thread-1' and isDraft eq false",
+          );
+
+          return {
+            responses: [
+              {
+                id: request.id,
+                status: 200,
+                body: {
+                  value: [{ id: "message-1" }],
+                  "@odata.nextLink": nextLink,
+                },
+              },
+            ],
+          };
+        }
+
+        expect(request.url).toBe("/me/messages?$skiptoken=next-page");
+        return {
+          responses: [
+            {
+              id: request.id,
+              status: 200,
+              body: { value: [{ id: "message-2" }] },
+            },
+          ],
+        };
+      },
+    );
+    const client = createMockOutlookClient({
+      listMessages: async () => ({ value: [] }),
+      batchPost,
+    });
+
+    const result = await getThreadParticipantMessagesInBatches({
+      client,
+      threadIds: ["thread-1"],
+      logger: createTestLogger(),
+    });
+
+    expect(batchPost).toHaveBeenCalledTimes(2);
+    expect(result.get("thread-1")?.map((message) => message.id)).toEqual([
+      "message-1",
+      "message-2",
+    ]);
+  });
+});
 
 describe("moveMessagesForSenders", () => {
   beforeEach(() => {
@@ -122,6 +223,59 @@ describe("moveMessagesForSenders", () => {
       emailAccountId: "account-1",
       action: "trash",
     });
+  });
+});
+
+describe("moveMessagesForSenders with offset paging", () => {
+  beforeEach(() => {
+    mockGetFolderIds.mockReset();
+    mockUpdateEmailMessagesForSender.mockReset();
+    mockPublishBulkActionToTinybird.mockReset();
+  });
+
+  it("archives every message from a sender even though archiving shrinks the paged inbox", async () => {
+    mockGetFolderIds.mockResolvedValue({ inbox: "inbox-folder-id" });
+    const { client, inbox } = createOffsetPagedInbox(250);
+
+    const movedCount = await moveMessagesForSenders({
+      client,
+      senders: ["sender@example.com"],
+      destinationId: "archive",
+      action: "archive",
+      ownerEmail: "owner@example.com",
+      emailAccountId: "account-1",
+      logger: createTestLogger(),
+    });
+
+    expect(inbox).toHaveLength(0);
+    expect(movedCount).toBe(250);
+  });
+
+  it("moves nothing and surfaces the error when listing fails and errors should stop the job", async () => {
+    mockGetFolderIds.mockResolvedValue({ inbox: "inbox-folder-id" });
+    const batchPost = vi.fn();
+    const client = createMockOutlookClient({
+      listMessages: async () => {
+        throw new Error("Graph unavailable");
+      },
+      batchPost,
+    });
+
+    await expect(
+      moveMessagesForSenders({
+        client,
+        senders: ["sender@example.com"],
+        destinationId: "archive",
+        action: "archive",
+        ownerEmail: "owner@example.com",
+        emailAccountId: "account-1",
+        continueOnError: false,
+        logger: createTestLogger(),
+      }),
+    ).rejects.toThrow("Graph unavailable");
+
+    expect(batchPost).not.toHaveBeenCalled();
+    expect(mockUpdateEmailMessagesForSender).not.toHaveBeenCalled();
   });
 });
 
@@ -241,4 +395,56 @@ function createMockOutlookClient({
   return {
     getClient: vi.fn(() => ({ api })),
   } as unknown as OutlookClient;
+}
+
+// Graph pages /me/messages with an offset ($skip) nextLink, and an archive
+// move takes the message out of the inbox-filtered result set, like Graph.
+function createOffsetPagedInbox(messageCount: number) {
+  const pageSize = 100;
+  const inbox = Array.from({ length: messageCount }, (_, index) => ({
+    id: `message-${index}`,
+    conversationId: `thread-${index}`,
+  }));
+
+  const listPage = (skip: number) => ({
+    value: inbox.slice(skip, skip + pageSize),
+    ...(skip + pageSize < inbox.length
+      ? {
+          "@odata.nextLink": `https://graph.microsoft.com/v1.0/me/messages?$skip=${skip + pageSize}`,
+        }
+      : {}),
+  });
+
+  const api = vi.fn((path: string) => {
+    if (path === "/me/messages") {
+      return {
+        filter: () => ({
+          top: () => ({ select: () => ({ get: async () => listPage(0) }) }),
+        }),
+      };
+    }
+
+    if (path === "/$batch") {
+      return {
+        post: async (body: {
+          requests: Array<{ id: string; url: string }>;
+        }) => ({
+          responses: body.requests.map((request) => {
+            const messageId = request.url.split("/")[3];
+            const index = inbox.findIndex((m) => m.id === messageId);
+            if (index !== -1) inbox.splice(index, 1);
+            return { id: request.id, status: 201, body: {} };
+          }),
+        }),
+      };
+    }
+
+    const skip = Number(new URL(path).searchParams.get("$skip"));
+    return { get: async () => listPage(skip) };
+  });
+
+  return {
+    client: { getClient: vi.fn(() => ({ api })) } as unknown as OutlookClient,
+    inbox,
+  };
 }

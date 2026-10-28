@@ -47,7 +47,7 @@ ${cleanedPromptFile}
   const aiResponse = await generateObject({
     ...modelOptions,
     prompt,
-    system,
+    instructions: system,
     schema: z.object({
       rules: z.array(
         createRuleSchema(

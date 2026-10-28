@@ -6,7 +6,10 @@ import {
 } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
 import { saveClassificationFeedback } from "@/utils/rule/classification-feedback";
-import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
+import {
+  removeAiLearnedPattern,
+  saveLearnedPattern,
+} from "@/utils/rule/learned-patterns";
 import {
   BULK_LABEL_REMOVAL_THRESHOLD,
   getBulkRemovedLabelIds,
@@ -17,6 +20,7 @@ import { createTestLogger } from "@/__tests__/helpers";
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/rule/learned-patterns", () => ({
   saveLearnedPattern: vi.fn().mockResolvedValue(undefined),
+  removeAiLearnedPattern: vi.fn().mockResolvedValue(0),
 }));
 vi.mock("@/utils/rule/classification-feedback", () => ({
   saveClassificationFeedback: vi.fn().mockResolvedValue(undefined),
@@ -66,6 +70,12 @@ describe("recordLabelRemovalLearning", () => {
     prisma.classificationFeedback.findFirst.mockResolvedValue(earlierRemoval);
 
     await recordLabelRemovalLearning({ ...removal, systemType: null });
+
+    expect(removeAiLearnedPattern).toHaveBeenCalledWith({
+      emailAccountId: removal.emailAccountId,
+      from: removal.sender,
+      ruleId: removal.ruleId,
+    });
 
     expect(saveClassificationFeedback).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -137,17 +147,36 @@ describe("recordLabelRemovalLearning", () => {
 });
 
 describe("getBulkRemovedLabelIds", () => {
-  it("returns label ids removed at least the threshold number of times", () => {
-    const removals = [
-      ...Array.from({ length: BULK_LABEL_REMOVAL_THRESHOLD }, () => ({
-        labelIds: ["label-swept", "label-once"],
+  it("flags only labels removed from many messages in one history page", () => {
+    const labelsRemoved = [
+      ...Array.from({ length: BULK_LABEL_REMOVAL_THRESHOLD }, (_, i) => ({
+        message: { id: `message-${i}` },
+        labelIds: ["label-bulk", i === 0 ? "label-single" : "INBOX"],
       })),
+      { labelIds: ["label-few"] },
+      { labelIds: ["label-few"] },
     ];
-    removals[0] = { labelIds: ["label-swept"] };
 
-    const bulk = getBulkRemovedLabelIds(removals);
+    const bulk = getBulkRemovedLabelIds(labelsRemoved);
 
-    expect(bulk.has("label-swept")).toBe(true);
-    expect(bulk.has("label-once")).toBe(false);
+    expect(bulk.has("label-bulk")).toBe(true);
+    expect(bulk.has("label-few")).toBe(false);
+    expect(bulk.has("label-single")).toBe(false);
+  });
+
+  it("does not treat repeated history entries for one message as a bulk cleanup", () => {
+    const removals = Array.from(
+      { length: BULK_LABEL_REMOVAL_THRESHOLD },
+      () => ({
+        message: { id: "message-1", threadId: "thread-1" },
+        labelIds: ["label-1", "label-1"],
+      }),
+    );
+
+    expect(getBulkRemovedLabelIds(removals).size).toBe(0);
+  });
+
+  it("ignores entries without label ids", () => {
+    expect(getBulkRemovedLabelIds([{ labelIds: null }, {}]).size).toBe(0);
   });
 });

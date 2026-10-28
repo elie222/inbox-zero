@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { HashIcon, MailIcon, MessageCircleIcon, SendIcon } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { SlackNotificationTargetSelect } from "@/components/SlackNotificationTargetSelect";
@@ -10,6 +9,7 @@ import { toastError, toastSuccess } from "@/components/Toast";
 import { MutedText } from "@/components/Typography";
 import { Card, CardContent } from "@/components/ui/card";
 import { useMessagingChannels } from "@/hooks/useMessagingChannels";
+import { useSettingsDialog } from "@/hooks/useSettingsDialog";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import type { MessagingProvider } from "@/generated/prisma/enums";
 import { updateMessagingFeatureRouteAction } from "@/utils/actions/messaging-channels";
@@ -20,7 +20,6 @@ import {
   type MessagingChannelDestinations,
   type MessagingFeatureRoutePurpose,
 } from "@/utils/messaging/routes";
-import { prefixPath } from "@/utils/path";
 
 const PROVIDER_CONFIG: Record<
   MessagingProvider,
@@ -65,6 +64,7 @@ export function DeliveryChannelsSetting({
   connectSlackCta: string;
 }) {
   const { emailAccountId } = useAccount();
+  const { openSettings } = useSettingsDialog();
   const {
     data: channelsData,
     isLoading: isLoadingChannels,
@@ -118,12 +118,13 @@ export function DeliveryChannelsSetting({
           {!isLoadingChannels && !hasSlack && slackAvailable && (
             <MutedText className="text-xs">
               {connectSlackCta}{" "}
-              <Link
-                href={prefixPath(emailAccountId, "/settings")}
+              <button
+                type="button"
+                onClick={openSettings}
                 className="text-foreground underline"
               >
                 Connect Slack in Settings
-              </Link>
+              </button>
             </MutedText>
           )}
         </div>

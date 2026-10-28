@@ -11,9 +11,13 @@ import { captureException, isInvalidGrantError } from "@/utils/error";
 import { cleanupInvalidTokens } from "@/utils/auth/cleanup-invalid-tokens";
 import type { EmailProvider } from "@/utils/email/types";
 import { createManagedOutlookSubscription } from "@/utils/outlook/subscription-manager";
-import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import {
+  isGoogleProvider,
+  isMicrosoftProvider,
+} from "@/utils/email/provider-types";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
 import { clearWatchLapsedErrorIfResolved } from "@/utils/error-messages";
+import { syncGoogleEmailFromProfile } from "@/utils/auth/rename-email";
 
 export type WatchEmailAccountResult =
   | {
@@ -51,9 +55,12 @@ async function getEmailAccountsToWatch(userIds: string[] | null) {
       email: true,
       watchEmailsExpirationDate: true,
       watchEmailsSubscriptionId: true,
+      userId: true,
+      accountId: true,
       account: {
         select: {
           provider: true,
+          providerAccountId: true,
           access_token: true,
           refresh_token: true,
           expires_at: true,
@@ -63,6 +70,7 @@ async function getEmailAccountsToWatch(userIds: string[] | null) {
       user: {
         select: {
           id: true,
+          email: true,
           aiApiKey: true,
           premium: {
             select: premiumEntitlementSelect,
@@ -208,6 +216,28 @@ async function watchEmailAccount(
     };
   }
 
+  if (
+    isGoogleProvider(account.provider) &&
+    isEmailSyncDue(emailAccount.id, new Date())
+  ) {
+    try {
+      const renamed = await syncGoogleEmailFromProfile({
+        account: {
+          id: emailAccount.accountId,
+          userId: emailAccount.userId,
+          providerId: account.provider,
+          accountId: account.providerAccountId,
+        },
+        mailbox: { id: emailAccount.id, email: emailAccount.email },
+        userEmail: user.email,
+        accessToken: provider.getAccessToken(),
+      });
+      if (renamed) logger.info("Synced renamed Google mailbox address");
+    } catch (error) {
+      logger.warn("Failed to sync Google mailbox address", { error });
+    }
+  }
+
   const wasLapsed =
     !watchEmailsExpirationDate ||
     new Date(watchEmailsExpirationDate) < new Date();
@@ -241,8 +271,14 @@ async function watchEmails({
   { success: true; expirationDate: Date } | { success: false; error: unknown }
 > {
   logger.info("Watching emails");
+  let failedAccessToken: string | undefined;
 
   try {
+    try {
+      failedAccessToken = provider.getAccessToken();
+    } catch {
+      // The watch request may still refresh a missing cached access token.
+    }
     if (isMicrosoftProvider(provider.name)) {
       const result = await createManagedOutlookSubscription({
         emailAccountId,
@@ -280,14 +316,53 @@ async function watchEmails({
       await cleanupInvalidTokens({
         emailAccountId,
         reason: isInvalidGrant ? "invalid_grant" : "insufficient_permissions",
+        failedAccessToken,
         logger,
-      });
+      }).catch((cleanupError) =>
+        logger.warn("Failed to clean up watch authentication failure", {
+          cleanupError,
+        }),
+      );
     } else {
       captureException(error, { emailAccountId });
     }
 
     return { success: false, error };
   }
+}
+
+export async function stopWatchingEmailAccount({
+  emailAccountId,
+  provider,
+  subscriptionId,
+  logger,
+}: {
+  emailAccountId: string;
+  provider: string;
+  subscriptionId: string | null;
+  logger: Logger;
+}) {
+  let emailProvider: EmailProvider;
+  try {
+    emailProvider = await createEmailProvider({
+      emailAccountId,
+      provider,
+      logger,
+    });
+  } catch (error) {
+    logger.warn("Could not create provider to unwatch account", {
+      emailAccountId,
+      error,
+    });
+    return;
+  }
+
+  await unwatchEmails({
+    emailAccountId,
+    provider: emailProvider,
+    subscriptionId,
+    logger,
+  });
 }
 
 export async function unwatchEmails({
@@ -322,4 +397,15 @@ export async function unwatchEmails({
       watchEmailsSubscriptionId: null,
     },
   });
+}
+
+// The profile lookup adds a request per account, and the hourly renewal already
+// runs close to its time budget, so each account is checked once a day in a
+// fixed hour slot instead of on every run.
+function isEmailSyncDue(emailAccountId: string, now: Date) {
+  let hash = 0;
+  for (const char of emailAccountId) {
+    hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  }
+  return hash % 24 === now.getUTCHours();
 }

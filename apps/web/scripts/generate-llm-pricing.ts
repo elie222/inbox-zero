@@ -42,6 +42,7 @@ const openRouterModelSchema = z.object({
       prompt: z.union([z.string(), z.number(), z.null()]).optional(),
       completion: z.union([z.string(), z.number(), z.null()]).optional(),
       input_cache_read: z.union([z.string(), z.number(), z.null()]).optional(),
+      input_cache_write: z.union([z.string(), z.number(), z.null()]).optional(),
     })
     .optional(),
 });
@@ -56,6 +57,7 @@ type ModelPricing = {
   input: number;
   output: number;
   cachedInput: number;
+  cacheWrite: number;
 };
 
 async function main() {
@@ -181,6 +183,7 @@ function getStaticPricing(modelId: string): ModelPricing | undefined {
     input: staticPricing.input,
     output: staticPricing.output,
     cachedInput: staticPricing.cachedInput ?? staticPricing.input,
+    cacheWrite: staticPricing.cacheWrite ?? staticPricing.input,
   };
 }
 
@@ -192,11 +195,13 @@ function parsePricing(pricing: OpenRouterModel["pricing"]) {
   if (input === null || output === null) return null;
 
   const cachedInput = parsePrice(pricing.input_cache_read) ?? input;
+  const cacheWrite = parsePrice(pricing.input_cache_write) ?? input;
 
   return {
     input,
     output,
     cachedInput,
+    cacheWrite,
   } satisfies ModelPricing;
 }
 
@@ -242,6 +247,7 @@ function renderGeneratedFile(pricingByModel: Record<string, ModelPricing>) {
     "  input: number;",
     "  output: number;",
     "  cachedInput: number;",
+    "  cacheWrite: number;",
     "};",
     "",
     `export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = ${serializedPricing};`,

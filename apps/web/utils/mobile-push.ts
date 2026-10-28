@@ -1,4 +1,15 @@
 import chunk from "lodash/chunk";
+import { MobilePushTokenType } from "@/generated/prisma/enums";
+import {
+  deliverApnsNotifications,
+  isFakeApnsTransport,
+  takeRecordedApnsSends,
+} from "@/utils/apns";
+import {
+  deliverFcmNotifications,
+  isFakeFcmTransport,
+  takeRecordedFcmSends,
+} from "@/utils/fcm";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 
@@ -14,10 +25,12 @@ type ExpoPushTicket = {
 type MobilePushToken = {
   id: string;
   token: string;
+  tokenType: MobilePushTokenType | null;
 };
 
 type MobilePushNotification = {
   title: string;
+  subtitle?: string;
   body: string;
   sound?: "default";
   channelId?: string;
@@ -39,7 +52,7 @@ export async function sendMobilePushNotification({
 }) {
   const pushTokens = await prisma.mobilePushToken.findMany({
     where: { userId },
-    select: { id: true, token: true },
+    select: { id: true, token: true, tokenType: true },
   });
   if (pushTokens.length === 0) return;
 
@@ -58,12 +71,92 @@ export async function sendMobilePushNotification({
     claimedTokenIds.has(id),
   );
 
-  for (const pushTokenBatch of chunk(claimedPushTokens, EXPO_PUSH_BATCH_SIZE)) {
+  const expoTokens = claimedPushTokens.filter(
+    (pushToken) =>
+      pushToken.tokenType !== MobilePushTokenType.APNS &&
+      pushToken.tokenType !== MobilePushTokenType.FCM,
+  );
+  const apnsTokens = claimedPushTokens.filter(
+    (pushToken) => pushToken.tokenType === MobilePushTokenType.APNS,
+  );
+  const fcmTokens = claimedPushTokens.filter(
+    (pushToken) => pushToken.tokenType === MobilePushTokenType.FCM,
+  );
+
+  for (const pushTokenBatch of chunk(expoTokens, EXPO_PUSH_BATCH_SIZE)) {
     await sendPushBatch({
       pushTokens: pushTokenBatch,
       deduplicationKey,
       notification,
       logger,
+    });
+  }
+
+  if (apnsTokens.length > 0) {
+    await sendNativeBatch({
+      pushTokens: apnsTokens,
+      deduplicationKey,
+      deliver: (tokens) =>
+        deliverApnsNotifications({ tokens, notification, logger }),
+    });
+  }
+
+  if (fcmTokens.length > 0) {
+    await sendNativeBatch({
+      pushTokens: fcmTokens,
+      deduplicationKey,
+      deliver: (tokens) =>
+        deliverFcmNotifications({ tokens, notification, logger }),
+    });
+  }
+}
+
+export function isFakePushTransport() {
+  return isFakeApnsTransport() || isFakeFcmTransport();
+}
+
+export function takeRecordedPushSends() {
+  return [
+    ...takeRecordedApnsSends().map((send) => ({
+      type: "apns" as const,
+      ...send,
+    })),
+    ...takeRecordedFcmSends().map((send) => ({
+      type: "fcm" as const,
+      ...send,
+    })),
+  ];
+}
+
+async function sendNativeBatch({
+  pushTokens,
+  deduplicationKey,
+  deliver,
+}: {
+  pushTokens: MobilePushToken[];
+  deduplicationKey: string;
+  deliver: (
+    tokens: string[],
+  ) => Promise<{ unregisteredTokens: string[]; retryTokens: string[] }>;
+}) {
+  const { unregisteredTokens, retryTokens } = await deliver(
+    pushTokens.map(({ token }) => token),
+  );
+  const unregisteredIds = pushTokens
+    .filter((pushToken) => unregisteredTokens.includes(pushToken.token))
+    .map(({ id }) => id);
+  const retryIds = pushTokens.filter((pushToken) =>
+    retryTokens.includes(pushToken.token),
+  );
+  if (unregisteredIds.length > 0) {
+    await prisma.mobilePushToken.deleteMany({
+      where: { id: { in: unregisteredIds } },
+    });
+  }
+  if (retryIds.length > 0) {
+    await releasePushClaims({
+      pushTokens: retryIds,
+      deduplicationKey,
     });
   }
 }
@@ -79,6 +172,7 @@ async function sendPushBatch({
   notification: MobilePushNotification;
   logger: Logger;
 }) {
+  const { subtitle, ...expoNotification } = notification;
   let response: Response;
   try {
     response = await fetch(EXPO_PUSH_URL, {
@@ -91,7 +185,10 @@ async function sendPushBatch({
       body: JSON.stringify(
         pushTokens.map(({ token }) => ({
           to: token,
-          ...notification,
+          ...expoNotification,
+          body: subtitle
+            ? `${subtitle}\n${notification.body}`
+            : notification.body,
         })),
       ),
     });

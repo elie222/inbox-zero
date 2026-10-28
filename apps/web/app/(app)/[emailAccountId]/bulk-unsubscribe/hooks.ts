@@ -2,6 +2,7 @@
 
 import { useCallback, useState, useEffect } from "react";
 import { toast } from "sonner";
+import { useLocalStorage } from "usehooks-ts";
 import { useAction } from "next-safe-action/hooks";
 import type { PostHog } from "posthog-js/react";
 import { toastSuccess } from "@/components/Toast";
@@ -35,7 +36,7 @@ import {
 } from "@/utils/parse/unsubscribe";
 import { useProductAnalytics } from "@/hooks/useProductAnalytics";
 import { fetchAllSenderThreads } from "@/store/fetch-sender-threads";
-import { enqueueThreadMailMutationBatch } from "@/utils/email-cache/thread-mail-mutations";
+import { enqueueThreadMailMutationBatch } from "@/utils/mail-engine/thread-mail-mutations";
 
 // Shared type for SWR mutate function
 type MutateFn = (
@@ -155,7 +156,7 @@ async function executeBulkOperation<T extends Row>({
       failureCount++;
       if (error instanceof EmailProviderRateLimitError) {
         rateLimitError = error;
-      } else {
+      } else if (!(error instanceof AutomaticUnsubscribeFailedError)) {
         captureException(error);
       }
     } finally {
@@ -229,6 +230,7 @@ async function unsubscribeAndArchive({
   refetchPremium,
   emailAccountId,
   queueArchiveSenders,
+  archiveExisting,
 }: {
   senderEmail: string;
   unsubscribeLink?: string | null;
@@ -236,6 +238,7 @@ async function unsubscribeAndArchive({
   refetchPremium: () => Promise<UserResponse | null | undefined>;
   emailAccountId: string;
   queueArchiveSenders: QueueArchiveSendersFn;
+  archiveExisting: boolean;
 }) {
   const unsubscribed = await performAutomaticUnsubscribe({
     emailAccountId,
@@ -246,7 +249,7 @@ async function unsubscribeAndArchive({
 
   await mutate();
   await decrementUnsubscribeCreditAction();
-  await queueArchiveSenders({ senders: [senderEmail] });
+  if (archiveExisting) await queueArchiveSenders({ senders: [senderEmail] });
   await refreshPremium(refetchPremium);
 
   return true;
@@ -303,6 +306,7 @@ export function useUnsubscribe<T extends Row>({
   const analytics = useProductAnalytics("bulk_unsubscribe");
   const [unsubscribeLoading, setUnsubscribeLoading] = useState(false);
   const { queueArchiveSenders } = useArchiveSenderQueueActions(emailAccountId);
+  const [archiveOnUnsubscribe] = useArchiveOnUnsubscribe();
   const automaticUnsubscribeLink = getAutomaticUnsubscribeLink(
     item.unsubscribeLink,
   );
@@ -314,6 +318,20 @@ export function useUnsubscribe<T extends Row>({
     if (!hasUnsubscribeAccess) return;
 
     setUnsubscribeLoading(true);
+
+    // However the attempt fails, the sender's own page stays available, so the
+    // reader is never left without a way to finish.
+    const openPageAction = userFacingUnsubscribeLink
+      ? {
+          label: "Open page",
+          onClick: () =>
+            window.open(
+              userFacingUnsubscribeLink,
+              "_blank",
+              "noopener,noreferrer",
+            ),
+        }
+      : undefined;
 
     try {
       posthog.capture("Clicked Unsubscribe");
@@ -357,24 +375,31 @@ export function useUnsubscribe<T extends Row>({
           refetchPremium,
           emailAccountId,
           queueArchiveSenders,
+          archiveExisting: archiveOnUnsubscribe,
         });
         if (!unsubscribed) {
           analytics.captureAction("unsubscribe_sender_failed", {
             reason: "automatic_unsubscribe_failed",
           });
-          toast.error(`Could not automatically unsubscribe from ${item.name}`);
+          toast.error(`Could not unsubscribe from ${item.name}`, {
+            action: openPageAction,
+          });
         } else {
           analytics.captureAction("unsubscribe_sender_completed", {
-            outcome: "unsubscribed_and_archived",
+            outcome: archiveOnUnsubscribe
+              ? "unsubscribed_and_archived"
+              : "unsubscribed",
           });
         }
       }
     } catch (error) {
       if (error instanceof EmailProviderRateLimitError) {
-        toast.error(error.message);
+        toast.error(error.message, { action: openPageAction });
       } else {
         captureException(error);
-        toast.error(`Could not unsubscribe from ${item.name}`);
+        toast.error(`Could not unsubscribe from ${item.name}`, {
+          action: openPageAction,
+        });
       }
     } finally {
       setUnsubscribeLoading(false);
@@ -392,11 +417,17 @@ export function useUnsubscribe<T extends Row>({
     emailAccountId,
     userFacingUnsubscribeLink,
     queueArchiveSenders,
+    archiveOnUnsubscribe,
   ]);
 
   return {
     unsubscribeLoading,
     onUnsubscribe,
+    // Only meaningful without an automatic link: the caller navigates to it
+    // instead of unsubscribing in place.
+    hasAutomaticUnsubscribe: Boolean(
+      hasUnsubscribeAccess && automaticUnsubscribeLink,
+    ),
     unsubscribeLink:
       hasUnsubscribeAccess && userFacingUnsubscribeLink
         ? userFacingUnsubscribeLink
@@ -425,6 +456,7 @@ export function useBulkUnsubscribe<T extends Row>({
 }) {
   const analytics = useProductAnalytics("bulk_unsubscribe");
   const { queueArchiveSenders } = useArchiveSenderQueueActions(emailAccountId);
+  const [archiveOnUnsubscribe] = useArchiveOnUnsubscribe();
 
   const onBulkUnsubscribe = useCallback(
     async (items: T[]) => {
@@ -471,11 +503,13 @@ export function useBulkUnsubscribe<T extends Row>({
             unsubscribeLink: item.unsubscribeLink,
           });
           if (!unsubscribed) {
-            throw new Error("Automatic unsubscribe did not succeed");
+            throw new AutomaticUnsubscribeFailedError();
           }
 
           await decrementUnsubscribeCreditAction();
-          await queueArchiveSenders({ senders: [item.name] });
+          if (archiveOnUnsubscribe) {
+            await queueArchiveSenders({ senders: [item.name] });
+          }
         },
         onComplete: async () => {
           await mutate();
@@ -504,6 +538,7 @@ export function useBulkUnsubscribe<T extends Row>({
       filter,
       analytics,
       queueArchiveSenders,
+      archiveOnUnsubscribe,
       onSuccess,
     ],
   );
@@ -765,11 +800,11 @@ export function useApproveButton<T extends Row>({
 
     // Show toast optimistically
     if (newStatus === NewsletterStatus.APPROVED) {
-      toast.success("Sender approved", {
+      toast.success("Sender kept", {
         description: item.name,
       });
     } else {
-      toast.success("Sender unapproved", {
+      toast.success("Sender moved to review", {
         description: item.name,
       });
     }
@@ -826,7 +861,7 @@ export function useBulkApprove<T extends Row>({
     );
 
     const newStatus = unapprove ? null : NewsletterStatus.APPROVED;
-    const actionPast = unapprove ? "unapproved" : "approved";
+    const actionPast = unapprove ? "moved to review" : "kept";
 
     await executeBulkOperation({
       items,
@@ -834,9 +869,9 @@ export function useBulkApprove<T extends Row>({
       filter,
       onDeselectItem,
       newStatus,
-      loadingMessage: unapprove ? "Unapproving" : "Approving",
+      loadingMessage: unapprove ? "Moving to review" : "Keeping",
       successMessage: actionPast,
-      errorMessage: `Failed to ${unapprove ? "unapprove" : "approve"}`,
+      errorMessage: `Failed to ${unapprove ? "move to review" : "keep"}`,
       processItem: async (item) => {
         const result = await setSenderStatusAction(emailAccountId, {
           senderEmail: item.name,
@@ -904,6 +939,7 @@ async function deleteAllFromSender({
   const deletion = (async () => {
     const { threads } = await fetchAllSenderThreads({
       sender: name,
+      scope: "all",
       emailAccountId,
     });
     if (threads.length) {
@@ -1027,6 +1063,7 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
   userEmail: string;
 }) {
   const { queueArchiveSenders } = useArchiveSenderQueueActions(emailAccountId);
+  const [archiveOnUnsubscribe] = useArchiveOnUnsubscribe();
 
   // perform actions using keyboard shortcuts
   // TODO make this available to command-K dialog too
@@ -1112,6 +1149,7 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
             refetchPremium,
             emailAccountId,
             queueArchiveSenders,
+            archiveExisting: archiveOnUnsubscribe,
           });
           if (!unsubscribed) return;
           return;
@@ -1143,7 +1181,15 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
     onOpenNewsletter,
     emailAccountId,
     queueArchiveSenders,
+    archiveOnUnsubscribe,
   ]);
+}
+
+export function useArchiveOnUnsubscribe() {
+  // Read after mount so a saved `false` doesn't mismatch the server render.
+  return useLocalStorage("bulk-unsubscribe-archive-on-unsubscribe", true, {
+    initializeWithValue: false,
+  });
 }
 
 export function useNewsletterFilter() {
@@ -1265,4 +1311,13 @@ function getBulkActionErrorMessage(error: unknown, fallback: string) {
   }
 
   return fallback;
+}
+
+// An expected outcome (the sender's endpoint rejected or needs a person), not
+// a bug: the server logs the reason and the toast reports the failure count.
+class AutomaticUnsubscribeFailedError extends Error {
+  constructor() {
+    super("Automatic unsubscribe did not succeed");
+    this.name = "AutomaticUnsubscribeFailedError";
+  }
 }

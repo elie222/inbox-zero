@@ -28,7 +28,7 @@ describe("chat folder tools", () => {
     vi.clearAllMocks();
   });
 
-  it("lists nested Outlook folders without exposing folder IDs", async () => {
+  it("lists nested Outlook folders with IDs for scoped searches", async () => {
     const folders: OutlookFolder[] = [
       {
         id: "folder-1",
@@ -59,19 +59,19 @@ describe("chat folder tools", () => {
       count: 2,
       folders: [
         {
+          id: "folder-1",
           name: "Operations",
           path: "Operations",
           childFolderCount: 1,
         },
         {
+          id: "folder-2",
           name: "Reports",
           path: `Operations${FOLDER_SEPARATOR}Reports`,
           childFolderCount: 0,
         },
       ],
     });
-    expect(JSON.stringify(result)).not.toContain("folder-1");
-    expect(JSON.stringify(result)).not.toContain("folder-2");
   });
 
   it("reuses an existing Outlook folder by normalized name", async () => {

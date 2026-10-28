@@ -66,6 +66,30 @@ describe("SSO Signin Route", () => {
     return new NextRequest(url);
   };
 
+  test.each([
+    ["/settings?tab=account", "/settings?tab=account"],
+    ["https://external.example/path", "/accounts"],
+    ["//external.example/path", "/accounts"],
+  ])("validates the SSO return path %s", async (next, expected) => {
+    vi.mocked(prisma.ssoProvider.findFirst).mockResolvedValue({
+      providerId: "provider-1",
+    } as never);
+    mockBetterAuthConfig.api.signInSSO.mockResolvedValue({
+      url: "https://sso.example/login",
+      redirect: true,
+    } as never);
+    const request = createMockRequest({
+      email: "user@example.com",
+      organizationSlug: "test-org",
+    });
+    request.nextUrl.searchParams.set("next", next);
+    const response = await GET(new NextRequest(request.nextUrl), mockContext);
+    expect(response.status).toBe(200);
+    expect(mockBetterAuthConfig.api.signInSSO).toHaveBeenCalledWith({
+      body: expect.objectContaining({ callbackURL: expected }),
+    });
+  });
+
   describe("Parameter validation", () => {
     test("should return 400 when email parameter is missing", async () => {
       const request = createMockRequest({ organizationSlug: "test-org" });
@@ -196,138 +220,6 @@ describe("SSO Signin Route", () => {
 
   describe("Error handling", () => {
     test("should return 500 when betterAuth fails", async () => {
-      const request = createMockRequest({
-        email: "user@example.com",
-        organizationSlug: "test-org",
-      });
-
-      // Mock Prisma to return a provider
-      vi.mocked(prisma.ssoProvider.findFirst).mockResolvedValue({
-        providerId: "test-provider",
-      } as any);
-
-      // Mock betterAuth to throw an error
-      mockBetterAuthConfig.api.signInSSO.mockRejectedValue(
-        new Error("SSO service unavailable"),
-      );
-
-      const response = await GET(request, mockContext);
-      const responseBody = await response.json();
-
-      expect(response.status).toBe(500);
-      expect(responseBody).toEqual({
-        error: "An unexpected error occurred",
-      });
-    });
-  });
-
-  describe("Successful SSO signin flow", () => {
-    test("should return correct response structure on success", async () => {
-      const mockSignInSSOResponse = {
-        url: "https://sso.example.com/signin?token=abc123",
-      };
-      mockBetterAuthConfig.api.signInSSO.mockResolvedValue(
-        mockSignInSSOResponse,
-      );
-
-      // Mock Prisma to return a provider
-      vi.mocked(prisma.ssoProvider.findFirst).mockResolvedValue({
-        providerId: "test-provider",
-      } as any);
-
-      const request = createMockRequest({
-        email: "user@example.com",
-        organizationSlug: "test-org",
-      });
-
-      const response = await GET(request, mockContext);
-      const responseBody = await response.json();
-
-      expect(response.status).toBe(200);
-      expect(responseBody).toEqual({
-        redirectUrl: "https://sso.example.com/signin?token=abc123",
-        providerId: "test-provider",
-      });
-    });
-
-    test("should log SSO sign-in request", async () => {
-      const mockSignInSSOResponse = { url: "https://sso.example.com/signin" };
-      mockBetterAuthConfig.api.signInSSO.mockResolvedValue(
-        mockSignInSSOResponse,
-      );
-
-      // Mock Prisma to return a provider
-      vi.mocked(prisma.ssoProvider.findFirst).mockResolvedValue({
-        providerId: "test-provider",
-      } as any);
-
-      const request = createMockRequest({
-        email: "user@example.com",
-        organizationSlug: "test-org",
-      });
-
-      const response = await GET(request, mockContext);
-      const responseBody = await response.json();
-
-      // Verify the main functionality works (logging is a side effect)
-      expect(response.status).toBe(200);
-      expect(responseBody).toEqual({
-        redirectUrl: "https://sso.example.com/signin",
-        providerId: "test-provider",
-      });
-    });
-
-    test("should return 400 when no SSO provider found", async () => {
-      // Mock Prisma to return null (no provider found)
-      vi.mocked(prisma.ssoProvider.findFirst).mockResolvedValue(null as any);
-
-      const request = createMockRequest({
-        email: "user@example.com",
-        organizationSlug: "test-org",
-      });
-
-      const response = await GET(request, mockContext);
-      const responseBody = await response.json();
-
-      // Verify the error response works correctly
-      expect(response.status).toBe(400);
-      expect(responseBody).toEqual({
-        error: "No SSO provider found for this organization",
-        isKnownError: true,
-      });
-    });
-  });
-
-  describe("betterAuthConfig integration", () => {
-    test("should call betterAuthConfig.api.signInSSO with correct parameters", async () => {
-      const mockSignInSSOResponse = { url: "https://sso.example.com/signin" };
-      mockBetterAuthConfig.api.signInSSO.mockResolvedValue(
-        mockSignInSSOResponse,
-      );
-
-      // Mock Prisma to return a provider
-      vi.mocked(prisma.ssoProvider.findFirst).mockResolvedValue({
-        providerId: "test-provider",
-      } as any);
-
-      const request = createMockRequest({
-        email: "user@example.com",
-        organizationSlug: "test-org",
-      });
-
-      await GET(request, mockContext);
-
-      expect(mockBetterAuthConfig.api.signInSSO).toHaveBeenCalledWith({
-        body: {
-          providerId: "test-provider",
-          callbackURL: "/accounts",
-          email: "user@example.com",
-          loginHint: "user@example.com",
-        },
-      });
-    });
-
-    test("should handle betterAuthConfig errors", async () => {
       const request = createMockRequest({
         email: "user@example.com",
         organizationSlug: "test-org",

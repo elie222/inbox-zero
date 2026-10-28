@@ -1,6 +1,8 @@
 import { env } from "@/env";
 
 const GOOGLE_CONTACTS_SCOPE = "https://www.googleapis.com/auth/contacts";
+const GOOGLE_OTHER_CONTACTS_SCOPE =
+  "https://www.googleapis.com/auth/contacts.other.readonly";
 
 export const REQUIRED_SCOPES = [
   "https://www.googleapis.com/auth/userinfo.profile",
@@ -12,7 +14,14 @@ export const REQUIRED_SCOPES = [
 
 export const SCOPES = [
   ...REQUIRED_SCOPES,
+  // Saved Contacts and Other Contacts are optional and were requested at
+  // different times. Accounts consented before either was requested keep
+  // working with whichever they hold.
   ...(env.NEXT_PUBLIC_CONTACTS_ENABLED ? [GOOGLE_CONTACTS_SCOPE] : []),
+  ...(env.NEXT_PUBLIC_CONTACTS_ENABLED &&
+  env.NEXT_PUBLIC_GMAIL_OTHER_CONTACTS_ENABLED
+    ? [GOOGLE_OTHER_CONTACTS_SCOPE]
+    : []),
 ];
 
 export const CALENDAR_SCOPES = [

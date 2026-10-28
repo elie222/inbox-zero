@@ -7,8 +7,11 @@ import prisma from "@/utils/prisma";
 import {
   getGoogleApiRootUrl,
   getGoogleOauthClientOptions,
-} from "@/utils/google/oauth";
-import { saveCalendarTokens } from "@/utils/calendar/save-calendar-tokens";
+} from "@/utils/gmail/oauth";
+import {
+  markCalendarConnectionDisconnected,
+  saveCalendarTokens,
+} from "@/utils/calendar/save-calendar-tokens";
 
 type AuthOptions = {
   accessToken?: string | null;
@@ -114,6 +117,13 @@ export const getCalendarClientWithRefresh = async ({
             response?: { data?: { error_description?: string } };
           }
         ).response?.data?.error_description,
+      });
+      await markCalendarConnectionDisconnected({
+        emailAccountId,
+        provider: "google",
+        accessToken: accessToken ?? null,
+        refreshToken,
+        logger,
       });
     }
 

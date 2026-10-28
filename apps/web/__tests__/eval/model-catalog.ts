@@ -20,20 +20,25 @@ export const EVAL_MODEL_CATALOG: Record<string, EvalModel> = {
     model: "deepseek/deepseek-v4-flash",
     label: "DeepSeek V4 Flash",
   },
+  "gemini-3.8-flash": {
+    provider: "openrouter",
+    model: "google/gemini-3.8-flash",
+    label: "Gemini 3.8 Flash",
+  },
+  "gemini-3.1-flash-lite": {
+    provider: "openrouter",
+    model: "google/gemini-3.1-flash-lite",
+    label: "Gemini 3.1 Flash Lite",
+  },
   "gemini-3-flash": {
     provider: "openrouter",
-    model: "google/gemini-3-flash-preview",
+    model: "google/gemini-3-flash",
     label: "Gemini 3 Flash",
   },
   "gemini-2.5-flash": {
     provider: "openrouter",
     model: "google/gemini-2.5-flash",
     label: "Gemini 2.5 Flash",
-  },
-  "gemini-3.1-flash-lite": {
-    provider: "openrouter",
-    model: "google/gemini-3.1-flash-lite-preview",
-    label: "Gemini 3.1 Flash Lite",
   },
   "gpt-5.4-nano": {
     provider: "openrouter",
@@ -45,15 +50,30 @@ export const EVAL_MODEL_CATALOG: Record<string, EvalModel> = {
     model: "openai/gpt-5.4-mini",
     label: "GPT-5.4 Mini",
   },
-  "gpt-5.6-luna": {
+  "gpt-6-luna": {
     provider: "openrouter",
-    model: "openai/gpt-5.6-luna",
-    label: "GPT-5.6 Luna",
+    model: "openai/gpt-6-luna",
+    label: "GPT-6 Luna",
   },
   "gpt-5.6-terra": {
     provider: "openrouter",
     model: "openai/gpt-5.6-terra",
     label: "GPT-5.6 Terra",
+  },
+  "claude-sonnet-5": {
+    provider: "openrouter",
+    model: "anthropic/claude-sonnet-5",
+    label: "Claude Sonnet 5",
+  },
+  "claude-haiku-5.5": {
+    provider: "openrouter",
+    model: "anthropic/claude-haiku-5.5",
+    label: "Claude Haiku 5.5",
+  },
+  "claude-haiku-4.5": {
+    provider: "openrouter",
+    model: "anthropic/claude-haiku-4.5",
+    label: "Claude Haiku 4.5",
   },
   "gpt-5.6-luna-azure": {
     provider: "azure-foundry",
@@ -90,7 +110,7 @@ export const EVAL_MODEL_CATALOG: Record<string, EvalModel> = {
 /**
  * Returns the list of models to evaluate against.
  *
- * - Not set:                         single run with default env-configured model
+ * - Not set:                         single run with the default model from describeEvalMatrix
  * - EVAL_MODELS=all                  every model in the catalog
  * - EVAL_MODELS=gemini-2.5-flash     single model by shorthand
  * - EVAL_MODELS=gemini-2.5-flash,gpt-5.4-mini   comma-separated shorthand picks
@@ -150,6 +170,7 @@ function getApiKeyForProvider(provider: string): string | null {
     anthropic: process.env.ANTHROPIC_API_KEY,
     google: process.env.GOOGLE_API_KEY,
     groq: process.env.GROQ_API_KEY,
+    cerebras: process.env.CEREBRAS_API_KEY,
     [Provider.AZURE_FOUNDRY]: process.env.AZURE_FOUNDRY_API_KEY,
     "openai-compatible": process.env.LLM_API_KEY || "not-required",
     ollama: "ollama-local",

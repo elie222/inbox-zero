@@ -1,9 +1,12 @@
+import { createHash } from "node:crypto";
+import { buildDraftReplyModelEvidence } from "@/utils/ai/reply/draft-reply";
 import { runDraftReplyAssertions } from "@/__tests__/eval/harness/assertions";
 import { judgeCriteria } from "@/__tests__/eval/harness/criteria-judge";
 import {
   describeContext,
   describeThread,
   invokeDraftReply,
+  toDraftReplyInput,
 } from "@/__tests__/eval/harness/draft-reply-adapter";
 import type { DraftReplyCase } from "@/__tests__/eval/harness/draft-reply-schema";
 import {
@@ -108,6 +111,29 @@ export function runDraftReplyEval<
     describeOutput: (output) => output.reply,
     confidenceOf: (output) => output.confidence,
     caseFingerprintOf: (evalCase) => contentHashForCase(evalCase),
+    cacheFingerprintOf: (evalCase) =>
+      buildDraftReplyCacheFingerprint(evalCase, emailAccount),
     judgeIdentity,
   });
+}
+
+function buildDraftReplyCacheFingerprint(
+  evalCase: DraftReplyCase,
+  emailAccount: EmailAccountWithAI,
+): string {
+  const evidence = buildDraftReplyModelEvidence(
+    toDraftReplyInput(evalCase, emailAccount),
+  );
+  return createHash("sha256")
+    .update(
+      JSON.stringify({
+        case: contentHashForCase(evalCase),
+        evidence,
+        model: {
+          provider: emailAccount.user.aiProvider,
+          name: emailAccount.user.aiModel,
+        },
+      }),
+    )
+    .digest("hex");
 }

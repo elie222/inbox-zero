@@ -1,5 +1,6 @@
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import type { ParsedMessage, EmailForLLM } from "@/utils/types";
+import { isFilebotConversationMessage } from "@/utils/filebot/is-filebot-email";
 
 const THREAD_STATUS_FIRST_MESSAGE_MAX_LENGTH = 500;
 const THREAD_STATUS_MIDDLE_MESSAGE_MAX_LENGTH = 120;
@@ -8,6 +9,16 @@ export const THREAD_STATUS_LATEST_MESSAGE_MAX_LENGTH = 2000;
 // ~150-200 English words. Characters, not words, so this stays stable across languages.
 const THREAD_STATUS_LATEST_MESSAGE_TAIL_LENGTH = 1000;
 const THREAD_STATUS_RECENT_TAIL_MESSAGES = 8;
+
+// The filing assistant posts into the user's own threads. Those messages are
+// not part of the conversation whose status is being determined.
+export function excludeAssistantMessages<
+  T extends Pick<ParsedMessage, "headers">,
+>({ messages, userEmail }: { messages: T[]; userEmail: string }): T[] {
+  return messages.filter(
+    (message) => !isFilebotConversationMessage({ userEmail, message }),
+  );
+}
 
 export function buildThreadStatusMessagesForLLM(
   sortedMessages: ParsedMessage[],

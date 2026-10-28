@@ -98,6 +98,25 @@ describe("parseListUnsubscribeHeader", () => {
     ]);
   });
 
+  it("keeps commas inside a bracketed URL that is not listed first", () => {
+    expect(
+      parseListUnsubscribeHeader(
+        "<mailto:unsubscribe@example.com>, <https://example.com/unsub?ids=12,34&t=abc>",
+      ),
+    ).toEqual([
+      "mailto:unsubscribe@example.com",
+      "https://example.com/unsub?ids=12,34&t=abc",
+    ]);
+  });
+
+  it("still splits unbracketed values on commas", () => {
+    expect(
+      parseListUnsubscribeHeader(
+        "https://example.com/unsub, mailto:unsubscribe@example.com",
+      ),
+    ).toEqual(["https://example.com/unsub", "mailto:unsubscribe@example.com"]);
+  });
+
   it("returns empty array for missing values", () => {
     expect(parseListUnsubscribeHeader()).toEqual([]);
   });
@@ -143,13 +162,31 @@ describe("getHttpUnsubscribeLink", () => {
 });
 
 describe("getUserFacingUnsubscribeLink", () => {
-  it("returns the first safe manual unsubscribe link from a mixed header", () => {
+  it("prefers a web page over a mailto listed before it", () => {
     expect(
       getUserFacingUnsubscribeLink({
         listUnsubscribeHeader:
           "<javascript:alert(1)>, <mailto:unsubscribe@example.com>, <https://example.com/unsub?id=1>",
       }),
+    ).toBe("https://example.com/unsub?id=1");
+  });
+
+  it("falls back to a mailto when no web link is offered", () => {
+    expect(
+      getUserFacingUnsubscribeLink({
+        listUnsubscribeHeader:
+          "<javascript:alert(1)>, <mailto:unsubscribe@example.com>",
+      }),
     ).toBe("mailto:unsubscribe@example.com");
+  });
+
+  it("prefers https over http", () => {
+    expect(
+      getUserFacingUnsubscribeLink({
+        listUnsubscribeHeader:
+          "<http://example.com/unsub>, <https://example.com/unsub>",
+      }),
+    ).toBe("https://example.com/unsub");
   });
 
   it("returns undefined when every unsubscribe link uses an unsafe scheme", () => {

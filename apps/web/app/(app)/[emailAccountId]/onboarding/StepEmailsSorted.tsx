@@ -1,34 +1,17 @@
 "use client";
 
-import { ArrowRightIcon } from "lucide-react";
-import { PageHeading, TypographyP } from "@/components/Typography";
-import { Button } from "@/components/ui/button";
 import { EmailsSortedIllustration } from "@/app/(app)/[emailAccountId]/onboarding/illustrations/EmailsSortedIllustration";
+import { OnboardingFeatureStep } from "./OnboardingFeatureStep";
 
 export function StepEmailsSorted({ onNext }: { onNext: () => void }) {
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center bg-slate-50 px-4 py-8">
-      <div className="flex flex-col items-center text-center max-w-md">
-        <div className="mb-6 h-[240px] flex items-end justify-center">
-          <EmailsSortedIllustration />
-        </div>
-
-        <PageHeading className="mb-3">
-          Your inbox, automatically sorted
-        </PageHeading>
-
-        <TypographyP className="text-muted-foreground mb-8">
-          Every email gets a label like "To Reply", "Newsletter", or "Cold
-          Email".
-        </TypographyP>
-
-        <div className="flex flex-col gap-2 w-full max-w-xs">
-          <Button className="w-full" onClick={onNext}>
-            Continue
-            <ArrowRightIcon className="size-4 ml-2" />
-          </Button>
-        </div>
-      </div>
-    </div>
+    <OnboardingFeatureStep
+      illustration={<EmailsSortedIllustration />}
+      title="Your inbox, automatically sorted"
+      description={
+        'Every email gets a label like "To Reply", "Newsletter", or "Cold Email".'
+      }
+      onNext={onNext}
+    />
   );
 }

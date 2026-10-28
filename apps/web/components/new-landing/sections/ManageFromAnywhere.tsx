@@ -12,11 +12,12 @@ import {
   SectionSubtitle,
 } from "@/components/new-landing/common/Typography";
 
-const platforms: {
+type Platform = {
   name: string;
   icon: React.ReactNode;
-  comingSoon?: boolean;
-}[] = [
+};
+
+const defaultPlatforms: Platform[] = [
   {
     name: "Slack",
     icon: <Image src="/images/slack.svg" alt="Slack" width={56} height={56} />,
@@ -30,7 +31,6 @@ const platforms: {
   {
     name: "Teams",
     icon: <Image src="/images/teams.png" alt="Teams" width={56} height={56} />,
-    comingSoon: true,
   },
   {
     name: "iOS & Android",
@@ -42,14 +42,19 @@ const platforms: {
   },
 ];
 
-export function ManageFromAnywhere() {
+export function ManageFromAnywhere({
+  title = "Your inbox, wherever you work",
+  subtitle = "Read emails, draft replies, and manage your inbox from Slack, Telegram, Microsoft Teams, mobile, or the web, without switching apps.",
+  platforms = defaultPlatforms,
+}: {
+  platforms?: Platform[];
+  subtitle?: React.ReactNode;
+  title?: React.ReactNode;
+}) {
   return (
     <Section>
-      <SectionHeading>Your inbox, wherever you work</SectionHeading>
-      <SectionSubtitle>
-        Read emails, draft replies, and manage your inbox from Slack, Telegram,
-        mobile, or the web, without switching apps.
-      </SectionSubtitle>
+      <SectionHeading>{title}</SectionHeading>
+      <SectionSubtitle>{subtitle}</SectionSubtitle>
       <SectionContent className="flex justify-center">
         <BlurFade inView>
           <div className="flex flex-wrap items-start justify-center gap-6 sm:gap-10">
@@ -63,15 +68,7 @@ export function ManageFromAnywhere() {
   );
 }
 
-function PlatformIcon({
-  name,
-  icon,
-  comingSoon,
-}: {
-  name: string;
-  icon: React.ReactNode;
-  comingSoon?: boolean;
-}) {
+function PlatformIcon({ name, icon }: { name: string; icon: React.ReactNode }) {
   return (
     <div className="flex flex-col items-center gap-3">
       <CardWrapper padding="xs-2" rounded="full">
@@ -80,11 +77,6 @@ function PlatformIcon({
         </Card>
       </CardWrapper>
       <span className="text-sm font-medium text-gray-500">{name}</span>
-      {comingSoon && (
-        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-400">
-          Coming soon
-        </span>
-      )}
     </div>
   );
 }

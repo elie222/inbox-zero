@@ -2,6 +2,8 @@ import type { ModelMessage } from "ai";
 import { beforeEach, vi } from "vitest";
 import {
   captureAssistantChatTrace,
+  hasAssistantWriteToolCalls,
+  isAssistantWriteToolName,
   getFirstMatchingToolCall,
   getLastMatchingToolCall as getSharedLastMatchingToolCall,
   summarizeRecordedToolCalls,
@@ -37,23 +39,6 @@ export const inboxWorkflowProviders = [
   },
 ] as const;
 
-const writeToolNames = new Set([
-  "manageInbox",
-  "createRule",
-  "updateRuleConditions",
-  "updateRuleActions",
-  "updateLearnedPatterns",
-  "updatePersonalInstructions",
-  "updateAssistantSettings",
-  "sendEmail",
-  "replyEmail",
-  "forwardEmail",
-  "createOrGetFolder",
-  "moveThreadsToFolder",
-  "saveMemory",
-  "addToKnowledgeBase",
-]);
-
 const hoisted = vi.hoisted(() => ({
   mockCreateRule: vi.fn(),
   mockPartialUpdateRule: vi.fn(),
@@ -73,6 +58,8 @@ const hoisted = vi.hoisted(() => ({
   },
   mockUnsubscribeSenderAndMark: vi.fn(),
   mockSearchMessages: vi.fn(),
+  mockCountMessages: vi.fn(),
+  mockGetLabels: vi.fn(),
   mockGetMessage: vi.fn(),
   mockArchiveThreadWithLabel: vi.fn(),
   mockMarkReadThread: vi.fn(),
@@ -88,13 +75,15 @@ const {
   mockUpdateRuleActions,
   mockSaveLearnedPatterns,
   mockCreateEmailProvider,
-  mockGetMessage,
   mockArchiveThreadWithLabel,
   mockMarkReadThread,
   mockBulkArchiveFromSenders,
 } = hoisted;
 
 export const mockSearchMessages = hoisted.mockSearchMessages;
+export const mockCountMessages = hoisted.mockCountMessages;
+export const mockGetLabels = hoisted.mockGetLabels;
+export const mockGetMessage = hoisted.mockGetMessage;
 export { mockArchiveThreadWithLabel };
 export const mockGetFolders = hoisted.mockGetFolders;
 export const mockGetOrCreateFolderIdByName =
@@ -186,6 +175,10 @@ export function setupInboxWorkflowEval() {
       messages: getDefaultSearchMessages(),
       nextPageToken: undefined,
     });
+    mockCountMessages.mockRejectedValue(
+      new Error("Count fixture not configured"),
+    );
+    mockGetLabels.mockResolvedValue(getDefaultLabels());
     mockGetFolders.mockResolvedValue(getDefaultFolders());
     mockGetOrCreateFolderIdByName.mockImplementation(async (folderName) => {
       const folder = flattenFolders(getDefaultFolders()).find(
@@ -206,7 +199,8 @@ export function setupInboxWorkflowEval() {
 
     mockCreateEmailProvider.mockResolvedValue({
       searchMessages: mockSearchMessages,
-      getLabels: vi.fn().mockResolvedValue(getDefaultLabels()),
+      countMessages: mockCountMessages,
+      getLabels: mockGetLabels,
       getMessage: mockGetMessage,
       archiveThreadWithLabel: mockArchiveThreadWithLabel,
       markReadThread: mockMarkReadThread,
@@ -304,7 +298,7 @@ export function isBulkArchiveSendersInput(
 }
 
 export function hasNoWriteToolCalls(toolCalls: RecordedToolCall[]) {
-  return !toolCalls.some((toolCall) => isWriteToolName(toolCall.toolName));
+  return !hasAssistantWriteToolCalls(toolCalls);
 }
 
 export function hasUnreadTriageSignal(
@@ -371,7 +365,7 @@ export function hasSearchBeforeFirstWrite(toolCalls: RecordedToolCall[]) {
   if (firstSearchIndex < 0) return false;
 
   const firstWriteIndex = toolCalls.findIndex((toolCall) =>
-    isWriteToolName(toolCall.toolName),
+    isAssistantWriteToolName(toolCall.toolName),
   );
 
   return firstWriteIndex < 0 || firstSearchIndex < firstWriteIndex;
@@ -458,10 +452,6 @@ function summarizeToolCall(toolCall: RecordedToolCall) {
   }
 
   return toolCall.toolName;
-}
-
-function isWriteToolName(toolName: string) {
-  return writeToolNames.has(toolName);
 }
 
 function getDefaultLabels() {

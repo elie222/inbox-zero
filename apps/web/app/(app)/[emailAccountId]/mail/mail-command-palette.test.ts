@@ -3,10 +3,17 @@ import { buildMailCommandPalette } from "./mail-command-palette";
 
 const actions = {
   archive: vi.fn(),
+  forward: vi.fn(),
+  label: vi.fn(),
   markRead: vi.fn(),
+  markSpam: vi.fn(),
   markUnread: vi.fn(),
+  move: vi.fn(),
   openSnooze: vi.fn(),
+  openExternal: vi.fn(),
   trash: vi.fn(),
+  toggleAutoArchive: vi.fn(),
+  unsubscribe: vi.fn(),
 };
 
 describe("buildMailCommandPalette", () => {
@@ -31,6 +38,21 @@ describe("buildMailCommandPalette", () => {
     expect(commands.map((command) => command.id)).not.toContain(
       "mail-mark-unread",
     );
+  });
+
+  it("offers moving back to the inbox instead of archiving archived conversations", () => {
+    const moveToInbox = vi.fn();
+    const commands = buildMailCommandPalette({
+      actions: { ...actions, moveToInbox },
+      hasRead: true,
+      hasUnread: false,
+      targetCount: 2,
+    });
+
+    expect(commands.map((command) => command.id)).not.toContain("mail-archive");
+    expect(
+      commands.find((command) => command.id === "mail-move-to-inbox"),
+    ).toMatchObject({ label: "Move 2 conversations to inbox" });
   });
 
   it("labels commands for the full multi-selection", () => {
@@ -82,5 +104,67 @@ describe("buildMailCommandPalette", () => {
     });
 
     expect(commands.map((command) => command.id)).toEqual(["mail-archive"]);
+  });
+
+  it("includes the reader actions with their shortcut hints", () => {
+    const commands = buildMailCommandPalette({
+      actions,
+      hasRead: true,
+      hasUnread: false,
+      isAutoArchived: false,
+      isAutoArchiveDisabled: false,
+      isUnsubscribeDisabled: true,
+      openExternalLabel: "Open in Gmail",
+      targetCount: 1,
+    });
+
+    expect(commands.map(({ id }) => id)).toEqual(
+      expect.arrayContaining([
+        "mail-forward",
+        "mail-label",
+        "mail-move",
+        "mail-mark-unread",
+        "mail-delete",
+        "mail-mark-spam",
+        "mail-unsubscribe",
+        "mail-auto-archive",
+        "mail-open-external",
+      ]),
+    );
+    expect(commands.find(({ id }) => id === "mail-forward")).toMatchObject({
+      shortcut: "F",
+    });
+    expect(commands.find(({ id }) => id === "mail-label")).toMatchObject({
+      shortcut: "L",
+    });
+    expect(commands.find(({ id }) => id === "mail-move")).toMatchObject({
+      shortcut: "V",
+    });
+    expect(commands.find(({ id }) => id === "mail-mark-unread")).toMatchObject({
+      shortcut: "U",
+    });
+    expect(commands.find(({ id }) => id === "mail-unsubscribe")).toMatchObject({
+      disabled: true,
+    });
+    expect(commands.find(({ id }) => id === "mail-auto-archive")).toMatchObject(
+      { label: "Auto archive future emails", disabled: false },
+    );
+    expect(
+      commands.find(({ id }) => id === "mail-open-external"),
+    ).toMatchObject({ label: "Open in Gmail", shortcut: "G G" });
+  });
+
+  it("labels the auto-archive action from its current state", () => {
+    const commands = buildMailCommandPalette({
+      actions: { archive: actions.archive, toggleAutoArchive: vi.fn() },
+      hasRead: false,
+      hasUnread: true,
+      isAutoArchived: true,
+      targetCount: 1,
+    });
+
+    expect(commands.find(({ id }) => id === "mail-auto-archive")).toMatchObject(
+      { label: "Disable auto archive" },
+    );
   });
 });

@@ -40,7 +40,7 @@ export function BriefsOnboarding({
       imageSrc="/images/illustrations/communication.svg"
       imageAlt="Meeting Briefs"
       title="Meeting Briefs"
-      description="Receive briefings via email or Slack before meetings with external guests."
+      description="Receive briefings by email or in your chat app before meetings with external guests."
       features={features}
     >
       {hasCalendarConnected ? (

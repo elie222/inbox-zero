@@ -2,7 +2,27 @@ import type { EmailProvider } from "@/utils/email/types";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 import { isDefined } from "@/utils/types";
 import prisma from "@/utils/prisma";
+import { fetchThreadsPage } from "@/utils/threads/fetch-page";
 import type { ThreadsQuery } from "@/utils/threads/validation";
+
+const executedRulePlanSelect = {
+  id: true,
+  messageId: true,
+  threadId: true,
+  rule: true,
+  actionItems: {
+    include: {
+      messagingChannel: {
+        select: {
+          provider: true,
+        },
+      },
+    },
+  },
+  status: true,
+  reason: true,
+  createdAt: true,
+} as const;
 
 export async function loadThreads({
   query,
@@ -17,19 +37,14 @@ export async function loadThreads({
 }) {
   const maxResults = query.limit || 50;
   const pageToken = query.nextPageToken || undefined;
-  const { threads, nextPageToken } = query.q
-    ? await emailProvider.searchThreads({
-        query: query.q,
-        maxResults,
-        pageToken,
-        messageFormat,
-      })
-    : await emailProvider.getThreadsWithQuery({
-        query,
-        maxResults,
-        pageToken,
-        messageFormat,
-      });
+  const { threads, nextPageToken } = await fetchThreadsPage({
+    emailAccountId,
+    query,
+    emailProvider,
+    maxResults,
+    pageToken,
+    messageFormat,
+  });
 
   const threadIds = threads.map((thread) => thread.id);
   const executedRules = await prisma.executedRule.findMany({
@@ -37,25 +52,8 @@ export async function loadThreads({
       emailAccountId,
       threadId: { in: threadIds },
     },
-    select: {
-      id: true,
-      messageId: true,
-      threadId: true,
-      rule: true,
-      actionItems: {
-        include: {
-          messagingChannel: {
-            select: {
-              provider: true,
-            },
-          },
-        },
-      },
-      status: true,
-      reason: true,
-      createdAt: true,
-    },
-    // The aggregation below keeps the first execution of each rule.
+    select: executedRulePlanSelect,
+    // The aggregation below keeps the first execution of each rule per message.
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
   });
 
@@ -80,12 +78,16 @@ export async function loadThreads({
       if (!message.headers?.from) return true;
       return !isIgnoredSender(message.headers.from);
     });
+    const participantMessages = thread.participantMessages?.filter(
+      (message) => !isIgnoredSender(message.headers.from),
+    );
     if (!messages.length) return;
 
     return {
       id: thread.id,
       messageIds,
       messages,
+      participantMessages,
       snippet: thread.snippet,
       plan: plans.at(0),
       plans,
@@ -105,6 +107,7 @@ export function toListThreads({ threads, nextPageToken }: LoadedThreads) {
     threads: threads.map((thread) => ({
       id: thread.id,
       messageIds: thread.messageIds,
+      participantMessages: thread.participantMessages,
       snippet: thread.snippet,
       plan: thread.plan,
       plans: thread.plans,
@@ -116,6 +119,8 @@ export function toListThreads({ threads, nextPageToken }: LoadedThreads) {
         date: message.date,
         internalDate: message.internalDate,
         labelIds: message.labelIds,
+        parentFolderId: message.parentFolderId,
+        hasAttachment: message.hasAttachment,
         headers: message.headers,
       })),
     })),
@@ -127,13 +132,36 @@ export type ThreadListItem = ReturnType<
   typeof toListThreads
 >["threads"][number];
 
+export async function loadThreadPlans({
+  emailAccountId,
+  threadId,
+}: {
+  emailAccountId: string;
+  threadId: string;
+}) {
+  const executedRules = await prisma.executedRule.findMany({
+    where: { emailAccountId, threadId },
+    select: executedRulePlanSelect,
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+  });
+  return aggregateThreadPlans(executedRules);
+}
+
 function aggregateThreadPlans<
-  T extends { id: string; createdAt: Date; rule: { id: string } | null },
+  T extends {
+    id: string;
+    messageId: string;
+    createdAt: Date;
+    rule: { id: string } | null;
+  },
 >(executedRules: T[]): Omit<T, "createdAt">[] {
   const latestByRule = new Map<string, Omit<T, "createdAt">>();
 
   for (const executedRule of executedRules) {
-    const key = executedRule.rule?.id ?? executedRule.id;
+    const key = JSON.stringify([
+      executedRule.messageId,
+      executedRule.rule?.id ?? executedRule.id,
+    ]);
     if (latestByRule.has(key)) continue;
     const { createdAt: _createdAt, ...plan } = executedRule;
     latestByRule.set(key, plan);

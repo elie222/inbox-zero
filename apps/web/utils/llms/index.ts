@@ -2,7 +2,6 @@ import {
   APICallError,
   type ModelMessage,
   type Tool,
-  type ToolExecutionOptions,
   type ToolSet,
   ToolLoopAgent,
   type JSONValue,
@@ -14,16 +13,16 @@ import {
   RetryError,
   streamText,
   smoothStream,
-  stepCountIs,
-  type StreamTextOnFinishCallback,
-  type StreamTextOnStepFinishCallback,
+  isStepCount,
+  type StreamTextOnEndCallback,
+  type GenerateTextOnStepEndCallback,
   type PrepareStepFunction,
   type StopCondition,
   NoObjectGeneratedError,
   TypeValidationError,
 } from "ai";
-import type { LanguageModelV3 } from "@ai-sdk/provider";
-import { withTracing } from "@posthog/ai/vercel";
+import type { LanguageModelV4 } from "@ai-sdk/provider";
+import { captureAiGeneration } from "@posthog/ai";
 import { jsonrepair } from "jsonrepair";
 import { saveAiUsage } from "@/utils/usage";
 import type { EmailAccountWithAI, UserAIFields } from "@/utils/llms/types";
@@ -35,6 +34,7 @@ import {
 import {
   attachLlmRepairMetadata,
   captureException,
+  getAIApiCallError,
   isAnthropicInsufficientBalanceError,
   isContentFilterRefusal,
   isIncorrectAPIKeyError,
@@ -55,6 +55,10 @@ import {
   type SelectModel,
 } from "@/utils/llms/model";
 import { getModelForUseCase, type LlmUseCase } from "@/utils/llms/use-cases";
+import {
+  buildCachedSystemMessages,
+  getSystemCacheProviderOptions,
+} from "@/utils/llms/caching";
 import {
   assertTrialAiUsageAllowed,
   shouldForceNanoModel,
@@ -89,7 +93,7 @@ const logger = createScopedLogger("llms");
 
 const MAX_LOG_LENGTH = 200;
 
-// The Claude Code CLI provider drops AI SDK tools at the LanguageModelV3
+// The Claude Code CLI provider drops AI SDK tools at the LanguageModelV4
 // boundary. Route tool-bearing calls through the package's MCP bridge so the
 // CLI can execute them locally; clear `tools` so the AI SDK does not also try
 // to drive them. No-op for every other provider and for tool-less calls.
@@ -102,11 +106,11 @@ async function bridgeClaudeCodeToolsIfNeeded<T extends Record<string, Tool>>({
 }: {
   provider: string;
   modelName: string;
-  model: LanguageModelV3;
+  model: LanguageModelV4;
   tools: T | undefined;
   activeTools?: Array<string>;
 }): Promise<{
-  model: LanguageModelV3;
+  model: LanguageModelV4;
   tools: T | undefined;
   bridged: boolean;
 }> {
@@ -187,10 +191,7 @@ type LlmFallbackFailure = {
   category: LlmFallbackFailureCategory;
 };
 
-type ProviderCostSource =
-  | "openrouter_usage"
-  | "openrouter_usage_with_step_fallback"
-  | "openrouter_step_usage_sum";
+type ProviderCostSource = "openrouter_usage" | "openrouter_step_usage_sum";
 
 type UsageMetadata = {
   providerReportedCost?: number;
@@ -208,18 +209,22 @@ type LlmEmailAccount = {
 };
 
 export type ToolCallAgentResolvedModel = {
-  excludedTools: string[];
   modelName?: string;
   provider: string;
   providerOptions: LLMProviderOptions;
-  replacedTools: string[];
 };
 
 const commonOptions: {
-  experimental_telemetry: { isEnabled: boolean };
+  telemetry: { isEnabled: boolean };
+  allowSystemInMessages: true;
   headers?: Record<string, string>;
   providerOptions?: LLMProviderOptions;
-} = { experimental_telemetry: { isEnabled: true } };
+} = {
+  telemetry: { isEnabled: true },
+  // Chat, cache breakpoints, and prompt hardening still put system
+  // instructions in the messages array. AI SDK 7 rejects that unless opted in.
+  allowSystemInMessages: true,
+};
 
 type ModelRouteSelection =
   | { modelType?: ModelType; useCase?: never }
@@ -240,8 +245,8 @@ type BaseStreamOptions = ModelRouteSelection & {
 
 type ChatCompletionStreamOptions = BaseStreamOptions & {
   tools?: Record<string, Tool>;
-  onFinish?: StreamTextOnFinishCallback<Record<string, Tool>>;
-  onStepFinish?: StreamTextOnStepFinishCallback<Record<string, Tool>>;
+  onEnd?: StreamTextOnEndCallback<Record<string, Tool>>;
+  onStepEnd?: GenerateTextOnStepEndCallback<Record<string, Tool>>;
 };
 
 type ToolCallAgentStreamOptions = BaseStreamOptions & {
@@ -249,10 +254,11 @@ type ToolCallAgentStreamOptions = BaseStreamOptions & {
   activeTools?: Array<string>;
   prepareStep?: PrepareStepFunction<Record<string, Tool>>;
   stopWhen?: StopCondition<Record<string, Tool>>;
-  onFinish?: StreamTextOnFinishCallback<Record<string, Tool>>;
-  onStepFinish?: StreamTextOnStepFinishCallback<Record<string, Tool>>;
+  onEnd?: StreamTextOnEndCallback<Record<string, Tool>>;
+  onStepEnd?: GenerateTextOnStepEndCallback<Record<string, Tool>>;
   onModelResolved?: (resolvedModel: ToolCallAgentResolvedModel) => void;
   temperature?: number;
+  abortSignal?: AbortSignal;
 };
 
 export function createGenerateText({
@@ -284,11 +290,14 @@ export function createGenerateText({
 
     const generate = async (candidate: ResolvedModel) => {
       const systemText = applyPromptHardeningToSystem({
-        system: typeof options.system === "string" ? options.system : undefined,
+        instructions:
+          typeof options.instructions === "string"
+            ? options.instructions
+            : undefined,
         promptHardening,
       });
       const protectedOptions = enforceSensitiveDataPolicy({
-        options: { ...options, system: systemText },
+        options: { ...options, instructions: systemText },
         policy: emailAccount.sensitiveDataPolicy,
         logger,
         label,
@@ -306,9 +315,9 @@ export function createGenerateText({
       logger.trace("Generating text", {
         label,
         promptHardening,
-        system: redactSensitiveContentForLogging(
-          typeof protectedOptions.system === "string"
-            ? protectedOptions.system
+        instructions: redactSensitiveContentForLogging(
+          typeof protectedOptions.instructions === "string"
+            ? protectedOptions.instructions
             : undefined,
         )?.slice(0, MAX_LOG_LENGTH),
         prompt: redactSensitiveContentForLogging(
@@ -347,9 +356,7 @@ export function createGenerateText({
           ...protectedRequestOptions,
           ...(bridged.tools ? { tools: bridged.tools } : {}),
           ...commonOptions,
-          providerOptions,
-          model: withPosthogTracing({
-            model: bridged.model,
+          telemetry: buildLlmTelemetry({
             userEmail: emailAccount.email,
             userId: emailAccount.userId,
             emailAccountId: emailAccount.id,
@@ -357,6 +364,8 @@ export function createGenerateText({
             provider: candidate.provider,
             modelName: candidate.modelName,
           }),
+          providerOptions,
+          model: bridged.model,
         },
         ...restArgs,
       );
@@ -437,12 +446,15 @@ export function createGenerateObject({
   label,
   modelOptions,
   promptHardening,
+  cacheSystemPrompt,
   onModelUsed,
 }: {
   emailAccount: LlmEmailAccount;
   label: string;
   modelOptions: ReturnType<typeof getModel>;
   promptHardening: PromptHardening;
+  // Only set when the system prompt is stable across requests for an account.
+  cacheSystemPrompt?: boolean;
   onModelUsed?: (candidate: {
     provider: string;
     modelName: string;
@@ -474,12 +486,15 @@ export function createGenerateObject({
 
     const generate = async (candidate: ResolvedModel) => {
       const systemText = applyPromptHardeningToSystem({
-        system: typeof options.system === "string" ? options.system : undefined,
+        instructions:
+          typeof options.instructions === "string"
+            ? options.instructions
+            : undefined,
         promptHardening,
       });
       const protectedOptions = appendOllamaOnlySystemGuidance(
         enforceSensitiveDataPolicy({
-          options: { ...options, system: systemText },
+          options: { ...options, instructions: systemText },
           policy: emailAccount.sensitiveDataPolicy,
           logger,
           label,
@@ -493,9 +508,9 @@ export function createGenerateObject({
       logger.trace("Generating object", {
         label,
         promptHardening,
-        system: redactSensitiveContentForLogging(
-          typeof protectedOptions.system === "string"
-            ? protectedOptions.system
+        instructions: redactSensitiveContentForLogging(
+          typeof protectedOptions.instructions === "string"
+            ? protectedOptions.instructions
             : undefined,
         )?.slice(0, MAX_LOG_LENGTH),
         prompt: redactSensitiveContentForLogging(
@@ -509,8 +524,8 @@ export function createGenerateObject({
       // `prompt` string) are out of scope; scanning every message for
       // the literal "JSON" would be brittle and noisy.
       const systemIncludesJson =
-        typeof protectedOptions.system === "string" &&
-        protectedOptions.system.includes("JSON");
+        typeof protectedOptions.instructions === "string" &&
+        protectedOptions.instructions.includes("JSON");
       if (
         !systemIncludesJson &&
         typeof protectedOptions.prompt === "string" &&
@@ -532,8 +547,18 @@ export function createGenerateObject({
         emailAccountId: emailAccount.id,
       });
 
+      // Built after hardening and DLP so the cached bytes match what the provider sees.
+      const cacheOverrides = cacheSystemPrompt
+        ? buildSystemPromptCacheOverrides({
+            protectedOptions,
+            providerOptions,
+            provider: candidate.provider,
+            cacheKey: emailAccount.id,
+          })
+        : undefined;
+
       const request = {
-        experimental_repairText: async ({ text }: { text: string }) => {
+        repairText: async ({ text }: { text: string }) => {
           logger.info("Repairing text", { label });
           const repairResult = repairObjectText(text, label);
           latestRepairAttempt = repairResult.attempt;
@@ -541,9 +566,7 @@ export function createGenerateObject({
         },
         ...protectedOptions,
         ...commonOptions,
-        providerOptions,
-        model: withPosthogTracing({
-          model: candidate.model,
+        telemetry: buildLlmTelemetry({
           userEmail: emailAccount.email,
           userId: emailAccount.userId,
           emailAccountId: emailAccount.id,
@@ -551,6 +574,9 @@ export function createGenerateObject({
           provider: candidate.provider,
           modelName: candidate.modelName,
         }),
+        providerOptions,
+        model: candidate.model,
+        ...(cacheOverrides ?? {}),
       } as unknown as Parameters<
         typeof generateObject<SCHEMA, OUTPUT, RESULT>
       >[0];
@@ -721,8 +747,8 @@ export async function chatCompletionStream(
     usageLabel: label,
     providerOptions: requestProviderOptions,
     sensitiveDataPolicy,
-    onFinish,
-    onStepFinish,
+    onEnd,
+    onStepEnd,
   } = options;
   const { modelOptions, modelCandidates } = await resolveModelCandidates({
     modelOptions: getModelOptionsForRoute(options),
@@ -770,27 +796,25 @@ export async function chatCompletionStream(
       model: candidate.model,
       tools: protectedChatTools,
     });
-    const model = withPosthogTracing({
-      model: bridgedChat.model,
-      userEmail,
-      userId,
-      emailAccountId,
-      label,
-      provider: candidate.provider,
-      modelName: candidate.modelName,
-    });
-
     try {
       return streamText({
-        model,
+        model: bridgedChat.model,
         messages: protectedMessages as ModelMessage[],
         tools: bridgedChat.tools,
-        stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
+        stopWhen: maxSteps ? isStepCount(maxSteps) : undefined,
         ...commonOptions,
+        telemetry: buildLlmTelemetry({
+          userEmail,
+          userId,
+          emailAccountId,
+          label,
+          provider: candidate.provider,
+          modelName: candidate.modelName,
+        }),
         providerOptions: providerOptions,
         experimental_transform: smoothStream({ chunking: "word" }),
-        onStepFinish,
-        onFinish: async (result) => {
+        onStepEnd,
+        onEnd: async (result) => {
           const usagePromise = saveUsageWithMetadata({
             result,
             usage: result.usage,
@@ -803,12 +827,12 @@ export async function chatCompletionStream(
             hasUserApiKey: modelOptions.hasUserApiKey,
           });
 
-          const finishPromise = onFinish?.(result);
+          const finishPromise = onEnd?.(result);
 
           try {
             await Promise.all([usagePromise, finishPromise]);
           } catch (error) {
-            logger.error("Error in onFinish callback", {
+            logger.error("Error in onEnd callback", {
               label,
               userEmail,
               error,
@@ -875,11 +899,12 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
     userEmail,
     usageLabel: label,
     providerOptions: requestProviderOptions,
-    onFinish,
-    onStepFinish,
+    onEnd,
+    onStepEnd,
     onModelResolved,
     sensitiveDataPolicy,
     temperature,
+    abortSignal,
   } = options;
   const { modelOptions, modelCandidates } = await resolveModelCandidates({
     modelOptions: getModelOptionsForRoute(options),
@@ -915,7 +940,7 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
       emailAccountId,
     });
     const candidateTools = wrapToolsWithSensitiveDataPolicy({
-      tools,
+      tools: skipToolsAfterAbort(tools, abortSignal),
       policy: sensitiveDataPolicy,
       label,
       userId,
@@ -928,57 +953,35 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
       tools: candidateTools,
       activeTools,
     });
-    const model = withPosthogTracing({
-      model: bridgedAgent.model,
-      userEmail,
-      userId,
-      emailAccountId,
-      label,
-      provider: candidate.provider,
-      modelName: candidate.modelName,
-    });
-    const excludedTools: string[] = [];
-    const replacedTools: string[] = [];
-
-    if (replacedTools.length > 0) {
-      logger.warn("Replacing incompatible tools for model", {
-        provider: candidate.provider,
-        modelName: candidate.modelName,
-        replacedTools,
-      });
-    }
-
-    if (excludedTools.length > 0) {
-      logger.warn("Excluding unsupported tools for model", {
-        provider: candidate.provider,
-        modelName: candidate.modelName,
-        excludedTools,
-      });
-    }
-
     onModelResolved?.({
       provider: candidate.provider,
       modelName: candidate.modelName,
       providerOptions,
-      replacedTools,
-      excludedTools,
     });
 
     const agent = new ToolLoopAgent({
-      model,
+      model: bridgedAgent.model,
       tools: bridgedAgent.tools,
       activeTools: bridgedAgent.bridged
         ? undefined
         : (activeTools as Array<keyof typeof candidateTools> | undefined),
       prepareStep,
-      stopWhen: stopWhen ?? (maxSteps ? stepCountIs(maxSteps) : undefined),
+      stopWhen: stopWhen ?? (maxSteps ? isStepCount(maxSteps) : undefined),
       temperature,
       ...commonOptions,
+      telemetry: buildLlmTelemetry({
+        userEmail,
+        userId,
+        emailAccountId,
+        label,
+        provider: candidate.provider,
+        modelName: candidate.modelName,
+      }),
       providerOptions,
-      onFinish: async (result) => {
+      onEnd: async (result) => {
         const usagePromise = saveUsageWithMetadata({
           result,
-          usage: result.totalUsage,
+          usage: result.usage,
           userId,
           email: userEmail,
           emailAccountId,
@@ -988,16 +991,16 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
           hasUserApiKey: modelOptions.hasUserApiKey,
         });
 
-        const finishPromise = onFinish?.(
+        const finishPromise = onEnd?.(
           result as Parameters<
-            NonNullable<StreamTextOnFinishCallback<Record<string, Tool>>>
+            NonNullable<StreamTextOnEndCallback<Record<string, Tool>>>
           >[0],
         );
 
         try {
           await Promise.all([usagePromise, finishPromise]);
         } catch (error) {
-          logger.error("Error in onFinish callback", {
+          logger.error("Error in onEnd callback", {
             label,
             userEmail,
             error,
@@ -1015,17 +1018,8 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
       return await agent.stream({
         messages: protectedMessages as ModelMessage[],
         experimental_transform: smoothStream({ chunking: "word" }),
-        onStepFinish: onStepFinish
-          ? async (stepResult) => {
-              await onStepFinish(
-                stepResult as Parameters<
-                  NonNullable<
-                    StreamTextOnStepFinishCallback<Record<string, Tool>>
-                  >
-                >[0],
-              );
-            }
-          : undefined,
+        onStepEnd,
+        abortSignal,
       });
     } catch (error) {
       if (nextCandidate && shouldFallbackToNextModel(error)) {
@@ -1072,6 +1066,35 @@ function getModelOptionsForRoute({
     : getModel(userAi, modelType);
 }
 
+// An abort ends the stream but still runs tool calls the model had already
+// emitted, so check before each call to keep a stopped run from acting.
+function skipToolsAfterAbort<TTools extends ToolSet | undefined>(
+  tools: TTools,
+  abortSignal: AbortSignal | undefined,
+): TTools {
+  if (!tools || !abortSignal) return tools;
+
+  const guardedTools: ToolSet = { ...tools };
+
+  for (const [toolName, toolDefinition] of Object.entries(guardedTools)) {
+    const execute = toolDefinition.execute;
+    if (!execute) continue;
+
+    guardedTools[toolName] = {
+      ...toolDefinition,
+      execute(
+        input: Parameters<NonNullable<typeof execute>>[0],
+        options: Parameters<NonNullable<typeof execute>>[1],
+      ) {
+        abortSignal.throwIfAborted();
+        return execute.call(toolDefinition, input, options);
+      },
+    } as ToolSet[string];
+  }
+
+  return guardedTools as TTools;
+}
+
 function wrapToolsWithSensitiveDataPolicy<TTools extends ToolSet | undefined>({
   tools,
   policy,
@@ -1095,7 +1118,10 @@ function wrapToolsWithSensitiveDataPolicy<TTools extends ToolSet | undefined>({
 
     protectedTools[toolName] = {
       ...toolDefinition,
-      execute(input: unknown, options: ToolExecutionOptions) {
+      execute(
+        input: Parameters<NonNullable<typeof execute>>[0],
+        options: Parameters<NonNullable<typeof execute>>[1],
+      ) {
         const output = execute.call(toolDefinition, input, options);
 
         if (isAsyncIterable(output)) {
@@ -1168,10 +1194,9 @@ async function handleError(
   modelName: string,
   hasUserApiKey: boolean,
 ) {
+  const apiError = getAIApiCallError(error);
   const isUserKeyInsufficientCredits =
-    hasUserApiKey &&
-    APICallError.isInstance(error) &&
-    isInsufficientCreditsError(error);
+    hasUserApiKey && !!apiError && isInsufficientCreditsError(apiError);
 
   if (isUserKeyInsufficientCredits) {
     logger.warn("User API key has insufficient credits", {
@@ -1191,34 +1216,22 @@ async function handleError(
     });
   }
 
-  if (RetryError.isInstance(error) && isAiQuotaExceededError(error)) {
-    return await addUserErrorMessageWithNotification({
+  const notifyUser = async (
+    errorType: PersistedErrorType,
+    errorMessage: string,
+  ) => {
+    if (hasUserApiKey) markAsHandledUserKeyError(error);
+    await addUserErrorMessageWithNotification({
       userId,
       userEmail,
       emailAccountId,
-      errorType: ErrorType.AI_QUOTA_ERROR,
-      errorMessage:
-        "Your AI provider has rejected requests due to rate limits or quota. Please check your provider account if this persists.",
+      errorType,
+      errorMessage,
       logger,
     });
-  }
+  };
 
   if (APICallError.isInstance(error)) {
-    const notifyUser = async (
-      errorType: PersistedErrorType,
-      errorMessage: string,
-    ) => {
-      if (hasUserApiKey) markAsHandledUserKeyError(error);
-      await addUserErrorMessageWithNotification({
-        userId,
-        userEmail,
-        emailAccountId,
-        errorType,
-        errorMessage,
-        logger,
-      });
-    };
-
     if (isIncorrectAPIKeyError(error)) {
       return await notifyUser(
         ErrorType.INCORRECT_API_KEY,
@@ -1231,9 +1244,11 @@ async function handleError(
         ErrorType.INVALID_AI_MODEL,
         "The AI model you specified does not exist or is unavailable. Please check your settings.",
       );
-      throw new SafeError(
+      const safeError = new SafeError(
         "The AI model you specified does not exist or is unavailable. Please update your AI settings.",
       );
+      if (hasUserApiKey) markAsHandledUserKeyError(safeError);
+      throw safeError;
     }
 
     if (isAPIKeyDeactivatedError(error)) {
@@ -1242,16 +1257,30 @@ async function handleError(
         "Your AI API key has been deactivated. Please update it in your settings.",
       );
     }
+  }
 
-    if (
-      isAnthropicInsufficientBalanceError(error) ||
-      (isInsufficientCreditsError(error) && hasUserApiKey)
-    ) {
-      return await notifyUser(
-        ErrorType.INSUFFICIENT_CREDITS,
-        "Your AI provider account has insufficient credits. Please add credits or update your API key in settings.",
-      );
-    }
+  // Exhausted balances can arrive as retryable 429s, so look beneath retries.
+  if (
+    apiError &&
+    (isAnthropicInsufficientBalanceError(apiError) ||
+      (isInsufficientCreditsError(apiError) && hasUserApiKey))
+  ) {
+    return await notifyUser(
+      ErrorType.INSUFFICIENT_CREDITS,
+      "Your AI provider account has insufficient credits. Please add credits or update your API key in settings.",
+    );
+  }
+
+  if (RetryError.isInstance(error) && isAiQuotaExceededError(error)) {
+    return await addUserErrorMessageWithNotification({
+      userId,
+      userEmail,
+      emailAccountId,
+      errorType: ErrorType.AI_QUOTA_ERROR,
+      errorMessage:
+        "Your AI provider has rejected requests due to rate limits or quota. Please check your provider account if this persists.",
+      logger,
+    });
   }
 }
 
@@ -1432,6 +1461,46 @@ function shouldFallbackToNextModel(error: unknown): boolean {
   if (llmErrorInfo.retryable) return true;
 
   return isTransientNetworkError(error);
+}
+
+function buildSystemPromptCacheOverrides({
+  protectedOptions,
+  providerOptions,
+  provider,
+  cacheKey,
+}: {
+  protectedOptions: { instructions?: unknown; prompt?: unknown };
+  providerOptions: LLMProviderOptions;
+  provider: string;
+  cacheKey: string;
+}):
+  | {
+      messages: ModelMessage[];
+      instructions: undefined;
+      prompt: undefined;
+      providerOptions: LLMProviderOptions;
+    }
+  | undefined {
+  if (
+    typeof protectedOptions.instructions !== "string" ||
+    typeof protectedOptions.prompt !== "string"
+  ) {
+    return;
+  }
+
+  return {
+    messages: buildCachedSystemMessages({
+      system: protectedOptions.instructions,
+      prompt: protectedOptions.prompt,
+      provider,
+    }),
+    instructions: undefined,
+    prompt: undefined,
+    providerOptions: mergeProviderOptions(
+      providerOptions,
+      getSystemCacheProviderOptions(provider, { cacheKey }),
+    ),
+  };
 }
 
 function mergeProviderOptions(
@@ -1854,73 +1923,37 @@ function getOpenRouterProviderCost(result: unknown): {
   providerUpstreamInferenceCost?: number;
   providerCostSource?: ProviderCostSource;
 } {
+  // The SDK's top-level providerMetadata only describes the final step, so
+  // per-step usage is the source of truth for multi-step calls.
+  const stepUsages = (getObjectArrayProperty(result, "steps") ?? [])
+    .map(getOpenRouterUsage)
+    .filter((usage) => usage !== null);
+
+  if (stepUsages.length > 0) {
+    return {
+      providerReportedCost: sumDefined(stepUsages.map((usage) => usage.cost)),
+      providerUpstreamInferenceCost: sumDefined(
+        stepUsages.map((usage) => usage.upstreamInferenceCost),
+      ),
+      providerCostSource: "openrouter_step_usage_sum",
+    };
+  }
+
   const directUsage = getOpenRouterUsage(result);
-
-  const steps = getObjectArrayProperty(result, "steps");
-  if (!steps && !directUsage) return {};
-
-  let totalCost = 0;
-  let foundCost = false;
-  let totalUpstreamInferenceCost = 0;
-  let foundUpstreamInferenceCost = false;
-
-  if (steps) {
-    for (const step of steps) {
-      const stepUsage = getOpenRouterUsage(step);
-      if (!stepUsage) continue;
-
-      if (stepUsage.cost !== undefined) {
-        totalCost += stepUsage.cost;
-        foundCost = true;
-      }
-
-      if (stepUsage.upstreamInferenceCost !== undefined) {
-        totalUpstreamInferenceCost += stepUsage.upstreamInferenceCost;
-        foundUpstreamInferenceCost = true;
-      }
-    }
-  }
-
-  const providerReportedCost =
-    directUsage?.cost ?? (foundCost ? totalCost : undefined);
-  const providerUpstreamInferenceCost =
-    directUsage?.upstreamInferenceCost ??
-    (foundUpstreamInferenceCost ? totalUpstreamInferenceCost : undefined);
-
-  if (
-    providerReportedCost === undefined &&
-    providerUpstreamInferenceCost === undefined
-  ) {
-    return {};
-  }
+  if (!directUsage) return {};
 
   return {
-    providerReportedCost,
-    providerUpstreamInferenceCost,
-    providerCostSource: getOpenRouterCostSource({
-      directUsage,
-      usedStepFallback:
-        (directUsage?.cost === undefined && foundCost) ||
-        (directUsage?.upstreamInferenceCost === undefined &&
-          foundUpstreamInferenceCost),
-    }),
+    providerReportedCost: directUsage.cost,
+    providerUpstreamInferenceCost: directUsage.upstreamInferenceCost,
+    providerCostSource: "openrouter_usage",
   };
 }
 
-function getOpenRouterCostSource({
-  directUsage,
-  usedStepFallback,
-}: {
-  directUsage: ReturnType<typeof getOpenRouterUsage>;
-  usedStepFallback: boolean;
-}) {
-  if (directUsage && usedStepFallback) {
-    return "openrouter_usage_with_step_fallback";
-  }
+function sumDefined(values: Array<number | undefined>) {
+  const defined = values.filter((value) => value !== undefined);
+  if (defined.length === 0) return;
 
-  if (directUsage) return "openrouter_usage";
-
-  return "openrouter_step_usage_sum";
+  return defined.reduce((total, value) => total + value, 0);
 }
 
 function getOpenRouterUsage(value: unknown): {
@@ -1988,8 +2021,7 @@ function isJsonObject(
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function withPosthogTracing({
-  model,
+function buildLlmTelemetry({
   userEmail,
   userId,
   emailAccountId,
@@ -1997,7 +2029,6 @@ function withPosthogTracing({
   provider,
   modelName,
 }: {
-  model: LanguageModelV3;
   userEmail: string;
   userId?: string;
   emailAccountId?: string;
@@ -2006,20 +2037,121 @@ function withPosthogTracing({
   modelName: string;
 }) {
   const posthogClient = getPosthogLlmClient();
-  if (!posthogClient) return model;
-  const llmEvalsEnabled = isPosthogLlmEvalApproved(userEmail);
+  if (!posthogClient) return commonOptions.telemetry;
 
-  return withTracing(model, posthogClient, {
-    posthogDistinctId: userEmail,
-    posthogPrivacyMode: !llmEvalsEnabled,
-    posthogProperties: {
-      label,
-      $ai_span_name: label,
-      provider,
-      model: modelName,
-      emailAccountId,
-      llmEvalsEnabled,
-      ...(userId ? { userId } : {}),
+  const llmEvalsEnabled = isPosthogLlmEvalApproved(userEmail);
+  let capturedInput: unknown;
+
+  return {
+    ...commonOptions.telemetry,
+    functionId: label,
+    recordInputs: llmEvalsEnabled,
+    recordOutputs: llmEvalsEnabled,
+    integrations: {
+      onStart(event: unknown) {
+        capturedInput = getTelemetryPrompt(event);
+      },
+      onEnd(event: unknown) {
+        return captureAiGeneration(posthogClient, {
+          distinctId: userEmail,
+          provider,
+          model: modelName,
+          input: capturedInput ?? null,
+          output: getTelemetryOutput(event),
+          usage: toPosthogTokenUsage(event),
+          privacyMode: !llmEvalsEnabled,
+          stopReason: getTelemetryFinishReason(event),
+          properties: {
+            label,
+            $ai_span_name: label,
+            provider,
+            model: modelName,
+            emailAccountId,
+            llmEvalsEnabled,
+            ...(userId ? { userId } : {}),
+          },
+          onError: (error) => {
+            logger.error("Failed to capture PostHog AI generation", {
+              error,
+              label,
+            });
+          },
+        });
+      },
     },
-  });
+  };
+}
+
+function getTelemetryPrompt(event: unknown) {
+  const messages = getProperty(event, "messages");
+  const hasMessages = Array.isArray(messages) && messages.length > 0;
+  const instructions =
+    getProperty(event, "instructions") ?? getProperty(event, "system");
+  const hasInstructions =
+    typeof instructions === "string" && instructions.length > 0;
+  const prompt = getProperty(event, "prompt");
+  const hasPrompt = typeof prompt === "string" && prompt.length > 0;
+
+  if (hasMessages && hasInstructions) {
+    return { instructions, messages };
+  }
+  if (hasMessages) return messages;
+  if (hasPrompt) return prompt;
+  if (hasInstructions) return instructions;
+  return null;
+}
+
+function getTelemetryOutput(event: unknown) {
+  const object = getProperty(event, "object");
+  if (object != null) return object;
+
+  const text = getProperty(event, "text");
+  const hasText = typeof text === "string" && text.length > 0;
+  const toolCalls = getNonEmptyArrayProperty(event, "toolCalls");
+  const toolResults = getNonEmptyArrayProperty(event, "toolResults");
+  const content = getNonEmptyArrayProperty(event, "content");
+
+  if (toolCalls || toolResults || content) {
+    return {
+      ...(hasText ? { text } : {}),
+      ...(toolCalls ? { toolCalls } : {}),
+      ...(toolResults ? { toolResults } : {}),
+      ...(content ? { content } : {}),
+    };
+  }
+
+  return hasText ? text : null;
+}
+
+function getNonEmptyArrayProperty(event: unknown, key: string) {
+  const value = getProperty(event, key);
+  if (!Array.isArray(value) || value.length === 0) return;
+  return value;
+}
+
+function getTelemetryFinishReason(event: unknown) {
+  const finishReason = getProperty(event, "finishReason");
+  return typeof finishReason === "string" ? finishReason : undefined;
+}
+
+function toPosthogTokenUsage(event: unknown) {
+  const usage = getObjectProperty(event, "usage");
+  if (!usage) return;
+
+  return {
+    inputTokens: getFiniteNumber(getProperty(usage, "inputTokens")),
+    outputTokens: getFiniteNumber(getProperty(usage, "outputTokens")),
+    reasoningTokens: getFiniteNumber(
+      getProperty(
+        getObjectProperty(usage, "outputTokenDetails"),
+        "reasoningTokens",
+      ),
+    ),
+    cacheReadInputTokens: getFiniteNumber(
+      getProperty(
+        getObjectProperty(usage, "inputTokenDetails"),
+        "cacheReadTokens",
+      ),
+    ),
+  };
 }

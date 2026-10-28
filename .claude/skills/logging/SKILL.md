@@ -128,3 +128,19 @@ const logger = createScopedLogger("test");
 ```
 
 Don't use `.with()` for a global/file-level logger. Only use within a specific function.
+
+## Field Names Must Be Fixed
+
+Axiom turns every nested key of a logged object into a permanent dataset field, and each dataset has a plan-dependent field limit. Once it is full, events that add a new field name are silently dropped.
+
+Never log an object whose keys come from data (rule names, label names, sender addresses, IDs, header names). Log an array instead, since arrays are stored as one field:
+
+```typescript
+// Bad: one new field per rule name
+logger.info("Scores", { scores: { Newsletter: 0.6, Receipts: 0.4 } });
+
+// Good: one field
+logger.info("Scores", {
+  scores: [{ rule: "Newsletter", score: 0.6 }, { rule: "Receipts", score: 0.4 }],
+});
+```

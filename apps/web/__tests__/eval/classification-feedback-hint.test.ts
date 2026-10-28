@@ -6,7 +6,7 @@ import {
 } from "@/__tests__/eval/models";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
-import { CONVERSATION_TRACKING_INSTRUCTIONS } from "@/utils/ai/choose-rule/run-rules";
+import { CONVERSATION_TRACKING_INSTRUCTIONS } from "@/utils/reply-tracker/conversation-status-config";
 import { getRuleConfig } from "@/utils/rule/consts";
 import type { ClassificationFeedbackItem } from "@/utils/rule/classification-feedback";
 import { createScopedLogger } from "@/utils/logger";
@@ -30,6 +30,7 @@ const rules = [
   systemRule(SystemType.CALENDAR),
   systemRule(SystemType.RECEIPT),
   systemRule(SystemType.NOTIFICATION),
+  systemRule(SystemType.OTP),
   getRule(CONVERSATION_TRACKING_INSTRUCTIONS, [], "Conversations"),
 ];
 

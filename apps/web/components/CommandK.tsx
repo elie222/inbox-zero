@@ -1,10 +1,20 @@
 "use client";
 
+import { isThreadStarred } from "@/app/(app)/[emailAccountId]/mail/star-state";
 import * as React from "react";
-import { ArrowLeftIcon, Loader2Icon } from "lucide-react";
-import { useAtom, useAtomValue } from "jotai";
+import {
+  Loader2Icon,
+  MessageSquarePlusIcon,
+  MonitorIcon,
+  MoonIcon,
+  SunIcon,
+  UsersIcon,
+} from "lucide-react";
+import { useTheme } from "next-themes";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { buildMailCommandPalette } from "@/app/(app)/[emailAccountId]/mail/mail-command-palette";
 import { buildSnoozeCommandPalette } from "@/app/(app)/[emailAccountId]/mail/snooze-command-palette";
+import { ShortcutsDialog } from "@/app/(app)/[emailAccountId]/mail/ShortcutsDialog";
 import {
   CommandDialog,
   CommandEmpty,
@@ -18,9 +28,15 @@ import {
 import { useComposeModal } from "@/providers/ComposeModalProvider";
 import {
   commandPaletteOpenAtom,
+  feedbackDialogOpenAtom,
   mailCommandContextAtom,
+  senderCommandContextAtom,
+  shortcutsDialogOpenAtom,
 } from "@/store/command-palette";
-import type { MailCommandContext } from "@/store/command-palette";
+import type {
+  MailCommandContext,
+  SenderCommandContext,
+} from "@/store/command-palette";
 import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useCommandPaletteCommands } from "@/hooks/useCommandPaletteCommands";
@@ -34,8 +50,13 @@ import {
   type ShortcutHandlers,
 } from "@/lib/shortcuts/registry";
 import { useThread } from "@/hooks/useThread";
-import { enqueueThreadMailMutationBatch } from "@/utils/email-cache/thread-mail-mutations";
+import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
+import { mutationPayloadToChange } from "@/utils/mail-engine/mutation-change";
+import { submitConversationChange } from "@/utils/mail-engine/submit-conversations";
+import { admissionRejectionCopy } from "@/utils/mail-engine/admission-notice";
+import { AccountCommandList } from "@/components/AccountCommandList";
 import { toastError } from "@/components/Toast";
+import { trackMailAction } from "@/utils/analytics/mail-usage";
 
 const SECTION_ORDER: CommandSection[] = [
   "actions",
@@ -53,45 +74,74 @@ const SECTION_LABELS: Record<CommandSection, string> = {
   settings: "Settings",
 };
 
+/** Still shown in ⌘K when a conversation is selected and mail actions take over. */
+const ALWAYS_VISIBLE_SHORTCUT_COMMANDS = new Set(["compose", "help"]);
+
 // Mounted app-wide. It enables the mail scope everywhere so the side-panel email
 // viewer keeps its triage keys on any page. That doesn't collide with the mail
 // route's own bindings: these handlers are only defined when the side panel has a
 // thread (`side-panel-thread-id`), which the mail list never sets — and the mail
 // screen in turn stands down while the side panel is open.
-export function CommandK() {
+export function CommandK({ feedbackEnabled }: { feedbackEnabled: boolean }) {
   return (
     <ShortcutsProvider scopes={MAIL_SHORTCUT_SCOPES}>
-      <CommandPalette />
+      <CommandPalette feedbackEnabled={feedbackEnabled} />
+      <ShortcutsDialog />
     </ShortcutsProvider>
   );
 }
 
-function CommandPalette() {
+function CommandPalette({ feedbackEnabled }: { feedbackEnabled: boolean }) {
   const mailCommandContext = useAtomValue(mailCommandContextAtom);
+  const senderCommandContext = useAtomValue(senderCommandContextAtom);
   const displayedEmail = useDisplayedEmail();
   const activeMailContext = displayedEmail.threadId ? null : mailCommandContext;
+  const senderContextMatchesTarget = Boolean(
+    activeMailContext?.target &&
+      senderCommandContext &&
+      activeMailContext.target.emailAccountId ===
+        senderCommandContext.emailAccountId &&
+      activeMailContext.target.threadId === senderCommandContext.threadId,
+  );
 
   return (
     <CommandPaletteContent
-      key={activeMailContext ? "mail" : "default"}
+      feedbackEnabled={feedbackEnabled}
       displayedEmail={displayedEmail}
       mailCommandContext={activeMailContext}
+      senderCommandContext={
+        senderContextMatchesTarget ? senderCommandContext : null
+      }
     />
   );
 }
 
 function CommandPaletteContent({
+  feedbackEnabled,
   displayedEmail,
   mailCommandContext,
+  senderCommandContext,
 }: {
+  feedbackEnabled: boolean;
   displayedEmail: ReturnType<typeof useDisplayedEmail>;
   mailCommandContext: MailCommandContext | null;
+  senderCommandContext: SenderCommandContext | null;
 }) {
   const [open, setOpen] = useAtom(commandPaletteOpenAtom);
-  const [page, setPage] = React.useState<"root" | "snooze">("root");
+  const setShortcutsOpen = useSetAtom(shortcutsDialogOpenAtom);
+  const setFeedbackOpen = useSetAtom(feedbackDialogOpenAtom);
+  const [activePage, setPage] = React.useState<"root" | "snooze" | "accounts">(
+    "root",
+  );
   const [search, setSearch] = React.useState("");
+  const page =
+    activePage === "snooze" && !mailCommandContext?.actions.snooze
+      ? "root"
+      : activePage;
+  const { setTheme } = useTheme();
 
   const { emailAccountId } = useAccount();
+  const client = useOptionalMailClient();
   const { threadId, showEmail } = displayedEmail;
   const { data: displayedThread, isLoading: isDisplayedThreadLoading } =
     useThread({ id: threadId });
@@ -101,8 +151,13 @@ function CommandPaletteContent({
   });
 
   const shortcutHandlers: ShortcutHandlers = {
-    commandPalette: () => setOpen((wasOpen) => !wasOpen),
+    commandPalette: () => {
+      setPage("root");
+      setSearch("");
+      setOpen((wasOpen) => !wasOpen);
+    },
     compose: onOpenComposeModal,
+    help: () => setShortcutsOpen(true),
     archive: threadId
       ? async () => {
           if (displayedThread?.thread.id !== threadId) {
@@ -114,11 +169,24 @@ function CommandPaletteContent({
             return;
           }
           try {
-            await enqueueThreadMailMutationBatch({
-              emailAccountId,
-              payload: { kind: "archive" },
-              threads: [displayedThread.thread],
+            const change = mutationPayloadToChange({ kind: "archive" });
+            if (!client || !change) {
+              throw new Error("Mail engine is unavailable");
+            }
+            const { admission } = await submitConversationChange({
+              accountId: emailAccountId,
+              change,
+              client,
+              conversationId: threadId,
             });
+            if (admission.status === "rejected") {
+              toastError({
+                description:
+                  admissionRejectionCopy(admission.code) ??
+                  "Couldn't queue archiving this email",
+              });
+              return;
+            }
             showEmail(null);
           } catch {
             toastError({
@@ -127,6 +195,56 @@ function CommandPaletteContent({
           }
         }
       : undefined,
+    star: threadId
+      ? async () => {
+          if (displayedThread?.thread.id !== threadId) {
+            toastError({
+              description: isDisplayedThreadLoading
+                ? "Email is still loading"
+                : "Email is unavailable",
+            });
+            return;
+          }
+          try {
+            const change = mutationPayloadToChange({
+              kind: "set_starred_state",
+              starred: !isThreadStarred(displayedThread.thread.messages),
+            });
+            if (!client || !change) {
+              throw new Error("Mail engine is unavailable");
+            }
+            const { admission } = await submitConversationChange({
+              accountId: emailAccountId,
+              change,
+              client,
+              conversationId: threadId,
+            });
+            if (admission.status === "rejected") {
+              toastError({
+                description:
+                  admissionRejectionCopy(admission.code) ??
+                  "Couldn’t update the star for this email",
+              });
+            }
+          } catch {
+            toastError({
+              description: "Couldn’t update the star for this email",
+            });
+          }
+        }
+      : undefined,
+    forward:
+      threadId && displayedThread?.thread.id === threadId
+        ? () => {
+            const messageId = displayedThread.thread.messages.at(-1)?.id;
+            if (!messageId) return;
+            showEmail({
+              threadId,
+              autoOpenForwardForMessageId: messageId,
+              showReplyButton: true,
+            });
+          }
+        : undefined,
     snooze: mailCommandContext?.actions.snooze
       ? () => {
           setSearch("");
@@ -145,47 +263,87 @@ function CommandPaletteContent({
     ? buildMailCommandPalette({
         actions: {
           archive: mailCommandContext.actions.archive,
+          moveToInbox: mailCommandContext.actions.moveToInbox,
+          forward: mailCommandContext.actions.forward,
+          label: mailCommandContext.actions.label,
+          star: mailCommandContext.actions.star,
           markRead: mailCommandContext.actions.markRead,
+          markSpam: mailCommandContext.actions.markSpam,
           markUnread: mailCommandContext.actions.markUnread,
+          move: mailCommandContext.actions.move,
           openSnooze: mailCommandContext.actions.snooze
             ? () => setPage("snooze")
             : undefined,
           trash: mailCommandContext.actions.trash,
+          openExternal: mailCommandContext.actions.openExternal,
+          translate: mailCommandContext.actions.translate,
+          comment: mailCommandContext.actions.comment,
+          toggleAutoArchive: senderCommandContext?.toggleAutoArchive,
+          unsubscribe: senderCommandContext?.unsubscribe,
         },
+        allStarred: mailCommandContext.allStarred,
         hasRead: mailCommandContext.hasRead,
         hasUnread: mailCommandContext.hasUnread,
+        isAutoArchived: senderCommandContext?.isAutoArchived,
+        isAutoArchiveDisabled: senderCommandContext?.isAutoArchiveDisabled,
+        isUnsubscribeDisabled: senderCommandContext?.isUnsubscribeDisabled,
+        unsubscribeLabel: senderCommandContext?.unsubscribeLabel,
+        openExternalLabel: mailCommandContext.openExternalLabel,
         targetCount: mailCommandContext.targetCount,
       })
     : [];
 
   let allCommands: Command[];
   if (page === "snooze" && mailCommandContext?.actions.snooze) {
-    const snoozeCommands = buildSnoozeCommandPalette({
+    allCommands = buildSnoozeCommandPalette({
       onSnooze: mailCommandContext.actions.snooze,
       query: search,
     });
-    allCommands = search.trim()
-      ? snoozeCommands
-      : [
-          {
-            id: "mail-snooze-back",
-            label: "Back to commands",
-            icon: ArrowLeftIcon,
-            section: "actions",
-            priority: -1,
-            closeOnSelect: false,
-            action: () => setPage("root"),
-          },
-          ...snoozeCommands,
-        ];
   } else {
     const actionCommands = mailCommandContext
       ? [
           ...mailCommands,
-          ...shortcutCommands.filter((command) => command.id === "compose"),
+          ...shortcutCommands.filter((command) =>
+            ALWAYS_VISIBLE_SHORTCUT_COMMANDS.has(command.id),
+          ),
         ]
       : shortcutCommands;
-    allCommands = [...actionCommands, ...commands];
+    const themeCommands: Command[] = [
+      { theme: "dark", label: "Dark", icon: MoonIcon },
+      { theme: "light", label: "Light", icon: SunIcon },
+      { theme: "system", label: "System", icon: MonitorIcon },
+    ].map(({ theme, label, icon }) => ({
+      id: `theme-${theme}`,
+      label: `Set Theme: ${label}`,
+      icon,
+      section: "settings",
+      keywords: ["theme", "appearance", "mode", theme],
+      action: () => setTheme(theme),
+    }));
+    allCommands = [
+      ...actionCommands,
+      {
+        id: "switch-accounts",
+        label: "Switch accounts",
+        icon: UsersIcon,
+        section: "accounts",
+        keywords: ["switch", "accounts", "email", "inbox"],
+        closeOnSelect: false,
+        action: () => setPage("accounts"),
+      },
+      ...commands,
+      ...themeCommands,
+    ];
+    if (feedbackEnabled) {
+      allCommands.push({
+        id: "send-feedback",
+        label: "Send feedback",
+        icon: MessageSquarePlusIcon,
+        section: "settings",
+        keywords: ["feedback", "bug", "report", "suggestion", "idea"],
+        action: () => setFeedbackOpen(true),
+      });
+    }
   }
 
   const filteredCommands =
@@ -195,12 +353,14 @@ function CommandPaletteContent({
   const groupedCommands = groupCommands(filteredCommands);
 
   const executeCommand = (command: Command) => {
+    if (command.disabled) return;
     setSearch("");
     if (command.closeOnSelect !== false) {
       setOpen(false);
       setPage("root");
     }
     command.action();
+    trackMailAction({ action: command.id, source: "palette" });
   };
 
   const handleOpenChange = (isOpen: boolean) => {
@@ -216,7 +376,7 @@ function CommandPaletteContent({
       open={open}
       onOpenChange={handleOpenChange}
       onEscapeKeyDown={(event) => {
-        if (page !== "snooze") return;
+        if (page === "root") return;
         event.preventDefault();
         setPage("root");
         setSearch("");
@@ -233,15 +393,26 @@ function CommandPaletteContent({
         key={page}
         autoFocus
         placeholder={
-          page === "snooze"
-            ? "When should it return? Try Friday at 3pm"
-            : "Type a command or search..."
+          {
+            root: "Type a command or search...",
+            snooze: "When should it return? Try Friday at 3pm",
+            accounts: "Search accounts...",
+          }[page]
         }
         value={search}
         onValueChange={setSearch}
       />
       <CommandList>
-        {isLoading ? (
+        {page === "accounts" ? (
+          <AccountCommandList
+            search={search}
+            onClose={() => handleOpenChange(false)}
+            onBack={() => {
+              setPage("root");
+              setSearch("");
+            }}
+          />
+        ) : isLoading ? (
           <div className="flex items-center justify-center py-6">
             <Loader2Icon className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
@@ -276,12 +447,18 @@ function CommandPaletteContent({
                       <CommandItem
                         key={command.id}
                         value={`${command.id} ${command.label} ${command.keywords?.join(" ") || ""}`}
+                        disabled={command.disabled}
                         onSelect={() => executeCommand(command)}
                       >
                         {command.icon && (
                           <command.icon className="mr-2 h-4 w-4" />
                         )}
                         <span className="flex-1">{command.label}</span>
+                        {command.description && (
+                          <span className="ml-3 shrink-0 text-xs text-muted-foreground">
+                            {command.description}
+                          </span>
+                        )}
                         {command.shortcut && (
                           <CommandShortcut>{command.shortcut}</CommandShortcut>
                         )}
@@ -294,26 +471,6 @@ function CommandPaletteContent({
           </>
         )}
       </CommandList>
-      <div className="flex items-center justify-center gap-4 border-t px-3 py-2 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1">
-          <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
-            ↑↓
-          </kbd>
-          navigate
-        </span>
-        <span className="flex items-center gap-1">
-          <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
-            ↵
-          </kbd>
-          select
-        </span>
-        <span className="flex items-center gap-1">
-          <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
-            esc
-          </kbd>
-          {page === "snooze" ? "back" : "close"}
-        </span>
-      </div>
     </CommandDialog>
   );
 }

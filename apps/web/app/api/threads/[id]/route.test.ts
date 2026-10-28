@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createScopedLogger } from "@/utils/logger";
 import { SafeError } from "@/utils/error";
 import { GET } from "./route";
 
@@ -26,7 +27,7 @@ vi.mock("@/utils/middleware", () => ({
               name: "google",
               getThread: mockGetThread,
             },
-            logger: { error: vi.fn() },
+            logger: createScopedLogger("thread-route-test"),
           }),
           context,
         );
@@ -65,13 +66,64 @@ describe("GET /api/threads/[id]", () => {
     });
   });
 
-  it("keeps unrelated provider failures generic", async () => {
-    mockGetThread.mockRejectedValue(new Error("Provider failed"));
+  it("returns a known 404 when the provider cannot find the thread yet", async () => {
+    mockGetThread.mockRejectedValue(
+      new Error("Requested entity was not found."),
+    );
 
     const response = await getThread();
 
-    expect(response.status).toBe(500);
-    expect(await response.json()).toEqual({ error: "Failed to fetch thread" });
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({
+      error:
+        "This conversation isn't available yet. It may still be syncing with your mailbox, or it was deleted.",
+      isKnownError: true,
+    });
+  });
+
+  it.each([
+    new Error("Provider failed"),
+    Object.assign(new Error("Permission denied"), {
+      errors: [{ reason: "insufficientPermissions" }],
+    }),
+  ])("passes provider failures to shared middleware: %s", async (error) => {
+    mockGetThread.mockRejectedValue(error);
+    await expect(getThread()).rejects.toBe(error);
+  });
+
+  it("preserves safe authorization failures for middleware", async () => {
+    mockGetThread.mockRejectedValue(
+      new SafeError(
+        "Microsoft authorization has expired. Please reconnect.",
+        401,
+      ),
+    );
+    const response = await getThread();
+    expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({
+      error: "Microsoft authorization has expired. Please reconnect.",
+      isKnownError: true,
+    });
+  });
+
+  it("requests a cancellable complete inventory only for explicit offline preparation", async () => {
+    mockGetThread.mockResolvedValue({
+      id: "thread-id",
+      messages: [],
+      snippet: "",
+    });
+    const request = new NextRequest(
+      "http://localhost/api/threads/thread-id?complete=true",
+    );
+    const response = await GET(request, {
+      params: Promise.resolve({ id: "thread-id" }),
+    });
+    expect(response.status).toBe(200);
+    expect(mockGetThread).toHaveBeenCalledWith("thread-id", {
+      includeDrafts: false,
+      complete: true,
+      signal: request.signal,
+    });
   });
 
   it.each([

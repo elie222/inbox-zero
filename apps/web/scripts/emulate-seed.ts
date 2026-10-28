@@ -12,6 +12,9 @@ const GOOGLE_EMAIL = "developer@example.com";
 const GOOGLE_NAME = "Developer";
 const MICROSOFT_EMAIL = "developer@outlook.test";
 const MICROSOFT_NAME = "Developer";
+const TEAMMATE_GOOGLE_EMAIL = "teammate@example.com";
+const TEAMMATE_MICROSOFT_EMAIL = "teammate@outlook.test";
+const TEAMMATE_NAME = "Teammate";
 
 export function buildEmulateSeed(baseUrl = DEFAULT_BASE_URL) {
   const normalizedBaseUrl = baseUrl.replace(/\/+$/u, "");
@@ -24,7 +27,6 @@ export function buildEmulateSeed(baseUrl = DEFAULT_BASE_URL) {
           client_id: "emulate-google-client.apps.googleusercontent.com",
           client_secret: "emulate-google-secret",
           redirect_uris: [
-            `${normalizedBaseUrl}/api/auth/oauth2/callback/google`,
             `${normalizedBaseUrl}/api/auth/callback/google`,
             `${normalizedBaseUrl}/api/google/linking/callback`,
             `${normalizedBaseUrl}/api/google/calendar/callback`,
@@ -64,7 +66,6 @@ export function buildEmulateSeed(baseUrl = DEFAULT_BASE_URL) {
           client_id: "emulate-microsoft-client-id",
           client_secret: "emulate-microsoft-secret",
           redirect_uris: [
-            `${normalizedBaseUrl}/api/auth/oauth2/callback/microsoft`,
             `${normalizedBaseUrl}/api/auth/callback/microsoft`,
             `${normalizedBaseUrl}/api/outlook/linking/callback`,
             `${normalizedBaseUrl}/api/outlook/calendar/callback`,
@@ -76,12 +77,37 @@ export function buildEmulateSeed(baseUrl = DEFAULT_BASE_URL) {
   };
 }
 
-export async function writeEmulateSeed(outputPath: string, baseUrl?: string) {
+export function buildEmulateSeedWithTeammates(baseUrl = DEFAULT_BASE_URL) {
+  const seed = buildEmulateSeed(baseUrl);
+  return {
+    ...seed,
+    google: {
+      ...seed.google,
+      users: [
+        ...seed.google.users,
+        { email: TEAMMATE_GOOGLE_EMAIL, name: TEAMMATE_NAME },
+      ],
+    },
+    microsoft: {
+      ...seed.microsoft,
+      users: [
+        ...seed.microsoft.users,
+        { email: TEAMMATE_MICROSOFT_EMAIL, name: TEAMMATE_NAME },
+      ],
+    },
+  };
+}
+
+export async function writeEmulateSeed(
+  outputPath: string,
+  baseUrl?: string,
+  teammates = false,
+) {
   await mkdir(dirname(outputPath), { recursive: true });
-  await writeFile(
-    outputPath,
-    `${JSON.stringify(buildEmulateSeed(baseUrl), null, 2)}\n`,
-  );
+  const seed = teammates
+    ? buildEmulateSeedWithTeammates(baseUrl)
+    : buildEmulateSeed(baseUrl);
+  await writeFile(outputPath, `${JSON.stringify(seed, null, 2)}\n`);
 }
 
 function toSeedLabels(fixture: DemoInboxFixture, userEmail: string) {

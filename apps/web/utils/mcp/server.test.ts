@@ -1,0 +1,314 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const {
+  handleRequest,
+  mcpServerConstructor,
+  registerTool,
+  transportConstructor,
+} = vi.hoisted(() => {
+  const registerTool = vi.fn();
+  const connect = vi.fn();
+  const handleRequest = vi.fn();
+  const mcpServerConstructor = vi.fn(
+    class MockMcpServer {
+      registerTool = registerTool;
+      registerResource = vi.fn();
+      connect = connect;
+    },
+  );
+  const transportConstructor = vi.fn(
+    class MockTransport {
+      handleRequest = handleRequest;
+    },
+  );
+
+  return {
+    handleRequest,
+    mcpServerConstructor,
+    registerTool,
+    transportConstructor,
+  };
+});
+
+vi.mock("@modelcontextprotocol/sdk/server/mcp.js", () => ({
+  McpServer: mcpServerConstructor,
+}));
+vi.mock(
+  "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js",
+  () => ({
+    WebStandardStreamableHTTPServerTransport: transportConstructor,
+  }),
+);
+vi.mock("@/app/api/user/stats/by-period/controller", () => ({
+  getStatsByPeriod: vi.fn(),
+}));
+vi.mock("@/utils/stats/response-time/controller", () => ({
+  getResponseTimeStats: vi.fn(),
+}));
+vi.mock("@/app/api/v1/rules/request", () => ({
+  toRuleWriteInput: vi.fn(),
+}));
+vi.mock("@/app/api/v1/rules/serializers", () => ({
+  apiRuleSelect: {},
+  serializeRule: vi.fn(),
+}));
+vi.mock("@/app/api/v1/rules/validation", async (importActual) => {
+  const actual =
+    await importActual<typeof import("@/app/api/v1/rules/validation")>();
+  return actual;
+});
+vi.mock("@/utils/branding", () => ({
+  BRAND_NAME: "Inbox Zero",
+}));
+vi.mock("@/utils/email/provider", () => ({
+  createEmailProvider: vi.fn(),
+}));
+vi.mock("@/utils/mcp/access", () => ({
+  isMcpServerEnabledForUser: vi.fn(),
+}));
+vi.mock("@/utils/mcp/account-selection", () => ({
+  listMcpEmailAccounts: vi.fn(),
+  resolveMcpEmailAccount: vi.fn(),
+}));
+vi.mock("@/utils/mcp/mail-client-bundle", () => ({
+  getMailClientResourceUri: vi.fn(),
+  readMailClientHtml: vi.fn(),
+}));
+vi.mock("@/utils/prisma");
+vi.mock("@/utils/premium/server", () => ({
+  assertCanUseDigestsIfNeeded: vi.fn(),
+}));
+vi.mock("@/utils/rule/rule", () => ({
+  createRule: vi.fn(),
+  deleteRule: vi.fn(),
+  updateRule: vi.fn(),
+}));
+
+import { assertCanUseDigestsIfNeeded } from "@/utils/premium/server";
+import { toRuleWriteInput } from "@/app/api/v1/rules/request";
+import { createRule, updateRule, deleteRule } from "@/utils/rule/rule";
+import { resolveMcpEmailAccount } from "@/utils/mcp/account-selection";
+import prisma from "@/utils/__mocks__/prisma";
+import { handleMcpServerRequest } from "@/utils/mcp/server";
+import { isMcpServerEnabledForUser } from "@/utils/mcp/access";
+import { getMailClientResourceUri } from "@/utils/mcp/mail-client-bundle";
+
+describe("mcp-server", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    handleRequest.mockResolvedValue(new Response("ok"));
+    vi.mocked(isMcpServerEnabledForUser).mockResolvedValue(true);
+  });
+
+  it("returns 401 when the MCP access token has no user id", async () => {
+    const response = await handleMcpServerRequest(
+      new Request("http://localhost/mcp", { method: "POST" }),
+      {} as never,
+    );
+
+    expect(response.status).toBe(401);
+    expect(mcpServerConstructor).not.toHaveBeenCalled();
+  });
+
+  it("annotates mailbox tools and delegates the request to the MCP transport", async () => {
+    const request = new Request("http://localhost/mcp", {
+      method: "POST",
+    });
+
+    const response = await handleMcpServerRequest(request, {
+      userId: "user_1",
+      scopes: ["mcp:read", "mcp:write"],
+    } as never);
+
+    expect(
+      registerTool.mock.calls.find(([name]) => name === "search_inbox")?.[1],
+    ).toMatchObject({
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: true,
+      },
+    });
+    expect(
+      registerTool.mock.calls.find(([name]) => name === "create_draft")?.[1],
+    ).toMatchObject({
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        openWorldHint: true,
+      },
+    });
+    expect(
+      registerTool.mock.calls.find(([name]) => name === "delete_rule")?.[1],
+    ).toMatchObject({
+      annotations: { readOnlyHint: false, destructiveHint: true },
+    });
+    expect(handleRequest).toHaveBeenCalledWith(request);
+    expect(response).toBeInstanceOf(Response);
+  });
+
+  it("registers mail client tools only when the mail client UI is installed", async () => {
+    const request = () =>
+      handleMcpServerRequest(
+        new Request("http://localhost/mcp", { method: "POST" }),
+        { userId: "user_1", scopes: ["mcp:read", "mcp:send"] } as never,
+      );
+    const registered = () => registerTool.mock.calls.map(([name]) => name);
+
+    vi.mocked(getMailClientResourceUri).mockReturnValue(null);
+    await request();
+    expect(registered()).toContain("search_inbox");
+    expect(registered()).not.toContain("open_mail");
+    expect(registered()).not.toContain("send_mail");
+
+    registerTool.mockClear();
+    vi.mocked(getMailClientResourceUri).mockReturnValue("ui://mail/test.html");
+    await request();
+    expect(registered()).toContain("open_mail");
+    expect(registered()).toContain("send_mail");
+  });
+
+  it("returns 403 when MCP access is disabled for the user", async () => {
+    vi.mocked(isMcpServerEnabledForUser).mockResolvedValue(false);
+
+    const response = await handleMcpServerRequest(
+      new Request("http://localhost/mcp", { method: "POST" }),
+      { userId: "user_1", scopes: [] } as never,
+    );
+
+    expect(response.status).toBe(403);
+    expect(mcpServerConstructor).not.toHaveBeenCalled();
+  });
+});
+
+describe("MCP tool permissions and rule writes", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getMailClientResourceUri).mockReturnValue("ui://mail/test.html");
+    vi.mocked(isMcpServerEnabledForUser).mockResolvedValue(true);
+    vi.mocked(resolveMcpEmailAccount).mockResolvedValue({
+      id: "account_1",
+      email: "owner@example.com",
+      name: null,
+      provider: "google",
+    });
+    vi.mocked(toRuleWriteInput).mockReturnValue({
+      name: "Digest",
+      condition: {},
+      actions: [{ type: "DIGEST", fields: null }],
+      runOnThreads: false,
+    } as never);
+  });
+
+  it("does not expand an existing draft-write grant into send access", async () => {
+    const tool = await getTool("send_mail", ["mcp:read", "mcp:write"]);
+    await expect(tool({})).rejects.toThrow("mcp:send");
+    expect(resolveMcpEmailAccount).not.toHaveBeenCalled();
+    const registration = registerTool.mock.calls.find(
+      ([name]) => name === "send_mail",
+    );
+    expect(registration?.[1]._meta.ui.visibility).toEqual(["app"]);
+  });
+
+  it.each([
+    "create_draft",
+    "create_rule",
+    "update_rule",
+    "delete_rule",
+    "save_mail_draft",
+    "change_mail",
+    "send_mail",
+  ])("denies %s to a read-only client before accessing an inbox", async (name) => {
+    const tool = await getTool(name, ["mcp:read"]);
+    await expect(tool({ id: "rule_1", rule: {} })).rejects.toThrow(
+      "Missing required permission",
+    );
+    expect(resolveMcpEmailAccount).not.toHaveBeenCalled();
+    expect(createRule).not.toHaveBeenCalled();
+    expect(updateRule).not.toHaveBeenCalled();
+    expect(deleteRule).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "list_email_accounts",
+    "search_inbox",
+    "read_thread",
+    "list_rules",
+    "get_rule",
+    "get_stats_by_period",
+    "get_response_time_stats",
+  ])("denies %s without a read grant", async (name) => {
+    const tool = await getTool(name, ["offline_access"]);
+    await expect(tool({ id: "rule_1" })).rejects.toThrow(
+      "Missing required permission",
+    );
+  });
+
+  it("rejects creating a paid digest rule before persistence", async () => {
+    vi.mocked(assertCanUseDigestsIfNeeded).mockRejectedValueOnce(
+      new Error("Upgrade required"),
+    );
+    const tool = await getTool("create_rule", ["mcp:write"]);
+    await expect(tool({ rule: digestRuleBody })).rejects.toThrow(
+      "Upgrade required",
+    );
+    expect(createRule).not.toHaveBeenCalled();
+  });
+
+  it("passes existing actions to the digest check when replacing a rule", async () => {
+    const actions = [{ type: "DIGEST" }];
+    prisma.rule.findFirst.mockResolvedValueOnce({
+      id: "rule_1",
+      actions,
+    } as never);
+    vi.mocked(assertCanUseDigestsIfNeeded).mockRejectedValueOnce(
+      new Error("Upgrade required"),
+    );
+    const tool = await getTool("update_rule", ["mcp:write"]);
+    await expect(tool({ id: "rule_1", rule: digestRuleBody })).rejects.toThrow(
+      "Upgrade required",
+    );
+    expect(assertCanUseDigestsIfNeeded).toHaveBeenCalledWith(
+      "user_1",
+      expect.any(Array),
+      actions,
+    );
+    expect(updateRule).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "update_rule",
+    "delete_rule",
+  ])("rejects %s for a rule outside the selected inbox", async (name) => {
+    prisma.rule.findFirst.mockResolvedValueOnce(null);
+    const tool = await getTool(name, ["mcp:write"]);
+    await expect(tool({ id: "foreign_rule", rule: {} })).rejects.toThrow(
+      "Rule not found",
+    );
+    expect(prisma.rule.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "foreign_rule", emailAccountId: "account_1" },
+      }),
+    );
+    expect(updateRule).not.toHaveBeenCalled();
+    expect(deleteRule).not.toHaveBeenCalled();
+  });
+});
+
+const digestRuleBody = {
+  name: "Digest",
+  condition: { aiInstructions: "Match digest emails" },
+  actions: [{ type: "DIGEST" }],
+};
+
+async function getTool(name: string, scopes: string[]) {
+  await handleMcpServerRequest(
+    new Request("http://localhost/mcp", { method: "POST" }),
+    { userId: "user_1", scopes },
+  );
+  const registration = registerTool.mock.calls.find(
+    ([toolName]) => toolName === name,
+  );
+  if (!registration) throw new Error(`Tool not registered: ${name}`);
+  return registration[2] as (args: Record<string, unknown>) => Promise<unknown>;
+}

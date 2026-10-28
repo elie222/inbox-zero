@@ -4,7 +4,7 @@ import type { Logger } from "@/utils/logger";
 import {
   fetchMicrosoftUserProfile,
   requestMicrosoftToken,
-} from "@/utils/microsoft/oauth";
+} from "@/utils/outlook/oauth";
 import {
   fetchMicrosoftCalendars,
   getCalendarClientWithRefresh,
@@ -67,15 +67,15 @@ export function createMicrosoftCalendarProvider(
       emailAccountId: string,
       expiresAt: Date | null,
     ): Promise<void> {
-      try {
-        const calendarClient = await getCalendarClientWithRefresh({
-          accessToken,
-          refreshToken,
-          expiresAt: expiresAt?.getTime() ?? null,
-          emailAccountId,
-          logger,
-        });
+      const calendarClient = await getCalendarClientWithRefresh({
+        accessToken,
+        refreshToken,
+        expiresAt: expiresAt?.getTime() ?? null,
+        emailAccountId,
+        logger,
+      });
 
+      try {
         const microsoftCalendars = await fetchMicrosoftCalendars(
           calendarClient,
           logger,

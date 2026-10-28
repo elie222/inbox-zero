@@ -86,7 +86,7 @@ export async function analyzeDocument({
 
   const result = await generateObject({
     ...modelOptions,
-    system: buildSystem(emailAccount.filingPrompt),
+    instructions: buildSystem(emailAccount.filingPrompt),
     prompt: buildPrompt({ email, attachment, folders }),
     schema: documentAnalysisSchema,
   });

@@ -3,6 +3,7 @@ import {
   isFilebotEmail,
   getFilebotEmail,
   isFilebotNotificationMessage,
+  isFilebotConversationMessage,
 } from "./is-filebot-email";
 
 describe("isFilebotEmail", () => {
@@ -54,6 +55,18 @@ describe("isFilebotEmail", () => {
       userEmail: "john@example.com",
       emailToCheck: "john+AI@example.com",
       expected: false,
+    },
+    {
+      name: "local part case insensitivity",
+      userEmail: "john@example.com",
+      emailToCheck: "John+ai@example.com",
+      expected: true,
+    },
+    {
+      name: "mixed-case user email",
+      userEmail: "John@example.com",
+      emailToCheck: "john+ai@example.com",
+      expected: true,
     },
     {
       name: "invalid userEmail format",
@@ -152,5 +165,125 @@ describe("isFilebotNotificationMessage", () => {
     },
   ])("should return $expected for $name", ({ message, expected }) => {
     expect(isFilebotNotificationMessage(message)).toBe(expected);
+  });
+});
+
+describe("isFilebotConversationMessage", () => {
+  const userEmail = "john@example.com";
+
+  it.each([
+    {
+      name: "notification with the filebot reply-to",
+      headers: {
+        from: "Inbox Zero Assistant <john@example.com>",
+        to: "john@example.com",
+        subject: "✓ Filed Receipt.pdf",
+        "reply-to": "Inbox Zero Assistant <john+ai@example.com>",
+      },
+      expected: true,
+    },
+    {
+      name: "filed notification without reply-to or display name",
+      headers: {
+        from: "John <john@example.com>",
+        to: "John <John@Example.com>",
+        subject: "✓ Filed Receipt.pdf",
+      },
+      expected: true,
+    },
+    {
+      name: "ask notification without reply-to or display name",
+      headers: {
+        from: "john@example.com",
+        to: "john@example.com",
+        subject: "📄 Where should I file Contract.pdf?",
+      },
+      expected: true,
+    },
+    {
+      name: "batch update notification",
+      headers: {
+        from: "john@example.com",
+        to: "john@example.com",
+        subject: "📄 Filing update for 3 documents",
+      },
+      expected: true,
+    },
+    {
+      name: "correction confirmation",
+      headers: {
+        from: "john@example.com",
+        to: "john@example.com",
+        subject: "Re: ✓ Filed Receipt.pdf",
+      },
+      expected: true,
+    },
+    {
+      name: "user reply to the filebot address",
+      headers: {
+        from: "John <john@example.com>",
+        to: "Inbox Zero Assistant <john+ai@example.com>",
+        subject: "Re: Your receipt",
+      },
+      expected: true,
+    },
+    {
+      name: "user reply to a mixed-case filebot address",
+      headers: {
+        from: "John <john@example.com>",
+        to: "Inbox Zero Assistant <John+ai@example.com>",
+        subject: "Re: Your receipt",
+      },
+      expected: true,
+    },
+    {
+      name: "ordinary reply to someone else",
+      headers: {
+        from: "John <john@example.com>",
+        to: "alice@example.com",
+        subject: "Re: Your receipt",
+      },
+      expected: false,
+    },
+    {
+      name: "filing subject sent to someone else",
+      headers: {
+        from: "John <john@example.com>",
+        to: "alice@example.com",
+        subject: "✓ Filed Receipt.pdf",
+      },
+      expected: false,
+    },
+    {
+      name: "filing subject from someone else",
+      headers: {
+        from: "alice@example.com",
+        to: "john@example.com",
+        subject: "✓ Filed Receipt.pdf",
+      },
+      expected: false,
+    },
+    {
+      name: "ordinary note to self",
+      headers: {
+        from: "john@example.com",
+        to: "john@example.com",
+        subject: "Filed taxes, remember to pay",
+      },
+      expected: false,
+    },
+    {
+      name: "inbound email",
+      headers: {
+        from: "alice@example.com",
+        to: "john@example.com",
+        subject: "Your receipt",
+      },
+      expected: false,
+    },
+  ])("should return $expected for $name", ({ headers, expected }) => {
+    expect(
+      isFilebotConversationMessage({ userEmail, message: { headers } }),
+    ).toBe(expected);
   });
 });

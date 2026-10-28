@@ -39,8 +39,8 @@ DATABASE_URL="postgresql://postgres:password@db:5432/inboxzero?schema=public"
 DIRECT_URL="postgresql://postgres:password@db:5432/inboxzero?schema=public"
 
 # Redis (devcontainer services)
-UPSTASH_REDIS_URL="http://redis-http:80"
-UPSTASH_REDIS_TOKEN="dev_token"
+REDIS_HTTP_URL="http://redis-http:80"
+REDIS_HTTP_TOKEN="dev_token"
 REDIS_URL="redis://redis:6379"
 
 # Auth & encryption (auto-generated)

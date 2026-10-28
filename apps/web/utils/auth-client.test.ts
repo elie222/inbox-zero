@@ -22,7 +22,7 @@ vi.mock("@better-auth/sso/client", () => ({
 }));
 
 vi.mock("better-auth/client/plugins", () => ({
-  genericOAuthClient: vi.fn(() => "generic-oauth-client"),
+  emailOTPClient: vi.fn(() => "email-otp-client"),
   organizationClient: vi.fn(() => "organization-client"),
 }));
 
@@ -36,12 +36,12 @@ describe("auth-client", () => {
     await import("./auth-client");
 
     expect(mockCreateAuthClient).toHaveBeenCalledWith({
-      plugins: ["sso-client", "organization-client"],
+      plugins: ["sso-client", "organization-client", "email-otp-client"],
     });
   });
 });
 
-describe("signInWithOauth2", () => {
+describe("signInWithSocialRedirect", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.resetModules();
@@ -57,12 +57,12 @@ describe("signInWithOauth2", () => {
       status: 200,
     });
 
-    const { signInWithOauth2 } = await import("./auth-client");
+    const { signInWithSocialRedirect } = await import("./auth-client");
 
-    const result = await signInWithOauth2({
+    const result = await signInWithSocialRedirect({
       callbackURL: "/welcome",
       errorCallbackURL: "/login/error",
-      providerId: "google",
+      provider: "google",
     });
 
     expect(result).toEqual({
@@ -78,13 +78,13 @@ describe("signInWithOauth2", () => {
       status: 500,
     });
 
-    const { signInWithOauth2 } = await import("./auth-client");
+    const { signInWithSocialRedirect } = await import("./auth-client");
 
     await expect(
-      signInWithOauth2({
+      signInWithSocialRedirect({
         callbackURL: "/welcome",
         errorCallbackURL: "/login/error",
-        providerId: "google",
+        provider: "google",
       }),
     ).rejects.toThrow("Request failed with status 500");
   });

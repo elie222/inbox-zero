@@ -212,7 +212,7 @@ describe("extractSSOProviderConfigFromXML", () => {
       );
 
       expect(result.spMetadata).toContain(
-        "https://example.com/api/auth/sso/saml2/callback/test-provider",
+        "https://example.com/api/auth/sso/saml2/sp/acs/test-provider",
       );
       expect(result.spMetadata).not.toContain("https://example.com//api");
     });

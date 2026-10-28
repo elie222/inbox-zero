@@ -1,4 +1,4 @@
-import { formatEmailDate } from "@/utils/gmail/reply";
+import { formatEmailDate } from "@/utils/email/reply-quote";
 import type { ParsedMessage } from "@/utils/types";
 import { escapeHtml, textToHtmlParagraphs } from "@/utils/string";
 

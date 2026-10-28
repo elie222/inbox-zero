@@ -1,31 +1,54 @@
 const QUOTED_CONTENT_SELECTOR = [
   ".gmail_quote_container",
   "div.gmail_quote",
-  "blockquote.gmail_quote",
   'div[id$="divRplyFwdMsg"]',
   'div[id$="appendonsend"]',
   ".yahoo_quoted",
   ".moz-cite-prefix",
   'blockquote[type="cite"]',
 ].join(", ");
+const DOCUMENT_STRUCTURE_PATTERN = /<(?:html|body)(?:\s|>)/i;
 
 export function splitEmailContent(html: string): {
   mainContent: string;
+  quotedContent: string;
   hasQuotedContent: boolean;
 } {
   const doc = new DOMParser().parseFromString(html, "text/html");
+  const hasDocumentStructure =
+    DOCUMENT_STRUCTURE_PATTERN.test(html) || doc.head.childNodes.length > 0;
   const quoteBoundary = findQuoteBoundary(doc);
 
   if (!quoteBoundary) {
-    return { mainContent: html, hasQuotedContent: false };
+    return { mainContent: html, quotedContent: "", hasQuotedContent: false };
   }
 
+  const quotedDoc = doc.cloneNode(true) as Document;
+  const quotedBoundary = findQuoteBoundary(quotedDoc)!;
+  let current: Node = quotedBoundary;
+  while (current !== quotedDoc.body) {
+    while (current.previousSibling) current.previousSibling.remove();
+    if (!current.parentNode) break;
+    current = current.parentNode;
+  }
+  const quotedContent = serializeEmailContent(quotedDoc, hasDocumentStructure);
+
   removeBoundaryAndFollowingContent(quoteBoundary, doc.body);
+  trimQuoteSpacing(doc.body);
 
   return {
-    mainContent: doc.body.innerHTML,
+    mainContent: serializeEmailContent(doc, hasDocumentStructure),
+    quotedContent,
     hasQuotedContent: true,
   };
+}
+
+function serializeEmailContent(doc: Document, hasDocumentStructure: boolean) {
+  if (!hasDocumentStructure) return doc.body.innerHTML;
+  const documentType = doc.doctype
+    ? new XMLSerializer().serializeToString(doc.doctype)
+    : "";
+  return `${documentType}${doc.documentElement.outerHTML}`;
 }
 
 function findQuoteBoundary(doc: Document) {
@@ -78,5 +101,24 @@ function removeBoundaryAndFollowingContent(
 
     if (current === boundary) parent.removeChild(current);
     current = parent;
+  }
+}
+
+function trimQuoteSpacing(parent: Element) {
+  while (parent.lastChild) {
+    const node = parent.lastChild;
+    if (node.nodeType === Node.TEXT_NODE && !node.textContent?.trim()) {
+      node.remove();
+      continue;
+    }
+    if (!(node instanceof Element)) break;
+    if (
+      !node.matches("br, div, p") ||
+      Array.from(node.attributes).some((attribute) => attribute.name !== "dir")
+    )
+      break;
+    trimQuoteSpacing(node);
+    if (node.childNodes.length) break;
+    node.remove();
   }
 }

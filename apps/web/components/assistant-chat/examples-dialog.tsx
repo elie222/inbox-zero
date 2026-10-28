@@ -93,9 +93,8 @@ export function ExamplesDialog({
             {selectedPersona && (
               <Button
                 variant="ghost"
-                size="icon"
+                size="iconSm"
                 onClick={handleBackToPersonas}
-                className="h-8 w-8"
               >
                 <ArrowLeftIcon className="size-4" />
                 <span className="sr-only">Back to personas</span>

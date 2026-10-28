@@ -136,6 +136,10 @@ ${emailAccount.about ? `<user_info>${emailAccount.about}</user_info>` : ""}`;
    - When changing draft-generation prompt inputs, retrieval context, model routing behavior, or post-processing, bump `apps/web/utils/ai/reply/draft-attribution.ts` `DRAFT_PIPELINE_VERSION`
    - Do not bump it for behavior-preserving refactors that keep the same prompt, context, model role, and output processing
    - Treat that version as analytics attribution for reply-draft quality comparisons
+10. **Drafts Answer as the User**:
+   - The user knows their own business, so a gap in the model's context must never surface as the user not knowing: no hedges, "not sure", "I'll check and get back", or handing the request to someone on Cc. State the most likely answer and lower the confidence instead
+   - Say a matter is open only when the thread itself shows it (the user said they would check, or it waits on someone else)
+   - Draft eval criteria should fail non-answers and only fail invented specifics such as amounts, dates, or terms. Check changes with `__tests__/eval/draft-reply-voice.test.ts`
 
 ## Testing
 

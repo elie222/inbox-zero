@@ -38,6 +38,11 @@ const errorMessages: Record<string, { title: string; description: string }> = {
     title: "Email Already Linked",
     description: getEmailAlreadyLinkedDescription(),
   },
+  account_not_linked: {
+    title: "Sign-in Method Doesn't Match",
+    description:
+      "An account already exists for this email, but it was created with a different sign-in method or a different provider account. Sign in the way you originally signed up, or contact support so we can reconnect the two.",
+  },
   org_invite_invalid_code: {
     title: "Organization Invite Sign-in Failed",
     description:

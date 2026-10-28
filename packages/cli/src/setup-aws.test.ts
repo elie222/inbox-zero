@@ -47,6 +47,16 @@ describe("runAwsSetup", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+  });
+
+  it("rejects unattended setup before AWS calls when runtime Bedrock keys are absent", async () => {
+    vi.stubEnv("BEDROCK_ACCESS_KEY", "");
+    vi.stubEnv("BEDROCK_SECRET_KEY", "");
+    await expect(
+      runAwsSetup({ yes: true, environment: "staging" }),
+    ).rejects.toThrow(/BEDROCK_ACCESS_KEY.*BEDROCK_SECRET_KEY/);
+    expect(spawnSync).not.toHaveBeenCalled();
   });
 
   it("rejects invalid --environment values before shelling out", async () => {

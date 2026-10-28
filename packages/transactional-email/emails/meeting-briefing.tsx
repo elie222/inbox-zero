@@ -22,6 +22,7 @@ export type InternalTeamMember = {
 };
 
 export type BriefingContent = {
+  priorities: string[];
   guests: GuestBriefing[];
   internalTeamMembers?: InternalTeamMember[];
 };
@@ -66,7 +67,7 @@ function renderInternalTeamNote(internalTeamMembers: InternalTeamMember[]) {
 
   return (
     <Text className="text-xs text-gray-500 mt-4 mb-0 italic">
-      Also attending: {names} (internal team members - no briefing included)
+      Also attending: {names} (internal team members)
     </Text>
   );
 }
@@ -117,6 +118,22 @@ export default function MeetingBriefingEmail({
               )}
             </Section>
 
+            {briefingContent.priorities.length > 0 && (
+              <Section className="px-8 pb-4">
+                <Text className="text-sm text-gray-900 mt-0 mb-2">
+                  <strong>Meeting priorities</strong>
+                </Text>
+                {briefingContent.priorities.map((priority, index) => (
+                  <Text
+                    key={`priority-${index}`}
+                    className="text-sm text-gray-800 mt-0 mb-2"
+                  >
+                    - {priority}
+                  </Text>
+                ))}
+              </Section>
+            )}
+
             <Section className="px-8 pb-4">
               {renderGuestBriefings(briefingContent.guests)}
               {renderInternalTeamNote(
@@ -163,6 +180,9 @@ MeetingBriefingEmail.PreviewProps = {
   videoConferenceLink: "https://meet.google.com/abc-defg-hij",
   eventUrl: "https://calendar.google.com/event/123",
   briefingContent: {
+    priorities: [
+      "Agree on an integration timeline and confirm who owns the technical evaluation.",
+    ],
     guests: [
       {
         name: "John Smith",

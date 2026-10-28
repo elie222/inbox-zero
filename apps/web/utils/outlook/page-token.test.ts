@@ -72,6 +72,19 @@ describe("resolveMicrosoftGraphNextLink", () => {
     expect(resolveMicrosoftGraphNextLink(pageToken)).toBe(pageToken);
   });
 
+  it("resolves relative Graph continuation links instead of restarting page one", () => {
+    const pageToken = "/v1.0/me/mailFolders/inbox/messages?%24skip=20";
+    expect(resolveMicrosoftGraphNextLink(pageToken)).toBe(
+      `https://graph.microsoft.com${pageToken}`,
+    );
+  });
+
+  it("rejects relative-looking links that contain an embedded external URL", () => {
+    expect(() =>
+      resolveMicrosoftGraphNextLink("/v1.0/https://169.254.169.254/latest"),
+    ).toThrow("Invalid Outlook page token");
+  });
+
   it("returns null for opaque tokens", () => {
     expect(resolveMicrosoftGraphNextLink("page-token-1")).toBeNull();
   });

@@ -58,7 +58,7 @@ export const TestCustomEmailForm = () => {
         />
         <Button type="submit" loading={isSubmitting} size="sm">
           <SparklesIcon className="mr-2 size-4" />
-          Test
+          <span>Test</span>
         </Button>
       </form>
       {testResults && (

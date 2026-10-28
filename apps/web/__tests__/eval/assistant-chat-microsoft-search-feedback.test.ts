@@ -2,6 +2,7 @@ import type { ModelMessage } from "ai";
 import { afterAll, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   captureAssistantChatTrace,
+  hasAssistantWriteToolCalls,
   getFirstMatchingToolCall,
   type RecordedToolCall,
 } from "@/__tests__/eval/assistant-chat-eval-utils";
@@ -244,7 +245,7 @@ describe.runIf(shouldRunEval)(
 
             const pass =
               (passViaRetry || passViaDirectSuccess) &&
-              !hasWriteToolCalls(trace.toolCalls);
+              !hasAssistantWriteToolCalls(trace.toolCalls);
 
             evalReporter.record({
               testName:
@@ -378,7 +379,7 @@ describe.runIf(shouldRunEval)(
                   !result.output.messages?.length,
               ) &&
               !hasLookupDependentToolCalls(trace.toolCalls) &&
-              !hasWriteToolCalls(trace.toolCalls) &&
+              !hasAssistantWriteToolCalls(trace.toolCalls) &&
               !!assistantJudge?.pass;
 
             evalReporter.record({
@@ -513,7 +514,7 @@ describe.runIf(shouldRunEval)(
               !!firstSuccessfulSearch &&
               !!executionCall &&
               executionCall.input.messageId === explanationMessage.id &&
-              !hasWriteToolCalls(trace.toolCalls) &&
+              !hasAssistantWriteToolCalls(trace.toolCalls) &&
               !!explanationJudge?.pass &&
               prisma.executedRule.findMany.mock.calls.some(
                 ([args]) =>
@@ -660,7 +661,7 @@ describe.runIf(shouldRunEval)(
               !!executionCall &&
               searchCall.index < executionCall.index &&
               executionCall.input.messageId === explanationMessage.id &&
-              !hasWriteToolCalls(trace.toolCalls) &&
+              !hasAssistantWriteToolCalls(trace.toolCalls) &&
               !!explanationJudge?.pass &&
               prisma.executedRule.findMany.mock.calls.some(
                 ([args]) =>
@@ -807,7 +808,7 @@ describe.runIf(shouldRunEval)(
               !!executionCall &&
               searchCall.index < executionCall.index &&
               executionCall.input.messageId === explanationMessage.id &&
-              !hasWriteToolCalls(trace.toolCalls) &&
+              !hasAssistantWriteToolCalls(trace.toolCalls) &&
               !!mismatchJudge?.pass &&
               prisma.executedRule.findMany.mock.calls.some(
                 ([args]) =>
@@ -940,7 +941,7 @@ describe.runIf(shouldRunEval)(
               !!executionCall &&
               searchCall.index < executionCall.index &&
               executionCall.input.messageId === explanationMessage.id &&
-              !hasWriteToolCalls(trace.toolCalls) &&
+              !hasAssistantWriteToolCalls(trace.toolCalls) &&
               !!mismatchJudge?.pass &&
               prisma.executedRule.findMany.mock.calls.some(
                 ([args]) =>
@@ -1124,25 +1125,6 @@ function isRetryCandidateNeedingSimplification(query: string) {
       /from:/i.test(query) ||
       />=|<=|>|</.test(query))
   );
-}
-
-function hasWriteToolCalls(toolCalls: RecordedToolCall[]) {
-  const writeToolNames = new Set([
-    "manageInbox",
-    "createRule",
-    "updateRuleConditions",
-    "updateRuleActions",
-    "updateLearnedPatterns",
-    "updatePersonalInstructions",
-    "updateAssistantSettings",
-    "sendEmail",
-    "replyEmail",
-    "forwardEmail",
-    "saveMemory",
-    "addToKnowledgeBase",
-  ]);
-
-  return toolCalls.some((toolCall) => writeToolNames.has(toolCall.toolName));
 }
 
 function hasLookupDependentToolCalls(toolCalls: RecordedToolCall[]) {

@@ -1,4 +1,5 @@
 import { after } from "next/server";
+import { clearAccountDisconnectedErrorIfResolved } from "@/utils/error-messages";
 import { env } from "@/env";
 import { auth } from "@/utils/auth";
 import { hash } from "@/utils/hash";
@@ -12,13 +13,17 @@ import {
   hashOAuthAuditIdentifier,
   logOAuthLinkingCallbackValidation,
 } from "@/utils/oauth/linking-audit";
-import { handleAccountLinking } from "@/utils/oauth/account-linking";
+import {
+  getMailboxLinkingBlockedRedirect,
+  handleAccountLinking,
+} from "@/utils/oauth/account-linking";
+import { isReconnectTargetMismatch } from "@/utils/oauth/reconnect-target";
 import { mergeAccount } from "@/utils/user/merge-account";
 import { handleOAuthCallbackError } from "@/utils/oauth/error-handler";
 import {
   fetchGoogleOpenIdProfile,
   isGoogleOauthEmulationEnabled,
-} from "@/utils/google/oauth";
+} from "@/utils/gmail/oauth";
 import {
   acquireOAuthCodeLock,
   getOAuthCodeResult,
@@ -30,7 +35,8 @@ import { SafeError } from "@/utils/error";
 import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
 
 export const GET = withError("google/linking/callback", async (request) => {
-  const actorUserId = (await auth(request.headers))?.user.id ?? null;
+  const actorSession = await auth(request.headers);
+  const actorUserId = actorSession?.user.id ?? null;
   let logger = request.logger.with({
     actorUserId,
     auditType: "oauth_linking",
@@ -55,7 +61,8 @@ export const GET = withError("google/linking/callback", async (request) => {
     return validation.response;
   }
 
-  const { targetUserId, code, stateNonce } = validation;
+  const { targetUserId, code, stateNonce, reconnectEmailAccountId } =
+    validation;
   logger = logOAuthLinkingCallbackValidation({
     actorUserId,
     logger,
@@ -64,12 +71,19 @@ export const GET = withError("google/linking/callback", async (request) => {
     targetUserId,
   });
 
-  if (actorUserId && actorUserId !== targetUserId) {
+  if (!actorUserId || actorUserId !== targetUserId) {
     return createAccountLinkingRedirect({
       query: { error: "invalid_state" },
       stateCookieName: GOOGLE_LINKING_STATE_COOKIE_NAME,
     });
   }
+
+  const blockedRedirect = getMailboxLinkingBlockedRedirect({
+    session: actorSession,
+    logger,
+    stateCookieName: GOOGLE_LINKING_STATE_COOKIE_NAME,
+  });
+  if (blockedRedirect) return blockedRedirect;
 
   const cachedResult = await getOAuthCodeResult(code);
   if (cachedResult) {
@@ -122,6 +136,23 @@ export const GET = withError("google/linking/callback", async (request) => {
         emailAccount: true,
       },
     });
+
+    if (
+      isReconnectTargetMismatch({
+        reconnectEmailAccountId,
+        matchedEmailAccountId: existingAccount?.emailAccount?.id,
+      })
+    ) {
+      logger.warn("Reconnect authorized a different provider account", {
+        targetUserId,
+        reconnectEmailAccountId,
+        matchedEmailAccountId: existingAccount?.emailAccount?.id ?? null,
+      });
+      return createAccountLinkingRedirect({
+        query: { error: "reconnect_account_mismatch" },
+        stateCookieName: GOOGLE_LINKING_STATE_COOKIE_NAME,
+      });
+    }
 
     const linkingResult = await handleAccountLinking({
       existingAccountId: existingAccount?.id || null,
@@ -413,17 +444,21 @@ async function completeGoogleAccountLinking({
   await setOAuthCodeResult(code, { success });
 
   after(() =>
-    ensureEmailAccountsWatched({
-      userIds: [targetUserId],
-      logger,
-    }).catch((error) => {
-      logger.error(
-        "Failed to re-register email watches after account linking",
-        {
-          error,
-        },
-      );
-    }),
+    ensureEmailAccountsWatched({ userIds: [targetUserId], logger })
+      .finally(() =>
+        clearAccountDisconnectedErrorIfResolved({
+          userId: targetUserId,
+          logger,
+        }),
+      )
+      .catch((error) => {
+        logger.error(
+          "Failed to re-register email watches after account linking",
+          {
+            error,
+          },
+        );
+      }),
   );
 
   return createAccountLinkingRedirect({
@@ -447,6 +482,7 @@ async function updateGoogleAccount({
       ...(providerAccountId && {
         providerAccountId,
       }),
+      disconnectedAt: null,
       access_token: tokens.access_token,
       ...(tokens.refresh_token != null && {
         refresh_token: tokens.refresh_token,

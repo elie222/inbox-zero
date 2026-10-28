@@ -13,6 +13,7 @@ import {
   captureException,
   EMAIL_PROVIDER_RATE_LIMIT_MESSAGE,
   SafeError,
+  UNEXPECTED_ACTION_ERROR_MESSAGE,
 } from "@/utils/error";
 import { env } from "@/env";
 import { runWithAuditContext, setAuditContext } from "@/utils/audit/context";
@@ -89,7 +90,7 @@ const baseClient = createSafeActionClient({
       },
     });
 
-    return "An unknown error occurred.";
+    return UNEXPECTED_ACTION_ERROR_MESSAGE;
   },
 }).use(async ({ next, metadata }) => {
   const requestId = randomUUID();
@@ -211,7 +212,7 @@ export const actionClientUser = baseClient.use(
       logger,
       run: () =>
         next({
-          ctx: { ...ctx, userId, userEmail, logger },
+          ctx: { ...ctx, userId, userEmail, logger, session },
         }),
     });
   },
@@ -230,7 +231,7 @@ export const adminActionClient = baseClient.use(
     return runInstrumentedAction({
       actionName: metadata.name,
       logger,
-      run: () => next({ ctx: { ...ctx, logger } }),
+      run: () => next({ ctx: { ...ctx, logger, session } }),
     });
   },
 );

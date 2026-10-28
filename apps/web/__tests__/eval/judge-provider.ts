@@ -1,6 +1,5 @@
 const DEFAULT_EVAL_JUDGE_PROVIDER = "openrouter";
-// OpenRouter's rolling alias redirects to the latest DeepSeek V4 Flash release.
-const DEFAULT_EVAL_JUDGE_MODEL = "~deepseek/deepseek-v4-flash-latest";
+const DEFAULT_EVAL_JUDGE_MODEL = "deepseek/deepseek-v4.1-flash";
 
 /**
  * Lives apart from the judge implementations because those reach vitest through
@@ -28,6 +27,7 @@ function getEvalJudgeApiKey(provider: string) {
     anthropic: process.env.ANTHROPIC_API_KEY,
     google: process.env.GOOGLE_API_KEY,
     groq: process.env.GROQ_API_KEY,
+    cerebras: process.env.CEREBRAS_API_KEY,
   };
 
   return providerApiKeys[provider];

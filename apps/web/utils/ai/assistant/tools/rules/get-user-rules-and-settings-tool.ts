@@ -1,5 +1,4 @@
 import { type InferUITool, tool } from "ai";
-import type { z } from "zod";
 import type { Logger } from "@/utils/logger";
 import type { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import {
@@ -62,11 +61,11 @@ export const getUserRulesAndSettingsTool = ({
   setRuleReadState?: (state: RuleReadState) => void;
   onRulesStateExposed?: (rulesRevision: number) => void;
 }) =>
-  tool<z.infer<typeof emptyInputSchema>, GetUserRulesAndSettingsOutput>({
+  tool({
     description:
       "Retrieve the latest rules and personal instructions for the user.",
     inputSchema: emptyInputSchema,
-    execute: async () => {
+    execute: async (): Promise<GetUserRulesAndSettingsOutput> => {
       trackRuleToolCall({
         tool: "get_user_rules_and_settings",
         email,

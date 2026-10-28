@@ -1,6 +1,7 @@
+import { escapeSearchValue } from "@/utils/outlook/search-escape";
 import type { Contact, Person } from "@microsoft/microsoft-graph-types";
 import type { Logger } from "@/utils/logger";
-import { withMicrosoftGraphRetry } from "@/utils/microsoft/retry";
+import { withMicrosoftGraphRetry } from "@/utils/outlook/retry";
 import type { OutlookClient } from "@/utils/outlook/client";
 import { isOutlookAccessDeniedError } from "@/utils/error";
 import {
@@ -145,7 +146,9 @@ async function searchRelevantPeople(
     .api("/me/people")
     .select("displayName,scoredEmailAddresses,userPrincipalName");
 
-  if (query) request = request.search(query);
+  if (query) {
+    request = request.search(`"${escapeSearchValue(query)}"`);
+  }
 
   const response: { value?: Person[] } = await withMicrosoftGraphRetry(
     () => request.top(MAX_CONTACT_RESULTS).get(),

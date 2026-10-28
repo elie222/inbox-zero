@@ -14,7 +14,11 @@ describe("rewriteHtmlForImageProxy", () => {
 
     const result = await rewriteHtmlForImageProxy(html, createTestLogger());
 
-    expect(result).toEqual({ html, remoteAssetsProxied: false });
+    expect(result).toEqual({
+      html,
+      remoteAssetsProxied: false,
+      proxyBaseUrl: null,
+    });
   });
 
   it("rewrites remote assets through an unsigned proxy outside production and warns once", async () => {
@@ -35,6 +39,7 @@ describe("rewriteHtmlForImageProxy", () => {
     expect(firstResult.html).not.toContain("&amp;e=");
     expect(firstResult.html).not.toContain("&amp;s=");
     expect(firstResult.remoteAssetsProxied).toBe(true);
+    expect(firstResult.proxyBaseUrl).toBe("https://proxy.example.com/image");
     expect(secondResult).toEqual(firstResult);
     expect(warnSpy).toHaveBeenCalledTimes(1);
   });
@@ -57,7 +62,23 @@ describe("rewriteHtmlForImageProxy", () => {
     expect(result.html).toContain("&amp;e=");
     expect(result.html).toContain("&amp;s=");
     expect(result.remoteAssetsProxied).toBe(true);
+    expect(result.proxyBaseUrl).toBe("https://proxy.example.com/image");
     expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  it("strips sent-message open pixels before proxying remaining assets", async () => {
+    const { rewriteHtmlForImageProxy } = await loadModule({
+      IMAGE_PROXY_SIGNING_SECRET: "test-signing-secret-123",
+      NEXT_PUBLIC_IMAGE_PROXY_BASE_URL: "https://proxy.example.com/image",
+    });
+
+    const result = await rewriteHtmlForImageProxy(
+      '<p>Hi</p><img src="https://app.example.com/t/abcdefghijklmnopqrstuvwxyz012345" /><img src="https://cdn.example.com/photo.png" />',
+      createTestLogger(),
+    );
+
+    expect(result.html).not.toContain("/t/abcdefghijklmnopqrstuvwxyz012345");
+    expect(result.html).toContain("https://proxy.example.com/image?u=");
   });
 
   it("signs with the first secret when rotation secrets are configured", async () => {
@@ -104,6 +125,7 @@ describe("rewriteHtmlForImageProxy", () => {
       'src="https://app.example.com/api/image-proxy?u=https%3A%2F%2Fcdn.example.com%2Fphoto.png',
     );
     expect(result.remoteAssetsProxied).toBe(true);
+    expect(result.proxyBaseUrl).toBe("https://app.example.com/api/image-proxy");
     expect(warnSpy).not.toHaveBeenCalled();
   });
 
@@ -117,7 +139,11 @@ describe("rewriteHtmlForImageProxy", () => {
     const html = '<img src="https://cdn.example.com/photo.png" />';
     const result = await rewriteHtmlForImageProxy(html, createTestLogger());
 
-    expect(result).toEqual({ html, remoteAssetsProxied: false });
+    expect(result).toEqual({
+      html,
+      remoteAssetsProxied: false,
+      proxyBaseUrl: null,
+    });
     expect(warnSpy).toHaveBeenCalledTimes(1);
   });
 
@@ -131,7 +157,11 @@ describe("rewriteHtmlForImageProxy", () => {
     const html = '<img src="https://cdn.example.com/photo.png" />';
     const result = await rewriteHtmlForImageProxy(html, createTestLogger());
 
-    expect(result).toEqual({ html, remoteAssetsProxied: false });
+    expect(result).toEqual({
+      html,
+      remoteAssetsProxied: false,
+      proxyBaseUrl: null,
+    });
     expect(warnSpy).toHaveBeenCalledTimes(1);
   });
 });

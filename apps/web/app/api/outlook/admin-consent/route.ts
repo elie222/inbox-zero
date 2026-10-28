@@ -3,7 +3,7 @@ import {
   MICROSOFT_ADMIN_CONSENT_STATE_COOKIE_NAME,
   getMicrosoftAdminConsentUrl,
   type MicrosoftAdminConsentState,
-} from "@/utils/microsoft/admin-consent";
+} from "@/utils/outlook/admin-consent";
 import { withError } from "@/utils/middleware";
 import {
   generateSignedOAuthState,
