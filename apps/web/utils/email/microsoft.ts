@@ -1706,11 +1706,11 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async getMessagesBatch(messageIds: string[]): Promise<ParsedMessage[]> {
-    // For Outlook, we need to fetch messages individually since there's no batch endpoint
-    const messagePromises = messageIds.map((messageId) =>
+    // Graph limits concurrent requests per mailbox to 4; a larger burst can
+    // fail with ErrorAccessDenied rather than a retryable 429.
+    return mapWithConcurrency(messageIds, 4, (messageId) =>
       this.getMessage(messageId),
     );
-    return Promise.all(messagePromises);
   }
 
   async syncLocalMail(

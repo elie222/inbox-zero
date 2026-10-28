@@ -963,6 +963,28 @@ describe("OutlookProvider.removeThreadLabels", () => {
   });
 });
 
+describe("OutlookProvider.getMessagesBatch", () => {
+  it("fetches messages with bounded concurrency and keeps input order", async () => {
+    const provider = new OutlookProvider({} as never, createTestLogger());
+    let inFlight = 0;
+    let maxInFlight = 0;
+    vi.spyOn(provider, "getMessage").mockImplementation(async (messageId) => {
+      inFlight++;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      inFlight--;
+      return { id: messageId } as never;
+    });
+    const ids = Array.from({ length: 20 }, (_, index) => `message-${index}`);
+
+    const messages = await provider.getMessagesBatch(ids);
+
+    expect(messages.map((message) => message.id)).toEqual(ids);
+    expect(maxInFlight).toBeLessThanOrEqual(4);
+    expect(maxInFlight).toBeGreaterThan(1);
+  });
+});
+
 describe("OutlookProvider.getSentMessageIds", () => {
   it("queries sent items with sentDateTime bounds", async () => {
     const client = createMockOutlookClient([
