@@ -2,7 +2,6 @@ import type { gmail_v1 } from "@googleapis/gmail";
 import {
   GroupItemSource,
   GroupItemType,
-  ClassificationFeedbackEventType,
   SystemType,
 } from "@/generated/prisma/enums";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
@@ -11,11 +10,7 @@ import { GMAIL_SYSTEM_LABELS, GmailLabel } from "@/utils/gmail/label";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { recordLabelRemovalLearning } from "@/utils/rule/record-label-removal-learning";
-import { isEligibleForClassificationFeedback } from "@/utils/rule/consts";
-import {
-  findRuleByLabelId,
-  saveClassificationFeedback,
-} from "@/utils/rule/classification-feedback";
+import { findRuleByLabelId } from "@/utils/rule/classification-feedback";
 import { fetchSenderFromMessage } from "@/utils/webhook/google/fetch-sender-from-message";
 
 export async function handleLabelRemovedEvent(
@@ -23,9 +18,11 @@ export async function handleLabelRemovedEvent(
   {
     emailAccount,
     provider,
+    bulkRemovedLabelIds,
   }: {
     emailAccount: EmailAccountWithAI;
     provider: EmailProvider;
+    bulkRemovedLabelIds?: Set<string>;
   },
   logger: Logger,
 ) {
@@ -87,6 +84,7 @@ export async function handleLabelRemovedEvent(
         messageId,
         threadId,
         emailAccountId,
+        isBulkRemoval: bulkRemovedLabelIds?.has(labelId) ?? false,
         logger,
       });
     } catch (error) {
@@ -105,6 +103,7 @@ async function learnFromRemovedLabel({
   messageId,
   threadId,
   emailAccountId,
+  isBulkRemoval,
   logger,
 }: {
   labelId: string;
@@ -112,6 +111,7 @@ async function learnFromRemovedLabel({
   messageId: string;
   threadId: string;
   emailAccountId: string;
+  isBulkRemoval: boolean;
   logger: Logger;
 }) {
   logger = logger.with({ labelId });
@@ -125,20 +125,9 @@ async function learnFromRemovedLabel({
     messageId,
     threadId,
     emailAccountId,
+    isBulkRemoval,
     logger,
   });
-
-  if (rule && sender && isEligibleForClassificationFeedback(rule.systemType)) {
-    await saveClassificationFeedback({
-      emailAccountId,
-      sender,
-      ruleId: rule.id,
-      threadId,
-      messageId,
-      eventType: ClassificationFeedbackEventType.LABEL_REMOVED,
-      logger,
-    });
-  }
 }
 
 /**
