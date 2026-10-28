@@ -23,9 +23,11 @@ export async function handleLabelRemovedEvent(
   {
     emailAccount,
     provider,
+    bulkRemovedLabelIds,
   }: {
     emailAccount: EmailAccountWithAI;
     provider: EmailProvider;
+    bulkRemovedLabelIds?: Set<string>;
   },
   logger: Logger,
 ) {
@@ -87,6 +89,7 @@ export async function handleLabelRemovedEvent(
         messageId,
         threadId,
         emailAccountId,
+        isBulkRemoval: bulkRemovedLabelIds?.has(labelId) ?? false,
         logger,
       });
     } catch (error) {
@@ -105,6 +108,7 @@ async function learnFromRemovedLabel({
   messageId,
   threadId,
   emailAccountId,
+  isBulkRemoval,
   logger,
 }: {
   labelId: string;
@@ -112,22 +116,16 @@ async function learnFromRemovedLabel({
   messageId: string;
   threadId: string;
   emailAccountId: string;
+  isBulkRemoval: boolean;
   logger: Logger;
 }) {
   logger = logger.with({ labelId });
 
   const rule = await findRuleByLabelId({ labelId, emailAccountId });
 
-  await recordLabelRemovalLearning({
-    sender,
-    ruleId: rule?.id,
-    systemType: rule?.systemType,
-    messageId,
-    threadId,
-    emailAccountId,
-    logger,
-  });
-
+  // Record feedback before learning so the rolling bulk-removal count in
+  // recordLabelRemovalLearning sees this removal and concurrent webhook pages
+  // see each other's rows as early as possible.
   if (rule && sender && isEligibleForClassificationFeedback(rule.systemType)) {
     await saveClassificationFeedback({
       emailAccountId,
@@ -139,6 +137,17 @@ async function learnFromRemovedLabel({
       logger,
     });
   }
+
+  await recordLabelRemovalLearning({
+    sender,
+    ruleId: rule?.id,
+    systemType: rule?.systemType,
+    messageId,
+    threadId,
+    emailAccountId,
+    isBulkRemoval,
+    logger,
+  });
 }
 
 /**

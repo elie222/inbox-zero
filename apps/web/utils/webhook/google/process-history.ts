@@ -27,6 +27,7 @@ import {
   withRateLimitRecording,
 } from "@/utils/email/rate-limit";
 import prisma from "@/utils/prisma";
+import { getBulkRemovedLabelIds } from "@/utils/rule/record-label-removal-learning";
 import {
   clearGmailHistoryCatchUp,
   getGmailHistoryCatchUp,
@@ -283,6 +284,12 @@ async function processHistory(options: ProcessHistoryOptions, logger: Logger) {
 
   if (!history?.length) return;
 
+  // Gmail splits one user action across many history records, so count
+  // removals over the whole batch rather than per record.
+  const bulkRemovedLabelIds = getBulkRemovedLabelIds(
+    history.flatMap((h) => h.labelsRemoved || []),
+  );
+
   for (const h of history) {
     const historyMessages = [
       ...(h.messagesAdded || []),
@@ -312,6 +319,7 @@ async function processHistory(options: ProcessHistoryOptions, logger: Logger) {
       ...(h.labelsRemoved || []).map((m) => ({
         type: HistoryEventType.LABEL_REMOVED,
         item: m,
+        bulkRemovedLabelIds,
       })),
     ];
 
