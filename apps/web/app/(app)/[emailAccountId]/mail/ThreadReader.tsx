@@ -1,9 +1,17 @@
 "use client";
 
-import { useState, type ComponentProps, type ReactNode } from "react";
+import {
+  useCallback,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+} from "react";
 import dynamic from "next/dynamic";
-import { Loader2Icon, MailIcon } from "lucide-react";
+import { AlertCircleIcon, Loader2Icon, MailIcon } from "lucide-react";
 import { ReaderToolbar } from "@/app/(app)/[emailAccountId]/mail/ReaderToolbar";
+import { MailReaderSurface } from "@inboxzero/mail-ui/MailReaderSurface";
+import { isThreadStarred } from "@/app/(app)/[emailAccountId]/mail/star-state";
+import { useThreadTranslation } from "@/app/(app)/[emailAccountId]/mail/use-thread-translation";
 import type {
   ListThread,
   MailLayoutMode,
@@ -12,19 +20,32 @@ import { EmailThread } from "@/components/email-list/EmailThread";
 import type { ThreadMessage } from "@/components/email-list/types";
 import { getEmailMessageCellLabels } from "@/components/EmailMessageCellLabels";
 import { LoadingContent } from "@/components/LoadingContent";
-import { SidebarTrigger } from "@/components/ui/sidebar";
+import { getSWRFetchErrorMessage } from "@/providers/swr-error";
+import { Button } from "@/components/ui/button";
 import type { EmailLabels } from "@/providers/email-label-types";
+import { useAccount } from "@/providers/EmailAccountProvider";
+import { useHiddenDraftMessageIds } from "@/hooks/useHiddenDraftMessageIds";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
+import { PublisherDiscussion } from "@/components/team-comments/PublisherDiscussion";
+import type { OutgoingThreadMessage } from "@/utils/mail-engine/conversation-thread";
+import { getConversationSubject } from "@/utils/email/subject";
 
-const SenderContextSheet = dynamic(
+const SenderContextPanel = dynamic(
   () =>
-    import("@/app/(app)/[emailAccountId]/mail/SenderContextSheet").then(
-      (module) => module.SenderContextSheet,
+    import("@/app/(app)/[emailAccountId]/mail/SenderContextPanel").then(
+      (module) => module.SenderContextPanel,
     ),
   { ssr: false },
 );
 
+/**
+ * Below this the reader would be squeezed too far by a pane beside it, so the
+ * sender profile slides over the reader instead.
+ */
+const INLINE_SENDER_CONTEXT_MIN_WIDTH = 880;
+
 export type ThreadReaderProps = {
+  enableMessageNavigation: boolean;
   /** The row that is open. It may lag behind the selected thread while loading. */
   thread: ListThread | null;
   /** The selected thread, including while its row and messages are loading. */
@@ -34,63 +55,94 @@ export type ThreadReaderProps = {
   loading: boolean;
   error?: ComponentProps<typeof LoadingContent>["error"];
   /**
-   * The open thread's full messages. The list payload has no bodies, so this
-   * arrives from a second fetch; the header renders before it lands.
+   * Messages currently available to the reader, including partial local pages.
    */
   messages: ThreadMessage[];
+  localAvailability?: {
+    missingBodyIds: Set<string>;
+    outgoing: OutgoingThreadMessage[];
+    sendOperationIds: Map<string, string>;
+    hasMore: boolean;
+    loadingMore: boolean;
+    loadMore: () => unknown;
+  };
   userLabels: EmailLabels;
   layout: MailLayoutMode;
-  isFocusMode: boolean;
   labelHref: (labelId: string) => string;
   onRemoveLabel?: (labelId: string) => void;
   onBackToInbox: () => void;
   onArchive: () => void;
-  onReply: () => void;
-  onDelete: () => void;
-  onToggleFocusMode: () => void;
-  showSidebarToggle?: boolean;
+  onMoveToInbox?: () => void;
+  isUnread: boolean;
+  onMarkRead: () => void;
+  onMarkUnread: () => void;
   /** Refreshes the open thread after a reply is sent or a draft changes. */
   refetch: () => void;
+  /** Opens a different provider thread when a sent message starts one. */
+  onSendSuccess?: (
+    messageId: string,
+    sentThreadId: string,
+    repliedThreadId: string,
+  ) => void;
   /**
    * Set by the reply action. Left unset the composer still opens on its own for
    * a message that already has an AI draft.
    */
   autoOpenReplyForMessageId?: string;
+  autoOpenForwardForMessageId?: string;
   /** The ⋯ dropdown, i.e. `ThreadActionsMenu`, composed by the shell. */
   menu?: ReactNode;
+  renderMessageMenu?: (message: ThreadMessage) => ReactNode;
 };
 
 export function ThreadReader({
+  enableMessageNavigation,
   thread,
   threadId,
   detailSelectionSettled,
   loading,
   error,
   messages,
+  localAvailability,
   userLabels,
   layout,
-  isFocusMode,
   labelHref,
   onRemoveLabel,
   onBackToInbox,
   onArchive,
-  onReply,
-  onDelete,
-  onToggleFocusMode,
-  showSidebarToggle = false,
+  onMoveToInbox,
+  isUnread,
+  onMarkRead,
+  onMarkUnread,
   refetch,
+  onSendSuccess,
   autoOpenReplyForMessageId,
+  autoOpenForwardForMessageId,
   menu,
+  renderMessageMenu,
 }: ThreadReaderProps) {
   const [senderContext, setSenderContext] = useState<{
     messageId: string;
     senderEmail: string;
     senderName: string;
-    open: boolean;
   } | null>(null);
-  const headerMessage = thread?.messages.at(-1) ?? messages.at(-1);
+  const [readerRef, readerWidth] = useElementWidth();
+  const { emailAccountId } = useAccount();
+  const hiddenDraftMessageIds = useHiddenDraftMessageIds(emailAccountId);
+  const headerMessage =
+    latestShownMessage(thread?.messages ?? [], hiddenDraftMessageIds) ??
+    latestShownMessage(messages, hiddenDraftMessageIds) ??
+    thread?.messages.at(-1) ??
+    messages.at(-1);
+  const translation = useThreadTranslation(
+    emailAccountId,
+    headerMessage?.threadId,
+  );
+  const translatedSubject = translation?.showOriginal
+    ? undefined
+    : translation?.subject;
 
-  if (error || !headerMessage) {
+  if (error || (!headerMessage && !localAvailability)) {
     return (
       <div
         className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center gap-2 px-6 py-16 text-center"
@@ -100,6 +152,7 @@ export function ThreadReader({
         <LoadingContent
           error={error}
           loading={loading}
+          errorComponent={<ThreadReaderError error={error} onRetry={refetch} />}
           loadingComponent={
             <Loader2Icon
               aria-label="Loading email"
@@ -119,92 +172,168 @@ export function ThreadReader({
 
   const labels =
     getEmailMessageCellLabels({
-      labelIds: headerMessage.labelIds,
+      labelIds: headerMessage?.labelIds,
       userLabels,
     }) ?? [];
 
+  const renderToolbar = (
+    messageExpansion?: ComponentProps<typeof ReaderToolbar>["messageExpansion"],
+  ) => (
+    <ReaderToolbar
+      isStarred={isThreadStarred(
+        thread?.messages.length ? thread.messages : messages,
+      )}
+      isUnread={isUnread}
+      messageExpansion={messageExpansion}
+      labelHref={labelHref}
+      labels={labels}
+      menu={menu}
+      onArchive={onArchive}
+      onMoveToInbox={onMoveToInbox}
+      onMarkRead={onMarkRead}
+      onMarkUnread={onMarkUnread}
+      onBackToInbox={onBackToInbox}
+      onRemoveLabel={onRemoveLabel}
+      subject={
+        translatedSubject ??
+        getConversationSubject(
+          thread?.messages.length ? thread.messages : messages,
+        ) ??
+        "Conversation"
+      }
+    />
+  );
+
+  return (
+    <MailReaderSurface
+      containerRef={readerRef}
+      detailSelectionSettled={detailSelectionSettled}
+      layout={layout}
+      localAvailability={localAvailability}
+      renderLoadMoreButton={({ disabled, loading, onClick }) => (
+        <Button
+          className="mb-4"
+          disabled={disabled}
+          onClick={onClick}
+          variant="outline"
+        >
+          {loading ? "Loading messages…" : "Load older messages"}
+        </Button>
+      )}
+      sidePanel={
+        senderContext ? (
+          <SenderContextPanel
+            messageId={senderContext.messageId}
+            onClose={() => setSenderContext(null)}
+            senderEmail={senderContext.senderEmail}
+            senderName={senderContext.senderName}
+            variant={
+              readerWidth >= INLINE_SENDER_CONTEXT_MIN_WIDTH
+                ? "inline"
+                : "sheet"
+            }
+          />
+        ) : null
+      }
+    >
+      {messages.length > 0 ? (
+        <EmailThread
+          renderToolbar={renderToolbar}
+          renderMessageMenu={renderMessageMenu}
+          enableMessageNavigation={enableMessageNavigation}
+          autoOpenReplyForMessageId={autoOpenReplyForMessageId}
+          autoOpenForwardForMessageId={autoOpenForwardForMessageId}
+          key={threadId}
+          messages={messages}
+          missingBodyIds={localAvailability?.missingBodyIds}
+          outgoing={localAvailability?.outgoing}
+          sendOperationIds={localAvailability?.sendOperationIds}
+          onMarkDone={onArchive}
+          onOpenSenderContext={(message) => {
+            const senderEmail = extractEmailAddress(message.headers.from);
+            setSenderContext({
+              messageId: message.id,
+              senderEmail,
+              senderName:
+                extractNameFromEmail(message.headers.from) || senderEmail,
+            });
+          }}
+          refetch={refetch}
+          onSendSuccess={onSendSuccess}
+          onThreadDiscarded={
+            // A partially loaded conversation can look draft-only, so only
+            // leave once every message is here to say it is.
+            localAvailability?.hasMore ? undefined : onBackToInbox
+          }
+          showReplyButton
+        />
+      ) : (
+        renderToolbar()
+      )}
+      {emailAccountId && threadId && messages.length > 0 && (
+        <PublisherDiscussion
+          key={`${emailAccountId}:${threadId}`}
+          emailAccountId={emailAccountId}
+          threadId={threadId}
+        />
+      )}
+    </MailReaderSurface>
+  );
+}
+
+/**
+ * Loading a thread can fail for reasons the reader can recover from, such as a
+ * message that the provider has not made readable yet, so this offers a retry
+ * instead of the generic app-wide error screen.
+ */
+function ThreadReaderError({
+  error,
+  onRetry,
+}: {
+  error: ThreadReaderProps["error"];
+  onRetry: () => void;
+}) {
   return (
     <>
-      {/* White, unlike the list: the reader is its own surface, and it has to
-      match `EmailThread` below or the toolbar reads as a separate band. */}
-      <div
-        className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-card"
-        data-detail-selection-settled={detailSelectionSettled}
-        data-testid="thread-reader"
-      >
-        {layout === "list" && !isFocusMode && showSidebarToggle ? (
-          <div
-            className="hidden px-3 py-3 lg:flex"
-            data-desktop-mac-titlebar-spacer
-          >
-            <SidebarTrigger name="left-sidebar" />
-          </div>
-        ) : null}
-
-        <div className={readerMeasure({ layout, isFocusMode })}>
-          <ReaderToolbar
-            isFocusMode={isFocusMode}
-            labelHref={labelHref}
-            labels={labels}
-            menu={menu}
-            onArchive={onArchive}
-            onBackToInbox={onBackToInbox}
-            onDelete={onDelete}
-            onRemoveLabel={onRemoveLabel}
-            onReply={onReply}
-            onToggleFocusMode={onToggleFocusMode}
-            subject={headerMessage.headers.subject}
-          />
-
-          {messages.length > 0 ? (
-            <EmailThread
-              autoOpenReplyForMessageId={autoOpenReplyForMessageId}
-              key={threadId}
-              messages={messages}
-              onOpenSenderContext={(message) => {
-                const senderEmail = extractEmailAddress(message.headers.from);
-                setSenderContext({
-                  messageId: message.id,
-                  senderEmail,
-                  senderName:
-                    extractNameFromEmail(message.headers.from) || senderEmail,
-                  open: true,
-                });
-              }}
-              refetch={refetch}
-              showReplyButton
-            />
-          ) : null}
-        </div>
+      <AlertCircleIcon className="size-6 text-muted-foreground" />
+      <div className="text-foreground text-sm">
+        Couldn't open this conversation
       </div>
-
-      {senderContext ? (
-        <SenderContextSheet
-          messageId={senderContext.messageId}
-          onOpenChange={(open: boolean) =>
-            setSenderContext((current) =>
-              current ? { ...current, open } : current,
-            )
-          }
-          open={senderContext.open}
-          senderEmail={senderContext.senderEmail}
-          senderName={senderContext.senderName}
-        />
-      ) : null}
+      <div className="text-muted-foreground text-xs">
+        {getSWRFetchErrorMessage(error?.info)}
+      </div>
+      <Button className="mt-2" onClick={onRetry} size="sm" variant="outline">
+        Try again
+      </Button>
     </>
   );
 }
 
-/** A readable measure, centred whenever the reader owns the full width. */
-function readerMeasure({
-  layout,
-  isFocusMode,
-}: {
-  layout: MailLayoutMode;
-  isFocusMode: boolean;
-}) {
-  // ~860px: the mock's measure, and about as wide as an email body stays legible.
-  if (isFocusMode) return "mx-auto w-full max-w-[54rem] px-10 py-10";
-  if (layout === "split") return "px-6 pt-8 pb-5";
-  return "mx-auto w-full max-w-[54rem] px-6 pt-8 pb-5";
+/**
+ * A callback ref rather than an effect: the reader mounts its measured element
+ * only once a thread is open, after the loading branch has come and gone.
+ */
+function useElementWidth() {
+  const [width, setWidth] = useState(0);
+  const ref = useCallback((element: HTMLElement | null) => {
+    if (!element) return;
+    const observer = new ResizeObserver(([entry]) => {
+      setWidth(entry.contentRect.width);
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  return [ref, width] as const;
+}
+
+// A draft that a pending send stands in for isn't shown, so it doesn't title
+// the thread either.
+function latestShownMessage<T extends { id: string }>(
+  messages: T[],
+  hiddenDraftMessageIds: string[],
+) {
+  return messages.findLast(
+    (message) => !hiddenDraftMessageIds.includes(message.id),
+  );
 }

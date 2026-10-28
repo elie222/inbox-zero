@@ -4,6 +4,7 @@ import { trackError } from "@/utils/posthog";
 import { recordRateLimitFromApiError } from "@/utils/email/rate-limit";
 import { cleanupInvalidTokens } from "@/utils/auth/cleanup-invalid-tokens";
 import { createTestLogger } from "@/__tests__/helpers";
+import { ProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
 
 vi.mock("@/utils/posthog", () => ({
   trackError: vi.fn(),
@@ -34,16 +35,12 @@ describe("handleWebhookError", () => {
   const mockCleanupInvalidTokens = vi.mocked(cleanupInvalidTokens);
 
   describe("Gmail errors", () => {
-    it("cleans up invalid grants without reporting an unhandled webhook error", async () => {
+    it("does not clean up invalid grants without a credential snapshot", async () => {
       const error = new Error("invalid_grant");
 
       await handleWebhookError(error, baseOptions);
 
-      expect(mockCleanupInvalidTokens).toHaveBeenCalledWith({
-        emailAccountId: "acc-123",
-        reason: "invalid_grant",
-        logger,
-      });
+      expect(mockCleanupInvalidTokens).not.toHaveBeenCalled();
       expect(trackError).not.toHaveBeenCalled();
       expect(mockRecordRateLimitFromApiError).not.toHaveBeenCalled();
     });
@@ -173,6 +170,18 @@ describe("handleWebhookError", () => {
           errorType: "Outlook Rate Limit",
         }),
       );
+    });
+
+    it("does not track skips from an active rate-limit mode", async () => {
+      await handleWebhookError(
+        new ProviderRateLimitModeError({
+          provider: "microsoft",
+          retryAt: new Date(Date.now() + 60_000),
+        }),
+        { ...baseOptions, url: "/api/outlook/webhook" },
+      );
+
+      expect(trackError).not.toHaveBeenCalled();
     });
   });
 

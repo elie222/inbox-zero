@@ -18,7 +18,7 @@ type LlmSensitiveDataOptions = {
 type LlmRequestOptions = {
   messages?: unknown;
   prompt?: unknown;
-  system?: unknown;
+  instructions?: unknown;
 };
 
 const BLOCKED_TOOL_OUTPUT = {
@@ -120,7 +120,7 @@ function getSensitiveContentFindings(value: unknown) {
 
 function getLlmRequestSensitiveContentFindings(options: LlmRequestOptions) {
   const strings = [
-    ...collectStrings(options.system),
+    ...collectStrings(options.instructions),
     ...collectStrings(options.prompt),
     ...collectStrings(options.messages),
   ];

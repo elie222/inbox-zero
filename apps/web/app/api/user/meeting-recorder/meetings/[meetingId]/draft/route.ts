@@ -50,7 +50,21 @@ export const GET = withAuth(
 
     if (!draft) return draftNotFound();
 
-    return NextResponse.redirect(getEmailDraftUrl(draft.id, email, provider));
+    const draftUrl = getEmailDraftUrl(draft, email, provider);
+    if (!draftUrl) {
+      request.logger.warn(
+        "Meeting follow-up draft has no id to build a provider link from",
+        { meetingId, provider },
+      );
+      return NextResponse.json(
+        {
+          error: "The draft exists, but it cannot be opened in your mailbox.",
+        },
+        { status: 422 },
+      );
+    }
+
+    return NextResponse.redirect(draftUrl);
   },
 );
 

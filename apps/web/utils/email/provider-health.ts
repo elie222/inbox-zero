@@ -26,12 +26,14 @@ export async function recordEmailAccountProviderIssue({
   error,
   logger,
   operation,
+  failedAccessToken,
 }: {
   emailAccountId: string;
   provider: "google" | "microsoft";
   error: unknown;
   logger: Logger;
   operation: string;
+  failedAccessToken?: string;
 }) {
   const issue = classifyEmailAccountProviderIssue({ error, provider });
   if (!issue) return;
@@ -53,11 +55,19 @@ export async function recordEmailAccountProviderIssue({
   if (!shouldRecord) return;
 
   try {
-    await cleanupInvalidTokens({
+    const result = await cleanupInvalidTokens({
       emailAccountId,
       reason: issue.reason,
+      failedAccessToken,
       logger,
     });
+    if (result?.status === "skipped") {
+      await releaseProviderIssueCleanupClaim({
+        emailAccountId,
+        reason: issue.reason,
+        logger,
+      });
+    }
   } catch (error) {
     logger.warn("Failed to clean up provider account issue", {
       error,
@@ -82,22 +92,11 @@ export function classifyEmailAccountProviderIssue({
   provider: "google" | "microsoft";
 }): ProviderIssue | null {
   const message = getErrorMessage(error);
-  const normalizedMessage = message?.toLowerCase() ?? "";
 
   if (
     provider === "google" &&
     (isGmailInsufficientPermissionsError(error) ||
       message?.includes("Request had insufficient authentication scopes"))
-  ) {
-    return { reason: "insufficient_permissions" };
-  }
-
-  if (
-    provider === "microsoft" &&
-    normalizedMessage.includes(
-      "access is denied. check credentials and try again",
-    ) &&
-    !normalizedMessage.includes("cannot save changes made to an item to store")
   ) {
     return { reason: "insufficient_permissions" };
   }

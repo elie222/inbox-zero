@@ -4,7 +4,10 @@ import { parseMessage } from "@/utils/gmail/message";
 import { GmailLabel } from "@/utils/gmail/label";
 import type { MessageWithPayload } from "@/utils/types";
 import { isGmailError } from "@/utils/error";
-import { withGmailRetry } from "@/utils/gmail/retry";
+import {
+  withGmailRetry,
+  withGmailNonIdempotentWriteRetry,
+} from "@/utils/gmail/retry";
 
 const logger = createScopedLogger("gmail/draft");
 const MAX_DRAFT_LOOKUP_PAGES = 10;
@@ -51,7 +54,7 @@ export async function getDraft(draftId: string, gmail: gmail_v1.Gmail) {
       return null;
     }
 
-    return message;
+    return { ...message, payload: response.data.message?.payload };
   } catch (error) {
     if (isNotFoundError(error)) {
       logger.info("Draft not found, returning null.", { draftId });
@@ -129,7 +132,7 @@ export async function sendDraft(
 ): Promise<{ messageId: string; threadId: string }> {
   logger.info("Sending draft", { draftId });
 
-  const response = await withGmailRetry(() =>
+  const response = await withGmailNonIdempotentWriteRetry(() =>
     gmail.users.drafts.send({
       userId: "me",
       requestBody: {

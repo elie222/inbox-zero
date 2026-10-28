@@ -10,10 +10,12 @@ import {
   forwardEmailText,
 } from "@/utils/gmail/forward";
 import type { ParsedMessage } from "@/utils/types";
-import { createReplyContent, formatEmailDate } from "@/utils/gmail/reply";
+import { createReplyContent } from "@/utils/gmail/reply";
+import { formatReplyQuotedHeader } from "@/utils/email/reply-quote";
 import type { EmailForAction } from "@/utils/ai/types";
-import { createScopedLogger } from "@/utils/logger";
+import { createScopedLogger, type Logger } from "@/utils/logger";
 import {
+  extractErrorInfo,
   withGmailNonIdempotentWriteRetry,
   withGmailRetry,
 } from "@/utils/gmail/retry";
@@ -25,6 +27,14 @@ import {
 import { formatReplySubject } from "@/utils/email/subject";
 import { buildThreadingHeaders } from "@/utils/email/threading";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
+import { getMessage } from "@/utils/gmail/message";
+import {
+  getGmailAttachment,
+  getGmailMessageAttachments,
+} from "@/utils/gmail/attachment";
+import { getDraftIdForMessage } from "@/utils/gmail/draft";
+import { SafeError } from "@/utils/error";
+import { GmailLabel } from "@/utils/gmail/label";
 import { convertNewlinesToBr, textToHtmlParagraphs } from "@/utils/string";
 import {
   buildQuotedPlainText,
@@ -42,13 +52,15 @@ const encodeMessage = (message: Buffer) =>
     .replace(/\//g, "_")
     .replace(/=+$/, "");
 
-export const createMail = async (options: Mail.Options) => {
+export async function buildMailMessage(options: Mail.Options) {
   const mailComposer = new MailComposer(options);
   const compiledMessage = mailComposer.compile();
   compiledMessage.keepBcc = true;
-  const message = await compiledMessage.build();
-  return encodeMessage(message);
-};
+  return compiledMessage.build();
+}
+
+export const createMail = async (options: Mail.Options) =>
+  encodeMessage(await buildMailMessage(options));
 
 const createRawMailMessage = async ({
   to,
@@ -97,6 +109,7 @@ const createRawMailMessage = async ({
 export async function sendEmailWithHtml(
   gmail: gmail_v1.Gmail,
   body: MailSendEmailBody,
+  sendLogger: Logger = logger,
 ) {
   ensureEmailSendingEnabled();
 
@@ -105,12 +118,66 @@ export async function sendEmailWithHtml(
   try {
     messageText = convertEmailHtmlToText({ htmlText: body.messageHtml });
   } catch (error) {
-    logger.error("Error converting email html to text", { error });
+    sendLogger.error("Error converting email html to text", { error });
     messageText = stripHtmlTagsForPlainText(body.messageHtml).trim();
   }
 
-  const raw = await createRawMailMessage({ ...body, messageText });
-  const result = await withGmailNonIdempotentWriteRetry(() =>
+  const forwardedAttachments = body.replyToEmail?.forwardedMessageId
+    ? (await getForwardedMessage(gmail, body.replyToEmail.forwardedMessageId))
+        .attachments
+    : [];
+
+  const raw = await createRawMailMessage({
+    ...body,
+    attachments: forwardedAttachments.length
+      ? [...(body.attachments ?? []), ...forwardedAttachments]
+      : body.attachments,
+    messageText,
+  });
+  sendLogger.info("Prepared Gmail send", getGmailSendMetadata(raw, body));
+  const { replyToEmail } = body;
+  if (replyToEmail?.messageId) {
+    const message = await getMessage(
+      replyToEmail.messageId,
+      gmail,
+      "metadata",
+    ).catch((error: unknown) => {
+      if (extractErrorInfo(error).status === 404) {
+        sendLogger.warn("Reply source disappeared before sending", {
+          messageId: replyToEmail.messageId,
+        });
+        throw new SafeError(
+          "The email or draft you were replying to is no longer available in Gmail. Check Sent before trying again.",
+        );
+      }
+      throw error;
+    });
+    if (message.labelIds?.includes(GmailLabel.DRAFT)) {
+      if (message.labelIds.includes(GmailLabel.SENT)) {
+        throw new SafeError(
+          "This draft is already marked as sent in Gmail. Check Sent before sending another copy.",
+        );
+      }
+      const draftId = await getDraftIdForMessage(gmail, replyToEmail.messageId);
+      if (!draftId) {
+        throw new SafeError(
+          "This draft is no longer available in Gmail. Check Sent before trying again.",
+        );
+      }
+
+      // Sending the existing draft consumes it and applies edits in one request.
+      return trackGmailSend("drafts.send", sendLogger, () =>
+        gmail.users.drafts.send({
+          userId: "me",
+          requestBody: {
+            id: draftId,
+            message: { threadId: replyToEmail.threadId, raw },
+          },
+        }),
+      );
+    }
+  }
+  const result = await trackGmailSend("messages.send", sendLogger, () =>
     gmail.users.messages.send({
       userId: "me",
       requestBody: {
@@ -140,6 +207,8 @@ export async function replyToEmail(
   from?: string,
   options?: {
     replyTo?: string;
+    cc?: string;
+    bcc?: string;
     attachments?: Attachment[];
   },
 ) {
@@ -158,6 +227,8 @@ export async function replyToEmail(
   const raw = await createRawMailMessage({
     to: message.headers["reply-to"] || message.headers.from,
     from,
+    cc: options?.cc,
+    bcc: options?.bcc,
     replyTo: options?.replyTo,
     subject: formatReplySubject(message.headers.subject),
     messageText,
@@ -203,20 +274,32 @@ export async function forwardEmail(
   }
 
   const attachments = await Promise.all(
-    message.attachments?.map(async (attachment) => {
-      const attachmentData = await withGmailRetry(() =>
-        gmail.users.messages.attachments.get({
-          userId: "me",
-          messageId: message.id,
-          id: attachment.attachmentId,
-        }),
-      );
-      return {
-        content: Buffer.from(attachmentData.data.data || "", "base64"),
-        contentType: attachment.mimeType,
-        filename: attachment.filename,
-      };
-    }) || [],
+    [...(message.attachments ?? []), ...(message.inline ?? [])].map(
+      async (attachment): Promise<Attachment> => {
+        const attachmentData = await getGmailAttachment(
+          gmail,
+          message.id,
+          attachment.attachmentId,
+        );
+        const contentId = attachment.headers["content-id"]
+          ?.trim()
+          .replace(/^<|>$/g, "");
+        const disposition = attachment.headers["content-disposition"]
+          ?.split(";")[0]
+          .trim()
+          .toLowerCase();
+        return {
+          cid: contentId || undefined,
+          contentDisposition:
+            disposition === "inline" || (!disposition && contentId)
+              ? "inline"
+              : "attachment",
+          content: Buffer.from(attachmentData.data || "", "base64url"),
+          contentType: attachment.mimeType,
+          filename: attachment.filename,
+        };
+      },
+    ),
   );
 
   const raw = await createRawMailMessage({
@@ -254,6 +337,7 @@ export async function draftEmail(
   originalEmail: EmailForAction,
   args: {
     to?: string;
+    from?: string;
     subject?: string;
     content: string;
     cc?: string;
@@ -285,6 +369,7 @@ export async function draftEmail(
 
   const raw = await createRawMailMessage({
     to: recipients.to,
+    from: args.from,
     cc: formatCcList(ccList),
     bcc: formatCcList(bccList),
     subject: args.subject || originalEmail.headers.subject,
@@ -343,14 +428,10 @@ export function buildReplyMessageText({
   textContent?: string;
   message: Pick<ParsedMessage, "headers" | "textPlain">;
 }) {
-  const quotedDate = formatEmailDate(new Date(message.headers.date));
-  const quotedHeader = `On ${quotedDate}, ${message.headers.from} wrote:`;
-  const quotedContent = quotePlainTextContent(message.textPlain);
-
   return buildQuotedPlainText({
     textContent: renderReplyBodyAsPlainText(textContent),
-    quotedHeader,
-    quotedContent,
+    quotedHeader: formatReplyQuotedHeader(message.headers),
+    quotedContent: quotePlainTextContent(message.textPlain),
   });
 }
 
@@ -422,4 +503,77 @@ function readHtmlTagName(value: string, start: number) {
   }
 
   return tagName;
+}
+
+async function trackGmailSend<T>(
+  gmailOperation: "messages.send" | "drafts.send",
+  logger: Logger,
+  send: () => Promise<T>,
+): Promise<T> {
+  const startedAt = Date.now();
+  logger.info("Gmail send request started", { gmailOperation });
+  try {
+    const result = await withGmailNonIdempotentWriteRetry(send, 5, { logger });
+    logger.info("Gmail send request accepted", {
+      gmailOperation,
+      durationMs: Date.now() - startedAt,
+    });
+    return result;
+  } catch (error) {
+    const { status, googleErrorStatus } = extractErrorInfo(error);
+    logger.warn("Gmail send request failed", {
+      gmailOperation,
+      durationMs: Date.now() - startedAt,
+      status,
+      googleErrorStatus,
+    });
+    throw error;
+  }
+}
+
+/**
+ * Graph carries a forward's files across on its own, but a Gmail send or
+ * draft composes its own MIME, so the parts of the message being forwarded
+ * have to be fetched and re-attached.
+ */
+export async function getForwardedMessage(
+  gmail: gmail_v1.Gmail,
+  forwardedMessageId: string,
+): Promise<{ threadId?: string; attachments: Attachment[] }> {
+  const message = await getMessage(forwardedMessageId, gmail).catch(
+    (error: unknown) => {
+      if (extractErrorInfo(error).status !== 404) throw error;
+      throw new SafeError(
+        "Reload the original message before forwarding. Its attachments could not be verified.",
+      );
+    },
+  );
+
+  // A part that fails to download fails the send: silently dropping one file
+  // from a forward is worse than asking the user to try again.
+  return {
+    threadId: message.threadId ?? undefined,
+    attachments: await getGmailMessageAttachments(
+      gmail,
+      forwardedMessageId,
+      message.payload,
+    ),
+  };
+}
+
+function getGmailSendMetadata(raw: string, body: MailSendEmailBody) {
+  const mime = Buffer.from(raw, "base64url");
+  const headerEnd = mime.indexOf("\r\n\r\n");
+  const mimeHeaders = mime
+    .subarray(0, headerEnd < 0 ? mime.length : headerEnd)
+    .toString("utf8");
+  return {
+    hasExplicitFrom: Boolean(body.from?.trim()),
+    hasMimeFrom: /^from:/im.test(mimeHeaders),
+    hasReplyMessageId: Boolean(body.replyToEmail?.messageId),
+    hasThreadId: Boolean(body.replyToEmail?.threadId),
+    hasInReplyTo: /^in-reply-to:/im.test(mimeHeaders),
+    mimeBytes: mime.length,
+    attachmentCount: body.attachments?.length ?? 0,
+  };
 }

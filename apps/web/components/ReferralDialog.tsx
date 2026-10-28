@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import useSWR from "swr";
+import { usePostHog } from "posthog-js/react";
 import {
   Card,
   CardContent,
@@ -20,6 +22,8 @@ import { ErrorDisplay } from "@/components/ErrorDisplay";
 import { generateReferralLink } from "@/utils/referral/referral-link";
 import { PageHeading, PageSubHeading } from "@/components/Typography";
 
+export type ReferralSurface = "account_menu" | "refer_page" | "sidebar";
+
 export function ReferralDialog() {
   return (
     <Dialog>
@@ -30,13 +34,14 @@ export function ReferralDialog() {
         </SidebarMenuButton>
       </DialogTrigger>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <Referrals />
+        <Referrals source="sidebar" />
       </DialogContent>
     </Dialog>
   );
 }
 
-export function Referrals() {
+export function Referrals({ source }: { source: ReferralSurface }) {
+  const posthog = usePostHog();
   const {
     data: codeData,
     isLoading: loadingCode,
@@ -51,9 +56,24 @@ export function Referrals() {
 
   const loading = loadingCode || loadingStats;
 
+  useEffect(() => {
+    posthog?.capture("Referral Surface Shown", { source });
+  }, [posthog, source]);
+
   const link = generateReferralLink(codeData?.code || "");
 
-  const copyToClipboard = async (text: string, type: "code" | "link") => {
+  const copyToClipboard = async (
+    text: string,
+    type: "code" | "link",
+    captureAction = true,
+  ) => {
+    if (captureAction) {
+      posthog?.capture("Clicked Referral Surface", {
+        action: `copy_${type}`,
+        source,
+      });
+    }
+
     try {
       await navigator.clipboard.writeText(text);
       toastSuccess({ description: `Referral ${type} copied to clipboard!` });
@@ -67,6 +87,15 @@ export function Referrals() {
 
   const shareReferralLink = async () => {
     if (!codeData?.code) return;
+
+    posthog?.capture("Clicked Referral Surface", {
+      action: "share",
+      method:
+        typeof navigator.share === "function"
+          ? "native_share"
+          : "copy_fallback",
+      source,
+    });
 
     if (navigator.share) {
       try {
@@ -84,7 +113,7 @@ export function Referrals() {
         }
       }
     } else {
-      copyToClipboard(link, "link");
+      copyToClipboard(link, "link", false);
     }
   };
 

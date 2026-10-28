@@ -5,7 +5,11 @@ import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 import { createScopedLogger } from "@/utils/logger";
 import type { MeetingSummary } from "@/utils/ai/meeting-recorder/summarize-meeting";
 import type { MeetingAttendee } from "@/utils/meeting-recorder/attendees";
-import { getTodayForLLM } from "@/utils/ai/helpers";
+import {
+  getTodayForLLM,
+  getUserAboutPrompt,
+  getWritingStylePrompt,
+} from "@/utils/ai/helpers";
 
 const logger = createScopedLogger("DraftMeetingFollowUp");
 
@@ -31,19 +35,19 @@ const draftSchema = z.object({
 
 type MeetingFollowUpDraft = z.infer<typeof draftSchema>;
 
-export async function aiDraftMeetingFollowUp({
-  emailAccount,
-  eventTitle,
-  summary,
-  recipients,
-  writingStyle,
-}: {
+export type MeetingFollowUpInput = {
   emailAccount: EmailAccountWithAI;
   eventTitle: string;
   summary: MeetingSummary;
   recipients: MeetingAttendee[];
   writingStyle: string | null;
-}): Promise<MeetingFollowUpDraft> {
+  currentDate?: Date;
+};
+
+export async function aiDraftMeetingFollowUp(
+  input: MeetingFollowUpInput,
+): Promise<MeetingFollowUpDraft> {
+  const { emailAccount, recipients } = input;
   logger.info("Drafting meeting follow-up", {
     recipientCount: recipients.length,
   });
@@ -66,50 +70,25 @@ export async function aiDraftMeetingFollowUp({
 
   const result = await generateObject({
     ...modelOptions,
-    system: systemPrompt,
-    prompt: getUserPrompt({
-      emailAccount,
-      eventTitle,
-      summary,
-      recipients,
-      writingStyle,
-    }),
+    instructions: systemPrompt,
+    prompt: buildMeetingFollowUpModelInput(input),
     schema: draftSchema,
   });
 
   return result.object;
 }
 
-function getUserPrompt({
+export function buildMeetingFollowUpModelInput({
   emailAccount,
   eventTitle,
   summary,
   recipients,
   writingStyle,
-}: {
-  emailAccount: EmailAccountWithAI;
-  eventTitle: string;
-  summary: MeetingSummary;
-  recipients: MeetingAttendee[];
-  writingStyle: string | null;
-}): string {
-  const userAbout = emailAccount.about
-    ? `Context about the user:
+  currentDate = new Date(),
+}: MeetingFollowUpInput): string {
+  const userAbout = getUserAboutPrompt(emailAccount.about);
 
-<userAbout>
-${emailAccount.about}
-</userAbout>
-`
-    : "";
-
-  const writingStylePrompt = writingStyle
-    ? `Writing style:
-
-<writing_style>
-${writingStyle}
-</writing_style>
-`
-    : "";
+  const writingStylePrompt = getWritingStylePrompt(writingStyle);
 
   const recipientList = recipients
     .map((recipient) =>
@@ -131,6 +110,6 @@ Meeting summary:
 ${JSON.stringify(summary, null, 2)}
 </summary>
 
-${getTodayForLLM()}
+${getTodayForLLM(currentDate)}
 Write the follow-up email as ${emailAccount.email}.`;
 }

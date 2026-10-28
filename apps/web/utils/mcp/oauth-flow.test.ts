@@ -1,0 +1,492 @@
+import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { betterAuth } from "better-auth";
+import { makeSignature } from "better-auth/crypto";
+import { memoryAdapter } from "better-auth/adapters/memory";
+import prisma from "@/utils/__mocks__/prisma";
+import { emailOtpBeforeHook, emailOtpPlugin } from "@/utils/auth/email-otp";
+import { mcpOAuthPlugins } from "@/utils/mcp/oauth-provider";
+import { verifyMcpToken } from "@/utils/mcp/verify-token";
+
+vi.mock("server-only", () => ({}));
+vi.mock("@/utils/prisma");
+vi.mock("next/server", () => ({ after: () => {} }));
+vi.mock("@inboxzero/transactional-email/src/delivery", () => ({
+  deliverTransactionalEmail: vi.fn(),
+}));
+vi.mock("@/env", () => ({
+  env: {
+    MCP_SERVER_ENABLED: true,
+    NEXT_PUBLIC_EXTERNAL_API_ENABLED: true,
+    NEXT_PUBLIC_BASE_URL: "http://localhost:3000",
+  },
+}));
+
+const origin = "http://localhost:3000";
+const resource = `${origin}/mcp`;
+
+// Exercise the real OAuth provider, PKCE, consent, token rotation and JWT verification.
+// Only persistence is replaced; no auth or MCP transport classes are mocked.
+describe("MCP OAuth flow", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    prisma.user.findUnique.mockResolvedValue({
+      mcpServerEnabled: true,
+      mcpTokenVersion: 0,
+    } as never);
+  });
+
+  it("issues only the scopes selected at consent, excluding optional sending", async () => {
+    const flow = await createFlow("mcp:read mcp:write mcp:send offline_access");
+    const response = await flow.request(
+      `/oauth2/authorize?${flow.query}`,
+      undefined,
+      flow.cookie,
+    );
+    const location = response.headers.get("location");
+    assert(location);
+    const signed = new URL(location, origin).searchParams.toString();
+    const approval = await flow.request(
+      "/oauth2/consent",
+      {
+        accept: true,
+        scope: "mcp:read mcp:write offline_access",
+        oauth_query: signed,
+      },
+      flow.cookie,
+    );
+    expect(approval.status).toBe(200);
+    const code = new URL((await approval.json()).url).searchParams.get("code");
+    assert(code);
+    const exchanged = await flow.token(code, flow.verifier);
+    expect(exchanged.status).toBe(200);
+    const tokens = await exchanged.json();
+    expect(tokens.scope.split(" ")).toEqual([
+      "mcp:read",
+      "mcp:write",
+      "offline_access",
+    ]);
+    prisma.oauthConsent.findFirst.mockResolvedValue({
+      scopes: ["mcp:read", "mcp:write", "offline_access"],
+    } as never);
+    const principal = await verifyMcpToken(
+      tokens.access_token,
+      await flow.auth.api.getJwks(),
+    );
+    expect(principal?.scopes).not.toContain("mcp:send");
+    prisma.oauthConsent.findFirst.mockResolvedValue({
+      scopes: ["mcp:read", "offline_access"],
+    } as never);
+    expect(
+      (await verifyMcpToken(tokens.access_token, await flow.auth.api.getJwks()))
+        ?.scopes,
+    ).toEqual(["mcp:read", "offline_access"]);
+  });
+
+  it("restricts refreshed original scopes to live consent and rejects deleted offline tokens", async () => {
+    const flow = await createFlow("mcp:read mcp:write mcp:send offline_access");
+    const response = await flow.request(
+      `/oauth2/authorize?${flow.query}`,
+      undefined,
+      flow.cookie,
+    );
+    const location = response.headers.get("location");
+    assert(location);
+    const approval = await flow.request(
+      "/oauth2/consent",
+      {
+        accept: true,
+        oauth_query: new URL(location, origin).searchParams.toString(),
+      },
+      flow.cookie,
+    );
+    const code = new URL((await approval.json()).url).searchParams.get("code");
+    assert(code);
+    const tokens = await (await flow.token(code, flow.verifier)).json();
+    prisma.oauthConsent.findFirst.mockResolvedValue({
+      scopes: ["mcp:read", "offline_access"],
+    } as never);
+    const refresh = await flow.request("/oauth2/token", {
+      client_id: flow.clientId,
+      grant_type: "refresh_token",
+      refresh_token: tokens.refresh_token,
+      resource,
+    });
+    expect(refresh.status).toBe(200);
+    const refreshed = await refresh.json();
+    // The SDK keeps original refresh scopes; MCP's live grant check strips writes.
+    expect(refreshed.scope.split(" ")).toContain("mcp:send");
+    expect(
+      (
+        await verifyMcpToken(
+          refreshed.access_token,
+          await flow.auth.api.getJwks(),
+        )
+      )?.scopes,
+    ).toEqual(["mcp:read", "offline_access"]);
+    flow.refreshTokens().splice(0);
+    const revoked = await flow.request("/oauth2/token", {
+      client_id: flow.clientId,
+      grant_type: "refresh_token",
+      refresh_token: refreshed.refresh_token,
+      resource,
+    });
+    expect(revoked.ok).toBe(false);
+    expect((await revoked.json()).error).toBe("invalid_grant");
+  });
+
+  it("rejects accepting a scope outside the signed request", async () => {
+    const flow = await createFlow();
+    const response = await flow.request(
+      `/oauth2/authorize?${flow.query}`,
+      undefined,
+      flow.cookie,
+    );
+    const location = response.headers.get("location");
+    assert(location);
+    const approval = await flow.request(
+      "/oauth2/consent",
+      {
+        accept: true,
+        scope: "mcp:read mcp:send",
+        oauth_query: new URL(location, origin).searchParams.toString(),
+      },
+      flow.cookie,
+    );
+    expect(approval.ok).toBe(false);
+    expect(flow.consents()).toHaveLength(0);
+  });
+
+  it("requires consent, rejects a tampered decision, and issues resource-bound scoped tokens", async () => {
+    const flow = await createFlow();
+    const unauthorized = await flow.request(`/oauth2/authorize?${flow.query}`);
+    expect(unauthorized.status).toBe(302);
+    expect(unauthorized.headers.get("location")).toContain("/mcp/login?");
+
+    const consent = await flow.request(
+      `/oauth2/authorize?${flow.query}`,
+      undefined,
+      flow.cookie,
+    );
+    expect(consent.status).toBe(302);
+    const consentLocation = consent.headers.get("location");
+    assert(consentLocation);
+    const consentUrl = new URL(consentLocation, origin);
+    expect(consentUrl.pathname).toBe("/mcp/consent");
+    expect(consentUrl.searchParams.has("code")).toBe(false);
+
+    const tampered = new URLSearchParams(consentUrl.search);
+    tampered.set("scope", "mcp:write");
+    const invalid = await flow.request(
+      "/oauth2/consent",
+      { accept: true, oauth_query: tampered.toString() },
+      flow.cookie,
+    );
+    expect(invalid.ok).toBe(false);
+
+    const approved = await flow.request(
+      "/oauth2/consent",
+      { accept: true, oauth_query: consentUrl.searchParams.toString() },
+      flow.cookie,
+    );
+    expect(approved.status).toBe(200);
+    const approval = await approved.json();
+    const code = new URL(approval.url).searchParams.get("code");
+    assert(code);
+    const wrongResource = await flow.request("/oauth2/token", {
+      grant_type: "authorization_code",
+      code,
+      client_id: flow.clientId,
+      redirect_uri: "https://client.example.com/callback",
+      code_verifier: flow.verifier,
+      resource: "https://other.example.com/mcp",
+    });
+    expect(wrongResource.ok).toBe(false);
+    expect((await wrongResource.json()).error).toBe("invalid_target");
+
+    const wrongVerifier = await flow.token(code, "wrong-verifier");
+    expect(wrongVerifier.ok).toBe(false);
+
+    // A failed exchange may consume a code; obtain another one after recorded consent.
+    const authorized = await flow.request(
+      `/oauth2/authorize?${flow.query}`,
+      undefined,
+      flow.cookie,
+    );
+    const authorizedLocation = authorized.headers.get("location");
+    assert(authorizedLocation);
+    const authorizedUrl = new URL(authorizedLocation, origin);
+    const authorizedCode = authorizedUrl.searchParams.get("code");
+    assert(authorizedCode);
+    const exchanged = await flow.token(authorizedCode, flow.verifier);
+    expect(exchanged.status).toBe(200);
+    const tokens = await exchanged.json();
+    expect(tokens.refresh_token).toBeTruthy();
+    const jwks = await flow.auth.api.getJwks();
+    prisma.oauthConsent.findFirst.mockResolvedValue({
+      scopes: ["mcp:read", "offline_access"],
+    } as never);
+    const principal = await verifyMcpToken(tokens.access_token, jwks);
+    expect(principal?.scopes).toEqual(["mcp:read", "offline_access"]);
+    expect(principal?.userId).toBeTruthy();
+    expect(principal?.clientId).toBe(flow.clientId);
+    expect(prisma.session.findFirst).not.toHaveBeenCalled();
+    expect(prisma.oauthConsent.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          clientId: flow.clientId,
+          user: { mcpServerEnabled: true, mcpTokenVersion: 0 },
+        }),
+      }),
+    );
+
+    const expandedRefresh = await flow.request("/oauth2/token", {
+      client_id: flow.clientId,
+      grant_type: "refresh_token",
+      refresh_token: tokens.refresh_token,
+      resource: "https://other.example.com/mcp",
+    });
+    expect(expandedRefresh.ok).toBe(false);
+    expect((await expandedRefresh.json()).error).toBe("invalid_target");
+
+    const refresh = await flow.request("/oauth2/token", {
+      client_id: flow.clientId,
+      grant_type: "refresh_token",
+      refresh_token: tokens.refresh_token,
+      resource,
+    });
+    expect(refresh.status).toBe(200);
+    const refreshed = await refresh.json();
+    expect(refreshed.refresh_token).not.toBe(tokens.refresh_token);
+    expect(
+      (await verifyMcpToken(refreshed.access_token, jwks))?.scopes,
+    ).toEqual(principal?.scopes);
+
+    const replay = await flow.token(authorizedCode, flow.verifier);
+    expect(replay.ok).toBe(false);
+
+    prisma.oauthConsent.findFirst.mockResolvedValue(null);
+    expect(await verifyMcpToken(tokens.access_token, jwks)).toBeNull();
+  });
+
+  it("refuses to authorize or record consent for an email code session", async () => {
+    const flow = await createFlow();
+    const context = await flow.auth.$context;
+    const session = await context.internalAdapter.createSession(
+      flow.userId,
+      false,
+      { emailOtp: true },
+      true,
+    );
+    assert(session);
+    prisma.session.findFirst.mockResolvedValue({ id: session.id } as never);
+    const otpCookie = `better-auth.session_token=${encodeURIComponent(
+      `${session.token}.${await makeSignature(session.token, context.secret)}`,
+    )}`;
+
+    const authorize = await flow.request(
+      `/oauth2/authorize?${flow.query}`,
+      undefined,
+      otpCookie,
+    );
+    expect(authorize.status).toBe(403);
+
+    // Reuse a valid signed decision from a provider session so the rejection
+    // can only come from the session check.
+    const provider = await flow.request(
+      `/oauth2/authorize?${flow.query}`,
+      undefined,
+      flow.cookie,
+    );
+    const consentLocation = provider.headers.get("location");
+    assert(consentLocation);
+    const signed = new URL(consentLocation, origin).searchParams.toString();
+
+    const accepted = await flow.request(
+      "/oauth2/consent",
+      { accept: true, oauth_query: signed },
+      otpCookie,
+    );
+    expect(accepted.status).toBe(403);
+    expect(flow.consents()).toHaveLength(0);
+  });
+
+  it("registers Cursor's host-bearing cursor:// callback as a native public client", async () => {
+    const flow = await createFlow();
+    const registration = await flow.request("/oauth2/register", {
+      client_name: "Cursor",
+      application_type: "web",
+      redirect_uris: ["cursor://anysphere.cursor-mcp/oauth/callback"],
+      token_endpoint_auth_method: "none",
+      grant_types: ["authorization_code", "refresh_token"],
+      response_types: ["code"],
+    });
+    expect(registration.status).toBe(201);
+    expect(await registration.json()).toMatchObject({
+      application_type: "native",
+      redirect_uris: ["cursor://anysphere.cursor-mcp/oauth/callback"],
+      token_endpoint_auth_method: "none",
+    });
+  });
+
+  it("still rejects javascript: redirect URIs", async () => {
+    const flow = await createFlow();
+    const registration = await flow.request("/oauth2/register", {
+      client_name: "Evil",
+      application_type: "native",
+      redirect_uris: ["javascript:alert(1)"],
+      token_endpoint_auth_method: "none",
+      grant_types: ["authorization_code", "refresh_token"],
+      response_types: ["code"],
+    });
+    expect(registration.status).toBe(400);
+    expect(await registration.json()).toMatchObject({
+      error: "invalid_redirect_uri",
+    });
+  });
+
+  it("still rejects an explicit empty application_type", async () => {
+    const flow = await createFlow();
+    const registration = await flow.request("/oauth2/register", {
+      client_name: "Cursor",
+      application_type: "",
+      redirect_uris: ["cursor://anysphere.cursor-mcp/oauth/callback"],
+      token_endpoint_auth_method: "none",
+      grant_types: ["authorization_code", "refresh_token"],
+      response_types: ["code"],
+    });
+    expect(registration.status).toBe(400);
+    expect(await registration.json()).toMatchObject({
+      error: "invalid_client_metadata",
+    });
+  });
+
+  it("returns access_denied without issuing a code when consent is denied", async () => {
+    const flow = await createFlow();
+    const response = await flow.request(
+      `/oauth2/authorize?${flow.query}`,
+      undefined,
+      flow.cookie,
+    );
+    const location = response.headers.get("location");
+    assert(location);
+    const signed = new URL(location, origin).searchParams.toString();
+    const rejected = await flow.request(
+      "/oauth2/consent",
+      { accept: false, oauth_query: signed },
+      flow.cookie,
+    );
+    const target = new URL((await rejected.json()).url);
+    expect(target.searchParams.get("error")).toBe("access_denied");
+    expect(target.searchParams.has("code")).toBe(false);
+  });
+});
+
+async function createFlow(scope = "mcp:read offline_access") {
+  const db = {
+    user: [],
+    session: [],
+    account: [],
+    verification: [],
+    oauthClient: [],
+    oauthResource: [],
+    oauthClientResource: [],
+    oauthClientAssertion: [],
+    oauthConsent: [],
+    oauthAccessToken: [],
+    oauthRefreshToken: [],
+    jwks: [],
+  };
+  const auth = betterAuth({
+    baseURL: origin,
+    secret: "test-mcp-oauth-secret-at-least-32-characters",
+    database: memoryAdapter(db),
+    emailAndPassword: { enabled: true },
+    plugins: [emailOtpPlugin, ...mcpOAuthPlugins()],
+    session: {
+      additionalFields: {
+        emailOtp: { type: "boolean", defaultValue: false, input: false },
+        emailOtpVersion: { type: "number", defaultValue: 0, input: false },
+      },
+    },
+    hooks: { before: emailOtpBeforeHook },
+  });
+  const request = (
+    path: string,
+    body?: Record<string, unknown>,
+    cookie?: string,
+  ) =>
+    auth.handler(
+      new Request(`${origin}/api/auth${path}`, {
+        method: body ? "POST" : "GET",
+        headers: {
+          origin,
+          "content-type":
+            path === "/oauth2/token"
+              ? "application/x-www-form-urlencoded"
+              : "application/json",
+          ...(cookie ? { cookie } : {}),
+        },
+        ...(body && {
+          body:
+            path === "/oauth2/token"
+              ? new URLSearchParams(body as Record<string, string>).toString()
+              : JSON.stringify(body),
+        }),
+      }),
+    );
+  const signup = await request("/sign-up/email", {
+    name: "MCP Test",
+    email: "mcp@example.com",
+    password: "secure-test-password-123",
+  });
+  expect(signup.status).toBe(200);
+  const userId = (await signup.json()).user.id as string;
+  const cookie = signup.headers
+    .getSetCookie()
+    .map((value) => value.split(";")[0])
+    .join("; ");
+  const registration = await request("/oauth2/register", {
+    client_name: "Test MCP client",
+    redirect_uris: ["https://client.example.com/callback"],
+    token_endpoint_auth_method: "none",
+    grant_types: ["authorization_code", "refresh_token"],
+    response_types: ["code"],
+    scope,
+  });
+  expect(registration.status).toBe(201);
+  const client = await registration.json();
+  const verifier = "test-pkce-verifier-with-at-least-forty-three-characters";
+  const query = new URLSearchParams({
+    client_id: client.client_id,
+    redirect_uri: "https://client.example.com/callback",
+    response_type: "code",
+    scope,
+    resource,
+    code_challenge: createHash("sha256").update(verifier).digest("base64url"),
+    code_challenge_method: "S256",
+    state: "test-state",
+  });
+  const token = (code: string, codeVerifier: string) =>
+    request("/oauth2/token", {
+      grant_type: "authorization_code",
+      code,
+      client_id: client.client_id,
+      redirect_uri: "https://client.example.com/callback",
+      code_verifier: codeVerifier,
+      resource,
+    });
+  return {
+    auth,
+    request,
+    cookie,
+    userId,
+    consents: () => db.oauthConsent,
+    refreshTokens: () => db.oauthRefreshToken,
+    query,
+    verifier,
+    token,
+    clientId: client.client_id,
+  };
+}

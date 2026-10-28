@@ -7,7 +7,6 @@ import {
   Item,
   ItemActions,
   ItemContent,
-  ItemDescription,
   ItemTitle,
 } from "@/components/ui/item";
 
@@ -25,9 +24,6 @@ export function AppearanceSection() {
     <Item size="sm">
       <ItemContent>
         <ItemTitle>Dark mode</ItemTitle>
-        <ItemDescription>
-          Use the dark color theme across the app.
-        </ItemDescription>
       </ItemContent>
       <ItemActions>
         <Switch

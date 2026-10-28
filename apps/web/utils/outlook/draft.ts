@@ -9,23 +9,26 @@ import {
   convertMessage,
   getCategoryMap,
   getFolderIds,
+  MESSAGE_EXPAND_ATTACHMENTS,
 } from "@/utils/outlook/message";
 import {
   withMicrosoftGraphRetry,
   withMicrosoftGraphWriteRetry,
-} from "@/utils/microsoft/retry";
+} from "@/utils/outlook/retry";
 
 export async function getDraft({
   client,
   draftId,
   logger,
+  includeAttachments = false,
 }: {
   client: OutlookClient;
   draftId: string;
   logger: Logger;
+  includeAttachments?: boolean;
 }) {
   const [draft, categoryMap] = await Promise.all([
-    getDraftMessage({ client, draftId, logger }),
+    getDraftMessage({ client, draftId, logger, includeAttachments }),
     getCategoryMap(client, logger),
   ]);
   if (!draft) return null;
@@ -53,12 +56,15 @@ export async function getDraftReference({
     return null;
   }
 
-  const version = (draft.message as { "@odata.etag"?: string })["@odata.etag"];
+  const version = draftVersionFromMessage(draft.message);
   if (!version) {
-    throw new Error("Draft response did not include a version");
+    logger.warn(
+      "Outlook draft omitted etag and changeKey; using an unconditional version",
+      { messageId },
+    );
   }
 
-  return { id: messageId, version };
+  return { id: messageId, version: version ?? "*" };
 }
 
 export async function sendDraft({
@@ -72,27 +78,27 @@ export async function sendDraft({
 }): Promise<{ messageId: string; threadId: string }> {
   logger.info("Sending draft", { draftId });
 
-  // Send the draft - this moves it from Drafts to Sent Items
-  // The message ID stays the same after sending
-  await withMicrosoftGraphWriteRetry(
-    () => client.getClient().api(`/me/messages/${draftId}/send`).post({}),
-    logger,
-  );
-
-  // Get the sent message to retrieve the conversationId (threadId)
-  const sentMessage = await withMicrosoftGraphRetry(
+  // Graph may return 404 while moving a sent draft to Sent Items. Capture the
+  // conversation ID before sending so that metadata reads cannot fail a send.
+  const draft = await withMicrosoftGraphRetry(
     () =>
       client
         .getClient()
         .api(`/me/messages/${draftId}`)
+        .select("conversationId")
         .get() as Promise<Message>,
     logger,
   );
 
-  const threadId = sentMessage.conversationId;
+  const threadId = draft.conversationId;
   if (!threadId) {
-    throw new Error("Failed to get threadId from sent message");
+    throw new Error("Failed to get threadId from draft");
   }
+
+  await withMicrosoftGraphWriteRetry(
+    () => client.getClient().api(`/me/messages/${draftId}/send`).post({}),
+    logger,
+  );
 
   logger.info("Draft sent successfully", {
     draftId,
@@ -141,21 +147,20 @@ async function getDraftMessage({
   client,
   draftId,
   logger,
+  includeAttachments = false,
 }: {
   client: OutlookClient;
   draftId: string;
   logger: Logger;
+  includeAttachments?: boolean;
 }) {
   try {
     const [message, folderIds] = await Promise.all([
-      withMicrosoftGraphRetry(
-        () =>
-          client
-            .getClient()
-            .api(`/me/messages/${draftId}`)
-            .get() as Promise<Message>,
-        logger,
-      ),
+      withMicrosoftGraphRetry(() => {
+        const request = client.getClient().api(`/me/messages/${draftId}`);
+        if (includeAttachments) request.expand(MESSAGE_EXPAND_ATTACHMENTS);
+        return request.get() as Promise<Message>;
+      }, logger),
       getFolderIds(client, logger),
     ]);
 
@@ -175,4 +180,13 @@ async function getDraftMessage({
 
     throw error;
   }
+}
+
+function draftVersionFromMessage(message: Message): string | undefined {
+  const etag = (message as { "@odata.etag"?: string })["@odata.etag"];
+  if (etag) return etag;
+  if (!message.changeKey) return;
+  return message.changeKey.startsWith("W/")
+    ? message.changeKey
+    : `W/"${message.changeKey}"`;
 }

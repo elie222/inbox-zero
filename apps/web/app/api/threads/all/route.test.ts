@@ -33,6 +33,10 @@ vi.mock("@/utils/middleware", async () => {
 
 import { GET } from "./route";
 
+vi.mock("@/utils/redis/thread-page-buffer", () => ({
+  createPageBuffer: vi.fn(() => undefined),
+}));
+
 describe("GET /api/threads/all", () => {
   const getLabelsMock = vi.fn();
 
@@ -116,14 +120,31 @@ describe("GET /api/threads/all", () => {
     });
   });
 
+  it("searches every included mailbox without inbox or split restrictions", async () => {
+    getConnectedEmailAccountsMock.mockResolvedValue([
+      { id: "account-1", email: "first@example.com", provider: "google" },
+      { id: "account-2", email: "second@example.com", provider: "microsoft" },
+    ]);
+    await GET(
+      new NextRequest(
+        "http://localhost:3000/api/threads/all?q=invoice&isUnread=true&labelName=Missing",
+      ),
+      {} as never,
+    );
+    expect(loadThreadsMock).toHaveBeenCalledTimes(2);
+    for (const [args] of loadThreadsMock.mock.calls) {
+      expect(args.query).toEqual({ q: "invoice", limit: 20 });
+    }
+  });
+
   it("rejects an unsafe provider cursor before loading threads", async () => {
     const cursor = Buffer.from(
       JSON.stringify({
-        version: 2,
-        accounts: {
+        version: 3,
+        sources: {
           "account-1": {
             pageToken: "https://example.com/messages",
-            consumedThreadIds: [],
+            consumedIds: [],
             done: false,
           },
         },
@@ -198,7 +219,7 @@ describe("GET /api/threads/all", () => {
 
     await GET(
       new NextRequest(
-        "http://localhost:3000/api/threads/all?labelName=Receipts",
+        "http://localhost:3000/api/threads/all?labelNames=Receipts",
       ),
       {} as never,
     );
@@ -222,6 +243,62 @@ describe("GET /api/threads/all", () => {
     );
     expect(loadThreadsMock).not.toHaveBeenCalledWith(
       expect.objectContaining({ emailAccountId: "account-3" }),
+    );
+  });
+
+  it("asks each account for whichever of a split's labels it has", async () => {
+    getConnectedEmailAccountsMock.mockResolvedValue([
+      {
+        id: "account-1",
+        email: "first@example.com",
+        name: "First",
+        image: null,
+        provider: "google",
+      },
+      {
+        id: "account-2",
+        email: "second@example.com",
+        name: "Second",
+        image: null,
+        provider: "google",
+      },
+    ]);
+    createEmailProviderMock.mockImplementation(
+      async ({ emailAccountId }: { emailAccountId: string }) => ({
+        name: "google",
+        getLabels: vi.fn().mockResolvedValue(
+          emailAccountId === "account-1"
+            ? [
+                { id: "users", name: "User feedback", type: "user" },
+                { id: "customers", name: "Customer feedback", type: "user" },
+              ]
+            : [{ id: "only-users", name: "User feedback", type: "user" }],
+        ),
+      }),
+    );
+
+    await GET(
+      new NextRequest(
+        "http://localhost:3000/api/threads/all?labelNames=User+feedback&labelNames=Customer+feedback",
+      ),
+      {} as never,
+    );
+
+    expect(loadThreadsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emailAccountId: "account-1",
+        query: expect.objectContaining({
+          labelIds: ["INBOX"],
+          anyLabelIds: ["users", "customers"],
+        }),
+      }),
+    );
+    // The second account only has one of the labels, so it stays a plain query.
+    expect(loadThreadsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emailAccountId: "account-2",
+        query: expect.objectContaining({ labelIds: ["only-users", "INBOX"] }),
+      }),
     );
   });
 });

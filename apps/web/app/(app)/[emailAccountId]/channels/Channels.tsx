@@ -190,6 +190,12 @@ export function Channels() {
       <PageHeader
         title="Channels"
         description="Manage what gets delivered to your chat apps."
+        video={{
+          title: "Getting started with Slack and Telegram",
+          description:
+            "Learn how to get important emails in Slack or Telegram and send drafted replies from there.",
+          muxPlaybackId: "QbtTl00g2Gjx3JhM016Xkei0202zW4qpsF302rp01sRQHaf028",
+        }}
       />
 
       <LoadingContent
@@ -387,8 +393,7 @@ function ConnectedChannelSection({
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
-                size="icon"
-                className="h-6 w-6"
+                size="icon2xs"
                 disabled={disconnectStatus === "executing"}
               >
                 <MoreVerticalIcon className="h-3.5 w-3.5" />
@@ -718,12 +723,7 @@ function RuleToggle({
           {enabled && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  disabled={isExecuting}
-                >
+                <Button variant="ghost" size="iconXs" disabled={isExecuting}>
                   <MoreVerticalIcon className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -880,7 +880,7 @@ function FeatureRouteAction({
 
     return (
       <Tooltip content="Open settings">
-        <Button asChild variant="ghost" size="icon" className="h-8 w-8">
+        <Button asChild variant="ghost" size="iconSm">
           <Link href={href}>
             <ChevronRightIcon className="h-4 w-4" />
           </Link>
@@ -892,12 +892,7 @@ function FeatureRouteAction({
   return (
     <>
       <Tooltip content="Configure">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onClick={() => setOpen(true)}
-        >
+        <Button variant="ghost" size="iconSm" onClick={() => setOpen(true)}>
           <Settings2Icon className="h-4 w-4" />
         </Button>
       </Tooltip>

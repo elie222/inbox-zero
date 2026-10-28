@@ -23,6 +23,26 @@ describe("getEmailMessageCellLabels", () => {
     expect(labels).toEqual([{ id: "label-calendar", name: "Calendar" }]);
   });
 
+  it("hides labels the user set to hide in the message list", () => {
+    const labels = getEmailMessageCellLabels({
+      labelIds: ["label-receipts", "label-calendar"],
+      userLabels: {
+        "label-receipts": {
+          id: "label-receipts",
+          name: "Receipts",
+          messageListVisibility: "hide",
+        },
+        "label-calendar": {
+          id: "label-calendar",
+          name: "Calendar",
+          messageListVisibility: "show",
+        },
+      },
+    });
+
+    expect(labels).toEqual([{ id: "label-calendar", name: "Calendar" }]);
+  });
+
   it("does not infer Outlook sent mail as archived just because it is outside the inbox", () => {
     const labels = getEmailMessageCellLabels({
       labelIds: ["SENT", "Awaiting Reply"],
@@ -76,6 +96,34 @@ describe("getEmailMessageCellLabels", () => {
 });
 
 describe("getEmailThreadLabels", () => {
+  it("orders the same labels consistently regardless of provider order", () => {
+    const userLabels = {
+      "label-actioned": {
+        id: "label-actioned",
+        name: "Actioned",
+      },
+      "label-receipt": {
+        id: "label-receipt",
+        name: "Receipt",
+      },
+    };
+
+    const actionedFirst = getEmailThreadLabels({
+      messages: [{ labelIds: ["label-actioned", "label-receipt"] }],
+      userLabels,
+    });
+    const receiptFirst = getEmailThreadLabels({
+      messages: [{ labelIds: ["label-receipt", "label-actioned"] }],
+      userLabels,
+    });
+
+    expect(actionedFirst).toEqual([
+      { id: "label-actioned", name: "Actioned" },
+      { id: "label-receipt", name: "Receipt" },
+    ]);
+    expect(receiptFirst).toEqual(actionedFirst);
+  });
+
   it("hides Gmail system categories while keeping user labels", () => {
     const categoryIds = [
       "CATEGORY_PERSONAL",
@@ -112,27 +160,27 @@ describe("getEmailThreadLabels", () => {
     expect(labels).toEqual([{ id: "label-actioned", name: "Actioned" }]);
   });
 
-  it("prioritizes labels from newer messages", () => {
+  it("keeps older message labels in the consistent display order", () => {
     const labels = getEmailThreadLabels({
       messages: [
-        { labelIds: ["label-older"] },
-        { labelIds: ["DRAFT", "label-newer"] },
+        { labelIds: ["label-alpha"] },
+        { labelIds: ["DRAFT", "label-zulu"] },
       ],
       userLabels: {
-        "label-older": {
-          id: "label-older",
-          name: "Older",
+        "label-alpha": {
+          id: "label-alpha",
+          name: "Alpha",
         },
-        "label-newer": {
-          id: "label-newer",
-          name: "Newer",
+        "label-zulu": {
+          id: "label-zulu",
+          name: "Zulu",
         },
       },
     });
 
     expect(labels).toEqual([
-      { id: "label-newer", name: "Newer" },
-      { id: "label-older", name: "Older" },
+      { id: "label-alpha", name: "Alpha" },
+      { id: "label-zulu", name: "Zulu" },
     ]);
   });
 });

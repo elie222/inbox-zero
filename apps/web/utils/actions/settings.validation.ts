@@ -32,12 +32,17 @@ export const saveAiSettingsBody = z.object({
     Provider.AZURE,
     Provider.GOOGLE,
     Provider.GROQ,
+    Provider.CEREBRAS,
     Provider.OPENROUTER,
   ]),
   aiModel: z.string(),
   aiApiKey: z.string().optional(),
 });
 export type SaveAiSettingsBody = z.infer<typeof saveAiSettingsBody>;
+
+export const saveDecisionModelSettingsBody = z.object({
+  decisionModelEnabled: z.boolean(),
+});
 
 export const saveSensitiveDataPolicyBody = z.object({
   sensitiveDataPolicy: z.enum(SENSITIVE_DATA_POLICIES),

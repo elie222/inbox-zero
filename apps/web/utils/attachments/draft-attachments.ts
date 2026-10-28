@@ -586,9 +586,9 @@ async function aiSelectRelevantAttachments({
 
     const result = await generateObject({
       ...modelOptions,
-      system: appendOllamaOnlySystemGuidance(
+      instructions: appendOllamaOnlySystemGuidance(
         {
-          system: `You select approved PDF attachments for draft email replies.
+          instructions: `You select approved PDF attachments for draft email replies.
 
 Choose only files that would materially help answer the email.
 Return an empty list when no candidate is clearly relevant.
@@ -597,7 +597,7 @@ Do not invent candidate IDs or use files outside the provided list.`,
         },
         modelOptions,
         OLLAMA_ATTACHMENT_SELECTION_RESPONSE_GUIDANCE,
-      ).system,
+      ).instructions,
       prompt: `Inbound email:
 
 <email>

@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, WifiOffIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -10,16 +10,34 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { useIsOnline } from "@/hooks/useIsOnline";
 import { logOut } from "@/utils/user";
 import { env } from "@/env";
 
 // TODO would be better to have a consistent definition here. didn't want to break things.
 export function ErrorDisplay(props: {
-  error: { info?: { error: string | object }; error?: string | object };
+  error: { info?: { error?: string | object }; error?: string | object };
 }) {
+  const online = useIsOnline();
   const errorMessage =
     safeErrorToString(props.error?.info?.error) ||
     safeErrorToString(props.error?.error);
+
+  if (props.error && !online) {
+    return (
+      <Empty>
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <WifiOffIcon />
+          </EmptyMedia>
+          <EmptyTitle>You're offline</EmptyTitle>
+          <EmptyDescription>
+            Check your internet connection and try again.
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    );
+  }
 
   if (errorMessage) {
     return (

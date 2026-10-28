@@ -9,11 +9,19 @@ import { env } from "@/env";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import {
   getAppPageViewProperties,
+  getPageViewSearch,
+  stripUntrackedUrlParams,
   PRODUCT_ANALYTICS_EVENTS,
 } from "@/utils/analytics/product";
+import { getClientAnalyticsProperties } from "@/utils/analytics/client";
 import { clearPendingAuthProvider } from "@/utils/analytics/auth-funnel";
+import { startDesktopHealthReporting } from "@/utils/analytics/desktop-health";
 import { ONE_DAY_MS } from "@/utils/date";
 import { scheduleAfterPageLoad } from "@/utils/schedule-after-page-load";
+import {
+  canUseTrackingCookies,
+  subscribeToCookieConsent,
+} from "@/utils/cookie-consent";
 
 // based on: https://posthog.com/docs/libraries/next-js
 
@@ -21,25 +29,24 @@ export function PostHogPageview() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  useEffect(() => {
-    if (pathname) {
-      let url = window.origin + pathname;
-      if (searchParams?.toString()) {
-        url = `${url}?${searchParams.toString()}`;
-      }
-      posthog.capture("$pageview", {
-        $current_url: url,
-      });
+  const pageViewSearch = getPageViewSearch(searchParams);
 
-      const appPageProperties = getAppPageViewProperties({
-        pathname,
-        searchParams,
-      });
-      if (appPageProperties) {
-        posthog.capture(PRODUCT_ANALYTICS_EVENTS.pageViewed, appPageProperties);
-      }
+  useEffect(() => {
+    if (!pathname) return;
+
+    const query = pageViewSearch ? `?${pageViewSearch}` : "";
+    posthog.capture("$pageview", {
+      $current_url: `${window.origin}${pathname}${query}`,
+    });
+
+    const appPageProperties = getAppPageViewProperties({
+      pathname,
+      searchParams: new URLSearchParams(pageViewSearch),
+    });
+    if (appPageProperties) {
+      posthog.capture(PRODUCT_ANALYTICS_EVENTS.pageViewed, appPageProperties);
     }
-  }, [pathname, searchParams]);
+  }, [pathname, pageViewSearch]);
 
   return null;
 }
@@ -93,6 +100,26 @@ if (typeof window !== "undefined" && env.NEXT_PUBLIC_POSTHOG_KEY) {
     capture_pageview: false, // Disable automatic pageview capture, as we capture manually
     disable_session_recording: true,
     disable_surveys: true,
+    // Without consent, nothing is written to cookies or storage, so an
+    // anonymous visitor is only recognized within the current page session.
+    persistence: canUseTrackingCookies() ? "localStorage+cookie" : "memory",
+    before_send: stripUntrackedUrlParams,
+  });
+  posthog.register(getClientAnalyticsProperties());
+  startDesktopHealthReporting();
+  subscribeToCookieConsent(() => {
+    if (!canUseTrackingCookies()) {
+      posthog.set_config({
+        persistence: "memory",
+        disable_session_recording: true,
+      });
+      return;
+    }
+
+    posthog.set_config({ persistence: "localStorage+cookie" });
+    if (deferredFeaturesEnabled) {
+      posthog.set_config({ disable_session_recording: false });
+    }
   });
 }
 
@@ -116,7 +143,7 @@ function DeferredPostHogFeatures() {
 
       deferredFeaturesEnabled = true;
       posthog.set_config({
-        disable_session_recording: false,
+        disable_session_recording: !canUseTrackingCookies(),
         disable_surveys: false,
       });
       posthog.reloadFeatureFlags();

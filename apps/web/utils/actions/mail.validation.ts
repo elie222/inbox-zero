@@ -1,3 +1,5 @@
+import { sendEmailBody } from "@/utils/types/mail";
+import { labelVisibility, messageVisibility } from "@/utils/gmail/constants";
 import { z } from "zod";
 
 const mailboxItemKind = z.enum(["label", "folder"]);
@@ -12,12 +14,6 @@ export type UnarchiveThreadBody = z.infer<typeof unarchiveThreadBody>;
 
 export const untrashThreadBody = z.object({ threadId: z.string() });
 export type UntrashThreadBody = z.infer<typeof untrashThreadBody>;
-
-export const removeThreadLabelBody = z.object({
-  threadId: z.string(),
-  labelId: z.string(),
-});
-export type RemoveThreadLabelBody = z.infer<typeof removeThreadLabelBody>;
 
 export const updateMailboxItemBody = z
   .object({
@@ -34,8 +30,19 @@ export const updateMailboxItemBody = z
         }),
       })
       .optional(),
+    labelListVisibility: z.enum(labelVisibility).optional(),
+    messageListVisibility: z.enum(messageVisibility).optional(),
   })
-  .superRefine(({ kind, name, color }, context) => {
+  .superRefine(({ kind, name, color, ...visibility }, context) => {
+    const hasVisibility = Boolean(
+      visibility.labelListVisibility || visibility.messageListVisibility,
+    );
+    if (kind === "folder" && hasVisibility) {
+      context.addIssue({
+        code: "custom",
+        message: "Folders do not support visibility settings",
+      });
+    }
     if (kind === "folder" && !name) {
       context.addIssue({
         code: "custom",
@@ -50,10 +57,10 @@ export const updateMailboxItemBody = z
         message: "Folders do not support colors",
       });
     }
-    if (kind === "label" && !name && !color) {
+    if (kind === "label" && !name && !color && !hasVisibility) {
       context.addIssue({
         code: "custom",
-        message: "A label name or color is required",
+        message: "A label name, color, or visibility setting is required",
       });
     }
   });
@@ -61,4 +68,26 @@ export const updateMailboxItemBody = z
 export const deleteMailboxItemBody = z.object({
   kind: mailboxItemKind,
   id: z.string().min(1, "Mailbox item ID is required"),
+});
+
+export const updateDraftBody = z.object({
+  draftMessageId: z.string().min(1),
+  draftId: z.string().min(1).optional(),
+  messageHtml: z.string().max(1_000_000),
+  subject: z.string().max(10_000),
+  to: z.string(),
+  from: z.string().optional(),
+  cc: z.string(),
+  bcc: z.string(),
+});
+
+export const saveComposeDraftBody = z.object({
+  draftId: z.string().min(1).optional(),
+  content: sendEmailBody,
+});
+export const composeDraftParams = z.object({
+  draftId: z.string().min(1),
+});
+export const readComposeDraftQuery = z.object({
+  messageId: z.string().min(1),
 });

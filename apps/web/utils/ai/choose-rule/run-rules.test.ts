@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { CONVERSATION_TRACKING_META_RULE_ID } from "@/utils/reply-tracker/conversation-status-config";
 import {
   ensureConversationRuleContinuity,
   ensureConversationRuleForAiCalendarMatch,
-  CONVERSATION_TRACKING_META_RULE_ID,
   limitDraftEmailActions,
   runRules,
 } from "./run-rules";
@@ -13,7 +13,11 @@ import {
   GroupItemType,
   SystemType,
 } from "@/generated/prisma/enums";
-import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
+import {
+  hasIncludePatternOnAnotherRule,
+  saveLearnedPattern,
+} from "@/utils/rule/learned-patterns";
+import { shouldLearnAiSenderPatterns } from "@/utils/rule/ai-sender-pattern-learning";
 import type { Action } from "@/generated/prisma/client";
 import { ConditionType } from "@/utils/config";
 import prisma from "@/utils/__mocks__/prisma";
@@ -52,6 +56,10 @@ vi.mock("@/utils/reply-tracker/label-helpers", () => ({
 vi.mock("@/utils/rule/learned-patterns", () => ({
   saveLearnedPattern: vi.fn(),
   saveLearnedPatterns: vi.fn(),
+  hasIncludePatternOnAnotherRule: vi.fn().mockResolvedValue(false),
+}));
+vi.mock("@/utils/rule/ai-sender-pattern-learning", () => ({
+  shouldLearnAiSenderPatterns: vi.fn(() => true),
 }));
 vi.mock("@/utils/scheduled-actions/scheduler", () => ({
   scheduleDelayedActions: vi.fn(),
@@ -455,6 +463,133 @@ describe("runRules draft attribution persistence", () => {
         ],
       }),
     ]);
+  });
+
+  it.each([
+    ActionType.DRAFT_EMAIL,
+    ActionType.DRAFT_MESSAGING_CHANNEL,
+  ])("skips %s before generating action args when requested", async (draftType) => {
+    const bulkRule = createRule("bulk-rule", SystemType.TO_REPLY, [
+      getAction({
+        id: "label-action-1",
+        type: ActionType.LABEL,
+        label: "To Reply",
+      }),
+      getAction({
+        id: "draft-action-1",
+        type: draftType,
+      }),
+    ]);
+
+    mockMatchingRules([{ rule: bulkRule, matchReasons: [] }]);
+    prisma.executedRule.findFirst.mockResolvedValue(null);
+    vi.mocked(getActionItemsWithAiArgs).mockImplementation(
+      async ({ selectedRule }) => {
+        expect(
+          selectedRule.actions.some((action) =>
+            isDraftReplyActionType(action.type),
+          ),
+        ).toBe(false);
+
+        return selectedRule.actions.map((action) => ({
+          ...action,
+          type: action.type as ActionType,
+        }));
+      },
+    );
+
+    const createSpy = mockExecutedRuleCreate({ rule: bulkRule });
+
+    await runRulesWithDefaults({
+      rules: [bulkRule],
+      skipDraftReplies: true,
+    });
+
+    const createdActions = getCreatedActionItems(createSpy);
+    expect(createdActions).toEqual([
+      expect.objectContaining({
+        type: ActionType.LABEL,
+        label: "To Reply",
+      }),
+    ]);
+  });
+
+  it("records draft-only historical matches as skipped after draft replies are removed", async () => {
+    const draftOnlyRule = createRule("draft-only-rule", SystemType.TO_REPLY, [
+      getAction({
+        id: "draft-action-1",
+        type: ActionType.DRAFT_EMAIL,
+      }),
+    ]);
+
+    mockMatchingRules([{ rule: draftOnlyRule, matchReasons: [] }]);
+    prisma.executedRule.findFirst.mockResolvedValue(null);
+    prisma.executedRule.create.mockResolvedValue({} as any);
+
+    const result = await runRulesWithDefaults({
+      rules: [draftOnlyRule],
+      skipDraftReplies: true,
+    });
+
+    expect(getActionItemsWithAiArgs).not.toHaveBeenCalled();
+    expect(result).toEqual([
+      expect.objectContaining({
+        rule: expect.objectContaining({ id: "draft-only-rule" }),
+        status: ExecutedRuleStatus.SKIPPED,
+      }),
+    ]);
+    expect(prisma.executedRule.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        status: ExecutedRuleStatus.SKIPPED,
+      }),
+    });
+  });
+
+  it("records a skipped draft-only rule alongside another applied rule", async () => {
+    const draftRule = createRule("draft-only-rule", null, [
+      getAction({ id: "draft-action", type: ActionType.DRAFT_EMAIL }),
+    ]);
+    const labelRule = createRule("label-rule", null, [
+      getAction({
+        id: "label-action",
+        type: ActionType.LABEL,
+        label: "Review",
+      }),
+    ]);
+    mockMatchingRules([
+      { rule: draftRule, matchReasons: [] },
+      { rule: labelRule, matchReasons: [] },
+    ]);
+    prisma.executedRule.findFirst.mockResolvedValue(null);
+    vi.mocked(getActionItemsWithAiArgs).mockResolvedValue(labelRule.actions);
+    const createSpy = mockExecutedRuleCreate({ rule: labelRule });
+    vi.mocked(executeAct).mockResolvedValueOnce(ExecutedRuleStatus.APPLIED);
+
+    const results = await runRulesWithDefaults({
+      rules: [draftRule, labelRule],
+      skipDraftReplies: true,
+    });
+
+    expect(results).toEqual([
+      expect.objectContaining({
+        rule: expect.objectContaining({ id: draftRule.id }),
+        status: ExecutedRuleStatus.SKIPPED,
+      }),
+      expect.objectContaining({
+        rule: expect.objectContaining({ id: labelRule.id }),
+        status: ExecutedRuleStatus.APPLIED,
+      }),
+    ]);
+    expect(getActionItemsWithAiArgs).toHaveBeenCalledTimes(1);
+    expect(getActionItemsWithAiArgs).toHaveBeenCalledWith(
+      expect.objectContaining({ selectedRule: labelRule }),
+    );
+    expect(createSpy).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        rule: { connect: { id: draftRule.id } },
+        status: ExecutedRuleStatus.SKIPPED,
+      }),
+    });
   });
 
   it("persists a null draft pipeline version when draft attribution is missing", async () => {
@@ -1456,8 +1591,10 @@ describe("runRules cold email pattern learning", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(shouldLearnAiSenderPatterns).mockReturnValue(true);
     prisma.executedRule.findFirst.mockResolvedValue(null);
     vi.mocked(getActionItemsWithAiArgs).mockResolvedValue([]);
+    vi.mocked(hasIncludePatternOnAnotherRule).mockResolvedValue(false);
     mockExecutedRuleCreate({ rule: coldEmailRule });
   });
 
@@ -1471,6 +1608,50 @@ describe("runRules cold email pattern learning", () => {
     expect(saveLearnedPattern).toHaveBeenCalledWith(
       expect.objectContaining({ source: GroupItemSource.AI }),
     );
+  });
+
+  it("does not learn the sender when AI sender pattern learning is disabled", async () => {
+    vi.mocked(shouldLearnAiSenderPatterns).mockReturnValue(false);
+    mockMatchingRules([
+      { rule: coldEmailRule, matchReasons: [{ type: ConditionType.AI }] },
+    ]);
+
+    await runRulesWithDefaults({ rules: [coldEmailRule] });
+
+    expect(saveLearnedPattern).not.toHaveBeenCalled();
+  });
+
+  it("does not learn a sender another enabled rule already includes", async () => {
+    vi.mocked(hasIncludePatternOnAnotherRule).mockResolvedValue(true);
+    mockMatchingRules([
+      { rule: coldEmailRule, matchReasons: [{ type: ConditionType.AI }] },
+    ]);
+
+    await runRulesWithDefaults({ rules: [coldEmailRule] });
+
+    expect(saveLearnedPattern).not.toHaveBeenCalled();
+  });
+
+  it("still runs the rule's actions when the ownership lookup fails", async () => {
+    vi.mocked(hasIncludePatternOnAnotherRule).mockRejectedValue(
+      new Error("database unavailable"),
+    );
+    vi.mocked(getActionItemsWithAiArgs).mockResolvedValue(
+      coldEmailRule.actions,
+    );
+    mockExecutedRuleCreate({
+      rule: coldEmailRule,
+      actionItems: coldEmailRule.actions,
+    });
+    vi.mocked(executeAct).mockResolvedValue(ExecutedRuleStatus.APPLIED);
+    mockMatchingRules([
+      { rule: coldEmailRule, matchReasons: [{ type: ConditionType.AI }] },
+    ]);
+
+    await runRulesWithDefaults({ rules: [coldEmailRule] });
+
+    expect(executeAct).toHaveBeenCalled();
+    expect(saveLearnedPattern).not.toHaveBeenCalled();
   });
 
   it("does not re-save a pattern that was itself the match", async () => {

@@ -92,14 +92,22 @@ async function handleBatchInternal(request: RequestWithLogger) {
   });
 
   // 3. save categorized senders to db
+  // One unsaveable sender (e.g. an unparseable email address) must not abort
+  // the rest of the batch — progress would stall and every retry would fail
+  // the same way.
   for (const result of results) {
-    await updateSenderCategory({
-      sender: result.sender,
-      senderName: senderNameMap.get(result.sender),
-      categories,
-      categoryName: result.category ?? UNKNOWN_CATEGORY,
-      emailAccountId,
-    });
+    try {
+      await updateSenderCategory({
+        sender: result.sender,
+        senderName: senderNameMap.get(result.sender),
+        categories,
+        categoryName: result.category ?? UNKNOWN_CATEGORY,
+        emailAccountId,
+      });
+    } catch (error) {
+      request.logger.error("Failed to save sender category", { error });
+      request.logger.trace("Failed sender", { sender: result.sender });
+    }
   }
 
   // // 4. categorize senders that were not categorized

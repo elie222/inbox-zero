@@ -65,8 +65,9 @@ export type DifficultyLevel = z.infer<typeof difficultyLevelSchema>;
 
 /**
  * docs/case-design.md: a thousand unreviewed synthetic cases move the measured
- * number without moving the product. Generated cases only count once a human
- * has signed off; handwritten cases count immediately.
+ * number without moving the product. Machine-derived cases only count once an
+ * independent artifact reviewer has signed off; handwritten cases count
+ * immediately.
  */
 export function isCountableCase(evalCase: EvalCaseEnvelope): boolean {
   if (!evalCase.enabled) return false;

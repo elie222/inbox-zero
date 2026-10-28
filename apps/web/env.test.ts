@@ -35,6 +35,48 @@ describe("env LLM compatibility conversion", () => {
     Object.assign(process.env, originalEnv);
   });
 
+  it.each([
+    "",
+    "   ",
+  ])("uses the documented default for blank Microsoft tenant %j", async (tenant) => {
+    process.env.DEFAULT_LLMS = "openai:gpt-5.4-mini";
+    process.env.MICROSOFT_TENANT_ID = tenant;
+    const { env } = await import("./env");
+    expect(env.MICROSOFT_TENANT_ID).toBe("common");
+  });
+
+  it("accepts a configured unsubscribe credit limit from the environment", async () => {
+    process.env.DEFAULT_LLMS = "openai:gpt-5.4-mini";
+    process.env.NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS = "10";
+    const { env } = await import("./env");
+    expect(env.NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS).toBe(10);
+  });
+
+  it.each([
+    undefined,
+    "",
+    "   ",
+  ])("defaults a blank or unset credit limit %j", async (value) => {
+    process.env.DEFAULT_LLMS = "openai:gpt-5.4-mini";
+    if (value === undefined)
+      delete process.env.NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS;
+    else process.env.NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS = value;
+    const { env } = await import("./env");
+    expect(env.NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS).toBe(5);
+  });
+
+  it.each([
+    "-1",
+    "5.5",
+    "abc",
+  ])("rejects an invalid credit limit %j", async (value) => {
+    process.env.DEFAULT_LLMS = "openai:gpt-5.4-mini";
+    process.env.NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS = value;
+    await expect(import("./env")).rejects.toThrow(
+      "Invalid environment variables",
+    );
+  });
+
   it("converts legacy default model and fallbacks into DEFAULT_LLMS", async () => {
     process.env.DEFAULT_LLM_PROVIDER = "openai";
     process.env.DEFAULT_LLM_MODEL = "gpt-5.4-mini";
@@ -71,5 +113,105 @@ describe("env LLM compatibility conversion", () => {
     const { env } = await import("./env");
 
     expect(env.DEFAULT_LLMS).toBe("anthropic:claude-sonnet-4-6");
+  });
+
+  it("rejects an HTTP unsubscribe worker URL", async () => {
+    process.env.DEFAULT_LLMS = "openai:gpt-5.4-mini";
+    process.env.UNSUBSCRIBE_WORKER_URL = "http://worker.example.com";
+    process.env.UNSUBSCRIBE_WORKER_SECRET =
+      "test-secret-with-at-least-32-characters";
+    await expect(import("./env")).rejects.toThrow(
+      "Invalid environment variables",
+    );
+  });
+
+  it("requires a worker secret when the worker URL is set", async () => {
+    process.env.DEFAULT_LLMS = "openai:gpt-5.4-mini";
+    process.env.UNSUBSCRIBE_WORKER_URL = "https://worker.example.com";
+    delete process.env.UNSUBSCRIBE_WORKER_SECRET;
+    await expect(import("./env")).rejects.toThrow(
+      "UNSUBSCRIBE_WORKER_SECRET is required when UNSUBSCRIBE_WORKER_URL is set.",
+    );
+  });
+
+  it.each([
+    undefined,
+    "",
+    "   ",
+  ])("defaults sender pattern learning on when unset %j", async (value) => {
+    process.env.DEFAULT_LLMS = "openai:gpt-5.4-mini";
+    if (value === undefined)
+      delete process.env.AI_SENDER_PATTERN_LEARNING_ENABLED;
+    else process.env.AI_SENDER_PATTERN_LEARNING_ENABLED = value;
+    const { env } = await import("./env");
+    expect(env.AI_SENDER_PATTERN_LEARNING_ENABLED).toBe(true);
+  });
+
+  it("disables sender pattern learning when set to false", async () => {
+    process.env.DEFAULT_LLMS = "openai:gpt-5.4-mini";
+    process.env.AI_SENDER_PATTERN_LEARNING_ENABLED = "false";
+    const { env } = await import("./env");
+    expect(env.AI_SENDER_PATTERN_LEARNING_ENABLED).toBe(false);
+  });
+});
+
+const redisHttpEnvKeys = [
+  "REDIS_HTTP_URL",
+  "REDIS_HTTP_TOKEN",
+  "UPSTASH_REDIS_URL",
+  "UPSTASH_REDIS_TOKEN",
+  "KV_REST_API_URL",
+  "KV_REST_API_TOKEN",
+] as const;
+
+describe("HTTP Redis environment names", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    for (const key of redisHttpEnvKeys) delete process.env[key];
+    process.env.DEFAULT_LLMS = "openai:gpt-5.4-mini";
+  });
+
+  afterEach(() => {
+    vi.resetModules();
+    for (const key of Object.keys(process.env)) delete process.env[key];
+    Object.assign(process.env, originalEnv);
+  });
+
+  it("uses REDIS_HTTP_URL and REDIS_HTTP_TOKEN when they are set", async () => {
+    process.env.REDIS_HTTP_URL = "https://redis.example.com";
+    process.env.REDIS_HTTP_TOKEN = "new-token";
+    process.env.UPSTASH_REDIS_URL = "https://legacy.example.com";
+    process.env.UPSTASH_REDIS_TOKEN = "legacy-token";
+    process.env.KV_REST_API_URL = "https://kv.example.com";
+    process.env.KV_REST_API_TOKEN = "kv-token";
+
+    const { env } = await import("./env");
+
+    expect(env.REDIS_HTTP_URL).toBe("https://redis.example.com");
+    expect(env.REDIS_HTTP_TOKEN).toBe("new-token");
+  });
+
+  it("falls back to legacy Upstash names ahead of Vercel KV", async () => {
+    process.env.UPSTASH_REDIS_URL = "https://legacy.example.com";
+    process.env.UPSTASH_REDIS_TOKEN = "legacy-token";
+    process.env.KV_REST_API_URL = "https://kv.example.com";
+    process.env.KV_REST_API_TOKEN = "kv-token";
+
+    const { env } = await import("./env");
+
+    expect(env.REDIS_HTTP_URL).toBe("https://legacy.example.com");
+    expect(env.REDIS_HTTP_TOKEN).toBe("legacy-token");
+  });
+
+  it("uses Vercel KV names when the HTTP and legacy names are blank", async () => {
+    process.env.REDIS_HTTP_URL = "  ";
+    process.env.UPSTASH_REDIS_TOKEN = "";
+    process.env.KV_REST_API_URL = "https://kv.example.com";
+    process.env.KV_REST_API_TOKEN = "kv-token";
+
+    const { env } = await import("./env");
+
+    expect(env.REDIS_HTTP_URL).toBe("https://kv.example.com");
+    expect(env.REDIS_HTTP_TOKEN).toBe("kv-token");
   });
 });

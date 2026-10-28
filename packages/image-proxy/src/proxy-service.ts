@@ -1,5 +1,5 @@
 import { isProxyableRemoteUrl, validateAssetProxySignature } from "./proxy-url";
-import { isBlockedHostname } from "./upstream-host-policy";
+import { isBlockedHostname } from "@inboxzero/network/host-policy";
 
 const CACHEABLE_CONTENT_TYPES = [
   "application/font-sfnt",
@@ -75,8 +75,18 @@ export async function handleImageProxyRequest(
   }
 
   const upstreamUrl = new URL(assetUrl);
+  const logger = options?.logger;
+  const reject = (status: number, reason: string, detail?: string) =>
+    rejectImageProxyRequest({
+      logger,
+      status,
+      reason,
+      detail,
+      upstreamHost: upstreamUrl.hostname,
+    });
+
   if (isBlockedHostname(upstreamUrl.hostname)) {
-    return new Response("Blocked upstream host", { status: 403 });
+    return reject(403, "Blocked upstream host");
   }
 
   const nowSeconds = Math.floor(Date.now() / 1000);
@@ -91,7 +101,7 @@ export async function handleImageProxyRequest(
 
     const expiresAt = Number.parseInt(expiresAtParam, 10);
     if (!Number.isFinite(expiresAt) || expiresAt <= nowSeconds) {
-      return new Response("Expired proxy URL", { status: 410 });
+      return reject(410, "Expired proxy URL");
     }
 
     const isValidSignature = await validateAssetProxySignatureAgainstSecrets({
@@ -103,7 +113,7 @@ export async function handleImageProxyRequest(
     });
 
     if (!isValidSignature) {
-      return new Response("Invalid proxy signature", { status: 403 });
+      return reject(403, "Invalid proxy signature");
     }
 
     ttlSeconds = Math.max(0, expiresAt - nowSeconds);
@@ -126,7 +136,7 @@ export async function handleImageProxyRequest(
         return new Response("Unsupported content type", { status: 415 });
       }
 
-      return cachedResponse;
+      return embeddableImageResponse(cachedResponse);
     }
   }
 
@@ -136,19 +146,24 @@ export async function handleImageProxyRequest(
     request.method,
     MAX_REDIRECTS,
     fetchImpl,
-    options?.logger,
+    logger,
   );
 
   if (!upstreamResponse.ok) {
-    return new Response("Upstream fetch failed", {
-      status: upstreamResponse.status,
-    });
+    upstreamResponse.body?.cancel();
+    // Safe fetches label their own rejections in statusText, which separates
+    // a blocked or unresolvable host from the upstream server refusing us.
+    return reject(
+      upstreamResponse.status,
+      "Upstream fetch failed",
+      upstreamResponse.statusText,
+    );
   }
 
   const contentType = upstreamResponse.headers.get("content-type") || "";
   if (isSvgContentType(contentType) || !isCacheableContentType(contentType)) {
     upstreamResponse.body?.cancel();
-    return new Response("Unsupported content type", { status: 415 });
+    return reject(415, "Unsupported content type", contentType);
   }
 
   const responseHeaders = copyResponseHeaders(upstreamResponse.headers);
@@ -157,14 +172,15 @@ export async function handleImageProxyRequest(
     `public, max-age=${Math.min(ttlSeconds, 3600)}, s-maxage=${ttlSeconds}`,
   );
   responseHeaders.set("Content-Type", contentType);
-  responseHeaders.set("Cross-Origin-Resource-Policy", "same-site");
   responseHeaders.set("Referrer-Policy", "no-referrer");
   responseHeaders.set("X-Content-Type-Options", "nosniff");
 
-  const proxiedResponse = new Response(upstreamResponse.body, {
-    status: upstreamResponse.status,
-    headers: responseHeaders,
-  });
+  const proxiedResponse = embeddableImageResponse(
+    new Response(upstreamResponse.body, {
+      status: upstreamResponse.status,
+      headers: responseHeaders,
+    }),
+  );
 
   if (cache && ttlSeconds > 0 && request.method === "GET") {
     const putPromise = Promise.resolve(
@@ -303,6 +319,40 @@ async function validateAssetProxySignatureAgainstSecrets({
   }
 
   return false;
+}
+
+function rejectImageProxyRequest({
+  logger,
+  status,
+  reason,
+  detail,
+  upstreamHost,
+}: {
+  logger?: ImageProxyLogger;
+  status: number;
+  reason: string;
+  detail?: string;
+  upstreamHost: string;
+}) {
+  logger?.warn("Image proxy request rejected", {
+    reason,
+    status,
+    upstreamHost,
+    ...(detail ? { detail } : {}),
+  });
+  return new Response(reason, { status });
+}
+
+function embeddableImageResponse(response: Response) {
+  const headers = new Headers(response.headers);
+  // Opaque-origin readers (WKWebView loadHTMLString) are not same-site with
+  // the proxy. Cached entries from before this policy still say same-site.
+  headers.set("Cross-Origin-Resource-Policy", "cross-origin");
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
 }
 
 function copyResponseHeaders(source: Headers) {

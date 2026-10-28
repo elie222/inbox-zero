@@ -1,4 +1,5 @@
 import { after, NextResponse } from "next/server";
+import { z } from "zod";
 import { withError } from "@/utils/middleware";
 import { env } from "@/env";
 import { processHistoryForUser } from "@/utils/webhook/google/process-history";
@@ -11,6 +12,9 @@ import {
 } from "@/utils/webhook/validate-webhook-account";
 import { getEmailProviderRateLimitState } from "@/utils/email/rate-limit";
 import { isGoogleProvider } from "@/utils/email/provider-types";
+import { markGmailHistoryCatchUp } from "@/utils/redis/gmail-history-catch-up";
+
+import { notifyMailboxChanged } from "@/utils/mailbox-push";
 
 export const maxDuration = 300;
 
@@ -44,9 +48,22 @@ export const POST = withError("google/webhook", async (request) => {
   const body = await request.json();
   const decodedData = decodeHistoryId(body);
 
+  // A malformed payload can never be processed; report it as a client error
+  // rather than letting a TypeError surface as a 500.
+  if (!decodedData) {
+    logger.warn("Invalid Gmail Pub/Sub notification payload");
+    return NextResponse.json(
+      { message: "Invalid Pub/Sub message payload" },
+      { status: 400 },
+    );
+  }
+
   logger = logger.with({
     email: decodedData.emailAddress,
     historyId: decodedData.historyId,
+    queueMessageId: body.message?.messageId,
+    subscriptionId: body.subscription,
+    sentAt: body.message?.publishTime,
   });
 
   logger.info("Received webhook - acknowledging immediately");
@@ -56,7 +73,21 @@ export const POST = withError("google/webhook", async (request) => {
     logger,
   );
 
+  logger = logger.with({ emailAccountId: emailAccount?.id });
+  logger.info("Gmail webhook account lookup completed", {
+    emailAccountFound: !!emailAccount,
+    lastSyncedHistoryId: emailAccount?.lastSyncedHistoryId,
+  });
+
   if (emailAccount) {
+    // Notify before history processing so early returns still reach clients,
+    // and so this response is not waiting on Apple.
+    after(() =>
+      notifyMailboxChanged({
+        emailAccountId: emailAccount.id,
+        logger,
+      }),
+    );
     const activeRateLimit = await getEmailProviderRateLimitState({
       emailAccountId: emailAccount.id,
       logger,
@@ -74,13 +105,12 @@ export const POST = withError("google/webhook", async (request) => {
             "Failed to cleanup webhook account during rate-limit skip",
             {
               error: error instanceof Error ? error.message : error,
-              emailAccountId: emailAccount.id,
             },
           );
         },
       );
+      await markGmailHistoryCatchUp(emailAccount.id, logger);
       logger.warn("Skipping webhook enqueue due to active Gmail rate limit", {
-        emailAccountId: emailAccount.id,
         retryAt: activeRateLimit.retryAt.toISOString(),
         rateLimitSource: activeRateLimit.source,
       });
@@ -102,7 +132,7 @@ export const POST = withError("google/webhook", async (request) => {
 });
 
 async function processWebhookAsync(
-  decodedData: { emailAddress: string; historyId: number },
+  decodedData: { emailAddress: string; historyId: string },
   logger: Logger,
   emailAccount?: Awaited<ReturnType<typeof getWebhookEmailAccount>> | null,
 ) {
@@ -122,21 +152,29 @@ async function processWebhookAsync(
   }
 }
 
+const gmailNotificationSchema = z.object({
+  emailAddress: z.string().min(1),
+  historyId: z
+    .union([z.number(), z.string()])
+    .transform((historyId) =>
+      typeof historyId === "number" ? historyId.toString() : historyId.trim(),
+    )
+    .pipe(z.string().regex(/^\d+$/)),
+});
+
 function decodeHistoryId(body: { message?: { data?: string } }) {
   const data = body?.message?.data;
-
-  if (!data) throw new Error("No data found");
+  if (!data) return null;
 
   // data is base64url-encoded JSON
   const base64 = data.replace(/-/g, "+").replace(/_/g, "/");
-  const decodedData: { emailAddress: string; historyId: number | string } =
-    JSON.parse(Buffer.from(base64, "base64").toString());
+  let decoded: unknown;
+  try {
+    decoded = JSON.parse(Buffer.from(base64, "base64").toString());
+  } catch {
+    return null;
+  }
 
-  // seem to get this in different formats? so unifying as number
-  const historyId =
-    typeof decodedData.historyId === "string"
-      ? Number.parseInt(decodedData.historyId)
-      : decodedData.historyId;
-
-  return { emailAddress: decodedData.emailAddress, historyId };
+  const result = gmailNotificationSchema.safeParse(decoded);
+  return result.success ? result.data : null;
 }

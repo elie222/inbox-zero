@@ -1,16 +1,17 @@
-import type { LanguageModelV3 } from "@ai-sdk/provider";
-import type { GoogleGenerativeAIProviderOptions } from "@ai-sdk/google";
+import type { LanguageModelV4 } from "@ai-sdk/provider";
+import type { GoogleLanguageModelOptions } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAzure } from "@ai-sdk/azure";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { createGoogle } from "@ai-sdk/google";
 import { createVertex } from "@ai-sdk/google-vertex";
 import { createGroq } from "@ai-sdk/groq";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { createGateway } from "@ai-sdk/gateway";
 import { createOllama } from "ollama-ai-provider-v2";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+import { createCerebras } from "@ai-sdk/cerebras";
 import { env } from "@/env";
 import { Provider } from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
@@ -34,7 +35,7 @@ export type ModelType = "default" | "economy" | "chat" | "nano" | "draft";
 export type ResolvedModel = {
   provider: string;
   modelName: string;
-  model: LanguageModelV3;
+  model: LanguageModelV4;
   // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   providerOptions?: Record<string, any>;
 };
@@ -45,7 +46,7 @@ export type SelectModel = ResolvedModel & {
 };
 
 type AiGatewayProviderOptions = {
-  google?: GoogleGenerativeAIProviderOptions;
+  google?: GoogleLanguageModelOptions;
   openai?: {
     reasoningEffort: "low" | "medium";
     reasoningSummary: "concise";
@@ -102,15 +103,16 @@ function selectModel(
 ): ResolvedModel {
   switch (aiProvider) {
     case Provider.OPEN_AI: {
-      const modelName = aiModel || "gpt-5.4-mini";
-      // When Zero Data Retention is enabled, set store: false to avoid
-      // "Items are not persisted for Zero Data Retention organizations" errors
+      const modelName = aiModel || "gpt-6-luna";
+      // Zero Data Retention orgs reject follow-up steps that reference stored
+      // reasoning items. We can't tell whether a user's own key belongs to such
+      // an org, so user keys always skip storage.
       // See: https://github.com/vercel/ai/issues/10060
       const baseOptions = providerOptions ?? {};
       const openAiOptions = {
         ...(baseOptions.openai ?? {}),
         reasoningEffort: REASONING_EFFORT_BY_MODEL_TYPE[modelType],
-        ...(env.OPENAI_ZERO_DATA_RETENTION ? { store: false } : {}),
+        ...(aiApiKey || env.OPENAI_ZERO_DATA_RETENTION ? { store: false } : {}),
       };
       const openAiProviderOptions = Object.keys(openAiOptions).length
         ? { ...baseOptions, openai: openAiOptions }
@@ -125,8 +127,7 @@ function selectModel(
       };
     }
     case Provider.AZURE: {
-      const modelName = aiModel || "gpt-5.4-mini";
-      const baseOptions = providerOptions ?? {};
+      const modelName = aiModel || "gpt-6-luna";
       const resourceName = env.AZURE_RESOURCE_NAME;
       if (!resourceName) {
         throw new SafeError(
@@ -142,13 +143,7 @@ function selectModel(
           resourceName,
           apiVersion: env.AZURE_API_VERSION,
         })(modelName),
-        providerOptions: {
-          ...baseOptions,
-          openai: {
-            ...(baseOptions.openai ?? {}),
-            reasoningEffort: REASONING_EFFORT_BY_MODEL_TYPE[modelType],
-          },
-        },
+        providerOptions: getAzureProviderOptions(providerOptions, modelType),
       };
     }
     case Provider.AZURE_FOUNDRY: {
@@ -174,25 +169,20 @@ function selectModel(
         );
       }
 
-      const azureFoundry = createOpenAICompatible({
-        name: "azure-foundry",
-        baseURL,
-        supportsStructuredOutputs: true,
-        headers: { "api-key": apiKey },
-      });
       return {
         provider: Provider.AZURE_FOUNDRY,
         modelName,
-        model: azureFoundry(modelName),
+        model: createAzure({ apiKey, baseURL })(modelName),
+        providerOptions: getAzureProviderOptions(providerOptions, modelType),
       };
     }
     case Provider.GOOGLE: {
-      const mod = aiModel || "gemini-2.0-flash";
+      const mod = aiModel || "gemini-3.8-flash";
       const googleProviderOptions = getGoogleProviderOptions(mod, modelType);
       return {
         provider: Provider.GOOGLE,
         modelName: mod,
-        model: createGoogleGenerativeAI({
+        model: createGoogle({
           apiKey: resolveApiKey(aiApiKey, env.GOOGLE_API_KEY),
         })(mod),
         providerOptions: googleProviderOptions
@@ -201,7 +191,7 @@ function selectModel(
       };
     }
     case Provider.VERTEX: {
-      const modelName = aiModel || "gemini-3-flash";
+      const modelName = aiModel || "gemini-3.8-flash";
       const googleProviderOptions = getGoogleProviderOptions(
         modelName,
         modelType,
@@ -225,8 +215,24 @@ function selectModel(
         })(modelName),
       };
     }
+    case Provider.CEREBRAS: {
+      const modelName = aiModel || "qwen-3.8-27b";
+      return {
+        provider: Provider.CEREBRAS,
+        modelName,
+        model: createCerebras({
+          apiKey: resolveApiKey(aiApiKey, env.CEREBRAS_API_KEY),
+        })(modelName),
+        // qwen-3.8-27b defaults to high reasoning; map role effort like OpenAI.
+        providerOptions: {
+          cerebras: {
+            reasoningEffort: REASONING_EFFORT_BY_MODEL_TYPE[modelType],
+          },
+        },
+      };
+    }
     case Provider.OPENROUTER: {
-      const modelName = aiModel || "anthropic/claude-sonnet-4.6";
+      const modelName = aiModel || "anthropic/claude-sonnet-5";
 
       const openrouter = createOpenRouter({
         apiKey: resolveApiKey(aiApiKey, env.OPENROUTER_API_KEY),
@@ -249,7 +255,7 @@ function selectModel(
       };
     }
     case Provider.AI_GATEWAY: {
-      const modelName = aiModel || "anthropic/claude-sonnet-4.6";
+      const modelName = aiModel || "anthropic/claude-sonnet-5";
       const aiGatewayApiKey = resolveApiKey(aiApiKey, env.AI_GATEWAY_API_KEY);
       const gateway = createGateway({
         apiKey: aiGatewayApiKey,
@@ -316,7 +322,7 @@ function selectModel(
     }
 
     case Provider.BEDROCK: {
-      const modelName = aiModel || "global.anthropic.claude-sonnet-4-6";
+      const modelName = aiModel || "global.anthropic.claude-sonnet-5";
       return {
         provider: Provider.BEDROCK,
         modelName,
@@ -333,7 +339,7 @@ function selectModel(
       };
     }
     case Provider.ANTHROPIC: {
-      const modelName = aiModel || "claude-sonnet-4-6";
+      const modelName = aiModel || "claude-sonnet-5";
       return {
         provider: Provider.ANTHROPIC,
         modelName,
@@ -555,6 +561,7 @@ function getProviderApiKey(provider: string) {
       ? "vertex-credentials"
       : undefined,
     [Provider.GROQ]: resolveApiKey(null, env.GROQ_API_KEY),
+    [Provider.CEREBRAS]: resolveApiKey(null, env.CEREBRAS_API_KEY),
     [Provider.OPENROUTER]: resolveApiKey(null, env.OPENROUTER_API_KEY),
     [Provider.AI_GATEWAY]: resolveApiKey(null, env.AI_GATEWAY_API_KEY),
     [Provider.OLLAMA]: "ollama-local",
@@ -689,7 +696,7 @@ function getOpenRouterProviderOptions(
 function getGoogleProviderOptions(
   modelName: string,
   modelType: ModelType,
-): GoogleGenerativeAIProviderOptions | undefined {
+): GoogleLanguageModelOptions | undefined {
   const thinkingConfig = getGoogleThinkingConfig(modelName, modelType);
   if (!thinkingConfig) return;
 
@@ -699,7 +706,7 @@ function getGoogleProviderOptions(
 function getGoogleThinkingConfig(
   modelName: string,
   modelType: ModelType,
-): GoogleGenerativeAIProviderOptions["thinkingConfig"] | undefined {
+): GoogleLanguageModelOptions["thinkingConfig"] | undefined {
   if (isGemini3Model(modelName)) {
     return { thinkingLevel: REASONING_EFFORT_BY_MODEL_TYPE[modelType] };
   }
@@ -879,4 +886,19 @@ function isDuplicateResolvedModel(
 
 function isSupportedProvider(provider: string): boolean {
   return Object.values(Provider).includes(provider);
+}
+
+function getAzureProviderOptions(
+  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
+  providerOptions: Record<string, any> | undefined,
+  modelType: ModelType,
+) {
+  const baseOptions = providerOptions ?? {};
+  return {
+    ...baseOptions,
+    openai: {
+      ...(baseOptions.openai ?? {}),
+      reasoningEffort: REASONING_EFFORT_BY_MODEL_TYPE[modelType],
+    },
+  };
 }

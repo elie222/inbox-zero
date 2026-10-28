@@ -7,10 +7,8 @@ import {
   isFilebotNotificationMessage,
 } from "@/utils/filebot/is-filebot-email";
 import { processFilingReply } from "@/utils/drive/handle-filing-reply";
-import {
-  processAttachment,
-  getFilableAttachments,
-} from "@/utils/drive/filing-engine";
+import { getFilableAttachments } from "@/utils/drive/filing-engine";
+import { processAttachmentsForFiling } from "@/utils/drive/process-filing-attachments";
 import { handleOutboundMessage } from "@/utils/reply-tracker/handle-outbound";
 import { cleanupThreadAIDrafts } from "@/utils/reply-tracker/draft-tracking";
 import { clearFollowUpLabel } from "@/utils/follow-up/labels";
@@ -23,12 +21,22 @@ import type { ParsedMessage, RuleWithActions } from "@/utils/types";
 import type { EmailAccountForDrafting } from "@/utils/ai/choose-rule/choose-args";
 import type { Logger } from "@/utils/logger";
 import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";
-import { captureException, SafeError } from "@/utils/error";
+import {
+  captureException,
+  isHandledUserKeyError,
+  isKnownApiError,
+  SafeError,
+} from "@/utils/error";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
+import { sendToReplyPushNotification } from "@/utils/to-reply-push";
 import { sendOtpPushNotification } from "@/utils/otp-push";
+import { internalDateToDate } from "@/utils/date";
+
+const MAX_WEBHOOK_MESSAGE_AGE_MS = 24 * 60 * 60 * 1000;
 
 export type SharedProcessHistoryOptions = {
   provider: EmailProvider;
+  isNewMessage?: boolean;
   rules: RuleWithActions[];
   hasAutomationRules: boolean;
   hasAiAccess: boolean;
@@ -147,6 +155,15 @@ export async function processHistoryItem(
       return;
     }
 
+    // Preserve sent-message tracking and filebot replies when catching up old mail.
+    const receivedAt = internalDateToDate(parsedMessage.internalDate, {
+      fallbackToNow: false,
+    });
+    if (Date.now() - receivedAt.getTime() > MAX_WEBHOOK_MESSAGE_AGE_MS) {
+      logger.info("Skipping. Message too old.");
+      return;
+    }
+
     // check if unsubscribed
     const email = canonicalizeEmailAddress(parsedMessage.headers.from);
     const sender = await prisma.newsletter.findFirst({
@@ -159,7 +176,12 @@ export async function processHistoryItem(
 
     if (sender) {
       await provider.blockUnsubscribedEmail(messageId);
-      logger.info("Skipping. Blocked unsubscribed email.", { from: email });
+      logger.info("Skipping. Blocked unsubscribed email.", {
+        senderId: sender.id,
+        receivedAt: Number.isFinite(receivedAt.getTime())
+          ? receivedAt.toISOString()
+          : null,
+      });
       return;
     }
 
@@ -181,7 +203,7 @@ export async function processHistoryItem(
 
     // categorize a sender if we haven't already
     // this is used for category filters in ai rules
-    if (emailAccount.autoCategorizeSenders) {
+    if (emailAccount.autoCategorizeSenders && email) {
       const sender = email;
       const senderName = extractNameFromEmail(parsedMessage.headers.from);
       const displayName =
@@ -214,7 +236,7 @@ export async function processHistoryItem(
     if (!hasExistingRule && hasAutomationRules && hasAiAccess) {
       logger.info("Running rules...");
 
-      await runRules({
+      const results = await runRules({
         provider,
         message: parsedMessage,
         rules,
@@ -223,6 +245,19 @@ export async function processHistoryItem(
         modelType: "default",
         logger,
       });
+
+      if (
+        options.isNewMessage &&
+        email !== canonicalizeEmailAddress(userEmail)
+      ) {
+        await sendToReplyPushNotification({
+          emailAccountId,
+          userId: emailAccount.userId,
+          message: parsedMessage,
+          results,
+          logger,
+        });
+      }
     }
 
     // Process attachments for document filing (runs in parallel with rules if both enabled)
@@ -242,28 +277,20 @@ export async function processHistoryItem(
                 count: extractableAttachments.length,
               });
 
-              // Process each attachment (don't await all - let them run in background)
-              for (const attachment of extractableAttachments) {
-                await processAttachment({
-                  emailAccount: {
-                    ...emailAccount,
-                    filingEnabled: emailAccount.filingEnabled,
-                    filingPrompt: emailAccount.filingPrompt,
-                    filingConfirmationSendEmail:
-                      emailAccount.filingConfirmationSendEmail,
-                    email: emailAccount.email,
-                  },
-                  message: parsedMessage,
-                  attachment,
-                  emailProvider: provider,
-                  logger,
-                }).catch((error) => {
-                  logger.error("Failed to process attachment", {
-                    filename: attachment.filename,
-                    error,
-                  });
-                });
-              }
+              await processAttachmentsForFiling({
+                attachments: extractableAttachments,
+                emailAccount: {
+                  ...emailAccount,
+                  filingEnabled: emailAccount.filingEnabled,
+                  filingPrompt: emailAccount.filingPrompt,
+                  filingConfirmationSendEmail:
+                    emailAccount.filingConfirmationSendEmail,
+                  email: emailAccount.email,
+                },
+                message: parsedMessage,
+                emailProvider: provider,
+                logger,
+              });
             }
           },
           extra: { operation: "process-attachments" },
@@ -342,6 +369,10 @@ export async function processHistoryItem(
       logger,
       message: "Error processing message",
       error,
+      level:
+        isKnownApiError(error) || isHandledUserKeyError(error)
+          ? "warn"
+          : "error",
       dedupeKeyParts: {
         scope: "webhook/process-history-item",
         emailAccountId,

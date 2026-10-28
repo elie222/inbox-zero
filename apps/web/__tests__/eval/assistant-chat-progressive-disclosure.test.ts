@@ -213,6 +213,9 @@ describe.runIf(shouldRunEval)(
 
       prisma.emailAccount.findUnique.mockResolvedValue(baseAccountSnapshot);
       prisma.emailAccount.update.mockResolvedValue({});
+      prisma.calendarConnection.findMany.mockResolvedValue([
+        { provider: "google", refreshToken: "refresh-token" },
+      ] as Awaited<ReturnType<typeof prisma.calendarConnection.findMany>>);
       prisma.automationJob.findUnique.mockResolvedValue(
         baseAccountSnapshot.automationJob,
       );

@@ -1,4 +1,4 @@
-import type { LanguageModelV3 } from "@ai-sdk/provider";
+import type { LanguageModelV4 } from "@ai-sdk/provider";
 import { env } from "@/env";
 import { SafeError } from "@/utils/error";
 import { Provider } from "@/utils/llms/config";
@@ -10,7 +10,7 @@ type CliProviderModule = Record<string, unknown>;
 type CliModelFactory = (
   modelName: string,
   settings?: Record<string, unknown>,
-) => LanguageModelV3;
+) => LanguageModelV4;
 
 type McpBridgedTool = {
   description?: string;
@@ -43,10 +43,10 @@ export function createCliLanguageModel({
 }: {
   provider: CliProvider;
   modelName: string;
-}): LanguageModelV3 {
+}): LanguageModelV4 {
   assertCliLlmEnabled(provider);
 
-  let modelPromise: Promise<LanguageModelV3> | undefined;
+  let modelPromise: Promise<LanguageModelV4> | undefined;
 
   const getModel = () => {
     modelPromise ??= loadCliLanguageModel({ provider, modelName });
@@ -54,7 +54,7 @@ export function createCliLanguageModel({
   };
 
   return {
-    specificationVersion: "v3",
+    specificationVersion: "v4",
     provider,
     modelId: modelName,
     supportedUrls: {},
@@ -68,10 +68,10 @@ export function createCliLanguageModel({
       const doStream = getModelMethod(model, "doStream", provider);
       return doStream(...args);
     },
-  } as unknown as LanguageModelV3;
+  } as unknown as LanguageModelV4;
 }
 
-// AI SDK tools cannot be auto-bridged at the LanguageModelV3 layer: by the
+// AI SDK tools cannot be auto-bridged at the LanguageModelV4 layer: by the
 // time the wrapper sees them they have been reduced to JSON schemas with no
 // `execute`. Callers that pass tools must therefore use this helper, which
 // wires the original tool record through `createAiSdkMcpServer` so the
@@ -82,7 +82,7 @@ export async function createClaudeCodeLanguageModelWithBridgedTools({
 }: {
   modelName: string;
   tools: Record<string, McpBridgedTool>;
-}): Promise<LanguageModelV3> {
+}): Promise<LanguageModelV4> {
   assertCliLlmEnabled(Provider.CLAUDE_CODE);
 
   const module = await importOptionalProviderPackage(
@@ -130,7 +130,7 @@ function unprefixToolName(name: string): string {
 // renderers, validators) match on the original tool names, so the prefix is
 // stripped from every `toolName` field in both the non-streaming and
 // streaming response paths before it reaches the AI SDK consumer.
-function wrapWithUnprefixedToolNames(model: LanguageModelV3): LanguageModelV3 {
+function wrapWithUnprefixedToolNames(model: LanguageModelV4): LanguageModelV4 {
   const wrapped = {
     specificationVersion: model.specificationVersion,
     provider: model.provider,
@@ -167,7 +167,7 @@ function wrapWithUnprefixedToolNames(model: LanguageModelV3): LanguageModelV3 {
       return { ...result, stream };
     },
   };
-  return wrapped as unknown as LanguageModelV3;
+  return wrapped as unknown as LanguageModelV4;
 }
 
 function unprefixPart(part: unknown): unknown {
@@ -183,7 +183,7 @@ async function loadCliLanguageModel({
 }: {
   provider: CliProvider;
   modelName: string;
-}): Promise<LanguageModelV3> {
+}): Promise<LanguageModelV4> {
   switch (provider) {
     case Provider.CODEX_CLI:
       return createCodexCliLanguageModel(modelName);
@@ -259,7 +259,7 @@ function getFactory(
 }
 
 function getModelMethod(
-  model: LanguageModelV3,
+  model: LanguageModelV4,
   methodName: "doGenerate" | "doStream",
   provider: CliProvider,
 ) {

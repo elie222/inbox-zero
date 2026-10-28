@@ -4,7 +4,7 @@ import { CalendarConnections } from "./CalendarConnections";
 import { CalendarSettings } from "./CalendarSettings";
 import { BookingLinksSection } from "./BookingLinksSection";
 import { AvailabilitySection } from "./AvailabilitySection";
-import { TimezoneDetector } from "./TimezoneDetector";
+import { TimezoneDetector } from "@/components/TimezoneDetector";
 
 export default async function CalendarsPage() {
   return (

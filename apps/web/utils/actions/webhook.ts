@@ -3,7 +3,7 @@
 import { randomInt } from "node:crypto";
 import prisma from "@/utils/prisma";
 import { actionClientUser } from "@/utils/actions/safe-action";
-import { ensureWebhookActionEnabled } from "@/utils/webhook-action";
+import { ensureWebhookActionEnabled } from "@/utils/outbound-webhook/action";
 
 export const regenerateWebhookSecretAction = actionClientUser
   .metadata({ name: "regenerateWebhookSecret" })

@@ -34,13 +34,12 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 export function ApiKeysSection() {
   const { emailAccountId } = useAccount();
   const { data, isLoading, error, mutate } = useApiKeys();
-
   const keyCount = data?.apiKeys.length ?? 0;
 
   return (
     <Item size="sm">
       <ItemContent>
-        <ItemTitle>API Keys</ItemTitle>
+        <ItemTitle>API Access</ItemTitle>
       </ItemContent>
       <ItemActions>
         <Dialog>

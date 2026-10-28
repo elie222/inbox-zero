@@ -36,9 +36,49 @@ describe("cleanupInvalidTokens", () => {
     accountId: "acc_1",
     userId: "user_1",
     user: { email: "owner@example.com" },
-    account: { disconnectedAt: null },
+    account: {
+      disconnectedAt: null,
+      access_token: "access-token",
+      updatedAt: new Date("2026-09-05T12:00:00Z"),
+    },
     watchEmailsExpirationDate: new Date(Date.now() + 1000 * 60 * 60), // Valid expiration
   };
+
+  it("preserves reconnected credentials when an old request fails", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      ...mockEmailAccount,
+      account: {
+        disconnectedAt: null,
+        access_token: "new-access",
+        refresh_token: "new-refresh",
+        updatedAt: new Date("2026-09-05T12:00:00Z"),
+      },
+    } as any);
+    prisma.account.updateMany.mockResolvedValue({ count: 1 });
+
+    await cleanupInvalidTokens({
+      emailAccountId: "ea_1",
+      reason: "invalid_grant",
+      failedAccessToken: "old-access",
+      failedRefreshToken: "old-refresh",
+      logger,
+    });
+
+    expect(prisma.account.updateMany).not.toHaveBeenCalled();
+    expect(sendReconnectionEmail).not.toHaveBeenCalled();
+    expect(addUserErrorMessageWithNotification).not.toHaveBeenCalled();
+  });
+
+  it("preserves credentials when no failed credential snapshot is available", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue(mockEmailAccount as any);
+    prisma.account.updateMany.mockResolvedValue({ count: 1 });
+    await cleanupInvalidTokens({
+      emailAccountId: "ea_1",
+      reason: "invalid_grant",
+      logger,
+    });
+    expect(prisma.account.updateMany).not.toHaveBeenCalled();
+  });
 
   it("marks account as disconnected and sends email to the disconnected account on invalid_grant when account is watched", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue(mockEmailAccount as any);
@@ -46,13 +86,18 @@ describe("cleanupInvalidTokens", () => {
 
     await cleanupInvalidTokens({
       emailAccountId: "ea_1",
+      failedAccessToken: "access-token",
       reason: "invalid_grant",
       logger,
     });
 
     expect(prisma.account.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "acc_1", disconnectedAt: null },
+        where: {
+          id: "acc_1",
+          updatedAt: mockEmailAccount.account.updatedAt,
+          disconnectedAt: null,
+        },
         data: expect.objectContaining({
           disconnectedAt: expect.any(Date),
         }),
@@ -84,6 +129,7 @@ describe("cleanupInvalidTokens", () => {
 
     await cleanupInvalidTokens({
       emailAccountId: "ea_1",
+      failedAccessToken: "access-token",
       reason: "invalid_grant",
       logger,
     });
@@ -106,6 +152,7 @@ describe("cleanupInvalidTokens", () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       ...mockEmailAccount,
       account: {
+        updatedAt: mockEmailAccount.account.updatedAt,
         disconnectedAt: new Date(),
         access_token: "access-token",
         refresh_token: "refresh-token",
@@ -116,12 +163,17 @@ describe("cleanupInvalidTokens", () => {
 
     await cleanupInvalidTokens({
       emailAccountId: "ea_1",
+      failedAccessToken: "access-token",
       reason: "invalid_grant",
       logger,
     });
 
     expect(prisma.account.updateMany).toHaveBeenCalledWith({
-      where: { id: "acc_1", disconnectedAt: { not: null } },
+      where: {
+        id: "acc_1",
+        updatedAt: mockEmailAccount.account.updatedAt,
+        disconnectedAt: { not: null },
+      },
       data: {
         access_token: null,
         refresh_token: null,
@@ -137,6 +189,7 @@ describe("cleanupInvalidTokens", () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       ...mockEmailAccount,
       account: {
+        updatedAt: mockEmailAccount.account.updatedAt,
         disconnectedAt: new Date(),
         access_token: null,
         refresh_token: null,
@@ -146,6 +199,7 @@ describe("cleanupInvalidTokens", () => {
 
     await cleanupInvalidTokens({
       emailAccountId: "ea_1",
+      failedAccessToken: null,
       reason: "invalid_grant",
       logger,
     });
@@ -159,6 +213,7 @@ describe("cleanupInvalidTokens", () => {
 
     await cleanupInvalidTokens({
       emailAccountId: "ea_1",
+      failedAccessToken: "access-token",
       reason: "insufficient_permissions",
       logger,
     });
@@ -183,6 +238,7 @@ describe("cleanupInvalidTokens", () => {
 
     await cleanupInvalidTokens({
       emailAccountId: "ea_1",
+      failedAccessToken: "access-token",
       reason: "policy_enforced",
       logger,
     });

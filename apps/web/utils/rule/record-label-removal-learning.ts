@@ -7,7 +7,10 @@ import {
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { shouldLearnFromLabelRemoval } from "@/utils/rule/consts";
-import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
+import {
+  removeAiLearnedPattern,
+  saveLearnedPattern,
+} from "@/utils/rule/learned-patterns";
 
 // A user stripping a label from many emails at once is "stop labeling this",
 // not a per-sender correction. Learning an exclusion from each one leaves
@@ -36,6 +39,19 @@ export async function recordLabelRemovalLearning({
 }) {
   if (!sender) {
     logger.info("No sender found, skipping learning");
+    return;
+  }
+
+  if (ruleId && !systemType) {
+    // A custom rule's label can be removed as part of a normal workflow, so this
+    // isn't strong enough to exclude the sender. It does contradict an AI-inferred
+    // sender pattern, which would otherwise keep reapplying the label.
+    const removedCount = await removeAiLearnedPattern({
+      emailAccountId,
+      from: sender,
+      ruleId,
+    });
+    logger.info("Processed custom rule label removal", { removedCount });
     return;
   }
 
@@ -95,19 +111,29 @@ export async function recordLabelRemovalLearning({
 }
 
 export function getBulkRemovedLabelIds(
-  labelsRemoved: { labelIds?: string[] | null }[],
+  labelsRemoved: {
+    message?: { id?: string | null } | null;
+    labelIds?: string[] | null;
+  }[],
 ) {
-  const counts = new Map<string, number>();
+  const messageIdsByLabel = new Map<string, Set<string>>();
 
   for (const removal of labelsRemoved) {
+    const messageId = removal.message?.id;
+    if (!messageId) continue;
+
     for (const labelId of removal.labelIds || []) {
-      counts.set(labelId, (counts.get(labelId) ?? 0) + 1);
+      const messageIds = messageIdsByLabel.get(labelId) ?? new Set<string>();
+      messageIds.add(messageId);
+      messageIdsByLabel.set(labelId, messageIds);
     }
   }
 
   return new Set(
-    [...counts]
-      .filter(([, count]) => count >= BULK_LABEL_REMOVAL_THRESHOLD)
+    [...messageIdsByLabel]
+      .filter(
+        ([, messageIds]) => messageIds.size >= BULK_LABEL_REMOVAL_THRESHOLD,
+      )
       .map(([labelId]) => labelId),
   );
 }

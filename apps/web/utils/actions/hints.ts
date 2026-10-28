@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { dismissHintBody } from "@/utils/actions/hints.validation";
 import { actionClientUser } from "@/utils/actions/safe-action";
 import prisma from "@/utils/prisma";
@@ -18,8 +17,6 @@ export const dismissHintAction = actionClientUser
         dismissedHints: { push: hintId },
       },
     });
-
-    revalidatePath("/");
 
     return { success: true };
   });

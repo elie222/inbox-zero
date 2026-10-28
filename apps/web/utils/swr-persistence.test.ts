@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from "vitest";
+import type { MailSettingsResponse } from "@/app/api/mail/settings/route";
 import {
   accountIdFromSnapshotKey,
   clearPersistedSwrCache,
@@ -27,7 +28,7 @@ describe("swr-persistence", () => {
       ACCOUNT_A,
       cacheWith({
         "/api/labels": { labels: [{ id: "l1", name: "Newsletters" }] },
-        "/api/labels/counts": { counts: [{ id: "l1", unread: 3 }] },
+        "/api/mail/settings": { splits: [] },
       }),
     );
 
@@ -37,15 +38,51 @@ describe("swr-persistence", () => {
       isLoading: false,
       isValidating: false,
     });
-    expect(restored.get("/api/labels/counts")?.data).toEqual({
-      counts: [{ id: "l1", unread: 3 }],
-    });
+    expect(restored.get("/api/mail/settings")?.data).toEqual({ splits: [] });
   });
 
   it("does not leak entries across accounts", () => {
     persistSwrEntries(ACCOUNT_A, cacheWith({ "/api/labels": { labels: [] } }));
 
     expect(readPersistedSwrEntries(ACCOUNT_B).size).toBe(0);
+  });
+
+  it("ignores snapshots from the previous cache version", () => {
+    window.localStorage.setItem(
+      `inbox-zero:swr:v1:${ACCOUNT_A}`,
+      JSON.stringify({
+        "/api/mail/settings": {
+          splits: [{ id: "split-1", kind: "LABEL", value: "label-1" }],
+        },
+        "/api/labels": { labels: [] },
+      }),
+    );
+
+    expect(readPersistedSwrEntries(ACCOUNT_A).size).toBe(0);
+  });
+
+  it("preserves valid cached mail settings including split filters", () => {
+    const settings: MailSettingsResponse = {
+      layout: "SPLIT",
+      expandedPreview: true,
+      splits: [
+        {
+          id: "split-1",
+          name: "Saved",
+          order: 0,
+          matchAll: false,
+          filters: [
+            { kind: "LABEL", value: "label-1" },
+            { kind: "LABEL", value: "label-2" },
+          ],
+        },
+        { id: "split-2", name: "Inbox", order: 1, matchAll: true, filters: [] },
+      ],
+    };
+    persistSwrEntries(ACCOUNT_A, cacheWith({ "/api/mail/settings": settings }));
+    expect(
+      readPersistedSwrEntries(ACCOUNT_A).get("/api/mail/settings")?.data,
+    ).toEqual(settings);
   });
 
   it("ignores non-whitelisted cache keys", () => {
@@ -58,7 +95,7 @@ describe("swr-persistence", () => {
     );
 
     const stored = window.localStorage.getItem(
-      `inbox-zero:swr:v1:${ACCOUNT_A}`,
+      `inbox-zero:swr:v2:${ACCOUNT_A}`,
     );
     expect(stored).not.toContain("should not persist");
     expect(
@@ -71,11 +108,11 @@ describe("swr-persistence", () => {
       ACCOUNT_A,
       cacheWith({
         "/api/labels": { labels: ["old"] },
-        "/api/labels/counts": { counts: [7] },
+        "/api/mail/settings": { splits: [7] },
       }),
     );
 
-    // A page that only fetched labels persists; counts must survive.
+    // A page that only fetched labels persists; settings must survive.
     persistSwrEntries(
       ACCOUNT_A,
       cacheWith({ "/api/labels": { labels: ["new"] } }),
@@ -83,11 +120,11 @@ describe("swr-persistence", () => {
 
     const restored = readPersistedSwrEntries(ACCOUNT_A);
     expect(restored.get("/api/labels")?.data).toEqual({ labels: ["new"] });
-    expect(restored.get("/api/labels/counts")?.data).toEqual({ counts: [7] });
+    expect(restored.get("/api/mail/settings")?.data).toEqual({ splits: [7] });
   });
 
   it("returns nothing for a corrupt snapshot instead of throwing", () => {
-    window.localStorage.setItem(`inbox-zero:swr:v1:${ACCOUNT_A}`, "{not json");
+    window.localStorage.setItem(`inbox-zero:swr:v2:${ACCOUNT_A}`, "{not json");
 
     expect(readPersistedSwrEntries(ACCOUNT_A).size).toBe(0);
   });
@@ -111,12 +148,19 @@ describe("swr-persistence", () => {
   it("clears every account on logout but leaves unrelated storage", () => {
     persistSwrEntries(ACCOUNT_A, cacheWith({ "/api/labels": { labels: [] } }));
     persistSwrEntries(ACCOUNT_B, cacheWith({ "/api/labels": { labels: [] } }));
+    window.localStorage.setItem(
+      `inbox-zero:swr:v1:${ACCOUNT_A}`,
+      JSON.stringify({ "/api/labels": { labels: [] } }),
+    );
     window.localStorage.setItem("unrelated", "keep-me");
 
     clearPersistedSwrCache();
 
     expect(readPersistedSwrEntries(ACCOUNT_A).size).toBe(0);
     expect(readPersistedSwrEntries(ACCOUNT_B).size).toBe(0);
+    expect(
+      window.localStorage.getItem(`inbox-zero:swr:v1:${ACCOUNT_A}`),
+    ).toBeNull();
     expect(window.localStorage.getItem("unrelated")).toBe("keep-me");
   });
 
@@ -142,10 +186,10 @@ describe("swr-persistence", () => {
   });
 
   it("maps snapshot storage keys back to account ids", () => {
-    expect(accountIdFromSnapshotKey(`inbox-zero:swr:v1:${ACCOUNT_A}`)).toBe(
+    expect(accountIdFromSnapshotKey(`inbox-zero:swr:v2:${ACCOUNT_A}`)).toBe(
       ACCOUNT_A,
     );
-    expect(accountIdFromSnapshotKey("inbox-zero:swr:v1:")).toBeNull();
+    expect(accountIdFromSnapshotKey("inbox-zero:swr:v2:")).toBeNull();
     expect(accountIdFromSnapshotKey("unrelated-key")).toBeNull();
   });
 });

@@ -6,17 +6,49 @@ import {
 } from "./snooze-command-palette";
 
 describe("buildSnoozeCommandPalette", () => {
-  it("offers useful future presets with next week landing on Monday morning", () => {
-    const presets = getSnoozePresets(new Date(2026, 7, 15, 10));
+  it("offers a short list of days and shows when each one lands", () => {
+    const now = new Date(2026, 7, 18, 10);
+    const commands = buildSnoozeCommandPalette({
+      now,
+      onSnooze: vi.fn(),
+      query: "",
+    });
 
-    expect(presets.map(({ id }) => id)).toEqual([
-      "three-hours",
+    expect(
+      commands.map((command) => [command.label, command.description]),
+    ).toEqual([
+      ["Tomorrow", "Wed, Aug 19 at 9:00 AM"],
+      ["End of week", "Fri, Aug 21 at 9:00 AM"],
+      ["This weekend", "Sat, Aug 22 at 9:00 AM"],
+      ["Next week", "Mon, Aug 24 at 9:00 AM"],
+    ]);
+  });
+
+  it("drops presets that have passed or would land on the same day", () => {
+    const presetIdsOn = (date: Date) =>
+      getSnoozePresets(date).map(({ id }) => id);
+
+    // Thursday: tomorrow is already Friday
+    expect(presetIdsOn(new Date(2026, 7, 20, 10))).toEqual([
+      "tomorrow",
+      "this-weekend",
+      "next-week",
+    ]);
+    // Friday: tomorrow is already the weekend
+    expect(presetIdsOn(new Date(2026, 7, 21, 10))).toEqual([
       "tomorrow",
       "next-week",
     ]);
-    expect(presets[0]?.until).toEqual(new Date(2026, 7, 15, 13));
-    expect(presets[1]?.until).toEqual(new Date(2026, 7, 16, 9));
-    expect(presets[2]?.until).toEqual(new Date(2026, 7, 17, 9));
+    // Saturday
+    expect(presetIdsOn(new Date(2026, 7, 22, 10))).toEqual([
+      "tomorrow",
+      "next-week",
+    ]);
+    // Sunday: tomorrow is already next week
+    expect(presetIdsOn(new Date(2026, 7, 23, 10))).toEqual([
+      "tomorrow",
+      "end-of-week",
+    ]);
   });
 
   it("turns natural language into one actionable result", () => {

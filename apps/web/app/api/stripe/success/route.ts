@@ -24,9 +24,8 @@ export const GET = withAuth("stripe/success", async (request) => {
 
   if (!user?.premium?.stripeCustomerId) redirect("/premium");
 
-  const stripeCheckoutSessionId = new URL(request.url).searchParams.get(
-    "session_id",
-  );
+  const searchParams = new URL(request.url).searchParams;
+  const stripeCheckoutSessionId = searchParams.get("session_id");
 
   after(async () => {
     if (!user?.email) return;

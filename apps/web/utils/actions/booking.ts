@@ -63,7 +63,6 @@ export const createBookingLinkAction = actionClient
               create: {
                 name: "Default availability",
                 isDefault: true,
-                timezone: parsedInput.timezone,
                 emailAccount: { connect: { id: emailAccountId } },
                 windows: {
                   create: getDefaultWindows(),
@@ -168,7 +167,6 @@ export const updateBookingAvailabilityAction = actionClient
       prisma.availabilitySchedule.update({
         where: { id: bookingLink.availabilityScheduleId },
         data: {
-          timezone: parsedInput.timezone,
           windows: {
             deleteMany: {},
             create: parsedInput.windows,
@@ -203,7 +201,6 @@ export const updateDefaultAvailabilityAction = actionClient
       await prisma.availabilitySchedule.update({
         where: { id: existingSchedule.id },
         data: {
-          timezone: parsedInput.timezone,
           windows: {
             deleteMany: {},
             create: parsedInput.windows,
@@ -215,7 +212,6 @@ export const updateDefaultAvailabilityAction = actionClient
         data: {
           name: "Default availability",
           isDefault: true,
-          timezone: parsedInput.timezone,
           emailAccount: { connect: { id: emailAccountId } },
           windows: { create: parsedInput.windows },
         },

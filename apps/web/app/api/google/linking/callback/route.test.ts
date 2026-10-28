@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { clearAccountDisconnectedErrorIfResolved } from "@/utils/error-messages";
 import prisma from "@/utils/__mocks__/prisma";
 
 const {
@@ -53,14 +54,22 @@ vi.mock("@/utils/middleware", async () => {
 });
 
 vi.mock("@/utils/prisma");
+vi.mock("@/utils/error-messages", () => ({
+  clearAccountDisconnectedErrorIfResolved: vi.fn().mockResolvedValue(undefined),
+}));
 
 vi.mock("@/utils/oauth/callback-validation", () => ({
   validateOAuthCallback: mockValidateOAuthCallback,
 }));
 
-vi.mock("@/utils/oauth/account-linking", () => ({
-  handleAccountLinking: mockHandleAccountLinking,
-}));
+vi.mock("@/utils/oauth/account-linking", async (importActual) => {
+  const actual =
+    await importActual<typeof import("@/utils/oauth/account-linking")>();
+  return {
+    getMailboxLinkingBlockedRedirect: actual.getMailboxLinkingBlockedRedirect,
+    handleAccountLinking: mockHandleAccountLinking,
+  };
+});
 
 vi.mock("@/utils/user/merge-account", () => ({
   mergeAccount: vi.fn(),
@@ -83,7 +92,7 @@ vi.mock("@/utils/gmail/client", () => ({
   })),
 }));
 
-vi.mock("@/utils/google/oauth", () => ({
+vi.mock("@/utils/gmail/oauth", () => ({
   fetchGoogleOpenIdProfile: mockFetchGoogleOpenIdProfile,
   isGoogleOauthEmulationEnabled: mockIsGoogleOauthEmulationEnabled,
 }));
@@ -126,6 +135,7 @@ describe("google linking callback route", () => {
       user: {
         id: "user-123",
       },
+      session: { emailOtp: false },
     });
     mockGetToken.mockResolvedValue({
       tokens: {
@@ -154,7 +164,14 @@ describe("google linking callback route", () => {
     } as Awaited<ReturnType<typeof prisma.account.update>>);
   });
 
-  it("updates an existing same-user Google account in emulation instead of creating a duplicate", async () => {
+  it.each([
+    false,
+    true,
+  ])("restores an existing same-user account without duplication (watch lookup fails: %s)", async (watchFails) => {
+    if (watchFails)
+      mockEnsureEmailAccountsWatched.mockRejectedValueOnce(
+        new Error("watch lookup failed"),
+      );
     mockHandleAccountLinking.mockResolvedValue({
       type: "continue_create",
     });
@@ -171,6 +188,7 @@ describe("google linking callback route", () => {
     expect(prisma.account.update).toHaveBeenCalledWith({
       where: { id: "existing-account-123" },
       data: expect.objectContaining({
+        disconnectedAt: null,
         providerAccountId: "new-provider-account-id",
         access_token: "access-token",
         refresh_token: "refresh-token",
@@ -187,11 +205,51 @@ describe("google linking callback route", () => {
     expect(mockEnsureEmailAccountsWatched).not.toHaveBeenCalled();
 
     await runScheduledAfterCallback();
+    expect(
+      mockEnsureEmailAccountsWatched.mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      vi.mocked(clearAccountDisconnectedErrorIfResolved).mock
+        .invocationCallOrder[0],
+    );
+    expect(clearAccountDisconnectedErrorIfResolved).toHaveBeenCalledWith({
+      userId: "user-123",
+      logger: expect.anything(),
+    });
 
     expect(mockEnsureEmailAccountsWatched).toHaveBeenCalledWith({
       userIds: ["user-123"],
       logger: expect.anything(),
     });
+  });
+
+  it("does not let an email code session link a mailbox", async () => {
+    mockAuth.mockResolvedValue({
+      user: { id: "user-123" },
+      session: { emailOtp: true },
+    });
+    mockHandleAccountLinking.mockResolvedValue({ type: "continue_create" });
+
+    const response = await GET(
+      createRequest("http://localhost:3000/api/google/linking/callback"),
+    );
+
+    expect(response.headers.get("location")).toContain(
+      "error=provider_sign_in_required",
+    );
+    expect(mockGetToken).not.toHaveBeenCalled();
+    expect(mockHandleAccountLinking).not.toHaveBeenCalled();
+    expect(prisma.account.create).not.toHaveBeenCalled();
+    expect(prisma.account.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects signed linking state after the session is revoked", async () => {
+    mockAuth.mockResolvedValue(null);
+    const response = await GET(
+      createRequest("http://localhost:3000/api/google/linking/callback"),
+    );
+    expect(response.headers.get("location")).toContain("error=invalid_state");
+    expect(mockGetOAuthCodeResult).not.toHaveBeenCalled();
+    expect(mockHandleAccountLinking).not.toHaveBeenCalled();
   });
 
   it("rejects existing-account recovery when the Google email claim is unverified", async () => {
@@ -254,6 +312,7 @@ describe("google linking callback route", () => {
       user: {
         id: "actor-user",
       },
+      session: { emailOtp: false },
     });
     mockValidateOAuthCallback.mockReturnValue({
       success: true,

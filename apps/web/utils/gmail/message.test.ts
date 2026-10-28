@@ -21,20 +21,73 @@ afterEach(() => {
 });
 
 describe("parseMessage", () => {
-  it("keeps large inline images out of the downloadable attachment list", () => {
-    const inlineImage = {
-      attachmentId: "inline-image",
-      filename: "screenshot.png",
-      headers: {
-        "content-description": "",
-        "content-disposition": "inline; filename=screenshot.png",
-        "content-id": "<screenshot@inboxzero.local>",
-        "content-transfer-encoding": "base64",
-        "content-type": "image/png",
+  const inlineImage = {
+    attachmentId: "inline-image",
+    filename: "screenshot.png",
+    headers: {
+      "content-description": "",
+      "content-disposition": "inline; filename=screenshot.png",
+      "content-id": "<screenshot@inboxzero.local>",
+      "content-transfer-encoding": "base64",
+      "content-type": "image/png",
+    },
+    mimeType: "image/png",
+    size: 100_000,
+  };
+
+  it("detects calendar MIME parts without decoding their contents in lists", () => {
+    const message = parseMessage({
+      payload: {
+        parts: [
+          {
+            mimeType: "text/calendar",
+            body: {
+              data: Buffer.from("BEGIN:VCALENDAR").toString("base64url"),
+            },
+          },
+        ],
       },
-      mimeType: "image/png",
-      size: 100_000,
+    });
+    expect(message.isMeetingInvitation).toBe(true);
+    expect(message.calendarContent).toBeUndefined();
+  });
+
+  it("decodes a single calendar MIME part only when requested", () => {
+    const content = "BEGIN:VCALENDAR\r\nMETHOD:REQUEST\r\nEND:VCALENDAR";
+    const message = parseMessage(
+      {
+        payload: {
+          parts: [
+            {
+              mimeType: "text/calendar",
+              body: { data: Buffer.from(content).toString("base64url") },
+            },
+          ],
+        },
+      },
+      { includeCalendarContent: true },
+    );
+    expect(message.calendarContent).toBe(content);
+  });
+
+  it("rejects multiple calendar MIME parts even across nested alternatives", () => {
+    const part = {
+      mimeType: "text/calendar",
+      body: { data: Buffer.from("BEGIN:VCALENDAR").toString("base64url") },
     };
+    const message = parseMessage(
+      {
+        payload: {
+          parts: [part, { mimeType: "multipart/alternative", parts: [part] }],
+        },
+      },
+      { includeCalendarContent: true },
+    );
+    expect(message.isMeetingInvitation).toBe(false);
+    expect(message.calendarContent).toBeUndefined();
+  });
+
+  it("keeps large inline images out of the downloadable attachment list", () => {
     const pdfAttachment = {
       attachmentId: "document",
       filename: "report.pdf",
@@ -59,6 +112,31 @@ describe("parseMessage", () => {
 
     expect(message.inline).toEqual([inlineImage]);
     expect(message.attachments).toEqual([pdfAttachment]);
+    expect(message.hasAttachment).toBe(true);
+  });
+
+  it("flags attachments on metadata-only messages from the top-level MIME type", () => {
+    const withAttachment = parseMessage({
+      payload: { mimeType: "multipart/mixed", headers: [] },
+    });
+    const withoutAttachment = parseMessage({
+      payload: { mimeType: "multipart/alternative", headers: [] },
+    });
+
+    expect(withAttachment.hasAttachment).toBe(true);
+    expect(withoutAttachment.hasAttachment).toBe(false);
+  });
+
+  it("does not flag inline-only images as attachments", () => {
+    const message = parseMessage({
+      payload: {
+        mimeType: "multipart/related",
+        parts: [{ mimeType: "text/html" }],
+      },
+      inline: [inlineImage],
+    } as never);
+
+    expect(message.hasAttachment).toBe(false);
   });
 });
 

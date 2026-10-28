@@ -26,6 +26,7 @@ import { env } from "@/env";
 import { slugify } from "@/utils/string";
 import { posthogCaptureEvent } from "@/utils/posthog";
 import { createScopedLogger } from "@/utils/logger";
+import { prepareMemberRemovalNotifications } from "@/utils/team-comments/member-removal";
 import {
   deleteMemberOrganizationRuleCopies,
   syncOrganizationRulesForNewMember,
@@ -107,15 +108,30 @@ export const inviteMembersAction = actionClientUser
       const inviterName = inviterEmailAccount.name || inviterEmailAccount.email;
       const organizationName = org?.name || "Your organization";
 
-      const existingInvitations = await prisma.invitation.findMany({
+      const pendingInvitations = await prisma.invitation.findMany({
         where: {
           organizationId: inviterMember.organizationId,
           email: { in: invitations.map((i) => i.email) },
           status: "pending",
         },
-        select: { email: true },
+        select: { id: true, email: true, expiresAt: true },
       });
-      const alreadyInvited = new Set(existingInvitations.map((i) => i.email));
+
+      // Expired invitations are hidden from the members list, so they can't be
+      // cancelled there. Clear them so the admin can send a fresh one.
+      const now = new Date();
+      const expiredInvitationIds = pendingInvitations
+        .filter((i) => i.expiresAt <= now)
+        .map((i) => i.id);
+      if (expiredInvitationIds.length) {
+        await prisma.invitation.deleteMany({
+          where: { id: { in: expiredInvitationIds }, status: "pending" },
+        });
+      }
+
+      const alreadyInvited = new Set(
+        pendingInvitations.filter((i) => i.expiresAt > now).map((i) => i.email),
+      );
 
       const results: { email: string; success: boolean; error?: string }[] = [];
       const seen = new Set<string>();
@@ -187,9 +203,7 @@ export const handleInvitationAction = actionClientUser
       throw new SafeError("Invitation not found", 404);
     }
 
-    if (invitation.status !== "pending" || invitation.expiresAt < new Date()) {
-      throw new SafeError("Failed to retrieve invitation", 400);
-    }
+    assertInvitationCanBeAccepted(invitation);
 
     const emailAccount = await prisma.emailAccount.findFirst({
       where: {
@@ -245,9 +259,7 @@ async function getInvitation({
     throw new SafeError("Invitation not found", 404);
   }
 
-  if (invitation.status !== "pending" || invitation.expiresAt < new Date()) {
-    throw new SafeError("Failed to retrieve invitation", 400);
-  }
+  assertInvitationCanBeAccepted(invitation);
 
   const email = invitation.email.trim();
 
@@ -357,7 +369,7 @@ async function acceptInvitation({
 export const removeMemberAction = actionClientUser
   .metadata({ name: "removeMember" })
   .inputSchema(removeMemberBody)
-  .action(async ({ ctx: { userId }, parsedInput: { memberId } }) => {
+  .action(async ({ ctx: { userId, logger }, parsedInput: { memberId } }) => {
     const { targetMember } = await authorizeMemberManagement({
       memberId,
       userId,
@@ -393,7 +405,12 @@ export const removeMemberAction = actionClientUser
       organizationId: targetMember.organizationId,
     });
 
+    const notifyConversations = await prepareMemberRemovalNotifications(
+      { id: memberId },
+      logger,
+    );
     await prisma.member.delete({ where: { id: memberId } });
+    await notifyConversations();
   });
 
 export const updateMemberRoleAction = actionClientUser
@@ -760,3 +777,19 @@ const memberManagementSelfActionMessages: Record<
   remove: "You cannot remove yourself from the organization.",
   updateRole: "You cannot change your own role.",
 };
+
+function assertInvitationCanBeAccepted(invitation: {
+  status: string;
+  expiresAt: Date;
+}) {
+  if (invitation.status !== "pending") {
+    throw new SafeError("This invitation is no longer valid.", 400);
+  }
+
+  if (invitation.expiresAt < new Date()) {
+    throw new SafeError(
+      "This invitation has expired. Ask your organization admin to send a new one.",
+      400,
+    );
+  }
+}

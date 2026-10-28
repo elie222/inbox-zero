@@ -14,11 +14,13 @@ import {
 import {
   withMicrosoftGraphRetry,
   withMicrosoftGraphWriteRetry,
-} from "@/utils/microsoft/retry";
+} from "@/utils/outlook/retry";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
+import { isOutlookItemNotFoundError, SafeError } from "@/utils/error";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
-import { uploadResumableChunks } from "@/utils/microsoft/upload-session";
+import { uploadResumableChunks } from "@/utils/outlook/upload-session";
 import type { Logger } from "@/utils/logger";
+import type { SendEmailOptions } from "@/utils/email/types";
 
 type GraphRecipient = {
   emailAddress: { address: string; name?: string };
@@ -34,60 +36,30 @@ export async function sendEmailWithHtml(
   client: OutlookClient,
   body: MailSendEmailBody,
   logger: Logger,
+  options?: SendEmailOptions,
 ): Promise<SentEmailResult> {
   ensureEmailSendingEnabled();
+
+  const toRecipients = buildGraphRecipients(body.to);
+  if (!toRecipients?.length)
+    throw new SafeError("Recipient address is required");
 
   // For replies with a message ID, use createReply for proper threading
   // Microsoft Graph's sendMail doesn't support In-Reply-To/References headers
   if (body.replyToEmail?.messageId) {
-    return sendReplyUsingCreateReply(client, body, logger);
+    return sendReplyUsingCreateReply(client, body, logger, options);
   }
 
-  const toRecipients = buildGraphRecipients(body.to);
-  if (!toRecipients?.length) throw new Error("Recipient address is required");
-  const ccRecipients = buildGraphRecipients(body.cc);
-  const bccRecipients = buildGraphRecipients(body.bcc);
-  const replyToRecipients = buildGraphRecipients(body.replyTo);
-
-  // For new emails, create draft then send to get the conversationId.
-  // sendMail returns 202 with no body, so we use the draft approach instead.
-  const draft: Message = await withMicrosoftGraphWriteRetry(
-    () =>
-      client
-        .getClient()
-        .api("/me/messages")
-        .post({
-          subject: body.subject,
-          body: {
-            contentType: "html",
-            content: body.messageHtml,
-          },
-          toRecipients,
-          ...(ccRecipients ? { ccRecipients } : {}),
-          ...(bccRecipients ? { bccRecipients } : {}),
-          ...(replyToRecipients ? { replyTo: replyToRecipients } : {}),
-        }),
-    logger,
-  );
-
-  if (body.attachments?.length) {
-    await addAttachmentsToDraft({
+  if (body.replyToEmail?.forwardedMessageId) {
+    return sendForwardUsingCreateForward(
       client,
-      draftId: draft.id || "",
-      attachments: body.attachments,
+      body,
+      body.replyToEmail.forwardedMessageId,
       logger,
-    });
+    );
   }
 
-  await withMicrosoftGraphWriteRetry(
-    () => client.getClient().api(`/me/messages/${draft.id}/send`).post({}),
-    logger,
-  );
-
-  return {
-    id: draft.id,
-    conversationId: draft.conversationId,
-  };
+  return sendNewDraft(client, body, logger);
 }
 
 export async function sendEmailWithPlainText(
@@ -107,6 +79,8 @@ export async function replyToEmail(
   options?: {
     replyTo?: string;
     from?: string;
+    cc?: string;
+    bcc?: string;
     attachments?: Attachment[];
   },
 ) {
@@ -130,6 +104,8 @@ export async function replyToEmail(
     options?.from,
     replyDraft.from?.emailAddress?.address,
   );
+  const ccRecipients = buildGraphRecipients(options?.cc);
+  const bccRecipients = buildGraphRecipients(options?.bcc);
 
   // Update the draft with our content
   await withMicrosoftGraphWriteRetry(
@@ -143,6 +119,8 @@ export async function replyToEmail(
             content: html,
           },
           ...(fromField ? { from: fromField } : {}),
+          ...(ccRecipients ? { ccRecipients } : {}),
+          ...(bccRecipients ? { bccRecipients } : {}),
           ...(options?.replyTo
             ? {
                 replyTo: [{ emailAddress: { address: options.replyTo } }],
@@ -309,10 +287,19 @@ export async function draftEmail(
     },
   };
 
-  const toRecipient =
-    overrideToRecipient ??
-    originalEmail.rawRecipients?.from ??
-    fallbackToRecipient;
+  // Reply-To wins over From, as in buildReplyAllRecipients, and may list
+  // several addresses. Without one, the raw From recipient is used so its
+  // display name is kept as Outlook has it.
+  const replyToRecipients = originalEmail.headers["reply-to"]
+    ? buildGraphRecipients(recipients.to)
+    : undefined;
+  const rawFromRecipient = originalEmail.headers["reply-to"]
+    ? undefined
+    : originalEmail.rawRecipients?.from;
+
+  const toRecipients = overrideToRecipient
+    ? [overrideToRecipient]
+    : (replyToRecipients ?? [rawFromRecipient ?? fallbackToRecipient]);
 
   // Build CC list from reply-all and args
   const ccAddresses = mergeAndDedupeRecipients(recipients.cc, args.cc);
@@ -375,7 +362,7 @@ export async function draftEmail(
           contentType: "html",
           content: html,
         },
-        toRecipients: [toRecipient],
+        toRecipients,
         ccRecipients,
         bccRecipients,
       }),
@@ -419,6 +406,7 @@ async function sendReplyUsingCreateReply(
   client: OutlookClient,
   body: MailSendEmailBody,
   logger: Logger,
+  options?: SendEmailOptions,
 ): Promise<SentEmailResult> {
   const originalMessageId = body.replyToEmail!.messageId!;
 
@@ -434,6 +422,10 @@ async function sendReplyUsingCreateReply(
     logger,
   );
 
+  const toRecipients = buildGraphRecipients(body.to);
+  const ccRecipients = buildGraphRecipients(body.cc);
+  const bccRecipients = buildGraphRecipients(body.bcc);
+
   // Update the draft with our content and recipients
   // Note: We cannot set In-Reply-To/References headers via internetMessageHeaders
   // as Microsoft Graph only allows custom headers (starting with x-) there.
@@ -444,18 +436,15 @@ async function sendReplyUsingCreateReply(
         .getClient()
         .api(`/me/messages/${replyDraft.id}`)
         .patch({
-          subject: body.subject,
+          // Exchange starts a new conversation when the reply subject changes.
+          ...(options?.preserveThreadSubject ? {} : { subject: body.subject }),
           body: {
             contentType: "html",
             content: body.messageHtml,
           },
-          toRecipients: [{ emailAddress: { address: body.to } }],
-          ...(body.cc
-            ? { ccRecipients: [{ emailAddress: { address: body.cc } }] }
-            : {}),
-          ...(body.bcc
-            ? { bccRecipients: [{ emailAddress: { address: body.bcc } }] }
-            : {}),
+          ...(toRecipients ? { toRecipients } : {}),
+          ...(ccRecipients ? { ccRecipients } : {}),
+          ...(bccRecipients ? { bccRecipients } : {}),
         }),
     logger,
   );
@@ -478,6 +467,141 @@ async function sendReplyUsingCreateReply(
   return {
     id: replyDraft.id,
     conversationId: replyDraft.conversationId,
+  };
+}
+
+/**
+ * Graph treats `conversationId` as read-only, so a draft posted to
+ * `/me/messages` always opens a new conversation. Drafting from the forwarded
+ * message is the only way to keep a forward in the thread it came from, and it
+ * carries the original attachments across as well.
+ */
+async function sendForwardUsingCreateForward(
+  client: OutlookClient,
+  body: MailSendEmailBody,
+  forwardedMessageId: string,
+  logger: Logger,
+): Promise<SentEmailResult> {
+  const forwardDraft = await createForwardDraft(
+    client,
+    forwardedMessageId,
+    logger,
+  );
+  const toRecipients = buildGraphRecipients(body.to);
+  const ccRecipients = buildGraphRecipients(body.cc);
+  const bccRecipients = buildGraphRecipients(body.bcc);
+
+  await withMicrosoftGraphWriteRetry(
+    () =>
+      client
+        .getClient()
+        .api(`/me/messages/${forwardDraft.id}`)
+        .patch({
+          subject: body.subject,
+          body: {
+            contentType: "html",
+            content: body.messageHtml,
+          },
+          ...(toRecipients ? { toRecipients } : {}),
+          ...(ccRecipients ? { ccRecipients } : {}),
+          ...(bccRecipients ? { bccRecipients } : {}),
+        }),
+    logger,
+  );
+
+  if (body.attachments?.length) {
+    await addAttachmentsToDraft({
+      client,
+      draftId: forwardDraft.id || "",
+      attachments: body.attachments,
+      logger,
+    });
+  }
+
+  await withMicrosoftGraphWriteRetry(
+    () =>
+      client.getClient().api(`/me/messages/${forwardDraft.id}/send`).post({}),
+    logger,
+  );
+
+  return {
+    id: forwardDraft.id,
+    conversationId: forwardDraft.conversationId,
+  };
+}
+
+async function createForwardDraft(
+  client: OutlookClient,
+  forwardedMessageId: string,
+  logger: Logger,
+): Promise<Message> {
+  try {
+    return await withMicrosoftGraphWriteRetry(
+      () =>
+        client
+          .getClient()
+          .api(`/me/messages/${forwardedMessageId}/createForward`)
+          .post({}),
+      logger,
+    );
+  } catch (error) {
+    if (!isOutlookItemNotFoundError(error)) throw error;
+    throw new SafeError(
+      "Reload the original message before forwarding. Its attachments could not be verified.",
+    );
+  }
+}
+
+/**
+ * Creating the draft before sending returns the conversation id, which
+ * `sendMail` withholds behind its empty 202.
+ */
+async function sendNewDraft(
+  client: OutlookClient,
+  body: MailSendEmailBody,
+  logger: Logger,
+): Promise<SentEmailResult> {
+  const toRecipients = buildGraphRecipients(body.to);
+  const ccRecipients = buildGraphRecipients(body.cc);
+  const bccRecipients = buildGraphRecipients(body.bcc);
+  const replyToRecipients = buildGraphRecipients(body.replyTo);
+
+  const draft: Message = await withMicrosoftGraphWriteRetry(
+    () =>
+      client
+        .getClient()
+        .api("/me/messages")
+        .post({
+          subject: body.subject,
+          body: {
+            contentType: "html",
+            content: body.messageHtml,
+          },
+          toRecipients,
+          ...(ccRecipients ? { ccRecipients } : {}),
+          ...(bccRecipients ? { bccRecipients } : {}),
+          ...(replyToRecipients ? { replyTo: replyToRecipients } : {}),
+        }),
+    logger,
+  );
+
+  if (body.attachments?.length) {
+    await addAttachmentsToDraft({
+      client,
+      draftId: draft.id || "",
+      attachments: body.attachments,
+      logger,
+    });
+  }
+
+  await withMicrosoftGraphWriteRetry(
+    () => client.getClient().api(`/me/messages/${draft.id}/send`).post({}),
+    logger,
+  );
+
+  return {
+    id: draft.id,
+    conversationId: draft.conversationId,
   };
 }
 
@@ -534,7 +658,7 @@ function buildGraphFromField(
   };
 }
 
-async function addAttachmentsToDraft({
+export async function addAttachmentsToDraft({
   client,
   draftId,
   attachments,

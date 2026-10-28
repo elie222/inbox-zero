@@ -14,6 +14,7 @@ const llmProviderEnum = z.enum([
   "bedrock",
   "openrouter",
   "groq",
+  "cerebras",
   "aigateway",
   "ollama",
   "openai-compatible",
@@ -51,6 +52,7 @@ const defaultLlmsEnv = z.preprocess(
 const parsedEnv = createEnv({
   server: {
     NODE_ENV: z.enum(["development", "production", "test"]),
+    INBOX_ZERO_ENV_FILE: z.string().optional(),
     DATABASE_URL: z.string().url(),
     DATABASE_URL_UNPOOLED: z.string().url().optional(),
     PREVIEW_DATABASE_URL: z.string().url().optional(),
@@ -60,6 +62,7 @@ const parsedEnv = createEnv({
     ),
 
     AUTH_SECRET: z.string().optional(),
+    SCIM_CREDENTIAL_HASH_SECRET: z.string().min(32).optional(),
     NEXTAUTH_SECRET: z.string().optional(),
     AUTH_ALLOWED_EMAILS: z
       .string()
@@ -87,7 +90,10 @@ const parsedEnv = createEnv({
     MICROSOFT_BASE_URL: z.string().url().optional(),
     MICROSOFT_CLIENT_ID: z.string().optional(),
     MICROSOFT_CLIENT_SECRET: z.string().optional(),
-    MICROSOFT_TENANT_ID: z.string().optional().default("common"),
+    MICROSOFT_TENANT_ID: z.preprocess(
+      optionalEnvValue,
+      z.string().default("common"),
+    ),
     APPLE_CLIENT_ID: z.string().optional(),
     APPLE_TEAM_ID: z.string().optional(),
     APPLE_KEY_ID: z.string().optional(),
@@ -171,6 +177,7 @@ const parsedEnv = createEnv({
     GOOGLE_VERTEX_PRIVATE_KEY: z.string().optional(),
     GOOGLE_APPLICATION_CREDENTIALS: z.string().optional(),
     GROQ_API_KEY: z.string().optional(),
+    CEREBRAS_API_KEY: z.string().optional(),
     OPENROUTER_API_KEY: z.string().optional(),
     AI_GATEWAY_API_KEY: z.string().optional(),
     PERPLEXITY_API_KEY: z.string().optional(),
@@ -186,15 +193,25 @@ const parsedEnv = createEnv({
     CODEX_CLI_PATH: z.string().optional(),
 
     OPENAI_ZERO_DATA_RETENTION: booleanString.optional().default(false),
+    VOICE_PROVIDER: z.enum(["openai", "groq"]).optional(),
+    VOICE_STT_MODEL: z.string().optional(),
+    VOICE_TTS_MODEL: z.string().optional(),
+    VOICE_TTS_VOICE: z.string().optional(),
+    VOICE_LIVE_MODEL: z.string().optional(),
+    VOICE_LIVE_VOICE: z.string().optional(),
 
-    UPSTASH_REDIS_URL: z
-      .string()
-      .optional()
-      .transform((value) => value || process.env.KV_REST_API_URL),
-    UPSTASH_REDIS_TOKEN: z
-      .string()
-      .optional()
-      .transform((value) => value || process.env.KV_REST_API_TOKEN),
+    // HTTP Redis speaks the Upstash REST protocol, including your own
+    // serverless-redis-http proxy. Older self-hosted installs and Vercel KV
+    // still set the legacy names.
+    REDIS_HTTP_URL: z.preprocess(
+      (value) => redisHttpEnv(value, ["UPSTASH_REDIS_URL", "KV_REST_API_URL"]),
+      z.string().optional(),
+    ),
+    REDIS_HTTP_TOKEN: z.preprocess(
+      (value) =>
+        redisHttpEnv(value, ["UPSTASH_REDIS_TOKEN", "KV_REST_API_TOKEN"]),
+      z.string().optional(),
+    ),
     REDIS_URL: z
       .string()
       .optional()
@@ -249,6 +266,8 @@ const parsedEnv = createEnv({
     // Stripe
     STRIPE_SECRET_KEY: z.string().optional(),
     STRIPE_WEBHOOK_SECRET: z.string().optional(),
+    // Points the Stripe SDK at a local emulator during browser tests.
+    STRIPE_API_BASE_URL: z.string().url().optional(),
     STRIPE_AI_GENERATION_OVERAGE_CONFIG: z.string().optional(),
 
     // Apple App Store
@@ -257,9 +276,26 @@ const parsedEnv = createEnv({
     APPLE_IAP_PRIVATE_KEY: z.string().min(1).optional(),
     APPLE_IAP_BUNDLE_ID: z.string().min(1).optional(),
     APPLE_IAP_APPLE_ID: z.coerce.number().int().positive().optional(),
+    // Accepts locally signed StoreKit JWS. Ignored when NODE_ENV is production.
+    APPLE_IAP_LOCAL_TESTING: booleanString,
     SUPERWALL_APP_STORE_CONNECT_FORWARD_URL: z.string().url().optional(),
 
+    // APNs token auth for native iOS push. Leave unset to keep Expo-only delivery.
+    // The same credentials send silent mailbox-change pushes.
+    APNS_KEY_ID: z.string().min(1).optional(),
+    APNS_TEAM_ID: z.string().min(1).optional(),
+    APNS_PRIVATE_KEY: z.string().min(1).optional(),
+    APNS_TOPIC: z.string().min(1).optional(),
+    APNS_ENVIRONMENT: z.enum(["sandbox", "production"]).optional(),
+    // `fake` records sends in memory instead of contacting Apple. Emulator only.
+    APNS_TRANSPORT: z.enum(["apns", "fake"]).optional(),
+
+    FCM_SERVICE_ACCOUNT_JSON: z.string().min(1).optional(),
+    FCM_PROJECT_ID: z.string().min(1).optional(),
+    FCM_TRANSPORT: z.enum(["fcm", "fake"]).optional(),
+
     TINYBIRD_TOKEN: z.string().optional(),
+    TINYBIRD_DELETE_TOKEN: z.string().optional(),
     TINYBIRD_BASE_URL: z.string().default("https://api.us-east.tinybird.co/"),
 
     API_KEY_SALT: z.string().optional(),
@@ -270,6 +306,7 @@ const parsedEnv = createEnv({
     POSTHOG_FEEDBACK_SURVEY_QUESTION_ID: z.string().optional(),
     POSTHOG_LLM_EVALS_APPROVED_EMAILS: z.string().optional(),
     FEEDBACK_WEBHOOK_URL: z.string().url().optional(),
+    SALES_INQUIRY_WEBHOOK_URL: z.string().url().optional(),
 
     RECALL_API_KEY: z.string().optional(),
     RECALL_WEBHOOK_SECRET: z.string().optional(),
@@ -292,6 +329,7 @@ const parsedEnv = createEnv({
     BLOG_SYNC_IMAGE_ALLOWED_HOSTS: z.string().optional(),
     SANITY_API_WRITE_TOKEN: z.string().min(1).optional(),
     LOOPS_API_SECRET: z.string().optional(),
+    LOOPS_WEBHOOK_SIGNING_SECRET: z.string().min(1).optional(),
     FB_CONVERSION_API_ACCESS_TOKEN: z.string().optional(),
     FB_PIXEL_ID: z.string().optional(),
     CONVERSION_ANALYTICS_SERVER_URL: z.string().optional(),
@@ -302,11 +340,31 @@ const parsedEnv = createEnv({
       .transform((value) => value?.split(",")),
     WEBHOOK_URL: z.string().optional(),
     MCP_SERVER_URL_OVERRIDES: z.string().optional(),
+    // SECURITY: disables the SSRF guard for user-registered MCP servers
+    // (allows custom server URLs that point to / resolve to private IP ranges,
+    // and allows http). Defaults to false. Only enable on a trusted,
+    // single-tenant self-hosted deployment or against a local MCP emulator.
+    MCP_ALLOW_PRIVATE_IPS: booleanString.optional().default(false),
+    COMPOSIO_API_KEY: z.string().optional(),
     INTERNAL_API_URL: z.string().optional(),
     INTERNAL_API_KEY: z.string(),
     WHITELIST_FROM: z.string().optional(),
     HEALTH_API_KEY: z.string().optional(),
     OAUTH_PROXY_URL: z.string().url().optional(),
+    MCP_SERVER_ENABLED: booleanString.optional().default(false),
+    // Optional provider:model for structured decisions, e.g. openrouter:typesafe/jev-1.13
+    DEFAULT_DECISION_MODEL: z
+      .string()
+      .regex(
+        /^(typesafe|openrouter|aigateway|openai):\S+$/,
+        "Expected <typesafe|openrouter|aigateway|openai>:<model>",
+      )
+      .optional(),
+    // Whether users who haven't chosen get the decision model; otherwise opt-in
+    DEFAULT_DECISION_MODEL_ENABLED: booleanString.optional().default(false),
+    // Also use the decision model for cold email detection; otherwise the LLM decides
+    DECISION_MODEL_COLD_EMAIL_ENABLED: booleanString.optional().default(false),
+    TYPESAFE_API_KEY: z.string().optional(),
     IMAGE_PROXY_SIGNING_SECRET: z.string().min(16).optional(),
     // Set to true on the server that acts as the OAuth proxy (e.g., staging)
     IS_OAUTH_PROXY_SERVER: booleanString.optional().default(false),
@@ -331,6 +389,11 @@ const parsedEnv = createEnv({
       .default("inboxzero://"),
     AUTO_JOIN_ORGANIZATION_ENABLED: booleanString.optional().default(false),
     AUTO_ENABLE_ORG_ANALYTICS: booleanString.optional().default(false),
+    // When false, skip writing new AI-source sender-pattern caches. Existing
+    // patterns still match, and user/label corrections still save. Defaults on
+    // so current deployments are unchanged. Also skipped per account when that
+    // account's decision model is Jev.
+    AI_SENDER_PATTERN_LEARNING_ENABLED: booleanString.optional().default(true),
 
     // license
     LICENSE_1_SEAT_VARIANT_ID: z.coerce.number().optional(),
@@ -355,6 +418,11 @@ const parsedEnv = createEnv({
     APP_REVIEW_DEMO_ENABLED: booleanString.optional().default(false),
     APP_REVIEW_DEMO_ACCOUNTS: z.string().optional(),
     SSO_LOGIN_ENABLED: booleanString.optional().default(false),
+    UNSUBSCRIBE_WORKER_URL: z
+      .url()
+      .refine((value) => new URL(value).protocol === "https:")
+      .optional(),
+    UNSUBSCRIBE_WORKER_SECRET: z.string().min(32).optional(),
   },
   client: {
     // stripe
@@ -379,7 +447,10 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_BUSINESS_ANNUALLY_VARIANT_ID: z.coerce.number().default(0),
     NEXT_PUBLIC_COPILOT_MONTHLY_VARIANT_ID: z.coerce.number().default(0),
 
-    NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS: z.number().default(5),
+    NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS: z.preprocess(
+      optionalEnvValue,
+      z.coerce.number().int().nonnegative().default(5),
+    ),
     NEXT_PUBLIC_CALL_LINK: z
       .string()
       .default("https://cal.com/team/inbox-zero/feedback"),
@@ -397,6 +468,13 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_SLACK_BOT_NAME: z.string().trim().min(1).default("Inbox Zero"),
     NEXT_PUBLIC_SELF_HOSTED_LOGIN_FOOTER_TEXT: z.string().optional(),
     NEXT_PUBLIC_CONTACTS_ENABLED: booleanString.optional().default(false),
+    NEXT_PUBLIC_COOKIE_CONSENT_ENABLED: booleanString.optional().default(false),
+    NEXT_PUBLIC_MAIL_ENGINE_TEST_INSPECT: booleanString
+      .optional()
+      .default(false),
+    NEXT_PUBLIC_GMAIL_OTHER_CONTACTS_ENABLED: booleanString
+      .optional()
+      .default(false),
     NEXT_PUBLIC_EMAIL_SEND_ENABLED: booleanString.default(true),
     NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED: booleanString.optional().default(true),
     NEXT_PUBLIC_SENTRY_DSN: z.string().optional(),
@@ -425,8 +503,10 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_DIGEST_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_MEETING_BRIEFS_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_MEETING_RECORDER_ENABLED: booleanString.optional(),
+    NEXT_PUBLIC_VOICE_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_INTEGRATIONS_ENABLED: booleanString.optional(),
+    NEXT_PUBLIC_TEAMS_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_SMART_FILING_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_CLEANER_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_DELETE_EMAIL_ACTION_ENABLED: booleanString.optional(),
@@ -503,6 +583,12 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_SELF_HOSTED_LOGIN_FOOTER_TEXT:
       process.env.NEXT_PUBLIC_SELF_HOSTED_LOGIN_FOOTER_TEXT,
     NEXT_PUBLIC_CONTACTS_ENABLED: process.env.NEXT_PUBLIC_CONTACTS_ENABLED,
+    NEXT_PUBLIC_COOKIE_CONSENT_ENABLED:
+      process.env.NEXT_PUBLIC_COOKIE_CONSENT_ENABLED,
+    NEXT_PUBLIC_MAIL_ENGINE_TEST_INSPECT:
+      process.env.NEXT_PUBLIC_MAIL_ENGINE_TEST_INSPECT,
+    NEXT_PUBLIC_GMAIL_OTHER_CONTACTS_ENABLED:
+      process.env.NEXT_PUBLIC_GMAIL_OTHER_CONTACTS_ENABLED,
     NEXT_PUBLIC_EMAIL_SEND_ENABLED: process.env.NEXT_PUBLIC_EMAIL_SEND_ENABLED,
     NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED:
       process.env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED,
@@ -528,10 +614,12 @@ const parsedEnv = createEnv({
       process.env.NEXT_PUBLIC_MEETING_BRIEFS_ENABLED,
     NEXT_PUBLIC_MEETING_RECORDER_ENABLED:
       process.env.NEXT_PUBLIC_MEETING_RECORDER_ENABLED,
+    NEXT_PUBLIC_VOICE_ENABLED: process.env.NEXT_PUBLIC_VOICE_ENABLED,
     NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED:
       process.env.NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED,
     NEXT_PUBLIC_INTEGRATIONS_ENABLED:
       process.env.NEXT_PUBLIC_INTEGRATIONS_ENABLED,
+    NEXT_PUBLIC_TEAMS_ENABLED: process.env.NEXT_PUBLIC_TEAMS_ENABLED,
     NEXT_PUBLIC_SMART_FILING_ENABLED:
       process.env.NEXT_PUBLIC_SMART_FILING_ENABLED,
     NEXT_PUBLIC_CLEANER_ENABLED: process.env.NEXT_PUBLIC_CLEANER_ENABLED,
@@ -561,4 +649,47 @@ if (process.env.TELEGRAM_BOT_TOKEN && !process.env.TELEGRAM_BOT_SECRET_TOKEN) {
   );
 }
 
+if (
+  process.env.UNSUBSCRIBE_WORKER_URL &&
+  !process.env.UNSUBSCRIBE_WORKER_SECRET
+) {
+  throw new Error(
+    "UNSUBSCRIBE_WORKER_SECRET is required when UNSUBSCRIBE_WORKER_URL is set.",
+  );
+}
+
+const decisionModelApiKeyNames: Record<string, string> = {
+  typesafe: "TYPESAFE_API_KEY",
+  openrouter: "OPENROUTER_API_KEY",
+  aigateway: "AI_GATEWAY_API_KEY",
+  openai: "OPENAI_API_KEY",
+};
+const decisionModelProvider =
+  process.env.DEFAULT_DECISION_MODEL?.split(":")[0] ?? "";
+const decisionModelApiKeyName = decisionModelApiKeyNames[decisionModelProvider];
+// TypeSafe is not an LLM provider, so LLM_API_KEY cannot stand in for its key.
+const acceptsLlmApiKey = decisionModelProvider !== "typesafe";
+if (
+  decisionModelApiKeyName &&
+  !process.env[decisionModelApiKeyName]?.trim() &&
+  !(acceptsLlmApiKey && process.env.LLM_API_KEY?.trim())
+) {
+  throw new Error(
+    `${decisionModelApiKeyName}${acceptsLlmApiKey ? " or LLM_API_KEY" : ""} is required for DEFAULT_DECISION_MODEL=${process.env.DEFAULT_DECISION_MODEL}.`,
+  );
+}
+
 export const env = parsedEnv;
+
+function redisHttpEnv(
+  value: unknown,
+  legacyNames: readonly string[],
+): string | undefined {
+  const primary = optionalEnvValue(value);
+  if (primary) return primary;
+
+  for (const name of legacyNames) {
+    const legacy = optionalEnvValue(process.env[name]);
+    if (legacy) return legacy;
+  }
+}

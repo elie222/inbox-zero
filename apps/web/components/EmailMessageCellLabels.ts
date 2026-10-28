@@ -7,7 +7,9 @@ import { isDefined } from "@/utils/types";
 import { getRuleLabel } from "@/utils/rule/consts";
 import { SystemType } from "@/generated/prisma/enums";
 import { GMAIL_SYSTEM_LABELS, GmailLabel } from "@/utils/gmail/label";
+import { messageVisibility } from "@/utils/gmail/constants";
 import { OutlookLabel } from "@/utils/outlook/constants";
+import { compareLabelsByName } from "@/utils/label/compare-labels";
 
 export type EmailMessageCellLabel = Pick<EmailLabel, "id" | "name" | "color">;
 
@@ -38,6 +40,7 @@ export function getEmailMessageCellLabels({
         );
 
       if (!label) return null;
+      if (label.messageListVisibility === messageVisibility.hide) return null;
       return { id: label.id, name: label.name, color: label.color };
     })
     .filter(isDefined)
@@ -79,7 +82,9 @@ export function getEmailThreadLabels({
     ),
   ];
 
-  return getEmailMessageCellLabels({ labelIds, userLabels }) ?? [];
+  const labels = getEmailMessageCellLabels({ labelIds, userLabels }) ?? [];
+
+  return labels.sort(compareLabelsByName);
 }
 
 function shouldShowArchivedLabel({

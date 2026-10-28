@@ -16,7 +16,11 @@ import {
   clearOutboundThreadStatusLock,
   markOutboundThreadStatusProcessed,
 } from "@/utils/redis/outbound-thread-status";
-import { buildThreadStatusMessagesForLLM } from "@/utils/reply-tracker/thread-status-context";
+import {
+  buildThreadStatusMessagesForLLM,
+  excludeAssistantMessages,
+} from "@/utils/reply-tracker/thread-status-context";
+import { isFilebotConversationMessage } from "@/utils/filebot/is-filebot-email";
 
 export async function handleOutboundReply({
   emailAccount,
@@ -34,6 +38,13 @@ export async function handleOutboundReply({
     messageId: message.id,
     threadId: message.threadId,
   });
+
+  if (
+    isFilebotConversationMessage({ userEmail: emailAccount.email, message })
+  ) {
+    logger.info("Skipping. Filing assistant message.");
+    return;
+  }
 
   const enabledStatuses = await getEnabledStatuses({
     emailAccountId: emailAccount.id,
@@ -70,7 +81,10 @@ export async function handleOutboundReply({
 
     const { isLatest, sortedMessages } = isMessageLatestInThread(
       message,
-      threadMessages,
+      excludeAssistantMessages({
+        messages: threadMessages,
+        userEmail: emailAccount.email,
+      }),
     );
     if (!isLatest) {
       logger.info(

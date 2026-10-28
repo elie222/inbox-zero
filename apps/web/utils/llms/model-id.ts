@@ -6,6 +6,7 @@ const OPENROUTER_PROVIDER_PREFIX_BY_PROVIDER: Record<string, string> = {
   bedrock: "anthropic",
   google: "google",
   groq: "groq",
+  cerebras: "cerebras",
 };
 
 export function stripOnlineModelSuffix(model: string): string {

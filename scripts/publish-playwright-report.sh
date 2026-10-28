@@ -134,6 +134,34 @@ if [[ -n "${PLAYWRIGHT_PR_NUMBER:-}" ]]; then
   fi
 fi
 
+baseline_images_dir=""
+if [[ -n "${PLAYWRIGHT_PR_NUMBER:-}" && -f "$baseline_manifest_path" ]]; then
+  # The baseline images let the generator rank changed screenshots by how much
+  # actually moved, which the pull request comment uses to pick frames.
+  if ! baseline_images_run_key="$(jq -r '
+    if (.id | type == "string") and (.attempt | type == "number")
+    then .id + "-" + (.attempt | tostring) else empty end
+  ' "$baseline_manifest_path" 2>"$baseline_error_path")"; then
+    echo "::warning::Could not parse the main screenshot baseline manifest; visual difference ranking will be unavailable."
+    cat "$baseline_error_path"
+    baseline_images_run_key=""
+  fi
+  if [[ -n "$baseline_images_run_key" ]]; then
+    baseline_images_dir="$dashboard_dir/main-baseline-images"
+    if aws s3 sync \
+      "$bucket_uri/runs/$baseline_images_run_key/screenshots/images/" \
+      "$baseline_images_dir/" \
+      --endpoint-url "$S3_ENDPOINT" \
+      2>"$baseline_error_path"; then
+      echo "Downloaded the main baseline screenshots for visual comparison."
+    else
+      echo "::warning::Could not download the main baseline screenshots; visual difference ranking will be unavailable."
+      cat "$baseline_error_path"
+      baseline_images_dir=""
+    fi
+  fi
+fi
+
 if [[ -z "${PLAYWRIGHT_PR_NUMBER:-}" && "$PLAYWRIGHT_EVENT" == "push" && "$PLAYWRIGHT_BRANCH" == "main" && "$PLAYWRIGHT_RESULT" == "success" ]]; then
   stable_baseline_missing="false"
   stable_baseline_downloaded="false"
@@ -179,7 +207,8 @@ PLAYWRIGHT_PR_URL="$pull_request_url" \
     "$dashboard_path" \
     "$test_results_dir" \
     "$gallery_dir" \
-    "$baseline_manifest_path"
+    "$baseline_manifest_path" \
+    "$baseline_images_dir"
 
 if [[ "$publish_report" == "true" ]]; then
   aws s3 sync \

@@ -1,104 +1,156 @@
-import { useMemo, useRef } from "react";
-import useSWR, { unstable_serialize, useSWRConfig } from "swr";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQuerySnapshot } from "@inboxzero/mail-react/use-query-snapshot";
+import type { QuerySnapshot } from "@inboxzero/mail-core/queries";
+import type { ConversationView } from "@inboxzero/mail-core/ports/mail-store";
+import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import {
-  readCachedThreadDetail,
-  writeCachedThreadDetail,
-} from "@/utils/email-cache/threads";
-import {
-  createThreadRequest,
-  fetchThreadRequest,
-  type ThreadRequestOptions,
-} from "@/utils/email-cache/thread-request";
-import {
-  EMAIL_CACHE_MEASURES,
-  finishEmailCacheMeasure,
-  startEmailCacheMeasure,
-} from "@/utils/email-cache/telemetry";
+  CONVERSATION_PAGE_SIZE,
+  conversationOutgoingMessages,
+  conversationSendOperationIds,
+  conversationViewToThreadResponse,
+  missingConversationBodyIds,
+  requestMissingMessageContent,
+} from "@/utils/mail-engine/conversation-thread";
 
-// `id` accepts null so "no thread open" is expressible in the type rather than
-// as a magic empty string that would silently resolve to the thread list route.
+const EMPTY_SNAPSHOT: QuerySnapshot<ConversationView> = {
+  status: "loading",
+  revision: null,
+  data: null,
+  refreshing: false,
+  error: null,
+};
+
 export function useThread(
   {
     id,
     emailAccountId: explicitEmailAccountId,
   }: { id: string | null; emailAccountId?: string },
-  options?: ThreadRequestOptions,
+  options?: {
+    includeDrafts?: boolean;
+    localMail?: boolean;
+    parseReplies?: boolean;
+  },
 ) {
   const { emailAccountId: currentEmailAccountId } = useAccount();
   const emailAccountId = explicitEmailAccountId ?? currentEmailAccountId;
-  const { cache, fetcher } = useSWRConfig();
+  const client = useOptionalMailClient();
   const includeDrafts = options?.includeDrafts;
-  const parseReplies = options?.parseReplies;
-  const request = useMemo(
-    () =>
-      id && emailAccountId
-        ? createThreadRequest({
-            emailAccountId,
-            threadId: id,
-            options: { includeDrafts, parseReplies },
-          })
-        : null,
-    [emailAccountId, id, includeDrafts, parseReplies],
-  );
-  const memoryData = request
-    ? (
-        cache.get(unstable_serialize(request.key)) as
-          | { data?: ThreadResponse }
-          | undefined
-      )?.data
-    : undefined;
-  const hasMatchingMemoryData = memoryData?.thread.id === id;
-  const checkedPersistentCache = useRef(new Set<string>());
-  const swr = useSWR<ThreadResponse>(
-    request?.key ?? null,
-    request && fetcher && id
-      ? () =>
-          fetchThreadRequest(request, async () => {
-            if (
-              !hasMatchingMemoryData &&
-              !checkedPersistentCache.current.has(request.cacheIdentity)
-            ) {
-              checkedPersistentCache.current.add(request.cacheIdentity);
-              const startedAt = startEmailCacheMeasure();
-              const cached = await readCachedThreadDetail({
-                emailAccountId,
-                threadId: id,
-                variant: request.variant,
-              });
-              finishEmailCacheMeasure(
-                EMAIL_CACHE_MEASURES.threadHydration,
-                startedAt,
-              );
-              if (cached) return cached.data;
-            }
+  const [pagination, setPagination] = useState({
+    accountId: emailAccountId,
+    id,
+    pageSize: CONVERSATION_PAGE_SIZE,
+  });
+  const pageSize =
+    pagination.accountId === emailAccountId && pagination.id === id
+      ? pagination.pageSize
+      : CONVERSATION_PAGE_SIZE;
+  const createHandle = useCallback(() => {
+    if (!client || !emailAccountId || !id) {
+      return {
+        getSnapshot: () => EMPTY_SNAPSHOT,
+        subscribe: () => () => undefined,
+        close: () => undefined,
+      };
+    }
+    return client.observeConversation(
+      { accountId: emailAccountId, conversationId: id },
+      { after: null, pageSize },
+    );
+  }, [client, emailAccountId, id, pageSize]);
+  const snapshot = useQuerySnapshot(createHandle);
+  const view = useStableConversationView(snapshot.data);
+  const requestedContent = useRef({ createHandle, ids: new Set<string>() });
 
-            const data = (await fetcher(request.key)) as ThreadResponse;
-            writeCachedThreadDetail({
-              emailAccountId,
-              threadId: id,
-              variant: request.variant,
-              data,
-            });
-            return data;
-          })
-      : null,
-    {
-      keepPreviousData: false,
-      revalidateOnMount: !hasMatchingMemoryData,
-      revalidateOnFocus: false,
-      revalidateOnReconnect: false,
-    },
-  );
-  const data = swr.data?.thread.id === id ? swr.data : undefined;
+  useEffect(() => {
+    if (!client || !view) return;
+    // The view can republish several times before bodies arrive; one request
+    // per message for each observation is enough.
+    if (requestedContent.current.createHandle !== createHandle) {
+      requestedContent.current = { createHandle, ids: new Set() };
+    }
+    requestMissingMessageContent(client, view, requestedContent.current.ids);
+  }, [client, createHandle, view]);
+
+  const data = useMemo<ThreadResponse | undefined>(() => {
+    if (!id || !view) return;
+    return conversationViewToThreadResponse(view, { includeDrafts });
+  }, [id, includeDrafts, view]);
+
+  const mutate = useCallback(async () => {
+    if (!client || !emailAccountId) return data;
+    await client.requestSync([emailAccountId]);
+    if (view) {
+      await Promise.all(
+        view.messages.map((message) =>
+          client.ensureMessageContent(message.key),
+        ),
+      );
+    }
+    return data;
+  }, [client, data, emailAccountId, view]);
+
+  const isLoading =
+    Boolean(id) && (!client || !data) && snapshot.status !== "error";
+  const errorCode = snapshot.error?.code;
+  // Kept referentially stable so a memoized reader only re-renders when the
+  // conversation actually changes.
+  const error = useMemo(() => conversationQueryError(errorCode), [errorCode]);
+  const loadingMore = snapshot.refreshing && pageSize > CONVERSATION_PAGE_SIZE;
+  const localAvailability = useMemo(() => {
+    if (!data || !view) return;
+    return {
+      missingBodyIds: missingConversationBodyIds(view),
+      outgoing: conversationOutgoingMessages(view),
+      sendOperationIds: conversationSendOperationIds(view),
+      hasMore: Boolean(view.nextPage),
+      loadingMore,
+      loadMore: () =>
+        setPagination({
+          accountId: emailAccountId,
+          id,
+          pageSize: pageSize + CONVERSATION_PAGE_SIZE,
+        }),
+    };
+  }, [data, emailAccountId, id, loadingMore, pageSize, view]);
 
   return {
-    ...swr,
     data,
-    error: data ? undefined : swr.error,
-    isLoading: swr.isLoading,
-    isValidating: swr.isValidating,
-    mutate: swr.mutate,
+    error,
+    isLoading,
+    isValidating: snapshot.refreshing,
+    mutate,
+    localAvailability,
   };
+}
+
+function conversationQueryError(
+  code: string | undefined,
+): { error: string; info: { error: string } } | undefined {
+  if (!code) return;
+  const message =
+    code === "not_found"
+      ? "This conversation isn't available yet."
+      : "Couldn't open this conversation.";
+  return { error: message, info: { error: message } };
+}
+
+// Writes elsewhere, such as saving a new draft, can republish this view with
+// the same messages. Keeping the previous view spares the open reader a full
+// re-render for them.
+function useStableConversationView(view: ConversationView | null) {
+  const previous = useRef<{ key: string; view: ConversationView } | null>(null);
+  return useMemo(() => {
+    if (!view) return view;
+    const key = JSON.stringify([
+      view.key,
+      view.messages,
+      view.outgoing,
+      view.nextPage,
+    ]);
+    if (previous.current?.key === key) return previous.current.view;
+    previous.current = { key, view };
+    return view;
+  }, [view]);
 }

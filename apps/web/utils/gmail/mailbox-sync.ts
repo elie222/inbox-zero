@@ -1,16 +1,23 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import chunk from "lodash/chunk";
 import {
   compactMailboxSyncMessage,
   decodeMailboxSyncCursor,
   encodeMailboxSyncCursor,
 } from "@/utils/email/mailbox-sync";
 import type { MailboxSyncPage } from "@/utils/email/types";
-import { getMessagesBatch } from "@/utils/gmail/message";
+import { getGmailSyncMessages } from "@/utils/gmail/sync-messages";
 import { getHistory } from "@/utils/gmail/history";
-import { GmailLabel } from "@/utils/gmail/label";
 import { extractErrorInfo, withGmailRetry } from "@/utils/gmail/retry";
 import type { Logger } from "@/utils/logger";
+
+// Archive, read, and star are label events. Gmail does not treat archive as
+// messagesDeleted, so mailbox delta sync must ask for labelRemoved explicitly.
+const GMAIL_MAILBOX_HISTORY_TYPES = [
+  "messageAdded",
+  "messageDeleted",
+  "labelAdded",
+  "labelRemoved",
+] as const;
 
 export async function getGmailMailboxSyncPage({
   gmail,
@@ -58,26 +65,26 @@ export async function getGmailMailboxSyncPage({
       gmail,
       {
         startHistoryId: decoded.historyId,
+        historyTypes: [...GMAIL_MAILBOX_HISTORY_TYPES],
         maxResults: limit,
         pageToken: decoded.pageToken,
       },
       logger,
     );
-    const { upsertIds, deletedIds } = getGmailMailboxChangeIds(
-      response.history ?? [],
-    );
-    const fetchedMessages = await fetchMessages({
+    const { upsertIds, deletedIds, changedThreadIds } =
+      getGmailMailboxChangeIds(response.history ?? []);
+    const fetched = await getGmailSyncMessages({
+      gmail,
       messageIds: upsertIds,
       accessToken,
       logger,
     });
+    const fetchedMessages = fetched.messages.map(compactMailboxSyncMessage);
     const afterTimestamp = new Date(decoded.after).getTime();
     const upsertedMessages = fetchedMessages.filter((message) => {
-      const isInSnapshotScope =
-        (!message.labelIds || message.labelIds.includes(GmailLabel.INBOX)) &&
-        Number(message.internalDate) >= afterTimestamp;
-      if (!isInSnapshotScope) deletedIds.add(message.id);
-      return isInSnapshotScope;
+      const inTimeWindow = Number(message.internalDate) >= afterTimestamp;
+      if (!inTimeWindow) deletedIds.add(message.id);
+      return inTimeWindow;
     });
     const fetchedIds = new Set(fetchedMessages.map((message) => message.id));
     for (const messageId of upsertIds) {
@@ -96,6 +103,7 @@ export async function getGmailMailboxSyncPage({
         after: decoded.after,
         pageToken: response.nextPageToken ?? undefined,
       }),
+      changedThreadIds: [...changedThreadIds],
       deletedMessageIds: [...deletedIds],
       hasMore: Boolean(response.nextPageToken),
       reset: false,
@@ -118,11 +126,22 @@ export async function getGmailMailboxSyncPage({
 export function getGmailMailboxChangeIds(history: gmail_v1.Schema$History[]): {
   upsertIds: string[];
   deletedIds: Set<string>;
+  changedThreadIds: Set<string>;
 } {
   const upsertIds = new Set<string>();
   const deletedIds = new Set<string>();
+  const changedThreadIds = new Set<string>();
 
   for (const record of history) {
+    for (const change of [
+      ...(record.messagesAdded ?? []),
+      ...(record.messagesDeleted ?? []),
+      ...(record.labelsAdded ?? []),
+      ...(record.labelsRemoved ?? []),
+    ]) {
+      if (change.message?.threadId)
+        changedThreadIds.add(change.message.threadId);
+    }
     for (const change of record.messagesAdded ?? []) {
       if (change.message?.id) upsertIds.add(change.message.id);
     }
@@ -135,10 +154,16 @@ export function getGmailMailboxChangeIds(history: gmail_v1.Schema$History[]): {
     for (const change of record.messagesDeleted ?? []) {
       if (change.message?.id) deletedIds.add(change.message.id);
     }
+    // Typed arrays can be omitted; the summary `messages` list still names
+    // every affected id so current labels can be written to the cache.
+    for (const message of record.messages ?? []) {
+      if (message.threadId) changedThreadIds.add(message.threadId);
+      if (message.id) upsertIds.add(message.id);
+    }
   }
 
   for (const messageId of deletedIds) upsertIds.delete(messageId);
-  return { upsertIds: [...upsertIds], deletedIds };
+  return { upsertIds: [...upsertIds], deletedIds, changedThreadIds };
 }
 
 async function getGmailSnapshotPage({
@@ -175,7 +200,6 @@ async function getGmailSnapshotPage({
     () =>
       gmail.users.messages.list({
         userId: "me",
-        labelIds: ["INBOX"],
         q: `after:${Math.floor(after.getTime() / 1000)}`,
         maxResults: limit,
         pageToken,
@@ -183,7 +207,8 @@ async function getGmailSnapshotPage({
     5,
     { logger },
   );
-  const upsertedMessages = await fetchMessages({
+  const fetched = await getGmailSyncMessages({
+    gmail,
     messageIds: (response.data.messages ?? []).flatMap((message) =>
       message.id ? [message.id] : [],
     ),
@@ -204,27 +229,6 @@ async function getGmailSnapshotPage({
     deletedMessageIds: [],
     hasMore: true,
     reset,
-    upsertedMessages,
+    upsertedMessages: fetched.messages.map(compactMailboxSyncMessage),
   };
-}
-
-async function fetchMessages({
-  messageIds,
-  accessToken,
-  logger,
-}: {
-  messageIds: string[];
-  accessToken: string;
-  logger: Logger;
-}) {
-  const pages = await Promise.all(
-    chunk(messageIds, 100).map((ids) =>
-      getMessagesBatch({
-        messageIds: ids,
-        accessToken,
-        logger,
-      }),
-    ),
-  );
-  return pages.flat().map(compactMailboxSyncMessage);
 }

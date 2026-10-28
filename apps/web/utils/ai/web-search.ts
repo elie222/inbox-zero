@@ -1,23 +1,13 @@
-import type { ToolSet } from "ai";
+import type { JSONValue, ToolSet } from "ai";
 import { google } from "@ai-sdk/google";
 import { openai } from "@ai-sdk/openai";
-import { openrouter } from "@openrouter/ai-sdk-provider";
 import { Provider } from "@/utils/llms/config";
 
 export type WebSearchConfig = {
   providerName: string;
-  tools: ToolSet;
-  providerOptions?: Record<string, Record<string, number>>;
-  toolChoice?: "required";
+  tools?: ToolSet;
+  providerOptions?: Record<string, Record<string, JSONValue>>;
 };
-
-export function hasWebSearchForProvider(provider: string | undefined) {
-  return (
-    provider === Provider.OPEN_AI ||
-    provider === Provider.GOOGLE ||
-    provider === Provider.OPENROUTER
-  );
-}
 
 export function getWebSearchConfigForProvider(
   provider: string | undefined,
@@ -36,14 +26,12 @@ export function getWebSearchConfigForProvider(
     case Provider.OPENROUTER:
       return {
         providerName: "OpenRouter",
-        tools: {
-          web_search: openrouter.tools.webSearch({
-            engine: "auto",
-            maxResults: 5,
-          }),
+        // The web plugin always runs one search before the model answers. The
+        // server-side web_search tool can't be forced: AI SDK 7 rejects
+        // toolChoice "required" because the call never reaches the client.
+        providerOptions: {
+          openrouter: { plugins: [{ id: "web", max_results: 5 }] },
         },
-        providerOptions: { openrouter: { max_tool_calls: 1 } },
-        toolChoice: "required",
       };
     default:
       return null;

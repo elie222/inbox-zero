@@ -139,6 +139,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         videoConferenceLink: "https://meet.example.com/sprint",
         eventUrl: "https://calendar.example.com/event/123",
         briefingContent: {
+          priorities: [],
           guests: [
             {
               name: "Jane Doe",
@@ -455,54 +456,6 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       // User saw an ephemeral confirmation.
       expect(postEphemeral).toHaveBeenCalled();
       expect(postEphemeral.mock.calls[0]?.[1]).toMatch(/done/i);
-    });
-
-    test("addReaction/removeReaction manages processing indicator", async () => {
-      const { addReaction, removeReaction } = await import(
-        "@/utils/messaging/providers/slack/reactions"
-      );
-
-      // Post a message to react to
-      const posted = await emulatorClient.chat.postMessage({
-        channel: engChannelId,
-        text: "Processing this email...",
-      });
-      const ts = posted.ts!;
-
-      // Add "eyes" reaction (processing indicator)
-      await addReaction(emulatorClient, engChannelId, ts, "eyes");
-
-      const reactions = await emulatorClient.reactions.get({
-        channel: engChannelId,
-        timestamp: ts,
-      });
-      const eyesReaction = reactions.message?.reactions?.find(
-        (r) => r.name === "eyes",
-      );
-      expect(eyesReaction).toBeDefined();
-
-      // Remove it (processing done)
-      await removeReaction(emulatorClient, engChannelId, ts, "eyes");
-
-      const after = await emulatorClient.reactions.get({
-        channel: engChannelId,
-        timestamp: ts,
-      });
-      const eyesAfter = after.message?.reactions?.find(
-        (r) => r.name === "eyes",
-      );
-      expect(eyesAfter).toBeUndefined();
-    });
-
-    test("addReaction silently handles errors for missing messages", async () => {
-      const { addReaction } = await import(
-        "@/utils/messaging/providers/slack/reactions"
-      );
-
-      // Should not throw — addReaction swallows errors
-      await expect(
-        addReaction(emulatorClient, engChannelId, "9999999999.999999", "eyes"),
-      ).resolves.toBeUndefined();
     });
 
     test("sendSlackRuleNotification posts a draft card with interactive actions", async () => {

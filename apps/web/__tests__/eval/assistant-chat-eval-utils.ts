@@ -5,6 +5,29 @@ import type { MessageContext } from "@/utils/ai/assistant/chat-context-validatio
 import { writeEvalDebugArtifact } from "@/__tests__/eval/debug-artifacts";
 import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
 import type { Logger } from "@/utils/logger";
+import type { MessagingPlatform } from "@/utils/messaging/platforms";
+import prisma from "@/utils/prisma";
+
+const assistantWriteToolNames = new Set([
+  "startSenderCategorization",
+  "manageSenderCategory",
+  "manageInbox",
+  "createRule",
+  "updateRule",
+  "deleteRule",
+  "updateLearnedPatterns",
+  "updatePersonalInstructions",
+  "sendEmail",
+  "replyEmail",
+  "forwardEmail",
+  "createOrGetLabel",
+  "createOrGetCategory",
+  "createOrGetFolder",
+  "moveThreadsToFolder",
+  "updateAssistantSettings",
+  "saveMemory",
+  "addToKnowledgeBase",
+]);
 
 export type RecordedToolCall = {
   toolCallId?: string;
@@ -57,6 +80,9 @@ export async function captureAssistantChatTrace({
   messages,
   logger,
   inboxStats,
+  supportsInlineEmailCards = true,
+  responseSurface,
+  messagingPlatform,
   context,
   chatHasHistory,
   chatLastSeenRulesRevision,
@@ -65,6 +91,9 @@ export async function captureAssistantChatTrace({
   messages: ModelMessage[];
   logger: Logger;
   inboxStats?: { total: number; unread: number } | null;
+  supportsInlineEmailCards?: boolean;
+  responseSurface?: "web" | "messaging";
+  messagingPlatform?: MessagingPlatform;
   context?: MessageContext;
   chatHasHistory?: boolean;
   chatLastSeenRulesRevision?: number | null;
@@ -74,16 +103,21 @@ export async function captureAssistantChatTrace({
   const steps: unknown[] = [];
   const resolvedModels: unknown[] = [];
 
+  ensureCalendarConnectionLookup();
+
   const result = await aiProcessAssistantChat({
     messages,
     emailAccountId: emailAccount.id,
     user: emailAccount,
     inboxStats,
+    supportsInlineEmailCards,
+    responseSurface,
+    messagingPlatform,
     context,
     chatHasHistory,
     chatLastSeenRulesRevision,
     logger,
-    onStepFinish: async (step) => {
+    onStepEnd: async (step) => {
       steps.push(step);
 
       const { text, toolCalls } = step;
@@ -148,6 +182,21 @@ export async function captureAssistantChatTrace({
     toolCalls: recordedToolCalls,
     stepTexts,
   };
+}
+
+// Chat looks up calendar connections before registering tools. Evals that do
+// not stage a connection should run as disconnected. Do not call a mock that
+// is already implemented — that would consume one-shot return values.
+function ensureCalendarConnectionLookup() {
+  const findMany = prisma.calendarConnection.findMany as unknown as {
+    getMockImplementation?: () => unknown;
+    mockResolvedValue?: (value: unknown[]) => void;
+  };
+
+  if (typeof findMany.mockResolvedValue !== "function") return;
+  if (findMany.getMockImplementation?.()) return;
+
+  findMany.mockResolvedValue([]);
 }
 
 function isToolResultWithOutput(
@@ -317,4 +366,14 @@ export function hasLabelAction(
       action.type === ActionType.LABEL &&
       action.fields?.label === expectedLabel,
   );
+}
+
+export function hasAssistantWriteToolCalls(toolCalls: RecordedToolCall[]) {
+  return toolCalls.some((toolCall) =>
+    isAssistantWriteToolName(toolCall.toolName),
+  );
+}
+
+export function isAssistantWriteToolName(toolName: string) {
+  return assistantWriteToolNames.has(toolName);
 }

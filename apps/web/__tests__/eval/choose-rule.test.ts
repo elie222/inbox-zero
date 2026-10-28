@@ -6,7 +6,7 @@ import {
 } from "@/__tests__/eval/models";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
-import { CONVERSATION_TRACKING_INSTRUCTIONS } from "@/utils/ai/choose-rule/run-rules";
+import { CONVERSATION_TRACKING_INSTRUCTIONS } from "@/utils/reply-tracker/conversation-status-config";
 import { getRuleConfig } from "@/utils/rule/consts";
 import { getEmail, getRule } from "@/__tests__/helpers";
 import { createScopedLogger } from "@/utils/logger";
@@ -31,6 +31,7 @@ const marketing = systemRule(SystemType.MARKETING);
 const calendar = systemRule(SystemType.CALENDAR);
 const receipt = systemRule(SystemType.RECEIPT);
 const notification = systemRule(SystemType.NOTIFICATION);
+const otp = systemRule(SystemType.OTP);
 const conversations = getRule(
   CONVERSATION_TRACKING_INSTRUCTIONS,
   [],
@@ -43,7 +44,91 @@ const rules = [
   calendar,
   receipt,
   notification,
+  otp,
   conversations,
+];
+
+const promotionalBoundaryCases = [
+  {
+    name: "founder coordinating their own launch",
+    email: getEmail({
+      from: "partner@launchstudio.example",
+      subject: "Your launch campaign is ready for approval",
+      content:
+        "Hi, we've finished the landing page and promotional emails for your company's launch. Please review the attached campaign copy and confirm whether we can publish tomorrow. We still need your decision on the introductory offer before we send it to your subscribers.",
+    }),
+    expectedRule: "Conversations",
+  },
+  {
+    name: "agency client requesting campaign changes",
+    email: getEmail({
+      from: "client@retailer.example",
+      subject: "Changes to our summer sale ads",
+      content:
+        "Hi team, your agency manages our paid campaigns. Please replace the 20% discount with free shipping in this week's ads and send over the revised creative for approval. Can you also explain why conversions dropped yesterday? We need your recommendation before increasing the budget.",
+    }),
+    expectedRule: "Conversations",
+  },
+  {
+    name: "automated alert about the user's advertising campaign",
+    email: getEmail({
+      from: "alerts@adplatform.example",
+      subject: "Your launch ads have stopped running",
+      content:
+        "The campaign you manage, Spring Launch, has been paused because its payment method was declined. Your ads are no longer being served. Update your billing details to resume delivery. View affected campaigns in your advertising account.",
+    }),
+    expectedRule: "Notification",
+  },
+  {
+    name: "subscriber dashboard magic link",
+    email: getEmail({
+      from: "Member Benefits <support@makersdigest.example>",
+      subject: "Your magic link to unlock your member benefits",
+      content:
+        "Thanks for being a paid member of Makers Digest! Open your dashboard to activate the partner apps included with your membership. Unlock your benefits: https://members.makersdigest.example/auth/callback#token=synthetic-example. Enjoy creating with your new apps!",
+    }),
+    expectedRule: "OTP",
+  },
+  {
+    name: "requested verification with an upsell",
+    email: getEmail({
+      from: "hello@canvascloud.example",
+      subject: "Confirm your email and start creating",
+      content:
+        "Enter code 123456 to verify the account you just created. It expires in 10 minutes. Once verified, explore our premium templates or upgrade for unlimited designs.",
+    }),
+    expectedRule: "OTP",
+  },
+  {
+    name: "account recovery in Spanish with promotional footer",
+    email: getEmail({
+      from: "cuentas@studio.example",
+      subject: "Recupera el acceso a tu cuenta",
+      content:
+        "Recibimos tu solicitud para restablecer la contraseña. Continúa aquí: https://studio.example/reset?token=synthetic-example. El enlace caduca en 15 minutos. Descubre también nuestra oferta anual con un 30% de descuento.",
+    }),
+    expectedRule: "OTP",
+  },
+  {
+    name: "optional member benefit promotion",
+    email: getEmail({
+      from: "Member Benefits <support@makersdigest.example>",
+      subject: "Explore this month's free member apps",
+      content:
+        "Your membership includes a growing collection of partner apps. This month, try a new design tool and a writing assistant at no extra cost. Browse the offers any time at https://members.makersdigest.example/benefits. Pick something new to try!",
+    }),
+    expectedRule: "Marketing",
+  },
+  {
+    name: "promotional urgency without an account obligation",
+    email: getEmail({
+      from: "offers@canvascloud.example",
+      subject: "Action required: your exclusive offer expires tonight",
+      content:
+        "Claim 40% off an optional upgrade before midnight. Sign in to view the deal and unlock premium templates. Your current plan continues as usual if you skip this offer.",
+    }),
+    expectedRule: "Marketing",
+  },
 ];
 
 const multiRuleStressRules = [
@@ -410,6 +495,24 @@ const testCases = [
     }),
     expectedRule: "Notification",
   },
+  {
+    email: getEmail({
+      from: "noreply@google.com",
+      subject: "G-482193 is your Google verification code",
+      content:
+        "G-482193 is your Google verification code. Don't share this code with anyone. It expires in 10 minutes.",
+    }),
+    expectedRule: "OTP",
+  },
+  {
+    email: getEmail({
+      from: "noreply@github.com",
+      subject: "[GitHub] Please verify your device",
+      content:
+        "Enter this code to verify your device: 847291. This code expires in 15 minutes. If you did not request this, you can ignore this email.",
+    }),
+    expectedRule: "OTP",
+  },
 
   // --- Conversations: real people asking questions ---
   {
@@ -723,6 +826,39 @@ describe.runIf(shouldRunEval)("Eval: Choose Rule", () => {
       );
     }
   });
+
+  describeEvalMatrix(
+    "promotional boundary",
+    (model, emailAccount) => {
+      for (const tc of promotionalBoundaryCases) {
+        test(
+          tc.name,
+          async () => {
+            const result = await aiChooseRule({
+              email: tc.email,
+              rules,
+              emailAccount,
+              logger,
+            });
+            const actual = result.rules.map(({ rule }) => rule.name);
+            const pass = actual.length === 1 && actual[0] === tc.expectedRule;
+
+            evalReporter.record({
+              testName: `promotional boundary: ${tc.name}`,
+              model: model.label,
+              pass,
+              expected: tc.expectedRule,
+              actual: actual.join(", ") || "no match",
+            });
+
+            expect(actual).toEqual([tc.expectedRule]);
+          },
+          TIMEOUT,
+        );
+      }
+    },
+    { multiRuleSelectionEnabled: true },
+  );
 
   describeEvalMatrix(
     "choose-rule multi-rule false positives",

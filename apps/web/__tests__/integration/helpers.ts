@@ -220,13 +220,23 @@ export async function createOutlookTestHarness({
   const graphBaseUrl = "https://graph.microsoft.com/v1.0";
   const emulatorBaseUrl = `${emulator.url}/v1.0`;
 
-  globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url =
       typeof input === "string"
         ? input
         : input instanceof URL
           ? input.href
           : input.url;
+
+    // Emulator IDs already survive folder moves; its API omits Exchange ID translation.
+    if (url === `${graphBaseUrl}/me/translateExchangeIds`) {
+      const { inputIds } = (await new Request(input, init).json()) as {
+        inputIds: string[];
+      };
+      return Response.json({
+        value: inputIds.map((id) => ({ sourceId: id, targetId: id })),
+      });
+    }
 
     if (url.startsWith(graphBaseUrl)) {
       const rewritten = url.replace(graphBaseUrl, emulatorBaseUrl);

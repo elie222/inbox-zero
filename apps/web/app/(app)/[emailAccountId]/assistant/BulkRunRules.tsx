@@ -21,13 +21,18 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { Toggle } from "@/components/Toggle";
-import { Badge } from "@/components/ui/badge";
-import { hasTierAccess } from "@/utils/premium";
+import { Switch } from "@/components/ui/switch";
 import {
-  RERUN_MINIMUM_TIER,
-  RERUN_UPGRADE_MESSAGE,
-} from "@/utils/premium/rerun";
+  Item,
+  ItemActions,
+  ItemCard,
+  ItemContent,
+  ItemDescription,
+  ItemSeparator,
+  ItemTitle,
+} from "@/components/ui/item";
+import { hasTierAccess } from "@/utils/premium";
+import { RERUN_MINIMUM_TIER } from "@/utils/premium/rerun";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { BulkProcessActivityLog } from "@/app/(app)/[emailAccountId]/assistant/BulkProcessActivityLog";
 import {
@@ -45,6 +50,7 @@ export function BulkRunRules() {
   const { emailAccountId } = useAccount();
 
   const [isOpen, setIsOpen] = useState(false);
+  const { PremiumModal, openModal: openPremiumModal } = usePremiumModal();
   const [state, dispatch] = useReducer(bulkRunReducer, initialBulkRunState);
 
   const queue = useAiQueueState();
@@ -75,6 +81,7 @@ export function BulkRunRules() {
   const [endDate, setEndDate] = useState<Date | undefined>();
   const [includeRead, setIncludeRead] = useState(false);
   const [rerun, setRerun] = useState(false);
+  const [generateDraftReplies, setGenerateDraftReplies] = useState(false);
 
   const abortRef = useRef<() => void>(undefined);
 
@@ -86,9 +93,10 @@ export function BulkRunRules() {
   const isProcessing = queue.size > 0;
   const isPaused = state.status === "paused";
   const isBusy = isProcessing || state.status === "processing";
-  // Access can drop while the toggle is still on (the tier is revalidated in
-  // the background), so everything reads the gated value rather than the raw
+  // Access can drop while a toggle is still on (the tier is revalidated in
+  // the background), so everything reads the gated values rather than the raw
   // toggle state.
+  const isIncludeReadEnabled = includeRead && isBusinessPlusTier;
   const isRerunEnabled = rerun && hasRerunAccess;
 
   // Warn user before leaving page during processing (includes initial fetch)
@@ -119,7 +127,8 @@ export function BulkRunRules() {
         {
           startDate,
           endDate,
-          includeRead,
+          includeRead: isIncludeReadEnabled,
+          generateDraftReplies,
           rerun: isRerunEnabled,
           maxEmails: isTrial ? TRIAL_BULK_PROCESS_EMAIL_LIMIT : undefined,
         },
@@ -209,33 +218,30 @@ export function BulkRunRules() {
                 />
               </div>
 
-              <Toggle
-                name="include-read"
-                label="Include read emails"
-                enabled={includeRead}
-                onChange={(enabled) => setIncludeRead(enabled)}
-                disabled={isProcessing || !isBusinessPlusTier}
-                disabledTooltipText={
-                  !isBusinessPlusTier && hasAiAccess
-                    ? "Including read emails is available on the Professional plan."
-                    : undefined
-                }
-              />
-
-              <div className="flex items-center gap-2">
-                <Toggle
-                  name="rerun"
-                  label="Re-process emails already handled"
-                  enabled={isRerunEnabled}
-                  onChange={(enabled) => setRerun(enabled)}
-                  disabled={isProcessing || !hasRerunAccess}
-                  disabledTooltipText={
-                    hasRerunAccess ? undefined : RERUN_UPGRADE_MESSAGE
-                  }
-                  tooltipText="Runs your rules again on emails that already have a result. Use this after changing your rules."
+              <ItemCard>
+                <ToggleRow
+                  title="Include read emails"
+                  checked={isIncludeReadEnabled}
+                  onCheckedChange={setIncludeRead}
+                  disabled={isProcessing}
+                  onUpgrade={isBusinessPlusTier ? undefined : openPremiumModal}
                 />
-                {!hasRerunAccess && <ProfessionalPlanBadge />}
-              </div>
+                <ItemSeparator />
+                <ToggleRow
+                  title="Rerun rules on already processed emails"
+                  checked={isRerunEnabled}
+                  onCheckedChange={setRerun}
+                  disabled={isProcessing}
+                  onUpgrade={hasRerunAccess ? undefined : openPremiumModal}
+                />
+                <ItemSeparator />
+                <ToggleRow
+                  title="Generate draft replies"
+                  checked={generateDraftReplies}
+                  onCheckedChange={setGenerateDraftReplies}
+                  disabled={isBusy}
+                />
+              </ItemCard>
 
               {isTrial && (
                 <div className="flex flex-col gap-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200 sm:flex-row sm:items-center sm:justify-between">
@@ -306,32 +312,63 @@ export function BulkRunRules() {
                 <div className="mt-4 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200">
                   No{" "}
                   {describeTargetedEmails({
-                    includeRead,
+                    includeRead: isIncludeReadEnabled,
                     rerun: isRerunEnabled,
                   })}{" "}
-                  found in the selected date range.
+                  found in your inbox in the selected date range.
                 </div>
               )}
             </div>
           </LoadingContent>
+          <PremiumModal />
         </DialogContent>
       </Dialog>
     </div>
   );
 }
 
-function ProfessionalPlanBadge() {
-  const { PremiumModal, openModal } = usePremiumModal();
-
+function ToggleRow({
+  title,
+  checked,
+  onCheckedChange,
+  disabled,
+  onUpgrade,
+}: {
+  title: string;
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+  disabled: boolean;
+  onUpgrade?: () => void;
+}) {
   return (
-    <>
-      <button type="button" onClick={openModal} aria-label="Upgrade plan">
-        <Badge variant="secondary" className="cursor-pointer hover:opacity-80">
-          Professional
-        </Badge>
-      </button>
-      <PremiumModal />
-    </>
+    <Item size="sm">
+      <ItemContent>
+        <ItemTitle>{title}</ItemTitle>
+        {onUpgrade && (
+          <ItemDescription>Available on the Professional plan.</ItemDescription>
+        )}
+      </ItemContent>
+      <ItemActions>
+        {onUpgrade ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            aria-label={`Upgrade to use ${title.toLowerCase()}`}
+            onClick={onUpgrade}
+          >
+            Upgrade
+          </Button>
+        ) : (
+          <Switch
+            aria-label={title}
+            checked={checked}
+            onCheckedChange={onCheckedChange}
+            disabled={disabled}
+          />
+        )}
+      </ItemActions>
+    </Item>
   );
 }
 

@@ -12,6 +12,8 @@ import { updateContactRole } from "@inboxzero/loops";
 import {
   updateHiddenAiDraftLinksBody,
   updateReferralSignatureBody,
+  updateSentWithSignatureBody,
+  updateSentMessageOpenTrackingBody,
 } from "@/utils/actions/email-account.validation";
 import { z } from "zod";
 
@@ -123,6 +125,20 @@ export const updateReferralSignatureAction = actionClient
     },
   );
 
+export const updateSentWithSignatureAction = actionClient
+  .metadata({ name: "updateSentWithSignature" })
+  .inputSchema(updateSentWithSignatureBody)
+  .action(
+    async ({ ctx: { emailAccountId, logger }, parsedInput: { enabled } }) => {
+      logger.info("Updating sent with signature", { enabled });
+
+      await prisma.emailAccount.update({
+        where: { id: emailAccountId },
+        data: { includeSentWithSignature: enabled },
+      });
+    },
+  );
+
 export const updateHiddenAiDraftLinksAction = actionClient
   .metadata({ name: "updateHiddenAiDraftLinks" })
   .inputSchema(updateHiddenAiDraftLinksBody)
@@ -133,6 +149,20 @@ export const updateHiddenAiDraftLinksAction = actionClient
       await prisma.emailAccount.update({
         where: { id: emailAccountId },
         data: { allowHiddenAiDraftLinks: enabled },
+      });
+    },
+  );
+
+export const updateSentMessageOpenTrackingAction = actionClient
+  .metadata({ name: "updateSentMessageOpenTracking" })
+  .inputSchema(updateSentMessageOpenTrackingBody)
+  .action(
+    async ({ ctx: { emailAccountId, logger }, parsedInput: { enabled } }) => {
+      logger.info("Updating sent message open tracking", { enabled });
+
+      await prisma.emailAccount.update({
+        where: { id: emailAccountId },
+        data: { sentMessageOpenTrackingEnabled: enabled },
       });
     },
   );

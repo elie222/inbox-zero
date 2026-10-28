@@ -1,0 +1,587 @@
+// @vitest-environment jsdom
+
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ThreadMessage } from "@/components/email-list/types";
+import { EmailMessage } from "@/components/email-list/EmailMessage";
+
+const mocks = vi.hoisted(() => ({
+  executeAsync: vi.fn(),
+  toastError: vi.fn(),
+  popOutReply: vi.fn(),
+  poppedOutDraftSessionId: undefined as string | undefined,
+}));
+
+vi.mock("next-safe-action/hooks", () => ({
+  useAction: () => ({ executeAsync: mocks.executeAsync }),
+}));
+vi.mock("swr", () => ({
+  default: () => ({ data: undefined }),
+}));
+vi.mock("@/providers/EmailAccountProvider", () => ({
+  useAccount: () => ({
+    emailAccount: undefined,
+    emailAccountId: "account-1",
+    userEmail: "user@example.com",
+  }),
+}));
+vi.mock("@/providers/ComposeModalProvider", () => ({
+  useComposeModal: () => ({
+    popOutReply: mocks.popOutReply,
+    poppedOutDraftSessionId: mocks.poppedOutDraftSessionId,
+  }),
+}));
+vi.mock("@/env", () => ({
+  env: { NEXT_PUBLIC_CONTACTS_ENABLED: false },
+}));
+vi.mock("@/components/Tooltip", () => ({
+  Tooltip: ({ children }: { children: React.ReactNode }) => children,
+}));
+vi.mock("@/components/email-list/EmailContents", () => ({
+  HtmlEmail: () => null,
+  PlainEmail: ({ text }: { text: string }) => <p>{text}</p>,
+}));
+vi.mock("@/components/email-list/EmailAttachments", () => ({
+  EmailAttachments: () => null,
+}));
+vi.mock("@/components/email-list/EmailDetails", () => ({
+  EmailDetails: () => null,
+}));
+vi.mock("@/components/Toast", () => ({ toastError: mocks.toastError }));
+vi.mock("@/utils/actions/mail", () => ({ deleteDraftAction: vi.fn() }));
+vi.mock("@/app/(app)/[emailAccountId]/compose/ComposeEmailFormLazy", () => ({
+  ComposeEmailFormLazy: ({
+    onDiscard,
+    onPopOut,
+    replyingToEmail,
+    quote,
+  }: {
+    onDiscard: () => void;
+    onPopOut?: () => void;
+    quote?: string;
+    replyingToEmail?: {
+      to?: string;
+      cc?: string;
+      threadId?: string;
+      forwardedMessageId?: string;
+      forwardedAttachments?: Array<{ filename: string }>;
+    };
+  }) => (
+    <div
+      data-testid="composer"
+      data-inline-reply="true"
+      data-quote={quote}
+      data-thread-id={replyingToEmail?.threadId}
+      data-to={replyingToEmail?.to}
+      data-cc={replyingToEmail?.cc}
+      data-forwarded-message-id={replyingToEmail?.forwardedMessageId}
+      data-forwarded-attachments={replyingToEmail?.forwardedAttachments
+        ?.map((attachment) => attachment.filename)
+        .join(",")}
+    >
+      <span>{replyingToEmail?.to ? "reply" : "forward"}</span>
+      <textarea aria-label="Email message" />
+      <button onClick={onDiscard} type="button">
+        Discard draft
+      </button>
+      <button aria-label="Pop out draft" onClick={onPopOut} type="button" />
+    </div>
+  ),
+}));
+
+describe("EmailMessage draft recovery", () => {
+  afterEach(cleanup);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns focus to the message when Escape is pressed in a provider draft", () => {
+    render(
+      <EmailMessage
+        draftMessages={[createMessage("draft-1")]}
+        expanded
+        message={createMessage("message-1")}
+        onSendSuccess={vi.fn()}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    const editor = screen.getByRole("textbox", { name: "Email message" });
+    editor.focus();
+    expect(document.activeElement).toBe(editor);
+
+    fireEvent.keyDown(editor, { key: "Escape" });
+
+    expect(document.activeElement).toBe(screen.getByRole("listitem"));
+    expect(screen.getByTestId("composer")).toBeTruthy();
+  });
+
+  it("restores a provider draft when discard returns an empty server error", async () => {
+    let resolveDiscard: (result: { serverError: string }) => void = () => {};
+    mocks.executeAsync.mockReturnValue(
+      new Promise((resolve) => {
+        resolveDiscard = resolve;
+      }),
+    );
+    const refetch = vi.fn();
+
+    render(
+      <EmailMessage
+        draftMessages={[createMessage("draft-1")]}
+        expanded
+        message={createMessage("message-1")}
+        onSendSuccess={vi.fn()}
+        refetch={refetch}
+        showReplyButton
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Discard draft" }));
+    expect(screen.queryByTestId("composer")).toBeNull();
+
+    await act(async () => {
+      resolveDiscard({ serverError: "" });
+    });
+
+    expect(screen.getByTestId("composer")).toBeTruthy();
+    expect(mocks.toastError).toHaveBeenCalledWith({
+      description: "Failed to discard draft",
+    });
+    expect(refetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a newer compose mode open when an earlier discard fails", async () => {
+    let rejectDiscard: (error: Error) => void = () => {};
+    mocks.executeAsync.mockReturnValue(
+      new Promise((_, reject) => {
+        rejectDiscard = reject;
+      }),
+    );
+    const refetch = vi.fn();
+
+    render(
+      <EmailMessage
+        draftMessages={[createMessage("draft-1")]}
+        expanded
+        message={createMessage("message-1")}
+        onSendSuccess={vi.fn()}
+        refetch={refetch}
+        showReplyButton
+      />,
+    );
+
+    expect(screen.getByTestId("composer").textContent).toContain("reply");
+    fireEvent.click(screen.getByRole("button", { name: "Discard draft" }));
+    expect(screen.queryByTestId("composer")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Forward" }));
+    expect(screen.getByTestId("composer").textContent).toContain("forward");
+
+    await act(async () => {
+      rejectDiscard(new Error("Request failed"));
+    });
+
+    expect(
+      screen.getAllByTestId("composer").map((composer) => composer.textContent),
+    ).toEqual(["replyDiscard draft", "forwardDiscard draft"]);
+    fireEvent.click(screen.getByRole("button", { name: "Reply" }));
+    expect(
+      screen.getAllByTestId("composer").map((composer) => composer.textContent),
+    ).toEqual(["replyDiscard draft"]);
+    expect(mocks.toastError).toHaveBeenCalledWith({
+      description: "Failed to discard draft",
+    });
+    expect(refetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("EmailMessage reply", () => {
+  afterEach(cleanup);
+
+  it("expands a collapsed message so the reply composer can mount", () => {
+    const onExpand = vi.fn();
+    const view = render(
+      <EmailMessage
+        expanded={false}
+        message={createMessage("message-1")}
+        onSendSuccess={vi.fn()}
+        onExpand={onExpand}
+        onToggle={vi.fn()}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Reply" }));
+    expect(onExpand).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("textbox", { name: "Email message" })).toBeNull();
+
+    view.rerender(
+      <EmailMessage
+        expanded
+        message={createMessage("message-1")}
+        onSendSuccess={vi.fn()}
+        onExpand={onExpand}
+        onToggle={vi.fn()}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+    expect(screen.getByRole("textbox", { name: "Email message" })).toBeTruthy();
+  });
+
+  it("quotes the selected text when Enter opens the reply", () => {
+    render(
+      <EmailMessage
+        expanded
+        message={createMessage("message-1")}
+        onSendSuccess={vi.fn()}
+        refetch={vi.fn()}
+        selected
+        showReplyButton
+      />,
+    );
+    const body = screen.getByText("Message body");
+    const range = document.createRange();
+    range.selectNodeContents(body);
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(range);
+
+    fireEvent.keyDown(screen.getByRole("listitem"), { key: "Enter" });
+
+    expect(screen.getByTestId("composer").dataset.quote).toBe("Message body");
+  });
+
+  // Autosave puts the reply in the mailbox, and sync can bring that copy back
+  // before the thread learns it belongs to the open composer.
+  it("keeps typing in a new reply when a mailbox draft for it syncs in", () => {
+    const props = {
+      expanded: true,
+      message: createMessage("message-1"),
+      onSendSuccess: vi.fn(),
+      refetch: vi.fn(),
+      showReplyButton: true,
+    };
+    const view = render(<EmailMessage {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "Reply" }));
+    const editor = screen.getByRole("textbox", { name: "Email message" });
+    editor.focus();
+
+    view.rerender(
+      <EmailMessage {...props} draftMessages={[createMessage("draft-1")]} />,
+    );
+
+    expect(screen.getAllByTestId("composer")).toHaveLength(1);
+    expect(screen.getByRole("textbox", { name: "Email message" })).toBe(editor);
+    expect(document.activeElement).toBe(editor);
+  });
+
+  it("addresses the reply to the sender's Reply-To address", () => {
+    const message = createMessage("message-1");
+    render(
+      <EmailMessage
+        expanded
+        message={{
+          ...message,
+          headers: {
+            ...message.headers,
+            from: "Support <messages@helpdesk.example>",
+            "reply-to": "Support <session-123@helpdesk.example>",
+          },
+        }}
+        onSendSuccess={vi.fn()}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Reply" }));
+
+    expect(screen.getByTestId("composer").dataset.to).toBe(
+      "Support <session-123@helpdesk.example>",
+    );
+  });
+
+  it("names To and Cc recipients in the recipient summary", () => {
+    const message = createMessage("message-1");
+    render(
+      <EmailMessage
+        expanded
+        message={{
+          ...message,
+          headers: {
+            ...message.headers,
+            to: "Alex Kim <alex@example.com>, user@example.com",
+            cc: '"Doe, Jane" <jane@example.com>, Sam Lee <sam@example.com>, user@example.com',
+          },
+        }}
+        onSendSuccess={vi.fn()}
+        onToggle={vi.fn()}
+        refetch={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("me, Alex, Jane, Sam")).toBeTruthy();
+  });
+});
+
+describe("EmailMessage pop out", () => {
+  afterEach(() => {
+    cleanup();
+    mocks.poppedOutDraftSessionId = undefined;
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("moves a reply into its own window and back when it is dismissed", () => {
+    render(
+      <EmailMessage
+        defaultComposeMode="reply"
+        expanded
+        message={createMessage("message-1")}
+        onSendSuccess={vi.fn()}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Pop out draft" }));
+
+    expect(mocks.popOutReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emailAccountId: "account-1",
+        draftSessionId: "message-1:reply",
+        draftKeyMessageId: "message-1",
+        draftMode: "reply",
+        replyingToEmail: expect.objectContaining({ threadId: "thread-1" }),
+      }),
+    );
+    expect(screen.queryByTestId("composer")).toBeNull();
+
+    act(() => {
+      mocks.popOutReply.mock.calls[0][0].onReturn();
+    });
+    expect(screen.getByTestId("composer")).toBeTruthy();
+  });
+
+  it("keeps a popped-out draft out of the thread when it remounts", () => {
+    mocks.poppedOutDraftSessionId = "draft-1:reply";
+    render(
+      <EmailMessage
+        draftMessages={[createMessage("draft-1")]}
+        expanded
+        message={createMessage("message-1")}
+        onSendSuccess={vi.fn()}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    expect(screen.queryByTestId("composer")).toBeNull();
+  });
+});
+
+describe("EmailMessage reply all", () => {
+  afterEach(cleanup);
+
+  it("copies the other recipients and leaves the user out", () => {
+    const message = createMessage("message-1");
+    render(
+      <EmailMessage
+        expanded
+        message={{
+          ...message,
+          headers: {
+            ...message.headers,
+            to: "user@example.com, Alex Kim <alex@example.com>",
+            cc: "sam@example.com",
+          },
+        }}
+        onSendSuccess={vi.fn()}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Reply all" }));
+
+    const composer = screen.getByTestId("composer");
+    expect(composer.dataset.to).toBe("sender@example.com");
+    expect(composer.dataset.cc).toBe("sam@example.com, alex@example.com");
+  });
+
+  it("sends to the Reply-To address without copying it again", () => {
+    const message = createMessage("message-1");
+    render(
+      <EmailMessage
+        expanded
+        message={{
+          ...message,
+          headers: {
+            ...message.headers,
+            "reply-to": "list@example.com",
+            to: "user@example.com, list@example.com",
+            cc: "sam@example.com",
+          },
+        }}
+        onSendSuccess={vi.fn()}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Reply all" }));
+
+    const composer = screen.getByTestId("composer");
+    expect(composer.dataset.to).toBe("list@example.com");
+    expect(composer.dataset.cc).toBe("sam@example.com");
+  });
+
+  it("is not offered when the user is the only other recipient", () => {
+    render(
+      <EmailMessage
+        expanded
+        message={createMessage("message-1")}
+        onSendSuccess={vi.fn()}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Reply" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Reply all" })).toBeNull();
+  });
+});
+
+describe("EmailMessage forward", () => {
+  afterEach(cleanup);
+
+  it.each([
+    "button",
+    "default",
+  ] as const)("waits for the body before forwarding through %s", (entry) => {
+    const refetch = vi.fn();
+    const props = {
+      expanded: true,
+      message: createMessage("message-1"),
+      onSendSuccess: vi.fn(),
+      refetch,
+      showReplyButton: true,
+      defaultComposeMode:
+        entry === "default" ? ("forward" as const) : undefined,
+    };
+    const { rerender } = render(
+      <EmailMessage {...props} bodyAvailable={false} />,
+    );
+    if (entry === "button")
+      fireEvent.click(screen.getByRole("button", { name: "Forward" }));
+    expect(screen.queryByTestId("composer")).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Load message to forward" }),
+    );
+    expect(refetch).toHaveBeenCalledOnce();
+    rerender(<EmailMessage {...props} bodyAvailable />);
+    expect(screen.getByTestId("composer").dataset.forwardedMessageId).toBe(
+      "message-1",
+    );
+    expect(screen.getByTestId("composer").dataset.forwardedAttachments).toBe(
+      "report.pdf",
+    );
+  });
+
+  it("preserves an open unsent forward when the reader falls back to metadata", () => {
+    const props = {
+      expanded: true,
+      message: createMessage("message-1"),
+      onSendSuccess: vi.fn(),
+      refetch: vi.fn(),
+      showReplyButton: true,
+      defaultComposeMode: "forward" as const,
+    };
+    const { rerender } = render(<EmailMessage {...props} />);
+    const editor = screen.getByRole("textbox", {
+      name: "Email message",
+    }) as HTMLTextAreaElement;
+    fireEvent.change(editor, { target: { value: "Unsent draft content" } });
+    rerender(
+      <EmailMessage
+        {...props}
+        bodyAvailable={false}
+        message={{
+          ...props.message,
+          attachments: undefined,
+          textHtml: undefined,
+          textPlain: undefined,
+        }}
+      />,
+    );
+    expect(screen.getByRole("textbox", { name: "Email message" })).toBe(editor);
+    expect(editor.value).toBe("Unsent draft content");
+    expect(screen.getByTestId("composer").dataset.forwardedAttachments).toBe(
+      "report.pdf",
+    );
+  });
+
+  it("composes the forward against the thread it came from", () => {
+    render(
+      <EmailMessage
+        expanded
+        message={createMessage("message-1")}
+        onSendSuccess={vi.fn()}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Forward" }));
+
+    const composer = screen.getByTestId("composer");
+    expect(composer.dataset.threadId).toBe("thread-1");
+    // Outlook needs the source message to keep the forward in its conversation.
+    expect(composer.dataset.forwardedMessageId).toBe("message-1");
+    // The files travel with the forward, so the composer has to show them.
+    expect(composer.dataset.forwardedAttachments).toBe("report.pdf");
+  });
+});
+
+function createMessage(id: string) {
+  return {
+    date: "2026-01-01T00:00:00.000Z",
+    headers: {
+      date: "2026-01-01T00:00:00.000Z",
+      from: "sender@example.com",
+      subject: "Subject",
+      to: "user@example.com",
+    },
+    attachments: [
+      {
+        attachmentId: "attachment-1",
+        filename: "report.pdf",
+        mimeType: "application/pdf",
+        size: 1024,
+        headers: {
+          "content-description": "",
+          "content-id": "",
+          "content-transfer-encoding": "base64",
+        },
+      },
+    ],
+    historyId: "history-1",
+    id,
+    inline: [],
+    snippet: "Preview",
+    subject: "Subject",
+    textPlain: "Message body",
+    threadId: "thread-1",
+  } as ThreadMessage;
+}

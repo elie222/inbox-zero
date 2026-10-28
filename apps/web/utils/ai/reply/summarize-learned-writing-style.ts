@@ -34,11 +34,11 @@ Summarize the user's learned writing style from this preference evidence.`;
 
   const result = await generateObject({
     ...modelOptions,
-    system: appendOllamaOnlySystemGuidance(
-      { system: getSystemPrompt() },
+    instructions: appendOllamaOnlySystemGuidance(
+      { instructions: getSystemPrompt() },
       modelOptions,
       OLLAMA_LEARNED_WRITING_STYLE_RESPONSE_GUIDANCE,
-    ).system,
+    ).instructions,
     prompt,
     schema: learnedWritingStyleSchema,
   });

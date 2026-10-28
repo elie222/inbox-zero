@@ -248,6 +248,44 @@ export function getSnoozedThreadByClientMutationId({
   });
 }
 
+export async function cancelSnoozedThreads({
+  emailAccountId,
+  threadIds,
+}: {
+  emailAccountId: string;
+  threadIds: string[];
+}) {
+  if (threadIds.length === 0) return [];
+
+  const rows = await prisma.snoozedThread.findMany({
+    where: {
+      emailAccountId,
+      threadId: { in: threadIds },
+      status: {
+        in: [
+          SnoozedThreadStatus.PREPARING,
+          SnoozedThreadStatus.PENDING,
+          SnoozedThreadStatus.EXECUTING,
+        ],
+      },
+    },
+    select: { id: true, threadId: true },
+  });
+  if (rows.length === 0) return [];
+
+  await prisma.snoozedThread.updateMany({
+    where: { id: { in: rows.map((row) => row.id) } },
+    data: { status: SnoozedThreadStatus.CANCELLED },
+  });
+  const client = getQstashClient();
+  if (client)
+    await cancelQstashMessages(
+      client,
+      rows.map((row) => row.id),
+    );
+  return [...new Set(rows.map((row) => row.threadId))];
+}
+
 export async function cancelSnoozedThreadByClientMutationId({
   clientMutationId,
   emailAccountId,

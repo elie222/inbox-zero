@@ -16,7 +16,7 @@ describe("strictOptional", () => {
     expect(z.toJSONSchema(schema)).toMatchObject({
       properties: {
         rationale: {
-          anyOf: [{ type: "string" }, { type: "null" }],
+          type: ["string", "null"],
         },
       },
       required: ["rationale", "category"],

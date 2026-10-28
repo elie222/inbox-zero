@@ -1,5 +1,7 @@
 import type { ModelMessage } from "ai";
 
+const wordSegmenter = new Intl.Segmenter(undefined, { granularity: "word" });
+
 export function validateUserMemoryEvidence({
   content,
   userEvidence,
@@ -99,14 +101,30 @@ function extractMessageText(content: ModelMessage["content"]) {
 export function normalizeMemoryText(value: string) {
   return value
     .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/[^\p{L}\p{M}\p{N}\s]/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
 
 function hasSpecificMemoryDetail(value: string) {
-  const tokens = value.match(/[\p{L}\p{N}]+/gu) || [];
-  const informativeTokens = tokens.filter((token) => token.length >= 4);
+  const tokens = Array.from(wordSegmenter.segment(value))
+    .filter((segment) => segment.isWordLike)
+    .map((segment) => segment.segment);
+  const informativeTokens = tokens.filter(isInformativeToken);
 
   return tokens.length >= 4 && informativeTokens.length >= 3;
+}
+
+// Length is only a useful "not a filler word" signal for alphabetic scripts.
+// Han characters carry a full word each, and words in other scripts are
+// segmented into short units, so a shorter minimum applies there.
+function isInformativeToken(token: string) {
+  if (
+    /^[\p{Script=Latin}\p{Script=Cyrillic}\p{Script=Greek}\p{N}]+$/u.test(token)
+  ) {
+    return token.length >= 4;
+  }
+  if (/\p{Script=Han}/u.test(token)) return true;
+
+  return token.length >= 2;
 }

@@ -79,7 +79,7 @@ ${getUserInfoPrompt({ emailAccount })}`;
 
   const result = await generateObject({
     ...modelOptions,
-    system,
+    instructions: system,
     prompt,
     schema: z.object({
       typicalLength: z.string(),

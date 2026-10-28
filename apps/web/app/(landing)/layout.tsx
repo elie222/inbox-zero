@@ -3,7 +3,6 @@ import {
   ConversionAnalyticsScript,
   ConversionQueryParamEvents,
 } from "@/components/ConversionAnalytics";
-import { LemonScript } from "@/utils/scripts/lemon";
 
 export default async function LandingLayout({
   children,
@@ -17,7 +16,6 @@ export default async function LandingLayout({
         <ConversionQueryParamEvents />
       </Suspense>
       <ConversionAnalyticsScript />
-      <LemonScript />
     </>
   );
 }

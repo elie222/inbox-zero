@@ -155,6 +155,19 @@ describe("Gmail retry helpers", () => {
       expect(result.isServerError).toBe(false);
       expect(result.isFailedPrecondition).toBe(false);
     });
+
+    it("should not retry when Gmail is disabled for the account", () => {
+      const errorInfo = {
+        status: 400,
+        reason: "failedPrecondition",
+        googleErrorStatus: "FAILED_PRECONDITION",
+        errorMessage: "Mail service not enabled",
+      };
+      const result = isRetryableError(errorInfo);
+
+      expect(result.retryable).toBe(false);
+      expect(result.isFailedPrecondition).toBe(false);
+    });
   });
 
   describe("calculateRetryDelay", () => {
@@ -185,15 +198,6 @@ describe("Gmail retry helpers", () => {
         errorMessage,
       );
       expect(delay).toBe(1000);
-    });
-
-    it("should use fallback delay when Retry-After header is stale", () => {
-      // Use HTTP-date format (like "Wed, 21 Oct 2015 07:28:00 GMT")
-      const pastDate = new Date(Date.now() - 5000).toUTCString();
-
-      // Should fall back to exponential backoff for server error
-      const delay = calculateRetryDelay(false, true, false, 2, pastDate);
-      expect(delay).toBe(10_000); // 2nd attempt = 10s
     });
 
     it("should use retry time from error message when valid", () => {

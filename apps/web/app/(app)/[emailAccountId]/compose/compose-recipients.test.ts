@@ -51,6 +51,27 @@ describe("resolveComposeRecipients", () => {
     ).toBe('"Doe, John" <john@example.com>');
   });
 
+  it("preserves pasted comma-separated recipients and quoted display names", () => {
+    expect(
+      resolveComposeRecipients({
+        selectedRecipients: "first@example.com",
+        pendingRecipient:
+          '"Doe, Jane" <jane@example.com>, second@example.com, FIRST@example.com',
+      }),
+    ).toBe(
+      'first@example.com,"Doe, Jane" <jane@example.com>,second@example.com',
+    );
+  });
+
+  it("does not partially commit a pasted list containing unfinished search text", () => {
+    expect(
+      resolveComposeRecipients({
+        selectedRecipients: "first@example.com",
+        pendingRecipient: "second@example.com, unfinished",
+      }),
+    ).toBe("first@example.com");
+  });
+
   it("does not send incomplete contact search text", () => {
     expect(
       resolveComposeRecipients({

@@ -2,12 +2,21 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { createMockEmailProvider } from "@/__tests__/mocks/email-provider.mock";
 import { createTestLogger } from "@/__tests__/helpers";
+import type { DocumentFiling } from "@/generated/prisma/client";
+import { DocumentFilingStatus } from "@/generated/prisma/enums";
+import { OutlookProvider } from "@/utils/email/microsoft";
+import type { OutlookClient } from "@/utils/outlook/client";
 import {
   sendAskNotification,
+  sendCorrectionConfirmation,
   sendFiledNotification,
+  sendFilingNotifications,
 } from "./filing-notifications";
 
 vi.mock("@/utils/prisma");
+vi.mock("@/utils/mail", () => ({
+  ensureEmailSendingEnabled: vi.fn(),
+}));
 
 const logger = createTestLogger();
 
@@ -22,13 +31,83 @@ describe("filing-notifications", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    prisma.documentFiling.findUnique.mockResolvedValue({
-      id: filingId,
-      filename: "receipt.pdf",
-      folderPath: "Receipts",
-      reasoning: null,
-      driveConnection: { provider: "outlook" },
-    } as any);
+    prisma.documentFiling.findUnique.mockResolvedValue(
+      createFiling({
+        id: filingId,
+        filename: "receipt.pdf",
+        folderPath: "Receipts",
+        provider: "outlook",
+      }),
+    );
+    prisma.documentFiling.updateMany.mockResolvedValue({ count: 1 });
+  });
+
+  it.each([
+    { kind: "filed", send: sendFiledNotification },
+    { kind: "ask", send: sendAskNotification },
+    { kind: "correction", send: sendCorrectionConfirmation },
+  ])("preserves the source reply subject for Outlook $kind notifications", async ({
+    send,
+  }) => {
+    const { emailProvider, api, patchDraft, sendDraft } =
+      createOutlookNotificationProvider();
+
+    await send({
+      emailProvider,
+      userEmail: "user@example.com",
+      filingId,
+      sourceMessage: { ...sourceMessage, messageId: "source-message" },
+      newFolderPath: "Updated",
+      logger,
+    });
+
+    expect(api.mock.calls.map(([path]) => path)).toEqual([
+      "/me/messages/source-message/createReply",
+      "/me/messages/reply-draft",
+      "/me/messages/reply-draft/send",
+    ]);
+    expect(patchDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        toRecipients: [{ emailAddress: { address: "user@example.com" } }],
+        body: expect.objectContaining({ contentType: "html" }),
+      }),
+    );
+    expect(patchDraft.mock.calls[0][0]).not.toHaveProperty("subject");
+    expect(sendDraft).toHaveBeenCalledOnce();
+  });
+
+  it("sends one Outlook summary in the source conversation without replacing its subject", async () => {
+    prisma.documentFiling.findMany.mockResolvedValue([
+      createFiling({ id: "filing-1", filename: "first.pdf" }),
+      createFiling({ id: "filing-2", filename: "second.pdf" }),
+    ]);
+    prisma.documentFiling.updateMany.mockResolvedValue({ count: 2 });
+    const { emailProvider, api, patchDraft, sendDraft } =
+      createOutlookNotificationProvider();
+
+    await sendFilingNotifications({
+      emailProvider,
+      userEmail: "user@example.com",
+      filingIds: ["filing-1", "filing-2"],
+      sourceMessage: { ...sourceMessage, messageId: "source-message" },
+      logger,
+    });
+
+    expect(api.mock.calls.map(([path]) => path)).toEqual([
+      "/me/messages/source-message/createReply",
+      "/me/messages/reply-draft",
+      "/me/messages/reply-draft/send",
+    ]);
+    expect(patchDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: {
+          contentType: "html",
+          content: expect.stringMatching(/first\.pdf[\s\S]*second\.pdf/),
+        },
+      }),
+    );
+    expect(patchDraft.mock.calls[0][0]).not.toHaveProperty("subject");
+    expect(sendDraft).toHaveBeenCalledOnce();
   });
 
   describe("sendFiledNotification", () => {
@@ -101,4 +180,336 @@ describe("filing-notifications", () => {
       expect(updateCall?.data.notificationMessageId ?? null).not.toBe("");
     });
   });
+
+  describe("sendFilingNotifications", () => {
+    it("sends one summary email for multiple filings", async () => {
+      prisma.documentFiling.findMany.mockResolvedValue([
+        createFiling({
+          id: "filing-1",
+          filename: "first.pdf",
+          folderPath: "Receipts",
+          provider: "google",
+        }),
+        createFiling({
+          id: "filing-2",
+          filename: "second.pdf",
+          folderPath: "Invoices",
+          provider: "outlook",
+        }),
+      ]);
+      prisma.documentFiling.updateMany.mockResolvedValue({ count: 2 });
+      const sendEmailWithHtml = vi
+        .fn()
+        .mockResolvedValue({ messageId: "sent-123", threadId: "thread-1" });
+      const emailProvider = createMockEmailProvider({ sendEmailWithHtml });
+
+      await sendFilingNotifications({
+        emailProvider,
+        userEmail: "user@example.com",
+        filingIds: ["filing-1", "filing-2"],
+        sourceMessage,
+        logger,
+      });
+
+      expect(sendEmailWithHtml).toHaveBeenCalledOnce();
+      expect(
+        prisma.documentFiling.updateMany.mock.invocationCallOrder[0],
+      ).toBeLessThan(sendEmailWithHtml.mock.invocationCallOrder[0]);
+      expect(sendEmailWithHtml).toHaveBeenCalledWith(
+        expect.objectContaining({
+          subject: "✓ Filed 2 documents",
+          messageHtml: expect.stringMatching(/first\.pdf[\s\S]*second\.pdf/),
+        }),
+        { preserveThreadSubject: true },
+      );
+      const notificationBatchId =
+        prisma.documentFiling.updateMany.mock.calls[0]?.[0].data
+          .notificationBatchId;
+      expect(notificationBatchId).toEqual(expect.any(String));
+      expect(prisma.documentFiling.updateMany).toHaveBeenNthCalledWith(1, {
+        where: {
+          id: { in: ["filing-1", "filing-2"] },
+          notificationBatchId: null,
+          notificationSentAt: null,
+        },
+        data: { notificationBatchId },
+      });
+      expect(prisma.documentFiling.updateMany).toHaveBeenNthCalledWith(2, {
+        where: {
+          id: { in: ["filing-1", "filing-2"] },
+          notificationBatchId,
+        },
+        data: {
+          notificationSentAt: expect.any(Date),
+        },
+      });
+      expect(prisma.documentFiling.update).toHaveBeenCalledWith({
+        where: { id: "filing-1" },
+        data: { notificationMessageId: "sent-123" },
+      });
+    });
+
+    it("does not resend notifications for filings that were already notified", async () => {
+      prisma.documentFiling.findMany.mockResolvedValue([]);
+      const sendEmailWithHtml = vi.fn();
+      const emailProvider = createMockEmailProvider({ sendEmailWithHtml });
+
+      await sendFilingNotifications({
+        emailProvider,
+        userEmail: "user@example.com",
+        filingIds: ["filing-1", "filing-2"],
+        sourceMessage,
+        logger,
+      });
+
+      expect(prisma.documentFiling.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            id: { in: ["filing-1", "filing-2"] },
+            notificationBatchId: null,
+            notificationSentAt: null,
+          },
+        }),
+      );
+      expect(sendEmailWithHtml).not.toHaveBeenCalled();
+    });
+
+    it("does not send when another process claims the filings first", async () => {
+      prisma.documentFiling.findMany.mockResolvedValue([
+        createFiling({ id: "filing-1" }),
+        createFiling({ id: "filing-2" }),
+      ]);
+      prisma.documentFiling.updateMany
+        .mockResolvedValueOnce({ count: 1 })
+        .mockResolvedValueOnce({ count: 1 });
+      const sendEmailWithHtml = vi.fn();
+
+      await sendFilingNotifications({
+        emailProvider: createMockEmailProvider({ sendEmailWithHtml }),
+        userEmail: "user@example.com",
+        filingIds: ["filing-1", "filing-2"],
+        sourceMessage,
+        logger,
+      });
+
+      expect(sendEmailWithHtml).not.toHaveBeenCalled();
+      const notificationBatchId =
+        prisma.documentFiling.updateMany.mock.calls[0]?.[0].data
+          .notificationBatchId;
+      expect(prisma.documentFiling.updateMany).toHaveBeenLastCalledWith({
+        where: {
+          id: { in: ["filing-1", "filing-2"] },
+          notificationBatchId,
+        },
+        data: { notificationBatchId: null },
+      });
+    });
+
+    it("releases the claim when sending fails", async () => {
+      prisma.documentFiling.findMany.mockResolvedValue([
+        createFiling({ id: "filing-1" }),
+      ]);
+      const sendError = new Error("send failed");
+
+      await expect(
+        sendFilingNotifications({
+          emailProvider: createMockEmailProvider({
+            sendEmailWithHtml: vi.fn().mockRejectedValue(sendError),
+          }),
+          userEmail: "user@example.com",
+          filingIds: ["filing-1"],
+          sourceMessage,
+          logger,
+        }),
+      ).rejects.toThrow(sendError);
+
+      const notificationBatchId =
+        prisma.documentFiling.updateMany.mock.calls[0]?.[0].data
+          .notificationBatchId;
+      expect(prisma.documentFiling.updateMany).toHaveBeenLastCalledWith({
+        where: {
+          id: { in: ["filing-1"] },
+          notificationBatchId,
+        },
+        data: { notificationBatchId: null },
+      });
+    });
+
+    it("retries a transient failure when completing the claim", async () => {
+      prisma.documentFiling.findMany.mockResolvedValue([
+        createFiling({ id: "filing-1" }),
+      ]);
+      prisma.documentFiling.updateMany
+        .mockResolvedValueOnce({ count: 1 })
+        .mockRejectedValueOnce(new Error("temporary database failure"))
+        .mockResolvedValueOnce({ count: 1 });
+
+      await sendFilingNotifications({
+        emailProvider: createMockEmailProvider({
+          sendEmailWithHtml: vi
+            .fn()
+            .mockResolvedValue({ messageId: "", threadId: "thread-1" }),
+        }),
+        userEmail: "user@example.com",
+        filingIds: ["filing-1"],
+        sourceMessage,
+        logger,
+      });
+
+      expect(prisma.documentFiling.updateMany).toHaveBeenCalledTimes(3);
+      expect(prisma.documentFiling.updateMany).toHaveBeenLastCalledWith({
+        where: {
+          id: { in: ["filing-1"] },
+          notificationBatchId: expect.any(String),
+        },
+        data: {
+          notificationSentAt: expect.any(Date),
+        },
+      });
+    });
+
+    it("keeps concurrent claims isolated when created at the same time", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
+
+      try {
+        prisma.documentFiling.findMany.mockResolvedValue([
+          createFiling({ id: "filing-1" }),
+          createFiling({ id: "filing-2" }),
+        ]);
+        const attemptedClaimIds: string[] = [];
+        let activeClaimId: string | null = null;
+        prisma.documentFiling.updateMany.mockImplementation(
+          async ({ data, where }) => {
+            if (typeof data.notificationBatchId === "string") {
+              attemptedClaimIds.push(data.notificationBatchId);
+              if (activeClaimId) return { count: 0 };
+
+              activeClaimId = data.notificationBatchId;
+              return { count: 2 };
+            }
+
+            if (where.notificationBatchId !== activeClaimId) {
+              return { count: 0 };
+            }
+
+            activeClaimId = null;
+            return { count: 2 };
+          },
+        );
+
+        const sendStarted = createDeferred<void>();
+        const pendingSend = createDeferred<{
+          messageId: string;
+          threadId: string;
+        }>();
+        const sendEmailWithHtml = vi.fn(() => {
+          sendStarted.resolve();
+          return pendingSend.promise;
+        });
+        const params = {
+          emailProvider: createMockEmailProvider({ sendEmailWithHtml }),
+          userEmail: "user@example.com",
+          filingIds: ["filing-1", "filing-2"],
+          sourceMessage,
+          logger,
+        };
+
+        const firstSend = sendFilingNotifications(params);
+        await sendStarted.promise;
+        await sendFilingNotifications(params);
+
+        expect(sendEmailWithHtml).toHaveBeenCalledOnce();
+        expect(new Set(attemptedClaimIds).size).toBe(2);
+        expect(activeClaimId).toBe(attemptedClaimIds[0]);
+
+        pendingSend.resolve({ messageId: "sent-123", threadId: "thread-1" });
+        await firstSend;
+
+        expect(activeClaimId).toBeNull();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
 });
+
+function createOutlookNotificationProvider() {
+  const patchDraft = vi.fn(async (_body: unknown) => ({}));
+  const sendDraft = vi.fn(async () => ({}));
+  const api = vi.fn((path: string) => {
+    if (path === "/me/messages/source-message/createReply") {
+      return {
+        post: vi.fn(async () => ({
+          id: "reply-draft",
+          conversationId: sourceMessage.threadId,
+          subject: "Re: Source documents",
+        })),
+      };
+    }
+    if (path === "/me/messages/reply-draft") return { patch: patchDraft };
+    if (path === "/me/messages/reply-draft/send") return { post: sendDraft };
+    throw new Error(`Unexpected Graph request: ${path}`);
+  });
+  const client = { getClient: () => ({ api }) } as unknown as OutlookClient;
+
+  return {
+    emailProvider: new OutlookProvider(client, logger),
+    api,
+    patchDraft,
+    sendDraft,
+  };
+}
+
+function createFiling({
+  id,
+  filename = "document.pdf",
+  folderPath = "Documents",
+  provider = "google",
+}: {
+  id: string;
+  filename?: string;
+  folderPath?: string;
+  provider?: string;
+}): DocumentFiling & { driveConnection: { provider: string } } {
+  const now = new Date();
+
+  return {
+    id,
+    createdAt: now,
+    updatedAt: now,
+    messageId: "message-1",
+    attachmentId: `${id}-attachment`,
+    filename,
+    folderId: "folder-1",
+    folderPath,
+    fileId: "file-1",
+    reasoning: null,
+    confidence: 1,
+    status: DocumentFilingStatus.FILED,
+    wasAsked: false,
+    wasCorrected: false,
+    originalPath: null,
+    correctedAt: null,
+    feedbackPositive: null,
+    feedbackAt: null,
+    notificationMessageId: null,
+    notificationSentAt: null,
+    notificationBatchId: null,
+    driveConnectionId: "drive-1",
+    emailAccountId: "account-1",
+    driveConnection: { provider },
+  };
+}
+
+function createDeferred<T>(): {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+} {
+  let resolve = (_value: T) => {};
+  const promise = new Promise<T>((promiseResolve) => {
+    resolve = promiseResolve;
+  });
+
+  return { promise, resolve };
+}

@@ -1,7 +1,9 @@
-import { stepCountIs, type ToolSet } from "ai";
+import { isStepCount, type ToolSet } from "ai";
 import { createGenerateText } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createMcpToolsForAgent } from "@/utils/ai/mcp/mcp-tools";
+import { createDocsTools } from "@/utils/ai/mcp/docs-tools";
+import prisma from "@/utils/prisma";
 import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 import type { EmailForLLM } from "@/utils/types";
 import { getEmailListPrompt, getUserInfoPrompt } from "@/utils/ai/helpers";
@@ -70,10 +72,10 @@ ${getEmailListPrompt({ messages, messageMaxLength: 1000, maxMessages: 5 })}
   const result = await generateText({
     ...modelOptions,
     tools: mcpTools,
-    system,
+    instructions: system,
     prompt,
-    stopWhen: stepCountIs(10),
-    onStepFinish: async ({ text, toolCalls }) => {
+    stopWhen: isStepCount(10),
+    onStepEnd: async ({ text, toolCalls }) => {
       logger.trace("Step finished", { text, toolCalls });
     },
   });
@@ -116,13 +118,23 @@ export async function mcpAgent(
 
   if (!messages || messages.length === 0) return null;
 
-  const { tools, cleanup } = await createMcpToolsForAgent(emailAccount.id);
-  const hasTools = Object.keys(tools).length > 0;
-
-  if (!hasTools) return null;
+  const docsSettings = await prisma.emailAccount.findUnique({
+    where: { id: emailAccount.id },
+    select: { draftDocsUrls: true },
+  });
+  const docsTools = createDocsTools(
+    docsSettings?.draftDocsUrls ?? [],
+    logger.with({ emailAccountId: emailAccount.id }),
+  );
+  const { tools: mcpTools, cleanup } = await createMcpToolsForAgent(
+    emailAccount.id,
+    { reservedToolNames: Object.keys(docsTools) },
+  );
+  const tools: ToolSet = { ...(mcpTools as ToolSet), ...docsTools };
 
   try {
-    return await runMcpAgent(options, tools as ToolSet);
+    if (Object.keys(tools).length === 0) return null;
+    return await runMcpAgent(options, tools);
   } finally {
     await cleanup();
   }

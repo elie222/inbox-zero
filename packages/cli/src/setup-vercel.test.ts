@@ -108,7 +108,7 @@ describe("buildVercelEnvValues", () => {
       ),
     ).toMatchObject({
       createValue: expect.any(Function),
-      sensitive: true,
+      sensitive: false,
     });
   });
 });
@@ -133,7 +133,7 @@ describe("seedLlmPlaceholderCredentials", () => {
     seedLlmPlaceholderCredentials("bedrock", env);
 
     expect(env).toMatchObject({
-      DEFAULT_LLMS: "bedrock:global.anthropic.claude-sonnet-4-6",
+      DEFAULT_LLMS: "bedrock:global.anthropic.claude-sonnet-5",
       ECONOMY_LLMS: "bedrock:global.anthropic.claude-haiku-4-5-20251001-v1:0",
       BEDROCK_ACCESS_KEY: "replace-me",
       BEDROCK_SECRET_KEY: "replace-me",
@@ -146,4 +146,33 @@ describe("seedLlmPlaceholderCredentials", () => {
       seedLlmPlaceholderCredentials("unknown-provider", {}),
     ).toThrowError("Unsupported LLM provider: unknown-provider");
   });
+});
+
+it("uses supported variable types for each Vercel environment", () => {
+  const values = buildVercelEnvValues({
+    baseUrl: "https://mail.example.com",
+    llmEnv: { LLM_API_KEY: "key" },
+  });
+  for (const key of [
+    "AUTH_SECRET",
+    "EMAIL_ENCRYPT_SECRET",
+    "GOOGLE_CLIENT_SECRET",
+    "LLM_API_KEY",
+  ]) {
+    expect(
+      values.find(
+        (value) => value.key === key && value.environment === "development",
+      )?.sensitive,
+    ).toBe(false);
+    expect(
+      values.find(
+        (value) => value.key === key && value.environment === "production",
+      )?.sensitive,
+    ).toBe(true);
+    expect(
+      values.find(
+        (value) => value.key === key && value.environment === "preview",
+      )?.sensitive,
+    ).toBe(true);
+  }
 });

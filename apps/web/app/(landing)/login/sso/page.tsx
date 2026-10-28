@@ -1,14 +1,15 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useCallback, useState } from "react";
+import { Suspense, useCallback, useState } from "react";
 import { usePostHog } from "posthog-js/react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { normalizeInternalPath } from "@/utils/path";
 import type {
   GetSsoSignInParams,
   GetSsoSignInResponse,
@@ -32,8 +33,19 @@ const ssoLoginSchema = z.object({
 type SsoLoginBody = z.infer<typeof ssoLoginSchema>;
 
 export default function SSOLoginPage() {
+  return (
+    <Suspense>
+      <SSOLoginForm />
+    </Suspense>
+  );
+}
+
+function SSOLoginForm() {
   const posthog = usePostHog();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const nextPath =
+    normalizeInternalPath(searchParams?.get("next")) ?? "/accounts";
   const {
     register,
     handleSubmit,
@@ -54,7 +66,10 @@ export default function SSOLoginPage() {
           organizationSlug: data.organizationSlug,
         };
 
-        const paramsString = new URLSearchParams(params).toString();
+        const paramsString = new URLSearchParams({
+          ...params,
+          next: nextPath,
+        }).toString();
         const url = new URL(
           `/api/sso/signin?${paramsString}`,
           window.location.origin,
@@ -96,7 +111,7 @@ export default function SSOLoginPage() {
         setIsSubmitting(false);
       }
     },
-    [posthog, router],
+    [posthog, router, nextPath],
   );
 
   return (

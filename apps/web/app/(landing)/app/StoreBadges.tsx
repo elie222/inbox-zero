@@ -55,15 +55,21 @@ function StoreBadge({
       onClick={onClick}
       prefetch={false}
       className={cn(
-        "flex w-[200px] items-center gap-3 rounded-[13px] bg-[#242424] px-5 py-3 text-white",
+        "flex h-16 w-[200px] items-center justify-center gap-2.5 rounded-[13px] bg-[#242424] px-5 text-white",
         "transition-all duration-200 will-change-transform hover:scale-[1.04]",
         "shadow-[0px_2px_16px_0px_#00000014] hover:shadow-[0px_2px_16px_0px_#00000022]",
       )}
     >
-      <span className="shrink-0">{icon}</span>
-      <span className="flex flex-col items-start leading-tight">
-        <span className="text-[11px] text-white/70">{label}</span>
-        <span className="font-geist text-lg font-medium">{store}</span>
+      <span className="flex size-8 shrink-0 items-center justify-center">
+        {icon}
+      </span>
+      <span className="flex flex-col items-start gap-0.5 whitespace-nowrap">
+        <span className="text-[11px] leading-[14px] text-white/70">
+          {label}
+        </span>
+        <span className="font-geist text-lg leading-6 font-medium">
+          {store}
+        </span>
       </span>
     </Link>
   );

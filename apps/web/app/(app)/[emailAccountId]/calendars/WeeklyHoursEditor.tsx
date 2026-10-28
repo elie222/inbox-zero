@@ -122,7 +122,7 @@ export function WeeklyHoursEditor({
           return (
             <div
               key={dayLabel}
-              className="flex items-start gap-4 border-b px-4 py-3 last:border-b-0"
+              className="flex flex-col items-start gap-2 border-b px-4 py-3 last:border-b-0 sm:flex-row sm:gap-4"
             >
               <div className="flex w-32 items-center gap-2.5 pt-1.5">
                 <Switch
@@ -150,10 +150,13 @@ export function WeeklyHoursEditor({
                   {dayLabel}
                 </span>
               </div>
-              <div className="flex flex-1 flex-col gap-2">
+              <div className="flex w-full min-w-0 flex-1 flex-col gap-2 sm:w-auto">
                 {day.enabled ? (
                   day.ranges.map((range, rangeIndex) => (
-                    <div key={rangeIndex} className="flex items-center gap-2">
+                    <div
+                      key={rangeIndex}
+                      className="flex flex-wrap items-center gap-2 sm:flex-nowrap"
+                    >
                       <TimeField
                         value={range.start}
                         onChange={(value) =>
@@ -202,10 +205,6 @@ export function WeeklyHoursEditor({
           );
         })}
       </div>
-
-      <p className="text-xs text-muted-foreground">
-        We hide times where you already have events on your connected calendar.
-      </p>
     </div>
   );
 }
@@ -222,7 +221,7 @@ function TimeField({
       type="time"
       value={value}
       onChange={(event) => onChange(event.target.value)}
-      className="w-[110px] rounded-md border border-input bg-background px-2.5 py-1.5 text-center text-sm tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="w-[110px] rounded-md border border-input bg-background px-2.5 py-1.5 text-center text-sm tabular-nums outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
     />
   );
 }

@@ -24,7 +24,7 @@ import {
 import { FormControl, FormItem } from "@/components/ui/form";
 import { RuleStep } from "@/app/(app)/[emailAccountId]/assistant/RuleStep";
 import { SystemType } from "@/generated/prisma/enums";
-import TextareaAutosize from "react-textarea-autosize";
+import { AutosizeTextarea } from "@/components/ui/textarea";
 import { RuleSteps } from "@/app/(app)/[emailAccountId]/assistant/RuleSteps";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 
@@ -355,8 +355,7 @@ export function ConditionSteps({
                         </div>
                       )}
                       <div className="relative">
-                        <TextareaAutosize
-                          className="block w-full flex-1 whitespace-pre-wrap rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm"
+                        <AutosizeTextarea
                           minRows={3}
                           rows={3}
                           {...register(`conditions.${index}.instructions`)}

@@ -53,7 +53,7 @@ describe("mobile auth start route", () => {
       new Response(
         JSON.stringify({
           redirect: false,
-          url: "https://accounts.google.com/o/oauth2/v2/auth?client_id=client",
+          url: "https://accounts.google.com/o/oauth2/v2/auth?client_id=client&state=provider-state",
         }),
         {
           headers: {
@@ -67,10 +67,27 @@ describe("mobile auth start route", () => {
     );
   });
 
+  it("rejects clients that omit codeChallenge", async () => {
+    await expect(
+      POST(
+        new NextRequest("https://www.getinboxzero.com/api/mobile-auth/start", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ provider: "google" }),
+        }),
+        {} as never,
+      ),
+    ).rejects.toThrow();
+    expect(handlerMock).not.toHaveBeenCalled();
+  });
+
   it("starts mobile social auth with a server-generated state", async () => {
     const response = await POST(
       new NextRequest("https://www.getinboxzero.com/api/mobile-auth/start", {
-        body: JSON.stringify({ provider: "google" }),
+        body: JSON.stringify({
+          provider: "google",
+          codeChallenge: "a".repeat(43),
+        }),
         headers: {
           "content-type": "application/json",
         },
@@ -81,13 +98,16 @@ describe("mobile auth start route", () => {
 
     await expect(response.json()).resolves.toEqual({
       authorizationURL:
-        "https://accounts.google.com/o/oauth2/v2/auth?client_id=client",
+        "https://accounts.google.com/o/oauth2/v2/auth?client_id=client&state=provider-state",
       authSessionReturnUrl: "https://www.getinboxzero.com/auth-callback",
       oauthState: "encrypted-oauth-state",
       state: "state-1234567890",
     });
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect(storeMobileAuthStateMock).toHaveBeenCalledWith({
+      codeChallenge: "a".repeat(43),
+      provider: "google",
+      completionToken: "state-1234567890",
       returnUrlMode: "app-link",
       state: "state-1234567890",
     });
@@ -99,11 +119,11 @@ describe("mobile auth start route", () => {
     await expect(signInRequest.json()).resolves.toEqual({
       provider: "google",
       callbackURL:
-        "https://www.getinboxzero.com/api/mobile-auth/callback?state=state-1234567890",
+        "https://www.getinboxzero.com/api/mobile-auth/callback?state=state-1234567890&completion=state-1234567890",
       errorCallbackURL:
         "https://www.getinboxzero.com/api/mobile-auth/callback?state=state-1234567890",
       newUserCallbackURL:
-        "https://www.getinboxzero.com/api/mobile-auth/callback?state=state-1234567890",
+        "https://www.getinboxzero.com/api/mobile-auth/callback?state=state-1234567890&completion=state-1234567890",
       disableRedirect: true,
     });
   });
@@ -113,7 +133,10 @@ describe("mobile auth start route", () => {
 
     const response = await POST(
       new NextRequest("http://localhost:3000/api/mobile-auth/start", {
-        body: JSON.stringify({ provider: "microsoft" }),
+        body: JSON.stringify({
+          provider: "microsoft",
+          codeChallenge: "a".repeat(43),
+        }),
         headers: {
           "content-type": "application/json",
         },
@@ -124,13 +147,16 @@ describe("mobile auth start route", () => {
 
     await expect(response.json()).resolves.toEqual({
       authorizationURL:
-        "https://accounts.google.com/o/oauth2/v2/auth?client_id=client",
+        "https://accounts.google.com/o/oauth2/v2/auth?client_id=client&state=provider-state",
       authSessionReturnUrl: "inboxzero://auth-callback",
       oauthState: "encrypted-oauth-state",
       state: "state-1234567890",
     });
     expect(handlerMock).toHaveBeenCalledOnce();
     expect(storeMobileAuthStateMock).toHaveBeenCalledWith({
+      codeChallenge: "a".repeat(43),
+      provider: "microsoft",
+      completionToken: "state-1234567890",
       returnUrlMode: "app-link",
       state: "state-1234567890",
     });
@@ -141,7 +167,7 @@ describe("mobile auth start route", () => {
     await expect(signInRequest.json()).resolves.toEqual(
       expect.objectContaining({
         callbackURL:
-          "http://localhost:3000/api/mobile-auth/callback?state=state-1234567890",
+          "http://localhost:3000/api/mobile-auth/callback?state=state-1234567890&completion=state-1234567890",
         provider: "microsoft",
       }),
     );
@@ -152,6 +178,7 @@ describe("mobile auth start route", () => {
       new NextRequest("https://www.getinboxzero.com/api/mobile-auth/start", {
         body: JSON.stringify({
           provider: "google",
+          codeChallenge: "a".repeat(43),
           returnUrlMode: "custom-scheme",
         }),
         headers: {
@@ -164,13 +191,16 @@ describe("mobile auth start route", () => {
 
     await expect(response.json()).resolves.toEqual({
       authorizationURL:
-        "https://accounts.google.com/o/oauth2/v2/auth?client_id=client",
+        "https://accounts.google.com/o/oauth2/v2/auth?client_id=client&state=provider-state",
       authSessionReturnUrl: "inboxzero://auth-callback",
       oauthState: "encrypted-oauth-state",
       state: "state-1234567890",
     });
     expect(handlerMock).toHaveBeenCalledOnce();
     expect(storeMobileAuthStateMock).toHaveBeenCalledWith({
+      codeChallenge: "a".repeat(43),
+      provider: "google",
+      completionToken: "state-1234567890",
       returnUrlMode: "custom-scheme",
       state: "state-1234567890",
     });
@@ -178,11 +208,11 @@ describe("mobile auth start route", () => {
     await expect(signInRequest.json()).resolves.toEqual({
       provider: "google",
       callbackURL:
-        "https://www.getinboxzero.com/api/mobile-auth/callback?state=state-1234567890",
+        "https://www.getinboxzero.com/api/mobile-auth/callback?state=state-1234567890&completion=state-1234567890",
       errorCallbackURL:
         "https://www.getinboxzero.com/api/mobile-auth/callback?state=state-1234567890",
       newUserCallbackURL:
-        "https://www.getinboxzero.com/api/mobile-auth/callback?state=state-1234567890",
+        "https://www.getinboxzero.com/api/mobile-auth/callback?state=state-1234567890&completion=state-1234567890",
       disableRedirect: true,
     });
   });
@@ -199,7 +229,10 @@ describe("mobile auth start route", () => {
 
     const response = await POST(
       new NextRequest("https://www.getinboxzero.com/api/mobile-auth/start", {
-        body: JSON.stringify({ provider: "google" }),
+        body: JSON.stringify({
+          provider: "google",
+          codeChallenge: "a".repeat(43),
+        }),
         headers: {
           "content-type": "application/json",
         },
@@ -221,6 +254,7 @@ describe("mobile auth start route", () => {
       new NextRequest("https://www.getinboxzero.com/api/mobile-auth/start", {
         body: JSON.stringify({
           provider: "google",
+          codeChallenge: "a".repeat(43),
           returnUrlMode: "desktop-scheme",
         }),
         headers: {
@@ -233,12 +267,15 @@ describe("mobile auth start route", () => {
 
     await expect(response.json()).resolves.toEqual({
       authorizationURL:
-        "https://accounts.google.com/o/oauth2/v2/auth?client_id=client",
+        "https://accounts.google.com/o/oauth2/v2/auth?client_id=client&state=provider-state",
       authSessionReturnUrl: "inboxzero://auth-callback",
       oauthState: "encrypted-oauth-state",
       state: "state-1234567890",
     });
     expect(storeMobileAuthStateMock).toHaveBeenCalledWith({
+      codeChallenge: "a".repeat(43),
+      provider: "google",
+      completionToken: "state-1234567890",
       returnUrlMode: "desktop-scheme",
       state: "state-1234567890",
     });
@@ -264,7 +301,10 @@ describe("mobile auth start route", () => {
 
     const response = await POST(
       new NextRequest("https://www.getinboxzero.com/api/mobile-auth/start", {
-        body: JSON.stringify({ provider: "google" }),
+        body: JSON.stringify({
+          provider: "google",
+          codeChallenge: "a".repeat(43),
+        }),
         headers: {
           "content-type": "application/json",
         },

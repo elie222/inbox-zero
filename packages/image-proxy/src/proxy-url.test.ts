@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildSignedAssetProxyUrl,
+  DEFAULT_ASSET_PROXY_TTL_SECONDS,
   validateAssetProxySignature,
 } from "./proxy-url";
 
@@ -34,6 +35,27 @@ describe("buildSignedAssetProxyUrl", () => {
         signingSecret: "test-signing-secret",
       }),
     ).resolves.toBe(true);
+  });
+
+  it("keeps the same URL for an asset across renders so browsers can cache it", async () => {
+    const options = {
+      assetUrl: "https://cdn.example.com/image.png",
+      proxyBaseUrl: "https://img.example.com/proxy",
+      signingSecret: "test-signing-secret",
+    };
+    const first = new Date("2026-04-02T10:00:00.000Z");
+    const anHourLater = new Date("2026-04-02T11:00:00.000Z");
+
+    const firstUrl = await buildSignedAssetProxyUrl({ ...options, now: first });
+
+    await expect(
+      buildSignedAssetProxyUrl({ ...options, now: anHourLater }),
+    ).resolves.toBe(firstUrl);
+    const expiresAt = Number(new URL(firstUrl).searchParams.get("e"));
+    expect(expiresAt).toBeGreaterThanOrEqual(
+      Math.floor(anHourLater.getTime() / 1000) +
+        DEFAULT_ASSET_PROXY_TTL_SECONDS,
+    );
   });
 
   it("leaves non-http asset URLs untouched", async () => {

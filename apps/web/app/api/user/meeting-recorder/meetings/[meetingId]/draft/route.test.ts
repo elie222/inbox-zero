@@ -42,12 +42,15 @@ describe("meeting follow-up draft route", () => {
     getEmailAccountMock.mockResolvedValue("user@gmail.com");
   });
 
-  it("opens the related Gmail draft using its embedded message ID", async () => {
+  it("opens the related Gmail draft's conversation in Drafts", async () => {
     prisma.meeting.findFirst.mockResolvedValue({
       followUpDraftId: "draft-resource-123",
       emailAccount: { account: { provider: "google" } },
     } as never);
-    emailProvider.getDraft.mockResolvedValue({ id: "draft-message-123" });
+    emailProvider.getDraft.mockResolvedValue({
+      id: "draft-message-123",
+      threadId: "thread-123",
+    });
 
     const response = await GET(new NextRequest(requestUrl), routeContext);
 
@@ -58,8 +61,51 @@ describe("meeting follow-up draft route", () => {
     );
     expect(emailProvider.getDraft).toHaveBeenCalledWith("draft-resource-123");
     expect(response.headers.get("location")).toBe(
-      "https://mail.google.com/mail/u/?authuser=user%40gmail.com#inbox?compose=draft-message-123",
+      "https://mail.google.com/mail/u/?authuser=user%40gmail.com#drafts/thread-123",
     );
+  });
+
+  // The draft is addressed by what the freshly fetched draft reports, since
+  // editing a draft replaces its message id.
+  it("opens the related draft within the full Outlook client", async () => {
+    getEmailAccountMock.mockResolvedValue("user@example.com");
+    prisma.meeting.findFirst.mockResolvedValue({
+      followUpDraftId: "draft-resource-123",
+      emailAccount: { account: { provider: "microsoft" } },
+    } as never);
+    emailProvider.getDraft.mockResolvedValue({
+      id: "draft-message-123",
+      threadId: "thread-123",
+      externalUrl:
+        "https://outlook.live.com/mail/0/deeplink/read/AAMkAG%2Fowa%2Bid%3D?ItemID=AAMkAG%2Fowa%2Bid%3D&exvsurl=1",
+    });
+
+    const response = await GET(new NextRequest(requestUrl), routeContext);
+
+    expect(emailProvider.getDraft).toHaveBeenCalledWith("draft-resource-123");
+    expect(response.headers.get("location")).toBe(
+      "https://outlook.live.com/mail/0/deeplink/read/AAMkAG%2Fowa%2Bid%3D?ItemID=AAMkAG%2Fowa%2Bid%3D&exvsurl=1&ispopout=0",
+    );
+  });
+
+  it("returns an explicit error when the draft cannot be linked to", async () => {
+    getEmailAccountMock.mockResolvedValue("user@example.com");
+    prisma.meeting.findFirst.mockResolvedValue({
+      followUpDraftId: "draft-resource-123",
+      emailAccount: { account: { provider: "microsoft" } },
+    } as never);
+    emailProvider.getDraft.mockResolvedValue({
+      id: "",
+      threadId: "thread-123",
+    });
+
+    const response = await GET(new NextRequest(requestUrl), routeContext);
+
+    expect(response.status).toBe(422);
+    expect(await response.json()).toEqual({
+      error: "The draft exists, but it cannot be opened in your mailbox.",
+    });
+    expect(response.headers.get("location")).toBeNull();
   });
 
   it("rejects email accounts the user does not own", async () => {

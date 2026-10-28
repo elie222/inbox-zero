@@ -38,6 +38,7 @@ type ServerConversionEvent = {
   };
   clickIds?: ConversionClickIds;
   logger: Logger;
+  throwOnError?: boolean;
 };
 
 export async function trackServerConversionEvent({
@@ -49,6 +50,7 @@ export async function trackServerConversionEvent({
   properties,
   clickIds,
   logger,
+  throwOnError = false,
 }: ServerConversionEvent) {
   if (!env.CONVERSION_ANALYTICS_SERVER_URL) return;
 
@@ -86,6 +88,7 @@ export async function trackServerConversionEvent({
       eventName: name,
       eventId: id,
     });
+    if (throwOnError) throw error;
   }
 }
 

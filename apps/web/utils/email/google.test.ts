@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { gmail_v1 } from "@googleapis/gmail";
+import { auth, gmail_v1 } from "@googleapis/gmail";
 import type { EmailThread } from "@/utils/email/types";
 import type { ParsedMessage } from "@/utils/types";
 import { GmailLabel } from "@/utils/gmail/label";
 import * as gmailLabelModule from "@/utils/gmail/label";
 import * as gmailThreadModule from "@/utils/gmail/thread";
+import { DraftNotFoundError } from "@/utils/error";
 import { GmailProvider } from "./google";
 
 const {
@@ -53,6 +54,99 @@ vi.mock("@/utils/gmail/draft", () => gmailDraftMock);
 
 vi.mock("@/utils/gmail/signature-settings", () => gmailSignatureMock);
 vi.mock("@/utils/email/bulk-action-tracking", () => bulkActionTrackingMock);
+vi.mock("@/utils/gmail/oauth", () => ({
+  isGoogleOauthEmulationEnabled: vi.fn(() => false),
+  getGoogleGmailApiRootUrl: vi.fn(() => "https://gmail.googleapis.com/"),
+}));
+
+describe("GmailProvider.countMessages", () => {
+  it.each([
+    0, 7, 47,
+  ])("uses exact label message count %s, not thread counts or search estimates", async (count) => {
+    const get = vi
+      .fn()
+      .mockResolvedValue({ data: { messagesTotal: count, threadsTotal: 2 } });
+    const list = vi.fn();
+    const provider = new GmailProvider({
+      users: { labels: { get }, messages: { list } },
+    } as any);
+    await expect(provider.countMessages({ labelId: "label-1" })).resolves.toBe(
+      count,
+    );
+    expect(get).toHaveBeenCalledWith({ userId: "me", id: "label-1" });
+    expect(list).not.toHaveBeenCalled();
+  });
+
+  it("uses the profile's exact mailbox count when no label is specified", async () => {
+    const getProfile = vi
+      .fn()
+      .mockResolvedValue({ data: { messagesTotal: 123 } });
+    const provider = new GmailProvider({ users: { getProfile } } as any);
+    await expect(provider.countMessages({})).resolves.toBe(123);
+  });
+
+  it("does not silently ignore Outlook folder scopes", async () => {
+    const getProfile = vi.fn();
+    const provider = new GmailProvider({ users: { getProfile } } as any);
+    await expect(
+      provider.countMessages({ folderId: "folder-1" }),
+    ).rejects.toThrow("folder");
+    expect(getProfile).not.toHaveBeenCalled();
+  });
+
+  it("does not invent zero when an exact count is unavailable", async () => {
+    const get = vi.fn().mockResolvedValue({ data: { threadsTotal: 7 } });
+    const provider = new GmailProvider({ users: { labels: { get } } } as any);
+    await expect(
+      provider.countMessages({ labelId: "label-1" }),
+    ).rejects.toThrow("exact message count");
+  });
+});
+
+describe("GmailProvider.searchMessages structured search", () => {
+  it.each([
+    "term",
+    "phrase",
+  ] as const)("does not turn whitespace-only %s text into an empty Gmail literal", async (match) => {
+    const list = vi.fn().mockResolvedValue({ data: { messages: [] } });
+    const provider = new GmailProvider(createGmailClient({ list }));
+    await provider.searchMessages({
+      query: "",
+      mailboxSearch: {
+        mailbox: "all",
+        text: { kind: "text", field: "subject", value: " \t ", match },
+        read: false,
+      },
+    });
+    expect(list.mock.calls[0]?.[0]).toMatchObject({ q: "is:unread" });
+  });
+
+  it("compiles typed chips and treats provider-looking text literally", async () => {
+    const list = vi
+      .fn()
+      .mockResolvedValue({ data: { messages: [], nextPageToken: "next" } });
+    const provider = new GmailProvider(createGmailClient({ list }));
+    const result = await provider.searchMessages({
+      query: "",
+      mailboxSearch: {
+        mailbox: "sent",
+        text: {
+          kind: "text",
+          field: "any",
+          value: "in:trash invoice",
+          match: "term",
+        },
+        read: false,
+        starred: true,
+        hasAttachment: true,
+      },
+    });
+    expect(list.mock.calls[0]?.[0]).toMatchObject({
+      q: '"in:trash" "invoice" in:sent is:unread is:starred has:attachment',
+    });
+    expect(result.nextPageToken).toBe("next");
+  });
+});
 
 describe("GmailProvider.sendEmail", () => {
   it("returns the provider message ID", async () => {
@@ -206,6 +300,22 @@ describe("GmailProvider snapshot mutations", () => {
   });
 
   it.each([
+    true,
+    false,
+  ])("batches a thousand captured star updates with starred=%s", async (starred) => {
+    const batchModify = vi.fn().mockResolvedValue({ data: {} });
+    const provider = new GmailProvider(createGmailClient({ batchModify }));
+    const ids = Array.from({ length: 1000 }, (_, index) => `message-${index}`);
+    await provider.markMessagesStarredState([...ids, "message-0"], starred);
+    expect(batchModify).toHaveBeenCalledExactlyOnceWith({
+      userId: "me",
+      requestBody: starred
+        ? { ids, addLabelIds: [GmailLabel.STARRED] }
+        : { ids, removeLabelIds: [GmailLabel.STARRED] },
+    });
+  });
+
+  it.each([
     [true, { removeLabelIds: [GmailLabel.UNREAD] }],
     [false, { addLabelIds: [GmailLabel.UNREAD] }],
   ])("sets captured messages read=%s", async (read, labels) => {
@@ -267,6 +377,42 @@ describe("GmailProvider.getThread", () => {
       messages: [{ id: "message-1", subject: "Subject" }],
       snippet: "Thread preview",
     });
+  });
+
+  it("excludes drafts by default and includes them when requested", async () => {
+    const threadGet = vi.fn().mockResolvedValue({
+      data: {
+        id: "thread-1",
+        messages: [
+          {
+            id: "message-1",
+            labelIds: [GmailLabel.INBOX],
+            payload: { body: {}, headers: [], mimeType: "text/plain" },
+            threadId: "thread-1",
+          },
+          {
+            id: "draft-1",
+            labelIds: [GmailLabel.DRAFT],
+            payload: { body: {}, headers: [], mimeType: "text/plain" },
+            threadId: "thread-1",
+          },
+        ],
+      },
+    });
+    const provider = new GmailProvider({
+      users: { threads: { get: threadGet } },
+    } as unknown as gmail_v1.Gmail);
+
+    const thread = await provider.getThread("thread-1");
+    const threadWithDrafts = await provider.getThread("thread-1", {
+      includeDrafts: true,
+    });
+
+    expect(thread.messages.map((message) => message.id)).toEqual(["message-1"]);
+    expect(threadWithDrafts.messages.map((message) => message.id)).toEqual([
+      "message-1",
+      "draft-1",
+    ]);
   });
 });
 
@@ -350,11 +496,15 @@ describe("GmailProvider.getLatestMessageInThread", () => {
         email: "user@example.com",
         signature: "",
         isDefault: true,
+        isPrimary: true,
+        isVerified: true,
       },
       {
         email: "alias@example.com",
         signature: "",
         isDefault: false,
+        isPrimary: false,
+        isVerified: true,
       },
     ]);
     const provider = new GmailProvider({} as any);
@@ -373,6 +523,78 @@ describe("GmailProvider.getLatestMessageInThread", () => {
       args,
       ["user@example.com", "alias@example.com"],
     );
+  });
+
+  it("drafts replies to mail sent to an alias from that alias", async () => {
+    gmailSignatureMock.getGmailSignatures.mockResolvedValue([
+      {
+        email: "user@example.com",
+        signature: "",
+        isDefault: true,
+        isPrimary: true,
+        isVerified: true,
+      },
+      {
+        email: "support@example.com",
+        displayName: "Example Support",
+        signature: "",
+        isDefault: false,
+        isPrimary: false,
+        isVerified: true,
+      },
+    ]);
+    const provider = new GmailProvider({} as any);
+    const message = createParsedMessage({
+      id: "message-1",
+      internalDate: "1000",
+      headers: { to: "Support <Support@example.com>" },
+    });
+
+    await provider.draftEmail(
+      message,
+      { content: "Follow up" },
+      "user@example.com",
+    );
+
+    expect(gmailMailMock.draftEmail).toHaveBeenCalledWith(
+      expect.anything(),
+      message,
+      { content: "Follow up", from: '"Example Support" <support@example.com>' },
+      expect.anything(),
+    );
+  });
+
+  it("does not draft from an alias Gmail has not verified", async () => {
+    gmailSignatureMock.getGmailSignatures.mockResolvedValue([
+      {
+        email: "user@example.com",
+        signature: "",
+        isDefault: true,
+        isPrimary: true,
+        isVerified: true,
+      },
+      {
+        email: "support@example.com",
+        signature: "",
+        isDefault: false,
+        isPrimary: false,
+        isVerified: false,
+      },
+    ]);
+    const provider = new GmailProvider({} as any);
+    const message = createParsedMessage({
+      id: "message-1",
+      internalDate: "1000",
+      headers: { to: "support@example.com" },
+    });
+
+    await provider.draftEmail(
+      message,
+      { content: "Follow up" },
+      "user@example.com",
+    );
+
+    expect(gmailMailMock.draftEmail.mock.calls[0][2].from).toBeUndefined();
   });
 });
 
@@ -429,6 +651,111 @@ describe("GmailProvider.getSentMessageIds", () => {
 });
 
 describe("GmailProvider.getThreadsWithQuery", () => {
+  it("filters domain candidates on the same inbox message and continues paging", async () => {
+    const list = vi
+      .spyOn(gmailThreadModule, "getThreadsWithNextPageToken")
+      .mockResolvedValueOnce({
+        threads: [{ id: "miss" }],
+        nextPageToken: "next",
+      })
+      .mockResolvedValueOnce({
+        threads: [{ id: "hit" }],
+        nextPageToken: undefined,
+      });
+    vi.spyOn(gmailThreadModule, "getThreadsBatch")
+      .mockResolvedValueOnce([
+        {
+          id: "miss",
+          messages: [
+            {
+              id: "sub",
+              labelIds: ["INBOX"],
+              payload: {
+                headers: [{ name: "From", value: "user@sub.example.com" }],
+              },
+            },
+            {
+              id: "archived",
+              labelIds: [],
+              payload: {
+                headers: [{ name: "From", value: "user@example.com" }],
+              },
+            },
+          ],
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: "hit",
+          messages: [
+            {
+              id: "hit",
+              labelIds: ["INBOX"],
+              payload: {
+                headers: [{ name: "From", value: "User <USER@example.com>" }],
+              },
+            },
+          ],
+        },
+      ]);
+    const oauth = new auth.OAuth2();
+    oauth.setCredentials({ access_token: "access-token" });
+    const provider = new GmailProvider(new gmail_v1.Gmail({ auth: oauth }));
+    const result = await provider.getThreadsWithQuery({
+      query: { fromEmail: "@example.com", labelIds: ["INBOX"] },
+      maxResults: 1,
+    });
+    expect(result.threads.map(({ id }) => id)).toEqual(["hit"]);
+    expect(list).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        q: "from:@example.com",
+        labelIds: ["INBOX"],
+        pageToken: "next",
+      }),
+    );
+  });
+
+  it.each([
+    { type: "spam", labelIds: [GmailLabel.SPAM] },
+    { type: "trash", labelIds: [GmailLabel.TRASH] },
+  ])("asks Gmail to include spam and trash for the $type view", async ({
+    type,
+    labelIds,
+  }) => {
+    const list = vi
+      .spyOn(gmailThreadModule, "getThreadsWithNextPageToken")
+      .mockResolvedValue({ threads: [], nextPageToken: undefined });
+    vi.spyOn(gmailThreadModule, "getThreadsBatch").mockResolvedValue([]);
+    const oauth = new auth.OAuth2();
+    oauth.setCredentials({ access_token: "access-token" });
+    const provider = new GmailProvider(new gmail_v1.Gmail({ auth: oauth }));
+
+    await provider.getThreadsWithQuery({ query: { type } });
+
+    expect(list).toHaveBeenCalledWith(
+      expect.objectContaining({ labelIds, includeSpamTrash: true }),
+    );
+  });
+
+  it("leaves spam and trash out of the starred view", async () => {
+    const list = vi
+      .spyOn(gmailThreadModule, "getThreadsWithNextPageToken")
+      .mockResolvedValue({ threads: [], nextPageToken: undefined });
+    vi.spyOn(gmailThreadModule, "getThreadsBatch").mockResolvedValue([]);
+    const oauth = new auth.OAuth2();
+    oauth.setCredentials({ access_token: "access-token" });
+    const provider = new GmailProvider(new gmail_v1.Gmail({ auth: oauth }));
+
+    await provider.getThreadsWithQuery({ query: { type: "starred" } });
+
+    expect(list).toHaveBeenCalledWith(
+      expect.objectContaining({
+        labelIds: [GmailLabel.STARRED],
+        includeSpamTrash: false,
+      }),
+    );
+  });
+
   it("uses multiple label IDs in preference to the legacy single label", async () => {
     const getThreadsWithNextPageToken = vi
       .spyOn(gmailThreadModule, "getThreadsWithNextPageToken")
@@ -506,15 +833,212 @@ describe("GmailProvider.searchThreads", () => {
       expect.objectContaining({
         q: "invoice from:billing@example.com",
         labelIds: [],
+        includeSpamTrash: false,
+      }),
+    );
+  });
+
+  it("includes spam when the search is scoped to that folder", async () => {
+    const getThreadsWithNextPageToken = vi
+      .spyOn(gmailThreadModule, "getThreadsWithNextPageToken")
+      .mockResolvedValue({ threads: [], nextPageToken: undefined });
+    vi.spyOn(gmailThreadModule, "getThreadsBatch").mockResolvedValue([]);
+    const provider = new GmailProvider({
+      context: {
+        _options: {
+          auth: { credentials: { access_token: "access-token" } },
+        },
+      },
+    } as any);
+
+    await provider.searchThreads({
+      query: "invoice",
+      folder: "spam",
+      includeSpamTrash: true,
+    });
+
+    expect(getThreadsWithNextPageToken).toHaveBeenCalledWith(
+      expect.objectContaining({
+        q: "invoice",
+        labelIds: [GmailLabel.SPAM],
+        includeSpamTrash: true,
+      }),
+    );
+  });
+
+  it("includes trash when the query itself names that folder", async () => {
+    const getThreadsWithNextPageToken = vi
+      .spyOn(gmailThreadModule, "getThreadsWithNextPageToken")
+      .mockResolvedValue({ threads: [], nextPageToken: undefined });
+    vi.spyOn(gmailThreadModule, "getThreadsBatch").mockResolvedValue([]);
+    const provider = new GmailProvider({
+      context: {
+        _options: {
+          auth: { credentials: { access_token: "access-token" } },
+        },
+      },
+    } as any);
+
+    await provider.searchThreads({ query: "invoice in:trash" });
+
+    expect(getThreadsWithNextPageToken).toHaveBeenCalledWith(
+      expect.objectContaining({
+        q: "invoice in:trash",
+        labelIds: [],
+        includeSpamTrash: true,
       }),
     );
   });
 });
 
+describe("GmailProvider.createDraft", () => {
+  it("creates a threaded reply draft that already carries its Cc and Bcc", async () => {
+    const create = vi.fn().mockResolvedValue({ data: { id: "draft-1" } });
+    const provider = new GmailProvider({
+      context: { _options: {} },
+      users: { drafts: { create } },
+    } as any);
+    vi.spyOn(provider, "getMessage").mockResolvedValue(
+      createParsedMessage({
+        id: "parent-1",
+        internalDate: "1000",
+        threadId: "thread-1",
+        headers: { "message-id": "<parent@example.com>" },
+      }),
+    );
+
+    await provider.createDraft({
+      to: "recipient@example.com",
+      cc: "copied@example.com",
+      bcc: "hidden@example.com",
+      subject: "Re: Example",
+      messageHtml: "<p>Example</p>",
+      replyToMessageId: "parent-1",
+    });
+
+    const upload = create.mock.calls[0]?.[0];
+    expect(upload.requestBody).toEqual({ message: { threadId: "thread-1" } });
+    const mime = await readStream(upload.media.body);
+    expect(mime).toContain("To: recipient@example.com");
+    expect(mime).toContain("Cc: copied@example.com");
+    expect(mime).toContain("Bcc: hidden@example.com");
+    expect(mime).toContain("In-Reply-To: <parent@example.com>");
+  });
+});
+
 describe("GmailProvider.updateDraft", () => {
+  it("does not write a draft that has been sent or deleted", async () => {
+    const update = vi.fn();
+    const provider = new GmailProvider({
+      context: { _options: {} },
+      users: { drafts: { update } },
+    } as any);
+    gmailDraftMock.getDraft.mockResolvedValueOnce(null);
+    await expect(
+      provider.updateDraft("draft-1", { messageHtml: "<p>Edit</p>" }),
+    ).rejects.toBeInstanceOf(DraftNotFoundError);
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    true,
+    false,
+  ])("preserves attachments and inline images (explicit disposition: %s)", async (explicitDisposition) => {
+    const update = vi.fn().mockResolvedValue({ data: {} });
+    const get = vi.fn().mockResolvedValue({
+      data: { data: Buffer.from("attachment bytes").toString("base64url") },
+    });
+    const client = new gmail_v1.Gmail({});
+    client.users.drafts.update = update;
+    client.users.messages.attachments.get = get;
+    const provider = new GmailProvider(client);
+    gmailDraftMock.getDraft.mockResolvedValueOnce({
+      ...createParsedMessage({
+        id: "draft-message-1",
+        internalDate: "1000",
+        headers: { from: "alias@example.com" },
+      }),
+      payload: {
+        mimeType: "multipart/mixed",
+        parts: [
+          {
+            mimeType: "text/html",
+            body: { data: "PHA-T2xkPC9wPg" },
+            headers: [{ name: "Content-ID", value: "<body@example.com>" }],
+          },
+          {
+            mimeType: "application/pdf",
+            filename: "report.pdf",
+            body: { attachmentId: "file-1" },
+            headers: [{ name: "Content-Disposition", value: "attachment" }],
+          },
+          {
+            mimeType: "image/png",
+            filename: "logo.png",
+            body: { data: Buffer.from("inline bytes").toString("base64url") },
+            headers: [
+              ...(explicitDisposition
+                ? [{ name: "Content-Disposition", value: "inline" }]
+                : []),
+              { name: "Content-ID", value: "<logo@example.com>" },
+            ],
+          },
+        ],
+      },
+    });
+
+    await provider.updateDraft("r-123", {
+      messageHtml: '<p>Edited</p><img src="cid:logo@example.com">',
+    });
+
+    const upload = update.mock.calls[0][0];
+    expect(upload.media.mimeType).toBe("message/rfc822");
+    const mime = await readStream(upload.media.body);
+    expect(mime).toContain("From: alias@example.com");
+    expect(mime).toContain("filename=report.pdf");
+    expect(mime).toContain(Buffer.from("attachment bytes").toString("base64"));
+    expect(mime).toContain("Content-ID: <logo@example.com>");
+    expect(mime).toContain("Content-Disposition: inline;");
+    expect(mime).not.toContain("Content-ID: <body@example.com>");
+    expect(mime).toContain(Buffer.from("inline bytes").toString("base64"));
+    expect(get).toHaveBeenCalledWith({
+      userId: "me",
+      messageId: "draft-message-1",
+      id: "file-1",
+    });
+  });
+
+  it("does not replace a draft when attachment bytes cannot be loaded", async () => {
+    const update = vi.fn();
+    const get = vi.fn().mockResolvedValue({ data: {} });
+    const client = new gmail_v1.Gmail({});
+    client.users.drafts.update = update;
+    client.users.messages.attachments.get = get;
+    const provider = new GmailProvider(client);
+    gmailDraftMock.getDraft.mockResolvedValueOnce({
+      ...createParsedMessage({ id: "draft-message-1", internalDate: "1000" }),
+      payload: {
+        mimeType: "multipart/mixed",
+        parts: [
+          {
+            mimeType: "application/pdf",
+            filename: "report.pdf",
+            body: { attachmentId: "file-1" },
+          },
+        ],
+      },
+    });
+
+    await expect(
+      provider.updateDraft("r-123", { messageHtml: "<p>Edited</p>" }),
+    ).rejects.toThrow("Missing Gmail attachment data");
+    expect(update).not.toHaveBeenCalled();
+  });
+
   it("keeps Gmail threading metadata and MIME-encodes non-ASCII subjects", async () => {
     const update = vi.fn().mockResolvedValue({ data: {} });
     const provider = new GmailProvider({
+      context: { _options: {} },
       users: { drafts: { update } },
     } as any);
     const subject = "Re: ok but you NEED to share your secrets 👀🔍";
@@ -528,6 +1052,8 @@ describe("GmailProvider.updateDraft", () => {
         labelIds: [GmailLabel.DRAFT],
         headers: {
           to: "sender@example.com",
+          cc: "old-cc@example.com",
+          bcc: "old-bcc@example.com",
           subject,
           "in-reply-to": "<original@example.com>",
           references: "<root@example.com> <original@example.com>",
@@ -538,21 +1064,18 @@ describe("GmailProvider.updateDraft", () => {
     await provider.updateDraft("r-123", {
       subject,
       messageHtml: "<p>Edited response.</p>",
+      to: "updated@example.com",
+      cc: "",
+      bcc: "",
     });
 
-    expect(update).toHaveBeenCalledWith({
+    const upload = update.mock.calls[0]?.[0];
+    expect(upload).toMatchObject({
       userId: "me",
       id: "r-123",
-      requestBody: {
-        message: {
-          threadId: "thread-special",
-          raw: expect.any(String),
-        },
-      },
+      requestBody: { message: { threadId: "thread-special" } },
     });
-
-    const raw = update.mock.calls[0]?.[0]?.requestBody?.message?.raw;
-    const decodedMessage = decodeBase64Url(raw);
+    const decodedMessage = await readStream(upload.media.body);
 
     expect(decodedMessage).toContain("Subject: =?UTF-8?");
     expect(decodedMessage).toContain("In-Reply-To: <original@example.com>");
@@ -560,6 +1083,12 @@ describe("GmailProvider.updateDraft", () => {
       "References: <root@example.com> <original@example.com>",
     );
     expect(decodedMessage).toContain("Edited response.");
+    expect(decodedMessage).toContain("To: updated@example.com");
+    expect(decodedMessage).not.toMatch(/^Cc:/im);
+    expect(decodedMessage).not.toMatch(/^Bcc:/im);
+    expect(decodedMessage).not.toContain("old-cc@example.com");
+    expect(decodedMessage).not.toContain("old-bcc@example.com");
+    expect(decodedMessage).not.toContain("To: sender@example.com");
   });
 });
 
@@ -692,6 +1221,16 @@ describe("GmailProvider.updateLabel", () => {
   });
 });
 
+describe("GmailProvider.searchContacts", () => {
+  it("skips People API lookups during Google OAuth emulation", async () => {
+    const oauth = await import("@/utils/gmail/oauth");
+    vi.mocked(oauth.isGoogleOauthEmulationEnabled).mockReturnValue(true);
+    const provider = new GmailProvider({} as never);
+
+    await expect(provider.searchContacts("ada")).resolves.toEqual([]);
+  });
+});
+
 function createThread(messages: ParsedMessage[]): EmailThread {
   return {
     id: "thread-1",
@@ -737,12 +1276,14 @@ function createParsedMessage({
   };
 }
 
-function decodeBase64Url(value: string): string {
-  return Buffer.from(value, "base64url").toString("utf8");
-}
-
 function createGmailClient(
   messages: Partial<gmail_v1.Gmail["users"]["messages"]>,
 ) {
   return { users: { messages } } as unknown as gmail_v1.Gmail;
+}
+
+async function readStream(stream: AsyncIterable<Buffer | string>) {
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+  return Buffer.concat(chunks).toString();
 }

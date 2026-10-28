@@ -26,6 +26,7 @@ module.exports = {
     "tiptap-markdown",
     "react-resizable-panels",
     "recharts",
+    "@tanstack/react-table",
     "@chronark/zod-bird",
 
     // v9+ breaks the shadcn/ui date picker component
@@ -59,10 +60,6 @@ module.exports = {
     // mismatches when passing Redis connections into queues.
     "ioredis",
 
-    // AI SDK v7-only provider lines; app remains on ai@6 / zod@3
-    "@openrouter/ai-sdk-provider",
-    "ollama-ai-provider-v2",
-
     // TypeScript 7 is the native Go compiler without the classic Compiler API;
     // stay on 6 until the monorepo tooling ecosystem is ready.
     "typescript",
@@ -76,5 +73,15 @@ module.exports = {
     // Stay pinned until a dedicated formatting migration.
     "ultracite",
     "@biomejs/biome",
+
+    // Sentry JS v11 drops sendDefaultPii; its dataCollection defaults collect
+    // request bodies, headers, and gen AI inputs/outputs. Upgrade separately
+    // with an explicit dataCollection config.
+    "@sentry/nextjs",
+    "@sentry/electron",
+
+    // 1.64's Chromium breaks the offline mailbox reconnect spec when it runs
+    // after other specs in the same CI batch.
+    "@playwright/test",
   ],
 };

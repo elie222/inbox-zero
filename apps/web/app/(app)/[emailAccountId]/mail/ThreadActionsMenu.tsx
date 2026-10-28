@@ -1,20 +1,30 @@
 "use client";
 
-import type { ComponentProps } from "react";
+import { useState } from "react";
 import {
+  ArchiveIcon,
+  ArrowBigUpIcon,
+  ArchiveRestoreIcon,
   ExternalLinkIcon,
+  FolderInputIcon,
+  LanguagesIcon,
   MailXIcon,
-  MailIcon,
-  MailOpenIcon,
+  MessageSquareIcon,
   MoreHorizontalIcon,
+  PrinterIcon,
+  ShieldAlertIcon,
+  StarIcon,
+  StarOffIcon,
+  Trash2Icon,
+  TagIcon,
+  WandSparklesIcon,
 } from "lucide-react";
-import { FixWithChat } from "@/app/(app)/[emailAccountId]/assistant/FixWithChat";
-import { getRuleResultReasonDisplay } from "@/app/(app)/[emailAccountId]/assistant/ResultDisplay";
-import { MailLabelChip } from "@/app/(app)/[emailAccountId]/mail/MailLabelChip";
-import type { ThreadPlan } from "@/app/(app)/[emailAccountId]/mail/types";
-import { useUnsubscribeSender } from "@/app/(app)/[emailAccountId]/mail/use-unsubscribe-sender";
+import { RuleDialog } from "@/app/(app)/[emailAccountId]/assistant/RuleDialog";
+import { useSenderCommands } from "@/app/(app)/[emailAccountId]/mail/use-sender-commands";
 import { getEmailMessageCellActions } from "@/components/EmailMessageCellActions";
+import { Kbd } from "@/components/Kbd";
 import { Button } from "@/components/ui/button";
+import { Tooltip } from "@/components/Tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,56 +32,67 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ActionType, ExecutedRuleStatus } from "@/generated/prisma/enums";
-import { getShortcutHint } from "@/lib/shortcuts/registry";
+import {
+  getShortcutHint,
+  getShortcutKeyLabels,
+  type ShortcutId,
+} from "@/lib/shortcuts/registry";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { ACTION_TYPE_LABELS, getVisibleActions } from "@/utils/action-display";
-import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import { ConditionType } from "@/utils/config";
+import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
+import { getOpenInMailboxLabel } from "@/utils/url";
 import type { ParsedMessage } from "@/utils/types";
 
-type FixWithChatResults = ComponentProps<typeof FixWithChat>["results"];
-
 export type ThreadActionsMenuProps = {
-  /**
-   * Every rule that fired on the thread, newest first. Attribution is
-   * rule-scoped, not label-scoped: one entry per rule, each with its own reason,
-   * the actions it applied, and its own way to correct it.
-   */
-  plans: ThreadPlan[];
-  /**
-   * The thread's latest message: what the fix flow reasons about, and the
-   * sender the unsubscribe entry acts on.
-   */
   message: ParsedMessage | null;
-  /** `setInput` from `useChat()`: the fix flow seeds the assistant with it. */
-  setChatInput: (input: string) => void;
-  isUnread: boolean;
-  onToggleRead: () => void;
-  /** Chat remains scoped to the route account, so cross-account rows hide it. */
-  showFixWithChat?: boolean;
+  /** The newest message someone else sent, whose sender a new rule targets. */
+  receivedMessage: ParsedMessage | null;
+  isStarred: boolean;
+  onToggleStar: () => void;
+  onMarkSpam: () => void;
+  onDelete: () => void;
+  onLabel?: () => void;
+  onMove?: () => void;
+  onTranslate?: () => void;
+  onComment?: () => void;
+  onPrint?: () => void;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 };
 
 /**
- * The reader's ⋯ menu: why the thread looks the way it does, and everything you
- * can do to it that isn't worth a button of its own.
+ * Thread-wide actions in the reader toolbar.
  */
 export function ThreadActionsMenu({
-  plans,
   message,
-  setChatInput,
-  isUnread,
-  onToggleRead,
-  showFixWithChat = true,
+  receivedMessage,
+  isStarred,
+  onToggleStar,
+  onMarkSpam,
+  onDelete,
+  onLabel,
+  onMove,
+  onTranslate,
+  onComment,
+  onPrint,
   open,
   onOpenChange,
 }: ThreadActionsMenuProps) {
-  const hint = getShortcutHint("moreActions");
   const { provider, userEmail } = useAccount();
-  const { canUnsubscribe, onUnsubscribe, PremiumModal } =
-    useUnsubscribeSender(message);
-  const ReadIcon = isUnread ? MailOpenIcon : MailIcon;
+  const [isRuleDialogOpen, setIsRuleDialogOpen] = useState(false);
+  const senderFrom = receivedMessage?.headers.from ?? "";
+  const senderEmail = extractEmailAddress(senderFrom);
+  const {
+    canManageAutoArchive,
+    isUnsubscribeDisabled,
+    unsubscribeLabel,
+    isAutoArchived,
+    isAutoArchiveStatusLoading,
+    isUpdatingAutoArchive,
+    onToggleAutoArchive,
+    onUnsubscribe,
+    PremiumModal,
+  } = useSenderCommands(message);
   const openUrl = message
     ? getEmailMessageCellActions({
         externalUrl: message.externalUrl,
@@ -85,168 +106,166 @@ export function ThreadActionsMenu({
   return (
     <>
       <DropdownMenu onOpenChange={onOpenChange} open={open}>
-        <DropdownMenuTrigger asChild>
-          <Button
-            aria-label={`More actions (${hint})`}
-            className="h-7 w-7"
-            size="icon"
-            title={`More actions (${hint})`}
-            variant="outline"
-          >
-            <MoreHorizontalIcon className="size-3.5" />
-          </Button>
-        </DropdownMenuTrigger>
+        <Tooltip shortcuts={["moreActions"]}>
+          <DropdownMenuTrigger asChild>
+            <Button aria-label="More actions" size="iconXs" variant="ghost">
+              <MoreHorizontalIcon className="size-3.5" />
+            </Button>
+          </DropdownMenuTrigger>
+        </Tooltip>
 
         <DropdownMenuContent
           align="end"
-          className="w-[min(24rem,calc(100vw-1rem))]"
+          className="w-80 max-w-[calc(100vw-1rem)]"
           onEscapeKeyDown={(event) => event.stopPropagation()}
         >
-          {plans.map((plan) => (
-            <RuleAttribution
-              key={plan.id}
-              message={message}
-              plan={plan}
-              setChatInput={setChatInput}
-              showFixWithChat={showFixWithChat}
-            />
-          ))}
+          {onLabel && (
+            <DropdownMenuItem onSelect={onLabel}>
+              <TagIcon className="mr-2 size-4" />
+              Label
+              <MenuShortcut id="label" />
+            </DropdownMenuItem>
+          )}
 
-          {plans.length > 0 ? <DropdownMenuSeparator /> : null}
+          {onMove && (
+            <DropdownMenuItem onSelect={onMove}>
+              <FolderInputIcon className="mr-2 size-4" />
+              Move
+              <MenuShortcut id="move" />
+            </DropdownMenuItem>
+          )}
+
+          <DropdownMenuItem onSelect={onToggleStar}>
+            {isStarred ? (
+              <StarOffIcon className="mr-2 size-4" />
+            ) : (
+              <StarIcon className="mr-2 size-4" />
+            )}
+            {isStarred ? "Unstar" : "Star"}
+            <MenuShortcut id="star" />
+          </DropdownMenuItem>
+
+          <DropdownMenuSeparator />
+
+          <DropdownMenuItem onSelect={onDelete}>
+            <Trash2Icon aria-hidden className="mr-2 size-4" />
+            Delete
+            <MenuShortcut id="delete" />
+          </DropdownMenuItem>
+
+          <DropdownMenuItem onSelect={onMarkSpam}>
+            <ShieldAlertIcon className="mr-2 size-4" />
+            Mark as spam
+            <MenuShortcut id="markSpam" />
+          </DropdownMenuItem>
+
+          {canManageAutoArchive ? (
+            <DropdownMenuItem
+              disabled={isUnsubscribeDisabled}
+              onSelect={onUnsubscribe}
+            >
+              <MailXIcon className="mr-2 size-4" />
+              {unsubscribeLabel}
+              <MenuShortcut id="unsubscribe" />
+            </DropdownMenuItem>
+          ) : null}
+
+          {(onTranslate ||
+            onComment ||
+            onPrint ||
+            canManageAutoArchive ||
+            senderEmail) && <DropdownMenuSeparator />}
+
+          {onComment && (
+            <DropdownMenuItem onSelect={onComment}>
+              <MessageSquareIcon className="mr-2 size-4" />
+              Comment
+              <MenuShortcut id="openTeamComments" />
+            </DropdownMenuItem>
+          )}
+
+          {canManageAutoArchive ? (
+            <DropdownMenuItem
+              disabled={isAutoArchiveStatusLoading || isUpdatingAutoArchive}
+              onSelect={onToggleAutoArchive}
+            >
+              {isAutoArchived ? (
+                <ArchiveRestoreIcon className="mr-2 size-4" />
+              ) : (
+                <ArchiveIcon className="mr-2 size-4" />
+              )}
+              {isAutoArchived
+                ? "Disable auto archive"
+                : "Auto archive future emails"}
+              <MenuShortcut id="toggleAutoArchive" />
+            </DropdownMenuItem>
+          ) : null}
+
+          {senderEmail ? (
+            <DropdownMenuItem onSelect={() => setIsRuleDialogOpen(true)}>
+              <WandSparklesIcon className="mr-2 size-4" />
+              Create rule for sender
+            </DropdownMenuItem>
+          ) : null}
+
+          {onTranslate && (
+            <DropdownMenuItem onSelect={onTranslate}>
+              <LanguagesIcon className="mr-2 size-4" />
+              Translate
+              <MenuShortcut id="translate" />
+            </DropdownMenuItem>
+          )}
+
+          {onPrint && (
+            <DropdownMenuItem onSelect={onPrint}>
+              <PrinterIcon className="mr-2 size-4" />
+              Print
+            </DropdownMenuItem>
+          )}
+
+          {openUrl ? <DropdownMenuSeparator /> : null}
 
           {openUrl ? (
             <DropdownMenuItem asChild>
               <a href={openUrl} rel="noopener noreferrer" target="_blank">
                 <ExternalLinkIcon className="mr-2 size-4" />
-                Open in {isMicrosoftProvider(provider) ? "Outlook" : "Gmail"}
+                {getOpenInMailboxLabel(provider) ?? "Open in email provider"}
+                <MenuShortcut id="openExternal" />
               </a>
-            </DropdownMenuItem>
-          ) : null}
-
-          <DropdownMenuItem onSelect={onToggleRead}>
-            <ReadIcon className="mr-2 size-4" />
-            {isUnread ? "Mark as read" : "Mark as unread"}
-          </DropdownMenuItem>
-
-          {canUnsubscribe ? (
-            <DropdownMenuItem onSelect={onUnsubscribe}>
-              <MailXIcon className="mr-2 size-4" />
-              Unsubscribe
             </DropdownMenuItem>
           ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
 
       <PremiumModal />
+
+      {senderEmail ? (
+        <RuleDialog
+          isOpen={isRuleDialogOpen}
+          onClose={() => setIsRuleDialogOpen(false)}
+          initialRule={{
+            name: `Emails from ${extractNameFromEmail(senderFrom)}`,
+            conditions: [{ type: ConditionType.STATIC, from: senderEmail }],
+          }}
+        />
+      ) : null}
     </>
   );
 }
 
-function RuleAttribution({
-  plan,
-  message,
-  setChatInput,
-  showFixWithChat,
-}: {
-  plan: ThreadPlan;
-  message: ParsedMessage | null;
-  setChatInput: (input: string) => void;
-  showFixWithChat: boolean;
-}) {
-  const actions = getVisibleActions(plan.actionItems);
-  const labels = actions.filter(
-    (action) => action.type === ActionType.LABEL && action.label,
-  );
-  const otherActions = actions.filter(
-    (action) => action.type !== ActionType.LABEL,
-  );
-  const reasonDisplay = getRuleResultReasonDisplay(plan.reason ?? "");
-
+function MenuShortcut({ id }: { id: ShortcutId }) {
   return (
-    <div className="min-w-0 border-border border-b px-3 py-3 last:border-b-0">
-      <div className="min-w-0 text-xs">
-        <span className="text-muted-foreground">
-          {plan.status === ExecutedRuleStatus.APPLIED
-            ? "Applied rule:"
-            : "Matched rule:"}{" "}
-        </span>
-        <span className="font-medium text-foreground break-words [overflow-wrap:anywhere]">
-          {plan.rule?.name ?? "a deleted rule"}
-        </span>
-      </div>
-
-      {reasonDisplay.reason ? (
-        <p className="mt-1.5 whitespace-pre-wrap text-foreground text-xs leading-relaxed break-words [overflow-wrap:anywhere]">
-          {reasonDisplay.reason}
-        </p>
-      ) : null}
-
-      {reasonDisplay.actionFailureMessages.length > 0 ? (
-        <div className="mt-2 rounded-md bg-destructive/10 px-2 py-1.5 text-destructive text-xs">
-          <div className="font-medium">
-            {reasonDisplay.actionFailureMessages.length === 1
-              ? "Action issue"
-              : "Action issues"}
-          </div>
-          <ul className="mt-0.5 list-disc space-y-0.5 pl-4">
-            {reasonDisplay.actionFailureMessages.map(
-              (failureMessage, failureIndex) => (
-                <li
-                  className="break-words [overflow-wrap:anywhere]"
-                  key={`${failureMessage}-${failureIndex}`}
-                >
-                  {failureMessage}
-                </li>
-              ),
-            )}
-          </ul>
-        </div>
-      ) : null}
-
-      {labels.length > 0 || otherActions.length > 0 ? (
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          {labels.map((action) => (
-            <MailLabelChip key={action.id} name={action.label ?? ""} />
-          ))}
-          {otherActions.map((action) => (
-            <span className="text-muted-foreground text-xs" key={action.id}>
-              {ACTION_TYPE_LABELS[action.type]}
-            </span>
-          ))}
-        </div>
-      ) : null}
-
-      {message && showFixWithChat ? (
-        <div className="mt-2.5">
-          <FixWithChat
-            message={message}
-            results={toFixResults(plan)}
-            setInput={setChatInput}
-          />
-        </div>
-      ) : null}
-    </div>
+    <span className="ml-auto flex items-center gap-1">
+      <span className="sr-only">{getShortcutHint(id)}</span>
+      {getShortcutKeyLabels(id).map((key, index) => (
+        <Kbd
+          aria-hidden
+          className="h-5 min-w-5 px-1.5 font-sans text-[11px]"
+          key={`${index}-${key}`}
+        >
+          {key === "shift" ? <ArrowBigUpIcon className="size-3.5" /> : key}
+        </Kbd>
+      ))}
+    </span>
   );
-}
-
-/**
- * `ThreadPlan` has no `createdAt`: the list route uses it to pick each rule's
- * latest execution and then drops it. `ResultsDisplay`, inside `FixWithChat`,
- * still requires one — but only as the key it groups and orders batches by, and
- * never renders it. Each menu entry passes a single result, so grouping has
- * nothing to do and any constant serves; a sentinel is honest about the
- * execution time being unknown here, where a real date would be invented.
- */
-const FIX_RESULT_BATCH = new Date(0);
-
-function toFixResults(plan: ThreadPlan): FixWithChatResults {
-  return [
-    {
-      rule: plan.rule,
-      actionItems: plan.actionItems,
-      reason: plan.reason,
-      status: plan.status,
-      createdAt: FIX_RESULT_BATCH,
-    },
-  ];
 }

@@ -9,16 +9,19 @@ import { ChatProvider } from "@/providers/ChatProvider";
 import { EmailAccountProvider } from "@/providers/EmailAccountProvider";
 import { StatLoaderProvider } from "@/providers/StatLoaderProvider";
 import { SWRProvider } from "@/providers/SWRProvider";
+import { MailEngineRuntime } from "@/utils/mail-engine/MailEngineHost";
 
 export function AppProviders(props: { children: React.ReactNode }) {
   return (
-    <ThemeProvider attribute="class" defaultTheme="light">
+    <ThemeProvider attribute="class" defaultTheme="system">
       <Provider store={jotaiStore}>
         <EmailAccountProvider>
           <SWRProvider>
             <StatLoaderProvider>
               <ChatProvider>
-                <ComposeModalProvider>{props.children}</ComposeModalProvider>
+                <MailEngineRuntime>
+                  <ComposeModalProvider>{props.children}</ComposeModalProvider>
+                </MailEngineRuntime>
               </ChatProvider>
             </StatLoaderProvider>
           </SWRProvider>

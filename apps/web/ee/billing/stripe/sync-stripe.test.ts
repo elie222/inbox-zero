@@ -14,6 +14,17 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/utils/prisma");
+vi.mock("next/server", () => ({ after: vi.fn() }));
+vi.mock("@/ee/billing/stripe/loops-events", () => ({
+  handleLoopsEvents: vi.fn(),
+}));
+vi.mock("@/utils/premium/seats", () => ({ syncPremiumSeats: vi.fn() }));
+vi.mock("@/utils/email/watch-manager", () => ({
+  ensureEmailAccountsWatched: vi.fn(),
+}));
+vi.mock("@/app/(app)/premium/config", () => ({
+  getStripeSubscriptionTier: () => "PRO_MONTHLY",
+}));
 vi.mock("@/ee/billing/stripe", () => ({
   getStripe: () => ({
     subscriptions: { list: mocks.listSubscriptions },
@@ -113,6 +124,62 @@ describe("connectPurchaserAsAdmin", () => {
 describe("syncStripeDataToDb", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("persists custom cancellation dates and clears them when cancellation is removed", async () => {
+    prisma.premium.findUnique.mockResolvedValue(null);
+    prisma.premium.upsert.mockResolvedValue({
+      id: "premium-1",
+      users: [],
+      admins: [],
+    });
+    const subscription = {
+      id: "sub_test",
+      status: "active",
+      cancel_at_period_end: false,
+      cancel_at: 1_800_000_000,
+      items: {
+        data: [
+          { id: "si_test", price: { id: "price_test", product: "prod_test" } },
+        ],
+      },
+    };
+    mocks.listSubscriptions.mockResolvedValue({ data: [subscription] });
+    await syncStripeDataToDb({
+      customerId: "cus_1",
+      logger: createTestLogger(),
+    });
+    expect(prisma.premium.upsert).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({
+          stripeCancelAt: new Date(1_800_000_000_000),
+          stripeCancelAtPeriodEnd: false,
+          stripeSubscriptionStatus: "active",
+        }),
+      }),
+    );
+    mocks.listSubscriptions.mockResolvedValue({
+      data: [{ ...subscription, cancel_at: null }],
+    });
+    await syncStripeDataToDb({
+      customerId: "cus_1",
+      logger: createTestLogger(),
+    });
+    expect(prisma.premium.upsert).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({ stripeCancelAt: null }),
+      }),
+    );
+    mocks.listSubscriptions.mockResolvedValue({ data: [] });
+    await syncStripeDataToDb({
+      customerId: "cus_1",
+      logger: createTestLogger(),
+    });
+    expect(prisma.premium.upsert).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({ stripeCancelAt: null }),
+      }),
+    );
   });
 
   it("repairs the purchaser link when the customer has no subscription", async () => {

@@ -19,6 +19,7 @@ import { recordRateLimitFromApiError } from "@/utils/email/rate-limit";
 import { isProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
 import {
   EMAIL_ACCOUNT_HEADER,
+  EMAIL_ACCOUNT_ID_REQUIRED_ERROR,
   MICROSOFT_AUTH_EXPIRED_ERROR_CODE,
   NO_REFRESH_TOKEN_ERROR_CODE,
 } from "@/utils/config";
@@ -50,7 +51,7 @@ export interface RequestWithLogger extends NextRequest {
 
 // Extended request type with validated account info
 export interface RequestWithAuth extends RequestWithLogger {
-  auth: { userId: string };
+  auth: { userId: string; emailOtp?: boolean };
 }
 
 export interface RequestWithEmailAccount extends RequestWithLogger {
@@ -333,7 +334,10 @@ async function authMiddleware(
   }
 
   const authReq = req as RequestWithAuth;
-  authReq.auth = { userId: session.user.id };
+  authReq.auth = {
+    userId: session.user.id,
+    ...(session.session?.emailOtp ? { emailOtp: true } : {}),
+  };
 
   authReq.logger = baseLogger.with({ userId: session.user.id });
   setAuditContext({ actorType: "user", userId: session.user.id });
@@ -362,7 +366,7 @@ async function emailAccountMiddleware(
 
   if (!emailAccountId) {
     return NextResponse.json(
-      { error: "Email account ID is required", isKnownError: true },
+      { error: EMAIL_ACCOUNT_ID_REQUIRED_ERROR, isKnownError: true },
       { status: 403 },
     );
   }
@@ -545,16 +549,17 @@ async function emailProviderMiddleware(
 
     return providerReq;
   } catch (error) {
+    // Known errors (revoked access, rate-limit mode) are logged where they're
+    // raised, and withMiddleware applies shared error handling.
+    if (error instanceof SafeError || isProviderRateLimitModeError(error)) {
+      throw error;
+    }
+
     emailAccountReq.logger.error("Failed to create email provider", {
       error,
       emailAccountId,
       userId,
     });
-
-    // Re-throw known errors so withMiddleware can apply shared error handling.
-    if (error instanceof SafeError || isProviderRateLimitModeError(error)) {
-      throw error;
-    }
 
     return NextResponse.json(
       { error: "Failed to initialize email provider" },

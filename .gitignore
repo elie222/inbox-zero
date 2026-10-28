@@ -119,3 +119,5 @@ eval-results/
 .context/
 .deepsec/
 .tmp/
+
+/.private-build-install.json

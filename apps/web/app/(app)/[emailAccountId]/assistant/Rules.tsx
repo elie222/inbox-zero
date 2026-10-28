@@ -59,6 +59,7 @@ import { TruncatedTooltipText } from "@/components/TruncatedTooltipText";
 import { getRuleConfig, getDefaultActions } from "@/utils/rule/consts";
 import {
   SYSTEM_RULE_ORDER,
+  shouldShowSystemRule,
   sortRulesByCanonicalOrder,
 } from "@/utils/rule/sort";
 import {
@@ -133,44 +134,47 @@ export function Rules({
   const rules: RulesResponse = useMemo(() => {
     const existingRules = data || [];
 
-    const systemRulePlaceholders = SYSTEM_RULE_ORDER.map((systemType) => {
+    const systemRulePlaceholders = SYSTEM_RULE_ORDER.flatMap((systemType) => {
       const existingRule = existingRules.find(
         (r) => r.systemType === systemType,
       );
-      if (existingRule) return existingRule;
+      if (!shouldShowSystemRule(systemType, existingRule)) return [];
+      if (existingRule) return [existingRule];
 
       const ruleConfiguration = getRuleConfig(systemType);
 
-      return {
-        id: `placeholder-${systemType}`,
-        name: ruleConfiguration.name,
-        instructions: ruleConfiguration.instructions,
-        enabled: false,
-        runOnThreads: false,
-        automate: true,
-        actions: getDefaultActions(systemType, provider).map((action) => ({
-          ...action,
-          emailAccountId,
-          messagingChannel: null,
-          messagingChannelEmailAccountId: null,
-        })),
-        group: null,
-        emailAccountId: emailAccountId,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        categoryFilterType: null,
-        conditionalOperator: LogicalOperator.OR,
-        groupId: null,
-        systemType,
-        to: null,
-        from: null,
-        subject: null,
-        body: null,
-        promptText: null,
-        organizationRuleId: null,
-        organizationRuleMemberEnabled: null,
-        organizationRule: null,
-      };
+      return [
+        {
+          id: `placeholder-${systemType}`,
+          name: ruleConfiguration.name,
+          instructions: ruleConfiguration.instructions,
+          enabled: false,
+          runOnThreads: false,
+          automate: true,
+          actions: getDefaultActions(systemType, provider).map((action) => ({
+            ...action,
+            emailAccountId,
+            messagingChannel: null,
+            messagingChannelEmailAccountId: null,
+          })),
+          group: null,
+          emailAccountId: emailAccountId,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          categoryFilterType: null,
+          conditionalOperator: LogicalOperator.OR,
+          groupId: null,
+          systemType,
+          to: null,
+          from: null,
+          subject: null,
+          body: null,
+          promptText: null,
+          organizationRuleId: null,
+          organizationRuleMemberEnabled: null,
+          organizationRule: null,
+        },
+      ];
     });
 
     const userRules = existingRules.filter((rule) => !rule.systemType);

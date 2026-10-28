@@ -7,17 +7,52 @@ import { atom } from "jotai";
  */
 export const commandPaletteOpenAtom = atom(false);
 
+/**
+ * Open state for the keyboard shortcuts dialog. Command K and the `?` shortcut
+ * both write here so the dialog can live outside the mail screen.
+ */
+export const shortcutsDialogOpenAtom = atom(false);
+
+/**
+ * Open state for the feedback dialog, so both the sidebar and Command K can
+ * open it. The mail screen has no global sidebar, so Command K is its only way in.
+ */
+export const feedbackDialogOpenAtom = atom(false);
+
 export type MailCommandContext = {
   actions: {
     archive: () => void;
+    moveToInbox?: () => void;
+    forward?: () => void;
+    label?: () => void;
+    star?: () => void;
     markRead?: () => void;
+    markSpam?: () => void;
     markUnread?: () => void;
+    move?: () => void;
+    openExternal?: () => void;
     snooze?: (until: Date) => void;
+    translate?: () => void;
+    comment?: () => void;
     trash?: () => void;
   };
+  allStarred?: boolean;
   hasRead: boolean;
   hasUnread: boolean;
+  openExternalLabel?: string;
+  target?: { emailAccountId: string; threadId: string };
   targetCount: number;
+};
+
+export type SenderCommandContext = {
+  emailAccountId: string;
+  isAutoArchived: boolean;
+  isAutoArchiveDisabled: boolean;
+  isUnsubscribeDisabled: boolean;
+  unsubscribeLabel: string;
+  threadId: string;
+  toggleAutoArchive: () => void;
+  unsubscribe: () => void;
 };
 
 /**
@@ -25,3 +60,6 @@ export type MailCommandContext = {
  * the app-wide palette consume them without duplicating that state.
  */
 export const mailCommandContextAtom = atom<MailCommandContext | null>(null);
+
+/** Sender actions are resolved inside the active target's account provider. */
+export const senderCommandContextAtom = atom<SenderCommandContext | null>(null);

@@ -1,4 +1,14 @@
-import { randomBytes } from "node:crypto";
+import {
+  copyFileSync,
+  lstatSync,
+  readFileSync,
+  readlinkSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { relative, resolve } from "node:path";
+import { createHash, randomBytes } from "node:crypto";
+import { parseEnv } from "node:util";
 
 // Environment variable builder
 export type EnvConfig = Record<string, string | undefined>;
@@ -32,6 +42,7 @@ export function generateEnvFile(config: {
   useDockerInfra: boolean;
   llmProvider: string;
   template: string;
+  composeEnvFile?: string;
 }): string {
   const { env, useDockerInfra, llmProvider, template } = config;
 
@@ -60,6 +71,8 @@ export function generateEnvFile(config: {
     content += `\n${key}=${value}`;
   };
 
+  setValue("INBOX_ZERO_ENV_FILE", wrapInQuotes(config.composeEnvFile));
+
   // ─────────────────────────────────────────────────────────────────────────
   // Database & Redis
   // ─────────────────────────────────────────────────────────────────────────
@@ -75,16 +88,16 @@ export function generateEnvFile(config: {
     setValue("WEB_PORT", env.WEB_PORT);
     setValue("DATABASE_URL", wrapInQuotes(env.DATABASE_URL));
     setValue("DIRECT_URL", wrapInQuotes(env.DIRECT_URL));
-    setValue("UPSTASH_REDIS_URL", wrapInQuotes(env.UPSTASH_REDIS_URL));
-    setValue("UPSTASH_REDIS_TOKEN", env.UPSTASH_REDIS_TOKEN);
+    setValue("REDIS_HTTP_URL", wrapInQuotes(env.REDIS_HTTP_URL));
+    setValue("REDIS_HTTP_TOKEN", env.REDIS_HTTP_TOKEN);
     setValue("REDIS_URL", wrapInQuotes(env.REDIS_URL));
     setValue("QUEUE_BACKEND", env.QUEUE_BACKEND);
   } else {
     // External infra - set placeholders
     setValue("DATABASE_URL", wrapInQuotes(env.DATABASE_URL));
     setValue("DIRECT_URL", wrapInQuotes(env.DIRECT_URL));
-    setValue("UPSTASH_REDIS_URL", wrapInQuotes(env.UPSTASH_REDIS_URL));
-    setValue("UPSTASH_REDIS_TOKEN", env.UPSTASH_REDIS_TOKEN);
+    setValue("REDIS_HTTP_URL", wrapInQuotes(env.REDIS_HTTP_URL));
+    setValue("REDIS_HTTP_TOKEN", env.REDIS_HTTP_TOKEN);
     setValue("REDIS_URL", wrapInQuotes(env.REDIS_URL));
     setValue("QUEUE_BACKEND", env.QUEUE_BACKEND);
   }
@@ -152,6 +165,7 @@ export function generateEnvFile(config: {
     openrouter: "OPENROUTER_API_KEY",
     aigateway: "AI_GATEWAY_API_KEY",
     groq: "GROQ_API_KEY",
+    cerebras: "CEREBRAS_API_KEY",
   };
   const legacyApiKeyName = legacyProviderApiKeyMap[llmProvider];
   setValue(
@@ -170,6 +184,8 @@ export function generateEnvFile(config: {
   } else if (llmProvider === "openai-compatible") {
     setValue("OPENAI_COMPATIBLE_BASE_URL", env.OPENAI_COMPATIBLE_BASE_URL);
     setValue("OPENAI_COMPATIBLE_MODEL", env.OPENAI_COMPATIBLE_MODEL);
+  } else if (llmProvider === "cerebras") {
+    setValue("CEREBRAS_API_KEY", env.CEREBRAS_API_KEY || env.LLM_API_KEY);
   }
 
   return content;
@@ -191,6 +207,7 @@ const SENSITIVE_KEYS = new Set([
   "OPENROUTER_API_KEY",
   "AI_GATEWAY_API_KEY",
   "GROQ_API_KEY",
+  "CEREBRAS_API_KEY",
   "BEDROCK_ACCESS_KEY",
   "BEDROCK_SECRET_KEY",
   "AUTH_SECRET",
@@ -199,6 +216,7 @@ const SENSITIVE_KEYS = new Set([
   "INTERNAL_API_KEY",
   "API_KEY_SALT",
   "CRON_SECRET",
+  "REDIS_HTTP_TOKEN",
   "UPSTASH_REDIS_TOKEN",
   "POSTGRES_PASSWORD",
 ]);
@@ -212,21 +230,17 @@ export function isSensitiveKey(key: string): boolean {
 }
 
 export function parseEnvFile(content: string): Record<string, string> {
-  const env: Record<string, string> = {};
-  for (const line of content.split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const eqIndex = trimmed.indexOf("=");
-    if (eqIndex === -1) continue;
-    const key = trimmed.slice(0, eqIndex).trim();
-    let value = trimmed.slice(eqIndex + 1).trim();
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-    env[key] = value;
+  const env = parseEnv(content);
+  // Compose treats unspaced hashes in unquoted database passwords as literal.
+  const password = [
+    ...content.matchAll(/^[ \t]*POSTGRES_PASSWORD[ \t]*=(.*)$/gm),
+  ].at(-1)?.[1];
+  if (
+    password &&
+    !password.trim().startsWith('"') &&
+    !password.trim().startsWith("'")
+  ) {
+    env.POSTGRES_PASSWORD = password.replace(/\s+#.*$/, "").trim();
   }
   return env;
 }
@@ -288,4 +302,136 @@ export function parsePortConflict(stderr: string): string | null {
 
 function escapeEnvQuotedValue(value: string): string {
   return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
+export function generateEncryptionSecrets(existing: EnvConfig): EnvConfig {
+  return {
+    EMAIL_ENCRYPT_SECRET: existing.EMAIL_ENCRYPT_SECRET || generateSecret(32),
+    EMAIL_ENCRYPT_SALT: existing.EMAIL_ENCRYPT_SALT || generateSecret(16),
+  };
+}
+
+const MANAGED_COMPOSE_ENV_MARKER_SUFFIX = ".inbox-zero-managed";
+
+export function syncManagedComposeEnv({
+  envFile,
+  repoRoot,
+}: {
+  envFile: string;
+  repoRoot: string | null;
+}) {
+  if (!repoRoot) return;
+  if (resolve(envFile) !== resolve(repoRoot, "apps/web/.env")) return;
+
+  const rootEnvFile = resolve(repoRoot, ".env");
+  const markerFile = `${rootEnvFile}${MANAGED_COMPOSE_ENV_MARKER_SUFFIX}`;
+  const linkTarget = relative(repoRoot, envFile);
+  const sourceContent = readFileSync(envFile, "utf-8");
+  const conflictWarning =
+    `Preserved user-managed ${rootEnvFile}. Docker Compose may use different settings. ` +
+    `Align it with ${envFile} or pass --env-file pointing to that app configuration when running Docker Compose.`;
+  // lstat also detects dangling links, which must never be followed by the copy fallback.
+  const rootEnvStat = lstatSync(rootEnvFile, { throwIfNoEntry: false });
+
+  if (!rootEnvStat) {
+    createManagedComposeEnv({
+      linkTarget,
+      markerFile,
+      rootEnvFile,
+      sourceContent,
+    });
+    return;
+  }
+
+  if (rootEnvStat.isSymbolicLink()) {
+    const currentTarget = resolve(repoRoot, readlinkSync(rootEnvFile));
+    if (currentTarget !== resolve(envFile)) return conflictWarning;
+    return;
+  }
+
+  if (!rootEnvStat.isFile()) return conflictWarning;
+  const currentContent = readFileSync(rootEnvFile, "utf-8");
+  if (currentContent === sourceContent) return;
+
+  if (!isUnchangedManagedCopy(markerFile, linkTarget, currentContent)) {
+    return conflictWarning;
+  }
+
+  copyFileSync(envFile, rootEnvFile);
+  writeManagedCopyMarker(markerFile, linkTarget, sourceContent);
+}
+
+export function fixComposeEnvPaths(composeContent: string): string {
+  return composeContent.replaceAll("./apps/web/.env", "./.env");
+}
+
+export function getComposeCommand(
+  envFile: string,
+  composeFile: string,
+  platform: NodeJS.Platform = process.platform,
+): string {
+  return `docker compose --env-file ${quoteShellArgument(envFile, platform)} -f ${quoteShellArgument(composeFile, platform)}`;
+}
+
+function quoteShellArgument(value: string, platform: NodeJS.Platform): string {
+  if (platform === "win32") return `'${value.replaceAll("'", "''")}'`;
+  return `'${value.replaceAll("'", "'\"'\"'")}'`;
+}
+
+function isUnchangedManagedCopy(
+  markerFile: string,
+  source: string,
+  content: string,
+): boolean {
+  try {
+    const marker: unknown = JSON.parse(readFileSync(markerFile, "utf-8"));
+    return (
+      typeof marker === "object" &&
+      marker !== null &&
+      "kind" in marker &&
+      marker.kind === "copy" &&
+      "source" in marker &&
+      marker.source === source &&
+      "sha256" in marker &&
+      marker.sha256 === createHash("sha256").update(content).digest("hex")
+    );
+  } catch {
+    return false;
+  }
+}
+
+function writeManagedCopyMarker(
+  markerFile: string,
+  source: string,
+  content: string,
+) {
+  writeFileSync(
+    markerFile,
+    JSON.stringify({
+      kind: "copy",
+      source,
+      sha256: createHash("sha256").update(content).digest("hex"),
+    }),
+  );
+}
+
+function createManagedComposeEnv({
+  linkTarget,
+  markerFile,
+  rootEnvFile,
+  sourceContent,
+}: {
+  linkTarget: string;
+  markerFile: string;
+  rootEnvFile: string;
+  sourceContent: string;
+}) {
+  try {
+    symlinkSync(linkTarget, rootEnvFile);
+    return;
+  } catch {
+    writeFileSync(rootEnvFile, sourceContent, { flag: "wx", mode: 0o600 });
+  }
+
+  writeManagedCopyMarker(markerFile, linkTarget, sourceContent);
 }

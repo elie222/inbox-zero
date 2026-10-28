@@ -12,7 +12,7 @@ import { BRAND_NAME } from "@/utils/branding";
 import { redirectToSafeUrl } from "@/utils/redirect";
 
 export default function PermissionsConsentPage() {
-  const { provider, isLoading: accountLoading } = useAccount();
+  const { emailAccountId, provider, isLoading: accountLoading } = useAccount();
   const [isReconnecting, setIsReconnecting] = useState(false);
   const isMicrosoft = provider === "microsoft";
 
@@ -21,12 +21,17 @@ export default function PermissionsConsentPage() {
 
     try {
       const accountProvider = provider === "microsoft" ? "microsoft" : "google";
-      const url = await getAccountLinkingUrl(accountProvider);
+      const url = await getAccountLinkingUrl(accountProvider, {
+        reconnectEmailAccountId: emailAccountId,
+      });
       redirectToSafeUrl(url, { allowExternal: true });
-    } catch {
+    } catch (error) {
       toastError({
         title: "Error initiating reconnection",
-        description: "Please try again or contact support",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Please try again or contact support",
       });
     } finally {
       setIsReconnecting(false);

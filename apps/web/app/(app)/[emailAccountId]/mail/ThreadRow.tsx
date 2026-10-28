@@ -1,6 +1,9 @@
 "use client";
 
 import { memo, useMemo, type Ref } from "react";
+import { PaperclipIcon } from "lucide-react";
+import { MailThreadRow } from "@inboxzero/mail-ui/MailThreadRow";
+import { isThreadStarred } from "@/app/(app)/[emailAccountId]/mail/star-state";
 import { MailLabelChip } from "@/app/(app)/[emailAccountId]/mail/MailLabelChip";
 import { isThreadUnread } from "@/app/(app)/[emailAccountId]/mail/read-state";
 import { getThreadParticipantNames } from "@/app/(app)/[emailAccountId]/mail/thread-participants";
@@ -8,10 +11,11 @@ import type {
   ListThread,
   MailLayoutMode,
 } from "@/app/(app)/[emailAccountId]/mail/types";
-import { EmailDate } from "@/components/email-list/EmailDate";
+import { SentMessageOpenStatus } from "@/components/email-list/SentMessageOpenStatus";
 import { getEmailThreadLabels } from "@/components/EmailMessageCellLabels";
-import { getShortcutHint } from "@/lib/shortcuts/registry";
+import { Tooltip } from "@/components/Tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
+import { mailCheckboxClassName } from "@/app/(app)/[emailAccountId]/mail/SelectAllCheckbox";
 import {
   Avatar,
   AvatarFallbackColor,
@@ -19,11 +23,10 @@ import {
 } from "@/components/ui/avatar";
 import type { EmailLabels } from "@/providers/email-label-types";
 import { cn } from "@/utils";
-import { internalDateToDate } from "@/utils/date";
+import { formatShortDate, internalDateToDate } from "@/utils/date";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { GmailLabel } from "@/utils/gmail/label";
-
-const SELECT_HINT = getShortcutHint("select");
+import { getConversationSubject } from "@/utils/email/subject";
 
 export type ThreadRowProps = {
   thread: ListThread;
@@ -37,11 +40,18 @@ export type ThreadRowProps = {
   /** Keeps every checkbox visible once the list has a selection. */
   hasAnySelection: boolean;
   compact?: boolean;
+  /** Wraps the snippet onto its own line so more of it is readable. */
+  expandedPreview?: boolean;
   selectionEnabled?: boolean;
   onOpen: (index: number) => void;
   onToggleSelect: (index: number) => void;
   onSelectRangeTo: (index: number) => void;
   rowRef?: Ref<HTMLDivElement>;
+  sentMessageOpen?: {
+    firstOpenedAt: string | null;
+    lastOpenedAt: string | null;
+    openCount: number;
+  };
 };
 
 export const ThreadRow = memo(function ThreadRow({
@@ -54,14 +64,15 @@ export const ThreadRow = memo(function ThreadRow({
   isSelected,
   hasAnySelection,
   compact = false,
+  expandedPreview = false,
   selectionEnabled = true,
   onOpen,
   onToggleSelect,
   onSelectRangeTo,
   rowRef,
+  sentMessageOpen,
 }: ThreadRowProps) {
   const message = thread.messages.at(-1);
-
   const labels = useMemo(
     () =>
       getEmailThreadLabels({
@@ -70,193 +81,91 @@ export const ThreadRow = memo(function ThreadRow({
       }),
     [thread.messages, userLabels],
   );
-
   const account = "account" in thread ? thread.account : null;
   const accountEmail = account?.email ?? userEmail;
   const participantSummary = useMemo(
-    () => getThreadParticipantNames(thread.messages, accountEmail).join(", "),
-    [thread.messages, accountEmail],
+    () =>
+      getThreadParticipantNames(
+        [...(thread.participantMessages ?? []), ...thread.messages],
+        accountEmail,
+      ).join(", "),
+    [thread.messages, thread.participantMessages, accountEmail],
   );
 
   if (!message) return null;
 
-  const isUnread = isThreadUnread(thread.messages);
-  // Both providers normalise to this id, so this is not a provider branch.
-  const isDraft = message.labelIds?.includes(GmailLabel.DRAFT) ?? false;
-  const isWide = layout === "list" && !compact;
-
-  const messageCount = thread.messages.length;
-  const subject = message.headers.subject;
-  const snippet = decodeSnippet(thread.snippet || message.snippet);
-  const chips = labels.slice(0, isWide ? 3 : 2);
-  const showCheckbox = isSelected || hasAnySelection;
-  let unreadIndicatorOpacity = "opacity-0";
-  if (isUnread && !showCheckbox) {
-    unreadIndicatorOpacity = selectionEnabled
-      ? "opacity-100 group-focus-within:opacity-0 group-hover:opacity-0"
-      : "opacity-100";
-  }
-
-  const leadingIndicator = (
-    <span className={cn("relative size-3.5 shrink-0", !isWide && "mt-0.5")}>
-      {selectionEnabled ? (
-        <Checkbox
-          aria-label={`Select conversation with ${participantSummary}`}
-          checked={isSelected}
-          className={cn(
-            "absolute inset-0 size-3.5 rounded border-input transition-opacity [&_svg]:size-2.5",
-            showCheckbox
-              ? "opacity-100"
-              : "opacity-0 group-focus-within:opacity-100 group-hover:opacity-100",
-          )}
-          onClick={(event) => {
-            event.stopPropagation();
-            if (event.shiftKey) onSelectRangeTo(index);
-            else onToggleSelect(index);
-          }}
-          title={`Select (${SELECT_HINT})`}
-        />
-      ) : null}
-      <span
-        aria-hidden
-        className={cn(
-          "pointer-events-none absolute inset-0 flex items-center justify-center transition-opacity",
-          unreadIndicatorOpacity,
-        )}
-      >
-        <span className="size-1.5 rounded-full bg-primary" />
-      </span>
-    </span>
+  const chips = labels.slice(0, layout === "list" && !compact ? 3 : 2);
+  const isDraft = thread.messages.some((message) =>
+    message.labelIds?.includes(GmailLabel.DRAFT),
   );
-
-  // `EmailDate` is shared with the old list, which sets a heavier type ramp.
-  const date = (
-    <EmailDate
-      className="font-normal text-xs"
-      date={internalDateToDate(message.internalDate)}
-    />
-  );
-  const draftMarker = isDraft ? (
-    <span className="shrink-0 text-primary text-sm">Draft</span>
-  ) : null;
-  const messageCountMarker =
-    messageCount > 1 ? (
-      <span className="shrink-0 font-normal text-muted-foreground text-xs">
-        ({messageCount})
-      </span>
-    ) : null;
-  const participantLine = (
-    <>
-      <span
-        className={cn(
-          "min-w-0 flex-1 truncate text-foreground text-sm",
-          isUnread && "font-semibold",
-        )}
-      >
-        {participantSummary}
-      </span>
-      {draftMarker}
-      {messageCountMarker}
-    </>
+  const hasAttachment = thread.messages.some(
+    (message) => message.hasAttachment,
   );
 
   return (
-    <div
-      aria-selected={isSelected}
-      ref={rowRef}
-      className={cn(
-        "group relative flex cursor-pointer border-b border-border/60 outline-none",
-        isWide
-          ? "items-center gap-2.5 py-2.5 pr-5 pl-3"
-          : "items-start gap-2 px-3.5 py-2.5",
-        rowBackground({ isSelected, isFocused }),
-        isFocused &&
-          // Inset so the marker reads as a marker rather than a border, and so
-          // the first row's doesn't run into the tab bar above it.
-          "before:absolute before:inset-y-1 before:left-0 before:w-0.5 before:rounded-full before:bg-primary before:content-['']",
-      )}
-      onClick={(event) => {
-        if (selectionEnabled && event.shiftKey) onSelectRangeTo(index);
-        else onOpen(index);
-      }}
-      onKeyDown={(event) => {
-        if (event.key !== "Enter") return;
-        event.preventDefault();
-        onOpen(index);
-      }}
-      role="option"
-      tabIndex={isFocused ? 0 : -1}
-    >
-      {leadingIndicator}
-
-      {isWide ? (
-        <>
-          <div className="flex w-48 shrink-0 items-baseline gap-1.5 overflow-hidden whitespace-nowrap">
-            {participantLine}
-          </div>
-          <div className="flex min-w-0 flex-1 items-center gap-2.5">
-            {account ? <AccountAvatar account={account} /> : null}
-            {chips.map((label) => (
-              <MailLabelChip
-                color={label.color}
-                key={label.id}
-                name={label.name}
+    <MailThreadRow
+      accountAvatar={account ? <AccountAvatar account={account} /> : null}
+      compact={compact}
+      date={
+        <div className="flex items-center justify-end gap-1.5">
+          {hasAttachment ? (
+            <>
+              <PaperclipIcon
+                aria-hidden
+                className="size-3.5 shrink-0 text-muted-foreground"
               />
-            ))}
-            <span
-              className={cn(
-                "max-w-[46%] shrink-0 truncate whitespace-nowrap text-sm",
-                isUnread
-                  ? "font-semibold text-foreground"
-                  : "font-normal text-muted-foreground",
-              )}
-            >
-              {subject}
-            </span>
-            <span className="min-w-0 flex-1 truncate text-muted-foreground text-sm">
-              {snippet}
-            </span>
-          </div>
-          <div className="w-16 shrink-0 text-right">{date}</div>
-        </>
-      ) : (
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <div className="flex items-baseline gap-1.5">
-            {participantLine}
-            <div className="ml-auto shrink-0">{date}</div>
-          </div>
-          <div
-            className={cn(
-              "truncate text-sm",
-              isUnread
-                ? "font-semibold text-foreground"
-                : "font-normal text-muted-foreground",
-            )}
-          >
-            {subject}
-          </div>
-          <div className="truncate text-muted-foreground text-xs">
-            {snippet}
-          </div>
-          {account ? (
-            <div className="pt-1">
-              <AccountAvatar account={account} />
-            </div>
+              <span className="sr-only">Has attachment</span>
+            </>
           ) : null}
-          {chips.length ? (
-            <div className="flex flex-wrap gap-1 pt-1">
-              {chips.map((label) => (
-                <MailLabelChip
-                  color={label.color}
-                  key={label.id}
-                  name={label.name}
-                />
-              ))}
-            </div>
+          {sentMessageOpen ? (
+            <SentMessageOpenStatus compact open={sentMessageOpen} />
           ) : null}
+          <span className="text-muted-foreground text-xs">
+            {formatShortDate(internalDateToDate(message.internalDate), {
+              lowercase: true,
+            })}
+          </span>
         </div>
+      }
+      expandedPreview={expandedPreview}
+      hasAnySelection={hasAnySelection}
+      index={index}
+      isDraft={isDraft}
+      isFocused={isFocused}
+      isSelected={isSelected}
+      isStarred={isThreadStarred(thread.messages)}
+      isUnread={isThreadUnread(thread.messages)}
+      labels={chips.map((label) => (
+        <MailLabelChip color={label.color} key={label.id} name={label.name} />
+      ))}
+      layout={layout}
+      messageCount={thread.messages.length}
+      onOpen={onOpen}
+      onSelectRangeTo={onSelectRangeTo}
+      onToggleSelect={onToggleSelect}
+      participantSummary={participantSummary}
+      renderSelectionControl={({ ariaLabel, checked, onClick, visible }) => (
+        // Opening above would cover the select-all checkbox for the first row.
+        <Tooltip shortcuts={["select"]} side="right">
+          <Checkbox
+            aria-label={ariaLabel}
+            checked={checked}
+            className={cn(
+              mailCheckboxClassName,
+              "transition-opacity",
+              visible
+                ? "opacity-100"
+                : "opacity-0 group-focus-within:opacity-100 group-hover:opacity-100",
+            )}
+            onClick={onClick}
+          />
+        </Tooltip>
       )}
-    </div>
+      rowRef={rowRef}
+      selectionEnabled={selectionEnabled}
+      snippet={decodeSnippet(thread.snippet || message.snippet)}
+      subject={getConversationSubject(thread.messages)}
+    />
   );
 });
 
@@ -281,16 +190,4 @@ function AccountAvatar({
       />
     </Avatar>
   );
-}
-
-function rowBackground({
-  isSelected,
-  isFocused,
-}: {
-  isSelected: boolean;
-  isFocused: boolean;
-}) {
-  if (isSelected) return "bg-primary/10";
-  if (isFocused) return "bg-primary/5";
-  return "bg-background hover:bg-muted/50";
 }

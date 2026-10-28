@@ -54,6 +54,7 @@ import {
   buildDriveSourceChildrenMap,
   driveSourceSelection,
   getAttachmentSourceNodeSelection,
+  formatAttachmentSourceCount,
   getDriveSourceTreeNodeId,
   type DriveSourceChildrenMap,
 } from "./attachment-source-selection";
@@ -99,7 +100,9 @@ export function ActionAttachmentsField({
         <span className="text-sm font-medium">Attachments</span>
         {isConnected && totalCount > 0 && (
           <Badge variant="secondary" className="tabular-nums">
-            {totalCount}
+            {formatAttachmentSourceCount(
+              allowAiSelectedSources ? [...value, ...attachmentSources] : value,
+            )}
           </Badge>
         )}
       </div>
@@ -134,7 +137,7 @@ export function ActionAttachmentsField({
             {hasAttachments && (
               <>
                 <Badge variant="outline" className="text-[10px] px-1 py-0">
-                  {value.length}
+                  {formatAttachmentSourceCount(value)}
                 </Badge>
                 {isExpanded ? (
                   <ChevronDownIcon className="size-3" />
@@ -173,7 +176,7 @@ export function ActionAttachmentsField({
             {hasAiSources && (
               <>
                 <Badge variant="outline" className="text-[10px] px-1 py-0">
-                  {attachmentSources.length}
+                  {formatAttachmentSourceCount(attachmentSources)}
                 </Badge>
                 {isSourcesExpanded ? (
                   <ChevronDownIcon className="size-3" />
@@ -434,14 +437,14 @@ function AttachmentSourceNode({
         <TreeNodeTrigger className="py-1">
           <div className="w-4" />
           <FileTextIcon className="size-4 text-muted-foreground" />
-          <div className="flex flex-1 items-center gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
             <Checkbox
               checked={checkboxState}
               disabled={isSelectionInherited}
               onCheckedChange={(checked) => onToggle(item, checked === true)}
               onClick={(event) => event.stopPropagation()}
             />
-            <TreeLabel>{item.name}</TreeLabel>
+            <TreeLabel title={item.name}>{item.name}</TreeLabel>
           </div>
         </TreeNodeTrigger>
       </TreeNode>
@@ -459,7 +462,7 @@ function AttachmentSourceNode({
           <TreeExpander hasChildren />
         )}
         <FolderIcon className="size-4 text-muted-foreground" />
-        <div className="flex flex-1 items-center gap-2">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           {allowFolderSelection && (
             <Checkbox
               checked={checkboxState}
@@ -468,7 +471,7 @@ function AttachmentSourceNode({
               onClick={(event) => event.stopPropagation()}
             />
           )}
-          <TreeLabel>{item.name}</TreeLabel>
+          <TreeLabel title={item.name}>{item.name}</TreeLabel>
         </div>
       </TreeNodeTrigger>
       <TreeNodeContent hasChildren={isExpanded}>

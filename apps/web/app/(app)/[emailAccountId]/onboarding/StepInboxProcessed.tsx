@@ -30,6 +30,7 @@ const systemTypeBadgeColor: Record<SystemType, Color> = {
   [SystemType.COLD_EMAIL]: "purple",
   [SystemType.RECEIPT]: "orange",
   [SystemType.NOTIFICATION]: "orange",
+  [SystemType.OTP]: "blue",
   [SystemType.MARKETING]: "yellow",
   [SystemType.FYI]: "yellow",
 };
@@ -62,7 +63,7 @@ export function StepInboxProcessed({ onNext }: { onNext: () => void }) {
   }, [error]);
 
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center bg-slate-50 px-4 py-10">
+    <div className="flex min-h-svh flex-col items-center justify-center bg-slate-50 dark:bg-background px-4 py-10">
       <StepInboxProcessedView
         data={data}
         isLoading={isLoading}
@@ -143,7 +144,7 @@ function InboxPreview({
   return (
     <section
       aria-label="Recently organized emails"
-      className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+      className="relative overflow-hidden rounded-2xl border border-border bg-card shadow-sm"
     >
       <div
         className="max-h-[300px] overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
@@ -154,7 +155,7 @@ function InboxPreview({
             "linear-gradient(to bottom, transparent 0, #000 22px, #000 calc(100% - 28px), transparent 100%)",
         }}
       >
-        <ul className="divide-y divide-slate-100 py-3.5">
+        <ul className="divide-y divide-slate-100 dark:divide-border py-3.5">
           {emails.map((email) => (
             <EmailRow key={email.messageId} email={email} />
           ))}
@@ -206,9 +207,9 @@ function InboxPreviewSkeleton() {
   return (
     <section
       aria-label="Loading recently organized emails"
-      className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+      className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm"
     >
-      <ul className="divide-y divide-slate-100 py-3.5">
+      <ul className="divide-y divide-slate-100 dark:divide-border py-3.5">
         {Array.from({ length: 5 }).map((_, i) => (
           <li key={i} className="flex items-center gap-3 px-4 py-2.5">
             <Skeleton className="h-5 w-20 flex-shrink-0 rounded-md" />

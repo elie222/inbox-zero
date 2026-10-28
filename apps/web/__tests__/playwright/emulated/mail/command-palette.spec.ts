@@ -8,14 +8,26 @@ import {
 } from "@playwright/test";
 import { Client } from "pg";
 import { getEmailAccountId } from "../account-test-helpers";
+import { playwrightMailProvider } from "../mail-provider";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
-import { readLatestMailMutation } from "./mail-test-helpers";
+import {
+  conversationWithSubject,
+  openMail,
+  readLatestMailMutation,
+} from "./mail-test-helpers";
+
+import {
+  createSecondEmailAccount,
+  deleteSecondEmailAccount,
+} from "./account-test-helpers";
 
 const commandModifier = process.platform === "darwin" ? "Meta" : "Control";
 const SIDE_PANEL_ARCHIVE_MESSAGE_ID = "msg_playwright_archive";
 const SIDE_PANEL_ARCHIVE_SUBJECT = "Archive Action Message";
 const SIDE_PANEL_ARCHIVE_THREAD_ID = "thr_playwright_archive";
+const openExternalLabel =
+  playwrightMailProvider === "microsoft" ? "Open in Outlook" : "Open in Gmail";
 const SEEDED_THREAD_IDS = [
   "thr_playwright_1",
   "thr_playwright_2",
@@ -61,10 +73,11 @@ test("Command K archives the open side-panel conversation through the durable ou
     .filter({ hasText: SIDE_PANEL_ARCHIVE_SUBJECT });
   await expect(archivedConversation).toHaveCount(1, { timeout: 60_000 });
   await page.keyboard.press(`${commandModifier}+KeyK`);
-  const archiveCommand = page.getByRole("option", {
-    exact: true,
-    name: "Archive E",
-  });
+  // Palette rows render label, description and shortcut, so the accessible
+  // name is not just the label. Match the label element instead.
+  const archiveCommand = page
+    .getByRole("option")
+    .filter({ has: page.getByText("Archive", { exact: true }) });
   await expect(archiveCommand).toBeVisible();
   await archiveCommand.click();
 
@@ -122,9 +135,20 @@ test("Command K acts on highlighted and selected conversations", async ({
     palette.getByRole("option", { name: "Archive conversation E" }),
   ).toBeVisible();
   await expect(
+    palette.getByRole("option", { name: "Forward F" }),
+  ).toBeVisible();
+  await expect(
     palette.getByRole("option", { name: "Mark as read" }),
   ).toBeVisible();
   await expect(palette.getByRole("option", { name: "Snooze H" })).toBeVisible();
+  await expect(palette.getByRole("option", { name: "Label L" })).toBeVisible();
+  await expect(palette.getByRole("option", { name: "Move V" })).toBeVisible();
+  await expect(
+    palette.getByRole("option", { name: "Mark as spam !" }),
+  ).toBeVisible();
+  await expect(palette.getByText("navigate", { exact: true })).toHaveCount(0);
+  await expect(palette.getByText("select", { exact: true })).toHaveCount(0);
+  await expect(palette.getByText("close", { exact: true })).toHaveCount(0);
   await expect(palette).not.toContainText("Applies to");
   await attachScreenshotForChangedTest(
     testInfo,
@@ -137,14 +161,9 @@ test("Command K acts on highlighted and selected conversations", async ({
     palette.getByPlaceholder("When should it return? Try Friday at 3pm"),
   ).toBeFocused();
   await expect(
-    palette.getByRole("option", { name: "In 3 hours" }),
+    palette.getByRole("option", { name: /^Tomorrow/ }),
   ).toBeVisible();
-  await expect(
-    palette.getByRole("option", { name: "Tomorrow morning" }),
-  ).toBeVisible();
-  await expect(
-    palette.getByRole("option", { name: "Next week" }),
-  ).toBeVisible();
+  await expect(palette.getByText("Back to commands")).toHaveCount(0);
   await expect(palette.getByText("Archive conversation")).toHaveCount(0);
   await attachScreenshotForChangedTest(
     testInfo,
@@ -162,7 +181,7 @@ test("Command K acts on highlighted and selected conversations", async ({
   await expect(naturalLanguageOption).toHaveCount(1);
   await expect(naturalLanguageOption).toBeVisible();
   await expect(naturalLanguageOption).toHaveAttribute("aria-selected", "true");
-  await expect(palette.getByRole("option", { name: "In 3 hours" })).toHaveCount(
+  await expect(palette.getByRole("option", { name: /^Tomorrow/ })).toHaveCount(
     0,
   );
   await attachScreenshotForChangedTest(
@@ -210,6 +229,17 @@ test("Command K acts on highlighted and selected conversations", async ({
 
   await palette.getByRole("option", { name: "Mark 2 as read" }).click();
   await expect(palette).toBeHidden();
+  await expect
+    .poll(
+      () =>
+        readLatestMailMutation(page, {
+          emailAccountId,
+          kind: "set_read_state",
+          threadId: "thr_playwright_1",
+        }),
+      { timeout: 60_000 },
+    )
+    .toMatchObject({ status: "succeeded", payload: { read: true } });
   await conversations
     .getByRole("checkbox", { name: "Select conversation with Alice Example" })
     .click();
@@ -224,8 +254,210 @@ test("Command K acts on highlighted and selected conversations", async ({
     palette.getByRole("option", { name: "Snooze 2 conversations" }),
   ).toBeVisible();
   await palette.getByRole("option", { name: "Snooze 2 conversations" }).click();
-  await palette.getByRole("option", { name: "In 3 hours" }).click();
+  await palette.getByRole("option", { name: /^Tomorrow/ }).click();
   await expect(options).toHaveCount(initialConversationCount - 2);
+});
+
+test("Command K opens a searchable account list and switches the mailbox", async ({
+  page,
+}, testInfo) => {
+  const { emailAccountId } = await openMail(page);
+  const secondAccount = await createSecondEmailAccount(emailAccountId);
+  try {
+    await page.goto(
+      `/${emailAccountId}/mail?accountScope=all&labelId=Label_project&type=label`,
+    );
+    await page.keyboard.press(`${commandModifier}+KeyK`);
+    const palette = page.getByRole("dialog");
+    await palette.getByRole("combobox").fill("switch accounts");
+    await expect(
+      palette.getByRole("option", { name: "Switch accounts", exact: true }),
+    ).toBeVisible();
+    await page.keyboard.press("Enter");
+    const search = palette.getByPlaceholder("Search accounts...");
+    await expect(search).toHaveValue("");
+    await expect(
+      palette.getByRole("option", { name: secondAccount.email, exact: true }),
+    ).toBeVisible();
+    await expect(
+      palette.getByRole("option", { name: "Add or manage accounts" }),
+    ).toBeVisible();
+    await attachScreenshotForChangedTest(
+      testInfo,
+      palette,
+      "command-palette-switch-accounts",
+    );
+    await page.keyboard.press(`${commandModifier}+KeyK`);
+    await expect(palette).toBeHidden();
+    await page.keyboard.press(`${commandModifier}+KeyK`);
+    await expect(
+      palette.getByPlaceholder("Type a command or search..."),
+    ).toBeVisible();
+    await palette.getByRole("combobox").fill("switch accounts");
+    await page.keyboard.press("Enter");
+    await search.fill("no-matching-account");
+    await expect(palette.getByText("No accounts found.")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(palette).toBeVisible();
+    await expect(palette.getByRole("combobox")).toHaveValue("");
+    await palette.getByRole("combobox").fill("switch accounts");
+    await page.keyboard.press("Enter");
+    await palette
+      .getByPlaceholder("Search accounts...")
+      .fill(secondAccount.name);
+    await expect(palette.getByRole("option")).toHaveCount(1);
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(new RegExp(`/${secondAccount.id}/mail$`));
+    await expect(
+      page.getByRole("button", { name: new RegExp(secondAccount.name) }).last(),
+    ).toBeVisible();
+    await page.keyboard.press(`${commandModifier}+KeyK`);
+    await expect(
+      page.getByRole("dialog").getByPlaceholder("Type a command or search..."),
+    ).toBeVisible();
+    await palette.getByRole("combobox").fill("switch accounts");
+    await page.keyboard.press("Enter");
+    await page.evaluate(() => {
+      document.documentElement.dataset.accountSwitchSentinel = "preserved";
+    });
+    await palette
+      .getByRole("option", { name: secondAccount.email, exact: true })
+      .click();
+    await expect(palette).toBeHidden();
+    await expect(page.locator("html")).toHaveAttribute(
+      "data-account-switch-sentinel",
+      "preserved",
+    );
+  } finally {
+    try {
+      await page.goto(`/${emailAccountId}/mail`);
+    } finally {
+      await deleteSecondEmailAccount(secondAccount.accountId);
+    }
+  }
+});
+
+test("sender actions are available for a selected list row and match the reader", async ({
+  page,
+}, testInfo) => {
+  const updateErrors: string[] = [];
+  page.on("console", (message) => {
+    if (
+      message.type() === "error" &&
+      message.text().includes("Maximum update depth exceeded")
+    )
+      updateErrors.push(message.text());
+  });
+  await page.route("**/api/user/stats/newsletters?**", (route) =>
+    route.fulfill({ json: { newsletters: [], searchedSenderStatus: null } }),
+  );
+  const { conversations } = await openMail(page);
+  const row = conversationWithSubject(
+    page,
+    conversations,
+    "Reader Visual Message",
+  );
+  await row.getByRole("checkbox").click();
+  await page.keyboard.press(`${commandModifier}+KeyK`);
+  const palette = page.getByRole("dialog");
+  await expect(
+    palette.getByRole("option", { name: "Block sender ⇧U" }),
+  ).toBeEnabled();
+  await expect(
+    palette.getByRole("option", { name: "Auto archive future emails ⇧E" }),
+  ).toBeEnabled();
+  await palette
+    .getByRole("option", { name: "Auto archive future emails ⇧E" })
+    .scrollIntoViewIfNeeded();
+  await attachScreenshotForChangedTest(
+    testInfo,
+    palette,
+    "mail-list-sender-actions",
+  );
+  await page.keyboard.press("Escape");
+  await row.getByRole("checkbox").click();
+  await row.click();
+  await page.getByRole("button", { name: /^More actions/ }).click();
+  const menu = page.getByRole("menu");
+  await expect(
+    menu.getByRole("menuitem", { name: "Block sender ⇧U" }),
+  ).toBeEnabled();
+  await expect(
+    menu.getByRole("menuitem", { name: "Auto archive future emails ⇧E" }),
+  ).toBeEnabled();
+  await attachScreenshotForChangedTest(
+    testInfo,
+    menu,
+    "mail-reader-sender-actions",
+  );
+  expect(updateErrors).toEqual([]);
+});
+
+test("the open reader exposes its actions in Command K and forwards with F", async ({
+  page,
+}) => {
+  const { conversations } = await openMail(page);
+  await conversationWithSubject(
+    page,
+    conversations,
+    "Reader Visual Message",
+  ).click();
+  await expect(
+    page.getByRole("heading", { name: "Reader Visual Message" }),
+  ).toBeVisible();
+
+  await page.keyboard.press(`${commandModifier}+KeyK`);
+  const palette = page.getByRole("dialog");
+  await expect(
+    palette.getByRole("option", { name: "Forward F" }),
+  ).toBeVisible();
+  await expect(palette.getByRole("option", { name: "Label L" })).toBeVisible();
+  await expect(palette.getByRole("option", { name: "Move V" })).toBeVisible();
+  await expect(
+    palette.getByRole("option", { name: "Mark as spam !" }),
+  ).toBeVisible();
+  await expect(
+    palette.getByRole("option", {
+      name: /Unsubscribe from sender|Block sender|Sender blocked/,
+    }),
+  ).toBeVisible();
+  await expect(
+    palette.getByRole("option", { name: /auto archive/i }),
+  ).toBeVisible();
+  await expect(
+    palette.getByRole("option", { name: `${openExternalLabel} G G` }),
+  ).toBeVisible();
+
+  await page.keyboard.press("Escape");
+  await expect(palette).toBeHidden();
+  await page.keyboard.press("KeyF");
+  await expect(page.getByRole("combobox", { name: "To" })).toBeVisible();
+});
+
+test("Command K opens the keyboard shortcuts dialog", async ({ page }) => {
+  await openMail(page);
+  await page.getByRole("listbox", { name: "Conversations" }).click();
+
+  await page.keyboard.press(`${commandModifier}+KeyK`);
+  const palette = page.getByRole("dialog");
+  await palette
+    .getByPlaceholder("Type a command or search...")
+    .fill("shortcuts");
+  await palette.getByRole("option", { name: /Keyboard shortcuts/ }).click();
+
+  const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText("Next message", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("Archive", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("New message", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("Send", { exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+
+  await page.keyboard.press("?");
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
 });
 
 async function ensureReadState(

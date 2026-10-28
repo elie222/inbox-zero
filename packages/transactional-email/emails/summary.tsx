@@ -1,25 +1,19 @@
+import { Column, Link, Row, Section, Text } from "@react-email/components";
+import type { ReactNode } from "react";
 import {
-  Button,
-  Text,
-  Html,
-  Head,
-  Preview,
-  Tailwind,
-  Body,
-  Container,
-  Link,
-  Section,
-  Img,
-  Heading,
-  Row,
-  Column,
-} from "@react-email/components";
-import { StatsEmailFooter } from "./components/stats-email-footer";
+  ACCENT,
+  StatsEmailCard,
+  StatsEmailLayout,
+} from "./components/stats-email-layout";
 
 type EmailItem = {
   from: string;
   subject: string;
   sentAt: Date;
+  // Opens the email in the user's mail client.
+  url?: string;
+  // Opens a search for everything from this sender.
+  senderUrl?: string;
 };
 
 type ArchivedEmailItem = EmailItem & {
@@ -29,17 +23,20 @@ type ArchivedEmailItem = EmailItem & {
 export interface SummaryEmailProps {
   archivedEmailCount?: number;
   archivedEmails?: ArchivedEmailItem[];
-  awaitingReply?: EmailItem[];
-  awaitingReplyCount?: number;
   baseUrl: string;
+  coldEmailCount?: number;
   coldEmailers: EmailItem[];
-  needsAction?: EmailItem[];
-  needsActionCount?: number;
-  needsReply?: EmailItem[];
-  // Reply tracker stats
-  needsReplyCount?: number;
+  // End of the week being summarized. Defaults to now.
+  periodEnd?: Date;
   unsubscribeToken: string;
 }
+
+const MAX_SUBJECTS_PER_SENDER = 3;
+
+const BADGES = {
+  green: { bg: "#F3FFEF", border: "#DDF4D3", color: "#17A34A" },
+  blue: { bg: "#EFF6FF", border: "#D6E8FC", color: ACCENT },
+};
 
 export default function SummaryEmail(props: SummaryEmailProps) {
   const {
@@ -47,86 +44,62 @@ export default function SummaryEmail(props: SummaryEmailProps) {
     archivedEmailCount = 0,
     archivedEmails = [],
     coldEmailers,
-    needsReplyCount,
-    awaitingReplyCount,
-    needsActionCount,
-    needsReply,
-    awaitingReply,
-    needsAction,
+    coldEmailCount = coldEmailers.length,
+    periodEnd = new Date(),
     unsubscribeToken,
   } = props;
 
+  const preview = [
+    `${archivedEmailCount} ${pluralize(archivedEmailCount, "email")} archived`,
+    `${coldEmailCount} cold ${pluralize(coldEmailCount, "email")} blocked`,
+  ].join(", ");
+
   return (
-    <Html>
-      <Head />
-      <Preview>
-        See your follow-ups, cold emails and pending items for this week
-      </Preview>
-      <Tailwind>
-        <Body className="bg-white font-sans">
-          <Container className="mx-auto w-full max-w-[600px] p-0">
-            <Section className="p-8 text-center">
-              <Link href={baseUrl} className="text-[15px]">
-                <Img
-                  src={"https://www.getinboxzero.com/icon.png"}
-                  width="40"
-                  height="40"
-                  alt="Inbox Zero"
-                  className="mx-auto my-0"
-                />
-              </Link>
+    <StatsEmailLayout
+      baseUrl={baseUrl}
+      unsubscribeToken={unsubscribeToken}
+      preview={`${preview}. Here's your week in email.`}
+      eyebrow={<>Weekly Update &middot; {formatPeriod(periodEnd)}</>}
+      title="Your week in email"
+      subtitle="Here's how your assistant handled your inbox this week."
+    >
+      <StatStrip
+        stats={[
+          { value: archivedEmailCount, label: "archived for you" },
+          { value: coldEmailCount, label: "cold emails blocked" },
+        ]}
+      />
 
-              <Text className="mx-0 mb-8 mt-4 p-0 text-center text-2xl font-normal">
-                <span className="font-semibold tracking-tighter">
-                  Inbox Zero
-                </span>
-              </Text>
+      <ArchivedEmails
+        archivedEmailCount={archivedEmailCount}
+        archivedEmails={archivedEmails}
+        baseUrl={baseUrl}
+      />
 
-              <Heading className="my-4 text-4xl font-medium leading-tight">
-                Your Weekly Update
-              </Heading>
-              <Text className="mb-8 text-lg leading-8">
-                Let's take a look at how you're managing your inbox this week.
-              </Text>
-            </Section>
-
-            <ArchivedEmails
-              archivedEmailCount={archivedEmailCount}
-              archivedEmails={archivedEmails}
-              baseUrl={baseUrl}
-            />
-
-            <ReplyTracker
-              needsReplyCount={needsReplyCount ?? 0}
-              awaitingReplyCount={awaitingReplyCount ?? 0}
-              needsActionCount={needsActionCount ?? 0}
-              needsReply={needsReply ?? []}
-              awaitingReply={awaitingReply ?? []}
-              needsAction={needsAction ?? []}
-              baseUrl={baseUrl}
-            />
-
-            <ColdEmails coldEmailers={coldEmailers} baseUrl={baseUrl} />
-
-            <StatsEmailFooter
-              baseUrl={baseUrl}
-              unsubscribeToken={unsubscribeToken}
-            />
-          </Container>
-        </Body>
-      </Tailwind>
-    </Html>
+      <ColdEmails
+        coldEmailCount={coldEmailCount}
+        coldEmailers={coldEmailers}
+        baseUrl={baseUrl}
+      />
+    </StatsEmailLayout>
   );
 }
 
 SummaryEmail.PreviewProps = {
   baseUrl: "https://www.getinboxzero.com",
+  periodEnd: new Date("2024-03-20"),
   archivedEmailCount: 8,
   archivedEmails: [
     {
       from: "Updates <updates@example.com>",
       subject: "New product features this week",
       sentAt: new Date("2024-03-20"),
+      ruleName: "Marketing",
+    },
+    {
+      from: "Updates <updates@example.com>",
+      subject: "Last chance to join our webinar",
+      sentAt: new Date("2024-03-19"),
       ruleName: "Marketing",
     },
     {
@@ -159,42 +132,39 @@ SummaryEmail.PreviewProps = {
       sentAt: new Date("2024-03-15"),
     },
   ],
-  needsReplyCount: 2,
-  awaitingReplyCount: 3,
-  // needsActionCount: 1,
-  needsReply: [
-    {
-      from: "Sarah Chen <sarah@company.com>",
-      subject: "Project Timeline Update",
-      sentAt: new Date("2024-03-15"),
-    },
-    {
-      from: "Alex Johnson <alex@startup.io>",
-      subject: "Partnership Opportunity",
-      sentAt: new Date("2024-03-18"),
-    },
-  ],
-  awaitingReply: [
-    {
-      from: "Michael Smith <michael@corp.com>",
-      subject: "Contract Review",
-      sentAt: new Date("2024-03-10"),
-    },
-    {
-      from: "Emma Davis <emma@tech.co>",
-      subject: "API Integration Questions",
-      sentAt: new Date("2024-03-12"),
-    },
-  ],
-  // needsAction: [
-  //   {
-  //     from: "John Doe <john@example.com>",
-  //     subject: "Project Status Update",
-  //     sentAt: new Date("2024-03-15"),
-  //   },
-  // ],
   unsubscribeToken: "123",
 } satisfies SummaryEmailProps;
+
+function StatStrip({ stats }: { stats: { value: number; label: string }[] }) {
+  return (
+    <Section className="pb-8">
+      <Section className="rounded-2xl border border-solid border-[#EFEFEF] bg-white">
+        <Row>
+          {stats.map((stat, index) => (
+            <Column
+              key={stat.label}
+              align="center"
+              width={`${100 / stats.length}%`}
+              className="px-3 py-[22px]"
+              style={
+                index < stats.length - 1
+                  ? { borderRight: "1px solid #EFEFEF" }
+                  : undefined
+              }
+            >
+              <Text className="m-0 text-center text-[36px] font-medium leading-10 tracking-[-0.02em] text-[#242424]">
+                {stat.value}
+              </Text>
+              <Text className="m-0 pt-1 text-center text-[13px] leading-[18px] text-[#6D6E70]">
+                {stat.label}
+              </Text>
+            </Column>
+          ))}
+        </Row>
+      </Section>
+    </Section>
+  );
+}
 
 function ArchivedEmails({
   archivedEmailCount,
@@ -211,217 +181,172 @@ function ArchivedEmails({
   const hiddenCount = Math.max(archivedEmailCount - archivedEmails.length, 0);
 
   return (
-    <Section className="my-6 rounded-2xl bg-[#10b981]/5 bg-[radial-gradient(circle_at_bottom_right,#10b981_0%,transparent_60%)] p-8 text-center">
-      <Heading className="m-0 text-3xl font-medium text-[#047857]">
-        Archived For You
-      </Heading>
-      <Text className="my-4 text-5xl font-bold text-gray-900">
-        {archivedEmailCount}
-      </Text>
-      <Text className="mb-4 text-xl text-gray-900">emails this week</Text>
-
+    <StatsEmailCard
+      title="Archived For You"
+      badge={{ label: `${archivedEmailCount} this week`, ...BADGES.green }}
+      description="Emails your rules labeled and moved out of your inbox."
+      footnote={
+        hiddenCount > 0
+          ? `And ${hiddenCount} more archived ${pluralize(hiddenCount, "email")}.`
+          : undefined
+      }
+      cta={{
+        href: `${baseUrl}/automation?tab=history`,
+        label: "View automation history",
+      }}
+    >
       {archivedEmailGroups.map((group) => (
-        <div key={group.ruleName}>
-          <Text className="mt-6 mb-2 text-left text-sm font-semibold uppercase tracking-wide text-[#047857]">
-            {group.ruleName}
-          </Text>
-          <EmailList description="" emails={group.emails} />
-        </div>
+        <EmailList
+          key={group.ruleName}
+          heading={`${group.ruleName} · ${group.emails.length}`}
+          emails={group.emails}
+        />
       ))}
-
-      {hiddenCount > 0 && (
-        <Text className="mt-4 text-sm text-gray-600">
-          And {hiddenCount} more archived email
-          {hiddenCount === 1 ? "" : "s"}.
-        </Text>
-      )}
-
-      <Section className="text-center mt-[32px] mb-[32px]">
-        <Button
-          href={`${baseUrl}/automation?tab=history`}
-          style={{
-            background: "#000",
-            color: "#fff",
-            padding: "12px 20px",
-            borderRadius: "5px",
-          }}
-        >
-          View Automation History
-        </Button>
-      </Section>
-    </Section>
-  );
-}
-
-function ReplyTracker({
-  needsReplyCount,
-  awaitingReplyCount,
-  needsActionCount,
-  needsReply,
-  awaitingReply,
-  needsAction,
-  baseUrl,
-}: {
-  needsReplyCount: number;
-  awaitingReplyCount: number;
-  needsActionCount: number;
-  needsReply: EmailItem[];
-  awaitingReply: EmailItem[];
-  needsAction: EmailItem[];
-  baseUrl: string;
-}) {
-  const showNeedsAction = needsActionCount > 0;
-  const columnWidth = showNeedsAction ? "w-1/3" : "w-1/2";
-
-  const hasReplyTrackerItems =
-    needsReplyCount > 0 || awaitingReplyCount > 0 || needsActionCount > 0;
-
-  if (!hasReplyTrackerItems) return null;
-
-  return (
-    <Section className="rounded-2xl bg-[#ffb366]/10 bg-[radial-gradient(circle_at_bottom_right,#ffb366_0%,transparent_60%)] p-8 text-center">
-      <Heading className="m-0 text-3xl font-medium text-[#a63b00]">
-        Email Follow-ups
-      </Heading>
-
-      <Row className="mt-5">
-        <Column className={`${columnWidth} text-center`}>
-          <Text className="text-sm font-medium text-[#a63b00]">Need Reply</Text>
-          <Text className="my-1 text-4xl font-bold text-gray-900">
-            {needsReplyCount}
-          </Text>
-        </Column>
-        <Column className={`${columnWidth} text-center`}>
-          <Text className="text-sm font-medium text-[#a63b00]">
-            Awaiting Reply
-          </Text>
-          <Text className="my-1 text-4xl font-bold text-gray-900">
-            {awaitingReplyCount}
-          </Text>
-        </Column>
-        {showNeedsAction && (
-          <Column className={`${columnWidth} text-center`}>
-            <Text className="text-sm font-medium text-[#a63b00]">
-              Needs Action
-            </Text>
-            <Text className="my-1 text-4xl font-bold text-gray-900">
-              {needsActionCount}
-            </Text>
-          </Column>
-        )}
-      </Row>
-
-      <EmailList
-        description="Emails waiting for your reply"
-        emails={needsReply}
-      />
-
-      <EmailList
-        description="Emails you're waiting for a reply on"
-        emails={awaitingReply}
-      />
-
-      {showNeedsAction && (
-        <EmailList description="Emails that need action" emails={needsAction} />
-      )}
-
-      {hasReplyTrackerItems && (
-        <Section className="text-center mt-[32px] mb-[32px]">
-          <Button
-            href={`${baseUrl}/reply-tracker`}
-            style={{
-              background: "#000",
-              color: "#fff",
-              padding: "12px 20px",
-              borderRadius: "5px",
-            }}
-          >
-            View All
-          </Button>
-        </Section>
-      )}
-    </Section>
+    </StatsEmailCard>
   );
 }
 
 function ColdEmails({
+  coldEmailCount,
   coldEmailers,
   baseUrl,
 }: {
+  coldEmailCount: number;
   coldEmailers: EmailItem[];
   baseUrl: string;
 }) {
-  if (!coldEmailers.length) return null;
+  if (!coldEmailCount) return null;
+
+  const hiddenCount = Math.max(coldEmailCount - coldEmailers.length, 0);
 
   return (
-    <Section className="my-6 rounded-2xl bg-[#3b82f6]/5 bg-[radial-gradient(circle_at_bottom_right,#3b82f6_0%,transparent_60%)] p-8 text-center">
-      <Heading className="m-0 text-3xl font-medium text-[#1e40af]">
-        Cold Emails
-      </Heading>
-      <Text className="my-4 text-5xl font-bold text-gray-900">
-        {coldEmailers.length}
-      </Text>
-      <Text className="mb-4 text-xl text-gray-900">received this week</Text>
-
-      {coldEmailers.length > 0 && (
-        <EmailList description="" emails={coldEmailers} />
-      )}
-
-      {coldEmailers.length > 0 && (
-        <Section className="text-center mt-[32px] mb-[32px]">
-          <Button
-            href={`${baseUrl}/cold-email-blocker`}
-            style={{
-              background: "#000",
-              color: "#fff",
-              padding: "12px 20px",
-              borderRadius: "5px",
-            }}
-          >
-            View Cold Emails
-          </Button>
-        </Section>
-      )}
-    </Section>
-  );
-}
-
-function EmailCard({ email }: { email: EmailItem }) {
-  return (
-    <Section className="my-3 rounded-lg bg-white/50 p-4 text-left shadow-sm border border-[#ffb366]/20">
-      <Row>
-        <Column>
-          <Text className="m-0 font-semibold">{email.from}</Text>
-          <Text className="m-0 text-gray-600">{email.subject}</Text>
-        </Column>
-        <Column align="right">
-          <Text className="m-0 text-sm text-gray-500">
-            {email.sentAt ? new Date(email.sentAt).toLocaleDateString() : ""}
-          </Text>
-        </Column>
-      </Row>
-    </Section>
+    <StatsEmailCard
+      title="Cold Email Blocker"
+      badge={{ label: `${coldEmailCount} blocked`, ...BADGES.blue }}
+      description="Unsolicited outreach kept out of your inbox."
+      footnote={
+        hiddenCount > 0
+          ? `And ${hiddenCount} more cold ${pluralize(hiddenCount, "email")}.`
+          : undefined
+      }
+      cta={{ href: `${baseUrl}/cold-email-blocker`, label: "View cold emails" }}
+    >
+      <EmailList emails={coldEmailers} />
+    </StatsEmailCard>
   );
 }
 
 function EmailList({
-  description,
+  heading,
   emails,
 }: {
-  description: string;
+  heading?: string;
   emails: EmailItem[];
 }) {
   if (emails.length === 0) return null;
 
+  const senders = groupEmailsBySender(emails);
+
   return (
-    <div className="mt-8">
-      <Text className="mb-4 text-lg font-medium text-gray-900">
-        {description}
-      </Text>
-      {emails.map((email) => (
-        <EmailCard key={email.from + email.subject} email={email} />
-      ))}
-    </div>
+    <>
+      {heading && (
+        <Text
+          className="m-0 px-6 pt-2.5 text-[12px] font-semibold leading-4"
+          style={{ color: ACCENT }}
+        >
+          {heading}
+        </Text>
+      )}
+      <Section className="px-6 pt-2">
+        {senders.map((sender, index) => (
+          <SenderRow
+            key={sender.key}
+            emails={sender.emails}
+            isLast={index === senders.length - 1}
+          />
+        ))}
+      </Section>
+    </>
+  );
+}
+
+function SenderRow({
+  emails,
+  isLast,
+}: {
+  emails: EmailItem[];
+  isLast: boolean;
+}) {
+  const [latest] = emails;
+  const count = emails.length;
+  const { name, address } = splitFrom(latest.from);
+  const senderHref = count > 1 ? latest.senderUrl || latest.url : latest.url;
+  const shownEmails = emails.slice(0, MAX_SUBJECTS_PER_SENDER);
+  const hiddenCount = count - shownEmails.length;
+  const borderClass = `border-t border-solid border-[#EFEFEF] ${
+    isLast ? "border-b" : ""
+  }`;
+
+  const sender = (
+    <Text className="m-0 text-[14px] font-semibold leading-5 text-[#242424]">
+      {name}
+      {address && (
+        <span className="font-normal text-[#848484]"> {address}</span>
+      )}
+    </Text>
+  );
+
+  return (
+    <Row className={borderClass}>
+      <Column className="py-3">
+        <OptionalLink href={senderHref}>{sender}</OptionalLink>
+        {shownEmails.map(
+          (email, index) =>
+            email.subject && (
+              <OptionalLink key={`${email.subject}-${index}`} href={email.url}>
+                <Text className="m-0 pt-0.5 text-[14px] leading-5 text-[#3D3D3D]">
+                  {email.subject}
+                </Text>
+              </OptionalLink>
+            ),
+        )}
+        {hiddenCount > 0 && (
+          <OptionalLink href={latest.senderUrl}>
+            <Text className="m-0 pt-0.5 text-[13px] leading-5 text-[#848484]">
+              +{hiddenCount} more
+            </Text>
+          </OptionalLink>
+        )}
+      </Column>
+      <Column
+        align="right"
+        className="w-[70px] whitespace-nowrap py-3 align-top"
+      >
+        <Text className="m-0 text-[13px] leading-5 text-[#848484]">
+          {formatDay(latest.sentAt)}
+        </Text>
+        {count > 1 && (
+          <Text className="m-0 text-[12px] leading-4 text-[#848484]">
+            {count} emails
+          </Text>
+        )}
+      </Column>
+    </Row>
+  );
+}
+
+function OptionalLink({
+  href,
+  children,
+}: {
+  href?: string;
+  children: ReactNode;
+}) {
+  if (!href) return children;
+  return (
+    <Link href={href} className="block no-underline">
+      {children}
+    </Link>
   );
 }
 
@@ -435,4 +360,45 @@ function groupArchivedEmailsByRule(archivedEmails: ArchivedEmailItem[]) {
   });
 
   return Array.from(groups, ([ruleName, emails]) => ({ ruleName, emails }));
+}
+
+// Keeps first-seen order, so the most recent email from each sender leads
+// when the input is sorted newest first.
+function groupEmailsBySender(emails: EmailItem[]) {
+  const groups = new Map<string, EmailItem[]>();
+
+  emails.forEach((email) => {
+    const { name, address } = splitFrom(email.from);
+    const key = (address || name).toLowerCase();
+    const group = groups.get(key) || [];
+    group.push(email);
+    groups.set(key, group);
+  });
+
+  return Array.from(groups, ([key, emails]) => ({ key, emails }));
+}
+
+function splitFrom(from: string) {
+  const match = from.match(/^\s*"?([^"<]*?)"?\s*<([^>]+)>\s*$/);
+  if (!match) return { name: from, address: "" };
+  const [, name, address] = match;
+  return name ? { name, address } : { name: address, address: "" };
+}
+
+function formatDay(date: Date) {
+  return new Date(date).toLocaleDateString("en-US", {
+    timeZone: "UTC",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function formatPeriod(end: Date) {
+  // Subtract in UTC milliseconds so local DST transitions cannot shift the day.
+  const start = new Date(new Date(end).getTime() - 6 * 24 * 60 * 60 * 1000);
+  return `${formatDay(start)} to ${formatDay(end)}`;
+}
+
+function pluralize(count: number, word: string) {
+  return count === 1 ? word : `${word}s`;
 }

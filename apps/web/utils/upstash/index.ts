@@ -3,7 +3,7 @@ import { after } from "next/server";
 import { getInternalApiHeaders, getInternalApiUrl } from "@/utils/internal-api";
 import { env } from "@/env";
 import { createScopedLogger } from "@/utils/logger";
-import { isSafeExternalHttpUrl } from "@/utils/network/safe-http-url";
+import { isSafeExternalHttpUrl } from "@inboxzero/network/safe-url";
 
 const logger = createScopedLogger("upstash");
 
@@ -56,6 +56,34 @@ export async function publishToQstash<T>(
     requestHeaders,
     !options?.destinationUrl,
   );
+}
+
+/**
+ * Delivers `body` to `path` no earlier than `notBefore`. Resolves `false` when
+ * QStash is unavailable, so callers keep their own fallback, such as the cron.
+ */
+export async function publishToQstashAt<T>({
+  path,
+  body,
+  notBefore,
+  deduplicationId,
+}: {
+  path: string;
+  body: T;
+  notBefore: Date;
+  deduplicationId: string;
+}) {
+  const url = `${getQstashCallbackBaseUrl()}${path}`;
+  const client = getQstashClient(url);
+  if (!client) return false;
+  await client.publishJSON({
+    url,
+    body,
+    notBefore: Math.ceil(notBefore.getTime() / 1000),
+    deduplicationId,
+    retries: 3,
+  });
+  return true;
 }
 
 export async function bulkPublishToQstash<T>({

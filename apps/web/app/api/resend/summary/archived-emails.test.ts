@@ -51,6 +51,7 @@ describe("archived email summary", () => {
             snippet: "Snippet fallback",
           }),
         },
+        getEmailLinks,
       }),
     ).toEqual([
       {
@@ -58,12 +59,14 @@ describe("archived email summary", () => {
         subject: "Product update",
         sentAt: archivedAt,
         ruleName: "Marketing",
+        url: "mail://message-1",
       },
       {
         from: "Other <other@example.com>",
         subject: "Snippet fallback",
         sentAt: archivedAt,
         ruleName: "Automation rule",
+        url: "mail://message-2",
       },
     ]);
   });
@@ -99,10 +102,15 @@ describe("archived email summary", () => {
             snippet: "Snippet",
           }),
         },
+        getEmailLinks,
       }),
     ).toEqual([]);
   });
 });
+
+function getEmailLinks(message: ParsedMessage) {
+  return { url: `mail://${message.id}` };
+}
 
 function getMessage({
   id,

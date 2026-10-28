@@ -3,24 +3,9 @@ import {
   MessagingProvider,
   MessagingRoutePurpose,
 } from "@/generated/prisma/enums";
-import {
-  isAutomationMessagingChannelReady,
-  isSupportedAutomationMessagingProvider,
-} from "@/utils/automation-jobs/messaging-channel";
+import { isAutomationMessagingChannelReady } from "@/utils/automation-jobs/messaging-channel";
 
 describe("automation job messaging channel helpers", () => {
-  it("accepts supported providers", () => {
-    expect(
-      isSupportedAutomationMessagingProvider(MessagingProvider.SLACK),
-    ).toBe(true);
-    expect(
-      isSupportedAutomationMessagingProvider(MessagingProvider.TEAMS),
-    ).toBe(true);
-    expect(
-      isSupportedAutomationMessagingProvider(MessagingProvider.TELEGRAM),
-    ).toBe(true);
-  });
-
   it("requires a scheduled check-in route before a channel is ready", () => {
     expect(
       isAutomationMessagingChannelReady(

@@ -21,6 +21,7 @@ type TestRequestWithLogger = Request & {
 
 type TestAuth = {
   userId: string;
+  emailOtp?: boolean;
 };
 
 type TestEmailAccountAuth = {

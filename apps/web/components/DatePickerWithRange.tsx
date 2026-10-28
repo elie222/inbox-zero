@@ -41,6 +41,7 @@ export function DatePickerWithRange({
   selectOptions,
   dateDropdown,
   onSetDateDropdown,
+  className,
 }: DatePickerWithRangeProps) {
   const now = useMemo(() => new Date(), []);
   const isMobile = useIsMobile();
@@ -59,6 +60,7 @@ export function DatePickerWithRange({
           className={cn(
             "px-3 justify-between whitespace-nowrap text-left font-normal min-w-52",
             !dateRange && "text-muted-foreground",
+            className,
           )}
         >
           <div className="flex items-center">

@@ -1,5 +1,7 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import {
+  formatDateGroupLabel,
+  formatShortDate,
   getElapsedBusinessDaysForDisplay,
   formatInUserTimezone,
   formatTimeInUserTimezone,
@@ -175,6 +177,7 @@ describe("internalDateToDate", () => {
   it.each([
     { name: "internalDate is missing", internalDate: undefined },
     { name: "internalDate is invalid", internalDate: "not-a-date" },
+    { name: "internalDate is blank", internalDate: "   " },
   ])("returns invalid date when fallbackToNow is false and $name", ({
     internalDate,
   }) => {
@@ -254,5 +257,82 @@ describe("business day elapsed helpers", () => {
         timezone: "UTC",
       }),
     ).toBe(3);
+  });
+});
+
+describe("formatDateGroupLabel", () => {
+  const now = new Date("2025-09-05T12:00:00");
+
+  it.each([
+    { name: "today", date: "2025-09-05T09:30:00", expected: "Today" },
+    { name: "later today", date: "2025-09-05T23:30:00", expected: "Today" },
+    { name: "yesterday", date: "2025-09-04T23:59:00", expected: "Yesterday" },
+    {
+      name: "an earlier day this week",
+      date: "2025-09-01T08:00:00",
+      expected: "Last 7 days",
+    },
+    {
+      name: "the oldest day of the past week",
+      date: "2025-08-30T00:00:00",
+      expected: "Last 7 days",
+    },
+    {
+      name: "a day last month",
+      date: "2025-08-22T08:00:00",
+      expected: "August",
+    },
+    {
+      name: "a day in a previous year",
+      date: "2024-08-22T08:00:00",
+      expected: "August 2024",
+    },
+    {
+      name: "a day ahead of today",
+      date: "2025-09-20T08:00:00",
+      expected: "September 20th, 2025",
+    },
+  ])("labels $name", ({ date, expected }) => {
+    expect(formatDateGroupLabel(new Date(date), now)).toBe(expected);
+  });
+
+  it("labels yesterday even when it falls in the previous month", () => {
+    expect(
+      formatDateGroupLabel(
+        new Date("2025-08-31T22:00:00"),
+        new Date("2025-09-01T09:00:00"),
+      ),
+    ).toBe("Yesterday");
+  });
+
+  it("labels days older than a week but still in this month", () => {
+    expect(
+      formatDateGroupLabel(
+        new Date("2025-09-05T08:00:00"),
+        new Date("2025-09-20T09:00:00"),
+      ),
+    ).toBe("Earlier this month");
+  });
+});
+
+describe("formatShortDate", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-16T12:00:00"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("shows the year for a date in a previous year", () => {
+    const formatted = formatShortDate(new Date("2025-10-15T09:00:00"));
+    expect(formatted).toContain("2025");
+  });
+
+  it("omits the year for an earlier date this year", () => {
+    const formatted = formatShortDate(new Date("2026-10-15T09:00:00"));
+    expect(formatted).not.toContain("2026");
+    expect(formatted).toContain("15");
   });
 });

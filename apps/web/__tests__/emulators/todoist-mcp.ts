@@ -71,6 +71,12 @@ async function handleRequest(
     addedTasks: Array<Record<string, unknown>>;
   },
 ) {
+  if (req.method === "GET" && req.url === "/health") {
+    res.writeHead(200, { "Content-Type": "text/plain" });
+    res.end("ok");
+    return;
+  }
+
   if (req.method !== "POST") {
     // Stateless server: no SSE stream (GET) or session teardown (DELETE)
     res.writeHead(405, { Allow: "POST" });

@@ -8,7 +8,12 @@ type AppErrorBoundaryLogContextInput = {
   searchParams: Iterable<[string, string]>;
 };
 
-const SAFE_SEARCH_PARAM_KEYS = new Set(["ruleId", "tab"]);
+const SAFE_SEARCH_PARAM_KEYS = new Set([
+  "ruleId",
+  "tab",
+  "thread-id",
+  "thread-account-id",
+]);
 
 export function getAppErrorBoundaryLogContext({
   error,

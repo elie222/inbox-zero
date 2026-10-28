@@ -236,6 +236,8 @@ setup flow creates `DATABASE_URL`, `DIRECT_URL`, and `REDIS_URL` after the envir
 
 For deployments where the main application is behind a firewall or private network (e.g., only accessible to employees via VPN), you need a way for Google Pub/Sub to deliver Gmail webhook notifications. The webhook gateway addon solves this by creating a public API Gateway endpoint that validates Google's OIDC tokens before forwarding to your private infrastructure.
 
+For the other endpoints a private deployment may need to expose, see [Security Hardening](/hosting/security-hardening#keep-the-app-on-a-private-network).
+
 ### Prerequisites
 
 - **IAM User (not root)**: AWS Copilot requires IAM role assumption, which doesn't work with root account credentials. Create an IAM user with `AdministratorAccess` policy.

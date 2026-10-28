@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { Loading } from "@/components/Loading";
 import { LoadingContent } from "@/components/LoadingContent";
+import { Empty, EmptyDescription } from "@/components/ui/empty";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -202,13 +203,13 @@ export function OrgRules({ organizationId }: { organizationId: string }) {
               </TableBody>
             </Table>
           ) : (
-            <div className="flex flex-col items-center gap-4 py-16 text-center">
-              <MutedText>No organization rules yet.</MutedText>
+            <Empty>
+              <EmptyDescription>No organization rules yet.</EmptyDescription>
               <Button size="sm" onClick={() => ruleDialog.onOpen({})}>
                 <PlusIcon className="mr-2 size-4" />
                 Create your first rule
               </Button>
-            </div>
+            </Empty>
           )}
         </LoadingContent>
       </Card>

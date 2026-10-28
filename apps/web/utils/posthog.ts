@@ -135,6 +135,8 @@ export async function posthogCaptureEvent(
   // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   properties?: Record<string, any>,
   sendFeatureFlags?: boolean,
+  // A stable uuid with the same timestamp lets PostHog drop redeliveries.
+  { uuid, timestamp }: { uuid?: string; timestamp?: Date } = {},
 ) {
   try {
     if (!env.NEXT_PUBLIC_POSTHOG_KEY) {
@@ -148,6 +150,8 @@ export async function posthogCaptureEvent(
       event,
       properties,
       sendFeatureFlags,
+      uuid,
+      timestamp,
     });
     try {
       await client.flush();
@@ -320,6 +324,31 @@ export async function trackBillingTrialStarted(
   });
 }
 
+export async function trackBillingTrialConverted(
+  email: string,
+  attributes: Properties,
+) {
+  return posthogCaptureEvent(email, "billing_trial_converted", {
+    ...attributes,
+    $set: {
+      premium: true,
+      premiumTier: "subscription",
+      premiumStatus: "active",
+    },
+  });
+}
+
+export async function trackBillingCancellationInitiated(
+  email: string,
+  attributes: Properties,
+) {
+  return posthogCaptureEvent(
+    email,
+    "billing_cancellation_initiated",
+    attributes,
+  );
+}
+
 export async function trackSubscriptionCustom(
   email: string,
   status: string,
@@ -468,6 +497,13 @@ export async function trackFirstTimeEvent({
   } catch (error) {
     logger.error("Error tracking first-time event", { error, event });
   }
+}
+
+export async function trackSignupIntent(email: string, intent: string) {
+  return posthogCaptureEvent(email, "Signup intent selected", {
+    signupIntent: intent,
+    $set: { signupIntent: intent },
+  });
 }
 
 export async function trackOnboardingAnswer(

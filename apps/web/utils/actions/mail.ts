@@ -2,25 +2,33 @@
 
 import { z } from "zod";
 import prisma from "@/utils/prisma";
+import { removeLabelFromMailSplits } from "@/utils/split-inbox/splits.server";
 import { sendEmailBody } from "@/utils/types/mail";
 import { actionClient } from "@/utils/actions/safe-action";
-import { SafeError } from "@/utils/error";
+import { DraftNotFoundError, SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
+import { sendHtmlEmailWithOpenTracking } from "@/utils/email/sent-message-open/sent-message-open.server";
 import {
   deleteMailboxItemBody,
-  removeThreadLabelBody,
   unarchiveThreadBody,
   untrashThreadBody,
   updateMailboxItemBody,
+  updateDraftBody,
+  saveComposeDraftBody,
+  composeDraftParams,
 } from "@/utils/actions/mail.validation";
 import {
   isGoogleProvider,
   isMicrosoftProvider,
 } from "@/utils/email/provider-types";
-import { MailSplitKind } from "@/generated/prisma/enums";
 import { isGmailLabelColor } from "@/utils/gmail/label-colors";
 import { getOutlookCategoryPreset } from "@/utils/outlook/category-colors";
 import { markTrackedDraftDeleted } from "@/utils/ai/draft-cleanup";
+
+import {
+  saveComposeDraft,
+  discardComposeDraft,
+} from "@/utils/email/compose-draft";
 
 const isStatusOk = (status: number) => status >= 200 && status < 300;
 
@@ -147,29 +155,6 @@ export const markReadThreadAction = actionClient
     },
   );
 
-export const removeThreadLabelAction = actionClient
-  .metadata({ name: "removeThreadLabel" })
-  .inputSchema(removeThreadLabelBody)
-  .action(
-    async ({
-      ctx: { emailAccountId, provider, logger },
-      parsedInput: { threadId, labelId },
-    }) => {
-      const emailProvider = await createEmailProvider({
-        emailAccountId,
-        provider,
-        logger,
-      });
-
-      try {
-        await emailProvider.removeThreadLabel(threadId, labelId);
-      } catch (error) {
-        logger.error("Failed to remove thread label", { error });
-        throw new SafeError("Failed to remove label. Please try again.");
-      }
-    },
-  );
-
 export const createAutoArchiveFilterAction = actionClient
   .metadata({ name: "createAutoArchiveFilter" })
   .inputSchema(
@@ -280,12 +265,27 @@ export const updateMailboxItemAction = actionClient
   .action(
     async ({
       ctx: { emailAccountId, provider, logger },
-      parsedInput: { kind, id, name, color },
+      parsedInput: {
+        kind,
+        id,
+        name,
+        color,
+        labelListVisibility,
+        messageListVisibility,
+      },
     }) => {
       assertMailboxItemMutationSupported({ kind, provider });
       if (kind === "label" && isMicrosoftProvider(provider) && name) {
         throw new SafeError(
           "Outlook category names cannot be changed. Edit its color instead.",
+        );
+      }
+      if (
+        (labelListVisibility || messageListVisibility) &&
+        !isGoogleProvider(provider)
+      ) {
+        throw new SafeError(
+          "Visibility settings are only available for Gmail.",
         );
       }
       if (color && isGoogleProvider(provider) && !isGmailLabelColor(color)) {
@@ -306,7 +306,13 @@ export const updateMailboxItemAction = actionClient
 
       try {
         if (kind === "folder") await emailProvider.renameFolder(id, name!);
-        else await emailProvider.updateLabel(id, { name, color });
+        else
+          await emailProvider.updateLabel(id, {
+            name,
+            color,
+            labelListVisibility,
+            messageListVisibility,
+          });
       } catch (error) {
         logger.error("Failed to update mailbox item", { error, kind });
         throw new SafeError(`Failed to update ${kind}. Please try again.`);
@@ -334,13 +340,7 @@ export const deleteMailboxItemAction = actionClient
           await emailProvider.deleteFolder(id);
         } else {
           await emailProvider.deleteLabel(id);
-          await prisma.mailSplit.deleteMany({
-            where: {
-              emailAccountId,
-              kind: MailSplitKind.LABEL,
-              value: id,
-            },
-          });
+          await removeLabelFromMailSplits({ emailAccountId, labelId: id });
         }
       } catch (error) {
         logger.error("Failed to delete mailbox item", { error, kind });
@@ -407,7 +407,12 @@ export const sendEmailAction = actionClient
         logger,
       });
 
-      const result = await emailProvider.sendEmailWithHtml(parsedInput);
+      const result = await sendHtmlEmailWithOpenTracking({
+        emailAccountId,
+        email: parsedInput,
+        emailProvider,
+        logger,
+      });
 
       return {
         success: true,
@@ -417,23 +422,73 @@ export const sendEmailAction = actionClient
     },
   );
 
-export const deleteDraftAction = actionClient
-  .metadata({ name: "deleteDraft" })
-  .inputSchema(z.object({ draftMessageId: z.string() }))
+export const updateDraftAction = actionClient
+  .metadata({ name: "updateDraft" })
+  .inputSchema(updateDraftBody)
   .action(
     async ({
       ctx: { emailAccountId, provider: providerName, logger },
-      parsedInput: { draftMessageId },
+      parsedInput,
     }) => {
       const provider = await createEmailProvider({
         emailAccountId,
         provider: providerName,
         logger,
       });
-      const draft = await provider.getDraftReferenceForMessage(draftMessageId);
-      if (!draft) {
-        throw new SafeError("Could not find this draft to delete.");
+      const draftId =
+        parsedInput.draftId ??
+        (await provider.getDraftReferenceForMessage(parsedInput.draftMessageId))
+          ?.id;
+      // A draft sent, deleted, or replaced elsewhere can never be saved, so the
+      // composer is told to stop syncing rather than retry.
+      if (!draftId) return { status: "missing" as const };
+      const {
+        draftMessageId: _messageId,
+        draftId: _draftId,
+        ...content
+      } = parsedInput;
+      try {
+        await provider.updateDraft(draftId, content);
+      } catch (error) {
+        if (error instanceof DraftNotFoundError)
+          return { status: "missing" as const };
+        throw error;
       }
+      // Gmail may have moved the draft to a new message; the composer needs it,
+      // so a failed read fails the save and autosave retries it.
+      const message = await provider.getDraft(draftId);
+      return {
+        status: "saved" as const,
+        draftId,
+        messageId: message?.id ?? null,
+      };
+    },
+  );
+
+export const deleteDraftAction = actionClient
+  .metadata({ name: "deleteDraft" })
+  .inputSchema(
+    z.object({ draftMessageId: z.string(), draftId: z.string().optional() }),
+  )
+  .action(
+    async ({
+      ctx: { emailAccountId, provider: providerName, logger },
+      parsedInput: { draftMessageId, draftId },
+    }) => {
+      const provider = await createEmailProvider({
+        emailAccountId,
+        provider: providerName,
+        logger,
+      });
+      const draft = draftId
+        ? await provider
+            .getDraft(draftId)
+            .then((message) =>
+              message ? provider.getDraftReferenceForMessage(message.id) : null,
+            )
+        : await provider.getDraftReferenceForMessage(draftMessageId);
+      // Already sent, deleted, or replaced elsewhere: nothing left to discard.
+      if (!draft) return;
 
       const wasDeleted = await provider.deleteDraft(draft.id, draft.version);
       if (!wasDeleted) return;
@@ -465,3 +520,42 @@ function assertMailboxItemMutationSupported({
     );
   }
 }
+
+export const saveComposeDraftAction = actionClient
+  .metadata({ name: "saveComposeDraft" })
+  .inputSchema(saveComposeDraftBody)
+  .action(
+    async ({
+      ctx: { emailAccountId, provider: providerName, logger },
+      parsedInput,
+    }) => {
+      const provider = await createEmailProvider({
+        emailAccountId,
+        provider: providerName,
+        logger,
+      });
+      const saved = await saveComposeDraft({
+        provider,
+        ...parsedInput,
+      });
+      return saved;
+    },
+  );
+
+export const discardComposeDraftAction = actionClient
+  .metadata({ name: "discardComposeDraft" })
+  .inputSchema(composeDraftParams)
+  .action(
+    async ({
+      ctx: { emailAccountId, provider: providerName, logger },
+      parsedInput,
+    }) => {
+      const provider = await createEmailProvider({
+        emailAccountId,
+        provider: providerName,
+        logger,
+      });
+      await discardComposeDraft({ provider, ...parsedInput });
+      return { success: true };
+    },
+  );

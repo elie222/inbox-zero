@@ -1,0 +1,1004 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createEmailProviderOperationExecutor } from "./operations";
+import type { EmailProvider } from "@/utils/email/types";
+import type { PreparedOperation } from "@inboxzero/mail-core/operations";
+import { executeDurableEmailSend } from "@/utils/email/durable-email-send";
+import prisma from "@/utils/__mocks__/prisma";
+import {
+  activatePreparedSnoozedThread,
+  cancelSnoozedThreadByClientMutationId,
+  prepareSnoozedThread,
+} from "@/utils/snooze/scheduler";
+import {
+  findScheduledEmail,
+  holdEmailForUndo,
+} from "@/utils/scheduled-email/service";
+import type { ScheduledEmail } from "@/generated/prisma/client";
+
+vi.mock("server-only", () => ({}));
+vi.mock("@/utils/prisma");
+vi.mock("@/utils/email/durable-email-send", () => ({
+  executeDurableEmailSend: vi.fn(),
+}));
+vi.mock("@/utils/scheduled-email/service", () => ({
+  findScheduledEmail: vi.fn(),
+  holdEmailForUndo: vi.fn(),
+  releaseHeldEmail: vi.fn(async (row: unknown) => row),
+  cancelHeldEmail: vi.fn(),
+}));
+vi.mock("@/utils/snooze/scheduler", () => ({
+  prepareSnoozedThread: vi.fn(),
+  activatePreparedSnoozedThread: vi.fn(),
+  cancelSnoozedThreadByClientMutationId: vi.fn(),
+}));
+
+describe("createEmailProviderOperationExecutor", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+  it.each([
+    "execute",
+    "inspect",
+  ] as const)("%s clears local inbox flags only for confirmed Outlook archive targets", async (method) => {
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "microsoft",
+        async archiveMessages(ids: string[]) {
+          if (ids.includes("missing")) throw new Error("not found 404");
+        },
+        async getMessage(id: string) {
+          if (id === "missing") throw new Error("not found 404");
+          return {
+            id,
+            threadId: `t-${id}`,
+            headers: {
+              from: "newsletter@example.com",
+              to: "owner@example.com",
+            },
+            labelIds: id === "still-inbox" ? ["INBOX"] : [],
+            snippet: id,
+          };
+        },
+      } as unknown as EmailProvider,
+    });
+    prisma.emailMessage.updateMany.mockResolvedValue({ count: 1 });
+
+    const operation = metadataOperation(
+      ["archived", "still-inbox", "missing"].map((messageId) => ({
+        accountId: "acc-1",
+        messageId,
+      })),
+    );
+    const result = await executor[method]({
+      operation,
+      attemptId: "attempt-1",
+      receiptId: "bulk-1",
+      signal: new AbortController().signal,
+    });
+
+    expect(result.status).toBe("confirmed");
+    expect(prisma.emailMessage.updateMany).toHaveBeenCalledExactlyOnceWith({
+      where: {
+        emailAccountId: "acc-1",
+        messageId: { in: ["archived"] },
+      },
+      data: { inbox: false },
+    });
+  });
+
+  it("archives every target with one provider call and one batched read", async () => {
+    const archiveMessages = vi.fn();
+    const getMessage = vi.fn();
+    const getMessagesBatch = vi.fn(async (ids: string[]) =>
+      ids.map((id) => ({
+        id,
+        threadId: `t-${id}`,
+        headers: { from: "ada@example.com", to: "me@example.com" },
+        labelIds: id === "still-inbox" ? ["INBOX"] : [],
+        snippet: id,
+      })),
+    );
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        archiveMessages,
+        getMessage,
+        getMessagesBatch,
+      } as unknown as EmailProvider,
+    });
+    const result = await executor.execute({
+      operation: metadataOperation([
+        { accountId: "acc-1", messageId: "m1" },
+        { accountId: "acc-1", messageId: "m2" },
+        { accountId: "acc-1", messageId: "still-inbox" },
+      ]),
+      attemptId: "a1",
+      signal: new AbortController().signal,
+    });
+    expect(archiveMessages).toHaveBeenCalledTimes(1);
+    expect(archiveMessages).toHaveBeenCalledWith(["m1", "m2", "still-inbox"]);
+    expect(getMessagesBatch).toHaveBeenCalledTimes(1);
+    expect(getMessage).not.toHaveBeenCalled();
+    if (result.status !== "confirmed") throw new Error("expected confirmed");
+    expect(
+      result.targets.map(
+        (target) => `${target.key.messageId}:${target.outcome}`,
+      ),
+    ).toEqual(["m1:applied", "m2:applied", "still-inbox:uncertain"]);
+    expect(prisma.emailMessage.updateMany).toHaveBeenCalledExactlyOnceWith({
+      where: {
+        emailAccountId: "acc-1",
+        messageId: { in: ["m1", "m2"] },
+      },
+      data: { inbox: false },
+    });
+  });
+
+  it("keeps verifying other messages when a batched read fails", async () => {
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "microsoft",
+        archiveMessages: vi.fn(),
+        getMessagesBatch: vi.fn().mockRejectedValue(new Error("throttled")),
+        async getMessage(id: string) {
+          if (id === "unreadable") throw new Error("throttled");
+          return {
+            id,
+            threadId: `t-${id}`,
+            headers: { from: "ada@example.com", to: "me@example.com" },
+            labelIds: id === "still-inbox" ? ["INBOX"] : [],
+            snippet: id,
+          };
+        },
+      } as unknown as EmailProvider,
+    });
+    const result = await executor.execute({
+      operation: metadataOperation([
+        { accountId: "acc-1", messageId: "m1" },
+        { accountId: "acc-1", messageId: "still-inbox" },
+        { accountId: "acc-1", messageId: "unreadable" },
+      ]),
+      attemptId: "a1",
+      signal: new AbortController().signal,
+    });
+    if (result.status !== "confirmed") throw new Error("expected confirmed");
+    expect(
+      result.targets.map(
+        (target) => `${target.key.messageId}:${target.outcome}`,
+      ),
+    ).toEqual(["m1:applied", "still-inbox:uncertain", "unreadable:applied"]);
+  });
+
+  it("keeps an applied archive confirmed when the local stats write fails", async () => {
+    const archiveMessages = vi.fn();
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "microsoft",
+        archiveMessages,
+        getMessagesBatch: vi.fn().mockResolvedValue([]),
+      } as unknown as EmailProvider,
+    });
+    prisma.emailMessage.updateMany.mockRejectedValue(
+      new Error("database unavailable"),
+    );
+
+    const result = await executor.execute({
+      operation: metadataOperation([
+        { accountId: "acc-1", messageId: "archived" },
+      ]),
+      attemptId: "attempt-1",
+      signal: new AbortController().signal,
+    });
+
+    expect(result.status).toBe("confirmed");
+    expect(archiveMessages).toHaveBeenCalledOnce();
+    expect(prisma.emailMessage.updateMany).toHaveBeenCalledOnce();
+  });
+
+  it("falls back to per-message outcomes when the bulk call fails", async () => {
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        async archiveMessages(ids: string[]) {
+          if (ids.includes("missing")) throw new Error("not found 404");
+        },
+        async getMessage(id: string) {
+          return {
+            id,
+            threadId: `t-${id}`,
+            headers: { from: "ada@example.com", to: "me@example.com" },
+            labelIds: [],
+            snippet: id,
+          };
+        },
+      } as unknown as EmailProvider,
+    });
+    const operation = metadataOperation([
+      { accountId: "acc-1", messageId: "kept" },
+      { accountId: "acc-1", messageId: "missing" },
+    ]);
+    const result = await executor.execute({
+      operation,
+      attemptId: "a1",
+      signal: new AbortController().signal,
+    });
+    expect(result.status).toBe("confirmed");
+    if (result.status !== "confirmed") throw new Error("expected confirmed");
+    expect(
+      result.targets.map(
+        (target) => `${target.key.messageId}:${target.outcome}`,
+      ),
+    ).toEqual(["kept:applied", "missing:rejected"]);
+  });
+
+  it("does not confirm inspected archive when the provider message is still in the inbox", async () => {
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        async getMessage(id: string) {
+          return {
+            id,
+            threadId: `t-${id}`,
+            headers: { from: "ada@example.com", to: "me@example.com" },
+            labelIds: ["INBOX"],
+            snippet: id,
+          };
+        },
+      } as unknown as EmailProvider,
+    });
+    const result = await executor.inspect({
+      operation: metadataOperation([{ accountId: "acc-1", messageId: "m1" }]),
+      receiptId: "bulk-1",
+      signal: new AbortController().signal,
+    });
+    expect(result).toEqual({ status: "uncertain", receiptId: "bulk-1" });
+    expect(prisma.emailMessage.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("confirms inspected archive after the provider message leaves the inbox", async () => {
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        async getMessage(id: string) {
+          return {
+            id,
+            threadId: `t-${id}`,
+            headers: { from: "ada@example.com", to: "me@example.com" },
+            labelIds: [],
+            snippet: id,
+          };
+        },
+      } as unknown as EmailProvider,
+    });
+    const result = await executor.inspect({
+      operation: metadataOperation([{ accountId: "acc-1", messageId: "m1" }]),
+      receiptId: "bulk-1",
+      signal: new AbortController().signal,
+    });
+    expect(result.status).toBe("confirmed");
+    if (result.status !== "confirmed") throw new Error("expected confirmed");
+    expect(result.targets).toEqual([
+      {
+        key: { accountId: "acc-1", messageId: "m1" },
+        outcome: "applied",
+        code: null,
+      },
+    ]);
+  });
+
+  it("uses the provider not-spam boundary for set_spam false", async () => {
+    const markNotSpam = vi.fn();
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        markNotSpam,
+        getMessagesBatch: vi.fn().mockResolvedValue([]),
+        async getMessage(id: string) {
+          return {
+            id,
+            threadId: "thread-spam",
+            headers: { from: "ada@example.com", to: "me@example.com" },
+            labelIds: [],
+            snippet: id,
+          };
+        },
+      } as unknown as EmailProvider,
+    });
+    const result = await executor.execute({
+      operation: {
+        ...metadataOperation([{ accountId: "acc-1", messageId: "spam-1" }]),
+        intent: {
+          kind: "metadata",
+          targets: [{ accountId: "acc-1", messageId: "spam-1" }],
+          change: { kind: "set_spam", spam: false },
+        },
+      },
+      attemptId: "a-unspam",
+      signal: new AbortController().signal,
+    });
+    expect(result.status).toBe("confirmed");
+    expect(markNotSpam).toHaveBeenCalledWith("thread-spam");
+  });
+
+  it("executes sends through the existing durable receipt ledger", async () => {
+    vi.mocked(executeDurableEmailSend).mockResolvedValue({
+      status: "applied",
+      result: { messageId: "sent-1", threadId: "t-1" },
+    });
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: { name: "google" } as unknown as EmailProvider,
+    });
+    const result = await executor.execute({
+      operation: sendOperation(),
+      attemptId: "a-send",
+      signal: new AbortController().signal,
+    });
+    expect(result.status).toBe("confirmed");
+    expect(executeDurableEmailSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emailAccountId: "acc-1",
+        input: expect.objectContaining({
+          email: expect.objectContaining({
+            to: "ada@example.com",
+            subject: "Hi",
+            replyToEmail: undefined,
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("observes the sent message so the mailbox can drop the draft", async () => {
+    vi.mocked(executeDurableEmailSend).mockResolvedValue({
+      status: "applied",
+      result: { messageId: "sent-1", threadId: "t-1" },
+    });
+    const getMessage = vi.fn(async (id: string) => ({
+      id,
+      threadId: "t-1",
+      headers: { from: "me@example.com", to: "ada@example.com" },
+      labelIds: ["SENT"],
+      snippet: "Hi",
+      historyId: "7",
+      textHtml: "<p>Hi</p>",
+    }));
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: { name: "google", getMessage } as unknown as EmailProvider,
+    });
+    const result = await executor.execute({
+      operation: sendOperation(),
+      attemptId: "a-send-observe",
+      signal: new AbortController().signal,
+    });
+    expect(result.status).toBe("confirmed");
+    if (result.status !== "confirmed") throw new Error("expected confirmed");
+    expect(getMessage).toHaveBeenCalledWith("sent-1");
+    expect(result.observations).toEqual([
+      expect.objectContaining({
+        kind: "message_patch",
+        key: { accountId: "acc-1", messageId: "sent-1" },
+        fields: expect.objectContaining({ roles: ["sent"] }),
+      }),
+    ]);
+    expect(result.bodies).toEqual([
+      expect.objectContaining({
+        key: { accountId: "acc-1", messageId: "sent-1" },
+        version: "7",
+        html: "<p>Hi</p>",
+      }),
+    ]);
+  });
+
+  it("replies with a provider thread id, not an optional conversation id", async () => {
+    vi.mocked(executeDurableEmailSend).mockResolvedValue({
+      status: "applied",
+      result: { messageId: "sent-reply", threadId: "thread-1" },
+    });
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: { name: "google" } as unknown as EmailProvider,
+    });
+    const result = await executor.execute({
+      operation: sendOperation(undefined, {
+        replyToMessageId: "msg-1",
+        replyToConversationId: "thread-1",
+      }),
+      attemptId: "a-send-reply",
+      signal: new AbortController().signal,
+    });
+    expect(result.status).toBe("confirmed");
+    expect(executeDurableEmailSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expect.objectContaining({
+          threadId: "thread-1",
+          email: expect.objectContaining({
+            replyToEmail: {
+              threadId: "thread-1",
+              messageId: "msg-1",
+            },
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("sends by converting the frozen provider draft", async () => {
+    vi.mocked(executeDurableEmailSend).mockResolvedValue({
+      status: "applied",
+      result: { messageId: "sent-1", threadId: "t-1" },
+    });
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: { name: "google" } as unknown as EmailProvider,
+    });
+    const result = await executor.execute({
+      operation: sendOperation("gmail-draft-1"),
+      attemptId: "a-send-draft",
+      signal: new AbortController().signal,
+    });
+    expect(result.status).toBe("confirmed");
+    expect(executeDurableEmailSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expect.objectContaining({
+          email: expect.objectContaining({
+            providerDraftId: "gmail-draft-1",
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("inspects a persisted send receipt without sending again", async () => {
+    prisma.emailSendOperation.findUnique.mockResolvedValue({
+      status: "SENT",
+    } as never);
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: { name: "google" } as unknown as EmailProvider,
+    });
+    const result = await executor.inspect({
+      operation: sendOperation(),
+      receiptId: "receipt",
+      signal: new AbortController().signal,
+    });
+    expect(result.status).toBe("confirmed");
+    expect(executeDurableEmailSend).not.toHaveBeenCalled();
+  });
+
+  it("holds an undo-window send on the server instead of sending it", async () => {
+    const sendAtMs = Date.now() + 30_000;
+    vi.mocked(findScheduledEmail).mockResolvedValue(null);
+    vi.mocked(holdEmailForUndo).mockImplementation(async ({ input, sendAt }) =>
+      heldRow({ payload: input, sendAt }),
+    );
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: { name: "google" } as unknown as EmailProvider,
+    });
+
+    const result = await executor.execute({
+      operation: heldSendOperation(sendAtMs),
+      attemptId: "a-held",
+      signal: new AbortController().signal,
+    });
+
+    expect(result).toMatchObject({ status: "accepted" });
+    expect(result.status === "accepted" && result.retryAfterMs).toBeGreaterThan(
+      25_000,
+    );
+    expect(executeDurableEmailSend).not.toHaveBeenCalled();
+    expect(holdEmailForUndo).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emailAccountId: "acc-1",
+        sendAt: new Date(sendAtMs),
+        input: expect.objectContaining({
+          threadId: "thread-1",
+          messageIds: ["msg-1"],
+          email: expect.objectContaining({
+            to: "ada@example.com",
+            replyToEmail: { threadId: "thread-1", messageId: "msg-1" },
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("holds a send with files by its mailbox draft, never their bytes", async () => {
+    vi.mocked(findScheduledEmail).mockResolvedValue(null);
+    vi.mocked(holdEmailForUndo).mockImplementation(async ({ input, sendAt }) =>
+      heldRow({ payload: input, sendAt }),
+    );
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: { name: "google" } as unknown as EmailProvider,
+    });
+    const operation = heldSendOperation(Date.now() + 30_000);
+    if (operation.intent.kind !== "send") throw new Error("expected send");
+    operation.intent.providerDraftId = "draft-1";
+
+    const result = await executor.execute({
+      operation,
+      attemptId: "a-held-draft",
+      signal: new AbortController().signal,
+    });
+
+    expect(result).toMatchObject({ status: "accepted" });
+    const { input } = vi.mocked(holdEmailForUndo).mock.calls[0][0];
+    expect(input.email.providerDraftId).toBe("draft-1");
+    expect(input.email.attachments).toBeUndefined();
+  });
+
+  it("confirms a held send from its receipt once the server sent it", async () => {
+    vi.mocked(findScheduledEmail).mockResolvedValue(
+      heldRow({ status: "SENT" }),
+    );
+    prisma.emailSendOperation.findUnique.mockResolvedValue({
+      status: "SENT",
+      result: { messageId: "sent-1", threadId: "thread-1" },
+    } as never);
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: { name: "google" } as unknown as EmailProvider,
+    });
+
+    const result = await executor.inspect({
+      operation: heldSendOperation(Date.now() - 1000),
+      receiptId: null,
+      signal: new AbortController().signal,
+    });
+
+    expect(result.status).toBe("confirmed");
+    expect(executeDurableEmailSend).not.toHaveBeenCalled();
+  });
+
+  it("rejects a held send that was undone", async () => {
+    vi.mocked(findScheduledEmail).mockResolvedValue(
+      heldRow({ status: "CANCELLED" }),
+    );
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: { name: "google" } as unknown as EmailProvider,
+    });
+
+    const result = await executor.inspect({
+      operation: heldSendOperation(Date.now() + 10_000),
+      receiptId: null,
+      signal: new AbortController().signal,
+    });
+
+    expect(result).toEqual({
+      status: "rejected",
+      code: "cancelled",
+      targets: [],
+    });
+  });
+
+  it("transfers snooze ownership to the server scheduler after archive", async () => {
+    vi.mocked(prepareSnoozedThread).mockResolvedValue({
+      created: true,
+      snoozedThread: { status: "PREPARING" },
+    } as never);
+    vi.mocked(activatePreparedSnoozedThread).mockResolvedValue({} as never);
+    let archived = false;
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        async archiveThreadWithLabel() {
+          archived = true;
+        },
+        async getMessage(id: string) {
+          return {
+            id,
+            threadId: "thread-1",
+            headers: { from: "ada@example.com" },
+            labelIds: archived ? [] : ["INBOX"],
+            snippet: id,
+          };
+        },
+      } as unknown as EmailProvider,
+    });
+    const result = await executor.execute({
+      operation: {
+        ...metadataOperation([{ accountId: "acc-1", messageId: "m1" }]),
+        intent: {
+          kind: "metadata",
+          targets: [{ accountId: "acc-1", messageId: "m1" }],
+          change: { kind: "snooze", untilMs: Date.now() + 60_000 },
+        },
+      },
+      attemptId: "a-snooze",
+      signal: new AbortController().signal,
+    });
+    expect(result.status).toBe("confirmed");
+    if (result.status !== "confirmed") throw new Error("expected confirmed");
+    expect(result.observations).toEqual([
+      expect.objectContaining({
+        kind: "message_patch",
+        key: { accountId: "acc-1", messageId: "m1" },
+        fields: expect.objectContaining({ roles: [] }),
+      }),
+    ]);
+    expect(prepareSnoozedThread).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emailAccountId: "acc-1",
+        threadId: "thread-1",
+      }),
+    );
+    expect(activatePreparedSnoozedThread).toHaveBeenCalled();
+  });
+
+  it("does not activate a snooze when the provider still reports the message in the inbox after archive", async () => {
+    vi.mocked(prepareSnoozedThread).mockResolvedValue({
+      created: true,
+      snoozedThread: { status: "PREPARING" },
+    } as never);
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        async archiveThreadWithLabel() {},
+        async getMessage(id: string) {
+          return {
+            id,
+            threadId: "thread-1",
+            headers: { from: "ada@example.com" },
+            labelIds: ["INBOX"],
+            snippet: id,
+          };
+        },
+      } as unknown as EmailProvider,
+    });
+    const result = await executor.execute({
+      operation: snoozeOperation(Date.now() + 60_000),
+      attemptId: "a-snooze-not-applied",
+      signal: new AbortController().signal,
+    });
+    expect(result).toMatchObject({
+      status: "rejected",
+      code: "snooze_failed",
+      targets: [
+        {
+          key: { accountId: "acc-1", messageId: "m1" },
+          outcome: "rejected",
+          code: "not_applied",
+        },
+      ],
+    });
+    expect(activatePreparedSnoozedThread).not.toHaveBeenCalled();
+    expect(cancelSnoozedThreadByClientMutationId).toHaveBeenCalledWith(
+      expect.objectContaining({
+        clientMutationId: "bulk-1",
+        emailAccountId: "acc-1",
+      }),
+    );
+  });
+
+  it("rejects a fresh expired snooze before archiving", async () => {
+    vi.mocked(prepareSnoozedThread).mockResolvedValue({
+      created: true,
+      snoozedThread: { status: "PREPARING" },
+    } as never);
+    const archiveThreadWithLabel = vi.fn();
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        archiveThreadWithLabel,
+        async getMessage(id: string) {
+          return {
+            id,
+            threadId: "thread-1",
+            headers: { from: "ada@example.com" },
+            labelIds: ["INBOX"],
+            snippet: id,
+          };
+        },
+      } as unknown as EmailProvider,
+    });
+    const result = await executor.execute({
+      operation: snoozeOperation(1),
+      attemptId: "a-snooze-expired",
+      signal: new AbortController().signal,
+    });
+    expect(result).toMatchObject({
+      status: "rejected",
+      code: "snooze_expired",
+    });
+    expect(archiveThreadWithLabel).not.toHaveBeenCalled();
+    expect(activatePreparedSnoozedThread).not.toHaveBeenCalled();
+    expect(cancelSnoozedThreadByClientMutationId).toHaveBeenCalledWith(
+      expect.objectContaining({
+        clientMutationId: "bulk-1",
+        emailAccountId: "acc-1",
+      }),
+    );
+  });
+
+  it("does not archive again when replaying an activated snooze", async () => {
+    vi.mocked(prepareSnoozedThread).mockResolvedValue({
+      created: false,
+      snoozedThread: { status: "PENDING" },
+    } as never);
+    const archiveThreadWithLabel = vi.fn();
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        archiveThreadWithLabel,
+        async getMessage(id: string) {
+          return {
+            id,
+            threadId: "thread-1",
+            headers: { from: "ada@example.com" },
+            labelIds: ["INBOX"],
+            snippet: id,
+          };
+        },
+      } as unknown as EmailProvider,
+    });
+    const result = await executor.execute({
+      operation: snoozeOperation(Date.now() + 60_000),
+      attemptId: "a-snooze-replay",
+      signal: new AbortController().signal,
+    });
+    expect(result.status).toBe("confirmed");
+    expect(archiveThreadWithLabel).not.toHaveBeenCalled();
+    expect(activatePreparedSnoozedThread).not.toHaveBeenCalled();
+  });
+
+  it("restores mail when replaying a preparing snooze after its wake time", async () => {
+    vi.mocked(prepareSnoozedThread).mockResolvedValue({
+      created: false,
+      snoozedThread: { status: "PREPARING" },
+    } as never);
+    const archiveThreadWithLabel = vi.fn();
+    const unarchiveMessages = vi.fn();
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        archiveThreadWithLabel,
+        unarchiveMessages,
+        async getMessage(id: string) {
+          return {
+            id,
+            threadId: "thread-1",
+            headers: { from: "ada@example.com" },
+            labelIds: ["INBOX"],
+            snippet: id,
+          };
+        },
+      } as unknown as EmailProvider,
+    });
+    const result = await executor.execute({
+      operation: snoozeOperation(1),
+      attemptId: "a-snooze-preparing-expired",
+      signal: new AbortController().signal,
+    });
+    expect(result.status).toBe("confirmed");
+    expect(archiveThreadWithLabel).not.toHaveBeenCalled();
+    expect(unarchiveMessages).toHaveBeenCalledWith(["m1"]);
+    expect(unarchiveMessages).toHaveBeenCalledBefore(
+      cancelSnoozedThreadByClientMutationId,
+    );
+    expect(activatePreparedSnoozedThread).not.toHaveBeenCalled();
+  });
+
+  it("keeps a preparing snooze when restore after wake time fails", async () => {
+    vi.mocked(prepareSnoozedThread).mockResolvedValue({
+      created: false,
+      snoozedThread: { status: "PREPARING" },
+    } as never);
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        async archiveThreadWithLabel() {},
+        async unarchiveMessages() {
+          throw new Error("unavailable");
+        },
+        async getMessage(id: string) {
+          return {
+            id,
+            threadId: "thread-1",
+            headers: { from: "ada@example.com" },
+            labelIds: ["INBOX"],
+            snippet: id,
+          };
+        },
+      } as unknown as EmailProvider,
+    });
+    const result = await executor.execute({
+      operation: snoozeOperation(1),
+      attemptId: "a-snooze-restore-fail",
+      signal: new AbortController().signal,
+    });
+    expect(result).toMatchObject({
+      status: "not_dispatched",
+      reason: "unavailable",
+    });
+    expect(cancelSnoozedThreadByClientMutationId).not.toHaveBeenCalled();
+  });
+
+  it("restores mail when activate reports the snooze was cancelled", async () => {
+    vi.mocked(prepareSnoozedThread).mockResolvedValue({
+      created: true,
+      snoozedThread: { status: "PREPARING" },
+    } as never);
+    vi.mocked(activatePreparedSnoozedThread).mockResolvedValue({
+      status: "CANCELLED",
+    } as never);
+    const unarchiveMessages = vi.fn();
+    let archived = false;
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        async archiveThreadWithLabel() {
+          archived = true;
+        },
+        unarchiveMessages,
+        async getMessage(id: string) {
+          return {
+            id,
+            threadId: "thread-1",
+            headers: { from: "ada@example.com" },
+            labelIds: archived ? [] : ["INBOX"],
+            snippet: id,
+          };
+        },
+      } as unknown as EmailProvider,
+    });
+    const result = await executor.execute({
+      operation: snoozeOperation(Date.now() + 60_000),
+      attemptId: "a-snooze-cancel",
+      signal: new AbortController().signal,
+    });
+    expect(result.status).toBe("confirmed");
+    expect(unarchiveMessages).toHaveBeenCalledWith(["m1"]);
+  });
+
+  it("does not confirm a cancelled snooze until restore succeeds", async () => {
+    vi.mocked(prepareSnoozedThread).mockResolvedValue({
+      created: true,
+      snoozedThread: { status: "PREPARING" },
+    } as never);
+    vi.mocked(activatePreparedSnoozedThread).mockResolvedValue({
+      status: "CANCELLED",
+    } as never);
+    let archived = false;
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        async archiveThreadWithLabel() {
+          archived = true;
+        },
+        async unarchiveMessages() {
+          throw new Error("unavailable");
+        },
+        async getMessage(id: string) {
+          return {
+            id,
+            threadId: "thread-1",
+            headers: { from: "ada@example.com" },
+            labelIds: archived ? [] : ["INBOX"],
+            snippet: id,
+          };
+        },
+      } as unknown as EmailProvider,
+    });
+    const result = await executor.execute({
+      operation: snoozeOperation(Date.now() + 60_000),
+      attemptId: "a-snooze-cancel-restore-fail",
+      signal: new AbortController().signal,
+    });
+    expect(result).toMatchObject({
+      status: "not_dispatched",
+      reason: "unavailable",
+    });
+  });
+});
+
+function metadataOperation(
+  targets: Array<{ accountId: string; messageId: string }>,
+): PreparedOperation {
+  return {
+    key: { accountId: "acc-1", operationId: "bulk-1" },
+    session: { accountId: "acc-1", generation: "g1" },
+    authority: "backend",
+    payloadHash: "hash",
+    intent: {
+      kind: "metadata",
+      targets,
+      change: { kind: "archive" },
+    },
+  };
+}
+
+function snoozeOperation(untilMs: number): PreparedOperation {
+  return {
+    ...metadataOperation([{ accountId: "acc-1", messageId: "m1" }]),
+    intent: {
+      kind: "metadata",
+      targets: [{ accountId: "acc-1", messageId: "m1" }],
+      change: { kind: "snooze", untilMs },
+    },
+  };
+}
+
+function sendOperation(
+  providerDraftId?: string,
+  reply?: { replyToMessageId: string; replyToConversationId: string },
+): PreparedOperation {
+  return {
+    key: {
+      accountId: "acc-1",
+      operationId: "7f0c3b9e-2c1d-4d6e-9b2a-1f0e5d4c3b2a",
+    },
+    session: { accountId: "acc-1", generation: "g1" },
+    authority: "backend",
+    payloadHash: "hash",
+    intent: {
+      kind: "send",
+      frozenDraftId: "d1",
+      frozenDraftRevision: 1,
+      to: ["ada@example.com"],
+      cc: [],
+      bcc: [],
+      subject: "Hi",
+      html: "<p>Hi</p>",
+      quotedHtml: "",
+      ...(providerDraftId ? { providerDraftId } : {}),
+      replyToMessageId: reply?.replyToMessageId ?? null,
+      replyToConversationId: reply?.replyToConversationId ?? null,
+      queuedAtMs: Date.now(),
+    },
+  };
+}
+
+function heldSendOperation(sendAtMs: number): PreparedOperation {
+  const operation = sendOperation(undefined, {
+    replyToMessageId: "msg-1",
+    replyToConversationId: "thread-1",
+  });
+  if (operation.intent.kind !== "send") throw new Error("expected send");
+  return { ...operation, intent: { ...operation.intent, sendAtMs } };
+}
+
+function heldRow(overrides: Partial<ScheduledEmail> = {}): ScheduledEmail {
+  const now = new Date();
+  return {
+    id: "held-1",
+    draftMessageIds: [],
+    createdAt: now,
+    updatedAt: now,
+    emailAccountId: "acc-1",
+    clientMutationId: "7f0c3b9e-2c1d-4d6e-9b2a-1f0e5d4c3b2a",
+    payloadHash: "hash",
+    payload: {},
+    threadId: "thread-1",
+    sendAt: new Date(now.getTime() + 30_000),
+    status: "PENDING",
+    processingStartedAt: null,
+    executionQueuedAt: null,
+    sentAt: null,
+    error: null,
+    remindAt: null,
+    reminderStatus: "NONE",
+    reminderStartedAt: null,
+    heldForUndo: true,
+    ...overrides,
+  };
+}

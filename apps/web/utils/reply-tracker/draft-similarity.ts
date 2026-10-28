@@ -1,6 +1,6 @@
 import type { Prisma } from "@/generated/prisma/client";
 import type { ParsedMessage } from "@/utils/types";
-import { stripReferralSignature } from "@/utils/referral/signature";
+import { stripBrandingSignatures } from "@/utils/referral/signature";
 import { calculateSimilarityDetails } from "@/utils/similarity-score";
 
 const BODY_SIMILARITY_STATUS = {
@@ -80,8 +80,8 @@ function getBodySimilarityResult({
   accountSignature?: string | null;
 }): BodySimilarityResult {
   const selectedBodySource = getSelectedProviderBodySource(sentMessage);
-  const comparableDraftText = stripReferralSignature(draftText ?? "");
-  const comparableSentText = stripReferralSignature(sentText ?? "");
+  const comparableDraftText = stripBrandingSignatures(draftText ?? "");
+  const comparableSentText = stripBrandingSignatures(sentText ?? "");
   const base = {
     comparableDraftLength: comparableDraftText.length,
     comparableSentLength: comparableSentText.length,

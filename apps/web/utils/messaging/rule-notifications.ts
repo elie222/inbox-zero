@@ -55,13 +55,9 @@ import {
   stripQuotedContent,
 } from "@/utils/ai/choose-rule/draft-management";
 import type { ParsedMessage } from "@/utils/types";
-import he from "he";
+import * as he from "he";
 import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
-import {
-  isGoogleProvider,
-  isMicrosoftProvider,
-} from "@/utils/email/provider-types";
 import {
   isMessagingChannelOperational,
   isOperationalSlackChannel,
@@ -73,7 +69,10 @@ import {
 import { getMessagingAdapterRegistry } from "@/utils/messaging/chat-sdk/adapters";
 import { markdownToTelegramText } from "@/utils/messaging/providers/telegram/format";
 import { getMessagingRoute } from "@/utils/messaging/routes";
-import { getEmailUrlForOptionalMessage } from "@/utils/url";
+import {
+  getEmailUrlForOptionalMessage,
+  getOpenInMailboxLabel,
+} from "@/utils/url";
 import {
   attachmentSourceInputSchema,
   selectedAttachmentSchema,
@@ -125,6 +124,7 @@ type NotificationOpenLink = {
 };
 
 type NotificationEmailPreview = {
+  externalUrl?: string;
   headers: {
     from: string;
     subject: string;
@@ -429,7 +429,7 @@ async function sendSlackRuleNotificationWithContext({
     actionId: context.id,
     actionType: context.type,
     content,
-    openLink: getNotificationOpenLink(context),
+    openLink: getNotificationOpenLink(context, email.externalUrl),
   });
 
   try {
@@ -646,7 +646,7 @@ async function sendTelegramRuleNotificationWithContext({
       buildTelegramNotificationCard({
         actionId: context.id,
         content,
-        openLink: getNotificationOpenLink(context),
+        openLink: getNotificationOpenLink(context, email.externalUrl),
       }),
     );
 
@@ -1074,7 +1074,10 @@ async function sendDraftReplyFromNotification({
     card: buildHandledNotificationCardForProvider({
       provider: context.messagingChannel?.provider,
       content: notificationContent,
-      openLink: getNotificationOpenLink(context),
+      openLink: getNotificationOpenLink(
+        context,
+        sourceMessageSummary.externalUrl,
+      ),
       status: "Reply sent. ✅",
     }),
   });
@@ -1767,6 +1770,7 @@ async function getSourceMessageSummaryForProvider({
     textPlain: message.textPlain,
     textHtml: message.textHtml,
     attachments: message.attachments,
+    externalUrl: message.externalUrl,
   };
 }
 
@@ -2221,13 +2225,10 @@ function getInfoNotificationTitle(systemType: SystemType | null) {
 
 function getNotificationOpenLink(
   context: NotificationContext,
+  externalUrl?: string,
 ): NotificationOpenLink | null {
   const provider = context.executedRule.emailAccount.account.provider;
-  const label = isGoogleProvider(provider)
-    ? "Open in Gmail"
-    : isMicrosoftProvider(provider)
-      ? "Open in Outlook"
-      : null;
+  const label = getOpenInMailboxLabel(provider);
   if (!label) return null;
 
   const url = getEmailUrlForOptionalMessage({
@@ -2235,6 +2236,7 @@ function getNotificationOpenLink(
     threadId: context.executedRule.threadId,
     emailAddress: context.executedRule.emailAccount.email,
     provider,
+    externalUrl,
   });
   if (!url) return null;
 
@@ -2663,6 +2665,8 @@ function getNotificationTitleForSystemType(
       return "👀 FYI for you";
     case SystemType.NOTIFICATION:
       return "🔔 New notification for you";
+    case SystemType.OTP:
+      return "🔐 New sign-in code for you";
     default:
       return "📬 New email for you";
   }

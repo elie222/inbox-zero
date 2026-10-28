@@ -49,6 +49,7 @@ export function createMockEmailProvider(
     // Message operations
     getMessage: vi.fn().mockResolvedValue(defaultMessage),
     getMessageByRfc822MessageId: vi.fn().mockResolvedValue(null),
+    getMessageSource: vi.fn().mockResolvedValue(Buffer.from("")),
     getMessagesBatch: vi.fn().mockResolvedValue([defaultMessage]),
     getOriginalMessage: vi.fn().mockResolvedValue(null),
 
@@ -91,6 +92,7 @@ export function createMockEmailProvider(
       .fn()
       .mockResolvedValue({ messages: [], nextPageToken: undefined }),
     searchContacts: vi.fn().mockResolvedValue([]),
+    getContactPhotos: vi.fn().mockResolvedValue({}),
     getMessagesFromSender: vi
       .fn()
       .mockResolvedValue({ messages: [], nextPageToken: undefined }),
@@ -161,6 +163,7 @@ export function createMockEmailProvider(
 
     // Filters
     getFiltersList: vi.fn().mockResolvedValue([]),
+    getForwardingAddresses: vi.fn().mockResolvedValue([]),
     createFilter: vi.fn().mockResolvedValue({ status: 200 }),
     deleteFilter: vi.fn().mockResolvedValue({ status: 200 }),
     createAutoArchiveFilter: vi.fn().mockResolvedValue({ status: 200 }),
@@ -176,6 +179,7 @@ export function createMockEmailProvider(
     isReplyInThread: vi.fn().mockReturnValue(false),
     isSentMessage: vi.fn().mockReturnValue(false),
     getOrCreateFolderIdByName: vi.fn().mockResolvedValue("folder-123"),
+    getSendAsAddresses: vi.fn().mockResolvedValue([]),
     getSignatures: vi.fn().mockResolvedValue([]),
     getInboxStats: vi.fn().mockResolvedValue({ total: 0, unread: 0 }),
 

@@ -43,7 +43,6 @@ export const createBookingLinkBody = z.object({
   title: z.string().trim().min(1, "Title is required").max(120),
   slug: slugSchema,
   description: z.string().trim().max(1000).optional().or(z.literal("")),
-  timezone: timezoneSchema,
   durationMinutes: positiveMinutesSchema.max(24 * 60).default(30),
   videoEnabled: z.boolean().default(true),
   destinationCalendarId: z.string().optional().nullable(),
@@ -120,7 +119,6 @@ const bookingWindowsSchema = z
 
 export const updateBookingAvailabilityBody = z.object({
   bookingLinkId: z.string(),
-  timezone: timezoneSchema,
   minimumNoticeMinutes: nonNegativeMinutesSchema.max(365 * 24 * 60),
   windows: bookingWindowsSchema,
 });
@@ -129,7 +127,6 @@ export type UpdateBookingAvailabilityBody = z.infer<
 >;
 
 export const updateDefaultAvailabilityBody = z.object({
-  timezone: timezoneSchema,
   windows: bookingWindowsSchema,
 });
 export type UpdateDefaultAvailabilityBody = z.infer<

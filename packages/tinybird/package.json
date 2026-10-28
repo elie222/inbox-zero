@@ -2,14 +2,18 @@
   "name": "@inboxzero/tinybird",
   "version": "0.0.0",
   "main": "src/index.ts",
+  "scripts": {
+    "test": "vitest run"
+  },
   "dependencies": {
     "@chronark/zod-bird": "1.0.0",
-    "p-retry": "8.0.0",
+    "p-retry": "8.0.1",
     "zod": "4.2.1"
   },
   "devDependencies": {
     "@types/node": "24.10.1",
     "tsconfig": "workspace:*",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "vitest": "5.0.5"
   }
 }

@@ -28,7 +28,6 @@ import {
   PromptInputTextarea,
   PromptInputSubmit,
 } from "@/components/ai-elements/prompt-input";
-import { useLocalStorage } from "usehooks-ts";
 import { useSession } from "@/utils/auth-client";
 import type { UseChatHelpers } from "@ai-sdk/react";
 import type { ChatMessage } from "@/components/assistant-chat/types";
@@ -40,8 +39,10 @@ import {
   getChatHistoryLabel,
 } from "@/components/assistant-chat/chat-history-types";
 import { RenameChatDialog } from "@/components/assistant-chat/RenameChatDialog";
-import { randomUuid } from "@/utils/uuid";
 import { DeleteChatDialog } from "@/components/assistant-chat/DeleteChatDialog";
+import { randomUuid } from "@/utils/uuid";
+import { VoiceInput } from "@/components/voice/VoiceInput";
+import { liveHistoryFromUiMessages } from "@/utils/voice/live-history";
 
 const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
 const MAX_FILES = 5;
@@ -72,12 +73,10 @@ export function Chat({
     setContext,
     attachments,
     setAttachments,
+    submitTextMessage,
+    stop,
   } = useChat();
-  const { messages, status, stop, regenerate, setMessages } = chat;
-  const [localStorageInput, setLocalStorageInput] = useLocalStorage(
-    "input",
-    "",
-  );
+  const { messages, status, regenerate, setMessages } = chat;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadQueue, setUploadQueue] = useState<string[]>([]);
 
@@ -87,18 +86,18 @@ export function Chat({
     }
   }, [open, chatId, messages.length, setNewChat, status]);
 
-  // Sync input with localStorage
-  useEffect(() => {
-    setLocalStorageInput(input);
-  }, [input, setLocalStorageInput]);
-
-  // Load from localStorage on mount
+  // Must run before the save effect below, which would overwrite the draft.
   // biome-ignore lint/correctness/useExhaustiveDependencies: Only run on mount
   useEffect(() => {
-    if (localStorageInput) {
-      setInput(localStorageInput);
-    }
+    const savedInput = readDraftInput();
+    if (savedInput) setInput(savedInput);
   }, []);
+
+  // Persist without setting state: a state update here queued an extra render
+  // per keystroke, and fast text entry tripped React's update-depth guard.
+  useEffect(() => {
+    saveDraftInput(input);
+  }, [input]);
 
   const readFileAsDataUrl = useCallback(
     (file: File): Promise<Attachment | undefined> =>
@@ -230,7 +229,7 @@ export function Chat({
           setInput(e.currentTarget.value)
         }
         onPaste={handlePaste}
-        className="pr-24"
+        className="pr-48"
       />
 
       <input
@@ -244,13 +243,30 @@ export function Chat({
       />
 
       <div className="absolute bottom-2 right-2 flex items-center gap-1">
+        <VoiceInput
+          liveEnabled
+          liveHistory={liveHistoryFromUiMessages(messages)}
+          onInsert={(text) => {
+            setInput(input.trim() ? `${input.trim()} ${text}` : text);
+          }}
+          onSend={(text) => {
+            analytics.captureAction("chat_message_submitted", {
+              has_text: true,
+              attachment_count: attachments.length,
+              has_context: Boolean(context),
+              message_count: messages.length,
+              via_voice: true,
+            });
+            submitTextMessage(text).catch(() => undefined);
+          }}
+        />
         <Tooltip content="Attach images">
           <Button
             type="button"
-            variant="ghost"
+            variant="ghostMuted"
             size="icon"
             aria-label="Attach images"
-            className="size-9 rounded-full text-muted-foreground hover:text-foreground"
+            className="size-9 rounded-full"
             onClick={() => {
               analytics.captureAction("chat_attach_button_clicked", {
                 attachment_count: attachments.length,
@@ -324,7 +340,7 @@ export function Chat({
               role: "user",
               parts: [{ type: "text", text }],
             });
-            setLocalStorageInput("");
+            saveDraftInput("");
           }}
         />
       )}
@@ -593,4 +609,24 @@ function getGreeting(firstName: string | undefined): string {
   if (hour < 12) return `Good morning${name}`;
   if (hour < 18) return `Good afternoon${name}`;
   return `Good evening${name}`;
+}
+
+const DRAFT_INPUT_STORAGE_KEY = "input";
+
+function readDraftInput(): string {
+  try {
+    const stored = window.localStorage.getItem(DRAFT_INPUT_STORAGE_KEY);
+    const value: unknown = stored ? JSON.parse(stored) : "";
+    return typeof value === "string" ? value : "";
+  } catch {
+    return "";
+  }
+}
+
+function saveDraftInput(value: string) {
+  try {
+    window.localStorage.setItem(DRAFT_INPUT_STORAGE_KEY, JSON.stringify(value));
+  } catch {
+    // Storage can be full or blocked; the draft just won't survive a reload.
+  }
 }

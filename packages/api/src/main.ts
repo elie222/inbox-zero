@@ -16,6 +16,7 @@ import type {
   RuleResponse,
   RulesResponse,
   StatsByPeriodResponse,
+  UnsubscribeSenderResponse,
 } from "./api-types";
 import { readJsonInput } from "./io";
 import {
@@ -49,6 +50,7 @@ async function main() {
   addOpenApiCommand();
   addRuleCommands();
   addStatsCommands();
+  addSenderCommands();
 
   await program.parseAsync(process.argv);
 }
@@ -264,6 +266,39 @@ function addStatsCommands() {
       }
 
       printResponseTime(response);
+    });
+}
+
+function addSenderCommands() {
+  const senders = program
+    .command("senders")
+    .description("Manage senders for the scoped inbox account");
+
+  senders
+    .command("unsubscribe <email>")
+    .description("Unsubscribe from a sender")
+    .option("--json", "Print JSON output")
+    .action(async (senderEmail: string, options) => {
+      const client = createClient(program.optsWithGlobals() as ProgramOptions);
+      const response = await client.post<UnsubscribeSenderResponse>(
+        "/senders/unsubscribe",
+        JSON.stringify({ senderEmail }),
+      );
+
+      if (options.json) {
+        printJson(response);
+      } else if (response.unsubscribe.success) {
+        process.stdout.write(`Unsubscribed ${response.senderEmail}\n`);
+      } else {
+        process.stderr.write(
+          `Could not unsubscribe ${response.senderEmail}` +
+            (response.unsubscribe.reason
+              ? ` (${response.unsubscribe.reason})`
+              : "") +
+            "\n",
+        );
+      }
+      if (!response.unsubscribe.success) process.exitCode = 1;
     });
 }
 

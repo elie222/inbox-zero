@@ -18,8 +18,18 @@ import { BriefsOnboarding } from "@/app/(app)/[emailAccountId]/briefs/Onboarding
 import { IntegrationsSetting } from "@/app/(app)/[emailAccountId]/briefs/IntegrationsSetting";
 import { DeliveryChannelsSetting } from "@/app/(app)/[emailAccountId]/briefs/DeliveryChannelsSetting";
 import { useProductAnalytics } from "@/hooks/useProductAnalytics";
+import { TimezoneDetector } from "@/components/TimezoneDetector";
 
 export default function MeetingBriefsPage() {
+  return (
+    <>
+      <TimezoneDetector />
+      <MeetingBriefsPageContent />
+    </>
+  );
+}
+
+function MeetingBriefsPageContent() {
   const { emailAccountId } = useAccount();
   const analytics = useProductAnalytics("meeting_briefs");
   const { data: calendarsData, isLoading: isLoadingCalendars } = useCalendars();

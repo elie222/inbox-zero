@@ -1,6 +1,7 @@
-import DOMPurify from "dompurify";
+import { sanitizeMailHtml } from "@inboxzero/mail-ui/sanitize-html";
 import { env } from "@/env";
 import { getImageProxyBaseUrl } from "@/utils/email/image-proxy-config";
+import { stripSentMessageOpenPixels } from "@/utils/email/sent-message-open/sent-message-open";
 
 export const IMAGE_PROXY_BASE_URL = getImageProxyBaseUrl({
   baseUrl: env.NEXT_PUBLIC_BASE_URL,
@@ -24,7 +25,7 @@ const inFlightPreparation = new Map<
 >();
 
 export function sanitizeEmailHtml(html: string) {
-  return DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
+  return sanitizeMailHtml(stripSentMessageOpenPixels(html));
 }
 
 export function getPreparedEmailHtml({

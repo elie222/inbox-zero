@@ -108,6 +108,8 @@ jobs:
             -p 3000:3000 \
             -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
             -e DIRECT_URL="${{ secrets.DIRECT_URL }}" \
+            -e REDIS_HTTP_URL="${{ secrets.REDIS_HTTP_URL || secrets.UPSTASH_REDIS_URL }}" \
+            -e REDIS_HTTP_TOKEN="${{ secrets.REDIS_HTTP_TOKEN || secrets.UPSTASH_REDIS_TOKEN }}" \
             -e UPSTASH_REDIS_URL="${{ secrets.UPSTASH_REDIS_URL }}" \
             -e UPSTASH_REDIS_TOKEN="${{ secrets.UPSTASH_REDIS_TOKEN }}" \
             -e REDIS_URL="${{ secrets.REDIS_URL }}" \
@@ -219,6 +221,8 @@ jobs:
           # Standard app secrets (reused from existing config)
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
+          REDIS_HTTP_URL: ${{ secrets.REDIS_HTTP_URL || secrets.UPSTASH_REDIS_URL }}
+          REDIS_HTTP_TOKEN: ${{ secrets.REDIS_HTTP_TOKEN || secrets.UPSTASH_REDIS_TOKEN }}
           UPSTASH_REDIS_URL: ${{ secrets.UPSTASH_REDIS_URL }}
           UPSTASH_REDIS_TOKEN: ${{ secrets.UPSTASH_REDIS_TOKEN }}
           UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
@@ -296,7 +300,7 @@ jobs:
           echo "Standard app secrets (same as production):"
           echo "  - DATABASE_URL, AUTH_SECRET, INTERNAL_API_KEY"
           echo "  - EMAIL_ENCRYPT_SECRET, EMAIL_ENCRYPT_SALT"
-          echo "  - UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN"
+          echo "  - REDIS_HTTP_URL, REDIS_HTTP_TOKEN (or legacy UPSTASH_REDIS_URL, UPSTASH_REDIS_TOKEN)"
           echo "  - GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET"
           echo "  - GOOGLE_PUBSUB_TOPIC_NAME, GOOGLE_PUBSUB_VERIFICATION_TOKEN"
           echo "  - MICROSOFT_CLIENT_ID, MICROSOFT_CLIENT_SECRET, MICROSOFT_WEBHOOK_CLIENT_STATE"

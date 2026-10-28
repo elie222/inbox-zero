@@ -80,6 +80,40 @@ describe("searchReplyContextEmails", () => {
     expect(results.length).toBeLessThanOrEqual(12);
   });
 
+  test("uses the provider to decide which distant thread messages were sent", async () => {
+    const threadMessages = Array.from({ length: 100 }, (_, index) =>
+      getMessage({
+        id: `message-${index + 1}`,
+        textPlain: `Generic thread message ${index + 1}`,
+      }),
+    );
+    const matchingMessage = getMessage({
+      id: "message-70",
+      textPlain: "The customer asks about a matching product issue.",
+    });
+    const opaqueFolderMessage = getMessage({
+      id: "message-10",
+      labelIds: [],
+      parentFolderId: "AAMkADsentAAA=",
+      textPlain: "A received message stored in a custom folder.",
+    });
+
+    threadMessages[69] = matchingMessage;
+    threadMessages[9] = opaqueFolderMessage;
+
+    const results = await searchReplyContextEmails({
+      emailProvider: getProvider({
+        searchResults: [matchingMessage],
+        threadMessages,
+      }),
+      query: "product issue",
+      after: new Date("2026-01-01T00:00:00Z"),
+      currentThread: [],
+    });
+
+    expect(results.map((email) => email.id)).not.toContain("message-10");
+  });
+
   test("keeps short historical threads intact", async () => {
     const threadMessages = [
       getMessage({ id: "message-1", textPlain: "Matching request" }),
@@ -155,6 +189,7 @@ describe("searchReplyContextEmails", () => {
       name: "google",
       getMessagesWithPagination,
       getThreadMessages,
+      isSentMessage: isSentLabelMessage,
     } as unknown as EmailProvider;
 
     await aiCollectReplyContext({
@@ -190,7 +225,12 @@ function getProvider({
       messages: searchResults,
     }),
     getThreadMessages: vi.fn().mockResolvedValue(threadMessages),
+    isSentMessage: isSentLabelMessage,
   } as unknown as EmailProvider;
+}
+
+function isSentLabelMessage(message: ParsedMessage) {
+  return message.labelIds?.includes("SENT") ?? false;
 }
 
 function getMessage({

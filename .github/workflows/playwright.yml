@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
     paths:
+      - "packages/mail-*/**"
+      - "packages/email-editor/**"
+      - "apps/desktop/**"
       - "apps/web/app/**"
       - "apps/web/components/**"
       - "apps/web/hooks/**"
@@ -17,6 +20,7 @@ on:
       - "apps/web/utils/playwright/**"
       - "apps/web/__tests__/playwright/**"
       - "apps/web/emulate.playwright.config.yaml"
+      - "apps/web/emulate.playwright.microsoft.yaml"
       - "apps/web/playwright.config.mjs"
       - "apps/web/scripts/generate-playwright-report-dashboard.ts"
       - "apps/web/scripts/playwright-report-dashboard*"
@@ -33,19 +37,20 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - "packages/mail-*/**"
+      - "packages/email-editor/**"
+      - "apps/desktop/**"
       - "apps/web/app/**"
       - "apps/web/components/**"
       - "apps/web/hooks/**"
       - "apps/web/providers/**"
       - "apps/web/store/**"
       - "apps/web/styles/**"
-      - "apps/web/utils/auth/**"
-      - "apps/web/utils/auth.ts"
-      - "apps/web/utils/auth-client.ts"
-      - "apps/web/utils/middleware.ts"
-      - "apps/web/utils/playwright/**"
+      - "apps/web/utils/**"
+      - "apps/web/lib/**"
       - "apps/web/__tests__/playwright/**"
       - "apps/web/emulate.playwright.config.yaml"
+      - "apps/web/emulate.playwright.microsoft.yaml"
       - "apps/web/playwright.config.mjs"
       - "apps/web/scripts/generate-playwright-report-dashboard.ts"
       - "apps/web/scripts/playwright-report-dashboard*"
@@ -70,11 +75,139 @@ concurrency:
   group: playwright-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+env:
+  PLAYWRIGHT_SKIP_REPORT_MERGE: "1"
+  NODE_ENV: development
+  NODE_OPTIONS: --max_old_space_size=6144
+  NEXT_PUBLIC_BASE_URL: http://localhost:3000
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+  AUTH_SECRET: secret
+  GOOGLE_CLIENT_ID: client_id
+  GOOGLE_CLIENT_SECRET: client_secret
+  GOOGLE_BASE_URL: http://localhost:4100
+  # Fixed so the shared build's CSP allows the Outlook emulator's upload origin.
+  MICROSOFT_BASE_URL: http://localhost:4101
+  GOOGLE_PUBSUB_TOPIC_NAME: topic
+  EMAIL_ENCRYPT_SECRET: secret
+  EMAIL_ENCRYPT_SALT: salt
+  INTERNAL_API_KEY: secret
+  # LLM calls go to the in-repo emulator. playwright.config.mjs wires the
+  # server env; this only satisfies env validation during the build.
+  DEFAULT_LLMS: openai-compatible:emulated
+  REDIS_HTTP_URL: http://localhost:8079
+  REDIS_HTTP_TOKEN: playwright-token
+  PLAYWRIGHT_PRODUCTION: "1"
+  # Public flags are frozen into the shared build. Match the enabled production UI.
+  NEXT_PUBLIC_EMAIL_SEND_ENABLED: "true"
+  NEXT_PUBLIC_MEETING_RECORDER_ENABLED: "true"
+  NEXT_PUBLIC_CONTACTS_ENABLED: "true"
+  NEXT_PUBLIC_MAIL_ENGINE_TEST_INSPECT: "true"
+  NEXT_PUBLIC_INTEGRATIONS_ENABLED: "true"
+  NEXT_PUBLIC_INTEGRATION_ACTION_ENABLED: "true"
+  NEXT_PUBLIC_EXTERNAL_API_ENABLED: "true"
+  # Stripe emulator price ids. The emulator accepts any id; these only have to
+  # match what the build was frozen with so the tier lookup resolves.
+  NEXT_PUBLIC_STRIPE_BUSINESS_MONTHLY_PRICE_ID: price_playwright_starter_monthly
+  NEXT_PUBLIC_STRIPE_BUSINESS_ANNUALLY_PRICE_ID: price_playwright_starter_annually
+  NEXT_PUBLIC_STRIPE_PLUS_MONTHLY_PRICE_ID: price_playwright_plus_monthly
+  NEXT_PUBLIC_STRIPE_PLUS_ANNUALLY_PRICE_ID: price_playwright_plus_annually
+  NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_MONTHLY_PRICE_ID: price_playwright_professional_monthly
+  NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_ANNUALLY_PRICE_ID: price_playwright_professional_annually
+
 jobs:
-  playwright:
-    name: Web E2E
+  select:
+    name: Select specs and build browser app
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    timeout-minutes: 10
+    outputs:
+      batches: ${{ steps.targets.outputs.batches }}
+      changed_tests: ${{ steps.changes.outputs.PLAYWRIGHT_CHANGED_TEST_FILES }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Find changed files
+        id: changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+
+          changed_files_path="$RUNNER_TEMP/changed-files.txt"
+          changed_test_files_path="$RUNNER_TEMP/changed-playwright-files.txt"
+          : > "$changed_files_path"
+          : > "$changed_test_files_path"
+
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]] &&
+            [[ -n "$BASE_SHA" ]] &&
+            [[ "$BASE_SHA" != "0000000000000000000000000000000000000000" ]]; then
+            git fetch --no-tags --depth=1 origin "$BASE_SHA"
+            git diff --name-only --diff-filter=ACMRD "$BASE_SHA" "$GITHUB_SHA" \
+              > "$changed_files_path"
+            grep '^apps/web/__tests__/playwright/' "$changed_files_path" | \
+              sed 's#^apps/web/##' > "$changed_test_files_path" || true
+          fi
+
+          delimiter="PLAYWRIGHT_FILES_$(openssl rand -hex 16)"
+          {
+            echo "PLAYWRIGHT_CHANGED_FILES<<$delimiter"
+            cat "$changed_files_path"
+            echo "$delimiter"
+            echo "PLAYWRIGHT_CHANGED_TEST_FILES<<$delimiter"
+            cat "$changed_test_files_path"
+            echo "$delimiter"
+          } | tee -a "$GITHUB_ENV" >> "$GITHUB_OUTPUT"
+
+      # Checkout's recursive auth cleanup fails on this repository's unmapped gitlink.
+      - name: Remove checkout credentials
+        run: git config --local --unset-all "http.${GITHUB_SERVER_URL}/.extraheader"
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Install dependencies
+        run: bash scripts/pnpm-install-without-desktop.sh --frozen-lockfile
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+      - name: Select isolated spec batches
+        id: targets
+        working-directory: apps/web
+        run: |
+          batches="$(node __tests__/playwright/run-emulated-suite.mjs --list-batches)"
+          echo "batches=$batches" >> "$GITHUB_OUTPUT"
+
+      - name: Build browser app once
+        if: steps.targets.outputs.batches != '[]'
+        run: pnpm -F inbox-zero-ai build:ci
+        env:
+          NODE_ENV: production
+          NODE_OPTIONS: --max_old_space_size=16384
+          SKIP_TYPE_CHECK: "true"
+
+      - name: Package browser app
+        if: steps.targets.outputs.batches != '[]'
+        working-directory: apps/web
+        run: tar --exclude='.next/cache' -cf "$RUNNER_TEMP/playwright-app.tar" .next public/sw*
+
+      - name: Upload browser app
+        if: steps.targets.outputs.batches != '[]'
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-app-${{ github.run_id }}
+          path: ${{ runner.temp }}/playwright-app.tar
+          compression-level: 1
+          retention-days: 1
+          overwrite: true
+          if-no-files-found: error
+
+  playwright:
+    name: E2E ${{ matrix.batch.name }} (${{ matrix.batch.provider }})
+    needs: select
+    if: needs.select.outputs.batches != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        batch: ${{ fromJSON(needs.select.outputs.batches) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ matrix.batch.timeoutMinutes }}
     services:
       postgres:
         image: postgres:16
@@ -106,70 +239,32 @@ jobs:
           - 8079:80
 
     env:
-      NODE_ENV: development
-      NODE_OPTIONS: --max_old_space_size=6144
-      NEXT_PUBLIC_BASE_URL: http://localhost:3000
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
-      AUTH_SECRET: secret
-      GOOGLE_CLIENT_ID: client_id
-      GOOGLE_CLIENT_SECRET: client_secret
-      GOOGLE_BASE_URL: http://localhost:4100
-      GOOGLE_PUBSUB_TOPIC_NAME: topic
-      EMAIL_ENCRYPT_SECRET: secret
-      EMAIL_ENCRYPT_SALT: salt
-      INTERNAL_API_KEY: secret
-      DEFAULT_LLMS: openai:gpt-5.4-mini
-      UPSTASH_REDIS_URL: http://localhost:8079
-      UPSTASH_REDIS_TOKEN: playwright-token
+      PLAYWRIGHT_CHANGED_TEST_FILES: ${{ needs.select.outputs.changed_tests }}
+      PLAYWRIGHT_MAIL_PROVIDER: ${{ matrix.batch.provider }}
+      MAIL_REQUIRE_ELECTRON: ${{ contains(join(matrix.batch.paths, ' '), 'hosted-electron-') && '1' || '0' }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Find changed files
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: |
-          set -euo pipefail
+      - name: Remove checkout credentials
+        run: git config --local --unset-all "http.${GITHUB_SERVER_URL}/.extraheader"
 
-          changed_files_path="$RUNNER_TEMP/changed-files.txt"
-          changed_test_files_path="$RUNNER_TEMP/changed-playwright-files.txt"
-          : > "$changed_files_path"
-          : > "$changed_test_files_path"
-
-          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]] &&
-            [[ -n "$BASE_SHA" ]] &&
-            [[ "$BASE_SHA" != "0000000000000000000000000000000000000000" ]]; then
-            git fetch --no-tags --depth=1 origin "$BASE_SHA"
-            git diff --name-only --diff-filter=ACMRD "$BASE_SHA" "$GITHUB_SHA" \
-              > "$changed_files_path"
-            grep '^apps/web/__tests__/playwright/' "$changed_files_path" | \
-              sed 's#^apps/web/##' > "$changed_test_files_path" || true
-          fi
-
-          delimiter="PLAYWRIGHT_FILES_$(openssl rand -hex 16)"
-          {
-            echo "PLAYWRIGHT_CHANGED_FILES<<$delimiter"
-            cat "$changed_files_path"
-            echo "$delimiter"
-            echo "PLAYWRIGHT_CHANGED_TEST_FILES<<$delimiter"
-            cat "$changed_test_files_path"
-            echo "$delimiter"
-          } >> "$GITHUB_ENV"
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: "24"
-          cache: pnpm
 
       - name: Install dependencies
-        run: bash scripts/pnpm-install-without-desktop.sh --frozen-lockfile
+        run: pnpm install --frozen-lockfile
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+          ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+
+      - name: Install required Electron runtime
+        if: env.MAIL_REQUIRE_ELECTRON == '1'
+        working-directory: apps/desktop
+        run: node node_modules/electron/install.js
 
       - name: Setup Playwright cache
         uses: actions/cache@v4
@@ -185,14 +280,93 @@ jobs:
       - name: Install Playwright browser
         run: pnpm -F inbox-zero-ai exec playwright install --with-deps chromium
 
+      - name: Download browser app
+        uses: actions/download-artifact@v4
+        with:
+          name: playwright-app-${{ github.run_id }}
+          path: ${{ runner.temp }}
+
+      - name: Unpack browser app
+        working-directory: apps/web
+        run: tar -xf "$RUNNER_TEMP/playwright-app.tar"
+
       - name: Run Playwright tests
         id: playwright_tests
-        run: pnpm -F inbox-zero-ai test:playwright:emulated
+        shell: bash
+        run: |
+          mapfile -t targets < <(jq -r '.[]' <<< "$TEST_TARGETS")
+          xvfb-run -a pnpm -F inbox-zero-ai test:playwright:emulated "${targets[@]}"
+        env:
+          TEST_TARGETS: ${{ toJSON(matrix.batch.paths) }}
 
       - name: Upload Playwright artifacts
-        if: >-
-          always() &&
-          (github.event_name == 'pull_request' || github.ref == 'refs/heads/main')
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-spec-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.batch.name }}-${{ matrix.batch.provider }}
+          path: |
+            apps/web/.tmp/playwright/blob-report
+            apps/web/test-results
+          include-hidden-files: true
+          compression-level: 1
+          retention-days: 7
+          if-no-files-found: warn
+
+  result:
+    name: Web E2E
+    needs: [select, playwright]
+    if: ${{ always() && !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: Require every selected spec to pass
+        if: always()
+        env:
+          SELECTION_RESULT: ${{ needs.select.result }}
+          TARGETS: ${{ needs.select.outputs.batches }}
+          TEST_RESULT: ${{ needs.playwright.result }}
+        run: |
+          test "$SELECTION_RESULT" = success
+          if [ "$TARGETS" != "[]" ]; then
+            test "$TEST_RESULT" = success
+          fi
+
+  report:
+    name: Browser report
+    needs: [select, playwright]
+    if: ${{ always() && !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Remove checkout credentials
+        run: git config --local --unset-all "http.${GITHUB_SERVER_URL}/.extraheader"
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Install dependencies
+        run: bash scripts/pnpm-install-without-desktop.sh --frozen-lockfile
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+      - name: Download spec reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: playwright-spec-${{ github.run_id }}-${{ github.run_attempt }}-*
+          path: apps/web
+          merge-multiple: true
+      - name: Merge browser reports
+        shell: bash
+        run: |
+          if compgen -G 'apps/web/.tmp/playwright/blob-report/*.zip' > /dev/null; then
+            pnpm -F inbox-zero-ai exec playwright merge-reports --reporter=html .tmp/playwright/blob-report
+          else
+            echo "No browser targets were selected."
+          fi
+        env:
+          PLAYWRIGHT_HTML_OPEN: never
+      - name: Upload Playwright artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-artifacts-${{ github.run_id }}-${{ github.run_attempt }}

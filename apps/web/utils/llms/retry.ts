@@ -1,5 +1,6 @@
 import "server-only";
 
+import { RetryError } from "ai";
 import pRetry from "p-retry";
 import { createScopedLogger } from "@/utils/logger";
 import { sleep } from "@/utils/sleep";
@@ -157,7 +158,10 @@ interface LLMErrorInfo {
 export function extractLLMErrorInfo(error: unknown): LLMErrorInfo {
   // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   const err = error as any;
-  const original = err?.error ?? err;
+  const wrappedError = err?.error ?? err;
+  const original = RetryError.isInstance(wrappedError)
+    ? wrappedError.lastError
+    : wrappedError;
   const cause = original?.cause ?? original;
 
   const status: number | undefined =
@@ -237,21 +241,21 @@ export async function withLLMRetry<T>(
   return pRetry(operation, {
     retries: maxRetries,
     minTimeout: 0,
-    onFailedAttempt: async (error) => {
+    onFailedAttempt: async ({ error, attemptNumber }) => {
       const errorInfo = extractLLMErrorInfo(error);
 
       if (!errorInfo.retryable) {
         throw error;
       }
 
-      const baseDelayMs = 2000 * 2 ** (error.attemptNumber - 1);
+      const baseDelayMs = 2000 * 2 ** (attemptNumber - 1);
       const delayMs = errorInfo.retryAfterMs ?? Math.min(baseDelayMs, 60_000);
       const jitter = Math.random() * 0.1 * delayMs;
       const totalDelayMs = delayMs + jitter;
 
       logger.warn("LLM rate limit error, retrying", {
         label,
-        attemptNumber: error.attemptNumber,
+        attemptNumber,
         maxRetries,
         delayMs: Math.round(totalDelayMs),
         isRateLimit: errorInfo.isRateLimit,

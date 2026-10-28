@@ -2,9 +2,9 @@ import type { ModelMessage } from "ai";
 import { afterAll, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   captureAssistantChatTrace,
+  hasAssistantWriteToolCalls,
   getFirstMatchingToolCall,
   summarizeRecordedToolCalls,
-  type RecordedToolCall,
 } from "@/__tests__/eval/assistant-chat-eval-utils";
 import {
   describeEvalMatrix,
@@ -231,7 +231,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat rule diagnosis", () => {
         const pass =
           !!executionCall &&
           executionCall.input.messageId === diagnosisMessage.id &&
-          !hasWriteToolCalls(trace.toolCalls) &&
+          !hasAssistantWriteToolCalls(trace.toolCalls) &&
           !!diagnosisJudge?.pass &&
           queriedExecutionForMessage(emailAccount.id);
 
@@ -292,7 +292,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat rule diagnosis", () => {
         const pass =
           !!executionCall &&
           executionCall.input.messageId === diagnosisMessage.id &&
-          !hasWriteToolCalls(trace.toolCalls) &&
+          !hasAssistantWriteToolCalls(trace.toolCalls) &&
           !!diagnosisJudge?.pass &&
           queriedExecutionForMessage(emailAccount.id);
 
@@ -349,26 +349,6 @@ function queriedExecutionForMessage(emailAccountId: string) {
 
 function getAssistantText(trace: Awaited<ReturnType<typeof runAssistantChat>>) {
   return trace.stepTexts.join("\n\n").trim() || trace.finalText.trim();
-}
-
-function hasWriteToolCalls(toolCalls: RecordedToolCall[]) {
-  const writeToolNames = new Set([
-    "manageInbox",
-    "createRule",
-    "updateRule",
-    "updateRuleConditions",
-    "updateRuleActions",
-    "updateLearnedPatterns",
-    "updatePersonalInstructions",
-    "updateAssistantSettings",
-    "sendEmail",
-    "replyEmail",
-    "forwardEmail",
-    "saveMemory",
-    "addToKnowledgeBase",
-  ]);
-
-  return toolCalls.some((toolCall) => writeToolNames.has(toolCall.toolName));
 }
 
 function formatActual(

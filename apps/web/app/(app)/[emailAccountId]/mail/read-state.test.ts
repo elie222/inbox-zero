@@ -1,12 +1,37 @@
 import { describe, expect, it } from "vitest";
 import type { ListThread } from "./types";
-import { isThreadUnread, withThreadReadState } from "./read-state";
+import {
+  isThreadArchived,
+  isThreadInInbox,
+  isThreadUnread,
+  withThreadReadState,
+} from "./read-state";
 
 describe("thread read state", () => {
   it("is unread when any message in the thread is unread", () => {
     const thread = createThread([["INBOX", "UNREAD"], ["DRAFT"]]);
 
     expect(isThreadUnread(thread.messages)).toBe(true);
+    expect(isThreadInInbox(thread.messages)).toBe(true);
+  });
+
+  it("is in the inbox when any message still has INBOX", () => {
+    const thread = createThread([["UNREAD"], ["INBOX"]]);
+
+    expect(isThreadInInbox(thread.messages)).toBe(true);
+    expect(isThreadInInbox(createThread([["UNREAD"]]).messages)).toBe(false);
+  });
+
+  it("is archived only when no message is in the inbox, trash or spam", () => {
+    expect(
+      isThreadArchived(createThread([["SENT"], ["UNREAD"]]).messages),
+    ).toBe(true);
+    expect(isThreadArchived(createThread([["SENT"], ["INBOX"]]).messages)).toBe(
+      false,
+    );
+    expect(isThreadArchived(createThread([["TRASH"]]).messages)).toBe(false);
+    expect(isThreadArchived(createThread([["SPAM"]]).messages)).toBe(false);
+    expect(isThreadArchived([])).toBe(false);
   });
 
   it("removes the unread label from every message", () => {

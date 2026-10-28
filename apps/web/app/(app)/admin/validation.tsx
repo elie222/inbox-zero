@@ -3,9 +3,9 @@ import { PremiumTier } from "@/generated/prisma/enums";
 
 export const changePremiumStatusSchema = z.object({
   email: z.string().email(),
-  emailAccountsAccess: z.number().optional(),
+  emailAccountsAccess: z.number().int().positive().optional(),
   period: z.nativeEnum(PremiumTier),
-  count: z.number().optional(),
+  count: z.number().int().positive().optional(),
   upgrade: z.boolean(),
 });
 export type ChangePremiumStatusOptions = z.infer<

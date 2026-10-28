@@ -48,7 +48,7 @@ vi.mock("@/store/fetch-sender-threads", () => ({
   fetchAllSenderThreads: fetchAllSenderThreadsMock,
 }));
 
-vi.mock("@/utils/email-cache/thread-mail-mutations", () => ({
+vi.mock("@/utils/mail-engine/thread-mail-mutations", () => ({
   enqueueThreadMailMutationBatch: enqueueThreadMailMutationBatchMock,
 }));
 
@@ -144,6 +144,7 @@ describe("bulk unsubscribe hooks", () => {
 
       expect(fetchAllSenderThreadsMock).toHaveBeenCalledWith({
         sender: SENDER,
+        scope: "all",
         emailAccountId: EMAIL_ACCOUNT_ID,
       });
       expect(enqueueThreadMailMutationBatchMock).toHaveBeenCalledWith({
@@ -350,6 +351,29 @@ describe("bulk unsubscribe hooks", () => {
         }),
       );
     });
+
+    it("counts a sender that rejects automatic unsubscribe as a failure without reporting it", async () => {
+      unsubscribeSenderActionMock.mockResolvedValue({
+        data: { unsubscribe: { success: false } },
+      });
+
+      const { result } = renderHook(() =>
+        useBulkUnsubscribe({ ...sharedHookArgs, filter: "all" }),
+      );
+
+      let outcome: Awaited<ReturnType<typeof result.current.onBulkUnsubscribe>>;
+      await act(async () => {
+        outcome = await result.current.onBulkUnsubscribe([
+          getRow({ unsubscribeLink: "https://example.com/unsubscribe" }),
+        ]);
+      });
+
+      expect(outcome!).toEqual(
+        expect.objectContaining({ successCount: 0, failureCount: 1 }),
+      );
+      expect(captureExceptionMock).not.toHaveBeenCalled();
+      expect(decrementCreditMock).not.toHaveBeenCalled();
+    });
   });
 
   describe("useApproveButton", () => {
@@ -473,6 +497,10 @@ describe("bulk unsubscribe hooks", () => {
 
       expect(toastErrorMock).toHaveBeenCalledWith(
         EMAIL_PROVIDER_RATE_LIMIT_MESSAGE,
+        // The sender was not unsubscribed, so their own page is still offered.
+        expect.objectContaining({
+          action: expect.objectContaining({ label: "Open page" }),
+        }),
       );
       expect(captureExceptionMock).not.toHaveBeenCalled();
       expect(queueArchiveSendersMock).not.toHaveBeenCalled();

@@ -172,6 +172,7 @@ export async function runEvalSuite<
   describeOutput,
   confidenceOf,
   caseFingerprintOf,
+  cacheFingerprintOf,
   judgeIdentity,
   model,
   variantId = defaultVariantId(),
@@ -202,6 +203,8 @@ export async function runEvalSuite<
    * be supplied: omitting either could reuse a verdict for different evidence.
    */
   caseFingerprintOf?: (evalCase: TCase) => string;
+  /** Cache dependencies may change across comparable runs of the same case. */
+  cacheFingerprintOf?: (evalCase: TCase) => string;
   judgeIdentity?: EvalJudgeIdentity;
   model: string;
   variantId?: string;
@@ -237,6 +240,7 @@ export async function runEvalSuite<
       describeOutput,
       confidenceOf,
       caseFingerprintOf,
+      cacheFingerprintOf,
       judgeFingerprint,
       codeFingerprint,
       environmentFingerprint,
@@ -297,6 +301,7 @@ async function runOne<
   describeOutput,
   confidenceOf,
   caseFingerprintOf,
+  cacheFingerprintOf,
   judgeFingerprint,
   codeFingerprint,
   environmentFingerprint,
@@ -309,6 +314,7 @@ async function runOne<
   timeoutMs: number;
   confidenceOf?: (output: TOutput) => string | null;
   caseFingerprintOf?: (evalCase: TCase) => string;
+  cacheFingerprintOf?: (evalCase: TCase) => string;
   judgeFingerprint?: string;
   codeFingerprint: string;
   environmentFingerprint: string;
@@ -351,7 +357,7 @@ async function runOne<
   const cacheKey =
     caseFingerprint !== null && judgeFingerprint
       ? buildCacheKey({
-          caseFingerprint,
+          caseFingerprint: cacheFingerprintOf?.(evalCase) ?? caseFingerprint,
           judgeFingerprint,
           environmentFingerprint,
           model,

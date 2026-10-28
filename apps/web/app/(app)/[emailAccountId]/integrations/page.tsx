@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/item";
 import { cn } from "@/utils";
 import { RequestAccessDialog } from "./RequestAccessDialog";
+import { AddCustomMcpServerDialog } from "./AddCustomMcpServerDialog";
 import { usePremium } from "@/hooks/usePremium";
 import { hasTierAccess } from "@/utils/premium";
 import { IntegrationsPremiumAlert } from "./IntegrationsPremiumAlert";
@@ -67,13 +68,14 @@ export default function IntegrationsPage() {
 
   return (
     <PageWrapper>
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
         <PageHeader
           title="Integrations"
           description="Connect the tools you already use."
         />
         {hasAccess && (
-          <div className="shrink-0">
+          <div className="flex flex-wrap items-center gap-2 sm:shrink-0 sm:flex-nowrap">
+            <AddCustomMcpServerDialog />
             <RequestAccessDialog
               trigger={
                 <Button variant="outline">Request an Integration</Button>

@@ -102,6 +102,68 @@ describe("createRuleTool overlap guard", () => {
     ]);
   });
 
+  it.each([
+    "google",
+    "microsoft",
+  ])("preserves requested archive delays for %s", async (provider) => {
+    const result = await createRuleTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-id",
+      provider,
+      logger,
+    }).execute({
+      name: "Archive invoices tomorrow",
+      condition: {
+        aiInstructions: "Invoices",
+        static: null,
+        conditionalOperator: null,
+      },
+      actions: [
+        { type: ActionType.ARCHIVE, fields: null, delayInMinutes: 1440 },
+      ],
+    });
+    expect(result.success).toBe(true);
+    expect(mockCreateRule).toHaveBeenCalledWith(
+      expect.objectContaining({
+        result: expect.objectContaining({
+          actions: [expect.objectContaining({ delayInMinutes: 1440 })],
+        }),
+      }),
+    );
+  });
+
+  it("waits for confirmation instead of creating a risky rule", async () => {
+    mockActionsNeedChatRiskConfirmation.mockReturnValue({
+      needsConfirmation: true,
+      riskMessages: ["Review the generated recipients and content"],
+    });
+    const result = await createRuleTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-id",
+      provider: "google",
+      logger,
+    }).execute({
+      name: "Forward invoices",
+      condition: {
+        aiInstructions: "Invoices",
+        static: null,
+        conditionalOperator: null,
+      },
+      actions: [
+        {
+          type: ActionType.FORWARD,
+          fields: { to: "{{invoice destination}}" },
+          delayInMinutes: null,
+        },
+      ],
+    });
+    expect(result).toMatchObject({
+      requiresConfirmation: true,
+      confirmationState: "pending",
+    });
+    expect(mockCreateRule).not.toHaveBeenCalled();
+  });
+
   it("blocks overlapping sender-only rules", async () => {
     const result = await createRuleTool({
       email: "user@example.com",

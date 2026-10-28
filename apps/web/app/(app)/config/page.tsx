@@ -27,6 +27,7 @@ export default async function AdminConfigPage() {
     features: {
       emailSendEnabled: env.NEXT_PUBLIC_EMAIL_SEND_ENABLED,
       contactsEnabled: env.NEXT_PUBLIC_CONTACTS_ENABLED,
+      gmailOtherContactsEnabled: env.NEXT_PUBLIC_GMAIL_OTHER_CONTACTS_ENABLED,
       aiModelSettingsDisabled: env.NEXT_PUBLIC_AI_MODEL_SETTINGS_DISABLED,
       bypassPremiumChecks: env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS ?? false,
     },
@@ -45,7 +46,7 @@ export default async function AdminConfigPage() {
       economyModel: economyLlm?.modelName ?? "not configured",
     },
     integrations: {
-      redis: !!env.UPSTASH_REDIS_URL || !!env.REDIS_URL,
+      redis: !!env.REDIS_HTTP_URL || !!env.REDIS_URL,
       qstash: !!env.QSTASH_TOKEN,
       tinybird: !!env.TINYBIRD_TOKEN,
       sentry: !!env.NEXT_PUBLIC_SENTRY_DSN,
@@ -74,6 +75,12 @@ export default async function AdminConfigPage() {
           <Row
             label="Contacts"
             value={info.features.contactsEnabled ? "Enabled" : "Disabled"}
+          />
+          <Row
+            label="Gmail Other Contacts"
+            value={
+              info.features.gmailOtherContactsEnabled ? "Enabled" : "Disabled"
+            }
           />
           <Row
             label="AI Model Settings"

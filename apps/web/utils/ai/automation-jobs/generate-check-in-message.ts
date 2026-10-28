@@ -74,7 +74,7 @@ export async function aiGenerateAutomationCheckInMessage({
     () =>
       generateObject({
         ...modelOptions,
-        system: `You generate concise Slack check-in messages about the user's inbox.
+        instructions: `You generate concise Slack check-in messages about the user's inbox.
 
 Follow the user's custom instructions while prioritizing the most actionable and important emails.
 Return plain text only and keep the message short.`,

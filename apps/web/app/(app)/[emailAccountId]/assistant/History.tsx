@@ -1,6 +1,7 @@
 "use client";
 
-import { Fragment, useMemo } from "react";
+import { Fragment, useMemo, useState } from "react";
+import { ChevronRightIcon } from "lucide-react";
 import { useQueryState, parseAsInteger, parseAsString } from "nuqs";
 import { format, isToday, isYesterday } from "date-fns";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -50,6 +51,8 @@ export function History() {
         <LoadingContent loading={isLoading} error={error}>
           {results.length ? (
             <HistoryTable
+              key={`${page}-${ruleId}`}
+              ruleId={ruleId}
               data={results}
               totalPages={totalPages}
               messagesById={messagesById}
@@ -73,64 +76,42 @@ export function History() {
 
 function HistoryTable({
   data,
+  ruleId,
   totalPages,
   messagesById,
   messagesLoading,
 }: {
   data: GetExecutedRulesResponse["results"];
+  ruleId: string;
   totalPages: number;
   messagesById: Record<string, ParsedMessage>;
   messagesLoading: boolean;
 }) {
-  const { userEmail } = useAccount();
-  const { setInput } = useChat();
   const groups = useMemo(() => groupByDate(data), [data]);
 
   return (
     <div>
-      <Table>
-        <TableBody>
+      <Table className="max-sm:block">
+        <TableBody className="max-sm:block">
           {groups.map((group) => (
             <Fragment key={group.key}>
-              <TableRow className="hover:bg-transparent">
+              <TableRow className="hover:bg-transparent max-sm:block">
                 <TableCell
                   colSpan={2}
-                  className="bg-muted/40 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                  className="max-sm:block bg-muted/40 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
                 >
                   {formatDateGroupLabel(group.date)}
                 </TableCell>
               </TableRow>
-              {group.items.map((er) => {
-                const message = messagesById[er.messageId];
-                const isMessageLoading = !message && messagesLoading;
-
-                return (
-                  <TableRow key={er.messageId}>
-                    <TableCell>
-                      <EmailCell
-                        message={message}
-                        messageId={er.messageId}
-                        threadId={er.threadId}
-                        userEmail={userEmail}
-                        isMessageLoading={isMessageLoading}
-                      />
-                      {!er.executedRules[0]?.automated && (
-                        <Badge color="yellow" className="mt-2">
-                          Applied manually
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <RuleCell
-                        executedRules={er.executedRules}
-                        message={message}
-                        setInput={setInput}
-                        isMessageLoading={isMessageLoading}
-                      />
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
+              {group.items.map((er) => (
+                <HistoryThread
+                  key={er.threadId}
+                  result={er}
+                  ruleId={ruleId}
+                  message={messagesById[er.messageId]}
+                  messagesLoading={messagesLoading}
+                />
+              ))}
             </Fragment>
           ))}
         </TableBody>
@@ -138,6 +119,189 @@ function HistoryTable({
 
       <TablePagination totalPages={totalPages} />
     </div>
+  );
+}
+
+function HistoryThread({
+  result,
+  ruleId,
+  message,
+  messagesLoading,
+}: {
+  result: ExecutedRuleResult;
+  ruleId: string;
+  message?: ParsedMessage;
+  messagesLoading: boolean;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <>
+      <HistoryMessageRow
+        result={result}
+        message={message}
+        messagesLoading={messagesLoading}
+        leading={
+          result.messageCount > 1 ? (
+            <Button
+              variant="ghost"
+              size="iconSm"
+              aria-label={
+                expanded ? "Collapse conversation" : "Expand conversation"
+              }
+              aria-expanded={expanded}
+              onClick={() => setExpanded((value) => !value)}
+            >
+              <ChevronRightIcon
+                className={expanded ? "size-4 rotate-90" : "size-4"}
+              />
+            </Button>
+          ) : undefined
+        }
+        messageCount={result.messageCount}
+      />
+      {expanded && (
+        <TableRow className="bg-muted/30 hover:bg-muted/30 max-sm:block">
+          <TableCell colSpan={2} className="pl-10 max-sm:block max-sm:pl-4">
+            <ThreadHistory
+              threadId={result.threadId}
+              latestMessageId={result.messageId}
+              ruleId={ruleId}
+            />
+          </TableCell>
+        </TableRow>
+      )}
+    </>
+  );
+}
+
+function ThreadHistory({
+  threadId,
+  latestMessageId,
+  ruleId,
+}: {
+  threadId: string;
+  latestMessageId: string;
+  ruleId: string;
+}) {
+  const [page, setPage] = useState(1);
+  const { data, isLoading, error } = useExecutedRules({
+    page,
+    ruleId,
+    threadId,
+    excludeMessageId: latestMessageId,
+  });
+  const results = data?.results ?? [];
+  const ids = results.map((result) => result.messageId);
+  const {
+    data: messagesData,
+    isLoading: messagesLoading,
+    error: messagesError,
+  } = useMessagesBatch({ ids });
+  const messagesById = mapMessagesById(messagesData?.messages ?? []);
+
+  return (
+    <LoadingContent loading={isLoading} error={error || messagesError}>
+      {data && (
+        <>
+          <Table className="max-sm:block">
+            <TableBody className="max-sm:block">
+              {results.map((result) => (
+                <HistoryMessageRow
+                  key={result.messageId}
+                  result={result}
+                  message={messagesById[result.messageId]}
+                  messagesLoading={messagesLoading}
+                />
+              ))}
+            </TableBody>
+          </Table>
+          {data.totalPages > 1 && (
+            <div className="flex flex-wrap items-center justify-end gap-2 py-2 sm:flex-nowrap">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page === 1}
+                onClick={() => setPage((value) => value - 1)}
+              >
+                Previous messages
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                Page {page} of {data.totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= data.totalPages}
+                onClick={() => setPage((value) => value + 1)}
+              >
+                Next messages
+              </Button>
+            </div>
+          )}
+        </>
+      )}
+    </LoadingContent>
+  );
+}
+
+function HistoryMessageRow({
+  result,
+  message,
+  messagesLoading,
+  leading,
+  messageCount,
+}: {
+  result: ExecutedRuleResult;
+  message?: ParsedMessage;
+  messagesLoading: boolean;
+  leading?: React.ReactNode;
+  messageCount?: number;
+}) {
+  const { userEmail } = useAccount();
+  const { setInput } = useChat();
+  const isMessageLoading = !message && messagesLoading;
+  return (
+    <TableRow className="max-sm:flex max-sm:flex-col">
+      <TableCell className="max-sm:pb-2">
+        <div className="flex items-start gap-2">
+          {leading}
+          <div className="min-w-0 flex-1">
+            <EmailCell
+              message={message}
+              messageId={result.messageId}
+              threadId={result.threadId}
+              userEmail={userEmail}
+              isMessageLoading={isMessageLoading}
+            />
+            {messageCount === undefined &&
+              result.executedRules[0]?.createdAt && (
+                <div className="mt-1 text-xs text-muted-foreground">
+                  {format(
+                    new Date(result.executedRules[0].createdAt),
+                    "MMM d, yyyy, p",
+                  )}
+                </div>
+              )}
+            <div className="mt-2 flex flex-wrap gap-2">
+              {messageCount && messageCount > 1 ? (
+                <Badge color="blue">{messageCount} messages handled</Badge>
+              ) : null}
+              {!result.executedRules[0]?.automated && (
+                <Badge color="yellow">Applied manually</Badge>
+              )}
+            </div>
+          </div>
+        </div>
+      </TableCell>
+      <TableCell className="max-sm:pt-0">
+        <RuleCell
+          executedRules={result.executedRules}
+          message={message}
+          setInput={setInput}
+          isMessageLoading={isMessageLoading}
+        />
+      </TableCell>
+    </TableRow>
   );
 }
 
@@ -195,8 +359,8 @@ function RuleCell({
   isMessageLoading: boolean;
 }) {
   return (
-    <div className="flex items-center justify-end gap-2">
-      <div>
+    <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:justify-end">
+      <div className="min-w-0">
         <ResultsDisplay results={executedRules} />
       </div>
       {message ? (

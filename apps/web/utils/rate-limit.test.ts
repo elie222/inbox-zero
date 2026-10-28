@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { mockedEnv } = vi.hoisted(() => ({
   mockedEnv: {
     NODE_ENV: "production",
-    UPSTASH_REDIS_URL: "https://redis.example.com",
-    UPSTASH_REDIS_TOKEN: "token",
+    REDIS_HTTP_URL: "https://redis.example.com",
+    REDIS_HTTP_TOKEN: "token",
     AUTH_SECRET: "test-auth-secret",
     NEXTAUTH_SECRET: undefined as string | undefined,
     EMAIL_ENCRYPT_SECRET: "test-email-encrypt-secret",
@@ -32,8 +32,8 @@ import {
 describe("rate limit utilities", () => {
   beforeEach(() => {
     mockedEnv.NODE_ENV = "production";
-    mockedEnv.UPSTASH_REDIS_URL = "https://redis.example.com";
-    mockedEnv.UPSTASH_REDIS_TOKEN = "token";
+    mockedEnv.REDIS_HTTP_URL = "https://redis.example.com";
+    mockedEnv.REDIS_HTTP_TOKEN = "token";
     vi.clearAllMocks();
   });
 
@@ -115,8 +115,8 @@ describe("rate limit utilities", () => {
   });
 
   it("disables Redis calls when Redis is not configured", async () => {
-    mockedEnv.UPSTASH_REDIS_URL = undefined;
-    mockedEnv.UPSTASH_REDIS_TOKEN = undefined;
+    mockedEnv.REDIS_HTTP_URL = undefined;
+    mockedEnv.REDIS_HTTP_TOKEN = undefined;
 
     const result = await checkRateLimit({
       rule: {

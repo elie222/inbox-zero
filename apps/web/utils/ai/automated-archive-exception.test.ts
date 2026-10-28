@@ -49,4 +49,34 @@ describe("shouldSkipAutomatedArchiveForSender", () => {
       }),
     ).toBe(false);
   });
+
+  it.each([
+    "OR",
+    "or",
+    "Or",
+  ])("honors every explicit sender separated by %s", (separator) => {
+    envMock.WHITELIST_FROM = `first@service.example ${separator} second@service.example`;
+
+    expect(
+      shouldSkipAutomatedArchiveForSender({
+        actionType: ActionType.ARCHIVE,
+        from: '"Service team" <SECOND@SERVICE.EXAMPLE>',
+      }),
+    ).toBe(true);
+  });
+
+  it.each([
+    "invalid whitelist",
+    "service.example",
+    undefined,
+  ])("does not exempt malformed senders with whitelist %s", (whitelist) => {
+    envMock.WHITELIST_FROM = whitelist;
+
+    expect(
+      shouldSkipAutomatedArchiveForSender({
+        actionType: ActionType.ARCHIVE,
+        from: "invalid sender",
+      }),
+    ).toBe(false);
+  });
 });

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
-import TextareaAutosize from "react-textarea-autosize";
+import { AutosizeTextarea } from "@/components/ui/textarea";
 import { ChevronDownIcon, ChevronRightIcon, PaperclipIcon } from "lucide-react";
 import type {
   useForm,
@@ -516,8 +516,7 @@ function ActionCard({
                   {field.label}
                 </Label>
               )}
-              <TextareaAutosize
-                className="block w-full flex-1 whitespace-pre-wrap rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm"
+              <AutosizeTextarea
                 minRows={3}
                 rows={3}
                 {...register(`actions.${index}.${field.name}.value`)}
@@ -607,8 +606,8 @@ function ActionCard({
               <div className="mt-2 flex">
                 <Button
                   size="xs"
-                  variant="ghost"
-                  className="flex items-center gap-1 text-xs text-muted-foreground"
+                  variant="ghostMuted"
+                  className="flex items-center gap-1 text-xs"
                   onClick={() => setExpandedFields(!expandedFields)}
                 >
                   {expandedFields ? (

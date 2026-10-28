@@ -1,283 +1,166 @@
-import { expect, type Locator, type Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
+import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
 import {
   createSecondEmailAccount,
   deleteSecondEmailAccount,
 } from "./account-test-helpers";
-import { conversationWithSubject, openMail } from "./mail-test-helpers";
+import {
+  conversationWithSubject,
+  expectSeamlessReplyHandoff,
+  clearWorkflowMailboxDrafts,
+  expectThreadReaderBody,
+  openMail,
+  openMailboxFromSidebar,
+  readLatestMailMutation,
+  requestMailSync,
+  UNDO_WINDOW_SEND_TIMEOUT_MS,
+  waitForComposeOutboxSend,
+  watchReplyHandoff,
+  withClient,
+} from "./mail-test-helpers";
 
-test("keeps keyboard focus in the composer and follows the message field order", async ({
-  page,
-}) => {
-  await openMail(page);
-  await page.getByRole("button", { name: /^Compose/ }).click();
-
-  const dialog = page.getByRole("dialog", { name: "New Message" });
-  const toField = dialog.getByRole("textbox", { name: "To" });
-  await expect(toField).toBeFocused();
-
-  const showCcBccButton = dialog.getByRole("button", { name: "Cc/Bcc" });
-  await showCcBccButton.focus();
-  await showCcBccButton.press("Enter");
-  await expect(
-    dialog.getByRole("button", { name: "Hide Cc/Bcc" }),
-  ).toBeFocused();
-
-  await toField.focus();
-
-  await page.keyboard.press("Shift+Tab");
-  await expect(
-    dialog.getByRole("button", { name: "Hide Cc/Bcc" }),
-  ).toBeFocused();
-  await page.keyboard.press("Tab");
-  await expect(toField).toBeFocused();
-
-  for (const field of [
-    dialog.getByRole("textbox", { exact: true, name: "Cc" }),
-    dialog.getByRole("textbox", { exact: true, name: "Bcc" }),
-    dialog.getByPlaceholder("Subject"),
-    dialog.getByRole("textbox", { name: "Email message" }),
-    dialog.getByRole("button", { name: /^Send/ }),
-    dialog.getByRole("button", { name: "Attach files" }),
-    dialog.getByRole("button", { name: "Insert inline images" }),
-    dialog.getByRole("button", { name: "Discard draft" }),
-  ]) {
-    await page.keyboard.press("Tab");
-    await expect(field).toBeFocused();
-  }
-
-  // Focus wraps from the dialog's last control back to its first instead of
-  // escaping the non-modal composer.
-  await page.keyboard.press("Tab");
-  await expect(
-    dialog.getByRole("button", { name: "Expand compose" }),
-  ).toBeFocused();
-});
-
-test("focuses the message field from the empty composer body", async ({
-  page,
-}) => {
-  await openMail(page);
-  await page.getByRole("button", { name: /^Compose/ }).click();
-
-  const dialog = page.getByRole("dialog", { name: "New Message" });
-  const editorRoot = dialog.locator("[data-email-editor-root]");
-  const editor = editorRoot.locator("[contenteditable='true']");
-  await expect(editor).toBeVisible();
-  await dialog.getByPlaceholder("Subject").focus();
-  await expect(editor).not.toBeFocused();
-
-  // The empty composer's content is a single paragraph at the top, so the
-  // root's center point lands in the empty body area below it.
-  await editorRoot.click();
-
-  await expect(editor).toBeFocused();
-});
-
-test("keeps editing state stable across formatting, links, paste, and files", async ({
-  page,
-}, testInfo) => {
-  await openMail(page);
-  await page.getByRole("button", { name: /^Compose/ }).click();
-
-  const dialog = page.getByRole("dialog", { name: "New Message" });
-  const editor = dialog.locator("[contenteditable='true']");
-  const formatting = page.getByRole("toolbar", {
-    name: "Selection formatting",
-  });
-
-  await expect(dialog).toBeVisible();
-  await expect(editor).toBeVisible();
-  await expect(
-    dialog.getByRole("toolbar", { name: "Email formatting" }),
-  ).toHaveCount(0);
-  await expect(dialog).toHaveAttribute("data-compose-expanded", "false");
-  await expect(
-    dialog.getByRole("button", { name: "Expand compose" }),
-  ).toBeVisible();
-  await dialog
-    .getByRole("textbox", { name: "To" })
-    .fill("teammate@example.com");
-  await dialog.getByPlaceholder("Subject").fill("Project update");
-  await editor.pressSequentially("Alpha omega");
-  for (const _character of "omega") {
-    await editor.press("ArrowLeft");
-  }
-
-  await dialog.getByTestId("compose-attachments-input").setInputFiles({
-    name: "notes.txt",
-    mimeType: "text/plain",
-    buffer: Buffer.from("Attachment contents"),
-  });
-  await expect(dialog.getByRole("list", { name: "Attachments" })).toContainText(
-    "notes.txt",
-  );
-  await editor.pressSequentially("middle ");
-  await expect(editor).toContainText("Alpha middle omega");
-
-  await editor.evaluate((element) => {
-    const clipboard = new DataTransfer();
-    clipboard.setData("text/html", "<div>Pasted <strong>rich</strong></div>");
-    element.dispatchEvent(
-      new ClipboardEvent("paste", {
-        bubbles: true,
-        cancelable: true,
-        clipboardData: clipboard,
-      }),
-    );
-  });
-  await expect(editor.locator("strong", { hasText: "rich" })).toBeVisible();
-
-  await selectEditorText(editor, "middle");
-  await formatting.getByRole("button", { name: "Bold" }).click();
-  await expect(editor.locator("strong", { hasText: "middle" })).toBeVisible();
-
-  await selectEditorText(editor, "omega");
-  await editor.press("ControlOrMeta+k");
-  const addLinkDialog = dialog.getByRole("dialog", { name: "Add link" });
-  await addLinkDialog.getByLabel("Link address").fill("example.com/first");
-  await addLinkDialog.getByRole("button", { name: "Add" }).click();
-  const link = editor.getByRole("link", { name: "omega" });
-  await expect(link).toHaveAttribute("href", "https://example.com/first");
-
-  await selectEditorText(editor, "omega");
-  await formatting.getByRole("button", { name: "Add or edit link" }).click();
-  const editLinkDialog = dialog.getByRole("dialog", { name: "Edit link" });
-  await editLinkDialog
-    .getByLabel("Link address")
-    .fill("https://example.com/updated");
-  await editLinkDialog.getByRole("button", { name: "Update" }).click();
-  await expect(link).toHaveAttribute("href", "https://example.com/updated");
-
-  await selectEditorText(editor, "omega");
-  await formatting.getByRole("button", { name: "Add or edit link" }).click();
-  await dialog
-    .getByRole("dialog", { name: "Edit link" })
-    .getByRole("button", { name: "Remove" })
-    .click();
-  await expect(editor.getByRole("link", { name: "omega" })).toHaveCount(0);
-
-  await selectEditorText(editor, "omega");
-  await editor.press("ControlOrMeta+k");
-  const cancelLink = dialog
-    .getByRole("dialog", { name: "Add link" })
-    .getByRole("button", { name: "Cancel" });
-  await cancelLink.focus();
-  await cancelLink.press("Escape");
-  await expect(dialog.getByRole("dialog", { name: "Add link" })).toHaveCount(0);
-  await expect(editor).toBeFocused();
-
-  await dialog.getByTestId("compose-inline-image-input").setInputFiles({
-    name: "inline.png",
-    mimeType: "image/png",
-    buffer: Buffer.from(
-      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
-      "base64",
-    ),
-  });
-  await expect(editor.locator("img[data-content-id]")).toHaveCount(1);
-  await expect(dialog.getByRole("list", { name: "Attachments" })).toContainText(
-    "inline.png",
-  );
-
-  await selectEditorText(editor, "middle");
-  await formatting.getByRole("button", { name: "Right-to-left text" }).click();
-  await expect(editor.locator("p[dir='rtl']")).toHaveCount(1);
-  await formatting.getByRole("button", { name: "Left-to-right text" }).click();
-  await expect(editor.locator("p[dir='ltr']")).toHaveCount(1);
-  await selectEditorText(editor, "middle");
-  await expect(
-    page.getByRole("toolbar", { name: "Selection formatting" }),
-  ).toBeVisible();
-  await capturePlaywrightCheckpoint(page, testInfo, "composer-selection");
-
-  await editor.press("ArrowRight");
-  await expect(formatting).toBeHidden();
-  await capturePlaywrightCheckpoint(page, testInfo, "composer-compact");
-
-  await dialog.getByRole("button", { name: "Expand compose" }).click();
-  await expect(dialog).toHaveAttribute("data-compose-expanded", "true");
-  await expect(
-    dialog.getByRole("button", { name: "Restore compose" }),
-  ).toBeVisible();
-  await capturePlaywrightCheckpoint(page, testInfo, "composer-expanded");
-
-  await dialog.getByRole("button", { name: "Restore compose" }).click();
-  await expect(dialog).toHaveAttribute("data-compose-expanded", "false");
-});
-
-test("does not add a line break for the send shortcut", async ({
-  page,
-}, testInfo) => {
-  const { conversations } = await openMail(page);
-  const subject = `Shortcut Message ${testInfo.retry}`;
-  await page.getByRole("button", { name: /^Compose/ }).click();
-
-  const dialog = page.getByRole("dialog", { name: "New Message" });
-  const editor = dialog.locator("[contenteditable='true']");
-  await dialog
-    .getByRole("textbox", { name: "To" })
-    .fill("recipient@example.com");
-  await dialog.getByPlaceholder("Subject").fill(subject);
-  await editor.pressSequentially("Draft body");
-
-  await editor.press("ControlOrMeta+Enter");
-
-  await expect(dialog).toBeHidden();
-  await expect(page.getByText("Email sent!", { exact: true })).toBeVisible();
-  await page.getByRole("link", { name: /^Sent/ }).click();
-  const sentConversation = conversationWithSubject(
-    page,
-    conversations,
-    subject,
-  );
-  await sentConversation.click();
-  const sentBody = page
-    .frameLocator('iframe[title="Email content preview"]')
-    .locator("body");
-  await expect(sentBody).toHaveText("Draft body");
-  expect(await sentBody.evaluate((element) => element.innerText)).toBe(
-    "Draft body",
-  );
+test.beforeEach(async ({ page }) => {
+  await clearWorkflowMailboxDrafts(page);
 });
 
 test("composes, sends, and reads a new message from Sent", async ({
   page,
 }, testInfo) => {
-  const { conversations } = await openMail(page);
+  const { conversations, emailAccountId } = await openMail(page);
   const subject = `Playwright Composed Message ${testInfo.retry}`;
 
   await page.getByRole("button", { name: /^Compose/ }).click();
   const dialog = page.getByRole("dialog", { name: "New Message" });
   await dialog
-    .getByRole("textbox", { name: "To" })
+    .getByRole("combobox", { name: "To" })
     .fill("recipient@example.com");
   await dialog.getByPlaceholder("Subject").fill(subject);
   const composeEditor = dialog.locator("[contenteditable='true']");
   await composeEditor.pressSequentially("A composed message body.");
   await expect(composeEditor).toContainText("A composed message body.");
-  await dialog.getByRole("button", { name: /^Send/ }).click();
+  await dialog.getByRole("button", { name: "Show signature" }).click();
+  await expect(
+    composeEditor
+      .locator("[data-smartmail]")
+      .getByRole("link", { name: "Inbox Zero" }),
+  ).toBeVisible();
+  await capturePlaywrightCheckpoint(page, testInfo, "composer-with-footer");
+  await dialog.getByRole("button", { exact: true, name: "Send" }).click();
 
   await expect(dialog).toBeHidden();
   await expect(page.getByText("Email sent!", { exact: true })).toBeVisible();
 
-  await page.getByRole("link", { name: /^Sent/ }).click();
+  await openMailboxFromSidebar(page, "Sent");
+  await waitForComposeOutboxSend(page, emailAccountId);
   const sentConversation = conversationWithSubject(
     page,
     conversations,
     subject,
   );
-  await expect(sentConversation).toBeVisible();
+  await expect(sentConversation).toBeVisible({ timeout: 60_000 });
   await sentConversation.click();
   await expect(page.getByRole("heading", { name: subject })).toBeVisible();
   await expect(page.getByText("recipient@example.com").first()).toBeVisible();
-  await expect(
-    page
-      .frameLocator('iframe[title="Email content preview"]')
-      .getByText("A composed message body."),
-  ).toBeVisible();
+  await expectThreadReaderBody(page, "A composed message body.");
+  await expectThreadReaderBody(page, "Sent with Inbox Zero");
   await capturePlaywrightCheckpoint(page, testInfo, "composed-message-in-sent");
+});
+
+test("views a sent message without leaving the current mailbox", async ({
+  page,
+}, testInfo) => {
+  await openMail(page);
+  const subject = `Playwright View Sent ${Date.now()}`;
+
+  await page.getByRole("button", { name: /^Compose/ }).click();
+  const dialog = page.getByRole("dialog", { name: "New Message" });
+  await dialog
+    .getByRole("combobox", { name: "To" })
+    .fill("recipient@example.com");
+  await dialog.getByPlaceholder("Subject").fill(subject);
+  await dialog
+    .locator("[contenteditable='true']")
+    .pressSequentially("A message to view after sending.");
+  await dialog.getByRole("button", { exact: true, name: "Send" }).click();
+  await expect(dialog).toBeHidden();
+
+  const notifications = page.getByRole("region", {
+    name: "Notifications alt+T",
+  });
+  const viewButton = notifications.getByRole("button", { name: "View" });
+  await expect(viewButton).toBeVisible({
+    timeout: UNDO_WINDOW_SEND_TIMEOUT_MS,
+  });
+  await expect(
+    notifications.getByRole("button", { name: /^Undo/ }),
+  ).toHaveCount(0);
+  await capturePlaywrightCheckpoint(page, testInfo, "sent-toast-view");
+  await viewButton.click();
+
+  const sidePanel = page.getByRole("dialog");
+  await expect(sidePanel.getByText(subject).first()).toBeVisible();
+  await expectThreadReaderBody(page, "A message to view after sending.");
+  expect(new URL(page.url()).searchParams.get("thread-id")).toBeNull();
+  await capturePlaywrightCheckpoint(page, testInfo, "sent-message-side-panel");
+});
+
+test("undoes a composed message before it is delivered", async ({
+  page,
+}, testInfo) => {
+  const { conversations, emailAccountId } = await openMail(page);
+  const subject = `Playwright Undo Send ${Date.now()}`;
+
+  await page.getByRole("button", { name: /^Compose/ }).click();
+  const dialog = page.getByRole("dialog", { name: "New Message" });
+  await dialog
+    .getByRole("combobox", { name: "To" })
+    .fill("recipient@example.com");
+  await dialog.getByPlaceholder("Subject").fill(subject);
+  await dialog
+    .locator("[contenteditable='true']")
+    .pressSequentially("This should not be delivered.");
+  await dialog.getByRole("button", { exact: true, name: "Send" }).click();
+
+  await expect(dialog).toBeHidden();
+  const notifications = page.getByRole("region", {
+    name: "Notifications alt+T",
+  });
+  await expect(
+    notifications.getByText("Email sent!", { exact: true }),
+  ).toBeVisible();
+  await expect
+    .poll(() =>
+      readLatestMailMutation(page, {
+        emailAccountId,
+        kind: "reply",
+        threadId: "compose:new-message",
+      }),
+    )
+    .toMatchObject({ status: "reconciling" });
+  await notifications.getByRole("button", { name: /^Undo/ }).click();
+
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByPlaceholder("Subject")).toHaveValue(subject);
+  await expect(
+    dialog.getByRole("textbox", { name: "Email message" }),
+  ).toContainText("This should not be delivered.");
+  await expect
+    .poll(() =>
+      readLatestMailMutation(page, {
+        emailAccountId,
+        kind: "reply",
+        threadId: "compose:new-message",
+      }),
+    )
+    .toBeUndefined();
+  await capturePlaywrightCheckpoint(page, testInfo, "compose-undo-restored");
+
+  await openMailboxFromSidebar(page, "Sent");
+  await expect(
+    conversationWithSubject(page, conversations, subject),
+  ).toHaveCount(0);
 });
 
 test("selects the sender when composing from all accounts", async ({
@@ -306,9 +189,11 @@ test("selects the sender when composing from all accounts", async ({
       .click();
 
     await expect(from).toContainText(secondAccount.email);
+    await dialog.getByRole("button", { name: "Show signature" }).click();
     await expect(
       dialog
-        .frameLocator('iframe[title="Signature preview"]')
+        .getByRole("textbox", { name: "Email message" })
+        .locator("[data-smartmail]")
         .getByText(signature),
     ).toBeVisible();
   } finally {
@@ -316,36 +201,88 @@ test("selects the sender when composing from all accounts", async ({
   }
 });
 
+test("leaves the draft before returning to the list with Escape", async ({
+  page,
+}, testInfo) => {
+  const { conversations } = await openMail(page);
+  await conversationWithSubject(
+    page,
+    conversations,
+    "Reply Workflow Message",
+  ).click();
+  const message = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  await message.getByRole("button", { name: "Reply", exact: true }).click();
+  const editor = message.getByRole("textbox", { name: "Email message" });
+  await editor.fill("A draft preserved when leaving the input.");
+  // The reply tooltip owns Escape until its exit animation finishes.
+  await expect(page.getByRole("tooltip")).toHaveCount(0);
+  const threadUrl = page.url();
+
+  await editor.press("Escape");
+  await expect(message).toBeFocused();
+  await expect(page).toHaveURL(threadUrl);
+  await expect(editor).toContainText(
+    "A draft preserved when leaving the input.",
+  );
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "draft-escape-focuses-message",
+  );
+
+  await page.keyboard.press("Escape");
+  await expect(conversations).toBeVisible();
+  await expect(message).toBeHidden();
+});
+
+test("focuses the To field when forwarding with F", async ({ page }) => {
+  const { conversations } = await openMail(page);
+  await conversationWithSubject(
+    page,
+    conversations,
+    "Reply Workflow Message",
+  ).click();
+  const message = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  await expect(message).toBeVisible();
+  await expect(
+    message.getByRole("button", { name: "Forward", exact: true }),
+  ).toBeVisible();
+
+  // Restored drafts focus their editor; this shortcut belongs to the reader.
+  await message.press("KeyF");
+
+  const toField = message.getByRole("combobox", { name: "To" });
+  await expect(toField).toBeVisible();
+  await expect(toField).toBeFocused();
+  await expect(
+    message.getByRole("textbox", { name: "Email message" }),
+  ).not.toBeFocused();
+});
+
 test("opens and sends a reply from the reader with Enter", async ({
   page,
 }, testInfo) => {
-  await stubMailboxSync(page);
-  const releaseThreadRequest = Promise.withResolvers<void>();
-  let threadRequestStarted = false;
-  await page.route(
-    "**/api/threads/thr_playwright_reply?includeDrafts=true",
-    async (route) => {
-      threadRequestStarted = true;
-      const responsePromise = route.fetch();
-      await releaseThreadRequest.promise;
-      const response = await responsePromise;
-      await route.fulfill({ response });
-    },
-  );
-  const { conversations } = await openMail(page);
+  const { conversations, emailAccountId } = await openMail(page);
   const replyConversation = conversationWithSubject(
     page,
     conversations,
     "Reply Workflow Message",
   );
   await replyConversation.click();
-  await expect.poll(() => threadRequestStarted).toBe(true);
+  const sourceMessage = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  await expect(sourceMessage).toBeVisible({ timeout: 60_000 });
   await page.keyboard.press("Enter");
-  releaseThreadRequest.resolve();
 
-  await expect(
-    page.getByText("Please reply to this seeded conversation."),
-  ).toBeVisible();
+  await expectThreadReaderBody(
+    page,
+    "Please reply to this seeded conversation.",
+  );
   const sentByMe = page.getByText("Me", { exact: true });
   const initialSentByMeCount = await sentByMe.count();
 
@@ -354,56 +291,601 @@ test("opens and sends a reply from the reader with Enter", async ({
   await expect(replyEditor).toHaveCount(1);
   await expect(
     page.locator("[data-email-preserved-kind='quote']"),
+  ).toBeAttached();
+  await expect(
+    page.getByLabel(/^Show (signature and )?quoted message$/),
   ).toBeVisible();
+  await expect(page.getByText("Quoted message", { exact: true })).toHaveCount(
+    0,
+  );
+  await expect(
+    page.getByRole("button", { name: "Remove quoted message" }),
+  ).toHaveCount(0);
   const replyBody = `A reply sent through the mail reader. ${testInfo.retry}`;
   await replyEditor.pressSequentially(replyBody);
   await expect(replyEditor).toContainText(replyBody);
-  await capturePlaywrightCheckpoint(page, testInfo, "protected-quoted-reply");
-  await page.getByRole("button", { name: /^Send/ }).click();
+  const sendButton = page.getByRole("button", { name: "Send", exact: true });
+  await expect(sendButton).toHaveText("Send");
 
-  await expect(page.getByText("Email sent!", { exact: true })).toBeVisible();
+  await replyEditor.press("ControlOrMeta+Shift+l");
+  await expect(page.getByRole("dialog", { name: "Send later" })).toBeVisible();
+  await capturePlaywrightCheckpoint(page, testInfo, "send-later-shortcut");
+
+  await page.getByRole("button", { name: "Choose date and time" }).click();
+  await page
+    .getByLabel("Send later date and time")
+    .press("ControlOrMeta+Shift+h");
+  await expect(page.getByRole("dialog", { name: "Remind me" })).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  await replyEditor.press("ControlOrMeta+Shift+l");
+  await expect(page.getByRole("dialog", { name: "Send later" })).toBeVisible();
+  await expect(page.getByLabel("Send later date and time")).toBeHidden();
+  await page.keyboard.press("Escape");
+
+  await sendButton.hover();
+  const sendTooltip = page.getByRole("tooltip", { name: /Send and mark done/ });
+  await expect(sendTooltip).toContainText("Send and mark done");
+  await expect(sendTooltip.locator("kbd")).toHaveText([
+    "⌘",
+    "enter",
+    "⌘",
+    "shift",
+    "enter",
+  ]);
+  await capturePlaywrightCheckpoint(page, testInfo, "protected-quoted-reply");
+  await sendButton.click();
+
+  const notifications = page.getByRole("region", {
+    name: "Notifications alt+T",
+  });
+  await expect(
+    notifications.getByText("Email sent!", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    notifications.getByRole("button", { name: /^Undo/ }),
+  ).toBeVisible();
+  await expect(replyEditor).toHaveCount(0);
+  await expectThreadReaderBody(page, replyBody);
+  const delivery = page.getByRole("region", { name: "Reply delivery status" });
+  await expect(delivery.getByText("Sending…", { exact: true })).toHaveCount(0);
+  await expect(delivery.getByText("Reply sent", { exact: true })).toHaveCount(
+    0,
+  );
+  await expect(
+    delivery.getByRole("button", { name: "Edit reply" }),
+  ).toHaveCount(0);
+  await expect
+    .poll(
+      () =>
+        readLatestMailMutation(page, {
+          emailAccountId,
+          kind: "reply",
+          threadId: "thr_playwright_reply",
+        }),
+      { timeout: UNDO_WINDOW_SEND_TIMEOUT_MS },
+    )
+    .toMatchObject({ status: "succeeded" });
   await expect(sentByMe).toHaveCount(initialSentByMeCount + 1);
   await capturePlaywrightCheckpoint(page, testInfo, "reply-sent-in-thread");
 });
 
-async function selectEditorText(editor: Locator, text: string) {
-  await editor.evaluate((element, selectedText) => {
-    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
-    let node = walker.nextNode();
-    while (node) {
-      const start = node.textContent?.indexOf(selectedText) ?? -1;
-      if (start >= 0) {
-        const selection = window.getSelection();
-        const range = document.createRange();
-        range.setStart(node, start);
-        range.setEnd(node, start + selectedText.length);
-        selection?.removeAllRanges();
-        selection?.addRange(range);
-        document.dispatchEvent(new Event("selectionchange"));
-        return;
-      }
-      node = walker.nextNode();
-    }
-    throw new Error(`Could not find text to select: ${selectedText}`);
-  }, text);
+test("pops a reply out of the thread into its own window", async ({
+  page,
+}, testInfo) => {
+  const { emailAccountId } = await openMail(page);
+  // An earlier test replies in this thread, so open it directly.
+  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reply`);
+  const message = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  await expect(message).toBeVisible({ timeout: 60_000 });
+  await message.getByRole("button", { name: "Reply", exact: true }).click();
+
+  const inlineEditor = page.locator(
+    "[data-thread-message-id] [contenteditable='true']",
+  );
+  await expect(inlineEditor).toHaveCount(1);
+  const replyBody = `A reply written before popping out. ${testInfo.retry}`;
+  await inlineEditor.pressSequentially(replyBody);
+  await expect(inlineEditor).toContainText(replyBody);
+  await expect(
+    page.getByRole("button", { name: "Pop out draft" }),
+  ).toBeVisible();
+
+  await inlineEditor.press("ControlOrMeta+Shift+p");
+
+  const dialog = page.getByRole("dialog", { name: /Reply Workflow Message/ });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator("[contenteditable='true']")).toContainText(
+    replyBody,
+  );
+  await expect(inlineEditor).toHaveCount(0);
+  await capturePlaywrightCheckpoint(page, testInfo, "popped-out-reply");
+
+  await dialog.getByRole("button", { name: "Discard draft" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(inlineEditor).toHaveCount(0);
+});
+
+test("moves a sent reply from its composer into the thread without a gap", async ({
+  page,
+}, testInfo) => {
+  const { emailAccountId } = await openMail(page);
+  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reply`);
+  const sourceMessage = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  await expect(sourceMessage).toBeVisible({ timeout: 60_000 });
+  // Earlier cases leave drafts in this conversation that the device may still
+  // list until it syncs their removal; the handoff counts the rows.
+  await expectReaderMatchesMailbox(page, emailAccountId);
+  await sourceMessage
+    .getByRole("button", { name: "Reply", exact: true })
+    .click();
+  const editor = sourceMessage.getByRole("textbox", { name: "Email message" });
+  const replyBody = `A reply that moves straight into the thread. ${testInfo.retry}`;
+  await editor.pressSequentially(replyBody);
+  await expect(editor).toContainText(replyBody);
+
+  const handoff = await watchReplyHandoff(page, replyBody);
+  await sourceMessage
+    .getByRole("button", { name: "Send", exact: true })
+    .click();
+
+  // The undo window is still open, so the provider has not sent it yet, but
+  // the reply already reads as sent, takes the selection, and leaves the
+  // message it answered open. Undo lives only in the toast.
+  const sentRow = page.locator(
+    'li[data-thread-message-id][data-selected="true"]',
+  );
+  await expect(sentRow).toBeVisible();
+  await expect(sentRow).not.toHaveAttribute(
+    "data-thread-message-id",
+    "msg_playwright_reply",
+  );
+  await expect(sourceMessage).toHaveAttribute("data-selected", "false");
+  await expect(
+    sourceMessage.locator("[aria-expanded]").first(),
+  ).toHaveAttribute("aria-expanded", "true");
+  await expect(sentRow.locator("time")).toBeVisible();
+  await expect(sentRow.getByText("Sending…")).toHaveCount(0);
+  await expect(
+    page.locator("li[data-thread-message-id]").getByRole("button", {
+      name: /^Undo/,
+    }),
+  ).toHaveCount(0);
+  await expect(
+    page
+      .getByRole("region", { name: "Notifications alt+T" })
+      .getByRole("button", { name: /^Undo/ }),
+  ).toBeVisible();
+  await expectThreadReaderBody(page, replyBody, 3000);
+  await capturePlaywrightCheckpoint(page, testInfo, "reply-sent-with-undo");
+
+  await expect
+    .poll(
+      () =>
+        readLatestMailMutation(page, {
+          emailAccountId,
+          kind: "reply",
+          threadId: "thr_playwright_reply",
+        }),
+      { timeout: UNDO_WINDOW_SEND_TIMEOUT_MS },
+    )
+    .toMatchObject({ status: "succeeded" });
+  await expect(
+    page
+      .getByRole("region", { name: "Notifications alt+T" })
+      .getByRole("button", { name: /^Undo/ }),
+  ).toHaveCount(0);
+  await expectThreadReaderBody(page, replyBody);
+  expectSeamlessReplyHandoff(await handoff.stop(), handoff.rowsBefore);
+});
+
+test("does not reopen a sent reply when returning during the undo window", async ({
+  page,
+}, testInfo) => {
+  const { emailAccountId } = await openMail(page);
+  const threadUrl = `/${emailAccountId}/mail?thread-id=thr_playwright_reply`;
+  await page.goto(threadUrl);
+  const sourceMessage = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  await expect(sourceMessage).toBeVisible({ timeout: 60_000 });
+  await sourceMessage
+    .getByRole("button", { name: "Reply", exact: true })
+    .click();
+  const replyBody = `A reply sent before leaving the thread. ${testInfo.retry}`;
+  await sourceMessage
+    .getByRole("textbox", { name: "Email message" })
+    .pressSequentially(replyBody);
+  await sourceMessage
+    .getByRole("button", { name: "Send", exact: true })
+    .click();
+  const undo = page
+    .getByRole("region", { name: "Notifications alt+T" })
+    .getByRole("button", { name: /^Undo/ });
+  await expect(undo).toBeVisible();
+
+  await page.goto(`/${emailAccountId}/mail`);
+  await page.goto(threadUrl);
+  // The local draft is kept for undo and loads after the thread renders, so
+  // watch every frame from the return until the reply shows, and a little after.
+  await page.evaluate((text) => {
+    const state = window as unknown as { __reopenedReply: boolean };
+    state.__reopenedReply = false;
+    const sample = () => {
+      if (
+        Array.from(document.querySelectorAll('[contenteditable="true"]')).some(
+          (element) => element.textContent?.includes(text),
+        )
+      )
+        state.__reopenedReply = true;
+      requestAnimationFrame(sample);
+    };
+    sample();
+  }, replyBody);
+  await expectThreadReaderBody(page, replyBody);
+  await page.waitForTimeout(3000);
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { __reopenedReply: boolean }).__reopenedReply,
+    ),
+  ).toBe(false);
+  // The check only means something while the send is still held for undo.
+  const send = await readLatestMailMutation(page, {
+    emailAccountId,
+    kind: "reply",
+    threadId: "thr_playwright_reply",
+  });
+  expect(send).toBeDefined();
+  expect(send?.status).not.toBe("succeeded");
+  await capturePlaywrightCheckpoint(page, testInfo, "returned-during-undo");
+  await expect
+    .poll(
+      () =>
+        readLatestMailMutation(page, {
+          emailAccountId,
+          kind: "reply",
+          threadId: "thr_playwright_reply",
+        }),
+      { timeout: UNDO_WINDOW_SEND_TIMEOUT_MS },
+    )
+    .toMatchObject({ status: "succeeded" });
+});
+
+test("undoes a sent reply and restores its text", async ({
+  page,
+}, testInfo) => {
+  const { emailAccountId } = await openMail(page);
+  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reply`);
+  const sourceMessage = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  await expect(sourceMessage).toBeVisible({ timeout: 60_000 });
+  await sourceMessage
+    .getByRole("button", { name: "Reply", exact: true })
+    .click();
+  const editor = sourceMessage.getByRole("textbox", { name: "Email message" });
+  const replyBody = `A reply taken back from the thread. ${testInfo.retry}`;
+  await editor.pressSequentially(replyBody);
+  await sourceMessage
+    .getByRole("button", { name: "Send", exact: true })
+    .click();
+
+  const undo = page
+    .getByRole("region", { name: "Notifications alt+T" })
+    .getByRole("button", { name: /^Undo/ });
+  await expect(undo).toBeVisible();
+  await expect
+    .poll(() =>
+      readLatestMailMutation(page, {
+        emailAccountId,
+        kind: "reply",
+        threadId: "thr_playwright_reply",
+      }),
+    )
+    .toMatchObject({ status: "reconciling" });
+  await undo.click();
+
+  const restored = sourceMessage.getByRole("textbox", {
+    name: "Email message",
+  });
+  await expect(restored).toContainText(replyBody);
+  await expect(undo).toHaveCount(0);
+  await expect
+    .poll(() =>
+      readLatestMailMutation(page, {
+        emailAccountId,
+        kind: "reply",
+        threadId: "thr_playwright_reply",
+      }),
+    )
+    .toBeUndefined();
+  await capturePlaywrightCheckpoint(page, testInfo, "reply-undone-from-thread");
+});
+
+test("undoes a sent reply with a file and lists the file again", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(240_000);
+  const { emailAccountId } = await openMail(page);
+  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reply`);
+  const sourceMessage = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  await expect(sourceMessage).toBeVisible({ timeout: 60_000 });
+  await sourceMessage
+    .getByRole("button", { name: "Reply", exact: true })
+    .click();
+  await sourceMessage
+    .getByRole("textbox", { name: "Email message" })
+    .pressSequentially(`A reply with notes, taken back. ${testInfo.retry}`);
+  await sourceMessage.getByTestId("compose-attachments-input").setInputFiles({
+    name: "notes.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("Example notes"),
+  });
+  const attachments = sourceMessage.getByRole("list", { name: "Attachments" });
+  await expect(attachments.locator("li[aria-busy]")).toHaveCount(0, {
+    timeout: 90_000,
+  });
+  await expect(attachments).toContainText("notes.txt");
+  await sourceMessage
+    .getByRole("button", { name: "Send", exact: true })
+    .click();
+
+  const undo = page
+    .getByRole("region", { name: "Notifications alt+T" })
+    .getByRole("button", { name: /^Undo/ });
+  await expect(undo).toBeVisible();
+  await expect
+    .poll(() =>
+      readLatestMailMutation(page, {
+        emailAccountId,
+        kind: "reply",
+        threadId: "thr_playwright_reply",
+      }),
+    )
+    .toMatchObject({ status: "reconciling" });
+  await undo.click();
+
+  // The file stayed on the mailbox draft, so the restored reply lists it.
+  await expect(
+    sourceMessage.getByRole("list", { name: "Attachments" }),
+  ).toContainText("notes.txt", { timeout: 30_000 });
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "reply-with-file-undone-from-thread",
+  );
+  await sourceMessage.getByRole("button", { name: "Discard draft" }).click();
+  await expect(
+    sourceMessage.getByRole("textbox", { name: "Email message" }),
+  ).toHaveCount(0);
+});
+
+test("sends a reply after its tab closes during the undo window", async ({
+  page,
+  request,
+}, testInfo) => {
+  const { emailAccountId } = await openMail(page);
+  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reply`);
+  const sourceMessage = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  await expect(sourceMessage).toBeVisible({ timeout: 60_000 });
+  await sourceMessage
+    .getByRole("button", { name: "Reply", exact: true })
+    .click();
+  const replyBody = `A reply that outlives its tab. ${testInfo.retry}`;
+  await sourceMessage
+    .getByRole("textbox", { name: "Email message" })
+    .pressSequentially(replyBody);
+  await sourceMessage
+    .getByRole("button", { name: "Send", exact: true })
+    .click();
+  await expect
+    .poll(() => readHeldReply(emailAccountId, replyBody), { timeout: 20_000 })
+    .toMatchObject({ status: "PENDING" });
+
+  // Leaving the page stops this browser's mail engine, so only the server
+  // can still deliver the reply.
+  await page.goto("about:blank");
+  const held = await readHeldReply(emailAccountId, replyBody);
+  const internalApiKey = process.env.INTERNAL_API_KEY;
+  if (!held || !internalApiKey) {
+    throw new Error("Expected a held reply and an internal API key");
+  }
+  await withClient((client) =>
+    client.query(
+      `UPDATE "ScheduledEmail" SET "sendAt" = now() - interval '1 second' WHERE id = $1`,
+      [held.id],
+    ),
+  );
+  const delivered = await request.post("/api/scheduled-emails/execute", {
+    data: { scheduledEmailId: held.id },
+    headers: { "x-api-key": internalApiKey },
+  });
+
+  expect(delivered.ok()).toBe(true);
+  await expect
+    .poll(() =>
+      withClient(async (client) => {
+        const result = await client.query<{ status: string }>(
+          `SELECT status FROM "ScheduledEmail" WHERE id = $1`,
+          [held.id],
+        );
+        return result.rows[0]?.status;
+      }),
+    )
+    .toBe("SENT");
+});
+
+test("focuses the To field when forwarding", async ({ page }) => {
+  const { emailAccountId } = await openMail(page);
+  // Open by thread id so this still works after an earlier reply-and-mark-done
+  // removes the conversation from the inbox list.
+  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reply`);
+  const message = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  await expect(message).toBeVisible({ timeout: 60_000 });
+
+  await message.getByRole("button", { name: "Forward", exact: true }).click();
+  const toField = message.getByRole("combobox", { name: "To" });
+  await expect(toField).toBeVisible();
+  await expect(toField).toBeFocused();
+  await expect(
+    message.getByRole("textbox", { name: "Email message" }),
+  ).not.toBeFocused();
+});
+
+test("keeps a sent forward in the thread it came from", async ({
+  page,
+}, testInfo) => {
+  const { emailAccountId } = await openMail(page);
+  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reply`);
+  const sourceMessage = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  await expect(sourceMessage).toBeVisible({ timeout: 60_000 });
+  const recipient = `forward-${testInfo.retry}@example.com`;
+  await sourceMessage
+    .getByRole("button", { name: "Forward", exact: true })
+    .click();
+  await sourceMessage.getByRole("combobox", { name: "To" }).fill(recipient);
+  const editor = sourceMessage.getByRole("textbox", {
+    name: "Email message",
+  });
+  const forwardBody = `A forwarded message sent through the mail reader. ${testInfo.retry}`;
+  await editor.pressSequentially(forwardBody);
+  await sourceMessage
+    .getByRole("button", { name: "Send", exact: true })
+    .click();
+
+  await expect
+    .poll(
+      () =>
+        readLatestMailMutation(page, {
+          emailAccountId,
+          kind: "reply",
+          threadId: "thr_playwright_reply",
+        }),
+      { timeout: UNDO_WINDOW_SEND_TIMEOUT_MS },
+    )
+    .toMatchObject({ status: "succeeded" });
+  await expect(page).toHaveURL(/thread-id=thr_playwright_reply/);
+  await expect(sourceMessage).toBeVisible();
+  // Messages sent earlier in this shared thread can still be settling when the
+  // test starts, so find this forward by its unique recipient rather than a
+  // count. The body renders in an iframe, so the header is what's matchable.
+  await expect(
+    page
+      .locator("[data-thread-message-id]")
+      .filter({ hasText: `to ${recipient}` }),
+  ).toHaveCount(1);
+  await expect(
+    page
+      .getByRole("region", { name: "Reply delivery status" })
+      .getByText("Reply sent", { exact: true }),
+  ).toHaveCount(0);
+  await capturePlaywrightCheckpoint(page, testInfo, "forward-sent-in-thread");
+});
+
+test("shows the files a forward carries", async ({ page }, testInfo) => {
+  const { conversations } = await openMail(page);
+  await conversationWithSubject(
+    page,
+    conversations,
+    "Reader Visual Message",
+  ).click();
+  const sourceMessage = page
+    .locator("[data-thread-message-id]")
+    .filter({ hasText: "reader-preview.png" })
+    .last();
+  await expect(sourceMessage).toBeVisible({ timeout: 60_000 });
+
+  await sourceMessage
+    .getByRole("button", { name: "Forward", exact: true })
+    .click();
+
+  // The provider holds the bytes until the send, so the composer lists them
+  // without ever downloading them.
+  await expect(
+    page
+      .getByRole("list", { name: "Attachments" })
+      .getByText("reader-preview.png"),
+  ).toBeVisible();
+  await capturePlaywrightCheckpoint(page, testInfo, "forward-attachments");
+});
+
+test("keeps reply and forward drafts in separate composer sessions", async ({
+  page,
+}) => {
+  const { emailAccountId } = await openMail(page);
+  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reply`);
+  const message = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  await expect(message).toBeVisible();
+
+  await message.getByRole("button", { name: "Reply", exact: true }).click();
+  const editor = page.getByRole("textbox", { name: "Email message" });
+  await editor.fill("Reply-only draft text");
+
+  await message.getByRole("button", { name: "Forward", exact: true }).click();
+  await expect(editor).not.toContainText("Reply-only draft text");
+  await expect(message.getByRole("combobox", { name: "To" })).toHaveValue("");
+  await expect(message.getByRole("button", { name: /^Remove / })).toHaveCount(
+    0,
+  );
+  await editor.fill("Forward-only draft text");
+
+  await message.getByRole("button", { name: "Reply", exact: true }).click();
+  await expect(editor).toContainText("Reply-only draft text");
+  await page.getByRole("button", { name: /^Draft to Leslie/ }).click();
+  await expect(
+    message.getByRole("button", { name: /^Remove .*leslie@example\.com/i }),
+  ).toBeVisible();
+
+  await message.getByRole("button", { name: "Forward", exact: true }).click();
+  await expect(editor).toContainText("Forward-only draft text");
+  await expect(message.getByRole("combobox", { name: "To" })).toHaveValue("");
+  await expect(message.getByRole("button", { name: /^Remove / })).toHaveCount(
+    0,
+  );
+});
+
+async function readHeldReply(emailAccountId: string, replyBody: string) {
+  return withClient(async (client) => {
+    const result = await client.query<{ id: string; status: string }>(
+      `SELECT id, status FROM "ScheduledEmail"
+       WHERE "emailAccountId" = $1
+         AND "heldForUndo"
+         AND payload->'email'->>'messageHtml' LIKE $2
+       LIMIT 1`,
+      [emailAccountId, `%${replyBody}%`],
+    );
+    return result.rows[0];
+  });
 }
 
-function stubMailboxSync(page: Page) {
-  return page.route("**/api/mobile/mailbox-sync", async (route) => {
-    const emailAccountId = await route
-      .request()
-      .headerValue("X-Email-Account-ID");
-    await route.fulfill({
-      body: JSON.stringify({
-        accountId: emailAccountId,
-        cursor: "playwright-compose-sync",
-        deletedMessageIds: [],
-        hasMore: false,
-        reset: false,
-        upsertedMessages: [],
-      }),
-      contentType: "application/json",
-      status: 200,
-    });
-  });
+async function expectReaderMatchesMailbox(page: Page, emailAccountId: string) {
+  await expect
+    .poll(
+      async () => {
+        await requestMailSync(page);
+        const response = await page.request.get(
+          "/api/threads/thr_playwright_reply",
+          { headers: { "X-Email-Account-ID": emailAccountId } },
+        );
+        const { thread }: ThreadResponse = await response.json();
+        const rows = await page.locator("li[data-thread-message-id]").count();
+        return rows === thread.messages.length;
+      },
+      { timeout: 60_000 },
+    )
+    .toBe(true);
 }

@@ -35,10 +35,10 @@ export type PromptHardening =
     };
 
 export function applyPromptHardeningToSystem({
-  system,
+  instructions: system,
   promptHardening,
 }: {
-  system?: string;
+  instructions?: string;
   promptHardening: PromptHardening;
 }) {
   const hardeningText = buildPromptHardeningText(promptHardening);

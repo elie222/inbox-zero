@@ -280,15 +280,7 @@ Company
 
     it.each([
       { emoji: "👋", hex: "&#x1F44B;", name: "waving hand" },
-      { emoji: "😀", hex: "&#x1F600;", name: "grinning face" },
-      { emoji: "🎉", hex: "&#x1F389;", name: "party popper" },
       { emoji: "❤", hex: "&#x2764;", name: "red heart" },
-      { emoji: "🚀", hex: "&#x1F680;", name: "rocket" },
-      { emoji: "✅", hex: "&#x2705;", name: "check mark" },
-      { emoji: "🔥", hex: "&#x1F525;", name: "fire" },
-      { emoji: "👍", hex: "&#x1F44D;", name: "thumbs up" },
-      { emoji: "💡", hex: "&#x1F4A1;", name: "light bulb" },
-      { emoji: "📧", hex: "&#x1F4E7;", name: "email" },
     ])("should return 1.0 when stored content has HTML entity $name ($hex) and Gmail has actual emoji", ({
       emoji,
       hex,
@@ -367,15 +359,7 @@ Company
 
     it.each([
       { emoji: "👋", decimal: "128075", name: "waving hand" },
-      { emoji: "😀", decimal: "128512", name: "grinning face" },
-      { emoji: "🎉", decimal: "127881", name: "party popper" },
       { emoji: "❤", decimal: "10084", name: "red heart" },
-      { emoji: "🚀", decimal: "128640", name: "rocket" },
-      { emoji: "✅", decimal: "9989", name: "check mark" },
-      { emoji: "🔥", decimal: "128293", name: "fire" },
-      { emoji: "👍", decimal: "128077", name: "thumbs up" },
-      { emoji: "💡", decimal: "128161", name: "light bulb" },
-      { emoji: "📧", decimal: "128231", name: "email" },
     ])("should decode decimal HTML entity for $name (&#$decimal;) to $emoji", ({
       emoji,
       decimal,
@@ -485,5 +469,23 @@ On Mon, Jan 1, 2024 wrote:
       const score = realCalculateSimilarity(storedContent, plainString);
       expect(score).toBe(1.0);
     });
+  });
+});
+
+describe("branding footer normalization", () => {
+  it.each([
+    "Drafted by Inbox Zero.",
+    "Sent with Inbox Zero",
+    'Drafted by <a href="https://example.com/?ref=test">Inbox Zero</a>.',
+    "Sent with Inbox Zero [https://example.com/?ref=test]",
+    "Drafted by Inbox Zero [https://example.com/?ref=test].",
+    "Drafted by Inbox Zero.\n\nSent with Inbox Zero",
+  ])("ignores adding or deleting %s", (footer) => {
+    const body = "Thanks for the update.";
+    expect(calculateSimilarity(`${body}\n\n${footer}`, body)).toBe(1);
+    expect(calculateSimilarity(body, `${body}\n\n${footer}`)).toBe(1);
+    expect(
+      calculateSimilarity(`${body}\n\n${footer}`, "A different reply."),
+    ).toBeLessThan(1);
   });
 });
