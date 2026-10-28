@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ClassificationFeedbackEventType,
   GroupItemSource,
@@ -43,6 +43,9 @@ const earlierRemoval = { id: "feedback-1" } as Awaited<
 >;
 
 describe("recordLabelRemovalLearning", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     prisma.classificationFeedback.count.mockResolvedValue(1);
@@ -87,6 +90,22 @@ describe("recordLabelRemovalLearning", () => {
     expect(saveLearnedPattern).not.toHaveBeenCalled();
   });
 
+  it("removes a custom rule's inferred pattern even when saving feedback fails", async () => {
+    const error = new Error("Feedback unavailable");
+    vi.mocked(saveClassificationFeedback).mockRejectedValueOnce(error);
+
+    await expect(
+      recordLabelRemovalLearning({ ...removal, systemType: null }),
+    ).rejects.toThrow(error);
+
+    expect(removeAiLearnedPattern).toHaveBeenCalledWith({
+      emailAccountId: removal.emailAccountId,
+      from: removal.sender,
+      ruleId: removal.ruleId,
+    });
+    expect(saveLearnedPattern).not.toHaveBeenCalled();
+  });
+
   it("records the first removal from a sender as feedback only", async () => {
     await recordLabelRemovalLearning(removal);
 
@@ -95,10 +114,18 @@ describe("recordLabelRemovalLearning", () => {
   });
 
   it("learns an exclusion once the sender was removed on a separate occasion", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-01-01T12:00:00Z"));
+    const windowStart = new Date("2026-01-01T11:45:00Z");
     prisma.classificationFeedback.findFirst.mockResolvedValue(earlierRemoval);
 
     await recordLabelRemovalLearning(removal);
 
+    expect(prisma.classificationFeedback.count).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ createdAt: { gte: windowStart } }),
+      }),
+    );
     expect(prisma.classificationFeedback.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
@@ -107,7 +134,7 @@ describe("recordLabelRemovalLearning", () => {
           sender: "sender@example.com",
           eventType: ClassificationFeedbackEventType.LABEL_REMOVED,
           messageId: { not: "message-2" },
-          createdAt: { lt: expect.any(Date) },
+          createdAt: { lt: windowStart },
         }),
       }),
     );

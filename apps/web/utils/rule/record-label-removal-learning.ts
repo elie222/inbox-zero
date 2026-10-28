@@ -53,6 +53,17 @@ export async function recordLabelRemovalLearning({
     return;
   }
 
+  if (!systemType) {
+    // Removing a custom rule's label contradicts an inferred sender pattern,
+    // but is not strong enough to create a sender exclusion.
+    const removedCount = await removeAiLearnedPattern({
+      emailAccountId,
+      from: sender,
+      ruleId,
+    });
+    logger.info("Processed custom rule label removal", { removedCount });
+  }
+
   // Every removal is recorded as feedback so the AI sees it as a hint for the
   // sender's next email. Only a repeat removal becomes a deterministic exclusion.
   await saveClassificationFeedback({
@@ -65,19 +76,7 @@ export async function recordLabelRemovalLearning({
     logger,
   });
 
-  if (!systemType) {
-    // Removing a custom rule's label contradicts an inferred sender pattern,
-    // but is not strong enough to create a sender exclusion.
-    const removedCount = await removeAiLearnedPattern({
-      emailAccountId,
-      from: sender,
-      ruleId,
-    });
-    logger.info("Processed custom rule label removal", { removedCount });
-    return;
-  }
-
-  if (!shouldLearnFromLabelRemoval(systemType)) return;
+  if (!systemType || !shouldLearnFromLabelRemoval(systemType)) return;
 
   if (isBulkRemoval) {
     logger.info("Skipping exclusion: bulk label removal", { systemType });
