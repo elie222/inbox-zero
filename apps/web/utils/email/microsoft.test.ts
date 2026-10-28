@@ -1012,7 +1012,11 @@ describe("OutlookProvider.getMessagesBatch", () => {
     vi.spyOn(provider, "getMessage").mockImplementation(async (messageId) => {
       inFlight++;
       maxInFlight = Math.max(maxInFlight, inFlight);
-      await new Promise((resolve) => setTimeout(resolve, 1));
+      // The first message finishes last, so a result list built in completion
+      // order would not match the input order.
+      await new Promise((resolve) =>
+        setTimeout(resolve, messageId === "message-0" ? 20 : 1),
+      );
       inFlight--;
       return { id: messageId } as never;
     });
