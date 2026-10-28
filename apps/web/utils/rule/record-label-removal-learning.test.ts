@@ -126,10 +126,7 @@ describe("recordLabelRemovalLearning", () => {
     expect(prisma.classificationFeedback.count).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          createdAt: {
-            gte: windowStart,
-            lte: new Date("2026-01-01T12:00:00Z"),
-          },
+          createdAt: { gte: windowStart },
         }),
       }),
     );
@@ -192,6 +189,21 @@ describe("recordLabelRemovalLearning", () => {
     await recordLabelRemovalLearning({ ...removal, isBulkRemoval: true });
 
     expect(saveClassificationFeedback).toHaveBeenCalledTimes(1);
+    expect(saveLearnedPattern).not.toHaveBeenCalled();
+  });
+
+  it("includes sweep feedback saved by concurrent handlers after this removal", async () => {
+    const laterRemovalAt = new Date("2026-01-01T12:00:01Z");
+    prisma.classificationFeedback.findFirst.mockResolvedValue(earlierRemoval);
+    prisma.classificationFeedback.count.mockImplementation(async (args) => {
+      const bounds = args?.where?.createdAt as { gte: Date; lte?: Date };
+      return bounds.lte && laterRemovalAt > bounds.lte
+        ? 1
+        : BULK_LABEL_REMOVAL_THRESHOLD;
+    });
+
+    await recordLabelRemovalLearning(removal);
+
     expect(saveLearnedPattern).not.toHaveBeenCalled();
   });
 

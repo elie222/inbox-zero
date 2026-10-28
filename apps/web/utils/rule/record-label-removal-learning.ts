@@ -95,7 +95,7 @@ export async function recordLabelRemovalLearning({
       emailAccountId,
       ruleId,
       eventType: ClassificationFeedbackEventType.LABEL_REMOVED,
-      createdAt: { gte: windowStart, lte: feedback.createdAt },
+      createdAt: { gte: windowStart },
     },
   });
 
