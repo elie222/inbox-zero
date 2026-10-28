@@ -11,7 +11,6 @@ import {
   ruleHistoryRuleInclude,
   type RuleHistoryTrigger,
 } from "@/utils/rule/rule-history";
-import { clearAiLearnedPatterns } from "@/utils/rule/learned-patterns";
 import {
   RULE_ANALYTICS_EVENTS,
   trackRuleEvent,
@@ -988,16 +987,8 @@ function queueRuleHistory(params: {
 
   after(() => createRuleHistory(params));
 
-  after(async () => {
-    // AI-learned sender patterns skip AI rule selection entirely, so they were
-    // only valid for the rule set they were learned under. Without this, a rule
-    // the user adds or corrects never sees mail from those senders.
-    const learnedPatternsCleared =
-      rule.enabled && changesRuleSelection(triggerType)
-        ? await clearAiLearnedPatterns(rule.emailAccountId)
-        : 0;
-
-    await trackRuleEvent({
+  after(() =>
+    trackRuleEvent({
       emailAccountId: rule.emailAccountId,
       event: RULE_ANALYTICS_EVENTS.ruleChanged,
       properties: {
@@ -1005,18 +996,8 @@ function queueRuleHistory(params: {
         triggerType,
         systemType: rule.systemType,
         enabled: rule.enabled,
-        learnedPatternsCleared,
       },
-    });
-  });
-}
-
-function changesRuleSelection(triggerType: RuleHistoryTrigger) {
-  return (
-    triggerType === "created" ||
-    triggerType === "updated" ||
-    triggerType === "conditions_updated" ||
-    triggerType === "enabled_updated"
+    }),
   );
 }
 

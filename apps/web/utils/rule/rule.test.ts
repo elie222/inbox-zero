@@ -7,13 +7,11 @@ import { WEBHOOK_ACTION_DISABLED_MESSAGE } from "@/utils/outbound-webhook/action
 import { getActionRiskLevel } from "@/utils/risk";
 
 const {
-  clearAiLearnedPatternsMock,
   createRuleHistoryMock,
   mockEnv,
   mockIsIntegrationActionEnabledForEmailAccountId,
   trackRuleEventMock,
 } = vi.hoisted(() => ({
-  clearAiLearnedPatternsMock: vi.fn(),
   trackRuleEventMock: vi.fn(),
   createRuleHistoryMock: vi.fn(),
   mockEnv: {
@@ -32,9 +30,6 @@ vi.mock("@/utils/risk", () => ({
 vi.mock("@/utils/rule/rule-history", () => ({
   createRuleHistory: createRuleHistoryMock,
   ruleHistoryRuleInclude: { actions: true, group: true },
-}));
-vi.mock("@/utils/rule/learned-patterns", () => ({
-  clearAiLearnedPatterns: clearAiLearnedPatternsMock,
 }));
 vi.mock("@/utils/analytics/rule-events.server", () => ({
   RULE_ANALYTICS_EVENTS: { ruleChanged: "Rule changed" },
@@ -707,85 +702,35 @@ describe("rule history snapshots", () => {
   });
 });
 
-describe("AI-learned pattern invalidation", () => {
-  beforeEach(() => {
-    resetRuleMocks();
-    clearAiLearnedPatternsMock.mockResolvedValue(3);
-  });
+describe("rule analytics", () => {
+  beforeEach(resetRuleMocks);
 
-  it.each([
-    {
-      name: "enabling a rule",
-      enabled: true,
-      shouldClear: true,
-      run: () =>
-        setRuleEnabled({
-          ruleId: RULE_ID,
-          emailAccountId: EMAIL_ACCOUNT_ID,
-          enabled: true,
-        }),
-    },
-    {
-      name: "changing a rule's conditions",
-      enabled: true,
-      shouldClear: true,
-      run: () =>
-        partialUpdateRule({
-          ruleId: RULE_ID,
-          emailAccountId: EMAIL_ACCOUNT_ID,
-          data: { conditionalOperator: "OR" },
-        }),
-    },
-    {
-      name: "disabling a rule",
-      enabled: false,
-      shouldClear: false,
-      run: () =>
-        setRuleEnabled({
-          ruleId: RULE_ID,
-          emailAccountId: EMAIL_ACCOUNT_ID,
-          enabled: false,
-        }),
-    },
-    {
-      name: "changing thread execution mode",
-      enabled: true,
-      shouldClear: false,
-      run: () =>
-        setRuleRunOnThreads({
-          ruleId: RULE_ID,
-          emailAccountId: EMAIL_ACCOUNT_ID,
-          runOnThreads: false,
-        }),
-    },
-  ])("clears AI-learned patterns: $shouldClear when $name", async ({
-    enabled,
-    shouldClear,
-    run,
-  }) => {
+  it("reports rule changes with their trigger", async () => {
     prisma.rule.update.mockResolvedValue({
       id: RULE_ID,
       emailAccountId: EMAIL_ACCOUNT_ID,
-      enabled,
+      enabled: false,
+      systemType: null,
       actions: [],
       group: null,
     } as any);
 
-    await run();
+    await setRuleEnabled({
+      ruleId: RULE_ID,
+      emailAccountId: EMAIL_ACCOUNT_ID,
+      enabled: false,
+    });
 
-    if (shouldClear) {
-      expect(clearAiLearnedPatternsMock).toHaveBeenCalledWith(EMAIL_ACCOUNT_ID);
-    } else {
-      expect(clearAiLearnedPatternsMock).not.toHaveBeenCalled();
-    }
     await vi.waitFor(() =>
       expect(trackRuleEventMock).toHaveBeenCalledWith({
         emailAccountId: EMAIL_ACCOUNT_ID,
         event: "Rule changed",
-        properties: expect.objectContaining({
+        properties: {
           ruleId: RULE_ID,
-          learnedPatternsCleared: shouldClear ? 3 : 0,
-        }),
+          triggerType: "enabled_updated",
+          systemType: null,
+          enabled: false,
+        },
       }),
     );
   });

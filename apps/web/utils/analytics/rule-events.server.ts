@@ -11,7 +11,6 @@ const logger = createScopedLogger("rule-events");
  * `Rule changed`: a rule was created, edited, enabled or disabled.
  * - `ruleId`, `systemType` (null for custom rules), `enabled`.
  * - `triggerType`: same values as `RuleHistory.triggerType`.
- * - `learnedPatternsCleared`: AI-learned sender patterns the change reset.
  *
  * `Rule deleted`: `ruleId`.
  *
