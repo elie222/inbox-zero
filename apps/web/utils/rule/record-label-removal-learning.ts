@@ -6,7 +6,11 @@ import {
 } from "@/generated/prisma/enums";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
-import { shouldLearnFromLabelRemoval } from "@/utils/rule/consts";
+import { saveClassificationFeedback } from "@/utils/rule/classification-feedback";
+import {
+  isEligibleForClassificationFeedback,
+  shouldLearnFromLabelRemoval,
+} from "@/utils/rule/consts";
 import {
   removeAiLearnedPattern,
   saveLearnedPattern,
@@ -32,7 +36,7 @@ export async function recordLabelRemovalLearning({
   ruleId: string | null | undefined;
   systemType: SystemType | null | undefined;
   messageId: string;
-  threadId?: string | null;
+  threadId: string;
   emailAccountId: string;
   isBulkRemoval?: boolean;
   logger: Logger;
@@ -42,57 +46,87 @@ export async function recordLabelRemovalLearning({
     return;
   }
 
-  if (ruleId && !systemType) {
-    // A custom rule's label can be removed as part of a normal workflow, so this
-    // isn't strong enough to exclude the sender. It does contradict an AI-inferred
-    // sender pattern, which would otherwise keep reapplying the label.
+  if (!ruleId || !isEligibleForClassificationFeedback(systemType)) {
+    logger.info("Label removal does not match a learnable rule", {
+      systemType,
+    });
+    return;
+  }
+
+  if (!systemType) {
+    // Removing a custom rule's label contradicts an inferred sender pattern,
+    // but is not strong enough to create a sender exclusion.
     const removedCount = await removeAiLearnedPattern({
       emailAccountId,
       from: sender,
       ruleId,
     });
     logger.info("Processed custom rule label removal", { removedCount });
-    return;
   }
 
-  if (!ruleId || !systemType || !shouldLearnFromLabelRemoval(systemType)) {
-    logger.info("Label removal does not match a learnable system rule", {
-      systemType,
-    });
-    return;
-  }
+  // Every removal is recorded as feedback so the AI sees it as a hint for the
+  // sender's next email. Only a repeat removal becomes a deterministic exclusion.
+  const feedback = await saveClassificationFeedback({
+    emailAccountId,
+    sender,
+    ruleId,
+    threadId,
+    messageId,
+    eventType: ClassificationFeedbackEventType.LABEL_REMOVED,
+    logger,
+  });
+
+  if (!systemType || !shouldLearnFromLabelRemoval(systemType)) return;
 
   if (isBulkRemoval) {
-    logger.info("Skipping learning from bulk label removal", { systemType });
+    logger.info("Skipping exclusion: bulk label removal", { systemType });
     return;
   }
 
-  // Gmail callers record this removal's feedback row first, so the count
-  // includes it. Concurrent webhook pages can still race past this check; the
-  // batch-level isBulkRemoval flag is the primary guard for large sweeps.
+  const windowStart = subMinutes(
+    feedback.createdAt,
+    BULK_LABEL_REMOVAL_WINDOW_MINUTES,
+  );
+
+  // Gmail history pages and Outlook change notifications can both split one
+  // sweep across many webhook calls, so also look at what was recorded recently.
   const recentRemovals = await prisma.classificationFeedback.count({
     where: {
       emailAccountId,
       ruleId,
       eventType: ClassificationFeedbackEventType.LABEL_REMOVED,
-      createdAt: {
-        gte: subMinutes(new Date(), BULK_LABEL_REMOVAL_WINDOW_MINUTES),
-      },
+      createdAt: { gte: windowStart },
     },
   });
 
   if (recentRemovals >= BULK_LABEL_REMOVAL_THRESHOLD) {
-    logger.info(
-      "Skipping learning: recent label removals look like a bulk action",
-      {
-        systemType,
-        recentRemovals,
-      },
-    );
+    logger.info("Skipping exclusion: recent removals look like a sweep", {
+      systemType,
+      recentRemovals,
+    });
     return;
   }
 
-  logger.info("Processing label removal for learning", {
+  const earlierRemoval = await prisma.classificationFeedback.findFirst({
+    where: {
+      emailAccountId,
+      ruleId,
+      sender: sender.toLowerCase(),
+      eventType: ClassificationFeedbackEventType.LABEL_REMOVED,
+      messageId: { not: messageId },
+      createdAt: { lt: windowStart },
+    },
+    select: { id: true },
+  });
+
+  if (!earlierRemoval) {
+    logger.info("First label removal for sender, recorded as feedback only", {
+      systemType,
+    });
+    return;
+  }
+
+  logger.info("Learning sender exclusion from repeated label removal", {
     systemType,
   });
   logger.trace("Label removal sender", { from: sender });

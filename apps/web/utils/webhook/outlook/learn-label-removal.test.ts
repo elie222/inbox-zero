@@ -24,6 +24,10 @@ vi.mock("@/utils/prisma", () => ({
       findMany: vi.fn().mockResolvedValue([]),
     },
     classificationFeedback: {
+      upsert: vi
+        .fn()
+        .mockResolvedValue({ createdAt: new Date("2026-01-01T12:00:00Z") }),
+      findFirst: vi.fn().mockResolvedValue({ id: "earlier-removal" }),
       count: vi.fn().mockResolvedValue(0),
     },
   },
@@ -39,9 +43,45 @@ const logger = createTestLogger();
 describe("learnFromOutlookLabelRemoval", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(prisma.classificationFeedback.findFirst).mockResolvedValue({
+      id: "earlier-removal",
+    } as any);
     vi.mocked(prisma.executedRule.findMany).mockResolvedValue([]);
     vi.mocked(prisma.action.findMany).mockResolvedValue([]);
     vi.mocked(saveLearnedPattern).mockResolvedValue(undefined);
+  });
+
+  it("records feedback without an exclusion on the first removal from a sender", async () => {
+    vi.mocked(prisma.classificationFeedback.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.executedRule.findMany).mockResolvedValue([
+      {
+        rule: { id: "rule-1", systemType: SystemType.NEWSLETTER },
+        actionItems: [{ labelId: "label-newsletter", label: "Newsletter" }],
+      },
+    ] as any);
+
+    await learnFromOutlookLabelRemoval({
+      message: getMockParsedMessage({
+        id: "message-123",
+        threadId: "thread-123",
+        labelIds: ["INBOX"],
+        headers: { from: "sender@example.com" },
+      }),
+      emailAccountId: "email-account-123",
+      logger,
+    });
+
+    expect(prisma.classificationFeedback.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          emailAccountId: "email-account-123",
+          sender: "sender@example.com",
+          ruleId: "rule-1",
+          messageId: "message-123",
+        }),
+      }),
+    );
+    expect(saveLearnedPattern).not.toHaveBeenCalled();
   });
 
   it("learns exclusion when a previously applied label is removed", async () => {

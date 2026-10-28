@@ -27,6 +27,10 @@ vi.mock("@/utils/prisma", () => ({
       deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
     },
     classificationFeedback: {
+      upsert: vi
+        .fn()
+        .mockResolvedValue({ createdAt: new Date("2026-01-01T12:00:00Z") }),
+      findFirst: vi.fn().mockResolvedValue({ id: "earlier-removal" }),
       count: vi.fn().mockResolvedValue(0),
     },
   },
@@ -78,7 +82,9 @@ vi.mock("@/utils/webhook/google/fetch-sender-from-message", () => ({
 }));
 
 vi.mock("@/utils/rule/classification-feedback", () => ({
-  saveClassificationFeedback: vi.fn().mockResolvedValue(undefined),
+  saveClassificationFeedback: vi
+    .fn()
+    .mockResolvedValue({ createdAt: new Date("2026-01-01T12:00:00Z") }),
   findRuleByLabelId: vi.fn(),
 }));
 
