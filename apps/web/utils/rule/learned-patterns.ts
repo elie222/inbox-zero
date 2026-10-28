@@ -1,6 +1,10 @@
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
-import { GroupItemSource, GroupItemType } from "@/generated/prisma/enums";
+import {
+  GroupItemSource,
+  GroupItemType,
+  SystemType,
+} from "@/generated/prisma/enums";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import { findMatchingGroupItem } from "@/utils/group/find-matching-group";
 import {
@@ -88,6 +92,44 @@ export async function removeAiLearnedPattern({
     },
   });
   return count;
+}
+
+/**
+ * Removes every AI-inferred sender inclusion in the account and lets those
+ * senders be analyzed again against the current rules. User-authored patterns
+ * and exclusions are kept.
+ */
+export async function clearAiLearnedPatterns(emailAccountId: string) {
+  const items = await prisma.groupItem.findMany({
+    where: {
+      group: {
+        emailAccountId,
+        // Cold email is decided before rule selection, so rule edits don't
+        // invalidate what it learned.
+        NOT: { rule: { is: { systemType: SystemType.COLD_EMAIL } } },
+      },
+      type: GroupItemType.FROM,
+      source: GroupItemSource.AI,
+      exclude: false,
+    },
+    select: { id: true, value: true },
+  });
+  if (!items.length) return 0;
+
+  await prisma.$transaction([
+    prisma.groupItem.deleteMany({
+      where: { id: { in: items.map((item) => item.id) } },
+    }),
+    prisma.newsletter.updateMany({
+      where: {
+        emailAccountId,
+        email: { in: items.map((item) => item.value), mode: "insensitive" },
+      },
+      data: { patternAnalyzed: false },
+    }),
+  ]);
+
+  return items.length;
 }
 
 /**

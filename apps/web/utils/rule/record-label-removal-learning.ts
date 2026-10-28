@@ -1,10 +1,16 @@
+import { after } from "next/server";
 import { GroupItemSource, type SystemType } from "@/generated/prisma/enums";
 import type { Logger } from "@/utils/logger";
 import { shouldLearnFromLabelRemoval } from "@/utils/rule/consts";
+import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
 import {
   removeAiLearnedPattern,
   saveLearnedPattern,
 } from "@/utils/rule/learned-patterns";
+import {
+  RULE_ANALYTICS_EVENTS,
+  trackRuleEvent,
+} from "@/utils/analytics/rule-events.server";
 
 export async function recordLabelRemovalLearning({
   sender,
@@ -26,6 +32,18 @@ export async function recordLabelRemovalLearning({
   if (!sender) {
     logger.info("No sender found, skipping learning");
     return;
+  }
+
+  // We move conversation status labels ourselves as a thread progresses, so
+  // only other rule labels are a signal that the user disagreed with us.
+  if (ruleId && !isConversationStatusType(systemType)) {
+    after(() =>
+      trackRuleEvent({
+        emailAccountId,
+        event: RULE_ANALYTICS_EVENTS.ruleLabelRemovedByUser,
+        properties: { ruleId, systemType: systemType ?? null },
+      }),
+    );
   }
 
   if (ruleId && !systemType) {
