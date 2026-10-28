@@ -123,6 +123,7 @@ vi.mock("@/env", () => ({
     get NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED() {
       return envState.webhookActionsEnabled;
     },
+    NEXT_PUBLIC_BRAND_NAME: "Inbox Zero",
   },
 }));
 
