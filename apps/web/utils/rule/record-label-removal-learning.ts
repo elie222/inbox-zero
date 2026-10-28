@@ -1,6 +1,12 @@
 import { after } from "next/server";
-import { GroupItemSource, type SystemType } from "@/generated/prisma/enums";
+import { subMinutes } from "date-fns/subMinutes";
+import {
+  ClassificationFeedbackEventType,
+  GroupItemSource,
+  type SystemType,
+} from "@/generated/prisma/enums";
 import type { Logger } from "@/utils/logger";
+import prisma from "@/utils/prisma";
 import { shouldLearnFromLabelRemoval } from "@/utils/rule/consts";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
 import {
@@ -12,6 +18,12 @@ import {
   trackRuleEvent,
 } from "@/utils/analytics/rule-events.server";
 
+// A user stripping a label from many emails at once is "stop labeling this",
+// not a per-sender correction. Learning an exclusion from each one leaves
+// later emails from those senders matching nothing.
+export const BULK_LABEL_REMOVAL_THRESHOLD = 10;
+const BULK_LABEL_REMOVAL_WINDOW_MINUTES = 15;
+
 export async function recordLabelRemovalLearning({
   sender,
   ruleId,
@@ -19,6 +31,7 @@ export async function recordLabelRemovalLearning({
   messageId,
   threadId,
   emailAccountId,
+  isBulkRemoval,
   logger,
 }: {
   sender: string | null;
@@ -27,6 +40,7 @@ export async function recordLabelRemovalLearning({
   messageId: string;
   threadId?: string | null;
   emailAccountId: string;
+  isBulkRemoval?: boolean;
   logger: Logger;
 }) {
   if (!sender) {
@@ -66,6 +80,36 @@ export async function recordLabelRemovalLearning({
     return;
   }
 
+  if (isBulkRemoval) {
+    logger.info("Skipping learning from bulk label removal", { systemType });
+    return;
+  }
+
+  // Gmail callers record this removal's feedback row first, so the count
+  // includes it. Concurrent webhook pages can still race past this check; the
+  // batch-level isBulkRemoval flag is the primary guard for large sweeps.
+  const recentRemovals = await prisma.classificationFeedback.count({
+    where: {
+      emailAccountId,
+      ruleId,
+      eventType: ClassificationFeedbackEventType.LABEL_REMOVED,
+      createdAt: {
+        gte: subMinutes(new Date(), BULK_LABEL_REMOVAL_WINDOW_MINUTES),
+      },
+    },
+  });
+
+  if (recentRemovals >= BULK_LABEL_REMOVAL_THRESHOLD) {
+    logger.info(
+      "Skipping learning: recent label removals look like a bulk action",
+      {
+        systemType,
+        recentRemovals,
+      },
+    );
+    return;
+  }
+
   logger.info("Processing label removal for learning", {
     systemType,
   });
@@ -82,4 +126,32 @@ export async function recordLabelRemovalLearning({
     reason: "Label removed",
     source: GroupItemSource.LABEL_REMOVED,
   });
+}
+
+export function getBulkRemovedLabelIds(
+  labelsRemoved: {
+    message?: { id?: string | null } | null;
+    labelIds?: string[] | null;
+  }[],
+) {
+  const messageIdsByLabel = new Map<string, Set<string>>();
+
+  for (const removal of labelsRemoved) {
+    const messageId = removal.message?.id;
+    if (!messageId) continue;
+
+    for (const labelId of removal.labelIds || []) {
+      const messageIds = messageIdsByLabel.get(labelId) ?? new Set<string>();
+      messageIds.add(messageId);
+      messageIdsByLabel.set(labelId, messageIds);
+    }
+  }
+
+  return new Set(
+    [...messageIdsByLabel]
+      .filter(
+        ([, messageIds]) => messageIds.size >= BULK_LABEL_REMOVAL_THRESHOLD,
+      )
+      .map(([labelId]) => labelId),
+  );
 }
