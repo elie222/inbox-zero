@@ -1706,6 +1706,15 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async getMessagesBatch(messageIds: string[]): Promise<ParsedMessage[]> {
+    if (messageIds.length === 0) return [];
+
+    // Fill the folder and category caches once. Cold, each worker below would
+    // start its own lookups on top of its message request.
+    await Promise.all([
+      getFolderIds(this.client, this.logger, { includeDrafts: false }),
+      getCategoryMap(this.client, this.logger),
+    ]);
+
     // Graph limits concurrent requests per mailbox to 4; a larger burst can
     // fail with ErrorAccessDenied rather than a retryable 429.
     return mapWithConcurrency(messageIds, 4, (messageId) =>

@@ -964,8 +964,49 @@ describe("OutlookProvider.removeThreadLabels", () => {
 });
 
 describe("OutlookProvider.getMessagesBatch", () => {
+  it("fills the folder and category caches once before fetching", async () => {
+    const provider = new OutlookProvider({} as never, createTestLogger());
+    const calls: string[] = [];
+    getFolderIdsMock.mockImplementation(async () => {
+      calls.push("folders");
+      return {};
+    });
+    vi.spyOn(outlookMessageModule, "getCategoryMap").mockImplementation(
+      async () => {
+        calls.push("categories");
+        return new Map();
+      },
+    );
+    vi.spyOn(provider, "getMessage").mockImplementation(async (messageId) => {
+      calls.push(`message:${messageId}`);
+      return { id: messageId } as never;
+    });
+
+    await provider.getMessagesBatch(["a", "b", "c"]);
+
+    expect(calls.slice(0, 2).sort()).toEqual(["categories", "folders"]);
+    expect(calls.slice(2).sort()).toEqual([
+      "message:a",
+      "message:b",
+      "message:c",
+    ]);
+  });
+
+  it("makes no requests for an empty batch", async () => {
+    const provider = new OutlookProvider({} as never, createTestLogger());
+    const getMessage = vi.spyOn(provider, "getMessage");
+
+    await expect(provider.getMessagesBatch([])).resolves.toEqual([]);
+
+    expect(getFolderIdsMock).not.toHaveBeenCalled();
+    expect(getMessage).not.toHaveBeenCalled();
+  });
+
   it("fetches messages with bounded concurrency and keeps input order", async () => {
     const provider = new OutlookProvider({} as never, createTestLogger());
+    vi.spyOn(outlookMessageModule, "getCategoryMap").mockResolvedValue(
+      new Map(),
+    );
     let inFlight = 0;
     let maxInFlight = 0;
     vi.spyOn(provider, "getMessage").mockImplementation(async (messageId) => {
