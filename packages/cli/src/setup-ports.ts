@@ -1,136 +1,170 @@
 import { createServer } from "node:net";
+import * as p from "@clack/prompts";
 
-const DEFAULT_PORTS = {
-  web: 3000,
-  postgres: 5432,
-  redis: 6380,
-  redisHttp: 8079,
-} as const;
+const PORT_SETTINGS = [
+  { key: "WEB_PORT", label: "Web app", defaultPort: 3000 },
+  { key: "POSTGRES_PORT", label: "PostgreSQL", defaultPort: 5432 },
+  { key: "REDIS_PORT", label: "Redis TCP", defaultPort: 6380 },
+  { key: "REDIS_HTTP_PORT", label: "Redis HTTP", defaultPort: 8079 },
+] as const;
 
-type ResolvedPortChange = {
-  key: "WEB_PORT" | "POSTGRES_PORT" | "REDIS_PORT" | "REDIS_HTTP_PORT";
-  label: string;
-  defaultPort: number;
-  port: number;
-};
+type PortSetting = (typeof PORT_SETTINGS)[number];
+
+// Docker Desktop and many databases publish on the wildcard address (`*:5432`).
+// On macOS a loopback-only bind still succeeds in that case, so every address
+// Compose may bind to has to be probed.
+const PROBE_HOSTS = ["127.0.0.1", "0.0.0.0", "::"] as const;
 
 export type SetupPortConfig = {
   webPort: string;
   postgresPort: string;
   redisPort: string;
   redisHttpPort: string;
-  changedPorts: ResolvedPortChange[];
+};
+
+export type PortConflict = {
+  key: PortSetting["key"];
+  label: string;
+  port: number;
+  suggestedPort: number;
 };
 
 export async function resolveSetupPorts(options: {
   useDockerInfra: boolean;
 }): Promise<SetupPortConfig> {
   const reservedPorts = new Set<number>();
-  const allPorts: ResolvedPortChange[] = [];
+  const settings = options.useDockerInfra
+    ? PORT_SETTINGS
+    : PORT_SETTINGS.filter((setting) => setting.key === "WEB_PORT");
 
-  const webPort = await reserveAvailablePort(
-    {
-      key: "WEB_PORT",
-      label: "Web app",
-      defaultPort: DEFAULT_PORTS.web,
-    },
-    reservedPorts,
-  );
-  allPorts.push(webPort);
-
-  if (!options.useDockerInfra) {
-    return {
-      webPort: String(webPort.port),
-      postgresPort: String(DEFAULT_PORTS.postgres),
-      redisPort: String(DEFAULT_PORTS.redis),
-      redisHttpPort: String(DEFAULT_PORTS.redisHttp),
-      changedPorts: allPorts.filter((port) => port.port !== port.defaultPort),
-    };
+  const ports: Record<string, number> = {};
+  for (const setting of settings) {
+    const port = (await isPortAvailable(setting.defaultPort))
+      ? setting.defaultPort
+      : await promptForFreePort(setting, reservedPorts);
+    reservedPorts.add(port);
+    ports[setting.key] = port;
   }
 
-  const postgresPort = await reserveAvailablePort(
-    {
-      key: "POSTGRES_PORT",
-      label: "PostgreSQL",
-      defaultPort: DEFAULT_PORTS.postgres,
-    },
-    reservedPorts,
-  );
-  allPorts.push(postgresPort);
-
-  const redisPort = await reserveAvailablePort(
-    {
-      key: "REDIS_PORT",
-      label: "Redis TCP",
-      defaultPort: DEFAULT_PORTS.redis,
-    },
-    reservedPorts,
-  );
-  allPorts.push(redisPort);
-
-  const redisHttpPort = await reserveAvailablePort(
-    {
-      key: "REDIS_HTTP_PORT",
-      label: "Redis HTTP",
-      defaultPort: DEFAULT_PORTS.redisHttp,
-    },
-    reservedPorts,
-  );
-  allPorts.push(redisHttpPort);
-
   return {
-    webPort: String(webPort.port),
-    postgresPort: String(postgresPort.port),
-    redisPort: String(redisPort.port),
-    redisHttpPort: String(redisHttpPort.port),
-    changedPorts: allPorts.filter((port) => port.port !== port.defaultPort),
+    webPort: String(ports.WEB_PORT),
+    postgresPort: String(ports.POSTGRES_PORT ?? 5432),
+    redisPort: String(ports.REDIS_PORT ?? 6380),
+    redisHttpPort: String(ports.REDIS_HTTP_PORT ?? 8079),
   };
 }
 
-export function formatPortConfigNote(
-  changedPorts: SetupPortConfig["changedPorts"],
-): string | null {
-  if (changedPorts.length === 0) return null;
+export async function findBusyPorts(
+  env: Record<string, string | undefined>,
+): Promise<PortConflict[]> {
+  const configured = PORT_SETTINGS.map((setting) => ({
+    setting,
+    port: Number(env[setting.key]) || setting.defaultPort,
+  }));
+  const reservedPorts = new Set(configured.map(({ port }) => port));
+  const conflicts: PortConflict[] = [];
+
+  for (const { setting, port } of configured) {
+    if (await isPortAvailable(port)) continue;
+    const suggestedPort = await findFreePort(port + 1, reservedPorts);
+    reservedPorts.add(suggestedPort);
+    conflicts.push({
+      key: setting.key,
+      label: setting.label,
+      port,
+      suggestedPort,
+    });
+  }
+
+  return conflicts;
+}
+
+export function formatPortConflicts(conflicts: PortConflict[]): string {
   return [
-    "Detected busy local ports. Setup will use these host port overrides:",
-    ...changedPorts.map(
-      (port) => `- ${port.label}: ${port.defaultPort} -> ${port.port}`,
+    "These ports are already in use by another app on this machine:",
+    ...conflicts.map(
+      (conflict) =>
+        `- ${conflict.label}: ${conflict.port} (try ${conflict.suggestedPort})`,
+    ),
+    "",
+    "Free the port, or move Inbox Zero to the suggested one:",
+    ...conflicts.map(
+      (conflict) =>
+        `  inbox-zero config set ${conflict.key} ${conflict.suggestedPort}`,
     ),
   ].join("\n");
 }
 
-async function reserveAvailablePort(
-  port: Omit<ResolvedPortChange, "port">,
-  reservedPorts: Set<number>,
-): Promise<ResolvedPortChange> {
-  for (
-    let candidatePort = port.defaultPort;
-    candidatePort <= 65_535;
-    candidatePort++
-  ) {
-    if (reservedPorts.has(candidatePort)) continue;
-    const available = await isPortAvailable(candidatePort);
-    if (!available) continue;
-    reservedPorts.add(candidatePort);
-    return { ...port, port: candidatePort };
+export async function isPortAvailable(port: number): Promise<boolean> {
+  for (const host of PROBE_HOSTS) {
+    if (!(await canBind(host, port))) return false;
   }
-
-  throw new Error(`Could not find an available port for ${port.label}.`);
+  return true;
 }
 
-function isPortAvailable(port: number): Promise<boolean> {
+async function promptForFreePort(
+  setting: PortSetting,
+  reservedPorts: Set<number>,
+): Promise<number> {
+  p.log.warn(
+    `${setting.label} port ${setting.defaultPort} is already in use by another app on this machine.`,
+  );
+
+  let suggestedPort = await findFreePort(
+    setting.defaultPort + 1,
+    reservedPorts,
+  );
+
+  while (true) {
+    const answer = await p.text({
+      message: `Which port should Inbox Zero use for ${setting.label}?`,
+      initialValue: String(suggestedPort),
+      validate: (value) => {
+        const port = Number(value);
+        if (!Number.isInteger(port) || port < 1 || port > 65_535) {
+          return "Enter a port number between 1 and 65535.";
+        }
+        if (reservedPorts.has(port)) {
+          return `Port ${port} is already assigned to another Inbox Zero service.`;
+        }
+      },
+    });
+    if (p.isCancel(answer)) {
+      p.cancel("Setup cancelled.");
+      process.exit(0);
+    }
+
+    const port = Number(answer);
+    if (await isPortAvailable(port)) return port;
+
+    p.log.warn(`Port ${port} is also in use.`);
+    suggestedPort = await findFreePort(port + 1, reservedPorts);
+  }
+}
+
+async function findFreePort(
+  startPort: number,
+  reservedPorts: Set<number>,
+): Promise<number> {
+  for (let port = startPort; port <= 65_535; port++) {
+    if (reservedPorts.has(port)) continue;
+    if (await isPortAvailable(port)) return port;
+  }
+  throw new Error(`Could not find an available port above ${startPort}.`);
+}
+
+function canBind(host: string, port: number): Promise<boolean> {
   return new Promise((resolve) => {
     const server = createServer();
     server.unref();
 
-    server.once("error", () => {
-      resolve(false);
+    server.once("error", (error: NodeJS.ErrnoException) => {
+      // Hosts without IPv6 can't probe `::`; that is not a conflict.
+      resolve(error.code === "EAFNOSUPPORT" || error.code === "EADDRNOTAVAIL");
     });
 
-    server.listen({ host: "127.0.0.1", port }, () => {
-      server.close(() => {
-        resolve(true);
-      });
+    server.listen({ host, port, ipv6Only: host === "::" }, () => {
+      server.close(() => resolve(true));
     });
   });
 }
