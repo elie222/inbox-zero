@@ -157,3 +157,33 @@ export async function getConversationActivity(
         : null,
   };
 }
+
+/** Conversations with activity the user hasn't read, across all their memberships. */
+export async function countUnreadConversations(emailAccountId: string) {
+  const participants = await prisma.conversationParticipant.findMany({
+    where: {
+      member: { emailAccountId },
+      active: true,
+      muted: false,
+      conversation: { status: "ACTIVE" },
+    },
+    select: {
+      generation: true,
+      readRevision: true,
+      member: { select: { organizationId: true } },
+      conversation: { select: { generation: true, organizationId: true } },
+      activity: {
+        orderBy: { revision: "desc" },
+        take: 1,
+        select: { revision: true },
+      },
+    },
+  });
+  return participants.filter(
+    (participant) =>
+      participant.generation === participant.conversation.generation &&
+      participant.member.organizationId ===
+        participant.conversation.organizationId &&
+      (participant.activity[0]?.revision ?? 0) > participant.readRevision,
+  ).length;
+}

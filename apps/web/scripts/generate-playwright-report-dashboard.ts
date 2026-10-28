@@ -35,9 +35,9 @@ const [
   baselineManifestPath,
   baselineImagesPath,
 ] = process.argv.slice(2);
-const MAX_SCREENSHOT_COUNT = 500;
-const MAX_TOTAL_SCREENSHOT_BYTES = 100 * 1024 * 1024;
-const MAX_ARTIFACT_ENTRIES = 2000;
+const MAX_SCREENSHOT_COUNT = 1500;
+const MAX_TOTAL_SCREENSHOT_BYTES = 300 * 1024 * 1024;
+const MAX_ARTIFACT_ENTRIES = 6000;
 const MAX_ARTIFACT_DEPTH = 12;
 
 if (!historyPath || !dashboardPath || !testResultsPath || !galleryPath) {

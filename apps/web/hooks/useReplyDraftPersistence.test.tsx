@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 
-import { act, render, renderHook } from "@testing-library/react";
+import { act, cleanup, render, renderHook } from "@testing-library/react";
 import { useImperativeHandle, useRef, type Ref } from "react";
+import { isSafeToReload } from "@/utils/safe-reload";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useReplyDraftPersistence } from "./useReplyDraftPersistence";
 import type { ReplyDraftContent } from "@/utils/mail-engine/reply-drafts";
@@ -32,8 +33,28 @@ const content: ReplyDraftContent = {
 
 describe("useReplyDraftPersistence", () => {
   afterEach(() => {
+    cleanup();
     vi.useRealTimers();
     vi.clearAllMocks();
+  });
+
+  it("blocks reload after unmount until the last draft save completes", async () => {
+    let finishSave!: () => void;
+    save.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        finishSave = resolve;
+      }),
+    );
+    const { result, unmount } = renderHook(() =>
+      useReplyDraftPersistence({ identity, getContent: () => content }),
+    );
+    act(() => result.current.capture());
+    unmount();
+    expect(isSafeToReload()).toBe(false);
+    await act(async () => {
+      finishSave();
+    });
+    expect(isSafeToReload()).toBe(true);
   });
 
   it("retries an unchanged snapshot after a save failure", async () => {

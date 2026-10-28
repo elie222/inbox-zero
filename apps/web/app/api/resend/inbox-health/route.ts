@@ -178,6 +178,7 @@ async function sendEmail({
     const email = canonicalizeEmailAddress(stats.from);
     return {
       name: email,
+      unsubscribeLink: stats.unsubscribeLink,
       fromName: getNewsletterSenderDisplayName({
         email,
         fromName: stats.fromName,

@@ -6,6 +6,7 @@ import { markNotSpam, markSpam } from "./spam";
 vi.mock("server-only", () => ({}));
 
 vi.mock("@/utils/outlook/retry", () => ({
+  withMicrosoftGraphRetry: <T>(operation: () => Promise<T>) => operation(),
   withMicrosoftGraphWriteRetry: <T>(operation: () => Promise<T>) => operation(),
 }));
 
@@ -35,6 +36,8 @@ function createClient(messageIds: string[]) {
     selectedPath = path;
     return {
       filter: vi.fn().mockReturnThis(),
+      select: vi.fn().mockReturnThis(),
+      top: vi.fn().mockReturnThis(),
       async get() {
         return { value: messageIds.map((id) => ({ id })) };
       },

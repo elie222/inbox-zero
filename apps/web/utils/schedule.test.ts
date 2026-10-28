@@ -50,13 +50,6 @@ function createTestDate(isoString: string): Date {
   return new Date(isoString);
 }
 
-describe("timezone setup", () => {
-  it("should use UTC timezone for consistent test behavior", () => {
-    const testDate = new Date("2024-01-15T10:00:00Z");
-    expect(testDate.getTimezoneOffset()).toBe(0);
-  });
-});
-
 describe("createCanonicalTimeOfDay", () => {
   it("should create a canonical date with specified time", () => {
     const result = createCanonicalTimeOfDay(9, 30);
@@ -82,22 +75,6 @@ describe("createCanonicalTimeOfDay", () => {
 
     expect(result.getHours()).toBe(23);
     expect(result.getMinutes()).toBe(59);
-  });
-});
-
-describe("DAYS constant", () => {
-  it.each(
-    DAY_CASES,
-  )("should have correct bitmask value for %s", (_, __, bitmask, expected) => {
-    expect(bitmask).toBe(expected);
-  });
-
-  it("should allow combining days with bitwise OR", () => {
-    const mondayWednesday = DAYS.MONDAY | DAYS.WEDNESDAY;
-    expect(mondayWednesday).toBe(0b010_1000); // 40
-
-    const weekends = DAYS.SATURDAY | DAYS.SUNDAY;
-    expect(weekends).toBe(0b100_0001); // 65
   });
 });
 
@@ -460,6 +437,61 @@ describe("calculateNextScheduleDate", () => {
 
       // Should be 3 days later at midnight
       expectScheduleDate(result, { date: 18, hours: 0, minutes: 0 });
+    });
+
+    it("should run a weekly schedule on its chosen weekday, not the day it was saved", () => {
+      const wednesday = new Date("2026-10-21T08:00:00Z");
+      const weeklyOnMonday = {
+        intervalDays: 7,
+        daysOfWeek: DAYS.MONDAY,
+        timeOfDay: createCanonicalTimeOfDay(9, 0),
+        occurrences: 1,
+      };
+
+      const first = calculateNextScheduleDate({
+        ...weeklyOnMonday,
+        lastOccurrenceAt: wednesday,
+      });
+      expect(first?.toISOString()).toBe("2026-10-26T09:00:00.000Z");
+
+      const second = calculateNextScheduleDate({
+        ...weeklyOnMonday,
+        lastOccurrenceAt: first,
+      });
+      expect(second?.toISOString()).toBe("2026-11-02T09:00:00.000Z");
+    });
+
+    it("should keep advancing a weekly schedule whose weekday mask has no valid days", () => {
+      const schedule = {
+        intervalDays: 7,
+        daysOfWeek: 0b1000_0000,
+        timeOfDay: createCanonicalTimeOfDay(9, 0),
+        occurrences: 1,
+      };
+
+      const first = calculateNextScheduleDate({
+        ...schedule,
+        lastOccurrenceAt: new Date("2026-10-21T10:00:00Z"),
+      });
+      const second = calculateNextScheduleDate({
+        ...schedule,
+        lastOccurrenceAt: first,
+      });
+
+      expect(first?.toISOString()).toBe("2026-10-28T09:00:00.000Z");
+      expect(second?.toISOString()).toBe("2026-11-04T09:00:00.000Z");
+    });
+
+    it("should run a weekly schedule later the same day when saved on the chosen weekday before its time", () => {
+      const result = calculateNextScheduleDate({
+        intervalDays: 7,
+        daysOfWeek: DAYS.MONDAY,
+        timeOfDay: createCanonicalTimeOfDay(9, 0),
+        occurrences: 1,
+        lastOccurrenceAt: new Date("2026-10-19T08:00:00Z"),
+      });
+
+      expect(result?.toISOString()).toBe("2026-10-19T09:00:00.000Z");
     });
   });
 

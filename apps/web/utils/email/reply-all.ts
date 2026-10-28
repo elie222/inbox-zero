@@ -1,5 +1,9 @@
 import type { ParsedMessageHeaders } from "@/utils/types";
-import { extractEmailAddress, splitRecipientList } from "@/utils/email";
+import {
+  extractEmailAddress,
+  extractEmailAddresses,
+  splitRecipientList,
+} from "@/utils/email";
 
 export interface ReplyAllRecipients {
   cc: string[];
@@ -22,7 +26,6 @@ export function buildReplyAllRecipients(
 ): ReplyAllRecipients {
   // Determine the primary recipient (TO field)
   const replyToRaw = overrideTo || headers["reply-to"] || headers.from;
-  const replyTo = extractEmailAddress(replyToRaw);
 
   const currentUserEmailSet = new Set(
     (Array.isArray(currentUserEmails) ? currentUserEmails : [currentUserEmails])
@@ -32,18 +35,19 @@ export function buildReplyAllRecipients(
 
   // Build CC list for reply-all behavior
   const ccSet = new Set<string>();
-  const seenEmails = new Set<string>();
+  // Reply-To may list several addresses; all of them are already in TO.
+  const seenEmails = new Set(
+    extractEmailAddresses(replyToRaw).map((email) => email.toLowerCase()),
+  );
 
   addHeaderRecipientsToCcSet({
     headerValue: headers.cc,
-    replyTo,
     currentUserEmailSet,
     seenEmails,
     ccSet,
   });
   addHeaderRecipientsToCcSet({
     headerValue: headers.to,
-    replyTo,
     currentUserEmailSet,
     seenEmails,
     ccSet,
@@ -96,13 +100,11 @@ export function mergeAndDedupeRecipients(
 
 function addHeaderRecipientsToCcSet({
   headerValue,
-  replyTo,
   currentUserEmailSet,
   seenEmails,
   ccSet,
 }: {
   headerValue: string | undefined;
-  replyTo: string;
   currentUserEmailSet: Set<string>;
   seenEmails: Set<string>;
   ccSet: Set<string>;
@@ -114,11 +116,7 @@ function addHeaderRecipientsToCcSet({
     .filter((email) => {
       if (!email) return false;
 
-      const normalizedEmail = email.toLowerCase();
-      return (
-        normalizedEmail !== replyTo.toLowerCase() &&
-        !currentUserEmailSet.has(normalizedEmail)
-      );
+      return !currentUserEmailSet.has(email.toLowerCase());
     });
 
   for (const email of headerEmails) {

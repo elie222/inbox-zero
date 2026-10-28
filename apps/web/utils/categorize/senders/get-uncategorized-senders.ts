@@ -17,7 +17,10 @@ export async function getUncategorizedSenders({
   let uncategorizedSenders: Sender[] = [];
   let currentOffset = offset;
 
-  while (uncategorizedSenders.length === 0 && currentOffset < MAX_ITERATIONS) {
+  let iterations = 0;
+
+  while (uncategorizedSenders.length === 0 && iterations < MAX_ITERATIONS) {
+    iterations++;
     const result = await getSenders({
       emailAccountId,
       limit,

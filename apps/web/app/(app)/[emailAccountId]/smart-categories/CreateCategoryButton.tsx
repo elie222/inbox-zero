@@ -118,7 +118,7 @@ export function CreateCategoryDialog({
   onOpenChange,
   closeModal,
 }: {
-  category?: Pick<Category, "name" | "description">;
+  category?: Pick<Category, "name" | "description"> & { id?: string };
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   closeModal: () => void;

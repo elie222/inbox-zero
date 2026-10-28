@@ -46,6 +46,23 @@ describe("convertMessage", () => {
     expect(result.headers.bcc).toBe("hidden@example.com");
   });
 
+  it("maps Reply-To so replies reach the address the sender asked for", () => {
+    const result = convertMessage({
+      from: {
+        emailAddress: { name: "Website Forms", address: "forms@site.com" },
+      },
+      replyTo: [
+        {
+          emailAddress: { name: "Jane Customer", address: "jane@customer.com" },
+        },
+      ],
+    });
+
+    expect(result.headers["reply-to"]).toBe(
+      "Jane Customer <jane@customer.com>",
+    );
+  });
+
   it("preserves BCC recipients from a provider draft", () => {
     const result = convertMessage({
       bccRecipients: [
@@ -419,6 +436,23 @@ describe("queryBatchMessages", () => {
     }
   });
 
+  it("quotes a property-scoped search so Graph does not reject the colon", async () => {
+    const request = createMockMessagesRequest();
+    await queryBatchMessages(
+      createCachedOutlookClient(vi.fn().mockReturnValue(request)),
+      { searchQuery: "participants:sender@example.com" },
+      createTestLogger(),
+    );
+    const search = request.search.mock.calls[0]?.[0] as string;
+    const graph = Client.init({ authProvider: (done) => done(null, "unused") });
+    const actual = graph.api("/me/messages").search(search) as unknown as {
+      buildFullUrl(): string;
+    };
+    expect(new URL(actual.buildFullUrl()).searchParams.get("$search")).toBe(
+      JSON.stringify('participants:"sender@example.com"'),
+    );
+  });
+
   it("sends one correctly quoted and URL-encoded expression through the real Graph SDK", async () => {
     const request = createMockMessagesRequest();
     await queryBatchMessages(
@@ -619,6 +653,91 @@ describe("queryBatchMessages", () => {
     expect(result.nextPageToken).toBe(
       "https://graph.microsoft.com/v1.0/me/messages?$skip=40",
     );
+  });
+
+  it("skips a message Graph cannot read instead of failing its whole page", async () => {
+    const pageUrl =
+      "https://graph.microsoft.com/v1.0/me/mailFolders('folder-1')/messages?$top=3&$skip=620";
+    const singleUrl = (skip: number) =>
+      `https://graph.microsoft.com/v1.0/me/mailFolders('folder-1')/messages?%24top=1&%24skip=${skip}`;
+    const message = (id: string) => ({
+      id,
+      conversationId: `thread-${id}`,
+      parentFolderId: "folder-1",
+    });
+    const notFound = Object.assign(new Error("Item not found"), {
+      statusCode: 404,
+      code: "ErrorItemNotFound",
+    });
+    const responses: Record<string, () => Promise<unknown>> = {
+      [pageUrl]: () => Promise.reject(notFound),
+      [singleUrl(620)]: async () => ({
+        value: [message("first")],
+        "@odata.nextLink": singleUrl(621),
+      }),
+      [singleUrl(621)]: () => Promise.reject(notFound),
+      [singleUrl(622)]: async () => ({
+        value: [message("third")],
+        "@odata.nextLink": singleUrl(623),
+      }),
+    };
+    const api = vi.fn((url: string) => ({
+      get: responses[url] ?? (() => Promise.reject(new Error(url))),
+    }));
+
+    const result = await queryBatchMessages(
+      createCachedOutlookClient(api),
+      { folderId: "folder-1", pageToken: pageUrl },
+      createTestLogger(),
+    );
+
+    expect(result.messages.map((m) => m.id)).toEqual(["first", "third"]);
+    expect(result.nextPageToken).toBe(
+      "https://graph.microsoft.com/v1.0/me/mailFolders('folder-1')/messages?%24top=3&%24skip=623",
+    );
+  });
+
+  it("still fails a continuation page when none of its messages can be read", async () => {
+    const notFound = Object.assign(new Error("Item not found"), {
+      statusCode: 404,
+      code: "ErrorItemNotFound",
+    });
+    const api = vi.fn(() => ({ get: () => Promise.reject(notFound) }));
+
+    await expect(
+      queryBatchMessages(
+        createCachedOutlookClient(api),
+        {
+          folderId: "folder-1",
+          pageToken:
+            "https://graph.microsoft.com/v1.0/me/mailFolders('folder-1')/messages?$top=2&$skip=40",
+        },
+        createTestLogger(),
+      ),
+    ).rejects.toBe(notFound);
+  });
+
+  it.each([
+    ["search pages", "$search=%22report%22&$top=20&$skip=40"],
+    ["oversized pages", "$top=1000&$skip=40"],
+    ["skiptoken pages", "$skiptoken=abc&$top=20&$skip=40"],
+  ])("does not read %s one message at a time", async (_name, query) => {
+    const notFound = Object.assign(new Error("Item not found"), {
+      statusCode: 404,
+      code: "ErrorItemNotFound",
+    });
+    const api = vi.fn(() => ({ get: () => Promise.reject(notFound) }));
+
+    await expect(
+      queryBatchMessages(
+        createCachedOutlookClient(api),
+        {
+          pageToken: `https://graph.microsoft.com/v1.0/me/messages?${query}`,
+        },
+        createTestLogger(),
+      ),
+    ).rejects.toBe(notFound);
+    expect(api).toHaveBeenCalledTimes(1);
   });
 
   it("resolves well-known folder names on continuation pages", async () => {
@@ -865,14 +984,21 @@ describe("sanitizeKqlValue", () => {
 describe("sanitizeKqlFieldQuery", () => {
   it.each([
     [
-      "field:value without outer quotes",
+      "email value",
       "participants:user@example.com",
-      "participants:user@example.com",
+      '"participants:\\"user@example.com\\""',
     ],
-    ["value with spaces", "subject:meeting notes", 'subject:"meeting notes"'],
-    ["question mark in value", "from:user?name", 'from:"user name"'],
-    ["backslashes in value", "subject:path\\file", "subject:path\\\\file"],
-    ["quotes in value", 'subject:say "hi"', 'subject:"say \\"hi\\""'],
+    [
+      "value with spaces",
+      "subject:meeting notes",
+      '"subject:\\"meeting notes\\""',
+    ],
+    [
+      "already quoted value",
+      'subject:"meeting notes"',
+      '"subject:\\"meeting notes\\""',
+    ],
+    ["question mark in value", "from:user?name", '"from:\\"user name\\""'],
     ["empty value", "field:", "field:"],
     ["query without colon", "nofield", "nofield"],
   ])("handles %s", (_name, input, expected) => {
@@ -907,30 +1033,9 @@ describe("sanitizeOutlookSearchQuery", () => {
       [
         "participants email",
         "participants:user@example.com",
-        "participants:user@example.com",
-      ],
-      ["subject field", "subject:meeting", "subject:meeting"],
-      [
-        "field query value with spaces",
-        "subject:meeting notes",
-        'subject:"meeting notes"',
-      ],
-      [
-        "question mark in field query value",
-        "participants:user?name",
-        'participants:"user name"',
+        '"participants:\\"user@example.com\\""',
       ],
       ["empty value after colon", "field:", '"field:"'],
-      [
-        "backslashes in field value",
-        "subject:path\\file",
-        "subject:path\\\\file",
-      ],
-      [
-        "quotes in field value",
-        'subject:say "hello"',
-        'subject:"say \\"hello\\""',
-      ],
     ])("handles %s", (_name, input, expected) => {
       expectSanitizedSearchQuery(input, expected);
     });
@@ -971,15 +1076,6 @@ describe("sanitizeOutlookSearchQuery", () => {
       expect(result.sanitized).not.toContain('\\"');
       expect(result.sanitized).toBe(
         '"Reinstatement of Universal policy for 123 Main St Apt #100"',
-      );
-    });
-
-    it("should handle the participants query that caused colon error", () => {
-      const query = "participants:john.doe@company.example.com";
-      const result = sanitizeOutlookSearchQuery(query);
-      expect(result.sanitized).not.toMatch(/^"participants:/);
-      expect(result.sanitized).toBe(
-        "participants:john.doe@company.example.com",
       );
     });
 

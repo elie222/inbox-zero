@@ -48,6 +48,7 @@ export async function listMcpTools(
     });
     throw new Error(
       `Failed to list tools: ${error instanceof Error ? error.message : "Unknown error"}`,
+      { cause: error },
     );
   } finally {
     await client.close();

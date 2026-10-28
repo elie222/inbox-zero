@@ -2,6 +2,7 @@ import { after } from "next/server";
 import { ActionType, DraftEmailStatus } from "@/generated/prisma/enums";
 import type { ParsedMessage } from "@/utils/types";
 import prisma from "@/utils/prisma";
+import { isDuplicateError } from "@/utils/prisma-helpers";
 import { withPrismaRetry } from "@/utils/prisma-retry";
 import { calculateSimilarity } from "@/utils/similarity-score";
 import { isDraftUnmodified } from "@/utils/ai/choose-rule/draft-management";
@@ -120,13 +121,37 @@ export async function trackSentDraftStatus({
     draftExists: !!draftExists,
     sentMessageRepliesToSource,
   });
-  const createDraftSendLogData = () => ({
-    executedActionId: executedActionId,
-    sentMessageId: sentMessageId,
-    similarityScore: similarityScore,
-    sentText,
-    ...similarityFields,
-  });
+  const recordDraftSendLog = async (draftStatus: DraftEmailStatus) => {
+    try {
+      const [draftSendLog] = await withPrismaRetry(
+        () =>
+          prisma.$transaction([
+            prisma.draftSendLog.create({
+              data: {
+                executedActionId,
+                sentMessageId,
+                similarityScore,
+                sentText,
+                ...similarityFields,
+              },
+            }),
+            prisma.executedAction.update({
+              where: { id: executedActionId },
+              data: { draftStatus },
+            }),
+          ]),
+        { logger },
+      );
+      return draftSendLog;
+    } catch (error) {
+      // Another sent message in the same thread can claim this draft first.
+      if (isDuplicateError(error, "executedActionId")) {
+        logger.info("Draft send log already recorded", { executedActionId });
+        return null;
+      }
+      throw error;
+    }
+  };
 
   logger.info("Calculated similarity score", {
     executedActionId,
@@ -144,22 +169,10 @@ export async function trackSentDraftStatus({
       sentMessageRepliesToSource,
     });
 
-    // Create DraftSendLog to record the comparison.
-    const [draftSendLog] = await withPrismaRetry(
-      () =>
-        prisma.$transaction([
-          prisma.draftSendLog.create({
-            data: createDraftSendLogData(),
-          }),
-          prisma.executedAction.update({
-            where: { id: executedActionId },
-            data: {
-              draftStatus: DraftEmailStatus.REPLIED_WITHOUT_DRAFT,
-            },
-          }),
-        ]),
-      { logger },
+    const draftSendLog = await recordDraftSendLog(
+      DraftEmailStatus.REPLIED_WITHOUT_DRAFT,
     );
+    if (!draftSendLog) return;
 
     logger.info("Created draft send log and marked action as not sent", {
       executedActionId,
@@ -203,21 +216,8 @@ export async function trackSentDraftStatus({
   });
   const wasLikelyDraftSent = isDraftSentStatus(draftStatus);
 
-  const [draftSendLog] = await withPrismaRetry(
-    () =>
-      prisma.$transaction([
-        prisma.draftSendLog.create({
-          data: createDraftSendLogData(),
-        }),
-        prisma.executedAction.update({
-          where: { id: executedActionId },
-          data: {
-            draftStatus,
-          },
-        }),
-      ]),
-    { logger },
-  );
+  const draftSendLog = await recordDraftSendLog(draftStatus);
+  if (!draftSendLog) return;
 
   logger.info(
     "Successfully created draft send log and updated action status via transaction",

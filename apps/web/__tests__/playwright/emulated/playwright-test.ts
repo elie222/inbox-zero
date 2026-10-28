@@ -93,7 +93,12 @@ export const test = base.extend<BrowserEvidenceFixtures>({
         const pageTitle = page.isClosed()
           ? null
           : await page.title().catch(() => null);
+        // Tests with their own checkpoints already document their outcome.
+        const capturedCheckpoint = testInfo.attachments.some(
+          (attachment) => attachment.contentType === "image/png",
+        );
         if (
+          !capturedCheckpoint &&
           !page.isClosed() &&
           page.url() !== "about:blank" &&
           testInfo.errors.length === 0

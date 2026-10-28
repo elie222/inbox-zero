@@ -79,6 +79,8 @@ export async function replyToEmail(
   options?: {
     replyTo?: string;
     from?: string;
+    cc?: string;
+    bcc?: string;
     attachments?: Attachment[];
   },
 ) {
@@ -102,6 +104,8 @@ export async function replyToEmail(
     options?.from,
     replyDraft.from?.emailAddress?.address,
   );
+  const ccRecipients = buildGraphRecipients(options?.cc);
+  const bccRecipients = buildGraphRecipients(options?.bcc);
 
   // Update the draft with our content
   await withMicrosoftGraphWriteRetry(
@@ -115,6 +119,8 @@ export async function replyToEmail(
             content: html,
           },
           ...(fromField ? { from: fromField } : {}),
+          ...(ccRecipients ? { ccRecipients } : {}),
+          ...(bccRecipients ? { bccRecipients } : {}),
           ...(options?.replyTo
             ? {
                 replyTo: [{ emailAddress: { address: options.replyTo } }],
@@ -281,10 +287,19 @@ export async function draftEmail(
     },
   };
 
-  const toRecipient =
-    overrideToRecipient ??
-    originalEmail.rawRecipients?.from ??
-    fallbackToRecipient;
+  // Reply-To wins over From, as in buildReplyAllRecipients, and may list
+  // several addresses. Without one, the raw From recipient is used so its
+  // display name is kept as Outlook has it.
+  const replyToRecipients = originalEmail.headers["reply-to"]
+    ? buildGraphRecipients(recipients.to)
+    : undefined;
+  const rawFromRecipient = originalEmail.headers["reply-to"]
+    ? undefined
+    : originalEmail.rawRecipients?.from;
+
+  const toRecipients = overrideToRecipient
+    ? [overrideToRecipient]
+    : (replyToRecipients ?? [rawFromRecipient ?? fallbackToRecipient]);
 
   // Build CC list from reply-all and args
   const ccAddresses = mergeAndDedupeRecipients(recipients.cc, args.cc);
@@ -347,7 +362,7 @@ export async function draftEmail(
           contentType: "html",
           content: html,
         },
-        toRecipients: [toRecipient],
+        toRecipients,
         ccRecipients,
         bccRecipients,
       }),

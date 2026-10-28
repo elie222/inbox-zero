@@ -353,8 +353,11 @@ async function applyChange(
     }
     case "move": {
       if (!change.folderId) return;
+      const movedThreadIds = new Set<string>();
       for (const messageId of messageIds) {
         const message = await provider.getMessage(messageId);
+        if (movedThreadIds.has(message.threadId)) continue;
+        movedThreadIds.add(message.threadId);
         await provider.moveThreadToFolder(
           message.threadId,
           message.headers.to || "",

@@ -37,6 +37,8 @@ describe.skipIf(!RUN_DB_TESTS)(
     let shareConversation: typeof import("@/utils/team-comments/conversations").shareConversation;
     let setParticipantAccess: typeof import("@/utils/team-comments/conversations").setParticipantAccess;
     let getConversationActivity: typeof import("@/utils/team-comments/activity").getConversationActivity;
+    let countUnreadConversations: typeof import("@/utils/team-comments/activity").countUnreadConversations;
+    let markConversationRead: typeof import("@/utils/team-comments/activity").markConversationRead;
     let prepareMemberRemovalNotifications: typeof import("@/utils/team-comments/member-removal").prepareMemberRemovalNotifications;
     let ids: Awaited<ReturnType<typeof seed>>;
     const logger = createScopedLogger("shared-conversation-db-test");
@@ -52,9 +54,11 @@ describe.skipIf(!RUN_DB_TESTS)(
       ({ stopSharing, shareConversation, setParticipantAccess } = await import(
         "@/utils/team-comments/conversations"
       ));
-      ({ getConversationActivity } = await import(
-        "@/utils/team-comments/activity"
-      ));
+      ({
+        getConversationActivity,
+        countUnreadConversations,
+        markConversationRead,
+      } = await import("@/utils/team-comments/activity"));
       ({ prepareMemberRemovalNotifications } = await import(
         "@/utils/team-comments/member-removal"
       ));
@@ -190,6 +194,30 @@ describe.skipIf(!RUN_DB_TESTS)(
           unread: true,
         }),
       ]);
+    });
+
+    test("unread count covers teammates' new comments until the conversation is read", async () => {
+      const comment = await postComment(
+        { userId: ids.bUserId, memberId: ids.bMemberId },
+        {
+          conversationId: ids.conversationId,
+          body: "Unread note",
+          mentionedMemberIds: [],
+          clientMutationId: "unread-note",
+          logger,
+        },
+      );
+      expect(await countUnreadConversations(ids.aAccountId)).toBe(1);
+      expect(await countUnreadConversations(ids.bAccountId)).toBe(0);
+
+      await markConversationRead(
+        { userId: ids.aUserId, memberId: ids.aMemberId },
+        {
+          conversationId: ids.conversationId,
+          throughRevision: comment.revision,
+        },
+      );
+      expect(await countUnreadConversations(ids.aAccountId)).toBe(0);
     });
 
     test("different concurrent mutations keep a consistent revision", async () => {

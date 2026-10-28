@@ -9,7 +9,7 @@ const { mockEnv } = vi.hoisted(() => ({
 
 vi.mock("@/env", () => ({ env: mockEnv }));
 
-import { getMcpFetch } from "./safe-fetch";
+import { getMcpFetch, safePublicFetch } from "./safe-fetch";
 
 describe("getMcpFetch", () => {
   let server: Server | undefined;
@@ -95,3 +95,16 @@ function integration({
     isCustom,
   };
 }
+
+describe("safePublicFetch", () => {
+  it.each([
+    "http://93.184.216.34/",
+    "https://127.0.0.1/",
+    "https://10.0.0.1/",
+  ])("refuses %s even when private MCP targets are allowed", async (url) => {
+    mockEnv.MCP_ALLOW_PRIVATE_IPS = true;
+    await expect(safePublicFetch(url)).rejects.toThrow(
+      "not a public https URL",
+    );
+  });
+});

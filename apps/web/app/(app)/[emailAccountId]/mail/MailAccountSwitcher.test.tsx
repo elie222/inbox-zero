@@ -1,15 +1,21 @@
 /** @vitest-environment jsdom */
 
 import React from "react";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MailAccountSwitcher } from "./MailAccountSwitcher";
 
 (globalThis as { React?: typeof React }).React = React;
 
-const { mockOpenSettings, mockOpenWindow, mockUseAccounts, mockUseAccount } =
+const { menuState, mockOpenWindow, mockUseAccounts, mockUseAccount } =
   vi.hoisted(() => ({
-    mockOpenSettings: vi.fn(),
+    menuState: { forceOpen: true },
     mockOpenWindow: vi.fn().mockResolvedValue(undefined),
     mockUseAccounts: vi.fn(),
     mockUseAccount: vi.fn(),
@@ -29,10 +35,6 @@ vi.mock("@/hooks/useAccounts", () => ({
   useAccounts: () => mockUseAccounts(),
 }));
 
-vi.mock("@/hooks/useSettingsDialog", () => ({
-  useSettingsDialog: () => ({ openSettings: mockOpenSettings }),
-}));
-
 vi.mock("@/providers/EmailAccountProvider", () => ({
   useAccount: () => mockUseAccount(),
 }));
@@ -50,9 +52,12 @@ vi.mock("@/components/ui/dropdown-menu", async (importOriginal) => {
     await importOriginal<typeof import("@/components/ui/dropdown-menu")>();
   return {
     ...actual,
-    DropdownMenu: (props: React.ComponentProps<typeof actual.DropdownMenu>) => (
-      <actual.DropdownMenu {...props} modal={false} open />
-    ),
+    DropdownMenu: (props: React.ComponentProps<typeof actual.DropdownMenu>) =>
+      menuState.forceOpen ? (
+        <actual.DropdownMenu {...props} modal={false} open />
+      ) : (
+        <actual.DropdownMenu {...props} modal={false} />
+      ),
   };
 });
 
@@ -85,6 +90,7 @@ afterEach(() => {
 describe("MailAccountSwitcher", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    menuState.forceOpen = true;
     mockUseAccount.mockReturnValue({
       emailAccount: {
         id: "account-1",
@@ -159,12 +165,17 @@ describe("MailAccountSwitcher", () => {
     expect(mockOpenWindow).not.toHaveBeenCalled();
   });
 
-  it("opens the settings dialog from the account menu", async () => {
+  it("does not leave focus on the trigger after the menu closes", async () => {
+    menuState.forceOpen = false;
     renderSwitcher({ onSelectAccount: vi.fn() });
 
-    selectMenuItem(await screen.findByRole("menuitem", { name: "Settings" }));
+    const trigger = screen.getByRole("button", { name: /work/i });
+    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false });
+    const menu = await screen.findByRole("menu");
+    fireEvent.keyDown(menu, { key: "Escape" });
 
-    expect(mockOpenSettings).toHaveBeenCalledOnce();
+    await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+    expect(document.activeElement).not.toBe(trigger);
   });
 });
 
@@ -179,7 +190,6 @@ function renderSwitcher({
       isDesktopApp
       onSelectAccount={onSelectAccount}
       onSelectAll={vi.fn()}
-      variant="compact"
     />,
   );
 }

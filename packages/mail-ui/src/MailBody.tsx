@@ -9,6 +9,7 @@ import {
 import type { MessageAttachmentDescriptor } from "@inboxzero/mail-core/messages";
 import type { MailUiHost } from "./host";
 import { prepareInlineImages } from "./prepare-inline-images";
+import { linkifyPlainText } from "./linkify";
 import { sanitizeMailHtml } from "./sanitize-html";
 
 const SANS_FONT_STACK = `ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`;
@@ -22,7 +23,8 @@ export type MailPlainTextSegment =
 
 export type MailHtmlFrameCallbacks = {
   onForwardMessage?: () => void;
-  onReplyMessage?: () => void;
+  /** Gets the text selected in the message when the reply should quote it. */
+  onReplyMessage?: (quote?: string) => void;
   onNavigateMessage?: (direction: -1 | 1) => void;
   onFocusMessage?: () => void;
 };
@@ -147,7 +149,7 @@ export function MailMessageBody({
     );
   }
 
-  return <MailPlainTextBody segments={[{ type: "text", text: text ?? "" }]} />;
+  return <MailPlainTextBody segments={linkifyPlainText(text ?? "")} />;
 }
 
 export function MailPlainTextBody({
@@ -250,6 +252,8 @@ export function buildMailHtmlDocument({
       html.includes("text-decoration") ||
       styleAttributeCount === 1);
 
+  // cid: images can only paint as broken until their attachment downloads
+  // and the html is rewritten to blob URLs, so they stay hidden until then.
   const defaultFontCss = hasHeavyStyling
     ? `
       :root {
@@ -263,6 +267,7 @@ export function buildMailHtmlDocument({
       }
       table { max-width: 100% !important; overflow-x: auto; }
       img { max-width: 100% !important; height: auto; }
+      img[src^="cid:" i] { visibility: hidden; }
   `
     : `
       :root {
@@ -282,6 +287,7 @@ export function buildMailHtmlDocument({
 
       table { max-width: 100% !important; overflow-x: auto; }
       img { max-width: 100% !important; height: auto; }
+      img[src^="cid:" i] { visibility: hidden; }
 
       body {
         font-family: ${SANS_FONT_STACK};
@@ -361,7 +367,9 @@ export function buildMailHtmlDocument({
     isDarkMode,
     documentKey,
     contentSecurityPolicy,
-    defaultFontCss,
+    // Keeps the body's selection the active color while focus is in the
+    // host, so a conversation-wide selection reads as one.
+    defaultFontCss: `${defaultFontCss}\n::selection { background-color: Highlight; }`,
     shouldDisableAuthoredDarkColorScheme: hasHeavyStyling,
   });
 }
@@ -408,7 +416,9 @@ function MailHtmlFrame({
     <iframe
       ref={iframeRef}
       srcDoc={document.srcDoc}
-      className="min-h-0 w-full"
+      // A selection in the host covering the frame would paint over it as one
+      // solid block; the body's own selection highlights its text instead.
+      className="min-h-0 w-full select-none"
       data-email-ready={height > 0}
       height={1}
       style={{
@@ -459,14 +469,14 @@ function useMailHtmlFrame(
         (event.key === "Enter" && Boolean(reply)) ||
         (key === "f" && Boolean(forward)) ||
         (isNavigationKey && Boolean(navigate));
+      const isSelectAll =
+        (event.ctrlKey || event.metaKey) && key === "a" && !event.altKey;
       if (
         event.defaultPrevented ||
         event.altKey ||
-        event.ctrlKey ||
-        event.metaKey ||
+        ((event.ctrlKey || event.metaKey) && !isSelectAll) ||
         event.shiftKey ||
-        event.isComposing ||
-        observedDocument?.getSelection()?.isCollapsed === false
+        event.isComposing
       )
         return;
       const target = event.target as HTMLElement | null;
@@ -476,7 +486,21 @@ function useMailHtmlFrame(
         )
       )
         return;
+      // The host may select the whole conversation rather than this body.
+      if (isSelectAll) {
+        forwardShortcut(event);
+        return;
+      }
       if (event.key === "Enter" && target?.closest?.("a, button")) return;
+      const selection = observedDocument?.getSelection();
+      if (selection && !selection.isCollapsed) {
+        const quote = selection.toString().trim();
+        if (event.key === "Enter" && reply && quote) {
+          event.preventDefault();
+          reply(quote);
+        }
+        return;
+      }
       if (!handlesKey) {
         forwardShortcut(event);
         return;

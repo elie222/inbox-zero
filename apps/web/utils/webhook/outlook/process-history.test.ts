@@ -6,7 +6,8 @@ import {
   validateWebhookAccount,
 } from "@/utils/webhook/validate-webhook-account";
 import { createEmailProvider } from "@/utils/email/provider";
-import { markMessageAsProcessing } from "@/utils/redis/message-processing";
+import { redis } from "@/utils/redis";
+import { ProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
 import { processHistoryItem } from "@/utils/webhook/process-history-item";
 import { captureException } from "@/utils/error";
 import { getMockParsedMessage } from "@/__tests__/mocks/email-provider.mock";
@@ -27,12 +28,7 @@ vi.mock("@/utils/email/provider", () => ({
   createEmailProvider: vi.fn(),
 }));
 
-vi.mock("@/utils/redis/message-processing", () => ({
-  acquireOutboundMessageLock: vi.fn().mockResolvedValue("lock-token-1"),
-  clearOutboundMessageLock: vi.fn().mockResolvedValue(true),
-  markMessageAsProcessing: vi.fn(),
-  markOutboundMessageProcessed: vi.fn().mockResolvedValue(true),
-}));
+vi.mock("@/utils/redis", () => ({ redis: { set: vi.fn(), eval: vi.fn() } }));
 
 vi.mock("@/utils/webhook/process-history-item", () => ({
   processHistoryItem: vi.fn(),
@@ -66,7 +62,7 @@ vi.mock("@/utils/email/rate-limit", () => ({
 describe("Outlook processHistoryForUser - Folder Filtering", () => {
   const mockEmailAccount = {
     id: "account-123",
-    email: "user@test.com",
+    email: "user@example.com",
     userId: "user-123",
     account: { provider: "microsoft" },
     rules: [],
@@ -79,6 +75,18 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    const locks = new Map<string, unknown>();
+    vi.mocked(redis.set).mockImplementation(async (key, value) => {
+      if (locks.has(key)) return null;
+      locks.set(key, value);
+      return "OK";
+    });
+    vi.mocked(redis.eval).mockImplementation(async (_script, keys, args) => {
+      const key = String(keys[0]);
+      if (locks.get(key) !== args[0]) return 0;
+      locks.delete(key);
+      return 1;
+    });
 
     vi.mocked(getWebhookEmailAccount).mockResolvedValue(
       mockEmailAccount as any,
@@ -91,7 +99,6 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
         hasAiAccess: true,
       },
     } as any);
-    vi.mocked(markMessageAsProcessing).mockResolvedValue(true);
     vi.mocked(processHistoryItem).mockResolvedValue(undefined);
     vi.mocked(learnFromOutlookLabelRemoval).mockResolvedValue(undefined);
     vi.mocked(prisma.executedRule.findFirst).mockResolvedValue(null);
@@ -134,10 +141,7 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
 
     const jsonResponse = await result.json();
     expect(jsonResponse).toEqual({ ok: true });
-    expect(markMessageAsProcessing).toHaveBeenCalledWith({
-      userEmail: "user@test.com",
-      messageId: "message-123",
-    });
+    expect(redis.set).toHaveBeenCalled();
     expect(processHistoryItem).toHaveBeenCalledWith(
       { messageId: "message-123", message: inboxMessage },
       expect.any(Object),
@@ -174,13 +178,13 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
     vi.mocked(createEmailProvider).mockResolvedValue(mockProvider as any);
 
     await processHistoryForUser({
-      emailAddress: "user@test.com",
+      emailAddress: "user@example.com",
       resourceData: mockResourceData as any,
       logger,
     });
 
     expect(getWebhookEmailAccount).toHaveBeenCalledWith(
-      { email: "user@test.com" },
+      { email: "user@example.com" },
       logger,
     );
   });
@@ -198,7 +202,7 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
 
     const jsonResponse = await result.json();
     expect(jsonResponse).toEqual({ ok: true });
-    expect(markMessageAsProcessing).toHaveBeenCalled();
+    expect(redis.set).toHaveBeenCalled();
     expect(processHistoryItem).toHaveBeenCalled();
     expect(learnFromOutlookLabelRemoval).not.toHaveBeenCalled();
   });
@@ -218,7 +222,7 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
 
     const jsonResponse = await result.json();
     expect(jsonResponse).toEqual({ ok: true });
-    expect(markMessageAsProcessing).not.toHaveBeenCalled();
+    expect(redis.set).not.toHaveBeenCalled();
     expect(processHistoryItem).not.toHaveBeenCalled();
     expect(learnFromOutlookLabelRemoval).not.toHaveBeenCalled();
   });
@@ -238,7 +242,7 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
 
     const jsonResponse = await result.json();
     expect(jsonResponse).toEqual({ ok: true });
-    expect(markMessageAsProcessing).not.toHaveBeenCalled();
+    expect(redis.set).not.toHaveBeenCalled();
     expect(processHistoryItem).not.toHaveBeenCalled();
     expect(learnFromOutlookLabelRemoval).not.toHaveBeenCalled();
   });
@@ -258,9 +262,32 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
 
     const jsonResponse = await result.json();
     expect(jsonResponse).toEqual({ ok: true });
-    expect(markMessageAsProcessing).not.toHaveBeenCalled();
+    expect(redis.set).not.toHaveBeenCalled();
     expect(processHistoryItem).not.toHaveBeenCalled();
     expect(learnFromOutlookLabelRemoval).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    new ProviderRateLimitModeError({ provider: "microsoft" }),
+    new Error("processing failed"),
+  ])("retries a failed message and dedupes its successful replay: %s", async (error) => {
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      getMessage: vi
+        .fn()
+        .mockResolvedValue(getMockParsedMessage({ labelIds: ["INBOX"] })),
+    } as any);
+    vi.mocked(processHistoryItem)
+      .mockRejectedValueOnce(error)
+      .mockResolvedValue(undefined);
+    const options = {
+      subscriptionId: "sub-123",
+      resourceData: mockResourceData,
+      logger,
+    };
+    await processHistoryForUser(options);
+    await processHistoryForUser(options);
+    await processHistoryForUser(options);
+    expect(processHistoryItem).toHaveBeenCalledTimes(2);
   });
 
   it("skips processing when lock cannot be acquired", async () => {
@@ -269,7 +296,7 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
       getMessage: vi.fn().mockResolvedValue(inboxMessage),
     };
     vi.mocked(createEmailProvider).mockResolvedValue(mockProvider as any);
-    vi.mocked(markMessageAsProcessing).mockResolvedValue(false);
+    vi.mocked(redis.set).mockResolvedValue(null);
 
     const result = await processHistoryForUser({
       subscriptionId: "sub-123",
@@ -279,7 +306,7 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
 
     const jsonResponse = await result.json();
     expect(jsonResponse).toEqual({ ok: true });
-    expect(markMessageAsProcessing).toHaveBeenCalled();
+    expect(redis.set).toHaveBeenCalled();
     expect(processHistoryItem).not.toHaveBeenCalled();
     expect(learnFromOutlookLabelRemoval).not.toHaveBeenCalled();
   });

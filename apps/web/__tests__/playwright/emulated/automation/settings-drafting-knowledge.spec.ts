@@ -82,7 +82,9 @@ test("enables drafting and manages persisted draft knowledge", async ({
   await expect(
     knowledgeDialog.getByText("No knowledge entries yet", { exact: true }),
   ).toBeVisible({ timeout: 60_000 });
-  await knowledgeDialog.getByRole("button", { name: "Add" }).click();
+  await knowledgeDialog
+    .getByRole("button", { name: "Add", exact: true })
+    .click();
 
   const addDialog = page.getByRole("dialog", { name: "Add Knowledge" });
   await addDialog.getByRole("textbox", { name: "Title" }).fill(KNOWLEDGE_TITLE);

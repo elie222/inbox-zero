@@ -18,6 +18,7 @@ overrides:
   "@types/react-dom": "19.2.4"
   "@xmldom/xmldom": "0.8.13"
   axios: "1.16.1"
+  dompurify: "3.4.17"
   fast-xml-parser: "5.8.0"
   # One ioredis copy for BullMQ and @chat-adapter/state-ioredis. The adapter
   # still declares ^5.4.1, but v6 keeps legacy reply mapping and closing the
@@ -25,7 +26,6 @@ overrides:
   ioredis: "6.0.0"
   js-yaml: "3.14.2"
   jws: "4.0.1"
-  linkify-it: "5.0.2"
   lodash: "4.18.1"
   next: "16.4.1"
   postcss: "8.5.14"
@@ -74,5 +74,4 @@ allowBuilds:
   workerd: true
 
 patchedDependencies:
-  '@better-auth/oauth-provider@1.7.7': patches/@better-auth__oauth-provider@1.7.7.patch
-  '@sqlite.org/sqlite-wasm@3.53.4-build1': patches/@sqlite.org__sqlite-wasm@3.53.4-build1.patch
+  '@sqlite.org/sqlite-wasm@3.54.1-build1': patches/@sqlite.org__sqlite-wasm@3.54.1-build1.patch

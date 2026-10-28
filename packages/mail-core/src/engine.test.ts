@@ -323,6 +323,42 @@ describe("mail engine idle catch-up scheduling", () => {
     await harness.engine.close();
   });
 
+  it("syncs accounts while claimable work never runs out", async () => {
+    const harness = multiAccountHarness({
+      accounts: [{ accountId: "acc-a", streamIds: ["inbox"], readMs: 0 }],
+      onExecute: () => harness.advance(10),
+    });
+    vi.spyOn(harness.store, "claimWork").mockResolvedValue({
+      kind: "command",
+      attemptId: "attempt-search",
+      operation: { key: { accountId: "acc-a", operationId: "op-search" } },
+    } as Awaited<ReturnType<MailStore["claimWork"]>>);
+
+    await harness.engine.runUntil(500);
+
+    expect(harness.reads).toEqual(["acc-a:inbox"]);
+    await harness.engine.close();
+  });
+
+  it("reports a failing lane while claimable work never runs out", async () => {
+    const harness = multiAccountHarness({
+      accounts: [
+        { accountId: "acc-a", streamIds: ["inbox"], readMs: 0, fails: true },
+      ],
+      onExecute: () => harness.advance(10),
+    });
+    vi.spyOn(harness.store, "claimWork").mockResolvedValue({
+      kind: "command",
+      attemptId: "attempt-search",
+      operation: { key: { accountId: "acc-a", operationId: "op-search" } },
+    } as Awaited<ReturnType<MailStore["claimWork"]>>);
+
+    await harness.engine.runUntil(500);
+
+    await expect(harness.engine.runUntil(1000)).rejects.toThrow("read failed");
+    await harness.engine.close();
+  });
+
   it("abandons a hung lane, reports it, and retries after a backoff", async () => {
     const harness = multiAccountHarness({
       accounts: [
