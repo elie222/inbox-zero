@@ -49,7 +49,7 @@ jobs:
           node-version: "24"
 
       - name: Install desktop dependencies
-        run: pnpm install --frozen-lockfile --filter @inboxzero/desktop...
+        run: pnpm install --frozen-lockfile --filter @inboxzero/desktop... --filter inbox-zero-ai
 
       - name: Rebuild esbuild binary
         run: pnpm --filter @inboxzero/desktop rebuild esbuild
