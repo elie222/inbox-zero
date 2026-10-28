@@ -61,7 +61,7 @@ The macOS release requires these GitHub secrets:
 
 The Windows release is signed with Azure Artifact Signing and fails if signing doesn't happen. It requires:
 
-- `AZURE_SIGNING_TENANT_ID` / `AZURE_SIGNING_CLIENT_ID` / `AZURE_SIGNING_CLIENT_SECRET` secrets: an Entra app registration with the Certificate Profile Signer role on the signing account
+- `AZURE_SIGNING_TENANT_ID` / `AZURE_SIGNING_CLIENT_ID` secrets: an Entra app registration with the Certificate Profile Signer role on the signing account. It has no client secret; the job logs in through GitHub OIDC, so the app needs a federated credential for subject `repo:elie222/inbox-zero:environment:desktop-release`
 - `AZURE_SIGNING_PUBLISHER_NAME` / `AZURE_SIGNING_ENDPOINT` / `AZURE_SIGNING_ACCOUNT_NAME` / `AZURE_SIGNING_CERTIFICATE_PROFILE` variables: the certificate's subject CN, the account's regional endpoint (for example `https://eus.codesigning.azure.net/`), the signing account name, and the certificate profile name
 
 Local `pnpm dist:win` builds stay unsigned.
