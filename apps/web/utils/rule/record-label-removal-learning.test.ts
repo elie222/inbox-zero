@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GroupItemSource, SystemType } from "@/generated/prisma/enums";
 import {
   removeAiLearnedPattern,
@@ -28,6 +28,10 @@ vi.mock("@/utils/prisma", () => ({
 const logger = createTestLogger();
 
 describe("recordLabelRemovalLearning", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(saveLearnedPattern).mockResolvedValue(undefined);
@@ -139,6 +143,8 @@ describe("recordLabelRemovalLearning", () => {
   });
 
   it("skips when the rule already saw many removals in the recent window", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-01-01T12:00:00Z"));
     vi.mocked(prisma.classificationFeedback.count).mockResolvedValue(
       BULK_LABEL_REMOVAL_THRESHOLD,
     );
@@ -158,6 +164,7 @@ describe("recordLabelRemovalLearning", () => {
         emailAccountId: "email-account-1",
         ruleId: "rule-1",
         eventType: "LABEL_REMOVED",
+        createdAt: { gte: new Date("2026-01-01T11:45:00Z") },
       }),
     });
     expect(saveLearnedPattern).not.toHaveBeenCalled();
