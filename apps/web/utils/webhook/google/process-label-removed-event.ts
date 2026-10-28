@@ -2,7 +2,6 @@ import type { gmail_v1 } from "@googleapis/gmail";
 import {
   GroupItemSource,
   GroupItemType,
-  ClassificationFeedbackEventType,
   SystemType,
 } from "@/generated/prisma/enums";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
@@ -11,11 +10,7 @@ import { GMAIL_SYSTEM_LABELS, GmailLabel } from "@/utils/gmail/label";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { recordLabelRemovalLearning } from "@/utils/rule/record-label-removal-learning";
-import { isEligibleForClassificationFeedback } from "@/utils/rule/consts";
-import {
-  findRuleByLabelId,
-  saveClassificationFeedback,
-} from "@/utils/rule/classification-feedback";
+import { findRuleByLabelId } from "@/utils/rule/classification-feedback";
 import { fetchSenderFromMessage } from "@/utils/webhook/google/fetch-sender-from-message";
 
 export async function handleLabelRemovedEvent(
@@ -122,21 +117,6 @@ async function learnFromRemovedLabel({
   logger = logger.with({ labelId });
 
   const rule = await findRuleByLabelId({ labelId, emailAccountId });
-
-  // Record feedback before learning so the rolling bulk-removal count in
-  // recordLabelRemovalLearning sees this removal and concurrent webhook pages
-  // see each other's rows as early as possible.
-  if (rule && sender && isEligibleForClassificationFeedback(rule.systemType)) {
-    await saveClassificationFeedback({
-      emailAccountId,
-      sender,
-      ruleId: rule.id,
-      threadId,
-      messageId,
-      eventType: ClassificationFeedbackEventType.LABEL_REMOVED,
-      logger,
-    });
-  }
 
   await recordLabelRemovalLearning({
     sender,

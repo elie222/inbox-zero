@@ -8,7 +8,9 @@ const logger = createScopedLogger("rule-events");
  * How users shape and correct their rules. Properties are only ids, enums and
  * counts: never rule names, instructions or senders.
  *
- * `Rule changed`: a rule was created, edited, enabled or disabled.
+ * `Rule changed`: a rule was created, edited, enabled or disabled through the
+ * rule editor, chat, API or MCP. Bulk copy and import between accounts are not
+ * tracked, matching `RuleHistory`.
  * - `ruleId`, `systemType` (null for custom rules), `enabled`.
  * - `triggerType`: same values as `RuleHistory.triggerType`.
  *
