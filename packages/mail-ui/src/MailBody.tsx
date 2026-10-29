@@ -485,10 +485,12 @@ function useMailHtmlFrame(
         return;
       }
       if (event.key === "Enter" && target?.closest?.("a, button")) return;
+      const hasModifier =
+        event.altKey || event.ctrlKey || event.metaKey || event.shiftKey;
       const selection = observedDocument?.getSelection();
       if (selection && !selection.isCollapsed) {
         const quote = selection.toString().trim();
-        if (event.key === "Enter" && reply && quote) {
+        if (event.key === "Enter" && !hasModifier && reply && quote) {
           event.preventDefault();
           reply(quote);
         }
@@ -496,7 +498,7 @@ function useMailHtmlFrame(
       }
       // Modified keys are host shortcuts (Shift+T, ?, Cmd+K); unbound ones keep
       // their default. Shift+Arrow stays here to extend the text selection.
-      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+      if (hasModifier) {
         if (!isNavigationKey) forwardShortcut(event);
         return;
       }
