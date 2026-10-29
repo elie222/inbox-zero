@@ -193,6 +193,11 @@ describe("filterEventsWithExternalGuests", () => {
         ],
       }),
       createEvent({
+        id: "calendar-declined",
+        userDeclined: true,
+        attendees: [{ email: "customer@example.com" }],
+      }),
+      createEvent({
         id: "guests-declined",
         attendees: [
           { email: "user@company.com" },
@@ -253,5 +258,6 @@ function createEvent(overrides: Partial<CalendarEvent>): CalendarEvent {
     endTime:
       overrides.endTime ?? new Date(startTime.getTime() + 30 * 60 * 1000),
     attendees: overrides.attendees ?? [{ email: "guest@example.com" }],
+    userDeclined: overrides.userDeclined,
   };
 }

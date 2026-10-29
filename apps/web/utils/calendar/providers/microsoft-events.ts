@@ -392,6 +392,7 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
       endTime: new Date(event.end?.dateTime || Date.now()),
       organizerEmail: event.organizer?.emailAddress?.address || undefined,
       isOrganizer: event.isOrganizer,
+      userDeclined: event.responseStatus?.response === "declined",
       attendees:
         event.attendees?.map((attendee) => ({
           email: attendee.emailAddress?.address || "",

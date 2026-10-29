@@ -63,6 +63,36 @@ describe("GoogleCalendarEventProvider", () => {
     );
   });
 
+  it("flags an event the connected calendar declined", async () => {
+    calendarMocks.list.mockResolvedValue({
+      data: {
+        items: [
+          {
+            id: "declined-event",
+            summary: "Sales call",
+            start: { dateTime: "2026-05-04T09:00:00.000Z" },
+            end: { dateTime: "2026-05-04T09:30:00.000Z" },
+            attendees: [
+              {
+                email: "calendar-alias@example.com",
+                self: true,
+                responseStatus: "declined",
+              },
+              { email: "buyer@acme.com", responseStatus: "accepted" },
+            ],
+          },
+        ],
+      },
+    });
+
+    const events = await createProvider().fetchEvents({
+      timeMin: new Date("2026-05-04T00:00:00.000Z"),
+      timeMax: new Date("2026-05-05T00:00:00.000Z"),
+    });
+
+    expect(events[0]?.userDeclined).toBe(true);
+  });
+
   it("finds the video link for an accepted invitation", async () => {
     calendarMocks.list.mockResolvedValue({
       data: {

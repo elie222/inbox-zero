@@ -36,6 +36,7 @@ export function partitionAttendeesForBriefing(
 }
 
 export function hasUserDeclined(event: CalendarEvent, userEmail: string) {
+  if (event.userDeclined) return true;
   const normalizedUserEmail = userEmail.trim().toLowerCase();
   return event.attendees.some(
     (attendee) =>

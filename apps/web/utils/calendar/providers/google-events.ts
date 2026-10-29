@@ -288,6 +288,9 @@ export class GoogleCalendarEventProvider implements CalendarEventProvider {
       endTime,
       organizerEmail: event.organizer?.email ?? undefined,
       isOrganizer: event.organizer?.self ?? undefined,
+      userDeclined: event.attendees?.some(
+        (attendee) => attendee.self && attendee.responseStatus === "declined",
+      ),
       attendees:
         event.attendees?.map((attendee) => ({
           email: attendee.email || "",
