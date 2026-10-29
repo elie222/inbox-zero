@@ -34,6 +34,53 @@ const inboxQuery = {
 };
 
 describe("sqlite mail store", () => {
+  it("replays pending changes in the order they were submitted", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    await store.applySyncPage({
+      ownerId: "owner",
+      page: {
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "initial",
+        from: { streamId: "primary", generation: "g1", checkpoint: null },
+        to: { streamId: "primary", generation: "g1", checkpoint: "1" },
+        changes: [messagePatch("m1", "c1", 1000, ["inbox"])],
+        requiredHydration: [],
+        roundComplete: true,
+      },
+    });
+    const target = { accountId: "acc-1", messageId: "m1" };
+    // Command ids are random UUIDs, so the undo can sort before the archive.
+    await store.admitMetadata({
+      accountId: "acc-1",
+      commandId: "zz-archive",
+      targets: [target],
+      change: { kind: "archive" },
+    });
+    const work = await store.claimWork({
+      ownerId: "owner",
+      nowMs: Date.now(),
+      leaseMs: 30_000,
+    });
+    expect(work?.kind).toBe("command");
+    await store.admitMetadata({
+      accountId: "acc-1",
+      commandId: "aa-unarchive",
+      targets: [target],
+      change: { kind: "unarchive" },
+    });
+
+    const view = await store.readMailboxView(inboxQuery);
+    expect(
+      view.view.conversations.map((row) => row.key.conversationId),
+    ).toEqual(["c1"]);
+    await store.close();
+  });
+
   it("drops inbox unread when a message leaves its inbox folder", async () => {
     const store = await createSqliteMailStore(createNodeSqliteDriver());
     const session = { accountId: "acc-1", generation: "g1" };
