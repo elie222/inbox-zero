@@ -15,7 +15,11 @@ import { judgeEvalOutput } from "@/__tests__/eval/semantic-judge";
 import { getMockMessage } from "@/__tests__/helpers";
 import { createScopedLogger } from "@/utils/logger";
 import { messageContextSchema } from "@/utils/ai/assistant/chat-context-validation";
-import { ExecutedRuleStatus } from "@/generated/prisma/enums";
+import {
+  ActionType,
+  ExecutedRuleStatus,
+  GroupItemType,
+} from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
 
 // pnpm --filter inbox-zero-ai test-ai eval/assistant-chat-fix-verification
@@ -97,6 +101,8 @@ vi.mock("@/env", async () => {
 });
 
 const SENDER = "orders@procurement.example";
+const BOOKING_SENDER = "noreply@bookings-platform.example";
+const RECEIPT_RULE_ID = "receipt-rule-id";
 const RULE_WRITE_TOOL_NAMES = new Set([
   "createRule",
   "updateRule",
@@ -171,7 +177,17 @@ describe.runIf(shouldRunEval)("Eval: assistant verifies rule fixes", () => {
         const ruleRows = buildDefaultSystemRuleRows(
           new Date("2026-01-01T00:00:00Z"),
         );
-        configureRuleEvalPrisma({ about: "", ruleRows });
+        configureRuleEvalPrisma({
+          about: "",
+          ruleRows,
+          groupItemsByRuleName: scenario.learnedPatternBlocksFix
+            ? {
+                Receipt: [
+                  { type: GroupItemType.FROM, value: SENDER, exclude: false },
+                ],
+              }
+            : undefined,
+        });
         const findAccount =
           prisma.emailAccount.findUnique.getMockImplementation()!;
         prisma.emailAccount.findUnique.mockImplementation(async (args) => ({
@@ -201,16 +217,22 @@ describe.runIf(shouldRunEval)("Eval: assistant verifies rule fixes", () => {
 
         const testOutcomes: boolean[] = [];
         mockRunRules.mockImplementation(async () => {
-          const ruleChanged =
-            mockPartialUpdateRule.mock.calls.length > 0 ||
-            mockUpdateRuleActions.mock.calls.length > 0 ||
-            mockCreateRule.mock.calls.length > 0;
-          const patternRemoved = mockSaveLearnedPatterns.mock.calls.length > 0;
+          const receiptConditionsChanged =
+            mockPartialUpdateRule.mock.calls.some(
+              ([args]) => args.ruleId === RECEIPT_RULE_ID,
+            );
+          const receiptExclusionAdded = mockSaveLearnedPatterns.mock.calls.some(
+            ([args]) =>
+              args.ruleName === "Receipt" &&
+              args.patterns.some(
+                (pattern: { exclude?: boolean }) => pattern.exclude,
+              ),
+          );
           const fixed =
             !scenario.neverFixed &&
             (scenario.learnedPatternBlocksFix
-              ? patternRemoved
-              : ruleChanged || patternRemoved);
+              ? receiptExclusionAdded
+              : receiptConditionsChanged || receiptExclusionAdded);
           testOutcomes.push(fixed);
           return fixed ? noMatchResult() : receiptMatchResult(scenario);
         });
@@ -297,6 +319,128 @@ describe.runIf(shouldRunEval)("Eval: assistant verifies rule fixes", () => {
         expect(pass).toBe(true);
       }, 240_000);
     }
+  });
+
+  describeEvalMatrix("cross-rule learned pattern", (model, emailAccount) => {
+    test("fixes a learned pattern on another rule that blocks the user's rule", async () => {
+      const ruleRows = [
+        ...buildDefaultSystemRuleRows(new Date("2026-01-01T00:00:00Z")),
+        buildBookingRequestsRule(),
+      ];
+      configureRuleEvalPrisma({
+        about: "",
+        ruleRows,
+        groupItemsByRuleName: {
+          Notification: [
+            { type: GroupItemType.FROM, value: BOOKING_SENDER, exclude: false },
+          ],
+        },
+      });
+      const findAccount =
+        prisma.emailAccount.findUnique.getMockImplementation()!;
+      prisma.emailAccount.findUnique.mockImplementation(async (args) => ({
+        ...(await findAccount(args)),
+        id: emailAccount.id,
+        email: emailAccount.email,
+        timezone: "UTC",
+        knowledge: [],
+        messagingChannels: [],
+      }));
+
+      const message = getMockMessage({
+        from: BOOKING_SENDER,
+        to: "user@test.com",
+        subject: "New booking request",
+        textPlain:
+          "A customer requested a booking for Saturday at 10am. Review and confirm the request.",
+        textHtml: "",
+      });
+      configureRuleEvalProvider({ mockCreateEmailProvider, ruleRows });
+      const provider = await mockCreateEmailProvider();
+      provider.getMessage = vi.fn().mockResolvedValue(message);
+      provider.searchMessages = vi
+        .fn()
+        .mockResolvedValue({ messages: [message], nextPageToken: undefined });
+      mockCreateEmailProvider.mockResolvedValue(provider);
+      prisma.executedRule.findMany.mockResolvedValue([
+        {
+          ...buildReceiptExecution(message),
+          ruleId: "notification-rule-id",
+          reason: `Matched learned pattern: "FROM: ${BOOKING_SENDER}"`,
+          matchMetadata: [notificationLearnedPatternReason()],
+          actionItems: [
+            {
+              ...buildReceiptExecution(message).actionItems[0],
+              label: "Notification",
+            },
+          ],
+          rule: { id: "notification-rule-id", name: "Notification" },
+        },
+      ]);
+
+      // A learned pattern match skips AI selection, so the email keeps going
+      // to Notification until that pattern is excluded.
+      const isFixed = () =>
+        mockSaveLearnedPatterns.mock.calls.some(([args]) =>
+          isNotificationExclusionForSender(args),
+        );
+      const bookingIncludeAdded = () =>
+        mockSaveLearnedPatterns.mock.calls.some(
+          ([args]) =>
+            args.ruleName === "Booking Requests" &&
+            args.patterns.some(
+              (pattern: { exclude?: boolean }) => !pattern.exclude,
+            ),
+        );
+      mockRunRules.mockImplementation(async () => {
+        if (isFixed()) return bookingMatchResult();
+        // Both learned patterns match, so both rules apply.
+        return bookingIncludeAdded()
+          ? [...notificationMatchResult(), ...bookingMatchResult()]
+          : notificationMatchResult();
+      });
+
+      const trace = await captureAssistantChatTrace({
+        emailAccount,
+        messages: [
+          {
+            role: "user",
+            content: `The new booking request from ${BOOKING_SENDER} didn't go to my Booking Requests rule. These should only get my Booking label. Please fix it.`,
+          },
+        ],
+        logger,
+      });
+
+      const fixedAtEnd = isFixed();
+      const judgment = await judgeEvalOutput({
+        criterion: {
+          name: "Outcome reported truthfully",
+          description:
+            "The final response describes the outcome consistently with fixedAtEnd. fixedAtEnd is true only when booking emails would go to Booking Requests without also being labeled Notification. If fixedAtEnd is false, it must not tell the user the booking emails will now be handled correctly; it should say what still happens or still needs doing. If fixedAtEnd is true, it may say the problem is fixed.",
+        },
+        input: JSON.stringify({ fixedAtEnd }),
+        output: JSON.stringify({
+          response: trace.finalText,
+          toolCalls: trace.toolCalls.filter(
+            (call) => call.output !== undefined,
+          ),
+        }),
+      });
+
+      const pass = fixedAtEnd && judgment.pass;
+      reporter.record({
+        testName: "fixes a learned pattern on another rule",
+        model: model.label,
+        pass,
+        actual: JSON.stringify({
+          fixedAtEnd,
+          judgment,
+          response: trace.finalText,
+          toolCalls: trace.toolCalls.map((call) => call.toolName),
+        }),
+      });
+      expect(pass).toBe(true);
+    }, 240_000);
   });
 
   afterAll(() => reporter.printReport());
@@ -407,6 +551,82 @@ function noMatchResult() {
       rule: null,
       reason: "No rules matched",
       status: ExecutedRuleStatus.SKIPPED,
+      createdAt: new Date(),
+    },
+  ];
+}
+
+function buildBookingRequestsRule() {
+  const template = buildDefaultSystemRuleRows(
+    new Date("2026-01-01T00:00:00Z"),
+  )[0];
+  return {
+    ...template,
+    id: "booking-requests-rule-id",
+    name: "Booking Requests",
+    instructions:
+      "New booking requests from customers that I need to review and confirm.",
+    systemType: null,
+    from: null,
+    actions: [
+      { ...template.actions[0], type: ActionType.LABEL, label: "Booking" },
+    ],
+  };
+}
+
+function notificationLearnedPatternReason() {
+  return {
+    type: "LEARNED_PATTERN",
+    group: { id: "notification-group", name: "Notification" },
+    groupItem: {
+      id: "notification-item",
+      type: "FROM",
+      value: BOOKING_SENDER,
+      exclude: false,
+    },
+  };
+}
+
+function isNotificationExclusionForSender(args: {
+  ruleName: string;
+  patterns: { type: string; value: string; exclude?: boolean }[];
+}) {
+  return (
+    args.ruleName === "Notification" &&
+    args.patterns.some(
+      (pattern) =>
+        pattern.exclude &&
+        pattern.type === GroupItemType.FROM &&
+        BOOKING_SENDER.includes(pattern.value.replace(/^@/, "")),
+    )
+  );
+}
+
+function notificationMatchResult() {
+  return [
+    {
+      rule: {
+        id: "notification-rule-id",
+        name: "Notification",
+        systemType: "NOTIFICATION",
+      },
+      actionItems: [{ id: "action-1", type: "LABEL", label: "Notification" }],
+      reason: `Matched learned pattern: "FROM: ${BOOKING_SENDER}"`,
+      status: ExecutedRuleStatus.APPLIED,
+      matchReasons: [notificationLearnedPatternReason()],
+      createdAt: new Date(),
+    },
+  ];
+}
+
+function bookingMatchResult() {
+  return [
+    {
+      rule: { id: "booking-requests-rule-id", name: "Booking Requests" },
+      actionItems: [{ id: "action-1", type: "LABEL", label: "Booking" }],
+      reason: "A customer booking request that needs review.",
+      status: ExecutedRuleStatus.APPLIED,
+      matchReasons: [{ type: "AI" }],
       createdAt: new Date(),
     },
   ];

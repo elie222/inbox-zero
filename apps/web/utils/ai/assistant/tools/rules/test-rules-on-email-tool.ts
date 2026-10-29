@@ -31,7 +31,7 @@ export const testRulesOnEmailTool = ({
 }) =>
   tool({
     description:
-      "Dry-run the user's current rules on one email and return which rules would match, why, and their actions, without applying anything. After changing rules to fix how a specific email was handled, test that email, and only tell the user it is fixed if the result shows what they wanted; otherwise keep fixing.",
+      "Dry-run the user's current rules on one email and return which rules would match, why, and their actions, without applying anything. After changing rules to fix how emails were handled, test the email in question, or a recent example found with searchInbox if the user described a kind of email, and only tell the user it is fixed if the result shows what they wanted; otherwise keep fixing. Draft replies are not generated or listed.",
     inputSchema: testRulesOnEmailInputSchema,
     execute: async ({ messageId }) => {
       trackRuleToolCall({ tool: "test_rules_on_email", email, logger });
