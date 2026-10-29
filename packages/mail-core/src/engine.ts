@@ -57,8 +57,8 @@ const IDLE_CATCH_UP_INTERVAL_MS = 60_000;
 // A lane is abandoned after this long, so a request that never settles
 // cannot keep its account from syncing again.
 const SYNC_LANE_TIMEOUT_MS = 2 * 60_000;
-// How long one bootstrap call may keep paging before the lane moves on to the
-// account's other streams; the scan resumes on the lane's next pass.
+// Bootstrap scans share this budget per account pass; unfinished streams
+// get the first turn on the next pass.
 const SYNC_LANE_BOOTSTRAP_SLICE_MS = 2000;
 const SYNC_LANE_RETRY_MIN_MS = 1000;
 const SYNC_LANE_RETRY_MAX_MS = 60_000;
@@ -909,6 +909,7 @@ export function createMailEngine(input: {
     signal: AbortSignal,
   ) {
     let visitedStreams = 0;
+    const bootstrapDeadlineMs = runtime.nowMs() + SYNC_LANE_BOOTSTRAP_SLICE_MS;
     const session = {
       accountId: account.accountId,
       generation: account.generation,
@@ -985,11 +986,22 @@ export function createMailEngine(input: {
       return;
     }
     const streams = [...streamsById.values()];
+    const nextStreamIndex = streams.findIndex(
+      (stream) => stream.streamId === idleGate.nextBootstrapStreamId,
+    );
+    if (nextStreamIndex > 0) {
+      streams.push(...streams.splice(0, nextStreamIndex));
+    }
     const dueStreams: typeof streams = [];
     for (const stream of streams) {
       if (visitedStreams > 0) await yieldToHost();
-      visitedStreams += 1;
       if (signal.aborted) return;
+      // Share the bootstrap slice across folders so a large mailbox cannot
+      // consume the lane timeout before later folders get a turn.
+      if (visitedStreams > 0 && runtime.nowMs() >= bootstrapDeadlineMs) break;
+      visitedStreams += 1;
+      idleGate.nextBootstrapStreamId =
+        streams[visitedStreams % streams.length]?.streamId ?? null;
       const catchUpDue =
         idleGateDue(
           idleGate.nextStreamCatchUpAtMs.get(stream.streamId) ?? 0,
@@ -1010,7 +1022,7 @@ export function createMailEngine(input: {
         await ingestBootstrap({
           session,
           from: stream,
-          deadlineMs: runtime.nowMs() + SYNC_LANE_BOOTSTRAP_SLICE_MS,
+          deadlineMs: bootstrapDeadlineMs,
           signal,
           requestId: runtime.randomId(),
           scopeId: stream.streamId,
@@ -1157,6 +1169,7 @@ export function createMailEngine(input: {
       generation,
       lowPriorityStreams: new Set(),
       nextAssistantCatchUpAtMs: 0,
+      nextBootstrapStreamId: null,
       nextScopeDiscoveryAtMs: 0,
       nextStreamCatchUpAtMs: new Map(),
       requestCount: 0,
@@ -1374,6 +1387,7 @@ type IdleCatchUpGate = {
   generation: string;
   lowPriorityStreams: Set<string>;
   nextAssistantCatchUpAtMs: number;
+  nextBootstrapStreamId: string | null;
   nextScopeDiscoveryAtMs: number;
   nextStreamCatchUpAtMs: Map<string, number>;
   requestCount: number;
