@@ -23,6 +23,27 @@ describe("partitionAttendeesForBriefing", () => {
     expect(internal).toEqual([]);
   });
 
+  it("leaves out guests who declined", () => {
+    const event = createEvent({
+      attendees: [
+        { email: "user@company.com" },
+        { email: "client@example.com", name: "Client", declined: true },
+        { email: "teammate@company.com", declined: true },
+        { email: "partner@example.org", name: "Partner" },
+      ],
+    });
+
+    const { external, internal } = partitionAttendeesForBriefing(
+      event,
+      "user@company.com",
+    );
+
+    expect(external).toEqual([
+      { email: "partner@example.org", name: "Partner" },
+    ]);
+    expect(internal).toEqual([]);
+  });
+
   it("treats same-company-domain attendees as internal team members", () => {
     const event = createEvent({
       attendees: [

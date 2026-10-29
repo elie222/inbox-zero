@@ -19,6 +19,8 @@ export function partitionAttendeesForBriefing(
   const internal: CalendarEventAttendee[] = [];
 
   for (const attendee of event.attendees) {
+    // A guest who declined isn't coming, so there's nobody to brief on.
+    if (attendee.declined) continue;
     const attendeeEmail = attendee.email.trim().toLowerCase();
     if (!attendeeEmail || attendeeEmail === normalizedUserEmail) continue;
     if (!extractDomainFromEmail(attendeeEmail)) continue;
