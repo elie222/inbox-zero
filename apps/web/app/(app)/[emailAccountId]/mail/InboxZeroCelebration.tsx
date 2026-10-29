@@ -2,16 +2,9 @@ export function InboxZeroCelebration({ splitName }: { splitName?: string }) {
   return (
     <div className="mx-auto flex max-w-md flex-col items-center gap-6 pt-4">
       <SunriseScene />
-      <div className="flex flex-col items-center gap-1.5">
-        <h2 className="font-title text-2xl text-foreground tracking-tight">
-          {splitName ? "All clear" : "Inbox zero"}
-        </h2>
-        <p className="text-muted-foreground text-sm">
-          {splitName
-            ? `Nothing left in ${splitName}.`
-            : "You're all caught up. Enjoy the quiet."}
-        </p>
-      </div>
+      <h2 className="font-title text-2xl text-foreground tracking-tight">
+        {splitName ? "All clear" : "You've reached inbox zero"}
+      </h2>
     </div>
   );
 }

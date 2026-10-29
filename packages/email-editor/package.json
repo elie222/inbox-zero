@@ -39,7 +39,7 @@
     "parse5": "8.0.1"
   },
   "peerDependencies": {
-    "dompurify": "3.4.15",
+    "dompurify": "3.4.17",
     "react": ">=19",
     "react-dom": ">=19",
     "squire-rte": "2.4.9"

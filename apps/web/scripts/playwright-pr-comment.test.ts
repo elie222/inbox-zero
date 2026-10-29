@@ -11,6 +11,7 @@ describe("selectPlaywrightPrFrames", () => {
     const selection = selectPlaywrightPrFrames({
       changedPaths: [
         "apps/web/__tests__/playwright/emulated/mail/split-tabs.spec.ts",
+        "apps/web/__tests__/playwright/emulated/mail/starring.spec.ts",
         "apps/web/styles/globals.css",
       ],
       screenshots: [
@@ -70,6 +71,59 @@ describe("selectPlaywrightPrFrames", () => {
       "dark mode",
     ]);
     expect(selection.omittedCount).toBe(0);
+  });
+
+  it("skips new checkpoints from specs this PR did not touch", () => {
+    const selection = selectPlaywrightPrFrames({
+      changedPaths: [
+        "apps/web/__tests__/playwright/emulated/mail/starring.spec.ts",
+      ],
+      screenshots: [
+        screenshot({
+          comparison: "new",
+          fileName: "images/001-sent-title.png",
+          source: "mail_snavigation.spec.ts/sent/sent-title.png",
+          title: "sent title",
+        }),
+      ],
+    });
+
+    expect(selection.frames).toEqual([]);
+  });
+
+  it("matches changed specs when captures sit under a provider folder", () => {
+    const comment = buildPlaywrightPrComment({
+      changedPaths: [
+        "apps/web/__tests__/playwright/emulated/mail/starring.spec.ts",
+      ],
+      dashboardUrl: "https://example.com/playwright/index.html",
+      galleryUrl: "https://example.com/playwright/prs/42/index.html",
+      runUrl: "https://github.com/example/repo/actions/runs/1",
+      screenshots: [
+        screenshot({
+          comparison: "new",
+          fileName: "images/001-starred.png",
+          source: "google/mail_sstarring.spec.ts/star/starred.png",
+          title: "starred",
+        }),
+        screenshot({
+          comparison: "changed",
+          fileName: "images/002-unstarred.png",
+          source: "microsoft/mail_sstarring.spec.ts/star/unstarred.png",
+          title: "unstarred",
+        }),
+      ],
+      screenshotsUrl:
+        "https://example.com/playwright/runs/1-1/screenshots/index.html",
+      sha: "0123456789abcdef",
+    });
+
+    expect(comment).toContain(
+      "**starred** · mail/starring.spec.ts (google) · new checkpoint",
+    );
+    expect(comment).toContain(
+      "**unstarred** · mail/starring.spec.ts (microsoft) · spec changed in this PR",
+    );
   });
 
   it("does not list a frame twice and reports how many were cut by the limit", () => {

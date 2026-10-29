@@ -4,6 +4,9 @@ export interface CalendarEventAttendee {
   declined?: boolean;
   email: string;
   name?: string;
+  // The connected calendar's own entry, whose address can differ from the
+  // EmailAccount's.
+  self?: boolean;
 }
 
 export interface CalendarEvent {
@@ -19,6 +22,10 @@ export interface CalendarEvent {
   organizerEmail?: string;
   startTime: Date;
   title: string;
+  // True when the connected calendar's own account declined the event. Like
+  // isOrganizer, this follows the calendar connection, whose address can
+  // differ from the EmailAccount's.
+  userDeclined?: boolean;
   videoConferenceLink?: string;
 }
 

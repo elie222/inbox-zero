@@ -8,6 +8,7 @@ type Props = {
   resetKey: string;
   title: string;
   onBack?: () => void;
+  onError?: () => void;
 };
 
 export class MailPanelErrorBoundary extends Component<
@@ -18,6 +19,10 @@ export class MailPanelErrorBoundary extends Component<
 
   static getDerivedStateFromError(error: Error) {
     return { error };
+  }
+
+  componentDidCatch() {
+    this.props.onError?.();
   }
 
   componentDidUpdate(previousProps: Props) {

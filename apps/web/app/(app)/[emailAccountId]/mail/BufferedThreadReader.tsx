@@ -33,10 +33,7 @@ export function BufferedThreadReader({
     visibleKey !== null && visibleContent.current
       ? { key: visibleKey, content: visibleContent.current }
       : null;
-  const replacing =
-    previous !== null &&
-    previous.key !== threadKey &&
-    previous.content.props.threadId !== null;
+  const replacing = previous !== null && previous.key !== threadKey;
   const preparing =
     visibleKey !== threadKey && children.props.threadId !== null;
   useLayoutEffect(() => {

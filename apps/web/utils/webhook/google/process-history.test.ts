@@ -8,13 +8,21 @@ import {
 } from "@/utils/webhook/validate-webhook-account";
 import prisma from "@/utils/prisma";
 import { getEmailProviderRateLimitState } from "@/utils/email/rate-limit";
-import { createTestLogger } from "@/__tests__/helpers";
+import { createTestLogger, getEmailAccount } from "@/__tests__/helpers";
 import { processHistoryItem } from "@/utils/webhook/google/process-history-item";
 import {
   clearGmailHistoryCatchUp,
   getGmailHistoryCatchUp,
   markGmailHistoryCatchUp,
 } from "@/utils/redis/gmail-history-catch-up";
+import { handleLabelRemovedEvent } from "@/utils/webhook/google/process-label-removed-event";
+import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
+import {
+  findRuleByLabelId,
+  saveClassificationFeedback,
+} from "@/utils/rule/classification-feedback";
+import { SystemType } from "@/generated/prisma/enums";
+import type { EmailProvider } from "@/utils/email/types";
 
 const logger = createTestLogger();
 
@@ -37,6 +45,7 @@ vi.mock("@/utils/prisma", () => ({
       update: vi.fn().mockResolvedValue({}),
     },
     $executeRaw: vi.fn().mockResolvedValue(1),
+    classificationFeedback: { count: vi.fn().mockResolvedValue(0) },
   },
 }));
 
@@ -71,9 +80,24 @@ vi.mock("@/utils/webhook/google/process-history-item", () => ({
   processHistoryItem: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock("@/utils/rule/learned-patterns", () => ({
+  saveLearnedPattern: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("@/utils/rule/classification-feedback", () => ({
+  findRuleByLabelId: vi.fn(),
+  saveClassificationFeedback: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("@/utils/webhook/google/fetch-sender-from-message", () => ({
+  fetchSenderFromMessage: vi.fn().mockResolvedValue("sender@example.com"),
+}));
+
 describe("processHistoryForUser - 404 Handling", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(processHistoryItem).mockResolvedValue(undefined);
+    vi.mocked(prisma.classificationFeedback.count).mockResolvedValue(0);
     vi.mocked(getEmailProviderRateLimitState).mockResolvedValue(null);
   });
 
@@ -166,6 +190,83 @@ describe("processHistoryForUser - 404 Handling", () => {
     );
 
     expect(await (result as any).json()).toEqual({ ok: true });
+  });
+
+  it("records bulk cleanup feedback across webhooks without learning sender exclusions", async () => {
+    const emailAccount = getEmailAccount({
+      id: "account-bulk",
+      email: "user@example.com",
+      lastSyncedHistoryId: "1000",
+    });
+    vi.mocked(getWebhookEmailAccount).mockResolvedValue(emailAccount as any);
+    vi.mocked(validateWebhookAccount).mockResolvedValue({
+      success: true,
+      data: {
+        emailAccount: {
+          ...emailAccount,
+          account: {
+            access_token: "test-token",
+            refresh_token: "test-refresh",
+          },
+          rules: [],
+        },
+        hasAutomationRules: true,
+        hasAiAccess: true,
+      },
+    } as any);
+    vi.mocked(findRuleByLabelId).mockResolvedValue({
+      id: "rule-newsletter",
+      systemType: SystemType.NEWSLETTER,
+    });
+
+    let feedbackCount = 0;
+    vi.mocked(saveClassificationFeedback).mockImplementation(async () => {
+      feedbackCount += 1;
+    });
+    vi.mocked(prisma.classificationFeedback.count).mockImplementation(
+      async () => feedbackCount,
+    );
+    vi.mocked(processHistoryItem).mockImplementation(async (event) => {
+      await handleLabelRemovedEvent(
+        event.item,
+        {
+          emailAccount,
+          provider: {} as EmailProvider,
+          bulkRemovedLabelIds: event.bulkRemovedLabelIds,
+        },
+        logger,
+      );
+    });
+
+    let messageNumber = 0;
+    for (const batchSize of [12, 2, 1]) {
+      const history = Array.from({ length: batchSize }, () => {
+        messageNumber += 1;
+        return {
+          id: String(1000 + messageNumber),
+          labelsRemoved: [
+            {
+              message: {
+                id: `message-${messageNumber}`,
+                threadId: `thread-${messageNumber}`,
+              },
+              labelIds: ["label-newsletter"],
+            },
+          ],
+        };
+      });
+      vi.mocked(getHistory).mockResolvedValue({ history });
+
+      const response = await processHistoryForUser(
+        { emailAddress: emailAccount.email, historyId: 1000 + messageNumber },
+        {},
+        logger,
+      );
+      expect(await response.json()).toEqual({ ok: true });
+    }
+
+    expect(saveClassificationFeedback).toHaveBeenCalledTimes(15);
+    expect(saveLearnedPattern).not.toHaveBeenCalled();
   });
 
   it("should skip webhook history calls while account is in rate-limit mode", async () => {

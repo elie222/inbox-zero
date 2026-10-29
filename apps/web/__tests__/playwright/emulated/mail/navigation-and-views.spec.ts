@@ -229,7 +229,9 @@ test("separates Outlook Focused and Other inbox conversations", async ({
   await expect(page).toHaveURL(/type=other/);
 });
 
-test("navigates drafts and sent mail from the sidebar", async ({ page }) => {
+test("navigates drafts and sent mail from the sidebar", async ({
+  page,
+}, testInfo) => {
   const { conversations } = await openMail(page);
 
   await openMailboxFromSidebar(page, "Drafts");
@@ -241,12 +243,32 @@ test("navigates drafts and sent mail from the sidebar", async ({ page }) => {
   await expect(draft).toBeVisible();
   await expect(draft.getByText("Draft", { exact: true })).toBeVisible();
   await expect(draft.getByText("Jordan Example")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Drafts", exact: true }),
+  ).toBeVisible();
 
   await openMailboxFromSidebar(page, "Sent");
   await expect(
     conversationWithSubject(page, conversations, "Seeded Sent Message"),
   ).toBeVisible();
   await expect(draft).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "Sent", exact: true }),
+  ).toBeVisible();
+  await capturePlaywrightCheckpoint(page, testInfo, "sent-mailbox-title");
+
+  await page.keyboard.press("Escape");
+  await expect(page).toHaveURL(/type=inbox/);
+  await expect(
+    page.getByRole("heading", { name: "Sent", exact: true }),
+  ).toHaveCount(0);
+
+  await openMailboxFromSidebar(page, "Drafts");
+  await page.getByRole("button", { name: "Go to inbox" }).click();
+  await expect(page).toHaveURL(/type=inbox/);
+  await expect(
+    page.getByRole("heading", { name: "Drafts", exact: true }),
+  ).toHaveCount(0);
 });
 
 test("creates and edits a label and shows every keyboard workflow", async ({
