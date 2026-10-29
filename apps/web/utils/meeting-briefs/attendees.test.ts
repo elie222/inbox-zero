@@ -44,6 +44,41 @@ describe("partitionAttendeesForBriefing", () => {
     expect(internal).toEqual([]);
   });
 
+  it("counts an outside organizer that the calendar lists separately", () => {
+    const event = createEvent({
+      organizerEmail: "Host@Partner.org",
+      isOrganizer: false,
+      attendees: [
+        { email: "user@company.com" },
+        { email: "client@example.com", declined: true },
+      ],
+    });
+
+    expect(
+      partitionAttendeesForBriefing(event, "user@company.com").external,
+    ).toEqual([{ email: "host@partner.org" }]);
+  });
+
+  it("doesn't add the organizer when the user organizes or it is already listed", () => {
+    const organized = createEvent({
+      organizerEmail: "user@company.com",
+      isOrganizer: true,
+      attendees: [{ email: "client@example.com", name: "Client" }],
+    });
+    const listed = createEvent({
+      organizerEmail: "client@example.com",
+      isOrganizer: false,
+      attendees: [{ email: "Client@Example.com", name: "Client" }],
+    });
+
+    expect(
+      partitionAttendeesForBriefing(organized, "user@company.com").external,
+    ).toEqual([{ email: "client@example.com", name: "Client" }]);
+    expect(
+      partitionAttendeesForBriefing(listed, "user@company.com").external,
+    ).toEqual([{ email: "Client@Example.com", name: "Client" }]);
+  });
+
   it("treats same-company-domain attendees as internal team members", () => {
     const event = createEvent({
       attendees: [
@@ -96,5 +131,7 @@ function createEvent(overrides: Partial<CalendarEvent>): CalendarEvent {
     endTime:
       overrides.endTime ?? new Date(startTime.getTime() + 30 * 60 * 1000),
     attendees: overrides.attendees ?? [],
+    isOrganizer: overrides.isOrganizer,
+    organizerEmail: overrides.organizerEmail,
   };
 }
