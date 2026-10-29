@@ -10,7 +10,9 @@ const {
   createRuleHistoryMock,
   mockEnv,
   mockIsIntegrationActionEnabledForEmailAccountId,
+  trackRuleEventMock,
 } = vi.hoisted(() => ({
+  trackRuleEventMock: vi.fn(),
   createRuleHistoryMock: vi.fn(),
   mockEnv: {
     webhookActionsEnabled: true,
@@ -28,6 +30,10 @@ vi.mock("@/utils/risk", () => ({
 vi.mock("@/utils/rule/rule-history", () => ({
   createRuleHistory: createRuleHistoryMock,
   ruleHistoryRuleInclude: { actions: true, group: true },
+}));
+vi.mock("@/utils/analytics/rule-events.server", () => ({
+  RULE_ANALYTICS_EVENTS: { ruleChanged: "Rule changed" },
+  trackRuleEvent: trackRuleEventMock,
 }));
 vi.mock("@/utils/email/provider-types", () => ({
   isMicrosoftProvider: vi.fn(() => false),
@@ -693,6 +699,40 @@ describe("rule history snapshots", () => {
       rule: expect.objectContaining({ id: RULE_ID }),
       triggerType,
     });
+  });
+});
+
+describe("rule analytics", () => {
+  beforeEach(resetRuleMocks);
+
+  it("reports rule changes with their trigger", async () => {
+    prisma.rule.update.mockResolvedValue({
+      id: RULE_ID,
+      emailAccountId: EMAIL_ACCOUNT_ID,
+      enabled: false,
+      systemType: null,
+      actions: [],
+      group: null,
+    } as any);
+
+    await setRuleEnabled({
+      ruleId: RULE_ID,
+      emailAccountId: EMAIL_ACCOUNT_ID,
+      enabled: false,
+    });
+
+    await vi.waitFor(() =>
+      expect(trackRuleEventMock).toHaveBeenCalledWith({
+        emailAccountId: EMAIL_ACCOUNT_ID,
+        event: "Rule changed",
+        properties: {
+          ruleId: RULE_ID,
+          triggerType: "enabled_updated",
+          systemType: null,
+          enabled: false,
+        },
+      }),
+    );
   });
 });
 
