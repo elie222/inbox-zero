@@ -213,6 +213,9 @@ function selectModel(
         model: createGroq({
           apiKey: resolveApiKey(aiApiKey, env.GROQ_API_KEY),
         })(modelName),
+        providerOptions: {
+          groq: { reasoningEffort: REASONING_EFFORT_BY_MODEL_TYPE[modelType] },
+        },
       };
     }
     case Provider.CEREBRAS: {
