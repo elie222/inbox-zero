@@ -213,9 +213,14 @@ function selectModel(
         model: createGroq({
           apiKey: resolveApiKey(aiApiKey, env.GROQ_API_KEY),
         })(modelName),
-        providerOptions: {
-          groq: { reasoningEffort: REASONING_EFFORT_BY_MODEL_TYPE[modelType] },
-        },
+        // Groq rejects reasoning_effort on models that don't reason.
+        providerOptions: modelName.startsWith("openai/gpt-oss")
+          ? {
+              groq: {
+                reasoningEffort: REASONING_EFFORT_BY_MODEL_TYPE[modelType],
+              },
+            }
+          : undefined,
       };
     }
     case Provider.CEREBRAS: {

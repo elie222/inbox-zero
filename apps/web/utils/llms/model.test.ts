@@ -414,6 +414,19 @@ describe("Models", () => {
       });
     });
 
+    it("sends no reasoning effort for a Groq model that doesn't reason", () => {
+      const result = getModel(
+        defaultUserAi({
+          aiApiKey: "user-api-key",
+          aiProvider: Provider.GROQ,
+          aiModel: "llama-3.1-8b-instant",
+        }),
+      );
+
+      expect(result.modelName).toBe("llama-3.1-8b-instant");
+      expect(result.providerOptions).toBeUndefined();
+    });
+
     it("should configure Cerebras chat with medium reasoning effort", () => {
       const userAi = defaultUserAi({
         aiApiKey: "user-api-key",
