@@ -6,6 +6,7 @@ import {
   convertOutgoingEmailHtmlToText,
   parseReply,
   hasQuotedReplyContent,
+  stripForwardedContent,
 } from "./mail";
 
 describe("emailToContent", () => {
@@ -441,3 +442,16 @@ function createPlainTextEmail(textPlain: string) {
     snippet: "",
   };
 }
+
+
+describe("stripForwardedContent", () => {
+  it("handles a long whitespace-only line without a marker quickly", () => {
+    const text = " \u00a0".repeat(100_000);
+    const startedAt = performance.now();
+    const result = stripForwardedContent(text);
+    const elapsedMs = performance.now() - startedAt;
+
+    expect(result).toBe(text);
+    expect(elapsedMs).toBeLessThan(250);
+  });
+});
