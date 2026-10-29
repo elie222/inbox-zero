@@ -383,6 +383,16 @@ export function MessagePart({
     });
   }
 
+  if (part.type === "tool-testRulesOnEmail") {
+    return renderToolStatus({
+      part,
+      loadingText: "Testing rules on this email...",
+      renderSuccess: ({ toolCallId }) => (
+        <BasicToolInfo key={toolCallId} text="Tested rules on this email" />
+      ),
+    });
+  }
+
   if (part.type === "tool-getLearnedPatterns") {
     return renderToolStatus({
       part,
