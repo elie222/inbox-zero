@@ -145,6 +145,19 @@ describe("emailToContent", () => {
         expected: "My comments",
       },
       {
+        name: "Outlook separator line",
+        textPlain:
+          "Sounds good.\n\n-----Original Message-----\nFrom: sender@example.com\nSent: Monday",
+        expected: "Sounds good.",
+      },
+      {
+        name: "an inline mention of the original message",
+        textPlain:
+          "Thanks Dana.\nAs noted in my original message, the deadline is Friday. Please confirm.",
+        expected:
+          "Thanks Dana.\nAs noted in my original message, the deadline is Friday. Please confirm.",
+      },
+      {
         name: "content with no forward marker",
         textPlain: "Regular email content without forwards",
         expected: "Regular email content without forwards",
