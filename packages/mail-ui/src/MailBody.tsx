@@ -484,6 +484,7 @@ function useMailHtmlFrame(
         forwardShortcut(event);
         return;
       }
+      if (event.key === "Enter" && target?.closest?.("a, button")) return;
       const selection = observedDocument?.getSelection();
       if (selection && !selection.isCollapsed) {
         const quote = selection.toString().trim();
@@ -499,7 +500,6 @@ function useMailHtmlFrame(
         if (!isNavigationKey) forwardShortcut(event);
         return;
       }
-      if (event.key === "Enter" && target?.closest?.("a, button")) return;
       if (!handlesKey) {
         forwardShortcut(event);
         return;
