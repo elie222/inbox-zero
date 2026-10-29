@@ -3,7 +3,7 @@ import MailComposer from "nodemailer/lib/mail-composer";
 import type Mail from "nodemailer/lib/mailer";
 import type { Attachment } from "nodemailer/lib/mailer";
 import type { SendEmailBody, WithMailerAttachments } from "@/utils/types/mail";
-import { convertEmailHtmlToText } from "@/utils/mail";
+import { convertOutgoingEmailHtmlToText } from "@/utils/mail";
 import {
   forwardEmailHtml,
   forwardEmailSubject,
@@ -116,7 +116,7 @@ export async function sendEmailWithHtml(
   let messageText: string;
 
   try {
-    messageText = convertEmailHtmlToText({ htmlText: body.messageHtml });
+    messageText = convertOutgoingEmailHtmlToText(body.messageHtml);
   } catch (error) {
     sendLogger.error("Error converting email html to text", { error });
     messageText = stripHtmlTagsForPlainText(body.messageHtml).trim();
@@ -438,12 +438,7 @@ export function buildReplyMessageText({
 function renderReplyBodyAsPlainText(textContent?: string) {
   if (!textContent) return "";
 
-  return convertEmailHtmlToText({
-    htmlText: convertNewlinesToBr(textContent),
-  })
-    .replace(/\r\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+  return convertOutgoingEmailHtmlToText(convertNewlinesToBr(textContent));
 }
 
 export function stripHtmlTagsForPlainText(html: string) {

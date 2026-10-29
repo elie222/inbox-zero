@@ -217,6 +217,26 @@ export function convertEmailHtmlToText({
   return plainText;
 }
 
+// Gmail collapses a reply's quote of our message only when the quote matches
+// what we sent, and that quote is Gmail's own plain-text rendering of our HTML.
+// So the text/plain part follows the same format: "text <url>" links, no hard
+// wrapping, single blank lines, and bare ">" on empty quoted lines.
+export function convertOutgoingEmailHtmlToText(html: string): string {
+  return convert(html, {
+    wordwrap: false,
+    selectors: [
+      {
+        selector: "a",
+        options: { hideLinkHrefIfSameAsText: true, linkBrackets: ["<", ">"] },
+      },
+      { selector: "img", format: "skip" },
+    ],
+  })
+    .replace(/[^\S\n]+$/gm, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 /**
  * Ensures email sending is enabled. Throws an error if disabled.
  * @throws {SafeError} If email sending is disabled
