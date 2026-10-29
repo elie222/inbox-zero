@@ -443,7 +443,6 @@ function createPlainTextEmail(textPlain: string) {
   };
 }
 
-
 describe("stripForwardedContent", () => {
   it("handles a long whitespace-only line without a marker quickly", () => {
     const text = " \u00a0".repeat(100_000);
