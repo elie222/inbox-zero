@@ -34,3 +34,12 @@ export function partitionAttendeesForBriefing(
 
   return { external, internal };
 }
+
+export function hasUserDeclined(event: CalendarEvent, userEmail: string) {
+  const normalizedUserEmail = userEmail.trim().toLowerCase();
+  return event.attendees.some(
+    (attendee) =>
+      attendee.declined &&
+      attendee.email.trim().toLowerCase() === normalizedUserEmail,
+  );
+}

@@ -182,6 +182,39 @@ describe("filterEventsWithExternalGuests", () => {
       ),
     ).toEqual(["personal-domain-peer"]);
   });
+
+  it("drops meetings the user declined or every guest declined", () => {
+    const events = [
+      createEvent({
+        id: "user-declined",
+        attendees: [
+          { email: "User@Company.com", declined: true },
+          { email: "customer@example.com" },
+        ],
+      }),
+      createEvent({
+        id: "guests-declined",
+        attendees: [
+          { email: "user@company.com" },
+          { email: "customer@example.com", declined: true },
+        ],
+      }),
+      createEvent({
+        id: "one-guest-coming",
+        attendees: [
+          { email: "user@company.com" },
+          { email: "customer@example.com", declined: true },
+          { email: "partner@example.org" },
+        ],
+      }),
+    ];
+
+    expect(
+      filterEventsWithExternalGuests(events, "user@company.com").map(
+        (event) => event.id,
+      ),
+    ).toEqual(["one-guest-coming"]);
+  });
 });
 
 function createProvider(events: CalendarEvent[]): CalendarEventProvider {
