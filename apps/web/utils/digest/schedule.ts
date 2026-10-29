@@ -3,8 +3,8 @@ import { calculateNextScheduleDate } from "@/utils/schedule";
 
 export const DIGEST_DISPATCH_INTERVAL_MINUTES = 5;
 
-// Several years of daily slots; only guards against a schedule that never advances.
-const MAX_CATCH_UP_STEPS = 2000;
+// Preserve phase across centuries of daily slots; guard schedules that never advance.
+const MAX_CATCH_UP_STEPS = 100_000;
 
 type DigestScheduleForProgression = Pick<
   Schedule,
