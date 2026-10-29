@@ -444,8 +444,11 @@ function createPlainTextEmail(textPlain: string) {
 }
 
 describe("stripForwardedContent", () => {
-  it("handles a long whitespace-only line without a marker quickly", () => {
-    const text = " \u00a0".repeat(100_000);
+  it.each([
+    ["spaces and non-breaking spaces", " \u00a0"],
+    ["Unicode line separators", "\u2028\u2029"],
+  ])("handles a long run of %s without a marker quickly", (_name, unit) => {
+    const text = unit.repeat(100_000);
     const startedAt = performance.now();
     const result = stripForwardedContent(text);
     const elapsedMs = performance.now() - startedAt;

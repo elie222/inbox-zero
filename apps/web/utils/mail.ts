@@ -113,10 +113,12 @@ const FORWARDED_CONTENT_PATTERNS = [
   // Forwarded email header blocks
   /(?:^|\r?\n)From:\s*[^\r\n]+(?:\r?\n(?:Date|Sent|To|Cc|Bcc|Subject):\s*[^\r\n]+){2,}/im,
   // iOS/Mac style, at the start of a line
-  /^[^\S\r\n]*Begin forwarded message:/im,
+  /^[^\S\r\n\u2028\u2029]*Begin forwarded message:/im,
   // Outlook style: a separator line, not the phrase inside a sentence
-  // ([^\S\r\n] also covers the non-breaking spaces HTML-to-text leaves)
-  /^[^\S\r\n]*(?:[-_]+[^\S\r\n]*)?Original Message(?:[^\S\r\n]*[-_]+)?[^\S\r\n]*$/im,
+  // ([^\S\r\n\u2028\u2029] also covers the non-breaking spaces HTML-to-text
+  // leaves; /m treats U+2028/U+2029 as line starts, so they are left out or a
+  // run of them would make the scan quadratic)
+  /^[^\S\r\n\u2028\u2029]*(?:[-_]+[^\S\r\n\u2028\u2029]*)?Original Message(?:[^\S\r\n\u2028\u2029]*[-_]+)?[^\S\r\n\u2028\u2029]*$/im,
 ];
 
 export function stripForwardedContent(text: string): string {
