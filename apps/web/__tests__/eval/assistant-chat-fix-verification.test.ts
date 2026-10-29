@@ -1,8 +1,5 @@
 import { afterAll, beforeEach, describe, expect, test, vi } from "vitest";
-import {
-  captureAssistantChatTrace,
-  isAssistantWriteToolName,
-} from "@/__tests__/eval/assistant-chat-eval-utils";
+import { captureAssistantChatTrace } from "@/__tests__/eval/assistant-chat-eval-utils";
 import {
   describeEvalMatrix,
   shouldRunEvalTests,
@@ -100,15 +97,60 @@ vi.mock("@/env", async () => {
 });
 
 const SENDER = "orders@procurement.example";
+const RULE_WRITE_TOOL_NAMES = new Set([
+  "createRule",
+  "updateRule",
+  "deleteRule",
+  "updateLearnedPatterns",
+]);
 
-const scenarios = [
+const FIX_REQUEST =
+  "This is a purchase order from one of our customers, not a receipt. It should stay in my inbox. Please fix this.";
+
+const scenarios: {
+  name: string;
+  userMessage: string;
+  withFixContext: boolean;
+  fixingEmail: boolean;
+  learnedPatternBlocksFix: boolean;
+  neverFixed?: boolean;
+}[] = [
   {
     name: "reports a fix that the test confirms",
+    userMessage: FIX_REQUEST,
+    withFixContext: true,
+    fixingEmail: true,
     learnedPatternBlocksFix: false,
   },
   {
     name: "does not claim a fix that a learned pattern still overrides",
+    userMessage: FIX_REQUEST,
+    withFixContext: true,
+    fixingEmail: true,
     learnedPatternBlocksFix: true,
+  },
+  {
+    name: "verifies a fix the user asked for in plain chat",
+    userMessage: `The purchase order PO-1042 from ${SENDER} got sorted as a receipt. It's from a customer and should stay in my inbox. Please fix this.`,
+    withFixContext: false,
+    fixingEmail: true,
+    learnedPatternBlocksFix: true,
+  },
+  {
+    name: "admits a fix that the test shows did not work",
+    userMessage: FIX_REQUEST,
+    withFixContext: true,
+    fixingEmail: true,
+    learnedPatternBlocksFix: false,
+    neverFixed: true,
+  },
+  {
+    name: "does not test when creating an unrelated rule",
+    userMessage:
+      "Create a rule that labels emails from billing@accounting-firm.example as Finance.",
+    withFixContext: false,
+    fixingEmail: false,
+    learnedPatternBlocksFix: false,
   },
 ];
 
@@ -141,11 +183,21 @@ describe.runIf(shouldRunEval)("Eval: assistant verifies rule fixes", () => {
           messagingChannels: [],
         }));
 
-        const context = buildContext();
+        const message = buildMessage();
+        const context = scenario.withFixContext
+          ? buildContext(message)
+          : undefined;
         configureRuleEvalProvider({ mockCreateEmailProvider, ruleRows });
         const provider = await mockCreateEmailProvider();
-        provider.getMessage = vi.fn().mockResolvedValue(context.message);
+        provider.getMessage = vi.fn().mockResolvedValue(message);
+        provider.searchMessages = vi
+          .fn()
+          .mockResolvedValue({ messages: [message], nextPageToken: undefined });
         mockCreateEmailProvider.mockResolvedValue(provider);
+
+        prisma.executedRule.findMany.mockResolvedValue(
+          scenario.fixingEmail ? [buildReceiptExecution(message)] : [],
+        );
 
         const testOutcomes: boolean[] = [];
         mockRunRules.mockImplementation(async () => {
@@ -154,29 +206,48 @@ describe.runIf(shouldRunEval)("Eval: assistant verifies rule fixes", () => {
             mockUpdateRuleActions.mock.calls.length > 0 ||
             mockCreateRule.mock.calls.length > 0;
           const patternRemoved = mockSaveLearnedPatterns.mock.calls.length > 0;
-          const fixed = scenario.learnedPatternBlocksFix
-            ? patternRemoved
-            : ruleChanged || patternRemoved;
+          const fixed =
+            !scenario.neverFixed &&
+            (scenario.learnedPatternBlocksFix
+              ? patternRemoved
+              : ruleChanged || patternRemoved);
           testOutcomes.push(fixed);
           return fixed ? noMatchResult() : receiptMatchResult(scenario);
         });
 
         const trace = await captureAssistantChatTrace({
           emailAccount,
-          messages: [
-            {
-              role: "user",
-              content:
-                "This is a purchase order from one of our customers, not a receipt. It should stay in my inbox. Please fix this.",
-            },
-          ],
+          messages: [{ role: "user", content: scenario.userMessage }],
           context,
           logger,
         });
 
+        const testCalls = trace.toolCalls.filter(
+          (call) => call.toolName === "testRulesOnEmail",
+        );
+
+        if (!scenario.fixingEmail) {
+          const pass =
+            mockCreateRule.mock.calls.length > 0 && testCalls.length === 0;
+          reporter.record({
+            testName: scenario.name,
+            model: model.label,
+            pass,
+            actual: JSON.stringify({
+              created: mockCreateRule.mock.calls.length,
+              testCalls: testCalls.length,
+              toolCalls: trace.toolCalls.map((call) => call.toolName),
+            }),
+          });
+          expect(pass).toBe(true);
+          return;
+        }
+
+        // Inbox actions like removing the old label can follow the test; only
+        // rule changes need a test after them.
         const lastWriteIndex = trace.toolCalls.findLastIndex(
           (call) =>
-            isAssistantWriteToolName(call.toolName) &&
+            RULE_WRITE_TOOL_NAMES.has(call.toolName) &&
             call.output !== undefined,
         );
         const testedAfterWrite =
@@ -187,7 +258,7 @@ describe.runIf(shouldRunEval)("Eval: assistant verifies rule fixes", () => {
               (call) =>
                 call.toolName === "testRulesOnEmail" &&
                 (call.input as { messageId?: string })?.messageId ===
-                  context.message.id,
+                  message.id,
             );
         const latestTestFixed = testOutcomes.at(-1) ?? null;
 
@@ -198,7 +269,8 @@ describe.runIf(shouldRunEval)("Eval: assistant verifies rule fixes", () => {
               "The assistant changes the user's rules so the selected email would no longer be sorted as a receipt, then reports the outcome consistently with the latest testRulesOnEmail result in the tool calls. It only says the email is now handled correctly if that latest test shows no Receipt match. If the latest test still shows Receipt, it tells the user the fix has not taken effect yet and explains or addresses the cause shown in the test, rather than claiming success.",
           },
           input: JSON.stringify({
-            selectedEmail: context.message,
+            userMessage: scenario.userMessage,
+            selectedEmail: getEmailSummary(message),
             latestTestFixed,
           }),
           output: JSON.stringify({
@@ -230,8 +302,8 @@ describe.runIf(shouldRunEval)("Eval: assistant verifies rule fixes", () => {
   afterAll(() => reporter.printReport());
 });
 
-function buildContext() {
-  const message = getMockMessage({
+function buildMessage() {
+  return getMockMessage({
     from: SENDER,
     to: "user@test.com",
     subject: "Purchase Order PO-1042",
@@ -239,7 +311,18 @@ function buildContext() {
       "Please find attached purchase order PO-1042 for 40 units. Kindly confirm the delivery date.",
     textHtml: "",
   });
+}
 
+function getEmailSummary(message: ReturnType<typeof buildMessage>) {
+  return {
+    id: message.id,
+    from: message.headers.from,
+    subject: message.headers.subject,
+    textPlain: message.textPlain,
+  };
+}
+
+function buildContext(message: ReturnType<typeof buildMessage>) {
   return messageContextSchema.parse({
     type: "fix-rule",
     message: {
@@ -288,6 +371,34 @@ function receiptMatchResult(scenario: { learnedPatternBlocksFix: boolean }) {
       createdAt: new Date(),
     },
   ];
+}
+
+function buildReceiptExecution(message: ReturnType<typeof buildMessage>) {
+  return {
+    id: "executed-rule-1",
+    ruleId: "receipt-rule-id",
+    threadId: message.threadId,
+    createdAt: new Date("2026-01-02T00:00:00Z"),
+    status: ExecutedRuleStatus.APPLIED,
+    reason:
+      "This email documents an order with amounts, so it matches Receipt.",
+    matchMetadata: [{ type: "AI" }],
+    automated: true,
+    actionItems: [
+      {
+        type: "LABEL",
+        label: "Receipt",
+        labelId: null,
+        subject: null,
+        to: null,
+        cc: null,
+        bcc: null,
+        url: null,
+        folderName: null,
+      },
+    ],
+    rule: { id: "receipt-rule-id", name: "Receipt" },
+  } as any;
 }
 
 function noMatchResult() {

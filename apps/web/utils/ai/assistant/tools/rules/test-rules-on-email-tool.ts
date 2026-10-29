@@ -31,7 +31,7 @@ export const testRulesOnEmailTool = ({
 }) =>
   tool({
     description:
-      "Dry-run the user's current enabled rules on one email and return how it would be handled now: which rules would match, why, and which actions they would take. Nothing is applied, labeled, moved, drafted, or saved. Use it after you create or update a rule or change learned patterns to fix how a specific email was handled, and test that same email to check the fix. Compare the result with what the user wanted. If the email would still be handled wrongly, tell the user and keep fixing; for example, a learned pattern in matchMetadata can force a rule regardless of its instructions, and updateLearnedPatterns can remove it. Never tell the user an email is fixed unless this test shows the outcome they wanted. Each call runs AI rule selection, so test only the emails being fixed. Draft replies are not generated in the test.",
+      "Dry-run the user's current rules on one email and return which rules would match, why, and their actions, without applying anything. After changing rules to fix how a specific email was handled, test that email, and only tell the user it is fixed if the result shows what they wanted; otherwise keep fixing.",
     inputSchema: testRulesOnEmailInputSchema,
     execute: async ({ messageId }) => {
       trackRuleToolCall({ tool: "test_rules_on_email", email, logger });
