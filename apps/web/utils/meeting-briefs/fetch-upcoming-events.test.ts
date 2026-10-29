@@ -198,6 +198,14 @@ describe("filterEventsWithExternalGuests", () => {
         attendees: [{ email: "customer@example.com" }],
       }),
       createEvent({
+        id: "calendar-accepted",
+        userDeclined: false,
+        attendees: [
+          { email: "user@company.com", declined: true },
+          { email: "customer@example.com" },
+        ],
+      }),
+      createEvent({
         id: "guests-declined",
         attendees: [
           { email: "user@company.com" },
@@ -218,7 +226,7 @@ describe("filterEventsWithExternalGuests", () => {
       filterEventsWithExternalGuests(events, "user@company.com").map(
         (event) => event.id,
       ),
-    ).toEqual(["one-guest-coming"]);
+    ).toEqual(["calendar-accepted", "one-guest-coming"]);
   });
 });
 

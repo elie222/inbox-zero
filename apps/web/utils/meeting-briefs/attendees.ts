@@ -36,7 +36,9 @@ export function partitionAttendeesForBriefing(
 }
 
 export function hasUserDeclined(event: CalendarEvent, userEmail: string) {
-  if (event.userDeclined) return true;
+  // The provider knows which entry is the calendar's own; matching by email
+  // is only a fallback for events it doesn't flag.
+  if (event.userDeclined !== undefined) return event.userDeclined;
   const normalizedUserEmail = userEmail.trim().toLowerCase();
   return event.attendees.some(
     (attendee) =>
