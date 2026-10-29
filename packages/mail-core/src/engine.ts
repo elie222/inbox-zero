@@ -909,7 +909,6 @@ export function createMailEngine(input: {
     signal: AbortSignal,
   ) {
     let visitedStreams = 0;
-    const bootstrapDeadlineMs = runtime.nowMs() + SYNC_LANE_BOOTSTRAP_SLICE_MS;
     const session = {
       accountId: account.accountId,
       generation: account.generation,
@@ -993,15 +992,22 @@ export function createMailEngine(input: {
       streams.push(...streams.splice(0, nextStreamIndex));
     }
     const dueStreams: typeof streams = [];
+    // Bootstrap scans share one slice per pass, so a mailbox with many
+    // folders can't run the lane into its timeout before later folders get a
+    // turn. Folders left over go first on the next pass.
+    const bootstrapDeadlineMs = runtime.nowMs() + SYNC_LANE_BOOTSTRAP_SLICE_MS;
+    let bootstrapStarted = false;
+    idleGate.nextBootstrapStreamId = null;
+    const bootstrapSliceSpent = () =>
+      bootstrapStarted && runtime.nowMs() >= bootstrapDeadlineMs;
     for (const stream of streams) {
-      if (visitedStreams > 0) await yieldToHost();
       if (signal.aborted) return;
-      // Share the bootstrap slice across folders so a large mailbox cannot
-      // consume the lane timeout before later folders get a turn.
-      if (visitedStreams > 0 && runtime.nowMs() >= bootstrapDeadlineMs) break;
+      if (!stream.checkpoint && bootstrapSliceSpent()) {
+        idleGate.nextBootstrapStreamId ??= stream.streamId;
+        continue;
+      }
+      if (visitedStreams > 0) await yieldToHost();
       visitedStreams += 1;
-      idleGate.nextBootstrapStreamId =
-        streams[visitedStreams % streams.length]?.streamId ?? null;
       const catchUpDue =
         idleGateDue(
           idleGate.nextStreamCatchUpAtMs.get(stream.streamId) ?? 0,
@@ -1019,6 +1025,11 @@ export function createMailEngine(input: {
         !stream.checkpoint ||
         (await resumesBootstrap(idleGate, session, stream.streamId, catchUpDue))
       ) {
+        if (bootstrapSliceSpent()) {
+          idleGate.nextBootstrapStreamId ??= stream.streamId;
+          continue;
+        }
+        bootstrapStarted = true;
         await ingestBootstrap({
           session,
           from: stream,
