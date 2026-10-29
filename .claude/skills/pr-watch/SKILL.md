@@ -142,7 +142,9 @@ screenshot that shows the change in the PR description.
 `pr-screenshots [PR] [FILTER]`, next to `pr-digest`, prints the run's
 checkpoints as `<source>\t<Markdown image>`; filter by the spec or checkpoint
 name you wrote, pick the frame, and edit the description
-(`gh api -X PATCH repos/{owner}/{repo}/pulls/<n> -F body=@<file>`).
+(`gh api -X PATCH repos/{owner}/{repo}/pulls/<n> -F body=@<file>`). If the
+Playwright workflow did not run for that SHA, there is no gallery; say so in
+the description instead of waiting for one.
 
 Report the PR link, final head, waits, fix rounds, what feedback you handled and
 declined, what you validated, any unresolved threads, and whether you finished

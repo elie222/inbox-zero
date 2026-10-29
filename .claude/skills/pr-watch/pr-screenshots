@@ -23,7 +23,7 @@ gallery_url="$(gh api --paginate --slurp "repos/{owner}/{repo}/issues/$pr/commen
 public_base="${gallery_url%/prs/*}"
 
 run="$(curl -fsS "$public_base/history.json" |
-  jq -c --argjson pr "$pr" '[.[] | select(.pullRequestNumber == $pr)] | max_by(.createdAt) // empty')"
+  jq -c --argjson pr "$pr" 'first(.[] | select(.pullRequestNumber == $pr)) // empty')"
 [[ -n "$run" ]] || die "no published run for PR #$pr"
 screenshots_url="$(jq -r .screenshotsUrl <<<"$run")"
 run_sha="$(jq -r .sha <<<"$run")"
@@ -39,5 +39,8 @@ curl -fsS "${screenshots_url%index.html}manifest.json" |
     else . end
     | .screenshots[]
     | select(.captureType == "checkpoint")
-    | select(($filter == "") or ((.source + " " + .title) | ascii_downcase | contains($filter | ascii_downcase)))
+    # Target folders encode the spec path (`/` as `_s`, `_` as `__`); decode so
+    # FILTER can be a spec path.
+    | (.source | gsub("__"; "\u0000") | gsub("_s"; "/") | gsub("\u0000"; "_")) as $spec
+    | select(($filter == "") or (($spec + " " + .title) | ascii_downcase | contains($filter | ascii_downcase)))
     | "\(.source)\t![\(.title)](\($base)\(.fileName))"'
