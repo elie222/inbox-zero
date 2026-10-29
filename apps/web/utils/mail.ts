@@ -112,8 +112,8 @@ const FORWARDED_CONTENT_PATTERNS = [
   /(?:\r?\n|\r)?(?:-{3,}|_{3,})\s*Forward(?:ed)?(?:\s*message)?(?:-{3,}|_{3,})/i,
   // Forwarded email header blocks
   /(?:^|\r?\n)From:\s*[^\r\n]+(?:\r?\n(?:Date|Sent|To|Cc|Bcc|Subject):\s*[^\r\n]+){2,}/im,
-  // iOS/Mac style
-  /(?:\r?\n|\r)?Begin forwarded message:/im,
+  // iOS/Mac style, at the start of a line
+  /^[^\S\r\n]*Begin forwarded message:/im,
   // Outlook style: a separator line, not the phrase inside a sentence
   // ([^\S\r\n] also covers the non-breaking spaces HTML-to-text leaves)
   /^[^\S\r\n]*[-_]*[^\S\r\n]*Original Message[^\S\r\n]*[-_]*[^\S\r\n]*$/im,

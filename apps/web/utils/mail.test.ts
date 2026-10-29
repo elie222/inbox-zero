@@ -170,6 +170,13 @@ describe("emailToContent", () => {
           "Thanks Dana.\nAs noted in my original message, the deadline is Friday. Please confirm.",
       },
       {
+        name: "an inline mention of the iOS forward marker",
+        textPlain:
+          "Please use Begin forwarded message: as the label.\nThe client confirmed Friday.\n\n---------- Forwarded message ----------\nFrom: other@test.com",
+        expected:
+          "Please use Begin forwarded message: as the label.\nThe client confirmed Friday.",
+      },
+      {
         name: "content with no forward marker",
         textPlain: "Regular email content without forwards",
         expected: "Regular email content without forwards",
