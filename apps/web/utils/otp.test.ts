@@ -42,6 +42,8 @@ describe("extractOtpCode", () => {
     ["Your code is 123 456", "123456"],
     ["Sign-in code 7429", "7429"],
     ["Your login code is K7Q2XM", "K7Q2XM"],
+    ["Your verification code:482913", "482913"],
+    ["Questions? Call (555) 123-4567. Your code is 482913", "482913"],
   ])("finds the code in %s", (text, code) => {
     expect(extractOtpCode([text])).toBe(code);
   });

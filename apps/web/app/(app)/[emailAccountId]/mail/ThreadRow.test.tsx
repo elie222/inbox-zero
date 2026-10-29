@@ -39,7 +39,9 @@ describe("ThreadRow", () => {
       }),
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Copy code 235578" }));
+    const button = screen.getByRole("button", { name: "Copy code 235578" });
+    fireEvent.click(button);
+    fireEvent.keyDown(button, { key: "Enter" });
 
     expect(writeText).toHaveBeenCalledWith("235578");
     expect(onOpen).not.toHaveBeenCalled();

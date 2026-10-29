@@ -14,7 +14,7 @@ const OTP_SUBJECT_PATTERNS = [
 // "G-") or a mixed letters-and-digits token. Neighbouring punctuation that
 // continues a number rules out prices, times, dates, and phone numbers.
 const OTP_CODE_PATTERN =
-  /(?<![\w.,:/$€£#+-]|\d[ -])(?:[A-Z]{1,3}-)?(\d{3,4}[ -]\d{3,4}|\d{4,8}|(?=[A-Z\d]*\d)(?=[A-Z\d]*[A-Z])[A-Z\d]{6,8})(?![\w%]|[.,:/ -]\d)/g;
+  /(?<![\w.,/$€£#+-]|\d[ -]|\d:|\) )(?:[A-Z]{1,3}-)?(\d{3,4}[ -]\d{3,4}|\d{4,8}|(?=[A-Z\d]*\d)(?=[A-Z\d]*[A-Z])[A-Z\d]{6,8})(?![\w%]|[.,:/ -]\d)/g;
 const YEAR_PATTERN = /^(?:19|20)\d{2}$/;
 
 export const OTP_MAX_AGE_MS = 15 * 60 * 1000;
