@@ -94,6 +94,23 @@ describe("handlePreviousDraftDeletion", () => {
     expect(result).toEqual({ shouldCreateDraft: true });
   });
 
+  it("keeps tracking a draft when the provider refuses deletion", async () => {
+    mockFindFirst.mockResolvedValue(previousDraftAction);
+    mockGetDraft.mockResolvedValue(
+      createParsedMessage({ textPlain: previousDraftAction.content }),
+    );
+    mockDeleteDraft.mockResolvedValueOnce(false);
+
+    await handlePreviousDraftDeletion({
+      client: mockClient,
+      executedRule,
+      logger,
+    });
+
+    expect(mockDeleteDraft).toHaveBeenCalledWith(previousDraftAction.draftId);
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
   it("should not delete modified draft", async () => {
     mockFindFirst.mockResolvedValue(previousDraftAction);
     mockGetDraft.mockResolvedValue(

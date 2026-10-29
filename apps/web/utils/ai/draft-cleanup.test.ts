@@ -91,6 +91,33 @@ describe("cleanupAIDraftsForAccount", () => {
     expect(mocks.createEmailProvider).not.toHaveBeenCalled();
   });
 
+  it("does not count or mark a draft whose deletion was refused", async () => {
+    mocks.prisma.executedAction.findMany.mockResolvedValue([
+      {
+        id: "action-1",
+        draftId: "draft-1",
+        content: "Thanks for the note.",
+        draftStatus: DraftEmailStatus.PENDING,
+      },
+    ]);
+    mocks.provider.getDraft.mockResolvedValueOnce({
+      textPlain: "Thanks for the note.",
+      textHtml: null,
+    });
+    mocks.provider.deleteDraft.mockResolvedValueOnce(false);
+
+    const result = await cleanupAIDraftsForAccount({
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+      cleanupDays: 14,
+    });
+
+    expect(mocks.provider.deleteDraft).toHaveBeenCalledWith("draft-1");
+    expect(mocks.prisma.executedAction.update).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ total: 1, deleted: 0 });
+  });
+
   it("deletes only unmodified tracked AI drafts", async () => {
     mocks.prisma.executedAction.findMany.mockResolvedValue([
       {
