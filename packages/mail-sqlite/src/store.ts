@@ -2732,9 +2732,12 @@ async function recomputeTargets(tx: SqlTransaction, targets: MessageKey[]) {
        JOIN operation_targets t
          ON t.account_id = o.account_id AND t.command_id = o.command_id
        WHERE t.account_id = ? AND t.message_id = ?
-         AND (o.executable_hash IS NOT NULL OR o.status = 'preparing')`,
+         AND (o.executable_hash IS NOT NULL OR o.status = 'preparing')
+       ORDER BY o.created_at_ms ASC, o.rowid ASC`,
       [target.accountId, target.messageId],
     );
+    // Effects are applied in this order, so it has to be submission order:
+    // command ids are random, and an undo must land after what it undoes.
     const pending = pendingRows
       .filter((row) => {
         const outcome = row.outcome == null ? null : String(row.outcome);
