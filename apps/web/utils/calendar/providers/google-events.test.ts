@@ -91,6 +91,12 @@ describe("GoogleCalendarEventProvider", () => {
     });
 
     expect(events[0]?.userDeclined).toBe(true);
+    expect(events[0]?.attendees[0]).toEqual(
+      expect.objectContaining({
+        email: "calendar-alias@example.com",
+        self: true,
+      }),
+    );
   });
 
   it("finds the video link for an accepted invitation", async () => {

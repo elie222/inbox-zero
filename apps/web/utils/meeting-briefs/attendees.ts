@@ -20,7 +20,7 @@ export function partitionAttendeesForBriefing(
 
   for (const attendee of getBriefingAttendees(event)) {
     // A guest who declined isn't coming, so there's nobody to brief on.
-    if (attendee.declined) continue;
+    if (attendee.declined || attendee.self) continue;
     const attendeeEmail = attendee.email.trim().toLowerCase();
     if (!attendeeEmail || attendeeEmail === normalizedUserEmail) continue;
     if (!extractDomainFromEmail(attendeeEmail)) continue;

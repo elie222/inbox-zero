@@ -79,6 +79,19 @@ describe("partitionAttendeesForBriefing", () => {
     ).toEqual([{ email: "Client@Example.com", name: "Client" }]);
   });
 
+  it("leaves out the connected calendar's own entry under another address", () => {
+    const event = createEvent({
+      attendees: [
+        { email: "me@personal-alias.com", self: true },
+        { email: "client@example.com", declined: true },
+      ],
+    });
+
+    expect(
+      partitionAttendeesForBriefing(event, "user@company.com").external,
+    ).toEqual([]);
+  });
+
   it("treats same-company-domain attendees as internal team members", () => {
     const event = createEvent({
       attendees: [

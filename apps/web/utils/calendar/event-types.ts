@@ -4,6 +4,9 @@ export interface CalendarEventAttendee {
   declined?: boolean;
   email: string;
   name?: string;
+  // The connected calendar's own entry, whose address can differ from the
+  // EmailAccount's.
+  self?: boolean;
 }
 
 export interface CalendarEvent {
