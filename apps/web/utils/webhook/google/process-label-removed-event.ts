@@ -159,7 +159,7 @@ async function undoSpamLearning({
     where: {
       groupId: coldEmailRule.groupId,
       type: GroupItemType.FROM,
-      value: sender,
+      value: { equals: sender, mode: "insensitive" },
       source: GroupItemSource.LABEL_ADDED,
       exclude: false,
     },
