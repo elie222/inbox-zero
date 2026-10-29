@@ -300,10 +300,12 @@ export class GoogleCalendarEventProvider implements CalendarEventProvider {
   }
 }
 
-// Unknown (undefined) when the calendar's own entry isn't on the event.
+// Unknown (undefined) when the calendar's own entry or its response is missing.
 function getSelfDeclined(
   attendees: calendar_v3.Schema$EventAttendee[] | undefined,
 ): boolean | undefined {
-  const self = attendees?.find((attendee) => attendee.self);
-  return self ? self.responseStatus === "declined" : undefined;
+  const responseStatus = attendees?.find(
+    (attendee) => attendee.self,
+  )?.responseStatus;
+  return responseStatus ? responseStatus === "declined" : undefined;
 }
