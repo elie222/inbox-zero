@@ -43,4 +43,10 @@ describe("quotePlainTextContent", () => {
       "> First\n>\n> Second",
     );
   });
+
+  it("normalizes CRLF line endings", () => {
+    expect(quotePlainTextContent("First\r\n\r\nSecond")).toBe(
+      "> First\n>\n> Second",
+    );
+  });
 });
