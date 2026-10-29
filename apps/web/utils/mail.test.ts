@@ -157,6 +157,12 @@ describe("emailToContent", () => {
         expected: "Sounds good.",
       },
       {
+        name: "Outlook separator followed by a full header block",
+        textPlain:
+          "Sounds good.\n\n-----Original Message-----\nFrom: sender@example.com\nSent: Monday, May 4, 2026 9:00 AM\nTo: me@example.com\nSubject: Plan",
+        expected: "Sounds good.",
+      },
+      {
         name: "an inline mention of the original message",
         textPlain:
           "Thanks Dana.\nAs noted in my original message, the deadline is Friday. Please confirm.",

@@ -120,15 +120,15 @@ const FORWARDED_CONTENT_PATTERNS = [
 ];
 
 export function stripForwardedContent(text: string): string {
-  for (const pattern of FORWARDED_CONTENT_PATTERNS) {
-    const parts = text.split(pattern);
-    if (parts.length > 1) {
-      // Take content before the forward marker and clean it
-      return removeExcessiveWhitespace(parts[0]);
-    }
-  }
+  // Cut at whichever marker comes first: an Outlook separator is followed by
+  // a From/Sent/To/Subject block, and cutting at that block would leave the
+  // separator line behind.
+  const markerIndexes = FORWARDED_CONTENT_PATTERNS.map((pattern) =>
+    text.search(pattern),
+  ).filter((index) => index !== -1);
+  if (markerIndexes.length === 0) return text;
 
-  return text;
+  return removeExcessiveWhitespace(text.slice(0, Math.min(...markerIndexes)));
 }
 
 export type EmailToContentOptions = {
