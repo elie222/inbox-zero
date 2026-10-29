@@ -5,7 +5,7 @@ import prisma from "@/utils/prisma";
 const logger = createScopedLogger("rule-events");
 
 /**
- * How users shape and correct their rules. Properties are only ids, enums and
+ * How users change their rules. Properties are only ids, enums and
  * counts: never rule names, instructions or senders.
  *
  * `Rule changed`: a rule was created, edited, enabled or disabled through the
@@ -17,16 +17,11 @@ const logger = createScopedLogger("rule-events");
  * `Rule deleted`: `ruleId`.
  *
  * `All rules toggled`: the rules-wide switch. `enabled`.
- *
- * `Rule label removed by user`: the user took one of our rule labels (Gmail) or
- * folders (Outlook) off an email we sorted. Conversation status labels are left
- * out because we move those ourselves. `ruleId`, `systemType`.
  */
 export const RULE_ANALYTICS_EVENTS = {
   ruleChanged: "Rule changed",
   ruleDeleted: "Rule deleted",
   allRulesToggled: "All rules toggled",
-  ruleLabelRemovedByUser: "Rule label removed by user",
 } as const;
 
 type RuleAnalyticsEvent =

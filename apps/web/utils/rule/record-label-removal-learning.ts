@@ -1,4 +1,3 @@
-import { after } from "next/server";
 import { subMinutes } from "date-fns/subMinutes";
 import {
   ClassificationFeedbackEventType,
@@ -12,15 +11,10 @@ import {
   isEligibleForClassificationFeedback,
   shouldLearnFromLabelRemoval,
 } from "@/utils/rule/consts";
-import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
 import {
   removeAiLearnedPattern,
   saveLearnedPattern,
 } from "@/utils/rule/learned-patterns";
-import {
-  RULE_ANALYTICS_EVENTS,
-  trackRuleEvent,
-} from "@/utils/analytics/rule-events.server";
 
 // A user stripping a label from many emails at once is "stop labeling this",
 // not a per-sender correction. Learning an exclusion from each one leaves
@@ -50,18 +44,6 @@ export async function recordLabelRemovalLearning({
   if (!sender) {
     logger.info("No sender found, skipping learning");
     return;
-  }
-
-  // We move conversation status labels ourselves as a thread progresses, so
-  // only other rule labels are a signal that the user disagreed with us.
-  if (ruleId && !isConversationStatusType(systemType)) {
-    after(() =>
-      trackRuleEvent({
-        emailAccountId,
-        event: RULE_ANALYTICS_EVENTS.ruleLabelRemovedByUser,
-        properties: { ruleId, systemType: systemType ?? null },
-      }),
-    );
   }
 
   if (!ruleId || !isEligibleForClassificationFeedback(systemType)) {
