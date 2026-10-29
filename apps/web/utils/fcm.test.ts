@@ -124,6 +124,36 @@ describe("deliverFcmNotifications", () => {
     });
   });
 
+  it("sends a categorized alert as data so the app can add its actions", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-31T12:00:00.000Z"));
+
+    await deliverFcmNotifications({
+      tokens: [token],
+      notification: {
+        title: "Verification code: 123456",
+        body: "Your code is 123456",
+        channelId: "otp",
+        category: "OTP_CODE",
+        expiration: new Date("2026-07-31T12:15:00.000Z").getTime() / 1000,
+        data: { type: "otp", code: "123456" },
+      },
+      logger,
+    });
+
+    expect(takeRecordedFcmSends()[0]?.message).toEqual({
+      token,
+      data: {
+        type: "otp",
+        code: "123456",
+        title: "Verification code: 123456",
+        body: "Your code is 123456",
+        category: "OTP_CODE",
+      },
+      android: { priority: "HIGH", ttl: "900s" },
+    });
+  });
+
   it("prunes unregistered tokens and retries tokens FCM could not take yet", async () => {
     useRealTransport();
     const sent: Array<{ url: string; body: unknown; auth: string | null }> = [];
