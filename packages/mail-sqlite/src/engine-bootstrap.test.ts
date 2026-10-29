@@ -26,7 +26,7 @@ describe("engine bootstrap coverage", () => {
     const store = await createSqliteMailStore(createNodeSqliteDriver());
     const account = {
       accountId: "acc-1",
-      provider: "microsoft",
+      provider: "microsoft" as const,
       generation: "g1",
     };
     await store.ensureAccount(account);
@@ -57,15 +57,24 @@ describe("engine bootstrap coverage", () => {
         });
         now += 3000;
         const [scopeId = "", offset] = page.split("/");
+        const facts = {
+          bootstrapId: "boot",
+          scopeId,
+          changes: [],
+          requiredHydration: [],
+          bodies: [],
+        };
+        if (Number(offset) === 0) {
+          return {
+            status: "ok",
+            value: { ...facts, nextPage: `${scopeId}/20`, catchUpFrom: null },
+          };
+        }
         return {
           status: "ok",
           value: {
-            bootstrapId: "boot",
-            scopeId,
-            changes: [],
-            requiredHydration: [],
-            bodies: [],
-            nextPage: Number(offset) === 0 ? `${scopeId}/20` : null,
+            ...facts,
+            nextPage: null,
             catchUpFrom: {
               streamId: scopeId,
               generation: "g1",
@@ -129,7 +138,7 @@ describe("engine bootstrap coverage", () => {
     const store = await createSqliteMailStore(createNodeSqliteDriver());
     const account = {
       accountId: "acc-1",
-      provider: "microsoft",
+      provider: "microsoft" as const,
       generation: "g1",
     };
     await store.ensureAccount(account);
