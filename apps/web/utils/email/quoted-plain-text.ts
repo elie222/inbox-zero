@@ -19,6 +19,6 @@ export function quotePlainTextContent(content?: string) {
 
   return content
     .split("\n")
-    .map((line) => `> ${line}`)
+    .map((line) => (line ? `> ${line}` : ">"))
     .join("\n");
 }

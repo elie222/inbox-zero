@@ -37,4 +37,10 @@ describe("quotePlainTextContent", () => {
       "> First line\n> Second line",
     );
   });
+
+  it("uses a bare quote marker on empty lines", () => {
+    expect(quotePlainTextContent("First\n\nSecond")).toBe(
+      "> First\n>\n> Second",
+    );
+  });
 });
