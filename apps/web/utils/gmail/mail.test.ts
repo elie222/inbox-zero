@@ -304,7 +304,7 @@ describe("convertTextToHtmlParagraphs", () => {
     });
 
     expect(plainText).toContain(
-      "Use the login page [https://example.com/login]",
+      "Use the login page <https://example.com/login>",
     );
     expect(plainText).toContain("Best regards,\nJohn");
     const quotedHeader = `\n\nOn ${formatEmailDate(new Date(message.headers.date))}, John Doe <john@example.com> wrote:\n\n`;
