@@ -39,6 +39,7 @@ export function withOptimisticChanges(client: MailClient): MailClient {
     let cache:
       | { source: QuerySnapshot<T>; version: number; result: QuerySnapshot<T> }
       | undefined;
+    const subscribed = new Set<() => void>();
     return {
       ...handle,
       getSnapshot() {
@@ -56,11 +57,18 @@ export function withOptimisticChanges(client: MailClient): MailClient {
       },
       subscribe(listener: () => void) {
         listeners.add(listener);
+        subscribed.add(listener);
         const unsubscribe = handle.subscribe(listener);
         return () => {
           listeners.delete(listener);
+          subscribed.delete(listener);
           unsubscribe();
         };
+      },
+      close() {
+        for (const listener of subscribed) listeners.delete(listener);
+        subscribed.clear();
+        handle.close();
       },
     };
   }

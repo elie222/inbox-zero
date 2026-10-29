@@ -49,6 +49,21 @@ describe("withOptimisticChanges", () => {
     expect(mailbox.getSnapshot().data?.conversations[0].starred).toBe(false);
   });
 
+  it("stops notifying a handle once it is closed", async () => {
+    const fake = createFakeClient();
+    const client = withOptimisticChanges(fake.client);
+    const mailbox = client.observeMailbox(QUERY);
+    let notifications = 0;
+    mailbox.subscribe(() => notifications++);
+    mailbox.close();
+
+    const submitted = client.submitConversations(starCommand(true));
+    fake.admit({ status: "rejected", code: "queue_full" });
+    await submitted;
+
+    expect(notifications).toBe(0);
+  });
+
   it("keeps the change over engine snapshots published while it is admitted", async () => {
     const fake = createFakeClient();
     const client = withOptimisticChanges(fake.client);
