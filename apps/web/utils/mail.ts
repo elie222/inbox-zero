@@ -115,7 +115,8 @@ const FORWARDED_CONTENT_PATTERNS = [
   // iOS/Mac style
   /(?:\r?\n|\r)?Begin forwarded message:/im,
   // Outlook style: a separator line, not the phrase inside a sentence
-  /^[ \t]*[-_]*[ \t]*Original Message[ \t]*[-_]*[ \t]*$/im,
+  // ([^\S\r\n] also covers the non-breaking spaces HTML-to-text leaves)
+  /^[^\S\r\n]*[-_]*[^\S\r\n]*Original Message[^\S\r\n]*[-_]*[^\S\r\n]*$/im,
 ];
 
 export function stripForwardedContent(text: string): string {

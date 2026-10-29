@@ -151,6 +151,12 @@ describe("emailToContent", () => {
         expected: "Sounds good.",
       },
       {
+        name: "Outlook separator with non-breaking spaces",
+        textPlain:
+          "Sounds good.\r\n\r\n\u00a0-----\u00a0Original Message\u00a0-----\r\nFrom: sender@example.com",
+        expected: "Sounds good.",
+      },
+      {
         name: "an inline mention of the original message",
         textPlain:
           "Thanks Dana.\nAs noted in my original message, the deadline is Friday. Please confirm.",
