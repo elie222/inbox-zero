@@ -1377,6 +1377,26 @@ export async function createSqliteMailStore(
           "SELECT connection FROM accounts WHERE account_id = ?",
           [accountId],
         );
+        const messageIdsByCommand = new Map<string, string[]>();
+        const conversationIdsByCommand = new Map<string, string[]>();
+        for (const conversation of conversations) {
+          appendTo(
+            conversationIdsByCommand,
+            String(conversation.command_id),
+            String(conversation.conversation_id),
+          );
+        }
+        for (const target of targets) {
+          const commandId = String(target.command_id);
+          appendTo(messageIdsByCommand, commandId, String(target.message_id));
+          if (target.conversation_id != null) {
+            appendTo(
+              conversationIdsByCommand,
+              commandId,
+              String(target.conversation_id),
+            );
+          }
+        }
         return {
           accountId,
           revision,
@@ -1397,31 +1417,17 @@ export async function createSqliteMailStore(
               changeKind: payload.changeKind,
               change: payload.change,
               messageIds: [
-                ...payload.messageIds,
-                ...targets
-                  .filter((target) => String(target.command_id) === operationId)
-                  .map((target) => String(target.message_id)),
-              ].filter(
-                (value, index, values) => values.indexOf(value) === index,
-              ),
+                ...new Set([
+                  ...payload.messageIds,
+                  ...(messageIdsByCommand.get(operationId) ?? []),
+                ]),
+              ],
               conversationIds: [
-                ...conversations
-                  .filter(
-                    (conversation) =>
-                      String(conversation.command_id) === operationId,
-                  )
-                  .map((conversation) => String(conversation.conversation_id)),
-                ...targets
-                  .filter(
-                    (target) =>
-                      String(target.command_id) === operationId &&
-                      target.conversation_id != null,
-                  )
-                  .map((target) => String(target.conversation_id)),
-                ...payload.conversationIds,
-              ].filter(
-                (value, index, values) => values.indexOf(value) === index,
-              ),
+                ...new Set([
+                  ...(conversationIdsByCommand.get(operationId) ?? []),
+                  ...payload.conversationIds,
+                ]),
+              ],
             };
           }),
         };
@@ -3312,6 +3318,12 @@ function sentMessageIdFromObservations(observations: ProviderChange[]) {
     observations.find((change) => change.kind === "message_patch")?.key
       .messageId ?? null
   );
+}
+
+function appendTo(map: Map<string, string[]>, key: string, value: string) {
+  const values = map.get(key);
+  if (values) values.push(value);
+  else map.set(key, [value]);
 }
 
 function parseOperationPayload(value: import("./driver").SqlValue) {
