@@ -45,6 +45,21 @@ function languageModelUsage({
 }
 
 describe("calculateUsageCost", () => {
+  it.each([
+    ["openai/gpt-oss-20b", 0.375],
+    ["openai/gpt-oss-120b", 0.75],
+  ])("prices Groq %s using its provider rates", (model, expected) => {
+    const usage = languageModelUsage({
+      inputTokens: 1_000_000,
+      outputTokens: 1_000_000,
+      totalTokens: 2_000_000,
+    });
+
+    expect(calculateUsageCost({ provider: "groq", model, usage })).toBeCloseTo(
+      expected,
+    );
+  });
+
   it("prices decision-model calls by input tokens only", () => {
     const usage = languageModelUsage({
       inputTokens: 1_000_000_000,

@@ -395,17 +395,23 @@ describe("Models", () => {
       });
     });
 
-    it("should configure Groq model correctly", () => {
+    it.each([
+      "default",
+      "chat",
+    ] as const)("configures the Groq default for %s", (role) => {
       const userAi = defaultUserAi({
         aiApiKey: "user-api-key",
         aiProvider: Provider.GROQ,
-        aiModel: "openai/gpt-oss-120b",
+        aiModel: null,
       });
 
-      const result = getModel(userAi);
+      const result = getModel(userAi, role);
       expect(result.provider).toBe(Provider.GROQ);
       expect(result.modelName).toBe("openai/gpt-oss-120b");
       expect(result.model).toBeDefined();
+      expect(result.providerOptions).toEqual({
+        groq: { reasoningEffort: role === "chat" ? "medium" : "low" },
+      });
     });
 
     it("should configure Cerebras chat with medium reasoning effort", () => {
