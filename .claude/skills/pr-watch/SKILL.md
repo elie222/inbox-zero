@@ -137,6 +137,13 @@ Finish only when one observation of a single SHA proves all of:
 3. Every root comment is answered and no new one appeared.
 4. At least one full wait happened after your last push or reply.
 
+For a UI change, once the screenshot gallery for that SHA is published, put the
+screenshot that shows the change in the PR description.
+`pr-screenshots [PR] [FILTER]`, next to `pr-digest`, prints the run's
+checkpoints as `<source>\t<Markdown image>`; filter by the spec or checkpoint
+name you wrote, pick the frame, and edit the description
+(`gh api -X PATCH repos/{owner}/{repo}/pulls/<n> -F body=@<file>`).
+
 Report the PR link, final head, waits, fix rounds, what feedback you handled and
 declined, what you validated, any unresolved threads, and whether you finished
 clean or stopped at a limit. If you stopped at a limit, say what was pending.
