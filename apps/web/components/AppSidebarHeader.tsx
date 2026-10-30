@@ -40,8 +40,9 @@ export function AppSidebarHeader({
   /** For sheets, which close on their own rather than collapsing. */
   hideToggle?: boolean;
 }) {
-  // On mac desktop the toggle is lifted beside the traffic lights in both
-  // states, so the header only needs to clear the lights' drag region, which
+  // On mac desktop the toggle sits in the traffic lights' row in both states
+  // (beside them when collapsed, at the sidebar's right edge when expanded),
+  // so the header only needs to clear the lights' drag region, which
   // swallows clicks. The sidebars sit 0.5rem below the window top.
   if (collapsed) {
     return (
@@ -61,14 +62,14 @@ export function AppSidebarHeader({
   }
 
   return (
-    <div className="flex shrink-0 items-center gap-1 pt-[max(0px,calc(var(--desktop-traffic-lights-height,0px)-0.5rem))] pb-2">
+    <div className="relative flex shrink-0 items-center gap-1 pt-[max(0px,calc(var(--desktop-traffic-lights-height,0px)-0.5rem))] pb-2">
       <AppSectionSwitcher
         active={active}
         emailAccountId={emailAccountId}
         collapsed={false}
       />
       {hideToggle ? null : (
-        <SidebarTrigger name="left-sidebar" data-desktop-mac-titlebar-toggle />
+        <SidebarTrigger name="left-sidebar" data-desktop-mac-sidebar-toggle />
       )}
     </div>
   );

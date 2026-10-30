@@ -311,9 +311,17 @@ html[data-mac-desktop] [data-hide-on-desktop-mac] {
    escapes the rail, which is narrower than the lights. */
 html[data-mac-desktop] [data-desktop-mac-titlebar-toggle] {
   position: fixed;
-  top: 12px;
+  top: 14px;
   left: var(--desktop-traffic-lights-width);
   z-index: 30;
+}
+
+/* Expanded: same row as the lights, at the sidebar header's right edge. The
+   header starts 0.5rem below the window top, so this matches the 14px above. */
+html[data-mac-desktop] [data-desktop-mac-sidebar-toggle] {
+  position: absolute;
+  top: 0.375rem;
+  right: 0;
 }
 
 html[data-mac-desktop] [data-desktop-mac-end] {
