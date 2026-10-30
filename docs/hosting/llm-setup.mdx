@@ -96,7 +96,7 @@ The decision model receives the same email content as the LLM it replaces, with 
 
 ### Ollama / OpenAI-compatible thinking
 
-Set `LOCAL_LLM_THINKING=off` or `on` to request disabled or enabled thinking where the model and server support it. Unset or `auto` (the default) sends no thinking options and preserves the model's default behavior.
+Set `LOCAL_LLM_THINKING=off` or `on` to request disabled or enabled thinking where the model and server support it. Unset or `auto` (the default) adds no thinking options, so nothing changes from today. With the `ollama` provider that means thinking stays off, because the Ollama provider library sends `think: false` by default; set `on` to turn it on.
 
 The `ollama` provider sends `think: false/true` to the native API. The `openai-compatible` provider sends `chat_template_kwargs.enable_thinking: false/true`; support depends on the server and model, and unsupported options may be ignored or rejected. No `reasoning_effort` is sent. Ollama's OpenAI-compatible `/v1` endpoint ignores `chat_template_kwargs`, so use the `ollama` provider to control thinking with Ollama.
 
