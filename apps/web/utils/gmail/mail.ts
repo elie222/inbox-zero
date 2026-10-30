@@ -11,6 +11,7 @@ import {
 } from "@/utils/gmail/forward";
 import type { ParsedMessage } from "@/utils/types";
 import { createReplyContent } from "@/utils/gmail/reply";
+import { renderReplyBodyHtml } from "@/utils/email/reply-body-html";
 import { formatReplyQuotedHeader } from "@/utils/email/reply-quote";
 import type { EmailForAction } from "@/utils/ai/types";
 import { createScopedLogger, type Logger } from "@/utils/logger";
@@ -35,7 +36,7 @@ import {
 import { getDraftIdForMessage } from "@/utils/gmail/draft";
 import { SafeError } from "@/utils/error";
 import { GmailLabel } from "@/utils/gmail/label";
-import { convertNewlinesToBr, textToHtmlParagraphs } from "@/utils/string";
+import { textToHtmlParagraphs } from "@/utils/string";
 import {
   buildQuotedPlainText,
   quotePlainTextContent,
@@ -216,6 +217,7 @@ export async function replyToEmail(
 
   const { html } = createReplyContent({
     textContent: reply,
+    htmlContent: renderReplyBodyHtml(reply),
     message,
   });
   const messageText = buildReplyMessageText({
@@ -348,6 +350,7 @@ export async function draftEmail(
 ) {
   const { html } = createReplyContent({
     textContent: args.content,
+    htmlContent: renderReplyBodyHtml(args.content),
     message: originalEmail,
   });
   const messageText = buildReplyMessageText({
@@ -438,7 +441,7 @@ export function buildReplyMessageText({
 function renderReplyBodyAsPlainText(textContent?: string) {
   if (!textContent) return "";
 
-  return convertOutgoingEmailHtmlToText(convertNewlinesToBr(textContent));
+  return convertOutgoingEmailHtmlToText(renderReplyBodyHtml(textContent));
 }
 
 export function stripHtmlTagsForPlainText(html: string) {
