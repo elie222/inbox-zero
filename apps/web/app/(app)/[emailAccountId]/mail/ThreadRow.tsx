@@ -15,6 +15,7 @@ import { SentMessageOpenStatus } from "@/components/email-list/SentMessageOpenSt
 import { getEmailThreadLabels } from "@/components/EmailMessageCellLabels";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Tooltip } from "@/components/Tooltip";
+import { useAlwaysShowEmailCheckbox } from "@/hooks/useInterfacePreferences";
 import { Checkbox } from "@/components/ui/checkbox";
 import { mailCheckboxClassName } from "@/app/(app)/[emailAccountId]/mail/SelectAllCheckbox";
 import {
@@ -78,6 +79,7 @@ export const ThreadRow = memo(function ThreadRow({
   rowRef,
   sentMessageOpen,
 }: ThreadRowProps) {
+  const [alwaysShowCheckbox] = useAlwaysShowEmailCheckbox();
   const message = thread.messages.at(-1);
   const labels = useMemo(
     () =>
@@ -166,8 +168,10 @@ export const ThreadRow = memo(function ThreadRow({
             checked={checked}
             className={cn(
               mailCheckboxClassName,
+              // Extends the tap area past the 14px square without moving it.
+              "relative before:absolute before:-inset-x-2.5 before:-inset-y-2.5 before:content-['']",
               "transition-opacity",
-              visible
+              visible || alwaysShowCheckbox
                 ? "opacity-100"
                 : "opacity-0 group-focus-within:opacity-100 group-hover:opacity-100",
             )}

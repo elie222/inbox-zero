@@ -18,33 +18,48 @@ test.afterEach(async ({ page }) => {
   await page.reload();
 });
 
-test("persists the global appearance across reloads", async ({ page }) => {
+test("persists the chosen theme across reloads and follows the system in system mode", async ({
+  page,
+}) => {
+  await page.emulateMedia({ colorScheme: "light" });
   await openSettings(page);
 
   previousTheme = await page.evaluate(() => localStorage.getItem("theme"));
-  const darkModeToggle = page.getByRole("switch", {
-    name: "Toggle dark mode",
-  });
-  await expect(darkModeToggle).toBeEnabled();
-  const enableDarkMode = !(await darkModeToggle.isChecked());
-  const expectedTheme = enableDarkMode ? "dark" : "light";
+  const themeSelect = page.getByRole("combobox", { name: "Theme" });
+  await expect(themeSelect).toBeEnabled();
 
-  await darkModeToggle.click();
-  await expect(darkModeToggle).toBeChecked({ checked: enableDarkMode });
+  await chooseTheme(page, "Dark");
   await expect
     .poll(() => page.evaluate(() => localStorage.getItem("theme")))
-    .toBe(expectedTheme);
-  await expectThemeClass(page, enableDarkMode);
+    .toBe("dark");
+  await expectThemeClass(page, true);
 
   await page.reload();
   await expect(
     page.getByRole("heading", { name: "Settings", exact: true }),
   ).toBeVisible({ timeout: 60_000 });
-  await expect(
-    page.getByRole("switch", { name: "Toggle dark mode" }),
-  ).toBeChecked({ checked: enableDarkMode });
-  await expectThemeClass(page, enableDarkMode);
+  await expect(themeSelect).toHaveText("Dark");
+  await expectThemeClass(page, true);
+
+  await chooseTheme(page, "Light");
+  await expectThemeClass(page, false);
+
+  await chooseTheme(page, "System");
+  await expect
+    .poll(() => page.evaluate(() => localStorage.getItem("theme")))
+    .toBe("system");
+  await expectThemeClass(page, false);
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expectThemeClass(page, true);
 });
+
+async function chooseTheme(
+  page: Parameters<typeof openSettings>[0],
+  name: "System" | "Light" | "Dark",
+) {
+  await page.getByRole("combobox", { name: "Theme" }).click();
+  await page.getByRole("option", { name, exact: true }).click();
+}
 
 async function expectThemeClass(
   page: Parameters<typeof openSettings>[0],

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useShowTooltips } from "@/hooks/useInterfacePreferences";
 import {
   ShortcutTooltipContent,
   type ShortcutTooltipItem,
@@ -34,8 +35,9 @@ export const Tooltip = ({
 }: TooltipProps) => {
   // Make tooltip work on mobile with a click
   const [isOpen, setIsOpen] = useState(false);
+  const [showTooltips] = useShowTooltips();
 
-  if (hide) return children;
+  if (hide || !showTooltips) return children;
 
   return (
     <TooltipProvider delayDuration={200}>
