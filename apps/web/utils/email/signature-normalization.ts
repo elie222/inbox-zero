@@ -21,11 +21,24 @@ export function stripProviderSignatureHtml(html: string): string {
 
   signatureElements.each((_index, element) => {
     const $element = $(element);
-    removeAdjacentBreaks($element);
+    removeAdjacentBreaks($, $element);
     $element.remove();
   });
 
   return $.root().html() ?? html;
+}
+
+export function getProviderSignatureHtml(html: string): string {
+  if (!html) return "";
+
+  const $ = load(html, null, looksLikeHtmlDocument(html));
+  const selector = SIGNATURE_SELECTORS.join(", ");
+
+  return $(selector)
+    .filter((_index, element) => $(element).parents(selector).length === 0)
+    .toArray()
+    .map((element) => $.html(element))
+    .join("");
 }
 
 export function stripPlainTextSignature(text: string): string {
@@ -53,19 +66,23 @@ export function stripProviderSignatureFromParsedMessage(
   return message;
 }
 
-function removeAdjacentBreaks(element: ReturnType<CheerioAPI>) {
-  let previous = element.prev();
-  while (isBreakOrEmptyText(previous)) {
+// Walks raw sibling nodes: cheerio's prev()/next() skip text nodes, which
+// would reach past the body text and remove its line breaks.
+function removeAdjacentBreaks($: CheerioAPI, element: ReturnType<CheerioAPI>) {
+  const node = element.get(0);
+
+  let previous = node?.prev;
+  while (previous && isBreakOrEmptyText($(previous))) {
     const current = previous;
-    previous = previous.prev();
-    current.remove();
+    previous = current.prev;
+    $(current).remove();
   }
 
-  let next = element.next();
-  while (isBreakOrEmptyText(next)) {
+  let next = node?.next;
+  while (next && isBreakOrEmptyText($(next))) {
     const current = next;
-    next = next.next();
-    current.remove();
+    next = current.next;
+    $(current).remove();
   }
 }
 
