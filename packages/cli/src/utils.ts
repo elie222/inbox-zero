@@ -181,11 +181,9 @@ export function generateEnvFile(config: {
   } else if (llmProvider === "ollama") {
     setValue("OLLAMA_BASE_URL", env.OLLAMA_BASE_URL);
     setValue("OLLAMA_MODEL", env.OLLAMA_MODEL);
-    setValue("LOCAL_LLM_THINKING", env.LOCAL_LLM_THINKING);
   } else if (llmProvider === "openai-compatible") {
     setValue("OPENAI_COMPATIBLE_BASE_URL", env.OPENAI_COMPATIBLE_BASE_URL);
     setValue("OPENAI_COMPATIBLE_MODEL", env.OPENAI_COMPATIBLE_MODEL);
-    setValue("LOCAL_LLM_THINKING", env.LOCAL_LLM_THINKING);
   } else if (llmProvider === "cerebras") {
     setValue("CEREBRAS_API_KEY", env.CEREBRAS_API_KEY || env.LLM_API_KEY);
   }

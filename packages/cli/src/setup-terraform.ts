@@ -107,7 +107,6 @@ interface TerraformVarsConfig {
   googleClientSecret: string;
   googlePubsubTopicName: string;
   llmApiKey?: string;
-  localLlmThinking?: string;
   microsoftClientId?: string;
   microsoftClientSecret?: string;
   ollamaBaseUrl?: string;
@@ -375,7 +374,6 @@ export async function runTerraformSetup(options: TerraformSetupOptions) {
     googleClientSecret,
     googlePubsubTopicName,
     defaultLlms: `${llmProvider}:${defaultLlmModel}`,
-    localLlmThinking: process.env.LOCAL_LLM_THINKING,
     microsoftClientId,
     microsoftClientSecret,
     ...llmSecrets,
@@ -884,7 +882,6 @@ export function renderTerraformTfvars(config: TerraformVarsConfig) {
   addOptionalTfVar(lines, "bedrock_region", config.bedrockRegion);
   addOptionalTfVar(lines, "ollama_base_url", config.ollamaBaseUrl);
   addOptionalTfVar(lines, "ollama_model", config.ollamaModel);
-  addOptionalTfVar(lines, "local_llm_thinking", config.localLlmThinking);
   addOptionalTfVar(
     lines,
     "openai_compatible_base_url",
@@ -1292,7 +1289,6 @@ locals {
       var.bedrock_region != "" ? { name = "BEDROCK_REGION", value = var.bedrock_region } : null,
       var.ollama_base_url != "" ? { name = "OLLAMA_BASE_URL", value = var.ollama_base_url } : null,
       var.ollama_model != "" ? { name = "OLLAMA_MODEL", value = var.ollama_model } : null,
-      var.local_llm_thinking != "" ? { name = "LOCAL_LLM_THINKING", value = var.local_llm_thinking } : null,
       var.openai_compatible_base_url != "" ? { name = "OPENAI_COMPATIBLE_BASE_URL", value = var.openai_compatible_base_url } : null,
       var.openai_compatible_model != "" ? { name = "OPENAI_COMPATIBLE_MODEL", value = var.openai_compatible_model } : null
     ] : item if item != null
@@ -1626,11 +1622,6 @@ variable "bedrock_region" {
 }
 
 variable "ollama_base_url" {
-  type    = string
-  default = ""
-}
-
-variable "local_llm_thinking" {
   type    = string
   default = ""
 }
