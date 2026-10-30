@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/utils";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 
 export function PersonalSignatureSetting() {
@@ -232,7 +233,13 @@ function SignatureDialog({
   );
 }
 
-export function SignaturePreview({ signature }: { signature: string }) {
+export function SignaturePreview({
+  signature,
+  className,
+}: {
+  signature: string;
+  className?: string;
+}) {
   const previewHtml = `
     <!DOCTYPE html>
     <html>
@@ -258,7 +265,10 @@ export function SignaturePreview({ signature }: { signature: string }) {
       title="Signature Preview"
       sandbox="allow-same-origin"
       srcDoc={previewHtml}
-      className="min-h-[200px] w-full rounded-md border border-input bg-muted/50"
+      className={cn(
+        "min-h-[200px] w-full rounded-md border border-input bg-muted/50",
+        className,
+      )}
     />
   );
 }

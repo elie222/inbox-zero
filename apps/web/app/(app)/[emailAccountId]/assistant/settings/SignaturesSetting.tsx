@@ -125,7 +125,10 @@ function SignaturesManager() {
           {found.map((item) => (
             <Card key={item.html} className="flex items-start gap-4 p-3">
               <div className="flex-1">
-                <SignaturePreview signature={item.html} />
+                <SignaturePreview
+                  signature={item.html}
+                  className="h-28 min-h-0"
+                />
                 <p className="mt-1 text-muted-foreground text-xs">
                   Used in {item.count} recent{" "}
                   {item.count === 1 ? "email" : "emails"}
@@ -216,7 +219,10 @@ function SignatureRow({
     <Card className="flex items-start gap-4 p-3">
       <div className="flex-1 space-y-2">
         <h4 className="font-medium text-sm">{signature.name}</h4>
-        <SignaturePreview signature={signature.signatureHtml} />
+        <SignaturePreview
+          signature={signature.signatureHtml}
+          className="h-28 min-h-0"
+        />
       </div>
       <div className="flex gap-2">
         <Button size="sm" variant="outline" onClick={onEdit}>
