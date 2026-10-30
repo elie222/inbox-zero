@@ -26,6 +26,7 @@ describe("getComposeSignature", () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       signature: "<div>Example Person</div>",
       includeSentWithSignature: true,
+      emailSignatures: [],
     } as never);
 
     expect(
@@ -34,22 +35,53 @@ describe("getComposeSignature", () => {
       signatureHtml: "<div>Example Person</div>",
       footerHtml:
         '<div>Sent with <a href="https://app.example.com/?ref=abc123">Inbox Zero</a></div>',
+      signatures: [
+        {
+          id: "default",
+          name: "Default",
+          signatureHtml: "<div>Example Person</div>",
+        },
+      ],
     });
+  });
+
+  it("lists the default signature first, then the account's named signatures", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      signature: "<div>Best, Ada</div>",
+      includeSentWithSignature: false,
+      emailSignatures: [
+        { id: "sig-de", name: "German", html: "<div>Viele Grüße, Ada</div>" },
+      ],
+    } as never);
+
+    expect(
+      (await getComposeSignature({ emailAccountId: "account", userId: "user" }))
+        .signatures,
+    ).toEqual([
+      { id: "default", name: "Default", signatureHtml: "<div>Best, Ada</div>" },
+      {
+        id: "sig-de",
+        name: "German",
+        signatureHtml: "<div>Viele Grüße, Ada</div>",
+      },
+    ]);
   });
 
   it("leaves the footer out when the account or the deployment turns it off", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       signature: null,
       includeSentWithSignature: false,
+      emailSignatures: [],
     } as never);
     expect(
       await getComposeSignature({ emailAccountId: "account", userId: "user" }),
-    ).toEqual({ signatureHtml: "", footerHtml: "" });
+    ).toEqual({ signatureHtml: "", footerHtml: "", signatures: [] });
 
     mockedEnv.NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE = true;
     prisma.emailAccount.findUnique.mockResolvedValue({
       signature: null,
       includeSentWithSignature: true,
+      emailSignatures: [],
     } as never);
     expect(
       (await getComposeSignature({ emailAccountId: "account", userId: "user" }))
@@ -62,6 +94,7 @@ describe("getComposeSignature", () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       signature: null,
       includeSentWithSignature: true,
+      emailSignatures: [],
     } as never);
 
     expect(

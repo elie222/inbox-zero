@@ -75,6 +75,7 @@ import { useComposeSend } from "./useComposeSend";
 import type { ComposeAttachment } from "./compose-attachments";
 import { ComposeAttachmentList } from "./ComposeAttachmentList";
 import { ComposeHeaderFields } from "./ComposeHeaderFields";
+import { ComposeSignaturePicker } from "./ComposeSignaturePicker";
 import {
   createInitialComposeContent,
   findSelectableSendAs,
@@ -251,6 +252,7 @@ function ComposeEmailFormWithEngine(props: ComposeEmailFormProps) {
             sendingAddress={sendingAddress}
             sendAsAddresses={sendAs?.addresses ?? []}
             sentWithFooterHtml={composeSignature?.footerHtml ?? ""}
+            signatures={composeSignature?.signatures ?? []}
             key={composeSessionKey}
             onSelectEmailAccount={setSelectedEmailAccountId}
             selectedEmailAccountId={selectedEmailAccountId}
@@ -275,6 +277,7 @@ function ComposeEmailFormContent({
   sendingAddress,
   sendAsAddresses,
   sentWithFooterHtml,
+  signatures,
   selectedEmailAccountId,
   onSelectEmailAccount,
   refetch,
@@ -303,6 +306,7 @@ function ComposeEmailFormContent({
   sendingAddress: string;
   sendAsAddresses: SendAsAddress[];
   sentWithFooterHtml: string;
+  signatures: GetSignatureResponse["signatures"];
   selectedEmailAccountId: string;
   onSelectEmailAccount: (emailAccountId: string) => void;
 }) {
@@ -338,6 +342,16 @@ function ComposeEmailFormContent({
     }),
   );
   const { draft: initialDraft, preservedBlocks } = initialComposer;
+  const [signatureId, setSignatureId] = useState(() =>
+    findSignatureId(
+      signatures,
+      getSendAsSignatureHtml(
+        initialSendAs,
+        sendAsAddresses,
+        accountSignatureHtml,
+      ),
+    ),
+  );
   const pendingRecipientsRef = useRef<Record<ComposeRecipientField, string>>({
     to: "",
     cc: "",
@@ -507,10 +521,12 @@ function ComposeEmailFormContent({
       accountSignatureHtml,
     );
     setValue("from", formatSendAsAddress(address));
-    if (nextSignature !== previousSignature)
+    if (nextSignature !== previousSignature) {
       editorRef.current?.replaceSignature(
         withSentWithFooter(nextSignature, sentWithFooterHtml),
       );
+      setSignatureId(findSignatureId(signatures, nextSignature));
+    }
   };
   const handleSendAtChange = (value: string) => {
     const nextRemindAt = getReminderAfterSendTimeChange(value, remindAt);
@@ -710,6 +726,22 @@ function ComposeEmailFormContent({
 
         <div className="flex items-center gap-0.5 text-muted-foreground">
           {snippetToolbar}
+          <ComposeSignaturePicker
+            signatures={signatures}
+            selectedId={signatureId}
+            disabled={isSubmitting}
+            onSelect={(signature) => {
+              if (
+                editorRef.current?.replaceSignature(
+                  withSentWithFooter(
+                    signature.signatureHtml,
+                    sentWithFooterHtml,
+                  ),
+                )
+              )
+                setSignatureId(signature.id);
+            }}
+          />
           <VoiceInput
             onInsert={(text) => {
               editorRef.current?.insertText(
@@ -792,6 +824,13 @@ function ComposeEmailFormContent({
       )}
     </form>
   );
+}
+
+function findSignatureId(
+  signatures: GetSignatureResponse["signatures"],
+  signatureHtml: string,
+) {
+  return signatures.find((item) => item.signatureHtml === signatureHtml)?.id;
 }
 
 function isShortcutForForm(

@@ -232,7 +232,7 @@ function SignatureDialog({
   );
 }
 
-function SignaturePreview({ signature }: { signature: string }) {
+export function SignaturePreview({ signature }: { signature: string }) {
   const previewHtml = `
     <!DOCTYPE html>
     <html>
