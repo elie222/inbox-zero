@@ -50,8 +50,10 @@ import { resolveActionAttachments } from "@/utils/ai/action-attachments";
 import { quotePlainTextContent } from "@/utils/email/quoted-plain-text";
 import { formatReplySubject } from "@/utils/email/subject";
 import { convertEmailHtmlToText, emailToContent } from "@/utils/mail";
-import { prepareEmailDraft } from "@inboxzero/email-editor/core";
-import { stripProviderSignatureHtml } from "@/utils/email/signature-normalization";
+import {
+  getProviderSignatureHtml,
+  stripProviderSignatureHtml,
+} from "@/utils/email/signature-normalization";
 import {
   extractDraftPlainText,
   stripQuotedContent,
@@ -785,7 +787,7 @@ export async function handleSlackRuleNotificationModalSubmit({
   // the signature the edit box left out.
   const signatureHtml = mailboxDraftAction?.draftId
     ? ""
-    : prepareEmailDraft({ html: context.content || "" }).signatureHtml;
+    : getProviderSignatureHtml(context.content || "");
   const nextContentHtml = signatureHtml
     ? `${escapeHtml(nextContent)}\n\n${signatureHtml}`
     : escapeHtml(nextContent);
@@ -1644,9 +1646,8 @@ async function getNotificationContext(executedActionId: string) {
 // The edit box shows the stored HTML body as text; the signature stays out of
 // it and is reattached when the edit is saved.
 function getStoredDraftEditableText(content: string) {
-  const { editableHtml } = prepareEmailDraft({ html: content });
   return convertEmailHtmlToText({
-    htmlText: convertNewlinesToBr(editableHtml),
+    htmlText: convertNewlinesToBr(stripProviderSignatureHtml(content)),
     wordwrap: false,
     uppercaseHeadings: false,
   });

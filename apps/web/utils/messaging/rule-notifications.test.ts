@@ -39,7 +39,8 @@ const DRAFT_CONTENT_WITH_HTML_SIGNATURE = `Thanks, that works for me.<br>See you
   <tr>
     <td style="padding: 0 8px;"><strong>Jane Doe</strong><br>Head of Sales</td>
   </tr>
-</table></div>`;
+</table>
+<div style="border-top: 1px solid #ccc;">Acme Inc</div></div>`;
 
 vi.mock("@/utils/email/provider", () => ({
   createEmailProvider: (...args: unknown[]) => mockCreateEmailProvider(...args),
@@ -381,6 +382,7 @@ describe("handleRuleNotificationAction", () => {
     const [{ data }] = prisma.executedAction.updateMany.mock.calls[0];
     expect(data.content).toContain("Edited &lt;reply&gt; &amp; done");
     expect(data.content).toContain('data-smartmail="gmail_signature"');
+    expect(data.content).toContain("Acme Inc");
 
     const [{ messageHtml }] = provider.sendEmailWithHtml.mock.calls[0];
     expect(messageHtml).toContain("Edited &lt;reply&gt; &amp; done");
