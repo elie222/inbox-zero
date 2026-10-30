@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { messageMatchesPredicate } from "@inboxzero/mail-core/query-semantics";
 import {
   parsedMessageBodyObservation,
   parsedMessageMetadata,
@@ -29,6 +30,32 @@ describe("parsedMessageMetadata", () => {
     expect(metadata.starred).toBe(true);
     expect(metadata.categoryIds).toEqual(["CATEGORY_UPDATES"]);
     expect(metadata.labelIds).toEqual(["Label_2"]);
+  });
+
+  it("keeps Gmail's Important marker so an Important split can match it", () => {
+    const metadata = parsedMessageMetadata({
+      id: "m1a",
+      threadId: "t1a",
+      historyId: "1",
+      date: "2026-01-01T00:00:00.000Z",
+      subject: "Hello",
+      snippet: "Hi",
+      labelIds: ["INBOX", "IMPORTANT"],
+      headers: { from: "ada@example.com", to: "me@example.com", date: "" },
+      inline: [],
+    } as ParsedMessage);
+    expect(
+      messageMatchesPredicate(
+        {
+          ...metadata,
+          accountId: "a1",
+          messageId: "m1a",
+          conversationId: "t1a",
+          pendingOperationIds: [],
+        },
+        { kind: "membership", membership: "label", id: "IMPORTANT" },
+      ),
+    ).toBe(true);
   });
 
   it("maps Outlook folder identity into mailbox roles when labels are absent", () => {
