@@ -704,6 +704,17 @@ describe("parsePortConflict", () => {
     );
   });
 
+  it("should report the host port from 'failed to bind host port' errors", () => {
+    const stderr =
+      "Error response from daemon: failed to set up container networking: " +
+      "driver failed programming external connectivity on endpoint " +
+      "inbox-zero-services-db-1 (027a8dc5): failed to bind host port for " +
+      "127.0.0.1:5434:172.19.0.4:5432/tcp: address already in use";
+    expect(parsePortConflict(stderr)).toBe(
+      "Port 5434 is already in use by another process.",
+    );
+  });
+
   it("should return null for unrelated errors", () => {
     expect(parsePortConflict("image not found")).toBeNull();
     expect(parsePortConflict("network timeout")).toBeNull();
