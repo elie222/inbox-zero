@@ -102,6 +102,12 @@ If `NEXT_PUBLIC_AI_MODEL_SETTINGS_DISABLED=true`, the switch is hidden. Then `DE
 - `openai-compatible` also requires `OPENAI_COMPATIBLE_BASE_URL`. Set `OPENAI_COMPATIBLE_AUTH_HEADER=api-key` when the server expects an `api-key` header instead of bearer authorization. This can point at Cerebras (`https://api.cerebras.ai/v1`) if you do not want the dedicated provider, but then you cannot also use a local OpenAI-compatible server.
 - `ollama` can use `OLLAMA_BASE_URL` and `OLLAMA_MODEL`.
 
+### Ollama / OpenAI-compatible thinking
+
+Set `LOCAL_LLM_THINKING=off` or `on` to request disabled or enabled thinking where the model and server support it. Unset or `auto` (the default) adds no thinking options, so nothing changes from today. With the `ollama` provider that means thinking stays off, because the Ollama provider library sends `think: false` by default; set `on` to turn it on.
+
+The `ollama` provider sends `think: false/true` to the native API. The `openai-compatible` provider sends `chat_template_kwargs.enable_thinking: false/true`; support depends on the server and model, and unsupported options may be ignored or rejected. No `reasoning_effort` is sent. Ollama's OpenAI-compatible `/v1` endpoint ignores `chat_template_kwargs`, so use the `ollama` provider to control thinking with Ollama.
+
 ## Fallbacks
 
 Add fallbacks by adding more entries to the same role list:
