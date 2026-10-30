@@ -17,7 +17,7 @@ export async function executeSnoozedThread(
   } catch (error) {
     // A deleted thread can never be restored, so retrying would loop forever.
     if (isThreadNotFoundError(error)) {
-      await prisma.snoozedThread.updateMany({
+      const cancelled = await prisma.snoozedThread.updateMany({
         where: {
           id: snoozedThread.id,
           status: SnoozedThreadStatus.EXECUTING,
@@ -25,6 +25,12 @@ export async function executeSnoozedThread(
         },
         data: { status: SnoozedThreadStatus.CANCELLED },
       });
+      if (cancelled.count !== 1) {
+        return {
+          success: false as const,
+          error: new Error("Snoozed thread execution claim was lost"),
+        };
+      }
       logger.warn("Cancelled snooze for a thread that no longer exists", {
         snoozedThreadId: snoozedThread.id,
       });
