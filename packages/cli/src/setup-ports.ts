@@ -38,12 +38,24 @@ export async function resolveSetupPorts(options: {
     : PORT_SETTINGS.filter((setting) => setting.key === "WEB_PORT");
 
   const ports: Record<string, number> = {};
+  const changes: string[] = [];
   for (const setting of settings) {
-    const port = (await isPortAvailable(setting.defaultPort))
-      ? setting.defaultPort
-      : await promptForFreePort(setting, reservedPorts);
+    const port =
+      !reservedPorts.has(setting.defaultPort) &&
+      (await isPortAvailable(setting.defaultPort))
+        ? setting.defaultPort
+        : await promptForFreePort(setting, reservedPorts);
     reservedPorts.add(port);
     ports[setting.key] = port;
+    if (port !== setting.defaultPort) {
+      changes.push(
+        `- ${setting.label} (${setting.key}): ${setting.defaultPort} -> ${port}`,
+      );
+    }
+  }
+
+  if (changes.length > 0) {
+    p.note(changes.join("\n"), "Port Configuration");
   }
 
   return {
@@ -95,6 +107,33 @@ export function formatPortConflicts(conflicts: PortConflict[]): string {
   ].join("\n");
 }
 
+export function isInteractive(): boolean {
+  return (
+    process.env.CI !== "true" && !!process.stdin.isTTY && !!process.stdout.isTTY
+  );
+}
+
+export async function confirmPortChanges(
+  conflicts: PortConflict[],
+): Promise<void> {
+  const guidance = formatPortConflicts(conflicts);
+  if (!isInteractive()) {
+    throw new Error(
+      `Cannot start with busy ports in non-interactive mode.\n${guidance}`,
+    );
+  }
+  p.log.warn(guidance);
+  const useSuggested = await p.confirm({
+    message: "Switch Inbox Zero to the suggested ports?",
+    initialValue: true,
+  });
+  if (p.isCancel(useSuggested) || !useSuggested) {
+    throw new Error(
+      "Not started. Free the ports above or change them, then retry.",
+    );
+  }
+}
+
 export async function isPortAvailable(port: number): Promise<boolean> {
   for (const host of PROBE_HOSTS) {
     if (!(await canBind(host, port))) return false;
@@ -107,13 +146,15 @@ async function promptForFreePort(
   reservedPorts: Set<number>,
 ): Promise<number> {
   p.log.warn(
-    `${setting.label} port ${setting.defaultPort} is already in use by another app on this machine.`,
+    `${setting.label} port ${setting.defaultPort} is unavailable or already assigned to another Inbox Zero service.`,
   );
 
   let suggestedPort = await findFreePort(
     setting.defaultPort + 1,
     reservedPorts,
   );
+
+  if (!isInteractive()) return suggestedPort;
 
   while (true) {
     const answer = await p.text({

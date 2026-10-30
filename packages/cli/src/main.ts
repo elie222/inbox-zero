@@ -28,7 +28,8 @@ import { runTerraformSetup } from "./setup-terraform";
 import { runVercelSetup } from "./setup-vercel";
 import {
   findBusyPorts,
-  formatPortConflicts,
+  confirmPortChanges,
+  isInteractive,
   resolveSetupPorts,
 } from "./setup-ports";
 import packageJson from "../package.json" with { type: "json" };
@@ -311,6 +312,11 @@ function stripSetupAwsDoubleDash(argv: string[]) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function runSetup(options: { name?: string }) {
+  if (!isInteractive()) {
+    throw new Error(
+      "Setup requires an interactive terminal for provider configuration. Run inbox-zero setup in a terminal with CI unset.",
+    );
+  }
   p.intro("Inbox Zero Setup");
   if (process.platform === "win32") {
     p.log.info("Run the Docker commands printed by setup in PowerShell.");
@@ -1319,6 +1325,11 @@ async function runStart(options: { detach: boolean }) {
   const composeArgs = ["compose", "-f", STANDALONE_COMPOSE_FILE];
 
   if (checkContainersRunning(composeArgs)) {
+    if (!isInteractive()) {
+      throw new Error(
+        "Inbox Zero is already running. Stop it with inbox-zero stop before running inbox-zero start in non-interactive mode.",
+      );
+    }
     const restart = await p.confirm({
       message: "Inbox Zero is already running. Restart?",
       initialValue: true,
@@ -1329,7 +1340,13 @@ async function runStart(options: { detach: boolean }) {
     }
     const stopSpinner = p.spinner();
     stopSpinner.start("Stopping existing containers...");
-    await runDockerCommand([...composeArgs, "down"]);
+    const downResult = await runDockerCommand([...composeArgs, "down"]);
+    if (downResult.status !== 0) {
+      stopSpinner.stop("Failed to stop existing containers");
+      throw new Error(
+        downResult.stderr || "Docker Compose shutdown failed. Not started.",
+      );
+    }
     stopSpinner.stop("Stopped");
   }
 
@@ -1527,10 +1544,12 @@ async function runUpdate() {
 
   spinner.stop("Image updated");
 
-  const restart = await p.confirm({
-    message: "Restart with new image?",
-    initialValue: true,
-  });
+  const restart = isInteractive()
+    ? await p.confirm({
+        message: "Restart with new image?",
+        initialValue: true,
+      })
+    : true;
 
   if (p.isCancel(restart)) {
     p.outro("Update complete. Run 'inbox-zero start' to use the new version.");
@@ -1539,7 +1558,18 @@ async function runUpdate() {
 
   if (restart) {
     spinner.start("Stopping...");
-    await runDockerCommand(["compose", "-f", STANDALONE_COMPOSE_FILE, "down"]);
+    const downResult = await runDockerCommand([
+      "compose",
+      "-f",
+      STANDALONE_COMPOSE_FILE,
+      "down",
+    ]);
+    if (downResult.status !== 0) {
+      spinner.stop("Failed to stop existing containers");
+      throw new Error(
+        downResult.stderr || "Docker Compose shutdown failed. Not restarted.",
+      );
+    }
     spinner.stop("Stopped");
 
     await resolveBusyPortsBeforeStart();
@@ -1835,16 +1865,7 @@ async function resolveBusyPortsBeforeStart() {
   const conflicts = await findBusyPorts(env);
   if (conflicts.length === 0) return;
 
-  p.log.warn(formatPortConflicts(conflicts));
-
-  const useSuggested = await p.confirm({
-    message: "Switch Inbox Zero to the suggested ports?",
-    initialValue: true,
-  });
-  if (p.isCancel(useSuggested) || !useSuggested) {
-    p.cancel("Not started. Free the ports above or change them, then retry.");
-    process.exit(1);
-  }
+  await confirmPortChanges(conflicts);
 
   let content = existsSync(STANDALONE_ENV_FILE)
     ? readFileSync(STANDALONE_ENV_FILE, "utf-8")
