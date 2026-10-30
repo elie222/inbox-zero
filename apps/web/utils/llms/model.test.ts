@@ -580,16 +580,19 @@ describe("Models", () => {
       expect(result.providerOptions).toEqual({ ollama: { think } });
     });
 
-    it("should send nothing for Ollama when LOCAL_LLM_THINKING is auto", () => {
+    it.each([
+      "auto",
+      undefined,
+    ] as const)("should send nothing for Ollama when LOCAL_LLM_THINKING is %s", (setting) => {
       setDefaultLlms(Provider.OLLAMA, "llama3.2");
-      vi.mocked(env).LOCAL_LLM_THINKING = "auto";
+      vi.mocked(env).LOCAL_LLM_THINKING = setting!;
 
       const result = getModel(defaultUserAi());
 
       expect(result.providerOptions).toBeUndefined();
     });
 
-    it("should send enable_thinking=false and reasoning_effort none for OpenAI-compatible when LOCAL_LLM_THINKING is off", () => {
+    it("should send only enable_thinking=false for OpenAI-compatible when LOCAL_LLM_THINKING is off", () => {
       setDefaultLlms(Provider.OPENAI_COMPATIBLE, "llama-3.2-3b-instruct");
       vi.mocked(env).LOCAL_LLM_THINKING = "off";
 
@@ -598,7 +601,6 @@ describe("Models", () => {
       expect(result.providerOptions).toEqual({
         "openai-compatible": {
           chat_template_kwargs: { enable_thinking: false },
-          reasoningEffort: "none",
         },
       });
     });
@@ -616,9 +618,12 @@ describe("Models", () => {
       });
     });
 
-    it("should send nothing for OpenAI-compatible when LOCAL_LLM_THINKING is auto", () => {
+    it.each([
+      "auto",
+      undefined,
+    ] as const)("should send nothing for OpenAI-compatible when LOCAL_LLM_THINKING is %s", (setting) => {
       setDefaultLlms(Provider.OPENAI_COMPATIBLE, "llama-3.2-3b-instruct");
-      vi.mocked(env).LOCAL_LLM_THINKING = "auto";
+      vi.mocked(env).LOCAL_LLM_THINKING = setting!;
 
       const result = getModel(defaultUserAi());
 

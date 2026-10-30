@@ -608,17 +608,13 @@ function getLocalThinkingProviderOptions(
   provider: "ollama" | "openai-compatible",
 ) {
   const thinking = env.LOCAL_LLM_THINKING;
-  if (thinking === "auto") return;
+  if (!thinking || thinking === "auto") return;
 
   const enabled = thinking === "on";
   if (provider === "ollama") return { ollama: { think: enabled } };
-  // Ollama's /v1 endpoint ignores chat_template_kwargs and think; it only
-  // honours reasoning_effort. MLX and llama.cpp read chat_template_kwargs and
-  // ignore reasoning_effort, so we send both when thinking is off.
   return {
     "openai-compatible": {
       chat_template_kwargs: { enable_thinking: enabled },
-      ...(enabled ? {} : { reasoningEffort: "none" }),
     },
   };
 }
