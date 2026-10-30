@@ -49,7 +49,11 @@ import { getFormattedSenderAddress } from "@/utils/email/get-formatted-sender-ad
 import { resolveActionAttachments } from "@/utils/ai/action-attachments";
 import { quotePlainTextContent } from "@/utils/email/quoted-plain-text";
 import { formatReplySubject } from "@/utils/email/subject";
-import { emailToContent } from "@/utils/mail";
+import { convertEmailHtmlToText, emailToContent } from "@/utils/mail";
+import {
+  getProviderSignatureHtml,
+  stripProviderSignatureHtml,
+} from "@/utils/email/signature-normalization";
 import {
   extractDraftPlainText,
   stripQuotedContent,
@@ -779,13 +783,21 @@ export async function handleSlackRuleNotificationModalSubmit({
   }
 
   const mailboxDraftAction = getMailboxDraftActionForMessagingDraft(context);
+  // Without a mailbox draft the stored content is what gets sent, so it keeps
+  // the signature the edit box left out.
+  const signatureHtml = mailboxDraftAction?.draftId
+    ? ""
+    : getProviderSignatureHtml(context.content || "");
+  const nextContentHtml = signatureHtml
+    ? `${escapeHtml(nextContent)}\n\n${signatureHtml}`
+    : escapeHtml(nextContent);
 
   if (mailboxDraftAction?.draftId) {
     try {
       const provider = await createProviderForContext(context, logger);
 
       await provider.updateDraft(mailboxDraftAction.draftId, {
-        messageHtml: convertNewlinesToBr(escapeHtml(nextContent)),
+        messageHtml: convertNewlinesToBr(nextContentHtml),
         ...(mailboxDraftAction.subject
           ? { subject: mailboxDraftAction.subject }
           : {}),
@@ -813,13 +825,13 @@ export async function handleSlackRuleNotificationModalSubmit({
       },
     },
     data: {
-      content: nextContent,
+      content: nextContentHtml,
     },
   });
 
   try {
     await sendDraftReplyFromNotification({
-      context: { ...context, content: nextContent },
+      context: { ...context, content: nextContentHtml },
       logger,
       editMessage: async (card) => {
         if (!event.relatedMessage) {
@@ -1230,7 +1242,8 @@ export function buildNotificationReplySendBody({
     cc: cc ?? undefined,
     bcc: bcc ?? undefined,
     subject: subject || formatReplySubject(sourceMessage.headers.subject),
-    messageHtml: convertNewlinesToBr(escapeHtml(content)),
+    // Stored draft content is already HTML-safe, like the mailbox draft body.
+    messageHtml: convertNewlinesToBr(content),
     ...(formattedFrom ? { from: formattedFrom } : {}),
     attachments,
   };
@@ -1630,6 +1643,16 @@ async function getNotificationContext(executedActionId: string) {
   });
 }
 
+// The edit box shows the stored HTML body as text; the signature stays out of
+// it and is reattached when the edit is saved.
+function getStoredDraftEditableText(content: string) {
+  return convertEmailHtmlToText({
+    htmlText: convertNewlinesToBr(stripProviderSignatureHtml(content)),
+    wordwrap: false,
+    uppercaseHeadings: false,
+  });
+}
+
 function getMailboxDraftActionForMessagingDraft(context: NotificationContext) {
   if (context.draftId) {
     return {
@@ -1665,7 +1688,7 @@ async function getEditableDraftContent({
     }
   }
 
-  return stripQuotedContent(context.content || "");
+  return stripQuotedContent(getStoredDraftEditableText(context.content || ""));
 }
 
 async function getNotificationDraftContent({
@@ -2085,8 +2108,13 @@ function buildDraftPreview(
 ) {
   if (!content?.trim()) return "No draft preview available.";
 
+  // Stored draft bodies carry the account's HTML signature, which chat
+  // formatting can't render; the user already knows what it says.
+  const draftHtml = stripProviderSignatureHtml(content);
   const preview = stripQuotedContent(
-    removeExcessiveWhitespace(richTextToSlackMrkdwn(he.decode(content))).trim(),
+    removeExcessiveWhitespace(
+      richTextToSlackMrkdwn(he.decode(draftHtml)),
+    ).trim(),
   );
   return truncate(
     format === "slack" ? preview : stripSlackFormatting(preview),

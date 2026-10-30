@@ -1,7 +1,6 @@
-import { load } from "cheerio";
 import type { ParsedMessage } from "@/utils/types";
 import { buildReplyQuote } from "@/utils/email/reply-quote";
-import { convertNewlinesToBr, escapeHtml } from "@/utils/string";
+import { renderReplyBodyHtml } from "@/utils/email/reply-body-html";
 
 export const createOutlookReplyContent = ({
   textContent,
@@ -18,7 +17,7 @@ export const createOutlookReplyContent = ({
   const { dirAttribute, quotedHeaderHtml, quotedContentHtml, text } =
     buildReplyQuote({ textContent, message });
   const contentHtml =
-    htmlContent || (textContent ? renderMixedContentAsHtml(textContent) : "");
+    htmlContent || (textContent ? renderReplyBodyHtml(textContent) : "");
 
   const outlookFontStyle =
     "font-family: Aptos, Calibri, Arial, Helvetica, sans-serif; font-size: 12pt; color: rgb(0, 0, 0);";
@@ -35,18 +34,3 @@ export const createOutlookReplyContent = ({
 
   return { text, html };
 };
-
-// Keeps HTML signature structure intact: only top-level text gets line breaks.
-function renderMixedContentAsHtml(content: string): string {
-  const $ = load(content, null, false);
-
-  $.root()
-    .contents()
-    .each((_index, node) => {
-      if (node.type !== "text") return;
-
-      $(node).replaceWith(convertNewlinesToBr(escapeHtml(node.data)));
-    });
-
-  return $.root().html() ?? "";
-}

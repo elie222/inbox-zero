@@ -469,16 +469,7 @@ function useMailHtmlFrame(
         (event.key === "Enter" && Boolean(reply)) ||
         (key === "f" && Boolean(forward)) ||
         (isNavigationKey && Boolean(navigate));
-      const isSelectAll =
-        (event.ctrlKey || event.metaKey) && key === "a" && !event.altKey;
-      if (
-        event.defaultPrevented ||
-        event.altKey ||
-        ((event.ctrlKey || event.metaKey) && !isSelectAll) ||
-        event.shiftKey ||
-        event.isComposing
-      )
-        return;
+      if (event.defaultPrevented || event.isComposing) return;
       const target = event.target as HTMLElement | null;
       if (
         target?.closest?.(
@@ -486,19 +477,29 @@ function useMailHtmlFrame(
         )
       )
         return;
+      const isSelectAll =
+        (event.ctrlKey || event.metaKey) && key === "a" && !event.altKey;
       // The host may select the whole conversation rather than this body.
       if (isSelectAll) {
         forwardShortcut(event);
         return;
       }
       if (event.key === "Enter" && target?.closest?.("a, button")) return;
+      const hasModifier =
+        event.altKey || event.ctrlKey || event.metaKey || event.shiftKey;
       const selection = observedDocument?.getSelection();
       if (selection && !selection.isCollapsed) {
         const quote = selection.toString().trim();
-        if (event.key === "Enter" && reply && quote) {
+        if (event.key === "Enter" && !hasModifier && reply && quote) {
           event.preventDefault();
           reply(quote);
         }
+        return;
+      }
+      // Modified keys are host shortcuts (Shift+T, ?, Cmd+K); unbound ones keep
+      // their default. Shift+Arrow stays here to extend the text selection.
+      if (hasModifier) {
+        if (!isNavigationKey) forwardShortcut(event);
         return;
       }
       if (!handlesKey) {

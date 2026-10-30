@@ -6,6 +6,7 @@ import {
   convertOutgoingEmailHtmlToText,
   parseReply,
   hasQuotedReplyContent,
+  stripForwardedContent,
 } from "./mail";
 
 describe("emailToContent", () => {
@@ -143,6 +144,38 @@ describe("emailToContent", () => {
         name: "Outlook-style forwarded content",
         textPlain: "My comments\n\nOriginal Message\nFrom: sender@example.com",
         expected: "My comments",
+      },
+      {
+        name: "Outlook separator line",
+        textPlain:
+          "Sounds good.\n\n-----Original Message-----\nFrom: sender@example.com\nSent: Monday",
+        expected: "Sounds good.",
+      },
+      {
+        name: "Outlook separator with non-breaking spaces",
+        textPlain:
+          "Sounds good.\r\n\r\n\u00a0-----\u00a0Original Message\u00a0-----\r\nFrom: sender@example.com",
+        expected: "Sounds good.",
+      },
+      {
+        name: "Outlook separator followed by a full header block",
+        textPlain:
+          "Sounds good.\n\n-----Original Message-----\nFrom: sender@example.com\nSent: Monday, May 4, 2026 9:00 AM\nTo: me@example.com\nSubject: Plan",
+        expected: "Sounds good.",
+      },
+      {
+        name: "an inline mention of the original message",
+        textPlain:
+          "Thanks Dana.\nAs noted in my original message, the deadline is Friday. Please confirm.",
+        expected:
+          "Thanks Dana.\nAs noted in my original message, the deadline is Friday. Please confirm.",
+      },
+      {
+        name: "an inline mention of the iOS forward marker",
+        textPlain:
+          "Please use Begin forwarded message: as the label.\nThe client confirmed Friday.\n\n---------- Forwarded message ----------\nFrom: other@test.com",
+        expected:
+          "Please use Begin forwarded message: as the label.\nThe client confirmed Friday.",
       },
       {
         name: "content with no forward marker",
@@ -409,3 +442,18 @@ function createPlainTextEmail(textPlain: string) {
     snippet: "",
   };
 }
+
+describe("stripForwardedContent", () => {
+  it.each([
+    ["spaces and non-breaking spaces", " \u00a0"],
+    ["Unicode line separators", "\u2028\u2029"],
+  ])("handles a long run of %s without a marker quickly", (_name, unit) => {
+    const text = unit.repeat(100_000);
+    const startedAt = performance.now();
+    const result = stripForwardedContent(text);
+    const elapsedMs = performance.now() - startedAt;
+
+    expect(result).toBe(text);
+    expect(elapsedMs).toBeLessThan(250);
+  });
+});

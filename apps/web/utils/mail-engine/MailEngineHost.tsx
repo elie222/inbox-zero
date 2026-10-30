@@ -23,6 +23,7 @@ import { reportMailEngineStartupFailure } from "./startup-failure";
 import type { MailEngineStartupStage } from "./startup-error";
 import { usePathname } from "next/navigation";
 import type { MailClient } from "@inboxzero/mail-core/engine";
+import { withOptimisticChanges } from "@inboxzero/mail-core/optimistic-client";
 import { MailEngineProvider } from "@inboxzero/mail-react/MailEngineProvider";
 import { LoadingContent } from "@/components/LoadingContent";
 import { env } from "@/env";
@@ -210,9 +211,10 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
       if (published && published !== next) disposeTabFollowerClient(published);
       published = next;
       publishMailEngineInspect(next, emailAccountId, role, transport);
-      setActiveMailClient(next);
+      const visible = withOptimisticChanges(next);
+      setActiveMailClient(visible);
       setFailed(false);
-      setClient(next);
+      setClient(visible);
     }
 
     if (mode === "desktop-ipc") {
