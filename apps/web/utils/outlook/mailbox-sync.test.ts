@@ -170,6 +170,55 @@ describe("buildOutlookMailboxSyncPage", () => {
 });
 
 describe("getOutlookMailboxSyncPage", () => {
+  it("keeps a restored message when a delayed folder removal arrives", async () => {
+    const { client, requestedUrls } = createGraphClient({
+      [DELTA_LINK]: {
+        value: [
+          {
+            id: "restored-message",
+            "@removed": { reason: "deleted" },
+          },
+          {
+            id: "permanently-deleted-message",
+            "@removed": { reason: "deleted" },
+          },
+        ],
+        "@odata.deltaLink": DELTA_LINK,
+      },
+      "/me/messages/restored-message": {
+        id: "restored-message",
+        conversationId: "restored-thread",
+        parentFolderId: "inbox-folder-id",
+        subject: "Restored",
+        isRead: true,
+      },
+    });
+
+    const page = await getOutlookMailboxSyncPage({
+      client,
+      logger,
+      cursor: encodeMailboxSyncCursor({
+        version: 1,
+        provider: "microsoft",
+        deltaLink: DELTA_LINK,
+        after: "2026-07-01T00:00:00.000Z",
+        snapshot: false,
+      }),
+      limit: 50,
+    });
+
+    expect(page.deletedMessageIds).toEqual(["permanently-deleted-message"]);
+    expect(page.upsertedMessages).toEqual([
+      expect.objectContaining({
+        id: "restored-message",
+        threadId: "restored-thread",
+        labelIds: ["INBOX"],
+      }),
+    ]);
+    expect(requestedUrls).toContain("/me/messages/restored-message");
+    expect(requestedUrls).toContain("/me/messages/permanently-deleted-message");
+  });
+
   it("refetches delta messages that omit their conversation", async () => {
     const { client, requestedUrls } = createGraphClient({
       [DELTA_LINK]: {
