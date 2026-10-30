@@ -3,8 +3,11 @@
 module.exports = {
   peer: true,
   reject: [
-    // >=27.4.0 has ESM/CJS incompatibility that breaks Vercel runtime
+    // jsdom 27+ require()s ESM-only packages, which fails in Vercel's Node
+    // runtime because it runs with require(esm) disabled. Server code uses
+    // jsdom-cjs (jsdom 26); jsdom itself is only the Vitest environment.
     "jsdom",
+    "jsdom-cjs",
 
     // Staying on Tailwind v3 — v4 has significant breaking changes
     "tailwindcss",
