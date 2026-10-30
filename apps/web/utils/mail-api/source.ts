@@ -101,8 +101,19 @@ export function createEmailProviderMailboxSource(input: {
     },
     async beginBootstrap({ afterMs, scope, session }) {
       try {
+        const initialSyncDays = process.env.MAIL_INITIAL_SYNC_DAYS
+          ? Number.parseInt(process.env.MAIL_INITIAL_SYNC_DAYS, 10)
+          : undefined;
+        const defaultAfterMs =
+          initialSyncDays && Number.isFinite(initialSyncDays) && initialSyncDays > 0
+            ? Date.now() - initialSyncDays * 24 * 60 * 60 * 1000
+            : 0;
+        const resolvedAfterMs =
+          typeof afterMs === "number" && afterMs > 0
+            ? afterMs
+            : defaultAfterMs;
         const token: BootstrapToken = {
-          afterMs: afterMs ?? 0,
+          afterMs: resolvedAfterMs,
           scopeId: scope.id,
           folderId: scopedFolderId(provider, scope),
         };
@@ -136,6 +147,10 @@ export function createEmailProviderMailboxSource(input: {
           maxResults: Math.min(pageSize, maxPageSize),
           folderId: token.folderId ?? undefined,
           pageToken: token.pageToken,
+          after:
+            typeof token.afterMs === "number" && token.afterMs > 0
+              ? new Date(token.afterMs)
+              : undefined,
           includeDrafts: true,
         });
         const { changes, requiredHydration, bodies } = enumeratedObservations(
@@ -183,6 +198,23 @@ export function createEmailProviderMailboxSource(input: {
       } catch (error) {
         if (error instanceof InvalidMailboxSyncCursorError) {
           return { status: "reset_required", scopeId: "primary" };
+        }
+        const parsedToken = (() => {
+          try {
+            return JSON.parse(page) as BootstrapToken;
+          } catch {
+            return null;
+          }
+        })();
+        if (
+          parsedToken?.folderId &&
+          isMissingProviderResource(error) &&
+          (await isFolderGone(provider, parsedToken.folderId))
+        ) {
+          return {
+            status: "reset_required",
+            scopeId: parsedToken.scopeId ?? "primary",
+          };
         }
         return mapProviderError(error);
       }
@@ -506,6 +538,18 @@ async function finalCatchUpFrom({
 function scopedFolderId(provider: EmailProvider, scope: ScopeDescriptor) {
   if (provider.name === "microsoft") return scope.folderId ?? scope.id;
   return scope.folderId ?? undefined;
+}
+
+
+// A deleted folder's enumeration or delta query fails with a 404, but so can a
+// transient Graph error, so only a fresh folder listing without it counts as gone.
+async function isFolderGone(provider: EmailProvider, folderId: string) {
+  try {
+    const folders = await provider.getFolders();
+    return !flattenFolderScopes(folders).some((scope) => scope.id === folderId);
+  } catch {
+    return false;
+  }
 }
 
 function flattenFolderScopes(folders: FolderScopeNode[]) {
