@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useState, useEffect, useRef } from "react";
+import {
+  useCallback,
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+} from "react";
 import { toast } from "sonner";
 import { useLocalStorage } from "usehooks-ts";
 import { useAction } from "next-safe-action/hooks";
@@ -1330,7 +1336,9 @@ class AutomaticUnsubscribeFailedError extends Error {
 function useMountedMutate(mutate: MutateFn): MutateFn {
   const isMountedRef = useRef(true);
 
-  useEffect(() => {
+  // Layout effect: SWRConfig drops its provider in a layout-effect cleanup, and
+  // passive cleanups can run after pending awaits have already resumed.
+  useLayoutEffect(() => {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
