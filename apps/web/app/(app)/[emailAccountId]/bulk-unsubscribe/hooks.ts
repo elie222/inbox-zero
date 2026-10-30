@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { useLocalStorage } from "usehooks-ts";
 import { useAction } from "next-safe-action/hooks";
@@ -437,7 +437,7 @@ export function useUnsubscribe<T extends Row>({
 
 export function useBulkUnsubscribe<T extends Row>({
   hasUnsubscribeAccess,
-  mutate,
+  mutate: swrMutate,
   posthog,
   refetchPremium,
   emailAccountId,
@@ -454,6 +454,7 @@ export function useBulkUnsubscribe<T extends Row>({
   filter: NewsletterFilterType;
   onSuccess?: (items: T[]) => void;
 }) {
+  const mutate = useMountedMutate(swrMutate);
   const analytics = useProductAnalytics("bulk_unsubscribe");
   const { queueArchiveSenders } = useArchiveSenderQueueActions(emailAccountId);
   const [archiveOnUnsubscribe] = useArchiveOnUnsubscribe();
@@ -688,7 +689,7 @@ export function useAutoArchive<T extends Row>({
 
 export function useBulkAutoArchive<T extends Row>({
   hasUnsubscribeAccess,
-  mutate,
+  mutate: swrMutate,
   refetchPremium,
   emailAccountId,
   onDeselectItem,
@@ -701,6 +702,7 @@ export function useBulkAutoArchive<T extends Row>({
   onDeselectItem?: (id: string) => void;
   filter: NewsletterFilterType;
 }) {
+  const mutate = useMountedMutate(swrMutate);
   const { queueArchiveSenders } = useArchiveSenderQueueActions(emailAccountId);
 
   const onBulkAutoArchive = useCallback(
@@ -843,7 +845,7 @@ export function useApproveButton<T extends Row>({
 }
 
 export function useBulkApprove<T extends Row>({
-  mutate,
+  mutate: swrMutate,
   posthog,
   emailAccountId,
   onDeselectItem,
@@ -855,6 +857,7 @@ export function useBulkApprove<T extends Row>({
   onDeselectItem?: (id: string) => void;
   filter: NewsletterFilterType;
 }) {
+  const mutate = useMountedMutate(swrMutate);
   const onBulkApprove = async (items: T[], unapprove?: boolean) => {
     posthog.capture(
       unapprove ? "Clicked Bulk Unapprove" : "Clicked Bulk Approve",
@@ -1320,4 +1323,25 @@ class AutomaticUnsubscribeFailedError extends Error {
     super("Automatic unsubscribe did not succeed");
     this.name = "AutomaticUnsubscribeFailedError";
   }
+}
+
+// Bulk runs outlive navigation, and SWR's bound mutate throws once its
+// SWRConfig cache provider has unmounted. The cache refetches on next mount.
+function useMountedMutate(mutate: MutateFn): MutateFn {
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  // Forward args as-is: SWR treats `mutate()` and `mutate(undefined)` differently.
+  return useCallback(
+    async (...args: Parameters<MutateFn>) => {
+      if (isMountedRef.current) return mutate(...args);
+    },
+    [mutate],
+  );
 }
