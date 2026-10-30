@@ -97,7 +97,7 @@ describe("shouldRunEvalTests", () => {
 
     expect(emailAccount.user).toEqual({
       aiProvider: "openrouter",
-      aiModel: "google/gemini-3.1-flash-lite-preview",
+      aiModel: "google/gemini-3.1-flash-lite",
       aiApiKey: "shared-key",
     });
   });
