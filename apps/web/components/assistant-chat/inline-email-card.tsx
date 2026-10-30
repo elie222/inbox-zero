@@ -46,6 +46,7 @@ import { EmailAttachments } from "@/components/email-list/EmailAttachments";
 import { HtmlEmail, PlainEmail } from "@/components/email-list/EmailContents";
 import { EmailDetails } from "@/components/email-list/EmailDetails";
 import { useThread } from "@/hooks/useThread";
+import { useMailEngineDemand } from "@/utils/mail-engine/MailEngineHost";
 import { LoadingMiniSpinner } from "@/components/Loading";
 
 type ActionState = "idle" | "loading" | "done";
@@ -621,6 +622,7 @@ function EmailPreview({
   compact?: boolean;
   showDetails?: boolean;
 }) {
+  useMailEngineDemand();
   const { emailAccountId } = useAccount();
   const { data, isLoading, error } = useThread({ id: threadId });
 
