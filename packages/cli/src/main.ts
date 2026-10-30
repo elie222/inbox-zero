@@ -1549,7 +1549,7 @@ async function runUpdate() {
         message: "Restart with new image?",
         initialValue: true,
       })
-    : true;
+    : checkContainersRunning(["compose", "-f", STANDALONE_COMPOSE_FILE]);
 
   if (p.isCancel(restart)) {
     p.outro("Update complete. Run 'inbox-zero start' to use the new version.");
