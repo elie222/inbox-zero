@@ -13,7 +13,7 @@ const {
   mockCaptureAiGeneration,
   mockGetPosthogLlmClient,
   mockIsPosthogLlmEvalApproved,
-  mockCreateClaudeCodeLanguageModelWithBridgedTools,
+  mockCreateCliLanguageModelWithTools,
 } = vi.hoisted(() => ({
   mockGenerateText: vi.fn(),
   mockSaveAiUsage: vi.fn(),
@@ -24,7 +24,7 @@ const {
   mockCaptureAiGeneration: vi.fn(),
   mockGetPosthogLlmClient: vi.fn(),
   mockIsPosthogLlmEvalApproved: vi.fn(),
-  mockCreateClaudeCodeLanguageModelWithBridgedTools: vi.fn(),
+  mockCreateCliLanguageModelWithTools: vi.fn(),
 }));
 
 vi.mock("ai", async () => {
@@ -54,8 +54,7 @@ vi.mock("@/utils/llms/cli-provider", async () => {
   >("@/utils/llms/cli-provider");
   return {
     ...actual,
-    createClaudeCodeLanguageModelWithBridgedTools:
-      mockCreateClaudeCodeLanguageModelWithBridgedTools,
+    createCliLanguageModelWithTools: mockCreateCliLanguageModelWithTools,
   };
 });
 
@@ -90,7 +89,7 @@ describe("createGenerateText fallback chain", () => {
     mockIsPosthogLlmEvalApproved.mockReturnValue(false);
     mockCaptureAiGeneration.mockResolvedValue(undefined);
     mockSaveAiUsage.mockResolvedValue(undefined);
-    mockCreateClaudeCodeLanguageModelWithBridgedTools.mockReset();
+    mockCreateCliLanguageModelWithTools.mockReset();
   });
 
   it("falls back to the next provider on retryable provider failures", async () => {
@@ -304,9 +303,7 @@ describe("createGenerateText fallback chain", () => {
         execute: vi.fn(),
       },
     };
-    mockCreateClaudeCodeLanguageModelWithBridgedTools.mockResolvedValue(
-      bridgedModel,
-    );
+    mockCreateCliLanguageModelWithTools.mockResolvedValue(bridgedModel);
     mockGenerateText.mockImplementation(async (request) => {
       expect(request.model).toBe(bridgedModel);
       expect(request.tools).toBeUndefined();
@@ -328,9 +325,8 @@ describe("createGenerateText fallback chain", () => {
       tools,
     });
 
-    expect(
-      mockCreateClaudeCodeLanguageModelWithBridgedTools,
-    ).toHaveBeenCalledWith({
+    expect(mockCreateCliLanguageModelWithTools).toHaveBeenCalledWith({
+      provider: "claude-code",
       modelName: "sonnet",
       tools,
     });

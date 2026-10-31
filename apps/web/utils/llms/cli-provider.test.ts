@@ -126,12 +126,12 @@ describe("createCliLanguageModel", () => {
       execute: vi.fn(),
     };
 
-    const { createClaudeCodeLanguageModelWithBridgedTools } =
-      await loadCliProviderModule({
-        claudeModule: { claudeCode, createAiSdkMcpServer },
-      });
+    const { createCliLanguageModelWithTools } = await loadCliProviderModule({
+      claudeModule: { claudeCode, createAiSdkMcpServer },
+    });
 
-    const model = (await createClaudeCodeLanguageModelWithBridgedTools({
+    const model = (await createCliLanguageModelWithTools({
+      provider: Provider.CLAUDE_CODE,
       modelName: "sonnet",
       tools: { searchInbox, createRule },
     })) as any;
@@ -172,6 +172,40 @@ describe("createCliLanguageModel", () => {
     });
     expect(doGenerate).toHaveBeenCalledWith("generate-request");
     expect(doStream).toHaveBeenCalledWith("stream-request");
+  });
+
+  it("does not bridge tools for a CLI provider without a tool bridge", async () => {
+    const codexModel = { doGenerate: vi.fn(), doStream: vi.fn() };
+    const codexExec = vi.fn(() => codexModel);
+
+    const { createCliLanguageModelWithTools, supportsCliToolBridge } =
+      await loadCliProviderModule({ codexModule: { codexExec } });
+
+    expect(supportsCliToolBridge(Provider.CODEX_CLI)).toBe(false);
+    expect(supportsCliToolBridge(Provider.OPEN_AI)).toBe(false);
+    await expect(
+      createCliLanguageModelWithTools({
+        provider: Provider.CODEX_CLI,
+        modelName: "gpt-5.3-codex",
+        tools: { searchInbox: { inputSchema: {}, execute: vi.fn() } },
+      }),
+    ).resolves.toBe(codexModel);
+  });
+
+  it("refuses to load a CLI provider when CLI_LLM_ENABLED is off", async () => {
+    const codexExec = vi.fn();
+    const { createCliLanguageModel } = await loadCliProviderModule({
+      envOverrides: { CLI_LLM_ENABLED: false },
+      codexModule: { codexExec },
+    });
+
+    expect(() =>
+      createCliLanguageModel({
+        provider: Provider.CODEX_CLI,
+        modelName: "gpt-5.3-codex",
+      }),
+    ).toThrow('CLI LLM provider "codex-cli" is disabled.');
+    expect(codexExec).not.toHaveBeenCalled();
   });
 
   it("surfaces a clear error when the provider package is missing its factory export", async () => {
