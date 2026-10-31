@@ -15,8 +15,11 @@ const pending = new Map<
  * The composer unmounted while it had focus, and nothing closed it: not send,
  * discard, close, or pop out. Reported if the same draft comes back.
  */
-export function trackComposerUnmountedWhileFocused(draftSessionId?: string) {
-  const key = draftSessionId ?? "new";
+export function trackComposerUnmountedWhileFocused(composer: {
+  emailAccountId: string;
+  draftSessionId?: string;
+}) {
+  const key = composerKey(composer);
   clearTimeout(pending.get(key)?.timeout);
   pending.set(key, {
     unmountedAt: performance.now(),
@@ -25,13 +28,14 @@ export function trackComposerUnmountedWhileFocused(draftSessionId?: string) {
 }
 
 export function trackComposerMounted({
-  draftSessionId,
   draftMode,
+  ...composer
 }: {
+  emailAccountId: string;
   draftSessionId?: string;
   draftMode?: string;
 }) {
-  const key = draftSessionId ?? "new";
+  const key = composerKey(composer);
   const lost = pending.get(key);
   if (!lost) return;
   clearTimeout(lost.timeout);
@@ -63,4 +67,15 @@ function capture({
     draft_mode: draftMode ?? "new",
     ...properties,
   });
+}
+
+// New messages share one session id in every account.
+function composerKey({
+  emailAccountId,
+  draftSessionId,
+}: {
+  emailAccountId: string;
+  draftSessionId?: string;
+}) {
+  return `${emailAccountId}:${draftSessionId ?? "new"}`;
 }

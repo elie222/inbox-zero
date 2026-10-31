@@ -2,6 +2,7 @@
 
 import { type ComponentProps, useEffect, useRef } from "react";
 import { registerOpenComposer } from "@/utils/safe-reload";
+import { useAccount } from "@/providers/EmailAccountProvider";
 import dynamic from "next/dynamic";
 import { Loading } from "@/components/Loading";
 import {
@@ -22,6 +23,7 @@ export function ComposeEmailFormLazy(
   props: ComponentProps<typeof ComposeEmailForm>,
 ) {
   useEffect(registerOpenComposer, []);
+  const { emailAccountId } = useAccount();
   const { draftSessionId, draftMode } = props;
   const containerRef = useRef<HTMLDivElement>(null);
   // The element typed in last, kept while it is removed from under the user
@@ -29,7 +31,7 @@ export function ComposeEmailFormLazy(
   const focusedElement = useRef<Element | null>(null);
   const closing = useRef(false);
   useEffect(() => {
-    trackComposerMounted({ draftSessionId, draftMode });
+    trackComposerMounted({ emailAccountId, draftSessionId, draftMode });
     // A key pressed with nothing focused, after the editor was removed, reaches
     // the page's shortcuts instead of the draft.
     const onKeyDown = () => {
@@ -44,9 +46,9 @@ export function ComposeEmailFormLazy(
     return () => {
       document.removeEventListener("keydown", onKeyDown, true);
       if (focusedElement.current && !closing.current)
-        trackComposerUnmountedWhileFocused(draftSessionId);
+        trackComposerUnmountedWhileFocused({ emailAccountId, draftSessionId });
     };
-  }, [draftSessionId, draftMode]);
+  }, [emailAccountId, draftSessionId, draftMode]);
   const closeWith = <Args extends unknown[], Result>(
     handler?: (...args: Args) => Result,
   ) =>

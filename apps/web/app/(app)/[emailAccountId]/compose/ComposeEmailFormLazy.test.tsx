@@ -12,6 +12,12 @@ import { ComposeEmailFormLazy } from "./ComposeEmailFormLazy";
 
 const { capture } = vi.hoisted(() => ({ capture: vi.fn() }));
 vi.mock("posthog-js", () => ({ default: { capture } }));
+const { account } = vi.hoisted(() => ({
+  account: { emailAccountId: "account-1" },
+}));
+vi.mock("@/providers/EmailAccountProvider", () => ({
+  useAccount: () => account,
+}));
 vi.mock("next/dynamic", () => ({
   default:
     () =>
@@ -56,6 +62,20 @@ it("reports a focused composer that unmounts without being closed", async () => 
       trigger: "remount",
     }),
   );
+});
+
+it("does not match a new message in another account", async () => {
+  const view = render(<ComposeEmailFormLazy />);
+  await focusEditor();
+  view.unmount();
+  account.emailAccountId = "account-2";
+  try {
+    render(<ComposeEmailFormLazy />);
+  } finally {
+    account.emailAccountId = "account-1";
+  }
+
+  expect(capture).not.toHaveBeenCalled();
 });
 
 // Escape and leaving mail also take a focused composer away on purpose.
