@@ -10,6 +10,7 @@ const SIGNATURE_SELECTORS = [
 ];
 
 const PLAIN_TEXT_SIGNATURE_DELIMITER = /\r?\n-- ?\r?\n/;
+const QUOTE_SELECTORS = "blockquote, .gmail_quote";
 
 export function stripProviderSignatureHtml(html: string): string {
   if (!html) return html;
@@ -39,6 +40,24 @@ export function getProviderSignatureHtml(html: string): string {
     .toArray()
     .map((element) => $.html(element))
     .join("");
+}
+
+// The sender's own signature: quoted messages below it carry other people's.
+export function getOwnSignatureHtml(html: string): string {
+  if (!html) return "";
+
+  const $ = load(html, null, looksLikeHtmlDocument(html));
+  const selector = SIGNATURE_SELECTORS.filter(
+    (item) => item !== ".gmail_signature_prefix",
+  ).join(", ");
+  const signature = $(selector)
+    .filter(
+      (_index, element) =>
+        $(element).parents(`${selector}, ${QUOTE_SELECTORS}`).length === 0,
+    )
+    .first();
+
+  return signature.html()?.trim() ?? "";
 }
 
 export function stripPlainTextSignature(text: string): string {

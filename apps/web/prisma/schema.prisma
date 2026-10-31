@@ -238,6 +238,7 @@ model EmailAccount {
   emailTokens         EmailToken[]
   knowledge           Knowledge[]
   snippets            Snippet[]
+  emailSignatures     EmailSignature[]
   replyMemories       ReplyMemory[]
   chats               Chat[]
   chatMemories        ChatMemory[]
@@ -1306,6 +1307,20 @@ model Snippet {
 
   @@unique([emailAccountId, shortcut])
   @@index([emailAccountId])
+}
+
+// Signatures to choose from in compose besides the account's default `EmailAccount.signature`.
+model EmailSignature {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  name      String
+  html      String
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([emailAccountId, name])
 }
 
 model ReplyMemory {
