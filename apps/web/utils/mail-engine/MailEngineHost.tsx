@@ -75,9 +75,13 @@ const MailEngineRuntimeStatusContext = createContext<MailEngineRuntimeStatus>({
   requestBrowserEngine: () => {},
 });
 
-export function useMailEngineDemand() {
+export function useMailEngineDemand(enabled = true) {
   const { requestBrowserEngine } = useContext(MailEngineRuntimeStatusContext);
-  useEffect(requestBrowserEngine, [requestBrowserEngine]);
+  useEffect(() => {
+    if (enabled) {
+      requestBrowserEngine();
+    }
+  }, [enabled, requestBrowserEngine]);
 }
 
 export function MailEngineRuntime({ children }: { children: ReactNode }) {
