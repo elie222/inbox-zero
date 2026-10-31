@@ -193,11 +193,11 @@ describe("createCliLanguageModel", () => {
   });
 
   it("refuses to load a CLI provider when CLI_LLM_ENABLED is off", async () => {
-    const codexExec = vi.fn();
+    const loadCodexPackage = vi.fn(() => ({ codexExec: vi.fn() }));
     const { createCliLanguageModel } = await loadCliProviderModule({
       envOverrides: { CLI_LLM_ENABLED: false },
-      codexModule: { codexExec },
     });
+    vi.doMock("ai-sdk-provider-codex-cli", loadCodexPackage);
 
     expect(() =>
       createCliLanguageModel({
@@ -205,7 +205,7 @@ describe("createCliLanguageModel", () => {
         modelName: "gpt-5.3-codex",
       }),
     ).toThrow('CLI LLM provider "codex-cli" is disabled.');
-    expect(codexExec).not.toHaveBeenCalled();
+    expect(loadCodexPackage).not.toHaveBeenCalled();
   });
 
   it("surfaces a clear error when the provider package is missing its factory export", async () => {
