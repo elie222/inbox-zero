@@ -411,7 +411,7 @@ describe("fetchMessagesAndGenerateDraft - AI content escaping", () => {
     );
 
     expect(result).toBe(
-      "Received the invoices. I will forward them for processing.\n\n<p>User Name<br>Team Lead</p>",
+      'Received the invoices. I will forward them for processing.\n\n<div class="gmail_signature" data-smartmail="gmail_signature"><p>User Name<br>Team Lead</p></div>',
     );
     expect(aiDraftReplyWithConfidence).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -441,7 +441,7 @@ describe("fetchMessagesAndGenerateDraft - AI content escaping", () => {
     );
 
     expect(result).toBe(
-      'What do you think about it?\n\nCheers!<br>Barbara\n\nDrafted by <a href="https://getinboxzero.com/?ref=TEST123">Inbox Zero</a>.',
+      'What do you think about it?\n\n<div class="gmail_signature" data-smartmail="gmail_signature">Cheers!<br>Barbara</div>\n\nDrafted by <a href="https://getinboxzero.com/?ref=TEST123">Inbox Zero</a>.',
     );
   });
 

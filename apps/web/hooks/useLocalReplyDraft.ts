@@ -1,20 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
+  dropReplyDraftDeletedFromMailbox,
   getReplyDraftForSession,
   type ReplyDraftIdentity,
-} from "@/utils/email-cache/reply-drafts";
-import type { StoredReplyDraft } from "@/utils/email-cache/database";
+  type StoredReplyDraft,
+} from "@/utils/mail-engine/reply-drafts";
 
 export function useLocalReplyDraft(
   identity: ReplyDraftIdentity | undefined,
   legacyIdentity?: ReplyDraftIdentity,
   mode?: "reply" | "forward",
 ) {
-  const key = identity
-    ? JSON.stringify({ identity, legacyIdentity, mode })
-    : "";
+  // The legacy identity only seeds a draft that has none yet. It follows the
+  // reply target, which changes when a sent reply's optimistic copy is
+  // confirmed, and reloading then would remount the open composer.
+  const key = identity ? JSON.stringify({ identity, mode }) : "";
+  const legacyIdentityRef = useRef(legacyIdentity);
+  legacyIdentityRef.current = legacyIdentity;
   const [loaded, setLoaded] = useState<{
     key: string;
     draft?: StoredReplyDraft;
@@ -25,21 +29,22 @@ export function useLocalReplyDraft(
     let cancelled = false;
     const identities = JSON.parse(key) as {
       identity: ReplyDraftIdentity;
-      legacyIdentity?: ReplyDraftIdentity;
       mode?: "reply" | "forward";
     };
     getReplyDraftForSession(
       identities.identity,
-      identities.legacyIdentity,
+      legacyIdentityRef.current,
       identities.mode,
-    ).then(
-      (draft) => {
-        if (!cancelled) setLoaded({ key, draft });
-      },
-      (error) => {
-        if (!cancelled) setLoaded({ key, error });
-      },
-    );
+    )
+      .then(dropReplyDraftDeletedFromMailbox)
+      .then(
+        (draft) => {
+          if (!cancelled) setLoaded({ key, draft });
+        },
+        (error) => {
+          if (!cancelled) setLoaded({ key, error });
+        },
+      );
     return () => {
       cancelled = true;
     };

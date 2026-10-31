@@ -1,5 +1,9 @@
+import { isValidTimeZone } from "@inboxzero/scheduling";
+
 export type TimezoneEntry = {
   zone: string;
+  city: string;
+  genericName: string | null;
   offsetMinutes: number;
   offsetLabel: string;
 };
@@ -10,17 +14,22 @@ export function getSupportedTimezonesWithOffsets(
   const intlWithSupportedValues = Intl as typeof Intl & {
     supportedValuesOf?: (key: "timeZone") => string[];
   };
-  const zones = intlWithSupportedValues.supportedValuesOf?.("timeZone") ?? [
+  const zones = intlWithSupportedValues.supportedValuesOf?.("timeZone") ?? [];
+  const allZones = new Set([
+    ...zones,
     "UTC",
-  ];
-  const includeCurrent = current && !zones.includes(current);
-  const allZones = includeCurrent ? [current, ...zones] : zones;
+    Intl.DateTimeFormat().resolvedOptions().timeZone,
+  ]);
+  if (current) allZones.add(current);
   const now = new Date();
-  return allZones
+  return [...allZones]
+    .filter(isValidTimeZone)
     .map((zone) => {
       const offsetMinutes = getTimezoneOffsetMinutes(zone, now);
       return {
         zone,
+        city: getTimezoneCity(zone),
+        genericName: getTimezoneGenericName(zone, now),
         offsetMinutes,
         offsetLabel: formatOffsetLabel(offsetMinutes),
       };
@@ -31,6 +40,10 @@ export function getSupportedTimezonesWithOffsets(
       }
       return a.zone.localeCompare(b.zone);
     });
+}
+
+export function getAccountTimezone(timezone: string | null | undefined) {
+  return timezone && isValidTimeZone(timezone) ? timezone : "UTC";
 }
 
 export function getTimezoneOffsetMinutes(zone: string, now: Date): number {
@@ -57,6 +70,26 @@ export function formatOffsetLabel(offsetMinutes: number): string {
   const hours = Math.floor(abs / 60);
   const minutes = abs % 60;
   return `GMT ${sign}${hours}:${minutes.toString().padStart(2, "0")}`;
+}
+
+function getTimezoneCity(zone: string): string {
+  const lastSegment = zone.split("/").pop() || zone;
+  return lastSegment.replaceAll("_", " ");
+}
+
+function getTimezoneGenericName(zone: string, date: Date): string | null {
+  try {
+    const name = new Intl.DateTimeFormat("en-US", {
+      timeZone: zone,
+      timeZoneName: "longGeneric",
+    })
+      .formatToParts(date)
+      .find((part) => part.type === "timeZoneName")?.value;
+    // Zones without a name fall back to a bare offset like "GMT+03:00".
+    return name && !name.startsWith("GMT") ? name : null;
+  } catch {
+    return null;
+  }
 }
 
 function getTimezoneParts(zone: string, date: Date) {

@@ -264,6 +264,17 @@ describe("getRuleResultReasonDisplay", () => {
     });
   });
 
+  it("falls back for action failure parts that match built-in object keys", () => {
+    expect(
+      getRuleResultReasonDisplay("Action failures: constructor:toString")
+        .actionFailureMessages,
+    ).toEqual(["An action could not be completed."]);
+    expect(
+      getRuleResultReasonDisplay("Action failures: NOTIFY_SENDER:toString")
+        .actionFailureMessages,
+    ).toEqual(["The sender notification could not be completed."]);
+  });
+
   it("does not expose unknown internal action failure codes", () => {
     const display = getRuleResultReasonDisplay(
       "Rule matched\nAction failures: DRAFT_MESSAGING_CHANNEL:SOME_INTERNAL_CODE",

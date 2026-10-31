@@ -49,6 +49,26 @@ describe("buildReplyAllRecipients", () => {
     expect(result.cc).not.toContain("noreply@example.com");
   });
 
+  it("leaves every reply-to address out of CC", () => {
+    const headers: ParsedMessageHeaders = {
+      from: "sender@example.com",
+      "reply-to": "Team <team@example.com>, lead@example.com",
+      to: "user@company.com, lead@example.com",
+      cc: "team@example.com",
+      subject: "Test",
+      date: "2024-01-01",
+    };
+
+    const result = buildReplyAllRecipients(
+      headers,
+      undefined,
+      "myemail@example.com",
+    );
+
+    expect(result.to).toBe("Team <team@example.com>, lead@example.com");
+    expect(result.cc).toEqual(["user@company.com"]);
+  });
+
   it("should handle no CC recipients", () => {
     const headers: ParsedMessageHeaders = {
       from: "sender@example.com",

@@ -22,7 +22,10 @@ describe("processAttachmentsForFiling", () => {
     vi.clearAllMocks();
   });
 
-  it("sends one notification after filing multiple attachments", async () => {
+  it.each([
+    "google",
+    "microsoft",
+  ] as const)("sends one %s notification after filing multiple attachments with the source message id", async (provider) => {
     const attachments = [
       {
         attachmentId: "attachment-1",
@@ -38,7 +41,7 @@ describe("processAttachmentsForFiling", () => {
       },
     ];
     const message = getMockParsedMessage({ attachments });
-    const emailProvider = createMockEmailProvider();
+    const emailProvider = createMockEmailProvider({ name: provider });
     const emailAccount = {
       ...getEmailAccount(),
       filingEnabled: true,
@@ -100,6 +103,10 @@ describe("processAttachmentsForFiling", () => {
         filingIds: ["filing-1", "filing-2"],
         emailProvider,
         userEmail: emailAccount.email,
+        sourceMessage: expect.objectContaining({
+          messageId: message.id,
+          threadId: message.threadId,
+        }),
       }),
     );
   });

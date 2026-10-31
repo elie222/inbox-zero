@@ -3,6 +3,7 @@ import Link from "next/link";
 import { env } from "@/env";
 import { EXTENSION_URL } from "@/utils/config";
 import { BRAND_NAME } from "@/utils/branding";
+import { CookieSettingsButton } from "@/components/CookieConsent";
 
 export const footerNavigation = {
   main: [
@@ -12,8 +13,9 @@ export const footerNavigation = {
       target: "_blank",
     },
     { name: "AI Email Assistant", href: "/ai-automation" },
+    { name: "Email App", href: "/email-client" },
     { name: "Mobile App", href: "/mobile-app" },
-    { name: "Desktop App", href: "/desktop" },
+    { name: "Download", href: "/download" },
     { name: "AI Chat for Slack & Telegram", href: "/ai-assistant-chat" },
     { name: "Slack AI Assistant", href: "/slack-integration" },
     { name: "Telegram AI Assistant", href: "/telegram-integration" },
@@ -215,6 +217,7 @@ export function Footer() {
                 {item.name}
               </Link>
             ))}
+            <CookieSettingsButton className="text-sm leading-6 text-gray-600 hover:text-gray-900" />
           </div>
           <p className="mt-6 text-center text-xs leading-5 text-gray-500">
             Powered by{" "}
@@ -266,6 +269,7 @@ export function Footer() {
             </div>
             <div>
               <FooterList title="Legal" items={footerNavigation.legal} />
+              <CookieSettingsButton className="mt-4 text-sm leading-6 text-gray-600 hover:text-gray-900" />
             </div>
           </div>
         </nav>
@@ -306,7 +310,7 @@ function FooterList(props: {
             <Link
               href={item.href}
               target={item.target}
-              prefetch={item.target !== "_blank"}
+              prefetch={false}
               className="text-sm leading-6 text-gray-600 hover:text-gray-900"
             >
               {item.name}

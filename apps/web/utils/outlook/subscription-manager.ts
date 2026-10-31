@@ -32,8 +32,10 @@ export class OutlookSubscriptionManager {
     expirationDate: Date;
     subscriptionId?: string;
     changed: boolean;
+    cancelledSubscriptionId?: string;
   } | null> {
     const forceRefresh = options?.forceRefresh === true;
+    let cancelledSubscriptionId: string | undefined;
     try {
       const existing = await this.getExistingSubscription();
 
@@ -80,24 +82,34 @@ export class OutlookSubscriptionManager {
         this.logger.info("No existing subscription found; creating new");
       }
 
-      await this.cancelSubscription(existing?.subscriptionId);
+      // Graph rejects a second subscription for the same resource and change
+      // types (409), so the old one has to go before the new one is created.
+      if (await this.cancelSubscription(existing?.subscriptionId)) {
+        cancelledSubscriptionId = existing?.subscriptionId ?? undefined;
+      }
 
       const subscription = await this.client.watchEmails();
 
+      if (!subscription?.subscriptionId) {
+        this.logger.warn("Subscription creation returned no subscription");
+        await this.markSubscriptionLapsed(cancelledSubscriptionId);
+        return null;
+      }
+
       this.logger.info("Successfully created new subscription", {
-        subscriptionId: subscription?.subscriptionId,
+        subscriptionId: subscription.subscriptionId,
       });
 
-      return subscription
-        ? {
-            expirationDate: subscription.expirationDate,
-            subscriptionId: subscription.subscriptionId,
-            changed: true,
-          }
-        : null;
+      return {
+        expirationDate: subscription.expirationDate,
+        subscriptionId: subscription.subscriptionId,
+        changed: true,
+        cancelledSubscriptionId,
+      };
     } catch (error) {
       this.logger.error("Failed to create subscription", { error });
       captureException(error, { emailAccountId: this.emailAccountId });
+      await this.markSubscriptionLapsed(cancelledSubscriptionId);
       return null;
     }
   }
@@ -124,8 +136,10 @@ export class OutlookSubscriptionManager {
           error,
         });
 
+        let cancelledReplacement = false;
         try {
           await this.client.unwatchEmails(result.subscriptionId);
+          cancelledReplacement = true;
           this.logger.info("Canceled orphaned subscription after DB failure", {
             subscriptionId: result.subscriptionId,
           });
@@ -137,6 +151,12 @@ export class OutlookSubscriptionManager {
         }
 
         captureException(error, { emailAccountId: this.emailAccountId });
+        await this.markSubscriptionLapsed(result.cancelledSubscriptionId);
+        // The save can fail after writing the replacement (the concurrency
+        // check reads again); if so and we cancelled it, it is dead too.
+        if (cancelledReplacement) {
+          await this.markSubscriptionLapsed(result.subscriptionId);
+        }
         return null;
       }
     }
@@ -147,18 +167,45 @@ export class OutlookSubscriptionManager {
     };
   }
 
-  private async cancelSubscription(subscriptionId: string | null | undefined) {
-    if (!subscriptionId) return;
+  /**
+   * After the old subscription is cancelled but no replacement was saved, the
+   * stored expiry still looks days away while nothing is delivering. Marking it
+   * expired lets the renewal cron retry this account first and the lapse
+   * notifier warn the user if it stays down.
+   */
+  private async markSubscriptionLapsed(cancelledSubscriptionId?: string) {
+    if (!cancelledSubscriptionId) return;
+    try {
+      // Only while the row still points at what we cancelled, so a concurrent
+      // renewal that saved a replacement isn't marked lapsed.
+      await prisma.emailAccount.updateMany({
+        where: {
+          id: this.emailAccountId,
+          watchEmailsSubscriptionId: cancelledSubscriptionId,
+        },
+        data: { watchEmailsExpirationDate: new Date() },
+      });
+    } catch (error) {
+      this.logger.error("Failed to mark subscription as lapsed", { error });
+    }
+  }
+
+  private async cancelSubscription(
+    subscriptionId: string | null | undefined,
+  ): Promise<boolean> {
+    if (!subscriptionId) return false;
 
     try {
       await this.client.unwatchEmails(subscriptionId);
       this.logger.info("Canceled existing subscription", { subscriptionId });
+      return true;
     } catch (error) {
       // The subscription might already be expired/invalid
       this.logger.warn(
         "Failed to cancel existing subscription (may already be expired)",
         { subscriptionId, error },
       );
+      return false;
     }
   }
 

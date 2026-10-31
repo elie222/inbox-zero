@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
 import { getMcpServerAccess } from "@/utils/mcp/access";
+import { listMcpConnections } from "@/utils/mcp/connections";
 
 export type ApiKeyResponse = Awaited<ReturnType<typeof getApiKeys>>;
 
@@ -27,11 +28,15 @@ async function getApiKeys({
     }),
     getMcpServerAccess(userId),
   ]);
+  const mcpConnections = mcpServerAccess.enabled
+    ? await listMcpConnections(userId)
+    : [];
 
   return {
     apiKeys,
     mcpServerAvailable: mcpServerAccess.available,
     mcpServerEnabled: mcpServerAccess.enabled,
+    mcpConnections,
   };
 }
 

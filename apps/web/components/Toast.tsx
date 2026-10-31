@@ -11,10 +11,16 @@ export function toastSuccess(options: {
   title?: string;
   description: string;
   id?: string;
+  duration?: number;
+  action?: { label: string; onClick: () => void };
 }) {
+  // Reusing an undo toast's id replaces it, so its undo no longer applies.
+  if (options.id && latestToastUndo?.id === options.id) latestToastUndo = null;
   return toast.success(options.title || options.description, {
     description: options.title ? options.description : undefined,
     id: options.id,
+    duration: options.duration,
+    action: options.action,
   });
 }
 
@@ -28,11 +34,15 @@ export function toastError(options: { title?: string; description: string }) {
 export function toastInfo(options: {
   title: string;
   description: string;
+  id?: string;
   duration?: number;
+  action?: { label: string; onClick: () => void };
 }) {
   return toast(options.title, {
     description: options.description,
+    id: options.id,
     duration: options.duration,
+    action: options.action,
   });
 }
 

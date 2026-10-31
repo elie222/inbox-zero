@@ -14,7 +14,7 @@ import {
 import {
   isSafeExternalHttpUrl,
   resolveSafeExternalHttpUrl,
-} from "@/utils/network/safe-http-url";
+} from "@inboxzero/network/safe-url";
 import { getHttpUnsubscribeLink } from "@/utils/parse/unsubscribe";
 import {
   encodeFormBody,
@@ -167,11 +167,13 @@ export async function unsubscribeSenderAndMark({
     });
     log.trace("Marked sender as unsubscribed", { senderEmail });
   } else {
-    log.trace("Did not mark sender as unsubscribed", {
-      senderEmail,
-      unsubscribeAttempted: unsubscribe.attempted,
-      unsubscribeReason: unsubscribe.reason,
+    log.info("Automatic unsubscribe did not succeed", {
+      attempted: unsubscribe.attempted,
+      reason: unsubscribe.reason,
+      method: unsubscribe.method,
+      statusCode: unsubscribe.statusCode,
     });
+    log.trace("Did not mark sender as unsubscribed", { senderEmail });
   }
 
   return {

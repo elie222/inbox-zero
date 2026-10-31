@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { mockedEnv } = vi.hoisted(() => ({
   mockedEnv: {
     NODE_ENV: "production",
-    UPSTASH_REDIS_URL: "https://redis.example.com",
-    UPSTASH_REDIS_TOKEN: "token",
+    REDIS_HTTP_URL: "https://redis.example.com",
+    REDIS_HTTP_TOKEN: "token",
     AXIOM_TOKEN: undefined,
     NEXT_PUBLIC_AXIOM_TOKEN: undefined,
     NEXT_PUBLIC_LOG_SCOPES: undefined,
@@ -31,8 +31,8 @@ import { createTestLogger } from "@/__tests__/helpers";
 describe("logErrorWithDedupe", () => {
   beforeEach(() => {
     mockedEnv.NODE_ENV = "production";
-    mockedEnv.UPSTASH_REDIS_URL = "https://redis.example.com";
-    mockedEnv.UPSTASH_REDIS_TOKEN = "token";
+    mockedEnv.REDIS_HTTP_URL = "https://redis.example.com";
+    mockedEnv.REDIS_HTTP_TOKEN = "token";
     vi.clearAllMocks();
   });
 

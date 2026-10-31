@@ -11,18 +11,70 @@ vi.mock("@/utils/prisma");
 
 describe("buildResolvedSystemPrompt", () => {
   it("uses Outlook category wording instead of label wording", () => {
-    const prompt = buildResolvedSystemPrompt({
-      emailSendToolsEnabled: true,
-      draftReplyActionsEnabled: true,
-      webhookActionsEnabled: true,
-      provider: "microsoft",
-      responseSurface: "web",
-      userTimezone: "UTC",
-      currentTimestamp: "2026-05-12T00:00:00.000Z",
-    });
+    const prompt = buildPrompt({ provider: "microsoft" });
 
     expect(prompt).toContain("category");
     expect(prompt).not.toMatch(/\blabels?\b/i);
+  });
+
+  it("adds a connect-calendar tip only when disconnection is confirmed", () => {
+    const connectedPrompt = buildPrompt({
+      calendarConnection: { state: "connected" },
+    });
+    const disconnectedPrompt = buildPrompt({
+      calendarConnection: { state: "disconnected" },
+    });
+    const failedPrompt = buildPrompt({
+      calendarConnection: { state: "failed", message: "Error: db down" },
+    });
+
+    for (const prompt of [connectedPrompt, disconnectedPrompt, failedPrompt]) {
+      expect(prompt).toContain("calendar or inbox date-range tools");
+    }
+    expect(disconnectedPrompt).toContain(
+      "you may tell them they can connect a calendar in settings",
+    );
+    expect(connectedPrompt).not.toContain("connect a calendar");
+    expect(connectedPrompt).not.toContain(
+      "Checking the calendar connection failed",
+    );
+    expect(failedPrompt).toContain(
+      "Checking the calendar connection failed (Error: db down)",
+    );
+    expect(failedPrompt).toContain(
+      "reconnect their calendar in settings or try again",
+    );
+    expect(failedPrompt).not.toContain(
+      "you may tell them they can connect a calendar in settings",
+    );
+  });
+
+  it("only asks for inline email card markup when the client can render it", () => {
+    const cardPrompt = buildPrompt({ supportsInlineEmailCards: true });
+    const plainPrompt = buildPrompt({ supportsInlineEmailCards: false });
+
+    expect(cardPrompt).toContain("<emails>");
+    expect(cardPrompt).toContain("<email-detail");
+
+    expect(plainPrompt).not.toContain("<emails>");
+    expect(plainPrompt).not.toContain("<email-detail");
+    expect(plainPrompt).toContain("numbered list");
+  });
+
+  it("never asks for inline email card markup on messaging surfaces", () => {
+    const prompt = buildPrompt({
+      responseSurface: "messaging",
+      supportsInlineEmailCards: true,
+    });
+
+    expect(prompt).not.toContain("<emails>");
+    expect(prompt).not.toContain("<email-detail");
+    expect(prompt).toBe(
+      buildPrompt({
+        responseSurface: "messaging",
+        supportsInlineEmailCards: false,
+      }),
+    );
   });
 });
 
@@ -123,3 +175,20 @@ describe("loadFreshRuleContext", () => {
     expect(result?.hasNewRuleState).toBe(true);
   });
 });
+
+function buildPrompt(
+  overrides: Partial<Parameters<typeof buildResolvedSystemPrompt>[0]> = {},
+) {
+  return buildResolvedSystemPrompt({
+    emailSendToolsEnabled: true,
+    draftReplyActionsEnabled: true,
+    webhookActionsEnabled: true,
+    calendarConnection: { state: "connected" },
+    provider: "google",
+    responseSurface: "web",
+    supportsInlineEmailCards: false,
+    userTimezone: "UTC",
+    currentTimestamp: "2026-05-12T00:00:00.000Z",
+    ...overrides,
+  });
+}

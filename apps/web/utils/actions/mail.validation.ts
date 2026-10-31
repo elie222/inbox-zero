@@ -15,12 +15,6 @@ export type UnarchiveThreadBody = z.infer<typeof unarchiveThreadBody>;
 export const untrashThreadBody = z.object({ threadId: z.string() });
 export type UntrashThreadBody = z.infer<typeof untrashThreadBody>;
 
-export const removeThreadLabelBody = z.object({
-  threadId: z.string(),
-  labelId: z.string(),
-});
-export type RemoveThreadLabelBody = z.infer<typeof removeThreadLabelBody>;
-
 export const updateMailboxItemBody = z
   .object({
     kind: mailboxItemKind,
@@ -82,6 +76,7 @@ export const updateDraftBody = z.object({
   messageHtml: z.string().max(1_000_000),
   subject: z.string().max(10_000),
   to: z.string(),
+  from: z.string().optional(),
   cc: z.string(),
   bcc: z.string(),
 });
@@ -90,6 +85,9 @@ export const saveComposeDraftBody = z.object({
   draftId: z.string().min(1).optional(),
   content: sendEmailBody,
 });
-export const discardComposeDraftBody = z.object({
+export const composeDraftParams = z.object({
   draftId: z.string().min(1),
+});
+export const readComposeDraftQuery = z.object({
+  messageId: z.string().min(1),
 });

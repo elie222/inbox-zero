@@ -1,16 +1,32 @@
 "use client";
 
-import type { ComponentProps } from "react";
-import { MoreHorizontalIcon, SparklesIcon } from "lucide-react";
+import { type ComponentProps, useState } from "react";
+import {
+  CodeIcon,
+  DownloadIcon,
+  MoreHorizontalIcon,
+  PrinterIcon,
+  SparklesIcon,
+} from "lucide-react";
 import { FixWithChat } from "@/app/(app)/[emailAccountId]/assistant/FixWithChat";
 import { getRuleResultReasonDisplay } from "@/app/(app)/[emailAccountId]/assistant/ResultDisplay";
 import { RuleActions } from "@/components/RuleActions";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { useChat } from "@/providers/ChatProvider";
 import type { ThreadPlan } from "@/app/(app)/[emailAccountId]/mail/types";
+import {
+  fetchMessageSource,
+  saveMessageSource,
+} from "@/app/(app)/[emailAccountId]/mail/message-source";
+import { MessageSourceDialog } from "@/app/(app)/[emailAccountId]/mail/MessageSourceDialog";
+import { printMessages } from "@/app/(app)/[emailAccountId]/mail/print-messages";
+import { toastError } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
   DropdownMenuSub,
   DropdownMenuSubTrigger,
@@ -18,6 +34,7 @@ import {
   DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
 import { ExecutedRuleStatus } from "@/generated/prisma/enums";
+import { captureException } from "@/utils/error";
 import type { ParsedMessage } from "@/utils/types";
 
 type FixWithChatResults = ComponentProps<typeof FixWithChat>["results"];
@@ -25,79 +42,120 @@ type FixWithChatResults = ComponentProps<typeof FixWithChat>["results"];
 export function MessageActionsMenu({
   message,
   plans,
-  setChatInput,
   showFixWithChat,
 }: {
   message: ParsedMessage;
   plans: ThreadPlan[];
-  setChatInput: (input: string) => void;
   showFixWithChat: boolean;
 }) {
+  const { emailAccountId } = useAccount();
+  const [isSourceOpen, setIsSourceOpen] = useState(false);
   const messagePlans = plans.filter((plan) => plan.messageId === message.id);
+  const subject = message.headers.subject ?? "";
+
+  const downloadMessage = async () => {
+    try {
+      saveMessageSource(
+        await fetchMessageSource({ emailAccountId, messageId: message.id }),
+        subject,
+      );
+    } catch (error) {
+      captureException(error);
+      toastError({ description: "Unable to download this message" });
+    }
+  };
+
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          aria-label="More message actions"
-          size="iconXs"
-          variant="ghostMuted"
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            aria-label="More message actions"
+            size="iconXs"
+            variant="ghostMuted"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <MoreHorizontalIcon className="size-3.5" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="end"
           onClick={(event) => event.stopPropagation()}
+          onKeyDown={(event) => event.stopPropagation()}
+          onEscapeKeyDown={(event) => event.stopPropagation()}
         >
-          <MoreHorizontalIcon className="size-3.5" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="end"
-        onClick={(event) => event.stopPropagation()}
-        onKeyDown={(event) => event.stopPropagation()}
-        onEscapeKeyDown={(event) => event.stopPropagation()}
-      >
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger>
-            <SparklesIcon className="mr-2 size-4" />
-            Matched reason
-          </DropdownMenuSubTrigger>
-          <DropdownMenuPortal>
-            <DropdownMenuSubContent
-              className="max-h-[var(--radix-dropdown-menu-content-available-height)] w-[min(24rem,calc(100vw-1rem))] overflow-y-auto p-0"
-              onClick={(event) => event.stopPropagation()}
-              onKeyDown={(event) => event.stopPropagation()}
-            >
-              {messagePlans.length ? (
-                messagePlans.map((plan) => (
-                  <RuleAttribution
-                    key={plan.id}
-                    message={message}
-                    plan={plan}
-                    setChatInput={setChatInput}
-                    showFixWithChat={showFixWithChat}
-                  />
-                ))
-              ) : (
-                <p className="p-3 text-muted-foreground text-xs">
-                  No matched rules for this message.
-                </p>
-              )}
-            </DropdownMenuSubContent>
-          </DropdownMenuPortal>
-        </DropdownMenuSub>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <SparklesIcon className="mr-2 size-4" />
+              Matched reason
+            </DropdownMenuSubTrigger>
+            <DropdownMenuPortal>
+              <DropdownMenuSubContent
+                className="max-h-[var(--radix-dropdown-menu-content-available-height)] w-[min(24rem,calc(100vw-1rem))] overflow-y-auto p-0"
+                onClick={(event) => event.stopPropagation()}
+                onKeyDown={(event) => event.stopPropagation()}
+              >
+                {messagePlans.length ? (
+                  messagePlans.map((plan) => (
+                    <RuleAttribution
+                      key={plan.id}
+                      message={message}
+                      plan={plan}
+                      showFixWithChat={showFixWithChat}
+                    />
+                  ))
+                ) : (
+                  <p className="p-3 text-muted-foreground text-xs">
+                    No matched rules for this message.
+                  </p>
+                )}
+              </DropdownMenuSubContent>
+            </DropdownMenuPortal>
+          </DropdownMenuSub>
+
+          <DropdownMenuSeparator />
+
+          <DropdownMenuItem
+            onSelect={() => printMessages({ subject, messages: [message] })}
+          >
+            <PrinterIcon className="mr-2 size-4" />
+            Print
+          </DropdownMenuItem>
+
+          <DropdownMenuItem onSelect={downloadMessage}>
+            <DownloadIcon className="mr-2 size-4" />
+            Download message
+          </DropdownMenuItem>
+
+          <DropdownMenuItem onSelect={() => setIsSourceOpen(true)}>
+            <CodeIcon className="mr-2 size-4" />
+            Show original
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <MessageSourceDialog
+        emailAccountId={emailAccountId}
+        messageId={message.id}
+        subject={subject}
+        open={isSourceOpen}
+        onOpenChange={setIsSourceOpen}
+      />
+    </>
   );
 }
 
 function RuleAttribution({
   plan,
   message,
-  setChatInput,
   showFixWithChat,
 }: {
   plan: ThreadPlan;
   message: ParsedMessage | null;
-  setChatInput: (input: string) => void;
   showFixWithChat: boolean;
 }) {
   const { provider } = useAccount();
+  const { setInput: setChatInput } = useChat();
   const reasonDisplay = getRuleResultReasonDisplay(plan.reason ?? "");
 
   return (

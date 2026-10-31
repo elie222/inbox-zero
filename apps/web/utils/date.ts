@@ -15,6 +15,7 @@ export const ONE_HOUR_MS = ONE_MINUTE_MS * 60;
 export const ONE_DAY_MS = ONE_HOUR_MS * 24;
 export const ONE_MONTH_MS = ONE_DAY_MS * 30;
 export const ONE_YEAR_MS = ONE_DAY_MS * 365;
+export const TEN_YEARS_MS = ONE_YEAR_MS * 10;
 
 export const ONE_HOUR_MINUTES = 60;
 export const ONE_DAY_MINUTES = ONE_HOUR_MINUTES * 24;
@@ -24,39 +25,21 @@ export const NINETY_DAYS_MINUTES = ONE_DAY_MINUTES * 90;
 /**
  * Formats a date into a short string.
  * - If the date is today, returns the time (e.g., "3:44 PM").
- * - If the date is not today, returns the date (e.g., "JUL 5" or "AUG 13").
- * - Optionally includes the year (e.g., "JUL 5, 2024").
+ * - If the date is this year, returns the date (e.g., "JUL 5").
+ * - Otherwise includes the year (e.g., "JUL 5, 2024").
  * - Optionally returns the date part in lowercase (e.g., "jul 5").
  */
 export function formatShortDate(
   date: Date,
-  options: {
-    includeYear?: boolean;
-    lowercase?: boolean;
-  } = {
-    includeYear: false,
-    lowercase: false,
-  },
+  options: { lowercase?: boolean } = {},
 ) {
-  // if date is today, return the time. e.g. 12:30pm
-  // if date is before today then return the date. eg JUL 5th or AUG 13th
+  const now = new Date();
 
-  const today = new Date();
+  if (isSameDay(date, now)) return shortDateFormatter("time").format(date);
 
-  const isToday =
-    date.getDate() === today.getDate() &&
-    date.getMonth() === today.getMonth() &&
-    date.getFullYear() === today.getFullYear();
-
-  if (isToday) {
-    // Use hour: 'numeric' to avoid leading zeros (e.g., 3:44 PM instead of 03:44 PM)
-    return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-  }
-  const formattedDate = date.toLocaleDateString([], {
-    month: "short",
-    day: "numeric",
-    year: options.includeYear ? "numeric" : undefined,
-  });
+  const formattedDate = shortDateFormatter(
+    isSameYear(date, now) ? "date" : "dateWithYear",
+  ).format(date);
 
   return options.lowercase ? formattedDate : formattedDate.toUpperCase();
 }
@@ -90,7 +73,9 @@ export function internalDateToDate(
   options?: { fallbackToNow?: boolean },
 ): Date {
   const fallbackToNow = options?.fallbackToNow ?? true;
-  if (!internalDate) return fallbackToNow ? new Date() : new Date(Number.NaN);
+  if (!internalDate?.trim()) {
+    return fallbackToNow ? new Date() : new Date(Number.NaN);
+  }
 
   // First try to parse as a regular date string (for ISO strings like "2025-06-19T21:46:31Z")
   let date = new Date(internalDate);
@@ -281,4 +266,26 @@ function getNextZonedMidnight(date: Date, timezone: string) {
     0,
     timezone,
   );
+}
+
+const shortDateFormats = {
+  // Numeric hours avoid leading zeros (3:44 PM, not 03:44 PM).
+  time: { hour: "numeric", minute: "2-digit" },
+  date: { month: "short", day: "numeric" },
+  dateWithYear: { month: "short", day: "numeric", year: "numeric" },
+} satisfies Record<string, Intl.DateTimeFormatOptions>;
+// Mail lists format a date per row on every render, and building an Intl
+// formatter each time dominated that cost.
+const shortDateFormatters = new Map<
+  keyof typeof shortDateFormats,
+  Intl.DateTimeFormat
+>();
+
+function shortDateFormatter(kind: keyof typeof shortDateFormats) {
+  let formatter = shortDateFormatters.get(kind);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat(undefined, shortDateFormats[kind]);
+    shortDateFormatters.set(kind, formatter);
+  }
+  return formatter;
 }

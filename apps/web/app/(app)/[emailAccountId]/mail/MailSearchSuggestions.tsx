@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { HistoryIcon } from "lucide-react";
+import { Kbd } from "@/components/Kbd";
 import useSWR from "swr";
 import type { ContactsResponse } from "@/app/api/user/contacts/route";
-import { matchRecentSearches } from "@/app/(app)/[emailAccountId]/mail/mail-search-history";
+import { matchRecentSearches } from "@/store/mail-search-history";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { env } from "@/env";
 import { cn } from "@/utils";
@@ -157,6 +158,19 @@ export function MailSearchSuggestionList({
           )}
         </div>
       ))}
+    </div>
+  );
+}
+
+export function MailSearchHint() {
+  return (
+    <div className="absolute top-full right-0 left-0 z-20 mt-1 flex items-center justify-between gap-3 rounded-lg border border-border bg-popover px-3 py-2 text-muted-foreground text-sm shadow-md">
+      <span className="min-w-0 truncate">
+        Search by sender, subject, or any words in the email
+      </span>
+      <span className="flex shrink-0 items-center gap-1.5 text-xs">
+        <Kbd>Esc</Kbd> to close
+      </span>
     </div>
   );
 }

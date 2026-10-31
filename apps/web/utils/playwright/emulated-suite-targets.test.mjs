@@ -13,6 +13,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, expect, test } from "vitest";
 import {
+  assignPlaywrightProviders,
   batchPlaywrightTargets,
   expandPlaywrightTargets,
   getPlaywrightSpecPathFromTargetName,
@@ -72,7 +73,7 @@ test("feature groups preserve every selected spec, including unassigned and nest
   const paths = [
     "mail/compose-and-reply.spec.ts",
     "mail/contact-autocomplete.spec.ts",
-    "mail/offline-outbox.spec.ts",
+    "mail/offline-loading.spec.ts",
     "mail/new-behavior.spec.ts",
     "mail/nested/new-behavior.spec.ts",
     "settings/appearance.spec.ts",
@@ -85,7 +86,7 @@ test("feature groups preserve every selected spec, including unassigned and nest
   expect(batches.flatMap(({ paths }) => paths).sort()).toEqual(
     targets.map(({ path }) => path).sort(),
   );
-  expect(batches.find(({ name }) => name === "mail-compose")?.paths).toEqual(
+  expect(batches.find(({ name }) => name === "mail-send")?.paths).toEqual(
     targets.slice(0, 2).map(({ path }) => path),
   );
   expect(batches.find(({ name }) => name === "mail")?.paths).toEqual(
@@ -101,7 +102,53 @@ test("focused selections keep their feature names without adding unselected spec
     path: "__tests__/playwright/emulated/mail/contact-autocomplete.spec.ts",
   };
   expect(batchPlaywrightTargets([target])).toEqual([
-    { name: "mail-compose", paths: [target.path], timeoutMinutes: 12 },
+    { name: "mail-send", paths: [target.path], timeoutMinutes: 12 },
+  ]);
+});
+
+test("only provider-dependent mail specs also run on Microsoft", () => {
+  const targets = [
+    "mail/thread-navigation.spec.ts",
+    "mail/manual-label.spec.ts",
+    "mail/theme.spec.ts",
+    "settings/appearance.spec.ts",
+  ].map((spec) => ({
+    name: getPlaywrightTargetName(spec),
+    path: `__tests__/playwright/emulated/${spec}`,
+  }));
+  const batches = assignPlaywrightProviders(batchPlaywrightTargets(targets));
+  expect(
+    batches.map(({ name, provider, paths, timeoutMinutes }) => ({
+      name,
+      provider,
+      specs: paths.map((spec) => spec.split("/").at(-1)),
+      timeoutMinutes,
+    })),
+  ).toEqual([
+    {
+      name: "mail-threads",
+      provider: "google",
+      specs: ["thread-navigation.spec.ts", "manual-label.spec.ts"],
+      timeoutMinutes: 20,
+    },
+    {
+      name: "mail-threads",
+      provider: "microsoft",
+      specs: ["manual-label.spec.ts"],
+      timeoutMinutes: 12,
+    },
+    {
+      name: "mail-preferences",
+      provider: "google",
+      specs: ["theme.spec.ts"],
+      timeoutMinutes: 12,
+    },
+    {
+      name: "settings",
+      provider: "google",
+      specs: ["appearance.spec.ts"],
+      timeoutMinutes: 12,
+    },
   ]);
 });
 

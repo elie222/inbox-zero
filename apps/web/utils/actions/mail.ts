@@ -2,21 +2,20 @@
 
 import { z } from "zod";
 import prisma from "@/utils/prisma";
-import { removeLabelFromMailSplits } from "@/utils/mail/splits.server";
+import { removeLabelFromMailSplits } from "@/utils/split-inbox/splits.server";
 import { sendEmailBody } from "@/utils/types/mail";
 import { actionClient } from "@/utils/actions/safe-action";
-import { SafeError } from "@/utils/error";
+import { DraftNotFoundError, SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
 import { sendHtmlEmailWithOpenTracking } from "@/utils/email/sent-message-open/sent-message-open.server";
 import {
   deleteMailboxItemBody,
-  removeThreadLabelBody,
   unarchiveThreadBody,
   untrashThreadBody,
   updateMailboxItemBody,
   updateDraftBody,
   saveComposeDraftBody,
-  discardComposeDraftBody,
+  composeDraftParams,
 } from "@/utils/actions/mail.validation";
 import {
   isGoogleProvider,
@@ -152,29 +151,6 @@ export const markReadThreadAction = actionClient
         throw new SafeError(
           `Failed to mark email as ${read ? "read" : "unread"}. Please try again.`,
         );
-      }
-    },
-  );
-
-export const removeThreadLabelAction = actionClient
-  .metadata({ name: "removeThreadLabel" })
-  .inputSchema(removeThreadLabelBody)
-  .action(
-    async ({
-      ctx: { emailAccountId, provider, logger },
-      parsedInput: { threadId, labelId },
-    }) => {
-      const emailProvider = await createEmailProvider({
-        emailAccountId,
-        provider,
-        logger,
-      });
-
-      try {
-        await emailProvider.removeThreadLabel(threadId, labelId);
-      } catch (error) {
-        logger.error("Failed to remove thread label", { error });
-        throw new SafeError("Failed to remove label. Please try again.");
       }
     },
   );
@@ -463,14 +439,29 @@ export const updateDraftAction = actionClient
         parsedInput.draftId ??
         (await provider.getDraftReferenceForMessage(parsedInput.draftMessageId))
           ?.id;
-      if (!draftId) throw new SafeError("Could not find this draft to update.");
+      // A draft sent, deleted, or replaced elsewhere can never be saved, so the
+      // composer is told to stop syncing rather than retry.
+      if (!draftId) return { status: "missing" as const };
       const {
         draftMessageId: _messageId,
         draftId: _draftId,
         ...content
       } = parsedInput;
-      await provider.updateDraft(draftId, content);
-      return { draftId };
+      try {
+        await provider.updateDraft(draftId, content);
+      } catch (error) {
+        if (error instanceof DraftNotFoundError)
+          return { status: "missing" as const };
+        throw error;
+      }
+      // Gmail may have moved the draft to a new message; the composer needs it,
+      // so a failed read fails the save and autosave retries it.
+      const message = await provider.getDraft(draftId);
+      return {
+        status: "saved" as const,
+        draftId,
+        messageId: message?.id ?? null,
+      };
     },
   );
 
@@ -496,9 +487,8 @@ export const deleteDraftAction = actionClient
               message ? provider.getDraftReferenceForMessage(message.id) : null,
             )
         : await provider.getDraftReferenceForMessage(draftMessageId);
-      if (!draft) {
-        throw new SafeError("Could not find this draft to delete.");
-      }
+      // Already sent, deleted, or replaced elsewhere: nothing left to discard.
+      if (!draft) return;
 
       const wasDeleted = await provider.deleteDraft(draft.id, draft.version);
       if (!wasDeleted) return;
@@ -544,17 +534,17 @@ export const saveComposeDraftAction = actionClient
         provider: providerName,
         logger,
       });
-      const draftId = await saveComposeDraft({
+      const saved = await saveComposeDraft({
         provider,
         ...parsedInput,
       });
-      return { draftId };
+      return saved;
     },
   );
 
 export const discardComposeDraftAction = actionClient
   .metadata({ name: "discardComposeDraft" })
-  .inputSchema(discardComposeDraftBody)
+  .inputSchema(composeDraftParams)
   .action(
     async ({
       ctx: { emailAccountId, provider: providerName, logger },

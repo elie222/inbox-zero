@@ -32,6 +32,8 @@ Check logs for errors using the commands above.
   - Solution: Increase VPS RAM or add swap space
 - **Missing environment variables**: Check `.env` file exists and has required values
   - Solution: Run `inbox-zero setup` again
+- **Containers start but ignore your settings**: Compose couldn't find your env file and started without it. This usually happens with a named config (for example `.env.production`) or a file outside the default location, started with plain `docker compose up`
+  - Solution: use the Compose command printed by `inbox-zero setup`, or pass the file explicitly: `docker compose --env-file <path-to-your-env-file> --profile all up -d`. Setting `INBOX_ZERO_ENV_FILE` inside the env file only takes effect when that file is passed with `--env-file`
 - **Slow page loads with `validate-email-account` or `Unable to parse response body` Redis warnings**: `docker compose` may have started `serverless-redis-http` without the token from `apps/web/.env`
   - Solution: make sure repo-root `.env` matches `apps/web/.env` before starting Docker, create a link if no root `.env` exists: `ln -s apps/web/.env .env`. Preserve and review any existing root configuration, then recreate the affected containers with `docker compose --env-file apps/web/.env --profile all up -d`
 

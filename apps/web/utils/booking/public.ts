@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { addMinutes } from "date-fns";
+import { getAccountTimezone } from "@/utils/timezone";
 import {
   generateBookableSlots,
   validateSelectedSlot,
@@ -445,7 +446,7 @@ export async function reschedulePublicBooking({
         providerEventId: booking.providerEventId,
         startTime: newStartTime,
         endTime: newEndTime,
-        timezone: booking.bookingLink.availabilitySchedule.timezone,
+        timezone: getAccountTimezone(booking.bookingLink.emailAccount.timezone),
         logger,
       });
     } catch (error) {
@@ -601,11 +602,8 @@ function getBookingHostInclude() {
         title: true,
         locationType: true,
         locationValue: true,
-        availabilitySchedule: {
-          select: { timezone: true },
-        },
         emailAccount: {
-          select: { email: true, name: true },
+          select: { email: true, name: true, timezone: true },
         },
       },
     },
@@ -628,7 +626,6 @@ async function loadPublicBookingLink(slug: string) {
       destinationCalendarId: true,
       availabilitySchedule: {
         select: {
-          timezone: true,
           windows: {
             select: {
               weekday: true,
@@ -641,6 +638,7 @@ async function loadPublicBookingLink(slug: string) {
       emailAccount: {
         select: {
           name: true,
+          timezone: true,
           calendarConnections: {
             where: { isConnected: true },
             select: {
@@ -677,7 +675,7 @@ async function loadPublicBookingLink(slug: string) {
 
   return {
     link,
-    timezone: link.availabilitySchedule.timezone,
+    timezone: getAccountTimezone(link.emailAccount.timezone),
     windows: link.availabilitySchedule.windows.map((window) => ({
       weekday: window.weekday,
       startMinutes: window.startMinutes,
@@ -746,15 +744,29 @@ async function getBusyPeriods({
   excludeBookingId?: string;
   excludeBusyPeriod?: { start: Date; end: Date };
 }): Promise<BusyPeriod[] | null> {
+  // Google freebusy clips busy blocks to the requested window, so the
+  // excluded booking's own event only matches excludeBusyPeriod when the
+  // query covers the whole booking, not just the part inside the new slot.
+  const providerStart =
+    excludeBusyPeriod && excludeBusyPeriod.start < start
+      ? excludeBusyPeriod.start
+      : start;
+  const providerEnd =
+    excludeBusyPeriod && excludeBusyPeriod.end > end
+      ? excludeBusyPeriod.end
+      : end;
+
   const [providerBusyPeriods, existingBookings] = await Promise.all([
     getUnifiedCalendarAvailability({
       emailAccountId: config.link.emailAccountId,
-      startDate: start,
-      endDate: end,
+      startDate: providerStart,
+      endDate: providerEnd,
       timezone: config.timezone,
       logger,
       failClosed: true,
       excludeGoogleVirtualCalendars: true,
+      // These are exact slot (or page) bounds, not calendar days.
+      exactRange: true,
     }).catch((error) => {
       logger.error("Failed to load provider availability for public booking", {
         error,

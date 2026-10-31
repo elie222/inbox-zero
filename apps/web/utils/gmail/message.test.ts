@@ -21,6 +21,20 @@ afterEach(() => {
 });
 
 describe("parseMessage", () => {
+  const inlineImage = {
+    attachmentId: "inline-image",
+    filename: "screenshot.png",
+    headers: {
+      "content-description": "",
+      "content-disposition": "inline; filename=screenshot.png",
+      "content-id": "<screenshot@inboxzero.local>",
+      "content-transfer-encoding": "base64",
+      "content-type": "image/png",
+    },
+    mimeType: "image/png",
+    size: 100_000,
+  };
+
   it("detects calendar MIME parts without decoding their contents in lists", () => {
     const message = parseMessage({
       payload: {
@@ -74,19 +88,6 @@ describe("parseMessage", () => {
   });
 
   it("keeps large inline images out of the downloadable attachment list", () => {
-    const inlineImage = {
-      attachmentId: "inline-image",
-      filename: "screenshot.png",
-      headers: {
-        "content-description": "",
-        "content-disposition": "inline; filename=screenshot.png",
-        "content-id": "<screenshot@inboxzero.local>",
-        "content-transfer-encoding": "base64",
-        "content-type": "image/png",
-      },
-      mimeType: "image/png",
-      size: 100_000,
-    };
     const pdfAttachment = {
       attachmentId: "document",
       filename: "report.pdf",
@@ -111,6 +112,31 @@ describe("parseMessage", () => {
 
     expect(message.inline).toEqual([inlineImage]);
     expect(message.attachments).toEqual([pdfAttachment]);
+    expect(message.hasAttachment).toBe(true);
+  });
+
+  it("flags attachments on metadata-only messages from the top-level MIME type", () => {
+    const withAttachment = parseMessage({
+      payload: { mimeType: "multipart/mixed", headers: [] },
+    });
+    const withoutAttachment = parseMessage({
+      payload: { mimeType: "multipart/alternative", headers: [] },
+    });
+
+    expect(withAttachment.hasAttachment).toBe(true);
+    expect(withoutAttachment.hasAttachment).toBe(false);
+  });
+
+  it("does not flag inline-only images as attachments", () => {
+    const message = parseMessage({
+      payload: {
+        mimeType: "multipart/related",
+        parts: [{ mimeType: "text/html" }],
+      },
+      inline: [inlineImage],
+    } as never);
+
+    expect(message.hasAttachment).toBe(false);
   });
 });
 

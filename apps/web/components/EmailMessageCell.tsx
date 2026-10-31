@@ -8,7 +8,7 @@ import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 import { useThread } from "@/hooks/useThread";
 import { snippetRemoveReply } from "@/utils/gmail/snippet";
 import { extractNameFromEmail } from "@/utils/email";
-import { useEmail } from "@/providers/EmailProvider";
+import { useEmailLabels } from "@/providers/EmailLabelsProvider";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useMemo } from "react";
 import { getEmailMessageCellLabels } from "@/components/EmailMessageCellLabels";
@@ -40,7 +40,7 @@ export function EmailMessageCell({
   filterReplyTrackerLabels?: boolean;
   collapseLabels?: boolean;
 }) {
-  const { userLabels } = useEmail();
+  const { userLabels } = useEmailLabels();
   const { provider } = useAccount();
   const { showEmail } = useDisplayedEmail();
 

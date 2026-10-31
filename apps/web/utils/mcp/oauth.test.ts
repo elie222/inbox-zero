@@ -2,11 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   discoverAuthorizationServerMetadata,
   discoverOAuthProtectedResourceMetadata,
+  exchangeAuthorization,
   registerClient,
   startAuthorization,
 } from "@modelcontextprotocol/sdk/client/auth.js";
 import prisma from "@/utils/__mocks__/prisma";
-import { generateOAuthUrl } from "./oauth";
+import { MCP_INTEGRATIONS } from "./integrations";
+import { generateOAuthUrl, handleOAuthCallback } from "./oauth";
 
 vi.mock("@/utils/prisma");
 vi.mock("@modelcontextprotocol/sdk/client/auth.js", () => ({
@@ -102,7 +104,7 @@ describe("OAuth registration recovery", () => {
   // applying their default scopes
   it("omits scope during registration when the integration declares none", async () => {
     await generateOAuthUrl({
-      integration: "stripe",
+      integration: builtIn("stripe"),
       redirectUri: "https://example.com/oauth/callback",
       state: "oauth-state",
     });
@@ -113,7 +115,7 @@ describe("OAuth registration recovery", () => {
 
   it("registers with the integration's scopes when declared", async () => {
     await generateOAuthUrl({
-      integration: "attio",
+      integration: builtIn("attio"),
       redirectUri: "https://example.com/oauth/callback",
       state: "oauth-state",
     });
@@ -125,8 +127,56 @@ describe("OAuth registration recovery", () => {
 
 function startOAuth() {
   return generateOAuthUrl({
-    integration: "notion",
+    integration: builtIn("notion"),
     redirectUri: "https://example.com/oauth/callback",
     state: "oauth-state",
   });
 }
+
+function builtIn(name: keyof typeof MCP_INTEGRATIONS) {
+  return { ...MCP_INTEGRATIONS[name], isCustom: false };
+}
+
+describe("handleOAuthCallback for custom servers", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    prisma.mcpIntegration.findUnique.mockResolvedValue({
+      id: "integration-custom",
+      name: "custom_abc",
+      oauthClientId: "registered-client",
+      oauthClientSecret: null,
+      registeredAuthorizationUrl: "https://kb.example.com/authorize",
+      registeredTokenUrl: "https://kb.example.com/token",
+      registeredServerUrl: "https://kb.example.com",
+    } as never);
+    vi.mocked(exchangeAuthorization).mockResolvedValue({
+      access_token: "access",
+      token_type: "bearer",
+      expires_in: 3600,
+    });
+  });
+
+  it("does not recreate a custom server that was removed mid-flow", async () => {
+    prisma.mcpIntegration.findFirst.mockResolvedValue(null);
+
+    await expect(
+      handleOAuthCallback({
+        integration: {
+          name: "custom_abc",
+          displayName: "Knowledge base",
+          serverUrl: "https://kb.example.com/mcp",
+          authType: "oauth",
+          scopes: [],
+          isCustom: true,
+        },
+        code: "code",
+        codeVerifier: "verifier",
+        redirectUri: "https://app.example.com/api/mcp/custom_abc/callback",
+        emailAccountId: "account-1",
+      }),
+    ).rejects.toThrow("removed before the connection completed");
+
+    expect(prisma.mcpIntegration.upsert).not.toHaveBeenCalled();
+    expect(prisma.mcpConnection.upsert).not.toHaveBeenCalled();
+  });
+});

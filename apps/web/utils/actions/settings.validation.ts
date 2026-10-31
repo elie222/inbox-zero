@@ -40,6 +40,10 @@ export const saveAiSettingsBody = z.object({
 });
 export type SaveAiSettingsBody = z.infer<typeof saveAiSettingsBody>;
 
+export const saveDecisionModelSettingsBody = z.object({
+  decisionModelEnabled: z.boolean(),
+});
+
 export const saveSensitiveDataPolicyBody = z.object({
   sensitiveDataPolicy: z.enum(SENSITIVE_DATA_POLICIES),
 });

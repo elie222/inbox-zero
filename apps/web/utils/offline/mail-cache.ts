@@ -1,14 +1,18 @@
 const MAIL_PATH = /^\/[^/]+\/mail\/?$/u;
-const ACCOUNT_PATH = "/api/user/email-accounts";
+export const ACCOUNT_PATH = "/api/user/email-accounts";
 export const OFFLINE_MAIL_CACHE_PREFIX = "inbox-zero:offline-mail:";
+export const MAIL_ENGINE_STATIC_CACHE = "inbox-zero:mail-engine-static";
 export const CLEAR_OFFLINE_MAIL = "inbox-zero:clear-offline-mail";
+export const CLEAR_OFFLINE_MAIL_ACCOUNT =
+  "inbox-zero:clear-offline-mail-account";
 export const SAVE_OFFLINE_MAIL = "inbox-zero:save-offline-mail";
 export const SKIP_WAITING = "SKIP_WAITING";
 
 type WaitUntil = (promise: Promise<unknown>) => void;
 
-// Documents and account metadata let the existing IndexedDB mailbox open
-// without a server. API mutations and authentication always use the network.
+// Shell documents and account metadata let the mail route reopen from Cache
+// Storage after activation. Mailbox state lives in SQLite; API mutations and
+// authentication always use the network.
 export function createOfflineMailCache({
   origin,
   cacheName,
@@ -17,9 +21,11 @@ export function createOfflineMailCache({
   cacheName: string;
 }) {
   let generation = 0;
+  let accountsGeneration = 0;
   let activeClears = 0;
   let writes: Promise<unknown> = Promise.resolve();
   const saves = new Map<string, Promise<void>>();
+  const removedMailKeys = new Set<string>();
 
   function queueWrite(operation: (cache: Cache) => Promise<unknown>) {
     writes = writes
@@ -43,6 +49,7 @@ export function createOfflineMailCache({
 
   async function handle(request: Request, waitUntil: WaitUntil) {
     const startedAtGeneration = activeClears ? undefined : generation;
+    const startedAccountsGeneration = accountsGeneration;
     const url = new URL(request.url);
     // Mail's query parameters select client-side views of the same account.
     const key = `${origin}${url.pathname}`;
@@ -93,7 +100,14 @@ export function createOfflineMailCache({
         waitUntil(
           queueWrite(async (cache) => {
             // Logout can happen while opening Cache Storage or writing another entry.
-            if (startedAtGeneration === generation) await cache.put(key, copy);
+            if (
+              startedAtGeneration === generation &&
+              !removedMailKeys.has(key) &&
+              (key !== `${origin}${ACCOUNT_PATH}` ||
+                startedAccountsGeneration === accountsGeneration)
+            ) {
+              await cache.put(key, copy);
+            }
           }),
         );
       }
@@ -173,7 +187,22 @@ export function createOfflineMailCache({
     return saving;
   }
 
-  return { handle, clear, save };
+  async function removeAccount(accountId: string) {
+    if (!isSafeOfflineMailAccountId(accountId)) return;
+    const { mailKeys, accountsKey } = offlineMailAccountCacheKeys(
+      origin,
+      accountId,
+    );
+    for (const key of mailKeys) removedMailKeys.add(key);
+    accountsGeneration += 1;
+    await queueWrite(async (cache) => {
+      await Promise.all(
+        [...mailKeys, accountsKey].map((key) => cache.delete(key)),
+      );
+    });
+  }
+
+  return { handle, clear, save, removeAccount };
 }
 
 export function matchesOfflineMailRequest(request: Request, origin: string) {
@@ -186,8 +215,40 @@ export function matchesOfflineMailRequest(request: Request, origin: string) {
   );
 }
 
+export function matchesMailEngineStaticRequest(
+  request: Request,
+  origin: string,
+) {
+  const url = new URL(request.url);
+  if (request.method !== "GET" || url.origin !== origin) return false;
+  if (url.pathname.includes("hot-update") || url.pathname.endsWith(".map")) {
+    return false;
+  }
+  return (
+    url.pathname.startsWith("/_next/static/") ||
+    url.pathname.endsWith(".wasm") ||
+    request.destination === "worker"
+  );
+}
+
 export function isOfflineMailPath(pathname: string) {
   return MAIL_PATH.test(pathname);
+}
+
+export function isSafeOfflineMailAccountId(accountId: string) {
+  return (
+    accountId.length > 0 &&
+    !accountId.includes("/") &&
+    !accountId.includes("\\") &&
+    !accountId.includes("..")
+  );
+}
+
+export function offlineMailAccountCacheKeys(origin: string, accountId: string) {
+  return {
+    mailKeys: [`${origin}/${accountId}/mail`, `${origin}/${accountId}/mail/`],
+    accountsKey: `${origin}${ACCOUNT_PATH}`,
+  };
 }
 
 export function clearsOfflineMailOnGet(request: Request, origin: string) {

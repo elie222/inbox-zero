@@ -1,12 +1,11 @@
 import type { OutlookClient } from "@/utils/outlook/client";
 import { publishDelete, type TinybirdEmailAction } from "@inboxzero/tinybird";
 import type { Logger } from "@/utils/logger";
+import { withMicrosoftGraphWriteRetry } from "@/utils/outlook/retry";
 import {
-  withMicrosoftGraphRetry,
-  withMicrosoftGraphWriteRetry,
-} from "@/utils/microsoft/retry";
-import { runThreadMessageMutation } from "@/utils/outlook/thread-helpers";
-import { resolveMicrosoftGraphNextLink } from "@/utils/outlook/page-token";
+  listThreadMessages,
+  runThreadMessageMutation,
+} from "@/utils/outlook/thread-helpers";
 
 export async function trashThread(options: {
   client: OutlookClient;
@@ -16,7 +15,13 @@ export async function trashThread(options: {
   logger: Logger;
 }) {
   const { client, threadId, ownerEmail, actionSource, logger } = options;
-  const messageIds = await getThreadMessageIds({ client, threadId, logger });
+  const messages = await listThreadMessages({
+    client,
+    threadId,
+    select: "id",
+    logger,
+  });
+  const messageIds = messages.map((message) => message.id);
 
   await runThreadMessageMutation({
     messageIds,
@@ -49,47 +54,4 @@ export async function trashThread(options: {
   }
 
   return { status: 200 };
-}
-
-async function getThreadMessageIds({
-  client,
-  threadId,
-  logger,
-}: {
-  client: OutlookClient;
-  threadId: string;
-  logger: Logger;
-}): Promise<string[]> {
-  const escapedThreadId = threadId.replace(/'/g, "''");
-  let page: { value: { id: string }[]; "@odata.nextLink"?: string } =
-    await withMicrosoftGraphRetry(
-      () =>
-        client
-          .getClient()
-          .api("/me/messages")
-          .filter(`conversationId eq '${escapedThreadId}'`)
-          .select("id")
-          .get(),
-      logger,
-    );
-
-  // Finish enumeration before moving messages changes the paginated result set.
-  const messageIds = new Set<string>();
-  const visitedPages = new Set<string>();
-  while (true) {
-    for (const message of page.value) messageIds.add(message.id);
-    if (!page["@odata.nextLink"]) break;
-
-    const nextLink = resolveMicrosoftGraphNextLink(page["@odata.nextLink"]);
-    if (!nextLink || visitedPages.has(nextLink)) {
-      throw new Error("Unable to complete Outlook thread pagination");
-    }
-    visitedPages.add(nextLink);
-    page = await withMicrosoftGraphRetry(
-      () => client.getClient().api(nextLink).get(),
-      logger,
-    );
-  }
-
-  return [...messageIds];
 }

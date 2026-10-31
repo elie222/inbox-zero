@@ -2,7 +2,10 @@ import {
   getPlaywrightSpecPathFromTargetName,
   getPlaywrightTargetName,
 } from "../utils/playwright/emulated-suite-targets.mjs";
-import type { PlaywrightScreenshot } from "./playwright-report-dashboard";
+import {
+  type PlaywrightScreenshot,
+  screenshotBaselineKey,
+} from "./playwright-report-dashboard";
 
 export const PLAYWRIGHT_PR_COMMENT_MARKER =
   "<!-- inbox-zero-playwright-screenshots -->";
@@ -10,6 +13,7 @@ export const PLAYWRIGHT_PR_COMMENT_FRAME_LIMIT = 6;
 // Timestamps, avatars, and other run-to-run drift move far fewer pixels than
 // this, so anything above it is a change worth a reviewer's glance.
 export const PLAYWRIGHT_PR_COMMENT_MIN_DIFFERENCE = 0.02;
+export const PLAYWRIGHT_PR_COMMENT_VISUAL_CHANGE_LIMIT = 3;
 
 const EMULATED_SPEC_PATTERN =
   /^apps\/web\/(__tests__\/playwright\/emulated\/.+\.spec\.ts)$/;
@@ -34,7 +38,12 @@ export function selectPlaywrightPrFrames(input: {
   limit?: number;
   minDifference?: number;
   screenshots: readonly PlaywrightPrCommentScreenshot[];
-}): { frames: PlaywrightPrFrame[]; omittedCount: number } {
+}): {
+  flakyFailures: PlaywrightPrCommentScreenshot[];
+  frames: PlaywrightPrFrame[];
+  omittedCount: number;
+  visualChanges: PlaywrightPrFrame[];
+} {
   const limit = input.limit ?? PLAYWRIGHT_PR_COMMENT_FRAME_LIMIT;
   const minDifference =
     input.minDifference ?? PLAYWRIGHT_PR_COMMENT_MIN_DIFFERENCE;
@@ -47,32 +56,34 @@ export function selectPlaywrightPrFrames(input: {
   const checkpoints = input.screenshots.filter(
     (screenshot) => screenshot.captureType === "checkpoint",
   );
+  const inChangedSpec = (screenshot: PlaywrightPrCommentScreenshot) =>
+    changedTargets.has(targetNameFromSource(screenshot.source));
   const changed = checkpoints.filter(
     (screenshot) => screenshot.comparison === "changed",
   );
+  const failures = input.screenshots.filter(
+    (screenshot) => screenshot.captureType === "failure",
+  );
+  const flakyFailures = failures.filter((failure) =>
+    passedOnLaterAttempt(failure, input.screenshots),
+  );
 
   const candidates: PlaywrightPrFrame[] = [
-    ...input.screenshots
-      .filter((screenshot) => screenshot.captureType === "failure")
+    ...failures
+      .filter((failure) => !flakyFailures.includes(failure))
       .map((screenshot) => ({ ...screenshot, reason: "failed" as const })),
+    // The main baseline can trail main, so checkpoints added by other merged
+    // PRs also look new. Only new captures from specs this PR touched are its own.
     ...checkpoints
-      .filter((screenshot) => screenshot.comparison === "new")
-      .map((screenshot) => ({ ...screenshot, reason: "new" as const })),
-    ...changed
-      .filter((screenshot) =>
-        changedTargets.has(targetNameFromSource(screenshot.source)),
+      .filter(
+        (screenshot) =>
+          screenshot.comparison === "new" && inChangedSpec(screenshot),
       )
-      .map((screenshot) => ({
-        ...screenshot,
-        reason: "spec changed" as const,
-      })),
-    ...changed
-      .filter((screenshot) => (screenshot.difference ?? 0) >= minDifference)
-      .sort((left, right) => (right.difference ?? 0) - (left.difference ?? 0))
-      .map((screenshot) => ({
-        ...screenshot,
-        reason: "visual change" as const,
-      })),
+      .map((screenshot) => ({ ...screenshot, reason: "new" as const })),
+    ...changed.filter(inChangedSpec).map((screenshot) => ({
+      ...screenshot,
+      reason: "spec changed" as const,
+    })),
   ];
 
   const seen = new Set<string>();
@@ -81,9 +92,26 @@ export function selectPlaywrightPrFrames(input: {
     seen.add(frame.fileName);
     return true;
   });
+  // Pixel diffs also catch run-to-run drift (scroll position, timing), so they
+  // are kept apart from frames this PR is known to affect.
+  const visualChanges = changed
+    .filter(
+      (screenshot) =>
+        !seen.has(screenshot.fileName) &&
+        (screenshot.difference ?? 0) >= minDifference,
+    )
+    .sort((left, right) => (right.difference ?? 0) - (left.difference ?? 0))
+    .slice(0, PLAYWRIGHT_PR_COMMENT_VISUAL_CHANGE_LIMIT)
+    .map((screenshot) => ({
+      ...screenshot,
+      reason: "visual change" as const,
+    }));
+
   return {
+    flakyFailures,
     frames: frames.slice(0, limit),
     omittedCount: Math.max(0, frames.length - limit),
+    visualChanges,
   };
 }
 
@@ -98,7 +126,8 @@ export function buildPlaywrightPrComment(input: {
   screenshotsUrl: string;
   sha: string;
 }): string {
-  const { frames, omittedCount } = selectPlaywrightPrFrames(input);
+  const { flakyFailures, frames, omittedCount, visualChanges } =
+    selectPlaywrightPrFrames(input);
   const galleryBaseUrl = new URL(".", input.screenshotsUrl);
   const lines = [
     PLAYWRIGHT_PR_COMMENT_MARKER,
@@ -112,34 +141,63 @@ export function buildPlaywrightPrComment(input: {
     summarizeScreenshots(input.screenshots),
   ];
 
+  const pushFrame = (frame: PlaywrightPrFrame) => {
+    const imageUrl = new URL(frame.fileName, galleryBaseUrl).toString();
+    const title = escapeMarkdown(frame.title);
+    lines.push(
+      "",
+      `**${title}** · ${escapeMarkdown(specPathFromSource(frame.source))} · ${describeReason(frame)}`,
+      "",
+      `![${title}](${imageUrl})`,
+    );
+  };
+
   const unmeasuredChanges = input.screenshots.filter(
     (screenshot) =>
       screenshot.captureType === "checkpoint" &&
       screenshot.comparison === "changed" &&
       screenshot.difference === undefined,
   ).length;
-  if (frames.length === 0) {
+  if (frames.length > 0) {
+    lines.push("", "#### Frames to review");
+    for (const frame of frames) pushFrame(frame);
+    if (omittedCount > 0) {
+      lines.push("", `${omittedCount} more to review in the gallery.`);
+    }
+  } else if (visualChanges.length > 0) {
+    lines.push(
+      "",
+      "No failures, new captures, or captures from specs changed in this PR.",
+    );
+  } else {
     lines.push(
       "",
       unmeasuredChanges > 0
         ? `${unmeasuredChanges} changed captures could not be measured against main; review them in the gallery.`
         : "Nothing stood out against main; browse every capture in the gallery.",
     );
-  } else {
-    lines.push("", "#### Frames to review");
-    for (const frame of frames) {
-      const imageUrl = new URL(frame.fileName, galleryBaseUrl).toString();
-      const title = escapeMarkdown(frame.title);
-      lines.push(
-        "",
-        `**${title}** · ${escapeMarkdown(specPathFromSource(frame.source))} · ${describeReason(frame)}`,
-        "",
-        `![${title}](${imageUrl})`,
-      );
-    }
-    if (omittedCount > 0) {
-      lines.push("", `${omittedCount} more to review in the gallery.`);
-    }
+  }
+
+  if (flakyFailures.length > 0) {
+    const specs = [
+      ...new Set(
+        flakyFailures.map((failure) => specPathFromSource(failure.source)),
+      ),
+    ];
+    lines.push(
+      "",
+      `${flakyFailures.length} flaky failure captures from tests that passed on retry: ${specs.map(escapeMarkdown).join(", ")}.`,
+    );
+  }
+
+  if (visualChanges.length > 0) {
+    lines.push(
+      "",
+      "<details>",
+      `<summary>Largest pixel differences from main (${visualChanges.length}). These can be run-to-run drift such as scroll position.</summary>`,
+    );
+    for (const frame of visualChanges) pushFrame(frame);
+    lines.push("", "</details>");
   }
 
   lines.push("", `Updated for commit \`${input.sha.slice(0, 7)}\`.`);
@@ -163,7 +221,15 @@ function summarizeScreenshots(
   if (!baselineAvailable) {
     return `${total} screenshots captured${failureNote}. No main baseline was available for comparison.`;
   }
-  return `${total} screenshots captured: ${count((screenshot) => screenshot.comparison === "new")} new, ${count((screenshot) => screenshot.comparison === "changed")} changed, ${count((screenshot) => screenshot.comparison === "unchanged")} unchanged compared with main${failureNote}.`;
+  const checkpoints = (
+    comparison: PlaywrightPrCommentScreenshot["comparison"],
+  ) =>
+    count(
+      (screenshot) =>
+        screenshot.captureType === "checkpoint" &&
+        screenshot.comparison === comparison,
+    );
+  return `${total} screenshots captured: ${checkpoints("new")} new, ${checkpoints("changed")} changed, ${checkpoints("unchanged")} unchanged compared with main${failureNote}.`;
 }
 
 function describeReason(frame: PlaywrightPrFrame): string {
@@ -179,12 +245,52 @@ function describeReason(frame: PlaywrightPrFrame): string {
   }
 }
 
+function passedOnLaterAttempt(
+  failure: PlaywrightPrCommentScreenshot,
+  screenshots: readonly PlaywrightPrCommentScreenshot[],
+): boolean {
+  const test = testDirectoryKey(failure.source);
+  const failedAttempt = retryAttempt(failure.source);
+  const attempts = screenshots.filter(
+    (screenshot) => testDirectoryKey(screenshot.source) === test,
+  );
+  const finalAttempt = Math.max(
+    ...attempts.map((screenshot) => retryAttempt(screenshot.source)),
+  );
+  return (
+    finalAttempt > failedAttempt &&
+    !attempts.some(
+      (screenshot) =>
+        screenshot.captureType === "failure" &&
+        retryAttempt(screenshot.source) === finalAttempt,
+    )
+  );
+}
+
+function testDirectoryKey(source: string): string {
+  return screenshotBaselineKey(source).split(/[\\/]/).slice(0, -1).join("/");
+}
+
+function retryAttempt(source: string): number {
+  const attempt = /-retry(\d+)[\\/][^\\/]+$/.exec(source)?.[1];
+  return attempt === undefined ? 0 : Number(attempt);
+}
+
+// Sources are `[provider/]<target>/<test>/<file>`; the provider folder is
+// present when the suite runs once per mail provider.
 function targetNameFromSource(source: string): string {
-  return source.split(/[\\/]/)[0] ?? source;
+  const segments = source.split(/[\\/]/);
+  return (
+    segments.find((segment) => segment.endsWith(".spec.ts")) ?? segments[0]
+  );
 }
 
 function specPathFromSource(source: string): string {
-  return getPlaywrightSpecPathFromTargetName(targetNameFromSource(source));
+  const specPath = getPlaywrightSpecPathFromTargetName(
+    targetNameFromSource(source),
+  );
+  const [first] = source.split(/[\\/]/);
+  return first.endsWith(".spec.ts") ? specPath : `${specPath} (${first})`;
 }
 
 function escapeMarkdown(value: string): string {

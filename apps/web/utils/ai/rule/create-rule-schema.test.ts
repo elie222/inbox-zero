@@ -71,10 +71,6 @@ describe("createRuleSchema", () => {
     expect(createRuleSchema(provider, true).safeParse(rule).success).toBe(true);
   });
 
-  it("includes SEND_EMAIL in available actions for this test provider", () => {
-    assertSendEmailAvailable();
-  });
-
   it("rejects SEND_EMAIL without fields.to", () => {
     assertSendEmailAvailable();
 

@@ -175,7 +175,7 @@ function getErrorFingerprint(error: unknown) {
 function isRedisDedupeEnabled() {
   if (env.NODE_ENV === "test") return false;
 
-  return Boolean(env.UPSTASH_REDIS_URL && env.UPSTASH_REDIS_TOKEN);
+  return Boolean(env.REDIS_HTTP_URL && env.REDIS_HTTP_TOKEN);
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {

@@ -20,6 +20,7 @@ import {
   type ShortcutScope,
   SHORTCUTS,
 } from "@/lib/shortcuts/registry";
+import { trackMailAction } from "@/utils/analytics/mail-usage";
 
 type HotkeysEvent = Parameters<HotkeyCallback>[1];
 
@@ -122,7 +123,13 @@ function useShortcutBucket(
       const { entry } = target;
       const handler =
         handlersRef.current[entry.id as ShortcutId] ?? entry.action;
-      handler?.(event);
+      if (!handler) return;
+      handler(event);
+      trackMailAction({
+        action: entry.id,
+        source: "shortcut",
+        shortcut: hotkeysEvent.hotkey,
+      });
     },
     [bucket, handlersRef, sequence],
   );

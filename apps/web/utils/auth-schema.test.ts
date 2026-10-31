@@ -25,7 +25,7 @@ vi.mock("@/utils/prisma", async (importOriginal) => {
   const module = await importOriginal<typeof import("@/utils/prisma")>();
   vi.spyOn(module.default.oauthResource, "findFirst").mockResolvedValue({
     id: "test-resource",
-    identifier: "https://example.com/api/mcp-server",
+    identifier: "https://example.com/mcp",
   } as never);
   return module;
 });

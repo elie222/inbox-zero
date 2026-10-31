@@ -80,17 +80,17 @@ Browser unsubscribe is also optional. Docker Compose and `pnpm dev` never start 
 
 **Note**: If you only use Microsoft OAuth, set `GOOGLE_CLIENT_ID=skipped` and `GOOGLE_CLIENT_SECRET=skipped`.
 
-**Note**: When both the web app and its database/Redis run in Docker, remove or comment out `DATABASE_URL`, `DIRECT_URL`, and `UPSTASH_REDIS_URL` copied from `.env.example`. Those example URLs use `localhost` for running the app on your host; Compose supplies internal Docker hostnames when they are unset. Keep explicit connection URLs when using external services.
+**Note**: When both the web app and its database/Redis run in Docker, remove or comment out `DATABASE_URL`, `DIRECT_URL`, and `REDIS_HTTP_URL` copied from `.env.example`. Those example URLs use `localhost` for running the app on your host; Compose supplies internal Docker hostnames when they are unset. Existing files that still set `UPSTASH_REDIS_URL` behave the same way. Keep explicit connection URLs when using external services.
 
 ### 3. Deploy
 
-Pull and start the services with your domain:
+Start the services with the command setup printed. From a cloned repo, you can also run:
 
 ```bash
-NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --profile all up -d
+NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --env-file apps/web/.env --profile all up -d
 ```
 
-The pre-built Docker image is hosted at `ghcr.io/elie222/inbox-zero:latest` and will be automatically pulled.
+The pre-built Docker image is hosted at `ghcr.io/elie222/inbox-zero:latest` and will be automatically pulled. To pin a release, use its version without the `v` prefix (e.g., `ghcr.io/elie222/inbox-zero:2.30.0`).
 
 **Important**: Compose-time `${...}` values are resolved before service-level `env_file` entries are loaded. If you're running from a cloned repo, make sure Compose can see the same values as the app by linking or copying `apps/web/.env` to the repo root as `.env`. The CLI setup does this automatically for the default configuration and preserves existing user-managed root files. Copied files are refreshed only while their contents match the last CLI-written version; changed copies and retargeted links are preserved with a warning. For manual setup, run `ln -s apps/web/.env .env` once from the repo root before `docker compose up`. If a root `.env` already exists, review it before replacing it, or use `docker compose --env-file apps/web/.env --profile all up -d`. Shell environment values still take precedence.
 
@@ -109,7 +109,7 @@ The `docker-compose.yml` supports different deployment modes using profiles:
 
 For external services, set the appropriate environment variables in `apps/web/.env`:
 - **External Postgres**: Set `DATABASE_URL` and `DIRECT_URL`
-- **External Redis**: Set `UPSTASH_REDIS_URL` and `UPSTASH_REDIS_TOKEN`
+- **External Redis**: Set `REDIS_HTTP_URL` and `REDIS_HTTP_TOKEN`. `UPSTASH_REDIS_URL` and `UPSTASH_REDIS_TOKEN` still work.
 
 ### 4. Check Logs
 
@@ -132,7 +132,7 @@ Your application should now be accessible at:
 
 ## Scheduled Tasks
 
-The Docker Compose setup includes a `cron` container that handles these scheduled tasks automatically. It runs interval loops rather than a system cron daemon, so the first request is sent when the container starts and subsequent requests use the intervals below.
+The Docker Compose setup includes a `cron` container that handles these scheduled tasks automatically. It runs interval loops rather than a system cron daemon. It waits until the `web` service responds, sends the first request for each task, and then uses the intervals below. The daily and weekly tasks first wait five minutes after startup.
 
 | Task | Interval | Endpoint | Description |
 |------|----------|----------|-------------|
@@ -143,8 +143,11 @@ The Docker Compose setup includes a `cron` container that handles these schedule
 | **Meeting briefs** | Every 15 minutes | `/api/meeting-briefs` | Sends pre-meeting briefings to users with the feature enabled |
 | **Meeting recorder scheduling** | Every 5 minutes | `/api/meeting-recorder/schedule` | Schedules Recall.ai meeting bots when Meeting Recorder is configured |
 | **Follow-up reminders** | Every hour | `/api/follow-up-reminders` | Processes follow-up reminder notifications |
+| **Retention cleanup** | Daily | `/api/cron/reasoning-retention`, `/api/cron/mobile-push-retention`, `/api/cron/email-send-operation-retention`, `/api/cron/draft-cleanup` | Redacts or deletes expired AI reasoning, sent-draft text, push records, send operations, and unused AI drafts |
+| **Inbox health emails** | Daily | `/api/resend/inbox-health/all` | Sends inbox health emails when Resend is configured |
+| **Weekly summary emails** | Weekly | `/api/resend/summary/all` | Sends weekly summary emails when Resend is configured |
 
-The bundled Compose service does **not** run the two daily cleanup endpoints. Schedule `/api/cron/reasoning-retention` when `REASONING_RETENTION_DAYS` or `DRAFT_SENT_TEXT_RETENTION_DAYS` is configured. Schedule `/api/cron/draft-cleanup` when users enable automatic cleanup of unused AI-generated drafts.
+If you previously scheduled `/api/cron/reasoning-retention` or `/api/cron/draft-cleanup` outside Compose, you can remove those schedules; the bundled `cron` service now runs them. `reasoning-retention` only redacts data when `REASONING_RETENTION_DAYS` or `DRAFT_SENT_TEXT_RETENTION_DAYS` is configured, and `draft-cleanup` only affects users who enable automatic cleanup of unused AI-generated drafts.
 
 **If you're not using Docker Compose** you need to set up cron jobs manually:
 
@@ -163,6 +166,14 @@ The bundled Compose service does **not** run the two daily cleanup endpoints. Sc
 
 # Unused AI draft cleanup - daily (optional, only if users enable automatic draft cleanup)
 0 4 * * * curl -s -X GET "https://yourdomain.com/api/cron/draft-cleanup" -H "Authorization: Bearer YOUR_CRON_SECRET"
+
+# Push notification and send operation retention - daily
+30 3 * * * curl -s -X GET "https://yourdomain.com/api/cron/mobile-push-retention" -H "Authorization: Bearer YOUR_CRON_SECRET"
+45 3 * * * curl -s -X GET "https://yourdomain.com/api/cron/email-send-operation-retention" -H "Authorization: Bearer YOUR_CRON_SECRET"
+
+# Inbox health and weekly summary emails (optional, only if Resend is configured)
+0 8 * * * curl -s -X GET "https://yourdomain.com/api/resend/inbox-health/all" -H "Authorization: Bearer YOUR_CRON_SECRET"
+0 9 * * 1 curl -s -X GET "https://yourdomain.com/api/resend/summary/all" -H "Authorization: Bearer YOUR_CRON_SECRET"
 
 # Email watch renewal - every 6 hours
 0 */6 * * * curl -s -X GET "https://yourdomain.com/api/watch/all" -H "Authorization: Bearer YOUR_CRON_SECRET"

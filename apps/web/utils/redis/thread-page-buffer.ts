@@ -4,7 +4,7 @@ import { Redis } from "@upstash/redis";
 import { env } from "@/env";
 import { encryptToken, decryptToken } from "@/utils/encryption";
 import { createScopedLogger } from "@/utils/logger";
-import { createThreadListCacheKey } from "@/utils/email-cache/keys";
+import { createThreadListCacheKey } from "@/utils/threads/thread-list-cache-key";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 import type {
   PageBuffer,
@@ -181,11 +181,11 @@ export async function withThreadPageBufferDeletion<T>(
 }
 
 function createBufferRedis() {
-  if (!env.UPSTASH_REDIS_URL || !env.UPSTASH_REDIS_TOKEN) return;
-  if (URL.parse(env.UPSTASH_REDIS_URL)?.protocol !== "https:") return;
+  if (!env.REDIS_HTTP_URL || !env.REDIS_HTTP_TOKEN) return;
+  if (URL.parse(env.REDIS_HTTP_URL)?.protocol !== "https:") return;
   return new Redis({
-    url: env.UPSTASH_REDIS_URL,
-    token: env.UPSTASH_REDIS_TOKEN,
+    url: env.REDIS_HTTP_URL,
+    token: env.REDIS_HTTP_TOKEN,
     retry: false,
     signal: () => AbortSignal.timeout(500),
   });

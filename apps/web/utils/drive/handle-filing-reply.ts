@@ -20,6 +20,7 @@ import {
   getFilebotReplyTo,
 } from "@/utils/filebot/is-filebot-email";
 import { emailToContentForAI } from "@/utils/ai/content-sanitizer";
+import { escapeHtml } from "@/utils/string";
 
 interface ProcessFilingReplyArgs {
   emailAccount: EmailAccountWithAI;
@@ -145,7 +146,7 @@ export async function processFilingReply({
   if (reply) {
     const filebotReplyTo = getFilebotReplyTo({ userEmail });
     const filebotFrom = getFilebotFrom({ userEmail });
-    await emailProvider.replyToEmail(message, reply, {
+    await emailProvider.replyToEmail(message, escapeHtml(reply), {
       replyTo: filebotReplyTo,
       from: filebotFrom,
     });

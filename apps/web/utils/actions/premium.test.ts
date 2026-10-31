@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getMockOrganizationMembership } from "@/__tests__/helpers";
+import { getStripePriceId } from "@/app/(app)/premium/config";
 import prisma from "@/utils/__mocks__/prisma";
 import {
+  adminChangePremiumStatusAction,
   endStripeTrialAction,
   generateCheckoutSessionAction,
   getBillingPortalUrlAction,
@@ -16,6 +18,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/utils/prisma");
+vi.mock("@/utils/admin", () => ({ isAdmin: () => true }));
 vi.mock("@/utils/auth", () => ({
   auth: vi.fn(async () => ({
     user: { id: "user-1", email: "user@example.com" },
@@ -236,6 +239,156 @@ describe("getBillingPortalUrlAction", () => {
     expect(result?.serverError).toBe("Not admin");
     expect(mocks.createBillingPortalSession).not.toHaveBeenCalled();
   });
+
+  it("opens a plan-change session for the annual price on an existing monthly subscription", async () => {
+    prisma.user.findUnique.mockResolvedValue(
+      billingPortalUser({
+        stripeSubscriptionItemId: "si_stale",
+        emailAccountCount: 2,
+      }),
+    );
+    mocks.retrieveSubscription.mockResolvedValue(
+      stripeSubscription({ itemId: "si_live" }),
+    );
+    mocks.createBillingPortalSession.mockResolvedValue({
+      url: "https://billing.stripe.test/confirm-annual",
+    });
+
+    const result = await getBillingPortalUrlAction({
+      tier: "BASIC_ANNUALLY",
+    });
+
+    expect(result?.data).toEqual({
+      url: "https://billing.stripe.test/confirm-annual",
+    });
+    expect(mocks.createCheckoutSession).not.toHaveBeenCalled();
+    expect(mocks.createBillingPortalSession).toHaveBeenCalledWith({
+      customer: "cus_test",
+      return_url: "http://localhost:3000/premium",
+      flow_data: {
+        type: "subscription_update_confirm",
+        subscription_update_confirm: {
+          subscription: "sub_test",
+          items: [
+            {
+              id: "si_live",
+              price: getStripePriceId({ tier: "BASIC_ANNUALLY" }),
+              quantity: 2,
+            },
+          ],
+        },
+      },
+    });
+  });
+
+  it("still switches to the annual price when Stripe cannot confirm the interval change in the portal", async () => {
+    prisma.user.findUnique.mockResolvedValue(billingPortalUser());
+    mocks.retrieveSubscription.mockResolvedValue(stripeSubscription());
+    mocks.createBillingPortalSession.mockRejectedValue(
+      stripeInvalidRequestError(
+        "The customer portal cannot update this subscription to a price with a different billing interval.",
+        "flow_data[subscription_update_confirm][items][0][price]",
+      ),
+    );
+    mocks.updateSubscription.mockResolvedValue({
+      id: "sub_test",
+      status: "active",
+      latest_invoice: {
+        status: "open",
+        hosted_invoice_url: "https://invoice.stripe.test/annual",
+      },
+    });
+
+    const result = await getBillingPortalUrlAction({
+      tier: "BASIC_ANNUALLY",
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(result?.data).toEqual({
+      url: "https://invoice.stripe.test/annual",
+    });
+    expect(mocks.createCheckoutSession).not.toHaveBeenCalled();
+    expect(mocks.updateSubscription).toHaveBeenCalledWith("sub_test", {
+      items: [
+        {
+          id: "si_live",
+          price: getStripePriceId({ tier: "BASIC_ANNUALLY" }),
+          quantity: 1,
+        },
+      ],
+      cancel_at_period_end: false,
+      proration_behavior: "create_prorations",
+      payment_behavior: "pending_if_incomplete",
+      expand: ["latest_invoice"],
+    });
+  });
+
+  it("returns the app billing page after a direct annual switch that does not need another payment", async () => {
+    prisma.user.findUnique.mockResolvedValue(billingPortalUser());
+    mocks.retrieveSubscription.mockResolvedValue(stripeSubscription());
+    mocks.createBillingPortalSession.mockRejectedValue(
+      stripeInvalidRequestError(
+        "The specified price is not available in the customer portal.",
+      ),
+    );
+    mocks.updateSubscription.mockResolvedValue({
+      id: "sub_test",
+      status: "active",
+      latest_invoice: { status: "paid", hosted_invoice_url: null },
+    });
+
+    const result = await getBillingPortalUrlAction({
+      tier: "BASIC_ANNUALLY",
+    });
+
+    expect(result?.data).toEqual({ url: "http://localhost:3000/premium" });
+  });
+
+  it("does not change the subscription when the portal fails for an unrelated reason", async () => {
+    prisma.user.findUnique.mockResolvedValue(billingPortalUser());
+    mocks.retrieveSubscription.mockResolvedValue(stripeSubscription());
+    mocks.createBillingPortalSession.mockRejectedValue(
+      Object.assign(new Error("Stripe is temporarily unavailable"), {
+        type: "api_error",
+      }),
+    );
+
+    const result = await getBillingPortalUrlAction({
+      tier: "BASIC_ANNUALLY",
+    });
+
+    expect(result?.serverError).toBe("An unknown error occurred.");
+    expect(mocks.updateSubscription).not.toHaveBeenCalled();
+  });
+
+  it("does not guess a subscription item when the stored item is missing from a multi-item subscription", async () => {
+    prisma.user.findUnique.mockResolvedValue(
+      billingPortalUser({ stripeSubscriptionItemId: "si_stale" }),
+    );
+    mocks.retrieveSubscription.mockResolvedValue({
+      id: "sub_test",
+      status: "active",
+      items: {
+        data: [
+          { id: "si_addon", quantity: 1 },
+          { id: "si_live", quantity: 1 },
+        ],
+      },
+    });
+    mocks.createBillingPortalSession.mockResolvedValue({
+      url: "https://billing.stripe.test",
+    });
+
+    const result = await getBillingPortalUrlAction({
+      tier: "BASIC_ANNUALLY",
+    });
+
+    expect(result?.serverError).toBe(
+      "We couldn't change your plan. Your subscription has not been changed.",
+    );
+    expect(mocks.createBillingPortalSession).not.toHaveBeenCalled();
+    expect(mocks.updateSubscription).not.toHaveBeenCalled();
+  });
 });
 
 describe("endStripeTrialAction", () => {
@@ -424,5 +577,107 @@ describe("generateCheckoutSessionAction", () => {
     expect(
       mocks.createCheckoutSession.mock.calls[0]?.[0].subscription_data,
     ).not.toHaveProperty("trial_period_days");
+  });
+});
+
+function billingPortalUser({
+  stripeSubscriptionItemId = "si_test",
+  emailAccountCount = 1,
+}: {
+  stripeSubscriptionItemId?: string;
+  emailAccountCount?: number;
+} = {}) {
+  return {
+    emailAccounts: [],
+    premium: {
+      id: "premium-1",
+      stripeCustomerId: "cus_test",
+      stripeSubscriptionId: "sub_test",
+      stripeSubscriptionItemId,
+      stripeSubscriptionStatus: "active",
+      users: [{ _count: { emailAccounts: emailAccountCount } }],
+      admins: [{ id: "user-1" }],
+    },
+  } as Awaited<ReturnType<typeof prisma.user.findUnique>>;
+}
+
+function stripeSubscription({
+  itemId = "si_live",
+  quantity = 1,
+}: {
+  itemId?: string;
+  quantity?: number;
+} = {}) {
+  return {
+    id: "sub_test",
+    status: "active",
+    items: {
+      data: [{ id: itemId, quantity }],
+    },
+  };
+}
+
+function stripeInvalidRequestError(message: string, param?: string) {
+  return Object.assign(new Error(message), {
+    type: "invalid_request_error",
+    ...(param ? { param } : {}),
+  });
+}
+
+describe("adminChangePremiumStatusAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    prisma.emailAccount.findUnique.mockResolvedValue(null);
+  });
+
+  it("saves a pending grant when the user has not signed up yet", async () => {
+    const result = await adminChangePremiumStatusAction({
+      email: "New.User@example.com",
+      period: "PLUS_ANNUALLY",
+      count: 2,
+      upgrade: true,
+    });
+
+    expect(result?.data).toEqual({ pending: true });
+    expect(prisma.emailAccount.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { email: "new.user@example.com" } }),
+    );
+    expect(prisma.pendingPremiumGrant.upsert).toHaveBeenCalledWith({
+      where: { email: "new.user@example.com" },
+      create: {
+        email: "new.user@example.com",
+        tier: "PLUS_ANNUALLY",
+        count: 2,
+        emailAccountsAccess: null,
+      },
+      update: { tier: "PLUS_ANNUALLY", count: 2, emailAccountsAccess: null },
+    });
+  });
+
+  it("removes a pending grant on downgrade before sign-up", async () => {
+    prisma.pendingPremiumGrant.deleteMany.mockResolvedValue({ count: 1 });
+
+    const result = await adminChangePremiumStatusAction({
+      email: "new.user@example.com",
+      period: "PLUS_ANNUALLY",
+      upgrade: false,
+    });
+
+    expect(result?.data).toEqual({ pending: true });
+    expect(prisma.pendingPremiumGrant.deleteMany).toHaveBeenCalledWith({
+      where: { email: "new.user@example.com" },
+    });
+  });
+
+  it("rejects a downgrade for an unknown email without a pending grant", async () => {
+    prisma.pendingPremiumGrant.deleteMany.mockResolvedValue({ count: 0 });
+
+    const result = await adminChangePremiumStatusAction({
+      email: "nobody@example.com",
+      period: "PLUS_ANNUALLY",
+      upgrade: false,
+    });
+
+    expect(result?.serverError).toBe("User not found");
   });
 });

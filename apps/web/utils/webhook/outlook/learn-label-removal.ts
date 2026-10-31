@@ -47,7 +47,6 @@ export async function learnFromOutlookLabelRemoval({
       messageId: message.id,
       threadId: message.threadId,
       status: ExecutedRuleStatus.APPLIED,
-      rule: { systemType: { not: null } },
       actionItems: {
         some: SUCCESSFUL_LABEL_OR_FOLDER_ACTION,
       },

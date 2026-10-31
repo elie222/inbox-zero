@@ -13,12 +13,20 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { useFolders } from "@/hooks/useFolders";
 import { useLabels } from "@/hooks/useLabels";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { createLabelAction } from "@/utils/actions/mail";
-import { applyThreadLabelsAction } from "@/utils/actions/mail-label";
-import { applyThreadLabelsInBatches } from "@/utils/label/apply-thread-labels";
+import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { getActionErrorMessage } from "@/utils/error";
+import {
+  FOLDER_SEPARATOR,
+  flattenOutlookFolders,
+} from "@/utils/outlook/folders";
+import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
+import type { MetadataChange } from "@inboxzero/mail-core/commands";
+import type { MailClient } from "@inboxzero/mail-core/engine";
+import { randomUuid } from "@/utils/uuid";
 
 const GMAIL_CATEGORY_NAMES: Record<string, string> = {
   CATEGORY_PERSONAL: "Personal",
@@ -39,30 +47,50 @@ export function LabelPickerDialog({
   onApplied: (threadIds: string[], labelId: string) => void;
   mode?: "label" | "move";
 }) {
-  const { emailAccountId } = useAccount();
-  const { userLabels, isLoading, error, mutate } = useLabels(emailAccountId);
+  const { emailAccountId, provider } = useAccount();
+  const client = useOptionalMailClient();
+  const isMove = mode === "move";
+  // Outlook categories don't change where a message lives, so moves target real folders.
+  const isFolderMove = isMove && isMicrosoftProvider(provider);
+  const {
+    userLabels,
+    isLoading: isLoadingLabels,
+    error: labelsError,
+    mutate,
+  } = useLabels(emailAccountId);
+  const {
+    folders,
+    isLoading: isLoadingFolders,
+    error: foldersError,
+  } = useFolders(isFolderMove ? provider : "", emailAccountId);
   const [search, setSearch] = useState("");
   const [isPending, setIsPending] = useState(false);
   const pending = useRef(false);
   const [remainingThreadIds, setRemainingThreadIds] = useState(threadIds);
   const createdLabel = useRef<{ name: string; id: string } | null>(null);
-  const isMove = mode === "move";
   const name = search.trim();
-  const labels = useMemo(
-    () =>
-      userLabels
-        .map((label) => ({
-          ...label,
+  const labels = useMemo(() => {
+    const options = isFolderMove
+      ? flattenOutlookFolders(folders)
+          .filter((folder) => !folder.systemType)
+          .map((folder) => ({
+            id: folder.id,
+            name: folder.displayName,
+            displayName: folder.path.split(FOLDER_SEPARATOR).join(" / "),
+          }))
+      : userLabels.map((label) => ({
+          id: label.id,
+          name: label.name,
           displayName: getLabelDisplayName(label.id, label.name),
-        }))
-        .sort(
-          (a, b) =>
-            a.displayName.localeCompare(b.displayName, "en") ||
-            a.id.localeCompare(b.id, "en"),
-        ),
-    [userLabels],
-  );
+        }));
+    return options.sort(
+      (a, b) =>
+        a.displayName.localeCompare(b.displayName, "en") ||
+        a.id.localeCompare(b.id, "en"),
+    );
+  }, [isFolderMove, folders, userLabels]);
   const canCreate =
+    !isFolderMove &&
     name.length > 0 &&
     !labels.some(
       (label) => label.displayName.toLowerCase() === name.toLowerCase(),
@@ -85,19 +113,24 @@ export function LabelPickerDialog({
           mutate().catch(() => {});
         }
       }
+      if (!client) throw new Error("Mail engine is unavailable");
+      const changes: MetadataChange[] = isFolderMove
+        ? [{ kind: "move", folderId: id }]
+        : [
+            {
+              kind: "set_membership",
+              membership: "label",
+              id,
+              present: true,
+            },
+            ...(isMove ? [{ kind: "archive" } as const] : []),
+          ];
       const { succeededThreadIds, failedThreadIds, error } =
-        await applyThreadLabelsInBatches({
+        await applyEngineChanges({
+          client,
+          emailAccountId,
           threadIds: remainingThreadIds,
-          applyBatch: async (threadIds) => {
-            const result = await applyThreadLabelsAction(emailAccountId, {
-              threadIds,
-              labelId: id,
-              removeFromInbox: isMove,
-            });
-            if (!result?.data)
-              throw new Error(getActionErrorMessage(result ?? {}));
-            return result.data;
-          },
+          changes,
         });
       if (succeededThreadIds.length) {
         onApplied(succeededThreadIds, id);
@@ -105,9 +138,12 @@ export function LabelPickerDialog({
       }
       setRemainingThreadIds(failedThreadIds);
       if (failedThreadIds.length) {
-        toast.error(getPartialFailureMessage(mode, failedThreadIds.length), {
-          description: error instanceof Error ? error.message : undefined,
-        });
+        toast.error(
+          getPartialFailureMessage(mode, failedThreadIds.length, isFolderMove),
+          {
+            description: error instanceof Error ? error.message : undefined,
+          },
+        );
       } else onClose();
     } catch (error) {
       toast.error(
@@ -141,16 +177,21 @@ export function LabelPickerDialog({
         </DialogTitle>
         <Command className="[&_[cmdk-input-wrapper]>svg]:hidden">
           <CommandInput
-            aria-label="Search labels"
+            aria-label={isFolderMove ? "Search folders" : "Search labels"}
             className="pr-8"
             placeholder={isMove ? "Move to…" : "Label as…"}
             value={search}
             onValueChange={setSearch}
             disabled={isPending}
           />
-          <LoadingContent loading={isLoading} error={error}>
+          <LoadingContent
+            loading={isFolderMove ? isLoadingFolders : isLoadingLabels}
+            error={isFolderMove ? foldersError : labelsError}
+          >
             <CommandList aria-busy={isPending}>
-              <CommandEmpty>No matching labels.</CommandEmpty>
+              <CommandEmpty>
+                {isFolderMove ? "No matching folders." : "No matching labels."}
+              </CommandEmpty>
               <CommandGroup>
                 {labels.map((label) => (
                   <CommandItem
@@ -200,12 +241,59 @@ function getSuccessMessage(mode: "label" | "move", count: number) {
     : `Label applied to ${count} conversations`;
 }
 
-function getPartialFailureMessage(mode: "label" | "move", count: number) {
+function getPartialFailureMessage(
+  mode: "label" | "move",
+  count: number,
+  isFolderMove: boolean,
+) {
   const action = mode === "move" ? "move" : "label";
   const plural = count === 1 ? "" : "s";
-  return `Couldn't ${action} ${count} conversation${plural}. Select a label to retry.`;
+  const target = isFolderMove ? "folder" : "label";
+  return `Couldn't ${action} ${count} conversation${plural}. Select a ${target} to retry.`;
 }
 
 function getLabelDisplayName(id: string, name: string) {
   return GMAIL_CATEGORY_NAMES[id] ?? name;
+}
+
+async function applyEngineChanges({
+  client,
+  emailAccountId,
+  threadIds,
+  changes,
+}: {
+  client: MailClient;
+  emailAccountId: string;
+  threadIds: string[];
+  changes: MetadataChange[];
+}) {
+  const succeededThreadIds: string[] = [];
+  const failedThreadIds: string[] = [];
+  let error: unknown;
+  for (const threadId of threadIds) {
+    try {
+      let admitted = true;
+      for (const change of changes) {
+        const admission = await client.submitConversations({
+          accountId: emailAccountId,
+          commandId: randomUuid(),
+          conversations: [
+            { accountId: emailAccountId, conversationId: threadId },
+          ],
+          change,
+          observedRevision: (await client.getDiagnostics(emailAccountId))
+            .revision,
+        });
+        if (admission.status === "rejected") {
+          admitted = false;
+          break;
+        }
+      }
+      (admitted ? succeededThreadIds : failedThreadIds).push(threadId);
+    } catch (cause) {
+      error = cause;
+      failedThreadIds.push(threadId);
+    }
+  }
+  return { succeededThreadIds, failedThreadIds, error };
 }

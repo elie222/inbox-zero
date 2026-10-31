@@ -6,7 +6,7 @@ import { getCalendarClientWithRefresh } from "@/utils/calendar/client";
 import {
   getGoogleApiRootUrl,
   getGoogleOauthClientOptions,
-} from "../google/oauth";
+} from "@/utils/gmail/oauth";
 
 vi.mock("@/utils/prisma");
 
@@ -16,7 +16,7 @@ vi.mock("@/env", () => ({
   },
 }));
 
-vi.mock("@/utils/google/oauth", () => ({
+vi.mock("@/utils/gmail/oauth", () => ({
   getGoogleApiRootUrl: vi.fn(() => "http://localhost:4444"),
   getGoogleOauthClientOptions: vi.fn((redirectUri?: string) => ({
     clientId: "client-id",
@@ -145,6 +145,41 @@ describe("google calendar client", () => {
 
     expect(prisma.calendarConnection.update).not.toHaveBeenCalled();
     expect(prisma.calendarConnection.updateMany).toHaveBeenCalledOnce();
+  });
+
+  it("marks the matching Google calendar disconnected when the grant is revoked", async () => {
+    const updatedAt = new Date("2026-01-01T00:00:00Z");
+    refreshAccessToken.mockRejectedValue(new Error("invalid_grant"));
+    prisma.calendarConnection.findMany.mockResolvedValue([
+      {
+        id: "revoked-connection-id",
+        accessToken: "old-access-token",
+        refreshToken: "revoked-refresh-token",
+        updatedAt,
+      },
+      {
+        id: "reconnected-connection-id",
+        accessToken: "fresh-access-token",
+        refreshToken: "fresh-refresh-token",
+        updatedAt,
+      },
+    ] as any);
+
+    await expect(
+      getCalendarClientWithRefresh({
+        accessToken: "old-access-token",
+        refreshToken: "revoked-refresh-token",
+        expiresAt: Date.now() - 1000,
+        emailAccountId: "email-account-id",
+        logger,
+      }),
+    ).rejects.toThrow("invalid_grant");
+
+    expect(prisma.calendarConnection.updateMany).toHaveBeenCalledOnce();
+    expect(prisma.calendarConnection.updateMany).toHaveBeenCalledWith({
+      where: { id: "revoked-connection-id", updatedAt, isConnected: true },
+      data: { isConnected: false },
+    });
   });
 
   it("uses emulator-aware OAuth and Calendar API options", async () => {

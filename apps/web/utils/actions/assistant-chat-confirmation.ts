@@ -40,6 +40,7 @@ const PENDING_ACTION_POLL_INTERVAL_MS = 250;
 const SENT_MESSAGE_RESOLVE_MAX_ATTEMPTS = 5;
 const SENT_MESSAGE_RESOLVE_RETRY_MS = 500;
 const SENT_MESSAGE_RESOLVE_LOOKBACK_MS = 60 * 1000;
+const SENT_MESSAGE_LINK_TIMEOUT_MS = 5000;
 
 const ASSISTANT_EMAIL_ACTION_METADATA: Record<
   AssistantPendingEmailActionType,
@@ -143,6 +144,27 @@ export async function confirmAssistantEmailActionForAccount({
     throw new SafeError(getAssistantEmailActionErrorMessage(actionType, error));
   }
 
+  if (provider === "microsoft" && confirmationResult.messageId) {
+    let linkTimeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+      // This optional lookup must not hold up persistence past the processing lease.
+      const sentMessage = await Promise.race([
+        emailProvider.getMessage(confirmationResult.messageId),
+        new Promise<never>((_, reject) => {
+          linkTimeout = setTimeout(
+            () => reject(new Error("Timed out resolving sent email link")),
+            SENT_MESSAGE_LINK_TIMEOUT_MS,
+          );
+        }),
+      ]);
+      confirmationResult.externalUrl = sentMessage.externalUrl;
+    } catch (error) {
+      logger.warn("Failed to resolve sent email link", { error });
+    } finally {
+      clearTimeout(linkTimeout);
+    }
+  }
+
   try {
     await persistConfirmedAssistantEmailActionPart({
       chatMessageId: reservation.chatMessageId,
@@ -221,7 +243,6 @@ export async function confirmAssistantCreateRuleForAccount({
       provider,
       runOnThreads: true,
       logger,
-      enablement: { source: "chat", chatRiskConfirmed: true },
     });
   } catch (error) {
     if (
@@ -522,7 +543,7 @@ async function confirmPendingReplyEmailAction({
   const sentAfter = new Date();
   await emailProvider.replyToEmail(
     message,
-    contentOverride || output.pendingAction.content,
+    escapeHtml(contentOverride || output.pendingAction.content),
     replyOptions,
   );
 

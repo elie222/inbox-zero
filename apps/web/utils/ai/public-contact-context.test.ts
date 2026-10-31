@@ -21,8 +21,8 @@ const {
 
 vi.mock("@/env", () => ({
   env: {
-    UPSTASH_REDIS_URL: "https://redis.example.com",
-    UPSTASH_REDIS_TOKEN: "token",
+    REDIS_HTTP_URL: "https://redis.example.com",
+    REDIS_HTTP_TOKEN: "token",
     EMAIL_ENCRYPT_SALT: "test-hmac-salt",
   },
 }));
@@ -74,9 +74,9 @@ describe("getPublicContactContext", () => {
     });
     getWebSearchConfigMock.mockReturnValue({
       providerName: "OpenRouter",
-      tools: { web_search: { type: "provider" } },
-      providerOptions: { openrouter: { max_tool_calls: 1 } },
-      toolChoice: "required",
+      providerOptions: {
+        openrouter: { plugins: [{ id: "web", max_results: 5 }] },
+      },
     });
     generateTextMock.mockResolvedValue({ output: { context: getContext() } });
   });
@@ -139,9 +139,9 @@ describe("getPublicContactContext", () => {
     expect(request.prompt).not.toContain("owner@inboxzero.com");
     expect(request.instructions).toContain("Do not include any email address");
     expect(request.providerOptions).toEqual({
-      openrouter: { max_tool_calls: 1 },
+      openrouter: { plugins: [{ id: "web", max_results: 5 }] },
     });
-    expect(request.toolChoice).toBe("required");
+    expect(request.toolChoice).toBeUndefined();
     expect(storePublicContactContextMock).toHaveBeenCalledWith({
       email: "john@acme.com",
       context,
@@ -299,6 +299,23 @@ describe("getPublicContactContext", () => {
     });
 
     expect(generateTextMock).not.toHaveBeenCalled();
+  });
+
+  it("reports a failed research call without caching it as not found", async () => {
+    generateTextMock.mockRejectedValue(new Error("Invalid schema"));
+
+    await expect(
+      getPublicContactContext({
+        email: "john@acme.com",
+        name: "John Smith",
+        emailAccount: getEmailAccount(),
+      }),
+    ).resolves.toEqual({
+      status: "unavailable",
+      reason: "research_failed",
+    });
+
+    expect(storePublicContactContextNotFoundMock).not.toHaveBeenCalled();
   });
 
   it("fails closed when durable storage is unavailable", async () => {

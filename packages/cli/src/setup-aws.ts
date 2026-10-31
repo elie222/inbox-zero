@@ -1409,6 +1409,8 @@ export function updateServiceManifestSecrets(config: {
   }
 
   content = removeSecrets(content, [
+    "REDIS_HTTP_URL",
+    "REDIS_HTTP_TOKEN",
     "UPSTASH_REDIS_URL",
     "UPSTASH_REDIS_TOKEN",
     ...(config.enableRedis ? [] : ["REDIS_URL"]),

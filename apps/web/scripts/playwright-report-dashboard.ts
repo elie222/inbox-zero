@@ -43,7 +43,8 @@ export type PlaywrightScreenshot = {
 export type PlaywrightScreenshotManifest = {
   attempt?: number;
   id?: string;
-  screenshots: PlaywrightScreenshotMetadata[];
+  // Older manifests predate fileName; it lets agents link a run's images.
+  screenshots: Array<PlaywrightScreenshotMetadata & { fileName?: string }>;
   version: 1;
 };
 
@@ -65,8 +66,9 @@ export function createScreenshotManifest(
   return {
     ...(run === undefined ? {} : { attempt: run.attempt, id: run.id }),
     screenshots: screenshots.map(
-      ({ captureType, hash, source, testId, title }) => ({
+      ({ captureType, fileName, hash, source, testId, title }) => ({
         captureType,
+        fileName,
         hash,
         source,
         testId,
@@ -75,6 +77,14 @@ export function createScreenshotManifest(
     ),
     version: 1,
   };
+}
+
+/**
+ * Playwright writes a retried test to `<test>-retryN/`, so the attempt suffix is
+ * dropped to line a capture up with the same capture from another run.
+ */
+export function screenshotBaselineKey(source: string): string {
+  return source.replace(/-retry\d+(?=[\\/][^\\/]+$)/, "");
 }
 
 export function compareScreenshotsWithBaseline(
@@ -93,14 +103,16 @@ export function compareScreenshotsWithBaseline(
 
   const baselineHashes = new Map(
     baseline.screenshots.map((screenshot) => [
-      screenshot.source,
+      screenshotBaselineKey(screenshot.source),
       screenshot.hash,
     ]),
   );
   return {
     baselineAvailable: true,
     screenshots: screenshots.map((screenshot) => {
-      const baselineHash = baselineHashes.get(screenshot.source);
+      const baselineHash = baselineHashes.get(
+        screenshotBaselineKey(screenshot.source),
+      );
       return {
         ...screenshot,
         comparison:

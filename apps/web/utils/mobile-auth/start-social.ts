@@ -1,5 +1,8 @@
+import type { z } from "zod";
+import type { mobileAuthProviderSchema } from "@/utils/mobile-auth/providers";
 import { betterAuthConfig } from "@/utils/auth";
 import { SafeError } from "@/utils/error";
+import { createScopedLogger } from "@/utils/logger";
 import {
   createMobileAuthState,
   storeMobileAuthState,
@@ -15,8 +18,7 @@ import {
   type MobileAuthReturnUrlMode,
 } from "@/utils/mobile-auth/url";
 
-export const MOBILE_AUTH_PROVIDERS = ["apple", "google", "microsoft"] as const;
-export type MobileAuthProvider = (typeof MOBILE_AUTH_PROVIDERS)[number];
+const logger = createScopedLogger("mobile-auth/start-social");
 
 export type StartedMobileSocialAuth = {
   authorizationURL: string;
@@ -27,20 +29,26 @@ export type StartedMobileSocialAuth = {
 };
 
 export async function startMobileSocialAuth(input: {
-  provider: MobileAuthProvider;
+  provider: z.infer<typeof mobileAuthProviderSchema>;
+  codeChallenge: string;
   returnUrlMode: MobileAuthReturnUrlMode;
 }): Promise<StartedMobileSocialAuth> {
   const state = createMobileAuthState();
   const authSessionReturnUrl = getMobileAuthAppCallbackUrl(
     input.returnUrlMode,
   ).toString();
-  const webCallbackUrl = getMobileAuthWebCallbackUrl(state);
+  const completionToken = createMobileAuthState();
+  const errorCallbackUrl = getMobileAuthWebCallbackUrl(state);
+  // Kept inside Better Auth's protected OAuth state until provider completion.
+  const callbackUrl = new URL(errorCallbackUrl);
+  callbackUrl.searchParams.set("completion", completionToken);
+  const webCallbackUrl = callbackUrl.toString();
 
   const signInPath = "/api/auth/sign-in/social";
   const signInPayload = {
     provider: input.provider,
     callbackURL: webCallbackUrl,
-    errorCallbackURL: webCallbackUrl,
+    errorCallbackURL: errorCallbackUrl,
     newUserCallbackURL: webCallbackUrl,
     disableRedirect: true,
   };
@@ -56,16 +64,30 @@ export async function startMobileSocialAuth(input: {
   );
   const signInBody = (await signInResponse.json().catch(() => null)) as {
     url?: string;
+    code?: string;
+    message?: string;
   } | null;
   const oauthState = getOAuthStateCookieValue(signInResponse.headers);
 
   if (!signInResponse.ok || !signInBody?.url || !oauthState) {
+    // The app only sees a generic 500, so record which part of the sign-in start failed.
+    logger.error("Failed to start mobile social sign-in", {
+      provider: input.provider,
+      status: signInResponse.status,
+      code: signInBody?.code,
+      message: signInBody?.message,
+      hasUrl: Boolean(signInBody?.url),
+      hasOAuthState: Boolean(oauthState),
+    });
     throw new SafeError("Failed to start authentication", 500);
   }
 
   assertHttpAuthorizationUrl(signInBody.url);
 
   await storeMobileAuthState({
+    codeChallenge: input.codeChallenge,
+    provider: input.provider,
+    completionToken,
     returnUrlMode: input.returnUrlMode,
     state,
   });

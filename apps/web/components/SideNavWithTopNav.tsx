@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense } from "react";
+import { type CSSProperties, Suspense, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import {
@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/sidebar";
 import { SideNav } from "@/components/SideNav";
 import { SidebarRight } from "@/components/SidebarRight";
+import { chatSidebarWidthCss } from "@/components/chat-sidebar-width";
 import { cn } from "@/utils";
 
 const CrispWithNoSSR = dynamic(() => import("@/components/CrispChat"));
@@ -32,12 +33,14 @@ function ContentWrapper({ children }: { children: React.ReactNode }) {
     <div
       className={cn(
         "min-w-0 flex-1 transition-all duration-200 ease-linear",
-        isRightSidebarOpen && "lg:mr-[450px]",
+        isRightSidebarOpen && "lg:mr-[--chat-sidebar-width]",
       )}
     >
       <SidebarInset
         className={cn(
-          "overflow-hidden bg-background pt-9 max-w-full",
+          // clip, not hidden: hidden makes this a scroll container, which
+          // stops sticky descendants from sticking to the page scroll
+          "overflow-clip bg-background pt-9 max-w-full",
           noTopPadding && "pt-0",
           // The mail page fills the viewport and scrolls its thread list
           // internally, so layout banners shrink it instead of overflowing
@@ -57,12 +60,24 @@ export function SideNavWithTopNav({
   children,
   defaultOpen,
   feedbackEnabled,
+  chatSidebarWidth,
 }: {
   children: React.ReactNode;
   defaultOpen: boolean;
   feedbackEnabled: boolean;
+  chatSidebarWidth: number;
 }) {
   const pathname = usePathname();
+  // Dragging writes straight to the CSS variable the chat panel and the page
+  // margin beside it both read, rather than re-rendering the app on every
+  // pointer move.
+  const frameRef = useRef<HTMLDivElement>(null);
+  const setChatSidebarWidth = useCallback((width: number) => {
+    frameRef.current?.style.setProperty(
+      "--chat-sidebar-width",
+      chatSidebarWidthCss(width),
+    );
+  }, []);
 
   if (!pathname) return null;
 
@@ -81,6 +96,12 @@ export function SideNavWithTopNav({
 
   return (
     <SidebarProvider
+      ref={frameRef}
+      style={
+        {
+          "--chat-sidebar-width": chatSidebarWidthCss(chatSidebarWidth),
+        } as CSSProperties
+      }
       defaultOpen={defaultOpen ? ["left-sidebar"] : []}
       sidebarNames={["left-sidebar", "chat-sidebar"]}
       keyboardShortcutName="left-sidebar"
@@ -94,7 +115,9 @@ export function SideNavWithTopNav({
         </>
       )}
       <ContentWrapper>{children}</ContentWrapper>
-      {!isAssistantRoute ? <SidebarRight name="chat-sidebar" /> : null}
+      {!isAssistantRoute ? (
+        <SidebarRight name="chat-sidebar" onResize={setChatSidebarWidth} />
+      ) : null}
     </SidebarProvider>
   );
 }

@@ -12,14 +12,14 @@ description: Cursor Cloud VM setup and service startup instructions for local de
 ## Starting services
 1. Start Docker daemon if needed: `sudo dockerd &>/dev/null &`, then confirm with `docker info` (or `sudo docker info` if the client cannot reach the daemon yet).
 2. Start databases from repo root: `docker compose -f docker-compose.dev.yml up -d`. If you get permission denied on `/var/run/docker.sock`, run the same command with `sudo docker compose` instead of making the socket world-writable.
-3. Run Prisma migrations: `cd apps/web && pnpm prisma:migrate:local` (uses `dotenv -e .env.local`; do NOT use bare `prisma migrate dev` — it won't load `.env.local`).
+3. Run Prisma migrations: `cd apps/web && pnpm prisma:migrate:local` (uses `dotenv run -f .env.local`; do NOT use bare `prisma migrate dev` — it won't load `.env.local`).
 4. Start dev server: `pnpm dev` from repo root.
 
 ## Environment file
 The app reads `apps/web/.env.local`. Required non-obvious env vars beyond `.env.example` defaults:
-- `DEFAULT_LLMS` (e.g. `openai:gpt-5.6-luna`) — app crashes at startup without this.
+- `DEFAULT_LLMS` (e.g. `openai:gpt-6-luna`) — app crashes at startup without this.
 - `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` — hard-required by `env.ts` validation. Use Google emulator credentials for local dev (see below).
-- `UPSTASH_REDIS_TOKEN` must be set to `dev_token` to match the `SRH_TOKEN` default in `docker-compose.dev.yml`.
+- `REDIS_HTTP_TOKEN` must be set to `dev_token` to match the `SRH_TOKEN` default in `docker-compose.dev.yml`. `UPSTASH_REDIS_TOKEN` is still accepted.
 - `MICROSOFT_WEBHOOK_CLIENT_STATE` — required if `MICROSOFT_CLIENT_ID` is set.
 
 ## Google emulator for local dev

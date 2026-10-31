@@ -78,6 +78,7 @@ describe("compactMailboxSyncMessage", () => {
       inline: [],
     });
     expect(compacted.attachments).toBeUndefined();
+    expect(compacted).toHaveProperty("hasAttachment", true);
     expect(compacted.textHtml).toBeUndefined();
     expect(compacted.textPlain).toBeUndefined();
   });

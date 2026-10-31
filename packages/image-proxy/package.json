@@ -13,12 +13,12 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "ipaddr.js": "2.5.0"
+    "@inboxzero/network": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "24.10.1",
-    "@vitest/coverage-v8": "4.1.10",
+    "@vitest/coverage-v8": "5.0.5",
     "typescript": "6.0.3",
-    "vitest": "4.1.10"
+    "vitest": "5.0.5"
   }
 }

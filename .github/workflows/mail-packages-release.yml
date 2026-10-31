@@ -1,0 +1,58 @@
+name: Mail packages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/mail-core/**"
+      - "packages/mail-sqlite/**"
+      - "packages/mail-react/**"
+      - ".github/workflows/mail-packages-release.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: mail-packages-publish
+  cancel-in-progress: false
+
+jobs:
+  publish-npm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+
+      - name: Build packages
+        run: pnpm -F @inboxzero/mail-core -F @inboxzero/mail-sqlite -F @inboxzero/mail-react run build
+
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          for package_dir in mail-core mail-sqlite mail-react; do
+            cd "packages/${package_dir}/dist"
+            name="$(node -p "require('./package.json').name")"
+            version="$(node -p "require('./package.json').version")"
+            if npm view "${name}@${version}" version >/dev/null 2>&1; then
+              echo "${name}@${version} is already published, skipping."
+            else
+              npm publish --provenance --access public
+            fi
+            cd ../../..
+          done

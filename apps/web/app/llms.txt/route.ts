@@ -1,12 +1,20 @@
 import { env } from "@/env";
 import { getLlmsTxt } from "@/utils/agent-markdown/content";
 import { BRAND_NAME, SUPPORT_EMAIL } from "@/utils/branding";
+import { isMcpServerAvailable } from "@/utils/mcp/config";
 
 export function GET() {
-  const body = getLlmsTxt(env.NEXT_PUBLIC_BASE_URL, {
-    brandName: BRAND_NAME,
-    supportEmail: SUPPORT_EMAIL,
-  });
+  const body = getLlmsTxt(
+    env.NEXT_PUBLIC_BASE_URL,
+    {
+      brandName: BRAND_NAME,
+      supportEmail: SUPPORT_EMAIL,
+    },
+    {
+      externalApiEnabled: env.NEXT_PUBLIC_EXTERNAL_API_ENABLED,
+      mcpServerAvailable: isMcpServerAvailable(),
+    },
+  );
 
   return new Response(body, {
     headers: {

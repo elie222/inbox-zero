@@ -14,6 +14,11 @@ protocols:
   - name: Inbox Zero
     schemes:
       - inboxzero
+linux:
+  target:
+    - target: dir
+      arch:
+        - x64
 mac:
   category: public.app-category.productivity
   hardenedRuntime: true

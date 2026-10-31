@@ -1,30 +1,127 @@
 import type { WebContents } from "electron";
 
+const NAVIGATION_TIMEOUT_MS = 15_000;
+// Measured from commit, so it covers subresources and hydration. A page that
+// is still downloading gets more time on slow links, up to the cap.
+const BOOT_CHECK_INTERVAL_MS = 30_000;
+const MAX_BOOT_CHECKS = 3;
+const FIRST_RETRY_DELAY_MS = 10_000;
+const MAX_RETRY_DELAY_MS = 2 * 60_000;
+const MAX_REPORTED_PATHS = 10;
+const CONTENT_TYPE_TIMEOUT_MS = 5000;
+
+export type DesktopBootFailure = {
+  reason: "timeout" | "stylesheet-failed";
+  attempt: number;
+  documentFinished: boolean;
+  stillLoading: boolean;
+  failedRequests: Record<string, number>;
+  netErrors: string[];
+  failedPaths: string[];
+};
+
+/**
+ * Keeps a window on the hosted app from getting stuck. A load only counts once
+ * the web app signals it has hydrated (`markReady`): a document fetched while
+ * the network is half-up can finish loading without its scripts or
+ * stylesheets, which leaves an unstyled, dead page. Failures show a local
+ * recovery page and retry with backoff.
+ */
 export function installDesktopLoadRecovery(
   contents: WebContents,
-  appOrigin: string,
-  getStartUrl: () => string,
+  {
+    appOrigin,
+    getStartUrl,
+    onBootFailure,
+  }: {
+    appOrigin: string;
+    getStartUrl: () => string;
+    onBootFailure: (failure: DesktopBootFailure) => void;
+  },
 ) {
   let targetUrl = getStartUrl();
   let showingRecovery = false;
   let loadingRecoveryPage = false;
-  let loadTimeout: ReturnType<typeof setTimeout> | undefined;
+  let booting = false;
+  let booted = false;
+  let documentFinished = false;
+  let bootChecks = 0;
+  let documentGeneration = 0;
+  let failedAttempts = 0;
+  let requestFailures = emptyRequestFailures();
+  let navigationTimeout: ReturnType<typeof setTimeout> | undefined;
+  let bootTimeout: ReturnType<typeof setTimeout> | undefined;
   let retryTimeout: ReturnType<typeof setTimeout> | undefined;
 
   function cancelTimers() {
-    clearTimeout(loadTimeout);
+    clearTimeout(navigationTimeout);
+    clearTimeout(bootTimeout);
     clearTimeout(retryTimeout);
-    loadTimeout = undefined;
+    navigationTimeout = undefined;
+    bootTimeout = undefined;
     retryTimeout = undefined;
   }
 
   function showRecovery() {
     if (contents.isDestroyed()) return;
     cancelTimers();
+    booting = false;
+    booted = false;
     showingRecovery = true;
     loadingRecoveryPage = true;
     contents.loadURL(getDesktopRecoveryPage(targetUrl)).catch(() => {});
-    retryTimeout = setTimeout(retryLoad, 10_000);
+    retryTimeout = setTimeout(retryLoad, getRetryDelay(failedAttempts));
+    failedAttempts++;
+  }
+
+  function failBoot(reason: DesktopBootFailure["reason"]) {
+    onBootFailure({
+      reason,
+      attempt: failedAttempts + 1,
+      documentFinished,
+      stillLoading: contents.isLoading(),
+      failedRequests: requestFailures.failedRequests,
+      netErrors: [...requestFailures.netErrors],
+      failedPaths: requestFailures.failedPaths,
+    });
+    contents.stop();
+    showRecovery();
+  }
+
+  function checkBoot() {
+    bootChecks++;
+    if (contents.isLoading() && bootChecks < MAX_BOOT_CHECKS) {
+      bootTimeout = setTimeout(checkBoot, BOOT_CHECK_INTERVAL_MS);
+      return;
+    }
+    // Route handlers on the app origin (JSON, files) never mount the web app,
+    // so they can't signal. Only the renderer knows what it committed.
+    const generation = documentGeneration;
+    readContentType(contents).then((contentType) => {
+      if (
+        contents.isDestroyed() ||
+        !booting ||
+        generation !== documentGeneration
+      )
+        return;
+      if (contentType === null || contentType === "text/html") {
+        failBoot("timeout");
+        return;
+      }
+      markBooted();
+    });
+  }
+
+  function markBooted() {
+    clearTimeout(bootTimeout);
+    bootTimeout = undefined;
+    booting = false;
+    booted = true;
+    failedAttempts = 0;
+  }
+
+  function retryLoad() {
+    if (!contents.isDestroyed()) contents.loadURL(targetUrl).catch(() => {});
   }
 
   contents.on(
@@ -34,12 +131,30 @@ export function installDesktopLoadRecovery(
       targetUrl = url;
       if (isSameDocument) return;
       cancelTimers();
-      loadTimeout = setTimeout(() => {
+      navigationTimeout = setTimeout(() => {
         contents.stop();
         showRecovery();
-      }, 15_000);
+      }, NAVIGATION_TIMEOUT_MS);
     },
   );
+  // Fires only for main-frame, cross-document commits. Arming here rather than
+  // at navigation start means a ready signal from the outgoing document can't
+  // count for the new one. From here the boot watchdog, which tolerates a slow
+  // but progressing page, replaces the navigation timeout.
+  contents.on("did-navigate", (_event, url) => {
+    if (!isAppUrl(url, appOrigin)) return;
+    clearTimeout(navigationTimeout);
+    clearTimeout(bootTimeout);
+    navigationTimeout = undefined;
+    showingRecovery = false;
+    booting = true;
+    booted = false;
+    documentFinished = false;
+    bootChecks = 0;
+    documentGeneration++;
+    requestFailures = emptyRequestFailures();
+    bootTimeout = setTimeout(checkBoot, BOOT_CHECK_INTERVAL_MS);
+  });
   contents.on(
     "did-fail-load",
     (_event, code, _description, url, isMainFrame) => {
@@ -51,11 +166,9 @@ export function installDesktopLoadRecovery(
     },
   );
   contents.on("did-finish-load", () => {
-    // Chromium also finishes its error document after did-fail-load.
-    if (loadTimeout === undefined || !isAppUrl(contents.getURL(), appOrigin))
-      return;
-    showingRecovery = false;
-    cancelTimers();
+    clearTimeout(navigationTimeout);
+    navigationTimeout = undefined;
+    if (booting) documentFinished = true;
   });
   contents.on("render-process-gone", showRecovery);
   contents.once("destroyed", cancelTimers);
@@ -72,9 +185,41 @@ export function installDesktopLoadRecovery(
     retryTimeout = setTimeout(retryLoad, 0);
   });
 
-  function retryLoad() {
-    if (!contents.isDestroyed()) contents.loadURL(targetUrl).catch(() => {});
-  }
+  return {
+    markReady() {
+      if (!booting) return;
+      // Scripts can hydrate without the CSS, which still leaves the app unusable.
+      if (requestFailures.failedRequests.stylesheet) {
+        failBoot("stylesheet-failed");
+        return;
+      }
+      markBooted();
+    },
+    recordRequestError(details: {
+      resourceType: string;
+      url: string;
+      error: string;
+    }) {
+      if (!booting || details.error === "net::ERR_ABORTED") return;
+      const { failedRequests, netErrors, failedPaths } = requestFailures;
+      failedRequests[details.resourceType] =
+        (failedRequests[details.resourceType] ?? 0) + 1;
+      netErrors.add(details.error);
+      const blocksBoot =
+        details.resourceType === "script" ||
+        details.resourceType === "stylesheet";
+      if (blocksBoot && failedPaths.length < MAX_REPORTED_PATHS) {
+        failedPaths.push(URL.parse(details.url)?.pathname ?? "");
+      }
+    },
+    /** For moments the network likely came back, such as waking from sleep. */
+    retryIfNotBooted() {
+      if (booted || contents.isDestroyed()) return;
+      if (!showingRecovery && !isAppUrl(contents.getURL(), appOrigin)) return;
+      cancelTimers();
+      retryLoad();
+    },
+  };
 }
 
 function getDesktopRecoveryPage(targetUrl: string) {
@@ -104,4 +249,32 @@ function isAppUrl(url: string, origin: string) {
   } catch {
     return false;
   }
+}
+
+function emptyRequestFailures() {
+  return {
+    failedRequests: {} as Record<string, number>,
+    netErrors: new Set<string>(),
+    failedPaths: [] as string[],
+  };
+}
+
+function getRetryDelay(failedAttempts: number) {
+  return Math.min(
+    FIRST_RETRY_DELAY_MS * 2 ** failedAttempts,
+    MAX_RETRY_DELAY_MS,
+  );
+}
+
+// A hung renderer never answers; treat that like an HTML page that didn't boot.
+function readContentType(contents: WebContents): Promise<string | null> {
+  return Promise.race([
+    contents
+      .executeJavaScript("document.contentType")
+      .then((value: unknown) => (typeof value === "string" ? value : null))
+      .catch(() => null),
+    new Promise<null>((resolve) =>
+      setTimeout(() => resolve(null), CONTENT_TYPE_TIMEOUT_MS),
+    ),
+  ]);
 }

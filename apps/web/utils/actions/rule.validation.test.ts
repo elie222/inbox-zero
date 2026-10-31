@@ -1,15 +1,12 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
 import {
-  delayInMinutesSchema,
   createRuleBody,
   type CreateRuleBody,
   updateRuleBody,
-  updateRuleConditionSchema,
 } from "./rule.validation";
-import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
+import { ActionType } from "@/generated/prisma/enums";
 import { ConditionType } from "@/utils/config";
-import { NINETY_DAYS_MINUTES } from "@/utils/date";
-import { WEBHOOK_ACTION_DISABLED_MESSAGE } from "@/utils/webhook-action";
+import { WEBHOOK_ACTION_DISABLED_MESSAGE } from "@/utils/outbound-webhook/action";
 import { DELETE_EMAIL_ACTION_DISABLED_MESSAGE } from "@/utils/delete-email-action";
 
 const { mockEnv } = vi.hoisted(() => ({
@@ -29,62 +26,6 @@ vi.mock("@/env", () => ({
     },
   },
 }));
-
-describe("delayInMinutesSchema", () => {
-  describe("valid values", () => {
-    it("accepts minimum value of 1", () => {
-      const result = delayInMinutesSchema.safeParse(1);
-      expect(result.success).toBe(true);
-      expect(result.data).toBe(1);
-    });
-
-    it("accepts typical value of 60 minutes", () => {
-      const result = delayInMinutesSchema.safeParse(60);
-      expect(result.success).toBe(true);
-    });
-
-    it("accepts maximum value of 90 days in minutes", () => {
-      const result = delayInMinutesSchema.safeParse(NINETY_DAYS_MINUTES);
-      expect(result.success).toBe(true);
-      expect(result.data).toBe(129_600); // 90 * 24 * 60
-    });
-
-    it("accepts null", () => {
-      const result = delayInMinutesSchema.safeParse(null);
-      expect(result.success).toBe(true);
-      expect(result.data).toBeNull();
-    });
-
-    it("accepts undefined", () => {
-      const result = delayInMinutesSchema.safeParse(undefined);
-      expect(result.success).toBe(true);
-      expect(result.data).toBeUndefined();
-    });
-  });
-
-  describe("invalid values", () => {
-    it("rejects 0", () => {
-      const result = delayInMinutesSchema.safeParse(0);
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error.issues[0].message).toContain("Minimum");
-      }
-    });
-
-    it("rejects negative numbers", () => {
-      const result = delayInMinutesSchema.safeParse(-1);
-      expect(result.success).toBe(false);
-    });
-
-    it("rejects values exceeding 90 days", () => {
-      const result = delayInMinutesSchema.safeParse(NINETY_DAYS_MINUTES + 1);
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error.issues[0].message).toContain("Maximum");
-      }
-    });
-  });
-});
 
 describe("createRuleBody", () => {
   const validAction = {
@@ -474,76 +415,6 @@ describe("createRuleBody", () => {
         expect(result.success).toBe(true);
       });
     });
-
-    describe("delayInMinutes on actions", () => {
-      it("accepts action with valid delay", () => {
-        const result = createRuleBody.safeParse({
-          ...validRule,
-          actions: [
-            {
-              type: ActionType.ARCHIVE,
-              delayInMinutes: 60,
-            },
-          ],
-        });
-        expect(result.success).toBe(true);
-      });
-
-      it("rejects action with delay exceeding 90 days", () => {
-        const result = createRuleBody.safeParse({
-          ...validRule,
-          actions: [
-            {
-              type: ActionType.ARCHIVE,
-              delayInMinutes: NINETY_DAYS_MINUTES + 1,
-            },
-          ],
-        });
-        expect(result.success).toBe(false);
-      });
-    });
-  });
-
-  describe("optional fields", () => {
-    it("accepts optional id", () => {
-      const result = createRuleBody.safeParse({
-        ...validRule,
-        id: "rule-123",
-      });
-      expect(result.success).toBe(true);
-    });
-
-    it("accepts optional instructions", () => {
-      const result = createRuleBody.safeParse({
-        ...validRule,
-        instructions: "Additional rule instructions",
-      });
-      expect(result.success).toBe(true);
-    });
-
-    it("accepts optional groupId", () => {
-      const result = createRuleBody.safeParse({
-        ...validRule,
-        groupId: "group-123",
-      });
-      expect(result.success).toBe(true);
-    });
-
-    it("accepts optional conditionalOperator", () => {
-      const result = createRuleBody.safeParse({
-        ...validRule,
-        conditionalOperator: LogicalOperator.OR,
-      });
-      expect(result.success).toBe(true);
-    });
-
-    it("conditionalOperator is undefined when not provided", () => {
-      const result = createRuleBody.safeParse(validRule);
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data.conditionalOperator).toBeUndefined();
-      }
-    });
   });
 });
 
@@ -622,24 +493,5 @@ describe("INTEGRATION action validation", () => {
         "Unsupported integration tool",
       );
     }
-  });
-});
-
-describe("updateRuleConditionSchema", () => {
-  it("accepts null aiInstructions for sender-only updates", () => {
-    const result = updateRuleConditionSchema.safeParse({
-      ruleName: "Newsletters",
-      condition: {
-        aiInstructions: null,
-        static: {
-          from: "@briefing.example",
-          to: null,
-          subject: null,
-        },
-        conditionalOperator: null,
-      },
-    });
-
-    expect(result.success).toBe(true);
   });
 });

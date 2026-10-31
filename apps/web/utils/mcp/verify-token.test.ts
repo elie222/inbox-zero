@@ -23,7 +23,6 @@ beforeEach(() => {
   prisma.oauthConsent.findFirst.mockResolvedValue({
     scopes: ["mcp:read"],
   } as never);
-  prisma.session.findFirst.mockResolvedValue({ id: "session" } as never);
 });
 
 it.each([
@@ -39,7 +38,16 @@ it.each([
 it("limits a token to the permissions still granted to its client", async () => {
   expect(
     await verifyMcpToken(await sign({ scope: "mcp:read mcp:write" }), jwks),
-  ).toEqual({ userId: "owner", scopes: ["mcp:read"] });
+  ).toEqual({ userId: "owner", clientId: "client", scopes: ["mcp:read"] });
+});
+
+it("accepts a token after the login session is gone", async () => {
+  expect(await verifyMcpToken(await sign(), jwks)).toEqual({
+    userId: "owner",
+    clientId: "client",
+    scopes: ["mcp:read"],
+  });
+  expect(prisma.session.findFirst).not.toHaveBeenCalled();
 });
 
 it("rejects revoked or disabled grants", async () => {
@@ -52,21 +60,6 @@ it("rejects revoked or disabled grants", async () => {
         clientId: "client",
         client: { disabled: false },
         user: { mcpServerEnabled: true, mcpTokenVersion: 3 },
-      },
-    }),
-  );
-});
-
-it("rejects an expired, removed, or email-code session", async () => {
-  prisma.session.findFirst.mockResolvedValue(null);
-  expect(await verifyMcpToken(await sign(), jwks)).toBeNull();
-  expect(prisma.session.findFirst).toHaveBeenCalledWith(
-    expect.objectContaining({
-      where: {
-        id: "session",
-        userId: "owner",
-        expires: { gt: expect.any(Date) },
-        emailOtp: false,
       },
     }),
   );
@@ -86,7 +79,7 @@ async function sign(overrides: JWTPayload = {}) {
     sid: "session",
     scope: "mcp:read",
     mcp_token_version: 3,
-    aud: "https://inbox.example.com/api/mcp-server",
+    aud: "https://inbox.example.com/mcp",
     iss: "https://inbox.example.com/api/auth",
     iat: Math.floor(Date.now() / 1000),
     exp: Math.floor(Date.now() / 1000) + 3600,
@@ -98,10 +91,7 @@ async function sign(overrides: JWTPayload = {}) {
 
 it("rejects tokens that include additional audiences", async () => {
   const token = await sign({
-    aud: [
-      "https://inbox.example.com/api/mcp-server",
-      "https://other.example.com",
-    ],
+    aud: ["https://inbox.example.com/mcp", "https://other.example.com"],
   });
   expect(await verifyMcpToken(token, jwks)).toBeNull();
   expect(prisma.oauthConsent.findFirst).not.toHaveBeenCalled();

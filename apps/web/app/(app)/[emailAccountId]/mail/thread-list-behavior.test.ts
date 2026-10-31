@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  getComposeTargetMessageId,
   getActiveThreadIndex,
   getSearchFocus,
   groupThreadsByDate,
@@ -472,3 +473,26 @@ function target(key: string, emailAccountId: string, threadId = key) {
     thread: { key },
   };
 }
+
+describe("getComposeTargetMessageId", () => {
+  it("targets the latest delivered message when saved drafts follow it", () => {
+    expect(
+      getComposeTargetMessageId([
+        { id: "incoming", labelIds: ["INBOX"] },
+        { id: "sent", labelIds: ["SENT"] },
+        { id: "saved-reply", labelIds: ["DRAFT"] },
+        { id: "saved-forward", labelIds: ["DRAFT"] },
+      ]),
+    ).toBe("sent");
+  });
+
+  it("keeps a draft-only conversation editable", () => {
+    expect(
+      getComposeTargetMessageId([{ id: "draft", labelIds: ["DRAFT"] }]),
+    ).toBe("draft");
+  });
+
+  it("waits for a message when the thread has not loaded", () => {
+    expect(getComposeTargetMessageId([])).toBeUndefined();
+  });
+});

@@ -41,7 +41,6 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
           },
           availabilitySchedule: {
             select: {
-              timezone: true,
               windows: {
                 orderBy: [{ weekday: "asc" }, { startMinutes: "asc" }],
                 select: {
@@ -84,7 +83,6 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
     bookingLinks: emailAccount.bookingLinks.map(
       ({ availabilitySchedule, ...bookingLink }) => ({
         ...bookingLink,
-        timezone: availabilitySchedule.timezone,
         windows: availabilitySchedule.windows,
       }),
     ),

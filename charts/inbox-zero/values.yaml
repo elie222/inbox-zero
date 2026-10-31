@@ -91,6 +91,7 @@ env:
   NEXT_PUBLIC_EMAIL_SEND_ENABLED: "true"
   NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED: "true"
   NEXT_PUBLIC_AI_MODEL_SETTINGS_DISABLED: "false"
+  AI_SENDER_PATTERN_LEARNING_ENABLED: "true"
   DEFAULT_LLMS: openai:gpt-5.4-mini
   GOOGLE_PUBSUB_TOPIC_NAME: projects/example/topics/inbox-zero
   QUEUE_BACKEND: bullmq
@@ -158,13 +159,20 @@ externalRedis:
   # existingSecret so Redis credentials are managed outside Helm.
   enabled: false
   redisUrl: ""
+  redisHttpUrl: ""
+  redisHttpToken: ""
+  # Deprecated aliases. Used when redisHttpUrl / redisHttpToken are empty.
   upstashRedisUrl: ""
   upstashRedisToken: ""
   existingSecret:
     name: ""
     redisUrlKey: REDIS_URL
-    upstashRedisUrlKey: UPSTASH_REDIS_URL
-    upstashRedisTokenKey: UPSTASH_REDIS_TOKEN
+    # Leave empty to accept either REDIS_HTTP_* or legacy UPSTASH_REDIS_* keys.
+    redisHttpUrlKey: ""
+    redisHttpTokenKey: ""
+    # Deprecated. Set only when the secret uses a custom legacy key name.
+    upstashRedisUrlKey: ""
+    upstashRedisTokenKey: ""
 
 redis:
   # Ignored when externalRedis.enabled=true.
@@ -236,6 +244,12 @@ cron:
     draft-cleanup:
       schedule: "0 4 * * *"
       path: /api/cron/draft-cleanup
+    push-retention:
+      schedule: "30 3 * * *"
+      path: /api/cron/mobile-push-retention
+    send-op-retention:
+      schedule: "45 3 * * *"
+      path: /api/cron/email-send-operation-retention
     follow-up-reminders:
       schedule: "0 * * * *"
       path: /api/follow-up-reminders
@@ -245,9 +259,15 @@ cron:
     inbox-health:
       schedule: "0 8 * * *"
       path: /api/resend/inbox-health/all
+    weekly-summary:
+      schedule: "0 9 * * 1"
+      path: /api/resend/summary/all
     meeting-briefs:
       schedule: "*/15 * * * *"
       path: /api/meeting-briefs
+    meeting-recorder:
+      schedule: "*/5 * * * *"
+      path: /api/meeting-recorder/schedule
     watch-renewal:
       schedule: "0 */6 * * *"
       path: /api/watch/all

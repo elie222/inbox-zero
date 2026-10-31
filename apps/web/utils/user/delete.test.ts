@@ -4,6 +4,10 @@ import { Prisma } from "@/generated/prisma/client";
 import { createTestLogger } from "@/__tests__/helpers";
 import prisma from "@/utils/__mocks__/prisma";
 import { deleteUser } from "@/utils/user/delete";
+import { deleteTinybirdEmailData } from "@inboxzero/tinybird";
+import { publishConversationChange } from "@/utils/team-comments/events";
+import { deleteContact as deleteLoopsContact } from "@inboxzero/loops";
+import { releaseAccountRecordings } from "@/utils/meeting-recorder/delete-media";
 
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/redis/thread-page-buffer", () => ({
@@ -15,8 +19,8 @@ vi.mock("@inboxzero/loops", () => ({
 vi.mock("@inboxzero/transactional-email", () => ({
   deleteContact: vi.fn(),
 }));
-vi.mock("@inboxzero/tinybird-ai-analytics", () => ({
-  deleteTinybirdAiCalls: vi.fn(() => Promise.resolve()),
+vi.mock("@inboxzero/tinybird", () => ({
+  deleteTinybirdEmailData: vi.fn(() => Promise.resolve()),
 }));
 vi.mock("@/utils/posthog", () => ({
   deletePosthogUser: vi.fn(() => Promise.resolve()),
@@ -24,13 +28,16 @@ vi.mock("@/utils/posthog", () => ({
   trackUserDeletionRequested: vi.fn(() => Promise.resolve()),
 }));
 vi.mock("@/utils/email/watch-manager", () => ({
-  unwatchEmails: vi.fn(),
+  stopWatchingEmailAccount: vi.fn(),
 }));
-vi.mock("@/utils/email/provider", () => ({
-  createEmailProvider: vi.fn(),
+vi.mock("@/utils/team-comments/events", () => ({
+  publishConversationChange: vi.fn(),
 }));
 vi.mock("@/utils/redis/research-cache", () => ({
   clearCachedResearchForUser: vi.fn(() => Promise.resolve()),
+}));
+vi.mock("@/utils/meeting-recorder/delete-media", () => ({
+  releaseAccountRecordings: vi.fn(() => Promise.resolve()),
 }));
 
 const logger = createTestLogger();
@@ -39,15 +46,16 @@ describe("deleteUser", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     prisma.member.findMany.mockResolvedValue([]);
+    prisma.conversation.findMany.mockResolvedValue([]);
+    prisma.$transaction.mockImplementation((operations) =>
+      Promise.all(operations as unknown as Promise<unknown>[]),
+    );
   });
 
   it("does not delete a user when their email accounts own an organization with remaining members", async () => {
     prisma.account.findMany.mockResolvedValue([
       {
         provider: "google",
-        access_token: null,
-        refresh_token: null,
-        expires_at: null,
         emailAccount: {
           id: "email-account-1",
           email: "owner@example.com",
@@ -73,16 +81,34 @@ describe("deleteUser", () => {
       "Transfer organization ownership before deleting your account.",
     );
 
+    expect(prisma.session.deleteMany).not.toHaveBeenCalled();
     expect(prisma.user.deleteMany).not.toHaveBeenCalled();
   });
 
-  it("deletes solo organizations before deleting the user", async () => {
+  it("keeps Tinybird data when deleting the user fails", async () => {
     prisma.account.findMany.mockResolvedValue([
       {
         provider: "google",
-        access_token: null,
-        refresh_token: null,
-        expires_at: null,
+        emailAccount: {
+          id: "email-account-1",
+          email: "owner@example.com",
+          watchEmailsSubscriptionId: null,
+        },
+      },
+    ] as Awaited<ReturnType<typeof prisma.account.findMany>>);
+    prisma.executedRule.findMany.mockResolvedValue([]);
+    prisma.user.deleteMany.mockRejectedValue(new Error("database unavailable"));
+
+    await expect(deleteUser({ userId: "user-1", logger })).rejects.toThrow(
+      "database unavailable",
+    );
+    expect(deleteTinybirdEmailData).not.toHaveBeenCalled();
+  });
+
+  it("deletes solo organizations and memberships before deleting the user, then notifies shared conversations", async () => {
+    prisma.account.findMany.mockResolvedValue([
+      {
+        provider: "google",
         emailAccount: {
           id: "email-account-1",
           email: "owner@example.com",
@@ -102,8 +128,12 @@ describe("deleteUser", () => {
     ] as Awaited<ReturnType<typeof prisma.organization.findMany>>);
     prisma.executedRule.findMany.mockResolvedValue([]);
     prisma.user.deleteMany.mockResolvedValue({ count: 1 } as any);
+    prisma.conversation.findMany.mockResolvedValue([
+      { id: "shared-1" },
+    ] as Awaited<ReturnType<typeof prisma.conversation.findMany>>);
 
     await deleteUser({ userId: "user-1", logger });
+    expect(deleteTinybirdEmailData).toHaveBeenCalledWith(["owner@example.com"]);
     expect(withThreadPageBufferDeletion).toHaveBeenCalledWith(
       ["email-account-1"],
       expect.any(Function),
@@ -119,18 +149,130 @@ describe("deleteUser", () => {
         },
       },
     });
+    expect(prisma.session.deleteMany).toHaveBeenCalledWith({
+      where: { userId: "user-1" },
+    });
     expect(prisma.user.deleteMany).toHaveBeenCalledWith({
       where: { id: "user-1" },
     });
+    expect(prisma.conversation.findMany).toHaveBeenCalledWith({
+      where: {
+        status: "ACTIVE",
+        OR: [
+          { publisher: { emailAccount: { userId: "user-1" } } },
+          {
+            participants: {
+              some: {
+                member: { emailAccount: { userId: "user-1" } },
+              },
+            },
+          },
+        ],
+      },
+      select: { id: true },
+    });
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(prisma.member.deleteMany).toHaveBeenCalledWith({
+      where: { emailAccount: { userId: "user-1" } },
+    });
+    expect(publishConversationChange).toHaveBeenCalledWith(
+      "shared-1",
+      expect.anything(),
+    );
+    expect(
+      vi.mocked(publishConversationChange).mock.invocationCallOrder[0],
+    ).toBeGreaterThan(prisma.$transaction.mock.invocationCallOrder[0]);
+  });
+
+  it("removes the marketing contact by email address", async () => {
+    prisma.account.findMany.mockResolvedValue([
+      {
+        provider: "google",
+        emailAccount: {
+          id: "email-account-1",
+          email: "user@example.com",
+          watchEmailsSubscriptionId: null,
+        },
+      },
+    ] as Awaited<ReturnType<typeof prisma.account.findMany>>);
+    prisma.executedRule.findMany.mockResolvedValue([]);
+    prisma.user.deleteMany.mockResolvedValue({ count: 1 } as any);
+
+    await deleteUser({ userId: "user-1", logger });
+
+    expect(deleteLoopsContact).toHaveBeenCalledWith("user@example.com");
+  });
+
+  it("releases every mailbox's recordings before deleting the user", async () => {
+    prisma.account.findMany.mockResolvedValue([
+      {
+        provider: "google",
+        emailAccount: {
+          id: "email-account-1",
+          email: "first@example.com",
+          watchEmailsSubscriptionId: null,
+        },
+      },
+      {
+        provider: "microsoft",
+        emailAccount: {
+          id: "email-account-2",
+          email: "second@example.com",
+          watchEmailsSubscriptionId: "subscription-2",
+        },
+      },
+    ] as Awaited<ReturnType<typeof prisma.account.findMany>>);
+    prisma.executedRule.findMany.mockResolvedValue([]);
+    prisma.user.deleteMany.mockResolvedValue({ count: 1 } as any);
+    let finishSecondRelease = () => {};
+    vi.mocked(releaseAccountRecordings).mockImplementation(
+      async ({ emailAccountId }) => {
+        if (emailAccountId !== "email-account-2") return;
+        await new Promise<void>((resolve) => {
+          finishSecondRelease = resolve;
+        });
+      },
+    );
+
+    const deletion = deleteUser({ userId: "user-1", logger });
+    await vi.waitFor(() =>
+      expect(releaseAccountRecordings).toHaveBeenCalledTimes(2),
+    );
+
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    finishSecondRelease();
+    await deletion;
+
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(prisma.user.deleteMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the user when a meeting bot cannot be released", async () => {
+    prisma.account.findMany.mockResolvedValue([
+      {
+        provider: "google",
+        emailAccount: {
+          id: "email-account-1",
+          email: "user@example.com",
+          watchEmailsSubscriptionId: null,
+        },
+      },
+    ] as Awaited<ReturnType<typeof prisma.account.findMany>>);
+    vi.mocked(releaseAccountRecordings).mockRejectedValueOnce(
+      new Error("provider unavailable"),
+    );
+
+    await expect(deleteUser({ userId: "user-1", logger })).rejects.toThrow(
+      "provider unavailable",
+    );
+    expect(prisma.user.deleteMany).not.toHaveBeenCalled();
+    expect(deleteLoopsContact).not.toHaveBeenCalled();
   });
 
   it("deletes ownerless solo organizations before deleting the user", async () => {
     prisma.account.findMany.mockResolvedValue([
       {
         provider: "google",
-        access_token: null,
-        refresh_token: null,
-        expires_at: null,
         emailAccount: {
           id: "email-account-1",
           email: "admin@example.com",
@@ -178,9 +320,6 @@ describe("deleteUser", () => {
     prisma.account.findMany.mockResolvedValue([
       {
         provider: "google",
-        access_token: null,
-        refresh_token: null,
-        expires_at: null,
         emailAccount: {
           id: "email-account-1",
           email: "owner@example.com",
@@ -202,9 +341,6 @@ describe("deleteUser", () => {
     prisma.account.findMany.mockResolvedValue([
       {
         provider: "google",
-        access_token: null,
-        refresh_token: null,
-        expires_at: null,
         emailAccount: {
           id: "email-account-1",
           email: "owner@example.com",

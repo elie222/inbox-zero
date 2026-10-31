@@ -3,27 +3,32 @@ export type ModelPricing = {
   input: number;
   output: number;
   cachedInput?: number;
+  cacheWrite?: number;
 };
 
 const sonnet = {
   input: 3 / 1_000_000,
   output: 15 / 1_000_000,
   cachedInput: 0.3 / 1_000_000,
+  cacheWrite: 3.75 / 1_000_000,
 };
 const sonnet5 = {
   input: 2 / 1_000_000,
   output: 10 / 1_000_000,
   cachedInput: 0.2 / 1_000_000,
+  cacheWrite: 2.5 / 1_000_000,
 };
 const haiku = {
   input: 1 / 1_000_000,
   output: 5 / 1_000_000,
   cachedInput: 0.1 / 1_000_000,
+  cacheWrite: 1.25 / 1_000_000,
 };
 const opus5 = {
   input: 5 / 1_000_000,
   output: 25 / 1_000_000,
   cachedInput: 0.5 / 1_000_000,
+  cacheWrite: 6.25 / 1_000_000,
 };
 
 const gemini2_0flash = {
@@ -103,6 +108,11 @@ export const STATIC_MODEL_PRICING: Record<string, ModelPricing> = {
     input: 0.2 / 1_000_000,
     output: 1.25 / 1_000_000,
     cachedInput: 0.02 / 1_000_000,
+  },
+  "gpt-6-luna": {
+    input: 0.1 / 1_000_000,
+    output: 0.5 / 1_000_000,
+    cachedInput: 0.01 / 1_000_000,
   },
   "gpt-5.6-luna": {
     input: 0.2 / 1_000_000,
@@ -254,6 +264,11 @@ export const STATIC_MODEL_PRICING: Record<string, ModelPricing> = {
     input: 0.35 / 1_000_000,
     output: 0.75 / 1_000_000,
   },
+  // TypeSafe decision model: $42 per billion input tokens, output free
+  "jev-latest": {
+    input: 42 / 1_000_000_000,
+    output: 0,
+  },
 };
 
 // Source model ids to use when fetching OpenRouter pricing for our supported models.
@@ -268,6 +283,7 @@ export const OPENROUTER_MODEL_ID_BY_SUPPORTED_MODEL: Partial<
   "gpt-5.4": "openai/gpt-5.4",
   "gpt-5.4-mini": "openai/gpt-5.4-mini",
   "gpt-5.4-nano": "openai/gpt-5.4-nano",
+  "gpt-6-luna": "openai/gpt-6-luna",
   "gpt-5.6-luna": "openai/gpt-5.6-luna",
   "gpt-5.6-terra": "openai/gpt-5.6-terra",
   "gpt-5.6-sol": "openai/gpt-5.6-sol",

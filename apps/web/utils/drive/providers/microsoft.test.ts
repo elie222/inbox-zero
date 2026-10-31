@@ -17,7 +17,7 @@ vi.mock("@microsoft/microsoft-graph-client", () => ({
   },
 }));
 
-vi.mock("@/utils/microsoft/oauth", () => ({
+vi.mock("@/utils/outlook/oauth", () => ({
   fetchMicrosoftGraph: vi.fn(),
   getMicrosoftGraphClientOptions: vi.fn(() => ({})),
 }));

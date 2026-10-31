@@ -6,11 +6,16 @@ import { Prisma } from "@/generated/prisma/client";
 import prisma from "@/utils/prisma";
 import { withThreadPageBufferDeletion } from "@/utils/redis/thread-page-buffer";
 import { deleteUser } from "@/utils/user/delete";
+import { stopWatchingEmailAccount } from "@/utils/email/watch-manager";
 import { actionClient, actionClientUser } from "@/utils/actions/safe-action";
 import { captureException, SafeError } from "@/utils/error";
 import { updateAccountSeats } from "@/utils/premium/seats";
 import { betterAuthConfig } from "@/utils/auth";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
+import {
+  LAST_EMAIL_ACCOUNT_COOKIE,
+  parseLastEmailAccountCookieValue,
+} from "@/utils/cookies";
 import {
   saveAboutBody,
   saveSignatureBody,
@@ -18,6 +23,7 @@ import {
   updateAIDraftCleanupSettingsBody,
 } from "@/utils/actions/user.validation";
 import { clearLastEmailAccountCookie } from "@/utils/cookies.server";
+import { deleteTinybirdEmailData } from "@inboxzero/tinybird";
 import { aliasPosthogUser } from "@/utils/posthog";
 import {
   cleanupAIDraftsForAccount,
@@ -25,6 +31,7 @@ import {
 } from "@/utils/ai/draft-cleanup";
 import { isDuplicateError, isNotFoundError } from "@/utils/prisma-helpers";
 import type { Logger } from "@/utils/logger";
+import { prepareMemberRemovalNotifications } from "@/utils/team-comments/member-removal";
 import {
   DELETE_ACCOUNT_REQUIRES_OWNER_TRANSFER_ERROR,
   DELETE_EMAIL_ACCOUNT_REQUIRES_OWNER_TRANSFER_ERROR,
@@ -132,6 +139,8 @@ export const deleteEmailAccountAction = actionClientUser
         select: {
           email: true,
           accountId: true,
+          watchEmailsSubscriptionId: true,
+          account: { select: { provider: true } },
           user: { select: { email: true } },
         },
       });
@@ -140,6 +149,10 @@ export const deleteEmailAccountAction = actionClientUser
       if (!emailAccount.accountId) throw new SafeError("Account id not found");
       const organizationIdsToDelete =
         await assertEmailAccountCanBeDeleted(emailAccountId);
+      const notifyConversations = await prepareMemberRemovalNotifications(
+        { emailAccountId },
+        logger,
+      );
 
       const isPrimaryAccount = emailAccount.email === emailAccount.user.email;
       const deleteSoloOrganizationsOperation =
@@ -176,6 +189,13 @@ export const deleteEmailAccountAction = actionClientUser
         // Promote the next email account to primary
         const newPrimaryAccount = otherEmailAccounts[0];
         const oldEmail = emailAccount.user.email;
+
+        await stopWatchingEmailAccount({
+          emailAccountId,
+          provider: emailAccount.account.provider,
+          subscriptionId: emailAccount.watchEmailsSubscriptionId,
+          logger,
+        });
 
         await runDeleteEmailAccountTransaction(
           userId,
@@ -216,6 +236,13 @@ export const deleteEmailAccountAction = actionClientUser
           });
         });
       } else {
+        await stopWatchingEmailAccount({
+          emailAccountId,
+          provider: emailAccount.account.provider,
+          subscriptionId: emailAccount.watchEmailsSubscriptionId,
+          logger,
+        });
+
         await runDeleteEmailAccountTransaction(
           userId,
           [
@@ -236,6 +263,21 @@ export const deleteEmailAccountAction = actionClientUser
           { emailAccountId, logger, userEmail },
         );
       }
+
+      after(() =>
+        deleteTinybirdEmailData([emailAccount.email]).catch((error) => {
+          logger.error("Error deleting Tinybird data", { error });
+          captureException(error);
+        }),
+      );
+
+      await notifyConversations();
+
+      await clearLastEmailAccountCookieIfMatching({
+        userId,
+        emailAccountId,
+        logger,
+      });
 
       after(async () => {
         await updateAccountSeats({ userId });
@@ -332,6 +374,28 @@ async function assertEmailAccountCanBeDeleted(emailAccountId: string) {
     ownershipImpact,
     DELETE_EMAIL_ACCOUNT_REQUIRES_OWNER_TRANSFER_ERROR,
   );
+}
+
+async function clearLastEmailAccountCookieIfMatching({
+  userId,
+  emailAccountId,
+  logger,
+}: {
+  userId: string;
+  emailAccountId: string;
+  logger: Logger;
+}) {
+  try {
+    const cookieStore = await cookies();
+    const lastEmailAccountId = parseLastEmailAccountCookieValue({
+      userId,
+      cookieValue: cookieStore.get(LAST_EMAIL_ACCOUNT_COOKIE)?.value,
+    });
+    if (lastEmailAccountId !== emailAccountId) return;
+    await clearLastEmailAccountCookie();
+  } catch (error) {
+    logger.error("Failed to clear last email account cookie", { error });
+  }
 }
 
 async function assertUserAccountCanBeDeleted(userId: string) {

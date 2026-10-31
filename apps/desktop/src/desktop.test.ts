@@ -4,19 +4,23 @@ import {
   getDesktopAppOrigin,
   getDesktopBrowserStartUrl,
   getDesktopHomeUrl,
+  getDesktopLocalMailUrl,
   getDesktopLoginUrl,
   DESKTOP_WINDOW_DRAG_CSS,
   getDesktopPostAuthUrl,
   getDesktopMailAccountId,
   getDesktopSessionRestoreUrl,
-  getDesktopWindowChrome,
   getDesktopWindowDragCss,
   isAllowedDesktopNavigation,
   isAllowedExternalUrl,
   isDesktopAuthProvider,
+  isDesktopLocalMailUrl,
   normalizeDesktopCallbackPath,
   parseDesktopAuthCallback,
+  resolveDesktopStartUrl,
   shouldPersistDesktopUrl,
+  shouldSmokeLocalMail,
+  shouldUseLocalMailRenderer,
 } from "./desktop";
 
 describe("desktop shell helpers", () => {
@@ -38,11 +42,60 @@ describe("desktop shell helpers", () => {
     );
   });
 
+  it("treats INBOX_ZERO_APP_URL as the only allowed origin", () => {
+    const origin = "http://mail.internal.example:8080";
+    expect(getDesktopAppOrigin(`${origin}/welcome`)).toBe(origin);
+    expect(getDesktopLoginUrl(origin)).toBe(`${origin}/login`);
+    expect(getDesktopHomeUrl(origin)).toBe(
+      `${origin}/welcome-redirect?mode=mail`,
+    );
+    expect(getDesktopBrowserStartUrl(origin, "google", "challenge")).toBe(
+      `${origin}/api/mobile-auth/browser-start?provider=google&codeChallenge=challenge`,
+    );
+    expect(isAllowedDesktopNavigation(`${origin}/acc-1/mail`, origin)).toBe(
+      true,
+    );
+    expect(
+      isAllowedDesktopNavigation(
+        "https://www.getinboxzero.com/acc-1/mail",
+        origin,
+      ),
+    ).toBe(false);
+    expect(isAllowedDesktopNavigation("https://evil.test/mail", origin)).toBe(
+      false,
+    );
+    expect(
+      getDesktopSessionRestoreUrl(origin, `${origin}/acc-1/mail?type=inbox`),
+    ).toBe(`${origin}/acc-1/mail?type=inbox`);
+    expect(
+      getDesktopSessionRestoreUrl(
+        origin,
+        "https://www.getinboxzero.com/acc-1/mail",
+      ),
+    ).toBeNull();
+    expect(getDesktopMailAccountId(`${origin}/acc-1/mail`, origin)).toBe(
+      "acc-1",
+    );
+    expect(
+      getDesktopMailAccountId(
+        "https://www.getinboxzero.com/acc-1/mail",
+        origin,
+      ),
+    ).toBeNull();
+    expect(getDesktopPostAuthUrl(origin, "/connect-mailbox")).toBe(
+      `${origin}/connect-mailbox`,
+    );
+  });
+
   it("builds the system-browser OAuth start URL", () => {
     expect(
-      getDesktopBrowserStartUrl("https://www.getinboxzero.com", "google"),
+      getDesktopBrowserStartUrl(
+        "https://www.getinboxzero.com",
+        "google",
+        "challenge",
+      ),
     ).toBe(
-      "https://www.getinboxzero.com/api/mobile-auth/browser-start?provider=google",
+      "https://www.getinboxzero.com/api/mobile-auth/browser-start?provider=google&codeChallenge=challenge",
     );
   });
 
@@ -105,6 +158,52 @@ describe("desktop shell helpers", () => {
     ).toBe(true);
   });
 
+  it("allows the bundled local mail renderer over file URLs", () => {
+    const rendererFile = "/tmp/inbox-zero-desktop/renderer/index.html";
+    const url = getDesktopLocalMailUrl(rendererFile, ["acc-1"]);
+    expect(url.startsWith("file:")).toBe(true);
+    expect(url).toContain("accountId=acc-1");
+    expect(isDesktopLocalMailUrl(url, rendererFile)).toBe(true);
+    expect(
+      isAllowedDesktopNavigation(
+        url,
+        "https://www.getinboxzero.com",
+        rendererFile,
+      ),
+    ).toBe(true);
+    expect(
+      isAllowedDesktopNavigation(
+        "file:///etc/passwd",
+        "https://www.getinboxzero.com",
+        rendererFile,
+      ),
+    ).toBe(false);
+    expect(shouldUseLocalMailRenderer({ INBOX_ZERO_LOCAL_MAIL: "1" })).toBe(
+      true,
+    );
+    expect(shouldUseLocalMailRenderer({})).toBe(false);
+    expect(shouldSmokeLocalMail({ INBOX_ZERO_LOCAL_MAIL_SMOKE: "1" })).toBe(
+      true,
+    );
+    expect(shouldSmokeLocalMail({})).toBe(false);
+    expect(
+      resolveDesktopStartUrl({
+        requestedUrl: "https://www.getinboxzero.com/account-1/mail",
+        localMailUrl: url,
+        homeUrl: "https://www.getinboxzero.com/welcome-redirect?mode=mail",
+        rendererFile,
+      }),
+    ).toBe(url);
+    expect(
+      resolveDesktopStartUrl({
+        requestedUrl: "https://www.getinboxzero.com/account-1/mail",
+        localMailUrl: null,
+        homeUrl: "https://www.getinboxzero.com/welcome-redirect?mode=mail",
+        rendererFile,
+      }),
+    ).toBe("https://www.getinboxzero.com/account-1/mail");
+  });
+
   it("finds the protocol URL in process arguments", () => {
     expect(
       findDesktopProtocolUrl([
@@ -145,23 +244,6 @@ describe("desktop shell helpers", () => {
     expect(
       getDesktopPostAuthUrl("https://www.getinboxzero.com", "/.//evil.test"),
     ).toBe("https://www.getinboxzero.com/evil.test");
-  });
-
-  it("uses platform-appropriate title bars and menu visibility", () => {
-    expect(getDesktopWindowChrome("darwin")).toEqual({
-      backgroundColor: "#ffffff",
-      titleBarStyle: "hiddenInset",
-      trafficLightPosition: { x: 16, y: 18 },
-    });
-    expect(getDesktopWindowChrome("win32")).toEqual({
-      autoHideMenuBar: false,
-      backgroundColor: "#ffffff",
-      titleBarStyle: "default",
-    });
-    expect(getDesktopWindowChrome("linux")).toEqual({
-      autoHideMenuBar: true,
-      backgroundColor: "#ffffff",
-    });
   });
 
   it("persists in-app pages but not auth or API URLs", () => {
@@ -226,11 +308,10 @@ describe("desktop shell helpers", () => {
     expect(getDesktopWindowDragCss("win32")).toBeNull();
     expect(getDesktopWindowDragCss("linux")).toBeNull();
     expect(DESKTOP_WINDOW_DRAG_CSS).toContain("[data-hide-on-desktop-mac]");
-    expect(DESKTOP_WINDOW_DRAG_CSS).toContain(
-      "[data-desktop-mac-titlebar-spacer]",
-    );
-    expect(DESKTOP_WINDOW_DRAG_CSS).toContain("padding-top: 52px");
     expect(DESKTOP_WINDOW_DRAG_CSS).toContain("[data-desktop-mac-end]");
+    expect(DESKTOP_WINDOW_DRAG_CSS).toContain(
+      "[data-desktop-mac-titlebar-toggle]",
+    );
     expect(DESKTOP_WINDOW_DRAG_CSS).toContain(
       "--desktop-traffic-lights-width: 78px",
     );

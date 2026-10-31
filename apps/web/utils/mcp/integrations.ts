@@ -1,6 +1,11 @@
+import type { IntegrationProviderId } from "@/utils/mcp/providers/types";
+
 type McpIntegrationConfig = {
   name: string;
   serverUrl?: string;
+  // Hosted by a provider instead of a direct MCP server; `app` is the
+  // provider's identifier for it
+  provider?: { id: IntegrationProviderId; app: string };
   authType: "oauth" | "api-token";
   scopes: string[];
   skipResourceParam?: boolean; // Some OAuth servers don't support RFC 8707 resource parameter
@@ -13,7 +18,7 @@ export const MCP_INTEGRATIONS: Record<
   McpIntegrationConfig & {
     displayName: string;
     shortName?: string; // Short name for display in compact contexts (e.g. "Connected to X")
-    description: string; // Plain-English summary of the data this integration exposes, shown on the integrations page
+    description?: string; // Only for rows whose name alone does not say what they connect
     url: string; // Domain URL for favicon display
     allowedTools?: string[];
     comingSoon?: boolean;
@@ -27,7 +32,6 @@ export const MCP_INTEGRATIONS: Record<
   notion: {
     name: "notion",
     displayName: "Notion",
-    description: "Docs, wikis, and project notes",
     url: "notion.com",
     serverUrl: "https://mcp.notion.com/mcp",
     authType: "oauth",
@@ -38,7 +42,6 @@ export const MCP_INTEGRATIONS: Record<
   stripe: {
     name: "stripe",
     displayName: "Stripe",
-    description: "Customers, subscriptions, invoices, and payments",
     url: "stripe.com",
     serverUrl: "https://mcp.stripe.com",
     authType: "oauth", // must request whitelisting of /api/mcp/stripe/callback from Stripe. localhost is whitelisted already.
@@ -58,7 +61,6 @@ export const MCP_INTEGRATIONS: Record<
   linear: {
     name: "linear",
     displayName: "Linear",
-    description: "Issues, projects, and status",
     url: "linear.app",
     // Dedicated read-only endpoint; the server only exposes read tools here
     serverUrl: "https://mcp.linear.app/mcp/readonly",
@@ -69,7 +71,6 @@ export const MCP_INTEGRATIONS: Record<
   attio: {
     name: "attio",
     displayName: "Attio",
-    description: "CRM records, contacts, notes, and meetings",
     url: "attio.com",
     serverUrl: "https://mcp.attio.com/mcp",
     authType: "oauth",
@@ -97,7 +98,6 @@ export const MCP_INTEGRATIONS: Record<
   intercom: {
     name: "intercom",
     displayName: "Intercom",
-    description: "Support conversations, contacts, and help articles",
     url: "intercom.com",
     // US-hosted workspaces only; EU workspaces use mcp.eu.intercom.com (not supported yet)
     serverUrl: "https://mcp.intercom.com/mcp",
@@ -122,7 +122,6 @@ export const MCP_INTEGRATIONS: Record<
   monday: {
     name: "monday",
     displayName: "Monday.com",
-    description: "Boards, items, and workspaces",
     url: "monday.com",
     serverUrl: "https://mcp.monday.com/mcp",
     authType: "oauth",
@@ -163,7 +162,6 @@ export const MCP_INTEGRATIONS: Record<
   todoist: {
     name: "todoist",
     displayName: "Todoist",
-    description: "Tasks and projects",
     url: "todoist.com",
     serverUrl: "https://ai.todoist.net/mcp",
     authType: "oauth",
@@ -171,11 +169,173 @@ export const MCP_INTEGRATIONS: Record<
     allowedTools: [],
     ruleActionWriteTools: ["add-tasks"],
   },
+  hubspot: {
+    name: "hubspot",
+    displayName: "HubSpot",
+    url: "hubspot.com",
+    provider: { id: "composio", app: "hubspot" },
+    authType: "oauth",
+    scopes: [],
+    allowedTools: [
+      "HUBSPOT_SEARCH_CONTACTS_BY_CRITERIA",
+      "HUBSPOT_SEARCH_COMPANIES",
+      "HUBSPOT_SEARCH_DEALS",
+      "HUBSPOT_SEARCH_TICKETS",
+      "HUBSPOT_READ_CONTACT",
+      "HUBSPOT_GET_COMPANY",
+      "HUBSPOT_GET_DEAL",
+      "HUBSPOT_GET_TICKET",
+    ],
+  },
+  salesforce: {
+    name: "salesforce",
+    displayName: "Salesforce",
+    url: "salesforce.com",
+    provider: { id: "composio", app: "salesforce" },
+    authType: "oauth",
+    scopes: [],
+    allowedTools: [
+      "SALESFORCE_SEARCH_CONTACTS",
+      "SALESFORCE_SEARCH_ACCOUNTS",
+      "SALESFORCE_SEARCH_LEADS",
+      "SALESFORCE_SEARCH_OPPORTUNITIES",
+      "SALESFORCE_GET_CONTACT",
+      "SALESFORCE_GET_ACCOUNT",
+      "SALESFORCE_GET_OPPORTUNITY",
+    ],
+  },
+  airtable: {
+    name: "airtable",
+    displayName: "Airtable",
+    url: "airtable.com",
+    provider: { id: "composio", app: "airtable" },
+    authType: "oauth",
+    scopes: [],
+    allowedTools: [
+      "AIRTABLE_LIST_BASES",
+      "AIRTABLE_GET_BASE_SCHEMA",
+      "AIRTABLE_LIST_RECORDS",
+      "AIRTABLE_GET_RECORD",
+    ],
+  },
+  googlesheets: {
+    name: "googlesheets",
+    displayName: "Google Sheets",
+    url: "sheets.google.com",
+    provider: { id: "composio", app: "googlesheets" },
+    authType: "oauth",
+    scopes: [],
+    allowedTools: [
+      "GOOGLESHEETS_SEARCH_SPREADSHEETS",
+      "GOOGLESHEETS_GET_SPREADSHEET_INFO",
+      "GOOGLESHEETS_LOOKUP_SPREADSHEET_ROW",
+      "GOOGLESHEETS_BATCH_GET",
+    ],
+  },
+  slack: {
+    name: "slack",
+    displayName: "Slack",
+    url: "slack.com",
+    provider: { id: "composio", app: "slack" },
+    authType: "oauth",
+    scopes: [],
+    allowedTools: [
+      "SLACK_SEARCH_MESSAGES",
+      "SLACK_FETCH_MESSAGE_THREAD_FROM_A_CONVERSATION",
+      "SLACK_FIND_USER_BY_EMAIL_ADDRESS",
+      "SLACK_FIND_CHANNELS",
+    ],
+  },
+  asana: {
+    name: "asana",
+    displayName: "Asana",
+    url: "asana.com",
+    provider: { id: "composio", app: "asana" },
+    authType: "oauth",
+    scopes: [],
+    allowedTools: [
+      "ASANA_SEARCH_TASKS_IN_WORKSPACE",
+      "ASANA_GET_MULTIPLE_WORKSPACES",
+      "ASANA_GET_A_TASK",
+      "ASANA_GET_TASKS_FROM_A_PROJECT",
+    ],
+  },
+  clickup: {
+    name: "clickup",
+    displayName: "ClickUp",
+    url: "clickup.com",
+    provider: { id: "composio", app: "clickup" },
+    authType: "oauth",
+    scopes: [],
+    allowedTools: [
+      "CLICKUP_GET_FILTERED_TEAM_TASKS",
+      "CLICKUP_GET_TASK",
+      "CLICKUP_GET_TASK_COMMENTS",
+    ],
+  },
+  jira: {
+    name: "jira",
+    displayName: "Jira",
+    url: "atlassian.com",
+    provider: { id: "composio", app: "jira" },
+    authType: "oauth",
+    scopes: [],
+    allowedTools: [
+      "JIRA_SEARCH_ISSUES",
+      "JIRA_GET_ISSUE",
+      "JIRA_LIST_ISSUE_COMMENTS",
+      "JIRA_GET_ALL_PROJECTS",
+    ],
+  },
+  zendesk: {
+    name: "zendesk",
+    displayName: "Zendesk",
+    url: "zendesk.com",
+    provider: { id: "composio", app: "zendesk" },
+    authType: "oauth",
+    scopes: [],
+    allowedTools: [
+      "ZENDESK_SEARCH_ZENDESK",
+      "ZENDESK_SEARCH_ZENDESK_USERS",
+      "ZENDESK_GET_USERS_REQUESTED_TICKETS",
+      "ZENDESK_GET_ZENDESK_TICKET_BY_ID",
+      "ZENDESK_GET_TICKET_COMMENTS",
+      "ZENDESK_GET_ZENDESK_ORGANIZATION",
+    ],
+  },
+  quickbooks: {
+    name: "quickbooks",
+    displayName: "QuickBooks",
+    url: "quickbooks.intuit.com",
+    provider: { id: "composio", app: "quickbooks" },
+    authType: "oauth",
+    scopes: [],
+    allowedTools: [
+      "QUICKBOOKS_QUERY_CUSTOMERS",
+      "QUICKBOOKS_READ_CUSTOMER",
+      "QUICKBOOKS_QUERY_INVOICES",
+      "QUICKBOOKS_CUSTOMER_BALANCE_REPORT",
+    ],
+  },
+  calendly: {
+    name: "calendly",
+    displayName: "Calendly",
+    url: "calendly.com",
+    provider: { id: "composio", app: "calendly" },
+    authType: "oauth",
+    scopes: [],
+    allowedTools: [
+      "CALENDLY_LIST_SCHEDULED_EVENTS",
+      "CALENDLY_GET_EVENT",
+      "CALENDLY_LIST_EVENT_INVITEES",
+      "CALENDLY_GET_EVENT_INVITEE",
+    ],
+  },
   pipedream: {
     name: "pipedream",
     displayName: "HubSpot, Slack, Airtable, Todoist, and more (via Pipedream)",
     shortName: "Pipedream",
-    description: "HubSpot, Slack, Airtable, and hundreds more apps",
+    description: "Hundreds more apps",
     url: "pipedream.com",
     serverUrl: "https://mcp.pipedream.net/v2",
     authType: "oauth",

@@ -1,6 +1,7 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import {
   formatDateGroupLabel,
+  formatShortDate,
   getElapsedBusinessDaysForDisplay,
   formatInUserTimezone,
   formatTimeInUserTimezone,
@@ -176,6 +177,7 @@ describe("internalDateToDate", () => {
   it.each([
     { name: "internalDate is missing", internalDate: undefined },
     { name: "internalDate is invalid", internalDate: "not-a-date" },
+    { name: "internalDate is blank", internalDate: "   " },
   ])("returns invalid date when fallbackToNow is false and $name", ({
     internalDate,
   }) => {
@@ -310,5 +312,27 @@ describe("formatDateGroupLabel", () => {
         new Date("2025-09-20T09:00:00"),
       ),
     ).toBe("Earlier this month");
+  });
+});
+
+describe("formatShortDate", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-16T12:00:00"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("shows the year for a date in a previous year", () => {
+    const formatted = formatShortDate(new Date("2025-10-15T09:00:00"));
+    expect(formatted).toContain("2025");
+  });
+
+  it("omits the year for an earlier date this year", () => {
+    const formatted = formatShortDate(new Date("2026-10-15T09:00:00"));
+    expect(formatted).not.toContain("2026");
+    expect(formatted).toContain("15");
   });
 });

@@ -2,30 +2,36 @@
 
 import { addDays } from "date-fns/addDays";
 import { startOfDay } from "date-fns/startOfDay";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+import { MailboxThreadList } from "@inboxzero/mail-ui/MailboxSurface";
 import { ThreadRow } from "@/app/(app)/[emailAccountId]/mail/ThreadRow";
 import type {
   ListThread,
   MailLayoutMode,
 } from "@/app/(app)/[emailAccountId]/mail/types";
 import { getListThreadKey } from "@/app/(app)/[emailAccountId]/mail/types";
-import {
-  groupThreadsByDate,
-  scrollElementIntoContainer,
-  shouldPrefetchMoreThreads,
-  THREAD_LOAD_MORE_ROOT_MARGIN,
-} from "@/app/(app)/[emailAccountId]/mail/thread-list-behavior";
 import { LoadingMiniSpinner } from "@/components/Loading";
 import { Button } from "@/components/ui/button";
 import type { EmailLabels } from "@/providers/email-label-types";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useSentMessageOpensForThreads } from "@/hooks/useSentMessageOpens";
 import { cn } from "@/utils";
+import { formatDateGroupLabel } from "@/utils/date";
+import { getThreadTimestamp } from "@/utils/threads/sort";
 import { GmailLabel } from "@/utils/gmail/label";
+
+const NO_LABELS: EmailLabels = {};
 
 export type ThreadListProps = {
   threads: ListThread[];
-  emptyMessage?: string;
+  emptyMessage?: ReactNode;
   layout: MailLayoutMode;
   expandedPreview: boolean;
   userEmail: string;
@@ -37,6 +43,7 @@ export type ThreadListProps = {
   isSelected: (threadId: string) => boolean;
   selectedCount: number;
   onOpenThread: (index: number) => void;
+  onHoverThread?: (thread: ListThread) => void;
   onToggleSelect: (index: number) => void;
   onSelectRangeTo: (index: number) => void;
   showLoadMore: boolean;
@@ -45,9 +52,10 @@ export type ThreadListProps = {
   /** Identity of the current view so prefetch state does not leak across splits. */
   listKey: string;
   showSentOpenStatus?: boolean;
+  onScrolledChange?: (scrolled: boolean) => void;
 };
 
-export function ThreadList({
+export const ThreadList = memo(function ThreadList({
   threads,
   emptyMessage = "No emails in this view",
   layout,
@@ -60,6 +68,7 @@ export function ThreadList({
   isSelected,
   selectedCount,
   onOpenThread,
+  onHoverThread,
   onToggleSelect,
   onSelectRangeTo,
   showLoadMore,
@@ -67,18 +76,10 @@ export function ThreadList({
   onLoadMore,
   listKey,
   showSentOpenStatus = false,
+  onScrolledChange,
 }: ThreadListProps) {
   const isMobile = useIsMobile();
-  const [scrollRoot, setScrollRoot] = useState<HTMLDivElement | null>(null);
-  const focusedRowRef = useRef<HTMLDivElement | null>(null);
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
-  const prefetchForCount = useRef<number | null>(null);
-  const prefetchListKey = useRef(listKey);
-  const onLoadMoreRef = useRef(onLoadMore);
-  onLoadMoreRef.current = onLoadMore;
-  const focusedThreadId = threads[focusedIndex]
-    ? getListThreadKey(threads[focusedIndex])
-    : undefined;
+  const dayStart = useDayStart();
   const sentThreadIds = useMemo(
     () =>
       showSentOpenStatus
@@ -92,157 +93,87 @@ export function ThreadList({
   );
   const { data: sentMessageOpens } =
     useSentMessageOpensForThreads(sentThreadIds);
-  const dayStart = useDayStart();
-  const dateGroups = useMemo(
-    () => groupThreadsByDate(threads, new Date(dayStart)),
-    [dayStart, threads],
+  const groupHeaderClassName = cn(
+    "pt-4 pr-5 pb-1.5 font-normal text-muted-foreground text-sm",
+    selectionEnabled ? "pl-[3.25rem]" : "pl-8",
   );
-
-  // Keep the J/K cursor on screen without centering every row. Layout phase so
-  // a held arrow key never paints a selected row that's already off-screen.
-  useLayoutEffect(() => {
-    if (!scrollRoot || focusedIndex < 0 || !focusedThreadId) return;
-    const row = focusedRowRef.current;
-    if (!row) return;
-    scrollElementIntoContainer(scrollRoot, row);
-  }, [focusedIndex, focusedThreadId, scrollRoot]);
-
-  useEffect(() => {
-    if (prefetchListKey.current !== listKey) {
-      prefetchListKey.current = listKey;
-      prefetchForCount.current = null;
-    }
-    if (
-      !shouldPrefetchMoreThreads({
-        hasMore: showLoadMore,
-        isLoadingMore,
-        focusedIndex,
-        threadCount: threads.length,
-      })
-    ) {
-      return;
-    }
-    // A failed page doesn't grow the list; don't retry it in a loop.
-    if (prefetchForCount.current === threads.length) return;
-    prefetchForCount.current = threads.length;
-    onLoadMoreRef.current();
-  }, [focusedIndex, isLoadingMore, listKey, showLoadMore, threads.length]);
-
-  useEffect(() => {
-    if (!showLoadMore || !scrollRoot || threads.length === 0) return;
-    const sentinel = sentinelRef.current;
-    if (!sentinel) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          onLoadMoreRef.current();
-        }
-      },
-      { root: scrollRoot, rootMargin: THREAD_LOAD_MORE_ROOT_MARGIN },
-    );
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [scrollRoot, showLoadMore, threads.length]);
+  const getGroupLabel = useCallback(
+    (thread: ListThread) => {
+      const timestamp = getThreadTimestamp(thread);
+      return timestamp
+        ? formatDateGroupLabel(new Date(timestamp), new Date(dayStart))
+        : null;
+    },
+    [dayStart],
+  );
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div
-        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
-        ref={setScrollRoot}
-      >
-        {threads.length === 0 && !showLoadMore ? (
-          <div className="px-6 py-12 text-center text-muted-foreground text-sm">
-            {emptyMessage}
-          </div>
-        ) : (
-          <>
-            <div
-              aria-label="Conversations"
-              aria-multiselectable={selectionEnabled || undefined}
-              role="listbox"
-            >
-              {dateGroups.map((group) => (
-                <div
-                  aria-label={group.label ?? undefined}
-                  key={`${group.label}-${group.startIndex}`}
-                  role="group"
-                >
-                  {group.label && group.label !== "Today" ? (
-                    <div
-                      aria-hidden
-                      className={cn(
-                        "pt-4 pr-5 pb-1.5 font-normal text-muted-foreground text-sm",
-                        selectionEnabled ? "pl-[3.25rem]" : "pl-8",
-                      )}
-                    >
-                      {group.label}
-                    </div>
-                  ) : null}
-                  {group.threads.map((thread, offset) => {
-                    const index = group.startIndex + offset;
-                    const threadKey = getListThreadKey(thread);
-                    return (
-                      <ThreadRow
-                        hasAnySelection={selectionEnabled && selectedCount > 0}
-                        compact={isMobile}
-                        expandedPreview={expandedPreview}
-                        index={index}
-                        isFocused={index === focusedIndex}
-                        isSelected={selectionEnabled && isSelected(threadKey)}
-                        key={threadKey}
-                        layout={layout}
-                        onOpen={onOpenThread}
-                        onSelectRangeTo={onSelectRangeTo}
-                        onToggleSelect={onToggleSelect}
-                        rowRef={
-                          index === focusedIndex ? focusedRowRef : undefined
-                        }
-                        selectionEnabled={selectionEnabled}
-                        thread={thread}
-                        sentMessageOpen={
-                          showSentOpenStatus
-                            ? sentMessageOpens?.opens[
-                                thread.messages.at(-1)?.id ?? ""
-                              ]
-                            : undefined
-                        }
-                        userEmail={userEmail}
-                        userLabels={
-                          "account" in thread
-                            ? (labelsByAccount?.[thread.account.id] ?? {})
-                            : userLabels
-                        }
-                      />
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-
-            {showLoadMore ? (
-              <div className="flex justify-center px-4 py-5" ref={sentinelRef}>
-                {isLoadingMore ? (
-                  <div
-                    aria-live="polite"
-                    className="flex items-center gap-2 text-muted-foreground text-xs"
-                  >
-                    <LoadingMiniSpinner />
-                    Loading more
-                  </div>
-                ) : (
-                  <Button onClick={onLoadMore} size="sm" variant="outline">
-                    Load more
-                  </Button>
-                )}
-              </div>
-            ) : null}
-          </>
-        )}
-      </div>
-    </div>
+    <MailboxThreadList
+      emptyMessage={emptyMessage}
+      focusedIndex={focusedIndex}
+      getGroupLabel={getGroupLabel}
+      getKey={getListThreadKey}
+      groupHeaderClassName={groupHeaderClassName}
+      isLoadingMore={isLoadingMore}
+      isSelected={isSelected}
+      items={threads}
+      listKey={listKey}
+      loadMoreButton={
+        <Button onClick={onLoadMore} size="sm" variant="outline">
+          Load more
+        </Button>
+      }
+      loadingMoreIndicator={
+        <div className="flex items-center gap-2 text-muted-foreground text-xs">
+          <LoadingMiniSpinner />
+          Loading more
+        </div>
+      }
+      onLoadMore={onLoadMore}
+      onOpen={onOpenThread}
+      onScrolledChange={onScrolledChange}
+      onSelectRangeTo={onSelectRangeTo}
+      onToggleSelect={onToggleSelect}
+      renderItem={(row) => (
+        <div
+          data-mail-thread-key={row.rowKey}
+          key={row.rowKey}
+          onPointerEnter={() => onHoverThread?.(row.item)}
+        >
+          <ThreadRow
+            compact={isMobile}
+            expandedPreview={expandedPreview}
+            hasAnySelection={row.hasAnySelection}
+            index={row.index}
+            isFocused={row.isFocused}
+            isSelected={row.isSelected}
+            layout={layout}
+            onOpen={row.onOpen}
+            onSelectRangeTo={row.onSelectRangeTo}
+            onToggleSelect={row.onToggleSelect}
+            rowRef={row.rowRef}
+            selectionEnabled={row.selectionEnabled}
+            sentMessageOpen={
+              showSentOpenStatus
+                ? sentMessageOpens?.opens[row.item.messages.at(-1)?.id ?? ""]
+                : undefined
+            }
+            thread={row.item}
+            userEmail={userEmail}
+            userLabels={
+              "account" in row.item
+                ? (labelsByAccount?.[row.item.account.id] ?? NO_LABELS)
+                : userLabels
+            }
+          />
+        </div>
+      )}
+      selectedCount={selectedCount}
+      selectionEnabled={selectionEnabled}
+      showLoadMore={showLoadMore}
+    />
   );
-}
+});
 
 /** Refreshes idle lists at midnight and when a suspended tab becomes active. */
 function useDayStart() {

@@ -8,7 +8,9 @@ vi.mock("@/utils/email-account", () => ({
 vi.mock("@/app/(app)/[emailAccountId]/PermissionsCheck", () => ({
   PermissionsCheck: () => null,
 }));
-vi.mock("@/providers/EmailProvider", () => ({ EmailProvider: () => null }));
+vi.mock("@/providers/EmailLabelsProvider", () => ({
+  EmailLabelsProvider: () => null,
+}));
 vi.mock("@/components/assistant-chat/chat", () => ({ Chat: () => null }));
 
 describe("AssistantPage access", () => {

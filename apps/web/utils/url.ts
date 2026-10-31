@@ -38,45 +38,44 @@ function isPersonalMicrosoftEmail(emailAddress?: string | null) {
   );
 }
 
-function getOutlookBaseUrl(emailAddress?: string | null) {
-  return isPersonalMicrosoftEmail(emailAddress)
+function getOutlookBaseUrl(isPersonalMailbox: boolean) {
+  return isPersonalMailbox
     ? "https://outlook.live.com/mail/0"
     : "https://outlook.office.com/mail";
 }
 
-// Only the fields a draft deeplink can be built from. `externalUrl` is the
-// provider's own link to the item, which beats anything assembled here.
+const OUTLOOK_WEB_HOSTS = new Set([
+  "outlook.office.com",
+  "outlook.office365.com",
+  "outlook.live.com",
+]);
+
+// Graph's `webLink` is redirected to, so only Outlook hosts are allowed.
+function toOutlookReadingPaneUrl(webLink?: string | null) {
+  if (!webLink) return null;
+
+  let url: URL;
+  try {
+    url = new URL(webLink);
+  } catch {
+    return null;
+  }
+
+  if (url.protocol !== "https:") return null;
+  if (!OUTLOOK_WEB_HOSTS.has(url.hostname.toLowerCase())) return null;
+
+  url.searchParams.set("ispopout", "0");
+  return url.toString();
+}
+
+// Only the fields a draft deeplink can be built from.
 type DraftLinkTarget = {
   id: string;
   threadId?: string | null;
   externalUrl?: string | null;
 };
 
-const MICROSOFT_MAIL_HOSTS = [
-  "outlook.live.com",
-  "outlook.office.com",
-  "outlook.office365.com",
-];
-
-// The link is redirected to, so treat it as untrusted until the host proves it
-// belongs to Outlook rather than forwarding wherever the payload points.
-function getOutlookDraftUrl(externalUrl?: string | null) {
-  if (!externalUrl) return null;
-
-  try {
-    const url = new URL(externalUrl);
-    // Reject non-default ports: hostname alone would allow
-    // https://outlook.live.com:8443/... through the whitelist.
-    if (url.protocol !== "https:" || url.port !== "") return null;
-    if (!MICROSOFT_MAIL_HOSTS.includes(url.hostname)) return null;
-
-    // Graph webLinks default to a standalone popout without this parameter.
-    url.searchParams.set("ispopout", "0");
-    return url.toString();
-  } catch {
-    return null;
-  }
-}
+type SearchField = "from" | "to";
 
 type ProviderUrlConfig = {
   requiresMessageId: boolean;
@@ -86,7 +85,11 @@ type ProviderUrlConfig = {
     emailAddress?: string | null,
   ) => string | null;
   selectId: (messageId: string, threadId: string) => string;
-  buildSearchUrl: (from: string, emailAddress?: string | null) => string;
+  buildSearchUrl: (
+    field: SearchField,
+    address: string,
+    emailAddress?: string | null,
+  ) => string;
 };
 
 const GOOGLE_CONFIG: ProviderUrlConfig = {
@@ -102,9 +105,13 @@ const GOOGLE_CONFIG: ProviderUrlConfig = {
       emailAddress,
     ),
   selectId: (messageId: string, _threadId: string) => messageId,
-  buildSearchUrl: (from: string, emailAddress?: string | null) =>
+  buildSearchUrl: (
+    field: SearchField,
+    address: string,
+    emailAddress?: string | null,
+  ) =>
     getGmailUrlForFragment(
-      `advanced-search/from=${encodeURIComponent(from)}`,
+      `advanced-search/${field}=${encodeURIComponent(address)}`,
       emailAddress,
     ),
 };
@@ -114,17 +121,24 @@ const PROVIDER_CONFIG: Record<string, ProviderUrlConfig> = {
     requiresMessageId: true,
     buildUrl: (messageOrThreadId: string, emailAddress?: string | null) => {
       const encodedMessageId = encodeURIComponent(messageOrThreadId);
-      return `${getOutlookBaseUrl(emailAddress)}/inbox/id/${encodedMessageId}`;
+      return `${getOutlookBaseUrl(isPersonalMicrosoftEmail(emailAddress))}/inbox/id/${encodedMessageId}`;
     },
-    // Graph hands back a webLink that resolves the item without any id
-    // translation. Assembling /drafts/id/<graphId> uses the wrong id space
-    // (REST vs EWS) and reproduces INB-328, so there is no Graph-id fallback.
-    buildDraftUrl: (draft: DraftLinkTarget, _emailAddress?: string | null) =>
-      getOutlookDraftUrl(draft.externalUrl),
+    buildDraftUrl: (draft: DraftLinkTarget, emailAddress?: string | null) => {
+      const readingPaneUrl = toOutlookReadingPaneUrl(draft.externalUrl);
+      if (readingPaneUrl) return readingPaneUrl;
+
+      return draft.id
+        ? `${getOutlookBaseUrl(isPersonalMicrosoftEmail(emailAddress))}/drafts/id/${encodeURIComponent(draft.id)}`
+        : null;
+    },
     selectId: (messageId: string, _threadId: string) => messageId,
-    buildSearchUrl: (from: string, emailAddress?: string | null) => {
-      const query = encodeURIComponent(`from:${from}`);
-      return `${getOutlookBaseUrl(emailAddress)}/search/q/${query}`;
+    buildSearchUrl: (
+      field: SearchField,
+      address: string,
+      emailAddress?: string | null,
+    ) => {
+      const query = encodeURIComponent(`${field}:${address}`);
+      return `${getOutlookBaseUrl(isPersonalMicrosoftEmail(emailAddress))}/search/q/${query}`;
     },
   },
   google: GOOGLE_CONFIG,
@@ -151,13 +165,11 @@ export function getEmailUrl(
 }
 
 /**
- * Takes the draft message itself rather than an id, because the fields that
- * produce a working link differ by provider: Outlook resolves its own webLink,
- * while Gmail needs the thread. Resolve the draft via `EmailProvider.getDraft`
- * at link time — its message id changes on every edit.
+ * Takes the draft message itself rather than an id, because Gmail links to the
+ * draft's thread while Outlook links to its message. Resolve the draft via
+ * `EmailProvider.getDraft` at link time — its message id changes on every edit.
  *
- * Outlook opens the trusted provider webLink within the mail client, or returns
- * null when none is available.
+ * Outlook opens the draft via Graph's `webLink`, falling back to Drafts.
  * Gmail returns a Drafts conversation URL (composer deeplinks need an internal
  * id the API does not expose).
  */
@@ -192,12 +204,16 @@ export function getEmailUrlForOptionalMessage({
   threadId,
   emailAddress,
   provider,
+  externalUrl,
 }: {
   messageId?: string | null;
   threadId?: string | null;
   emailAddress?: string | null;
   provider?: string;
+  externalUrl?: string | null;
 }) {
+  if (provider === "microsoft") return toOutlookReadingPaneUrl(externalUrl);
+
   const config = getProviderConfig(provider);
   if (config.requiresMessageId && !messageId) return null;
 
@@ -223,18 +239,29 @@ export function getGmailUrl(
 
 export function getGmailSearchUrl(from: string, emailAddress?: string | null) {
   const config = getProviderConfig("google");
-  return config.buildSearchUrl(from, emailAddress);
+  return config.buildSearchUrl("from", from, emailAddress);
+}
+
+const OPEN_IN_MAILBOX_LABELS: Record<string, string> = {
+  google: "Open in Gmail",
+  microsoft: "Open in Outlook",
+};
+
+export function getOpenInMailboxLabel(provider?: string | null) {
+  if (!provider) return null;
+  return OPEN_IN_MAILBOX_LABELS[provider] ?? null;
 }
 
 export function getEmailSearchUrl(
-  from: string,
+  address: string,
   emailAddress?: string | null,
   provider?: string,
+  field: SearchField = "from",
 ) {
   const config = provider ? PROVIDER_CONFIG[provider] : undefined;
   if (!config)
-    return PROVIDER_CONFIG.default.buildSearchUrl(from, emailAddress);
-  return config.buildSearchUrl(from, emailAddress);
+    return PROVIDER_CONFIG.default.buildSearchUrl(field, address, emailAddress);
+  return config.buildSearchUrl(field, address, emailAddress);
 }
 
 export function getGmailBasicSearchUrl(emailAddress: string, query: string) {

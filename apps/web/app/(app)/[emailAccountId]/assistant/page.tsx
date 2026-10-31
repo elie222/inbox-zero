@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { PermissionsCheck } from "@/app/(app)/[emailAccountId]/PermissionsCheck";
-import { EmailProvider } from "@/providers/EmailProvider";
+import { EmailLabelsProvider } from "@/providers/EmailLabelsProvider";
 import { Chat } from "@/components/assistant-chat/chat";
 import { checkUserOwnsEmailAccount } from "@/utils/email-account";
 
@@ -15,14 +15,14 @@ export default async function AssistantPage({
   await checkUserOwnsEmailAccount({ emailAccountId });
 
   return (
-    <EmailProvider>
+    <EmailLabelsProvider>
       <Suspense>
         <PermissionsCheck />
 
-        <div className="flex h-[calc(100vh-theme(spacing.9)-theme(spacing.14)-env(safe-area-inset-bottom))] md:h-screen flex-col">
+        <div className="flex h-[calc(100dvh-theme(spacing.9)-theme(spacing.14)-env(safe-area-inset-bottom))] md:h-screen flex-col">
           <Chat open />
         </div>
       </Suspense>
-    </EmailProvider>
+    </EmailLabelsProvider>
   );
 }

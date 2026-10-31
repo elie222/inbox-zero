@@ -12,6 +12,8 @@ const {
   mockTrackStripeEvent,
   mockGetCheckoutSessionIdHash,
   mockTrackBillingTrialStarted,
+  mockTrackBillingTrialConverted,
+  mockTrackBillingCancellationInitiated,
   mockTrackTrialStarted,
   mockTrackSubscriptionTrialStarted,
   mockTrackServerConversionEvent,
@@ -32,6 +34,8 @@ const {
     (checkoutSessionId: string) => `hashed:${checkoutSessionId}`,
   ),
   mockTrackBillingTrialStarted: vi.fn(),
+  mockTrackBillingTrialConverted: vi.fn(),
+  mockTrackBillingCancellationInitiated: vi.fn(),
   mockTrackTrialStarted: vi.fn(),
   mockTrackSubscriptionTrialStarted: vi.fn(),
   mockTrackServerConversionEvent: vi.fn(),
@@ -93,6 +97,8 @@ vi.mock("@/env", () => ({
 
 vi.mock("@/utils/posthog", () => ({
   getCheckoutSessionIdHash: mockGetCheckoutSessionIdHash,
+  trackBillingCancellationInitiated: mockTrackBillingCancellationInitiated,
+  trackBillingTrialConverted: mockTrackBillingTrialConverted,
   trackBillingTrialStarted: mockTrackBillingTrialStarted,
   trackStripeEvent: mockTrackStripeEvent,
   trackSubscriptionTrialStarted: mockTrackSubscriptionTrialStarted,
@@ -150,6 +156,8 @@ describe("processEvent", () => {
     mockSyncAiGenerationOverageForUpcomingInvoice.mockResolvedValue(undefined);
     mockTrackStripeEvent.mockResolvedValue(undefined);
     mockTrackBillingTrialStarted.mockResolvedValue(undefined);
+    mockTrackBillingTrialConverted.mockResolvedValue(undefined);
+    mockTrackBillingCancellationInitiated.mockResolvedValue(undefined);
     mockTrackTrialStarted.mockResolvedValue(undefined);
     mockTrackSubscriptionTrialStarted.mockResolvedValue(undefined);
     mockTrackServerConversionEvent.mockResolvedValue(undefined);
@@ -358,6 +366,21 @@ describe("processEvent", () => {
         customData: { currency: "USD", value: 15, content_name: "price_test" },
       }),
     );
+    expect(mockTrackBillingTrialConverted).toHaveBeenCalledTimes(1);
+    expect(mockTrackBillingTrialConverted).toHaveBeenCalledWith(
+      "user@example.com",
+      {
+        billingProvider: "stripe",
+        billingEventId: "evt_invoice_test",
+        billingEventType: "invoice.payment_succeeded",
+        invoiceId: "in_test",
+        subscriptionId: "sub_test",
+        convertedAt: "2023-11-14T22:13:20.000Z",
+        planId: "price_test",
+        amount: 1500,
+        currency: "USD",
+      },
+    );
   });
 
   it("retries conversion side effects for the same recorded invoice with a stable identity", async () => {
@@ -482,6 +505,50 @@ describe("processEvent", () => {
         content_name: "price_test",
       },
     });
+  });
+
+  it("tracks a scheduled Stripe cancellation for the experiment guardrail", async () => {
+    mockSyncStripeDataToDb.mockResolvedValue(undefined);
+    mockFindUnique.mockResolvedValue({
+      id: "premium_test",
+      users: [{ id: "user_test", email: "user@example.com" }],
+    });
+    mockUpdateMany.mockResolvedValue({ count: 1 });
+
+    await processEvent(
+      subscriptionEvent({
+        id: "evt_cancel_scheduled",
+        created: 1_700_000_000,
+        data: {
+          object: {
+            id: "sub_test",
+            customer: "cus_test",
+            status: "trialing",
+            cancel_at: 1_700_999_000,
+            cancel_at_period_end: true,
+          },
+          previous_attributes: {
+            cancel_at: null,
+            cancel_at_period_end: false,
+          },
+        } as Stripe.Event.Data,
+      }),
+      logger,
+    );
+
+    expect(mockTrackBillingCancellationInitiated).toHaveBeenCalledWith(
+      "user@example.com",
+      {
+        billingProvider: "stripe",
+        billingEventId: "evt_cancel_scheduled",
+        billingEventType: "customer.subscription.updated",
+        subscriptionId: "sub_test",
+        subscriptionStatus: "trialing",
+        cancellationInitiatedAt: "2023-11-14T22:13:20.000Z",
+        cancelAt: "2023-11-26T11:43:20.000Z",
+        cancelAtPeriodEnd: true,
+      },
+    );
   });
 
   it("does not track paid subscription conversions for non-conversion updates", async () => {

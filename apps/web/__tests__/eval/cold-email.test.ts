@@ -1,5 +1,12 @@
 import { afterAll, describe, expect, test, vi } from "vitest";
+import { z } from "zod";
 import { coldEmailCases } from "@/__tests__/eval/cold-email-cases";
+import {
+  formatLoadIssues,
+  getEvalDataDirs,
+  loadEvalCases,
+} from "@/__tests__/eval/harness/load-cases";
+import { getEmail } from "@/__tests__/helpers";
 import { createMockEmailProvider } from "@/utils/__mocks__/email-provider";
 import { createScopedLogger } from "@/utils/logger";
 import { PREVIOUS_DEFAULT_COLD_EMAIL_PROMPT } from "@/__tests__/eval/cold-email-previous-prompt";
@@ -11,7 +18,8 @@ import { createEvalReporter } from "@/__tests__/eval/reporter";
 import { isColdEmail } from "@/utils/cold-email/is-cold-email";
 
 // pnpm test-ai eval/cold-email
-// Multi-model: EVAL_MODELS=gpt-5.6-luna,deepseek-v4-flash pnpm test-ai eval/cold-email
+// Multi-model: EVAL_MODELS=gpt-6-luna,deepseek-v4-flash pnpm test-ai eval/cold-email
+// Extra cases: EVAL_DATA_DIRS=/path/to/datasets (reads its "cold-email/" folder)
 //
 // Every case runs under two prompts so a prompt change can be measured:
 //   current  = DEFAULT_COLD_EMAIL_PROMPT (what the code ships; asserted)
@@ -29,6 +37,42 @@ const provider = createMockEmailProvider({
 
 // Slower providers time out when every case fires at once.
 vi.setConfig({ maxConcurrency: 3 });
+
+const externalCaseSchema = z.object({
+  id: z.string(),
+  expected: z.union([z.boolean(), z.literal("either")]),
+  category: z.string(),
+  email: z.object({
+    from: z.string(),
+    to: z.string().optional(),
+    subject: z.string(),
+    content: z.string(),
+    listUnsubscribe: z.string().optional(),
+  }),
+});
+
+const dataDirs = getEvalDataDirs();
+const externalCases = dataDirs.length
+  ? loadEvalCases({
+      suite: "cold-email",
+      schema: externalCaseSchema,
+      roots: dataDirs,
+    })
+  : null;
+
+const cases = [
+  ...coldEmailCases,
+  ...(externalCases?.cases ?? []).map((testCase) => ({
+    name: `external: ${testCase.id}`,
+    category: testCase.category,
+    expected: testCase.expected,
+    // Undated mail skips the AI check: the prior-contact guard assumes contact.
+    email: getEmail({
+      ...testCase.email,
+      date: new Date("2026-04-21T10:00:00Z"),
+    }),
+  })),
+];
 
 const promptVariants = [
   { label: "current", instructions: null },
@@ -49,13 +93,20 @@ describe.runIf(shouldRunEval)("Eval: cold email", () => {
   const evalReporter = createEvalReporter({ evalName: "cold-email" });
   const outcomes: Outcome[] = [];
 
+  if (externalCases) {
+    test("external cases load cleanly", () => {
+      expect(formatLoadIssues(externalCases.issues)).toBe("");
+    });
+  }
+
   describeEvalMatrix("cold email", (model, emailAccount) => {
     for (const variant of promptVariants) {
-      for (const testCase of coldEmailCases) {
+      for (const testCase of cases) {
         test.concurrent(
           `${variant.label} | ${testCase.name}`,
           async () => {
             const result = await isColdEmail({
+              logger,
               email: testCase.email,
               emailAccount,
               provider,

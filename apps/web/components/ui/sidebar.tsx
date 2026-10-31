@@ -133,7 +133,10 @@ const SidebarProvider = React.forwardRef<
         if (
           event.key === SIDEBAR_KEYBOARD_SHORTCUT &&
           (event.metaKey || event.ctrlKey) &&
-          keyboardShortcutName
+          keyboardShortcutName &&
+          !event.defaultPrevented &&
+          // ⌘B means bold inside rich text editors.
+          !isRichTextTarget(event.target)
         ) {
           event.preventDefault();
           toggleSidebar([keyboardShortcutName]);
@@ -392,7 +395,7 @@ const SidebarInset = React.forwardRef<
   <main
     ref={ref}
     className={cn(
-      "relative flex min-h-svh flex-1 flex-col bg-white dark:bg-black",
+      "relative flex min-h-svh flex-1 flex-col bg-background",
       "peer-data-[variant=inset]:min-h-[calc(100svh-theme(spacing.4))] md:peer-data-[variant=inset]:m-2 md:peer-data-[state=collapsed]:peer-data-[variant=inset]:ml-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow",
       className,
     )}
@@ -825,3 +828,12 @@ export {
   SidebarTrigger,
   useSidebar,
 };
+
+function isRichTextTarget(target: EventTarget | null) {
+  const element = target as HTMLElement | null;
+  if (!element?.closest) return false;
+  return (
+    element.isContentEditable ||
+    !!element.closest("[contenteditable]:not([contenteditable='false'])")
+  );
+}

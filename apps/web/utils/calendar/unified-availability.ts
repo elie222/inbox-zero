@@ -20,6 +20,7 @@ export async function getUnifiedCalendarAvailability({
   logger,
   failClosed = false,
   excludeGoogleVirtualCalendars = false,
+  exactRange = false,
 }: {
   emailAccountId: string;
   startDate: Date | string;
@@ -28,14 +29,19 @@ export async function getUnifiedCalendarAvailability({
   logger: Logger;
   failClosed?: boolean;
   excludeGoogleVirtualCalendars?: boolean;
+  /**
+   * Query exactly startDate..endDate instead of the whole days they fall on.
+   * For callers that pass real instants, such as a booking slot: the whole-day
+   * window is built from the UTC date, so it can cover the wrong local day.
+   */
+  exactRange?: boolean;
 }): Promise<BusyPeriod[]> {
-  // Compute day boundaries in the user's timezone
-  // Parse dates as calendar dates in the target timezone to avoid UTC shift issues
-  const startDateInTZ = parseDateInTimezone(startDate, timezone);
-  const endDateInTZ = parseDateInTimezone(endDate, timezone);
-
-  const timeMin = startOfDay(startDateInTZ).toISOString();
-  const timeMax = endOfDay(endDateInTZ).toISOString();
+  const { timeMin, timeMax } = exactRange
+    ? {
+        timeMin: new Date(startDate).toISOString(),
+        timeMax: new Date(endDate).toISOString(),
+      }
+    : getDayRange({ startDate, endDate, timezone });
 
   logger.trace("Unified calendar availability request", {
     timezone,
@@ -189,6 +195,26 @@ function convertBusyPeriodsToTimezone(
       end: format(endInTZ, "yyyy-MM-dd'T'HH:mm:ssXXX"),
     };
   });
+}
+
+// Compute day boundaries in the user's timezone. Dates are parsed as calendar
+// dates in the target timezone to avoid UTC shift issues.
+function getDayRange({
+  startDate,
+  endDate,
+  timezone,
+}: {
+  startDate: Date | string;
+  endDate: Date | string;
+  timezone: string;
+}) {
+  const startDateInTZ = parseDateInTimezone(startDate, timezone);
+  const endDateInTZ = parseDateInTimezone(endDate, timezone);
+
+  return {
+    timeMin: startOfDay(startDateInTZ).toISOString(),
+    timeMax: endOfDay(endDateInTZ).toISOString(),
+  };
 }
 
 /**

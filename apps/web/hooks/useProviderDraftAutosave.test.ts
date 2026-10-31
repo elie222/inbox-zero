@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import { useProviderDraftAutosave } from "./useProviderDraftAutosave";
+import {
+  DraftAutosaveHaltedError,
+  useProviderDraftAutosave,
+} from "./useProviderDraftAutosave";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -88,7 +91,7 @@ it("saves skipped queued content after resuming", async () => {
   unmount();
 });
 
-it("retries failed saves without requiring another edit", async () => {
+it("retries a failed save silently without requiring another edit", async () => {
   vi.useFakeTimers();
   const save = vi
     .fn()
@@ -99,10 +102,57 @@ it("retries failed saves without requiring another edit", async () => {
   );
   act(() => result.current.capture());
   await act(() => vi.advanceTimersByTimeAsync(3000));
-  expect(result.current.error).toBe("Offline");
+  expect(save).toHaveBeenCalledOnce();
+  expect(result.current.error).toBe("");
   await act(() => vi.advanceTimersByTimeAsync(3000));
   expect(save).toHaveBeenCalledTimes(2);
   expect(result.current.error).toBe("");
+  unmount();
+});
+
+it("reports repeated save failures until a save succeeds", async () => {
+  vi.useFakeTimers();
+  const save = vi
+    .fn()
+    .mockRejectedValueOnce(new Error("Unavailable"))
+    .mockRejectedValueOnce(new Error("Unavailable"))
+    .mockRejectedValueOnce(new Error("Unavailable"))
+    .mockResolvedValue(undefined);
+  const { result, unmount } = renderHook(() =>
+    useProviderDraftAutosave({ enabled: true, getContent: () => "edit", save }),
+  );
+  act(() => result.current.capture());
+  await act(() => vi.advanceTimersByTimeAsync(6000));
+  expect(result.current.error).toBe("");
+  await act(() => vi.advanceTimersByTimeAsync(3000));
+  expect(result.current.error).toBe("Unavailable");
+  await act(() => vi.advanceTimersByTimeAsync(3000));
+  expect(save).toHaveBeenCalledTimes(4);
+  expect(result.current.error).toBe("");
+  unmount();
+});
+
+it("stops retrying and reports at once when a save can never succeed", async () => {
+  vi.useFakeTimers();
+  const save = vi
+    .fn()
+    .mockRejectedValue(new DraftAutosaveHaltedError("Draft is gone"));
+  let content = "edit";
+  const { result, unmount } = renderHook(() =>
+    useProviderDraftAutosave({
+      enabled: true,
+      getContent: () => content,
+      save,
+    }),
+  );
+  act(() => result.current.capture());
+  await act(() => vi.advanceTimersByTimeAsync(3000));
+  expect(result.current.error).toBe("Draft is gone");
+  content = "another edit";
+  act(() => result.current.capture());
+  act(() => result.current.resume());
+  await act(() => vi.advanceTimersByTimeAsync(12_000));
+  expect(save).toHaveBeenCalledTimes(1);
   unmount();
 });
 
@@ -189,6 +239,25 @@ it("does not write an opened draft until an edit or local recovery is captured",
   act(() => result.current.capture());
   await act(() => vi.advanceTimersByTimeAsync(3000));
   expect(save).toHaveBeenCalledWith("draft");
+  unmount();
+});
+
+it("saves edits made before a mailbox draft existed once saving is enabled", async () => {
+  vi.useFakeTimers();
+  const save = vi.fn().mockResolvedValue(undefined);
+  const getContent = vi.fn(() => "typed while the file uploaded");
+  const { result, rerender, unmount } = renderHook(
+    ({ enabled }) => useProviderDraftAutosave({ enabled, getContent, save }),
+    { initialProps: { enabled: false } },
+  );
+  act(() => result.current.capture());
+  await act(() => vi.advanceTimersByTimeAsync(6000));
+  expect(save).not.toHaveBeenCalled();
+  expect(getContent).not.toHaveBeenCalled();
+
+  rerender({ enabled: true });
+  await act(() => vi.advanceTimersByTimeAsync(3000));
+  expect(save).toHaveBeenCalledExactlyOnceWith("typed while the file uploaded");
   unmount();
 });
 
@@ -292,4 +361,21 @@ it("stops retrying a closed composer after repeated failures and retries on reop
   expect(save).toHaveBeenCalledTimes(attempts + 1);
   expect(save).toHaveBeenLastCalledWith("local draft");
   reopened.unmount();
+});
+
+it("builds the mailbox draft once per save instead of on every keystroke", async () => {
+  vi.useFakeTimers();
+  const save = vi.fn().mockResolvedValue(undefined);
+  const getContent = vi.fn(() => "edit");
+  const { result, unmount } = renderHook(() =>
+    useProviderDraftAutosave({ enabled: true, getContent, save }),
+  );
+  for (let keystroke = 0; keystroke < 20; keystroke++) {
+    act(() => result.current.capture());
+  }
+  expect(getContent).not.toHaveBeenCalled();
+  await act(() => vi.advanceTimersByTimeAsync(3000));
+  expect(getContent).toHaveBeenCalledOnce();
+  expect(save).toHaveBeenCalledExactlyOnceWith("edit");
+  unmount();
 });

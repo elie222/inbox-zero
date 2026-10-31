@@ -15,3 +15,14 @@ export const deactivateApiKeyBody = z.object({ id: z.string() });
 export type DeactivateApiKeyBody = z.infer<typeof deactivateApiKeyBody>;
 
 export const updateMcpServerAccessBody = z.object({ enabled: z.boolean() });
+
+export const revokeMcpConnectionBody = z.object({
+  clientId: z.string().trim().min(1),
+});
+
+export const reduceMcpConnectionScopesBody = z.object({
+  clientId: z.string().trim().min(1),
+  scopes: z
+    .array(z.enum(["mcp:read", "mcp:write", "mcp:send", "offline_access"]))
+    .min(1),
+});

@@ -2,6 +2,7 @@ import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 import type { ResponseTime } from "@/generated/prisma/client";
 import { sleep } from "@/utils/sleep";
+import { internalDateToDate, sortByInternalDate } from "@/utils/date";
 
 export type ResponseTimeEntry = Pick<
   ResponseTime,
@@ -81,18 +82,15 @@ export async function calculateResponseTimes(
         sentMsg.threadId,
       );
 
-      // Sort by date ascending
-      const sortedMessages = threadMessages.sort((a, b) => {
-        const dateA = a.internalDate ? new Date(a.internalDate).getTime() : 0;
-        const dateB = b.internalDate ? new Date(b.internalDate).getTime() : 0;
-        return dateA - dateB;
-      });
+      const sortedMessages = threadMessages.sort(sortByInternalDate("asc"));
 
       let lastReceivedMessage: { id: string; date: Date } | null = null;
 
       for (const message of sortedMessages) {
-        if (!message.internalDate) continue;
-        const messageDate = new Date(message.internalDate);
+        const messageDate = internalDateToDate(message.internalDate, {
+          fallbackToNow: false,
+        });
+        if (Number.isNaN(messageDate.getTime())) continue;
 
         // Check SENT label first, fallback to checking if message ID is in sent messages list
         const isSent =

@@ -28,13 +28,31 @@ test("requires client consent, enforces read-only access, and disconnects existi
 }, testInfo) => {
   test.setTimeout(360_000);
   await openSettings(page);
+  const accountSection = page.locator("section").filter({
+    has: page.getByRole("heading", { name: "Account", exact: true }),
+  });
+  const developerSection = page.locator("section").filter({
+    has: page.getByRole("heading", { name: "Developer", exact: true }),
+  });
+  await expect(accountSection.getByText("MCP", { exact: true })).toBeVisible();
+  await expect(developerSection.getByText("API Access")).toBeVisible();
+  await expect(developerSection.getByText("MCP", { exact: true })).toBeHidden();
   const toggle = page.getByRole("switch", { name: "MCP", exact: true });
+  await expect(toggle).toBeEnabled();
   await toggle.setChecked(false);
   await expect(toggle).not.toBeChecked();
-
+  await expect(toggle).toBeEnabled();
+  await expect(
+    accountSection.getByRole("button", { name: "Connect", exact: true }),
+  ).toBeHidden();
+  await capturePlaywrightCheckpoint(
+    accountSection,
+    testInfo,
+    "account-mcp-row",
+  );
   const baseURL = process.env.NEXT_PUBLIC_BASE_URL;
   assert(baseURL);
-  const resource = `${baseURL}/api/mcp-server`;
+  const resource = `${baseURL}/mcp`;
   const metadata = await request.get("/.well-known/oauth-protected-resource");
   expect((await metadata.json()).resource).toBe(resource);
   const registration = await request.post("/api/auth/oauth2/register", {
@@ -71,15 +89,18 @@ test("requires client consent, enforces read-only access, and disconnects existi
     page.getByRole("heading", { name: "Connect Playwright MCP client?" }),
   ).toBeVisible();
   await expect(
-    page.getByText(
-      "View your linked inboxes, automation rules, and email statistics.",
-    ),
-  ).toBeVisible();
+    page.getByRole("checkbox", { name: "Read and search mail (required)" }),
+  ).toBeDisabled();
   await expect(
-    page.getByText("Create, replace, and delete automation rules."),
+    page.getByRole("checkbox", { name: "Stay connected when you are away" }),
+  ).toBeChecked();
+  await expect(
+    page.getByRole("checkbox", {
+      name: "Create drafts, organize mail, and manage rules",
+    }),
   ).toBeHidden();
   await capturePlaywrightCheckpoint(page, testInfo, "mcp-consent");
-  await page.getByRole("button", { name: "Enable MCP and allow" }).click();
+  await page.getByRole("button", { name: "Allow" }).click();
   await page.waitForURL("https://client.example.com/callback**");
   const callback = new URL(page.url());
   expect(callback.searchParams.get("state")).toBe("playwright-state");
@@ -139,24 +160,55 @@ test("requires client consent, enforces read-only access, and disconnects existi
 
   await page.goto("/settings");
   await expect(toggle).toBeChecked();
-  await toggle.click();
+  await page.getByRole("button", { name: "Connect", exact: true }).click();
+  const connectDialog = page.getByRole("dialog", { name: "Connect MCP" });
+  await expect(connectDialog.locator('input[name="copy-input"]')).toHaveValue(
+    resource,
+  );
   await expect(
-    page.getByText("MCP access disabled!", { exact: true }),
+    connectDialog.getByText("ChatGPT, Claude, or Cursor"),
   ).toBeVisible();
-  const revoked = await request.post(resource, {
+  await expect(
+    connectDialog.getByRole("link", { name: "Full setup guide" }),
+  ).toHaveAttribute("href", "https://docs.getinboxzero.com/essentials/mcp");
+  await capturePlaywrightCheckpoint(connectDialog, testInfo, "mcp-connect-url");
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: /^MCP apps/ }).click();
+  const appsDialog = page.getByRole("dialog", { name: "MCP apps" });
+  await expect(
+    appsDialog.getByText("Playwright MCP client", { exact: true }),
+  ).toBeVisible();
+  await appsDialog
+    .getByRole("button", { name: "Disconnect Playwright MCP client" })
+    .click();
+  await expect(page.getByText("Disconnected", { exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("button", { name: /^MCP apps/ })).toHaveCount(0);
+  const disconnected = await request.post(resource, {
     headers,
     data: { jsonrpc: "2.0", id: 4, method: "tools/list" },
   });
-  expect(revoked.status()).toBe(401);
+  expect(disconnected.status()).toBe(401);
+  await expect(toggle).toBeChecked();
   await toggle.click();
-  await expect(
-    page.getByText("MCP access enabled!", { exact: true }),
-  ).toBeVisible();
-  const stillRevoked = await request.post(resource, {
+  await expect(toggle).not.toBeChecked();
+  await expect(toggle).toBeEnabled();
+  const revoked = await request.post(resource, {
     headers,
     data: { jsonrpc: "2.0", id: 5, method: "tools/list" },
+  });
+  expect(revoked.status()).toBe(401);
+  await toggle.click();
+  await expect(page.getByRole("dialog", { name: "Connect MCP" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(toggle).toBeChecked();
+  await expect(toggle).toBeEnabled();
+  const stillRevoked = await request.post(resource, {
+    headers,
+    data: { jsonrpc: "2.0", id: 6, method: "tools/list" },
   });
   expect(stillRevoked.status()).toBe(401);
   await toggle.click();
   await expect(toggle).not.toBeChecked();
+  await expect(toggle).toBeEnabled();
 });

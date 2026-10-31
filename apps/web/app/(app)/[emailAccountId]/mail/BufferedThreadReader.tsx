@@ -8,11 +8,7 @@ import {
   type ReactElement,
 } from "react";
 import type { ThreadReaderProps } from "@/app/(app)/[emailAccountId]/mail/ThreadReader";
-
-type Reader = {
-  key: string;
-  content: ReactElement<ThreadReaderProps>;
-};
+import { LoadingMiniSpinner } from "@/components/Loading";
 
 export function BufferedThreadReader({
   children,
@@ -25,18 +21,22 @@ export function BufferedThreadReader({
   dataReady: boolean;
   onReady: (threadKey: string) => void;
 }) {
-  const [visible, setVisible] = useState<Reader | null>(null);
+  const [visibleKey, setVisibleKey] = useState<string | null>(null);
+  // Kept out of state so a parent re-render of the same thread doesn't render
+  // the reader a second time.
+  const visibleContent = useRef<ReactElement<ThreadReaderProps> | null>(null);
   const pendingRef = useRef<HTMLDivElement>(null);
   const readinessDeadline = useRef<{ key: string; expiresAt: number } | null>(
     null,
   );
-  const replacing =
-    visible !== null &&
-    visible.key !== threadKey &&
-    visible.content.props.threadId !== null;
+  const previous =
+    visibleKey !== null && visibleContent.current
+      ? { key: visibleKey, content: visibleContent.current }
+      : null;
+  const replacing = previous !== null && previous.key !== threadKey;
+  const preparing =
+    visibleKey !== threadKey && children.props.threadId !== null;
   useLayoutEffect(() => {
-    if (!replacing) onReady(threadKey);
-    if (!dataReady) return;
     if (readinessDeadline.current?.key !== threadKey) {
       readinessDeadline.current = {
         key: threadKey,
@@ -47,21 +47,24 @@ export function BufferedThreadReader({
     const remaining = expiresAt - performance.now();
     let frame: number;
     const commit = () => {
-      setVisible({ key: threadKey, content: children });
+      visibleContent.current = children;
+      setVisibleKey(threadKey);
       onReady(threadKey);
     };
-    // A malformed or empty email must not leave navigation locked indefinitely.
+    // A slow load or a malformed email must not leave the previous thread on
+    // screen indefinitely; past the deadline the reader shows its own loading
+    // or error state instead.
     const timeout = setTimeout(commit, Math.max(0, remaining));
+    if (!dataReady) return () => clearTimeout(timeout);
     const reveal = () => {
-      const iframes = pendingRef.current?.querySelectorAll("iframe");
+      const bodies =
+        pendingRef.current?.querySelectorAll<HTMLElement>("[data-email-ready]");
       // React committing the message does not mean its srcDoc has been parsed
       // and measured. Keep the complete previous reader until both are ready.
       if (
         performance.now() < expiresAt &&
-        iframes &&
-        Array.from(iframes).some(
-          (iframe) => iframe.dataset.emailReady !== "true",
-        )
+        bodies &&
+        Array.from(bodies).some((body) => body.dataset.emailReady !== "true")
       ) {
         frame = requestAnimationFrame(reveal);
         return;
@@ -74,19 +77,28 @@ export function BufferedThreadReader({
       cancelAnimationFrame(frame);
       clearTimeout(timeout);
     };
-  }, [children, onReady, dataReady, threadKey, replacing]);
+  }, [children, onReady, dataReady, threadKey]);
 
   const current = {
     key: threadKey,
     content:
-      !dataReady && visible?.key === threadKey ? visible.content : children,
+      !dataReady && previous?.key === threadKey ? previous.content : children,
   };
-  const readers = replacing ? [visible, current] : [current];
+  const readers = replacing ? [previous, current] : [current];
 
   return (
-    <div className="relative flex min-h-0 min-w-0 flex-1" aria-busy={replacing}>
+    <div className="relative flex min-h-0 min-w-0 flex-1" aria-busy={preparing}>
+      {preparing && !replacing && (
+        <div
+          className="flex flex-1 items-center justify-center gap-2 text-muted-foreground text-sm"
+          role="status"
+        >
+          <LoadingMiniSpinner />
+          Loading email…
+        </div>
+      )}
       {readers.map((reader) => {
-        const pending = replacing && reader.key === threadKey;
+        const pending = preparing && reader.key === threadKey;
         return (
           <div
             key={reader.key}
@@ -97,15 +109,17 @@ export function BufferedThreadReader({
                 ? { position: "absolute", inset: 0, visibility: "hidden" }
                 : undefined
             }
-            inert={replacing}
+            inert={preparing}
             aria-hidden={pending || undefined}
           >
             {cloneElement(reader.content, {
-              menu: replacing ? undefined : reader.content.props.menu,
+              menu: preparing ? undefined : reader.content.props.menu,
+              // The outgoing reader keeps its selection bar so it doesn't
+              // blink off for the frames before the next thread swaps in.
               enableMessageNavigation:
-                !replacing && reader.content.props.enableMessageNavigation,
+                !pending && reader.content.props.enableMessageNavigation,
               detailSelectionSettled:
-                !replacing && reader.content.props.detailSelectionSettled,
+                !preparing && reader.content.props.detailSelectionSettled,
             })}
           </div>
         );

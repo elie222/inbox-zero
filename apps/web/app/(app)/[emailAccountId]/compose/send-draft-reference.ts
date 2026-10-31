@@ -1,7 +1,7 @@
 import {
   getReplyDraft,
   type ReplyDraftIdentity,
-} from "@/utils/email-cache/reply-drafts";
+} from "@/utils/mail-engine/reply-drafts";
 
 export async function resolveSendDraftId(
   providerDraftId: string | undefined,

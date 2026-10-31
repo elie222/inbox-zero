@@ -5,7 +5,7 @@ import {
   createPublicApiMethodNotAllowedHandler,
   readPublicApiJson,
 } from "@/utils/public-api-error";
-import { getSenderUnsubscribeSource } from "@/utils/senders/source";
+import { resolveSenderUnsubscribeSource } from "@/utils/senders/source";
 import { unsubscribeSenderAndMark } from "@/utils/senders/unsubscribe";
 import { unsubscribeSenderRequestSchema } from "./validation";
 
@@ -29,17 +29,13 @@ export const POST = withAccountApiKey(
       provider,
       logger: request.logger,
     });
-    const source =
-      body.unsubscribeLink || body.listUnsubscribeHeader
-        ? {
-            unsubscribeLink: body.unsubscribeLink,
-            listUnsubscribeHeader: body.listUnsubscribeHeader,
-          }
-        : await getSenderUnsubscribeSource({
-            senderEmail: body.senderEmail,
-            emailProvider,
-            logger: request.logger,
-          });
+    const source = await resolveSenderUnsubscribeSource({
+      senderEmail: body.senderEmail,
+      unsubscribeLink: body.unsubscribeLink,
+      listUnsubscribeHeader: body.listUnsubscribeHeader,
+      emailProvider,
+      logger: request.logger,
+    });
 
     const result = await unsubscribeSenderAndMark({
       emailAccountId,

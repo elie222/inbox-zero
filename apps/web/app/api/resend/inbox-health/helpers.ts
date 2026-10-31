@@ -15,6 +15,7 @@ export type InboxHealthSenderStats = {
   /** Number of emails received in the last 3 months */
   value: number;
   readEmails: number;
+  unsubscribeLink: string | null | undefined;
   autoArchived?: EmailFilter;
   status?: NewsletterStatus | null;
 };

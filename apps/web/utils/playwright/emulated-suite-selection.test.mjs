@@ -12,6 +12,20 @@ const appRoot = path.resolve(import.meta.dirname, "../..");
 
 describe("emulated Playwright suite selection", () => {
   test.each([
+    "packages/mail-core/src/engine.ts",
+    "packages/mail-sqlite/src/store.ts",
+    "packages/mail-react/src/use-mailbox-view.ts",
+    "packages/mail-ui/src/MailApp.tsx",
+    "packages/email-editor/src/web/EmailEditor.tsx",
+    "apps/desktop/src/mail-engine/owner.ts",
+  ])("selects all mail scenarios for shared runtime changes: %s", (file) => {
+    const selection = selectChangedPlaywrightTargets(file, appRoot);
+    expect(selection.runFullSuite).toBe(false);
+    expect(selection.targetFiles).toContain(
+      "__tests__/playwright/emulated/mail",
+    );
+  });
+  test.each([
     "components/CommandK.tsx",
     "hooks/useCommandPaletteCommands.ts",
     "store/command-palette.ts",
@@ -88,14 +102,42 @@ describe("emulated Playwright suite selection", () => {
     ]);
   });
 
-  test("selects queue diagnostics coverage when its reader changes", () => {
+  test("adds both team-comment flows for feature, schema and lifecycle changes on top of the existing selection", () => {
+    for (const file of [
+      "apps/web/utils/team-comments/access.ts",
+      "apps/web/prisma/schema.prisma",
+      "apps/web/prisma/migrations/20261006120000_team_comments/migration.sql",
+      "apps/web/utils/actions/organization.ts",
+      "apps/web/utils/actions/user.ts",
+      "apps/web/utils/user/delete.ts",
+    ]) {
+      const selection = selectChangedPlaywrightTargets(file, appRoot);
+      expect(selection.targetFiles).toEqual(
+        expect.arrayContaining([
+          "__tests__/playwright/emulated/mail/team-comments-access.spec.ts",
+          "__tests__/playwright/emulated/mail/team-comments.spec.ts",
+        ]),
+      );
+      if (
+        file.endsWith("organization.ts") ||
+        file.endsWith("user.ts") ||
+        file.endsWith("delete.ts")
+      ) {
+        expect(selection.targetFiles).toContain(
+          "__tests__/playwright/emulated/mail",
+        );
+      }
+    }
+  });
+
+  test("selects the mail area when the engine queue debug page changes", () => {
     const selection = selectChangedPlaywrightTargets(
-      "apps/web/utils/email-cache/mail-queue-diagnostics.ts",
+      "apps/web/app/(app)/[emailAccountId]/debug/mail-queue/page.tsx",
       appRoot,
     );
     expect(selection).toMatchObject({
       runFullSuite: false,
-      targetFiles: ["__tests__/playwright/emulated/mail/mail-queue.spec.ts"],
+      targetFiles: ["__tests__/playwright/emulated/mail"],
     });
   });
 
@@ -317,7 +359,7 @@ describe("emulated Playwright suite selection", () => {
   test("skips colocated unit tests and uncovered product files", () => {
     const selection = selectChangedPlaywrightTargets(
       [
-        "apps/web/app/(app)/MailMutationOutboxManager.test.tsx",
+        "apps/web/utils/mail-engine/reply-drafts.test.ts",
         "apps/web/hooks/useCalendarUpcomingEvents.tsx",
       ].join("\n"),
       appRoot,

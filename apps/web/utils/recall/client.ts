@@ -11,6 +11,7 @@ import {
 import { normalizeRecallTranscript } from "@/utils/recall/transcript";
 import {
   recallBotSchema,
+  recallBotStatusSchema,
   recallTranscriptDownloadSchema,
   recallTranscriptSchema,
 } from "@/utils/recall/types";
@@ -29,6 +30,7 @@ export function isRecallConfigured(): boolean {
 }
 
 const DEFAULT_RECALL_REGION = "us-west-2";
+const ENDED_BOT_STATUS_CODES = new Set(["call_ended", "done", "fatal"]);
 
 // Use participant presence to end successful recordings; a calendar duration
 // is not the call's actual lifetime.
@@ -187,12 +189,27 @@ export class RecallBotProvider implements MeetingBotProvider {
           method: "POST",
         });
       } catch (leaveError) {
-        if (!isAlreadyGoneFromCall(leaveError)) throw leaveError;
+        if (
+          !isAlreadyGoneFromCall(leaveError) &&
+          !(isUnstarted(leaveError) && (await this.hasBotEnded(externalBotId)))
+        ) {
+          throw leaveError;
+        }
         this.logger.info("Recall bot had already left the call", {
           externalBotId,
         });
       }
     }
+  }
+
+  // A bot that ended without ever joining can be neither deleted nor told to
+  // leave, but one that is still waiting to join must keep being retried.
+  private async hasBotEnded(externalBotId: string): Promise<boolean> {
+    const bot = recallBotStatusSchema.parse(
+      await this.request(`/bot/${externalBotId}/`, { method: "GET" }),
+    );
+    const latest = bot.status_changes.at(-1)?.code;
+    return latest ? ENDED_BOT_STATUS_CODES.has(latest) : false;
   }
 
   async createTranscript(externalRecordingId: string): Promise<void> {
@@ -298,6 +315,14 @@ function isDispatched(error: unknown): boolean {
     error instanceof RecallApiError &&
     (error.status === 400 || error.status === 405) &&
     getRecallErrorCode(error) === "cannot_delete_bot"
+  );
+}
+
+function isUnstarted(error: unknown): boolean {
+  return (
+    error instanceof RecallApiError &&
+    error.status === 400 &&
+    getRecallErrorCode(error) === "cannot_command_unstarted_bot"
   );
 }
 

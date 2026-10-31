@@ -167,49 +167,91 @@ describe("getEmailUrl", () => {
 });
 
 describe("getEmailDraftUrl", () => {
-  // Graph resolves its own webLink without any id translation; Graph REST ids
-  // cannot be substituted into OWA /drafts/id/ URLs, so untrusted or missing
-  // links yield null instead of a broken deeplink.
   it.each([
-    "https://outlook.office365.com/owa/?ItemID=synthetic%2Bitem%2Fid%3D&exvsurl=1&viewmodel=ReadMessageItem",
-    "https://outlook.office.com/mail/deeplink/read/synthetic-item?ispopout=1",
-    "https://outlook.live.com/mail/0/deeplink/read/synthetic-item?ispopout=0",
-    "https://outlook.office.com/owa/?ItemID=synthetic-item&ispopout=1&ispopout=1#draft",
-  ])("opens the provider draft inside Outlook: %s", (externalUrl) => {
-    const result = getEmailDraftUrl(
-      { id: "draft-123", externalUrl },
-      "user@example.com",
-      "microsoft",
-    );
-    if (!result) throw new Error("Expected a trusted Outlook draft URL");
-    const actual = new URL(result);
-    const original = new URL(externalUrl);
+    {
+      name: "a business mailbox",
+      emailAddress: "user@contoso.com",
+      webLink:
+        "https://outlook.office365.com/mail/deeplink/read/AAMkAG%2Fowa%2Bid%3D?ItemID=AAMkAG%2Fowa%2Bid%3D&exvsurl=1",
+      expected:
+        "https://outlook.office365.com/mail/deeplink/read/AAMkAG%2Fowa%2Bid%3D?ItemID=AAMkAG%2Fowa%2Bid%3D&exvsurl=1&ispopout=0",
+    },
+    {
+      name: "a personal mailbox",
+      emailAddress: "user@outlook.com",
+      webLink:
+        "https://outlook.live.com/mail/0/deeplink/read/AAMkAG%2Fowa%2Bid%3D?ItemID=AAMkAG%2Fowa%2Bid%3D&exvsurl=1",
+      expected:
+        "https://outlook.live.com/mail/0/deeplink/read/AAMkAG%2Fowa%2Bid%3D?ItemID=AAMkAG%2Fowa%2Bid%3D&exvsurl=1&ispopout=0",
+    },
+  ])("opens the draft itself within the full Outlook client for $name", ({
+    emailAddress,
+    webLink,
+    expected,
+  }) => {
+    expect(
+      getEmailDraftUrl(
+        { id: "AAMkAG-synthetic_id=", externalUrl: webLink },
+        emailAddress,
+        "microsoft",
+      ),
+    ).toBe(expected);
+  });
 
-    expect(actual.searchParams.getAll("ispopout")).toEqual(["0"]);
-    actual.searchParams.delete("ispopout");
-    original.searchParams.delete("ispopout");
-    expect(actual.toString()).toBe(original.toString());
+  it("renders the Outlook draft in the reading pane rather than a popout", () => {
+    expect(
+      getEmailDraftUrl(
+        {
+          id: "AAMkAG-synthetic_id=",
+          externalUrl:
+            "https://outlook.office365.com/mail/deeplink/read/AAMkAG%2Fowa%2Bid%3D?ItemID=AAMkAG%2Fowa%2Bid%3D&exvsurl=1&ispopout=1",
+        },
+        "user@contoso.com",
+        "microsoft",
+      ),
+    ).toBe(
+      "https://outlook.office365.com/mail/deeplink/read/AAMkAG%2Fowa%2Bid%3D?ItemID=AAMkAG%2Fowa%2Bid%3D&exvsurl=1&ispopout=0",
+    );
   });
 
   it.each([
     {
-      name: "an unexpected host",
-      externalUrl: "https://evil.example.com/mail",
+      name: "a host outside Outlook on the web",
+      externalUrl: "https://evil.example.com/mail/deeplink/read/AAMkAG",
     },
-    { name: "a non-https scheme", externalUrl: "http://outlook.office.com/x" },
     {
-      name: "a non-default port",
-      externalUrl: "https://outlook.live.com:8443/evil",
+      name: "a non-https link",
+      externalUrl: "javascript:alert(1)",
     },
-    { name: "an unparseable value", externalUrl: "not-a-url" },
-    { name: "no provider link", externalUrl: undefined },
-  ])("returns null for a draft link with $name", ({ externalUrl }) => {
+    {
+      name: "an unparseable link",
+      externalUrl: "not a url",
+    },
+  ])("falls back to the Drafts folder when Graph reports $name", ({
+    externalUrl,
+  }) => {
     expect(
       getEmailDraftUrl(
-        { id: "draft-123", externalUrl },
+        { id: "AAMkAG-synthetic_id=", externalUrl },
+        "user@contoso.com",
+        "microsoft",
+      ),
+    ).toBe("https://outlook.office.com/mail/drafts/id/AAMkAG-synthetic_id%3D");
+  });
+
+  it("falls back to the Drafts folder when Graph omits the web link", () => {
+    expect(
+      getEmailDraftUrl(
+        { id: "AAMkAG-synthetic_id=" },
         "user@outlook.com",
         "microsoft",
       ),
+    ).toBe("https://outlook.live.com/mail/0/drafts/id/AAMkAG-synthetic_id%3D");
+  });
+
+  it("returns null when the Outlook draft has no id to address it by", () => {
+    expect(
+      getEmailDraftUrl({ id: "" }, "user@outlook.com", "microsoft"),
     ).toBeNull();
   });
 
@@ -285,6 +327,33 @@ describe("getEmailUrlForMessage", () => {
 });
 
 describe("getEmailUrlForOptionalMessage", () => {
+  it("uses the validated Outlook provider link even without message ids", () => {
+    expect(
+      getEmailUrlForOptionalMessage({
+        provider: "microsoft",
+        externalUrl: "https://outlook.live.com/owa/?ItemID=demo-1&ispopout=1",
+      }),
+    ).toBe("https://outlook.live.com/owa/?ItemID=demo-1&ispopout=0");
+  });
+
+  it.each([
+    undefined,
+    "",
+    "invalid",
+    "http://outlook.office.com/owa/?ItemID=demo-1",
+    "https://example.com/message",
+    "https://outlook.office.com.example.com/message",
+  ])("omits Outlook links with missing or invalid provider URLs: %s", (externalUrl) => {
+    expect(
+      getEmailUrlForOptionalMessage({
+        provider: "microsoft",
+        messageId: "message-1",
+        threadId: "thread-1",
+        externalUrl,
+      }),
+    ).toBeNull();
+  });
+
   it.each([
     {
       name: "Microsoft without messageId",
@@ -414,6 +483,29 @@ describe("getEmailSearchUrl", () => {
   }) => {
     expect(
       getEmailSearchUrl("sender@example.com", emailAddress, provider),
+    ).toBe(expected);
+  });
+
+  it.each([
+    {
+      provider: "google",
+      emailAddress: "user@gmail.com",
+      expected:
+        "https://mail.google.com/mail/u/?authuser=user%40gmail.com#advanced-search/to=recipient%40example.com",
+    },
+    {
+      provider: "microsoft",
+      emailAddress: "user@company.com",
+      expected:
+        "https://outlook.office.com/mail/search/q/to%3Arecipient%40example.com",
+    },
+  ])("searches mail sent to a recipient for $provider", ({
+    provider,
+    emailAddress,
+    expected,
+  }) => {
+    expect(
+      getEmailSearchUrl("recipient@example.com", emailAddress, provider, "to"),
     ).toBe(expected);
   });
 });

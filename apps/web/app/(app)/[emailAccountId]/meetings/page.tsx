@@ -7,6 +7,7 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { PageHeader } from "@/components/PageHeader";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PremiumAlertWithData } from "@/components/PremiumAlert";
+import { TimezoneDetector } from "@/components/TimezoneDetector";
 import { toastError } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
 import { ActionCard } from "@/components/ui/card";
@@ -27,6 +28,15 @@ import { hasConnectedCalendar } from "@/app/(app)/[emailAccountId]/meetings/cale
 import { ConnectCalendar } from "@/app/(app)/[emailAccountId]/calendars/ConnectCalendar";
 
 export default function MeetingsPage() {
+  return (
+    <>
+      <TimezoneDetector />
+      <MeetingsPageContent />
+    </>
+  );
+}
+
+function MeetingsPageContent() {
   const meetingRecorderEnabled = useMeetingRecorderEnabled();
 
   if (!meetingRecorderEnabled) {

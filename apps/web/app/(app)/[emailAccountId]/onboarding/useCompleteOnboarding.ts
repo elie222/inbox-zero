@@ -13,11 +13,11 @@ import { toastError } from "@/components/Toast";
 import { prefixPath } from "@/utils/path";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { usePremium } from "@/hooks/usePremium";
+import type { SignupIntent } from "@/generated/prisma/enums";
 
-// Marks onboarding complete and redirects to the app (or the upgrade page for
-// non-premium users). Shared by the step-based and chat onboarding flows so
-// completion behavior can't drift between experiment arms.
-export function useCompleteOnboarding() {
+// Marks onboarding complete and redirects to the app: the mail app for
+// email-app users, otherwise setup or the upgrade page for non-premium users.
+export function useCompleteOnboarding(signupIntent: SignupIntent | null) {
   const router = useRouter();
   const { emailAccountId } = useAccount();
   const { isPremium } = usePremium();
@@ -25,7 +25,7 @@ export function useCompleteOnboarding() {
     completedOnboardingAction,
   );
 
-  const destination = isPremium ? "setup" : "welcome-upgrade";
+  const destination = getDestination({ signupIntent, isPremium });
 
   const completeAndRedirect = useCallback(async () => {
     let result: Awaited<ReturnType<typeof completeOnboarding>>;
@@ -67,13 +67,24 @@ export function useCompleteOnboarding() {
 
     markOnboardingAsCompleted(ASSISTANT_ONBOARDING_COOKIE);
 
-    if (isPremium) {
-      router.push(prefixPath(emailAccountId, "/setup"));
-    } else {
-      router.push("/welcome-upgrade");
-    }
+    router.push(
+      destination === "welcome-upgrade"
+        ? "/welcome-upgrade"
+        : prefixPath(emailAccountId, `/${destination}`),
+    );
     return true;
-  }, [completeOnboarding, destination, emailAccountId, isPremium, router]);
+  }, [completeOnboarding, destination, emailAccountId, router]);
 
   return { completeAndRedirect, destination };
+}
+
+function getDestination({
+  signupIntent,
+  isPremium,
+}: {
+  signupIntent: SignupIntent | null;
+  isPremium: boolean;
+}) {
+  if (signupIntent === "MAIL_CLIENT") return "mail";
+  return isPremium ? "setup" : "welcome-upgrade";
 }

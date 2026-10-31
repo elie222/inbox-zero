@@ -12,11 +12,11 @@ import {
   getUserTier,
   isAdminForPremium,
   isOnHigherTier,
-  isPremiumRecord,
-  getUnsubscribePeriod,
   premiumEntitlementSelect,
 } from "@/utils/premium";
+import { consumeUnsubscribeCredit } from "@/utils/premium/unsubscribe-credits";
 import {
+  getAdminGrantExpiresAt,
   grantPremiumAdmin,
   upgradeToPremiumLemon,
 } from "@/utils/premium/server";
@@ -32,7 +32,6 @@ import {
 import { changePremiumStatusSchema } from "@/app/(app)/admin/validation";
 import { activateLemonLicenseKey } from "@/ee/billing/lemon/index";
 import { PremiumTier } from "@/generated/prisma/enums";
-import { ONE_MONTH_MS, ONE_YEAR_MS } from "@/utils/date";
 import {
   BRIEF_MY_MEETING_PRICE_ID_ANNUALLY,
   BRIEF_MY_MEETING_PRICE_ID_MONTHLY,
@@ -42,13 +41,10 @@ import {
   actionClientUser,
   adminActionClient,
 } from "@/utils/actions/safe-action";
-import {
-  activateLicenseKeySchema,
-  CHECKOUT_RETURN_TO_PARAM,
-  checkoutReturnToSchema,
-} from "@/utils/actions/premium.validation";
+import { activateLicenseKeySchema } from "@/utils/actions/premium.validation";
 import { SafeError } from "@/utils/error";
 import { createPremiumForUser } from "@/utils/premium/create-premium";
+import { TEN_YEARS_MS } from "@/utils/date";
 import { getStripe } from "@/ee/billing/stripe";
 import {
   trackStripeCheckoutCreated,
@@ -60,61 +56,12 @@ import {
   getConversionClickMetadata,
 } from "@/utils/analytics/server-conversion-events";
 
-const TEN_YEARS = 10 * 365 * 24 * 60 * 60 * 1000;
 const checkoutOfferSchema = z.enum(["BRIEF_MY_MEETING"]);
 
 export const decrementUnsubscribeCreditAction = actionClientUser
   .metadata({ name: "decrementUnsubscribeCredit" })
   .action(async ({ ctx: { userId } }) => {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        premium: {
-          select: {
-            id: true,
-            unsubscribeCredits: true,
-            unsubscribeMonth: true,
-            ...premiumEntitlementSelect,
-          },
-        },
-      },
-    });
-
-    if (!user) throw new SafeError("User not found");
-
-    const isUserPremium = isPremiumRecord(user.premium);
-    if (isUserPremium) return;
-
-    const currentPeriod = getUnsubscribePeriod();
-
-    // create premium row for user if it doesn't already exist
-    const premium = user.premium || (await createPremiumForUser({ userId }));
-
-    const resetResult = await prisma.premium.updateMany({
-      where: {
-        id: premium.id,
-        OR: [
-          { unsubscribeMonth: null },
-          { unsubscribeMonth: { not: currentPeriod } },
-        ],
-      },
-      data: {
-        // reset and use a credit
-        unsubscribeCredits: env.NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS - 1,
-        unsubscribeMonth: currentPeriod,
-      },
-    });
-
-    if (resetResult.count > 0) return;
-
-    await prisma.premium.updateMany({
-      where: {
-        id: premium.id,
-        unsubscribeMonth: currentPeriod,
-        unsubscribeCredits: { gt: 0 },
-      },
-      data: { unsubscribeCredits: { decrement: 1 } },
-    });
+    await consumeUnsubscribeCredit({ userId });
   });
 
 export const updateMultiAccountPremiumAction = actionClientUser
@@ -292,7 +239,7 @@ export const activateLicenseKeyAction = actionClientUser
       lemonSqueezyVariantId: lemonSqueezyLicense.data?.meta.variant_id || null,
       lemonSqueezySubscriptionId: null,
       lemonSqueezySubscriptionItemId: null,
-      lemonSqueezyRenewsAt: new Date(Date.now() + TEN_YEARS),
+      lemonSqueezyRenewsAt: new Date(Date.now() + TEN_YEARS_MS),
     });
   });
 
@@ -303,44 +250,42 @@ export const adminChangePremiumStatusAction = adminActionClient
     async ({
       parsedInput: { email, period, count, emailAccountsAccess, upgrade },
     }) => {
+      const normalizedEmail = email.trim().toLowerCase();
       const userToUpgrade = await prisma.emailAccount.findUnique({
-        where: { email },
+        where: { email: normalizedEmail },
         select: {
           id: true,
           user: { select: { id: true, premiumId: true } },
         },
       });
 
-      if (!userToUpgrade?.user) throw new SafeError("User not found");
+      if (!userToUpgrade?.user) {
+        if (upgrade) {
+          const grant = {
+            tier: period,
+            count: count || 1,
+            emailAccountsAccess: emailAccountsAccess ?? null,
+          };
+          await prisma.pendingPremiumGrant.upsert({
+            where: { email: normalizedEmail },
+            create: { email: normalizedEmail, ...grant },
+            update: grant,
+          });
+          return { pending: true };
+        }
+
+        const { count: deleted } = await prisma.pendingPremiumGrant.deleteMany({
+          where: { email: normalizedEmail },
+        });
+        if (!deleted) throw new SafeError("User not found");
+        return { pending: true };
+      }
 
       if (upgrade) {
-        const getGrantExpiresAt = (period: PremiumTier): Date | null => {
-          const now = new Date();
-          switch (period) {
-            case PremiumTier.BASIC_ANNUALLY:
-            case PremiumTier.PRO_ANNUALLY:
-            case PremiumTier.STARTER_ANNUALLY:
-            case PremiumTier.PLUS_ANNUALLY:
-            case PremiumTier.PROFESSIONAL_ANNUALLY:
-              return new Date(now.getTime() + ONE_YEAR_MS * (count || 1));
-            case PremiumTier.BASIC_MONTHLY:
-            case PremiumTier.PRO_MONTHLY:
-            case PremiumTier.STARTER_MONTHLY:
-            case PremiumTier.PLUS_MONTHLY:
-            case PremiumTier.PROFESSIONAL_MONTHLY:
-            case PremiumTier.COPILOT_MONTHLY:
-              return new Date(now.getTime() + ONE_MONTH_MS * (count || 1));
-            case PremiumTier.LIFETIME:
-              return new Date(now.getTime() + TEN_YEARS);
-            default:
-              return null;
-          }
-        };
-
         await grantPremiumAdmin({
           userId: userToUpgrade.user.id,
           tier: period,
-          adminGrantExpiresAt: getGrantExpiresAt(period),
+          adminGrantExpiresAt: getAdminGrantExpiresAt({ tier: period, count }),
           emailAccountsAccess,
         });
       } else if (userToUpgrade.user.premiumId) {
@@ -355,6 +300,8 @@ export const adminChangePremiumStatusAction = adminActionClient
       } else {
         throw new SafeError("User not premium.");
       }
+
+      return { pending: false };
     },
   );
 
@@ -472,32 +419,80 @@ export const getBillingPortalUrlAction = actionClientUser
       priceId,
       users: user.premium?.users || [],
     });
-
-    const { url } = await stripe.billingPortal.sessions.create({
-      customer: user.premium.stripeCustomerId,
-      return_url: `${env.NEXT_PUBLIC_BASE_URL}/premium`,
-      flow_data:
-        subscription &&
-        user.premium.stripeSubscriptionId &&
-        user.premium.stripeSubscriptionItemId &&
-        priceId
-          ? {
-              type: "subscription_update_confirm",
-              subscription_update_confirm: {
-                subscription: user.premium.stripeSubscriptionId,
-                items: [
-                  {
-                    id: user.premium.stripeSubscriptionItemId,
-                    price: priceId,
-                    quantity,
-                  },
-                ],
-              },
-            }
-          : undefined,
+    const planChangeItem = getStripePlanChangeItem({
+      subscription,
+      storedSubscriptionItemId: user.premium.stripeSubscriptionItemId,
     });
+    if (priceId && subscription && !planChangeItem) {
+      throw new SafeError(
+        "We couldn't change your plan. Your subscription has not been changed.",
+      );
+    }
+    const confirmFlow =
+      subscription &&
+      user.premium.stripeSubscriptionId &&
+      planChangeItem &&
+      priceId
+        ? {
+            type: "subscription_update_confirm" as const,
+            subscription_update_confirm: {
+              subscription: user.premium.stripeSubscriptionId,
+              items: [
+                {
+                  id: planChangeItem.id,
+                  price: priceId,
+                  quantity,
+                },
+              ],
+            },
+          }
+        : undefined;
 
-    return { url };
+    try {
+      const { url } = await stripe.billingPortal.sessions.create({
+        customer: user.premium.stripeCustomerId,
+        return_url: `${env.NEXT_PUBLIC_BASE_URL}/premium`,
+        flow_data: confirmFlow,
+      });
+
+      return { url };
+    } catch (error) {
+      if (
+        !confirmFlow ||
+        !planChangeItem ||
+        !priceId ||
+        !user.premium.stripeSubscriptionId ||
+        !isUnsupportedStripePortalPlanChange(error)
+      ) {
+        throw error;
+      }
+
+      // Monthly ↔ annual (and other interval) switches are often rejected by
+      // the portal confirm flow even though Stripe can apply them directly.
+      logger.warn(
+        "Stripe plan-change confirm flow failed; applying the price update directly",
+        { error: error instanceof Error ? error.message : error },
+      );
+
+      const updated = await stripe.subscriptions.update(
+        user.premium.stripeSubscriptionId,
+        {
+          items: [
+            {
+              id: planChangeItem.id,
+              price: priceId,
+              quantity,
+            },
+          ],
+          cancel_at_period_end: false,
+          proration_behavior: "create_prorations",
+          payment_behavior: "pending_if_incomplete",
+          expand: ["latest_invoice"],
+        },
+      );
+
+      return { url: getStripePlanChangeRedirectUrl(updated) };
+    }
   });
 
 export const endStripeTrialAction = actionClientUser
@@ -552,11 +547,10 @@ export const generateCheckoutSessionAction = actionClientUser
     z.object({
       tier: z.nativeEnum(PremiumTier),
       offer: checkoutOfferSchema.optional(),
-      returnTo: checkoutReturnToSchema.optional(),
     }),
   )
   .action(async ({ ctx: { userId, logger }, parsedInput }) => {
-    const { tier, offer, returnTo } = parsedInput;
+    const { tier, offer } = parsedInput;
     const priceId = getCheckoutPriceId({ tier, offer });
 
     if (!priceId) throw new SafeError("Unknown tier. Contact support.");
@@ -647,9 +641,7 @@ export const generateCheckoutSessionAction = actionClientUser
 
     const checkoutParams: Stripe.Checkout.SessionCreateParams = {
       customer: stripeCustomerId,
-      success_url: `${env.NEXT_PUBLIC_BASE_URL}/api/stripe/success?session_id={CHECKOUT_SESSION_ID}${
-        returnTo ? `&${CHECKOUT_RETURN_TO_PARAM}=${returnTo}` : ""
-      }`,
+      success_url: `${env.NEXT_PUBLIC_BASE_URL}/api/stripe/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${env.NEXT_PUBLIC_BASE_URL}/premium`,
       mode: "subscription",
       subscription_data: {
@@ -700,4 +692,56 @@ function getCheckoutPriceId({
   }
 
   return getStripePriceId({ tier });
+}
+
+function getStripePlanChangeItem({
+  subscription,
+  storedSubscriptionItemId,
+}: {
+  subscription: Stripe.Subscription | null;
+  storedSubscriptionItemId: string | null | undefined;
+}) {
+  const items = subscription?.items.data ?? [];
+  const storedItem = items.find((item) => item.id === storedSubscriptionItemId);
+  if (storedItem) return storedItem;
+  if (items.length === 1) return items[0];
+}
+
+const UNSUPPORTED_PORTAL_PLAN_CHANGE_MESSAGES = [
+  "different billing interval",
+  "not available in the customer portal",
+  "not updatable",
+  "must belong to the same product",
+];
+
+function isUnsupportedStripePortalPlanChange(error: unknown): boolean {
+  if (!isStripeInvalidRequestError(error)) return false;
+  if (error.param?.startsWith("flow_data")) return true;
+
+  const message = error.message.toLowerCase();
+  return UNSUPPORTED_PORTAL_PLAN_CHANGE_MESSAGES.some((fragment) =>
+    message.includes(fragment),
+  );
+}
+
+function isStripeInvalidRequestError(
+  error: unknown,
+): error is { type: string; message: string; param?: string } {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "type" in error &&
+    (error as { type: unknown }).type === "invalid_request_error" &&
+    "message" in error &&
+    typeof (error as { message: unknown }).message === "string"
+  );
+}
+
+function getStripePlanChangeRedirectUrl(subscription: Stripe.Subscription) {
+  const invoice = subscription.latest_invoice;
+  if (invoice && typeof invoice !== "string" && invoice.status !== "paid") {
+    return invoice.hosted_invoice_url || `${env.NEXT_PUBLIC_BASE_URL}/premium`;
+  }
+
+  return `${env.NEXT_PUBLIC_BASE_URL}/premium`;
 }

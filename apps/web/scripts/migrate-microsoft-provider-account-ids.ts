@@ -11,7 +11,7 @@ import { decryptToken } from "@/utils/encryption";
 import {
   decodeMicrosoftIdTokenClaims,
   requestMicrosoftToken,
-} from "@/utils/microsoft/oauth";
+} from "@/utils/outlook/oauth";
 import { SCOPES as OUTLOOK_SCOPES } from "@/utils/outlook/scopes";
 import prisma from "@/utils/prisma";
 

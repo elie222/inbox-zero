@@ -70,4 +70,35 @@ describe("chat-memory-policy", () => {
     expect(result.pass).toBe(false);
     expect(result.reason).toContain("specific fact or preference");
   });
+
+  it.each([
+    ["Chinese", "我每周五下午不开会"],
+    ["Japanese", "金曜日の午後は会議を入れないでください"],
+    ["Thai", "ฉันไม่ประชุมวันศุกร์ตอนบ่าย"],
+    ["Korean", "나는 매주 금요일 오후에 회의를 하지 않는다"],
+    ["English", "I never take meetings on Friday afternoons"],
+  ])("accepts a specific %s preference quoted from chat", (_language, text) => {
+    const result = validateUserMemoryEvidence({
+      content: text,
+      userEvidence: text,
+      conversationMessages: [{ role: "user", content: text }],
+    });
+
+    expect(result).toEqual({ pass: true, reason: null });
+  });
+
+  it.each([
+    ["Chinese", "记住这个"],
+    ["Japanese", "覚えておいて"],
+    ["English", "Remember that one"],
+  ])("rejects a generic %s wrapper phrase", (_language, text) => {
+    const result = validateUserMemoryEvidence({
+      content: text,
+      userEvidence: text,
+      conversationMessages: [{ role: "user", content: text }],
+    });
+
+    expect(result.pass).toBe(false);
+    expect(result.reason).toContain("specific fact or preference");
+  });
 });

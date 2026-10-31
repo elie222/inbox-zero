@@ -1,3 +1,9 @@
+import { Readable } from "node:stream";
+import {
+  COMPLETE_THREAD_MESSAGE_LIMIT,
+  createCompleteThreadBudget,
+  readCompleteThreadJson,
+} from "@/utils/email/complete-thread";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { getBatchWithRetry } from "@/utils/gmail/batch-with-retry";
 import {
@@ -9,6 +15,40 @@ import { parseMessage } from "@/utils/gmail/message";
 import { GmailLabel } from "@/utils/gmail/label";
 import { withGmailRetry } from "@/utils/gmail/retry";
 import type { Logger } from "@/utils/logger";
+
+export async function getCompleteGmailThread(
+  threadId: string,
+  gmail: gmail_v1.Gmail,
+  signal?: AbortSignal,
+) {
+  const response = await withGmailRetry(() => {
+    signal?.throwIfAborted();
+    return gmail.users.threads.get(
+      { userId: "me", id: threadId, format: "full" },
+      { responseType: "stream", signal },
+    );
+  });
+  const result = await readCompleteThreadJson<gmail_v1.Schema$Thread>(
+    // Node's web stream type is a separate declaration from the DOM one.
+    Readable.toWeb(response.data) as unknown as ReadableStream<Uint8Array>,
+    createCompleteThreadBudget(),
+    signal,
+  );
+  if (
+    result.id !== threadId ||
+    !Array.isArray(result.messages) ||
+    // A thread is its messages, so an empty list is a truncated response.
+    !result.messages.length ||
+    result.messages.length > COMPLETE_THREAD_MESSAGE_LIMIT ||
+    result.messages.some(
+      (message) => !message.id || message.threadId !== threadId,
+    ) ||
+    new Set(result.messages.map((message) => message.id)).size !==
+      result.messages.length
+  )
+    throw new Error("Incomplete or oversized conversation snapshot");
+  return result;
+}
 
 export async function getThread(
   threadId: string,
@@ -96,7 +136,7 @@ export async function getThreadsBatch(
   threadIds: string[],
   accessToken: string,
   logger: Logger,
-  options?: { format: "metadata" },
+  options?: { format?: "metadata"; includeSpamTrash?: boolean },
 ): Promise<ThreadWithPayloadMessages[]> {
   if (!threadIds.length) return [];
 
@@ -109,29 +149,38 @@ export async function getThreadsBatch(
     accessToken,
     parse: (thread) => thread,
     logger,
-    queryString:
-      options?.format === "metadata" ? getMetadataQueryString() : undefined,
+    queryString: threadBatchQueryString(options),
   });
 }
 
-function getMetadataQueryString() {
-  const searchParams = new URLSearchParams({ format: "metadata" });
-  for (const header of [
-    "From",
-    "To",
-    "Cc",
-    "Bcc",
-    "Subject",
-    "Date",
-    "Message-ID",
-    "In-Reply-To",
-    "References",
-    "Reply-To",
-  ]) {
-    searchParams.append("metadataHeaders", header);
+function threadBatchQueryString(options?: {
+  format?: "metadata";
+  includeSpamTrash?: boolean;
+}) {
+  const searchParams = new URLSearchParams();
+  if (options?.format === "metadata") {
+    searchParams.set("format", "metadata");
+    for (const header of THREAD_METADATA_HEADERS) {
+      searchParams.append("metadataHeaders", header);
+    }
   }
-  return searchParams.toString();
+  if (options?.includeSpamTrash) searchParams.set("includeSpamTrash", "true");
+  const query = searchParams.toString();
+  return query || undefined;
 }
+
+const THREAD_METADATA_HEADERS = [
+  "From",
+  "To",
+  "Cc",
+  "Bcc",
+  "Subject",
+  "Date",
+  "Message-ID",
+  "In-Reply-To",
+  "References",
+  "Reply-To",
+];
 
 async function getThreadsFromSender(
   gmail: gmail_v1.Gmail,
@@ -203,4 +252,9 @@ export async function getThreadMessages(
   return thread.messages
     .map((m) => parseMessage(m as MessageWithPayload))
     .filter((m) => !m.labelIds?.includes(GmailLabel.DRAFT));
+}
+
+/** Gmail drops spam and trash unless `includeSpamTrash` is set, even for `in:spam`. */
+export function queryIncludesSpamOrTrash(query: string) {
+  return /(?:^|[\s(])(?:in|label):(spam|trash)\b/i.test(query);
 }

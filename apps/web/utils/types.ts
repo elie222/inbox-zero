@@ -53,13 +53,17 @@ export interface ParsedMessage {
   attachments?: Attachment[];
   bodyContentType?: "text" | "html"; // For Outlook: indicates which format the body was originally in
   calendarContent?: string;
+  // For Outlook: the event the mailbox created on the user's calendar for this invitation
+  calendarEventId?: string;
   conversationIndex?: string | null;
   date: string;
   externalUrl?: string;
+  hasAttachment?: boolean;
   headers: ParsedMessageHeaders;
   historyId: string;
   id: string;
-  inline: Inline[];
+  inboxSection?: "focused" | "other" | null;
+  inline: Attachment[];
   internalDate?: string | null;
   isMeetingInvitation?: boolean;
   labelIds?: string[];
@@ -88,21 +92,6 @@ export interface Attachment {
 interface Headers {
   "content-description": string;
   "content-disposition"?: string;
-  "content-id": string;
-  "content-transfer-encoding": string;
-  "content-type": string;
-}
-
-interface Inline {
-  attachmentId: string;
-  filename: string;
-  headers: Headers2;
-  mimeType: string;
-  size: number;
-}
-
-interface Headers2 {
-  "content-description": string;
   "content-id": string;
   "content-transfer-encoding": string;
   "content-type": string;

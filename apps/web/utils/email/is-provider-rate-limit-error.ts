@@ -6,7 +6,7 @@ import {
 import {
   extractErrorInfo as extractOutlookErrorInfo,
   isRetryableError as isOutlookRetryableError,
-} from "@/utils/microsoft/retry";
+} from "@/utils/outlook/retry";
 
 export function isEmailProviderRateLimitError({
   error,

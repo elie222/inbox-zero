@@ -44,6 +44,9 @@ export function SetDateDropdown({
       <PopoverContent className="w-auto p-0" align="start">
         <Calendar
           mode="single"
+          captionLayout="dropdown-buttons"
+          fromYear={2000}
+          toDate={new Date()}
           selected={value}
           onSelect={onChange}
           disabled={(date) =>

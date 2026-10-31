@@ -1,3 +1,4 @@
+import { ResponseType } from "@microsoft/microsoft-graph-client";
 import type { OutlookClient } from "@/utils/outlook/client";
 import type { FileAttachment } from "@microsoft/microsoft-graph-types";
 
@@ -11,5 +12,57 @@ export async function getOutlookAttachment(
     .api(`/me/messages/${messageId}/attachments/${attachmentId}`)
     .get();
 
+  if (!attachment.contentBytes && attachment.size !== 0) {
+    const stream = await getOutlookAttachmentStream(
+      client,
+      messageId,
+      attachmentId,
+    );
+    const content = Buffer.from(await new Response(stream).arrayBuffer());
+    // Graph's size includes attachment metadata, so the raw file is usually
+    // smaller. Only an empty or oversized body is a reliable sign of bad data.
+    if (
+      attachment.size &&
+      (content.length === 0 || content.length > attachment.size)
+    ) {
+      throw new Error("Attachment size mismatch");
+    }
+
+    return {
+      ...attachment,
+      contentBytes: content.toString("base64"),
+      size: content.length,
+    };
+  }
+
   return attachment;
+}
+
+export async function getOutlookAttachmentStream(
+  client: OutlookClient,
+  messageId: string,
+  attachmentId: string,
+  signal?: AbortSignal,
+): Promise<ReadableStream<Uint8Array>> {
+  signal?.throwIfAborted();
+  const response: Response = await client
+    .getClient()
+    .api(
+      `/me/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(attachmentId)}/$value`,
+    )
+    .options({ signal })
+    .responseType(ResponseType.RAW)
+    .get();
+  if (!response.ok || !response.body || signal?.aborted) {
+    await response.body?.cancel().catch(() => undefined);
+    signal?.throwIfAborted();
+    throw Object.assign(new Error("Unable to stream attachment"), {
+      status: response.status,
+      statusCode: response.status,
+    });
+  }
+  return response.body.pipeThrough(
+    new TransformStream<Uint8Array, Uint8Array>(),
+    { signal },
+  );
 }

@@ -1,4 +1,4 @@
-import type { LabelCount } from "@/app/api/labels/counts/route";
+import type { MailboxLabelCount } from "@/utils/mail-engine/label-count-targets";
 import type { EmailLabel } from "@/providers/email-label-types";
 import { labelVisibility } from "@/utils/gmail/constants";
 
@@ -12,7 +12,7 @@ export function splitLabelsByListVisibility({
   countsById,
 }: {
   labels: EmailLabel[];
-  countsById: Map<string, LabelCount>;
+  countsById: Map<string, MailboxLabelCount>;
 }): { visibleLabels: EmailLabel[]; hiddenLabels: EmailLabel[] } {
   const visibleLabels: EmailLabel[] = [];
   const hiddenLabels: EmailLabel[] = [];
@@ -27,7 +27,7 @@ export function splitLabelsByListVisibility({
 
 function isVisibleInLabelList(
   label: EmailLabel,
-  countsById: Map<string, LabelCount>,
+  countsById: Map<string, MailboxLabelCount>,
 ) {
   if (label.labelListVisibility === labelVisibility.labelHide) return false;
   if (label.labelListVisibility !== labelVisibility.labelShowIfUnread)

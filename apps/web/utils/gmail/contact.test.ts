@@ -9,7 +9,7 @@ vi.mock("@/env", () => ({
   env: envMock,
 }));
 
-import { searchContacts } from "./contact";
+import { listContactPhotos, searchContacts } from "./contact";
 
 describe("searchContacts", () => {
   beforeEach(() => {
@@ -47,7 +47,7 @@ describe("searchContacts", () => {
     });
     expect(searchOtherContactsMock).toHaveBeenCalledWith({
       query: "first",
-      readMask: "names,emailAddresses",
+      readMask: "names,emailAddresses,photos",
       pageSize: 10,
     });
     expect(result).toEqual([
@@ -64,7 +64,7 @@ describe("searchContacts", () => {
     ]);
   });
 
-  it("includes people from Gmail other contacts alongside saved contacts", async () => {
+  it("includes people and their photos from Gmail other contacts, skipping generated placeholder photos", async () => {
     const { client } = createPeopleClient({
       searchContactsMock: vi.fn().mockResolvedValue({
         data: {
@@ -73,6 +73,9 @@ describe("searchContacts", () => {
               person: {
                 names: [{ displayName: "Saved Contact" }],
                 emailAddresses: [{ value: "saved@example.com" }],
+                photos: [
+                  { url: "https://example.com/generated.jpg", default: true },
+                ],
               },
             },
           ],
@@ -85,6 +88,7 @@ describe("searchContacts", () => {
               person: {
                 names: [{ displayName: "Recent Correspondent" }],
                 emailAddresses: [{ value: "recent@example.com" }],
+                photos: [{ url: "https://example.com/recent.jpg" }],
               },
             },
           ],
@@ -103,7 +107,7 @@ describe("searchContacts", () => {
       {
         emailAddress: "recent@example.com",
         name: "Recent Correspondent",
-        profilePictureUrl: undefined,
+        profilePictureUrl: "https://example.com/recent.jpg",
       },
     ]);
   });
@@ -264,6 +268,136 @@ describe("searchContacts", () => {
     expect(searchOtherContactsMock).not.toHaveBeenCalled();
   });
 });
+
+describe("listContactPhotos", () => {
+  beforeEach(() => {
+    envMock.NEXT_PUBLIC_GMAIL_OTHER_CONTACTS_ENABLED = true;
+  });
+
+  it("maps real photos by canonical address across pages, preferring saved contacts", async () => {
+    const connectionsListMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        data: {
+          connections: [
+            {
+              emailAddresses: [{ value: "Saved@Example.com" }],
+              photos: [{ url: "https://example.com/saved.jpg" }],
+            },
+            {
+              emailAddresses: [{ value: "placeholder@example.com" }],
+              photos: [{ url: "https://example.com/tile.jpg", default: true }],
+            },
+          ],
+          nextPageToken: "page-2",
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          connections: [
+            {
+              emailAddresses: [{ value: "second-page@example.com" }],
+              photos: [{ url: "https://example.com/second.jpg" }],
+            },
+          ],
+        },
+      });
+    const otherContactsListMock = vi.fn().mockResolvedValue({
+      data: {
+        otherContacts: [
+          {
+            emailAddresses: [
+              { value: "saved@example.com" },
+              { value: "other@example.com" },
+            ],
+            photos: [{ url: "https://example.com/other.jpg" }],
+          },
+        ],
+      },
+    });
+
+    const photos = await listContactPhotos(
+      createPhotoClient({ connectionsListMock, otherContactsListMock }),
+      createTestLogger(),
+    );
+
+    expect(connectionsListMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ pageToken: "page-2" }),
+    );
+    expect(photos).toEqual({
+      "saved@example.com": "https://example.com/saved.jpg",
+      "second-page@example.com": "https://example.com/second.jpg",
+      "other@example.com": "https://example.com/other.jpg",
+    });
+  });
+
+  it("returns the photos it can read when one contact source is not permitted", async () => {
+    const photos = await listContactPhotos(
+      createPhotoClient({
+        connectionsListMock: vi
+          .fn()
+          .mockRejectedValue({ status: "PERMISSION_DENIED" }),
+        otherContactsListMock: vi.fn().mockResolvedValue({
+          data: {
+            otherContacts: [
+              {
+                emailAddresses: [{ value: "other@example.com" }],
+                photos: [{ url: "https://example.com/other.jpg" }],
+              },
+            ],
+          },
+        }),
+      }),
+      createTestLogger(),
+    );
+
+    expect(photos).toEqual({
+      "other@example.com": "https://example.com/other.jpg",
+    });
+  });
+
+  it("fails instead of reporting no photos when every source is denied", async () => {
+    const denied = { status: "PERMISSION_DENIED" };
+
+    await expect(
+      listContactPhotos(
+        createPhotoClient({
+          connectionsListMock: vi.fn().mockRejectedValue(denied),
+          otherContactsListMock: vi.fn().mockRejectedValue(denied),
+        }),
+        createTestLogger(),
+      ),
+    ).rejects.toBe(denied);
+  });
+
+  it("does not read Other Contacts when that flag is off", async () => {
+    envMock.NEXT_PUBLIC_GMAIL_OTHER_CONTACTS_ENABLED = false;
+    const otherContactsListMock = vi.fn();
+
+    await listContactPhotos(
+      createPhotoClient({
+        connectionsListMock: vi.fn().mockResolvedValue({ data: {} }),
+        otherContactsListMock,
+      }),
+      createTestLogger(),
+    );
+
+    expect(otherContactsListMock).not.toHaveBeenCalled();
+  });
+});
+
+function createPhotoClient({
+  connectionsListMock,
+  otherContactsListMock,
+}: {
+  connectionsListMock: ReturnType<typeof vi.fn>;
+  otherContactsListMock: ReturnType<typeof vi.fn>;
+}) {
+  return {
+    people: { connections: { list: connectionsListMock } },
+    otherContacts: { list: otherContactsListMock },
+  } as never;
+}
 
 function createPeopleClient({
   searchContactsMock = vi.fn().mockResolvedValue({ data: { results: [] } }),

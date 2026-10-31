@@ -290,8 +290,8 @@ Morgan`,
           const calendarAvailability = {
             timezone: "Asia/Jerusalem",
             suggestedTimes: [
-              { start: "2026-05-13 10:00", end: "2026-05-13 10:30" },
-              { start: "2026-05-13 14:00", end: "2026-05-13 14:30" },
+              { start: "2026-05-18 10:00", end: "2026-05-18 10:30" },
+              { start: "2026-05-19 14:00", end: "2026-05-19 14:30" },
             ],
           };
 
@@ -809,7 +809,7 @@ thanks,`,
           const paymentReplyCriterion = {
             name: "Concise contact-specific payment reply",
             description:
-              "The draft should be one or two short sentences plus an optional compact greeting/sign-off. It should not ask an unnecessary clarification question or create a multi-paragraph process update. It may either say the user is checking, commit to handling it, or answer directly in the same concise style the user uses with this sender.",
+              "The draft should be one or two short sentences plus an optional compact greeting/sign-off. It should not ask an unnecessary clarification question or create a multi-paragraph process update. It may either say the user is checking, commit to handling it, or answer directly in the same concise style the user uses with this sender. A direct answer with a short placeholder for whether the payment was sent is acceptable.",
           };
           const expectedPaymentReply =
             "A short, direct reply suitable for a close/contact-specific relationship. It should avoid unnecessary clarification and processy filler. A useful action-oriented reply is acceptable because the user can complete the action before sending.";
@@ -1066,6 +1066,96 @@ Morgan`,
         TIMEOUT,
       );
 
+      test.each([
+        { styleLabel: "default style", writingStyle: null },
+        {
+          styleLabel: "terse custom style",
+          writingStyle:
+            "Short and casual. Usually one or two lines. No greetings or sign-offs.",
+        },
+      ])(
+        "answers each numbered question separately ($styleLabel)",
+        async ({ styleLabel, writingStyle }) => {
+          const messages = [
+            {
+              ...getEmail({
+                from: "Jordan Avery <jordan@prospect.example>",
+                to: emailAccount.email,
+                subject: "Question about automatic sorting in Outlook",
+                content: `Hello,
+
+I'm evaluating your product as a replacement for the email assistant I use today. I'm on Microsoft 365 with the desktop Outlook app and want AI to sort incoming mail into folders so my inbox stays clear. Ideally I'd like to choose the folders and control how emails get sorted.
+
+Your product looks promising, but I couldn't confirm a few capabilities on your website:
+
+1. Can it automatically sort emails and actually move them into Outlook folders?
+2. Does it keep running in the background without me approving each action or keeping an app open?
+3. Can I create my own folders?
+4. Can I control the sorting with rules, plain-language instructions, or by correcting mistakes so it learns?
+
+Thanks for your help!
+
+Jordan`,
+              }),
+              date: new Date("2026-05-05T10:00:00Z"),
+            },
+          ];
+          // Shaped like the research summary a docs lookup hands the drafter
+          const mcpContext = `The product supports Outlook and Microsoft 365, including moving messages into Outlook folders.
+
+- **Automatic sorting:** Rules use AI instructions, static conditions such as sender or subject, or both, and can move matching emails into folders.
+- **Runs automatically:** Enabled rules run as new mail arrives through the connected mailbox, with no approval needed for ordinary sorting and no app that must stay open.
+- **Custom folders:** Create folders in Outlook, then select them in rules.
+- **Control and corrections:** Write rules in plain language or build them manually, test them first, and use History > Fix to correct a mistake. The assistant also learns from corrections.
+
+If a Microsoft 365 tenant restricts app access, an administrator may need to approve the app before the account can be connected.`;
+
+          const result = await draftForEval({
+            messages,
+            emailAccount,
+            knowledgeBaseContent: null,
+            emailHistorySummary: null,
+            emailHistoryContext: null,
+            calendarAvailability: null,
+            writingStyle,
+            mcpContext,
+            meetingContext: null,
+          });
+
+          const testName = `numbered questions answered separately (${styleLabel})`;
+          const judgeResult = await judgeEvalOutput({
+            input: result.modelEvidence,
+            output: result.reply,
+            expected:
+              "A reply that answers all four numbered questions, each with its own clearly separated answer, in the sender's order. A numbered list or one short line per question both work. Answers stay brief and grounded in the provided context.",
+            criterion: {
+              name: "Mirrors the sender's numbered questions",
+              description:
+                "Each of the sender's four questions gets its own distinct, visually separated answer in the same order, so the sender can match every answer to their question at a glance. Merging several answers into one sentence or paragraph, or skipping a question, fails. Brevity within each answer is fine.",
+            },
+          });
+          const pass = judgeResult.pass;
+
+          evalReporter.record({
+            testName,
+            model: model.label,
+            pass,
+            expected: "four separated answers in the sender's order",
+            actual: formatSemanticJudgeActual(result.reply, judgeResult),
+          });
+
+          expect(
+            pass,
+            `Draft should answer each numbered question separately.\n\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
+              judgeResult,
+              null,
+              2,
+            )}`,
+          ).toBe(true);
+        },
+        TIMEOUT,
+      );
+
       test(
         "does not repeat a resolution contradicted by the sender",
         async () => {
@@ -1186,11 +1276,11 @@ Maya`,
             input: result.modelEvidence,
             output: result.reply,
             expected:
-              "A useful editable draft that does not invent concrete pricing details such as an annual price, discount amount, signing deadline, or extra payment terms because no pricing context was provided. It must not be high confidence.",
+              "A direct answer as the user. Confirming that the discussed discount still applies is fine, but no concrete pricing details such as an annual price, discount amount, signing deadline, or extra payment terms are invented, because no pricing context was provided. It must not be high confidence.",
             criterion: {
               name: "No unsupported concrete pricing details",
               description:
-                "The draft must not invent concrete pricing values, discount amounts, deadlines, or extra payment terms that are not present in the input. It should stay useful as an editable draft rather than becoming a non-answer.",
+                "The draft must not invent concrete pricing values, discount amounts, deadlines, or extra payment terms that are not present in the input. Plainly confirming that the previously discussed discount or price still applies is acceptable. It fails if it becomes a non-answer, such as saying the user is unsure or will check instead of answering.",
             },
           });
           const pass =
@@ -1211,6 +1301,234 @@ Maya`,
           expect(
             pass,
             `Draft should not invent pricing or mark high confidence without pricing context.\n\nConfidence: ${result.confidence}\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
+              judgeResult,
+              null,
+              2,
+            )}`,
+          ).toBe(true);
+        },
+        TIMEOUT,
+      );
+
+      test.each([
+        {
+          language: "English",
+          content: `Hi,
+
+We've been using the product across our team for a month. Two things would make it work for us: sharing one integration connection across the whole team, and setting permissions per action instead of per integration.
+
+Is either of these planned?
+
+Thanks,
+Sam`,
+        },
+        {
+          language: "German",
+          content: `Hallo,
+
+wir nutzen das Produkt seit einem Monat im ganzen Team. Zwei Dinge würden uns sehr helfen: eine gemeinsame Integrationsverbindung für das ganze Team und Berechtigungen pro Aktion statt pro Integration.
+
+Ist eines davon geplant?
+
+Viele Grüße
+Sam`,
+        },
+      ])(
+        "does not stall with a promise to check when only the user knows the answer ($language)",
+        async ({ language, content }) => {
+          const messages = [
+            {
+              ...getEmail({
+                from: "Sam Rivera <sam@teamco.example>",
+                to: emailAccount.email,
+                subject: "Team features",
+                content,
+              }),
+              date: new Date("2026-05-08T10:00:00Z"),
+            },
+          ];
+
+          const result = await draftForEval({
+            messages,
+            emailAccount,
+            knowledgeBaseContent: null,
+            emailHistorySummary: null,
+            emailHistoryContext: null,
+            calendarAvailability: null,
+            writingStyle: null,
+            mcpContext: null,
+            meetingContext: null,
+          });
+
+          const testName = `missing roadmap context (${language})`;
+          const judgeResult = await judgeEvalOutput({
+            input: result.modelEvidence,
+            output: result.reply,
+            expected:
+              "A draft written as the user, in the sender's language, that answers whether the features are planned. Saying nothing is planned or confirmed yet is a valid answer.",
+            criterion: {
+              name: "No stalling or drafter uncertainty",
+              description:
+                "The draft fails if it promises to check, confirm, or get back to the sender later instead of answering; if it refers to its own inputs, such as not seeing something in the thread, not having it in front of the writer, or not wanting to guess; or if it invents specific plans or dates. A direct answer passes. Saying the features are not decided, or that the writer can't yet say whether or when they will happen, is a direct answer.",
+            },
+          });
+          const pass =
+            result.confidence !== "HIGH_CONFIDENCE" && judgeResult.pass;
+
+          evalReporter.record({
+            testName,
+            model: model.label,
+            pass,
+            expected:
+              "answers without a check-back or drafter leak, not high confidence",
+            actual: `confidence=${result.confidence} | ${formatSemanticJudgeActual(
+              result.reply,
+              judgeResult,
+            )}`,
+          });
+
+          expect(
+            pass,
+            `Draft should not stall or voice drafter uncertainty.\n\nConfidence: ${result.confidence}\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
+              judgeResult,
+              null,
+              2,
+            )}`,
+          ).toBe(true);
+        },
+        TIMEOUT,
+      );
+
+      test(
+        "answers a plans question from the knowledge base instead of a placeholder",
+        async () => {
+          const messages = [
+            {
+              ...getEmail({
+                from: "Sam Rivera <sam@teamco.example>",
+                to: emailAccount.email,
+                subject: "Team features",
+                content: `Hi,
+
+Is a shared team connection for integrations planned? We'd rather not have everyone connect their own account.
+
+Thanks,
+Sam`,
+              }),
+              date: new Date("2026-05-08T10:00:00Z"),
+            },
+          ];
+
+          const result = await draftForEval({
+            messages,
+            emailAccount,
+            knowledgeBaseContent:
+              "Shared team connections for integrations are in beta. Team admins can turn them on under Settings > Integrations.",
+            emailHistorySummary: null,
+            emailHistoryContext: null,
+            calendarAvailability: null,
+            writingStyle: null,
+            mcpContext: null,
+            meetingContext: null,
+          });
+
+          const testName = "plans question answered by knowledge base";
+          const judgeResult = await judgeEvalOutput({
+            input: result.modelEvidence,
+            output: result.reply,
+            expected:
+              "A reply that answers from the knowledge base: shared team connections are in beta and admins can enable them in the integration settings.",
+            criterion: {
+              name: "Knowledge base answer, no placeholder",
+              description:
+                "The draft should answer the question with the supplied knowledge base facts. It fails if it leaves a bracketed placeholder for the answer, defers with a promise to check, or contradicts the knowledge base.",
+            },
+          });
+          const pass = judgeResult.pass;
+
+          evalReporter.record({
+            testName,
+            model: model.label,
+            pass,
+            expected: "answers from knowledge base without a placeholder",
+            actual: formatSemanticJudgeActual(result.reply, judgeResult),
+          });
+
+          expect(
+            pass,
+            `Draft should answer from the knowledge base.\n\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
+              judgeResult,
+              null,
+              2,
+            )}`,
+          ).toBe(true);
+        },
+        TIMEOUT,
+      );
+
+      test(
+        "commits to investigating a reported bug without a placeholder",
+        async () => {
+          const messages = [
+            {
+              ...getEmail({
+                from: "Jordan Blake <jordan@example.com>",
+                to: emailAccount.email,
+                subject: "CSV export broken",
+                content: `Hi,
+
+Since yesterday, every CSV export I start stops at 50% and then shows "Export failed". I've tried two browsers.
+
+Can you take a look?
+
+Jordan`,
+              }),
+              date: new Date("2026-05-11T16:00:00Z"),
+            },
+          ];
+
+          const result = await draftForEval({
+            messages,
+            emailAccount,
+            knowledgeBaseContent: null,
+            emailHistorySummary: null,
+            emailHistoryContext: null,
+            calendarAvailability: null,
+            writingStyle: null,
+            mcpContext: null,
+            meetingContext: null,
+          });
+
+          const testName = "reported bug needs investigation";
+          const judgeResult = await judgeEvalOutput({
+            input: result.modelEvidence,
+            output: result.reply,
+            expected:
+              "A short reply that acknowledges the failing exports and commits to looking into it, without claiming a cause or fix.",
+            criterion: {
+              name: "Investigation commitment",
+              description:
+                "A reported bug needs investigation, so committing to look into it is correct. The draft fails if it uses a bracketed placeholder in place of that commitment, invents a cause, fix, or timeline, or narrates that the writer lacks information.",
+            },
+          });
+          const pass =
+            result.confidence !== "HIGH_CONFIDENCE" && judgeResult.pass;
+
+          evalReporter.record({
+            testName,
+            model: model.label,
+            pass,
+            expected:
+              "commits to investigate, no placeholder, not high confidence",
+            actual: `confidence=${result.confidence} | ${formatSemanticJudgeActual(
+              result.reply,
+              judgeResult,
+            )}`,
+          });
+
+          expect(
+            pass,
+            `Draft should commit to investigating.\n\nConfidence: ${result.confidence}\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
               judgeResult,
               null,
               2,
@@ -1694,6 +2012,7 @@ Priya`,
             calendarAvailability: null,
             writingStyle: null,
             mcpContext: null,
+            currentDate: new Date("2026-05-06T16:00:00Z"),
             meetingContext: null,
           });
 
@@ -1744,6 +2063,7 @@ Priya`,
             calendarAvailability: null,
             writingStyle: null,
             mcpContext: null,
+            currentDate: new Date("2026-05-06T16:00:00Z"),
             meetingContext:
               "Upcoming calendar context: a meeting with Priya Sharma is scheduled for tomorrow at 3:00 PM.",
           });

@@ -4,6 +4,7 @@ import { isThreadStarred } from "@/app/(app)/[emailAccountId]/mail/star-state";
 import * as React from "react";
 import {
   Loader2Icon,
+  MessageSquarePlusIcon,
   MonitorIcon,
   MoonIcon,
   SunIcon,
@@ -27,6 +28,7 @@ import {
 import { useComposeModal } from "@/providers/ComposeModalProvider";
 import {
   commandPaletteOpenAtom,
+  feedbackDialogOpenAtom,
   mailCommandContextAtom,
   senderCommandContextAtom,
   shortcutsDialogOpenAtom,
@@ -47,12 +49,14 @@ import {
   MAIL_SHORTCUT_SCOPES,
   type ShortcutHandlers,
 } from "@/lib/shortcuts/registry";
-import { useRetainedMailMutationOverlay } from "@/hooks/useMailMutationOverlay";
-import { applyMailMutationOverlayToMessages } from "@/utils/email-cache/mail-mutation-overlay";
 import { useThread } from "@/hooks/useThread";
-import { enqueueThreadMailMutationBatch } from "@/utils/email-cache/thread-mail-mutations";
+import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
+import { mutationPayloadToChange } from "@/utils/mail-engine/mutation-change";
+import { submitConversationChange } from "@/utils/mail-engine/submit-conversations";
+import { admissionRejectionCopy } from "@/utils/mail-engine/admission-notice";
 import { AccountCommandList } from "@/components/AccountCommandList";
 import { toastError } from "@/components/Toast";
+import { trackMailAction } from "@/utils/analytics/mail-usage";
 
 const SECTION_ORDER: CommandSection[] = [
   "actions",
@@ -78,16 +82,16 @@ const ALWAYS_VISIBLE_SHORTCUT_COMMANDS = new Set(["compose", "help"]);
 // route's own bindings: these handlers are only defined when the side panel has a
 // thread (`side-panel-thread-id`), which the mail list never sets — and the mail
 // screen in turn stands down while the side panel is open.
-export function CommandK() {
+export function CommandK({ feedbackEnabled }: { feedbackEnabled: boolean }) {
   return (
     <ShortcutsProvider scopes={MAIL_SHORTCUT_SCOPES}>
-      <CommandPalette />
+      <CommandPalette feedbackEnabled={feedbackEnabled} />
       <ShortcutsDialog />
     </ShortcutsProvider>
   );
 }
 
-function CommandPalette() {
+function CommandPalette({ feedbackEnabled }: { feedbackEnabled: boolean }) {
   const mailCommandContext = useAtomValue(mailCommandContextAtom);
   const senderCommandContext = useAtomValue(senderCommandContextAtom);
   const displayedEmail = useDisplayedEmail();
@@ -102,6 +106,7 @@ function CommandPalette() {
 
   return (
     <CommandPaletteContent
+      feedbackEnabled={feedbackEnabled}
       displayedEmail={displayedEmail}
       mailCommandContext={activeMailContext}
       senderCommandContext={
@@ -112,16 +117,19 @@ function CommandPalette() {
 }
 
 function CommandPaletteContent({
+  feedbackEnabled,
   displayedEmail,
   mailCommandContext,
   senderCommandContext,
 }: {
+  feedbackEnabled: boolean;
   displayedEmail: ReturnType<typeof useDisplayedEmail>;
   mailCommandContext: MailCommandContext | null;
   senderCommandContext: SenderCommandContext | null;
 }) {
   const [open, setOpen] = useAtom(commandPaletteOpenAtom);
   const setShortcutsOpen = useSetAtom(shortcutsDialogOpenAtom);
+  const setFeedbackOpen = useSetAtom(feedbackDialogOpenAtom);
   const [activePage, setPage] = React.useState<"root" | "snooze" | "accounts">(
     "root",
   );
@@ -133,34 +141,10 @@ function CommandPaletteContent({
   const { setTheme } = useTheme();
 
   const { emailAccountId } = useAccount();
+  const client = useOptionalMailClient();
   const { threadId, showEmail } = displayedEmail;
-  const {
-    data: rawDisplayedThread,
-    isLoading: isDisplayedThreadLoading,
-    mutate: mutateDisplayedThread,
-  } = useThread({ id: threadId });
-  const { mutations } = useRetainedMailMutationOverlay({
-    emailAccountId,
-    enabled: Boolean(threadId),
-    onReconcile: () => mutateDisplayedThread(),
-  });
-  const displayedThread = React.useMemo(
-    () =>
-      rawDisplayedThread
-        ? {
-            ...rawDisplayedThread,
-            thread: {
-              ...rawDisplayedThread.thread,
-              messages: applyMailMutationOverlayToMessages({
-                emailAccountId,
-                messages: rawDisplayedThread.thread.messages,
-                mutations,
-              }),
-            },
-          }
-        : undefined,
-    [emailAccountId, rawDisplayedThread, mutations],
-  );
+  const { data: displayedThread, isLoading: isDisplayedThreadLoading } =
+    useThread({ id: threadId });
   const { onOpen: onOpenComposeModal } = useComposeModal();
   const { commands, isLoading } = useCommandPaletteCommands({
     enabled: !mailCommandContext,
@@ -185,11 +169,24 @@ function CommandPaletteContent({
             return;
           }
           try {
-            await enqueueThreadMailMutationBatch({
-              emailAccountId,
-              payload: { kind: "archive" },
-              threads: [displayedThread.thread],
+            const change = mutationPayloadToChange({ kind: "archive" });
+            if (!client || !change) {
+              throw new Error("Mail engine is unavailable");
+            }
+            const { admission } = await submitConversationChange({
+              accountId: emailAccountId,
+              change,
+              client,
+              conversationId: threadId,
             });
+            if (admission.status === "rejected") {
+              toastError({
+                description:
+                  admissionRejectionCopy(admission.code) ??
+                  "Couldn't queue archiving this email",
+              });
+              return;
+            }
             showEmail(null);
           } catch {
             toastError({
@@ -209,14 +206,26 @@ function CommandPaletteContent({
             return;
           }
           try {
-            await enqueueThreadMailMutationBatch({
-              emailAccountId,
-              payload: {
-                kind: "set_starred_state",
-                starred: !isThreadStarred(displayedThread.thread.messages),
-              },
-              threads: [displayedThread.thread],
+            const change = mutationPayloadToChange({
+              kind: "set_starred_state",
+              starred: !isThreadStarred(displayedThread.thread.messages),
             });
+            if (!client || !change) {
+              throw new Error("Mail engine is unavailable");
+            }
+            const { admission } = await submitConversationChange({
+              accountId: emailAccountId,
+              change,
+              client,
+              conversationId: threadId,
+            });
+            if (admission.status === "rejected") {
+              toastError({
+                description:
+                  admissionRejectionCopy(admission.code) ??
+                  "Couldn’t update the star for this email",
+              });
+            }
           } catch {
             toastError({
               description: "Couldn’t update the star for this email",
@@ -254,6 +263,7 @@ function CommandPaletteContent({
     ? buildMailCommandPalette({
         actions: {
           archive: mailCommandContext.actions.archive,
+          moveToInbox: mailCommandContext.actions.moveToInbox,
           forward: mailCommandContext.actions.forward,
           label: mailCommandContext.actions.label,
           star: mailCommandContext.actions.star,
@@ -266,6 +276,8 @@ function CommandPaletteContent({
             : undefined,
           trash: mailCommandContext.actions.trash,
           openExternal: mailCommandContext.actions.openExternal,
+          translate: mailCommandContext.actions.translate,
+          comment: mailCommandContext.actions.comment,
           toggleAutoArchive: senderCommandContext?.toggleAutoArchive,
           unsubscribe: senderCommandContext?.unsubscribe,
         },
@@ -322,6 +334,16 @@ function CommandPaletteContent({
       ...commands,
       ...themeCommands,
     ];
+    if (feedbackEnabled) {
+      allCommands.push({
+        id: "send-feedback",
+        label: "Send feedback",
+        icon: MessageSquarePlusIcon,
+        section: "settings",
+        keywords: ["feedback", "bug", "report", "suggestion", "idea"],
+        action: () => setFeedbackOpen(true),
+      });
+    }
   }
 
   const filteredCommands =
@@ -338,6 +360,7 @@ function CommandPaletteContent({
       setPage("root");
     }
     command.action();
+    trackMailAction({ action: command.id, source: "palette" });
   };
 
   const handleOpenChange = (isOpen: boolean) => {

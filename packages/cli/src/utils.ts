@@ -88,16 +88,16 @@ export function generateEnvFile(config: {
     setValue("WEB_PORT", env.WEB_PORT);
     setValue("DATABASE_URL", wrapInQuotes(env.DATABASE_URL));
     setValue("DIRECT_URL", wrapInQuotes(env.DIRECT_URL));
-    setValue("UPSTASH_REDIS_URL", wrapInQuotes(env.UPSTASH_REDIS_URL));
-    setValue("UPSTASH_REDIS_TOKEN", env.UPSTASH_REDIS_TOKEN);
+    setValue("REDIS_HTTP_URL", wrapInQuotes(env.REDIS_HTTP_URL));
+    setValue("REDIS_HTTP_TOKEN", env.REDIS_HTTP_TOKEN);
     setValue("REDIS_URL", wrapInQuotes(env.REDIS_URL));
     setValue("QUEUE_BACKEND", env.QUEUE_BACKEND);
   } else {
     // External infra - set placeholders
     setValue("DATABASE_URL", wrapInQuotes(env.DATABASE_URL));
     setValue("DIRECT_URL", wrapInQuotes(env.DIRECT_URL));
-    setValue("UPSTASH_REDIS_URL", wrapInQuotes(env.UPSTASH_REDIS_URL));
-    setValue("UPSTASH_REDIS_TOKEN", env.UPSTASH_REDIS_TOKEN);
+    setValue("REDIS_HTTP_URL", wrapInQuotes(env.REDIS_HTTP_URL));
+    setValue("REDIS_HTTP_TOKEN", env.REDIS_HTTP_TOKEN);
     setValue("REDIS_URL", wrapInQuotes(env.REDIS_URL));
     setValue("QUEUE_BACKEND", env.QUEUE_BACKEND);
   }
@@ -216,6 +216,7 @@ const SENSITIVE_KEYS = new Set([
   "INTERNAL_API_KEY",
   "API_KEY_SALT",
   "CRON_SECRET",
+  "REDIS_HTTP_TOKEN",
   "UPSTASH_REDIS_TOKEN",
   "POSTGRES_PASSWORD",
 ]);
@@ -289,6 +290,14 @@ export function parsePortConflict(stderr: string): string | null {
   );
   if (match) {
     return `Port ${match[1]} is already in use by another process.`;
+  }
+
+  // e.g. "failed to bind host port for 127.0.0.1:5432:172.19.0.4:5432/tcp: address already in use"
+  const hostPortMatch = stderr.match(
+    /failed to bind host port for (?:\[[^\]]*\]|[^\s:]*):(\d+):/,
+  );
+  if (hostPortMatch) {
+    return `Port ${hostPortMatch[1]} is already in use by another process.`;
   }
 
   const addrMatch = stderr.match(/:(\d+):\s*address already in use/);

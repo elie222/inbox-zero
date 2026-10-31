@@ -6,14 +6,14 @@ describe("getEvalJudgeUserAi", () => {
     vi.unstubAllEnvs();
   });
 
-  it("uses the latest DeepSeek V4 Flash version through OpenRouter by default", () => {
+  it("uses DeepSeek V4.1 Flash through OpenRouter by default", () => {
     vi.stubEnv("EVAL_JUDGE_PROVIDER", "");
     vi.stubEnv("EVAL_JUDGE_MODEL", "");
     vi.stubEnv("OPENROUTER_API_KEY", "test-key");
 
     expect(getEvalJudgeUserAi()).toEqual({
       aiProvider: "openrouter",
-      aiModel: "~deepseek/deepseek-v4-flash-latest",
+      aiModel: "deepseek/deepseek-v4.1-flash",
       aiApiKey: "test-key",
     });
   });

@@ -14,17 +14,28 @@
     "dist": "pnpm build && electron-builder --publish never",
     "dist:mac": "pnpm build && electron-builder --mac --publish never",
     "dist:win": "pnpm build && electron-builder --win --publish never",
-    "test": "vitest run"
+    "dist:linux": "pnpm build && electron-builder --linux dir --publish never",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@types/node": "24.10.1",
-    "electron": "43.4.0",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "electron": "44.9.0",
     "electron-builder": "26.15.3",
     "esbuild": "0.28.2",
     "typescript": "6.0.3",
-    "vitest": "4.1.10"
+    "vitest": "5.0.5"
   },
   "dependencies": {
-    "electron-updater": "6.8.9"
+    "@inboxzero/mail-core": "workspace:*",
+    "@inboxzero/mail-react": "workspace:*",
+    "@inboxzero/mail-sqlite": "workspace:*",
+    "@inboxzero/mail-ui": "workspace:*",
+    "@sentry/electron": "7.20.1",
+    "electron-updater": "6.8.9",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
   }
 }

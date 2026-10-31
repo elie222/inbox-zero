@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { toastUndo, undoLatestToast } from "./Toast";
+import { toastSuccess, toastUndo, undoLatestToast } from "./Toast";
 
 const sonner = vi.hoisted(() => ({
   dismiss: vi.fn(),
@@ -37,6 +37,15 @@ describe("toast undo", () => {
     await expect(undoLatestToast()).resolves.toBe(true);
     expect(sonner.dismiss).toHaveBeenCalledWith("undo-send");
     expect(onUndo).toHaveBeenCalledOnce();
+  });
+
+  it("stops handling keyboard undo once another toast replaces it", async () => {
+    const onUndo = vi.fn();
+    toastUndo({ id: "undo-send", message: "Email sent!", onUndo });
+    toastSuccess({ id: "undo-send", description: "Email sent!" });
+
+    await expect(undoLatestToast()).resolves.toBe(false);
+    expect(onUndo).not.toHaveBeenCalled();
   });
 
   it("stops handling keyboard undo after the toast expires", async () => {

@@ -35,6 +35,8 @@ import type { EmailProvider } from "@/utils/email/types";
 import type { ModelType } from "@/utils/llms/model";
 import {
   CONVERSATION_STATUS_TYPES,
+  CONVERSATION_TRACKING_INSTRUCTIONS,
+  CONVERSATION_TRACKING_META_RULE_ID,
   isConversationStatusType,
 } from "@/utils/reply-tracker/conversation-status-config";
 import {
@@ -42,7 +44,11 @@ import {
   updateThreadTrackers,
 } from "@/utils/reply-tracker/handle-conversation-status";
 import { removeConflictingThreadStatusLabels } from "@/utils/reply-tracker/label-helpers";
-import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
+import { shouldLearnAiSenderPatterns } from "@/utils/rule/ai-sender-pattern-learning";
+import {
+  hasIncludePatternOnAnotherRule,
+  saveLearnedPattern,
+} from "@/utils/rule/learned-patterns";
 import { internalDateToDate } from "@/utils/date";
 import { ConditionType } from "@/utils/config";
 import type { Logger } from "@/utils/logger";
@@ -80,25 +86,6 @@ export type RunRulesResult = {
   existing?: boolean;
   createdAt: Date;
 };
-
-export const CONVERSATION_TRACKING_META_RULE_ID = "conversation-tracking-meta";
-
-export const CONVERSATION_TRACKING_INSTRUCTIONS = `Conversations and communication with real people. This covers all conversation states: emails you need to reply to, emails you're awaiting replies on, FYI updates from people, and resolved discussions.
-
-Match when:
-- Questions or requests for information/action
-- Updates or FYI information from real people
-- Follow-ups on ongoing conversations
-- Conversations that have been resolved or concluded
-
-EXCLUDE:
-- All automated notifications (LinkedIn, GitHub, Slack, Figma, Jira, Facebook, social media platforms, marketing)
-- System emails (order confirmations, receipts, calendar invites)
-- Emails with List-Unsubscribe headers or unsubscribe links are a strong signal of mass/automated emails
-
-IMPORTANT:
-- Only use this rule for human-to-human communication. If an email is automated or system-generated and another rule is a better fit, do not use this rule.
-- When this rule matches, it should typically be the primary match.`;
 
 export async function runRules({
   provider,
@@ -247,7 +234,8 @@ export async function runRules({
         isTest,
         result,
         message,
-        emailAccountId: emailAccount.id,
+        emailAccount,
+        modelType,
         queuedSenderPatternAnalyses,
         logger,
       });
@@ -544,20 +532,43 @@ async function executeMatchedRule(
     rule.systemType === SystemType.COLD_EMAIL &&
     !matchReasons?.some(
       (matchReason) => matchReason.type === ConditionType.LEARNED_PATTERN,
-    )
+    ) &&
+    shouldLearnAiSenderPatterns({
+      user: emailAccount.user,
+      modelType,
+    })
   ) {
-    const from =
-      extractEmailAddress(message.headers.from) || message.headers.from;
-    await saveLearnedPattern({
-      emailAccountId: emailAccount.id,
-      from,
-      ruleId: rule.id,
-      logger,
-      reason,
-      messageId: message.id,
-      threadId: message.threadId,
-      source: GroupItemSource.AI,
-    });
+    // Learning is best-effort; the rule's actions below must still run.
+    try {
+      // A sender another enabled rule already files isn't cold outreach to this
+      // user. Pinning them here would outrank that rule on every later email,
+      // without the cold-email checks running again.
+      const claimedByAnotherRule = await hasIncludePatternOnAnotherRule({
+        emailAccountId: emailAccount.id,
+        from: message.headers.from,
+        ruleId: rule.id,
+      });
+
+      if (claimedByAnotherRule) {
+        logger.info(
+          "Skipping cold email pattern for a sender another rule files",
+        );
+      } else {
+        await saveLearnedPattern({
+          emailAccountId: emailAccount.id,
+          from:
+            extractEmailAddress(message.headers.from) || message.headers.from,
+          ruleId: rule.id,
+          logger,
+          reason,
+          messageId: message.id,
+          threadId: message.threadId,
+          source: GroupItemSource.AI,
+        });
+      }
+    } catch (error) {
+      logger.error("Failed to learn cold email sender pattern", { error });
+    }
   }
 
   if (isConversationStatusType(rule.systemType)) {
@@ -664,22 +675,24 @@ async function analyzeSenderPatternIfAiMatch({
   isTest,
   result,
   message,
-  emailAccountId,
+  emailAccount,
+  modelType,
   queuedSenderPatternAnalyses,
   logger,
 }: {
   isTest: boolean;
   result: { rule?: Rule | null; matchReasons?: MatchReason[] };
   message: ParsedMessage;
-  emailAccountId: string;
+  emailAccount: EmailAccountForDrafting;
+  modelType: ModelType;
   queuedSenderPatternAnalyses: Set<string>;
   logger: Logger;
 }) {
-  if (shouldAnalyzeSenderPattern({ isTest, result })) {
+  if (shouldAnalyzeSenderPattern({ isTest, result, emailAccount, modelType })) {
     const fromAddress = extractEmailAddress(message.headers.from);
     if (fromAddress) {
       const normalizedFromAddress = fromAddress.toLowerCase();
-      const analysisKey = `${emailAccountId}:${normalizedFromAddress}`;
+      const analysisKey = `${emailAccount.id}:${normalizedFromAddress}`;
 
       if (queuedSenderPatternAnalyses.has(analysisKey)) return;
       queuedSenderPatternAnalyses.add(analysisKey);
@@ -688,7 +701,7 @@ async function analyzeSenderPatternIfAiMatch({
         let senderAlreadyAnalyzed = false;
         try {
           senderAlreadyAnalyzed = await isSenderPatternAlreadyAnalyzed({
-            emailAccountId,
+            emailAccountId: emailAccount.id,
             from: normalizedFromAddress,
           });
         } catch (error) {
@@ -706,7 +719,7 @@ async function analyzeSenderPatternIfAiMatch({
 
         await analyzeSenderPattern(
           {
-            emailAccountId,
+            emailAccountId: emailAccount.id,
             from: normalizedFromAddress,
           },
           logger,
@@ -719,11 +732,23 @@ async function analyzeSenderPatternIfAiMatch({
 function shouldAnalyzeSenderPattern({
   isTest,
   result,
+  emailAccount,
+  modelType,
 }: {
   isTest: boolean;
   result: { rule?: Rule | null; matchReasons?: MatchReason[] };
+  emailAccount: EmailAccountForDrafting;
+  modelType: ModelType;
 }) {
   if (isTest) return false;
+  if (
+    !shouldLearnAiSenderPatterns({
+      user: emailAccount.user,
+      modelType,
+    })
+  ) {
+    return false;
+  }
   if (!result.rule) return false;
   if (isConversationStatusType(result.rule.systemType)) return false;
 

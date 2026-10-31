@@ -1,38 +1,23 @@
 import { expect } from "@playwright/test";
-import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { getEmailAccountId } from "../account-test-helpers";
+import { isMicrosoftPlaywright } from "../mail-provider";
 import { test } from "../playwright-test";
 
+test.skip(
+  isMicrosoftPlaywright(),
+  "Calendar MIME invites are seeded in the Google emulator.",
+);
+
+// The card renders the meeting time in the viewer's timezone.
+test.use({ timezoneId: "UTC" });
+
 test.afterEach(async ({ page }) => {
-  // Background revalidation can still be fetching when the assertions finish.
   await page.unrouteAll({ behavior: "wait" });
 });
 
 test("shows inline calendar responses with the current RSVP", async ({
   page,
 }, testInfo) => {
-  await page.route("**/api/threads/thr_playwright_reader?**", async (route) => {
-    const response = await route.fetch();
-    const body: ThreadResponse = await response.json();
-    const message = body.thread.messages.at(0);
-    if (!message) throw new Error("Reader fixture has no messages");
-    message.isMeetingInvitation = true;
-    message.attachments = ["text/calendar", "application/ics"].map(
-      (mimeType, index) => ({
-        attachmentId: `calendar-${index}`,
-        filename: "invite.ics",
-        mimeType,
-        size: 100,
-        headers: {
-          "content-description": "",
-          "content-id": "",
-          "content-transfer-encoding": "base64",
-          "content-type": mimeType,
-        },
-      }),
-    );
-    await route.fulfill({ response, json: body });
-  });
   await page.route("**/api/messages/calendar-invitation?**", (route) =>
     route.fulfill({
       json: {
@@ -42,21 +27,22 @@ test("shows inline calendar responses with the current RSVP", async ({
           recurring: false,
           response: "accepted",
           calendarSynced: true,
+          start: "2026-10-01T10:00:00.000Z",
+          end: "2026-10-01T10:30:00.000Z",
+          allDay: false,
+          location: "Meeting room 2",
+          conferenceUrl: "https://meet.google.com/abc-defg-hij",
         },
       },
     }),
   );
   const emailAccountId = await getEmailAccountId(page);
-  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reader`);
-  const invitationHeader = page
-    .locator('li[data-thread-message-id="msg_playwright_reader_1"]')
-    .locator('[role="button"][aria-expanded]');
-  await expect(invitationHeader).toBeVisible();
-  if ((await invitationHeader.getAttribute("aria-expanded")) === "false") {
-    await invitationHeader.click();
-  }
+  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_calendar`);
+  await expect(
+    page.locator('li[data-thread-message-id="msg_playwright_calendar"]'),
+  ).toBeVisible({ timeout: 60_000 });
   const card = page.getByLabel("Calendar invitation", { exact: true });
-  await expect(card).toBeVisible();
+  await expect(card).toBeVisible({ timeout: 60_000 });
   await expect(
     card.getByRole("button", { name: "Yes", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
@@ -66,6 +52,14 @@ test("shows inline calendar responses with the current RSVP", async ({
   await expect(
     card.getByRole("button", { name: "Maybe", exact: true }),
   ).toBeEnabled();
+  await expect(
+    card.getByText("Thursday, October 1, 2026 · 10:00 AM – 10:30 AM"),
+  ).toBeVisible();
+  await expect(card.getByText("Meeting room 2")).toBeVisible();
+  await expect(
+    card.getByRole("link", { name: "meet.google.com/abc-defg-hij" }),
+  ).toHaveAttribute("href", "https://meet.google.com/abc-defg-hij");
+  await expect(card.getByText("organizer@example.com")).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath("calendar-invitation-desktop.png"),
     fullPage: true,

@@ -167,6 +167,22 @@ export function selectChangedPlaywrightTargets(changedFilesInput, appRoot) {
   const productFiles = [];
 
   for (const file of changedFiles) {
+    if (isTeamCommentsSource(file)) {
+      targetFiles.add(getPlaywrightTargetPath("mail/team-comments.spec.ts"));
+      targetFiles.add(
+        getPlaywrightTargetPath("mail/team-comments-access.spec.ts"),
+      );
+    }
+    if (
+      /^(?:packages\/(?:mail-(?:core|sqlite|react|ui)|email-editor)\/|apps\/desktop\/)/.test(
+        file.repoPath,
+      ) &&
+      !isNonRuntimeFile(file.repoPath)
+    ) {
+      targetFiles.add(getPlaywrightTargetPath("mail"));
+      continue;
+    }
+
     if (isEmulatedSpecFile(file.appPath)) {
       if (existsSync(path.join(appRoot, file.appPath))) {
         targetFiles.add(file.appPath);
@@ -273,6 +289,21 @@ export function selectChangedPlaywrightTargets(changedFilesInput, appRoot) {
       : "The changed files do not affect emulated browser coverage.",
     targetFiles: [...targetFiles],
   };
+}
+
+function isTeamCommentsSource({ appPath }) {
+  return (
+    appPath.startsWith("utils/team-comments/") ||
+    appPath.startsWith("components/team-comments/") ||
+    appPath.startsWith("app/api/team-comments/") ||
+    appPath.startsWith("app/(app)/shared/") ||
+    appPath.startsWith("utils/actions/team-comments.") ||
+    /^prisma\/migrations\/\d+_team_comments\//.test(appPath) ||
+    appPath === "prisma/schema.prisma" ||
+    appPath === "utils/actions/organization.ts" ||
+    appPath === "utils/actions/user.ts" ||
+    appPath === "utils/user/delete.ts"
+  );
 }
 
 function getDirectlyAffectedSuites(appPath) {
@@ -441,6 +472,7 @@ function isFullSuiteFile({ repoPath, appPath }) {
   return (
     repoPath === ".github/workflows/playwright.yml" ||
     repoPath === "apps/web/emulate.playwright.config.yaml" ||
+    repoPath === "apps/web/emulate.playwright.microsoft.yaml" ||
     repoPath === "apps/web/playwright.config.mjs" ||
     repoPath === "apps/web/env.ts" ||
     repoPath === "apps/web/instrumentation.ts" ||

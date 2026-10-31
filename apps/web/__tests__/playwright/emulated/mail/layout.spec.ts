@@ -1,7 +1,15 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
-import { conversationWithSubject, openMail } from "./mail-test-helpers";
+import {
+  createSecondEmailAccount,
+  deleteSecondEmailAccount,
+} from "./account-test-helpers";
+import {
+  conversationWithSubject,
+  expectThreadReaderBody,
+  openMail,
+} from "./mail-test-helpers";
 import type { MailSettingsResponse } from "@/app/api/mail/settings/route";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 
@@ -18,8 +26,10 @@ test("refreshes date groups after midnight when the tab resumes", async ({
   });
   await expect(today).toBeVisible();
   await expect(today.getByText("Today", { exact: true })).toHaveCount(0);
-  const todayCount = await today.getByRole("option").count();
-  expect(todayCount).toBeGreaterThan(0);
+  const todaySubjects = await today
+    .locator("[data-mail-thread-subject]")
+    .allTextContents();
+  expect(todaySubjects.length).toBeGreaterThan(0);
 
   const afterMidnight = await page.evaluate(() => {
     const nextDay = new Date();
@@ -31,12 +41,14 @@ test("refreshes date groups after midnight when the tab resumes", async ({
   await page.clock.setSystemTime(afterMidnight);
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
 
-  await expect(today).toHaveCount(0);
   const yesterday = conversations.getByRole("group", {
     name: "Yesterday",
     exact: true,
   });
-  await expect(yesterday.getByRole("option")).toHaveCount(todayCount);
+  for (const subject of todaySubjects) {
+    await expect(yesterday.getByText(subject, { exact: true })).toBeVisible();
+    await expect(today.getByText(subject, { exact: true })).toHaveCount(0);
+  }
   await expect(yesterday.getByText("Yesterday", { exact: true })).toBeVisible();
   await capturePlaywrightCheckpoint(page, testInfo, "mail-date-rollover");
 });
@@ -47,7 +59,6 @@ test("switches between list and split reading layouts", async ({
   const { conversations } = await openMail(page);
   const emptyReader = page.getByText("Nothing selected", { exact: true });
   await expect(emptyReader).toBeHidden();
-  await capturePlaywrightCheckpoint(page, testInfo, "mail-list-layout");
 
   await page.getByRole("button", { name: "Switch list or split view" }).click();
   await expect(emptyReader).toBeVisible();
@@ -62,12 +73,10 @@ test("switches between list and split reading layouts", async ({
   await expect(
     page.getByRole("heading", { name: "Project Label Message" }),
   ).toBeVisible();
-  const messageBody = page
-    .locator("pre")
-    .getByText("This conversation is visible in the seeded project label.", {
-      exact: true,
-    });
-  await expect(messageBody).toBeVisible();
+  await expectThreadReaderBody(
+    page,
+    "This conversation is visible in the seeded project label.",
+  );
   await expect(conversations).toBeVisible();
   await capturePlaywrightCheckpoint(
     page,
@@ -81,6 +90,89 @@ test("switches between list and split reading layouts", async ({
   await page.getByRole("button", { name: "Switch list or split view" }).click();
   await page.keyboard.press("Escape");
   await expect(conversations).toBeVisible();
+});
+
+test("uses the split reading layout in All Accounts", async ({
+  page,
+}, testInfo) => {
+  const { emailAccountId } = await openMail(page);
+  const secondAccount = await createSecondEmailAccount(emailAccountId);
+
+  try {
+    await page.goto(`/${emailAccountId}/mail?accountScope=all`, {
+      waitUntil: "domcontentloaded",
+    });
+    const conversations = page.getByRole("listbox", { name: "Conversations" });
+    await expect(conversations).toBeVisible({ timeout: 60_000 });
+    const layoutToggle = page.getByRole("button", {
+      name: "Switch list or split view",
+    });
+    const emptyReader = page.getByText("Nothing selected", { exact: true });
+
+    await layoutToggle.click();
+    await expect(emptyReader).toBeVisible();
+
+    await conversationWithSubject(page, conversations, "Project Label Message")
+      .first()
+      .click();
+    await expectThreadReaderBody(
+      page,
+      "This conversation is visible in the seeded project label.",
+    );
+    await expect(conversations).toBeVisible();
+    await capturePlaywrightCheckpoint(page, testInfo, "all-accounts-split");
+
+    await page.keyboard.press("Escape");
+    await layoutToggle.click();
+    await expect(emptyReader).toBeHidden();
+  } finally {
+    await deleteSecondEmailAccount(secondAccount.accountId);
+  }
+});
+
+test("resizes the split-layout email list and remembers the width", async ({
+  page,
+}, testInfo) => {
+  const { conversations } = await openMail(page);
+  const layoutToggle = page.getByRole("button", {
+    name: "Switch list or split view",
+  });
+  const emptyReader = page.getByText("Nothing selected", { exact: true });
+  await layoutToggle.click();
+  await expect(emptyReader).toBeVisible();
+
+  const handle = page.getByRole("separator", { name: "Resize email list" });
+  const defaultWidth = await boxWidth(conversations);
+  const handleBox = await handle.boundingBox();
+  if (!handleBox) throw new Error("Resize handle is not rendered");
+  const handleX = handleBox.x + handleBox.width / 2;
+  const handleY = handleBox.y + handleBox.height / 2;
+
+  await page.mouse.move(handleX, handleY);
+  await page.mouse.down();
+  await page.mouse.move(handleX + 120, handleY, { steps: 6 });
+  await page.mouse.up();
+  await expect
+    .poll(async () => await boxWidth(conversations))
+    .toBeGreaterThan(defaultWidth + 100);
+  const draggedWidth = await boxWidth(conversations);
+  await capturePlaywrightCheckpoint(page, testInfo, "mail-resized-list");
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(emptyReader).toBeVisible();
+  await expect
+    .poll(async () => await boxWidth(conversations))
+    .toBeCloseTo(draggedWidth, -1);
+
+  await handle.dblclick();
+  await expect
+    .poll(async () => await boxWidth(conversations))
+    .toBeCloseTo(defaultWidth, -1);
+
+  // The layout preference outlives the test, so put the wide list back.
+  await layoutToggle.click();
+  await page.keyboard.press("Escape");
+  await expect(emptyReader).toBeHidden();
 });
 
 test("expands and shortens the conversation preview text", async ({
@@ -148,4 +240,9 @@ async function expectStoredPreview(
 async function rowHeight(row: Locator) {
   const box = await row.boundingBox();
   return box?.height ?? 0;
+}
+
+async function boxWidth(locator: Locator) {
+  const box = await locator.boundingBox();
+  return box?.width ?? 0;
 }

@@ -4,10 +4,10 @@ import type { Account } from "better-auth";
 import { setSessionCookie } from "better-auth/cookies";
 import { cookies } from "next/headers";
 import { createReferral } from "@/utils/referral/referral-code";
-import { captureException } from "@/utils/error";
+import { captureException, SafeError } from "@/utils/error";
 import { saveTokens } from "@/utils/auth/save-tokens";
 import { createOutlookClient } from "@/utils/outlook/client";
-import { fetchGoogleOpenIdProfile } from "@/utils/google/oauth";
+import { fetchGoogleOpenIdProfile } from "@/utils/gmail/oauth";
 import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
 import {
   betterAuthConfig,
@@ -71,8 +71,8 @@ vi.mock("@googleapis/gmail", () => ({
 vi.mock("@/utils/outlook/client", () => ({
   createOutlookClient: vi.fn(),
 }));
-vi.mock("@/utils/google/oauth", async (importActual) => ({
-  ...(await importActual<typeof import("@/utils/google/oauth")>()),
+vi.mock("@/utils/gmail/oauth", async (importActual) => ({
+  ...(await importActual<typeof import("@/utils/gmail/oauth")>()),
   fetchGoogleOpenIdProfile: vi.fn(),
 }));
 vi.mock("@/utils/email/watch-manager", () => ({
@@ -99,15 +99,68 @@ vi.mock("@/utils/referral/referral-code", () => ({
   createReferral: vi.fn(),
 }));
 
-vi.mock("@/utils/error", () => ({
+vi.mock("@/utils/error", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/error")>()),
   captureException: vi.fn(),
 }));
 
 describe("betterAuthConfig", () => {
+  it("enforces application admin access in the configured SSO plugin", async () => {
+    const plugin = (betterAuthConfig as any).options.plugins.find(
+      (plugin: { id: string }) => plugin.id === "sso",
+    );
+    const context = {
+      path: "/sso/register",
+      context: {
+        session: { user: { id: "basic-user", email: "basic@example.invalid" } },
+      },
+    };
+    const runHooks = async () => {
+      for (const hook of plugin.hooks.before) {
+        if (hook.matcher(context)) await hook.handler(context);
+      }
+    };
+    await expect(runHooks()).rejects.toMatchObject({ statusCode: 403 });
+  });
+
   it("does not trust Microsoft for implicit social account linking", () => {
     expect(
       (betterAuthConfig as any).options.account.accountLinking.trustedProviders,
     ).toEqual(["google", "apple"]);
+  });
+
+  describe("inline profile photos", () => {
+    const userHooks = () =>
+      (betterAuthConfig as any).options.databaseHooks.user;
+
+    it.each([
+      "data:image/jpeg;base64,AAAA",
+      "DATA:image/jpeg;base64,AAAA",
+    ])("drops an inline image when a user is created: %s", async (image) => {
+      await expect(
+        userHooks().create.before({
+          email: "user@example.invalid",
+          image,
+        }),
+      ).resolves.toEqual({ data: { image: null } });
+    });
+
+    it("drops an inline image when a user is updated", async () => {
+      await expect(
+        userHooks().update.before({
+          image: "data:image/jpeg;base64,AAAA",
+        }),
+      ).resolves.toEqual({ data: { image: null } });
+    });
+
+    it("keeps a remote image url", async () => {
+      await expect(
+        userHooks().create.before({
+          email: "user@example.invalid",
+          image: "https://example.invalid/avatar.png",
+        }),
+      ).resolves.toBeUndefined();
+    });
   });
 });
 
@@ -169,6 +222,21 @@ describe("handleReferralOnSignUp", () => {
     expect(mockCaptureException).toHaveBeenCalledWith(error, {
       extra: { userId, email, location: "handleReferralOnSignUp" },
     });
+  });
+
+  it("does not report an invalid referral code as an error", async () => {
+    mockCookies.mockResolvedValue({
+      get: vi.fn().mockReturnValue({ value: "ABC123" }),
+    } as any);
+    mockCreateReferral.mockRejectedValue(
+      new SafeError("Invalid referral code"),
+    );
+
+    await expect(
+      handleReferralOnSignUp({ userId: "user123", email: "user@example.com" }),
+    ).resolves.toBeUndefined();
+
+    expect(mockCaptureException).not.toHaveBeenCalled();
   });
 
   it("should not create referral when referral code cookie has empty value", async () => {

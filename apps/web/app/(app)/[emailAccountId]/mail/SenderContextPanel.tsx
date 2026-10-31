@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/sheet";
 import type { PublicContactContextUnavailableReason } from "@/utils/ai/public-contact-context";
 import type { PublicContactContext } from "@/utils/ai/public-contact-context-schema";
+import { getSWRFetchErrorMessage } from "@/providers/swr-error";
 
 type SenderContextPanelProps = {
   messageId: string;
@@ -45,12 +46,17 @@ export function SenderContextPanel({
   variant,
   onClose,
 }: SenderContextPanelProps) {
-  const { data, isLoading, error } = usePublicContactContext({
-    messageId,
-    enabled: true,
-  });
+  const { data, isLoading, isValidating, error, mutate } =
+    usePublicContactContext({
+      messageId,
+      enabled: true,
+    });
+  // A retry keeps the last error until it settles, so don't leave it up
+  // meanwhile.
+  const isRetryingAfterError = Boolean(error) && isValidating;
   const isResearching =
     isLoading ||
+    isRetryingAfterError ||
     (data?.status === "unavailable" && data.reason === "research_in_progress");
   // Focus as soon as the inline pane mounts, including when resizing from
   // the sheet, so an immediate Escape is handled by the pane.
@@ -61,15 +67,19 @@ export function SenderContextPanel({
   const body = (
     <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
       <LoadingContent
-        error={error}
-        errorComponent={<ContextError />}
+        error={isRetryingAfterError ? undefined : error}
+        errorComponent={<ContextError error={error} onRetry={() => mutate()} />}
         loading={isResearching}
         loadingComponent={<ContextSkeleton />}
       >
         {data?.status === "found" ? (
           <PublicContext context={data.context} />
         ) : (
-          <ContextUnavailable reason={data?.reason} />
+          <ContextUnavailable
+            onRetry={() => mutate()}
+            reason={data?.reason}
+            retrying={isValidating}
+          />
         )}
       </LoadingContent>
     </div>
@@ -258,8 +268,12 @@ function CompanyFact({
 
 function ContextUnavailable({
   reason,
+  retrying,
+  onRetry,
 }: {
   reason?: PublicContactContextUnavailableReason;
+  retrying: boolean;
+  onRetry: () => void;
 }) {
   const message = getUnavailableMessage(reason);
 
@@ -274,19 +288,39 @@ function ContextUnavailable({
       <p className="mt-1 max-w-64 text-muted-foreground text-xs leading-5">
         {message}
       </p>
+      {reason === "research_failed" && (
+        <Button
+          className="mt-3"
+          loading={retrying}
+          onClick={onRetry}
+          size="sm"
+          variant="outline"
+        >
+          Try again
+        </Button>
+      )}
     </div>
   );
 }
 
-function ContextError() {
+function ContextError({
+  error,
+  onRetry,
+}: {
+  error?: { info?: Record<string, unknown> };
+  onRetry: () => void;
+}) {
   return (
     <div className="flex min-h-64 flex-col items-center justify-center text-center">
       <div className="font-medium text-foreground text-sm">
         Couldn't load public context
       </div>
-      <p className="mt-1 text-muted-foreground text-xs">
-        Close the panel and try again.
+      <p className="mt-1 max-w-64 text-muted-foreground text-xs leading-5">
+        {getSWRFetchErrorMessage(error?.info)}
       </p>
+      <Button className="mt-3" onClick={onRetry} size="sm" variant="outline">
+        Try again
+      </Button>
     </div>
   );
 }
@@ -323,6 +357,8 @@ function getUnavailableMessage(reason?: PublicContactContextUnavailableReason) {
       return "Public profiles are not researched for personal email addresses.";
     case "search_unavailable":
       return "Web search is not configured for this account.";
+    case "research_failed":
+      return "Couldn't research this sender right now.";
     case "cache_unavailable":
       return "Public context is temporarily unavailable. Try again shortly.";
     default:

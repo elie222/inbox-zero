@@ -282,7 +282,7 @@ const SHORTCUT_DEFINITIONS = [
   {
     // `#` sits behind shift on US layouts and in front of it on others.
     id: "delete",
-    keys: ["shift+#", "#", "backspace"],
+    keys: ["shift+#", "#"],
     display: ["#"],
     scope: "mail",
     group: "Triage",
@@ -317,10 +317,17 @@ const SHORTCUT_DEFINITIONS = [
   },
   {
     id: "moreActions",
-    keys: ["m"],
+    keys: ["."],
     scope: "mail",
     group: "Triage",
     label: "More actions",
+  },
+  {
+    id: "openTeamComments",
+    keys: ["m"],
+    scope: "mail",
+    group: "View",
+    label: "Comment",
   },
   {
     id: "undo",
@@ -328,6 +335,13 @@ const SHORTCUT_DEFINITIONS = [
     scope: "mail",
     group: "Triage",
     label: "Undo last action",
+  },
+  {
+    id: "translate",
+    keys: ["shift+t"],
+    scope: "mail",
+    group: "View",
+    label: "Translate / show original",
   },
   {
     id: "toggleLayout",
@@ -415,6 +429,15 @@ const SHORTCUT_DEFINITIONS = [
     capture: true,
   },
   {
+    id: "popOutDraft",
+    keys: ["mod+shift+p"],
+    scope: "mail",
+    group: "Compose",
+    label: "Pop out draft",
+    allowWhileTyping: true,
+    capture: true,
+  },
+  {
     id: "discardDraft",
     keys: ["mod+shift+,", "mod+shift+<"],
     display: ["mod+shift+,"],
@@ -423,6 +446,14 @@ const SHORTCUT_DEFINITIONS = [
     label: "Discard draft",
     allowWhileTyping: true,
     capture: true,
+  },
+  {
+    id: "toggleAssistant",
+    keys: ["mod+j"],
+    scope: "mail",
+    group: "Assistant & rules",
+    label: "Assistant",
+    allowWhileTyping: true,
   },
 ] as const satisfies readonly ShortcutEntry[];
 

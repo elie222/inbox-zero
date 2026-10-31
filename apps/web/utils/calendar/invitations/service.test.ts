@@ -104,6 +104,26 @@ describe("responding to calendar invitations", () => {
     expect(sendEmail).not.toHaveBeenCalled();
   });
 
+  it("responds through the calendar event the mailbox linked to the invitation", async () => {
+    mocks.connections.mockResolvedValue([
+      { provider: "microsoft", refreshToken: "refresh" },
+    ]);
+    getMessage.mockResolvedValue({
+      ...getEmail(),
+      calendarContent: content,
+      calendarEventId: "linked-event",
+    });
+    await expect(respondToCalendarInvitation(params)).resolves.toEqual({
+      response: "accepted",
+      calendarSynced: true,
+    });
+    expect(mocks.findEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ uid: "meeting@example.com" }),
+      "linked-event",
+    );
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
+
   it("does not send an email fallback after a calendar write failure", async () => {
     mocks.connections.mockResolvedValue([
       { provider: "google", refreshToken: "refresh" },
@@ -259,6 +279,33 @@ describe("loading calendar invitations", () => {
     expect(mocks.respond).not.toHaveBeenCalled();
   });
 
+  it("loads an Exchange-regenerated invitation alongside the sender's .ics", async () => {
+    const exchangeContent = content
+      .replace(
+        "VERSION:2.0",
+        "PRODID:Microsoft Exchange Server 2010\r\nVERSION:2.0",
+      )
+      .replace("ORGANIZER:mailto:", "ORGANIZER;CN=Organizer:MAILTO:");
+    getMessage.mockResolvedValue({
+      ...getEmail(),
+      isMeetingInvitation: true,
+      calendarContent: exchangeContent,
+      attachments: [
+        {
+          attachmentId: "download",
+          filename: "invite.ics",
+          mimeType: "application/ics",
+          size: content.length,
+        },
+      ],
+    });
+    getAttachment.mockResolvedValue({
+      data: Buffer.from(content).toString("base64"),
+      size: content.length,
+    });
+    expect((await getCalendarInvitation(params)).invitation).not.toBeNull();
+  });
+
   it("rejects inline content that conflicts with a single attachment", async () => {
     getMessage.mockResolvedValue({
       ...getEmail(),
@@ -317,6 +364,11 @@ describe("loading calendar invitations", () => {
         recurring: false,
         response: "accepted",
         calendarSynced: true,
+        start: "2026-10-01T10:00:00.000Z",
+        end: null,
+        allDay: false,
+        location: null,
+        conferenceUrl: null,
       },
     });
     expect(mocks.connections).toHaveBeenCalledWith({

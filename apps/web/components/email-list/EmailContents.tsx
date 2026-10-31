@@ -1,8 +1,11 @@
-import { startTransition, useMemo, useState, useEffect } from "react";
+import { startTransition, useEffect, useMemo, useState } from "react";
 import {
-  BufferedEmailIframe,
-  EMAIL_DOCUMENT_MARKER,
-} from "@/components/email-list/BufferedEmailIframe";
+  BufferedMailHtmlFrame,
+  MailPlainTextBody,
+  buildMailHtmlDocument,
+  getMailHtmlDocumentKey,
+  shouldApplyDarkMailTheme,
+} from "@inboxzero/mail-ui/MailBody";
 import { useTheme } from "next-themes";
 import { EllipsisIcon } from "lucide-react";
 import { decodeHtmlEntities } from "@/utils/gmail/decode";
@@ -17,29 +20,32 @@ import type { ParsedMessage } from "@/utils/types";
 import {
   getInlineImageContentIds,
   normalizeContentId,
-  rewriteInlineImageSources,
-} from "@/utils/email/inline-images";
+} from "@inboxzero/mail-ui/inline-images";
+import { linkifyPlainText } from "@inboxzero/mail-ui/linkify";
+import { splitEmailContent } from "@/utils/email/split-email-content.client";
 import {
   fetchAttachment,
   getAttachmentUrl,
 } from "@/utils/attachments/download";
-import { linkifyPlainText } from "@/utils/email/linkify-plain-text";
-import { splitEmailContent } from "@/utils/email/split-email-content.client";
+import { queueAttachmentDownload } from "@/utils/attachments/download-queue";
+import { getAttachmentImagePreview } from "@inboxzero/mail-ui/image-preview";
+import {
+  getLoadedInlineImages,
+  inlineImageCacheKey,
+  retainInlineImages,
+  storeLoadedInlineImage,
+  withLoadedInlineImages,
+} from "@/utils/email/inline-image-cache";
 
-const SANS_FONT_STACK = `ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`;
 const NO_INLINE_ATTACHMENTS: ParsedMessage["inline"] = [];
-/**
- * Reading size for a message body that brought no styling of its own. Shared by
- * both paths: Tailwind classes can't reach inside the iframe, so plain text has
- * to restate it or the two drift apart on screen.
- */
-const BODY_TYPE = { fontSize: "14.5px", lineHeight: 1.65 } as const;
+const INLINE_IMAGE_MAX_BYTES = 25 * 1024 * 1024;
 
 export function HtmlEmail({
   html,
   messageId,
   emailAccountId,
   inlineAttachments = NO_INLINE_ATTACHMENTS,
+  sendOperationId,
   onReplyMessage,
   onForwardMessage,
   onNavigateMessage,
@@ -49,49 +55,74 @@ export function HtmlEmail({
   messageId: string;
   emailAccountId?: string;
   inlineAttachments?: ParsedMessage["inline"];
-  onReplyMessage?: () => void;
+  sendOperationId?: string;
+  onReplyMessage?: (quote?: string) => void;
   onForwardMessage?: () => void;
   onNavigateMessage?: (direction: -1 | 1) => void;
   onFocusMessage?: () => void;
 }) {
+  const cacheKey = inlineImageCacheKey(
+    emailAccountId,
+    messageId,
+    sendOperationId,
+  );
   const sanitizedHtml = useMemo(() => sanitizeEmailHtml(html), [html]);
+  // Message objects are rebuilt whenever the conversation republishes, so the
+  // effect keys on the attachments' identity rather than the array or its
+  // order. Re-running it would mint new object URLs and remount the frame
+  // without its images.
+  const inlineImageIds = useMemo(
+    () => serializeInlineImageIds(inlineAttachments),
+    [inlineAttachments],
+  );
   const [showReplies, setShowReplies] = useState(false);
-  const [renderHtml, setRenderHtml] = useState(
-    () =>
-      getPreparedEmailHtml({ messageId, sourceHtml: sanitizedHtml }) ??
-      sanitizedHtml,
+  const [renderHtml, setRenderHtml] = useState(() =>
+    getInitialRenderHtml({ messageId, cacheKey, sanitizedHtml }),
   );
   const { resolvedTheme } = useTheme();
   const isDarkMode = resolvedTheme === "dark";
 
+  useEffect(() => retainInlineImages(cacheKey), [cacheKey]);
+
   useEffect(() => {
     let cancelled = false;
-    const objectUrls: string[] = [];
-    setRenderHtml(
-      getPreparedEmailHtml({ messageId, sourceHtml: sanitizedHtml }) ??
-        sanitizedHtml,
-    );
+    const controller = new AbortController();
+    const initialHtml = getInitialRenderHtml({
+      messageId,
+      cacheKey,
+      sanitizedHtml,
+    });
+    // A sent reply keeps its row when it syncs under a new id. Clearing the
+    // body while that id's html is prepared would blank the message.
+    if (initialHtml !== null) setRenderHtml(initialHtml);
 
+    const preparedHtml = prepareSanitizedEmailHtml({
+      messageId,
+      sourceHtml: sanitizedHtml,
+    });
+    // Inline images download separately so a slow attachment doesn't hold
+    // back the body.
+    preparedHtml.then((html) => {
+      if (!cancelled)
+        startTransition(() =>
+          setRenderHtml(withLoadedInlineImages(cacheKey, html)),
+        );
+    });
     Promise.all([
-      prepareSanitizedEmailHtml({ messageId, sourceHtml: sanitizedHtml }),
+      preparedHtml,
       loadInlineImageSources({
         emailAccountId,
+        signal: controller.signal,
         html: sanitizedHtml,
-        inlineAttachments,
+        inlineImageIds,
         messageId,
+        cacheKey,
       }),
     ]).then(
-      ([rewrittenHtml, inlineImages]) => {
-        const loadedObjectUrls = Object.values(inlineImages);
-        if (cancelled) {
-          for (const objectUrl of loadedObjectUrls) {
-            URL.revokeObjectURL(objectUrl);
-          }
-          return;
-        }
-        objectUrls.push(...loadedObjectUrls);
+      ([rewrittenHtml, loadedNewImages]) => {
+        if (cancelled || !loadedNewImages) return;
         startTransition(() =>
-          setRenderHtml(rewriteInlineImageSources(rewrittenHtml, inlineImages)),
+          setRenderHtml(withLoadedInlineImages(cacheKey, rewrittenHtml)),
         );
       },
       () => {
@@ -102,45 +133,50 @@ export function HtmlEmail({
 
     return () => {
       cancelled = true;
-      for (const objectUrl of objectUrls) URL.revokeObjectURL(objectUrl);
+      controller.abort();
     };
-  }, [emailAccountId, inlineAttachments, messageId, sanitizedHtml]);
+  }, [cacheKey, emailAccountId, inlineImageIds, messageId, sanitizedHtml]);
 
   const { mainContent, quotedContent, hasQuotedContent } = useMemo(
-    () => splitEmailContent(renderHtml),
+    () => splitEmailContent(renderHtml ?? ""),
     [renderHtml],
+  );
+  const applyDarkTheme = shouldApplyDarkMailTheme(mainContent, isDarkMode);
+  const applyQuotedDarkTheme = shouldApplyDarkMailTheme(
+    quotedContent,
+    isDarkMode,
   );
 
   const documentKey = useMemo(
-    () => getIframeDocumentKey(mainContent, isDarkMode),
-    [mainContent, isDarkMode],
+    () => getMailHtmlDocumentKey(mainContent, applyDarkTheme),
+    [mainContent, applyDarkTheme],
   );
   const srcDoc = useMemo(
     () =>
-      getIframeHtml(
-        mainContent,
-        isDarkMode,
-        IMAGE_PROXY_BASE_URL,
-        IMAGE_PROXY_ORIGIN,
+      buildMailHtmlDocument({
+        html: mainContent,
+        isDarkMode: applyDarkTheme,
+        imageProxyBaseUrl: IMAGE_PROXY_BASE_URL,
+        imageProxyOrigin: IMAGE_PROXY_ORIGIN,
         documentKey,
-      ),
-    [mainContent, isDarkMode, documentKey],
+      }),
+    [mainContent, applyDarkTheme, documentKey],
   );
 
   const quotedDocumentKey = useMemo(
-    () => getIframeDocumentKey(quotedContent, isDarkMode),
-    [quotedContent, isDarkMode],
+    () => getMailHtmlDocumentKey(quotedContent, applyQuotedDarkTheme),
+    [quotedContent, applyQuotedDarkTheme],
   );
   const quotedSrcDoc = useMemo(
     () =>
-      getIframeHtml(
-        quotedContent,
-        isDarkMode,
-        IMAGE_PROXY_BASE_URL,
-        IMAGE_PROXY_ORIGIN,
-        quotedDocumentKey,
-      ),
-    [quotedContent, isDarkMode, quotedDocumentKey],
+      buildMailHtmlDocument({
+        html: quotedContent,
+        isDarkMode: applyQuotedDarkTheme,
+        imageProxyBaseUrl: IMAGE_PROXY_BASE_URL,
+        imageProxyOrigin: IMAGE_PROXY_ORIGIN,
+        documentKey: quotedDocumentKey,
+      }),
+    [quotedContent, applyQuotedDarkTheme, quotedDocumentKey],
   );
   const callbacks = {
     onForwardMessage,
@@ -149,12 +185,14 @@ export function HtmlEmail({
     onFocusMessage,
   };
 
+  if (renderHtml === null) return <div data-email-ready="false" />;
+
   return (
     <div className="relative min-w-0 overflow-x-hidden">
-      <BufferedEmailIframe
+      <BufferedMailHtmlFrame
         srcDoc={srcDoc}
         documentKey={documentKey}
-        isDarkMode={isDarkMode}
+        isDarkMode={applyDarkTheme}
         callbacks={callbacks}
       />
       {hasQuotedContent && (
@@ -171,10 +209,10 @@ export function HtmlEmail({
         </button>
       )}
       {hasQuotedContent && showReplies && (
-        <BufferedEmailIframe
+        <BufferedMailHtmlFrame
           srcDoc={quotedSrcDoc}
           documentKey={quotedDocumentKey}
-          isDarkMode={isDarkMode}
+          isDarkMode={applyQuotedDarkTheme}
           callbacks={callbacks}
         />
       )}
@@ -188,290 +226,93 @@ export function PlainEmail({ text }: { text: string }) {
     [text],
   );
 
-  return (
-    // `pre` keeps the sender's line breaks; the font stack keeps it readable.
-    <pre
-      className="whitespace-pre-wrap font-sans text-foreground [overflow-wrap:anywhere]"
-      style={BODY_TYPE}
-    >
-      {segments.map((segment, index) =>
-        segment.type === "link" ? (
-          <a
-            className="text-primary underline underline-offset-2"
-            href={segment.href}
-            key={`${segment.href}-${index}`}
-            rel="noopener noreferrer"
-            target="_blank"
-          >
-            {segment.text}
-          </a>
-        ) : (
-          segment.text
-        ),
-      )}
-    </pre>
-  );
+  return <MailPlainTextBody segments={segments} />;
 }
 
-function getIframeHtml(
-  html: string,
-  isDarkMode: boolean,
-  imageProxyBaseUrl: string | null,
-  imageProxyOrigin: string | null,
-  documentKey: string,
-) {
-  // Count style attributes safely
-  const styleAttributeCount = (html.match(/style=/g) || []).length;
-
-  // Check for heavy styling that would indicate a rich HTML email
-  const hasHeavyStyling =
-    html.includes("bgcolor") ||
-    html.includes("background") ||
-    html.includes("<style") ||
-    // Look for multiple style attributes or font styling
-    styleAttributeCount > 1 ||
-    html.includes("font-family") ||
-    html.includes("font-size");
-
-  // Check for basic text styling that shouldn't prevent dark mode
-  const hasMinimalStyling =
-    !hasHeavyStyling &&
-    (html.includes("color:") ||
-      html.includes("text-decoration") ||
-      // Single style attribute is ok (probably just a link)
-      styleAttributeCount === 1);
-
-  const defaultFontStyles = hasHeavyStyling
-    ? `
-    <style>
-      :root {
-        color-scheme: light;
-        background-color: white;
-      }
-      body {
-        background-color: white;
-        font-family: ${SANS_FONT_STACK};
-        overflow-wrap: anywhere;
-      }
-      table { max-width: 100% !important; overflow-x: auto; }
-      img { max-width: 100% !important; height: auto; }
-    </style>
-  `
-    : `
-    <style>
-      :root {
-        color-scheme: light;
-        --foreground: 222.2 47.4% 11.2%;
-        --muted-foreground: 215.4 16.3% 46.9%;
-        --background: 0 0% 100%;
-        background-color: hsl(var(--background));
-      }
-
-      /* Match mail dark card surface. Iframes cannot inherit those variables. */
-      .dark {
-        color-scheme: dark;
-        --foreground: 220 8% 92%;
-        --muted-foreground: 220 5% 62%;
-        --background: 220 7% 19%;
-      }
-
-      /* Contain wide content within the pane */
-      table { max-width: 100% !important; overflow-x: auto; }
-      img { max-width: 100% !important; height: auto; }
-
-      /* Base styles - apply our font as a baseline; inline styles on inner elements still win */
-      body {
-        font-family: ${SANS_FONT_STACK};
-        overflow-wrap: anywhere;
-      }
-      body:not([style]):not([bgcolor]) {
-        margin: 0;
-        font-size: ${BODY_TYPE.fontSize};
-        line-height: ${BODY_TYPE.lineHeight};
-        color: hsl(var(--foreground));
-        background-color: hsl(var(--background));
-      }
-
-      /* Only style unstyled blockquotes and quoted text */
-      blockquote:not([style]), .gmail_quote:not([style]) {
-        color: hsl(var(--muted-foreground));
-        border-left: 3px solid hsl(var(--muted-foreground) / 0.2);
-        margin: 0;
-        padding-left: 1rem;
-      }
-
-      /* Style links - allow minimal styling to persist */
-      a {
-        color: ${hasMinimalStyling ? "inherit" : "hsl(var(--foreground))"};
-        text-decoration: underline;
-      }
-
-      /* Only style unstyled quoted text */
-      .gmail_quote:not([style]), .gmail_quote:not([style]) * {
-        color: hsl(var(--muted-foreground));
-      }
-
-      /* Preserve colors for minimally styled elements */
-      ${
-        hasMinimalStyling
-          ? `
-      [style*="color"] {
-        color: inherit !important;
-      }
-      `
-          : ""
-      }
-    </style>
-  `;
-
-  // The server can fail closed to the original HTML when proxy signing is unavailable,
-  // so only lock CSP to the proxy after the rendered markup actually points at it.
-  const imageSourceDirective =
-    imageProxyBaseUrl && imageProxyOrigin && html.includes(imageProxyBaseUrl)
-      ? imageProxyOrigin
-      : "https:";
-  const localImageSourceDirective = html.includes("blob:")
-    ? "data: blob:"
-    : "data:";
-
-  const securityHeaders = `
-    <meta http-equiv="Content-Security-Policy" content="
-      default-src 'none';
-      style-src 'unsafe-inline';
-      img-src ${localImageSourceDirective} ${imageSourceDirective};
-      font-src 'none';
-      media-src 'none';
-      connect-src 'none';
-      manifest-src 'none';
-      prefetch-src 'none';
-      worker-src 'none';
-      child-src 'none';
-      script-src 'none';
-      frame-src 'none';
-      object-src 'none';
-      base-uri 'none';
-      form-action 'none';
-    ">
-    <meta http-equiv="X-Content-Type-Options" content="nosniff">
-  `;
-
-  const headContent = `<meta name="${EMAIL_DOCUMENT_MARKER}" content="${documentKey}">${securityHeaders}${defaultFontStyles}<base target="_blank" rel="noopener noreferrer">`;
-
-  function wrapWithProperStructure(content: string) {
-    if (content.indexOf("<html") === -1) {
-      return `
-        <html>
-          <head>${headContent}</head>
-          <body>${content}</body>
-        </html>`;
-    }
-
-    if (content.indexOf("<head") === -1) {
-      return content.replace(
-        /<html([^>]*)>/i,
-        `<html$1><head>${headContent}</head>`,
-      );
-    }
-
-    return content.replace(/<head([^>]*)>/i, `<head$1>${headContent}`);
-  }
-
-  const htmlWithHead = wrapWithProperStructure(html);
-  return addDarkModeClass(htmlWithHead, isDarkMode);
+// Showing the original html first would load remote images directly and then
+// reload them all through the proxy, so the body waits for the proxied html.
+function getInitialRenderHtml({
+  messageId,
+  cacheKey,
+  sanitizedHtml,
+}: {
+  messageId: string;
+  cacheKey: string;
+  sanitizedHtml: string;
+}) {
+  const preparedHtml = IMAGE_PROXY_BASE_URL
+    ? getPreparedEmailHtml({ messageId, sourceHtml: sanitizedHtml })
+    : sanitizedHtml;
+  if (preparedHtml === undefined) return null;
+  return withLoadedInlineImages(cacheKey, preparedHtml);
 }
 
 async function loadInlineImageSources({
   emailAccountId,
+  signal,
   html,
-  inlineAttachments,
+  inlineImageIds,
   messageId,
+  cacheKey,
 }: {
-  emailAccountId?: string;
+  emailAccountId: string | undefined;
+  signal: AbortSignal;
   html: string;
-  inlineAttachments: ParsedMessage["inline"];
+  inlineImageIds: string;
   messageId: string;
-}): Promise<Record<string, string>> {
-  if (!emailAccountId || !inlineAttachments.length) return {};
+  cacheKey: string;
+}): Promise<boolean> {
+  const attachmentIdByContentId = new Map<string, string>(
+    JSON.parse(inlineImageIds),
+  );
+  if (!emailAccountId || !attachmentIdByContentId.size) return false;
+  const loadedSources = getLoadedInlineImages(cacheKey);
 
-  const attachmentByContentId = new Map<
-    string,
-    ParsedMessage["inline"][number]
-  >();
-  for (const attachment of inlineAttachments) {
-    const contentId = normalizeContentId(attachment.headers["content-id"]);
-    if (contentId) attachmentByContentId.set(contentId, attachment);
-  }
-
-  const entries = await Promise.all(
+  const loaded = await Promise.all(
     getInlineImageContentIds(html).map(async (contentId) => {
-      const attachment = attachmentByContentId.get(contentId);
-      if (!attachment?.attachmentId) return;
+      const attachmentId = attachmentIdByContentId.get(contentId);
+      if (!attachmentId || loadedSources?.[contentId]) return false;
 
       try {
-        const blob = await fetchAttachment({
-          emailAccountId,
-          url: getAttachmentUrl({
-            messageId,
-            attachmentId: attachment.attachmentId,
-            mimeType: attachment.mimeType,
-            filename: attachment.filename,
-          }),
+        // Body images are content the user opened, so they skip the
+        // speculative attachment-preview budget.
+        const blob = await queueAttachmentDownload({
+          priority: "requested",
+          signal,
+          download: (transferSignal) =>
+            fetchAttachment({
+              url: getAttachmentUrl({
+                accountId: emailAccountId,
+                messageId,
+                attachmentId,
+              }),
+              emailAccountId,
+              maxBytes: INLINE_IMAGE_MAX_BYTES,
+              signal: transferSignal,
+            }),
+        }).then(getAttachmentImagePreview);
+        if (!blob || signal.aborted) return false;
+        storeLoadedInlineImage({
+          messageId: cacheKey,
+          contentId,
+          objectUrl: URL.createObjectURL(blob),
         });
-        return [contentId, URL.createObjectURL(blob)] as const;
+        return true;
       } catch {
-        return;
+        return false;
       }
     }),
   );
 
-  return Object.fromEntries(entries.filter((entry) => entry !== undefined));
+  return loaded.some(Boolean);
 }
 
-function addDarkModeClass(html: string, isDarkMode: boolean) {
-  try {
-    const darkClass = isDarkMode ? "dark" : "";
-
-    // Handle empty or invalid HTML
-    if (!html || typeof html !== "string") {
-      return `<body class="${darkClass}"></body>`;
-    }
-
-    if (html.indexOf("<body") === -1) {
-      return `<body class="${darkClass}">${html}</body>`;
-    }
-
-    return html.replace(
-      /<(html|body)([^>]*)>/gi,
-      (match, tag, attributes = "") => {
-        try {
-          const existingClass = attributes.match(/class=["']([^"']*)["']/);
-          if (existingClass) {
-            const combinedClass =
-              `${existingClass[1].trim()} ${darkClass}`.trim();
-            return match.replace(
-              /class=["']([^"']*)["']/i,
-              `class="${combinedClass}"`,
-            );
-          }
-          return `<${tag}${attributes} class="${darkClass}">`;
-        } catch {
-          // If regex matching fails, just add the class
-          return `<${tag}${attributes} class="${darkClass}">`;
-        }
-      },
-    );
-  } catch {
-    // If all else fails, return a safe fallback
-    return `<body class="${isDarkMode ? "dark" : ""}"></body>`;
+function serializeInlineImageIds(inlineAttachments: ParsedMessage["inline"]) {
+  const entries: [contentId: string, attachmentId: string][] = [];
+  for (const attachment of inlineAttachments) {
+    const contentId = normalizeContentId(attachment.headers["content-id"]);
+    if (contentId && attachment.attachmentId)
+      entries.push([contentId, attachment.attachmentId]);
   }
-}
-
-function getIframeDocumentKey(html: string, isDarkMode: boolean) {
-  const source = `${isDarkMode ? "1" : "0"}:${html}`;
-  let hash = 2_166_136_261;
-  for (let index = 0; index < source.length; index += 1) {
-    hash ^= source.charCodeAt(index);
-    hash = Math.imul(hash, 16_777_619);
-  }
-  return `${source.length}-${(hash >>> 0).toString(36)}`;
+  return JSON.stringify(entries.sort(([a], [b]) => a.localeCompare(b)));
 }

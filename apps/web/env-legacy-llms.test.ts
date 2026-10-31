@@ -18,7 +18,7 @@ describe("buildLegacyLlmsEnv", () => {
   it("uses the same provider defaults as the legacy default resolver", () => {
     expect(
       buildLegacyLlmsEnv({ DEFAULT_LLM_PROVIDER: "openai" }).DEFAULT_LLMS,
-    ).toBe("openai:gpt-5.6-luna");
+    ).toBe("openai:gpt-6-luna");
     expect(
       buildLegacyLlmsEnv({ DEFAULT_LLM_PROVIDER: "openrouter" }).DEFAULT_LLMS,
     ).toBe("openrouter:anthropic/claude-sonnet-5");

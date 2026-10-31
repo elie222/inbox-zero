@@ -178,10 +178,14 @@ test(`measures current client under ${profile}`, async ({
         loaded,
         detailRequests: detailRequests - before,
       });
-      if (process.env.UPSTASH_REDIS_URL && process.env.UPSTASH_REDIS_TOKEN) {
+      const redisHttpUrl =
+        process.env.REDIS_HTTP_URL || process.env.UPSTASH_REDIS_URL;
+      const redisHttpToken =
+        process.env.REDIS_HTTP_TOKEN || process.env.UPSTASH_REDIS_TOKEN;
+      if (redisHttpUrl && redisHttpToken) {
         const state = await new Redis({
-          url: process.env.UPSTASH_REDIS_URL,
-          token: process.env.UPSTASH_REDIS_TOKEN,
+          url: redisHttpUrl,
+          token: redisHttpToken,
         }).get(`email-provider-rate-limit:${emailAccountId}`);
         await testInfo.attach("account-cooldown.json", {
           body: JSON.stringify({ recorded: state !== null }),

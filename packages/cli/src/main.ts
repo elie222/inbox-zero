@@ -26,7 +26,12 @@ import { runGoogleSetup } from "./setup-google";
 import { runAwsSetup } from "./setup-aws";
 import { runTerraformSetup } from "./setup-terraform";
 import { runVercelSetup } from "./setup-vercel";
-import { formatPortConfigNote, resolveSetupPorts } from "./setup-ports";
+import {
+  findBusyPorts,
+  confirmPortChanges,
+  isInteractive,
+  resolveSetupPorts,
+} from "./setup-ports";
 import packageJson from "../package.json" with { type: "json" };
 
 // Detect if we're running from within the repo
@@ -307,6 +312,11 @@ function stripSetupAwsDoubleDash(argv: string[]) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function runSetup(options: { name?: string }) {
+  if (!isInteractive()) {
+    throw new Error(
+      "Setup requires an interactive terminal for provider configuration. Run inbox-zero setup in a terminal with CI unset.",
+    );
+  }
   p.intro("Inbox Zero Setup");
   if (process.platform === "win32") {
     p.log.info("Run the Docker commands printed by setup in PowerShell.");
@@ -352,12 +362,8 @@ async function runSetupQuick(options: { name?: string }) {
   const configName = options.name;
 
   requireDocker();
-  const { webPort, postgresPort, redisPort, redisHttpPort, changedPorts } =
+  const { webPort, postgresPort, redisPort, redisHttpPort } =
     await resolveSetupPorts({ useDockerInfra: true });
-  const portConfigNote = formatPortConfigNote(changedPorts);
-  if (portConfigNote) {
-    p.note(portConfigNote, "Port Configuration");
-  }
 
   p.note(
     "Choose the email provider(s) you want to enable now.\n" +
@@ -604,8 +610,8 @@ async function runSetupQuick(options: { name?: string }) {
     REDIS_HTTP_PORT: redisHttpPort,
     WEB_PORT: webPort,
     DATABASE_URL: `postgresql://postgres:${encodeURIComponent(dbPassword)}@db:5432/inboxzero`,
-    UPSTASH_REDIS_TOKEN: redisToken,
-    UPSTASH_REDIS_URL: "http://serverless-redis-http:80",
+    REDIS_HTTP_TOKEN: redisToken,
+    REDIS_HTTP_URL: "http://serverless-redis-http:80",
     QUEUE_BACKEND: "internal",
     INTERNAL_API_URL: "http://web:3000",
     // Secrets
@@ -916,12 +922,8 @@ async function runSetupAdvanced(options: { name?: string }) {
   const pubsubVerificationToken = generateSecret(32);
   const existingEnv = readExistingEnv(envFile);
   const env: EnvConfig = {};
-  const { webPort, postgresPort, redisPort, redisHttpPort, changedPorts } =
+  const { webPort, postgresPort, redisPort, redisHttpPort } =
     await resolveSetupPorts({ useDockerInfra });
-  const portConfigNote = formatPortConfigNote(changedPorts);
-  if (portConfigNote) {
-    p.note(portConfigNote, "Port Configuration");
-  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // OAuth Providers
@@ -1132,28 +1134,28 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
     env.REDIS_PORT = redisPort;
     env.REDIS_HTTP_PORT = redisHttpPort;
     env.WEB_PORT = webPort;
-    env.UPSTASH_REDIS_TOKEN = redisToken;
+    env.REDIS_HTTP_TOKEN = redisToken;
     env.QUEUE_BACKEND = "internal";
 
     if (runWebInDocker) {
       // Web app runs in Docker: use container hostnames
       env.DATABASE_URL = `postgresql://${encodeURIComponent(env.POSTGRES_USER)}:${encodeURIComponent(env.POSTGRES_PASSWORD)}@db:5432/${env.POSTGRES_DB}`;
       env.DIRECT_URL = env.DATABASE_URL;
-      env.UPSTASH_REDIS_URL = "http://serverless-redis-http:80";
+      env.REDIS_HTTP_URL = "http://serverless-redis-http:80";
       env.INTERNAL_API_URL = "http://web:3000";
     } else {
       // Web app runs on host: containers expose ports to localhost
       env.DATABASE_URL = `postgresql://${encodeURIComponent(env.POSTGRES_USER)}:${encodeURIComponent(env.POSTGRES_PASSWORD)}@localhost:${postgresPort}/${env.POSTGRES_DB}`;
       env.DIRECT_URL = env.DATABASE_URL;
-      env.UPSTASH_REDIS_URL = `http://localhost:${redisHttpPort}`;
+      env.REDIS_HTTP_URL = `http://localhost:${redisHttpPort}`;
       env.INTERNAL_API_URL = `http://localhost:${webPort}`;
     }
   } else {
     // External infrastructure - set placeholders for user to fill in
     env.DATABASE_URL = "postgresql://user:password@your-host:5432/inboxzero";
     env.DIRECT_URL = env.DATABASE_URL;
-    env.UPSTASH_REDIS_URL = "https://your-redis-url";
-    env.UPSTASH_REDIS_TOKEN = "your-redis-token";
+    env.REDIS_HTTP_URL = "https://your-redis-url";
+    env.REDIS_HTTP_TOKEN = "your-redis-token";
   }
 
   // Secrets (same for both modes)
@@ -1255,7 +1257,7 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
   if (!useDockerInfra) {
     p.log.warn(
       "You selected external infrastructure.\n" +
-        "Please update DATABASE_URL and UPSTASH_REDIS_URL in your .env file.",
+        "Please update DATABASE_URL and REDIS_HTTP_URL in your .env file.",
     );
   }
 
@@ -1323,6 +1325,11 @@ async function runStart(options: { detach: boolean }) {
   const composeArgs = ["compose", "-f", STANDALONE_COMPOSE_FILE];
 
   if (checkContainersRunning(composeArgs)) {
+    if (!isInteractive()) {
+      throw new Error(
+        "Inbox Zero is already running. Stop it with inbox-zero stop before running inbox-zero start in non-interactive mode.",
+      );
+    }
     const restart = await p.confirm({
       message: "Inbox Zero is already running. Restart?",
       initialValue: true,
@@ -1333,9 +1340,17 @@ async function runStart(options: { detach: boolean }) {
     }
     const stopSpinner = p.spinner();
     stopSpinner.start("Stopping existing containers...");
-    await runDockerCommand([...composeArgs, "down"]);
+    const downResult = await runDockerCommand([...composeArgs, "down"]);
+    if (downResult.status !== 0) {
+      stopSpinner.stop("Failed to stop existing containers");
+      throw new Error(
+        downResult.stderr || "Docker Compose shutdown failed. Not started.",
+      );
+    }
     stopSpinner.stop("Stopped");
   }
+
+  await resolveBusyPortsBeforeStart();
 
   const spinner = p.spinner();
   spinner.start("Pulling latest image...");
@@ -1529,10 +1544,12 @@ async function runUpdate() {
 
   spinner.stop("Image updated");
 
-  const restart = await p.confirm({
-    message: "Restart with new image?",
-    initialValue: true,
-  });
+  const restart = isInteractive()
+    ? await p.confirm({
+        message: "Restart with new image?",
+        initialValue: true,
+      })
+    : checkContainersRunning(["compose", "-f", STANDALONE_COMPOSE_FILE]);
 
   if (p.isCancel(restart)) {
     p.outro("Update complete. Run 'inbox-zero start' to use the new version.");
@@ -1540,9 +1557,24 @@ async function runUpdate() {
   }
 
   if (restart) {
-    spinner.start("Restarting...");
+    spinner.start("Stopping...");
+    const downResult = await runDockerCommand([
+      "compose",
+      "-f",
+      STANDALONE_COMPOSE_FILE,
+      "down",
+    ]);
+    if (downResult.status !== 0) {
+      spinner.stop("Failed to stop existing containers");
+      throw new Error(
+        downResult.stderr || "Docker Compose shutdown failed. Not restarted.",
+      );
+    }
+    spinner.stop("Stopped");
 
-    await runDockerCommand(["compose", "-f", STANDALONE_COMPOSE_FILE, "down"]);
+    await resolveBusyPortsBeforeStart();
+
+    spinner.start("Restarting...");
     const upResult = await runDockerCommand([
       "compose",
       "-f",
@@ -1615,6 +1647,8 @@ const CONFIG_CATEGORIES: Record<
     keys: [
       "DATABASE_URL",
       "DIRECT_URL",
+      "REDIS_HTTP_URL",
+      "REDIS_HTTP_TOKEN",
       "UPSTASH_REDIS_URL",
       "UPSTASH_REDIS_TOKEN",
     ],
@@ -1824,6 +1858,41 @@ function runDockerCommand(
       resolve({ status: 1, stdout: "", stderr: err.message });
     });
   });
+}
+
+async function resolveBusyPortsBeforeStart() {
+  const env = readExistingEnv(STANDALONE_ENV_FILE);
+  const conflicts = await findBusyPorts(env);
+  if (conflicts.length === 0) return;
+
+  await confirmPortChanges(conflicts);
+
+  let content = existsSync(STANDALONE_ENV_FILE)
+    ? readFileSync(STANDALONE_ENV_FILE, "utf-8")
+    : "";
+  for (const conflict of conflicts) {
+    content = updateEnvValue(
+      content,
+      conflict.key,
+      String(conflict.suggestedPort),
+    );
+    // The default base URL tracks the web port; a custom domain does not.
+    if (
+      conflict.key === "WEB_PORT" &&
+      env.NEXT_PUBLIC_BASE_URL === `http://localhost:${conflict.port}`
+    ) {
+      content = updateEnvValue(
+        content,
+        "NEXT_PUBLIC_BASE_URL",
+        `http://localhost:${conflict.suggestedPort}`,
+      );
+      p.log.warn(
+        `Update your OAuth redirect URIs to use http://localhost:${conflict.suggestedPort}.`,
+      );
+    }
+  }
+  saveEnvFile(STANDALONE_ENV_FILE, content);
+  p.log.success(`Updated ${STANDALONE_ENV_FILE}`);
 }
 
 function logPortConflictGuidance() {

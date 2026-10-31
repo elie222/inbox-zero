@@ -1,4 +1,4 @@
-import DOMPurify from "dompurify";
+import { sanitizeMailHtml } from "@inboxzero/mail-ui/sanitize-html";
 import { env } from "@/env";
 import { getImageProxyBaseUrl } from "@/utils/email/image-proxy-config";
 import { stripSentMessageOpenPixels } from "@/utils/email/sent-message-open/sent-message-open";
@@ -25,13 +25,7 @@ const inFlightPreparation = new Map<
 >();
 
 export function sanitizeEmailHtml(html: string) {
-  return `<!doctype html>${DOMPurify.sanitize(
-    stripSentMessageOpenPixels(html),
-    {
-      USE_PROFILES: { html: true },
-      WHOLE_DOCUMENT: true,
-    },
-  )}`;
+  return sanitizeMailHtml(stripSentMessageOpenPixels(html));
 }
 
 export function getPreparedEmailHtml({

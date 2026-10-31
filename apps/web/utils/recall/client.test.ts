@@ -127,6 +127,60 @@ describe("RecallBotProvider", () => {
     );
   });
 
+  it("treats an ended bot that never started as already gone", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(
+        recallJson(405, {
+          code: "cannot_delete_bot",
+          detail:
+            "Only scheduled bots which have not joined a call can be deleted.",
+        }),
+      )
+      .mockResolvedValueOnce(
+        recallJson(400, {
+          code: "cannot_command_unstarted_bot",
+          detail: "Cannot send a command to a bot which has not been started.",
+        }),
+      )
+      .mockResolvedValueOnce(
+        recallJson(200, {
+          id: "bot-1",
+          status_changes: [
+            { code: "joining_call", created_at: "2026-05-04T07:00:00Z" },
+            { code: "call_ended", created_at: "2026-05-04T07:30:00Z" },
+          ],
+        }),
+      );
+
+    const { RecallBotProvider } = await import("@/utils/recall/client");
+    const provider = new RecallBotProvider(createTestLogger());
+
+    await expect(provider.cancelBot("bot-1")).resolves.toBeUndefined();
+  });
+
+  it("keeps failing to cancel a bot that has not started but may still join", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(recallJson(405, { code: "cannot_delete_bot" }))
+      .mockResolvedValueOnce(
+        recallJson(400, { code: "cannot_command_unstarted_bot" }),
+      )
+      .mockResolvedValueOnce(
+        recallJson(200, {
+          id: "bot-1",
+          status_changes: [
+            { code: "joining_call", created_at: "2026-05-04T07:00:00Z" },
+          ],
+        }),
+      );
+
+    const { RecallBotProvider } = await import("@/utils/recall/client");
+    const provider = new RecallBotProvider(createTestLogger());
+
+    await expect(provider.cancelBot("bot-1")).rejects.toThrow(
+      "cannot_command_unstarted_bot",
+    );
+  });
+
   it("schedules the bot without video when the camera image cannot be loaded", async () => {
     const readError = Object.assign(new Error("Temporary read failure"), {
       code: "EIO",
@@ -191,3 +245,10 @@ describe("RecallBotProvider", () => {
     });
   });
 });
+
+function recallJson(status: number, body: unknown) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}

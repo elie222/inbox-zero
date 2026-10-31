@@ -14,10 +14,6 @@ const BRANDS = {
     alt: "Netflix",
     src: "/images/new-landing/logos/netflix.svg",
   },
-  resend: {
-    alt: "Resend",
-    src: "/images/new-landing/logos/resend.svg",
-  },
   compass: {
     alt: "Compass",
     src: "/images/new-landing/logos/compass.svg",
@@ -50,7 +46,6 @@ const BRANDS_LIST = {
   default: [
     BRANDS.doac,
     BRANDS.netflix,
-    BRANDS.resend,
     BRANDS.compass,
     BRANDS.alta,
     BRANDS.bytedance,

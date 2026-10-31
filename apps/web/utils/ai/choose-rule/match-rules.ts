@@ -14,6 +14,7 @@ import { ConditionType } from "@/utils/config";
 import prisma from "@/utils/prisma";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
+import { convertEmailHtmlToText } from "@/utils/mail";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Logger } from "@/utils/logger";
 import type {
@@ -30,6 +31,8 @@ import {
 import { isCalendarInvite } from "@/utils/parse/calender-event";
 import { checkSenderReplyHistory } from "@/utils/reply-tracker/check-sender-reply-history";
 import {
+  createAnchoredAddressRegex,
+  globToRegexSource,
   isAddressLikeEmailPattern,
   splitEmailPatterns,
 } from "@/utils/rule/email-from-pattern";
@@ -39,7 +42,12 @@ import {
   getColdEmailRule,
   isColdEmailRuleEnabled,
 } from "@/utils/cold-email/cold-email-rule";
-import { isColdEmail } from "@/utils/cold-email/is-cold-email";
+import {
+  type ColdEmailPatternMatch,
+  isColdEmail,
+} from "@/utils/cold-email/is-cold-email";
+import { decisionModelChooseRule } from "@/utils/decision-model/choose-rule";
+import { getDecisionModelConfig } from "@/utils/decision-model/decision-model";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
 import { getClassificationFeedback } from "@/utils/rule/classification-feedback";
 import {
@@ -60,6 +68,8 @@ const NO_REPLY_PREFIXES = [
   "updates@",
   "account@",
 ];
+
+type AiRuleCandidate = RuleWithActions & { instructions: string };
 
 type MatchingRulesResult = {
   matches: {
@@ -86,63 +96,166 @@ export async function findMatchingRules({
   logger: Logger;
 }): Promise<MatchingRulesResult> {
   const logger = log.with({ module: MODULE });
+  const isThread = provider.isReplyInThread(message);
+  const email = getEmailForLLM(message);
   const coldEmailRule = await getColdEmailRule(emailAccount.id);
 
+  // Decided on its own, before rule selection, so the model that chooses rules
+  // is not also the one deciding cold email (see isColdEmail).
   if (coldEmailRule && isColdEmailRuleEnabled(coldEmailRule)) {
     const coldEmailResult = await isColdEmail({
-      email: getEmailForLLM(message),
+      email,
       emailAccount,
       provider,
-      modelType,
       coldEmailRule,
+      modelType,
+      logger,
     });
 
     if (coldEmailResult.isColdEmail) {
-      const coldRule = await prisma.rule.findUniqueOrThrow({
-        where: { id: coldEmailRule.id },
-        include: {
-          actions: true,
-        },
+      return buildColdEmailMatch({
+        coldEmailRuleId: coldEmailRule.id,
+        matchReasons: getColdEmailMatchReasons(coldEmailResult),
+        reasoning: getColdEmailReasoning(coldEmailResult),
+        selectionMetadata: createRuleSelectionMetadata({ isThread }),
       });
-
-      return {
-        matches: [
-          {
-            rule: coldRule,
-            matchReasons: coldEmailResult.patternMatch
-              ? [
-                  {
-                    type: ConditionType.LEARNED_PATTERN,
-                    group: coldEmailResult.patternMatch.group,
-                    groupItem: coldEmailResult.patternMatch.groupItem,
-                  },
-                ]
-              : [{ type: ConditionType.AI }],
-          },
-        ],
-        reasoning: coldEmailResult.aiReason || coldEmailResult.reason,
-        selectionMetadata: createRuleSelectionMetadata({
-          isThread: provider.isReplyInThread(message),
-        }),
-      };
     }
   }
 
-  // Filter out cold email rule which was already checked above
+  // The cold email rule is decided separately above
   const rulesWithoutColdEmail = rules.filter(
     (rule) => rule.systemType !== SystemType.COLD_EMAIL,
   );
 
-  const results = await findMatchingRulesWithReasons(
-    rulesWithoutColdEmail,
-    message,
+  const { matches, potentialAiMatches, selectionMetadata } =
+    await findPotentialMatchingRules({
+      rules: rulesWithoutColdEmail,
+      message,
+      isThread,
+      provider,
+      emailAccountId: emailAccount.id,
+      logger,
+    });
+
+  const senderEmail = extractEmailAddress(message.headers.from);
+  const classificationFeedback =
+    potentialAiMatches.length && senderEmail
+      ? await getClassificationFeedback({
+          emailAccountId: emailAccount.id,
+          senderEmail,
+          provider,
+          logger,
+        })
+      : null;
+
+  const decisionModel = potentialAiMatches.length
+    ? await getDecisionModelConfig(emailAccount)
+    : null;
+
+  if (decisionModel) {
+    const selection = await decisionModelChooseRule({
+      decisionModel,
+      message,
+      emailAccount,
+      rules: potentialAiMatches,
+      classificationFeedback,
+      logger,
+    }).catch((error) => {
+      logger.warn(
+        "Decision-model rule selection failed, falling back to LLM path",
+        {
+          error,
+        },
+      );
+      return null;
+    });
+
+    if (selection?.type === "rules") {
+      return mergeAiResultsIntoMatches({
+        matches,
+        aiResult: selection,
+        selectionMetadata,
+      });
+    }
+
+    if (selection) {
+      logger.info("Decision model deferred the rule choice to the LLM path", {
+        reason: selection.reason,
+      });
+    }
+  }
+
+  if (!potentialAiMatches.length) {
+    return {
+      matches,
+      reasoning: getMatchesReasoning(matches),
+      selectionMetadata,
+    };
+  }
+
+  const llmResult = await aiChooseRule({
+    email,
+    rules: potentialAiMatches,
     emailAccount,
-    provider,
     modelType,
     logger,
-  );
+    classificationFeedback,
+  });
 
-  return results;
+  return mergeAiResultsIntoMatches({
+    matches,
+    aiResult: llmResult,
+    selectionMetadata,
+  });
+}
+
+function getColdEmailMatchReasons(result: {
+  patternMatch?: ColdEmailPatternMatch;
+}): MatchReason[] {
+  return result.patternMatch
+    ? [
+        {
+          type: ConditionType.LEARNED_PATTERN,
+          group: result.patternMatch.group,
+          groupItem: result.patternMatch.groupItem,
+        },
+      ]
+    : [{ type: ConditionType.AI }];
+}
+
+function getColdEmailReasoning(result: {
+  reason: string;
+  aiReason?: string | null;
+}) {
+  if (result.aiReason) return result.aiReason;
+  if (result.reason === "ai-already-labeled")
+    return "The sender matches a learned pattern for this rule.";
+  return "";
+}
+
+async function buildColdEmailMatch({
+  coldEmailRuleId,
+  matchReasons,
+  reasoning,
+  selectionMetadata,
+}: {
+  coldEmailRuleId: string;
+  matchReasons: MatchReason[];
+  reasoning: string;
+  selectionMetadata: RuleSelectionMetadata;
+}): Promise<MatchingRulesResult> {
+  const coldRule = await prisma.rule.findUniqueOrThrow({
+    where: { id: coldEmailRuleId },
+    include: {
+      actions: true,
+    },
+  });
+
+  return {
+    matches: [{ rule: coldRule, matchReasons }],
+    reasoning,
+    selectionMetadata,
+  };
 }
 
 /**
@@ -184,7 +297,7 @@ async function findPotentialMatchingRules({
     rule: RuleWithActions;
     matchReasons: MatchReason[];
   }[] = [];
-  const potentialAiMatches: (RuleWithActions & { instructions: string })[] = [];
+  const potentialAiMatches: AiRuleCandidate[] = [];
   const skippedThreadRuleNames: string[] = [];
   const continuedThreadRuleNames: string[] = [];
   const learnedPatternExcludedRules: RuleSelectionMetadata["learnedPatternExcludedRules"] =
@@ -513,61 +626,23 @@ function createRuleSelectionMetadata({
   };
 }
 
-async function findMatchingRulesWithReasons(
-  rules: RuleWithActions[],
-  message: ParsedMessage,
-  emailAccount: EmailAccountWithAI,
-  provider: EmailProvider,
-  modelType: ModelType,
-  logger: Logger,
-): Promise<MatchingRulesResult> {
-  const isThread = provider.isReplyInThread(message);
-
-  const { matches, potentialAiMatches, selectionMetadata } =
-    await findPotentialMatchingRules({
-      rules,
-      message,
-      isThread,
-      provider,
-      emailAccountId: emailAccount.id,
-      logger,
-    });
-
-  if (potentialAiMatches.length) {
-    const senderEmail = extractEmailAddress(message.headers.from);
-    const classificationFeedback = senderEmail
-      ? await getClassificationFeedback({
-          emailAccountId: emailAccount.id,
-          senderEmail,
-          provider,
-          logger,
-        })
-      : null;
-
-    const fullResult = await aiChooseRule({
-      email: getEmailForLLM(message),
-      rules: potentialAiMatches,
-      emailAccount,
-      modelType,
-      logger,
-      classificationFeedback,
-    });
-
-    const aiRules = filterMultipleSystemRules(fullResult.rules);
-
-    return {
-      matches: mergeMatchesWithAiResults(matches, aiRules),
-      reasoning: combineReasoning(
-        getMatchesReasoning(matches),
-        fullResult.reason,
-      ),
-      selectionMetadata,
-    };
-  }
+function mergeAiResultsIntoMatches({
+  matches,
+  aiResult,
+  selectionMetadata,
+}: {
+  matches: { rule: RuleWithActions; matchReasons?: MatchReason[] }[];
+  aiResult: {
+    rules: { rule: AiRuleCandidate; isPrimary?: boolean }[];
+    reason: string;
+  };
+  selectionMetadata: RuleSelectionMetadata;
+}): MatchingRulesResult {
+  const aiRules = filterMultipleSystemRules(aiResult.rules);
 
   return {
-    matches,
-    reasoning: getMatchesReasoning(matches),
+    matches: mergeMatchesWithAiResults(matches, aiRules),
+    reasoning: combineReasoning(getMatchesReasoning(matches), aiResult.reason),
     selectionMetadata,
   };
 }
@@ -658,7 +733,7 @@ export function matchesStaticRule(
     ? matchesTextPattern(subject, message.headers.subject, log)
     : true;
   const bodyMatch = body
-    ? matchesTextPattern(body, message.textPlain || "", log)
+    ? matchesTextPattern(body, getStaticMatchBodyText(message), log)
     : true;
 
   return fromMatch && toMatch && subjectMatch && bodyMatch;
@@ -915,31 +990,9 @@ function matchesRulePattern(pattern: string, text: string) {
   return createRulePatternRegex(pattern).test(text);
 }
 
-// Escape regex metacharacters, then turn the `*` glob into `.*`.
-function globToRegexSource(pattern: string) {
-  return pattern.replace(/[.+?^${}()[\]\\]/g, "\\$&").replace(/\*/g, ".*");
-}
-
 // Unanchored: intended for subject/body keyword and display-name substring matching.
 function createRulePatternRegex(pattern: string) {
   return new RegExp(globToRegexSource(pattern));
-}
-
-// Anchored: for from/to address patterns, so a pattern matches a whole address
-// boundary and cannot be satisfied by a spoofed prefix/suffix (e.g. a rule for
-// `boss@company.com` must not match `boss@company.com.evil.com`).
-function createAnchoredAddressRegex(pattern: string) {
-  // `@domain` → any local part, exact domain (no subdomain), e.g. user@domain.
-  if (pattern.startsWith("@")) {
-    return new RegExp(`^.*${globToRegexSource(pattern)}$`);
-  }
-  // `local@domain` → exact address (local part may contain `*` wildcards).
-  if (pattern.includes("@")) {
-    return new RegExp(`^${globToRegexSource(pattern)}$`);
-  }
-  // Bare domain → addresses at that domain or a subdomain (`@domain`/`.domain`),
-  // but not a lookalike domain (e.g. `example.com` must not match myexample.com).
-  return new RegExp(`^.*[@.]${globToRegexSource(pattern)}$`);
 }
 
 function matchesEmailFieldPattern({
@@ -992,4 +1045,19 @@ function logInvalidEmailMatchPattern({
 }) {
   logger.error("Invalid email match pattern");
   logger.trace("Invalid email match pattern details", { pattern, error });
+}
+
+// Outlook returns most bodies as HTML only, and many senders send no
+// text/plain part, so match the HTML's visible text rather than an empty
+// string. Matching is case-sensitive and `*` doesn't cross line breaks, so
+// keep headings in the case the reader sees and don't wrap lines, either of
+// which would stop a phrase from matching.
+function getStaticMatchBodyText(message: ParsedMessage) {
+  if (message.textPlain) return message.textPlain;
+  if (!message.textHtml) return "";
+  return convertEmailHtmlToText({
+    htmlText: message.textHtml,
+    wordwrap: false,
+    uppercaseHeadings: false,
+  });
 }

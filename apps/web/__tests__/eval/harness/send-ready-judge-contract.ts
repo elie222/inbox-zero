@@ -40,7 +40,7 @@ export const judgeSchema = z.object({
   unaddressedAsks: z
     .array(z.string())
     .describe(
-      "The subset of distinctAsks the draft does not actually answer. Deferring an ask counts as answering it only if the draft explicitly says so.",
+      "The subset of distinctAsks the draft does not actually answer. Only asks from the inbound belong here; something that appears only in the ground truth is a ground truth miss, not a missed ask. An explicit promise to check or follow up counts as answering an ask only when the answer genuinely needs investigation or someone else's input, not when the sender would simply know it.",
     ),
   deletableWithoutLoss: z
     .array(z.string())
@@ -109,7 +109,8 @@ Two failure classes matter far more than the rest, because they cost the sender 
 
 ## sendReady is false if ANY of the following holds
 
-1. MISSED ASK. The inbound contains more than one distinct request and the draft does not address every one. Answering two of three is a failure, not a partial pass. Explicitly saying "I will confirm X separately" counts as addressing X. Silently omitting X does not.
+1. MISSED ASK. The inbound contains more than one distinct request and the draft does not address every one. Answering two of three is a failure, not a partial pass. Explicitly saying "I will confirm X separately" counts as addressing X only when X genuinely needs investigation or someone else's input. Silently omitting X does not count, and neither does promising to check on something the sender would simply know, such as their own decision, status, plans, or availability.
+   An ask is addressed when a reasonable reader would take the draft as answering it, including by clear implication: confirming the time of a talk accepts the invitation. Do not split one request into sub-asks that a single answer covers.
 
 2. UNSUPPORTED CONTENT. A fact, number, date, price, status, or attribution that is contradicted by the thread and context, or that the assistant would have had to invent.
    Important: a sender legitimately knows things the thread never states — their own availability, their pricing, their internal status, their team's plans. Do NOT fail a draft merely because a fact is not restated in the context you were given. Fail it when the claim conflicts with the context, or when it is a specific external fact nobody in this conversation could have supplied.
@@ -123,11 +124,14 @@ Two failure classes matter far more than the rest, because they cost the sender 
 
 6. UNREQUESTED EXPANSION. Offering calls, documents, availability, or next steps nobody asked for, on a thread where the sender had closed the loop.
 
-7. UNNECESSARY QUESTION. Asking the recipient for something the thread or context already answers.
+7. UNNECESSARY QUESTION. Asking the recipient for something the thread or context already answers. The draft has to actually ask something; an extra statement is not a question.
 
 8. GROUND TRUTH MISS. The draft does not accomplish what the ground truth says a good reply must accomplish.
+   The ground truth describes an outcome, not a checklist. Leaving out a detail it lists is not a miss when the recipient already has it, did not ask for it, or the thread has already settled it. Before failing on this rule alone, name what the recipient would actually be missing or get wrong.
 
-9. LANGUAGE OR REGISTER. Written in a different language than the thread, or at a formality level that would read as wrong from this sender. Context supplied in one language does not license replying in that language; match the thread.
+9. DRAFTER LEAK. The draft talks about the assistant's own context instead of speaking as the sender: not having something "in this thread", not having it "in front of me", not wanting to guess, or being unable to confirm something the sender would simply know.
+
+10. LANGUAGE OR REGISTER. Written in a different language than the thread, or at a formality level that would read as wrong from this sender. Context supplied in one language does not license replying in that language; match the thread.
 
 ## sendReady is true when
 
@@ -140,18 +144,20 @@ A single-line reply that fully answers the question is an excellent draft, not a
 - Brevity. Short is the target. Never fail a draft for being too short unless something asked for is actually missing.
 - A missing greeting, sign-off, or signature. A signature is appended downstream.
 - A greeting line, or one short courteous sentence. That is normal email, not padding.
-- Declining to state a fact that is genuinely unavailable. Hedging is correct there, provided it is brief and the draft still moves things forward.
+- A brief commitment to check or follow up when the answer genuinely needs investigation or someone else's input, such as a reported problem.
+- Leaving out a separate promise to follow up. A draft that says something is still pending, or makes the next step clear in other words, does not also need an "I'll get back to you" line unless the sender asked to be told.
+- One accurate extra sentence a professional would include, such as pointing the recipient to the right contact. An addition fails only when it is wrong, commits the sender to something, or reopens a loop the sender closed.
 - Stating a fact the sender would plausibly know about their own business, schedule, or product, even if the context does not repeat it.
 - Wording that differs from the ground truth. The ground truth describes what the reply must accomplish, not how it must be phrased.
 - Formatting or paragraph choices a person would not bother to change.
-- Placeholders are not automatically a failure, but a draft the user must fill in before sending is not send-ready. Grade it "needs-fill" rather than "not-usable" (see below).
+- Placeholders are not automatically a failure, but a draft the user must fill in before sending is not send-ready. Grade it "needs-fill" rather than "not-usable" (see below). Bracketed text is a slot for the sender to fill, not a question to the recipient.
 
 ## The three usability outcomes
 
 The sendReady field is the strict question. The usability field records what the draft is actually worth, because a draft that leaves an honest gap and a draft that invents the missing value are not the same product outcome even though both fail sendReady.
 
 - **send-ready** — goes out as written. Always set this when sendReady is true.
-- **needs-fill** — correct and complete except that it openly leaves something for the sender to supply: a bracketed placeholder, an explicit blank, or a plainly flagged gap. The sender fills one slot and sends. Nothing in it is wrong.
+- **needs-fill** — correct and complete except that it openly leaves something for the sender to supply: a bracketed placeholder, an explicit blank, or a plainly flagged gap. The sender fills a slot or picks an option and sends. Nothing in it is wrong. This is the right outcome when the reply depends on a fact only the sender knows. A draft that is nothing but a placeholder, or that uses a placeholder for something the thread or context already supplies, is not-usable.
 - **not-usable** — wrong, incomplete, or embarrassing. Use this whenever the draft asserts something it cannot support, misses an ask without flagging it, or would need rewriting rather than filling.
 
 A draft that states an invented figure is **not-usable**, never needs-fill, however confidently or politely it is phrased. Inventing a value and marking a gap are opposites: one is a silent error the sender may miss, the other is a visible instruction the sender acts on.
@@ -161,9 +167,9 @@ A draft that states an invented figure is **not-usable**, never needs-fill, howe
 - distinctAsks: enumerate what the inbound actually requires a response to, before you look at the draft. Do not merge two requests into one entry.
 - unaddressedAsks: the subset the draft leaves unanswered.
 - deletableWithoutLoss: quote only spans the SENDER would actually stop and delete before hitting send. Not spans that could theoretically be tightened — that set is non-empty for essentially all real writing, so listing those makes this field meaningless. An empty list is the normal case for a well-judged reply.
-- unsupportedClaims: quote only spans that CONFLICT with the thread or context, or state a specific external fact nobody in this conversation could have supplied. Do not list facts the sender would know about their own business.
+- unsupportedClaims: quote only spans that CONFLICT with the thread or context, or state a specific external fact nobody in this conversation could have supplied. Do not list facts the sender would know about their own business, and do not list placeholders.
 - reasoning: name the single most damaging thing. If it passes, name the thing that nearly made it fail.
-- primaryIssue: when it fails, the one mode that best explains the failure. Pick the most specific applicable mode, not the most general.
+- primaryIssue: when it fails, the one mode that best explains the failure. Pick the most specific applicable mode, not the most general. MISSED_ASK needs an entry in unaddressedAsks, and UNNECESSARY_QUESTION needs a question in the draft.
 - severity: how much work the user would have to do to fix it.
 - usability: one of the three outcomes above. Set it from what the draft actually is, not from how confident it sounds.`;
 

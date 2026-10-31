@@ -1,3 +1,6 @@
+import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
 export const DESKTOP_PROTOCOL = "inboxzero";
 export const DESKTOP_AUTH_CALLBACK_PATH = "/auth-callback";
 export const DEFAULT_APP_URL = "https://www.getinboxzero.com";
@@ -30,9 +33,11 @@ export function getDesktopHomeUrl(appOrigin: string): string {
 export function getDesktopBrowserStartUrl(
   appOrigin: string,
   provider: DesktopAuthProvider,
+  codeChallenge: string,
 ): string {
   const url = new URL("/api/mobile-auth/browser-start", appOrigin);
   url.searchParams.set("provider", provider);
+  url.searchParams.set("codeChallenge", codeChallenge);
   return url.toString();
 }
 
@@ -92,8 +97,15 @@ export function parseDesktopAuthCallback(url: string): DesktopAuthCallback {
 export function isAllowedDesktopNavigation(
   url: string,
   appOrigin: string,
+  localMailRendererFile?: string,
 ): boolean {
   if (url === "about:blank") return true;
+  if (
+    localMailRendererFile &&
+    isDesktopLocalMailUrl(url, localMailRendererFile)
+  ) {
+    return true;
+  }
 
   let parsed: URL;
   try {
@@ -103,6 +115,60 @@ export function isAllowedDesktopNavigation(
   }
 
   return parsed.origin === appOrigin;
+}
+
+export function getDesktopLocalMailUrl(
+  rendererFile: string,
+  accountIds: string[] = [],
+): string {
+  const url = pathToFileURL(path.resolve(rendererFile));
+  for (const accountId of accountIds) {
+    url.searchParams.append("accountId", accountId);
+  }
+  return url.href;
+}
+
+export function isDesktopLocalMailUrl(
+  url: string,
+  rendererFile: string,
+): boolean {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "file:") return false;
+    return path.resolve(fileURLToPath(parsed)) === path.resolve(rendererFile);
+  } catch {
+    return false;
+  }
+}
+
+export function shouldUseLocalMailRenderer(
+  env: NodeJS.Dict<string> = process.env,
+): boolean {
+  return env.INBOX_ZERO_LOCAL_MAIL === "1";
+}
+
+export function shouldSmokeLocalMail(
+  env: NodeJS.Dict<string> = process.env,
+): boolean {
+  return env.INBOX_ZERO_LOCAL_MAIL_SMOKE === "1";
+}
+
+export function resolveDesktopStartUrl({
+  requestedUrl,
+  localMailUrl,
+  homeUrl,
+  rendererFile,
+}: {
+  requestedUrl?: string;
+  localMailUrl: string | null;
+  homeUrl: string;
+  rendererFile: string;
+}): string {
+  if (!localMailUrl) return requestedUrl ?? homeUrl;
+  if (requestedUrl && isDesktopLocalMailUrl(requestedUrl, rendererFile)) {
+    return requestedUrl;
+  }
+  return localMailUrl;
 }
 
 const ALLOWED_EXTERNAL_PROTOCOLS = new Set([
@@ -219,8 +285,9 @@ export const DESKTOP_MAC_TITLEBAR_HEIGHT = 52;
 export const DESKTOP_MAC_TRAFFIC_LIGHTS_WIDTH = 78;
 /** Web chrome marked with this is hidden by the Mac desktop stylesheet. */
 export const DESKTOP_MAC_HIDE_ATTRIBUTE = "data-hide-on-desktop-mac";
-export const DESKTOP_MAC_TITLEBAR_SPACER_ATTRIBUTE =
-  "data-desktop-mac-titlebar-spacer";
+/** Lifts the sidebar toggle into the titlebar, just right of the traffic lights. */
+export const DESKTOP_MAC_TITLEBAR_TOGGLE_ATTRIBUTE =
+  "data-desktop-mac-titlebar-toggle";
 export const DESKTOP_MAC_END_ATTRIBUTE = "data-desktop-mac-end";
 
 export function getDesktopWindowChrome(platform = process.platform): {
@@ -283,8 +350,11 @@ html::after {
   display: none !important;
 }
 
-[${DESKTOP_MAC_TITLEBAR_SPACER_ATTRIBUTE}] {
-  padding-top: ${DESKTOP_MAC_TITLEBAR_HEIGHT}px;
+[${DESKTOP_MAC_TITLEBAR_TOGGLE_ATTRIBUTE}] {
+  position: fixed;
+  top: 12px;
+  left: ${DESKTOP_MAC_TRAFFIC_LIGHTS_WIDTH}px;
+  z-index: 30;
 }
 
 [${DESKTOP_MAC_END_ATTRIBUTE}] {

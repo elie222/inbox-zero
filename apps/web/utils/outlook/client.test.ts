@@ -16,7 +16,7 @@ import {
   getMicrosoftGraphClientOptions,
   getMicrosoftOauthAuthorizeUrl,
   requestMicrosoftToken,
-} from "@/utils/microsoft/oauth";
+} from "@/utils/outlook/oauth";
 
 vi.mock("@microsoft/microsoft-graph-client", () => ({
   Client: {
@@ -39,7 +39,7 @@ vi.mock("@/utils/auth/cleanup-invalid-tokens", () => ({
   cleanupInvalidTokens: vi.fn(),
 }));
 
-vi.mock("@/utils/microsoft/oauth", () => ({
+vi.mock("@/utils/outlook/oauth", () => ({
   getMicrosoftGraphClientOptions: vi.fn(() => ({
     baseUrl: "http://localhost:4003/",
     customHosts: new Set(["localhost"]),
@@ -174,5 +174,33 @@ describe("outlook client emulator configuration", () => {
         }),
       }),
     );
+  });
+
+  it.each([
+    [
+      "a device management policy",
+      "AADSTS530003: Your device is required to be managed to access this resource.",
+    ],
+    [
+      "a malformed refresh token",
+      "AADSTS9002313: Invalid request. Request is malformed or invalid.",
+    ],
+  ])("asks the user to reconnect when refresh is blocked by %s", async (_case, errorDescription) => {
+    vi.mocked(requestMicrosoftToken).mockResolvedValue({
+      ok: false,
+      json: vi.fn().mockResolvedValue({ error_description: errorDescription }),
+    } as any);
+    vi.mocked(cleanupInvalidTokens).mockResolvedValue(undefined as any);
+
+    await expect(
+      getOutlookClientWithRefresh({
+        accessToken: "stale-access-token",
+        refreshToken: "refresh-token",
+        expiresAt: Date.now() - 1000,
+        emailAccountId: "email-account-id",
+        logger: createTestLogger(),
+      }),
+    ).rejects.toThrow("Microsoft authorization has expired");
+    expect(cleanupInvalidTokens).toHaveBeenCalled();
   });
 });

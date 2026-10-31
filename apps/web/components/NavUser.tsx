@@ -6,7 +6,6 @@ import {
   CircleHelpIcon,
   ChevronsUpDownIcon,
   LightbulbIcon,
-  MessageCircleReplyIcon,
   ShieldCheckIcon,
   LogOutIcon,
   Building2Icon,
@@ -142,29 +141,18 @@ export function NavUser() {
 
           <DropdownMenuGroup>
             {isGoogleProvider(provider) && (
-              <>
-                <DropdownMenuItem asChild>
-                  <Link
-                    href={prefixPath(currentEmailAccountId, "/reply-zero")}
-                    onClick={() => closeMobileSidebar("left-sidebar")}
-                  >
-                    <MessageCircleReplyIcon className="mr-2 size-4" />
-                    Reply Zero
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link
-                    href={prefixPath(
-                      currentEmailAccountId,
-                      "/cold-email-blocker",
-                    )}
-                    onClick={() => closeMobileSidebar("left-sidebar")}
-                  >
-                    <ShieldCheckIcon className="mr-2 size-4" />
-                    Cold Email Blocker
-                  </Link>
-                </DropdownMenuItem>
-              </>
+              <DropdownMenuItem asChild>
+                <Link
+                  href={prefixPath(
+                    currentEmailAccountId,
+                    "/cold-email-blocker",
+                  )}
+                  onClick={() => closeMobileSidebar("left-sidebar")}
+                >
+                  <ShieldCheckIcon className="mr-2 size-4" />
+                  Cold Email Blocker
+                </Link>
+              </DropdownMenuItem>
             )}
           </DropdownMenuGroup>
 
@@ -235,7 +223,7 @@ export function NavUser() {
         onOpenChange={setIsReferralDialogOpen}
       >
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
-          <Referrals />
+          <Referrals source="account_menu" />
         </DialogContent>
       </Dialog>
     </>

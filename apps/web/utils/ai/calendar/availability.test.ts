@@ -140,7 +140,6 @@ describe("aiGetCalendarAvailability", () => {
   it("filters suggested times outside the default availability schedule", async () => {
     const prisma = (await import("@/utils/prisma")).default;
     vi.mocked(prisma.availabilitySchedule.findFirst).mockResolvedValue({
-      timezone: "America/Los_Angeles",
       windows: [{ weekday: 1, startMinutes: 9 * 60, endMinutes: 17 * 60 }],
     } as Awaited<ReturnType<typeof prisma.availabilitySchedule.findFirst>>);
     mockGenerateText.mockImplementation(async ({ tools }) => {
@@ -165,7 +164,7 @@ describe("aiGetCalendarAvailability", () => {
     const result = await aiGetCalendarAvailability({
       emailAccount: {
         ...getEmailAccount(),
-        timezone: "America/New_York",
+        timezone: "America/Los_Angeles",
       },
       messages: [
         {

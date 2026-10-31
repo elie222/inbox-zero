@@ -11,7 +11,7 @@ pnpm install
 # PREVIEW_DATABASE_URL_UNPOOLED takes precedence over other Prisma URLs.
 PREVIEW_DATABASE_URL_UNPOOLED="$SIMULATION_DATABASE_URL" pnpm -F inbox-zero-ai exec prisma migrate deploy
 DATABASE_URL="$SIMULATION_DATABASE_URL" \
-  UPSTASH_REDIS_URL="$SIMULATION_REDIS_URL" UPSTASH_REDIS_TOKEN="$SIMULATION_REDIS_TOKEN" \
+  REDIS_HTTP_URL="$SIMULATION_REDIS_URL" REDIS_HTTP_TOKEN="$SIMULATION_REDIS_TOKEN" \
   pnpm -F inbox-zero-ai test:mail-loading
 node --test apps/web/__tests__/playwright/mail-simulation/quota-proxy.test.mjs
 ```

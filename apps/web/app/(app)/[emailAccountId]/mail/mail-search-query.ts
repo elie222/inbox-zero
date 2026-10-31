@@ -1,4 +1,8 @@
-import { tokenizeSearchQuery } from "@/utils/mail/tokenize-search-query";
+import {
+  parseSearchToken,
+  tokenizeSearchQuery,
+  unquoteSearchValue,
+} from "@/utils/tokenize-search-query";
 
 export const DATE_WITHIN_OPTIONS = [
   { value: "1d", name: "1 day", days: 1 },
@@ -123,6 +127,20 @@ export function buildMailSearchQuery(fields: MailSearchFields): string {
   if (fields.excludeChats) parts.push("-in:chats");
 
   return parts.join(" ");
+}
+
+/** Combined inboxes only emit operators both Gmail and Outlook understand. */
+export function toCommonMailSearchFields(
+  fields: MailSearchFields,
+): MailSearchFields {
+  return {
+    ...EMPTY_MAIL_SEARCH_FIELDS,
+    from: fields.from,
+    to: fields.to,
+    subject: fields.subject,
+    hasWords: fields.hasWords,
+    doesntHave: fields.doesntHave,
+  };
 }
 
 /** Fills the advanced-search form from a typed or previously composed query. */
@@ -321,24 +339,6 @@ function parseSizeValue(
   return { value: match[1], unit };
 }
 
-function parseSearchToken(token: string): {
-  excluded: boolean;
-  operator: string | null;
-  value: string;
-} {
-  const excluded = token.startsWith("-") && token.length > 1;
-  const raw = excluded ? token.slice(1) : token;
-  const colon = raw.indexOf(":");
-  if (colon <= 0) {
-    return { excluded, operator: null, value: unquoteSearchValue(raw) };
-  }
-  return {
-    excluded,
-    operator: raw.slice(0, colon).toLowerCase(),
-    value: unquoteSearchValue(raw.slice(colon + 1)),
-  };
-}
-
 function splitSearchTerms(value: string): string[] {
   return tokenizeSearchQuery(value).map((term) => unquoteSearchValue(term));
 }
@@ -348,13 +348,6 @@ function quoteSearchValue(value: string): string {
   if (!trimmed) return "";
   if (/[\s":()]/.test(trimmed)) return `"${trimmed.replaceAll('"', "")}"`;
   return trimmed;
-}
-
-function unquoteSearchValue(value: string): string {
-  if (value.length >= 2 && value.startsWith('"') && value.endsWith('"')) {
-    return value.slice(1, -1);
-  }
-  return value;
 }
 
 function parseInputDate(value: string): Date | null {

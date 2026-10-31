@@ -28,6 +28,7 @@ const RATE_LIMIT_MESSAGE_TEMPLATE =
   "{provider} is temporarily limiting requests. Please try again shortly.";
 export const EMAIL_PROVIDER_RATE_LIMIT_MESSAGE =
   "Your email provider is temporarily limiting requests. Please try again shortly.";
+export const UNEXPECTED_ACTION_ERROR_MESSAGE = "An unknown error occurred.";
 
 export function getEmailProviderRateLimitMessage(
   provider: EmailProviderRateLimitProvider,
@@ -67,6 +68,7 @@ export type CaptureExceptionContext = {
   userEmail?: string;
   // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   extra?: Record<string, any>;
+  tags?: Record<string, string>;
   sampleRate?: number;
 };
 
@@ -138,6 +140,7 @@ export function captureException(
 
   sentryCaptureException(error, {
     extra: Object.keys(sentryExtra).length > 0 ? sentryExtra : undefined,
+    ...(context.tags && { tags: context.tags }),
   });
 }
 
@@ -171,6 +174,13 @@ export class SafeError extends Error {
   }
 }
 
+export class DraftNotFoundError extends SafeError {
+  constructor(safeMessage: string) {
+    super(safeMessage);
+    this.name = "DraftNotFoundError";
+  }
+}
+
 export class EmailProviderRateLimitError extends Error {
   constructor() {
     super(EMAIL_PROVIDER_RATE_LIMIT_MESSAGE);
@@ -188,8 +198,7 @@ export function isInvalidGrantError(error: unknown): boolean {
 }
 
 export function isGmailInsufficientPermissionsError(error: unknown): boolean {
-  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
-  return (error as any)?.errors?.[0]?.reason === "insufficientPermissions";
+  return extractErrorInfo(error).reason === "insufficientPermissions";
 }
 
 export function isGmailRateLimitExceededError(error: unknown): boolean {
@@ -238,6 +247,10 @@ export function isInvalidAIModelError(error: APICallError): boolean {
   ) {
     return true;
   }
+  // Google: retired model, e.g. "This model models/xyz is no longer available"
+  if (/\bmodel\b.*\bis no longer available\b/.test(message)) {
+    return true;
+  }
   // Generic model-not-found patterns
   if (
     error.message.includes("model is not available") ||
@@ -261,7 +274,19 @@ export function isAnthropicInsufficientBalanceError(
 }
 
 export function isInsufficientCreditsError(error: APICallError): boolean {
-  return error.statusCode === 402;
+  // OpenAI reports an exhausted balance as a 429 with this error type.
+  return (
+    error.statusCode === 402 ||
+    getProviderErrorType(error) === "insufficient_quota"
+  );
+}
+
+// Retries wrap the provider's error, which carries the status and body.
+export function getAIApiCallError(error: unknown): APICallError | null {
+  if (APICallError.isInstance(error)) return error;
+  if (RetryError.isInstance(error) && APICallError.isInstance(error.lastError))
+    return error.lastError;
+  return null;
 }
 
 const HANDLED_USER_KEY_ERROR = "__handledUserKeyError";
@@ -277,6 +302,13 @@ export function isHandledUserKeyError(error: unknown): boolean {
 
 // Handling AI quota/retry errors. This can be related to the user's own API quota or the system's quota.
 export function isAiQuotaExceededError(error: RetryError): boolean {
+  if (
+    APICallError.isInstance(error.lastError) &&
+    isInsufficientCreditsError(error.lastError)
+  ) {
+    return true;
+  }
+
   const message = [error.message, getErrorMessage(error.lastError)]
     .filter(Boolean)
     .join(" ")
@@ -333,11 +365,23 @@ export function isOutlookItemNotFoundError(error: unknown): boolean {
   );
 }
 
+// The mailbox itself can't be used (unlicensed, soft-deleted, on-premise, or
+// full), so retrying or reporting won't help until the user fixes it.
+function isOutlookMailboxUnavailableError(error: unknown): boolean {
+  const message = (error as Record<string, unknown>)?.message;
+  return (
+    typeof message === "string" &&
+    (message.includes("The mailbox is either inactive, soft-deleted") ||
+      message.includes("failed with a permanent mailbox error"))
+  );
+}
+
 export function isKnownOutlookError(error: unknown): boolean {
   return (
     isOutlookThrottlingError(error) ||
     isOutlookAccessDeniedError(error) ||
-    isOutlookItemNotFoundError(error)
+    isOutlookItemNotFoundError(error) ||
+    isOutlookMailboxUnavailableError(error)
   );
 }
 
@@ -616,4 +660,18 @@ function isKnownAIErrorMessage(message: string): boolean {
     "model not found",
   ];
   return patterns.some((p) => message.includes(p));
+}
+
+function getProviderErrorType(error: APICallError): string | undefined {
+  const data = error.data as { error?: { type?: unknown } } | undefined;
+  if (typeof data?.error?.type === "string") return data.error.type;
+  if (!error.responseBody) return;
+  try {
+    const body = JSON.parse(error.responseBody) as {
+      error?: { type?: unknown };
+    };
+    return typeof body?.error?.type === "string" ? body.error.type : undefined;
+  } catch {
+    return;
+  }
 }

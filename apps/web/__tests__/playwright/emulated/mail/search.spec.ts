@@ -1,5 +1,6 @@
 import { expect } from "@playwright/test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
+import { isMicrosoftPlaywright } from "../mail-provider";
 import { test } from "../playwright-test";
 import { conversationWithSubject, openMail } from "./mail-test-helpers";
 
@@ -43,7 +44,7 @@ for (const accountScope of ["single", "all"] as const) {
 
   test(`${accountScope}: slash focuses search and Command K opens commands`, async ({
     page,
-  }) => {
+  }, testInfo) => {
     const { emailAccountId } = await openMail(page);
     if (accountScope === "all")
       await page.goto(`/${emailAccountId}/mail?accountScope=all`);
@@ -54,6 +55,18 @@ for (const accountScope of ["single", "all"] as const) {
     await page.keyboard.press("Slash");
 
     await expect(searchInput).toBeFocused();
+    const hint = page.getByText("Search by sender, subject");
+    await expect(hint).toBeVisible();
+    await capturePlaywrightCheckpoint(
+      page,
+      testInfo,
+      `mail-search-focused-${accountScope}`,
+    );
+    await page.keyboard.press("Escape");
+    await expect(searchInput).not.toBeFocused();
+    await expect(hint).toHaveCount(0);
+
+    await page.keyboard.press("Slash");
     await page.keyboard.press(
       `${process.platform === "darwin" ? "Meta" : "Control"}+k`,
     );
@@ -64,6 +77,10 @@ for (const accountScope of ["single", "all"] as const) {
 test("advanced search composes Gmail operators and restores them", async ({
   page,
 }, testInfo) => {
+  test.skip(
+    isMicrosoftPlaywright(),
+    "Advanced search operators are Gmail query syntax.",
+  );
   await openMail(page);
 
   await page.getByRole("button", { name: "Show search options" }).click();
@@ -133,7 +150,9 @@ test("advanced search still filters the mailbox by Has the words", async ({
 
   await page.getByRole("button", { name: "Show search options" }).click();
   const filters = page.getByRole("form", { name: "Search options" });
-  await filters.getByLabel("Has the words").fill("Archive Action");
+  await filters
+    .getByLabel(isMicrosoftPlaywright() ? "Keywords" : "Has the words")
+    .fill("Archive Action");
   await filters.getByRole("button", { name: "Search" }).click();
 
   await expect(page).toHaveURL(/[?&]q=/);
@@ -175,7 +194,9 @@ test("search suggests contacts and recent searches", async ({
   expect(new URL(page.url()).searchParams.get("q")).toBe("alice@example.com");
   await expect(suggestions).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Clear search" }).click();
+  // Escape from outside the field still leaves the search.
+  await searchInput.blur();
+  await page.keyboard.press("Escape");
   await expect(page).not.toHaveURL(/[?&]q=/);
   await searchInput.click();
   const recent = suggestions.getByRole("option", {
@@ -190,5 +211,7 @@ test("search suggests contacts and recent searches", async ({
 
   await searchInput.fill("exa");
   await recent.click();
-  expect(new URL(page.url()).searchParams.get("q")).toBe("alice@example.com");
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get("q"))
+    .toBe("alice@example.com");
 });

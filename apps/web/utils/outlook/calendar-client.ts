@@ -4,11 +4,14 @@ import {
   getMicrosoftGraphClientOptions,
   getMicrosoftOauthAuthorizeUrl,
   requestMicrosoftToken,
-} from "@/utils/microsoft/oauth";
+} from "@/utils/outlook/oauth";
 import { CALENDAR_SCOPES } from "@/utils/outlook/scopes";
 import { isInvalidGrantError, SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
-import { saveCalendarTokens } from "@/utils/calendar/save-calendar-tokens";
+import {
+  markCalendarConnectionDisconnected,
+  saveCalendarTokens,
+} from "@/utils/calendar/save-calendar-tokens";
 import {
   Client,
   type AuthenticationProvider,
@@ -133,39 +136,13 @@ export const getCalendarClientWithRefresh = async ({
   } catch (error) {
     if (isInvalidGrantError(error)) {
       logger.warn("Microsoft calendar authorization expired");
-      try {
-        // Tokens are encrypted at rest, so compare the decrypted values before
-        // guarding the write against a concurrent refresh or reconnect.
-        const connections = await prisma.calendarConnection.findMany({
-          where: { emailAccountId, provider: "microsoft", isConnected: true },
-          select: {
-            id: true,
-            accessToken: true,
-            refreshToken: true,
-            updatedAt: true,
-          },
-        });
-        for (const connection of connections) {
-          if (
-            connection.refreshToken !== refreshToken ||
-            connection.accessToken !== (accessToken ?? null)
-          )
-            continue;
-
-          await prisma.calendarConnection.updateMany({
-            where: {
-              id: connection.id,
-              updatedAt: connection.updatedAt,
-              isConnected: true,
-            },
-            data: { isConnected: false },
-          });
-        }
-      } catch (disconnectError) {
-        logger.error("Failed to mark Microsoft calendar disconnected", {
-          error: disconnectError,
-        });
-      }
+      await markCalendarConnectionDisconnected({
+        emailAccountId,
+        provider: "microsoft",
+        accessToken: accessToken ?? null,
+        refreshToken,
+        logger,
+      });
       throw new SafeError(
         "Your Microsoft calendar authorization has expired. Please reconnect your calendar.",
       );

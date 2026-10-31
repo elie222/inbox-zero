@@ -39,14 +39,9 @@ export async function createCalendarEventProviders(
   const providers: CalendarEventProvider[] = [];
 
   for (const connection of connections) {
-    if (!connection.refreshToken) continue;
+    if (!isUsableCalendarConnection(connection)) continue;
 
     try {
-      if (
-        !isGoogleProvider(connection.provider) &&
-        !isMicrosoftProvider(connection.provider)
-      )
-        continue;
       providers.push(
         createCalendarEventProvider({ connection, emailAccountId, logger }),
       );
@@ -59,6 +54,23 @@ export async function createCalendarEventProviders(
   }
 
   return providers;
+}
+
+// Same connections createCalendarEventProviders can use. A missing refresh
+// token or unknown provider builds no provider, so the chat tool would fail.
+export async function hasUsableCalendarConnection(emailAccountId: string) {
+  const connections = await prisma.calendarConnection.findMany({
+    where: {
+      emailAccountId,
+      isConnected: true,
+    },
+    select: {
+      provider: true,
+      refreshToken: true,
+    },
+  });
+
+  return connections.some(isUsableCalendarConnection);
 }
 
 export function createCalendarEventProvider({
@@ -93,4 +105,16 @@ export function createCalendarEventProvider({
   }
 
   throw new SafeError("Unsupported calendar provider");
+}
+
+function isUsableCalendarConnection(connection: {
+  provider: string;
+  refreshToken: string | null;
+}) {
+  if (!connection.refreshToken) return false;
+
+  return (
+    isGoogleProvider(connection.provider) ||
+    isMicrosoftProvider(connection.provider)
+  );
 }

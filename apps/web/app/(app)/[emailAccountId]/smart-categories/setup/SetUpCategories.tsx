@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/card";
 import { TypographyH4 } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
+import { toastError } from "@/components/Toast";
 import { defaultCategory } from "@/utils/categories";
 import {
   upsertDefaultCategoriesAction,
@@ -174,10 +175,19 @@ export function SetUpCategories({
                   }),
                 );
 
-                await upsertDefaultCategoriesAction(emailAccountId, {
-                  categories: upsertCategories,
-                });
+                const result = await upsertDefaultCategoriesAction(
+                  emailAccountId,
+                  { categories: upsertCategories },
+                );
                 setIsCreating(false);
+
+                if (result?.serverError) {
+                  toastError({
+                    description: `There was an error saving the categories. ${result.serverError}`,
+                  });
+                  return;
+                }
+
                 router.push(prefixPath(emailAccountId, "/smart-categories"));
               }}
             >

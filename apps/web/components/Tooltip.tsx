@@ -2,6 +2,10 @@
 
 import { useState } from "react";
 import {
+  ShortcutTooltipContent,
+  type ShortcutTooltipItem,
+} from "@/components/ShortcutTooltipContent";
+import {
   Tooltip as ShadcnTooltip,
   TooltipContent,
   TooltipProvider,
@@ -14,6 +18,8 @@ interface TooltipProps {
   content?: string;
   contentComponent?: React.ReactNode;
   hide?: boolean;
+  shortcuts?: readonly ShortcutTooltipItem[];
+  showShortcutLabels?: boolean;
   side?: "top" | "right" | "bottom" | "left";
 }
 
@@ -21,6 +27,8 @@ export const Tooltip = ({
   children,
   content,
   contentComponent,
+  shortcuts,
+  showShortcutLabels,
   hide,
   side,
 }: TooltipProps) => {
@@ -36,7 +44,15 @@ export const Tooltip = ({
           {children}
         </TooltipTrigger>
         <TooltipContent side={side}>
-          {contentComponent || <p className="max-w-xs">{content}</p>}
+          {contentComponent ||
+            (shortcuts ? (
+              <ShortcutTooltipContent
+                shortcuts={shortcuts}
+                showLabels={showShortcutLabels}
+              />
+            ) : (
+              <p className="max-w-xs">{content}</p>
+            ))}
         </TooltipContent>
       </ShadcnTooltip>
     </TooltipProvider>

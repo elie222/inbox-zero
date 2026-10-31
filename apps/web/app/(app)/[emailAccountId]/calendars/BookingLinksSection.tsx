@@ -74,8 +74,6 @@ function InboxZeroBookingLinkPanel() {
     data?.bookingLinks.find(
       (bookingLink) => bookingLink.id === configureLinkId,
     ) ?? null;
-  const timezone =
-    data?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
   const defaultName = emailAccount?.name?.trim() || null;
   const defaultTitle = "Booking link";
   const defaultSlug = getBookingLinkSlugSuggestion(defaultName);
@@ -144,10 +142,7 @@ function InboxZeroBookingLinkPanel() {
           defaultSlug={defaultSlug}
           onClose={() => setCreateOpen(false)}
           onCreate={async (input) => {
-            const result = await createLink({
-              ...input,
-              timezone,
-            });
+            const result = await createLink(input);
             const newLinkId = result?.data?.id;
             if (!newLinkId) return;
 

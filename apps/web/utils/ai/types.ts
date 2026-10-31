@@ -7,6 +7,7 @@ import type {
 
 export type EmailForAction = Pick<
   ParsedMessage,
+  | "externalUrl"
   | "threadId"
   | "id"
   | "headers"

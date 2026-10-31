@@ -16,6 +16,7 @@ import { enqueueBackgroundJob } from "@/utils/queue/dispatch";
 
 export const maxDuration = 300;
 const RESEND_SUMMARY_TOPIC = "resend-summary";
+const SEND_SPACING_SECONDS = 1;
 
 export const GET = withError("cron/resend/summary/all", async (request) => {
   if (!hasCronSecret(request)) {
@@ -60,11 +61,12 @@ async function sendSummaryAllUpdate(logger: Logger) {
 
   logger.info("Sending summary to users", { count: emailAccounts.length });
 
-  for (const emailAccount of emailAccounts) {
+  for (const [index, emailAccount] of emailAccounts.entries()) {
     try {
       await enqueueBackgroundJob<SendSummaryEmailBody>({
         topic: RESEND_SUMMARY_TOPIC,
         body: { emailAccountId: emailAccount.id },
+        vercel: { delaySeconds: index * SEND_SPACING_SECONDS },
         qstash: {
           queueName: "email-summary-all",
           parallelism: 3,

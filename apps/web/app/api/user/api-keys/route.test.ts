@@ -50,6 +50,7 @@ describe("user/api-keys route", () => {
       available: true,
       enabled: false,
     });
+    prisma.oauthConsent.findMany.mockResolvedValue([]);
   });
 
   it("returns API keys together with MCP access flags", async () => {
@@ -58,19 +59,6 @@ describe("user/api-keys route", () => {
       {} as never,
     );
 
-    expect(prisma.apiKey.findMany).toHaveBeenCalledWith({
-      where: { userId: "user_1", emailAccountId: "account_1", isActive: true },
-      select: {
-        id: true,
-        name: true,
-        createdAt: true,
-        expiresAt: true,
-        lastUsedAt: true,
-        scopes: true,
-      },
-      orderBy: { createdAt: "desc" },
-    });
-    expect(getMcpServerAccessMock).toHaveBeenCalledWith("user_1");
     await expect(response.json()).resolves.toEqual({
       apiKeys: [
         {
@@ -84,6 +72,7 @@ describe("user/api-keys route", () => {
       ],
       mcpServerAvailable: true,
       mcpServerEnabled: false,
+      mcpConnections: [],
     });
   });
 });

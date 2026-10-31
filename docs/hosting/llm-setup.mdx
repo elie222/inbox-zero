@@ -51,8 +51,8 @@ Each value is an ordered comma-separated list in `provider:model` format. The fi
 Minimal example:
 
 ```env
-DEFAULT_LLMS=openai:gpt-5.6-luna
-ECONOMY_LLMS=openai:gpt-5.6-luna
+DEFAULT_LLMS=openai:gpt-6-luna
+ECONOMY_LLMS=openai:gpt-6-luna
 LLM_API_KEY=sk-...
 ```
 
@@ -73,6 +73,28 @@ NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED=false
 
 `ALLOW` preserves the default behavior. `REDACT` replaces matched values before the LLM request. `BLOCK` stops the request when a match is found. Leave `NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED=false` to let users choose per account in Settings, or set it to `true` to enforce the deployment default for all accounts and hide the setting from the UI.
 
+## Decision Models
+
+Some classification steps (rule selection, sender categorization, thread status, recurring-pattern detection, reply memory selection, and unsubscribe page checks) can use a decision model instead of an LLM. Cold email detection uses the LLM unless `DECISION_MODEL_COLD_EMAIL_ENABLED=true`. Decision models answer typed questions about structured state and return calibrated probabilities. They run through the AI SDK's decision model interface, so switching models is a config change:
+
+```env
+DEFAULT_DECISION_MODEL=openrouter:typesafe/jev-1.13 # or openrouter:cloudflare/clef
+DEFAULT_DECISION_MODEL_ENABLED=false # true: on for users who haven't chosen; false: users opt in
+DECISION_MODEL_COLD_EMAIL_ENABLED=false # true: the decision model also detects cold email
+```
+
+Use the same `provider:model` format as the `*_LLMS` variables. Supported providers are `openrouter`, `aigateway`, `openai`, and `typesafe`. Keys resolve the same way too: the provider's key (`OPENROUTER_API_KEY`, `AI_GATEWAY_API_KEY`, or `OPENAI_API_KEY`), falling back to `LLM_API_KEY`. Direct TypeSafe always needs `TYPESAFE_API_KEY`.
+
+The decision model receives the same email content as the LLM it replaces, with the same sensitive data policy applied. Users who set their own AI key are not enrolled by default. If a decision call fails, that step falls back to the configured LLM.
+
+### Turning it on
+
+1. Set `DEFAULT_DECISION_MODEL` and the provider's API key, then restart. For example, Jev through OpenRouter: `DEFAULT_DECISION_MODEL=openrouter:typesafe/jev-1.13` with `OPENROUTER_API_KEY`. For Clef, use `openrouter:cloudflare/clef`.
+2. Each user then sees a **Specialized decision model** switch under **Settings → AI Model**. It is off until the user turns it on.
+3. To turn it on for everyone who hasn't chosen, set `DEFAULT_DECISION_MODEL_ENABLED=true`. This excludes users with their own AI key, and a user's own choice in Settings always wins.
+
+If `NEXT_PUBLIC_AI_MODEL_SETTINGS_DISABLED=true`, the switch is hidden. Then `DEFAULT_DECISION_MODEL_ENABLED` decides for users who haven't chosen.
+
 ## Provider-specific details
 
 - `azure-foundry` requires `AZURE_FOUNDRY_API_KEY` and `AZURE_FOUNDRY_BASE_URL`. Use the deployment name as the model portion of the `azure-foundry:<deployment>` entry.
@@ -80,14 +102,20 @@ NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED=false
 - `openai-compatible` also requires `OPENAI_COMPATIBLE_BASE_URL`. Set `OPENAI_COMPATIBLE_AUTH_HEADER=api-key` when the server expects an `api-key` header instead of bearer authorization. This can point at Cerebras (`https://api.cerebras.ai/v1`) if you do not want the dedicated provider, but then you cannot also use a local OpenAI-compatible server.
 - `ollama` can use `OLLAMA_BASE_URL` and `OLLAMA_MODEL`.
 
+### Ollama / OpenAI-compatible thinking
+
+Set `LOCAL_LLM_THINKING=off` or `on` to request disabled or enabled thinking where the model and server support it. Unset or `auto` (the default) adds no thinking options, so nothing changes from today. With the `ollama` provider that means thinking stays off, because the Ollama provider library sends `think: false` by default; set `on` to turn it on.
+
+The `ollama` provider sends `think: false/true` to the native API. The `openai-compatible` provider sends `chat_template_kwargs.enable_thinking: false/true`; support depends on the server and model, and unsupported options may be ignored or rejected. No `reasoning_effort` is sent. Ollama's OpenAI-compatible `/v1` endpoint ignores `chat_template_kwargs`, so use the `ollama` provider to control thinking with Ollama.
+
 ## Fallbacks
 
 Add fallbacks by adding more entries to the same role list:
 
 ```env
-DEFAULT_LLMS=openrouter:anthropic/claude-sonnet-5,openai:gpt-5.6-luna
-ECONOMY_LLMS=openrouter:openai/gpt-5.6-luna,google:gemini-3.1-flash-lite
-CHAT_LLMS=openrouter:anthropic/claude-haiku-4.5,openai:gpt-5.6-luna
+DEFAULT_LLMS=openrouter:anthropic/claude-sonnet-5,openai:gpt-6-luna
+ECONOMY_LLMS=openrouter:openai/gpt-6-luna,google:gemini-3.1-flash-lite
+CHAT_LLMS=openrouter:anthropic/claude-haiku-4.5,openai:gpt-6-luna
 ```
 
 Unsupported providers, entries without configured credentials, entries without models, and duplicates are skipped with warnings.

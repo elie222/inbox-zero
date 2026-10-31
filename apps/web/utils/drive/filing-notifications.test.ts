@@ -4,13 +4,19 @@ import { createMockEmailProvider } from "@/__tests__/mocks/email-provider.mock";
 import { createTestLogger } from "@/__tests__/helpers";
 import type { DocumentFiling } from "@/generated/prisma/client";
 import { DocumentFilingStatus } from "@/generated/prisma/enums";
+import { OutlookProvider } from "@/utils/email/microsoft";
+import type { OutlookClient } from "@/utils/outlook/client";
 import {
   sendAskNotification,
+  sendCorrectionConfirmation,
   sendFiledNotification,
   sendFilingNotifications,
 } from "./filing-notifications";
 
 vi.mock("@/utils/prisma");
+vi.mock("@/utils/mail", () => ({
+  ensureEmailSendingEnabled: vi.fn(),
+}));
 
 const logger = createTestLogger();
 
@@ -34,6 +40,74 @@ describe("filing-notifications", () => {
       }),
     );
     prisma.documentFiling.updateMany.mockResolvedValue({ count: 1 });
+  });
+
+  it.each([
+    { kind: "filed", send: sendFiledNotification },
+    { kind: "ask", send: sendAskNotification },
+    { kind: "correction", send: sendCorrectionConfirmation },
+  ])("preserves the source reply subject for Outlook $kind notifications", async ({
+    send,
+  }) => {
+    const { emailProvider, api, patchDraft, sendDraft } =
+      createOutlookNotificationProvider();
+
+    await send({
+      emailProvider,
+      userEmail: "user@example.com",
+      filingId,
+      sourceMessage: { ...sourceMessage, messageId: "source-message" },
+      newFolderPath: "Updated",
+      logger,
+    });
+
+    expect(api.mock.calls.map(([path]) => path)).toEqual([
+      "/me/messages/source-message/createReply",
+      "/me/messages/reply-draft",
+      "/me/messages/reply-draft/send",
+    ]);
+    expect(patchDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        toRecipients: [{ emailAddress: { address: "user@example.com" } }],
+        body: expect.objectContaining({ contentType: "html" }),
+      }),
+    );
+    expect(patchDraft.mock.calls[0][0]).not.toHaveProperty("subject");
+    expect(sendDraft).toHaveBeenCalledOnce();
+  });
+
+  it("sends one Outlook summary in the source conversation without replacing its subject", async () => {
+    prisma.documentFiling.findMany.mockResolvedValue([
+      createFiling({ id: "filing-1", filename: "first.pdf" }),
+      createFiling({ id: "filing-2", filename: "second.pdf" }),
+    ]);
+    prisma.documentFiling.updateMany.mockResolvedValue({ count: 2 });
+    const { emailProvider, api, patchDraft, sendDraft } =
+      createOutlookNotificationProvider();
+
+    await sendFilingNotifications({
+      emailProvider,
+      userEmail: "user@example.com",
+      filingIds: ["filing-1", "filing-2"],
+      sourceMessage: { ...sourceMessage, messageId: "source-message" },
+      logger,
+    });
+
+    expect(api.mock.calls.map(([path]) => path)).toEqual([
+      "/me/messages/source-message/createReply",
+      "/me/messages/reply-draft",
+      "/me/messages/reply-draft/send",
+    ]);
+    expect(patchDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: {
+          contentType: "html",
+          content: expect.stringMatching(/first\.pdf[\s\S]*second\.pdf/),
+        },
+      }),
+    );
+    expect(patchDraft.mock.calls[0][0]).not.toHaveProperty("subject");
+    expect(sendDraft).toHaveBeenCalledOnce();
   });
 
   describe("sendFiledNotification", () => {
@@ -146,6 +220,7 @@ describe("filing-notifications", () => {
           subject: "✓ Filed 2 documents",
           messageHtml: expect.stringMatching(/first\.pdf[\s\S]*second\.pdf/),
         }),
+        { preserveThreadSubject: true },
       );
       const notificationBatchId =
         prisma.documentFiling.updateMany.mock.calls[0]?.[0].data
@@ -358,6 +433,33 @@ describe("filing-notifications", () => {
     });
   });
 });
+
+function createOutlookNotificationProvider() {
+  const patchDraft = vi.fn(async (_body: unknown) => ({}));
+  const sendDraft = vi.fn(async () => ({}));
+  const api = vi.fn((path: string) => {
+    if (path === "/me/messages/source-message/createReply") {
+      return {
+        post: vi.fn(async () => ({
+          id: "reply-draft",
+          conversationId: sourceMessage.threadId,
+          subject: "Re: Source documents",
+        })),
+      };
+    }
+    if (path === "/me/messages/reply-draft") return { patch: patchDraft };
+    if (path === "/me/messages/reply-draft/send") return { post: sendDraft };
+    throw new Error(`Unexpected Graph request: ${path}`);
+  });
+  const client = { getClient: () => ({ api }) } as unknown as OutlookClient;
+
+  return {
+    emailProvider: new OutlookProvider(client, logger),
+    api,
+    patchDraft,
+    sendDraft,
+  };
+}
 
 function createFiling({
   id,

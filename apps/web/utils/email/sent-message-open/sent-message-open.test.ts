@@ -7,7 +7,6 @@ import {
   isSentMessageOpenPixelUrl,
   isSentMessageOpenToken,
   mergeSentMessageOpenResponses,
-  sentMessageOpenPath,
   stripSentMessageOpenPixels,
 } from "./sent-message-open";
 
@@ -114,12 +113,6 @@ describe("isSameOriginSentMessageOpenRequest", () => {
   });
 });
 
-describe("sentMessageOpenPath", () => {
-  it("builds the public pixel path", () => {
-    expect(sentMessageOpenPath(token)).toBe(`/t/${token}`);
-  });
-});
-
 describe("describeSentMessageOpen", () => {
   const formatRelative = (date: Date) =>
     date.toISOString() === "2026-09-11T12:00:00.000Z" ? "2 hours ago" : "later";
@@ -130,7 +123,7 @@ describe("describeSentMessageOpen", () => {
         { firstOpenedAt: null, lastOpenedAt: null, openCount: 0 },
         formatRelative,
       ),
-    ).toEqual({ label: "Not opened", detail: "Not opened yet" });
+    ).toBe("Not opened yet");
   });
 
   it("describes a single open", () => {
@@ -143,7 +136,7 @@ describe("describeSentMessageOpen", () => {
         },
         formatRelative,
       ),
-    ).toEqual({ label: "Opened", detail: "Opened 2 hours ago" });
+    ).toBe("Opened 2 hours ago");
   });
 
   it("describes repeated opens", () => {
@@ -156,10 +149,7 @@ describe("describeSentMessageOpen", () => {
         },
         formatRelative,
       ),
-    ).toEqual({
-      label: "Opened",
-      detail: "Opened 3 times · Last opened 2 hours ago",
-    });
+    ).toBe("Opened 3 times · Last opened 2 hours ago");
   });
 });
 

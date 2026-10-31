@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createOfflineMailCache,
   matchesOfflineMailRequest,
+  matchesMailEngineStaticRequest,
   clearsOfflineMailOnGet,
 } from "./mail-cache";
 
@@ -216,6 +217,42 @@ describe("offline mail cache", () => {
     ).toBe(false);
   });
 
+  it("caches sqlite-wasm and Next static chunks for offline engine boot", () => {
+    expect(
+      matchesMailEngineStaticRequest(
+        new Request(`${origin}/_next/static/chunks/engine-worker.js`),
+        origin,
+      ),
+    ).toBe(true);
+    expect(
+      matchesMailEngineStaticRequest(
+        new Request(`${origin}/_next/static/media/sqlite3.wasm`),
+        origin,
+      ),
+    ).toBe(true);
+    const worker = new Request(`${origin}/sqlite3-opfs-async-proxy.js`);
+    Object.defineProperty(worker, "destination", { value: "worker" });
+    expect(matchesMailEngineStaticRequest(worker, origin)).toBe(true);
+    expect(
+      matchesMailEngineStaticRequest(
+        new Request(`${origin}/_next/static/chunks/engine.hot-update.js`),
+        origin,
+      ),
+    ).toBe(false);
+    expect(
+      matchesMailEngineStaticRequest(
+        new Request(`${origin}/api/user/email-accounts`),
+        origin,
+      ),
+    ).toBe(false);
+    expect(
+      matchesMailEngineStaticRequest(
+        new Request("https://other.example.com/_next/static/chunks/app.js"),
+        origin,
+      ),
+    ).toBe(false);
+  });
+
   it("clears offline mail on SSO entry and callbacks without clearing it for session reads", () => {
     for (const path of [
       "/api/sso/signin",
@@ -344,6 +381,151 @@ describe("offline mail cache", () => {
     await expect(
       cache.handle(documentRequest(`${origin}/account-2/mail`), waitUntil),
     ).rejects.toThrow();
+  });
+
+  it("removes one account's saved mailbox without wiping another", async () => {
+    const cache = makeCache();
+    network.mockResolvedValueOnce(html("Account 1 mailbox"));
+    await cache.handle(documentRequest(), waitUntil);
+    await Promise.all(pending);
+    network.mockResolvedValueOnce(html("Account 2 mailbox"));
+    await cache.handle(documentRequest(`${origin}/account-2/mail`), waitUntil);
+    await Promise.all(pending);
+    network.mockResolvedValueOnce(
+      Response.json({ emailAccounts: [{ id: "account-1" }] }),
+    );
+    await cache.handle(
+      new Request(`${origin}/api/user/email-accounts`),
+      waitUntil,
+    );
+    await Promise.all(pending);
+    await cache.removeAccount("account-1");
+    network.mockRejectedValue(new TypeError("Network unavailable"));
+    await expect(cache.handle(documentRequest(), waitUntil)).rejects.toThrow();
+    expect(
+      await (
+        await cache.handle(
+          documentRequest(`${origin}/account-2/mail`),
+          waitUntil,
+        )
+      ).text(),
+    ).toBe("Account 2 mailbox");
+    await expect(
+      cache.handle(new Request(`${origin}/api/user/email-accounts`), waitUntil),
+    ).rejects.toThrow();
+  });
+
+  it("does not let an in-flight save restore a removed account mailbox", async () => {
+    const cache = makeCache();
+    network.mockResolvedValueOnce(html("Account 2 mailbox"));
+    await cache.handle(documentRequest(`${origin}/account-2/mail`), waitUntil);
+    await Promise.all(pending);
+    let complete!: (response: Response) => void;
+    network.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          complete = resolve;
+        }),
+    );
+    const loading = cache.handle(documentRequest(), waitUntil);
+    await cache.removeAccount("account-1");
+    complete(html("Deleted account mailbox"));
+    await loading;
+    await Promise.all(pending);
+    network.mockRejectedValue(new TypeError("Network unavailable"));
+    await expect(cache.handle(documentRequest(), waitUntil)).rejects.toThrow();
+    expect(
+      await (
+        await cache.handle(
+          documentRequest(`${origin}/account-2/mail`),
+          waitUntil,
+        )
+      ).text(),
+    ).toBe("Account 2 mailbox");
+  });
+
+  it("does not let an in-flight account list restore a deleted mailbox", async () => {
+    const cache = makeCache();
+    network.mockResolvedValueOnce(html("Account 2 mailbox"));
+    await cache.handle(documentRequest(`${origin}/account-2/mail`), waitUntil);
+    await Promise.all(pending);
+    let complete!: (response: Response) => void;
+    network.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          complete = resolve;
+        }),
+    );
+    const loading = cache.handle(
+      new Request(`${origin}/api/user/email-accounts`),
+      waitUntil,
+    );
+    await cache.removeAccount("account-1");
+    complete(
+      Response.json({
+        emailAccounts: [{ id: "account-1" }, { id: "account-2" }],
+      }),
+    );
+    await loading;
+    await Promise.all(pending);
+    network.mockRejectedValue(new TypeError("Network unavailable"));
+    await expect(
+      cache.handle(new Request(`${origin}/api/user/email-accounts`), waitUntil),
+    ).rejects.toThrow();
+    expect(
+      await (
+        await cache.handle(
+          documentRequest(`${origin}/account-2/mail`),
+          waitUntil,
+        )
+      ).text(),
+    ).toBe("Account 2 mailbox");
+  });
+
+  it("can recache the account list after removing an account", async () => {
+    const cache = makeCache();
+    network.mockResolvedValueOnce(
+      Response.json({
+        emailAccounts: [{ id: "account-1" }, { id: "account-2" }],
+      }),
+    );
+    await cache.handle(
+      new Request(`${origin}/api/user/email-accounts`),
+      waitUntil,
+    );
+    await Promise.all(pending);
+    await cache.removeAccount("account-1");
+    network.mockResolvedValueOnce(
+      Response.json({ emailAccounts: [{ id: "account-2" }] }),
+    );
+    await cache.handle(
+      new Request(`${origin}/api/user/email-accounts`),
+      waitUntil,
+    );
+    await Promise.all(pending);
+    network.mockRejectedValue(new TypeError("Network unavailable"));
+    expect(
+      await (
+        await cache.handle(
+          new Request(`${origin}/api/user/email-accounts`),
+          waitUntil,
+        )
+      ).json(),
+    ).toEqual({ emailAccounts: [{ id: "account-2" }] });
+  });
+
+  it("does not delete mailboxes for an escaping account id", async () => {
+    const cache = makeCache();
+    network.mockResolvedValueOnce(html());
+    await cache.handle(documentRequest(), waitUntil);
+    await Promise.all(pending);
+    await cache.removeAccount("");
+    await cache.removeAccount("..");
+    await cache.removeAccount("../account-1");
+    network.mockRejectedValue(new TypeError("Network unavailable"));
+    expect(
+      await (await cache.handle(documentRequest(), waitUntil)).text(),
+    ).toBe("Saved mailbox");
   });
 
   it("does not cache requests that begin while logout is deleting pages", async () => {

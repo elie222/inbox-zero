@@ -6,12 +6,15 @@ import { ActionType } from "@/generated/prisma/enums";
 import type { SystemType } from "@/generated/prisma/enums";
 import type { Prisma, Rule } from "@/generated/prisma/client";
 import { getActionRiskLevel, type RiskAction } from "@/utils/risk";
-import { hasExampleParams } from "@/app/(app)/[emailAccountId]/assistant/examples";
 import {
   createRuleHistory,
   ruleHistoryRuleInclude,
   type RuleHistoryTrigger,
 } from "@/utils/rule/rule-history";
+import {
+  RULE_ANALYTICS_EVENTS,
+  trackRuleEvent,
+} from "@/utils/analytics/rule-events.server";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { createEmailProvider } from "@/utils/email/provider";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
@@ -19,7 +22,7 @@ import { getMissingRecipientMessage } from "@/utils/rule/recipient-validation";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import { SafeError } from "@/utils/error";
 import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
-import { validateWebhookUrlFormat } from "@/utils/webhook-validation";
+import { validateWebhookUrlFormat } from "@/utils/outbound-webhook/url-validation";
 import {
   getBlockedLowTrustStaticFromActionTypes,
   LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE,
@@ -38,13 +41,8 @@ import {
   getOnlyIntegrationToolSpec,
   normalizeSelectArgValue,
 } from "@/utils/mcp/tool-specs";
-import { hasWebhookAction } from "@/utils/webhook-action";
 import { assertNoSenderOnlyOverlap } from "@/utils/rule/sender-scope-overlap";
 import { isIntegrationActionEnabledForEmailAccountId } from "@/utils/integration-action.server";
-
-type CreateRuleEnablement =
-  | { source: "default" }
-  | { source: "chat"; chatRiskConfirmed?: boolean };
 
 export type RuleActionCreateData = Omit<
   Prisma.ActionCreateManyRuleInput,
@@ -177,23 +175,6 @@ export async function partialUpdateRule({
     emailAccountId,
     data,
     triggerType: "conditions_updated",
-  });
-}
-
-export function updateRuleInstructions({
-  ruleId,
-  emailAccountId,
-  instructions,
-}: {
-  ruleId: string;
-  emailAccountId: string;
-  instructions: string;
-}) {
-  return updateRuleAndQueueHistory({
-    ruleId,
-    emailAccountId,
-    data: { instructions },
-    triggerType: "instructions_updated",
   });
 }
 
@@ -361,7 +342,6 @@ export async function createRule({
   provider,
   runOnThreads,
   logger,
-  enablement = { source: "default" } satisfies CreateRuleEnablement,
 }: {
   result: CreateOrUpdateRuleSchema;
   emailAccountId: string;
@@ -369,7 +349,6 @@ export async function createRule({
   provider: string;
   runOnThreads: boolean;
   logger: Logger;
-  enablement?: CreateRuleEnablement;
 }) {
   try {
     logger.info("Creating rule", {
@@ -404,21 +383,7 @@ export async function createRule({
       data: {
         name: result.name,
         systemType,
-        enabled: shouldEnable(
-          result,
-          mappedActions.map((a) => ({
-            type: a.type,
-            subject: a.subject ?? null,
-            content: a.content ?? null,
-            to: a.to ?? null,
-            cc: a.cc ?? null,
-            bcc: a.bcc ?? null,
-            integrationName: a.integrationName ?? null,
-            integrationToolName: a.integrationToolName ?? null,
-            integrationArgs: (a.integrationArgs as Prisma.JsonValue) ?? null,
-          })),
-          enablement,
-        ),
+        enabled: true,
         runOnThreads,
         conditionalOperator: result.condition.conditionalOperator ?? undefined,
         instructions: result.condition.aiInstructions,
@@ -656,6 +621,14 @@ export async function deleteRule({
   ruleId: string;
   groupId?: string | null;
 }) {
+  after(() =>
+    trackRuleEvent({
+      emailAccountId,
+      event: RULE_ANALYTICS_EVENTS.ruleDeleted,
+      properties: { ruleId },
+    }),
+  );
+
   if (groupId) {
     const deletedGroups = await prisma.group.deleteMany({
       where: { id: groupId, emailAccountId },
@@ -665,43 +638,6 @@ export async function deleteRule({
   }
 
   await prisma.rule.delete({ where: { id: ruleId, emailAccountId } });
-}
-
-function shouldEnable(
-  rule: CreateOrUpdateRuleSchema,
-  actions: RiskAction[],
-  enablement: CreateRuleEnablement,
-) {
-  if (
-    hasExampleParams({
-      condition: rule.condition,
-      actions: rule.actions.map((a) => ({ content: a.fields?.content })),
-    })
-  )
-    return false;
-
-  if (enablement.source === "chat" && enablement.chatRiskConfirmed) {
-    return true;
-  }
-
-  if (enablement.source === "chat") {
-    if (hasWebhookAction(rule.actions)) {
-      return false;
-    }
-
-    const ruleCtx = ruleConditionsForRisk(rule);
-    return actions.every(
-      (action) => getActionRiskLevel(action, ruleCtx).level === "low",
-    );
-  }
-
-  if (rule.actions.find((a) => OUTBOUND_ACTION_TYPES.includes(a.type)))
-    return false;
-
-  const riskLevels = actions.map(
-    (action) => getActionRiskLevel(action, {}).level,
-  );
-  return riskLevels.every((level) => level === "low");
 }
 
 type RuleScopeKey =
@@ -1023,12 +959,6 @@ async function assertMessagingChannelsBelongToEmailAccount(
   }
 }
 
-const OUTBOUND_ACTION_TYPES: ActionType[] = [
-  ActionType.REPLY,
-  ActionType.SEND_EMAIL,
-  ActionType.FORWARD,
-];
-
 function ruleConditionsForRisk(rule: CreateOrUpdateRuleSchema): RuleConditions {
   return {
     instructions: rule.condition.aiInstructions ?? undefined,
@@ -1053,7 +983,22 @@ function queueRuleHistory(params: {
   rule: RuleWithRelations;
   triggerType: RuleHistoryTrigger;
 }) {
+  const { rule, triggerType } = params;
+
   after(() => createRuleHistory(params));
+
+  after(() =>
+    trackRuleEvent({
+      emailAccountId: rule.emailAccountId,
+      event: RULE_ANALYTICS_EVENTS.ruleChanged,
+      properties: {
+        ruleId: rule.id,
+        triggerType,
+        systemType: rule.systemType,
+        enabled: rule.enabled,
+      },
+    }),
+  );
 }
 
 function addNestedActionOwnershipToInputs(

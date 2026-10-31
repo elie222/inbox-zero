@@ -4,7 +4,7 @@ import type { Logger } from "@/utils/logger";
 import {
   withMicrosoftGraphRetry,
   withMicrosoftGraphWriteRetry,
-} from "@/utils/microsoft/retry";
+} from "@/utils/outlook/retry";
 
 export type OutlookSystemFolder =
   | "INBOX"

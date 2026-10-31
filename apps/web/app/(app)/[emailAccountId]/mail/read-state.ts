@@ -23,6 +23,27 @@ export function isThreadInInbox(
   );
 }
 
+/**
+ * Matches the Archived view: out of the inbox and not in trash or spam, so
+ * archiving again would do nothing and moving back to the inbox is the action.
+ */
+export function isThreadArchived(
+  messages: readonly { labelIds?: string[] | null }[],
+) {
+  return (
+    messages.length > 0 &&
+    messages.every(
+      (message) =>
+        !message.labelIds?.some(
+          (labelId) =>
+            labelId === GmailLabel.INBOX ||
+            labelId === GmailLabel.TRASH ||
+            labelId === GmailLabel.SPAM,
+        ),
+    )
+  );
+}
+
 /** Read state lives on every message, so marking a thread rewrites all of them. */
 export function withThreadReadState<T extends ListThread>(
   thread: T,

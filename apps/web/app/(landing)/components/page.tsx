@@ -373,8 +373,7 @@ function ComponentsDemo() {
               description={
                 "Learn how to use the AI Assistant to automatically label, archive, and more."
               }
-              videoSrc="https://www.youtube.com/embed/SoeNDVr7ve4"
-              thumbnailSrc="https://img.youtube.com/vi/SoeNDVr7ve4/0.jpg"
+              muxPlaybackId="TYo3SIMdhg008x022H79400CxeRSiB6mLyuwHx8Szc00Rec"
               storageKey={`video-dismissible-${Date.now()}`}
             />
           </div>

@@ -132,6 +132,38 @@ describe("createRuleTool overlap guard", () => {
     );
   });
 
+  it("waits for confirmation instead of creating a risky rule", async () => {
+    mockActionsNeedChatRiskConfirmation.mockReturnValue({
+      needsConfirmation: true,
+      riskMessages: ["Review the generated recipients and content"],
+    });
+    const result = await createRuleTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-id",
+      provider: "google",
+      logger,
+    }).execute({
+      name: "Forward invoices",
+      condition: {
+        aiInstructions: "Invoices",
+        static: null,
+        conditionalOperator: null,
+      },
+      actions: [
+        {
+          type: ActionType.FORWARD,
+          fields: { to: "{{invoice destination}}" },
+          delayInMinutes: null,
+        },
+      ],
+    });
+    expect(result).toMatchObject({
+      requiresConfirmation: true,
+      confirmationState: "pending",
+    });
+    expect(mockCreateRule).not.toHaveBeenCalled();
+  });
+
   it("blocks overlapping sender-only rules", async () => {
     const result = await createRuleTool({
       email: "user@example.com",

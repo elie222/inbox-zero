@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import { withEmailProvider } from "@/utils/middleware";
-import type { EmailProvider } from "@/utils/email/types";
+import type { EmailProvider, GetThreadOptions } from "@/utils/email/types";
 import { parseMessageReply } from "@/utils/email/parse-message-reply";
 import { getEmailProviderRateLimitMessage, SafeError } from "@/utils/error";
 import { isEmailProviderRateLimitError } from "@/utils/email/is-provider-rate-limit-error";
@@ -13,11 +13,11 @@ export type ThreadResponse = Awaited<ReturnType<typeof getThread>>;
 
 async function getThread(
   id: string,
-  includeDrafts: boolean,
+  options: GetThreadOptions,
   parseReplies: boolean,
   emailProvider: EmailProvider,
 ) {
-  const thread = await emailProvider.getThread(id, { includeDrafts });
+  const thread = await emailProvider.getThread(id, options);
 
   let filteredMessages = thread.messages;
   if (parseReplies) {
@@ -32,7 +32,7 @@ async function getThread(
   };
 }
 
-export const maxDuration = 30;
+export const maxDuration = 300;
 
 export const GET = withEmailProvider(
   "threads/detail",
@@ -49,7 +49,12 @@ export const GET = withEmailProvider(
     try {
       const thread = await getThread(
         id,
-        includeDrafts,
+        {
+          includeDrafts,
+          ...(searchParams.get("complete") === "true"
+            ? { complete: true, signal: request.signal }
+            : {}),
+        },
         parseReplies,
         emailProvider,
       );

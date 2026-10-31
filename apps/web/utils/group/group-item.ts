@@ -93,6 +93,6 @@ export async function deleteGroupItem({
   });
 }
 
-function normalizeGroupItemValue(value: string) {
+export function normalizeGroupItemValue(value: string) {
   return value.trim().toLowerCase();
 }

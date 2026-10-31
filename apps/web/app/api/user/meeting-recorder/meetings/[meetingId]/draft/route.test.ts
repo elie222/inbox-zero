@@ -65,8 +65,8 @@ describe("meeting follow-up draft route", () => {
     );
   });
 
-  // The Graph webLink resolves the item without translating a REST id into the
-  // EWS id the compose deeplink expects.
+  // The draft is addressed by what the freshly fetched draft reports, since
+  // editing a draft replaces its message id.
   it("opens the related draft within the full Outlook client", async () => {
     getEmailAccountMock.mockResolvedValue("user@example.com");
     prisma.meeting.findFirst.mockResolvedValue({
@@ -77,24 +77,25 @@ describe("meeting follow-up draft route", () => {
       id: "draft-message-123",
       threadId: "thread-123",
       externalUrl:
-        "https://outlook.office365.com/owa/?ItemID=AAMkAG&exvsurl=1&viewmodel=ReadMessageItem",
+        "https://outlook.live.com/mail/0/deeplink/read/AAMkAG%2Fowa%2Bid%3D?ItemID=AAMkAG%2Fowa%2Bid%3D&exvsurl=1",
     });
 
     const response = await GET(new NextRequest(requestUrl), routeContext);
 
+    expect(emailProvider.getDraft).toHaveBeenCalledWith("draft-resource-123");
     expect(response.headers.get("location")).toBe(
-      "https://outlook.office365.com/owa/?ItemID=AAMkAG&exvsurl=1&viewmodel=ReadMessageItem&ispopout=0",
+      "https://outlook.live.com/mail/0/deeplink/read/AAMkAG%2Fowa%2Bid%3D?ItemID=AAMkAG%2Fowa%2Bid%3D&exvsurl=1&ispopout=0",
     );
   });
 
-  it("returns an explicit error when Outlook has no trusted draft link", async () => {
+  it("returns an explicit error when the draft cannot be linked to", async () => {
     getEmailAccountMock.mockResolvedValue("user@example.com");
     prisma.meeting.findFirst.mockResolvedValue({
       followUpDraftId: "draft-resource-123",
       emailAccount: { account: { provider: "microsoft" } },
     } as never);
     emailProvider.getDraft.mockResolvedValue({
-      id: "draft-message-123",
+      id: "",
       threadId: "thread-123",
     });
 
@@ -102,8 +103,7 @@ describe("meeting follow-up draft route", () => {
 
     expect(response.status).toBe(422);
     expect(await response.json()).toEqual({
-      error:
-        "The draft exists, but no trusted provider link is available to open it.",
+      error: "The draft exists, but it cannot be opened in your mailbox.",
     });
     expect(response.headers.get("location")).toBeNull();
   });

@@ -23,7 +23,7 @@ import { handleOAuthCallbackError } from "@/utils/oauth/error-handler";
 import {
   fetchGoogleOpenIdProfile,
   isGoogleOauthEmulationEnabled,
-} from "@/utils/google/oauth";
+} from "@/utils/gmail/oauth";
 import {
   acquireOAuthCodeLock,
   getOAuthCodeResult,

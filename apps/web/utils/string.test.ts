@@ -24,6 +24,12 @@ describe("string utils", () => {
         length: 10,
         expected: "hello",
       },
+      {
+        name: "a cut that would split a surrogate pair",
+        input: "ab𝗦cd",
+        length: 3,
+        expected: "ab...",
+      },
     ])("handles $name", ({ input, length, expected }) => {
       expect(truncate(input, length)).toBe(expected);
     });
@@ -52,6 +58,16 @@ describe("string utils", () => {
     it("falls back to the tail when the head budget is exhausted", () => {
       const result = truncateHeadTail("ABCDEFGHIJKLMNOPQRSTUVWXYZ", 10, 20);
       expect(result).toBe("\n...\nVWXYZ");
+    });
+
+    it("does not split a surrogate pair at the head cut", () => {
+      const result = truncateHeadTail(`abc😀${"x".repeat(20)}`, 13, 4);
+      expect(result).toBe("abc\n...\nxxxx");
+    });
+
+    it("does not split a surrogate pair at the tail cut", () => {
+      const result = truncateHeadTail(`${"x".repeat(20)}😀yz`, 12, 3);
+      expect(result).toBe("xxxx\n...\nyz");
     });
   });
 

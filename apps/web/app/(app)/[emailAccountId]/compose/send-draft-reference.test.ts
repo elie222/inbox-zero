@@ -2,10 +2,10 @@ import { beforeEach, expect, it, vi } from "vitest";
 import {
   getReplyDraft,
   type ReplyDraftContent,
-} from "@/utils/email-cache/reply-drafts";
+} from "@/utils/mail-engine/reply-drafts";
 import { resolveSendDraftId } from "./send-draft-reference";
 
-vi.mock("@/utils/email-cache/reply-drafts", () => ({ getReplyDraft: vi.fn() }));
+vi.mock("@/utils/mail-engine/reply-drafts", () => ({ getReplyDraft: vi.fn() }));
 
 const identity = {
   emailAccountId: "account",
@@ -16,10 +16,9 @@ const content: ReplyDraftContent = {
   values: { to: "recipient@example.com", subject: "Reply" },
   draft: {
     editableHtml: "<p>Reply</p>",
-    mode: "rich",
+    mode: "original",
     quotedHtml: "",
     signatureHtml: "",
-    unsupported: [],
   },
   preservedBlocks: [],
   attachments: [],

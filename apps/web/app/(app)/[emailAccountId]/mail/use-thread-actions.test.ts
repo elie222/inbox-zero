@@ -2,423 +2,226 @@
 
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { MailMutation } from "@/utils/email-cache/mail-mutations";
 import type { ListThread } from "./types";
-import { useThreadActions } from "./use-thread-actions";
+import {
+  type ThreadActionTarget,
+  useThreadActions,
+} from "./use-thread-actions";
+import { admissionRejectionCopy } from "@/utils/mail-engine/admission-notice";
 
-const outbox = vi.hoisted(() => ({
-  cancel: vi.fn(),
-  enqueue: vi.fn(),
-  enqueueBatch: vi.fn(),
-}));
 const notifications = vi.hoisted(() => ({
   error: vi.fn(),
   success: vi.fn(),
 }));
-
-vi.mock("@/utils/email-cache/mail-mutations", () => ({
-  cancelPendingMailMutation: outbox.cancel,
-  enqueueMailMutation: outbox.enqueue,
-  enqueueMailMutationBatch: outbox.enqueueBatch,
+const mail = vi.hoisted(() => ({
+  client: {
+    cancelOperation: vi.fn(),
+    getDiagnostics: vi.fn(),
+    submitConversations: vi.fn(),
+  },
 }));
-vi.mock("sonner", () => ({ toast: notifications }));
 
-describe("useThreadActions durable mutations", () => {
+vi.mock("sonner", () => ({ toast: notifications }));
+const toasts = vi.hoisted(() => ({ toastUndo: vi.fn() }));
+
+vi.mock("@/components/Toast", () => toasts);
+vi.mock("@inboxzero/mail-react/MailEngineProvider", () => ({
+  useOptionalMailClient: () => mail.client,
+}));
+
+describe("useThreadActions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    outbox.cancel.mockResolvedValue(true);
-    outbox.enqueue.mockImplementation(async (input) =>
-      createMutation(input.kind, input.id),
-    );
-    outbox.enqueueBatch.mockImplementation(async (inputs) =>
-      inputs.map((input, index) =>
-        createMutation(input.kind, input.id ?? `mutation-id-${index}`),
-      ),
-    );
+    mail.client.getDiagnostics.mockResolvedValue({ revision: 1 });
+    mail.client.submitConversations.mockResolvedValue({ status: "queued" });
+    mail.client.cancelOperation.mockResolvedValue({ status: "cancelled" });
   });
 
-  it("does not resolve an archive until its exact snapshot is durable", async () => {
-    let persist: ((mutation: MailMutation) => void) | undefined;
-    outbox.enqueueBatch.mockReturnValue(
-      new Promise<MailMutation[]>((resolve) => {
-        persist = (mutation) => resolve([mutation]);
-      }),
-    );
+  it("archives through the engine with the observed revision", async () => {
     const { result } = renderActions();
-
-    let queued: string[] | undefined;
-    const action = act(async () => {
-      queued = await result.current.archive(["thread"]);
-    });
-
-    expect(outbox.enqueueBatch).toHaveBeenCalledWith([
-      {
-        emailAccountId: "account",
-        kind: "archive",
-        messageIds: ["message-one", "message-two"],
-        threadId: "thread",
-      },
-    ]);
-    expect(queued).toBeUndefined();
-
-    persist?.(createMutation("archive"));
-    await action;
-
-    expect(queued).toEqual(["thread"]);
-  });
-
-  it("queues the complete provider snapshot when displayed messages are filtered", async () => {
-    const { result } = renderActions({
-      threads: [
-        createThread(["INBOX"], {
-          messageIds: ["message-one", "message-two", "filtered-message"],
-        }),
-      ],
-    });
-
     await act(() => result.current.archive(["thread"]));
-
-    expect(outbox.enqueueBatch).toHaveBeenCalledWith([
-      expect.objectContaining({
-        kind: "archive",
-        messageIds: ["message-one", "message-two", "filtered-message"],
-      }),
-    ]);
-  });
-
-  it("leaves a row unchanged when its mutation cannot be stored", async () => {
-    outbox.enqueueBatch.mockRejectedValue(new Error("IndexedDB unavailable"));
-    const { result } = renderActions();
-
-    let queued: string[] = [];
-    await act(async () => {
-      queued = await result.current.trash(["thread"]);
+    expect(mail.client.submitConversations).toHaveBeenCalledWith({
+      accountId: "account",
+      commandId: expect.any(String),
+      conversations: [{ accountId: "account", conversationId: "thread" }],
+      change: { kind: "archive" },
+      observedRevision: 1,
     });
-
-    expect(queued).toEqual([]);
-    expect(notifications.error).toHaveBeenCalledWith("Couldn't queue deletion");
   });
 
-  it("reports actions whose reader target has no retained list row", async () => {
-    const { result } = renderActions({ threads: [] });
-
-    await act(() => result.current.archive(["missing-thread"]));
-    await act(() => result.current.setReadState(["missing-thread"], true));
-    await act(() =>
-      result.current.snooze(
-        ["missing-thread"],
-        new Date("2026-08-26T09:00:00Z"),
-      ),
-    );
-
-    expect(notifications.error).toHaveBeenCalledTimes(3);
-    expect(outbox.enqueueBatch).not.toHaveBeenCalled();
-  });
-
-  it("counts unresolved rows in partial-action feedback", async () => {
-    const { result } = renderActions();
-
-    await act(() => result.current.archive(["thread", "missing-thread"]));
-
-    expect(outbox.enqueueBatch).toHaveBeenCalledOnce();
-    expect(notifications.error).toHaveBeenCalledWith(
-      "Couldn't queue 1 of 2 for archiving",
-    );
-  });
-
-  it("does not resolve a read change before the durable overlay can observe it", async () => {
-    let persist: ((mutation: MailMutation) => void) | undefined;
-    outbox.enqueueBatch.mockReturnValue(
-      new Promise<MailMutation[]>((resolve) => {
-        persist = (mutation) => resolve([mutation]);
-      }),
-    );
-    const { result } = renderActions();
-
-    let queued: string[] | undefined;
-    const action = act(async () => {
-      queued = await result.current.setReadState(["thread"], true);
-    });
-    expect(queued).toBeUndefined();
-
-    persist?.(createMutation("set_read_state"));
-    await action;
-
-    expect(outbox.enqueueBatch).toHaveBeenCalledWith([
-      expect.objectContaining({
-        emailAccountId: "account",
-        kind: "set_read_state",
-        messageIds: ["message-one", "message-two"],
-        read: true,
-        threadId: "thread",
-      }),
-    ]);
-    expect(queued).toEqual(["thread"]);
-  });
-
-  it("confirms explicit read-state changes after they are durable", async () => {
-    const { result } = renderActions();
-
-    await act(() => result.current.setReadState(["thread"], false));
-
-    expect(notifications.success).toHaveBeenCalledWith("Marked as unread");
-  });
-
-  it("does not notify for automatic mark-read changes", async () => {
-    const { result } = renderActions();
-
-    await act(() => result.current.markRead(["thread"]));
-
-    expect(notifications.success).not.toHaveBeenCalled();
-  });
-
-  it("queues same-id combined rows under their owning accounts in one batch", async () => {
+  it("archives a multi-thread selection as one engine command", async () => {
     const threads = [
-      createThread(["INBOX"], {
-        account: { id: "account-one", email: "one@example.com" },
-      }),
-      createThread(["INBOX"], {
-        account: { id: "account-two", email: "two@example.com" },
-      }),
+      createThread(["INBOX"], "one"),
+      createThread(["INBOX"], "two"),
     ];
     const { result } = renderActions({ threads });
-
-    await act(() =>
-      result.current.archive(["account-one:thread", "account-two:thread"]),
-    );
-
-    expect(outbox.enqueueBatch).toHaveBeenCalledOnce();
-    expect(outbox.enqueueBatch).toHaveBeenCalledWith([
-      expect.objectContaining({
-        emailAccountId: "account-one",
-        threadId: "thread",
-      }),
-      expect.objectContaining({
-        emailAccountId: "account-two",
-        threadId: "thread",
-      }),
-    ]);
-  });
-
-  it("queues snooze snapshots for the durable visibility overlay", async () => {
-    const { result } = renderActions();
-    const until = new Date("2026-08-16T09:00:00.000Z");
-
-    await act(() => result.current.snooze(["thread"], until));
-
-    expect(outbox.enqueueBatch).toHaveBeenCalledWith([
-      expect.objectContaining({
-        kind: "snooze",
-        scheduledFor: until.toISOString(),
-      }),
-    ]);
-  });
-
-  it("queues spam snapshots for durable removal", async () => {
-    const { result } = renderActions();
-
-    await act(() => result.current.markSpam(["thread"]));
-
-    expect(outbox.enqueueBatch).toHaveBeenCalledWith([
-      {
-        emailAccountId: "account",
-        kind: "spam",
-        messageIds: ["message-one", "message-two"],
-        threadId: "thread",
-      },
-    ]);
-    expect(notifications.success).toHaveBeenCalledWith("Marked as spam");
-  });
-
-  it("queues a fetched reader snapshot that is absent from the list", async () => {
-    const { result } = renderActions({
-      threads: [],
-      readerTarget: {
-        emailAccountId: "account",
-        key: "reader-thread",
-        messageIds: ["reader-message"],
-        threadId: "reader-thread",
-      },
+    let archived: string[] = [];
+    await act(async () => {
+      archived = await result.current.archive(threads.map((t) => t.id));
     });
-
-    await act(() => result.current.markSpam(["reader-thread"]));
-
-    expect(outbox.enqueueBatch).toHaveBeenCalledWith([
-      {
-        emailAccountId: "account",
-        kind: "spam",
-        messageIds: ["reader-message"],
-        threadId: "reader-thread",
-      },
-    ]);
+    expect(archived).toHaveLength(2);
+    expect(mail.client.submitConversations).toHaveBeenCalledTimes(1);
+    expect(mail.client.submitConversations).toHaveBeenCalledWith(
+      expect.objectContaining({
+        conversations: [
+          { accountId: "account", conversationId: "one" },
+          { accountId: "account", conversationId: "two" },
+        ],
+      }),
+    );
   });
 
-  it("clears a fetched reader snapshot when the reader closes", async () => {
-    const readerTarget = {
-      emailAccountId: "account",
-      key: "reader-thread",
-      messageIds: ["reader-message"],
-      threadId: "reader-thread",
-    };
-    const { result, rerender } = renderHook(
-      ({ target }) =>
-        useThreadActions({
-          emailAccountId: "account",
-          readerTarget: target,
-          threads: [],
-        }),
+  it("submits one command per account for a combined inbox selection", async () => {
+    const threads = [
+      { ...createThread(["INBOX"], "shared"), account: { id: "work" } },
+      { ...createThread(["INBOX"], "shared"), account: { id: "home" } },
+    ] as unknown as ListThread[];
+    const { result } = renderActions({ threads });
+    let archived: string[] = [];
+    await act(async () => {
+      archived = await result.current.archive(["work:shared", "home:shared"]);
+    });
+    expect(archived).toEqual(["work:shared", "home:shared"]);
+    expect(
+      mail.client.submitConversations.mock.calls.map(([command]) => ({
+        accountId: command.accountId,
+        conversations: command.conversations,
+      })),
+    ).toEqual([
       {
-        initialProps: {
-          target: readerTarget as typeof readerTarget | undefined,
-        },
+        accountId: "work",
+        conversations: [{ accountId: "work", conversationId: "shared" }],
       },
+      {
+        accountId: "home",
+        conversations: [{ accountId: "home", conversationId: "shared" }],
+      },
+    ]);
+
+    await act(() => result.current.undo());
+    expect(
+      mail.client.cancelOperation.mock.calls.map(([key]) => key.accountId),
+    ).toEqual(["work", "home"]);
+  });
+
+  it("undoes an already-running multi-thread archive with one unarchive command", async () => {
+    mail.client.cancelOperation.mockResolvedValue({ status: "too_late" });
+    const threads = [
+      createThread(["INBOX"], "one"),
+      createThread(["INBOX"], "two"),
+    ];
+    const { result } = renderActions({ threads });
+    await act(() => result.current.archive(threads.map((t) => t.id)));
+    mail.client.submitConversations.mockClear();
+    let restored: string[] = [];
+    await act(async () => {
+      restored = await result.current.undo();
+    });
+    expect(restored).toHaveLength(2);
+    expect(mail.client.cancelOperation).toHaveBeenCalledTimes(1);
+    expect(mail.client.submitConversations).toHaveBeenCalledTimes(1);
+    expect(mail.client.submitConversations).toHaveBeenCalledWith(
+      expect.objectContaining({
+        change: { kind: "unarchive" },
+        conversations: [
+          { accountId: "account", conversationId: "one" },
+          { accountId: "account", conversationId: "two" },
+        ],
+      }),
     );
+  });
 
-    rerender({ target: undefined });
-    await act(() => result.current.markSpam(["reader-thread"]));
+  it("moves an archived thread to the inbox and undoes it by archiving again", async () => {
+    mail.client.cancelOperation.mockResolvedValue({ status: "too_late" });
+    const { result } = renderActions({ threads: [createThread(["SENT"])] });
+    await act(() => result.current.moveToInbox(["thread"]));
+    expect(mail.client.submitConversations).toHaveBeenCalledWith(
+      expect.objectContaining({ change: { kind: "unarchive" } }),
+    );
+    mail.client.submitConversations.mockClear();
+    await act(() => result.current.undo());
+    expect(mail.client.submitConversations).toHaveBeenCalledWith(
+      expect.objectContaining({ change: { kind: "archive" } }),
+    );
+  });
 
-    expect(outbox.enqueueBatch).not.toHaveBeenCalled();
+  it("does not archive a missing row", async () => {
+    const { result } = renderActions({ threads: [] });
+    await act(() => result.current.archive(["missing-thread"]));
+    expect(mail.client.submitConversations).not.toHaveBeenCalled();
     expect(notifications.error).toHaveBeenCalledWith(
-      "Couldn't queue marking as spam",
+      "Couldn't queue archiving",
     );
   });
 
-  it("retains the opened snapshot after the durable overlay hides its row", async () => {
-    const thread = createThread(["INBOX", "UNREAD"]);
-    const { result, rerender } = renderHook(
-      ({ threads }: { threads: ListThread[] }) =>
-        useThreadActions({ emailAccountId: "account", threads }),
-      { initialProps: { threads: [thread] } },
+  it("explains a full command queue instead of a generic archive failure", async () => {
+    mail.client.submitConversations.mockResolvedValue({
+      status: "rejected",
+      code: "queue_full",
+    });
+    const { result } = renderActions();
+    await act(() => result.current.archive(["thread"]));
+    expect(notifications.error).toHaveBeenCalledWith(
+      admissionRejectionCopy("queue_full"),
     );
-    rerender({ threads: [] });
+  });
 
-    await act(() => result.current.setReadState(["thread"], false));
-
-    expect(outbox.enqueueBatch).toHaveBeenCalledWith([
+  it("reports the restored thread when undo comes from the toast", async () => {
+    const onRestore = vi.fn();
+    const { result } = renderActions({ onRestore });
+    await act(() => result.current.archive(["thread"]));
+    const [{ onUndo }] = toasts.toastUndo.mock.calls[0];
+    await act(async () => {
+      onUndo();
+      await vi.waitFor(() => expect(onRestore).toHaveBeenCalled());
+    });
+    expect(onRestore).toHaveBeenCalledWith([
       expect.objectContaining({
         emailAccountId: "account",
-        messageIds: ["message-one", "message-two"],
-        read: false,
+        key: "thread",
         threadId: "thread",
       }),
     ]);
   });
 
-  it("does not reuse a same-id snapshot after the account route changes", async () => {
-    const oldThread = createThread(["INBOX"]);
-    const newThread = createThread(["INBOX"]);
-    newThread.messages = newThread.messages.map((message) => ({
-      ...message,
-      id: `new-${message.id}`,
-    }));
-    newThread.messageIds = newThread.messageIds.map(
-      (messageId) => `new-${messageId}`,
-    );
-    const { result, rerender } = renderHook(
-      ({ emailAccountId, threads }) =>
-        useThreadActions({ emailAccountId, threads }),
-      {
-        initialProps: {
-          emailAccountId: "account-one",
-          threads: [oldThread],
-        },
-      },
-    );
-    rerender({ emailAccountId: "account-two", threads: [newThread] });
-
-    await act(() => result.current.archive(["thread"]));
-
-    expect(outbox.enqueueBatch).toHaveBeenCalledWith([
-      expect.objectContaining({
-        emailAccountId: "account-two",
-        messageIds: ["new-message-one", "new-message-two"],
-        threadId: "thread",
-      }),
-    ]);
-  });
-
-  it("undo cancels a pending archive so the durable overlay restores it", async () => {
+  it("cancels an in-flight archive on undo", async () => {
     const { result } = renderActions();
-
     await act(() => result.current.archive(["thread"]));
     await act(() => result.current.undo());
-
-    expect(outbox.cancel).toHaveBeenCalledWith("mutation-id-0");
-    expect(outbox.enqueue).not.toHaveBeenCalled();
-    expect(notifications.success).toHaveBeenCalledWith("Restored");
-  });
-
-  it("undo queues compensation with the original snapshot when work started", async () => {
-    outbox.cancel.mockResolvedValue(false);
-    const { result } = renderActions();
-
-    await act(() => result.current.trash(["thread"]));
-    await act(() => result.current.undo());
-
-    expect(outbox.enqueue).toHaveBeenCalledWith({
-      batchId: expect.any(String),
-      emailAccountId: "account",
-      kind: "untrash",
-      messageIds: ["message-one", "message-two"],
-      threadId: "thread",
+    expect(mail.client.cancelOperation).toHaveBeenCalledWith({
+      accountId: "account",
+      operationId: expect.any(String),
     });
-    expect(notifications.success).toHaveBeenCalledWith("Restored");
-  });
-
-  it("does not restore an undo whose compensation cannot be persisted", async () => {
-    outbox.cancel.mockResolvedValue(false);
-    outbox.enqueue
-      .mockRejectedValueOnce(new Error("disk full"))
-      .mockResolvedValueOnce(createMutation("unarchive"));
-    const { result } = renderActions();
-
-    await act(() => result.current.archive(["thread"]));
-    await act(() => result.current.undo());
-
-    expect(notifications.error).toHaveBeenCalledWith("Couldn't restore");
-
-    await act(() => result.current.undo());
-
-    expect(outbox.enqueue).toHaveBeenCalledTimes(2);
-    expect(notifications.success).toHaveBeenCalledWith("Restored");
   });
 });
 
 function renderActions({
+  onRestore,
   threads = [createThread(["INBOX", "UNREAD"])],
-  readerTarget,
 }: {
+  onRestore?: (targets: ThreadActionTarget[]) => void;
   threads?: ListThread[];
-  readerTarget?: {
-    emailAccountId: string;
-    key: string;
-    messageIds: string[];
-    threadId: string;
-  };
 } = {}) {
   return renderHook(() =>
     useThreadActions({
       emailAccountId: "account",
-      readerTarget,
+      onRestore,
       threads,
     }),
   );
 }
 
-function createThread(
-  labelIds: string[],
-  extra: Partial<ListThread> = {},
-): ListThread {
+function createThread(labelIds: string[], id = "thread"): ListThread {
   return {
-    id: "thread",
-    messageIds: ["message-one", "message-two"],
+    id,
+    messageIds: [`${id}-message`],
     snippet: "snippet",
     plan: undefined,
     plans: [],
     messages: [
       {
-        id: "message-one",
-        threadId: "thread",
+        id: `${id}-message`,
+        threadId: id,
         snippet: "snippet",
         subject: "Subject",
         date: "0",
@@ -426,37 +229,6 @@ function createThread(
         labelIds,
         headers: { subject: "Subject" },
       },
-      {
-        id: "message-two",
-        threadId: "thread",
-        snippet: "snippet",
-        subject: "Subject",
-        date: "1",
-        internalDate: "1",
-        labelIds,
-        headers: { subject: "Subject" },
-      },
     ],
-    ...extra,
-  } as ListThread;
-}
-
-function createMutation(
-  kind: MailMutation["kind"],
-  id = "mutation-id",
-): MailMutation {
-  return {
-    id,
-    batchId: id,
-    emailAccountId: "account",
-    threadId: "thread",
-    messageIds: ["message-one", "message-two"],
-    kind,
-    status: "pending",
-    attempts: 0,
-    nextAttemptAt: 0,
-    createdAt: 0,
-    updatedAt: 0,
-    ...(kind === "set_read_state" ? { read: true } : {}),
-  } as MailMutation;
+  };
 }

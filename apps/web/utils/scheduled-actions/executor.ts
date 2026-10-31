@@ -66,12 +66,15 @@ export async function executeScheduledAction(
       id: scheduledAction.id, // Use scheduled action ID temporarily
       type: scheduledAction.actionType,
       label: scheduledAction.label,
+      labelId: scheduledAction.labelId,
       subject: scheduledAction.subject,
       content: scheduledAction.content,
       to: scheduledAction.to,
       cc: scheduledAction.cc,
       bcc: scheduledAction.bcc,
       url: scheduledAction.url,
+      folderName: scheduledAction.folderName,
+      folderId: scheduledAction.folderId,
       staticAttachments: scheduledAction.staticAttachments,
       selectedAttachments: scheduledAction.selectedAttachments,
     };
@@ -130,6 +133,7 @@ async function validateEmailState(
     }
 
     const emailForAction: EmailForAction = {
+      externalUrl: message.externalUrl,
       threadId: message.threadId,
       id: message.id,
       headers: message.headers,
@@ -179,12 +183,15 @@ async function executeDelayedAction({
     data: {
       type: actionItem.type,
       label: actionItem.label,
+      labelId: actionItem.labelId,
       subject: actionItem.subject,
       content: actionItem.content,
       to: actionItem.to,
       cc: actionItem.cc,
       bcc: actionItem.bcc,
       url: actionItem.url,
+      folderName: actionItem.folderName,
+      folderId: actionItem.folderId,
       staticAttachments: actionItem.staticAttachments ?? undefined,
       selectedAttachments: actionItem.selectedAttachments ?? undefined,
       executedRuleId: scheduledAction.executedRuleId,
@@ -206,6 +213,7 @@ async function executeDelayedAction({
   }
 
   const email: EmailForAction = {
+    externalUrl: emailMessage.externalUrl,
     id: emailMessage.id,
     threadId: emailMessage.threadId,
     headers: emailMessage.headers,

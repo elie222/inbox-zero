@@ -53,8 +53,17 @@ export const AdminUpgradeUserForm = () => {
   const { execute: changePremiumStatus, isExecuting } = useAction(
     adminChangePremiumStatusAction,
     {
-      onSuccess: () => {
-        toastSuccess({ description: "Premium status changed" });
+      onSuccess: ({ data, input }) => {
+        if (!data?.pending) {
+          toastSuccess({ description: "Premium status changed" });
+        } else if (input.upgrade) {
+          toastSuccess({
+            description:
+              "User has not signed up yet. Premium will be applied when they sign up.",
+          });
+        } else {
+          toastSuccess({ description: "Pending premium grant removed" });
+        }
       },
       onError: ({ error }) => {
         toastError({

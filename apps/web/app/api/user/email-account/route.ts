@@ -33,6 +33,7 @@ async function getEmailAccount({
       allowHiddenAiDraftLinks: true,
       timezone: true,
       calendarBookingLink: true,
+      draftDocsUrls: true,
       signature: true,
       includeReferralSignature: true,
       includeSentWithSignature: true,

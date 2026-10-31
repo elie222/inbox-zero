@@ -205,7 +205,7 @@ describe("confirmAssistantCreateRule", () => {
 
     expect(createRuleMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        enablement: { source: "chat", chatRiskConfirmed: true },
+        result: expect.objectContaining({ name: "Auto reply" }),
       }),
     );
     expect(createRuleMock.mock.calls[0][0]).toMatchObject({

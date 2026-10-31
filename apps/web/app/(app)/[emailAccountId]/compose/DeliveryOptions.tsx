@@ -13,12 +13,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { ComposeShortcutTooltipContent } from "./ComposeShortcutTooltipContent";
+import { Tooltip } from "@/components/Tooltip";
 
 export type DeliveryOptionsHandle = {
   open: (option: "sendLater" | "remindMe") => void;
@@ -121,31 +116,26 @@ function DeliveryTimePicker({
         if (!nextOpen) setShowCustom(false);
       }}
     >
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <PopoverTrigger asChild>
-            <Button
-              type="button"
-              variant="ghostMuted"
-              size="sm"
-              disabled={disabled}
-              className="px-2 text-xs hover:bg-transparent"
-              aria-label={label}
-            >
-              {value
-                ? new Date(value).toLocaleString(undefined, {
-                    month: "short",
-                    day: "numeric",
-                    hour: "numeric",
-                    minute: "2-digit",
-                  })
-                : label}
-            </Button>
-          </PopoverTrigger>
-        </TooltipTrigger>
-        <TooltipContent>
-          <ComposeShortcutTooltipContent shortcuts={[shortcut]} />
-        </TooltipContent>
+      <Tooltip shortcuts={[shortcut]} showShortcutLabels={!!value}>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="ghostMuted"
+            size="sm"
+            disabled={disabled}
+            className="px-2 text-xs hover:bg-transparent"
+            aria-label={label}
+          >
+            {value
+              ? new Date(value).toLocaleString(undefined, {
+                  month: "short",
+                  day: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                })
+              : label}
+          </Button>
+        </PopoverTrigger>
       </Tooltip>
       <PopoverContent
         className="w-72 p-1"
@@ -188,9 +178,11 @@ function DeliveryTimePicker({
           </div>
         ) : (
           <>
-            <p className="px-2 py-2 text-xs font-medium text-muted-foreground">
-              {isReminder ? "Remind me if no reply" : label}
-            </p>
+            {isReminder && (
+              <p className="px-2 py-2 text-xs font-medium text-muted-foreground">
+                Remind me if no reply
+              </p>
+            )}
             {[1, 2, 7].map((days) => {
               const date = new Date(earliest);
               date.setDate(date.getDate() + days);

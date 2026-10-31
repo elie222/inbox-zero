@@ -6,8 +6,8 @@ vi.mock("@/env", () => ({
   env: {
     EMAIL_ENCRYPT_SECRET: "test-encryption-secret",
     EMAIL_ENCRYPT_SALT: "test-encryption-salt",
-    UPSTASH_REDIS_URL: "https://redis.example.com",
-    UPSTASH_REDIS_TOKEN: "test-token",
+    REDIS_HTTP_URL: "https://redis.example.com",
+    REDIS_HTTP_TOKEN: "test-token",
   },
 }));
 

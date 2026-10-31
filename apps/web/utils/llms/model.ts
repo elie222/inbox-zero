@@ -103,15 +103,16 @@ function selectModel(
 ): ResolvedModel {
   switch (aiProvider) {
     case Provider.OPEN_AI: {
-      const modelName = aiModel || "gpt-5.6-luna";
-      // When Zero Data Retention is enabled, set store: false to avoid
-      // "Items are not persisted for Zero Data Retention organizations" errors
+      const modelName = aiModel || "gpt-6-luna";
+      // Zero Data Retention orgs reject follow-up steps that reference stored
+      // reasoning items. We can't tell whether a user's own key belongs to such
+      // an org, so user keys always skip storage.
       // See: https://github.com/vercel/ai/issues/10060
       const baseOptions = providerOptions ?? {};
       const openAiOptions = {
         ...(baseOptions.openai ?? {}),
         reasoningEffort: REASONING_EFFORT_BY_MODEL_TYPE[modelType],
-        ...(env.OPENAI_ZERO_DATA_RETENTION ? { store: false } : {}),
+        ...(aiApiKey || env.OPENAI_ZERO_DATA_RETENTION ? { store: false } : {}),
       };
       const openAiProviderOptions = Object.keys(openAiOptions).length
         ? { ...baseOptions, openai: openAiOptions }
@@ -126,8 +127,7 @@ function selectModel(
       };
     }
     case Provider.AZURE: {
-      const modelName = aiModel || "gpt-5.6-luna";
-      const baseOptions = providerOptions ?? {};
+      const modelName = aiModel || "gpt-6-luna";
       const resourceName = env.AZURE_RESOURCE_NAME;
       if (!resourceName) {
         throw new SafeError(
@@ -143,13 +143,7 @@ function selectModel(
           resourceName,
           apiVersion: env.AZURE_API_VERSION,
         })(modelName),
-        providerOptions: {
-          ...baseOptions,
-          openai: {
-            ...(baseOptions.openai ?? {}),
-            reasoningEffort: REASONING_EFFORT_BY_MODEL_TYPE[modelType],
-          },
-        },
+        providerOptions: getAzureProviderOptions(providerOptions, modelType),
       };
     }
     case Provider.AZURE_FOUNDRY: {
@@ -175,16 +169,11 @@ function selectModel(
         );
       }
 
-      const azureFoundry = createOpenAICompatible({
-        name: "azure-foundry",
-        baseURL,
-        supportsStructuredOutputs: true,
-        headers: { "api-key": apiKey },
-      });
       return {
         provider: Provider.AZURE_FOUNDRY,
         modelName,
-        model: azureFoundry(modelName),
+        model: createAzure({ apiKey, baseURL })(modelName),
+        providerOptions: getAzureProviderOptions(providerOptions, modelType),
       };
     }
     case Provider.GOOGLE: {
@@ -290,6 +279,7 @@ function selectModel(
         provider: Provider.OLLAMA,
         modelName,
         model: createOllama({ baseURL })(modelName),
+        providerOptions: getLocalThinkingProviderOptions("ollama"),
       };
     }
     case Provider.OPENAI_COMPATIBLE: {
@@ -307,6 +297,7 @@ function selectModel(
         provider: Provider.OPENAI_COMPATIBLE,
         modelName,
         model: openaiCompatible(modelName),
+        providerOptions: getLocalThinkingProviderOptions("openai-compatible"),
       };
     }
     case Provider.CODEX_CLI: {
@@ -613,6 +604,21 @@ function getOpenAiCompatibleBaseUrl() {
   );
 }
 
+function getLocalThinkingProviderOptions(
+  provider: "ollama" | "openai-compatible",
+) {
+  const thinking = env.LOCAL_LLM_THINKING;
+  if (!thinking || thinking === "auto") return;
+
+  const enabled = thinking === "on";
+  if (provider === "ollama") return { ollama: { think: enabled } };
+  return {
+    "openai-compatible": {
+      chat_template_kwargs: { enable_thinking: enabled },
+    },
+  };
+}
+
 function getOllamaBaseUrl(): string | undefined {
   const baseURL = env.OLLAMA_BASE_URL?.trim();
   if (!baseURL) return;
@@ -897,4 +903,19 @@ function isDuplicateResolvedModel(
 
 function isSupportedProvider(provider: string): boolean {
   return Object.values(Provider).includes(provider);
+}
+
+function getAzureProviderOptions(
+  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
+  providerOptions: Record<string, any> | undefined,
+  modelType: ModelType,
+) {
+  const baseOptions = providerOptions ?? {};
+  return {
+    ...baseOptions,
+    openai: {
+      ...(baseOptions.openai ?? {}),
+      reasoningEffort: REASONING_EFFORT_BY_MODEL_TYPE[modelType],
+    },
+  };
 }

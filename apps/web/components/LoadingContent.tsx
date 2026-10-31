@@ -1,6 +1,9 @@
+"use client";
+
 import type React from "react";
 import { Loading } from "./Loading";
 import { ErrorDisplay } from "./ErrorDisplay";
+import { useIsOnline } from "@/hooks/useIsOnline";
 
 interface LoadingContentProps {
   children: React.ReactNode;
@@ -15,10 +18,13 @@ interface LoadingContentProps {
 }
 
 export function LoadingContent(props: LoadingContentProps) {
+  const online = useIsOnline();
   const ignoreError = shouldIgnoreError(props.error);
 
   if (props.error && !ignoreError) {
-    return props.errorComponent ? (
+    // Custom error screens can't tell a dropped connection from a server
+    // error, so offline always gets the shared offline state.
+    return props.errorComponent && online ? (
       props.errorComponent
     ) : (
       <div className="mt-4">

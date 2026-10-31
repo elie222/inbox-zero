@@ -21,7 +21,6 @@ type Testimonial = {
     name: string;
     handle: string;
     imageUrl: string;
-    logoUrl?: string;
   };
 };
 
@@ -31,7 +30,6 @@ const featuredTestimonial = {
     name: "Jonni Lundy",
     handle: "Resend",
     imageUrl: "/images/testimonials/jonnilundy.jpg",
-    logoUrl: "/images/logos/resend.svg",
   },
 };
 
@@ -262,16 +260,6 @@ function TestimonialCard({
             ) : undefined}
           </div>
         </div>
-        {variant === "featured" && testimonial.author.logoUrl ? (
-          <Image
-            className="h-8 w-auto flex-none"
-            src={testimonial.author.logoUrl}
-            alt={testimonial.author.name}
-            height={32}
-            width={98}
-            unoptimized
-          />
-        ) : null}
       </CardContent>
     </Card>
   );

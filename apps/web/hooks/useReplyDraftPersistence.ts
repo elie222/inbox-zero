@@ -1,11 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   createReplyDraftWriter,
   type ReplyDraftContent,
   type ReplyDraftIdentity,
-} from "@/utils/email-cache/reply-drafts";
+} from "@/utils/mail-engine/reply-drafts";
+import { registerOpenComposer } from "@/utils/safe-reload";
 
 type DraftDeliveryTimes = { sendAt?: string; remindAt?: string };
 
@@ -28,57 +35,74 @@ export function useReplyDraftPersistence({
   );
   const stopped = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const dirty = useRef(false);
+  const pendingDeliveryTimes = useRef<DraftDeliveryTimes | undefined>(
+    undefined,
+  );
   const latest = useRef<ReplyDraftContent | undefined>(undefined);
-  const latestSnapshot = useRef<string | undefined>(undefined);
   const queuedSnapshot = useRef<string | undefined>(undefined);
+  const queuedSave = useRef<Promise<boolean> | undefined>(undefined);
   const mounted = useRef(true);
   const getContentRef = useRef(getContent);
   getContentRef.current = getContent;
 
-  const flush = useCallback(async () => {
+  const readPendingContent = useCallback(() => {
+    if (!dirty.current) return;
+    const content = getContentRef.current(pendingDeliveryTimes.current);
+    if (!content) return;
+    dirty.current = false;
+    pendingDeliveryTimes.current = undefined;
+    latest.current = content;
+  }, []);
+
+  /** Resolves `false` when the latest edits could not be saved. */
+  const flush = useCallback(async (): Promise<boolean> => {
     clearTimeout(timer.current);
+    if (!writer || stopped.current) return false;
+    readPendingContent();
     const content = latest.current;
-    const snapshot = latestSnapshot.current;
-    if (!content || !snapshot || !writer || stopped.current) return;
-    if (snapshot === queuedSnapshot.current) return;
+    if (!content) return true;
+    const snapshot = JSON.stringify(content);
+    if (snapshot === queuedSnapshot.current) return queuedSave.current ?? true;
 
     queuedSnapshot.current = snapshot;
-    try {
-      await writer.save(content);
-      if (
-        mounted.current &&
-        !stopped.current &&
-        latestSnapshot.current === snapshot
-      ) {
-        setSaveError("");
-      }
-    } catch (error) {
-      if (queuedSnapshot.current === snapshot)
-        queuedSnapshot.current = undefined;
-      if (mounted.current) {
-        setSaveError(
-          error instanceof Error
-            ? error.message
-            : "Could not save draft on this device.",
-        );
-      }
-    }
-  }, [writer]);
+    const save = writer.save(content).then(
+      () => {
+        if (
+          mounted.current &&
+          !stopped.current &&
+          queuedSnapshot.current === snapshot
+        ) {
+          setSaveError("");
+        }
+        return true;
+      },
+      (error: unknown) => {
+        if (queuedSnapshot.current === snapshot)
+          queuedSnapshot.current = undefined;
+        if (mounted.current) {
+          setSaveError(
+            error instanceof Error
+              ? error.message
+              : "Could not save draft on this device.",
+          );
+        }
+        return false;
+      },
+    );
+    queuedSave.current = save;
+    return save;
+  }, [readPendingContent, writer]);
 
   const capture = useCallback(
     (deliveryTimes?: DraftDeliveryTimes) => {
       if (!writer || stopped.current) return;
-      const content = getContentRef.current(deliveryTimes);
-      if (!content) return;
-      const snapshot = getReplyDraftSnapshot(content);
-      if (
-        snapshot === latestSnapshot.current &&
-        snapshot === queuedSnapshot.current
-      )
-        return;
-
-      latest.current = content;
-      latestSnapshot.current = snapshot;
+      dirty.current = true;
+      if (deliveryTimes)
+        pendingDeliveryTimes.current = {
+          ...pendingDeliveryTimes.current,
+          ...deliveryTimes,
+        };
       clearTimeout(timer.current);
       timer.current = setTimeout(() => flush().catch(() => {}), 300);
     },
@@ -103,6 +127,10 @@ export function useReplyDraftPersistence({
     }
   }, [writer]);
 
+  // The editor handle detaches before passive cleanups run, so read the last
+  // keystrokes while it is still mounted and let the unmount flush save them.
+  useLayoutEffect(() => () => readPendingContent(), [readPendingContent]);
+
   useEffect(() => {
     const flushWhenHidden = () => {
       if (document.visibilityState === "hidden") flush().catch(() => {});
@@ -112,7 +140,10 @@ export function useReplyDraftPersistence({
     return () => {
       window.removeEventListener("pagehide", flush);
       document.removeEventListener("visibilitychange", flushWhenHidden);
-      flush().catch(() => {});
+      // A reload must wait for the final local write after the form unmounts.
+      flush()
+        .catch(() => {})
+        .finally(registerOpenComposer());
     };
   }, [flush]);
 
@@ -124,13 +155,4 @@ export function useReplyDraftPersistence({
   );
 
   return { capture, clear, flush, saveError };
-}
-
-function getReplyDraftSnapshot(content: ReplyDraftContent) {
-  return JSON.stringify({
-    ...content,
-    attachments: content.attachments.map(
-      ({ contentBase64: _content, ...metadata }) => metadata,
-    ),
-  });
 }

@@ -12,7 +12,7 @@ import {
   SparklesIcon,
   XIcon,
 } from "lucide-react";
-import { MailSplitFilterKind } from "@/generated/prisma/enums";
+import { MailSplitFilterKind, type SystemType } from "@/generated/prisma/enums";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -25,15 +25,16 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   MAX_SPLIT_FILTERS,
   type MailSplitFilterDraft,
-} from "@/utils/mail/split-filters";
-import { OLDER_THAN_OPTIONS } from "@/utils/mail/split-query";
+} from "@/utils/split-inbox/split-filters";
+import { OLDER_THAN_OPTIONS } from "@/utils/split-inbox/split-query";
 import {
+  availableLibraryFilters,
+  findLibrarySplit as findMatchingLibrarySplit,
   libraryDefinition,
-  resolveLibraryEntry,
   SPLIT_LIBRARY,
   SPLIT_LIBRARY_CATEGORIES,
   type SplitLibraryEntry,
-} from "@/utils/mail/split-library";
+} from "@/utils/split-inbox/split-library";
 import { cn } from "@/utils";
 
 const YOUR_SPLITS = "Your splits";
@@ -61,7 +62,6 @@ export type NewSplitDialogProps = {
   onOpenChange: (open: boolean) => void;
   labels: SplitChoice[];
   categories: SplitChoice[];
-  senders: string[];
   /** Splits already on the tab strip, so the library can show what's on. */
   existingSplits: ExistingSplit[];
   /** Set when the dialog was opened to change a split rather than add one. */
@@ -86,6 +86,10 @@ export type NewSplitDialogProps = {
     name: string | null;
     matchAll: boolean;
   } | null>;
+  onToggleSystemType?: (
+    systemType: SystemType,
+    enabled: boolean,
+  ) => Promise<boolean>;
 };
 
 const EXAMPLES = [
@@ -109,6 +113,7 @@ export function NewSplitDialog({
   onReorder,
   onEdit,
   onDescribe,
+  onToggleSystemType,
 }: NewSplitDialogProps) {
   const [mode, setMode] = useState<"library" | "build" | "describe">("library");
   const [category, setCategory] = useState(YOUR_SPLITS);
@@ -237,32 +242,17 @@ export function NewSplitDialog({
         (supportsStarred ||
           !entry.conditions.some((condition) => condition.kind === "STARRED")),
     ).flatMap((entry) => {
-      const filters = resolveLibraryEntry(entry, {
+      const filters = availableLibraryFilters(entry, {
         labelsByName,
         categoriesByName,
       });
-      return filters ? [{ entry, filters }] : [];
+      return filters !== null ? [{ entry, filters }] : [];
     });
   }, [categories, category, labels, supportsStarred]);
 
   const findLibrarySplit = useCallback(
     (entry: SplitLibraryEntry, filters: MailSplitFilterDraft[]) =>
-      existingSplits.find(
-        (split) =>
-          split.name === entry.name &&
-          split.matchAll === (entry.matchAll ?? true) &&
-          split.filters.length === filters.length &&
-          JSON.stringify(
-            split.filters
-              .map((filter) => [filter.kind, filter.value ?? null])
-              .sort(),
-          ) ===
-            JSON.stringify(
-              filters
-                .map((filter) => [filter.kind, filter.value ?? null])
-                .sort(),
-            ),
-      ),
+      findMatchingLibrarySplit(entry, filters, existingSplits),
     [existingSplits],
   );
 
@@ -294,6 +284,11 @@ export function NewSplitDialog({
     setIsBusy(true);
     try {
       const existing = findLibrarySplit(entry, filters);
+      if (entry.createsSystemType) {
+        if (!onToggleSystemType) return;
+        await onToggleSystemType(entry.createsSystemType, !existing);
+        return;
+      }
       if (existing) await onDelete(existing.id);
       else
         await onCreate({
@@ -945,7 +940,7 @@ function libraryFiltersFor(
   labels: SplitChoice[],
   categories: SplitChoice[],
 ) {
-  return resolveLibraryEntry(entry, {
+  return availableLibraryFilters(entry, {
     labelsByName: new Map(
       labels.map((label) => [label.name.toLowerCase(), label.value]),
     ),
