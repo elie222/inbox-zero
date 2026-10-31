@@ -98,6 +98,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const resumedStreamIdRef = useRef<string | null>(null);
   const messagesAtHideRef = useRef<unknown>(null);
 
+  // useChat replaces (and stops) its Chat whenever `id` changes, so a new chat
+  // needs its id before the first send adopts it into the URL. Rotate once
+  // adopted so clearing chatId later starts a fresh chat.
+  const [draftChatId, setDraftChatId] = useState(generateUUID);
+  if (chatId === draftChatId) setDraftChatId(generateUUID());
+
   const { data } = useChatMessages(chatId);
   const persistedMessageIds = useMemo(
     () => new Set(data?.messages.map((message) => message.id) ?? []),
@@ -118,7 +124,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   );
 
   const chat = useAiChat<ChatMessage>({
-    id: chatId ?? undefined,
+    id: chatId ?? draftChatId,
     transport: new DefaultChatTransport({
       api: "/api/chat",
       headers: {
