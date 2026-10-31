@@ -66,9 +66,9 @@ vi.mock("@ai-sdk/react", () => ({
       status: chatState.status,
       setMessages: mockSetMessages,
       sendMessage: (message: unknown, requestOptions?: { body?: unknown }) =>
+        // Like the AI SDK, report request errors via onError and resolve.
         mockSendMessage(message, requestOptions).catch((error) => {
           options.onError?.(error);
-          throw error;
         }),
       stop: mockChatStop,
       resumeStream: mockResumeStream,
@@ -407,6 +407,27 @@ describe("ChatProvider", () => {
       description: "We couldn't send your message. Please try again.",
     });
     expect(mockCaptureException).toHaveBeenCalledWith(error);
+  });
+
+  it("treats a connection drop after the reply started streaming as sent", async () => {
+    chatState.status = "streaming";
+    mockSendMessage.mockRejectedValueOnce(new TypeError("Load failed"));
+    let latestContext: ReturnType<typeof useChat> | undefined;
+
+    function Consumer() {
+      latestContext = useChat();
+      return null;
+    }
+
+    renderWithProvider(<Consumer />);
+
+    await act(async () => {
+      await expect(
+        latestContext?.submitTextMessage("Create these rules"),
+      ).resolves.toBeUndefined();
+    });
+
+    expect(mockToastError).not.toHaveBeenCalled();
   });
 
   it("rejects oversized drafts before sending and keeps their content", async () => {
