@@ -741,26 +741,23 @@ function resolveFolderTarget(
     }
   }
 
-  const resolvedParent = target.kind === "create" ? target.parent : null;
-  const parentConnection = resolvedParent
-    ? connections.find((c) => c.id === resolvedParent.driveConnectionId)
-    : undefined;
-
-  if (resolvedParent && parentConnection) {
-    const parentPath = resolvedParent.path || resolvedParent.name;
-    const relativePath =
-      target.kind === "create" && target.parent
-        ? target.relativePath
-        : requestedPath;
-    return {
-      driveConnection: parentConnection,
-      folderId: "root",
-      folderPath: joinFolderPath(parentPath, relativePath),
-      create: {
-        relativePath,
-        parent: { id: resolvedParent.id, path: parentPath },
-      },
-    };
+  if (target.kind === "create" && target.parent) {
+    const parent = target.parent;
+    const connection = connections.find(
+      (c) => c.id === parent.driveConnectionId,
+    );
+    if (connection) {
+      const parentPath = parent.path || parent.name;
+      return {
+        driveConnection: connection,
+        folderId: "root",
+        folderPath: joinFolderPath(parentPath, target.relativePath),
+        create: {
+          relativePath: target.relativePath,
+          parent: { id: parent.id, path: parentPath },
+        },
+      };
+    }
   }
 
   // No usable parent: create the full path from the root of the first drive
