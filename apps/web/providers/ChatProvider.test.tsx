@@ -345,19 +345,25 @@ describe("ChatProvider", () => {
       (data: { messages: unknown[] }) => data.messages,
     );
 
+    let latestContext: ReturnType<typeof useChat> | undefined;
+
+    function Consumer() {
+      latestContext = useChat();
+      return null;
+    }
+
     chatState.status = "streaming";
-    const { rerender } = renderWithProvider(<div />);
+    renderWithProvider(<Consumer />);
     mockSetMessages.mockClear();
 
     // Selecting another chat gives the SDK a fresh, idle chat instance.
-    chatState.id = "other-chat";
     chatState.status = "ready";
     savedData = { messages: otherChat };
-    rerender(
-      <ChatProvider>
-        <div />
-      </ChatProvider>,
-    );
+    act(() => {
+      latestContext?.setChatId("other-chat");
+    });
+
+    expect(chatState.requestedIds.at(-1)).toBe("other-chat");
     expect(mockSetMessages).toHaveBeenLastCalledWith(otherChat);
   });
 
