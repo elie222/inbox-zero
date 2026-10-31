@@ -206,7 +206,7 @@ function selectModel(
       };
     }
     case Provider.GROQ: {
-      const modelName = aiModel || "llama-3.3-70b-versatile";
+      const modelName = aiModel || "openai/gpt-oss-120b";
       return {
         provider: Provider.GROQ,
         modelName,
