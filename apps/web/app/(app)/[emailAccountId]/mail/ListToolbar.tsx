@@ -443,7 +443,9 @@ function MailSearchInput({
             }
             // The forms plugin sizes untyped inputs at 1rem, so the size has
             // to be stated for the field to match the rest of the toolbar.
-            className="h-full min-w-0 flex-1 border-0 bg-transparent p-0 text-foreground text-sm outline-none focus:ring-0 placeholder:text-muted-foreground"
+            // select-none keeps a page drag from highlighting the placeholder;
+            // typing and selecting inside the field still work.
+            className="h-full min-w-0 flex-1 select-none border-0 bg-transparent p-0 text-foreground text-sm outline-none focus:ring-0 placeholder:text-muted-foreground"
             onChange={(event) => {
               onSearchChange(event.target.value);
               setActiveIndex(-1);
