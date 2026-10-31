@@ -119,7 +119,10 @@ function AllowedFoldersContent({
     <Card size="sm">
       <CardHeader>
         <CardTitle>Allowed folders</CardTitle>
-        <CardDescription>AI can only file to these folders</CardDescription>
+        <CardDescription>
+          AI files into these folders and can create subfolders inside them.
+          When none fits, it can create a new folder at the drive root.
+        </CardDescription>
       </CardHeader>
       <CardContent>
         {staleFolderCount > 0 && (

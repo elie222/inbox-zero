@@ -1237,6 +1237,27 @@ export function MailShell() {
     toggleSidebar(["chat-sidebar"]),
   );
   // `useShortcuts` keeps handlers in a ref, so these need no memoization.
+  // Opening from the list keeps the list on screen while the reader prepares
+  // the email out of sight, so the finished email replaces it in one frame.
+  // Once a thread is showing, the reader buffers moves between threads itself.
+  const readerPreparing =
+    layout === "list" &&
+    Boolean(openReaderThreadKey && readerEmailAccount) &&
+    visibleReaderThreadKey === undefined;
+  if (layout === "list" && !openReaderThreadKey && visibleReaderThreadKey) {
+    setVisibleReaderThreadKey(undefined);
+  }
+  const showList =
+    layout === "split" || !openThreadSelection || readerPreparing;
+  const showSplitTabs = !isScoped && !searchQuery;
+  const canCycleSplits = showSplitTabs && showList;
+  const cycleSplit = (step: 1 | -1) => {
+    const index = splits.findIndex(
+      (split) => split.id === displayedActiveSplitId,
+    );
+    const target = splits[(index + step + splits.length) % splits.length];
+    if (target) setActiveSplitId(target.id);
+  };
   const handlers: ShortcutHandlers = (() => {
     if (sidePanelThreadId || labelPicker) return {};
     return {
@@ -1274,13 +1295,9 @@ export function MailShell() {
             else if (searchValue) setSearch("");
             else if (isScoped) goToInbox();
           },
-      nextSplit: () => {
-        const index = splits.findIndex(
-          (split) => split.id === displayedActiveSplitId,
-        );
-        const next = splits[(index + 1) % splits.length];
-        if (next) setActiveSplitId(next.id);
-      },
+      // Hidden tabs would change the split out of sight.
+      nextSplit: canCycleSplits ? () => cycleSplit(1) : undefined,
+      previousSplit: canCycleSplits ? () => cycleSplit(-1) : undefined,
       switchAccount: (event) => {
         const accountNumber = Number(event?.key);
         if (
@@ -1478,7 +1495,6 @@ export function MailShell() {
         : NO_SEARCH_OPTIONS,
     [folders, isAllAccounts, isOutlook],
   );
-  const showSplitTabs = !isScoped && !searchQuery;
   // With the sidebar collapsed to its rail, this is the only sign that the
   // list isn't the inbox.
   const scopeTitle =
@@ -1509,18 +1525,6 @@ export function MailShell() {
     [threadCount, selectedCount, selectAll, clearSelection],
   );
 
-  // Opening from the list keeps the list on screen while the reader prepares
-  // the email out of sight, so the finished email replaces it in one frame.
-  // Once a thread is showing, the reader buffers moves between threads itself.
-  const readerPreparing =
-    layout === "list" &&
-    Boolean(openReaderThreadKey && readerEmailAccount) &&
-    visibleReaderThreadKey === undefined;
-  if (layout === "list" && !openReaderThreadKey && visibleReaderThreadKey) {
-    setVisibleReaderThreadKey(undefined);
-  }
-  const showList =
-    layout === "split" || !openThreadSelection || readerPreparing;
   const showReader = layout === "split" || Boolean(openThreadSelection);
   const readerUserLabels = isAllAccounts
     ? (labelsByAccount[openThreadSelection?.emailAccountId ?? ""] ?? NO_LABELS)
@@ -1627,95 +1631,100 @@ export function MailShell() {
                 onLabelSelected={canLabel ? openLabelPicker : undefined}
                 onClearSelection={selection.clear}
               />
-              {showSplitTabs && (
-                <MailSplitTabs
-                  leading={selectAllCheckbox}
-                  splits={splitTabs}
-                  activeSplitId={displayedActiveSplitId}
-                  onSelectSplit={setActiveSplitId}
-                  isAllAccounts={isAllAccounts}
-                  getSenders={getSplitSenders}
-                  countAccountIds={splitCountAccountIds}
-                  portableLabelSplits={
-                    isAllAccounts ? combinedLabelSplits : undefined
-                  }
-                  labelsByAccount={isAllAccounts ? labelsByAccount : undefined}
-                  showDivider={isListScrolled}
-                />
-              )}
-              {scopeTitle ? (
-                <div className="flex items-center gap-1 px-1.5 py-1">
-                  <Tooltip
-                    shortcuts={[{ id: "backToList", label: "Go to inbox" }]}
-                  >
-                    <button
-                      type="button"
-                      onClick={goToInbox}
-                      aria-label="Go to inbox"
-                      className="flex size-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      <ChevronLeftIcon className="size-4" />
-                    </button>
-                  </Tooltip>
-                  <h2 className="truncate font-semibold text-base">
-                    {scopeTitle}
-                  </h2>
-                </div>
-              ) : null}
-              {isAllAccounts && combinedThreadState.failedAccountIds.length ? (
-                <div className="border-border border-b bg-amber-50 px-3 py-2 text-amber-900 text-xs dark:bg-amber-950/30 dark:text-amber-200">
-                  Some inboxes couldn&apos;t be loaded. Try again shortly or
-                  check their connections.
-                </div>
-              ) : null}
-              <MailPanelErrorBoundary
-                resetKey={JSON.stringify([
-                  emailAccountId,
-                  isAllAccounts,
-                  query,
-                  displayedActiveSplitId,
-                  searchQuery,
-                ])}
-                title="Unable to show your mail list"
-              >
-                {isScheduledView ? (
-                  <ScheduledEmailList />
-                ) : (
-                  <LoadingContent
-                    loading={false}
-                    error={searchQuery ? undefined : error}
-                  >
-                    <ThreadList
-                      threads={threads}
-                      emptyMessage={emptyListMessage}
-                      layout={layout}
-                      expandedPreview={expandedPreview}
-                      userEmail={userEmail}
-                      userLabels={isAllAccounts ? NO_LABELS : userLabels}
-                      labelsByAccount={labelsByAccount}
-                      focusedIndex={clampedIndex}
-                      isSelected={selection.isSelected}
-                      selectedCount={selection.selectedCount}
-                      onOpenThread={openAt}
-                      onHoverThread={warmThread}
-                      onToggleSelect={selection.toggle}
-                      onSelectRangeTo={selection.selectRangeTo}
-                      showLoadMore={hasMore}
-                      isLoadingMore={isLoadingMore}
-                      onLoadMore={loadMore}
-                      showSentOpenStatus={
-                        scopeType === "sent" && !isAllAccounts
-                      }
-                      onScrolledChange={setIsListScrolled}
-                      listKey={
-                        isAllAccounts
-                          ? `all-accounts:${searchQuery ?? displayedActiveSplitId}`
-                          : JSON.stringify(query)
-                      }
-                    />
-                  </LoadingContent>
+              <div data-split-cycle-zone className="contents">
+                {showSplitTabs && (
+                  <MailSplitTabs
+                    leading={selectAllCheckbox}
+                    splits={splitTabs}
+                    activeSplitId={displayedActiveSplitId}
+                    onSelectSplit={setActiveSplitId}
+                    isAllAccounts={isAllAccounts}
+                    getSenders={getSplitSenders}
+                    countAccountIds={splitCountAccountIds}
+                    portableLabelSplits={
+                      isAllAccounts ? combinedLabelSplits : undefined
+                    }
+                    labelsByAccount={
+                      isAllAccounts ? labelsByAccount : undefined
+                    }
+                    showDivider={isListScrolled}
+                  />
                 )}
-              </MailPanelErrorBoundary>
+                {scopeTitle ? (
+                  <div className="flex items-center gap-1 px-1.5 py-1">
+                    <Tooltip
+                      shortcuts={[{ id: "backToList", label: "Go to inbox" }]}
+                    >
+                      <button
+                        type="button"
+                        onClick={goToInbox}
+                        aria-label="Go to inbox"
+                        className="flex size-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <ChevronLeftIcon className="size-4" />
+                      </button>
+                    </Tooltip>
+                    <h2 className="truncate font-semibold text-base">
+                      {scopeTitle}
+                    </h2>
+                  </div>
+                ) : null}
+                {isAllAccounts &&
+                combinedThreadState.failedAccountIds.length ? (
+                  <div className="border-border border-b bg-amber-50 px-3 py-2 text-amber-900 text-xs dark:bg-amber-950/30 dark:text-amber-200">
+                    Some inboxes couldn&apos;t be loaded. Try again shortly or
+                    check their connections.
+                  </div>
+                ) : null}
+                <MailPanelErrorBoundary
+                  resetKey={JSON.stringify([
+                    emailAccountId,
+                    isAllAccounts,
+                    query,
+                    displayedActiveSplitId,
+                    searchQuery,
+                  ])}
+                  title="Unable to show your mail list"
+                >
+                  {isScheduledView ? (
+                    <ScheduledEmailList />
+                  ) : (
+                    <LoadingContent
+                      loading={false}
+                      error={searchQuery ? undefined : error}
+                    >
+                      <ThreadList
+                        threads={threads}
+                        emptyMessage={emptyListMessage}
+                        layout={layout}
+                        expandedPreview={expandedPreview}
+                        userEmail={userEmail}
+                        userLabels={isAllAccounts ? NO_LABELS : userLabels}
+                        labelsByAccount={labelsByAccount}
+                        focusedIndex={clampedIndex}
+                        isSelected={selection.isSelected}
+                        selectedCount={selection.selectedCount}
+                        onOpenThread={openAt}
+                        onHoverThread={warmThread}
+                        onToggleSelect={selection.toggle}
+                        onSelectRangeTo={selection.selectRangeTo}
+                        showLoadMore={hasMore}
+                        isLoadingMore={isLoadingMore}
+                        onLoadMore={loadMore}
+                        showSentOpenStatus={
+                          scopeType === "sent" && !isAllAccounts
+                        }
+                        onScrolledChange={setIsListScrolled}
+                        listKey={
+                          isAllAccounts
+                            ? `all-accounts:${searchQuery ?? displayedActiveSplitId}`
+                            : JSON.stringify(query)
+                        }
+                      />
+                    </LoadingContent>
+                  )}
+                </MailPanelErrorBoundary>
+              </div>
             </MailListPanel>
           )}
 

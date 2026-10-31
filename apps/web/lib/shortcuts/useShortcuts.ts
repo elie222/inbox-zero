@@ -28,6 +28,11 @@ type SequenceTracker = ReturnType<typeof createSequencePrefixTracker>;
 
 const HOTKEYS_DELIMITER = "|";
 
+const SPLIT_CYCLE_IDS = ["nextSplit", "previousSplit"];
+
+/** Marks the mail list and the split tabs, where Tab cycles splits. */
+const SPLIT_CYCLE_ZONE = "[data-split-cycle-zone]";
+
 type ShortcutTarget =
   | { type: "entry"; entry: ShortcutEntry }
   | { type: "prefix"; key: string };
@@ -218,9 +223,22 @@ function resolveTarget(
   }
   if (
     target?.type === "entry" &&
-    ["backToList", "open", "nextSplit", "search"].includes(target.entry.id) &&
+    ["backToList", "open", "search", ...SPLIT_CYCLE_IDS].includes(
+      target.entry.id,
+    ) &&
     event.target instanceof Element &&
     event.target.closest('[role="dialog"]')
+  ) {
+    return;
+  }
+  // Tab keeps moving focus between controls (composer, toolbar, sidebar);
+  // it only cycles splits from the list, the tabs, or with nothing focused.
+  if (
+    target?.type === "entry" &&
+    SPLIT_CYCLE_IDS.includes(target.entry.id) &&
+    event.target instanceof Element &&
+    event.target !== document.body &&
+    !event.target.closest(SPLIT_CYCLE_ZONE)
   ) {
     return;
   }

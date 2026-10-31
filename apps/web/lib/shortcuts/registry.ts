@@ -129,6 +129,13 @@ const SHORTCUT_DEFINITIONS = [
     label: "Next split",
   },
   {
+    id: "previousSplit",
+    keys: ["shift+tab"],
+    scope: "mail",
+    group: "Navigate",
+    label: "Previous split",
+  },
+  {
     id: "switchAccount",
     keys: [
       "mod+1",
