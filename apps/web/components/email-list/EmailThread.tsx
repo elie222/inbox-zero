@@ -1,5 +1,13 @@
 import { OpenedConversationAttachments } from "./OpenedConversationAttachments";
-import { useEffect, useMemo, useState, useRef, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+  useRef,
+  type ReactNode,
+} from "react";
+import { isSendCommandFor } from "@/app/(app)/[emailAccountId]/compose/queued-reply";
 import { useHotkeys } from "react-hotkeys-hook";
 import { isTypingTarget } from "@/lib/shortcuts/registry";
 import { ChevronsDownUpIcon, ChevronsUpDownIcon } from "lucide-react";
@@ -9,7 +17,9 @@ import { EmailMessage } from "@/components/email-list/EmailMessage";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useReplyDrafts } from "@/hooks/useReplyDrafts";
 import { ThreadDeliveryStatus } from "@/components/email-list/ThreadDeliveryStatus";
+import { useHiddenDraftMessageIds } from "@/hooks/useHiddenDraftMessageIds";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/utils";
 import {
   getDraftSessionMessageId,
   getLatestDraftMessageId,
@@ -24,6 +34,9 @@ import { useSentMessageOpens } from "@/hooks/useSentMessageOpens";
 import type { OutgoingThreadMessage } from "@/utils/mail-engine/conversation-thread";
 
 const NO_OUTGOING: OutgoingThreadMessage[] = [];
+// A send that never reaches the thread, or a body that never measures, must not
+// hold its composer open.
+const SENT_REPLY_HANDOFF_TIMEOUT_MS = 1000;
 
 export function EmailThread({
   messages,
@@ -38,6 +51,7 @@ export function EmailThread({
   onSendSuccess,
   onMarkDone,
   onOpenSenderContext,
+  onThreadDiscarded,
   withHeader,
   renderToolbar,
   renderMessageMenu,
@@ -61,6 +75,8 @@ export function EmailThread({
   ) => void;
   onMarkDone?: () => void;
   onOpenSenderContext?: (message: ThreadMessage) => void;
+  /** The conversation's only message was a draft, and it has been discarded. */
+  onThreadDiscarded?: () => void;
   withHeader?: boolean;
   enableMessageNavigation?: boolean;
   renderMessageMenu?: (message: ThreadMessage) => ReactNode;
@@ -72,8 +88,42 @@ export function EmailThread({
 }) {
   const { emailAccountId, userEmail } = useAccount();
   const threadId = messages[0]?.threadId ?? "";
-  const { drafts: localDrafts } = useReplyDrafts(emailAccountId, threadId);
+  const { drafts: localDrafts, isLoading: draftsLoading } = useReplyDrafts(
+    emailAccountId,
+    threadId,
+    [
+      ...messages
+        .filter((message) => !message.labelIds?.includes(GmailLabel.DRAFT))
+        .map((message) => getComposerMessageId(message.id, sendOperationIds)),
+      ...outgoing.map((item) => item.message.id),
+    ],
+  );
   const { data: sentMessageOpens } = useSentMessageOpens(threadId || null);
+  const hiddenDraftMessageIds = useHiddenDraftMessageIds(emailAccountId);
+  // Concealed from the moment the send is submitted, because the thread can
+  // render its message before the composer learns the send was queued. The
+  // drafts shown at submit stay shown until then too: a send drops the mailbox
+  // draft it replaces, which would remove its composer before the message can
+  // take its place.
+  const [sentReplyHandoff, setSentReplyHandoff] = useState<{
+    operationId: string;
+    heldDrafts: ThreadMessage[];
+    release?: () => void;
+  }>();
+  const heldDrafts = sentReplyHandoff?.heldDrafts;
+  const threadMessages = useMemo(
+    () => (heldDrafts ? withHeldDrafts(messages, heldDrafts) : messages),
+    [messages, heldDrafts],
+  );
+  const shownHiddenDraftMessageIds = useMemo(
+    () =>
+      heldDrafts
+        ? hiddenDraftMessageIds.filter(
+            (id) => !heldDrafts.some((draft) => draft.id === id),
+          )
+        : hiddenDraftMessageIds,
+    [hiddenDraftMessageIds, heldDrafts],
+  );
   const organizedMessages = useMemo(
     (): Array<{
       message: ThreadMessage;
@@ -81,7 +131,19 @@ export function EmailThread({
       outgoing?: OutgoingThreadMessage;
     }> => [
       ...organizeThreadMessages(
-        withoutReplacedDrafts(messages, emailAccountId),
+        withoutDraftMessages(
+          withoutReplacedDrafts(threadMessages, emailAccountId),
+          [
+            ...localDrafts.flatMap(
+              (draft) => draft.content?.providerDraftMessageIds ?? [],
+            ),
+            ...shownHiddenDraftMessageIds,
+            // Opening a mailbox copy before the local lookup creates a second session.
+            ...(draftsLoading
+              ? threadMessages.map((message) => message.id)
+              : []),
+          ],
+        ),
       ),
       ...outgoing.map((item) => ({
         message: {
@@ -92,9 +154,22 @@ export function EmailThread({
         outgoing: item,
       })),
     ],
-    [messages, emailAccountId, outgoing, userEmail],
+    [
+      threadMessages,
+      emailAccountId,
+      localDrafts,
+      draftsLoading,
+      shownHiddenDraftMessageIds,
+      outgoing,
+      userEmail,
+    ],
   );
 
+  // A conversation whose only message is a draft — how the Drafts folder lists
+  // one — stops existing the moment that draft is discarded.
+  const isDraftOnlyConversation =
+    organizedMessages.length === 1 &&
+    Boolean(organizedMessages[0].message.labelIds?.includes(GmailLabel.DRAFT));
   const lastMessageId = organizedMessages.at(-1)?.message.id;
   // A reply that hasn't reached the provider has no id to thread on yet, so
   // replying to it threads on the newest message the provider has.
@@ -115,6 +190,14 @@ export function EmailThread({
           .map(({ message }) => [message.id, true]),
       ),
   );
+  const [activeCompose, setActiveCompose] = useState<{
+    threadId: string;
+    messageId: string;
+  }>();
+  const activeComposeMessageId =
+    activeCompose?.threadId === threadId
+      ? getComposerMessageId(activeCompose.messageId, sendOperationIds)
+      : undefined;
   const [recoveredReply, setRecoveredReply] = useState<{
     messageId: string;
     mode: ReplyDraftMode;
@@ -122,20 +205,40 @@ export function EmailThread({
   }>();
   useEffect(() => {
     const messageId = autoOpenForwardForMessageId ?? autoOpenReplyForMessageId;
-    if (messageId)
+    if (messageId) {
+      setActiveCompose({ threadId, messageId });
       setExpansionOverrides((previous) =>
         new Map(previous).set(messageId, true),
       );
-  }, [autoOpenForwardForMessageId, autoOpenReplyForMessageId]);
+    }
+  }, [autoOpenForwardForMessageId, autoOpenReplyForMessageId, threadId]);
   const expanded = (id: string, hasDraft: boolean) =>
     expansionOverrides.get(id) ?? (id === lastMessageId || hasDraft);
-  // Outlook sends a draft as the same message, so its local copy would reopen
-  // as a reply on the sent message until the send settles and clears it.
-  const localDraftModeFor = (message: ThreadMessage) =>
-    message.labelIds?.includes(GmailLabel.DRAFT) ||
-    sendOperationIds?.has(message.id)
-      ? undefined
-      : getLocalDraftMode(localDrafts, message.id);
+  // A sent reply keeps its local draft until delivery so undo can restore it,
+  // but it is no longer an open draft. Leaving and returning to the thread
+  // must not reopen it with a live Send button.
+  const unsentLocalDrafts = useMemo(() => {
+    const submitted = [
+      ...outgoing.map((item) => item.operationId),
+      ...(sendOperationIds?.values() ?? []),
+    ];
+    return localDrafts.filter((draft) => {
+      const requestId = draft.content?.requestId;
+      return !(
+        requestId &&
+        submitted.some((operationId) =>
+          isSendCommandFor(operationId, requestId),
+        )
+      );
+    });
+  }, [localDrafts, outgoing, sendOperationIds]);
+  const localDraftModeFor = (message: ThreadMessage) => {
+    if (message.labelIds?.includes(GmailLabel.DRAFT)) return;
+    return getLocalDraftMode(
+      unsentLocalDrafts,
+      getComposerMessageId(message.id, sendOperationIds),
+    );
+  };
   const hasLocalDraft = (message: ThreadMessage) =>
     Boolean(localDraftModeFor(message));
   const allExpanded = organizedMessages.every(({ message, draftMessages }) =>
@@ -158,6 +261,66 @@ export function EmailThread({
         ]),
       ),
     );
+  const currentDrafts = () =>
+    messages.filter(
+      (message) =>
+        message.labelIds?.includes(GmailLabel.DRAFT) &&
+        !hiddenDraftMessageIds.includes(message.id),
+    );
+  const concealSentReply = (operationId: string) => {
+    setSentReplyHandoff({ operationId, heldDrafts: currentDrafts() });
+    return () =>
+      setSentReplyHandoff((current) =>
+        current?.operationId === operationId && !current.release
+          ? undefined
+          : current,
+      );
+  };
+  const awaitSentReply = (operationId: string) =>
+    new Promise<void>((release) =>
+      setSentReplyHandoff((current) => ({
+        operationId,
+        release,
+        heldDrafts:
+          current?.operationId === operationId
+            ? current.heldDrafts
+            : currentDrafts(),
+      })),
+    );
+  useEffect(() => {
+    if (!sentReplyHandoff?.release) return;
+    const { operationId, release } = sentReplyHandoff;
+    let frame = 0;
+    const finish = () => {
+      release();
+      setSentReplyHandoff(undefined);
+    };
+    const timeout = setTimeout(finish, SENT_REPLY_HANDOFF_TIMEOUT_MS);
+    // The row commits before its html body has been prepared and measured.
+    const check = () => {
+      const row = Array.from(
+        threadRef.current?.querySelectorAll<HTMLElement>(
+          "[data-send-operation-id]",
+        ) ?? [],
+      ).find((item) => item.dataset.sendOperationId === operationId);
+      const bodies = row?.querySelectorAll<HTMLElement>("[data-email-ready]");
+      if (
+        bodies &&
+        Array.from(bodies).every((body) => body.dataset.emailReady === "true")
+      ) {
+        clearTimeout(timeout);
+        finish();
+        return;
+      }
+      frame = requestAnimationFrame(check);
+    };
+    check();
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(timeout);
+      release();
+    };
+  }, [sentReplyHandoff]);
   const [selectedMessageId, setSelectedMessageId] = useState<string>();
   const selectedId = organizedMessages.some(
     ({ message }) => message.id === selectedMessageId,
@@ -206,14 +369,12 @@ export function EmailThread({
   );
 
   return (
-    // White regardless of the surface it is dropped on: an email body renders
-    // on white inside its iframe, so anything else leaves each message boxed.
     <OpenedConversationAttachments
       allowUncached
       emailAccountId={emailAccountId}
       threadId={threadId}
     >
-      <div className="min-w-0 bg-card" ref={threadRef}>
+      <div className="min-w-0" ref={threadRef}>
         {renderToolbar?.({
           allExpanded,
           canExpand: organizedMessages.length > 1,
@@ -255,23 +416,22 @@ export function EmailThread({
           </div>
         )}
 
-        <ul className="pt-1">
+        <ul className="relative flex flex-col gap-2 pt-1">
+          {enableMessageNavigation && <SelectionBar selectedId={selectedId} />}
           {organizedMessages.map(({ message, draftMessages, outgoing }) => {
             const sendOperationId =
               outgoing?.operationId ?? sendOperationIds?.get(message.id);
-            const defaultComposeMode = getDefaultComposeMode({
-              autoOpenMode:
-                autoOpenForwardForMessageId === message.id
-                  ? "forward"
-                  : autoOpenReplyForMessageId === message.id
-                    ? "reply"
-                    : undefined,
-              localDraftMode: localDraftModeFor(message),
-              recoveredReply:
-                recoveredReply?.messageId === message.id
-                  ? recoveredReply
-                  : undefined,
-            });
+            let autoOpenMode: ReplyDraftMode | undefined;
+            if (autoOpenForwardForMessageId === message.id)
+              autoOpenMode = "forward";
+            else if (autoOpenReplyForMessageId === message.id)
+              autoOpenMode = "reply";
+            const recoveredMode =
+              recoveredReply?.messageId === message.id
+                ? recoveredReply.mode
+                : undefined;
+            const defaultComposeMode =
+              recoveredMode ?? autoOpenMode ?? localDraftModeFor(message);
             return (
               <EmailMessage
                 bodyAvailable={!missingBodyIds?.has(message.id)}
@@ -292,6 +452,14 @@ export function EmailThread({
                     ? () => setSelectedMessageId(message.id)
                     : undefined
                 }
+                hideComposer={Boolean(
+                  activeComposeMessageId &&
+                    activeComposeMessageId !==
+                      getComposerMessageId(message.id, sendOperationIds),
+                )}
+                onStartCompose={() =>
+                  setActiveCompose({ threadId, messageId: message.id })
+                }
                 defaultComposeMode={defaultComposeMode}
                 draftMessages={draftMessages}
                 expanded={expanded(
@@ -308,6 +476,13 @@ export function EmailThread({
                 composerSessionMessageId={
                   sendOperationId ? `outgoing:${sendOperationId}` : undefined
                 }
+                sendOperationId={sendOperationId}
+                concealed={
+                  Boolean(sendOperationId) &&
+                  sentReplyHandoff?.operationId === sendOperationId
+                }
+                concealSentReply={concealSentReply}
+                awaitSentReply={awaitSentReply}
                 onReplySent={() => {
                   // The sent reply lands below as the newest message; keep this
                   // one open and let selection fall through to the reply.
@@ -318,6 +493,9 @@ export function EmailThread({
                 }}
                 onOpenSenderContext={onOpenSenderContext}
                 onMarkDone={onMarkDone}
+                onDraftDiscarded={
+                  isDraftOnlyConversation ? onThreadDiscarded : undefined
+                }
                 onExpand={() =>
                   setExpansionOverrides((prev) =>
                     new Map(prev).set(message.id, true),
@@ -365,6 +543,7 @@ export function EmailThread({
             messageIds={messages.map((message) => message.id)}
             refetch={refetch}
             onEditReply={(messageId, mode) => {
+              setActiveCompose({ threadId, messageId });
               setExpansionOverrides((previous) =>
                 new Map(previous).set(messageId, true),
               );
@@ -381,11 +560,18 @@ export function EmailThread({
   );
 }
 
+function getComposerMessageId(
+  messageId: string,
+  sendOperationIds?: Map<string, string>,
+) {
+  const operationId = sendOperationIds?.get(messageId);
+  return operationId ? `outgoing:${operationId}` : messageId;
+}
+
 function getLocalDraftMode(drafts: StoredReplyDraft[], messageId: string) {
   const latest = drafts
     .filter(
       (draft) =>
-        draft.messageId === messageId ||
         draft.messageId === getReplyDraftSessionId(messageId, "reply") ||
         draft.messageId === getReplyDraftSessionId(messageId, "forward"),
     )
@@ -394,20 +580,6 @@ function getLocalDraftMode(drafts: StoredReplyDraft[], messageId: string) {
   return latest.messageId === getReplyDraftSessionId(messageId, "forward")
     ? ("forward" as const)
     : getReplyDraftMode(latest);
-}
-
-function getDefaultComposeMode({
-  autoOpenMode,
-  localDraftMode,
-  recoveredReply,
-}: {
-  autoOpenMode?: ReplyDraftMode;
-  localDraftMode?: ReplyDraftMode;
-  recoveredReply?: { mode: ReplyDraftMode };
-}) {
-  if (recoveredReply) return recoveredReply.mode;
-  if (autoOpenMode) return autoOpenMode;
-  return localDraftMode;
 }
 
 // Drafts without reply headers still belong to this conversation. Keep each
@@ -456,6 +628,12 @@ export function organizeThreadMessages(messages: ThreadMessage[]) {
   }));
 }
 
+function withHeldDrafts(messages: ThreadMessage[], held: ThreadMessage[]) {
+  const ids = new Set(messages.map((message) => message.id));
+  const missing = held.filter((draft) => !ids.has(draft.id));
+  return missing.length ? [...messages, ...missing] : messages;
+}
+
 // A saved draft's old and new Gmail messages can both be in the conversation
 // until sync removes the old one. Only the latest save is the draft being edited.
 function withoutReplacedDrafts(
@@ -473,6 +651,18 @@ function withoutReplacedDrafts(
   });
 }
 
+// A reply with files is saved to the mailbox while its composer is open, and
+// stays there until a scheduled send goes out from it. The composer or the
+// delivery status already shows it, so the saved copy would be a second editor.
+function withoutDraftMessages(messages: ThreadMessage[], draftIds: string[]) {
+  if (!draftIds.length) return messages;
+  return messages.filter(
+    (message) =>
+      !message.labelIds?.includes(GmailLabel.DRAFT) ||
+      !draftIds.includes(message.id),
+  );
+}
+
 function sortDraftsOldestFirst(drafts: ThreadMessage[]) {
   return [...drafts].sort(
     (left, right) => draftRecency(left) - draftRecency(right),
@@ -483,4 +673,66 @@ function draftRecency(draft: ThreadMessage) {
   const value = draft.internalDate ?? draft.headers.date;
   const time = internalDateToDate(value, { fallbackToNow: false }).getTime();
   return Number.isNaN(time) ? 0 : time;
+}
+
+// One bar for the whole thread so it can slide between messages. It only
+// animates when the selection moves; layout changes (expanding, bodies
+// loading) reposition it instantly so it never trails the card.
+function SelectionBar({ selectedId }: { selectedId?: string }) {
+  const barRef = useRef<HTMLLIElement>(null);
+  const [position, setPosition] = useState<{
+    top: number;
+    height: number;
+    animate: boolean;
+  }>();
+  const previousId = useRef<string>(undefined);
+
+  useLayoutEffect(() => {
+    const list = barRef.current?.parentElement;
+    if (!list || !selectedId) {
+      setPosition(undefined);
+      return;
+    }
+    const measure = (animate: boolean) => {
+      const item = Array.from(
+        list.querySelectorAll<HTMLElement>(":scope > [data-thread-message-id]"),
+      ).find((element) => element.dataset.threadMessageId === selectedId);
+      // A sent reply stays hidden until its body loads; it shows the bar once
+      // it joins the layout and resizes the list.
+      if (!item || item.ariaHidden === "true") return setPosition(undefined);
+      setPosition({ top: item.offsetTop, height: item.offsetHeight, animate });
+    };
+    measure(
+      previousId.current !== undefined && previousId.current !== selectedId,
+    );
+    previousId.current = selectedId;
+    // The observer reports once on start; skipping it keeps the slide running.
+    let started = false;
+    const observer = new ResizeObserver(() => {
+      if (started) measure(false);
+      started = true;
+    });
+    observer.observe(list);
+    return () => observer.disconnect();
+  }, [selectedId]);
+
+  return (
+    <li
+      aria-hidden
+      ref={barRef}
+      role="presentation"
+      className={cn(
+        "pointer-events-none absolute top-0 left-0 z-10 w-1 rounded-l bg-primary",
+        !position && "hidden",
+        position?.animate &&
+          "transition-[transform,height] duration-200 ease-out motion-reduce:transition-none",
+      )}
+      style={
+        position && {
+          height: position.height,
+          transform: `translateY(${position.top}px)`,
+        }
+      }
+    />
+  );
 }

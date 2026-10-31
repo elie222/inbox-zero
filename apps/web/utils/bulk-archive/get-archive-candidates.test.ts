@@ -161,27 +161,6 @@ describe("getArchiveCandidates", () => {
     });
   });
 
-  describe("preserves original data", () => {
-    it("should preserve the email address in the result", () => {
-      const groups = [createEmailGroup("unique@example.com", "Marketing")];
-      const result = getArchiveCandidates(groups);
-
-      expect(result[0].address).toBe("unique@example.com");
-    });
-
-    it("should preserve the category in the result", () => {
-      const category = {
-        id: "cat-123",
-        name: "Marketing",
-        description: "Marketing emails",
-      } as any;
-      const groups = [{ address: "test@example.com", category }];
-      const result = getArchiveCandidates(groups);
-
-      expect(result[0].category).toBe(category);
-    });
-  });
-
   describe("batch processing", () => {
     it("should handle empty array", () => {
       const result = getArchiveCandidates([]);

@@ -2,6 +2,7 @@ import type { z } from "zod";
 import type { mobileAuthProviderSchema } from "@/utils/mobile-auth/providers";
 import { betterAuthConfig } from "@/utils/auth";
 import { SafeError } from "@/utils/error";
+import { createScopedLogger } from "@/utils/logger";
 import {
   createMobileAuthState,
   storeMobileAuthState,
@@ -16,6 +17,8 @@ import {
   getMobileAuthWebCallbackUrl,
   type MobileAuthReturnUrlMode,
 } from "@/utils/mobile-auth/url";
+
+const logger = createScopedLogger("mobile-auth/start-social");
 
 export type StartedMobileSocialAuth = {
   authorizationURL: string;
@@ -61,10 +64,21 @@ export async function startMobileSocialAuth(input: {
   );
   const signInBody = (await signInResponse.json().catch(() => null)) as {
     url?: string;
+    code?: string;
+    message?: string;
   } | null;
   const oauthState = getOAuthStateCookieValue(signInResponse.headers);
 
   if (!signInResponse.ok || !signInBody?.url || !oauthState) {
+    // The app only sees a generic 500, so record which part of the sign-in start failed.
+    logger.error("Failed to start mobile social sign-in", {
+      provider: input.provider,
+      status: signInResponse.status,
+      code: signInBody?.code,
+      message: signInBody?.message,
+      hasUrl: Boolean(signInBody?.url),
+      hasOAuthState: Boolean(oauthState),
+    });
     throw new SafeError("Failed to start authentication", 500);
   }
 

@@ -1,3 +1,4 @@
+import type { ProviderMailboxSearch } from "@/utils/email/types";
 import { CALENDAR_INVITATION_LIMITS } from "@/utils/calendar/invitations/constants";
 import { isSameCalendarInvitation } from "@/utils/calendar/invitations/content";
 import { escapeSearchValue } from "@/utils/outlook/search-escape";
@@ -11,17 +12,19 @@ import type { ParsedMessage, Attachment } from "@/utils/types";
 import type { OutlookClient } from "@/utils/outlook/client";
 import { OutlookLabel, WELL_KNOWN_FOLDERS } from "./constants";
 import { escapeODataString } from "@/utils/outlook/odata-escape";
-import { withMicrosoftGraphRetry } from "@/utils/microsoft/retry";
+import { withMicrosoftGraphRetry } from "@/utils/outlook/retry";
+import { isNotFoundError } from "@/utils/outlook/errors";
 import { formatEmailWithName } from "@/utils/email";
 import type { Logger } from "@/utils/logger";
 import { isOutlookThrottlingError } from "@/utils/error";
+import { isMicrosoftEmulationEnabled } from "@/utils/outlook/oauth";
 import { resolveMicrosoftGraphNextLink } from "@/utils/outlook/page-token";
 
 // Standard fields to select when fetching messages from Microsoft Graph API
 // internetMessageId is the RFC 5322 Message-ID header, needed for cross-provider email threading
 export const MESSAGE_LIST_SELECT_FIELDS =
-  "id,conversationId,conversationIndex,internetMessageId,subject,bodyPreview,from,sender,toRecipients,ccRecipients,receivedDateTime,createdDateTime,isDraft,isRead,flag,categories,parentFolderId,hasAttachments,webLink,inferenceClassification";
-export const MESSAGE_SELECT_FIELDS = `${MESSAGE_LIST_SELECT_FIELDS},body,internetMessageHeaders`;
+  "id,conversationId,conversationIndex,internetMessageId,subject,bodyPreview,from,sender,replyTo,toRecipients,ccRecipients,receivedDateTime,createdDateTime,isDraft,isRead,flag,categories,parentFolderId,hasAttachments,webLink,inferenceClassification";
+export const MESSAGE_SELECT_FIELDS = `${MESSAGE_LIST_SELECT_FIELDS},bccRecipients,body,internetMessageHeaders`;
 
 // contentId belongs to fileAttachment, so selecting it without this type cast
 // makes Graph reject the entire attachment collection query.
@@ -224,33 +227,25 @@ export function sanitizeKqlValue(value: string): string {
 
 /**
  * Sanitizes a KQL field query (e.g., participants:email@example.com).
- * Does NOT wrap the entire query in outer quotes - only quotes the value if it contains spaces.
+ * Graph rejects an unquoted property-scoped $search with "character ':' is not valid",
+ * so the whole expression is quoted and the value is quoted inside it.
  */
 export function sanitizeKqlFieldQuery(query: string): string {
   const colonIndex = query.indexOf(":");
   if (colonIndex === -1) return query;
 
   const field = query.slice(0, colonIndex);
-  const value = query.slice(colonIndex + 1);
+  const value = unwrapQuotes(
+    query
+      .slice(colonIndex + 1)
+      .replace(OUTLOOK_SEARCH_DISALLOWED_CHARS, " ")
+      .replace(/\s+/g, " ")
+      .trim(),
+  ).trim();
 
-  if (!value) {
-    return `${field}:`;
-  }
+  if (!value) return `${field}:`;
 
-  let sanitizedValue = value
-    .replace(OUTLOOK_SEARCH_DISALLOWED_CHARS, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  const hasSpaces = sanitizedValue.includes(" ");
-
-  sanitizedValue = escapeSearchValue(sanitizedValue);
-
-  if (hasSpaces) {
-    return `${field}:"${sanitizedValue}"`;
-  }
-
-  return `${field}:${sanitizedValue}`;
+  return JSON.stringify(`${field}:"${escapeSearchValue(value)}"`);
 }
 
 /**
@@ -426,6 +421,8 @@ function splitOutlookQueryTerms(query: string) {
 
 type OutlookMetadataFilters = {
   isRead?: boolean;
+  starred?: boolean;
+  hasAttachment?: boolean;
   categoryNames: string[];
 };
 
@@ -433,6 +430,8 @@ function createOutlookMetadataFilters(options: {
   searchQuery?: string;
   readState?: "read" | "unread";
   categoryNames?: string[];
+  starred?: boolean;
+  hasAttachment?: boolean;
 }): {
   filters: OutlookMetadataFilters;
   odataFilters: string[];
@@ -443,7 +442,9 @@ function createOutlookMetadataFilters(options: {
   const queryReadState =
     hasRead === hasUnread ? undefined : hasRead ? "read" : "unread";
   const readState = options.readState ?? queryReadState;
-  const filters = {
+  const filters: OutlookMetadataFilters = {
+    starred: options.starred,
+    hasAttachment: options.hasAttachment,
     isRead:
       readState === "read" ? true : readState === "unread" ? false : undefined,
     categoryNames: [...new Set(options.categoryNames ?? [])],
@@ -465,6 +466,17 @@ function matchesOutlookMetadataFilters(
   ) {
     return false;
   }
+
+  if (
+    filters.starred !== undefined &&
+    (message.flag?.flagStatus === "flagged") !== filters.starred
+  )
+    return false;
+  if (
+    filters.hasAttachment !== undefined &&
+    Boolean(message.hasAttachments) !== filters.hasAttachment
+  )
+    return false;
 
   if (filters.categoryNames.length) {
     const messageCategories = new Set(message.categories ?? []);
@@ -490,6 +502,13 @@ function createOutlookMetadataODataFilters(filters: OutlookMetadataFilters) {
     odataFilters.push(`isRead eq ${filters.isRead}`);
   }
 
+  if (filters.starred !== undefined)
+    odataFilters.push(
+      `flag/flagStatus ${filters.starred ? "eq" : "ne"} 'flagged'`,
+    );
+  if (filters.hasAttachment !== undefined)
+    odataFilters.push(`hasAttachments eq ${filters.hasAttachment}`);
+
   for (const categoryName of filters.categoryNames) {
     odataFilters.push(
       `categories/any(category: category eq '${escapeODataString(categoryName)}')`,
@@ -511,6 +530,7 @@ export async function queryBatchMessages(
     readState?: "read" | "unread";
     categoryNames?: string[];
     includeDrafts?: boolean;
+    mailboxSearch?: ProviderMailboxSearch;
   },
   logger: Logger,
 ) {
@@ -533,29 +553,40 @@ export async function queryBatchMessages(
 
   const [folderIds, categoryMap] = await Promise.all([
     getFolderIds(client, logger, {
-      includeDrafts: Boolean(options.includeDrafts),
+      includeDrafts:
+        Boolean(options.includeDrafts) || folderId?.toLowerCase() === "drafts",
     }),
     getCategoryMap(client, logger),
   ]);
   const parseMessages = (messages: Message[]) =>
     convertMessages(messages, folderIds, categoryMap, options.includeDrafts);
+  // Messages carry the folder's opaque id, so a well-known name like "inbox" must be resolved before comparing.
+  const expectedParentFolderId = resolveFolderId(folderId, folderIds);
 
+  let readState = options.readState;
+  if (options.mailboxSearch?.read !== undefined) {
+    readState = options.mailboxSearch.read ? "read" : "unread";
+  }
   const metadataSearch = createOutlookMetadataFilters({
-    searchQuery,
-    readState: options.readState,
+    searchQuery: options.mailboxSearch ? undefined : searchQuery,
+    readState,
     categoryNames: options.categoryNames,
+    starred:
+      options.mailboxSearch?.starred ??
+      (options.mailboxSearch?.mailbox === "starred" ? true : undefined),
+    hasAttachment: options.mailboxSearch?.hasAttachment,
   });
 
   const nextLink = resolveMicrosoftGraphNextLink(pageToken);
   if (nextLink) {
-    const response: { value: Message[]; "@odata.nextLink"?: string } =
-      await withMicrosoftGraphRetry(
-        () => client.getClient().api(nextLink).get(),
-        logger,
-      );
+    const response = await getContinuationPage(client, nextLink, logger);
 
     const filteredMessages = response.value.filter((message) => {
-      if (folderId && message.parentFolderId !== folderId) return false;
+      if (
+        expectedParentFolderId &&
+        message.parentFolderId !== expectedParentFolderId
+      )
+        return false;
       if (
         normalizedFromEmail &&
         !matchesOutlookSender(message, normalizedFromEmail)
@@ -564,16 +595,25 @@ export async function queryBatchMessages(
       }
       return matchesOutlookMetadataFilters(message, metadataSearch.filters);
     });
-    const messages = await parseMessages(filteredMessages);
+    const isSearchPage = new URL(
+      nextLink,
+      "https://graph.microsoft.com",
+    ).searchParams.has("$search");
+    const messages = await parseMessages(
+      isSearchPage
+        ? await normalizeOutlookSearchIds(client, filteredMessages, logger)
+        : filteredMessages,
+    );
 
     return { messages, nextPageToken: response["@odata.nextLink"] };
   }
 
-  const rawSearchQuery = stripStandaloneOutlookStateTerms(
-    searchQuery?.trim() || "",
-  ).trim();
-  const { sanitized: cleanedSearchQuery, wasSanitized } =
-    sanitizeOutlookSearchQuery(rawSearchQuery);
+  const rawSearchQuery = options.mailboxSearch
+    ? outlookMailboxText(options.mailboxSearch)
+    : stripStandaloneOutlookStateTerms(searchQuery?.trim() || "").trim();
+  const { sanitized: cleanedSearchQuery, wasSanitized } = options.mailboxSearch
+    ? { sanitized: rawSearchQuery, wasSanitized: false }
+    : sanitizeOutlookSearchQuery(rawSearchQuery);
   const effectiveSearchQuery = cleanedSearchQuery || undefined;
 
   logger.info("Building Outlook request", {
@@ -611,13 +651,21 @@ export async function queryBatchMessages(
       metadataFilters: metadataSearch.odataFilters,
     });
 
-    request = request.search(effectiveSearchQuery!);
+    request = request.search(
+      options.mailboxSearch
+        ? encodeURIComponent(effectiveSearchQuery!)
+        : effectiveSearchQuery!,
+    );
 
     const response: { value: Message[]; "@odata.nextLink"?: string } =
       await withMicrosoftGraphRetry(() => request.get(), logger);
 
     const filteredMessages = response.value.filter((message) => {
-      if (folderId && message.parentFolderId !== folderId) return false;
+      if (
+        expectedParentFolderId &&
+        message.parentFolderId !== expectedParentFolderId
+      )
+        return false;
       if (
         normalizedFromEmail &&
         !matchesOutlookSender(message, normalizedFromEmail)
@@ -626,7 +674,9 @@ export async function queryBatchMessages(
       }
       return matchesOutlookMetadataFilters(message, metadataSearch.filters);
     });
-    const messages = await parseMessages(filteredMessages);
+    const messages = await parseMessages(
+      await normalizeOutlookSearchIds(client, filteredMessages, logger),
+    );
 
     nextPageToken = response["@odata.nextLink"];
 
@@ -869,6 +919,24 @@ export async function queryMessagesWithAttachments(
   };
 }
 
+/** The message as MIME, headers and parts included. */
+export async function getRawMessage(
+  messageId: string,
+  client: OutlookClient,
+  logger: Logger,
+): Promise<Buffer> {
+  const raw: ArrayBuffer = await withMicrosoftGraphRetry(
+    () =>
+      client
+        .getClient()
+        .api(`/me/messages/${encodeURIComponent(messageId)}/$value`)
+        .responseType(ResponseType.ARRAYBUFFER)
+        .get(),
+    logger,
+  );
+  return Buffer.from(raw);
+}
+
 export async function getMessage(
   messageId: string,
   client: OutlookClient,
@@ -1086,7 +1154,9 @@ export function convertMessage(
           message.from?.emailAddress?.address,
         ) || "",
       to: formatRecipientsList(message.toRecipients) || "",
+      "reply-to": formatRecipientsList(message.replyTo),
       cc: formatRecipientsList(message.ccRecipients),
+      bcc: formatRecipientsList(message.bccRecipients),
       subject: message.subject || "",
       date,
       // RFC 5322 Message-ID header, needed for cross-provider email threading (e.g., Outlook -> Gmail)
@@ -1154,9 +1224,7 @@ function convertInlineAttachments(
       const contentId =
         ("contentId" in attachment && typeof attachment.contentId === "string"
           ? attachment.contentId
-          : undefined) ||
-        attachment.name ||
-        "";
+          : undefined) || "";
 
       return {
         filename: attachment.name || "",
@@ -1191,4 +1259,141 @@ function getInternetHeader(message: Message, name: string) {
       (header) => header.name?.toLowerCase() === name,
     )?.value ?? undefined
   );
+}
+
+/** Maps a well-known folder name (`inbox`, `sentitems`, ...) to its id. Other ids pass through. */
+function resolveFolderId(
+  folderId: string | undefined,
+  folderIds: Record<string, string>,
+): string | undefined {
+  if (!folderId) return;
+  return folderIds[folderId.toLowerCase()] ?? folderId;
+}
+
+function outlookMailboxText(search: ProviderMailboxSearch): string {
+  if (!search.text) return "";
+  const terms =
+    search.text.match === "phrase"
+      ? [search.text.value]
+      : search.text.value.trim().split(/\s+/).filter(Boolean);
+  if (!terms.some((term) => term.trim())) return "";
+  const expression = terms
+    .map((term) => {
+      const literal = `"${escapeSearchValue(term)}"`;
+      return search.text?.field === "any"
+        ? literal
+        : `${search.text?.field}:${literal}`;
+    })
+    .join(" AND ");
+  return JSON.stringify(expression);
+}
+
+async function normalizeOutlookSearchIds(
+  client: OutlookClient,
+  messages: Message[],
+  logger: Logger,
+): Promise<Message[]> {
+  const inputIds = [
+    ...new Set(messages.flatMap((message) => (message.id ? [message.id] : []))),
+  ];
+  if (!inputIds.length) return messages;
+
+  // The emulator already uses stable IDs and does not implement Exchange ID translation.
+  if (isMicrosoftEmulationEnabled()) return messages;
+
+  // Graph's $search can return folder-dependent REST IDs despite the ImmutableId preference.
+  const response: { value: { sourceId: string; targetId?: string }[] } =
+    await withMicrosoftGraphRetry(
+      () =>
+        client.getClient().api("/me/translateExchangeIds").post({
+          inputIds,
+          sourceIdType: "restId",
+          targetIdType: "restImmutableEntryId",
+        }),
+      logger,
+    );
+  const ids = new Map(
+    response.value.map((item) => [item.sourceId, item.targetId]),
+  );
+  const unresolvedIds = inputIds.filter((id) => !ids.get(id));
+  if (unresolvedIds.length) {
+    logger.warn("Some Outlook search messages could not be resolved", {
+      unresolvedCount: unresolvedIds.length,
+      messageCount: messages.length,
+    });
+    logger.trace("Unresolved Outlook search message IDs", {
+      messageIds: unresolvedIds,
+    });
+  }
+  return messages.flatMap((message) => {
+    const id = message.id ? ids.get(message.id) : null;
+    return id ? [{ ...message, id }] : [];
+  });
+}
+
+function unwrapQuotes(value: string): string {
+  return value.length > 1 && value.startsWith('"') && value.endsWith('"')
+    ? value.slice(1, -1)
+    : value;
+}
+
+type MessagesPage = { value: Message[]; "@odata.nextLink"?: string };
+
+// Page tokens come from the client, so cap how many single reads one can trigger.
+const MAX_CONTINUATION_PAGE_SIZE = 20;
+
+// Graph fails a whole page with a 404 when one message in it can't be read,
+// and that page fails the same way on every retry. Reading the page one message
+// at a time drops only the unreadable message so paging can move past it.
+async function getContinuationPage(
+  client: OutlookClient,
+  nextLink: string,
+  logger: Logger,
+): Promise<MessagesPage> {
+  const getPage = (url: string): Promise<MessagesPage> =>
+    withMicrosoftGraphRetry(() => client.getClient().api(url).get(), logger);
+
+  try {
+    return await getPage(nextLink);
+  } catch (error) {
+    const url = new URL(nextLink);
+    const skip = Number(url.searchParams.get("$skip") ?? Number.NaN);
+    const top = Number(url.searchParams.get("$top") ?? Number.NaN);
+    if (
+      !isNotFoundError(error) ||
+      url.searchParams.has("$search") ||
+      url.searchParams.has("$skiptoken") ||
+      !(skip >= 0) ||
+      !(top > 0 && top <= MAX_CONTINUATION_PAGE_SIZE)
+    )
+      throw error;
+
+    const messages: Message[] = [];
+    let unreadableCount = 0;
+    let hasMore = true;
+    for (let offset = skip; offset < skip + top && hasMore; offset++) {
+      url.searchParams.set("$top", "1");
+      url.searchParams.set("$skip", String(offset));
+      try {
+        const single = await getPage(url.toString());
+        messages.push(...single.value);
+        hasMore = Boolean(single["@odata.nextLink"]);
+      } catch (singleError) {
+        if (!isNotFoundError(singleError)) throw singleError;
+        unreadableCount++;
+      }
+    }
+    // A page with nothing readable is more likely a deleted folder than
+    // unreadable messages, so it keeps failing as before.
+    if (!messages.length) throw error;
+
+    logger.warn("Skipped unreadable Outlook messages in a page", {
+      unreadableCount,
+      skip,
+    });
+    if (!hasMore) return { value: messages };
+    url.searchParams.set("$top", String(top));
+    url.searchParams.set("$skip", String(skip + top));
+    return { value: messages, "@odata.nextLink": url.toString() };
+  }
 }

@@ -1,67 +1,55 @@
 import pRetry, { AbortError } from "p-retry";
-import { isTinybirdEnabled } from "./client";
 
-const TINYBIRD_BASE_URL = process.env.TINYBIRD_BASE_URL;
-const TINYBIRD_TOKEN = process.env.TINYBIRD_TOKEN;
+// Deletes rows that identify a mailbox by its address. AI usage rows are kept
+// for cost reporting; they are keyed by user id except when usage tracking
+// fell back to the email address, and those rows are deleted too.
+export async function deleteTinybirdEmailData(emails: string[]) {
+  if (!process.env.TINYBIRD_TOKEN || !emails.length) return;
 
-async function deleteFromDatasource(
-  datasource: string,
-  deleteCondition: string, // e.g. "email='abc@example.com'"
-): Promise<unknown> {
-  if (!isTinybirdEnabled()) return;
+  const quotedEmails = emails.map(quote).join(", ");
+  await deleteRows("aiCall", `userId IN (${quotedEmails})`);
+  await deleteRows("email_action", `ownerEmail IN (${quotedEmails})`);
+}
 
-  const url = new URL(
-    `/v0/datasources/${datasource}/delete`,
-    TINYBIRD_BASE_URL,
-  );
-  const res = await fetch(url, {
-    method: "POST",
-    body: `delete_condition=(${deleteCondition})`,
-    headers: {
-      Authorization: `Bearer ${TINYBIRD_TOKEN}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-  });
-
-  if (!res.ok) {
+// Tinybird runs one delete job at a time and answers 429 while one is running.
+async function deleteRows(datasource: string, deleteCondition: string) {
+  // The ingest token can only append, so deletes need a token with DATASOURCES:CREATE.
+  const token = process.env.TINYBIRD_DELETE_TOKEN;
+  if (!token) {
     throw new Error(
-      `Unable to delete for datasource ${datasource}: [${
-        res.status
-      }] ${await res.text()}`,
+      "TINYBIRD_DELETE_TOKEN is not set, so Tinybird data cannot be deleted",
     );
   }
 
-  return await res.json();
+  await pRetry(
+    async () => {
+      const response = await fetch(
+        new URL(
+          `/v0/datasources/${datasource}/delete`,
+          process.env.TINYBIRD_BASE_URL || "https://api.us-east.tinybird.co/",
+        ),
+        {
+          method: "POST",
+          body: new URLSearchParams({ delete_condition: deleteCondition }),
+          headers: { Authorization: `Bearer ${token}` },
+          signal: AbortSignal.timeout(30_000),
+        },
+      );
+
+      if (response.ok) return;
+      // The datasource does not exist in this workspace, so there is nothing to delete.
+      if (response.status === 404) return;
+
+      const error = new Error(
+        `Unable to delete from Tinybird datasource ${datasource}: [${response.status}] ${await response.text()}`,
+      );
+      if (response.status === 429) throw error;
+      throw new AbortError(error);
+    },
+    { retries: 6, factor: 2, minTimeout: 1000, maxTimeout: 15_000 },
+  );
 }
 
-// Tinybird only allows 1 delete at a time
-async function _deleteFromDatasourceWithRetry(
-  datasource: string,
-  deleteCondition: string,
-): Promise<unknown> {
-  return pRetry(
-    async () => {
-      try {
-        return await deleteFromDatasource(datasource, deleteCondition);
-      } catch (error) {
-        // Only retry on rate limit errors
-        if (error instanceof Error && error.message.includes("429")) {
-          throw error; // pRetry will handle this
-        }
-        throw new AbortError(error as Error); // Don't retry other errors
-      }
-    },
-    {
-      retries: 5,
-      factor: 2,
-      minTimeout: 1000,
-      maxTimeout: 30_000,
-      randomize: true,
-      onFailedAttempt: (error) => {
-        console.log(
-          `Rate limited when deleting from ${datasource}. Attempt ${error.attemptNumber} failed. ${error.retriesLeft} retries left.`,
-        );
-      },
-    },
-  );
+function quote(value: string) {
+  return `'${value.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`;
 }

@@ -8,12 +8,12 @@ import {
   fetchGoogleOpenIdProfile,
   getGoogleOauthClientOptions,
   isGoogleOauthEmulationEnabled,
-} from "@/utils/google/oauth";
+} from "@/utils/gmail/oauth";
 
 const getToken = vi.fn();
 const verifyIdToken = vi.fn();
 
-vi.mock("@/utils/google/oauth", () => ({
+vi.mock("@/utils/gmail/oauth", () => ({
   fetchGoogleOpenIdProfile: vi.fn(),
   getGoogleOauthClientOptions: vi.fn((redirectUri?: string) => ({
     clientId: "client-id",

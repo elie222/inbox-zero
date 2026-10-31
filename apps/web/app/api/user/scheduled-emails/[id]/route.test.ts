@@ -33,6 +33,10 @@ describe("DELETE /api/user/scheduled-emails/[id]", () => {
 
   it("cancels a pending send for the authenticated account", async () => {
     prisma.scheduledEmail.updateMany.mockResolvedValue({ count: 1 });
+    prisma.scheduledEmail.findUnique.mockResolvedValue({
+      clientMutationId: "send-operation-1",
+      status: "CANCELLED",
+    } as never);
 
     const response = await cancel("scheduled-1");
 
@@ -46,10 +50,15 @@ describe("DELETE /api/user/scheduled-emails/[id]", () => {
       },
       data: { status: "CANCELLED", reminderStatus: "CANCELLED", error: null },
     });
+    expect(prisma.scheduledEmail.findUnique).not.toHaveBeenCalled();
   });
 
   it("rejects a send that has already started", async () => {
     prisma.scheduledEmail.updateMany.mockResolvedValue({ count: 0 });
+    prisma.scheduledEmail.findUnique.mockResolvedValue({
+      clientMutationId: "send-operation-1",
+      status: "PROCESSING",
+    } as never);
 
     const response = await cancel("scheduled-1");
 
@@ -57,6 +66,20 @@ describe("DELETE /api/user/scheduled-emails/[id]", () => {
     await expect(response.json()).resolves.toMatchObject({
       error: expect.stringContaining("started"),
       isKnownError: true,
+    });
+  });
+
+  it("accepts a retry when the scheduled send was already cancelled", async () => {
+    prisma.scheduledEmail.updateMany.mockResolvedValue({ count: 0 });
+    prisma.scheduledEmail.findUnique.mockResolvedValue({
+      status: "CANCELLED",
+    } as never);
+    const response = await cancel("scheduled-1");
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ success: true });
+    expect(prisma.scheduledEmail.findUnique).toHaveBeenCalledWith({
+      where: { id: "scheduled-1", emailAccountId },
+      select: { status: true },
     });
   });
 

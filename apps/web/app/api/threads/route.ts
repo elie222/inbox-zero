@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { resolveNativeThreadsQuery } from "@/utils/mail/native-categories";
+import { resolveNativeThreadsQuery } from "@/utils/split-inbox/native-categories";
 import { withEmailProvider } from "@/utils/middleware";
 import { threadsQuery, threadsView } from "@/utils/threads/validation";
 import { loadThreads, toListThreads } from "@/utils/threads/load";

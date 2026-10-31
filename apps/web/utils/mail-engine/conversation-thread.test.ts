@@ -73,6 +73,40 @@ describe("conversationViewToThreadResponse", () => {
       }).thread.messages.map((item) => item.id),
     ).toEqual(["m-draft", "m-1"]);
   });
+
+  it("preserves actual inline IDs through storage and reader projection without inventing IDs", () => {
+    const thread = conversationViewToThreadResponse(
+      view({
+        messages: [
+          message({
+            attachments: [
+              {
+                attachmentId: "gmail-part:0.1",
+                filename: "different-name.png",
+                mimeType: "image/png",
+                size: 4,
+                inline: true,
+                contentId: "logo@example.test",
+              },
+              {
+                attachmentId: "inline-missing",
+                filename: "not-a-cid.png",
+                mimeType: "image/png",
+                size: 4,
+                inline: true,
+                contentId: null,
+              },
+            ],
+          }),
+        ],
+      }),
+    );
+    expect(
+      thread.thread.messages[0].inline.map(
+        (attachment) => attachment.headers["content-id"],
+      ),
+    ).toEqual(["logo@example.test", ""]);
+  });
 });
 
 describe("requestMissingMessageContent", () => {

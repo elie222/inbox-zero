@@ -100,7 +100,6 @@ describe("node mailbox quarantine", () => {
         subject: "Recovered",
         editableHtml: "<p>Recovered</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -127,7 +126,6 @@ describe("node mailbox quarantine", () => {
         subject: "Keep",
         editableHtml: "<p>Keep</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -166,7 +164,6 @@ describe("wipeNodeMailbox", () => {
         subject: "Wipe me",
         editableHtml: "<p>Wipe me</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");

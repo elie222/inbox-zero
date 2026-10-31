@@ -4,7 +4,7 @@ import {
   MICROSOFT_ADMIN_CONSENT_PAGE_PATH,
   MICROSOFT_ADMIN_CONSENT_STATE_COOKIE_NAME,
   type MicrosoftAdminConsentState,
-} from "@/utils/microsoft/admin-consent";
+} from "@/utils/outlook/admin-consent";
 import { generateSignedOAuthState } from "@/utils/oauth/state";
 
 vi.mock("@/env", () => ({

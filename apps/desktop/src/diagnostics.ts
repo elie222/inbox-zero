@@ -56,7 +56,7 @@ let recording = false;
 
 export async function recordDesktopDiagnostics(input: {
   /** Undefined when the local mail engine hasn't been started this session. */
-  getMailOwner: () => Promise<MailEngineOwner> | undefined;
+  getMailOwner: () => MailEngineOwner | undefined;
   databasePath: string;
 }) {
   if (recording) {
@@ -172,7 +172,7 @@ async function recordDiagnostics({
   getMailOwner,
   databasePath,
 }: {
-  getMailOwner: () => Promise<MailEngineOwner> | undefined;
+  getMailOwner: () => MailEngineOwner | undefined;
   databasePath: string;
 }) {
   const { response } = await showMessage({
@@ -309,14 +309,13 @@ function waitForRecording() {
 }
 
 async function collectMailEngine(
-  getMailOwner: () => Promise<MailEngineOwner> | undefined,
+  getMailOwner: () => MailEngineOwner | undefined,
 ) {
-  const ownerPromise = getMailOwner();
-  if (!ownerPromise) return { status: "not_started" as const };
+  const owner = getMailOwner();
+  if (!owner) return { status: "not_started" as const };
   try {
     return await withTimeout(
       (async () => {
-        const owner = await ownerPromise;
         const inspection = await callMailEngine<MailStoreInspection>(
           owner,
           "inspect",

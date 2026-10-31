@@ -1,21 +1,30 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { processHistoryItem } from "@/utils/webhook/process-history-item";
 import {
   createMockEmailProvider,
   getMockParsedMessage,
   ErrorProviders,
 } from "@/__tests__/mocks/email-provider.mock";
-import { getEmailAccount, createTestLogger } from "@/__tests__/helpers";
+import {
+  getEmailAccount,
+  getRule,
+  createTestLogger,
+} from "@/__tests__/helpers";
 import { handleOutboundMessage } from "@/utils/reply-tracker/handle-outbound";
 import { processAttachmentsForFiling } from "@/utils/drive/process-filing-attachments";
 import {
   DraftReplyConfidence,
+  ExecutedRuleStatus,
+  SystemType,
   NewsletterStatus,
 } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import { categorizeSender } from "@/utils/categorize/senders/categorize";
 import { sendOtpPushNotification } from "@/utils/otp-push";
 import { runRules } from "@/utils/ai/choose-rule/run-rules";
+import { sendMobilePushNotification } from "@/utils/mobile-push";
+import { processFilingReply } from "@/utils/drive/handle-filing-reply";
+import { getFilebotEmail } from "@/utils/filebot/is-filebot-email";
 import { SafeError } from "@/utils/error";
 
 vi.mock("@/utils/prisma", () => ({
@@ -50,8 +59,16 @@ vi.mock("@/utils/drive/filing-engine", () => ({
 vi.mock("@/utils/drive/process-filing-attachments", () => ({
   processAttachmentsForFiling: vi.fn().mockResolvedValue(undefined),
 }));
+vi.mock("@/utils/drive/handle-filing-reply", () => ({
+  processFilingReply: vi.fn(),
+}));
+
 vi.mock("@/utils/otp-push", () => ({
   sendOtpPushNotification: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("@/utils/mobile-push", () => ({
+  sendMobilePushNotification: vi.fn().mockResolvedValue(undefined),
 }));
 
 const logger = createTestLogger();
@@ -59,6 +76,12 @@ const logger = createTestLogger();
 describe("Provider Edge Cases", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-01T01:00:00Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   function getDefaultEmailAccount() {
@@ -79,6 +102,210 @@ describe("Provider Edge Cases", () => {
     emailAccount: getDefaultEmailAccount(),
     logger,
   };
+
+  it.each([
+    ["older than 24 hours", -24 * 60 * 60 * 1000 - 1, false],
+    ["exactly 24 hours", -24 * 60 * 60 * 1000, true],
+    ["recent", -60_000, true],
+    ["unknown", undefined, true],
+    ["invalid", "invalid", true],
+  ])("handles %s inbound mail", async (_description, age, shouldProcess) => {
+    const message = getMockParsedMessage({
+      internalDate: typeof age === "number" ? String(Date.now() + age) : age,
+    });
+    const provider = createMockEmailProvider();
+    await processHistoryItem(
+      { messageId: message.id, message },
+      {
+        ...baseOptions,
+        provider,
+        hasAutomationRules: true,
+        hasAiAccess: true,
+        emailAccount: {
+          ...baseOptions.emailAccount,
+          filingEnabled: true,
+          filingPrompt: "File invoices",
+          autoCategorizeSenders: true,
+        },
+      },
+    );
+    expect(sendOtpPushNotification).toHaveBeenCalledTimes(
+      shouldProcess ? 1 : 0,
+    );
+    expect(runRules).toHaveBeenCalledTimes(shouldProcess ? 1 : 0);
+    if (!shouldProcess) {
+      expect(processAttachmentsForFiling).not.toHaveBeenCalled();
+      expect(categorizeSender).not.toHaveBeenCalled();
+    }
+  });
+
+  it("still handles old filebot replies", async () => {
+    const message = getMockParsedMessage({
+      internalDate: String(Date.now() - 48 * 60 * 60 * 1000),
+    });
+    message.headers.to = getFilebotEmail({
+      userEmail: baseOptions.emailAccount.email,
+    });
+    await processHistoryItem(
+      { messageId: message.id, message },
+      { ...baseOptions, provider: createMockEmailProvider() },
+    );
+    expect(processFilingReply).toHaveBeenCalled();
+  });
+
+  it("still handles old sent messages", async () => {
+    const message = getMockParsedMessage({
+      internalDate: String(Date.now() - 48 * 60 * 60 * 1000),
+    });
+    const provider = createMockEmailProvider({
+      isSentMessage: vi.fn().mockReturnValue(true),
+    });
+    await processHistoryItem(
+      { messageId: message.id, message },
+      { ...baseOptions, provider },
+    );
+    expect(handleOutboundMessage).toHaveBeenCalled();
+  });
+
+  describe("To Reply arrival alerts", () => {
+    beforeEach(() => {
+      vi.mocked(prisma.executedRule.findFirst).mockResolvedValue(null);
+      vi.mocked(sendMobilePushNotification).mockResolvedValue(undefined);
+      vi.mocked(runRules).mockResolvedValue([
+        {
+          rule: { ...getRule("Reply needed"), systemType: SystemType.TO_REPLY },
+          status: ExecutedRuleStatus.APPLIED,
+          createdAt: new Date(),
+        },
+      ]);
+    });
+
+    async function processArrival({
+      isNewMessage = true,
+      old = false,
+      outbound = false,
+      self = false,
+    } = {}) {
+      const message = getMockParsedMessage({
+        id: "arrival-message",
+        threadId: "provider-conversation",
+        internalDate: String(Date.now() - (old ? 16 * 60_000 : 60_000)),
+        subject: "Can you review this?",
+        headers: {
+          from: self
+            ? baseOptions.emailAccount.email
+            : "Alex Example <alex@example.com>",
+          to: baseOptions.emailAccount.email,
+          subject: "Can you review this?",
+          date: new Date().toISOString(),
+        },
+      });
+      const provider = createMockEmailProvider({
+        isSentMessage: vi.fn().mockReturnValue(outbound),
+      });
+      await processHistoryItem(
+        { messageId: message.id, message },
+        {
+          ...baseOptions,
+          provider,
+          hasAutomationRules: true,
+          hasAiAccess: true,
+          isNewMessage,
+        },
+      );
+    }
+
+    it("sends an alert with the provider thread id for a newly matched To Reply rule", async () => {
+      await processArrival();
+      expect(sendMobilePushNotification).toHaveBeenCalledExactlyOnceWith({
+        userId: baseOptions.emailAccount.userId,
+        deduplicationKey: `to-reply:${baseOptions.emailAccount.id}:arrival-message`,
+        notification: {
+          title: "Alex Example",
+          subtitle: "Can you review this?",
+          body: "Hello World",
+          sound: "default",
+          data: {
+            threadId: "provider-conversation",
+            emailAccountId: baseOptions.emailAccount.id,
+            messageId: "arrival-message",
+            type: "to_reply",
+          },
+        },
+        logger,
+      });
+    });
+
+    it.each([
+      SystemType.FYI,
+      null,
+    ])("does not alert for system type %s", async (systemType) => {
+      vi.mocked(runRules).mockResolvedValue([
+        {
+          rule: { ...getRule("Other rule"), systemType },
+          status: ExecutedRuleStatus.APPLIED,
+          createdAt: new Date(),
+        },
+      ]);
+      await processArrival();
+      expect(sendMobilePushNotification).not.toHaveBeenCalled();
+    });
+
+    it("does not alert outside the arrival path", async () => {
+      await processArrival({ isNewMessage: false });
+      expect(sendMobilePushNotification).not.toHaveBeenCalled();
+    });
+
+    it("defaults to no alert when arrival eligibility is omitted", async () => {
+      const message = getMockParsedMessage({
+        internalDate: String(Date.now() - 60_000),
+      });
+      await processHistoryItem(
+        { messageId: message.id, message },
+        {
+          ...baseOptions,
+          provider: createMockEmailProvider(),
+          hasAutomationRules: true,
+          hasAiAccess: true,
+        },
+      );
+      expect(runRules).toHaveBeenCalledOnce();
+      expect(sendMobilePushNotification).not.toHaveBeenCalled();
+    });
+
+    it("does not alert for old messages", async () => {
+      await processArrival({ old: true });
+      expect(sendMobilePushNotification).not.toHaveBeenCalled();
+    });
+
+    it("does not alert for outbound messages", async () => {
+      await processArrival({ outbound: true });
+      expect(sendMobilePushNotification).not.toHaveBeenCalled();
+      expect(runRules).not.toHaveBeenCalled();
+    });
+
+    it("does not alert for self-sent mail even without a SENT label", async () => {
+      await processArrival({ self: true });
+      expect(sendMobilePushNotification).not.toHaveBeenCalled();
+    });
+
+    it("does not alert when the message already has an executed rule", async () => {
+      vi.mocked(prisma.executedRule.findFirst).mockResolvedValue({
+        id: "existing",
+      } as never);
+      await processArrival();
+      expect(sendMobilePushNotification).not.toHaveBeenCalled();
+      expect(runRules).not.toHaveBeenCalled();
+    });
+
+    it("continues processing when push delivery throws", async () => {
+      vi.mocked(sendMobilePushNotification).mockRejectedValue(
+        new Error("Push unavailable"),
+      );
+      await expect(processArrival()).resolves.toBeUndefined();
+      expect(sendMobilePushNotification).toHaveBeenCalledOnce();
+    });
+  });
 
   describe("Gmail-specific errors", () => {
     it("handles Gmail 'not found' error gracefully (message was deleted)", async () => {
@@ -300,6 +527,40 @@ describe("Provider Edge Cases", () => {
         undefined,
         undefined,
       );
+    });
+
+    it("still runs rules when the sender address cannot be parsed", async () => {
+      const provider = createMockEmailProvider({
+        getMessage: vi.fn().mockResolvedValue(
+          getMockParsedMessage({
+            labelIds: ["INBOX"],
+            headers: {
+              from: "",
+              to: "user@test.com",
+              subject: "Test",
+              date: "2024-01-01",
+            },
+          }),
+        ),
+        isSentMessage: vi.fn().mockReturnValue(false),
+      });
+
+      await processHistoryItem(
+        { messageId: "msg-123", threadId: "thread-123" },
+        {
+          ...baseOptions,
+          emailAccount: {
+            ...getDefaultEmailAccount(),
+            autoCategorizeSenders: true,
+          },
+          hasAiAccess: true,
+          hasAutomationRules: true,
+          provider,
+        },
+      );
+
+      expect(categorizeSender).not.toHaveBeenCalled();
+      expect(runRules).toHaveBeenCalledOnce();
     });
 
     it("categorizes when any sender casing variant has no category", async () => {
@@ -542,6 +803,12 @@ describe("Provider Edge Cases", () => {
 
       const attachment = {
         attachmentId: "attachment-1",
+        headers: {
+          "content-description": "invoice",
+          "content-id": "attachment-1",
+          "content-transfer-encoding": "base64",
+          "content-type": "application/pdf",
+        },
         filename: "invoice.pdf",
         mimeType: "application/pdf",
         size: 123,

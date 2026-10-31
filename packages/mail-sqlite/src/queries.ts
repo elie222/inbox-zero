@@ -88,7 +88,7 @@ export function compilePredicate(
           ? `${alias}.from_address`
           : predicate.field === "to"
             ? `${alias}.to_json`
-            : `${alias}.to_json`;
+            : `${alias}.cc_json`;
       if (predicate.field === "from" && predicate.match === "address") {
         return {
           sql: `(LOWER(${column}) = LOWER(?) OR LOWER(${column}) LIKE '%' || LOWER(?) || '%')`,
@@ -120,6 +120,12 @@ export function compilePredicate(
       return {
         sql: `${alias}.has_attachments = ?`,
         bindings: [predicate.value ? 1 : 0],
+      };
+    case "message":
+      if (predicate.ids.length === 0) return { sql: "0=1", bindings: [] };
+      return {
+        sql: `${alias}.message_id IN (${predicate.ids.map(() => "?").join(",")})`,
+        bindings: predicate.ids,
       };
     case "text":
       return compileTextPredicate(predicate, search, alias);

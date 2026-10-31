@@ -1,4 +1,6 @@
 import { lookup } from "node:dns/promises";
+import { request as httpsRequest } from "node:https";
+import { Readable } from "node:stream";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   isSafeExternalHttpUrl,
@@ -8,6 +10,10 @@ import { createSafeImageProxyFetch } from "./node-safe-fetch";
 
 vi.mock("node:dns/promises", () => ({
   lookup: vi.fn(),
+}));
+
+vi.mock("node:https", () => ({
+  request: vi.fn(),
 }));
 
 describe("isSafeExternalHttpUrl", () => {
@@ -103,5 +109,31 @@ describe("isSafeExternalHttpUrl", () => {
 
     expect(response.status).toBe(502);
     await expect(response.text()).resolves.toBe("Upstream host lookup failed");
+  });
+
+  it("returns upstream responses that must not have a body", async () => {
+    vi.mocked(lookup).mockResolvedValue([
+      { address: "93.184.216.34", family: 4 },
+    ] as never);
+    vi.mocked(httpsRequest).mockImplementation(((
+      _url: URL,
+      _options: unknown,
+      onResponse: (response: Readable) => void,
+    ) => {
+      const upstreamResponse = Object.assign(Readable.from([]), {
+        statusCode: 204,
+        statusMessage: "No Content",
+        headers: {},
+      });
+      setImmediate(() => onResponse(upstreamResponse));
+      return { on: vi.fn(), end: vi.fn() };
+    }) as never);
+
+    const response = await createSafeImageProxyFetch(
+      "https://news.example.com/photo.png",
+    );
+
+    expect(response.status).toBe(204);
+    expect(response.body).toBeNull();
   });
 });

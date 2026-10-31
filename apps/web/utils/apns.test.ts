@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createTestLogger } from "@/__tests__/helpers";
 
 vi.mock("@/env", () => ({
   env: {
@@ -15,9 +16,49 @@ import {
   takeRecordedApnsSends,
 } from "./apns";
 
+const logger = createTestLogger();
+
 describe("deliverApnsNotifications", () => {
   beforeEach(() => {
     takeRecordedApnsSends();
+  });
+
+  it("maps the subtitle to the APNs alert", async () => {
+    await deliverApnsNotifications({
+      tokens: ["test-token"],
+      notification: {
+        title: "Alex",
+        subtitle: "Project plan",
+        body: "Please review the plan.",
+      },
+      logger,
+    });
+    expect(takeRecordedApnsSends()[0]?.payload).toMatchObject({
+      aps: {
+        alert: {
+          title: "Alex",
+          subtitle: "Project plan",
+          body: "Please review the plan.",
+        },
+      },
+    });
+  });
+
+  it("names the alert's category so the app can show its actions", async () => {
+    await deliverApnsNotifications({
+      tokens: ["test-token"],
+      notification: {
+        title: "Verification code: 123456",
+        body: "Your code is 123456",
+        category: "OTP_CODE",
+        data: { type: "otp", code: "123456" },
+      },
+      logger,
+    });
+    expect(takeRecordedApnsSends()[0]?.payload).toMatchObject({
+      aps: { category: "OTP_CODE" },
+      code: "123456",
+    });
   });
 
   it("records a fake APNs send without contacting Apple", async () => {
@@ -28,7 +69,7 @@ describe("deliverApnsNotifications", () => {
         body: "123456",
         data: { type: "otp", url: "/thread/1" },
       },
-      logger: { warn: vi.fn() } as never,
+      logger,
     });
 
     expect(result).toEqual({ unregisteredTokens: [], retryTokens: [] });
@@ -57,7 +98,7 @@ describe("deliverApnsNotifications", () => {
         pushType: "background",
         data: { emailAccountId: "account-1", hint: "mailbox" },
       },
-      logger: { warn: vi.fn() } as never,
+      logger,
     });
 
     expect(takeRecordedApnsSends()).toEqual([

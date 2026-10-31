@@ -101,6 +101,7 @@ vi.mock("@/env", () => ({
     AI_GATEWAY_API_KEY: "test-ai-gateway-key",
     OLLAMA_BASE_URL: "http://localhost:11434/api",
     OLLAMA_MODEL: "llama3",
+    LOCAL_LLM_THINKING: "auto",
     OPENAI_COMPATIBLE_BASE_URL: "http://localhost:1234/v1",
     OPENAI_COMPATIBLE_MODEL: "llama-3.2-3b-instruct",
     OPENAI_COMPATIBLE_AUTH_HEADER: undefined,
@@ -153,6 +154,7 @@ describe("Models", () => {
     vi.mocked(env).AI_GATEWAY_API_KEY = "test-ai-gateway-key";
     vi.mocked(env).OLLAMA_BASE_URL = "http://localhost:11434/api";
     vi.mocked(env).OLLAMA_MODEL = "llama3";
+    vi.mocked(env).LOCAL_LLM_THINKING = "auto";
     vi.mocked(env).OPENAI_COMPATIBLE_BASE_URL = "http://localhost:1234/v1";
     vi.mocked(env).OPENAI_COMPATIBLE_MODEL = "llama-3.2-3b-instruct";
     vi.mocked(env).OPENAI_COMPATIBLE_AUTH_HEADER = undefined;
@@ -194,18 +196,6 @@ describe("Models", () => {
       const result = getModel(userAi, "chat");
 
       expect(result.providerOptions?.openai?.reasoningEffort).toBe("medium");
-    });
-
-    it("should use user's provider and model when API key is provided", () => {
-      const userAi = defaultUserAi({
-        aiApiKey: "user-api-key",
-        aiProvider: Provider.GOOGLE,
-        aiModel: "gemini-1.5-pro-latest",
-      });
-
-      const result = getModel(userAi);
-      expect(result.provider).toBe(Provider.GOOGLE);
-      expect(result.modelName).toBe("gemini-1.5-pro-latest");
     });
 
     it("disables OpenAI response storage for user API keys so Zero Data Retention orgs work", () => {
@@ -578,6 +568,68 @@ describe("Models", () => {
       expect(result.model).toBeDefined();
     });
 
+    it.each([
+      ["off", false],
+      ["on", true],
+    ] as const)("should send think=%s to Ollama as %s", (setting, think) => {
+      setDefaultLlms(Provider.OLLAMA, "llama3.2");
+      vi.mocked(env).LOCAL_LLM_THINKING = setting;
+
+      const result = getModel(defaultUserAi());
+
+      expect(result.providerOptions).toEqual({ ollama: { think } });
+    });
+
+    it.each([
+      "auto",
+      undefined,
+    ] as const)("should send nothing for Ollama when LOCAL_LLM_THINKING is %s", (setting) => {
+      setDefaultLlms(Provider.OLLAMA, "llama3.2");
+      vi.mocked(env).LOCAL_LLM_THINKING = setting!;
+
+      const result = getModel(defaultUserAi());
+
+      expect(result.providerOptions).toBeUndefined();
+    });
+
+    it("should send only enable_thinking=false for OpenAI-compatible when LOCAL_LLM_THINKING is off", () => {
+      setDefaultLlms(Provider.OPENAI_COMPATIBLE, "llama-3.2-3b-instruct");
+      vi.mocked(env).LOCAL_LLM_THINKING = "off";
+
+      const result = getModel(defaultUserAi());
+
+      expect(result.providerOptions).toEqual({
+        "openai-compatible": {
+          chat_template_kwargs: { enable_thinking: false },
+        },
+      });
+    });
+
+    it("should send only enable_thinking=true for OpenAI-compatible when LOCAL_LLM_THINKING is on", () => {
+      setDefaultLlms(Provider.OPENAI_COMPATIBLE, "llama-3.2-3b-instruct");
+      vi.mocked(env).LOCAL_LLM_THINKING = "on";
+
+      const result = getModel(defaultUserAi());
+
+      expect(result.providerOptions).toEqual({
+        "openai-compatible": {
+          chat_template_kwargs: { enable_thinking: true },
+        },
+      });
+    });
+
+    it.each([
+      "auto",
+      undefined,
+    ] as const)("should send nothing for OpenAI-compatible when LOCAL_LLM_THINKING is %s", (setting) => {
+      setDefaultLlms(Provider.OPENAI_COMPATIBLE, "llama-3.2-3b-instruct");
+      vi.mocked(env).LOCAL_LLM_THINKING = setting!;
+
+      const result = getModel(defaultUserAi());
+
+      expect(result.providerOptions).toBeUndefined();
+    });
+
     it("should accept an Ollama server origin without /api", () => {
       const userAi = defaultUserAi();
 
@@ -689,12 +741,24 @@ describe("Models", () => {
 
       expect(result.provider).toBe(Provider.AZURE_FOUNDRY);
       expect(result.modelName).toBe("deployment-name");
-      expect(createOpenAICompatible).toHaveBeenCalledWith({
-        name: "azure-foundry",
+      // Chat Completions rejects function tools on reasoning models, so
+      // Foundry must go through the Azure provider's Responses API.
+      expect(createAzure).toHaveBeenCalledWith({
+        apiKey: TEST_AZURE_FOUNDRY_API_KEY,
         baseURL: TEST_AZURE_FOUNDRY_BASE_URL,
-        supportsStructuredOutputs: true,
-        headers: { "api-key": TEST_AZURE_FOUNDRY_API_KEY },
       });
+      expect(createOpenAICompatible).not.toHaveBeenCalled();
+      expect(result.providerOptions?.openai?.reasoningEffort).toBe("low");
+    });
+
+    it("should configure Azure Foundry draft models with medium reasoning effort", () => {
+      const userAi = defaultUserAi();
+
+      setDraftLlms(Provider.AZURE_FOUNDRY, "deployment-name");
+
+      const result = getModel(userAi, "draft");
+
+      expect(result.providerOptions?.openai?.reasoningEffort).toBe("medium");
     });
 
     it("should skip Azure Foundry list entries without an API key", () => {

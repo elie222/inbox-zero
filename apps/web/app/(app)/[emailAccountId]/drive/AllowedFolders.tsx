@@ -255,7 +255,7 @@ export function FolderNode({
           <TreeExpander hasChildren={true} />
         )}
         <TreeIcon hasChildren />
-        <div className="flex flex-1 items-center gap-2">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           <Checkbox
             id={`folder-${folder.id}`}
             checked={checkboxState}
@@ -269,7 +269,7 @@ export function FolderNode({
               }
             }}
           />
-          <TreeLabel>{folder.name}</TreeLabel>
+          <TreeLabel title={folder.name}>{folder.name}</TreeLabel>
         </div>
       </TreeNodeTrigger>
       <TreeNodeContent hasChildren={isExpanded}>

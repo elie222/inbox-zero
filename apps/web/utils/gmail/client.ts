@@ -4,13 +4,14 @@ import { saveTokens } from "@/utils/auth/save-tokens";
 import { cleanupInvalidTokens } from "@/utils/auth/cleanup-invalid-tokens";
 import type { Logger } from "@/utils/logger";
 import { SCOPES } from "@/utils/gmail/scopes";
-import { isInvalidGrantError, SafeError } from "@/utils/error";
+import { SafeError } from "@/utils/error";
+import { classifyEmailAccountProviderIssue } from "@/utils/email/provider-health";
 import { env } from "@/env";
 import {
   getGoogleGmailApiRootUrl,
   getGoogleOauthClientOptions,
   getGooglePeopleApiRootUrl,
-} from "@/utils/google/oauth";
+} from "@/utils/gmail/oauth";
 
 type AuthOptions = {
   accessToken?: string | null;
@@ -108,9 +109,16 @@ export const getGmailClientWithRefresh = async ({
 
     return g;
   } catch (error) {
-    if (isInvalidGrantError(error)) {
+    // Only this refresh knows which credentials failed, so it owns cleanup for
+    // every account-level refusal (revoked grant, blocking security policy).
+    const issue = classifyEmailAccountProviderIssue({
+      error,
+      provider: "google",
+    });
+    if (issue) {
       logger.warn("Error refreshing Gmail access token", {
         emailAccountId,
+        reason: issue.reason,
         error: error instanceof Error ? error.message : String(error),
         // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
         errorDescription: (error as any).response?.data?.error_description,
@@ -119,7 +127,7 @@ export const getGmailClientWithRefresh = async ({
       try {
         await cleanupInvalidTokens({
           emailAccountId,
-          reason: "invalid_grant",
+          reason: issue.reason,
           failedAccessToken: accessToken ?? undefined,
           failedRefreshToken: refreshToken,
           logger,

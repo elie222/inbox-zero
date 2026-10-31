@@ -14,12 +14,13 @@ import {
 import {
   withMicrosoftGraphRetry,
   withMicrosoftGraphWriteRetry,
-} from "@/utils/microsoft/retry";
+} from "@/utils/outlook/retry";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
 import { isOutlookItemNotFoundError, SafeError } from "@/utils/error";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
-import { uploadResumableChunks } from "@/utils/microsoft/upload-session";
+import { uploadResumableChunks } from "@/utils/outlook/upload-session";
 import type { Logger } from "@/utils/logger";
+import type { SendEmailOptions } from "@/utils/email/types";
 
 type GraphRecipient = {
   emailAddress: { address: string; name?: string };
@@ -35,6 +36,7 @@ export async function sendEmailWithHtml(
   client: OutlookClient,
   body: MailSendEmailBody,
   logger: Logger,
+  options?: SendEmailOptions,
 ): Promise<SentEmailResult> {
   ensureEmailSendingEnabled();
 
@@ -45,7 +47,7 @@ export async function sendEmailWithHtml(
   // For replies with a message ID, use createReply for proper threading
   // Microsoft Graph's sendMail doesn't support In-Reply-To/References headers
   if (body.replyToEmail?.messageId) {
-    return sendReplyUsingCreateReply(client, body, logger);
+    return sendReplyUsingCreateReply(client, body, logger, options);
   }
 
   if (body.replyToEmail?.forwardedMessageId) {
@@ -77,6 +79,8 @@ export async function replyToEmail(
   options?: {
     replyTo?: string;
     from?: string;
+    cc?: string;
+    bcc?: string;
     attachments?: Attachment[];
   },
 ) {
@@ -100,6 +104,9 @@ export async function replyToEmail(
     options?.from,
     replyDraft.from?.emailAddress?.address,
   );
+  const ccRecipients = buildGraphRecipients(options?.cc);
+  const bccRecipients = buildGraphRecipients(options?.bcc);
+  const replyToRecipients = buildGraphRecipients(options?.replyTo);
 
   // Update the draft with our content
   await withMicrosoftGraphWriteRetry(
@@ -113,11 +120,9 @@ export async function replyToEmail(
             content: html,
           },
           ...(fromField ? { from: fromField } : {}),
-          ...(options?.replyTo
-            ? {
-                replyTo: [{ emailAddress: { address: options.replyTo } }],
-              }
-            : {}),
+          ...(ccRecipients ? { ccRecipients } : {}),
+          ...(bccRecipients ? { bccRecipients } : {}),
+          ...(replyToRecipients ? { replyTo: replyToRecipients } : {}),
         }),
     logger,
   );
@@ -263,14 +268,15 @@ export async function draftEmail(
     userEmails,
   );
 
-  const overrideToRecipient = args.to
-    ? {
-        emailAddress: {
-          address: extractEmailAddress(recipients.to),
-          name: extractNameFromEmail(recipients.to),
-        },
-      }
+  // A rule's draft recipients can list several addresses. An explicit `to`
+  // that holds no valid address must fail rather than fall back to the
+  // original sender, which would address the draft to someone else.
+  const overrideToRecipients = args.to
+    ? buildGraphRecipients(recipients.to)
     : undefined;
+  if (args.to && !overrideToRecipients?.length) {
+    throw new SafeError("Draft recipient address is invalid");
+  }
 
   const fallbackToRecipient = {
     emailAddress: {
@@ -279,10 +285,18 @@ export async function draftEmail(
     },
   };
 
-  const toRecipient =
-    overrideToRecipient ??
-    originalEmail.rawRecipients?.from ??
-    fallbackToRecipient;
+  // Reply-To wins over From, as in buildReplyAllRecipients, and may list
+  // several addresses. Without one, the raw From recipient is used so its
+  // display name is kept as Outlook has it.
+  const replyToRecipients = originalEmail.headers["reply-to"]
+    ? buildGraphRecipients(recipients.to)
+    : undefined;
+  const rawFromRecipient = originalEmail.headers["reply-to"]
+    ? undefined
+    : originalEmail.rawRecipients?.from;
+
+  const toRecipients = overrideToRecipients ??
+    replyToRecipients ?? [rawFromRecipient ?? fallbackToRecipient];
 
   // Build CC list from reply-all and args
   const ccAddresses = mergeAndDedupeRecipients(recipients.cc, args.cc);
@@ -345,7 +359,7 @@ export async function draftEmail(
           contentType: "html",
           content: html,
         },
-        toRecipients: [toRecipient],
+        toRecipients,
         ccRecipients,
         bccRecipients,
       }),
@@ -389,6 +403,7 @@ async function sendReplyUsingCreateReply(
   client: OutlookClient,
   body: MailSendEmailBody,
   logger: Logger,
+  options?: SendEmailOptions,
 ): Promise<SentEmailResult> {
   const originalMessageId = body.replyToEmail!.messageId!;
 
@@ -407,6 +422,11 @@ async function sendReplyUsingCreateReply(
   const toRecipients = buildGraphRecipients(body.to);
   const ccRecipients = buildGraphRecipients(body.cc);
   const bccRecipients = buildGraphRecipients(body.bcc);
+  const replyToRecipients = buildGraphRecipients(body.replyTo);
+  const fromField = buildGraphFromField(
+    body.from,
+    replyDraft.from?.emailAddress?.address,
+  );
 
   // Update the draft with our content and recipients
   // Note: We cannot set In-Reply-To/References headers via internetMessageHeaders
@@ -418,7 +438,8 @@ async function sendReplyUsingCreateReply(
         .getClient()
         .api(`/me/messages/${replyDraft.id}`)
         .patch({
-          subject: body.subject,
+          // Exchange starts a new conversation when the reply subject changes.
+          ...(options?.preserveThreadSubject ? {} : { subject: body.subject }),
           body: {
             contentType: "html",
             content: body.messageHtml,
@@ -426,6 +447,11 @@ async function sendReplyUsingCreateReply(
           ...(toRecipients ? { toRecipients } : {}),
           ...(ccRecipients ? { ccRecipients } : {}),
           ...(bccRecipients ? { bccRecipients } : {}),
+          // createReply starts from an empty Reply-To, so a caller's Reply-To
+          // (e.g. the filebot +ai address) would otherwise be dropped and the
+          // user's answer would go to their own inbox instead.
+          ...(replyToRecipients ? { replyTo: replyToRecipients } : {}),
+          ...(fromField ? { from: fromField } : {}),
         }),
     logger,
   );
@@ -471,6 +497,11 @@ async function sendForwardUsingCreateForward(
   const toRecipients = buildGraphRecipients(body.to);
   const ccRecipients = buildGraphRecipients(body.cc);
   const bccRecipients = buildGraphRecipients(body.bcc);
+  const replyToRecipients = buildGraphRecipients(body.replyTo);
+  const fromField = buildGraphFromField(
+    body.from,
+    forwardDraft.from?.emailAddress?.address,
+  );
 
   await withMicrosoftGraphWriteRetry(
     () =>
@@ -486,6 +517,8 @@ async function sendForwardUsingCreateForward(
           ...(toRecipients ? { toRecipients } : {}),
           ...(ccRecipients ? { ccRecipients } : {}),
           ...(bccRecipients ? { bccRecipients } : {}),
+          ...(replyToRecipients ? { replyTo: replyToRecipients } : {}),
+          ...(fromField ? { from: fromField } : {}),
         }),
     logger,
   );

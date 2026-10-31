@@ -36,17 +36,7 @@ import {
 } from "@/utils/snooze/scheduler";
 import prisma from "@/utils/prisma";
 import { EmailSendOperationStatus } from "@/generated/prisma/enums";
-import {
-  createFileBlobStore,
-  readBlobMetadata,
-} from "@inboxzero/mail-sqlite/blob-store";
-import {
-  accountMailUploadDirectory,
-  holdAccountUploads,
-  releaseAccountUploadHolds,
-} from "@/utils/mail-api/upload-blobs";
 import type { ParsedMessage } from "@/utils/types";
-import type { Attachment } from "@/utils/types/mail";
 import { scheduleEmailBody } from "@/utils/actions/scheduled-email.validation";
 
 const logger = createScopedLogger("mail-api/operations");
@@ -63,7 +53,6 @@ export function createEmailProviderOperationExecutor(input: {
   accountId: string;
 }): OperationExecutor {
   const { provider, accountId } = input;
-  const providerName = provider.name === "microsoft" ? "microsoft" : "google";
   return {
     async execute({ operation }) {
       if (operation.intent.kind === "send") {
@@ -99,19 +88,9 @@ export function createEmailProviderOperationExecutor(input: {
         }
         // One bad message fails the whole bulk call; per-message retries
         // isolate it so the rest still apply.
-        return executeMetadataPerTarget(
-          provider,
-          accountId,
-          providerName,
-          metadataOperation,
-        );
+        return executeMetadataPerTarget(provider, accountId, metadataOperation);
       }
-      return observeAppliedMetadata(
-        provider,
-        accountId,
-        providerName,
-        metadataOperation,
-      );
+      return observeAppliedMetadata(provider, accountId, metadataOperation);
     },
     async inspect({ operation }) {
       if (operation.intent.kind === "send") {
@@ -120,7 +99,7 @@ export function createEmailProviderOperationExecutor(input: {
       if (operation.intent.kind !== "metadata") {
         return { status: "uncertain", receiptId: operation.key.operationId };
       }
-      return inspectMetadataOperation(provider, accountId, providerName, {
+      return inspectMetadataOperation(provider, accountId, {
         ...operation,
         intent: operation.intent,
       });
@@ -131,17 +110,17 @@ export function createEmailProviderOperationExecutor(input: {
 async function executeMetadataPerTarget(
   provider: EmailProvider,
   accountId: string,
-  providerName: "google" | "microsoft",
   operation: PreparedMetadataOperation,
 ): Promise<ExecutionResult> {
   const targets: TargetOutcome[] = [];
-  const observations: ReturnType<typeof parsedMessagePatch>[] = [];
+  const observations: ProviderChange[] = [];
   for (const target of operation.intent.targets) {
     try {
       await applyChange(provider, operation.intent.change, [target.messageId]);
       try {
         const message = await provider.getMessage(target.messageId);
-        observations.push(parsedMessagePatch(accountId, providerName, message));
+        const patch = parsedMessagePatch(accountId, provider.name, message);
+        if (patch) observations.push(patch);
         if (!metadataChangeSatisfied(message, operation.intent.change)) {
           targets.push({
             key: target,
@@ -165,17 +144,16 @@ async function executeMetadataPerTarget(
       targets.push(failedTargetOutcome(target, error));
     }
   }
-  return metadataResult(operation, targets, observations);
+  return metadataResult(accountId, operation, targets, observations);
 }
 
 async function observeAppliedMetadata(
   provider: EmailProvider,
   accountId: string,
-  providerName: "google" | "microsoft",
   operation: PreparedMetadataOperation,
 ): Promise<ExecutionResult> {
   const targets: TargetOutcome[] = [];
-  const observations: ReturnType<typeof parsedMessagePatch>[] = [];
+  const observations: ProviderChange[] = [];
   for (const batch of chunk(
     operation.intent.targets,
     METADATA_OBSERVATION_BATCH_SIZE,
@@ -190,7 +168,8 @@ async function observeAppliedMetadata(
     for (const target of batch) {
       const message = messagesById.get(target.messageId);
       if (message) {
-        observations.push(parsedMessagePatch(accountId, providerName, message));
+        const patch = parsedMessagePatch(accountId, provider.name, message);
+        if (patch) observations.push(patch);
         if (!metadataChangeSatisfied(message, operation.intent.change)) {
           targets.push({
             key: target,
@@ -203,7 +182,7 @@ async function observeAppliedMetadata(
       targets.push({ key: target, outcome: "applied", code: null });
     }
   }
-  return metadataResult(operation, targets, observations);
+  return metadataResult(accountId, operation, targets, observations);
 }
 
 // One failed read rejects a whole provider batch, so retry individually to
@@ -231,15 +210,15 @@ async function readMessagesForObservation(
 async function inspectMetadataOperation(
   provider: EmailProvider,
   accountId: string,
-  providerName: "google" | "microsoft",
   operation: PreparedMetadataOperation,
 ) {
   const targets: TargetOutcome[] = [];
-  const observations: ReturnType<typeof parsedMessagePatch>[] = [];
+  const observations: ProviderChange[] = [];
   for (const target of operation.intent.targets) {
     try {
       const message = await provider.getMessage(target.messageId);
-      observations.push(parsedMessagePatch(accountId, providerName, message));
+      const patch = parsedMessagePatch(accountId, provider.name, message);
+      if (patch) observations.push(patch);
       const satisfied = metadataChangeSatisfied(
         message,
         operation.intent.change,
@@ -253,13 +232,14 @@ async function inspectMetadataOperation(
       targets.push(failedTargetOutcome(target, error));
     }
   }
-  return metadataResult(operation, targets, observations);
+  return metadataResult(accountId, operation, targets, observations);
 }
 
-function metadataResult(
+async function metadataResult(
+  accountId: string,
   operation: PreparedMetadataOperation,
   targets: TargetOutcome[],
-  observations: ReturnType<typeof parsedMessagePatch>[],
+  observations: ProviderChange[],
 ) {
   const applied = targets.some((target) => target.outcome === "applied");
   const rejected = targets.every((target) => target.outcome === "rejected");
@@ -275,6 +255,26 @@ function metadataResult(
       status: "uncertain" as const,
       receiptId: operation.key.operationId,
     };
+  }
+  if (operation.intent.change.kind === "archive") {
+    const messageIds = targets
+      .filter((target) => target.outcome === "applied")
+      .map((target) => target.key.messageId);
+    try {
+      await prisma.emailMessage.updateMany({
+        where: {
+          emailAccountId: accountId,
+          messageId: { in: messageIds },
+        },
+        data: { inbox: false },
+      });
+    } catch (error) {
+      // A stats write failure must not retry an already applied provider move.
+      logger.error("Failed to update archived EmailMessage records", {
+        emailAccountId: accountId,
+        error,
+      });
+    }
   }
   return {
     status: "confirmed" as const,
@@ -353,8 +353,11 @@ async function applyChange(
     }
     case "move": {
       if (!change.folderId) return;
+      const movedThreadIds = new Set<string>();
       for (const messageId of messageIds) {
         const message = await provider.getMessage(messageId);
+        if (movedThreadIds.has(message.threadId)) continue;
+        movedThreadIds.add(message.threadId);
         await provider.moveThreadToFolder(
           message.threadId,
           message.headers.to || "",
@@ -459,8 +462,7 @@ async function executeSnooze(
   }
 
   const targets: TargetOutcome[] = [];
-  const observations: ReturnType<typeof parsedMessagePatch>[] = [];
-  const providerName = provider.name === "microsoft" ? "microsoft" : "google";
+  const observations: ProviderChange[] = [];
   for (const target of operation.intent.targets) {
     try {
       const message = await provider.getMessage(target.messageId);
@@ -477,9 +479,12 @@ async function executeSnooze(
           });
           continue;
         }
-        observations.push(
-          parsedMessagePatch(accountId, providerName, archivedMessage),
+        const patch = parsedMessagePatch(
+          accountId,
+          provider.name,
+          archivedMessage,
         );
+        if (patch) observations.push(patch);
       } catch {
         // Mutation applied; catch-up can fill the observation.
       }
@@ -503,9 +508,12 @@ async function executeSnooze(
             });
             continue;
           }
-          observations.push(
-            parsedMessagePatch(accountId, providerName, archivedMessage),
+          const patch = parsedMessagePatch(
+            accountId,
+            provider.name,
+            archivedMessage,
           );
+          if (patch) observations.push(patch);
         } catch {
           // Mutation applied; catch-up can fill the observation.
         }
@@ -566,43 +574,22 @@ async function executeSend(
   if (operation.intent.sendAtMs !== undefined) {
     return driveHeldSend(provider, accountId, operation);
   }
-  try {
-    await holdAccountUploads(accountId, operation.intent.attachmentIds);
-    const loadedAttachments = await loadSendAttachments(
-      accountId,
-      operation.intent.attachmentIds,
-    );
-    if (loadedAttachments.status === "missing") {
-      return {
-        status: "rejected" as const,
-        code: "missing_attachment",
-        targets: [],
-      };
-    }
-    const outcome = await executeDurableEmailSend({
-      logger,
-      emailAccountId: accountId,
-      getEmailProvider: async () => provider,
-      provider: provider.name === "microsoft" ? "microsoft" : "google",
-      attachmentIds: operation.intent.attachmentIds,
-      input: {
-        mutationId: sendMutationId(operation.key.operationId),
-        queuedAt: operation.intent.queuedAtMs,
-        ...sendRequest(operation.intent, loadedAttachments.attachments),
-      },
-    });
-    const result = mapSendOutcome(
-      operation.key.operationId,
-      outcome,
-      await observeSentMessage(provider, accountId, sentMessageIdFrom(outcome)),
-    );
-    if (result.status === "confirmed") {
-      await releaseSendAttachments(accountId, operation.intent.attachmentIds);
-    }
-    return result;
-  } finally {
-    await releaseAccountUploadHolds(accountId, operation.intent.attachmentIds);
-  }
+  const outcome = await executeDurableEmailSend({
+    logger,
+    emailAccountId: accountId,
+    getEmailProvider: async () => provider,
+    provider: provider.name,
+    input: {
+      mutationId: sendMutationId(operation.key.operationId),
+      queuedAt: operation.intent.queuedAtMs,
+      ...sendRequest(operation.intent),
+    },
+  });
+  return mapSendOutcome(
+    operation.key.operationId,
+    outcome,
+    await observeSentMessage(provider, accountId, sentMessageIdFrom(outcome)),
+  );
 }
 
 async function inspectSend(
@@ -665,33 +652,24 @@ async function holdEngineSend(
       targets: [],
     };
   }
-  try {
-    await holdAccountUploads(accountId, intent.attachmentIds);
-    const loaded = await loadSendAttachments(accountId, intent.attachmentIds);
-    if (loaded.status === "missing") {
-      return { status: "rejected", code: "missing_attachment", targets: [] };
-    }
-    const input = scheduleEmailBody.safeParse({
-      clientMutationId: mutationId,
-      ...sendRequest(intent, loaded.attachments),
-      sendAt: null,
-      remindAt: null,
-    });
-    if (!input.success) {
-      return { status: "rejected", code: "invalid", targets: [] };
-    }
-    const row = await holdEmailForUndo({
-      emailAccountId: accountId,
-      input: input.data,
-      sendAt: new Date(intent.sendAtMs),
-      logger,
-    });
-    // The hold carries the files now, so the uploads aren't needed again.
-    await releaseSendAttachments(accountId, intent.attachmentIds);
-    return { status: "held", row };
-  } finally {
-    await releaseAccountUploadHolds(accountId, intent.attachmentIds);
+  // A send with files goes out from the mailbox draft that holds them, so the
+  // hold keeps only that draft's id.
+  const input = scheduleEmailBody.safeParse({
+    clientMutationId: mutationId,
+    ...sendRequest(intent),
+    sendAt: null,
+    remindAt: null,
+  });
+  if (!input.success) {
+    return { status: "rejected", code: "invalid", targets: [] };
   }
+  const row = await holdEmailForUndo({
+    emailAccountId: accountId,
+    input: input.data,
+    sendAt: new Date(intent.sendAtMs),
+    logger,
+  });
+  return { status: "held", row };
 }
 
 async function heldSendResult(
@@ -758,9 +736,6 @@ async function inspectSendOperation(
     return { status: "uncertain" as const, receiptId: mutationId };
   }
   if (found.status === EmailSendOperationStatus.SENT) {
-    if (operation.intent.kind === "send") {
-      await releaseSendAttachments(accountId, operation.intent.attachmentIds);
-    }
     return {
       status: "confirmed" as const,
       receiptId: mutationId,
@@ -816,13 +791,14 @@ function mapSendOutcome(
   return { status: "uncertain" as const, receiptId };
 }
 
-function sendRequest(intent: SendIntent, attachments: Attachment[]) {
+function sendRequest(intent: SendIntent) {
   return {
     threadId: intent.replyToMessageId ? intent.replyToConversationId : null,
     messageIds: intent.replyToMessageId
       ? [intent.replyToMessageId]
       : [intent.frozenDraftId],
     email: {
+      ...(intent.from ? { from: intent.from } : {}),
       to: intent.to.join(", "),
       cc: intent.cc.join(", ") || undefined,
       bcc: intent.bcc.join(", ") || undefined,
@@ -835,7 +811,6 @@ function sendRequest(intent: SendIntent, attachments: Attachment[]) {
               messageId: intent.replyToMessageId,
             }
           : undefined,
-      attachments: attachments.length > 0 ? attachments : undefined,
       ...(intent.providerDraftId
         ? { providerDraftId: intent.providerDraftId }
         : {}),
@@ -857,57 +832,6 @@ function sendMutationId(operationId: string) {
 
 function isHexChar(value: string) {
   return (value >= "0" && value <= "9") || (value >= "a" && value <= "f");
-}
-
-async function releaseSendAttachments(
-  accountId: string,
-  attachmentIds: string[],
-) {
-  if (attachmentIds.length === 0) return;
-  const directory = accountMailUploadDirectory(accountId);
-  const store = createFileBlobStore(directory);
-  for (const blobId of attachmentIds) {
-    await store.delete(blobId).catch(() => undefined);
-  }
-}
-
-async function loadSendAttachments(accountId: string, attachmentIds: string[]) {
-  if (attachmentIds.length === 0) {
-    return { status: "ok" as const, attachments: [] };
-  }
-  const directory = accountMailUploadDirectory(accountId);
-  const store = createFileBlobStore(directory);
-  const attachments: Array<{
-    filename: string;
-    content: string;
-    contentType: string;
-    size: number;
-  }> = [];
-  for (const blobId of attachmentIds) {
-    let stream: AsyncIterable<Uint8Array> | null;
-    try {
-      stream = await store.read(blobId);
-    } catch {
-      return { status: "missing" as const, blobId };
-    }
-    if (!stream) return { status: "missing" as const, blobId };
-    const chunks: Uint8Array[] = [];
-    for await (const chunk of stream) chunks.push(chunk);
-    const bytes = Buffer.concat(chunks);
-    let metadata: Awaited<ReturnType<typeof readBlobMetadata>>;
-    try {
-      metadata = await readBlobMetadata(directory, blobId);
-    } catch {
-      return { status: "missing" as const, blobId };
-    }
-    attachments.push({
-      filename: metadata?.filename ?? blobId,
-      content: bytes.toString("base64"),
-      contentType: metadata?.contentType ?? "application/octet-stream",
-      size: bytes.byteLength,
-    });
-  }
-  return { status: "ok" as const, attachments };
 }
 
 function metadataChangeSatisfied(
@@ -1015,17 +939,10 @@ async function observeSentMessage(
   if (!messageId) return { observations: [], bodies: [] };
   try {
     const message = await provider.getMessage(messageId);
+    const patch = parsedMessagePatch(accountId, provider.name, message);
+    if (!patch) return { observations: [], bodies: [] };
     const body = parsedMessageBodyObservation(accountId, message);
-    return {
-      observations: [
-        parsedMessagePatch(
-          accountId,
-          provider.name === "microsoft" ? "microsoft" : "google",
-          message,
-        ),
-      ],
-      bodies: body ? [body] : [],
-    };
+    return { observations: [patch], bodies: body ? [body] : [] };
   } catch {
     return { observations: [], bodies: [] };
   }

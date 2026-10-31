@@ -12,6 +12,7 @@ import {
   type ReplyDraftContent,
   type ReplyDraftIdentity,
 } from "@/utils/mail-engine/reply-drafts";
+import { registerOpenComposer } from "@/utils/safe-reload";
 
 type DraftDeliveryTimes = { sendAt?: string; remindAt?: string };
 
@@ -61,7 +62,7 @@ export function useReplyDraftPersistence({
     readPendingContent();
     const content = latest.current;
     if (!content) return true;
-    const snapshot = getReplyDraftSnapshot(content);
+    const snapshot = JSON.stringify(content);
     if (snapshot === queuedSnapshot.current) return queuedSave.current ?? true;
 
     queuedSnapshot.current = snapshot;
@@ -139,7 +140,10 @@ export function useReplyDraftPersistence({
     return () => {
       window.removeEventListener("pagehide", flush);
       document.removeEventListener("visibilitychange", flushWhenHidden);
-      flush().catch(() => {});
+      // A reload must wait for the final local write after the form unmounts.
+      flush()
+        .catch(() => {})
+        .finally(registerOpenComposer());
     };
   }, [flush]);
 
@@ -151,13 +155,4 @@ export function useReplyDraftPersistence({
   );
 
   return { capture, clear, flush, saveError };
-}
-
-function getReplyDraftSnapshot(content: ReplyDraftContent) {
-  return JSON.stringify({
-    ...content,
-    attachments: content.attachments.map(
-      ({ contentBase64: _content, ...metadata }) => metadata,
-    ),
-  });
 }

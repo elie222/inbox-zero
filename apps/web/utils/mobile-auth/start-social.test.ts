@@ -30,11 +30,11 @@ vi.mock("@/utils/auth", () => ({
   },
 }));
 
-vi.mock("@/utils/google/oauth", () => ({
+vi.mock("@/utils/gmail/oauth", () => ({
   isGoogleOauthEmulationEnabled: isGoogleOauthEmulationEnabledMock,
 }));
 
-vi.mock("@/utils/microsoft/oauth", () => ({
+vi.mock("@/utils/outlook/oauth", () => ({
   isMicrosoftEmulationEnabled: isMicrosoftEmulationEnabledMock,
 }));
 
@@ -109,5 +109,23 @@ describe("startMobileSocialAuth", () => {
       provider: "google",
       disableRedirect: true,
     });
+  });
+
+  it("rejects with a safe error when Better Auth cannot start sign-in", async () => {
+    handlerMock.mockResolvedValue(
+      Response.json(
+        { code: "PROVIDER_NOT_FOUND", message: "Provider not found" },
+        { status: 404 },
+      ),
+    );
+
+    await expect(
+      startMobileSocialAuth({
+        provider: "apple",
+        codeChallenge: "a".repeat(43),
+        returnUrlMode: "app-link",
+      }),
+    ).rejects.toThrow("Failed to start authentication");
+    expect(storeMobileAuthStateMock).not.toHaveBeenCalled();
   });
 });

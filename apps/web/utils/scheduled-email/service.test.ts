@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { createScopedLogger } from "@/utils/logger";
@@ -13,12 +14,15 @@ import {
   hasReplySince,
   processDueScheduledEmails,
   releaseHeldEmail,
+  holdEmailForUndo,
 } from "./service";
 import { Prisma, type ScheduledEmail } from "@/generated/prisma/client";
 import type { ParsedMessage } from "@/utils/types";
+import { publishToQstashAt } from "@/utils/upstash";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
+vi.mock("@/utils/upstash", () => ({ publishToQstashAt: vi.fn() }));
 vi.mock("@/utils/email/provider", () => ({ createEmailProvider: vi.fn() }));
 vi.mock("@/utils/email/durable-email-send", () => ({
   executeDurableEmailSend: vi.fn(),
@@ -49,6 +53,61 @@ describe("scheduled replies", () => {
       scheduleEmail("account", { ...input, remindAt: now.toISOString() }, now),
     ).rejects.toThrow("after");
     expect(prisma.scheduledEmail.create).not.toHaveBeenCalled();
+  });
+  // Native clients schedule over HTTP with the files inline.
+  it("still schedules a send that carries its attachments", async () => {
+    prisma.scheduledEmail.findUnique.mockResolvedValue(null);
+    prisma.scheduledEmail.create.mockResolvedValue(row());
+    await expect(
+      scheduleEmail(
+        "account",
+        {
+          ...input,
+          email: {
+            ...input.email,
+            attachments: [
+              {
+                filename: "report.pdf",
+                content: "JVBERi0=",
+                contentType: "application/pdf",
+              },
+            ],
+          },
+        },
+        now,
+      ),
+    ).resolves.toBeDefined();
+    expect(prisma.scheduledEmail.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        payload: expect.objectContaining({
+          email: expect.objectContaining({
+            attachments: [expect.objectContaining({ filename: "report.pdf" })],
+          }),
+        }),
+      }),
+    });
+  });
+  it("schedules a send from its mailbox draft and records the draft's messages", async () => {
+    prisma.scheduledEmail.findUnique.mockResolvedValue(null);
+    prisma.scheduledEmail.create.mockResolvedValue(row());
+    await scheduleEmail(
+      "account",
+      {
+        ...input,
+        email: { ...input.email, providerDraftId: "draft-1" },
+        draftMessageIds: ["draft-message-1", "draft-message-2"],
+      },
+      now,
+    );
+    const { data } = prisma.scheduledEmail.create.mock.calls[0][0];
+    expect(data.draftMessageIds).toEqual([
+      "draft-message-1",
+      "draft-message-2",
+    ]);
+    expect(data.payload).toMatchObject({
+      email: { providerDraftId: "draft-1" },
+    });
+    expect(data.payload).not.toHaveProperty("email.attachments");
   });
   it("does not cancel an executing send", async () => {
     prisma.scheduledEmail.updateMany.mockResolvedValue({ count: 0 });
@@ -606,9 +665,75 @@ describe("releaseHeldEmail", () => {
   });
 });
 
+describe("holdEmailForUndo", () => {
+  beforeEach(() => vi.resetAllMocks());
+  it.each([
+    false,
+    true,
+  ])("rejects changed content for the same mutation, including a create race (%s)", async (createRace) => {
+    const persisted = row({
+      payloadHash: createHash("sha256")
+        .update(JSON.stringify(input))
+        .digest("hex"),
+      heldForUndo: true,
+    });
+    if (createRace) {
+      prisma.scheduledEmail.findUnique.mockResolvedValue(null);
+      prisma.scheduledEmail.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError("duplicate", {
+          code: "P2002",
+          clientVersion: "test",
+        }),
+      );
+      prisma.scheduledEmail.findUniqueOrThrow.mockResolvedValue(persisted);
+    } else prisma.scheduledEmail.findUnique.mockResolvedValue(persisted);
+    await expect(
+      holdEmailForUndo({
+        emailAccountId: "account",
+        input: { ...input, email: { ...input.email, messageHtml: "changed" } },
+        sendAt: now,
+        logger,
+      }),
+    ).rejects.toThrow("different email");
+    expect(publishToQstashAt).not.toHaveBeenCalled();
+  });
+  it.each([
+    false,
+    true,
+  ])("keeps an undo-before-send tombstone cancelled, including a create race (%s)", async (createRace) => {
+    const cancelled = row({
+      status: "CANCELLED",
+      payloadHash: "",
+      payload: {},
+      heldForUndo: true,
+    });
+    if (createRace) {
+      prisma.scheduledEmail.findUnique.mockResolvedValue(null);
+      prisma.scheduledEmail.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError("duplicate", {
+          code: "P2002",
+          clientVersion: "test",
+        }),
+      );
+      prisma.scheduledEmail.findUniqueOrThrow.mockResolvedValue(cancelled);
+    } else prisma.scheduledEmail.findUnique.mockResolvedValue(cancelled);
+    expect(
+      await holdEmailForUndo({
+        emailAccountId: "account",
+        input,
+        sendAt: now,
+        logger,
+      }),
+    ).toBe(cancelled);
+    expect(publishToQstashAt).not.toHaveBeenCalled();
+    expect(executeDurableEmailSend).not.toHaveBeenCalled();
+  });
+});
+
 function row(overrides: Partial<ScheduledEmail> = {}): ScheduledEmail {
   return {
     id: "id",
+    draftMessageIds: [],
     emailAccountId: "account",
     threadId: "thread",
     clientMutationId: input.clientMutationId,

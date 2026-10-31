@@ -10,7 +10,6 @@ import {
   getDesktopPostAuthUrl,
   getDesktopMailAccountId,
   getDesktopSessionRestoreUrl,
-  getDesktopWindowChrome,
   getDesktopWindowDragCss,
   isAllowedDesktopNavigation,
   isAllowedExternalUrl,
@@ -247,23 +246,6 @@ describe("desktop shell helpers", () => {
     ).toBe("https://www.getinboxzero.com/evil.test");
   });
 
-  it("uses platform-appropriate title bars and menu visibility", () => {
-    expect(getDesktopWindowChrome("darwin")).toEqual({
-      backgroundColor: "#ffffff",
-      titleBarStyle: "hiddenInset",
-      trafficLightPosition: { x: 16, y: 18 },
-    });
-    expect(getDesktopWindowChrome("win32")).toEqual({
-      autoHideMenuBar: false,
-      backgroundColor: "#ffffff",
-      titleBarStyle: "default",
-    });
-    expect(getDesktopWindowChrome("linux")).toEqual({
-      autoHideMenuBar: true,
-      backgroundColor: "#ffffff",
-    });
-  });
-
   it("persists in-app pages but not auth or API URLs", () => {
     const origin = "https://www.getinboxzero.com";
     expect(
@@ -326,11 +308,10 @@ describe("desktop shell helpers", () => {
     expect(getDesktopWindowDragCss("win32")).toBeNull();
     expect(getDesktopWindowDragCss("linux")).toBeNull();
     expect(DESKTOP_WINDOW_DRAG_CSS).toContain("[data-hide-on-desktop-mac]");
-    expect(DESKTOP_WINDOW_DRAG_CSS).toContain(
-      "[data-desktop-mac-titlebar-spacer]",
-    );
-    expect(DESKTOP_WINDOW_DRAG_CSS).toContain("padding-top: 52px");
     expect(DESKTOP_WINDOW_DRAG_CSS).toContain("[data-desktop-mac-end]");
+    expect(DESKTOP_WINDOW_DRAG_CSS).toContain(
+      "[data-desktop-mac-titlebar-toggle]",
+    );
     expect(DESKTOP_WINDOW_DRAG_CSS).toContain(
       "--desktop-traffic-lights-width: 78px",
     );

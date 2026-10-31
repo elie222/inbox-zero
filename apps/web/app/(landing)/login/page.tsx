@@ -9,7 +9,7 @@ import {
 } from "@/app/(landing)/login/messages";
 import { env } from "@/env";
 import { auth } from "@/utils/auth";
-import { isGoogleOauthEmulationEnabled } from "@/utils/google/oauth";
+import { isGoogleOauthEmulationEnabled } from "@/utils/gmail/oauth";
 import { getEnabledLoginProviders } from "@/utils/oauth/login-providers";
 import { AlertBasic } from "@/components/Alert";
 import { Button } from "@/components/ui/button";

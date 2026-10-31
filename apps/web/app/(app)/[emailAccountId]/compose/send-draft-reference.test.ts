@@ -16,10 +16,9 @@ const content: ReplyDraftContent = {
   values: { to: "recipient@example.com", subject: "Reply" },
   draft: {
     editableHtml: "<p>Reply</p>",
-    mode: "rich",
+    mode: "original",
     quotedHtml: "",
     signatureHtml: "",
-    unsupported: [],
   },
   preservedBlocks: [],
   attachments: [],

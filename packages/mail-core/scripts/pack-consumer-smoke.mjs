@@ -115,15 +115,13 @@ try {
     `import { createHostRuntime, createMailEngine } from "@inboxzero/mail-core/engine";
 import { canonicalJson, hashCanonical, webCryptoSha256 } from "@inboxzero/mail-core/canonical";
 import { mailboxPredicate } from "@inboxzero/mail-core/queries";
-import { createMemoryBlobStore } from "@inboxzero/mail-core/memory-blob-store";
 import { createSqliteMailStore } from "@inboxzero/mail-sqlite/store";
 import { probeSqliteCapabilities } from "@inboxzero/mail-sqlite/capabilities";
 if (canonicalJson({ b: 1, a: 2 }) !== '{"a":2,"b":1}') throw new Error("canonical");
 if (mailboxPredicate("inbox").mailbox !== "inbox") throw new Error("predicate");
 const digest = await hashCanonical({ kind: "send" }, webCryptoSha256);
 if (!/^[0-9a-f]{64}$/.test(digest)) throw new Error("hash");
-const blobStore = createMemoryBlobStore();
-if (!blobStore.stage || !createHostRuntime || !createMailEngine || !createSqliteMailStore || !probeSqliteCapabilities) {
+if (!createHostRuntime || !createMailEngine || !createSqliteMailStore || !probeSqliteCapabilities) {
   throw new Error("missing export");
 }
 console.log("pack consumer smoke ok");
@@ -149,17 +147,13 @@ async function extractPackedFile(tarball, path) {
 }
 
 async function assertPortablePackedJs(name, tarball, listing) {
-  const skip = new Set([
-    "package/src/node-sqlite.js",
-    "package/src/blob-store.js",
-  ]);
+  const skip = new Set(["package/src/node-sqlite.js"]);
   const files = listing
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line.endsWith(".js") && !skip.has(line));
   for (const file of files) {
     if (name === "mail-sqlite" && file.includes("/node-sqlite.js")) continue;
-    if (name === "mail-sqlite" && file.includes("/blob-store.js")) continue;
     const source = await extractPackedFile(tarball, file);
     for (const token of portableForbidden) {
       if (name === "mail-react" && token.includes("react-dom")) continue;

@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "packages/mail-*/**"
+      - "packages/email-editor/**"
       - "apps/desktop/**"
       - "apps/web/app/**"
       - "apps/web/components/**"
@@ -37,6 +38,7 @@ on:
     branches: [main]
     paths:
       - "packages/mail-*/**"
+      - "packages/email-editor/**"
       - "apps/desktop/**"
       - "apps/web/app/**"
       - "apps/web/components/**"
@@ -83,6 +85,8 @@ env:
   GOOGLE_CLIENT_ID: client_id
   GOOGLE_CLIENT_SECRET: client_secret
   GOOGLE_BASE_URL: http://localhost:4100
+  # Fixed so the shared build's CSP allows the Outlook emulator's upload origin.
+  MICROSOFT_BASE_URL: http://localhost:4101
   GOOGLE_PUBSUB_TOPIC_NAME: topic
   EMAIL_ENCRYPT_SECRET: secret
   EMAIL_ENCRYPT_SALT: salt
@@ -168,7 +172,6 @@ jobs:
         working-directory: apps/web
         run: |
           batches="$(node __tests__/playwright/run-emulated-suite.mjs --list-batches)"
-          batches="$(jq -c '[.[] | . as $batch | $batch + {provider: "google"}, (if any($batch.paths[]; startswith("__tests__/playwright/emulated/mail/")) then $batch + {provider: "microsoft"} else empty end)]' <<< "$batches")"
           echo "batches=$batches" >> "$GITHUB_OUTPUT"
 
       - name: Build browser app once

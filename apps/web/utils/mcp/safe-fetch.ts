@@ -46,7 +46,14 @@ export function getCustomMcpServerUrlError(url: string): string | null {
   return null;
 }
 
-const safeMcpAgent = new Agent({ connect: { lookup: safeLookup } });
+const safeMcpAgent = new Agent({
+  connect: {
+    lookup: createSafeLookup(() => env.MCP_ALLOW_PRIVATE_IPS),
+  },
+});
+const publicOnlyAgent = new Agent({
+  connect: { lookup: createSafeLookup(() => false) },
+});
 
 /**
  * Fetch for user-registered MCP servers. Every URL here is user controlled, so
@@ -80,31 +87,54 @@ const safeMcpFetch: FetchLike = async (url, init) => {
   return response as unknown as Response;
 };
 
-function safeLookup(
-  hostname: string,
-  options: unknown,
-  callback: LookupCallback,
-) {
-  const allowPrivateIps = env.MCP_ALLOW_PRIVATE_IPS;
+/**
+ * GET/HEAD-style fetch for arbitrary user-supplied public https URLs. Private
+ * and internal targets are always refused and connections are pinned to the
+ * checked addresses. Redirects are returned unfollowed (3xx responses) so the
+ * caller can apply its own policy to each hop before requesting it.
+ */
+export async function safePublicFetch(
+  url: string,
+  init: Pick<UndiciRequestInit, "headers" | "signal"> = {},
+): Promise<Response> {
+  if (!url.startsWith("https://") || !isSafeExternalHttpUrl(url)) {
+    throw new Error(
+      `Refusing to fetch ${safeHost(url)}: not a public https URL`,
+    );
+  }
 
-  const host = hostname.includes(":") ? `[${hostname}]` : hostname;
+  const response = await undiciFetch(url, {
+    ...init,
+    redirect: "manual",
+    dispatcher: publicOnlyAgent,
+  });
 
-  resolveSafeExternalHttpUrl(`https://${host}`, { allowPrivateIps })
-    .then((resolved) => {
-      if (!resolved) {
-        callback(
-          Object.assign(
-            new Error(`Refusing to call ${hostname}: not a public host`),
-            { code: "ENOTFOUND" },
-          ),
-          "",
-        );
-        return;
-      }
+  return response as unknown as Response;
+}
 
-      resolved.lookup(hostname, options as never, callback);
-    })
-    .catch((error) => callback(error as NodeJS.ErrnoException, ""));
+function createSafeLookup(getAllowPrivateIps: () => boolean) {
+  return (hostname: string, options: unknown, callback: LookupCallback) => {
+    const allowPrivateIps = getAllowPrivateIps();
+
+    const host = hostname.includes(":") ? `[${hostname}]` : hostname;
+
+    resolveSafeExternalHttpUrl(`https://${host}`, { allowPrivateIps })
+      .then((resolved) => {
+        if (!resolved) {
+          callback(
+            Object.assign(
+              new Error(`Refusing to call ${hostname}: not a public host`),
+              { code: "ENOTFOUND" },
+            ),
+            "",
+          );
+          return;
+        }
+
+        resolved.lookup(hostname, options as never, callback);
+      })
+      .catch((error) => callback(error as NodeJS.ErrnoException, ""));
+  };
 }
 
 function safeHost(url: string) {

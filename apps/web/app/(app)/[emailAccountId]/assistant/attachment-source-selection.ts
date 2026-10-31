@@ -3,6 +3,7 @@ import {
   getAttachmentSourceKey,
   type AttachmentSourceInput,
 } from "@/utils/attachments/source-schema";
+import { pluralize } from "@/utils/string";
 import type { DriveSourceItem } from "@/utils/drive/source-items";
 import {
   createTreeSelection,
@@ -101,6 +102,19 @@ export function getAttachmentSourceNodeSelection({
 
 export function getDriveSourceTreeNodeId(item: DriveSourceItem) {
   return `${item.driveConnectionId}:${item.type}:${item.id}`;
+}
+
+export function formatAttachmentSourceCount(sources: AttachmentSourceInput[]) {
+  const folders = sources.filter(
+    (source) => source.type === AttachmentSourceType.FOLDER,
+  ).length;
+  const files = sources.length - folders;
+  const parts = [];
+
+  if (folders > 0) parts.push(`${folders} ${pluralize(folders, "folder")}`);
+  if (files > 0) parts.push(`${files} ${pluralize(files, "file")}`);
+
+  return parts.join(", ");
 }
 
 function toAttachmentSource(item: DriveSourceItem): AttachmentSourceInput {

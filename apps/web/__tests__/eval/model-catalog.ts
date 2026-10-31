@@ -65,6 +65,11 @@ export const EVAL_MODEL_CATALOG: Record<string, EvalModel> = {
     model: "anthropic/claude-sonnet-5",
     label: "Claude Sonnet 5",
   },
+  "claude-haiku-5.5": {
+    provider: "openrouter",
+    model: "anthropic/claude-haiku-5.5",
+    label: "Claude Haiku 5.5",
+  },
   "claude-haiku-4.5": {
     provider: "openrouter",
     model: "anthropic/claude-haiku-4.5",
@@ -105,7 +110,7 @@ export const EVAL_MODEL_CATALOG: Record<string, EvalModel> = {
 /**
  * Returns the list of models to evaluate against.
  *
- * - Not set:                         single run with default env-configured model
+ * - Not set:                         single run with the default model from describeEvalMatrix
  * - EVAL_MODELS=all                  every model in the catalog
  * - EVAL_MODELS=gemini-2.5-flash     single model by shorthand
  * - EVAL_MODELS=gemini-2.5-flash,gpt-5.4-mini   comma-separated shorthand picks
@@ -160,7 +165,7 @@ export function getEmailAccountForModel(
 
 function getApiKeyForProvider(provider: string): string | null {
   const keys: Record<string, string | undefined> = {
-    openrouter: process.env.OPENROUTER_API_KEY,
+    openrouter: process.env.OPENROUTER_API_KEY || process.env.LLM_API_KEY,
     openai: process.env.OPENAI_API_KEY,
     anthropic: process.env.ANTHROPIC_API_KEY,
     google: process.env.GOOGLE_API_KEY,

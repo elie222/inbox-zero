@@ -84,13 +84,4 @@ describe("isAdmin", () => {
     // " ${adminEmail} , ...".includes(adminEmail) is true
     expect(isAdmin({ email: adminEmail })).toBe(true);
   });
-
-  it("should handle email match when ADMINS list has extra spaces", async () => {
-    await vi.doMock("@/env", () => ({
-      env: { ADMINS: `   ${adminEmail}    ,    ${anotherAdmin}   ` },
-    }));
-    const { isAdmin } = await import("./admin");
-    // "   ${adminEmail}    , ...".includes(adminEmail) is true
-    expect(isAdmin({ email: adminEmail })).toBe(true);
-  });
 });

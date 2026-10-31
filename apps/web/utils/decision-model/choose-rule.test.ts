@@ -4,7 +4,6 @@ import {
   getEmailAccount,
   getMockMessage,
 } from "@/__tests__/helpers";
-import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
 import { CONVERSATION_TRACKING_META_RULE_ID } from "@/utils/reply-tracker/conversation-status-config";
 import { getRuleConfig } from "@/utils/rule/consts";
 import type { ParsedMessage } from "@/utils/types";
@@ -19,11 +18,10 @@ import { decisionModelChooseRule } from "./choose-rule";
 
 const logger = createTestLogger();
 const CHOICE_KEY = "__rule_choice__";
-const COLD_KEY = "__cold_email__";
 const decisionModel = {
   provider: "typesafe" as const,
-  model: "test-model",
-  apiKey: "test-key",
+  modelId: "test-model",
+  model: {} as never,
 };
 
 const newsletterRule = {
@@ -141,7 +139,6 @@ describe("decisionModelChooseRule", () => {
         { name: "Newsletter", instructions: "Newsletters" },
         { name: "Receipts", instructions: "Receipts and invoices" },
       ],
-      coldEmailDefinition: null,
     });
   });
 
@@ -152,89 +149,6 @@ describe("decisionModelChooseRule", () => {
       }),
     ).rejects.toThrow("does not support multi-rule selection");
     expect(runDecisionModelMock).not.toHaveBeenCalled();
-  });
-
-  describe("cold email", () => {
-    it("asks a separate yes/no question rather than adding a choice", async () => {
-      mockAnswer("Receipts", { cold: 0.1 });
-      await chooseRule({ coldEmailRule: { instructions: null } });
-
-      expect(Object.keys(getRequest().questions)).toEqual([
-        CHOICE_KEY,
-        COLD_KEY,
-      ]);
-      expect(getRequest().questions[COLD_KEY].type).toBe("yesNo");
-      expect(
-        Object.keys(getRequest().questions[CHOICE_KEY].criteria),
-      ).not.toContain("Cold Email");
-    });
-
-    it("uses the whole default definition, including exclusions", async () => {
-      mockAnswer("None", { cold: 0.1 });
-      for (const instructions of [null, "", DEFAULT_COLD_EMAIL_PROMPT]) {
-        await chooseRule({ coldEmailRule: { instructions } });
-      }
-      for (const callIndex of [0, 1, 2]) {
-        expect(getRequest(callIndex).state.coldEmailDefinition).toBe(
-          DEFAULT_COLD_EMAIL_PROMPT,
-        );
-      }
-    });
-
-    it("preserves custom cold-email instructions", async () => {
-      mockAnswer("None", { cold: 0.1 });
-      await chooseRule({
-        coldEmailRule: { instructions: "Unsolicited outreach" },
-      });
-      expect(getRequest().state.coldEmailDefinition).toBe(
-        "Unsolicited outreach",
-      );
-    });
-
-    it("flags cold email above the threshold", async () => {
-      mockAnswer("Receipts", { cold: 0.8 });
-      expect(
-        await chooseRule({ coldEmailRule: { instructions: null } }),
-      ).toEqual({
-        type: "coldEmail",
-        reason: "Decision model says cold email (confidence 0.80)",
-      });
-    });
-
-    it("keeps the rule choice when cold email barely clears a coin flip", async () => {
-      mockAnswer("Receipts", { confidence: 0.8, cold: 0.6 });
-      const result = await chooseRule({
-        coldEmailRule: { instructions: null },
-      });
-      expect(result.type).toBe("rules");
-    });
-
-    it("answers only the cold question when there are no rules", async () => {
-      runDecisionModelMock.mockResolvedValue({
-        model: "test-model",
-        inputTokens: 10,
-        outputTokens: 1,
-        answers: { [COLD_KEY]: { type: "yesNo", probability: 0.2 } },
-      });
-      expect(
-        await chooseRule({
-          rules: [],
-          coldEmailRule: { instructions: null },
-        }),
-      ).toEqual({
-        type: "rules",
-        rules: [],
-        reason: "Decision model says not cold",
-      });
-      expect(Object.keys(getRequest().questions)).toEqual([COLD_KEY]);
-    });
-
-    it("throws when the cold answer is missing", async () => {
-      mockAnswer("Receipts");
-      await expect(
-        chooseRule({ coldEmailRule: { instructions: null } }),
-      ).rejects.toThrow("missing the cold email answer");
-    });
   });
 
   describe("reading the probabilities", () => {
@@ -391,11 +305,9 @@ function mockAnswer(
   {
     confidence = 0.9,
     probabilities,
-    cold,
   }: {
     confidence?: number;
     probabilities?: Record<string, number>;
-    cold?: number;
   } = {},
 ) {
   runDecisionModelMock.mockResolvedValue({
@@ -409,9 +321,6 @@ function mockAnswer(
         confidence,
         probabilities: probabilities ?? { [choice]: confidence },
       },
-      ...(cold === undefined
-        ? {}
-        : { [COLD_KEY]: { type: "yesNo", probability: cold } }),
     },
   });
 }
@@ -428,7 +337,6 @@ function chooseRule(
     message: getMockMessage() as unknown as ParsedMessage,
     emailAccount: getEmailAccount(),
     rules: [newsletterRule, receiptRule],
-    coldEmailRule: null,
     classificationFeedback: null,
     logger,
     ...overrides,

@@ -1,23 +1,36 @@
-import type { Provider } from "@inboxzero/mail-core/identities";
+import { messageMatchesPredicate } from "@inboxzero/mail-core/query-semantics";
 import type { MailPredicate } from "@inboxzero/mail-core/queries";
 import type {
   MailboxSource,
   ScopeDescriptor,
 } from "@inboxzero/mail-core/ports/mailbox-source";
-import type { BodyObservation, SyncPosition } from "@inboxzero/mail-core/sync";
+import type { MessageKey, Provider } from "@inboxzero/mail-core/identities";
+import type {
+  BodyObservation,
+  ProviderChange,
+  SyncPosition,
+} from "@inboxzero/mail-core/sync";
 import {
+  decodeMailboxSyncCursor,
   encodeMailboxSyncCursor,
   InvalidMailboxSyncCursorError,
 } from "@/utils/email/mailbox-sync";
-import type { EmailProvider } from "@/utils/email/types";
+import type { EmailProvider, ProviderMailboxSearch } from "@/utils/email/types";
 import {
+  parsedMessageMetadata,
   parsedMessageBodyObservation,
   parsedMessagePatch,
 } from "@/utils/mail-api/observations";
 import { isProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
 import { extractErrorInfo as extractGmailErrorInfo } from "@/utils/gmail/retry";
-import { extractErrorInfo as extractOutlookErrorInfo } from "@/utils/microsoft/retry";
+import { extractErrorInfo as extractOutlookErrorInfo } from "@/utils/outlook/retry";
 import type { ParsedMessage } from "@/utils/types";
+import { mapWithConcurrency } from "@/utils/async";
+import { convertEmailHtmlToText } from "@/utils/mail";
+
+// Outlook allows four concurrent Graph requests per mailbox, shared with
+// webhook processing, so batched folder reads stay below that.
+const CHANGES_BATCH_CONCURRENCY = 3;
 
 const SUPPORTED_CHANGES = [
   "archive",
@@ -34,6 +47,7 @@ const SUPPORTED_CHANGES = [
 
 type FolderScopeNode = {
   id: string;
+  systemType?: string;
   childFolders?: FolderScopeNode[];
 };
 
@@ -48,12 +62,10 @@ type BootstrapToken = {
 export function createEmailProviderMailboxSource(input: {
   provider: EmailProvider;
   accountId: string;
-}): MailboxSource {
+}): MailboxSource & Required<Pick<MailboxSource, "readChangesBatch">> {
   const { provider, accountId } = input;
   const maxPageSize = provider.name === "microsoft" ? 20 : 50;
-  const providerName: Provider =
-    provider.name === "microsoft" ? "microsoft" : "google";
-  return {
+  const source: MailboxSource = {
     async describe() {
       return {
         status: "ok",
@@ -126,11 +138,9 @@ export function createEmailProviderMailboxSource(input: {
           pageToken: token.pageToken,
           includeDrafts: true,
         });
-        const changes = syncPage.messages.map((message) =>
-          parsedMessagePatch(accountId, providerName, message),
-        );
-        const { requiredHydration, bodies } = parsedMessageBodies(
+        const { changes, requiredHydration, bodies } = enumeratedObservations(
           accountId,
+          provider.name,
           syncPage.messages,
         );
         if (syncPage.nextPageToken) {
@@ -190,6 +200,10 @@ export function createEmailProviderMailboxSource(input: {
         if (page.reset) {
           return { status: "reset_required", scopeId: position.streamId };
         }
+        const patches = page.upsertedMessages.flatMap(
+          (message) =>
+            parsedMessagePatch(accountId, provider.name, message) ?? [],
+        );
         return {
           status: "page" as const,
           page: {
@@ -202,9 +216,7 @@ export function createEmailProviderMailboxSource(input: {
               checkpoint: page.cursor,
             },
             changes: [
-              ...page.upsertedMessages.map((message) =>
-                parsedMessagePatch(accountId, providerName, message),
-              ),
+              ...patches,
               ...page.deletedMessageIds.map((messageId) => ({
                 kind: "message_deleted" as const,
                 key: { accountId, messageId },
@@ -218,7 +230,9 @@ export function createEmailProviderMailboxSource(input: {
                 scopeId: position.streamId,
               })),
             ],
-            ...parsedMessageBodies(accountId, page.upsertedMessages),
+            // Delta pages carry metadata only, so a body-derived flag such as
+            // a meeting invitation must not stand in for the body.
+            requiredHydration: patches.map((patch) => patch.key),
             roundComplete: !page.hasMore,
           },
         };
@@ -241,16 +255,17 @@ export function createEmailProviderMailboxSource(input: {
             unresolved.push({ key, reason: "not_found" as const });
           }
         }
+        const changes: ProviderChange[] = [];
+        const bodies: BodyObservation[] = [];
+        for (const message of messages) {
+          const patch = parsedMessagePatch(accountId, provider.name, message);
+          if (!patch) continue;
+          changes.push(patch);
+          if (purpose === "body") bodies.push(hydratedBody(accountId, message));
+        }
         return {
           status: "ok" as const,
-          value: {
-            changes: messages.map((message) =>
-              parsedMessagePatch(accountId, providerName, message),
-            ),
-            bodies:
-              purpose === "body" ? hydratedBodies(accountId, messages) : [],
-            unresolved,
-          },
+          value: { changes, bodies, unresolved },
         };
       } catch (error) {
         return mapProviderError(error);
@@ -271,7 +286,12 @@ export function createEmailProviderMailboxSource(input: {
             ? thread.messages
             : await provider.getThreadMessages(conversation.conversationId);
         const start = page ? Number(page) || 0 : 0;
-        const slice = messages.slice(start, start + pageSize);
+        const changes = messages
+          .slice(start, start + pageSize)
+          .flatMap(
+            (message) =>
+              parsedMessagePatch(accountId, provider.name, message) ?? [],
+          );
         return {
           status: "ok",
           value: {
@@ -279,13 +299,8 @@ export function createEmailProviderMailboxSource(input: {
             page: {
               conversation,
               resolutionId,
-              keys: slice.map((message) => ({
-                accountId,
-                messageId: message.id,
-              })),
-              changes: slice.map((message) =>
-                parsedMessagePatch(accountId, providerName, message),
-              ),
+              keys: changes.map((change) => change.key),
+              changes,
               nextPage:
                 start + pageSize < messages.length
                   ? String(start + pageSize)
@@ -302,22 +317,48 @@ export function createEmailProviderMailboxSource(input: {
     async search({ predicate, page, pageSize }) {
       const compiled = compileMailboxSearch(predicate);
       if (!compiled) return { status: "unsupported" };
-      const result = await provider.searchMessages({
-        query: compiled.query,
-        maxResults: Math.min(pageSize, maxPageSize),
-        pageToken: page ?? undefined,
-        ...(compiled.folder
-          ? {
-              folder: compiled.folder,
-              includeSpamTrash: true as const,
-              labelIds: [compiled.folder === "spam" ? "SPAM" : "TRASH"],
-            }
-          : {}),
-      });
+      let result: Awaited<ReturnType<EmailProvider["searchMessages"]>>;
+      try {
+        result = await provider.searchMessages({
+          query: "",
+          mailboxSearch: compiled.search,
+          maxResults: Math.min(pageSize, maxPageSize),
+          pageToken: page ?? undefined,
+        });
+      } catch (error) {
+        // A rejected query fails the same way every time, so the client
+        // must drop it rather than retry it.
+        if (isRejectedProviderRequest(error)) return { status: "unsupported" };
+        return mapProviderError(error);
+      }
+      const candidates = await mapWithConcurrency(
+        result.messages,
+        5,
+        async (message) => {
+          const fields = searchMessageFields(accountId, message);
+          if (!messageMatchesPredicate(fields, compiled.filter)) return null;
+          const text = compiled.search.text;
+          if (!text || messageMatchesPredicate(fields, text)) return message;
+          if (
+            text.field !== "any" ||
+            message.textPlain != null ||
+            message.textHtml != null
+          )
+            return null;
+          // List projections can omit the body that made the provider return this candidate.
+          const fullMessage = await provider.getMessage(message.id);
+          const fullFields = searchMessageFields(accountId, fullMessage);
+          return messageMatchesPredicate(fullFields, compiled.filter) &&
+            messageMatchesPredicate(fullFields, text)
+            ? fullMessage
+            : null;
+        },
+      );
+      const matches = candidates.filter((message) => message !== null);
       return {
         status: "ok",
         value: {
-          matches: result.messages.map((message) => ({
+          matches: matches.map((message) => ({
             accountId,
             messageId: message.id,
           })),
@@ -348,33 +389,62 @@ export function createEmailProviderMailboxSource(input: {
       }
     },
   };
+  return {
+    ...source,
+    async readChangesBatch({ session, reads, pageSize, signal }) {
+      const read = (item: (typeof reads)[number]) =>
+        source.readChanges({
+          session,
+          requestId: item.requestId,
+          position: item.position,
+          pageSize,
+          signal,
+        });
+      // The first read fills the provider's folder and category lookups so the
+      // rest reuse them instead of each fetching their own.
+      const [first, ...rest] = reads;
+      if (!first) return [];
+      const firstResult = await read(first);
+      return [
+        firstResult,
+        ...(await mapWithConcurrency(rest, CHANGES_BATCH_CONCURRENCY, read)),
+      ];
+    },
+  };
 }
 
-function parsedMessageBodies(accountId: string, messages: ParsedMessage[]) {
-  const requiredHydration: Array<{ accountId: string; messageId: string }> = [];
+function enumeratedObservations(
+  accountId: string,
+  provider: Provider,
+  messages: ParsedMessage[],
+) {
+  const changes: ProviderChange[] = [];
+  const requiredHydration: MessageKey[] = [];
   const bodies: BodyObservation[] = [];
   for (const message of messages) {
+    const patch = parsedMessagePatch(accountId, provider, message);
+    if (!patch) continue;
+    changes.push(patch);
     const body = parsedMessageBodyObservation(accountId, message);
     if (body) bodies.push(body);
-    else requiredHydration.push({ accountId, messageId: message.id });
+    else requiredHydration.push(patch.key);
   }
-  return { requiredHydration, bodies };
+  return { changes, requiredHydration, bodies };
 }
 
-function hydratedBodies(
+function hydratedBody(
   accountId: string,
-  messages: ParsedMessage[],
-): BodyObservation[] {
-  return messages.map(
-    (message) =>
-      parsedMessageBodyObservation(accountId, message) ?? {
-        key: { accountId, messageId: message.id },
-        version: message.historyId || null,
-        html: null,
-        text: null,
-        attachments: [],
-        isMeetingInvitation: false,
-      },
+  message: ParsedMessage,
+): BodyObservation {
+  return (
+    parsedMessageBodyObservation(accountId, message) ?? {
+      key: { accountId, messageId: message.id },
+      version: message.historyId || null,
+      html: null,
+      text: null,
+      attachments: [],
+      isMeetingInvitation: false,
+    }
   );
 }
 
@@ -390,7 +460,11 @@ async function catchUpCheckpoint(
       folderId,
       limit: 1,
     });
-    if (page.cursor) return page.cursor;
+    if (page.cursor) {
+      return provider.name === "google"
+        ? toGmailDeltaCursor(page.cursor)
+        : page.cursor;
+    }
   } catch (error) {
     if (provider.name === "microsoft") throw error;
     // Fall back to the newest numeric Gmail history id we already fetched.
@@ -437,7 +511,14 @@ function scopedFolderId(provider: EmailProvider, scope: ScopeDescriptor) {
 function flattenFolderScopes(folders: FolderScopeNode[]) {
   const scopes: ScopeDescriptor[] = [];
   for (const folder of folders) {
-    scopes.push({ id: folder.id, kind: "folder", folderId: folder.id });
+    // New mail the user is waiting on lands in system folders; custom folders
+    // can catch up on a slower clock.
+    scopes.push({
+      id: folder.id,
+      kind: "folder",
+      folderId: folder.id,
+      priority: folder.systemType ? "high" : "low",
+    });
     scopes.push(...flattenFolderScopes(folder.childFolders ?? []));
   }
   return scopes;
@@ -467,6 +548,13 @@ function isMissingProviderResource(error: unknown) {
   );
 }
 
+function isRejectedProviderRequest(error: unknown) {
+  return (
+    extractGmailErrorInfo(error).status === 400 ||
+    extractOutlookErrorInfo(error).status === 400
+  );
+}
+
 function mapProviderError(error: unknown) {
   if (isProviderRateLimitModeError(error)) {
     return {
@@ -491,45 +579,69 @@ function mapProviderError(error: unknown) {
   };
 }
 
-function compileMailboxSearch(predicate: MailPredicate): {
-  query: string;
-  folder?: "spam" | "trash";
-} | null {
-  if (predicate.kind === "text") return { query: predicate.value };
-  if (predicate.kind !== "all") return null;
-
-  let query: string | null = null;
-  let folder: "spam" | "trash" | undefined;
-  for (const child of predicate.predicates) {
-    if (child.kind === "text") {
-      if (query) return null;
-      query = child.value;
-      continue;
-    }
-    const childFolder = spamTrashPredicateFolder(child);
-    if (!childFolder || (folder && folder !== childFolder)) return null;
-    folder = childFolder;
-  }
-  if (!query || !folder) return null;
-  return { query, folder };
-}
-
-function spamTrashPredicateFolder(
+function compileMailboxSearch(
   predicate: MailPredicate,
-): "spam" | "trash" | null {
-  if (
-    predicate.kind === "mailbox" &&
-    (predicate.mailbox === "spam" || predicate.mailbox === "trash")
-  ) {
-    return predicate.mailbox;
+): { search: ProviderMailboxSearch; filter: MailPredicate } | null {
+  const compiled: ProviderMailboxSearch = { mailbox: "all" };
+  const children: MailPredicate[] = [];
+  function flatten(part: MailPredicate) {
+    if (part.kind === "all") part.predicates.forEach(flatten);
+    else children.push(part);
   }
-  if (
-    predicate.kind === "role" &&
-    (predicate.role === "spam" || predicate.role === "trash")
-  ) {
-    return predicate.role;
+  flatten(predicate);
+  let scoped = false;
+  for (const child of children) {
+    switch (child.kind) {
+      case "text":
+        if (compiled.text || child.field === "body") return null;
+        compiled.text = child;
+        break;
+      case "mailbox":
+      case "role": {
+        const mailbox =
+          child.kind === "mailbox"
+            ? child.mailbox
+            : child.role === "draft"
+              ? "drafts"
+              : child.role;
+        if (mailbox === "snoozed" || scoped) return null;
+        compiled.mailbox = mailbox;
+        scoped = true;
+        break;
+      }
+      case "read":
+        if (compiled.read !== undefined && compiled.read !== child.value)
+          return null;
+        compiled.read = child.value;
+        break;
+      case "starred":
+        if (compiled.starred !== undefined && compiled.starred !== child.value)
+          return null;
+        compiled.starred = child.value;
+        break;
+      case "has_attachment":
+        if (
+          compiled.hasAttachment !== undefined &&
+          compiled.hasAttachment !== child.value
+        )
+          return null;
+        compiled.hasAttachment = child.value;
+        break;
+      case "not":
+        // Providers can't search by message id, so it only filters results.
+        if (child.predicate.kind === "message") break;
+        if (child.predicate.kind !== "role") return null;
+        compiled.excludedRoles ??= [];
+        compiled.excludedRoles.push(child.predicate.role);
+        break;
+      default:
+        return null;
+    }
   }
-  return null;
+  const filters = children.filter((child) => child.kind !== "text");
+  if (compiled.mailbox !== "spam" && compiled.mailbox !== "trash")
+    filters.push({ kind: "mailbox", mailbox: "all" });
+  return { search: compiled, filter: { kind: "all", predicates: filters } };
 }
 
 async function* streamToIterable(stream: ReadableStream<Uint8Array>) {
@@ -543,4 +655,35 @@ async function* streamToIterable(stream: ReadableStream<Uint8Array>) {
   } finally {
     await reader.cancel().catch(() => undefined);
   }
+}
+
+function searchMessageFields(accountId: string, message: ParsedMessage) {
+  return {
+    ...parsedMessageMetadata(message),
+    accountId,
+    messageId: message.id,
+    conversationId: message.threadId,
+    pendingOperationIds: [],
+    bodyText:
+      message.textPlain ||
+      (message.textHtml
+        ? convertEmailHtmlToText({ htmlText: message.textHtml })
+        : message.textPlain),
+  };
+}
+
+// A one-message Gmail sync page on a mailbox with more mail comes back as a
+// snapshot cursor mid-listing. Catching up from it would re-list the whole
+// mailbox before any new mail shows. Its historyId was captured before the
+// listing began, so continuing from history there misses nothing.
+function toGmailDeltaCursor(cursor: string): string {
+  const decoded = decodeMailboxSyncCursor(cursor, "google");
+  if (decoded.phase !== "snapshot") return cursor;
+  return encodeMailboxSyncCursor({
+    version: 1,
+    provider: "google",
+    phase: "delta",
+    historyId: decoded.historyId,
+    after: decoded.after,
+  });
 }

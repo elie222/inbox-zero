@@ -41,7 +41,7 @@ describe("createOriginMailRequest", () => {
   });
 
   it("sends a PUT JSON body and session cookies", async () => {
-    const fetchMock = vi.fn(
+    const fetchMock = vi.fn<typeof fetch>(
       async () => new Response(JSON.stringify({ ok: true }), { status: 200 }),
     );
     vi.stubGlobal("fetch", fetchMock);
@@ -74,7 +74,7 @@ describe("createOriginMailRequest", () => {
   });
 
   it("issues mail HTTP against the configured origin, not the SaaS host", async () => {
-    const fetchMock = vi.fn(
+    const fetchMock = vi.fn<typeof fetch>(
       async () => new Response(JSON.stringify({ ok: true }), { status: 200 }),
     );
     vi.stubGlobal("fetch", fetchMock);
@@ -95,7 +95,7 @@ describe("createOriginMailRequest", () => {
 
   it("returns attachment bytes without parsing them as JSON", async () => {
     const bytes = new Uint8Array([9, 8, 7]);
-    const fetchMock = vi.fn(
+    const fetchMock = vi.fn<typeof fetch>(
       async () =>
         new Response(bytes, {
           status: 200,
@@ -124,31 +124,6 @@ describe("createOriginMailRequest", () => {
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(init.headers).toMatchObject({
       accept: "application/octet-stream",
-      [EMAIL_ACCOUNT_HEADER]: "acc-1",
-    });
-  });
-
-  it("sends upload content as octet-stream bytes, not JSON", async () => {
-    const bytes = new Uint8Array([1, 2, 3]);
-    const fetchMock = vi.fn(
-      async () =>
-        new Response(JSON.stringify({ status: "staged" }), { status: 200 }),
-    );
-    vi.stubGlobal("fetch", fetchMock);
-    const request = createOriginMailRequest({
-      origin: "http://localhost:3000",
-    });
-    await request({
-      method: "PUT",
-      path: "/api/mail/v1/accounts/acc-1/uploads/file-1/content",
-      body: bytes,
-      signal: new AbortController().signal,
-    });
-    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(init.body).toBe(bytes);
-    expect(init.headers).toMatchObject({
-      accept: "application/json",
-      "content-type": "application/octet-stream",
       [EMAIL_ACCOUNT_HEADER]: "acc-1",
     });
   });

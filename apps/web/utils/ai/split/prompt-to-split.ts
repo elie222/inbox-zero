@@ -7,8 +7,8 @@ import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 import {
   MAX_SPLIT_FILTERS,
   type MailSplitFilterDraft,
-} from "@/utils/mail/split-filters";
-import { OLDER_THAN_OPTIONS } from "@/utils/mail/split-query";
+} from "@/utils/split-inbox/split-filters";
+import { OLDER_THAN_OPTIONS } from "@/utils/split-inbox/split-query";
 
 export type SplitPromptOption = {
   id: string;

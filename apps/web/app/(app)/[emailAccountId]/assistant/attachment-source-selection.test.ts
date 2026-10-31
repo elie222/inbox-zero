@@ -10,7 +10,33 @@ import {
   buildDriveSourceChildrenMap,
   driveSourceSelection,
   getAttachmentSourceNodeSelection,
+  formatAttachmentSourceCount,
 } from "./attachment-source-selection";
+
+describe("formatAttachmentSourceCount", () => {
+  it.each([
+    [0, 0, ""],
+    [1, 0, "1 folder"],
+    [3, 0, "3 folders"],
+    [0, 1, "1 file"],
+    [0, 3, "3 files"],
+    [1, 1, "1 folder, 1 file"],
+    [1, 2, "1 folder, 2 files"],
+    [2, 1, "2 folders, 1 file"],
+    [2, 3, "2 folders, 3 files"],
+  ])("formats %i folders and %i files as %s", (folders, files, expected) => {
+    const sources = [
+      ...Array.from({ length: files }, (_, i) =>
+        source(`file-${i}`, "Demo.pdf"),
+      ),
+      ...Array.from({ length: folders }, (_, i) =>
+        source(`folder-${i}`, "Demo Folder", AttachmentSourceType.FOLDER),
+      ),
+    ];
+
+    expect(formatAttachmentSourceCount(sources)).toBe(expected);
+  });
+});
 
 describe("attachment source selection", () => {
   it("selects a recursive folder source once", () => {

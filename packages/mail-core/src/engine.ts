@@ -17,7 +17,11 @@ import type {
   OperationKey,
 } from "./identities";
 import type { OperationState } from "./operations";
-import type { MailboxSource } from "./ports/mailbox-source";
+import {
+  MAX_CHANGES_BATCH_READS,
+  type MailboxSource,
+  type SyncReadResult,
+} from "./ports/mailbox-source";
 import type {
   AccountSyncState,
   MailStore,
@@ -30,10 +34,13 @@ import type { HostRuntime } from "./ports/runtime";
 import { webCryptoSha256 } from "./canonical";
 import { extractTextPredicates } from "./query-semantics";
 import type {
+  ContactSuggestion,
+  ContactSuggestionQuery,
   ConversationQuery,
   MailboxCountsQuery,
   MailboxCountsView,
   MailboxView,
+  MailPredicate,
   QueryHandle,
 } from "./queries";
 import {
@@ -41,12 +48,26 @@ import {
   mailboxCountsQueryKey,
   mailboxQueryKey,
 } from "./subscriptions";
+import type { SyncPage } from "./sync";
 import type { ConversationView } from "./ports/mail-store";
-import type { BlobStore } from "./ports/blob-store";
 
 const MAX_BOOTSTRAP_PAGES_PER_RUN = 25;
 const NON_ADVANCING_BOOTSTRAP_RETRY_MS = 60_000;
 const IDLE_CATCH_UP_INTERVAL_MS = 60_000;
+// A lane is abandoned after this long, so a request that never settles
+// cannot keep its account from syncing again.
+const SYNC_LANE_TIMEOUT_MS = 2 * 60_000;
+// Bootstrap scans share this budget per account pass; unfinished streams
+// get the first turn on the next pass.
+const SYNC_LANE_BOOTSTRAP_SLICE_MS = 2000;
+const SYNC_LANE_RETRY_MIN_MS = 1000;
+const SYNC_LANE_RETRY_MAX_MS = 60_000;
+// Folder discovery and low-priority streams (such as custom Outlook folders)
+// change rarely and cost a provider call each, so they run on a slower clock.
+const LOW_PRIORITY_CATCH_UP_INTERVAL_MS = 10 * 60_000;
+// A sync request (a provider push, the tab coming back) refreshes them only
+// when they have not run recently, so a burst of pushes stays cheap.
+const LOW_PRIORITY_REQUESTED_MIN_INTERVAL_MS = 2 * 60_000;
 const MAX_MAILBOX_WINDOW_PAGES = 40;
 
 export type WorkAdmission =
@@ -81,19 +102,10 @@ export type MailboxWindowOptions = {
   pageCount?: number;
 };
 
-export type DraftAttachmentInput = {
-  accountId: string;
-  draftId: string | null;
-  attachmentId: string;
-  filename: string;
-  contentType: string;
-  checksum: string;
-  sizeBytes: number;
-  bytes: AsyncIterable<Uint8Array>;
-  inline?: boolean;
-};
-
 export type MailClient = {
+  queryContactSuggestions?(
+    query: ContactSuggestionQuery,
+  ): Promise<ContactSuggestion[]>;
   observeMailbox(query: ConversationQuery): QueryHandle<MailboxView>;
   observeMailboxCounts(
     query: MailboxCountsQuery,
@@ -111,9 +123,6 @@ export type MailClient = {
   submitConversations(input: SubmitConversationCommand): Promise<Admission>;
   saveDraft(input: SaveDraft): Promise<DraftSaveResult>;
   readDraft(key: DraftKey): Promise<DraftReadResult>;
-  stageDraftAttachment(
-    input: DraftAttachmentInput,
-  ): Promise<{ status: "staged" } | { status: "rejected"; code: string }>;
   submitSend(input: SubmitSend): Promise<Admission>;
   cancelOperation(
     key: OperationKey,
@@ -125,6 +134,8 @@ export type MailClient = {
   ensureMessageContent(key: MessageKey): Promise<WorkAdmission>;
   getDiagnostics(accountId: string): Promise<MailDiagnostics>;
   purgeAccount(accountId: string): Promise<LocalRevision>;
+  /** Purges every local account outside `accountIds`; an empty list is ignored. */
+  retainAccounts(accountIds: string[]): Promise<void>;
   close?(): Promise<void>;
 };
 
@@ -141,40 +152,35 @@ export function createMailEngine(input: {
   runtime: HostRuntime;
   ownerId?: string;
   assistant?: AssistantStateSource;
-  blobStore?: BlobStore;
   idleCatchUpIntervalMs?: number;
+  syncLaneTimeoutMs?: number;
+  /** Committed incremental changes only; bootstrap and backfill never emit. */
+  onSyncPageCommitted?: (page: SyncPage) => void;
 }): MailEngine {
   const { store, source, executor, runtime } = input;
   const idleCatchUpIntervalMs =
     input.idleCatchUpIntervalMs ?? IDLE_CATCH_UP_INTERVAL_MS;
+  const syncLaneTimeoutMs = input.syncLaneTimeoutMs ?? SYNC_LANE_TIMEOUT_MS;
   const ownerId = input.ownerId ?? "local-owner";
   const assistant = input.assistant;
-  const blobStore = input.blobStore;
   const queries = createQueryRegistry();
   let evictedForCurrentPressure = false;
   const idleCatchUpGates = new Map<string, IdleCatchUpGate>();
-  let refreshGate: Promise<void> | null = null;
-  let refreshQueued = false;
-
-  async function refreshViews() {
-    refreshQueued = true;
-    if (refreshGate) return refreshGate;
-    refreshGate = drainRefreshes().finally(() => {
-      refreshGate = null;
-    });
-    return refreshGate;
-  }
-
-  async function drainRefreshes() {
-    while (refreshQueued) {
-      refreshQueued = false;
-      await queries.refreshAll();
-    }
-  }
+  const syncLanes = new Map<string, SyncLane>();
+  const syncLaneRetries = new Map<
+    string,
+    { retryAtMs: number; delayMs: number }
+  >();
+  const syncLaneErrors: unknown[] = [];
+  const remoteSearches = new Map<string, RemoteSearch>();
+  let closed = false;
 
   return {
+    queryContactSuggestions(query) {
+      return store.readContactSuggestions(query);
+    },
     observeMailbox(query) {
-      enqueueSearches(query);
+      requestRemoteSearchPages(query, 1);
       return queries.observe(mailboxQueryKey(query), () =>
         store.readMailboxView(query).then((result) => ({
           revision: result.revision,
@@ -191,8 +197,8 @@ export function createMailEngine(input: {
       );
     },
     observeMailboxWindow(query, options) {
-      enqueueSearches(query);
       let pageCount = normalizePageCount(options?.pageCount);
+      requestRemoteSearchPages(query, pageCount);
       const key = `mailbox-pages:${runtime.randomId()}`;
       const handle = queries.observe(key, () =>
         store.readMailboxWindow(query, pageCount).then((result) => ({
@@ -207,6 +213,7 @@ export function createMailEngine(input: {
         ...handle,
         async loadMore() {
           pageCount += 1;
+          requestRemoteSearchPages(query, pageCount);
           await queries.refreshKey(key);
         },
       };
@@ -242,12 +249,12 @@ export function createMailEngine(input: {
     },
     async submitMetadata(command) {
       const admission = await store.admitMetadata(command);
-      await refreshViews();
+      await queries.refreshAll();
       return admission;
     },
     async submitConversations(command) {
       const admission = await store.admitConversations(command);
-      await refreshViews();
+      await queries.refreshAll();
       return admission;
     },
     saveDraft(inputDraft) {
@@ -256,42 +263,15 @@ export function createMailEngine(input: {
     readDraft(key) {
       return store.readDraft(key);
     },
-    async stageDraftAttachment(input) {
-      if (!blobStore) {
-        return { status: "rejected", code: "storage_unavailable" };
-      }
-      const stagedLocal = await blobStore.stage({
-        blobId: input.attachmentId,
-        bytes: input.bytes,
-        checksum: input.checksum,
-        sizeBytes: input.sizeBytes,
-      });
-      if (stagedLocal.status !== "staged") {
-        return { status: "rejected", code: stagedLocal.code };
-      }
-      const finalized = await blobStore.finalize(input.attachmentId);
-      if (!finalized)
-        return { status: "rejected", code: "storage_unavailable" };
-      return store.stageDraftAttachment({
-        accountId: input.accountId,
-        draftId: input.draftId,
-        attachmentId: input.attachmentId,
-        filename: input.filename,
-        contentType: input.contentType,
-        checksum: input.checksum,
-        sizeBytes: input.sizeBytes,
-        inline: input.inline,
-      });
-    },
     async submitSend(send) {
       const admission = await store.admitSend(send);
-      await refreshViews();
+      await queries.refreshAll();
       return admission;
     },
     async cancelOperation(key) {
       const local = await store.cancelOperation(key);
       if (local.status !== "too_late") {
-        await refreshViews();
+        await queries.refreshAll();
         return local;
       }
       const held = await store.readHeldSend(key);
@@ -302,14 +282,17 @@ export function createMailEngine(input: {
       });
       if (remote.status !== "cancelled") return { status: remote.status };
       const result = await store.cancelHeldSend(key);
-      await refreshViews();
+      await queries.refreshAll();
       return result;
     },
     async requestSync(accountIds) {
       if (accountIds.length === 0) {
         return { status: "rejected", code: "invalid_account" };
       }
-      for (const accountId of accountIds) idleCatchUpGates.delete(accountId);
+      for (const accountId of accountIds) {
+        const gate = idleCatchUpGates.get(accountId);
+        if (gate) requestCatchUp(gate);
+      }
       await store.releaseDeferredOperations({
         accountIds,
         nowMs: runtime.nowMs(),
@@ -324,10 +307,28 @@ export function createMailEngine(input: {
       return store.getDiagnostics(accountId);
     },
     async purgeAccount(accountId) {
+      stopSyncLane(accountId);
       idleCatchUpGates.delete(accountId);
+      forgetRemoteSearches(accountId);
       const revision = await store.purgeAccount(accountId);
-      await refreshViews();
+      await queries.refreshAll();
       return revision;
+    },
+    async retainAccounts(accountIds) {
+      // An empty list is never a real account set, so it must not wipe the device.
+      if (accountIds.length === 0) return;
+      const retained = new Set(accountIds);
+      const accounts = await store.readAccountSyncStates();
+      let purged = false;
+      for (const account of accounts) {
+        if (retained.has(account.accountId)) continue;
+        stopSyncLane(account.accountId);
+        idleCatchUpGates.delete(account.accountId);
+        forgetRemoteSearches(account.accountId);
+        await store.purgeAccount(account.accountId);
+        purged = true;
+      }
+      if (purged) await queries.refreshAll();
     },
     inspect() {
       return store.inspect();
@@ -340,23 +341,36 @@ export function createMailEngine(input: {
       } else if (!evictedForCurrentPressure) {
         const { evictedBodies } = await store.evictReplaceableContent();
         evictedForCurrentPressure = true;
-        if (evictedBodies > 0) await refreshViews();
+        if (evictedBodies > 0) await queries.refreshAll();
       }
+      let lanesStarted = false;
       while (runtime.nowMs() < deadlineMs) {
         await yieldToHost();
         if (signal?.aborted || runtime.nowMs() >= deadlineMs) return;
+        // A backlog that never drains, like a broad search paging through the
+        // whole mailbox, must not keep new mail from syncing.
+        if (!lanesStarted) {
+          lanesStarted = true;
+          await startSyncLanes();
+          // Lane failures from an earlier run surface here too, since a busy
+          // queue may never reach the idle path that reports them.
+          reportSyncLaneErrors();
+          if (signal?.aborted || runtime.nowMs() >= deadlineMs) return;
+        }
         const work = await store.claimWork({
           ownerId,
           nowMs: runtime.nowMs(),
           leaseMs: 30_000,
         });
         if (!work) {
-          await catchUpIdleAccounts(deadlineMs, signal);
+          await startSyncLanes();
           if (signal?.aborted || runtime.nowMs() >= deadlineMs) return;
           // Batches stay short and claimable work is checked between them,
           // so a large backlog never delays commands or sync.
+          const contacts = await store.indexContactBacklog();
           const { remaining } = await store.indexSearchBacklog();
-          if (remaining) continue;
+          if (contacts.remaining || remaining) continue;
+          await waitForSyncLanes(deadlineMs, signal);
           return;
         }
         if (work.kind === "command") {
@@ -370,7 +384,7 @@ export function createMailEngine(input: {
             operation: work.operation,
             result,
           });
-          await refreshViews();
+          await queries.refreshAll();
           continue;
         }
         if (work.kind === "inspect") {
@@ -384,19 +398,7 @@ export function createMailEngine(input: {
             operation: work.operation,
             result,
           });
-          await refreshViews();
-          continue;
-        }
-        if (work.kind === "upload") {
-          await runAttachmentUpload({
-            work,
-            blobStore,
-            executor,
-            store,
-            runtime,
-            signal: signal ?? new AbortController().signal,
-          });
-          await refreshViews();
+          await queries.refreshAll();
           continue;
         }
         if (work.kind === "prepare") {
@@ -430,7 +432,7 @@ export function createMailEngine(input: {
               session: work.session,
               code: "conversation_not_found",
             });
-            await refreshViews();
+            await queries.refreshAll();
             continue;
           }
           if (
@@ -445,7 +447,7 @@ export function createMailEngine(input: {
                 session: work.session,
                 code: "membership_unsupported",
               });
-              await refreshViews();
+              await queries.refreshAll();
             } else {
               await store.deferPreparation({
                 accountId: work.accountId,
@@ -475,7 +477,7 @@ export function createMailEngine(input: {
               });
             }
           }
-          await refreshViews();
+          await queries.refreshAll();
           continue;
         }
         if (work.kind === "hydrate") {
@@ -501,7 +503,7 @@ export function createMailEngine(input: {
               changes: hydrated.value.changes,
               bodies: hydrated.value.bodies,
             });
-            await refreshViews();
+            await queries.refreshAll();
             await store.completeJob({
               jobId: work.jobId,
               attemptId: work.attemptId,
@@ -525,14 +527,7 @@ export function createMailEngine(input: {
                 purpose: "body",
               });
             }
-            if (searched.value.nextPage) {
-              await store.enqueueSearch({
-                accountId: work.accountId,
-                predicate: work.predicate,
-                page: searched.value.nextPage,
-              });
-            }
-            await refreshViews();
+            await queries.refreshAll();
           }
           if (
             searched.status !== "paused" &&
@@ -541,6 +536,13 @@ export function createMailEngine(input: {
             await store.completeJob({
               jobId: work.jobId,
               attemptId: work.attemptId,
+            });
+            settleRemoteSearchPage({
+              accountId: work.accountId,
+              predicate: work.predicate,
+              page: work.page,
+              nextPage:
+                searched.status === "ok" ? searched.value.nextPage : undefined,
             });
           }
           continue;
@@ -559,8 +561,9 @@ export function createMailEngine(input: {
             bodies: changes.page.bodies,
           });
           if (applied.status === "committed") {
-            await refreshViews();
+            await queries.refreshAll();
             await noteConnection(work.session.accountId, "ok");
+            notifySyncPageCommitted(changes.page);
           }
         } else if (changes.status === "reset_required") {
           await ingestBootstrap({
@@ -577,18 +580,98 @@ export function createMailEngine(input: {
       }
     },
     async close() {
+      closed = true;
+      const lanes = [...syncLanes.keys()].map((accountId) => {
+        const done = syncLanes.get(accountId)?.done;
+        stopSyncLane(accountId);
+        return done;
+      });
+      await Promise.allSettled(lanes);
       queries.closeAll();
       await store.close();
     },
   };
 
-  function enqueueSearches(query: ConversationQuery) {
+  // Provider search fetches one page per page the user has scrolled to, so a
+  // broad term never pages through the whole mailbox in the background.
+  function requestRemoteSearchPages(
+    query: ConversationQuery,
+    wantedPages: number,
+  ) {
     for (const accountId of query.accountIds) {
       for (const predicate of extractTextPredicates(query.predicate)) {
-        store
-          .enqueueSearch({ accountId, predicate, page: null })
-          .catch(() => undefined);
+        const key = remoteSearchKey(accountId, predicate);
+        const search = remoteSearches.get(key);
+        if (!search) {
+          const created: RemoteSearch = {
+            accountId,
+            predicate,
+            wantedPages,
+            fetchedPages: 0,
+            nextPage: null,
+            pendingPage: undefined,
+          };
+          remoteSearches.set(key, created);
+          enqueueRemoteSearchPage(created, null);
+          continue;
+        }
+        search.wantedPages = Math.max(search.wantedPages, wantedPages);
+        continueRemoteSearch(search);
       }
+    }
+  }
+
+  function settleRemoteSearchPage(input: {
+    accountId: string;
+    predicate: MailPredicate;
+    page: string | null;
+    nextPage: string | null | undefined;
+  }) {
+    const key = remoteSearchKey(input.accountId, input.predicate);
+    const search = remoteSearches.get(key);
+    // A page no view is waiting on, like one queued before a restart, ends
+    // there instead of continuing into the next page.
+    if (!search || search.pendingPage !== input.page) return;
+    // A failed search starts over the next time a view asks for it.
+    if (input.nextPage === undefined) {
+      remoteSearches.delete(key);
+      return;
+    }
+    search.fetchedPages += 1;
+    search.nextPage = input.nextPage;
+    search.pendingPage = undefined;
+    continueRemoteSearch(search);
+  }
+
+  function continueRemoteSearch(search: RemoteSearch) {
+    if (
+      search.pendingPage !== undefined ||
+      !search.nextPage ||
+      search.fetchedPages >= search.wantedPages
+    ) {
+      return;
+    }
+    enqueueRemoteSearchPage(search, search.nextPage);
+  }
+
+  function enqueueRemoteSearchPage(search: RemoteSearch, page: string | null) {
+    search.pendingPage = page;
+    store
+      .enqueueSearch({
+        accountId: search.accountId,
+        predicate: search.predicate,
+        page,
+      })
+      .catch(() => {
+        remoteSearches.delete(
+          remoteSearchKey(search.accountId, search.predicate),
+        );
+      });
+  }
+
+  function forgetRemoteSearches(accountId: string) {
+    for (const [key, search] of remoteSearches) {
+      if (search.accountId === accountId) remoteSearches.delete(key);
     }
   }
 
@@ -724,164 +807,368 @@ export function createMailEngine(input: {
         errorCode: null,
       };
     }
-    await refreshViews();
+    await queries.refreshAll();
   }
 
-  async function catchUpIdleAccounts(deadlineMs: number, signal?: AbortSignal) {
+  // Each account syncs in its own lane, so a slow account or a slow request
+  // never holds up another account or the command loop. A lane outlives the
+  // runUntil call that started it; later calls skip accounts already running.
+  async function startSyncLanes() {
     const accounts = await store.readAccountSyncStates();
-    let visitedStreams = 0;
     for (const account of accounts) {
-      if (runtime.nowMs() >= deadlineMs) return;
-      const session = {
-        accountId: account.accountId,
-        generation: account.generation,
+      const { accountId } = account;
+      if (closed || syncLanes.has(accountId)) continue;
+      const retry = syncLaneRetries.get(accountId);
+      if (retry && retry.retryAtMs > runtime.nowMs()) continue;
+      const abort = new AbortController();
+      let timedOut = false;
+      const timeout = setTimeout(() => {
+        timedOut = true;
+        abort.abort();
+      }, syncLaneTimeoutMs);
+      // The lane settles on abort even if a request ignores the signal.
+      const aborted = new Promise<void>((resolve) => {
+        abort.signal.addEventListener("abort", () => resolve(), { once: true });
+      });
+      const lane: SyncLane = {
+        abort,
+        done: Promise.race([catchUpAccount(account, abort.signal), aborted])
+          .then(() => {
+            if (timedOut) {
+              failSyncLane(accountId, new Error("Mail sync lane timed out"));
+            } else {
+              syncLaneRetries.delete(accountId);
+            }
+          })
+          .catch((error: unknown) => {
+            // A purge or close stopped the lane on purpose.
+            if (abort.signal.aborted && !timedOut) return;
+            failSyncLane(accountId, error);
+          })
+          .finally(() => {
+            clearTimeout(timeout);
+            if (syncLanes.get(accountId) === lane) syncLanes.delete(accountId);
+          }),
       };
-      const idleGate = idleCatchUpGateFor(
-        account.accountId,
-        account.generation,
-      );
-      const shouldDiscoverScopes = idleGateDue(
+      syncLanes.set(accountId, lane);
+    }
+  }
+
+  function failSyncLane(accountId: string, error: unknown) {
+    const delayMs = Math.min(
+      SYNC_LANE_RETRY_MAX_MS,
+      (syncLaneRetries.get(accountId)?.delayMs ?? 0) * 2 ||
+        SYNC_LANE_RETRY_MIN_MS,
+    );
+    syncLaneRetries.set(accountId, {
+      retryAtMs: runtime.nowMs() + delayMs,
+      delayMs,
+    });
+    syncLaneErrors.push(error);
+  }
+
+  function stopSyncLane(accountId: string) {
+    syncLanes.get(accountId)?.abort.abort();
+    syncLanes.delete(accountId);
+    syncLaneRetries.delete(accountId);
+  }
+
+  async function waitForSyncLanes(deadlineMs: number, signal?: AbortSignal) {
+    if (syncLanes.size > 0) {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      let onAbort: (() => void) | undefined;
+      await Promise.race([
+        Promise.allSettled([...syncLanes.values()].map((lane) => lane.done)),
+        new Promise<void>((resolve) => {
+          timer = setTimeout(
+            resolve,
+            Math.max(0, deadlineMs - runtime.nowMs()),
+          );
+          onAbort = resolve;
+          signal?.addEventListener("abort", onAbort, { once: true });
+        }),
+      ]);
+      clearTimeout(timer);
+      if (onAbort) signal?.removeEventListener("abort", onAbort);
+    }
+    reportSyncLaneErrors();
+  }
+
+  // Reports lane failures to the host loop. Each failing account already
+  // backs off on its own, so this is for visibility, not retry pacing.
+  function reportSyncLaneErrors() {
+    const errors = syncLaneErrors.splice(0);
+    if (errors.length === 1) throw errors[0];
+    if (errors.length > 1) {
+      throw new AggregateError(errors, "Mail sync lanes failed");
+    }
+  }
+
+  async function catchUpAccount(
+    account: AccountSyncState,
+    signal: AbortSignal,
+  ) {
+    let visitedStreams = 0;
+    const session = {
+      accountId: account.accountId,
+      generation: account.generation,
+    };
+    const idleGate = idleCatchUpGateFor(account.accountId, account.generation);
+    const shouldDiscoverScopes =
+      idleGateDue(
         idleGate.nextScopeDiscoveryAtMs,
         runtime.nowMs(),
-        idleCatchUpIntervalMs,
+        LOW_PRIORITY_CATCH_UP_INTERVAL_MS,
+      ) ||
+      requestedSince(
+        idleGate,
+        idleGate.scopesDiscoveredAt,
+        LOW_PRIORITY_REQUESTED_MIN_INTERVAL_MS,
       );
-      const discoveredScopes = shouldDiscoverScopes
-        ? await discoverBootstrapScopes(session, signal)
-        : undefined;
-      if (shouldDiscoverScopes) {
-        idleGate.nextScopeDiscoveryAtMs =
-          runtime.nowMs() + idleCatchUpIntervalMs;
-      }
-      if (discoveredScopes) {
-        const addedScopes = await store.registerSyncScopes({
-          session,
-          scopeIds: discoveredScopes.map((scope) => scope.id),
+    if (shouldDiscoverScopes) {
+      idleGate.scopesDiscoveredAt = checkStamp(idleGate);
+    }
+    const discoveredScopes = shouldDiscoverScopes
+      ? await discoverBootstrapScopes(session, signal)
+      : undefined;
+    if (shouldDiscoverScopes) {
+      // A failed discovery retries on the normal clock; an account with no
+      // streams cannot start syncing until it succeeds.
+      idleGate.nextScopeDiscoveryAtMs =
+        runtime.nowMs() +
+        (discoveredScopes
+          ? LOW_PRIORITY_CATCH_UP_INTERVAL_MS
+          : idleCatchUpIntervalMs);
+    }
+    if (discoveredScopes) {
+      idleGate.lowPriorityStreams = new Set(
+        discoveredScopes
+          .filter((scope) => scope.priority === "low")
+          .map((scope) => scope.id),
+      );
+    }
+    if (discoveredScopes) {
+      const addedScopes = await store.registerSyncScopes({
+        session,
+        scopeIds: discoveredScopes.map((scope) => scope.id),
+      });
+      if (addedScopes) await queries.refreshAll();
+    }
+    const streamsById = new Map(
+      account.streams.map((stream) => [stream.streamId, stream]),
+    );
+    for (const scope of discoveredScopes ?? []) {
+      if (!streamsById.has(scope.id)) {
+        idleGate.activeBootstrapScopes.set(scope.id, scope);
+        streamsById.set(scope.id, {
+          accountId: account.accountId,
+          streamId: scope.id,
+          generation: account.generation,
+          checkpoint: null,
         });
-        if (addedScopes) await refreshViews();
       }
-      const streamsById = new Map(
-        account.streams.map((stream) => [stream.streamId, stream]),
-      );
-      for (const scope of discoveredScopes ?? []) {
-        if (!streamsById.has(scope.id)) {
-          idleGate.activeBootstrapScopes.set(scope.id, scope);
-          streamsById.set(scope.id, {
+    }
+    if (!shouldDiscoverScopes) {
+      for (const scopeId of idleGate.activeBootstrapScopes.keys()) {
+        if (!streamsById.has(scopeId)) {
+          streamsById.set(scopeId, {
             accountId: account.accountId,
-            streamId: scope.id,
+            streamId: scopeId,
             generation: account.generation,
             checkpoint: null,
           });
         }
       }
-      if (!shouldDiscoverScopes) {
-        for (const scopeId of idleGate.activeBootstrapScopes.keys()) {
-          if (!streamsById.has(scopeId)) {
-            streamsById.set(scopeId, {
-              accountId: account.accountId,
-              streamId: scopeId,
-              generation: account.generation,
-              checkpoint: null,
-            });
-          }
-        }
-      }
-      if (streamsById.size === 0) {
-        await catchUpAssistantIfDue(idleGate, account, signal);
+    }
+    if (streamsById.size === 0) {
+      await catchUpAssistantIfDue(idleGate, account, signal);
+      return;
+    }
+    const streams = [...streamsById.values()];
+    const nextStreamIndex = streams.findIndex(
+      (stream) => stream.streamId === idleGate.nextBootstrapStreamId,
+    );
+    if (nextStreamIndex > 0) {
+      streams.push(...streams.splice(0, nextStreamIndex));
+    }
+    const dueStreams: typeof streams = [];
+    // Bootstrap scans share one slice per pass, so a mailbox with many
+    // folders can't run the lane into its timeout before later folders get a
+    // turn. Folders left over go first on the next pass.
+    const bootstrapDeadlineMs = runtime.nowMs() + SYNC_LANE_BOOTSTRAP_SLICE_MS;
+    let bootstrapStarted = false;
+    idleGate.nextBootstrapStreamId = null;
+    const bootstrapSliceSpent = () =>
+      bootstrapStarted && runtime.nowMs() >= bootstrapDeadlineMs;
+    for (const stream of streams) {
+      if (signal.aborted) return;
+      if (!stream.checkpoint && bootstrapSliceSpent()) {
+        idleGate.nextBootstrapStreamId ??= stream.streamId;
         continue;
       }
-      const streams = [...streamsById.values()];
-      for (const stream of streams) {
-        if (visitedStreams > 0) await yieldToHost();
-        visitedStreams += 1;
-        if (signal?.aborted || runtime.nowMs() >= deadlineMs) return;
-        const catchUpDue = idleGateDue(
+      if (visitedStreams > 0) await yieldToHost();
+      visitedStreams += 1;
+      const catchUpDue =
+        idleGateDue(
           idleGate.nextStreamCatchUpAtMs.get(stream.streamId) ?? 0,
           runtime.nowMs(),
-          idleCatchUpIntervalMs,
+          streamCatchUpInterval(idleGate, stream.streamId),
+        ) ||
+        requestedSince(
+          idleGate,
+          idleGate.streamCheckedAt.get(stream.streamId),
+          idleGate.lowPriorityStreams.has(stream.streamId)
+            ? LOW_PRIORITY_REQUESTED_MIN_INTERVAL_MS
+            : 0,
         );
-        if (
-          !stream.checkpoint ||
-          (await resumesBootstrap(
-            idleGate,
-            session,
-            stream.streamId,
-            catchUpDue,
-          ))
-        ) {
-          await ingestBootstrap({
-            session,
-            from: stream,
-            deadlineMs,
-            signal,
-            requestId: runtime.randomId(),
-            scopeId: stream.streamId,
-            scope: idleGate.activeBootstrapScopes.get(stream.streamId),
-          });
-          await rememberBootstrapContinuation(
-            idleGate,
-            session,
-            stream.streamId,
-          );
+      if (
+        !stream.checkpoint ||
+        (await resumesBootstrap(idleGate, session, stream.streamId, catchUpDue))
+      ) {
+        if (bootstrapSliceSpent()) {
+          idleGate.nextBootstrapStreamId ??= stream.streamId;
           continue;
         }
-        if (!catchUpDue) continue;
+        bootstrapStarted = true;
+        await ingestBootstrap({
+          session,
+          from: stream,
+          deadlineMs: bootstrapDeadlineMs,
+          signal,
+          requestId: runtime.randomId(),
+          scopeId: stream.streamId,
+          scope: idleGate.activeBootstrapScopes.get(stream.streamId),
+        });
+        await rememberBootstrapContinuation(idleGate, session, stream.streamId);
+        continue;
+      }
+      if (!catchUpDue) continue;
+      idleGate.streamCheckedAt.set(stream.streamId, checkStamp(idleGate));
+      dueStreams.push(stream);
+    }
+    const readBatch = source.readChangesBatch;
+    if (readBatch && dueStreams.length > 1) {
+      // One request per chunk shares the provider connection and lookups
+      // that a request per folder would repeat.
+      for (
+        let offset = 0;
+        offset < dueStreams.length;
+        offset += MAX_CHANGES_BATCH_READS
+      ) {
+        if (offset > 0) await yieldToHost();
+        if (signal.aborted) return;
+        const chunk = dueStreams.slice(
+          offset,
+          offset + MAX_CHANGES_BATCH_READS,
+        );
+        const results = await readBatch({
+          session,
+          reads: chunk.map((stream) => ({
+            requestId: runtime.randomId(),
+            position: stream,
+          })),
+          pageSize: 50,
+          signal,
+        });
+        if (results.length !== chunk.length) {
+          throw new Error("Changes batch returned the wrong number of results");
+        }
+        for (const [index, stream] of chunk.entries()) {
+          const changes = results[index] as SyncReadResult;
+          // Applying a page holds the store, so let host reads in between.
+          if (index > 0) await yieldToHost();
+          await applyStreamChanges({
+            session,
+            idleGate,
+            stream,
+            changes,
+            signal,
+          });
+        }
+      }
+    } else {
+      for (const [index, stream] of dueStreams.entries()) {
+        if (index > 0) await yieldToHost();
+        if (signal.aborted) return;
         const changes = await source.readChanges({
           session,
           requestId: runtime.randomId(),
           position: stream,
           pageSize: 50,
-          signal: signal ?? new AbortController().signal,
+          signal,
         });
-        if (changes.status === "page") {
-          const applied = await store.applySyncPage({
-            page: changes.page,
-            ownerId,
-            bodies: changes.page.bodies,
-          });
-          if (applied.status === "committed") {
-            if (changes.page.roundComplete) {
-              idleGate.nextStreamCatchUpAtMs.set(
-                stream.streamId,
-                runtime.nowMs() + idleCatchUpIntervalMs,
-              );
-            } else {
-              idleGate.nextStreamCatchUpAtMs.delete(stream.streamId);
-            }
-            await refreshViews();
-            await noteConnection(account.accountId, "ok");
-          } else {
-            idleGate.nextStreamCatchUpAtMs.delete(stream.streamId);
-          }
-        } else if (changes.status === "reset_required") {
-          // Unfinished pages resume through resumesBootstrap, so the gate
-          // only slows a provider that keeps asking for a resync.
+        await applyStreamChanges({
+          session,
+          idleGate,
+          stream,
+          changes,
+          signal,
+        });
+      }
+    }
+    await catchUpAssistantIfDue(idleGate, account, signal);
+  }
+
+  async function applyStreamChanges({
+    session,
+    idleGate,
+    stream,
+    changes,
+    signal,
+  }: {
+    session: { accountId: string; generation: string };
+    idleGate: IdleCatchUpGate;
+    stream: AccountSyncState["streams"][number];
+    changes: SyncReadResult;
+    signal: AbortSignal;
+  }) {
+    // A stopped lane may have been replaced, and its late result must not
+    // move the shared catch-up schedule.
+    if (signal.aborted) return;
+    if (changes.status === "page") {
+      const applied = await store.applySyncPage({
+        page: changes.page,
+        ownerId,
+        bodies: changes.page.bodies,
+      });
+      if (applied.status === "committed") {
+        if (changes.page.roundComplete) {
           idleGate.nextStreamCatchUpAtMs.set(
             stream.streamId,
-            runtime.nowMs() + idleCatchUpIntervalMs,
-          );
-          const resetStream = { ...stream, streamId: changes.scopeId };
-          await ingestBootstrap({
-            session,
-            from: resetStream,
-            deadlineMs,
-            signal,
-            requestId: runtime.randomId(),
-            scopeId: changes.scopeId,
-          });
-          await rememberBootstrapContinuation(
-            idleGate,
-            session,
-            changes.scopeId,
+            runtime.nowMs() + streamCatchUpInterval(idleGate, stream.streamId),
           );
         } else {
-          idleGate.nextStreamCatchUpAtMs.set(
-            stream.streamId,
-            runtime.nowMs() + idleCatchUpIntervalMs,
-          );
-          await noteConnection(account.accountId, changes.status);
+          idleGate.nextStreamCatchUpAtMs.delete(stream.streamId);
         }
+        await queries.refreshAll();
+        await noteConnection(session.accountId, "ok");
+        notifySyncPageCommitted(changes.page);
+      } else {
+        idleGate.nextStreamCatchUpAtMs.delete(stream.streamId);
       }
-      await catchUpAssistantIfDue(idleGate, account, signal);
+    } else if (changes.status === "reset_required") {
+      // Unfinished pages resume through resumesBootstrap, so the gate
+      // only slows a provider that keeps asking for a resync.
+      idleGate.nextStreamCatchUpAtMs.set(
+        stream.streamId,
+        runtime.nowMs() + streamCatchUpInterval(idleGate, stream.streamId),
+      );
+      const resetStream = { ...stream, streamId: changes.scopeId };
+      await ingestBootstrap({
+        session,
+        from: resetStream,
+        deadlineMs: runtime.nowMs() + SYNC_LANE_BOOTSTRAP_SLICE_MS,
+        signal,
+        requestId: runtime.randomId(),
+        scopeId: changes.scopeId,
+      });
+      await rememberBootstrapContinuation(idleGate, session, changes.scopeId);
+    } else {
+      idleGate.nextStreamCatchUpAtMs.set(
+        stream.streamId,
+        runtime.nowMs() + streamCatchUpInterval(idleGate, stream.streamId),
+      );
+      await noteConnection(session.accountId, changes.status);
     }
   }
 
@@ -891,12 +1178,47 @@ export function createMailEngine(input: {
     const created: IdleCatchUpGate = {
       activeBootstrapScopes: new Map(),
       generation,
+      lowPriorityStreams: new Set(),
       nextAssistantCatchUpAtMs: 0,
+      nextBootstrapStreamId: null,
       nextScopeDiscoveryAtMs: 0,
       nextStreamCatchUpAtMs: new Map(),
+      requestCount: 0,
+      scopesDiscoveredAt: null,
+      streamCheckedAt: new Map(),
     };
     idleCatchUpGates.set(accountId, created);
     return created;
+  }
+
+  function streamCatchUpInterval(idleGate: IdleCatchUpGate, streamId: string) {
+    return idleGate.lowPriorityStreams.has(streamId)
+      ? LOW_PRIORITY_CATCH_UP_INTERVAL_MS
+      : idleCatchUpIntervalMs;
+  }
+
+  // Requests are counted rather than applied to deadlines, so a request that
+  // lands while a check is in flight survives that check finishing, and
+  // repeated requests cannot pull a check in below its minimum interval.
+  function requestCatchUp(idleGate: IdleCatchUpGate) {
+    idleGate.requestCount += 1;
+    idleGate.nextAssistantCatchUpAtMs = 0;
+  }
+
+  function checkStamp(idleGate: IdleCatchUpGate): CheckStamp {
+    return { atMs: runtime.nowMs(), requestCount: idleGate.requestCount };
+  }
+
+  function requestedSince(
+    idleGate: IdleCatchUpGate,
+    checked: CheckStamp | null | undefined,
+    minIntervalMs: number,
+  ) {
+    return (
+      checked != null &&
+      idleGate.requestCount > checked.requestCount &&
+      runtime.nowMs() - checked.atMs >= minIntervalMs
+    );
   }
 
   async function rememberBootstrapContinuation(
@@ -1012,7 +1334,7 @@ export function createMailEngine(input: {
         payload: entry.payload,
       })),
     });
-    await refreshViews();
+    await queries.refreshAll();
     return page.page.nextCursor !== (account.assistantCursor ?? null);
   }
 
@@ -1040,11 +1362,19 @@ export function createMailEngine(input: {
     };
   }
 
+  function notifySyncPageCommitted(page: SyncPage) {
+    try {
+      input.onSyncPageCommitted?.(page);
+    } catch {
+      // Optional host side effects must not interrupt committed sync.
+    }
+  }
+
   async function noteConnection(accountId: string, status: string) {
     const connection = CONNECTION_BY_SOURCE_STATUS[status];
     if (!connection) return;
     if (await store.recordConnection({ accountId, connection })) {
-      await refreshViews();
+      await queries.refreshAll();
     }
   }
 }
@@ -1058,16 +1388,42 @@ const CONNECTION_BY_SOURCE_STATUS: Partial<
   page: "ready",
 };
 
+type SyncLane = {
+  abort: AbortController;
+  done: Promise<void>;
+};
+
 type IdleCatchUpGate = {
   activeBootstrapScopes: Map<string, ScopeDescriptor>;
   generation: string;
+  lowPriorityStreams: Set<string>;
   nextAssistantCatchUpAtMs: number;
+  nextBootstrapStreamId: string | null;
   nextScopeDiscoveryAtMs: number;
   nextStreamCatchUpAtMs: Map<string, number>;
+  requestCount: number;
+  scopesDiscoveredAt: CheckStamp | null;
+  streamCheckedAt: Map<string, CheckStamp>;
 };
+
+type CheckStamp = { atMs: number; requestCount: number };
 
 function idleGateDue(nextAtMs: number, nowMs: number, intervalMs: number) {
   return nextAtMs <= nowMs || nextAtMs - nowMs > intervalMs;
+}
+
+type RemoteSearch = {
+  accountId: string;
+  predicate: MailPredicate;
+  wantedPages: number;
+  fetchedPages: number;
+  nextPage: string | null;
+  // The page queued for this search, or undefined when none is.
+  pendingPage: string | null | undefined;
+};
+
+function remoteSearchKey(accountId: string, predicate: MailPredicate) {
+  return `${accountId}:${JSON.stringify(predicate)}`;
 }
 
 function normalizePageCount(pageCount: number | undefined) {
@@ -1094,54 +1450,6 @@ function defaultRandomId(): string {
   throw new Error(
     "HostRuntime.randomId is required when crypto.randomUUID is unavailable",
   );
-}
-
-async function runAttachmentUpload(input: {
-  work: Extract<import("./ports/mail-store").ClaimedWork, { kind: "upload" }>;
-  blobStore?: BlobStore;
-  executor: OperationExecutor;
-  store: MailStore;
-  runtime: HostRuntime;
-  signal: AbortSignal;
-}) {
-  const { work, blobStore, executor, store } = input;
-  if (!blobStore || !executor.stageUpload) {
-    await store.failOperation(work.operation.key, "missing_attachment");
-    return;
-  }
-  const bytes = await blobStore.read(work.attachmentId);
-  if (!bytes) {
-    await store.failOperation(work.operation.key, "missing_attachment");
-    return;
-  }
-  const staged = await executor.stageUpload({
-    session: work.operation.session,
-    uploadId: work.attachmentId,
-    checksum: work.checksum,
-    sizeBytes: work.sizeBytes,
-    filename: work.filename,
-    contentType: work.contentType,
-    bytes,
-    signal: input.signal,
-  });
-  if (staged.status !== "staged") {
-    if (
-      staged.status === "rejected" &&
-      (staged.code === "missing" || staged.code === "too_large")
-    ) {
-      await store.failOperation(
-        work.operation.key,
-        staged.code === "too_large" ? "too_large" : "missing_attachment",
-      );
-    }
-    return;
-  }
-  await store.recordAttachmentUpload({
-    accountId: work.operation.key.accountId,
-    operationId: work.operation.key.operationId,
-    attachmentId: work.attachmentId,
-    remoteUploadId: staged.blobId,
-  });
 }
 
 /**

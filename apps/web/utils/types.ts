@@ -63,7 +63,7 @@ export interface ParsedMessage {
   historyId: string;
   id: string;
   inboxSection?: "focused" | "other" | null;
-  inline: Inline[];
+  inline: Attachment[];
   internalDate?: string | null;
   isMeetingInvitation?: boolean;
   labelIds?: string[];
@@ -92,21 +92,6 @@ export interface Attachment {
 interface Headers {
   "content-description": string;
   "content-disposition"?: string;
-  "content-id": string;
-  "content-transfer-encoding": string;
-  "content-type": string;
-}
-
-interface Inline {
-  attachmentId: string;
-  filename: string;
-  headers: Headers2;
-  mimeType: string;
-  size: number;
-}
-
-interface Headers2 {
-  "content-description": string;
   "content-id": string;
   "content-transfer-encoding": string;
   "content-type": string;

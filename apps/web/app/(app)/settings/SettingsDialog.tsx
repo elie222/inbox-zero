@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { SettingsContent } from "@/app/(app)/settings/SettingsContent";
 import {
   Dialog,
@@ -8,9 +9,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useSettingsDialog } from "@/hooks/useSettingsDialog";
+import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
 
 export function SettingsDialog() {
-  const { isSettingsOpen, closeSettings } = useSettingsDialog();
+  const { isSettingsOpen, openSettings, closeSettings } = useSettingsDialog();
+
+  useEffect(
+    () => getInboxZeroDesktopApp()?.onOpenSettings?.(openSettings),
+    [openSettings],
+  );
 
   return (
     <Dialog

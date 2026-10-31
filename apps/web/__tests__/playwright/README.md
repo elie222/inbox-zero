@@ -57,15 +57,18 @@ pnpm -F inbox-zero-ai test:playwright:emulated mail/layout.spec.ts
 pnpm -F inbox-zero-ai test:playwright:emulated automation settings
 ```
 
-Every emulated product test stores a stable final-state screenshot when it
-passes and Playwright's automatic failure screenshot when it fails. The shared
+An emulated product test that passes without capturing a checkpoint stores a
+stable final-state screenshot, and every failing test stores Playwright's
+automatic failure screenshot. The shared
 fixture also attaches `browser-evidence` JSON containing the final URL and
 title, console errors, uncaught page errors, failed network requests, and HTTP
 error responses. Uncaught page errors fail otherwise-passing tests unless a
 flow explicitly expects browser errors while simulating a network outage.
 
 Use `capturePlaywrightCheckpoint` from `emulated/playwright-evidence.ts` for
-meaningful intermediate states. It writes the screenshot where the public
+meaningful states that reviewers should see. Capture distinct UI states only,
+not every step: a test with checkpoints skips the final-state screenshot, so
+end on a checkpoint when the outcome is worth showing. It writes the screenshot where the public
 gallery can compare it with `main` and attaches the same image to the full
 Playwright report.
 
@@ -102,8 +105,8 @@ first argument loads another selector module, allowing before/after comparisons
 against the same source tree. These are spec-count measurements, not wall-clock
 predictions; see [the initial comparison](selection-comparison.md).
 
-CI captures the final state of every selected test, and tests can add
-intentional checkpoint screenshots for important intermediate states. Every
+CI captures each selected test's checkpoints, or its final state when it has
+none. Every
 failure also retains its trace and video.
 
 After each pull request run, a trusted follow-up workflow publishes a

@@ -137,6 +137,7 @@ describe("readAssistantStatePage", () => {
       expect.objectContaining({
         where: {
           emailAccountId: "acc-1",
+          updatedAt: { gte: new Date("2026-01-01T00:01:00.000Z") },
           OR: [
             { updatedAt: { gt: new Date("2026-01-01T00:01:00.000Z") } },
             {

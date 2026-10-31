@@ -1,12 +1,9 @@
-import type { Rule } from "@/generated/prisma/client";
 import { SystemType } from "@/generated/prisma/enums";
 import { shouldSelectMultipleRules } from "@/utils/ai/choose-rule/ai-choose-rule";
 import {
   type DecisionModelConfig,
-  type DecisionQuestion,
   runDecisionModel,
 } from "@/utils/decision-model/decision-model";
-import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Logger } from "@/utils/logger";
@@ -28,12 +25,7 @@ const QUESTION =
 // name can take.
 const CHOICE_QUESTION_KEY = "__rule_choice__";
 const MIN_CHOICE_CONFIDENCE = 0.3;
-const COLD_EMAIL_QUESTION_KEY = "__cold_email__";
 const EMAIL_CONTENT_MAX_LENGTH = 2000;
-
-// Well above a coin flip: a false "cold" hides a real email, a missed one
-// only leaves a message in the inbox.
-const COLD_EMAIL_THRESHOLD = 0.7;
 
 const DEAD_HEAT_MARGIN = 0.1;
 
@@ -50,7 +42,6 @@ type RuleCandidate = {
 };
 
 type DecisionRuleSelection<T> =
-  | { type: "coldEmail"; reason: string }
   | { type: "rules"; rules: { rule: T; isPrimary?: boolean }[]; reason: string }
   | { type: "undecided"; reason: string };
 
@@ -59,7 +50,6 @@ export async function decisionModelChooseRule<T extends RuleCandidate>({
   message,
   emailAccount,
   rules,
-  coldEmailRule,
   classificationFeedback,
   logger: parentLogger,
 }: {
@@ -67,8 +57,6 @@ export async function decisionModelChooseRule<T extends RuleCandidate>({
   message: ParsedMessage;
   emailAccount: EmailAccountWithAI;
   rules: T[];
-  // Pass when the cold-email decision is still open so the decision model makes it too.
-  coldEmailRule: Pick<Rule, "instructions"> | null;
   classificationFeedback: ClassificationFeedbackItem[] | null;
   logger: Logger;
 }): Promise<DecisionRuleSelection<T>> {
@@ -84,18 +72,6 @@ export async function decisionModelChooseRule<T extends RuleCandidate>({
 
   const { criteria, rulesByKey } = buildCriteria(rules);
 
-  const questions: Record<string, DecisionQuestion> = {};
-  if (rules.length) {
-    questions[CHOICE_QUESTION_KEY] = {
-      type: "choice",
-      instructions: QUESTION,
-      criteria,
-    };
-  }
-  if (coldEmailRule) {
-    questions[COLD_EMAIL_QUESTION_KEY] = buildColdEmailQuestion();
-  }
-
   const res = await runDecisionModel({
     config: decisionModel,
     emailAccount,
@@ -107,43 +83,17 @@ export async function decisionModelChooseRule<T extends RuleCandidate>({
         name,
         instructions: getRuleCriterion(rule),
       })),
-      coldEmailDefinition: coldEmailRule
-        ? coldEmailRule.instructions?.trim() || DEFAULT_COLD_EMAIL_PROMPT
-        : null,
     }),
-    questions,
+    questions: {
+      [CHOICE_QUESTION_KEY]: {
+        type: "choice",
+        instructions: QUESTION,
+        criteria,
+      },
+    },
     label: "Choose rule",
     logger,
   });
-
-  let coldEmailProbability: number | null = null;
-
-  if (coldEmailRule) {
-    const coldAnswer = res.answers[COLD_EMAIL_QUESTION_KEY];
-    if (coldAnswer?.type !== "yesNo") {
-      throw new Error(
-        "Decision model response is missing the cold email answer",
-      );
-    }
-    coldEmailProbability = coldAnswer.probability;
-
-    if (coldEmailProbability > COLD_EMAIL_THRESHOLD) {
-      logger.info("Decision model says cold email", {
-        coldEmailProbability,
-        model: res.model,
-        inputTokens: res.inputTokens,
-      });
-
-      return {
-        type: "coldEmail",
-        reason: `Decision model says cold email (confidence ${coldEmailProbability.toFixed(2)})`,
-      };
-    }
-  }
-
-  if (!rules.length) {
-    return { type: "rules", rules: [], reason: "Decision model says not cold" };
-  }
 
   const answer = res.answers[CHOICE_QUESTION_KEY];
   if (answer?.type !== "choice") {
@@ -158,8 +108,11 @@ export async function decisionModelChooseRule<T extends RuleCandidate>({
     topChoice: answer.choice,
     confidence: probability,
     margin,
-    probabilities: answer.probabilities,
-    coldEmailProbability,
+    // An array, not a record: each key of a logged object becomes a permanent
+    // Axiom field, and these keys are user-named rules.
+    probabilities: Object.entries(answer.probabilities)
+      .sort(([, a], [, b]) => b - a)
+      .map(([rule, probability]) => ({ rule, probability })),
     model: res.model,
     inputTokens: res.inputTokens,
   });
@@ -268,7 +221,6 @@ function buildCriteria<T extends RuleCandidate>(rules: T[]) {
   const usedKeys = new Set<string>([
     NONE_KEY.toLowerCase(),
     CHOICE_QUESTION_KEY,
-    COLD_EMAIL_QUESTION_KEY,
   ]);
 
   for (const rule of rules) {
@@ -298,19 +250,6 @@ function getRuleCriterion(rule: RuleCandidate) {
   return rule.instructions.trim() || rule.name;
 }
 
-function buildColdEmailQuestion(): DecisionQuestion {
-  return {
-    type: "yesNo",
-    instructions:
-      "Is `email` cold outreach under `coldEmailDefinition` from the perspective of `accountOwner`?",
-    criteria: {
-      true: "The message is unsolicited outreach that meets the supplied cold-email definition.",
-      false:
-        "The message is ordinary marketing, a newsletter, an account message, receipt, alert, calendar invite, or a valuable specific opportunity.",
-    },
-  };
-}
-
 // Only the latest message: which rule fits is a property of this email.
 // Conversation status (To Reply, FYI, ...) is resolved later from the thread.
 function buildState({
@@ -318,13 +257,11 @@ function buildState({
   emailAccount,
   classificationFeedback,
   candidateRules,
-  coldEmailDefinition,
 }: {
   message: ParsedMessage;
   emailAccount: EmailAccountWithAI;
   classificationFeedback: ClassificationFeedbackItem[] | null;
   candidateRules: { name: string; instructions: string }[];
-  coldEmailDefinition: string | null;
 }) {
   const email = getEmailForLLM(message, {
     maxLength: EMAIL_CONTENT_MAX_LENGTH,
@@ -355,6 +292,5 @@ function buildState({
           item.eventType === "LABEL_ADDED" ? "applied rule" : "removed rule",
       })) ?? [],
     candidateRules,
-    coldEmailDefinition,
   };
 }

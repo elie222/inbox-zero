@@ -3,7 +3,12 @@ import { createScopedLogger } from "@/utils/logger";
 import { createGenerateObject } from "@/utils/llms/index";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
-import { getEmailListPrompt, getTodayForLLM } from "@/utils/ai/helpers";
+import {
+  getEmailListPrompt,
+  getTodayForLLM,
+  getUserAboutPrompt,
+  getWritingStylePrompt,
+} from "@/utils/ai/helpers";
 import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 
 const logger = createScopedLogger("DraftFollowUp");
@@ -41,23 +46,9 @@ const getUserPrompt = ({
   emailAccount: EmailAccountWithAI;
   writingStyle: string | null;
 }) => {
-  const userAbout = emailAccount.about
-    ? `Context about the user:
+  const userAbout = getUserAboutPrompt(emailAccount.about);
 
-<userAbout>
-${emailAccount.about}
-</userAbout>
-`
-    : "";
-
-  const writingStylePrompt = writingStyle
-    ? `Writing style:
-
-<writing_style>
-${writingStyle}
-</writing_style>
-`
-    : "";
+  const writingStylePrompt = getWritingStylePrompt(writingStyle);
 
   return `${userAbout}
 ${writingStylePrompt}

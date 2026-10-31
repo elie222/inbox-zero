@@ -11,8 +11,10 @@ const DEFAULT_TEAM_ID = "Z46U4K6CNL";
 
 export type ApnsAlert = {
   title: string;
+  subtitle?: string;
   body: string;
   sound?: "default";
+  category?: string;
   data?: Record<string, string>;
 };
 
@@ -161,9 +163,13 @@ function apnsPayload(notification: ApnsNotification) {
     aps: {
       alert: {
         title: notification.title,
+        ...(notification.subtitle === undefined
+          ? {}
+          : { subtitle: notification.subtitle }),
         body: notification.body,
       },
       sound: notification.sound ?? "default",
+      ...(notification.category ? { category: notification.category } : {}),
     },
     ...(notification.data ?? {}),
   };

@@ -8,7 +8,7 @@ import {
 import { createEmailProvider } from "@/utils/email/provider";
 import type { OutlookResourceData } from "@/utils/webhook/outlook/types";
 import { processHistoryItem } from "@/utils/webhook/process-history-item";
-import { markMessageAsProcessing } from "@/utils/redis/message-processing";
+import { withMessageProcessingLock } from "@/utils/redis/message-processing";
 import {
   validateWebhookAccount,
   getWebhookEmailAccount,
@@ -19,11 +19,14 @@ import { learnFromOutlookLabelRemoval } from "@/utils/webhook/outlook/learn-labe
 import prisma from "@/utils/prisma";
 import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";
 import { withRateLimitRecording } from "@/utils/email/rate-limit";
+import { isEmailProviderRateLimitError } from "@/utils/email/is-provider-rate-limit-error";
+import { markOutlookRateLimitCatchUp } from "@/utils/redis/outlook-rate-limit-catch-up";
 export async function processHistoryForUser({
   preloadedEmailAccount,
   subscriptionId,
   emailAddress,
   resourceData,
+  isNewMessage = false,
   logger,
 }: {
   preloadedEmailAccount?: Awaited<
@@ -32,6 +35,7 @@ export async function processHistoryForUser({
   subscriptionId?: string;
   emailAddress?: string;
   resourceData: OutlookResourceData;
+  isNewMessage?: boolean;
   logger: Logger;
 }) {
   let emailAccount = preloadedEmailAccount ?? null;
@@ -96,6 +100,18 @@ export async function processHistoryForUser({
         provider: accountProvider,
         logger,
         source: "outlook/webhook",
+        onRateLimitRecorded: async (state, error) => {
+          if (
+            state ||
+            isEmailProviderRateLimitError({ error, provider: "microsoft" })
+          ) {
+            await markOutlookRateLimitCatchUp({
+              emailAccountId: validatedEmailAccount.id,
+              since: new Date(),
+              logger,
+            });
+          }
+        },
       },
       async () => {
         // Outlook: Fetch message first to check folder before acquiring lock
@@ -116,76 +132,77 @@ export async function processHistoryForUser({
           return NextResponse.json({ ok: true });
         }
 
-        // Now acquire lock (only for INBOX/SENT messages)
-        const isFree = await markMessageAsProcessing({
-          userEmail: validatedEmailAccount.email,
-          messageId: resourceData.id,
-        });
-        if (!isFree) {
-          logger.info("Skipping. Message already being processed.");
-          return NextResponse.json({ ok: true });
-        }
-
-        const hasExistingRule = message.threadId
-          ? await prisma.executedRule.findFirst({
-              where: {
-                emailAccountId: validatedEmailAccount.id,
-                threadId: message.threadId,
-                messageId: message.id,
-              },
-              select: { id: true },
-            })
-          : null;
-
-        if (hasExistingRule) {
-          after(() =>
-            runWithBackgroundLoggerFlush({
-              logger,
-              task: async () => {
-                try {
-                  await learnFromOutlookLabelRemoval({
-                    message,
-                    emailAccountId: validatedEmailAccount.id,
-                    logger,
-                  });
-                } catch (error) {
-                  await logErrorWithDedupe({
-                    logger,
-                    message: "Error learning from Outlook label removal",
-                    error,
-                    context: {
-                      messageId: message.id,
-                      threadId: message.threadId,
-                    },
-                    dedupeKeyParts: {
-                      scope: "outlook/webhook",
-                      operation: "learn-label-removal",
-                      emailAccountId: validatedEmailAccount.id,
-                    },
-                  });
-                }
-              },
-              extra: { operation: "learn-outlook-label-removal" },
-            }),
-          );
-          logger.info("Skipping rules. Rule already exists.");
-        }
-
-        // Pass pre-fetched message to avoid refetching
-        await processHistoryItem(
-          { messageId: resourceData.id, message },
+        const result = await withMessageProcessingLock(
           {
-            provider,
-            emailAccount: {
-              ...validatedEmailAccount,
-              account: { provider: accountProvider },
-            },
-            hasAutomationRules,
-            hasAiAccess: userHasAiAccess,
-            rules: validatedEmailAccount.rules,
-            logger,
+            userEmail: validatedEmailAccount.email,
+            messageId: resourceData.id,
+          },
+          async () => {
+            const hasExistingRule = message.threadId
+              ? await prisma.executedRule.findFirst({
+                  where: {
+                    emailAccountId: validatedEmailAccount.id,
+                    threadId: message.threadId,
+                    messageId: message.id,
+                  },
+                  select: { id: true },
+                })
+              : null;
+
+            if (hasExistingRule) {
+              after(() =>
+                runWithBackgroundLoggerFlush({
+                  logger,
+                  task: async () => {
+                    try {
+                      await learnFromOutlookLabelRemoval({
+                        message,
+                        emailAccountId: validatedEmailAccount.id,
+                        logger,
+                      });
+                    } catch (error) {
+                      await logErrorWithDedupe({
+                        logger,
+                        message: "Error learning from Outlook label removal",
+                        error,
+                        context: {
+                          messageId: message.id,
+                          threadId: message.threadId,
+                        },
+                        dedupeKeyParts: {
+                          scope: "outlook/webhook",
+                          operation: "learn-label-removal",
+                          emailAccountId: validatedEmailAccount.id,
+                        },
+                      });
+                    }
+                  },
+                  extra: { operation: "learn-outlook-label-removal" },
+                }),
+              );
+              logger.info("Skipping rules. Rule already exists.");
+            }
+
+            // Pass pre-fetched message to avoid refetching
+            await processHistoryItem(
+              { messageId: resourceData.id, message },
+              {
+                provider,
+                isNewMessage,
+                emailAccount: {
+                  ...validatedEmailAccount,
+                  account: { provider: accountProvider },
+                },
+                hasAutomationRules,
+                hasAiAccess: userHasAiAccess,
+                rules: validatedEmailAccount.rules,
+                logger,
+              },
+            );
           },
         );
+        if (result.skipped)
+          logger.info("Skipping. Message already being processed.");
 
         return NextResponse.json({ ok: true });
       },

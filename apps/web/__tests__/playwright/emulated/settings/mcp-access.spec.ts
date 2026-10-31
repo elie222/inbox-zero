@@ -37,6 +37,11 @@ test("requires client consent, enforces read-only access, and disconnects existi
   await expect(accountSection.getByText("MCP", { exact: true })).toBeVisible();
   await expect(developerSection.getByText("API Access")).toBeVisible();
   await expect(developerSection.getByText("MCP", { exact: true })).toBeHidden();
+  const toggle = page.getByRole("switch", { name: "MCP", exact: true });
+  await expect(toggle).toBeEnabled();
+  await toggle.setChecked(false);
+  await expect(toggle).not.toBeChecked();
+  await expect(toggle).toBeEnabled();
   await expect(
     accountSection.getByRole("button", { name: "Connect", exact: true }),
   ).toBeHidden();
@@ -45,10 +50,6 @@ test("requires client consent, enforces read-only access, and disconnects existi
     testInfo,
     "account-mcp-row",
   );
-  const toggle = page.getByRole("switch", { name: "MCP", exact: true });
-  await toggle.setChecked(false);
-  await expect(toggle).not.toBeChecked();
-
   const baseURL = process.env.NEXT_PUBLIC_BASE_URL;
   assert(baseURL);
   const resource = `${baseURL}/mcp`;
@@ -88,12 +89,15 @@ test("requires client consent, enforces read-only access, and disconnects existi
     page.getByRole("heading", { name: "Connect Playwright MCP client?" }),
   ).toBeVisible();
   await expect(
-    page.getByText("Can search and read mail. Can't send email."),
-  ).toBeVisible();
+    page.getByRole("checkbox", { name: "Read and search mail (required)" }),
+  ).toBeDisabled();
   await expect(
-    page.getByText(
-      "Can search mail, create drafts, and manage rules. Can't send email.",
-    ),
+    page.getByRole("checkbox", { name: "Stay connected when you are away" }),
+  ).toBeChecked();
+  await expect(
+    page.getByRole("checkbox", {
+      name: "Create drafts, organize mail, and manage rules",
+    }),
   ).toBeHidden();
   await capturePlaywrightCheckpoint(page, testInfo, "mcp-consent");
   await page.getByRole("button", { name: "Allow" }).click();
@@ -177,13 +181,14 @@ test("requires client consent, enforces read-only access, and disconnects existi
   await appsDialog
     .getByRole("button", { name: "Disconnect Playwright MCP client" })
     .click();
+  await expect(page.getByText("Disconnected", { exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
   await expect(page.getByRole("button", { name: /^MCP apps/ })).toHaveCount(0);
   const disconnected = await request.post(resource, {
     headers,
     data: { jsonrpc: "2.0", id: 4, method: "tools/list" },
   });
   expect(disconnected.status()).toBe(401);
-  await page.keyboard.press("Escape");
   await expect(toggle).toBeChecked();
   await toggle.click();
   await expect(toggle).not.toBeChecked();
@@ -205,4 +210,5 @@ test("requires client consent, enforces read-only access, and disconnects existi
   expect(stillRevoked.status()).toBe(401);
   await toggle.click();
   await expect(toggle).not.toBeChecked();
+  await expect(toggle).toBeEnabled();
 });

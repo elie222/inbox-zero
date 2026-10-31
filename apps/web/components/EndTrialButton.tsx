@@ -27,7 +27,10 @@ export function EndTrialButton({
   variant,
   size,
   className,
-}: Pick<ButtonProps, "variant" | "size" | "className">) {
+  showIcon = true,
+}: Pick<ButtonProps, "variant" | "size" | "className"> & {
+  showIcon?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [endingTrial, setEndingTrial] = useState(false);
   const { mutate } = useSWRConfig();
@@ -69,8 +72,12 @@ export function EndTrialButton({
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>
-        <Button variant={variant} size={size} className={className}>
-          <CreditCardIcon className="mr-2 h-4 w-4" />
+        <Button
+          variant={variant}
+          size={size}
+          className={className}
+          Icon={showIcon ? CreditCardIcon : undefined}
+        >
           Start paid plan now
         </Button>
       </AlertDialogTrigger>

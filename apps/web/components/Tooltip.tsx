@@ -19,6 +19,7 @@ interface TooltipProps {
   contentComponent?: React.ReactNode;
   hide?: boolean;
   shortcuts?: readonly ShortcutTooltipItem[];
+  showShortcutLabels?: boolean;
   side?: "top" | "right" | "bottom" | "left";
 }
 
@@ -27,6 +28,7 @@ export const Tooltip = ({
   content,
   contentComponent,
   shortcuts,
+  showShortcutLabels,
   hide,
   side,
 }: TooltipProps) => {
@@ -44,7 +46,10 @@ export const Tooltip = ({
         <TooltipContent side={side}>
           {contentComponent ||
             (shortcuts ? (
-              <ShortcutTooltipContent shortcuts={shortcuts} />
+              <ShortcutTooltipContent
+                shortcuts={shortcuts}
+                showLabels={showShortcutLabels}
+              />
             ) : (
               <p className="max-w-xs">{content}</p>
             ))}

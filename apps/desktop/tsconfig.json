@@ -8,7 +8,9 @@
     "esModuleInterop": true,
     "types": ["node"],
     "jsx": "react-jsx",
-    "noEmit": true
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "allowJs": true
   },
   "include": ["src"]
 }

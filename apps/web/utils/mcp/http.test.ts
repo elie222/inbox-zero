@@ -6,14 +6,12 @@ vi.mock("server-only", () => ({}));
 const {
   isMcpServerAvailable,
   getMcpIpRateLimitResponse,
-  getMcpUserRateLimitResponse,
   verifyMcpToken,
   handleMcpServerRequest,
   getJwks,
 } = vi.hoisted(() => ({
   isMcpServerAvailable: vi.fn(),
   getMcpIpRateLimitResponse: vi.fn(),
-  getMcpUserRateLimitResponse: vi.fn(),
   verifyMcpToken: vi.fn(),
   handleMcpServerRequest: vi.fn(),
   getJwks: vi.fn(),
@@ -28,7 +26,6 @@ vi.mock("@/utils/auth", () => ({
 vi.mock("@/utils/mcp/config", () => ({ isMcpServerAvailable }));
 vi.mock("@/utils/mcp/rate-limit", () => ({
   getMcpIpRateLimitResponse,
-  getMcpUserRateLimitResponse,
 }));
 vi.mock("@/utils/mcp/verify-token", () => ({ verifyMcpToken }));
 vi.mock("@/utils/mcp/server", () => ({ handleMcpServerRequest }));
@@ -44,7 +41,6 @@ describe("MCP HTTP helpers", () => {
     vi.clearAllMocks();
     isMcpServerAvailable.mockReturnValue(true);
     getMcpIpRateLimitResponse.mockResolvedValue(null);
-    getMcpUserRateLimitResponse.mockResolvedValue(null);
     getJwks.mockResolvedValue({ keys: [] });
   });
 
@@ -96,25 +92,12 @@ describe("MCP HTTP helpers", () => {
     expect(handleMcpServerRequest).not.toHaveBeenCalled();
   });
 
-  it("rate-limits the user after a valid token and then delegates", async () => {
+  it("delegates valid requests", async () => {
     verifyMcpToken.mockResolvedValue({
       userId: "owner",
       clientId: "client",
       scopes: ["mcp:read"],
     });
-    getMcpUserRateLimitResponse.mockResolvedValue(
-      new Response(JSON.stringify({ error: "rate_limited" }), { status: 429 }),
-    );
-    const limited = await handleMcpPostRequest(
-      new Request("https://inbox.example.com/mcp", {
-        method: "POST",
-        headers: { Authorization: "Bearer token" },
-      }),
-    );
-    expect(limited.status).toBe(429);
-    expect(handleMcpServerRequest).not.toHaveBeenCalled();
-
-    getMcpUserRateLimitResponse.mockResolvedValue(null);
     handleMcpServerRequest.mockResolvedValue(new Response("ok"));
     const request = new Request("https://inbox.example.com/mcp", {
       method: "POST",

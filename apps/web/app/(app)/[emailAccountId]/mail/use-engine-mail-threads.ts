@@ -92,14 +92,19 @@ export function useEngineMailThreads({
 
   return {
     threads,
-    hasRemoteResponse: mailbox.status !== "loading",
     searchError: undefined,
     isLoading: enabled && Boolean(client) && mailbox.status === "loading",
     error: mailboxQueryError(mailbox.error),
     hasMore: mailbox.canLoadMore,
     isLoadingMore: mailbox.isLoadingMore,
     loadMore: mailbox.loadMore,
-    coverageComplete: isMetadataCoverageComplete(mailbox.data?.coverage ?? []),
+    // Until the first full sync lands, an empty local result doesn't mean the
+    // view is empty.
+    isSyncing:
+      enabled &&
+      Boolean(client) &&
+      mailbox.data?.connection === "ready" &&
+      !isMetadataCoverageComplete(mailbox.data.coverage),
     failedAccountIds,
     labelsByAccount: NO_LABELS_BY_ACCOUNT,
     refetch: async () => {

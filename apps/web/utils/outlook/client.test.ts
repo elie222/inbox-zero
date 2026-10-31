@@ -16,7 +16,7 @@ import {
   getMicrosoftGraphClientOptions,
   getMicrosoftOauthAuthorizeUrl,
   requestMicrosoftToken,
-} from "@/utils/microsoft/oauth";
+} from "@/utils/outlook/oauth";
 
 vi.mock("@microsoft/microsoft-graph-client", () => ({
   Client: {
@@ -39,7 +39,7 @@ vi.mock("@/utils/auth/cleanup-invalid-tokens", () => ({
   cleanupInvalidTokens: vi.fn(),
 }));
 
-vi.mock("@/utils/microsoft/oauth", () => ({
+vi.mock("@/utils/outlook/oauth", () => ({
   getMicrosoftGraphClientOptions: vi.fn(() => ({
     baseUrl: "http://localhost:4003/",
     customHosts: new Set(["localhost"]),

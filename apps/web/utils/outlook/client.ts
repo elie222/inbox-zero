@@ -13,7 +13,7 @@ import {
   getMicrosoftGraphClientOptions,
   getMicrosoftOauthAuthorizeUrl,
   requestMicrosoftToken,
-} from "@/utils/microsoft/oauth";
+} from "@/utils/outlook/oauth";
 import { SCOPES } from "@/utils/outlook/scopes";
 import { isInvalidGrantError, SafeError } from "@/utils/error";
 

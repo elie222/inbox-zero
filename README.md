@@ -2,10 +2,10 @@
 
 <p align="center">
   <a href="https://www.getinboxzero.com">
-    <h1 align="center">Inbox Zero - your 24/7 AI email assistant</h1>
+    <h1 align="center">Inbox Zero - your 24/7 AI email assistant and email app</h1>
   </a>
   <p align="center">
-    Organizes your inbox, pre-drafts replies, manages your calendar, and organizes attachments. Chat with it from Slack or Telegram to manage your inbox on the go. Open source alternative to Fyxer, but more customizable and secure.
+    Organizes your inbox, pre-drafts replies, manages your calendar, and organizes attachments. Chat with it from Slack or Telegram to manage your inbox on the go. Open source alternative to Fyxer, but more customizable and secure. We also offer an email app, an open source alternative to Superhuman.
     <br />
     <a href="https://www.getinboxzero.com">Website</a>
     ·
@@ -22,8 +22,6 @@
 
 <a href="https://trendshift.io/repositories/6400" target="_blank"><img src="https://trendshift.io/api/badge/repositories/6400" alt="elie222%2Finbox-zero | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
-[![Sponsor](https://readme.cash/i/hg3bchcqpo.svg)](https://readme.cash/c/hg3bchcqpo)
-
 [![Vercel OSS Program](https://vercel.com/oss/program-badge.svg)](https://vercel.com/oss)
 
 </div>
@@ -33,6 +31,10 @@
 To help you spend less time in your inbox, so you can focus on what matters most.
 
 ## Features
+
+Inbox Zero has two parts: an AI email assistant that works in the background on your Gmail or Outlook account, and an email client. Each works on its own.
+
+### AI email assistant
 
 - **AI Personal Assistant:** Organizes your inbox and pre-drafts replies in your tone and style.
 - **AI Rules for email:** Explain in plain English how your AI should handle your inbox.
@@ -45,20 +47,19 @@ To help you spend less time in your inbox, so you can focus on what matters most
 - **Smart Filing:** Automatically save email attachments to Google Drive or OneDrive.
 - **Slack & Telegram Integration:** Chat with your AI assistant from Slack or Telegram to manage your inbox without leaving the apps you already use.
 
+### Email client
+
+A fast email client for Gmail and Outlook, with a split inbox, all your accounts in one place, and team comments.
+
+- **Web and desktop:** open source. The desktop app is Electron, in [`apps/desktop`](apps/desktop).
+- **iOS:** a native Swift app, not open source yet. The [App Store app](https://www.getinboxzero.com/app) can connect to your own server URL if you self-host.
+- **Android:** an older React Native [Android app](https://www.getinboxzero.com/android).
 
 Learn more in our [docs](https://docs.getinboxzero.com).
 
-## Feature Screenshots
+## Demo
 
-| ![AI Assistant](.github/screenshots/email-assistant.png) |        ![Reply Zero](.github/screenshots/reply-zero.png)        |
-| :------------------------------------------------------: | :-------------------------------------------------------------: |
-|                      _AI Assistant_                      |                          _Reply Zero_                           |
-|  ![Gmail Client](.github/screenshots/email-client.png)   | ![Bulk Unsubscriber](.github/screenshots/bulk-unsubscriber.png) |
-|                      _Gmail client_                      |                       _Bulk Unsubscriber_                       |
-
-## Demo Video
-
-[![Inbox Zero demo](https://img.youtube.com/vi/UusnveLKwWM/maxresdefault.jpg)](https://youtu.be/UusnveLKwWM)
+[![Inbox Zero demo](https://image.mux.com/YeTrweHxCIM5tcBMXlvRbmDuPqL028lJrmJ3F6ZgwnDY/thumbnail.jpg?time=4.4&width=1280)](https://player.mux.com/YeTrweHxCIM5tcBMXlvRbmDuPqL028lJrmJ3F6ZgwnDY)
 
 ## Built with
 
@@ -99,52 +100,29 @@ For complete self-hosting instructions, production deployment, OAuth setup, and 
 
 ### Local Development
 
-> **Prerequisites**: [Docker](https://docs.docker.com/engine/install/), [Node.js](https://nodejs.org/) v24+, and [pnpm](https://pnpm.io/) v10+
+> **Prerequisites**: macOS or Linux (WSL on Windows), [Node.js](https://nodejs.org/) v24, and the pnpm version pinned in `package.json`. Install either [Docker Desktop](https://docs.docker.com/desktop/) with Compose or native PostgreSQL and Redis. On macOS, native services can be installed with `brew install postgresql@16 redis`.
 
 ```bash
 git clone https://github.com/elie222/inbox-zero.git
 cd inbox-zero
-docker compose -f docker-compose.dev.yml up -d   # Postgres + Redis
 pnpm install
-npm run setup                                     # Interactive env setup
-cd apps/web && pnpm prisma migrate dev && cd ../..
-pnpm dev
+pnpm local:start
 ```
 
-Open http://localhost:3000
+Open http://localhost:3000/mail and sign in with Google as `developer@example.com`, or Microsoft as `developer@outlook.test`. The Google mailbox contains demo messages. Demo users have onboarding completed, and premium checks are bypassed for local development.
 
-After `pnpm install`, if you want to use the local Google emulator, start it with:
+The command starts an isolated database, Redis and its HTTP endpoint, both mail-provider emulators, billing and email-delivery emulators, an LLM emulator, and Next.js. It applies migrations and waits for services to become ready. No OAuth credentials or AI API keys are required. AI responses are canned; this mode exercises application flows, not model quality.
 
-```bash
-docker compose -f docker-compose.dev.yml --profile google-emulator up -d
-```
+Existing `.env` files are left unchanged and ignored by this launcher. Generated credentials, seed data, and the current service addresses are stored under `.context/local-dev/`. Native database data stays there; Docker database data stays in a volume unique to the checkout. Restarts preserve database data and credentials. Redis caches and provider/emulator state start fresh on each run.
 
-Then point `apps/web/.env` at it with:
+Press **Ctrl-C** to stop the app and the services this command started. Start it again with the same command. If port 3000 is occupied, use `pnpm local:start --port 3001`. Native PostgreSQL and Redis are selected when available; use `--backend docker` or `--backend native` to select explicitly. A checkout-specific loopback port prevents concurrent launchers; the operating system releases that lock after a crash, and stale PID files are replaced automatically. Services use automatically assigned ports, so existing databases and Redis instances are not reused or stopped.
 
-```bash
-GOOGLE_BASE_URL=http://localhost:4002
-GOOGLE_CLIENT_ID=emulate-google-client.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=emulate-google-secret
-```
+Run `pnpm local:start --help` for options. If an unrelated process occupies the reported lock port, stop that process or use a different checkout location. PostgreSQL data must be opened with the same major version that created it. If you upgrade your native PostgreSQL major version, back up or move `.context/local-dev/postgres` before starting a new cluster.
 
-If you want to use the local Microsoft emulator, start it with:
-
-```bash
-docker compose -f docker-compose.dev.yml --profile microsoft-emulator up -d
-```
-
-Then point `apps/web/.env` at it with:
-
-```bash
-MICROSOFT_BASE_URL=http://localhost:4003
-MICROSOFT_CLIENT_ID=emulate-microsoft-client-id
-MICROSOFT_CLIENT_SECRET=emulate-microsoft-secret
-```
-
-See the **[Contributing Guide](https://docs.getinboxzero.com/contributing)** for more details including devcontainer setup.
+For development against real providers, continue to use `pnpm setup`, your own environment files, and `pnpm dev`. See the **[Contributing Guide](https://docs.getinboxzero.com/contributing)** for configuration and devcontainer setup.
 
 ## Contributing
 
 View open tasks in [GitHub Issues](https://github.com/elie222/inbox-zero/issues) and join our [Discord](https://www.getinboxzero.com/discord) to discuss what's being worked on.
 
-Docker images are automatically built on every push to `main` and tagged with the commit SHA (e.g., `elie222/inbox-zero:abc1234`). The `latest` tag always points to the most recent main build. Formal releases use version tags (e.g., `v2.26.0`).
+Docker images are automatically built on every push to `main` and tagged with the commit SHA (e.g., `elie222/inbox-zero:abc1234`). The `latest` tag always points to the most recent main build. Formal releases are tagged with the version number without the `v` prefix (e.g., git tag `v2.30.0` → `ghcr.io/elie222/inbox-zero:2.30.0`), plus a minor alias (e.g., `2.30`).

@@ -37,6 +37,127 @@ describe("MCP OAuth flow", () => {
     } as never);
   });
 
+  it("issues only the scopes selected at consent, excluding optional sending", async () => {
+    const flow = await createFlow("mcp:read mcp:write mcp:send offline_access");
+    const response = await flow.request(
+      `/oauth2/authorize?${flow.query}`,
+      undefined,
+      flow.cookie,
+    );
+    const location = response.headers.get("location");
+    assert(location);
+    const signed = new URL(location, origin).searchParams.toString();
+    const approval = await flow.request(
+      "/oauth2/consent",
+      {
+        accept: true,
+        scope: "mcp:read mcp:write offline_access",
+        oauth_query: signed,
+      },
+      flow.cookie,
+    );
+    expect(approval.status).toBe(200);
+    const code = new URL((await approval.json()).url).searchParams.get("code");
+    assert(code);
+    const exchanged = await flow.token(code, flow.verifier);
+    expect(exchanged.status).toBe(200);
+    const tokens = await exchanged.json();
+    expect(tokens.scope.split(" ")).toEqual([
+      "mcp:read",
+      "mcp:write",
+      "offline_access",
+    ]);
+    prisma.oauthConsent.findFirst.mockResolvedValue({
+      scopes: ["mcp:read", "mcp:write", "offline_access"],
+    } as never);
+    const principal = await verifyMcpToken(
+      tokens.access_token,
+      await flow.auth.api.getJwks(),
+    );
+    expect(principal?.scopes).not.toContain("mcp:send");
+    prisma.oauthConsent.findFirst.mockResolvedValue({
+      scopes: ["mcp:read", "offline_access"],
+    } as never);
+    expect(
+      (await verifyMcpToken(tokens.access_token, await flow.auth.api.getJwks()))
+        ?.scopes,
+    ).toEqual(["mcp:read", "offline_access"]);
+  });
+
+  it("restricts refreshed original scopes to live consent and rejects deleted offline tokens", async () => {
+    const flow = await createFlow("mcp:read mcp:write mcp:send offline_access");
+    const response = await flow.request(
+      `/oauth2/authorize?${flow.query}`,
+      undefined,
+      flow.cookie,
+    );
+    const location = response.headers.get("location");
+    assert(location);
+    const approval = await flow.request(
+      "/oauth2/consent",
+      {
+        accept: true,
+        oauth_query: new URL(location, origin).searchParams.toString(),
+      },
+      flow.cookie,
+    );
+    const code = new URL((await approval.json()).url).searchParams.get("code");
+    assert(code);
+    const tokens = await (await flow.token(code, flow.verifier)).json();
+    prisma.oauthConsent.findFirst.mockResolvedValue({
+      scopes: ["mcp:read", "offline_access"],
+    } as never);
+    const refresh = await flow.request("/oauth2/token", {
+      client_id: flow.clientId,
+      grant_type: "refresh_token",
+      refresh_token: tokens.refresh_token,
+      resource,
+    });
+    expect(refresh.status).toBe(200);
+    const refreshed = await refresh.json();
+    // The SDK keeps original refresh scopes; MCP's live grant check strips writes.
+    expect(refreshed.scope.split(" ")).toContain("mcp:send");
+    expect(
+      (
+        await verifyMcpToken(
+          refreshed.access_token,
+          await flow.auth.api.getJwks(),
+        )
+      )?.scopes,
+    ).toEqual(["mcp:read", "offline_access"]);
+    flow.refreshTokens().splice(0);
+    const revoked = await flow.request("/oauth2/token", {
+      client_id: flow.clientId,
+      grant_type: "refresh_token",
+      refresh_token: refreshed.refresh_token,
+      resource,
+    });
+    expect(revoked.ok).toBe(false);
+    expect((await revoked.json()).error).toBe("invalid_grant");
+  });
+
+  it("rejects accepting a scope outside the signed request", async () => {
+    const flow = await createFlow();
+    const response = await flow.request(
+      `/oauth2/authorize?${flow.query}`,
+      undefined,
+      flow.cookie,
+    );
+    const location = response.headers.get("location");
+    assert(location);
+    const approval = await flow.request(
+      "/oauth2/consent",
+      {
+        accept: true,
+        scope: "mcp:read mcp:send",
+        oauth_query: new URL(location, origin).searchParams.toString(),
+      },
+      flow.cookie,
+    );
+    expect(approval.ok).toBe(false);
+    expect(flow.consents()).toHaveLength(0);
+  });
+
   it("requires consent, rejects a tampered decision, and issues resource-bound scoped tokens", async () => {
     const flow = await createFlow();
     const unauthorized = await flow.request(`/oauth2/authorize?${flow.query}`);
@@ -262,7 +383,7 @@ describe("MCP OAuth flow", () => {
   });
 });
 
-async function createFlow() {
+async function createFlow(scope = "mcp:read offline_access") {
   const db = {
     user: [],
     session: [],
@@ -332,7 +453,7 @@ async function createFlow() {
     token_endpoint_auth_method: "none",
     grant_types: ["authorization_code", "refresh_token"],
     response_types: ["code"],
-    scope: "mcp:read offline_access",
+    scope,
   });
   expect(registration.status).toBe(201);
   const client = await registration.json();
@@ -341,7 +462,7 @@ async function createFlow() {
     client_id: client.client_id,
     redirect_uri: "https://client.example.com/callback",
     response_type: "code",
-    scope: "mcp:read offline_access",
+    scope,
     resource,
     code_challenge: createHash("sha256").update(verifier).digest("base64url"),
     code_challenge_method: "S256",
@@ -362,6 +483,7 @@ async function createFlow() {
     cookie,
     userId,
     consents: () => db.oauthConsent,
+    refreshTokens: () => db.oauthRefreshToken,
     query,
     verifier,
     token,

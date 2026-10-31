@@ -2,7 +2,7 @@ import {
   parseSearchToken,
   tokenizeSearchQuery,
   unquoteSearchValue,
-} from "@/utils/mail/tokenize-search-query";
+} from "@/utils/tokenize-search-query";
 
 export const DATE_WITHIN_OPTIONS = [
   { value: "1d", name: "1 day", days: 1 },

@@ -1,3 +1,4 @@
+import { MailEngineStartupError } from "./startup-error";
 import type { MailEngine } from "@inboxzero/mail-core/engine";
 import {
   observeByKind,
@@ -87,19 +88,18 @@ export function createMailWorkerHost(hooks: {
         });
         return;
       }
-      const args =
-        message.method === "stageDraftAttachment"
-          ? [stageDraftAttachmentArg(message.args[0])]
-          : message.args;
       const value = await (
         method as (...args: unknown[]) => Promise<unknown>
-      ).apply(engine, args);
+      ).apply(engine, message.args);
       hooks.post({ id: message.id, type: "ok", value });
     } catch (error) {
       hooks.post({
         id: "id" in message ? message.id : "worker",
         type: "error",
         message: error instanceof Error ? error.message : "worker_error",
+        ...(error instanceof MailEngineStartupError
+          ? { stage: error.stage, errorName: error.name }
+          : {}),
       });
     }
   }
@@ -129,19 +129,4 @@ export function createMailWorkerHost(hooks: {
   }
 
   return { handle };
-}
-
-function stageDraftAttachmentArg(value: unknown) {
-  if (!value || typeof value !== "object") return value;
-  const input = value as { bytes?: unknown };
-  if (input.bytes instanceof Uint8Array) {
-    const bytes = input.bytes;
-    return {
-      ...input,
-      bytes: (async function* () {
-        yield bytes;
-      })(),
-    };
-  }
-  return value;
 }

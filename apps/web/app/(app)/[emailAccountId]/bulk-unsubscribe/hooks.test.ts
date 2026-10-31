@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 
+import { createElement } from "react";
 import { act, renderHook } from "@testing-library/react";
+import useSWR, { SWRConfig } from "swr";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NewsletterStatus } from "@/generated/prisma/enums";
 import type { Row } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/types";
@@ -144,6 +146,7 @@ describe("bulk unsubscribe hooks", () => {
 
       expect(fetchAllSenderThreadsMock).toHaveBeenCalledWith({
         sender: SENDER,
+        scope: "all",
         emailAccountId: EMAIL_ACCOUNT_ID,
       });
       expect(enqueueThreadMailMutationBatchMock).toHaveBeenCalledWith({
@@ -349,6 +352,83 @@ describe("bulk unsubscribe hooks", () => {
           description: "1 of 3 completed; stopped to avoid more requests",
         }),
       );
+    });
+
+    it("counts a sender that rejects automatic unsubscribe as a failure without reporting it", async () => {
+      unsubscribeSenderActionMock.mockResolvedValue({
+        data: { unsubscribe: { success: false } },
+      });
+
+      const { result } = renderHook(() =>
+        useBulkUnsubscribe({ ...sharedHookArgs, filter: "all" }),
+      );
+
+      let outcome: Awaited<ReturnType<typeof result.current.onBulkUnsubscribe>>;
+      await act(async () => {
+        outcome = await result.current.onBulkUnsubscribe([
+          getRow({ unsubscribeLink: "https://example.com/unsubscribe" }),
+        ]);
+      });
+
+      expect(outcome!).toEqual(
+        expect.objectContaining({ successCount: 0, failureCount: 1 }),
+      );
+      expect(captureExceptionMock).not.toHaveBeenCalled();
+      expect(decrementCreditMock).not.toHaveBeenCalled();
+    });
+
+    it("keeps unsubscribing after the SWR provider unmounts mid-run", async () => {
+      let resolveFirst: (value: unknown) => void = () => {};
+      unsubscribeSenderActionMock
+        .mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              resolveFirst = resolve;
+            }),
+        )
+        .mockResolvedValue({ data: { unsubscribe: { success: true } } });
+
+      const provider = new Map();
+      const { result, unmount } = renderHook(
+        () => {
+          const { mutate } = useSWR("/api/user/stats/newsletters", () => ({
+            newsletters: [],
+          }));
+          return useBulkUnsubscribe({
+            ...sharedHookArgs,
+            mutate,
+            filter: "all",
+          });
+        },
+        {
+          wrapper: ({ children }) =>
+            createElement(
+              SWRConfig,
+              { value: { provider: () => provider } },
+              children,
+            ),
+        },
+      );
+
+      const run = result.current.onBulkUnsubscribe([
+        getRow({
+          name: "first@example.com",
+          unsubscribeLink: "https://example.com/unsubscribe/first",
+        }),
+        getRow({
+          name: "second@example.com",
+          unsubscribeLink: "https://example.com/unsubscribe/second",
+        }),
+      ]);
+
+      unmount();
+      resolveFirst({ data: { unsubscribe: { success: true } } });
+
+      await expect(run).resolves.toEqual(
+        expect.objectContaining({ successCount: 2, failureCount: 0 }),
+      );
+      expect(unsubscribeSenderActionMock).toHaveBeenCalledTimes(2);
+      expect(captureExceptionMock).not.toHaveBeenCalled();
     });
   });
 

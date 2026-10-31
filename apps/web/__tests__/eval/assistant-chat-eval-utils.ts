@@ -5,6 +5,7 @@ import type { MessageContext } from "@/utils/ai/assistant/chat-context-validatio
 import { writeEvalDebugArtifact } from "@/__tests__/eval/debug-artifacts";
 import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
 import type { Logger } from "@/utils/logger";
+import type { MessagingPlatform } from "@/utils/messaging/platforms";
 import prisma from "@/utils/prisma";
 
 const assistantWriteToolNames = new Set([
@@ -79,6 +80,9 @@ export async function captureAssistantChatTrace({
   messages,
   logger,
   inboxStats,
+  supportsInlineEmailCards = true,
+  responseSurface,
+  messagingPlatform,
   context,
   chatHasHistory,
   chatLastSeenRulesRevision,
@@ -87,6 +91,9 @@ export async function captureAssistantChatTrace({
   messages: ModelMessage[];
   logger: Logger;
   inboxStats?: { total: number; unread: number } | null;
+  supportsInlineEmailCards?: boolean;
+  responseSurface?: "web" | "messaging";
+  messagingPlatform?: MessagingPlatform;
   context?: MessageContext;
   chatHasHistory?: boolean;
   chatLastSeenRulesRevision?: number | null;
@@ -103,6 +110,9 @@ export async function captureAssistantChatTrace({
     emailAccountId: emailAccount.id,
     user: emailAccount,
     inboxStats,
+    supportsInlineEmailCards,
+    responseSurface,
+    messagingPlatform,
     context,
     chatHasHistory,
     chatLastSeenRulesRevision,

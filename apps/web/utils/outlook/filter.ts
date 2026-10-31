@@ -2,7 +2,7 @@ import type { OutlookClient } from "@/utils/outlook/client";
 import type { MessageRule } from "@microsoft/microsoft-graph-types";
 import type { Logger } from "@/utils/logger";
 import { isAlreadyExistsError } from "./errors";
-import { withMicrosoftGraphWriteRetry } from "@/utils/microsoft/retry";
+import { withMicrosoftGraphWriteRetry } from "@/utils/outlook/retry";
 import { getLabelById, getOrCreateLabel } from "@/utils/outlook/label";
 
 // Microsoft Graph API doesn't have a direct equivalent to Gmail filters

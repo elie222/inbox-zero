@@ -1,5 +1,5 @@
 import { mcpOAuthPlugins } from "@/utils/mcp/oauth-provider";
-import { INITIAL_MAIL_SPLITS } from "@/utils/mail/initial-splits";
+import { INITIAL_MAIL_SPLITS } from "@/utils/split-inbox/initial-splits";
 import { adminSso } from "@/utils/auth/sso";
 import { scim } from "@better-auth/scim";
 import { genericOAuth } from "better-auth/plugins/generic-oauth";
@@ -27,24 +27,25 @@ import {
   isMicrosoftProvider,
 } from "@/utils/email/provider-types";
 import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
-import { captureException } from "@/utils/error";
+import { captureException, SafeError } from "@/utils/error";
 import { SCOPES as GMAIL_SCOPES } from "@/utils/gmail/scopes";
 import {
   fetchGoogleOpenIdProfile,
   getGoogleOauthDiscoveryUrl,
   isGoogleOauthEmulationEnabled,
-} from "@/utils/google/oauth";
+} from "@/utils/gmail/oauth";
 import { createScopedLogger } from "@/utils/logger";
 import {
   getMicrosoftOauthDiscoveryUrl,
   isMicrosoftEmulationEnabled,
-} from "@/utils/microsoft/oauth";
+} from "@/utils/outlook/oauth";
 import { createOutlookClient } from "@/utils/outlook/client";
 import { SCOPES as OUTLOOK_SCOPES } from "@/utils/outlook/scopes";
 import {
   claimPendingPremiumInvite,
   updateAccountSeats,
 } from "@/utils/premium/seats";
+import { applyPendingPremiumGrant } from "@/utils/premium/server";
 import { mobileAuthProviderCompletion } from "@/utils/mobile-auth/provider-completion";
 import { safeExpo } from "@/utils/mobile-auth/expo";
 import { clearAccountDisconnectedErrorIfResolved } from "@/utils/error-messages";
@@ -223,6 +224,9 @@ const socialProviders = {
   ...(appleSocialProvider ? { apple: appleSocialProvider } : {}),
 };
 
+const OAUTH_RESOURCE_SEED_RETRY_MESSAGE =
+  "oauth-provider: could not seed `resources` at startup";
+
 export const betterAuthConfig = betterAuth({
   advanced: {
     database: {
@@ -236,7 +240,16 @@ export const betterAuthConfig = betterAuth({
         case "info":
           logger.info(message, { args });
           break;
+        case "warn":
+          logger.warn(message, { args });
+          break;
         case "error":
+          // The OAuth provider retries resource seeding on first use, so a
+          // failed startup seed (usually a cold-start DB timeout) is not fatal.
+          if (message.startsWith(OAUTH_RESOURCE_SEED_RETRY_MESSAGE)) {
+            logger.warn(message, { args });
+            break;
+          }
           logger.error(message, { args });
           break;
       }
@@ -498,7 +511,13 @@ async function postSignUp({
     loops(),
     resend,
     dub,
-    handlePendingPremiumInvite({ email }),
+    // Sequential so the admin grant lands on whichever premium the invite assigns.
+    handlePendingPremiumInvite({ email }).then(() =>
+      applyPendingPremiumGrant({ userId, email }).catch((error) => {
+        logger.error("Error applying pending premium grant", { email, error });
+        captureException(error, { userEmail: email });
+      }),
+    ),
     handleReferralOnSignUp({ userId, email }),
   ]);
 }
@@ -578,12 +597,16 @@ export async function handleReferralOnSignUp({
       referralCode,
     });
   } catch (error) {
+    // Don't throw error - referral failure shouldn't prevent sign up
+    if (error instanceof SafeError) {
+      logger.warn("Skipping referral on sign up", { error, userId, email });
+      return;
+    }
     logger.error("Error processing referral on sign up", {
       error,
       userId,
       email,
     });
-    // Don't throw error - referral failure shouldn't prevent sign up
     captureException(error, {
       extra: { userId, email, location: "handleReferralOnSignUp" },
     });

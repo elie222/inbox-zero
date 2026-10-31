@@ -10,8 +10,8 @@ import { GoogleDriveProvider } from "@/utils/drive/providers/google";
 import { MICROSOFT_DRIVE_SCOPES } from "@/utils/drive/scopes";
 import { SafeError } from "@/utils/error";
 import { env } from "@/env";
-import { getGoogleOauthTokenUrl } from "@/utils/google/oauth";
-import { requestMicrosoftToken } from "@/utils/microsoft/oauth";
+import { getGoogleOauthTokenUrl } from "@/utils/gmail/oauth";
+import { requestMicrosoftToken } from "@/utils/outlook/oauth";
 import prisma from "@/utils/prisma";
 
 type OAuthTokenResponse = {

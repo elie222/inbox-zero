@@ -1,4 +1,5 @@
 import type { MouseEventHandler, ReactNode, Ref } from "react";
+import { cx } from "./utils";
 
 export type MailThreadRowSelectionInput = {
   ariaLabel: string;
@@ -121,7 +122,7 @@ export function MailThreadRow({
     <div
       aria-selected={isSelected}
       className={cx(
-        "group relative flex cursor-pointer border-b border-border/60 outline-none",
+        "group relative flex cursor-pointer border-border/40 border-b outline-none",
         isWide
           ? cx(
               "gap-2.5 py-2.5 pr-5 pl-3",
@@ -241,8 +242,4 @@ function rowBackground({
   if (isSelected) return "bg-primary/10";
   if (isFocused) return "bg-primary/5";
   return "bg-background hover:bg-muted/50";
-}
-
-function cx(...values: Array<string | false | null | undefined>) {
-  return values.filter(Boolean).join(" ");
 }

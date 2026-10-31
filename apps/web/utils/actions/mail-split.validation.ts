@@ -1,10 +1,10 @@
 import { z } from "zod";
-import { MAX_MAIL_SPLITS } from "@/utils/mail/split-constants";
+import { MAX_MAIL_SPLITS } from "@/utils/split-inbox/split-constants";
 import { MailLayout } from "@/generated/prisma/enums";
 import {
   mailSplitFiltersSchema,
   mailSplitNameSchema,
-} from "@/utils/mail/split-filters";
+} from "@/utils/split-inbox/split-filters";
 
 export const createMailSplitBody = z
   .object({

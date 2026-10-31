@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   createMailEngine,
   createHostRuntime,
@@ -12,7 +12,168 @@ import { createNodeSqliteDriver } from "./node-sqlite";
 import { createSqliteMailStore } from "./store";
 
 describe("engine bootstrap coverage", () => {
+  it("gives slow folders fair turns without timing out or refetching pages", async () => {
+    let now = 1000;
+    const requests: string[] = [];
+    const scopes: ScopeDescriptor[] = Array.from(
+      { length: 70 },
+      (_, index) => ({
+        id: `folder:${String(index).padStart(2, "0")}`,
+        kind: "folder",
+        folderId: String(index),
+      }),
+    );
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    const account = {
+      accountId: "acc-1",
+      provider: "microsoft" as const,
+      generation: "g1",
+    };
+    await store.ensureAccount(account);
+    const source: MailboxSource = {
+      ...slowBootstrapSource({ onBootstrap() {}, onEnumerate() {}, scopes }),
+      async beginBootstrap({ scope }) {
+        return {
+          status: "ok",
+          value: {
+            bootstrapId: "boot",
+            enumerationToken: `${scope.id}/0`,
+            catchUpFrom: null,
+          },
+        };
+      },
+      async enumerate({ page, signal }) {
+        requests.push(page);
+        await new Promise<void>((resolve, reject) => {
+          const onAbort = () => {
+            clearTimeout(timer);
+            reject(new Error("enumeration aborted"));
+          };
+          const timer = setTimeout(() => {
+            signal.removeEventListener("abort", onAbort);
+            resolve();
+          }, 5);
+          signal.addEventListener("abort", onAbort, { once: true });
+        });
+        now += 3000;
+        const [scopeId = "", offset] = page.split("/");
+        const facts = {
+          bootstrapId: "boot",
+          scopeId,
+          changes: [],
+          requiredHydration: [],
+          bodies: [],
+        };
+        if (Number(offset) === 0) {
+          return {
+            status: "ok",
+            value: { ...facts, nextPage: `${scopeId}/20`, catchUpFrom: null },
+          };
+        }
+        return {
+          status: "ok",
+          value: {
+            ...facts,
+            nextPage: null,
+            catchUpFrom: {
+              streamId: scopeId,
+              generation: "g1",
+              checkpoint: "enumerated",
+            },
+          },
+        };
+      },
+    };
+    const createEngine = () =>
+      createMailEngine({
+        // Keep SQLite open while replacing the engine that owns the sync lane.
+        store: { ...store, async close() {} },
+        source,
+        executor: uncertainExecutor(),
+        runtime: createHostRuntime({ nowMs: () => now }),
+        syncLaneTimeoutMs: 100,
+      });
+    let engine = createEngine();
+    const failures: unknown[] = [];
+    try {
+      for (let run = 0; run < 70 && failures.length < 3; run += 1) {
+        try {
+          await engine.runUntil(now + 1000);
+        } catch (error) {
+          failures.push(error);
+        }
+        now += 1000;
+      }
+      const repeatedPages = requests.length - new Set(requests).size;
+      expect(
+        new Set(requests.map((page) => page.split("/")[0])).size,
+        `${failures.length} lane failures; ${repeatedPages} repeated pages`,
+      ).toBe(70);
+      expect(failures).toEqual([]);
+      expect(requests).toHaveLength(70);
+      await engine.close();
+      await store.ensureAccount(account);
+      engine = createEngine();
+      await engine.runUntil(now + 1000);
+      expect(requests[70]).toBe("folder:00/20");
+      for (let run = 1; run < 70; run += 1) {
+        await engine.runUntil(now + 1000);
+      }
+      expect(requests).toHaveLength(140);
+      expect(new Set(requests).size).toBe(requests.length);
+      const [state] = await store.readAccountSyncStates();
+      expect(state?.streams).toHaveLength(70);
+      expect(
+        state?.streams.every((stream) => stream.checkpoint === "enumerated"),
+      ).toBe(true);
+    } finally {
+      await engine.close();
+      await store.close();
+    }
+  });
+
+  it("keeps an unfinished initial bootstrap cursor across close and scope rediscovery", async () => {
+    let now = 1000;
+    const pages: string[] = [];
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    const account = {
+      accountId: "acc-1",
+      provider: "microsoft" as const,
+      generation: "g1",
+    };
+    await store.ensureAccount(account);
+    const source = slowBootstrapSource({
+      onBootstrap() {},
+      onEnumerate(page) {
+        pages.push(page);
+        now += 3000;
+      },
+      pages: ["page-1", "page-2"],
+    });
+    const createEngine = () =>
+      createMailEngine({
+        // Keep SQLite open while replacing the engine that owns the sync lane.
+        store: { ...store, async close() {} },
+        source,
+        executor: uncertainExecutor(),
+        runtime: createHostRuntime({ nowMs: () => now }),
+      });
+    const first = createEngine();
+    await first.runUntil(now + 1000);
+    await first.close();
+    await store.ensureAccount(account);
+    const second = createEngine();
+    try {
+      await second.runUntil(now + 1000);
+      expect(pages).toEqual(["page-1", "page-2"]);
+    } finally {
+      await second.close();
+      await store.close();
+    }
+  });
+
   it("finishes enumeration after bootstrap overruns the runUntil slice", async () => {
+    const onSyncPageCommitted = vi.fn();
     let now = 1000;
     let enumerated = 0;
     const store = await createSqliteMailStore(createNodeSqliteDriver());
@@ -22,6 +183,7 @@ describe("engine bootstrap coverage", () => {
       generation: "g1",
     });
     const engine = createMailEngine({
+      onSyncPageCommitted,
       store,
       source: slowBootstrapSource({
         onBootstrap: () => {
@@ -45,6 +207,7 @@ describe("engine bootstrap coverage", () => {
     await engine.runUntil(2000);
     const diagnostics = await engine.getDiagnostics("acc-1");
     expect(enumerated).toBe(1);
+    expect(onSyncPageCommitted).not.toHaveBeenCalled();
     expect(diagnostics.coverage).toEqual([
       expect.objectContaining({
         accountId: "acc-1",
@@ -96,6 +259,7 @@ describe("engine bootstrap coverage", () => {
   });
 
   it("removes local messages omitted from a completed bootstrap", async () => {
+    const onSyncPageCommitted = vi.fn();
     const store = await createSqliteMailStore(createNodeSqliteDriver());
     await store.ensureAccount({
       accountId: "acc-1",
@@ -115,6 +279,7 @@ describe("engine bootstrap coverage", () => {
       },
     });
     const engine = createMailEngine({
+      onSyncPageCommitted,
       store,
       source: slowBootstrapSource({
         onBootstrap: () => {},
@@ -134,6 +299,7 @@ describe("engine bootstrap coverage", () => {
     });
     await engine.requestSync(["acc-1"]);
     await engine.runUntil(5000);
+    expect(onSyncPageCommitted).not.toHaveBeenCalled();
     const inspection = await engine.inspect();
     expect(
       inspection.messages.find((row) => row.messageId === "gone")?.deleted,
@@ -162,7 +328,8 @@ describe("engine bootstrap coverage", () => {
         },
         onEnumerate: (page) => {
           enumeratedPages.push(page);
-          now += 1000;
+          // Each page uses up a whole bootstrap slice.
+          now += 2000;
         },
         pages: ["page-1", "page-2"],
       }),
@@ -286,7 +453,7 @@ describe("engine bootstrap coverage", () => {
     await engine.close();
   });
 
-  it("rediscovers scopes after budget expires with only one folder bootstrapped", async () => {
+  it("starts every discovered folder in one pass after the time budget runs out", async () => {
     let now = 1000;
     const receivedScopes: string[] = [];
     const store = await createSqliteMailStore(createNodeSqliteDriver());
@@ -322,13 +489,18 @@ describe("engine bootstrap coverage", () => {
     });
     await engine.requestSync(["acc-1"]);
     await engine.runUntil(1500);
-    expect(receivedScopes).toEqual(["folder:a"]);
-    expect((await engine.getDiagnostics("acc-1")).coverage).toEqual([
-      expect.objectContaining({ scopeId: "folder:a", metadata: "complete" }),
-      expect.objectContaining({ scopeId: "folder:b", metadata: "partial" }),
-    ]);
+    // The lane outlives the spent budget, so wait on it rather than racing
+    // runUntil's zero-delay return.
+    await vi.waitFor(() =>
+      expect(receivedScopes).toEqual(["folder:a", "folder:b"]),
+    );
+    expect((await engine.getDiagnostics("acc-1")).coverage).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ scopeId: "folder:a", metadata: "complete" }),
+        expect.objectContaining({ scopeId: "folder:b", metadata: "complete" }),
+      ]),
+    );
 
-    now = 2000;
     await engine.runUntil(5000);
     expect(receivedScopes).toEqual(["folder:a", "folder:b"]);
     const inspection = await store.inspect();

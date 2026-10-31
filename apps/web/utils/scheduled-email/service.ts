@@ -49,6 +49,7 @@ export async function scheduleEmail(
         clientMutationId: input.clientMutationId,
         payloadHash,
         payload: input,
+        draftMessageIds: input.draftMessageIds ?? [],
         threadId: input.threadId,
         sendAt,
         remindAt,
@@ -89,7 +90,11 @@ export async function holdEmailForUndo({
     emailAccountId,
     input.clientMutationId,
   );
-  if (existing) return existing;
+  if (existing) {
+    if (existing.status !== "CANCELLED")
+      assertReusableRequest(existing, hashPayload(input));
+    return existing;
+  }
   let row: ScheduledEmail;
   try {
     row = await prisma.scheduledEmail.create({
@@ -105,7 +110,7 @@ export async function holdEmailForUndo({
     });
   } catch (error) {
     if (!isDuplicateError(error)) throw error;
-    return prisma.scheduledEmail.findUniqueOrThrow({
+    const duplicate = await prisma.scheduledEmail.findUniqueOrThrow({
       where: {
         emailAccountId_clientMutationId: {
           emailAccountId,
@@ -113,7 +118,11 @@ export async function holdEmailForUndo({
         },
       },
     });
+    if (duplicate.status !== "CANCELLED")
+      assertReusableRequest(duplicate, hashPayload(input));
+    return duplicate;
   }
+  if (row.status === "CANCELLED") return row;
   try {
     await publishToQstashAt({
       path: HELD_EMAIL_EXECUTE_PATH,
@@ -221,7 +230,12 @@ export async function cancelScheduledEmail(emailAccountId: string, id: string) {
     },
     data: { status: "CANCELLED", reminderStatus: "CANCELLED", error: null },
   });
-  if (!result.count)
+  if (result.count) return;
+  const existing = await prisma.scheduledEmail.findUnique({
+    where: { id, emailAccountId },
+    select: { status: true },
+  });
+  if (existing?.status !== "CANCELLED")
     throw new SafeError(
       "This email has started sending or is no longer scheduled.",
     );

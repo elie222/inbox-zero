@@ -6,6 +6,9 @@ import {
   resolveSafeExternalHttpUrl,
 } from "@inboxzero/network/safe-url";
 
+// The Response constructor throws if these statuses are given a body.
+const NULL_BODY_STATUSES = new Set([204, 205, 304]);
+
 export async function createSafeImageProxyFetch(
   input: string | URL,
   init?: RequestInit,
@@ -14,11 +17,17 @@ export async function createSafeImageProxyFetch(
   try {
     resolved = await resolveSafeExternalHttpUrl(input.toString());
   } catch {
-    return new Response("Upstream host lookup failed", { status: 502 });
+    return new Response("Upstream host lookup failed", {
+      status: 502,
+      statusText: "Upstream host lookup failed",
+    });
   }
 
   if (!resolved) {
-    return new Response("Blocked upstream host", { status: 403 });
+    return new Response("Blocked upstream host", {
+      status: 403,
+      statusText: "Blocked upstream host",
+    });
   }
 
   return fetchWithPinnedLookup(resolved, init);
@@ -64,17 +73,22 @@ async function fetchWithPinnedLookup(
           }
         }
 
-        const body =
-          method.toUpperCase() === "HEAD"
-            ? null
-            : (Readable.toWeb(upstreamResponse) as ReadableStream);
+        const status = upstreamResponse.statusCode || 502;
+        const hasBody =
+          method.toUpperCase() !== "HEAD" && !NULL_BODY_STATUSES.has(status);
+        if (!hasBody) upstreamResponse.resume();
 
         resolve(
-          new Response(body, {
-            headers,
-            status: upstreamResponse.statusCode || 502,
-            statusText: upstreamResponse.statusMessage,
-          }),
+          new Response(
+            hasBody
+              ? (Readable.toWeb(upstreamResponse) as ReadableStream)
+              : null,
+            {
+              headers,
+              status,
+              statusText: upstreamResponse.statusMessage,
+            },
+          ),
         );
       },
     );

@@ -132,7 +132,10 @@ describe("handleImageProxyRequest", () => {
   it("returns cached responses without hitting upstream fetch", async () => {
     const cachedResponse = new Response("cached-image", {
       status: 200,
-      headers: { "content-type": "image/png" },
+      headers: {
+        "content-type": "image/png",
+        "cross-origin-resource-policy": "same-site",
+      },
     });
     const cache = {
       match: vi.fn().mockResolvedValue(cachedResponse),
@@ -151,7 +154,15 @@ describe("handleImageProxyRequest", () => {
       },
     );
 
-    expect(response).toBe(cachedResponse);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("image/png");
+    expect(response.headers.get("cross-origin-resource-policy")).toBe(
+      "cross-origin",
+    );
+    expect(cachedResponse.headers.get("cross-origin-resource-policy")).toBe(
+      "same-site",
+    );
+    await expect(response.text()).resolves.toBe("cached-image");
     expect(cache.match).toHaveBeenCalledTimes(1);
     expect(upstreamFetch).not.toHaveBeenCalled();
   });
@@ -215,6 +226,9 @@ describe("handleImageProxyRequest", () => {
     );
 
     expect(response.status).toBe(200);
+    expect(response.headers.get("cross-origin-resource-policy")).toBe(
+      "cross-origin",
+    );
     expect(upstreamFetch).toHaveBeenCalledTimes(1);
   });
 
@@ -308,6 +322,73 @@ describe("handleImageProxyRequest", () => {
 
     expect(response.status).toBe(403);
     await expect(response.text()).resolves.toBe("Invalid proxy signature");
+  });
+
+  it("logs why a 403 was returned so its cause can be told apart", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(
+      new Date("2026-04-03T10:00:00.000Z").getTime(),
+    );
+    const proxyUrl = await buildSignedAssetProxyUrl({
+      assetUrl: "https://cdn.example.com/photo.png",
+      proxyBaseUrl: "https://proxy.example.com/proxy",
+      signingSecret: "test-signing-secret",
+      ttlSeconds: 300,
+      now: new Date("2026-04-03T10:00:00.000Z"),
+    });
+    const tamperedProxyUrl = new URL(proxyUrl);
+    tamperedProxyUrl.searchParams.set("s", "invalid-signature");
+    const logger = { warn: vi.fn() };
+    const request = (url: string | URL, upstream?: Response) =>
+      handleImageProxyRequest(
+        new Request(url),
+        { signingSecret: "test-signing-secret" },
+        {
+          fetchImpl: vi.fn().mockResolvedValue(upstream) as typeof fetch,
+          logger,
+        },
+      );
+
+    await request(tamperedProxyUrl);
+    await request(
+      proxyUrl,
+      new Response("denied", { status: 403, statusText: "Forbidden" }),
+    );
+    await request(
+      proxyUrl,
+      new Response("Blocked upstream host", {
+        status: 403,
+        statusText: "Blocked upstream host",
+      }),
+    );
+
+    expect(logger.warn.mock.calls).toEqual([
+      [
+        "Image proxy request rejected",
+        {
+          reason: "Invalid proxy signature",
+          status: 403,
+          upstreamHost: "cdn.example.com",
+        },
+      ],
+      [
+        "Image proxy request rejected",
+        {
+          reason: "Upstream fetch failed",
+          status: 403,
+          upstreamHost: "cdn.example.com",
+          detail: "Forbidden",
+        },
+      ],
+      [
+        "Image proxy request rejected",
+        {
+          reason: "Upstream fetch failed",
+          status: 403,
+          upstreamHost: "cdn.example.com",
+          detail: "Blocked upstream host",
+        },
+      ],
+    ]);
   });
 
   it("returns upstream failures without caching them", async () => {

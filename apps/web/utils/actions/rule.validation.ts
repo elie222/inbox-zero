@@ -291,12 +291,6 @@ export type UpdateRuleBody = z.infer<typeof updateRuleBody>;
 
 export const deleteRuleBody = z.object({ id: z.string() });
 
-export const updateRuleSettingsBody = z.object({
-  id: z.string(),
-  instructions: z.string(),
-});
-export type UpdateRuleSettingsBody = z.infer<typeof updateRuleSettingsBody>;
-
 export const enableDraftRepliesBody = z.object({ enable: z.boolean() });
 export type EnableDraftRepliesBody = z.infer<typeof enableDraftRepliesBody>;
 

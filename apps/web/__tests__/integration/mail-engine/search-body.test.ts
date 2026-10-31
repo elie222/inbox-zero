@@ -220,7 +220,7 @@ async function runSearchBodySlice(input: {
   const store = await createSqliteMailStore(createNodeSqliteDriver(path));
   await store.ensureAccount({
     accountId: input.accountId,
-    provider: input.provider.name === "microsoft" ? "microsoft" : "google",
+    provider: input.provider.name,
     generation: "gen-1",
   });
   const engine = createMailEngine({

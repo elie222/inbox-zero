@@ -25,7 +25,7 @@ import {
   extractErrorInfo,
   isRetryableError,
   withMicrosoftGraphRetry,
-} from "@/utils/microsoft/retry";
+} from "@/utils/outlook/retry";
 import { resolveMicrosoftGraphNextLink } from "@/utils/outlook/page-token";
 
 export async function getThread(

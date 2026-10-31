@@ -44,7 +44,7 @@ for (const accountScope of ["single", "all"] as const) {
 
   test(`${accountScope}: slash focuses search and Command K opens commands`, async ({
     page,
-  }) => {
+  }, testInfo) => {
     const { emailAccountId } = await openMail(page);
     if (accountScope === "all")
       await page.goto(`/${emailAccountId}/mail?accountScope=all`);
@@ -55,6 +55,18 @@ for (const accountScope of ["single", "all"] as const) {
     await page.keyboard.press("Slash");
 
     await expect(searchInput).toBeFocused();
+    const hint = page.getByText("Search by sender, subject");
+    await expect(hint).toBeVisible();
+    await capturePlaywrightCheckpoint(
+      page,
+      testInfo,
+      `mail-search-focused-${accountScope}`,
+    );
+    await page.keyboard.press("Escape");
+    await expect(searchInput).not.toBeFocused();
+    await expect(hint).toHaveCount(0);
+
+    await page.keyboard.press("Slash");
     await page.keyboard.press(
       `${process.platform === "darwin" ? "Meta" : "Control"}+k`,
     );
@@ -182,7 +194,9 @@ test("search suggests contacts and recent searches", async ({
   expect(new URL(page.url()).searchParams.get("q")).toBe("alice@example.com");
   await expect(suggestions).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Clear search" }).click();
+  // Escape from outside the field still leaves the search.
+  await searchInput.blur();
+  await page.keyboard.press("Escape");
   await expect(page).not.toHaveURL(/[?&]q=/);
   await searchInput.click();
   const recent = suggestions.getByRole("option", {

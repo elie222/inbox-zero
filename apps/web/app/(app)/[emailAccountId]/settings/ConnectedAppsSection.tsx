@@ -473,8 +473,7 @@ export function useSlackNotifications({
       onSlackConnected?.(searchParams.get("slack_email_account_id"));
       toastSuccess({
         title: "Slack connected",
-        description:
-          "Next, choose a private channel in Connected Apps for meeting brief and attachment notifications.",
+        description: "Next, open Channels to choose where Slack messages go.",
       });
     }
     if (message === "processing") {

@@ -1,10 +1,9 @@
 "use client";
 
 import { ButtonCheckbox } from "@/components/ButtonCheckbox";
-import { DomainIcon } from "@/components/charts/DomainIcon";
+import { SenderIcon } from "@/components/SenderIcon";
 import { Progress } from "@/components/ui/progress";
 import type { NewsletterStatsResponse } from "@/app/api/user/stats/newsletters/route";
-import { extractDomainFromEmail } from "@/utils/email";
 import { cn } from "@/utils";
 
 type Newsletter = NewsletterStatsResponse["newsletters"][number];
@@ -36,11 +35,7 @@ export function UnsubscribeSuggestionRow({
         onChange={onToggle}
       />
 
-      <DomainIcon
-        domain={extractDomainFromEmail(sender.name) || sender.name}
-        size={iconSize}
-        variant="circular"
-      />
+      <SenderIcon email={sender.name} name={sender.fromName} size={iconSize} />
 
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-medium text-foreground">

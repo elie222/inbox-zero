@@ -105,17 +105,22 @@ export async function handlePreviousDraftDeletion({
     ) {
       logger.info("Draft content matches, deleting draft.");
 
-      await Promise.all([
-        client.deleteDraft(previousDraftAction.draftId),
-        prisma.executedAction.update({
+      // Record the cleanup only once the draft is really gone, so a draft
+      // the provider kept is still tracked if the user sends it. Clearing the
+      // legacy wasDraftSent flag stops the deleted draft from looking like an
+      // unmigrated legacy row that sent-draft tracking still considers.
+      const deleted = await client.deleteDraft(previousDraftAction.draftId);
+      if (deleted) {
+        await prisma.executedAction.update({
           where: { id: previousDraftAction.id },
           data: {
             draftStatus: DraftEmailStatus.CLEANED_UP_UNUSED,
+            wasDraftSent: null,
           },
-        }),
-      ]);
+        });
+      }
 
-      logger.info("Deleted draft and updated action status.");
+      logger.info("Deleted draft and updated action status.", { deleted });
       return { shouldCreateDraft: true };
     } else {
       logger.info(

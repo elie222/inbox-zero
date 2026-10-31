@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import {
   SAVE_OFFLINE_MAIL,
@@ -10,18 +10,20 @@ import {
 } from "@/utils/offline/mail-cache";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { SerwistProvider, useSerwist } from "@serwist/next/react";
-import { toast } from "sonner";
 import { SWRConfig } from "swr";
 import { swrFetcher } from "./swr-fetcher";
 import {
-  DESKTOP_WEB_UPDATE_LAST_PROMPTED_KEY,
   getInboxZeroDesktopApp,
   shouldCheckForDesktopWebUpdate,
-  shouldPromptDesktopWebUpdate,
 } from "@/utils/desktop-app";
+import {
+  isSafeToReload,
+  reloadAtNextSafeMoment,
+  runPendingReloads,
+} from "@/utils/safe-reload";
 
-const DESKTOP_WEB_UPDATE_TOAST_ID = "desktop-web-update";
 const DESKTOP_WEB_UPDATE_RELOAD_GRACE_MS = 3000;
+const DESKTOP_WEB_UPDATE_ACTIVATION_TIMEOUT_MS = 5000;
 
 export function GlobalProviders(props: { children: React.ReactNode }) {
   return (
@@ -49,6 +51,7 @@ export function GlobalProviders(props: { children: React.ReactNode }) {
 function ManageServiceWorker() {
   const { serwist } = useSerwist();
   const pathname = usePathname();
+  const previousPathname = useRef(pathname);
 
   useEffect(() => {
     if (!serwist) return;
@@ -57,10 +60,12 @@ function ManageServiceWorker() {
     const pageLoadedAt = Date.now();
     let hadController = Boolean(navigator.serviceWorker.controller);
     let lastCheckedAt: number | null = null;
-    let lastPromptedAt = readDesktopWebUpdateLastPromptedAt();
     let registration: ServiceWorkerRegistration | undefined;
     let stopWatchingForWaiting: (() => void) | undefined;
     let refreshing = false;
+    let cancelPendingUpdate: (() => void) | undefined;
+    let reloadOnControllerChange = false;
+    let activationTimeout: number | undefined;
 
     const saveOfflineMail = () => {
       saveOfflineMailPage(
@@ -70,49 +75,38 @@ function ManageServiceWorker() {
 
     const reloadForUpdate = () => {
       if (refreshing) return;
+      if (!isSafeToReload()) {
+        cancelPendingUpdate?.();
+        cancelPendingUpdate = reloadAtNextSafeMoment(reloadForUpdate);
+        return;
+      }
+      cancelPendingUpdate?.();
       refreshing = true;
       window.location.reload();
     };
 
+    // Wait for the new worker to control the page before reloading.
     const activateWaitingWorker = () => {
-      registration?.waiting?.postMessage({ type: SKIP_WAITING });
-      reloadForUpdate();
-    };
-
-    const notifyAboutWaitingUpdate = () => {
-      const now = Date.now();
-      if (
-        !shouldPromptDesktopWebUpdate({
-          isDesktopApp,
-          hasController: Boolean(navigator.serviceWorker.controller),
-          hasWaitingWorker: Boolean(registration?.waiting),
-          lastPromptedAt,
-          now,
-        })
-      ) {
-        return;
-      }
-
-      lastPromptedAt = now;
-      writeDesktopWebUpdateLastPromptedAt(now);
-      toast.info("Update available", {
-        action: {
-          label: "Reload",
-          onClick: activateWaitingWorker,
-        },
-        description: "Reload Inbox Zero to use the latest version.",
-        duration: Number.POSITIVE_INFINITY,
-        id: DESKTOP_WEB_UPDATE_TOAST_ID,
-      });
+      const waiting = registration?.waiting;
+      if (!waiting) return;
+      reloadOnControllerChange = true;
+      waiting.postMessage({ type: SKIP_WAITING });
+      activationTimeout = window.setTimeout(
+        reloadForUpdate,
+        DESKTOP_WEB_UPDATE_ACTIVATION_TIMEOUT_MS,
+      );
     };
 
     const handleWaitingWorker = () => {
-      if (!registration?.waiting) return;
+      if (!registration?.waiting || reloadOnControllerChange) return;
       if (!navigator.serviceWorker.controller) {
         registration.waiting.postMessage({ type: SKIP_WAITING });
         return;
       }
-      notifyAboutWaitingUpdate();
+      // Browser tabs pick up the new worker on their next full load.
+      if (!isDesktopApp) return;
+      cancelPendingUpdate?.();
+      cancelPendingUpdate = reloadAtNextSafeMoment(activateWaitingWorker);
     };
 
     const watchForWaitingWorker = (
@@ -140,10 +134,12 @@ function ManageServiceWorker() {
     const onControllerChange = () => {
       saveOfflineMail();
       if (
-        hadController &&
-        isDesktopApp &&
-        Date.now() - pageLoadedAt >= DESKTOP_WEB_UPDATE_RELOAD_GRACE_MS
+        reloadOnControllerChange ||
+        (hadController &&
+          isDesktopApp &&
+          Date.now() - pageLoadedAt >= DESKTOP_WEB_UPDATE_RELOAD_GRACE_MS)
       ) {
+        window.clearTimeout(activationTimeout);
         reloadForUpdate();
       }
       hadController = true;
@@ -194,6 +190,8 @@ function ManageServiceWorker() {
       .catch(() => {});
 
     return () => {
+      cancelPendingUpdate?.();
+      window.clearTimeout(activationTimeout);
       stopWatchingForWaiting?.();
       navigator.serviceWorker.removeEventListener(
         "controllerchange",
@@ -203,6 +201,11 @@ function ManageServiceWorker() {
       window.removeEventListener("online", checkForUpdate);
     };
   }, [serwist]);
+
+  useEffect(() => {
+    if (previousPathname.current !== pathname) runPendingReloads();
+    previousPathname.current = pathname;
+  }, [pathname]);
 
   useEffect(() => {
     if (!serwist || !pathname || !isOfflineMailPath(pathname)) return;
@@ -227,24 +230,4 @@ function saveOfflineMailPage(worker: ServiceWorker | null | undefined) {
   )
     return;
   worker?.postMessage({ type: SAVE_OFFLINE_MAIL });
-}
-
-function readDesktopWebUpdateLastPromptedAt(): number | null {
-  try {
-    const raw = sessionStorage.getItem(DESKTOP_WEB_UPDATE_LAST_PROMPTED_KEY);
-    if (!raw) return null;
-    const value = Number(raw);
-    return Number.isFinite(value) ? value : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeDesktopWebUpdateLastPromptedAt(now: number) {
-  try {
-    sessionStorage.setItem(DESKTOP_WEB_UPDATE_LAST_PROMPTED_KEY, String(now));
-  } catch {
-    // Private browsing can block storage; the in-memory timestamp still
-    // coalesces prompts until the page reloads.
-  }
 }

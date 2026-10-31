@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useAction } from "next-safe-action/hooks";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Item,
   ItemContent,
@@ -28,10 +28,22 @@ import { logOut } from "@/utils/user";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
 import { usePremium } from "@/hooks/usePremium";
 import { hasActiveAppleSubscription } from "@/utils/premium";
+import { useAccounts } from "@/hooks/useAccounts";
+import { LoadingContent } from "@/components/LoadingContent";
 
 export function DeleteSection() {
   const { onCancelLoadBatch } = useStatLoader();
   const { premium } = usePremium();
+  const {
+    data: accountsData,
+    isLoading: isLoadingAccounts,
+    error: accountsError,
+  } = useAccounts();
+  const connectedEmails =
+    accountsData?.emailAccounts.map((account) => account.email) ?? [];
+  const connectedEmailParts = new Intl.ListFormat("en", {
+    type: "conjunction",
+  }).formatToParts(connectedEmails);
   const hasAppleSubscription = hasActiveAppleSubscription(
     premium?.appleExpiresAt || null,
     premium?.appleRevokedAt || null,
@@ -72,10 +84,6 @@ export function DeleteSection() {
     );
   };
 
-  const handleConfirmCancellation = () => {
-    setHasConfirmedCancellation(true);
-  };
-
   const shouldBlockDeletion = hasSubscription && !hasConfirmedCancellation;
 
   return (
@@ -83,7 +91,7 @@ export function DeleteSection() {
       <ItemContent>
         <ItemTitle>Delete account</ItemTitle>
         <ItemDescription>
-          Permanently delete your account and all data.
+          Removes your Inbox Zero data. Your emails aren't affected.
         </ItemDescription>
       </ItemContent>
       <ItemActions>
@@ -98,7 +106,7 @@ export function DeleteSection() {
               <AlertDialogTitle>
                 {shouldBlockDeletion
                   ? "Cancel subscription first"
-                  : "Are you absolutely sure?"}
+                  : "Delete your Inbox Zero account?"}
               </AlertDialogTitle>
               <AlertDialogDescription asChild>
                 <div>
@@ -135,10 +143,39 @@ export function DeleteSection() {
                       </p>
                     </>
                   ) : (
-                    <p>
-                      This action cannot be undone. This will permanently delete
-                      your user and all associated accounts.
-                    </p>
+                    <div className="space-y-3">
+                      <LoadingContent
+                        loading={isLoadingAccounts}
+                        error={accountsError}
+                      >
+                        <p>
+                          This permanently deletes your Inbox Zero data and
+                          disconnects{" "}
+                          {connectedEmailParts.map((part, index) =>
+                            part.type === "element" ? (
+                              <span
+                                key={index}
+                                className="font-medium text-foreground"
+                              >
+                                {part.value}
+                              </span>
+                            ) : (
+                              part.value
+                            ),
+                          )}
+                          . Your emails aren't affected.
+                        </p>
+                      </LoadingContent>
+                      {connectedEmails.length > 1 && (
+                        <Link
+                          href="/accounts"
+                          className="text-foreground underline"
+                          onClick={() => setIsDialogOpen(false)}
+                        >
+                          Remove just one account instead
+                        </Link>
+                      )}
+                    </div>
                   )}
                 </div>
               </AlertDialogDescription>
@@ -146,11 +183,21 @@ export function DeleteSection() {
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               {shouldBlockDeletion ? (
-                <AlertDialogAction onClick={handleConfirmCancellation}>
+                <AlertDialogAction
+                  onClick={(event) => {
+                    // Keep the dialog open so it advances to the delete confirmation
+                    event.preventDefault();
+                    setHasConfirmedCancellation(true);
+                  }}
+                >
                   I've already cancelled my subscription
                 </AlertDialogAction>
               ) : (
-                <AlertDialogAction onClick={handleDeleteAccount}>
+                <AlertDialogAction
+                  className={buttonVariants({ variant: "destructive" })}
+                  disabled={!accountsData || Boolean(accountsError)}
+                  onClick={handleDeleteAccount}
+                >
                   Delete account
                 </AlertDialogAction>
               )}

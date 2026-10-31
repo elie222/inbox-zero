@@ -5,19 +5,9 @@ import { queueReaderEmail } from "./queued-reply";
 import { UNDO_SEND_DELAY_MS } from "./undo-send";
 import { admissionRejectionCopy } from "@/utils/mail-engine/admission-notice";
 
-const staging = vi.hoisted(() => vi.fn());
-const cancelStaged = vi.hoisted(() => vi.fn());
-
-vi.mock("@/utils/mail-engine/stage-attachments", () => ({
-  stageSendAttachments: staging,
-  cancelSendAttachments: cancelStaged,
-}));
-
 describe("queueReaderEmail", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    staging.mockResolvedValue([]);
-    cancelStaged.mockResolvedValue(undefined);
   });
 
   it("returns immediately after durably queueing while offline", async () => {
@@ -42,12 +32,10 @@ describe("queueReaderEmail", () => {
     const notBeforeMs = client.submitSend.mock.calls[0]?.[0]?.notBeforeMs;
     expect(notBeforeMs).toBeGreaterThan(Date.now() + 60 * 60 * 1000);
     expect(outcome).toEqual({
-      attachmentIds: [],
       reason: "offline",
       status: "queued",
       threadId: "thread",
     });
-    expect(cancelStaged).not.toHaveBeenCalled();
     expect(client.observeOperation).not.toHaveBeenCalled();
   });
 
@@ -89,7 +77,9 @@ describe("queueReaderEmail", () => {
   });
 
   it("reuses a draft identity and refuses a conflicting send payload", async () => {
-    const client = createClient();
+    const client = createClient({
+      handle: createHandle({ status: "queued" }),
+    });
     client.submitSend.mockResolvedValue({
       status: "rejected",
       code: "invalid",
@@ -105,27 +95,134 @@ describe("queueReaderEmail", () => {
         threadId: "thread",
       }),
     ).rejects.toThrow("different content");
-    expect(cancelStaged).toHaveBeenCalledWith("account", []);
   });
 
-  it("does not cancel staged uploads after the send is already queued", async () => {
+  it.each([
+    "cancelled",
+    "superseded",
+  ] as const)("resends under a new command after the previous send was %s", async (status) => {
+    const client = createClient({
+      handle: createHandle({ status }),
+    });
+    client.submitSend
+      .mockResolvedValueOnce({ status: "rejected", code: "invalid" })
+      .mockResolvedValueOnce({ status: "queued" });
+
+    const outcome = await queueReaderEmail({
+      client,
+      email: createEmail(),
+      emailAccountId: "account",
+      holdForUndo: true,
+      messageIds: ["message"],
+      mutationId: "mutation",
+      online: true,
+      threadId: "thread",
+    });
+
+    expect(client.submitSend).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        commandId: "mutation-retry-1",
+        draft: { accountId: "account", draftId: "mutation-retry-1" },
+      }),
+    );
+    expect(outcome).toMatchObject({
+      status: "held",
+      mutationId: "mutation-retry-1",
+    });
+  });
+
+  it("resends after undoing both the original send and its retry", async () => {
+    const handles: Record<string, ReturnType<typeof createHandle>> = {
+      mutation: createHandle({ status: "cancelled" }),
+      "mutation-retry-1": createHandle({ status: "cancelled" }),
+    };
     const client = createClient();
-    staging.mockResolvedValue(["blob-live"]);
+    client.observeOperation.mockImplementation(
+      ({ operationId }: { operationId: string }) => handles[operationId],
+    );
+    client.submitSend
+      .mockResolvedValueOnce({ status: "rejected", code: "invalid" })
+      .mockResolvedValueOnce({ status: "rejected", code: "invalid" })
+      .mockResolvedValueOnce({ status: "queued" });
+
+    const outcome = await queueReaderEmail({
+      client,
+      email: { ...createEmail(), messageHtml: "<p>Edited reply</p>" },
+      emailAccountId: "account",
+      holdForUndo: true,
+      messageIds: ["message"],
+      mutationId: "mutation",
+      online: true,
+      threadId: "thread",
+    });
+
+    expect(outcome).toMatchObject({
+      status: "held",
+      mutationId: "mutation-retry-2",
+    });
+    expect(client.submitSend).toHaveBeenCalledTimes(3);
+    expect(client.submitSend).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        commandId: "mutation-retry-2",
+        draft: { accountId: "account", draftId: "mutation-retry-2" },
+      }),
+    );
+    for (const handle of Object.values(handles)) {
+      expect(handle.close).toHaveBeenCalledOnce();
+    }
+  });
+
+  it("keeps blocking a duplicate while a resent send is still pending", async () => {
+    const handles: Record<string, ReturnType<typeof createHandle>> = {
+      mutation: createHandle({ status: "cancelled" }),
+      "mutation-retry-1": createHandle({ status: "queued" }),
+    };
+    const client = createClient();
+    client.observeOperation.mockImplementation(
+      ({ operationId }: { operationId: string }) => handles[operationId],
+    );
+    client.submitSend.mockResolvedValue({
+      status: "rejected",
+      code: "invalid",
+    });
     await expect(
       queueReaderEmail({
         client,
         email: createEmail(),
         emailAccountId: "account",
         messageIds: ["message"],
-        online: false,
+        mutationId: "mutation",
+        online: true,
         threadId: "thread",
-        onQueued: async () => {
-          throw new Error("ui");
-        },
       }),
-    ).rejects.toThrow("ui");
-    expect(client.submitSend).toHaveBeenCalled();
-    expect(cancelStaged).not.toHaveBeenCalled();
+    ).rejects.toThrow("different content");
+    expect(client.submitSend).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps refusing a conflicting send while the first one is still pending", async () => {
+    const client = createClient({
+      handle: createHandle({ status: "queued" }),
+    });
+    client.submitSend.mockResolvedValue({
+      status: "rejected",
+      code: "invalid",
+    });
+    const revertSubmitting = vi.fn();
+    await expect(
+      queueReaderEmail({
+        client,
+        email: createEmail(),
+        emailAccountId: "account",
+        messageIds: ["message"],
+        mutationId: "mutation",
+        online: true,
+        onSubmitting: () => revertSubmitting,
+        threadId: "thread",
+      }),
+    ).rejects.toThrow("different content");
+    expect(client.submitSend).toHaveBeenCalledOnce();
+    // The pending send's message must not stay hidden as if this one replaced it.
+    expect(revertSubmitting).toHaveBeenCalledOnce();
   });
 
   it("explains a full command queue instead of a generic send failure", async () => {
@@ -166,6 +263,30 @@ describe("queueReaderEmail", () => {
       threadId: "thread",
     });
     expect(handle.close).toHaveBeenCalledOnce();
+  });
+
+  it("reports where the sent copy landed", async () => {
+    const handle = createHandle({ status: "executing" });
+    const client = createClient({ handle });
+    const pending = queueReaderEmail({
+      client,
+      email: createEmail(),
+      emailAccountId: "account",
+      messageIds: [],
+      online: true,
+      settlementTimeoutMs: 1000,
+      threadId: "local-compose-id",
+    });
+    await vi.waitFor(() => expect(handle.subscribe).toHaveBeenCalled());
+    handle.set({
+      status: "succeeded",
+      sentMessage: { messageId: "sent-1", conversationId: "thread-1" },
+    });
+    await expect(pending).resolves.toEqual({
+      messageId: "sent-1",
+      status: "sent",
+      threadId: "thread-1",
+    });
   });
 
   it("does not turn an uncertain delivery into an automatic retry", async () => {
@@ -230,7 +351,6 @@ describe("queueReaderEmail", () => {
     const after = Date.now();
 
     expect(outcome).toMatchObject({
-      attachmentIds: [],
       mutationId: "mutation",
       status: "held",
       threadId: "thread",
@@ -246,49 +366,8 @@ describe("queueReaderEmail", () => {
         notBeforeMs: outcome.holdUntil,
       }),
     );
-    expect(onQueued).toHaveBeenCalledOnce();
+    expect(onQueued).toHaveBeenCalledExactlyOnceWith("mutation");
     expect(client.observeOperation).not.toHaveBeenCalled();
-  });
-
-  it("forwards staged attachment ids on held and offline queued sends", async () => {
-    staging.mockResolvedValue(["blob-1"]);
-    const email = {
-      ...createEmail(),
-      attachments: [
-        {
-          filename: "note.txt",
-          content: "YQ==",
-          contentType: "text/plain",
-        },
-      ],
-    };
-    const held = await queueReaderEmail({
-      client: createClient(),
-      email,
-      emailAccountId: "account",
-      holdForUndo: true,
-      messageIds: ["message"],
-      online: true,
-      threadId: "thread",
-    });
-    expect(held).toMatchObject({
-      attachmentIds: ["blob-1"],
-      status: "held",
-    });
-    const queued = await queueReaderEmail({
-      client: createClient(),
-      email,
-      emailAccountId: "account",
-      messageIds: ["message"],
-      online: false,
-      threadId: "thread",
-    });
-    expect(queued).toEqual({
-      attachmentIds: ["blob-1"],
-      reason: "offline",
-      status: "queued",
-      threadId: "thread",
-    });
   });
 
   it("still holds when submitSend outlasts the original undo window", async () => {
@@ -310,7 +389,6 @@ describe("queueReaderEmail", () => {
     });
 
     expect(outcome).toMatchObject({
-      attachmentIds: [],
       mutationId: "mutation",
       status: "held",
       threadId: "thread",

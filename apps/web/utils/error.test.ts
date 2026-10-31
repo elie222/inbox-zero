@@ -22,6 +22,7 @@ import {
   getActionErrorMessage,
   getUserFacingErrorMessage,
   isInsufficientCreditsError,
+  getAIApiCallError,
   isContentFilterRefusal,
   isHandledUserKeyError,
   isAiQuotaExceededError,
@@ -45,6 +46,17 @@ describe("isAiQuotaExceededError", () => {
     });
 
     expect(isAiQuotaExceededError(error)).toBe(true);
+  });
+
+  it("detects an exhausted credit balance by its error type", () => {
+    const error = new RetryError({
+      message: "Failed after 3 attempts",
+      reason: "maxRetriesExceeded",
+      errors: [createInsufficientQuotaError()],
+    });
+
+    expect(isAiQuotaExceededError(error)).toBe(true);
+    expect(isKnownApiError(error)).toBe(true);
   });
 });
 
@@ -129,6 +141,21 @@ describe("getUserFacingErrorMessage", () => {
 describe("captureException", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("forwards diagnostic tags separately from extra context", () => {
+    const error = new Error("startup failed");
+    const tags = {
+      runtimeMode: "desktop-ipc",
+      platform: "desktop",
+      stage: "desktop-sync",
+    };
+    const extra = { worker: false, locks: false, opfs: false };
+    captureException(error, { tags, extra });
+    expect(mockSentryCaptureException).toHaveBeenCalledWith(error, {
+      tags,
+      extra,
+    });
   });
 
   it("forwards attached LLM repair metadata to Sentry extra context", () => {
@@ -350,6 +377,52 @@ describe("isInsufficientCreditsError", () => {
 
     expect(isInsufficientCreditsError(error)).toBe(expected);
   });
+
+  it("recognizes an exhausted OpenAI balance reported as a 429", () => {
+    const error = createAPICallError({
+      message: "No credits",
+      statusCode: 429,
+      responseBody: JSON.stringify({
+        error: { type: "insufficient_quota", code: "credit_balance_exhausted" },
+      }),
+    });
+
+    expect(isInsufficientCreditsError(error)).toBe(true);
+  });
+
+  it("does not treat an ordinary OpenAI rate limit as missing credits", () => {
+    const error = createAPICallError({
+      message: "Rate limited",
+      statusCode: 429,
+      responseBody: JSON.stringify({
+        error: { type: "requests", code: "rate_limit_exceeded" },
+      }),
+    });
+
+    expect(isInsufficientCreditsError(error)).toBe(false);
+  });
+});
+
+describe("getAIApiCallError", () => {
+  it("returns the provider error behind exhausted retries", () => {
+    const apiError = createAPICallError({
+      message: "No credits",
+      statusCode: 429,
+    });
+    const retryError = new RetryError({
+      message: "Failed after 3 attempts",
+      reason: "maxRetriesExceeded",
+      errors: [
+        createAPICallError({ message: "Earlier failure", statusCode: 500 }),
+        createAPICallError({ message: "Another failure", statusCode: 503 }),
+        apiError,
+      ],
+    });
+
+    expect(getAIApiCallError(retryError)).toBe(apiError);
+    expect(getAIApiCallError(apiError)).toBe(apiError);
+    expect(getAIApiCallError(new Error("other"))).toBeNull();
+  });
 });
 
 describe("isInvalidAIModelError", () => {
@@ -477,6 +550,22 @@ describe("isKnownOutlookError", () => {
       { message: "Access is denied. Check credentials and try again." },
     ],
     ["item not found errors", { code: "ErrorItemNotFound" }],
+    [
+      "inactive mailbox errors",
+      {
+        code: "ExtensionError",
+        message:
+          "Operation: Create; Exception: [Status Code: NotFound; Reason: The mailbox is either inactive, soft-deleted, or is hosted on-premise.]",
+      },
+    ],
+    [
+      "permanent mailbox errors",
+      {
+        code: "ExtensionError",
+        message:
+          "Operation: Create; Exception: [Status Code: Forbidden; Reason: The operation failed with a permanent mailbox error.]",
+      },
+    ],
   ])("detects %s", (_caseName, error) => {
     expect(isKnownOutlookError(error)).toBe(true);
   });
@@ -520,6 +609,21 @@ describe("isKnownApiError", () => {
         finishReason: "content-filter",
         text: "I'm sorry, but I cannot assist with that request.",
       }),
+      true,
+    ],
+    [
+      "Gmail insufficient-scope errors with the reason on the cause",
+      Object.assign(
+        new Error("Request had insufficient authentication scopes."),
+        {
+          code: 403,
+          cause: {
+            code: 403,
+            message: "Request had insufficient authentication scopes.",
+            errors: [{ reason: "insufficientPermissions" }],
+          },
+        },
+      ),
       true,
     ],
   ])("returns %s for %s", (_caseName, error, expected) => {
@@ -631,9 +735,11 @@ function createLlmRepairMetadata() {
 function createAPICallError({
   message,
   statusCode,
+  responseBody = "",
 }: {
   message: string;
   statusCode: number;
+  responseBody?: string;
 }): APICallError {
   return new APICallError({
     message,
@@ -641,7 +747,26 @@ function createAPICallError({
     requestBodyValues: {},
     statusCode,
     responseHeaders: {},
+    responseBody,
+  });
+}
+
+function createInsufficientQuotaError(): APICallError {
+  return new APICallError({
+    message: "Billing limit reached",
+    url: "https://example.com",
+    requestBodyValues: {},
+    statusCode: 429,
+    responseHeaders: {},
     responseBody: "",
+    isRetryable: true,
+    data: {
+      error: {
+        message: "Billing limit reached",
+        type: "insufficient_quota",
+        code: "credit_balance_exhausted",
+      },
+    },
   });
 }
 

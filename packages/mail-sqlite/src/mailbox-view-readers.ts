@@ -164,22 +164,34 @@ function readCounts(
 function filteredScope(scope: CountScope) {
   const mailbox =
     scope.predicate.kind === "mailbox" ? scope.predicate.mailbox : null;
-  const driven = searchDrivenSource(scope.predicate, scope.search);
+  const searched = searchDrivenSource(scope.predicate, scope.search);
+  const roleScoped = searched
+    ? null
+    : roleDrivenSource(scope.predicate, scope.accountIds);
+  const source = searched ?? roleScoped;
   const compiled =
     mailbox === "archive" || mailbox === "all" || mailbox === "snoozed"
       ? { sql: "1=1", bindings: [] as SqlValue[] }
-      : compilePredicate(driven?.rest ?? scope.predicate, scope.search);
-  const accountPlaceholders = scope.accountIds.map(() => "?").join(",");
+      : compilePredicate(searched?.rest ?? scope.predicate, scope.search);
+  // The role index already limits the accounts. Repeating the filter on
+  // messages leads SQLite to look each conversation up by account alone,
+  // rescanning the account once per conversation.
+  const accounts = roleScoped
+    ? null
+    : {
+        sql: `e.account_id IN (${scope.accountIds.map(() => "?").join(",")}) AND `,
+        bindings: scope.accountIds,
+      };
   const having = mailboxConversationHaving(mailbox);
   return {
     mailbox,
-    from: driven?.from ?? "effective_messages e",
-    where: `e.account_id IN (${accountPlaceholders}) AND ${compiled.sql}`,
+    from: source?.from ?? "effective_messages e",
+    where: `${accounts?.sql ?? ""}${compiled.sql}`,
     having,
     // In clause order: source, WHERE, HAVING.
     bindings: [
-      ...(driven?.bindings ?? []),
-      ...scope.accountIds,
+      ...(source?.bindings ?? []),
+      ...(accounts?.bindings ?? []),
       ...compiled.bindings,
       ...having.bindings,
     ],
@@ -306,7 +318,45 @@ function conversationIndexFor(
   return null;
 }
 
-function roleIndex(role: MessageMetadata["roles"][number]): ConversationIndex {
+// A filter within one role, such as a split's "inbox and this label", would
+// otherwise scan every message: a 0/1 role column gives the planner no hint
+// that the role holds a small slice of the mailbox. Starting from the role's
+// conversation index reads only that role's conversations, and the whole
+// predicate still filters each message. Like the role's own list, this leaves
+// out an archived message that still carries the inbox role.
+function roleDrivenSource(
+  predicate: MailPredicate,
+  accountIds: string[],
+): { from: string; bindings: SqlValue[] } | null {
+  if (predicate.kind !== "all") return null;
+  const role = predicate.predicates.map(clauseRole).find((value) => value);
+  if (!role) return null;
+  return {
+    from: `(SELECT account_id, conversation_id FROM effective_role_conversations
+            WHERE account_id IN (${accountIds.map(() => "?").join(",")}) AND role = ?) scoped
+          CROSS JOIN effective_messages e
+            ON e.account_id = scoped.account_id AND e.conversation_id = scoped.conversation_id`,
+    bindings: [...accountIds, role],
+  };
+}
+
+function clauseRole(clause: MailPredicate): Role | null {
+  if (clause.kind === "role") return clause.role;
+  if (clause.kind === "mailbox") return MAILBOX_ROLES[clause.mailbox] ?? null;
+  return null;
+}
+
+const MAILBOX_ROLES: Partial<Record<WellKnownMailbox, Role>> = {
+  inbox: "inbox",
+  sent: "sent",
+  drafts: "draft",
+  trash: "trash",
+  spam: "spam",
+};
+
+type Role = MessageMetadata["roles"][number];
+
+function roleIndex(role: Role): ConversationIndex {
   return {
     source:
       "(SELECT account_id, conversation_id, latest_at_ms, unread, starred FROM effective_role_conversations WHERE role = ?)",
@@ -393,11 +443,12 @@ async function readConversationSummaries(
   if (page.length === 0) return [];
   const members = await tx.query(
     `SELECT account_id, conversation_id, message_id, subject, preview, from_address, to_json,
-            received_at_ms, unread, starred, label_ids_json, roles_json, pending_operation_ids_json
+            received_at_ms, unread, starred, has_attachments, label_ids_json, roles_json,
+            pending_operation_ids_json
      FROM (
        SELECT e.account_id, e.conversation_id, e.message_id, e.subject, e.preview, e.from_address,
-              e.to_json, e.received_at_ms, e.read AS unread, e.starred, e.label_ids_json, e.roles_json,
-              e.pending_operation_ids_json
+              e.to_json, e.received_at_ms, e.read AS unread, e.starred, e.has_attachments,
+              e.label_ids_json, e.roles_json, e.pending_operation_ids_json
        FROM effective_messages e
        WHERE ${page
          .map(() => "(e.account_id = ? AND e.conversation_id = ?)")
@@ -425,12 +476,19 @@ async function readConversationSummaries(
     const message = conversationMembers.at(-1);
     if (!message)
       throw new Error("Conversation query has no effective message");
+    // Titled by its first message, as Gmail and Outlook do, so a "Re:" reply
+    // does not rename it. A draft must not either, even after it moves to trash.
+    const subjectMessage =
+      conversationMembers.find((member) => {
+        const roles = jsonStringArray(member.roles_json);
+        return !roles.includes("draft") && !roles.includes("trash");
+      }) ?? message;
     return {
       key: {
         accountId: String(row.account_id),
         conversationId: String(row.conversation_id),
       },
-      subject: String(message.subject),
+      subject: String(subjectMessage.subject),
       preview: String(message.preview),
       from: String(message.from_address),
       to: jsonStringArray(message.to_json).join(", "),
@@ -440,6 +498,9 @@ async function readConversationSummaries(
       latestMessageAtMs: Number(row.latest),
       unread: Number(row.unread) === 1,
       starred: Number(row.starred) === 1,
+      hasAttachments: conversationMembers.some(
+        (member) => Number(member.has_attachments) === 1,
+      ),
       labelIds: uniqueStrings(
         conversationMembers.flatMap((member) =>
           jsonStringArray(member.label_ids_json),

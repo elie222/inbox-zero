@@ -385,14 +385,14 @@ export const TreeExpander = ({
   const isExpanded = expandedIds.has(nodeId);
 
   if (!hasChildren) {
-    return <div className="mr-1 h-4 w-4" />;
+    return <div className="mr-1 h-4 w-4 shrink-0" />;
   }
 
   return (
     <motion.div
       animate={{ rotate: isExpanded ? 90 : 0 }}
       className={cn(
-        "mr-1 flex h-4 w-4 cursor-pointer items-center justify-center",
+        "mr-1 flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center",
         className,
       )}
       onClick={(e: MouseEvent<HTMLDivElement>) => {
@@ -451,7 +451,7 @@ export const TreeIcon = ({
   return (
     <motion.div
       className={cn(
-        "mr-2 flex h-4 w-4 items-center justify-center text-muted-foreground",
+        "mr-2 flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground",
         className,
       )}
       transition={{ duration: 0.15 }}
@@ -466,5 +466,8 @@ export const TreeIcon = ({
 export type TreeLabelProps = HTMLAttributes<HTMLSpanElement>;
 
 export const TreeLabel = ({ className, ...props }: TreeLabelProps) => (
-  <span className={cn("flex-1 truncate text-sm", className)} {...props} />
+  <span
+    className={cn("min-w-0 flex-1 truncate text-sm", className)}
+    {...props}
+  />
 );

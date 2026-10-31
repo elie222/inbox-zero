@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { listNativeMailSplits } from "@/utils/mail/native-categories";
+import { listNativeMailSplits } from "@/utils/split-inbox/native-categories";
 import { withEmailProvider } from "@/utils/middleware";
 
 export type MailSplitsResponse = Awaited<

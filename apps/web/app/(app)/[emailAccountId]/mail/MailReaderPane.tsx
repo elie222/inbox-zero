@@ -33,12 +33,16 @@ export const MailReaderPane = memo(function MailReaderPane({
   onClose,
   showFixWithChat,
   lastMessage,
+  lastReceivedMessage,
   isStarred,
   onToggleStar,
   onMarkSpam,
   onDelete,
   onLabel,
   onMove,
+  onTranslate,
+  onComment,
+  onPrint,
   isMenuOpen,
   onMenuOpenChange,
   ...readerProps
@@ -54,12 +58,16 @@ export const MailReaderPane = memo(function MailReaderPane({
   onClose: () => void;
   showFixWithChat: boolean;
   lastMessage: ThreadMessage | null;
+  lastReceivedMessage: ThreadMessage | null;
   isStarred: boolean;
   onToggleStar: () => void;
   onMarkSpam: () => void;
   onDelete: () => void;
   onLabel?: () => void;
   onMove?: () => void;
+  onTranslate?: () => void;
+  onComment?: () => void;
+  onPrint?: () => void;
   isMenuOpen: boolean;
   onMenuOpenChange: (open: boolean) => void;
 }) {
@@ -96,6 +104,7 @@ export const MailReaderPane = memo(function MailReaderPane({
       resetKey={readerKey ?? "empty"}
       title="Unable to show this conversation"
       onBack={onClose}
+      onError={() => onReady(readerKey ?? "empty")}
     >
       <EmailAccountScopeProvider emailAccount={readerEmailAccount}>
         <BufferedThreadReader
@@ -111,12 +120,16 @@ export const MailReaderPane = memo(function MailReaderPane({
             menu={
               <ThreadActionsMenu
                 message={lastMessage}
+                receivedMessage={lastReceivedMessage}
                 isStarred={isStarred}
                 onToggleStar={onToggleStar}
                 onMarkSpam={onMarkSpam}
                 onDelete={onDelete}
                 onLabel={onLabel}
                 onMove={onMove}
+                onTranslate={onTranslate}
+                onComment={onComment}
+                onPrint={onPrint}
                 open={isMenuOpen}
                 onOpenChange={onMenuOpenChange}
               />

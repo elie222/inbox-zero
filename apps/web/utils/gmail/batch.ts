@@ -1,5 +1,5 @@
 import { isDefined } from "@/utils/types";
-import { getGoogleGmailBatchUrl } from "@/utils/google/oauth";
+import { getGoogleGmailBatchUrl } from "@/utils/gmail/oauth";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("gmail/batch");

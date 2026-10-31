@@ -1,4 +1,11 @@
 import {
+  MAX_ADDRESS_LENGTH,
+  MAX_ATTACHMENT_CONTENT_ID_LENGTH,
+  MAX_ATTACHMENT_FILENAME_LENGTH,
+  MAX_ATTACHMENT_ID_LENGTH,
+  MAX_ATTACHMENT_MIME_TYPE_LENGTH,
+  MAX_MESSAGE_LABELS,
+  MAX_MESSAGE_TEXT_LENGTH,
   MAX_RECIPIENTS,
   type MessageAttachmentDescriptor,
   type MessageMetadata,
@@ -6,11 +13,19 @@ import {
 import type { Provider } from "@inboxzero/mail-core/identities";
 import {
   type BodyObservation,
+  bodyObservationSchema,
   MAX_BODY_ATTACHMENTS,
   MAX_BODY_LENGTH,
   type ProviderChange,
+  providerChangeSchema,
 } from "@inboxzero/mail-core/sync";
+import { splitRecipientList } from "@/utils/email";
+import { createScopedLogger } from "@/utils/logger";
 import type { ParsedMessage } from "@/utils/types";
+
+const logger = createScopedLogger("mail-api/observations");
+
+type MessagePatch = Extract<ProviderChange, { kind: "message_patch" }>;
 
 const ROLE_LABELS = {
   INBOX: "inbox",
@@ -38,23 +53,30 @@ export function parsedMessageMetadata(message: ParsedMessage): MessageMetadata {
       !(label in ROLE_LABELS) &&
       label !== "UNREAD" &&
       label !== "STARRED" &&
-      label !== "IMPORTANT" &&
       !label.startsWith("CATEGORY_"),
   );
+  // Sender-controlled text is cut to fit rather than rejected, so the message
+  // still syncs with everything that does fit.
   return {
-    subject: message.subject || "",
-    preview: message.snippet || "",
-    externalUrl: message.externalUrl ?? undefined,
-    from: message.headers.from || "",
+    subject: (message.subject || "").slice(0, MAX_MESSAGE_TEXT_LENGTH),
+    preview: (message.snippet || "").slice(0, MAX_MESSAGE_TEXT_LENGTH),
+    // A cut URL would point somewhere else, so an oversized one is dropped.
+    externalUrl:
+      message.externalUrl &&
+      message.externalUrl.length <= MAX_MESSAGE_TEXT_LENGTH
+        ? message.externalUrl
+        : undefined,
+    from: fitAddress(message.headers.from || ""),
     to: splitAddresses(message.headers.to),
     cc: splitAddresses(message.headers.cc),
+    bcc: splitAddresses(message.headers.bcc),
     receivedAtMs: receivedAtMs(message),
     read: !labels.includes("UNREAD"),
     starred: labels.includes("STARRED"),
     folderId: message.parentFolderId ?? null,
     inboxSection: message.inboxSection ?? null,
-    labelIds,
-    categoryIds,
+    labelIds: labelIds.slice(0, MAX_MESSAGE_LABELS),
+    categoryIds: categoryIds.slice(0, MAX_MESSAGE_LABELS),
     roles,
     hasAttachments:
       message.hasAttachment ?? Boolean(message.attachments?.length),
@@ -65,8 +87,8 @@ export function parsedMessagePatch(
   accountId: string,
   provider: Provider,
   message: ParsedMessage,
-): ProviderChange {
-  return {
+): MessagePatch | null {
+  return withinProtocolLimits(providerChangeSchema, accountId, message.id, {
     kind: "message_patch",
     key: { accountId, messageId: message.id },
     reference: {
@@ -76,7 +98,7 @@ export function parsedMessagePatch(
       version: message.historyId || null,
     },
     fields: parsedMessageMetadata(message),
-  };
+  });
 }
 
 export function parsedMessageBodyObservation(
@@ -93,16 +115,34 @@ export function parsedMessageBodyObservation(
   ) {
     return null;
   }
-  // Protocol limits are enforced on every page, so one oversized message
-  // would otherwise fail its whole page on every retry and stall sync.
-  return {
+  return withinProtocolLimits(bodyObservationSchema, accountId, message.id, {
     key: { accountId, messageId: message.id },
     version: message.historyId || null,
     html: message.textHtml?.slice(0, MAX_BODY_LENGTH) ?? null,
     text: message.textPlain?.slice(0, MAX_BODY_LENGTH) ?? null,
     attachments: attachments.slice(0, MAX_BODY_ATTACHMENTS),
     isMeetingInvitation,
-  };
+  });
+}
+
+// Each response is validated as a whole, so one message the protocol cannot
+// represent would fail its page on every retry and stall the account's sync.
+// Fields that can be cut to fit already are; anything left (such as an
+// oversized provider id) costs only that message.
+function withinProtocolLimits<T>(
+  schema: typeof providerChangeSchema | typeof bodyObservationSchema,
+  accountId: string,
+  messageId: string,
+  observation: T,
+): T | null {
+  const parsed = schema.safeParse(observation);
+  if (parsed.success) return observation;
+  logger.error("Skipped message outside mail sync protocol limits", {
+    emailAccountId: accountId,
+    messageId,
+    issues: parsed.error.issues.map(({ code, path }) => ({ code, path })),
+  });
+  return null;
 }
 
 function parsedMessageAttachmentDescriptors(
@@ -116,9 +156,11 @@ function parsedMessageAttachmentDescriptors(
       descriptorFromParsed(attachment, true),
     ),
   ].filter(
-    // Gmail omits the id when a small part's data is embedded in the message.
-    // It can't be fetched by id, and one missing id fails the whole sync page.
-    (descriptor) => Boolean(descriptor.attachmentId),
+    // A provider part without a native or authoritative MIME reference, or
+    // with one too long to request, cannot be retrieved.
+    (descriptor) =>
+      Boolean(descriptor.attachmentId) &&
+      descriptor.attachmentId.length <= MAX_ATTACHMENT_ID_LENGTH,
   );
 }
 
@@ -128,15 +170,25 @@ function descriptorFromParsed(
     filename: string;
     mimeType: string;
     size: number;
+    headers?: { "content-id"?: string };
   },
   inline: boolean,
 ): MessageAttachmentDescriptor {
+  const contentId = attachment.headers?.["content-id"]
+    ?.trim()
+    .replace(/^<|>$/g, "");
   return {
     attachmentId: attachment.attachmentId,
-    filename: attachment.filename,
-    mimeType: attachment.mimeType,
-    size: Number.isFinite(attachment.size) ? attachment.size : 0,
+    filename: attachment.filename.slice(0, MAX_ATTACHMENT_FILENAME_LENGTH),
+    mimeType: attachment.mimeType.slice(0, MAX_ATTACHMENT_MIME_TYPE_LENGTH),
+    size: Number.isFinite(attachment.size)
+      ? Math.max(0, Math.trunc(attachment.size))
+      : 0,
     inline,
+    contentId:
+      contentId && contentId.length <= MAX_ATTACHMENT_CONTENT_ID_LENGTH
+        ? contentId
+        : null,
   };
 }
 
@@ -144,7 +196,7 @@ function receivedAtMs(message: ParsedMessage): number {
   if (message.internalDate) {
     const numeric = Number(message.internalDate);
     if (Number.isFinite(numeric) && numeric > 0) {
-      return numeric < 1_000_000_000_000 ? numeric * 1000 : numeric;
+      return Math.trunc(numeric < 1_000_000_000_000 ? numeric * 1000 : numeric);
     }
   }
   const parsed = Date.parse(message.date);
@@ -153,11 +205,22 @@ function receivedAtMs(message: ParsedMessage): number {
 
 function splitAddresses(value: string | undefined): string[] {
   if (!value) return [];
-  return value
-    .split(",")
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .slice(0, MAX_RECIPIENTS);
+  return splitRecipientList(value).slice(0, MAX_RECIPIENTS).map(fitAddress);
+}
+
+// Cutting from the end would drop a trailing <mailbox>, so an oversized
+// display name gives way instead.
+function fitAddress(address: string): string {
+  if (address.length <= MAX_ADDRESS_LENGTH) return address;
+  const mailboxStart = address.lastIndexOf("<");
+  const mailbox =
+    mailboxStart >= 0 && address.endsWith(">")
+      ? address.slice(mailboxStart)
+      : "";
+  if (!mailbox || mailbox.length >= MAX_ADDRESS_LENGTH) {
+    return address.slice(0, MAX_ADDRESS_LENGTH);
+  }
+  return `${address.slice(0, MAX_ADDRESS_LENGTH - mailbox.length - 1)} ${mailbox}`;
 }
 
 function rolesFromFolder(

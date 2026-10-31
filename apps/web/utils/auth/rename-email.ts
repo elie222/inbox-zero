@@ -3,7 +3,7 @@ import prisma from "@/utils/prisma";
 import { isDuplicateError, isNotFoundError } from "@/utils/prisma-helpers";
 import { assertAllowedAuthSignupEmail } from "@/utils/auth-signup-policy";
 import { invalidateAccountValidation } from "@/utils/redis/account-validation";
-import { fetchGoogleOpenIdProfile } from "@/utils/google/oauth";
+import { fetchGoogleOpenIdProfile } from "@/utils/gmail/oauth";
 
 // Gmail push notifications identify the mailbox only by its current address,
 // so a renamed address stops matching until the stored email catches up.

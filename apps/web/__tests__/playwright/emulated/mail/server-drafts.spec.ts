@@ -35,7 +35,6 @@ test("preserves multiple server drafts without reply headers", async ({
     page.getByText("First saved reply", { exact: true }),
   ).toHaveCount(0);
   await expect(editors.nth(1)).toContainText("Second saved reply");
-  await capturePlaywrightCheckpoint(page, testInfo, "multiple-server-drafts");
 
   await page
     .locator('[data-thread-message-id="msg_playwright_multi_draft_parent"]')

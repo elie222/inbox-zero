@@ -19,7 +19,8 @@ const pricingFaqs: {
 }[] = [
   {
     question: `Can I try ${BRAND_NAME} for free?`,
-    answer: "Yes! All plans include a 7-day free trial.",
+    answer:
+      "Yes. The email app is free to use. The AI plans include a 7-day free trial.",
   },
   {
     question: "Can I switch between plans?",
@@ -68,7 +69,7 @@ const pricingFaqs: {
     question: "Need a custom plan for your enterprise?",
     answer: (
       <span>
-        <Anchor href="https://go.getinboxzero.com/sales" newTab>
+        <Anchor href="https://www.getinboxzero.com/sales">
           Contact our sales team
         </Anchor>{" "}
         for custom pricing, SSO, SCIM, on-premise deployment, and dedicated

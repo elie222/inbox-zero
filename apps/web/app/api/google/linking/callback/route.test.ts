@@ -92,7 +92,7 @@ vi.mock("@/utils/gmail/client", () => ({
   })),
 }));
 
-vi.mock("@/utils/google/oauth", () => ({
+vi.mock("@/utils/gmail/oauth", () => ({
   fetchGoogleOpenIdProfile: mockFetchGoogleOpenIdProfile,
   isGoogleOauthEmulationEnabled: mockIsGoogleOauthEmulationEnabled,
 }));

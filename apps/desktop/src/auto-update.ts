@@ -9,9 +9,14 @@ export const DESKTOP_UPDATE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 let downloadedVersion: string | null = null;
 let updateEventsBound = false;
 let reportDownloadProgress = false;
+let downloadingVersion: string | null = null;
 let lastReportedPercent: number | null = null;
 let onUpdateReady: ((version: string) => void) | undefined;
-let onDownloadProgress: ((percent: number | null) => void) | undefined;
+let onDownloadProgress:
+  | ((progress: DesktopDownloadProgress | null) => void)
+  | undefined;
+
+export type DesktopDownloadProgress = { version: string; percent: number };
 
 export function logDesktopUpdateError(error: unknown) {
   console.error(
@@ -26,6 +31,7 @@ export function resetDesktopAutoUpdateForTests() {
   downloadedVersion = null;
   updateEventsBound = false;
   reportDownloadProgress = false;
+  downloadingVersion = null;
   lastReportedPercent = null;
   onUpdateReady = undefined;
   onDownloadProgress = undefined;
@@ -39,7 +45,7 @@ export async function startDesktopAutoUpdate(
   isPackaged = app.isPackaged,
   handlers?: {
     onUpdateReady?: (version: string) => void;
-    onDownloadProgress?: (percent: number | null) => void;
+    onDownloadProgress?: (progress: DesktopDownloadProgress | null) => void;
   },
 ): Promise<boolean> {
   if (!isPackaged) return false;
@@ -68,7 +74,10 @@ export async function installDownloadedDesktopUpdate(
 
 export async function checkForDesktopUpdatesManually(
   prepareToQuit: () => void,
-  isPackaged = app.isPackaged,
+  {
+    isPackaged = app.isPackaged,
+    showsProgressInApp = () => false,
+  }: { isPackaged?: boolean; showsProgressInApp?: () => boolean } = {},
 ): Promise<boolean> {
   if (!isPackaged) {
     await dialog.showMessageBox({
@@ -105,6 +114,14 @@ export async function checkForDesktopUpdatesManually(
       return true;
     }
 
+    downloadingVersion = result.updateInfo.version;
+    lastReportedPercent ??= 0;
+    onDownloadProgress?.({
+      version: downloadingVersion,
+      percent: lastReportedPercent,
+    });
+    if (showsProgressInApp()) return true;
+
     await dialog.showMessageBox({
       type: "info",
       message: `Downloading Inbox Zero ${result.updateInfo.version}`,
@@ -126,7 +143,7 @@ export async function checkForDesktopUpdatesManually(
 
 async function getDesktopAutoUpdater(handlers?: {
   onUpdateReady?: (version: string) => void;
-  onDownloadProgress?: (percent: number | null) => void;
+  onDownloadProgress?: (progress: DesktopDownloadProgress | null) => void;
 }): Promise<AppUpdater> {
   if (handlers?.onUpdateReady) onUpdateReady = handlers.onUpdateReady;
   if (handlers?.onDownloadProgress) {
@@ -149,23 +166,30 @@ function bindUpdateDownloaded(autoUpdater: AppUpdater) {
   updateEventsBound = true;
   autoUpdater.on("download-progress", (progress: { percent: number }) => {
     if (!reportDownloadProgress) return;
-    const percent = Math.round(progress.percent);
-    if (percent === lastReportedPercent) return;
-    lastReportedPercent = percent;
-    onDownloadProgress?.(percent);
+    reportProgress(Math.round(progress.percent));
   });
   autoUpdater.on("update-downloaded", (info: UpdateInfo) => {
     if (downloadedVersion === info.version) return;
     downloadedVersion = info.version;
-    stopReportingDownloadProgress();
     notifyUpdateReady(info.version);
     onUpdateReady?.(info.version);
+    stopReportingDownloadProgress();
   });
+}
+
+// Events that arrive before the check resolves have no version yet; the check
+// reports the latest percent once it knows which version is downloading.
+function reportProgress(percent: number) {
+  if (percent === lastReportedPercent) return;
+  lastReportedPercent = percent;
+  if (!downloadingVersion) return;
+  onDownloadProgress?.({ version: downloadingVersion, percent });
 }
 
 function stopReportingDownloadProgress() {
   if (!reportDownloadProgress && lastReportedPercent === null) return;
   reportDownloadProgress = false;
+  downloadingVersion = null;
   lastReportedPercent = null;
   onDownloadProgress?.(null);
 }

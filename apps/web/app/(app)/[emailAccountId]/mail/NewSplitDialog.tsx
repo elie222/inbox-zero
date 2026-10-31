@@ -25,15 +25,16 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   MAX_SPLIT_FILTERS,
   type MailSplitFilterDraft,
-} from "@/utils/mail/split-filters";
-import { OLDER_THAN_OPTIONS } from "@/utils/mail/split-query";
+} from "@/utils/split-inbox/split-filters";
+import { OLDER_THAN_OPTIONS } from "@/utils/split-inbox/split-query";
 import {
   availableLibraryFilters,
+  findLibrarySplit as findMatchingLibrarySplit,
   libraryDefinition,
   SPLIT_LIBRARY,
   SPLIT_LIBRARY_CATEGORIES,
   type SplitLibraryEntry,
-} from "@/utils/mail/split-library";
+} from "@/utils/split-inbox/split-library";
 import { cn } from "@/utils";
 
 const YOUR_SPLITS = "Your splits";
@@ -250,30 +251,8 @@ export function NewSplitDialog({
   }, [categories, category, labels, supportsStarred]);
 
   const findLibrarySplit = useCallback(
-    (entry: SplitLibraryEntry, filters: MailSplitFilterDraft[]) => {
-      if (entry.createsSystemType) {
-        return existingSplits.find(
-          (split) => split.name.toLowerCase() === entry.name.toLowerCase(),
-        );
-      }
-
-      return existingSplits.find(
-        (split) =>
-          split.name.toLowerCase() === entry.name.toLowerCase() &&
-          split.matchAll === (entry.matchAll ?? true) &&
-          split.filters.length === filters.length &&
-          JSON.stringify(
-            split.filters
-              .map((filter) => [filter.kind, filter.value ?? null])
-              .sort(),
-          ) ===
-            JSON.stringify(
-              filters
-                .map((filter) => [filter.kind, filter.value ?? null])
-                .sort(),
-            ),
-      );
-    },
+    (entry: SplitLibraryEntry, filters: MailSplitFilterDraft[]) =>
+      findMatchingLibrarySplit(entry, filters, existingSplits),
     [existingSplits],
   );
 

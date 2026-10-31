@@ -11,6 +11,12 @@ microsoft:
   users:
     - email: __PLAYWRIGHT_TEST_EMAIL__
       name: Smoke Test User
+    - email: __PLAYWRIGHT_TEAM_B_EMAIL__
+      name: Shared Teammate
+    - email: __PLAYWRIGHT_TEAM_C_EMAIL__
+      name: Nonparticipant Admin
+    - email: __PLAYWRIGHT_TEAM_D_EMAIL__
+      name: Foreign Organization Member
   oauth_clients:
     - client_id: emulate-microsoft-client-id
       client_secret: emulate-microsoft-secret

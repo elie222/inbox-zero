@@ -8,7 +8,6 @@ import {
 
 const MCP_HTTP_RATE_LIMITS = {
   ipMinute: { limit: 120, windowSeconds: 60 },
-  userMinute: { limit: 60, windowSeconds: 60 },
 } as const;
 
 const MCP_OAUTH_RATE_LIMITS = {
@@ -44,34 +43,6 @@ export async function getMcpIpRateLimitResponse({
   if (!result.limited) return null;
 
   logger?.warn("MCP IP rate limit exceeded", {
-    limit: result.limit,
-    retryAfterSeconds: result.retryAfterSeconds,
-  });
-  return rateLimitedResponse(result.retryAfterSeconds);
-}
-
-export async function getMcpUserRateLimitResponse({
-  userId,
-  logger,
-}: {
-  userId: string;
-  logger?: Logger;
-}) {
-  const result = await checkRateLimit({
-    rule: {
-      key: createRateLimitKey([
-        "rate-limit",
-        "mcp",
-        "user-minute",
-        hashRateLimitValue(userId),
-      ]),
-      ...MCP_HTTP_RATE_LIMITS.userMinute,
-    },
-    logger,
-  });
-  if (!result.limited) return null;
-
-  logger?.warn("MCP user rate limit exceeded", {
     limit: result.limit,
     retryAfterSeconds: result.retryAfterSeconds,
   });

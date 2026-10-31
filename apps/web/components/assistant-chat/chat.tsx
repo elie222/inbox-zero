@@ -28,7 +28,6 @@ import {
   PromptInputTextarea,
   PromptInputSubmit,
 } from "@/components/ai-elements/prompt-input";
-import { useLocalStorage } from "usehooks-ts";
 import { useSession } from "@/utils/auth-client";
 import type { UseChatHelpers } from "@ai-sdk/react";
 import type { ChatMessage } from "@/components/assistant-chat/types";
@@ -75,12 +74,9 @@ export function Chat({
     attachments,
     setAttachments,
     submitTextMessage,
+    stop,
   } = useChat();
-  const { messages, status, stop, regenerate, setMessages } = chat;
-  const [localStorageInput, setLocalStorageInput] = useLocalStorage(
-    "input",
-    "",
-  );
+  const { messages, status, regenerate, setMessages } = chat;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadQueue, setUploadQueue] = useState<string[]>([]);
 
@@ -90,18 +86,18 @@ export function Chat({
     }
   }, [open, chatId, messages.length, setNewChat, status]);
 
-  // Sync input with localStorage
-  useEffect(() => {
-    setLocalStorageInput(input);
-  }, [input, setLocalStorageInput]);
-
-  // Load from localStorage on mount
+  // Must run before the save effect below, which would overwrite the draft.
   // biome-ignore lint/correctness/useExhaustiveDependencies: Only run on mount
   useEffect(() => {
-    if (localStorageInput) {
-      setInput(localStorageInput);
-    }
+    const savedInput = readDraftInput();
+    if (savedInput) setInput(savedInput);
   }, []);
+
+  // Persist without setting state: a state update here queued an extra render
+  // per keystroke, and fast text entry tripped React's update-depth guard.
+  useEffect(() => {
+    saveDraftInput(input);
+  }, [input]);
 
   const readFileAsDataUrl = useCallback(
     (file: File): Promise<Attachment | undefined> =>
@@ -344,7 +340,7 @@ export function Chat({
               role: "user",
               parts: [{ type: "text", text }],
             });
-            setLocalStorageInput("");
+            saveDraftInput("");
           }}
         />
       )}
@@ -613,4 +609,24 @@ function getGreeting(firstName: string | undefined): string {
   if (hour < 12) return `Good morning${name}`;
   if (hour < 18) return `Good afternoon${name}`;
   return `Good evening${name}`;
+}
+
+const DRAFT_INPUT_STORAGE_KEY = "input";
+
+function readDraftInput(): string {
+  try {
+    const stored = window.localStorage.getItem(DRAFT_INPUT_STORAGE_KEY);
+    const value: unknown = stored ? JSON.parse(stored) : "";
+    return typeof value === "string" ? value : "";
+  } catch {
+    return "";
+  }
+}
+
+function saveDraftInput(value: string) {
+  try {
+    window.localStorage.setItem(DRAFT_INPUT_STORAGE_KEY, JSON.stringify(value));
+  } catch {
+    // Storage can be full or blocked; the draft just won't survive a reload.
+  }
 }

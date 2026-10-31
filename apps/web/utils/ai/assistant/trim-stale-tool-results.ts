@@ -94,6 +94,8 @@ const STALE_RESULT_PROJECTIONS: Record<
       ...pick(value, [
         "queryUsed",
         "totalReturned",
+        "exactCount",
+        "countError",
         "nextPageToken",
         "hasMore",
       ]),

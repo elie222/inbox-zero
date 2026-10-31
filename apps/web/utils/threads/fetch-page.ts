@@ -6,7 +6,7 @@ import { createPageBuffer } from "@/utils/redis/thread-page-buffer";
 import { getThreadTimestamp } from "@/utils/threads/sort";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 
-import { createOtherSplitFilter } from "@/utils/mail/thread-matches-split";
+import { createOtherSplitFilter } from "@/utils/split-inbox/thread-matches-split";
 
 const LABEL_CONCURRENCY = 4;
 

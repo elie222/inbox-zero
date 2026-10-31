@@ -11,6 +11,10 @@ import {
   ruleHistoryRuleInclude,
   type RuleHistoryTrigger,
 } from "@/utils/rule/rule-history";
+import {
+  RULE_ANALYTICS_EVENTS,
+  trackRuleEvent,
+} from "@/utils/analytics/rule-events.server";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { createEmailProvider } from "@/utils/email/provider";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
@@ -18,7 +22,7 @@ import { getMissingRecipientMessage } from "@/utils/rule/recipient-validation";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import { SafeError } from "@/utils/error";
 import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
-import { validateWebhookUrlFormat } from "@/utils/webhook-validation";
+import { validateWebhookUrlFormat } from "@/utils/outbound-webhook/url-validation";
 import {
   getBlockedLowTrustStaticFromActionTypes,
   LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE,
@@ -171,23 +175,6 @@ export async function partialUpdateRule({
     emailAccountId,
     data,
     triggerType: "conditions_updated",
-  });
-}
-
-export function updateRuleInstructions({
-  ruleId,
-  emailAccountId,
-  instructions,
-}: {
-  ruleId: string;
-  emailAccountId: string;
-  instructions: string;
-}) {
-  return updateRuleAndQueueHistory({
-    ruleId,
-    emailAccountId,
-    data: { instructions },
-    triggerType: "instructions_updated",
   });
 }
 
@@ -634,6 +621,14 @@ export async function deleteRule({
   ruleId: string;
   groupId?: string | null;
 }) {
+  after(() =>
+    trackRuleEvent({
+      emailAccountId,
+      event: RULE_ANALYTICS_EVENTS.ruleDeleted,
+      properties: { ruleId },
+    }),
+  );
+
   if (groupId) {
     const deletedGroups = await prisma.group.deleteMany({
       where: { id: groupId, emailAccountId },
@@ -988,7 +983,22 @@ function queueRuleHistory(params: {
   rule: RuleWithRelations;
   triggerType: RuleHistoryTrigger;
 }) {
+  const { rule, triggerType } = params;
+
   after(() => createRuleHistory(params));
+
+  after(() =>
+    trackRuleEvent({
+      emailAccountId: rule.emailAccountId,
+      event: RULE_ANALYTICS_EVENTS.ruleChanged,
+      properties: {
+        ruleId: rule.id,
+        triggerType,
+        systemType: rule.systemType,
+        enabled: rule.enabled,
+      },
+    }),
+  );
 }
 
 function addNestedActionOwnershipToInputs(

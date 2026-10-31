@@ -18,6 +18,21 @@ export function getAttachmentUrl({
   return `/api/mail/v1/accounts/${encodeURIComponent(accountId)}/attachment-content?${searchParams}`;
 }
 
+export function saveBlob(blob: Blob, filename: string) {
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  try {
+    link.click();
+  } finally {
+    link.remove();
+    // click() can start the download after this turn; 0ms revoke drops the file.
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+  }
+}
+
 export async function fetchAttachment({
   url,
   emailAccountId,

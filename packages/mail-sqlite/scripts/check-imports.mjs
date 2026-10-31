@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 const packageDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const portableFiles = [
   "driver.ts",
+  "contact-suggestions.ts",
   "migrations.ts",
   "store.ts",
   "rows.ts",

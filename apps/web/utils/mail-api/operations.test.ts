@@ -1,6 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { mkdir } from "node:fs/promises";
-import { createHash } from "node:crypto";
 import { createEmailProviderOperationExecutor } from "./operations";
 import type { EmailProvider } from "@/utils/email/types";
 import type { PreparedOperation } from "@inboxzero/mail-core/operations";
@@ -11,14 +9,6 @@ import {
   cancelSnoozedThreadByClientMutationId,
   prepareSnoozedThread,
 } from "@/utils/snooze/scheduler";
-import {
-  createFileBlobStore,
-  writeBlobMetadata,
-} from "@inboxzero/mail-sqlite/blob-store";
-import {
-  accountMailUploadDirectory,
-  cancelAccountUpload,
-} from "./upload-blobs";
 import {
   findScheduledEmail,
   holdEmailForUndo,
@@ -46,6 +36,57 @@ describe("createEmailProviderOperationExecutor", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
+  it.each([
+    "execute",
+    "inspect",
+  ] as const)("%s clears local inbox flags only for confirmed Outlook archive targets", async (method) => {
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "microsoft",
+        async archiveMessages(ids: string[]) {
+          if (ids.includes("missing")) throw new Error("not found 404");
+        },
+        async getMessage(id: string) {
+          if (id === "missing") throw new Error("not found 404");
+          return {
+            id,
+            threadId: `t-${id}`,
+            headers: {
+              from: "newsletter@example.com",
+              to: "owner@example.com",
+            },
+            labelIds: id === "still-inbox" ? ["INBOX"] : [],
+            snippet: id,
+          };
+        },
+      } as unknown as EmailProvider,
+    });
+    prisma.emailMessage.updateMany.mockResolvedValue({ count: 1 });
+
+    const operation = metadataOperation(
+      ["archived", "still-inbox", "missing"].map((messageId) => ({
+        accountId: "acc-1",
+        messageId,
+      })),
+    );
+    const result = await executor[method]({
+      operation,
+      attemptId: "attempt-1",
+      receiptId: "bulk-1",
+      signal: new AbortController().signal,
+    });
+
+    expect(result.status).toBe("confirmed");
+    expect(prisma.emailMessage.updateMany).toHaveBeenCalledExactlyOnceWith({
+      where: {
+        emailAccountId: "acc-1",
+        messageId: { in: ["archived"] },
+      },
+      data: { inbox: false },
+    });
+  });
+
   it("archives every target with one provider call and one batched read", async () => {
     const archiveMessages = vi.fn();
     const getMessage = vi.fn();
@@ -86,6 +127,13 @@ describe("createEmailProviderOperationExecutor", () => {
         (target) => `${target.key.messageId}:${target.outcome}`,
       ),
     ).toEqual(["m1:applied", "m2:applied", "still-inbox:uncertain"]);
+    expect(prisma.emailMessage.updateMany).toHaveBeenCalledExactlyOnceWith({
+      where: {
+        emailAccountId: "acc-1",
+        messageId: { in: ["m1", "m2"] },
+      },
+      data: { inbox: false },
+    });
   });
 
   it("keeps verifying other messages when a batched read fails", async () => {
@@ -122,6 +170,33 @@ describe("createEmailProviderOperationExecutor", () => {
         (target) => `${target.key.messageId}:${target.outcome}`,
       ),
     ).toEqual(["m1:applied", "still-inbox:uncertain", "unreadable:applied"]);
+  });
+
+  it("keeps an applied archive confirmed when the local stats write fails", async () => {
+    const archiveMessages = vi.fn();
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "microsoft",
+        archiveMessages,
+        getMessagesBatch: vi.fn().mockResolvedValue([]),
+      } as unknown as EmailProvider,
+    });
+    prisma.emailMessage.updateMany.mockRejectedValue(
+      new Error("database unavailable"),
+    );
+
+    const result = await executor.execute({
+      operation: metadataOperation([
+        { accountId: "acc-1", messageId: "archived" },
+      ]),
+      attemptId: "attempt-1",
+      signal: new AbortController().signal,
+    });
+
+    expect(result.status).toBe("confirmed");
+    expect(archiveMessages).toHaveBeenCalledOnce();
+    expect(prisma.emailMessage.updateMany).toHaveBeenCalledOnce();
   });
 
   it("falls back to per-message outcomes when the bulk call fails", async () => {
@@ -183,6 +258,7 @@ describe("createEmailProviderOperationExecutor", () => {
       signal: new AbortController().signal,
     });
     expect(result).toEqual({ status: "uncertain", receiptId: "bulk-1" });
+    expect(prisma.emailMessage.updateMany).not.toHaveBeenCalled();
   });
 
   it("confirms inspected archive after the provider message leaves the inbox", async () => {
@@ -333,7 +409,7 @@ describe("createEmailProviderOperationExecutor", () => {
       provider: { name: "google" } as unknown as EmailProvider,
     });
     const result = await executor.execute({
-      operation: sendOperation([], undefined, {
+      operation: sendOperation(undefined, {
         replyToMessageId: "msg-1",
         replyToConversationId: "thread-1",
       }),
@@ -366,7 +442,7 @@ describe("createEmailProviderOperationExecutor", () => {
       provider: { name: "google" } as unknown as EmailProvider,
     });
     const result = await executor.execute({
-      operation: sendOperation([], "gmail-draft-1"),
+      operation: sendOperation("gmail-draft-1"),
       attemptId: "a-send-draft",
       signal: new AbortController().signal,
     });
@@ -380,194 +456,6 @@ describe("createEmailProviderOperationExecutor", () => {
         }),
       }),
     );
-  });
-
-  it("loads staged blob attachments into the durable send payload", async () => {
-    const png = Buffer.from(
-      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
-      "base64",
-    );
-    const directory = accountMailUploadDirectory("acc-1");
-    await mkdir(directory, { recursive: true });
-    const store = createFileBlobStore(directory);
-    const checksum = createHash("sha256").update(png).digest("hex");
-    await store.stage({
-      blobId: "blob-1",
-      bytes: (async function* () {
-        yield png;
-      })(),
-      checksum,
-      sizeBytes: png.byteLength,
-    });
-    await store.finalize("blob-1");
-    await writeBlobMetadata(directory, "blob-1", {
-      filename: "dot.png",
-      contentType: "image/png",
-    });
-    vi.mocked(executeDurableEmailSend).mockResolvedValue({
-      status: "applied",
-      result: { messageId: "sent-2", threadId: "t-2" },
-    });
-    const executor = createEmailProviderOperationExecutor({
-      accountId: "acc-1",
-      provider: { name: "google" } as unknown as EmailProvider,
-    });
-    const result = await executor.execute({
-      operation: sendOperation(["blob-1"]),
-      attemptId: "a-send-attach",
-      signal: new AbortController().signal,
-    });
-    expect(result.status).toBe("confirmed");
-    expect(await store.read("blob-1")).toBeNull();
-    expect(executeDurableEmailSend).toHaveBeenCalledWith(
-      expect.objectContaining({
-        attachmentIds: ["blob-1"],
-        input: expect.objectContaining({
-          email: expect.objectContaining({
-            attachments: [
-              expect.objectContaining({
-                filename: "dot.png",
-                contentType: "image/png",
-                content: png.toString("base64"),
-              }),
-            ],
-          }),
-        }),
-      }),
-    );
-  });
-
-  it("rejects a send before provider dispatch when a requested attachment blob is missing", async () => {
-    const executor = createEmailProviderOperationExecutor({
-      accountId: "acc-1",
-      provider: { name: "google" } as unknown as EmailProvider,
-    });
-    const result = await executor.execute({
-      operation: sendOperation(["missing-blob"]),
-      attemptId: "a-send-missing-attachment",
-      signal: new AbortController().signal,
-    });
-    expect(result).toEqual({
-      status: "rejected",
-      code: "missing_attachment",
-      targets: [],
-    });
-    expect(executeDurableEmailSend).not.toHaveBeenCalled();
-  });
-
-  it("keeps staged blobs when send is still uncertain", async () => {
-    const store = await stageAccountBlob("acc-1", "blob-hold");
-    vi.mocked(executeDurableEmailSend).mockResolvedValue({
-      status: "uncertain",
-    });
-    const executor = createEmailProviderOperationExecutor({
-      accountId: "acc-1",
-      provider: { name: "google" } as unknown as EmailProvider,
-    });
-    const result = await executor.execute({
-      operation: sendOperation(["blob-hold"]),
-      attemptId: "a-send-hold",
-      signal: new AbortController().signal,
-    });
-    expect(result.status).toBe("uncertain");
-    expect(await store.read("blob-hold")).not.toBeNull();
-    expect(await cancelAccountUpload("acc-1", "blob-hold")).toEqual({
-      status: "deleted",
-      blobId: "blob-hold",
-    });
-  });
-
-  it("refuses cancel of a blob while send execute still needs it", async () => {
-    const store = await stageAccountBlob("acc-1", "blob-live");
-    vi.mocked(executeDurableEmailSend).mockImplementation(async () => {
-      expect(await cancelAccountUpload("acc-1", "blob-live")).toEqual({
-        status: "in_use",
-        blobId: "blob-live",
-      });
-      expect(await store.read("blob-live")).not.toBeNull();
-      return {
-        status: "applied",
-        result: { messageId: "sent-live", threadId: "t-live" },
-      };
-    });
-    const executor = createEmailProviderOperationExecutor({
-      accountId: "acc-1",
-      provider: { name: "google" } as unknown as EmailProvider,
-    });
-    const result = await executor.execute({
-      operation: sendOperation(["blob-live"]),
-      attemptId: "a-send-live",
-      signal: new AbortController().signal,
-    });
-    expect(result.status).toBe("confirmed");
-    expect(await store.read("blob-live")).toBeNull();
-    expect(await cancelAccountUpload("acc-1", "blob-live")).toEqual({
-      status: "deleted",
-      blobId: "blob-live",
-    });
-  });
-
-  it("drops the hold when send execute throws", async () => {
-    await stageAccountBlob("acc-1", "blob-throw");
-    vi.mocked(executeDurableEmailSend).mockRejectedValue(
-      new Error("provider down"),
-    );
-    const executor = createEmailProviderOperationExecutor({
-      accountId: "acc-1",
-      provider: { name: "google" } as unknown as EmailProvider,
-    });
-    await expect(
-      executor.execute({
-        operation: sendOperation(["blob-throw"]),
-        attemptId: "a-send-throw",
-        signal: new AbortController().signal,
-      }),
-    ).rejects.toThrow("provider down");
-    expect(await cancelAccountUpload("acc-1", "blob-throw")).toEqual({
-      status: "deleted",
-      blobId: "blob-throw",
-    });
-  });
-
-  it("does not delete a sibling staged upload when another send confirms", async () => {
-    const store = await stageAccountBlob("acc-1", "blob-send");
-    await stageAccountBlob("acc-1", "blob-sibling");
-    vi.mocked(executeDurableEmailSend).mockResolvedValue({
-      status: "applied",
-      result: { messageId: "sent-keep", threadId: "t-keep" },
-    });
-    const executor = createEmailProviderOperationExecutor({
-      accountId: "acc-1",
-      provider: { name: "google" } as unknown as EmailProvider,
-    });
-    const result = await executor.execute({
-      operation: sendOperation(["blob-send"]),
-      attemptId: "a-send-keep",
-      signal: new AbortController().signal,
-    });
-    expect(result.status).toBe("confirmed");
-    expect(await store.read("blob-send")).toBeNull();
-    expect(await store.read("blob-sibling")).not.toBeNull();
-  });
-
-  it("deletes staged blobs when inspect confirms a send", async () => {
-    const store = await stageAccountBlob("acc-1", "blob-inspect");
-    prisma.emailSendOperation.findUnique.mockResolvedValue({
-      status: "SENT",
-      result: { messageId: "sent-3" },
-    } as never);
-    const executor = createEmailProviderOperationExecutor({
-      accountId: "acc-1",
-      provider: { name: "google" } as unknown as EmailProvider,
-    });
-    const result = await executor.inspect({
-      operation: sendOperation(["blob-inspect"]),
-      receiptId: "receipt",
-      signal: new AbortController().signal,
-    });
-    expect(result.status).toBe("confirmed");
-    expect(await store.read("blob-inspect")).toBeNull();
-    expect(executeDurableEmailSend).not.toHaveBeenCalled();
   });
 
   it("inspects a persisted send receipt without sending again", async () => {
@@ -623,6 +511,31 @@ describe("createEmailProviderOperationExecutor", () => {
         }),
       }),
     );
+  });
+
+  it("holds a send with files by its mailbox draft, never their bytes", async () => {
+    vi.mocked(findScheduledEmail).mockResolvedValue(null);
+    vi.mocked(holdEmailForUndo).mockImplementation(async ({ input, sendAt }) =>
+      heldRow({ payload: input, sendAt }),
+    );
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: { name: "google" } as unknown as EmailProvider,
+    });
+    const operation = heldSendOperation(Date.now() + 30_000);
+    if (operation.intent.kind !== "send") throw new Error("expected send");
+    operation.intent.providerDraftId = "draft-1";
+
+    const result = await executor.execute({
+      operation,
+      attemptId: "a-held-draft",
+      signal: new AbortController().signal,
+    });
+
+    expect(result).toMatchObject({ status: "accepted" });
+    const { input } = vi.mocked(holdEmailForUndo).mock.calls[0][0];
+    expect(input.email.providerDraftId).toBe("draft-1");
+    expect(input.email.attachments).toBeUndefined();
   });
 
   it("confirms a held send from its receipt once the server sent it", async () => {
@@ -1026,7 +939,6 @@ function snoozeOperation(untilMs: number): PreparedOperation {
 }
 
 function sendOperation(
-  attachmentIds: string[] = [],
   providerDraftId?: string,
   reply?: { replyToMessageId: string; replyToConversationId: string },
 ): PreparedOperation {
@@ -1048,7 +960,6 @@ function sendOperation(
       subject: "Hi",
       html: "<p>Hi</p>",
       quotedHtml: "",
-      attachmentIds,
       ...(providerDraftId ? { providerDraftId } : {}),
       replyToMessageId: reply?.replyToMessageId ?? null,
       replyToConversationId: reply?.replyToConversationId ?? null,
@@ -1058,7 +969,7 @@ function sendOperation(
 }
 
 function heldSendOperation(sendAtMs: number): PreparedOperation {
-  const operation = sendOperation([], undefined, {
+  const operation = sendOperation(undefined, {
     replyToMessageId: "msg-1",
     replyToConversationId: "thread-1",
   });
@@ -1070,6 +981,7 @@ function heldRow(overrides: Partial<ScheduledEmail> = {}): ScheduledEmail {
   const now = new Date();
   return {
     id: "held-1",
+    draftMessageIds: [],
     createdAt: now,
     updatedAt: now,
     emailAccountId: "acc-1",
@@ -1089,24 +1001,4 @@ function heldRow(overrides: Partial<ScheduledEmail> = {}): ScheduledEmail {
     heldForUndo: true,
     ...overrides,
   };
-}
-
-async function stageAccountBlob(accountId: string, blobId: string) {
-  const png = Buffer.from("blob", "utf8");
-  const directory = accountMailUploadDirectory(accountId);
-  await mkdir(directory, { recursive: true });
-  const store = createFileBlobStore(directory);
-  const checksum = createHash("sha256").update(png).digest("hex");
-  expect(
-    await store.stage({
-      blobId,
-      bytes: (async function* () {
-        yield png;
-      })(),
-      checksum,
-      sizeBytes: png.byteLength,
-    }),
-  ).toEqual({ status: "staged" });
-  expect(await store.finalize(blobId)).toMatchObject({ blobId });
-  return store;
 }

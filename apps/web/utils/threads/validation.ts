@@ -2,11 +2,11 @@ import { z } from "zod";
 import {
   MAX_SPLIT_FILTERS,
   mailSplitFiltersSchema,
-} from "@/utils/mail/split-filters";
+} from "@/utils/split-inbox/split-filters";
 import {
   MAX_MAIL_SPLITS,
   MAX_SPLIT_LABELS,
-} from "@/utils/mail/split-constants";
+} from "@/utils/split-inbox/split-constants";
 import { microsoftGraphPageTokenSchema } from "@/utils/outlook/page-token";
 import { createSearchParams } from "@/utils/url";
 

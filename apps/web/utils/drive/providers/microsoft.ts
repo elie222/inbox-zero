@@ -8,9 +8,9 @@ import { createScopedLogger } from "@/utils/logger";
 import {
   fetchMicrosoftGraph,
   getMicrosoftGraphClientOptions,
-} from "@/utils/microsoft/oauth";
+} from "@/utils/outlook/oauth";
 import { isNotFoundError } from "@/utils/outlook/errors";
-import { uploadResumableChunks } from "@/utils/microsoft/upload-session";
+import { uploadResumableChunks } from "@/utils/outlook/upload-session";
 import type {
   DriveProvider,
   DriveFolder,

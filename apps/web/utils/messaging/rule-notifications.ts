@@ -49,19 +49,19 @@ import { getFormattedSenderAddress } from "@/utils/email/get-formatted-sender-ad
 import { resolveActionAttachments } from "@/utils/ai/action-attachments";
 import { quotePlainTextContent } from "@/utils/email/quoted-plain-text";
 import { formatReplySubject } from "@/utils/email/subject";
-import { emailToContent } from "@/utils/mail";
+import { convertEmailHtmlToText, emailToContent } from "@/utils/mail";
+import {
+  getProviderSignatureHtml,
+  stripProviderSignatureHtml,
+} from "@/utils/email/signature-normalization";
 import {
   extractDraftPlainText,
   stripQuotedContent,
 } from "@/utils/ai/choose-rule/draft-management";
 import type { ParsedMessage } from "@/utils/types";
-import he from "he";
+import * as he from "he";
 import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
-import {
-  isGoogleProvider,
-  isMicrosoftProvider,
-} from "@/utils/email/provider-types";
 import {
   isMessagingChannelOperational,
   isOperationalSlackChannel,
@@ -73,7 +73,10 @@ import {
 import { getMessagingAdapterRegistry } from "@/utils/messaging/chat-sdk/adapters";
 import { markdownToTelegramText } from "@/utils/messaging/providers/telegram/format";
 import { getMessagingRoute } from "@/utils/messaging/routes";
-import { getEmailUrlForOptionalMessage } from "@/utils/url";
+import {
+  getEmailUrlForOptionalMessage,
+  getOpenInMailboxLabel,
+} from "@/utils/url";
 import {
   attachmentSourceInputSchema,
   selectedAttachmentSchema,
@@ -125,6 +128,7 @@ type NotificationOpenLink = {
 };
 
 type NotificationEmailPreview = {
+  externalUrl?: string;
   headers: {
     from: string;
     subject: string;
@@ -429,7 +433,7 @@ async function sendSlackRuleNotificationWithContext({
     actionId: context.id,
     actionType: context.type,
     content,
-    openLink: getNotificationOpenLink(context),
+    openLink: getNotificationOpenLink(context, email.externalUrl),
   });
 
   try {
@@ -646,7 +650,7 @@ async function sendTelegramRuleNotificationWithContext({
       buildTelegramNotificationCard({
         actionId: context.id,
         content,
-        openLink: getNotificationOpenLink(context),
+        openLink: getNotificationOpenLink(context, email.externalUrl),
       }),
     );
 
@@ -779,13 +783,21 @@ export async function handleSlackRuleNotificationModalSubmit({
   }
 
   const mailboxDraftAction = getMailboxDraftActionForMessagingDraft(context);
+  // Without a mailbox draft the stored content is what gets sent, so it keeps
+  // the signature the edit box left out.
+  const signatureHtml = mailboxDraftAction?.draftId
+    ? ""
+    : getProviderSignatureHtml(context.content || "");
+  const nextContentHtml = signatureHtml
+    ? `${escapeHtml(nextContent)}\n\n${signatureHtml}`
+    : escapeHtml(nextContent);
 
   if (mailboxDraftAction?.draftId) {
     try {
       const provider = await createProviderForContext(context, logger);
 
       await provider.updateDraft(mailboxDraftAction.draftId, {
-        messageHtml: convertNewlinesToBr(escapeHtml(nextContent)),
+        messageHtml: convertNewlinesToBr(nextContentHtml),
         ...(mailboxDraftAction.subject
           ? { subject: mailboxDraftAction.subject }
           : {}),
@@ -813,13 +825,13 @@ export async function handleSlackRuleNotificationModalSubmit({
       },
     },
     data: {
-      content: nextContent,
+      content: nextContentHtml,
     },
   });
 
   try {
     await sendDraftReplyFromNotification({
-      context: { ...context, content: nextContent },
+      context: { ...context, content: nextContentHtml },
       logger,
       editMessage: async (card) => {
         if (!event.relatedMessage) {
@@ -1074,7 +1086,10 @@ async function sendDraftReplyFromNotification({
     card: buildHandledNotificationCardForProvider({
       provider: context.messagingChannel?.provider,
       content: notificationContent,
-      openLink: getNotificationOpenLink(context),
+      openLink: getNotificationOpenLink(
+        context,
+        sourceMessageSummary.externalUrl,
+      ),
       status: "Reply sent. ✅",
     }),
   });
@@ -1227,7 +1242,8 @@ export function buildNotificationReplySendBody({
     cc: cc ?? undefined,
     bcc: bcc ?? undefined,
     subject: subject || formatReplySubject(sourceMessage.headers.subject),
-    messageHtml: convertNewlinesToBr(escapeHtml(content)),
+    // Stored draft content is already HTML-safe, like the mailbox draft body.
+    messageHtml: convertNewlinesToBr(content),
     ...(formattedFrom ? { from: formattedFrom } : {}),
     attachments,
   };
@@ -1627,6 +1643,16 @@ async function getNotificationContext(executedActionId: string) {
   });
 }
 
+// The edit box shows the stored HTML body as text; the signature stays out of
+// it and is reattached when the edit is saved.
+function getStoredDraftEditableText(content: string) {
+  return convertEmailHtmlToText({
+    htmlText: convertNewlinesToBr(stripProviderSignatureHtml(content)),
+    wordwrap: false,
+    uppercaseHeadings: false,
+  });
+}
+
 function getMailboxDraftActionForMessagingDraft(context: NotificationContext) {
   if (context.draftId) {
     return {
@@ -1662,7 +1688,7 @@ async function getEditableDraftContent({
     }
   }
 
-  return stripQuotedContent(context.content || "");
+  return stripQuotedContent(getStoredDraftEditableText(context.content || ""));
 }
 
 async function getNotificationDraftContent({
@@ -1767,6 +1793,7 @@ async function getSourceMessageSummaryForProvider({
     textPlain: message.textPlain,
     textHtml: message.textHtml,
     attachments: message.attachments,
+    externalUrl: message.externalUrl,
   };
 }
 
@@ -2081,8 +2108,13 @@ function buildDraftPreview(
 ) {
   if (!content?.trim()) return "No draft preview available.";
 
+  // Stored draft bodies carry the account's HTML signature, which chat
+  // formatting can't render; the user already knows what it says.
+  const draftHtml = stripProviderSignatureHtml(content);
   const preview = stripQuotedContent(
-    removeExcessiveWhitespace(richTextToSlackMrkdwn(he.decode(content))).trim(),
+    removeExcessiveWhitespace(
+      richTextToSlackMrkdwn(he.decode(draftHtml)),
+    ).trim(),
   );
   return truncate(
     format === "slack" ? preview : stripSlackFormatting(preview),
@@ -2221,13 +2253,10 @@ function getInfoNotificationTitle(systemType: SystemType | null) {
 
 function getNotificationOpenLink(
   context: NotificationContext,
+  externalUrl?: string,
 ): NotificationOpenLink | null {
   const provider = context.executedRule.emailAccount.account.provider;
-  const label = isGoogleProvider(provider)
-    ? "Open in Gmail"
-    : isMicrosoftProvider(provider)
-      ? "Open in Outlook"
-      : null;
+  const label = getOpenInMailboxLabel(provider);
   if (!label) return null;
 
   const url = getEmailUrlForOptionalMessage({
@@ -2235,6 +2264,7 @@ function getNotificationOpenLink(
     threadId: context.executedRule.threadId,
     emailAddress: context.executedRule.emailAccount.email,
     provider,
+    externalUrl,
   });
   if (!url) return null;
 

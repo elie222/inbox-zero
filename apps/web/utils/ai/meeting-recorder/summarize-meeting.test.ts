@@ -64,8 +64,12 @@ describe("aiSummarizeMeeting", () => {
         string,
         {
           anyOf?: Array<{ type?: string }>;
+          type?: string | string[];
           items?: {
-            properties: Record<string, { anyOf?: Array<{ type?: string }> }>;
+            properties: Record<
+              string,
+              { anyOf?: Array<{ type?: string }>; type?: string | string[] }
+            >;
             required?: string[];
           };
         }
@@ -82,15 +86,9 @@ describe("aiSummarizeMeeting", () => {
     expect([...(actionItem?.required ?? [])].sort()).toEqual(
       Object.keys(actionItem?.properties ?? {}).sort(),
     );
-    expect(jsonSchema.properties.openQuestions.anyOf).toContainEqual({
-      type: "null",
-    });
-    expect(jsonSchema.properties.nextSteps.anyOf).toContainEqual({
-      type: "null",
-    });
-    expect(actionItem?.properties.owner.anyOf).toContainEqual({
-      type: "null",
-    });
+    expect(schemaAllowsNull(jsonSchema.properties.openQuestions)).toBe(true);
+    expect(schemaAllowsNull(jsonSchema.properties.nextSteps)).toBe(true);
+    expect(schemaAllowsNull(actionItem?.properties.owner)).toBe(true);
 
     expect(summary).toEqual(object);
   });
@@ -113,3 +111,15 @@ describe("aiSummarizeMeeting", () => {
     });
   });
 });
+
+function schemaAllowsNull(
+  schema:
+    | {
+        anyOf?: Array<{ type?: string }>;
+        type?: string | string[];
+      }
+    | undefined,
+) {
+  if (schema?.anyOf?.some((option) => option.type === "null")) return true;
+  return Array.isArray(schema?.type) && schema.type.includes("null");
+}

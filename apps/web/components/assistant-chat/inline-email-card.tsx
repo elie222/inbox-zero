@@ -658,6 +658,8 @@ function EmailPreview({
     >
       {lastMessage.textHtml ? (
         <HtmlEmail
+          // A newer message is a different email, not an update of this one.
+          key={lastMessage.id}
           emailAccountId={emailAccountId}
           html={lastMessage.textHtml}
           inlineAttachments={lastMessage.inline}

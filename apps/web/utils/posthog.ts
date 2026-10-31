@@ -1,4 +1,3 @@
-import { after } from "next/server";
 import { PostHog } from "posthog-node";
 import type { Properties } from "posthog-js";
 import { env } from "@/env";
@@ -26,43 +25,6 @@ export function getPosthogLlmClient() {
   }
 
   return posthogLlmClient;
-}
-
-const FEATURE_FLAG_TIMEOUT_MS = 2000;
-
-// Server-side experiment lookup. Keyed by the same distinct id the browser
-// identifies with (the user's email) so assignment and exposure line up with
-// client-side flag calls. Falls back to undefined on any failure or timeout so
-// a PostHog outage never blocks a page. The exposure event is flushed after
-// the response, since a redirect would otherwise end the request before the
-// client's background send completes.
-export async function getServerFeatureFlagVariant({
-  key,
-  distinctId,
-}: {
-  key: string;
-  distinctId: string;
-}): Promise<string | undefined> {
-  const client = getPosthogLlmClient();
-  if (!client) return;
-
-  try {
-    const variant = await Promise.race([
-      client.getFeatureFlag(key, distinctId),
-      new Promise<undefined>((resolve) =>
-        setTimeout(resolve, FEATURE_FLAG_TIMEOUT_MS),
-      ),
-    ]);
-    after(() =>
-      client.flush().catch((error) => {
-        logger.warn("Failed to flush feature flag exposure", { key, error });
-      }),
-    );
-    return typeof variant === "string" ? variant : undefined;
-  } catch (error) {
-    logger.warn("Failed to evaluate feature flag", { key, error });
-    return;
-  }
 }
 
 export function isPosthogLlmEvalApproved(email: string) {
@@ -173,6 +135,8 @@ export async function posthogCaptureEvent(
   // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   properties?: Record<string, any>,
   sendFeatureFlags?: boolean,
+  // A stable uuid with the same timestamp lets PostHog drop redeliveries.
+  { uuid, timestamp }: { uuid?: string; timestamp?: Date } = {},
 ) {
   try {
     if (!env.NEXT_PUBLIC_POSTHOG_KEY) {
@@ -186,6 +150,8 @@ export async function posthogCaptureEvent(
       event,
       properties,
       sendFeatureFlags,
+      uuid,
+      timestamp,
     });
     try {
       await client.flush();
@@ -531,6 +497,13 @@ export async function trackFirstTimeEvent({
   } catch (error) {
     logger.error("Error tracking first-time event", { error, event });
   }
+}
+
+export async function trackSignupIntent(email: string, intent: string) {
+  return posthogCaptureEvent(email, "Signup intent selected", {
+    signupIntent: intent,
+    $set: { signupIntent: intent },
+  });
 }
 
 export async function trackOnboardingAnswer(

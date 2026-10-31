@@ -1,6 +1,10 @@
 "use client";
 
 import {
+  MailListToolbarSurface,
+  MailSearchSurface,
+} from "@inboxzero/mail-ui/MailListToolbarSurface";
+import {
   memo,
   useId,
   useRef,
@@ -15,18 +19,21 @@ import {
   ColumnsIcon,
   MailIcon,
   MailOpenIcon,
+  PanelLeftIcon,
   RowsIcon,
   SearchIcon,
   SparklesIcon,
+  StarIcon,
+  StarOffIcon,
   TagIcon,
   TextIcon,
   Trash2Icon,
   XIcon,
 } from "lucide-react";
-import { MailTitlebarNav } from "@/app/(app)/[emailAccountId]/mail/MailTitlebarNav";
 import { MailSearchFiltersForm } from "@/app/(app)/[emailAccountId]/mail/MailSearchFilters";
 import { OutlookSearchFiltersForm } from "@/app/(app)/[emailAccountId]/mail/OutlookSearchFilters";
 import {
+  MailSearchHint,
   MailSearchSuggestionList,
   suggestionOptionId,
   useMailSearchSuggestions,
@@ -39,6 +46,7 @@ import { parseMailSearchQuery } from "@/app/(app)/[emailAccountId]/mail/mail-sea
 import { parseOutlookSearchQuery } from "@/app/(app)/[emailAccountId]/mail/outlook-search-query";
 import type { MailLayoutMode } from "@/app/(app)/[emailAccountId]/mail/types";
 import { Tooltip } from "@/components/Tooltip";
+import { useSidebar } from "@/components/ui/sidebar";
 import {
   Popover,
   PopoverAnchor,
@@ -50,8 +58,6 @@ import { cn } from "@/utils";
 
 export type ListToolbarProps = {
   layout: MailLayoutMode;
-  isDesktopApp: boolean;
-  showLayoutToggle?: boolean;
   expandedPreview: boolean;
   /** Committed search query. */
   searchQuery: string;
@@ -77,15 +83,18 @@ export type ListToolbarProps = {
   isUnreadSelected: boolean;
   onMarkReadSelected: () => void;
   onMarkUnreadSelected: () => void;
+  /** True when every selected conversation is already starred. */
+  isStarredSelected: boolean;
+  onStarSelected: () => void;
   /** Omitted when the current view can't label (combined inboxes). */
   onLabelSelected?: () => void;
   onClearSelection: () => void;
+  /** Opens the mail navigation panel on screens too narrow for the rail. */
+  onOpenMailNav: () => void;
 };
 
 export const ListToolbar = memo(function ListToolbar({
   layout,
-  isDesktopApp,
-  showLayoutToggle = true,
   expandedPreview,
   searchQuery = "",
   onSearch,
@@ -106,14 +115,33 @@ export const ListToolbar = memo(function ListToolbar({
   isUnreadSelected,
   onMarkReadSelected,
   onMarkUnreadSelected,
+  isStarredSelected,
+  onStarSelected,
   onLabelSelected,
   onClearSelection,
+  onOpenMailNav,
 }: ListToolbarProps) {
   const LayoutIcon = layout === "split" ? ColumnsIcon : RowsIcon;
+  const { state } = useSidebar();
+  const isSidebarCollapsed = !state.includes("left-sidebar");
 
   return (
-    <div className="flex shrink-0 items-center gap-2 px-3 pt-3 pb-3">
-      <MailTitlebarNav showHistory={isDesktopApp} />
+    <MailListToolbarSurface
+      className={cn(
+        // The collapsed rail is narrower than the mac traffic lights, so the
+        // toolbar starts after them and the sidebar toggle lifted beside them.
+        isSidebarCollapsed &&
+          "lg:pl-[max(0.75rem,calc(var(--desktop-traffic-lights-width,0px)-0.75rem))]",
+      )}
+    >
+      <button
+        type="button"
+        onClick={onOpenMailNav}
+        aria-label="Open navigation"
+        className={cn(toolbarButton, "w-8 justify-center px-0 lg:hidden")}
+      >
+        <PanelLeftIcon className="size-3.5" />
+      </button>
       {selectAll}
 
       {/* Selection swaps the toolbar's controls in place so the list never
@@ -165,6 +193,21 @@ export const ListToolbar = memo(function ListToolbar({
                 <MailOpenIcon className="size-3.5" />
               ) : (
                 <MailIcon className="size-3.5" />
+              )}
+            </button>
+          </Tooltip>
+
+          <Tooltip shortcuts={["star"]}>
+            <button
+              type="button"
+              onClick={onStarSelected}
+              aria-label={isStarredSelected ? "Unstar" : "Star"}
+              className={cn(toolbarButton, "w-8 justify-center px-0")}
+            >
+              {isStarredSelected ? (
+                <StarOffIcon className="size-3.5" />
+              ) : (
+                <StarIcon className="size-3.5" />
               )}
             </button>
           </Tooltip>
@@ -249,7 +292,7 @@ export const ListToolbar = memo(function ListToolbar({
         </Tooltip>
       ) : null}
 
-      {showLayoutToggle && selectedCount === 0 ? (
+      {selectedCount === 0 ? (
         <Tooltip
           shortcuts={[
             { id: "toggleLayout", label: "Switch list / split view" },
@@ -267,21 +310,18 @@ export const ListToolbar = memo(function ListToolbar({
       ) : null}
 
       {selectedCount === 0 ? (
-        <Tooltip content="Assistant">
+        <Tooltip shortcuts={["toggleAssistant"]}>
           <button
             type="button"
             onClick={onToggleAssistant}
             aria-label="Toggle the assistant"
-            className={cn(
-              toolbarButton,
-              "w-8 justify-center border-blue-600 bg-blue-600 px-0 text-white hover:border-blue-700 hover:bg-blue-700 hover:text-white dark:border-blue-700 dark:bg-blue-700 dark:hover:border-blue-800 dark:hover:bg-blue-800",
-            )}
+            className={cn(toolbarButton, "w-8 justify-center px-0")}
           >
             <SparklesIcon className="size-3.5" />
           </button>
         </Tooltip>
       ) : null}
-    </div>
+    </MailListToolbarSurface>
   );
 });
 
@@ -323,6 +363,12 @@ function MailSearchInput({
     recentSearches,
   });
   const suggestionsOpen = suggestions.length > 0;
+  const hintOpen =
+    focused &&
+    !draft &&
+    !suggestionsOpen &&
+    !filtersOpen &&
+    !suggestionsDismissed;
   const highlightedIndex = activeIndex < suggestions.length ? activeIndex : -1;
 
   const commitSearch = (query: string) => {
@@ -341,126 +387,128 @@ function MailSearchInput({
       }}
     >
       <PopoverAnchor asChild>
-        <div
-          className={cn(
-            "relative flex h-8 min-w-0 flex-1 items-center rounded-lg border border-border bg-sidebar text-muted-foreground text-sm transition-colors focus-within:border-[hsl(var(--border-strong))] focus-within:bg-background hover:border-[hsl(var(--border-strong))]",
-            filtersOpen && "border-[hsl(var(--border-strong))] bg-background",
-          )}
+        <MailSearchSurface
+          active={filtersOpen}
+          searchIcon={<SearchIcon className="size-3.5 shrink-0" />}
+          onSubmit={(event) => {
+            event.preventDefault();
+            commitSearch(draft);
+          }}
+          controls={
+            <>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Show search options"
+                  aria-expanded={filtersOpen}
+                  className={cn(
+                    "flex h-full w-7 shrink-0 items-center justify-center rounded-r-lg text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    filtersOpen && "text-foreground",
+                  )}
+                >
+                  <ChevronDownIcon
+                    className={cn(
+                      "size-3.5 transition-transform",
+                      filtersOpen && "rotate-180",
+                    )}
+                  />
+                </button>
+              </PopoverTrigger>
+              {suggestionsOpen ? (
+                <MailSearchSuggestionList
+                  activeIndex={highlightedIndex}
+                  id={suggestionListId}
+                  onSelect={(suggestion) => commitSearch(suggestion.query)}
+                  suggestions={suggestions}
+                />
+              ) : null}
+              {hintOpen ? <MailSearchHint /> : null}
+            </>
+          }
         >
-          <form
-            role="search"
-            onSubmit={(event) => {
-              event.preventDefault();
-              commitSearch(draft);
+          <input
+            ref={inputRef}
+            value={draft}
+            placeholder="Search mail"
+            enterKeyHint="search"
+            role="combobox"
+            aria-label="Search mail"
+            aria-autocomplete="list"
+            aria-expanded={suggestionsOpen}
+            aria-controls={suggestionsOpen ? suggestionListId : undefined}
+            aria-activedescendant={
+              highlightedIndex >= 0
+                ? suggestionOptionId(suggestionListId, highlightedIndex)
+                : undefined
+            }
+            // The forms plugin sizes untyped inputs at 1rem, so the size has
+            // to be stated for the field to match the rest of the toolbar.
+            className="h-full min-w-0 flex-1 border-0 bg-transparent p-0 text-foreground text-sm outline-none focus:ring-0 placeholder:text-muted-foreground"
+            onChange={(event) => {
+              onSearchChange(event.target.value);
+              setActiveIndex(-1);
+              setSuggestionsDismissed(false);
             }}
-            className="flex h-full min-w-0 flex-1 items-center gap-2 px-2.5"
-          >
-            <SearchIcon className="size-3.5 shrink-0" />
-            <input
-              ref={inputRef}
-              value={draft}
-              placeholder="Search mail"
-              enterKeyHint="search"
-              role="combobox"
-              aria-label="Search mail"
-              aria-autocomplete="list"
-              aria-expanded={suggestionsOpen}
-              aria-controls={suggestionsOpen ? suggestionListId : undefined}
-              aria-activedescendant={
-                highlightedIndex >= 0
-                  ? suggestionOptionId(suggestionListId, highlightedIndex)
-                  : undefined
+            onFocus={() => {
+              setRecentSearches(readRecentSearches(emailAccountId));
+              setFocused(true);
+            }}
+            onBlur={() => {
+              setFocused(false);
+              setActiveIndex(-1);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowDown" && suggestionsOpen) {
+                event.preventDefault();
+                setActiveIndex(
+                  Math.min(highlightedIndex + 1, suggestions.length - 1),
+                );
+                return;
               }
-              // The forms plugin sizes untyped inputs at 1rem, so the size has
-              // to be stated for the field to match the rest of the toolbar.
-              className="h-full min-w-0 flex-1 border-0 bg-transparent p-0 text-foreground text-sm outline-none focus:ring-0 placeholder:text-muted-foreground"
-              onChange={(event) => {
-                onSearchChange(event.target.value);
+              if (event.key === "ArrowUp" && suggestionsOpen) {
+                event.preventDefault();
+                setActiveIndex(Math.max(highlightedIndex - 1, -1));
+                return;
+              }
+              if (event.key === "Enter" && highlightedIndex >= 0) {
+                event.preventDefault();
+                commitSearch(suggestions[highlightedIndex].query);
+                return;
+              }
+              if (event.key !== "Escape") return;
+              // The mail-wide Escape shortcut also clears the search, so a
+              // press handled here must not reach it.
+              if (suggestionsOpen || filtersOpen || draft || searchQuery) {
+                event.preventDefault();
+              }
+              if (suggestionsOpen) {
+                setSuggestionsDismissed(true);
                 setActiveIndex(-1);
-                setSuggestionsDismissed(false);
-              }}
-              onFocus={() => {
-                setRecentSearches(readRecentSearches(emailAccountId));
-                setFocused(true);
-              }}
-              onBlur={() => {
-                setFocused(false);
-                setActiveIndex(-1);
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "ArrowDown" && suggestionsOpen) {
-                  event.preventDefault();
-                  setActiveIndex(
-                    Math.min(highlightedIndex + 1, suggestions.length - 1),
-                  );
-                  return;
-                }
-                if (event.key === "ArrowUp" && suggestionsOpen) {
-                  event.preventDefault();
-                  setActiveIndex(Math.max(highlightedIndex - 1, -1));
-                  return;
-                }
-                if (event.key === "Enter" && highlightedIndex >= 0) {
-                  event.preventDefault();
-                  commitSearch(suggestions[highlightedIndex].query);
-                  return;
-                }
-                if (event.key !== "Escape") return;
-                if (suggestionsOpen) {
-                  setSuggestionsDismissed(true);
-                  setActiveIndex(-1);
-                  return;
-                }
-                if (filtersOpen) {
-                  setFiltersOpen(false);
-                  return;
-                }
-                if (draft || searchQuery) {
-                  onSearchChange("");
-                  onSearch("");
-                } else {
-                  inputRef.current?.blur();
-                }
-              }}
-            />
-            {draft || searchQuery ? (
-              <button
-                type="button"
-                aria-label="Clear search"
-                onClick={() => onSearch("")}
-                className="shrink-0 rounded p-0.5 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <XIcon className="size-3.5" />
-              </button>
-            ) : null}
-          </form>
-          <PopoverTrigger asChild>
+                return;
+              }
+              if (filtersOpen) {
+                setFiltersOpen(false);
+                return;
+              }
+              if (draft || searchQuery) {
+                onSearchChange("");
+                onSearch("");
+              } else {
+                inputRef.current?.blur();
+              }
+            }}
+          />
+          {draft || searchQuery ? (
             <button
               type="button"
-              aria-label="Show search options"
-              aria-expanded={filtersOpen}
-              className={cn(
-                "flex h-full w-7 shrink-0 items-center justify-center rounded-r-lg text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                filtersOpen && "text-foreground",
-              )}
+              aria-label="Clear search"
+              onClick={() => onSearch("")}
+              className="shrink-0 rounded p-0.5 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <ChevronDownIcon
-                className={cn(
-                  "size-3.5 transition-transform",
-                  filtersOpen && "rotate-180",
-                )}
-              />
+              <XIcon className="size-3.5" />
             </button>
-          </PopoverTrigger>
-          {suggestionsOpen ? (
-            <MailSearchSuggestionList
-              activeIndex={highlightedIndex}
-              id={suggestionListId}
-              onSelect={(suggestion) => commitSearch(suggestion.query)}
-              suggestions={suggestions}
-            />
           ) : null}
-        </div>
+        </MailSearchSurface>
       </PopoverAnchor>
       <PopoverContent
         align="start"
@@ -527,4 +575,4 @@ function AdvancedSearchForm({
 }
 
 const toolbarButton =
-  "flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-border bg-background px-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";

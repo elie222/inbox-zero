@@ -3,8 +3,11 @@
 module.exports = {
   peer: true,
   reject: [
-    // >=27.4.0 has ESM/CJS incompatibility that breaks Vercel runtime
+    // jsdom 27+ require()s ESM-only packages, which fails in Vercel's Node
+    // runtime because it runs with require(esm) disabled. Server code uses
+    // jsdom-cjs (jsdom 26); jsdom itself is only the Vitest environment.
     "jsdom",
+    "jsdom-cjs",
 
     // Staying on Tailwind v3 — v4 has significant breaking changes
     "tailwindcss",
@@ -26,6 +29,7 @@ module.exports = {
     "tiptap-markdown",
     "react-resizable-panels",
     "recharts",
+    "@tanstack/react-table",
     "@chronark/zod-bird",
 
     // v9+ breaks the shadcn/ui date picker component
@@ -72,5 +76,15 @@ module.exports = {
     // Stay pinned until a dedicated formatting migration.
     "ultracite",
     "@biomejs/biome",
+
+    // Sentry JS v11 drops sendDefaultPii; its dataCollection defaults collect
+    // request bodies, headers, and gen AI inputs/outputs. Upgrade separately
+    // with an explicit dataCollection config.
+    "@sentry/nextjs",
+    "@sentry/electron",
+
+    // 1.64's Chromium breaks the offline mailbox reconnect spec when it runs
+    // after other specs in the same CI batch.
+    "@playwright/test",
   ],
 };

@@ -1,42 +1,61 @@
 "use client";
 
+import { useState } from "react";
 import {
   ArchiveIcon,
+  ArrowBigUpIcon,
   ArchiveRestoreIcon,
   ExternalLinkIcon,
   FolderInputIcon,
+  LanguagesIcon,
   MailXIcon,
+  MessageSquareIcon,
   MoreHorizontalIcon,
+  PrinterIcon,
   ShieldAlertIcon,
   StarIcon,
   StarOffIcon,
   Trash2Icon,
   TagIcon,
+  WandSparklesIcon,
 } from "lucide-react";
+import { RuleDialog } from "@/app/(app)/[emailAccountId]/assistant/RuleDialog";
 import { useSenderCommands } from "@/app/(app)/[emailAccountId]/mail/use-sender-commands";
 import { getEmailMessageCellActions } from "@/components/EmailMessageCellActions";
+import { Kbd } from "@/components/Kbd";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/Tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuShortcut,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { getShortcutHint } from "@/lib/shortcuts/registry";
+import {
+  getShortcutHint,
+  getShortcutKeyLabels,
+  type ShortcutId,
+} from "@/lib/shortcuts/registry";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import { ConditionType } from "@/utils/config";
+import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
+import { getOpenInMailboxLabel } from "@/utils/url";
 import type { ParsedMessage } from "@/utils/types";
 
 export type ThreadActionsMenuProps = {
   message: ParsedMessage | null;
+  /** The newest message someone else sent, whose sender a new rule targets. */
+  receivedMessage: ParsedMessage | null;
   isStarred: boolean;
   onToggleStar: () => void;
   onMarkSpam: () => void;
   onDelete: () => void;
   onLabel?: () => void;
   onMove?: () => void;
+  onTranslate?: () => void;
+  onComment?: () => void;
+  onPrint?: () => void;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 };
@@ -46,16 +65,23 @@ export type ThreadActionsMenuProps = {
  */
 export function ThreadActionsMenu({
   message,
+  receivedMessage,
   isStarred,
   onToggleStar,
   onMarkSpam,
   onDelete,
   onLabel,
   onMove,
+  onTranslate,
+  onComment,
+  onPrint,
   open,
   onOpenChange,
 }: ThreadActionsMenuProps) {
   const { provider, userEmail } = useAccount();
+  const [isRuleDialogOpen, setIsRuleDialogOpen] = useState(false);
+  const senderFrom = receivedMessage?.headers.from ?? "";
+  const senderEmail = extractEmailAddress(senderFrom);
   const {
     canManageAutoArchive,
     isUnsubscribeDisabled,
@@ -82,7 +108,7 @@ export function ThreadActionsMenu({
       <DropdownMenu onOpenChange={onOpenChange} open={open}>
         <Tooltip shortcuts={["moreActions"]}>
           <DropdownMenuTrigger asChild>
-            <Button aria-label="More actions" size="iconXs" variant="outline">
+            <Button aria-label="More actions" size="iconXs" variant="ghost">
               <MoreHorizontalIcon className="size-3.5" />
             </Button>
           </DropdownMenuTrigger>
@@ -97,9 +123,7 @@ export function ThreadActionsMenu({
             <DropdownMenuItem onSelect={onLabel}>
               <TagIcon className="mr-2 size-4" />
               Label
-              <DropdownMenuShortcut>
-                {getShortcutHint("label")}
-              </DropdownMenuShortcut>
+              <MenuShortcut id="label" />
             </DropdownMenuItem>
           )}
 
@@ -107,9 +131,7 @@ export function ThreadActionsMenu({
             <DropdownMenuItem onSelect={onMove}>
               <FolderInputIcon className="mr-2 size-4" />
               Move
-              <DropdownMenuShortcut>
-                {getShortcutHint("move")}
-              </DropdownMenuShortcut>
+              <MenuShortcut id="move" />
             </DropdownMenuItem>
           )}
 
@@ -120,25 +142,21 @@ export function ThreadActionsMenu({
               <StarIcon className="mr-2 size-4" />
             )}
             {isStarred ? "Unstar" : "Star"}
-            <DropdownMenuShortcut>
-              {getShortcutHint("star")}
-            </DropdownMenuShortcut>
+            <MenuShortcut id="star" />
           </DropdownMenuItem>
+
+          <DropdownMenuSeparator />
 
           <DropdownMenuItem onSelect={onDelete}>
             <Trash2Icon aria-hidden className="mr-2 size-4" />
             Delete
-            <DropdownMenuShortcut>
-              {getShortcutHint("delete")}
-            </DropdownMenuShortcut>
+            <MenuShortcut id="delete" />
           </DropdownMenuItem>
 
           <DropdownMenuItem onSelect={onMarkSpam}>
             <ShieldAlertIcon className="mr-2 size-4" />
             Mark as spam
-            <DropdownMenuShortcut>
-              {getShortcutHint("markSpam")}
-            </DropdownMenuShortcut>
+            <MenuShortcut id="markSpam" />
           </DropdownMenuItem>
 
           {canManageAutoArchive ? (
@@ -148,11 +166,23 @@ export function ThreadActionsMenu({
             >
               <MailXIcon className="mr-2 size-4" />
               {unsubscribeLabel}
-              <DropdownMenuShortcut>
-                {getShortcutHint("unsubscribe")}
-              </DropdownMenuShortcut>
+              <MenuShortcut id="unsubscribe" />
             </DropdownMenuItem>
           ) : null}
+
+          {(onTranslate ||
+            onComment ||
+            onPrint ||
+            canManageAutoArchive ||
+            senderEmail) && <DropdownMenuSeparator />}
+
+          {onComment && (
+            <DropdownMenuItem onSelect={onComment}>
+              <MessageSquareIcon className="mr-2 size-4" />
+              Comment
+              <MenuShortcut id="openTeamComments" />
+            </DropdownMenuItem>
+          )}
 
           {canManageAutoArchive ? (
             <DropdownMenuItem
@@ -167,20 +197,40 @@ export function ThreadActionsMenu({
               {isAutoArchived
                 ? "Disable auto archive"
                 : "Auto archive future emails"}
-              <DropdownMenuShortcut>
-                {getShortcutHint("toggleAutoArchive")}
-              </DropdownMenuShortcut>
+              <MenuShortcut id="toggleAutoArchive" />
             </DropdownMenuItem>
           ) : null}
+
+          {senderEmail ? (
+            <DropdownMenuItem onSelect={() => setIsRuleDialogOpen(true)}>
+              <WandSparklesIcon className="mr-2 size-4" />
+              Create rule for sender
+            </DropdownMenuItem>
+          ) : null}
+
+          {onTranslate && (
+            <DropdownMenuItem onSelect={onTranslate}>
+              <LanguagesIcon className="mr-2 size-4" />
+              Translate
+              <MenuShortcut id="translate" />
+            </DropdownMenuItem>
+          )}
+
+          {onPrint && (
+            <DropdownMenuItem onSelect={onPrint}>
+              <PrinterIcon className="mr-2 size-4" />
+              Print
+            </DropdownMenuItem>
+          )}
+
+          {openUrl ? <DropdownMenuSeparator /> : null}
 
           {openUrl ? (
             <DropdownMenuItem asChild>
               <a href={openUrl} rel="noopener noreferrer" target="_blank">
                 <ExternalLinkIcon className="mr-2 size-4" />
-                Open in {isMicrosoftProvider(provider) ? "Outlook" : "Gmail"}
-                <DropdownMenuShortcut>
-                  {getShortcutHint("openExternal")}
-                </DropdownMenuShortcut>
+                {getOpenInMailboxLabel(provider) ?? "Open in email provider"}
+                <MenuShortcut id="openExternal" />
               </a>
             </DropdownMenuItem>
           ) : null}
@@ -188,6 +238,34 @@ export function ThreadActionsMenu({
       </DropdownMenu>
 
       <PremiumModal />
+
+      {senderEmail ? (
+        <RuleDialog
+          isOpen={isRuleDialogOpen}
+          onClose={() => setIsRuleDialogOpen(false)}
+          initialRule={{
+            name: `Emails from ${extractNameFromEmail(senderFrom)}`,
+            conditions: [{ type: ConditionType.STATIC, from: senderEmail }],
+          }}
+        />
+      ) : null}
     </>
+  );
+}
+
+function MenuShortcut({ id }: { id: ShortcutId }) {
+  return (
+    <span className="ml-auto flex items-center gap-1">
+      <span className="sr-only">{getShortcutHint(id)}</span>
+      {getShortcutKeyLabels(id).map((key, index) => (
+        <Kbd
+          aria-hidden
+          className="h-5 min-w-5 px-1.5 font-sans text-[11px]"
+          key={`${index}-${key}`}
+        >
+          {key === "shift" ? <ArrowBigUpIcon className="size-3.5" /> : key}
+        </Kbd>
+      ))}
+    </span>
   );
 }

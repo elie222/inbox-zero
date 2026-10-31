@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MessagingProvider } from "@/generated/prisma/enums";
 import {
-  getMessagingChannelReconnectMessage,
   hasRequiredMessagingConnectionFields,
   isMessagingChannelOperational,
   isOperationalSlackChannel,
@@ -63,15 +62,6 @@ describe("messaging channel validity", () => {
         providerUserId: null,
       }),
     ).toBe(false);
-  });
-
-  it("returns provider-specific reconnect messages", () => {
-    expect(getMessagingChannelReconnectMessage(MessagingProvider.SLACK)).toBe(
-      "Please reconnect Slack before configuring notifications.",
-    );
-    expect(getMessagingChannelReconnectMessage(MessagingProvider.TEAMS)).toBe(
-      "Please reconnect Teams before configuring notifications.",
-    );
   });
 
   it("exposes provider-specific operational guards", () => {
