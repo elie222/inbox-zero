@@ -18,6 +18,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { useReplyDrafts } from "@/hooks/useReplyDrafts";
 import { ThreadDeliveryStatus } from "@/components/email-list/ThreadDeliveryStatus";
 import { useHiddenDraftMessageIds } from "@/hooks/useHiddenDraftMessageIds";
+import { useDraftSaveInFlight } from "@/hooks/useDraftSaveInFlight";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/utils";
 import {
@@ -111,10 +112,23 @@ export function EmailThread({
     release?: () => void;
   }>();
   const heldDrafts = sentReplyHandoff?.heldDrafts;
-  const threadMessages = useMemo(
-    () => (heldDrafts ? withHeldDrafts(messages, heldDrafts) : messages),
-    [messages, heldDrafts],
-  );
+  // Gmail saves a draft as a new message, which sync can deliver before the
+  // save says which open composer it belongs to. Until then the thread keeps
+  // the drafts it had, so that copy can't replace the editor being typed in.
+  const draftSaving = useDraftSaveInFlight(emailAccountId, threadId);
+  const [draftsBeforeSave, setDraftsBeforeSave] = useState<ThreadMessage[]>();
+  if (draftSaving && !draftsBeforeSave)
+    setDraftsBeforeSave(messages.filter(isDraftMessage));
+  if (!draftSaving && draftsBeforeSave) setDraftsBeforeSave(undefined);
+  const threadMessages = useMemo(() => {
+    const shown = draftsBeforeSave
+      ? [
+          ...messages.filter((message) => !isDraftMessage(message)),
+          ...draftsBeforeSave,
+        ]
+      : messages;
+    return heldDrafts ? withHeldDrafts(shown, heldDrafts) : shown;
+  }, [messages, draftsBeforeSave, heldDrafts]);
   const shownHiddenDraftMessageIds = useMemo(
     () =>
       heldDrafts
@@ -626,6 +640,10 @@ export function organizeThreadMessages(messages: ThreadMessage[]) {
       draftsByMessageId.get(message.id) ?? [],
     ),
   }));
+}
+
+function isDraftMessage(message: ThreadMessage) {
+  return Boolean(message.labelIds?.includes(GmailLabel.DRAFT));
 }
 
 function withHeldDrafts(messages: ThreadMessage[], held: ThreadMessage[]) {

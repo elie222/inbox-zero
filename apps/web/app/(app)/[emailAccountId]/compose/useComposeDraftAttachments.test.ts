@@ -88,6 +88,28 @@ it("does not ask the mailbox for a draft without files", () => {
   expect(fetchDraftAttachments).not.toHaveBeenCalled();
 });
 
+// Each save of an open draft is a new mailbox copy. One that now carries the
+// file the user just attached must not send the open composer back to loading.
+it("stays ready when a later save of the open draft has files", () => {
+  const { result, rerender } = renderHook(
+    (props: { loadMailboxDraft: boolean; providerDraftMessageId?: string }) =>
+      useComposeDraftAttachments({
+        emailAccountId: "account-1",
+        sessionKey: "account-1:thread-1:message-1:reply",
+        storedDraft: storedDraft({ attachments: [] }),
+        enabled: true,
+        ...props,
+      }),
+    { initialProps: { loadMailboxDraft: false } },
+  );
+  expect(result.current.isLoading).toBe(false);
+
+  rerender({ loadMailboxDraft: true, providerDraftMessageId: "draft-copy-2" });
+
+  expect(result.current.isLoading).toBe(false);
+  expect(fetchDraftAttachments).not.toHaveBeenCalled();
+});
+
 function storedDraft(
   content: Partial<NonNullable<StoredReplyDraft["content"]>>,
 ): StoredReplyDraft {

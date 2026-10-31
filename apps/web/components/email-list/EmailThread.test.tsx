@@ -19,6 +19,7 @@ import {
   organizeThreadMessages,
 } from "@/components/email-list/EmailThread";
 import { hideSendingDraftMessages } from "@/hooks/useHiddenDraftMessageIds";
+import { startDraftSave } from "@/hooks/useDraftSaveInFlight";
 
 class MockResizeObserver {
   observe() {}
@@ -193,6 +194,55 @@ describe("EmailThread reply composer", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "Send" })[2]);
     expect(editors()).toHaveLength(2);
     expect((editors()[0] as HTMLInputElement).value).toBe("Independent edit");
+  });
+
+  // Sync can deliver a save's new message before the save's response says it
+  // replaces the open draft. The editor must survive that gap.
+  it("keeps editing a saved draft when its next save syncs in first", () => {
+    composerMounts = 0;
+    const parent = createReaderMessage("parent", "1000");
+    const view = render(
+      <EmailThread
+        messages={[parent, createReaderDraft("race-v1", "2000")]}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+    let endSave = () => {};
+    act(() => {
+      endSave = startDraftSave("account-1", "thread-1");
+    });
+
+    for (const messages of [
+      [
+        parent,
+        createReaderDraft("race-v1", "2000"),
+        createReaderDraft("race-v2", "3000"),
+      ],
+      [parent, createReaderDraft("race-v2", "3000")],
+    ]) {
+      view.rerender(
+        <EmailThread
+          messages={messages}
+          missingBodyIds={new Set(["race-v2"])}
+          refetch={vi.fn()}
+          showReplyButton
+        />,
+      );
+      expect(
+        screen.getAllByRole("textbox", { name: "Email message" }),
+      ).toHaveLength(1);
+      expect(composerMounts).toBe(1);
+    }
+
+    rememberReplacedDraftMessage("account-1", "race-v1", "race-v2");
+    act(() => endSave());
+
+    expect(screen.queryByText("Loading message…")).toBeNull();
+    const current = screen.getByRole("textbox", { name: "Email message" });
+    expect(current.dataset.draftSessionId).toBe("race-v1:reply");
+    expect(current.dataset.providerDraftMessageId).toBe("race-v2");
+    expect(composerMounts).toBe(1);
   });
 
   // Gmail gives a draft a new message ID each time it is saved. When sync
