@@ -37,12 +37,12 @@ test("creates, edits, toggles, and deletes a manual automation rule", async ({
   );
 
   const createDialog = page.getByRole("dialog", { name: "Create Rule" });
-  const addRuleManually = page.getByRole("button", {
+  const addRuleManually = page.getByRole("menuitem", {
     name: "Add rule manually",
   });
   await expect(async () => {
     if (await addRuleManually.isVisible()) return;
-    await page.getByRole("button", { name: "Add Rule" }).click();
+    await page.getByRole("button", { name: "More ways to add a rule" }).click();
     await expect(addRuleManually).toBeVisible({ timeout: 5000 });
   }).toPass({ timeout: 30_000 });
   await addRuleManually.click();

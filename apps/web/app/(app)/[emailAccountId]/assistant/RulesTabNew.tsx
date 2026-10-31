@@ -1,5 +1,5 @@
 import { Rules } from "@/app/(app)/[emailAccountId]/assistant/Rules";
-import { AddRuleDialog } from "@/app/(app)/[emailAccountId]/assistant/AddRuleDialog";
+import { AddRuleButton } from "@/app/(app)/[emailAccountId]/assistant/AddRuleButton";
 import { MutedText } from "@/components/Typography";
 import { BulkRunRules } from "@/app/(app)/[emailAccountId]/assistant/BulkRunRules";
 
@@ -14,7 +14,7 @@ export function RulesTab() {
 
         <div className="flex shrink-0 items-center gap-2">
           <BulkRunRules />
-          <AddRuleDialog />
+          <AddRuleButton />
         </div>
       </div>
       <Rules showAddRuleButton={false} />

@@ -22,7 +22,7 @@ import { cn } from "@/utils";
 import { useAccount } from "@/providers/EmailAccountProvider";
 
 interface ExamplesDialogProps {
-  children: React.ReactNode;
+  children?: React.ReactNode;
   onOpenChange?: (open: boolean) => void;
   open?: boolean;
   setInput: (input: string) => void;
@@ -86,7 +86,7 @@ export function ExamplesDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>{children}</DialogTrigger>
+      {children && <DialogTrigger asChild>{children}</DialogTrigger>}
       <DialogContent className="max-h-[80vh] max-w-2xl">
         <DialogHeader>
           <div className="flex items-center gap-2">

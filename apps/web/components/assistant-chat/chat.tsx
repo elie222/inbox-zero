@@ -67,6 +67,8 @@ export function Chat({
     input,
     persistedMessageIds,
     setInput,
+    inputFocusRequested,
+    setInputFocusRequested,
     handleSubmit,
     setNewChat,
     context,
@@ -78,6 +80,7 @@ export function Chat({
   } = useChat();
   const { messages, status, regenerate, setMessages } = chat;
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [uploadQueue, setUploadQueue] = useState<string[]>([]);
 
   useEffect(() => {
@@ -89,9 +92,19 @@ export function Chat({
   // Must run before the save effect below, which would overwrite the draft.
   // biome-ignore lint/correctness/useExhaustiveDependencies: Only run on mount
   useEffect(() => {
+    // Input set before mount was prefilled by the caller that opened the chat.
+    if (input) return;
     const savedInput = readDraftInput();
     if (savedInput) setInput(savedInput);
   }, []);
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!inputFocusRequested || !textarea) return;
+    textarea.focus();
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    setInputFocusRequested(false);
+  }, [inputFocusRequested, setInputFocusRequested]);
 
   // Persist without setting state: a state update here queued an extra render
   // per keystroke, and fast text entry tripped React's update-depth guard.
@@ -222,6 +235,7 @@ export function Chat({
       )}
 
       <PromptInputTextarea
+        ref={textareaRef}
         data-testid="chat-input"
         value={input}
         placeholder="Ask me anything"

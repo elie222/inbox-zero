@@ -1,8 +1,6 @@
 import { getEmailTerminology } from "@/utils/terminology";
 import { BRAND_NAME } from "@/utils/branding";
 
-export type Personas = ReturnType<typeof getPersonas>;
-
 function formatPromptArray(promptArray: string[]): string {
   return `${promptArray.map((item) => `* ${item}`).join(".\n")}.`;
 }

@@ -137,7 +137,6 @@
     "@tanstack/react-table": "8.21.3",
     "@tanstack/react-virtual": "3.14.21",
     "@tiptap/core": "3.32.0",
-    "@tiptap/extension-mention": "3.30.2",
     "@tiptap/extension-placeholder": "3.30.2",
     "@tiptap/markdown": "3.32.0",
     "@tiptap/pm": "3.30.2",

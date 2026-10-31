@@ -60,6 +60,8 @@ type ChatContextType = {
   chatId: string | null;
   persistedMessageIds: Set<string>;
   setInput: (input: string) => void;
+  inputFocusRequested: boolean;
+  setInputFocusRequested: (requested: boolean) => void;
   setChatId: (chatId: string | null) => void;
   setNewChat: () => void;
   submitTextMessage: (text: string) => Promise<void>;
@@ -78,6 +80,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const { mutate } = useSWRConfig();
 
   const [input, setInput] = useState<string>("");
+  // Lets callers outside the chat focus its input, which may not be mounted yet.
+  const [inputFocusRequested, setInputFocusRequested] = useState(false);
   const [chatId, setChatId] = useQueryState("chatId", parseAsString);
   const [context, setContext] = useState<MessageContext | null>(null);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -472,6 +476,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         input,
         persistedMessageIds,
         setInput,
+        inputFocusRequested,
+        setInputFocusRequested,
         setChatId,
         setNewChat,
         submitTextMessage,
