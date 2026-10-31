@@ -633,6 +633,7 @@ function ComposeEmailFormContent({
         sendingAddress={sendingAddress}
         sendAsAddresses={sendAsAddresses}
         selectedSendAs={selectedSendAs}
+        sendAsDisabled={!editorReady}
         onChangeSendAs={changeSendAs}
         recipients={{ to: watch("to"), cc: watch("cc"), bcc: watch("bcc") }}
         onRecipientsChange={(field, recipients) => setValue(field, recipients)}
