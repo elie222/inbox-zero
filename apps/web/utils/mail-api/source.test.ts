@@ -320,6 +320,56 @@ describe("createEmailProviderMailboxSource", () => {
     expect(getMessagesWithPagination).not.toHaveBeenCalled();
   });
 
+  it.each([
+    {
+      name: "requests a rebuild when the Outlook folder no longer exists",
+      folders: [{ id: "inbox", systemType: "INBOX", childFolders: [] }],
+      expected: { status: "reset_required", scopeId: "deleted-folder" },
+    },
+    {
+      name: "keeps retrying when the Outlook folder still exists",
+      folders: [
+        {
+          id: "inbox",
+          systemType: "INBOX",
+          childFolders: [{ id: "deleted-folder", childFolders: [] }],
+        },
+      ],
+      expected: {
+        status: "paused",
+        retryAfterMs: 1000,
+        reason: "unavailable",
+      },
+    },
+  ])("$name after a folder delta 404", async ({ folders, expected }) => {
+    const source = createEmailProviderMailboxSource({
+      accountId: "acc-1",
+      provider: {
+        name: "microsoft",
+        localMailSyncStrategy: "folder-delta",
+        async getMailboxSyncPage() {
+          throw Object.assign(
+            new Error("The folder to be synchronized could not be found."),
+            { statusCode: 404 },
+          );
+        },
+        getFolders: vi.fn().mockResolvedValue(folders),
+      } as unknown as EmailProvider,
+    });
+    const result = await source.readChanges({
+      session: { accountId: "acc-1", generation: "g1" },
+      requestId: "r1",
+      position: {
+        streamId: "deleted-folder",
+        generation: "g1",
+        checkpoint: "delta-cursor",
+      },
+      pageSize: 20,
+      signal: new AbortController().signal,
+    });
+    expect(result).toEqual(expected);
+  });
+
   it("exposes Outlook folders as sync scopes, with custom folders at low priority", async () => {
     const getFolders = vi.fn().mockResolvedValue([
       {

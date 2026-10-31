@@ -395,6 +395,14 @@ export interface MailStore {
     accountIds: string[];
     nowMs: number;
   }): Promise<void>;
+  /**
+   * Stops syncing a scope the provider no longer has, such as a deleted
+   * folder. Its messages leave the scope as if a bootstrap found none of them.
+   */
+  retireSyncScope(input: {
+    session: AccountSession;
+    scopeId: string;
+  }): Promise<void>;
   saveDraft(input: SaveDraft): Promise<DraftSaveResult>;
   settleAttempt(input: {
     attemptId: string;
