@@ -17,7 +17,12 @@ import { Provider } from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 import { SafeError } from "../error";
-import { assertCliLlmEnabled, createCliLanguageModel } from "./cli-provider";
+import {
+  assertCliLlmEnabled,
+  createCliLanguageModel,
+  getCliProviderDefaultModel,
+  isCliProvider,
+} from "./cli-provider";
 
 const DEFAULT_GOOGLE_THINKING_BUDGET = 128;
 const REASONING_EFFORT_BY_MODEL_TYPE = {
@@ -101,6 +106,15 @@ function selectModel(
   // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   providerOptions?: Record<string, any>,
 ): ResolvedModel {
+  if (isCliProvider(aiProvider)) {
+    const modelName = aiModel || getCliProviderDefaultModel(aiProvider);
+    return {
+      provider: aiProvider,
+      modelName,
+      model: createCliLanguageModel({ provider: aiProvider, modelName }),
+    };
+  }
+
   switch (aiProvider) {
     case Provider.OPEN_AI: {
       const modelName = aiModel || "gpt-6-luna";
@@ -300,29 +314,6 @@ function selectModel(
         providerOptions: getLocalThinkingProviderOptions("openai-compatible"),
       };
     }
-    case Provider.CODEX_CLI: {
-      const modelName = aiModel || "gpt-5.3-codex";
-      return {
-        provider: Provider.CODEX_CLI,
-        modelName,
-        model: createCliLanguageModel({
-          provider: Provider.CODEX_CLI,
-          modelName,
-        }),
-      };
-    }
-    case Provider.CLAUDE_CODE: {
-      const modelName = aiModel || "sonnet";
-      return {
-        provider: Provider.CLAUDE_CODE,
-        modelName,
-        model: createCliLanguageModel({
-          provider: Provider.CLAUDE_CODE,
-          modelName,
-        }),
-      };
-    }
-
     case Provider.BEDROCK: {
       const modelName = aiModel || "global.anthropic.claude-sonnet-5";
       return {
@@ -542,6 +533,8 @@ function getConfiguredModelListByType(
 }
 
 function getProviderApiKey(provider: string) {
+  if (isCliProvider(provider)) return getCliProviderAvailability(provider);
+
   const azureApiKey = resolveApiKey(null, env.AZURE_API_KEY);
   const providerApiKeys: Record<string, string | undefined> = {
     [Provider.ANTHROPIC]: resolveApiKey(null, env.ANTHROPIC_API_KEY),
@@ -571,8 +564,6 @@ function getProviderApiKey(provider: string) {
     // when no API key is configured (many OpenAI-compatible servers don't require one)
     [Provider.OPENAI_COMPATIBLE]:
       env.LLM_API_KEY || process.env.LLM_API_KEY || "not-required",
-    [Provider.CODEX_CLI]: getCliProviderAvailability(Provider.CODEX_CLI),
-    [Provider.CLAUDE_CODE]: getCliProviderAvailability(Provider.CLAUDE_CODE),
   };
 
   return providerApiKeys[provider];
