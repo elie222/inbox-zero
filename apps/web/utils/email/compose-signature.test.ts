@@ -143,6 +143,31 @@ describe("getComposeSignature", () => {
     ).toEqual({ signatureHtml: "", footerHtml: "", signatures: [] });
   });
 
+  it("stops waiting for a provider that never answers", async () => {
+    vi.useFakeTimers();
+    vi.mocked(createEmailProvider).mockReturnValue(new Promise(() => {}));
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      signature: null,
+      includeSentWithSignature: false,
+      account: { provider: "google" },
+      emailSignatures: [],
+    } as never);
+
+    const result = getComposeSignature({
+      emailAccountId: "account",
+      userId: "user",
+      logger,
+    });
+    await vi.advanceTimersByTimeAsync(5000);
+
+    expect(await result).toEqual({
+      signatureHtml: "",
+      footerHtml: "",
+      signatures: [],
+    });
+    vi.useRealTimers();
+  });
+
   it("leaves the footer out when the account or the deployment turns it off", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       signature: null,

@@ -5,7 +5,7 @@ import { stripBrandingSignatures } from "@/utils/referral/signature";
 
 const SENT_MESSAGES_TO_SCAN = 30;
 const MAX_FOUND_SIGNATURES = 5;
-const BLANK_LINE = String.raw`\s*(?:<div>(?:<br\s*/?>)?</div>|<br\s*/?>)\s*`;
+const BLANK_LINE = String.raw`\s|<div>(?:<br\s*/?>)?</div>|<br\s*/?>`;
 const EDGE_BLANK_LINES = new RegExp(
   `^(?:${BLANK_LINE})+|(?:${BLANK_LINE})+$`,
   "gi",

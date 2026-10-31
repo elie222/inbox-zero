@@ -67,6 +67,8 @@ export async function getComposeSignature({
   };
 }
 
+const PROVIDER_SIGNATURE_TIMEOUT_MS = 5000;
+
 // Mail sent through the API gets no signature from the provider, so an account
 // that never saved one in Inbox Zero signs with the one set in Gmail.
 async function getProviderDefaultSignature({
@@ -78,7 +80,14 @@ async function getProviderDefaultSignature({
   provider: string;
   logger: Logger;
 }) {
-  try {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<string>((resolve) => {
+    timer = setTimeout(() => {
+      logger.warn("Timed out loading the provider signature");
+      resolve("");
+    }, PROVIDER_SIGNATURE_TIMEOUT_MS);
+  });
+  const lookup = (async () => {
     const emailProvider = await createEmailProvider({
       emailAccountId,
       provider,
@@ -86,9 +95,15 @@ async function getProviderDefaultSignature({
     });
     const addresses = await emailProvider.getSendAsAddresses();
     return addresses.find((address) => address.isDefault)?.signature ?? "";
-  } catch (error) {
+  })().catch((error) => {
     logger.warn("Could not load the provider signature", { error });
     return "";
+  });
+
+  try {
+    return await Promise.race([lookup, timeout]);
+  } finally {
+    clearTimeout(timer);
   }
 }
 
