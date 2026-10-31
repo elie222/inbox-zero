@@ -252,10 +252,12 @@ export const STATIC_MODEL_PRICING: Record<string, ModelPricing> = {
   // https://groq.com/pricing
   "openai/gpt-oss-20b": {
     input: 0.075 / 1_000_000,
+    cachedInput: 0.0375 / 1_000_000,
     output: 0.3 / 1_000_000,
   },
   "openai/gpt-oss-120b": {
     input: 0.15 / 1_000_000,
+    cachedInput: 0.075 / 1_000_000,
     output: 0.6 / 1_000_000,
   },
   "llama-3.3-70b-versatile": {
