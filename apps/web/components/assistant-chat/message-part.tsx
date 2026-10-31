@@ -254,7 +254,7 @@ export function MessagePart({
       return <BasicToolInfo key={toolCallId} text="Searching inbox..." />;
     }
     if (state === "output-available") {
-      return <SearchInboxResult key={toolCallId} output={part.output} />;
+      return <SearchInboxResult key={toolCallId} outputs={[part.output]} />;
     }
   }
 
@@ -388,7 +388,7 @@ export function MessagePart({
       part,
       loadingText: "Testing rules on this email...",
       renderSuccess: ({ toolCallId }) => (
-        <BasicToolInfo key={toolCallId} text="Tested rules on this email" />
+        <BasicToolInfo key={toolCallId} text="Tested rules" />
       ),
     });
   }

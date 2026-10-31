@@ -15,6 +15,7 @@ import {
 } from "@/components/ai-elements/conversation";
 import { Message, MessageContent } from "@/components/ai-elements/message";
 import { Loader } from "@/components/ai-elements/loader";
+import { SearchInboxResult } from "@/components/assistant-chat/tools";
 
 interface MessagesProps {
   footer?: ReactNode;
@@ -55,21 +56,42 @@ export function Messages({
               <Fragment key={message.id}>
                 <Message from={message.role}>
                   <MessageContent variant="flat">
-                    {message.parts?.map((part, partIndex) => (
-                      <MessagePart
-                        key={`${message.id}-${partIndex}`}
-                        part={part}
-                        isStreaming={
-                          status === "streaming" &&
-                          partIndex === message.parts.length - 1
+                    {message.parts?.map((part, partIndex) => {
+                      if (isToolRunContinuation(message.parts, partIndex)) {
+                        return null;
+                      }
+                      if (part.type === "tool-searchInbox") {
+                        const outputs = getToolRunOutputs(
+                          message.parts,
+                          partIndex,
+                        );
+                        if (outputs.length > 1) {
+                          return (
+                            <SearchInboxResult
+                              key={`${message.id}-${partIndex}`}
+                              outputs={outputs}
+                            />
+                          );
                         }
-                        disableConfirm={disableConfirm}
-                        isPersistedMessage={persistedMessageIds.has(message.id)}
-                        messageId={message.id}
-                        partIndex={partIndex}
-                        threadLookup={emailLookup}
-                      />
-                    ))}
+                      }
+                      return (
+                        <MessagePart
+                          key={`${message.id}-${partIndex}`}
+                          part={part}
+                          isStreaming={
+                            status === "streaming" &&
+                            partIndex === message.parts.length - 1
+                          }
+                          disableConfirm={disableConfirm}
+                          isPersistedMessage={persistedMessageIds.has(
+                            message.id,
+                          )}
+                          messageId={message.id}
+                          partIndex={partIndex}
+                          threadLookup={emailLookup}
+                        />
+                      );
+                    })}
                   </MessageContent>
                 </Message>
                 {index === firstAssistantIndex && <MessagingChannelHint />}
@@ -143,4 +165,62 @@ function buildEmailLookup(messages: Array<ChatMessage>): EmailLookup {
     }
   }
   return lookup;
+}
+
+// Back-to-back calls to these tools collapse into one row: status-only tools
+// would repeat an identical line, and searches merge into one expandable list.
+const STATUS_ONLY_TOOL_TYPES = new Set([
+  "tool-getUserRulesAndSettings",
+  "tool-getRuleExecutionForMessage",
+  "tool-testRulesOnEmail",
+  "tool-getLearnedPatterns",
+]);
+
+function isToolRunContinuation(
+  parts: ChatMessage["parts"],
+  index: number,
+): boolean {
+  const part = parts[index];
+  const previous = findPreviousVisiblePart(parts, index);
+  if (!previous || previous.type !== part.type) return false;
+  if (part.type === "tool-searchInbox") {
+    return isFinishedToolPart(previous) && isFinishedToolPart(part);
+  }
+  return (
+    STATUS_ONLY_TOOL_TYPES.has(part.type) &&
+    isSuccessfulToolPart(previous) &&
+    isSuccessfulToolPart(part)
+  );
+}
+
+function getToolRunOutputs(
+  parts: ChatMessage["parts"],
+  start: number,
+): unknown[] {
+  const outputs: unknown[] = [];
+  for (let i = start; i < parts.length; i++) {
+    const part = parts[i];
+    if (part.type === "step-start") continue;
+    if (i > start && !isToolRunContinuation(parts, i)) break;
+    if ("output" in part) outputs.push(part.output);
+  }
+  return outputs;
+}
+
+// Multi-step responses insert invisible step-start parts between sequential tool calls.
+function findPreviousVisiblePart(parts: ChatMessage["parts"], index: number) {
+  for (let i = index - 1; i >= 0; i--) {
+    if (parts[i].type !== "step-start") return parts[i];
+  }
+  return;
+}
+
+function isFinishedToolPart(part: ChatMessage["parts"][number]) {
+  return "state" in part && part.state === "output-available";
+}
+
+function isSuccessfulToolPart(part: ChatMessage["parts"][number]) {
+  if (!isFinishedToolPart(part)) return false;
+  const output = "output" in part ? part.output : undefined;
+  return !(output && typeof output === "object" && "error" in output);
 }

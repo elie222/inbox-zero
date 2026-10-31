@@ -49,6 +49,8 @@ export const AssistantInlineEmailResponse = memo(
           "[&_[data-streamdown='heading-2']]:!mt-8",
           "[&_[data-streamdown='heading-3']]:!mt-7",
           "[&_a]:!text-inherit [&_a]:underline [&_a]:underline-offset-2 [&_a:hover]:opacity-80",
+          // Models backtick addresses and domains; monospace chips read as code and add visual noise.
+          "[&_[data-streamdown='inline-code']]:bg-transparent [&_[data-streamdown='inline-code']]:p-0 [&_[data-streamdown='inline-code']]:font-sans [&_[data-streamdown='inline-code']]:font-medium [&_[data-streamdown='inline-code']]:text-[length:inherit]",
           className,
         ),
         allowedTags: assistantAllowedTags,
