@@ -1,0 +1,7 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Documentation placeholders such as YOUR_CRON_SECRET"
+regexTarget = "secret"
+regexes = ['''^YOUR_[A-Z0-9_]+$''']
