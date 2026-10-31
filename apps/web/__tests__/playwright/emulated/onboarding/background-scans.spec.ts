@@ -3,6 +3,7 @@ import { Client } from "pg";
 import Redis from "ioredis";
 import { test } from "../playwright-test";
 import { getEmailAccountId } from "../account-test-helpers";
+import { isMicrosoftPlaywright } from "../mail-provider";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import {
   chooseSignupIntent,
@@ -59,6 +60,7 @@ test("Continue works while the background statistics request is still pending", 
 test("Gmail throttling cannot block saving Both or navigating onboarding", async ({
   page,
 }, testInfo) => {
+  test.skip(isMicrosoftPlaywright(), "Seeds a Gmail rate-limit state.");
   const emailAccountId = await getEmailAccountId(page);
   await withUnanalyzedAccount(emailAccountId, async (redis) => {
     await redis.set(
