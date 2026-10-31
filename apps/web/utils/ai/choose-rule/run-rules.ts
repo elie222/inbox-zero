@@ -444,9 +444,8 @@ async function executeMatchedRule(
     };
   }
 
-  // The scheduler only accepts delayable types, so a delay saved on any
-  // other action (e.g. through the API before it was validated) would make
-  // it never run. Run those now instead.
+  // The scheduler skips non-delayable types, so a delay stored on one (e.g.
+  // from older rule data) would silently drop the action. Run it now instead.
   const { immediateActions, delayedActions } = groupBy(actionItems, (item) =>
     item.delayInMinutes != null &&
     item.delayInMinutes > 0 &&

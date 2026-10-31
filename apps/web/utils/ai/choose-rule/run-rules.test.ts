@@ -824,8 +824,6 @@ describe("runRules saved delays on actions that can't be delayed", () => {
   });
 
   it("runs the action now instead of dropping it", async () => {
-    // Saved before the API rejected this: the scheduler only accepts
-    // delayable action types, so this webhook would never run.
     const webhookAction = getAction({
       id: "webhook-action-1",
       type: ActionType.CALL_WEBHOOK,
