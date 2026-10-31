@@ -34,9 +34,6 @@ vi.mock("@/utils/middleware", () => ({
 import { ContactsAccessDeniedError } from "@/utils/email/contact";
 import { GET } from "./route";
 
-const callGet = (url: string) =>
-  GET(new NextRequest(url), { params: Promise.resolve({}) });
-
 describe("GET /api/user/contacts", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -92,3 +89,7 @@ describe("GET /api/user/contacts", () => {
     ).rejects.toThrow("Provider exploded");
   });
 });
+
+function callGet(url: string) {
+  return GET(new NextRequest(url), { params: Promise.resolve({}) });
+}

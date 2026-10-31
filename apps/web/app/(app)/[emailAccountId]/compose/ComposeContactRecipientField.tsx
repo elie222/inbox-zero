@@ -233,26 +233,28 @@ export function ComposeContactRecipientField({
             value={searchQuery}
           />
 
-          {active && env.NEXT_PUBLIC_CONTACTS_ENABLED && showReconnectPrompt && (
-            <div
-              className="absolute z-10 mt-1 flex w-80 items-center gap-3 rounded-md border bg-popover p-3 text-sm text-popover-foreground shadow-lg"
-              role="status"
-            >
-              <span className="flex-1">
-                Reconnect this account to enable contact suggestions.
-              </span>
-              <Button
-                className="h-auto p-0"
-                disabled={isReconnectingContacts}
-                loading={isReconnectingContacts}
-                onClick={onReconnectContacts}
-                type="button"
-                variant="link"
+          {active &&
+            env.NEXT_PUBLIC_CONTACTS_ENABLED &&
+            showReconnectPrompt && (
+              <div
+                className="absolute z-10 mt-1 flex w-80 items-center gap-3 rounded-md border bg-popover p-3 text-sm text-popover-foreground shadow-lg"
+                role="status"
               >
-                Reconnect
-              </Button>
-            </div>
-          )}
+                <span className="flex-1">
+                  Reconnect this account to enable contact suggestions.
+                </span>
+                <Button
+                  className="h-auto p-0"
+                  disabled={isReconnectingContacts}
+                  loading={isReconnectingContacts}
+                  onClick={onReconnectContacts}
+                  type="button"
+                  variant="link"
+                >
+                  Reconnect
+                </Button>
+              </div>
+            )}
 
           {active && !!suggestions.length && (
             <ComboboxOptions className="absolute z-20 mt-1 max-h-72 w-max min-w-full max-w-[min(28rem,calc(100vw-3rem))] overflow-auto rounded-md border bg-popover py-1 text-sm shadow-lg focus:outline-none">
