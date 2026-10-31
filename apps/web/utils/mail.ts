@@ -112,22 +112,25 @@ const FORWARDED_CONTENT_PATTERNS = [
   /(?:\r?\n|\r)?(?:-{3,}|_{3,})\s*Forward(?:ed)?(?:\s*message)?(?:-{3,}|_{3,})/i,
   // Forwarded email header blocks
   /(?:^|\r?\n)From:\s*[^\r\n]+(?:\r?\n(?:Date|Sent|To|Cc|Bcc|Subject):\s*[^\r\n]+){2,}/im,
-  // iOS/Mac style
-  /(?:\r?\n|\r)?Begin forwarded message:/im,
-  // Outlook style
-  /(?:\r?\n|\r)?Original Message/i,
+  // iOS/Mac style, at the start of a line
+  /^[^\S\r\n\u2028\u2029]*Begin forwarded message:/im,
+  // Outlook style: a separator line, not the phrase inside a sentence
+  // ([^\S\r\n\u2028\u2029] also covers the non-breaking spaces HTML-to-text
+  // leaves; /m treats U+2028/U+2029 as line starts, so they are left out or a
+  // run of them would make the scan quadratic)
+  /^[^\S\r\n\u2028\u2029]*(?:[-_]+[^\S\r\n\u2028\u2029]*)?Original Message(?:[^\S\r\n\u2028\u2029]*[-_]+)?[^\S\r\n\u2028\u2029]*$/im,
 ];
 
 export function stripForwardedContent(text: string): string {
-  for (const pattern of FORWARDED_CONTENT_PATTERNS) {
-    const parts = text.split(pattern);
-    if (parts.length > 1) {
-      // Take content before the forward marker and clean it
-      return removeExcessiveWhitespace(parts[0]);
-    }
-  }
+  // Cut at whichever marker comes first: an Outlook separator is followed by
+  // a From/Sent/To/Subject block, and cutting at that block would leave the
+  // separator line behind.
+  const markerIndexes = FORWARDED_CONTENT_PATTERNS.map((pattern) =>
+    text.search(pattern),
+  ).filter((index) => index !== -1);
+  if (markerIndexes.length === 0) return text;
 
-  return text;
+  return removeExcessiveWhitespace(text.slice(0, Math.min(...markerIndexes)));
 }
 
 export type EmailToContentOptions = {
@@ -215,6 +218,26 @@ export function convertEmailHtmlToText({
   });
 
   return plainText;
+}
+
+// Gmail collapses a reply's quote of our message only when the quote matches
+// what we sent, and that quote is Gmail's own plain-text rendering of our HTML.
+// So the text/plain part follows the same format: "text <url>" links, no hard
+// wrapping, single blank lines, and bare ">" on empty quoted lines.
+export function convertOutgoingEmailHtmlToText(html: string): string {
+  return convert(html, {
+    wordwrap: false,
+    selectors: [
+      {
+        selector: "a",
+        options: { hideLinkHrefIfSameAsText: true, linkBrackets: ["<", ">"] },
+      },
+      { selector: "img", format: "skip" },
+    ],
+  })
+    .replace(/[^\S\n]+$/gm, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 /**

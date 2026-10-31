@@ -30,6 +30,18 @@ const mockTelegramPostMessage = vi.fn();
 const mockTelegramEditMessage = vi.fn();
 const logger = createTestLogger();
 
+// Shaped like buildDraftReplyBody output: escaped draft text, then the
+// account's HTML signature inside the gmail_signature marker.
+const DRAFT_CONTENT_WITH_HTML_SIGNATURE = `Thanks, that works for me.<br>See you at Tom &amp; Jerry.
+
+<div class="gmail_signature" data-smartmail="gmail_signature"><table
+  cellpadding="0" cellspacing="0" style="font-family: Arial;">
+  <tr>
+    <td style="padding: 0 8px;"><strong>Jane Doe</strong><br>Head of Sales</td>
+  </tr>
+</table>
+<div style="border-top: 1px solid #ccc;">Acme Inc</div></div>`;
+
 vi.mock("@/utils/email/provider", () => ({
   createEmailProvider: (...args: unknown[]) => mockCreateEmailProvider(...args),
 }));
@@ -424,6 +436,100 @@ describe("handleRuleNotificationAction", () => {
       },
       data: { messagingMessageStatus: null },
     });
+  });
+
+  it("sends the stored HTML draft with its signature when there is no mailbox draft", async () => {
+    const provider = createNoMailboxDraftProvider();
+    mockCreateEmailProvider.mockResolvedValue(provider);
+    mockNotificationContext({
+      id: "action-1",
+      type: ActionType.DRAFT_MESSAGING_CHANNEL,
+      content: DRAFT_CONTENT_WITH_HTML_SIGNATURE,
+    });
+    prisma.executedAction.update.mockResolvedValue({} as never);
+
+    const { handleRuleNotificationAction } = await import(
+      "./rule-notifications"
+    );
+
+    await handleRuleNotificationAction({
+      event: createSlackActionEvent({
+        actionId: "rule_draft_send",
+        value: "action-1",
+      }),
+      logger,
+    });
+
+    expect(provider.sendEmailWithHtml).toHaveBeenCalledTimes(1);
+    const [{ messageHtml }] = provider.sendEmailWithHtml.mock.calls[0];
+    expect(messageHtml).toContain("See you at Tom &amp; Jerry.");
+    expect(messageHtml).toContain("<strong>Jane Doe</strong>");
+    expect(messageHtml).not.toMatch(/&lt;|&amp;amp;/);
+  });
+
+  it("opens the Slack edit modal with the draft text but not the signature HTML", async () => {
+    mockCreateEmailProvider.mockResolvedValue(createNoMailboxDraftProvider());
+    mockNotificationContext({
+      id: "action-1",
+      type: ActionType.DRAFT_MESSAGING_CHANNEL,
+      content: DRAFT_CONTENT_WITH_HTML_SIGNATURE,
+    });
+
+    const openModal = vi.fn().mockResolvedValue(undefined);
+    const { handleRuleNotificationAction } = await import(
+      "./rule-notifications"
+    );
+
+    await handleRuleNotificationAction({
+      event: {
+        ...createSlackActionEvent({
+          actionId: "rule_draft_edit",
+          value: "action-1",
+        }),
+        openModal,
+      },
+      logger,
+    });
+
+    const [{ children }] = openModal.mock.calls[0];
+    expect(children[0].initialValue).toBe(
+      "Thanks, that works for me.\nSee you at Tom & Jerry.",
+    );
+  });
+
+  it("keeps the HTML signature when a Slack edit is sent without a mailbox draft", async () => {
+    const provider = createNoMailboxDraftProvider();
+    mockCreateEmailProvider.mockResolvedValue(provider);
+    mockNotificationContext({
+      id: "action-1",
+      type: ActionType.DRAFT_MESSAGING_CHANNEL,
+      content: DRAFT_CONTENT_WITH_HTML_SIGNATURE,
+      messagingMessageId: "slack-ts-1",
+    });
+    prisma.executedAction.update.mockResolvedValue({} as never);
+    prisma.executedAction.updateMany.mockResolvedValue({ count: 1 } as never);
+
+    await handleSlackRuleNotificationModalSubmit({
+      event: {
+        privateMetadata: "action-1",
+        values: { draft_content: "Edited <reply> & done" },
+        user: { userId: "user-1" },
+        raw: { team: { id: "team-1" } },
+        relatedMessage: { edit: vi.fn().mockResolvedValue(undefined) },
+      } as never,
+      logger,
+    });
+
+    const [{ data }] = prisma.executedAction.updateMany.mock.calls.find(
+      ([args]) => typeof args.data.content === "string",
+    )!;
+    expect(data.content).toContain("Edited &lt;reply&gt; &amp; done");
+    expect(data.content).toContain('data-smartmail="gmail_signature"');
+    expect(data.content).toContain("Acme Inc");
+
+    const [{ messageHtml }] = provider.sendEmailWithHtml.mock.calls[0];
+    expect(messageHtml).toContain("Edited &lt;reply&gt; &amp; done");
+    expect(messageHtml).toContain("<strong>Jane Doe</strong>");
   });
 
   it("collapses sibling draft notifications when a draft is sent from Slack", async () => {
@@ -1898,6 +2004,36 @@ describe("sendMessagingRuleNotification", () => {
     expect(serializedBlocks).not.toContain("Short snippet");
   });
 
+  it("hides the HTML signature in Slack draft notification previews", async () => {
+    mockNotificationContext({
+      id: "action-1",
+      type: ActionType.DRAFT_MESSAGING_CHANNEL,
+      content: DRAFT_CONTENT_WITH_HTML_SIGNATURE,
+    });
+    prisma.executedAction.update.mockResolvedValue({} as never);
+
+    const { sendMessagingRuleNotification } = await import(
+      "./rule-notifications"
+    );
+
+    await sendMessagingRuleNotification({
+      executedActionId: "action-1",
+      email: {
+        headers: { from: "sender@example.com", subject: "Test subject" },
+        snippet: "Preview text",
+      },
+      logger,
+    });
+
+    const [args] = mockSlackPostMessage.mock.calls[0];
+    const serializedBlocks = JSON.stringify(args.blocks);
+
+    expect(serializedBlocks).toContain("Thanks, that works for me.");
+    expect(serializedBlocks).toContain("See you at Tom &amp; Jerry.");
+    expect(serializedBlocks).not.toContain("Jane Doe");
+    expect(serializedBlocks).not.toMatch(/&lt;|<(table|td|tr|div)\b/);
+  });
+
   it("delivers Teams notifications through the linked messaging fallback", async () => {
     mockNotificationContext({
       id: "action-1",
@@ -2341,6 +2477,51 @@ describe("sendMessagingRuleNotification", () => {
     expect(serializedCard).not.toContain("Older quoted line");
     expect(serializedCard).not.toContain("On Tue, Apr 28");
     expect(serializedCard).not.toContain("Short snippet");
+  });
+
+  it("hides the HTML signature in Telegram draft notification cards", async () => {
+    mockNotificationContext({
+      id: "action-1",
+      type: ActionType.DRAFT_MESSAGING_CHANNEL,
+      content: DRAFT_CONTENT_WITH_HTML_SIGNATURE,
+      messagingChannel: {
+        id: "channel-1",
+        provider: MessagingProvider.TELEGRAM,
+        isConnected: true,
+        teamId: "telegram-chat-1",
+        providerUserId: "telegram-user-1",
+        accessToken: null,
+        channelId: null,
+        routes: [
+          {
+            purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+            targetId: "telegram-chat-1",
+            targetType: MessagingRouteTargetType.DIRECT_MESSAGE,
+          },
+        ],
+      },
+    });
+    prisma.executedAction.update.mockResolvedValue({} as never);
+
+    const { sendMessagingRuleNotification } = await import(
+      "./rule-notifications"
+    );
+
+    await sendMessagingRuleNotification({
+      executedActionId: "action-1",
+      email: {
+        headers: { from: "sender@example.com", subject: "Test subject" },
+        snippet: "Preview text",
+      },
+      logger,
+    });
+
+    const [, card] = mockTelegramPostMessage.mock.calls[0];
+    const serializedCard = JSON.stringify(card);
+
+    expect(serializedCard).toContain("Thanks, that works for me.");
+    expect(serializedCard).not.toContain("Jane Doe");
+    expect(serializedCard).not.toMatch(/&lt;|<(table|td|tr|div)\b/);
   });
 
   it("sends Telegram draft notification cards without raw markdown-sensitive text", async () => {
@@ -3202,5 +3383,21 @@ function getNotificationContext({
             },
           ],
         },
+  };
+}
+
+function createNoMailboxDraftProvider() {
+  return {
+    getDraft: vi.fn(),
+    sendDraft: vi.fn(),
+    sendEmailWithHtml: vi.fn().mockResolvedValue(undefined),
+    getMessage: vi.fn().mockResolvedValue(
+      getMockMessage({
+        id: "message-1",
+        threadId: "thread-1",
+        textPlain: "Original message body",
+        attachments: [],
+      }),
+    ),
   };
 }

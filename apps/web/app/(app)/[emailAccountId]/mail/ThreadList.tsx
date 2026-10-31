@@ -43,6 +43,7 @@ export type ThreadListProps = {
   isSelected: (threadId: string) => boolean;
   selectedCount: number;
   onOpenThread: (index: number) => void;
+  onHoverThread?: (thread: ListThread) => void;
   onToggleSelect: (index: number) => void;
   onSelectRangeTo: (index: number) => void;
   showLoadMore: boolean;
@@ -67,6 +68,7 @@ export const ThreadList = memo(function ThreadList({
   isSelected,
   selectedCount,
   onOpenThread,
+  onHoverThread,
   onToggleSelect,
   onSelectRangeTo,
   showLoadMore,
@@ -133,7 +135,11 @@ export const ThreadList = memo(function ThreadList({
       onSelectRangeTo={onSelectRangeTo}
       onToggleSelect={onToggleSelect}
       renderItem={(row) => (
-        <div data-mail-thread-key={row.rowKey} key={row.rowKey}>
+        <div
+          data-mail-thread-key={row.rowKey}
+          key={row.rowKey}
+          onPointerEnter={() => onHoverThread?.(row.item)}
+        >
           <ThreadRow
             compact={isMobile}
             expandedPreview={expandedPreview}

@@ -95,10 +95,26 @@ export function buildPersistedRuleActions({
     });
   }
 
+  const originalNotifyActions = originalActions.filter(
+    (action) => action.type === ActionType.NOTIFY_MESSAGING_CHANNEL,
+  );
+  // The form edits one notification channel (the first). Notifications on
+  // other channels are set up from the Channels page and must survive a save,
+  // since saving replaces every action on the rule.
+  const formNotifyChannelId = originalNotifyActions[0]?.messagingChannelId;
+  actions.push(
+    ...originalNotifyActions.filter(
+      (action) =>
+        action.messagingChannelId !== formNotifyChannelId &&
+        action.messagingChannelId !== notifyMessagingChannelId,
+    ),
+  );
+
   if (notifyMessagingChannelId) {
-    const existingNotifyAction = originalActions.find(
-      (action) => action.type === ActionType.NOTIFY_MESSAGING_CHANNEL,
-    );
+    const existingNotifyAction =
+      originalNotifyActions.find(
+        (action) => action.messagingChannelId === notifyMessagingChannelId,
+      ) ?? originalNotifyActions[0];
     actions.push({
       id: existingNotifyAction?.id,
       type: ActionType.NOTIFY_MESSAGING_CHANNEL,

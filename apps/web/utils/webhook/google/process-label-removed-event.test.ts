@@ -10,7 +10,10 @@ import {
 } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
-import { findRuleByLabelId } from "@/utils/rule/classification-feedback";
+import {
+  findRuleByLabelId,
+  saveClassificationFeedback,
+} from "@/utils/rule/classification-feedback";
 
 const logger = createTestLogger();
 
@@ -22,6 +25,13 @@ vi.mock("@/utils/prisma", () => ({
     },
     groupItem: {
       deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+    },
+    classificationFeedback: {
+      upsert: vi
+        .fn()
+        .mockResolvedValue({ createdAt: new Date("2026-01-01T12:00:00Z") }),
+      findFirst: vi.fn().mockResolvedValue({ id: "earlier-removal" }),
+      count: vi.fn().mockResolvedValue(0),
     },
   },
 }));
@@ -72,7 +82,9 @@ vi.mock("@/utils/webhook/google/fetch-sender-from-message", () => ({
 }));
 
 vi.mock("@/utils/rule/classification-feedback", () => ({
-  saveClassificationFeedback: vi.fn().mockResolvedValue(undefined),
+  saveClassificationFeedback: vi
+    .fn()
+    .mockResolvedValue({ createdAt: new Date("2026-01-01T12:00:00Z") }),
   findRuleByLabelId: vi.fn(),
 }));
 
@@ -249,6 +261,28 @@ describe("process-label-removed-event", () => {
       );
     });
 
+    it("records feedback but does not learn an exclusion for a bulk label removal", async () => {
+      vi.mocked(findRuleByLabelId).mockResolvedValue({
+        id: "rule-123",
+        systemType: SystemType.NEWSLETTER,
+      } satisfies NonNullable<Awaited<ReturnType<typeof findRuleByLabelId>>>);
+
+      const historyItem = createLabelRemovedHistoryItem("123", "thread-123", [
+        "label-2",
+      ]);
+
+      await handleLabelRemovedEvent(
+        historyItem.item,
+        { ...defaultOptions, bulkRemovedLabelIds: new Set(["label-2"]) },
+        logger,
+      );
+
+      expect(saveLearnedPattern).not.toHaveBeenCalled();
+      expect(saveClassificationFeedback).toHaveBeenCalledWith(
+        expect.objectContaining({ ruleId: "rule-123", messageId: "123" }),
+      );
+    });
+
     it("should skip learning when no rule is found for the removed label", async () => {
       vi.mocked(findRuleByLabelId).mockResolvedValue(null);
 
@@ -281,7 +315,7 @@ describe("process-label-removed-event", () => {
         where: {
           groupId: "group-1",
           type: GroupItemType.FROM,
-          value: "sender@example.com",
+          value: { equals: "sender@example.com", mode: "insensitive" },
           source: GroupItemSource.LABEL_ADDED,
           exclude: false,
         },
@@ -342,7 +376,7 @@ describe("process-label-removed-event", () => {
         where: {
           groupId: "group-cold",
           type: GroupItemType.FROM,
-          value: "sender@example.com",
+          value: { equals: "sender@example.com", mode: "insensitive" },
           source: GroupItemSource.LABEL_ADDED,
           exclude: false,
         },

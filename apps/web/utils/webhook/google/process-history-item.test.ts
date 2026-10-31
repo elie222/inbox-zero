@@ -302,6 +302,33 @@ describe("processHistoryItem", () => {
     });
   });
 
+  it("passes bulk-removal context to label-removal learning", async () => {
+    const bulkRemovedLabelIds = new Set(["label-2"]);
+    const event = {
+      ...createHistoryItem(
+        "123",
+        "thread-123",
+        HistoryEventType.LABEL_REMOVED,
+        ["label-2"],
+      ),
+      bulkRemovedLabelIds,
+    };
+    await processHistoryItem(
+      event,
+      {
+        ...defaultOptions,
+        emailAccount: getDefaultEmailAccount(),
+      },
+      logger,
+    );
+
+    expect(handleLabelRemovedEvent).toHaveBeenCalledWith(
+      event.item,
+      expect.objectContaining({ bulkRemovedLabelIds }),
+      expect.anything(),
+    );
+  });
+
   it("allows spam learning again after spam is removed from a thread", async () => {
     const spamLearnedThreadIds = new Set(["thread-123"]);
     const options = {

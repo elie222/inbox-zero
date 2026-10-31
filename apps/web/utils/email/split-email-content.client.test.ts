@@ -194,6 +194,37 @@ describe("splitEmailContent", () => {
     });
   });
 
+  it("preserves content the sender formatted as a Gmail quote", () => {
+    const html = [
+      '<div dir="ltr"><div>I got this error:</div><div><br></div>',
+      '<blockquote class="gmail_quote" style="margin:0px 0px 0px 0.8ex;border-left:1px solid rgb(204,204,204);padding-left:1ex">',
+      "<pre>Error: something failed</pre>",
+      "</blockquote>",
+      '<div class="gmail_signature">Signature</div></div>',
+    ].join("");
+
+    expect(splitEmailContent(html)).toMatchObject({
+      mainContent: html,
+      quotedContent: "",
+      hasQuotedContent: false,
+    });
+  });
+
+  it("collapses a Gmail reply quote with an attribution line", () => {
+    const result = splitEmailContent(
+      [
+        '<div dir="ltr">Current reply</div><br>',
+        '<div class="gmail_quote"><div dir="ltr" class="gmail_attr">Earlier, someone wrote:<br></div>',
+        '<blockquote class="gmail_quote">Earlier message</blockquote></div>',
+      ].join(""),
+    );
+
+    expect(result).toMatchObject({
+      mainContent: '<div dir="ltr">Current reply</div>',
+      hasQuotedContent: true,
+    });
+  });
+
   it("preserves messages without recognized quoted content", () => {
     const html =
       "<div>A regular message</div><blockquote>A cited passage</blockquote>";

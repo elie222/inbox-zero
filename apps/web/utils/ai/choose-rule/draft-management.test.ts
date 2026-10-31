@@ -35,7 +35,7 @@ const executedRule = {
 
 describe("handlePreviousDraftDeletion", () => {
   const mockGetDraft = vi.fn();
-  const mockDeleteDraft = vi.fn();
+  const mockDeleteDraft = vi.fn().mockResolvedValue(true);
   const mockClient = {
     getDraft: mockGetDraft,
     deleteDraft: mockDeleteDraft,
@@ -92,6 +92,23 @@ describe("handlePreviousDraftDeletion", () => {
       mockUpdate,
     });
     expect(result).toEqual({ shouldCreateDraft: true });
+  });
+
+  it("keeps tracking a draft when the provider refuses deletion", async () => {
+    mockFindFirst.mockResolvedValue(previousDraftAction);
+    mockGetDraft.mockResolvedValue(
+      createParsedMessage({ textPlain: previousDraftAction.content }),
+    );
+    mockDeleteDraft.mockResolvedValueOnce(false);
+
+    await handlePreviousDraftDeletion({
+      client: mockClient,
+      executedRule,
+      logger,
+    });
+
+    expect(mockDeleteDraft).toHaveBeenCalledWith(previousDraftAction.draftId);
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 
   it("should not delete modified draft", async () => {
@@ -601,6 +618,7 @@ function expectDraftCleanedUp({
     where: { id: "action-111" },
     data: {
       draftStatus: DraftEmailStatus.CLEANED_UP_UNUSED,
+      wasDraftSent: null,
     },
   });
 }

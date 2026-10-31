@@ -213,6 +213,77 @@ describe("GmailProvider.bulkArchiveThreads", () => {
   });
 });
 
+describe("GmailProvider.bulkArchiveFromSenders", () => {
+  it("archives every inbox message from a sender across pages", async () => {
+    const inbox = Array.from({ length: 4 }, (_, index) => ({
+      id: `message-${index + 1}`,
+      threadId: `thread-${index + 1}`,
+    }));
+    const pageSize = 2;
+    // Like Gmail, the next page token is an offset into the live result set,
+    // so archiving the first page shifts what the second page returns.
+    const list = vi.fn(async ({ pageToken }: { pageToken?: string }) => {
+      const offset = pageToken ? Number(pageToken) : 0;
+      const messages = inbox.slice(offset, offset + pageSize);
+      const next = offset + pageSize;
+      return {
+        data: {
+          messages,
+          nextPageToken: next < inbox.length ? String(next) : undefined,
+        },
+      };
+    });
+    const batchModify = vi.fn(
+      async ({ requestBody }: { requestBody: { ids: string[] } }) => {
+        for (const id of requestBody.ids) {
+          inbox.splice(
+            inbox.findIndex((message) => message.id === id),
+            1,
+          );
+        }
+        return { data: {} };
+      },
+    );
+    const provider = new GmailProvider(
+      createGmailClient({ list, batchModify } as never),
+    );
+
+    await provider.bulkArchiveFromSenders(
+      ["sender@example.com"],
+      "owner@example.com",
+      "account-1",
+    );
+
+    const archivedIds = batchModify.mock.calls.flatMap(
+      ([request]) => request.requestBody.ids,
+    );
+    expect(archivedIds.sort()).toEqual([
+      "message-1",
+      "message-2",
+      "message-3",
+      "message-4",
+    ]);
+    expect(inbox).toEqual([]);
+  });
+
+  it("stops and throws when listing fails and errors should not be skipped", async () => {
+    const list = vi.fn().mockRejectedValue(new Error("Gmail down"));
+    const batchModify = vi.fn();
+    const provider = new GmailProvider(
+      createGmailClient({ list, batchModify } as never),
+    );
+
+    await expect(
+      provider.bulkArchiveSenderOrThrow(
+        "sender@example.com",
+        "owner@example.com",
+        "account-1",
+      ),
+    ).rejects.toThrow("Gmail down");
+    expect(batchModify).not.toHaveBeenCalled();
+  });
+});
+
 describe("GmailProvider snapshot mutations", () => {
   it("adds an archive label in the same Gmail batch modification", async () => {
     const batchModify = vi.fn().mockResolvedValue({ data: {} });

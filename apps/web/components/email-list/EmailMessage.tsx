@@ -657,7 +657,7 @@ function MessageHeader({
                   </span>
                 </span>
               )}
-              <ChevronsUpDownIcon className="size-3.5 shrink-0 text-muted-foreground transition-opacity group-hover/details:opacity-100 group-focus-visible/details:opacity-100 sm:opacity-0" />
+              <ChevronsUpDownIcon className="size-3.5 shrink-0 text-muted-foreground transition-opacity group-hover/message:opacity-100 group-focus-visible/details:opacity-100 sm:opacity-0" />
             </button>
           )}
           {canResearchSender && (

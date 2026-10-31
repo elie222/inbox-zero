@@ -11,6 +11,10 @@ import {
   ruleHistoryRuleInclude,
   type RuleHistoryTrigger,
 } from "@/utils/rule/rule-history";
+import {
+  RULE_ANALYTICS_EVENTS,
+  trackRuleEvent,
+} from "@/utils/analytics/rule-events.server";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { createEmailProvider } from "@/utils/email/provider";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
@@ -617,6 +621,14 @@ export async function deleteRule({
   ruleId: string;
   groupId?: string | null;
 }) {
+  after(() =>
+    trackRuleEvent({
+      emailAccountId,
+      event: RULE_ANALYTICS_EVENTS.ruleDeleted,
+      properties: { ruleId },
+    }),
+  );
+
   if (groupId) {
     const deletedGroups = await prisma.group.deleteMany({
       where: { id: groupId, emailAccountId },
@@ -971,7 +983,22 @@ function queueRuleHistory(params: {
   rule: RuleWithRelations;
   triggerType: RuleHistoryTrigger;
 }) {
+  const { rule, triggerType } = params;
+
   after(() => createRuleHistory(params));
+
+  after(() =>
+    trackRuleEvent({
+      emailAccountId: rule.emailAccountId,
+      event: RULE_ANALYTICS_EVENTS.ruleChanged,
+      properties: {
+        ruleId: rule.id,
+        triggerType,
+        systemType: rule.systemType,
+        enabled: rule.enabled,
+      },
+    }),
+  );
 }
 
 function addNestedActionOwnershipToInputs(
