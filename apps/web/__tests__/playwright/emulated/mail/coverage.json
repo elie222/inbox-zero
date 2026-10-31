@@ -169,6 +169,12 @@
     "components/ShortcutTooltipContent.tsx",
     "components/ui/tooltip.tsx"
   ],
+  "reply-typing-stability.spec.ts": [
+    "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
+    "app/(app)/[emailAccountId]/compose/useComposeDraft.ts",
+    "components/email-list/EmailThread.tsx",
+    "components/email-list/EmailMessage.tsx"
+  ],
   "scheduled-replies.spec.ts": [
     "components/email-list/ThreadDeliveryStatus.tsx",
     "components/email-list/EmailThread.tsx",
