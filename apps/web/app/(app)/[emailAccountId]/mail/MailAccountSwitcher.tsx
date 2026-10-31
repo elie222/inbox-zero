@@ -79,10 +79,14 @@ export const MailAccountSwitcher = memo(function MailAccountSwitcher({
           { revalidate: false },
         );
       }
-      const result = await reorderEmailAccountsAction({ emailAccountIds });
-      await mutate();
-      if (result?.serverError || result?.validationErrors) {
-        toast.error(getActionErrorMessage(result));
+      const result = await reorderEmailAccountsAction({
+        emailAccountIds,
+      }).catch(() => null);
+      mutate();
+      if (!result || result.serverError || result.validationErrors) {
+        toast.error(
+          getActionErrorMessage(result ?? {}, "Failed to save account order"),
+        );
       }
     },
     [data, mutate],
