@@ -7,6 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { getSignatureText } from "./find-signature-id";
 
 type Signature = GetSignatureResponse["signatures"][number];
 
@@ -63,11 +64,4 @@ export function ComposeSignaturePicker({
       </DropdownMenuContent>
     </DropdownMenu>
   );
-}
-
-function getSignatureText(html: string) {
-  const spaced = html.replace(/<(br|\/div|\/p|\/li|\/tr)\b[^>]*>/gi, "$& ");
-  const text = new DOMParser().parseFromString(spaced, "text/html").body
-    .textContent;
-  return (text ?? "").replace(/\s+/g, " ").trim();
 }
