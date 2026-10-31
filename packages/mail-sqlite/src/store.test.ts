@@ -1861,46 +1861,7 @@ describe("drafts, freeze, and uncertain settlement", () => {
   });
 
   it("resumes a blocked_auth command once the account connects again", async () => {
-    const store = await createSqliteMailStore(createNodeSqliteDriver());
-    await store.ensureAccount({
-      accountId: "acc-1",
-      provider: "google",
-      generation: "g1",
-    });
-    const saved = await store.saveDraft({
-      key: { accountId: "acc-1", draftId: "d-reauth" },
-      expectedRevision: null,
-      content: {
-        to: ["ada@example.com"],
-        cc: [],
-        bcc: [],
-        subject: "Hi",
-        editableHtml: "<p>Hi</p>",
-        quotedHtml: "",
-      },
-    });
-    if (saved.status !== "saved") throw new Error("expected save");
-    await store.admitSend({
-      commandId: "send-reauth",
-      draft: { accountId: "acc-1", draftId: "d-reauth" },
-      draftRevision: saved.draftRevision,
-      replyTo: null,
-    });
-    const execute = await store.claimWork({
-      ownerId: "owner",
-      nowMs: Date.now(),
-      leaseMs: 30_000,
-    });
-    if (execute?.kind !== "command") throw new Error("expected command");
-    await store.settleAttempt({
-      attemptId: execute.attemptId,
-      operation: execute.operation,
-      result: {
-        status: "not_dispatched",
-        reason: "blocked_auth",
-        retryAfterMs: 5000,
-      },
-    });
+    const store = await parkSendOnBlockedAuth("send-reauth");
     // Sync sees the same expired token, then the user reconnects.
     await store.recordConnection({
       accountId: "acc-1",
@@ -1921,46 +1882,7 @@ describe("drafts, freeze, and uncertain settlement", () => {
   });
 
   it("keeps a blocked_auth command parked while the connection stays ready", async () => {
-    const store = await createSqliteMailStore(createNodeSqliteDriver());
-    await store.ensureAccount({
-      accountId: "acc-1",
-      provider: "google",
-      generation: "g1",
-    });
-    const saved = await store.saveDraft({
-      key: { accountId: "acc-1", draftId: "d-scope" },
-      expectedRevision: null,
-      content: {
-        to: ["ada@example.com"],
-        cc: [],
-        bcc: [],
-        subject: "Hi",
-        editableHtml: "<p>Hi</p>",
-        quotedHtml: "",
-      },
-    });
-    if (saved.status !== "saved") throw new Error("expected save");
-    await store.admitSend({
-      commandId: "send-scope",
-      draft: { accountId: "acc-1", draftId: "d-scope" },
-      draftRevision: saved.draftRevision,
-      replyTo: null,
-    });
-    const execute = await store.claimWork({
-      ownerId: "owner",
-      nowMs: Date.now(),
-      leaseMs: 30_000,
-    });
-    if (execute?.kind !== "command") throw new Error("expected command");
-    await store.settleAttempt({
-      attemptId: execute.attemptId,
-      operation: execute.operation,
-      result: {
-        status: "not_dispatched",
-        reason: "blocked_auth",
-        retryAfterMs: 5000,
-      },
-    });
+    const store = await parkSendOnBlockedAuth("send-scope");
     // Sync keeps working (no reconnect happened), so a retry would hit the
     // same auth error again.
     await store.recordConnection({ accountId: "acc-1", connection: "ready" });
@@ -1976,46 +1898,7 @@ describe("drafts, freeze, and uncertain settlement", () => {
   });
 
   it("keeps a blocked_auth command parked when the account only comes back online", async () => {
-    const store = await createSqliteMailStore(createNodeSqliteDriver());
-    await store.ensureAccount({
-      accountId: "acc-1",
-      provider: "google",
-      generation: "g1",
-    });
-    const saved = await store.saveDraft({
-      key: { accountId: "acc-1", draftId: "d-offline" },
-      expectedRevision: null,
-      content: {
-        to: ["ada@example.com"],
-        cc: [],
-        bcc: [],
-        subject: "Hi",
-        editableHtml: "<p>Hi</p>",
-        quotedHtml: "",
-      },
-    });
-    if (saved.status !== "saved") throw new Error("expected save");
-    await store.admitSend({
-      commandId: "send-offline",
-      draft: { accountId: "acc-1", draftId: "d-offline" },
-      draftRevision: saved.draftRevision,
-      replyTo: null,
-    });
-    const execute = await store.claimWork({
-      ownerId: "owner",
-      nowMs: Date.now(),
-      leaseMs: 30_000,
-    });
-    if (execute?.kind !== "command") throw new Error("expected command");
-    await store.settleAttempt({
-      attemptId: execute.attemptId,
-      operation: execute.operation,
-      result: {
-        status: "not_dispatched",
-        reason: "blocked_auth",
-        retryAfterMs: 5000,
-      },
-    });
+    const store = await parkSendOnBlockedAuth("send-offline");
     // A network blip is not a reconnect, so a retry would hit the same auth
     // error again.
     await store.recordConnection({ accountId: "acc-1", connection: "offline" });
@@ -5340,4 +5223,49 @@ function fixtureSource(messages: Map<string, ProviderChange>): MailboxSource {
       return { status: "paused", retryAfterMs: 0, reason: "unavailable" };
     },
   };
+}
+
+async function parkSendOnBlockedAuth(commandId: string) {
+  const store = await createSqliteMailStore(createNodeSqliteDriver());
+  await store.ensureAccount({
+    accountId: "acc-1",
+    provider: "google",
+    generation: "g1",
+  });
+  const draft = { accountId: "acc-1", draftId: `d-${commandId}` };
+  const saved = await store.saveDraft({
+    key: draft,
+    expectedRevision: null,
+    content: {
+      to: ["ada@example.com"],
+      cc: [],
+      bcc: [],
+      subject: "Hi",
+      editableHtml: "<p>Hi</p>",
+      quotedHtml: "",
+    },
+  });
+  if (saved.status !== "saved") throw new Error("expected save");
+  await store.admitSend({
+    commandId,
+    draft,
+    draftRevision: saved.draftRevision,
+    replyTo: null,
+  });
+  const execute = await store.claimWork({
+    ownerId: "owner",
+    nowMs: Date.now(),
+    leaseMs: 30_000,
+  });
+  if (execute?.kind !== "command") throw new Error("expected command");
+  await store.settleAttempt({
+    attemptId: execute.attemptId,
+    operation: execute.operation,
+    result: {
+      status: "not_dispatched",
+      reason: "blocked_auth",
+      retryAfterMs: 5000,
+    },
+  });
+  return store;
 }
