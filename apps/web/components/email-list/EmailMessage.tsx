@@ -1156,7 +1156,7 @@ function MessageBodyLoading() {
       role="status"
     >
       <LoadingMiniSpinner />
-      Loading message…
+      Loading…
     </p>
   );
 }

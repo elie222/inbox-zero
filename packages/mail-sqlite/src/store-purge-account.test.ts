@@ -214,20 +214,28 @@ async function seedAccount(
     commandId: `bulk-${accountId}`,
   });
   if (work?.kind !== "prepare") throw new Error("expected preparation work");
-  await store.applyPreparationPage({
+  await store.applyPreparationResults({
     accountId,
     commandId: `bulk-${accountId}`,
     attemptId: work.attemptId,
     session: work.session,
-    previousPage: work.page,
-    page: {
-      conversation: { accountId, conversationId },
-      resolutionId: work.resolutionId,
-      keys: [{ accountId, messageId }],
-      changes: [],
-      nextPage: null,
-      evidence: null,
-    },
+    results: [
+      {
+        read: work.reads[0],
+        membership: {
+          status: "page",
+          page: {
+            conversation: { accountId, conversationId },
+            resolutionId: work.reads[0].resolutionId,
+            keys: [{ accountId, messageId }],
+            changes: [],
+            nextPage: null,
+            evidence: null,
+          },
+        },
+      },
+    ],
+    nextAttemptAtMs: null,
   });
   await store.enqueueHydration({
     keys: [{ accountId, messageId }],

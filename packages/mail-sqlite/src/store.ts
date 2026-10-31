@@ -52,6 +52,7 @@ import type {
   ProviderChange,
   SyncPage,
 } from "@inboxzero/mail-core/sync";
+import { MAX_MEMBERSHIP_BATCH_READS } from "@inboxzero/mail-core/ports/mailbox-source";
 import type { SqlTransaction, SqliteDriver } from "./driver";
 import { evictReplaceableMessageContent } from "./maintenance";
 import {
@@ -268,7 +269,7 @@ export async function createSqliteMailStore(
         admitConversations(tx, input, maxPendingOperations, runtime, digest),
       );
     },
-    async applyPreparationPage(input) {
+    async applyPreparationResults(input) {
       return driver.write(async (tx) => {
         const operation = await loadOperation(
           tx,
@@ -282,96 +283,83 @@ export async function createSqliteMailStore(
         if (!(await accountGenerationMatches(tx, input.session))) {
           return { status: "stale" };
         }
-        if (input.page.conversation.accountId !== input.accountId) {
-          return { status: "stale" };
-        }
-        if (input.page.resolutionId.length === 0) {
-          return { status: "stale" };
-        }
-        const preparation = await tx.query(
-          `SELECT resolution_id, next_page, complete
-           FROM operation_conversations
-           WHERE account_id = ? AND command_id = ? AND conversation_id = ?`,
-          [
-            input.accountId,
-            input.commandId,
-            input.page.conversation.conversationId,
-          ],
-        );
-        if (
-          !preparation[0] ||
-          Number(preparation[0].complete) === 1 ||
-          String(preparation[0].resolution_id) !== input.page.resolutionId ||
-          nullableString(preparation[0].next_page) !== input.previousPage
-        ) {
-          return { status: "stale" };
-        }
-        if (
-          input.page.changes.some(
-            (change) =>
-              !providerChangeBelongsToAccount(change, input.accountId),
-          )
-        ) {
-          return { status: "stale" };
-        }
-        for (const change of input.page.changes) {
-          await applyChange(tx, change);
-        }
-        for (const key of input.page.keys) {
-          if (key.accountId !== input.accountId) continue;
+        for (const { read, membership } of input.results) {
+          const { conversationId } = read.conversation;
+          if (read.conversation.accountId !== input.accountId) continue;
+          const preparation = await tx.query(
+            `SELECT resolution_id, next_page, complete
+             FROM operation_conversations
+             WHERE account_id = ? AND command_id = ? AND conversation_id = ?`,
+            [input.accountId, input.commandId, conversationId],
+          );
+          if (
+            !preparation[0] ||
+            Number(preparation[0].complete) === 1 ||
+            String(preparation[0].resolution_id) !== read.resolutionId ||
+            nullableString(preparation[0].next_page) !== read.page
+          ) {
+            continue;
+          }
+          if (membership.status === "not_found") {
+            await dropPreparedConversation(tx, input, conversationId);
+            continue;
+          }
+          const { page } = membership;
+          if (
+            page.conversation.accountId !== input.accountId ||
+            page.conversation.conversationId !== conversationId ||
+            page.resolutionId !== read.resolutionId ||
+            page.changes.some(
+              (change) =>
+                !providerChangeBelongsToAccount(change, input.accountId),
+            )
+          ) {
+            continue;
+          }
+          for (const change of page.changes) {
+            await applyChange(tx, change);
+          }
+          for (const key of page.keys) {
+            if (key.accountId !== input.accountId) continue;
+            await tx.execute(
+              `INSERT OR IGNORE INTO operation_targets(account_id, command_id, message_id, conversation_id)
+               VALUES (?, ?, ?, ?)`,
+              [input.accountId, input.commandId, key.messageId, conversationId],
+            );
+          }
           await tx.execute(
-            `INSERT OR IGNORE INTO operation_targets(account_id, command_id, message_id, conversation_id)
-             VALUES (?, ?, ?, ?)`,
+            `UPDATE operation_conversations
+             SET next_page = ?, complete = ?
+             WHERE account_id = ? AND command_id = ? AND conversation_id = ?`,
             [
+              page.nextPage,
+              page.nextPage ? 0 : 1,
               input.accountId,
               input.commandId,
-              key.messageId,
-              input.page.conversation.conversationId,
+              conversationId,
             ],
           );
-        }
-        const updated = await tx.execute(
-          `UPDATE operation_conversations
-           SET next_page = ?, complete = ?
-           WHERE account_id = ? AND command_id = ? AND conversation_id = ?
-             AND resolution_id = ?
-             AND complete = 0
-             AND ((next_page IS NULL AND ? IS NULL) OR next_page = ?)`,
-          [
-            input.page.nextPage,
-            input.page.nextPage ? 0 : 1,
-            input.accountId,
-            input.commandId,
-            input.page.conversation.conversationId,
-            input.page.resolutionId,
-            input.previousPage,
-            input.previousPage,
-          ],
-        );
-        if (updated.changedRows === 0) return { status: "stale" };
-        if (!input.page.nextPage) {
-          await tx.execute(
-            `INSERT INTO conversation_completeness(account_id, conversation_id, complete)
-             VALUES (?, ?, 1)
-             ON CONFLICT(account_id, conversation_id) DO UPDATE SET complete = 1`,
-            [input.accountId, input.page.conversation.conversationId],
-          );
+          if (!page.nextPage) {
+            await tx.execute(
+              `INSERT INTO conversation_completeness(account_id, conversation_id, complete)
+               VALUES (?, ?, 1)
+               ON CONFLICT(account_id, conversation_id) DO UPDATE SET complete = 1`,
+              [input.accountId, conversationId],
+            );
+          }
         }
         await tx.execute(
           `UPDATE operations
-           SET claimed_by = NULL, claimed_until_ms = NULL, attempt_id = NULL, next_attempt_at_ms = NULL
+           SET claimed_by = NULL, claimed_until_ms = NULL, attempt_id = NULL, next_attempt_at_ms = ?
            WHERE account_id = ? AND command_id = ? AND status = 'preparing' AND attempt_id = ?`,
-          [input.accountId, input.commandId, input.attemptId],
+          [
+            input.nextAttemptAtMs,
+            input.accountId,
+            input.commandId,
+            input.attemptId,
+          ],
         );
-        const revision = await bumpRevision(tx);
-        return {
-          status: "preparing",
-          operation: {
-            accountId: input.accountId,
-            operationId: input.commandId,
-          },
-          revision,
-        };
+        return { status: "committed", revision: await bumpRevision(tx) };
       });
     },
     async finishPreparation(input) {
@@ -400,6 +388,18 @@ export async function createSqliteMailStore(
           accountId: input.accountId,
           messageId: String(row.message_id),
         }));
+        if (messageTargets.length === 0) {
+          await tx.execute(
+            `UPDATE operations SET status = 'failed', error_code = 'conversation_not_found', error_retryable = 0
+             WHERE account_id = ? AND command_id = ?`,
+            [input.accountId, input.commandId],
+          );
+          await bumpRevision(tx);
+          return {
+            status: "rejected" as const,
+            code: "stale_selection" as const,
+          };
+        }
         const executable = {
           kind: "metadata" as const,
           targets: messageTargets,
@@ -431,24 +431,31 @@ export async function createSqliteMailStore(
     async claimWork(input) {
       return driver.write(async (tx) => {
         const preparing = await tx.query(
-          `SELECT o.account_id, o.command_id, c.conversation_id, c.resolution_id, c.next_page, a.generation
+          `SELECT o.account_id, o.command_id, a.generation
            FROM operations o
-           JOIN operation_conversations c
-             ON c.account_id = o.account_id AND c.command_id = o.command_id
            JOIN accounts a
              ON a.account_id = o.account_id
-           WHERE o.status = 'preparing' AND c.complete = 0
+           WHERE o.status = 'preparing'
+             AND EXISTS (
+               SELECT 1 FROM operation_conversations c
+               WHERE c.account_id = o.account_id AND c.command_id = o.command_id
+                 AND c.complete = 0
+             )
              AND (o.next_attempt_at_ms IS NULL OR o.next_attempt_at_ms <= ?)
              AND (o.claimed_by IS NULL OR o.claimed_until_ms IS NULL OR o.claimed_until_ms < ?)
-           ORDER BY o.created_at_ms, c.conversation_id
+           ORDER BY o.created_at_ms
            LIMIT 1`,
           [input.nowMs, input.nowMs],
         );
         if (preparing[0]) {
+          const accountId = String(preparing[0].account_id);
+          const commandId = String(preparing[0].command_id);
           const attemptId = runtime.randomId();
+          // Reading membership is not an attempt at the change itself, so it
+          // leaves the count that paces retries of an uncertain one alone.
           const claimed = await tx.execute(
             `UPDATE operations
-             SET attempts = attempts + 1, claimed_by = ?, claimed_until_ms = ?, attempt_id = ?
+             SET claimed_by = ?, claimed_until_ms = ?, attempt_id = ?
              WHERE account_id = ? AND command_id = ?
                AND status = 'preparing'
                AND (next_attempt_at_ms IS NULL OR next_attempt_at_ms <= ?)
@@ -457,30 +464,38 @@ export async function createSqliteMailStore(
               input.ownerId,
               input.nowMs + input.leaseMs,
               attemptId,
-              preparing[0].account_id,
-              preparing[0].command_id,
+              accountId,
+              commandId,
               input.nowMs,
               input.nowMs,
             ],
           );
           if (claimed.changedRows === 0) return null;
+          const conversations = await tx.query(
+            `SELECT conversation_id, resolution_id, next_page
+             FROM operation_conversations
+             WHERE account_id = ? AND command_id = ? AND complete = 0
+             ORDER BY conversation_id
+             LIMIT ?`,
+            [accountId, commandId, MAX_MEMBERSHIP_BATCH_READS],
+          );
           return {
             kind: "prepare" as const,
             attemptId,
-            commandId: String(preparing[0].command_id),
-            accountId: String(preparing[0].account_id),
+            commandId,
+            accountId,
             session: {
-              accountId: String(preparing[0].account_id),
+              accountId,
               generation: String(preparing[0].generation),
             },
-            conversation: {
-              accountId: String(preparing[0].account_id),
-              conversationId: String(preparing[0].conversation_id),
-            },
-            resolutionId: String(preparing[0].resolution_id),
-            page: preparing[0].next_page
-              ? String(preparing[0].next_page)
-              : null,
+            reads: conversations.map((row) => ({
+              conversation: {
+                accountId,
+                conversationId: String(row.conversation_id),
+              },
+              resolutionId: String(row.resolution_id),
+              page: nullableString(row.next_page),
+            })),
           };
         }
         const queued = await tx.query(
@@ -534,7 +549,7 @@ export async function createSqliteMailStore(
           const attemptId = runtime.randomId();
           const claimed = await tx.execute(
             `UPDATE operations
-             SET claimed_by = ?, claimed_until_ms = ?, attempt_id = ?
+             SET attempts = attempts + 1, claimed_by = ?, claimed_until_ms = ?, attempt_id = ?
              WHERE account_id = ? AND command_id = ?
                AND status IN ('uncertain', 'verifying')
                AND executable_hash IS NOT NULL
@@ -858,14 +873,21 @@ export async function createSqliteMailStore(
               await upsertConfirmed(tx, { ...confirmed, ...next });
             }
           }
+          const status = operationStatusFromTargets(targets, "succeeded");
           await tx.execute(
-            `UPDATE operations SET status = ?, receipt_id = ?, sent_message_id = ?, claimed_by = NULL, attempt_id = NULL
+            `UPDATE operations SET status = ?, receipt_id = ?, sent_message_id = ?, next_attempt_at_ms = ?, claimed_by = NULL, attempt_id = NULL
              WHERE account_id = ? AND command_id = ?`,
             [
-              operationStatusFromTargets(targets, "succeeded"),
+              status,
               input.result.receiptId,
               input.operation.intent.kind === "send"
                 ? sentMessageIdFromObservations(input.result.observations)
+                : null,
+              status === "uncertain"
+                ? uncertainRetryAtMs(
+                    input.operation,
+                    Number(current[0].attempts),
+                  )
                 : null,
               input.operation.key.accountId,
               input.operation.key.operationId,
@@ -902,7 +924,12 @@ export async function createSqliteMailStore(
              WHERE account_id = ? AND command_id = ?`,
             [
               boundReceiptId(input.result.receiptId),
-              inspectable ? Date.now() + 1000 : null,
+              inspectable
+                ? uncertainRetryAtMs(
+                    input.operation,
+                    Number(current[0].attempts),
+                  )
+                : null,
               input.operation.key.accountId,
               input.operation.key.operationId,
             ],
@@ -1925,28 +1952,6 @@ export async function createSqliteMailStore(
         };
       });
     },
-    async deferPreparation(input) {
-      return driver.write(async (tx) => {
-        const deferred = await tx.execute(
-          `UPDATE operations
-           SET claimed_by = NULL, claimed_until_ms = NULL, attempt_id = NULL, next_attempt_at_ms = ?
-           WHERE account_id = ? AND command_id = ?
-             AND status = 'preparing'
-             AND attempt_id = ?`,
-          [
-            input.nextAttemptAtMs,
-            input.accountId,
-            input.commandId,
-            input.attemptId,
-          ],
-        );
-        if (deferred.changedRows === 0) return { status: "stale" as const };
-        return {
-          status: "committed" as const,
-          revision: await bumpRevision(tx),
-        };
-      });
-    },
     async applyAssistantEntries(input) {
       return driver.write(async (tx) => {
         for (const entry of input.entries) {
@@ -2091,7 +2096,7 @@ async function admitConversations(
     }
     return { status: "rejected", code: "invalid" };
   }
-  let complete = true;
+  const incomplete = new Set<string>();
   const knownTargets: Array<MessageKey & { conversationId: string }> = [];
   for (const conversation of input.conversations) {
     if (conversation.accountId !== input.accountId) {
@@ -2101,11 +2106,12 @@ async function admitConversations(
       "SELECT complete FROM conversation_completeness WHERE account_id = ? AND conversation_id = ?",
       [conversation.accountId, conversation.conversationId],
     );
-    if (!flag[0] || Number(flag[0].complete) !== 1) complete = false;
     const messages = await tx.query(
       "SELECT message_id FROM messages WHERE account_id = ? AND conversation_id = ? AND deleted = 0",
       [conversation.accountId, conversation.conversationId],
     );
+    if (!flag[0] || Number(flag[0].complete) !== 1 || messages.length === 0)
+      incomplete.add(conversation.conversationId);
     knownTargets.push(
       ...messages.map((row) => ({
         accountId: conversation.accountId,
@@ -2114,7 +2120,7 @@ async function admitConversations(
       })),
     );
   }
-  if (complete && knownTargets.length > 0) {
+  if (incomplete.size === 0) {
     return admitExact(
       tx,
       {
@@ -2148,15 +2154,17 @@ async function admitConversations(
       Date.now(),
     ],
   );
+  // Conversations already known in full need no membership read.
   for (const conversation of input.conversations) {
     await tx.execute(
       `INSERT INTO operation_conversations(account_id, command_id, conversation_id, resolution_id, next_page, complete)
-       VALUES (?, ?, ?, ?, NULL, 0)`,
+       VALUES (?, ?, ?, ?, NULL, ?)`,
       [
         input.accountId,
         input.commandId,
         conversation.conversationId,
         runtime.randomId(),
+        incomplete.has(conversation.conversationId) ? 0 : 1,
       ],
     );
   }
@@ -2929,6 +2937,37 @@ async function streamPositionMatches(
   );
 }
 
+// The provider no longer has the conversation, so none of its messages are
+// left to change.
+async function dropPreparedConversation(
+  tx: SqlTransaction,
+  input: { accountId: string; commandId: string },
+  conversationId: string,
+) {
+  const dropped = await tx.query(
+    `SELECT message_id FROM operation_targets
+     WHERE account_id = ? AND command_id = ? AND conversation_id = ?`,
+    [input.accountId, input.commandId, conversationId],
+  );
+  await tx.execute(
+    `DELETE FROM operation_targets
+     WHERE account_id = ? AND command_id = ? AND conversation_id = ?`,
+    [input.accountId, input.commandId, conversationId],
+  );
+  await tx.execute(
+    `UPDATE operation_conversations SET complete = 1
+     WHERE account_id = ? AND command_id = ? AND conversation_id = ?`,
+    [input.accountId, input.commandId, conversationId],
+  );
+  await recomputeTargets(
+    tx,
+    dropped.map((row) => ({
+      accountId: input.accountId,
+      messageId: String(row.message_id),
+    })),
+  );
+}
+
 function nullableString(value: import("./driver").SqlValue | undefined) {
   return value == null ? null : String(value);
 }
@@ -3188,6 +3227,15 @@ function operationStatusFromTargets(
   if (rejected && !applied) return "failed";
   if (applied && !rejected) return "succeeded";
   return completeStatus;
+}
+
+// Inspecting an uncertain metadata change applies it again, so back off rather
+// than spend provider quota every second. A send's inspection only reads its
+// status.
+function uncertainRetryAtMs(operation: PreparedOperation, attempts: number) {
+  if (operation.intent.kind !== "metadata") return Date.now() + 1000;
+  const delayMs = Math.min(1000 * 2 ** Math.max(attempts - 1, 0), 5 * 60_000);
+  return Date.now() + delayMs;
 }
 
 function isInspectableOperationStatus(status: import("./driver").SqlValue) {

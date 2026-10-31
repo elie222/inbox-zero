@@ -47,6 +47,20 @@ export type EnumerationPage = {
 );
 
 export const MAX_CHANGES_BATCH_READS = 20;
+export const MAX_MEMBERSHIP_BATCH_READS = 25;
+
+export type ConversationMembershipRead = {
+  conversation: ConversationKey;
+  resolutionId: string;
+  page: string | null;
+};
+
+export type ConversationMembershipResult = ReadResult<
+  | { status: "page"; page: ConversationMembershipPage }
+  | { status: "not_found" }
+  | { status: "restart_required" }
+  | { status: "unsupported" }
+>;
 
 export type SyncReadResult =
   | { status: "page"; page: import("../sync").SyncPage }
@@ -127,20 +141,19 @@ export interface MailboxSource {
     signal: AbortSignal;
   }): Promise<SyncReadResult[]>;
   readConversationMembership(
+    input: SourceContext & ConversationMembershipRead & { pageSize: number },
+  ): Promise<ConversationMembershipResult>;
+  /**
+   * Resolves several conversations in one request, returning one result per
+   * read in order. Optional; without it the engine reads each conversation
+   * with `readConversationMembership`.
+   */
+  readConversationMembershipBatch?(
     input: SourceContext & {
-      conversation: ConversationKey;
-      resolutionId: string;
-      page: string | null;
+      reads: ConversationMembershipRead[];
       pageSize: number;
     },
-  ): Promise<
-    ReadResult<
-      | { status: "page"; page: ConversationMembershipPage }
-      | { status: "not_found" }
-      | { status: "restart_required" }
-      | { status: "unsupported" }
-    >
-  >;
+  ): Promise<ConversationMembershipResult[]>;
   search(
     input: SourceContext & {
       predicate: MailPredicate;

@@ -570,41 +570,7 @@ describe("engine plus sqlite archive slice", () => {
       ["m2", messagePatch("m2", "c2", 2000, ["inbox"])],
     ]);
     const source = fixtureSource(messages);
-    const executor: OperationExecutor = {
-      async execute({ operation }) {
-        if (operation.intent.kind !== "metadata") {
-          return { status: "rejected", code: "unsupported", targets: [] };
-        }
-        for (const target of operation.intent.targets) {
-          const current = messages.get(target.messageId);
-          if (current?.kind !== "message_patch") continue;
-          messages.set(
-            target.messageId,
-            messagePatch(
-              target.messageId,
-              current.reference.conversationId,
-              current.fields.receivedAtMs ?? 0,
-              [],
-            ),
-          );
-        }
-        return {
-          status: "confirmed",
-          receiptId: "r1",
-          observations: operation.intent.targets.map(
-            (target) => messages.get(target.messageId) as ProviderChange,
-          ),
-          targets: operation.intent.targets.map((key) => ({
-            key,
-            outcome: "applied" as const,
-            code: null,
-          })),
-        };
-      },
-      async inspect(input) {
-        return this.execute({ ...input, attemptId: "inspect" });
-      },
-    };
+    const executor = archivingExecutor(messages);
     const store = await createSqliteMailStore(createNodeSqliteDriver());
     await store.ensureAccount({
       accountId: "acc-1",
@@ -635,6 +601,63 @@ describe("engine plus sqlite archive slice", () => {
     ).toMatchObject({
       fields: { roles: [] },
     });
+    await engine.close();
+  });
+
+  it("resolves a multi-conversation archive with one batched membership read", async () => {
+    const messages = new Map([
+      ["m1", messagePatch("m1", "c1", 1000, ["inbox"])],
+      ["m2", messagePatch("m2", "c2", 2000, ["inbox"])],
+      ["m3", messagePatch("m3", "c3", 3000, ["inbox"])],
+    ]);
+    const fixture = fixtureSource(messages);
+    const batchReads: string[][] = [];
+    const source: MailboxSource = {
+      ...fixture,
+      async readConversationMembership() {
+        throw new Error("expected the batched read");
+      },
+      async readConversationMembershipBatch({ reads, ...context }) {
+        batchReads.push(reads.map((read) => read.conversation.conversationId));
+        return Promise.all(
+          reads.map((read) =>
+            fixture.readConversationMembership({
+              ...context,
+              ...read,
+            }),
+          ),
+        );
+      },
+    };
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const engine = createMailEngine({
+      store,
+      source,
+      executor: archivingExecutor(messages),
+      runtime: createHostRuntime(),
+    });
+    await engine.requestSync(["acc-1"]);
+    await engine.runUntil(Date.now() + 2000);
+    const { revision } = await store.readMailboxView(inboxQuery);
+    await engine.submitConversations({
+      accountId: "acc-1",
+      commandId: "op-archive-all",
+      conversations: ["c1", "c2", "c3"].map((conversationId) => ({
+        accountId: "acc-1",
+        conversationId,
+      })),
+      change: { kind: "archive" },
+      observedRevision: revision,
+    });
+    await engine.runUntil(Date.now() + 2000);
+    expect(batchReads).toEqual([["c1", "c2", "c3"]]);
+    const after = await store.readMailboxView(inboxQuery);
+    expect(after.view.counts.matchingConversations).toBe(0);
     await engine.close();
   });
 
@@ -1621,6 +1644,79 @@ describe("drafts, freeze, and uncertain settlement", () => {
         })
       ).status,
     ).toBe("conflict");
+    await store.close();
+  });
+
+  it("backs off inspecting a metadata change that stays uncertain", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    await store.admitMetadata({
+      accountId: "acc-1",
+      commandId: "archive-m1",
+      targets: [{ accountId: "acc-1", messageId: "m1" }],
+      change: { kind: "archive" },
+    });
+    const execute = await store.claimWork({
+      ownerId: "owner",
+      nowMs: Date.now(),
+      leaseMs: 30_000,
+    });
+    if (execute?.kind !== "command") throw new Error("expected command");
+    // A throttled target leaves an otherwise confirmed change uncertain.
+    await store.settleAttempt({
+      attemptId: execute.attemptId,
+      operation: execute.operation,
+      result: {
+        status: "confirmed",
+        receiptId: "r1",
+        observations: [],
+        targets: [
+          {
+            key: { accountId: "acc-1", messageId: "m1" },
+            outcome: "uncertain",
+            code: "throttled",
+          },
+        ],
+      },
+    });
+    const settledAt = Date.now();
+    expect(
+      await store.claimWork({
+        ownerId: "owner",
+        nowMs: settledAt,
+        leaseMs: 30_000,
+      }),
+    ).toBeNull();
+    const inspect = await store.claimWork({
+      ownerId: "owner",
+      nowMs: settledAt + 1000,
+      leaseMs: 30_000,
+    });
+    if (inspect?.kind !== "inspect") throw new Error("expected inspect");
+    await store.settleAttempt({
+      attemptId: inspect.attemptId,
+      operation: inspect.operation,
+      result: { status: "uncertain", receiptId: null },
+    });
+    const inspectedAt = Date.now();
+    expect(
+      await store.claimWork({
+        ownerId: "owner",
+        nowMs: inspectedAt + 1000,
+        leaseMs: 30_000,
+      }),
+    ).toBeNull();
+    expect(
+      await store.claimWork({
+        ownerId: "owner",
+        nowMs: inspectedAt + 2000,
+        leaseMs: 30_000,
+      }),
+    ).toMatchObject({ kind: "inspect" });
     await store.close();
   });
 
@@ -3347,20 +3443,28 @@ describe("drafts, freeze, and uncertain settlement", () => {
       operationId: "archive-c1",
     });
     expect(cancelled.status).toBe("cancelled");
-    const delayed = await store.applyPreparationPage({
+    const delayed = await store.applyPreparationResults({
       accountId: "acc-1",
       commandId: "archive-c1",
       attemptId: work.attemptId,
       session: work.session,
-      previousPage: work.page,
-      page: {
-        conversation: { accountId: "acc-1", conversationId: "c1" },
-        resolutionId: work.resolutionId,
-        keys: [{ accountId: "acc-1", messageId: "m1" }],
-        changes: [],
-        nextPage: null,
-        evidence: null,
-      },
+      results: [
+        {
+          read: work.reads[0],
+          membership: {
+            status: "page",
+            page: {
+              conversation: { accountId: "acc-1", conversationId: "c1" },
+              resolutionId: work.reads[0].resolutionId,
+              keys: [{ accountId: "acc-1", messageId: "m1" }],
+              changes: [],
+              nextPage: null,
+              evidence: null,
+            },
+          },
+        },
+      ],
+      nextAttemptAtMs: null,
     });
     expect(delayed.status).toBe("stale");
     await store.close();
@@ -3486,10 +3590,12 @@ describe("drafts, freeze, and uncertain settlement", () => {
       leaseMs: 30_000,
     });
     expect(claimedAgain).toBeNull();
-    await store.deferPreparation({
+    await store.applyPreparationResults({
       accountId: "acc-1",
       commandId: "archive-c1",
       attemptId: first.attemptId,
+      session: first.session,
+      results: [],
       nextAttemptAtMs: 5000,
     });
     const tooSoon = await store.claimWork({
@@ -3593,25 +3699,33 @@ describe("drafts, freeze, and uncertain settlement", () => {
     });
     expect(admission.status).toBe("preparing");
     const work = await claimPreparation(store, "archive-c1");
-    const duringPrep = await store.applyPreparationPage({
+    const duringPrep = await store.applyPreparationResults({
       accountId: "acc-1",
       commandId: "archive-c1",
       attemptId: work.attemptId,
       session: work.session,
-      previousPage: work.page,
-      page: {
-        conversation: { accountId: "acc-1", conversationId: "c1" },
-        resolutionId: work.resolutionId,
-        keys: [
-          { accountId: "acc-1", messageId: "m1" },
-          { accountId: "acc-1", messageId: "m2" },
-        ],
-        changes: [messagePatch("m2", "c1", 1500, ["inbox"])],
-        nextPage: null,
-        evidence: null,
-      },
+      results: [
+        {
+          read: work.reads[0],
+          membership: {
+            status: "page",
+            page: {
+              conversation: { accountId: "acc-1", conversationId: "c1" },
+              resolutionId: work.reads[0].resolutionId,
+              keys: [
+                { accountId: "acc-1", messageId: "m1" },
+                { accountId: "acc-1", messageId: "m2" },
+              ],
+              changes: [messagePatch("m2", "c1", 1500, ["inbox"])],
+              nextPage: null,
+              evidence: null,
+            },
+          },
+        },
+      ],
+      nextAttemptAtMs: null,
     });
-    expect(duringPrep.status).toBe("preparing");
+    expect(duringPrep.status).toBe("committed");
     const frozen = await store.finishPreparation({
       accountId: "acc-1",
       commandId: "archive-c1",
@@ -3630,20 +3744,28 @@ describe("drafts, freeze, and uncertain settlement", () => {
       },
     });
     expect(afterArrival.status).toBe("committed");
-    const delayed = await store.applyPreparationPage({
+    const delayed = await store.applyPreparationResults({
       accountId: "acc-1",
       commandId: "archive-c1",
       attemptId: work.attemptId,
       session: work.session,
-      previousPage: work.page,
-      page: {
-        conversation: { accountId: "acc-1", conversationId: "c1" },
-        resolutionId: "res-late",
-        keys: [{ accountId: "acc-1", messageId: "m3" }],
-        changes: [],
-        nextPage: null,
-        evidence: null,
-      },
+      results: [
+        {
+          read: work.reads[0],
+          membership: {
+            status: "page",
+            page: {
+              conversation: { accountId: "acc-1", conversationId: "c1" },
+              resolutionId: "res-late",
+              keys: [{ accountId: "acc-1", messageId: "m3" }],
+              changes: [],
+              nextPage: null,
+              evidence: null,
+            },
+          },
+        },
+      ],
+      nextAttemptAtMs: null,
     });
     expect(delayed.status).toBe("stale");
     const inspection = await store.inspect();
@@ -3851,6 +3973,101 @@ describe("per-target outcomes, dependencies, pagination, and stale hydration", (
     await store.close();
   });
 
+  it("resolves a multi-conversation command in one claim and drops conversations the provider no longer has", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    await store.applySyncPage({
+      ownerId: "owner",
+      page: {
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "boot",
+        from: { streamId: "primary", generation: "g1", checkpoint: null },
+        to: { streamId: "primary", generation: "g1", checkpoint: "1" },
+        changes: [
+          messagePatch("m1", "c1", 1000, ["inbox"]),
+          messagePatch("m2", "c2", 2000, ["inbox"]),
+        ],
+        requiredHydration: [],
+        roundComplete: true,
+      },
+    });
+    const revision = (await store.readMailboxView(inboxQuery)).revision;
+    await store.admitConversations({
+      accountId: "acc-1",
+      commandId: "archive-both",
+      conversations: [
+        { accountId: "acc-1", conversationId: "c1" },
+        { accountId: "acc-1", conversationId: "c2" },
+      ],
+      change: { kind: "archive" },
+      observedRevision: revision,
+    });
+    const work = await claimPreparation(store, "archive-both");
+    expect(work.reads.map((read) => read.conversation.conversationId)).toEqual([
+      "c1",
+      "c2",
+    ]);
+    const [c1, c2] = work.reads;
+    if (!c1 || !c2) throw new Error("expected two reads");
+    await store.applyPreparationResults({
+      accountId: "acc-1",
+      commandId: "archive-both",
+      attemptId: work.attemptId,
+      session: work.session,
+      results: [
+        {
+          read: c1,
+          membership: {
+            status: "page",
+            page: {
+              conversation: c1.conversation,
+              resolutionId: c1.resolutionId,
+              keys: [{ accountId: "acc-1", messageId: "m1" }],
+              changes: [],
+              nextPage: null,
+              evidence: null,
+            },
+          },
+        },
+        { read: c2, membership: { status: "not_found" } },
+      ],
+      nextAttemptAtMs: null,
+    });
+    const frozen = await store.finishPreparation({
+      accountId: "acc-1",
+      commandId: "archive-both",
+    });
+    expect(frozen.status).toBe("queued");
+    const inspection = await store.inspect();
+    expect(
+      inspection.operationTargets
+        .filter((target) => target.operationId === "archive-both")
+        .map((target) => target.messageId),
+    ).toEqual(["m1"]);
+
+    const next = await store.admitConversations({
+      accountId: "acc-1",
+      commandId: "star-both",
+      conversations: [
+        { accountId: "acc-1", conversationId: "c1" },
+        { accountId: "acc-1", conversationId: "c3" },
+      ],
+      change: { kind: "set_starred", starred: true },
+      observedRevision: (await store.readMailboxView(inboxQuery)).revision,
+    });
+    expect(next.status).toBe("preparing");
+    const nextWork = await claimPreparation(store, "star-both");
+    // c1 was resolved in full above, so only the unknown conversation is read.
+    expect(
+      nextWork.reads.map((read) => read.conversation.conversationId),
+    ).toEqual(["c3"]);
+    await store.close();
+  });
+
   it("pages conversation membership before freezing targets", async () => {
     const store = await createSqliteMailStore(createNodeSqliteDriver());
     await store.ensureAccount({
@@ -3880,61 +4097,88 @@ describe("per-target outcomes, dependencies, pagination, and stale hydration", (
     });
     expect(admission.status).toBe("preparing");
     const firstWork = await claimPreparation(store, "archive-pages");
-    const staleResolution = await store.applyPreparationPage({
+    const staleResolution = await store.applyPreparationResults({
       accountId: "acc-1",
       commandId: "archive-pages",
       attemptId: firstWork.attemptId,
       session: firstWork.session,
-      previousPage: firstWork.page,
-      page: {
-        conversation: { accountId: "acc-1", conversationId: "c1" },
-        resolutionId: "wrong-resolution",
-        keys: [{ accountId: "acc-1", messageId: "m1" }],
-        changes: [],
-        nextPage: "1",
-        evidence: null,
-      },
+      results: [
+        {
+          read: firstWork.reads[0],
+          membership: {
+            status: "page",
+            page: {
+              conversation: { accountId: "acc-1", conversationId: "c1" },
+              resolutionId: "wrong-resolution",
+              keys: [{ accountId: "acc-1", messageId: "m1" }],
+              changes: [],
+              nextPage: "1",
+              evidence: null,
+            },
+          },
+        },
+      ],
+      nextAttemptAtMs: null,
     });
-    expect(staleResolution.status).toBe("stale");
-    const firstPage = await store.applyPreparationPage({
+    expect(staleResolution.status).toBe("committed");
+    // The mismatched page leaves the conversation unresolved, so it is claimed
+    // again.
+    const firstRetry = await claimPreparation(store, "archive-pages");
+    const firstPage = await store.applyPreparationResults({
       accountId: "acc-1",
       commandId: "archive-pages",
-      attemptId: firstWork.attemptId,
-      session: firstWork.session,
-      previousPage: firstWork.page,
-      page: {
-        conversation: { accountId: "acc-1", conversationId: "c1" },
-        resolutionId: firstWork.resolutionId,
-        keys: [{ accountId: "acc-1", messageId: "m1" }],
-        changes: [],
-        nextPage: "1",
-        evidence: null,
-      },
+      attemptId: firstRetry.attemptId,
+      session: firstRetry.session,
+      results: [
+        {
+          read: firstRetry.reads[0],
+          membership: {
+            status: "page",
+            page: {
+              conversation: { accountId: "acc-1", conversationId: "c1" },
+              resolutionId: firstRetry.reads[0].resolutionId,
+              keys: [{ accountId: "acc-1", messageId: "m1" }],
+              changes: [],
+              nextPage: "1",
+              evidence: null,
+            },
+          },
+        },
+      ],
+      nextAttemptAtMs: null,
     });
-    expect(firstPage.status).toBe("preparing");
+    expect(firstPage.status).toBe("committed");
     const tooSoon = await store.finishPreparation({
       accountId: "acc-1",
       commandId: "archive-pages",
     });
     expect(tooSoon.status).toBe("stale");
     const secondWork = await claimPreparation(store, "archive-pages");
-    expect(secondWork.page).toBe("1");
-    const secondPage = await store.applyPreparationPage({
+    expect(secondWork.reads[0].page).toBe("1");
+    const secondPage = await store.applyPreparationResults({
       accountId: "acc-1",
       commandId: "archive-pages",
       attemptId: secondWork.attemptId,
       session: secondWork.session,
-      previousPage: secondWork.page,
-      page: {
-        conversation: { accountId: "acc-1", conversationId: "c1" },
-        resolutionId: secondWork.resolutionId,
-        keys: [{ accountId: "acc-1", messageId: "m2" }],
-        changes: [messagePatch("m2", "c1", 1500, ["inbox"])],
-        nextPage: null,
-        evidence: null,
-      },
+      results: [
+        {
+          read: secondWork.reads[0],
+          membership: {
+            status: "page",
+            page: {
+              conversation: { accountId: "acc-1", conversationId: "c1" },
+              resolutionId: secondWork.reads[0].resolutionId,
+              keys: [{ accountId: "acc-1", messageId: "m2" }],
+              changes: [messagePatch("m2", "c1", 1500, ["inbox"])],
+              nextPage: null,
+              evidence: null,
+            },
+          },
+        },
+      ],
+      nextAttemptAtMs: null,
     });
-    expect(secondPage.status).toBe("preparing");
+    expect(secondPage.status).toBe("committed");
     const frozen = await store.finishPreparation({
       accountId: "acc-1",
       commandId: "archive-pages",
@@ -5214,6 +5458,46 @@ function fixtureSource(messages: Map<string, ProviderChange>): MailboxSource {
     },
     async readAttachment() {
       return { status: "paused", retryAfterMs: 0, reason: "unavailable" };
+    },
+  };
+}
+
+function archivingExecutor(
+  messages: Map<string, ProviderChange>,
+): OperationExecutor {
+  return {
+    async execute({ operation }) {
+      if (operation.intent.kind !== "metadata") {
+        return { status: "rejected", code: "unsupported", targets: [] };
+      }
+      for (const target of operation.intent.targets) {
+        const current = messages.get(target.messageId);
+        if (current?.kind !== "message_patch") continue;
+        messages.set(
+          target.messageId,
+          messagePatch(
+            target.messageId,
+            current.reference.conversationId,
+            current.fields.receivedAtMs ?? 0,
+            [],
+          ),
+        );
+      }
+      return {
+        status: "confirmed",
+        receiptId: "r1",
+        observations: operation.intent.targets.map(
+          (target) => messages.get(target.messageId) as ProviderChange,
+        ),
+        targets: operation.intent.targets.map((key) => ({
+          key,
+          outcome: "applied" as const,
+          code: null,
+        })),
+      };
+    },
+    async inspect(input) {
+      return this.execute({ ...input, attemptId: "inspect" });
     },
   };
 }
