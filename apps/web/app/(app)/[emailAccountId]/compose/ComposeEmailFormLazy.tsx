@@ -29,7 +29,7 @@ export function ComposeEmailFormLazy(
   const focusedElement = useRef<Element | null>(null);
   const closing = useRef(false);
   useEffect(() => {
-    trackComposerMounted(draftSessionId);
+    trackComposerMounted({ draftSessionId, draftMode });
     // A key pressed with nothing focused, after the editor was removed, reaches
     // the page's shortcuts instead of the draft.
     const onKeyDown = () => {
@@ -44,7 +44,7 @@ export function ComposeEmailFormLazy(
     return () => {
       document.removeEventListener("keydown", onKeyDown, true);
       if (focusedElement.current && !closing.current)
-        trackComposerUnmountedWhileFocused({ draftSessionId, draftMode });
+        trackComposerUnmountedWhileFocused(draftSessionId);
     };
   }, [draftSessionId, draftMode]);
   const closeWith = <Args extends unknown[], Result>(

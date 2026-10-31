@@ -30,12 +30,11 @@ export const PRODUCT_ANALYTICS_EVENTS = {
  * `mail_composer_lost`: the editor being typed in was taken away without the
  * composer being sent, discarded, closed or popped out, so keys typed next
  * reach the page's shortcuts instead of the draft.
- * - `trigger`: "unmount" (the whole composer unmounted while focused) |
- *   "keypress" (its editor was removed and a key then landed on the page).
+ * - `trigger`: "remount" (the whole composer unmounted while focused and the
+ *   same draft came back within 10 seconds) | "keypress" (its editor was
+ *   removed and a key then landed on the page).
  * - `draft_mode`: "reply" | "forward" | "new".
- * - `remounted`: unmount only; whether the same draft came back within 10
- *   seconds.
- * - `remount_ms`: how long it was gone, when it came back.
+ * - `remount_ms`: remount only; how long the draft was gone.
  *
  * `mail_navigation_summary`: list navigation shortcuts (J/K, arrows, extend
  * selection) are counted rather than sent per press. Flushed every 5 minutes

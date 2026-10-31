@@ -53,10 +53,27 @@ it("reports a focused composer that unmounts without being closed", async () => 
     "mail_composer_lost",
     expect.objectContaining({
       draft_mode: "reply",
-      trigger: "unmount",
-      remounted: true,
+      trigger: "remount",
     }),
   );
+});
+
+// Escape and leaving mail also take a focused composer away on purpose.
+it("does not report a focused composer that stays gone", async () => {
+  vi.useFakeTimers();
+  try {
+    const view = render(
+      <ComposeEmailFormLazy draftSessionId="message-4:reply" />,
+    );
+    await focusEditor();
+    view.unmount();
+    act(() => vi.advanceTimersByTime(10_000));
+    render(<ComposeEmailFormLazy draftSessionId="message-4:reply" />);
+  } finally {
+    vi.useRealTimers();
+  }
+
+  expect(capture).not.toHaveBeenCalled();
 });
 
 it("does not report a composer the user closed", async () => {
