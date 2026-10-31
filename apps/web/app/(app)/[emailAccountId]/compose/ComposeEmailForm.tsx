@@ -75,6 +75,7 @@ import { useComposeSend } from "./useComposeSend";
 import type { ComposeAttachment } from "./compose-attachments";
 import { ComposeAttachmentList } from "./ComposeAttachmentList";
 import { ComposeHeaderFields } from "./ComposeHeaderFields";
+import { stripBrandingSignatures } from "@/utils/referral/signature";
 import { ComposeSignaturePicker } from "./ComposeSignaturePicker";
 import {
   createInitialComposeContent,
@@ -343,14 +344,7 @@ function ComposeEmailFormContent({
   );
   const { draft: initialDraft, preservedBlocks } = initialComposer;
   const [signatureId, setSignatureId] = useState(() =>
-    findSignatureId(
-      signatures,
-      getSendAsSignatureHtml(
-        initialSendAs,
-        sendAsAddresses,
-        accountSignatureHtml,
-      ),
-    ),
+    findSignatureId(signatures, initialDraft.signatureHtml ?? ""),
   );
   const pendingRecipientsRef = useRef<Record<ComposeRecipientField, string>>({
     to: "",
@@ -730,7 +724,7 @@ function ComposeEmailFormContent({
           <ComposeSignaturePicker
             signatures={signatures}
             selectedId={signatureId}
-            disabled={isSubmitting}
+            disabled={isSubmitting || !editorReady}
             onSelect={(signature) => {
               if (
                 editorRef.current?.replaceSignature(
@@ -831,7 +825,16 @@ function findSignatureId(
   signatures: GetSignatureResponse["signatures"],
   signatureHtml: string,
 ) {
-  return signatures.find((item) => item.signatureHtml === signatureHtml)?.id;
+  const key = getSignatureKey(signatureHtml);
+  return signatures.find((item) => getSignatureKey(item.signatureHtml) === key)
+    ?.id;
+}
+
+// The composer's signature carries the "Sent with" footer after a line break.
+function getSignatureKey(html: string) {
+  return stripBrandingSignatures(html)
+    .replace(/(?:<br\s*\/?>|\s)+$/i, "")
+    .trim();
 }
 
 function isShortcutForForm(
