@@ -8,6 +8,7 @@ import {
   parseLastEmailAccountCookieValue,
 } from "@/utils/cookies";
 import { withAuth } from "@/utils/middleware";
+import { EMAIL_ACCOUNT_ORDER_BY } from "@/utils/email-account-order";
 
 export type GetEmailAccountsResponse = Awaited<
   ReturnType<typeof getEmailAccounts>
@@ -43,9 +44,7 @@ async function getEmailAccounts({ userId }: { userId: string }) {
         },
       },
     },
-    orderBy: {
-      createdAt: "asc",
-    },
+    orderBy: EMAIL_ACCOUNT_ORDER_BY,
   });
 
   const accountsWithRateLimits = await Promise.all(
