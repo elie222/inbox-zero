@@ -84,7 +84,7 @@ export function ComposeEmailFormLazy(
         onClose={closeWith(props.onClose)}
         onDiscard={
           onDiscard &&
-          (async (draftId) => {
+          (async (draftId?: string) => {
             closing.current = true;
             const discarded = await onDiscard(draftId);
             if (discarded === false) closing.current = false;
