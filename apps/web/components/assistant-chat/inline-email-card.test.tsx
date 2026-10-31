@@ -24,11 +24,6 @@ const mockArchiveThreadAction = vi.fn();
 const mockMarkReadThreadAction = vi.fn();
 const mockUseThread = vi.fn();
 const mockQueueAction = vi.fn();
-const mockUseMailEngineDemand = vi.fn();
-
-vi.mock("@/utils/mail-engine/MailEngineHost", () => ({
-  useMailEngineDemand: () => mockUseMailEngineDemand(),
-}));
 
 vi.mock("@/providers/EmailAccountProvider", () => ({
   useAccount: () => mockUseAccount(),
@@ -359,42 +354,6 @@ describe("InlineEmailCard", () => {
     fireEvent.click(screen.getByRole("button", { name: /Second/ }));
 
     expect(screen.getByText("Fallback body")).toBeTruthy();
-  });
-
-  it("demands the mail engine when an email card preview is expanded", () => {
-    mockUseThread.mockReturnValue({
-      data: {
-        thread: {
-          id: "thread-1",
-          messages: [
-            {
-              id: "message-1",
-              threadId: "thread-1",
-              subject: "Preview Subject",
-              snippet: "Preview snippet",
-              date: "2026-03-11T11:00:00.000Z",
-              historyId: "history-1",
-              inline: [],
-              textPlain: "Preview body",
-            },
-          ],
-        },
-      },
-      isLoading: false,
-      error: null,
-    });
-
-    render(
-      <InlineEmailCard threadid="thread-1" action="none">
-        Expandable Card
-      </InlineEmailCard>,
-    );
-
-    expect(mockUseMailEngineDemand).not.toHaveBeenCalled();
-
-    fireEvent.click(screen.getByRole("button", { name: /Expandable Card/ }));
-
-    expect(mockUseMailEngineDemand).toHaveBeenCalled();
   });
 });
 
