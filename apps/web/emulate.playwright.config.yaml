@@ -171,6 +171,28 @@ google:
       in_reply_to: "<draft-indicator-parent@example.com>"
       label_ids: [DRAFT]
       internal_date: "1735211000000"
+    - id: msg_draft_typing_parent
+      thread_id: thr_draft_typing
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: sender@example.com
+      to: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Saved draft typing example
+      body_text: Can you confirm the timeline?
+      message_id: "<draft-typing-parent@example.com>"
+      label_ids: [INBOX]
+      internal_date: "1734000000000"
+    - id: msg_draft_typing_reply
+      thread_id: thr_draft_typing
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: __PLAYWRIGHT_TEST_EMAIL__
+      to: sender@example.com
+      subject: "Re: Saved draft typing example"
+      body_text: Saved reply draft.
+      body_html: "<p>Saved reply draft.</p>"
+      message_id: "<draft-typing-reply@example.com>"
+      in_reply_to: "<draft-typing-parent@example.com>"
+      label_ids: [DRAFT]
+      internal_date: "1734000100000"
     - id: msg_playwright_sent
       thread_id: thr_playwright_sent
       user_email: __PLAYWRIGHT_TEST_EMAIL__

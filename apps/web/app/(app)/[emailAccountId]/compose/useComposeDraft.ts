@@ -9,6 +9,7 @@ import {
 } from "react";
 import type { UseFormGetValues, UseFormWatch } from "react-hook-form";
 import { toastError } from "@/components/Toast";
+import { startDraftSave } from "@/hooks/useDraftSaveInFlight";
 import {
   DraftAutosaveHaltedError,
   useProviderDraftAutosave,
@@ -186,9 +187,23 @@ export function useComposeDraft({
       },
     });
 
+  // The open thread holds its drafts still until the save says which mailbox
+  // message is this composer's, so a copy that syncs in first can't replace it.
+  const whileSaving = async <T>(save: () => Promise<T>) => {
+    const end = localDraftIdentity
+      ? startDraftSave(emailAccountId, localDraftIdentity.threadId)
+      : undefined;
+    try {
+      return await save();
+    } finally {
+      end?.();
+    }
+  };
+
   // Every compose with files needs a mailbox draft to hold them. New messages
   // also get one from autosave; replies and forwards get one on first attach.
-  const ensureProviderDraft = async () => {
+  const ensureProviderDraft = () => whileSaving(createProviderDraft);
+  const createProviderDraft = async () => {
     if (providerDraftId.current) return providerDraftId.current;
     if (providerDraftMessageId) {
       const draftId = await resolveDraftId({
@@ -247,33 +262,38 @@ export function useComposeDraft({
         : 0,
     getContent: getProviderDraftContent,
     save: (content) =>
-      enqueueDraftOperation(draftQueueKey, async () => {
-        if (!providerDraftMessageId) {
-          const draftId = await ensureProviderDraft();
-          const result = await saveComposeDraftAction(emailAccountId, {
-            draftId,
-            content,
-          });
-          if (!result?.data) throw new Error(getDraftSyncErrorMessage(result));
-          await followDraftMessage(result.data.messageId);
-          return;
-        }
-        const result = await updateDraftAction(emailAccountId, {
-          ...content,
-          draftMessageId: providerDraftMessageId,
-          draftId: providerDraftId.current,
-        });
-        if (!result?.data) throw new Error(getDraftSyncErrorMessage(result));
-        if (result.data.status === "missing")
-          throw new DraftAutosaveHaltedError(
-            "This draft was sent, deleted, or changed elsewhere, so edits here are no longer saved to your mailbox.",
-          );
-        providerDraftId.current = result.data.draftId;
-        captureLocalDraft();
-        await flushDraft();
-        await followDraftMessage(result.data.messageId);
-      }),
+      enqueueDraftOperation(draftQueueKey, () =>
+        whileSaving(() => saveProviderDraft(content)),
+      ),
   });
+  async function saveProviderDraft(
+    content: NonNullable<ReturnType<typeof getProviderDraftContent>>,
+  ) {
+    if (!providerDraftMessageId) {
+      const draftId = await ensureProviderDraft();
+      const result = await saveComposeDraftAction(emailAccountId, {
+        draftId,
+        content,
+      });
+      if (!result?.data) throw new Error(getDraftSyncErrorMessage(result));
+      await followDraftMessage(result.data.messageId);
+      return;
+    }
+    const result = await updateDraftAction(emailAccountId, {
+      ...content,
+      draftMessageId: providerDraftMessageId,
+      draftId: providerDraftId.current,
+    });
+    if (!result?.data) throw new Error(getDraftSyncErrorMessage(result));
+    if (result.data.status === "missing")
+      throw new DraftAutosaveHaltedError(
+        "This draft was sent, deleted, or changed elsewhere, so edits here are no longer saved to your mailbox.",
+      );
+    providerDraftId.current = result.data.draftId;
+    captureLocalDraft();
+    await flushDraft();
+    await followDraftMessage(result.data.messageId);
+  }
   const { stop: stopProviderAutosave, resume: resumeProviderAutosave } =
     providerAutosave;
   const captureDraft = useCallback(
