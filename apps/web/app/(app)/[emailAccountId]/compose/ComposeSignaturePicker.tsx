@@ -1,14 +1,14 @@
-import { SignatureIcon } from "lucide-react";
+import { CheckIcon, SignatureIcon } from "lucide-react";
 import type { GetSignatureResponse } from "@/app/api/user/signature/route";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
+  DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
+type Signature = GetSignatureResponse["signatures"][number];
 
 export function ComposeSignaturePicker({
   signatures,
@@ -16,10 +16,10 @@ export function ComposeSignaturePicker({
   disabled,
   onSelect,
 }: {
-  signatures: GetSignatureResponse["signatures"];
+  signatures: Signature[];
   selectedId?: string;
   disabled: boolean;
-  onSelect: (signature: GetSignatureResponse["signatures"][number]) => void;
+  onSelect: (signature: Signature) => void;
 }) {
   if (signatures.length < 2) return null;
 
@@ -37,22 +37,37 @@ export function ComposeSignaturePicker({
           <SignatureIcon className="size-4" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuLabel>Signature</DropdownMenuLabel>
-        <DropdownMenuRadioGroup
-          value={selectedId ?? ""}
-          onValueChange={(id) => {
-            const signature = signatures.find((item) => item.id === id);
-            if (signature) onSelect(signature);
-          }}
-        >
-          {signatures.map((signature) => (
-            <DropdownMenuRadioItem key={signature.id} value={signature.id}>
-              {signature.name}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
+      <DropdownMenuContent align="end" className="w-64">
+        {signatures.map((signature) => (
+          <DropdownMenuItem
+            className="gap-3"
+            key={signature.id}
+            onSelect={() => onSelect(signature)}
+          >
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-medium">
+                {signature.name}
+              </span>
+              <span className="block truncate text-muted-foreground text-xs">
+                {getSignatureText(signature.signatureHtml)}
+              </span>
+            </span>
+            {signature.id === selectedId && (
+              <CheckIcon
+                aria-label="Current signature"
+                className="size-4 shrink-0"
+              />
+            )}
+          </DropdownMenuItem>
+        ))}
       </DropdownMenuContent>
     </DropdownMenu>
   );
+}
+
+function getSignatureText(html: string) {
+  const spaced = html.replace(/<(br|\/div|\/p|\/li|\/tr)\b[^>]*>/gi, "$& ");
+  const text = new DOMParser().parseFromString(spaced, "text/html").body
+    .textContent;
+  return (text ?? "").replace(/\s+/g, " ").trim();
 }
