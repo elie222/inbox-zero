@@ -181,7 +181,7 @@ function isToolRunContinuation(
   index: number,
 ): boolean {
   const part = parts[index];
-  const previous = parts[index - 1];
+  const previous = findPreviousVisiblePart(parts, index);
   if (!previous || previous.type !== part.type) return false;
   if (part.type === "tool-searchInbox") {
     return isFinishedToolPart(previous) && isFinishedToolPart(part);
@@ -199,11 +199,20 @@ function getToolRunOutputs(
 ): unknown[] {
   const outputs: unknown[] = [];
   for (let i = start; i < parts.length; i++) {
-    if (i > start && !isToolRunContinuation(parts, i)) break;
     const part = parts[i];
+    if (part.type === "step-start") continue;
+    if (i > start && !isToolRunContinuation(parts, i)) break;
     if ("output" in part) outputs.push(part.output);
   }
   return outputs;
+}
+
+// Multi-step responses insert invisible step-start parts between sequential tool calls.
+function findPreviousVisiblePart(parts: ChatMessage["parts"], index: number) {
+  for (let i = index - 1; i >= 0; i--) {
+    if (parts[i].type !== "step-start") return parts[i];
+  }
+  return;
 }
 
 function isFinishedToolPart(part: ChatMessage["parts"][number]) {
