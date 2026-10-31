@@ -1,6 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 import { Client } from "pg";
-import Redis from "ioredis";
+import { Redis } from "@upstash/redis";
 import { test } from "../playwright-test";
 import { getEmailAccountId } from "../account-test-helpers";
 import { isMicrosoftPlaywright } from "../mail-provider";
@@ -65,14 +65,13 @@ test("Gmail throttling cannot block saving Both or navigating onboarding", async
   await withUnanalyzedAccount(emailAccountId, async (redis) => {
     await redis.set(
       `email-provider-rate-limit:${emailAccountId}`,
-      JSON.stringify({
+      {
         provider: "google",
         retryAt: new Date(Date.now() + 120_000).toISOString(),
         detectedAt: new Date().toISOString(),
         source: "onboarding-regression-test",
-      }),
-      "EX",
-      120,
+      },
+      { ex: 120 },
     );
 
     // The first onboarding step starts persona analysis.
@@ -115,10 +114,11 @@ async function withUnanalyzedAccount(
   emailAccountId: string,
   run: (redis: Redis) => Promise<void>,
 ) {
-  if (!process.env.REDIS_URL)
-    throw new Error("This regression needs the isolated test Redis URL");
+  const redis = new Redis({
+    url: process.env.REDIS_HTTP_URL,
+    token: process.env.REDIS_HTTP_TOKEN,
+  });
   const client = new Client({ connectionString: process.env.DATABASE_URL });
-  const redis = new Redis(process.env.REDIS_URL);
   await client.connect();
   const previous = await client.query(
     'SELECT "personaAnalysis" FROM "EmailAccount" WHERE id=$1',
@@ -140,7 +140,6 @@ async function withUnanalyzedAccount(
       `persona-analysis:${emailAccountId}`,
       `email-provider-rate-limit:${emailAccountId}`,
     );
-    redis.disconnect();
     await client.end();
   }
 }
