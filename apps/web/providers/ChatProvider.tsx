@@ -51,6 +51,8 @@ type ChatMessagePart =
 type PendingChatRequest = {
   attachmentCount: number;
   chatId: string;
+  // Set by onError when the message never reached the server.
+  sendError?: Error;
   textLength: number;
 };
 
@@ -190,6 +192,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         pendingInlineActionsRef.current = null;
       }
 
+      if (pendingRequest) pendingRequest.sendError = error;
       reportChatRequestError({
         emailAccountId,
         error,
@@ -334,11 +337,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
       const requestChatId = chatId ?? chat.id;
       const requestContext = context;
-      pendingRequestRef.current = {
+      const request: PendingChatRequest = {
         attachmentCount,
         chatId: requestChatId,
         textLength,
       };
+      pendingRequestRef.current = request;
       pendingRequestContextRef.current = requestContext;
       pendingInlineActionsRef.current = inlineActionsRef.current.length
         ? inlineActionsRef.current
@@ -348,10 +352,17 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         setInlineActions([]);
       }
 
-      const sendPromise = chat.sendMessage(
-        { role: "user", parts },
-        requestContext ? { body: { context: requestContext } } : undefined,
-      );
+      // sendMessage resolves even when the request fails (it reports through
+      // onError), so reject here to let callers keep the unsent message.
+      // Aborts and drops after streaming began are not send failures.
+      const sendPromise = chat
+        .sendMessage(
+          { role: "user", parts },
+          requestContext ? { body: { context: requestContext } } : undefined,
+        )
+        .then(() => {
+          if (request.sendError) throw request.sendError;
+        });
       if (requestContext) {
         setContext((current) => (current === requestContext ? null : current));
       }
