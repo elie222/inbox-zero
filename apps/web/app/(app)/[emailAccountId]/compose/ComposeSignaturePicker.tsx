@@ -1,4 +1,5 @@
 import { CheckIcon, SignatureIcon } from "lucide-react";
+import { DEFAULT_SIGNATURE_ID } from "@/utils/email/default-signature";
 import type { GetSignatureResponse } from "@/app/api/user/signature/route";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,7 +23,9 @@ export function ComposeSignaturePicker({
   disabled: boolean;
   onSelect: (signature: Signature) => void;
 }) {
-  if (signatures.length < 2) return null;
+  const onlyDefault =
+    signatures.length === 1 && signatures[0].id === DEFAULT_SIGNATURE_ID;
+  if (!signatures.length || onlyDefault) return null;
 
   return (
     <DropdownMenu>
