@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 import { getEmailAccount } from "@/__tests__/helpers";
 import { aiTranslateEmails } from "./translate-email";
 
@@ -86,22 +87,6 @@ describe("aiTranslateEmails", () => {
     );
   });
 
-  it("throws when the model returns the wrong number of translations", async () => {
-    mockGenerateObject.mockResolvedValue({
-      object: {
-        translations: [{ text: "only one", sourceLanguage: "es" }],
-      },
-    });
-
-    await expect(
-      aiTranslateEmails({
-        texts: ["uno", "dos"],
-        targetLanguage: "en",
-        emailAccount: getEmailAccount(),
-      }),
-    ).rejects.toThrow("Expected 2 translations, received 1");
-  });
-
   it("hard-slices long texts without appending an ellipsis", async () => {
     mockGenerateObject.mockResolvedValue({
       object: {
@@ -124,7 +109,7 @@ describe("aiTranslateEmails", () => {
     expect(call.prompt).not.toContain(`${"a".repeat(30_000)}...`);
   });
 
-  it("pins the output schema length to the number of input texts", async () => {
+  it("validates translation count without array-length JSON Schema constraints", async () => {
     const translation = (text: string) => ({ text, sourceLanguage: "en" });
     mockGenerateObject.mockResolvedValue({
       object: {
@@ -138,19 +123,18 @@ describe("aiTranslateEmails", () => {
       emailAccount: getEmailAccount(),
     });
 
-    const call = mockGenerateObject.mock.calls[0]?.[0] as {
-      schema: {
-        safeParse: (value: unknown) => { success: boolean };
-      };
-    };
+    const { schema } = mockGenerateObject.mock.calls[0][0];
+    const jsonSchema = JSON.stringify(z.toJSONSchema(schema));
 
+    expect(jsonSchema).not.toContain("minItems");
+    expect(jsonSchema).not.toContain("maxItems");
     expect(
-      call.schema.safeParse({
+      schema.safeParse({
         translations: ["one", "two", "three"].map(translation),
       }).success,
     ).toBe(true);
     expect(
-      call.schema.safeParse({
+      schema.safeParse({
         translations: ["one", "two"].map(translation),
       }).success,
     ).toBe(false);
