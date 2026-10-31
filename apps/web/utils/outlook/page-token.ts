@@ -57,3 +57,45 @@ export const microsoftGraphPageTokenSchema = z
   .string()
   .nullish()
   .refine(isAllowedMicrosoftGraphPageToken, { message: "Invalid page token" });
+
+/**
+ * Detects whether an @odata.nextLink candidate from Microsoft Graph is non-advancing
+ * (e.g. duplicate URL, non-increasing $skip offset, or unchanged $skiptoken),
+ * preventing infinite pagination loops on large or exhausted mail folders.
+ */
+export function isNonAdvancingOutlookNextLink(
+  currentUrl?: string | null,
+  candidateUrl?: string | null,
+): boolean {
+  if (!candidateUrl) return true;
+  if (!currentUrl) return false;
+  if (currentUrl === candidateUrl) return true;
+
+  try {
+    const current = new URL(currentUrl, "https://graph.microsoft.com");
+    const candidate = new URL(candidateUrl, "https://graph.microsoft.com");
+
+    const currentSkip = Number(current.searchParams.get("$skip") ?? Number.NaN);
+    const candidateSkip = Number(
+      candidate.searchParams.get("$skip") ?? Number.NaN,
+    );
+
+    if (!Number.isNaN(currentSkip) && !Number.isNaN(candidateSkip)) {
+      if (candidateSkip <= currentSkip) return true;
+    }
+
+    const currentSkiptoken = current.searchParams.get("$skiptoken");
+    const candidateSkiptoken = candidate.searchParams.get("$skiptoken");
+    if (
+      currentSkiptoken &&
+      candidateSkiptoken &&
+      currentSkiptoken === candidateSkiptoken
+    ) {
+      return true;
+    }
+  } catch {
+    return currentUrl === candidateUrl;
+  }
+
+  return false;
+}

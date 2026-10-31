@@ -320,6 +320,125 @@ describe("createEmailProviderMailboxSource", () => {
     expect(getMessagesWithPagination).not.toHaveBeenCalled();
   });
 
+
+  it("forwards after date to provider when token.afterMs is present during enumeration", async () => {
+    const getMessagesWithPagination = vi.fn().mockResolvedValue({
+      messages: [],
+      nextPageToken: undefined,
+    });
+    const source = createEmailProviderMailboxSource({
+      accountId: "acc-1",
+      provider: {
+        name: "microsoft",
+        localMailSyncStrategy: "folder-delta",
+        async getMailboxSyncPage() {
+          return {
+            cursor: "cur",
+            reset: false,
+            upsertedMessages: [],
+            deletedMessageIds: [],
+            hasMore: false,
+          };
+        },
+        getMessagesWithPagination,
+      } as unknown as EmailProvider,
+    });
+    const afterTimestamp = 1700000000000;
+    const token = {
+      afterMs: afterTimestamp,
+      scopeId: "inbox",
+      folderId: "inbox",
+    };
+    await source.enumerate({
+      session: { accountId: "acc-1", generation: "g1" },
+      requestId: "r1",
+      signal: new AbortController().signal,
+      bootstrapId: "mailbox",
+      page: JSON.stringify(token),
+      pageSize: 25,
+    });
+    expect(getMessagesWithPagination).toHaveBeenCalledWith(
+      expect.objectContaining({
+        after: new Date(afterTimestamp),
+        folderId: "inbox",
+      }),
+    );
+  });
+
+  it("defaults afterMs using MAIL_INITIAL_SYNC_DAYS in beginBootstrap when afterMs is omitted", async () => {
+    const prevEnv = process.env.MAIL_INITIAL_SYNC_DAYS;
+    process.env.MAIL_INITIAL_SYNC_DAYS = "30";
+    try {
+      const source = createEmailProviderMailboxSource({
+        accountId: "acc-1",
+        provider: {
+          name: "microsoft",
+          localMailSyncStrategy: "folder-delta",
+          async getMailboxSyncPage() {
+            return {
+              cursor: "cur",
+              reset: false,
+              upsertedMessages: [],
+              deletedMessageIds: [],
+              hasMore: false,
+            };
+          },
+        } as unknown as EmailProvider,
+      });
+      const now = Date.now();
+      const result = await source.beginBootstrap({
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "r1",
+        signal: new AbortController().signal,
+        scope: { id: "inbox", kind: "folder", folderId: "inbox" },
+      });
+      expect(result.status).toBe("ok");
+      if (result.status === "ok") {
+        const token = JSON.parse(result.value.enumerationToken);
+        const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+        expect(token.afterMs).toBeGreaterThanOrEqual(now - thirtyDaysMs - 2000);
+        expect(token.afterMs).toBeLessThanOrEqual(now - thirtyDaysMs + 2000);
+      }
+    } finally {
+      process.env.MAIL_INITIAL_SYNC_DAYS = prevEnv;
+    }
+  });
+
+  it("requests reset when folder enumeration returns 404 and folder is confirmed gone", async () => {
+    const source = createEmailProviderMailboxSource({
+      accountId: "acc-1",
+      provider: {
+        name: "microsoft",
+        localMailSyncStrategy: "folder-delta",
+        async getMessagesWithPagination() {
+          throw Object.assign(new Error("The folder could not be found."), {
+            statusCode: 404,
+          });
+        },
+        getFolders: vi.fn().mockResolvedValue([
+          { id: "inbox", systemType: "INBOX", childFolders: [] },
+        ]),
+      } as unknown as EmailProvider,
+    });
+    const token = {
+      afterMs: 0,
+      scopeId: "deleted-folder",
+      folderId: "deleted-folder",
+    };
+    const result = await source.enumerate({
+      session: { accountId: "acc-1", generation: "g1" },
+      requestId: "r1",
+      signal: new AbortController().signal,
+      bootstrapId: "mailbox",
+      page: JSON.stringify(token),
+      pageSize: 25,
+    });
+    expect(result).toEqual({
+      status: "reset_required",
+      scopeId: "deleted-folder",
+    });
+  });
+
   it("exposes Outlook folders as sync scopes, with custom folders at low priority", async () => {
     const getFolders = vi.fn().mockResolvedValue([
       {
