@@ -6,7 +6,6 @@ import {
   type PointerEvent,
   type ReactNode,
   useCallback,
-  useEffect,
   useRef,
   useState,
 } from "react";
@@ -48,6 +47,7 @@ import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
 import { reorderEmailAccountsAction } from "@/utils/actions/all-accounts";
 import { getActionErrorMessage } from "@/utils/error";
 import { cn } from "@/utils";
+import { useDragReorder } from "./use-drag-reorder";
 
 export const MailAccountSwitcher = memo(function MailAccountSwitcher({
   isAllAccounts,
@@ -214,107 +214,30 @@ function AccountList({
   onSelect: (accountId: string) => void;
 }) {
   const listRef = useRef<HTMLDivElement>(null);
-  // The release that ends a drag would otherwise select the account under it.
-  const suppressSelectRef = useRef(false);
-  const stopTrackingRef = useRef<(() => void) | null>(null);
-  const [drag, setDrag] = useState<DragState | null>(null);
-  const dragRef = useRef<DragState | null>(null);
-  const updateDrag = (next: DragState | null) => {
-    dragRef.current = next;
-    setDrag(next);
-  };
+  const { drag, suppressClickRef, trackPress } = useDragReorder<DragState>();
 
-  const accountsById = new Map(
-    accounts.map((account) => [account.id, account]),
-  );
-  const orderedAccounts = drag
-    ? drag.order.flatMap((id) => accountsById.get(id) ?? [])
-    : accounts;
+  const orderedAccounts = drag ? orderAccounts(accounts, drag.order) : accounts;
 
-  // Window listeners follow the pointer off the item, and keep working while
-  // React moves the dragged item's node as the order changes.
-  const trackPress = (
+  const trackAccountPress = (
     event: PointerEvent<HTMLDivElement>,
     accountId: string,
   ) => {
-    stopTrackingRef.current?.();
-    if (accounts.length < 2 || event.button !== 0) return;
-
-    const start = { x: event.clientX, y: event.clientY };
+    if (accounts.length < 2) return;
     const initialOrder = accounts.map(({ id }) => id);
-    let cancelled = false;
 
-    const onPointerMove = (moveEvent: globalThis.PointerEvent) => {
-      if (cancelled) return;
-      const current = dragRef.current;
-      if (!current) {
-        const distance = Math.hypot(
-          moveEvent.clientX - start.x,
-          moveEvent.clientY - start.y,
-        );
-        if (distance < DRAG_START_PX) return;
-        suppressSelectRef.current = true;
-        document.body.style.cursor = "grabbing";
-        updateDrag({ id: accountId, order: initialOrder });
-        return;
-      }
-
-      const order = orderForPointer({
-        container: listRef.current,
-        drag: current,
-        y: moveEvent.clientY,
-      });
-      if (order) updateDrag({ ...current, order });
-    };
-
-    const endDrag = (commit: boolean) => {
-      const current = dragRef.current;
-      if (!current) return;
-      document.body.style.cursor = "";
-      updateDrag(null);
-      if (commit && current.order.join() !== initialOrder.join()) {
-        onReorder(current.order);
-      }
-    };
-
-    const onPointerUp = () => {
-      endDrag(true);
-      stop();
-      // The release is followed by its click, so the flag clears after it.
-      setTimeout(() => {
-        suppressSelectRef.current = false;
-      });
-    };
-    const onPointerCancel = () => {
-      endDrag(false);
-      stop();
-      suppressSelectRef.current = false;
-    };
-    const onKeyDown = (keyEvent: KeyboardEvent) => {
-      if (keyEvent.key !== "Escape" || !dragRef.current) return;
-      cancelled = true;
-      endDrag(false);
-    };
-
-    const stop = () => {
-      window.removeEventListener("pointermove", onPointerMove);
-      window.removeEventListener("pointerup", onPointerUp);
-      window.removeEventListener("pointercancel", onPointerCancel);
-      window.removeEventListener("keydown", onKeyDown);
-      stopTrackingRef.current = null;
-    };
-
-    window.addEventListener("pointermove", onPointerMove);
-    window.addEventListener("pointerup", onPointerUp);
-    window.addEventListener("pointercancel", onPointerCancel);
-    window.addEventListener("keydown", onKeyDown);
-    stopTrackingRef.current = () => {
-      endDrag(false);
-      stop();
-    };
+    trackPress(event, {
+      start: () => ({ id: accountId, order: initialOrder }),
+      orderForPointer: (moveEvent, current) =>
+        orderForPointer({
+          container: listRef.current,
+          drag: current,
+          y: moveEvent.clientY,
+        }),
+      commit: (order) => {
+        if (order.join() !== initialOrder.join()) onReorder(order);
+      },
+    });
   };
-
-  useEffect(() => () => stopTrackingRef.current?.(), []);
 
   return (
     <div ref={listRef} className="relative">
@@ -330,9 +253,9 @@ function AccountList({
             account={account}
             isActive={account.id === activeAccountId}
             isDesktopApp={isDesktopApp}
-            onPress={(event) => trackPress(event, account.id)}
+            onPress={(event) => trackAccountPress(event, account.id)}
             onSelect={onSelect}
-            shouldSuppressSelect={() => suppressSelectRef.current}
+            shouldSuppressSelect={() => suppressClickRef.current}
             shortcutKey={
               isDesktopApp
                 ? getShortcut("switchAccount").keys[index]
@@ -453,7 +376,6 @@ type DragState = {
   order: string[];
 };
 
-const DRAG_START_PX = 4;
 const ITEM_MOVE_TRANSITION = { duration: 0.15, ease: "easeOut" } as const;
 
 /**
