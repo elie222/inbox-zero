@@ -121,6 +121,90 @@ describe.runIf(shouldRunEval)("Eval: Analyze Document", () => {
         TIMEOUT,
       );
     }
+
+    const legalFolder = {
+      id: "folder-legal",
+      name: "Legal",
+      path: "Business/Legal",
+      driveProvider: "google",
+    };
+    const clientFolder = {
+      id: "folder-northstar",
+      name: "Northstar",
+      path: "Business/Legal/Northstar",
+      driveProvider: "google",
+    };
+    const nestedCases = [
+      {
+        name: "creates a client folder relative to an existing parent",
+        filingPrompt:
+          "File service agreements by client, using a folder for each client inside Legal.",
+        folders: [legalFolder],
+        expected: {
+          action: "create_new",
+          parentFolderId: "folder-legal",
+          folderPath: "Northstar",
+        },
+      },
+      {
+        name: "reuses an existing client folder instead of its parent",
+        filingPrompt:
+          "File service agreements by client, using a folder for each client inside Legal.",
+        folders: [legalFolder, clientFolder],
+        expected: { action: "use_existing", folderId: "folder-northstar" },
+      },
+      {
+        name: "creates a top-level folder when no parent exists",
+        filingPrompt: "Put all service agreements in a folder named Legal.",
+        folders: [],
+        expected: {
+          action: "create_new",
+          parentFolderId: null,
+          folderPath: "Legal",
+        },
+      },
+    ];
+
+    for (const testCase of nestedCases) {
+      test(
+        testCase.name,
+        async () => {
+          const result = await analyzeDocument({
+            emailAccount: {
+              ...emailAccount,
+              filingPrompt: testCase.filingPrompt,
+            },
+            email,
+            attachment: {
+              filename: "service-agreement.pdf",
+              mimeType: "application/pdf",
+              size: 4096,
+              content:
+                "Service agreement. Client: Northstar. Consulting services for September 2026.",
+            },
+            folders: testCase.folders,
+          });
+          const actual =
+            result.action === "create_new"
+              ? {
+                  action: result.action,
+                  parentFolderId: result.parentFolderId,
+                  folderPath: result.folderPath,
+                }
+              : { action: result.action, folderId: result.folderId };
+
+          evalReporter.record({
+            testName: testCase.name,
+            model: model.label,
+            pass: JSON.stringify(actual) === JSON.stringify(testCase.expected),
+            expected: JSON.stringify(testCase.expected),
+            actual: JSON.stringify(actual),
+          });
+          expect(actual).toEqual(testCase.expected);
+        },
+        TIMEOUT,
+      );
+    }
   });
 
   afterAll(() => {
