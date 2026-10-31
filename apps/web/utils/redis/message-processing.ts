@@ -1,4 +1,4 @@
-import { redis } from "@/utils/redis";
+import { createScopedLogger } from "@/utils/logger";
 import {
   acquireOwnedLock,
   clearOwnedLock,
@@ -9,34 +9,32 @@ const OUTBOUND_PROCESSING_TTL_SECONDS = 60 * 30;
 const OUTBOUND_PROCESSED_TTL_SECONDS = 60 * 60 * 24 * 30;
 const OUTBOUND_PROCESSED_STATUS = "processed";
 
-function getProcessingKey({
-  userEmail,
-  messageId,
-}: {
-  userEmail: string;
-  messageId: string;
-}) {
-  return `processing-message:${userEmail}:${messageId}`;
-}
+export async function withMessageProcessingLock(
+  { userEmail, messageId }: { userEmail: string; messageId: string },
+  fn: () => Promise<unknown>,
+): Promise<{ skipped: boolean }> {
+  const key = `processing-message:${userEmail}:${messageId}`;
+  const lockToken = await acquireOwnedLock({
+    key,
+    processingTtlSeconds: 60 * 5,
+  });
+  if (!lockToken) return { skipped: true };
 
-export async function markMessageAsProcessing({
-  userEmail,
-  messageId,
-}: {
-  userEmail: string;
-  messageId: string;
-}): Promise<boolean> {
-  const result = await redis.set(
-    getProcessingKey({ userEmail, messageId }),
-    "true",
-    {
-      ex: 60 * 5, // 5 minutes
-      nx: true, // Only set if key doesn't exist
-    },
-  );
-
-  // Redis returns "OK" if the key was set, and null if it was already set
-  return result === "OK";
+  try {
+    await fn();
+    // Keep the lock until its TTL expires to dedupe successful processing.
+    return { skipped: false };
+  } catch (error) {
+    try {
+      await clearOwnedLock({ key, lockToken });
+    } catch (clearError) {
+      createScopedLogger("message-processing").warn(
+        "Failed to clear message processing lock",
+        { error: clearError },
+      );
+    }
+    throw error;
+  }
 }
 
 type OutboundMessageKey = {

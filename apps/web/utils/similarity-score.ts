@@ -1,5 +1,5 @@
 import { stripBrandingSignatures } from "@/utils/referral/signature";
-import he from "he";
+import * as he from "he";
 import * as stringSimilarity from "string-similarity";
 import {
   convertEmailHtmlToText,

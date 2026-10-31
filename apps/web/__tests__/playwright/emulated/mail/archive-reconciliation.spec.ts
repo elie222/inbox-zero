@@ -35,11 +35,6 @@ test("keeps an archived conversation hidden through engine reconciliation", asyn
       .toMatchObject({
         status: expect.stringMatching(/^(reconciling|succeeded)$/),
       });
-    await capturePlaywrightCheckpoint(
-      page,
-      testInfo,
-      "archive-awaiting-final-page",
-    );
 
     await expect
       .poll(

@@ -3,7 +3,7 @@ import MailComposer from "nodemailer/lib/mail-composer";
 import type Mail from "nodemailer/lib/mailer";
 import type { Attachment } from "nodemailer/lib/mailer";
 import type { SendEmailBody, WithMailerAttachments } from "@/utils/types/mail";
-import { convertEmailHtmlToText } from "@/utils/mail";
+import { convertOutgoingEmailHtmlToText } from "@/utils/mail";
 import {
   forwardEmailHtml,
   forwardEmailSubject,
@@ -11,6 +11,7 @@ import {
 } from "@/utils/gmail/forward";
 import type { ParsedMessage } from "@/utils/types";
 import { createReplyContent } from "@/utils/gmail/reply";
+import { renderReplyBodyHtml } from "@/utils/email/reply-body-html";
 import { formatReplyQuotedHeader } from "@/utils/email/reply-quote";
 import type { EmailForAction } from "@/utils/ai/types";
 import { createScopedLogger, type Logger } from "@/utils/logger";
@@ -35,7 +36,7 @@ import {
 import { getDraftIdForMessage } from "@/utils/gmail/draft";
 import { SafeError } from "@/utils/error";
 import { GmailLabel } from "@/utils/gmail/label";
-import { convertNewlinesToBr, textToHtmlParagraphs } from "@/utils/string";
+import { textToHtmlParagraphs } from "@/utils/string";
 import {
   buildQuotedPlainText,
   quotePlainTextContent,
@@ -116,7 +117,7 @@ export async function sendEmailWithHtml(
   let messageText: string;
 
   try {
-    messageText = convertEmailHtmlToText({ htmlText: body.messageHtml });
+    messageText = convertOutgoingEmailHtmlToText(body.messageHtml);
   } catch (error) {
     sendLogger.error("Error converting email html to text", { error });
     messageText = stripHtmlTagsForPlainText(body.messageHtml).trim();
@@ -207,6 +208,8 @@ export async function replyToEmail(
   from?: string,
   options?: {
     replyTo?: string;
+    cc?: string;
+    bcc?: string;
     attachments?: Attachment[];
   },
 ) {
@@ -214,6 +217,7 @@ export async function replyToEmail(
 
   const { html } = createReplyContent({
     textContent: reply,
+    htmlContent: renderReplyBodyHtml(reply),
     message,
   });
   const messageText = buildReplyMessageText({
@@ -225,6 +229,8 @@ export async function replyToEmail(
   const raw = await createRawMailMessage({
     to: message.headers["reply-to"] || message.headers.from,
     from,
+    cc: options?.cc,
+    bcc: options?.bcc,
     replyTo: options?.replyTo,
     subject: formatReplySubject(message.headers.subject),
     messageText,
@@ -344,6 +350,7 @@ export async function draftEmail(
 ) {
   const { html } = createReplyContent({
     textContent: args.content,
+    htmlContent: renderReplyBodyHtml(args.content),
     message: originalEmail,
   });
   const messageText = buildReplyMessageText({
@@ -434,12 +441,7 @@ export function buildReplyMessageText({
 function renderReplyBodyAsPlainText(textContent?: string) {
   if (!textContent) return "";
 
-  return convertEmailHtmlToText({
-    htmlText: convertNewlinesToBr(textContent),
-  })
-    .replace(/\r\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+  return convertOutgoingEmailHtmlToText(renderReplyBodyHtml(textContent));
 }
 
 export function stripHtmlTagsForPlainText(html: string) {

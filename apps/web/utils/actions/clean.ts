@@ -110,14 +110,15 @@ export const cleanInboxAction = actionClient
                 excludeLabelNames: [inboxZeroLabels.processed.name],
               },
               maxResults: Math.min(maxEmails || 100, 100),
+              pageToken: nextPageToken ?? undefined,
             });
+
+          nextPageToken = pageToken;
 
           logger.info("Fetched threads", {
             threadCount: threads.length,
             nextPageToken,
           });
-
-          nextPageToken = pageToken;
 
           if (threads.length === 0) break;
 

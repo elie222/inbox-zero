@@ -7,6 +7,10 @@ export type DisconnectMcpConnectionBody = z.infer<
   typeof disconnectMcpConnectionBody
 >;
 
+export const testMcpConnectionBody = z.object({
+  connectionId: z.string(),
+});
+
 export const toggleMcpConnectionBody = z.object({
   connectionId: z.string(),
   isActive: z.boolean(),

@@ -5,10 +5,22 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import { MailMessageBody } from "@inboxzero/mail-ui/MailBody";
+import { ArrowLeftIcon, PaperclipIcon, RefreshCwIcon } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Tooltip } from "@/components/Tooltip";
 import { LoadingContent } from "@/components/LoadingContent";
 import { ConversationDiscussionView } from "@/components/team-comments/ConversationDiscussion";
 import { useConversationDiscussion } from "@/components/team-comments/use-conversation-discussion";
+import { cn } from "@/utils";
+import { formatShortDate } from "@/utils/date";
+import {
+  extractEmailAddress,
+  extractNameFromEmail,
+  formatRecipientNames,
+  getInitials,
+  splitRecipientList,
+} from "@/utils/email";
 import type { TeamMessagesResponse } from "@/app/api/team-comments/conversations/[conversationId]/messages/route";
 
 export function SharedConversationReader({
@@ -21,9 +33,9 @@ export function SharedConversationReader({
     return (
       <main className="mx-auto max-w-3xl p-6">
         <p>
-          Select your organization membership from{" "}
+          Open this conversation from{" "}
           <Link href="/shared" className="text-primary underline">
-            Shared with me
+            Discussions
           </Link>
           .
         </p>
@@ -72,72 +84,74 @@ function AuthorizedReader({
     );
   if (!access.summary.data)
     return <main className="mx-auto max-w-3xl p-6">Checking access…</main>;
+  const publisher = access.summary.data.participants.find(
+    (participant) =>
+      participant.memberId === access.summary.data?.publisherMemberId,
+  );
+  const available =
+    messages.data?.status === "available" ? messages.data : undefined;
+  const subject = available?.messages[0]?.subject;
   return (
-    <main className="mx-auto max-w-3xl space-y-6 px-4 py-6">
+    <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-6">
       <div className="flex items-center justify-between gap-2">
-        <Link
-          href={`/shared?memberId=${encodeURIComponent(memberId)}`}
-          className="text-primary text-sm underline"
-        >
-          Shared with me
-        </Link>
-        <Button size="sm" variant="ghost" onClick={() => messages.mutate()}>
-          Refresh email
+        <Button asChild size="xs-2" variant="ghostMuted" className="-ml-2">
+          <Link href={`/shared?memberId=${encodeURIComponent(memberId)}`}>
+            <ArrowLeftIcon className="mr-1.5 size-3.5" />
+            Discussions
+          </Link>
         </Button>
+        <Tooltip content="Refresh email">
+          <Button
+            aria-label="Refresh email"
+            onClick={() => messages.mutate()}
+            size="iconXs"
+            variant="ghostMuted"
+          >
+            <RefreshCwIcon
+              className={cn(
+                "size-3.5",
+                messages.isValidating && "animate-spin",
+              )}
+            />
+          </Button>
+        </Tooltip>
       </div>
+      <header className="space-y-1">
+        <h1 className="font-semibold text-foreground text-xl">
+          {subject || "Shared conversation"}
+        </h1>
+        {publisher && (
+          <p className="text-muted-foreground text-sm">
+            Shared by {publisher.name}
+          </p>
+        )}
+      </header>
       <LoadingContent loading={messages.isLoading} error={messages.error}>
         {messages.data?.status === "unavailable" && (
-          <div className="rounded-lg border p-4" role="status">
+          <p
+            className="rounded-lg border border-dashed px-4 py-3 text-muted-foreground text-sm"
+            role="status"
+          >
             Email content is unavailable ({messages.data.reason}). Internal
             comments remain available.
-          </div>
+          </p>
         )}
-        {messages.data?.status === "available" && (
-          <div className="space-y-4">
-            {!messages.data.complete && (
-              <p className="text-amber-700 text-sm" role="status">
+        {available && (
+          <div className="space-y-3">
+            {!available.complete && (
+              <p className="text-muted-foreground text-xs" role="status">
                 This email history is incomplete.
               </p>
             )}
-            {messages.data.messages.map((message) => (
-              <article
-                key={message.ref}
-                className="min-w-0 space-y-3 rounded-lg border bg-card p-4"
-              >
-                <h1 className="font-title text-lg font-semibold">
-                  {message.subject || "(no subject)"}
-                </h1>
-                <div className="text-muted-foreground text-xs">
-                  <p>From: {message.from}</p>
-                  <p>To: {message.to}</p>
-                  {message.cc && <p>Cc: {message.cc}</p>}
-                  <time>
-                    {new Date(message.date).toLocaleString(undefined, {
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    })}
-                  </time>
-                </div>
-                <SharedMessageBody
-                  messageId={`${conversationId}:${message.ref}`}
-                  html={message.html}
-                  text={message.text}
+            <div className="divide-y overflow-hidden rounded-xl border bg-card">
+              {available.messages.map((message) => (
+                <SharedMessage
+                  key={message.ref}
+                  conversationId={conversationId}
+                  message={message}
                 />
-                {message.attachments.length > 0 && (
-                  <div className="flex flex-wrap gap-2 border-t pt-2">
-                    {message.attachments.map((attachment) => (
-                      <a
-                        key={attachment.ref}
-                        href={attachment.url}
-                        className="text-primary text-sm underline"
-                      >
-                        {attachment.filename}
-                      </a>
-                    ))}
-                  </div>
-                )}
-              </article>
-            ))}
+              ))}
+            </div>
           </div>
         )}
       </LoadingContent>
@@ -148,6 +162,74 @@ function AuthorizedReader({
         discussion={access}
       />
     </main>
+  );
+}
+
+function SharedMessage({
+  conversationId,
+  message,
+}: {
+  conversationId: string;
+  message: Extract<
+    TeamMessagesResponse,
+    { status: "available" }
+  >["messages"][number];
+}) {
+  const senderName =
+    extractNameFromEmail(message.from) || extractEmailAddress(message.from);
+  const recipients = formatRecipientNames(
+    [
+      ...splitRecipientList(message.to ?? ""),
+      ...splitRecipientList(message.cc ?? ""),
+    ],
+    "",
+  );
+  return (
+    <article className="min-w-0 px-4 py-4 sm:px-5">
+      <div className="flex min-w-0 items-center gap-2">
+        <Avatar aria-hidden className="size-7 shrink-0">
+          <AvatarFallback className="bg-muted font-semibold text-[10px] text-muted-foreground tracking-wide">
+            {getInitials(senderName)}
+          </AvatarFallback>
+        </Avatar>
+        <span className="min-w-0 truncate font-semibold text-foreground text-sm">
+          {senderName}
+        </span>
+        {recipients && (
+          <span className="hidden min-w-0 shrink-[999] truncate text-muted-foreground text-xs sm:block">
+            to {recipients}
+          </span>
+        )}
+        <time
+          className="ml-auto shrink-0 whitespace-nowrap text-muted-foreground text-xs"
+          dateTime={new Date(message.date).toISOString()}
+        >
+          {formatShortDate(new Date(message.date))}
+        </time>
+      </div>
+      {/* Aligns the body with the sender's name rather than the avatar. */}
+      <div className="min-w-0 pt-3 sm:pl-9">
+        <SharedMessageBody
+          messageId={`${conversationId}:${message.ref}`}
+          html={message.html}
+          text={message.text}
+        />
+        {message.attachments.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {message.attachments.map((attachment) => (
+              <a
+                key={attachment.ref}
+                href={attachment.url}
+                className="flex max-w-full items-center gap-1.5 rounded-md border px-2 py-1 text-xs hover:bg-muted"
+              >
+                <PaperclipIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                <span className="truncate">{attachment.filename}</span>
+              </a>
+            ))}
+          </div>
+        )}
+      </div>
+    </article>
   );
 }
 

@@ -140,6 +140,36 @@ test("navigates messages from inside a rich email body", async ({ page }) => {
   ).toBeVisible();
 });
 
+test("quotes the selected text when Enter opens a reply", async ({
+  page,
+}, testInfo) => {
+  const { emailAccountId } = await openMail(page);
+  await page.goto(
+    `/${emailAccountId}/mail?thread-id=thr_playwright_reader_html`,
+    {
+      waitUntil: "domcontentloaded",
+    },
+  );
+  const emailBody = page
+    .frameLocator('iframe[title="Email content preview"]')
+    .last()
+    .getByText("A rich email body for keyboard navigation.");
+  await expect(emailBody).toBeVisible({ timeout: 60_000 });
+  await emailBody.click();
+  await emailBody.selectText();
+  await page.keyboard.press("Enter");
+
+  const editor = page.getByRole("textbox", { name: "Email message" });
+  await expect(editor.locator("blockquote")).toHaveText(
+    "A rich email body for keyboard navigation.",
+  );
+  await expect(editor).toBeFocused();
+  await page.keyboard.type("Answer below the quote");
+  await expect(editor.locator("blockquote")).not.toContainText("Answer");
+  await expect(editor).toContainText("Answer below the quote");
+  await capturePlaywrightCheckpoint(page, testInfo, "reply-quotes-selection");
+});
+
 test("expands a collapsed message before Enter opens a reply", async ({
   page,
 }, testInfo) => {

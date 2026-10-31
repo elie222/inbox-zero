@@ -25,8 +25,11 @@ export const OTHER_SPLIT_ID = "other-inbox";
 export function otherMailSplitQuery(splits: MailSplit[]): ThreadsQuery {
   return {
     type: "inbox",
+    // Sorted so reordering the tabs leaves the query, and the list it loads,
+    // unchanged.
     excludeSplits: splits
       .filter((split) => split.filters.length > 0)
+      .toSorted((a, b) => a.id.localeCompare(b.id))
       .map(({ matchAll, filters }) => ({
         matchAll,
         filters: filters.map(({ kind, value }) => ({ kind, value })),

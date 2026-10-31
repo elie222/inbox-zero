@@ -119,6 +119,7 @@ const featureGroups = [
     specs: [
       "mail/account-selection.spec.ts",
       "mail/cached-settings.spec.ts",
+      "mail/desktop-update-toast.spec.ts",
       "mail/layout.spec.ts",
       "mail/theme.spec.ts",
     ],
@@ -134,6 +135,24 @@ const featureGroups = [
   },
 ];
 
+// These specs cover client behavior that is the same for every mail provider,
+// and the provider calls they make are exercised on both providers elsewhere.
+const providerNeutralMailSpecs = new Set([
+  "mail/account-selection.spec.ts",
+  "mail/cached-settings.spec.ts",
+  "mail/command-palette.spec.ts",
+  "mail/compose-send-warnings.spec.ts",
+  "mail/composer-editing.spec.ts",
+  "mail/layout.spec.ts",
+  "mail/mail-engine-inspect.spec.ts",
+  "mail/mail-queue.spec.ts",
+  "mail/offline-loading.spec.ts",
+  "mail/reader-transition.spec.ts",
+  "mail/team-comments-access.spec.ts",
+  "mail/theme.spec.ts",
+  "mail/thread-navigation.spec.ts",
+]);
+
 export function expandPlaywrightTargets(paths, appRoot) {
   const files = new Set();
   for (const targetPath of paths) {
@@ -148,10 +167,7 @@ export function expandPlaywrightTargets(paths, appRoot) {
 export function batchPlaywrightTargets(targets) {
   const batches = new Map();
   for (const target of targets) {
-    const specPath = target.path.replace(
-      /^__tests__\/playwright\/emulated\//,
-      "",
-    );
+    const specPath = getEmulatedSpecPath(target.path);
     const group = featureGroups.find(({ specs }) => specs.includes(specPath));
     // New specs remain covered before an explicit feature group is assigned.
     const name = group?.name ?? specPath.split("/")[0];
@@ -160,8 +176,33 @@ export function batchPlaywrightTargets(targets) {
   }
   return [...batches.values()].map((batch) => ({
     ...batch,
-    timeoutMinutes: 4 + batch.paths.length * 8,
+    timeoutMinutes: getBatchTimeoutMinutes(batch.paths),
   }));
+}
+
+/** Every batch runs on Google; mail specs that depend on the provider also run on Microsoft. */
+export function assignPlaywrightProviders(batches) {
+  return batches.flatMap((batch) => {
+    const microsoftPaths = batch.paths.filter((targetPath) => {
+      const specPath = getEmulatedSpecPath(targetPath);
+      return (
+        specPath.startsWith("mail/") && !providerNeutralMailSpecs.has(specPath)
+      );
+    });
+    return [
+      { ...batch, provider: "google" },
+      ...(microsoftPaths.length
+        ? [
+            {
+              ...batch,
+              paths: microsoftPaths,
+              timeoutMinutes: getBatchTimeoutMinutes(microsoftPaths),
+              provider: "microsoft",
+            },
+          ]
+        : []),
+    ];
+  });
 }
 
 /**
@@ -204,4 +245,12 @@ function getSpecFiles(targetPath, appRoot) {
   return readdirSync(absolutePath, { withFileTypes: true }).flatMap((entry) =>
     getSpecFiles(`${targetPath}/${entry.name}`, appRoot),
   );
+}
+
+function getEmulatedSpecPath(targetPath) {
+  return targetPath.replace(/^__tests__\/playwright\/emulated\//, "");
+}
+
+function getBatchTimeoutMinutes(paths) {
+  return 4 + paths.length * 8;
 }

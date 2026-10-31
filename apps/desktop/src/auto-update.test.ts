@@ -195,7 +195,7 @@ describe("checkForDesktopUpdatesManually", () => {
     const beforeInstall = vi.fn();
 
     await expect(
-      checkForDesktopUpdatesManually(beforeInstall, false),
+      checkForDesktopUpdatesManually(beforeInstall, { isPackaged: false }),
     ).resolves.toBe(false);
 
     expect(autoUpdater.checkForUpdates).not.toHaveBeenCalled();
@@ -212,9 +212,9 @@ describe("checkForDesktopUpdatesManually", () => {
       updateInfo: { version: "0.1.0" },
     });
 
-    await expect(checkForDesktopUpdatesManually(vi.fn(), true)).resolves.toBe(
-      true,
-    );
+    await expect(
+      checkForDesktopUpdatesManually(vi.fn(), { isPackaged: true }),
+    ).resolves.toBe(true);
 
     expect(dialog.showMessageBox).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -231,9 +231,9 @@ describe("checkForDesktopUpdatesManually", () => {
       updateInfo: { version: "0.2.0" },
     });
 
-    await expect(checkForDesktopUpdatesManually(vi.fn(), true)).resolves.toBe(
-      true,
-    );
+    await expect(
+      checkForDesktopUpdatesManually(vi.fn(), { isPackaged: true }),
+    ).resolves.toBe(true);
 
     expect(dialog.showMessageBox).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -258,12 +258,64 @@ describe("checkForDesktopUpdatesManually", () => {
     });
 
     await startDesktopAutoUpdate(true, { onDownloadProgress });
-    await checkForDesktopUpdatesManually(vi.fn(), true);
+    await checkForDesktopUpdatesManually(vi.fn(), { isPackaged: true });
     reportProgress?.({ percent: 41.2 });
     reportProgress?.({ percent: 41.4 });
 
-    expect(onDownloadProgress).toHaveBeenCalledTimes(1);
-    expect(onDownloadProgress).toHaveBeenCalledWith(41);
+    expect(onDownloadProgress.mock.calls).toEqual([
+      [{ percent: 0, version: "0.2.0" }],
+      [{ percent: 41, version: "0.2.0" }],
+    ]);
+  });
+
+  it("shows download progress in the app instead of a dialog when it can", async () => {
+    const onDownloadProgress = vi.fn();
+    autoUpdater.checkForUpdates.mockResolvedValue({
+      downloadPromise: new Promise(() => {}),
+      isUpdateAvailable: true,
+      updateInfo: { version: "0.2.0" },
+    });
+
+    await startDesktopAutoUpdate(true, { onDownloadProgress });
+    await checkForDesktopUpdatesManually(vi.fn(), {
+      isPackaged: true,
+      showsProgressInApp: () => true,
+    });
+
+    expect(dialog.showMessageBox).not.toHaveBeenCalled();
+    expect(onDownloadProgress).toHaveBeenLastCalledWith({
+      percent: 0,
+      version: "0.2.0",
+    });
+  });
+
+  it("reports a watched download as ready before clearing its progress", async () => {
+    const events: unknown[] = [];
+    let notifyDownloaded: ((info: { version: string }) => void) | undefined;
+    autoUpdater.on.mockImplementation((event, listener) => {
+      if (event === "update-downloaded") notifyDownloaded = listener;
+    });
+    autoUpdater.checkForUpdates.mockResolvedValue({
+      downloadPromise: new Promise(() => {}),
+      isUpdateAvailable: true,
+      updateInfo: { version: "0.2.0" },
+    });
+
+    await startDesktopAutoUpdate(true, {
+      onDownloadProgress: (progress) => events.push(progress),
+      onUpdateReady: (version) => events.push(`ready ${version}`),
+    });
+    await checkForDesktopUpdatesManually(vi.fn(), {
+      isPackaged: true,
+      showsProgressInApp: () => true,
+    });
+    notifyDownloaded?.({ version: "0.2.0" });
+
+    expect(events).toEqual([
+      { percent: 0, version: "0.2.0" },
+      "ready 0.2.0",
+      null,
+    ]);
   });
 
   it("clears progress when a background download fails", async () => {
@@ -279,7 +331,7 @@ describe("checkForDesktopUpdatesManually", () => {
     });
 
     await startDesktopAutoUpdate(true, { onDownloadProgress });
-    await checkForDesktopUpdatesManually(vi.fn(), true);
+    await checkForDesktopUpdatesManually(vi.fn(), { isPackaged: true });
     rejectDownload(new Error("download failed"));
     await downloadPromise.catch(() => undefined);
 
@@ -306,7 +358,7 @@ describe("checkForDesktopUpdatesManually", () => {
     notifyDownloaded?.({ version: "0.2.0" });
 
     await expect(
-      checkForDesktopUpdatesManually(beforeInstall, true),
+      checkForDesktopUpdatesManually(beforeInstall, { isPackaged: true }),
     ).resolves.toBe(true);
 
     expect(dialog.showMessageBox).toHaveBeenCalledWith(
@@ -327,9 +379,9 @@ describe("checkForDesktopUpdatesManually", () => {
       new Error("feed unavailable"),
     );
 
-    await expect(checkForDesktopUpdatesManually(vi.fn(), true)).resolves.toBe(
-      false,
-    );
+    await expect(
+      checkForDesktopUpdatesManually(vi.fn(), { isPackaged: true }),
+    ).resolves.toBe(false);
 
     expect(console.error).toHaveBeenCalledWith("feed unavailable");
     expect(dialog.showMessageBox).toHaveBeenCalledWith(

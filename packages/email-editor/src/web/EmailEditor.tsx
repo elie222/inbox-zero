@@ -34,6 +34,9 @@ export type EmailEditorHandle = {
   getValue: () => EmailEditorValue;
   insertHtml: (html: string) => boolean;
   insertText: (text: string) => boolean;
+  // Quotes plain text at the caret on its own lines, leaving the caret on a
+  // fresh line below the quote.
+  insertQuote: (text: string) => boolean;
   insertInlineImage: (image: {
     alt: string;
     contentId: string;

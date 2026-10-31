@@ -6,10 +6,8 @@ import { Button } from "@/components/ui/button";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Badge } from "@/components/ui/badge";
 import type { TeamActivityResponse } from "@/app/api/team-comments/activity/route";
-import {
-  NoOrganization,
-  useSharedMemberId,
-} from "@/app/(app)/shared/SharedTabs";
+import { NoOrganization } from "@/app/(app)/shared/SharedTabs";
+import { useTeamMembership } from "@/components/team-comments/use-team-nav";
 
 const ACTIVITY_LABELS: Record<
   TeamActivityResponse["items"][number]["kind"],
@@ -21,7 +19,7 @@ const ACTIVITY_LABELS: Record<
 };
 
 export function ConversationActivity() {
-  const { memberId, memberships } = useSharedMemberId();
+  const { memberId, memberships } = useTeamMembership();
   const activity = useSWRInfinite<TeamActivityResponse>(
     (index, previousPage) => {
       if (!memberId || (index > 0 && !previousPage?.nextCursor)) return null;

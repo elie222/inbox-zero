@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { KnowledgeBase } from "@/app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeBase";
+import { DraftDocsSites } from "@/app/(app)/[emailAccountId]/assistant/knowledge/DraftDocsSites";
 
 export function DraftKnowledgeSetting() {
   const { enabled, loading } = useDraftReplies();
@@ -54,6 +55,7 @@ function KnowledgeDialog({ enabled }: { enabled: boolean }) {
           </DialogDescription>
         </DialogHeader>
         <KnowledgeBase />
+        <DraftDocsSites />
       </DialogContent>
     </Dialog>
   );

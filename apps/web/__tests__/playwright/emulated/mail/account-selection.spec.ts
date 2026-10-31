@@ -27,7 +27,6 @@ test("chooses which accounts appear in All Accounts", async ({
     await page.locator("nextjs-portal").evaluateAll((portals) => {
       for (const portal of portals) portal.remove();
     });
-    await capturePlaywrightCheckpoint(page, testInfo, "all-accounts-menu");
     await expect(page.getByRole("menu").locator("kbd")).toHaveCount(0);
 
     await page.addInitScript(() => {

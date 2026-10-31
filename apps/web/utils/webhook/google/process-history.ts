@@ -4,7 +4,12 @@ import * as Sentry from "@sentry/nextjs";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import { cleanupInvalidTokens } from "@/utils/auth/cleanup-invalid-tokens";
 import { GmailLabel } from "@/utils/gmail/label";
-import { captureException, isInvalidGrantError } from "@/utils/error";
+import {
+  captureException,
+  isHandledUserKeyError,
+  isInvalidGrantError,
+  isKnownApiError,
+} from "@/utils/error";
 import { isEmailProviderRateLimitError } from "@/utils/email/is-provider-rate-limit-error";
 import {
   HistoryEventType,
@@ -22,6 +27,7 @@ import {
   withRateLimitRecording,
 } from "@/utils/email/rate-limit";
 import prisma from "@/utils/prisma";
+import { getBulkRemovedLabelIds } from "@/utils/rule/record-label-removal-learning";
 import {
   clearGmailHistoryCatchUp,
   getGmailHistoryCatchUp,
@@ -278,6 +284,12 @@ async function processHistory(options: ProcessHistoryOptions, logger: Logger) {
 
   if (!history?.length) return;
 
+  // Gmail splits one user action across many history records, so count
+  // removals over the whole batch rather than per record.
+  const bulkRemovedLabelIds = getBulkRemovedLabelIds(
+    history.flatMap((h) => h.labelsRemoved || []),
+  );
+
   for (const h of history) {
     const historyMessages = [
       ...(h.messagesAdded || []),
@@ -307,6 +319,7 @@ async function processHistory(options: ProcessHistoryOptions, logger: Logger) {
       ...(h.labelsRemoved || []).map((m) => ({
         type: HistoryEventType.LABEL_REMOVED,
         item: m,
+        bulkRemovedLabelIds,
       })),
     ];
 
@@ -333,7 +346,11 @@ async function processHistory(options: ProcessHistoryOptions, logger: Logger) {
           userEmail,
           extra: { messageId: event.item.message?.id },
         });
-        logger.error("Error processing history item", { error });
+        if (isKnownApiError(error) || isHandledUserKeyError(error)) {
+          logger.warn("Error processing history item", { error });
+        } else {
+          logger.error("Error processing history item", { error });
+        }
       }
     }
 

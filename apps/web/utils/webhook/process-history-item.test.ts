@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { processHistoryItem } from "@/utils/webhook/process-history-item";
 import {
   createMockEmailProvider,
@@ -23,6 +23,8 @@ import { categorizeSender } from "@/utils/categorize/senders/categorize";
 import { sendOtpPushNotification } from "@/utils/otp-push";
 import { runRules } from "@/utils/ai/choose-rule/run-rules";
 import { sendMobilePushNotification } from "@/utils/mobile-push";
+import { processFilingReply } from "@/utils/drive/handle-filing-reply";
+import { getFilebotEmail } from "@/utils/filebot/is-filebot-email";
 import { SafeError } from "@/utils/error";
 
 vi.mock("@/utils/prisma", () => ({
@@ -57,6 +59,10 @@ vi.mock("@/utils/drive/filing-engine", () => ({
 vi.mock("@/utils/drive/process-filing-attachments", () => ({
   processAttachmentsForFiling: vi.fn().mockResolvedValue(undefined),
 }));
+vi.mock("@/utils/drive/handle-filing-reply", () => ({
+  processFilingReply: vi.fn(),
+}));
+
 vi.mock("@/utils/otp-push", () => ({
   sendOtpPushNotification: vi.fn().mockResolvedValue(undefined),
 }));
@@ -70,6 +76,12 @@ const logger = createTestLogger();
 describe("Provider Edge Cases", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-01T01:00:00Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   function getDefaultEmailAccount() {
@@ -90,6 +102,70 @@ describe("Provider Edge Cases", () => {
     emailAccount: getDefaultEmailAccount(),
     logger,
   };
+
+  it.each([
+    ["older than 24 hours", -24 * 60 * 60 * 1000 - 1, false],
+    ["exactly 24 hours", -24 * 60 * 60 * 1000, true],
+    ["recent", -60_000, true],
+    ["unknown", undefined, true],
+    ["invalid", "invalid", true],
+  ])("handles %s inbound mail", async (_description, age, shouldProcess) => {
+    const message = getMockParsedMessage({
+      internalDate: typeof age === "number" ? String(Date.now() + age) : age,
+    });
+    const provider = createMockEmailProvider();
+    await processHistoryItem(
+      { messageId: message.id, message },
+      {
+        ...baseOptions,
+        provider,
+        hasAutomationRules: true,
+        hasAiAccess: true,
+        emailAccount: {
+          ...baseOptions.emailAccount,
+          filingEnabled: true,
+          filingPrompt: "File invoices",
+          autoCategorizeSenders: true,
+        },
+      },
+    );
+    expect(sendOtpPushNotification).toHaveBeenCalledTimes(
+      shouldProcess ? 1 : 0,
+    );
+    expect(runRules).toHaveBeenCalledTimes(shouldProcess ? 1 : 0);
+    if (!shouldProcess) {
+      expect(processAttachmentsForFiling).not.toHaveBeenCalled();
+      expect(categorizeSender).not.toHaveBeenCalled();
+    }
+  });
+
+  it("still handles old filebot replies", async () => {
+    const message = getMockParsedMessage({
+      internalDate: String(Date.now() - 48 * 60 * 60 * 1000),
+    });
+    message.headers.to = getFilebotEmail({
+      userEmail: baseOptions.emailAccount.email,
+    });
+    await processHistoryItem(
+      { messageId: message.id, message },
+      { ...baseOptions, provider: createMockEmailProvider() },
+    );
+    expect(processFilingReply).toHaveBeenCalled();
+  });
+
+  it("still handles old sent messages", async () => {
+    const message = getMockParsedMessage({
+      internalDate: String(Date.now() - 48 * 60 * 60 * 1000),
+    });
+    const provider = createMockEmailProvider({
+      isSentMessage: vi.fn().mockReturnValue(true),
+    });
+    await processHistoryItem(
+      { messageId: message.id, message },
+      { ...baseOptions, provider },
+    );
+    expect(handleOutboundMessage).toHaveBeenCalled();
+  });
 
   describe("To Reply arrival alerts", () => {
     beforeEach(() => {
@@ -146,7 +222,8 @@ describe("Provider Edge Cases", () => {
         deduplicationKey: `to-reply:${baseOptions.emailAccount.id}:arrival-message`,
         notification: {
           title: "Alex Example",
-          body: "Can you review this?",
+          subtitle: "Can you review this?",
+          body: "Hello World",
           sound: "default",
           data: {
             threadId: "provider-conversation",
@@ -726,6 +803,12 @@ describe("Provider Edge Cases", () => {
 
       const attachment = {
         attachmentId: "attachment-1",
+        headers: {
+          "content-description": "invoice",
+          "content-id": "attachment-1",
+          "content-transfer-encoding": "base64",
+          "content-type": "application/pdf",
+        },
         filename: "invoice.pdf",
         mimeType: "application/pdf",
         size: 123,

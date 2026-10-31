@@ -43,7 +43,8 @@ export type PlaywrightScreenshot = {
 export type PlaywrightScreenshotManifest = {
   attempt?: number;
   id?: string;
-  screenshots: PlaywrightScreenshotMetadata[];
+  // Older manifests predate fileName; it lets agents link a run's images.
+  screenshots: Array<PlaywrightScreenshotMetadata & { fileName?: string }>;
   version: 1;
 };
 
@@ -65,8 +66,9 @@ export function createScreenshotManifest(
   return {
     ...(run === undefined ? {} : { attempt: run.attempt, id: run.id }),
     screenshots: screenshots.map(
-      ({ captureType, hash, source, testId, title }) => ({
+      ({ captureType, fileName, hash, source, testId, title }) => ({
         captureType,
+        fileName,
         hash,
         source,
         testId,

@@ -31,7 +31,7 @@ type ThreadSnapshot = {
   threadId: string;
 };
 
-type ThreadActionTarget = Omit<ThreadSnapshot, "mutationId">;
+export type ThreadActionTarget = Omit<ThreadSnapshot, "mutationId">;
 
 type UndoableBatch = {
   action: UndoableAction;
@@ -41,10 +41,12 @@ type UndoableBatch = {
 
 export function useThreadActions({
   emailAccountId,
+  onRestore,
   readerTarget,
   threads,
 }: {
   emailAccountId: string;
+  onRestore?: (targets: ThreadActionTarget[]) => void;
   readerTarget?: ThreadActionTarget;
   threads: ListThread[];
 }) {
@@ -172,6 +174,10 @@ export function useThreadActions({
 
       if (restoredKeys.length) {
         toast.success(summarise("Restored", restoredKeys.length));
+        const restored = new Set(restoredKeys);
+        onRestore?.(
+          batch.snapshots.filter((snapshot) => restored.has(snapshot.key)),
+        );
       }
       if (failedCount) {
         toast.error(
@@ -186,7 +192,7 @@ export function useThreadActions({
       }
       return restoredKeys;
     },
-    [client],
+    [client, onRestore],
   );
 
   const undo = useCallback(async () => {

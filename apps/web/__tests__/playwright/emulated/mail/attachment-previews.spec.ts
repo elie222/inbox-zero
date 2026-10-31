@@ -11,7 +11,7 @@ test("downloads opened attachment previews over the network", async ({
   await conversationWithSubject(
     page,
     conversations,
-    "Re: Reader Visual Message",
+    "Reader Visual Message",
   ).click();
   await expect(
     page.getByText("reader-preview.png", { exact: true }),
@@ -56,7 +56,7 @@ test("opens an attachment preview from its card", async ({
   await conversationWithSubject(
     page,
     conversations,
-    "Re: Reader Visual Message",
+    "Reader Visual Message",
   ).click();
   await page
     .getByRole("button", { name: "Preview reader-preview.png" })
@@ -84,7 +84,7 @@ test("marks conversations with attachments in the thread list", async ({
   const row = conversationWithSubject(
     page,
     conversations,
-    "Re: Reader Visual Message",
+    "Reader Visual Message",
   );
   await row.scrollIntoViewIfNeeded();
   await expect(row.getByText("Has attachment")).toBeAttached();

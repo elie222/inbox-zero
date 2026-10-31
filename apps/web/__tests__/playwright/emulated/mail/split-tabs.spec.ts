@@ -135,6 +135,49 @@ test("moves focus with the active split when cycling by keyboard", async ({
   );
 });
 
+test("cycles splits backward with Shift-Tab, wrapping to the last", async ({
+  page,
+}, testInfo) => {
+  await openMail(page);
+
+  const activeSplit = page.locator('button[aria-current="true"]');
+  const splitTabs = page.locator("button[data-split-tab]");
+  await expect(activeSplit).toBeVisible();
+  await splitTabs.first().click();
+  await expect(activeSplit).toHaveAttribute(
+    "data-split-tab",
+    String(await splitTabs.first().getAttribute("data-split-tab")),
+  );
+  const lastId = await splitTabs.last().getAttribute("data-split-tab");
+
+  await page.keyboard.press("Shift+Tab");
+
+  await expect(activeSplit).toHaveAttribute("data-split-tab", String(lastId));
+  await expect(activeSplit).toBeFocused();
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "mail-split-keyboard-previous",
+  );
+});
+
+test("leaves Tab to focus navigation outside the mail list", async ({
+  page,
+}) => {
+  await openMail(page);
+
+  const activeSplit = page.locator('button[aria-current="true"]');
+  await expect(activeSplit).toBeVisible();
+  const initial = String(await activeSplit.getAttribute("data-split-tab"));
+  const compose = page.getByRole("button", { name: /^Compose/ });
+  await compose.focus();
+
+  await page.keyboard.press("Tab");
+
+  await expect(compose).not.toBeFocused();
+  await expect(activeSplit).toHaveAttribute("data-split-tab", initial);
+});
+
 test("creates and edits a domain sender condition", async ({
   page,
 }, testInfo) => {
@@ -169,7 +212,6 @@ test("builds a split from conditions and shows only matching mail", async ({
   await expect(page.getByText("New split inbox")).toBeVisible();
   await expect(page.getByText(/Compiling/)).toBeHidden();
   await hideDevIndicator(page);
-  await capturePlaywrightCheckpoint(page, testInfo, "mail-new-split-library");
 
   await page.getByRole("button", { name: "Build your own" }).click();
   await expect(page.getByText("Show mail matching")).toBeVisible();
@@ -182,7 +224,6 @@ test("builds a split from conditions and shows only matching mail", async ({
     label: "Promotions",
   });
   await page.getByLabel("Split name").fill("Promos");
-  await capturePlaywrightCheckpoint(page, testInfo, "mail-new-split-builder");
 
   await page.getByRole("button", { name: "Add split" }).click();
 
@@ -204,7 +245,6 @@ test("builds a split from conditions and shows only matching mail", async ({
     isMicrosoft ? "Label_promotions" : "CATEGORY_PROMOTIONS",
   );
   await hideDevIndicator(page);
-  await capturePlaywrightCheckpoint(page, testInfo, "mail-split-edit");
 
   await page.getByRole("button", { name: "Add condition" }).click();
   await expect(page.getByLabel("Condition field")).toHaveCount(2);
@@ -295,6 +335,39 @@ test("reorders splits with arrows and dragging and persists tab order", async ({
   await page.getByRole("button", { name: "Close", exact: true }).click();
   await page.reload();
   await expect(tabs).toHaveText(original);
+});
+
+test("reorders split tabs by dragging a tab", async ({ page }, testInfo) => {
+  await openMail(page);
+  const tabs = page.locator("[data-split-name]");
+  const original = await tabs.allTextContents();
+  expect(original.length).toBeGreaterThan(1);
+  const tabButtons = page.locator("button[data-split-tab]");
+  const activeBefore = await page
+    .locator('button[aria-current="true"]')
+    .getAttribute("data-split-tab");
+
+  await tabButtons.nth(1).hover();
+  await page.mouse.down();
+  const target = await tabButtons.nth(0).boundingBox();
+  if (!target) throw new Error("Split tab is not visible");
+  await page.mouse.move(target.x + target.width / 3, target.y + 4, {
+    steps: 5,
+  });
+  const expected = [original[1], original[0], ...original.slice(2)];
+  await expect(tabs).toHaveText(expected);
+  await hideDevIndicator(page);
+  await capturePlaywrightCheckpoint(page, testInfo, "mail-split-tab-dragging");
+  await page.mouse.up();
+
+  await expect(tabs).toHaveText(expected);
+  // Dropping a tab moves it without switching to it.
+  await expect(page.locator('button[aria-current="true"]')).toHaveAttribute(
+    "data-split-tab",
+    activeBefore ?? "",
+  );
+  await page.reload();
+  await expect(tabs).toHaveText(expected);
 });
 
 test("Other excludes enabled splits and restores mail when a split is disabled", async ({

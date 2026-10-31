@@ -38,6 +38,8 @@ export const DAYS = {
  */
 const maskFor = (jsDay: number) => 1 << (6 - jsDay);
 
+const ALL_WEEKDAYS_MASK = 0b111_1111;
+
 /**
  * Converts a JavaScript day of week (0-6, Sunday-Saturday) to its corresponding bitmask.
  * This is a public version of the internal maskFor function.
@@ -158,6 +160,15 @@ export function calculateNextScheduleDate(
     // Find the start of the current interval
     const intervalStart = new Date(fromDate);
     intervalStart.setHours(0, 0, 0, 0);
+
+    // A whole-week interval with chosen weekdays (e.g. "weekly on Monday")
+    // starts on one of those weekdays, not on the day the schedule was saved.
+    const chosenWeekdays = (daysOfWeek ?? 0) & ALL_WEEKDAYS_MASK;
+    if (chosenWeekdays && intervalDays % 7 === 0) {
+      while (!(chosenWeekdays & maskFor(intervalStart.getDay()))) {
+        intervalStart.setDate(intervalStart.getDate() - 1);
+      }
+    }
 
     // Find the next slot
     for (let i = 0; i < occ; i++) {

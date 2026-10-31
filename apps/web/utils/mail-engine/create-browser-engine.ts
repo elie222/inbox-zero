@@ -67,6 +67,7 @@ async function startBrowserMailEngine(
   const observations = new Map<
     string,
     {
+      queryKey: string;
       snapshot: QuerySnapshot<unknown>;
       listeners: Set<() => void>;
     }
@@ -148,14 +149,25 @@ async function startBrowserMailEngine(
     args: unknown[],
   ): QueryHandle<T> & { handleId: string } {
     const handleId = crypto.randomUUID();
+    const queryKey = JSON.stringify([kind, args]);
+    // An identical query already being observed, such as a conversation warmed
+    // ahead of opening, has the answer the worker is about to send. Starting
+    // from it lets the new observer render without waiting for the round trip.
+    const seed = [...observations.values()].find(
+      (other) =>
+        other.queryKey === queryKey && other.snapshot.status === "ready",
+    );
     const observation = {
-      snapshot: {
-        status: "loading",
-        revision: null,
-        data: null,
-        refreshing: true,
-        error: null,
-      } satisfies QuerySnapshot<unknown>,
+      queryKey,
+      snapshot:
+        seed?.snapshot ??
+        ({
+          status: "loading",
+          revision: null,
+          data: null,
+          refreshing: true,
+          error: null,
+        } satisfies QuerySnapshot<unknown>),
       listeners: new Set<() => void>(),
     };
     observations.set(handleId, observation);

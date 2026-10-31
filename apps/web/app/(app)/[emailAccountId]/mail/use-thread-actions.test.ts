@@ -3,7 +3,10 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ListThread } from "./types";
-import { useThreadActions } from "./use-thread-actions";
+import {
+  type ThreadActionTarget,
+  useThreadActions,
+} from "./use-thread-actions";
 import { admissionRejectionCopy } from "@/utils/mail-engine/admission-notice";
 
 const notifications = vi.hoisted(() => ({
@@ -19,7 +22,9 @@ const mail = vi.hoisted(() => ({
 }));
 
 vi.mock("sonner", () => ({ toast: notifications }));
-vi.mock("@/components/Toast", () => ({ toastUndo: vi.fn() }));
+const toasts = vi.hoisted(() => ({ toastUndo: vi.fn() }));
+
+vi.mock("@/components/Toast", () => toasts);
 vi.mock("@inboxzero/mail-react/MailEngineProvider", () => ({
   useOptionalMailClient: () => mail.client,
 }));
@@ -161,6 +166,24 @@ describe("useThreadActions", () => {
     );
   });
 
+  it("reports the restored thread when undo comes from the toast", async () => {
+    const onRestore = vi.fn();
+    const { result } = renderActions({ onRestore });
+    await act(() => result.current.archive(["thread"]));
+    const [{ onUndo }] = toasts.toastUndo.mock.calls[0];
+    await act(async () => {
+      onUndo();
+      await vi.waitFor(() => expect(onRestore).toHaveBeenCalled());
+    });
+    expect(onRestore).toHaveBeenCalledWith([
+      expect.objectContaining({
+        emailAccountId: "account",
+        key: "thread",
+        threadId: "thread",
+      }),
+    ]);
+  });
+
   it("cancels an in-flight archive on undo", async () => {
     const { result } = renderActions();
     await act(() => result.current.archive(["thread"]));
@@ -173,13 +196,16 @@ describe("useThreadActions", () => {
 });
 
 function renderActions({
+  onRestore,
   threads = [createThread(["INBOX", "UNREAD"])],
 }: {
+  onRestore?: (targets: ThreadActionTarget[]) => void;
   threads?: ListThread[];
 } = {}) {
   return renderHook(() =>
     useThreadActions({
       emailAccountId: "account",
+      onRestore,
       threads,
     }),
   );

@@ -60,7 +60,42 @@ describe("POST /enumeration", () => {
     const result = await routeBackedSource().enumerate(enumerationInput());
     expect(result).toEqual({ status: "blocked_auth" });
   });
+
+  it("syncs the rest of the page when one message cannot be represented", async () => {
+    getMessagesWithPagination.mockResolvedValue({
+      messages: [
+        testMessage("x".repeat(300)),
+        { ...testMessage("m-ok"), subject: "x".repeat(20_000) },
+      ],
+      nextPageToken: "next",
+    });
+    const result = await routeBackedSource().enumerate(enumerationInput());
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") return;
+    expect(result.value.changes).toEqual([
+      expect.objectContaining({
+        key: { accountId: "acc-1", messageId: "m-ok" },
+      }),
+    ]);
+    expect(result.value.bodies.map((body) => body.key.messageId)).toEqual([
+      "m-ok",
+    ]);
+  });
 });
+
+function testMessage(id: string) {
+  return {
+    id,
+    threadId: "t-1",
+    historyId: "1",
+    date: "2026-01-01T00:00:00.000Z",
+    subject: "Hello",
+    snippet: "Hi",
+    labelIds: ["INBOX"],
+    headers: { from: "ada@example.com", to: "", date: "" },
+    textPlain: "Hi",
+  };
+}
 
 function routeBackedSource() {
   return createBackendMailboxSource({

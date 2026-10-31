@@ -2,6 +2,8 @@ import { ExecutedRuleStatus, SystemType } from "@/generated/prisma/enums";
 import type { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
 import { getMessageTimestamp } from "@/utils/email/message-timestamp";
+import { decodeSnippet } from "@/utils/gmail/decode";
+import { emailToContent } from "@/utils/mail";
 import type { Logger } from "@/utils/logger";
 import { sendMobilePushNotification } from "@/utils/mobile-push";
 import { truncate } from "@/utils/string";
@@ -40,6 +42,8 @@ export async function sendToReplyPushNotification({
     return;
 
   try {
+    const subject = truncate(message.subject.trim() || "(no subject)", 200);
+    const preview = pushPreviewText(message);
     await sendMobilePushNotification({
       userId,
       deduplicationKey: `to-reply:${emailAccountId}:${message.id}`,
@@ -49,7 +53,7 @@ export async function sendToReplyPushNotification({
             extractEmailAddress(message.headers.from),
           100,
         ),
-        body: truncate(message.subject.trim() || "(no subject)", 200),
+        ...(preview ? { subtitle: subject, body: preview } : { body: subject }),
         sound: "default",
         data: {
           threadId: message.threadId,
@@ -63,4 +67,12 @@ export async function sendToReplyPushNotification({
   } catch (error) {
     logger.warn("To Reply push notification processing failed", { error });
   }
+}
+
+function pushPreviewText(message: ParsedMessage) {
+  const content = emailToContent(
+    { ...message, snippet: decodeSnippet(message.snippet) },
+    { extractReply: true, maxLength: 0 },
+  );
+  return truncate(content.replace(/\s+/g, " ").trim(), 200);
 }

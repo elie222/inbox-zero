@@ -16,7 +16,7 @@ describe("sendOtpPushNotification", () => {
     vi.clearAllMocks();
   });
 
-  it("builds an expiring OTP notification", async () => {
+  it("builds an expiring OTP notification with a copyable code", async () => {
     await sendOtpPushNotification({
       emailAccountId: "account-1",
       userId: "user-1",
@@ -33,19 +33,40 @@ describe("sendOtpPushNotification", () => {
       userId: "user-1",
       deduplicationKey: "otp:account-1:message-1",
       notification: {
-        title: "Verification code",
+        title: "Verification code: 123456",
         body: "Your verification code is 123456",
         sound: "default",
         channelId: "otp",
         priority: "high",
+        category: "OTP_CODE",
         expiration: new Date("2026-07-31T12:15:00.000Z").getTime() / 1000,
         data: {
           type: "otp",
           url: "/thread/thread-1?accountId=account-1",
+          code: "123456",
         },
       },
       logger,
     });
+  });
+
+  it("offers no copy action when the code is not in the subject or preview", async () => {
+    await sendOtpPushNotification({
+      emailAccountId: "account-1",
+      userId: "user-1",
+      message: message({
+        subject: "Your verification code",
+        snippet: "Tap the button below to finish signing in.",
+      }),
+      logger,
+      now,
+    });
+
+    const { notification } = vi.mocked(sendMobilePushNotification).mock
+      .calls[0][0];
+    expect(notification.title).toBe("Verification code");
+    expect(notification.category).toBeUndefined();
+    expect(notification.data).not.toHaveProperty("code");
   });
 
   it("ignores messages without an OTP", async () => {

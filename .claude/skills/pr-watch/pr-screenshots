@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# A PR's latest published Playwright checkpoints, one per line as
+# `<source>\t<Markdown image>`, so the image can go in the PR description.
+#
+#   pr-screenshots [PR] [FILTER]   checkpoint captures whose source path or
+#                                  title contains FILTER (case-insensitive)
+#
+# Run it after CI has published the PR's gallery (pr-digest reports green).
+set -euo pipefail
+
+die() { echo "pr-screenshots: $*" >&2; exit 1; }
+
+pr=${1:-$(gh pr view --json number -q .number)} || die "no PR for this branch"
+filter=${2:-}
+marker="<!-- inbox-zero-playwright-screenshots -->"
+
+gallery_url="$(gh api --paginate --slurp "repos/{owner}/{repo}/issues/$pr/comments?per_page=100" |
+  jq -r --arg marker "$marker" '
+    [.[][] | select(.user.login == "github-actions[bot]" and (.body | contains($marker)))]
+    | last | .body // ""' |
+  grep -oE 'https://[^)]+/prs/[0-9]+/index\.html' | head -1)" ||
+  die "PR #$pr has no screenshot comment yet; wait for CI to publish it"
+public_base="${gallery_url%/prs/*}"
+
+run="$(curl -fsS "$public_base/history.json" |
+  jq -c --argjson pr "$pr" 'first(.[] | select(.pullRequestNumber == $pr)) // empty')"
+[[ -n "$run" ]] || die "no published run for PR #$pr"
+screenshots_url="$(jq -r .screenshotsUrl <<<"$run")"
+run_sha="$(jq -r .sha <<<"$run")"
+head_sha="$(gh pr view "$pr" --json headRefOid -q .headRefOid)"
+if [[ "$run_sha" != "$head_sha" ]]; then
+  echo "pr-screenshots: latest published run is for ${run_sha:0:7}, PR head is ${head_sha:0:7}" >&2
+fi
+
+curl -fsS "${screenshots_url%index.html}manifest.json" |
+  jq -r --arg base "${screenshots_url%index.html}" --arg filter "$filter" '
+    if any(.screenshots[]; .fileName == null) then
+      error("this run predates image file names in the manifest; re-run CI")
+    else . end
+    | .screenshots[]
+    | select(.captureType == "checkpoint")
+    # Target folders encode the spec path (`/` as `_s`, `_` as `__`); decode so
+    # FILTER can be a spec path.
+    | (.source | gsub("__"; "\u0000") | gsub("_s"; "/") | gsub("\u0000"; "_")) as $spec
+    | select(($filter == "") or (($spec + " " + .title) | ascii_downcase | contains($filter | ascii_downcase)))
+    | "\(.source)\t![\(.title)](\($base)\(.fileName))"'

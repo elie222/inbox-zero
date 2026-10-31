@@ -28,6 +28,10 @@ import {
   useMeetingBriefsEnabled,
 } from "@/hooks/useFeatureFlags";
 import { isGoogleProvider } from "@/utils/email/provider-types";
+import {
+  getMailNavPath,
+  MAILBOX_ITEMS,
+} from "@/app/(app)/[emailAccountId]/mail/MailSidebar";
 
 export function useCommandPaletteCommands({
   enabled = true,
@@ -60,7 +64,24 @@ export function useCommandPaletteCommands({
         },
       },
     ];
-    if (!enabled) return generalSettingsCommands;
+    // Kept even while a conversation is selected: jumping to another mailbox
+    // is as likely then as from anywhere else.
+    const mailboxCommands: Command[] = MAILBOX_ITEMS.map((item, index) => ({
+      id: `nav-mailbox-${item.type}`,
+      label: `Go to ${item.name}`,
+      icon: item.Icon,
+      section: "navigation",
+      priority: index + 30,
+      keywords: [item.name.toLowerCase(), "mailbox", "folder"],
+      action: () =>
+        router.push(
+          prefixPath(
+            emailAccountId,
+            getMailNavPath({ kind: "type", type: item.type }),
+          ),
+        ),
+    }));
+    if (!enabled) return [...mailboxCommands, ...generalSettingsCommands];
 
     const navigationItems = [
       {
@@ -200,6 +221,7 @@ export function useCommandPaletteCommands({
 
     return [
       ...navigationCommands,
+      ...mailboxCommands,
       ...generalSettingsCommands,
       ...settingsCommands,
       ...ruleCommands,

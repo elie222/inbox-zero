@@ -39,7 +39,7 @@ import {
 import { labelVisibility, messageVisibility } from "@/utils/gmail/constants";
 import type { InboxZeroLabel } from "@/utils/label";
 import type { ThreadsQuery } from "@/utils/threads/validation";
-import { getMessageByRfc822Id } from "@/utils/gmail/message";
+import { getMessageByRfc822Id, getRawMessage } from "@/utils/gmail/message";
 import {
   buildMailMessage,
   draftEmail,
@@ -144,6 +144,7 @@ import { getGmailMailboxSyncPage } from "@/utils/gmail/mailbox-sync";
 import { isGoogleOauthEmulationEnabled } from "@/utils/gmail/oauth";
 
 const GMAIL_MESSAGE_WRITE_CONCURRENCY = 5;
+const SENDER_ARCHIVE_PAGE_SIZE = 500;
 
 export class GmailProvider implements EmailProvider {
   readonly name = "google";
@@ -302,6 +303,10 @@ export class GmailProvider implements EmailProvider {
   ): Promise<ParsedMessage> {
     const message = await getMessage(messageId, this.client, "full");
     return parseMessage(message, options);
+  }
+
+  async getMessageSource(messageId: string): Promise<Buffer> {
+    return getRawMessage(messageId, this.client);
   }
 
   async getMessageByRfc822MessageId(
@@ -651,70 +656,69 @@ export class GmailProvider implements EmailProvider {
     for (const sender of senders) {
       if (!sender) continue;
 
-      const publishedThreadIds = new Set<string>();
+      // Archiving removes messages from the `in:inbox` result set, so
+      // archiving while paging shifts later pages and skips messages.
+      // Finish listing first, then archive.
+      const messages: { id: string; threadId: string }[] = [];
       let nextPageToken: string | undefined;
+      try {
+        do {
+          const page = await getMessages(this.client, {
+            query: `from:${sender} in:inbox`,
+            maxResults: SENDER_ARCHIVE_PAGE_SIZE,
+            pageToken: nextPageToken,
+          });
+          messages.push(...page.messages);
+          nextPageToken = page.nextPageToken;
+        } while (nextPageToken);
+      } catch (error) {
+        log.error("Failed to list messages from sender", { sender, error });
+        if (!continueOnError) throw error;
+        // archive whatever was listed before the failure
+      }
 
-      do {
+      const publishedThreadIds = new Set<string>();
+
+      for (const batch of chunk(messages, SENDER_ARCHIVE_PAGE_SIZE)) {
         try {
-          const { messages, nextPageToken: token } = await getMessages(
-            this.client,
-            {
-              query: `from:${sender} in:inbox`,
-              maxResults: 500,
-              pageToken: nextPageToken,
-            },
-          );
+          const batchMessageIds = batch.map((msg) => msg.id);
+          await this.archiveMessagesBulk(batchMessageIds);
+          archivedMessagesCount += batchMessageIds.length;
 
-          const batchThreadIds = new Set(messages.map((msg) => msg.threadId));
-          const batchMessageIds = messages.map((msg) => msg.id);
+          const newThreadIds = Array.from(
+            new Set(batch.map((msg) => msg.threadId)),
+          ).filter((threadId) => !publishedThreadIds.has(threadId));
 
-          if (batchMessageIds.length > 0) {
-            await this.archiveMessagesBulk(batchMessageIds);
-            archivedMessagesCount += batchMessageIds.length;
+          const promises = [
+            updateEmailMessagesForSender({
+              sender,
+              messageIds: batchMessageIds,
+              emailAccountId,
+              action: "archive",
+            }),
+          ];
 
-            const newThreadIds = Array.from(batchThreadIds).filter(
-              (threadId) => !publishedThreadIds.has(threadId),
-            );
-
-            const promises = [
-              updateEmailMessagesForSender({
-                sender,
-                messageIds: batchMessageIds,
-                emailAccountId,
+          if (newThreadIds.length > 0) {
+            promises.push(
+              publishBulkActionToTinybird({
+                threadIds: newThreadIds,
                 action: "archive",
+                ownerEmail,
               }),
-            ];
-
-            if (newThreadIds.length > 0) {
-              promises.push(
-                publishBulkActionToTinybird({
-                  threadIds: newThreadIds,
-                  action: "archive",
-                  ownerEmail,
-                }),
-              );
-            }
-
-            await Promise.all(promises);
-
-            newThreadIds.forEach((threadId) =>
-              publishedThreadIds.add(threadId),
             );
           }
 
-          nextPageToken = token;
+          await Promise.all(promises);
+
+          newThreadIds.forEach((threadId) => publishedThreadIds.add(threadId));
         } catch (error) {
           log.error("Failed to archive messages from sender", {
             sender,
             error,
           });
-          if (!continueOnError) {
-            throw error;
-          }
-          // continue processing remaining pages
-          nextPageToken = undefined;
+          if (!continueOnError) throw error;
         }
-      } while (nextPageToken);
+      }
     }
 
     log.info("Completed bulk archive from senders");
@@ -1175,6 +1179,8 @@ export class GmailProvider implements EmailProvider {
     options?: {
       replyTo?: string;
       from?: string;
+      cc?: string;
+      bcc?: string;
       attachments?: MailAttachment[];
     },
   ): Promise<{ messageId: string }> {

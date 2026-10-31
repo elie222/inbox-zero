@@ -1,27 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  browserMailEngineCapabilities,
   readPageMaxPendingOperations,
   requestSyncUnlessOffline,
   workerStartFence,
   shouldReleaseDeferredOnStart,
 } from "./worker-protocol";
-
-describe("browser mail engine capabilities", () => {
-  it("reports worker and OPFS support from the current runtime", () => {
-    const capabilities = browserMailEngineCapabilities();
-    expect(capabilities).toEqual({
-      worker: typeof Worker !== "undefined",
-      locks:
-        typeof navigator !== "undefined" &&
-        Boolean((navigator as Navigator & { locks?: unknown }).locks),
-      opfs:
-        typeof navigator !== "undefined" &&
-        "storage" in navigator &&
-        "getDirectory" in navigator.storage,
-    });
-  });
-});
 
 describe("worker account fencing", () => {
   it("allows the first account and the same account again", () => {

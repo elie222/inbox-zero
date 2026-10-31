@@ -129,6 +129,13 @@ const SHORTCUT_DEFINITIONS = [
     label: "Next split",
   },
   {
+    id: "previousSplit",
+    keys: ["shift+tab"],
+    scope: "mail",
+    group: "Navigate",
+    label: "Previous split",
+  },
+  {
     id: "switchAccount",
     keys: [
       "mod+1",
@@ -282,7 +289,7 @@ const SHORTCUT_DEFINITIONS = [
   {
     // `#` sits behind shift on US layouts and in front of it on others.
     id: "delete",
-    keys: ["shift+#", "#", "backspace"],
+    keys: ["shift+#", "#"],
     display: ["#"],
     scope: "mail",
     group: "Triage",
@@ -446,6 +453,14 @@ const SHORTCUT_DEFINITIONS = [
     label: "Discard draft",
     allowWhileTyping: true,
     capture: true,
+  },
+  {
+    id: "toggleAssistant",
+    keys: ["mod+j"],
+    scope: "mail",
+    group: "Assistant & rules",
+    label: "Assistant",
+    allowWhileTyping: true,
   },
 ] as const satisfies readonly ShortcutEntry[];
 

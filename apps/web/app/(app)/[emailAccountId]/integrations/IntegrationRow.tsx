@@ -20,6 +20,7 @@ import { DomainIcon } from "@/components/charts/DomainIcon";
 import {
   disconnectMcpConnectionAction,
   removeCustomMcpServerAction,
+  testMcpConnectionAction,
   toggleMcpConnectionAction,
   toggleMcpToolAction,
 } from "@/utils/actions/mcp";
@@ -28,6 +29,7 @@ import { RequestAccessDialog } from "./RequestAccessDialog";
 import { startMcpOAuth } from "./startMcpOAuth";
 import { truncate } from "@/utils/string";
 import { useProductAnalytics } from "@/hooks/useProductAnalytics";
+import { getActionErrorMessage } from "@/utils/error";
 
 interface IntegrationRowProps {
   integration: GetIntegrationsResponse["integrations"][number];
@@ -42,6 +44,8 @@ export function IntegrationRow({
   const analytics = useProductAnalytics("integrations");
   const [connecting, setConnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [expandedTools, setExpandedTools] = useState(false);
 
   const isCustom = integration.isCustom;
@@ -174,6 +178,39 @@ export function IntegrationRow({
     }
   };
 
+  const handleTestConnection = async () => {
+    if (!connectionId) return;
+
+    setTesting(true);
+
+    try {
+      const result = await testMcpConnectionAction(emailAccountId, {
+        connectionId,
+      });
+
+      if (result?.data) {
+        const { toolsCount } = result.data;
+        toastSuccess({
+          description: `Connected. ${toolsCount} ${toolsCount === 1 ? "tool" : "tools"} available.`,
+        });
+      } else {
+        toastError({
+          title: `Could not connect to ${integration.displayName}`,
+          description: getActionErrorMessage(result),
+        });
+      }
+      onConnectionChange();
+    } catch (error) {
+      toastError({
+        title: `Could not connect to ${integration.displayName}`,
+        description: error instanceof Error ? error.message : "Unknown error",
+      });
+    } finally {
+      setTesting(false);
+      setMenuOpen(false);
+    }
+  };
+
   const handleDisconnect = async () => {
     const confirmMessage = isCustom
       ? "Are you sure you want to remove this server? This permanently deletes its connection, credentials, and tools."
@@ -278,7 +315,7 @@ export function IntegrationRow({
         </TableCell>
         <TableCell>
           {(connected || isCustom) && !integration.comingSoon && (
-            <DropdownMenu>
+            <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
@@ -296,6 +333,17 @@ export function IntegrationRow({
                         {expandedTools
                           ? "Hide tools"
                           : `Manage tools (${toolsCount} of ${totalTools} on)`}
+                      </DropdownMenuItem>
+                    )}
+                    {isActive && (
+                      <DropdownMenuItem
+                        onSelect={(event) => {
+                          event.preventDefault();
+                          handleTestConnection();
+                        }}
+                        disabled={testing}
+                      >
+                        {testing ? "Testing..." : "Test connection"}
                       </DropdownMenuItem>
                     )}
                     <DropdownMenuItem onClick={handleTogglePause}>
