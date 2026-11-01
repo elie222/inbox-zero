@@ -163,6 +163,13 @@ function createMockProvider(
     );
   }
 
+  if (!provider.getMessage) {
+    provider.getMessage = vi.fn(async (messageId: string) => ({
+      ...(await provider.getLatestMessageInThread()),
+      id: messageId,
+    }));
+  }
+
   if (!provider.getLatestMessageFromThreadSnapshot) {
     provider.getLatestMessageFromThreadSnapshot = vi.fn(
       async (thread: { id: string }) =>
@@ -1214,6 +1221,61 @@ describe("processAccountFollowUps - dedup logic", () => {
 
     expect(sendFollowUpNotification).toHaveBeenCalledWith(
       expect.objectContaining({ snippet: expectedSnippet }),
+    );
+  });
+
+  it("lists labeled threads without message bodies", async () => {
+    const provider = createMockProvider();
+    vi.mocked(createEmailProvider).mockResolvedValue(provider);
+    vi.mocked(prisma.threadTracker.findMany).mockResolvedValue([]);
+
+    await processAccountFollowUps({
+      emailAccount: createMockAccount(),
+      logger,
+    });
+
+    expect(provider.getThreadsWithQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ messageFormat: "metadata" }),
+    );
+  });
+
+  it("fetches the full message for the notification snippet when the scan has no body", async () => {
+    const metadataMessage = {
+      ...mockAwaitingMessage("msg-metadata", OLD_DATE),
+      snippet: "Preview from the provider",
+      textPlain: undefined,
+      textHtml: undefined,
+    };
+    const provider = createMockProvider({
+      getThreadsWithLabel: vi
+        .fn()
+        .mockResolvedValue([
+          { id: "thread-metadata", messages: [], snippet: "" },
+        ]),
+      getLatestMessageInThread: vi.fn().mockResolvedValue(metadataMessage),
+      getMessage: vi.fn().mockResolvedValue({
+        ...metadataMessage,
+        textPlain: fullNotificationBody,
+      }),
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue(provider);
+    vi.mocked(getFollowUpNotificationChannels).mockResolvedValue([
+      { id: "channel-1" } as any,
+    ]);
+    vi.mocked(prisma.threadTracker.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.threadTracker.create).mockResolvedValue({
+      id: "tracker-metadata",
+    } as any);
+
+    await processAccountFollowUps({
+      emailAccount: createMockAccount(),
+      logger,
+    });
+
+    expect(provider.getMessage).toHaveBeenCalledWith("msg-metadata");
+    expect(sendFollowUpNotification).toHaveBeenCalledWith(
+      expect.objectContaining({ snippet: fullNotificationBody }),
     );
   });
 

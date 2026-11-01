@@ -371,6 +371,10 @@ async function processFollowUpsForType({
         FOLLOW_UP_MAX_SCANNED_THREADS - scannedThreadIds.size,
       ),
       pageToken,
+      // Bodies for a page of labeled threads can be megabytes, and Graph
+      // sometimes ends such responses mid-body. The latest message is resolved
+      // per thread, and bodies are only fetched when a notification needs one.
+      messageFormat: "metadata",
     });
     const threads = page.threads.filter((thread) => {
       if (scannedThreadIds.has(thread.id)) return false;
@@ -592,6 +596,10 @@ async function processFollowUpsForType({
           // the ledger to skip next run. Retrying would burn provider rate
           // limits (Gmail re-labeling, Slack API) if a channel is misconfigured.
           try {
+            const notificationMessage =
+              lastMessage.textPlain || lastMessage.textHtml
+                ? lastMessage
+                : await provider.getMessage(lastMessage.id);
             const { name: counterpartyName, email: counterpartyEmail } =
               resolveFollowUpCounterparty({
                 trackerType,
@@ -612,7 +620,7 @@ async function processFollowUpsForType({
               // Provider previews are pre-truncated with no indicator; the full
               // parsed body lets each channel truncate with an ellipsis instead.
               snippet:
-                emailToContent(lastMessage, {
+                emailToContent(notificationMessage, {
                   maxLength: FOLLOW_UP_SNIPPET_SOURCE_MAX_CHARS,
                   extractReply: true,
                 }) ||
