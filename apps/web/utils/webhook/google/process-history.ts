@@ -11,6 +11,7 @@ import {
   isKnownApiError,
 } from "@/utils/error";
 import { isEmailProviderRateLimitError } from "@/utils/email/is-provider-rate-limit-error";
+import { classifyEmailAccountProviderIssue } from "@/utils/email/provider-health";
 import {
   HistoryEventType,
   type ProcessHistoryOptions,
@@ -197,7 +198,7 @@ export async function processHistoryForUser(
             historyItemCount: historyResult.historyItemCount,
           });
 
-          await processHistory(
+          const completed = await processHistory(
             {
               history: historyEntries,
               spamLearnedThreadIds: new Set<string>(),
@@ -215,6 +216,8 @@ export async function processHistoryForUser(
             },
             logger,
           );
+          // Keep the wider catch-up window so the retry reaches the unprocessed mail.
+          if (!completed) return NextResponse.json({ ok: true });
         } else {
           // When we truncate a large gap, Gmail can return an empty recent window.
           // We still need to advance to the webhook historyId so we don't stay
@@ -278,11 +281,14 @@ export async function processHistoryForUser(
   }
 }
 
-async function processHistory(options: ProcessHistoryOptions, logger: Logger) {
+async function processHistory(
+  options: ProcessHistoryOptions,
+  logger: Logger,
+): Promise<boolean> {
   const { history, emailAccount } = options;
   const { email: userEmail, id: emailAccountId } = emailAccount;
 
-  if (!history?.length) return;
+  if (!history?.length) return true;
 
   // Gmail splits one user action across many history records, so count
   // removals over the whole batch rather than per record.
@@ -342,6 +348,18 @@ async function processHistory(options: ProcessHistoryOptions, logger: Logger) {
         if (isEmailProviderRateLimitError({ error, provider: "google" })) {
           throw error;
         }
+        // Every remaining item would fail the same way once the account needs
+        // reconnecting or was deleted mid-run, so stop instead of failing each.
+        const providerIssue = classifyEmailAccountProviderIssue({
+          error,
+          provider: "google",
+        });
+        if (providerIssue) {
+          logger.warn("Stopping history processing: account unavailable", {
+            reason: providerIssue.reason,
+          });
+          return false;
+        }
         captureException(error, {
           userEmail,
           extra: { messageId: event.item.message?.id },
@@ -367,6 +385,8 @@ async function processHistory(options: ProcessHistoryOptions, logger: Logger) {
     emailAccountId,
     lastSyncedHistoryId,
   });
+
+  return true;
 }
 
 /**

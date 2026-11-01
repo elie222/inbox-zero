@@ -23,6 +23,7 @@ import {
 } from "@/utils/rule/classification-feedback";
 import { SystemType } from "@/generated/prisma/enums";
 import type { EmailProvider } from "@/utils/email/types";
+import { captureException, SafeError } from "@/utils/error";
 
 const logger = createTestLogger();
 
@@ -709,6 +710,36 @@ describe("processHistoryForUser - authentication failures", () => {
     );
 
     expect(cleanupInvalidTokens).toHaveBeenCalledOnce();
+    expect(await response.json()).toEqual({ ok: true });
+  });
+
+  it.each([
+    new SafeError("No refresh token"),
+    new Error("invalid_grant"),
+  ])("stops processing the remaining history once the account loses its credentials (%s)", async (error) => {
+    vi.mocked(getGmailHistoryCatchUp).mockResolvedValueOnce("catch-up-token");
+    vi.mocked(getHistory).mockResolvedValueOnce({
+      history: [1100, 1200, 1300].map((id) => ({
+        id: String(id),
+        messagesAdded: [
+          {
+            message: { id: `m${id}`, threadId: `t${id}`, labelIds: ["INBOX"] },
+          },
+        ],
+      })),
+    } as any);
+    vi.mocked(processHistoryItem).mockRejectedValue(error);
+
+    const response = await processHistoryForUser(
+      { emailAddress: "user@example.com", historyId: 1300 },
+      {},
+      logger,
+    );
+
+    expect(processHistoryItem).toHaveBeenCalledOnce();
+    expect(captureException).not.toHaveBeenCalled();
+    expect(prisma.$executeRaw).not.toHaveBeenCalled();
+    expect(clearGmailHistoryCatchUp).not.toHaveBeenCalled();
     expect(await response.json()).toEqual({ ok: true });
   });
 
