@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   isAllowedMicrosoftGraphPageToken,
+  isNonAdvancingOutlookNextLink,
   resolveMicrosoftGraphNextLink,
 } from "@/utils/outlook/page-token";
 
