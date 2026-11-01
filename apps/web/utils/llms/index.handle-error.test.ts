@@ -1,6 +1,7 @@
 import { APICallError } from "ai";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { captureException } from "@/utils/error";
+import { createGenerateText } from "./index";
 
 const {
   mockAddUserErrorMessageWithNotification,
@@ -110,7 +111,6 @@ async function getGenerateTextFailure({
   error: APICallError;
 }) {
   mockGenerateText.mockRejectedValue(error);
-  const { createGenerateText } = await import("./index");
 
   const generateText = createGenerateText({
     emailAccount: {
