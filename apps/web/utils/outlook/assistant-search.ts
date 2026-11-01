@@ -36,6 +36,8 @@ export async function runOutlookSearch({
   queryUsed: string;
   lastError?: unknown;
   failures: Array<{ query: string; error: unknown }>;
+  exactCount?: number;
+  countError?: string;
 }> {
   const folderId = await resolveOutlookFolderId({
     emailProvider,
@@ -126,7 +128,28 @@ export async function runOutlookSearch({
     folderId,
   });
 
-  return { result, queryUsed, failures };
+  let countResult: { exactCount: number } | { countError: string } | undefined;
+  if (
+    !pageToken &&
+    !normalizedInput.query &&
+    !normalizedInput.fromEmail &&
+    !normalizedInput.readState &&
+    (folderId || normalizedInput.categoryName)
+  ) {
+    try {
+      countResult = {
+        exactCount: await emailProvider.countMessages({
+          folderId,
+          labelId: normalizedInput.categoryName ?? undefined,
+        }),
+      };
+    } catch {
+      // A count failure should not discard usable search results.
+      countResult = { countError: "Exact message count unavailable" };
+    }
+  }
+
+  return { result, queryUsed, failures, ...countResult };
 }
 
 async function skipEmptyOutlookSearchPages({

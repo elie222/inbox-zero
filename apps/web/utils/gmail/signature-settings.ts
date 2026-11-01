@@ -8,6 +8,9 @@ export interface GmailSignature {
   displayName?: string;
   email: string;
   isDefault: boolean;
+  isPrimary: boolean;
+  /** Gmail won't send from an alias whose ownership is still unconfirmed. */
+  isVerified: boolean;
   signature: string;
 }
 
@@ -39,6 +42,8 @@ export async function getGmailSignatures(
         email: sendAs.sendAsEmail,
         signature: sendAs.signature || "",
         isDefault: sendAs.isDefault ?? false,
+        isPrimary: sendAs.isPrimary ?? false,
+        isVerified: sendAs.verificationStatus !== "pending",
         displayName: sendAs.displayName || undefined,
       });
     }

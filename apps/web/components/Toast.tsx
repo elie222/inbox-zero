@@ -11,10 +11,16 @@ export function toastSuccess(options: {
   title?: string;
   description: string;
   id?: string;
+  duration?: number;
+  action?: { label: string; onClick: () => void };
 }) {
+  // Reusing an undo toast's id replaces it, so its undo no longer applies.
+  if (options.id && latestToastUndo?.id === options.id) latestToastUndo = null;
   return toast.success(options.title || options.description, {
     description: options.title ? options.description : undefined,
     id: options.id,
+    duration: options.duration,
+    action: options.action,
   });
 }
 
@@ -28,17 +34,23 @@ export function toastError(options: { title?: string; description: string }) {
 export function toastInfo(options: {
   title: string;
   description: string;
+  id?: string;
   duration?: number;
+  action?: { label: string; onClick: () => void };
 }) {
   return toast(options.title, {
     description: options.description,
+    id: options.id,
     duration: options.duration,
+    action: options.action,
   });
 }
 
 type ToastUndoHandler = () => void | Promise<void>;
 
 let latestToastUndo: { id: string; onUndo: ToastUndoHandler } | null = null;
+let undoToastCount = 0;
+let latestDefaultUndoToastId: string | null = null;
 
 export function toastUndo(options: {
   id?: string;
@@ -47,7 +59,7 @@ export function toastUndo(options: {
   duration?: number;
   onUndo: ToastUndoHandler;
 }) {
-  const id = options.id ?? "undo";
+  const id = options.id ?? nextUndoToastId();
   const onUndo = options.onUndo;
   latestToastUndo = { id, onUndo };
   const release = () => {
@@ -117,4 +129,14 @@ export function Toaster() {
       }}
     />
   );
+}
+
+// A dismissed toast keeps its id until its exit animation ends, and sonner
+// merges a new toast with that id into it, so a shared id would mount the next
+// undo toast already dismissed. Each gets its own id and replaces the last.
+function nextUndoToastId() {
+  if (latestDefaultUndoToastId) toast.dismiss(latestDefaultUndoToastId);
+  undoToastCount += 1;
+  latestDefaultUndoToastId = `undo-${undoToastCount}`;
+  return latestDefaultUndoToastId;
 }

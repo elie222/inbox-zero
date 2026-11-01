@@ -2,7 +2,14 @@
 
 import { addDays } from "date-fns/addDays";
 import { startOfDay } from "date-fns/startOfDay";
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { MailboxThreadList } from "@inboxzero/mail-ui/MailboxSurface";
 import { ThreadRow } from "@/app/(app)/[emailAccountId]/mail/ThreadRow";
 import type {
@@ -24,7 +31,7 @@ const NO_LABELS: EmailLabels = {};
 
 export type ThreadListProps = {
   threads: ListThread[];
-  emptyMessage?: string;
+  emptyMessage?: ReactNode;
   layout: MailLayoutMode;
   expandedPreview: boolean;
   userEmail: string;
@@ -36,6 +43,7 @@ export type ThreadListProps = {
   isSelected: (threadId: string) => boolean;
   selectedCount: number;
   onOpenThread: (index: number) => void;
+  onHoverThread?: (thread: ListThread) => void;
   onToggleSelect: (index: number) => void;
   onSelectRangeTo: (index: number) => void;
   showLoadMore: boolean;
@@ -44,6 +52,7 @@ export type ThreadListProps = {
   /** Identity of the current view so prefetch state does not leak across splits. */
   listKey: string;
   showSentOpenStatus?: boolean;
+  onScrolledChange?: (scrolled: boolean) => void;
 };
 
 export const ThreadList = memo(function ThreadList({
@@ -59,6 +68,7 @@ export const ThreadList = memo(function ThreadList({
   isSelected,
   selectedCount,
   onOpenThread,
+  onHoverThread,
   onToggleSelect,
   onSelectRangeTo,
   showLoadMore,
@@ -66,6 +76,7 @@ export const ThreadList = memo(function ThreadList({
   onLoadMore,
   listKey,
   showSentOpenStatus = false,
+  onScrolledChange,
 }: ThreadListProps) {
   const isMobile = useIsMobile();
   const dayStart = useDayStart();
@@ -120,36 +131,42 @@ export const ThreadList = memo(function ThreadList({
       }
       onLoadMore={onLoadMore}
       onOpen={onOpenThread}
+      onScrolledChange={onScrolledChange}
       onSelectRangeTo={onSelectRangeTo}
       onToggleSelect={onToggleSelect}
       renderItem={(row) => (
-        <ThreadRow
-          compact={isMobile}
-          expandedPreview={expandedPreview}
-          hasAnySelection={row.hasAnySelection}
-          index={row.index}
-          isFocused={row.isFocused}
-          isSelected={row.isSelected}
+        <div
+          data-mail-thread-key={row.rowKey}
           key={row.rowKey}
-          layout={layout}
-          onOpen={row.onOpen}
-          onSelectRangeTo={row.onSelectRangeTo}
-          onToggleSelect={row.onToggleSelect}
-          rowRef={row.rowRef}
-          selectionEnabled={row.selectionEnabled}
-          sentMessageOpen={
-            showSentOpenStatus
-              ? sentMessageOpens?.opens[row.item.messages.at(-1)?.id ?? ""]
-              : undefined
-          }
-          thread={row.item}
-          userEmail={userEmail}
-          userLabels={
-            "account" in row.item
-              ? (labelsByAccount?.[row.item.account.id] ?? NO_LABELS)
-              : userLabels
-          }
-        />
+          onPointerEnter={() => onHoverThread?.(row.item)}
+        >
+          <ThreadRow
+            compact={isMobile}
+            expandedPreview={expandedPreview}
+            hasAnySelection={row.hasAnySelection}
+            index={row.index}
+            isFocused={row.isFocused}
+            isSelected={row.isSelected}
+            layout={layout}
+            onOpen={row.onOpen}
+            onSelectRangeTo={row.onSelectRangeTo}
+            onToggleSelect={row.onToggleSelect}
+            rowRef={row.rowRef}
+            selectionEnabled={row.selectionEnabled}
+            sentMessageOpen={
+              showSentOpenStatus
+                ? sentMessageOpens?.opens[row.item.messages.at(-1)?.id ?? ""]
+                : undefined
+            }
+            thread={row.item}
+            userEmail={userEmail}
+            userLabels={
+              "account" in row.item
+                ? (labelsByAccount?.[row.item.account.id] ?? NO_LABELS)
+                : userLabels
+            }
+          />
+        </div>
       )}
       selectedCount={selectedCount}
       selectionEnabled={selectionEnabled}

@@ -1,5 +1,5 @@
 import { ThreadTrackerType } from "@/generated/prisma/enums";
-import he from "he";
+import * as he from "he";
 
 const SNIPPET_MAX_CHARS = 1800;
 

@@ -1,14 +1,28 @@
 /** @vitest-environment jsdom */
 
 import React from "react";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MailAccountSwitcher } from "./MailAccountSwitcher";
 
 (globalThis as { React?: typeof React }).React = React;
 
-const { mockOpenWindow, mockUseAccounts, mockUseAccount } = vi.hoisted(() => ({
+const {
+  menuState,
+  mockOpenWindow,
+  mockReorderEmailAccounts,
+  mockUseAccounts,
+  mockUseAccount,
+} = vi.hoisted(() => ({
+  menuState: { forceOpen: true },
   mockOpenWindow: vi.fn().mockResolvedValue(undefined),
+  mockReorderEmailAccounts: vi.fn().mockResolvedValue({}),
   mockUseAccounts: vi.fn(),
   mockUseAccount: vi.fn(),
 }));
@@ -35,6 +49,10 @@ vi.mock("@/utils/desktop-app", () => ({
   getInboxZeroDesktopApp: () => ({ openWindow: mockOpenWindow }),
 }));
 
+vi.mock("@/utils/actions/all-accounts", () => ({
+  reorderEmailAccountsAction: mockReorderEmailAccounts,
+}));
+
 vi.mock("./AllAccountsSelectionDialog", () => ({
   AllAccountsSelectionDialog: () => null,
 }));
@@ -44,9 +62,12 @@ vi.mock("@/components/ui/dropdown-menu", async (importOriginal) => {
     await importOriginal<typeof import("@/components/ui/dropdown-menu")>();
   return {
     ...actual,
-    DropdownMenu: (props: React.ComponentProps<typeof actual.DropdownMenu>) => (
-      <actual.DropdownMenu {...props} modal={false} open />
-    ),
+    DropdownMenu: (props: React.ComponentProps<typeof actual.DropdownMenu>) =>
+      menuState.forceOpen ? (
+        <actual.DropdownMenu {...props} modal={false} open />
+      ) : (
+        <actual.DropdownMenu {...props} modal={false} />
+      ),
   };
 });
 
@@ -79,6 +100,7 @@ afterEach(() => {
 describe("MailAccountSwitcher", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    menuState.forceOpen = true;
     mockUseAccount.mockReturnValue({
       emailAccount: {
         id: "account-1",
@@ -152,6 +174,47 @@ describe("MailAccountSwitcher", () => {
     expect(onSelectAccount).toHaveBeenCalledWith("account-2");
     expect(mockOpenWindow).not.toHaveBeenCalled();
   });
+
+  it("moves a dragged account and saves the new order without switching to it", async () => {
+    const onSelectAccount = vi.fn();
+    renderSwitcher({ onSelectAccount });
+
+    const personal = await screen.findByRole("menuitem", { name: /personal/i });
+    stubAccountRows();
+    fireEvent.pointerDown(personal, { button: 0, clientX: 10, clientY: 75 });
+    fireEvent.pointerMove(window, { clientX: 10, clientY: 60 });
+    fireEvent.pointerMove(window, { clientX: 10, clientY: 10 });
+
+    await waitFor(() =>
+      expect(accountNames()).toEqual([
+        expect.stringMatching(/personal/i),
+        expect.stringMatching(/work/i),
+      ]),
+    );
+
+    fireEvent.pointerUp(window, { button: 0 });
+    fireEvent.click(screen.getByRole("menuitem", { name: /work/i }));
+
+    await waitFor(() =>
+      expect(mockReorderEmailAccounts).toHaveBeenCalledWith({
+        emailAccountIds: ["account-2", "account-1"],
+      }),
+    );
+    expect(onSelectAccount).not.toHaveBeenCalled();
+  });
+
+  it("does not leave focus on the trigger after the menu closes", async () => {
+    menuState.forceOpen = false;
+    renderSwitcher({ onSelectAccount: vi.fn() });
+
+    const trigger = screen.getByRole("button", { name: /work/i });
+    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false });
+    const menu = await screen.findByRole("menu");
+    fireEvent.keyDown(menu, { key: "Escape" });
+
+    await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+    expect(document.activeElement).not.toBe(trigger);
+  });
 });
 
 function renderSwitcher({
@@ -165,7 +228,6 @@ function renderSwitcher({
       isDesktopApp
       onSelectAccount={onSelectAccount}
       onSelectAll={vi.fn()}
-      variant="compact"
     />,
   );
 }
@@ -185,4 +247,23 @@ function selectMenuItem(
     ...modifiers,
   });
   fireEvent.click(item);
+}
+
+/** jsdom has no layout, so give each account row a 50px slot in list order. */
+function stubAccountRows() {
+  for (const row of document.querySelectorAll<HTMLElement>(
+    "[data-account-id]",
+  )) {
+    Object.defineProperty(row, "offsetHeight", { get: () => 50 });
+    Object.defineProperty(row, "offsetTop", {
+      get: () =>
+        [...document.querySelectorAll("[data-account-id]")].indexOf(row) * 50,
+    });
+  }
+}
+
+function accountNames() {
+  return [...document.querySelectorAll("[data-account-id]")].map(
+    (row) => row.textContent ?? "",
+  );
 }

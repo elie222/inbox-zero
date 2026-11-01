@@ -25,10 +25,12 @@ import {
   installDesktopLoadRecovery,
 } from "./load-recovery";
 import { configureDesktopApplicationMenu } from "./application-menu";
+import { installDesktopContextMenu } from "./context-menu";
 import { recordDesktopDiagnostics } from "./diagnostics";
 import {
   checkForDesktopUpdatesManually,
   installDownloadedDesktopUpdate,
+  type DesktopDownloadProgress,
   logDesktopUpdateError,
   startDesktopAutoUpdate,
 } from "./auto-update";
@@ -54,9 +56,10 @@ import {
   shouldSmokeLocalMail,
   shouldUseLocalMailRenderer,
 } from "./desktop";
-import { createMailNotificationTracker } from "./mail-notifications";
+import { createMailNotifier } from "./mail-notifications";
 import { captureDesktopError, initDesktopSentry } from "./sentry";
 import { startEventLoopDelayMonitor } from "./health";
+import { readDesktopAttachment } from "./mail-engine/attachment";
 import { registerMailEnginePushIpc } from "./mail-engine/push-ipc";
 import {
   createDesktopMailProcessOwner,
@@ -107,9 +110,21 @@ const localMailRendererFile = path.join(
 const localMailUrl = shouldUseLocalMailRenderer()
   ? getDesktopLocalMailUrl(localMailRendererFile)
   : null;
-const trackNewMail = createMailNotificationTracker();
-const mailNotifications = new Map<string, Notification>();
+const mailNotifier = createMailNotifier({
+  origin: appOrigin,
+  isFocused: () => windows.some((window) => window.isFocused()),
+  isSupported: () => Notification.isSupported(),
+  createNotification: (options) => new Notification(options),
+  openWindow: openAppWindow,
+});
+type DesktopUpdateStatus =
+  | ({ state: "downloading" } & DesktopDownloadProgress)
+  | { state: "ready"; version: string }
+  | null;
+
 let downloadPercent: number | null = null;
+let updateStatus: DesktopUpdateStatus = null;
+const updateStatusSubscribers = new Map<WebContents, () => void>();
 let refreshDesktopMenu: (() => void) | undefined;
 
 const gotTheLock = app.requestSingleInstanceLock();
@@ -134,39 +149,7 @@ function startDesktopApp() {
     if (typeof count !== "number" || !Number.isSafeInteger(count) || count < 0)
       return;
     unreadByContents.set(event.sender.id, count);
-    setUnreadBadge(Math.max(0, ...unreadByContents.values()));
-  });
-  ipcMain.on("desktop:new-mail", (event, payload: unknown) => {
-    if (!isTrustedDesktopEvent(event)) return;
-    const mail = trackNewMail(payload);
-    if (
-      !mail ||
-      windows.some((window) => window.isFocused()) ||
-      !Notification.isSupported()
-    )
-      return;
-    const notification = new Notification({
-      title: "Inbox Zero",
-      body:
-        mail.count === 1
-          ? "You have a new email"
-          : `You have ${mail.count} new emails`,
-    });
-    mailNotifications.get(mail.emailAccountId)?.close();
-    mailNotifications.set(mail.emailAccountId, notification);
-    notification.on("click", () => {
-      openAppWindow(
-        new URL(`/${mail.emailAccountId}/mail`, appOrigin).toString(),
-      );
-    });
-    const release = () => {
-      if (mailNotifications.get(mail.emailAccountId) === notification) {
-        mailNotifications.delete(mail.emailAccountId);
-      }
-    };
-    notification.on("close", release);
-    notification.on("failed", release);
-    notification.show();
+    applyUnreadBadge();
   });
   ipcMain.handle("desktop:open-window", (event, path: unknown) => {
     if (!isTrustedDesktopEvent(event)) return;
@@ -181,6 +164,15 @@ function startDesktopApp() {
     if (!isTrustedDesktopEvent(event)) return { status: "invalid" };
     return getDesktopMailOwner().handleIpc(payload);
   });
+  ipcMain.handle("desktop:read-attachment", (event, payload: unknown) => {
+    if (!isTrustedDesktopEvent(event))
+      throw new Error("Untrusted attachment request");
+    return readDesktopAttachment({
+      payload,
+      origin: appOrigin,
+      fetch: (url, init) => event.sender.session.fetch(url, init),
+    });
+  });
   registerMailEnginePushIpc({
     ipcMain,
     isTrusted: isTrustedDesktopEvent,
@@ -190,6 +182,19 @@ function startDesktopApp() {
     if (!isTrustedDesktopEvent(event)) return { status: "invalid" };
     await wipeDesktopMailOwner();
     return { status: "ok" };
+  });
+  ipcMain.handle("desktop:update-status", (event) => {
+    if (!isTrustedDesktopEvent(event)) return null;
+    subscribeToUpdateStatus(event.sender);
+    return updateStatus;
+  });
+  ipcMain.on("desktop:update-status-unsubscribe", (event) => {
+    if (!isTrustedDesktopEvent(event)) return;
+    updateStatusSubscribers.get(event.sender)?.();
+  });
+  ipcMain.handle("desktop:install-update", (event) => {
+    if (!isTrustedDesktopEvent(event)) return;
+    installUpdate();
   });
   const mainEventLoopDelay = startEventLoopDelayMonitor();
   let lastHealthReadAt = Date.now();
@@ -271,11 +276,6 @@ function startDesktopApp() {
 
   app.whenReady().then(async () => {
     let desktopUpdateReady = false;
-    const installUpdate = () => {
-      installDownloadedDesktopUpdate(() => {
-        isQuitting = true;
-      }).catch(logDesktopUpdateError);
-    };
     const applyDesktopMenu = () => {
       configureDesktopApplicationMenu({
         updateReady: desktopUpdateReady,
@@ -285,11 +285,17 @@ function startDesktopApp() {
             installUpdate();
             return;
           }
-          checkForDesktopUpdatesManually(() => {
-            isQuitting = true;
-          }).catch(logDesktopUpdateError);
+          checkForDesktopUpdatesManually(
+            () => {
+              isQuitting = true;
+            },
+            { showsProgressInApp: hasVisibleUpdateStatusSubscriber },
+          ).catch(logDesktopUpdateError);
         },
         createWindow: () => createAppWindow(),
+        openSettings: () => {
+          focusAppWindow().webContents.send("desktop:open-settings");
+        },
         recordDiagnostics: () => {
           recordDesktopDiagnostics({
             getMailOwner: () => desktopMailOwner,
@@ -331,11 +337,12 @@ function startDesktopApp() {
     }
     if (!shouldSmokeLocalMail()) {
       startDesktopAutoUpdate(undefined, {
-        onUpdateReady: () => {
+        onUpdateReady: (version) => {
           desktopUpdateReady = true;
-          setDownloadPercent(null);
+          setUpdateStatus({ state: "ready", version });
+          setDownloadProgress(null);
         },
-        onDownloadProgress: setDownloadPercent,
+        onDownloadProgress: setDownloadProgress,
       }).catch(logDesktopUpdateError);
     }
   });
@@ -351,10 +358,47 @@ function startDesktopApp() {
   });
 }
 
-function setDownloadPercent(percent: number | null) {
-  downloadPercent = percent;
+function installUpdate() {
+  installDownloadedDesktopUpdate(() => {
+    isQuitting = true;
+  }).catch(logDesktopUpdateError);
+}
+
+function setDownloadProgress(progress: DesktopDownloadProgress | null) {
+  downloadPercent = progress?.percent ?? null;
+  if (progress) setUpdateStatus({ state: "downloading", ...progress });
+  else if (updateStatus?.state === "downloading") setUpdateStatus(null);
   refreshDesktopMenu?.();
   syncUpdateProgressBar();
+}
+
+function setUpdateStatus(status: DesktopUpdateStatus) {
+  updateStatus = status;
+  for (const contents of updateStatusSubscribers.keys()) {
+    contents.send("desktop:update-status", status);
+  }
+}
+
+// A full navigation can land on a page that never subscribes, so it drops the
+// subscription; the new page subscribes again if it shows update status.
+function subscribeToUpdateStatus(contents: WebContents) {
+  if (updateStatusSubscribers.has(contents)) return;
+  const unsubscribe = () => {
+    updateStatusSubscribers.delete(contents);
+    contents.off("did-navigate", unsubscribe);
+    contents.off("destroyed", unsubscribe);
+  };
+  updateStatusSubscribers.set(contents, unsubscribe);
+  contents.on("did-navigate", unsubscribe);
+  contents.on("destroyed", unsubscribe);
+}
+
+// On macOS the last window hides instead of closing, so a toast there would
+// go unseen.
+function hasVisibleUpdateStatusSubscriber() {
+  return [...updateStatusSubscribers.keys()].some((contents) =>
+    BrowserWindow.fromWebContents(contents)?.isVisible(),
+  );
 }
 
 function syncUpdateProgressBar() {
@@ -417,6 +461,7 @@ function createAppWindow(options?: {
   const contentsId = window.webContents.id;
   windows.push(window);
   lastFocused = window;
+  applyUnreadBadge();
   rememberWindowUrl(window, startUrl);
   if (options?.isMaximized) window.maximize();
 
@@ -425,6 +470,7 @@ function createAppWindow(options?: {
   });
   window.on("focus", () => {
     lastFocused = window;
+    applyUnreadBadge();
     syncUpdateProgressBar();
   });
   window.on("blur", () => {
@@ -450,13 +496,18 @@ function createAppWindow(options?: {
     if (index !== -1) windows.splice(index, 1);
     unreadByContents.delete(contentsId);
     loadRecoveryByContents.delete(contentsId);
-    applyUnreadBadge();
     if (lastFocused === window) lastFocused = windows.at(-1) ?? null;
+    applyUnreadBadge();
     if (!isQuitting && windows.length > 0) persistWindowsNow();
   });
 
   applyNavigationPolicy(window.webContents);
   applyDesktopWindowDragRegion(window.webContents);
+  installDesktopContextMenu(window.webContents, {
+    openExternal: (url) => {
+      openExternal(url).catch(() => {});
+    },
+  });
   window.webContents.on("did-navigate", (_event, url) => {
     rememberWindowUrl(window, url);
   });
@@ -580,7 +631,11 @@ function isTrustedDesktopEvent(event: IpcMainEvent | IpcMainInvokeEvent) {
 }
 
 function applyUnreadBadge() {
-  setUnreadBadge(Math.max(0, ...unreadByContents.values()));
+  const count =
+    lastFocused && !lastFocused.isDestroyed()
+      ? (unreadByContents.get(lastFocused.webContents.id) ?? 0)
+      : 0;
+  setUnreadBadge(count);
 }
 
 function setUnreadBadge(count: number) {
@@ -592,8 +647,7 @@ function setUnreadBadge(count: number) {
 function clearMailIndicators() {
   unreadByContents.clear();
   applyUnreadBadge();
-  for (const notification of mailNotifications.values()) notification.close();
-  mailNotifications.clear();
+  mailNotifier.close();
 }
 
 function readLastAppUrl(): string | null {
@@ -817,6 +871,7 @@ function createDesktopMailProcess() {
         .map((cookie) => `${cookie.name}=${cookie.value}`)
         .join("; ");
     },
+    onNewMail: mailNotifier.notify,
     onEngineError: (error) =>
       captureDesktopError(error, { area: "mail-engine" }),
   });

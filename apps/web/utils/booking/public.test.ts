@@ -107,6 +107,24 @@ describe("public booking", () => {
     expect(getUnifiedCalendarAvailability).toHaveBeenCalled();
   });
 
+  it("checks the host's calendars for the exact requested range", async () => {
+    prisma.booking.findMany.mockResolvedValue([]);
+    const start = new Date("2026-11-03T01:00:00.000Z");
+    const end = new Date("2026-11-03T01:30:00.000Z");
+
+    await getPublicAvailability({ slug: "intro", start, end, logger });
+
+    // A whole-day window built from the UTC date can miss the host's local
+    // day entirely, so a busy slot would be offered and booked.
+    expect(getUnifiedCalendarAvailability).toHaveBeenCalledWith(
+      expect.objectContaining({
+        startDate: start,
+        endDate: end,
+        exactRange: true,
+      }),
+    );
+  });
+
   it("interprets availability windows in the host account timezone", async () => {
     mockBookingLinkConfig({ timezone: "America/New_York" });
     prisma.booking.findMany.mockResolvedValue([]);
@@ -982,6 +1000,74 @@ describe("public booking", () => {
         }),
       }),
     );
+  });
+
+  it("lets a booking move to a slot that overlaps its own current time", async () => {
+    vi.mocked(updateCalendarEvent).mockResolvedValue(undefined);
+    // Google freebusy clips busy blocks to the requested window, so the
+    // booking's own event only matches the excluded period when the query
+    // covers the whole booking.
+    const ownEvent = {
+      start: new Date("2026-05-04T09:00:00.000Z"),
+      end: new Date("2026-05-04T10:00:00.000Z"),
+    };
+    vi.mocked(getUnifiedCalendarAvailability).mockImplementation(
+      async ({ startDate, endDate }) => {
+        const windowStart = new Date(startDate);
+        const windowEnd = new Date(endDate);
+        if (ownEvent.end <= windowStart || ownEvent.start >= windowEnd) {
+          return [];
+        }
+        return [
+          {
+            start: (ownEvent.start < windowStart
+              ? windowStart
+              : ownEvent.start
+            ).toISOString(),
+            end: (ownEvent.end > windowEnd
+              ? windowEnd
+              : ownEvent.end
+            ).toISOString(),
+          },
+        ];
+      },
+    );
+    mockBookingLinkConfig({
+      durationMinutes: 60,
+      windows: [{ weekday: 1, startMinutes: 9 * 60, endMinutes: 11 * 60 }],
+    });
+    prisma.booking.findUnique.mockResolvedValue(
+      bookingRecord({
+        cancelTokenHash: hashToken("manage-token"),
+        provider: "google",
+        providerConnectionId: "connection-id",
+        providerCalendarId: "primary",
+        providerEventId: "provider-event-id",
+        startTime: ownEvent.start,
+        endTime: ownEvent.end,
+        status: BookingStatus.CONFIRMED,
+      }),
+    );
+    prisma.booking.findMany.mockResolvedValue([]);
+    prisma.booking.updateMany.mockResolvedValue({ count: 1 });
+    prisma.booking.findUniqueOrThrow.mockResolvedValue(
+      bookingRecord({
+        startTime: new Date("2026-05-04T09:30:00.000Z"),
+        endTime: new Date("2026-05-04T10:30:00.000Z"),
+        status: BookingStatus.CONFIRMED,
+      }),
+    );
+
+    await expect(
+      reschedulePublicBooking({
+        id: "booking-id",
+        token: "manage-token",
+        startTime: "2026-05-04T09:30:00.000Z",
+        guestTimezone: "UTC",
+        logger,
+      }),
+    ).resolves.toBeDefined();
+    expect(updateCalendarEvent).toHaveBeenCalled();
   });
 
   it("returns public management metadata for confirmed future bookings", async () => {

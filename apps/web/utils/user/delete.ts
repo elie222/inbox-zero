@@ -13,7 +13,6 @@ import { captureException, SafeError } from "@/utils/error";
 import { stopWatchingEmailAccount } from "@/utils/email/watch-manager";
 import type { Logger } from "@/utils/logger";
 import { prepareMemberRemovalNotifications } from "@/utils/team-comments/member-removal";
-import { deleteAccountUploadDirectory } from "@/utils/mail-api/upload-blobs";
 import { clearCachedResearchForUser } from "@/utils/redis/research-cache";
 import { releaseAccountRecordings } from "@/utils/meeting-recorder/delete-media";
 import {
@@ -176,10 +175,15 @@ async function deleteUserRows({
       logger,
     );
     // Members restrict email account deletion, so they go first.
-    const [, deletedUser] = await prisma.$transaction([
-      prisma.member.deleteMany({ where: { emailAccount: { userId } } }),
-      prisma.user.deleteMany({ where: { id: userId } }),
-    ]);
+    // Deleting the user cascades through all remaining account data, which
+    // can outlast the default 5s transaction timeout for large accounts.
+    const [, deletedUser] = await prisma.$transaction(
+      [
+        prisma.member.deleteMany({ where: { emailAccount: { userId } } }),
+        prisma.user.deleteMany({ where: { id: userId } }),
+      ],
+      { timeout: 60_000 },
+    );
     await notifyConversations();
 
     // PostHog tracks the completed delete after the database delete succeeds.
@@ -192,15 +196,6 @@ async function deleteUserRows({
       throw new SafeError(DELETE_ACCOUNT_REQUIRES_OWNER_TRANSFER_ERROR);
     }
     throw error;
-  }
-
-  for (const emailAccountId of emailAccountIds) {
-    await deleteAccountUploadDirectory(emailAccountId).catch((error) => {
-      logger.error("Failed to delete account mail uploads", {
-        error,
-        emailAccountId,
-      });
-    });
   }
 }
 

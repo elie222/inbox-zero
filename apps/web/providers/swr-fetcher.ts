@@ -25,7 +25,24 @@ export const swrFetcher = async (
 
   const newInit = { ...init, headers };
 
-  const res = await fetch(url, newInit);
+  let res: Response;
+  try {
+    res = await fetch(url, newInit);
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw error;
+    }
+    // Browsers reject with an opaque "Failed to fetch" / "Load failed".
+    const message =
+      "Couldn't connect to Inbox Zero. Check your internet connection and try again.";
+    const networkError: Error & { info?: Record<string, unknown> } = new Error(
+      message,
+      { cause: error },
+    );
+    // Error screens read the message from `info`, like a server error.
+    networkError.info = { error: message };
+    throw networkError;
+  }
 
   if (!res.ok) {
     // Try to parse JSON, but handle cases where response isn't JSON (e.g. HMR 404s)
@@ -49,22 +66,6 @@ export const swrFetcher = async (
       errorData.errorCode === MICROSOFT_AUTH_EXPIRED_ERROR_CODE
     ) {
       if (emailAccountId) {
-        const errorMessage =
-          errorData.errorCode === MICROSOFT_AUTH_EXPIRED_ERROR_CODE
-            ? "Microsoft authorization expired"
-            : "Refresh token missing";
-
-        captureException(new Error(errorMessage), {
-          extra: {
-            url,
-            status: res.status,
-            statusText: res.statusText,
-            responseBody: errorData,
-            emailAccountId,
-          },
-        });
-
-        console.log(`${errorMessage}, redirecting to consent page...`);
         const redirectUrl = prefixPath(emailAccountId, "/permissions/consent");
         redirectToSafeUrl(redirectUrl);
         return;

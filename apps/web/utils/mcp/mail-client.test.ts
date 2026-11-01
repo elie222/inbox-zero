@@ -83,6 +83,7 @@ describe("MCP mail client tools", () => {
     );
     expect(result.nextPageToken).toBe("next");
     expect(result.threads[0].messages[0].body).toBe("");
+    expect(result.threads[0].messages[0].html).toBeNull();
     expect(getThreadsWithQuery).toHaveBeenCalledWith(
       expect.objectContaining({
         query: { type: "sent" },
@@ -255,6 +256,26 @@ describe("MCP mail client tools", () => {
     await browseMailForMcp("user", args, logger);
     expect(getLabels).toHaveBeenCalledTimes(3);
   });
+  it("preserves HTML for the reader while retaining plain text for editing", async () => {
+    const html =
+      '<h2>Weekly update</h2><p>Read <a href="https://example.com/post?token=tracking">the article</a>.</p>';
+    const message = getMockMessage({
+      id: "html-message",
+      threadId: "html-thread",
+      textHtml: html,
+      textPlain: "Weekly update\nRead the article.",
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      getThread: vi.fn().mockResolvedValue({ messages: [message] }),
+    } as never);
+    const result = await readMailForMcp(
+      "user",
+      { emailAccountId: account.id, threadId: "html-thread" },
+      logger,
+    );
+    expect(result.messages[0].html).toBe(html);
+    expect(result.messages[0].body).toContain("Read the article");
+  });
   it("resolves provider draft IDs instead of treating message IDs as drafts", async () => {
     const mail = getMockMessage({
       id: "message",
@@ -293,17 +314,22 @@ describe("MCP mail client tools", () => {
     expect(createDraft).not.toHaveBeenCalled();
     expect(updateDraft.mock.calls[0][1].messageHtml).not.toContain("<script>");
   });
-  it("removes a new draft when adding cc fails instead of orphaning it", async () => {
-    const deleteDraft = vi.fn().mockResolvedValue(true);
+  it("creates a new draft with its cc in one write, so no partial draft is left behind", async () => {
+    const createDraft = vi.fn().mockResolvedValue({ id: "new-draft" });
+    const updateDraft = vi.fn();
     vi.mocked(createEmailProvider).mockResolvedValue({
-      createDraft: vi.fn().mockResolvedValue({ id: "new-draft" }),
-      updateDraft: vi.fn().mockRejectedValue(new Error("provider down")),
-      deleteDraft,
+      createDraft,
+      updateDraft,
     } as never);
-    await expect(
-      saveMailDraftForMcp("user", { ...editor, cc: "cc@example.com" }, logger),
-    ).rejects.toThrow("provider down");
-    expect(deleteDraft).toHaveBeenCalledWith("new-draft");
+    await saveMailDraftForMcp(
+      "user",
+      { ...editor, cc: "cc@example.com" },
+      logger,
+    );
+    expect(createDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ cc: "cc@example.com" }),
+    );
+    expect(updateDraft).not.toHaveBeenCalled();
   });
   it("derives reply headers from the authenticated mailbox and preserves the retry ID", async () => {
     const mail = getMockMessage({ id: "source", threadId: "thread" });

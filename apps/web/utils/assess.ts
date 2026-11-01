@@ -5,6 +5,7 @@ import { getEmailClient } from "@/utils/mail";
 import { isDefined } from "@/utils/types";
 import type { Logger } from "@/utils/logger";
 import { GmailLabel } from "@/utils/gmail/label";
+import { isEmailProviderRateLimitError } from "@/utils/email/is-provider-rate-limit-error";
 
 const DEFAULT_LABEL_COUNT: Record<EmailProvider["name"], number> = {
   google: 13,
@@ -71,6 +72,8 @@ async function getFiltersCount(client: EmailProvider, logger: Logger) {
     const filters = await client.getFiltersList();
     return filters.length;
   } catch (error) {
+    if (isEmailProviderRateLimitError({ error, provider: client.name }))
+      throw error;
     logger.error("Error getting filters", { error });
     return 0;
   }
@@ -84,6 +87,8 @@ async function getForwardingAddressesCount(
     const forwardingAddresses = await client.getForwardingAddresses();
     return forwardingAddresses.length;
   } catch (error) {
+    if (isEmailProviderRateLimitError({ error, provider: client.name }))
+      throw error;
     // Can happen due to "Forwarding features disabled by administrator"
     logger.error("Error getting forwarding addresses", { error });
     return 0;
@@ -107,6 +112,8 @@ async function getEmailClients(client: EmailProvider, logger: Logger) {
 
     return { clients: uniq(clients), primary: mostPopular[0]?.[0] };
   } catch (error) {
+    if (isEmailProviderRateLimitError({ error, provider: client.name }))
+      throw error;
     logger.error("Error getting email clients", { error });
     return { clients: [], primary: undefined };
   }

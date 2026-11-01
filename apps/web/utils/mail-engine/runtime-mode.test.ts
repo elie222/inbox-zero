@@ -6,23 +6,56 @@ import {
 
 describe("selectMailEngineRuntimeMode", () => {
   it("prefers desktop IPC over OPFS", () => {
-    expect(selectMailEngineRuntimeMode({ desktopIpc: true, opfs: true })).toBe(
-      "desktop-ipc",
-    );
-    expect(selectMailEngineRuntimeMode({ desktopIpc: true, opfs: false })).toBe(
-      "desktop-ipc",
-    );
+    expect(
+      selectMailEngineRuntimeMode({
+        desktopIpc: true,
+        worker: true,
+        opfs: true,
+      }),
+    ).toBe("desktop-ipc");
+    expect(
+      selectMailEngineRuntimeMode({
+        desktopIpc: true,
+        worker: true,
+        opfs: false,
+      }),
+    ).toBe("desktop-ipc");
   });
 
   it("uses the browser engine when OPFS is available", () => {
-    expect(selectMailEngineRuntimeMode({ desktopIpc: false, opfs: true })).toBe(
-      "browser",
-    );
+    expect(
+      selectMailEngineRuntimeMode({
+        desktopIpc: false,
+        worker: true,
+        opfs: true,
+      }),
+    ).toBe("browser");
+  });
+
+  it("requires a worker for persistent browser storage", () => {
+    expect(
+      selectMailEngineRuntimeMode({
+        desktopIpc: false,
+        opfs: true,
+        worker: false,
+      }),
+    ).toBe("unavailable");
+    expect(
+      selectMailEngineRuntimeMode({
+        desktopIpc: true,
+        opfs: false,
+        worker: false,
+      }),
+    ).toBe("desktop-ipc");
   });
 
   it("is unavailable without desktop IPC or OPFS", () => {
     expect(
-      selectMailEngineRuntimeMode({ desktopIpc: false, opfs: false }),
+      selectMailEngineRuntimeMode({
+        desktopIpc: false,
+        worker: true,
+        opfs: false,
+      }),
     ).toBe("unavailable");
   });
 });

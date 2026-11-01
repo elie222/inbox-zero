@@ -1,26 +1,38 @@
 import type { DraftSaveResult } from "@inboxzero/mail-core/drafts";
 import type { MailClient } from "@inboxzero/mail-core/engine";
 import type {
-  EmailComposerAttachment,
+  EmailAttachmentMetadata,
   PreparedEmailDraft,
 } from "@inboxzero/email-editor/core";
 import type { EmailEditorPreservedBlock } from "@inboxzero/email-editor/web";
 import { splitRecipientList } from "@/utils/email";
 import { fetchWithAccount } from "@/utils/fetch";
 import { getActiveMailClient } from "@/utils/mail-engine/active-client";
-import { releaseSendAttachmentHolds } from "@/utils/mail-engine/stage-attachments";
 import type { SendEmailBody } from "@/utils/types/mail";
+
+/**
+ * A file already on the mailbox draft. Only the reference is stored locally;
+ * the mailbox draft holds the bytes.
+ */
+export type ComposeAttachmentReference = EmailAttachmentMetadata & {
+  draftAttachmentId: string;
+};
 
 export type ReplyDraftContent = {
   providerDraftId?: string;
   providerDraftCreationUnconfirmed?: boolean;
+  /**
+   * Mailbox messages this composer saved its draft as. The thread hides them
+   * so the open composer is the only place the draft shows.
+   */
+  providerDraftMessageIds?: string[];
   composeMode?: ReplyDraftMode;
   requestId?: string;
   deliveryPath?: "scheduled" | "outbox";
   values: Omit<SendEmailBody, "attachments" | "messageHtml">;
   draft: PreparedEmailDraft;
   preservedBlocks: EmailEditorPreservedBlock[];
-  attachments: EmailComposerAttachment[];
+  attachments: ComposeAttachmentReference[];
   sendAt?: string;
   remindAt?: string;
 };
@@ -106,7 +118,8 @@ export function getDraftSessionMessageIds(
   ) ?? []) {
     if (session === sessionMessageId) ids.add(messageId);
   }
-  return [...ids];
+  ids.delete(draftMessageId);
+  return [...ids, draftMessageId];
 }
 
 export function getLatestDraftMessageId(
@@ -160,7 +173,7 @@ export async function getReplyDraftForSession(
     ...identity,
     content: { ...legacy.content, composeMode: mode },
     revision: 1,
-    updatedAt: Date.now(),
+    updatedAt: legacy.updatedAt,
   };
   drafts.set(draftKey(identity), migrated);
   drafts.set(draftKey(legacyIdentity), {
@@ -169,6 +182,12 @@ export async function getReplyDraftForSession(
     revision: legacy.revision + 1,
     updatedAt: Date.now(),
   });
+  const persisted = await persistEngineReplyDraft(
+    identity,
+    migrated.content,
+  ).catch(() => false);
+  if (persisted)
+    await persistEngineReplyDraft(legacyIdentity, null).catch(() => {});
   notifyReplyDraftChange(identity);
   notifyReplyDraftChange(legacyIdentity);
   return migrated;
@@ -210,13 +229,77 @@ export async function updateReplyDraftProviderState(
   return draftId;
 }
 
-export async function getReplyDrafts(emailAccountId: string, threadId: string) {
+/** The mailbox draft was deleted, so the next save starts a new one. */
+export async function forgetReplyDraftProvider(
+  identity: ReplyDraftIdentity,
+  providerDraftId: string,
+) {
+  await pendingWrites.get(draftKey(identity))?.catch(() => {});
+  const current = drafts.get(draftKey(identity));
+  if (current?.content?.providerDraftId !== providerDraftId) return;
+  const {
+    providerDraftId: _draftId,
+    providerDraftCreationUnconfirmed: _unconfirmed,
+    providerDraftMessageIds: _messageIds,
+    ...content
+  } = current.content;
+  drafts.set(draftKey(identity), { ...current, content });
+  await persistEngineReplyDraft(identity, content).catch(() => {});
+}
+
+export async function rememberProviderDraftMessage(
+  identity: ReplyDraftIdentity,
+  requestId: string,
+  messageId: string,
+) {
+  await pendingWrites.get(draftKey(identity))?.catch(() => {});
+  assertAccountEpoch(identity.emailAccountId);
+  const current = drafts.get(draftKey(identity));
+  if (!current?.content || current.content.requestId !== requestId) return;
+  const messageIds = current.content.providerDraftMessageIds ?? [];
+  if (messageIds.includes(messageId)) return;
+  const nextContent = {
+    ...current.content,
+    providerDraftMessageIds: [...messageIds, messageId].slice(-50),
+  };
+  drafts.set(draftKey(identity), { ...current, content: nextContent });
+  await persistEngineReplyDraft(identity, nextContent).catch(() => {});
+  notifyReplyDraftChange(identity);
+}
+
+export async function getReplyDrafts(
+  emailAccountId: string,
+  threadId: string,
+  messageIds?: string[],
+) {
   assertAccountEpoch(emailAccountId);
+  const sessionIds = new Set(
+    (messageIds ?? []).flatMap((messageId) => [
+      getReplyDraftSessionId(messageId, "reply"),
+      getReplyDraftSessionId(messageId, "forward"),
+    ]),
+  );
+  await Promise.all(
+    (messageIds ?? []).map(async (messageId) => {
+      const legacyIdentity = { emailAccountId, threadId, messageId };
+      for (const mode of ["reply", "forward"] as const) {
+        await getReplyDraftForSession(
+          {
+            ...legacyIdentity,
+            messageId: getReplyDraftSessionId(messageId, mode),
+          },
+          legacyIdentity,
+          mode,
+        );
+      }
+    }),
+  );
   return [...drafts.values()].filter(
     (draft) =>
       draft.emailAccountId === emailAccountId &&
       draft.threadId === threadId &&
-      draft.content !== null,
+      draft.content !== null &&
+      (!messageIds || sessionIds.has(draft.messageId)),
   );
 }
 
@@ -257,6 +340,20 @@ export function createReplyDraftWriter(
             }),
           };
         }
+        // The composer doesn't track the mailbox copies of its draft; they
+        // belong to the mailbox draft, whichever composer session saves.
+        const providerDraftId =
+          nextContent?.providerDraftId ?? previous?.content?.providerDraftId;
+        if (
+          nextContent &&
+          providerDraftId &&
+          previous?.content?.providerDraftId === providerDraftId &&
+          previous.content.providerDraftMessageIds
+        )
+          nextContent = {
+            ...nextContent,
+            providerDraftMessageIds: previous.content.providerDraftMessageIds,
+          };
         drafts.set(draftKey(identity), {
           ...identity,
           content: nextContent,
@@ -345,7 +442,6 @@ export async function dropReplyDraftDeletedFromMailbox(
           subject: "",
           editableHtml: "",
           quotedHtml: "",
-          attachmentIds: [],
         },
       });
       if (drafts.get(key) !== draft) return getReplyDraft(draft);
@@ -439,41 +535,37 @@ export async function restoreUnsentReplyDraft(input: {
       "This reply is no longer on this device. Refresh the thread and try again.",
     );
   }
-  try {
-    const identity: ReplyDraftIdentity = {
-      emailAccountId: input.emailAccountId,
-      threadId: input.threadId,
-      messageId: getReplyDraftSessionId(input.messageId, "reply"),
-    };
-    const current = await getReplyDraft(identity);
-    await createReplyDraftWriter(identity, current?.revision ?? 0).save({
-      composeMode: "reply",
-      values: {
-        to: stored.content.to.join(", "),
-        cc: stored.content.cc.join(", "),
-        bcc: stored.content.bcc.join(", "),
-        subject: stored.content.subject,
-      },
-      draft: {
-        editableHtml: stored.content.editableHtml,
-        mode: "rich",
-        quotedHtml: stored.content.quotedHtml,
-        signatureHtml: "",
-        unsupported: [],
-      },
-      preservedBlocks: [],
-      attachments: [],
-    });
-  } finally {
-    try {
-      await releaseSendAttachmentHolds(
-        input.emailAccountId,
-        stored.content.attachmentIds,
-      );
-    } catch {
-      // TTL remains the backstop for leftover holds.
-    }
-  }
+  const identity: ReplyDraftIdentity = {
+    emailAccountId: input.emailAccountId,
+    threadId: input.threadId,
+    messageId: getReplyDraftSessionId(input.messageId, "reply"),
+  };
+  const current = await getReplyDraft(identity);
+  await createReplyDraftWriter(identity, current?.revision ?? 0).save({
+    composeMode: "reply",
+    values: {
+      ...(stored.content.from ? { from: stored.content.from } : {}),
+      to: stored.content.to.join(", "),
+      cc: stored.content.cc.join(", "),
+      bcc: stored.content.bcc.join(", "),
+      subject: stored.content.subject,
+    },
+    draft: {
+      editableHtml: stored.content.editableHtml,
+      mode: "original",
+      quotedHtml: stored.content.quotedHtml,
+      signatureHtml: "",
+    },
+    preservedBlocks: [],
+    // The mailbox draft still holds the files; these only list them.
+    attachments: sentAttachments(stored.content.clientState),
+    ...(stored.content.providerDraftId
+      ? { providerDraftId: stored.content.providerDraftId }
+      : {}),
+    ...(stored.content.providerDraftMessageIds
+      ? { providerDraftMessageIds: stored.content.providerDraftMessageIds }
+      : {}),
+  });
 }
 
 function currentEpoch(emailAccountId: string) {
@@ -509,14 +601,14 @@ async function persistEngineReplyDraft(
   content: ReplyDraftContent | null,
 ) {
   const client = getActiveMailClient();
-  if (!client) return;
+  if (!client) return false;
   const draftId = engineDraftId(identity);
   if (content == null) {
     const current = await client.readDraft({
       accountId: identity.emailAccountId,
       draftId,
     });
-    if (current.status !== "found") return;
+    if (current.status !== "found") return false;
     const cleared = await client.saveDraft({
       key: { accountId: identity.emailAccountId, draftId },
       expectedRevision: current.draftRevision,
@@ -527,11 +619,10 @@ async function persistEngineReplyDraft(
         subject: "",
         editableHtml: "",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     rememberEngineRevision(identity, cleared);
-    return;
+    return cleared.status === "saved";
   }
   let expectedRevision = engineRevisions.get(draftKey(identity)) ?? null;
   for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -545,8 +636,10 @@ async function persistEngineReplyDraft(
         subject: content.values.subject,
         editableHtml: content.draft.editableHtml,
         quotedHtml: content.draft.quotedHtml,
-        attachmentIds: [],
-        clientState: JSON.stringify(content).slice(0, 1_000_000),
+        clientState: JSON.stringify({
+          ...content,
+          updatedAt: drafts.get(draftKey(identity))?.updatedAt,
+        }).slice(0, 1_000_000),
         ...(content.providerDraftId
           ? { providerDraftId: content.providerDraftId }
           : {}),
@@ -554,29 +647,41 @@ async function persistEngineReplyDraft(
     });
     if (saved.status !== "conflict") {
       rememberEngineRevision(identity, saved);
-      return;
+      return saved.status === "saved";
     }
     expectedRevision = saved.currentDraftRevision;
   }
+  return false;
 }
 
 async function loadEngineReplyDraft(identity: ReplyDraftIdentity) {
   const client = getActiveMailClient();
   if (!client) return;
+  const epoch = currentEpoch(identity.emailAccountId);
+  // Registered so that clearing every account also invalidates this read.
+  accountEpoch.set(identity.emailAccountId, epoch);
   const stored = await client.readDraft({
     accountId: identity.emailAccountId,
     draftId: engineDraftId(identity),
   });
   if (stored.status !== "found" || !stored.content.clientState) return;
+  // The account may have been cleared, or a composer may have saved, while
+  // the read was in flight.
+  if (currentEpoch(identity.emailAccountId) !== epoch) return;
+  const current = drafts.get(draftKey(identity));
+  if (current) return current;
   try {
-    const content = JSON.parse(stored.content.clientState) as ReplyDraftContent;
+    const { updatedAt, ...content } = JSON.parse(
+      stored.content.clientState,
+    ) as ReplyDraftContent & { updatedAt?: number };
     if (!content?.draft || !content.values) return;
     engineRevisions.set(draftKey(identity), stored.draftRevision);
     const restored: StoredReplyDraft = {
       ...identity,
       content,
       revision: stored.draftRevision,
-      updatedAt: Date.now(),
+      // Older persisted drafts have no edit time; reading them isn't an edit.
+      updatedAt: typeof updatedAt === "number" ? updatedAt : 0,
     };
     drafts.set(draftKey(identity), restored);
     return restored;
@@ -595,4 +700,16 @@ function rememberEngineRevision(
 
 function engineDraftId(identity: ReplyDraftIdentity) {
   return identity.messageId.slice(0, 128);
+}
+
+function sentAttachments(clientState: string | undefined) {
+  if (!clientState) return [];
+  try {
+    const parsed = JSON.parse(clientState) as {
+      attachments?: ComposeAttachmentReference[];
+    };
+    return Array.isArray(parsed.attachments) ? parsed.attachments : [];
+  } catch {
+    return [];
+  }
 }

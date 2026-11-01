@@ -23,7 +23,6 @@ import {
   updateAIDraftCleanupSettingsBody,
 } from "@/utils/actions/user.validation";
 import { clearLastEmailAccountCookie } from "@/utils/cookies.server";
-import { deleteAccountUploadDirectory } from "@/utils/mail-api/upload-blobs";
 import { deleteTinybirdEmailData } from "@inboxzero/tinybird";
 import { aliasPosthogUser } from "@/utils/posthog";
 import {
@@ -43,6 +42,7 @@ import {
   isMemberEmailAccountForeignKeyError,
   isOrganizationOwnerInvariantError,
 } from "@/utils/organizations/ownership";
+import { EMAIL_ACCOUNT_ORDER_BY } from "@/utils/email-account-order";
 
 export const saveAboutAction = actionClient
   .metadata({ name: "saveAbout" })
@@ -171,7 +171,7 @@ export const deleteEmailAccountAction = actionClientUser
         // Check if there are other email accounts
         const otherEmailAccounts = await prisma.emailAccount.findMany({
           where: { userId, id: { not: emailAccountId } },
-          orderBy: { createdAt: "asc" },
+          orderBy: EMAIL_ACCOUNT_ORDER_BY,
           take: 1,
           select: {
             id: true,
@@ -272,12 +272,6 @@ export const deleteEmailAccountAction = actionClientUser
         }),
       );
 
-      await deleteAccountUploadDirectory(emailAccountId).catch((error) => {
-        logger.error("Failed to delete account mail uploads", {
-          error,
-          emailAccountId,
-        });
-      });
       await notifyConversations();
 
       await clearLastEmailAccountCookieIfMatching({

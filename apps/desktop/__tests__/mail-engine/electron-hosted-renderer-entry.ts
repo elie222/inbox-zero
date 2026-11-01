@@ -38,7 +38,7 @@ const STAR_THREAD_ID =
 const BULK_FIRST_SUBJECT = "Playwright Test Message";
 const BULK_SECOND_SUBJECT = "Read Command Message";
 const DELETE_SUBJECT = "Delete Action Message";
-const LABEL_SUBJECT = "Re: Reader Navigation Message";
+const LABEL_SUBJECT = "Reader Navigation Message";
 const BULK_FIRST_THREAD = "thr_playwright_1";
 const BULK_SECOND_THREAD = "thr_playwright_2";
 const DELETE_THREAD = "thr_playwright_delete";
@@ -1530,7 +1530,7 @@ async function openNamedMailbox(window: BrowserWindow, name: string) {
         (() => {
           const mail = [...document.querySelectorAll("button")].find((button) =>
             [...button.querySelectorAll("span")].some(
-              (span) => span.textContent?.trim() === "Mail",
+              (span) => span.textContent?.trim() === "More",
             ),
           );
           if (mail instanceof HTMLElement) mail.click();
@@ -1853,7 +1853,7 @@ async function openDraftsMailbox(window: BrowserWindow) {
         (() => {
           const mail = [...document.querySelectorAll("button")].find((button) =>
             [...button.querySelectorAll("span")].some(
-              (span) => span.textContent?.trim() === "Mail",
+              (span) => span.textContent?.trim() === "More",
             ),
           );
           if (mail instanceof HTMLElement) mail.click();
@@ -1891,7 +1891,7 @@ async function openSentMailbox(window: BrowserWindow) {
         (() => {
           const mail = [...document.querySelectorAll("button")].find((button) =>
             [...button.querySelectorAll("span")].some(
-              (span) => span.textContent?.trim() === "Mail",
+              (span) => span.textContent?.trim() === "More",
             ),
           );
           if (mail instanceof HTMLElement) mail.click();

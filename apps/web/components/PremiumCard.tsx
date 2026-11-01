@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { XIcon, CreditCardIcon, AlertTriangleIcon } from "lucide-react";
 import { useUser } from "@/hooks/useUser";
+import { env } from "@/env";
 import { isPremiumRecord } from "@/utils/premium";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -11,6 +12,7 @@ import { cn } from "@/utils";
 import { HoverCard } from "@/components/HoverCard";
 import { MutedText } from "@/components/Typography";
 import type { PremiumTier } from "@/generated/prisma/enums";
+import type { SidebarCard } from "@/components/sidebar-cards/SidebarCardStack";
 
 interface PremiumData {
   appleExpiresAt?: Date | string | null;
@@ -39,9 +41,7 @@ export function PremiumExpiredCardContent({
       : premium.lemonSqueezyRenewsAt
     : null;
 
-  const isUserPremium = isPremiumRecord(premium);
-
-  if (isUserPremium) return null;
+  if (!shouldShowPremiumCard(premium)) return null;
 
   const getSubscriptionMessage = () => {
     const UPGRADE_MESSAGE = {
@@ -151,6 +151,7 @@ export function PremiumExpiredCardContent({
         }
       >
         <Link
+          aria-label={title}
           href={buttonHref}
           className="flex items-center justify-center p-2 rounded-lg bg-orange-100 hover:bg-orange-200 transition-colors dark:bg-orange-900/30 dark:hover:bg-orange-900/50"
         >
@@ -211,23 +212,31 @@ export function PremiumExpiredCardContent({
   );
 }
 
-export function PremiumCard({
-  isCollapsed = false,
-}: {
-  isCollapsed?: boolean;
-}) {
+export function usePremiumSidebarCard(): SidebarCard | null {
   const [dismissed, setDismissed] = useState(false);
   const { data: user, isLoading } = useUser();
 
-  if (isLoading || dismissed || !user) return null;
+  if (isLoading || dismissed || !user || !shouldShowPremiumCard(user.premium))
+    return null;
 
-  return (
-    <div className={cn("px-3 pt-4", isCollapsed && "flex justify-center")}>
+  return {
+    id: "premium",
+    content: (
       <PremiumExpiredCardContent
         premium={user.premium}
-        onDismiss={isCollapsed ? undefined : () => setDismissed(true)}
-        isCollapsed={isCollapsed}
+        onDismiss={() => setDismissed(true)}
       />
-    </div>
-  );
+    ),
+    collapsedContent: (
+      <PremiumExpiredCardContent premium={user.premium} isCollapsed />
+    ),
+  };
+}
+
+// Self-hosters running with NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS already have
+// every premium feature enabled — hasAiAccess and friends short-circuit to
+// true — so prompting them to upgrade is misleading. They have no premium
+// record, so the isPremiumRecord check alone never hides this.
+function shouldShowPremiumCard(premium: PremiumData | null | undefined) {
+  return !isPremiumRecord(premium) && !env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS;
 }

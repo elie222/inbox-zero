@@ -1,8 +1,9 @@
 import { prefixPath } from "@/utils/path";
-import { ActionType, SystemType } from "@/generated/prisma/enums";
-import { CHECKOUT_RETURN_TO_PARAM } from "@/utils/actions/premium.validation";
-
-export const PAYWALL_FIRST_UPGRADE_PATH = `/welcome-upgrade?${CHECKOUT_RETURN_TO_PARAM}=onboarding`;
+import {
+  ActionType,
+  type SignupIntent,
+  SystemType,
+} from "@/generated/prisma/enums";
 
 export const STEP_KEYS = {
   CHAT: "chat",
@@ -18,16 +19,42 @@ export const STEP_KEYS = {
   CUSTOM_RULES: "customRules",
   INVITE_TEAM: "inviteTeam",
   INBOX_PROCESSED: "inboxProcessed",
+  INTENT: "intent",
+  MAIL_APP: "mailApp",
 } as const;
 
 export type StepKey = (typeof STEP_KEYS)[keyof typeof STEP_KEYS];
 
-const onboardingStepOrder: readonly StepKey[] = [
+// The survey comes first so every user answers it, then the intent question
+// picks which branch follows.
+const surveyStepOrder: readonly StepKey[] = [
+  STEP_KEYS.WHO,
+  STEP_KEYS.COMPANY_SIZE,
+  STEP_KEYS.HOW_YOU_HEARD,
+];
+
+const aiAssistantStepOrder: readonly StepKey[] = [
   STEP_KEYS.EMAILS_SORTED,
   STEP_KEYS.CHAT,
   STEP_KEYS.DRAFT_REPLIES,
   STEP_KEYS.BULK_UNSUBSCRIBE,
   // STEP_KEYS.FEATURES,
+  STEP_KEYS.LABELS,
+  STEP_KEYS.DRAFT,
+  STEP_KEYS.CUSTOM_RULES,
+  STEP_KEYS.INVITE_TEAM,
+  STEP_KEYS.INBOX_PROCESSED,
+];
+
+const mailAppStepOrder: readonly StepKey[] = [STEP_KEYS.MAIL_APP];
+
+// Frozen pre-intent order so old numeric `?step=N` links keep resolving.
+const legacyNumericOnboardingStepOrder: readonly (StepKey | "welcome")[] = [
+  "welcome",
+  STEP_KEYS.EMAILS_SORTED,
+  STEP_KEYS.CHAT,
+  STEP_KEYS.DRAFT_REPLIES,
+  STEP_KEYS.BULK_UNSUBSCRIBE,
   STEP_KEYS.WHO,
   STEP_KEYS.COMPANY_SIZE,
   STEP_KEYS.HOW_YOU_HEARD,
@@ -37,28 +64,29 @@ const onboardingStepOrder: readonly StepKey[] = [
   STEP_KEYS.INVITE_TEAM,
   STEP_KEYS.INBOX_PROCESSED,
 ];
-const legacyNumericOnboardingStepOrder: readonly (StepKey | "welcome")[] = [
-  "welcome",
-  ...onboardingStepOrder,
-];
-
-// Sales/marketing survey steps that are irrelevant for self-hosted deployments.
-const salesSurveyStepKeys: readonly StepKey[] = [
-  STEP_KEYS.WHO,
-  STEP_KEYS.COMPANY_SIZE,
-  STEP_KEYS.HOW_YOU_HEARD,
-];
 
 export function getVisibleOnboardingStepKeys({
   canInviteTeam,
   autoDraftDisabled,
   isSelfHosted,
+  signupIntent,
 }: {
   canInviteTeam: boolean;
   autoDraftDisabled: boolean;
   isSelfHosted?: boolean;
+  signupIntent: SignupIntent | null;
 }) {
-  return onboardingStepOrder.filter((stepKey) => {
+  // Until the user picks, the AI branch stands in as the most common path.
+  const branchStepOrder =
+    signupIntent === "MAIL_CLIENT" ? mailAppStepOrder : aiAssistantStepOrder;
+  const stepOrder = [
+    // The sales survey is irrelevant for self-hosted deployments.
+    ...(isSelfHosted ? [] : surveyStepOrder),
+    STEP_KEYS.INTENT,
+    ...branchStepOrder,
+  ];
+
+  return stepOrder.filter((stepKey) => {
     if (
       autoDraftDisabled &&
       (stepKey === STEP_KEYS.DRAFT_REPLIES || stepKey === STEP_KEYS.DRAFT)
@@ -67,10 +95,6 @@ export function getVisibleOnboardingStepKeys({
     }
 
     if (!canInviteTeam && stepKey === STEP_KEYS.INVITE_TEAM) {
-      return false;
-    }
-
-    if (isSelfHosted && salesSurveyStepKeys.includes(stepKey)) {
       return false;
     }
 

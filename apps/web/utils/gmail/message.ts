@@ -67,7 +67,12 @@ export function parseMessage(
       calendarData.length <= CALENDAR_INVITATION_LIMITS.encoded
         ? Buffer.from(calendarData, "base64").toString("utf8")
         : undefined,
-    attachments: attachments?.length ? attachments : undefined,
+    attachments: attachments.length ? attachments : undefined,
+    // Metadata-format messages carry no parts, only the top-level MIME type.
+    hasAttachment:
+      attachments.length > 0 ||
+      (!message.payload?.parts &&
+        message.payload?.mimeType === "multipart/mixed"),
     subject: parsed.headers?.subject || "",
     date: parsed.headers?.date || "",
     inline: inlineAttachments,
@@ -124,6 +129,17 @@ export async function getMessage(
 
     return message.data as MessageWithPayload;
   });
+}
+
+/** The message exactly as the server stores it, headers and MIME parts included. */
+export async function getRawMessage(
+  messageId: string,
+  gmail: gmail_v1.Gmail,
+): Promise<Buffer> {
+  const message = await withGmailRetry(() =>
+    gmail.users.messages.get({ userId: "me", id: messageId, format: "raw" }),
+  );
+  return Buffer.from(message.data.raw ?? "", "base64url");
 }
 
 export async function getMessageByRfc822Id(

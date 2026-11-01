@@ -164,7 +164,7 @@ export function BulkArchiveCards({
   const toggleSenderSelection = (senderAddress: string) => {
     setSelectedSenders((prev) => ({
       ...prev,
-      [senderAddress]: !prev[senderAddress],
+      [senderAddress]: prev[senderAddress] === false,
     }));
   };
 
@@ -782,7 +782,7 @@ function ExpandedEmails({
   const { data, isLoading, error } = useThreads({
     fromEmail: sender,
     limit: 5,
-    type: "all",
+    type: "inbox",
   });
 
   if (isLoading) {

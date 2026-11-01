@@ -1,7 +1,6 @@
 import { z } from "zod";
 import {
   accountSessionSchema,
-  blobIdSchema,
   conversationKeySchema,
   MAIL_PROTOCOL_VERSION,
   messageIdSchema,
@@ -358,31 +357,6 @@ export const assistantStateResultSchema = z.object({
 export const attachmentContentQuerySchema = z.object({
   messageId: messageIdSchema,
   attachmentId: z.string().min(1).max(MAX_ATTACHMENT_ID_LENGTH),
-});
-
-export const uploadAdmitRequestSchema = z.object({
-  protocolVersion: mailProtocolVersionSchema,
-  requestId: z.string().min(1).max(128),
-  session: accountSessionSchema,
-  uploadId: blobIdSchema,
-  sizeBytes: z.number().int().nonnegative().max(25_000_000),
-  checksum: z.string().min(1).max(128),
-  contentType: z.string().max(256),
-  filename: z.string().max(1024).optional(),
-  disposition: z.enum(["attachment", "inline"]).optional(),
-  contentId: z
-    .string()
-    .min(1)
-    .max(255)
-    .regex(/^[^<>\s\0]+$/u)
-    .optional(),
-});
-
-export const uploadHoldRequestSchema = z.object({
-  protocolVersion: mailProtocolVersionSchema,
-  requestId: z.string().min(1).max(128),
-  session: accountSessionSchema,
-  held: z.boolean(),
 });
 
 export function mailHttpErrorResponse(input: {

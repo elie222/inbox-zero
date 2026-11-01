@@ -16,7 +16,7 @@ export default function AppSignInErrorPage() {
         description="Return to the app and start sign-in again. If you're using Inbox Zero Desktop and this keeps happening, install the latest version."
         button={
           <Button asChild>
-            <Link href="/desktop">Get the latest desktop app</Link>
+            <Link href="/download">Get the latest desktop app</Link>
           </Button>
         }
       />

@@ -185,7 +185,6 @@ async function seedAccount(
       subject: accountId,
       editableHtml: `<p>${accountId}</p>`,
       quotedHtml: "",
-      attachmentIds: [],
     },
   });
   if (!options?.pendingWork) return;

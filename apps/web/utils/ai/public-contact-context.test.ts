@@ -74,9 +74,9 @@ describe("getPublicContactContext", () => {
     });
     getWebSearchConfigMock.mockReturnValue({
       providerName: "OpenRouter",
-      tools: { web_search: { type: "provider" } },
-      providerOptions: { openrouter: { max_tool_calls: 1 } },
-      toolChoice: "required",
+      providerOptions: {
+        openrouter: { plugins: [{ id: "web", max_results: 5 }] },
+      },
     });
     generateTextMock.mockResolvedValue({ output: { context: getContext() } });
   });
@@ -139,9 +139,9 @@ describe("getPublicContactContext", () => {
     expect(request.prompt).not.toContain("owner@inboxzero.com");
     expect(request.instructions).toContain("Do not include any email address");
     expect(request.providerOptions).toEqual({
-      openrouter: { max_tool_calls: 1 },
+      openrouter: { plugins: [{ id: "web", max_results: 5 }] },
     });
-    expect(request.toolChoice).toBe("required");
+    expect(request.toolChoice).toBeUndefined();
     expect(storePublicContactContextMock).toHaveBeenCalledWith({
       email: "john@acme.com",
       context,

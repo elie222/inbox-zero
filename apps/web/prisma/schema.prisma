@@ -7,6 +7,7 @@ generator client {
   output                 = "../generated/prisma"
   generatedFileExtension = "ts"
   importFileExtension    = "ts"
+  previewFeatures        = ["partialIndexes"]
 }
 
 // Account, User, Session, and VerificationToken based on: https://authjs.dev/reference/adapter/prisma
@@ -71,6 +72,7 @@ model User {
 
   // additional fields
   completedOnboardingAt   DateTime? // questions about the user. e.g. their role
+  signupIntent            SignupIntent? // which part of the product the user signed up for
   onboardingAnswers       Json?
   lastLogin               DateTime?
   utms                    Json?
@@ -130,6 +132,12 @@ model User {
   scimIdentityLinks      ScimIdentityLink[]
 }
 
+enum SignupIntent {
+  AI_ASSISTANT
+  MAIL_CLIENT
+  BOTH
+}
+
 enum ApiKeyScope {
   STATS_READ
   RULES_READ
@@ -150,9 +158,13 @@ model EmailAccount {
   name  String? // Name associated with the Google account
   image String? // Profile image URL from the Google account
 
+  sortOrder Int? // Position in the user's account switcher; null sorts last, by createdAt
+
   about                          String?
   writingStyle                   String?
   signature                      String? // User's email signature from provider or manually set
+  sentSignatureScan              Json? // signatures found in recent sent mail, see utils/email/signature-suggestions.ts
+  sentSignatureScannedAt         DateTime?
   includeReferralSignature       Boolean   @default(false)
   includeSentWithSignature       Boolean   @default(true) // "Sent with <brand>" footer on emails sent from the mail client
   sentMessageOpenTrackingEnabled Boolean   @default(true) // show when sent mail-client emails are opened
@@ -165,6 +177,7 @@ model EmailAccount {
   role                           String? // the role confirmed by the user - previously `User.surveyRole`
   timezone                       String? // User's timezone (IANA tz database format, e.g., "America/Los_Angeles", "Asia/Jerusalem") - handles DST automatically
   calendarBookingLink            String? // User's calendar booking link
+  draftDocsUrls                  String[]  @default([]) // Public docs sites (origin + optional path prefix) that drafts may look things up in
 
   statsEmailFrequency       Frequency            @default(WEEKLY)
   summaryEmailFrequency     Frequency            @default(WEEKLY)
@@ -227,6 +240,7 @@ model EmailAccount {
   emailTokens         EmailToken[]
   knowledge           Knowledge[]
   snippets            Snippet[]
+  emailSignatures     EmailSignature[]
   replyMemories       ReplyMemory[]
   chats               Chat[]
   chatMemories        ChatMemory[]
@@ -835,6 +849,7 @@ model ExecutedRule {
   @@index([emailAccountId, status, createdAt])
   @@index([emailAccountId, createdAt])
   @@index([emailAccountId, id])
+  @@index([emailAccountId, updatedAt, id])
   @@index([ruleId])
 }
 
@@ -889,6 +904,7 @@ model ExecutedAction {
   @@index([executionStatus, createdAt])
   @@index([sentMessageIds], type: Gin)
   @@index([messagingChannelId, createdAt])
+  @@index([draftStatus, createdAt], map: "ExecutedAction_draftStatus_createdAt_draft_idx", where: raw("\"draftId\" IS NOT NULL"))
 }
 
 model ScheduledAction {
@@ -967,6 +983,8 @@ model ScheduledEmail {
   reminderStartedAt   DateTime?
   // A just-sent email the server holds for the undo window, not one the user scheduled.
   heldForUndo         Boolean              @default(false)
+  // The mailbox draft's saved copies, which the thread hides while the send is pending.
+  draftMessageIds     String[]             @default([])
 
   @@unique([emailAccountId, clientMutationId])
   @@index([status, sendAt])
@@ -1003,7 +1021,6 @@ model EmailSendOperation {
   status              EmailSendOperationStatus @default(PROCESSING)
   processingStartedAt DateTime                 @default(now())
   result              Json?
-  attachmentIds       String[]                 @default([])
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
@@ -1294,6 +1311,20 @@ model Snippet {
 
   @@unique([emailAccountId, shortcut])
   @@index([emailAccountId])
+}
+
+// Signatures to choose from in compose besides the account's default `EmailAccount.signature`.
+model EmailSignature {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  name      String
+  html      String
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([emailAccountId, name])
 }
 
 model ReplyMemory {
@@ -2144,6 +2175,7 @@ enum MobilePushPlatform {
 enum MobilePushTokenType {
   EXPO @map("expo")
   APNS @map("apns")
+  FCM  @map("fcm")
 }
 
 enum ActionType {
@@ -2213,6 +2245,7 @@ enum DraftEmailStatus {
   REPLIED_WITHOUT_DRAFT
   CLEANED_UP_UNUSED
   MISSING_FROM_PROVIDER
+  USER_EDITED
 }
 
 enum ReplyMemoryKind {
@@ -2852,4 +2885,31 @@ model ScimIdentityLink {
 
   @@unique([connectionId, externalId])
   @@index([userId])
+}
+
+// Loops includes loopName and campaignName only on *.email.sent webhooks.
+// Later engagement events identify the same email by id, so the name is remembered here.
+model LoopsEmailSource {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Shared by every recipient of one sent version of a workflow or campaign email.
+  emailMessageId String? @unique
+
+  loopId       String?
+  loopName     String?
+  campaignId   String?
+  campaignName String?
+  sourceType   String?
+  // When this send happened in Loops. Name fallback uses this, so a retry of an
+  // older send cannot outrank a newer version.
+  eventTime    DateTime?
+
+  // One unversioned row per workflow or campaign, so a name learned without an
+  // email version cannot overwrite a version-specific row.
+  @@unique([loopId], map: "LoopsEmailSource_loopId_unversioned_key", where: { emailMessageId: null, loopId: { not: null } })
+  @@unique([campaignId], map: "LoopsEmailSource_campaignId_unversioned_key", where: { emailMessageId: null, campaignId: { not: null } })
+  @@index([loopId])
+  @@index([campaignId])
 }

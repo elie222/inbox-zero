@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/utils";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 
 export function PersonalSignatureSetting() {
@@ -169,7 +170,7 @@ function SignatureDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <Button
               variant="outline"
               onClick={handleLoadFromProvider}
@@ -184,7 +185,7 @@ function SignatureDialog({
                 value={selectedSignature}
                 onValueChange={handleSelectSignature}
               >
-                <SelectTrigger className="w-[250px]">
+                <SelectTrigger className="w-full sm:w-[250px]">
                   <SelectValue placeholder="Select signature" />
                 </SelectTrigger>
                 <SelectContent>
@@ -199,7 +200,7 @@ function SignatureDialog({
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="signature">Signature (HTML supported)</Label>
               <Textarea
@@ -232,7 +233,13 @@ function SignatureDialog({
   );
 }
 
-function SignaturePreview({ signature }: { signature: string }) {
+export function SignaturePreview({
+  signature,
+  className,
+}: {
+  signature: string;
+  className?: string;
+}) {
   const previewHtml = `
     <!DOCTYPE html>
     <html>
@@ -258,7 +265,10 @@ function SignaturePreview({ signature }: { signature: string }) {
       title="Signature Preview"
       sandbox="allow-same-origin"
       srcDoc={previewHtml}
-      className="min-h-[200px] w-full rounded-md border border-input bg-muted/50"
+      className={cn(
+        "min-h-[200px] w-full rounded-md border border-input bg-muted/50",
+        className,
+      )}
     />
   );
 }

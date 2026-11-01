@@ -52,7 +52,6 @@ const defaultLlmsEnv = z.preprocess(
 const parsedEnv = createEnv({
   server: {
     NODE_ENV: z.enum(["development", "production", "test"]),
-    MAIL_UPLOAD_DIR: z.string().min(1).optional(),
     INBOX_ZERO_ENV_FILE: z.string().optional(),
     DATABASE_URL: z.string().url(),
     DATABASE_URL_UNPOOLED: z.string().url().optional(),
@@ -184,6 +183,7 @@ const parsedEnv = createEnv({
     PERPLEXITY_API_KEY: z.string().optional(),
     OLLAMA_BASE_URL: z.string().optional(),
     OLLAMA_MODEL: z.string().optional(),
+    LOCAL_LLM_THINKING: z.enum(["off", "on", "auto"]).default("auto"),
     OPENAI_COMPATIBLE_BASE_URL: z.string().optional(),
     OPENAI_COMPATIBLE_MODEL: z.string().optional(),
     OPENAI_COMPATIBLE_AUTH_HEADER: z
@@ -291,6 +291,10 @@ const parsedEnv = createEnv({
     // `fake` records sends in memory instead of contacting Apple. Emulator only.
     APNS_TRANSPORT: z.enum(["apns", "fake"]).optional(),
 
+    FCM_SERVICE_ACCOUNT_JSON: z.string().min(1).optional(),
+    FCM_PROJECT_ID: z.string().min(1).optional(),
+    FCM_TRANSPORT: z.enum(["fcm", "fake"]).optional(),
+
     TINYBIRD_TOKEN: z.string().optional(),
     TINYBIRD_DELETE_TOKEN: z.string().optional(),
     TINYBIRD_BASE_URL: z.string().default("https://api.us-east.tinybird.co/"),
@@ -303,6 +307,7 @@ const parsedEnv = createEnv({
     POSTHOG_FEEDBACK_SURVEY_QUESTION_ID: z.string().optional(),
     POSTHOG_LLM_EVALS_APPROVED_EMAILS: z.string().optional(),
     FEEDBACK_WEBHOOK_URL: z.string().url().optional(),
+    SALES_INQUIRY_WEBHOOK_URL: z.string().url().optional(),
 
     RECALL_API_KEY: z.string().optional(),
     RECALL_WEBHOOK_SECRET: z.string().optional(),
@@ -358,6 +363,8 @@ const parsedEnv = createEnv({
       .optional(),
     // Whether users who haven't chosen get the decision model; otherwise opt-in
     DEFAULT_DECISION_MODEL_ENABLED: booleanString.optional().default(false),
+    // Also use the decision model for cold email detection; otherwise the LLM decides
+    DECISION_MODEL_COLD_EMAIL_ENABLED: booleanString.optional().default(false),
     TYPESAFE_API_KEY: z.string().optional(),
     IMAGE_PROXY_SIGNING_SECRET: z.string().min(16).optional(),
     // Set to true on the server that acts as the OAuth proxy (e.g., staging)
@@ -462,6 +469,7 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_SLACK_BOT_NAME: z.string().trim().min(1).default("Inbox Zero"),
     NEXT_PUBLIC_SELF_HOSTED_LOGIN_FOOTER_TEXT: z.string().optional(),
     NEXT_PUBLIC_CONTACTS_ENABLED: booleanString.optional().default(false),
+    NEXT_PUBLIC_COOKIE_CONSENT_ENABLED: booleanString.optional().default(false),
     NEXT_PUBLIC_MAIL_ENGINE_TEST_INSPECT: booleanString
       .optional()
       .default(false),
@@ -576,6 +584,8 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_SELF_HOSTED_LOGIN_FOOTER_TEXT:
       process.env.NEXT_PUBLIC_SELF_HOSTED_LOGIN_FOOTER_TEXT,
     NEXT_PUBLIC_CONTACTS_ENABLED: process.env.NEXT_PUBLIC_CONTACTS_ENABLED,
+    NEXT_PUBLIC_COOKIE_CONSENT_ENABLED:
+      process.env.NEXT_PUBLIC_COOKIE_CONSENT_ENABLED,
     NEXT_PUBLIC_MAIL_ENGINE_TEST_INSPECT:
       process.env.NEXT_PUBLIC_MAIL_ENGINE_TEST_INSPECT,
     NEXT_PUBLIC_GMAIL_OTHER_CONTACTS_ENABLED:

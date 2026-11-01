@@ -1,5 +1,6 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import { describe, expect, it, vi } from "vitest";
+import PostalMime from "postal-mime";
 import type { ParsedMessage } from "@/utils/types";
 import { parseMessage } from "@/utils/gmail/message";
 import { formatEmailDate } from "@/utils/email/reply-quote";
@@ -7,7 +8,9 @@ import { formatEmailDate } from "@/utils/email/reply-quote";
 import {
   buildReplyMessageText,
   createMail,
+  draftEmail,
   forwardEmail,
+  replyToEmail,
   convertTextToHtmlParagraphs,
   stripHtmlTagsForPlainText,
 } from "@/utils/gmail/mail";
@@ -203,6 +206,89 @@ it.each([
   }
 });
 
+describe("replyToEmail", () => {
+  it("adds CC and BCC recipients to the sent reply", async () => {
+    const send = vi.fn().mockResolvedValue({ data: { id: "sent-1" } });
+    const gmail = {
+      users: { messages: { send } },
+    } as unknown as gmail_v1.Gmail;
+
+    await replyToEmail(
+      gmail,
+      {
+        threadId: "thread-1",
+        headers: {
+          from: "sender@example.com",
+          to: "owner@example.com",
+          subject: "Question",
+          date: "2026-01-01",
+          "message-id": "<original@example>",
+        },
+        textPlain: "Original",
+        textHtml: "<p>Original</p>",
+      },
+      "Thanks",
+      "owner@example.com",
+      { cc: "manager@example.com", bcc: "archive@example.com" },
+    );
+
+    const raw = Buffer.from(
+      send.mock.calls[0][0].requestBody.raw,
+      "base64url",
+    ).toString("utf8");
+    expect(raw).toContain("To: sender@example.com");
+    expect(raw).toContain("Cc: manager@example.com");
+    expect(raw).toContain("Bcc: archive@example.com");
+  });
+});
+
+describe("draftEmail", () => {
+  it("keeps a multiline HTML signature free of inserted line breaks", async () => {
+    const create = vi.fn().mockResolvedValue({ data: { id: "draft-1" } });
+    const gmail = {
+      users: { drafts: { create } },
+    } as unknown as gmail_v1.Gmail;
+    const signature = `<table cellpadding="0" cellspacing="0">
+  <tr>
+    <td>
+      <div>Gmail User</div>
+    </td>
+  </tr>
+</table>`;
+
+    await draftEmail(
+      gmail,
+      {
+        id: "message-1",
+        threadId: "thread-1",
+        headers: {
+          from: "sender@example.com",
+          to: "owner@example.com",
+          subject: "Question",
+          date: "2026-01-01",
+          "message-id": "<original@example>",
+        },
+        textPlain: "Original",
+        textHtml: "<p>Original</p>",
+      } as Parameters<typeof draftEmail>[1],
+      {
+        content: `Thanks for the update.\n\n<div class="gmail_signature">${signature}</div>`,
+      },
+      "owner@example.com",
+    );
+
+    const parsed = await PostalMime.parse(
+      Buffer.from(create.mock.calls[0][0].requestBody.message.raw, "base64url"),
+    );
+    const html = parsed.html || "";
+
+    expect(html).toContain("Thanks for the update.<br><br>");
+    expect(html).toContain("<div>Gmail User</div>");
+    expect(html).not.toMatch(/<(table|tbody|tr|td)[^>]*>\s*<br>/);
+    expect(parsed.text).toMatch(/Thanks for the update\.\n+Gmail User/);
+  });
+});
+
 vi.mock("@/utils/mail", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/utils/mail")>()),
   ensureEmailSendingEnabled: vi.fn(),
@@ -267,7 +353,7 @@ describe("convertTextToHtmlParagraphs", () => {
     });
 
     expect(plainText).toContain(
-      "Use the login page [https://example.com/login]",
+      "Use the login page <https://example.com/login>",
     );
     expect(plainText).toContain("Best regards,\nJohn");
     const quotedHeader = `\n\nOn ${formatEmailDate(new Date(message.headers.date))}, John Doe <john@example.com> wrote:\n\n`;

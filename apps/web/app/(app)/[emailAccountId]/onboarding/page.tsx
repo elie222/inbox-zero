@@ -3,16 +3,14 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { Onboarding } from "@/app/(app)/[emailAccountId]/onboarding/Onboarding";
+import { PermissionsCheck } from "@/app/(app)/[emailAccountId]/PermissionsCheck";
 import {
   ConversionAnalyticsScript,
   ConversionQueryParamEvents,
 } from "@/components/ConversionAnalytics";
-import { PAYWALL_FIRST_UPGRADE_PATH } from "@/app/(app)/[emailAccountId]/onboarding/onboardingFlow";
-import { shouldShowPaywallFirst } from "@/app/(app)/[emailAccountId]/onboarding/paywallFirst";
 import { registerUtmTracking } from "@/app/(landing)/welcome/utms";
 import { auth } from "@/utils/auth";
 import prisma from "@/utils/prisma";
-import { isPremiumRecord, premiumEntitlementSelect } from "@/utils/premium";
 import { BRAND_NAME, getBrandTitle } from "@/utils/branding";
 
 export const maxDuration = 300;
@@ -28,7 +26,6 @@ export default async function OnboardingPage(props: {
   searchParams: Promise<{
     step?: string | string[];
     force?: string | string[];
-    paywallFirst?: string | string[];
   }>;
 }) {
   const [searchParams, { emailAccountId }, cookieStore] = await Promise.all([
@@ -38,7 +35,6 @@ export default async function OnboardingPage(props: {
   ]);
   const step = getSingleSearchParamValue(searchParams.step);
   const force = getSingleSearchParamValue(searchParams.force);
-  const paywallFirst = getSingleSearchParamValue(searchParams.paywallFirst);
 
   const authPromise = auth();
   const utmValues = registerUtmTracking({ authPromise, cookieStore });
@@ -51,32 +47,19 @@ export default async function OnboardingPage(props: {
   const user = session?.user
     ? await prisma.user.findUnique({
         where: { id: session.user.id },
-        select: {
-          email: true,
-          premium: { select: premiumEntitlementSelect },
-        },
+        select: { signupIntent: true },
       })
     : null;
 
-  if (
-    user &&
-    (await shouldShowPaywallFirst({
-      email: user.email,
-      isPremium: isPremiumRecord(user.premium),
-      forced: paywallFirst,
-    }))
-  ) {
-    redirect(PAYWALL_FIRST_UPGRADE_PATH);
-  }
-
   return (
     <>
+      <PermissionsCheck />
       <Suspense>
         <ConversionQueryParamEvents />
       </Suspense>
       <ConversionAnalyticsScript />
       <Suspense>
-        <Onboarding step={step} />
+        <Onboarding step={step} signupIntent={user?.signupIntent ?? null} />
       </Suspense>
     </>
   );

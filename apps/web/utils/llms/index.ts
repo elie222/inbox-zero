@@ -38,6 +38,7 @@ import {
   isAnthropicInsufficientBalanceError,
   isContentFilterRefusal,
   isIncorrectAPIKeyError,
+  isGeminiSpendingCapError,
   isInsufficientCreditsError,
   isInvalidAIModelError,
   type LlmRepairMetadata,
@@ -64,7 +65,10 @@ import {
   shouldForceNanoModel,
 } from "@/utils/llms/model-usage-guard";
 import { Provider } from "@/utils/llms/config";
-import { createClaudeCodeLanguageModelWithBridgedTools } from "@/utils/llms/cli-provider";
+import {
+  createCliLanguageModelWithTools,
+  supportsCliToolBridge,
+} from "@/utils/llms/cli-provider";
 import {
   appendOllamaOnlySystemGuidance,
   OLLAMA_STRUCTURED_OUTPUT_GUIDANCE,
@@ -93,11 +97,11 @@ const logger = createScopedLogger("llms");
 
 const MAX_LOG_LENGTH = 200;
 
-// The Claude Code CLI provider drops AI SDK tools at the LanguageModelV4
-// boundary. Route tool-bearing calls through the package's MCP bridge so the
-// CLI can execute them locally; clear `tools` so the AI SDK does not also try
-// to drive them. No-op for every other provider and for tool-less calls.
-async function bridgeClaudeCodeToolsIfNeeded<T extends Record<string, Tool>>({
+// CLI providers drop AI SDK tools at the LanguageModelV4 boundary. Route
+// tool-bearing calls through the CLI's tool bridge so it can execute them
+// locally; clear `tools` so the AI SDK does not also try to drive them. No-op
+// for providers without a bridge and for tool-less calls.
+async function bridgeCliToolsIfNeeded<T extends Record<string, Tool>>({
   provider,
   modelName,
   model,
@@ -114,8 +118,7 @@ async function bridgeClaudeCodeToolsIfNeeded<T extends Record<string, Tool>>({
   tools: T | undefined;
   bridged: boolean;
 }> {
-  if (provider !== Provider.CLAUDE_CODE)
-    return { model, tools, bridged: false };
+  if (!supportsCliToolBridge(provider)) return { model, tools, bridged: false };
   if (!tools || Object.keys(tools).length === 0) {
     return { model, tools, bridged: false };
   }
@@ -133,7 +136,8 @@ async function bridgeClaudeCodeToolsIfNeeded<T extends Record<string, Tool>>({
     return { model, tools: undefined, bridged: true };
   }
 
-  const bridged = await createClaudeCodeLanguageModelWithBridgedTools({
+  const bridged = await createCliLanguageModelWithTools({
+    provider,
     modelName,
     tools: toolsToBridge as unknown as Record<
       string,
@@ -340,7 +344,7 @@ export function createGenerateText({
         emailAccountId: emailAccount.id,
       });
 
-      const bridged = await bridgeClaudeCodeToolsIfNeeded({
+      const bridged = await bridgeCliToolsIfNeeded({
         provider: candidate.provider,
         modelName: candidate.modelName,
         model: candidate.model,
@@ -790,7 +794,7 @@ export async function chatCompletionStream(
       userId,
       emailAccountId,
     });
-    const bridgedChat = await bridgeClaudeCodeToolsIfNeeded({
+    const bridgedChat = await bridgeCliToolsIfNeeded({
       provider: candidate.provider,
       modelName: candidate.modelName,
       model: candidate.model,
@@ -946,7 +950,7 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
       userId,
       emailAccountId,
     });
-    const bridgedAgent = await bridgeClaudeCodeToolsIfNeeded({
+    const bridgedAgent = await bridgeCliToolsIfNeeded({
       provider: candidate.provider,
       modelName: candidate.modelName,
       model: candidate.model,
@@ -1194,33 +1198,46 @@ async function handleError(
   modelName: string,
   hasUserApiKey: boolean,
 ) {
-  const apiError = getAIApiCallError(error);
-  const isUserKeyInsufficientCredits =
-    hasUserApiKey && !!apiError && isInsufficientCreditsError(apiError);
+  const apiError = hasUserApiKey ? getAIApiCallError(error) : null;
+  // Only the user's own key or model can be misconfigured in a way they fix.
+  // On our key the same failures are operator problems, so they stay errors
+  // and reach Sentry.
+  const isUserModelUnavailable =
+    !!apiError &&
+    // Model calls only 404 when the model (or the endpoint serving it) is
+    // gone, e.g. retired OpenRouter and Gemini models.
+    (apiError.statusCode === 404 || isInvalidAIModelError(apiError));
+  const isUserOutOfCredits =
+    !!apiError &&
+    (isInsufficientCreditsError(apiError) ||
+      isGeminiSpendingCapError(apiError) ||
+      isAnthropicInsufficientBalanceError(apiError));
+  const isUserAiConfigError =
+    !!apiError &&
+    (isIncorrectAPIKeyError(apiError) ||
+      isAPIKeyDeactivatedError(apiError) ||
+      isUserModelUnavailable ||
+      isUserOutOfCredits);
 
-  if (isUserKeyInsufficientCredits) {
-    logger.warn("User API key has insufficient credits", {
-      userId,
-      emailAccountId,
-      label,
-      modelName,
-    });
+  const logContext = {
+    error,
+    userId,
+    userEmail,
+    emailAccountId,
+    label,
+    modelName,
+  };
+  if (isUserAiConfigError) {
+    logger.warn("Error in LLM call", logContext);
   } else {
-    logger.error("Error in LLM call", {
-      error,
-      userId,
-      userEmail,
-      emailAccountId,
-      label,
-      modelName,
-    });
+    logger.error("Error in LLM call", logContext);
   }
 
   const notifyUser = async (
     errorType: PersistedErrorType,
     errorMessage: string,
   ) => {
-    if (hasUserApiKey) markAsHandledUserKeyError(error);
+    markAsHandledUserKeyError(error);
     await addUserErrorMessageWithNotification({
       userId,
       userEmail,
@@ -1231,38 +1248,34 @@ async function handleError(
     });
   };
 
-  if (APICallError.isInstance(error)) {
-    if (isIncorrectAPIKeyError(error)) {
-      return await notifyUser(
-        ErrorType.INCORRECT_API_KEY,
-        "Your AI API key is invalid. Please update it in your settings.",
-      );
-    }
-
-    if (isInvalidAIModelError(error)) {
-      await notifyUser(
-        ErrorType.INVALID_AI_MODEL,
-        "The AI model you specified does not exist or is unavailable. Please check your settings.",
-      );
-      throw new SafeError(
-        "The AI model you specified does not exist or is unavailable. Please update your AI settings.",
-      );
-    }
-
-    if (isAPIKeyDeactivatedError(error)) {
-      return await notifyUser(
-        ErrorType.API_KEY_DEACTIVATED,
-        "Your AI API key has been deactivated. Please update it in your settings.",
-      );
-    }
+  if (apiError && isIncorrectAPIKeyError(apiError)) {
+    return await notifyUser(
+      ErrorType.INCORRECT_API_KEY,
+      "Your AI API key is invalid. Please update it in your settings.",
+    );
   }
 
-  // Exhausted balances can arrive as retryable 429s, so look beneath retries.
-  if (
-    apiError &&
-    (isAnthropicInsufficientBalanceError(apiError) ||
-      (isInsufficientCreditsError(apiError) && hasUserApiKey))
-  ) {
+  if (isUserModelUnavailable) {
+    await notifyUser(
+      ErrorType.INVALID_AI_MODEL,
+      "The AI model you specified does not exist or is unavailable. Please check your settings.",
+    );
+    const safeError = new SafeError(
+      "The AI model you specified does not exist or is unavailable. Please update your AI settings.",
+    );
+    markAsHandledUserKeyError(safeError);
+    throw safeError;
+  }
+
+  if (apiError && isAPIKeyDeactivatedError(apiError)) {
+    return await notifyUser(
+      ErrorType.API_KEY_DEACTIVATED,
+      "Your AI API key has been deactivated. Please update it in your settings.",
+    );
+  }
+
+  // Exhausted balances can arrive as retryable 429s, which apiError unwraps.
+  if (isUserOutOfCredits) {
     return await notifyUser(
       ErrorType.INSUFFICIENT_CREDITS,
       "Your AI provider account has insufficient credits. Please add credits or update your API key in settings.",

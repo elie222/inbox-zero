@@ -208,17 +208,6 @@ describe("getEmailListPrompt", () => {
     expect(mockStringifyEmail).not.toHaveBeenCalled();
   });
 
-  it("should pass messageMaxLength parameter correctly", () => {
-    const messages = [getEmail()];
-    const messageMaxLength = 250;
-
-    mockStringifyEmail.mockReturnValue("Short email");
-
-    getEmailListPrompt({ messages, messageMaxLength });
-
-    expect(mockStringifyEmail).toHaveBeenCalledWith(messages[0], 250);
-  });
-
   it("should return all messages when maxMessages is not provided", () => {
     const messages = [getEmail(), getEmail(), getEmail()];
     const messageMaxLength = 1000;

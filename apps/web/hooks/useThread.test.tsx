@@ -21,6 +21,11 @@ vi.mock("@/providers/EmailAccountProvider", () => ({
   useAccount: () => ({ emailAccountId: "account" }),
 }));
 
+const mockDemand = vi.hoisted(() => vi.fn());
+vi.mock("@/utils/mail-engine/MailEngineHost", () => ({
+  useMailEngineDemand: mockDemand,
+}));
+
 describe("useThread", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -177,6 +182,14 @@ describe("useThread", () => {
       }),
     );
     expect(result.current.isLoading).toBe(false);
+  });
+
+  it("demands the mail engine only when a thread id is provided", () => {
+    renderHook(() => useThread({ id: null }));
+    expect(mockDemand).toHaveBeenCalledWith(false);
+
+    renderHook(() => useThread({ id: "c-1" }));
+    expect(mockDemand).toHaveBeenCalledWith(true);
   });
 });
 

@@ -12,12 +12,15 @@ import { isAdmin } from "@/utils/admin";
 import {
   captureException,
   EMAIL_PROVIDER_RATE_LIMIT_MESSAGE,
+  GMAIL_SERVICE_UNAVAILABLE_MESSAGE,
+  isGmailServiceUnavailableError,
   SafeError,
   UNEXPECTED_ACTION_ERROR_MESSAGE,
 } from "@/utils/error";
 import { env } from "@/env";
 import { runWithAuditContext, setAuditContext } from "@/utils/audit/context";
 import { isEmailProviderRateLimitError } from "@/utils/email/is-provider-rate-limit-error";
+import { isGoogleProvider } from "@/utils/email/provider-types";
 
 const baseClient = createSafeActionClient({
   defineMetadataSchema() {
@@ -48,10 +51,17 @@ const baseClient = createSafeActionClient({
       error,
       provider: context?.provider,
     });
+    const isGmailUnavailable =
+      isGoogleProvider(context?.provider) &&
+      isGmailServiceUnavailableError(error);
 
     // Expected user-facing rejections are shown to the client and never sent
     // to Sentry.
-    if (error instanceof SafeError || isProviderRateLimit) {
+    if (
+      error instanceof SafeError ||
+      isProviderRateLimit ||
+      isGmailUnavailable
+    ) {
       logger.warn("Server action error:", {
         metadata,
         bindArgsClientInputs,
@@ -77,6 +87,7 @@ const baseClient = createSafeActionClient({
       console.error("Error in server action", error);
     }
     if (isProviderRateLimit) return EMAIL_PROVIDER_RATE_LIMIT_MESSAGE;
+    if (isGmailUnavailable) return GMAIL_SERVICE_UNAVAILABLE_MESSAGE;
     if (error instanceof SafeError) return error.message;
 
     captureException(error, {

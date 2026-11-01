@@ -49,6 +49,7 @@ export function createMockEmailProvider(
     // Message operations
     getMessage: vi.fn().mockResolvedValue(defaultMessage),
     getMessageByRfc822MessageId: vi.fn().mockResolvedValue(null),
+    getMessageSource: vi.fn().mockResolvedValue(Buffer.from("")),
     getMessagesBatch: vi.fn().mockResolvedValue([defaultMessage]),
     getOriginalMessage: vi.fn().mockResolvedValue(null),
 
@@ -178,6 +179,7 @@ export function createMockEmailProvider(
     isReplyInThread: vi.fn().mockReturnValue(false),
     isSentMessage: vi.fn().mockReturnValue(false),
     getOrCreateFolderIdByName: vi.fn().mockResolvedValue("folder-123"),
+    getSendAsAddresses: vi.fn().mockResolvedValue([]),
     getSignatures: vi.fn().mockResolvedValue([]),
     getInboxStats: vi.fn().mockResolvedValue({ total: 0, unread: 0 }),
 

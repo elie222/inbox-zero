@@ -116,7 +116,7 @@ function DeliveryTimePicker({
         if (!nextOpen) setShowCustom(false);
       }}
     >
-      <Tooltip shortcuts={[shortcut]}>
+      <Tooltip shortcuts={[shortcut]} showShortcutLabels={!!value}>
         <PopoverTrigger asChild>
           <Button
             type="button"

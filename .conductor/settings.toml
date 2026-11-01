@@ -10,5 +10,11 @@ default = true
 icon = "play"
 
 [scripts.run.evals]
-command = "EVAL_MODELS=deepseek-v4-flash-azure EVAL_RESULT_CACHE=readwrite pnpm --filter inbox-zero-ai test-ai __tests__/eval"
+command = "EVAL_RESULT_CACHE=readwrite pnpm --filter inbox-zero-ai test-ai __tests__/eval"
 icon = "flask-conical"
+
+[prompts]
+rename_branch = """
+Name the branch after the type of change in generic terms, e.g. fix/mail-sync-starvation.
+This repository is public: never include email addresses, names of people (including the user), usernames, company or customer names, domains, account IDs, or wording copied from emails, logs, or documents in the request. Describe the bug class instead.
+"""

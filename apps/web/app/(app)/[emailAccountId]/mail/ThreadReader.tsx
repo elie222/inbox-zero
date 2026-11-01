@@ -24,9 +24,11 @@ import { getSWRFetchErrorMessage } from "@/providers/swr-error";
 import { Button } from "@/components/ui/button";
 import type { EmailLabels } from "@/providers/email-label-types";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { useHiddenDraftMessageIds } from "@/hooks/useHiddenDraftMessageIds";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
 import { PublisherDiscussion } from "@/components/team-comments/PublisherDiscussion";
 import type { OutgoingThreadMessage } from "@/utils/mail-engine/conversation-thread";
+import { getConversationSubject } from "@/utils/email/subject";
 
 const SenderContextPanel = dynamic(
   () =>
@@ -125,8 +127,13 @@ export function ThreadReader({
     senderName: string;
   } | null>(null);
   const [readerRef, readerWidth] = useElementWidth();
-  const headerMessage = thread?.messages.at(-1) ?? messages.at(-1);
   const { emailAccountId } = useAccount();
+  const hiddenDraftMessageIds = useHiddenDraftMessageIds(emailAccountId);
+  const headerMessage =
+    latestShownMessage(thread?.messages ?? [], hiddenDraftMessageIds) ??
+    latestShownMessage(messages, hiddenDraftMessageIds) ??
+    thread?.messages.at(-1) ??
+    messages.at(-1);
   const translation = useThreadTranslation(
     emailAccountId,
     headerMessage?.threadId,
@@ -188,7 +195,11 @@ export function ThreadReader({
       onBackToInbox={onBackToInbox}
       onRemoveLabel={onRemoveLabel}
       subject={
-        translatedSubject ?? headerMessage?.headers.subject ?? "Conversation"
+        translatedSubject ??
+        getConversationSubject(
+          thread?.messages.length ? thread.messages : messages,
+        ) ??
+        "Conversation"
       }
     />
   );
@@ -314,4 +325,15 @@ function useElementWidth() {
   }, []);
 
   return [ref, width] as const;
+}
+
+// A draft that a pending send stands in for isn't shown, so it doesn't title
+// the thread either.
+function latestShownMessage<T extends { id: string }>(
+  messages: T[],
+  hiddenDraftMessageIds: string[],
+) {
+  return messages.findLast(
+    (message) => !hiddenDraftMessageIds.includes(message.id),
+  );
 }

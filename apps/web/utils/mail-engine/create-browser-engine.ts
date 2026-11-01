@@ -1,32 +1,19 @@
-import {
-  createMailEngine,
-  createHostRuntime,
-  type MailEngine,
-  type WorkAdmission,
-} from "@inboxzero/mail-core/engine";
-import { createSqliteMailStore } from "@inboxzero/mail-sqlite/store";
+import type { MailEngine, WorkAdmission } from "@inboxzero/mail-core/engine";
 import type {
   MailboxView,
   QueryHandle,
   QuerySnapshot,
 } from "@inboxzero/mail-core/queries";
-import { createMailHttpRequest } from "@/utils/mail-engine/http";
-import { createRoutedBackendAdapter } from "@inboxzero/mail-core/protocol/routed-backend-adapter";
-import { createWasmSqliteDriver } from "@/utils/mail-engine/wasm-sqlite";
 import {
-  browserMailEngineCapabilities,
   pageConnectivityOnline,
   readPageMaxPendingOperations,
   requestSyncUnlessOffline,
-  shouldReleaseDeferredOnStart,
   type BrowserEngineStart,
   type WorkerObserveKind,
   type WorkerRequest,
   type WorkerResponse,
 } from "@/utils/mail-engine/worker-protocol";
-import { browserStoragePressure } from "@/utils/mail-engine/storage-pressure";
-
-export { browserMailEngineCapabilities };
+import { MailEngineStartupError } from "./startup-error";
 
 export type BrowserMailEngine = MailEngine & {
   ensureAccount(input: {
@@ -39,90 +26,40 @@ export type BrowserMailEngine = MailEngine & {
 export async function createBrowserMailEngine(
   input: BrowserEngineStart,
 ): Promise<BrowserMailEngine> {
-  const start: BrowserEngineStart = {
-    ...input,
-    maxPendingOperations:
-      input.maxPendingOperations ?? readPageMaxPendingOperations(),
-  };
-  if (browserMailEngineCapabilities().worker) {
+  // A failed SAH pool installation is cached by SQLite. Retry in a fresh
+  // worker so partial pools and their handles cannot survive the attempt.
+  for (let attempt = 0; ; attempt++) {
     try {
-      return await createWorkerOwnedEngine(start);
-    } catch {
-      // Dedicated workers can fail in private mode or without module workers.
-    }
-  }
-  return createInTabEngine(start);
-}
-
-async function createInTabEngine(
-  input: BrowserEngineStart,
-): Promise<BrowserMailEngine> {
-  const driver = await createWasmSqliteDriver({ persist: input.persist });
-  const runtime = createHostRuntime({
-    storagePressure: browserStoragePressure,
-  });
-  const store = await createSqliteMailStore(driver, {
-    maxPendingOperations: input.maxPendingOperations,
-    runtime,
-  });
-  const ensureAccount: BrowserMailEngine["ensureAccount"] = async (account) => {
-    await store.ensureAccount({
-      accountId: account.accountId,
-      provider: account.provider,
-      generation: account.generation ?? account.accountId,
-    });
-  };
-  await ensureAccount(input);
-  const ports = createRoutedBackendAdapter({
-    requestFor: createMailHttpRequest,
-  });
-  const engine = createMailEngine({
-    store,
-    source: ports.source,
-    executor: ports.executor,
-    assistant: ports.assistant,
-    runtime,
-    ownerId: "browser-owner",
-  });
-  if (shouldReleaseDeferredOnStart(input.online)) {
-    await engine.requestSync([input.accountId]);
-  }
-  let stopped = false;
-  const loop = (async () => {
-    while (!stopped) {
-      try {
-        await engine.runUntil(Date.now() + 2000);
-      } catch {
-        await delay(1000);
+      return await startBrowserMailEngine(input);
+    } catch (error) {
+      if (
+        !(error instanceof MailEngineStartupError) ||
+        error.stage !== "opfs-open" ||
+        !["NoModificationAllowedError", "InvalidStateError"].includes(
+          error.name,
+        ) ||
+        attempt === 7
+      ) {
+        throw error;
       }
-      await delay(250);
+      await new Promise((resolve) =>
+        setTimeout(resolve, Math.min(50 * 2 ** attempt, 1000)),
+      );
     }
-  })();
-  const originalClose = engine.close.bind(engine);
-  const originalRequestSync = engine.requestSync.bind(engine);
-  return {
-    ...engine,
-    // Local autocomplete stays off the UI thread if dedicated workers fail.
-    queryContactSuggestions: undefined,
-    ensureAccount,
-    requestSync: (accountIds) =>
-      requestSyncUnlessOffline(pageConnectivityOnline(), () =>
-        originalRequestSync(accountIds),
-      ),
-    async close() {
-      stopped = true;
-      await originalClose();
-      await loop;
-    },
-  };
+  }
 }
 
-async function createWorkerOwnedEngine(
+async function startBrowserMailEngine(
   input: BrowserEngineStart,
 ): Promise<BrowserMailEngine> {
-  const worker = new Worker(new URL("./engine-worker.ts", import.meta.url), {
-    type: "module",
-  });
+  let worker: Worker;
+  try {
+    worker = new Worker(new URL("./engine-worker.ts", import.meta.url), {
+      type: "module",
+    });
+  } catch (error) {
+    throw new MailEngineStartupError("worker-load", error);
+  }
   const pending = new Map<
     string,
     { resolve: (value: unknown) => void; reject: (error: Error) => void }
@@ -130,6 +67,7 @@ async function createWorkerOwnedEngine(
   const observations = new Map<
     string,
     {
+      queryKey: string;
       snapshot: QuerySnapshot<unknown>;
       listeners: Set<() => void>;
     }
@@ -147,35 +85,89 @@ async function createWorkerOwnedEngine(
     const waiter = pending.get(message.id);
     if (!waiter) return;
     pending.delete(message.id);
-    if (message.type === "ok") waiter.resolve(message.value);
-    else waiter.reject(new Error(message.message));
+    if (message.type === "ok") {
+      waiter.resolve(message.value);
+    } else {
+      const error = new Error(message.message);
+      error.name = message.errorName ?? "Error";
+      waiter.reject(
+        message.stage
+          ? new MailEngineStartupError(message.stage, error)
+          : error,
+      );
+    }
   });
   worker.addEventListener("error", (event) => {
     for (const waiter of pending.values()) {
-      waiter.reject(new Error(event.message || "mail engine worker failed"));
+      waiter.reject(
+        new MailEngineStartupError(
+          "worker-load",
+          new Error(event.message || "mail engine worker failed"),
+        ),
+      );
     }
     pending.clear();
   });
 
-  await request(worker, pending, {
-    id: crypto.randomUUID(),
-    type: "start",
-    input,
-  });
+  let startupTimer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      request(worker, pending, {
+        id: crypto.randomUUID(),
+        type: "start",
+        input: {
+          ...input,
+          maxPendingOperations:
+            input.maxPendingOperations ?? readPageMaxPendingOperations(),
+        },
+      }),
+      new Promise<never>((_, reject) => {
+        startupTimer = setTimeout(
+          () =>
+            reject(
+              new MailEngineStartupError(
+                "worker-start",
+                new Error("Mail engine worker startup timed out"),
+              ),
+            ),
+          30_000,
+        );
+      }),
+    ]);
+  } catch (error) {
+    worker.terminate();
+    pending.clear();
+    throw error instanceof MailEngineStartupError
+      ? error
+      : new MailEngineStartupError("worker-start", error);
+  } finally {
+    clearTimeout(startupTimer);
+  }
 
   function observe<T>(
     kind: WorkerObserveKind,
     args: unknown[],
   ): QueryHandle<T> & { handleId: string } {
     const handleId = crypto.randomUUID();
+    const queryKey = JSON.stringify([kind, args]);
+    // An identical query already being observed, such as a conversation warmed
+    // ahead of opening, has the answer the worker is about to send. Starting
+    // from it lets the new observer render without waiting for the round trip.
+    const seed = [...observations.values()].find(
+      (other) =>
+        other.queryKey === queryKey && other.snapshot.status === "ready",
+    );
     const observation = {
-      snapshot: {
-        status: "loading",
-        revision: null,
-        data: null,
-        refreshing: true,
-        error: null,
-      } satisfies QuerySnapshot<unknown>,
+      queryKey,
+      snapshot:
+        seed?.snapshot ??
+        ({
+          status: "loading",
+          revision: null,
+          data: null,
+          refreshing: true,
+          error: null,
+        } satisfies QuerySnapshot<unknown>),
       listeners: new Set<() => void>(),
     };
     observations.set(handleId, observation);
@@ -229,12 +221,6 @@ async function createWorkerOwnedEngine(
       callWorker(worker, pending, "submitConversations", [payload]),
     saveDraft: (payload) => callWorker(worker, pending, "saveDraft", [payload]),
     readDraft: (payload) => callWorker(worker, pending, "readDraft", [payload]),
-    async stageDraftAttachment(input) {
-      const bytes = await collectWorkerBytes(input.bytes);
-      return callWorker(worker, pending, "stageDraftAttachment", [
-        { ...input, bytes },
-      ]);
-    },
     submitSend: (payload) =>
       callWorker(worker, pending, "submitSend", [payload]),
     cancelOperation: (payload) =>
@@ -257,12 +243,16 @@ async function createWorkerOwnedEngine(
     runUntil: (deadlineMs) =>
       callWorker(worker, pending, "runUntil", [deadlineMs]),
     async close() {
+      let timer: ReturnType<typeof setTimeout> | undefined;
       try {
-        await request(worker, pending, {
-          id: crypto.randomUUID(),
-          type: "close",
-        });
+        await Promise.race([
+          request(worker, pending, { id: crypto.randomUUID(), type: "close" }),
+          new Promise<void>((resolve) => {
+            timer = setTimeout(resolve, 1000);
+          }),
+        ]);
       } finally {
+        clearTimeout(timer);
         // SAHPool keeps OPFS handles until the worker is gone, even if the
         // graceful close RPC fails.
         worker.terminate();
@@ -300,24 +290,4 @@ function callWorker<T>(
     method,
     args,
   }) as Promise<T>;
-}
-
-function delay(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function collectWorkerBytes(bytes: AsyncIterable<Uint8Array>) {
-  const chunks: Uint8Array[] = [];
-  let size = 0;
-  for await (const chunk of bytes) {
-    size += chunk.byteLength;
-    chunks.push(chunk);
-  }
-  const collected = new Uint8Array(size);
-  let offset = 0;
-  for (const chunk of chunks) {
-    collected.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return collected;
 }

@@ -5,6 +5,7 @@ import { withMicrosoftGraphRetry } from "@/utils/outlook/retry";
 import type { OutlookClient } from "@/utils/outlook/client";
 import { isOutlookAccessDeniedError } from "@/utils/error";
 import {
+  ContactsAccessDeniedError,
   type EmailContact,
   MAX_CONTACT_RESULTS,
   normalizeContactCandidates,
@@ -46,7 +47,9 @@ export async function searchContacts(
     ),
   ]);
 
-  if (saved.deniedError && people.deniedError) throw saved.deniedError;
+  if (saved.deniedError && people.deniedError) {
+    throw new ContactsAccessDeniedError({ cause: saved.deniedError });
+  }
 
   // Saved contacts lead because they are the address book the user curated;
   // relevance-ranked people then fill the remaining slots.
@@ -147,7 +150,10 @@ async function searchRelevantPeople(
     .select("displayName,scoredEmailAddresses,userPrincipalName");
 
   if (query) {
-    request = request.search(`"${escapeSearchValue(query)}"`);
+    // The Graph SDK does not URL-encode $search, so a raw "#" or "&" would cut the query off.
+    request = request.search(
+      encodeURIComponent(`"${escapeSearchValue(query)}"`),
+    );
   }
 
   const response: { value?: Person[] } = await withMicrosoftGraphRetry(

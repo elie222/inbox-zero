@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import { useProviderDraftAutosave } from "./useProviderDraftAutosave";
+import {
+  DraftAutosaveHaltedError,
+  useProviderDraftAutosave,
+} from "./useProviderDraftAutosave";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -129,6 +132,30 @@ it("reports repeated save failures until a save succeeds", async () => {
   unmount();
 });
 
+it("stops retrying and reports at once when a save can never succeed", async () => {
+  vi.useFakeTimers();
+  const save = vi
+    .fn()
+    .mockRejectedValue(new DraftAutosaveHaltedError("Draft is gone"));
+  let content = "edit";
+  const { result, unmount } = renderHook(() =>
+    useProviderDraftAutosave({
+      enabled: true,
+      getContent: () => content,
+      save,
+    }),
+  );
+  act(() => result.current.capture());
+  await act(() => vi.advanceTimersByTimeAsync(3000));
+  expect(result.current.error).toBe("Draft is gone");
+  content = "another edit";
+  act(() => result.current.capture());
+  act(() => result.current.resume());
+  await act(() => vi.advanceTimersByTimeAsync(12_000));
+  expect(save).toHaveBeenCalledTimes(1);
+  unmount();
+});
+
 it("saves the latest edit on close even while an earlier save is pending", async () => {
   vi.useFakeTimers();
   let finish!: () => void;
@@ -212,6 +239,25 @@ it("does not write an opened draft until an edit or local recovery is captured",
   act(() => result.current.capture());
   await act(() => vi.advanceTimersByTimeAsync(3000));
   expect(save).toHaveBeenCalledWith("draft");
+  unmount();
+});
+
+it("saves edits made before a mailbox draft existed once saving is enabled", async () => {
+  vi.useFakeTimers();
+  const save = vi.fn().mockResolvedValue(undefined);
+  const getContent = vi.fn(() => "typed while the file uploaded");
+  const { result, rerender, unmount } = renderHook(
+    ({ enabled }) => useProviderDraftAutosave({ enabled, getContent, save }),
+    { initialProps: { enabled: false } },
+  );
+  act(() => result.current.capture());
+  await act(() => vi.advanceTimersByTimeAsync(6000));
+  expect(save).not.toHaveBeenCalled();
+  expect(getContent).not.toHaveBeenCalled();
+
+  rerender({ enabled: true });
+  await act(() => vi.advanceTimersByTimeAsync(3000));
+  expect(save).toHaveBeenCalledExactlyOnceWith("typed while the file uploaded");
   unmount();
 });
 

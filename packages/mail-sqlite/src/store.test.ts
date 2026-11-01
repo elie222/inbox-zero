@@ -34,6 +34,53 @@ const inboxQuery = {
 };
 
 describe("sqlite mail store", () => {
+  it("replays pending changes in the order they were submitted", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    await store.applySyncPage({
+      ownerId: "owner",
+      page: {
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "initial",
+        from: { streamId: "primary", generation: "g1", checkpoint: null },
+        to: { streamId: "primary", generation: "g1", checkpoint: "1" },
+        changes: [messagePatch("m1", "c1", 1000, ["inbox"])],
+        requiredHydration: [],
+        roundComplete: true,
+      },
+    });
+    const target = { accountId: "acc-1", messageId: "m1" };
+    // Command ids are random UUIDs, so the undo can sort before the archive.
+    await store.admitMetadata({
+      accountId: "acc-1",
+      commandId: "zz-archive",
+      targets: [target],
+      change: { kind: "archive" },
+    });
+    const work = await store.claimWork({
+      ownerId: "owner",
+      nowMs: Date.now(),
+      leaseMs: 30_000,
+    });
+    expect(work?.kind).toBe("command");
+    await store.admitMetadata({
+      accountId: "acc-1",
+      commandId: "aa-unarchive",
+      targets: [target],
+      change: { kind: "unarchive" },
+    });
+
+    const view = await store.readMailboxView(inboxQuery);
+    expect(
+      view.view.conversations.map((row) => row.key.conversationId),
+    ).toEqual(["c1"]);
+    await store.close();
+  });
+
   it("drops inbox unread when a message leaves its inbox folder", async () => {
     const store = await createSqliteMailStore(createNodeSqliteDriver());
     const session = { accountId: "acc-1", generation: "g1" };
@@ -97,6 +144,46 @@ describe("sqlite mail store", () => {
     });
     expect(counts.view.counts).toEqual([
       { id: "INBOX", matchingConversations: 1, unreadConversations: 1 },
+    ]);
+    await store.close();
+  });
+
+  it("flags a conversation with attachments when any message has one", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const reply = messagePatch("m-reply", "c-attached", 2000, ["inbox"]);
+    reply.fields.hasAttachments = true;
+    await store.applySyncPage({
+      ownerId: "owner",
+      page: {
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "bootstrap",
+        from: { streamId: "primary", generation: "g1", checkpoint: null },
+        to: { streamId: "primary", generation: "g1", checkpoint: "1" },
+        changes: [
+          messagePatch("m-original", "c-attached", 1000, ["inbox"]),
+          reply,
+          messagePatch("m-plain", "c-plain", 500, ["inbox"]),
+        ],
+        requiredHydration: [],
+        roundComplete: true,
+      },
+    });
+
+    const { view } = await store.readMailboxView(inboxQuery);
+
+    expect(
+      view.conversations.map((row) => [
+        row.key.conversationId,
+        row.hasAttachments,
+      ]),
+    ).toEqual([
+      ["c-attached", true],
+      ["c-plain", false],
     ]);
     await store.close();
   });
@@ -786,7 +873,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -815,7 +901,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi later",
         editableHtml: "<p>Later</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(conflict.status).toBe("conflict");
@@ -848,6 +933,46 @@ describe("drafts, freeze, and uncertain settlement", () => {
     await rm(directory, { recursive: true, force: true });
   });
 
+  it("sends from the draft's send-as address", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    const saved = await store.saveDraft({
+      key: { accountId: "acc-1", draftId: "d-alias" },
+      expectedRevision: null,
+      content: {
+        from: "Support <support@example.com>",
+        to: ["ada@example.com"],
+        cc: [],
+        bcc: [],
+        subject: "Hi",
+        editableHtml: "<p>Hi</p>",
+        quotedHtml: "",
+      },
+    });
+    if (saved.status !== "saved") throw new Error("expected save");
+    await store.admitSend({
+      commandId: "send-alias",
+      draft: { accountId: "acc-1", draftId: "d-alias" },
+      draftRevision: saved.draftRevision,
+      replyTo: null,
+    });
+    const work = await store.claimWork({
+      ownerId: "owner",
+      nowMs: Date.now(),
+      leaseMs: 30_000,
+    });
+    if (work?.kind !== "command") throw new Error("expected command");
+    expect(work.operation.intent).toMatchObject({
+      kind: "send",
+      from: "Support <support@example.com>",
+    });
+    await store.close();
+  });
+
   it("unfreezes a draft when a queued send is cancelled", async () => {
     const store = await createSqliteMailStore(createNodeSqliteDriver());
     await store.ensureAccount({
@@ -865,7 +990,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -889,7 +1013,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
             subject: "Hi later",
             editableHtml: "<p>Later</p>",
             quotedHtml: "",
-            attachmentIds: [],
           },
         })
       ).status,
@@ -909,7 +1032,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi later",
         editableHtml: "<p>Later</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(edited.status).toBe("saved");
@@ -939,7 +1061,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -979,7 +1100,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
             subject: "Hi later",
             editableHtml: "<p>Later</p>",
             quotedHtml: "",
-            attachmentIds: [],
           },
         })
       ).status,
@@ -1002,7 +1122,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi later",
         editableHtml: "<p>Later</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(edited.status).toBe("saved");
@@ -1045,7 +1164,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -1085,7 +1203,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi later",
         editableHtml: "<p>Later</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(edited.status).toBe("saved");
@@ -1143,7 +1260,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
             subject: "Hi later still",
             editableHtml: "<p>Later still</p>",
             quotedHtml: "",
-            attachmentIds: [],
           },
         })
       ).status,
@@ -1176,7 +1292,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -1217,7 +1332,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi later",
         editableHtml: "<p>Later</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(edited.status).toBe("saved");
@@ -1252,7 +1366,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Uncertain",
         editableHtml: "<p>Uncertain</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     const confirmedDraft = await store.saveDraft({
@@ -1265,7 +1378,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Confirmed",
         editableHtml: "<p>Confirmed</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(uncertainDraft.status).toBe("saved");
@@ -1339,7 +1451,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
             subject: "Uncertain later",
             editableHtml: "<p>Later</p>",
             quotedHtml: "",
-            attachmentIds: [],
           },
         })
       ).status,
@@ -1356,7 +1467,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
             subject: "Confirmed later",
             editableHtml: "<p>Later</p>",
             quotedHtml: "",
-            attachmentIds: [],
           },
         })
       ).status,
@@ -1397,7 +1507,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
         providerDraftId: "gmail-draft-1",
       },
     });
@@ -1441,7 +1550,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -1509,7 +1617,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
             subject: "Hi later",
             editableHtml: "<p>Later</p>",
             quotedHtml: "",
-            attachmentIds: [],
           },
         })
       ).status,
@@ -1534,7 +1641,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -1610,7 +1716,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
             subject: "Hi later",
             editableHtml: "<p>Later</p>",
             quotedHtml: "",
-            attachmentIds: [],
           },
         })
       ).status,
@@ -1672,7 +1777,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -1757,7 +1861,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -1804,6 +1907,60 @@ describe("drafts, freeze, and uncertain settlement", () => {
     await store.close();
   });
 
+  it("resumes a blocked_auth command once the account connects again", async () => {
+    const store = await parkSendOnBlockedAuth("send-reauth");
+    // Sync sees the same expired token, then the user reconnects.
+    await store.recordConnection({
+      accountId: "acc-1",
+      connection: "blocked_auth",
+    });
+    await store.recordConnection({ accountId: "acc-1", connection: "ready" });
+
+    const resumed = await store.claimWork({
+      ownerId: "owner",
+      nowMs: Date.now(),
+      leaseMs: 30_000,
+    });
+    expect(resumed).toMatchObject({
+      kind: "command",
+      operation: { key: { operationId: "send-reauth" } },
+    });
+    await store.close();
+  });
+
+  it("keeps a blocked_auth command parked while the connection stays ready", async () => {
+    const store = await parkSendOnBlockedAuth("send-scope");
+    // Sync keeps working (no reconnect happened), so a retry would hit the
+    // same auth error again.
+    await store.recordConnection({ accountId: "acc-1", connection: "ready" });
+
+    expect(
+      await store.claimWork({
+        ownerId: "owner",
+        nowMs: Date.now() + 60_000,
+        leaseMs: 30_000,
+      }),
+    ).toBeNull();
+    await store.close();
+  });
+
+  it("keeps a blocked_auth command parked when the account only comes back online", async () => {
+    const store = await parkSendOnBlockedAuth("send-offline");
+    // A network blip is not a reconnect, so a retry would hit the same auth
+    // error again.
+    await store.recordConnection({ accountId: "acc-1", connection: "offline" });
+    await store.recordConnection({ accountId: "acc-1", connection: "ready" });
+
+    expect(
+      await store.claimWork({
+        ownerId: "owner",
+        nowMs: Date.now() + 60_000,
+        leaseMs: 30_000,
+      }),
+    ).toBeNull();
+    await store.close();
+  });
+
   it("reclaims an executing command after the lease expires", async () => {
     const store = await createSqliteMailStore(createNodeSqliteDriver());
     await store.ensureAccount({
@@ -1821,7 +1978,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -1906,7 +2062,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -2005,7 +2160,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -2064,7 +2218,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
             subject: "Hi later",
             editableHtml: "<p>Later</p>",
             quotedHtml: "",
-            attachmentIds: [],
           },
         })
       ).status,
@@ -2089,7 +2242,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -2541,7 +2693,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Draft",
         editableHtml: "<p>Draft</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -2905,7 +3056,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Hold",
         editableHtml: "<p>Hold</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -2967,7 +3117,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Held",
         editableHtml: "<p>Held</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     if (saved.status !== "saved") throw new Error("expected save");
@@ -3014,7 +3163,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Held",
         editableHtml: "<p>Held, edited</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(resaved.status).toBe("saved");
@@ -3038,7 +3186,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Now",
         editableHtml: "<p>Now</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     if (saved.status !== "saved") throw new Error("expected save");
@@ -3078,7 +3225,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Re: Reply Workflow Message",
         editableHtml: "<p>Thursday works.</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -3123,7 +3269,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Offline",
         editableHtml: "<p>Offline</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     const undoDraft = await store.saveDraft({
@@ -3136,7 +3281,6 @@ describe("drafts, freeze, and uncertain settlement", () => {
         subject: "Undo",
         editableHtml: "<p>Undo</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(offlineDraft.status).toBe("saved");
@@ -4122,7 +4266,6 @@ describe("per-target outcomes, dependencies, pagination, and stale hydration", (
         subject: "Local",
         editableHtml: "<p>Local</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -4184,7 +4327,6 @@ describe("per-target outcomes, dependencies, pagination, and stale hydration", (
         subject: "Still local",
         editableHtml: "<p>Still local</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(later.status).toBe("saved");
@@ -4486,7 +4628,6 @@ describe("quota, retention, and recovery", () => {
         subject: "Hi",
         editableHtml: "<p>Hi</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(saved.status).toBe("saved");
@@ -4508,7 +4649,6 @@ describe("quota, retention, and recovery", () => {
         subject: "Hi later",
         editableHtml: "<p>Later</p>",
         quotedHtml: "",
-        attachmentIds: [],
       },
     });
     expect(edited.status).toBe("saved");
@@ -4651,6 +4791,10 @@ describe("outgoing sends in the conversation view", () => {
     expect(queued.messages.map((message) => message.key.messageId)).toEqual([
       "m1",
     ]);
+    const sendKey = { accountId: "acc-1", operationId: "send-1" };
+    expect((await store.readOperation(sendKey)).operation?.sentMessage).toBe(
+      null,
+    );
     expect(queued.outgoing).toEqual([
       {
         operationId: "send-1",
@@ -4667,6 +4811,9 @@ describe("outgoing sends in the conversation view", () => {
 
     await confirmSend(store, "sent-1");
 
+    expect((await store.readOperation(sendKey)).operation?.sentMessage).toEqual(
+      { messageId: "sent-1", conversationId: "c1" },
+    );
     const sent = await readThread(store);
     expect(sent.outgoing).toEqual([]);
     expect(
@@ -4771,7 +4918,6 @@ async function queueReply(store: MailStore, providerDraftMessageIds: string[]) {
       subject: "Re: Plans",
       editableHtml: "<p>Thanks, see you then</p>",
       quotedHtml: "<blockquote>Earlier</blockquote>",
-      attachmentIds: [],
       conversationId: "c1",
       ...(providerDraftMessageIds.length
         ? { providerDraftId: "r-1", providerDraftMessageIds }
@@ -5124,4 +5270,49 @@ function fixtureSource(messages: Map<string, ProviderChange>): MailboxSource {
       return { status: "paused", retryAfterMs: 0, reason: "unavailable" };
     },
   };
+}
+
+async function parkSendOnBlockedAuth(commandId: string) {
+  const store = await createSqliteMailStore(createNodeSqliteDriver());
+  await store.ensureAccount({
+    accountId: "acc-1",
+    provider: "google",
+    generation: "g1",
+  });
+  const draft = { accountId: "acc-1", draftId: `d-${commandId}` };
+  const saved = await store.saveDraft({
+    key: draft,
+    expectedRevision: null,
+    content: {
+      to: ["ada@example.com"],
+      cc: [],
+      bcc: [],
+      subject: "Hi",
+      editableHtml: "<p>Hi</p>",
+      quotedHtml: "",
+    },
+  });
+  if (saved.status !== "saved") throw new Error("expected save");
+  await store.admitSend({
+    commandId,
+    draft,
+    draftRevision: saved.draftRevision,
+    replyTo: null,
+  });
+  const execute = await store.claimWork({
+    ownerId: "owner",
+    nowMs: Date.now(),
+    leaseMs: 30_000,
+  });
+  if (execute?.kind !== "command") throw new Error("expected command");
+  await store.settleAttempt({
+    attemptId: execute.attemptId,
+    operation: execute.operation,
+    result: {
+      status: "not_dispatched",
+      reason: "blocked_auth",
+      retryAfterMs: 5000,
+    },
+  });
+  return store;
 }

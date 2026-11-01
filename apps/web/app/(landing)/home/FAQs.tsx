@@ -37,34 +37,45 @@ const faqs: {
       "Email us or post an issue on GitHub. We're happy to hear how we can improve your email experience.",
   },
   {
-    question: `Will ${BRAND_NAME} replace my current email client?`,
-    answer: `No! ${BRAND_NAME} isn't an email client. It's used alongside your existing email client. You use Google or Outlook as normal.`,
+    question: `Will ${BRAND_NAME} replace my current email app?`,
+    answer: (
+      <span>
+        It doesn't have to. {BRAND_NAME} works inside Gmail and Outlook, so you
+        can keep using them as normal while the assistant works in the
+        background. {BRAND_NAME} also has its own{" "}
+        <Anchor href="/email-client">email app</Anchor> for the web, desktop,
+        and iPhone if you'd like to use it.
+      </span>
+    ),
+    answerText: `It doesn't have to. ${BRAND_NAME} works inside Gmail and Outlook, so you can keep using them as normal while the assistant works in the background. ${BRAND_NAME} also has its own email app for the web, desktop, and iPhone if you'd like to use it.`,
   },
   {
     question: "Is there a mobile app?",
     answer: (
       <span>
-        Yes, we have iOS and Android apps so you can triage your inbox and
-        manage your assistant on the go. Learn more on the{" "}
-        <Anchor href="/mobile-app">mobile app</Anchor> page.
+        Yes. Our native iPhone app lets you triage your inbox and manage your
+        assistant on the go. We also have an Android app, which is due for an
+        update. Learn more on the <Anchor href="/mobile-app">mobile app</Anchor>{" "}
+        page.
       </span>
     ),
     answerText:
-      "Yes, we have iOS and Android apps so you can triage your inbox and manage your assistant on the go. Learn more on the mobile app page.",
+      "Yes. Our native iPhone app lets you triage your inbox and manage your assistant on the go. We also have an Android app, which is due for an update. Learn more on the mobile app page.",
   },
   {
     question: "Is the code open-source?",
     answer: (
       <span>
-        Yes! You can see the entire source code for the inbox zero app in our{" "}
+        Yes! The AI assistant, the web app, and the desktop email app are open
+        source in our{" "}
         <Anchor href="/github" newTab>
           GitHub repo
         </Anchor>
-        .
+        . The iPhone app isn't open source yet, but we plan to open it.
       </span>
     ),
     answerText:
-      "Yes! You can see the entire source code for the inbox zero app in our GitHub repo.",
+      "Yes! The AI assistant, the web app, and the desktop email app are open source in our GitHub repo. The iPhone app isn't open source yet, but we plan to open it.",
   },
   {
     question: "Do you offer refunds?",
@@ -81,7 +92,7 @@ const faqs: {
   {
     question: `Can I try ${BRAND_NAME} for free?`,
     answer:
-      "Absolutely! All plans include a 7-day free trial. A credit card is required to start your trial, but you won't be charged until the trial ends. Cancel anytime during the trial to avoid being charged.",
+      "Yes. The email app is free to use. The AI assistant plans include a 7-day free trial. A credit card is required to start your trial, but you won't be charged until the trial ends. Cancel anytime during the trial to avoid being charged.",
   },
 ];
 

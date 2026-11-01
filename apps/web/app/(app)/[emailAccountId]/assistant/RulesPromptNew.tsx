@@ -116,7 +116,8 @@ function RulesPromptForm({
       submitted = true;
       onSubmitted?.();
     } catch {
-      toastError({ description: "Could not send this prompt to chat." });
+      // ChatProvider already reported the failure; keep the dialog and its text
+      // open so the user can retry.
     } finally {
       if (!submitted || !onSubmitted) setIsSubmitting(false);
     }

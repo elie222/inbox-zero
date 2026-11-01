@@ -5,6 +5,8 @@ import {
   mockMoveThreadToFolder,
   mockGetFolders,
   mockSearchMessages,
+  mockCountMessages,
+  mockGetLabels,
   runAssistantChat,
   setupInboxWorkflowEval,
   TIMEOUT,
@@ -34,6 +36,81 @@ describe.runIf(shouldRunEval)("Eval: assistant chat Outlook folders", () => {
   describeEvalMatrix(
     "assistant-chat outlook folders",
     (model, emailAccount) => {
+      test.each([
+        ["folder", 7],
+        ["category", 47],
+      ] as const)(
+        "reports the exact Marketing %s count without confusing the same-named scope",
+        async (scope, count) => {
+          const prompt = `How many emails are in my Marketing ${scope}?`;
+          mockGetLabels.mockResolvedValue([
+            { id: "marketing-category", name: "Marketing", type: "user" },
+          ]);
+          mockGetFolders.mockResolvedValue([
+            {
+              id: "marketing-folder",
+              displayName: "Marketing",
+              childFolders: [],
+            },
+          ]);
+          mockCountMessages.mockImplementation(
+            async ({ folderId, labelId }) => {
+              if (folderId === "marketing-folder" && !labelId) return 7;
+              if (!folderId && labelId?.toLowerCase() === "marketing")
+                return 47;
+              throw new Error("Unexpected scope");
+            },
+          );
+          mockSearchMessages.mockResolvedValue({
+            messages: [
+              getMockMessage({ id: "sample-message", subject: "Demo update" }),
+            ],
+            nextPageToken: "MORE_MESSAGES",
+          });
+          const { toolCalls, actual, finalText } = await runAssistantChat({
+            emailAccount: cloneEmailAccountForProvider(
+              emailAccount,
+              "microsoft",
+            ),
+            inboxStats: { total: 200, unread: 8 },
+            messages: [{ role: "user", content: prompt }],
+          });
+          const judge = await judgeEvalOutput({
+            input: prompt,
+            output: finalText,
+            expected: `The Marketing ${scope} contains exactly ${count} emails.`,
+            criterion: {
+              name: "exact_scope_count",
+              description:
+                "Reports the provider's exact total for the requested folder or category, without substituting the search page size, inbox snapshot, or count for the same-named alternative scope.",
+            },
+          });
+          const expectedScope =
+            scope === "folder"
+              ? { folderId: "marketing-folder", labelId: undefined }
+              : { folderId: undefined, labelId: "Marketing" };
+          const pass =
+            judge.pass &&
+            mockCountMessages.mock.calls.some(
+              ([input]) =>
+                input.folderId === expectedScope.folderId &&
+                (input.labelId?.toLowerCase() ?? undefined) ===
+                  expectedScope.labelId?.toLowerCase(),
+            ) &&
+            !toolCalls.some((call) => call.toolName === "manageInbox");
+          evalReporter.record({
+            testName: `exact ${scope} count`,
+            model: model.label,
+            pass,
+            actual: `${actual} | ${finalText} | judge=${judge.reasoning}`,
+          });
+          expect(pass, `${actual} | ${finalText} | ${judge.reasoning}`).toBe(
+            true,
+          );
+        },
+        TIMEOUT,
+      );
+
       test(
         "marks all folder pages read and reports the processed count",
         async () => {

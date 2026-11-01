@@ -1,12 +1,13 @@
 import { toast } from "sonner";
-import { toastError, toastUndo } from "@/components/Toast";
+import { toastError, toastSuccess, toastUndo } from "@/components/Toast";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
 import type { MailClient } from "@inboxzero/mail-core/engine";
 import type { OperationStatus } from "@inboxzero/mail-core/operations";
-import { cancelSendAttachments } from "@/utils/mail-engine/stage-attachments";
 
-export const UNDO_SEND_DELAY_MS = 30_000;
+export const UNDO_SEND_DELAY_MS = 10_000;
 const UNDO_SEND_TOAST_ID = "undo-send";
+const SENT_MESSAGE = "Email sent!";
+const SENT_TOAST_DURATION_MS = 6000;
 // The server holds the send while it is executing or verifying, so undo stays
 // open until the send leaves it or the window ends.
 const UNDOABLE_STATUSES = new Set<OperationStatus>([
@@ -21,7 +22,6 @@ type PendingUndoSend = {
   client: MailClient;
   operationId: string;
   emailAccountId: string;
-  attachmentIds: string[];
   restoreComposer: () => void;
   undone: boolean;
   release: () => void;
@@ -38,14 +38,12 @@ export function beginUndoSend({
   client,
   operationId,
   emailAccountId,
-  attachmentIds = [],
   restoreComposer,
   holdUntil,
 }: {
   client: MailClient;
   operationId: string;
   emailAccountId: string;
-  attachmentIds?: string[];
   restoreComposer: () => void;
   holdUntil: number;
 }) {
@@ -62,7 +60,6 @@ export function beginUndoSend({
     client,
     operationId,
     emailAccountId,
-    attachmentIds,
     restoreComposer,
     undone: false,
     toastId,
@@ -82,7 +79,7 @@ export function beginUndoSend({
   unsubscribe = handle.subscribe(inspect);
   toastUndo({
     id: toastId,
-    message: "Email sent!",
+    message: SENT_MESSAGE,
     shortcut: getShortcutHint("undo"),
     duration,
     // A dismissed toast can still fire during its exit animation, after a
@@ -92,6 +89,26 @@ export function beginUndoSend({
     },
   });
   inspect();
+}
+
+/** Confirms a send that went out, with View when it can be shown, or closes the toast. */
+export function finishUndoSendToast(
+  operationId: string,
+  outcome: { sent: false } | { sent: true; onView: (() => void) | null },
+) {
+  const toastId = undoSendToastId(operationId);
+  if (!outcome.sent) {
+    toast.dismiss(toastId);
+    return;
+  }
+  toastSuccess({
+    id: toastId,
+    description: SENT_MESSAGE,
+    duration: SENT_TOAST_DURATION_MS,
+    action: outcome.onView
+      ? { label: "View", onClick: outcome.onView }
+      : undefined,
+  });
 }
 
 export async function undoPendingSend() {
@@ -126,11 +143,6 @@ export async function undoPendingSend() {
     return false;
   }
   current.restoreComposer();
-  try {
-    await cancelSendAttachments(current.emailAccountId, current.attachmentIds);
-  } catch {
-    // The send is already cancelled; tmpdir cleanup remains the backstop.
-  }
   return true;
 }
 
@@ -147,7 +159,13 @@ function clearUndoSendOffer(offer: PendingUndoSend) {
   if (pending !== offer || offer.undone) return;
   pending = null;
   offer.release();
-  toast.dismiss(offer.toastId);
+  // Stays up without undo until finishUndoSendToast reports the outcome, so
+  // the toast doesn't vanish and reappear when the send goes out.
+  toastSuccess({
+    id: offer.toastId,
+    description: SENT_MESSAGE,
+    duration: Number.POSITIVE_INFINITY,
+  });
 }
 
 function undoSendToastId(operationId: string) {

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { EMAIL_ACCOUNT_ORDER_BY } from "@/utils/email-account-order";
 
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
@@ -72,7 +73,7 @@ describe("redirectToEmailAccountPath", () => {
     expect(mocks.findFirst).toHaveBeenCalledWith({
       where: { userId: "user_123" },
       select: { id: true },
-      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      orderBy: EMAIL_ACCOUNT_ORDER_BY,
     });
     expect(getAccountRedirectLog(consoleLogSpy)).toEqual(
       expect.objectContaining({
@@ -175,7 +176,7 @@ describe("redirectToEmailAccountPath", () => {
     expect(mocks.findFirst).toHaveBeenNthCalledWith(2, {
       where: { userId: "user_123" },
       select: { id: true },
-      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      orderBy: EMAIL_ACCOUNT_ORDER_BY,
     });
     expect(getAccountRedirectLog(consoleLogSpy)).toEqual(
       expect.objectContaining({

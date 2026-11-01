@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useAction } from "next-safe-action/hooks";
+import { useSWRConfig } from "swr";
 import {
   BellIcon,
   BellOffIcon,
@@ -40,6 +41,8 @@ import {
 } from "@/utils/actions/team-comments";
 import { formatShortDate } from "@/utils/date";
 import { getActionErrorMessage } from "@/utils/error";
+import { getMentionPattern } from "@/utils/team-comments/mentions";
+import { TEAM_UNREAD_COUNT_KEY } from "@/components/team-comments/use-team-nav";
 
 type ConversationDiscussionProps = {
   memberId: string;
@@ -71,6 +74,7 @@ export function ConversationDiscussionView({
   const { executeAsync: stop } = useAction(stopSharingAction);
   const { executeAsync: mute } = useAction(setConversationMutedAction);
   const { executeAsync: markRead } = useAction(markConversationReadAction);
+  const { mutate } = useSWRConfig();
   const { executeAsync: postComment } = useAction(postCommentAction);
   const [error, setError] = useState("");
   const markedPosition = useRef("");
@@ -94,7 +98,9 @@ export function ConversationDiscussionView({
     pendingPosition.current = position;
     markRead({ memberId, conversationId, throughRevision: loadedRevision })
       .then((result) => {
-        if (result?.data) markedPosition.current = position;
+        if (!result?.data) return;
+        markedPosition.current = position;
+        mutate(TEAM_UNREAD_COUNT_KEY);
       })
       .catch(() => {})
       .finally(() => {
@@ -107,6 +113,7 @@ export function ConversationDiscussionView({
     memberId,
     conversationId,
     markRead,
+    mutate,
   ]);
   const summaryErrorStatus = (summary.error as { status?: number } | undefined)
     ?.status;
@@ -355,14 +362,8 @@ export function ConversationDiscussionView({
 }
 
 function CommentBody({ body, names }: { body: string; names: string[] }) {
-  if (!names.length) return body;
-  const pattern = new RegExp(
-    `(?<![\\p{L}\\p{M}\\p{N}_])(@(?:${names
-      .toSorted((a, b) => b.length - a.length)
-      .map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
-      .join("|")}))(?![\\p{L}\\p{M}\\p{N}_])`,
-    "u",
-  );
+  const pattern = getMentionPattern(names);
+  if (!pattern) return body;
   return body.split(pattern).map((part, index) =>
     index % 2 ? (
       <span key={index} className="font-medium text-primary">

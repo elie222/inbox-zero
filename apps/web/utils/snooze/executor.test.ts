@@ -65,6 +65,51 @@ describe("executeSnoozedThread", () => {
     );
   });
 
+  it("cancels the snooze instead of retrying when the thread no longer exists", async () => {
+    const provider = createMockEmailProvider({
+      unarchiveThread: vi
+        .fn()
+        .mockRejectedValue(new Error("Requested entity was not found.")),
+    });
+
+    const result = await executeSnoozedThread(
+      snoozedThread,
+      provider,
+      logger,
+      leaseStartedAt,
+    );
+
+    expect(result.success).toBe(true);
+    expect(releaseSnoozedThreadForRetry).not.toHaveBeenCalled();
+    expect(prisma.snoozedThread.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "snooze",
+        status: SnoozedThreadStatus.EXECUTING,
+        updatedAt: leaseStartedAt,
+      },
+      data: { status: SnoozedThreadStatus.CANCELLED },
+    });
+  });
+
+  it("does not report a deleted-thread cancellation it no longer owns", async () => {
+    prisma.snoozedThread.updateMany.mockResolvedValue({ count: 0 });
+    const provider = createMockEmailProvider({
+      unarchiveThread: vi
+        .fn()
+        .mockRejectedValue(new Error("Requested entity was not found.")),
+    });
+
+    const result = await executeSnoozedThread(
+      snoozedThread,
+      provider,
+      logger,
+      leaseStartedAt,
+    );
+
+    expect(result.success).toBe(false);
+    expect(releaseSnoozedThreadForRetry).not.toHaveBeenCalled();
+  });
+
   it("leaves a restored thread claim for stale recovery when finalization fails", async () => {
     prisma.snoozedThread.updateMany.mockRejectedValue(new Error("offline"));
     const provider = createMockEmailProvider();

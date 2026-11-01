@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ModelMessage } from "ai";
 import {
   createTestLogger,
@@ -123,6 +123,7 @@ vi.mock("@/env", () => ({
     get NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED() {
       return envState.webhookActionsEnabled;
     },
+    NEXT_PUBLIC_BRAND_NAME: "Inbox Zero",
   },
 }));
 
@@ -201,12 +202,33 @@ async function captureCalendarChat(
 }
 
 describe("aiProcessAssistantChat", () => {
+  // Each test re-imports the chat module after resetting modules; transforming
+  // its import graph once here keeps that cost out of the first test's timeout.
+  beforeAll(async () => {
+    await import("@/utils/ai/assistant/chat");
+  }, 60_000);
+
   beforeEach(() => {
     vi.clearAllMocks();
     envState.sendEmailEnabled = true;
     envState.autoDraftDisabled = false;
     envState.webhookActionsEnabled = true;
     mockPrisma.calendarConnection.findMany.mockResolvedValue([]);
+  });
+
+  it("ties reply language to the source email unless the user overrides it", async () => {
+    const tools = await captureToolSet();
+    const system =
+      mockToolCallAgentStream.mock.lastCall?.[0].messages[0].content;
+
+    for (const guidance of [system, tools.replyEmail.description]) {
+      expect.soft(guidance).toContain("language of the email being replied to");
+      expect.soft(guidance).toContain("new body, not quoted history");
+      expect.soft(guidance).toContain("not the chat language");
+      expect
+        .soft(guidance)
+        .toContain("unless the user explicitly requests another language");
+    }
   });
 
   it("registers expected core and send tools when email sending is enabled", async () => {

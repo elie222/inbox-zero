@@ -2,9 +2,14 @@ import type { ExecutedAction } from "@/generated/prisma/client";
 import prisma from "@/utils/prisma";
 import { ActionType, DraftEmailStatus } from "@/generated/prisma/enums";
 import { createEmailProvider } from "@/utils/email/provider";
+import { classifyEmailAccountProviderIssue } from "@/utils/email/provider-health";
 import { isDraftUnmodified } from "@/utils/ai/choose-rule/draft-management";
 import type { Logger } from "@/utils/logger";
-import { DEFAULT_AI_DRAFT_CLEANUP_DAYS } from "@/utils/ai/draft-cleanup-settings";
+import { subDays } from "date-fns/subDays";
+import {
+  DEFAULT_AI_DRAFT_CLEANUP_DAYS,
+  MIN_AI_DRAFT_CLEANUP_DAYS,
+} from "@/utils/ai/draft-cleanup-settings";
 import { withPrismaRetry } from "@/utils/prisma-retry";
 
 export async function cleanupAIDraftsForAccount({
@@ -42,14 +47,7 @@ export async function cleanupAIDraftsForAccount({
   const staleTrackers = await prisma.threadTracker.findMany({
     where: {
       emailAccountId,
-      followUpDraftId: { not: null },
-      OR: [
-        { followUpDraftCreatedAt: { lt: cutoffDate } },
-        {
-          followUpDraftCreatedAt: null,
-          followUpAppliedAt: { lt: cutoffDate },
-        },
-      ],
+      ...getFollowUpDraftCleanupCandidateWhere(cutoffDate),
     },
     select: {
       id: true,
@@ -131,11 +129,28 @@ export async function cleanupAIDraftsForAccount({
         : false;
 
       if (!isUnmodified) {
+        // Without the original content we can't tell, so it stays a candidate.
+        // Follow-up trackers have no status, so an edited one stays tracked.
+        if (action.content && !action.trackerId) {
+          const statusData = getDraftCleanupStatusData({
+            draftStatus: action.draftStatus,
+            wasDraftSent: action.wasDraftSent,
+            status: DraftEmailStatus.USER_EDITED,
+          });
+          if (statusData) {
+            await prisma.executedAction.update({
+              where: { id: action.id },
+              data: statusData,
+            });
+          }
+        }
         skippedModified++;
         continue;
       }
 
       const wasDeleted = await provider.deleteDraft(action.draftId);
+      // A refused delete leaves a draft the user may still send, and sent-draft
+      // tracking skips cleaned-up drafts.
       if (!wasDeleted) {
         errors++;
         continue;
@@ -211,11 +226,8 @@ export async function markTrackedDraftDeleted({
   }
 }
 
-export async function cleanupConfiguredAIDrafts({
-  logger,
-}: {
-  logger: Logger;
-}) {
+export async function getEmailAccountsWithStaleAIDrafts() {
+  const minCutoffDate = subDays(new Date(), MIN_AI_DRAFT_CLEANUP_DAYS);
   const emailAccounts = await prisma.emailAccount.findMany({
     where: {
       draftCleanupDays: { not: null },
@@ -229,63 +241,69 @@ export async function cleanupConfiguredAIDrafts({
                   type: ActionType.DRAFT_EMAIL,
                   draftId: { not: null },
                   ...getDraftCleanupCandidateWhere(),
+                  createdAt: { lt: minCutoffDate },
                 },
               },
             },
           },
         },
-        { threadTrackers: { some: { followUpDraftId: { not: null } } } },
+        {
+          threadTrackers: {
+            some: getFollowUpDraftCleanupCandidateWhere(minCutoffDate),
+          },
+        },
       ],
     },
+    select: { id: true },
+  });
+
+  return emailAccounts.map((emailAccount) => emailAccount.id);
+}
+
+export async function cleanupConfiguredAIDraftsForAccount({
+  emailAccountId,
+  logger,
+}: {
+  emailAccountId: string;
+  logger: Logger;
+}) {
+  const emailAccount = await prisma.emailAccount.findUnique({
+    where: { id: emailAccountId },
     select: {
-      id: true,
       draftCleanupDays: true,
-      account: { select: { provider: true } },
+      account: { select: { provider: true, disconnectedAt: true } },
     },
   });
 
-  let total = 0;
-  let deleted = 0;
-  let skippedModified = 0;
-  let alreadyGone = 0;
-  let errors = 0;
-  let failedAccounts = 0;
-
-  for (const emailAccount of emailAccounts) {
-    if (emailAccount.draftCleanupDays === null) continue;
-
-    try {
-      const result = await cleanupAIDraftsForAccount({
-        emailAccountId: emailAccount.id,
-        provider: emailAccount.account.provider,
-        logger,
-        cleanupDays: emailAccount.draftCleanupDays,
-      });
-
-      total += result.total;
-      deleted += result.deleted;
-      skippedModified += result.skippedModified;
-      alreadyGone += result.alreadyGone;
-      errors += result.errors;
-    } catch (error) {
-      logger.error("Error cleaning up drafts for account", {
-        emailAccountId: emailAccount.id,
-        error,
-      });
-      failedAccounts++;
-      errors++;
-    }
+  if (
+    emailAccount?.draftCleanupDays == null ||
+    emailAccount.account.disconnectedAt
+  ) {
+    logger.info("Skipping draft cleanup: cleanup disabled or disconnected");
+    return null;
   }
 
-  return {
-    accountsChecked: emailAccounts.length,
-    failedAccounts,
-    total,
-    deleted,
-    skippedModified,
-    alreadyGone,
-    errors,
-  };
+  try {
+    return await cleanupAIDraftsForAccount({
+      emailAccountId,
+      provider: emailAccount.account.provider,
+      logger,
+      cleanupDays: emailAccount.draftCleanupDays,
+    });
+  } catch (error) {
+    if (
+      classifyEmailAccountProviderIssue({
+        error,
+        provider: emailAccount.account.provider as "google" | "microsoft",
+      })
+    ) {
+      logger.warn("Skipping draft cleanup: account needs reconnect", {
+        error,
+      });
+      return null;
+    }
+    throw error;
+  }
 }
 
 export async function getConfiguredDraftCleanupDays(emailAccountId: string) {
@@ -345,6 +363,20 @@ function getDraftCleanupCandidateWhere() {
       {
         draftStatus: DraftEmailStatus.CLEANED_UP_UNUSED,
         wasDraftSent: false,
+      },
+    ],
+  };
+}
+
+function getFollowUpDraftCleanupCandidateWhere(cutoffDate: Date) {
+  return {
+    followUpDraftId: { not: null },
+    OR: [
+      { followUpDraftCreatedAt: { lt: cutoffDate } },
+      // Drafts tracked before creation times were stored.
+      {
+        followUpDraftCreatedAt: null,
+        followUpAppliedAt: { lt: cutoffDate },
       },
     ],
   };

@@ -18,13 +18,34 @@ import {
   EmailThread,
   organizeThreadMessages,
 } from "@/components/email-list/EmailThread";
+import { hideSendingDraftMessages } from "@/hooks/useHiddenDraftMessageIds";
+import { startDraftSave } from "@/hooks/useDraftSaveInFlight";
+
+class MockResizeObserver {
+  observe() {}
+  disconnect() {}
+}
+
+vi.stubGlobal("ResizeObserver", MockResizeObserver);
 
 const { discardDraft } = vi.hoisted(() => ({ discardDraft: vi.fn() }));
 
 vi.mock("next-safe-action/hooks", () => ({
   useAction: () => ({ executeAsync: discardDraft }),
 }));
-vi.mock("swr", () => ({ default: () => ({ data: undefined }) }));
+const { scheduledEmails } = vi.hoisted(() => ({
+  scheduledEmails: {
+    current: [] as { status: string; draftMessageIds: string[] }[],
+  },
+}));
+vi.mock("swr", () => ({
+  default: (key: unknown) => ({
+    data:
+      Array.isArray(key) && key[0] === "/api/user/scheduled-emails"
+        ? { scheduledEmails: scheduledEmails.current }
+        : undefined,
+  }),
+}));
 vi.mock("@/providers/EmailAccountProvider", () => ({
   useAccount: () => ({
     emailAccount: undefined,
@@ -36,8 +57,11 @@ vi.mock("@/env", () => ({ env: { NEXT_PUBLIC_CONTACTS_ENABLED: false } }));
 vi.mock("@/components/Tooltip", () => ({
   Tooltip: ({ children }: { children: React.ReactNode }) => children,
 }));
+const { htmlBodyReady } = vi.hoisted(() => ({
+  htmlBodyReady: { current: true },
+}));
 vi.mock("@/components/email-list/EmailContents", () => ({
-  HtmlEmail: () => null,
+  HtmlEmail: () => <div data-email-ready={htmlBodyReady.current} />,
   PlainEmail: () => <div data-testid="message-body" />,
 }));
 vi.mock("@/components/email-list/EmailAttachments", () => ({
@@ -57,11 +81,24 @@ vi.mock("@/components/email-list/OpenedConversationAttachments", () => ({
   }) => children,
 }));
 const { localDrafts } = vi.hoisted(() => ({
-  localDrafts: { current: [] as StoredReplyDraft[] },
+  localDrafts: { current: [] as StoredReplyDraft[], isLoading: false },
 }));
 
 vi.mock("@/hooks/useReplyDrafts", () => ({
-  useReplyDrafts: () => ({ drafts: localDrafts.current }),
+  useReplyDrafts: (
+    _accountId: string,
+    _threadId: string,
+    messageIds: string[],
+  ) => ({
+    drafts: localDrafts.current.filter((draft) =>
+      messageIds.some(
+        (id) =>
+          draft.messageId === `${id}:reply` ||
+          draft.messageId === `${id}:forward`,
+      ),
+    ),
+    isLoading: localDrafts.isLoading,
+  }),
 }));
 vi.mock("@/hooks/useSentMessageOpens", () => ({
   useSentMessageOpens: () => ({ data: undefined }),
@@ -94,8 +131,118 @@ describe("EmailThread reply composer", () => {
         showReplyButton
       />,
     );
-
     expect(screen.getByRole("textbox", { name: "Email message" })).toBeTruthy();
+
+    view.rerender(
+      <EmailThread
+        messages={[
+          first,
+          createReaderMessage("second", "2000"),
+          createReaderDraft("other-copy", "3000"),
+        ]}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+    expect(
+      screen
+        .getAllByRole("textbox", { name: "Email message" })
+        .map((editor) => editor.dataset.draftSessionId),
+    ).toEqual(["first:reply", "other-copy:reply"]);
+
+    view.rerender(
+      <EmailThread
+        messages={[
+          {
+            ...createReaderMessage("other-parent", "1000"),
+            threadId: "thread-2",
+          },
+          { ...createReaderDraft("other-draft", "2000"), threadId: "thread-2" },
+        ]}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+    expect(
+      screen.getByRole("textbox", { name: "Email message" }).dataset
+        .draftSessionId,
+    ).toBe("other-draft:reply");
+  });
+
+  it("keeps independent mailbox drafts open while composing and closing a forward", () => {
+    render(
+      <EmailThread
+        messages={[
+          createReaderMessage("parent", "1000"),
+          createReaderDraft("independent-first", "2000"),
+          createReaderDraft("independent-second", "3000"),
+        ]}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+    const editors = () =>
+      screen.getAllByRole("textbox", { name: "Email message" });
+    fireEvent.change(editors()[0], { target: { value: "Independent edit" } });
+    fireEvent.click(screen.getByRole("button", { name: "Forward" }));
+    expect(editors().map((editor) => editor.dataset.draftSessionId)).toEqual([
+      "independent-first:reply",
+      "independent-second:reply",
+      "parent:forward",
+    ]);
+    expect((editors()[0] as HTMLInputElement).value).toBe("Independent edit");
+    fireEvent.click(screen.getAllByRole("button", { name: "Send" })[2]);
+    expect(editors()).toHaveLength(2);
+    expect((editors()[0] as HTMLInputElement).value).toBe("Independent edit");
+  });
+
+  // Sync can deliver a save's new message before the save's response says it
+  // replaces the open draft. The editor must survive that gap.
+  it("keeps editing a saved draft when its next save syncs in first", () => {
+    composerMounts = 0;
+    const parent = createReaderMessage("parent", "1000");
+    const view = render(
+      <EmailThread
+        messages={[parent, createReaderDraft("race-v1", "2000")]}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+    let endSave = () => {};
+    act(() => {
+      endSave = startDraftSave("account-1", "thread-1");
+    });
+
+    for (const messages of [
+      [
+        parent,
+        createReaderDraft("race-v1", "2000"),
+        createReaderDraft("race-v2", "3000"),
+      ],
+      [parent, createReaderDraft("race-v2", "3000")],
+    ]) {
+      view.rerender(
+        <EmailThread
+          messages={messages}
+          missingBodyIds={new Set(["race-v2"])}
+          refetch={vi.fn()}
+          showReplyButton
+        />,
+      );
+      expect(
+        screen.getAllByRole("textbox", { name: "Email message" }),
+      ).toHaveLength(1);
+      expect(composerMounts).toBe(1);
+    }
+
+    rememberReplacedDraftMessage("account-1", "race-v1", "race-v2");
+    act(() => endSave());
+
+    expect(screen.queryByText("Loading message…")).toBeNull();
+    const current = screen.getByRole("textbox", { name: "Email message" });
+    expect(current.dataset.draftSessionId).toBe("race-v1:reply");
+    expect(current.dataset.providerDraftMessageId).toBe("race-v2");
+    expect(composerMounts).toBe(1);
   });
 
   // Gmail gives a draft a new message ID each time it is saved. When sync
@@ -135,6 +282,48 @@ describe("EmailThread reply composer", () => {
       expect(current.dataset.providerDraftMessageId).toBe("draft-v2");
       expect(composerMounts).toBe(1);
     }
+    view.rerender(
+      <EmailThread
+        messages={[parent, createReaderDraft("draft-v2", "3000")]}
+        autoOpenForwardForMessageId="parent"
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+    expect(
+      screen.getAllByRole("textbox", { name: "Email message" }),
+    ).toHaveLength(2);
+    expect(
+      screen.getAllByRole("textbox", { name: "Email message" })[1].dataset
+        .draftSessionId,
+    ).toBe("parent:forward");
+    view.rerender(
+      <EmailThread
+        messages={[parent, createReaderDraft("draft-v2", "3000")]}
+        autoOpenReplyForMessageId="parent"
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+    expect(
+      screen.getAllByRole("textbox", { name: "Email message" }),
+    ).toHaveLength(1);
+    expect(
+      screen.getByRole("textbox", { name: "Email message" }).dataset
+        .draftSessionId,
+    ).toBe("draft-v1:reply");
+    fireEvent.click(screen.getByRole("button", { name: "Reply" }));
+    expect(
+      screen.getAllByRole("textbox", { name: "Email message" }),
+    ).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Forward" }));
+    expect(
+      screen.getAllByRole("textbox", { name: "Email message" }),
+    ).toHaveLength(2);
+    expect(
+      screen.getAllByRole("textbox", { name: "Email message" })[1].dataset
+        .draftSessionId,
+    ).toBe("parent:forward");
   });
 });
 
@@ -225,6 +414,233 @@ describe("EmailThread outgoing replies", () => {
     expect(sentRow?.dataset.selected).toBe("true");
   });
 
+  // Closing the composer as soon as the send is queued left the thread without
+  // the reply until the sent row's body had loaded.
+  it("keeps the composer until the sent reply's body is ready, then swaps them", async () => {
+    vi.useFakeTimers();
+    htmlBodyReady.current = false;
+    try {
+      const parent = createReaderMessage("parent", "1000");
+      const view = render(
+        <EmailThread messages={[parent]} refetch={vi.fn()} showReplyButton />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Reply" }));
+      fireEvent.click(screen.getByRole("button", { name: "Queue send" }));
+      view.rerender(
+        <EmailThread
+          messages={[parent]}
+          outgoing={[
+            {
+              operationId: "send-1",
+              status: "verifying",
+              message: {
+                ...createSentMessage("outgoing:send-1", "3000"),
+                textHtml: "<p>Reply</p>",
+              },
+            },
+          ]}
+          refetch={vi.fn()}
+          showReplyButton
+        />,
+      );
+      await act(async () => vi.advanceTimersByTimeAsync(100));
+
+      const sentRow = view.container.querySelector<HTMLElement>(
+        '[data-send-operation-id="send-1"]',
+      );
+      expect(
+        screen.getByLabelText("Email message").closest("[inert]"),
+      ).toBeTruthy();
+      expect(sentRow?.getAttribute("aria-hidden")).toBe("true");
+
+      sentRow
+        ?.querySelector("[data-email-ready]")
+        ?.setAttribute("data-email-ready", "true");
+      await act(async () => vi.advanceTimersByTimeAsync(20));
+
+      expect(screen.queryByLabelText("Email message")).toBeNull();
+      expect(sentRow?.hasAttribute("aria-hidden")).toBe(false);
+      expect(
+        view.container
+          .querySelector('[data-thread-message-id="parent"]')
+          ?.querySelector('[data-testid="message-body"]'),
+      ).toBeTruthy();
+    } finally {
+      htmlBodyReady.current = true;
+      vi.useRealTimers();
+    }
+  });
+
+  // The thread publishes a send's message before the composer hears it was queued.
+  it("hides a sent reply that reaches the thread before its send is confirmed queued", async () => {
+    vi.useFakeTimers();
+    Element.prototype.scrollIntoView = vi.fn();
+    htmlBodyReady.current = false;
+    try {
+      const parent = createReaderMessage("parent", "1000");
+      const view = render(
+        <EmailThread messages={[parent]} refetch={vi.fn()} showReplyButton />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Reply" }));
+      fireEvent.click(screen.getByRole("button", { name: "Submit send" }));
+      view.rerender(
+        <EmailThread
+          messages={[parent]}
+          outgoing={[
+            {
+              operationId: "send-1",
+              status: "verifying",
+              message: {
+                ...createSentMessage("outgoing:send-1", "3000"),
+                textHtml: "<p>Reply</p>",
+              },
+            },
+          ]}
+          refetch={vi.fn()}
+          showReplyButton
+        />,
+      );
+
+      const sentRow = view.container.querySelector<HTMLElement>(
+        '[data-send-operation-id="send-1"]',
+      );
+      expect(sentRow?.getAttribute("aria-hidden")).toBe("true");
+      await act(async () => vi.advanceTimersByTimeAsync(1500));
+      expect(sentRow?.getAttribute("aria-hidden")).toBe("true");
+      expect(screen.getByLabelText("Email message")).toBeTruthy();
+
+      fireEvent.click(screen.getByRole("button", { name: "Queue send" }));
+      sentRow
+        ?.querySelector("[data-email-ready]")
+        ?.setAttribute("data-email-ready", "true");
+      await act(async () => vi.advanceTimersByTimeAsync(20));
+
+      expect(screen.queryByLabelText("Email message")).toBeNull();
+      expect(sentRow?.hasAttribute("aria-hidden")).toBe(false);
+    } finally {
+      htmlBodyReady.current = true;
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps a sending mailbox draft's composer until its sent reply takes over", async () => {
+    vi.useFakeTimers();
+    Element.prototype.scrollIntoView = vi.fn();
+    htmlBodyReady.current = false;
+    let showDraftAgain = () => {};
+    try {
+      const parent = createReaderMessage("parent", "1000");
+      const draft = createReaderDraft("draft-1", "2000");
+      const view = render(
+        <EmailThread
+          messages={[parent, draft]}
+          refetch={vi.fn()}
+          showReplyButton
+        />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Submit send" }));
+      act(() => {
+        showDraftAgain = hideSendingDraftMessages("account-1", ["draft-1"]);
+      });
+      view.rerender(
+        <EmailThread
+          // Admitting the send drops the mailbox draft it replaces.
+          messages={[parent]}
+          outgoing={[
+            {
+              operationId: "send-1",
+              status: "verifying",
+              message: {
+                ...createSentMessage("outgoing:send-1", "3000"),
+                textHtml: "<p>Reply</p>",
+              },
+            },
+          ]}
+          refetch={vi.fn()}
+          showReplyButton
+        />,
+      );
+      expect(screen.getByLabelText("Email message")).toBeTruthy();
+
+      fireEvent.click(screen.getByRole("button", { name: "Queue send" }));
+      view.container
+        .querySelector('[data-send-operation-id="send-1"] [data-email-ready]')
+        ?.setAttribute("data-email-ready", "true");
+      await act(async () => vi.advanceTimersByTimeAsync(20));
+
+      expect(screen.queryByLabelText("Email message")).toBeNull();
+      expect(
+        view.container
+          .querySelector('[data-send-operation-id="send-1"]')
+          ?.hasAttribute("aria-hidden"),
+      ).toBe(false);
+    } finally {
+      act(() => showDraftAgain());
+      htmlBodyReady.current = true;
+      vi.useRealTimers();
+    }
+  });
+
+  it("still hides other drafts while a sent reply is handed off", () => {
+    let showDraftAgain = () => {};
+    try {
+      const parent = createReaderMessage("parent", "1000");
+      const view = render(
+        <EmailThread
+          messages={[parent, createReaderDraft("draft-1", "2000")]}
+          refetch={vi.fn()}
+          showReplyButton
+        />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Submit send" }));
+      act(() => {
+        showDraftAgain = hideSendingDraftMessages("account-1", ["draft-2"]);
+      });
+      view.rerender(
+        <EmailThread
+          messages={[
+            parent,
+            createReaderDraft("draft-1", "2000"),
+            createReaderDraft("draft-2", "2500"),
+          ]}
+          refetch={vi.fn()}
+          showReplyButton
+        />,
+      );
+
+      expect(
+        screen
+          .getAllByRole("textbox", { name: "Email message" })
+          .map((editor) => editor.dataset.providerDraftMessageId),
+      ).toEqual(["draft-1"]);
+    } finally {
+      act(() => showDraftAgain());
+    }
+  });
+
+  it("closes the composer if the sent reply never shows in the thread", async () => {
+    vi.useFakeTimers();
+    Element.prototype.scrollIntoView = vi.fn();
+    try {
+      render(
+        <EmailThread
+          messages={[createReaderMessage("parent", "1000")]}
+          refetch={vi.fn()}
+          showReplyButton
+        />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Reply" }));
+      fireEvent.click(screen.getByRole("button", { name: "Queue send" }));
+      await act(async () => vi.advanceTimersByTimeAsync(500));
+      expect(screen.getByLabelText("Email message")).toBeTruthy();
+
+      await act(async () => vi.advanceTimersByTimeAsync(600));
+      expect(screen.queryByLabelText("Email message")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   // The reply has no provider message yet, so a reply to it threads on the
   // newest message the provider has.
   it("replies to an unsent reply on the thread's latest provider message", () => {
@@ -257,6 +673,62 @@ describe("EmailThread outgoing replies", () => {
     expect(composer.dataset.draftSessionId).toBe("outgoing:send-1:reply");
   });
 
+  it("restores a reply on an outgoing row and keeps it when the sent row takes over", () => {
+    localDrafts.current = [
+      {
+        emailAccountId: "account-1",
+        threadId: "thread-1",
+        messageId: "outgoing:send-1:reply",
+        revision: 1,
+        updatedAt: 1000,
+        content: { composeMode: "reply" } as StoredReplyDraft["content"],
+      },
+    ];
+    try {
+      const parent = createReaderMessage("parent", "1000");
+      const view = render(
+        <EmailThread
+          messages={[parent]}
+          outgoing={[
+            {
+              operationId: "send-1",
+              status: "verifying",
+              message: createSentMessage("outgoing:send-1", "3000"),
+            },
+          ]}
+          refetch={vi.fn()}
+          showReplyButton
+        />,
+      );
+      expect(
+        screen.getByRole("textbox", { name: "Email message" }).dataset
+          .draftSessionId,
+      ).toBe("outgoing:send-1:reply");
+      const outgoingRow = document.querySelector(
+        '[data-thread-message-id="outgoing:send-1"]',
+      );
+      const replyButton = Array.from(
+        outgoingRow?.querySelectorAll("button") ?? [],
+      ).find((button) => button.textContent === "Reply");
+      if (!replyButton) throw new Error("expected outgoing reply button");
+      fireEvent.click(replyButton);
+      view.rerender(
+        <EmailThread
+          messages={[parent, createSentMessage("sent-1", "3000")]}
+          sendOperationIds={new Map([["sent-1", "send-1"]])}
+          refetch={vi.fn()}
+          showReplyButton
+        />,
+      );
+      expect(
+        screen.getByRole("textbox", { name: "Email message" }).dataset
+          .draftSessionId,
+      ).toBe("outgoing:send-1:reply");
+    } finally {
+      localDrafts.current = [];
+    }
+  });
+
   // Outlook sends a saved draft as that same message. Its local copy is only
   // cleared once the send settles, and must not reopen as a reply meanwhile.
   it("does not reopen a sent draft's local copy as a reply on the sent message", () => {
@@ -284,6 +756,76 @@ describe("EmailThread outgoing replies", () => {
 
     expect(screen.queryByRole("textbox", { name: "Email message" })).toBeNull();
     localDrafts.current = [];
+  });
+});
+
+describe("EmailThread scheduled send drafts", () => {
+  afterEach(() => {
+    cleanup();
+    scheduledEmails.current = [];
+  });
+
+  // A scheduled send goes out from its mailbox draft, which stays in the
+  // thread until then. The delivery status stands in for it meanwhile.
+  it("hides the mailbox draft of a pending scheduled send", () => {
+    scheduledEmails.current = [
+      { status: "PENDING", draftMessageIds: ["draft-old", "draft-1"] },
+    ];
+    render(
+      <EmailThread
+        messages={[
+          createReaderMessage("parent", "1000"),
+          createReaderDraft("draft-1", "2000"),
+        ]}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    expect(screen.queryByRole("textbox", { name: "Email message" })).toBeNull();
+  });
+
+  it("shows the draft again once its scheduled send is no longer pending", () => {
+    scheduledEmails.current = [
+      { status: "FAILED", draftMessageIds: ["draft-1"] },
+    ];
+    render(
+      <EmailThread
+        messages={[
+          createReaderMessage("parent", "1000"),
+          createReaderDraft("draft-1", "2000"),
+        ]}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    expect(
+      screen.getByRole("textbox", { name: "Email message" }).dataset
+        .providerDraftMessageId,
+    ).toBe("draft-1");
+  });
+
+  it("hides a draft while its send is held, and shows it again once undone", () => {
+    const showDraftAgain = hideSendingDraftMessages("account-1", ["draft-1"]);
+    render(
+      <EmailThread
+        messages={[
+          createReaderMessage("parent", "1000"),
+          createReaderDraft("draft-1", "2000"),
+        ]}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+    expect(screen.queryByRole("textbox", { name: "Email message" })).toBeNull();
+
+    act(() => showDraftAgain());
+
+    expect(
+      screen.getByRole("textbox", { name: "Email message" }).dataset
+        .providerDraftMessageId,
+    ).toBe("draft-1");
   });
 });
 
@@ -382,6 +924,64 @@ describe("EmailThread draft discard", () => {
 
     expect(screen.queryByRole("textbox", { name: "Email message" })).toBeNull();
     expect(onThreadDiscarded).not.toHaveBeenCalled();
+  });
+});
+
+describe("EmailThread mailbox copies of local replies", () => {
+  afterEach(() => {
+    cleanup();
+    localDrafts.current = [];
+    localDrafts.isLoading = false;
+  });
+
+  it("edits a reply from its local copy once its mailbox copy syncs back", () => {
+    localDrafts.isLoading = true;
+    const messages = [
+      createReaderMessage("parent", "1000"),
+      createReaderDraft("mailbox-copy", "2000"),
+    ];
+    const view = render(
+      <EmailThread messages={messages} refetch={vi.fn()} showReplyButton />,
+    );
+    expect(screen.queryByRole("textbox", { name: "Email message" })).toBeNull();
+    localDrafts.isLoading = false;
+    localDrafts.current = [
+      {
+        emailAccountId: "account-1",
+        threadId: "thread-1",
+        messageId: "parent:reply",
+        revision: 1,
+        content: {
+          composeMode: "reply",
+          providerDraftMessageIds: ["mailbox-copy"],
+        } as StoredReplyDraft["content"],
+        updatedAt: 1,
+      },
+    ];
+    view.rerender(
+      <EmailThread messages={messages} refetch={vi.fn()} showReplyButton />,
+    );
+
+    const composers = screen.getAllByRole("textbox", { name: "Email message" });
+    expect(composers).toHaveLength(1);
+    expect(composers[0]?.dataset.draftSessionId).toBe("parent:reply");
+  });
+
+  it("hides a discarded reply's mailbox copy until sync removes it", async () => {
+    render(
+      <EmailThread
+        messages={[
+          createReaderMessage("parent", "1000"),
+          createReaderDraft("discarded-copy", "2000"),
+        ]}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Discard draft" }));
+    await act(async () => {});
+    expect(screen.queryByRole("textbox", { name: "Email message" })).toBeNull();
   });
 });
 
@@ -585,13 +1185,15 @@ function MockComposer({
   draftKeyMessageId,
   draftSessionId,
   providerDraftMessageId,
+  onSubmitting,
   onClose,
   onDiscard,
 }: {
   draftKeyMessageId?: string;
   draftSessionId?: string;
   providerDraftMessageId?: string;
-  onClose?: () => void;
+  onSubmitting?: (operationId: string) => () => void;
+  onClose?: (queuedOperationId?: string) => void;
   onDiscard?: () => void;
 }) {
   useState(() => {
@@ -605,8 +1207,19 @@ function MockComposer({
         data-draft-session-id={draftSessionId}
         data-provider-draft-message-id={providerDraftMessageId}
       />
-      <button onClick={onClose} type="button">
+      <button onClick={() => onClose?.()} type="button">
         Send
+      </button>
+      <button
+        onClick={() => {
+          onSubmitting?.("send-1");
+        }}
+        type="button"
+      >
+        Submit send
+      </button>
+      <button onClick={() => onClose?.("send-1")} type="button">
+        Queue send
       </button>
       <button onClick={onDiscard} type="button">
         Discard draft

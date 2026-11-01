@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Prisma } from "@/generated/prisma/client";
 import { createTestLogger } from "@/__tests__/helpers";
 import prisma from "@/utils/__mocks__/prisma";
-import { deleteAccountUploadDirectory } from "@/utils/mail-api/upload-blobs";
 import { deleteUser } from "@/utils/user/delete";
 import { deleteTinybirdEmailData } from "@inboxzero/tinybird";
 import { publishConversationChange } from "@/utils/team-comments/events";
@@ -11,9 +10,6 @@ import { deleteContact as deleteLoopsContact } from "@inboxzero/loops";
 import { releaseAccountRecordings } from "@/utils/meeting-recorder/delete-media";
 
 vi.mock("@/utils/prisma");
-vi.mock("@/utils/mail-api/upload-blobs", () => ({
-  deleteAccountUploadDirectory: vi.fn(() => Promise.resolve()),
-}));
 vi.mock("@/utils/redis/thread-page-buffer", () => ({
   withThreadPageBufferDeletion: vi.fn(async (_ids, operation) => operation()),
 }));
@@ -87,7 +83,6 @@ describe("deleteUser", () => {
 
     expect(prisma.session.deleteMany).not.toHaveBeenCalled();
     expect(prisma.user.deleteMany).not.toHaveBeenCalled();
-    expect(deleteAccountUploadDirectory).not.toHaveBeenCalled();
   });
 
   it("keeps Tinybird data when deleting the user fails", async () => {
@@ -187,9 +182,6 @@ describe("deleteUser", () => {
     expect(
       vi.mocked(publishConversationChange).mock.invocationCallOrder[0],
     ).toBeGreaterThan(prisma.$transaction.mock.invocationCallOrder[0]);
-    expect(deleteAccountUploadDirectory).toHaveBeenCalledWith(
-      "email-account-1",
-    );
   });
 
   it("removes the marketing contact by email address", async () => {
@@ -343,7 +335,6 @@ describe("deleteUser", () => {
     await expect(deleteUser({ userId: "user-1", logger })).rejects.toThrow(
       "Transfer organization ownership before deleting your account.",
     );
-    expect(deleteAccountUploadDirectory).not.toHaveBeenCalled();
   });
 
   it("surfaces the ownership transfer message when membership blocks raced user deletion", async () => {
@@ -372,6 +363,5 @@ describe("deleteUser", () => {
     await expect(deleteUser({ userId: "user-1", logger })).rejects.toThrow(
       "Transfer organization ownership before deleting your account.",
     );
-    expect(deleteAccountUploadDirectory).not.toHaveBeenCalled();
   });
 });

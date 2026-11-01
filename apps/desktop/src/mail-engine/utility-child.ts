@@ -4,6 +4,7 @@ import {
   type DurationSummary,
   startEventLoopDelayMonitor,
 } from "../health";
+import { newMailFromSyncPage } from "../mail-notifications";
 import { isTransientNetworkError } from "../network-errors";
 import { createRoutedBackendPorts } from "./backend";
 import { followMailboxSignal } from "./mailbox-signals";
@@ -24,6 +25,7 @@ export type ChildToMainMessage =
   | { type: "reply"; id: string; status: "ok"; result: unknown }
   | { type: "reply"; id: string; status: "error"; message: string }
   | { type: "snapshot"; subscriptionId: string; snapshot: unknown }
+  | { type: "newMail"; payload: ReturnType<typeof newMailFromSyncPage> }
   | { type: "engineError"; message: string; stack?: string }
   | { type: "cookieHeaderRequest"; requestId: string; url: string };
 
@@ -32,6 +34,8 @@ export type ChildHealth = {
   /** From the call, so including time queued behind other transactions. */
   sqliteReadMs: DurationSummary | null;
   sqliteWriteMs: DurationSummary | null;
+  /** Archive, star, send and other commands, until accepted and shown in open views. */
+  mailCommandMs: DurationSummary | null;
 };
 
 /**
@@ -53,6 +57,7 @@ export function createUtilityChildRuntime(
   const eventLoopDelay = startEventLoopDelayMonitor();
   const sqliteReads = createDurationRecorder();
   const sqliteWrites = createDurationRecorder();
+  const mailCommands = createDurationRecorder();
 
   // Session cookies stay in the main process; it answers per request.
   function requestCookieHeader(url: string) {
@@ -80,6 +85,7 @@ export function createUtilityChildRuntime(
       eventLoopDelayMs: eventLoopDelay.drain(),
       sqliteReadMs: sqliteReads.drain(),
       sqliteWriteMs: sqliteWrites.drain(),
+      mailCommandMs: mailCommands.drain(),
     };
   }
 
@@ -94,6 +100,10 @@ export function createUtilityChildRuntime(
               cookieHeader: requestCookieHeader,
             }),
           ),
+          onSyncPageCommitted: (page) => {
+            const payload = newMailFromSyncPage(page);
+            if (payload.messages.length) post({ type: "newMail", payload });
+          },
           onEngineError: (error) => {
             if (isTransientNetworkError(error)) return;
             post(engineErrorMessage(error));
@@ -110,8 +120,17 @@ export function createUtilityChildRuntime(
             }),
         });
         return null;
-      case "ipc":
-        return requireOwner().handleIpc(message.payload);
+      case "ipc": {
+        if (!isMailCommand(message.payload)) {
+          return requireOwner().handleIpc(message.payload);
+        }
+        const startedAt = performance.now();
+        try {
+          return await requireOwner().handleIpc(message.payload);
+        } finally {
+          mailCommands.record(performance.now() - startedAt);
+        }
+      }
       case "subscribe": {
         const { subscriptionId } = message;
         const unsubscribe = requireOwner().subscribe(
@@ -168,6 +187,15 @@ export function createUtilityChildRuntime(
       }
     },
   };
+}
+
+function isMailCommand(payload: unknown) {
+  const method = (payload as { method?: unknown } | null)?.method;
+  return (
+    method === "submitConversations" ||
+    method === "submitMetadata" ||
+    method === "submitSend"
+  );
 }
 
 function engineErrorMessage(error: unknown): ChildToMainMessage {

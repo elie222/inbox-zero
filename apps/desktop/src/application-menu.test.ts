@@ -2,11 +2,16 @@ import type { MenuItemConstructorOptions } from "electron";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { configureDesktopApplicationMenu } from "./application-menu";
 
-const { app, Menu } = vi.hoisted(() => ({
+const { app, BrowserWindow, Menu } = vi.hoisted(() => ({
   app: {
     getVersion: vi.fn(() => "0.2.0"),
     setAboutPanelOptions: vi.fn(),
     showAboutPanel: vi.fn(),
+  },
+  BrowserWindow: class {
+    webContents = {
+      navigationHistory: { goBack: vi.fn(), goForward: vi.fn() },
+    };
   },
   Menu: {
     buildFromTemplate: vi.fn(
@@ -16,7 +21,7 @@ const { app, Menu } = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("electron", () => ({ app, Menu }));
+vi.mock("electron", () => ({ app, BrowserWindow, Menu }));
 
 describe("desktop application menu", () => {
   beforeEach(() => {
@@ -28,6 +33,7 @@ describe("desktop application menu", () => {
     configureDesktopApplicationMenu({
       checkForUpdates,
       createWindow: vi.fn(),
+      openSettings: vi.fn(),
       recordDiagnostics: vi.fn(),
       platform: "win32",
     });
@@ -56,6 +62,7 @@ describe("desktop application menu", () => {
     configureDesktopApplicationMenu({
       checkForUpdates: vi.fn(),
       createWindow,
+      openSettings: vi.fn(),
       recordDiagnostics: vi.fn(),
       platform: "darwin",
     });
@@ -75,6 +82,7 @@ describe("desktop application menu", () => {
     configureDesktopApplicationMenu({
       checkForUpdates,
       createWindow: vi.fn(),
+      openSettings: vi.fn(),
       recordDiagnostics: vi.fn(),
       updateReady: true,
       platform: "darwin",
@@ -92,6 +100,7 @@ describe("desktop application menu", () => {
     configureDesktopApplicationMenu({
       checkForUpdates: vi.fn(),
       createWindow: vi.fn(),
+      openSettings: vi.fn(),
       recordDiagnostics: vi.fn(),
       downloadPercent: 42,
       platform: "darwin",
@@ -114,6 +123,7 @@ describe("desktop application menu", () => {
     configureDesktopApplicationMenu({
       checkForUpdates: vi.fn(),
       createWindow: vi.fn(),
+      openSettings: vi.fn(),
       recordDiagnostics,
       platform,
     });
@@ -124,5 +134,76 @@ describe("desktop application menu", () => {
     const submenu = help?.submenu as MenuItemConstructorOptions[];
     const record = submenu.find((item) => item.label === "Record Diagnostics…");
     expect(record?.click).toBe(recordDiagnostics);
+  });
+
+  it.each([
+    { platform: "darwin", menu: "Inbox Zero" },
+    { platform: "win32", menu: "File" },
+  ] as const)("offers Settings with Cmd/Ctrl+, in the $menu menu on $platform", ({
+    platform,
+    menu,
+  }) => {
+    const openSettings = vi.fn();
+    configureDesktopApplicationMenu({
+      checkForUpdates: vi.fn(),
+      createWindow: vi.fn(),
+      openSettings,
+      recordDiagnostics: vi.fn(),
+      platform,
+    });
+
+    const template: MenuItemConstructorOptions[] =
+      Menu.buildFromTemplate.mock.results[0].value;
+    const parent = template.find((item) => item.label === menu);
+    const submenu = parent?.submenu as MenuItemConstructorOptions[];
+    const settings = submenu.find((item) => item.label === "Settings…");
+    expect(settings?.accelerator).toBe("CommandOrControl+,");
+    expect(settings?.click).toBe(openSettings);
+  });
+
+  it("pastes as plain text with Cmd+Shift+V on macOS", () => {
+    configureDesktopApplicationMenu({
+      checkForUpdates: vi.fn(),
+      createWindow: vi.fn(),
+      openSettings: vi.fn(),
+      recordDiagnostics: vi.fn(),
+      platform: "darwin",
+    });
+
+    const template: MenuItemConstructorOptions[] =
+      Menu.buildFromTemplate.mock.results[0].value;
+    const edit = template.find((item) => item.label === "Edit");
+    const submenu = edit?.submenu as MenuItemConstructorOptions[];
+    const pastePlain = submenu.find(
+      (item) => item.role === "pasteAndMatchStyle",
+    );
+    expect(pastePlain?.accelerator).toBe("CommandOrControl+Shift+V");
+  });
+
+  it("navigates the focused window's history with Cmd/Ctrl+[ and Cmd/Ctrl+]", () => {
+    configureDesktopApplicationMenu({
+      checkForUpdates: vi.fn(),
+      createWindow: vi.fn(),
+      openSettings: vi.fn(),
+      recordDiagnostics: vi.fn(),
+      platform: "darwin",
+    });
+
+    const template: MenuItemConstructorOptions[] =
+      Menu.buildFromTemplate.mock.results[0].value;
+    const view = template.find((item) => item.label === "View");
+    const submenu = view?.submenu as MenuItemConstructorOptions[];
+    const back = submenu.find((item) => item.label === "Back");
+    const forward = submenu.find((item) => item.label === "Forward");
+    expect(back?.accelerator).toBe("CommandOrControl+[");
+    expect(forward?.accelerator).toBe("CommandOrControl+]");
+
+    const window = new BrowserWindow();
+    back?.click?.({} as never, window as never, {} as never);
+    expect(window.webContents.navigationHistory.goBack).toHaveBeenCalledOnce();
+    forward?.click?.({} as never, window as never, {} as never);
+    expect(
+      window.webContents.navigationHistory.goForward,
+    ).toHaveBeenCalledOnce();
   });
 });

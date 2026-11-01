@@ -2,6 +2,7 @@ import type { Client } from "@microsoft/microsoft-graph-client";
 import type { Subscription } from "@microsoft/microsoft-graph-types";
 import { addDays } from "date-fns/addDays";
 import { env } from "@/env";
+import { isNotFoundError } from "@/utils/outlook/errors";
 import { withMicrosoftGraphWriteRetry } from "@/utils/outlook/retry";
 import type { Logger } from "@/utils/logger";
 
@@ -39,8 +40,15 @@ export async function unwatchOutlook(
   subscriptionId: string,
   logger: Logger,
 ) {
-  await withMicrosoftGraphWriteRetry(
-    () => client.api(`/subscriptions/${subscriptionId}`).delete(),
-    logger,
-  );
+  try {
+    await withMicrosoftGraphWriteRetry(
+      () => client.api(`/subscriptions/${subscriptionId}`).delete(),
+      logger,
+    );
+  } catch (error) {
+    // Graph drops expired or removed subscriptions on its own, so a 404 means
+    // the subscription is already gone, which is what unwatching wants.
+    if (!isNotFoundError(error)) throw error;
+    logger.info("Outlook subscription already removed", { subscriptionId });
+  }
 }

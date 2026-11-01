@@ -29,3 +29,13 @@ export function normalizeContactCandidates(
 
   return contacts;
 }
+
+// Both providers already decide "this contact source denied us" from a wider
+// set of shapes than any single predicate covers. They raise this so callers
+// can offer a reconnect without re-deriving that decision per provider.
+export class ContactsAccessDeniedError extends Error {
+  constructor(options?: { cause?: unknown }) {
+    super("Contact access was denied by the email provider", options);
+    this.name = "ContactsAccessDeniedError";
+  }
+}

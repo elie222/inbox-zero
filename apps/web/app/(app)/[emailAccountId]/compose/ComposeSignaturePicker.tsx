@@ -1,0 +1,70 @@
+import { CheckIcon, SignatureIcon } from "lucide-react";
+import { DEFAULT_SIGNATURE_ID } from "@/utils/email/default-signature";
+import type { GetSignatureResponse } from "@/app/api/user/signature/route";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { getSignatureText } from "./find-signature-id";
+
+type Signature = GetSignatureResponse["signatures"][number];
+
+export function ComposeSignaturePicker({
+  signatures,
+  selectedId,
+  disabled,
+  onSelect,
+}: {
+  signatures: Signature[];
+  selectedId?: string;
+  disabled: boolean;
+  onSelect: (signature: Signature) => void;
+}) {
+  const onlyDefault =
+    signatures.length === 1 && signatures[0].id === DEFAULT_SIGNATURE_ID;
+  if (!signatures.length || onlyDefault) return null;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          aria-label="Choose signature"
+          className="hover:bg-transparent"
+          disabled={disabled}
+          size="icon"
+          type="button"
+          variant="ghostMuted"
+        >
+          <SignatureIcon className="size-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-64">
+        {signatures.map((signature) => (
+          <DropdownMenuItem
+            className="gap-3"
+            key={signature.id}
+            onSelect={() => onSelect(signature)}
+          >
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-medium">
+                {signature.name}
+              </span>
+              <span className="block truncate text-muted-foreground text-xs">
+                {getSignatureText(signature.signatureHtml)}
+              </span>
+            </span>
+            {signature.id === selectedId && (
+              <CheckIcon
+                aria-label="Current signature"
+                className="size-4 shrink-0"
+              />
+            )}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}

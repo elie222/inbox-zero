@@ -15,7 +15,7 @@ export function OnboardingFeatureStep({
   onNext: () => void;
 }) {
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center bg-slate-50 px-4 py-8">
+    <div className="flex min-h-svh flex-col items-center justify-center bg-slate-50 dark:bg-background px-4 py-8">
       <div className="flex max-w-md flex-col items-center text-center">
         <div className="mb-6 flex h-[240px] items-end justify-center">
           {illustration}

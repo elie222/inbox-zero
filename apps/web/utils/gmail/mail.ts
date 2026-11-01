@@ -3,7 +3,7 @@ import MailComposer from "nodemailer/lib/mail-composer";
 import type Mail from "nodemailer/lib/mailer";
 import type { Attachment } from "nodemailer/lib/mailer";
 import type { SendEmailBody, WithMailerAttachments } from "@/utils/types/mail";
-import { convertEmailHtmlToText } from "@/utils/mail";
+import { convertOutgoingEmailHtmlToText } from "@/utils/mail";
 import {
   forwardEmailHtml,
   forwardEmailSubject,
@@ -11,6 +11,7 @@ import {
 } from "@/utils/gmail/forward";
 import type { ParsedMessage } from "@/utils/types";
 import { createReplyContent } from "@/utils/gmail/reply";
+import { renderReplyBodyHtml } from "@/utils/email/reply-body-html";
 import { formatReplyQuotedHeader } from "@/utils/email/reply-quote";
 import type { EmailForAction } from "@/utils/ai/types";
 import { createScopedLogger, type Logger } from "@/utils/logger";
@@ -35,7 +36,7 @@ import {
 import { getDraftIdForMessage } from "@/utils/gmail/draft";
 import { SafeError } from "@/utils/error";
 import { GmailLabel } from "@/utils/gmail/label";
-import { convertNewlinesToBr, textToHtmlParagraphs } from "@/utils/string";
+import { textToHtmlParagraphs } from "@/utils/string";
 import {
   buildQuotedPlainText,
   quotePlainTextContent,
@@ -52,13 +53,15 @@ const encodeMessage = (message: Buffer) =>
     .replace(/\//g, "_")
     .replace(/=+$/, "");
 
-export const createMail = async (options: Mail.Options) => {
+export async function buildMailMessage(options: Mail.Options) {
   const mailComposer = new MailComposer(options);
   const compiledMessage = mailComposer.compile();
   compiledMessage.keepBcc = true;
-  const message = await compiledMessage.build();
-  return encodeMessage(message);
-};
+  return compiledMessage.build();
+}
+
+export const createMail = async (options: Mail.Options) =>
+  encodeMessage(await buildMailMessage(options));
 
 const createRawMailMessage = async ({
   to,
@@ -114,16 +117,16 @@ export async function sendEmailWithHtml(
   let messageText: string;
 
   try {
-    messageText = convertEmailHtmlToText({ htmlText: body.messageHtml });
+    messageText = convertOutgoingEmailHtmlToText(body.messageHtml);
   } catch (error) {
     sendLogger.error("Error converting email html to text", { error });
     messageText = stripHtmlTagsForPlainText(body.messageHtml).trim();
   }
 
-  const forwardedAttachments = await getForwardedAttachments(
-    gmail,
-    body.replyToEmail?.forwardedMessageId,
-  );
+  const forwardedAttachments = body.replyToEmail?.forwardedMessageId
+    ? (await getForwardedMessage(gmail, body.replyToEmail.forwardedMessageId))
+        .attachments
+    : [];
 
   const raw = await createRawMailMessage({
     ...body,
@@ -205,6 +208,8 @@ export async function replyToEmail(
   from?: string,
   options?: {
     replyTo?: string;
+    cc?: string;
+    bcc?: string;
     attachments?: Attachment[];
   },
 ) {
@@ -212,6 +217,7 @@ export async function replyToEmail(
 
   const { html } = createReplyContent({
     textContent: reply,
+    htmlContent: renderReplyBodyHtml(reply),
     message,
   });
   const messageText = buildReplyMessageText({
@@ -223,6 +229,8 @@ export async function replyToEmail(
   const raw = await createRawMailMessage({
     to: message.headers["reply-to"] || message.headers.from,
     from,
+    cc: options?.cc,
+    bcc: options?.bcc,
     replyTo: options?.replyTo,
     subject: formatReplySubject(message.headers.subject),
     messageText,
@@ -331,6 +339,7 @@ export async function draftEmail(
   originalEmail: EmailForAction,
   args: {
     to?: string;
+    from?: string;
     subject?: string;
     content: string;
     cc?: string;
@@ -341,6 +350,7 @@ export async function draftEmail(
 ) {
   const { html } = createReplyContent({
     textContent: args.content,
+    htmlContent: renderReplyBodyHtml(args.content),
     message: originalEmail,
   });
   const messageText = buildReplyMessageText({
@@ -362,6 +372,7 @@ export async function draftEmail(
 
   const raw = await createRawMailMessage({
     to: recipients.to,
+    from: args.from,
     cc: formatCcList(ccList),
     bcc: formatCcList(bccList),
     subject: args.subject || originalEmail.headers.subject,
@@ -430,12 +441,7 @@ export function buildReplyMessageText({
 function renderReplyBodyAsPlainText(textContent?: string) {
   if (!textContent) return "";
 
-  return convertEmailHtmlToText({
-    htmlText: convertNewlinesToBr(textContent),
-  })
-    .replace(/\r\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+  return convertOutgoingEmailHtmlToText(renderReplyBodyHtml(textContent));
 }
 
 export function stripHtmlTagsForPlainText(html: string) {
@@ -524,16 +530,14 @@ async function trackGmailSend<T>(
 }
 
 /**
- * Graph carries a forward's files across on its own, but a Gmail send composes
- * its own MIME, so the parts of the message being forwarded have to be fetched
- * and re-attached.
+ * Graph carries a forward's files across on its own, but a Gmail send or
+ * draft composes its own MIME, so the parts of the message being forwarded
+ * have to be fetched and re-attached.
  */
-async function getForwardedAttachments(
+export async function getForwardedMessage(
   gmail: gmail_v1.Gmail,
-  forwardedMessageId: string | undefined,
-): Promise<Attachment[]> {
-  if (!forwardedMessageId) return [];
-
+  forwardedMessageId: string,
+): Promise<{ threadId?: string; attachments: Attachment[] }> {
   const message = await getMessage(forwardedMessageId, gmail).catch(
     (error: unknown) => {
       if (extractErrorInfo(error).status !== 404) throw error;
@@ -545,11 +549,14 @@ async function getForwardedAttachments(
 
   // A part that fails to download fails the send: silently dropping one file
   // from a forward is worse than asking the user to try again.
-  return await getGmailMessageAttachments(
-    gmail,
-    forwardedMessageId,
-    message.payload,
-  );
+  return {
+    threadId: message.threadId ?? undefined,
+    attachments: await getGmailMessageAttachments(
+      gmail,
+      forwardedMessageId,
+      message.payload,
+    ),
+  };
 }
 
 function getGmailSendMetadata(raw: string, body: MailSendEmailBody) {

@@ -9,10 +9,7 @@ import {
 import { XIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import useSWR from "swr";
-import type {
-  ContactsErrorResponse,
-  ContactsResponse,
-} from "@/app/api/user/contacts/route";
+import type { ContactsResponse } from "@/app/api/user/contacts/route";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -80,7 +77,7 @@ export function ComposeContactRecipientField({
   const label = RECIPIENT_LABELS[name];
   const selectedEmailAddresses = splitRecipientList(selectedRecipients);
 
-  const { data: contacts } = useSWR<ContactsResponse, ContactsFetchError>(
+  const { data: contacts } = useSWR<ContactsResponse>(
     !env.NEXT_PUBLIC_CONTACTS_ENABLED || reconnectRequired || !active
       ? null
       : [
@@ -91,11 +88,17 @@ export function ComposeContactRecipientField({
       dedupingInterval: 5 * 60 * 1000,
       keepPreviousData: false,
       revalidateOnFocus: true,
-      onError(error) {
-        if (error.info?.reconnectRequired) onReconnectRequired();
+      onSuccess(data) {
+        if (data.reconnectRequired) onReconnectRequired();
       },
     },
   );
+
+  // The parent latch stops further requests, but SWR runs onSuccess only for
+  // the hook that starts one: a remount served a cached or deduplicated
+  // response would never latch, so the prompt reads the data directly.
+  const showReconnectPrompt =
+    reconnectRequired || contacts?.reconnectRequired === true;
 
   useEffect(() => {
     const timeout = setTimeout(() => setDebouncedQuery(normalizedQuery), 150);
@@ -134,6 +137,21 @@ export function ComposeContactRecipientField({
   const updateSearchQuery = (query: string) => {
     setSearchQuery(query);
     onSearchQueryChange(name, query);
+  };
+
+  // Valid typed addresses become tokens as soon as the user moves on, so what
+  // is shown matches what will be sent.
+  const commitSearchQuery = () => {
+    if (!isValidComposeRecipientList(searchQuery.trim())) return false;
+    onSelectedRecipientsChange(
+      name,
+      resolveComposeRecipients({
+        selectedRecipients,
+        pendingRecipient: searchQuery,
+      }),
+    );
+    updateSearchQuery("");
+    return true;
   };
 
   const removeSelectedEmail = (emailAddress: string) => {
@@ -190,45 +208,53 @@ export function ComposeContactRecipientField({
             aria-label={label}
             autoFocus={autoFocus}
             className="w-full border-none bg-background p-0 text-sm focus:border-none focus:ring-0"
+            // Closing the list would otherwise blank the input while the
+            // typed text is still kept and sent.
+            displayValue={() => searchQuery}
             id={name}
+            onBlur={(event) => {
+              if (
+                event.currentTarget.parentElement?.contains(event.relatedTarget)
+              )
+                return;
+              commitSearchQuery();
+            }}
             onChange={(event) => updateSearchQuery(event.target.value)}
             onFocus={() => onActivate(name)}
+            onKeyDown={(event) => {
+              if (event.key !== "," && event.key !== ";") return;
+              if (commitSearchQuery()) event.preventDefault();
+            }}
             onKeyUp={(event) => {
               if (event.key !== "Enter") return;
               event.preventDefault();
-              if (!isValidComposeRecipientList(searchQuery.trim())) return;
-              onSelectedRecipientsChange(
-                name,
-                resolveComposeRecipients({
-                  selectedRecipients,
-                  pendingRecipient: searchQuery,
-                }),
-              );
-              updateSearchQuery("");
+              commitSearchQuery();
             }}
             value={searchQuery}
           />
 
-          {active && env.NEXT_PUBLIC_CONTACTS_ENABLED && reconnectRequired && (
-            <div
-              className="absolute z-10 mt-1 flex w-80 items-center gap-3 rounded-md border bg-popover p-3 text-sm text-popover-foreground shadow-lg"
-              role="status"
-            >
-              <span className="flex-1">
-                Reconnect this account to enable contact suggestions.
-              </span>
-              <Button
-                className="h-auto p-0"
-                disabled={isReconnectingContacts}
-                loading={isReconnectingContacts}
-                onClick={onReconnectContacts}
-                type="button"
-                variant="link"
+          {active &&
+            env.NEXT_PUBLIC_CONTACTS_ENABLED &&
+            showReconnectPrompt && (
+              <div
+                className="absolute z-10 mt-1 flex w-80 items-center gap-3 rounded-md border bg-popover p-3 text-sm text-popover-foreground shadow-lg"
+                role="status"
               >
-                Reconnect
-              </Button>
-            </div>
-          )}
+                <span className="flex-1">
+                  Reconnect this account to enable contact suggestions.
+                </span>
+                <Button
+                  className="h-auto p-0"
+                  disabled={isReconnectingContacts}
+                  loading={isReconnectingContacts}
+                  onClick={onReconnectContacts}
+                  type="button"
+                  variant="link"
+                >
+                  Reconnect
+                </Button>
+              </div>
+            )}
 
           {active && !!suggestions.length && (
             <ComboboxOptions className="absolute z-20 mt-1 max-h-72 w-max min-w-full max-w-[min(28rem,calc(100vw-3rem))] overflow-auto rounded-md border bg-popover py-1 text-sm shadow-lg focus:outline-none">
@@ -272,8 +298,3 @@ export function ComposeContactRecipientField({
     </Combobox>
   );
 }
-
-type ContactsFetchError = Error & {
-  info?: Partial<ContactsErrorResponse>;
-  status?: number;
-};

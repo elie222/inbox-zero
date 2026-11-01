@@ -70,7 +70,101 @@ describe("mail engine mailbox windows", () => {
   });
 });
 
+describe("mail engine command admission", () => {
+  it("answers a command once a view refresh covers it, even while more refreshes keep arriving", async () => {
+    const reads: Array<() => void> = [];
+    const store = {
+      readMailboxView: () =>
+        new Promise((resolve) => {
+          reads.push(() =>
+            resolve({
+              revision: { databaseEpoch: "test", sequence: reads.length },
+              view: { conversations: [] },
+            }),
+          );
+        }),
+      enqueueSearch: async () => ({ databaseEpoch: "test", sequence: 0 }),
+      admitConversations: async (command: { commandId: string }) => ({
+        status: "queued",
+        operation: { accountId: "acc-1", operationId: command.commandId },
+        revision: { databaseEpoch: "test", sequence: 1 },
+      }),
+      close: async () => {},
+    } as unknown as MailStore;
+    const engine = createMailEngine({
+      store,
+      source: idleSource(),
+      executor: idleExecutor(),
+      runtime: createHostRuntime(),
+    });
+    engine.observeMailbox(inboxQuery());
+    await waitUntil(() => reads.length === 1);
+    reads[0]();
+
+    let archived = false;
+    const archive = engine
+      .submitConversations(archiveCommand("archive"))
+      .then(() => {
+        archived = true;
+      });
+    await waitUntil(() => reads.length === 2);
+    // Sync, other windows, and the engine loop request refreshes all the time.
+    let laterAdmitted = false;
+    const later = engine
+      .submitConversations(archiveCommand("later"))
+      .then(() => {
+        laterAdmitted = true;
+      });
+    reads[1]();
+
+    await waitUntil(() => archived);
+    expect(laterAdmitted).toBe(false);
+    await waitUntil(() => reads.length === 3);
+    reads[2]();
+    await Promise.all([archive, later]);
+    await engine.close();
+  });
+});
+
 describe("mail engine idle catch-up scheduling", () => {
+  it("emits committed incremental pages, excluding stale results", async () => {
+    const onSyncPageCommitted = vi.fn();
+    const harness = idleCatchUpHarness({
+      streamIds: ["inbox"],
+      onSyncPageCommitted,
+    });
+    await harness.engine.runUntil(10_000);
+    expect(onSyncPageCommitted).toHaveBeenCalledTimes(1);
+    expect(onSyncPageCommitted.mock.calls[0][0].session.accountId).toBe(
+      "acc-1",
+    );
+    vi.spyOn(harness.store, "applySyncPage").mockResolvedValue({
+      status: "stale",
+    });
+    harness.advance(60_000);
+    await harness.engine.runUntil(70_000);
+    expect(onSyncPageCommitted).toHaveBeenCalledTimes(1);
+    await harness.engine.close();
+  });
+
+  it("keeps committed sync working when a host callback throws", async () => {
+    const harness = idleCatchUpHarness({
+      streamIds: ["inbox"],
+      onSyncPageCommitted: () => {
+        throw new Error("notification transport unavailable");
+      },
+    });
+    const recordConnection = vi.spyOn(harness.store, "recordConnection");
+    await expect(harness.engine.runUntil(10_000)).resolves.toBeUndefined();
+    expect(recordConnection).toHaveBeenCalledWith({
+      accountId: "acc-1",
+      connection: "ready",
+    });
+    await harness.engine.runUntil(10_000);
+    expect(harness.readChangeStreams).toEqual(["inbox"]);
+    await harness.engine.close();
+  });
+
   it("checks every stream once, then waits for the idle interval", async () => {
     const harness = idleCatchUpHarness({ streamIds: ["inbox", "archive"] });
     await harness.engine.runUntil(10_000);
@@ -229,6 +323,42 @@ describe("mail engine idle catch-up scheduling", () => {
     await harness.engine.close();
   });
 
+  it("syncs accounts while claimable work never runs out", async () => {
+    const harness = multiAccountHarness({
+      accounts: [{ accountId: "acc-a", streamIds: ["inbox"], readMs: 0 }],
+      onExecute: () => harness.advance(10),
+    });
+    vi.spyOn(harness.store, "claimWork").mockResolvedValue({
+      kind: "command",
+      attemptId: "attempt-search",
+      operation: { key: { accountId: "acc-a", operationId: "op-search" } },
+    } as Awaited<ReturnType<MailStore["claimWork"]>>);
+
+    await harness.engine.runUntil(500);
+
+    expect(harness.reads).toEqual(["acc-a:inbox"]);
+    await harness.engine.close();
+  });
+
+  it("reports a failing lane while claimable work never runs out", async () => {
+    const harness = multiAccountHarness({
+      accounts: [
+        { accountId: "acc-a", streamIds: ["inbox"], readMs: 0, fails: true },
+      ],
+      onExecute: () => harness.advance(10),
+    });
+    vi.spyOn(harness.store, "claimWork").mockResolvedValue({
+      kind: "command",
+      attemptId: "attempt-search",
+      operation: { key: { accountId: "acc-a", operationId: "op-search" } },
+    } as Awaited<ReturnType<MailStore["claimWork"]>>);
+
+    await harness.engine.runUntil(500);
+
+    await expect(harness.engine.runUntil(1000)).rejects.toThrow("read failed");
+    await harness.engine.close();
+  });
+
   it("abandons a hung lane, reports it, and retries after a backoff", async () => {
     const harness = multiAccountHarness({
       accounts: [
@@ -244,6 +374,24 @@ describe("mail engine idle catch-up scheduling", () => {
 
     harness.advance(1000);
     await harness.engine.runUntil(harness.nowMs + 10).catch(() => {});
+
+    expect(harness.reads).toEqual(["acc-a:inbox", "acc-a:inbox"]);
+    harness.releaseHangs();
+    await harness.engine.close();
+  });
+
+  it("restarts a lane the device slept through without reporting it", async () => {
+    const harness = multiAccountHarness({
+      accounts: [
+        { accountId: "acc-a", streamIds: ["inbox"], readMs: 0, hangs: true },
+      ],
+      syncLaneTimeoutMs: 40,
+    });
+    await harness.engine.runUntil(10);
+    harness.advance(60 * 60_000);
+    await new Promise((resolve) => setTimeout(resolve, 60));
+
+    await harness.engine.runUntil(harness.nowMs + 10);
 
     expect(harness.reads).toEqual(["acc-a:inbox", "acc-a:inbox"]);
     harness.releaseHangs();
@@ -461,6 +609,121 @@ describe("mail engine idle catch-up scheduling", () => {
   });
 });
 
+describe("mail engine changes read across a command", () => {
+  it("keeps what a command confirmed when a page read before it lands after", async () => {
+    let nowMs = 0;
+    let releaseFirstRead = () => {};
+    const firstReadHeld = new Promise<void>((resolve) => {
+      releaseFirstRead = resolve;
+    });
+    let readCount = 0;
+    const applied: string[][] = [];
+    const queued = ["op-1"];
+    const streams = [
+      {
+        accountId: "acc-1",
+        streamId: "inbox",
+        generation: "g1",
+        checkpoint: "start",
+      },
+    ];
+    const store = {
+      ...idleCatchUpStore(streams),
+      async claimWork() {
+        const operationId = queued.shift();
+        if (!operationId) return null;
+        return {
+          kind: "command",
+          attemptId: `attempt-${operationId}`,
+          operation: { key: { accountId: "acc-1", operationId } },
+        };
+      },
+      async settleAttempt() {
+        return {
+          status: "committed",
+          revision: { databaseEpoch: "test", sequence: 1 },
+        };
+      },
+      async applySyncPage(input: Parameters<MailStore["applySyncPage"]>[0]) {
+        applied.push(
+          input.page.changes.map((change) =>
+            change.kind === "message_patch" ? change.key.messageId : "",
+          ),
+        );
+        return {
+          status: "committed",
+          revision: { databaseEpoch: "test", sequence: 1 },
+        };
+      },
+    } as unknown as MailStore;
+    const source: MailboxSource = {
+      ...idleSource(),
+      async discoverScopes() {
+        return {
+          status: "ok",
+          value: {
+            scopes: [{ id: "inbox", kind: "folder", folderId: "inbox" }],
+            nextPage: null,
+          },
+        };
+      },
+      async readChanges({ session, requestId, position }) {
+        readCount += 1;
+        if (readCount === 1) await firstReadHeld;
+        return {
+          status: "page",
+          page: {
+            session,
+            requestId,
+            from: position,
+            to: position,
+            changes: [messagePatch("msg-1"), messagePatch("msg-2")],
+            requiredHydration: [],
+            bodies: [],
+            roundComplete: true,
+          },
+        };
+      },
+    };
+    const engine = createMailEngine({
+      store,
+      source,
+      executor: {
+        ...idleExecutor(),
+        async execute() {
+          await waitUntil(() => readCount === 1);
+          // The read returns only after this command has settled.
+          setTimeout(releaseFirstRead, 0);
+          return {
+            status: "confirmed",
+            receiptId: "receipt-1",
+            observations: [],
+            targets: [
+              {
+                key: { accountId: "acc-1", messageId: "msg-1" },
+                outcome: "applied",
+                code: null,
+              },
+            ],
+          };
+        },
+      },
+      runtime: createHostRuntime({
+        nowMs: () => nowMs,
+        randomId: () => `id-${readCount}`,
+      }),
+    });
+
+    await engine.runUntil(10_000);
+    expect(applied).toEqual([["msg-2"]]);
+
+    nowMs += 60_000;
+    await engine.runUntil(70_000);
+    expect(applied).toEqual([["msg-2"], ["msg-1", "msg-2"]]);
+    await engine.close();
+  });
+});
+
 function inboxQuery(): ConversationQuery {
   return {
     accountIds: ["acc-1"],
@@ -492,6 +755,7 @@ function mailboxWindowStore(requestedPageCounts: number[]): MailStore {
               latestMessageAtMs: pageCount,
               unread: false,
               starred: false,
+              hasAttachments: false,
               labelIds: [],
               roles: ["inbox"],
               pendingOperationIds: [],
@@ -521,6 +785,24 @@ async function waitForReady(handle: QueryHandle<unknown>) {
     await new Promise((resolve) => setTimeout(resolve, 0));
   }
   throw new Error("mailbox window did not become ready");
+}
+
+async function waitUntil(condition: () => boolean) {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    if (condition()) return;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  throw new Error("condition was not met");
+}
+
+function archiveCommand(commandId: string) {
+  return {
+    accountId: "acc-1",
+    commandId,
+    conversations: [{ accountId: "acc-1", conversationId: commandId }],
+    change: { kind: "archive" as const },
+    observedRevision: { databaseEpoch: "test", sequence: 1 },
+  };
 }
 
 function idleSource(): MailboxSource {
@@ -580,6 +862,7 @@ function idleCatchUpHarness(input: {
   batch?: boolean;
   partialPagesBeforeComplete?: number;
   assistant?: AssistantStateSource;
+  onSyncPageCommitted?: (page: import("./sync").SyncPage) => void;
 }) {
   let nowMs = 0;
   let nextId = 0;
@@ -663,6 +946,7 @@ function idleCatchUpHarness(input: {
     source,
     executor: idleExecutor(),
     assistant: input.assistant,
+    onSyncPageCommitted: input.onSyncPageCommitted,
     runtime: createHostRuntime({
       nowMs: () => nowMs,
       randomId: () => {
@@ -776,7 +1060,12 @@ function multiAccountHarness(input: {
         operation: { key: { accountId: "acc-a", operationId } },
       };
     },
-    async settleAttempt() {},
+    async settleAttempt() {
+      return {
+        status: "committed",
+        revision: { databaseEpoch: "test", sequence: 1 },
+      };
+    },
     async purgeAccount() {
       return { databaseEpoch: "test", sequence: 1 };
     },
@@ -940,5 +1229,19 @@ function pagedAssistantSource(
         },
       };
     },
+  };
+}
+
+function messagePatch(messageId: string) {
+  return {
+    kind: "message_patch" as const,
+    key: { accountId: "acc-1", messageId },
+    reference: {
+      provider: "google" as const,
+      messageId,
+      conversationId: messageId,
+      version: null,
+    },
+    fields: {},
   };
 }

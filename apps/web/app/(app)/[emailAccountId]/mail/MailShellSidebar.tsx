@@ -1,8 +1,15 @@
 "use client";
 
-import { type CSSProperties, memo, useCallback, useRef } from "react";
+import {
+  type CSSProperties,
+  memo,
+  useCallback,
+  useEffect,
+  useRef,
+} from "react";
 import { toast } from "sonner";
 import { MailAccountSwitcher } from "@/app/(app)/[emailAccountId]/mail/MailAccountSwitcher";
+import { SidebarCards } from "@/components/sidebar-cards/SidebarCards";
 import {
   getMailCategories,
   getMailNavPath,
@@ -14,19 +21,25 @@ import type {
   MailboxItem,
   MailboxItemEdit,
 } from "@/app/(app)/[emailAccountId]/mail/MailboxItemContextMenu";
-import { MailSidebarResizeHandle } from "@/app/(app)/[emailAccountId]/mail/MailSidebarResizeHandle";
 import {
   MAIL_SIDEBAR_DEFAULT_WIDTH,
-  MAIL_SIDEBAR_RAIL_WIDTH,
-} from "@/app/(app)/[emailAccountId]/mail/sidebar-width";
+  MAIL_SIDEBAR_WIDTH_BOUNDS,
+  MAIL_SIDEBAR_WIDTH_COOKIE,
+} from "@/app/(app)/[emailAccountId]/mail/panel-widths";
+import { PanelResizeHandle } from "@/components/PanelResizeHandle";
+import { DesktopUpdateMenuItem } from "@/components/DesktopUpdateMenuItem";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Sidebar, useSidebar } from "@/components/ui/sidebar";
+import { TEAM_HREF, useTeamNav } from "@/components/team-comments/use-team-nav";
 import { useFolders } from "@/hooks/useFolders";
 import { useLabelCounts } from "@/hooks/useLabelCounts";
 import { useLabels } from "@/hooks/useLabels";
+import { useSettingsDialog } from "@/hooks/useSettingsDialog";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
 import type { EmailLabel } from "@/providers/email-label-types";
 import type { OutlookFolder } from "@/utils/outlook/folders";
+import { persistPanelWidth } from "@/utils/panel-width";
 import {
   createLabelAction,
   deleteMailboxItemAction,
@@ -67,6 +80,9 @@ export const MailShellSidebar = memo(function MailShellSidebar({
   onSelectAccount,
   onSelectAllAccounts,
   onMailboxItemDeleted,
+  onNavigate,
+  isMobileNavOpen,
+  onMobileNavOpenChange,
 }: {
   activeType: string | null;
   activeLabelId: string | null;
@@ -77,6 +93,9 @@ export const MailShellSidebar = memo(function MailShellSidebar({
   onSelectAllAccounts: () => void;
   /** Leaves a view or split that the deleted label or folder defined. */
   onMailboxItemDeleted: (item: MailboxItem) => Promise<unknown>;
+  onNavigate: () => void;
+  isMobileNavOpen: boolean;
+  onMobileNavOpenChange: (open: boolean) => void;
 }) {
   const { emailAccountId, provider } = useAccount();
   const isGoogle = isGoogleProvider(provider);
@@ -89,7 +108,9 @@ export const MailShellSidebar = memo(function MailShellSidebar({
     labels: allLabels,
     folders,
   });
+  const { hasTeam, unreadCount: teamUnreadCount } = useTeamNav();
   const { onOpen: openCompose } = useComposeModal();
+  const { openSettings } = useSettingsDialog();
   const { state: openSidebars } = useSidebar();
   const isMailSidebarOpen = openSidebars.includes("left-sidebar");
 
@@ -99,6 +120,10 @@ export const MailShellSidebar = memo(function MailShellSidebar({
   const setSidebarWidth = useCallback((width: number) => {
     sidebarScopeRef.current?.style.setProperty("--sidebar-width", `${width}px`);
   }, []);
+  const resetSidebarWidth = useCallback(() => {
+    setSidebarWidth(MAIL_SIDEBAR_DEFAULT_WIDTH);
+    persistPanelWidth(MAIL_SIDEBAR_WIDTH_COOKIE, null);
+  }, [setSidebarWidth]);
 
   const hrefFor = useCallback(
     (target: MailNavTarget) =>
@@ -181,63 +206,157 @@ export const MailShellSidebar = memo(function MailShellSidebar({
     ],
   );
 
-  return (
-    <div
-      ref={sidebarScopeRef}
-      className="hidden lg:contents"
-      style={
-        {
-          "--sidebar-width": `var(--mail-sidebar-width, ${MAIL_SIDEBAR_DEFAULT_WIDTH}px)`,
-          "--sidebar-width-icon": `${MAIL_SIDEBAR_RAIL_WIDTH}px`,
-        } as CSSProperties
+  // The panel's overlay isn't covered by lg:hidden, so close the panel once
+  // the window is wide enough for the rail.
+  useEffect(() => {
+    if (!isMobileNavOpen) return;
+    const wide = window.matchMedia("(min-width: 1024px)");
+    const closeWhenWide = () => {
+      if (wide.matches) onMobileNavOpenChange(false);
+    };
+    closeWhenWide();
+    wide.addEventListener("change", closeWhenWide);
+    return () => wide.removeEventListener("change", closeWhenWide);
+  }, [isMobileNavOpen, onMobileNavOpenChange]);
+
+  const navigateFromSheet = () => {
+    onNavigate();
+    onMobileNavOpenChange(false);
+  };
+  const selectAccountFromSheet = (accountId: string) => {
+    onMobileNavOpenChange(false);
+    onSelectAccount(accountId);
+  };
+  const selectAllAccountsFromSheet = () => {
+    onMobileNavOpenChange(false);
+    onSelectAllAccounts();
+  };
+  const composeFromSheet = () => {
+    onMobileNavOpenChange(false);
+    openCompose();
+  };
+  const openSettingsFromSheet = () => {
+    onMobileNavOpenChange(false);
+    openSettings();
+  };
+  const renderMailSidebar = ({
+    collapsed,
+    inSheet,
+  }: {
+    collapsed: boolean;
+    inSheet: boolean;
+  }) => (
+    <MailSidebar
+      className="h-full w-full border-r-0"
+      hideToggle={inSheet}
+      collapsed={collapsed}
+      activeType={activeType}
+      activeLabelId={activeLabelId}
+      activeFolderId={activeFolderId}
+      hrefFor={hrefFor}
+      onNavigate={inSheet ? navigateFromSheet : onNavigate}
+      labels={isAllAccounts ? NO_LABELS : allLabels}
+      folders={isAllAccounts || !isOutlook ? NO_FOLDERS : folders}
+      countsById={isAllAccounts ? NO_COUNTS : countsById}
+      categories={
+        isAllAccounts
+          ? NO_CATEGORIES
+          : getMailCategories({ isGoogle, isOutlook })
       }
-    >
-      <Sidebar name="left-sidebar" collapsible="icon">
-        <MailSidebar
-          className="h-full w-full border-r-0"
-          collapsed={!isMailSidebarOpen}
-          activeType={activeType}
-          activeLabelId={activeLabelId}
-          activeFolderId={activeFolderId}
-          hrefFor={hrefFor}
-          labels={isAllAccounts ? NO_LABELS : allLabels}
-          folders={isAllAccounts || !isOutlook ? NO_FOLDERS : folders}
-          countsById={isAllAccounts ? NO_COUNTS : countsById}
-          categories={
-            isAllAccounts
-              ? NO_CATEGORIES
-              : getMailCategories({ isGoogle, isOutlook })
-          }
-          categoryHeading={isOutlook ? "Inbox" : "Categories"}
-          collapsibleCategories={!isOutlook}
-          labelsHeading={terminology.label.pluralCapitalized}
-          labelSingular={terminology.label.singular}
-          backToAppHref={prefixPath(emailAccountId, "/automation")}
-          onCompose={openCompose}
-          onCreateLabel={onCreateLabel}
-          onEditMailboxItem={onEditMailboxItem}
-          onDeleteMailboxItem={onDeleteMailboxItem}
-          labelEditMode={isOutlook ? "color" : "name-and-color"}
-          supportsLabelVisibility={isGoogle}
-          labelColorOptions={
-            isOutlook ? OUTLOOK_LABEL_COLOR_OPTIONS : GMAIL_LABEL_COLORS
-          }
-          unified={isAllAccounts}
-          footer={
-            <MailAccountSwitcher
-              isDesktopApp={isDesktopApp}
-              isAllAccounts={isAllAccounts}
-              onSelectAccount={onSelectAccount}
-              onSelectAll={onSelectAllAccounts}
-              variant="sidebar"
-              collapsed={!isMailSidebarOpen}
+      categoryHeading={isOutlook ? "Inbox" : "Categories"}
+      collapsibleCategories={!isOutlook}
+      labelsHeading={terminology.label.pluralCapitalized}
+      labelSingular={terminology.label.singular}
+      emailAccountId={emailAccountId}
+      onCompose={inSheet ? composeFromSheet : openCompose}
+      onOpenSettings={inSheet ? openSettingsFromSheet : openSettings}
+      onCreateLabel={onCreateLabel}
+      onEditMailboxItem={onEditMailboxItem}
+      onDeleteMailboxItem={onDeleteMailboxItem}
+      labelEditMode={isOutlook ? "color" : "name-and-color"}
+      supportsLabelVisibility={isGoogle}
+      labelColorOptions={
+        isOutlook ? OUTLOOK_LABEL_COLOR_OPTIONS : GMAIL_LABEL_COLORS
+      }
+      unified={isAllAccounts}
+      team={
+        hasTeam ? { href: TEAM_HREF, unreadCount: teamUnreadCount } : undefined
+      }
+      footer={
+        <>
+          {!isAllAccounts && (
+            <SidebarCards
+              className="pt-2"
+              collapsed={collapsed}
+              includePremium={false}
             />
+          )}
+          <DesktopUpdateMenuItem />
+          <MailAccountSwitcher
+            isDesktopApp={isDesktopApp}
+            isAllAccounts={isAllAccounts}
+            onSelectAccount={inSheet ? selectAccountFromSheet : onSelectAccount}
+            onSelectAll={
+              inSheet ? selectAllAccountsFromSheet : onSelectAllAccounts
+            }
+            collapsed={collapsed}
+          />
+        </>
+      }
+    />
+  );
+
+  return (
+    <>
+      <div
+        ref={sidebarScopeRef}
+        className="hidden lg:contents"
+        style={
+          {
+            "--sidebar-width": `var(--mail-sidebar-width, ${MAIL_SIDEBAR_DEFAULT_WIDTH}px)`,
+          } as CSSProperties
+        }
+      >
+        <Sidebar name="left-sidebar" collapsible="icon">
+          {renderMailSidebar({ collapsed: !isMailSidebarOpen, inSheet: false })}
+          {isMailSidebarOpen ? (
+            <PanelResizeHandle
+              label="Resize sidebar"
+              edge="right"
+              bounds={MAIL_SIDEBAR_WIDTH_BOUNDS}
+              onResize={setSidebarWidth}
+              onResizeEnd={persistSidebarWidth}
+              onReset={resetSidebarWidth}
+            />
+          ) : null}
+        </Sidebar>
+      </div>
+      {/* Below lg the rail is hidden, so phones and tablets reach the
+        mailboxes and the app sections through this panel instead. */}
+      <Sheet open={isMobileNavOpen} onOpenChange={onMobileNavOpenChange}>
+        <SheetContent
+          side="left"
+          // Focusing the first control would pop the Compose tooltip over
+          // the rows beneath it, so focus the panel itself.
+          onOpenAutoFocus={(event) => {
+            event.preventDefault();
+            (event.currentTarget as HTMLElement).focus();
+          }}
+          className="w-[--sidebar-width] p-0 lg:hidden [&>button]:hidden"
+          style={
+            {
+              "--sidebar-width": `${MAIL_SIDEBAR_DEFAULT_WIDTH}px`,
+            } as CSSProperties
           }
-        />
-        {isMailSidebarOpen ? (
-          <MailSidebarResizeHandle onResize={setSidebarWidth} />
-        ) : null}
-      </Sidebar>
-    </div>
+        >
+          <SheetTitle className="sr-only">Mail navigation</SheetTitle>
+          {renderMailSidebar({ collapsed: false, inSheet: true })}
+        </SheetContent>
+      </Sheet>
+    </>
   );
 });
+
+function persistSidebarWidth(width: number) {
+  persistPanelWidth(MAIL_SIDEBAR_WIDTH_COOKIE, width);
+}

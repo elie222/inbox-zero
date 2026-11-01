@@ -76,6 +76,7 @@ export const updateDraftBody = z.object({
   messageHtml: z.string().max(1_000_000),
   subject: z.string().max(10_000),
   to: z.string(),
+  from: z.string().optional(),
   cc: z.string(),
   bcc: z.string(),
 });

@@ -31,6 +31,7 @@ test("suggests contacts in every recipient field and reuses cached searches", as
                 { name: "Second Contact", emailAddress: "second@example.com" },
               ]
             : [],
+        reconnectRequired: false,
       },
     });
   });
@@ -75,6 +76,7 @@ test("suggests contacts in every recipient field and reuses cached searches", as
   releaseSearch();
   await to.fill("");
 
+  await dialog.getByRole("button", { name: "Show Cc and Bcc" }).click();
   for (const name of ["Cc", "Bcc"]) {
     const field = dialog.getByRole("combobox", { name, exact: true });
     await field.fill("contact");
@@ -103,7 +105,7 @@ for (const theme of ["light", "dark"] as const) {
     let apiRequests = 0;
     await page.route("**/api/user/contacts?*", async (route) => {
       apiRequests++;
-      await route.fulfill({ json: { contacts: [] } });
+      await route.fulfill({ json: { contacts: [], reconnectRequired: false } });
     });
     await openMail(page);
     await page.getByRole("button", { name: /^Compose/ }).click();
@@ -132,15 +134,11 @@ for (const theme of ["light", "dark"] as const) {
       dialog.getByRole("button", { name: "Remove alice@example.com" }),
     ).toBeVisible();
     await expect(to).toHaveValue("");
-    await capturePlaywrightCheckpoint(
-      page,
-      testInfo,
-      `${theme}-local-selected`,
-    );
     if (shotDirectory)
       await page.screenshot({
         path: join(shotDirectory, `${theme}-2-selected.png`),
       });
+    await dialog.getByRole("button", { name: "Show Cc and Bcc" }).click();
     for (const name of ["Cc", "Bcc"]) {
       const field = dialog.getByRole("combobox", { name, exact: true });
       await field.fill("bob");
@@ -170,3 +168,22 @@ for (const theme of ["light", "dark"] as const) {
       expect(apiRequests).toBe(0);
   });
 }
+
+test("prompts to reconnect when the account has no contact access", async ({
+  page,
+}) => {
+  test.skip(
+    process.env.NEXT_PUBLIC_CONTACTS_ENABLED === "false",
+    "API contacts are disabled for this run",
+  );
+  await page.route("**/api/user/contacts?*", async (route) => {
+    await route.fulfill({ json: { contacts: [], reconnectRequired: true } });
+  });
+  await openMail(page);
+  await page.getByRole("button", { name: /^Compose/ }).click();
+  const dialog = page.getByRole("dialog", { name: "New Message" });
+  await dialog.getByRole("combobox", { name: "To", exact: true }).fill("ada");
+  await expect(
+    dialog.getByText("Reconnect this account to enable contact suggestions."),
+  ).toBeVisible();
+});

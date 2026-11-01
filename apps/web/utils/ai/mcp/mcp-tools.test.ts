@@ -213,4 +213,26 @@ describe("createMcpToolsForAgent", () => {
 
     expect(Object.keys(result.tools)).toEqual(["notion-search"]);
   });
+
+  it("prefixes an integration tool whose name is reserved by another tool", async () => {
+    mockConnections([
+      {
+        id: "connection-1",
+        integration: { id: "integration-1", name: "notion" },
+        tools: [{ name: "search_docs" }],
+      },
+    ]);
+    mockCreateMCPClient.mockResolvedValue({
+      tools: vi.fn().mockResolvedValue({
+        search_docs: { description: "search" },
+      }),
+      close: vi.fn(),
+    });
+
+    const result = await createMcpToolsForAgent("email-account-1", {
+      reservedToolNames: ["search_docs"],
+    });
+
+    expect(Object.keys(result.tools)).toEqual(["notion-search_docs"]);
+  });
 });

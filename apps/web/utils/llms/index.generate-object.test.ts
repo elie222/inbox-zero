@@ -65,6 +65,7 @@ vi.mock("@/utils/error", () => ({
   isAnthropicInsufficientBalanceError: vi.fn(() => false),
   isContentFilterRefusal: mockIsContentFilterRefusal,
   isIncorrectAPIKeyError: vi.fn(() => false),
+  isGeminiSpendingCapError: vi.fn(() => false),
   isInsufficientCreditsError: vi.fn(() => false),
   isInvalidAIModelError: vi.fn(() => false),
   isAPIKeyDeactivatedError: vi.fn(() => false),
@@ -408,6 +409,24 @@ describe("createGenerateObject repairText", () => {
       expect(request.providerOptions.openai.promptCacheKey).toBe("account-1");
     });
 
+    it("passes the model's local thinking options through to the call", async () => {
+      const generateObject = await createTestGenerateObject({
+        provider: "ollama",
+        modelName: "llama3",
+        providerOptions: { ollama: { think: false } },
+      });
+
+      await generateObject({
+        instructions: "Return JSON.",
+        prompt: "Classify this.",
+        schema: {} as any,
+      } as any);
+
+      expect(
+        mockGenerateObject.mock.calls[0][0].providerOptions.ollama,
+      ).toEqual({ think: false });
+    });
+
     it("adds the cache key to existing OpenRouter options", async () => {
       const generateObject = await createTestGenerateObject({
         provider: "openrouter",
@@ -686,6 +705,7 @@ describe("createGenerateObject repairText", () => {
 type TestModel = {
   provider: string;
   modelName: string;
+  providerOptions?: Record<string, Record<string, unknown>>;
 };
 
 type GenerateObjectOverrides = Partial<TestModel> & {
@@ -697,6 +717,7 @@ type GenerateObjectOverrides = Partial<TestModel> & {
 async function createTestGenerateObject({
   provider = "openai",
   modelName = "gpt-test",
+  providerOptions,
   fallbackModels = [],
   onModelUsed,
   cacheSystemPrompt,
@@ -711,7 +732,7 @@ async function createTestGenerateObject({
     },
     label: "test",
     modelOptions: {
-      ...createResolvedModel({ provider, modelName }),
+      ...createResolvedModel({ provider, modelName, providerOptions }),
       hasUserApiKey: false,
       fallbackModels: fallbackModels.map(createResolvedModel),
     } as any,
@@ -739,12 +760,16 @@ async function getRepairText() {
   return mockGenerateObject.mock.calls[0][0].repairText;
 }
 
-function createResolvedModel({ provider, modelName }: TestModel) {
+function createResolvedModel({
+  provider,
+  modelName,
+  providerOptions,
+}: TestModel) {
   return {
     provider,
     modelName,
     model: {} as any,
-    providerOptions: undefined,
+    providerOptions,
   };
 }
 

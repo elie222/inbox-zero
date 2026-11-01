@@ -221,6 +221,61 @@ Claim your listing: https://stackpicker.example/claim`,
     }),
   },
   {
+    name: "discovery site that already listed us",
+    category: "link building",
+    expected: true,
+    email: getEmail({
+      from: "Brightfind <brightfind.team@mailbox.example>",
+      subject: "Acme is now on Brightfind",
+      content: `Hi,
+
+I came across Acme and added it to Brightfind, a site for discovering new products and side projects. No payment needed, and you can claim the page anytime: https://brightfind.example/p/acme
+
+I liked how Acme handles support routing. If the page is useful, I'd really appreciate a share with your audience, since it helps Brightfind grow.
+
+Cheers,
+Ravi`,
+      date,
+    }),
+  },
+  {
+    name: "self-serve founder story platform",
+    category: "content placement",
+    expected: true,
+    email: getEmail({
+      from: "Nadia at Builder Notes <editorial@buildernotes.example>",
+      subject: "Your Acme story on Builder Notes",
+      content: `Hi,
+
+I read your post about why you started Acme, especially the part about building the first version on weekends.
+
+Builder Notes publishes stories written by founders themselves. Yours would fit well. It's free and takes about 7 minutes to submit: https://buildernotes.example/join
+
+Interested?
+
+Nadia`,
+      date,
+    }),
+  },
+  {
+    name: "hackathon asking us to fund a cash prize",
+    category: "sponsorship ask",
+    expected: true,
+    email: getEmail({
+      from: "Tomas Reiter <tomas@elmrow.example>",
+      subject: "Spring Build Weekend × Acme",
+      content: `Hi,
+
+I organize Spring Build Weekend, a student hackathon at Elm Row with around 120 engineers from local universities.
+
+We'd love Acme to sponsor a cash prize for one of the tracks. Sponsors get a judging seat and a booth to meet the participants.
+
+Best,
+Tomas`,
+      date,
+    }),
+  },
+  {
     // A pitch for their marketplace, but also a possible distribution channel.
     name: "resell marketplace vendor selection",
     category: "partnership ask",

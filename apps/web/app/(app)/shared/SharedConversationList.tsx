@@ -4,14 +4,13 @@ import Link from "next/link";
 import useSWR from "swr";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Badge } from "@/components/ui/badge";
+import { SharedEmptyState } from "@/app/(app)/shared/SharedEmptyState";
 import type { TeamConversationsResponse } from "@/app/api/team-comments/conversations/route";
-import {
-  NoOrganization,
-  useSharedMemberId,
-} from "@/app/(app)/shared/SharedTabs";
+import { NoOrganization } from "@/app/(app)/shared/SharedTabs";
+import { useTeamMembership } from "@/components/team-comments/use-team-nav";
 
 export function SharedConversationList() {
-  const { memberId, memberships } = useSharedMemberId();
+  const { memberId, memberships } = useTeamMembership();
   const conversations = useSWR<TeamConversationsResponse>(
     memberId
       ? `/api/team-comments/conversations?memberId=${encodeURIComponent(memberId)}`
@@ -29,11 +28,7 @@ export function SharedConversationList() {
       {memberships.data && !memberId && <NoOrganization />}
       {memberId && (
         <div className="space-y-2">
-          {!conversations.data?.conversations.length && (
-            <p className="text-muted-foreground text-sm">
-              No shared conversations yet.
-            </p>
-          )}
+          {!conversations.data?.conversations.length && <SharedEmptyState />}
           {conversations.data?.conversations.map((conversation) => (
             <Link
               className="flex items-center justify-between gap-3 rounded-lg border bg-card p-4 hover:bg-accent"

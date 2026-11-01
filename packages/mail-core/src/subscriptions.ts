@@ -74,7 +74,7 @@ function createGroup<T>(
   const handles = new Set<MutableHandle<T>>();
   let latestRead = 0;
   let inFlight: Promise<void> | null = null;
-  let queued = false;
+  let followUp: Promise<void> | null = null;
   let publishedData: string | null = null;
   // A late observer of a loaded query starts from its last ready snapshot
   // instead of waiting for its own read.
@@ -120,27 +120,29 @@ function createGroup<T>(
     }
   }
 
+  // A caller waits for the load in flight plus at most one load that starts
+  // after its request, never for refreshes requested later.
   async function refresh() {
     if (handles.size === 0) return;
-    queued = true;
-    if (inFlight) return inFlight;
-    inFlight = drainLoads().finally(() => {
+    if (!inFlight) return startLoad();
+    followUp ??= inFlight.then(() => {
+      followUp = null;
+      return handles.size > 0 ? startLoad() : undefined;
+    });
+    return followUp;
+  }
+
+  function startLoad() {
+    for (const handle of handles) {
+      const current = handle.getSnapshot();
+      if (current.status === "loading" && !current.refreshing) {
+        handle.publish({ ...current, refreshing: true });
+      }
+    }
+    inFlight = runLoad().finally(() => {
       inFlight = null;
     });
     return inFlight;
-  }
-
-  async function drainLoads() {
-    while (queued && handles.size > 0) {
-      queued = false;
-      for (const handle of handles) {
-        const current = handle.getSnapshot();
-        if (current.status === "loading" && !current.refreshing) {
-          handle.publish({ ...current, refreshing: true });
-        }
-      }
-      await runLoad();
-    }
   }
 
   return {

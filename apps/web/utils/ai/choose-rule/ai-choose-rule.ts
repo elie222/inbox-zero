@@ -56,9 +56,7 @@ export async function aiChooseRule<
   const rulesWithMetadata = aiResponse.matchedRules
     .map((match) => {
       if (!match.ruleName) return;
-      const rule = orderedRules.find(
-        (r) => r.name.toLowerCase() === match.ruleName.toLowerCase(),
-      );
+      const rule = findReturnedRule(orderedRules, match.ruleName);
       return rule ? { rule, isPrimary: match.isPrimary } : undefined;
     })
     .filter(isDefined);
@@ -75,6 +73,14 @@ export async function aiChooseRule<
       rules: [],
       reason: aiResponse.reasoning || "AI determined no rules matched",
     };
+  }
+
+  // The model claimed a match but named no rule we offered (an invented name,
+  // or no name at all). Fail loudly instead of recording the email as skipped.
+  if (!rulesWithMetadata.length) {
+    throw new Error(
+      `AI rule selection claimed a match but did not resolve to any offered rule (returned ${aiResponse.matchedRules.length} rule name(s) for ${orderedRules.length} candidate(s))`,
+    );
   }
 
   return {
@@ -369,10 +375,7 @@ function logAiChooseRuleResult<
     .filter(Boolean);
   const resolvedRuleNames = rulesWithMetadata.map(({ rule }) => rule.name);
   const unresolvedRuleNames = returnedRuleNames.filter(
-    (ruleName) =>
-      !orderedRules.some(
-        (rule) => rule.name.toLowerCase() === ruleName.toLowerCase(),
-      ),
+    (ruleName) => !findReturnedRule(orderedRules, ruleName),
   );
 
   const logPayload = {
@@ -403,6 +406,33 @@ function logAiChooseRuleResult<
     });
   }
 }
+
+// Some models leak JSON syntax into the string value (e.g. `Newsletter',` or
+// `Newsletter», noMatchFound: false}`) or append extra words after the name
+// (e.g. the rule's description), so also accept a rule name followed by
+// whitespace or stray quote/brace/comma characters. The longest name wins so
+// "To Reply Later'," never resolves to "To Reply".
+function findReturnedRule<T extends { name: string }>(
+  rules: T[],
+  returnedName: string,
+): T | undefined {
+  const normalized = returnedName.trim().toLowerCase();
+
+  const exact = rules.find((rule) => rule.name.toLowerCase() === normalized);
+  if (exact) return exact;
+
+  return rules
+    .filter((rule) => {
+      const name = rule.name.toLowerCase();
+      return (
+        normalized.startsWith(name) &&
+        NAME_SUFFIX_BOUNDARY.test(normalized.slice(name.length))
+      );
+    })
+    .sort((a, b) => b.name.length - a.name.length)[0];
+}
+
+const NAME_SUFFIX_BOUNDARY = /^[\s"'`\u00ab\u00bb\u201c\u201d\u2018\u2019}\],]/;
 
 function joinLogValues(values: (string | null | undefined)[]) {
   return values.filter(isDefined).join(", ");

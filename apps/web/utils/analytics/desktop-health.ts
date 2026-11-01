@@ -42,6 +42,7 @@ export function buildDesktopHealthProperties(health: DesktopHealth) {
     ...durationProperties("engine_loop_delay", child?.eventLoopDelayMs),
     ...durationProperties("sqlite_read", child?.sqliteReadMs),
     ...durationProperties("sqlite_write", child?.sqliteWriteMs),
+    ...durationProperties("mail_command", child?.mailCommandMs),
   };
 }
 

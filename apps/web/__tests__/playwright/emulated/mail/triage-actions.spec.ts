@@ -234,6 +234,14 @@ test("advances the split reader after archiving an open conversation", async ({
       await page.keyboard.press("Escape");
       await expect(page.getByRole("dialog")).toBeHidden();
       await emailBody.click();
+      await emailBody.press("Shift+Slash");
+      const shortcutsDialog = page.getByRole("dialog", {
+        name: "Keyboard shortcuts",
+      });
+      await expect(shortcutsDialog).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(shortcutsDialog).toBeHidden();
+      await emailBody.click();
       await emailBody.press("e");
     } else {
       await page.getByTestId("thread-reader").click();

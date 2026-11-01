@@ -29,6 +29,148 @@ describe("findMatchingGroupItem", () => {
     ]);
   });
 
+  it("matches a learned address only on the whole sender address", () => {
+    const groupItems = [
+      { type: GroupItemType.FROM, value: "ann@acme.com", exclude: false },
+    ];
+
+    expectMatchResults(groupItems, [
+      {
+        email: { from: "Ann <Ann@Acme.com>", subject: "" },
+        expected: groupItems[0],
+      },
+      // A longer local part or a domain suffix is a different sender.
+      {
+        email: { from: '"Jo" <joann@acme.com>', subject: "" },
+        expected: undefined,
+      },
+      {
+        email: { from: "ann@acme.com.evil.io", subject: "" },
+        expected: undefined,
+      },
+    ]);
+  });
+
+  it("matches a learned domain without matching lookalike domains", () => {
+    const groupItems = [
+      { type: GroupItemType.FROM, value: "@acme.com", exclude: false },
+      { type: GroupItemType.FROM, value: "news.io", exclude: false },
+    ];
+
+    expectMatchResults(groupItems, [
+      {
+        email: { from: "Billing <billing@acme.com>", subject: "" },
+        expected: groupItems[0],
+      },
+      {
+        email: { from: "billing@acme.com.evil.io", subject: "" },
+        expected: undefined,
+      },
+      {
+        email: { from: "daily@news.io", subject: "" },
+        expected: groupItems[1],
+      },
+      {
+        email: { from: "daily@mail.news.io", subject: "" },
+        expected: groupItems[1],
+      },
+      {
+        email: { from: "daily@fakenews.io", subject: "" },
+        expected: undefined,
+      },
+    ]);
+  });
+
+  it("still matches a learned display name anywhere in the From header", () => {
+    const groupItems = [
+      { type: GroupItemType.FROM, value: "LinkedIn", exclude: false },
+    ];
+
+    expectMatchResults(groupItems, [
+      {
+        email: {
+          from: "LinkedIn Jobs <jobs-noreply@linkedin.com>",
+          subject: "",
+        },
+        expected: groupItems[0],
+      },
+    ]);
+  });
+
+  it("matches a learned pattern saved as a full From header by its address", () => {
+    const groupItems = [
+      {
+        type: GroupItemType.FROM,
+        value: "Ann Lee <ann@acme.com>",
+        exclude: false,
+      },
+    ];
+
+    expectMatchResults(groupItems, [
+      { email: { from: "ann@acme.com", subject: "" }, expected: groupItems[0] },
+      {
+        email: { from: "joann@acme.com", subject: "" },
+        expected: undefined,
+      },
+    ]);
+  });
+
+  it("matches each address in a learned value that lists several", () => {
+    const groupItems = [
+      {
+        type: GroupItemType.FROM,
+        value: "ann@acme.com, @news.io",
+        exclude: false,
+      },
+    ];
+
+    expectMatchResults(groupItems, [
+      { email: { from: "ann@acme.com", subject: "" }, expected: groupItems[0] },
+      {
+        email: { from: "daily@news.io", subject: "" },
+        expected: groupItems[0],
+      },
+      {
+        email: { from: "joann@acme.com", subject: "" },
+        expected: undefined,
+      },
+    ]);
+  });
+
+  it("does not split a learned full header on a comma in its display name", () => {
+    const groupItems = [
+      {
+        type: GroupItemType.FROM,
+        value: "Acme, Inc <ann@acme.com>",
+        exclude: true,
+      },
+    ];
+
+    expect(
+      findMatchingGroupItem(
+        { from: "Acme Team <other@example.com>", subject: "" },
+        groupItems,
+      ),
+    ).toBeUndefined();
+    expect(
+      findMatchingGroupItem({ from: "ann@acme.com", subject: "" }, groupItems),
+    ).toBeNull();
+  });
+
+  it("does not let an exclusion for one sender exclude a lookalike sender", () => {
+    const groupItems = [
+      { type: GroupItemType.FROM, value: "@acme.com", exclude: false },
+      { type: GroupItemType.FROM, value: "ann@acme.com", exclude: true },
+    ];
+
+    expect(
+      findMatchingGroupItem(
+        { from: "joann@acme.com", subject: "" },
+        groupItems,
+      ),
+    ).toBe(groupItems[0]);
+  });
+
   it("should match SUBJECT rules", () => {
     const groupItems = [
       { type: GroupItemType.SUBJECT, value: "Invoice", exclude: false },

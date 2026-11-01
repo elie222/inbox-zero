@@ -193,7 +193,25 @@ function CollapsibleToolCard({
   );
 }
 
-export function SearchInboxResult({ output }: { output: unknown }) {
+export function SearchInboxResult({ outputs }: { outputs: unknown[] }) {
+  const title =
+    outputs.length > 1 ? `Search Inbox ×${outputs.length}` : "Search Inbox";
+
+  return (
+    <SubtleToolCollapsible title={title}>
+      {outputs.map((output, index) => (
+        <div
+          key={index}
+          className={cn("space-y-3", index > 0 && "border-t pt-3")}
+        >
+          <SearchInboxResultDetails output={output} />
+        </div>
+      ))}
+    </SubtleToolCollapsible>
+  );
+}
+
+function SearchInboxResultDetails({ output }: { output: unknown }) {
   const error = getOutputField<string | null>(output, "error");
   const queryUsed = getOutputField<string | null>(output, "queryUsed");
   const messages = getOutputField<
@@ -210,7 +228,7 @@ export function SearchInboxResult({ output }: { output: unknown }) {
   >(output, "messages");
 
   return (
-    <SubtleToolCollapsible title="Search Inbox">
+    <>
       {queryUsed && (
         <ToolDetailRow
           label="Query"
@@ -224,7 +242,7 @@ export function SearchInboxResult({ output }: { output: unknown }) {
         </div>
       )}
       {messages && messages.length > 0 && <ToolEmailRows emails={messages} />}
-    </SubtleToolCollapsible>
+    </>
   );
 }
 

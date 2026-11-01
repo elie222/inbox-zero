@@ -9,9 +9,7 @@ import {
   forwardEmailTool,
   getAccountOverviewTool,
   getSenderCategorizationStatusTool,
-  getSenderCategoryOverviewTool,
   manageInboxTool,
-  manageSenderCategoryTool,
   replyEmailTool,
   searchInboxTool,
   sendEmailTool,
@@ -940,6 +938,148 @@ function collectSchemaDescriptions(schema: unknown): string[] {
 describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it.each([
+    [
+      { folderName: "Marketing" },
+      { folderId: "marketing-folder", labelId: undefined },
+      7,
+    ],
+    [
+      { categoryName: "Marketing" },
+      { folderId: undefined, labelId: "Marketing" },
+      37,
+    ],
+    [
+      { folderName: "Marketing", categoryName: "Marketing" },
+      { folderId: "marketing-folder", labelId: "Marketing" },
+      3,
+    ],
+  ])("searchInbox exposes an exact Outlook scope count for %j instead of a page count", async (scope, expectedScope, count) => {
+    const countMessages = vi.fn().mockResolvedValue(count);
+    const searchMessages = vi.fn().mockResolvedValue({
+      messages: [getMockMessage({ id: "message-1" })],
+      nextPageToken: "NEXT_PAGE",
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      countMessages,
+      searchMessages,
+      getLabels: vi
+        .fn()
+        .mockResolvedValue([
+          { id: "marketing-category", name: "Marketing", type: "user" },
+        ]),
+      getFolders: vi.fn().mockResolvedValue([
+        {
+          id: "marketing-folder",
+          displayName: "Marketing",
+          childFolders: [],
+        },
+      ]),
+    } as any);
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      logger,
+    });
+    const result = await (toolInstance.execute as any)({
+      query: "",
+      limit: 20,
+      ...scope,
+    });
+
+    expect(result).toMatchObject({
+      exactCount: count,
+      totalReturned: 1,
+      hasMore: true,
+    });
+    expect(countMessages).toHaveBeenCalledExactlyOnceWith(expectedScope);
+    expect(searchMessages.mock.calls[0][0].folderId).toBe(
+      expectedScope.folderId,
+    );
+    expect(searchMessages.mock.calls[0][0].labelName).toBe(
+      expectedScope.labelId,
+    );
+  });
+
+  it("searchInbox returns exact zero for an empty Outlook folder", async () => {
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      countMessages: vi.fn().mockResolvedValue(0),
+      searchMessages: vi.fn().mockResolvedValue({ messages: [] }),
+      getLabels: vi.fn().mockResolvedValue([]),
+      getFolders: vi
+        .fn()
+        .mockResolvedValue([
+          { id: "empty-folder", displayName: "Empty", childFolders: [] },
+        ]),
+    } as any);
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      logger,
+    });
+    const result = await (toolInstance.execute as any)({
+      query: "",
+      limit: 20,
+      folderName: "Empty",
+    });
+
+    expect(result).toMatchObject({ exactCount: 0, totalReturned: 0 });
+  });
+
+  it("searchInbox preserves search results and discloses an unavailable exact count", async () => {
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      countMessages: vi.fn().mockRejectedValue(new Error("Count unavailable")),
+      searchMessages: vi
+        .fn()
+        .mockResolvedValue({ messages: [getMockMessage({ id: "message-1" })] }),
+      getLabels: vi.fn().mockResolvedValue([]),
+    } as any);
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      logger,
+    });
+    const result = await (toolInstance.execute as any)({
+      query: "",
+      limit: 20,
+      categoryName: "Marketing",
+    });
+
+    expect(result).toMatchObject({
+      totalReturned: 1,
+      countError: "Exact message count unavailable",
+    });
+    expect(result).not.toHaveProperty("exactCount");
+  });
+
+  it.each([
+    { query: "invoice", categoryName: "Marketing" },
+    { query: "", categoryName: "Marketing", readState: "unread" },
+    { query: "", categoryName: "Marketing", fromEmail: "sender@example.com" },
+    { query: "", categoryName: "Marketing", pageToken: "NEXT_PAGE" },
+    { query: "invoice" },
+  ])("searchInbox does not add scope-only counts to filtered or paginated searches: %j", async (input) => {
+    const countMessages = vi.fn();
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      countMessages,
+      searchMessages: vi.fn().mockResolvedValue({ messages: [] }),
+      getLabels: vi.fn().mockResolvedValue([]),
+    } as any);
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      logger,
+    });
+    const result = await (toolInstance.execute as any)({ limit: 20, ...input });
+
+    expect(result).not.toHaveProperty("exactCount");
+    expect(countMessages).not.toHaveBeenCalled();
   });
 
   it("searchInbox result signals when more pages remain (hasMore)", async () => {
@@ -2007,36 +2147,6 @@ describe("chat inbox tools - sender categories", () => {
     mockValidateUserAndAiAccess.mockResolvedValue(undefined);
   });
 
-  it("getSenderCategoryOverview returns the shared overview payload", async () => {
-    mockGetCategoryOverview.mockResolvedValue({
-      autoCategorizeSenders: true,
-      categorization: {
-        status: "completed",
-        totalItems: 4,
-        completedItems: 4,
-        remainingItems: 0,
-        message: "Sender categorization completed for 4 senders.",
-      },
-      categorizedSenderCount: 12,
-      uncategorizedSenderCount: 3,
-      categories: [],
-    });
-
-    const toolInstance = getSenderCategoryOverviewTool({
-      email: TEST_EMAIL,
-      emailAccountId: "email-account-1",
-      logger,
-    });
-
-    const result = await (toolInstance.execute as any)({});
-
-    expect(mockGetCategoryOverview).toHaveBeenCalledWith({
-      emailAccountId: "email-account-1",
-    });
-    expect(createEmailProvider).not.toHaveBeenCalled();
-    expect(result.categorizedSenderCount).toBe(12);
-  });
-
   it("startSenderCategorization delegates to the shared start helper", async () => {
     vi.mocked(createEmailProvider).mockResolvedValue({
       provider: "google",
@@ -2186,41 +2296,5 @@ describe("chat inbox tools - sender categories", () => {
     });
 
     vi.useRealTimers();
-  });
-
-  it("manageSenderCategory delegates to the archive helper", async () => {
-    vi.mocked(createEmailProvider).mockResolvedValue({
-      provider: "google",
-    } as any);
-    mockArchiveCategory.mockResolvedValue({
-      success: true,
-      action: "archive_category",
-      category: { id: "cat-1", name: "Newsletters" },
-      sendersCount: 6,
-      senders: ["one@example.com"],
-      message: 'Archived mail from 6 senders in "Newsletters".',
-    });
-
-    const toolInstance = manageSenderCategoryTool({
-      email: TEST_EMAIL,
-      emailAccountId: "email-account-1",
-      provider: "google",
-      logger,
-    });
-
-    const result = await (toolInstance.execute as any)({
-      action: "archive_category",
-      categoryId: "cat-1",
-    });
-
-    expect(mockArchiveCategory).toHaveBeenCalledWith({
-      email: TEST_EMAIL,
-      emailAccountId: "email-account-1",
-      emailProvider: { provider: "google" },
-      logger,
-      categoryId: "cat-1",
-      categoryName: undefined,
-    });
-    expect(result.sendersCount).toBe(6);
   });
 });

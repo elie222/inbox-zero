@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircleIcon,
   BellIcon,
@@ -15,9 +9,10 @@ import {
   LoaderCircleIcon,
   WifiOffIcon,
 } from "lucide-react";
-import useSWR from "swr";
+import useSWR, { useSWRConfig } from "swr";
 import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
 import type { ReplyDraftMode } from "@/utils/mail-engine/reply-drafts";
+import { useIsOnline } from "@/hooks/useIsOnline";
 import { InlineActionButton } from "@/components/InlineActionButton";
 import type { ScheduledEmailsResponse } from "@/app/api/user/scheduled-emails/route";
 import {
@@ -35,6 +30,7 @@ import {
   shouldShowEngineDeliveryStatus,
 } from "@/utils/mail-engine/engine-delivery";
 import { restoreUnsentReplyDraft } from "@/utils/mail-engine/reply-drafts";
+import { upcomingScheduledEmailsKey } from "@/hooks/useHiddenDraftMessageIds";
 
 export function ThreadDeliveryStatus({
   emailAccountId,
@@ -52,11 +48,8 @@ export function ThreadDeliveryStatus({
   canEditReply: boolean;
 }) {
   const client = useOptionalMailClient();
-  const online = useSyncExternalStore(
-    subscribeToConnectivity,
-    () => navigator.onLine,
-    () => true,
-  );
+  const { mutate: mutateCache } = useSWRConfig();
+  const online = useIsOnline();
   const [actionError, setActionError] = useState("");
   const [busy, setBusy] = useState(false);
   const [dismissedSendIds, setDismissedSendIds] = useState<string[]>([]);
@@ -83,10 +76,7 @@ export function ThreadDeliveryStatus({
     },
   );
   const { data, error, isValidating, mutate } = useSWR<ScheduledEmailsResponse>(
-    [
-      `/api/user/scheduled-emails?threadId=${encodeURIComponent(threadId)}`,
-      emailAccountId,
-    ],
+    threadScheduledEmailsKey(emailAccountId, threadId),
     {
       isPaused: () => !navigator.onLine,
       refreshInterval: (current) => {
@@ -137,6 +127,10 @@ export function ThreadDeliveryStatus({
       await action();
       await mutate();
       await refreshOutbox();
+      // Which drafts are hidden follows whether their sends are still pending.
+      await mutateCache(upcomingScheduledEmailsKey(emailAccountId)).catch(
+        () => {},
+      );
     } catch (failure) {
       setActionError(
         failure instanceof Error
@@ -369,6 +363,16 @@ export function ThreadDeliveryStatus({
   );
 }
 
+export function threadScheduledEmailsKey(
+  emailAccountId: string,
+  threadId: string,
+) {
+  return [
+    `/api/user/scheduled-emails?threadId=${encodeURIComponent(threadId)}`,
+    emailAccountId,
+  ];
+}
+
 function formatTime(value: string | Date) {
   return new Date(value).toLocaleString(undefined, {
     month: "short",
@@ -436,13 +440,4 @@ function DeliveryIcon({
       className="size-3.5 shrink-0 text-muted-foreground"
     />
   );
-}
-
-function subscribeToConnectivity(onChange: () => void) {
-  window.addEventListener("online", onChange);
-  window.addEventListener("offline", onChange);
-  return () => {
-    window.removeEventListener("online", onChange);
-    window.removeEventListener("offline", onChange);
-  };
 }

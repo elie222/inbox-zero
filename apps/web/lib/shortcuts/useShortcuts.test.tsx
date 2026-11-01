@@ -55,6 +55,19 @@ describe("useShortcuts", () => {
     expect(snooze).toHaveBeenCalledOnce();
   });
 
+  // Backspace is the key pressed most while writing; if focus slips out of
+  // the editor it must not trash the conversation and the draft in it.
+  it("deletes with # but not with Backspace", () => {
+    const deleteThread = vi.fn();
+    renderShortcuts({ delete: deleteThread });
+
+    press({ key: "Backspace", code: "Backspace" });
+    expect(deleteThread).not.toHaveBeenCalled();
+
+    press({ key: "#", code: "Digit3", shiftKey: true });
+    expect(deleteThread).toHaveBeenCalledOnce();
+  });
+
   it("runs the search shortcut for slash", () => {
     const search = vi.fn();
     renderShortcuts({ search });
@@ -187,14 +200,59 @@ describe("useShortcuts", () => {
     expect(commandPalette).not.toHaveBeenCalled();
   });
 
+  it("cycles splits only from the list zone, leaving Tab to other controls", () => {
+    const nextSplit = vi.fn();
+    const previousSplit = vi.fn();
+    renderShortcuts({ nextSplit, previousSplit });
+
+    const zoneEvent = press(
+      { key: "Tab", code: "Tab", shiftKey: true },
+      screen.getByRole("button", { name: "List row" }),
+    );
+    const outsideTab = press(
+      { key: "Tab", code: "Tab" },
+      screen.getByRole("button", { name: "Send" }),
+    );
+    const outsideShiftTab = press(
+      { key: "Tab", code: "Tab", shiftKey: true },
+      screen.getByRole("button", { name: "Send" }),
+    );
+
+    expect(previousSplit).toHaveBeenCalledOnce();
+    expect(zoneEvent.defaultPrevented).toBe(true);
+    expect(nextSplit).not.toHaveBeenCalled();
+    expect(outsideTab.defaultPrevented).toBe(false);
+    expect(outsideShiftTab.defaultPrevented).toBe(false);
+  });
+
+  it("dispatches Shift-Tab to previousSplit and Tab to nextSplit", () => {
+    const nextSplit = vi.fn();
+    const previousSplit = vi.fn();
+    renderShortcuts({ nextSplit, previousSplit });
+
+    const backEvent = press({ key: "Tab", code: "Tab", shiftKey: true });
+    expect(previousSplit).toHaveBeenCalledOnce();
+    expect(nextSplit).not.toHaveBeenCalled();
+    expect(backEvent.defaultPrevented).toBe(true);
+
+    press({ key: "Tab", code: "Tab" });
+    expect(nextSplit).toHaveBeenCalledOnce();
+    expect(previousSplit).toHaveBeenCalledOnce();
+  });
+
   it("leaves dialog navigation keys to the browser", () => {
     const backToList = vi.fn();
     const open = vi.fn();
     const nextSplit = vi.fn();
+    const previousSplit = vi.fn();
     const search = vi.fn();
-    renderShortcuts({ backToList, nextSplit, open, search });
+    renderShortcuts({ backToList, nextSplit, open, previousSplit, search });
 
     const mailEvent = press({ key: "Tab", code: "Tab" });
+    const dialogShiftTabEvent = press(
+      { key: "Tab", code: "Tab", shiftKey: true },
+      screen.getByRole("button", { name: "Dialog action" }),
+    );
     const mailOpenEvent = press({ key: "Enter", code: "Enter" });
     const dialogTabEvent = press(
       { key: "Tab", code: "Tab" },
@@ -220,6 +278,8 @@ describe("useShortcuts", () => {
     expect(mailEvent.defaultPrevented).toBe(true);
     expect(mailOpenEvent.defaultPrevented).toBe(true);
     expect(dialogTabEvent.defaultPrevented).toBe(false);
+    expect(previousSplit).not.toHaveBeenCalled();
+    expect(dialogShiftTabEvent.defaultPrevented).toBe(false);
     expect(dialogOpenEvent.defaultPrevented).toBe(false);
     expect(dialogEscapeEvent.defaultPrevented).toBe(false);
     expect(dialogSearchEvent.defaultPrevented).toBe(false);
@@ -352,6 +412,10 @@ function renderShortcuts(
     <ShortcutsProvider scopes={scopes}>
       <Bindings handlers={handlers} isDesktopApp={isDesktopApp} />
       <textarea />
+      <div data-split-cycle-zone>
+        <button type="button">List row</button>
+      </div>
+      <button type="button">Send</button>
       <div aria-label="Test dialog" role="dialog">
         <button type="button">Dialog action</button>
       </div>

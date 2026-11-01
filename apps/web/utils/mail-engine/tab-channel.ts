@@ -21,7 +21,7 @@ export type TabMailMessage =
       provider?: "google" | "microsoft";
     }
   | { type: "ready" }
-  | { type: "owner"; accountId: string }
+  | { type: "owner"; accountId: string; ownerId: string }
   | {
       type: "call";
       id: string;
@@ -69,13 +69,14 @@ export function bindTabMailOwner(input: {
     provider: "google" | "microsoft";
   }) => Promise<void>;
 }): () => void {
+  const ownerId = crypto.randomUUID();
   const handles = new Map<
     string,
     { close: () => void; loadMore?: () => Promise<void> }
   >();
   const unsubscribe = input.bus.subscribe((message) => {
     if (message.type === "hello") {
-      announceOwner(input, message);
+      announceOwner(input, message, ownerId);
       return;
     }
     if (message.type === "loadMore") {
@@ -107,6 +108,7 @@ export function bindTabMailOwner(input: {
       return;
     }
     if (message.type === "observe") {
+      handles.get(message.handleId)?.close();
       const observed = observeByKind(input.client, message.kind, message.args);
       handles.set(message.handleId, observed);
       observed.subscribe(() => {
@@ -134,12 +136,8 @@ export function bindTabMailOwner(input: {
       });
       return;
     }
-    const args =
-      message.method === "stageDraftAttachment"
-        ? [wrapDraftAttachmentBytes(message.args[0])]
-        : message.args;
     (method as (...args: unknown[]) => Promise<unknown>)
-      .apply(input.client, args)
+      .apply(input.client, message.args)
       .then((value) => input.bus.post({ type: "ok", id: message.id, value }))
       .catch((error) =>
         input.bus.post({
@@ -167,6 +165,7 @@ export function createTabFollowerClient(input: {
   provider?: "google" | "microsoft";
   bus: TabMailBus;
 }): MailClient {
+  let ownerId: string | undefined;
   const pending = new Map<
     string,
     { resolve: (value: unknown) => void; reject: (error: Error) => void }
@@ -174,6 +173,8 @@ export function createTabFollowerClient(input: {
   const observations = new Map<
     string,
     {
+      kind: WorkerObserveKind;
+      args: unknown[];
       snapshot: QuerySnapshot<unknown>;
       listeners: Set<() => void>;
     }
@@ -187,6 +188,21 @@ export function createTabFollowerClient(input: {
   const unsubscribe = input.bus.subscribe((message) => {
     if (message.type === "ready") {
       announce();
+      return;
+    }
+    if (message.type === "owner" && message.accountId === input.accountId) {
+      if (ownerId === message.ownerId) return;
+      ownerId = message.ownerId;
+      for (const [handleId, observation] of observations) {
+        input.bus.post({
+          type: "observe",
+          id: crypto.randomUUID(),
+          accountId: input.accountId,
+          handleId,
+          kind: observation.kind,
+          args: observation.args,
+        });
+      }
       return;
     }
     if (message.type === "snapshot") {
@@ -246,6 +262,8 @@ export function createTabFollowerClient(input: {
   ): QueryHandle<T> & { handleId: string } {
     const handleId = crypto.randomUUID();
     const observation = {
+      kind,
+      args,
       snapshot: {
         status: "loading",
         revision: null,
@@ -256,14 +274,9 @@ export function createTabFollowerClient(input: {
       listeners: new Set<() => void>(),
     };
     observations.set(handleId, observation);
-    const id = crypto.randomUUID();
-    pending.set(id, {
-      resolve: () => undefined,
-      reject: () => undefined,
-    });
     input.bus.post({
       type: "observe",
-      id,
+      id: crypto.randomUUID(),
       accountId: input.accountId,
       handleId,
       kind,
@@ -288,6 +301,8 @@ export function createTabFollowerClient(input: {
   }
 
   const client: MailClient = {
+    queryContactSuggestions: (query) =>
+      call("queryContactSuggestions", [query]) as never,
     observeMailbox: (query) => observeRemote("mailbox", [query]),
     observeMailboxCounts: (query) => observeRemote("mailboxCounts", [query]),
     observeMailboxWindow: (query) => {
@@ -305,10 +320,6 @@ export function createTabFollowerClient(input: {
       call("submitConversations", [payload]) as never,
     saveDraft: (payload) => call("saveDraft", [payload]) as never,
     readDraft: (payload) => call("readDraft", [payload]) as never,
-    async stageDraftAttachment(input) {
-      const bytes = await collectBytes(input.bytes);
-      return call("stageDraftAttachment", [{ ...input, bytes }]) as never;
-    },
     submitSend: (payload) => call("submitSend", [payload]) as never,
     cancelOperation: (payload) => call("cancelOperation", [payload]) as never,
     requestSync: (accountIds) =>
@@ -354,37 +365,6 @@ export function createBroadcastTabBus(channel: BroadcastChannel): TabMailBus {
   };
 }
 
-function wrapDraftAttachmentBytes(value: unknown) {
-  if (!value || typeof value !== "object") return value;
-  const input = value as { bytes?: unknown };
-  if (input.bytes instanceof Uint8Array) {
-    const bytes = input.bytes;
-    return {
-      ...input,
-      bytes: (async function* () {
-        yield bytes;
-      })(),
-    };
-  }
-  return value;
-}
-
-async function collectBytes(bytes: AsyncIterable<Uint8Array>) {
-  const chunks: Uint8Array[] = [];
-  let size = 0;
-  for await (const chunk of bytes) {
-    size += chunk.byteLength;
-    chunks.push(chunk);
-  }
-  const collected = new Uint8Array(size);
-  let offset = 0;
-  for (const chunk of chunks) {
-    collected.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return collected;
-}
-
 function announceOwner(
   input: {
     bus: TabMailBus;
@@ -394,9 +374,10 @@ function announceOwner(
     }) => Promise<void>;
   },
   message: Extract<TabMailMessage, { type: "hello" }>,
+  ownerId: string,
 ) {
   const postOwner = () =>
-    input.bus.post({ type: "owner", accountId: message.accountId });
+    input.bus.post({ type: "owner", accountId: message.accountId, ownerId });
   if (!message.provider || !input.ensureAccount) {
     postOwner();
     return;

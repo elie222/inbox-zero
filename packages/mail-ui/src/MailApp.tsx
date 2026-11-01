@@ -255,6 +255,7 @@ export function MailApp({
       >
         <ConversationReader
           conversation={conversation}
+          loadAttachment={host.loadAttachment}
           onNextPage={() => {
             const nextPage = conversation.data?.nextPage;
             if (nextPage)
@@ -388,6 +389,7 @@ function StatusLine({
 
 function ConversationReader({
   conversation,
+  loadAttachment,
   onNextPage,
   onPreviousPage,
   onArchive,
@@ -395,6 +397,7 @@ function ConversationReader({
   onMarkRead,
 }: {
   conversation: ReturnType<typeof useConversation>;
+  loadAttachment?: MailUiHost["loadAttachment"];
   onNextPage: () => void;
   onPreviousPage?: () => void;
   onArchive: () => void;
@@ -459,6 +462,9 @@ function ConversationReader({
             message.content.status === "available" ? (
               <MailMessageBody
                 html={message.content.html}
+                attachments={message.content.attachments}
+                accountId={message.key.accountId}
+                loadAttachment={loadAttachment}
                 messageId={message.key.messageId}
                 text={message.content.text}
               />

@@ -8,13 +8,14 @@ import {
 } from "./identities";
 
 export const draftContentSchema = z.object({
+  /** The send-as address, when it isn't the account's default. */
+  from: z.string().max(4096).optional(),
   to: z.array(z.string().max(4096)).max(100),
   cc: z.array(z.string().max(4096)).max(100),
   bcc: z.array(z.string().max(4096)).max(100),
   subject: z.string().max(16_384),
   editableHtml: z.string().max(1_000_000),
   quotedHtml: z.string().max(1_000_000),
-  attachmentIds: z.array(z.string().min(1).max(128)).max(20),
   conversationId: conversationIdSchema.optional(),
   clientState: z.string().max(1_000_000).optional(),
   providerDraftId: messageIdSchema.optional(),

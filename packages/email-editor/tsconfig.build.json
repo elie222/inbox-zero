@@ -11,5 +11,9 @@
     "sourceMap": false,
     "types": []
   },
-  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/**/*.test-utils.ts"
+  ]
 }

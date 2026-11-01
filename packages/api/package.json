@@ -35,7 +35,7 @@
   "devDependencies": {
     "@types/node": "24.10.1",
     "typescript": "6.0.3",
-    "vitest": "4.1.10"
+    "vitest": "5.0.5"
   },
   "engines": {
     "node": ">=22.12.0"
