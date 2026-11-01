@@ -376,12 +376,27 @@ function isOutlookMailboxUnavailableError(error: unknown): boolean {
   );
 }
 
+// Graph 5xx responses reach us only after the retry wrapper gives up, often
+// with no error payload (the SDK leaves the message empty). They are outages
+// on Microsoft's side, so there is nothing for us to fix. Matched on the
+// GraphError shape because this module is also bundled for the client.
+function isOutlookServerError(error: unknown): boolean {
+  const err = error as Record<string, unknown> | null;
+  return (
+    typeof err?.statusCode === "number" &&
+    err.statusCode >= 500 &&
+    "requestId" in err &&
+    "body" in err
+  );
+}
+
 export function isKnownOutlookError(error: unknown): boolean {
   return (
     isOutlookThrottlingError(error) ||
     isOutlookAccessDeniedError(error) ||
     isOutlookItemNotFoundError(error) ||
-    isOutlookMailboxUnavailableError(error)
+    isOutlookMailboxUnavailableError(error) ||
+    isOutlookServerError(error)
   );
 }
 
@@ -487,6 +502,19 @@ export function checkCommonErrors(
       type: "Outlook Item Not Found",
       message: "The requested email was not found. It may have been deleted.",
       code: 404,
+    };
+  }
+
+  if (isOutlookServerError(error)) {
+    logger.warn("Outlook service unavailable for url", {
+      url,
+      statusCode: (error as { statusCode: number }).statusCode,
+    });
+    return {
+      type: "Outlook Service Unavailable",
+      message:
+        "Microsoft is temporarily unavailable. Please try again shortly.",
+      code: 503,
     };
   }
 
