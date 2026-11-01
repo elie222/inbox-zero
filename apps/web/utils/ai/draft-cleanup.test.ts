@@ -100,13 +100,8 @@ describe("cleanupAIDraftsForAccount", () => {
         where: {
           emailAccountId: "email-account-1",
           followUpDraftId: { not: null },
-          OR: [
-            { followUpDraftCreatedAt: { lt: expectedCutoffDate } },
-            {
-              followUpDraftCreatedAt: null,
-              followUpAppliedAt: { lt: expectedCutoffDate },
-            },
-          ],
+          followUpDraftContent: { not: null },
+          followUpDraftCreatedAt: { lt: expectedCutoffDate },
         },
       }),
     );
@@ -231,9 +226,7 @@ describe("cleanupAIDraftsForAccount", () => {
         where: expect.objectContaining({
           emailAccountId: "email-account-1",
           followUpDraftId: { not: null },
-          OR: expect.arrayContaining([
-            { followUpDraftCreatedAt: { lt: expect.any(Date) } },
-          ]),
+          followUpDraftCreatedAt: { lt: expect.any(Date) },
         }),
       }),
     );
@@ -248,11 +241,6 @@ describe("cleanupAIDraftsForAccount", () => {
         id: "tracker-edited",
         followUpDraftId: "edited",
         followUpDraftContent: "Checking in.",
-      },
-      {
-        id: "tracker-unknown",
-        followUpDraftId: "unknown",
-        followUpDraftContent: null,
       },
       {
         id: "tracker-error",
@@ -300,9 +288,9 @@ describe("cleanupAIDraftsForAccount", () => {
     });
 
     expect(result).toMatchObject({
-      total: 8,
+      total: 7,
       deleted: 1,
-      skippedModified: 4,
+      skippedModified: 3,
       alreadyGone: 1,
       errors: 2,
     });
@@ -311,11 +299,18 @@ describe("cleanupAIDraftsForAccount", () => {
       "ok",
     ]);
     expect(mocks.prisma.executedAction.update).not.toHaveBeenCalled();
+    // Edited follow-up drafts stay tracked but are no longer checked by cleanup.
     expect(
-      mocks.prisma.threadTracker.updateMany.mock.calls.map(
-        ([args]) => args.where.id,
-      ),
-    ).toEqual(["tracker-missing", "tracker-ok"]);
+      mocks.prisma.threadTracker.updateMany.mock.calls.map(([args]) => [
+        args.where.id,
+        "followUpDraftId" in args.data ? "untracked" : "stop-checking",
+      ]),
+    ).toEqual([
+      ["tracker-edited", "stop-checking"],
+      ["tracker-empty", "stop-checking"],
+      ["tracker-missing", "untracked"],
+      ["tracker-ok", "untracked"],
+    ]);
   });
 
   it.each([
@@ -355,7 +350,10 @@ describe("cleanupAIDraftsForAccount", () => {
 
     expect(result).toMatchObject({ deleted: 0, skippedModified: 1 });
     expect(mocks.provider.deleteDraft).not.toHaveBeenCalled();
-    expect(mocks.prisma.threadTracker.updateMany).not.toHaveBeenCalled();
+    expect(mocks.prisma.threadTracker.updateMany).toHaveBeenCalledWith({
+      where: { id: "tracker-edited", followUpDraftId: "follow-up-edited" },
+      data: { followUpDraftContent: null, followUpDraftCreatedAt: null },
+    });
   });
 
   it("keeps a rule draft retryable when the provider declines deletion", async () => {
@@ -623,13 +621,8 @@ describe("getEmailAccountsWithStaleAIDrafts", () => {
             threadTrackers: {
               some: {
                 followUpDraftId: { not: null },
-                OR: [
-                  { followUpDraftCreatedAt: { lt: expect.any(Date) } },
-                  {
-                    followUpDraftCreatedAt: null,
-                    followUpAppliedAt: { lt: expect.any(Date) },
-                  },
-                ],
+                followUpDraftContent: { not: null },
+                followUpDraftCreatedAt: { lt: expect.any(Date) },
               },
             },
           },

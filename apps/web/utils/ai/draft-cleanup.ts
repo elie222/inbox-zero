@@ -107,6 +107,7 @@ export async function cleanupAIDraftsForAccount({
       }
 
       if (!draftDetails.textPlain && !draftDetails.textHtml) {
+        await stopFollowUpDraftCleanup(action);
         skippedModified++;
         continue;
       }
@@ -115,6 +116,7 @@ export async function cleanupAIDraftsForAccount({
         action.trackerId &&
         (draftDetails.hasAttachment || draftDetails.attachments?.length)
       ) {
+        await stopFollowUpDraftCleanup(action);
         skippedModified++;
         continue;
       }
@@ -130,7 +132,7 @@ export async function cleanupAIDraftsForAccount({
 
       if (!isUnmodified) {
         // Without the original content we can't tell, so it stays a candidate.
-        // Follow-up trackers have no status, so an edited one stays tracked.
+        await stopFollowUpDraftCleanup(action);
         if (action.content && !action.trackerId) {
           const statusData = getDraftCleanupStatusData({
             draftStatus: action.draftStatus,
@@ -368,17 +370,13 @@ function getDraftCleanupCandidateWhere() {
   };
 }
 
+// Drafts tracked before their content was stored can't be checked for user
+// edits, so cleanup never touches them rather than re-fetching them forever.
 function getFollowUpDraftCleanupCandidateWhere(cutoffDate: Date) {
   return {
     followUpDraftId: { not: null },
-    OR: [
-      { followUpDraftCreatedAt: { lt: cutoffDate } },
-      // Drafts tracked before creation times were stored.
-      {
-        followUpDraftCreatedAt: null,
-        followUpAppliedAt: { lt: cutoffDate },
-      },
-    ],
+    followUpDraftContent: { not: null },
+    followUpDraftCreatedAt: { lt: cutoffDate },
   };
 }
 
@@ -386,6 +384,16 @@ type DraftCleanupCandidate = Pick<
   ExecutedAction,
   "id" | "draftId" | "content" | "draftStatus" | "wasDraftSent"
 > & { trackerId: string | null };
+
+// A user-edited follow-up draft stays tracked for the follow-up feature, but
+// cleanup stops checking it so it isn't fetched on every run.
+async function stopFollowUpDraftCleanup(draft: DraftCleanupCandidate) {
+  if (!draft.trackerId) return;
+  await prisma.threadTracker.updateMany({
+    where: { id: draft.trackerId, followUpDraftId: draft.draftId },
+    data: { followUpDraftContent: null, followUpDraftCreatedAt: null },
+  });
+}
 
 async function recordDraftCleanup(
   draft: DraftCleanupCandidate,
