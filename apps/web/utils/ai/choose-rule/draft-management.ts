@@ -6,6 +6,7 @@ import type { EmailProvider } from "@/utils/email/types";
 import { convertEmailHtmlToText } from "@/utils/mail";
 import type { ParsedMessage } from "@/utils/types";
 import { stripQuotedHtmlContent } from "@/utils/email/parse-message-reply";
+import { renderReplyBodyHtml } from "@/utils/email/reply-body-html";
 
 export type PreviousDraftHandlingResult =
   | {
@@ -170,12 +171,15 @@ export async function updateExecutedActionWithDraftId({
 /**
  * Extracts plain text from a draft, handling both Gmail and Outlook formats.
  */
-export function extractDraftPlainText(draft: ParsedMessage): string {
+export function extractDraftPlainText(
+  draft: ParsedMessage,
+  includeLinks = false,
+): string {
   if (draft.bodyContentType === "html") {
     return draft.textPlain
       ? convertEmailHtmlToText({
           htmlText: stripQuotedHtmlContent(draft.textPlain),
-          includeLinks: false,
+          includeLinks,
         })
       : "";
   }
@@ -223,9 +227,8 @@ export function isDraftUnmodified({
     extractDraftComparisonText(currentDraft, includeLinks);
   const currentReplyContent = stripQuotedContent(currentText);
 
-  const originalWithBr = originalContent.replace(/\n/g, "<br>");
   const originalContentPlain = convertEmailHtmlToText({
-    htmlText: originalWithBr,
+    htmlText: renderReplyBodyHtml(originalContent),
     includeLinks,
   });
   const originalContentTrimmed = originalContentPlain.trim();
@@ -268,7 +271,7 @@ function extractDraftComparisonText(
   }
 
   return {
-    text: extractDraftPlainText(draft),
+    text: extractDraftPlainText(draft, includeLinks),
     source: "textPlain",
   };
 }
