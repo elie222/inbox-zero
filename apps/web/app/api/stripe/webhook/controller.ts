@@ -239,7 +239,6 @@ async function recordCancellationInitiated(
         ? new Date(subscription.cancel_at * 1000).toISOString()
         : null,
       cancelAtPeriodEnd: subscription.cancel_at_period_end,
-      cancellationReason: subscription.cancellation_details?.reason ?? null,
       cancellationFeedback: subscription.cancellation_details?.feedback ?? null,
       cancellationComment: subscription.cancellation_details?.comment ?? null,
     });

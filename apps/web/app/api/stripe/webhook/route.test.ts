@@ -552,7 +552,6 @@ describe("processEvent", () => {
         cancellationInitiatedAt: "2023-11-14T22:13:20.000Z",
         cancelAt: "2023-11-26T11:43:20.000Z",
         cancelAtPeriodEnd: true,
-        cancellationReason: "cancellation_requested",
         cancellationFeedback: "too_expensive",
         cancellationComment: "Costs more than I expected",
       },
