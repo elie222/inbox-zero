@@ -18,6 +18,7 @@ import {
   captureException,
   checkCommonErrors,
   EMAIL_PROVIDER_RATE_LIMIT_MESSAGE,
+  isGmailServiceUnavailableError,
   EmailProviderRateLimitError,
   getActionErrorMessage,
   getUserFacingErrorMessage,
@@ -470,6 +471,34 @@ describe("markAsHandledUserKeyError / isHandledUserKeyError", () => {
   });
 });
 
+describe("isGmailServiceUnavailableError", () => {
+  it("detects when Gmail is disabled for the account", () => {
+    expect(
+      isGmailServiceUnavailableError(
+        createGmailApiError("failedPrecondition", "Mail service not enabled"),
+      ),
+    ).toBe(true);
+  });
+
+  it.each([
+    [
+      "a bare precondition failure",
+      "failedPrecondition",
+      "Precondition check failed.",
+    ],
+    [
+      "a push client conflict",
+      "failedPrecondition",
+      "Only one user push notification client allowed per developer (call /stop then try again)",
+    ],
+    ["another Gmail error", "invalidArgument", "Invalid label name"],
+  ])("ignores %s", (_name, reason, message) => {
+    expect(
+      isGmailServiceUnavailableError(createGmailApiError(reason, message)),
+    ).toBe(false);
+  });
+});
+
 describe("isOutlookThrottlingError", () => {
   it.each([
     ["ApplicationThrottled code", { code: "ApplicationThrottled" }],
@@ -827,5 +856,13 @@ function createProviderRateLimitError(provider: "google" | "microsoft") {
     name: "ProviderRateLimitModeError",
     provider,
     retryAt: new Date(Date.now() + 60_000).toISOString(),
+  });
+}
+
+function createGmailApiError(reason: string, message: string) {
+  return Object.assign(new Error(message), {
+    status: 400,
+    code: 400,
+    errors: [{ message, reason }],
   });
 }

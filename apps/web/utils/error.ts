@@ -214,6 +214,15 @@ export function isGmailQuotaExceededError(error: unknown): boolean {
   return extractErrorInfo(error).reason === "quotaExceeded";
 }
 
+export const GMAIL_SERVICE_UNAVAILABLE_MESSAGE =
+  "Gmail isn't enabled for this Google account. If it's a work or school account, ask your Google Workspace admin to enable Gmail. Otherwise, set up Gmail for it or connect a different account, then try again.";
+
+// Only the explicit message is reliable: a bare failedPrecondition is also
+// returned for transient failures on mailboxes where Gmail is enabled.
+export function isGmailServiceUnavailableError(error: unknown): boolean {
+  return /mail service not enabled/i.test(extractErrorInfo(error).errorMessage);
+}
+
 export function isIncorrectAPIKeyError(error: APICallError): boolean {
   return (
     error.message.includes("Incorrect API key provided") ||
