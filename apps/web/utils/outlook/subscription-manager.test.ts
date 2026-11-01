@@ -21,6 +21,7 @@ vi.mock("@/utils/prisma", () => ({
 
 vi.mock("@/utils/error", () => ({
   captureException: vi.fn(),
+  isKnownOutlookError: vi.fn(() => false),
 }));
 
 describe("OutlookSubscriptionManager", () => {

@@ -18,6 +18,12 @@ import {
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
 import { clearWatchLapsedErrorIfResolved } from "@/utils/error-messages";
 import { syncGoogleEmailFromProfile } from "@/utils/auth/rename-email";
+import { classifyEmailAccountProviderIssue } from "@/utils/email/provider-health";
+import {
+  extractErrorInfo,
+  isExistingGmailPushClientError,
+  isRetryableError,
+} from "@/utils/gmail/retry";
 
 export type WatchEmailAccountResult =
   | {
@@ -203,6 +209,7 @@ async function watchEmailAccount(
       },
       ttlSeconds: 15 * 60,
       summaryIntervalSeconds: 5 * 60,
+      level: result.expected ? "warn" : "error",
     });
 
     return {
@@ -268,7 +275,8 @@ async function watchEmails({
   provider: EmailProvider;
   logger: Logger;
 }): Promise<
-  { success: true; expirationDate: Date } | { success: false; error: unknown }
+  | { success: true; expirationDate: Date }
+  | { success: false; error: unknown; expected: boolean }
 > {
   logger.info("Watching emails");
   let failedAccessToken: string | undefined;
@@ -299,8 +307,9 @@ async function watchEmails({
       }
     }
 
+    // The Outlook subscription manager already logged the underlying cause.
     const error = new Error("Provider returned no result for watch setup");
-    return { success: false, error };
+    return { success: false, error, expected: true };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
 
@@ -323,11 +332,15 @@ async function watchEmails({
           cleanupError,
         }),
       );
-    } else {
-      captureException(error, { emailAccountId });
+      return { success: false, error, expected: true };
     }
 
-    return { success: false, error };
+    if (isExpectedWatchFailure(error, provider.name)) {
+      return { success: false, error, expected: true };
+    }
+
+    captureException(error, { emailAccountId });
+    return { success: false, error, expected: false };
   }
 }
 
@@ -408,4 +421,18 @@ function isEmailSyncDue(emailAccountId: string, now: Date) {
     hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
   }
   return hash % 24 === now.getUTCHours();
+}
+
+// Account-level issues are recorded by the provider wrapper (which disconnects
+// the account), and transient Google errors clear up on the next cron run.
+function isExpectedWatchFailure(error: unknown, providerName: string) {
+  const provider = isMicrosoftProvider(providerName) ? "microsoft" : "google";
+  if (classifyEmailAccountProviderIssue({ error, provider })) return true;
+  if (provider !== "google") return false;
+
+  const errorInfo = extractErrorInfo(error);
+  return (
+    isRetryableError(errorInfo).retryable ||
+    isExistingGmailPushClientError(errorInfo)
+  );
 }

@@ -367,7 +367,7 @@ export function isOutlookItemNotFoundError(error: unknown): boolean {
 
 // The mailbox itself can't be used (unlicensed, soft-deleted, on-premise, or
 // full), so retrying or reporting won't help until the user fixes it.
-function isOutlookMailboxUnavailableError(error: unknown): boolean {
+export function isOutlookMailboxUnavailableError(error: unknown): boolean {
   const message = (error as Record<string, unknown>)?.message;
   return (
     typeof message === "string" &&

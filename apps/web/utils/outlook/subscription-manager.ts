@@ -1,5 +1,5 @@
 import prisma from "@/utils/prisma";
-import { captureException } from "@/utils/error";
+import { captureException, isKnownOutlookError } from "@/utils/error";
 import type { EmailProvider } from "@/utils/email/types";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { Logger } from "@/utils/logger";
@@ -107,7 +107,11 @@ export class OutlookSubscriptionManager {
         cancelledSubscriptionId,
       };
     } catch (error) {
-      this.logger.error("Failed to create subscription", { error });
+      if (isKnownOutlookError(error)) {
+        this.logger.warn("Failed to create subscription", { error });
+      } else {
+        this.logger.error("Failed to create subscription", { error });
+      }
       captureException(error, { emailAccountId: this.emailAccountId });
       await this.markSubscriptionLapsed(cancelledSubscriptionId);
       return null;
