@@ -9,7 +9,7 @@ import {
   resolveOutlookLocalMailFolderIds,
 } from "@/utils/outlook/local-mail-sync";
 import { matchesSenderFilter } from "@/utils/split-inbox/sender-filter";
-import { DraftNotFoundError } from "@/utils/error";
+import { DraftNotFoundError, isOutlookItemNotFoundError } from "@/utils/error";
 import type { Message } from "@microsoft/microsoft-graph-types";
 import type { OutlookClient } from "@/utils/outlook/client";
 import type { ParsedMessage } from "@/utils/types";
@@ -1706,11 +1706,23 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async getMessagesBatch(messageIds: string[]): Promise<ParsedMessage[]> {
-    // For Outlook, we need to fetch messages individually since there's no batch endpoint
-    const messagePromises = messageIds.map((messageId) =>
-      this.getMessage(messageId),
+    // Outlook has no batch endpoint, so messages are fetched individually.
+    // Like Gmail's batch, skip messages that no longer exist instead of
+    // failing the whole batch on one stale ID.
+    const messages = await Promise.all(
+      messageIds.map(async (messageId) => {
+        try {
+          return await this.getMessage(messageId);
+        } catch (error) {
+          if (!isOutlookItemNotFoundError(error)) throw error;
+          this.logger.warn("Skipping message missing from Outlook", {
+            messageId,
+          });
+          return null;
+        }
+      }),
     );
-    return Promise.all(messagePromises);
+    return messages.filter((message) => message !== null);
   }
 
   async syncLocalMail(
