@@ -694,13 +694,19 @@ export function createMailEngine(input: {
       scopeId,
     });
     if (!scan) {
+      const scope =
+        input.scope ??
+        (await resolveScope(input.session, scopeId, input.signal));
+      if (!scope) {
+        await store.retireSyncScope({ session: input.session, scopeId });
+        await queries.refreshAll();
+        return;
+      }
       const bootstrap = await source.beginBootstrap({
         session: input.session,
         requestId: input.requestId,
         signal: input.signal ?? new AbortController().signal,
-        scope:
-          input.scope ??
-          (await resolveScope(input.session, scopeId, input.signal)),
+        scope,
         afterMs: null,
       });
       if (bootstrap.status !== "ok") {
@@ -1344,11 +1350,13 @@ export function createMailEngine(input: {
     return page.page.nextCursor !== (account.assistantCursor ?? null);
   }
 
+  // Resolves to null when the provider no longer has the scope, like a folder
+  // deleted since it was discovered.
   async function resolveScope(
     session: { accountId: string; generation: string },
     scopeId: string,
     signal?: AbortSignal,
-  ): Promise<ScopeDescriptor> {
+  ): Promise<ScopeDescriptor | null> {
     const discovered = await source.discoverScopes({
       session,
       requestId: `scope-${scopeId}`,
@@ -1356,10 +1364,18 @@ export function createMailEngine(input: {
       page: null,
     });
     if (discovered.status === "ok") {
-      const match = discovered.value.scopes.find(
-        (scope) => scope.id === scopeId,
-      );
+      const { scopes, nextPage } = discovered.value;
+      const match = scopes.find((scope) => scope.id === scopeId);
       if (match) return match;
+      // Only a complete folder listing can show a folder is gone; account
+      // scopes keep the fallback below.
+      if (
+        nextPage === null &&
+        scopes.length > 0 &&
+        scopes.every((scope) => scope.kind === "folder")
+      ) {
+        return null;
+      }
     }
     return {
       id: scopeId,
