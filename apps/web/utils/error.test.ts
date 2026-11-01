@@ -22,6 +22,7 @@ import {
   EmailProviderRateLimitError,
   getActionErrorMessage,
   getUserFacingErrorMessage,
+  isGeminiSpendingCapError,
   isInsufficientCreditsError,
   getAIApiCallError,
   isContentFilterRefusal,
@@ -401,6 +402,24 @@ describe("isInsufficientCreditsError", () => {
     });
 
     expect(isInsufficientCreditsError(error)).toBe(false);
+  });
+});
+
+describe("isGeminiSpendingCapError", () => {
+  it("recognizes a Gemini project that hit its spending cap", () => {
+    const error = createGeminiResourceExhaustedError(
+      "Your project has exceeded its monthly spending cap. Please go to AI Studio to manage your project spend cap.",
+    );
+
+    expect(isGeminiSpendingCapError(error)).toBe(true);
+  });
+
+  it("does not treat an ordinary Gemini rate limit as a spending cap", () => {
+    const error = createGeminiResourceExhaustedError(
+      "Resource has been exhausted (e.g. check quota).",
+    );
+
+    expect(isGeminiSpendingCapError(error)).toBe(false);
   });
 });
 
@@ -813,6 +832,16 @@ function createAPICallError({
     statusCode,
     responseHeaders: {},
     responseBody,
+  });
+}
+
+function createGeminiResourceExhaustedError(message: string): APICallError {
+  return createAPICallError({
+    message,
+    statusCode: 429,
+    responseBody: JSON.stringify({
+      error: { code: 429, message, status: "RESOURCE_EXHAUSTED" },
+    }),
   });
 }
 

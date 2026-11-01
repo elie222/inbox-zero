@@ -38,6 +38,7 @@ import {
   isAnthropicInsufficientBalanceError,
   isContentFilterRefusal,
   isIncorrectAPIKeyError,
+  isGeminiSpendingCapError,
   isInsufficientCreditsError,
   isInvalidAIModelError,
   type LlmRepairMetadata,
@@ -1197,33 +1198,46 @@ async function handleError(
   modelName: string,
   hasUserApiKey: boolean,
 ) {
-  const apiError = getAIApiCallError(error);
-  const isUserKeyInsufficientCredits =
-    hasUserApiKey && !!apiError && isInsufficientCreditsError(apiError);
+  const apiError = hasUserApiKey ? getAIApiCallError(error) : null;
+  // Only the user's own key or model can be misconfigured in a way they fix.
+  // On our key the same failures are operator problems, so they stay errors
+  // and reach Sentry.
+  const isUserModelUnavailable =
+    !!apiError &&
+    // Model calls only 404 when the model (or the endpoint serving it) is
+    // gone, e.g. retired OpenRouter and Gemini models.
+    (apiError.statusCode === 404 || isInvalidAIModelError(apiError));
+  const isUserOutOfCredits =
+    !!apiError &&
+    (isInsufficientCreditsError(apiError) ||
+      isGeminiSpendingCapError(apiError) ||
+      isAnthropicInsufficientBalanceError(apiError));
+  const isUserAiConfigError =
+    !!apiError &&
+    (isIncorrectAPIKeyError(apiError) ||
+      isAPIKeyDeactivatedError(apiError) ||
+      isUserModelUnavailable ||
+      isUserOutOfCredits);
 
-  if (isUserKeyInsufficientCredits) {
-    logger.warn("User API key has insufficient credits", {
-      userId,
-      emailAccountId,
-      label,
-      modelName,
-    });
+  const logContext = {
+    error,
+    userId,
+    userEmail,
+    emailAccountId,
+    label,
+    modelName,
+  };
+  if (isUserAiConfigError) {
+    logger.warn("Error in LLM call", logContext);
   } else {
-    logger.error("Error in LLM call", {
-      error,
-      userId,
-      userEmail,
-      emailAccountId,
-      label,
-      modelName,
-    });
+    logger.error("Error in LLM call", logContext);
   }
 
   const notifyUser = async (
     errorType: PersistedErrorType,
     errorMessage: string,
   ) => {
-    if (hasUserApiKey) markAsHandledUserKeyError(error);
+    markAsHandledUserKeyError(error);
     await addUserErrorMessageWithNotification({
       userId,
       userEmail,
@@ -1234,40 +1248,34 @@ async function handleError(
     });
   };
 
-  if (APICallError.isInstance(error)) {
-    if (isIncorrectAPIKeyError(error)) {
-      return await notifyUser(
-        ErrorType.INCORRECT_API_KEY,
-        "Your AI API key is invalid. Please update it in your settings.",
-      );
-    }
-
-    if (isInvalidAIModelError(error)) {
-      await notifyUser(
-        ErrorType.INVALID_AI_MODEL,
-        "The AI model you specified does not exist or is unavailable. Please check your settings.",
-      );
-      const safeError = new SafeError(
-        "The AI model you specified does not exist or is unavailable. Please update your AI settings.",
-      );
-      if (hasUserApiKey) markAsHandledUserKeyError(safeError);
-      throw safeError;
-    }
-
-    if (isAPIKeyDeactivatedError(error)) {
-      return await notifyUser(
-        ErrorType.API_KEY_DEACTIVATED,
-        "Your AI API key has been deactivated. Please update it in your settings.",
-      );
-    }
+  if (apiError && isIncorrectAPIKeyError(apiError)) {
+    return await notifyUser(
+      ErrorType.INCORRECT_API_KEY,
+      "Your AI API key is invalid. Please update it in your settings.",
+    );
   }
 
-  // Exhausted balances can arrive as retryable 429s, so look beneath retries.
-  if (
-    apiError &&
-    (isAnthropicInsufficientBalanceError(apiError) ||
-      (isInsufficientCreditsError(apiError) && hasUserApiKey))
-  ) {
+  if (isUserModelUnavailable) {
+    await notifyUser(
+      ErrorType.INVALID_AI_MODEL,
+      "The AI model you specified does not exist or is unavailable. Please check your settings.",
+    );
+    const safeError = new SafeError(
+      "The AI model you specified does not exist or is unavailable. Please update your AI settings.",
+    );
+    markAsHandledUserKeyError(safeError);
+    throw safeError;
+  }
+
+  if (apiError && isAPIKeyDeactivatedError(apiError)) {
+    return await notifyUser(
+      ErrorType.API_KEY_DEACTIVATED,
+      "Your AI API key has been deactivated. Please update it in your settings.",
+    );
+  }
+
+  // Exhausted balances can arrive as retryable 429s, which apiError unwraps.
+  if (isUserOutOfCredits) {
     return await notifyUser(
       ErrorType.INSUFFICIENT_CREDITS,
       "Your AI provider account has insufficient credits. Please add credits or update your API key in settings.",

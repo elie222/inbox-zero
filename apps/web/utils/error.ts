@@ -286,7 +286,17 @@ export function isInsufficientCreditsError(error: APICallError): boolean {
   // OpenAI reports an exhausted balance as a 429 with this error type.
   return (
     error.statusCode === 402 ||
-    getProviderErrorType(error) === "insufficient_quota"
+    getProviderErrorField(error, "type") === "insufficient_quota"
+  );
+}
+
+// Gemini returns the same 429 RESOURCE_EXHAUSTED for a hit spending cap as for
+// a rate limit, so only the message tells them apart.
+export function isGeminiSpendingCapError(error: APICallError): boolean {
+  return (
+    error.statusCode === 429 &&
+    getProviderErrorField(error, "status") === "RESOURCE_EXHAUSTED" &&
+    error.message.includes("spending cap")
   );
 }
 
@@ -422,6 +432,11 @@ export function isContentFilterRefusal(error: unknown): boolean {
 
 // we don't want to capture these errors in Sentry
 export function isKnownApiError(error: unknown): boolean {
+  // A spent budget on our key needs someone to raise it, unlike the rate
+  // limits other 429s are. On a user's key it's marked handled instead.
+  const apiError = getAIApiCallError(error);
+  if (apiError && isGeminiSpendingCapError(apiError)) return false;
+
   return (
     isProviderRateLimitModeError(error) ||
     isGmailInsufficientPermissionsError(error) ||
@@ -699,15 +714,18 @@ function isKnownAIErrorMessage(message: string): boolean {
   return patterns.some((p) => message.includes(p));
 }
 
-function getProviderErrorType(error: APICallError): string | undefined {
-  const data = error.data as { error?: { type?: unknown } } | undefined;
-  if (typeof data?.error?.type === "string") return data.error.type;
+function getProviderErrorField(
+  error: APICallError,
+  field: "type" | "status",
+): string | undefined {
+  type ProviderErrorBody = { error?: Record<string, unknown> } | undefined;
+  const fromData = (error.data as ProviderErrorBody)?.error?.[field];
+  if (typeof fromData === "string") return fromData;
   if (!error.responseBody) return;
   try {
-    const body = JSON.parse(error.responseBody) as {
-      error?: { type?: unknown };
-    };
-    return typeof body?.error?.type === "string" ? body.error.type : undefined;
+    const body = JSON.parse(error.responseBody) as ProviderErrorBody;
+    const fromBody = body?.error?.[field];
+    return typeof fromBody === "string" ? fromBody : undefined;
   } catch {
     return;
   }
