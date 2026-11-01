@@ -1952,6 +1952,7 @@ export class OutlookProvider implements EmailProvider {
     maxResults?: number;
     pageToken?: string;
     messageFormat?: "full" | "metadata";
+    skipParticipantMessages?: boolean;
   }): Promise<{
     threads: EmailThread[];
     nextPageToken?: string;
@@ -2222,7 +2223,10 @@ export class OutlookProvider implements EmailProvider {
 
     threads = threads.slice(0, maxResults);
 
-    if (options.messageFormat === "metadata") {
+    if (
+      options.messageFormat === "metadata" &&
+      !options.skipParticipantMessages
+    ) {
       threads = await addOutlookThreadParticipantMessages({
         client: this.client,
         threads,

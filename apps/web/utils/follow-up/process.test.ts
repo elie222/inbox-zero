@@ -163,6 +163,12 @@ function createMockProvider(
     );
   }
 
+  if (!provider.getMessage) {
+    provider.getMessage = vi.fn(async (messageId: string) =>
+      mockMessage(messageId, OLD_DATE),
+    );
+  }
+
   if (!provider.getLatestMessageFromThreadSnapshot) {
     provider.getLatestMessageFromThreadSnapshot = vi.fn(
       async (thread: { id: string }) =>
@@ -501,6 +507,8 @@ describe("processAccountFollowUps - dedup logic", () => {
       query: { labelId: "awaiting-label" },
       maxResults: 1,
       pageToken: "third",
+      messageFormat: "metadata",
+      skipParticipantMessages: true,
     });
     expect(provider.getLatestMessageInThread).toHaveBeenCalledTimes(75);
   });
@@ -705,6 +713,12 @@ describe("processAccountFollowUps - dedup logic", () => {
       logger,
     });
 
+    // The second run must see the re-IDed message, so sentAt dedup is what
+    // stops the repeat notification.
+    expect(provider.getLatestMessageInThread).toHaveBeenNthCalledWith(
+      2,
+      "thread-outlook-repeat",
+    );
     expect(applyFollowUpLabel).toHaveBeenCalledTimes(1);
     expect(sendFollowUpNotification).toHaveBeenCalledTimes(1);
     expect(prisma.threadTracker.create).toHaveBeenCalledTimes(1);
@@ -1214,6 +1228,100 @@ describe("processAccountFollowUps - dedup logic", () => {
 
     expect(sendFollowUpNotification).toHaveBeenCalledWith(
       expect.objectContaining({ snippet: expectedSnippet }),
+    );
+  });
+
+  it("lists labeled threads without message bodies", async () => {
+    const provider = createMockProvider();
+    vi.mocked(createEmailProvider).mockResolvedValue(provider);
+    vi.mocked(prisma.threadTracker.findMany).mockResolvedValue([]);
+
+    await processAccountFollowUps({
+      emailAccount: createMockAccount(),
+      logger,
+    });
+
+    expect(provider.getThreadsWithQuery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messageFormat: "metadata",
+        skipParticipantMessages: true,
+      }),
+    );
+  });
+
+  it("fetches the full message for the notification snippet when the scan has no body", async () => {
+    const metadataMessage = {
+      ...mockAwaitingMessage("msg-metadata", OLD_DATE),
+      snippet: "Preview from the provider",
+      textPlain: undefined,
+      textHtml: undefined,
+    };
+    const provider = createMockProvider({
+      getThreadsWithLabel: vi
+        .fn()
+        .mockResolvedValue([
+          { id: "thread-metadata", messages: [], snippet: "" },
+        ]),
+      getLatestMessageInThread: vi.fn().mockResolvedValue(metadataMessage),
+      getMessage: vi.fn().mockResolvedValue({
+        ...metadataMessage,
+        textPlain: fullNotificationBody,
+      }),
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue(provider);
+    vi.mocked(getFollowUpNotificationChannels).mockResolvedValue([
+      { id: "channel-1" } as any,
+    ]);
+    vi.mocked(prisma.threadTracker.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.threadTracker.create).mockResolvedValue({
+      id: "tracker-metadata",
+    } as any);
+
+    await processAccountFollowUps({
+      emailAccount: createMockAccount(),
+      logger,
+    });
+
+    expect(provider.getMessage).toHaveBeenCalledWith("msg-metadata");
+    expect(sendFollowUpNotification).toHaveBeenCalledWith(
+      expect.objectContaining({ snippet: fullNotificationBody }),
+    );
+  });
+
+  it("still notifies with the provider snippet when the body fetch fails", async () => {
+    const metadataMessage = {
+      ...mockAwaitingMessage("msg-body-fails", OLD_DATE),
+      snippet: "Preview from the provider",
+      textPlain: undefined,
+      textHtml: undefined,
+    };
+    const provider = createMockProvider({
+      getThreadsWithLabel: vi
+        .fn()
+        .mockResolvedValue([
+          { id: "thread-body-fails", messages: [], snippet: "" },
+        ]),
+      getLatestMessageInThread: vi.fn().mockResolvedValue(metadataMessage),
+      getMessage: vi.fn().mockRejectedValue(new Error("Body fetch failed")),
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue(provider);
+    vi.mocked(getFollowUpNotificationChannels).mockResolvedValue([
+      { id: "channel-1" } as any,
+    ]);
+    vi.mocked(prisma.threadTracker.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.threadTracker.create).mockResolvedValue({
+      id: "tracker-body-fails",
+    } as any);
+
+    await processAccountFollowUps({
+      emailAccount: createMockAccount(),
+      logger,
+    });
+
+    expect(sendFollowUpNotification).toHaveBeenCalledWith(
+      expect.objectContaining({ snippet: "Preview from the provider" }),
     );
   });
 

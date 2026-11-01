@@ -15,6 +15,7 @@ import {
 import { parseFollowUpNotificationDeliveries } from "@/utils/follow-up/notification-deliveries";
 import { ThreadTrackerType, SystemType } from "@/generated/prisma/enums";
 import type { EmailProvider, EmailLabel } from "@/utils/email/types";
+import type { ParsedMessage } from "@/utils/types";
 import type { Logger } from "@/utils/logger";
 import { captureException, SafeError } from "@/utils/error";
 import {
@@ -371,6 +372,12 @@ async function processFollowUpsForType({
         FOLLOW_UP_MAX_SCANNED_THREADS - scannedThreadIds.size,
       ),
       pageToken,
+      // Bodies for a page of labeled threads can be megabytes, and Graph
+      // sometimes ends such responses mid-body. The latest message is resolved
+      // per thread below; Outlook loads it in full there, while Gmail bodies
+      // are only fetched when a notification needs one.
+      messageFormat: "metadata",
+      skipParticipantMessages: true,
     });
     const threads = page.threads.filter((thread) => {
       if (scannedThreadIds.has(thread.id)) return false;
@@ -592,6 +599,11 @@ async function processFollowUpsForType({
           // the ledger to skip next run. Retrying would burn provider rate
           // limits (Gmail re-labeling, Slack API) if a channel is misconfigured.
           try {
+            const notificationMessage = await getNotificationMessage({
+              provider,
+              message: lastMessage,
+              logger: threadLogger,
+            });
             const { name: counterpartyName, email: counterpartyEmail } =
               resolveFollowUpCounterparty({
                 trackerType,
@@ -612,7 +624,7 @@ async function processFollowUpsForType({
               // Provider previews are pre-truncated with no indicator; the full
               // parsed body lets each channel truncate with an ellipsis instead.
               snippet:
-                emailToContent(lastMessage, {
+                emailToContent(notificationMessage, {
                   maxLength: FOLLOW_UP_SNIPPET_SOURCE_MAX_CHARS,
                   extractReply: true,
                 }) ||
@@ -902,4 +914,26 @@ function resolveFollowUpCounterparty({
   const email = extractEmailAddress(header || "") || header || "";
   const name = extractNameFromEmail(header || "") || email || "someone";
   return { name, email };
+}
+
+async function getNotificationMessage({
+  provider,
+  message,
+  logger,
+}: {
+  provider: EmailProvider;
+  message: ParsedMessage;
+  logger: Logger;
+}): Promise<ParsedMessage> {
+  if (message.textPlain || message.textHtml) return message;
+
+  // The tracker is already recorded, so the ledger skips this message on later
+  // runs. A failed body fetch must not cost the notification; the provider
+  // snippet is still a usable preview.
+  try {
+    return await provider.getMessage(message.id);
+  } catch (error) {
+    logger.warn("Failed to fetch follow-up notification body", { error });
+    return message;
+  }
 }
