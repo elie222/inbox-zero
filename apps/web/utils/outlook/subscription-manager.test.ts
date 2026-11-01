@@ -184,7 +184,12 @@ describe("OutlookSubscriptionManager", () => {
     });
 
     it("does not show the mailbox full banner for other failures", async () => {
-      vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
+        email: "user@example.com",
+        userId: "user-id",
+        watchEmailsSubscriptionId: null,
+        watchEmailsExpirationDate: null,
+      } as any);
       vi.mocked(mockProvider.watchEmails).mockRejectedValue(
         new Error("Graph 503"),
       );

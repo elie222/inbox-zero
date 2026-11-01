@@ -4,7 +4,10 @@ import prisma from "@/utils/__mocks__/prisma";
 import { cleanupInvalidTokens } from "@/utils/auth/cleanup-invalid-tokens";
 import { createEmailProvider } from "@/utils/email/provider";
 import { captureException } from "@/utils/error";
-import { clearWatchErrorsIfResolved } from "@/utils/error-messages";
+import {
+  clearWatchErrorsIfResolved,
+  mailboxFullErrorKey,
+} from "@/utils/error-messages";
 import { fetchGoogleOpenIdProfile } from "@/utils/gmail/oauth";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
 import {
@@ -14,7 +17,8 @@ import {
 
 vi.mock("@/utils/prisma");
 
-vi.mock("@/utils/error-messages", () => ({
+vi.mock("@/utils/error-messages", async (importActual) => ({
+  ...(await importActual<typeof import("@/utils/error-messages")>()),
   clearWatchErrorsIfResolved: vi.fn(),
 }));
 
@@ -246,6 +250,35 @@ describe("ensureEmailAccountsWatched", () => {
     expect(clearWatchErrorsIfResolved).not.toHaveBeenCalled();
   });
 
+  it("clears the mailbox full banner after a healthy watch renewal", async () => {
+    const emailAccount = getWatchedEmailAccount({
+      watchEmailsExpirationDate: new Date(Date.now() + 3_600_000),
+    });
+    emailAccount.user.errorMessages = {
+      [mailboxFullErrorKey("email-account-id")]: {
+        message: "Mailbox full",
+        timestamp: new Date().toISOString(),
+      },
+    };
+    vi.mocked(prisma.emailAccount.findMany).mockResolvedValue([
+      emailAccount,
+    ] as any);
+
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      name: "google",
+      getAccessToken: () => "access-token",
+      watchEmails: vi.fn().mockResolvedValue({
+        expirationDate: new Date(Date.now() + 3_600_000),
+      }),
+    } as any);
+
+    await ensureEmailAccountsWatched({ userIds: null, logger });
+
+    expect(clearWatchErrorsIfResolved).toHaveBeenCalledWith(
+      expect.objectContaining({ emailAccountId: "email-account-id" }),
+    );
+  });
+
   it("updates a renamed Google mailbox address once a day so webhooks keep matching", async () => {
     vi.mocked(prisma.emailAccount.findMany).mockResolvedValue([
       getWatchedEmailAccount({
@@ -354,6 +387,7 @@ function getWatchedEmailAccount({
       id: "user-id",
       email: "owner@example.com",
       aiApiKey: null,
+      errorMessages: null as Record<string, unknown> | null,
       premium: null,
     },
   };

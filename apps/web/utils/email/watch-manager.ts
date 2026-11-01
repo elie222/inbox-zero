@@ -16,7 +16,10 @@ import {
   isMicrosoftProvider,
 } from "@/utils/email/provider-types";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
-import { clearWatchErrorsIfResolved } from "@/utils/error-messages";
+import {
+  clearWatchErrorsIfResolved,
+  mailboxFullErrorKey,
+} from "@/utils/error-messages";
 import { syncGoogleEmailFromProfile } from "@/utils/auth/rename-email";
 import { classifyEmailAccountProviderIssue } from "@/utils/email/provider-health";
 import {
@@ -78,6 +81,7 @@ async function getEmailAccountsToWatch(userIds: string[] | null) {
           id: true,
           email: true,
           aiApiKey: true,
+          errorMessages: true,
           premium: {
             select: premiumEntitlementSelect,
           },
@@ -249,7 +253,14 @@ async function watchEmailAccount(
     !watchEmailsExpirationDate ||
     new Date(watchEmailsExpirationDate) < new Date();
 
-  if (wasLapsed) {
+  // A full mailbox doesn't always lapse the watch, so check for its banner too.
+  const hasMailboxFullError = Boolean(
+    (user.errorMessages as Record<string, unknown> | null)?.[
+      mailboxFullErrorKey(emailAccount.id)
+    ],
+  );
+
+  if (wasLapsed || hasMailboxFullError) {
     // The watch is healthy again, so clear its lapse and mailbox-full errors.
     // This lets us notify again if the account lapses in the future.
     await clearWatchErrorsIfResolved({
