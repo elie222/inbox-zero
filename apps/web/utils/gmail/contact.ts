@@ -20,12 +20,16 @@ const PHOTO_PAGE_SIZE = 1000;
 const MAX_PHOTO_PAGES = 5;
 // Bounds the cached map and the payload sent to the browser.
 const MAX_CONTACT_PHOTOS = 2000;
+// The People API rejects longer queries, and no name or address prefix is that long.
+const MAX_PEOPLE_QUERY_LENGTH = 100;
 
 export async function searchContacts(
   client: people_v1.People,
   query: string,
   logger: Logger,
 ) {
+  if (query.length > MAX_PEOPLE_QUERY_LENGTH) return [];
+
   if (!env.NEXT_PUBLIC_GMAIL_OTHER_CONTACTS_ENABLED) {
     const onlySource = await loadContactSource(
       () => searchSavedContacts(client, query),
