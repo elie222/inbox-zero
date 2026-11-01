@@ -2591,3 +2591,49 @@ describe("OutlookProvider.updateLabel", () => {
     expect(invalidateCategoryMapCache).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("OutlookProvider.getMessagesBatch", () => {
+  it("skips messages Outlook no longer recognizes and returns the rest", async () => {
+    const provider = new OutlookProvider(
+      createMockOutlookClient([]),
+      createTestLogger(),
+    );
+    const staleIdError = Object.assign(
+      new Error(
+        "Access is denied. Check credentials and try again., The store ID provided isn't an ID of an item.",
+      ),
+      { code: "ErrorAccessDenied", statusCode: 403 },
+    );
+    vi.spyOn(provider, "getMessage").mockImplementation(async (messageId) => {
+      if (messageId === "stale-id") throw staleIdError;
+      return { id: messageId } as Awaited<
+        ReturnType<OutlookProvider["getMessage"]>
+      >;
+    });
+
+    const messages = await provider.getMessagesBatch(["msg-1", "stale-id"]);
+
+    expect(messages.map((message) => message.id)).toEqual(["msg-1"]);
+  });
+
+  it("still fails the batch on errors that are not about a missing message", async () => {
+    const provider = new OutlookProvider(
+      createMockOutlookClient([]),
+      createTestLogger(),
+    );
+    const throttled = Object.assign(new Error("Too many requests"), {
+      code: "TooManyRequests",
+      statusCode: 429,
+    });
+    vi.spyOn(provider, "getMessage").mockImplementation(async (messageId) => {
+      if (messageId === "msg-2") throw throttled;
+      return { id: messageId } as Awaited<
+        ReturnType<OutlookProvider["getMessage"]>
+      >;
+    });
+
+    await expect(provider.getMessagesBatch(["msg-1", "msg-2"])).rejects.toBe(
+      throttled,
+    );
+  });
+});
