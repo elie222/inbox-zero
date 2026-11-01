@@ -4,9 +4,10 @@ import { sendActionRequiredEmail } from "@inboxzero/transactional-email";
 import {
   addUserErrorMessageWithNotification,
   clearAccountDisconnectedErrorIfResolved,
-  clearWatchLapsedErrorIfResolved,
+  clearWatchErrorsIfResolved,
   ErrorType,
   getUserErrorMessages,
+  mailboxFullErrorKey,
   watchLapsedErrorKey,
 } from "@/utils/error-messages";
 import { createTestLogger } from "@/__tests__/helpers";
@@ -279,20 +280,24 @@ describe("clearAccountDisconnectedErrorIfResolved", () => {
   });
 });
 
-describe("clearWatchLapsedErrorIfResolved", () => {
+describe("clearWatchErrorsIfResolved", () => {
   const logger = createTestLogger();
 
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("clears only the recovered account's lapse entry, leaving other accounts' entries intact", async () => {
+  it("clears only the recovered account's watch errors, leaving other accounts' entries intact", async () => {
     prisma.user.findUnique.mockResolvedValue({
       errorMessages: {
         [watchLapsedErrorKey("email-account-1")]: {
           message: "Automation stopped for account 1",
           timestamp: "2026-07-01T04:00:40.506Z",
           emailSentAt: "2026-07-01T04:00:40.506Z",
+        },
+        [mailboxFullErrorKey("email-account-1")]: {
+          message: "Mailbox full for account 1",
+          timestamp: "2026-07-01T04:00:40.506Z",
         },
         [watchLapsedErrorKey("email-account-2")]: {
           message: "Automation stopped for account 2",
@@ -306,7 +311,7 @@ describe("clearWatchLapsedErrorIfResolved", () => {
       },
     } as any);
 
-    await clearWatchLapsedErrorIfResolved({
+    await clearWatchErrorsIfResolved({
       userId: "user-1",
       emailAccountId: "email-account-1",
       logger,
