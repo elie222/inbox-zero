@@ -64,7 +64,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { NavUser } from "@/components/NavUser";
-import { PremiumCard } from "@/components/PremiumCard";
+import { SidebarCards } from "@/components/sidebar-cards/SidebarCards";
 import { AppSidebarHeader } from "@/components/AppSidebarHeader";
 import { FeedbackSidebarButton } from "@/components/FeedbackDialog";
 import { TEAM_HREF, useTeamNav } from "@/components/team-comments/use-team-nav";
@@ -363,7 +363,10 @@ export function SideNav({
         </SidebarGroupContent>
       </SidebarContent>
 
-      <PremiumCard isCollapsed={!state.includes("left-sidebar")} />
+      <SidebarCards
+        className="px-3 pt-4"
+        collapsed={!state.includes("left-sidebar")}
+      />
 
       <SidebarFooter className="pb-4">
         <DesktopUpdateMenuItem />

@@ -6,6 +6,7 @@ import {
 import { AutomationJobConfigurationError } from "@/utils/automation-jobs/slack";
 import { isStaleAutomationJobRun } from "@/utils/automation-jobs/stale";
 import { createEmailProvider } from "@/utils/email/provider";
+import { SafeError } from "@/utils/error";
 import { getAutomationJobMessage } from "@/utils/automation-jobs/message";
 import type { Logger } from "@/utils/logger";
 import { isActivePremium } from "@/utils/premium";
@@ -193,6 +194,13 @@ export async function executeAutomationJobRun({
       emailAccountId: run.automationJob.emailAccountId,
       provider,
       logger: runLogger,
+    }).catch((error) => {
+      if (error instanceof SafeError && error.message === "No refresh token") {
+        throw new AutomationJobConfigurationError(
+          "Email account needs to be reconnected",
+        );
+      }
+      throw error;
     });
 
     const outboundMessage = await getAutomationJobMessage({
@@ -229,7 +237,13 @@ export async function executeAutomationJobRun({
     const isConfigurationError =
       error instanceof AutomationJobConfigurationError;
 
-    runLogger.error("Automation job execution failed", { error });
+    if (isConfigurationError) {
+      runLogger.warn("Skipped automation job run due to configuration", {
+        error,
+      });
+    } else {
+      runLogger.error("Automation job execution failed", { error });
+    }
 
     await prisma.automationJobRun.update({
       where: { id: automationJobRunId },

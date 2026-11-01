@@ -214,6 +214,15 @@ export function isGmailQuotaExceededError(error: unknown): boolean {
   return extractErrorInfo(error).reason === "quotaExceeded";
 }
 
+export const GMAIL_SERVICE_UNAVAILABLE_MESSAGE =
+  "Gmail isn't enabled for this Google account. If it's a work or school account, ask your Google Workspace admin to enable Gmail. Otherwise, set up Gmail for it or connect a different account, then try again.";
+
+// Only the explicit message is reliable: a bare failedPrecondition is also
+// returned for transient failures on mailboxes where Gmail is enabled.
+export function isGmailServiceUnavailableError(error: unknown): boolean {
+  return /mail service not enabled/i.test(extractErrorInfo(error).errorMessage);
+}
+
 export function isIncorrectAPIKeyError(error: APICallError): boolean {
   return (
     error.message.includes("Incorrect API key provided") ||
@@ -277,7 +286,17 @@ export function isInsufficientCreditsError(error: APICallError): boolean {
   // OpenAI reports an exhausted balance as a 429 with this error type.
   return (
     error.statusCode === 402 ||
-    getProviderErrorType(error) === "insufficient_quota"
+    getProviderErrorField(error, "type") === "insufficient_quota"
+  );
+}
+
+// Gemini returns the same 429 RESOURCE_EXHAUSTED for a hit spending cap as for
+// a rate limit, so only the message tells them apart.
+export function isGeminiSpendingCapError(error: APICallError): boolean {
+  return (
+    error.statusCode === 429 &&
+    getProviderErrorField(error, "status") === "RESOURCE_EXHAUSTED" &&
+    error.message.includes("spending cap")
   );
 }
 
@@ -376,12 +395,27 @@ export function isOutlookMailboxUnavailableError(error: unknown): boolean {
   );
 }
 
+// Graph 5xx responses reach us only after the retry wrapper gives up, often
+// with no error payload (the SDK leaves the message empty). They are outages
+// on Microsoft's side, so there is nothing for us to fix. Matched on the
+// GraphError shape because this module is also bundled for the client.
+function isOutlookServerError(error: unknown): boolean {
+  const err = error as Record<string, unknown> | null;
+  return (
+    typeof err?.statusCode === "number" &&
+    err.statusCode >= 500 &&
+    "requestId" in err &&
+    "body" in err
+  );
+}
+
 export function isKnownOutlookError(error: unknown): boolean {
   return (
     isOutlookThrottlingError(error) ||
     isOutlookAccessDeniedError(error) ||
     isOutlookItemNotFoundError(error) ||
-    isOutlookMailboxUnavailableError(error)
+    isOutlookMailboxUnavailableError(error) ||
+    isOutlookServerError(error)
   );
 }
 
@@ -398,6 +432,11 @@ export function isContentFilterRefusal(error: unknown): boolean {
 
 // we don't want to capture these errors in Sentry
 export function isKnownApiError(error: unknown): boolean {
+  // A spent budget on our key needs someone to raise it, unlike the rate
+  // limits other 429s are. On a user's key it's marked handled instead.
+  const apiError = getAIApiCallError(error);
+  if (apiError && isGeminiSpendingCapError(apiError)) return false;
+
   return (
     isProviderRateLimitModeError(error) ||
     isGmailInsufficientPermissionsError(error) ||
@@ -487,6 +526,19 @@ export function checkCommonErrors(
       type: "Outlook Item Not Found",
       message: "The requested email was not found. It may have been deleted.",
       code: 404,
+    };
+  }
+
+  if (isOutlookServerError(error)) {
+    logger.warn("Outlook service unavailable for url", {
+      url,
+      statusCode: (error as { statusCode: number }).statusCode,
+    });
+    return {
+      type: "Outlook Service Unavailable",
+      message:
+        "Microsoft is temporarily unavailable. Please try again shortly.",
+      code: 503,
     };
   }
 
@@ -662,15 +714,18 @@ function isKnownAIErrorMessage(message: string): boolean {
   return patterns.some((p) => message.includes(p));
 }
 
-function getProviderErrorType(error: APICallError): string | undefined {
-  const data = error.data as { error?: { type?: unknown } } | undefined;
-  if (typeof data?.error?.type === "string") return data.error.type;
+function getProviderErrorField(
+  error: APICallError,
+  field: "type" | "status",
+): string | undefined {
+  type ProviderErrorBody = { error?: Record<string, unknown> } | undefined;
+  const fromData = (error.data as ProviderErrorBody)?.error?.[field];
+  if (typeof fromData === "string") return fromData;
   if (!error.responseBody) return;
   try {
-    const body = JSON.parse(error.responseBody) as {
-      error?: { type?: unknown };
-    };
-    return typeof body?.error?.type === "string" ? body.error.type : undefined;
+    const body = JSON.parse(error.responseBody) as ProviderErrorBody;
+    const fromBody = body?.error?.[field];
+    return typeof fromBody === "string" ? fromBody : undefined;
   } catch {
     return;
   }

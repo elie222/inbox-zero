@@ -1,4 +1,5 @@
 import { SafeError } from "@/utils/error";
+import type { Prisma } from "@/generated/prisma/client";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
 import type { CalendarEventProvider } from "@/utils/calendar/event-types";
@@ -9,6 +10,19 @@ import {
   isMicrosoftProvider,
 } from "@/utils/email/provider-types";
 
+export const calendarConnectionProviderSelect = {
+  id: true,
+  provider: true,
+  accessToken: true,
+  refreshToken: true,
+  expiresAt: true,
+} satisfies Prisma.CalendarConnectionSelect;
+
+export type CalendarConnectionForProvider =
+  Prisma.CalendarConnectionGetPayload<{
+    select: typeof calendarConnectionProviderSelect;
+  }>;
+
 /**
  * Create calendar event providers for all connected calendars.
  * Fetches calendar connections once and creates providers that can be reused.
@@ -17,20 +31,36 @@ export async function createCalendarEventProviders(
   emailAccountId: string,
   logger: Logger,
 ): Promise<CalendarEventProvider[]> {
-  const connections = await prisma.calendarConnection.findMany({
+  const connections = await getConnectedCalendarConnections(emailAccountId);
+
+  return createCalendarEventProvidersFromConnections({
+    connections,
+    emailAccountId,
+    logger,
+  });
+}
+
+export function getConnectedCalendarConnections(
+  emailAccountId: string,
+): Promise<CalendarConnectionForProvider[]> {
+  return prisma.calendarConnection.findMany({
     where: {
       emailAccountId,
       isConnected: true,
     },
-    select: {
-      id: true,
-      provider: true,
-      accessToken: true,
-      refreshToken: true,
-      expiresAt: true,
-    },
+    select: calendarConnectionProviderSelect,
   });
+}
 
+export function createCalendarEventProvidersFromConnections({
+  connections,
+  emailAccountId,
+  logger,
+}: {
+  connections: CalendarConnectionForProvider[];
+  emailAccountId: string;
+  logger: Logger;
+}): CalendarEventProvider[] {
   if (connections.length === 0) {
     logger.info("No calendar connections found", { emailAccountId });
     return [];

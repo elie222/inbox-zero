@@ -9,7 +9,7 @@ import {
   resolveOutlookLocalMailFolderIds,
 } from "@/utils/outlook/local-mail-sync";
 import { matchesSenderFilter } from "@/utils/split-inbox/sender-filter";
-import { DraftNotFoundError } from "@/utils/error";
+import { DraftNotFoundError, isOutlookItemNotFoundError } from "@/utils/error";
 import type { Message } from "@microsoft/microsoft-graph-types";
 import type { OutlookClient } from "@/utils/outlook/client";
 import type { ParsedMessage } from "@/utils/types";
@@ -1706,11 +1706,23 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async getMessagesBatch(messageIds: string[]): Promise<ParsedMessage[]> {
-    // For Outlook, we need to fetch messages individually since there's no batch endpoint
-    const messagePromises = messageIds.map((messageId) =>
-      this.getMessage(messageId),
+    // Outlook has no batch endpoint, so messages are fetched individually.
+    // Like Gmail's batch, skip messages that no longer exist instead of
+    // failing the whole batch on one stale ID.
+    const messages = await Promise.all(
+      messageIds.map(async (messageId) => {
+        try {
+          return await this.getMessage(messageId);
+        } catch (error) {
+          if (!isOutlookItemNotFoundError(error)) throw error;
+          this.logger.warn("Skipping message missing from Outlook", {
+            messageId,
+          });
+          return null;
+        }
+      }),
     );
-    return Promise.all(messagePromises);
+    return messages.filter((message) => message !== null);
   }
 
   async syncLocalMail(
@@ -1952,6 +1964,7 @@ export class OutlookProvider implements EmailProvider {
     maxResults?: number;
     pageToken?: string;
     messageFormat?: "full" | "metadata";
+    skipParticipantMessages?: boolean;
   }): Promise<{
     threads: EmailThread[];
     nextPageToken?: string;
@@ -2222,7 +2235,10 @@ export class OutlookProvider implements EmailProvider {
 
     threads = threads.slice(0, maxResults);
 
-    if (options.messageFormat === "metadata") {
+    if (
+      options.messageFormat === "metadata" &&
+      !options.skipParticipantMessages
+    ) {
       threads = await addOutlookThreadParticipantMessages({
         client: this.client,
         threads,
@@ -2367,7 +2383,7 @@ export class OutlookProvider implements EmailProvider {
         this.client
           .getClient()
           .api("/me/messages")
-          .search(`"to:@${escapedKqlDomain}"`)
+          .search(encodeURIComponent(`"to:@${escapedKqlDomain}"`))
           .top(5)
           .select("id,sentDateTime")
           .get(),
@@ -2375,7 +2391,7 @@ export class OutlookProvider implements EmailProvider {
         this.client
           .getClient()
           .api("/me/messages")
-          .search(`"from:@${escapedKqlDomain}"`)
+          .search(encodeURIComponent(`"from:@${escapedKqlDomain}"`))
           .top(5)
           .select("id,receivedDateTime")
           .get(),
@@ -2414,7 +2430,7 @@ export class OutlookProvider implements EmailProvider {
       this.client
         .getClient()
         .api("/me/messages")
-        .search(sentSearch)
+        .search(encodeURIComponent(sentSearch))
         .top(5) // Increase top to account for potential future messages we filter out
         .select("id,sentDateTime")
         .get(),
@@ -3331,7 +3347,8 @@ async function fetchOutlookSearchPage({
   // Graph forbids combining $search with $filter/$orderby and caps page size at 25.
   let request = client.api(apiPath).select(selectFields);
   if (compiled.search) {
-    request = request.search(compiled.search);
+    // The Graph SDK does not URL-encode $search, so a raw "#" or "&" would cut the query off.
+    request = request.search(encodeURIComponent(compiled.search));
   } else {
     const filters: string[] = [];
     if (compiled.flagged) filters.push("flag/flagStatus eq 'flagged'");

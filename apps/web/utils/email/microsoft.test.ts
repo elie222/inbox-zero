@@ -1414,6 +1414,24 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
     ]);
   });
 
+  it("skips participant lookups for metadata pages that do not need them", async () => {
+    const batchPost = vi.fn();
+    const client = createMockOutlookClient(
+      [createMessage({ id: "message-1", conversationId: "thread-1" })],
+      { categoryMapCache: new Map(), batchPost },
+    );
+    const provider = new OutlookProvider(client, createTestLogger());
+
+    const result = await provider.getThreadsWithQuery({
+      query: { type: "inbox" },
+      messageFormat: "metadata",
+      skipParticipantMessages: true,
+    });
+
+    expect(result.threads.map((thread) => thread.id)).toEqual(["thread-1"]);
+    expect(batchPost).not.toHaveBeenCalled();
+  });
+
   it("omits message bodies from metadata list requests", async () => {
     const client = createMockOutlookClient([
       createMessage({ id: "message-1", conversationId: "thread-1" }),
@@ -1984,6 +2002,18 @@ describe("OutlookProvider.searchThreads", () => {
     expect(result.threads.map((thread) => thread.id)).toEqual(["thread-1"]);
   });
 
+  it("keeps # and & in a typed search instead of cutting the query off", async () => {
+    const client = createMockOutlookClient([]);
+    const provider = new OutlookProvider(client);
+
+    await provider.searchThreads({ query: "Ticket #4521 C&A" });
+
+    const searchRequest = client
+      .getRequestLog()
+      .find((request) => request.apiPath === "/me/messages");
+    expect(searchRequest?.search).toBe('"Ticket #4521 C&A"');
+  });
+
   it("sends single advanced-search fields as quoted KQL", async () => {
     const client = createMockOutlookClient([]);
     const provider = new OutlookProvider(client);
@@ -2251,7 +2281,11 @@ function createMockOutlookClient(
             return request;
           },
           search: (value: string) => {
-            searchValue = value;
+            // Record what Graph receives, since the SDK puts the value in the URL as-is.
+            searchValue =
+              new URL(
+                `https://graph.microsoft.com/?$search=${value}`,
+              ).searchParams.get("$search") ?? undefined;
             return request;
           },
           select: (value: string) => {
@@ -2555,5 +2589,51 @@ describe("OutlookProvider.updateLabel", () => {
 
     expect(patch).toHaveBeenCalledWith({ color: "preset5" });
     expect(invalidateCategoryMapCache).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("OutlookProvider.getMessagesBatch", () => {
+  it("skips messages Outlook no longer recognizes and returns the rest", async () => {
+    const provider = new OutlookProvider(
+      createMockOutlookClient([]),
+      createTestLogger(),
+    );
+    const staleIdError = Object.assign(
+      new Error(
+        "Access is denied. Check credentials and try again., The store ID provided isn't an ID of an item.",
+      ),
+      { code: "ErrorAccessDenied", statusCode: 403 },
+    );
+    vi.spyOn(provider, "getMessage").mockImplementation(async (messageId) => {
+      if (messageId === "stale-id") throw staleIdError;
+      return { id: messageId } as Awaited<
+        ReturnType<OutlookProvider["getMessage"]>
+      >;
+    });
+
+    const messages = await provider.getMessagesBatch(["msg-1", "stale-id"]);
+
+    expect(messages.map((message) => message.id)).toEqual(["msg-1"]);
+  });
+
+  it("still fails the batch on errors that are not about a missing message", async () => {
+    const provider = new OutlookProvider(
+      createMockOutlookClient([]),
+      createTestLogger(),
+    );
+    const throttled = Object.assign(new Error("Too many requests"), {
+      code: "TooManyRequests",
+      statusCode: 429,
+    });
+    vi.spyOn(provider, "getMessage").mockImplementation(async (messageId) => {
+      if (messageId === "msg-2") throw throttled;
+      return { id: messageId } as Awaited<
+        ReturnType<OutlookProvider["getMessage"]>
+      >;
+    });
+
+    await expect(provider.getMessagesBatch(["msg-1", "msg-2"])).rejects.toBe(
+      throttled,
+    );
   });
 });

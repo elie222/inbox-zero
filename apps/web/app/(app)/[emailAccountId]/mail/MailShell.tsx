@@ -734,6 +734,7 @@ export function MailShell() {
     setStarredState,
     snooze,
     undo,
+    waitForPendingUndoable,
   } = useThreadActions({
     emailAccountId,
     onRestore: focusRestoredThread,
@@ -1349,6 +1350,7 @@ export function MailShell() {
           : undefined,
       translate: isMailOverlayOpen ? undefined : translateOpenThread,
       undo: async () => {
+        await waitForPendingUndoable();
         if (await undoLatestToast()) return;
         await undo();
       },

@@ -526,6 +526,11 @@ describe("processEvent", () => {
             status: "trialing",
             cancel_at: 1_700_999_000,
             cancel_at_period_end: true,
+            cancellation_details: {
+              reason: "cancellation_requested",
+              feedback: "too_expensive",
+              comment: "Costs more than I expected",
+            },
           },
           previous_attributes: {
             cancel_at: null,
@@ -547,6 +552,8 @@ describe("processEvent", () => {
         cancellationInitiatedAt: "2023-11-14T22:13:20.000Z",
         cancelAt: "2023-11-26T11:43:20.000Z",
         cancelAtPeriodEnd: true,
+        cancellationFeedback: "too_expensive",
+        cancellationComment: "Costs more than I expected",
       },
     );
   });

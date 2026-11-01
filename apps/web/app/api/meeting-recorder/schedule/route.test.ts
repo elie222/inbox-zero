@@ -26,6 +26,7 @@ vi.mock("@/utils/cron", () => ({
   hasPostCronSecret: vi.fn(),
 }));
 vi.mock("@/utils/meeting-recorder/reconcile", () => ({
+  getReconcileAccountSelect: () => ({}),
   reconcileAccount: (...args: unknown[]) => reconcileAccountMock(...args),
   releaseAccountBookings: (...args: unknown[]) =>
     releaseAccountBookingsMock(...args),

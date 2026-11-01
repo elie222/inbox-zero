@@ -51,6 +51,7 @@ export function useThreadActions({
   threads: ListThread[];
 }) {
   const lastAction = useRef<UndoableBatch | null>(null);
+  const pendingUndoable = useRef<Promise<unknown>>(Promise.resolve());
   const retainedEmailAccountId = useRef(emailAccountId);
   const listTargetsByKey = useRef(new Map<string, ThreadActionTarget>());
   const activeReaderTarget = useRef<ThreadActionTarget | undefined>(undefined);
@@ -200,7 +201,7 @@ export function useThreadActions({
     return batch ? undoBatch(batch) : [];
   }, [undoBatch]);
 
-  const runUndoable = useCallback(
+  const admitUndoable = useCallback(
     async (action: UndoableAction, threadKeys: string[]) => {
       const targets = resolveTargets(threadKeys);
       const { snapshots, rejectionCodes } = await enqueueTargets(targets, {
@@ -240,6 +241,20 @@ export function useThreadActions({
     },
     [enqueueTargets, resolveTargets, undoBatch],
   );
+
+  const runUndoable = useCallback(
+    (action: UndoableAction, threadKeys: string[]) => {
+      const admission = admitUndoable(action, threadKeys);
+      pendingUndoable.current = admission.catch(() => undefined);
+      return admission;
+    },
+    [admitUndoable],
+  );
+
+  // Undo pressed while the last action is still being queued has neither its
+  // toast nor its batch to act on yet, so it would otherwise do nothing or
+  // undo the action before it.
+  const waitForPendingUndoable = useCallback(() => pendingUndoable.current, []);
 
   const setReadState = useCallback(
     async (threadKeys: string[], read: boolean, notifySuccess = true) => {
@@ -376,6 +391,7 @@ export function useThreadActions({
     setStarredState,
     snooze,
     undo,
+    waitForPendingUndoable,
   };
 }
 

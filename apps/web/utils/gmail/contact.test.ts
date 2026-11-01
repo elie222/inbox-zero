@@ -65,6 +65,21 @@ describe("searchContacts", () => {
     ]);
   });
 
+  it("returns no suggestions without calling Google for queries longer than it accepts", async () => {
+    const { client, searchContactsMock, searchOtherContactsMock } =
+      createPeopleClient({});
+
+    const result = await searchContacts(
+      client,
+      "a".repeat(101),
+      createTestLogger(),
+    );
+
+    expect(result).toEqual([]);
+    expect(searchContactsMock).not.toHaveBeenCalled();
+    expect(searchOtherContactsMock).not.toHaveBeenCalled();
+  });
+
   it("includes people and their photos from Gmail other contacts, skipping generated placeholder photos", async () => {
     const { client } = createPeopleClient({
       searchContactsMock: vi.fn().mockResolvedValue({
