@@ -717,6 +717,7 @@ describe("processHistoryForUser - authentication failures", () => {
     new SafeError("No refresh token"),
     new Error("invalid_grant"),
   ])("stops processing the remaining history once the account loses its credentials (%s)", async (error) => {
+    vi.mocked(getGmailHistoryCatchUp).mockResolvedValueOnce("catch-up-token");
     vi.mocked(getHistory).mockResolvedValueOnce({
       history: [1100, 1200, 1300].map((id) => ({
         id: String(id),
@@ -738,6 +739,7 @@ describe("processHistoryForUser - authentication failures", () => {
     expect(processHistoryItem).toHaveBeenCalledOnce();
     expect(captureException).not.toHaveBeenCalled();
     expect(prisma.$executeRaw).not.toHaveBeenCalled();
+    expect(clearGmailHistoryCatchUp).not.toHaveBeenCalled();
     expect(await response.json()).toEqual({ ok: true });
   });
 

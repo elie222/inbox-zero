@@ -198,7 +198,7 @@ export async function processHistoryForUser(
             historyItemCount: historyResult.historyItemCount,
           });
 
-          await processHistory(
+          const completed = await processHistory(
             {
               history: historyEntries,
               spamLearnedThreadIds: new Set<string>(),
@@ -216,6 +216,8 @@ export async function processHistoryForUser(
             },
             logger,
           );
+          // Keep the wider catch-up window so the retry reaches the unprocessed mail.
+          if (!completed) return NextResponse.json({ ok: true });
         } else {
           // When we truncate a large gap, Gmail can return an empty recent window.
           // We still need to advance to the webhook historyId so we don't stay
@@ -279,11 +281,14 @@ export async function processHistoryForUser(
   }
 }
 
-async function processHistory(options: ProcessHistoryOptions, logger: Logger) {
+async function processHistory(
+  options: ProcessHistoryOptions,
+  logger: Logger,
+): Promise<boolean> {
   const { history, emailAccount } = options;
   const { email: userEmail, id: emailAccountId } = emailAccount;
 
-  if (!history?.length) return;
+  if (!history?.length) return true;
 
   // Gmail splits one user action across many history records, so count
   // removals over the whole batch rather than per record.
@@ -353,7 +358,7 @@ async function processHistory(options: ProcessHistoryOptions, logger: Logger) {
           logger.warn("Stopping history processing: account unavailable", {
             reason: providerIssue.reason,
           });
-          return;
+          return false;
         }
         captureException(error, {
           userEmail,
@@ -380,6 +385,8 @@ async function processHistory(options: ProcessHistoryOptions, logger: Logger) {
     emailAccountId,
     lastSyncedHistoryId,
   });
+
+  return true;
 }
 
 /**
