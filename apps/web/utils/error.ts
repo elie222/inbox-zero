@@ -230,10 +230,10 @@ export function isInvalidAIModelError(error: APICallError): boolean {
   ) {
     return true;
   }
-  // Anthropic: 404 with "not_found_error"
-  if (error.statusCode === 404 && error.message.includes("not_found_error")) {
-    return true;
-  }
+  // Model calls only 404 when the configured model (or the endpoint serving
+  // it) doesn't exist: retired OpenRouter and Gemini models, Anthropic
+  // not_found_error.
+  if (error.statusCode === 404) return true;
   // Bedrock: error message is just the model ID (e.g., "model: anthropic.claude-...")
   if (/^model:\s*\S+$/.test(error.message.trim())) {
     return true;
@@ -277,7 +277,8 @@ export function isInsufficientCreditsError(error: APICallError): boolean {
   // OpenAI reports an exhausted balance as a 429 with this error type.
   return (
     error.statusCode === 402 ||
-    getProviderErrorType(error) === "insufficient_quota"
+    getProviderErrorField(error, "type") === "insufficient_quota" ||
+    isGeminiSpendingCapError(error)
   );
 }
 
@@ -690,15 +691,28 @@ function isKnownAIErrorMessage(message: string): boolean {
   return patterns.some((p) => message.includes(p));
 }
 
-function getProviderErrorType(error: APICallError): string | undefined {
-  const data = error.data as { error?: { type?: unknown } } | undefined;
-  if (typeof data?.error?.type === "string") return data.error.type;
+// Gemini returns the same 429 RESOURCE_EXHAUSTED for a hit spending cap as for
+// a rate limit, so only the message tells them apart.
+function isGeminiSpendingCapError(error: APICallError): boolean {
+  return (
+    error.statusCode === 429 &&
+    getProviderErrorField(error, "status") === "RESOURCE_EXHAUSTED" &&
+    error.message.includes("spending cap")
+  );
+}
+
+function getProviderErrorField(
+  error: APICallError,
+  field: "type" | "status",
+): string | undefined {
+  type ProviderErrorBody = { error?: Record<string, unknown> } | undefined;
+  const fromData = (error.data as ProviderErrorBody)?.error?.[field];
+  if (typeof fromData === "string") return fromData;
   if (!error.responseBody) return;
   try {
-    const body = JSON.parse(error.responseBody) as {
-      error?: { type?: unknown };
-    };
-    return typeof body?.error?.type === "string" ? body.error.type : undefined;
+    const body = JSON.parse(error.responseBody) as ProviderErrorBody;
+    const fromBody = body?.error?.[field];
+    return typeof fromBody === "string" ? fromBody : undefined;
   } catch {
     return;
   }

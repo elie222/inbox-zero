@@ -401,6 +401,22 @@ describe("isInsufficientCreditsError", () => {
 
     expect(isInsufficientCreditsError(error)).toBe(false);
   });
+
+  it("recognizes a Gemini project that hit its spending cap", () => {
+    const error = createGeminiResourceExhaustedError(
+      "Your project has exceeded its monthly spending cap. Please go to AI Studio to manage your project spend cap.",
+    );
+
+    expect(isInsufficientCreditsError(error)).toBe(true);
+  });
+
+  it("does not treat an ordinary Gemini rate limit as missing credits", () => {
+    const error = createGeminiResourceExhaustedError(
+      "Resource has been exhausted (e.g. check quota).",
+    );
+
+    expect(isInsufficientCreditsError(error)).toBe(false);
+  });
 });
 
 describe("getAIApiCallError", () => {
@@ -433,6 +449,19 @@ describe("isInvalidAIModelError", () => {
     });
 
     expect(isInvalidAIModelError(error)).toBe(false);
+  });
+
+  it("detects a model the provider no longer serves", () => {
+    const message =
+      "vendor/retired-alpha is no longer available on OpenRouter: no provider serves this model anymore.";
+    const error = createAPICallError({
+      message,
+      statusCode: 404,
+      responseBody: JSON.stringify({ error: { code: 404, message } }),
+    });
+
+    expect(isInvalidAIModelError(error)).toBe(true);
+    expect(isKnownApiError(error)).toBe(true);
   });
 
   it.each([
@@ -784,6 +813,16 @@ function createAPICallError({
     statusCode,
     responseHeaders: {},
     responseBody,
+  });
+}
+
+function createGeminiResourceExhaustedError(message: string): APICallError {
+  return createAPICallError({
+    message,
+    statusCode: 429,
+    responseBody: JSON.stringify({
+      error: { code: 429, message, status: "RESOURCE_EXHAUSTED" },
+    }),
   });
 }
 

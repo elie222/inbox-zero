@@ -1198,25 +1198,29 @@ async function handleError(
   hasUserApiKey: boolean,
 ) {
   const apiError = getAIApiCallError(error);
-  const isUserKeyInsufficientCredits =
-    hasUserApiKey && !!apiError && isInsufficientCreditsError(apiError);
+  // The user's own key or model is misconfigured; they get notified, and
+  // there's nothing for us to fix.
+  const isUserAiConfigError =
+    hasUserApiKey &&
+    !!apiError &&
+    (isIncorrectAPIKeyError(apiError) ||
+      isInvalidAIModelError(apiError) ||
+      isAPIKeyDeactivatedError(apiError) ||
+      isAnthropicInsufficientBalanceError(apiError) ||
+      isInsufficientCreditsError(apiError));
 
-  if (isUserKeyInsufficientCredits) {
-    logger.warn("User API key has insufficient credits", {
-      userId,
-      emailAccountId,
-      label,
-      modelName,
-    });
+  const logContext = {
+    error,
+    userId,
+    userEmail,
+    emailAccountId,
+    label,
+    modelName,
+  };
+  if (isUserAiConfigError) {
+    logger.warn("Error in LLM call", logContext);
   } else {
-    logger.error("Error in LLM call", {
-      error,
-      userId,
-      userEmail,
-      emailAccountId,
-      label,
-      modelName,
-    });
+    logger.error("Error in LLM call", logContext);
   }
 
   const notifyUser = async (
