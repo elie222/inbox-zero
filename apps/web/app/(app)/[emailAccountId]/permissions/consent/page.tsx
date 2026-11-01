@@ -56,7 +56,7 @@ export default function PermissionsConsentPage() {
           admin to approve {BRAND_NAME} and then reconnect your account.
         </TypographyP>
       )}
-      {!accountLoading && !isMicrosoft && (
+      {provider === "google" && (
         <TypographyP className="mx-auto mt-3 max-w-prose text-center text-muted-foreground">
           Reconnect your account and tick every checkbox on Google&apos;s
           permissions screen, including Gmail access.
