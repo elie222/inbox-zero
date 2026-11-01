@@ -2589,7 +2589,8 @@ export class OutlookProvider implements EmailProvider {
   ): Promise<void> {
     await mapWithConcurrency([...new Set(messageIds)], 4, async (messageId) => {
       try {
-        await withMicrosoftGraphWriteRetry(
+        // Idempotent absolute write: safe to retry on conflicts and network errors.
+        await withMicrosoftGraphRetry(
           () =>
             this.client
               .getClient()

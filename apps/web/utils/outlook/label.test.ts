@@ -9,6 +9,7 @@ import {
   getOrCreateLabels,
   labelThread,
   markReadThread,
+  markStarredMessage,
   unarchiveThread,
   untrashThread,
   updateMessageCategories,
@@ -341,6 +342,32 @@ describe("updateMessageCategories", () => {
       }),
     ).rejects.toThrow("Not found");
     expect(patch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("markStarredMessage", () => {
+  it("retries the flag write when a concurrent write on the message conflicts", async () => {
+    const patch = vi
+      .fn()
+      .mockRejectedValueOnce(
+        Object.assign(new Error("change key mismatch"), {
+          statusCode: 412,
+          code: "ErrorIrresolvableConflict",
+        }),
+      )
+      .mockResolvedValue({});
+    const client = createMockOutlookClient(vi.fn().mockReturnValue({ patch }));
+
+    await markStarredMessage({
+      client,
+      messageId: "message-1",
+      logger: createTestLogger(),
+    });
+
+    expect(patch).toHaveBeenCalledTimes(2);
+    expect(patch).toHaveBeenLastCalledWith({
+      flag: { flagStatus: "flagged" },
+    });
   });
 });
 

@@ -7,12 +7,14 @@ const {
   mockGetLabels,
   mockGetThreadsWithQuery,
   mockSearchThreads,
+  mockLoggerError,
 } = vi.hoisted(() => ({
   mockFindMany: vi.fn(),
   mockFindSplit: vi.fn(),
   mockGetLabels: vi.fn(),
   mockGetThreadsWithQuery: vi.fn(),
   mockSearchThreads: vi.fn(),
+  mockLoggerError: vi.fn(),
 }));
 
 vi.mock("@/utils/prisma", () => ({
@@ -44,7 +46,7 @@ vi.mock("@/utils/middleware", () => ({
             getThreadsWithQuery: mockGetThreadsWithQuery,
             searchThreads: mockSearchThreads,
           },
-          logger: { error: vi.fn() },
+          logger: { error: mockLoggerError },
         }),
       ),
 }));
@@ -92,6 +94,22 @@ describe("GET /api/threads", () => {
     mockGetLabels.mockResolvedValue([]);
     mockGetThreadsWithQuery.mockResolvedValue({ threads: [] });
     mockSearchThreads.mockResolvedValue({ threads: [] });
+  });
+
+  it("returns a known 429 for provider rate limits instead of logging an error", async () => {
+    mockGetThreadsWithQuery.mockRejectedValue(
+      Object.assign(new Error("Quota exceeded for quota metric 'Queries'"), {
+        code: 403,
+        errors: [{ reason: "rateLimitExceeded" }],
+      }),
+    );
+
+    const response = GET(
+      new NextRequest("http://localhost:3000/api/threads?limit=100"),
+    );
+
+    await expect(response).rejects.toMatchObject({ statusCode: 429 });
+    expect(mockLoggerError).not.toHaveBeenCalled();
   });
 
   it("passes multiple label IDs to the email provider", async () => {

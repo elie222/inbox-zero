@@ -52,7 +52,12 @@ export const checkPermissionsAction = actionClient
 
       return { hasRefreshToken: true, hasAllPermissions };
     } catch (error) {
-      logger.error("Failed to check permissions", { error });
+      // A disconnected account is the state this check exists to report.
+      if (error instanceof SafeError && error.message === "No refresh token") {
+        logger.warn("Permissions check found no refresh token");
+      } else {
+        logger.error("Failed to check permissions", { error });
+      }
       return { hasRefreshToken: false, hasAllPermissions: false };
     }
   });
