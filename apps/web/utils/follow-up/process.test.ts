@@ -508,6 +508,7 @@ describe("processAccountFollowUps - dedup logic", () => {
       query: { labelId: "awaiting-label" },
       maxResults: 1,
       pageToken: "third",
+      messageFormat: "metadata",
     });
     expect(provider.getLatestMessageInThread).toHaveBeenCalledTimes(75);
   });
