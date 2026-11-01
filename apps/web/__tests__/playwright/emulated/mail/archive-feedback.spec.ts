@@ -175,8 +175,11 @@ test("archives from the keyboard with immediate feedback and supports undo", asy
   await page.keyboard.press("e");
   await expect(row).toHaveCount(0);
   await expect(page.locator("[data-archive-exit]")).toHaveCount(0);
+  // The first archive's toast can still be animating out after its undo.
   await expect(
-    page.getByText("Archived", { exact: true }).last(),
+    page
+      .locator('[data-sonner-toast][data-removed="false"]')
+      .filter({ has: page.getByText("Archived", { exact: true }) }),
   ).toBeVisible();
   await page.keyboard.press("z");
   await expect(row).toBeVisible();

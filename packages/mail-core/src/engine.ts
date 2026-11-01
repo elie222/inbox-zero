@@ -27,7 +27,10 @@ import type {
   MailStore,
   SyncStreamPosition,
 } from "./ports/mail-store";
-import type { OperationExecutor } from "./ports/operation-executor";
+import type {
+  ExecutionResult,
+  OperationExecutor,
+} from "./ports/operation-executor";
 import type { AssistantStateSource } from "./ports/assistant-source";
 import type { ScopeDescriptor } from "./ports/mailbox-source";
 import type { HostRuntime } from "./ports/runtime";
@@ -48,7 +51,7 @@ import {
   mailboxCountsQueryKey,
   mailboxQueryKey,
 } from "./subscriptions";
-import type { SyncPage } from "./sync";
+import type { ProviderChange, SyncPage } from "./sync";
 import type { ConversationView } from "./ports/mail-store";
 
 const MAX_BOOTSTRAP_PAGES_PER_RUN = 25;
@@ -173,6 +176,13 @@ export function createMailEngine(input: {
   >();
   const syncLaneErrors: unknown[] = [];
   const remoteSearches = new Map<string, RemoteSearch>();
+  // A changes page read before a command settled still shows the command's
+  // messages as they were, and applying it afterwards would undo what the
+  // command confirmed until the next catch-up. Each read remembers how many
+  // commands had settled when it started and skips messages settled since.
+  let settledCommandCount = 0;
+  const messagesSettledAt = new Map<string, number>();
+  const openChangeReads = new Map<number, number>();
   let closed = false;
 
   return {
@@ -379,11 +389,12 @@ export function createMailEngine(input: {
             attemptId: work.attemptId,
             signal: signal ?? new AbortController().signal,
           });
-          await store.settleAttempt({
+          const settled = await store.settleAttempt({
             attemptId: work.attemptId,
             operation: work.operation,
             result,
           });
+          if (settled.status === "committed") noteSettledMessages(result);
           await queries.refreshAll();
           continue;
         }
@@ -393,11 +404,12 @@ export function createMailEngine(input: {
             receiptId: work.receiptId,
             signal: signal ?? new AbortController().signal,
           });
-          await store.settleAttempt({
+          const settled = await store.settleAttempt({
             attemptId: work.attemptId,
             operation: work.operation,
             result,
           });
+          if (settled.status === "committed") noteSettledMessages(result);
           await queries.refreshAll();
           continue;
         }
@@ -547,35 +559,41 @@ export function createMailEngine(input: {
           }
           continue;
         }
-        const changes = await source.readChanges({
-          session: work.session,
-          requestId: work.jobId,
-          position: work.position,
-          pageSize: 50,
-          signal: signal ?? new AbortController().signal,
-        });
-        if (changes.status === "page") {
-          const applied = await store.applySyncPage({
-            page: changes.page,
-            ownerId,
-            bodies: changes.page.bodies,
-          });
-          if (applied.status === "committed") {
-            await queries.refreshAll();
-            await noteConnection(work.session.accountId, "ok");
-            notifySyncPageCommitted(changes.page);
-          }
-        } else if (changes.status === "reset_required") {
-          await ingestBootstrap({
+        const readFence = openChangeRead();
+        try {
+          const changes = await source.readChanges({
             session: work.session,
-            from: work.position,
-            deadlineMs,
-            signal,
-            requestId: `${work.jobId}-reset`,
-            scopeId: changes.scopeId,
+            requestId: work.jobId,
+            position: work.position,
+            pageSize: 50,
+            signal: signal ?? new AbortController().signal,
           });
-        } else {
-          await noteConnection(work.session.accountId, changes.status);
+          if (changes.status === "page") {
+            const page = withoutMessagesSettledSince(changes.page, readFence);
+            const applied = await store.applySyncPage({
+              page,
+              ownerId,
+              bodies: page.bodies,
+            });
+            if (applied.status === "committed") {
+              await queries.refreshAll();
+              await noteConnection(work.session.accountId, "ok");
+              notifySyncPageCommitted(page);
+            }
+          } else if (changes.status === "reset_required") {
+            await ingestBootstrap({
+              session: work.session,
+              from: work.position,
+              deadlineMs,
+              signal,
+              requestId: `${work.jobId}-reset`,
+              scopeId: changes.scopeId,
+            });
+          } else {
+            await noteConnection(work.session.accountId, changes.status);
+          }
+        } finally {
+          closeChangeRead(readFence);
         }
       }
     },
@@ -1067,49 +1085,63 @@ export function createMailEngine(input: {
           offset,
           offset + MAX_CHANGES_BATCH_READS,
         );
-        const results = await readBatch({
-          session,
-          reads: chunk.map((stream) => ({
-            requestId: runtime.randomId(),
-            position: stream,
-          })),
-          pageSize: 50,
-          signal,
-        });
-        if (results.length !== chunk.length) {
-          throw new Error("Changes batch returned the wrong number of results");
-        }
-        for (const [index, stream] of chunk.entries()) {
-          const changes = results[index] as SyncReadResult;
-          // Applying a page holds the store, so let host reads in between.
-          if (index > 0) await yieldToHost();
-          await applyStreamChanges({
+        const readFence = openChangeRead();
+        try {
+          const results = await readBatch({
             session,
-            idleGate,
-            stream,
-            changes,
+            reads: chunk.map((stream) => ({
+              requestId: runtime.randomId(),
+              position: stream,
+            })),
+            pageSize: 50,
             signal,
           });
+          if (results.length !== chunk.length) {
+            throw new Error(
+              "Changes batch returned the wrong number of results",
+            );
+          }
+          for (const [index, stream] of chunk.entries()) {
+            const changes = results[index] as SyncReadResult;
+            // Applying a page holds the store, so let host reads in between.
+            if (index > 0) await yieldToHost();
+            await applyStreamChanges({
+              session,
+              idleGate,
+              stream,
+              changes,
+              readFence,
+              signal,
+            });
+          }
+        } finally {
+          closeChangeRead(readFence);
         }
       }
     } else {
       for (const [index, stream] of dueStreams.entries()) {
         if (index > 0) await yieldToHost();
         if (signal.aborted) return;
-        const changes = await source.readChanges({
-          session,
-          requestId: runtime.randomId(),
-          position: stream,
-          pageSize: 50,
-          signal,
-        });
-        await applyStreamChanges({
-          session,
-          idleGate,
-          stream,
-          changes,
-          signal,
-        });
+        const readFence = openChangeRead();
+        try {
+          const changes = await source.readChanges({
+            session,
+            requestId: runtime.randomId(),
+            position: stream,
+            pageSize: 50,
+            signal,
+          });
+          await applyStreamChanges({
+            session,
+            idleGate,
+            stream,
+            changes,
+            readFence,
+            signal,
+          });
+        } finally {
+          closeChangeRead(readFence);
+        }
       }
     }
     await catchUpAssistantIfDue(idleGate, account, signal);
@@ -1120,25 +1152,28 @@ export function createMailEngine(input: {
     idleGate,
     stream,
     changes,
+    readFence,
     signal,
   }: {
     session: { accountId: string; generation: string };
     idleGate: IdleCatchUpGate;
     stream: AccountSyncState["streams"][number];
     changes: SyncReadResult;
+    readFence: number;
     signal: AbortSignal;
   }) {
     // A stopped lane may have been replaced, and its late result must not
     // move the shared catch-up schedule.
     if (signal.aborted) return;
     if (changes.status === "page") {
+      const page = withoutMessagesSettledSince(changes.page, readFence);
       const applied = await store.applySyncPage({
-        page: changes.page,
+        page,
         ownerId,
-        bodies: changes.page.bodies,
+        bodies: page.bodies,
       });
       if (applied.status === "committed") {
-        if (changes.page.roundComplete) {
+        if (page.roundComplete) {
           idleGate.nextStreamCatchUpAtMs.set(
             stream.streamId,
             runtime.nowMs() + streamCatchUpInterval(idleGate, stream.streamId),
@@ -1148,7 +1183,7 @@ export function createMailEngine(input: {
         }
         await queries.refreshAll();
         await noteConnection(session.accountId, "ok");
-        notifySyncPageCommitted(changes.page);
+        notifySyncPageCommitted(page);
       } else {
         idleGate.nextStreamCatchUpAtMs.delete(stream.streamId);
       }
@@ -1176,6 +1211,46 @@ export function createMailEngine(input: {
       );
       await noteConnection(session.accountId, changes.status);
     }
+  }
+
+  function noteSettledMessages(result: ExecutionResult) {
+    if (result.status !== "confirmed") return;
+    settledCommandCount += 1;
+    const keys = [
+      ...result.targets
+        .filter((target) => target.outcome === "applied")
+        .map((target) => target.key),
+      ...result.observations.flatMap(changedMessageKey),
+    ];
+    for (const key of keys) {
+      messagesSettledAt.set(messageKeyId(key), settledCommandCount);
+    }
+  }
+
+  function openChangeRead() {
+    const fence = settledCommandCount;
+    openChangeReads.set(fence, (openChangeReads.get(fence) ?? 0) + 1);
+    return fence;
+  }
+
+  function closeChangeRead(fence: number) {
+    const remaining = (openChangeReads.get(fence) ?? 1) - 1;
+    if (remaining > 0) openChangeReads.set(fence, remaining);
+    else openChangeReads.delete(fence);
+    // Only a read that started before a settle can still carry its stale state.
+    const oldestOpenFence = Math.min(...openChangeReads.keys());
+    for (const [id, settledAt] of messagesSettledAt) {
+      if (settledAt <= oldestOpenFence) messagesSettledAt.delete(id);
+    }
+  }
+
+  function withoutMessagesSettledSince(page: SyncPage, fence: number) {
+    const changes = page.changes.filter((change) =>
+      changedMessageKey(change).every(
+        (key) => (messagesSettledAt.get(messageKeyId(key)) ?? 0) <= fence,
+      ),
+    );
+    return changes.length === page.changes.length ? page : { ...page, changes };
   }
 
   function idleCatchUpGateFor(accountId: string, generation: string) {
@@ -1456,6 +1531,18 @@ function defaultRandomId(): string {
   throw new Error(
     "HostRuntime.randomId is required when crypto.randomUUID is unavailable",
   );
+}
+
+function changedMessageKey(change: ProviderChange): MessageKey[] {
+  return change.kind === "message_patch" ||
+    change.kind === "removed_from_scope" ||
+    change.kind === "message_deleted"
+    ? [change.key]
+    : [];
+}
+
+function messageKeyId(key: MessageKey) {
+  return `${key.accountId}\0${key.messageId}`;
 }
 
 /**
