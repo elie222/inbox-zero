@@ -2367,7 +2367,7 @@ export class OutlookProvider implements EmailProvider {
         this.client
           .getClient()
           .api("/me/messages")
-          .search(`"to:@${escapedKqlDomain}"`)
+          .search(encodeURIComponent(`"to:@${escapedKqlDomain}"`))
           .top(5)
           .select("id,sentDateTime")
           .get(),
@@ -2375,7 +2375,7 @@ export class OutlookProvider implements EmailProvider {
         this.client
           .getClient()
           .api("/me/messages")
-          .search(`"from:@${escapedKqlDomain}"`)
+          .search(encodeURIComponent(`"from:@${escapedKqlDomain}"`))
           .top(5)
           .select("id,receivedDateTime")
           .get(),
@@ -2414,7 +2414,7 @@ export class OutlookProvider implements EmailProvider {
       this.client
         .getClient()
         .api("/me/messages")
-        .search(sentSearch)
+        .search(encodeURIComponent(sentSearch))
         .top(5) // Increase top to account for potential future messages we filter out
         .select("id,sentDateTime")
         .get(),
@@ -3331,7 +3331,8 @@ async function fetchOutlookSearchPage({
   // Graph forbids combining $search with $filter/$orderby and caps page size at 25.
   let request = client.api(apiPath).select(selectFields);
   if (compiled.search) {
-    request = request.search(compiled.search);
+    // The Graph SDK does not URL-encode $search, so a raw "#" or "&" would cut the query off.
+    request = request.search(encodeURIComponent(compiled.search));
   } else {
     const filters: string[] = [];
     if (compiled.flagged) filters.push("flag/flagStatus eq 'flagged'");
