@@ -109,14 +109,15 @@ async function scanSentSignatures({
       )
       .catch((error) => {
         logger.warn("Could not read the provider signature", { error });
-        return "";
+        return null;
       });
     scan = {
       signatures: await findSentSignatures({
         emailProvider,
-        knownSignatures: [providerSignature, ...savedSignatures],
+        knownSignatures: [providerSignature ?? "", ...savedSignatures],
       }),
-      providerSignature: !!providerSignature,
+      // Unknown counts as present so we never claim their mail goes out unsigned.
+      providerSignature: providerSignature !== "",
     };
   } catch (error) {
     // Kept as an empty scan so a failing mailbox isn't rescanned on every load.

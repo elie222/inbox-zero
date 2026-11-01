@@ -141,7 +141,7 @@ describe("getSignatureSuggestions", () => {
     expect(prisma.emailAccount.update).toHaveBeenCalled();
   });
 
-  it("still scans sent mail when the provider signature can't be read", async () => {
+  it("still scans sent mail when the provider signature can't be read, without claiming none", async () => {
     vi.mocked(createEmailProvider).mockResolvedValue(
       createMockEmailProvider({
         getSendAsAddresses: vi.fn().mockRejectedValue(new Error("forbidden")),
@@ -150,13 +150,18 @@ describe("getSignatureSuggestions", () => {
           .mockResolvedValue([sent(german), sent(german)]),
       }),
     );
-    prisma.emailAccount.findUnique.mockResolvedValue(account());
+    prisma.emailAccount.findUnique.mockResolvedValue(
+      account({ signature: null }),
+    );
 
     const result = await getSignatureSuggestions({
       emailAccountId: "account",
       logger,
     });
 
-    expect(result?.suggestions).toEqual([{ html: german, count: 2 }]);
+    expect(result).toEqual({
+      suggestions: [{ html: german, count: 2 }],
+      needsDefault: false,
+    });
   });
 });
