@@ -215,7 +215,7 @@ export function isGmailQuotaExceededError(error: unknown): boolean {
 }
 
 export const GMAIL_SERVICE_UNAVAILABLE_MESSAGE =
-  "Gmail isn't available for this account. Ask your Google Workspace admin to enable Gmail for it, then try again.";
+  "Gmail isn't enabled for this Google account. If it's a work or school account, ask your Google Workspace admin to enable Gmail. Otherwise, set up Gmail for it or connect a different account, then try again.";
 
 // Only the explicit message is reliable: a bare failedPrecondition is also
 // returned for transient failures on mailboxes where Gmail is enabled.
