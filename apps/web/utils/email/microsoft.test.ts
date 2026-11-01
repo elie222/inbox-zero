@@ -1984,6 +1984,18 @@ describe("OutlookProvider.searchThreads", () => {
     expect(result.threads.map((thread) => thread.id)).toEqual(["thread-1"]);
   });
 
+  it("keeps # and & in a typed search instead of cutting the query off", async () => {
+    const client = createMockOutlookClient([]);
+    const provider = new OutlookProvider(client);
+
+    await provider.searchThreads({ query: "Ticket #4521 C&A" });
+
+    const searchRequest = client
+      .getRequestLog()
+      .find((request) => request.apiPath === "/me/messages");
+    expect(searchRequest?.search).toBe('"Ticket #4521 C&A"');
+  });
+
   it("sends single advanced-search fields as quoted KQL", async () => {
     const client = createMockOutlookClient([]);
     const provider = new OutlookProvider(client);
@@ -2251,7 +2263,11 @@ function createMockOutlookClient(
             return request;
           },
           search: (value: string) => {
-            searchValue = value;
+            // Record what Graph receives, since the SDK puts the value in the URL as-is.
+            searchValue =
+              new URL(
+                `https://graph.microsoft.com/?$search=${value}`,
+              ).searchParams.get("$search") ?? undefined;
             return request;
           },
           select: (value: string) => {
