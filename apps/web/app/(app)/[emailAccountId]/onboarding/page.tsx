@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { Onboarding } from "@/app/(app)/[emailAccountId]/onboarding/Onboarding";
+import { PermissionsCheck } from "@/app/(app)/[emailAccountId]/PermissionsCheck";
 import {
   ConversionAnalyticsScript,
   ConversionQueryParamEvents,
@@ -52,6 +53,7 @@ export default async function OnboardingPage(props: {
 
   return (
     <>
+      <PermissionsCheck />
       <Suspense>
         <ConversionQueryParamEvents />
       </Suspense>

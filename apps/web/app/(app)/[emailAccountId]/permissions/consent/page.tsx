@@ -58,7 +58,8 @@ export default function PermissionsConsentPage() {
       )}
       {!isMicrosoft && (
         <TypographyP className="mx-auto mt-3 max-w-prose text-center text-muted-foreground">
-          Reconnect your account and approve every requested permission.
+          Reconnect your account and tick every checkbox on Google&apos;s
+          permissions screen, including Gmail access.
         </TypographyP>
       )}
 
