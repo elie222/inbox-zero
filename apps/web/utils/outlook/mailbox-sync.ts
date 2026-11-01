@@ -23,7 +23,7 @@ import { mapWithConcurrency } from "@/utils/async";
 const MESSAGE_SELECT_FIELDS =
   "id,conversationId,conversationIndex,internetMessageId,subject,bodyPreview,from,toRecipients,ccRecipients,receivedDateTime,isDraft,isRead,flag,categories,parentFolderId,hasAttachments,webLink,inferenceClassification";
 
-const PARTIAL_MESSAGE_REFETCH_CONCURRENCY = 5;
+const MESSAGE_REFETCH_CONCURRENCY = 5;
 
 type DeltaMessage = Message & {
   "@removed"?: { reason?: string };
@@ -69,7 +69,7 @@ export async function getOutlookMailboxSyncPage({
           .get(),
       logger,
     );
-    const response = await withPartialMessagesRefetched({
+    const response = await resolveAmbiguousDeltaMessages({
       client,
       logger,
       response: deltaResponse,
@@ -201,7 +201,7 @@ async function getInitialPage({
         .get(),
     logger,
   );
-  const response = await withPartialMessagesRefetched({
+  const response = await resolveAmbiguousDeltaMessages({
     client,
     logger,
     response: snapshotResponse,
@@ -222,9 +222,9 @@ async function getInitialPage({
   });
 }
 
-// Graph delta can return a message without its conversation, which the sync
-// protocol requires, so fetch those individually instead of failing the page.
-async function withPartialMessagesRefetched({
+// Graph delta can omit a conversation or report a folder move as a deletion,
+// so resolve those ambiguous entries against the current message state.
+async function resolveAmbiguousDeltaMessages({
   client,
   logger,
   response,
@@ -234,15 +234,24 @@ async function withPartialMessagesRefetched({
   response: DeltaResponse;
 }): Promise<DeltaResponse> {
   const messages = response.value ?? [];
-  if (!messages.some(isPartialMessage)) return response;
+  if (!messages.some(needsMessageRefetch)) return response;
 
   const refetched = await mapWithConcurrency(
     messages,
-    PARTIAL_MESSAGE_REFETCH_CONCURRENCY,
-    async (message) =>
-      isPartialMessage(message)
-        ? getSyncMessage({ client, logger, messageId: message.id })
-        : message,
+    MESSAGE_REFETCH_CONCURRENCY,
+    async (message) => {
+      if (!needsMessageRefetch(message)) return message;
+      const currentMessage = await getSyncMessage({
+        client,
+        logger,
+        messageId: message.id,
+      });
+      if (currentMessage) return currentMessage;
+
+      // Folder deltas use `deleted` for both permanent deletion and moving a
+      // message out of the folder. Keep the removal when the message is gone.
+      return isDeletedRemoval(message) ? message : null;
+    },
   );
   const completeMessages = refetched.filter(
     (message): message is DeltaMessage =>
@@ -263,6 +272,18 @@ function isPartialMessage(
   message: DeltaMessage,
 ): message is DeltaMessage & { id: string } {
   return Boolean(message.id && !message["@removed"] && !message.conversationId);
+}
+
+function isDeletedRemoval(
+  message: DeltaMessage,
+): message is DeltaMessage & { id: string } {
+  return Boolean(message.id && message["@removed"]?.reason === "deleted");
+}
+
+function needsMessageRefetch(
+  message: DeltaMessage,
+): message is DeltaMessage & { id: string } {
+  return isPartialMessage(message) || isDeletedRemoval(message);
 }
 
 async function getSyncMessage({
