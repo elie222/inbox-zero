@@ -329,6 +329,15 @@ describe("cleanupAIDraftsForAccount", () => {
         hasAttachment: true,
       },
     },
+    {
+      name: "inline-only attachment",
+      draft: {
+        textHtml:
+          '<p>See <a href="https://example.com/original">the details</a>.</p>',
+        hasAttachment: false,
+        inline: [{ filename: "image.png", attachmentId: "inline-1" }],
+      },
+    },
   ])("protects follow-up drafts with an $name", async ({ draft }) => {
     mocks.prisma.executedAction.findMany.mockResolvedValue([]);
     mocks.prisma.threadTracker.findMany.mockResolvedValue([
@@ -350,9 +359,39 @@ describe("cleanupAIDraftsForAccount", () => {
 
     expect(result).toMatchObject({ deleted: 0, skippedModified: 1 });
     expect(mocks.provider.deleteDraft).not.toHaveBeenCalled();
+    expect(mocks.provider.getDraft).toHaveBeenCalledWith("follow-up-edited", {
+      includeAttachments: true,
+    });
     expect(mocks.prisma.threadTracker.updateMany).toHaveBeenCalledWith({
       where: { id: "tracker-edited", followUpDraftId: "follow-up-edited" },
       data: { followUpDraftContent: null, followUpDraftCreatedAt: null },
+    });
+  });
+
+  it("marks an existing rule draft with an empty body as user edited", async () => {
+    mocks.prisma.executedAction.findMany.mockResolvedValue([
+      {
+        id: "action-empty",
+        draftId: "rule-empty",
+        draftStatus: DraftEmailStatus.PENDING,
+        wasDraftSent: null,
+        content: "Generated reply.",
+      },
+    ]);
+    mocks.provider.getDraft.mockResolvedValue({ textPlain: "", textHtml: "" });
+
+    const result = await cleanupAIDraftsForAccount({
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+      cleanupDays: 14,
+    });
+
+    expect(result).toMatchObject({ deleted: 0, skippedModified: 1 });
+    expect(mocks.provider.deleteDraft).not.toHaveBeenCalled();
+    expect(mocks.prisma.executedAction.update).toHaveBeenCalledWith({
+      where: { id: "action-empty" },
+      data: { draftStatus: DraftEmailStatus.USER_EDITED },
     });
   });
 

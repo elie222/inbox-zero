@@ -95,7 +95,11 @@ export async function cleanupAIDraftsForAccount({
     if (!action.draftId) continue;
 
     try {
-      const draftDetails = await provider.getDraft(action.draftId);
+      // Graph's hasAttachments ignores inline attachments, so follow-up drafts
+      // are fetched with their attachment list.
+      const draftDetails = await provider.getDraft(action.draftId, {
+        includeAttachments: !!action.trackerId,
+      });
 
       if (!draftDetails) {
         await recordDraftCleanup(
@@ -106,29 +110,27 @@ export async function cleanupAIDraftsForAccount({
         continue;
       }
 
-      if (!draftDetails.textPlain && !draftDetails.textHtml) {
-        await stopFollowUpDraftCleanup(action);
-        skippedModified++;
-        continue;
-      }
-
       if (
         action.trackerId &&
-        (draftDetails.hasAttachment || draftDetails.attachments?.length)
+        (draftDetails.hasAttachment ||
+          draftDetails.attachments?.length ||
+          draftDetails.inline?.length)
       ) {
         await stopFollowUpDraftCleanup(action);
         skippedModified++;
         continue;
       }
 
-      const isUnmodified = action.content
-        ? isDraftUnmodified({
-            originalContent: action.content,
-            currentDraft: draftDetails,
-            logger,
-            includeLinks: !!action.trackerId,
-          })
-        : false;
+      const hasBody = !!(draftDetails.textPlain || draftDetails.textHtml);
+      const isUnmodified =
+        hasBody && action.content
+          ? isDraftUnmodified({
+              originalContent: action.content,
+              currentDraft: draftDetails,
+              logger,
+              includeLinks: !!action.trackerId,
+            })
+          : false;
 
       if (!isUnmodified) {
         // Without the original content we can't tell, so it stays a candidate.
