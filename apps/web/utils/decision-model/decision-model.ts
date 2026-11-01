@@ -67,15 +67,11 @@ export async function getDecisionModelConfig(
  * except for users with their own AI key because they chose where their data
  * goes.
  */
-export function isDecisionModelEnabledForUser(
+function isDecisionModelEnabledForUser(
   user: Pick<User, "decisionModelEnabled" | "aiApiKey">,
 ) {
   if (user.decisionModelEnabled !== null) return user.decisionModelEnabled;
   return !user.aiApiKey && env.DEFAULT_DECISION_MODEL_ENABLED;
-}
-
-export function isDecisionModelAvailable() {
-  return !!getDeploymentDecisionModelConfig();
 }
 
 /**
