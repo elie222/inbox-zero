@@ -603,6 +603,29 @@ describe("processAccountFollowUps - dedup logic", () => {
     expect(prisma.threadTracker.create).toHaveBeenCalledTimes(2);
   });
 
+  it("stops the account run on provider throttling so rate-limit handling sees it", async () => {
+    const throttled = Object.assign(
+      new Error("Application is over its MailboxConcurrency limit."),
+      { statusCode: 429, code: "ApplicationThrottled" },
+    );
+    const provider = createMockProvider({
+      getThreadsWithLabel: vi.fn().mockResolvedValue([
+        { id: "thread-a", messages: [], snippet: "" },
+        { id: "thread-b", messages: [], snippet: "" },
+      ]),
+      getLatestMessageInThread: vi.fn().mockRejectedValue(throttled),
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue(provider);
+
+    await expect(
+      processAccountFollowUps({
+        emailAccount: createMockAccount(),
+        logger,
+      }),
+    ).rejects.toBe(throttled);
+    expect(provider.getLatestMessageInThread).toHaveBeenCalledTimes(1);
+  });
+
   it("processes the same labeled message only once across repeated runs", async () => {
     const provider = createMockProvider({
       getThreadsWithLabel: vi

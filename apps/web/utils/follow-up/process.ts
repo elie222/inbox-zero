@@ -1,6 +1,7 @@
 import prisma from "@/utils/prisma";
 import { getPremiumUserFilter } from "@/utils/premium";
 import { createEmailProvider } from "@/utils/email/provider";
+import { isEmailProviderRateLimitError } from "@/utils/email/is-provider-rate-limit-error";
 import {
   applyFollowUpLabel,
   getOrCreateFollowUpLabel,
@@ -662,6 +663,11 @@ async function processFollowUpsForType({
         threadLogger.info("Processed follow-up", { draftCreated });
         processedCount++;
       } catch (error) {
+        // Throttling applies to the whole mailbox: later threads would fail
+        // the same way. Let the account-level rate-limit recording handle it.
+        if (isEmailProviderRateLimitError({ error, provider: providerName })) {
+          throw error;
+        }
         errorCount++;
         threadLogger.error("Failed to process thread", { error });
         captureException(error);
