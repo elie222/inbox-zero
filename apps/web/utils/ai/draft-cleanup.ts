@@ -1,3 +1,4 @@
+import type { ExecutedAction } from "@/generated/prisma/client";
 import prisma from "@/utils/prisma";
 import { ActionType, DraftEmailStatus } from "@/generated/prisma/enums";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -25,7 +26,7 @@ export async function cleanupAIDraftsForAccount({
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - cleanupDays);
 
-  const staleDrafts = await prisma.executedAction.findMany({
+  const staleActions = await prisma.executedAction.findMany({
     where: {
       executedRule: { emailAccountId },
       type: ActionType.DRAFT_EMAIL,
@@ -42,6 +43,31 @@ export async function cleanupAIDraftsForAccount({
     },
     orderBy: { createdAt: "asc" },
   });
+
+  const staleTrackers = await prisma.threadTracker.findMany({
+    where: {
+      emailAccountId,
+      ...getFollowUpDraftCleanupCandidateWhere(cutoffDate),
+    },
+    select: {
+      id: true,
+      followUpDraftId: true,
+      followUpDraftContent: true,
+    },
+    orderBy: { id: "asc" },
+  });
+
+  const staleDrafts: DraftCleanupCandidate[] = [
+    ...staleActions.map((action) => ({ ...action, trackerId: null })),
+    ...staleTrackers.map((tracker) => ({
+      id: tracker.id,
+      trackerId: tracker.id,
+      draftId: tracker.followUpDraftId,
+      content: tracker.followUpDraftContent,
+      draftStatus: null,
+      wasDraftSent: null,
+    })),
+  ];
 
   if (staleDrafts.length === 0) {
     return {
@@ -69,35 +95,47 @@ export async function cleanupAIDraftsForAccount({
     if (!action.draftId) continue;
 
     try {
-      const draftDetails = await provider.getDraft(action.draftId);
+      // Graph's hasAttachments ignores inline attachments, so follow-up drafts
+      // are fetched with their attachment list.
+      const draftDetails = await provider.getDraft(action.draftId, {
+        includeAttachments: !!action.trackerId,
+      });
 
-      if (!draftDetails?.textPlain && !draftDetails?.textHtml) {
-        const statusData = getDraftCleanupStatusData({
-          draftStatus: action.draftStatus,
-          wasDraftSent: action.wasDraftSent,
-          status: DraftEmailStatus.MISSING_FROM_PROVIDER,
-        });
-        if (statusData) {
-          await prisma.executedAction.update({
-            where: { id: action.id },
-            data: statusData,
-          });
-        }
+      if (!draftDetails) {
+        await recordDraftCleanup(
+          action,
+          DraftEmailStatus.MISSING_FROM_PROVIDER,
+        );
         alreadyGone++;
         continue;
       }
 
-      const isUnmodified = action.content
-        ? isDraftUnmodified({
-            originalContent: action.content,
-            currentDraft: draftDetails,
-            logger,
-          })
-        : false;
+      if (
+        action.trackerId &&
+        (draftDetails.hasAttachment ||
+          draftDetails.attachments?.length ||
+          draftDetails.inline?.length)
+      ) {
+        await stopFollowUpDraftCleanup(action);
+        skippedModified++;
+        continue;
+      }
+
+      const hasBody = !!(draftDetails.textPlain || draftDetails.textHtml);
+      const isUnmodified =
+        hasBody && action.content
+          ? isDraftUnmodified({
+              originalContent: action.content,
+              currentDraft: draftDetails,
+              logger,
+              includeLinks: !!action.trackerId,
+            })
+          : false;
 
       if (!isUnmodified) {
         // Without the original content we can't tell, so it stays a candidate.
-        if (action.content) {
+        await stopFollowUpDraftCleanup(action);
+        if (action.content && !action.trackerId) {
           const statusData = getDraftCleanupStatusData({
             draftStatus: action.draftStatus,
             wasDraftSent: action.wasDraftSent,
@@ -115,23 +153,17 @@ export async function cleanupAIDraftsForAccount({
       }
 
       const wasDeleted = await provider.deleteDraft(action.draftId);
-      const statusData = getDraftCleanupStatusData({
-        draftStatus: action.draftStatus,
-        wasDraftSent: action.wasDraftSent,
-        status: DraftEmailStatus.CLEANED_UP_UNUSED,
-      });
       // A refused delete leaves a draft the user may still send, and sent-draft
       // tracking skips cleaned-up drafts.
-      if (wasDeleted && statusData) {
-        await prisma.executedAction.update({
-          where: { id: action.id },
-          data: statusData,
-        });
+      if (!wasDeleted) {
+        errors++;
+        continue;
       }
-      if (wasDeleted) deleted++;
+      await recordDraftCleanup(action, DraftEmailStatus.CLEANED_UP_UNUSED);
+      deleted++;
     } catch (error) {
       logger.error("Error cleaning up draft", {
-        executedActionId: action.id,
+        trackedDraftId: action.id,
         draftId: action.draftId,
         error,
       });
@@ -199,22 +231,32 @@ export async function markTrackedDraftDeleted({
 }
 
 export async function getEmailAccountsWithStaleAIDrafts() {
+  const minCutoffDate = subDays(new Date(), MIN_AI_DRAFT_CLEANUP_DAYS);
   const emailAccounts = await prisma.emailAccount.findMany({
     where: {
       draftCleanupDays: { not: null },
       account: { disconnectedAt: null },
-      executedRules: {
-        some: {
-          actionItems: {
+      OR: [
+        {
+          executedRules: {
             some: {
-              type: ActionType.DRAFT_EMAIL,
-              draftId: { not: null },
-              ...getDraftCleanupCandidateWhere(),
-              createdAt: { lt: subDays(new Date(), MIN_AI_DRAFT_CLEANUP_DAYS) },
+              actionItems: {
+                some: {
+                  type: ActionType.DRAFT_EMAIL,
+                  draftId: { not: null },
+                  ...getDraftCleanupCandidateWhere(),
+                  createdAt: { lt: minCutoffDate },
+                },
+              },
             },
           },
         },
-      },
+        {
+          threadTrackers: {
+            some: getFollowUpDraftCleanupCandidateWhere(minCutoffDate),
+          },
+        },
+      ],
     },
     select: { id: true },
   });
@@ -328,4 +370,59 @@ function getDraftCleanupCandidateWhere() {
       },
     ],
   };
+}
+
+// Drafts tracked before their content was stored can't be checked for user
+// edits, so cleanup never touches them rather than re-fetching them forever.
+function getFollowUpDraftCleanupCandidateWhere(cutoffDate: Date) {
+  return {
+    followUpDraftId: { not: null },
+    followUpDraftContent: { not: null },
+    followUpDraftCreatedAt: { lt: cutoffDate },
+  };
+}
+
+type DraftCleanupCandidate = Pick<
+  ExecutedAction,
+  "id" | "draftId" | "content" | "draftStatus" | "wasDraftSent"
+> & { trackerId: string | null };
+
+// A user-edited follow-up draft stays tracked for the follow-up feature, but
+// cleanup stops checking it so it isn't fetched on every run.
+async function stopFollowUpDraftCleanup(draft: DraftCleanupCandidate) {
+  if (!draft.trackerId) return;
+  await prisma.threadTracker.updateMany({
+    where: { id: draft.trackerId, followUpDraftId: draft.draftId },
+    data: { followUpDraftContent: null, followUpDraftCreatedAt: null },
+  });
+}
+
+async function recordDraftCleanup(
+  draft: DraftCleanupCandidate,
+  status: DraftEmailStatus,
+) {
+  if (draft.trackerId) {
+    // Do not clear tracking for a replacement created during cleanup.
+    await prisma.threadTracker.updateMany({
+      where: { id: draft.trackerId, followUpDraftId: draft.draftId },
+      data: {
+        followUpDraftId: null,
+        followUpDraftContent: null,
+        followUpDraftCreatedAt: null,
+      },
+    });
+    return;
+  }
+
+  const statusData = getDraftCleanupStatusData({
+    draftStatus: draft.draftStatus,
+    wasDraftSent: draft.wasDraftSent,
+    status,
+  });
+  if (statusData) {
+    await prisma.executedAction.update({
+      where: { id: draft.id },
+      data: statusData,
+    });
+  }
 }

@@ -322,6 +322,46 @@ describe("generateFollowUpDraft", () => {
     );
   });
 
+  it("stores the exact generated body and creation time for safe cleanup", async () => {
+    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
+      includeReferralSignature: false,
+      signature: "Demo signature",
+    } as any);
+    const userMessage = createMockMessage({
+      id: "user-msg",
+      headers: {
+        from: "user@example.com",
+        to: "recipient@example.com",
+        subject: "Demo subject",
+        date: "2024-01-01T00:00:00Z",
+      },
+    });
+    const provider = createMockProvider({
+      getThread: vi
+        .fn()
+        .mockResolvedValue({ id: "thread-1", messages: [userMessage] }),
+    });
+
+    await generateFollowUpDraft({
+      emailAccount: createMockEmailAccount(),
+      threadId: "thread-1",
+      messageId: "user-msg",
+      trackerId: "tracker-1",
+      provider,
+      logger,
+    });
+
+    const body = vi.mocked(provider.draftEmail).mock.calls[0][1].content;
+    expect(prisma.threadTracker.update).toHaveBeenCalledWith({
+      where: { id: "tracker-1" },
+      data: {
+        followUpDraftId: "draft-123",
+        followUpDraftContent: body,
+        followUpDraftCreatedAt: expect.any(Date),
+      },
+    });
+  });
+
   it("does not generate draft when thread has no messages", async () => {
     const mockProvider = createMockProvider({
       getThread: vi.fn().mockResolvedValue({

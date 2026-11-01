@@ -14,6 +14,10 @@ const mocks = vi.hoisted(() => ({
       findMany: vi.fn(),
       findUnique: vi.fn(),
     },
+    threadTracker: {
+      findMany: vi.fn(),
+      updateMany: vi.fn(),
+    },
     executedAction: {
       findFirst: vi.fn(),
       findMany: vi.fn(),
@@ -22,6 +26,7 @@ const mocks = vi.hoisted(() => ({
   },
   provider: {
     getDraft: vi.fn(),
+    getDrafts: vi.fn(),
     deleteDraft: vi.fn(),
   },
   createEmailProvider: vi.fn(),
@@ -40,7 +45,8 @@ const logger = createTestLogger();
 describe("cleanupAIDraftsForAccount", () => {
   beforeEach(() => {
     vi.useRealTimers();
-    vi.clearAllMocks();
+    vi.resetAllMocks();
+    mocks.prisma.threadTracker.findMany.mockResolvedValue([]);
     mocks.createEmailProvider.mockResolvedValue(mocks.provider);
     mocks.provider.deleteDraft.mockResolvedValue(true);
   });
@@ -89,6 +95,16 @@ describe("cleanupAIDraftsForAccount", () => {
       cleanupDays: 14,
     });
     expect(mocks.createEmailProvider).not.toHaveBeenCalled();
+    expect(mocks.prisma.threadTracker.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          emailAccountId: "email-account-1",
+          followUpDraftId: { not: null },
+          followUpDraftContent: { not: null },
+          followUpDraftCreatedAt: { lt: expectedCutoffDate },
+        },
+      }),
+    );
   });
 
   it("does not count or mark a draft whose deletion was refused", async () => {
@@ -169,6 +185,239 @@ describe("cleanupAIDraftsForAccount", () => {
       skippedModified: 1,
       cleanupDays: 14,
     });
+  });
+
+  it("cleans up all tracked follow-up drafts beyond the first 100 mailbox drafts", async () => {
+    const content =
+      '<p>Checking in. See <a href="https://example.com/details">the details</a>.</p><p>Demo signature</p>';
+    const trackers = Array.from({ length: 105 }, (_, index) => ({
+      id: `tracker-${index}`,
+      followUpDraftId: `follow-up-${index}`,
+      followUpDraftContent: content,
+    }));
+    mocks.prisma.executedAction.findMany.mockResolvedValue([]);
+    mocks.prisma.threadTracker.findMany.mockResolvedValue(trackers);
+    mocks.provider.getDraft.mockResolvedValue({
+      textPlain: "Checking in. See the details. Demo signature",
+      textHtml: `${content}<blockquote type="cite">Previous thread message</blockquote>`,
+    });
+
+    const result = await cleanupAIDraftsForAccount({
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+      cleanupDays: 14,
+    });
+
+    expect(result).toMatchObject({ total: 105, deleted: 105 });
+    expect(mocks.provider.getDrafts).not.toHaveBeenCalled();
+    expect(mocks.provider.deleteDraft).toHaveBeenCalledTimes(105);
+    expect(mocks.provider.deleteDraft).toHaveBeenCalledWith("follow-up-104");
+    expect(mocks.prisma.threadTracker.updateMany).toHaveBeenCalledWith({
+      where: { id: "tracker-104", followUpDraftId: "follow-up-104" },
+      data: {
+        followUpDraftId: null,
+        followUpDraftContent: null,
+        followUpDraftCreatedAt: null,
+      },
+    });
+    expect(mocks.prisma.threadTracker.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          emailAccountId: "email-account-1",
+          followUpDraftId: { not: null },
+          followUpDraftCreatedAt: { lt: expect.any(Date) },
+        }),
+      }),
+    );
+  });
+
+  it("protects edited and unknown-content drafts and continues after provider failures", async () => {
+    mocks.prisma.executedAction.findMany.mockResolvedValue([
+      { id: "action-unknown", draftId: "rule-unknown", content: null },
+    ]);
+    mocks.prisma.threadTracker.findMany.mockResolvedValue([
+      {
+        id: "tracker-edited",
+        followUpDraftId: "edited",
+        followUpDraftContent: "Checking in.",
+      },
+      {
+        id: "tracker-error",
+        followUpDraftId: "error",
+        followUpDraftContent: "Checking in.",
+      },
+      {
+        id: "tracker-refused",
+        followUpDraftId: "refused",
+        followUpDraftContent: "Checking in.",
+      },
+      {
+        id: "tracker-empty",
+        followUpDraftId: "empty",
+        followUpDraftContent: "Checking in.",
+      },
+      {
+        id: "tracker-missing",
+        followUpDraftId: "missing",
+        followUpDraftContent: "Checking in.",
+      },
+      {
+        id: "tracker-ok",
+        followUpDraftId: "ok",
+        followUpDraftContent: "Checking in.",
+      },
+    ]);
+    mocks.provider.getDraft.mockImplementation(async (id: string) => {
+      if (id === "error") throw new Error("Temporary provider error");
+      if (id === "missing") return null;
+      let textPlain = "Checking in.";
+      if (id === "edited") textPlain = "User's revised reply.";
+      if (id === "empty") textPlain = "";
+      return { textPlain, textHtml: null };
+    });
+    mocks.provider.deleteDraft.mockImplementation(
+      async (id: string) => id !== "refused",
+    );
+
+    const result = await cleanupAIDraftsForAccount({
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+      cleanupDays: 14,
+    });
+
+    expect(result).toMatchObject({
+      total: 7,
+      deleted: 1,
+      skippedModified: 3,
+      alreadyGone: 1,
+      errors: 2,
+    });
+    expect(mocks.provider.deleteDraft.mock.calls.map(([id]) => id)).toEqual([
+      "refused",
+      "ok",
+    ]);
+    expect(mocks.prisma.executedAction.update).not.toHaveBeenCalled();
+    // Edited follow-up drafts stay tracked but are no longer checked by cleanup.
+    expect(
+      mocks.prisma.threadTracker.updateMany.mock.calls.map(([args]) => [
+        args.where.id,
+        "followUpDraftId" in args.data ? "untracked" : "stop-checking",
+      ]),
+    ).toEqual([
+      ["tracker-edited", "stop-checking"],
+      ["tracker-empty", "stop-checking"],
+      ["tracker-missing", "untracked"],
+      ["tracker-ok", "untracked"],
+    ]);
+  });
+
+  it.each([
+    {
+      name: "edited link destination",
+      draft: {
+        textHtml:
+          '<p>See <a href="https://example.com/revised">the details</a>.</p>',
+      },
+    },
+    {
+      name: "added attachment",
+      draft: {
+        textHtml:
+          '<p>See <a href="https://example.com/original">the details</a>.</p>',
+        hasAttachment: true,
+      },
+    },
+    {
+      name: "inline-only attachment",
+      draft: {
+        textHtml:
+          '<p>See <a href="https://example.com/original">the details</a>.</p>',
+        hasAttachment: false,
+        inline: [{ filename: "image.png", attachmentId: "inline-1" }],
+      },
+    },
+  ])("protects follow-up drafts with an $name", async ({ draft }) => {
+    mocks.prisma.executedAction.findMany.mockResolvedValue([]);
+    mocks.prisma.threadTracker.findMany.mockResolvedValue([
+      {
+        id: "tracker-edited",
+        followUpDraftId: "follow-up-edited",
+        followUpDraftContent:
+          '<p>See <a href="https://example.com/original">the details</a>.</p>',
+      },
+    ]);
+    mocks.provider.getDraft.mockResolvedValue(draft);
+
+    const result = await cleanupAIDraftsForAccount({
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+      cleanupDays: 14,
+    });
+
+    expect(result).toMatchObject({ deleted: 0, skippedModified: 1 });
+    expect(mocks.provider.deleteDraft).not.toHaveBeenCalled();
+    expect(mocks.provider.getDraft).toHaveBeenCalledWith("follow-up-edited", {
+      includeAttachments: true,
+    });
+    expect(mocks.prisma.threadTracker.updateMany).toHaveBeenCalledWith({
+      where: { id: "tracker-edited", followUpDraftId: "follow-up-edited" },
+      data: { followUpDraftContent: null, followUpDraftCreatedAt: null },
+    });
+  });
+
+  it("marks an existing rule draft with an empty body as user edited", async () => {
+    mocks.prisma.executedAction.findMany.mockResolvedValue([
+      {
+        id: "action-empty",
+        draftId: "rule-empty",
+        draftStatus: DraftEmailStatus.PENDING,
+        wasDraftSent: null,
+        content: "Generated reply.",
+      },
+    ]);
+    mocks.provider.getDraft.mockResolvedValue({ textPlain: "", textHtml: "" });
+
+    const result = await cleanupAIDraftsForAccount({
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+      cleanupDays: 14,
+    });
+
+    expect(result).toMatchObject({ deleted: 0, skippedModified: 1 });
+    expect(mocks.provider.deleteDraft).not.toHaveBeenCalled();
+    expect(mocks.prisma.executedAction.update).toHaveBeenCalledWith({
+      where: { id: "action-empty" },
+      data: { draftStatus: DraftEmailStatus.USER_EDITED },
+    });
+  });
+
+  it("keeps a rule draft retryable when the provider declines deletion", async () => {
+    mocks.prisma.executedAction.findMany.mockResolvedValue([
+      {
+        id: "action-refused",
+        draftId: "rule-refused",
+        content: "Generated reply.",
+      },
+    ]);
+    mocks.provider.getDraft.mockResolvedValue({
+      textPlain: "Generated reply.",
+      textHtml: null,
+    });
+    mocks.provider.deleteDraft.mockResolvedValue(false);
+
+    const result = await cleanupAIDraftsForAccount({
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      logger,
+      cleanupDays: 14,
+    });
+
+    expect(result).toMatchObject({ deleted: 0, errors: 1 });
+    expect(mocks.prisma.executedAction.update).not.toHaveBeenCalled();
   });
 
   it("transitions replied-without-draft records after cleanup", async () => {
@@ -378,32 +627,45 @@ describe("getEmailAccountsWithStaleAIDrafts", () => {
       where: {
         draftCleanupDays: { not: null },
         account: { disconnectedAt: null },
-        executedRules: {
-          some: {
-            actionItems: {
+        OR: [
+          {
+            executedRules: {
               some: {
-                type: ActionType.DRAFT_EMAIL,
-                draftId: { not: null },
-                OR: [
-                  {
-                    draftStatus: {
-                      in: [
-                        DraftEmailStatus.PENDING,
-                        DraftEmailStatus.REPLIED_WITHOUT_DRAFT,
-                      ],
-                    },
+                actionItems: {
+                  some: {
+                    type: ActionType.DRAFT_EMAIL,
+                    draftId: { not: null },
+                    OR: [
+                      {
+                        draftStatus: {
+                          in: [
+                            DraftEmailStatus.PENDING,
+                            DraftEmailStatus.REPLIED_WITHOUT_DRAFT,
+                          ],
+                        },
+                      },
+                      { draftStatus: null },
+                      {
+                        draftStatus: DraftEmailStatus.CLEANED_UP_UNUSED,
+                        wasDraftSent: false,
+                      },
+                    ],
+                    createdAt: { lt: expect.any(Date) },
                   },
-                  { draftStatus: null },
-                  {
-                    draftStatus: DraftEmailStatus.CLEANED_UP_UNUSED,
-                    wasDraftSent: false,
-                  },
-                ],
-                createdAt: { lt: expect.any(Date) },
+                },
               },
             },
           },
-        },
+          {
+            threadTrackers: {
+              some: {
+                followUpDraftId: { not: null },
+                followUpDraftContent: { not: null },
+                followUpDraftCreatedAt: { lt: expect.any(Date) },
+              },
+            },
+          },
+        ],
       },
       select: { id: true },
     });
@@ -412,9 +674,37 @@ describe("getEmailAccountsWithStaleAIDrafts", () => {
 
 describe("cleanupConfiguredAIDraftsForAccount", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
+    mocks.prisma.threadTracker.findMany.mockResolvedValue([]);
     mocks.createEmailProvider.mockResolvedValue(mocks.provider);
     mocks.provider.deleteDraft.mockResolvedValue(true);
+  });
+
+  it("cleans up an account whose only stale drafts are follow-up drafts", async () => {
+    mocks.prisma.emailAccount.findUnique.mockResolvedValue({
+      draftCleanupDays: 14,
+      account: { provider: "google", disconnectedAt: null },
+    });
+    mocks.prisma.executedAction.findMany.mockResolvedValue([]);
+    mocks.prisma.threadTracker.findMany.mockResolvedValue([
+      {
+        id: "tracker-cron",
+        followUpDraftId: "follow-up-cron",
+        followUpDraftContent: "Checking in.",
+      },
+    ]);
+    mocks.provider.getDraft.mockResolvedValue({
+      textPlain: "Checking in.",
+      textHtml: null,
+    });
+
+    const result = await cleanupConfiguredAIDraftsForAccount({
+      emailAccountId: "email-account-1",
+      logger,
+    });
+
+    expect(result).toMatchObject({ total: 1, deleted: 1 });
+    expect(mocks.provider.deleteDraft).toHaveBeenCalledWith("follow-up-cron");
   });
 
   it("cleans up with the account's configured window", async () => {

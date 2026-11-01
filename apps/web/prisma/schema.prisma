@@ -1232,9 +1232,11 @@ model ThreadTracker {
   resolved  Boolean           @default(false)
   type      ThreadTrackerType
 
-  followUpAppliedAt     DateTime?
-  followUpDraftId       String?
-  followUpNotifications Json?
+  followUpAppliedAt      DateTime?
+  followUpDraftId        String?
+  followUpDraftContent   String?
+  followUpDraftCreatedAt DateTime?
+  followUpNotifications  Json?
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
@@ -1244,6 +1246,7 @@ model ThreadTracker {
   @@index([emailAccountId, resolved, sentAt, type])
   @@index([emailAccountId, type, resolved, sentAt])
   @@index([emailAccountId, type, resolved, followUpAppliedAt, sentAt])
+  @@index([emailAccountId, followUpDraftCreatedAt], map: "ThreadTracker_followUpDraft_cleanup_idx", where: raw("\"followUpDraftContent\" IS NOT NULL"))
 }
 
 model CleanupJob {
