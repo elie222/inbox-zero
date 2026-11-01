@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   isAllowedMicrosoftGraphPageToken,
+  isNonAdvancingOutlookNextLink,
   resolveMicrosoftGraphNextLink,
 } from "@/utils/outlook/page-token";
 
@@ -98,5 +99,65 @@ describe("resolveMicrosoftGraphNextLink", () => {
     expect(() =>
       resolveMicrosoftGraphNextLink("http://169.254.169.254/latest/meta-data"),
     ).toThrow("Invalid Outlook page token");
+  });
+});
+
+describe("isNonAdvancingOutlookNextLink", () => {
+  it("treats null or empty candidate link as non-advancing", () => {
+    expect(
+      isNonAdvancingOutlookNextLink(
+        "https://graph.microsoft.com/v1.0/me/messages",
+        null,
+      ),
+    ).toBe(true);
+    expect(
+      isNonAdvancingOutlookNextLink(
+        "https://graph.microsoft.com/v1.0/me/messages",
+        undefined,
+      ),
+    ).toBe(true);
+  });
+
+  it("treats initial candidate link with no current link as advancing", () => {
+    expect(
+      isNonAdvancingOutlookNextLink(
+        null,
+        "https://graph.microsoft.com/v1.0/me/messages?$skip=20",
+      ),
+    ).toBe(false);
+  });
+
+  it("detects identical URLs as non-advancing", () => {
+    const url =
+      "https://graph.microsoft.com/v1.0/me/mailFolders/archive/messages?$skip=200";
+    expect(isNonAdvancingOutlookNextLink(url, url)).toBe(true);
+  });
+
+  it("detects candidate with same or lower $skip offset as non-advancing", () => {
+    const current = "https://graph.microsoft.com/v1.0/me/messages?$skip=40";
+    const sameSkip = "https://graph.microsoft.com/v1.0/me/messages?$skip=40";
+    const lowerSkip = "https://graph.microsoft.com/v1.0/me/messages?$skip=20";
+
+    expect(isNonAdvancingOutlookNextLink(current, sameSkip)).toBe(true);
+    expect(isNonAdvancingOutlookNextLink(current, lowerSkip)).toBe(true);
+  });
+
+  it("allows candidate with higher $skip offset to advance", () => {
+    const current = "https://graph.microsoft.com/v1.0/me/messages?$skip=20";
+    const next = "https://graph.microsoft.com/v1.0/me/messages?$skip=40";
+
+    expect(isNonAdvancingOutlookNextLink(current, next)).toBe(false);
+  });
+
+  it("detects identical $skiptoken parameters as non-advancing", () => {
+    const current =
+      "https://graph.microsoft.com/v1.0/me/messages?$skiptoken=token_abc";
+    const sameToken =
+      "https://graph.microsoft.com/v1.0/me/messages?$skiptoken=token_abc";
+    const nextToken =
+      "https://graph.microsoft.com/v1.0/me/messages?$skiptoken=token_xyz";
+
+    expect(isNonAdvancingOutlookNextLink(current, sameToken)).toBe(true);
+    expect(isNonAdvancingOutlookNextLink(current, nextToken)).toBe(false);
   });
 });

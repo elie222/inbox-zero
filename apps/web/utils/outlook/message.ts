@@ -18,7 +18,10 @@ import { formatEmailWithName } from "@/utils/email";
 import type { Logger } from "@/utils/logger";
 import { isOutlookThrottlingError } from "@/utils/error";
 import { isMicrosoftEmulationEnabled } from "@/utils/outlook/oauth";
-import { resolveMicrosoftGraphNextLink } from "@/utils/outlook/page-token";
+import {
+  isNonAdvancingOutlookNextLink,
+  resolveMicrosoftGraphNextLink,
+} from "@/utils/outlook/page-token";
 
 // Standard fields to select when fetching messages from Microsoft Graph API
 // internetMessageId is the RFC 5322 Message-ID header, needed for cross-provider email threading
@@ -605,7 +608,16 @@ export async function queryBatchMessages(
         : filteredMessages,
     );
 
-    return { messages, nextPageToken: response["@odata.nextLink"] };
+    const nextLinkCandidate = response["@odata.nextLink"];
+    const hasNextPage =
+      response.value.length > 0 &&
+      Boolean(nextLinkCandidate) &&
+      !isNonAdvancingOutlookNextLink(nextLink, nextLinkCandidate);
+
+    return {
+      messages,
+      nextPageToken: hasNextPage ? nextLinkCandidate : undefined,
+    };
   }
 
   const rawSearchQuery = options.mailboxSearch
@@ -675,7 +687,9 @@ export async function queryBatchMessages(
       await normalizeOutlookSearchIds(client, filteredMessages, logger),
     );
 
-    nextPageToken = response["@odata.nextLink"];
+    const hasSearchNextPage =
+      response.value.length > 0 && Boolean(response["@odata.nextLink"]);
+    nextPageToken = hasSearchNextPage ? response["@odata.nextLink"] : undefined;
 
     logger.info("Search results", {
       totalFound: response.value.length,
@@ -729,7 +743,9 @@ export async function queryBatchMessages(
       await withMicrosoftGraphRetry(() => request.get(), logger);
     const messages = await parseMessages(response.value);
 
-    nextPageToken = response["@odata.nextLink"];
+    const hasFilterNextPage =
+      response.value.length > 0 && Boolean(response["@odata.nextLink"]);
+    nextPageToken = hasFilterNextPage ? response["@odata.nextLink"] : undefined;
 
     logger.info("Filter results", {
       messageCount: messages.length,

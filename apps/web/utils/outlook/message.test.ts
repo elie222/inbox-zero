@@ -677,6 +677,52 @@ describe("queryBatchMessages", () => {
     );
   });
 
+  it("terminates continuation pagination when nextLink does not advance", async () => {
+    const request = createMockMessagesRequest();
+    request.get.mockResolvedValue({
+      value: [
+        {
+          id: "msg-1",
+          conversationId: "thread-1",
+          parentFolderId: "archive",
+        },
+      ],
+      "@odata.nextLink":
+        "https://graph.microsoft.com/v1.0/me/messages?$skip=200",
+    });
+    const api = vi.fn().mockReturnValue(request);
+    const result = await queryBatchMessages(
+      createCachedOutlookClient(api),
+      {
+        folderId: "archive",
+        pageToken: "https://graph.microsoft.com/v1.0/me/messages?$skip=200",
+      },
+      createTestLogger(),
+    );
+    expect(result.messages.map((m) => m.id)).toEqual(["msg-1"]);
+    expect(result.nextPageToken).toBeUndefined();
+  });
+
+  it("terminates continuation pagination when response.value is empty", async () => {
+    const request = createMockMessagesRequest();
+    request.get.mockResolvedValue({
+      value: [],
+      "@odata.nextLink":
+        "https://graph.microsoft.com/v1.0/me/messages?$skip=220",
+    });
+    const api = vi.fn().mockReturnValue(request);
+    const result = await queryBatchMessages(
+      createCachedOutlookClient(api),
+      {
+        folderId: "archive",
+        pageToken: "https://graph.microsoft.com/v1.0/me/messages?$skip=200",
+      },
+      createTestLogger(),
+    );
+    expect(result.messages).toEqual([]);
+    expect(result.nextPageToken).toBeUndefined();
+  });
+
   it("skips a message Graph cannot read instead of failing its whole page", async () => {
     const pageUrl =
       "https://graph.microsoft.com/v1.0/me/mailFolders('folder-1')/messages?$top=3&$skip=620";
