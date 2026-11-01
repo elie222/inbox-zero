@@ -16,7 +16,7 @@ import {
   isMicrosoftProvider,
 } from "@/utils/email/provider-types";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
-import { clearWatchLapsedErrorIfResolved } from "@/utils/error-messages";
+import { clearWatchErrorsIfResolved } from "@/utils/error-messages";
 import { syncGoogleEmailFromProfile } from "@/utils/auth/rename-email";
 import { classifyEmailAccountProviderIssue } from "@/utils/email/provider-health";
 import {
@@ -250,9 +250,9 @@ async function watchEmailAccount(
     new Date(watchEmailsExpirationDate) < new Date();
 
   if (wasLapsed) {
-    // The watch is healthy again, so clear the lapse error. This lets us
-    // notify again if the account lapses in the future.
-    await clearWatchLapsedErrorIfResolved({
+    // The watch is healthy again, so clear its lapse and mailbox-full errors.
+    // This lets us notify again if the account lapses in the future.
+    await clearWatchErrorsIfResolved({
       userId: user.id,
       emailAccountId: emailAccount.id,
       logger,

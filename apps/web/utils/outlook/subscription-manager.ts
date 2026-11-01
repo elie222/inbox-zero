@@ -1,5 +1,13 @@
 import prisma from "@/utils/prisma";
-import { captureException, isKnownOutlookError } from "@/utils/error";
+import {
+  captureException,
+  isKnownOutlookError,
+  isOutlookMailboxFullError,
+} from "@/utils/error";
+import {
+  addUserErrorMessage,
+  mailboxFullErrorKey,
+} from "@/utils/error-messages";
 import type { EmailProvider } from "@/utils/email/types";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { Logger } from "@/utils/logger";
@@ -114,6 +122,7 @@ export class OutlookSubscriptionManager {
       }
       captureException(error, { emailAccountId: this.emailAccountId });
       await this.markSubscriptionLapsed(cancelledSubscriptionId);
+      if (isOutlookMailboxFullError(error)) await this.showMailboxFullError();
       return null;
     }
   }
@@ -191,6 +200,27 @@ export class OutlookSubscriptionManager {
       });
     } catch (error) {
       this.logger.error("Failed to mark subscription as lapsed", { error });
+    }
+  }
+
+  // The account still works once the user frees up space, so we show a
+  // banner instead of disconnecting. The watch cron clears it on recovery.
+  private async showMailboxFullError() {
+    try {
+      const emailAccount = await prisma.emailAccount.findUnique({
+        where: { id: this.emailAccountId },
+        select: { email: true, userId: true },
+      });
+      if (!emailAccount) return;
+
+      await addUserErrorMessage(
+        emailAccount.userId,
+        mailboxFullErrorKey(this.emailAccountId),
+        `The mailbox for ${emailAccount.email} is full or can't accept changes, so Inbox Zero can't process new emails. Free up space or fix the mailbox in Microsoft 365. This message clears once it's working again.`,
+        this.logger,
+      );
+    } catch (error) {
+      this.logger.warn("Failed to save mailbox full error", { error });
     }
   }
 

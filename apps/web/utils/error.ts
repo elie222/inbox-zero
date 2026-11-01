@@ -384,14 +384,22 @@ export function isOutlookItemNotFoundError(error: unknown): boolean {
   );
 }
 
-// The mailbox itself can't be used (unlicensed, soft-deleted, on-premise, or
-// full), so retrying or reporting won't help until the user fixes it.
+// The mailbox is unlicensed, soft-deleted, or on-premise, so the account
+// can't be used until the user fixes it in Microsoft 365 and reconnects.
 export function isOutlookMailboxUnavailableError(error: unknown): boolean {
-  const message = (error as Record<string, unknown>)?.message;
   return (
-    typeof message === "string" &&
-    (message.includes("The mailbox is either inactive, soft-deleted") ||
-      message.includes("failed with a permanent mailbox error"))
+    getErrorMessage(error)?.includes(
+      "The mailbox is either inactive, soft-deleted",
+    ) ?? false
+  );
+}
+
+// Usually a mailbox over its storage quota. The account still works once the
+// user frees up space, so this shouldn't disconnect it.
+export function isOutlookMailboxFullError(error: unknown): boolean {
+  return (
+    getErrorMessage(error)?.includes("failed with a permanent mailbox error") ??
+    false
   );
 }
 
@@ -415,6 +423,7 @@ export function isKnownOutlookError(error: unknown): boolean {
     isOutlookAccessDeniedError(error) ||
     isOutlookItemNotFoundError(error) ||
     isOutlookMailboxUnavailableError(error) ||
+    isOutlookMailboxFullError(error) ||
     isOutlookServerError(error)
   );
 }

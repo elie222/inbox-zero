@@ -4,7 +4,7 @@ import prisma from "@/utils/__mocks__/prisma";
 import { cleanupInvalidTokens } from "@/utils/auth/cleanup-invalid-tokens";
 import { createEmailProvider } from "@/utils/email/provider";
 import { captureException } from "@/utils/error";
-import { clearWatchLapsedErrorIfResolved } from "@/utils/error-messages";
+import { clearWatchErrorsIfResolved } from "@/utils/error-messages";
 import { fetchGoogleOpenIdProfile } from "@/utils/gmail/oauth";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
 import {
@@ -15,7 +15,7 @@ import {
 vi.mock("@/utils/prisma");
 
 vi.mock("@/utils/error-messages", () => ({
-  clearWatchLapsedErrorIfResolved: vi.fn(),
+  clearWatchErrorsIfResolved: vi.fn(),
 }));
 
 vi.mock("@/utils/auth/cleanup-invalid-tokens", () => ({
@@ -218,7 +218,7 @@ describe("ensureEmailAccountsWatched", () => {
         status: "success",
       }),
     ]);
-    expect(clearWatchLapsedErrorIfResolved).toHaveBeenCalledWith(
+    expect(clearWatchErrorsIfResolved).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: "user-id",
         emailAccountId: "email-account-id",
@@ -243,7 +243,7 @@ describe("ensureEmailAccountsWatched", () => {
 
     await ensureEmailAccountsWatched({ userIds: null, logger });
 
-    expect(clearWatchLapsedErrorIfResolved).not.toHaveBeenCalled();
+    expect(clearWatchErrorsIfResolved).not.toHaveBeenCalled();
   });
 
   it("updates a renamed Google mailbox address once a day so webhooks keep matching", async () => {

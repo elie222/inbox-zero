@@ -22,7 +22,7 @@ const clearedCredentials = {
  * - insufficientPermissions: User hasn't granted all required scopes
  * - policy_enforced: Provider policy blocks access until user changes settings
  * - mail_service_not_enabled: Gmail is disabled for this Google account
- * - mailbox_unavailable: Outlook mailbox is inactive, deleted, on-premise, or full
+ * - mailbox_unavailable: Outlook mailbox is inactive, deleted, or on-premise
  */
 export async function cleanupInvalidTokens({
   emailAccountId,
@@ -222,7 +222,7 @@ function getAccountActionRequiredMessage(
     case "mail_service_not_enabled":
       return `Gmail is not enabled for ${email}. Please enable Gmail for this account and reconnect it to resume automation.`;
     case "mailbox_unavailable":
-      return `The mailbox for ${email} can't be reached. It may be inactive, unlicensed, or full. Please fix the mailbox in Microsoft 365 and reconnect it to resume automation.`;
+      return `The mailbox for ${email} can't be reached. It may be inactive, unlicensed, or hosted on-premise. Please fix the mailbox in Microsoft 365 and reconnect it to resume automation.`;
     default:
       return `The connection for ${email} was disconnected. Please reconnect your account to resume automation.`;
   }

@@ -263,16 +263,26 @@ describe("provider health", () => {
     ).toEqual({ reason: "mail_service_not_enabled" });
   });
 
-  it.each([
-    "Operation: Create; Exception: [Status Code: NotFound; Reason: The mailbox is either inactive, soft-deleted, or is hosted on-premise.]",
-    "Operation: Create; Exception: [Status Code: Forbidden; Reason: The operation failed with a permanent mailbox error.]",
-  ])("records unusable Outlook mailboxes as action-required issues: %s", (message) => {
+  it("records inactive Outlook mailboxes as action-required issues", () => {
     expect(
       classifyEmailAccountProviderIssue({
         provider: "microsoft",
-        error: new Error(message),
+        error: new Error(
+          "Operation: Create; Exception: [Status Code: NotFound; Reason: The mailbox is either inactive, soft-deleted, or is hosted on-premise.]",
+        ),
       }),
     ).toEqual({ reason: "mailbox_unavailable" });
+  });
+
+  it("does not disconnect full Outlook mailboxes", () => {
+    expect(
+      classifyEmailAccountProviderIssue({
+        provider: "microsoft",
+        error: new Error(
+          "Operation: Create; Exception: [Status Code: Forbidden; Reason: The operation failed with a permanent mailbox error.]",
+        ),
+      }),
+    ).toBeNull();
   });
 
   it("ignores transient Outlook throttling failures", async () => {
