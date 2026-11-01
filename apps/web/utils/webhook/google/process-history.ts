@@ -11,6 +11,7 @@ import {
   isKnownApiError,
 } from "@/utils/error";
 import { isEmailProviderRateLimitError } from "@/utils/email/is-provider-rate-limit-error";
+import { classifyEmailAccountProviderIssue } from "@/utils/email/provider-health";
 import {
   HistoryEventType,
   type ProcessHistoryOptions,
@@ -341,6 +342,18 @@ async function processHistory(options: ProcessHistoryOptions, logger: Logger) {
         // catch-up after the rate limit picks it up again.
         if (isEmailProviderRateLimitError({ error, provider: "google" })) {
           throw error;
+        }
+        // Every remaining item would fail the same way once the account needs
+        // reconnecting or was deleted mid-run, so stop instead of failing each.
+        const providerIssue = classifyEmailAccountProviderIssue({
+          error,
+          provider: "google",
+        });
+        if (providerIssue) {
+          logger.warn("Stopping history processing: account unavailable", {
+            reason: providerIssue.reason,
+          });
+          return;
         }
         captureException(error, {
           userEmail,
