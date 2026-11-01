@@ -12,6 +12,7 @@ import { cn } from "@/utils";
 import { HoverCard } from "@/components/HoverCard";
 import { MutedText } from "@/components/Typography";
 import type { PremiumTier } from "@/generated/prisma/enums";
+import type { SidebarCard } from "@/components/sidebar-cards/SidebarCardStack";
 
 interface PremiumData {
   appleExpiresAt?: Date | string | null;
@@ -40,13 +41,7 @@ export function PremiumExpiredCardContent({
       : premium.lemonSqueezyRenewsAt
     : null;
 
-  const isUserPremium = isPremiumRecord(premium);
-
-  // Self-hosters running with NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS already have
-  // every premium feature enabled — hasAiAccess and friends short-circuit to
-  // true — so prompting them to upgrade is misleading. They have no premium
-  // record, so the isPremiumRecord check alone never hides this.
-  if (isUserPremium || env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) return null;
+  if (!shouldShowPremiumCard(premium)) return null;
 
   const getSubscriptionMessage = () => {
     const UPGRADE_MESSAGE = {
@@ -216,23 +211,31 @@ export function PremiumExpiredCardContent({
   );
 }
 
-export function PremiumCard({
-  isCollapsed = false,
-}: {
-  isCollapsed?: boolean;
-}) {
+export function usePremiumSidebarCard(): SidebarCard | null {
   const [dismissed, setDismissed] = useState(false);
   const { data: user, isLoading } = useUser();
 
-  if (isLoading || dismissed || !user) return null;
+  if (isLoading || dismissed || !user || !shouldShowPremiumCard(user.premium))
+    return null;
 
-  return (
-    <div className={cn("px-3 pt-4", isCollapsed && "flex justify-center")}>
+  return {
+    id: "premium",
+    content: (
       <PremiumExpiredCardContent
         premium={user.premium}
-        onDismiss={isCollapsed ? undefined : () => setDismissed(true)}
-        isCollapsed={isCollapsed}
+        onDismiss={() => setDismissed(true)}
       />
-    </div>
-  );
+    ),
+    collapsedContent: (
+      <PremiumExpiredCardContent premium={user.premium} isCollapsed />
+    ),
+  };
+}
+
+// Self-hosters running with NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS already have
+// every premium feature enabled — hasAiAccess and friends short-circuit to
+// true — so prompting them to upgrade is misleading. They have no premium
+// record, so the isPremiumRecord check alone never hides this.
+function shouldShowPremiumCard(premium: PremiumData | null | undefined) {
+  return !isPremiumRecord(premium) && !env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS;
 }

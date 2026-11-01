@@ -21,9 +21,9 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { saveSignatureAction } from "@/utils/actions/user";
 import {
   createSignatureAction,
   deleteSignatureAction,
@@ -40,45 +40,93 @@ import { getAccountScopedKey } from "@/utils/swr";
 type Signature = GetSignatureResponse["signatures"][number];
 type EditingSignature = { id?: string; name: string; html: string };
 
+type FoundSignature = { html: string; count: number };
+
 export function SignaturesSetting() {
+  const [open, setOpen] = useState(false);
+
   return (
     <SettingCard
       title="More signatures"
       description="Switch between signatures when you write, like one per language."
       right={
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button size="sm" variant="outline">
-              Manage
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-h-[80vh] max-w-4xl overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Signatures</DialogTitle>
-              <DialogDescription>
-                Pick one of these instead of your default signature when you
-                compose.
-              </DialogDescription>
-            </DialogHeader>
-            <SignaturesManager />
-          </DialogContent>
-        </Dialog>
+        <>
+          <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+            Manage
+          </Button>
+          <SignaturesDialog open={open} onOpenChange={setOpen} />
+        </>
       }
     />
   );
 }
 
-function SignaturesManager() {
+export function SignaturesDialog({
+  open,
+  onOpenChange,
+  found,
+  needsDefault = false,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  found?: FoundSignature[];
+  needsDefault?: boolean;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[80vh] max-w-4xl overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Signatures</DialogTitle>
+          <DialogDescription>
+            {needsDefault
+              ? "Pick the signature to add to emails you send."
+              : "Pick one of these instead of your default signature when you compose."}
+          </DialogDescription>
+        </DialogHeader>
+        {open && (
+          <SignaturesManager initialFound={found} needsDefault={needsDefault} />
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function SignaturesManager({
+  initialFound = [],
+  needsDefault,
+}: {
+  initialFound?: FoundSignature[];
+  needsDefault: boolean;
+}) {
   const { emailAccountId } = useAccount();
   const { data, error, isLoading, mutate } = useSWR<GetSignatureResponse>(
     getAccountScopedKey("/api/user/signature", emailAccountId),
   );
   const [editing, setEditing] = useState<EditingSignature | null>(null);
-  const [found, setFound] = useState<{ html: string; count: number }[]>([]);
+  const [found, setFound] = useState(initialFound);
+  const [hasDefault, setHasDefault] = useState(!needsDefault);
 
   const { executeAsync: findSent, isExecuting: isFinding } = useAction(
     findSentSignaturesAction.bind(null, emailAccountId),
   );
+  const { executeAsync: saveDefault, isExecuting: isSavingDefault } = useAction(
+    saveSignatureAction.bind(null, emailAccountId),
+  );
+
+  const handleUseAsDefault = async (html: string) => {
+    const result = await saveDefault({ signature: html });
+    if (result?.serverError) {
+      toastError({
+        title: "Error saving signature",
+        description: result.serverError,
+      });
+      return;
+    }
+    toastSuccess({ description: "Signature saved" });
+    setHasDefault(true);
+    setFound((items) => items.filter((item) => item.html !== html));
+    mutate();
+  };
 
   const signatures =
     data?.signatures.filter(({ id }) => id !== DEFAULT_SIGNATURE_ID) ?? [];
@@ -134,13 +182,24 @@ function SignaturesManager() {
                   {item.count === 1 ? "email" : "emails"}
                 </p>
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setEditing({ name: "", html: item.html })}
-              >
-                Add
-              </Button>
+              <div className="flex gap-2">
+                {!hasDefault && (
+                  <Button
+                    size="sm"
+                    loading={isSavingDefault}
+                    onClick={() => handleUseAsDefault(item.html)}
+                  >
+                    Use as default
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setEditing({ name: "", html: item.html })}
+                >
+                  Add
+                </Button>
+              </div>
             </Card>
           ))}
         </div>
