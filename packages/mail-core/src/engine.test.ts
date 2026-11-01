@@ -380,6 +380,24 @@ describe("mail engine idle catch-up scheduling", () => {
     await harness.engine.close();
   });
 
+  it("restarts a lane the device slept through without reporting it", async () => {
+    const harness = multiAccountHarness({
+      accounts: [
+        { accountId: "acc-a", streamIds: ["inbox"], readMs: 0, hangs: true },
+      ],
+      syncLaneTimeoutMs: 40,
+    });
+    await harness.engine.runUntil(10);
+    harness.advance(60 * 60_000);
+    await new Promise((resolve) => setTimeout(resolve, 60));
+
+    await harness.engine.runUntil(harness.nowMs + 10);
+
+    expect(harness.reads).toEqual(["acc-a:inbox", "acc-a:inbox"]);
+    harness.releaseHangs();
+    await harness.engine.close();
+  });
+
   it("stops a purged account's lane so a re-added account syncs right away", async () => {
     const harness = multiAccountHarness({
       accounts: [

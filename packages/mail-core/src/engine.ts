@@ -821,9 +821,15 @@ export function createMailEngine(input: {
       const retry = syncLaneRetries.get(accountId);
       if (retry && retry.retryAtMs > runtime.nowMs()) continue;
       const abort = new AbortController();
+      const startedAtMs = runtime.nowMs();
       let timedOut = false;
+      let slept = false;
       const timeout = setTimeout(() => {
         timedOut = true;
+        // Far more wall time than the timeout means the device slept or the
+        // process was frozen mid-request. The lane restarts without a report
+        // or backoff, since its connection is likely gone, not hung.
+        slept = runtime.nowMs() - startedAtMs > 2 * syncLaneTimeoutMs;
         abort.abort();
       }, syncLaneTimeoutMs);
       // The lane settles on abort even if a request ignores the signal.
@@ -834,7 +840,7 @@ export function createMailEngine(input: {
         abort,
         done: Promise.race([catchUpAccount(account, abort.signal), aborted])
           .then(() => {
-            if (timedOut) {
+            if (timedOut && !slept) {
               failSyncLane(accountId, new Error("Mail sync lane timed out"));
             } else {
               syncLaneRetries.delete(accountId);
@@ -842,7 +848,7 @@ export function createMailEngine(input: {
           })
           .catch((error: unknown) => {
             // A purge or close stopped the lane on purpose.
-            if (abort.signal.aborted && !timedOut) return;
+            if (abort.signal.aborted && (!timedOut || slept)) return;
             failSyncLane(accountId, error);
           })
           .finally(() => {
