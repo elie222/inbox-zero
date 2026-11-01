@@ -230,10 +230,10 @@ export function isInvalidAIModelError(error: APICallError): boolean {
   ) {
     return true;
   }
-  // Model calls only 404 when the configured model (or the endpoint serving
-  // it) doesn't exist: retired OpenRouter and Gemini models, Anthropic
-  // not_found_error.
-  if (error.statusCode === 404) return true;
+  // Anthropic: 404 with "not_found_error"
+  if (error.statusCode === 404 && error.message.includes("not_found_error")) {
+    return true;
+  }
   // Bedrock: error message is just the model ID (e.g., "model: anthropic.claude-...")
   if (/^model:\s*\S+$/.test(error.message.trim())) {
     return true;
@@ -277,8 +277,17 @@ export function isInsufficientCreditsError(error: APICallError): boolean {
   // OpenAI reports an exhausted balance as a 429 with this error type.
   return (
     error.statusCode === 402 ||
-    getProviderErrorField(error, "type") === "insufficient_quota" ||
-    isGeminiSpendingCapError(error)
+    getProviderErrorField(error, "type") === "insufficient_quota"
+  );
+}
+
+// Gemini returns the same 429 RESOURCE_EXHAUSTED for a hit spending cap as for
+// a rate limit, so only the message tells them apart.
+export function isGeminiSpendingCapError(error: APICallError): boolean {
+  return (
+    error.statusCode === 429 &&
+    getProviderErrorField(error, "status") === "RESOURCE_EXHAUSTED" &&
+    error.message.includes("spending cap")
   );
 }
 
@@ -414,6 +423,11 @@ export function isContentFilterRefusal(error: unknown): boolean {
 
 // we don't want to capture these errors in Sentry
 export function isKnownApiError(error: unknown): boolean {
+  // A spent budget on our key needs someone to raise it, unlike the rate
+  // limits other 429s are. On a user's key it's marked handled instead.
+  const apiError = getAIApiCallError(error);
+  if (apiError && isGeminiSpendingCapError(apiError)) return false;
+
   return (
     isProviderRateLimitModeError(error) ||
     isGmailInsufficientPermissionsError(error) ||
@@ -689,16 +703,6 @@ function isKnownAIErrorMessage(message: string): boolean {
     "model not found",
   ];
   return patterns.some((p) => message.includes(p));
-}
-
-// Gemini returns the same 429 RESOURCE_EXHAUSTED for a hit spending cap as for
-// a rate limit, so only the message tells them apart.
-function isGeminiSpendingCapError(error: APICallError): boolean {
-  return (
-    error.statusCode === 429 &&
-    getProviderErrorField(error, "status") === "RESOURCE_EXHAUSTED" &&
-    error.message.includes("spending cap")
-  );
 }
 
 function getProviderErrorField(
