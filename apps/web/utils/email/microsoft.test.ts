@@ -1414,6 +1414,24 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
     ]);
   });
 
+  it("skips participant lookups for metadata pages that do not need them", async () => {
+    const batchPost = vi.fn();
+    const client = createMockOutlookClient(
+      [createMessage({ id: "message-1", conversationId: "thread-1" })],
+      { categoryMapCache: new Map(), batchPost },
+    );
+    const provider = new OutlookProvider(client, createTestLogger());
+
+    const result = await provider.getThreadsWithQuery({
+      query: { type: "inbox" },
+      messageFormat: "metadata",
+      skipParticipantMessages: true,
+    });
+
+    expect(result.threads.map((thread) => thread.id)).toEqual(["thread-1"]);
+    expect(batchPost).not.toHaveBeenCalled();
+  });
+
   it("omits message bodies from metadata list requests", async () => {
     const client = createMockOutlookClient([
       createMessage({ id: "message-1", conversationId: "thread-1" }),
