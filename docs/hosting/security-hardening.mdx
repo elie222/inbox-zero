@@ -66,6 +66,10 @@ To redact or block credentials and payment card numbers before they reach the pr
 
 Rules can call external webhooks. By default, Inbox Zero blocks webhooks to private, loopback, and link-local addresses. Leave `WEBHOOK_ALLOW_PRIVATE_IPS` unset, especially when the app runs inside your internal network, so a rule cannot be used to reach internal services.
 
+## Keep the host patched
+
+Inbox Zero runs on your infrastructure, so keep the host OS and kernel updated, and reboot after kernel updates. Updating the container image does not patch the host.
+
 ## Database and backups
 
 Encrypt the database at rest and in transit, and keep tested backups outside the application host. See [Production Operations](/hosting/production-operations#database-backups).
