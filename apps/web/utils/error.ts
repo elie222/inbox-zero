@@ -10,10 +10,7 @@ import {
   getProviderRateLimitMessageLabel,
   isProviderRateLimitModeError,
 } from "@/utils/email/rate-limit-mode-error";
-import {
-  extractErrorInfo,
-  isExistingGmailPushClientError,
-} from "@/utils/gmail/retry";
+import { extractErrorInfo } from "@/utils/gmail/retry";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 
 // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
@@ -220,16 +217,10 @@ export function isGmailQuotaExceededError(error: unknown): boolean {
 export const GMAIL_SERVICE_UNAVAILABLE_MESSAGE =
   "Gmail isn't available for this account. Ask your Google Workspace admin to enable Gmail for it, then try again.";
 
-// Gmail is disabled or not set up for the Google account, so Gmail calls keep
-// failing until an admin enables it.
+// Only the explicit message is reliable: a bare failedPrecondition is also
+// returned for transient failures on mailboxes where Gmail is enabled.
 export function isGmailServiceUnavailableError(error: unknown): boolean {
-  const errorInfo = extractErrorInfo(error);
-  if (isExistingGmailPushClientError(errorInfo)) return false;
-
-  return (
-    /mail service not enabled/i.test(errorInfo.errorMessage) ||
-    (errorInfo.status === 400 && errorInfo.reason === "failedPrecondition")
-  );
+  return /mail service not enabled/i.test(extractErrorInfo(error).errorMessage);
 }
 
 export function isIncorrectAPIKeyError(error: APICallError): boolean {

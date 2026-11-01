@@ -472,32 +472,29 @@ describe("markAsHandledUserKeyError / isHandledUserKeyError", () => {
 });
 
 describe("isGmailServiceUnavailableError", () => {
-  it.each([
-    ["Gmail is disabled", "failedPrecondition", "Mail service not enabled"],
-    [
-      "Gmail rejects every request for the account",
-      "failedPrecondition",
-      "Precondition check failed.",
-    ],
-  ])("detects when %s", (_name, reason, message) => {
+  it("detects when Gmail is disabled for the account", () => {
     expect(
-      isGmailServiceUnavailableError(createGmailApiError(reason, message)),
+      isGmailServiceUnavailableError(
+        createGmailApiError("failedPrecondition", "Mail service not enabled"),
+      ),
     ).toBe(true);
   });
 
-  it("ignores push client conflicts and other Gmail errors", () => {
+  it.each([
+    [
+      "a bare precondition failure",
+      "failedPrecondition",
+      "Precondition check failed.",
+    ],
+    [
+      "a push client conflict",
+      "failedPrecondition",
+      "Only one user push notification client allowed per developer (call /stop then try again)",
+    ],
+    ["another Gmail error", "invalidArgument", "Invalid label name"],
+  ])("ignores %s", (_name, reason, message) => {
     expect(
-      isGmailServiceUnavailableError(
-        createGmailApiError(
-          "failedPrecondition",
-          "Only one user push notification client allowed per developer (call /stop then try again)",
-        ),
-      ),
-    ).toBe(false);
-    expect(
-      isGmailServiceUnavailableError(
-        createGmailApiError("invalidArgument", "Invalid label name"),
-      ),
+      isGmailServiceUnavailableError(createGmailApiError(reason, message)),
     ).toBe(false);
   });
 });
