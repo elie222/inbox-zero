@@ -905,6 +905,7 @@ model ExecutedAction {
   @@index([sentMessageIds], type: Gin)
   @@index([messagingChannelId, createdAt])
   @@index([draftStatus, createdAt], map: "ExecutedAction_draftStatus_createdAt_draft_idx", where: raw("\"draftId\" IS NOT NULL"))
+  @@index([executedRuleId], map: "ExecutedAction_executedRuleId_draft_idx", where: raw("\"draftId\" IS NOT NULL"))
 }
 
 model ScheduledAction {
