@@ -4,7 +4,6 @@ import { type ReactNode, useState } from "react";
 import { SignatureIcon, XIcon } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import useSWR from "swr";
-import { getSignatureText } from "@/app/(app)/[emailAccountId]/compose/find-signature-id";
 import { SignaturesDialog } from "@/app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting";
 import type { GetSignatureSuggestionsResponse } from "@/app/api/user/signature-suggestions/route";
 import type { SidebarCard } from "@/components/sidebar-cards/SidebarCardStack";
@@ -46,17 +45,11 @@ export function useSignatureSidebarCard(): {
   );
   if (dismissed || suggestions.length === 0) return { card: null, dialog };
 
-  const isOne = suggestions.length === 1;
   const title = needsDefault
     ? "Add your signature"
-    : isOne
+    : suggestions.length === 1
       ? "Add your other signature"
       : `Add your ${suggestions.length} other signatures`;
-  const description = needsDefault
-    ? "Emails you send from here go out without it."
-    : isOne
-      ? "Save it to switch while you write."
-      : "Save them to switch while you write.";
 
   const dismiss = () => {
     setDismissed(true);
@@ -71,12 +64,6 @@ export function useSignatureSidebarCard(): {
           <SignatureIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
           <div className="min-w-0 flex-1">
             <p className="font-medium text-sm leading-tight">{title}</p>
-            {suggestions[0] && (
-              <p className="mt-1 truncate text-muted-foreground text-xs italic">
-                {getSignatureText(suggestions[0].html)}
-              </p>
-            )}
-            <p className="mt-1 text-muted-foreground text-xs">{description}</p>
           </div>
           <button
             aria-label="Dismiss"
