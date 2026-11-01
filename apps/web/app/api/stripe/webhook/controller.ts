@@ -239,12 +239,15 @@ async function recordCancellationInitiated(
         ? new Date(subscription.cancel_at * 1000).toISOString()
         : null,
       cancelAtPeriodEnd: subscription.cancel_at_period_end,
+      cancellationFeedback: subscription.cancellation_details?.feedback ?? null,
+      cancellationComment: subscription.cancellation_details?.comment ?? null,
     });
   }
 
   logger.info("Recorded user-initiated cancellation timestamp", {
     customerId,
     initiatedAt,
+    cancellationFeedback: subscription.cancellation_details?.feedback ?? null,
   });
 }
 
