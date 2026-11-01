@@ -104,6 +104,19 @@ export const updateStripeSubscriptionItemQuantity = async ({
 
     return updatedItem;
   } catch (error) {
+    // Our stored item can outlive its subscription (e.g. cancelled in Stripe);
+    // there is nothing left to bill seats against.
+    if (
+      error instanceof Stripe.errors.StripeInvalidRequestError &&
+      error.code === "resource_missing"
+    ) {
+      logger.warn("Stripe subscription not found, skipping quantity update", {
+        subscriptionItemId,
+        param: error.param,
+      });
+      return null;
+    }
+
     logger.error("Failed to update Stripe subscription item quantity", {
       subscriptionItemId,
       quantityAttempted: quantityToSet,
