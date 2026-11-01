@@ -655,7 +655,6 @@ describe("queryBatchMessages", () => {
     );
   });
 
-
   it("terminates continuation pagination when nextLink does not advance", async () => {
     const request = createMockMessagesRequest();
     request.get.mockResolvedValue({

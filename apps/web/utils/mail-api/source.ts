@@ -105,13 +105,13 @@ export function createEmailProviderMailboxSource(input: {
           ? Number.parseInt(process.env.MAIL_INITIAL_SYNC_DAYS, 10)
           : undefined;
         const defaultAfterMs =
-          initialSyncDays && Number.isFinite(initialSyncDays) && initialSyncDays > 0
+          initialSyncDays &&
+          Number.isFinite(initialSyncDays) &&
+          initialSyncDays > 0
             ? Date.now() - initialSyncDays * 24 * 60 * 60 * 1000
             : 0;
         const resolvedAfterMs =
-          typeof afterMs === "number" && afterMs > 0
-            ? afterMs
-            : defaultAfterMs;
+          typeof afterMs === "number" && afterMs > 0 ? afterMs : defaultAfterMs;
         const token: BootstrapToken = {
           afterMs: resolvedAfterMs,
           scopeId: scope.id,
@@ -539,7 +539,6 @@ function scopedFolderId(provider: EmailProvider, scope: ScopeDescriptor) {
   if (provider.name === "microsoft") return scope.folderId ?? scope.id;
   return scope.folderId ?? undefined;
 }
-
 
 // A deleted folder's enumeration or delta query fails with a 404, but so can a
 // transient Graph error, so only a fresh folder listing without it counts as gone.

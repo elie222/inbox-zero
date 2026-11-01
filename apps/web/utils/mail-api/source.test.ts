@@ -320,7 +320,6 @@ describe("createEmailProviderMailboxSource", () => {
     expect(getMessagesWithPagination).not.toHaveBeenCalled();
   });
 
-
   it("forwards after date to provider when token.afterMs is present during enumeration", async () => {
     const getMessagesWithPagination = vi.fn().mockResolvedValue({
       messages: [],
@@ -343,7 +342,7 @@ describe("createEmailProviderMailboxSource", () => {
         getMessagesWithPagination,
       } as unknown as EmailProvider,
     });
-    const afterTimestamp = 1700000000000;
+    const afterTimestamp = 1_700_000_000_000;
     const token = {
       afterMs: afterTimestamp,
       scopeId: "inbox",
@@ -415,9 +414,11 @@ describe("createEmailProviderMailboxSource", () => {
             statusCode: 404,
           });
         },
-        getFolders: vi.fn().mockResolvedValue([
-          { id: "inbox", systemType: "INBOX", childFolders: [] },
-        ]),
+        getFolders: vi
+          .fn()
+          .mockResolvedValue([
+            { id: "inbox", systemType: "INBOX", childFolders: [] },
+          ]),
       } as unknown as EmailProvider,
     });
     const token = {

@@ -18,7 +18,10 @@ import { formatEmailWithName } from "@/utils/email";
 import type { Logger } from "@/utils/logger";
 import { isOutlookThrottlingError } from "@/utils/error";
 import { isMicrosoftEmulationEnabled } from "@/utils/outlook/oauth";
-import { isNonAdvancingOutlookNextLink, resolveMicrosoftGraphNextLink } from "@/utils/outlook/page-token";
+import {
+  isNonAdvancingOutlookNextLink,
+  resolveMicrosoftGraphNextLink,
+} from "@/utils/outlook/page-token";
 
 // Standard fields to select when fetching messages from Microsoft Graph API
 // internetMessageId is the RFC 5322 Message-ID header, needed for cross-provider email threading
@@ -688,8 +691,7 @@ export async function queryBatchMessages(
     );
 
     const hasSearchNextPage =
-      response.value.length > 0 &&
-      Boolean(response["@odata.nextLink"]);
+      response.value.length > 0 && Boolean(response["@odata.nextLink"]);
     nextPageToken = hasSearchNextPage ? response["@odata.nextLink"] : undefined;
 
     logger.info("Search results", {
@@ -745,8 +747,7 @@ export async function queryBatchMessages(
     const messages = await parseMessages(response.value);
 
     const hasFilterNextPage =
-      response.value.length > 0 &&
-      Boolean(response["@odata.nextLink"]);
+      response.value.length > 0 && Boolean(response["@odata.nextLink"]);
     nextPageToken = hasFilterNextPage ? response["@odata.nextLink"] : undefined;
 
     logger.info("Filter results", {
