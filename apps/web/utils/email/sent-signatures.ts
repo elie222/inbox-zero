@@ -43,6 +43,6 @@ export async function findSentSignatures({
 }
 
 // The same signature sent twice can differ in markup but not in its text.
-function getSignatureKey(html: string) {
+export function getSignatureKey(html: string) {
   return load(html).text().replace(/\s+/g, " ").trim().toLowerCase();
 }

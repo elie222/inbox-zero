@@ -163,6 +163,8 @@ model EmailAccount {
   about                          String?
   writingStyle                   String?
   signature                      String? // User's email signature from provider or manually set
+  sentSignatureScan              Json? // signatures found in recent sent mail, see utils/email/signature-suggestions.ts
+  sentSignatureScannedAt         DateTime?
   includeReferralSignature       Boolean   @default(false)
   includeSentWithSignature       Boolean   @default(true) // "Sent with <brand>" footer on emails sent from the mail client
   sentMessageOpenTrackingEnabled Boolean   @default(true) // show when sent mail-client emails are opened
