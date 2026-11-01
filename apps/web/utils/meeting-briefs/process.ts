@@ -9,6 +9,7 @@ import { gatherContextForEvent } from "./gather-context";
 import { aiGenerateMeetingBriefing } from "@/utils/ai/meeting-briefs/generate-briefing";
 import { sendBriefing } from "./send-briefing";
 import type { Logger } from "@/utils/logger";
+import { SafeError } from "@/utils/error";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
 import { partitionAttendeesForBriefing } from "./attendees";
 
@@ -232,7 +233,13 @@ export async function runMeetingBrief({
     eventLog.info("Meeting briefing sent successfully");
     return { success: true, message: "Brief sent successfully" };
   } catch (error) {
-    eventLog.error("Failed to process meeting briefing", { error });
+    if (error instanceof SafeError && error.message === "No refresh token") {
+      eventLog.warn(
+        "Skipping meeting briefing for account without refresh token",
+      );
+    } else {
+      eventLog.error("Failed to process meeting briefing", { error });
+    }
 
     if (!isTestSend) {
       await upsertMeetingBriefingStatus({

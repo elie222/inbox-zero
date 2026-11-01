@@ -52,7 +52,11 @@ export const checkPermissionsAction = actionClient
 
       return { hasRefreshToken: true, hasAllPermissions };
     } catch (error) {
-      logger.error("Failed to check permissions", { error });
+      // A disconnected account is the state this check exists to report, and
+      // the client already logged the missing token.
+      if (!isMissingRefreshTokenError(error)) {
+        logger.error("Failed to check permissions", { error });
+      }
       return { hasRefreshToken: false, hasAllPermissions: false };
     }
   });
@@ -109,7 +113,13 @@ async function checkOutlookPermissions({
     await client.getUserProfile();
     return { hasAllPermissions: true, hasRefreshToken: true };
   } catch (error) {
-    logger.error("Outlook permissions check failed", { error });
+    if (!isMissingRefreshTokenError(error)) {
+      logger.error("Outlook permissions check failed", { error });
+    }
     return { hasAllPermissions: false, hasRefreshToken: false };
   }
+}
+
+function isMissingRefreshTokenError(error: unknown) {
+  return error instanceof SafeError && error.message === "No refresh token";
 }
