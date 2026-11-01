@@ -97,6 +97,15 @@ describe.skipIf(!RUN_DB_TESTS)(
       await prisma.$disconnect();
     });
 
+    // Mirrors the cron's batched load, so release decisions run on the same
+    // booked-meeting snapshot the route passes in.
+    function loadReconcileAccount(id: string) {
+      return prisma.emailAccount.findUniqueOrThrow({
+        where: { id },
+        select: reconcile.getReconcileAccountSelect(new Date()),
+      });
+    }
+
     function account(id: string, email: string) {
       return {
         id,
@@ -644,7 +653,7 @@ describe.skipIf(!RUN_DB_TESTS)(
       fetchEventsMock.mockResolvedValue({ events: [event], complete: true });
 
       await reconcile.reconcileAccount({
-        emailAccount: account(accountAId, ACCOUNT_A),
+        emailAccount: await loadReconcileAccount(accountAId),
         logger,
       });
       expect(fakeProvider.scheduled).toHaveLength(1);
@@ -652,7 +661,7 @@ describe.skipIf(!RUN_DB_TESTS)(
       // The event is gone from the calendar on the next pass.
       fetchEventsMock.mockResolvedValue({ events: [], complete: true });
       await reconcile.reconcileAccount({
-        emailAccount: account(accountAId, ACCOUNT_A),
+        emailAccount: await loadReconcileAccount(accountAId),
         logger,
       });
 
@@ -666,7 +675,7 @@ describe.skipIf(!RUN_DB_TESTS)(
       fetchEventsMock.mockResolvedValue({ events: [event], complete: true });
 
       await reconcile.reconcileAccount({
-        emailAccount: account(accountAId, ACCOUNT_A),
+        emailAccount: await loadReconcileAccount(accountAId),
         logger,
       });
       expect(fakeProvider.scheduled).toHaveLength(1);
@@ -675,7 +684,7 @@ describe.skipIf(!RUN_DB_TESTS)(
       // an incomplete fetch must not be treated as deletion.
       fetchEventsMock.mockResolvedValue({ events: [], complete: false });
       await reconcile.reconcileAccount({
-        emailAccount: account(accountAId, ACCOUNT_A),
+        emailAccount: await loadReconcileAccount(accountAId),
         logger,
       });
 
