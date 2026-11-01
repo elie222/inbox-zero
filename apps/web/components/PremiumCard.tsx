@@ -151,6 +151,7 @@ export function PremiumExpiredCardContent({
         }
       >
         <Link
+          aria-label={title}
           href={buttonHref}
           className="flex items-center justify-center p-2 rounded-lg bg-orange-100 hover:bg-orange-200 transition-colors dark:bg-orange-900/30 dark:hover:bg-orange-900/50"
         >

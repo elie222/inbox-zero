@@ -54,21 +54,21 @@ export async function getSignatureSuggestions({
     emailAccount.sentSignatureScannedAt &&
     Date.now() - emailAccount.sentSignatureScannedAt.getTime() <
       SCAN_MAX_AGE_MS;
+  const savedSignatures = [
+    emailAccount.signature ?? "",
+    ...emailAccount.emailSignatures.map(({ html }) => html),
+  ];
   const scan =
     cached.success && isFresh
       ? cached.data
       : await scanSentSignatures({
           emailAccountId,
           provider: emailAccount.account.provider,
+          savedSignatures,
           logger,
         });
 
-  const known = new Set(
-    [
-      emailAccount.signature ?? "",
-      ...emailAccount.emailSignatures.map(({ html }) => html),
-    ].map(getSignatureKey),
-  );
+  const known = new Set(savedSignatures.map(getSignatureKey));
   const suggestions = scan.signatures.filter(
     ({ html, count }) => count >= MIN_USES && !known.has(getSignatureKey(html)),
   );
@@ -86,10 +86,12 @@ export async function getSignatureSuggestions({
 async function scanSentSignatures({
   emailAccountId,
   provider,
+  savedSignatures,
   logger,
 }: {
   emailAccountId: string;
   provider: string;
+  savedSignatures: string[];
   logger: Logger;
 }) {
   let scan: SentSignatureScan = { signatures: [], providerSignature: false };
@@ -99,13 +101,20 @@ async function scanSentSignatures({
       provider,
       logger,
     });
-    const addresses = await emailProvider.getSendAsAddresses();
-    const providerSignature =
-      addresses.find((address) => address.isDefault)?.signature ?? "";
+    const providerSignature = await emailProvider
+      .getSendAsAddresses()
+      .then(
+        (addresses) =>
+          addresses.find((address) => address.isDefault)?.signature ?? "",
+      )
+      .catch((error) => {
+        logger.warn("Could not read the provider signature", { error });
+        return "";
+      });
     scan = {
       signatures: await findSentSignatures({
         emailProvider,
-        knownSignatures: [providerSignature],
+        knownSignatures: [providerSignature, ...savedSignatures],
       }),
       providerSignature: !!providerSignature,
     };

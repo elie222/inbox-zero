@@ -25,6 +25,7 @@ export function SidebarCardStack({
 }) {
   const [expanded, setExpanded] = useState(false);
   const [top, ...rest] = cards;
+  if (collapsed && expanded) setExpanded(false);
   if (!top) return null;
 
   if (collapsed) {
@@ -56,18 +57,15 @@ export function SidebarCardStack({
           setExpanded(false);
       }}
     >
-      {isExpanded ? (
-        <div className="flex flex-col gap-2">
-          {cards.map((card) => (
-            <div key={card.id}>{card.content}</div>
-          ))}
-        </div>
-      ) : (
-        <div
-          className="relative"
-          style={{ marginBottom: peeking.length * PEEK_OFFSET_PX }}
-        >
-          {peeking.map((card, index) => (
+      {/* The top card keeps its place in the tree so expanding never remounts it and drops focus. */}
+      <div
+        className="relative"
+        style={{
+          marginBottom: isExpanded ? 0 : peeking.length * PEEK_OFFSET_PX,
+        }}
+      >
+        {!isExpanded &&
+          peeking.map((card, index) => (
             <div
               aria-hidden
               className="absolute inset-0 origin-bottom rounded-lg border bg-card shadow-sm"
@@ -78,11 +76,16 @@ export function SidebarCardStack({
               }}
             />
           ))}
-          <div className="relative" style={{ zIndex: peeking.length + 1 }}>
-            {top.content}
-          </div>
+        <div className="relative" style={{ zIndex: peeking.length + 1 }}>
+          {top.content}
         </div>
-      )}
+      </div>
+      {isExpanded &&
+        rest.map((card) => (
+          <div className="mt-2" key={card.id}>
+            {card.content}
+          </div>
+        ))}
     </section>
   );
 }

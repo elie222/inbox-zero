@@ -21,7 +21,6 @@ export function useSignatureSidebarCard(): {
 } {
   const { emailAccountId } = useAccount();
   const [open, setOpen] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
   const { data, mutate } = useSWR<GetSignatureSuggestionsResponse>(
     emailAccountId
       ? getAccountScopedKey("/api/user/signature-suggestions", emailAccountId)
@@ -43,7 +42,7 @@ export function useSignatureSidebarCard(): {
       needsDefault={needsDefault}
     />
   );
-  if (dismissed || suggestions.length === 0) return { card: null, dialog };
+  if (suggestions.length === 0) return { card: null, dialog };
 
   const title = needsDefault
     ? "Add your signature"
@@ -52,7 +51,7 @@ export function useSignatureSidebarCard(): {
       : `Add your ${suggestions.length} other signatures`;
 
   const dismiss = () => {
-    setDismissed(true);
+    mutate({ suggestions: [], needsDefault: false }, { revalidate: false });
     dismissHint({ hintId: getSignatureSuggestionsHintId(emailAccountId) });
   };
 

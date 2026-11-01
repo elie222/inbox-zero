@@ -115,10 +115,10 @@ function SignaturesManager({
 
   const handleUseAsDefault = async (html: string) => {
     const result = await saveDefault({ signature: html });
-    if (result?.serverError) {
+    if (result?.serverError || result?.validationErrors) {
       toastError({
         title: "Error saving signature",
-        description: result.serverError,
+        description: result.serverError ?? "This signature is too long.",
       });
       return;
     }

@@ -22,6 +22,22 @@ describe("SidebarCardStack", () => {
     expect(screen.getByText("Update")).toBeTruthy();
   });
 
+  it("lays the cards out while focus is inside the stack, keeping the focused card", () => {
+    const withButton = [
+      { id: "billing", content: <button type="button">Pay</button> },
+      ...cards.slice(1),
+    ];
+    render(<SidebarCardStack cards={withButton} collapsed={false} />);
+    const pay = screen.getByRole("button", { name: "Pay" });
+
+    fireEvent.focus(pay);
+    expect(screen.getByText("Signatures")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Pay" })).toBe(pay);
+
+    fireEvent.blur(pay, { relatedTarget: null });
+    expect(screen.queryByText("Signatures")).toBeNull();
+  });
+
   it("shows the first card's icon with a count when the sidebar is collapsed", () => {
     render(<SidebarCardStack cards={cards} collapsed />);
     expect(screen.getByText("B")).toBeTruthy();
