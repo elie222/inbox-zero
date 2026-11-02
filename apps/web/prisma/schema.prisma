@@ -615,6 +615,8 @@ model Premium {
   stripeCancellationInitiatedAt  DateTime? // Timestamp of the event that first scheduled cancellation. Does not identify who initiated it.
   stripeCanceledAt               DateTime? // Stripe canceled_at: when cancellation was requested, which can precede the effective end in stripeEndedAt. Historical data.
   stripeEndedAt                  DateTime? // Timestamp for when the subscription ended permanently for any reason (cancellation, final payment failure). Historical data.
+  stripeCancellationFeedback     String? // Customer portal cancellation survey reason, e.g. 'too_expensive'.
+  stripeCancellationComment      String? // Customer portal cancellation survey free-text comment.
   stripeAiOverageLastInvoiceId   String?
   stripeAiOverageLastPeriodEnd   DateTime?
   stripeAiOverageLastUnits       Int?

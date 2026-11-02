@@ -148,6 +148,10 @@ export async function syncStripeDataToDb({
       stripeEndedAt: subscription.ended_at
         ? new Date(subscription.ended_at * 1000)
         : null,
+      stripeCancellationFeedback:
+        subscription.cancellation_details?.feedback ?? null,
+      stripeCancellationComment:
+        subscription.cancellation_details?.comment || null,
     };
 
     if (currentPremium?.stripeSubscriptionStatus !== stripeSubscriptionStatus) {
