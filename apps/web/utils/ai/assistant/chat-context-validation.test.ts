@@ -27,4 +27,23 @@ describe("reader email context", () => {
     expect(context.message).not.toHaveProperty("attachments");
     expect(JSON.stringify(context).length).toBeLessThan(35_000);
   });
+  it("keeps astral characters intact at field boundaries", () => {
+    const context = messageContextSchema.parse({
+      type: "email",
+      message: {
+        id: "message",
+        threadId: "thread",
+        snippet: "",
+        textPlain: `${"a".repeat(11_999)}😀end`,
+        headers: {
+          from: "sender@example.com",
+          to: "me@example.com",
+          subject: `${"b".repeat(999)}😀end`,
+          date: "",
+        },
+      },
+    });
+    expect(context.message.textPlain).toBe("a".repeat(11_999));
+    expect(context.message.headers.subject).toBe("b".repeat(999));
+  });
 });

@@ -181,8 +181,7 @@ export function Chat({
   const { data: session } = useSession();
   const firstName = session?.user?.name?.split(" ")[0];
   const hasMessages = messages.length > 0;
-  const hasContent =
-    input.trim().length > 0 || attachments.length > 0 || !!context;
+  const hasContent = input.trim().length > 0 || attachments.length > 0;
 
   const inputArea = (
     <>

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { sliceHead } from "@/utils/string";
 import { GroupItemType, SystemType } from "@/generated/prisma/enums";
 
 const parsedMessageSchema = z.object({
@@ -100,5 +101,5 @@ export const messageContextSchema = z.discriminatedUnion("type", [
 export type MessageContext = z.infer<typeof messageContextSchema>;
 
 function boundedString(maxLength: number) {
-  return z.string().transform((value) => value.slice(0, maxLength));
+  return z.string().transform((value) => sliceHead(value, maxLength));
 }
