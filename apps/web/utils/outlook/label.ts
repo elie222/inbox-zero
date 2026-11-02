@@ -22,6 +22,8 @@ import {
 } from "@/utils/outlook/label-validation";
 import { findLabelByName } from "@/utils/label/find-label-by-name";
 import { getFolderIds } from "@/utils/outlook/message";
+import { findOutlookFolderByName } from "@/utils/outlook/folders";
+import { getReviewBeforeDeleteLabel } from "@/utils/review-before-delete";
 import type { OutlookCategory } from "@microsoft/microsoft-graph-types";
 import {
   OUTLOOK_CATEGORY_COLOR_IDS,
@@ -578,18 +580,32 @@ export async function untrashThread({
   client,
   threadId,
   logger,
+  reviewLabel,
 }: {
   client: OutlookClient;
   threadId: string;
   logger: Logger;
+  reviewLabel?: string;
 }) {
+  const labelToUse = reviewLabel ?? getReviewBeforeDeleteLabel();
+  let sourceFolder = "deleteditems";
+
+  if (labelToUse) {
+    const folder = await findOutlookFolderByName(client, labelToUse, logger);
+    if (folder?.id) {
+      sourceFolder = folder.id;
+    }
+  }
+
   await moveThreadFromFolderToInbox({
     client,
     threadId,
-    sourceFolder: "deleteditems",
+    sourceFolder,
     logger,
   });
 }
+
+
 
 export async function markReadThread({
   client,

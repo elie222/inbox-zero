@@ -9,6 +9,7 @@ import {
 import { ConditionType } from "@/utils/config";
 import { NINETY_DAYS_MINUTES } from "@/utils/date";
 import { validateLabelNameBasic } from "@/utils/gmail/label-validation";
+import { isReservedReviewBypassLabel } from "@/utils/review-before-delete";
 import { findIntegration } from "@/utils/mcp/integrations";
 import {
   getIntegrationArgKeys,
@@ -142,6 +143,15 @@ const zodAction = z
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: "Please enter a label name for the Label action",
+          path: ["labelId"],
+        });
+        return;
+      }
+
+      if (isReservedReviewBypassLabel(labelValue)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `"${labelValue}" is a reserved system label and cannot be used in a Label action`,
           path: ["labelId"],
         });
         return;
@@ -383,6 +393,15 @@ const importedAction = z
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: "Label action requires a label name",
+          path: ["label"],
+        });
+        return;
+      }
+
+      if (isReservedReviewBypassLabel(labelValue)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `"${labelValue}" is a reserved system label and cannot be used in a Label action`,
           path: ["label"],
         });
         return;
