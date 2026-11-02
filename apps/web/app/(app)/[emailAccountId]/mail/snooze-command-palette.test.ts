@@ -107,10 +107,11 @@ describe("buildSnoozeCommandPalette", () => {
   });
 
   it.each([
+    { day: 18, query: "next w", label: "Next week", until: 24 },
     { day: 20, query: "end", label: "End of week", until: 21 },
     { day: 21, query: "thi", label: "This weekend", until: 22 },
     { day: 23, query: "next wee", label: "Next week", until: 24 },
-  ])("keeps a matching duplicate-date preset for $query", ({
+  ])("keeps the matching preset date for $query", ({
     day,
     query,
     label,

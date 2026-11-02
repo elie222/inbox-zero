@@ -13,9 +13,9 @@ export function buildSnoozeCommandPalette({
 }): Command[] {
   const normalizedQuery = query.trim().toLowerCase();
   const presets = getSnoozePresets(now, normalizedQuery);
-  const naturalLanguageDate =
-    presets.find((preset) => preset.label.toLowerCase() === normalizedQuery)
-      ?.until ?? parseSnoozeDate(query, now);
+  const naturalLanguageDate = presets.length
+    ? null
+    : parseSnoozeDate(query, now);
   if (naturalLanguageDate) {
     return [
       {
