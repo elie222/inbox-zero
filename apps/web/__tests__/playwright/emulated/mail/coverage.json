@@ -163,6 +163,10 @@
     "app/(app)/[emailAccountId]/mail/BufferedThreadReader.tsx",
     "components/email-list/EmailContents.tsx"
   ],
+  "reader-unsubscribe.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx",
+    "app/(app)/[emailAccountId]/mail/use-unsubscribe-sender.ts"
+  ],
   "reader-visuals.spec.ts": [
     "app/(app)/[emailAccountId]/mail/ThreadReader.tsx",
     "components/email-list/EmailContents.tsx",

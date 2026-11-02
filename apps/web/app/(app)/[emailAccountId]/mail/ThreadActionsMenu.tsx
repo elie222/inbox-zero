@@ -93,7 +93,7 @@ export function ThreadActionsMenu({
     onToggleAutoArchive,
     onUnsubscribe,
     PremiumModal,
-  } = useSenderCommands(message);
+  } = useSenderCommands(receivedMessage ?? message);
   const openUrl = message
     ? getEmailMessageCellActions({
         externalUrl: message.externalUrl,
