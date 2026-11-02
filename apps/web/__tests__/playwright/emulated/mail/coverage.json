@@ -41,6 +41,7 @@
   "command-palette.spec.ts": [
     "components/CommandK.tsx",
     "store/command-palette.ts",
+    "app/(app)/[emailAccountId]/mail/mail-command-palette.ts",
     "app/(app)/[emailAccountId]/mail/snooze-command-palette.ts",
     "app/(app)/[emailAccountId]/mail/ShortcutsDialog.tsx"
   ],
@@ -162,6 +163,10 @@
   "reader-transition.spec.ts": [
     "app/(app)/[emailAccountId]/mail/BufferedThreadReader.tsx",
     "components/email-list/EmailContents.tsx"
+  ],
+  "reader-unsubscribe.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx",
+    "app/(app)/[emailAccountId]/mail/use-unsubscribe-sender.ts"
   ],
   "reader-visuals.spec.ts": [
     "app/(app)/[emailAccountId]/mail/ThreadReader.tsx",

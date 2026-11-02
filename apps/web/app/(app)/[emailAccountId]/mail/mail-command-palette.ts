@@ -46,7 +46,7 @@ export function buildMailCommandPalette({
   isAutoArchived = false,
   isAutoArchiveDisabled = false,
   isUnsubscribeDisabled = false,
-  unsubscribeLabel = "Unsubscribe from sender",
+  unsubscribeLabel = "Unsubscribe",
   openExternalLabel = "Open in email provider",
   targetCount,
 }: {
