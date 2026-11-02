@@ -582,6 +582,25 @@ describe("markTrackedDraftDeleted", () => {
     });
   });
 
+  it("marks a skipped draft as cleaned up when the user deletes it", async () => {
+    mocks.prisma.executedAction.findFirst.mockResolvedValue({
+      id: "action-1",
+      draftStatus: DraftEmailStatus.CLEANUP_SKIPPED,
+      wasDraftSent: null,
+    });
+
+    await markTrackedDraftDeleted({
+      draftId: "draft-1",
+      emailAccountId: "email-account-1",
+      logger,
+    });
+
+    expect(mocks.prisma.executedAction.update).toHaveBeenCalledWith({
+      where: { id: "action-1" },
+      data: { draftStatus: DraftEmailStatus.CLEANED_UP_UNUSED },
+    });
+  });
+
   it("does nothing when the draft is not tracked", async () => {
     mocks.prisma.executedAction.findFirst.mockResolvedValue(null);
 

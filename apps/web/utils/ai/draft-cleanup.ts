@@ -374,7 +374,9 @@ function canTransitionDraftStatus(
   return (
     !current ||
     current === DraftEmailStatus.PENDING ||
-    current === DraftEmailStatus.REPLIED_WITHOUT_DRAFT
+    current === DraftEmailStatus.REPLIED_WITHOUT_DRAFT ||
+    // A skipped draft the user deletes must not be tracked as sent later.
+    current === DraftEmailStatus.CLEANUP_SKIPPED
   );
 }
 
