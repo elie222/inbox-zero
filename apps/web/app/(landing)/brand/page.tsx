@@ -128,7 +128,7 @@ export default function BrandPage() {
               >
                 <span className="sr-only">{logo.name}</span>
                 {logo.preview}
-                <div className="absolute right-3 bottom-3 flex gap-2 transition-opacity md:opacity-0 md:group-focus-within:opacity-100 md:group-hover:opacity-100">
+                <div className="absolute right-3 bottom-3 flex gap-2 transition-opacity [@media(hover:hover)]:opacity-0 group-focus-within:opacity-100 [@media(hover:hover)]:group-hover:opacity-100">
                   {logo.downloads.map((download) => (
                     <a
                       key={download.label}
