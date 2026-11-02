@@ -183,6 +183,7 @@ function attributeMayLoad(element: Element, { name, value }: Attr) {
   if (name === "style") return CSS_LOAD_PATTERN.test(value);
   if (name === "href" && element.matches("a, area")) return false;
   if (name === "srcset")
+    // The sanitizer drops data: srcsets, so no candidate URL holds a comma.
     return value.split(",").some((candidate) => !isLocalUrl(candidate));
   if (URL_ATTRIBUTES.has(name)) return !isLocalUrl(value);
   return REMOTE_URL_PATTERN.test(

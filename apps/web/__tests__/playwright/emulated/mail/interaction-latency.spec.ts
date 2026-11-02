@@ -506,9 +506,11 @@ async function countSentCopies(
   text: string,
 ) {
   const messages = await readReplyThreadMessages(page, emailAccountId);
+  // Outlook discards a draft by moving it to Deleted Items, so only the Sent
+  // copy counts as delivered.
   return messages.filter(
     (message) =>
-      !message.labelIds?.includes("DRAFT") &&
+      message.labelIds?.includes("SENT") &&
       `${message.textPlain ?? ""}${message.textHtml ?? ""}`.includes(text),
   ).length;
 }

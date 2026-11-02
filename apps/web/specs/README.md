@@ -27,6 +27,7 @@ one or two provider round trips. The model compares three designs:
 - what is delivered is what the composer held when Send was pressed;
 - once a delivered send settles, no draft for it remains;
 - a composer restored by undo keeps a draft it can save to;
+- a send the provider refuses leaves the user's draft in place;
 - a session never has two drafts;
 - a send never finds the draft it was sent through already gone.
 

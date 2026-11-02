@@ -99,6 +99,10 @@ describe("preparing html for the image proxy", () => {
     ],
     ["inline images", '<img src="cid:logo@example.com" alt="Logo">'],
     ["local styles", "<style>p { color: red; }</style><p>Hi</p>"],
+    [
+      "an inline-image srcset",
+      '<img srcset="cid:a@example.com 1x, cid:b@example.com 2x">',
+    ],
   ])("shows %s without the proxy", async (_case, html) => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     const sourceHtml = sanitizeEmailHtml(html);
@@ -138,6 +142,10 @@ describe("preparing html for the image proxy", () => {
     [
       "an escaped inline style",
       '<div style="background: \\75 rl(//tracker.example/p.png)">Hi</div>',
+    ],
+    [
+      "a remote candidate after an inline image",
+      '<img srcset="cid:a@example.com 1x, https://tracker.example/p.png 2x">',
     ],
     [
       "a table background",

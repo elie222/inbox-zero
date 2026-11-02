@@ -41,6 +41,7 @@ import type { createInitialComposeContent } from "./initial-compose-content";
 import {
   queueReaderEmail,
   READER_EMAIL_SETTLEMENT_TIMEOUT_MS,
+  waitForDelivery,
   waitForReaderEmailSettlement,
 } from "./queued-reply";
 import { getReplyToEmailPayload } from "./reply-to-email-payload";
@@ -56,6 +57,9 @@ import {
   UNDO_SEND_DELAY_MS,
 } from "./undo-send";
 import type { useComposeDraft } from "./useComposeDraft";
+
+// How long an open tab keeps watching a pending send to remove its draft.
+const PENDING_SEND_WATCH_MS = 30 * 60 * 1000;
 
 export function useComposeSend({
   draft,
@@ -466,19 +470,28 @@ export function useComposeSend({
                 showDraftAgain();
               if (settled.status === "cancelled") return;
               // Undo and failure keep the draft so the restored composer can
-              // keep saving to it. Past the undo window the send carries its
-              // own copy, so the draft goes even if delivery is still pending.
-              if (
-                replacesSavingDraft &&
-                !(await discardDraftReplacedBySend({
-                  client,
-                  emailAccountId: selectedEmailAccountId,
+              // keep saving to it. Only a delivered send removes it; one still
+              // pending is watched until it ends (specs/compose-send.qnt).
+              if (replacesSavingDraft && settled.status !== "failed") {
+                // Read before the local draft that records its id is cleared.
+                const replacedDraft = await readDraftReplacedBySend({
                   draftSaveSettled,
                   providerDraftId,
                   localDraftIdentity,
-                }))
-              )
-                showDraftAgain();
+                });
+                removeDraftOnceDelivered({
+                  client,
+                  emailAccountId: selectedEmailAccountId,
+                  operationId: outcome.mutationId,
+                  delivered: settled.status === "sent",
+                  replacedDraft,
+                }).then(
+                  (removed) => {
+                    if (!removed) showDraftAgain();
+                  },
+                  () => showDraftAgain(),
+                );
+              }
               await discardLocalDraft();
               if (settled.status === "sent") {
                 if (markDoneAfterSend) onMarkDone?.();
@@ -638,32 +651,66 @@ async function refreshScheduledEmails(
 }
 
 /**
- * Removes the mailbox draft a send replaced, once the save that was in flight
- * when Send was pressed has landed. Reading the draft id only then also covers
- * a save that created the draft. Resolves false if the draft is still there.
+ * The mailbox draft a send replaced, read once the save that was in flight
+ * when Send was pressed has landed, so a save that created the draft counts.
  */
-async function discardDraftReplacedBySend({
-  client,
-  emailAccountId,
+async function readDraftReplacedBySend({
   draftSaveSettled,
   providerDraftId,
   localDraftIdentity,
 }: {
-  client: MailClient;
-  emailAccountId: string;
   draftSaveSettled: Promise<void>;
   providerDraftId: RefObject<string | undefined>;
   localDraftIdentity?: ReplyDraftIdentity;
 }) {
   await draftSaveSettled;
-  const draftId =
-    providerDraftId.current ??
-    (localDraftIdentity
-      ? (await getReplyDraft(localDraftIdentity))?.content?.providerDraftId
-      : undefined);
-  if (!draftId) return true;
+  const saved = localDraftIdentity
+    ? (await getReplyDraft(localDraftIdentity))?.content
+    : undefined;
+  return {
+    draftId: providerDraftId.current ?? saved?.providerDraftId,
+    // A creation the provider never confirmed may still have left a draft.
+    creationUnconfirmed: Boolean(saved?.providerDraftCreationUnconfirmed),
+  };
+}
+
+/**
+ * Removes the replaced draft once the send is delivered. Resolves false if
+ * the draft may still be there, so it can be shown again.
+ */
+async function removeDraftOnceDelivered({
+  client,
+  emailAccountId,
+  operationId,
+  delivered,
+  replacedDraft,
+}: {
+  client: MailClient;
+  emailAccountId: string;
+  operationId: string;
+  delivered: boolean;
+  replacedDraft: Awaited<ReturnType<typeof readDraftReplacedBySend>>;
+}) {
+  if (
+    !delivered &&
+    !(await waitForDelivery({
+      client,
+      accountId: emailAccountId,
+      operationId,
+      timeoutMs: PENDING_SEND_WATCH_MS,
+    }))
+  )
+    return false;
+  if (!replacedDraft.draftId) {
+    if (!replacedDraft.creationUnconfirmed) return true;
+    toastError({
+      description:
+        "This reply's draft may still be in Drafts. Check Drafts in Gmail or Outlook.",
+    });
+    return false;
+  }
   const result = await discardComposeDraftAction(emailAccountId, {
-    draftId,
+    draftId: replacedDraft.draftId,
   }).catch(() => undefined);
   if (!result?.data) {
     toastError({

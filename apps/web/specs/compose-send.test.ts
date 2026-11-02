@@ -3,12 +3,16 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const SPEC = path.join(import.meta.dirname, "compose-send.qnt");
-const QUINT = path.join(
+// Run the CLI through Node so no shell has to parse the paths.
+const QUINT_CLI = path.join(
   import.meta.dirname,
   "..",
   "node_modules",
-  ".bin",
-  process.platform === "win32" ? "quint.cmd" : "quint",
+  "@informalsystems",
+  "quint",
+  "dist",
+  "src",
+  "cli.js",
 );
 
 describe("compose send model", { timeout: 60_000 }, () => {
@@ -16,7 +20,7 @@ describe("compose send model", { timeout: 60_000 }, () => {
     "reconcileSend",
     "waitForSave",
   ])("%s keeps every send property", (main) => {
-    expect(simulate(main, "safety")).toEqual({ violated: false });
+    expect(simulate(main, "safety", 3000)).toEqual({ violated: false });
   });
 
   // The model must be able to see the bugs it guards against, or a passing
@@ -28,28 +32,29 @@ describe("compose send model", { timeout: 60_000 }, () => {
     // remove the draft that save created.
     ["reconcileSendTabCloses", "noDraftLeftAfterSend"],
   ])("%s violates %s", (main, invariant) => {
-    expect(simulate(main, invariant)).toEqual({ violated: true });
+    // A run stops at the first violation, so a large budget costs little.
+    expect(simulate(main, invariant, 50_000)).toEqual({ violated: true });
   });
 });
 
-function simulate(main: string, invariant: string) {
+function simulate(main: string, invariant: string, samples: number) {
   const result = spawnSync(
-    QUINT,
+    process.execPath,
     [
+      QUINT_CLI,
       "run",
       SPEC,
       `--main=${main}`,
       `--invariant=${invariant}`,
       // Pure Node, so the test needs no downloaded evaluator.
       "--backend=typescript",
-      "--max-samples=3000",
+      `--max-samples=${samples}`,
       "--max-steps=30",
       "--seed=1",
     ],
     {
       encoding: "utf8",
       timeout: 120_000,
-      shell: process.platform === "win32",
     },
   );
   const output = `${result.stdout}${result.stderr}`;
