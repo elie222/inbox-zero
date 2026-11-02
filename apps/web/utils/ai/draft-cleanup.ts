@@ -230,8 +230,9 @@ export async function markTrackedDraftDeleted({
   }
 }
 
-// Nothing updates a disconnected account's drafts, so they would stay
-// candidates forever. They stay skipped after a reconnect too.
+// Nothing updates a disconnected account's rule drafts, so they would stay
+// candidates forever. They stay skipped after a reconnect too. Follow-up
+// drafts on ThreadTracker are out of scope here and keep their cleanup.
 export async function skipDraftCleanupForDisconnectedAccount({
   emailAccountId,
   logger,
