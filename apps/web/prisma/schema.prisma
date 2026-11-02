@@ -2250,6 +2250,7 @@ enum DraftEmailStatus {
   CLEANED_UP_UNUSED
   MISSING_FROM_PROVIDER
   USER_EDITED
+  CLEANUP_SKIPPED
 }
 
 enum ReplyMemoryKind {

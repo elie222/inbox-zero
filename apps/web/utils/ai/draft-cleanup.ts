@@ -230,6 +230,33 @@ export async function markTrackedDraftDeleted({
   }
 }
 
+// Nothing updates a disconnected account's drafts, so they would stay
+// candidates forever. They stay skipped after a reconnect too.
+export async function skipDraftCleanupForDisconnectedAccount({
+  emailAccountId,
+  logger,
+}: {
+  emailAccountId: string;
+  logger: Logger;
+}) {
+  try {
+    const { count } = await prisma.executedAction.updateMany({
+      where: {
+        executedRule: { emailAccountId },
+        type: ActionType.DRAFT_EMAIL,
+        draftId: { not: null },
+        ...getDraftCleanupCandidateWhere(),
+      },
+      data: { draftStatus: DraftEmailStatus.CLEANUP_SKIPPED },
+    });
+    logger.info("Skipped draft cleanup for disconnected account", { count });
+  } catch (error) {
+    logger.error("Failed to skip draft cleanup for disconnected account", {
+      error,
+    });
+  }
+}
+
 export async function getEmailAccountsWithStaleAIDrafts() {
   const minCutoffDate = subDays(new Date(), MIN_AI_DRAFT_CLEANUP_DAYS);
   const emailAccounts = await prisma.emailAccount.findMany({
