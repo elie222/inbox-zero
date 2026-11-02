@@ -11,10 +11,12 @@ export function buildSnoozeCommandPalette({
   onSnooze: (until: Date) => void;
   query: string;
 }): Command[] {
-  const naturalLanguageDate = parseSnoozeDate(query, now);
-  if (query.trim()) {
-    if (!naturalLanguageDate) return [];
-
+  const normalizedQuery = query.trim().toLowerCase();
+  const presets = getSnoozePresets(now, normalizedQuery);
+  const naturalLanguageDate = presets.length
+    ? null
+    : parseSnoozeDate(query, now);
+  if (naturalLanguageDate) {
     return [
       {
         id: "mail-snooze-natural-language",
@@ -27,7 +29,7 @@ export function buildSnoozeCommandPalette({
     ];
   }
 
-  return getSnoozePresets(now).map((preset, index) => ({
+  return presets.map((preset, index) => ({
     id: `mail-snooze-${preset.id}`,
     label: preset.label,
     description: formatSnoozeTime(preset.until),
@@ -56,7 +58,7 @@ const SUNDAY = 0;
 const FRIDAY = 5;
 const SATURDAY = 6;
 
-export function getSnoozePresets(now: Date) {
+export function getSnoozePresets(now: Date, query = "") {
   const candidates = [
     {
       id: "tomorrow",
@@ -82,7 +84,7 @@ export function getSnoozePresets(now: Date) {
 
   const seen = new Set<number>();
   return candidates.flatMap(({ until, ...preset }) => {
-    if (!until) return [];
+    if (!until || !preset.label.toLowerCase().includes(query)) return [];
     const key = until.getTime();
     if (seen.has(key)) return [];
     seen.add(key);
