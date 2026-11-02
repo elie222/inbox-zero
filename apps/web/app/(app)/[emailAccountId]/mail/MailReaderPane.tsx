@@ -114,8 +114,8 @@ export const MailReaderPane = memo(function MailReaderPane({
           onReady={onReady}
         >
           <ThreadReader
-            showChat={showFixWithChat}
             {...readerProps}
+            showChat={showFixWithChat}
             onBackToInbox={onClose}
             renderMessageMenu={renderMessageMenu}
             menu={

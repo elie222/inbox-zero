@@ -73,8 +73,32 @@ const fixRuleContextSchema = z.object({
     ]),
   ]),
 });
+export const emailMessageContextSchema = z.object({
+  type: z.literal("email"),
+  message: parsedMessageSchema.extend({
+    id: boundedString(1000),
+    threadId: boundedString(1000),
+    snippet: boundedString(3000),
+    textPlain: boundedString(12_000).optional(),
+    textHtml: boundedString(12_000).optional(),
+    headers: z.object({
+      from: boundedString(1000),
+      to: boundedString(1000),
+      subject: boundedString(1000),
+      cc: boundedString(1000).optional(),
+      date: boundedString(100),
+      "reply-to": boundedString(1000).optional(),
+    }),
+    internalDate: boundedString(100).nullish(),
+  }),
+});
+
 export const messageContextSchema = z.discriminatedUnion("type", [
   fixRuleContextSchema,
-  z.object({ type: z.literal("email"), message: parsedMessageSchema }),
+  emailMessageContextSchema,
 ]);
 export type MessageContext = z.infer<typeof messageContextSchema>;
+
+function boundedString(maxLength: number) {
+  return z.string().transform((value) => value.slice(0, maxLength));
+}

@@ -31,7 +31,6 @@ import {
 import { useSession } from "@/utils/auth-client";
 import type { UseChatHelpers } from "@ai-sdk/react";
 import type { ChatMessage } from "@/components/assistant-chat/types";
-import type { MessageContext } from "@/utils/ai/assistant/chat-context-validation";
 import { useProductAnalytics } from "@/hooks/useProductAnalytics";
 import { ChatHistoryItem } from "@/components/assistant-chat/ChatHistoryItem";
 import {
@@ -186,123 +185,142 @@ export function Chat({
     input.trim().length > 0 || attachments.length > 0 || !!context;
 
   const inputArea = (
-    <PromptInput
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (hasContent && (status === "ready" || status === "error")) {
-          analytics.captureAction("chat_message_submitted", {
-            has_text: input.trim().length > 0,
-            attachment_count: attachments.length,
-            has_context: Boolean(context),
-            message_count: messages.length,
-          });
-          handleSubmit();
-        }
-      }}
-    >
-      {(attachments.length > 0 || uploadQueue.length > 0) && (
-        <div className="flex gap-2 overflow-x-auto p-2 pb-0">
-          {attachments.map((attachment) => (
-            <PreviewAttachment
-              key={attachment.id}
-              attachment={attachment}
-              onRemove={() =>
-                setAttachments((prev) => prev.filter((a) => a !== attachment))
-              }
-            />
-          ))}
-          {uploadQueue.map((name) => (
-            <PreviewAttachment
-              key={name}
-              attachment={{ name, url: "", contentType: "" }}
-              isUploading
-            />
-          ))}
+    <>
+      {context ? (
+        <div className="mb-2 flex items-center gap-2">
+          <span className="inline-flex items-center gap-2 rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">
+            {context.type === "fix-rule" ? "Fix: " : "Email: "}
+            {context.message.headers.subject.slice(0, 60)}
+            {context.message.headers.subject.length > 60 ? "..." : ""}
+            <button
+              type="button"
+              aria-label="Remove context"
+              className="ml-1 rounded p-0.5 hover:bg-muted-foreground/10"
+              onClick={() => setContext(null)}
+            >
+              ×
+            </button>
+          </span>
         </div>
-      )}
-
-      <PromptInputTextarea
-        data-testid="chat-input"
-        value={input}
-        placeholder="Ask me anything"
-        onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
-          setInput(e.currentTarget.value)
-        }
-        onPaste={handlePaste}
-        className="pr-48"
-      />
-
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp,image/gif"
-        multiple
-        className="hidden"
-        onChange={handleFileChange}
-        tabIndex={-1}
-      />
-
-      <div className="absolute bottom-2 right-2 flex items-center gap-1">
-        <VoiceInput
-          liveEnabled
-          liveHistory={liveHistoryFromUiMessages(messages)}
-          onInsert={(text) => {
-            setInput(input.trim() ? `${input.trim()} ${text}` : text);
-          }}
-          onSend={(text) => {
+      ) : null}
+      <PromptInput
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (hasContent && (status === "ready" || status === "error")) {
             analytics.captureAction("chat_message_submitted", {
-              has_text: true,
+              has_text: input.trim().length > 0,
               attachment_count: attachments.length,
               has_context: Boolean(context),
               message_count: messages.length,
-              via_voice: true,
             });
-            submitTextMessage(text).catch(() => undefined);
-          }}
-        />
-        <Tooltip content="Attach images">
-          <Button
-            type="button"
-            variant="ghostMuted"
-            size="icon"
-            aria-label="Attach images"
-            className="size-9 rounded-full"
-            onClick={() => {
-              analytics.captureAction("chat_attach_button_clicked", {
-                attachment_count: attachments.length,
-              });
-              fileInputRef.current?.click();
-            }}
-            disabled={attachments.length >= MAX_FILES}
-          >
-            <PaperclipIcon className="size-4" />
-          </Button>
-        </Tooltip>
+            handleSubmit();
+          }
+        }}
+      >
+        {(attachments.length > 0 || uploadQueue.length > 0) && (
+          <div className="flex gap-2 overflow-x-auto p-2 pb-0">
+            {attachments.map((attachment) => (
+              <PreviewAttachment
+                key={attachment.id}
+                attachment={attachment}
+                onRemove={() =>
+                  setAttachments((prev) => prev.filter((a) => a !== attachment))
+                }
+              />
+            ))}
+            {uploadQueue.map((name) => (
+              <PreviewAttachment
+                key={name}
+                attachment={{ name, url: "", contentType: "" }}
+                isUploading
+              />
+            ))}
+          </div>
+        )}
 
-        <PromptInputSubmit
-          status={
-            status === "streaming"
-              ? "streaming"
-              : status === "submitted"
-                ? "submitted"
-                : "ready"
+        <PromptInputTextarea
+          data-testid="chat-input"
+          value={input}
+          placeholder="Ask me anything"
+          onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
+            setInput(e.currentTarget.value)
           }
-          disabled={
-            status === "ready" || status === "error" ? !hasContent : false
-          }
-          onClick={(e) => {
-            if (status === "streaming" || status === "submitted") {
-              analytics.captureAction("chat_generation_stopped", {
-                status,
-              });
-              e.preventDefault();
-              stop();
-              setMessages((messages) => messages);
-            }
-          }}
+          onPaste={handlePaste}
+          className="pr-48"
         />
-      </div>
-    </PromptInput>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          multiple
+          className="hidden"
+          onChange={handleFileChange}
+          tabIndex={-1}
+        />
+
+        <div className="absolute bottom-2 right-2 flex items-center gap-1">
+          <VoiceInput
+            liveEnabled
+            liveHistory={liveHistoryFromUiMessages(messages)}
+            onInsert={(text) => {
+              setInput(input.trim() ? `${input.trim()} ${text}` : text);
+            }}
+            onSend={(text) => {
+              analytics.captureAction("chat_message_submitted", {
+                has_text: true,
+                attachment_count: attachments.length,
+                has_context: Boolean(context),
+                message_count: messages.length,
+                via_voice: true,
+              });
+              submitTextMessage(text).catch(() => undefined);
+            }}
+          />
+          <Tooltip content="Attach images">
+            <Button
+              type="button"
+              variant="ghostMuted"
+              size="icon"
+              aria-label="Attach images"
+              className="size-9 rounded-full"
+              onClick={() => {
+                analytics.captureAction("chat_attach_button_clicked", {
+                  attachment_count: attachments.length,
+                });
+                fileInputRef.current?.click();
+              }}
+              disabled={attachments.length >= MAX_FILES}
+            >
+              <PaperclipIcon className="size-4" />
+            </Button>
+          </Tooltip>
+
+          <PromptInputSubmit
+            status={
+              status === "streaming"
+                ? "streaming"
+                : status === "submitted"
+                  ? "submitted"
+                  : "ready"
+            }
+            disabled={
+              status === "ready" || status === "error" ? !hasContent : false
+            }
+            onClick={(e) => {
+              if (status === "streaming" || status === "submitted") {
+                analytics.captureAction("chat_generation_stopped", {
+                  status,
+                });
+                e.preventDefault();
+                stop();
+                setMessages((messages) => messages);
+              }
+            }}
+          />
+        </div>
+      </PromptInput>
+    </>
   );
 
   return (
@@ -324,8 +342,6 @@ export function Chat({
           setMessages={setMessages}
           setInput={setInput}
           regenerate={regenerate}
-          context={context}
-          setContext={setContext}
           inputArea={inputArea}
         />
       ) : (
@@ -336,10 +352,7 @@ export function Chat({
             analytics.captureAction("chat_suggestion_clicked", {
               suggestion_index: CHAT_EXAMPLES.indexOf(text),
             });
-            chat.sendMessage({
-              role: "user",
-              parts: [{ type: "text", text }],
-            });
+            submitTextMessage(text).catch(() => undefined);
             saveDraftInput("");
           }}
         />
@@ -355,8 +368,6 @@ function ChatMessagesView({
   setMessages,
   setInput,
   regenerate,
-  context,
-  setContext,
   inputArea,
 }: {
   status: UseChatHelpers<ChatMessage>["status"];
@@ -365,8 +376,6 @@ function ChatMessagesView({
   setMessages: UseChatHelpers<ChatMessage>["setMessages"];
   setInput: (input: string) => void;
   regenerate: UseChatHelpers<ChatMessage>["regenerate"];
-  context: MessageContext | null;
-  setContext: (context: MessageContext | null) => void;
   inputArea: React.ReactNode;
 }) {
   return (
@@ -382,23 +391,6 @@ function ChatMessagesView({
         isArtifactVisible={false}
         footer={
           <>
-            {context ? (
-              <div className="mb-2 flex items-center gap-2">
-                <span className="inline-flex items-center gap-2 rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">
-                  {context.type === "fix-rule" ? "Fix: " : "Email: "}
-                  {context.message.headers.subject.slice(0, 60)}
-                  {context.message.headers.subject.length > 60 ? "..." : ""}
-                  <button
-                    type="button"
-                    aria-label="Remove context"
-                    className="ml-1 rounded p-0.5 hover:bg-muted-foreground/10"
-                    onClick={() => setContext(null)}
-                  >
-                    ×
-                  </button>
-                </span>
-              </div>
-            ) : null}
             <div className="relative z-10">{inputArea}</div>
             <div className="absolute w-full bottom-0 h-20 bg-background pointer-events-none" />
           </>

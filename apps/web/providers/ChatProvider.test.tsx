@@ -462,7 +462,8 @@ describe("ChatProvider", () => {
         },
       },
     } satisfies MessageContext;
-    act(() => current?.setEmailContext(email));
+    act(() => current?.setAmbientContext(email));
+    expect(current?.context).toEqual(email);
     await act(async () => {
       await current?.submitTextMessage("Summarize this");
     });
@@ -476,14 +477,15 @@ describe("ChatProvider", () => {
       ...email,
       message: { ...email.message, id: "email-b", threadId: "thread-b" },
     };
-    act(() => current?.setEmailContext(next));
+    act(() => current?.setAmbientContext(next));
     await act(async () => {
       await current?.submitTextMessage("And this?");
     });
     expect(mockSendMessage).toHaveBeenLastCalledWith(expect.anything(), {
       body: { context: next },
     });
-    act(() => current?.setEmailContext(null));
+    act(() => current?.setContext(null));
+    expect(current?.context).toBeNull();
     await act(async () => {
       await current?.submitTextMessage("Search my inbox");
     });

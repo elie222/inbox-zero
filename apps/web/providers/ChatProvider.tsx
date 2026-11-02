@@ -69,7 +69,7 @@ type ChatContextType = {
   stop: () => Promise<void>;
   context: MessageContext | null;
   setContext: (context: MessageContext | null) => void;
-  setEmailContext: (context: MessageContext | null) => void;
+  setAmbientContext: (context: MessageContext | null) => void;
   attachments: Attachment[];
   setAttachments: React.Dispatch<React.SetStateAction<Attachment[]>>;
 };
@@ -83,7 +83,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [input, setInput] = useState<string>("");
   const [chatId, setChatId] = useQueryState("chatId", parseAsString);
   const [context, setContext] = useState<MessageContext | null>(null);
-  const [emailContext, setEmailContext] = useState<MessageContext | null>(null);
+  const [ambientContext, setAmbientContext] = useState<MessageContext | null>(
+    null,
+  );
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [inlineActions, setInlineActions] = useState<InlineEmailAction[]>([]);
   const inlineActionsRef = useRef(inlineActions);
@@ -313,9 +315,15 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     chat.setMessages([]);
     setInput("");
     setContext(null);
+    setAmbientContext(null);
     setAttachments([]);
     setInlineActions([]);
   }, [chat.setMessages, emailAccountId, setChatId]);
+
+  const setDisplayedContext = useCallback((next: MessageContext | null) => {
+    setContext(next);
+    if (!next) setAmbientContext(null);
+  }, []);
 
   const sendMessageParts = useCallback(
     (parts: ChatMessagePart[]) => {
@@ -344,7 +352,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       interruptedRef.current = false;
 
       const requestChatId = chatId ?? chat.id;
-      const requestContext = context ?? emailContext;
+      const requestContext = context ?? ambientContext;
       const request: PendingChatRequest = {
         attachmentCount,
         chatId: requestChatId,
@@ -382,7 +390,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       chat.sendMessage,
       chatId,
       context,
-      emailContext,
+      ambientContext,
       emailAccountId,
       setChatId,
     ],
@@ -504,9 +512,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         submitTextMessage,
         handleSubmit,
         stop,
-        context,
-        setContext,
-        setEmailContext,
+        context: context ?? ambientContext,
+        setContext: setDisplayedContext,
+        setAmbientContext,
         attachments,
         setAttachments,
       }}
