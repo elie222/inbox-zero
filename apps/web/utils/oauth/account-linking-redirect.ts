@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { env } from "@/env";
+import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 
 export function createAccountLinkingRedirect(params?: {
@@ -29,27 +30,41 @@ export function createAccountLinkingRedirect(params?: {
 
 export async function createTokensUpdatedRedirect({
   userId,
+  reconnectEmailAccountId,
   stateCookieName,
+  logger,
 }: {
   userId: string;
+  reconnectEmailAccountId: string | null;
   stateCookieName: string;
+  logger: Logger;
 }) {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { completedOnboardingAt: true },
-  });
-
-  // Users sent to reconnect during onboarding (missing permissions) should
-  // resume setup instead of landing on the accounts page.
-  if (user && !user.completedOnboardingAt) {
-    return createAccountLinkingRedirect({
-      path: "/welcome-redirect",
+  const accountsRedirect = () =>
+    createAccountLinkingRedirect({
+      query: { success: "tokens_updated" },
       stateCookieName,
     });
+
+  let completedOnboarding = true;
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { completedOnboardingAt: true },
+    });
+    completedOnboarding = !user || !!user.completedOnboardingAt;
+  } catch (error) {
+    logger.warn("Failed to load onboarding state after reconnect", { error });
   }
 
+  if (completedOnboarding) return accountsRedirect();
+
+  // Users sent to reconnect during onboarding (missing permissions) should
+  // resume setup for the mailbox they reconnected instead of landing on the
+  // accounts page.
   return createAccountLinkingRedirect({
-    query: { success: "tokens_updated" },
+    path: reconnectEmailAccountId
+      ? `/${reconnectEmailAccountId}/onboarding`
+      : "/welcome-redirect",
     stateCookieName,
   });
 }
