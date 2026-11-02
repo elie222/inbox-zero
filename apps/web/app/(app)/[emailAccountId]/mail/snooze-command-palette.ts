@@ -12,7 +12,7 @@ export function buildSnoozeCommandPalette({
   query: string;
 }): Command[] {
   const normalizedQuery = query.trim().toLowerCase();
-  const presets = getSnoozePresets(now);
+  const presets = getSnoozePresets(now, normalizedQuery);
   const naturalLanguageDate =
     presets.find((preset) => preset.label.toLowerCase() === normalizedQuery)
       ?.until ?? parseSnoozeDate(query, now);
@@ -29,17 +29,15 @@ export function buildSnoozeCommandPalette({
     ];
   }
 
-  return presets
-    .filter((preset) => preset.label.toLowerCase().includes(normalizedQuery))
-    .map((preset, index) => ({
-      id: `mail-snooze-${preset.id}`,
-      label: preset.label,
-      description: formatSnoozeTime(preset.until),
-      section: "actions",
-      priority: index,
-      keywords: ["snooze", "later", "remind", preset.id, preset.label],
-      action: () => onSnooze(preset.until),
-    }));
+  return presets.map((preset, index) => ({
+    id: `mail-snooze-${preset.id}`,
+    label: preset.label,
+    description: formatSnoozeTime(preset.until),
+    section: "actions",
+    priority: index,
+    keywords: ["snooze", "later", "remind", preset.id, preset.label],
+    action: () => onSnooze(preset.until),
+  }));
 }
 
 export function parseSnoozeDate(input: string, now = new Date()) {
@@ -60,7 +58,7 @@ const SUNDAY = 0;
 const FRIDAY = 5;
 const SATURDAY = 6;
 
-export function getSnoozePresets(now: Date) {
+export function getSnoozePresets(now: Date, query = "") {
   const candidates = [
     {
       id: "tomorrow",
@@ -86,7 +84,7 @@ export function getSnoozePresets(now: Date) {
 
   const seen = new Set<number>();
   return candidates.flatMap(({ until, ...preset }) => {
-    if (!until) return [];
+    if (!until || !preset.label.toLowerCase().includes(query)) return [];
     const key = until.getTime();
     if (seen.has(key)) return [];
     seen.add(key);

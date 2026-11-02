@@ -106,6 +106,29 @@ describe("buildSnoozeCommandPalette", () => {
     expect(onSnooze).toHaveBeenCalledWith(new Date(2026, 7, 24, 9));
   });
 
+  it.each([
+    { day: 20, query: "end", label: "End of week", until: 21 },
+    { day: 21, query: "thi", label: "This weekend", until: 22 },
+    { day: 23, query: "next wee", label: "Next week", until: 24 },
+  ])("keeps a matching duplicate-date preset for $query", ({
+    day,
+    query,
+    label,
+    until,
+  }) => {
+    const onSnooze = vi.fn();
+    const commands = buildSnoozeCommandPalette({
+      now: new Date(2026, 7, day, 10),
+      onSnooze,
+      query,
+    });
+
+    const command = commands.find((command) => command.label === label);
+    expect(command).toBeDefined();
+    command?.action();
+    expect(onSnooze).toHaveBeenCalledWith(new Date(2026, 7, until, 9));
+  });
+
   it("turns natural language into one actionable result", () => {
     const onSnooze = vi.fn();
     const commands = buildSnoozeCommandPalette({
