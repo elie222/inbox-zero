@@ -574,14 +574,13 @@ export function MailShell() {
       ? latestShownMessage(openMessages, hiddenDraftMessageIds)
       : undefined;
   useEffect(() => {
-    setAmbientContext(
-      currentChatMessage
-        ? emailMessageContextSchema.parse({
-            type: "email",
-            message: currentChatMessage,
-          })
-        : null,
-    );
+    const parsedContext = currentChatMessage
+      ? emailMessageContextSchema.safeParse({
+          type: "email",
+          message: currentChatMessage,
+        })
+      : null;
+    setAmbientContext(parsedContext?.success ? parsedContext.data : null);
     return () => setAmbientContext(null);
   }, [currentChatMessage, setAmbientContext]);
   const openExternalUrl = useMemo(() => {
