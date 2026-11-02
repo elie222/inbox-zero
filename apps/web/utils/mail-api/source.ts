@@ -48,6 +48,7 @@ const SUPPORTED_CHANGES = [
 type FolderScopeNode = {
   id: string;
   systemType?: string;
+  childFolderCount?: number;
   childFolders?: FolderScopeNode[];
 };
 
@@ -111,7 +112,7 @@ export function createEmailProviderMailboxSource(input: {
             ? Date.now() - initialSyncDays * 24 * 60 * 60 * 1000
             : 0;
         const resolvedAfterMs =
-          typeof afterMs === "number" && afterMs > 0 ? afterMs : defaultAfterMs;
+          typeof afterMs === "number" ? afterMs : defaultAfterMs;
         const token: BootstrapToken = {
           afterMs: resolvedAfterMs,
           scopeId: scope.id,
@@ -137,6 +138,17 @@ export function createEmailProviderMailboxSource(input: {
           },
         };
       } catch (error) {
+        const folderId = scopedFolderId(provider, scope);
+        if (
+          folderId &&
+          isMissingProviderResource(error) &&
+          (await isFolderGone(provider, folderId))
+        ) {
+          return {
+            status: "reset_required",
+            scopeId: scope.id,
+          };
+        }
         return mapProviderError(error);
       }
     },
@@ -540,12 +552,36 @@ function scopedFolderId(provider: EmailProvider, scope: ScopeDescriptor) {
   return scope.folderId ?? undefined;
 }
 
+function hasIncompleteFolderBranches(folders: FolderScopeNode[]): boolean {
+  for (const folder of folders) {
+    const expectedChildren = folder.childFolderCount ?? 0;
+    const actualChildren = folder.childFolders?.length ?? 0;
+    if (expectedChildren > 0 && actualChildren === 0) {
+      return true;
+    }
+    if (
+      folder.childFolders &&
+      hasIncompleteFolderBranches(folder.childFolders)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // A deleted folder's enumeration or delta query fails with a 404, but so can a
-// transient Graph error, so only a fresh folder listing without it counts as gone.
+// transient Graph error, so only a fresh, complete folder listing without it counts as gone.
 async function isFolderGone(provider: EmailProvider, folderId: string) {
   try {
-    const folders = await provider.getFolders();
-    return !flattenFolderScopes(folders).some((scope) => scope.id === folderId);
+    const folders = (await provider.getFolders()) as FolderScopeNode[];
+    const allScopes = flattenFolderScopes(folders);
+    if (allScopes.some((scope) => scope.id === folderId)) {
+      return false;
+    }
+    if (hasIncompleteFolderBranches(folders)) {
+      return false;
+    }
+    return true;
   } catch {
     return false;
   }

@@ -116,6 +116,12 @@ describe("isNonAdvancingOutlookNextLink", () => {
         undefined,
       ),
     ).toBe(true);
+    expect(
+      isNonAdvancingOutlookNextLink(
+        "https://graph.microsoft.com/v1.0/me/messages",
+        "",
+      ),
+    ).toBe(true);
   });
 
   it("treats initial candidate link with no current link as advancing", () => {
@@ -133,9 +139,33 @@ describe("isNonAdvancingOutlookNextLink", () => {
     expect(isNonAdvancingOutlookNextLink(url, url)).toBe(true);
   });
 
+  it("detects equivalent relative and absolute URLs as non-advancing", () => {
+    expect(
+      isNonAdvancingOutlookNextLink(
+        "/v1.0/me/messages?$filter=isRead+eq+false",
+        "https://graph.microsoft.com/v1.0/me/messages?$filter=isRead+eq+false",
+      ),
+    ).toBe(true);
+  });
+
+  it("detects candidate that drops existing pagination cursor as non-advancing", () => {
+    expect(
+      isNonAdvancingOutlookNextLink(
+        "https://graph.microsoft.com/v1.0/me/messages?$skip=20",
+        "https://graph.microsoft.com/v1.0/me/messages",
+      ),
+    ).toBe(true);
+    expect(
+      isNonAdvancingOutlookNextLink(
+        "https://graph.microsoft.com/v1.0/me/messages?$skiptoken=token_abc",
+        "https://graph.microsoft.com/v1.0/me/messages",
+      ),
+    ).toBe(true);
+  });
+
   it("detects candidate with same or lower $skip offset as non-advancing", () => {
     const current = "https://graph.microsoft.com/v1.0/me/messages?$skip=40";
-    const sameSkip = "https://graph.microsoft.com/v1.0/me/messages?$skip=40";
+    const sameSkip = "https://graph.microsoft.com/v1.0/me/messages?$skip=40&$top=10";
     const lowerSkip = "https://graph.microsoft.com/v1.0/me/messages?$skip=20";
 
     expect(isNonAdvancingOutlookNextLink(current, sameSkip)).toBe(true);

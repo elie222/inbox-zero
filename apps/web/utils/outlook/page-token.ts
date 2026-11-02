@@ -75,17 +75,29 @@ export function isNonAdvancingOutlookNextLink(
     const current = new URL(currentUrl, "https://graph.microsoft.com");
     const candidate = new URL(candidateUrl, "https://graph.microsoft.com");
 
+    if (current.href === candidate.href) return true;
+
     const currentSkip = Number(current.searchParams.get("$skip") ?? Number.NaN);
     const candidateSkip = Number(
       candidate.searchParams.get("$skip") ?? Number.NaN,
     );
 
+    const currentSkiptoken = current.searchParams.get("$skiptoken");
+    const candidateSkiptoken = candidate.searchParams.get("$skiptoken");
+
+    const currentHasCursor =
+      !Number.isNaN(currentSkip) || Boolean(currentSkiptoken);
+    const candidateHasCursor =
+      !Number.isNaN(candidateSkip) || Boolean(candidateSkiptoken);
+
+    if (currentHasCursor && !candidateHasCursor) {
+      return true;
+    }
+
     if (!Number.isNaN(currentSkip) && !Number.isNaN(candidateSkip)) {
       if (candidateSkip <= currentSkip) return true;
     }
 
-    const currentSkiptoken = current.searchParams.get("$skiptoken");
-    const candidateSkiptoken = candidate.searchParams.get("$skiptoken");
     if (
       currentSkiptoken &&
       candidateSkiptoken &&
