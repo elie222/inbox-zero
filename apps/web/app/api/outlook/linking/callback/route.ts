@@ -11,7 +11,10 @@ import {
   handleAccountLinking,
 } from "@/utils/oauth/account-linking";
 import { isReconnectTargetMismatch } from "@/utils/oauth/reconnect-target";
-import { createAccountLinkingRedirect } from "@/utils/oauth/account-linking-redirect";
+import {
+  createAccountLinkingRedirect,
+  createTokensUpdatedRedirect,
+} from "@/utils/oauth/account-linking-redirect";
 import { mergeAccount } from "@/utils/user/merge-account";
 import { handleOAuthCallbackError } from "@/utils/oauth/error-handler";
 import { hasValidMatchingSignedOAuthState } from "@/utils/oauth/callback-validation";
@@ -129,6 +132,14 @@ export const GET = withError("outlook/linking/callback", async (request) => {
     logger.info("OAuth code already processed, returning cached result", {
       targetUserId,
     });
+    if (cachedResult.params.success === "tokens_updated") {
+      return createTokensUpdatedRedirect({
+        userId: targetUserId,
+        reconnectEmailAccountId,
+        stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
+        logger,
+      });
+    }
     return createAccountLinkingRedirect({
       query: cachedResult.params,
       stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
@@ -287,6 +298,8 @@ export const GET = withError("outlook/linking/callback", async (request) => {
         logger,
         providerEmail,
         providerAccountId,
+        targetUserId,
+        reconnectEmailAccountId,
       });
     }
 
@@ -424,6 +437,8 @@ export const GET = withError("outlook/linking/callback", async (request) => {
         logger,
         providerEmail,
         providerAccountId,
+        targetUserId,
+        reconnectEmailAccountId,
       });
     }
 
@@ -501,12 +516,16 @@ async function completeMicrosoftTokenUpdate({
   logger,
   providerAccountId,
   providerEmail,
+  targetUserId,
+  reconnectEmailAccountId,
 }: {
   accountId: string;
   code: string;
   logger: Logger;
   providerAccountId: string;
   providerEmail: string;
+  targetUserId: string;
+  reconnectEmailAccountId: string | null;
 }) {
   logger.info("OAuth linking callback completed", {
     accountId,
@@ -516,9 +535,11 @@ async function completeMicrosoftTokenUpdate({
   });
 
   await setOAuthCodeResult(code, { success: "tokens_updated" });
-  return createAccountLinkingRedirect({
-    query: { success: "tokens_updated" },
+  return createTokensUpdatedRedirect({
+    userId: targetUserId,
+    reconnectEmailAccountId,
     stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
+    logger,
   });
 }
 
