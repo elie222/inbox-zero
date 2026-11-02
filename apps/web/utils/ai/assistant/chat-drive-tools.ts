@@ -28,7 +28,7 @@ export const getDriveFilingConfigurationTool = ({
 }: DriveToolOptions) =>
 	tool({
 		description:
-			"Inspect the connected cloud drive (Google Drive, Microsoft OneDrive) and attachment filing configuration, including active connection status, whether automatic filing is enabled, the custom filing instructions/prompt, configured destination folders, and recent filed documents.",
+			"Inspect the connected cloud drive (Google Drive, Microsoft OneDrive) and attachment filing configuration, including active connection status, whether automatic filing is enabled, the custom filing instructions/prompt, configured destination folders, and recent filed documents. Requires a connected email account. Read-only operation.",
 		inputSchema: getDriveFilingConfigurationInputSchema,
 		execute: async ({ includeRecentFilings }) => {
 			trackToolCall({ tool: "get_drive_filing_configuration", email, logger });
@@ -89,7 +89,7 @@ export const getDriveFilingConfigurationTool = ({
 				}
 
 				const activeConnections = connections.filter((c) => c.isConnected);
-				const filingFolders = connections.flatMap((c) =>
+				const filingFolders = activeConnections.flatMap((c) =>
 					c.filingFolders.map((f) => ({
 						id: f.id,
 						folderId: f.folderId,
@@ -162,7 +162,7 @@ export const updateDriveFilingRulesTool = ({
 }: DriveToolOptions) =>
 	tool({
 		description:
-			"Update automatic attachment filing rules and configuration for Drive. Use this to update the filing instructions/prompt (e.g. 'put invoices in Finance/Invoices'), enable/disable automatic filing, or toggle filing email confirmations.",
+			"Update automatic attachment filing rules and configuration for cloud Drive. Use this to set or append custom filing instructions/prompt (e.g. 'put invoices in Finance/Invoices'), toggle automatic filing (requires non-empty instructions to enable), or toggle filing confirmation emails. Modifies durable email account configuration.",
 		inputSchema: updateDriveFilingRulesInputSchema,
 		execute: async ({
 			filingPrompt,
@@ -195,6 +195,21 @@ export const updateDriveFilingRulesTool = ({
 					} else {
 						resolvedPrompt = filingPrompt.trim();
 					}
+				}
+
+				const willBeEnabled =
+					filingEnabled !== undefined ? filingEnabled : current.filingEnabled;
+				const effectivePrompt =
+					resolvedPrompt !== undefined ? resolvedPrompt : current.filingPrompt;
+
+				if (
+					willBeEnabled &&
+					(!effectivePrompt || effectivePrompt.trim() === "")
+				) {
+					return {
+						error:
+							"Cannot enable automatic filing without filing instructions. Please provide a filing prompt (e.g. 'File invoices in Finance/Invoices and receipts in Expenses').",
+					};
 				}
 
 				const updatedAccount = await prisma.emailAccount.update({
@@ -253,7 +268,7 @@ export const createOrGetFilingFolderTool = ({
 }: DriveToolOptions) =>
 	tool({
 		description:
-			"Create or register a folder path in the user's connected cloud Drive (e.g. 'Finance/Invoices' or 'Receipts') and add it as an allowed destination folder for automatic attachment filing.",
+			"Create or register a destination folder in the user's connected cloud Drive (e.g. 'Finance/Invoices' or 'Receipts') and add it as an allowed destination folder for automatic attachment filing. Requires an active Google Drive or Microsoft OneDrive connection. Non-destructive: creates missing folders in cloud storage and registers them in the database without modifying existing files.",
 		inputSchema: createOrGetFilingFolderInputSchema,
 		execute: async ({ folderPath, driveConnectionId }) => {
 			trackToolCall({ tool: "create_or_get_filing_folder", email, logger });
@@ -287,12 +302,18 @@ export const createOrGetFilingFolderTool = ({
 					logger,
 				});
 
+				const canonicalPath = folderPath
+					.split("/")
+					.map((p) => p.trim())
+					.filter(Boolean)
+					.join("/");
+
 				return {
 					success: true,
 					folder: {
 						id: folder.id,
 						name: folder.name,
-						path: folder.path ?? folderPath,
+						path: canonicalPath || folder.name,
 						provider: connection.provider,
 						driveEmail: connection.email,
 					},
@@ -321,7 +342,7 @@ export const removeFilingFolderTool = ({
 }: DriveToolOptions) =>
 	tool({
 		description:
-			"Remove a folder from the allowed attachment filing destinations. The folder and its contents in cloud Drive are preserved.",
+			"Remove a folder from the allowed attachment filing destinations. The folder and its contents in cloud Drive are preserved. Note: Deletes the destination record from the database; if your filing prompt still directs attachments to this path, update the filing prompt via updateDriveFilingRules to prevent the filing engine from recreating it.",
 		inputSchema: removeFilingFolderInputSchema,
 		execute: async ({ folderId }) => {
 			trackToolCall({ tool: "remove_filing_folder", email, logger });
@@ -343,6 +364,8 @@ export const removeFilingFolderTool = ({
 				return {
 					success: true,
 					removedCount: result.count,
+					warning:
+						"Note: The folder was removed from allowed destinations. If your filing instructions still reference this folder path, update filing rules via updateDriveFilingRules to prevent incoming attachments from recreating it.",
 				};
 			} catch (error) {
 				logger.error("Failed to remove filing folder", { error });

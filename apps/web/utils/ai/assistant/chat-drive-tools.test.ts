@@ -84,6 +84,21 @@ describe("chat drive tools", () => {
 						},
 					],
 				},
+				{
+					id: "conn-2",
+					provider: "onedrive",
+					email: "disconnected@outlook.com",
+					isConnected: false,
+					filingFolders: [
+						{
+							id: "ff-2",
+							folderId: "onedrive-folder-456",
+							folderName: "Old Invoices",
+							folderPath: "Old/Invoices",
+							createdAt: now,
+						},
+					],
+				},
 			] as unknown as Awaited<
 				ReturnType<typeof prisma.driveConnection.findMany>
 			>);
@@ -120,6 +135,12 @@ describe("chat drive tools", () => {
 						provider: "google",
 						email: "drive-user@gmail.com",
 						isConnected: true,
+					},
+					{
+						id: "conn-2",
+						provider: "onedrive",
+						email: "disconnected@outlook.com",
+						isConnected: false,
 					},
 				],
 				filingEnabled: true,
@@ -255,17 +276,39 @@ describe("chat drive tools", () => {
 			expect(result.success).toBe(true);
 		});
 
-		it("clears filing prompt when passed empty string or null", async () => {
+		it("returns error when enabling filing without filing prompt", async () => {
+			prisma.emailAccount.findUnique.mockResolvedValue({
+				filingPrompt: null,
+				filingEnabled: false,
+				filingConfirmationSendEmail: true,
+			} as unknown as Awaited<
+				ReturnType<typeof prisma.emailAccount.findUnique>
+			>);
+
+			const toolInstance = updateDriveFilingRulesTool(toolOptions);
+			const executor = toolInstance as unknown as GenericToolExecutor;
+			const result = await executor.execute({
+				filingEnabled: true,
+			});
+
+			expect(result).toEqual({
+				error:
+					"Cannot enable automatic filing without filing instructions. Please provide a filing prompt (e.g. 'File invoices in Finance/Invoices and receipts in Expenses').",
+			});
+			expect(prisma.emailAccount.update).not.toHaveBeenCalled();
+		});
+
+		it("clears filing prompt when passed whitespace-only string", async () => {
 			prisma.emailAccount.findUnique.mockResolvedValue({
 				filingPrompt: "Existing prompt",
-				filingEnabled: true,
+				filingEnabled: false,
 				filingConfirmationSendEmail: true,
 			} as unknown as Awaited<
 				ReturnType<typeof prisma.emailAccount.findUnique>
 			>);
 			prisma.emailAccount.update.mockResolvedValue({
 				filingPrompt: null,
-				filingEnabled: true,
+				filingEnabled: false,
 				filingConfirmationSendEmail: true,
 			} as unknown as Awaited<ReturnType<typeof prisma.emailAccount.update>>);
 
@@ -273,6 +316,40 @@ describe("chat drive tools", () => {
 			const executor = toolInstance as unknown as GenericToolExecutor;
 			const result = await executor.execute({
 				filingPrompt: "   ",
+			});
+
+			expect(prisma.emailAccount.update).toHaveBeenCalledWith({
+				where: { id: "email-account-1" },
+				data: {
+					filingPrompt: null,
+				},
+				select: {
+					filingPrompt: true,
+					filingEnabled: true,
+					filingConfirmationSendEmail: true,
+				},
+			});
+			expect(result.filingPrompt).toBeNull();
+		});
+
+		it("clears filing prompt when passed null", async () => {
+			prisma.emailAccount.findUnique.mockResolvedValue({
+				filingPrompt: "Existing prompt",
+				filingEnabled: false,
+				filingConfirmationSendEmail: true,
+			} as unknown as Awaited<
+				ReturnType<typeof prisma.emailAccount.findUnique>
+			>);
+			prisma.emailAccount.update.mockResolvedValue({
+				filingPrompt: null,
+				filingEnabled: false,
+				filingConfirmationSendEmail: true,
+			} as unknown as Awaited<ReturnType<typeof prisma.emailAccount.update>>);
+
+			const toolInstance = updateDriveFilingRulesTool(toolOptions);
+			const executor = toolInstance as unknown as GenericToolExecutor;
+			const result = await executor.execute({
+				filingPrompt: null,
 			});
 
 			expect(prisma.emailAccount.update).toHaveBeenCalledWith({
@@ -378,10 +455,11 @@ describe("chat drive tools", () => {
 					folderId: "folder-to-remove",
 				},
 			});
-			expect(result).toEqual({
+			expect(result).toMatchObject({
 				success: true,
 				removedCount: 1,
 			});
+			expect(result.warning).toContain("removed from allowed destinations");
 		});
 
 		it("returns error when folder was not in filing folders", async () => {
