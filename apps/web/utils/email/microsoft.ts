@@ -9,7 +9,7 @@ import {
   resolveOutlookLocalMailFolderIds,
 } from "@/utils/outlook/local-mail-sync";
 import { matchesSenderFilter } from "@/utils/split-inbox/sender-filter";
-import { DraftNotFoundError } from "@/utils/error";
+import { DraftNotFoundError, isOutlookItemNotFoundError } from "@/utils/error";
 import type { Message } from "@microsoft/microsoft-graph-types";
 import type { OutlookClient } from "@/utils/outlook/client";
 import type { ParsedMessage } from "@/utils/types";
@@ -1717,9 +1717,24 @@ export class OutlookProvider implements EmailProvider {
 
     // Graph limits concurrent requests per mailbox to 4; a larger burst can
     // fail with ErrorAccessDenied rather than a retryable 429.
-    return mapWithConcurrency(messageIds, 4, (messageId) =>
-      this.getMessage(messageId),
+    // Like Gmail's batch, skip messages that no longer exist instead of
+    // failing the whole batch on one stale ID.
+    const messages = await mapWithConcurrency(
+      messageIds,
+      4,
+      async (messageId) => {
+        try {
+          return await this.getMessage(messageId);
+        } catch (error) {
+          if (!isOutlookItemNotFoundError(error)) throw error;
+          this.logger.warn("Skipping message missing from Outlook", {
+            messageId,
+          });
+          return null;
+        }
+      },
     );
+    return messages.filter((message) => message !== null);
   }
 
   async syncLocalMail(
@@ -1961,6 +1976,7 @@ export class OutlookProvider implements EmailProvider {
     maxResults?: number;
     pageToken?: string;
     messageFormat?: "full" | "metadata";
+    skipParticipantMessages?: boolean;
   }): Promise<{
     threads: EmailThread[];
     nextPageToken?: string;
@@ -2231,7 +2247,10 @@ export class OutlookProvider implements EmailProvider {
 
     threads = threads.slice(0, maxResults);
 
-    if (options.messageFormat === "metadata") {
+    if (
+      options.messageFormat === "metadata" &&
+      !options.skipParticipantMessages
+    ) {
       threads = await addOutlookThreadParticipantMessages({
         client: this.client,
         threads,
@@ -2376,7 +2395,7 @@ export class OutlookProvider implements EmailProvider {
         this.client
           .getClient()
           .api("/me/messages")
-          .search(`"to:@${escapedKqlDomain}"`)
+          .search(encodeURIComponent(`"to:@${escapedKqlDomain}"`))
           .top(5)
           .select("id,sentDateTime")
           .get(),
@@ -2384,7 +2403,7 @@ export class OutlookProvider implements EmailProvider {
         this.client
           .getClient()
           .api("/me/messages")
-          .search(`"from:@${escapedKqlDomain}"`)
+          .search(encodeURIComponent(`"from:@${escapedKqlDomain}"`))
           .top(5)
           .select("id,receivedDateTime")
           .get(),
@@ -2423,7 +2442,7 @@ export class OutlookProvider implements EmailProvider {
       this.client
         .getClient()
         .api("/me/messages")
-        .search(sentSearch)
+        .search(encodeURIComponent(sentSearch))
         .top(5) // Increase top to account for potential future messages we filter out
         .select("id,sentDateTime")
         .get(),
@@ -2582,7 +2601,8 @@ export class OutlookProvider implements EmailProvider {
   ): Promise<void> {
     await mapWithConcurrency([...new Set(messageIds)], 4, async (messageId) => {
       try {
-        await withMicrosoftGraphWriteRetry(
+        // Idempotent absolute write: safe to retry on conflicts and network errors.
+        await withMicrosoftGraphRetry(
           () =>
             this.client
               .getClient()
@@ -3340,7 +3360,8 @@ async function fetchOutlookSearchPage({
   // Graph forbids combining $search with $filter/$orderby and caps page size at 25.
   let request = client.api(apiPath).select(selectFields);
   if (compiled.search) {
-    request = request.search(compiled.search);
+    // The Graph SDK does not URL-encode $search, so a raw "#" or "&" would cut the query off.
+    request = request.search(encodeURIComponent(compiled.search));
   } else {
     const filters: string[] = [];
     if (compiled.flagged) filters.push("flag/flagStatus eq 'flagged'");

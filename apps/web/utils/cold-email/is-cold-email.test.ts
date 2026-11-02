@@ -111,8 +111,9 @@ describe("isColdEmail", () => {
       where: {
         groupId,
         type: GroupItemType.FROM,
-        value: normalizedEmail,
+        value: { equals: normalizedEmail, mode: "insensitive" },
       },
+      orderBy: { exclude: "desc" },
       select: {
         id: true,
         type: true,
@@ -161,8 +162,9 @@ describe("isColdEmail", () => {
       where: {
         groupId,
         type: GroupItemType.FROM,
-        value: normalizedEmail,
+        value: { equals: normalizedEmail, mode: "insensitive" },
       },
+      orderBy: { exclude: "desc" },
       select: {
         id: true,
         type: true,
@@ -175,6 +177,45 @@ describe("isColdEmail", () => {
 
   // Guarded here rather than only at the actions, so a colleague is never labelled
   // or archived either.
+  it("honours an exclusion for a sender whose address has capital letters", async () => {
+    const emailAccount = getEmailAccount({ id: "test-account-id" });
+    const groupId = "test-group-id";
+    vi.mocked(prisma.groupItem.findFirst).mockResolvedValue({
+      id: "group-item-id",
+      type: GroupItemType.FROM,
+      value: "jane.doe@acme.io",
+      exclude: true,
+      group: { id: groupId, name: "Cold Email" },
+    } as any);
+
+    const result = await isColdEmail({
+      logger,
+      email: {
+        id: "msg-mixed-case",
+        from: '"Jane Doe" <Jane.Doe@Acme.io>',
+        to: emailAccount.email,
+        subject: "Following up",
+        content: "Checking in",
+        date: new Date(),
+      },
+      emailAccount,
+      provider: mockProvider as never,
+      coldEmailRule: { instructions: "test instructions", groupId },
+    });
+
+    expect(result).toMatchObject({ isColdEmail: false, reason: "excluded" });
+    expect(prisma.groupItem.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          value: { equals: "Jane.Doe@Acme.io", mode: "insensitive" },
+        }),
+      }),
+    );
+    expect(
+      mockProvider.hasPreviousCommunicationsWithSenderOrDomain,
+    ).not.toHaveBeenCalled();
+  });
+
   it("should not classify a colleague as cold", async () => {
     vi.mocked(prisma.groupItem.findFirst).mockResolvedValue(null);
 
@@ -423,8 +464,9 @@ describe("isColdEmail", () => {
         where: {
           groupId,
           type: GroupItemType.FROM,
-          value: expectedNormalized,
+          value: { equals: expectedNormalized, mode: "insensitive" },
         },
+        orderBy: { exclude: "desc" },
         select: {
           id: true,
           type: true,

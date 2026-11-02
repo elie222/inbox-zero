@@ -27,6 +27,15 @@ export const PRODUCT_ANALYTICS_EVENTS = {
  * - `shortcut`: the registry key combo that fired, e.g. "e", "mod+k", "g>a".
  *   Shortcuts only.
  *
+ * `mail_composer_lost`: the editor being typed in was taken away without the
+ * composer being sent, discarded, closed or popped out, so keys typed next
+ * reach the page's shortcuts instead of the draft.
+ * - `trigger`: "remount" (the whole composer unmounted while focused and the
+ *   same draft came back within 10 seconds) | "keypress" (its editor was
+ *   removed and a key then landed on the page).
+ * - `draft_mode`: "reply" | "forward" | "new".
+ * - `remount_ms`: remount only; how long the draft was gone.
+ *
  * `mail_navigation_summary`: list navigation shortcuts (J/K, arrows, extend
  * selection) are counted rather than sent per press. Flushed every 5 minutes
  * and when the page is hidden, only when a count is non-zero.
@@ -64,6 +73,7 @@ export const PRODUCT_ANALYTICS_EVENTS = {
  */
 export const MAIL_ANALYTICS_EVENTS = {
   action: "mail_action",
+  composerLost: "mail_composer_lost",
   desktopHealthSummary: "desktop_health_summary",
   navigationSummary: "mail_navigation_summary",
   performanceSummary: "mail_performance_summary",

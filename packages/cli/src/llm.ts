@@ -61,8 +61,8 @@ const DEFAULT_MODELS = {
     economy: "global.anthropic.claude-haiku-4-5-20251001-v1:0",
   },
   groq: {
-    default: "llama-3.3-70b-versatile",
-    economy: "llama-3.1-8b-instant",
+    default: "openai/gpt-oss-120b",
+    economy: "openai/gpt-oss-20b",
   },
   cerebras: {
     default: "qwen-3.8-27b",

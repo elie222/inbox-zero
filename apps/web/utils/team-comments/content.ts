@@ -1,6 +1,9 @@
 import "server-only";
 import createDOMPurify from "dompurify";
-import { JSDOM } from "jsdom";
+// jsdom 26 (aliased as jsdom-cjs) keeps a fully CommonJS dependency chain.
+// jsdom 27+ require()s ESM-only CSS packages, which fails in Vercel's Node
+// runtime because it runs with require(esm) disabled.
+import { JSDOM } from "jsdom-cjs";
 import { isEmailProviderRateLimitError } from "@/utils/email/is-provider-rate-limit-error";
 import { createEmailProvider } from "@/utils/email/provider";
 import { isThreadNotFoundError } from "@/utils/email/thread-not-found";

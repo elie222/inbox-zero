@@ -158,9 +158,13 @@ model EmailAccount {
   name  String? // Name associated with the Google account
   image String? // Profile image URL from the Google account
 
+  sortOrder Int? // Position in the user's account switcher; null sorts last, by createdAt
+
   about                          String?
   writingStyle                   String?
   signature                      String? // User's email signature from provider or manually set
+  sentSignatureScan              Json? // signatures found in recent sent mail, see utils/email/signature-suggestions.ts
+  sentSignatureScannedAt         DateTime?
   includeReferralSignature       Boolean   @default(false)
   includeSentWithSignature       Boolean   @default(true) // "Sent with <brand>" footer on emails sent from the mail client
   sentMessageOpenTrackingEnabled Boolean   @default(true) // show when sent mail-client emails are opened
@@ -236,6 +240,7 @@ model EmailAccount {
   emailTokens         EmailToken[]
   knowledge           Knowledge[]
   snippets            Snippet[]
+  emailSignatures     EmailSignature[]
   replyMemories       ReplyMemory[]
   chats               Chat[]
   chatMemories        ChatMemory[]
@@ -900,6 +905,7 @@ model ExecutedAction {
   @@index([sentMessageIds], type: Gin)
   @@index([messagingChannelId, createdAt])
   @@index([draftStatus, createdAt], map: "ExecutedAction_draftStatus_createdAt_draft_idx", where: raw("\"draftId\" IS NOT NULL"))
+  @@index([executedRuleId], map: "ExecutedAction_executedRuleId_draft_idx", where: raw("\"draftId\" IS NOT NULL"))
 }
 
 model ScheduledAction {
@@ -1227,9 +1233,11 @@ model ThreadTracker {
   resolved  Boolean           @default(false)
   type      ThreadTrackerType
 
-  followUpAppliedAt     DateTime?
-  followUpDraftId       String?
-  followUpNotifications Json?
+  followUpAppliedAt      DateTime?
+  followUpDraftId        String?
+  followUpDraftContent   String?
+  followUpDraftCreatedAt DateTime?
+  followUpNotifications  Json?
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
@@ -1239,6 +1247,7 @@ model ThreadTracker {
   @@index([emailAccountId, resolved, sentAt, type])
   @@index([emailAccountId, type, resolved, sentAt])
   @@index([emailAccountId, type, resolved, followUpAppliedAt, sentAt])
+  @@index([emailAccountId, followUpDraftCreatedAt], map: "ThreadTracker_followUpDraft_cleanup_idx", where: raw("\"followUpDraftContent\" IS NOT NULL"))
 }
 
 model CleanupJob {
@@ -1304,6 +1313,20 @@ model Snippet {
 
   @@unique([emailAccountId, shortcut])
   @@index([emailAccountId])
+}
+
+// Signatures to choose from in compose besides the account's default `EmailAccount.signature`.
+model EmailSignature {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  name      String
+  html      String
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([emailAccountId, name])
 }
 
 model ReplyMemory {

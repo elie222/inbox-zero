@@ -26,6 +26,7 @@
     "./effective-state": "./src/effective-state.ts",
     "./sync": "./src/sync.ts",
     "./engine": "./src/engine.ts",
+    "./optimistic-client": "./src/optimistic-client.ts",
     "./canonical": "./src/canonical.ts",
     "./subscriptions": "./src/subscriptions.ts",
     "./ports/mailbox-source": "./src/ports/mailbox-source.ts",

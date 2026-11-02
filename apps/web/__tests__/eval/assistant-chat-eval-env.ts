@@ -8,6 +8,7 @@ export function buildAssistantChatEvalEnv(
     NEXT_PUBLIC_EMAIL_SEND_ENABLED: true,
     NEXT_PUBLIC_AUTO_DRAFT_DISABLED: false,
     NEXT_PUBLIC_BASE_URL: "http://localhost:3000",
+    NEXT_PUBLIC_BRAND_NAME: "Inbox Zero",
     ...overrides,
   };
 }

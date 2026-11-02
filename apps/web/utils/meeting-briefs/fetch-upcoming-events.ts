@@ -2,7 +2,7 @@ import { addMinutes } from "date-fns/addMinutes";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
 import { fetchCalendarEventsInWindow } from "@/utils/calendar/fetch-events-in-window";
 import type { Logger } from "@/utils/logger";
-import { partitionAttendeesForBriefing } from "./attendees";
+import { hasUserDeclined, partitionAttendeesForBriefing } from "./attendees";
 
 const MAX_EVENTS_PER_PROVIDER = 20;
 
@@ -43,6 +43,7 @@ export function filterEventsWithExternalGuests(
 ): CalendarEvent[] {
   return events.filter(
     (event) =>
+      !hasUserDeclined(event, userEmail) &&
       partitionAttendeesForBriefing(event, userEmail).external.length > 0,
   );
 }

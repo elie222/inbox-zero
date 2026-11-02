@@ -35,7 +35,7 @@ export function RuleSummaryCardHeader({
   return (
     <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0 border-b px-4 py-3.5">
       <div className="flex min-w-0 items-center gap-2">
-        <h3 className="truncate text-base font-semibold">{title}</h3>
+        <h3 className="truncate text-sm font-semibold">{title}</h3>
         {status}
       </div>
       {actions}

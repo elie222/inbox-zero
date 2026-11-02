@@ -242,6 +242,7 @@ export const getOutlookClientWithRefresh = async ({
       // AADSTS50158 = External security challenge not satisfied
       // AADSTS530003 = Device must be managed (Conditional Access policy)
       // AADSTS9002313 = Malformed request, e.g. a corrupt refresh token
+      // AADSTS135010 = The user's device-bound key is no longer configured
       // Invalid grants are handled by isInvalidGrantError.
       const requiresReauth =
         isInvalidGrantError(errorMessage) ||
@@ -256,7 +257,8 @@ export const getOutlookClientWithRefresh = async ({
         errorMessage.includes("AADSTS50079") ||
         errorMessage.includes("AADSTS50158") ||
         errorMessage.includes("AADSTS530003") ||
-        errorMessage.includes("AADSTS9002313");
+        errorMessage.includes("AADSTS9002313") ||
+        errorMessage.includes("AADSTS135010");
 
       if (requiresReauth) {
         logger.warn(

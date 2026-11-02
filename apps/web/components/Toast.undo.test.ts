@@ -27,8 +27,18 @@ describe("toast undo", () => {
     await expect(undoLatestToast()).resolves.toBe(true);
     expect(first).not.toHaveBeenCalled();
     expect(second).toHaveBeenCalledOnce();
-    expect(sonner.dismiss).toHaveBeenCalledWith("undo");
+    expect(sonner.dismiss).toHaveBeenLastCalledWith(toastId(1));
     await expect(undoLatestToast()).resolves.toBe(false);
+  });
+
+  // Sonner merges a toast into a same-id toast that is still animating out,
+  // so a reused id would show the new undo toast already dismissed.
+  it("shows each undo toast under a new id and dismisses the one it replaces", () => {
+    toastUndo({ message: "Archived", onUndo: vi.fn() });
+    toastUndo({ message: "Archived", onUndo: vi.fn() });
+
+    expect(toastId(1)).not.toBe(toastId(0));
+    expect(sonner.dismiss).toHaveBeenCalledWith(toastId(0));
   });
 
   it("dismisses the matching toast id", async () => {
@@ -60,3 +70,7 @@ describe("toast undo", () => {
     expect(onUndo).not.toHaveBeenCalled();
   });
 });
+
+function toastId(call: number) {
+  return (sonner.success.mock.calls[call]?.[1] as { id: string }).id;
+}

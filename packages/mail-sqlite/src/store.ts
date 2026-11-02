@@ -1377,6 +1377,26 @@ export async function createSqliteMailStore(
           "SELECT connection FROM accounts WHERE account_id = ?",
           [accountId],
         );
+        const messageIdsByCommand = new Map<string, string[]>();
+        const conversationIdsByCommand = new Map<string, string[]>();
+        for (const conversation of conversations) {
+          appendTo(
+            conversationIdsByCommand,
+            String(conversation.command_id),
+            String(conversation.conversation_id),
+          );
+        }
+        for (const target of targets) {
+          const commandId = String(target.command_id);
+          appendTo(messageIdsByCommand, commandId, String(target.message_id));
+          if (target.conversation_id != null) {
+            appendTo(
+              conversationIdsByCommand,
+              commandId,
+              String(target.conversation_id),
+            );
+          }
+        }
         return {
           accountId,
           revision,
@@ -1397,31 +1417,17 @@ export async function createSqliteMailStore(
               changeKind: payload.changeKind,
               change: payload.change,
               messageIds: [
-                ...payload.messageIds,
-                ...targets
-                  .filter((target) => String(target.command_id) === operationId)
-                  .map((target) => String(target.message_id)),
-              ].filter(
-                (value, index, values) => values.indexOf(value) === index,
-              ),
+                ...new Set([
+                  ...payload.messageIds,
+                  ...(messageIdsByCommand.get(operationId) ?? []),
+                ]),
+              ],
               conversationIds: [
-                ...conversations
-                  .filter(
-                    (conversation) =>
-                      String(conversation.command_id) === operationId,
-                  )
-                  .map((conversation) => String(conversation.conversation_id)),
-                ...targets
-                  .filter(
-                    (target) =>
-                      String(target.command_id) === operationId &&
-                      target.conversation_id != null,
-                  )
-                  .map((target) => String(target.conversation_id)),
-                ...payload.conversationIds,
-              ].filter(
-                (value, index, values) => values.indexOf(value) === index,
-              ),
+                ...new Set([
+                  ...(conversationIdsByCommand.get(operationId) ?? []),
+                  ...payload.conversationIds,
+                ]),
+              ],
             };
           }),
         };
@@ -1831,6 +1837,10 @@ export async function createSqliteMailStore(
     },
     async recordConnection(input) {
       return driver.write(async (tx) => {
+        const previous = await tx.query(
+          "SELECT connection FROM accounts WHERE account_id = ?",
+          [input.accountId],
+        );
         // Every sync request reports its connection; only a change should
         // republish the views.
         const updated = await tx.execute(
@@ -1838,6 +1848,21 @@ export async function createSqliteMailStore(
           [input.connection, input.accountId, input.connection],
         );
         if (updated.changedRows === 0) return false;
+        if (
+          input.connection === "ready" &&
+          previous[0]?.connection === "blocked_auth"
+        ) {
+          // claimWork never picks up blocked_auth, so a command that hit an
+          // expired token would stay pending forever. Sync recovering from its
+          // own auth failure is the signal that the credentials work again;
+          // recovering from offline, or reporting ready again, is not.
+          await tx.execute(
+            `UPDATE operations
+             SET status = 'queued', next_attempt_at_ms = NULL, claimed_by = NULL, claimed_until_ms = NULL
+             WHERE account_id = ? AND status = 'blocked_auth'`,
+            [input.accountId],
+          );
+        }
         await bumpRevision(tx);
         return true;
       });
@@ -2732,9 +2757,13 @@ async function recomputeTargets(tx: SqlTransaction, targets: MessageKey[]) {
        JOIN operation_targets t
          ON t.account_id = o.account_id AND t.command_id = o.command_id
        WHERE t.account_id = ? AND t.message_id = ?
-         AND (o.executable_hash IS NOT NULL OR o.status = 'preparing')`,
+         AND (o.executable_hash IS NOT NULL OR o.status = 'preparing')
+       ORDER BY o.rowid ASC`,
       [target.accountId, target.messageId],
     );
+    // Effects are applied in this order, so it has to be admission order (the
+    // rowid order execution dependencies use): command ids are random, and an
+    // undo must land after what it undoes.
     const pending = pendingRows
       .filter((row) => {
         const outcome = row.outcome == null ? null : String(row.outcome);
@@ -3312,6 +3341,12 @@ function sentMessageIdFromObservations(observations: ProviderChange[]) {
     observations.find((change) => change.kind === "message_patch")?.key
       .messageId ?? null
   );
+}
+
+function appendTo(map: Map<string, string[]>, key: string, value: string) {
+  const values = map.get(key);
+  if (values) values.push(value);
+  else map.set(key, [value]);
 }
 
 function parseOperationPayload(value: import("./driver").SqlValue) {

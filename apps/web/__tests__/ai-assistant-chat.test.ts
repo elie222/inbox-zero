@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ModelMessage } from "ai";
 import {
   createTestLogger,
@@ -123,6 +123,7 @@ vi.mock("@/env", () => ({
     get NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED() {
       return envState.webhookActionsEnabled;
     },
+    NEXT_PUBLIC_BRAND_NAME: "Inbox Zero",
   },
 }));
 
@@ -201,6 +202,12 @@ async function captureCalendarChat(
 }
 
 describe("aiProcessAssistantChat", () => {
+  // Each test re-imports the chat module after resetting modules; transforming
+  // its import graph once here keeps that cost out of the first test's timeout.
+  beforeAll(async () => {
+    await import("@/utils/ai/assistant/chat");
+  }, 60_000);
+
   beforeEach(() => {
     vi.clearAllMocks();
     envState.sendEmailEnabled = true;

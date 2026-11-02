@@ -51,6 +51,8 @@ const {
     status: "ready" as "ready" | "submitted" | "streaming" | "error",
     messages: [] as Array<{ id: string; role: string }>,
     onError: undefined as ((error: Error) => void) | undefined,
+    // Every `id` the provider has passed to useChat, in render order.
+    requestedIds: [] as Array<string | undefined>,
   },
   queryState: {
     initialChatId: "chat-from-account-a" as string | null,
@@ -58,17 +60,18 @@ const {
 }));
 
 vi.mock("@ai-sdk/react", () => ({
-  useChat: (options: { onError?: (error: Error) => void }) => {
+  useChat: (options: { id?: string; onError?: (error: Error) => void }) => {
     chatState.onError = options.onError;
+    chatState.requestedIds.push(options.id);
     return {
-      id: chatState.id,
+      id: options.id ?? chatState.id,
       messages: chatState.messages,
       status: chatState.status,
       setMessages: mockSetMessages,
       sendMessage: (message: unknown, requestOptions?: { body?: unknown }) =>
+        // Like the AI SDK, report request errors via onError and resolve.
         mockSendMessage(message, requestOptions).catch((error) => {
           options.onError?.(error);
-          throw error;
         }),
       stop: mockChatStop,
       resumeStream: mockResumeStream,
@@ -152,6 +155,7 @@ describe("ChatProvider", () => {
     chatState.id = "new-chat-id";
     chatState.status = "ready";
     chatState.messages = [];
+    chatState.requestedIds = [];
     setVisibility("visible");
     mockChatStop.mockResolvedValue(undefined);
     mockResumeStream.mockResolvedValue(undefined);
@@ -182,6 +186,28 @@ describe("ChatProvider", () => {
     ]);
     mockClientLoggerFlush.mockResolvedValue(undefined);
     mockSendMessage.mockResolvedValue(undefined);
+  });
+
+  // useChat replaces its Chat whenever `id` changes and stops the old one,
+  // which aborted the first message of every chat started without ?chatId.
+  it("keeps the chat id stable through the first send of a new chat", async () => {
+    queryState.initialChatId = null;
+    let latestContext: ReturnType<typeof useChat> | undefined;
+
+    function Consumer() {
+      latestContext = useChat();
+      return null;
+    }
+
+    renderWithProvider(<Consumer />);
+
+    await act(async () => {
+      await latestContext?.submitTextMessage("Create these email rules: x");
+    });
+
+    const sentUnderId = mockSetQueryState.mock.calls[0]?.[0];
+    expect(sentUnderId).toEqual(expect.any(String));
+    expect(new Set(chatState.requestedIds)).toEqual(new Set([sentUnderId]));
   });
 
   it("uses attached fix context only for the next message", async () => {
@@ -319,19 +345,25 @@ describe("ChatProvider", () => {
       (data: { messages: unknown[] }) => data.messages,
     );
 
+    let latestContext: ReturnType<typeof useChat> | undefined;
+
+    function Consumer() {
+      latestContext = useChat();
+      return null;
+    }
+
     chatState.status = "streaming";
-    const { rerender } = renderWithProvider(<div />);
+    renderWithProvider(<Consumer />);
     mockSetMessages.mockClear();
 
     // Selecting another chat gives the SDK a fresh, idle chat instance.
-    chatState.id = "other-chat";
     chatState.status = "ready";
     savedData = { messages: otherChat };
-    rerender(
-      <ChatProvider>
-        <div />
-      </ChatProvider>,
-    );
+    act(() => {
+      latestContext?.setChatId("other-chat");
+    });
+
+    expect(chatState.requestedIds.at(-1)).toBe("other-chat");
     expect(mockSetMessages).toHaveBeenLastCalledWith(otherChat);
   });
 
@@ -407,6 +439,27 @@ describe("ChatProvider", () => {
       description: "We couldn't send your message. Please try again.",
     });
     expect(mockCaptureException).toHaveBeenCalledWith(error);
+  });
+
+  it("treats a connection drop after the reply started streaming as sent", async () => {
+    chatState.status = "streaming";
+    mockSendMessage.mockRejectedValueOnce(new TypeError("Load failed"));
+    let latestContext: ReturnType<typeof useChat> | undefined;
+
+    function Consumer() {
+      latestContext = useChat();
+      return null;
+    }
+
+    renderWithProvider(<Consumer />);
+
+    await act(async () => {
+      await expect(
+        latestContext?.submitTextMessage("Create these rules"),
+      ).resolves.toBeUndefined();
+    });
+
+    expect(mockToastError).not.toHaveBeenCalled();
   });
 
   it("rejects oversized drafts before sending and keeps their content", async () => {

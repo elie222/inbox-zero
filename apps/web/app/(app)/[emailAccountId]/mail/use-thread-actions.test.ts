@@ -193,6 +193,34 @@ describe("useThreadActions", () => {
       operationId: expect.any(String),
     });
   });
+
+  it("undoes an archive that is still being queued when undo is pressed", async () => {
+    let admit = (_admission: { status: "queued" }) => {};
+    mail.client.submitConversations.mockReturnValueOnce(
+      new Promise((resolve) => {
+        admit = resolve;
+      }),
+    );
+    const { result } = renderActions();
+    let restored: string[] = [];
+    await act(async () => {
+      const archived = result.current.archive(["thread"]);
+      const undone = result.current
+        .waitForPendingUndoable()
+        .then(() => result.current.undo());
+      await vi.waitFor(() =>
+        expect(mail.client.submitConversations).toHaveBeenCalled(),
+      );
+      admit({ status: "queued" });
+      await archived;
+      restored = await undone;
+    });
+    expect(mail.client.cancelOperation).toHaveBeenCalledWith({
+      accountId: "account",
+      operationId: expect.any(String),
+    });
+    expect(restored).toEqual(["thread"]);
+  });
 });
 
 function renderActions({
