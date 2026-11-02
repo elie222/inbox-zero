@@ -15,6 +15,8 @@ import {
   type ReactNode,
 } from "react";
 import { emailMessageContextSchema } from "@/utils/ai/assistant/chat-context-validation";
+import { latestShownMessage } from "@/app/(app)/[emailAccountId]/mail/latest-shown-message";
+import { useHiddenDraftMessageIds } from "@/hooks/useHiddenDraftMessageIds";
 import { useChat } from "@/providers/ChatProvider";
 import { parseAsString, useQueryState, useQueryStates } from "nuqs";
 import { ChevronLeftIcon } from "lucide-react";
@@ -566,9 +568,10 @@ export function MailShell() {
     ? (openThreadData?.thread.messages ?? NO_MESSAGES)
     : NO_MESSAGES;
   const { setAmbientContext } = useChat();
+  const hiddenDraftMessageIds = useHiddenDraftMessageIds(emailAccountId);
   const currentChatMessage =
     openThreadSelection?.emailAccountId === emailAccountId && !openThreadError
-      ? openMessages.at(-1)
+      ? latestShownMessage(openMessages, hiddenDraftMessageIds)
       : undefined;
   useEffect(() => {
     setAmbientContext(
