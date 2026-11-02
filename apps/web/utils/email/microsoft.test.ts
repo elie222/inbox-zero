@@ -2679,4 +2679,52 @@ describe("OutlookProvider.getMessagesBatch", () => {
     expect(messages.map((message) => message.id)).toEqual(ids);
     expect(maxObservedConcurrency).toBe(OUTLOOK_GET_MESSAGES_BATCH_CONCURRENCY);
   });
+
+  it("stops starting further message requests and waits for in-flight requests when a batch fails", async () => {
+    const provider = new OutlookProvider(
+      createMockOutlookClient([]),
+      createTestLogger(),
+    );
+    const throttled = Object.assign(new Error("Too many requests"), {
+      code: "TooManyRequests",
+      statusCode: 429,
+    });
+
+    const started: string[] = [];
+    let inFlight = 0;
+
+    vi.spyOn(provider, "getMessage").mockImplementation(async (messageId) => {
+      started.push(messageId);
+      inFlight++;
+
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      inFlight--;
+
+      if (messageId === "msg-1") throw throttled;
+      return { id: messageId } as Awaited<
+        ReturnType<OutlookProvider["getMessage"]>
+      >;
+    });
+
+    const ids = Array.from({ length: 10 }, (_, i) => `msg-${i + 1}`);
+    await expect(provider.getMessagesBatch(ids)).rejects.toBe(throttled);
+
+    expect(inFlight).toBe(0);
+    expect(started.length).toBeLessThan(ids.length);
+  });
+
+  it("pre-populates folder ID and category map caches on cold cache", async () => {
+    const client = createMockOutlookClient([]);
+    const provider = new OutlookProvider(client, createTestLogger());
+
+    expect(client.getFolderIdCache()).toBeNull();
+    expect(client.getCategoryMapCache()).toBeNull();
+
+    vi.spyOn(provider, "getMessage").mockResolvedValue({ id: "msg-1" } as any);
+
+    await provider.getMessagesBatch(["msg-1"]);
+
+    expect(client.getFolderIdCache()).not.toBeNull();
+    expect(client.getCategoryMapCache()).not.toBeNull();
+  });
 });
