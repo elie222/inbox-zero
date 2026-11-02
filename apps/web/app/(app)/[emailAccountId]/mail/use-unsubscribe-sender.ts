@@ -256,10 +256,11 @@ export function useUnsubscribeSender(
       (isSenderStatsLoading && !httpLink) ||
       (!canUnsubscribe && (isAutoArchiveStatusLoading || isAutoArchived)),
     unsubscribeLabel: canUnsubscribe
-      ? "Unsubscribe from sender"
+      ? "Unsubscribe"
       : isAutoArchived
         ? "Sender blocked"
         : "Block sender",
+    canUnsubscribe,
     canManageAutoArchive: Boolean(senderEmail),
     isAutoArchived,
     isAutoArchiveStatusLoading,
