@@ -14,7 +14,7 @@ import {
 } from "@/components/new-landing/common/Typography";
 import { env } from "@/env";
 import { cn } from "@/utils";
-import { BRAND_NAME, getBrandTitle } from "@/utils/branding";
+import { getBrandTitle, HAS_BRAND_KIT } from "@/utils/branding";
 
 export const metadata: Metadata = {
   title: getBrandTitle("Brand Kit"),
@@ -74,7 +74,7 @@ const colors = [
 ];
 
 export default function BrandPage() {
-  if (BRAND_NAME !== "Inbox Zero") notFound();
+  if (!HAS_BRAND_KIT) notFound();
 
   return (
     <>

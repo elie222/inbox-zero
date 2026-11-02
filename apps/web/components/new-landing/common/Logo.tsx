@@ -13,13 +13,11 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { cn } from "@/utils";
-import { BRAND_LOGO_URL, BRAND_NAME } from "@/utils/branding";
+import { HAS_BRAND_KIT } from "@/utils/branding";
 
 interface LogoProps {
   variant?: "default" | "mobile";
 }
-
-const hasBrandKit = BRAND_NAME === "Inbox Zero" && !BRAND_LOGO_URL;
 
 export function Logo({ variant = "default" }: LogoProps) {
   const router = useRouter();
@@ -31,7 +29,7 @@ export function Logo({ variant = "default" }: LogoProps) {
     </Link>
   );
 
-  if (!hasBrandKit) return link;
+  if (!HAS_BRAND_KIT) return link;
 
   return (
     <ContextMenu>

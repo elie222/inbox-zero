@@ -2,6 +2,7 @@
 
 import { CheckIcon, CopyIcon } from "lucide-react";
 import { useState } from "react";
+import { toastError } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
 
 export function CopyButton({
@@ -23,9 +24,13 @@ export function CopyButton({
       size={iconOnly ? "icon" : "sm"}
       aria-label={label}
       onClick={async () => {
-        await navigator.clipboard.writeText(value);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
+        try {
+          await navigator.clipboard.writeText(value);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        } catch {
+          toastError({ description: "Couldn't copy to the clipboard" });
+        }
       }}
     >
       <Icon className={iconOnly ? "size-4" : "mr-2 size-4"} />
