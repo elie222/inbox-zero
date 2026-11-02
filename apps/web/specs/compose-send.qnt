@@ -276,6 +276,13 @@ module composeSend {
     unchangedExcept_send,
   }
 
+  // The provider can also refuse drafts.send; the draft then stays put.
+  action RejectSendDraft = all {
+    canSendDraft,
+    send' = send.with("status", "rejected"),
+    unchangedExcept_send,
+  }
+
   // sendComposeDraft: drafts.update with the final content, then drafts.send.
   val canUpdateDraftForSend = and {
     send.status == "dispatching",
@@ -338,7 +345,7 @@ module composeSend {
     Type, StartSave, ApplySave, ReceiveSave, LoseSave,
     ClickSend, QueueAfterWait, Undo, Discard, FinishCleanup, ForgetSentDraft,
     CloseTab, ApplyDiscard, EndHold, SendMessage, RejectSend,
-    UpdateDraftForSend, SendDraft,
+    UpdateDraftForSend, SendDraft, RejectSendDraft,
   }
 
   // Nothing but the user can move the system: every request has been

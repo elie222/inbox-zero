@@ -459,6 +459,13 @@ describe("waitForDelivery", () => {
       timeoutMs: 60_000,
     });
 
+    let settled = false;
+    delivered.then(() => {
+      settled = true;
+    });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+
     handle.set({ status: "verifying" });
     handle.set({ status: "succeeded" });
 
@@ -470,6 +477,7 @@ describe("waitForDelivery", () => {
     "failed",
     "needs_attention",
     "cancelled",
+    "superseded",
   ] as const)("reports a send that ends %s as undelivered", async (status) => {
     const handle = createHandle({ status: "queued" });
     const delivered = waitForDelivery({
