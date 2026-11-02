@@ -41,7 +41,8 @@
     "test-e2e": "cross-env RUN_E2E_TESTS=true vitest --run",
     "test-e2e:flows": "cross-env RUN_E2E_FLOW_TESTS=true vitest --run --dir __tests__/e2e/flows --no-file-parallelism",
     "test-integration": "cross-env RUN_INTEGRATION_TESTS=true vitest --run --dir __tests__/integration",
-    "test:mail-loading": "node __tests__/playwright/mail-simulation/run.mjs"
+    "test:mail-loading": "node __tests__/playwright/mail-simulation/run.mjs",
+    "test:specs:verify": "quint verify specs/compose-send.qnt --main=reconcileSend --invariant=safety --max-steps=14"
   },
   "dependencies": {
     "@ai-sdk/amazon-bedrock": "5.0.118",
@@ -238,6 +239,7 @@
   },
   "devDependencies": {
     "@headlessui/tailwindcss": "0.2.2",
+    "@informalsystems/quint": "0.33.1",
     "@microsoft/microsoft-graph-types": "2.43.1",
     "@playwright/test": "1.62.1",
     "@serwist/cli": "9.5.13",

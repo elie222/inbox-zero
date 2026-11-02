@@ -12,6 +12,7 @@ import {
   upcomingScheduledEmailsKey,
 } from "@/hooks/useHiddenDraftMessageIds";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { discardComposeDraftAction } from "@/utils/actions/mail";
 import { scheduleEmailAction } from "@/utils/actions/scheduled-email";
 import { prepareOutgoingInlineImages } from "@/utils/email/outgoing-inline-images";
 import { getActionErrorMessage } from "@/utils/error";
@@ -32,7 +33,10 @@ import {
   resolveComposeRecipientFields,
 } from "./compose-recipients";
 import { parseDeliveryTimes } from "./delivery-times";
-import { waitForDraftOperations } from "./draft-operation-queue";
+import {
+  hasPendingDraftOperations,
+  waitForDraftOperations,
+} from "./draft-operation-queue";
 import type { createInitialComposeContent } from "./initial-compose-content";
 import {
   queueReaderEmail,
@@ -159,7 +163,8 @@ export function useComposeSend({
 
       // Files go to the mailbox draft as they are attached, so a send waits
       // for them and never carries their bytes itself.
-      await waitForDraftOperations(draftQueueKey);
+      if (attachmentsRef.current.length)
+        await waitForDraftOperations(draftQueueKey);
       const failedAttachment = attachmentsRef.current.find(
         (attachment) => attachment.status !== "uploaded",
       );
@@ -217,14 +222,32 @@ export function useComposeSend({
         }
       }
       setSubmissionError("");
-      await stopProviderAutosave();
+      // A draft save already on its way to the mailbox would hold Send for a
+      // round trip. Instead the send carries its own content and the draft is
+      // removed once that save lands. Sending through the draft would let the
+      // late save overwrite the final text (specs/compose-send.qnt).
+      const replacesSavingDraft =
+        hasPendingDraftOperations(draftQueueKey) &&
+        attachmentsRef.current.length === 0 &&
+        !providerDraftMessageId &&
+        Boolean(localDraftIdentity) &&
+        navigator.onLine &&
+        !sendAt &&
+        !remindAt &&
+        deliveryPath.current !== "scheduled";
+      const draftSaveSettled = stopProviderAutosave().then(() =>
+        waitForDraftOperations(draftQueueKey),
+      );
+      if (!replacesSavingDraft) await draftSaveSettled;
       let deliveryAccepted = false;
       try {
         // Autosave can replace a draft's message ID; its provider draft ID survives.
-        enrichedData.providerDraftId = await resolveSendDraftId(
-          providerDraftId.current,
-          localDraftIdentity,
-        );
+        enrichedData.providerDraftId = replacesSavingDraft
+          ? undefined
+          : await resolveSendDraftId(
+              providerDraftId.current,
+              localDraftIdentity,
+            );
         // The mailbox draft is what carries the files to the recipient.
         if (attachmentsRef.current.length && !enrichedData.providerDraftId) {
           toastError({
@@ -324,7 +347,14 @@ export function useComposeSend({
           return;
         }
         let outcome: Awaited<ReturnType<typeof queueReaderEmail>>;
-        let showDraftAgain = () => {};
+        let showSentDrafts = () => {};
+        let showSavedDraft = () => {};
+        let draftShownAgain = false;
+        const showDraftAgain = () => {
+          draftShownAgain = true;
+          showSentDrafts();
+          showSavedDraft();
+        };
         try {
           const publishInlineImages = await prepareOutgoingInlineImages(
             selectedEmailAccountId,
@@ -347,12 +377,28 @@ export function useComposeSend({
             },
             onQueued: async (operationId) => {
               deliveryAccepted = true;
-              showDraftAgain = hideSendingDraftMessages(
+              showSentDrafts = hideSendingDraftMessages(
                 selectedEmailAccountId,
                 draftMessageIds,
               );
+              if (replacesSavingDraft && localDraftIdentity) {
+                // The save may give the draft a message the send has not seen.
+                draftSaveSettled
+                  .then(() => getReplyDraft(localDraftIdentity))
+                  .then((saved) => {
+                    // An undo before the save landed already handed it back.
+                    if (draftShownAgain) return;
+                    showSavedDraft = hideSendingDraftMessages(
+                      selectedEmailAccountId,
+                      (saved?.content?.providerDraftMessageIds ?? []).filter(
+                        (id) => !draftMessageIds.includes(id),
+                      ),
+                    );
+                  })
+                  .catch(() => {});
+              }
               if (replyingToEmail?.threadId?.trim()) {
-                await mutate([
+                mutate([
                   "thread-deliveries",
                   selectedEmailAccountId,
                   readerThreadId,
@@ -417,6 +463,16 @@ export function useComposeSend({
               if (settled.status === "cancelled" || settled.status === "failed")
                 showDraftAgain();
               if (settled.status === "cancelled") return;
+              // Undo and failure keep the draft so the restored composer can
+              // keep saving to it; only a delivered reply replaces it.
+              if (settled.status === "sent" && replacesSavingDraft)
+                await discardDraftReplacedBySend({
+                  client,
+                  emailAccountId: selectedEmailAccountId,
+                  draftSaveSettled,
+                  providerDraftId,
+                  localDraftIdentity,
+                });
               await discardLocalDraft();
               if (settled.status === "sent") {
                 if (markDoneAfterSend) onMarkDone?.();
@@ -573,4 +629,42 @@ async function refreshScheduledEmails(
     ...(threadId ? [threadScheduledEmailsKey(emailAccountId, threadId)] : []),
   ];
   await Promise.all(keys.map((key) => mutate(key).catch(() => {})));
+}
+
+/**
+ * Removes the mailbox draft a delivered send replaced, once the save that was
+ * in flight when Send was pressed has landed. Reading the draft id only then
+ * also covers a save that created the draft.
+ */
+async function discardDraftReplacedBySend({
+  client,
+  emailAccountId,
+  draftSaveSettled,
+  providerDraftId,
+  localDraftIdentity,
+}: {
+  client: MailClient;
+  emailAccountId: string;
+  draftSaveSettled: Promise<void>;
+  providerDraftId: RefObject<string | undefined>;
+  localDraftIdentity?: ReplyDraftIdentity;
+}) {
+  await draftSaveSettled;
+  const draftId =
+    providerDraftId.current ??
+    (localDraftIdentity
+      ? (await getReplyDraft(localDraftIdentity))?.content?.providerDraftId
+      : undefined);
+  if (!draftId) return;
+  const result = await discardComposeDraftAction(emailAccountId, {
+    draftId,
+  }).catch(() => undefined);
+  if (!result?.data) {
+    toastError({
+      description:
+        "Your reply was sent, but its draft could not be removed from Drafts.",
+    });
+    return;
+  }
+  await client.requestSync([emailAccountId]).catch(() => {});
 }

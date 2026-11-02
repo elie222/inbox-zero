@@ -35,6 +35,7 @@ export function getPreparedEmailHtml({
   messageId: string;
   sourceHtml: string;
 }) {
+  if (!hasRemoteAssets(sourceHtml)) return sourceHtml;
   const prepared = preparedHtml.get(messageId);
   if (
     !prepared ||
@@ -68,7 +69,8 @@ export function prepareSanitizedEmailHtml({
   messageId: string;
   sourceHtml: string;
 }) {
-  if (!IMAGE_PROXY_BASE_URL) return Promise.resolve(sourceHtml);
+  if (!IMAGE_PROXY_BASE_URL || !hasRemoteAssets(sourceHtml))
+    return Promise.resolve(sourceHtml);
 
   const cached = getPreparedEmailHtml({ messageId, sourceHtml });
   if (cached !== undefined) return Promise.resolve(cached);
@@ -119,4 +121,37 @@ async function rewriteHtmlWithProxy(html: string) {
 
   const data = await response.json();
   return typeof data?.html === "string" ? data.html : undefined;
+}
+
+const REMOTE_URL_PATTERN = /(?:https?:)?\/\//i;
+const remoteAssetChecks = new Map<string, boolean>();
+
+/**
+ * Whether the html could load anything from another server, the only reason
+ * to route it through the image proxy. Deliberately broader than what the
+ * proxy rewrites: any absolute or protocol-relative URL outside a link's
+ * target counts, so a miss can only cost a wait, never a direct remote load.
+ */
+function hasRemoteAssets(html: string) {
+  const cached = remoteAssetChecks.get(html);
+  if (cached !== undefined) return cached;
+  const parsed = new DOMParser().parseFromString(html, "text/html");
+  const remote =
+    Array.from(parsed.querySelectorAll("style")).some((style) =>
+      REMOTE_URL_PATTERN.test(style.textContent ?? ""),
+    ) ||
+    Array.from(parsed.querySelectorAll("*")).some((element) =>
+      Array.from(element.attributes).some(
+        (attribute) =>
+          !(attribute.name === "href" && element.matches("a, area")) &&
+          REMOTE_URL_PATTERN.test(attribute.value),
+      ),
+    );
+  remoteAssetChecks.set(html, remote);
+  while (remoteAssetChecks.size > PREPARED_HTML_CACHE_SIZE) {
+    const oldest = remoteAssetChecks.keys().next().value;
+    if (oldest === undefined) break;
+    remoteAssetChecks.delete(oldest);
+  }
+  return remote;
 }

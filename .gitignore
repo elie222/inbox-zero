@@ -121,3 +121,6 @@ eval-results/
 .tmp/
 
 /.private-build-install.json
+
+# Apalache model-checker output (pnpm test:specs:verify)
+_apalache-out/

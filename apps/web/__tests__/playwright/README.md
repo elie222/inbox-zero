@@ -65,6 +65,16 @@ title, console errors, uncaught page errors, failed network requests, and HTTP
 error responses. Uncaught page errors fail otherwise-passing tests unless a
 flow explicitly expects browser errors while simulating a network outage.
 
+`emulated/mail/interaction-latency.spec.ts` holds mail interactions to a
+latency budget: every app request, including mailbox sync and draft saves, is
+delayed by two seconds, and the final state must show within one second of the
+click. Anything that waits on the network fails clearly instead of flakily.
+Timings come from the page's own animation frames and are attached as
+`latency-*.json`. CI runs without the image proxy; to include its HTML
+preparation as production does, run the spec with
+`NEXT_PUBLIC_IMAGE_PROXY_USE_APP_ROUTE=true` and an `IMAGE_PROXY_SIGNING_SECRET`
+of at least 16 characters.
+
 Use `capturePlaywrightCheckpoint` from `emulated/playwright-evidence.ts` for
 meaningful states that reviewers should see. Capture distinct UI states only,
 not every step: a test with checkpoints skips the final-state screenshot, so
