@@ -6,6 +6,7 @@ import {
   stripeRefundEvents,
 } from "@/ee/billing/stripe/refunds";
 import { syncAiGenerationOverageForUpcomingInvoice } from "@/ee/billing/stripe/ai-overage";
+import { saveStripeCancellationFeedback } from "@/ee/billing/stripe/cancellation-feedback";
 import { syncStripeInvoicePayment } from "@/ee/billing/stripe/payments";
 import { enqueueStripeInvoiceEmail } from "@/ee/billing/stripe/invoice-email";
 import { getStripeTrialStartedProperties } from "@/ee/billing/stripe/posthog-events";
@@ -19,6 +20,7 @@ import {
 import { sendFacebookConversionEvent } from "@/utils/fb";
 import {
   getCheckoutSessionIdHash,
+  trackBillingCancellationFeedback,
   trackBillingCancellationInitiated,
   trackBillingTrialConverted,
   trackBillingTrialStarted,
@@ -84,6 +86,7 @@ export async function processEvent(event: Stripe.Event, logger: Logger) {
     trackBillingMilestones(email, event, customerId),
     trackTrialStartedConversion(event, customer, logger),
     recordCancellationInitiated(customerId, event, customer, logger),
+    recordCancellationFeedback(event, customer, logger),
   ];
 
   let paidTrialConversion: Promise<void> | undefined;
@@ -248,6 +251,47 @@ async function recordCancellationInitiated(
     customerId,
     initiatedAt,
     cancellationFeedback: subscription.cancellation_details?.feedback ?? null,
+  });
+}
+
+async function recordCancellationFeedback(
+  event: Stripe.Event,
+  customer: StripeCustomerIdentity | undefined,
+  logger: Logger,
+) {
+  if (
+    event.type !== "customer.subscription.updated" &&
+    event.type !== "customer.subscription.deleted"
+  )
+    return;
+
+  const subscription = event.data.object as Stripe.Subscription;
+  const saved = await saveStripeCancellationFeedback(subscription);
+  if (!saved) return;
+
+  // Every later event on a canceling subscription repeats the same answer, so
+  // only the event that changed it counts as a new response.
+  const previousAttributes = event.data.previous_attributes as
+    | Partial<Stripe.Subscription>
+    | undefined;
+  if (!previousAttributes || !("cancellation_details" in previousAttributes))
+    return;
+
+  logger.info("Recorded cancellation feedback", {
+    subscriptionId: subscription.id,
+    cancellationFeedback: saved.feedback,
+  });
+
+  if (!customer) return;
+
+  await trackBillingCancellationFeedback(customer.email, {
+    billingProvider: "stripe",
+    billingEventId: event.id,
+    subscriptionId: subscription.id,
+    subscriptionStatus: subscription.status,
+    canceledAt: saved.canceledAt.toISOString(),
+    cancellationFeedback: saved.feedback,
+    cancellationComment: saved.comment,
   });
 }
 

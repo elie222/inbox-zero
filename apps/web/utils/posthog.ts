@@ -349,6 +349,17 @@ export async function trackBillingCancellationInitiated(
   );
 }
 
+export async function trackBillingCancellationFeedback(
+  email: string,
+  attributes: Properties,
+) {
+  return posthogCaptureEvent(
+    email,
+    "billing_cancellation_feedback",
+    attributes,
+  );
+}
+
 export async function trackSubscriptionCustom(
   email: string,
   status: string,
