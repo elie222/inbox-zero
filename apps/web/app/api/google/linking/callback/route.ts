@@ -8,7 +8,10 @@ import { getLinkingOAuth2Client } from "@/utils/gmail/client";
 import { GOOGLE_LINKING_STATE_COOKIE_NAME } from "@/utils/gmail/constants";
 import { withError } from "@/utils/middleware";
 import { validateOAuthCallback } from "@/utils/oauth/callback-validation";
-import { createAccountLinkingRedirect } from "@/utils/oauth/account-linking-redirect";
+import {
+  createAccountLinkingRedirect,
+  createTokensUpdatedRedirect,
+} from "@/utils/oauth/account-linking-redirect";
 import {
   hashOAuthAuditIdentifier,
   logOAuthLinkingCallbackValidation,
@@ -460,6 +463,13 @@ async function completeGoogleAccountLinking({
         );
       }),
   );
+
+  if (success === "tokens_updated") {
+    return createTokensUpdatedRedirect({
+      userId: targetUserId,
+      stateCookieName: GOOGLE_LINKING_STATE_COOKIE_NAME,
+    });
+  }
 
   return createAccountLinkingRedirect({
     query: { success },
