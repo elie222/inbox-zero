@@ -9,7 +9,7 @@ type Scenario = {
   expectedAction: "ARCHIVE" | "MARK_SPAM" | "MARK_READ" | null;
   expectedScope?: string;
   existingRule?: boolean;
-  expected?: MessageContext["expected"];
+  expected?: Extract<MessageContext, { type: "fix-rule" }>["expected"];
 };
 
 const newRuleRequest: ModelMessage[] = [

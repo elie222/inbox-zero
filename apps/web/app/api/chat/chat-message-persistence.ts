@@ -52,7 +52,9 @@ export function buildUserChatMessageMetadata({
         type: context.type,
         messageId: context.message.id,
         threadId: context.message.threadId,
-        resultCount: context.results.length,
+        ...(context.type === "fix-rule"
+          ? { resultCount: context.results.length }
+          : {}),
       }
     : null;
   const inlineActionMetadata = inlineActions?.length

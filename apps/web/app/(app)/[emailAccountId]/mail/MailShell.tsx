@@ -14,6 +14,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useChat } from "@/providers/ChatProvider";
 import { parseAsString, useQueryState, useQueryStates } from "nuqs";
 import { ChevronLeftIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -563,6 +564,19 @@ export function MailShell() {
   const openMessages = readerSelectionSettled
     ? (openThreadData?.thread.messages ?? NO_MESSAGES)
     : NO_MESSAGES;
+  const { setEmailContext } = useChat();
+  const currentChatMessage =
+    openThreadSelection?.emailAccountId === emailAccountId && !openThreadError
+      ? openMessages.at(-1)
+      : undefined;
+  useEffect(() => {
+    setEmailContext(
+      currentChatMessage
+        ? { type: "email", message: currentChatMessage }
+        : null,
+    );
+    return () => setEmailContext(null);
+  }, [currentChatMessage, setEmailContext]);
   const openExternalUrl = useMemo(() => {
     const message = openMessages.at(-1);
     if (!message || !readerEmailAccount) return;

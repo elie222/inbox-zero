@@ -90,6 +90,7 @@ export type ThreadReaderProps = {
    */
   autoOpenReplyForMessageId?: string;
   autoOpenForwardForMessageId?: string;
+  showChat?: boolean;
   /** The ⋯ dropdown, i.e. `ThreadActionsMenu`, composed by the shell. */
   menu?: ReactNode;
   renderMessageMenu?: (message: ThreadMessage) => ReactNode;
@@ -119,6 +120,7 @@ export function ThreadReader({
   autoOpenReplyForMessageId,
   autoOpenForwardForMessageId,
   menu,
+  showChat = true,
   renderMessageMenu,
 }: ThreadReaderProps) {
   const [senderContext, setSenderContext] = useState<{
@@ -188,6 +190,7 @@ export function ThreadReader({
       labelHref={labelHref}
       labels={labels}
       menu={menu}
+      showChat={showChat}
       onArchive={onArchive}
       onMoveToInbox={onMoveToInbox}
       onMarkRead={onMarkRead}

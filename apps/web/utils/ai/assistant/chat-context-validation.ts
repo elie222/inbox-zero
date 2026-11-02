@@ -48,7 +48,7 @@ export const serializedMatchMetadataSchema = z
   .array(serializedMatchReasonSchema)
   .nullish();
 
-export const messageContextSchema = z.object({
+const fixRuleContextSchema = z.object({
   type: z.literal("fix-rule"),
   message: parsedMessageSchema,
   results: z.array(
@@ -73,4 +73,8 @@ export const messageContextSchema = z.object({
     ]),
   ]),
 });
+export const messageContextSchema = z.discriminatedUnion("type", [
+  fixRuleContextSchema,
+  z.object({ type: z.literal("email"), message: parsedMessageSchema }),
+]);
 export type MessageContext = z.infer<typeof messageContextSchema>;
