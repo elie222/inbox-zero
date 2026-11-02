@@ -14,14 +14,12 @@ const {
   mockTrackBillingTrialStarted,
   mockTrackBillingTrialConverted,
   mockTrackBillingCancellationInitiated,
-  mockTrackBillingCancellationFeedback,
   mockTrackTrialStarted,
   mockTrackSubscriptionTrialStarted,
   mockTrackServerConversionEvent,
   mockSendFacebookConversionEvent,
   mockFindUnique,
   mockUpdateMany,
-  mockCancellationFeedbackUpsert,
   mockCompleteReferralAndGrantReward,
   mockCaptureException,
   mockGetStripeTrialConversion,
@@ -38,14 +36,12 @@ const {
   mockTrackBillingTrialStarted: vi.fn(),
   mockTrackBillingTrialConverted: vi.fn(),
   mockTrackBillingCancellationInitiated: vi.fn(),
-  mockTrackBillingCancellationFeedback: vi.fn(),
   mockTrackTrialStarted: vi.fn(),
   mockTrackSubscriptionTrialStarted: vi.fn(),
   mockTrackServerConversionEvent: vi.fn(),
   mockSendFacebookConversionEvent: vi.fn(),
   mockFindUnique: vi.fn(),
   mockUpdateMany: vi.fn(),
-  mockCancellationFeedbackUpsert: vi.fn(),
   mockCompleteReferralAndGrantReward: vi.fn(),
   mockCaptureException: vi.fn(),
   mockGetStripeTrialConversion: vi.fn(),
@@ -101,7 +97,6 @@ vi.mock("@/env", () => ({
 
 vi.mock("@/utils/posthog", () => ({
   getCheckoutSessionIdHash: mockGetCheckoutSessionIdHash,
-  trackBillingCancellationFeedback: mockTrackBillingCancellationFeedback,
   trackBillingCancellationInitiated: mockTrackBillingCancellationInitiated,
   trackBillingTrialConverted: mockTrackBillingTrialConverted,
   trackBillingTrialStarted: mockTrackBillingTrialStarted,
@@ -137,9 +132,6 @@ vi.mock("@/utils/prisma", () => ({
       findUnique: mockFindUnique,
       updateMany: mockUpdateMany,
     },
-    cancellationFeedback: {
-      upsert: mockCancellationFeedbackUpsert,
-    },
   },
 }));
 
@@ -166,8 +158,6 @@ describe("processEvent", () => {
     mockTrackBillingTrialStarted.mockResolvedValue(undefined);
     mockTrackBillingTrialConverted.mockResolvedValue(undefined);
     mockTrackBillingCancellationInitiated.mockResolvedValue(undefined);
-    mockTrackBillingCancellationFeedback.mockResolvedValue(undefined);
-    mockCancellationFeedbackUpsert.mockResolvedValue(undefined);
     mockTrackTrialStarted.mockResolvedValue(undefined);
     mockTrackSubscriptionTrialStarted.mockResolvedValue(undefined);
     mockTrackServerConversionEvent.mockResolvedValue(undefined);
@@ -566,124 +556,6 @@ describe("processEvent", () => {
         cancellationComment: "Costs more than I expected",
       },
     );
-  });
-
-  it("saves cancellation feedback submitted after the cancel event", async () => {
-    mockSyncStripeDataToDb.mockResolvedValue(undefined);
-    mockFindUnique.mockResolvedValue({
-      id: "premium_test",
-      users: [{ id: "user_test", email: "user@example.com" }],
-    });
-
-    await processEvent(
-      subscriptionEvent({
-        id: "evt_cancel_feedback",
-        data: {
-          object: {
-            id: "sub_test",
-            customer: "cus_test",
-            status: "active",
-            canceled_at: 1_700_000_000,
-            cancel_at: 1_700_999_000,
-            cancellation_details: {
-              reason: "cancellation_requested",
-              feedback: "too_expensive",
-              comment: "Costs more than I expected",
-            },
-          },
-          previous_attributes: {
-            cancellation_details: {
-              reason: "cancellation_requested",
-              feedback: null,
-              comment: null,
-            },
-          },
-        } as Stripe.Event.Data,
-      }),
-      logger,
-    );
-
-    expect(mockCancellationFeedbackUpsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        create: expect.objectContaining({
-          stripeCustomerId: "cus_test",
-          stripeSubscriptionId: "sub_test",
-          canceledAt: new Date("2023-11-14T22:13:20.000Z"),
-          feedback: "too_expensive",
-          comment: "Costs more than I expected",
-        }),
-      }),
-    );
-    expect(mockTrackBillingCancellationFeedback).toHaveBeenCalledWith(
-      "user@example.com",
-      expect.objectContaining({
-        subscriptionId: "sub_test",
-        cancellationFeedback: "too_expensive",
-        cancellationComment: "Costs more than I expected",
-      }),
-    );
-  });
-
-  it("does not track feedback again when a later event repeats it", async () => {
-    mockSyncStripeDataToDb.mockResolvedValue(undefined);
-    mockFindUnique.mockResolvedValue({
-      id: "premium_test",
-      users: [{ id: "user_test", email: "user@example.com" }],
-    });
-
-    await processEvent(
-      subscriptionEvent({
-        type: "customer.subscription.deleted",
-        data: {
-          object: {
-            id: "sub_test",
-            customer: "cus_test",
-            status: "canceled",
-            canceled_at: 1_700_000_000,
-            cancellation_details: {
-              reason: "cancellation_requested",
-              feedback: "too_expensive",
-              comment: null,
-            },
-          },
-        } as Stripe.Event.Data,
-      }),
-      logger,
-    );
-
-    expect(mockCancellationFeedbackUpsert).toHaveBeenCalled();
-    expect(mockTrackBillingCancellationFeedback).not.toHaveBeenCalled();
-  });
-
-  it("does not save feedback when the cancellation has none", async () => {
-    mockSyncStripeDataToDb.mockResolvedValue(undefined);
-
-    await processEvent(
-      subscriptionEvent({
-        data: {
-          object: {
-            id: "sub_test",
-            customer: "cus_test",
-            status: "active",
-            canceled_at: 1_700_000_000,
-            cancel_at: 1_700_999_000,
-            cancellation_details: {
-              reason: "cancellation_requested",
-              feedback: null,
-              comment: null,
-            },
-          },
-          previous_attributes: {
-            cancel_at: null,
-            cancellation_details: { reason: null },
-          },
-        } as Stripe.Event.Data,
-      }),
-      logger,
-    );
-
-    expect(mockCancellationFeedbackUpsert).not.toHaveBeenCalled();
-    expect(mockTrackBillingCancellationFeedback).not.toHaveBeenCalled();
   });
 
   it("does not track paid subscription conversions for non-conversion updates", async () => {

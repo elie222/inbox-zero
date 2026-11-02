@@ -1,38 +1,45 @@
-// Copies Stripe customer portal cancellation survey answers into CancellationFeedback.
-// The webhook saves new answers; this covers answers given before it did. Safe to re-run.
+// Copies Stripe customer portal cancellation survey answers onto Premium for
+// answers given before the Stripe sync stored them. Safe to re-run.
 //
 // Run with: `pnpm --filter inbox-zero-ai exec tsx scripts/backfill-cancellation-feedback.ts`
 // Apply changes with: `pnpm --filter inbox-zero-ai exec tsx scripts/backfill-cancellation-feedback.ts --apply`
 
 import "dotenv/config";
 import { getStripe } from "@/ee/billing/stripe";
-import { saveStripeCancellationFeedback } from "@/ee/billing/stripe/cancellation-feedback";
+import prisma from "@/utils/prisma";
 
 async function main() {
   const apply = process.argv.includes("--apply");
   const stripe = getStripe();
 
-  let canceled = 0;
-  let withFeedback = 0;
+  let answers = 0;
+  let updated = 0;
 
+  // Matching on stripeSubscriptionId only touches the subscription the Stripe sync tracks for each Premium.
   for await (const subscription of stripe.subscriptions.list({
     status: "all",
     limit: 100,
   })) {
-    if (!subscription.canceled_at) continue;
-    canceled++;
+    const feedback = subscription.cancellation_details?.feedback ?? null;
+    const comment = subscription.cancellation_details?.comment || null;
+    if (!feedback && !comment) continue;
+    answers++;
 
-    const details = subscription.cancellation_details;
-    if (!details?.feedback && !details?.comment) continue;
-    withFeedback++;
+    if (!apply) continue;
 
-    if (apply) await saveStripeCancellationFeedback(subscription);
+    const result = await prisma.premium.updateMany({
+      where: { stripeSubscriptionId: subscription.id },
+      data: {
+        stripeCancellationFeedback: feedback,
+        stripeCancellationComment: comment,
+      },
+    });
+    updated += result.count;
   }
 
-  console.log(
-    `${apply ? "Saved" : "Would save"} ${withFeedback} answers from ${canceled} canceled subscriptions.`,
-  );
-  if (!apply) console.log("Dry run. Re-run with --apply to write.");
+  console.log(`Found ${answers} answers in Stripe.`);
+  if (apply) console.log(`Updated ${updated} Premium rows.`);
+  else console.log("Dry run. Re-run with --apply to write.");
 }
 
 main()

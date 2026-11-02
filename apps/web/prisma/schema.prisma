@@ -615,6 +615,8 @@ model Premium {
   stripeCancellationInitiatedAt  DateTime? // Timestamp of the event that first scheduled cancellation. Does not identify who initiated it.
   stripeCanceledAt               DateTime? // Stripe canceled_at: when cancellation was requested, which can precede the effective end in stripeEndedAt. Historical data.
   stripeEndedAt                  DateTime? // Timestamp for when the subscription ended permanently for any reason (cancellation, final payment failure). Historical data.
+  stripeCancellationFeedback     String? // Customer portal cancellation survey reason, e.g. 'too_expensive'.
+  stripeCancellationComment      String? // Customer portal cancellation survey free-text comment.
   stripeAiOverageLastInvoiceId   String?
   stripeAiOverageLastPeriodEnd   DateTime?
   stripeAiOverageLastUnits       Int?
@@ -653,22 +655,6 @@ model Premium {
   payments Payment[]
 
   @@index([pendingInvites])
-}
-
-// Answers to the Stripe customer portal cancellation survey. Joined to Premium through stripeCustomerId.
-model CancellationFeedback {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  stripeCustomerId     String
-  stripeSubscriptionId String
-  canceledAt           DateTime // Stripe canceled_at. A subscription canceled again after being reactivated gets a new row.
-  feedback             String? // Stripe cancellation_details.feedback, e.g. 'too_expensive'
-  comment              String?
-
-  @@unique([stripeSubscriptionId, canceledAt])
-  @@index([stripeCustomerId])
 }
 
 // Admin grant for an email that has not signed up yet. Applied and deleted on sign-up.
