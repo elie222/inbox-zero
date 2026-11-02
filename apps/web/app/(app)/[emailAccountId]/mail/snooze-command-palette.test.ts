@@ -51,6 +51,24 @@ describe("buildSnoozeCommandPalette", () => {
     ]);
   });
 
+  it.each([
+    "t",
+    "tom",
+    "Tomorrow",
+    " tomorrow ",
+  ])("offers tomorrow while typing %j", (query) => {
+    const onSnooze = vi.fn();
+    const commands = buildSnoozeCommandPalette({
+      now: new Date(2026, 7, 18, 21),
+      onSnooze,
+      query,
+    });
+
+    expect(commands.length).toBeGreaterThan(0);
+    commands[0]?.action();
+    expect(onSnooze).toHaveBeenCalledWith(new Date(2026, 7, 19, 9));
+  });
+
   it("turns natural language into one actionable result", () => {
     const onSnooze = vi.fn();
     const commands = buildSnoozeCommandPalette({

@@ -12,9 +12,7 @@ export function buildSnoozeCommandPalette({
   query: string;
 }): Command[] {
   const naturalLanguageDate = parseSnoozeDate(query, now);
-  if (query.trim()) {
-    if (!naturalLanguageDate) return [];
-
+  if (naturalLanguageDate) {
     return [
       {
         id: "mail-snooze-natural-language",
@@ -27,15 +25,19 @@ export function buildSnoozeCommandPalette({
     ];
   }
 
-  return getSnoozePresets(now).map((preset, index) => ({
-    id: `mail-snooze-${preset.id}`,
-    label: preset.label,
-    description: formatSnoozeTime(preset.until),
-    section: "actions",
-    priority: index,
-    keywords: ["snooze", "later", "remind", preset.id, preset.label],
-    action: () => onSnooze(preset.until),
-  }));
+  return getSnoozePresets(now)
+    .filter((preset) =>
+      preset.label.toLowerCase().startsWith(query.trim().toLowerCase()),
+    )
+    .map((preset, index) => ({
+      id: `mail-snooze-${preset.id}`,
+      label: preset.label,
+      description: formatSnoozeTime(preset.until),
+      section: "actions",
+      priority: index,
+      keywords: ["snooze", "later", "remind", preset.id, preset.label],
+      action: () => onSnooze(preset.until),
+    }));
 }
 
 export function parseSnoozeDate(input: string, now = new Date()) {
