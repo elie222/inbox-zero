@@ -69,6 +69,43 @@ describe("buildSnoozeCommandPalette", () => {
     expect(onSnooze).toHaveBeenCalledWith(new Date(2026, 7, 19, 9));
   });
 
+  it("matches words within preset labels", () => {
+    const now = new Date(2026, 7, 18, 10);
+    const onSnooze = vi.fn();
+    const commands = buildSnoozeCommandPalette({
+      now,
+      onSnooze,
+      query: "week",
+    });
+
+    expect(commands.map(({ label }) => label)).toEqual([
+      "End of week",
+      "This weekend",
+      "Next week",
+    ]);
+    const weekendCommands = buildSnoozeCommandPalette({
+      now,
+      onSnooze,
+      query: "weeken",
+    });
+    expect(weekendCommands).toHaveLength(1);
+    weekendCommands[0]?.action();
+    expect(onSnooze).toHaveBeenCalledWith(new Date(2026, 7, 22, 9));
+  });
+
+  it("uses the next Monday preset date for an exact next week query", () => {
+    const onSnooze = vi.fn();
+    const commands = buildSnoozeCommandPalette({
+      now: new Date(2026, 7, 18, 10),
+      onSnooze,
+      query: " Next week ",
+    });
+
+    expect(commands).toHaveLength(1);
+    commands[0]?.action();
+    expect(onSnooze).toHaveBeenCalledWith(new Date(2026, 7, 24, 9));
+  });
+
   it("turns natural language into one actionable result", () => {
     const onSnooze = vi.fn();
     const commands = buildSnoozeCommandPalette({
