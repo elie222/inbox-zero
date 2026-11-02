@@ -69,6 +69,7 @@ type ChatContextType = {
   stop: () => Promise<void>;
   context: MessageContext | null;
   setContext: (context: MessageContext | null) => void;
+  setAmbientContext: (context: MessageContext | null) => void;
   attachments: Attachment[];
   setAttachments: React.Dispatch<React.SetStateAction<Attachment[]>>;
 };
@@ -82,6 +83,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [input, setInput] = useState<string>("");
   const [chatId, setChatId] = useQueryState("chatId", parseAsString);
   const [context, setContext] = useState<MessageContext | null>(null);
+  const [ambientContext, setAmbientContext] = useState<MessageContext | null>(
+    null,
+  );
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [inlineActions, setInlineActions] = useState<InlineEmailAction[]>([]);
   const inlineActionsRef = useRef(inlineActions);
@@ -185,7 +189,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       const pendingRequest = pendingRequestRef.current;
       const pendingInlineActions = pendingInlineActionsRef.current;
       const pendingContext = pendingRequestContextRef.current;
-      if (pendingContext) {
+      if (pendingContext?.type === "fix-rule") {
         setContext((current) => current ?? pendingContext);
       }
       if (pendingInlineActions?.length) {
@@ -311,9 +315,15 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     chat.setMessages([]);
     setInput("");
     setContext(null);
+    setAmbientContext(null);
     setAttachments([]);
     setInlineActions([]);
   }, [chat.setMessages, emailAccountId, setChatId]);
+
+  const setDisplayedContext = useCallback((next: MessageContext | null) => {
+    setContext(next);
+    if (!next) setAmbientContext(null);
+  }, []);
 
   const sendMessageParts = useCallback(
     (parts: ChatMessagePart[]) => {
@@ -342,7 +352,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       interruptedRef.current = false;
 
       const requestChatId = chatId ?? chat.id;
-      const requestContext = context;
+      const requestContext = context ?? ambientContext;
       const request: PendingChatRequest = {
         attachmentCount,
         chatId: requestChatId,
@@ -375,7 +385,15 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
       return sendPromise;
     },
-    [chat.id, chat.sendMessage, chatId, context, emailAccountId, setChatId],
+    [
+      chat.id,
+      chat.sendMessage,
+      chatId,
+      context,
+      ambientContext,
+      emailAccountId,
+      setChatId,
+    ],
   );
 
   const submitTextMessage = useCallback(
@@ -494,8 +512,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         submitTextMessage,
         handleSubmit,
         stop,
-        context,
-        setContext,
+        context: context ?? ambientContext,
+        setContext: setDisplayedContext,
+        setAmbientContext,
         attachments,
         setAttachments,
       }}

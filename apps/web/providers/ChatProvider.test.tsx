@@ -441,6 +441,60 @@ describe("ChatProvider", () => {
     expect(mockCaptureException).toHaveBeenCalledWith(error);
   });
 
+  it("sends the current reader email on every turn and follows navigation", async () => {
+    let current: ReturnType<typeof useChat> | undefined;
+    function Consumer() {
+      current = useChat();
+      return null;
+    }
+    renderWithProvider(<Consumer />);
+    const email = {
+      type: "email",
+      message: {
+        id: "email-a",
+        threadId: "thread-a",
+        snippet: "",
+        headers: {
+          from: "sender@example.com",
+          to: "me@example.com",
+          subject: "Question",
+          date: "",
+        },
+      },
+    } satisfies MessageContext;
+    act(() => current?.setAmbientContext(email));
+    expect(current?.context).toEqual(email);
+    await act(async () => {
+      await current?.submitTextMessage("Summarize this");
+    });
+    await act(async () => {
+      await current?.submitTextMessage("Who sent it?");
+    });
+    expect(mockSendMessage.mock.calls.slice(-2).map((call) => call[1])).toEqual(
+      [{ body: { context: email } }, { body: { context: email } }],
+    );
+    const next = {
+      ...email,
+      message: { ...email.message, id: "email-b", threadId: "thread-b" },
+    };
+    act(() => current?.setAmbientContext(next));
+    await act(async () => {
+      await current?.submitTextMessage("And this?");
+    });
+    expect(mockSendMessage).toHaveBeenLastCalledWith(expect.anything(), {
+      body: { context: next },
+    });
+    act(() => current?.setContext(null));
+    expect(current?.context).toBeNull();
+    await act(async () => {
+      await current?.submitTextMessage("Search my inbox");
+    });
+    expect(mockSendMessage).toHaveBeenLastCalledWith(
+      expect.anything(),
+      undefined,
+    );
+  });
+
   it("treats a connection drop after the reply started streaming as sent", async () => {
     chatState.status = "streaming";
     mockSendMessage.mockRejectedValueOnce(new TypeError("Load failed"));

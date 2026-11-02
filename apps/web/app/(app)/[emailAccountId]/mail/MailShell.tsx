@@ -14,6 +14,10 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { emailMessageContextSchema } from "@/utils/ai/assistant/chat-context-validation";
+import { latestShownMessage } from "@/app/(app)/[emailAccountId]/mail/latest-shown-message";
+import { useHiddenDraftMessageIds } from "@/hooks/useHiddenDraftMessageIds";
+import { useChat } from "@/providers/ChatProvider";
 import { parseAsString, useQueryState, useQueryStates } from "nuqs";
 import { ChevronLeftIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -155,7 +159,7 @@ export function MailShell() {
   const { userLabels: allLabels, mutate: mutateLabels } = useLabels();
   const { folders } = useFolders(provider);
   const { data: settings, mutate: mutateSettings } = useMailSettings();
-  const { toggleSidebar } = useSidebar();
+  const { toggleSidebar, state: sidebarState } = useSidebar();
   const isPaletteOpen = useAtomValue(commandPaletteOpenAtom);
   const isHelpOpen = useAtomValue(shortcutsDialogOpenAtom);
   const setIsHelpOpen = useSetAtom(shortcutsDialogOpenAtom);
@@ -563,6 +567,22 @@ export function MailShell() {
   const openMessages = readerSelectionSettled
     ? (openThreadData?.thread.messages ?? NO_MESSAGES)
     : NO_MESSAGES;
+  const { setAmbientContext } = useChat();
+  const hiddenDraftMessageIds = useHiddenDraftMessageIds(emailAccountId);
+  const currentChatMessage =
+    openThreadSelection?.emailAccountId === emailAccountId && !openThreadError
+      ? latestShownMessage(openMessages, hiddenDraftMessageIds)
+      : undefined;
+  useEffect(() => {
+    const parsedContext = currentChatMessage
+      ? emailMessageContextSchema.safeParse({
+          type: "email",
+          message: currentChatMessage,
+        })
+      : null;
+    setAmbientContext(parsedContext?.success ? parsedContext.data : null);
+    return () => setAmbientContext(null);
+  }, [currentChatMessage, setAmbientContext]);
   const openExternalUrl = useMemo(() => {
     const message = openMessages.at(-1);
     if (!message || !readerEmailAccount) return;
@@ -1154,6 +1174,7 @@ export function MailShell() {
     return () => setMailCommandContext(null);
   }, [mailCommandContext, setMailCommandContext]);
   const isMailOverlayOpen =
+    sidebarState.includes("chat-sidebar") ||
     isHelpOpen ||
     isPaletteOpen ||
     Boolean(labelPicker) ||

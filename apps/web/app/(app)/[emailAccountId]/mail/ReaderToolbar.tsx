@@ -7,6 +7,7 @@ import {
   ArrowLeftIcon,
   ChevronsDownUpIcon,
   ChevronsUpDownIcon,
+  MessageCircleIcon,
   MailIcon,
   MailOpenIcon,
 } from "lucide-react";
@@ -17,6 +18,7 @@ import {
 import { MailLabelChip } from "@/app/(app)/[emailAccountId]/mail/MailLabelChip";
 import type { EmailMessageCellLabel } from "@/components/EmailMessageCellLabels";
 import { Tooltip } from "@/components/Tooltip";
+import { useSidebar } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 
 type ReaderToolbarProps = {
@@ -37,6 +39,7 @@ type ReaderToolbarProps = {
   onMoveToInbox?: () => void;
   onMarkRead: () => void;
   onMarkUnread: () => void;
+  showChat?: boolean;
   /** The ⋯ dropdown, i.e. `ThreadActionsMenu`, composed by the shell. */
   menu?: ReactNode;
   messageExpansion?: {
@@ -63,8 +66,10 @@ export function ReaderToolbar({
   onMarkRead,
   onMarkUnread,
   menu,
+  showChat = true,
   messageExpansion,
 }: ReaderToolbarProps) {
+  const { toggleSidebar } = useSidebar();
   return (
     <MailReaderToolbar
       icons={{
@@ -87,7 +92,22 @@ export function ReaderToolbar({
           onRemove={onRemoveLabel ? () => onRemoveLabel(label.id) : undefined}
         />
       ))}
-      menu={menu}
+      menu={
+        <>
+          {showChat && (
+            <Button
+              aria-label="Chat about this email"
+              title="Chat about this email"
+              size="iconXs"
+              variant="ghost"
+              onClick={() => toggleSidebar(["chat-sidebar"])}
+            >
+              <MessageCircleIcon className="size-3.5" />
+            </Button>
+          )}
+          {menu}
+        </>
+      }
       messageExpansion={messageExpansion}
       onArchive={onArchive}
       onMoveToInbox={onMoveToInbox}
