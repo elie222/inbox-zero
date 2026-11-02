@@ -91,8 +91,7 @@ describe("createMessagingLinkCodeAction", () => {
       code: "test-link-code",
       provider: "TEAMS",
       expiresInSeconds: 600,
-      botUrl:
-        "https://teams.microsoft.com/l/app/teams-app-id?tenantId=tenant-id",
+      botUrl: "https://teams.microsoft.com/l/app/teams-app-id",
     });
   });
 

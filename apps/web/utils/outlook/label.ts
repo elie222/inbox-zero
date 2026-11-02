@@ -616,7 +616,8 @@ export async function markReadThread({
       threadId,
       logger,
       messageHandler: (messageId) =>
-        withMicrosoftGraphWriteRetry(
+        // Idempotent absolute write: safe to retry on conflicts and network errors.
+        withMicrosoftGraphRetry(
           () =>
             client.getClient().api(`/me/messages/${messageId}`).patch({
               isRead: read,
@@ -639,7 +640,7 @@ export async function markReadThread({
         threadId,
         logger,
         messageHandler: (messageId) =>
-          withMicrosoftGraphWriteRetry(
+          withMicrosoftGraphRetry(
             () =>
               client
                 .getClient()
@@ -695,7 +696,10 @@ export async function markStarredMessage({
   logger: Logger;
   starred?: boolean;
 }) {
-  await withMicrosoftGraphWriteRetry(
+  // Setting the flag to an absolute value is idempotent, so the full retry
+  // policy is safe, including the 412 Graph returns when another write on the
+  // message (such as a label action) lands first.
+  await withMicrosoftGraphRetry(
     () =>
       client
         .getClient()

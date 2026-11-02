@@ -34,6 +34,53 @@ const inboxQuery = {
 };
 
 describe("sqlite mail store", () => {
+  it("replays pending changes in the order they were submitted", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "google",
+      generation: "g1",
+    });
+    await store.applySyncPage({
+      ownerId: "owner",
+      page: {
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "initial",
+        from: { streamId: "primary", generation: "g1", checkpoint: null },
+        to: { streamId: "primary", generation: "g1", checkpoint: "1" },
+        changes: [messagePatch("m1", "c1", 1000, ["inbox"])],
+        requiredHydration: [],
+        roundComplete: true,
+      },
+    });
+    const target = { accountId: "acc-1", messageId: "m1" };
+    // Command ids are random UUIDs, so the undo can sort before the archive.
+    await store.admitMetadata({
+      accountId: "acc-1",
+      commandId: "zz-archive",
+      targets: [target],
+      change: { kind: "archive" },
+    });
+    const work = await store.claimWork({
+      ownerId: "owner",
+      nowMs: Date.now(),
+      leaseMs: 30_000,
+    });
+    expect(work?.kind).toBe("command");
+    await store.admitMetadata({
+      accountId: "acc-1",
+      commandId: "aa-unarchive",
+      targets: [target],
+      change: { kind: "unarchive" },
+    });
+
+    const view = await store.readMailboxView(inboxQuery);
+    expect(
+      view.view.conversations.map((row) => row.key.conversationId),
+    ).toEqual(["c1"]);
+    await store.close();
+  });
+
   it("drops inbox unread when a message leaves its inbox folder", async () => {
     const store = await createSqliteMailStore(createNodeSqliteDriver());
     const session = { accountId: "acc-1", generation: "g1" };
@@ -1854,6 +1901,60 @@ describe("drafts, freeze, and uncertain settlement", () => {
       await store.claimWork({
         ownerId: "owner",
         nowMs: Date.now() + 5000,
+        leaseMs: 30_000,
+      }),
+    ).toBeNull();
+    await store.close();
+  });
+
+  it("resumes a blocked_auth command once the account connects again", async () => {
+    const store = await parkSendOnBlockedAuth("send-reauth");
+    // Sync sees the same expired token, then the user reconnects.
+    await store.recordConnection({
+      accountId: "acc-1",
+      connection: "blocked_auth",
+    });
+    await store.recordConnection({ accountId: "acc-1", connection: "ready" });
+
+    const resumed = await store.claimWork({
+      ownerId: "owner",
+      nowMs: Date.now(),
+      leaseMs: 30_000,
+    });
+    expect(resumed).toMatchObject({
+      kind: "command",
+      operation: { key: { operationId: "send-reauth" } },
+    });
+    await store.close();
+  });
+
+  it("keeps a blocked_auth command parked while the connection stays ready", async () => {
+    const store = await parkSendOnBlockedAuth("send-scope");
+    // Sync keeps working (no reconnect happened), so a retry would hit the
+    // same auth error again.
+    await store.recordConnection({ accountId: "acc-1", connection: "ready" });
+
+    expect(
+      await store.claimWork({
+        ownerId: "owner",
+        nowMs: Date.now() + 60_000,
+        leaseMs: 30_000,
+      }),
+    ).toBeNull();
+    await store.close();
+  });
+
+  it("keeps a blocked_auth command parked when the account only comes back online", async () => {
+    const store = await parkSendOnBlockedAuth("send-offline");
+    // A network blip is not a reconnect, so a retry would hit the same auth
+    // error again.
+    await store.recordConnection({ accountId: "acc-1", connection: "offline" });
+    await store.recordConnection({ accountId: "acc-1", connection: "ready" });
+
+    expect(
+      await store.claimWork({
+        ownerId: "owner",
+        nowMs: Date.now() + 60_000,
         leaseMs: 30_000,
       }),
     ).toBeNull();
@@ -5169,4 +5270,49 @@ function fixtureSource(messages: Map<string, ProviderChange>): MailboxSource {
       return { status: "paused", retryAfterMs: 0, reason: "unavailable" };
     },
   };
+}
+
+async function parkSendOnBlockedAuth(commandId: string) {
+  const store = await createSqliteMailStore(createNodeSqliteDriver());
+  await store.ensureAccount({
+    accountId: "acc-1",
+    provider: "google",
+    generation: "g1",
+  });
+  const draft = { accountId: "acc-1", draftId: `d-${commandId}` };
+  const saved = await store.saveDraft({
+    key: draft,
+    expectedRevision: null,
+    content: {
+      to: ["ada@example.com"],
+      cc: [],
+      bcc: [],
+      subject: "Hi",
+      editableHtml: "<p>Hi</p>",
+      quotedHtml: "",
+    },
+  });
+  if (saved.status !== "saved") throw new Error("expected save");
+  await store.admitSend({
+    commandId,
+    draft,
+    draftRevision: saved.draftRevision,
+    replyTo: null,
+  });
+  const execute = await store.claimWork({
+    ownerId: "owner",
+    nowMs: Date.now(),
+    leaseMs: 30_000,
+  });
+  if (execute?.kind !== "command") throw new Error("expected command");
+  await store.settleAttempt({
+    attemptId: execute.attemptId,
+    operation: execute.operation,
+    result: {
+      status: "not_dispatched",
+      reason: "blocked_auth",
+      retryAfterMs: 5000,
+    },
+  });
+  return store;
 }

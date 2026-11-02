@@ -101,6 +101,7 @@ vi.mock("@/env", () => ({
     AI_GATEWAY_API_KEY: "test-ai-gateway-key",
     OLLAMA_BASE_URL: "http://localhost:11434/api",
     OLLAMA_MODEL: "llama3",
+    LOCAL_LLM_THINKING: "auto",
     OPENAI_COMPATIBLE_BASE_URL: "http://localhost:1234/v1",
     OPENAI_COMPATIBLE_MODEL: "llama-3.2-3b-instruct",
     OPENAI_COMPATIBLE_AUTH_HEADER: undefined,
@@ -153,6 +154,7 @@ describe("Models", () => {
     vi.mocked(env).AI_GATEWAY_API_KEY = "test-ai-gateway-key";
     vi.mocked(env).OLLAMA_BASE_URL = "http://localhost:11434/api";
     vi.mocked(env).OLLAMA_MODEL = "llama3";
+    vi.mocked(env).LOCAL_LLM_THINKING = "auto";
     vi.mocked(env).OPENAI_COMPATIBLE_BASE_URL = "http://localhost:1234/v1";
     vi.mocked(env).OPENAI_COMPATIBLE_MODEL = "llama-3.2-3b-instruct";
     vi.mocked(env).OPENAI_COMPATIBLE_AUTH_HEADER = undefined;
@@ -393,17 +395,36 @@ describe("Models", () => {
       });
     });
 
-    it("should configure Groq model correctly", () => {
+    it.each([
+      "default",
+      "chat",
+    ] as const)("configures the Groq default for %s", (role) => {
       const userAi = defaultUserAi({
         aiApiKey: "user-api-key",
         aiProvider: Provider.GROQ,
-        aiModel: "llama-3.3-70b-versatile",
+        aiModel: null,
       });
 
-      const result = getModel(userAi);
+      const result = getModel(userAi, role);
       expect(result.provider).toBe(Provider.GROQ);
-      expect(result.modelName).toBe("llama-3.3-70b-versatile");
+      expect(result.modelName).toBe("openai/gpt-oss-120b");
       expect(result.model).toBeDefined();
+      expect(result.providerOptions).toEqual({
+        groq: { reasoningEffort: role === "chat" ? "medium" : "low" },
+      });
+    });
+
+    it("sends no reasoning effort for a Groq model that doesn't reason", () => {
+      const result = getModel(
+        defaultUserAi({
+          aiApiKey: "user-api-key",
+          aiProvider: Provider.GROQ,
+          aiModel: "llama-3.1-8b-instant",
+        }),
+      );
+
+      expect(result.modelName).toBe("llama-3.1-8b-instant");
+      expect(result.providerOptions).toBeUndefined();
     });
 
     it("should configure Cerebras chat with medium reasoning effort", () => {
@@ -564,6 +585,68 @@ describe("Models", () => {
       expect(result.provider).toBe(Provider.OLLAMA);
       expect(result.modelName).toBe("llama3");
       expect(result.model).toBeDefined();
+    });
+
+    it.each([
+      ["off", false],
+      ["on", true],
+    ] as const)("should send think=%s to Ollama as %s", (setting, think) => {
+      setDefaultLlms(Provider.OLLAMA, "llama3.2");
+      vi.mocked(env).LOCAL_LLM_THINKING = setting;
+
+      const result = getModel(defaultUserAi());
+
+      expect(result.providerOptions).toEqual({ ollama: { think } });
+    });
+
+    it.each([
+      "auto",
+      undefined,
+    ] as const)("should send nothing for Ollama when LOCAL_LLM_THINKING is %s", (setting) => {
+      setDefaultLlms(Provider.OLLAMA, "llama3.2");
+      vi.mocked(env).LOCAL_LLM_THINKING = setting!;
+
+      const result = getModel(defaultUserAi());
+
+      expect(result.providerOptions).toBeUndefined();
+    });
+
+    it("should send only enable_thinking=false for OpenAI-compatible when LOCAL_LLM_THINKING is off", () => {
+      setDefaultLlms(Provider.OPENAI_COMPATIBLE, "llama-3.2-3b-instruct");
+      vi.mocked(env).LOCAL_LLM_THINKING = "off";
+
+      const result = getModel(defaultUserAi());
+
+      expect(result.providerOptions).toEqual({
+        "openai-compatible": {
+          chat_template_kwargs: { enable_thinking: false },
+        },
+      });
+    });
+
+    it("should send only enable_thinking=true for OpenAI-compatible when LOCAL_LLM_THINKING is on", () => {
+      setDefaultLlms(Provider.OPENAI_COMPATIBLE, "llama-3.2-3b-instruct");
+      vi.mocked(env).LOCAL_LLM_THINKING = "on";
+
+      const result = getModel(defaultUserAi());
+
+      expect(result.providerOptions).toEqual({
+        "openai-compatible": {
+          chat_template_kwargs: { enable_thinking: true },
+        },
+      });
+    });
+
+    it.each([
+      "auto",
+      undefined,
+    ] as const)("should send nothing for OpenAI-compatible when LOCAL_LLM_THINKING is %s", (setting) => {
+      setDefaultLlms(Provider.OPENAI_COMPATIBLE, "llama-3.2-3b-instruct");
+      vi.mocked(env).LOCAL_LLM_THINKING = setting!;
+
+      const result = getModel(defaultUserAi());
+
+      expect(result.providerOptions).toBeUndefined();
     });
 
     it("should accept an Ollama server origin without /api", () => {

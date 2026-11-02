@@ -71,6 +71,76 @@ describe("getDigestScheduleProgression", () => {
     );
   });
 
+  it("skips to the next slot after now when the schedule fell days behind", () => {
+    const progression = getDigestScheduleProgression(
+      {
+        intervalDays: 1,
+        occurrences: 1,
+        daysOfWeek: null,
+        timeOfDay: createCanonicalTimeOfDay(9, 0),
+        nextOccurrenceAt: new Date("2026-01-01T09:00:00.000Z"),
+      },
+      new Date("2026-01-10T09:30:00.000Z"),
+    );
+
+    expect(progression.nextOccurrenceAt).toEqual(
+      new Date("2026-01-11T09:00:00.000Z"),
+    );
+  });
+
+  it("keeps a weekly schedule on its weekday after falling weeks behind", () => {
+    const progression = getDigestScheduleProgression(
+      {
+        intervalDays: 7,
+        occurrences: 1,
+        daysOfWeek: 0b010_0000, // Monday
+        timeOfDay: createCanonicalTimeOfDay(9, 0),
+        nextOccurrenceAt: new Date("2026-01-05T09:00:00.000Z"),
+      },
+      new Date("2026-02-04T12:00:00.000Z"),
+    );
+
+    expect(progression.nextOccurrenceAt).toEqual(
+      new Date("2026-02-09T09:00:00.000Z"),
+    );
+  });
+
+  it("keeps an every-three-days schedule on its original days when catching up", () => {
+    const progression = getDigestScheduleProgression(
+      {
+        intervalDays: 3,
+        occurrences: 1,
+        daysOfWeek: null,
+        timeOfDay: createCanonicalTimeOfDay(9, 0),
+        nextOccurrenceAt: new Date("2026-01-01T09:00:00.000Z"),
+      },
+      new Date("2026-01-11T08:00:00.000Z"),
+    );
+
+    // Slots are Jan 1, 4, 7, 10, 13...
+    expect(progression.nextOccurrenceAt).toEqual(
+      new Date("2026-01-13T09:00:00.000Z"),
+    );
+  });
+
+  it("still returns a future slot when the schedule is years behind", () => {
+    const now = new Date("2026-01-10T09:30:00.000Z");
+    const progression = getDigestScheduleProgression(
+      {
+        intervalDays: 1,
+        occurrences: 1,
+        daysOfWeek: null,
+        timeOfDay: createCanonicalTimeOfDay(9, 0),
+        nextOccurrenceAt: new Date("2019-01-01T09:00:00.000Z"),
+      },
+      now,
+    );
+
+    expect(progression.nextOccurrenceAt).toEqual(
+      new Date("2026-01-11T09:00:00.000Z"),
+    );
+  });
+
   it("falls back to current time when next occurrence is not set", () => {
     const now = new Date("2026-01-10T10:00:00.000Z");
 

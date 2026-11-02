@@ -34,6 +34,7 @@ export function ComposeHeaderFields({
   sendingAddress,
   sendAsAddresses,
   selectedSendAs,
+  sendAsDisabled,
   onChangeSendAs,
   recipients,
   onRecipientsChange,
@@ -54,6 +55,7 @@ export function ComposeHeaderFields({
   sendingAddress: string;
   sendAsAddresses: SendAsAddress[];
   selectedSendAs?: SendAsAddress;
+  sendAsDisabled: boolean;
   onChangeSendAs: (email: string) => void;
   recipients: Record<ComposeRecipientField, string | undefined>;
   onRecipientsChange: (
@@ -169,6 +171,7 @@ export function ComposeHeaderFields({
         <div className="flex min-h-7 items-center gap-2">
           <ComposeFieldLabel htmlFor="from-account" label="From" />
           <Select
+            disabled={sendAsDisabled}
             value={
               selectedSendAs
                 ? `alias:${selectedSendAs.email}`
@@ -253,6 +256,7 @@ export function ComposeHeaderFields({
             <div className="flex min-h-7 items-center gap-2">
               <ComposeFieldLabel htmlFor="from-address" label="From" />
               <Select
+                disabled={sendAsDisabled}
                 value={selectedSendAs.email}
                 onValueChange={onChangeSendAs}
               >

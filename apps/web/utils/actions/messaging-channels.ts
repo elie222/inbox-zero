@@ -467,18 +467,11 @@ async function getTelegramBotUrl() {
   }
 }
 
+// No tenantId: it would switch users into the bot's tenant, which blocks
+// anyone from another organization.
 function getTeamsBotUrl() {
   if (!env.TEAMS_BOT_APP_ID) return;
-
-  const url = new URL(
-    `https://teams.microsoft.com/l/app/${env.TEAMS_BOT_APP_ID}`,
-  );
-
-  if (env.TEAMS_BOT_APP_TENANT_ID) {
-    url.searchParams.set("tenantId", env.TEAMS_BOT_APP_TENANT_ID);
-  }
-
-  return url.toString();
+  return `https://teams.microsoft.com/l/app/${env.TEAMS_BOT_APP_ID}`;
 }
 
 async function syncMessagingFeatureRoute({

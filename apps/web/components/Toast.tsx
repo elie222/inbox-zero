@@ -49,6 +49,8 @@ export function toastInfo(options: {
 type ToastUndoHandler = () => void | Promise<void>;
 
 let latestToastUndo: { id: string; onUndo: ToastUndoHandler } | null = null;
+let undoToastCount = 0;
+let latestDefaultUndoToastId: string | null = null;
 
 export function toastUndo(options: {
   id?: string;
@@ -57,7 +59,7 @@ export function toastUndo(options: {
   duration?: number;
   onUndo: ToastUndoHandler;
 }) {
-  const id = options.id ?? "undo";
+  const id = options.id ?? nextUndoToastId();
   const onUndo = options.onUndo;
   latestToastUndo = { id, onUndo };
   const release = () => {
@@ -127,4 +129,14 @@ export function Toaster() {
       }}
     />
   );
+}
+
+// A dismissed toast keeps its id until its exit animation ends, and sonner
+// merges a new toast with that id into it, so a shared id would mount the next
+// undo toast already dismissed. Each gets its own id and replaces the last.
+function nextUndoToastId() {
+  if (latestDefaultUndoToastId) toast.dismiss(latestDefaultUndoToastId);
+  undoToastCount += 1;
+  latestDefaultUndoToastId = `undo-${undoToastCount}`;
+  return latestDefaultUndoToastId;
 }

@@ -106,6 +106,7 @@ export async function replyToEmail(
   );
   const ccRecipients = buildGraphRecipients(options?.cc);
   const bccRecipients = buildGraphRecipients(options?.bcc);
+  const replyToRecipients = buildGraphRecipients(options?.replyTo);
 
   // Update the draft with our content
   await withMicrosoftGraphWriteRetry(
@@ -121,11 +122,7 @@ export async function replyToEmail(
           ...(fromField ? { from: fromField } : {}),
           ...(ccRecipients ? { ccRecipients } : {}),
           ...(bccRecipients ? { bccRecipients } : {}),
-          ...(options?.replyTo
-            ? {
-                replyTo: [{ emailAddress: { address: options.replyTo } }],
-              }
-            : {}),
+          ...(replyToRecipients ? { replyTo: replyToRecipients } : {}),
         }),
     logger,
   );
@@ -271,14 +268,15 @@ export async function draftEmail(
     userEmails,
   );
 
-  const overrideToRecipient = args.to
-    ? {
-        emailAddress: {
-          address: extractEmailAddress(recipients.to),
-          name: extractNameFromEmail(recipients.to),
-        },
-      }
+  // A rule's draft recipients can list several addresses. An explicit `to`
+  // that holds no valid address must fail rather than fall back to the
+  // original sender, which would address the draft to someone else.
+  const overrideToRecipients = args.to
+    ? buildGraphRecipients(recipients.to)
     : undefined;
+  if (args.to && !overrideToRecipients?.length) {
+    throw new SafeError("Draft recipient address is invalid");
+  }
 
   const fallbackToRecipient = {
     emailAddress: {
@@ -297,9 +295,8 @@ export async function draftEmail(
     ? undefined
     : originalEmail.rawRecipients?.from;
 
-  const toRecipients = overrideToRecipient
-    ? [overrideToRecipient]
-    : (replyToRecipients ?? [rawFromRecipient ?? fallbackToRecipient]);
+  const toRecipients = overrideToRecipients ??
+    replyToRecipients ?? [rawFromRecipient ?? fallbackToRecipient];
 
   // Build CC list from reply-all and args
   const ccAddresses = mergeAndDedupeRecipients(recipients.cc, args.cc);
@@ -425,6 +422,11 @@ async function sendReplyUsingCreateReply(
   const toRecipients = buildGraphRecipients(body.to);
   const ccRecipients = buildGraphRecipients(body.cc);
   const bccRecipients = buildGraphRecipients(body.bcc);
+  const replyToRecipients = buildGraphRecipients(body.replyTo);
+  const fromField = buildGraphFromField(
+    body.from,
+    replyDraft.from?.emailAddress?.address,
+  );
 
   // Update the draft with our content and recipients
   // Note: We cannot set In-Reply-To/References headers via internetMessageHeaders
@@ -445,6 +447,11 @@ async function sendReplyUsingCreateReply(
           ...(toRecipients ? { toRecipients } : {}),
           ...(ccRecipients ? { ccRecipients } : {}),
           ...(bccRecipients ? { bccRecipients } : {}),
+          // createReply starts from an empty Reply-To, so a caller's Reply-To
+          // (e.g. the filebot +ai address) would otherwise be dropped and the
+          // user's answer would go to their own inbox instead.
+          ...(replyToRecipients ? { replyTo: replyToRecipients } : {}),
+          ...(fromField ? { from: fromField } : {}),
         }),
     logger,
   );
@@ -490,6 +497,11 @@ async function sendForwardUsingCreateForward(
   const toRecipients = buildGraphRecipients(body.to);
   const ccRecipients = buildGraphRecipients(body.cc);
   const bccRecipients = buildGraphRecipients(body.bcc);
+  const replyToRecipients = buildGraphRecipients(body.replyTo);
+  const fromField = buildGraphFromField(
+    body.from,
+    forwardDraft.from?.emailAddress?.address,
+  );
 
   await withMicrosoftGraphWriteRetry(
     () =>
@@ -505,6 +517,8 @@ async function sendForwardUsingCreateForward(
           ...(toRecipients ? { toRecipients } : {}),
           ...(ccRecipients ? { ccRecipients } : {}),
           ...(bccRecipients ? { bccRecipients } : {}),
+          ...(replyToRecipients ? { replyTo: replyToRecipients } : {}),
+          ...(fromField ? { from: fromField } : {}),
         }),
     logger,
   );

@@ -254,7 +254,7 @@ export function MessagePart({
       return <BasicToolInfo key={toolCallId} text="Searching inbox..." />;
     }
     if (state === "output-available") {
-      return <SearchInboxResult key={toolCallId} output={part.output} />;
+      return <SearchInboxResult key={toolCallId} outputs={[part.output]} />;
     }
   }
 
@@ -379,6 +379,16 @@ export function MessagePart({
       loadingText: "Reading rule execution details...",
       renderSuccess: ({ toolCallId }) => (
         <BasicToolInfo key={toolCallId} text="Read rule execution details" />
+      ),
+    });
+  }
+
+  if (part.type === "tool-testRulesOnEmail") {
+    return renderToolStatus({
+      part,
+      loadingText: "Testing rules on this email...",
+      renderSuccess: ({ toolCallId }) => (
+        <BasicToolInfo key={toolCallId} text="Tested rules" />
       ),
     });
   }

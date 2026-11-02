@@ -5,6 +5,10 @@ import { getDefaultMailSplitDrafts } from "@/utils/split-inbox/default-splits";
 import { ONBOARDING_PROCESS_EMAILS_COUNT } from "@/utils/config";
 import { after } from "next/server";
 import {
+  RULE_ANALYTICS_EVENTS,
+  trackRuleEvent,
+} from "@/utils/analytics/rule-events.server";
+import {
   createRuleBody,
   updateRuleBody,
   enableDraftRepliesBody,
@@ -506,6 +510,14 @@ export const toggleAllRulesAction = actionClient
   .metadata({ name: "toggleAllRules" })
   .inputSchema(toggleAllRulesBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput: { enabled } }) => {
+    after(() =>
+      trackRuleEvent({
+        emailAccountId,
+        event: RULE_ANALYTICS_EVENTS.allRulesToggled,
+        properties: { enabled },
+      }),
+    );
+
     if (enabled) {
       await prisma.rule.updateMany({
         where: { emailAccountId, organizationRuleId: null },

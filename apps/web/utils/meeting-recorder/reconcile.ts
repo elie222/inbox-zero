@@ -11,6 +11,7 @@ import {
   type Meeting,
   type MeetingRecording,
 } from "@/generated/prisma/client";
+import { calendarConnectionProviderSelect } from "@/utils/calendar/event-provider";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
 import { fetchCalendarEventsInWindow } from "@/utils/calendar/fetch-events-in-window";
 import { captureException } from "@/utils/error";
@@ -62,11 +63,47 @@ interface RecorderAccount {
   name: string | null;
 }
 
+/**
+ * What `reconcileAccount` needs per account, loaded for every account in one
+ * query so the cron does not issue the same lookups once per account.
+ * Booked meetings are snapshotted from `now` onwards; each account narrows
+ * them to its own reconcile window when it runs.
+ */
+export function getReconcileAccountSelect(now: Date) {
+  return {
+    id: true,
+    email: true,
+    meetingRecorderJoinRule: true,
+    name: true,
+    calendarConnections: {
+      where: { isConnected: true },
+      select: calendarConnectionProviderSelect,
+    },
+    meetings: {
+      where: {
+        recordingId: { not: null },
+        startTime: { gte: now },
+        recording: { status: { in: CANCELLABLE_STATUSES } },
+      },
+      select: {
+        id: true,
+        calendarEventId: true,
+        recordingId: true,
+        startTime: true,
+      },
+    },
+  } satisfies Prisma.EmailAccountSelect;
+}
+
+type ReconcileAccount = Prisma.EmailAccountGetPayload<{
+  select: ReturnType<typeof getReconcileAccountSelect>;
+}>;
+
 export async function reconcileAccount({
   emailAccount,
   logger,
 }: {
-  emailAccount: RecorderAccount;
+  emailAccount: ReconcileAccount;
   logger: Logger;
 }): Promise<void> {
   const timeMin = new Date();
@@ -74,6 +111,7 @@ export async function reconcileAccount({
 
   logger.info("Starting calendar fetch for meeting recorder reconciliation");
   const { events, complete } = await fetchCalendarEventsInWindow({
+    connections: emailAccount.calendarConnections,
     emailAccountId: emailAccount.id,
     timeMin,
     timeMax,
@@ -119,7 +157,8 @@ export async function reconcileAccount({
     seenEventCount: videoEvents.length,
   });
   await releaseUnseenMeetings({
-    emailAccount,
+    emailAccountId: emailAccount.id,
+    bookedMeetings: emailAccount.meetings,
     seenEventIds: new Set(videoEvents.map((event) => event.id)),
     timeMin,
     timeMax,
@@ -826,27 +865,27 @@ async function finishCancellation({
 // Events deleted from the calendar simply stop appearing in the fetch, so the
 // only way to notice them is to look for meetings we booked but did not see.
 async function releaseUnseenMeetings({
-  emailAccount,
+  emailAccountId,
+  bookedMeetings,
   seenEventIds,
   timeMin,
   timeMax,
   logger,
 }: {
-  emailAccount: RecorderAccount;
+  emailAccountId: string;
+  bookedMeetings: ReconcileAccount["meetings"];
   seenEventIds: Set<string>;
   timeMin: Date;
   timeMax: Date;
   logger: Logger;
 }): Promise<void> {
-  const booked = await prisma.meeting.findMany({
-    where: {
-      emailAccountId: emailAccount.id,
-      recordingId: { not: null },
-      startTime: { gte: timeMin, lte: timeMax },
-      recording: { status: { in: CANCELLABLE_STATUSES } },
-    },
-    select: { id: true, calendarEventId: true, recordingId: true },
-  });
+  // The snapshot was taken before this account's calendar fetch, so a meeting
+  // booked since then waits for the next pass rather than being released on
+  // an event list that may predate it. `releaseMeeting` re-checks the
+  // recording, so entries that changed since the snapshot are no-ops.
+  const booked = bookedMeetings.filter(
+    (meeting) => meeting.startTime >= timeMin && meeting.startTime <= timeMax,
+  );
 
   for (const meeting of booked) {
     if (seenEventIds.has(meeting.calendarEventId)) continue;
@@ -862,7 +901,7 @@ async function releaseUnseenMeetings({
         meetingId: meeting.id,
         error,
       });
-      captureException(error, { emailAccountId: emailAccount.id });
+      captureException(error, { emailAccountId });
     }
   }
 }

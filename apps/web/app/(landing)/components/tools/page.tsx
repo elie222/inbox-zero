@@ -326,7 +326,7 @@ export default function ToolsPage() {
         {/* Search & Read Results */}
         <section className="space-y-4">
           <SectionHeader>Search & Read Results</SectionHeader>
-          <SearchInboxResult output={getAssistantSearchInboxOutput()} />
+          <SearchInboxResult outputs={[getAssistantSearchInboxOutput()]} />
           <ReadEmailResult output={getAssistantReadEmailOutput()} />
         </section>
 
@@ -365,7 +365,7 @@ export default function ToolsPage() {
           <MutedText>
             Search error (inline in the search result card):
           </MutedText>
-          <SearchInboxResult output={getAssistantSearchInboxErrorOutput()} />
+          <SearchInboxResult outputs={[getAssistantSearchInboxErrorOutput()]} />
 
           <MutedText>
             Generic tool errors (used by most other failed tools):

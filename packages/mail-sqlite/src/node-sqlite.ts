@@ -145,8 +145,11 @@ function createTransaction(database: DatabaseSync): SqlTransaction {
     },
     async execute(sql, bindings = []) {
       const statement = database.prepare(sql);
-      const result = statement.run(...bindings) as { changes?: number };
-      return { changedRows: Number(result.changes ?? 0) };
+      // FTS rowids can exceed Number.MAX_SAFE_INTEGER, and Node 26 throws when
+      // run() converts the connection's lastInsertRowid to a number.
+      statement.setReadBigInts(true);
+      const result = statement.run(...bindings);
+      return { changedRows: Number(result.changes) };
     },
   };
 }

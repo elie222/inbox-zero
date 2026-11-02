@@ -51,6 +51,8 @@ type ChatMessagePart =
 type PendingChatRequest = {
   attachmentCount: number;
   chatId: string;
+  // Set by onError when the message never reached the server.
+  sendError?: Error;
   textLength: number;
 };
 
@@ -96,6 +98,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const resumedStreamIdRef = useRef<string | null>(null);
   const messagesAtHideRef = useRef<unknown>(null);
 
+  // useChat replaces (and stops) its Chat whenever `id` changes, so a new chat
+  // needs its id before the first send adopts it into the URL. Rotate once
+  // adopted so clearing chatId later starts a fresh chat.
+  const [draftChatId, setDraftChatId] = useState(generateUUID);
+  if (chatId === draftChatId) setDraftChatId(generateUUID());
+
   const { data } = useChatMessages(chatId);
   const persistedMessageIds = useMemo(
     () => new Set(data?.messages.map((message) => message.id) ?? []),
@@ -116,7 +124,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   );
 
   const chat = useAiChat<ChatMessage>({
-    id: chatId ?? undefined,
+    id: chatId ?? draftChatId,
     transport: new DefaultChatTransport({
       api: "/api/chat",
       headers: {
@@ -190,6 +198,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         pendingInlineActionsRef.current = null;
       }
 
+      if (pendingRequest) pendingRequest.sendError = error;
       reportChatRequestError({
         emailAccountId,
         error,
@@ -334,11 +343,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
       const requestChatId = chatId ?? chat.id;
       const requestContext = context;
-      pendingRequestRef.current = {
+      const request: PendingChatRequest = {
         attachmentCount,
         chatId: requestChatId,
         textLength,
       };
+      pendingRequestRef.current = request;
       pendingRequestContextRef.current = requestContext;
       pendingInlineActionsRef.current = inlineActionsRef.current.length
         ? inlineActionsRef.current
@@ -348,10 +358,17 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         setInlineActions([]);
       }
 
-      const sendPromise = chat.sendMessage(
-        { role: "user", parts },
-        requestContext ? { body: { context: requestContext } } : undefined,
-      );
+      // sendMessage resolves even when the request fails (it reports through
+      // onError), so reject here to let callers keep the unsent message.
+      // Aborts and drops after streaming began are not send failures.
+      const sendPromise = chat
+        .sendMessage(
+          { role: "user", parts },
+          requestContext ? { body: { context: requestContext } } : undefined,
+        )
+        .then(() => {
+          if (request.sendError) throw request.sendError;
+        });
       if (requestContext) {
         setContext((current) => (current === requestContext ? null : current));
       }

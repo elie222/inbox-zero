@@ -26,4 +26,17 @@ describe("compareLabelsByName", () => {
       ["Ångström", "Zulu"],
     );
   });
+
+  it("orders numeric prefixes naturally so 10 follows 9", () => {
+    const labels = [
+      { id: "label-10", name: "10. Cold Email" },
+      { id: "label-2", name: "2. Needs Reply" },
+      { id: "label-1", name: "1. Urgent" },
+      { id: "label-9", name: "9. Marketing" },
+    ];
+
+    expect(labels.sort(compareLabelsByName).map((label) => label.name)).toEqual(
+      ["1. Urgent", "2. Needs Reply", "9. Marketing", "10. Cold Email"],
+    );
+  });
 });

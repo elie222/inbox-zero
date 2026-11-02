@@ -3,8 +3,10 @@ import {
   getEmailClient,
   emailToContent,
   convertEmailHtmlToText,
+  convertOutgoingEmailHtmlToText,
   parseReply,
   hasQuotedReplyContent,
+  stripForwardedContent,
 } from "./mail";
 
 describe("emailToContent", () => {
@@ -144,6 +146,38 @@ describe("emailToContent", () => {
         expected: "My comments",
       },
       {
+        name: "Outlook separator line",
+        textPlain:
+          "Sounds good.\n\n-----Original Message-----\nFrom: sender@example.com\nSent: Monday",
+        expected: "Sounds good.",
+      },
+      {
+        name: "Outlook separator with non-breaking spaces",
+        textPlain:
+          "Sounds good.\r\n\r\n\u00a0-----\u00a0Original Message\u00a0-----\r\nFrom: sender@example.com",
+        expected: "Sounds good.",
+      },
+      {
+        name: "Outlook separator followed by a full header block",
+        textPlain:
+          "Sounds good.\n\n-----Original Message-----\nFrom: sender@example.com\nSent: Monday, May 4, 2026 9:00 AM\nTo: me@example.com\nSubject: Plan",
+        expected: "Sounds good.",
+      },
+      {
+        name: "an inline mention of the original message",
+        textPlain:
+          "Thanks Dana.\nAs noted in my original message, the deadline is Friday. Please confirm.",
+        expected:
+          "Thanks Dana.\nAs noted in my original message, the deadline is Friday. Please confirm.",
+      },
+      {
+        name: "an inline mention of the iOS forward marker",
+        textPlain:
+          "Please use Begin forwarded message: as the label.\nThe client confirmed Friday.\n\n---------- Forwarded message ----------\nFrom: other@test.com",
+        expected:
+          "Please use Begin forwarded message: as the label.\nThe client confirmed Friday.",
+      },
+      {
         name: "content with no forward marker",
         textPlain: "Regular email content without forwards",
         expected: "Regular email content without forwards",
@@ -237,6 +271,33 @@ describe("emailToContent", () => {
       expect(result).toContain("[image]");
       expect(result).not.toContain("https://tracker.example.com");
     });
+  });
+});
+
+describe("convertOutgoingEmailHtmlToText", () => {
+  it("matches the plain text Gmail quotes from a composed reply", () => {
+    const html = [
+      "<div>Thanks for the details!</div><div><br></div>",
+      '<div>More here: <a href="https://example.com">https://example.com</a></div>',
+      '<br><div>Sent with <a href="https://example.com/?ref=abc">Inbox Zero</a></div>',
+      '<br><div class="gmail_quote gmail_quote_container">\n  <div dir="ltr" class="gmail_attr">On Thu, 15 Oct 2026 at 11:36, Sender &lt;sender@example.com&gt; wrote:<br></div>\n  <blockquote class="gmail_quote">\n    Hi,<br><br>A line long enough that a hard wrap at eighty characters would split it in two.<br>\n  </blockquote>\n</div>',
+    ].join("");
+
+    expect(convertOutgoingEmailHtmlToText(html)).toBe(
+      [
+        "Thanks for the details!",
+        "",
+        "More here: https://example.com",
+        "",
+        "Sent with Inbox Zero <https://example.com/?ref=abc>",
+        "",
+        "On Thu, 15 Oct 2026 at 11:36, Sender <sender@example.com> wrote:",
+        "",
+        "> Hi,",
+        ">",
+        "> A line long enough that a hard wrap at eighty characters would split it in two.",
+      ].join("\n"),
+    );
   });
 });
 
@@ -381,3 +442,18 @@ function createPlainTextEmail(textPlain: string) {
     snippet: "",
   };
 }
+
+describe("stripForwardedContent", () => {
+  it.each([
+    ["spaces and non-breaking spaces", " \u00a0"],
+    ["Unicode line separators", "\u2028\u2029"],
+  ])("handles a long run of %s without a marker quickly", (_name, unit) => {
+    const text = unit.repeat(100_000);
+    const startedAt = performance.now();
+    const result = stripForwardedContent(text);
+    const elapsedMs = performance.now() - startedAt;
+
+    expect(result).toBe(text);
+    expect(elapsedMs).toBeLessThan(250);
+  });
+});

@@ -707,6 +707,15 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
 
         prisma.executedAction.updateMany.mockImplementation(
           async ({ where, data }) => {
+            if (
+              where?.id === slackActionState.id &&
+              data?.messagingMessageStatus
+            ) {
+              slackActionState.messagingMessageStatus =
+                data.messagingMessageStatus as MessagingMessageStatus;
+              return { count: 1 } as never;
+            }
+
             const ids = where?.id?.in ?? [];
             if (typeof data?.content === "string") {
               if (ids.includes(slackActionState.id)) {

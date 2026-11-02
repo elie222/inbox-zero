@@ -380,6 +380,24 @@ describe("mail engine idle catch-up scheduling", () => {
     await harness.engine.close();
   });
 
+  it("restarts a lane the device slept through without reporting it", async () => {
+    const harness = multiAccountHarness({
+      accounts: [
+        { accountId: "acc-a", streamIds: ["inbox"], readMs: 0, hangs: true },
+      ],
+      syncLaneTimeoutMs: 40,
+    });
+    await harness.engine.runUntil(10);
+    harness.advance(60 * 60_000);
+    await new Promise((resolve) => setTimeout(resolve, 60));
+
+    await harness.engine.runUntil(harness.nowMs + 10);
+
+    expect(harness.reads).toEqual(["acc-a:inbox", "acc-a:inbox"]);
+    harness.releaseHangs();
+    await harness.engine.close();
+  });
+
   it("stops a purged account's lane so a re-added account syncs right away", async () => {
     const harness = multiAccountHarness({
       accounts: [
@@ -588,6 +606,121 @@ describe("mail engine idle catch-up scheduling", () => {
 
     expect(harness.readChangeStreams).toEqual(["inbox", "inbox"]);
     await harness.engine.close();
+  });
+});
+
+describe("mail engine changes read across a command", () => {
+  it("keeps what a command confirmed when a page read before it lands after", async () => {
+    let nowMs = 0;
+    let releaseFirstRead = () => {};
+    const firstReadHeld = new Promise<void>((resolve) => {
+      releaseFirstRead = resolve;
+    });
+    let readCount = 0;
+    const applied: string[][] = [];
+    const queued = ["op-1"];
+    const streams = [
+      {
+        accountId: "acc-1",
+        streamId: "inbox",
+        generation: "g1",
+        checkpoint: "start",
+      },
+    ];
+    const store = {
+      ...idleCatchUpStore(streams),
+      async claimWork() {
+        const operationId = queued.shift();
+        if (!operationId) return null;
+        return {
+          kind: "command",
+          attemptId: `attempt-${operationId}`,
+          operation: { key: { accountId: "acc-1", operationId } },
+        };
+      },
+      async settleAttempt() {
+        return {
+          status: "committed",
+          revision: { databaseEpoch: "test", sequence: 1 },
+        };
+      },
+      async applySyncPage(input: Parameters<MailStore["applySyncPage"]>[0]) {
+        applied.push(
+          input.page.changes.map((change) =>
+            change.kind === "message_patch" ? change.key.messageId : "",
+          ),
+        );
+        return {
+          status: "committed",
+          revision: { databaseEpoch: "test", sequence: 1 },
+        };
+      },
+    } as unknown as MailStore;
+    const source: MailboxSource = {
+      ...idleSource(),
+      async discoverScopes() {
+        return {
+          status: "ok",
+          value: {
+            scopes: [{ id: "inbox", kind: "folder", folderId: "inbox" }],
+            nextPage: null,
+          },
+        };
+      },
+      async readChanges({ session, requestId, position }) {
+        readCount += 1;
+        if (readCount === 1) await firstReadHeld;
+        return {
+          status: "page",
+          page: {
+            session,
+            requestId,
+            from: position,
+            to: position,
+            changes: [messagePatch("msg-1"), messagePatch("msg-2")],
+            requiredHydration: [],
+            bodies: [],
+            roundComplete: true,
+          },
+        };
+      },
+    };
+    const engine = createMailEngine({
+      store,
+      source,
+      executor: {
+        ...idleExecutor(),
+        async execute() {
+          await waitUntil(() => readCount === 1);
+          // The read returns only after this command has settled.
+          setTimeout(releaseFirstRead, 0);
+          return {
+            status: "confirmed",
+            receiptId: "receipt-1",
+            observations: [],
+            targets: [
+              {
+                key: { accountId: "acc-1", messageId: "msg-1" },
+                outcome: "applied",
+                code: null,
+              },
+            ],
+          };
+        },
+      },
+      runtime: createHostRuntime({
+        nowMs: () => nowMs,
+        randomId: () => `id-${readCount}`,
+      }),
+    });
+
+    await engine.runUntil(10_000);
+    expect(applied).toEqual([["msg-2"]]);
+
+    nowMs += 60_000;
+    await engine.runUntil(70_000);
+    expect(applied).toEqual([["msg-2"], ["msg-1", "msg-2"]]);
+    await engine.close();
   });
 });
 
@@ -927,7 +1060,12 @@ function multiAccountHarness(input: {
         operation: { key: { accountId: "acc-a", operationId } },
       };
     },
-    async settleAttempt() {},
+    async settleAttempt() {
+      return {
+        status: "committed",
+        revision: { databaseEpoch: "test", sequence: 1 },
+      };
+    },
     async purgeAccount() {
       return { databaseEpoch: "test", sequence: 1 };
     },
@@ -1091,5 +1229,19 @@ function pagedAssistantSource(
         },
       };
     },
+  };
+}
+
+function messagePatch(messageId: string) {
+  return {
+    kind: "message_patch" as const,
+    key: { accountId: "acc-1", messageId },
+    reference: {
+      provider: "google" as const,
+      messageId,
+      conversationId: messageId,
+      version: null,
+    },
+    fields: {},
   };
 }

@@ -185,6 +185,10 @@ describe("outlook client emulator configuration", () => {
       "a malformed refresh token",
       "AADSTS9002313: Invalid request. Request is malformed or invalid.",
     ],
+    [
+      "a missing device key for the user",
+      "AADSTS135010: UserPrincipal doesn't have the key ID configured.",
+    ],
   ])("asks the user to reconnect when refresh is blocked by %s", async (_case, errorDescription) => {
     vi.mocked(requestMicrosoftToken).mockResolvedValue({
       ok: false,

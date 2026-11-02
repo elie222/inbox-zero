@@ -292,6 +292,14 @@ export function parsePortConflict(stderr: string): string | null {
     return `Port ${match[1]} is already in use by another process.`;
   }
 
+  // e.g. "failed to bind host port for 127.0.0.1:5432:172.19.0.4:5432/tcp: address already in use"
+  const hostPortMatch = stderr.match(
+    /failed to bind host port for (?:\[[^\]]*\]|[^\s:]*):(\d+):/,
+  );
+  if (hostPortMatch) {
+    return `Port ${hostPortMatch[1]} is already in use by another process.`;
+  }
+
   const addrMatch = stderr.match(/:(\d+):\s*address already in use/);
   if (addrMatch) {
     return `Port ${addrMatch[1]} is already in use by another process.`;

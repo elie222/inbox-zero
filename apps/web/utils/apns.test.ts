@@ -44,6 +44,23 @@ describe("deliverApnsNotifications", () => {
     });
   });
 
+  it("names the alert's category so the app can show its actions", async () => {
+    await deliverApnsNotifications({
+      tokens: ["test-token"],
+      notification: {
+        title: "Verification code: 123456",
+        body: "Your code is 123456",
+        category: "OTP_CODE",
+        data: { type: "otp", code: "123456" },
+      },
+      logger,
+    });
+    expect(takeRecordedApnsSends()[0]?.payload).toMatchObject({
+      aps: { category: "OTP_CODE" },
+      code: "123456",
+    });
+  });
+
   it("records a fake APNs send without contacting Apple", async () => {
     const result = await deliverApnsNotifications({
       tokens: ["a".repeat(64)],

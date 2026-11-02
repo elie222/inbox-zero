@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 import { Client } from "pg";
 import { getEmailAccount } from "../account-test-helpers";
 import { playwrightMailProvider } from "../mail-provider";
@@ -41,6 +41,7 @@ test(`${playwrightMailProvider} emulator signs in and creates an app account`, a
     return (await response.json()) as { url: string };
   }, playwrightMailProvider);
 
+  await warmPostLoginRoutes(page);
   await page.goto(signInPayload.url);
   await expect(page).toHaveURL(authorizeUrl);
   await page.getByRole("button", { name: PLAYWRIGHT_TEST_EMAIL }).click();
@@ -76,6 +77,19 @@ test(`${playwrightMailProvider} emulator signs in and creates an app account`, a
   if (!authStatePath) throw new Error("PLAYWRIGHT_AUTH_FILE is not configured");
   await page.context().storageState({ path: authStatePath });
 });
+
+// In dev mode, Turbopack compiles each route on first request. The account
+// picker click waits on the whole OAuth redirect chain, so cold compiles there
+// can exceed the click timeout. The callback itself is served by the auth
+// catch-all route, which the sign-in request above already compiled.
+async function warmPostLoginRoutes(page: Page) {
+  if (process.env.PLAYWRIGHT_PRODUCTION === "1") return;
+  await Promise.all(
+    ["/welcome-redirect", "/onboarding", "/playwright-warmup/onboarding"].map(
+      (path) => page.request.get(path, { maxRedirects: 0 }),
+    ),
+  );
+}
 
 async function markOnboardingComplete(email: string) {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
