@@ -18,23 +18,28 @@ export function CopyButton({
   const Icon = copied ? CheckIcon : CopyIcon;
 
   return (
-    <Button
-      type="button"
-      variant={iconOnly ? "ghost" : "outline"}
-      size={iconOnly ? "icon" : "sm"}
-      aria-label={label}
-      onClick={async () => {
-        try {
-          await navigator.clipboard.writeText(value);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1500);
-        } catch {
-          toastError({ description: "Couldn't copy to the clipboard" });
-        }
-      }}
-    >
-      <Icon className={iconOnly ? "size-4" : "mr-2 size-4"} />
-      {!iconOnly && (copied ? "Copied" : label)}
-    </Button>
+    <>
+      <Button
+        type="button"
+        variant={iconOnly ? "ghost" : "outline"}
+        size={iconOnly ? "icon" : "sm"}
+        aria-label={iconOnly ? label : undefined}
+        onClick={async () => {
+          try {
+            await navigator.clipboard.writeText(value);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+          } catch {
+            toastError({ description: "Couldn't copy to the clipboard" });
+          }
+        }}
+      >
+        <Icon className={iconOnly ? "size-4" : "mr-2 size-4"} />
+        {!iconOnly && (copied ? "Copied" : label)}
+      </Button>
+      <span className="sr-only" aria-live="polite">
+        {copied ? "Copied" : ""}
+      </span>
+    </>
   );
 }

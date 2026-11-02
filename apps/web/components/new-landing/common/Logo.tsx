@@ -57,7 +57,10 @@ async function copyLogoSvg() {
   try {
     // Passing a promise keeps the user gesture alive in Safari while the SVG loads.
     const svg = fetch("/brand/inbox-zero-wordmark-dark.svg")
-      .then((res) => res.text())
+      .then((res) => {
+        if (!res.ok) throw new Error(`Logo request failed: ${res.status}`);
+        return res.text();
+      })
       .then((text) => new Blob([text], { type: "text/plain" }));
     await navigator.clipboard.write([new ClipboardItem({ "text/plain": svg })]);
     toastSuccess({ description: "Logo copied as SVG" });
