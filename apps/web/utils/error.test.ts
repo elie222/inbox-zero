@@ -35,6 +35,7 @@ import {
   isOutlookItemNotFoundError,
   isOutlookThrottlingError,
   markAsHandledUserKeyError,
+  SafeError,
 } from "./error";
 
 describe("isAiQuotaExceededError", () => {
@@ -537,6 +538,12 @@ describe("isOutlookThrottlingError", () => {
 
   it("returns false for unrelated errors", () => {
     expect(isOutlookThrottlingError({ code: "NotFound" })).toBe(false);
+  });
+
+  it("does not claim our own 429 responses as Outlook throttling", () => {
+    expect(
+      isOutlookThrottlingError(new SafeError("Too many requests", 429)),
+    ).toBe(false);
   });
 });
 

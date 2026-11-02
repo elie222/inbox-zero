@@ -344,6 +344,8 @@ export function isAiQuotaExceededError(error: RetryError): boolean {
 }
 
 export function isOutlookThrottlingError(error: unknown): boolean {
+  // Our own 429s (e.g. a Gmail rate limit) already carry the right message.
+  if (error instanceof SafeError) return false;
   const err = error as Record<string, unknown>;
   const code = err?.code as string | undefined;
   const statusCode = err?.statusCode as number | undefined;

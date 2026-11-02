@@ -51,10 +51,6 @@ export const GET = withEmailProvider("threads/basic", async (request) => {
       nextPageToken,
     });
   } catch (error) {
-    request.logger.error("Error fetching basic threads", {
-      error,
-      emailAccountId,
-    });
     if (
       isEmailProviderRateLimitError({
         error,
@@ -64,6 +60,10 @@ export const GET = withEmailProvider("threads/basic", async (request) => {
       throw new SafeError(EMAIL_PROVIDER_RATE_LIMIT_MESSAGE, 429);
     }
 
+    request.logger.error("Error fetching basic threads", {
+      error,
+      emailAccountId,
+    });
     return NextResponse.json(
       { error: "Failed to fetch threads" },
       { status: 500 },
