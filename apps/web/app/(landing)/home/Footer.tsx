@@ -109,6 +109,7 @@ export const footerNavigation = {
     { name: "GitHub", href: "/github", target: "_blank" },
     { name: "Discord", href: "/discord", target: "_blank" },
     { name: "OSS Friends", href: "/oss-friends" },
+    { name: "Brand Kit", href: "/brand" },
     { name: "Email Blaster", href: "/game" },
     {
       name: "Bot Directory",
