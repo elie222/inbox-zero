@@ -151,6 +151,7 @@ import { searchContacts } from "@/utils/outlook/contact";
 import { mapWithConcurrency } from "@/utils/async";
 
 const REPLY_SEARCH_MAX_PAGES = 3;
+export const OUTLOOK_GET_MESSAGES_BATCH_CONCURRENCY = 4;
 
 export class OutlookProvider implements EmailProvider {
   readonly name = "microsoft";
@@ -1706,11 +1707,16 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async getMessagesBatch(messageIds: string[]): Promise<ParsedMessage[]> {
-    // Outlook has no batch endpoint, so messages are fetched individually.
+    if (messageIds.length === 0) return [];
+
+    // Throttle concurrent message requests to stay within Microsoft Graph's
+    // per-mailbox concurrency limit (4) to prevent ErrorAccessDenied and burst throttling.
     // Like Gmail's batch, skip messages that no longer exist instead of
     // failing the whole batch on one stale ID.
-    const messages = await Promise.all(
-      messageIds.map(async (messageId) => {
+    const messages = await mapWithConcurrency(
+      messageIds,
+      OUTLOOK_GET_MESSAGES_BATCH_CONCURRENCY,
+      async (messageId) => {
         try {
           return await this.getMessage(messageId);
         } catch (error) {
@@ -1720,9 +1726,11 @@ export class OutlookProvider implements EmailProvider {
           });
           return null;
         }
-      }),
+      },
     );
-    return messages.filter((message) => message !== null);
+    return messages.filter(
+      (message): message is ParsedMessage => message !== null,
+    );
   }
 
   async syncLocalMail(

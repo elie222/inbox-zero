@@ -5,7 +5,7 @@ import * as outlookLabelModule from "@/utils/outlook/label";
 import { createTestLogger } from "@/__tests__/helpers";
 import { getThreadParticipantNames } from "@/app/(app)/[emailAccountId]/mail/thread-participants";
 import { DraftNotFoundError } from "@/utils/error";
-import { OutlookProvider } from "./microsoft";
+import { OUTLOOK_GET_MESSAGES_BATCH_CONCURRENCY, OutlookProvider } from "./microsoft";
 import { resolveOutlookFolderId } from "@/utils/outlook/search-scope";
 import { FOLDER_SEPARATOR } from "@/utils/outlook/folders";
 
@@ -2635,5 +2635,48 @@ describe("OutlookProvider.getMessagesBatch", () => {
     await expect(provider.getMessagesBatch(["msg-1", "msg-2"])).rejects.toBe(
       throttled,
     );
+  });
+
+  it("returns an empty array when given an empty messageIds list", async () => {
+    const provider = new OutlookProvider(
+      createMockOutlookClient([]),
+      createTestLogger(),
+    );
+    const getMessageSpy = vi.spyOn(provider, "getMessage");
+
+    const messages = await provider.getMessagesBatch([]);
+
+    expect(messages).toEqual([]);
+    expect(getMessageSpy).not.toHaveBeenCalled();
+  });
+
+  it("throttles getMessage calls to maximum concurrency without exceeding limit", async () => {
+    const provider = new OutlookProvider(
+      createMockOutlookClient([]),
+      createTestLogger(),
+    );
+
+    let activeRequests = 0;
+    let maxObservedConcurrency = 0;
+
+    vi.spyOn(provider, "getMessage").mockImplementation(async (messageId) => {
+      activeRequests++;
+      maxObservedConcurrency = Math.max(
+        maxObservedConcurrency,
+        activeRequests,
+      );
+      // Brief yield to allow concurrent tasks to overlap
+      await new Promise((resolve) => setTimeout(resolve, 15));
+      activeRequests--;
+      return { id: messageId } as Awaited<
+        ReturnType<OutlookProvider["getMessage"]>
+      >;
+    });
+
+    const ids = Array.from({ length: 12 }, (_, i) => `msg-${i + 1}`);
+    const messages = await provider.getMessagesBatch(ids);
+
+    expect(messages.map((message) => message.id)).toEqual(ids);
+    expect(maxObservedConcurrency).toBe(OUTLOOK_GET_MESSAGES_BATCH_CONCURRENCY);
   });
 });
