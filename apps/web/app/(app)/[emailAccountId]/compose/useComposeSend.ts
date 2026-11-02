@@ -222,6 +222,9 @@ export function useComposeSend({
         }
       }
       setSubmissionError("");
+      // Read once: whether to wait for the draft and whether to hold for undo
+      // must agree.
+      const online = navigator.onLine;
       // A draft save already on its way to the mailbox would hold Send for a
       // round trip. Instead the send carries its own content and the draft is
       // removed once that save lands. Sending through the draft would let the
@@ -231,7 +234,7 @@ export function useComposeSend({
         attachmentsRef.current.length === 0 &&
         !providerDraftMessageId &&
         Boolean(localDraftIdentity) &&
-        navigator.onLine &&
+        online &&
         !sendAt &&
         !remindAt &&
         deliveryPath.current !== "scheduled";
@@ -335,7 +338,6 @@ export function useComposeSend({
           (isInlineReply ? draftKeyMessageId : replyingToEmail?.messageId) ??
           localDraftIdentity?.messageId ??
           requestId;
-        const online = navigator.onLine;
         if (!client) {
           setSubmissionError(
             "Mail is still starting. Try sending again in a moment.",
@@ -464,15 +466,19 @@ export function useComposeSend({
                 showDraftAgain();
               if (settled.status === "cancelled") return;
               // Undo and failure keep the draft so the restored composer can
-              // keep saving to it; only a delivered reply replaces it.
-              if (settled.status === "sent" && replacesSavingDraft)
-                await discardDraftReplacedBySend({
+              // keep saving to it. Past the undo window the send carries its
+              // own copy, so the draft goes even if delivery is still pending.
+              if (
+                replacesSavingDraft &&
+                !(await discardDraftReplacedBySend({
                   client,
                   emailAccountId: selectedEmailAccountId,
                   draftSaveSettled,
                   providerDraftId,
                   localDraftIdentity,
-                });
+                }))
+              )
+                showDraftAgain();
               await discardLocalDraft();
               if (settled.status === "sent") {
                 if (markDoneAfterSend) onMarkDone?.();
@@ -632,9 +638,9 @@ async function refreshScheduledEmails(
 }
 
 /**
- * Removes the mailbox draft a delivered send replaced, once the save that was
- * in flight when Send was pressed has landed. Reading the draft id only then
- * also covers a save that created the draft.
+ * Removes the mailbox draft a send replaced, once the save that was in flight
+ * when Send was pressed has landed. Reading the draft id only then also covers
+ * a save that created the draft. Resolves false if the draft is still there.
  */
 async function discardDraftReplacedBySend({
   client,
@@ -655,16 +661,16 @@ async function discardDraftReplacedBySend({
     (localDraftIdentity
       ? (await getReplyDraft(localDraftIdentity))?.content?.providerDraftId
       : undefined);
-  if (!draftId) return;
+  if (!draftId) return true;
   const result = await discardComposeDraftAction(emailAccountId, {
     draftId,
   }).catch(() => undefined);
   if (!result?.data) {
     toastError({
-      description:
-        "Your reply was sent, but its draft could not be removed from Drafts.",
+      description: "Couldn't remove this reply's draft from Drafts.",
     });
-    return;
+    return false;
   }
   await client.requestSync([emailAccountId]).catch(() => {});
+  return true;
 }

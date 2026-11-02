@@ -19,7 +19,7 @@ one or two provider round trips. The model compares three designs:
 | --- | --- | --- |
 | `waitForSave`: wait for the save, send through the draft | Yes | All properties hold |
 | `naiveSend`: queue at once, send through the known draft | No | Sends stale text; leaves a draft behind |
-| `reconcileSend`: queue at once; with a save in flight, send the composer's own content and remove the draft once the save lands and delivery is confirmed | No | All properties hold |
+| `reconcileSend`: queue at once; with a save in flight, send the composer's own content and remove the draft once the save lands and the undo window closes | No | All properties hold |
 
 `useComposeSend.ts` implements `reconcileSend`. Properties (see `safety`):
 
@@ -28,7 +28,12 @@ one or two provider round trips. The model compares three designs:
 - once a delivered send settles, no draft for it remains;
 - a composer restored by undo keeps a draft it can save to;
 - a session never has two drafts;
-- a send that was not undone does not fail.
+- a send never finds the draft it was sent through already gone.
+
+These are safety properties. The model does not check progress (that every
+send eventually arrives), and it does not model provider retries or uncertain
+outcomes; duplicate protection across retries comes from the engine's
+operation ids, which this model takes as given.
 
 Sending through the draft is unsafe while a save is in flight because
 `sendComposeDraft` writes the final text with `drafts.update` and then calls
@@ -37,7 +42,7 @@ provider then sends the earlier text. `naiveSend` reproduces this.
 
 Accepted trade-off (`reconcileSendTabCloses`): if the tab closes after Send but
 before the in-flight save answers, the device never learns that draft's id, so
-the delivered reply's draft stays in Drafts. Waiting for the save avoided this
+the sent reply's draft stays in Drafts. Waiting for the save avoided this
 by keeping the user on a spinner instead.
 
 ## Running
@@ -51,5 +56,7 @@ pnpm test specs/compose-send.test.ts
 pnpm -F inbox-zero-ai test:specs:verify
 ```
 
-Fourteen steps are enough to reach the stale-text bug in `naiveSend`, so the
-bounded check is deep enough to exercise the races the model is about.
+The script checks only `reconcileSend`. The same 14-step bound finds the
+stale-text bug in `naiveSend`
+(`--main=naiveSend --invariant=deliversWhatWasSent`), so the bound is deep
+enough to reach the races the model is about.

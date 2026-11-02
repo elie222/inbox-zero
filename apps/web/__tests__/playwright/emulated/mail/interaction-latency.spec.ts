@@ -55,6 +55,9 @@ test("sends a reply without waiting on the network", async ({
   // has to be gone once the reply is delivered.
   await expectReplyDelivered(page, emailAccountId);
   await expect.poll(() => countThreadDrafts(page, emailAccountId)).toBe(0);
+  await expect
+    .poll(() => countSentCopies(page, emailAccountId, replyBody))
+    .toBe(1);
   await expectThreadReaderBody(page, `${replyBody}.`);
 });
 
@@ -89,6 +92,10 @@ test("undoes a reply sent while its draft was saving", async ({
     .click();
   await expectReplyDelivered(page, emailAccountId);
   await expect.poll(() => countThreadDrafts(page, emailAccountId)).toBe(0);
+  // Only the resend arrives; the undone send never went out.
+  await expect
+    .poll(() => countSentCopies(page, emailAccountId, replyBody))
+    .toBe(1);
   await expectThreadReaderBody(page, "Edited after undo.");
 });
 
@@ -488,13 +495,30 @@ async function expectReplyDelivered(page: Page, emailAccountId: string) {
 }
 
 async function countThreadDrafts(page: Page, emailAccountId: string) {
+  const messages = await readReplyThreadMessages(page, emailAccountId);
+  return messages.filter((message) => message.labelIds?.includes("DRAFT"))
+    .length;
+}
+
+async function countSentCopies(
+  page: Page,
+  emailAccountId: string,
+  text: string,
+) {
+  const messages = await readReplyThreadMessages(page, emailAccountId);
+  return messages.filter(
+    (message) =>
+      !message.labelIds?.includes("DRAFT") &&
+      `${message.textPlain ?? ""}${message.textHtml ?? ""}`.includes(text),
+  ).length;
+}
+
+async function readReplyThreadMessages(page: Page, emailAccountId: string) {
   const response = await page.request.get(
     "/api/threads/thr_playwright_reply?includeDrafts=true",
     { headers: { "X-Email-Account-ID": emailAccountId } },
   );
   expect(response.ok(), await response.text()).toBe(true);
   const { thread }: ThreadResponse = await response.json();
-  return thread.messages.filter((message) =>
-    message.labelIds?.includes("DRAFT"),
-  ).length;
+  return thread.messages;
 }

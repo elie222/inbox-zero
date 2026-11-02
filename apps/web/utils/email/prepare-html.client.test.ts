@@ -127,6 +127,18 @@ describe("preparing html for the image proxy", () => {
       "a stylesheet background",
       "<style>.hero { background: url('https://cdn.example.com/bg.png'); }</style><div class=\"hero\">Hi</div>",
     ],
+    ["a backslash image", '<img src="\\\\tracker.example/p.png">'],
+    ["an image with a tab", '<img src="/&#9;/tracker.example/p.png">'],
+    ["a relative image", '<img src="pixel.png">'],
+    [
+      "a css-escaped background",
+      "<style>.a { background: url(\\2f\\2ftracker.example/p.png); }</style>",
+    ],
+    ["a css import", '<style>@import "https://tracker.example/a.css";</style>'],
+    [
+      "an escaped inline style",
+      '<div style="background: \\75 rl(//tracker.example/p.png)">Hi</div>',
+    ],
     [
       "a table background",
       '<table background="https://cdn.example.com/bg.png"><tr><td>Hi</td></tr></table>',

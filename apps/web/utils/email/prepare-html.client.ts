@@ -124,13 +124,38 @@ async function rewriteHtmlWithProxy(html: string) {
 }
 
 const REMOTE_URL_PATTERN = /(?:https?:)?\/\//i;
+const LOCAL_URL_PATTERN = /^(?:cid:|data:|blob:|#|$)/i;
+// CSS that can fetch something, including through escapes such as `\2f`.
+const CSS_LOAD_PATTERN = /url\(|@import|image(?:-set)?\(|\\/i;
+const URL_ATTRIBUTES = new Set([
+  "action",
+  "archive",
+  "background",
+  "cite",
+  "codebase",
+  "data",
+  "dynsrc",
+  "formaction",
+  "href",
+  "icon",
+  "longdesc",
+  "lowsrc",
+  "manifest",
+  "ping",
+  "poster",
+  "profile",
+  "src",
+  "usemap",
+  "xlink:href",
+]);
 const remoteAssetChecks = new Map<string, boolean>();
 
 /**
  * Whether the html could load anything from another server, the only reason
  * to route it through the image proxy. Deliberately broader than what the
- * proxy rewrites: any absolute or protocol-relative URL outside a link's
- * target counts, so a miss can only cost a wait, never a direct remote load.
+ * proxy rewrites, so a miss can only cost a wait, never a direct remote load:
+ * a URL attribute counts unless it is plainly local, any CSS that can fetch
+ * counts, and any other attribute counts if it holds something URL-like.
  */
 function hasRemoteAssets(html: string) {
   const cached = remoteAssetChecks.get(html);
@@ -138,13 +163,11 @@ function hasRemoteAssets(html: string) {
   const parsed = new DOMParser().parseFromString(html, "text/html");
   const remote =
     Array.from(parsed.querySelectorAll("style")).some((style) =>
-      REMOTE_URL_PATTERN.test(style.textContent ?? ""),
+      CSS_LOAD_PATTERN.test(style.textContent ?? ""),
     ) ||
     Array.from(parsed.querySelectorAll("*")).some((element) =>
-      Array.from(element.attributes).some(
-        (attribute) =>
-          !(attribute.name === "href" && element.matches("a, area")) &&
-          REMOTE_URL_PATTERN.test(attribute.value),
+      Array.from(element.attributes).some((attribute) =>
+        attributeMayLoad(element, attribute),
       ),
     );
   remoteAssetChecks.set(html, remote);
@@ -154,4 +177,27 @@ function hasRemoteAssets(html: string) {
     remoteAssetChecks.delete(oldest);
   }
   return remote;
+}
+
+function attributeMayLoad(element: Element, { name, value }: Attr) {
+  if (name === "style") return CSS_LOAD_PATTERN.test(value);
+  if (name === "href" && element.matches("a, area")) return false;
+  if (name === "srcset")
+    return value.split(",").some((candidate) => !isLocalUrl(candidate));
+  if (URL_ATTRIBUTES.has(name)) return !isLocalUrl(value);
+  return REMOTE_URL_PATTERN.test(
+    withoutIgnoredUrlCharacters(value).replaceAll("\\", "/"),
+  );
+}
+
+function isLocalUrl(value: string) {
+  return LOCAL_URL_PATTERN.test(withoutIgnoredUrlCharacters(value));
+}
+
+// Browsers drop control characters and spaces from URLs, so they cannot hide
+// a remote address.
+function withoutIgnoredUrlCharacters(value: string) {
+  return Array.from(value)
+    .filter((character) => character > " ")
+    .join("");
 }

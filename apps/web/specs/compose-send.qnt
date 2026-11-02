@@ -188,11 +188,12 @@ module composeSend {
   }
 
   // The device removes a draft that a send replaced, once its save has
-  // landed and the provider confirmed delivery.
+  // landed and the undo window has closed. The send carries its own copy, so
+  // delivery need not be confirmed first.
   val canDiscard = and {
     tabOpen,
     cleanupDraft,
-    send.status == "delivered",
+    send.status.in(Set("dispatching", "delivered")),
     save.phase == "idle",
     discard.phase == "idle",
     knownDraft != NONE,
@@ -207,7 +208,7 @@ module composeSend {
 
   // Nothing left to remove: the save never created a draft.
   val canFinishCleanup = and {
-    tabOpen, cleanupDraft, send.status == "delivered",
+    tabOpen, cleanupDraft, send.status.in(Set("dispatching", "delivered")),
     save.phase == "idle", knownDraft == NONE,
   }
   action FinishCleanup = all {
@@ -357,8 +358,8 @@ module composeSend {
   /// A session never ends up with two mailbox drafts.
   val atMostOneDraft = drafts.keys().size() <= 1
 
-  /// A send that was not undone always reaches the recipient.
-  val sendNeverFails = send.status != "failed"
+  /// A send never finds the draft it was sent through already gone.
+  val sendNeverLosesItsDraft = send.status != "failed"
 
   val safety = and {
     noDuplicateDelivery,
@@ -366,7 +367,7 @@ module composeSend {
     noDraftLeftAfterSend,
     restoredComposerKeepsItsDraft,
     atMostOneDraft,
-    sendNeverFails,
+    sendNeverLosesItsDraft,
   }
 
   // --- frame conditions ----------------------------------------------------

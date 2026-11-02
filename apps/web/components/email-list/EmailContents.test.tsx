@@ -590,10 +590,7 @@ describe("HtmlEmail", () => {
     );
 
     await findByTitle("Email content preview");
-    await waitFor(() =>
-      expect(latestEmailDocument()).toContain(`src="${objectUrl}"`),
-    );
-    const iframe = getLatestEmailFrame();
+    const iframe = await showLoadedEmailDocument(`src="${objectUrl}"`);
     expect(iframe.getAttribute("srcdoc")).toContain(
       "img-src data: blob: https:;",
     );
@@ -649,18 +646,16 @@ describe("HtmlEmail", () => {
       />
     );
 
-    const { rerender } = render(renderEmail());
-    await waitFor(() =>
-      expect(latestEmailDocument()).toContain(
-        'src="blob:https://app.example.com/logo-1"',
-      ),
+    const { getByTitle, queryByTitle, rerender } = render(renderEmail());
+    const visibleFrame = await showLoadedEmailDocument(
+      'src="blob:https://app.example.com/logo-1"',
     );
-    const frames = getEmailFrames();
 
     rerender(renderEmail());
     await act(async () => {});
 
-    expect(getEmailFrames()).toEqual(frames);
+    expect(getByTitle("Email content preview")).toBe(visibleFrame);
+    expect(queryByTitle("Preparing email content preview")).toBeNull();
     expect(fetchAttachment).toHaveBeenCalledOnce();
     expect(createObjectUrl).toHaveBeenCalledOnce();
     expect(revokeObjectUrl).not.toHaveBeenCalled();
@@ -686,19 +681,17 @@ describe("HtmlEmail", () => {
       />
     );
 
-    const { rerender } = render(
+    const { getByTitle, queryByTitle, rerender } = render(
       renderEmail([inlineImageAttachment("badge@inboxzero.local")]),
     );
-    await waitFor(() =>
-      expect(latestEmailDocument()).toContain(`src="${objectUrl}"`),
-    );
-    const frames = getEmailFrames();
+    const visibleFrame = await showLoadedEmailDocument(`src="${objectUrl}"`);
 
     rerender(renderEmail([]));
     await act(async () => {});
 
-    expect(getEmailFrames()).toEqual(frames);
-    expect(latestEmailDocument()).toContain(`src="${objectUrl}"`);
+    expect(queryByTitle("Preparing email content preview")).toBeNull();
+    expect(getByTitle("Email content preview")).toBe(visibleFrame);
+    expect(visibleFrame.getAttribute("srcdoc")).toContain(`src="${objectUrl}"`);
     expect(fetchAttachment).toHaveBeenCalledOnce();
   });
 
@@ -724,9 +717,7 @@ describe("HtmlEmail", () => {
     );
 
     const firstRender = render(renderEmail());
-    await waitFor(() =>
-      expect(latestEmailDocument()).toContain(`src="${objectUrl}"`),
-    );
+    await showLoadedEmailDocument(`src="${objectUrl}"`);
     firstRender.unmount();
 
     const { getByTitle } = render(renderEmail());
@@ -848,22 +839,30 @@ function measureEmailFrame(iframe: HTMLIFrameElement, height: number) {
 }
 
 // A body without remote assets shows at once, so an inline image that loads
-// afterwards arrives as a second document. Browsers swap it in once it is
-// measured; jsdom never measures, so read the newest document directly.
-function getEmailFrames() {
-  return Array.from(
-    document.querySelectorAll<HTMLIFrameElement>(
-      'iframe[title="Email content preview"], iframe[title="Preparing email content preview"]',
+// afterwards arrives as a second, hidden document. Browsers swap it in once it
+// is measured; jsdom has no layout, so measure it here and return the frame
+// that ends up visible.
+async function showLoadedEmailDocument(expected: string) {
+  const preparing = () =>
+    document.querySelector<HTMLIFrameElement>(
+      'iframe[title="Preparing email content preview"]',
+    );
+  const visible = () =>
+    document.querySelector<HTMLIFrameElement>(
+      'iframe[title="Email content preview"]',
+    );
+  await waitFor(() =>
+    expect((preparing() ?? visible())?.getAttribute("srcdoc")).toContain(
+      expected,
     ),
   );
-}
-
-function getLatestEmailFrame() {
-  const frame = getEmailFrames().at(-1);
-  if (!frame) throw new Error("Expected an email frame");
+  const pending = preparing();
+  if (pending) {
+    measureEmailFrame(pending, 40);
+    await waitFor(() => expect(preparing()).toBeNull());
+  }
+  const frame = visible();
+  if (!frame) throw new Error("Expected a visible email frame");
+  expect(frame.getAttribute("srcdoc")).toContain(expected);
   return frame;
-}
-
-function latestEmailDocument() {
-  return getLatestEmailFrame().getAttribute("srcdoc");
 }

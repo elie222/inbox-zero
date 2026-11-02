@@ -8,7 +8,7 @@ const QUINT = path.join(
   "..",
   "node_modules",
   ".bin",
-  "quint",
+  process.platform === "win32" ? "quint.cmd" : "quint",
 );
 
 describe("compose send model", { timeout: 60_000 }, () => {
@@ -46,7 +46,11 @@ function simulate(main: string, invariant: string) {
       "--max-steps=30",
       "--seed=1",
     ],
-    { encoding: "utf8", timeout: 120_000 },
+    {
+      encoding: "utf8",
+      timeout: 120_000,
+      shell: process.platform === "win32",
+    },
   );
   const output = `${result.stdout}${result.stderr}`;
   if (output.includes("[ok] No violation found")) return { violated: false };
