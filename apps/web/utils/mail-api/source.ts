@@ -188,13 +188,14 @@ export function createEmailProviderMailboxSource(input: {
       }
     },
     async readChanges({ position, session, requestId, pageSize }) {
+      const folderId =
+        provider.name === "microsoft" && position.streamId !== "primary"
+          ? position.streamId
+          : undefined;
       try {
         const page = await provider.getMailboxSyncPage({
           cursor: position.checkpoint || undefined,
-          folderId:
-            provider.name === "microsoft" && position.streamId !== "primary"
-              ? position.streamId
-              : undefined,
+          folderId,
           limit: pageSize,
         });
         if (page.reset) {
@@ -238,6 +239,14 @@ export function createEmailProviderMailboxSource(input: {
         };
       } catch (error) {
         if (error instanceof InvalidMailboxSyncCursorError) {
+          return { status: "reset_required", scopeId: position.streamId };
+        }
+        // The client retires the stream when its own folder discovery agrees.
+        if (
+          folderId &&
+          isMissingProviderResource(error) &&
+          (await isFolderGone(provider, folderId))
+        ) {
           return { status: "reset_required", scopeId: position.streamId };
         }
         return mapProviderError(error);
@@ -506,6 +515,17 @@ async function finalCatchUpFrom({
 function scopedFolderId(provider: EmailProvider, scope: ScopeDescriptor) {
   if (provider.name === "microsoft") return scope.folderId ?? scope.id;
   return scope.folderId ?? undefined;
+}
+
+// A deleted folder's delta query fails with a 404, but so can a transient
+// Graph error, so only a fresh folder listing without it counts as gone.
+async function isFolderGone(provider: EmailProvider, folderId: string) {
+  try {
+    const folders = await provider.getFolders();
+    return !flattenFolderScopes(folders).some((scope) => scope.id === folderId);
+  } catch {
+    return false;
+  }
 }
 
 function flattenFolderScopes(folders: FolderScopeNode[]) {
