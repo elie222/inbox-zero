@@ -12,10 +12,10 @@ async function main() {
   const apply = process.argv.includes("--apply");
   const stripe = getStripe();
 
-  let answers = 0;
-  let updated = 0;
+  let matched = 0;
+  let unmatched = 0;
 
-  // Matching on stripeSubscriptionId only touches the subscription the Stripe sync tracks for each Premium.
+  // Premium tracks only each customer's latest subscription, so answers on older subscriptions have nowhere to go.
   for await (const subscription of stripe.subscriptions.list({
     status: "all",
     limit: 100,
@@ -23,23 +23,32 @@ async function main() {
     const feedback = subscription.cancellation_details?.feedback ?? null;
     const comment = subscription.cancellation_details?.comment || null;
     if (!feedback && !comment) continue;
-    answers++;
 
-    if (!apply) continue;
-
-    const result = await prisma.premium.updateMany({
+    const premium = await prisma.premium.findUnique({
       where: { stripeSubscriptionId: subscription.id },
-      data: {
-        stripeCancellationFeedback: feedback,
-        stripeCancellationComment: comment,
-      },
+      select: { id: true },
     });
-    updated += result.count;
+    if (!premium) {
+      unmatched++;
+      continue;
+    }
+    matched++;
+
+    if (apply) {
+      await prisma.premium.update({
+        where: { id: premium.id },
+        data: {
+          stripeCancellationFeedback: feedback,
+          stripeCancellationComment: comment,
+        },
+      });
+    }
   }
 
-  console.log(`Found ${answers} answers in Stripe.`);
-  if (apply) console.log(`Updated ${updated} Premium rows.`);
-  else console.log("Dry run. Re-run with --apply to write.");
+  console.log(
+    `${apply ? "Updated" : "Would update"} ${matched} Premium rows. ${unmatched} answers are on subscriptions no Premium row tracks.`,
+  );
+  if (!apply) console.log("Dry run. Re-run with --apply to write.");
 }
 
 main()
