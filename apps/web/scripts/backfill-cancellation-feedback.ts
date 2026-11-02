@@ -24,25 +24,21 @@ async function main() {
     const comment = subscription.cancellation_details?.comment || null;
     if (!feedback && !comment) continue;
 
-    const premium = await prisma.premium.findUnique({
-      where: { stripeSubscriptionId: subscription.id },
-      select: { id: true },
-    });
-    if (!premium) {
-      unmatched++;
-      continue;
-    }
-    matched++;
+    const where = { stripeSubscriptionId: subscription.id };
+    const count = apply
+      ? (
+          await prisma.premium.updateMany({
+            where,
+            data: {
+              stripeCancellationFeedback: feedback,
+              stripeCancellationComment: comment,
+            },
+          })
+        ).count
+      : await prisma.premium.count({ where });
 
-    if (apply) {
-      await prisma.premium.update({
-        where: { id: premium.id },
-        data: {
-          stripeCancellationFeedback: feedback,
-          stripeCancellationComment: comment,
-        },
-      });
-    }
+    if (count) matched++;
+    else unmatched++;
   }
 
   console.log(
