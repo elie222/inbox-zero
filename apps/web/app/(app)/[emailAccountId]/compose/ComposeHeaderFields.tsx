@@ -15,11 +15,10 @@ import {
 } from "@/components/ui/select";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { cn } from "@/utils";
-import { getAccountLinkingUrl } from "@/utils/account-linking";
+import { startAccountLinking } from "@/utils/account-linking";
 import { formatRecipientNames, splitRecipientList } from "@/utils/email";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import type { SendAsAddress } from "@/utils/email/send-as";
-import { redirectToSafeUrl } from "@/utils/redirect";
 import { ComposeContactRecipientField } from "./ComposeContactRecipientField";
 import type { ComposeRecipientField } from "./compose-recipients";
 
@@ -91,10 +90,10 @@ export function ComposeHeaderFields({
       const oauthProvider = isMicrosoftProvider(accountProvider)
         ? "microsoft"
         : "google";
-      const url = await getAccountLinkingUrl(oauthProvider, {
+      const { navigating } = await startAccountLinking(oauthProvider, {
         reconnectEmailAccountId: selectedEmailAccountId,
       });
-      redirectToSafeUrl(url, { allowExternal: true });
+      if (!navigating) setIsReconnectingContacts(false);
     } catch (error) {
       toastError({
         title: "Error initiating reconnection",

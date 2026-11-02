@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   findDesktopProtocolUrl,
+  getDesktopAccountLinkOptions,
+  getDesktopAccountLinkRedirectUrl,
+  getDesktopApiErrorMessage,
   getDesktopAppOrigin,
   getDesktopBrowserStartUrl,
   getDesktopHomeUrl,
@@ -13,9 +16,12 @@ import {
   getDesktopWindowDragCss,
   isAllowedDesktopNavigation,
   isAllowedExternalUrl,
+  isDesktopAccountLinkCallbackUrl,
+  isDesktopAccountLinkProvider,
   isDesktopAuthProvider,
   isDesktopLocalMailUrl,
   normalizeDesktopCallbackPath,
+  parseDesktopAccountLinkCallback,
   parseDesktopAuthCallback,
   resolveDesktopStartUrl,
   shouldPersistDesktopUrl,
@@ -129,6 +135,100 @@ describe("desktop shell helpers", () => {
       ok: false,
       error: "Authentication session was not found",
     });
+  });
+
+  it("routes account link callbacks apart from sign-in callbacks", () => {
+    expect(
+      isDesktopAccountLinkCallbackUrl(
+        "inboxzero://account-link-callback?code=handoff-code",
+      ),
+    ).toBe(true);
+    expect(
+      isDesktopAccountLinkCallbackUrl(
+        "inboxzero:///account-link-callback/?code=handoff-code",
+      ),
+    ).toBe(true);
+    expect(
+      isDesktopAccountLinkCallbackUrl(
+        "inboxzero://auth-callback?state=state-1&code=one-time-code",
+      ),
+    ).toBe(false);
+    expect(
+      isDesktopAccountLinkCallbackUrl(
+        "https://www.getinboxzero.com/account-link-callback?code=handoff-code",
+      ),
+    ).toBe(false);
+    expect(
+      parseDesktopAuthCallback(
+        "inboxzero://account-link-callback?code=handoff-code",
+      ).ok,
+    ).toBe(false);
+  });
+
+  it("parses the account link handoff code", () => {
+    expect(
+      parseDesktopAccountLinkCallback(
+        "inboxzero://account-link-callback?code=handoff-code",
+      ),
+    ).toEqual({ ok: true, code: "handoff-code" });
+    expect(
+      parseDesktopAccountLinkCallback(
+        "inboxzero://account-link-callback?error=link_failed",
+      ),
+    ).toMatchObject({ ok: false });
+    expect(
+      parseDesktopAccountLinkCallback("inboxzero://account-link-callback"),
+    ).toMatchObject({ ok: false });
+    expect(
+      parseDesktopAccountLinkCallback(
+        "inboxzero://auth-callback?code=handoff-code",
+      ),
+    ).toMatchObject({ ok: false });
+  });
+
+  it("only accepts linking providers and a string reconnect target", () => {
+    expect(isDesktopAccountLinkProvider("google")).toBe(true);
+    expect(isDesktopAccountLinkProvider("microsoft")).toBe(true);
+    expect(isDesktopAccountLinkProvider("apple")).toBe(false);
+    expect(
+      getDesktopAccountLinkOptions({ reconnectEmailAccountId: "account-1" }),
+    ).toEqual({ reconnectEmailAccountId: "account-1" });
+    expect(
+      getDesktopAccountLinkOptions({ reconnectEmailAccountId: 1 }),
+    ).toEqual({});
+    expect(getDesktopAccountLinkOptions(undefined)).toEqual({});
+  });
+
+  it("keeps account link redirects on the app origin", () => {
+    const origin = "https://www.getinboxzero.com";
+    expect(
+      getDesktopAccountLinkRedirectUrl(
+        origin,
+        "/accounts?success=account_created_and_linked",
+      ),
+    ).toBe(
+      "https://www.getinboxzero.com/accounts?success=account_created_and_linked",
+    );
+    expect(
+      getDesktopAccountLinkRedirectUrl(origin, "//evil.example/accounts"),
+    ).toBe("https://www.getinboxzero.com/accounts");
+    expect(
+      getDesktopAccountLinkRedirectUrl(origin, "https://evil.example"),
+    ).toBe("https://www.getinboxzero.com/accounts");
+    expect(getDesktopAccountLinkRedirectUrl(origin, null)).toBe(
+      "https://www.getinboxzero.com/accounts",
+    );
+  });
+
+  it("only shows web API errors marked as known", () => {
+    expect(
+      getDesktopApiErrorMessage({
+        error: "Account not found",
+        isKnownError: true,
+      }),
+    ).toBe("Account not found");
+    expect(getDesktopApiErrorMessage({ error: "stack trace" })).toBeNull();
+    expect(getDesktopApiErrorMessage(null)).toBeNull();
   });
 
   it("ignores unknown protocol URLs", () => {

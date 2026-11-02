@@ -16,6 +16,10 @@ contextBridge.exposeInMainWorld("inboxZeroDesktop", {
   openWindow: (path: string) => ipcRenderer.invoke("desktop:open-window", path),
   startAuth: (provider: string, options?: { callbackPath?: string }) =>
     ipcRenderer.invoke("desktop-auth:start", provider, options),
+  startAccountLink: (
+    provider: string,
+    options?: { reconnectEmailAccountId?: string },
+  ) => ipcRenderer.invoke("desktop-account-link:start", provider, options),
   readAttachment: (payload: unknown) =>
     ipcRenderer.invoke("desktop:read-attachment", payload),
   mailEngine: (payload: unknown) => ipcRenderer.invoke("mail-engine", payload),

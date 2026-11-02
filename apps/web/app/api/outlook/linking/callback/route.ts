@@ -1,53 +1,41 @@
 import { env } from "@/env";
 import { auth } from "@/utils/auth";
-import { hash } from "@/utils/hash";
-import prisma from "@/utils/prisma";
 import { OUTLOOK_LINKING_STATE_COOKIE_NAME } from "@/utils/outlook/constants";
+import { linkMicrosoftAccount } from "@/utils/outlook/link-account";
 import { withError } from "@/utils/middleware";
-import { captureException, SafeError } from "@/utils/error";
-import { validateOAuthCallback } from "@/utils/oauth/callback-validation";
+import { SafeError } from "@/utils/error";
 import {
-  getMailboxLinkingBlockedRedirect,
-  handleAccountLinking,
-} from "@/utils/oauth/account-linking";
-import { isReconnectTargetMismatch } from "@/utils/oauth/reconnect-target";
+  hasValidMatchingSignedOAuthState,
+  validateOAuthCallback,
+} from "@/utils/oauth/callback-validation";
+import { getMailboxLinkingBlockedRedirect } from "@/utils/oauth/account-linking";
 import { createAccountLinkingRedirect } from "@/utils/oauth/account-linking-redirect";
-import { mergeAccount } from "@/utils/user/merge-account";
-import { handleOAuthCallbackError } from "@/utils/oauth/error-handler";
-import { hasValidMatchingSignedOAuthState } from "@/utils/oauth/callback-validation";
 import {
-  hashOAuthAuditIdentifier,
-  logOAuthLinkingCallbackValidation,
-} from "@/utils/oauth/linking-audit";
+  handOffDesktopAccountLink,
+  parseDesktopLinkingState,
+} from "@/utils/oauth/desktop-account-linking";
+import { logOAuthLinkingCallbackValidation } from "@/utils/oauth/linking-audit";
 import {
   classifyMicrosoftOAuthCallbackError,
   extractAadstsCode,
-  getMissingMicrosoftScopes,
   getSafeMicrosoftOAuthErrorDescription,
-  parseMicrosoftScopes,
 } from "@/utils/oauth/microsoft-oauth";
-import {
-  decodeMicrosoftIdTokenClaims,
-  fetchMicrosoftGraph,
-  fetchMicrosoftOidcUserInfo,
-  fetchMicrosoftUserProfile,
-  MicrosoftUserProfileError,
-  requestMicrosoftToken,
-} from "@/utils/outlook/oauth";
-import {
-  acquireOAuthCodeLock,
-  getOAuthCodeResult,
-  setOAuthCodeResult,
-  clearOAuthCode,
-} from "@/utils/redis/oauth-code";
-import { isDuplicateError } from "@/utils/prisma-helpers";
-import {
-  REQUIRED_SCOPES as OUTLOOK_REQUIRED_SCOPES,
-  SCOPES as OUTLOOK_SCOPES,
-} from "@/utils/outlook/scopes";
+import { SCOPES as OUTLOOK_SCOPES } from "@/utils/outlook/scopes";
 import type { Logger } from "@/utils/logger";
 
 export const GET = withError("outlook/linking/callback", async (request) => {
+  const searchParams = request.nextUrl.searchParams;
+
+  const desktopState = parseDesktopLinkingState(searchParams.get("state"));
+  if (desktopState) {
+    return handOffDesktopAccountLink({
+      provider: "microsoft",
+      state: desktopState,
+      code: searchParams.get("error") ? null : searchParams.get("code"),
+      logger: request.logger,
+    });
+  }
+
   const actorSession = await auth(request.headers);
   const actorUserId = actorSession?.user.id ?? null;
   let logger = request.logger.with({
@@ -61,7 +49,6 @@ export const GET = withError("outlook/linking/callback", async (request) => {
   if (!env.MICROSOFT_CLIENT_ID || !env.MICROSOFT_CLIENT_SECRET)
     throw new SafeError("Microsoft login not enabled");
 
-  const searchParams = request.nextUrl.searchParams;
   const storedState = request.cookies.get(
     OUTLOOK_LINKING_STATE_COOKIE_NAME,
   )?.value;
@@ -124,510 +111,13 @@ export const GET = withError("outlook/linking/callback", async (request) => {
   });
   if (blockedRedirect) return blockedRedirect;
 
-  const cachedResult = await getOAuthCodeResult(code);
-  if (cachedResult) {
-    logger.info("OAuth code already processed, returning cached result", {
-      targetUserId,
-    });
-    return createAccountLinkingRedirect({
-      query: cachedResult.params,
-      stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
-    });
-  }
-
-  const acquiredLock = await acquireOAuthCodeLock(code);
-  if (!acquiredLock) {
-    logger.info("OAuth code is being processed by another request", {
-      targetUserId,
-    });
-    return createAccountLinkingRedirect({
-      stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
-    });
-  }
-
-  try {
-    // Exchange code for tokens
-    const tokenResponse = await requestMicrosoftToken({
-      client_id: env.MICROSOFT_CLIENT_ID,
-      client_secret: env.MICROSOFT_CLIENT_SECRET,
-      code,
-      grant_type: "authorization_code",
-      redirect_uri: linkingRedirectUri,
-    });
-
-    const tokens = await tokenResponse.json();
-
-    if (!tokenResponse.ok) {
-      const errorDescription =
-        tokens.error_description || "Failed to exchange code for tokens";
-      const aadstsCode = extractAadstsCode(errorDescription);
-      logger.error("Failed to exchange code for tokens", {
-        error: errorDescription,
-        aadstsCode,
-        targetUserId,
-        tenantId: env.MICROSOFT_TENANT_ID,
-        redirectUri: linkingRedirectUri,
-        requestedScopes: OUTLOOK_SCOPES,
-      });
-      captureException(new Error(errorDescription));
-      throw new SafeError(errorDescription);
-    }
-
-    let profile: Awaited<
-      ReturnType<typeof fetchMicrosoftUserProfile>
-    >["profile"];
-    let providerEmail: string;
-    let providerAccountId: string;
-    // Account keys this app wrote before it settled on the Entra object id:
-    // the pairwise OIDC subject, and before that the Graph user id.
-    let legacyProviderAccountIds: string[] = [];
-
-    try {
-      const result = await fetchMicrosoftUserProfile(tokens.access_token);
-      profile = result.profile;
-      providerEmail = result.email;
-
-      const { oid } = decodeMicrosoftIdTokenClaims(tokens.id_token);
-      if (!oid) {
-        throw new MicrosoftUserProfileError(
-          "Microsoft did not return an account identifier",
-        );
-      }
-      providerAccountId = oid;
-
-      const oidcUserInfo = await fetchMicrosoftOidcUserInfo(
-        tokens.access_token,
-      );
-      legacyProviderAccountIds = [oidcUserInfo.sub, profile.id].filter(
-        (id): id is string => !!id && id !== providerAccountId,
-      );
-    } catch (error) {
-      if (error instanceof MicrosoftUserProfileError) {
-        if (error.status) {
-          logger.error("Failed to fetch Microsoft user profile", {
-            targetUserId,
-            status: error.status,
-          });
-        }
-        throw new SafeError(error.message);
-      }
-
-      throw error;
-    }
-
-    let existingAccount =
-      await findMicrosoftAccountByProviderAccountId(providerAccountId);
-    let shouldMigrateProviderAccountId = false;
-
-    for (const legacyId of legacyProviderAccountIds) {
-      if (existingAccount) break;
-      existingAccount = await findMicrosoftAccountByProviderAccountId(legacyId);
-      shouldMigrateProviderAccountId = !!existingAccount;
-    }
-
-    if (
-      isReconnectTargetMismatch({
-        reconnectEmailAccountId,
-        matchedEmailAccountId: existingAccount?.emailAccount?.id,
-      })
-    ) {
-      logger.warn("Reconnect authorized a different provider account", {
-        targetUserId,
-        reconnectEmailAccountId,
-        matchedEmailAccountId: existingAccount?.emailAccount?.id ?? null,
-      });
-      return createAccountLinkingRedirect({
-        query: { error: "reconnect_account_mismatch" },
-        stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
-      });
-    }
-
-    assertMicrosoftLinkingConsent({
-      targetUserId,
-      tokenScope: tokens.scope,
-      hasRefreshToken: !!tokens.refresh_token,
-      hasStoredRefreshToken: !!existingAccount?.refresh_token,
-      logger,
-    });
-
-    const linkingResult = await handleAccountLinking({
-      existingAccountId: existingAccount?.id || null,
-      hasEmailAccount: !!existingAccount?.emailAccount,
-      existingUserId: existingAccount?.userId || null,
-      targetUserId,
-      provider: "microsoft",
-      providerEmail,
-      logger,
-    });
-
-    if (linkingResult.type === "redirect") {
-      linkingResult.response.cookies.delete(OUTLOOK_LINKING_STATE_COOKIE_NAME);
-      return linkingResult.response;
-    }
-
-    if (linkingResult.type === "update_existing_account") {
-      logger.info(
-        "Updating existing Microsoft account with new providerAccountId",
-        {
-          email: providerEmail,
-          targetUserId,
-          accountId: linkingResult.existingAccountId,
-        },
-      );
-
-      await updateMicrosoftAccountTokens(
-        linkingResult.existingAccountId,
-        tokens,
-        { providerAccountId },
-      );
-
-      return completeMicrosoftTokenUpdate({
-        accountId: linkingResult.existingAccountId,
-        code,
-        logger,
-        providerEmail,
-        providerAccountId,
-      });
-    }
-
-    if (linkingResult.type === "continue_create") {
-      logger.info(
-        "Creating new Microsoft account and linking to current user",
-        {
-          email: providerEmail,
-          targetUserId,
-        },
-      );
-
-      const expiresAt = parseMicrosoftExpiresAt(tokens);
-
-      let profileImage = null;
-      try {
-        const photoResponse = await fetchMicrosoftGraph("/me/photo/$value", {
-          headers: {
-            Authorization: `Bearer ${tokens.access_token}`,
-          },
-        });
-
-        if (photoResponse.ok) {
-          const photoBuffer = await photoResponse.arrayBuffer();
-          const photoBase64 = Buffer.from(photoBuffer).toString("base64");
-          profileImage = `data:image/jpeg;base64,${photoBase64}`;
-        }
-      } catch (error) {
-        logger.warn("Failed to fetch profile picture", { error });
-      }
-
-      try {
-        const newAccount = await prisma.account.create({
-          data: {
-            userId: targetUserId,
-            type: "oidc",
-            provider: "microsoft",
-            providerAccountId,
-            access_token: tokens.access_token,
-            refresh_token: tokens.refresh_token,
-            expires_at: expiresAt,
-            scope: tokens.scope,
-            token_type: tokens.token_type,
-            emailAccount: {
-              create: {
-                email: providerEmail,
-                userId: targetUserId,
-                name:
-                  profile.displayName ||
-                  profile.givenName ||
-                  profile.surname ||
-                  null,
-                image: profileImage,
-              },
-            },
-          },
-        });
-
-        logger.info("Successfully created and linked new Microsoft account", {
-          email: providerEmail,
-          targetUserId,
-          accountId: newAccount.id,
-        });
-        logger.info("OAuth linking callback completed", {
-          accountId: newAccount.id,
-          outcome: "account_created_and_linked",
-          providerEmailHash: hash(providerEmail),
-          providerSubjectHash: hashOAuthAuditIdentifier(providerAccountId),
-        });
-      } catch (createError: unknown) {
-        if (isDuplicateError(createError)) {
-          const accountNow = await prisma.account.findUnique({
-            where: {
-              provider_providerAccountId: {
-                provider: "microsoft",
-                providerAccountId,
-              },
-            },
-            select: { id: true, userId: true },
-          });
-
-          if (accountNow?.userId === targetUserId) {
-            logger.info(
-              "Account already exists for same user, updating tokens",
-              {
-                targetUserId,
-                providerAccountId,
-                accountId: accountNow.id,
-              },
-            );
-
-            await updateMicrosoftAccountTokens(accountNow.id, tokens);
-            logger.info("OAuth linking callback completed", {
-              accountId: accountNow.id,
-              outcome: "tokens_updated",
-              providerEmailHash: hash(providerEmail),
-              providerSubjectHash: hashOAuthAuditIdentifier(providerAccountId),
-            });
-          } else {
-            throw createError;
-          }
-        } else {
-          throw createError;
-        }
-      }
-
-      await setOAuthCodeResult(code, { success: "account_created_and_linked" });
-      return createAccountLinkingRedirect({
-        query: { success: "account_created_and_linked" },
-        stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
-      });
-    }
-
-    if (linkingResult.type === "update_tokens") {
-      logger.info("Updating tokens for existing Microsoft account", {
-        email: providerEmail,
-        targetUserId,
-        accountId: linkingResult.existingAccountId,
-      });
-
-      await updateMicrosoftAccountTokens(
-        linkingResult.existingAccountId,
-        tokens,
-        shouldMigrateProviderAccountId ? { providerAccountId } : undefined,
-      );
-
-      logger.info("Successfully updated tokens for Microsoft account", {
-        email: providerEmail,
-        targetUserId,
-        accountId: linkingResult.existingAccountId,
-      });
-      return completeMicrosoftTokenUpdate({
-        accountId: linkingResult.existingAccountId,
-        code,
-        logger,
-        providerEmail,
-        providerAccountId,
-      });
-    }
-
-    logger.info("Merging Microsoft account (user confirmed).", {
-      email: providerEmail,
-      targetUserId,
-    });
-
-    const mergeType = await mergeAccount({
-      sourceAccountId: linkingResult.sourceAccountId,
-      sourceUserId: linkingResult.sourceUserId,
-      targetUserId,
-      email: providerEmail,
-      name: existingAccount?.user.name || null,
-      logger,
-    });
-
-    await updateMicrosoftAccountTokens(linkingResult.sourceAccountId, tokens, {
-      providerAccountId,
-    });
-
-    const successMessage =
-      mergeType === "full_merge"
-        ? "account_merged"
-        : "account_created_and_linked";
-
-    logger.info("Account re-assigned to user.", {
-      email: providerEmail,
-      targetUserId,
-      sourceUserId: linkingResult.sourceUserId,
-      mergeType,
-    });
-    logger.info("OAuth linking callback completed", {
-      outcome: successMessage,
-      providerEmailHash: hash(providerEmail),
-      providerSubjectHash: hashOAuthAuditIdentifier(providerAccountId),
-      sourceUserId: linkingResult.sourceUserId,
-    });
-
-    await setOAuthCodeResult(code, { success: successMessage });
-    return createAccountLinkingRedirect({
-      query: { success: successMessage },
-      stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
-    });
-  } catch (error) {
-    await clearOAuthCode(code);
-    return handleOAuthCallbackError({
-      error,
-      stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
-      logger,
-      provider: "microsoft",
-    });
-  }
+  return linkMicrosoftAccount({
+    code,
+    targetUserId,
+    reconnectEmailAccountId,
+    logger,
+  });
 });
-
-interface MicrosoftTokens {
-  access_token: string;
-  expires_at?: number;
-  expires_in?: string | number;
-  refresh_token?: string | null;
-  scope?: string | null;
-  token_type?: string | null;
-}
-
-const MICROSOFT_LINKING_SCOPES_TO_VALIDATE = OUTLOOK_REQUIRED_SCOPES.filter(
-  (scope) =>
-    !["openid", "profile", "email", "User.Read", "offline_access"].includes(
-      scope,
-    ),
-);
-
-async function completeMicrosoftTokenUpdate({
-  accountId,
-  code,
-  logger,
-  providerAccountId,
-  providerEmail,
-}: {
-  accountId: string;
-  code: string;
-  logger: Logger;
-  providerAccountId: string;
-  providerEmail: string;
-}) {
-  logger.info("OAuth linking callback completed", {
-    accountId,
-    outcome: "tokens_updated",
-    providerEmailHash: hash(providerEmail),
-    providerSubjectHash: hashOAuthAuditIdentifier(providerAccountId),
-  });
-
-  await setOAuthCodeResult(code, { success: "tokens_updated" });
-  return createAccountLinkingRedirect({
-    query: { success: "tokens_updated" },
-    stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
-  });
-}
-
-function assertMicrosoftLinkingConsent(params: {
-  targetUserId: string;
-  tokenScope: string | null | undefined;
-  hasRefreshToken: boolean;
-  hasStoredRefreshToken: boolean;
-  logger: Logger;
-}) {
-  const grantedScopes = parseMicrosoftScopes(params.tokenScope);
-  const missingScopes = params.tokenScope
-    ? getMissingMicrosoftScopes(
-        params.tokenScope,
-        MICROSOFT_LINKING_SCOPES_TO_VALIDATE,
-      )
-    : [];
-
-  params.logger.info("Microsoft token exchange succeeded", {
-    targetUserId: params.targetUserId,
-    hasRefreshToken: params.hasRefreshToken,
-    hasStoredRefreshToken: params.hasStoredRefreshToken,
-    grantedScopeCount: grantedScopes.length,
-    missingScopes,
-  });
-
-  if (
-    (!params.hasRefreshToken && !params.hasStoredRefreshToken) ||
-    missingScopes.length > 0
-  ) {
-    params.logger.warn("Microsoft linking returned incomplete consent", {
-      targetUserId: params.targetUserId,
-      hasRefreshToken: params.hasRefreshToken,
-      hasStoredRefreshToken: params.hasStoredRefreshToken,
-      grantedScopes,
-      missingScopes,
-      tenantId: env.MICROSOFT_TENANT_ID,
-    });
-
-    throw new SafeError(
-      "Microsoft did not grant all required permissions. Please reconnect and approve every requested permission.",
-    );
-  }
-}
-
-function parseMicrosoftExpiresAt(tokens: MicrosoftTokens): Date | null {
-  if (tokens.expires_at) {
-    return new Date(tokens.expires_at * 1000);
-  }
-  if (tokens.expires_in) {
-    const expiresInSeconds =
-      typeof tokens.expires_in === "string"
-        ? Number.parseInt(tokens.expires_in, 10)
-        : tokens.expires_in;
-    return new Date(Date.now() + expiresInSeconds * 1000);
-  }
-  return null;
-}
-
-function findMicrosoftAccountByProviderAccountId(providerAccountId: string) {
-  return prisma.account.findUnique({
-    where: {
-      provider_providerAccountId: {
-        provider: "microsoft",
-        providerAccountId,
-      },
-    },
-    select: {
-      id: true,
-      userId: true,
-      refresh_token: true,
-      user: { select: { name: true, email: true } },
-      emailAccount: true,
-    },
-  });
-}
-
-async function updateMicrosoftAccountTokens(
-  accountId: string,
-  tokens: MicrosoftTokens,
-  options?: { providerAccountId?: string },
-) {
-  await prisma.account.update({
-    where: { id: accountId },
-    data: {
-      ...(options?.providerAccountId && {
-        providerAccountId: options.providerAccountId,
-      }),
-      access_token: tokens.access_token,
-      // Only update refresh_token if provider returned one (preserves existing token)
-      ...(tokens.refresh_token != null && {
-        refresh_token: tokens.refresh_token,
-      }),
-      expires_at: parseMicrosoftExpiresAt(tokens),
-      scope: tokens.scope,
-      token_type: tokens.token_type,
-      disconnectedAt: null,
-    },
-  });
-
-  // Force subscription renewal on next watch cycle after reconnect.
-  // This avoids reusing stale subscription state that can survive token issues.
-  await prisma.emailAccount.updateMany({
-    where: { accountId },
-    data: {
-      watchEmailsExpirationDate: new Date(0),
-    },
-  });
-}
 
 function handleMicrosoftOAuthAuthorizeError(params: {
   oauthError: string;

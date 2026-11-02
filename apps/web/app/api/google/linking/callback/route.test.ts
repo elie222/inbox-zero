@@ -16,6 +16,7 @@ const {
   mockEnsureEmailAccountsWatched,
   mockAuth,
   mockAfter,
+  mockStoreDesktopAccountLinkHandoff,
 } = vi.hoisted(() => ({
   mockValidateOAuthCallback: vi.fn(),
   mockHandleAccountLinking: vi.fn(),
@@ -29,6 +30,7 @@ const {
   mockEnsureEmailAccountsWatched: vi.fn(),
   mockAuth: vi.fn(),
   mockAfter: vi.fn(),
+  mockStoreDesktopAccountLinkHandoff: vi.fn(),
 }));
 
 vi.mock("next/server", async (importActual) => ({
@@ -42,7 +44,12 @@ vi.mock("@/env", () => ({
     EMAIL_ENCRYPT_SALT: "test-email-salt",
     NEXT_PUBLIC_BASE_URL: "http://localhost:3000",
     GOOGLE_CLIENT_ID: "client-id",
+    DESKTOP_AUTH_ORIGIN: "inboxzero://",
   },
+}));
+
+vi.mock("@/utils/redis/desktop-account-link", () => ({
+  storeDesktopAccountLinkHandoff: mockStoreDesktopAccountLinkHandoff,
 }));
 
 vi.mock("@/utils/middleware", async () => {
@@ -110,7 +117,10 @@ vi.mock("@/utils/error", async (importActual) => {
   return actual;
 });
 
+import { createDesktopLinkingState } from "@/utils/oauth/desktop-account-linking";
 import { GET } from "./route";
+
+const DESKTOP_CODE_CHALLENGE = "a".repeat(43);
 
 describe("google linking callback route", () => {
   const createRequest = (url: string, state = "valid-state") =>
@@ -338,6 +348,87 @@ describe("google linking callback route", () => {
     consoleWarn.mockRestore();
   });
 });
+
+describe("google linking callback route from the desktop app", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockStoreDesktopAccountLinkHandoff.mockResolvedValue("handoff-code");
+    mockAuth.mockResolvedValue(null);
+  });
+
+  it("hands the authorization to the app without linking or a browser session", async () => {
+    const { state, stateNonce } = createDesktopLinkingState({
+      userId: "user-123",
+      codeChallenge: DESKTOP_CODE_CHALLENGE,
+      reconnectEmailAccountId: "email-account-1",
+    });
+
+    const response = await GET(createDesktopRequest({ state }));
+
+    expect(response.headers.get("location")).toBe(
+      "inboxzero://account-link-callback?code=handoff-code",
+    );
+    expect(response.headers.get("location")).not.toContain("provider-code");
+    expect(mockStoreDesktopAccountLinkHandoff).toHaveBeenCalledWith({
+      provider: "google",
+      providerCode: "provider-code",
+      userId: "user-123",
+      codeChallenge: DESKTOP_CODE_CHALLENGE,
+      stateNonce,
+      reconnectEmailAccountId: "email-account-1",
+    });
+    expect(mockValidateOAuthCallback).not.toHaveBeenCalled();
+    expect(mockGetToken).not.toHaveBeenCalled();
+    expect(mockHandleAccountLinking).not.toHaveBeenCalled();
+    expect(prisma.account.create).not.toHaveBeenCalled();
+    expect(prisma.account.update).not.toHaveBeenCalled();
+  });
+
+  it("returns an error to the app when the provider sends no code", async () => {
+    const { state } = createDesktopLinkingState({
+      userId: "user-123",
+      codeChallenge: DESKTOP_CODE_CHALLENGE,
+      reconnectEmailAccountId: null,
+    });
+
+    const response = await GET(createDesktopRequest({ state, code: null }));
+
+    expect(response.headers.get("location")).toBe(
+      "inboxzero://account-link-callback?error=link_failed",
+    );
+    expect(mockStoreDesktopAccountLinkHandoff).not.toHaveBeenCalled();
+  });
+
+  it("treats a tampered desktop state as a normal callback that fails", async () => {
+    const { state } = createDesktopLinkingState({
+      userId: "user-123",
+      codeChallenge: DESKTOP_CODE_CHALLENGE,
+      reconnectEmailAccountId: null,
+    });
+    const [payload] = state.split(".");
+    const tampered = `${payload}.forged-signature`;
+
+    const response = await GET(createDesktopRequest({ state: tampered }));
+
+    expect(response.headers.get("location")).toContain("error=invalid_state");
+    expect(response.headers.get("location")).not.toContain("inboxzero:");
+    expect(mockStoreDesktopAccountLinkHandoff).not.toHaveBeenCalled();
+    expect(mockGetToken).not.toHaveBeenCalled();
+  });
+});
+
+function createDesktopRequest({
+  state,
+  code = "provider-code",
+}: {
+  state: string;
+  code?: string | null;
+}) {
+  const url = new URL("http://localhost:3000/api/google/linking/callback");
+  url.searchParams.set("state", state);
+  if (code) url.searchParams.set("code", code);
+  return new NextRequest(url);
+}
 
 async function runScheduledAfterCallback() {
   const callback = mockAfter.mock.calls.at(-1)?.[0];

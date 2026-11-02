@@ -3,14 +3,26 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 export const DESKTOP_PROTOCOL = "inboxzero";
 export const DESKTOP_AUTH_CALLBACK_PATH = "/auth-callback";
+export const DESKTOP_ACCOUNT_LINK_CALLBACK_PATH = "/account-link-callback";
 export const DEFAULT_APP_URL = "https://www.getinboxzero.com";
 export const DESKTOP_AUTH_PROVIDERS = ["apple", "google", "microsoft"] as const;
 
+export const DESKTOP_ACCOUNT_LINK_PROVIDERS = ["google", "microsoft"] as const;
+
 export type DesktopAuthProvider = (typeof DESKTOP_AUTH_PROVIDERS)[number];
+export type DesktopAccountLinkProvider =
+  (typeof DESKTOP_ACCOUNT_LINK_PROVIDERS)[number];
 
 export type DesktopAuthCallback =
   | { ok: true; code: string; state: string }
   | { ok: false; error: string };
+
+export type DesktopAccountLinkCallback =
+  | { ok: true; code: string }
+  | { ok: false; error: string };
+
+const ACCOUNT_LINK_FAILED_MESSAGE =
+  "Connecting the account did not finish. Please try again.";
 
 export function getDesktopAppOrigin(
   appUrl = process.env.INBOX_ZERO_APP_URL ?? DEFAULT_APP_URL,
@@ -50,6 +62,73 @@ export function isDesktopAuthProvider(
   );
 }
 
+export function isDesktopAccountLinkProvider(
+  value: unknown,
+): value is DesktopAccountLinkProvider {
+  return (
+    typeof value === "string" &&
+    (DESKTOP_ACCOUNT_LINK_PROVIDERS as readonly string[]).includes(value)
+  );
+}
+
+export function getDesktopAccountLinkOptions(options: unknown): {
+  reconnectEmailAccountId?: string;
+} {
+  if (!options || typeof options !== "object" || Array.isArray(options)) {
+    return {};
+  }
+  if (!("reconnectEmailAccountId" in options)) return {};
+  const { reconnectEmailAccountId } = options;
+  if (
+    typeof reconnectEmailAccountId !== "string" ||
+    !reconnectEmailAccountId.trim()
+  ) {
+    return {};
+  }
+  return { reconnectEmailAccountId };
+}
+
+export function isDesktopAccountLinkCallbackUrl(url: string): boolean {
+  const parsed = URL.parse(url);
+  return (
+    parsed?.protocol === `${DESKTOP_PROTOCOL}:` &&
+    getDesktopProtocolPath(parsed) === DESKTOP_ACCOUNT_LINK_CALLBACK_PATH
+  );
+}
+
+export function parseDesktopAccountLinkCallback(
+  url: string,
+): DesktopAccountLinkCallback {
+  if (!isDesktopAccountLinkCallbackUrl(url)) {
+    return { ok: false, error: ACCOUNT_LINK_FAILED_MESSAGE };
+  }
+  const params = new URL(url).searchParams;
+  const code = params.get("code")?.trim() ?? "";
+  if (params.has("error") || !code) {
+    return { ok: false, error: ACCOUNT_LINK_FAILED_MESSAGE };
+  }
+  return { ok: true, code };
+}
+
+/** The server answers with an app path; anything else falls back to the accounts page. */
+export function getDesktopAccountLinkRedirectUrl(
+  appOrigin: string,
+  redirectPath: unknown,
+): string {
+  return new URL(
+    normalizeDesktopCallbackPath(redirectPath) ?? "/accounts",
+    appOrigin,
+  ).toString();
+}
+
+/** Web API errors marked `isKnownError` carry copy that is safe to show. */
+export function getDesktopApiErrorMessage(body: unknown): string | null {
+  if (!body || typeof body !== "object") return null;
+  if (!("isKnownError" in body) || body.isKnownError !== true) return null;
+  if (!("error" in body) || typeof body.error !== "string") return null;
+  return body.error || null;
+}
+
 export function isDesktopProtocolUrl(url: string): boolean {
   try {
     return new URL(url).protocol === `${DESKTOP_PROTOCOL}:`;
@@ -70,10 +149,7 @@ export function parseDesktopAuthCallback(url: string): DesktopAuthCallback {
     return { ok: false, error: "Invalid authentication callback" };
   }
 
-  const path = `${parsed.hostname}${parsed.pathname}`
-    .replace(/^\/+/u, "")
-    .replace(/\/+$/u, "");
-  if (path !== "auth-callback") {
+  if (getDesktopProtocolPath(parsed) !== DESKTOP_AUTH_CALLBACK_PATH) {
     return { ok: false, error: "Invalid authentication callback" };
   }
 
@@ -369,4 +445,12 @@ export function getDesktopWindowDragCss(
   // Windows already has a native overlay drag region; Linux keeps a native title bar.
   if (platform !== "darwin") return null;
   return DESKTOP_WINDOW_DRAG_CSS;
+}
+
+// `inboxzero://auth-callback` parses with the path as the host.
+function getDesktopProtocolPath(parsed: URL): string {
+  const path = `${parsed.hostname}${parsed.pathname}`
+    .replace(/^\/+/u, "")
+    .replace(/\/+$/u, "");
+  return `/${path}`;
 }

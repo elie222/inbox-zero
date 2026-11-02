@@ -6,10 +6,9 @@ import { AppAlertBanner } from "@/app/(app)/AppAlertBanner";
 import { Button } from "@/components/ui/button";
 import { toastError } from "@/components/Toast";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { getAccountLinkingUrl } from "@/utils/account-linking";
+import { startAccountLinking } from "@/utils/account-linking";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { mailEngineConnectionCopy } from "@/utils/mail-engine/connection-notice";
-import { redirectToSafeUrl } from "@/utils/redirect";
 
 export const MailEngineConnectionBanner = memo(
   function MailEngineConnectionBanner() {
@@ -65,13 +64,10 @@ export const MailEngineConnectionBanner = memo(
               disabled={reconnecting || !emailAccountId}
               onClick={() => {
                 setReconnecting(true);
-                getAccountLinkingUrl(
+                startAccountLinking(
                   isMicrosoftProvider(provider) ? "microsoft" : "google",
                   { reconnectEmailAccountId: emailAccountId },
                 )
-                  .then((url) =>
-                    redirectToSafeUrl(url, { allowExternal: true }),
-                  )
                   .catch((error: unknown) => {
                     toastError({
                       title: "Error initiating reconnection",
