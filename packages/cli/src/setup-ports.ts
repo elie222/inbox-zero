@@ -74,10 +74,13 @@ export async function findBusyPorts(
     port: Number(env[setting.key]) || setting.defaultPort,
   }));
   const reservedPorts = new Set(configured.map(({ port }) => port));
+  const assignedPorts = new Set<number>();
   const conflicts: PortConflict[] = [];
 
   for (const { setting, port } of configured) {
-    if (await isPortAvailable(port)) continue;
+    const duplicate = assignedPorts.has(port);
+    assignedPorts.add(port);
+    if (!duplicate && (await isPortAvailable(port))) continue;
     const suggestedPort = await findFreePort(port + 1, reservedPorts);
     reservedPorts.add(suggestedPort);
     conflicts.push({
@@ -93,7 +96,7 @@ export async function findBusyPorts(
 
 export function formatPortConflicts(conflicts: PortConflict[]): string {
   return [
-    "These ports are already in use by another app on this machine:",
+    "These ports are already in use or assigned to multiple Inbox Zero services:",
     ...conflicts.map(
       (conflict) =>
         `- ${conflict.label}: ${conflict.port} (try ${conflict.suggestedPort})`,
