@@ -5,6 +5,7 @@ import { test } from "../playwright-test";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import {
   clearWorkflowMailboxDrafts,
+  deleteProviderMessage,
   expectThreadReaderBody,
   insertInboxMailInConversation,
   openMail,
@@ -214,48 +215,53 @@ test("opens an email with remote images without waiting on the network", async (
     // used to hold back the whole body.
     bodyHtml: `<p>${bodyText}</p><img src="https://images.example.com/banner.png" width="600" height="200" alt="">`,
   });
-  const row = conversations
-    .getByRole("option")
-    .filter({ hasText: "Collapsed Reader Message" })
-    .first();
-  await expect
-    .poll(
-      async () => {
-        await requestMailSync(page);
-        return row.textContent();
-      },
-      { timeout: 60_000 },
-    )
-    .toContain(bodyText);
-  // Sync stores the body; reading it once confirms it is on the device. The
-  // reload then empties the in-memory caches, as on a fresh visit, and the
-  // slow network keeps the list's own prefetch from preparing it first.
-  await row.click();
-  await expectThreadReaderBody(page, bodyText);
-  const network = await slowNetwork(context, page);
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await page
-    .getByRole("button", { name: "Back to inbox", exact: true })
-    .click();
-  await expect(row).toBeVisible({ timeout: 60_000 });
+  let network: Awaited<ReturnType<typeof slowNetwork>> | undefined;
+  try {
+    const row = conversations
+      .getByRole("option")
+      .filter({ hasText: "Collapsed Reader Message" })
+      .first();
+    await expect
+      .poll(
+        async () => {
+          await requestMailSync(page);
+          return row.textContent();
+        },
+        { timeout: 60_000 },
+      )
+      .toContain(bodyText);
+    // Sync stores the body; reading it once confirms it is on the device. The
+    // reload then empties the in-memory caches, as on a fresh visit, and the
+    // slow network keeps the list's own prefetch from preparing it first.
+    await row.click();
+    await expectThreadReaderBody(page, bodyText);
+    network = await slowNetwork(context, page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page
+      .getByRole("button", { name: "Back to inbox", exact: true })
+      .click();
+    await expect(row).toBeVisible({ timeout: 60_000 });
 
-  const sampler = await sampleUntilSettled(page, {
-    startSelector: '[role="option"]',
-    probes: [
-      { name: "bodyVisible", kind: "messageBody", messageId, text: bodyText },
-    ],
-  });
-  await row.click();
-  const result = await sampler.finish();
-  await network.restore();
+    const sampler = await sampleUntilSettled(page, {
+      startSelector: '[role="option"]',
+      probes: [
+        { name: "bodyVisible", kind: "messageBody", messageId, text: bodyText },
+      ],
+    });
+    await row.click();
+    const result = await sampler.finish();
 
-  await recordLatency(
-    testInfo,
-    "open-remote-image-email",
-    result,
-    network.delayed,
-  );
-  expectWithinBudget(result);
+    await recordLatency(
+      testInfo,
+      "open-remote-image-email",
+      result,
+      network.delayed,
+    );
+    expectWithinBudget(result);
+  } finally {
+    await network?.restore();
+    await deleteProviderMessage(page, messageId);
+  }
 });
 
 type ProbeSpec =

@@ -14,7 +14,7 @@ import {
   IMAGE_PROXY_BASE_URL,
   IMAGE_PROXY_ORIGIN,
   needsImageProxy,
-  prepareSanitizedEmailHtml,
+  prepareEmailImages,
   sanitizeEmailHtml,
 } from "@/utils/email/prepare-html.client";
 import type { ParsedMessage } from "@/utils/types";
@@ -93,20 +93,22 @@ export function HtmlEmail({
     // A sent reply keeps its row when it syncs under a new id. Showing that
     // id's html with its images held back would blank them in the message.
     if (initial.images !== "pending") setRendered(initial);
-    const images = getPreparedImages(sanitizedHtml);
-    const show = (html: string) =>
+    const show = ({ html, remoteImagesAllowed }: PreparedImages) =>
       startTransition(() =>
-        setRendered({ html: withLoadedInlineImages(cacheKey, html), images }),
+        setRendered({
+          html: withLoadedInlineImages(cacheKey, html),
+          images: remoteImagesAllowed ? "allowed" : "blocked",
+        }),
       );
 
-    const preparedHtml = prepareSanitizedEmailHtml({
+    const preparedHtml = prepareEmailImages({
       messageId,
       sourceHtml: sanitizedHtml,
     });
     // Inline images download separately so a slow attachment doesn't hold
     // back the body.
-    preparedHtml.then((html) => {
-      if (!cancelled) show(html);
+    preparedHtml.then((prepared) => {
+      if (!cancelled) show(prepared);
     });
     Promise.all([
       preparedHtml,
@@ -119,13 +121,13 @@ export function HtmlEmail({
         cacheKey,
       }),
     ]).then(
-      ([rewrittenHtml, loadedNewImages]) => {
+      ([prepared, loadedNewImages]) => {
         if (cancelled || !loadedNewImages) return;
-        show(rewrittenHtml);
+        show(prepared);
       },
       () => {
         if (cancelled) return;
-        show(sanitizedHtml);
+        show({ html: sanitizedHtml, remoteImagesAllowed: false });
       },
     );
 
@@ -250,7 +252,9 @@ function getInitialRender({
   cacheKey: string;
   sanitizedHtml: string;
 }): { html: string; images: RemoteImageMode } {
-  const images = getPreparedImages(sanitizedHtml);
+  // Html that needs no proxy loads remote images only when there is no proxy
+  // at all; with one, remote loads stay blocked in case the check missed one.
+  const images = IMAGE_PROXY_BASE_URL ? "blocked" : "allowed";
   if (!needsImageProxy(sanitizedHtml))
     return { html: withLoadedInlineImages(cacheKey, sanitizedHtml), images };
   const preparedHtml = getPreparedEmailHtml({
@@ -262,20 +266,14 @@ function getInitialRender({
       html: withLoadedInlineImages(cacheKey, sanitizedHtml),
       images: "pending",
     };
-  return { html: withLoadedInlineImages(cacheKey, preparedHtml), images };
-}
-
-/**
- * How remote images load once the html is ready. Without a proxy they load
- * directly, as before. With one, only html that went through it may load
- * them; anything shown without it keeps them blocked.
- */
-function getPreparedImages(sanitizedHtml: string): RemoteImageMode {
-  if (!IMAGE_PROXY_BASE_URL || needsImageProxy(sanitizedHtml)) return "allowed";
-  return "blocked";
+  return {
+    html: withLoadedInlineImages(cacheKey, preparedHtml),
+    images: "allowed",
+  };
 }
 
 type RemoteImageMode = "allowed" | "blocked" | "pending";
+type PreparedImages = Awaited<ReturnType<typeof prepareEmailImages>>;
 
 async function loadInlineImageSources({
   emailAccountId,

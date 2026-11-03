@@ -51,6 +51,8 @@ describe("engine body hydration across restarts", () => {
     expect(secondHydrate).toHaveBeenCalledWith(
       expect.objectContaining({ keys: [KEY], purpose: "body" }),
     );
+    await first.close();
+    await second.close();
     await store.close();
   });
 });
@@ -60,7 +62,8 @@ function createEngine(
   hydrate: MailboxSource["hydrate"],
 ) {
   return createMailEngine({
-    store,
+    // Both engines share one database, which the test closes itself.
+    store: { ...store, async close() {} },
     source: { ...idleSource(), hydrate },
     executor: {
       async execute() {

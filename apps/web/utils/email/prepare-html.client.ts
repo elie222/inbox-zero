@@ -21,7 +21,7 @@ const preparedHtml = new Map<
 >();
 const inFlightPreparation = new Map<
   string,
-  { sourceHtml: string; promise: Promise<string> }
+  { sourceHtml: string; promise: Promise<PreparedEmailImages> }
 >();
 
 export function sanitizeEmailHtml(html: string) {
@@ -70,26 +70,45 @@ export function prepareEmailHtml({
   return prepareSanitizedEmailHtml({ messageId, sourceHtml });
 }
 
-export function prepareSanitizedEmailHtml({
+export function prepareSanitizedEmailHtml(input: {
+  messageId: string;
+  sourceHtml: string;
+}) {
+  return prepareEmailImages(input).then(({ html }) => html);
+}
+
+/**
+ * The html to show and whether its remote images may load. They may only
+ * when the proxy answered, or when no proxy is configured. If the proxy
+ * cannot be reached the html is shown with its remote images still blocked,
+ * rather than loading them from the sender.
+ */
+export function prepareEmailImages({
   messageId,
   sourceHtml,
 }: {
   messageId: string;
   sourceHtml: string;
-}) {
-  if (!needsImageProxy(sourceHtml)) return Promise.resolve(sourceHtml);
+}): Promise<PreparedEmailImages> {
+  if (!IMAGE_PROXY_BASE_URL)
+    return Promise.resolve({ html: sourceHtml, remoteImagesAllowed: true });
+  if (!hasRemoteAssets(sourceHtml))
+    return Promise.resolve({ html: sourceHtml, remoteImagesAllowed: false });
 
   const cached = getPreparedEmailHtml({ messageId, sourceHtml });
-  if (cached !== undefined) return Promise.resolve(cached);
+  if (cached !== undefined)
+    return Promise.resolve({ html: cached, remoteImagesAllowed: true });
 
   const inFlight = inFlightPreparation.get(messageId);
   if (inFlight?.sourceHtml === sourceHtml) return inFlight.promise;
 
-  const promise = rewriteHtmlWithProxy(sourceHtml)
+  const unproxied = { html: sourceHtml, remoteImagesAllowed: false };
+  const promise: Promise<PreparedEmailImages> = rewriteHtmlWithProxy(sourceHtml)
     .then((renderedHtml) => {
-      if (renderedHtml === undefined) return sourceHtml;
+      if (renderedHtml === undefined) return unproxied;
+      const prepared = { html: renderedHtml, remoteImagesAllowed: true };
       if (inFlightPreparation.get(messageId)?.promise !== promise) {
-        return renderedHtml;
+        return prepared;
       }
 
       preparedHtml.set(messageId, {
@@ -102,9 +121,9 @@ export function prepareSanitizedEmailHtml({
         if (!oldestMessageId) break;
         preparedHtml.delete(oldestMessageId);
       }
-      return renderedHtml;
+      return prepared;
     })
-    .catch(() => sourceHtml)
+    .catch(() => unproxied)
     .finally(() => {
       if (inFlightPreparation.get(messageId)?.promise === promise) {
         inFlightPreparation.delete(messageId);
@@ -114,6 +133,8 @@ export function prepareSanitizedEmailHtml({
   inFlightPreparation.set(messageId, { sourceHtml, promise });
   return promise;
 }
+
+type PreparedEmailImages = { html: string; remoteImagesAllowed: boolean };
 
 async function rewriteHtmlWithProxy(html: string) {
   const response = await fetch(IMAGE_PROXY_RENDER_ROUTE, {

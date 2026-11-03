@@ -220,20 +220,26 @@ function parseSrcsetCandidates(srcset: string) {
   const candidates: { url: string; descriptor: string }[] = [];
   let index = 0;
   while (index < srcset.length) {
-    while (index < srcset.length && /[\s,]/.test(srcset[index])) index += 1;
+    while (
+      index < srcset.length &&
+      (srcset[index] === "," || isAsciiWhitespace(srcset[index]))
+    )
+      index += 1;
     const urlStart = index;
-    while (index < srcset.length && !/\s/.test(srcset[index])) index += 1;
+    while (index < srcset.length && !isAsciiWhitespace(srcset[index]))
+      index += 1;
     const rawUrl = srcset.slice(urlStart, index);
     const url = rawUrl.replace(/,+$/, "");
     let descriptor = "";
     if (url === rawUrl) {
       const descriptorStart = index;
-      let depth = 0;
+      // The spec's parentheses state does not nest: the first ")" ends it.
+      let inParens = false;
       while (index < srcset.length) {
         const character = srcset[index];
-        if (character === "(") depth += 1;
-        else if (character === ")") depth = Math.max(0, depth - 1);
-        else if (character === "," && depth === 0) break;
+        if (character === "(") inParens = true;
+        else if (character === ")") inParens = false;
+        else if (character === "," && !inParens) break;
         index += 1;
       }
       descriptor = srcset.slice(descriptorStart, index).trim();
@@ -242,6 +248,17 @@ function parseSrcsetCandidates(srcset: string) {
     if (url) candidates.push({ url, descriptor });
   }
   return candidates;
+}
+
+// Srcset splits on ASCII whitespace only; any other space is part of the URL.
+function isAsciiWhitespace(character: string) {
+  return (
+    character === " " ||
+    character === "\t" ||
+    character === "\n" ||
+    character === "\f" ||
+    character === "\r"
+  );
 }
 
 function decodeHtmlValue(value: string) {

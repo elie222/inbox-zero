@@ -390,3 +390,15 @@ type ReplyHandoffFrame = { composer: boolean; rows: number };
 type ReplyHandoffWindow = {
   __replyHandoff: { frames: ReplyHandoffFrame[]; raf: number };
 };
+
+/** Removes a message a test inserted, so retries start from the seed. */
+export async function deleteProviderMessage(page: Page, messageId: string) {
+  const token = await readProviderAccessToken();
+  const url = isMicrosoftPlaywright()
+    ? `${process.env.MICROSOFT_BASE_URL}/v1.0/me/messages/${messageId}`
+    : `${process.env.GOOGLE_BASE_URL}/gmail/v1/users/me/messages/${messageId}`;
+  const response = await page.request.delete(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  expect(response.ok(), await response.text()).toBe(true);
+}

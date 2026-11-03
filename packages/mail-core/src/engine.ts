@@ -357,8 +357,8 @@ export function createMailEngine(input: {
         if (evictedBodies > 0) await queries.refreshAll();
       }
       if (!readOnlyClaimsReleased) {
-        readOnlyClaimsReleased = true;
         await store.releaseReadOnlyClaims({ ownerId });
+        readOnlyClaimsReleased = true;
       }
       let lanesStarted = false;
       while (runtime.nowMs() < deadlineMs) {

@@ -219,6 +219,19 @@ describe("HtmlEmail", () => {
     );
   });
 
+  it("keeps remote images blocked when the proxy cannot be reached", async () => {
+    vi.mocked(fetch).mockRejectedValue(new TypeError("fetch failed"));
+    render(
+      <HtmlEmail
+        html='<p>Hello</p><img src="https://cdn.example.com/photo.png" />'
+        messageId="proxy-down"
+      />,
+    );
+
+    const frame = await showLoadedEmailDocument("img-src data:;");
+    expect(frame.getAttribute("srcdoc")).not.toContain("img-src data: https:");
+  });
+
   it("keeps remote loads blocked for html shown without the proxy", () => {
     const { getByTitle } = render(
       <HtmlEmail html="<p>Thanks!</p>" messageId="local-only" />,

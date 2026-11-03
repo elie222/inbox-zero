@@ -147,6 +147,11 @@ describe("rewriteHtmlRemoteAssetUrls", () => {
       html: '<img srcset="data:image/png;base64,AAAA, https://cdn.example.com/photo@2x.png 2x" />',
       expectedUrls: ["https://cdn.example.com/photo@2x.png"],
     },
+    {
+      name: "a descriptor nests parentheses",
+      html: '<img srcset="https://cdn.example.com/a.png 1x ((x), https://cdn.example.com/photo@2x.png 2x" />',
+      expectedUrls: ["https://cdn.example.com/photo@2x.png"],
+    },
   ])("rewrites srcset when $name", async ({ html, expectedUrls }) => {
     const rewrittenHtml = await rewriteHtmlRemoteAssetUrls(html, proxyOptions);
 
@@ -156,5 +161,18 @@ describe("rewriteHtmlRemoteAssetUrls", () => {
     // A browser would load any URL left as it was directly.
     const srcset = rewrittenHtml.match(/srcset="([^"]*)"/)?.[1] ?? "";
     expect(srcset).not.toMatch(/(^|[\s,])https:\/\/cdn\.example\.com/);
+  });
+
+  // Browsers split srcset on ASCII whitespace only, so a URL containing a
+  // non-breaking space is one URL and must be proxied whole.
+  it("keeps a non-ASCII space inside one srcset URL", async () => {
+    const rewrittenHtml = await rewriteHtmlRemoteAssetUrls(
+      '<img srcset="https://cdn.example.com/a\u00a0b.png 1x" />',
+      proxyOptions,
+    );
+
+    expect(rewrittenHtml).toContain(
+      encodeURIComponent("https://cdn.example.com/a\u00a0b.png"),
+    );
   });
 });
