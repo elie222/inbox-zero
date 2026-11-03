@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { EmailSendOperationStatus } from "@/generated/prisma/enums";
+import { discardDraftReplacedBySend } from "@/utils/email/compose-draft";
 import { classifyEmailAccountProviderIssue } from "@/utils/email/provider-health";
 import { isEmailProviderRateLimitError } from "@/utils/email/is-provider-rate-limit-error";
 import type { EmailProvider } from "@/utils/email/types";
@@ -93,6 +94,18 @@ export async function executeDurableEmailSend({
       where: { id: existing.id },
       data: { result, status: EmailSendOperationStatus.SENT },
     });
+    if (input.email.replacesDraftOfSession) {
+      // The email is out; a leftover draft must not turn that into a failure.
+      try {
+        await discardDraftReplacedBySend({
+          emailAccountId,
+          sessionId: input.email.replacesDraftOfSession,
+          provider: emailProvider,
+        });
+      } catch (error) {
+        logger.warn("Could not remove the draft a send replaced", { error });
+      }
+    }
     return { status: "applied" as const, result };
   } catch (error) {
     logger.error("Email send operation failed", { error, stage });

@@ -8,6 +8,8 @@ import {
 } from "./account-test-helpers";
 import {
   conversationWithSubject,
+  countReplyThreadDrafts,
+  countReplyThreadSentCopies,
   expectSeamlessReplyHandoff,
   clearWorkflowMailboxDrafts,
   expectThreadReaderBody,
@@ -721,6 +723,73 @@ test("sends a reply after its tab closes during the undo window", async ({
       }),
     )
     .toBe("SENT");
+});
+
+test("removes a reply's draft after its tab closed mid-save", async ({
+  page,
+  request,
+}) => {
+  const { emailAccountId } = await openMail(page);
+  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reply`);
+  const sourceMessage = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  await expect(sourceMessage).toBeVisible({ timeout: 60_000 });
+  await sourceMessage
+    .getByRole("button", { name: "Reply", exact: true })
+    .click();
+  const replyBody = `A reply whose draft was still saving. ${Date.now()}`;
+  await sourceMessage
+    .getByRole("textbox", { name: "Email message" })
+    .pressSequentially(replyBody);
+
+  // The first draft save creates the mailbox draft. Let the server finish it
+  // but hold its answer, so the tab never learns that draft's id.
+  let saveReachedServer = false;
+  await page.route("**/*", async (route) => {
+    const request = route.request();
+    if (request.method() !== "POST" || !request.headers()["next-action"]) {
+      await route.fallback();
+      return;
+    }
+    const response = await route.fetch();
+    saveReachedServer = true;
+    await new Promise((resolve) => setTimeout(resolve, 30_000));
+    await route.fulfill({ response }).catch(() => {});
+  });
+  await expect.poll(() => saveReachedServer, { timeout: 20_000 }).toBe(true);
+  await sourceMessage
+    .getByRole("button", { name: "Send", exact: true })
+    .click();
+  await expect
+    .poll(() => readHeldReply(emailAccountId, replyBody), { timeout: 20_000 })
+    .toMatchObject({ status: "PENDING" });
+  // The draft exists in the mailbox, and the device never heard its id.
+  await expect.poll(() => countReplyThreadDrafts(page, emailAccountId)).toBe(1);
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+  await page.goto("about:blank");
+
+  const held = await readHeldReply(emailAccountId, replyBody);
+  const internalApiKey = process.env.INTERNAL_API_KEY;
+  if (!held || !internalApiKey) {
+    throw new Error("Expected a held reply and an internal API key");
+  }
+  await withClient((client) =>
+    client.query(
+      `UPDATE "ScheduledEmail" SET "sendAt" = now() - interval '1 second' WHERE id = $1`,
+      [held.id],
+    ),
+  );
+  const delivered = await request.post("/api/scheduled-emails/execute", {
+    data: { scheduledEmailId: held.id },
+    headers: { "x-api-key": internalApiKey },
+  });
+  expect(delivered.ok()).toBe(true);
+
+  await expect
+    .poll(() => countReplyThreadSentCopies(page, emailAccountId, replyBody))
+    .toBe(1);
+  await expect.poll(() => countReplyThreadDrafts(page, emailAccountId)).toBe(0);
 });
 
 test("focuses the To field when forwarding", async ({ page }) => {

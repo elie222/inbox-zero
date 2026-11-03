@@ -1,10 +1,21 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import type { EmailProvider } from "@/utils/email/types";
+import { createScopedLogger } from "@/utils/logger";
+import {
+  markComposeSessionSent,
+  recordComposeSessionDraft,
+} from "@/utils/redis/compose-session-draft";
 import {
   saveComposeDraft,
   discardComposeDraft,
+  discardDraftReplacedBySend,
   sendComposeDraft,
 } from "./compose-draft";
+
+vi.mock("@/utils/redis/compose-session-draft", () => ({
+  recordComposeSessionDraft: vi.fn(),
+  markComposeSessionSent: vi.fn(),
+}));
 
 const provider = {
   createDraft: vi.fn(),
@@ -191,4 +202,76 @@ it("creates a forward draft from the forwarded message so its files travel with 
   expect(provider.createDraft).toHaveBeenCalledWith(
     expect.objectContaining({ forwardedMessageId: "source-1" }),
   );
+});
+
+const composeSession = {
+  id: "session-1",
+  emailAccountId: "account-1",
+  logger: createScopedLogger("test"),
+};
+
+it("records the session's draft so a replacing send can remove it", async () => {
+  vi.mocked(recordComposeSessionDraft).mockResolvedValue(false);
+
+  await saveComposeDraft({ provider, content, composeSession });
+
+  expect(recordComposeSessionDraft).toHaveBeenCalledWith({
+    emailAccountId: "account-1",
+    sessionId: "session-1",
+    draftId: "draft-1",
+  });
+  expect(provider.deleteDraft).not.toHaveBeenCalled();
+});
+
+// The send was delivered while this save was on its way, so nothing else
+// will ever remove the draft it created.
+it("removes a draft saved after its session was sent", async () => {
+  vi.mocked(recordComposeSessionDraft).mockResolvedValue(true);
+
+  const saved = await saveComposeDraft({ provider, content, composeSession });
+
+  expect(provider.deleteDraft).toHaveBeenCalledWith("draft-1", "v1");
+  expect(saved).toEqual({
+    draftId: "draft-1",
+    messageId: null,
+    threadId: null,
+  });
+});
+
+it("keeps saving when the session record is unavailable", async () => {
+  vi.mocked(recordComposeSessionDraft).mockRejectedValue(new Error("down"));
+
+  const saved = await saveComposeDraft({ provider, content, composeSession });
+
+  expect(saved.draftId).toBe("draft-1");
+  expect(provider.deleteDraft).not.toHaveBeenCalled();
+});
+
+it("removes the draft a delivered send replaced", async () => {
+  vi.mocked(markComposeSessionSent).mockResolvedValue("draft-1");
+
+  await discardDraftReplacedBySend({
+    emailAccountId: "account-1",
+    sessionId: "session-1",
+    provider,
+  });
+
+  expect(markComposeSessionSent).toHaveBeenCalledWith({
+    emailAccountId: "account-1",
+    sessionId: "session-1",
+  });
+  expect(provider.deleteDraft).toHaveBeenCalledWith("draft-1", "v1");
+});
+
+it("leaves the mailbox alone when the session saved no draft yet", async () => {
+  vi.mocked(markComposeSessionSent).mockResolvedValue(null);
+
+  await discardDraftReplacedBySend({
+    emailAccountId: "account-1",
+    sessionId: "session-1",
+    provider,
+  });
+
+  expect(provider.getDraft).not.toHaveBeenCalled();
+  expect(provider.deleteDraft).not.toHaveBeenCalled();
 });

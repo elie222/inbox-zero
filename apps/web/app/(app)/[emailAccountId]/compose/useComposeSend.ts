@@ -12,7 +12,6 @@ import {
   upcomingScheduledEmailsKey,
 } from "@/hooks/useHiddenDraftMessageIds";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { discardComposeDraftAction } from "@/utils/actions/mail";
 import { scheduleEmailAction } from "@/utils/actions/scheduled-email";
 import { prepareOutgoingInlineImages } from "@/utils/email/outgoing-inline-images";
 import { getActionErrorMessage } from "@/utils/error";
@@ -41,7 +40,6 @@ import type { createInitialComposeContent } from "./initial-compose-content";
 import {
   queueReaderEmail,
   READER_EMAIL_SETTLEMENT_TIMEOUT_MS,
-  waitForDelivery,
   waitForReaderEmailSettlement,
 } from "./queued-reply";
 import { getReplyToEmailPayload } from "./reply-to-email-payload";
@@ -57,9 +55,6 @@ import {
   UNDO_SEND_DELAY_MS,
 } from "./undo-send";
 import type { useComposeDraft } from "./useComposeDraft";
-
-// How long an open tab keeps watching a pending send to remove its draft.
-const PENDING_SEND_WATCH_MS = 30 * 60 * 1000;
 
 export function useComposeSend({
   draft,
@@ -230,9 +225,10 @@ export function useComposeSend({
       // must agree.
       const online = navigator.onLine;
       // A draft save already on its way to the mailbox would hold Send for a
-      // round trip. Instead the send carries its own content and the draft is
-      // removed once that save lands. Sending through the draft would let the
-      // late save overwrite the final text (specs/compose-send.qnt).
+      // round trip. Instead the send carries its own content, and once it is
+      // delivered the server removes the session's draft, even one that save
+      // creates afterwards. Sending through the draft would let the late save
+      // overwrite the final text (specs/compose-send.qnt).
       const replacesSavingDraft =
         hasPendingDraftOperations(draftQueueKey) &&
         attachmentsRef.current.length === 0 &&
@@ -249,6 +245,8 @@ export function useComposeSend({
       let deliveryAccepted = false;
       try {
         // Autosave can replace a draft's message ID; its provider draft ID survives.
+        if (replacesSavingDraft)
+          enrichedData.replacesDraftOfSession = requestId;
         enrichedData.providerDraftId = replacesSavingDraft
           ? undefined
           : await resolveSendDraftId(
@@ -469,29 +467,6 @@ export function useComposeSend({
               if (settled.status === "cancelled" || settled.status === "failed")
                 showDraftAgain();
               if (settled.status === "cancelled") return;
-              // Undo and failure keep the draft so the restored composer can
-              // keep saving to it. Only a delivered send removes it; one still
-              // pending is watched until it ends (specs/compose-send.qnt).
-              if (replacesSavingDraft && settled.status !== "failed") {
-                // Read before the local draft that records its id is cleared.
-                const replacedDraft = await readDraftReplacedBySend({
-                  draftSaveSettled,
-                  providerDraftId,
-                  localDraftIdentity,
-                });
-                removeDraftOnceDelivered({
-                  client,
-                  emailAccountId: selectedEmailAccountId,
-                  operationId: outcome.mutationId,
-                  delivered: settled.status === "sent",
-                  replacedDraft,
-                }).then(
-                  (removed) => {
-                    if (!removed) showDraftAgain();
-                  },
-                  () => showDraftAgain(),
-                );
-              }
               await discardLocalDraft();
               if (settled.status === "sent") {
                 if (markDoneAfterSend) onMarkDone?.();
@@ -648,76 +623,4 @@ async function refreshScheduledEmails(
     ...(threadId ? [threadScheduledEmailsKey(emailAccountId, threadId)] : []),
   ];
   await Promise.all(keys.map((key) => mutate(key).catch(() => {})));
-}
-
-/**
- * The mailbox draft a send replaced, read once the save that was in flight
- * when Send was pressed has landed, so a save that created the draft counts.
- */
-async function readDraftReplacedBySend({
-  draftSaveSettled,
-  providerDraftId,
-  localDraftIdentity,
-}: {
-  draftSaveSettled: Promise<void>;
-  providerDraftId: RefObject<string | undefined>;
-  localDraftIdentity?: ReplyDraftIdentity;
-}) {
-  await draftSaveSettled;
-  const saved = localDraftIdentity
-    ? (await getReplyDraft(localDraftIdentity))?.content
-    : undefined;
-  return {
-    draftId: providerDraftId.current ?? saved?.providerDraftId,
-    // A creation the provider never confirmed may still have left a draft.
-    creationUnconfirmed: Boolean(saved?.providerDraftCreationUnconfirmed),
-  };
-}
-
-/**
- * Removes the replaced draft once the send is delivered. Resolves false if
- * the draft may still be there, so it can be shown again.
- */
-async function removeDraftOnceDelivered({
-  client,
-  emailAccountId,
-  operationId,
-  delivered,
-  replacedDraft,
-}: {
-  client: MailClient;
-  emailAccountId: string;
-  operationId: string;
-  delivered: boolean;
-  replacedDraft: Awaited<ReturnType<typeof readDraftReplacedBySend>>;
-}) {
-  if (
-    !delivered &&
-    !(await waitForDelivery({
-      client,
-      accountId: emailAccountId,
-      operationId,
-      timeoutMs: PENDING_SEND_WATCH_MS,
-    }))
-  )
-    return false;
-  if (!replacedDraft.draftId) {
-    if (!replacedDraft.creationUnconfirmed) return true;
-    toastError({
-      description:
-        "This reply's draft may still be in Drafts. Check Drafts in Gmail or Outlook.",
-    });
-    return false;
-  }
-  const result = await discardComposeDraftAction(emailAccountId, {
-    draftId: replacedDraft.draftId,
-  }).catch(() => undefined);
-  if (!result?.data) {
-    toastError({
-      description: "Couldn't remove this reply's draft from Drafts.",
-    });
-    return false;
-  }
-  await client.requestSync([emailAccountId]).catch(() => {});
-  return true;
 }

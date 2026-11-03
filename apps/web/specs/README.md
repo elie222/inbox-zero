@@ -13,15 +13,25 @@ describes, update the model in the same change.
 
 The composer mirrors its text to a mailbox draft every few seconds. Send used
 to wait for any draft save already in flight, which held the composer open for
-one or two provider round trips. The model compares three designs:
+one or two provider round trips. The model compares four designs:
 
 | Design | Send waits on the network | Result |
 | --- | --- | --- |
 | `waitForSave`: wait for the save, send through the draft | Yes | All properties hold |
 | `naiveSend`: queue at once, send through the known draft | No | Sends stale text; leaves a draft behind |
-| `reconcileSend`: queue at once; with a save in flight, send the composer's own content and remove the draft once the save lands and the provider confirms delivery | No | All properties hold |
+| `reconcileSend`: queue at once; with a save in flight, send the composer's own content, and the device removes the draft once the save lands and the provider confirms delivery | No | Holds while the tab stays open; a tab closed before the save answers leaves the draft behind |
+| `serverSend`: as `reconcileSend`, but the server removes the draft | No | All properties hold, even when the tab closes at any point |
 
-`useComposeSend.ts` implements `reconcileSend`. Properties (see `safety`):
+`useComposeSend.ts`, `compose-draft.ts` and `compose-session-draft.ts`
+implement `serverSend`. Each draft save records the compose session's draft
+and then checks whether the session was sent; each delivered send that
+replaced a saving draft marks the session sent and then removes the recorded
+draft. Whichever of the two lands second sees the other's record, so the draft
+is removed even when the save answers after the send, or never answers
+because the tab closed. In Redis each side's write and read run as one script,
+which is at least as strong as the separate steps the model checks.
+
+Properties (see `safety`):
 
 - the reply is delivered at most once;
 - what is delivered is what the composer held when Send was pressed;
@@ -41,11 +51,6 @@ Sending through the draft is unsafe while a save is in flight because
 `drafts.send`. A save already on its way can land between the two, and the
 provider then sends the earlier text. `naiveSend` reproduces this.
 
-Accepted trade-off (`reconcileSendTabCloses`): if the tab closes after Send but
-before the in-flight save answers, the device never learns that draft's id, so
-the sent reply's draft stays in Drafts. Waiting for the save avoided this
-by keeping the user on a spinner instead.
-
 ## Running
 
 ```sh
@@ -57,7 +62,8 @@ pnpm test specs/compose-send.test.ts
 pnpm -F inbox-zero-ai test:specs:verify
 ```
 
-The script checks only `reconcileSend`. The same 14-step bound finds the
-stale-text bug in `naiveSend`
-(`--main=naiveSend --invariant=deliversWhatWasSent`), so the bound is deep
-enough to reach the races the model is about.
+The script checks the shipped design with the tab allowed to close, to 16
+steps. That bound reaches the stale-text bug in `naiveSend`
+(`--main=naiveSend --invariant=deliversWhatWasSent`) and the draft left behind
+when the save side skips its check, so it is deep enough for the races the
+model is about.

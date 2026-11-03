@@ -237,6 +237,7 @@ export function useComposeDraft({
           ...content,
           replyToEmail: getReplyToEmailPayload(getValues("replyToEmail")),
         },
+        composeSessionId: requestId,
       });
       if (!created?.data)
         throw new Error(
@@ -274,6 +275,7 @@ export function useComposeDraft({
       const result = await saveComposeDraftAction(emailAccountId, {
         draftId,
         content,
+        composeSessionId: requestId,
       });
       if (!result?.data) throw new Error(getDraftSyncErrorMessage(result));
       await followDraftMessage(result.data.messageId);

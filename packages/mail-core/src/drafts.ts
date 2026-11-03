@@ -24,6 +24,8 @@ export const draftContentSchema = z.object({
    * from the conversation so the draft and its outgoing message never both show.
    */
   providerDraftMessageIds: z.array(messageIdSchema).max(50).optional(),
+  /** The compose session whose mailbox draft the server removes on delivery. */
+  replacesDraftOfSession: z.string().min(1).max(128).optional(),
 });
 export type DraftContent = z.infer<typeof draftContentSchema>;
 

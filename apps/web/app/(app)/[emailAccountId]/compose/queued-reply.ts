@@ -2,7 +2,6 @@ import type { MailClient } from "@inboxzero/mail-core/engine";
 import {
   OFFLINE_DISPATCH_HOLD_MS,
   type OperationState,
-  type OperationStatus,
 } from "@inboxzero/mail-core/operations";
 import type { QueryHandle } from "@inboxzero/mail-core/queries";
 import type { SendEmailBody } from "@/utils/types/mail";
@@ -180,49 +179,6 @@ export function waitForReaderEmailSettlement(options: {
     threadId: options.threadId,
   });
 }
-
-/**
- * Resolves true once the send is delivered, or false once it ends without
- * being delivered or the wait runs out. Unlike settlement, this keeps
- * watching a send that is still pending or uncertain.
- */
-export function waitForDelivery(options: {
-  client: MailClient;
-  accountId: string;
-  operationId: string;
-  timeoutMs: number;
-}) {
-  const handle = options.client.observeOperation({
-    accountId: options.accountId,
-    operationId: options.operationId,
-  });
-  return new Promise<boolean>((resolve) => {
-    let finished = false;
-    const finish = (delivered: boolean) => {
-      if (finished) return;
-      finished = true;
-      clearTimeout(timeout);
-      unsubscribe();
-      handle.close();
-      resolve(delivered);
-    };
-    const inspect = () => {
-      const status = handle.getSnapshot().data?.status;
-      if (status === "succeeded") finish(true);
-      else if (status && UNDELIVERED_END_STATUSES.has(status)) finish(false);
-    };
-    const unsubscribe = handle.subscribe(inspect);
-    const timeout = setTimeout(() => finish(false), options.timeoutMs);
-    inspect();
-  });
-}
-
-const UNDELIVERED_END_STATUSES = new Set<OperationStatus>([
-  "failed",
-  "needs_attention",
-  "cancelled",
-  "superseded",
-]);
 
 class ConflictingSendError extends Error {
   constructor() {
