@@ -510,14 +510,6 @@ export const toggleAllRulesAction = actionClient
   .metadata({ name: "toggleAllRules" })
   .inputSchema(toggleAllRulesBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput: { enabled } }) => {
-    after(() =>
-      trackRuleEvent({
-        emailAccountId,
-        event: RULE_ANALYTICS_EVENTS.allRulesToggled,
-        properties: { enabled },
-      }),
-    );
-
     if (enabled) {
       await prisma.rule.updateMany({
         where: { emailAccountId, organizationRuleId: null },
@@ -538,6 +530,14 @@ export const toggleAllRulesAction = actionClient
         }),
       ]);
     }
+
+    after(() =>
+      trackRuleEvent({
+        emailAccountId,
+        event: RULE_ANALYTICS_EVENTS.allRulesToggled,
+        properties: { enabled },
+      }),
+    );
 
     return { success: true };
   });
