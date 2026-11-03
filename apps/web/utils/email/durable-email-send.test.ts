@@ -177,6 +177,11 @@ describe("executeDurableEmailSend", () => {
     });
 
     expect(outcome.status).toBe("applied");
+    expect(discardDraftReplacedBySend).toHaveBeenCalledWith({
+      emailAccountId: "account",
+      sessionId: "session-1",
+      provider,
+    });
     expect(prisma.emailSendOperation.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({

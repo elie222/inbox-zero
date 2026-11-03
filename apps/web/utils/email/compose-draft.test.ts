@@ -235,6 +235,7 @@ it("removes a draft saved after its session was sent", async () => {
     draftId: "draft-1",
     messageId: null,
     threadId: null,
+    sessionSent: true,
   });
 });
 
@@ -279,8 +280,14 @@ it("leaves the mailbox alone when the session saved no draft yet", async () => {
 // Two tabs reopening the same reply can each create a draft for the session.
 it("removes every draft the session saved", async () => {
   vi.mocked(markComposeSessionSent).mockResolvedValue(["draft-1", "draft-2"]);
+  vi.mocked(provider.getDraft).mockImplementation(
+    async (draftId: string) => ({ id: `message-of-${draftId}` }) as never,
+  );
   vi.mocked(provider.getDraftReferenceForMessage).mockImplementation(
-    async () => ({ id: "draft", version: "v1" }),
+    async (messageId: string) => ({
+      id: messageId.replace("message-of-", ""),
+      version: "v1",
+    }),
   );
 
   await discardDraftReplacedBySend({
@@ -289,8 +296,8 @@ it("removes every draft the session saved", async () => {
     provider,
   });
 
-  expect(provider.getDraft).toHaveBeenCalledWith("draft-1");
-  expect(provider.getDraft).toHaveBeenCalledWith("draft-2");
+  expect(provider.deleteDraft).toHaveBeenCalledWith("draft-1", "v1");
+  expect(provider.deleteDraft).toHaveBeenCalledWith("draft-2", "v1");
   expect(provider.deleteDraft).toHaveBeenCalledTimes(2);
 });
 

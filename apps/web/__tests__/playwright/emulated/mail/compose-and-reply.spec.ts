@@ -739,24 +739,32 @@ test("removes a reply's draft after its tab closed mid-save", async ({
     .getByRole("button", { name: "Reply", exact: true })
     .click();
   const replyBody = `A reply whose draft was still saving. ${Date.now()}`;
-  await sourceMessage
-    .getByRole("textbox", { name: "Email message" })
-    .pressSequentially(replyBody);
 
-  // The first draft save creates the mailbox draft. Let the server finish it
-  // but hold its answer, so the tab never learns that draft's id.
+  // This reply's first draft save creates its mailbox draft. Let the server
+  // finish it but hold its answer, so the tab never learns that draft's id.
+  // Installed before typing, so no earlier save can slip past it.
   let saveReachedServer = false;
+  let holding = false;
   await page.route("**/*", async (route) => {
     const request = route.request();
-    if (request.method() !== "POST" || !request.headers()["next-action"]) {
+    if (
+      holding ||
+      request.method() !== "POST" ||
+      !request.headers()["next-action"] ||
+      !request.postData()?.includes(replyBody)
+    ) {
       await route.fallback();
       return;
     }
+    holding = true;
     const response = await route.fetch();
     saveReachedServer = true;
     await new Promise((resolve) => setTimeout(resolve, 30_000));
     await route.fulfill({ response }).catch(() => {});
   });
+  await sourceMessage
+    .getByRole("textbox", { name: "Email message" })
+    .pressSequentially(replyBody);
   await expect.poll(() => saveReachedServer, { timeout: 20_000 }).toBe(true);
   await sourceMessage
     .getByRole("button", { name: "Send", exact: true })

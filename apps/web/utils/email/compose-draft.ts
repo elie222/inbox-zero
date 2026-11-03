@@ -54,7 +54,14 @@ export async function saveComposeDraft({
       composeSession.logger.warn(
         "Could not remove a draft saved after its send",
       );
-    return { draftId, messageId: null, threadId: null };
+    // Tells the composer the session is over, so it stops saving to a draft
+    // that no longer exists.
+    return {
+      draftId,
+      messageId: null,
+      threadId: null,
+      sessionSent: true as const,
+    };
   }
   return {
     draftId,
@@ -168,7 +175,8 @@ async function discardWithRetry({
       await discardComposeDraft({ draftId, provider });
       return true;
     } catch {
-      await new Promise((resolve) => setTimeout(resolve, 300 * 3 ** attempt));
+      if (attempt < 2)
+        await new Promise((resolve) => setTimeout(resolve, 300 * 3 ** attempt));
     }
   }
   return false;
