@@ -165,6 +165,9 @@ export function createMailEngine(input: {
     input.idleCatchUpIntervalMs ?? IDLE_CATCH_UP_INTERVAL_MS;
   const syncLaneTimeoutMs = input.syncLaneTimeoutMs ?? SYNC_LANE_TIMEOUT_MS;
   const ownerId = input.ownerId ?? "local-owner";
+  // A previous engine with this owner id can only have stopped, since one
+  // owner runs at a time; its unfinished reads are this engine's to redo.
+  let readOnlyClaimsReleased = false;
   const assistant = input.assistant;
   const queries = createQueryRegistry();
   let evictedForCurrentPressure = false;
@@ -352,6 +355,10 @@ export function createMailEngine(input: {
         const { evictedBodies } = await store.evictReplaceableContent();
         evictedForCurrentPressure = true;
         if (evictedBodies > 0) await queries.refreshAll();
+      }
+      if (!readOnlyClaimsReleased) {
+        readOnlyClaimsReleased = true;
+        await store.releaseReadOnlyClaims({ ownerId });
       }
       let lanesStarted = false;
       while (runtime.nowMs() < deadlineMs) {
