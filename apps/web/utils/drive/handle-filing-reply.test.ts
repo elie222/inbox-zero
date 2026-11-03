@@ -269,6 +269,7 @@ describe("processFilingReply", () => {
     vi.mocked(createAndSaveFilingFolder).mockResolvedValue({
       id: "amazon-folder",
       name: "Amazon",
+      path: "Receipts/2025/Amazon",
     });
     vi.mocked(aiParseFilingReply).mockResolvedValue({
       actions: [
@@ -306,6 +307,51 @@ describe("processFilingReply", () => {
       "Moved it.",
       expect.any(Object),
     );
+  });
+
+  it.each([
+    { requestedPath: "Plans:2026", actualPath: "Plans-2026" },
+    {
+      requestedPath: "Receipts/Plans:2026/Reports",
+      actualPath: "Receipts/PLANS-2026/Reports",
+    },
+  ])("records the resolved Microsoft path when moving to $requestedPath", async ({
+    requestedPath,
+    actualPath,
+  }) => {
+    const filings = getFilingBatch();
+    for (const filing of filings) filing.driveConnection.provider = "microsoft";
+    prisma.documentFiling.findFirst.mockResolvedValue(filings[0]);
+    prisma.documentFiling.findMany.mockResolvedValue(filings);
+    const parent = knownFolder("receipts", "Receipts");
+    parent.driveConnection.provider = "microsoft";
+    prisma.filingFolder.findMany.mockResolvedValue([parent]);
+    const moveFile = vi.fn().mockResolvedValue({ id: "filing-1-file" });
+    vi.mocked(createDriveProviderWithRefresh).mockResolvedValue(
+      mockDeep<DriveProvider>({ name: "microsoft", moveFile }),
+    );
+    vi.mocked(createAndSaveFilingFolder).mockResolvedValueOnce({
+      id: "resolved-folder",
+      name: actualPath.split("/").at(-1)!,
+      path: actualPath,
+    });
+    vi.mocked(aiParseFilingReply).mockResolvedValue({
+      actions: [
+        { filingId: "filing-1", action: "move", folderPath: requestedPath },
+      ],
+      reply: "Moved it.",
+    });
+
+    await processFilingReply(getReplyParams());
+
+    expect(moveFile).toHaveBeenCalledWith("filing-1-file", "resolved-folder");
+    expect(prisma.documentFiling.update).toHaveBeenCalledWith({
+      where: { id: "filing-1" },
+      data: expect.objectContaining({
+        folderId: "resolved-folder",
+        folderPath: actualPath,
+      }),
+    });
   });
 
   it("moves a file into an existing known folder without creating anything", async () => {
