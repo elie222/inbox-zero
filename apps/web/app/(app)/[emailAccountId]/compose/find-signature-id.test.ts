@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { renderSentWithFooterHtml } from "@/utils/email/sent-with-footer";
 import { findSignatureId, getDraftSignatureHtml } from "./find-signature-id";
+import { createInitialComposeContent } from "./initial-compose-content";
 
 const signatures = [
   { id: "default", name: "Default", signatureHtml: "<div>Best,<br>Ada</div>" },
@@ -41,6 +42,40 @@ describe("findSignatureId", () => {
     expect(
       findSignatureId(images, '<img src="https://example.com/other.png">'),
     ).toBeUndefined();
+  });
+
+  it("matches image-only signatures through compose initialization and edited draft extraction", () => {
+    const images = [
+      { id: "empty", name: "Empty", signatureHtml: "" },
+      {
+        id: "image",
+        name: "Image",
+        signatureHtml: '<img src="https://example.com/signature.png">',
+      },
+    ];
+    const content = createInitialComposeContent({
+      initialAttachments: [],
+      sendAsAddresses: [],
+      accountSignatureHtml: images[1].signatureHtml,
+      sentWithFooterHtml: footer,
+    });
+    expect(findSignatureId(images, getDraftSignatureHtml(content.draft))).toBe(
+      "image",
+    );
+    const signature = content.preservedBlocks.find(
+      (block) => block.id === "signature",
+    );
+    expect(signature).toBeDefined();
+    expect(
+      findSignatureId(
+        images,
+        getDraftSignatureHtml({
+          editableHtml: `<p>Hello</p><div data-smartmail="gmail_signature"><div><br></div>${signature?.html}</div>`,
+          signatureHtml: "",
+        }),
+      ),
+    ).toBe("image");
+    expect(findSignatureId(images, `<div><br></div>${footer}`)).toBeUndefined();
   });
 
   it("matches nothing for an unknown or empty signature", () => {

@@ -8,12 +8,15 @@ import {
 } from "@/utils/email/sent-signatures";
 import type { Logger } from "@/utils/logger";
 
+const SCAN_VERSION = 1;
+const MAX_SUGGESTIONS = 5;
 const SCAN_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 const FAILED_SCAN_MAX_AGE_MS = 60 * 60 * 1000;
 // A signature seen once may be a one-off sign-off rather than one they reuse.
 const MIN_USES = 2;
 
 const sentSignatureScanSchema = z.object({
+  version: z.literal(SCAN_VERSION),
   signatures: z.array(z.object({ html: z.string(), count: z.number() })),
   providerSignature: z.boolean(),
   failed: z.boolean().optional(),
@@ -73,9 +76,12 @@ export async function getSignatureSuggestions({
         });
 
   const known = new Set(savedSignatures.map(getSignatureKey));
-  const suggestions = scan.signatures.filter(
-    ({ html, count }) => count >= MIN_USES && !known.has(getSignatureKey(html)),
-  );
+  const suggestions = scan.signatures
+    .filter(
+      ({ html, count }) =>
+        count >= MIN_USES && !known.has(getSignatureKey(html)),
+    )
+    .slice(0, MAX_SUGGESTIONS);
 
   return {
     suggestions,
@@ -96,7 +102,11 @@ async function scanSentSignatures({
   provider: string;
   logger: Logger;
 }) {
-  let scan: SentSignatureScan = { signatures: [], providerSignature: false };
+  let scan: SentSignatureScan = {
+    version: SCAN_VERSION,
+    signatures: [],
+    providerSignature: false,
+  };
   try {
     const emailProvider = await createEmailProvider({
       emailAccountId,
@@ -114,6 +124,7 @@ async function scanSentSignatures({
         return null;
       });
     scan = {
+      version: SCAN_VERSION,
       signatures: await findSentSignatures({
         emailProvider,
         knownSignatures: [providerSignature ?? ""],

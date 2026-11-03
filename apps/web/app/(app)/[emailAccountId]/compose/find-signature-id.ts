@@ -2,17 +2,25 @@ import type { GetSignatureResponse } from "@/app/api/user/signature/route";
 import { stripBrandingSignatures } from "@/utils/referral/signature";
 
 const SIGNATURE_CONTAINER = "[data-smartmail]";
+const BLANK_LINE = String.raw`\s|<div>(?:<br\s*/?>)?</div>|<br\s*/?>`;
+const EDGE_BLANK_LINES = new RegExp(
+  `^(?:${BLANK_LINE})+|(?:${BLANK_LINE})+$`,
+  "gi",
+);
 
-// Signatures are compared by their text, so the composer's wrapper, its blank
-// separator line and the "Sent with" footer don't stop a match.
+// Ignore composer wrappers, spacers and branding before comparing text
+// or matching image-only signatures by their HTML.
 export function findSignatureId(
   signatures: GetSignatureResponse["signatures"],
   signatureHtml: string,
 ) {
-  const key = getSignatureKey(signatureHtml);
+  const html = cleanSignatureHtml(signatureHtml);
+  const key = getSignatureText(html);
   if (!key) {
-    if (!signatureHtml.trim()) return;
-    return signatures.find((item) => item.signatureHtml === signatureHtml)?.id;
+    if (!html) return;
+    return signatures.find(
+      (item) => cleanSignatureHtml(item.signatureHtml) === html,
+    )?.id;
   }
   return signatures.find((item) => getSignatureKey(item.signatureHtml) === key)
     ?.id;
@@ -31,7 +39,7 @@ export function getDraftSignatureHtml(draft: {
 }
 
 function getSignatureKey(html: string) {
-  return getSignatureText(stripBrandingSignatures(html));
+  return getSignatureText(cleanSignatureHtml(html));
 }
 
 export function getSignatureText(html: string) {
@@ -39,4 +47,12 @@ export function getSignatureText(html: string) {
   const text =
     new DOMParser().parseFromString(spaced, "text/html").body.textContent ?? "";
   return text.replace(/\s+/g, " ").trim();
+}
+
+function cleanSignatureHtml(html: string) {
+  const signature = getDraftSignatureHtml({
+    editableHtml: html,
+    signatureHtml: html,
+  });
+  return stripBrandingSignatures(signature).replace(EDGE_BLANK_LINES, "");
 }

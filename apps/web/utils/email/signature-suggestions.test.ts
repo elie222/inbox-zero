@@ -72,6 +72,7 @@ describe("getSignatureSuggestions", () => {
       expect.objectContaining({
         data: expect.objectContaining({
           sentSignatureScan: {
+            version: 1,
             signatures: [
               { html: german, count: 2 },
               { html: "<div>Thanks!</div>", count: 1 },
@@ -87,6 +88,7 @@ describe("getSignatureSuggestions", () => {
     prisma.emailAccount.findUnique.mockResolvedValue(
       account({
         sentSignatureScan: {
+          version: 1,
           signatures: [{ html: german, count: 3 }],
           providerSignature: true,
         },
@@ -101,12 +103,95 @@ describe("getSignatureSuggestions", () => {
     expect(createEmailProvider).not.toHaveBeenCalled();
   });
 
+  it.each([
+    undefined,
+    0,
+  ])("rescans version %s once instead of reusing a legacy scan", async (version) => {
+    const state: Record<string, unknown> = account({
+      sentSignatureScan: { version, signatures: [], providerSignature: false },
+      sentSignatureScannedAt: new Date(),
+    });
+    prisma.emailAccount.findUnique.mockImplementation(
+      async () => state as never,
+    );
+    prisma.emailAccount.update.mockImplementation(async ({ data }) => {
+      Object.assign(state, data);
+      return state as never;
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue(
+      createMockEmailProvider({
+        getSendAsAddresses: vi.fn().mockResolvedValue([]),
+        getSentMessages: vi
+          .fn()
+          .mockResolvedValue([sent(german), sent(german)]),
+      }),
+    );
+
+    for (let request = 0; request < 2; request++) {
+      expect(
+        await getSignatureSuggestions({ emailAccountId: "account", logger }),
+      ).toEqual({
+        suggestions: [{ html: german, count: 2 }],
+        needsDefault: false,
+      });
+    }
+    expect(createEmailProvider).toHaveBeenCalledTimes(1);
+  });
+
+  it("filters saved signatures before limiting suggestions, including cached candidates", async () => {
+    const saved = Array.from(
+      { length: 5 },
+      (_, index) => `<div>Saved ${index}</div>`,
+    );
+    const unsaved = Array.from(
+      { length: 6 },
+      (_, index) => `<div>Unsaved ${index}</div>`,
+    );
+    const state: Record<string, unknown> = account({
+      emailSignatures: saved.map((html) => ({ html })),
+    });
+    prisma.emailAccount.findUnique.mockImplementation(
+      async () => state as never,
+    );
+    prisma.emailAccount.update.mockImplementation(async ({ data }) => {
+      Object.assign(state, data);
+      return state as never;
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue(
+      createMockEmailProvider({
+        getSendAsAddresses: vi.fn().mockResolvedValue([]),
+        getSentMessages: vi
+          .fn()
+          .mockResolvedValue([
+            ...saved.flatMap((html) => [sent(html), sent(html), sent(html)]),
+            ...unsaved.flatMap((html) => [sent(html), sent(html)]),
+          ]),
+      }),
+    );
+
+    for (let request = 0; request < 2; request++) {
+      expect(
+        await getSignatureSuggestions({ emailAccountId: "account", logger }),
+      ).toEqual({
+        suggestions: unsaved.slice(0, 5).map((html) => ({ html, count: 2 })),
+        needsDefault: false,
+      });
+    }
+    state.emailSignatures = [];
+    expect(
+      (await getSignatureSuggestions({ emailAccountId: "account", logger }))
+        .suggestions,
+    ).toEqual(saved.map((html) => ({ html, count: 3 })));
+    expect(createEmailProvider).toHaveBeenCalledTimes(1);
+  });
+
   it("asks for a default when the account sends with no signature set", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue(
       account({
         signature: null,
         account: { provider: "microsoft" },
         sentSignatureScan: {
+          version: 1,
           signatures: [{ html: english, count: 4 }],
           providerSignature: false,
         },
