@@ -65,6 +65,7 @@ describe("buildPrintDocument", () => {
     });
 
     const policy = document.match(/img-src([^;]*);/)?.[1] ?? "";
-    expect(policy).not.toContain("https:");
+    // An https proxy origin may stay; the bare https: source must not.
+    expect(policy.trim().split(/\s+/)).not.toContain("https:");
   });
 });
