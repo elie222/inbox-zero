@@ -766,7 +766,8 @@ test("removes a reply's draft after its tab closed mid-save", async ({
     .toMatchObject({ status: "PENDING" });
   // The draft exists in the mailbox, and the device never heard its id.
   await expect.poll(() => countReplyThreadDrafts(page, emailAccountId)).toBe(1);
-  await page.unrouteAll({ behavior: "ignoreErrors" });
+  // Leave with the save still unanswered, as a closing tab does. Removing the
+  // route first would let the held request through a second time.
   await page.goto("about:blank");
 
   const held = await readHeldReply(emailAccountId, replyBody);

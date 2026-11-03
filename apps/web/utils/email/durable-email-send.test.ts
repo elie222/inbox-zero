@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { createMockEmailProvider } from "@/utils/__mocks__/email-provider";
@@ -107,6 +108,46 @@ describe("executeDurableEmailSend", () => {
     });
 
     expect(outcome.status).toBe("applied");
+    expect(discardDraftReplacedBySend).toHaveBeenCalledWith({
+      emailAccountId: "account",
+      sessionId: "session-1",
+      provider,
+    });
+  });
+
+  // An earlier dispatch may have delivered the email but not removed its
+  // draft; a repeated dispatch finishes that cleanup.
+  it("retries draft cleanup when the send was already delivered", async () => {
+    const provider = createMockEmailProvider();
+    const replacing = {
+      ...input,
+      email: { ...input.email, replacesDraftOfSession: "session-1" },
+    };
+    prisma.emailSendOperation.findUnique.mockResolvedValue({
+      id: "operation",
+      status: EmailSendOperationStatus.SENT,
+      payloadHash: createHash("sha256")
+        .update(
+          JSON.stringify({
+            threadId: replacing.threadId,
+            messageIds: replacing.messageIds,
+            email: replacing.email,
+            queuedAt: replacing.queuedAt,
+          }),
+        )
+        .digest("hex"),
+      result: { messageId: "sent", threadId: "thread" },
+    } as never);
+
+    const outcome = await executeDurableEmailSend({
+      logger: createScopedLogger("test"),
+      emailAccountId: "account",
+      getEmailProvider: async () => provider,
+      input: replacing,
+      provider: "google",
+    });
+
+    expect(outcome.status).toBe("already_applied");
     expect(discardDraftReplacedBySend).toHaveBeenCalledWith({
       emailAccountId: "account",
       sessionId: "session-1",

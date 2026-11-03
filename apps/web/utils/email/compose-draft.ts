@@ -40,25 +40,22 @@ export async function saveComposeDraft({
   } else {
     await provider.updateDraft(draftId, composeDraftTextUpdate(content));
   }
-  // A send may have replaced this session's draft while the save was on its
-  // way; the draft it just wrote is then removed instead of left in Drafts.
-  if (
-    composeSession &&
-    (await recordComposeSessionDraft({
-      emailAccountId: composeSession.emailAccountId,
-      sessionId: composeSession.id,
-      draftId,
-    }).catch((error) => {
-      composeSession.logger.warn("Could not record the compose session draft", {
-        error,
-      });
-      return false;
-    }))
-  ) {
-    await discardComposeDraft({ draftId, provider });
+  // Recording runs alongside the read the save already makes, so it adds no
+  // wait. A send may have replaced this session's draft while the save was on
+  // its way; the draft it just wrote is then removed instead of left in Drafts.
+  const [sessionSent, message] = await Promise.all([
+    composeSession
+      ? recordSessionDraft(composeSession, draftId)
+      : Promise.resolve(false),
+    provider.getDraft(draftId).catch(() => null),
+  ]);
+  if (sessionSent && composeSession) {
+    if (!(await discardWithRetry({ draftId, provider })))
+      composeSession.logger.warn(
+        "Could not remove a draft saved after its send",
+      );
     return { draftId, messageId: null, threadId: null };
   }
-  const message = await provider.getDraft(draftId).catch(() => null);
   return {
     draftId,
     messageId: message?.id ?? null,
@@ -68,8 +65,8 @@ export async function saveComposeDraft({
 
 /**
  * After a send that replaced its compose session's draft is delivered,
- * marks the session sent and removes the draft it last saved. A save that
- * lands later sees the mark and removes its own draft.
+ * marks the session sent and removes every draft it saved. A save that lands
+ * later sees the mark and removes its own draft. Safe to repeat.
  */
 export async function discardDraftReplacedBySend({
   emailAccountId,
@@ -80,8 +77,12 @@ export async function discardDraftReplacedBySend({
   sessionId: string;
   provider: EmailProvider;
 }) {
-  const draftId = await markComposeSessionSent({ emailAccountId, sessionId });
-  if (draftId) await discardComposeDraft({ draftId, provider });
+  const draftIds = await markComposeSessionSent({ emailAccountId, sessionId });
+  const kept: string[] = [];
+  for (const draftId of draftIds)
+    if (!(await discardWithRetry({ draftId, provider }))) kept.push(draftId);
+  if (kept.length)
+    throw new Error(`Could not remove ${kept.length} replaced draft(s)`);
 }
 
 export async function discardComposeDraft({
@@ -128,4 +129,47 @@ function composeDraftTextUpdate(content: SendEmailBody) {
     subject: content.subject,
     messageHtml: content.messageHtml,
   };
+}
+
+async function recordSessionDraft(
+  composeSession: { id: string; emailAccountId: string; logger: Logger },
+  draftId: string,
+) {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      return await recordComposeSessionDraft({
+        emailAccountId: composeSession.emailAccountId,
+        sessionId: composeSession.id,
+        draftId,
+      });
+    } catch (error) {
+      if (attempt === 1)
+        composeSession.logger.warn(
+          "Could not record the compose session draft",
+          {
+            error,
+          },
+        );
+    }
+  }
+  return false;
+}
+
+// Provider calls fail now and then; a replaced draft is worth a few tries.
+async function discardWithRetry({
+  draftId,
+  provider,
+}: {
+  draftId: string;
+  provider: EmailProvider;
+}) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await discardComposeDraft({ draftId, provider });
+      return true;
+    } catch {
+      await new Promise((resolve) => setTimeout(resolve, 300 * 3 ** attempt));
+    }
+  }
+  return false;
 }

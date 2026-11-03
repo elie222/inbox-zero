@@ -248,7 +248,7 @@ it("keeps saving when the session record is unavailable", async () => {
 });
 
 it("removes the draft a delivered send replaced", async () => {
-  vi.mocked(markComposeSessionSent).mockResolvedValue("draft-1");
+  vi.mocked(markComposeSessionSent).mockResolvedValue(["draft-1"]);
 
   await discardDraftReplacedBySend({
     emailAccountId: "account-1",
@@ -264,7 +264,7 @@ it("removes the draft a delivered send replaced", async () => {
 });
 
 it("leaves the mailbox alone when the session saved no draft yet", async () => {
-  vi.mocked(markComposeSessionSent).mockResolvedValue(null);
+  vi.mocked(markComposeSessionSent).mockResolvedValue([]);
 
   await discardDraftReplacedBySend({
     emailAccountId: "account-1",
@@ -274,4 +274,46 @@ it("leaves the mailbox alone when the session saved no draft yet", async () => {
 
   expect(provider.getDraft).not.toHaveBeenCalled();
   expect(provider.deleteDraft).not.toHaveBeenCalled();
+});
+
+// Two tabs reopening the same reply can each create a draft for the session.
+it("removes every draft the session saved", async () => {
+  vi.mocked(markComposeSessionSent).mockResolvedValue(["draft-1", "draft-2"]);
+  vi.mocked(provider.getDraftReferenceForMessage).mockImplementation(
+    async () => ({ id: "draft", version: "v1" }),
+  );
+
+  await discardDraftReplacedBySend({
+    emailAccountId: "account-1",
+    sessionId: "session-1",
+    provider,
+  });
+
+  expect(provider.getDraft).toHaveBeenCalledWith("draft-1");
+  expect(provider.getDraft).toHaveBeenCalledWith("draft-2");
+  expect(provider.deleteDraft).toHaveBeenCalledTimes(2);
+});
+
+it("still saves when a draft saved after its send cannot be removed", async () => {
+  vi.useFakeTimers();
+  vi.mocked(recordComposeSessionDraft).mockResolvedValue(true);
+  vi.mocked(provider.deleteDraft).mockResolvedValue(false);
+
+  const saving = saveComposeDraft({ provider, content, composeSession });
+  await vi.runAllTimersAsync();
+
+  await expect(saving).resolves.toMatchObject({ draftId: "draft-1" });
+  expect(provider.deleteDraft).toHaveBeenCalledTimes(3);
+  vi.useRealTimers();
+});
+
+it("retries recording a session draft once", async () => {
+  vi.mocked(recordComposeSessionDraft)
+    .mockRejectedValueOnce(new Error("busy"))
+    .mockResolvedValueOnce(true);
+
+  await saveComposeDraft({ provider, content, composeSession });
+
+  expect(recordComposeSessionDraft).toHaveBeenCalledTimes(2);
+  expect(provider.deleteDraft).toHaveBeenCalledWith("draft-1", "v1");
 });
