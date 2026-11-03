@@ -89,15 +89,16 @@ export function compilePredicate(
           : predicate.field === "to"
             ? `${alias}.to_json`
             : `${alias}.cc_json`;
+      const pattern = `%${escapeLike(predicate.value)}%`;
       if (predicate.field === "from" && predicate.match === "address") {
         return {
-          sql: `(LOWER(${column}) = LOWER(?) OR LOWER(${column}) LIKE '%' || LOWER(?) || '%')`,
-          bindings: [predicate.value, predicate.value],
+          sql: `(LOWER(${column}) = LOWER(?) OR LOWER(${column}) LIKE LOWER(?) ESCAPE '\\')`,
+          bindings: [predicate.value, pattern],
         };
       }
       return {
-        sql: `LOWER(${column}) LIKE '%' || LOWER(?) || '%'`,
-        bindings: [predicate.value],
+        sql: `LOWER(${column}) LIKE LOWER(?) ESCAPE '\\'`,
+        bindings: [pattern],
       };
     }
     case "received": {
