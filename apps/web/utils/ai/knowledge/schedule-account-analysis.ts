@@ -42,16 +42,19 @@ export async function scheduleAccountAnalysis({
           error,
         });
       } finally {
-        await markOwnedLockProcessed({
-          key,
-          lockToken,
-          processedStatus: status,
-          processedTtlSeconds: 60,
-        });
-        await flushLoggerSafely(logger, {
-          action: kind,
-          flushReason: "background-analysis",
-        });
+        try {
+          await markOwnedLockProcessed({
+            key,
+            lockToken,
+            processedStatus: status,
+            processedTtlSeconds: 60,
+          });
+        } finally {
+          await flushLoggerSafely(logger, {
+            action: kind,
+            flushReason: "background-analysis",
+          });
+        }
       }
     });
   } catch (error) {
