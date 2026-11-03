@@ -3,6 +3,8 @@ import type { EmailProvider } from "@/utils/email/types";
 import { getOwnSignatureHtml } from "@/utils/email/signature-normalization";
 import { stripBrandingSignatures } from "@/utils/referral/signature";
 
+export const MAX_SIGNATURE_SUGGESTIONS = 5;
+
 const SENT_MESSAGES_TO_SCAN = 30;
 const BLANK_LINE = String.raw`\s|<div>(?:<br\s*/?>)?</div>|<br\s*/?>`;
 const EDGE_BLANK_LINES = new RegExp(

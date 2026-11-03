@@ -5,11 +5,11 @@ import { createEmailProvider } from "@/utils/email/provider";
 import {
   findSentSignatures,
   getSignatureKey,
+  MAX_SIGNATURE_SUGGESTIONS,
 } from "@/utils/email/sent-signatures";
 import type { Logger } from "@/utils/logger";
 
 const SCAN_VERSION = 1;
-const MAX_SUGGESTIONS = 5;
 const SCAN_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 const FAILED_SCAN_MAX_AGE_MS = 60 * 60 * 1000;
 // A signature seen once may be a one-off sign-off rather than one they reuse.
@@ -81,7 +81,7 @@ export async function getSignatureSuggestions({
       ({ html, count }) =>
         count >= MIN_USES && !known.has(getSignatureKey(html)),
     )
-    .slice(0, MAX_SUGGESTIONS);
+    .slice(0, MAX_SIGNATURE_SUGGESTIONS);
 
   return {
     suggestions,

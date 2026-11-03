@@ -8,7 +8,10 @@ import {
   updateSignatureBody,
 } from "@/utils/actions/signature.validation";
 import { createEmailProvider } from "@/utils/email/provider";
-import { findSentSignatures } from "@/utils/email/sent-signatures";
+import {
+  findSentSignatures,
+  MAX_SIGNATURE_SUGGESTIONS,
+} from "@/utils/email/sent-signatures";
 import { SafeError } from "@/utils/error";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 
@@ -78,5 +81,5 @@ export const findSentSignaturesAction = actionClient
       ],
     });
 
-    return { signatures };
+    return { signatures: signatures.slice(0, MAX_SIGNATURE_SUGGESTIONS) };
   });
