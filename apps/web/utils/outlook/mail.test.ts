@@ -910,6 +910,56 @@ describe("forwardEmail", () => {
     expect(sendDraft).toHaveBeenCalledTimes(1);
     expect(result.id).toBe("draft-1");
   });
+
+  it("lists every original To and Cc recipient in the forwarded header", async () => {
+    const getMessage = vi.fn(
+      async () =>
+        ({
+          id: "message-1",
+          conversationId: "conversation-1",
+          subject: "Original subject",
+          body: { content: "<p>Original body</p>" },
+          from: { emailAddress: { address: "sender@example.com" } },
+          toRecipients: [
+            { emailAddress: { address: "alice@example.com", name: "Alice" } },
+            { emailAddress: { address: "bob@example.com", name: "Bob" } },
+          ],
+          ccRecipients: [
+            { emailAddress: { address: "carol@example.com", name: "Carol" } },
+          ],
+          receivedDateTime: "2025-02-06T22:35:00.000Z",
+        }) as Message,
+    );
+    const updateDraft = vi.fn(async () => ({}));
+
+    const client = createMockOutlookClient((path) => {
+      if (path === "/me/messages/message-1") return { get: getMessage };
+      if (path === "/me/messages/message-1/createForward") {
+        return { post: vi.fn(async () => ({ id: "draft-1" }) as Message) };
+      }
+      if (path === "/me/messages/draft-1") return { patch: updateDraft };
+      if (path === "/me/messages/draft-1/send") {
+        return { post: vi.fn(async () => ({})) };
+      }
+      throw new Error(`Unexpected API path: ${path}`);
+    });
+
+    await forwardEmail(
+      client,
+      { messageId: "message-1", to: "dana@example.com" },
+      createTestLogger(),
+    );
+
+    const content = (updateDraft.mock.calls[0] as unknown[])[0] as {
+      body: { content: string };
+    };
+    expect(content.body.content).toContain(
+      'To: Alice &lt;<a href="mailto:alice@example.com">alice@example.com</a>&gt;, Bob &lt;<a href="mailto:bob@example.com">bob@example.com</a>&gt;<br>',
+    );
+    expect(content.body.content).toContain(
+      'Cc: Carol &lt;<a href="mailto:carol@example.com">carol@example.com</a>&gt;<br>',
+    );
+  });
 });
 
 describe("draftEmail", () => {
