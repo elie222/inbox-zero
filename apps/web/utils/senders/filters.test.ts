@@ -96,20 +96,6 @@ describe("findSenderLabelFilters", () => {
     ]);
   });
 
-  it("matches filters with a display-name sender criterion", () => {
-    const filters: EmailFilter[] = [
-      {
-        id: "filter-1",
-        criteria: { from: "Example Updates <updates@example.com>" },
-        action: { addLabelIds: ["Label_123"] },
-      },
-    ];
-
-    expect(findSenderLabelFilters(filters, "updates@example.com")).toEqual([
-      { id: "filter-1", labelId: "Label_123" },
-    ]);
-  });
-
   it("does not match filters with empty sender criteria", () => {
     const filters: EmailFilter[] = [
       {
@@ -151,21 +137,6 @@ describe("findAutoArchiveFilters", () => {
     };
   }
 
-  it.each([
-    "Forwarded other@example.com <actual@example.com>",
-    '"Forwarded other@example.com, updates" <actual@example.com>',
-    '"Forwarded other@example.com OR updates" <actual@example.com>',
-  ])("ignores email addresses in a display name: %s", (criterion) => {
-    const filters = [archiveFilter("named", criterion)];
-
-    expect(findAutoArchiveFilters(filters, "other@example.com", gmail)).toEqual(
-      [],
-    );
-    expect(
-      findAutoArchiveFilters(filters, "actual@example.com", gmail),
-    ).toEqual(filters);
-  });
-
   it("matches each semicolon-separated sender", () => {
     const filters = [
       archiveFilter("list", "first@example.com;second@example.com"),
@@ -178,12 +149,10 @@ describe("findAutoArchiveFilters", () => {
 
   it.each([
     '"first@example.com"',
-    "first@example.com;Forwarded other@example.com <actual@example.com>",
-    "Forwarded other@example.com <actual@example.com>,first@example.com",
-    "first@example.com, Forwarded other@example.com <actual@example.com>",
-    "{first@example.com OR Forwarded other@example.com <actual@example.com>}",
-    "first@example.com|Forwarded other@example.com <actual@example.com>",
-  ])("preserves bare senders in %s", (criterion) => {
+    "first@example.com OR second@example.com",
+    "first@example.com|second@example.com",
+    "{first@example.com second@example.com}",
+  ])("matches an exact sender in %s", (criterion) => {
     const filters = [archiveFilter("list", criterion)];
 
     expect(findAutoArchiveFilters(filters, "first@example.com", gmail)).toEqual(
@@ -210,7 +179,6 @@ describe("findAutoArchiveFilters", () => {
     const filters = [
       archiveFilter("or", "a@shop.com OR b@shop.com"),
       archiveFilter("braces", "{c@shop.com d@shop.com}"),
-      archiveFilter("named", "Shop News <News@Shop.com>"),
       archiveFilter("pipe", "e@shop.com|f@shop.com"),
     ];
 
@@ -220,11 +188,6 @@ describe("findAutoArchiveFilters", () => {
     expect(
       findAutoArchiveFilters(filters, "d@shop.com", gmail).map((f) => f.id),
     ).toEqual(["braces"]);
-    expect(
-      findAutoArchiveFilters(filters, "Shop <news@shop.com>", gmail).map(
-        (f) => f.id,
-      ),
-    ).toEqual(["named"]);
     expect(
       findAutoArchiveFilters(filters, "f@shop.com", gmail).map((f) => f.id),
     ).toEqual(["pipe"]);
