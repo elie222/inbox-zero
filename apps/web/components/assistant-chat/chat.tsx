@@ -5,8 +5,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   HistoryIcon,
   Loader2,
+  MailIcon,
   PaperclipIcon,
   PlusIcon,
+  WrenchIcon,
   XIcon,
 } from "lucide-react";
 import { Messages } from "./messages";
@@ -40,6 +42,8 @@ import {
 import { RenameChatDialog } from "@/components/assistant-chat/RenameChatDialog";
 import { DeleteChatDialog } from "@/components/assistant-chat/DeleteChatDialog";
 import { randomUuid } from "@/utils/uuid";
+import { extractNameFromEmail } from "@/utils/email";
+import type { MessageContext } from "@/utils/ai/assistant/chat-context-validation";
 import { VoiceInput } from "@/components/voice/VoiceInput";
 import { liveHistoryFromUiMessages } from "@/utils/voice/live-history";
 
@@ -184,142 +188,126 @@ export function Chat({
   const hasContent = input.trim().length > 0 || attachments.length > 0;
 
   const inputArea = (
-    <>
+    <PromptInput
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (hasContent && (status === "ready" || status === "error")) {
+          analytics.captureAction("chat_message_submitted", {
+            has_text: input.trim().length > 0,
+            attachment_count: attachments.length,
+            has_context: Boolean(context),
+            message_count: messages.length,
+          });
+          handleSubmit();
+        }
+      }}
+    >
       {context ? (
-        <div className="mb-2 flex items-center gap-2">
-          <span className="inline-flex items-center gap-2 rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">
-            {context.type === "fix-rule" ? "Fix: " : "Email: "}
-            {context.message.headers.subject.slice(0, 60)}
-            {context.message.headers.subject.length > 60 ? "..." : ""}
-            <button
-              type="button"
-              aria-label="Remove context"
-              className="ml-1 rounded p-0.5 hover:bg-muted-foreground/10"
-              onClick={() => setContext(null)}
-            >
-              ×
-            </button>
-          </span>
-        </div>
+        <ChatContextChip context={context} onRemove={() => setContext(null)} />
       ) : null}
-      <PromptInput
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (hasContent && (status === "ready" || status === "error")) {
+      {(attachments.length > 0 || uploadQueue.length > 0) && (
+        <div className="flex gap-2 overflow-x-auto p-2 pb-0">
+          {attachments.map((attachment) => (
+            <PreviewAttachment
+              key={attachment.id}
+              attachment={attachment}
+              onRemove={() =>
+                setAttachments((prev) => prev.filter((a) => a !== attachment))
+              }
+            />
+          ))}
+          {uploadQueue.map((name) => (
+            <PreviewAttachment
+              key={name}
+              attachment={{ name, url: "", contentType: "" }}
+              isUploading
+            />
+          ))}
+        </div>
+      )}
+
+      <PromptInputTextarea
+        data-testid="chat-input"
+        value={input}
+        placeholder="Ask me anything"
+        onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
+          setInput(e.currentTarget.value)
+        }
+        onPaste={handlePaste}
+        className="pr-48"
+      />
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        multiple
+        className="hidden"
+        onChange={handleFileChange}
+        tabIndex={-1}
+      />
+
+      <div className="absolute bottom-2 right-2 flex items-center gap-1">
+        <VoiceInput
+          liveEnabled
+          liveHistory={liveHistoryFromUiMessages(messages)}
+          onInsert={(text) => {
+            setInput(input.trim() ? `${input.trim()} ${text}` : text);
+          }}
+          onSend={(text) => {
             analytics.captureAction("chat_message_submitted", {
-              has_text: input.trim().length > 0,
+              has_text: true,
               attachment_count: attachments.length,
               has_context: Boolean(context),
               message_count: messages.length,
+              via_voice: true,
             });
-            handleSubmit();
-          }
-        }}
-      >
-        {(attachments.length > 0 || uploadQueue.length > 0) && (
-          <div className="flex gap-2 overflow-x-auto p-2 pb-0">
-            {attachments.map((attachment) => (
-              <PreviewAttachment
-                key={attachment.id}
-                attachment={attachment}
-                onRemove={() =>
-                  setAttachments((prev) => prev.filter((a) => a !== attachment))
-                }
-              />
-            ))}
-            {uploadQueue.map((name) => (
-              <PreviewAttachment
-                key={name}
-                attachment={{ name, url: "", contentType: "" }}
-                isUploading
-              />
-            ))}
-          </div>
-        )}
-
-        <PromptInputTextarea
-          data-testid="chat-input"
-          value={input}
-          placeholder="Ask me anything"
-          onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
-            setInput(e.currentTarget.value)
-          }
-          onPaste={handlePaste}
-          className="pr-48"
+            submitTextMessage(text).catch(() => undefined);
+          }}
         />
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp,image/gif"
-          multiple
-          className="hidden"
-          onChange={handleFileChange}
-          tabIndex={-1}
-        />
-
-        <div className="absolute bottom-2 right-2 flex items-center gap-1">
-          <VoiceInput
-            liveEnabled
-            liveHistory={liveHistoryFromUiMessages(messages)}
-            onInsert={(text) => {
-              setInput(input.trim() ? `${input.trim()} ${text}` : text);
-            }}
-            onSend={(text) => {
-              analytics.captureAction("chat_message_submitted", {
-                has_text: true,
+        <Tooltip content="Attach images">
+          <Button
+            type="button"
+            variant="ghostMuted"
+            size="icon"
+            aria-label="Attach images"
+            className="size-9 rounded-full"
+            onClick={() => {
+              analytics.captureAction("chat_attach_button_clicked", {
                 attachment_count: attachments.length,
-                has_context: Boolean(context),
-                message_count: messages.length,
-                via_voice: true,
               });
-              submitTextMessage(text).catch(() => undefined);
+              fileInputRef.current?.click();
             }}
-          />
-          <Tooltip content="Attach images">
-            <Button
-              type="button"
-              variant="ghostMuted"
-              size="icon"
-              aria-label="Attach images"
-              className="size-9 rounded-full"
-              onClick={() => {
-                analytics.captureAction("chat_attach_button_clicked", {
-                  attachment_count: attachments.length,
-                });
-                fileInputRef.current?.click();
-              }}
-              disabled={attachments.length >= MAX_FILES}
-            >
-              <PaperclipIcon className="size-4" />
-            </Button>
-          </Tooltip>
+            disabled={attachments.length >= MAX_FILES}
+          >
+            <PaperclipIcon className="size-4" />
+          </Button>
+        </Tooltip>
 
-          <PromptInputSubmit
-            status={
-              status === "streaming"
-                ? "streaming"
-                : status === "submitted"
-                  ? "submitted"
-                  : "ready"
+        <PromptInputSubmit
+          status={
+            status === "streaming"
+              ? "streaming"
+              : status === "submitted"
+                ? "submitted"
+                : "ready"
+          }
+          disabled={
+            status === "ready" || status === "error" ? !hasContent : false
+          }
+          onClick={(e) => {
+            if (status === "streaming" || status === "submitted") {
+              analytics.captureAction("chat_generation_stopped", {
+                status,
+              });
+              e.preventDefault();
+              stop();
+              setMessages((messages) => messages);
             }
-            disabled={
-              status === "ready" || status === "error" ? !hasContent : false
-            }
-            onClick={(e) => {
-              if (status === "streaming" || status === "submitted") {
-                analytics.captureAction("chat_generation_stopped", {
-                  status,
-                });
-                e.preventDefault();
-                stop();
-                setMessages((messages) => messages);
-              }
-            }}
-          />
-        </div>
-      </PromptInput>
-    </>
+          }}
+        />
+      </div>
+    </PromptInput>
   );
 
   return (
@@ -345,7 +333,8 @@ export function Chat({
         />
       ) : (
         <NewChatView
-          firstName={firstName}
+          greeting={context ? null : getGreeting(firstName)}
+          suggestions={context ? [] : CHAT_EXAMPLES}
           inputArea={inputArea}
           onSuggestionClick={(text) => {
             analytics.captureAction("chat_suggestion_clicked", {
@@ -406,23 +395,27 @@ const CHAT_EXAMPLES = [
 ];
 
 function NewChatView({
-  firstName,
+  greeting,
+  suggestions,
   inputArea,
   onSuggestionClick,
 }: {
-  firstName: string | undefined;
+  greeting: string | null;
+  suggestions: string[];
   inputArea: React.ReactNode;
   onSuggestionClick: (text: string) => void;
 }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-[var(--chat-px)]">
       <div className="w-full max-w-[var(--chat-max-w)]">
-        <h1 className="mb-6 text-center text-2xl sm:text-3xl md:text-4xl font-extralight tracking-tight">
-          {getGreeting(firstName)}
-        </h1>
+        {greeting ? (
+          <h1 className="mb-6 text-center text-2xl sm:text-3xl md:text-4xl font-extralight tracking-tight">
+            {greeting}
+          </h1>
+        ) : null}
         {inputArea}
         <div className="mt-3 flex flex-wrap justify-center gap-2">
-          {CHAT_EXAMPLES.map((example) => (
+          {suggestions.map((example) => (
             <Button
               key={example}
               variant="outline"
@@ -591,6 +584,46 @@ function ChatHistoryDropdown() {
         }}
       />
     </>
+  );
+}
+
+function ChatContextChip({
+  context,
+  onRemove,
+}: {
+  context: MessageContext;
+  onRemove: () => void;
+}) {
+  const { subject, from } = context.message.headers;
+  const isFixRule = context.type === "fix-rule";
+  const Icon = isFixRule ? WrenchIcon : MailIcon;
+
+  return (
+    <div className="px-2 pt-2">
+      <div className="flex max-w-full items-center gap-2.5 rounded-lg border bg-muted/40 py-1.5 pl-2.5 pr-1">
+        <Icon className="size-4 shrink-0 text-muted-foreground" />
+        <div className="min-w-0 flex-1 leading-tight">
+          <div className="truncate text-sm font-medium">
+            {subject || "(no subject)"}
+          </div>
+          <div className="truncate text-xs text-muted-foreground">
+            {isFixRule
+              ? "Fixing rule for this email"
+              : extractNameFromEmail(from)}
+          </div>
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="iconXs"
+          aria-label="Remove email from chat"
+          className="shrink-0 text-muted-foreground"
+          onClick={onRemove}
+        >
+          <XIcon className="size-3.5" />
+        </Button>
+      </div>
+    </div>
   );
 }
 
