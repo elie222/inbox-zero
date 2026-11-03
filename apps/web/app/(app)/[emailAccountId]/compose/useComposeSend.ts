@@ -255,7 +255,22 @@ export function useComposeSend({
       const scheduledThreadId = replyingToEmail?.threadId ?? null;
       let withdrawSchedule = () => {};
       if (schedulesAtOnce) {
-        withdrawSchedule = showScheduledEmail(
+        // The reply's mailbox draft would otherwise show in the thread until
+        // the server confirms; the ids are read from this device.
+        const sessionDraftIds = providerDraftMessageId
+          ? getDraftSessionMessageIds(
+              selectedEmailAccountId,
+              providerDraftMessageId,
+            )
+          : localDraftIdentity
+            ? ((await getReplyDraft(localDraftIdentity))?.content
+                ?.providerDraftMessageIds ?? [])
+            : [];
+        const showSessionDrafts = hideSendingDraftMessages(
+          selectedEmailAccountId,
+          sessionDraftIds,
+        );
+        const withdrawRow = showScheduledEmail(
           mutate,
           selectedEmailAccountId,
           scheduledThreadId,
@@ -265,6 +280,10 @@ export function useComposeSend({
             remindAt: deliveryTimes.remindAt,
           },
         );
+        withdrawSchedule = () => {
+          withdrawRow();
+          showSessionDrafts();
+        };
         if (!scheduledThreadId)
           toastSuccess({ description: "Email scheduled." });
         onClose?.();

@@ -213,9 +213,12 @@ test("switches split tabs without waiting on the network", async ({
   page,
 }, testInfo) => {
   const emailAccountId = await getEmailAccountId(page);
+  // New accounts get the default splits; add them only if they are missing,
+  // and remove only what this test added.
+  let seeded = false;
   await withCleanup(
     async () => {
-      await seedInitialSplits(emailAccountId);
+      seeded = await seedInitialSplitsIfMissing(emailAccountId);
       const { conversations } = await openMail(page);
       const unreadTab = page.locator("button[data-split-tab]").filter({
         has: page.locator("[data-split-name]", { hasText: /^Unread$/ }),
@@ -254,6 +257,7 @@ test("switches split tabs without waiting on the network", async ({
       });
     },
     async () => {
+      if (!seeded) return;
       await withClient((client) =>
         client.query('DELETE FROM "MailSplit" WHERE "emailAccountId" = $1', [
           emailAccountId,
@@ -263,11 +267,13 @@ test("switches split tabs without waiting on the network", async ({
   );
 });
 
-async function seedInitialSplits(emailAccountId: string) {
-  await withClient(async (client) => {
-    await client.query('DELETE FROM "MailSplit" WHERE "emailAccountId" = $1', [
-      emailAccountId,
-    ]);
+async function seedInitialSplitsIfMissing(emailAccountId: string) {
+  return withClient(async (client) => {
+    const existing = await client.query(
+      'SELECT 1 FROM "MailSplit" WHERE "emailAccountId" = $1 LIMIT 1',
+      [emailAccountId],
+    );
+    if (existing.rows.length) return false;
     for (const [order, split] of INITIAL_MAIL_SPLITS.entries()) {
       const { rows } = await client.query(
         `INSERT INTO "MailSplit" (id, "updatedAt", "emailAccountId", name, "matchAll", "order")
@@ -283,5 +289,6 @@ async function seedInitialSplits(emailAccountId: string) {
         );
       }
     }
+    return true;
   });
 }

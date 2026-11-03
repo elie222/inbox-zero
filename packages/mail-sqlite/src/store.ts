@@ -2457,14 +2457,23 @@ async function claimHydration(
   const jobs = [{ jobId: String(first.job_id), keys: firstPayload.keys }];
   const seen = new Set(firstPayload.keys.map(messageKeyIdentity));
   if (seen.size < HYDRATION_JOB_KEY_LIMIT) {
-    const companions = await tx.query(
-      `SELECT j.job_id, j.payload_json
-       FROM sync_jobs j
-       WHERE j.kind = 'hydrate' AND j.account_id = ? AND j.job_id != ?
-         AND ${eligible}
-       LIMIT ${HYDRATION_JOB_KEY_LIMIT}`,
-      [first.account_id, first.job_id, input.nowMs, input.nowMs],
-    );
+    // Bodies someone is waiting for join the batch before background ones.
+    const interactiveRange = `j.job_id >= '${INTERACTIVE_HYDRATION_PREFIX}' AND j.job_id < '${INTERACTIVE_HYDRATION_PREFIX_END}'`;
+    const companionsWhere = (range: string) =>
+      tx.query(
+        `SELECT j.job_id, j.payload_json
+         FROM sync_jobs j
+         WHERE ${range} AND j.account_id = ? AND j.job_id != ?
+           AND ${eligible}
+         LIMIT ${HYDRATION_JOB_KEY_LIMIT}`,
+        [first.account_id, first.job_id, input.nowMs, input.nowMs],
+      );
+    const companions = [
+      ...(await companionsWhere(interactiveRange)),
+      ...(await companionsWhere(
+        `j.kind = 'hydrate' AND NOT (${interactiveRange})`,
+      )),
+    ];
     for (const companion of companions) {
       const payload = parseHydrationPayload(companion.payload_json);
       if (payload.purpose !== firstPayload.purpose) continue;

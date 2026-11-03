@@ -125,6 +125,26 @@ export async function sampleUntilSettled(
           Boolean(frame.contentDocument?.body?.innerText.includes(text)),
       );
     };
+    // The body itself, not the row: a collapsed row's header repeats the
+    // start of its body as a snippet.
+    const bodyShowsText = (messageId: string, text: string) => {
+      const row = document.querySelector(
+        `li[data-thread-message-id="${CSS.escape(messageId)}"]`,
+      );
+      if (!row || !isRendered(row)) return false;
+      return (
+        Array.from(row.querySelectorAll("pre")).some(
+          (body) =>
+            isRendered(body) && (body as HTMLElement).innerText.includes(text),
+        ) ||
+        Array.from(row.querySelectorAll("iframe")).some(
+          (frame) =>
+            frame.dataset.emailReady === "true" &&
+            isRendered(frame) &&
+            Boolean(frame.contentDocument?.body?.innerText.includes(text)),
+        )
+      );
+    };
     const sentReplyRow = (text: string) =>
       Array.from(
         document.querySelectorAll<HTMLElement>(
@@ -163,19 +183,12 @@ export async function sampleUntilSettled(
               button.textContent?.trim().startsWith("Undo") &&
               isRendered(button),
           );
-        case "messageBody": {
-          const row = document.querySelector(
-            `li[data-thread-message-id="${CSS.escape(probe.messageId)}"]`,
-          );
-          return Boolean(row && showsText(row, probe.text));
-        }
+        case "messageBody":
+          return bodyShowsText(probe.messageId, probe.text);
         case "messageBodies":
-          return probe.bodies.every(({ messageId, text }) => {
-            const row = document.querySelector(
-              `li[data-thread-message-id="${CSS.escape(messageId)}"]`,
-            );
-            return Boolean(row && showsText(row, text));
-          });
+          return probe.bodies.every(({ messageId, text }) =>
+            bodyShowsText(messageId, text),
+          );
         case "element": {
           const matches = Array.from(
             document.querySelectorAll(probe.selector),

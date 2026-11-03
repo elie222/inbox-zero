@@ -73,7 +73,8 @@ test("opens newly arrived mail without waiting on the network", async ({
   );
 });
 
-// Unread messages open expanded, so this also shows all 30 bodies at once.
+// Unread messages open expanded, so this shows all 20 bodies at once. Up to
+// 20 missing bodies arrive in one request; each further 20 takes another.
 test("opens a long conversation without waiting on the network", async ({
   context,
   page,
@@ -83,15 +84,15 @@ test("opens a long conversation without waiting on the network", async ({
   const messageIds: string[] = [];
   await withCleanup(
     async () => {
-      for (let index = 0; index < 30; index += 1) {
+      for (let index = 0; index < 20; index += 1) {
         messageIds.push(
           await insertInboxMailInConversation(page, {
             threadId: "thr_playwright_reader_html",
             messageId: "msg_playwright_reader_html",
             subject: "Re: Reader Html Message",
             from: "Dana Example <dana@example.com>",
-            bodyText: `Long conversation ${runId} message ${index}`,
-            bodyHtml: `<p>Long conversation ${runId} message ${index}</p>`,
+            bodyText: `Long conversation ${runId} message [${index}]`,
+            bodyHtml: `<p>Long conversation ${runId} message [${index}]</p>`,
           }),
         );
       }
@@ -100,7 +101,11 @@ test("opens a long conversation without waiting on the network", async ({
         conversations,
         "Reader Html Message",
       );
-      await waitForRowText(page, row, `Long conversation ${runId} message 29`);
+      await waitForRowText(
+        page,
+        row,
+        `Long conversation ${runId} message [19]`,
+      );
       // Slow before reloading, so the bodies cannot arrive ahead of the click.
       const network = await slowNetwork(context, page);
       await page.reload({ waitUntil: "domcontentloaded" });
@@ -125,7 +130,7 @@ test("opens a long conversation without waiting on the network", async ({
             kind: "messageBodies",
             bodies: messageIds.map((messageId, index) => ({
               messageId,
-              text: `Long conversation ${runId} message ${index}`,
+              text: `Long conversation ${runId} message [${index}]`,
             })),
             budgetMs: JUST_ARRIVED_BUDGET_MS,
           },
