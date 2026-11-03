@@ -58,10 +58,9 @@ const formatRecipientsWithNames = (recipientList: string) =>
 const formatRecipientWithName = (recipient: string) => {
   // An unbalanced quote in a display name leaves several recipients in one
   // entry; show them as text rather than linking only the first.
-  if (recipient.split("<").length > 2) return escapeHtml(recipient);
-
   const address = parseNameAndAddress(recipient);
-  if (!address) return escapeHtml(recipient);
+  if (!address || recipient.split("<").length > 2 || !recipient.endsWith(">"))
+    return escapeHtml(recipient);
 
   return `${address.name} &lt;<a href="mailto:${address.email}">${address.email}</a>&gt;`;
 };

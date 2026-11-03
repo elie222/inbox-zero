@@ -271,6 +271,21 @@ ${message.textHtml}
     expect(html).toContain(
       "To: Sales 12&quot; &lt;sales@example.com&gt;, Bob &lt;bob@example.com&gt;<br>",
     );
+
+    const withBareRecipient = forwardEmailHtml({
+      content: "",
+      message: {
+        ...message,
+        headers: {
+          ...message.headers,
+          to: 'Sales 12" <sales@example.com>, bob@example.com',
+        },
+      } as ParsedMessage,
+    });
+
+    expect(withBareRecipient).toContain(
+      "To: Sales 12&quot; &lt;sales@example.com&gt;, bob@example.com<br>",
+    );
   });
 
   it("omits the Cc line when the forwarded message has no Cc", () => {
