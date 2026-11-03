@@ -47,6 +47,10 @@ export async function withProviderRetry<T>(
         throw attempt.error;
       }
 
+      // No retry follows the last attempt, so waiting would only delay the
+      // error.
+      if (attempt.retriesLeft === 0) throw attempt.error;
+
       const retryLogFields = {
         delaySeconds: Math.ceil(delayMs / 1000),
         maxBlockingDelaySeconds: Math.ceil(maxBlockingDelayMs / 1000),

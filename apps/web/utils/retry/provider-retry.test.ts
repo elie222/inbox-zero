@@ -1,5 +1,37 @@
 import { describe, expect, it } from "vitest";
-import { getRetryAfterDelayMs } from "./provider-retry";
+import { createScopedLogger } from "@/utils/logger";
+import { getRetryAfterDelayMs, withProviderRetry } from "./provider-retry";
+
+describe("withProviderRetry", () => {
+  it("does not wait out the backoff after the last failed attempt", async () => {
+    const rateLimited = new Error("rate limited");
+    let attempts = 0;
+    const startedAt = Date.now();
+    await expect(
+      withProviderRetry(
+        async () => {
+          attempts++;
+          throw rateLimited;
+        },
+        {
+          classify: (attempt) => ({
+            delayMs: attempt.attemptNumber === 1 ? 10 : 5000,
+            isRateLimit: true,
+            logFields: {},
+            retryable: true,
+          }),
+          logger: createScopedLogger("provider-retry-test"),
+          maxBlockingDelayMs: 10_000,
+          maxRetries: 1,
+          providerName: "Test",
+          retryPolicy: "all",
+        },
+      ),
+    ).rejects.toBe(rateLimited);
+    expect(attempts).toBe(2);
+    expect(Date.now() - startedAt).toBeLessThan(2000);
+  });
+});
 
 describe("getRetryAfterDelayMs", () => {
   it("uses Retry-After header in seconds", () => {
