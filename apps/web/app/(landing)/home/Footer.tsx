@@ -13,6 +13,7 @@ export const footerNavigation = {
       target: "_blank",
     },
     { name: "AI Email Assistant", href: "/ai-email-assistant" },
+    { name: "AI Email Automation", href: "/ai-automation" },
     { name: "Email App", href: "/email-client" },
     { name: "Mobile App", href: "/mobile-app" },
     { name: "Download", href: "/download" },
