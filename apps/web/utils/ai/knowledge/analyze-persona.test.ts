@@ -94,6 +94,14 @@ describe("schedulePersonaAnalysis", () => {
     expect(await run(async () => true)).toBe(true);
   });
 
+  it("reports incomplete when the conditional write updates no rows", async () => {
+    prisma.emailAccount.updateMany.mockResolvedValue({ count: 0 });
+    const run = await scheduledRun();
+
+    expect(await run(async () => true)).toBe(false);
+    expect(prisma.emailAccount.updateMany).toHaveBeenCalledOnce();
+  });
+
   it("does not persist after losing lock ownership", async () => {
     const run = await scheduledRun();
     expect(await run(async () => false)).toBe(false);
