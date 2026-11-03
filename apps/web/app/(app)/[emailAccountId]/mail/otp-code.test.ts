@@ -1,10 +1,35 @@
 import { describe, expect, it } from "vitest";
+import { GmailLabel } from "@/utils/gmail/label";
 import { getThreadOtpCode } from "./otp-code";
 
 const otpLabel = { id: "Label_otp", name: "OTP" };
 const userLabels = { [otpLabel.id]: otpLabel };
 
 describe("getThreadOtpCode", () => {
+  it("ignores a newer draft when selecting the OTP code", () => {
+    expect(
+      getThreadOtpCode(
+        {
+          snippet: "Code: 123456",
+          messages: [
+            {
+              subject: "Your login code",
+              date: "2026-01-01T00:00:00Z",
+              snippet: "Code: 918273",
+            },
+            {
+              subject: "Your login code",
+              date: "2026-01-02T00:00:00Z",
+              snippet: "Code: 123456",
+              labelIds: [GmailLabel.DRAFT],
+            },
+          ],
+        },
+        userLabels,
+      ),
+    ).toBe("918273");
+  });
+
   it("does not qualify a later ordinary message using an older OTP label", () => {
     expect(
       getThreadOtpCode(

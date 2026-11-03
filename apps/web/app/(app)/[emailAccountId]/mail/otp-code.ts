@@ -4,6 +4,7 @@ import { SystemType } from "@/generated/prisma/enums";
 import { getLatestNonDraftMessage } from "@/utils/email/latest-message";
 import { getMessageTimestamp } from "@/utils/email/message-timestamp";
 import { decodeSnippet } from "@/utils/gmail/decode";
+import { GmailLabel } from "@/utils/gmail/label";
 import { extractOtpCode, isOtpSubject } from "@/utils/otp";
 import { getRuleLabel } from "@/utils/rule/consts";
 
@@ -24,6 +25,7 @@ export function getThreadOtpCode(
 ): string | null {
   const message = getLatestNonDraftMessage({
     messages: thread.messages,
+    isDraft: (message) => message.labelIds?.includes(GmailLabel.DRAFT) ?? false,
     getTimestamp: getMessageTimestamp,
   });
   if (!message) return null;
