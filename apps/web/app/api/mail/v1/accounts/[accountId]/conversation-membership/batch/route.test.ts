@@ -72,7 +72,7 @@ describe("POST /conversation-membership/batch", () => {
     ]);
   });
 
-  it("passes a provider throttle through for every read it stopped", async () => {
+  it("returns a provider throttle as a paused result", async () => {
     getThread.mockRejectedValue(
       Object.assign(new Error("rate limited"), {
         name: "ProviderRateLimitModeError",
