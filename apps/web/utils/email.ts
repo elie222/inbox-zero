@@ -339,7 +339,7 @@ export function isSameOrganization(left: string, right: string): boolean {
 
 // Display names with commas arrive quoted ('"Doe, John"'), which is header
 // syntax rather than part of the name.
-function unquoteDisplayName(name: string) {
+export function unquoteDisplayName(name: string) {
   const quoted = name.match(/^"(.*)"$/);
   if (!quoted) return name;
   return quoted[1].replace(/\\(.)/g, "$1").trim();
