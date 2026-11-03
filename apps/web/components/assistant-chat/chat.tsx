@@ -595,21 +595,21 @@ function ChatContextChip({
   onRemove: () => void;
 }) {
   const { subject, from } = context.message.headers;
-  const isFixRule = context.type === "fix-rule";
-  const Icon = isFixRule ? WrenchIcon : MailIcon;
+  const Icon = context.type === "fix-rule" ? WrenchIcon : MailIcon;
 
   return (
     <div className="px-2 pt-2">
-      <div className="flex max-w-full items-center gap-2.5 rounded-lg border bg-muted/40 py-1.5 pl-2.5 pr-1">
+      <div
+        data-testid="chat-context-card"
+        className="flex max-w-full items-center gap-2.5 rounded-lg border bg-muted/40 py-1.5 pl-2.5 pr-1"
+      >
         <Icon className="size-4 shrink-0 text-muted-foreground" />
         <div className="min-w-0 flex-1 leading-tight">
           <div className="truncate text-sm font-medium">
             {subject || "(no subject)"}
           </div>
           <div className="truncate text-xs text-muted-foreground">
-            {isFixRule
-              ? "Fixing rule for this email"
-              : extractNameFromEmail(from)}
+            {extractNameFromEmail(from)}
           </div>
         </div>
         <Button
