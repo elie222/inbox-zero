@@ -12,6 +12,7 @@ vi.mock("@/env", () => ({
 
 import {
   getPreparedEmailHtml,
+  needsImageProxy,
   prepareSanitizedEmailHtml,
   sanitizeEmailHtml,
 } from "./prepare-html.client";
@@ -108,7 +109,7 @@ describe("preparing html for the image proxy", () => {
     const sourceHtml = sanitizeEmailHtml(html);
     const messageId = `local-${_case}`;
 
-    expect(getPreparedEmailHtml({ messageId, sourceHtml })).toBe(sourceHtml);
+    expect(needsImageProxy(sourceHtml)).toBe(false);
     await expect(
       prepareSanitizedEmailHtml({ messageId, sourceHtml }),
     ).resolves.toBe(sourceHtml);
@@ -159,6 +160,7 @@ describe("preparing html for the image proxy", () => {
     const sourceHtml = sanitizeEmailHtml(html);
     const messageId = `remote-${_case}`;
 
+    expect(needsImageProxy(sourceHtml)).toBe(true);
     expect(getPreparedEmailHtml({ messageId, sourceHtml })).toBeUndefined();
     await expect(
       prepareSanitizedEmailHtml({ messageId, sourceHtml }),

@@ -6,7 +6,9 @@ import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import {
   clearWorkflowMailboxDrafts,
   expectThreadReaderBody,
+  insertInboxMailInConversation,
   openMail,
+  requestMailSync,
   readLatestMailMutation,
   UNDO_WINDOW_SEND_TIMEOUT_MS,
 } from "./mail-test-helpers";
@@ -193,6 +195,66 @@ test("opens an html message without waiting on the network", async ({
   await network.restore();
 
   await recordLatency(testInfo, "open-html-thread", result, network.delayed);
+  expectWithinBudget(result);
+});
+
+test("opens an email with remote images without waiting on the network", async ({
+  context,
+  page,
+}, testInfo) => {
+  const { conversations } = await openMail(page);
+  const bodyText = `Remote image email ${Date.now()}`;
+  const messageId = await insertInboxMailInConversation(page, {
+    threadId: "thr_playwright_reader_collapse",
+    messageId: "msg_playwright_reader_collapse_2",
+    subject: "Re: Collapsed Reader Message",
+    from: "Dana Example <dana@example.com>",
+    bodyText,
+    // The image proxy has to rewrite this before the image may load, which
+    // used to hold back the whole body.
+    bodyHtml: `<p>${bodyText}</p><img src="https://images.example.com/banner.png" width="600" height="200" alt="">`,
+  });
+  const row = conversations
+    .getByRole("option")
+    .filter({ hasText: "Collapsed Reader Message" })
+    .first();
+  await expect
+    .poll(
+      async () => {
+        await requestMailSync(page);
+        return row.textContent();
+      },
+      { timeout: 60_000 },
+    )
+    .toContain(bodyText);
+  // Sync stores the body; reading it once confirms it is on the device. The
+  // reload then empties the in-memory caches, as on a fresh visit, and the
+  // slow network keeps the list's own prefetch from preparing it first.
+  await row.click();
+  await expectThreadReaderBody(page, bodyText);
+  const network = await slowNetwork(context, page);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page
+    .getByRole("button", { name: "Back to inbox", exact: true })
+    .click();
+  await expect(row).toBeVisible({ timeout: 60_000 });
+
+  const sampler = await sampleUntilSettled(page, {
+    startSelector: '[role="option"]',
+    probes: [
+      { name: "bodyVisible", kind: "messageBody", messageId, text: bodyText },
+    ],
+  });
+  await row.click();
+  const result = await sampler.finish();
+  await network.restore();
+
+  await recordLatency(
+    testInfo,
+    "open-remote-image-email",
+    result,
+    network.delayed,
+  );
   expectWithinBudget(result);
 });
 

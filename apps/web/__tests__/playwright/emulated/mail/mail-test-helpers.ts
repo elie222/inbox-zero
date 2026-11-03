@@ -285,6 +285,8 @@ export async function insertInboxMailInConversation(
     messageId: string;
     subject: string;
     from: string;
+    bodyText?: string;
+    bodyHtml?: string;
   },
 ) {
   const token = await readProviderAccessToken();
@@ -307,7 +309,8 @@ export async function insertInboxMailInConversation(
         from: input.from,
         to: email,
         subject: input.subject,
-        body_text: "New mail in the archived conversation.",
+        body_text: input.bodyText ?? "New mail in the archived conversation.",
+        ...(input.bodyHtml ? { body_html: input.bodyHtml } : {}),
         labelIds: ["INBOX", "UNREAD"],
         internalDate: String(Date.now()),
       },
@@ -321,7 +324,7 @@ export async function insertInboxMailInConversation(
 async function insertOutlookInboxReply(
   page: Page,
   token: string,
-  input: { messageId: string; subject: string },
+  input: { messageId: string; subject: string; bodyHtml?: string },
 ) {
   const baseUrl = process.env.MICROSOFT_BASE_URL;
   if (!baseUrl) throw new Error("MICROSOFT_BASE_URL is missing");
@@ -342,10 +345,12 @@ async function insertOutlookInboxReply(
       headers,
       data: {
         subject: input.subject,
-        body: {
-          contentType: "text",
-          content: "New mail in the archived conversation.",
-        },
+        body: input.bodyHtml
+          ? { contentType: "html", content: input.bodyHtml }
+          : {
+              contentType: "text",
+              content: "New mail in the archived conversation.",
+            },
         isRead: false,
       },
     },

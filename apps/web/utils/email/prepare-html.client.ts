@@ -28,6 +28,15 @@ export function sanitizeEmailHtml(html: string) {
   return sanitizeMailHtml(stripSentMessageOpenPixels(html));
 }
 
+/**
+ * Whether the html has to go through the image proxy before remote images may
+ * load. Html that does not is shown as it is, with remote loads still blocked
+ * by the frame's policy in case this check misses one.
+ */
+export function needsImageProxy(sanitizedHtml: string) {
+  return Boolean(IMAGE_PROXY_BASE_URL) && hasRemoteAssets(sanitizedHtml);
+}
+
 export function getPreparedEmailHtml({
   messageId,
   sourceHtml,
@@ -35,7 +44,6 @@ export function getPreparedEmailHtml({
   messageId: string;
   sourceHtml: string;
 }) {
-  if (!hasRemoteAssets(sourceHtml)) return sourceHtml;
   const prepared = preparedHtml.get(messageId);
   if (
     !prepared ||
@@ -69,8 +77,7 @@ export function prepareSanitizedEmailHtml({
   messageId: string;
   sourceHtml: string;
 }) {
-  if (!IMAGE_PROXY_BASE_URL || !hasRemoteAssets(sourceHtml))
-    return Promise.resolve(sourceHtml);
+  if (!needsImageProxy(sourceHtml)) return Promise.resolve(sourceHtml);
 
   const cached = getPreparedEmailHtml({ messageId, sourceHtml });
   if (cached !== undefined) return Promise.resolve(cached);

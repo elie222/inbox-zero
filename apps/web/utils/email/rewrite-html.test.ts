@@ -134,11 +134,27 @@ describe("rewriteHtmlRemoteAssetUrls", () => {
         "https://cdn.example.com/photo@3x.png",
       ],
     },
+    {
+      name: "a candidate has no descriptor",
+      html: '<img srcset="https://cdn.example.com/photo.png, https://cdn.example.com/photo@2x.png 2x" />',
+      expectedUrls: [
+        "https://cdn.example.com/photo.png",
+        "https://cdn.example.com/photo@2x.png",
+      ],
+    },
+    {
+      name: "a data uri precedes a remote candidate",
+      html: '<img srcset="data:image/png;base64,AAAA, https://cdn.example.com/photo@2x.png 2x" />',
+      expectedUrls: ["https://cdn.example.com/photo@2x.png"],
+    },
   ])("rewrites srcset when $name", async ({ html, expectedUrls }) => {
     const rewrittenHtml = await rewriteHtmlRemoteAssetUrls(html, proxyOptions);
 
     for (const expectedUrl of expectedUrls) {
       expect(rewrittenHtml).toContain(encodeURIComponent(expectedUrl));
     }
+    // A browser would load any URL left as it was directly.
+    const srcset = rewrittenHtml.match(/srcset="([^"]*)"/)?.[1] ?? "";
+    expect(srcset).not.toMatch(/(^|[\s,])https:\/\/cdn\.example\.com/);
   });
 });

@@ -13,6 +13,7 @@ import {
   getPreparedEmailHtml,
   IMAGE_PROXY_BASE_URL,
   IMAGE_PROXY_ORIGIN,
+  needsImageProxy,
   prepareSanitizedEmailHtml,
   sanitizeEmailHtml,
 } from "@/utils/email/prepare-html.client";
@@ -76,9 +77,10 @@ export function HtmlEmail({
     [inlineAttachments],
   );
   const [showReplies, setShowReplies] = useState(false);
-  const [renderHtml, setRenderHtml] = useState(() =>
-    getInitialRenderHtml({ messageId, cacheKey, sanitizedHtml }),
+  const [rendered, setRendered] = useState(() =>
+    getInitialRender({ messageId, cacheKey, sanitizedHtml }),
   );
+  const renderHtml = rendered.html;
   const { resolvedTheme } = useTheme();
   const isDarkMode = resolvedTheme === "dark";
 
@@ -87,14 +89,15 @@ export function HtmlEmail({
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
-    const initialHtml = getInitialRenderHtml({
-      messageId,
-      cacheKey,
-      sanitizedHtml,
-    });
-    // A sent reply keeps its row when it syncs under a new id. Clearing the
-    // body while that id's html is prepared would blank the message.
-    if (initialHtml !== null) setRenderHtml(initialHtml);
+    const initial = getInitialRender({ messageId, cacheKey, sanitizedHtml });
+    // A sent reply keeps its row when it syncs under a new id. Showing that
+    // id's html with its images held back would blank them in the message.
+    if (initial.images !== "pending") setRendered(initial);
+    const images = getPreparedImages(sanitizedHtml);
+    const show = (html: string) =>
+      startTransition(() =>
+        setRendered({ html: withLoadedInlineImages(cacheKey, html), images }),
+      );
 
     const preparedHtml = prepareSanitizedEmailHtml({
       messageId,
@@ -103,10 +106,7 @@ export function HtmlEmail({
     // Inline images download separately so a slow attachment doesn't hold
     // back the body.
     preparedHtml.then((html) => {
-      if (!cancelled)
-        startTransition(() =>
-          setRenderHtml(withLoadedInlineImages(cacheKey, html)),
-        );
+      if (!cancelled) show(html);
     });
     Promise.all([
       preparedHtml,
@@ -121,13 +121,11 @@ export function HtmlEmail({
     ]).then(
       ([rewrittenHtml, loadedNewImages]) => {
         if (cancelled || !loadedNewImages) return;
-        startTransition(() =>
-          setRenderHtml(withLoadedInlineImages(cacheKey, rewrittenHtml)),
-        );
+        show(rewrittenHtml);
       },
       () => {
         if (cancelled) return;
-        startTransition(() => setRenderHtml(sanitizedHtml));
+        show(sanitizedHtml);
       },
     );
 
@@ -138,9 +136,12 @@ export function HtmlEmail({
   }, [cacheKey, emailAccountId, inlineImageIds, messageId, sanitizedHtml]);
 
   const { mainContent, quotedContent, hasQuotedContent } = useMemo(
-    () => splitEmailContent(renderHtml ?? ""),
+    () => splitEmailContent(renderHtml),
     [renderHtml],
   );
+  // The proxied document replaces this one, so the key must change with it
+  // even when the proxy leaves the html as it was.
+  const imageModeKey = `${rendered.images}:`;
   const applyDarkTheme = shouldApplyDarkMailTheme(mainContent, isDarkMode);
   const applyQuotedDarkTheme = shouldApplyDarkMailTheme(
     quotedContent,
@@ -148,8 +149,8 @@ export function HtmlEmail({
   );
 
   const documentKey = useMemo(
-    () => getMailHtmlDocumentKey(mainContent, applyDarkTheme),
-    [mainContent, applyDarkTheme],
+    () => getMailHtmlDocumentKey(imageModeKey + mainContent, applyDarkTheme),
+    [imageModeKey, mainContent, applyDarkTheme],
   );
   const srcDoc = useMemo(
     () =>
@@ -159,13 +160,19 @@ export function HtmlEmail({
         imageProxyBaseUrl: IMAGE_PROXY_BASE_URL,
         imageProxyOrigin: IMAGE_PROXY_ORIGIN,
         documentKey,
+        allowRemoteImages: rendered.images === "allowed",
+        remoteImagesPending: rendered.images === "pending",
       }),
-    [mainContent, applyDarkTheme, documentKey],
+    [mainContent, applyDarkTheme, documentKey, rendered.images],
   );
 
   const quotedDocumentKey = useMemo(
-    () => getMailHtmlDocumentKey(quotedContent, applyQuotedDarkTheme),
-    [quotedContent, applyQuotedDarkTheme],
+    () =>
+      getMailHtmlDocumentKey(
+        imageModeKey + quotedContent,
+        applyQuotedDarkTheme,
+      ),
+    [imageModeKey, quotedContent, applyQuotedDarkTheme],
   );
   const quotedSrcDoc = useMemo(
     () =>
@@ -175,8 +182,10 @@ export function HtmlEmail({
         imageProxyBaseUrl: IMAGE_PROXY_BASE_URL,
         imageProxyOrigin: IMAGE_PROXY_ORIGIN,
         documentKey: quotedDocumentKey,
+        allowRemoteImages: rendered.images === "allowed",
+        remoteImagesPending: rendered.images === "pending",
       }),
-    [quotedContent, applyQuotedDarkTheme, quotedDocumentKey],
+    [quotedContent, applyQuotedDarkTheme, quotedDocumentKey, rendered.images],
   );
   const callbacks = {
     onForwardMessage,
@@ -184,8 +193,6 @@ export function HtmlEmail({
     onReplyMessage,
     onFocusMessage,
   };
-
-  if (renderHtml === null) return <div data-email-ready="false" />;
 
   return (
     <div className="relative min-w-0 overflow-x-hidden">
@@ -229,9 +236,12 @@ export function PlainEmail({ text }: { text: string }) {
   return <MailPlainTextBody segments={segments} />;
 }
 
-// Showing the original html first would load remote images directly and then
-// reload them all through the proxy, so the body waits for the proxied html.
-function getInitialRenderHtml({
+/**
+ * What to show before any preparation finishes. Html with remote images is
+ * shown straight away with those images held back; the proxied document then
+ * replaces it, so the reader never waits on the proxy to see the text.
+ */
+function getInitialRender({
   messageId,
   cacheKey,
   sanitizedHtml,
@@ -239,13 +249,33 @@ function getInitialRenderHtml({
   messageId: string;
   cacheKey: string;
   sanitizedHtml: string;
-}) {
-  const preparedHtml = IMAGE_PROXY_BASE_URL
-    ? getPreparedEmailHtml({ messageId, sourceHtml: sanitizedHtml })
-    : sanitizedHtml;
-  if (preparedHtml === undefined) return null;
-  return withLoadedInlineImages(cacheKey, preparedHtml);
+}): { html: string; images: RemoteImageMode } {
+  const images = getPreparedImages(sanitizedHtml);
+  if (!needsImageProxy(sanitizedHtml))
+    return { html: withLoadedInlineImages(cacheKey, sanitizedHtml), images };
+  const preparedHtml = getPreparedEmailHtml({
+    messageId,
+    sourceHtml: sanitizedHtml,
+  });
+  if (preparedHtml === undefined)
+    return {
+      html: withLoadedInlineImages(cacheKey, sanitizedHtml),
+      images: "pending",
+    };
+  return { html: withLoadedInlineImages(cacheKey, preparedHtml), images };
 }
+
+/**
+ * How remote images load once the html is ready. Without a proxy they load
+ * directly, as before. With one, only html that went through it may load
+ * them; anything shown without it keeps them blocked.
+ */
+function getPreparedImages(sanitizedHtml: string): RemoteImageMode {
+  if (!IMAGE_PROXY_BASE_URL || needsImageProxy(sanitizedHtml)) return "allowed";
+  return "blocked";
+}
+
+type RemoteImageMode = "allowed" | "blocked" | "pending";
 
 async function loadInlineImageSources({
   emailAccountId,
