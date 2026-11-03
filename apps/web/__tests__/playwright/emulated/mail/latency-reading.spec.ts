@@ -10,6 +10,7 @@ import {
 import {
   conversationWithSubject,
   deleteProviderMessage,
+  expectThreadReaderBody,
   insertInboxMailInConversation,
   openMail,
   requestMailSync,
@@ -164,8 +165,16 @@ test("opens a large newsletter without waiting on the network", async ({
         "Collapsed Reader Message",
       );
       await waitForRowText(page, row, marker);
+      // Read it once so its body is on the device: this case times rendering
+      // a large body, not downloading one. The slow reload then empties the
+      // in-memory caches without letting a fast prefetch prepare it first.
+      await row.click();
+      await expectThreadReaderBody(page, marker);
       const network = await slowNetwork(context, page);
       await page.reload({ waitUntil: "domcontentloaded" });
+      await page
+        .getByRole("button", { name: "Back to inbox", exact: true })
+        .click();
       await expect(row).toBeVisible({ timeout: 60_000 });
 
       await measureInteraction({

@@ -254,10 +254,11 @@ export function useComposeSend({
           : canScheduleDelivery);
       const scheduledThreadId = replyingToEmail?.threadId ?? null;
       let withdrawSchedule = () => {};
+      let sessionDraftIds: string[] = [];
       if (schedulesAtOnce) {
         // The reply's mailbox draft would otherwise show in the thread until
         // the server confirms; the ids are read from this device.
-        const sessionDraftIds = providerDraftMessageId
+        sessionDraftIds = providerDraftMessageId
           ? getDraftSessionMessageIds(
               selectedEmailAccountId,
               providerDraftMessageId,
@@ -338,6 +339,18 @@ export function useComposeSend({
         const isScheduled = isInlineReply
           ? deliveryPath.current === "scheduled"
           : canScheduleDelivery && Boolean(sendAt || remindAt);
+        if (schedulesAtOnce) {
+          // A save that finished meanwhile may have added a draft message.
+          const showLaterDrafts = hideSendingDraftMessages(
+            selectedEmailAccountId,
+            draftMessageIds.filter((id) => !sessionDraftIds.includes(id)),
+          );
+          const withdrawEarlier = withdrawSchedule;
+          withdrawSchedule = () => {
+            withdrawEarlier();
+            showLaterDrafts();
+          };
+        }
         if (isScheduled) {
           const result = await scheduleEmailAction(selectedEmailAccountId, {
             clientMutationId: requestId,
