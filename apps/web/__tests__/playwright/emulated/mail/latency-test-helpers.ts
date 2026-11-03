@@ -194,10 +194,12 @@ export async function sampleUntilSettled(
                 : showsText(element, probe.text),
           );
         case "readerShows": {
-          const reader = document.querySelector(
-            '[data-testid="thread-reader"]',
-          );
-          if (!reader || !showsText(reader, probe.subject)) return false;
+          // The reader keeps the previous conversation mounted while the next
+          // one prepares, so look for whichever reader shows this one.
+          const reader = Array.from(
+            document.querySelectorAll('[data-testid="thread-reader"]'),
+          ).find((candidate) => showsText(candidate, probe.subject));
+          if (!reader) return false;
           const messages = Array.from(
             reader.querySelectorAll("li[data-thread-message-id]"),
           ).filter(isRendered);
@@ -355,6 +357,7 @@ export async function measureInteraction({
   start,
   probes,
   act,
+  network: slowedEarlier,
 }: {
   context: BrowserContext;
   page: Page;
@@ -363,8 +366,10 @@ export async function measureInteraction({
   start: LatencyStart;
   probes: ProbeSpec[];
   act: () => Promise<void>;
+  /** A network slowed before setup, such as a reload, that must also be slow. */
+  network?: Awaited<ReturnType<typeof slowNetwork>>;
 }) {
-  const network = await slowNetwork(context, page);
+  const network = slowedEarlier ?? (await slowNetwork(context, page));
   let result: LatencyResult;
   try {
     const sampler = await sampleUntilSettled(page, { start, probes });
@@ -383,4 +388,28 @@ export async function measureInteraction({
     ),
   );
   return result;
+}
+
+/**
+ * Runs a test body and its cleanup. A cleanup failure is reported only when
+ * the body passed, so it never hides the failure the body found.
+ */
+export async function withCleanup(
+  body: () => Promise<void>,
+  cleanup: () => Promise<void>,
+) {
+  let bodyFailed = false;
+  let bodyError: unknown;
+  try {
+    await body();
+  } catch (error) {
+    bodyFailed = true;
+    bodyError = error;
+  }
+  try {
+    await cleanup();
+  } catch (error) {
+    if (!bodyFailed) throw error;
+  }
+  if (bodyFailed) throw bodyError;
 }

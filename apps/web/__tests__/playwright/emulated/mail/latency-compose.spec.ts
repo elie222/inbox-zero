@@ -1,6 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 import { test } from "../playwright-test";
-import { measureInteraction } from "./latency-test-helpers";
+import { measureInteraction, withCleanup } from "./latency-test-helpers";
 import {
   clearWorkflowMailboxDrafts,
   openMail,
@@ -95,50 +95,55 @@ test("schedules a reply without waiting on the network", async ({
 }, testInfo) => {
   const sourceMessage = await openReplyConversation(page);
   const emailAccountId = await getEmailAccountId(page);
-  try {
-    await sourceMessage
-      .getByRole("button", { name: "Reply", exact: true })
-      .click();
-    const editor = sourceMessage.getByRole("textbox", {
-      name: "Email message",
-    });
-    const body = `A reply scheduled at once. ${Date.now()}`;
-    await editor.pressSequentially(body);
-    await page.getByRole("button", { name: "Send later", exact: true }).click();
-    await page
-      .getByRole("dialog", { name: "Send later" })
-      .getByRole("button", { name: /Tomorrow morning/ })
-      .click();
+  await withCleanup(
+    async () => {
+      await sourceMessage
+        .getByRole("button", { name: "Reply", exact: true })
+        .click();
+      const editor = sourceMessage.getByRole("textbox", {
+        name: "Email message",
+      });
+      const body = `A reply scheduled at once. ${Date.now()}`;
+      await editor.pressSequentially(body);
+      await page
+        .getByRole("button", { name: "Send later", exact: true })
+        .click();
+      await page
+        .getByRole("dialog", { name: "Send later" })
+        .getByRole("button", { name: /Tomorrow morning/ })
+        .click();
 
-    await measureInteraction({
-      context,
-      page,
-      testInfo,
-      interaction: "schedule-reply",
-      start: { click: "button" },
-      probes: [
-        { name: "composerClosed", kind: "composerGone", text: body },
-        {
-          name: "scheduledStatus",
-          kind: "element",
-          selector: '[aria-label="Reply delivery status"]',
-          // "Scheduling for" at once, "Scheduled for" once confirmed.
-          text: "Schedul",
-        },
-      ],
-      act: () =>
-        sourceMessage
-          .getByRole("button", { name: "Send", exact: true })
-          .click(),
-    });
-  } finally {
-    await withClient((client) =>
-      client.query(
-        'DELETE FROM "ScheduledEmail" WHERE "emailAccountId" = $1 AND "threadId" = $2',
-        [emailAccountId, "thr_playwright_reply"],
-      ),
-    );
-  }
+      await measureInteraction({
+        context,
+        page,
+        testInfo,
+        interaction: "schedule-reply",
+        start: { click: "button" },
+        probes: [
+          { name: "composerClosed", kind: "composerGone", text: body },
+          {
+            name: "scheduledStatus",
+            kind: "element",
+            selector: '[aria-label="Reply delivery status"]',
+            // "Scheduling for" at once, "Scheduled for" once confirmed.
+            text: "Schedul",
+          },
+        ],
+        act: () =>
+          sourceMessage
+            .getByRole("button", { name: "Send", exact: true })
+            .click(),
+      });
+    },
+    async () => {
+      await withClient((client) =>
+        client.query(
+          'DELETE FROM "ScheduledEmail" WHERE "emailAccountId" = $1 AND "threadId" = $2',
+          [emailAccountId, "thr_playwright_reply"],
+        ),
+      );
+    },
+  );
 });
 
 async function openReplyConversation(page: Page) {
@@ -153,21 +158,18 @@ async function openReplyConversation(page: Page) {
 
 /**
  * Finishes typing so a mailbox draft save is on its way when Send is pressed,
- * which is when a send used to wait. A composer that saves no draft yet
- * simply sends.
+ * which is when a send used to wait.
  */
 async function sendWhileDraftSaves(
   page: Page,
   editor: ReturnType<Page["locator"]>,
 ) {
-  const draftSave = page
-    .waitForRequest(
-      (request) =>
-        request.method() === "POST" &&
-        Boolean(request.headers()["next-action"]),
-      { timeout: 10_000 },
-    )
-    .catch(() => undefined);
+  // Required: without a save in flight the test would not cover the case.
+  const draftSave = page.waitForRequest(
+    (request) =>
+      request.method() === "POST" && Boolean(request.headers()["next-action"]),
+    { timeout: 10_000 },
+  );
   await editor.pressSequentially(".");
   await draftSave;
 }

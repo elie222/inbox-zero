@@ -2,7 +2,7 @@ import { expect } from "@playwright/test";
 import { INITIAL_MAIL_SPLITS } from "@/utils/split-inbox/initial-splits";
 import { getEmailAccountId } from "../account-test-helpers";
 import { test } from "../playwright-test";
-import { measureInteraction } from "./latency-test-helpers";
+import { measureInteraction, withCleanup } from "./latency-test-helpers";
 import {
   conversationWithSubject,
   openMail,
@@ -22,18 +22,35 @@ test("archives a conversation without waiting on the network", async ({
     .getByRole("checkbox", { name: /^Select conversation with/ })
     .click();
 
-  await measureInteraction({
-    context,
-    page,
-    testInfo,
-    interaction: "archive-conversation",
-    start: { click: "button" },
-    probes: [
-      { name: "rowRemoved", kind: "noElement", selector: ROW, text: subject },
-    ],
-    act: () =>
-      page.getByRole("button", { name: "Archive", exact: true }).click(),
-  });
+  await withCleanup(
+    () =>
+      measureInteraction({
+        context,
+        page,
+        testInfo,
+        interaction: "archive-conversation",
+        start: { click: "button" },
+        probes: [
+          {
+            name: "rowRemoved",
+            kind: "noElement",
+            selector: ROW,
+            text: subject,
+          },
+        ],
+        act: () =>
+          page.getByRole("button", { name: "Archive", exact: true }).click(),
+      }).then(() => {}),
+    // Other specs share this mailbox, so put the conversation back.
+    async () => {
+      const undo = page
+        .getByRole("region", { name: "Notifications alt+T" })
+        .getByRole("button", { name: /^Undo/ });
+      if (await undo.isVisible()) await undo.click();
+      else await page.keyboard.press("z");
+      await expect(row).toBeVisible();
+    },
+  );
 });
 
 test("marks a conversation unread without waiting on the network", async ({
@@ -49,22 +66,35 @@ test("marks a conversation unread without waiting on the network", async ({
   const markUnread = page.getByRole("button", { name: "Mark as unread" });
   await expect(markUnread).toBeVisible();
 
-  await measureInteraction({
-    context,
-    page,
-    testInfo,
-    interaction: "mark-unread",
-    start: { click: "button" },
-    probes: [
-      {
-        name: "rowShowsUnread",
-        kind: "element",
-        selector: `${ROW}:has(.font-semibold)`,
-        text: subject,
-      },
-    ],
-    act: () => markUnread.click(),
-  });
+  await withCleanup(
+    () =>
+      measureInteraction({
+        context,
+        page,
+        testInfo,
+        interaction: "mark-unread",
+        start: { click: "button" },
+        probes: [
+          {
+            name: "rowShowsUnread",
+            kind: "element",
+            selector: `${ROW}:has(.font-semibold)`,
+            text: subject,
+          },
+        ],
+        act: () => markUnread.click(),
+      }).then(() => {}),
+    // Later cases rely on this conversation being read.
+    async () => {
+      const markRead = page.getByRole("button", { name: "Mark as read" });
+      if (!(await markRead.isVisible()))
+        await row
+          .getByRole("checkbox", { name: /^Select conversation with/ })
+          .click();
+      await markRead.click();
+      await expect(row.locator(".font-semibold")).toHaveCount(0);
+    },
+  );
 });
 
 test("labels a conversation without waiting on the network", async ({
@@ -150,16 +180,22 @@ test("moves to the next conversation without waiting on the network", async ({
     conversations,
     "Reader Navigation Message",
   ).click();
+  // The reader double-buffers during a switch, so wait for one to settle.
   const reader = page.getByTestId("thread-reader");
-  await expect(reader).toContainText("Reader Navigation Message");
+  const settledOn = async (subject: string) => {
+    await expect(reader).toHaveCount(1);
+    await expect(reader).toContainText(subject);
+  };
+  await settledOn("Reader Navigation Message");
   // Learn which conversation is next, then return to start from a cold read.
   await page.keyboard.press("j");
+  await expect(reader).toHaveCount(1);
   const next = reader.getByRole("heading").first();
   await expect(next).not.toHaveText("Reader Navigation Message");
   const nextSubject = (await next.textContent())?.trim() ?? "";
   expect(nextSubject).not.toBe("");
   await page.keyboard.press("k");
-  await expect(reader).toContainText("Reader Navigation Message");
+  await settledOn("Reader Navigation Message");
 
   await measureInteraction({
     context,
@@ -177,47 +213,54 @@ test("switches split tabs without waiting on the network", async ({
   page,
 }, testInfo) => {
   const emailAccountId = await getEmailAccountId(page);
-  await seedInitialSplits(emailAccountId);
-  try {
-    const { conversations } = await openMail(page);
-    const unreadTab = page.locator("button[data-split-tab]").filter({
-      has: page.locator("[data-split-name]", { hasText: /^Unread$/ }),
-    });
-    await expect(unreadTab).toBeVisible({ timeout: 60_000 });
-    // A read conversation shows under All and not under Unread.
-    await expect(
-      conversationWithSubject(page, conversations, "Collapsed Reader Message"),
-    ).toBeVisible();
+  await withCleanup(
+    async () => {
+      await seedInitialSplits(emailAccountId);
+      const { conversations } = await openMail(page);
+      const unreadTab = page.locator("button[data-split-tab]").filter({
+        has: page.locator("[data-split-name]", { hasText: /^Unread$/ }),
+      });
+      await expect(unreadTab).toBeVisible({ timeout: 60_000 });
+      // A read conversation shows under All and not under Unread.
+      await expect(
+        conversationWithSubject(
+          page,
+          conversations,
+          "Collapsed Reader Message",
+        ),
+      ).toBeVisible();
 
-    await measureInteraction({
-      context,
-      page,
-      testInfo,
-      interaction: "switch-split",
-      start: { click: "button[data-split-tab]" },
-      probes: [
-        {
-          name: "tabSelected",
-          kind: "element",
-          selector: 'button[data-split-tab][aria-current="true"]',
-          text: "Unread",
-        },
-        {
-          name: "readRowHidden",
-          kind: "noElement",
-          selector: ROW,
-          text: "Collapsed Reader Message",
-        },
-      ],
-      act: () => unreadTab.click(),
-    });
-  } finally {
-    await withClient((client) =>
-      client.query('DELETE FROM "MailSplit" WHERE "emailAccountId" = $1', [
-        emailAccountId,
-      ]),
-    );
-  }
+      await measureInteraction({
+        context,
+        page,
+        testInfo,
+        interaction: "switch-split",
+        start: { click: "button[data-split-tab]" },
+        probes: [
+          {
+            name: "tabSelected",
+            kind: "element",
+            selector: 'button[data-split-tab][aria-current="true"]',
+            text: "Unread",
+          },
+          {
+            name: "readRowHidden",
+            kind: "noElement",
+            selector: ROW,
+            text: "Collapsed Reader Message",
+          },
+        ],
+        act: () => unreadTab.click(),
+      });
+    },
+    async () => {
+      await withClient((client) =>
+        client.query('DELETE FROM "MailSplit" WHERE "emailAccountId" = $1', [
+          emailAccountId,
+        ]),
+      );
+    },
+  );
 });
 
 async function seedInitialSplits(emailAccountId: string) {

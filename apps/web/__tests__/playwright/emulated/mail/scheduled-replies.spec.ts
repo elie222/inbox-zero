@@ -6,6 +6,7 @@ import { test } from "../playwright-test";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 import type { ThreadsResponse } from "@/app/api/threads/route";
 import {
+  clearWorkflowMailboxDrafts,
   conversationWithSubject,
   openMail,
   openMailboxFromSidebar,
@@ -562,6 +563,8 @@ test("reopens a reply whose scheduling failed", async ({ page }) => {
         [emailAccountId, THREAD_ID],
       ),
     );
+    // Nothing was scheduled, so the reply's mailbox draft is still there.
+    await clearWorkflowMailboxDrafts(page);
   }
 });
 
