@@ -161,6 +161,23 @@ describe("createAndSaveFilingFolder", () => {
     vi.clearAllMocks();
   });
 
+  it("returns the actual casing of reused folders in the full path", async () => {
+    const provider = createMockProvider(
+      new Map([[undefined, [createMockFolder("plans", "PLANS-2026")]]]),
+      "microsoft",
+    );
+
+    const result = await createAndSaveFilingFolder({
+      driveProvider: provider,
+      folderPath: "Plans:2026/Reports",
+      emailAccountId: "email-account-1",
+      driveConnectionId: "drive-1",
+      logger,
+    });
+
+    expect(result.path).toBe("PLANS-2026/Reports");
+  });
+
   it.each([
     { providerName: "google", path: "2026/Acme", savedPath: "2026/Acme" },
     {
@@ -191,6 +208,7 @@ describe("createAndSaveFilingFolder", () => {
     const repeated = await createAndSaveFilingFolder(options);
 
     expect(repeated.id).toBe(first.id);
+    expect(first.path).toBe(`Finance/Receipts/${savedPath}`);
     expect(provider.createFolder).toHaveBeenCalledTimes(2);
     expect(provider.listFolders).toHaveBeenCalledWith("chosen-parent");
     expect(prisma.filingFolder.upsert).toHaveBeenCalledWith(
