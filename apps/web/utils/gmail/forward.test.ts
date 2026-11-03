@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, vi, afterEach } from "vitest";
-import { forwardEmailHtml } from "./forward";
+import { forwardEmailHtml, forwardEmailText } from "./forward";
 import type { ParsedMessage } from "@/utils/types";
 
 describe("email forwarding", () => {
@@ -222,5 +222,74 @@ ${message.textHtml}
     // Basic case should work
     expect(html).toContain("From: attacker@example.com");
     expect(html).toContain("To: victim@example.com");
+  });
+
+  it("lists every recipient of the forwarded message", () => {
+    const message: Pick<ParsedMessage, "headers" | "textHtml"> = {
+      headers: {
+        from: '"Doe, John" <john@example.com>',
+        date: testDate.toISOString(),
+        subject: "Team update",
+        to: 'Alice <alice@example.com>, bob@example.com, "Lee, Sam" <sam@example.com>',
+        cc: "Carol <carol@example.com>",
+      },
+      textHtml: "<p>Update</p>",
+    };
+
+    const html = forwardEmailHtml({
+      content: "",
+      message: message as ParsedMessage,
+    });
+
+    expect(html).toContain(
+      'From: <strong class="gmail_sendername" dir="auto">Doe, John</strong>',
+    );
+    expect(html).toContain(
+      'To: Alice &lt;<a href="mailto:alice@example.com">alice@example.com</a>&gt;, bob@example.com, Lee, Sam &lt;<a href="mailto:sam@example.com">sam@example.com</a>&gt;<br>',
+    );
+    expect(html).toContain(
+      'Cc: Carol &lt;<a href="mailto:carol@example.com">carol@example.com</a>&gt;<br>',
+    );
+  });
+
+  it("omits the Cc line when the forwarded message has no Cc", () => {
+    const message: Pick<ParsedMessage, "headers" | "textHtml"> = {
+      headers: {
+        from: "Sender <sender@example.com>",
+        date: testDate.toISOString(),
+        subject: "Test",
+        to: "Recipient <recipient@example.com>",
+      },
+      textHtml: "<p>Email</p>",
+    };
+
+    const html = forwardEmailHtml({
+      content: "",
+      message: message as ParsedMessage,
+    });
+
+    expect(html).not.toContain("Cc:");
+  });
+});
+
+describe("forwardEmailText", () => {
+  it("includes the Cc recipients of the forwarded message", () => {
+    const text = forwardEmailText({
+      content: "FYI",
+      message: {
+        headers: {
+          from: "Sender <sender@example.com>",
+          date: "Thu, 6 Feb 2025 22:35:00 +0000",
+          subject: "Test",
+          to: "Recipient <recipient@example.com>",
+          cc: "Carol <carol@example.com>",
+        },
+        textPlain: "Original body",
+      } as ParsedMessage,
+    });
+
+    expect(text).toContain(
+      "To: Recipient <recipient@example.com>\nCc: Carol <carol@example.com>\n\nOriginal body",
+    );
   });
 });
