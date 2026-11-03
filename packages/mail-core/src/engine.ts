@@ -168,6 +168,7 @@ export function createMailEngine(input: {
   // A previous engine with this owner id can only have stopped, since one
   // owner runs at a time; its unfinished reads are this engine's to redo.
   let readOnlyClaimsReleased = false;
+  let idleWakers: Array<() => void> = [];
   const assistant = input.assistant;
   const queries = createQueryRegistry();
   let evictedForCurrentPressure = false;
@@ -313,7 +314,12 @@ export function createMailEngine(input: {
       return { status: "scheduled" };
     },
     async ensureMessageContent(key) {
-      await store.enqueueHydration({ keys: [key], purpose: "body" });
+      await store.enqueueHydration({
+        keys: [key],
+        purpose: "body",
+        priority: "interactive",
+      });
+      wakeIdleRun();
       return { status: "scheduled" };
     },
     getDiagnostics(accountId) {
@@ -387,7 +393,7 @@ export function createMailEngine(input: {
           const contacts = await store.indexContactBacklog();
           const { remaining } = await store.indexSearchBacklog();
           if (contacts.remaining || remaining) continue;
-          await waitForSyncLanes(deadlineMs, signal);
+          if (await waitForSyncLanes(deadlineMs, signal)) continue;
           return;
         }
         if (work.kind === "command") {
@@ -523,10 +529,8 @@ export function createMailEngine(input: {
               bodies: hydrated.value.bodies,
             });
             await queries.refreshAll();
-            await store.completeJob({
-              jobId: work.jobId,
-              attemptId: work.attemptId,
-            });
+            for (const jobId of work.jobIds ?? [work.jobId])
+              await store.completeJob({ jobId, attemptId: work.attemptId });
           }
           continue;
         }
@@ -904,10 +908,13 @@ export function createMailEngine(input: {
     syncLaneRetries.delete(accountId);
   }
 
+  /** Resolves true when new work woke the wait before the lanes finished. */
   async function waitForSyncLanes(deadlineMs: number, signal?: AbortSignal) {
+    let woken = false;
     if (syncLanes.size > 0) {
       let timer: ReturnType<typeof setTimeout> | undefined;
       let onAbort: (() => void) | undefined;
+      let onWake: (() => void) | undefined;
       await Promise.race([
         Promise.allSettled([...syncLanes.values()].map((lane) => lane.done)),
         new Promise<void>((resolve) => {
@@ -918,11 +925,26 @@ export function createMailEngine(input: {
           onAbort = resolve;
           signal?.addEventListener("abort", onAbort, { once: true });
         }),
+        new Promise<void>((resolve) => {
+          onWake = () => {
+            woken = true;
+            resolve();
+          };
+          idleWakers.push(onWake);
+        }),
       ]);
       clearTimeout(timer);
       if (onAbort) signal?.removeEventListener("abort", onAbort);
+      idleWakers = idleWakers.filter((wake) => wake !== onWake);
     }
     reportSyncLaneErrors();
+    return woken && !signal?.aborted && runtime.nowMs() < deadlineMs;
+  }
+
+  // Wakes a run that is idle until its deadline, so work someone is waiting
+  // on starts now rather than on the host's next run.
+  function wakeIdleRun() {
+    for (const wake of idleWakers.splice(0)) wake();
   }
 
   // Reports lane failures to the host loop. Each failing account already

@@ -111,6 +111,8 @@ export type ClaimedWork =
   | {
       kind: "hydrate";
       jobId: string;
+      /** Every job this request answers, `jobId` included. */
+      jobIds?: string[];
       attemptId: string;
       session: AccountSession;
       keys: MessageKey[];
@@ -290,6 +292,8 @@ export interface MailStore {
   enqueueHydration(input: {
     keys: MessageKey[];
     purpose: "metadata" | "body";
+    /** Someone is waiting to read these, so they go before other work. */
+    priority?: "interactive";
   }): Promise<LocalRevision>;
   enqueueSearch(input: {
     accountId: string;
