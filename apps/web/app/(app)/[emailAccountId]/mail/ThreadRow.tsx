@@ -28,11 +28,7 @@ import { formatShortDate, internalDateToDate } from "@/utils/date";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { GmailLabel } from "@/utils/gmail/label";
 import { getConversationSubject } from "@/utils/email/subject";
-import { extractOtpCode, isOtpSubject } from "@/utils/otp";
-import { getRuleLabel } from "@/utils/rule/consts";
-import { SystemType } from "@/generated/prisma/enums";
-
-const OTP_LABEL = getRuleLabel(SystemType.OTP).toLowerCase();
+import { getThreadOtpCode } from "./otp-code";
 
 export type ThreadRowProps = {
   thread: ListThread;
@@ -108,10 +104,7 @@ export const ThreadRow = memo(function ThreadRow({
     (message) => message.hasAttachment,
   );
   const snippet = decodeSnippet(thread.snippet || message.snippet);
-  const isOtp =
-    labels.some((label) => label.name.toLowerCase() === OTP_LABEL) ||
-    isOtpSubject(message.subject);
-  const otpCode = isOtp ? extractOtpCode([message.subject, snippet]) : null;
+  const otpCode = getThreadOtpCode(thread, userLabels);
 
   return (
     <MailThreadRow
