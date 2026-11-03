@@ -9,7 +9,7 @@ const EDGE_BLANK_LINES = new RegExp(
 );
 
 // Ignore composer wrappers, spacers and branding before comparing text
-// or matching image-only signatures by their HTML.
+// or matching image-only signatures by their sources.
 export function findSignatureId(
   signatures: GetSignatureResponse["signatures"],
   signatureHtml: string,
@@ -17,10 +17,15 @@ export function findSignatureId(
   const html = cleanSignatureHtml(signatureHtml);
   const key = getSignatureText(html);
   if (!key) {
-    if (!html) return;
-    return signatures.find(
-      (item) => cleanSignatureHtml(item.signatureHtml) === html,
-    )?.id;
+    const imageKey = getSignatureImageKey(html);
+    if (!imageKey) return;
+    return signatures.find((item) => {
+      const savedHtml = cleanSignatureHtml(item.signatureHtml);
+      return (
+        !getSignatureText(savedHtml) &&
+        getSignatureImageKey(savedHtml) === imageKey
+      );
+    })?.id;
   }
   return signatures.find((item) => getSignatureKey(item.signatureHtml) === key)
     ?.id;
@@ -55,4 +60,12 @@ function cleanSignatureHtml(html: string) {
     signatureHtml: html,
   });
   return stripBrandingSignatures(signature).replace(EDGE_BLANK_LINES, "");
+}
+
+function getSignatureImageKey(html: string) {
+  const images = new DOMParser()
+    .parseFromString(html, "text/html")
+    .querySelectorAll("img[src]");
+  const sources = Array.from(images, (image) => image.getAttribute("src"));
+  return sources.length ? JSON.stringify(sources) : undefined;
 }

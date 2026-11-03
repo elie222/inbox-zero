@@ -44,6 +44,40 @@ describe("findSignatureId", () => {
     ).toBeUndefined();
   });
 
+  it("matches image sources across markup changes while preserving their order", () => {
+    const images = [
+      {
+        id: "text",
+        name: "Text",
+        signatureHtml:
+          '<p>Best</p><img src="https://example.com/first.png"><img src="https://example.com/second.png">',
+      },
+      {
+        id: "images",
+        name: "Images",
+        signatureHtml:
+          '<img width="100" src="https://example.com/first.png" /><img src="https://example.com/second.png" />',
+      },
+    ];
+
+    expect(
+      findSignatureId(
+        images,
+        '<div><img src="https://example.com/first.png" width="100"><img src="https://example.com/second.png"></div>',
+      ),
+    ).toBe("images");
+    expect(
+      findSignatureId(
+        images,
+        '<img src="https://example.com/second.png"><img src="https://example.com/first.png">',
+      ),
+    ).toBeUndefined();
+    expect(
+      findSignatureId(images, '<img src="https://example.com/first.png">'),
+    ).toBeUndefined();
+    expect(findSignatureId(images, "<div><br></div>")).toBeUndefined();
+  });
+
   it("matches image-only signatures through compose initialization and edited draft extraction", () => {
     const images = [
       { id: "empty", name: "Empty", signatureHtml: "" },
