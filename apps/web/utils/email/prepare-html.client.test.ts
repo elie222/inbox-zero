@@ -12,6 +12,8 @@ vi.mock("@/env", () => ({
 
 import {
   getPreparedEmailHtml,
+  needsImageProxy,
+  prepareEmailImages,
   prepareSanitizedEmailHtml,
   sanitizeEmailHtml,
 } from "./prepare-html.client";
@@ -108,7 +110,7 @@ describe("preparing html for the image proxy", () => {
     const sourceHtml = sanitizeEmailHtml(html);
     const messageId = `local-${_case}`;
 
-    expect(getPreparedEmailHtml({ messageId, sourceHtml })).toBe(sourceHtml);
+    expect(needsImageProxy(sourceHtml)).toBe(false);
     await expect(
       prepareSanitizedEmailHtml({ messageId, sourceHtml }),
     ).resolves.toBe(sourceHtml);
@@ -159,11 +161,32 @@ describe("preparing html for the image proxy", () => {
     const sourceHtml = sanitizeEmailHtml(html);
     const messageId = `remote-${_case}`;
 
+    expect(needsImageProxy(sourceHtml)).toBe(true);
     expect(getPreparedEmailHtml({ messageId, sourceHtml })).toBeUndefined();
     await expect(
       prepareSanitizedEmailHtml({ messageId, sourceHtml }),
     ).resolves.toBe(proxied);
     expect(fetchSpy).toHaveBeenCalledOnce();
+    fetchSpy.mockRestore();
+  });
+});
+
+describe("preparing remote images when the proxy fails", () => {
+  it.each([
+    [
+      "answers with an error",
+      () => Promise.resolve(new Response(null, { status: 502 })),
+    ],
+    ["cannot be reached", () => Promise.reject(new TypeError("fetch failed"))],
+  ])("keeps remote images blocked when the proxy %s", async (_case, reply) => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(reply);
+    const sourceHtml = sanitizeEmailHtml(
+      '<p>Hi</p><img src="https://tracker.example/p.png">',
+    );
+
+    await expect(
+      prepareEmailImages({ messageId: `failed-${_case}`, sourceHtml }),
+    ).resolves.toEqual({ html: sourceHtml, remoteImagesAllowed: false });
     fetchSpy.mockRestore();
   });
 });

@@ -19,7 +19,7 @@ one or two provider round trips. The model compares three designs:
 | --- | --- | --- |
 | `waitForSave`: wait for the save, send through the draft | Yes | All properties hold |
 | `naiveSend`: queue at once, send through the known draft | No | Sends stale text; leaves a draft behind |
-| `reconcileSend`: queue at once; with a save in flight, send the composer's own content and remove the draft once the save lands and the undo window closes | No | All properties hold |
+| `reconcileSend`: queue at once; with a save in flight, send the composer's own content and remove the draft once the save lands and the provider confirms delivery | No | All properties hold |
 
 `useComposeSend.ts` implements `reconcileSend`. Properties (see `safety`):
 

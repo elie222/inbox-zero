@@ -395,6 +395,13 @@ export interface MailStore {
     accountIds: string[];
     nowMs: number;
   }): Promise<void>;
+  /**
+   * Frees read-only jobs (hydration, search) still claimed by this owner from
+   * an earlier run that stopped mid-request, so they run again at once
+   * instead of after the lease. Commands keep their leases, since running
+   * one twice could send twice.
+   */
+  releaseReadOnlyClaims(input: { ownerId: string }): Promise<void>;
   saveDraft(input: SaveDraft): Promise<DraftSaveResult>;
   settleAttempt(input: {
     attemptId: string;

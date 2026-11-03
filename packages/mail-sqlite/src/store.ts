@@ -1835,6 +1835,16 @@ export async function createSqliteMailStore(
         );
       });
     },
+    async releaseReadOnlyClaims(input) {
+      await driver.write(async (tx) => {
+        await tx.execute(
+          `UPDATE sync_jobs
+           SET claimed_by = NULL, claimed_until_ms = NULL, attempt_id = NULL
+           WHERE claimed_by = ? AND kind IN ('hydrate', 'search')`,
+          [input.ownerId],
+        );
+      });
+    },
     async recordConnection(input) {
       return driver.write(async (tx) => {
         const previous = await tx.query(
