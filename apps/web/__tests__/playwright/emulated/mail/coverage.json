@@ -263,7 +263,6 @@
     "app/(app)/[emailAccountId]/mail/use-thread-actions.ts",
     "app/(app)/[emailAccountId]/mail/use-optimistic-archive.ts",
     "app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx",
-    "app/(app)/[emailAccountId]/mail/SplitTabs.tsx",
     "app/(app)/[emailAccountId]/mail/ThreadReader.tsx"
   ],
   "latency-reading.spec.ts": [
