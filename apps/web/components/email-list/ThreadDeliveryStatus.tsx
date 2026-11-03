@@ -324,19 +324,20 @@ export function ThreadDeliveryStatus({
                   <BellIcon aria-hidden className="size-3.5 shrink-0" />
                   Reminder if no reply by {formatTime(row.remindAt)}
                 </p>
-                {row.reminderStatus === "PENDING" && (
-                  <InlineActionButton
-                    aria-label="Cancel reminder"
-                    disabled={busy || !online}
-                    onClick={() =>
-                      act(() =>
-                        scheduledAction(cancelEmailReminderAction, row.id),
-                      )
-                    }
-                  >
-                    Cancel
-                  </InlineActionButton>
-                )}
+                {row.reminderStatus === "PENDING" &&
+                  !isUnconfirmedScheduledEmail(row) && (
+                    <InlineActionButton
+                      aria-label="Cancel reminder"
+                      disabled={busy || !online}
+                      onClick={() =>
+                        act(() =>
+                          scheduledAction(cancelEmailReminderAction, row.id),
+                        )
+                      }
+                    >
+                      Cancel
+                    </InlineActionButton>
+                  )}
               </div>
             )}
         </div>

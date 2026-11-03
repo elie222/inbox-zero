@@ -169,6 +169,8 @@ export function createMailEngine(input: {
   // owner runs at a time; its unfinished reads are this engine's to redo.
   let readOnlyClaimsReleased = false;
   let idleWakers: Array<() => void> = [];
+  // Counts wakes, so one that arrives before a run starts waiting still counts.
+  let wakeGeneration = 0;
   const assistant = input.assistant;
   const queries = createQueryRegistry();
   let evictedForCurrentPressure = false;
@@ -380,6 +382,7 @@ export function createMailEngine(input: {
           reportSyncLaneErrors();
           if (signal?.aborted || runtime.nowMs() >= deadlineMs) return;
         }
+        const generationBeforeClaim = wakeGeneration;
         const work = await store.claimWork({
           ownerId,
           nowMs: runtime.nowMs(),
@@ -393,7 +396,8 @@ export function createMailEngine(input: {
           const contacts = await store.indexContactBacklog();
           const { remaining } = await store.indexSearchBacklog();
           if (contacts.remaining || remaining) continue;
-          if (await waitForSyncLanes(deadlineMs, signal)) continue;
+          if (await waitForSyncLanes(deadlineMs, signal, generationBeforeClaim))
+            continue;
           return;
         }
         if (work.kind === "command") {
@@ -909,9 +913,13 @@ export function createMailEngine(input: {
   }
 
   /** Resolves true when new work woke the wait before the lanes finished. */
-  async function waitForSyncLanes(deadlineMs: number, signal?: AbortSignal) {
-    let woken = false;
-    if (syncLanes.size > 0) {
+  async function waitForSyncLanes(
+    deadlineMs: number,
+    signal?: AbortSignal,
+    generationBeforeClaim = wakeGeneration,
+  ) {
+    let woken = wakeGeneration !== generationBeforeClaim;
+    if (!woken && syncLanes.size > 0) {
       let timer: ReturnType<typeof setTimeout> | undefined;
       let onAbort: (() => void) | undefined;
       let onWake: (() => void) | undefined;
@@ -944,6 +952,7 @@ export function createMailEngine(input: {
   // Wakes a run that is idle until its deadline, so work someone is waiting
   // on starts now rather than on the host's next run.
   function wakeIdleRun() {
+    wakeGeneration += 1;
     for (const wake of idleWakers.splice(0)) wake();
   }
 

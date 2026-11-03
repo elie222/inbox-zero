@@ -2429,51 +2429,53 @@ async function applyPageFacts(
  * Claims the next hydration job, together with other waiting jobs for the
  * same account and purpose up to one request's worth of keys, so a
  * conversation's missing bodies arrive in one round trip instead of one each.
+ * Interactive jobs are found through their id prefix, so neither pass sorts
+ * or scans the queue.
  */
 async function claimHydration(
   tx: SqlTransaction,
   input: { ownerId: string; nowMs: number; leaseMs: number },
   options: { interactiveOnly: boolean; attemptId: string },
 ) {
-  const eligible = `j.kind = 'hydrate'
-             AND (j.retry_at_ms IS NULL OR j.retry_at_ms <= ?)
-             AND (j.claimed_by IS NULL OR j.claimed_until_ms < ?)`;
+  const eligible = `(j.retry_at_ms IS NULL OR j.retry_at_ms <= ?)
+       AND (j.claimed_by IS NULL OR j.claimed_until_ms < ?)`;
   const [first] = await tx.query(
     `SELECT j.*, a.generation
      FROM sync_jobs j
      JOIN accounts a ON a.account_id = j.account_id
-     WHERE ${eligible}
-       ${options.interactiveOnly ? "AND json_extract(j.payload_json, '$.priority') = 'interactive'" : ""}
-     ORDER BY json_extract(j.payload_json, '$.priority') = 'interactive' DESC
+     WHERE ${
+       options.interactiveOnly
+         ? `j.job_id >= '${INTERACTIVE_HYDRATION_PREFIX}' AND j.job_id < '${INTERACTIVE_HYDRATION_PREFIX_END}'`
+         : "j.kind = 'hydrate'"
+}
+       AND ${eligible}
      LIMIT 1`,
     [input.nowMs, input.nowMs],
   );
   if (!first) return null;
   const firstPayload = parseHydrationPayload(first.payload_json);
-  const companions = await tx.query(
-    `SELECT j.job_id, j.payload_json
-     FROM sync_jobs j
-     WHERE ${eligible}
-       AND j.account_id = ? AND j.job_id != ?
-       AND json_extract(j.payload_json, '$.purpose') = ?
-     ORDER BY json_extract(j.payload_json, '$.priority') = 'interactive' DESC`,
-    [
-      input.nowMs,
-      input.nowMs,
-      first.account_id,
-      first.job_id,
-      firstPayload.purpose,
-    ],
-  );
   const jobs = [{ jobId: String(first.job_id), keys: firstPayload.keys }];
   const seen = new Set(firstPayload.keys.map(messageKeyIdentity));
-  for (const companion of companions) {
-    const fresh = parseHydrationPayload(companion.payload_json).keys.filter(
-      (key) => !seen.has(messageKeyIdentity(key)),
+  if (seen.size < HYDRATION_JOB_KEY_LIMIT) {
+    const companions = await tx.query(
+      `SELECT j.job_id, j.payload_json
+       FROM sync_jobs j
+       WHERE j.kind = 'hydrate' AND j.account_id = ? AND j.job_id != ?
+         AND ${eligible}
+       LIMIT ${HYDRATION_JOB_KEY_LIMIT}`,
+      [first.account_id, first.job_id, input.nowMs, input.nowMs],
     );
-    if (seen.size + fresh.length > HYDRATION_JOB_KEY_LIMIT) continue;
-    for (const key of fresh) seen.add(messageKeyIdentity(key));
-    jobs.push({ jobId: String(companion.job_id), keys: fresh });
+    for (const companion of companions) {
+      const payload = parseHydrationPayload(companion.payload_json);
+      if (payload.purpose !== firstPayload.purpose) continue;
+      const fresh = payload.keys.filter(
+        (key) => !seen.has(messageKeyIdentity(key)),
+      );
+      if (seen.size + fresh.length > HYDRATION_JOB_KEY_LIMIT) continue;
+      for (const key of fresh) seen.add(messageKeyIdentity(key));
+      jobs.push({ jobId: String(companion.job_id), keys: fresh });
+      if (seen.size >= HYDRATION_JOB_KEY_LIMIT) break;
+    }
   }
   const { attemptId } = options;
   const claimed: typeof jobs = [];
@@ -2509,11 +2511,15 @@ async function claimHydration(
   };
 }
 
+// A body someone is waiting to read. The prefix lets claims find these jobs
+// with a primary-key range instead of reading every payload.
+const INTERACTIVE_HYDRATION_PREFIX = "hydrate-now:";
+const INTERACTIVE_HYDRATION_PREFIX_END = "hydrate-now;";
+
 function parseHydrationPayload(payload: unknown) {
   return JSON.parse(String(payload)) as {
     keys: MessageKey[];
     purpose: "metadata" | "body";
-    priority?: "interactive";
   };
 }
 
@@ -2553,21 +2559,15 @@ async function enqueueHydrationJobs(
       );
     }
     for (const keys of chunkMessageKeys(sortedKeys, HYDRATION_JOB_KEY_LIMIT)) {
-      const jobId = `hydrate:${accountId}:${input.purpose}:${await input.digest(keys)}`;
-      const payload = JSON.stringify({
-        keys,
-        purpose: input.purpose,
-        ...(input.priority ? { priority: input.priority } : {}),
-      });
-      // Someone now waiting on a queued background job moves it up.
+      const prefix =
+        input.priority === "interactive"
+          ? INTERACTIVE_HYDRATION_PREFIX
+          : "hydrate:";
+      const jobId = `${prefix}${accountId}:${input.purpose}:${await input.digest(keys)}`;
       await tx.execute(
-        input.priority
-          ? `INSERT INTO sync_jobs(job_id, account_id, kind, payload_json)
-             VALUES (?, ?, 'hydrate', ?)
-             ON CONFLICT(job_id) DO UPDATE SET payload_json = excluded.payload_json`
-          : `INSERT OR IGNORE INTO sync_jobs(job_id, account_id, kind, payload_json)
-             VALUES (?, ?, 'hydrate', ?)`,
-        [jobId, accountId, payload],
+        `INSERT OR IGNORE INTO sync_jobs(job_id, account_id, kind, payload_json)
+         VALUES (?, ?, 'hydrate', ?)`,
+        [jobId, accountId, JSON.stringify({ keys, purpose: input.purpose })],
       );
     }
   }

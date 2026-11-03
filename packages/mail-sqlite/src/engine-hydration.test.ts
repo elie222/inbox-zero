@@ -8,10 +8,6 @@ import { createNodeSqliteDriver } from "./node-sqlite";
 import { createSqliteMailStore } from "./store";
 
 const KEY = { accountId: "acc-1", messageId: "m-new" };
-const keyFor = (index: number) => ({
-  accountId: "acc-1",
-  messageId: `m-${index}`,
-});
 
 describe("engine body hydration across restarts", () => {
   // A reloaded tab starts a new engine on the same database while the old
@@ -157,6 +153,46 @@ describe("engine body hydration for the reader", () => {
   });
 });
 
+describe("engine wake-ups", () => {
+  // The request lands after the run found nothing to claim but before it
+  // starts waiting, the window a wake-up used to be lost in.
+  it("does not lose a body request made just before the run waits", async () => {
+    const store = await accountStore();
+    const hydrate = vi.fn(async ({ keys }: { keys: (typeof KEY)[] }) =>
+      hydratedBodies(keys),
+    );
+    let requested = false;
+    let engine: ReturnType<typeof createMailEngine> | undefined;
+    engine = createMailEngine({
+      store: {
+        ...store,
+        async close() {},
+        async indexSearchBacklog() {
+          if (!requested && engine) {
+            requested = true;
+            await engine.ensureMessageContent(KEY);
+          }
+          return store.indexSearchBacklog();
+        },
+      },
+      source: { ...idleSource(), hydrate, discoverScopes: busySync },
+      executor: idleExecutor(),
+      runtime: createHostRuntime(),
+      ownerId: "browser-worker",
+    });
+    const startedAt = Date.now();
+    const run = engine.runUntil(startedAt + 3000);
+
+    await vi.waitFor(() => expect(hydrate).toHaveBeenCalled(), {
+      timeout: 2000,
+    });
+    expect(Date.now() - startedAt).toBeLessThan(1500);
+    await engine.close();
+    await run.catch(() => {});
+    await store.close();
+  });
+});
+
 async function accountStore() {
   const store = await createSqliteMailStore(createNodeSqliteDriver());
   await store.ensureAccount({
@@ -271,4 +307,18 @@ function idleSource(): Omit<MailboxSource, "hydrate"> {
       return paused;
     },
   } as Omit<MailboxSource, "hydrate">;
+}
+
+function keyFor(index: number) {
+  return { accountId: "acc-1", messageId: `m-${index}` };
+}
+
+// A sync that stays busy until the run stops, so the run waits on it.
+function busySync({ signal }: { signal: AbortSignal }) {
+  return new Promise<Awaited<ReturnType<MailboxSource["discoverScopes"]>>>(
+    (resolve) =>
+      signal.addEventListener("abort", () =>
+        resolve({ status: "paused", retryAfterMs: 0, reason: "unavailable" }),
+      ),
+  );
 }

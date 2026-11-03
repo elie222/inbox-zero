@@ -115,17 +115,12 @@ test("opens a long conversation without waiting on the network", async ({
           budgetMs: JUST_ARRIVED_BUDGET_MS,
         },
         {
-          name: "earliestBodyVisible",
-          kind: "messageBody",
-          messageId: messageIds[0] ?? "",
-          text: `Long conversation ${runId} message 0`,
-          budgetMs: JUST_ARRIVED_BUDGET_MS,
-        },
-        {
-          name: "latestBodyVisible",
-          kind: "messageBody",
-          messageId: messageIds.at(-1) ?? "",
-          text: `Long conversation ${runId} message 29`,
+          name: "allBodiesVisible",
+          kind: "messageBodies",
+          bodies: messageIds.map((messageId, index) => ({
+            messageId,
+            text: `Long conversation ${runId} message ${index}`,
+          })),
           budgetMs: JUST_ARRIVED_BUDGET_MS,
         },
       ],

@@ -21,6 +21,12 @@ export type ProbeSpec = (
   // Undo is offered only for the undo window, so it is expected to go away.
   | { name: string; kind: "undoToast"; transient: true }
   | { name: string; kind: "messageBody"; messageId: string; text: string }
+  /** Every listed message shows its text. */
+  | {
+      name: string;
+      kind: "messageBodies";
+      bodies: { messageId: string; text: string }[];
+    }
   /** At least `minCount` rendered matches of `selector`, holding `text` if given. */
   | {
       name: string;
@@ -163,6 +169,13 @@ export async function sampleUntilSettled(
           );
           return Boolean(row && showsText(row, probe.text));
         }
+        case "messageBodies":
+          return probe.bodies.every(({ messageId, text }) => {
+            const row = document.querySelector(
+              `li[data-thread-message-id="${CSS.escape(messageId)}"]`,
+            );
+            return Boolean(row && showsText(row, text));
+          });
         case "element": {
           const matches = Array.from(
             document.querySelectorAll(probe.selector),
