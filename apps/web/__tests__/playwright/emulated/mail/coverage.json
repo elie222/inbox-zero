@@ -246,5 +246,12 @@
     "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
     "app/api/user/send-as/route.ts",
     "utils/email/send-as.ts"
+  ],
+  "interaction-latency.spec.ts": [
+    "app/(app)/[emailAccountId]/compose/useComposeSend.ts",
+    "hooks/useProviderDraftAutosave.ts",
+    "components/email-list/EmailThread.tsx",
+    "components/email-list/EmailContents.tsx",
+    "utils/email/prepare-html.client.ts"
   ]
 }

@@ -217,7 +217,7 @@ describe("HtmlEmail", () => {
   });
 
   it("shows prepared html immediately when the email is reopened", async () => {
-    const html = "<p>Hello</p>";
+    const html = '<p>Hello</p><img src="https://example.com/logo.png">';
     vi.mocked(fetch).mockImplementation(async () =>
       Response.json({ html: "<p>proxied</p>" }),
     );
@@ -589,8 +589,8 @@ describe("HtmlEmail", () => {
       />,
     );
 
-    const iframe = await findByTitle("Email content preview");
-    expect(iframe.getAttribute("srcdoc")).toContain(`src="${objectUrl}"`);
+    await findByTitle("Email content preview");
+    const iframe = await showLoadedEmailDocument(`src="${objectUrl}"`);
     expect(iframe.getAttribute("srcdoc")).toContain(
       "img-src data: blob: https:;",
     );
@@ -647,12 +647,9 @@ describe("HtmlEmail", () => {
     );
 
     const { getByTitle, queryByTitle, rerender } = render(renderEmail());
-    await waitFor(() =>
-      expect(
-        getByTitle("Email content preview").getAttribute("srcdoc"),
-      ).toContain('src="blob:https://app.example.com/logo-1"'),
+    const visibleFrame = await showLoadedEmailDocument(
+      'src="blob:https://app.example.com/logo-1"',
     );
-    const visibleFrame = getByTitle("Email content preview");
 
     rerender(renderEmail());
     await act(async () => {});
@@ -687,19 +684,14 @@ describe("HtmlEmail", () => {
     const { getByTitle, queryByTitle, rerender } = render(
       renderEmail([inlineImageAttachment("badge@inboxzero.local")]),
     );
-    await waitFor(() =>
-      expect(
-        getByTitle("Email content preview").getAttribute("srcdoc"),
-      ).toContain(`src="${objectUrl}"`),
-    );
+    const visibleFrame = await showLoadedEmailDocument(`src="${objectUrl}"`);
 
     rerender(renderEmail([]));
     await act(async () => {});
 
     expect(queryByTitle("Preparing email content preview")).toBeNull();
-    expect(
-      getByTitle("Email content preview").getAttribute("srcdoc"),
-    ).toContain(`src="${objectUrl}"`);
+    expect(getByTitle("Email content preview")).toBe(visibleFrame);
+    expect(visibleFrame.getAttribute("srcdoc")).toContain(`src="${objectUrl}"`);
     expect(fetchAttachment).toHaveBeenCalledOnce();
   });
 
@@ -725,11 +717,7 @@ describe("HtmlEmail", () => {
     );
 
     const firstRender = render(renderEmail());
-    await waitFor(() =>
-      expect(
-        firstRender.getByTitle("Email content preview").getAttribute("srcdoc"),
-      ).toContain(`src="${objectUrl}"`),
-    );
+    await showLoadedEmailDocument(`src="${objectUrl}"`);
     firstRender.unmount();
 
     const { getByTitle } = render(renderEmail());
@@ -848,4 +836,33 @@ function measureEmailFrame(iframe: HTMLIFrameElement, height: number) {
   });
   addEmailDocumentMarker(iframe, iframe.contentDocument);
   fireEvent.load(iframe);
+}
+
+// A body without remote assets shows at once, so an inline image that loads
+// afterwards arrives as a second, hidden document. Browsers swap it in once it
+// is measured; jsdom has no layout, so measure it here and return the frame
+// that ends up visible.
+async function showLoadedEmailDocument(expected: string) {
+  const preparing = () =>
+    document.querySelector<HTMLIFrameElement>(
+      'iframe[title="Preparing email content preview"]',
+    );
+  const visible = () =>
+    document.querySelector<HTMLIFrameElement>(
+      'iframe[title="Email content preview"]',
+    );
+  await waitFor(() =>
+    expect((preparing() ?? visible())?.getAttribute("srcdoc")).toContain(
+      expected,
+    ),
+  );
+  const pending = preparing();
+  if (pending) {
+    measureEmailFrame(pending, 40);
+    await waitFor(() => expect(preparing()).toBeNull());
+  }
+  const frame = visible();
+  if (!frame) throw new Error("Expected a visible email frame");
+  expect(frame.getAttribute("srcdoc")).toContain(expected);
+  return frame;
 }

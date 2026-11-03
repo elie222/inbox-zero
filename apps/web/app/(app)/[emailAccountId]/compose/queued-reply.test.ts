@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { OperationState } from "@inboxzero/mail-core/operations";
 import type { QueryHandle } from "@inboxzero/mail-core/queries";
-import { queueReaderEmail } from "./queued-reply";
+import { queueReaderEmail, waitForDelivery } from "./queued-reply";
 import { UNDO_SEND_DELAY_MS } from "./undo-send";
 import { admissionRejectionCopy } from "@/utils/mail-engine/admission-notice";
 
@@ -443,6 +443,67 @@ describe("queueReaderEmail", () => {
       status: "queued",
       threadId: "thread",
     });
+    vi.useRealTimers();
+  });
+});
+
+describe("waitForDelivery", () => {
+  // A send whose draft was replaced removes that draft only once delivered,
+  // so an uncertain or pending send must not end the wait.
+  it("keeps watching an uncertain send until it is delivered", async () => {
+    const handle = createHandle({ status: "uncertain" });
+    const delivered = waitForDelivery({
+      client: createClient({ handle }),
+      accountId: "account",
+      operationId: "mutation",
+      timeoutMs: 60_000,
+    });
+
+    let settled = false;
+    delivered.then(() => {
+      settled = true;
+    });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+
+    handle.set({ status: "verifying" });
+    handle.set({ status: "succeeded" });
+
+    await expect(delivered).resolves.toBe(true);
+    expect(handle.close).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    "failed",
+    "needs_attention",
+    "cancelled",
+    "superseded",
+  ] as const)("reports a send that ends %s as undelivered", async (status) => {
+    const handle = createHandle({ status: "queued" });
+    const delivered = waitForDelivery({
+      client: createClient({ handle }),
+      accountId: "account",
+      operationId: "mutation",
+      timeoutMs: 60_000,
+    });
+
+    handle.set({ status });
+
+    await expect(delivered).resolves.toBe(false);
+  });
+
+  it("gives up as undelivered when the wait runs out", async () => {
+    vi.useFakeTimers();
+    const delivered = waitForDelivery({
+      client: createClient({ handle: createHandle({ status: "queued" }) }),
+      accountId: "account",
+      operationId: "mutation",
+      timeoutMs: 1000,
+    });
+
+    await vi.advanceTimersByTimeAsync(1000);
+
+    await expect(delivered).resolves.toBe(false);
     vi.useRealTimers();
   });
 });
