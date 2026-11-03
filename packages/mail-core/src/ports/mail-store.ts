@@ -237,7 +237,7 @@ export interface MailStore {
    * Records the membership read for each resolved conversation in one claim,
    * then releases the claim so unresolved conversations retry at
    * `nextAttemptAtMs`. A conversation the provider no longer has drops out
-   * of the command instead of failing it.
+   * of the command; the command fails only if no target messages remain.
    */
   applyPreparationResults(input: {
     accountId: string;

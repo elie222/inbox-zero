@@ -456,7 +456,13 @@ export function createMailEngine(input: {
               retryAfterMs ?? 0,
               membershipRetryAfterMs(result),
             );
-            if (result && result.status !== "ok") failedStatus = result.status;
+            // An auth failure outranks a pause, so the account shows it.
+            if (
+              result &&
+              result.status !== "ok" &&
+              failedStatus !== "blocked_auth"
+            )
+              failedStatus = result.status;
           }
           const applied = await store.applyPreparationResults({
             accountId: work.accountId,

@@ -194,6 +194,15 @@ async function applyMetadataPerTarget(
         };
       }
       if (isEmailProviderRateLimitError({ error, provider: provider.name })) {
+        // Nothing has changed yet, so the whole operation can wait out the
+        // provider's own delay instead of the generic inspection backoff.
+        if (targets.length === 0) {
+          return {
+            status: "not_dispatched",
+            reason: "throttled",
+            retryAfterMs: rateLimitRetryAfterMs(error),
+          };
+        }
         throttled = true;
         targets.push({ key: target, outcome: "uncertain", code: "throttled" });
         continue;

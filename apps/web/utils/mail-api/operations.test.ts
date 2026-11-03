@@ -312,7 +312,47 @@ describe("createEmailProviderOperationExecutor", () => {
     });
     expect(archiveMessages).toHaveBeenCalledExactlyOnceWith(["still-inbox"]);
     expect(first.status).toBe("confirmed");
-    expect(second.status).toBe("confirmed");
+    if (second.status !== "confirmed") throw new Error("expected confirmed");
+    expect(second.targets).toEqual(
+      ["archived", "still-inbox"].map((messageId) => ({
+        key: { accountId: "acc-1", messageId },
+        outcome: "applied",
+        code: null,
+      })),
+    );
+  });
+
+  it("waits out the provider delay when per-message fallback is throttled before anything applied", async () => {
+    const archiveMessages = vi.fn(async (ids: string[]) => {
+      if (ids.length > 1) throw new Error("one message is bad");
+      throw new ProviderRateLimitModeError({
+        provider: "google",
+        retryAt: new Date(Date.now() + 60_000),
+      });
+    });
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        archiveMessages,
+      } as unknown as EmailProvider,
+    });
+    const result = await executor.execute({
+      operation: metadataOperation([
+        { accountId: "acc-1", messageId: "m1" },
+        { accountId: "acc-1", messageId: "m2" },
+      ]),
+      attemptId: "a1",
+      signal: new AbortController().signal,
+    });
+    expect(archiveMessages).toHaveBeenCalledTimes(2);
+    expect(result).toMatchObject({
+      status: "not_dispatched",
+      reason: "throttled",
+    });
+    if (result.status !== "not_dispatched")
+      throw new Error("expected throttle");
+    expect(result.retryAfterMs).toBeGreaterThan(50_000);
   });
 
   it("backs off without per-message retries when the provider rate limits the bulk call", async () => {

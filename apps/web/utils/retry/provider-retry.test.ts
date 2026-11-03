@@ -1,12 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createScopedLogger } from "@/utils/logger";
+import { sleep } from "@/utils/sleep";
 import { getRetryAfterDelayMs, withProviderRetry } from "./provider-retry";
+
+vi.mock("@/utils/sleep", () => ({ sleep: vi.fn(async () => {}) }));
 
 describe("withProviderRetry", () => {
   it("does not wait out the backoff after the last failed attempt", async () => {
     const rateLimited = new Error("rate limited");
     let attempts = 0;
-    const startedAt = Date.now();
     await expect(
       withProviderRetry(
         async () => {
@@ -29,7 +31,7 @@ describe("withProviderRetry", () => {
       ),
     ).rejects.toBe(rateLimited);
     expect(attempts).toBe(2);
-    expect(Date.now() - startedAt).toBeLessThan(2000);
+    expect(vi.mocked(sleep).mock.calls).toEqual([[10]]);
   });
 });
 
