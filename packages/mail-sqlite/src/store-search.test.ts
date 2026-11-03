@@ -47,6 +47,8 @@ const MESSAGES = [
   },
 ];
 
+type SearchableMessage = (typeof MESSAGES)[number] & { cc?: string[] };
+
 describe("local text search", () => {
   it("matches words from an HTML-only body but not its markup", async () => {
     const { store, close } = await searchableMailbox();
@@ -163,6 +165,40 @@ describe("local text search", () => {
       "underscore",
     ]);
     expect(await search(store, address("from", "%"))).toEqual([]);
+    expect(await search(store, address("from", "ada\\_lovelace"))).toEqual([]);
+    await close();
+  });
+
+  it("matches cc: searches and quoted display names on each recipient", async () => {
+    const { store, close } = await searchableMailbox([
+      {
+        id: "underscore",
+        subject: "Roadmap",
+        from: "ada@example.com",
+        to: ['"Lee, Sam" <sam@example.com>'],
+        cc: ["ops_team@example.com"],
+        read: false,
+        text: null,
+        html: null,
+      },
+      {
+        id: "lookalike",
+        subject: "Roadmap",
+        from: "ada@example.com",
+        to: ["sam@example.com"],
+        cc: ["opsxteam@example.com"],
+        read: false,
+        text: null,
+        html: null,
+      },
+    ]);
+
+    expect(await search(store, address("cc", "ops_team@example.com"))).toEqual([
+      "underscore",
+    ]);
+    expect(await search(store, address("to", '"Lee, Sam"'))).toEqual([
+      "underscore",
+    ]);
     await close();
   });
 
@@ -239,7 +275,7 @@ function text(field: "any" | "subject" | "body", value: string): MailPredicate {
   return { kind: "text", field, value, match: "term" };
 }
 
-function address(field: "from" | "to", value: string): MailPredicate {
+function address(field: "from" | "to" | "cc", value: string): MailPredicate {
   return { kind: "address", field, value, match: "address" };
 }
 
@@ -260,7 +296,9 @@ function query(predicate: MailPredicate) {
   };
 }
 
-async function searchableMailbox(messages = MESSAGES): Promise<{
+async function searchableMailbox(
+  messages: SearchableMessage[] = MESSAGES,
+): Promise<{
   store: MailStore;
   driver: SqliteDriver;
   close: () => Promise<void>;
@@ -320,7 +358,7 @@ async function drainBacklog(store: MailStore) {
 }
 
 function messagePatch(
-  message: (typeof MESSAGES)[number],
+  message: SearchableMessage,
   index: number,
 ): Extract<ProviderChange, { kind: "message_patch" }> {
   return {
@@ -337,7 +375,7 @@ function messagePatch(
       preview: "",
       from: message.from,
       to: message.to,
-      cc: [],
+      cc: message.cc ?? [],
       receivedAtMs: index,
       read: message.read,
       starred: false,
