@@ -44,5 +44,6 @@ export async function findSentSignatures({
 
 // The same signature sent twice can differ in markup but not in its text.
 export function getSignatureKey(html: string) {
-  return load(html).text().replace(/\s+/g, " ").trim().toLowerCase();
+  const spaced = html.replace(/<(br|\/div|\/p|\/li|\/tr)\b[^>]*>/gi, "$& ");
+  return load(spaced).text().replace(/\s+/g, " ").trim().toLowerCase();
 }

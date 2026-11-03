@@ -64,7 +64,6 @@ export async function getSignatureSuggestions({
       : await scanSentSignatures({
           emailAccountId,
           provider: emailAccount.account.provider,
-          savedSignatures,
           logger,
         });
 
@@ -86,12 +85,10 @@ export async function getSignatureSuggestions({
 async function scanSentSignatures({
   emailAccountId,
   provider,
-  savedSignatures,
   logger,
 }: {
   emailAccountId: string;
   provider: string;
-  savedSignatures: string[];
   logger: Logger;
 }) {
   let scan: SentSignatureScan = { signatures: [], providerSignature: false };
@@ -114,14 +111,14 @@ async function scanSentSignatures({
     scan = {
       signatures: await findSentSignatures({
         emailProvider,
-        knownSignatures: [providerSignature ?? "", ...savedSignatures],
+        knownSignatures: [providerSignature ?? ""],
       }),
       // Unknown counts as present so we never claim their mail goes out unsigned.
       providerSignature: providerSignature !== "",
     };
   } catch (error) {
-    // Kept as an empty scan so a failing mailbox isn't rescanned on every load.
     logger.warn("Could not scan sent mail for signatures", { error });
+    return scan;
   }
 
   await prisma.emailAccount.update({

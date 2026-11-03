@@ -23,6 +23,26 @@ describe("findSignatureId", () => {
     ).toBe("german");
   });
 
+  it("selects the matching image-only signature without matching empty text", () => {
+    const images = [
+      {
+        id: "first",
+        name: "First",
+        signatureHtml: '<img src="https://example.com/first.png">',
+      },
+      {
+        id: "second",
+        name: "Second",
+        signatureHtml: '<img src="https://example.com/second.png">',
+      },
+    ];
+    expect(findSignatureId(images, images[1].signatureHtml)).toBe("second");
+    expect(findSignatureId(images, "")).toBeUndefined();
+    expect(
+      findSignatureId(images, '<img src="https://example.com/other.png">'),
+    ).toBeUndefined();
+  });
+
   it("matches nothing for an unknown or empty signature", () => {
     expect(findSignatureId(signatures, "<div>Cheers</div>")).toBeUndefined();
     expect(findSignatureId(signatures, "")).toBeUndefined();

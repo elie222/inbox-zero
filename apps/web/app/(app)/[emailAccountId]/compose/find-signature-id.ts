@@ -10,7 +10,10 @@ export function findSignatureId(
   signatureHtml: string,
 ) {
   const key = getSignatureKey(signatureHtml);
-  if (!key) return;
+  if (!key) {
+    if (!signatureHtml.trim()) return;
+    return signatures.find((item) => item.signatureHtml === signatureHtml)?.id;
+  }
   return signatures.find((item) => getSignatureKey(item.signatureHtml) === key)
     ?.id;
 }

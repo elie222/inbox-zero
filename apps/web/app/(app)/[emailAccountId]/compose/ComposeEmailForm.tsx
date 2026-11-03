@@ -249,7 +249,8 @@ function ComposeEmailFormWithEngine(props: ComposeEmailFormProps) {
             initialDraftMissing={draftAttachments.draftMissing}
             draftLoadError={localDraft.error}
             accountProvider={selectedAccountProvider}
-            accountSignatureHtml={composeSignature?.signatureHtml ?? ""}
+            accountSignatureHtml={composeSignature?.savedSignatureHtml ?? ""}
+            defaultSignatureHtml={composeSignature?.signatureHtml}
             sendingAddress={sendingAddress}
             sendAsAddresses={sendAs?.addresses ?? []}
             sentWithFooterHtml={composeSignature?.footerHtml ?? ""}
@@ -275,6 +276,7 @@ function ComposeEmailFormContent({
   fromAccounts,
   accountProvider,
   accountSignatureHtml,
+  defaultSignatureHtml,
   sendingAddress,
   sendAsAddresses,
   sentWithFooterHtml,
@@ -304,6 +306,7 @@ function ComposeEmailFormContent({
   draftLoadError?: Error;
   accountProvider: string;
   accountSignatureHtml: string;
+  defaultSignatureHtml?: string;
   sendingAddress: string;
   sendAsAddresses: SendAsAddress[];
   sentWithFooterHtml: string;
@@ -339,6 +342,7 @@ function ComposeEmailFormContent({
       initialSendAs,
       sendAsAddresses,
       accountSignatureHtml,
+      defaultSignatureHtml,
       sentWithFooterHtml,
     }),
   );
@@ -508,11 +512,13 @@ function ComposeEmailFormContent({
       selectedSendAs,
       sendAsAddresses,
       accountSignatureHtml,
+      defaultSignatureHtml,
     );
     const nextSignature = getSendAsSignatureHtml(
       address,
       sendAsAddresses,
       accountSignatureHtml,
+      defaultSignatureHtml,
     );
     setValue("from", formatSendAsAddress(address));
     if (nextSignature !== previousSignature) {

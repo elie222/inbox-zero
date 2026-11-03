@@ -37,7 +37,7 @@ export async function getComposeSignature({
   if (!emailAccount) throw new SafeError("Email account not found");
 
   const signatureHtml =
-    emailAccount.signature ||
+    emailAccount.signature ??
     (await getProviderDefaultSignature({
       emailAccountId,
       provider: emailAccount.account.provider,
@@ -60,6 +60,8 @@ export async function getComposeSignature({
     emailAccount.includeSentWithSignature;
   return {
     signatureHtml,
+    // Aliases may inherit a saved signature, but not the provider's default.
+    savedSignatureHtml: emailAccount.signature ?? "",
     footerHtml: includeFooter
       ? renderSentWithFooterHtml(await getFooterLink(userId))
       : "",

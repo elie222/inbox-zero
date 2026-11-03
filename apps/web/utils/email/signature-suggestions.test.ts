@@ -32,7 +32,7 @@ function account(overrides: Record<string, unknown> = {}) {
 
 describe("getSignatureSuggestions", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   it("scans sent mail once and suggests a signature used more than once", async () => {
@@ -131,14 +131,68 @@ describe("getSignatureSuggestions", () => {
     expect(createEmailProvider).not.toHaveBeenCalled();
   });
 
-  it("stores an empty scan when the mailbox can't be read", async () => {
-    vi.mocked(createEmailProvider).mockRejectedValue(new Error("expired"));
-    prisma.emailAccount.findUnique.mockResolvedValue(account());
+  it("retries a failed scan once the mailbox recovers", async () => {
+    const state: Record<string, unknown> = account();
+    prisma.emailAccount.findUnique.mockImplementation(
+      async () => state as never,
+    );
+    prisma.emailAccount.update.mockImplementation(async ({ data }) => {
+      Object.assign(state, data);
+      return state as never;
+    });
+    vi.mocked(createEmailProvider)
+      .mockRejectedValueOnce(new Error("temporary failure"))
+      .mockResolvedValue(
+        createMockEmailProvider({
+          getSendAsAddresses: vi.fn().mockResolvedValue([]),
+          getSentMessages: vi
+            .fn()
+            .mockResolvedValue([sent(german), sent(german)]),
+        }),
+      );
 
     expect(
       await getSignatureSuggestions({ emailAccountId: "account", logger }),
     ).toEqual({ suggestions: [], needsDefault: false });
-    expect(prisma.emailAccount.update).toHaveBeenCalled();
+    expect(
+      await getSignatureSuggestions({ emailAccountId: "account", logger }),
+    ).toEqual({
+      suggestions: [{ html: german, count: 2 }],
+      needsDefault: false,
+    });
+  });
+
+  it("suggests a deleted saved signature from the cached scan", async () => {
+    const state: Record<string, unknown> = account({
+      emailSignatures: [{ html: german }],
+    });
+    prisma.emailAccount.findUnique.mockImplementation(
+      async () => state as never,
+    );
+    prisma.emailAccount.update.mockImplementation(async ({ data }) => {
+      Object.assign(state, data);
+      return state as never;
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue(
+      createMockEmailProvider({
+        getSendAsAddresses: vi.fn().mockResolvedValue([]),
+        getSentMessages: vi
+          .fn()
+          .mockResolvedValue([sent(german), sent(german)]),
+      }),
+    );
+
+    expect(
+      await getSignatureSuggestions({ emailAccountId: "account", logger }),
+    ).toEqual({ suggestions: [], needsDefault: false });
+    state.emailSignatures = [];
+    expect(
+      await getSignatureSuggestions({ emailAccountId: "account", logger }),
+    ).toEqual({
+      suggestions: [{ html: german, count: 2 }],
+      needsDefault: false,
+    });
+    expect(createEmailProvider).toHaveBeenCalledTimes(1);
   });
 
   it("still scans sent mail when the provider signature can't be read, without claiming none", async () => {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  getOwnSignatureHtml,
   getProviderSignatureHtml,
   stripProviderSignatureHtml,
 } from "@/utils/email/signature-normalization";
@@ -22,5 +23,15 @@ describe("getProviderSignatureHtml", () => {
     expect(getProviderSignatureHtml(`Body<br>${SIGNATURE_HTML}`)).toBe(
       SIGNATURE_HTML,
     );
+  });
+});
+
+describe("getOwnSignatureHtml", () => {
+  it("discovers the Outlook class marker and excludes quoted signatures", () => {
+    expect(
+      getOwnSignatureHtml(
+        '<blockquote><div class="ms-outlook-signature">Quoted</div></blockquote><div class="ms-outlook-signature"><p>Example signature</p></div>',
+      ),
+    ).toBe("<p>Example signature</p>");
   });
 });
