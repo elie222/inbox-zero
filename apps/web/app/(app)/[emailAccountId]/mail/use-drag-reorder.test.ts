@@ -41,7 +41,10 @@ it.each([
   );
   expect(result.current.drag).toBeNull();
   expect(result.current.suppressClickRef.current).toBe(active);
-  for (const name of ["pointermove", "keydown"]) {
+  const removed = active
+    ? ["pointermove", "keydown"]
+    : ["pointermove", "pointerup", "pointercancel", "keydown"];
+  for (const name of removed) {
     expect(remove).toHaveBeenCalledWith(name, expect.any(Function));
   }
   act(() => {
