@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { mockDeep } from "vitest-mock-extended";
 import prisma from "@/utils/__mocks__/prisma";
 import { getEmailAccount } from "@/__tests__/helpers";
 import {
@@ -26,8 +27,13 @@ vi.mock("@/utils/drive/filing-notifications", () => ({
 vi.mock("@/utils/drive/filing-messaging-notifications", () => ({
   sendFilingMessagingNotifications: vi.fn(),
 }));
+vi.mock("@/utils/drive/folder-utils", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/drive/folder-utils")>()),
+  createAndSaveFilingFolder: vi.fn(),
+}));
 
 import { analyzeDocument } from "@/utils/ai/document-filing/analyze-document";
+import { createAndSaveFilingFolder } from "@/utils/drive/folder-utils";
 import { extractTextFromDocument } from "@/utils/drive/document-extraction";
 import {
   sendAskNotification,
@@ -81,6 +87,306 @@ describe("processAttachment", () => {
     vi.mocked(sendFiledNotification).mockResolvedValue(undefined);
     vi.mocked(sendAskNotification).mockResolvedValue(undefined);
     vi.mocked(sendFilingMessagingNotifications).mockResolvedValue(undefined);
+    vi.mocked(createAndSaveFilingFolder).mockResolvedValue({
+      id: "new-folder-1",
+      name: "New Folder",
+    });
+  });
+
+  describe("creating folders", () => {
+    beforeEach(() => {
+      prisma.filingFolder.findMany.mockResolvedValue([
+        mockDeep<
+          Prisma.FilingFolderGetPayload<{ include: { driveConnection: true } }>
+        >({
+          folderId: "folder-1",
+          folderName: "Invoices",
+          folderPath: "Finance/Invoices",
+          driveConnectionId: "drive-connection-1",
+          driveConnection: { provider: "google" },
+        }),
+        mockDeep<
+          Prisma.FilingFolderGetPayload<{ include: { driveConnection: true } }>
+        >({
+          folderId: "folder-2",
+          folderName: "Acme",
+          folderPath: "Finance/Invoices/Acme",
+          driveConnectionId: "drive-connection-1",
+          driveConnection: { provider: "google" },
+        }),
+      ]);
+    });
+
+    it("creates a subfolder inside the parent folder the AI chose", async () => {
+      const { attachment, emailAccount, emailProvider, message, uploadFile } =
+        setupSuccessfulFiling({ confidence: 0.95 });
+      vi.mocked(analyzeDocument).mockResolvedValue({
+        action: "create_new",
+        folderId: null,
+        parentFolderId: "folder-1",
+        folderPath: "Globex/2026",
+        confidence: 0.95,
+        reasoning: "Invoices are grouped by vendor and year",
+      });
+
+      const result = await processAttachment({
+        attachment,
+        emailAccount,
+        emailProvider,
+        logger,
+        message,
+      });
+
+      expect(result.success).toBe(true);
+      expect(createAndSaveFilingFolder).toHaveBeenCalledWith(
+        expect.objectContaining({
+          folderPath: "Globex/2026",
+          parent: { id: "folder-1", path: "Finance/Invoices" },
+          driveConnectionId: "drive-connection-1",
+        }),
+      );
+      expect(uploadFile).toHaveBeenCalledWith(
+        expect.objectContaining({ folderId: "new-folder-1" }),
+      );
+      expect(prisma.documentFiling.update).toHaveBeenCalledWith({
+        where: { id: "filing-1" },
+        data: expect.objectContaining({
+          folderId: "new-folder-1",
+          folderPath: "Finance/Invoices/Globex/2026",
+        }),
+      });
+    });
+
+    it("nests a full path under the known folder that prefixes it when no parent id is given", async () => {
+      const { attachment, emailAccount, emailProvider, message } =
+        setupSuccessfulFiling({ confidence: 0.95 });
+      vi.mocked(analyzeDocument).mockResolvedValue({
+        action: "create_new",
+        folderId: null,
+        parentFolderId: null,
+        folderPath: "Finance/Invoices/Acme/2026",
+        confidence: 0.95,
+        reasoning: "Acme invoices by year",
+      });
+
+      await processAttachment({
+        attachment,
+        emailAccount,
+        emailProvider,
+        logger,
+        message,
+      });
+
+      expect(createAndSaveFilingFolder).toHaveBeenCalledWith(
+        expect.objectContaining({
+          folderPath: "2026",
+          parent: { id: "folder-2", path: "Finance/Invoices/Acme" },
+        }),
+      );
+      expect(prisma.documentFiling.update).toHaveBeenCalledWith({
+        where: { id: "filing-1" },
+        data: expect.objectContaining({
+          folderPath: "Finance/Invoices/Acme/2026",
+        }),
+      });
+    });
+
+    it.each([
+      "Globex/2026",
+      "Acme",
+    ])("preserves the selected parent when another folder shares its path: %s", async (folderPath) => {
+      const savedFolders = await prisma.filingFolder.findMany();
+      prisma.filingFolder.findMany.mockResolvedValue([
+        ...savedFolders,
+        ...savedFolders
+          .filter((folder) => folder.folderId === "folder-1")
+          .map((folder) => ({ ...folder, folderId: "selected-parent" })),
+      ]);
+      const { attachment, emailAccount, emailProvider, message, uploadFile } =
+        setupSuccessfulFiling({ confidence: 0.95 });
+      vi.mocked(analyzeDocument).mockResolvedValue({
+        action: "create_new",
+        folderId: null,
+        parentFolderId: "selected-parent",
+        folderPath,
+        confidence: 0.95,
+        reasoning: "File inside the selected parent",
+      });
+
+      await processAttachment({
+        attachment,
+        emailAccount,
+        emailProvider,
+        logger,
+        message,
+      });
+
+      expect(createAndSaveFilingFolder).toHaveBeenCalledWith(
+        expect.objectContaining({
+          folderPath,
+          parent: { id: "selected-parent", path: "Finance/Invoices" },
+        }),
+      );
+      expect(uploadFile).toHaveBeenCalledWith(
+        expect.objectContaining({ folderId: "new-folder-1" }),
+      );
+    });
+
+    it.each([
+      true,
+      false,
+    ])("uses the selected parent's connection only when connected: %s", async (connected) => {
+      const savedFolders = await prisma.filingFolder.findMany();
+      prisma.filingFolder.findMany.mockResolvedValue([
+        ...savedFolders,
+        ...savedFolders
+          .filter((folder) => folder.folderId === "folder-1")
+          .map((folder) => ({
+            ...folder,
+            folderId: "other-drive-parent",
+            driveConnectionId: "drive-connection-2",
+          })),
+      ]);
+      if (connected) {
+        const connections = await prisma.driveConnection.findMany();
+        prisma.driveConnection.findMany.mockResolvedValue([
+          ...connections,
+          ...connections.map((connection) => ({
+            ...connection,
+            id: "drive-connection-2",
+          })),
+        ]);
+      }
+      const { attachment, emailAccount, emailProvider, message, uploadFile } =
+        setupSuccessfulFiling({ confidence: 0.95 });
+      vi.mocked(analyzeDocument).mockResolvedValue({
+        action: "create_new",
+        folderId: null,
+        parentFolderId: "other-drive-parent",
+        folderPath: "2026",
+        confidence: 0.95,
+        reasoning: "File inside the selected parent",
+      });
+
+      const result = await processAttachment({
+        attachment,
+        emailAccount,
+        emailProvider,
+        logger,
+        message,
+      });
+
+      expect(result.success).toBe(connected);
+      if (connected) {
+        expect(createDriveProviderWithRefresh).toHaveBeenCalledWith(
+          expect.objectContaining({ id: "drive-connection-2" }),
+          expect.anything(),
+        );
+        expect(createAndSaveFilingFolder).toHaveBeenCalledWith(
+          expect.objectContaining({
+            driveConnectionId: "drive-connection-2",
+            parent: { id: "other-drive-parent", path: "Finance/Invoices" },
+          }),
+        );
+      } else {
+        expect(createAndSaveFilingFolder).not.toHaveBeenCalled();
+        expect(uploadFile).not.toHaveBeenCalled();
+      }
+    });
+
+    it("reuses an existing folder instead of creating a duplicate when the requested full path already exists", async () => {
+      const { attachment, emailAccount, emailProvider, message, uploadFile } =
+        setupSuccessfulFiling({ confidence: 0.95 });
+      vi.mocked(analyzeDocument).mockResolvedValue({
+        action: "create_new",
+        folderId: null,
+        parentFolderId: null,
+        folderPath: "Finance/Invoices/acme",
+        confidence: 0.95,
+        reasoning: "Acme invoice",
+      });
+
+      await processAttachment({
+        attachment,
+        emailAccount,
+        emailProvider,
+        logger,
+        message,
+      });
+
+      expect(createAndSaveFilingFolder).not.toHaveBeenCalled();
+      expect(uploadFile).toHaveBeenCalledWith(
+        expect.objectContaining({ folderId: "folder-2" }),
+      );
+      expect(prisma.documentFiling.update).toHaveBeenCalledWith({
+        where: { id: "filing-1" },
+        data: expect.objectContaining({
+          folderId: "folder-2",
+          folderPath: "Finance/Invoices/Acme",
+        }),
+      });
+    });
+
+    it("does not file when an explicit parent is missing", async () => {
+      const { attachment, emailAccount, emailProvider, message, uploadFile } =
+        setupSuccessfulFiling({ confidence: 0.95 });
+      vi.mocked(analyzeDocument).mockResolvedValue({
+        action: "create_new",
+        folderId: null,
+        parentFolderId: "deleted-folder",
+        folderPath: "Finance/Invoices/Acme",
+        confidence: 0.95,
+        reasoning: "File beneath the selected parent",
+      });
+
+      const result = await processAttachment({
+        attachment,
+        emailAccount,
+        emailProvider,
+        logger,
+        message,
+      });
+
+      expect(result).toEqual({
+        success: false,
+        error: "The selected parent folder could not be found",
+      });
+      expect(createAndSaveFilingFolder).not.toHaveBeenCalled();
+      expect(uploadFile).not.toHaveBeenCalled();
+    });
+
+    it("falls back to the drive root when no parent is selected and the path is unknown", async () => {
+      const { attachment, emailAccount, emailProvider, message } =
+        setupSuccessfulFiling({ confidence: 0.95 });
+      vi.mocked(analyzeDocument).mockResolvedValue({
+        action: "create_new",
+        folderId: null,
+        parentFolderId: null,
+        folderPath: "Contracts",
+        confidence: 0.95,
+        reasoning: "No contracts folder exists",
+      });
+
+      await processAttachment({
+        attachment,
+        emailAccount,
+        emailProvider,
+        logger,
+        message,
+      });
+
+      expect(createAndSaveFilingFolder).toHaveBeenCalledWith(
+        expect.objectContaining({
+          folderPath: "Contracts",
+          parent: null,
+          driveConnectionId: "drive-connection-1",
+        }),
+      );
+      expect(prisma.documentFiling.update).toHaveBeenCalledWith({
+        where: { id: "filing-1" },
+        data: expect.objectContaining({ folderPath: "Contracts" }),
+      });
+    });
   });
 
   it("sends filed confirmation emails by default", async () => {
@@ -675,6 +981,7 @@ function setupSuccessfulFiling({
   vi.mocked(analyzeDocument).mockResolvedValue({
     action: "use_existing",
     folderId: "folder-1",
+    parentFolderId: null,
     folderPath: null,
     confidence,
     reasoning: "Matches invoice folder",

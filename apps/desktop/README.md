@@ -59,7 +59,12 @@ The macOS release requires these GitHub secrets:
 - `MAC_CSC_LINK` / `MAC_CSC_KEY_PASSWORD` — Developer ID Application `.p12` (base64) for signed Mac builds
 - `APPLE_API_KEY_ID` / `APPLE_API_ISSUER` / `APPLE_API_KEY_P8` / `APPLE_TEAM_ID` — Apple credentials used to notarize the signed build
 
-Windows signing uses `WIN_CSC_LINK` / `WIN_CSC_KEY_PASSWORD` for the Authenticode `.p12`.
+The Windows release is signed with Azure Artifact Signing and fails if signing doesn't happen. It requires:
+
+- `AZURE_SIGNING_TENANT_ID` / `AZURE_SIGNING_CLIENT_ID` secrets: an Entra app registration with the Certificate Profile Signer role on the signing account. It has no client secret; the job logs in through GitHub OIDC, so the app needs a federated credential for subject `repo:elie222/inbox-zero:environment:desktop-release`
+- `AZURE_SIGNING_PUBLISHER_NAME` / `AZURE_SIGNING_ENDPOINT` / `AZURE_SIGNING_ACCOUNT_NAME` / `AZURE_SIGNING_CERTIFICATE_PROFILE` variables: the certificate's subject CN, the account's regional endpoint (for example `https://eus.codesigning.azure.net/`), the signing account name, and the certificate profile name
+
+Local `pnpm dist:win` builds stay unsigned.
 
 Error reporting from the main process (including renderer, GPU, and native crashes) uses the optional `DESKTOP_SENTRY_DSN` secret, injected at build time as `INBOX_ZERO_SENTRY_DSN`. Builds without it, including local development, don't report to Sentry.
 

@@ -9,6 +9,8 @@ import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { actionClient } from "@/utils/actions/safe-action";
 import { createEmailProvider } from "@/utils/email/provider";
 import { SafeError } from "@/utils/error";
+import { scheduleAccountAnalysis } from "@/utils/ai/knowledge/schedule-account-analysis";
+import { whitelistInboxZero } from "@/utils/whitelist-inbox-zero";
 
 const SENT_MESSAGE_SAMPLE_POOL_SIZE = 60;
 const STYLE_SAMPLE_SIZE = 20;
@@ -16,13 +18,7 @@ const STYLE_SAMPLE_SIZE = 20;
 // to help with onboarding and provide the best flow to new users
 export const assessAction = actionClient
   .metadata({ name: "assessUser" })
-  .action(async ({ ctx: { emailAccountId, provider, logger } }) => {
-    const emailProvider = await createEmailProvider({
-      emailAccountId,
-      provider,
-      logger,
-    });
-
+  .action(async ({ ctx: { emailAccountId, userId, provider, logger } }) => {
     const emailAccount = await prisma.emailAccount.findUnique({
       where: { id: emailAccountId },
       select: { behaviorProfile: true },
@@ -30,13 +26,26 @@ export const assessAction = actionClient
 
     if (emailAccount?.behaviorProfile) return { success: true, skipped: true };
 
-    const result = await assessUser({ client: emailProvider, logger });
-    await prisma.emailAccount.update({
-      where: { id: emailAccountId },
-      data: { behaviorProfile: result },
+    return scheduleAccountAnalysis({
+      emailAccountId,
+      kind: "behavior",
+      logger,
+      run: async (ownsLock) => {
+        const emailProvider = await createEmailProvider({
+          emailAccountId,
+          provider,
+          logger,
+        });
+        const result = await assessUser({ client: emailProvider, logger });
+        if (!(await ownsLock())) return false;
+        await prisma.emailAccount.update({
+          where: { id: emailAccountId },
+          data: { behaviorProfile: result },
+        });
+        await whitelistInboxZero({ userId, emailProvider });
+        return true;
+      },
     });
-
-    return { success: true };
   });
 
 export const analyzeWritingStyleAction = actionClient
@@ -62,47 +71,57 @@ export const analyzeWritingStyleAction = actionClient
 
     if (emailAccount?.writingStyle) return { success: true, skipped: true };
 
-    const emailProvider = await createEmailProvider({
+    return scheduleAccountAnalysis({
       emailAccountId,
-      provider,
+      kind: "writing-style",
       logger,
+      run: async (ownsLock) => {
+        const emailProvider = await createEmailProvider({
+          emailAccountId,
+          provider,
+          logger,
+        });
+        const sentMessages = await emailProvider.getSentMessages(
+          SENT_MESSAGE_SAMPLE_POOL_SIZE,
+        );
+        if (!sentMessages.length) return false;
+        const styleSourceMessages = selectWritingStyleSampleMessages(
+          sentMessages,
+        ).slice(0, STYLE_SAMPLE_SIZE);
+
+        // analyze writing style
+        const style = await aiAnalyzeWritingStyle({
+          emails: styleSourceMessages.map((email) =>
+            getEmailForLLM(email, { extractReply: true }),
+          ),
+          emailAccount: { ...emailAccount, account: { provider } },
+        });
+
+        if (!style || !(await ownsLock())) return false;
+
+        // save writing style
+        const writingStyle = [
+          style.typicalLength ? `Typical Length: ${style.typicalLength}` : null,
+          style.formality ? `Formality: ${style.formality}` : null,
+          style.commonGreeting
+            ? `Common Greeting: ${style.commonGreeting}`
+            : null,
+          style.notableTraits.length
+            ? `Notable Traits: ${formatBulletList(style.notableTraits)}`
+            : null,
+          style.examples.length
+            ? `Examples: ${formatBulletList(style.examples)}`
+            : null,
+        ]
+          .filter(Boolean)
+          .join("\n");
+
+        await prisma.emailAccount.update({
+          where: { id: emailAccountId },
+          data: { writingStyle },
+        });
+
+        return true;
+      },
     });
-    const sentMessages = await emailProvider.getSentMessages(
-      SENT_MESSAGE_SAMPLE_POOL_SIZE,
-    );
-    const styleSourceMessages = selectWritingStyleSampleMessages(
-      sentMessages,
-    ).slice(0, STYLE_SAMPLE_SIZE);
-
-    // analyze writing style
-    const style = await aiAnalyzeWritingStyle({
-      emails: styleSourceMessages.map((email) =>
-        getEmailForLLM(email, { extractReply: true }),
-      ),
-      emailAccount: { ...emailAccount, account: { provider } },
-    });
-
-    if (!style) return;
-
-    // save writing style
-    const writingStyle = [
-      style.typicalLength ? `Typical Length: ${style.typicalLength}` : null,
-      style.formality ? `Formality: ${style.formality}` : null,
-      style.commonGreeting ? `Common Greeting: ${style.commonGreeting}` : null,
-      style.notableTraits.length
-        ? `Notable Traits: ${formatBulletList(style.notableTraits)}`
-        : null,
-      style.examples.length
-        ? `Examples: ${formatBulletList(style.examples)}`
-        : null,
-    ]
-      .filter(Boolean)
-      .join("\n");
-
-    await prisma.emailAccount.update({
-      where: { id: emailAccountId },
-      data: { writingStyle },
-    });
-
-    return { success: true };
   });

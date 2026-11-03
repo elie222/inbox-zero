@@ -1,8 +1,10 @@
 import { addMinutes } from "date-fns/addMinutes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestLogger } from "@/__tests__/helpers";
-import prisma from "@/utils/__mocks__/prisma";
-import { createCalendarEventProviders } from "@/utils/calendar/event-provider";
+import {
+  createCalendarEventProvidersFromConnections,
+  getConnectedCalendarConnections,
+} from "@/utils/calendar/event-provider";
 import type {
   CalendarEvent,
   CalendarEventProvider,
@@ -20,7 +22,15 @@ const logger = createTestLogger();
 describe("fetchUpcomingEvents", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    prisma.calendarConnection.count.mockResolvedValue(1);
+    vi.mocked(getConnectedCalendarConnections).mockResolvedValue([
+      {
+        id: "connection-1",
+        provider: "google",
+        accessToken: "access-token",
+        refreshToken: "refresh-token",
+        expiresAt: null,
+      },
+    ]);
   });
 
   it("skips cancelled event placeholder titles", async () => {
@@ -47,7 +57,9 @@ describe("fetchUpcomingEvents", () => {
       }),
     ]);
 
-    vi.mocked(createCalendarEventProviders).mockResolvedValue([provider]);
+    vi.mocked(createCalendarEventProvidersFromConnections).mockReturnValue([
+      provider,
+    ]);
 
     const events = await fetchUpcomingEvents({
       emailAccountId: "email-account-id",
@@ -77,7 +89,9 @@ describe("fetchUpcomingEvents", () => {
       }),
     ]);
 
-    vi.mocked(createCalendarEventProviders).mockResolvedValue([provider]);
+    vi.mocked(createCalendarEventProvidersFromConnections).mockReturnValue([
+      provider,
+    ]);
 
     const events = await fetchUpcomingEvents({
       emailAccountId: "email-account-id",
@@ -111,7 +125,9 @@ describe("fetchUpcomingEvents", () => {
         }),
       ]);
 
-      vi.mocked(createCalendarEventProviders).mockResolvedValue([provider]);
+      vi.mocked(createCalendarEventProvidersFromConnections).mockReturnValue([
+        provider,
+      ]);
 
       const events = await fetchUpcomingEvents({
         emailAccountId: "email-account-id",
@@ -130,7 +146,9 @@ describe("fetchUpcomingEvents", () => {
         }),
       ]);
 
-      vi.mocked(createCalendarEventProviders).mockResolvedValue([provider]);
+      vi.mocked(createCalendarEventProvidersFromConnections).mockReturnValue([
+        provider,
+      ]);
 
       const events = await fetchUpcomingEvents({
         emailAccountId: "email-account-id",
@@ -182,6 +200,52 @@ describe("filterEventsWithExternalGuests", () => {
       ),
     ).toEqual(["personal-domain-peer"]);
   });
+
+  it("drops meetings the user declined or every guest declined", () => {
+    const events = [
+      createEvent({
+        id: "user-declined",
+        attendees: [
+          { email: "User@Company.com", declined: true },
+          { email: "customer@example.com" },
+        ],
+      }),
+      createEvent({
+        id: "calendar-declined",
+        userDeclined: true,
+        attendees: [{ email: "customer@example.com" }],
+      }),
+      createEvent({
+        id: "calendar-accepted",
+        userDeclined: false,
+        attendees: [
+          { email: "user@company.com", declined: true },
+          { email: "customer@example.com" },
+        ],
+      }),
+      createEvent({
+        id: "guests-declined",
+        attendees: [
+          { email: "user@company.com" },
+          { email: "customer@example.com", declined: true },
+        ],
+      }),
+      createEvent({
+        id: "one-guest-coming",
+        attendees: [
+          { email: "user@company.com" },
+          { email: "customer@example.com", declined: true },
+          { email: "partner@example.org" },
+        ],
+      }),
+    ];
+
+    expect(
+      filterEventsWithExternalGuests(events, "user@company.com").map(
+        (event) => event.id,
+      ),
+    ).toEqual(["calendar-accepted", "one-guest-coming"]);
+  });
 });
 
 function createProvider(events: CalendarEvent[]): CalendarEventProvider {
@@ -220,5 +284,6 @@ function createEvent(overrides: Partial<CalendarEvent>): CalendarEvent {
     endTime:
       overrides.endTime ?? new Date(startTime.getTime() + 30 * 60 * 1000),
     attendees: overrides.attendees ?? [{ email: "guest@example.com" }],
+    userDeclined: overrides.userDeclined,
   };
 }

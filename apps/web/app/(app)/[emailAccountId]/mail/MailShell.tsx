@@ -15,12 +15,15 @@ import {
   type ReactNode,
 } from "react";
 import { parseAsString, useQueryState, useQueryStates } from "nuqs";
+import { ChevronLeftIcon } from "lucide-react";
 import { toast } from "sonner";
 import { ListToolbar } from "@/app/(app)/[emailAccountId]/mail/ListToolbar";
 import { getMailSearchFolders } from "@/app/(app)/[emailAccountId]/mail/outlook-folder-list";
 import {
+  getMailCategories,
   getMailNavPath,
   MAIL_SCHEDULED_TYPE,
+  MAILBOX_ITEMS,
 } from "@/app/(app)/[emailAccountId]/mail/MailSidebar";
 import { MailShellSidebar } from "@/app/(app)/[emailAccountId]/mail/MailShellSidebar";
 import { MailSplitTabs } from "@/app/(app)/[emailAccountId]/mail/MailSplitTabs";
@@ -37,6 +40,11 @@ import { ThreadList } from "@/app/(app)/[emailAccountId]/mail/ThreadList";
 import { useStableCallback } from "@/app/(app)/[emailAccountId]/mail/use-stable-callback";
 import { useTranslateThread } from "@/app/(app)/[emailAccountId]/mail/use-thread-translation";
 import { GmailLabel } from "@/utils/gmail/label";
+import { Tooltip } from "@/components/Tooltip";
+import {
+  flattenOutlookFolders,
+  type OutlookFolder,
+} from "@/utils/outlook/folders";
 import {
   getComposeTargetMessageId,
   getActiveThreadIndex,
@@ -54,7 +62,10 @@ import {
 import type { ThreadMessage } from "@/components/email-list/types";
 import { useMailThreads } from "@/app/(app)/[emailAccountId]/mail/use-mail-threads";
 import { useCombinedMailThreads } from "@/app/(app)/[emailAccountId]/mail/use-combined-mail-threads";
-import { useThreadActions } from "@/app/(app)/[emailAccountId]/mail/use-thread-actions";
+import {
+  type ThreadActionTarget,
+  useThreadActions,
+} from "@/app/(app)/[emailAccountId]/mail/use-thread-actions";
 import { useOptimisticArchive } from "@/app/(app)/[emailAccountId]/mail/use-optimistic-archive";
 import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
 import { MailProductFrame } from "@inboxzero/mail-ui/MailProductFrame";
@@ -97,6 +108,7 @@ import { useFolders } from "@/hooks/useFolders";
 import { useMailSettings } from "@/hooks/useMailSettings";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useThread } from "@/hooks/useThread";
+import { cn } from "@/utils";
 import { useShortcuts } from "@/lib/shortcuts/useShortcuts";
 import type { ShortcutHandlers } from "@/lib/shortcuts/registry";
 import { updateMailPreferencesAction } from "@/utils/actions/mail-split";
@@ -511,7 +523,12 @@ export function MailShell() {
     ? threads.find((thread) => getListThreadKey(thread) === openThreadKey)
     : undefined;
   const readAttemptedForOpenThread = useRef<string | null>(null);
-  useWarmNeighbourThreads({ threads, openThreadKey, emailAccountId });
+  const warmThread = useWarmNeighbourThreads({
+    threads,
+    activeThreadKey:
+      openThreadKey ?? (focusedThread ? getListThreadKey(focusedThread) : null),
+    emailAccountId,
+  });
 
   // Defer the pair as one value: rendering a new id with the previous account
   // would be worse than fetching eagerly when J/K moves between account rows.
@@ -672,6 +689,42 @@ export function MailShell() {
     selection.selectedIds,
     threads,
   ]);
+  // Undo brings the thread back into the list, so return focus to it, and to
+  // the reader if one is showing, rather than leaving it where archive advanced.
+  const [restoredFocusKey, setRestoredFocusKey] = useState<string>();
+  // Archiving the last row closes the reader, so the open state has to be
+  // remembered from before the action rather than read at undo time.
+  const removedOpenThreadKeyRef = useRef<string | null>(null);
+  const focusRestoredThread = useStableCallback(
+    (targets: ThreadActionTarget[]) => {
+      const wasOpen = targets.find(
+        (target) => target.key === removedOpenThreadKeyRef.current,
+      );
+      const target = wasOpen ?? targets[0];
+      if (!target) return;
+      const selection = {
+        emailAccountId: target.emailAccountId,
+        threadId: target.threadId,
+      };
+      setRestoredFocusKey(
+        isAllAccounts
+          ? (getThreadSelectionKey(selection) ?? undefined)
+          : selection.threadId,
+      );
+      if (wasOpen || layout === "split" || openThreadId) {
+        setReplyToMessageId(undefined);
+        setForwardToMessageId(undefined);
+        setOpenThread(selection);
+      }
+    },
+  );
+  useLayoutEffect(() => {
+    if (!restoredFocusKey) return;
+    const index = orderedIds.indexOf(restoredFocusKey);
+    if (index < 0) return;
+    setFocusedIndex(index);
+    setRestoredFocusKey(undefined);
+  }, [orderedIds, restoredFocusKey]);
   const {
     archive,
     moveToInbox,
@@ -681,8 +734,10 @@ export function MailShell() {
     setStarredState,
     snooze,
     undo,
+    waitForPendingUndoable,
   } = useThreadActions({
     emailAccountId,
+    onRestore: focusRestoredThread,
     readerTarget,
     threads,
   });
@@ -799,6 +854,9 @@ export function MailShell() {
         removeFromList && openThreadKey && ids.includes(openThreadKey)
           ? openThreadKey
           : null;
+      if (removedOpenThreadKey) {
+        removedOpenThreadKeyRef.current = removedOpenThreadKey;
+      }
       // Advance before the list drops the row, so focus moves straight to
       // the next row instead of briefly landing on none.
       const advancedToKey =
@@ -1141,9 +1199,34 @@ export function MailShell() {
     setSearchParam,
   ]);
 
+  // The field can be rendered but inert while the list is held during an open,
+  // so the request stays pending until focus actually lands.
+  const focusPendingSearch = useCallback(() => {
+    const input = searchInputRef.current;
+    if (!input) return;
+    input.focus();
+    if (document.activeElement !== input) return;
+    pendingSearchFocusRef.current = false;
+    input.select();
+  }, []);
+
   const closeReader = useCallback(() => {
     setOpenThread(null);
   }, [setOpenThread]);
+
+  const goToInbox = useCallback(() => {
+    selection.clear();
+    setOpenThread(null);
+    setScopeType("inbox");
+    setScopeLabelId(null);
+    setScopeFolderId(null);
+  }, [
+    selection.clear,
+    setOpenThread,
+    setScopeFolderId,
+    setScopeLabelId,
+    setScopeType,
+  ]);
 
   const senderCommands =
     senderCommandContext?.emailAccountId ===
@@ -1155,6 +1238,27 @@ export function MailShell() {
     toggleSidebar(["chat-sidebar"]),
   );
   // `useShortcuts` keeps handlers in a ref, so these need no memoization.
+  // Opening from the list keeps the list on screen while the reader prepares
+  // the email out of sight, so the finished email replaces it in one frame.
+  // Once a thread is showing, the reader buffers moves between threads itself.
+  const readerPreparing =
+    layout === "list" &&
+    Boolean(openReaderThreadKey && readerEmailAccount) &&
+    visibleReaderThreadKey === undefined;
+  if (layout === "list" && !openReaderThreadKey && visibleReaderThreadKey) {
+    setVisibleReaderThreadKey(undefined);
+  }
+  const showList =
+    layout === "split" || !openThreadSelection || readerPreparing;
+  const showSplitTabs = !isScoped && !searchQuery;
+  const canCycleSplits = showSplitTabs && showList;
+  const cycleSplit = (step: 1 | -1) => {
+    const index = splits.findIndex(
+      (split) => split.id === displayedActiveSplitId,
+    );
+    const target = splits[(index + step + splits.length) % splits.length];
+    if (target) setActiveSplitId(target.id);
+  };
   const handlers: ShortcutHandlers = (() => {
     if (sidePanelThreadId || labelPicker) return {};
     return {
@@ -1190,14 +1294,11 @@ export function MailShell() {
             if (selection.hasSelection) selection.clear();
             else if (layout === "list" && openThreadId) closeReader();
             else if (searchValue) setSearch("");
+            else if (isScoped) goToInbox();
           },
-      nextSplit: () => {
-        const index = splits.findIndex(
-          (split) => split.id === displayedActiveSplitId,
-        );
-        const next = splits[(index + 1) % splits.length];
-        if (next) setActiveSplitId(next.id);
-      },
+      // Hidden tabs would change the split out of sight.
+      nextSplit: canCycleSplits ? () => cycleSplit(1) : undefined,
+      previousSplit: canCycleSplits ? () => cycleSplit(-1) : undefined,
       switchAccount: (event) => {
         const accountNumber = Number(event?.key);
         if (
@@ -1249,6 +1350,7 @@ export function MailShell() {
           : undefined,
       translate: isMailOverlayOpen ? undefined : translateOpenThread,
       undo: async () => {
+        await waitForPendingUndoable();
         if (await undoLatestToast()) return;
         await undo();
       },
@@ -1262,12 +1364,7 @@ export function MailShell() {
             if (selection.hasSelection) selection.clear();
             if (layout === "list" && openThreadId) closeReader();
             pendingSearchFocusRef.current = true;
-            const input = searchInputRef.current;
-            if (input) {
-              pendingSearchFocusRef.current = false;
-              input.focus();
-              input.select();
-            }
+            focusPendingSearch();
           },
     };
   })();
@@ -1275,12 +1372,7 @@ export function MailShell() {
   useLayoutEffect(() => {
     // The search field remounts when selection clears or the list returns, so
     // consume a pending `/` focus after whichever commit actually rendered it.
-    if (!pendingSearchFocusRef.current) return;
-    const input = searchInputRef.current;
-    if (!input) return;
-    pendingSearchFocusRef.current = false;
-    input.focus();
-    input.select();
+    if (pendingSearchFocusRef.current) focusPendingSearch();
   });
 
   useShortcuts(handlers, { isDesktopApp });
@@ -1405,7 +1497,20 @@ export function MailShell() {
         : NO_SEARCH_OPTIONS,
     [folders, isAllAccounts, isOutlook],
   );
-  const showSplitTabs = !isScoped && !searchQuery;
+  // With the sidebar collapsed to its rail, this is the only sign that the
+  // list isn't the inbox.
+  const scopeTitle =
+    isScoped && !searchQuery
+      ? getScopeTitle({
+          scopeType,
+          scopeLabelId,
+          scopeFolderId,
+          labels: allLabels,
+          folders,
+          isGoogle,
+          isOutlook,
+        })
+      : null;
   const threadCount = threads.length;
   const { selectedCount, selectAll, clear: clearSelection } = selection;
   // Only offered once something is selected, so the tabs sit flush otherwise.
@@ -1422,7 +1527,6 @@ export function MailShell() {
     [threadCount, selectedCount, selectAll, clearSelection],
   );
 
-  const showList = layout === "split" || !openThreadSelection;
   const showReader = layout === "split" || Boolean(openThreadSelection);
   const readerUserLabels = isAllAccounts
     ? (labelsByAccount[openThreadSelection?.emailAccountId ?? ""] ?? NO_LABELS)
@@ -1491,9 +1595,9 @@ export function MailShell() {
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <MailEngineConnectionBanner />
-        <div className="flex min-h-0 min-w-0 flex-1">
+        <div className="relative flex min-h-0 min-w-0 flex-1">
           {showList && (
-            <MailListPanel layout={layout}>
+            <MailListPanel layout={layout} inert={readerPreparing}>
               <ListToolbar
                 onOpenMailNav={() => setIsMailNavOpen(true)}
                 layout={layout}
@@ -1529,80 +1633,110 @@ export function MailShell() {
                 onLabelSelected={canLabel ? openLabelPicker : undefined}
                 onClearSelection={selection.clear}
               />
-              {showSplitTabs && (
-                <MailSplitTabs
-                  leading={selectAllCheckbox}
-                  splits={splitTabs}
-                  activeSplitId={displayedActiveSplitId}
-                  onSelectSplit={setActiveSplitId}
-                  isAllAccounts={isAllAccounts}
-                  getSenders={getSplitSenders}
-                  countAccountIds={splitCountAccountIds}
-                  portableLabelSplits={
-                    isAllAccounts ? combinedLabelSplits : undefined
-                  }
-                  labelsByAccount={isAllAccounts ? labelsByAccount : undefined}
-                  showDivider={isListScrolled}
-                />
-              )}
-              {isAllAccounts && combinedThreadState.failedAccountIds.length ? (
-                <div className="border-border border-b bg-amber-50 px-3 py-2 text-amber-900 text-xs dark:bg-amber-950/30 dark:text-amber-200">
-                  Some inboxes couldn&apos;t be loaded. Try again shortly or
-                  check their connections.
-                </div>
-              ) : null}
-              <MailPanelErrorBoundary
-                resetKey={JSON.stringify([
-                  emailAccountId,
-                  isAllAccounts,
-                  query,
-                  displayedActiveSplitId,
-                  searchQuery,
-                ])}
-                title="Unable to show your mail list"
-              >
-                {isScheduledView ? (
-                  <ScheduledEmailList />
-                ) : (
-                  <LoadingContent
-                    loading={false}
-                    error={searchQuery ? undefined : error}
-                  >
-                    <ThreadList
-                      threads={threads}
-                      emptyMessage={emptyListMessage}
-                      layout={layout}
-                      expandedPreview={expandedPreview}
-                      userEmail={userEmail}
-                      userLabels={isAllAccounts ? NO_LABELS : userLabels}
-                      labelsByAccount={labelsByAccount}
-                      focusedIndex={clampedIndex}
-                      isSelected={selection.isSelected}
-                      selectedCount={selection.selectedCount}
-                      onOpenThread={openAt}
-                      onToggleSelect={selection.toggle}
-                      onSelectRangeTo={selection.selectRangeTo}
-                      showLoadMore={hasMore}
-                      isLoadingMore={isLoadingMore}
-                      onLoadMore={loadMore}
-                      showSentOpenStatus={
-                        scopeType === "sent" && !isAllAccounts
-                      }
-                      onScrolledChange={setIsListScrolled}
-                      listKey={
-                        isAllAccounts
-                          ? `all-accounts:${searchQuery ?? displayedActiveSplitId}`
-                          : JSON.stringify(query)
-                      }
-                    />
-                  </LoadingContent>
+              <div data-split-cycle-zone className="contents">
+                {showSplitTabs && (
+                  <MailSplitTabs
+                    leading={selectAllCheckbox}
+                    splits={splitTabs}
+                    activeSplitId={displayedActiveSplitId}
+                    onSelectSplit={setActiveSplitId}
+                    isAllAccounts={isAllAccounts}
+                    getSenders={getSplitSenders}
+                    countAccountIds={splitCountAccountIds}
+                    portableLabelSplits={
+                      isAllAccounts ? combinedLabelSplits : undefined
+                    }
+                    labelsByAccount={
+                      isAllAccounts ? labelsByAccount : undefined
+                    }
+                    showDivider={isListScrolled}
+                  />
                 )}
-              </MailPanelErrorBoundary>
+                {scopeTitle ? (
+                  <div className="flex items-center gap-1 px-1.5 py-1">
+                    <Tooltip
+                      shortcuts={[{ id: "backToList", label: "Go to inbox" }]}
+                    >
+                      <button
+                        type="button"
+                        onClick={goToInbox}
+                        aria-label="Go to inbox"
+                        className="flex size-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <ChevronLeftIcon className="size-4" />
+                      </button>
+                    </Tooltip>
+                    <h2 className="truncate font-semibold text-base">
+                      {scopeTitle}
+                    </h2>
+                  </div>
+                ) : null}
+                {isAllAccounts &&
+                combinedThreadState.failedAccountIds.length ? (
+                  <div className="border-border border-b bg-amber-50 px-3 py-2 text-amber-900 text-xs dark:bg-amber-950/30 dark:text-amber-200">
+                    Some inboxes couldn&apos;t be loaded. Try again shortly or
+                    check their connections.
+                  </div>
+                ) : null}
+                <MailPanelErrorBoundary
+                  resetKey={JSON.stringify([
+                    emailAccountId,
+                    isAllAccounts,
+                    query,
+                    displayedActiveSplitId,
+                    searchQuery,
+                  ])}
+                  title="Unable to show your mail list"
+                >
+                  {isScheduledView ? (
+                    <ScheduledEmailList />
+                  ) : (
+                    <LoadingContent
+                      loading={false}
+                      error={searchQuery ? undefined : error}
+                    >
+                      <ThreadList
+                        threads={threads}
+                        emptyMessage={emptyListMessage}
+                        layout={layout}
+                        expandedPreview={expandedPreview}
+                        userEmail={userEmail}
+                        userLabels={isAllAccounts ? NO_LABELS : userLabels}
+                        labelsByAccount={labelsByAccount}
+                        focusedIndex={clampedIndex}
+                        isSelected={selection.isSelected}
+                        selectedCount={selection.selectedCount}
+                        onOpenThread={openAt}
+                        onHoverThread={warmThread}
+                        onToggleSelect={selection.toggle}
+                        onSelectRangeTo={selection.selectRangeTo}
+                        showLoadMore={hasMore}
+                        isLoadingMore={isLoadingMore}
+                        onLoadMore={loadMore}
+                        showSentOpenStatus={
+                          scopeType === "sent" && !isAllAccounts
+                        }
+                        onScrolledChange={setIsListScrolled}
+                        listKey={
+                          isAllAccounts
+                            ? `all-accounts:${searchQuery ?? displayedActiveSplitId}`
+                            : JSON.stringify(query)
+                        }
+                      />
+                    </LoadingContent>
+                  )}
+                </MailPanelErrorBoundary>
+              </div>
             </MailListPanel>
           )}
 
           {showReader ? (
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <div
+              className={cn(
+                "flex min-h-0 min-w-0 flex-1 flex-col",
+                readerPreparing && "invisible absolute inset-0",
+              )}
+            >
               <MailReaderPane
                 readerEmailAccount={readerEmailAccount}
                 readerKey={openReaderThreadKey}
@@ -1665,6 +1799,38 @@ export function MailShell() {
         </div>
       </div>
     </MailProductFrame>
+  );
+}
+
+function getScopeTitle({
+  scopeType,
+  scopeLabelId,
+  scopeFolderId,
+  labels,
+  folders,
+  isGoogle,
+  isOutlook,
+}: {
+  scopeType: string | null;
+  scopeLabelId: string | null;
+  scopeFolderId: string | null;
+  labels: { id: string; name: string }[];
+  folders: OutlookFolder[];
+  isGoogle: boolean;
+  isOutlook: boolean;
+}): string | null {
+  if (scopeLabelId)
+    return labels.find((label) => label.id === scopeLabelId)?.name ?? null;
+  if (scopeFolderId)
+    return (
+      flattenOutlookFolders(folders).find(
+        (folder) => folder.id === scopeFolderId,
+      )?.displayName ?? null
+    );
+  return (
+    [...MAILBOX_ITEMS, ...getMailCategories({ isGoogle, isOutlook })].find(
+      (item) => item.type === scopeType,
+    )?.name ?? null
   );
 }
 

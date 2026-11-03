@@ -58,6 +58,20 @@ export async function trackSentDraftStatus({
       type: ActionType.DRAFT_EMAIL,
       draftId: { not: null },
       draftSendLog: null,
+      // A draft Inbox Zero deleted can't be what the user sent. Its missing
+      // draft would otherwise read as "likely sent", recording the user's own
+      // reply as the AI draft and learning reply memory from it. Drafts saved
+      // before statuses existed have no status, and legacy wasDraftSent=false
+      // rows were migrated to CLEANED_UP_UNUSED without being deleted, so both
+      // are still tracked.
+      OR: [
+        { draftStatus: null },
+        { draftStatus: { not: DraftEmailStatus.CLEANED_UP_UNUSED } },
+        {
+          draftStatus: DraftEmailStatus.CLEANED_UP_UNUSED,
+          wasDraftSent: false,
+        },
+      ],
     },
     orderBy: {
       createdAt: "desc",
@@ -372,20 +386,27 @@ export async function cleanupThreadAIDrafts({
               draftStatus: action.draftStatus,
               status: DraftEmailStatus.CLEANED_UP_UNUSED,
             });
-            await Promise.all([
-              provider.deleteDraft(action.draftId),
-              statusData
-                ? withPrismaRetry(
-                    () =>
-                      prisma.executedAction.update({
-                        where: { id: action.id },
-                        data: statusData,
-                      }),
-                    { logger },
-                  )
-                : Promise.resolve(),
-            ]);
-            logger.info("Deleted unmodified draft.", actionLoggerOptions);
+            // Only a draft that is really gone can be recorded as cleaned up:
+            // sent-draft tracking skips cleaned-up drafts, and a delete the
+            // provider refused (e.g. the user edited it meanwhile) leaves a
+            // draft the user may still send.
+            const deleted = await provider.deleteDraft(action.draftId);
+            if (deleted && statusData) {
+              await withPrismaRetry(
+                () =>
+                  prisma.executedAction.update({
+                    where: { id: action.id },
+                    // Clear the legacy flag so the deleted draft isn't taken
+                    // for an unmigrated legacy row by sent-draft tracking.
+                    data: { ...statusData, wasDraftSent: null },
+                  }),
+                { logger },
+              );
+            }
+            logger.info(
+              deleted ? "Deleted unmodified draft." : "Draft was not deleted.",
+              actionLoggerOptions,
+            );
           } else {
             logger.info(
               "Draft has been modified, skipping deletion.",

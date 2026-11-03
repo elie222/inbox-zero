@@ -1,4 +1,5 @@
 import prisma from "@/utils/prisma";
+import { EMAIL_ACCOUNT_ORDER_BY } from "@/utils/email-account-order";
 
 export async function getConnectedEmailAccounts({
   userId,
@@ -25,7 +26,7 @@ export async function getConnectedEmailAccounts({
         select: { provider: true },
       },
     },
-    orderBy: { createdAt: "asc" },
+    orderBy: EMAIL_ACCOUNT_ORDER_BY,
   });
 
   return accounts.map((account) => ({

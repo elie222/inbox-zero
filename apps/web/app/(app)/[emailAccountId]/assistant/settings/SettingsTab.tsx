@@ -10,6 +10,7 @@ import { ReferralSignatureSetting } from "@/app/(app)/[emailAccountId]/assistant
 import { LearnedPatternsSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/LearnedPatternsSetting";
 import { PersonalSignatureSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting";
 import { SentWithSignatureSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/SentWithSignatureSetting";
+import { SignaturesSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting";
 import { SnippetsSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/SnippetsSetting";
 import { MultiRuleSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/MultiRuleSetting";
 import { SyncToExtensionSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/SyncToExtensionSetting";
@@ -40,6 +41,7 @@ export function SettingsTab() {
         <WritingStyleSetting />
         <AboutSetting />
         <PersonalSignatureSetting />
+        <SignaturesSetting />
         <SnippetsSetting />
         <SentWithSignatureSetting />
       </div>

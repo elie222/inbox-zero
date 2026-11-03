@@ -6,6 +6,7 @@ import {
   isDraftUnmodified,
 } from "@/utils/ai/choose-rule/draft-management";
 import { stripQuotedHtmlContent } from "@/utils/email/parse-message-reply";
+import { renderReplyBodyHtml } from "@/utils/email/reply-body-html";
 import prisma from "@/utils/prisma";
 import { ActionType, DraftEmailStatus } from "@/generated/prisma/enums";
 import type { ParsedMessage } from "@/utils/types";
@@ -35,7 +36,7 @@ const executedRule = {
 
 describe("handlePreviousDraftDeletion", () => {
   const mockGetDraft = vi.fn();
-  const mockDeleteDraft = vi.fn();
+  const mockDeleteDraft = vi.fn().mockResolvedValue(true);
   const mockClient = {
     getDraft: mockGetDraft,
     deleteDraft: mockDeleteDraft,
@@ -92,6 +93,23 @@ describe("handlePreviousDraftDeletion", () => {
       mockUpdate,
     });
     expect(result).toEqual({ shouldCreateDraft: true });
+  });
+
+  it("keeps tracking a draft when the provider refuses deletion", async () => {
+    mockFindFirst.mockResolvedValue(previousDraftAction);
+    mockGetDraft.mockResolvedValue(
+      createParsedMessage({ textPlain: previousDraftAction.content }),
+    );
+    mockDeleteDraft.mockResolvedValueOnce(false);
+
+    await handlePreviousDraftDeletion({
+      client: mockClient,
+      executedRule,
+      logger,
+    });
+
+    expect(mockDeleteDraft).toHaveBeenCalledWith(previousDraftAction.draftId);
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 
   it("should not delete modified draft", async () => {
@@ -558,6 +576,49 @@ describe("isDraftUnmodified", () => {
 
     expect(result).toBe(true);
   });
+
+  it("compares link destinations in Outlook HTML bodies when links are included", () => {
+    const outlookDraft = (href: string) =>
+      createParsedMessage({
+        textPlain: `<html><body><div dir="ltr">My reply<br><br>Drafted by <a href="${href}">Inbox Zero</a>.</div></body></html>`,
+        bodyContentType: "html",
+      });
+    const originalContent =
+      'My reply\n\nDrafted by <a href="http://localhost:3000/?ref=ABC">Inbox Zero</a>.';
+
+    expect(
+      isDraftUnmodified({
+        originalContent,
+        currentDraft: outlookDraft("http://localhost:3000/?ref=ABC"),
+        logger,
+        includeLinks: true,
+      }),
+    ).toBe(true);
+    expect(
+      isDraftUnmodified({
+        originalContent,
+        currentDraft: outlookDraft("https://example.com/changed"),
+        logger,
+        includeLinks: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("treats an unchanged draft whose signature HTML has newlines as unmodified", () => {
+    const originalContent =
+      'Following up on this.\n\n<div class="gmail_signature" data-smartmail="gmail_signature"><div>Jane Doe</div>\n<div>Acme Inc.</div></div>';
+
+    const result = isDraftUnmodified({
+      originalContent,
+      currentDraft: createParsedMessage({
+        textHtml: `<div dir="ltr">${renderReplyBodyHtml(originalContent)}</div>`,
+      }),
+      logger,
+      includeLinks: true,
+    });
+
+    expect(result).toBe(true);
+  });
 });
 
 function createParsedMessage(
@@ -601,6 +662,7 @@ function expectDraftCleanedUp({
     where: { id: "action-111" },
     data: {
       draftStatus: DraftEmailStatus.CLEANED_UP_UNUSED,
+      wasDraftSent: null,
     },
   });
 }

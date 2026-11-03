@@ -16,7 +16,7 @@ vi.mock("@/utils/prisma", () => ({
       findFirst: vi.fn(),
     },
     groupItem: {
-      findUnique: vi.fn().mockResolvedValue(null),
+      findFirst: vi.fn().mockResolvedValue(null),
     },
     executedAction: {
       findFirst: vi.fn().mockResolvedValue(null),
@@ -231,7 +231,7 @@ describe("process-label-added-event", () => {
         id: "rule-123",
         groupId: "group-123",
       } as any);
-      vi.mocked(prisma.groupItem.findUnique).mockResolvedValue({
+      vi.mocked(prisma.groupItem.findFirst).mockResolvedValue({
         id: "existing-item",
       } as any);
 
@@ -249,7 +249,7 @@ describe("process-label-added-event", () => {
         id: "rule-123",
         groupId: "group-123",
       } as any);
-      vi.mocked(prisma.groupItem.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.groupItem.findFirst).mockResolvedValue(null);
 
       await handleLabelAddedEvent(
         createLabelAddedItem(),
@@ -377,7 +377,7 @@ describe("process-label-added-event", () => {
         ["the sender is already known", { id: "rule-123", groupId: "group-1" }],
       ])("should not read the thread when %s", async (_name, rule) => {
         vi.mocked(prisma.rule.findFirst).mockResolvedValue(rule as any);
-        vi.mocked(prisma.groupItem.findUnique).mockResolvedValue({
+        vi.mocked(prisma.groupItem.findFirst).mockResolvedValue({
           id: "existing-item",
         } as any);
         vi.mocked(fetchSenderFromMessage).mockResolvedValue("cold@vendor.com");

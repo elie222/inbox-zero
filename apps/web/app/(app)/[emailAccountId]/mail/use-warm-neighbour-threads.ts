@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { MailClient } from "@inboxzero/mail-core/engine";
 import type { QueryHandle } from "@inboxzero/mail-core/queries";
 import type { ConversationView } from "@inboxzero/mail-core/ports/mail-store";
@@ -23,33 +23,38 @@ type WarmObservation = {
 
 type WarmTarget = { key: string; selection: ThreadSelection };
 
-// Keeps the conversations around the open one observed so J/K lands on an
-// engine query that already has its snapshot and bodies. The open one is held
-// too: the reader follows a deferred selection and subscribes after this
-// effect runs, so releasing it here would drop the data it is about to read.
+// Keeps the conversations around the active one observed so J/K, Enter or a
+// click lands on an engine query that already has its snapshot and bodies.
+// The active one is held too: the reader follows a deferred selection and
+// subscribes after this effect runs, so releasing it here would drop the data
+// it is about to read. Returns a callback that warms one more thread, such as
+// the row under the pointer.
 export function useWarmNeighbourThreads({
   threads,
-  openThreadKey,
+  activeThreadKey,
   emailAccountId,
 }: {
   threads: ListThread[];
-  openThreadKey: string | null;
+  /** The open thread, or the focused row while no thread is open. */
+  activeThreadKey: string | null;
   emailAccountId: string;
 }) {
   const client = useOptionalMailClient();
   const warm = useRef<{
     client: MailClient | null;
     observations: Map<string, WarmObservation>;
-  }>({ client: null, observations: new Map() });
+    hovered: (WarmObservation & { key: string }) | null;
+  }>({ client: null, observations: new Map(), hovered: null });
   const targets = useMemo(
-    () => getWarmTargets(threads, openThreadKey, emailAccountId),
-    [threads, openThreadKey, emailAccountId],
+    () => getWarmTargets(threads, activeThreadKey, emailAccountId),
+    [threads, activeThreadKey, emailAccountId],
   );
 
   useEffect(() => {
     // Observations belong to the engine that created them.
     if (warm.current.client !== client) {
       releaseAll(warm.current.observations);
+      releaseHovered(warm.current);
       warm.current.client = client;
     }
     // The open thread briefly leaves the list while an archive advances the
@@ -70,8 +75,24 @@ export function useWarmNeighbourThreads({
 
   useEffect(() => {
     const held = warm.current;
-    return () => releaseAll(held.observations);
+    return () => {
+      releaseAll(held.observations);
+      releaseHovered(held);
+    };
   }, []);
+
+  return useCallback(
+    (thread: ListThread) => {
+      const held = warm.current;
+      if (!client || held.client !== client) return;
+      const selection = getListThreadSelection(thread, emailAccountId);
+      const key = getThreadSelectionKey(selection) ?? getListThreadKey(thread);
+      if (held.hovered?.key === key || held.observations.has(key)) return;
+      releaseHovered(held);
+      held.hovered = { key, ...observe(client, { key, selection }) };
+    },
+    [client, emailAccountId],
+  );
 }
 
 function observe(client: MailClient, target: WarmTarget): WarmObservation {
@@ -110,16 +131,16 @@ function observe(client: MailClient, target: WarmTarget): WarmObservation {
   return { handle, unsubscribe };
 }
 
-// Returns null when the open thread isn't in the list, meaning "keep what is
-// held"; an empty list means nothing is open.
+// Returns null when the active thread isn't in the list, meaning "keep what is
+// held"; an empty list means there is nothing to warm.
 function getWarmTargets(
   threads: ListThread[],
-  openThreadKey: string | null,
+  activeThreadKey: string | null,
   emailAccountId: string,
 ): WarmTarget[] | null {
-  if (!openThreadKey) return [];
+  if (!activeThreadKey) return [];
   const index = threads.findIndex(
-    (thread) => getListThreadKey(thread) === openThreadKey,
+    (thread) => getListThreadKey(thread) === activeThreadKey,
   );
   if (index === -1) return null;
   return [threads[index - 1], threads[index], threads[index + 1]]
@@ -141,4 +162,10 @@ function release(observation: WarmObservation) {
 function releaseAll(observations: Map<string, WarmObservation>) {
   for (const observation of observations.values()) release(observation);
   observations.clear();
+}
+
+function releaseHovered(held: { hovered: WarmObservation | null }) {
+  if (!held.hovered) return;
+  release(held.hovered);
+  held.hovered = null;
 }

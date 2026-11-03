@@ -1,7 +1,6 @@
 const QUOTED_CONTENT_SELECTOR = [
   ".gmail_quote_container",
   "div.gmail_quote",
-  "blockquote.gmail_quote",
   'div[id$="divRplyFwdMsg"]',
   'div[id$="appendonsend"]',
   ".yahoo_quoted",

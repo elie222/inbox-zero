@@ -16,14 +16,14 @@ describe("useWarmNeighbourThreads", () => {
     const threads = ["t1", "t2", "t3", "t4"].map(listThread);
 
     const { rerender, unmount } = renderHook(
-      ({ openThreadKey }: { openThreadKey: string | null }) =>
+      ({ activeThreadKey }: { activeThreadKey: string | null }) =>
         useWarmNeighbourThreads({
           threads,
-          openThreadKey,
+          activeThreadKey,
           emailAccountId: "acc-1",
         }),
       {
-        initialProps: { openThreadKey: "t2" as string | null },
+        initialProps: { activeThreadKey: "t2" as string | null },
         wrapper: client.wrapper,
       },
     );
@@ -34,15 +34,15 @@ describe("useWarmNeighbourThreads", () => {
       { after: null, pageSize: 50 },
     );
 
-    rerender({ openThreadKey: "t3" });
+    rerender({ activeThreadKey: "t3" });
     expect(client.openKeys()).toEqual(["t2", "t3", "t4"]);
     // t2 and t3 stay held across the move so the reader joins a warm group.
     expect(client.observeConversation).toHaveBeenCalledTimes(4);
 
-    rerender({ openThreadKey: null });
+    rerender({ activeThreadKey: null });
     expect(client.openKeys()).toEqual([]);
 
-    rerender({ openThreadKey: "t4" });
+    rerender({ activeThreadKey: "t4" });
     unmount();
     expect(client.openKeys()).toEqual([]);
   });
@@ -53,7 +53,7 @@ describe("useWarmNeighbourThreads", () => {
       ({ threads }: { threads: ListThread[] }) =>
         useWarmNeighbourThreads({
           threads,
-          openThreadKey: "t2",
+          activeThreadKey: "t2",
           emailAccountId: "acc-1",
         }),
       {
@@ -74,7 +74,7 @@ describe("useWarmNeighbourThreads", () => {
       () =>
         useWarmNeighbourThreads({
           threads: ["t1", "t2"].map(listThread),
-          openThreadKey: "t1",
+          activeThreadKey: "t1",
           emailAccountId: "acc-1",
         }),
       {
@@ -90,13 +90,36 @@ describe("useWarmNeighbourThreads", () => {
     expect(second.openKeys()).toEqual(["t1", "t2"]);
   });
 
+  it("warms one hovered thread at a time beside the held neighbours", () => {
+    const client = fakeClient();
+    const { result, unmount } = renderHook(
+      () =>
+        useWarmNeighbourThreads({
+          threads: ["t1", "t2", "t3", "t4", "t5"].map(listThread),
+          activeThreadKey: "t1",
+          emailAccountId: "acc-1",
+        }),
+      { wrapper: client.wrapper },
+    );
+
+    act(() => result.current(listThread("t4")));
+    expect(client.openKeys()).toEqual(["t1", "t2", "t4"]);
+    act(() => result.current(listThread("t2")));
+    expect(client.openKeys()).toEqual(["t1", "t2", "t4"]);
+    act(() => result.current(listThread("t5")));
+    expect(client.openKeys()).toEqual(["t1", "t2", "t5"]);
+
+    unmount();
+    expect(client.openKeys()).toEqual([]);
+  });
+
   it("requests a neighbour's missing bodies once per message across snapshot updates", () => {
     const client = fakeClient();
     renderHook(
       () =>
         useWarmNeighbourThreads({
           threads: [listThread("t1"), listThread("t2")],
-          openThreadKey: "t1",
+          activeThreadKey: "t1",
           emailAccountId: "acc-1",
         }),
       { wrapper: client.wrapper },

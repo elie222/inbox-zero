@@ -288,12 +288,24 @@ export class GoogleCalendarEventProvider implements CalendarEventProvider {
       endTime,
       organizerEmail: event.organizer?.email ?? undefined,
       isOrganizer: event.organizer?.self ?? undefined,
+      userDeclined: getSelfDeclined(event.attendees),
       attendees:
         event.attendees?.map((attendee) => ({
           email: attendee.email || "",
           name: attendee.displayName ?? undefined,
           declined: attendee.responseStatus === "declined",
+          ...(attendee.self ? { self: true } : {}),
         })) || [],
     };
   }
+}
+
+// Unknown (undefined) when the calendar's own entry or its response is missing.
+function getSelfDeclined(
+  attendees: calendar_v3.Schema$EventAttendee[] | undefined,
+): boolean | undefined {
+  const responseStatus = attendees?.find(
+    (attendee) => attendee.self,
+  )?.responseStatus;
+  return responseStatus ? responseStatus === "declined" : undefined;
 }

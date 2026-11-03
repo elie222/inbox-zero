@@ -13,7 +13,7 @@ export function compareLabelsByName(a: SortableLabel, b: SortableLabel) {
   if (!aName.startsWith("[") && bName.startsWith("[")) return -1;
 
   return (
-    aName.localeCompare(bName, LABEL_SORT_LOCALE) ||
+    aName.localeCompare(bName, LABEL_SORT_LOCALE, { numeric: true }) ||
     (a.id || "").localeCompare(b.id || "", LABEL_SORT_LOCALE)
   );
 }

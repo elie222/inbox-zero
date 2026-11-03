@@ -6,6 +6,7 @@ import type { EmailProvider } from "@/utils/email/types";
 import { convertEmailHtmlToText } from "@/utils/mail";
 import type { ParsedMessage } from "@/utils/types";
 import { stripQuotedHtmlContent } from "@/utils/email/parse-message-reply";
+import { renderReplyBodyHtml } from "@/utils/email/reply-body-html";
 
 export type PreviousDraftHandlingResult =
   | {
@@ -105,17 +106,22 @@ export async function handlePreviousDraftDeletion({
     ) {
       logger.info("Draft content matches, deleting draft.");
 
-      await Promise.all([
-        client.deleteDraft(previousDraftAction.draftId),
-        prisma.executedAction.update({
+      // Record the cleanup only once the draft is really gone, so a draft
+      // the provider kept is still tracked if the user sends it. Clearing the
+      // legacy wasDraftSent flag stops the deleted draft from looking like an
+      // unmigrated legacy row that sent-draft tracking still considers.
+      const deleted = await client.deleteDraft(previousDraftAction.draftId);
+      if (deleted) {
+        await prisma.executedAction.update({
           where: { id: previousDraftAction.id },
           data: {
             draftStatus: DraftEmailStatus.CLEANED_UP_UNUSED,
+            wasDraftSent: null,
           },
-        }),
-      ]);
+        });
+      }
 
-      logger.info("Deleted draft and updated action status.");
+      logger.info("Deleted draft and updated action status.", { deleted });
       return { shouldCreateDraft: true };
     } else {
       logger.info(
@@ -165,12 +171,15 @@ export async function updateExecutedActionWithDraftId({
 /**
  * Extracts plain text from a draft, handling both Gmail and Outlook formats.
  */
-export function extractDraftPlainText(draft: ParsedMessage): string {
+export function extractDraftPlainText(
+  draft: ParsedMessage,
+  includeLinks = false,
+): string {
   if (draft.bodyContentType === "html") {
     return draft.textPlain
       ? convertEmailHtmlToText({
           htmlText: stripQuotedHtmlContent(draft.textPlain),
-          includeLinks: false,
+          includeLinks,
         })
       : "";
   }
@@ -207,19 +216,20 @@ export function isDraftUnmodified({
   originalContent,
   currentDraft,
   logger,
+  includeLinks = false,
 }: {
   originalContent: string;
   currentDraft: ParsedMessage;
   logger: Logger;
+  includeLinks?: boolean;
 }): boolean {
   const { text: currentText, source: comparisonSource } =
-    extractDraftComparisonText(currentDraft);
+    extractDraftComparisonText(currentDraft, includeLinks);
   const currentReplyContent = stripQuotedContent(currentText);
 
-  const originalWithBr = originalContent.replace(/\n/g, "<br>");
   const originalContentPlain = convertEmailHtmlToText({
-    htmlText: originalWithBr,
-    includeLinks: false,
+    htmlText: renderReplyBodyHtml(originalContent),
+    includeLinks,
   });
   const originalContentTrimmed = originalContentPlain.trim();
   const isUnmodified = originalContentTrimmed === currentReplyContent;
@@ -243,7 +253,10 @@ export function isDraftUnmodified({
   return isUnmodified;
 }
 
-function extractDraftComparisonText(draft: ParsedMessage): {
+function extractDraftComparisonText(
+  draft: ParsedMessage,
+  includeLinks: boolean,
+): {
   text: string;
   source: "textHtml" | "textPlain";
 } {
@@ -251,14 +264,14 @@ function extractDraftComparisonText(draft: ParsedMessage): {
     return {
       text: convertEmailHtmlToText({
         htmlText: stripQuotedHtmlContent(draft.textHtml),
-        includeLinks: false,
+        includeLinks,
       }),
       source: "textHtml",
     };
   }
 
   return {
-    text: extractDraftPlainText(draft),
+    text: extractDraftPlainText(draft, includeLinks),
     source: "textPlain",
   };
 }

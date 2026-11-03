@@ -744,15 +744,29 @@ async function getBusyPeriods({
   excludeBookingId?: string;
   excludeBusyPeriod?: { start: Date; end: Date };
 }): Promise<BusyPeriod[] | null> {
+  // Google freebusy clips busy blocks to the requested window, so the
+  // excluded booking's own event only matches excludeBusyPeriod when the
+  // query covers the whole booking, not just the part inside the new slot.
+  const providerStart =
+    excludeBusyPeriod && excludeBusyPeriod.start < start
+      ? excludeBusyPeriod.start
+      : start;
+  const providerEnd =
+    excludeBusyPeriod && excludeBusyPeriod.end > end
+      ? excludeBusyPeriod.end
+      : end;
+
   const [providerBusyPeriods, existingBookings] = await Promise.all([
     getUnifiedCalendarAvailability({
       emailAccountId: config.link.emailAccountId,
-      startDate: start,
-      endDate: end,
+      startDate: providerStart,
+      endDate: providerEnd,
       timezone: config.timezone,
       logger,
       failClosed: true,
       excludeGoogleVirtualCalendars: true,
+      // These are exact slot (or page) bounds, not calendar days.
+      exactRange: true,
     }).catch((error) => {
       logger.error("Failed to load provider availability for public booking", {
         error,

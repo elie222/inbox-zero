@@ -19,6 +19,65 @@ describe("getUnifiedCalendarAvailability", () => {
     vi.clearAllMocks();
   });
 
+  describe("exact ranges", () => {
+    // A provider that answers like Google freebusy: only events that overlap
+    // the requested window come back.
+    function useCalendarWithEvent(event: BusyPeriod) {
+      vi.mocked(prisma.calendarConnection.findMany).mockResolvedValue([
+        getCalendarConnection({ provider: "google", calendarIds: ["cal-1"] }),
+      ]);
+      const fetchBusyPeriods = vi.fn(
+        async ({ timeMin, timeMax }: { timeMin: string; timeMax: string }) =>
+          new Date(event.start) < new Date(timeMax) &&
+          new Date(event.end) > new Date(timeMin)
+            ? [event]
+            : [],
+      );
+      vi.mocked(createGoogleAvailabilityProvider).mockReturnValue({
+        fetchBusyPeriods,
+      } as any);
+      return fetchBusyPeriods;
+    }
+
+    it.each([
+      {
+        // Monday 17:00 in Los Angeles is already Tuesday in UTC.
+        timezone: "America/Los_Angeles",
+        slotStart: "2026-11-03T01:00:00.000Z",
+        slotEnd: "2026-11-03T01:30:00.000Z",
+      },
+      {
+        // Tuesday 09:00 in Auckland is still Monday in UTC.
+        timezone: "Pacific/Auckland",
+        slotStart: "2026-11-02T20:00:00.000Z",
+        slotEnd: "2026-11-02T20:30:00.000Z",
+      },
+    ])("finds the host's meeting at a $timezone slot whose UTC date differs", async ({
+      timezone,
+      slotStart,
+      slotEnd,
+    }) => {
+      const fetchBusyPeriods = useCalendarWithEvent({
+        start: slotStart,
+        end: slotEnd,
+      });
+
+      const busy = await getUnifiedCalendarAvailability({
+        emailAccountId,
+        startDate: new Date(slotStart),
+        endDate: new Date(slotEnd),
+        timezone,
+        logger,
+        exactRange: true,
+      });
+
+      expect(fetchBusyPeriods).toHaveBeenCalledWith(
+        expect.objectContaining({ timeMin: slotStart, timeMax: slotEnd }),
+      );
+      expect(busy).toHaveLength(1);
+    });
+  });
+
   describe("day boundary handling", () => {
     it("should query correct day when UTC date shifts to previous day in target timezone", async () => {
       // This tests Bug 1: When user wants Nov 17 in LA timezone but passes UTC date,

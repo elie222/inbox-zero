@@ -113,7 +113,7 @@ type SystemItem = {
 export const MAIL_SCHEDULED_TYPE = "scheduled";
 
 /** Everything the inbox isn't. Visited rarely enough to stay behind a toggle. */
-const MAILBOX_ITEMS: SystemItem[] = [
+export const MAILBOX_ITEMS: SystemItem[] = [
   { name: "Drafts", type: "draft", countId: "DRAFT", Icon: FileIcon },
   { name: "Sent", type: "sent", countId: null, Icon: SendIcon },
   { name: "Archived", type: "archive", countId: null, Icon: ArchiveIcon },

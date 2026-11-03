@@ -1,4 +1,5 @@
 import { after } from "next/server";
+import { canActionBeDelayed } from "@/utils/delayed-actions";
 import type { ParsedMessage, RuleWithActions } from "@/utils/types";
 import {
   ActionType,
@@ -443,8 +444,12 @@ async function executeMatchedRule(
     };
   }
 
+  // The scheduler skips non-delayable types, so a delay stored on one (e.g.
+  // from older rule data) would silently drop the action. Run it now instead.
   const { immediateActions, delayedActions } = groupBy(actionItems, (item) =>
-    item.delayInMinutes != null && item.delayInMinutes > 0
+    item.delayInMinutes != null &&
+    item.delayInMinutes > 0 &&
+    canActionBeDelayed(item.type)
       ? "delayedActions"
       : "immediateActions",
   );

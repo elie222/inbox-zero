@@ -139,7 +139,7 @@ function isExistingContactError(error: unknown): boolean {
   return (
     "message" in error &&
     typeof error.message === "string" &&
-    /already (exists|on (?:the )?list)/i.test(error.message)
+    /already (exists|on (?:the )?list|in your audience)/i.test(error.message)
   );
 }
 

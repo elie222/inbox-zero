@@ -9,6 +9,7 @@ import {
 } from "react";
 import { toast } from "sonner";
 import { MailAccountSwitcher } from "@/app/(app)/[emailAccountId]/mail/MailAccountSwitcher";
+import { SidebarCards } from "@/components/sidebar-cards/SidebarCards";
 import {
   getMailCategories,
   getMailNavPath,
@@ -283,6 +284,13 @@ export const MailShellSidebar = memo(function MailShellSidebar({
       }
       footer={
         <>
+          {!isAllAccounts && (
+            <SidebarCards
+              className="pt-2"
+              collapsed={collapsed}
+              includePremium={false}
+            />
+          )}
           <DesktopUpdateMenuItem />
           <MailAccountSwitcher
             isDesktopApp={isDesktopApp}
