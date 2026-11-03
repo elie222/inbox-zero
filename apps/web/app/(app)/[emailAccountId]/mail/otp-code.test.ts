@@ -13,11 +13,13 @@ describe("getThreadOtpCode", () => {
           messages: [
             {
               subject: "Your login code",
+              date: "2026-01-01T00:00:00Z",
               snippet: "123456",
               labelIds: [otpLabel.id],
             },
             {
               subject: "Invoice 482913",
+              date: "2026-01-02T00:00:00Z",
               snippet: "Invoice 482913",
               labelIds: [],
             },
@@ -34,9 +36,14 @@ describe("getThreadOtpCode", () => {
         {
           snippet: "Invoice 482913",
           messages: [
-            { subject: "Invoice 482913", snippet: "Invoice 482913" },
+            {
+              subject: "Invoice 482913",
+              date: "2026-01-01T00:00:00Z",
+              snippet: "Invoice 482913",
+            },
             {
               subject: "Account access",
+              date: "2026-01-02T00:00:00Z",
               snippet: "Your code: 918273",
               labelIds: [otpLabel.id],
             },
@@ -53,7 +60,40 @@ describe("getThreadOtpCode", () => {
         {
           snippet: "",
           messages: [
-            { subject: "Your login code", snippet: "Code: &#57;18273" },
+            {
+              subject: "Your login code",
+              date: "2026-01-01T00:00:00Z",
+              snippet: "Code: &#57;18273",
+            },
+          ],
+        },
+        {},
+      ),
+    ).toBe("918273");
+  });
+
+  it.each([
+    "1767312000000",
+    null,
+    "invalid",
+  ])("extracts the newest OTP from out-of-order messages (internalDate: %s)", (internalDate) => {
+    expect(
+      getThreadOtpCode(
+        {
+          snippet: "Code: 123456",
+          messages: [
+            {
+              subject: "Your login code",
+              snippet: "Code: 918273",
+              internalDate,
+              date: "2026-01-02T00:00:00Z",
+            },
+            {
+              subject: "Your login code",
+              snippet: "Code: 123456",
+              internalDate: "1767225600000",
+              date: "2026-01-01T00:00:00Z",
+            },
           ],
         },
         {},
