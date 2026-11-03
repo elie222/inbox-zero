@@ -42,10 +42,8 @@ export function useDragReorder<DragState extends BaseDragState>() {
     if (event.button !== 0) return;
 
     const startPoint = { x: event.clientX, y: event.clientY };
-    let cancelled = false;
 
     const onPointerMove = (moveEvent: globalThis.PointerEvent) => {
-      if (cancelled) return;
       const current = dragRef.current;
       if (!current) {
         const distance = Math.hypot(
@@ -86,9 +84,8 @@ export function useDragReorder<DragState extends BaseDragState>() {
       suppressClickRef.current = false;
     };
     const onKeyDown = (keyEvent: KeyboardEvent) => {
-      if (keyEvent.key !== "Escape" || !dragRef.current) return;
-      cancelled = true;
-      endDrag(false);
+      if (keyEvent.key !== "Escape") return;
+      onPointerCancel();
     };
 
     const stop = () => {

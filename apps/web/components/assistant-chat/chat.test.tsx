@@ -36,6 +36,8 @@ const {
   mockSetMessages,
   mockSetNewChat,
   mockStop,
+  mockSubmitTextMessage,
+  voiceInput,
   mockUseChats,
   chatState,
 } = vi.hoisted(() => ({
@@ -51,6 +53,8 @@ const {
   mockSetMessages: vi.fn(),
   mockSetNewChat: vi.fn(),
   mockStop: vi.fn(),
+  mockSubmitTextMessage: vi.fn().mockResolvedValue(undefined),
+  voiceInput: { onSend: undefined as ((text: string) => void) | undefined },
   mockUseChats: vi.fn(),
   chatState: { status: "ready" as ChatHelpers["status"] },
 }));
@@ -74,7 +78,10 @@ vi.mock("@/components/assistant-chat/DeleteChatDialog", () => ({
 }));
 
 vi.mock("@/components/voice/VoiceInput", () => ({
-  VoiceInput: () => null,
+  VoiceInput: (props: { onSend: (text: string) => void }) => {
+    voiceInput.onSend = props.onSend;
+    return null;
+  },
 }));
 
 vi.mock("next-safe-action/hooks", () => ({
@@ -141,7 +148,7 @@ vi.mock("better-auth/react", () => ({
     signOut: vi.fn(),
     signUp: vi.fn(),
     useSession: () => ({
-      data: { user: { name: "Barbara" } },
+      data: { user: { name: "Example User" } },
     }),
     getSession: vi.fn(),
     sso: {},
@@ -191,14 +198,14 @@ vi.mock("@/providers/ChatProvider", () => ({
     attachments: [],
     setAttachments: mockSetAttachments,
     setChatId: mockSetChatId,
-    submitTextMessage: vi.fn(),
+    submitTextMessage: mockSubmitTextMessage,
     stop: mockStop,
   }),
 }));
 
 vi.mock("@/utils/auth-client", () => ({
   useSession: () => ({
-    data: { user: { name: "Barbara" } },
+    data: { user: { name: "Example User" } },
   }),
 }));
 
@@ -250,6 +257,20 @@ describe("Chat input draft", () => {
       error: undefined,
       isLoading: false,
       mutate: mockMutate,
+    });
+  });
+
+  it("routes failed voice sends through text draft restoration", async () => {
+    mockSubmitTextMessage.mockRejectedValueOnce(
+      new Error("Network request failed"),
+    );
+    const { Chat } = await import("@/components/assistant-chat/chat");
+    render(<Chat open />);
+    voiceInput.onSend?.("Voice transcript");
+    await waitFor(() => {
+      expect(mockSubmitTextMessage).toHaveBeenCalledWith("Voice transcript", {
+        restoreDraftOnError: true,
+      });
     });
   });
 

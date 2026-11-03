@@ -273,7 +273,9 @@ export function Chat({
                 message_count: messages.length,
                 via_voice: true,
               });
-              submitTextMessage(text).catch(() => undefined);
+              submitTextMessage(text, { restoreDraftOnError: true }).catch(
+                () => undefined,
+              );
             }}
           />
           <Tooltip content="Attach images">

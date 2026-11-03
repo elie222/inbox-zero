@@ -60,11 +60,14 @@ export const reorderEmailAccountsAction = actionClientUser
     }
 
     await prisma.$transaction(
-      emailAccountIds.map((id, sortOrder) =>
-        prisma.emailAccount.updateMany({
-          where: { id, userId },
-          data: { sortOrder },
-        }),
-      ),
+      emailAccountIds
+        .map((id, sortOrder) => ({ id, sortOrder }))
+        .sort((a, b) => a.id.localeCompare(b.id))
+        .map(({ id, sortOrder }) =>
+          prisma.emailAccount.updateMany({
+            where: { id, userId },
+            data: { sortOrder },
+          }),
+        ),
     );
   });

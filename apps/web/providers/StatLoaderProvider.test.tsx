@@ -32,6 +32,30 @@ afterEach(() => {
 const options = { loadBefore: false, showToast: false };
 
 describe("statistics request lifecycle", () => {
+  it("cancels an in-flight batch before requesting the next page and allows restart", async () => {
+    const pending = Promise.withResolvers<Response>();
+    mocks.fetch
+      .mockReturnValueOnce(pending.promise)
+      .mockImplementation(() => Promise.resolve(new Response("{}")));
+    const { result } = renderHook(useStatLoader, {
+      wrapper: StatLoaderProvider,
+    });
+    let batch!: Promise<void>;
+    act(() => {
+      batch = result.current.onLoadBatch({ ...options, showToast: true });
+    });
+    act(() => result.current.onCancelLoadBatch());
+    await act(async () => {
+      pending.resolve(new Response("{}"));
+      await batch;
+    });
+    expect(mocks.fetch).toHaveBeenCalledTimes(1);
+    expect(mocks.toastSuccess).not.toHaveBeenCalled();
+    expect(result.current.isLoading).toBe(false);
+    await act(async () => result.current.onLoadBatch(options));
+    expect(mocks.fetch).toHaveBeenCalledTimes(51);
+  });
+
   it("uses the independent account-scoped HTTP route", async () => {
     mocks.fetch.mockResolvedValue(new Response("{}"));
     const { result } = renderHook(useStatLoader, {

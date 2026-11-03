@@ -897,12 +897,13 @@ export function useBulkApprove<T extends Row>({
 export function useBulkArchive<T extends Row>({
   posthog,
   emailAccountId,
-  mutate,
+  mutate: swrMutate,
 }: {
   posthog: PostHog;
   emailAccountId: string;
   mutate?: MutateFn;
 }) {
+  const mutate = useMountedMutate(swrMutate);
   const { executeAsync: executeBulkArchive, isExecuting } = useAction(
     bulkArchiveAction.bind(null, emailAccountId),
   );
@@ -1011,7 +1012,7 @@ export function useDeleteAllFromSender<T extends Row>({
 }
 
 export function useBulkDelete<T extends Row>({
-  mutate,
+  mutate: swrMutate,
   posthog,
   emailAccountId,
 }: {
@@ -1019,12 +1020,11 @@ export function useBulkDelete<T extends Row>({
   posthog: PostHog;
   emailAccountId: string;
 }) {
+  const mutate = useMountedMutate(swrMutate);
   const { executeAsync: executeBulkTrash, isExecuting } = useAction(
     bulkTrashAction.bind(null, emailAccountId),
     {
-      onSuccess: () => {
-        mutate();
-      },
+      onSuccess: () => mutate(),
     },
   );
 
@@ -1333,7 +1333,7 @@ class AutomaticUnsubscribeFailedError extends Error {
 
 // Bulk runs outlive navigation, and SWR's bound mutate throws once its
 // SWRConfig cache provider has unmounted. The cache refetches on next mount.
-function useMountedMutate(mutate: MutateFn): MutateFn {
+function useMountedMutate(mutate?: MutateFn): MutateFn {
   const isMountedRef = useRef(true);
 
   // Layout effect: SWRConfig drops its provider in a layout-effect cleanup, and
@@ -1348,7 +1348,7 @@ function useMountedMutate(mutate: MutateFn): MutateFn {
   // Forward args as-is: SWR treats `mutate()` and `mutate(undefined)` differently.
   return useCallback(
     async (...args: Parameters<MutateFn>) => {
-      if (isMountedRef.current) return mutate(...args);
+      if (isMountedRef.current) return mutate?.(...args);
     },
     [mutate],
   );
