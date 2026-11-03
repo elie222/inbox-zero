@@ -426,6 +426,7 @@ const nextConfig: NextConfig = {
     "@vercel/queue",
     "bullmq",
     "ioredis",
+    "jsdom-cjs",
     "mammoth",
     "unpdf",
   ],

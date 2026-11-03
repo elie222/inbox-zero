@@ -1,5 +1,5 @@
 import * as he from "he";
-import { getSafeEmailLinkUrl } from "@/utils/email/safe-email-link-url";
+import { getSafeEmailLinkUrl } from "@inboxzero/mail-ui/safe-link-url";
 import { escapeHtml } from "@/utils/string";
 
 type RenderSafeLinksOptions = {

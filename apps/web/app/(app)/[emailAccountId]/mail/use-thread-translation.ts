@@ -96,7 +96,8 @@ export function useTranslateThread() {
           update((current) => ({
             ...current,
             showOriginal: false,
-            subject: data.subject || current.subject,
+            // Later batches only add newer messages; the first one carries the title.
+            subject: current.subject || data.subject,
             messages: {
               ...current.messages,
               ...Object.fromEntries(

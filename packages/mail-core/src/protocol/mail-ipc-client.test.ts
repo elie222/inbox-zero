@@ -94,6 +94,46 @@ describe("createMailIpcClient", () => {
     await client.close?.();
   });
 
+  it("starts a new observation from an identical live one's snapshot", async () => {
+    const push = createPushHost();
+    const client = createMailIpcClient(vi.fn(), {
+      requestId: () => crypto.randomUUID(),
+      push: push.transport,
+    });
+    const query = {
+      accountIds: ["acc-1"],
+      predicate: { kind: "role" as const, role: "inbox" as const },
+      order: "newest_first" as const,
+      pageSize: 25,
+      after: null,
+    };
+    const warm = client.observeMailbox(query);
+    await vi.waitFor(() => expect(push.subscriptions.size).toBe(1));
+    const [warmId] = [...push.subscriptions.keys()];
+    push.send(String(warmId), snapshotWithConversations(1));
+    await vi.waitFor(() => {
+      expect(warm.getSnapshot().status).toBe("ready");
+    });
+
+    const other = client.observeMailbox({ ...query, pageSize: 50 });
+    expect(other.getSnapshot().status).toBe("loading");
+    const joined = client.observeMailbox(query);
+    expect(joined.getSnapshot()).toEqual(warm.getSnapshot());
+
+    const listener = vi.fn();
+    joined.subscribe(listener);
+    await vi.waitFor(() => expect(push.subscriptions.size).toBe(3));
+    const joinedId = [...push.subscriptions.keys()].at(-1);
+    push.send(String(joinedId), snapshotWithConversations(1));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(listener).not.toHaveBeenCalled();
+
+    warm.close();
+    const afterClose = client.observeMailbox(query);
+    expect(afterClose.getSnapshot()).toEqual(joined.getSnapshot());
+    await client.close?.();
+  });
+
   it("replaces the pushed subscription when a mailbox window loads more", async () => {
     const push = createPushHost();
     const client = createMailIpcClient(vi.fn(), {

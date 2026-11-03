@@ -313,6 +313,8 @@ export interface EmailProvider {
   getMessageByRfc822MessageId(
     rfc822MessageId: string,
   ): Promise<ParsedMessage | null>;
+  /** The raw RFC 822 source of a message. */
+  getMessageSource(messageId: string): Promise<Buffer>;
   getMessagesBatch(messageIds: string[]): Promise<ParsedMessage[]>;
   getMessagesFromSender(options: {
     senderEmail: string;
@@ -393,6 +395,9 @@ export interface EmailProvider {
     maxResults?: number;
     pageToken?: string;
     messageFormat?: "full" | "metadata";
+    // Outlook metadata pages otherwise make an extra Graph request per thread
+    // to fill participantMessages for mail list rows.
+    skipParticipantMessages?: boolean;
   }): Promise<{
     threads: EmailThread[];
     nextPageToken?: string;

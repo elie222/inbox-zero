@@ -59,6 +59,7 @@ export async function createScheduledAction({
         status: ScheduledActionStatus.PENDING,
         // Store ActionItem data for later execution
         label: actionItem.label,
+        labelId: actionItem.labelId,
         subject: actionItem.subject,
         content: actionItem.content,
         to: actionItem.to,

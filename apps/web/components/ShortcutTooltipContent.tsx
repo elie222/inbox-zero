@@ -11,8 +11,10 @@ export type ShortcutTooltipItem =
 
 export function ShortcutTooltipContent({
   shortcuts,
+  showLabels = true,
 }: {
   shortcuts: readonly ShortcutTooltipItem[];
+  showLabels?: boolean;
 }) {
   return (
     <div className="space-y-1.5 py-0.5">
@@ -20,9 +22,11 @@ export function ShortcutTooltipContent({
         const id = shortcutId(shortcut);
         return (
           <div className="flex items-center justify-between gap-6" key={id}>
-            <span className="font-medium text-white">
-              {shortcutLabel(shortcut)}
-            </span>
+            {showLabels && (
+              <span className="font-medium text-white">
+                {shortcutLabel(shortcut)}
+              </span>
+            )}
             <div className="flex items-center gap-1">
               {getShortcutKeyLabels(id).map((key) => (
                 <Kbd

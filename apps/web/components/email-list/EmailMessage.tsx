@@ -88,6 +88,7 @@ export function EmailMessage({
   replyAnchor,
   composerSessionMessageId,
   onReplySent,
+  concealSentReply,
   awaitSentReply,
   sendOperationId,
   concealed,
@@ -129,6 +130,8 @@ export function EmailMessage({
   composerSessionMessageId?: string;
   /** A reply or forward from this message just left its composer. */
   onReplySent?: () => void;
+  /** Hides a send's message as soon as it can reach the thread, before its composer hands off to it. */
+  concealSentReply?: (operationId: string) => () => void;
   /**
    * Resolves once a queued send's message is ready in the thread, so its
    * composer can stay up until then instead of leaving a gap.
@@ -380,8 +383,6 @@ export function EmailMessage({
       {expanded && (
         // Aligns the body with the sender's name rather than the avatar.
         <div className="min-w-0 pt-3 sm:pl-9">
-          {showDetails && <EmailDetails message={message} />}
-
           {isCalendarInvitationMessage(message) && (
             <CalendarInvitation key={message.id} messageId={message.id} />
           )}
@@ -418,6 +419,7 @@ export function EmailMessage({
                 emailAccountId={emailAccountId}
                 html={message.textHtml}
                 inlineAttachments={message.inline}
+                sendOperationId={sendOperationId}
                 messageId={message.id}
               />
             ) : (
@@ -441,6 +443,7 @@ export function EmailMessage({
               onRestore={() => setDraftDismissed(sessionMessageId, false)}
               onSendSuccess={onSendSuccess}
               onSent={onReplySent}
+              concealSentReply={concealSentReply}
               awaitSentReply={awaitSentReply}
               onMarkDone={onMarkDone}
               onDraftDiscarded={onDraftDiscarded}
@@ -475,6 +478,7 @@ export function EmailMessage({
               onRestoreCompose={onRestoreCompose}
               onSendSuccess={onSendSuccess}
               onSent={onReplySent}
+              concealSentReply={concealSentReply}
               awaitSentReply={awaitSentReply}
               onMarkDone={onMarkDone}
               onStartDiscard={onStartDiscard}
@@ -542,6 +546,13 @@ function MessageHeader({
     emailAccountId,
   });
   const senderImage = isSent ? emailAccount?.image : contactPhoto;
+  const recipients = formatRecipientNames(
+    [
+      ...splitRecipientList(message.headers.to ?? ""),
+      ...splitRecipientList(message.headers.cc ?? ""),
+    ],
+    userEmail,
+  );
   const canResearchSender =
     Boolean(onOpenSenderContext) &&
     !isSent &&
@@ -592,7 +603,7 @@ function MessageHeader({
   const senderNameClassName = cn(
     "truncate text-sm",
     expanded
-      ? "min-w-0 font-semibold text-foreground"
+      ? "min-w-0 font-medium text-foreground"
       : "w-24 shrink-0 font-medium text-secondary-foreground sm:w-28",
   );
 
@@ -600,36 +611,60 @@ function MessageHeader({
     <div
       {...toggleProps}
       className={cn(
-        "flex min-w-0 items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "flex min-w-0 gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        expanded && showDetails ? "items-start" : "items-center",
         onToggle && "cursor-pointer",
       )}
     >
       {expanded ? (
         <>
-          <button
-            aria-expanded={showDetails}
-            aria-label={showDetails ? "Hide details" : "Show details"}
-            className="group/details flex min-w-0 items-center gap-2 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            onClick={toggleDetails}
-            type="button"
-          >
-            {avatar}
-            <span className={senderNameClassName}>{senderName}</span>
-            <span className="hidden min-w-0 shrink-[999] truncate text-muted-foreground text-xs sm:block">
-              {recipientSummary(message.headers, userEmail)}
-            </span>
-            <span className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors group-hover/details:bg-muted group-hover/details:text-foreground">
-              {showDetails ? (
-                <ChevronsDownUpIcon className="size-3.5" />
-              ) : (
-                <ChevronsUpDownIcon className="size-3.5" />
+          {showDetails ? (
+            // Not one big toggle like the summary, so addresses stay
+            // selectable and a click inside doesn't collapse the message.
+            // biome-ignore lint/a11y/useKeyWithClickEvents: the button inside toggles from the keyboard
+            <div
+              className="flex min-w-0 flex-1 cursor-auto items-start gap-2"
+              onClick={(event) => event.stopPropagation()}
+            >
+              {avatar}
+              <EmailDetails message={message}>
+                <Button
+                  aria-expanded
+                  aria-label="Hide details"
+                  onClick={toggleDetails}
+                  size="iconXs"
+                  variant="ghostMuted"
+                >
+                  <ChevronsDownUpIcon className="size-3.5" />
+                </Button>
+              </EmailDetails>
+            </div>
+          ) : (
+            <button
+              aria-expanded={false}
+              aria-label="Show details"
+              className="group/details flex min-w-0 items-center gap-2 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={toggleDetails}
+              type="button"
+            >
+              {avatar}
+              <span className={senderNameClassName}>{senderName}</span>
+              {recipients && (
+                <span className="hidden min-w-0 shrink-[999] truncate text-muted-foreground text-sm sm:block">
+                  to{" "}
+                  <span className="font-medium text-foreground">
+                    {recipients}
+                  </span>
+                </span>
               )}
-            </span>
-          </button>
+              <ChevronsUpDownIcon className="size-3.5 shrink-0 text-muted-foreground transition-opacity group-hover/message:opacity-100 group-focus-visible/details:opacity-100 sm:opacity-0" />
+            </button>
+          )}
           {canResearchSender && (
             <Tooltip content="View public profile">
               <Button
                 aria-label={`View public profile for ${senderName}`}
+                className="transition-opacity focus-visible:opacity-100 group-hover/message:opacity-100 sm:opacity-0"
                 onClick={(event) => {
                   event.stopPropagation();
                   onOpenSenderContext?.(message);
@@ -734,12 +769,14 @@ function ReplyPanel({
   replyAll = false,
   quote,
   onQuoteInserted,
+  concealSentReply,
   awaitSentReply,
 }: {
   message: ParsedMessage;
   refetch: () => void;
   onSendSuccess: (messageId: string, threadId: string) => void;
   onSent?: () => void;
+  concealSentReply?: (operationId: string) => () => void;
   awaitSentReply?: (operationId: string) => Promise<void>;
   onMarkDone?: () => void;
   onCloseCompose: () => void;
@@ -914,6 +951,7 @@ function ReplyPanel({
         draftKeyMessageId={replyTargetId}
         draftMode={composeMode}
         draftSessionId={draftSessionId}
+        onSubmitting={concealSentReply}
         onClose={(queuedOperationId?: string) => {
           // An offline send closes again once queued; the handoff closes it.
           if (handoffStarted.current) return;
@@ -973,17 +1011,6 @@ function resolveComposeMode(
   // A popped-out reply is written in its own window, not inline.
   if (mode && isPoppedOut(mode)) return;
   return mode;
-}
-
-function recipientSummary(
-  { to, cc }: { to?: string; cc?: string },
-  userEmail: string,
-) {
-  const names = formatRecipientNames(
-    [...splitRecipientList(to ?? ""), ...splitRecipientList(cc ?? "")],
-    userEmail,
-  );
-  return names ? `to ${names}` : "";
 }
 
 const prepareReplyingToEmail = ({
@@ -1124,6 +1151,7 @@ function TranslationNotice({
 function MessageBodyLoading() {
   return (
     <p
+      data-email-ready="false"
       className="flex items-center gap-2 text-muted-foreground text-sm"
       role="status"
     >

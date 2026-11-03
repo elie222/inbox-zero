@@ -22,6 +22,25 @@ Sentry.init({
   // Setting this option to true will print useful information to the console while you're setting up Sentry.
   debug: false,
 
+  // Errors thrown by browser extensions, link scanners, and injected scripts.
+  // Errors from browser extensions, in-app browsers, and ad blockers stopping
+  // third-party trackers. None of them come from our code.
+  ignoreErrors: [
+    /Object Not Found Matching Id:\d+, MethodName:\w+/,
+    /__firefox__/,
+    /window\.webkit\.messageHandlers/,
+    /Script message handler is unavailable/,
+    /Invalid call to runtime\.sendMessage\(\)/,
+    /MetaMask/,
+    /Unlock Shield to use a DApp/,
+    /Talisman extension has not been configured/,
+    /Failed to fetch \((?:[\w-]+\.)*(?:doubleclick\.net|google-analytics\.com|analytics\.google\.com|googletagmanager\.com|facebook\.com)\)/,
+  ],
+  denyUrls: [
+    /\/executors\/\d+\.js/,
+    /^(?:chrome|moz|safari|safari-web)-extension:\/\//,
+  ],
+
   // Redact PII/secrets before sending to Sentry (third party).
   beforeSend,
   beforeSendTransaction,

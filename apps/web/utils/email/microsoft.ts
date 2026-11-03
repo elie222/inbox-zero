@@ -9,7 +9,7 @@ import {
   resolveOutlookLocalMailFolderIds,
 } from "@/utils/outlook/local-mail-sync";
 import { matchesSenderFilter } from "@/utils/split-inbox/sender-filter";
-import { DraftNotFoundError } from "@/utils/error";
+import { DraftNotFoundError, isOutlookItemNotFoundError } from "@/utils/error";
 import type { Message } from "@microsoft/microsoft-graph-types";
 import type { OutlookClient } from "@/utils/outlook/client";
 import type { ParsedMessage } from "@/utils/types";
@@ -17,7 +17,7 @@ import type { Attachment as MailAttachment } from "nodemailer/lib/mailer";
 import { toMailerAttachments } from "@/utils/types/mail";
 import {
   getMessage,
-  getMessages,
+  getRawMessage,
   queryBatchMessages,
   queryMessagesWithAttachments,
   getCategoryMap,
@@ -61,6 +61,7 @@ import {
   updateMessageCategories,
 } from "@/utils/outlook/label";
 import { trashThread } from "@/utils/outlook/trash";
+import { listThreadMessages } from "@/utils/outlook/thread-helpers";
 import { markNotSpam, markSpam } from "@/utils/outlook/spam";
 import { handlePreviousDraftDeletion } from "@/utils/ai/choose-rule/draft-management";
 import { type Logger, createScopedLogger } from "@/utils/logger";
@@ -148,6 +149,8 @@ import { getOutlookMailboxSyncPage } from "@/utils/outlook/mailbox-sync";
 import { requireSentMessageId } from "@/utils/email/sent-message-id";
 import { searchContacts } from "@/utils/outlook/contact";
 import { mapWithConcurrency } from "@/utils/async";
+
+const REPLY_SEARCH_MAX_PAGES = 3;
 
 export class OutlookProvider implements EmailProvider {
   readonly name = "microsoft";
@@ -311,6 +314,10 @@ export class OutlookProvider implements EmailProvider {
     options?: { includeCalendarContent?: boolean },
   ): Promise<ParsedMessage> {
     return getMessage(messageId, this.client, this.logger, options);
+  }
+
+  async getMessageSource(messageId: string): Promise<Buffer> {
+    return getRawMessage(messageId, this.client, this.logger);
   }
 
   async getMessageByRfc822MessageId(
@@ -1066,9 +1073,6 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async getThreadMessagesInInbox(threadId: string): Promise<ParsedMessage[]> {
-    // Optimized: Direct API call filtering by inbox folder
-    const client = this.client.getClient();
-
     try {
       const folderIds = await getFolderIds(this.client, this.logger, {
         includeDrafts: false,
@@ -1079,20 +1083,18 @@ export class OutlookProvider implements EmailProvider {
         throw new Error("Could not resolve inbox folder ID");
       }
 
-      const escapedThreadId = escapeODataString(threadId);
-
-      const response = await client
-        .api("/me/messages")
-        .filter(
-          `conversationId eq '${escapedThreadId}' and parentFolderId eq '${escapeODataString(inboxFolderId)}'`,
-        )
-        .select(MESSAGE_SELECT_FIELDS)
-        .get();
+      const threadMessages = await listThreadMessages({
+        client: this.client,
+        threadId,
+        select: "id",
+        folderId: inboxFolderId,
+        logger: this.logger,
+      });
 
       // Convert to ParsedMessage format using existing helper
       const messages: ParsedMessage[] = [];
 
-      for (const message of response.value) {
+      for (const message of threadMessages) {
         try {
           // Use the existing getMessage function to properly parse each message
           const parsedMessage = await getMessage(
@@ -1169,14 +1171,12 @@ export class OutlookProvider implements EmailProvider {
 
     const [allLabels, messages] = await Promise.all([
       this.getLabels(),
-      this.client
-        .getClient()
-        .api("/me/messages")
-        .filter(`conversationId eq '${escapeODataString(threadId)}'`)
-        .select("id,categories")
-        .get() as Promise<{
-        value: Array<{ id: string; categories?: string[] }>;
-      }>,
+      listThreadMessages<{ id: string; categories?: string[] }>({
+        client: this.client,
+        threadId,
+        select: "id,categories",
+        logger: this.logger,
+      }),
     ]);
 
     const labelIdsSet = new Set(labelIds);
@@ -1186,7 +1186,7 @@ export class OutlookProvider implements EmailProvider {
 
     if (!removeCategoryNames.length) return;
 
-    const messagesWithCategories = messages.value.filter((message) =>
+    const messagesWithCategories = messages.filter((message) =>
       message.categories?.some((cat) => removeCategoryNames.includes(cat)),
     );
 
@@ -1670,31 +1670,15 @@ export class OutlookProvider implements EmailProvider {
   async getLatestMessageInThread(
     threadId: string,
   ): Promise<ParsedMessage | null> {
-    const escapedThreadId = escapeODataString(threadId);
     // A whole conversation with bodies can be megabytes, and Graph sometimes
     // ends such 200 responses mid-body. Pick the latest message from metadata,
     // then fetch only that one in full.
-    const messages: Message[] = [];
-    let nextLink: string | undefined;
-    do {
-      const pageLink = nextLink;
-      const page: { value?: Message[]; "@odata.nextLink"?: string } =
-        await withMicrosoftGraphRetry(
-          () =>
-            pageLink
-              ? this.client.getClient().api(pageLink).get()
-              : this.client
-                  .getClient()
-                  .api("/me/messages")
-                  .filter(`conversationId eq '${escapedThreadId}'`)
-                  .select(MESSAGE_LIST_SELECT_FIELDS)
-                  .top(100)
-                  .get(),
-          this.logger,
-        );
-      messages.push(...(page.value ?? []));
-      nextLink = page["@odata.nextLink"];
-    } while (nextLink);
+    const messages = await listThreadMessages<Message & { id: string }>({
+      client: this.client,
+      threadId,
+      select: MESSAGE_LIST_SELECT_FIELDS,
+      logger: this.logger,
+    });
 
     const parsedMessages: ParsedMessage[] = messages
       .filter((message: Message) => !message.isDraft)
@@ -1722,11 +1706,23 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async getMessagesBatch(messageIds: string[]): Promise<ParsedMessage[]> {
-    // For Outlook, we need to fetch messages individually since there's no batch endpoint
-    const messagePromises = messageIds.map((messageId) =>
-      this.getMessage(messageId),
+    // Outlook has no batch endpoint, so messages are fetched individually.
+    // Like Gmail's batch, skip messages that no longer exist instead of
+    // failing the whole batch on one stale ID.
+    const messages = await Promise.all(
+      messageIds.map(async (messageId) => {
+        try {
+          return await this.getMessage(messageId);
+        } catch (error) {
+          if (!isOutlookItemNotFoundError(error)) throw error;
+          this.logger.warn("Skipping message missing from Outlook", {
+            messageId,
+          });
+          return null;
+        }
+      }),
     );
-    return Promise.all(messagePromises);
+    return messages.filter((message) => message !== null);
   }
 
   async syncLocalMail(
@@ -1848,16 +1844,30 @@ export class OutlookProvider implements EmailProvider {
   }
   async checkIfReplySent(senderEmail: string): Promise<boolean> {
     try {
-      const query = `from:me to:${senderEmail}`;
-      const response = await getMessages(
-        this.client,
-        {
-          query,
-          maxResults: 1,
-        },
-        this.logger,
-      );
-      const sent = (response.messages?.length ?? 0) > 0;
+      // Graph has no Gmail-style "from:me to:" query, and recipient
+      // collections can't be filtered with $filter, so search Sent Items by
+      // participant and confirm the exact address on what comes back. The
+      // search is fuzzy, so lookalike addresses can fill the first page.
+      const participant = senderEmail.toLowerCase();
+      let sent = false;
+      let pageToken: string | undefined;
+      for (let page = 0; page < REPLY_SEARCH_MAX_PAGES && !sent; page++) {
+        const response = await queryBatchMessages(
+          this.client,
+          {
+            searchQuery: `participants:${sanitizeKqlValue(senderEmail)}`,
+            folderId: "sentitems",
+            maxResults: 10,
+            pageToken,
+          },
+          this.logger,
+        );
+        sent =
+          filterMessagesForParticipant(response.messages, participant).length >
+          0;
+        pageToken = response.nextPageToken;
+        if (!pageToken) break;
+      }
       this.logger.info("Checked for sent reply", { senderEmail, sent });
       return sent;
     } catch (error) {
@@ -1874,22 +1884,31 @@ export class OutlookProvider implements EmailProvider {
     threshold: number,
   ): Promise<number> {
     try {
-      const query = `from:${senderEmail}`;
       this.logger.info("Checking received message count", {
         senderEmail,
         threshold,
       });
 
-      // Fetch up to the threshold number of messages
-      const response = await getMessages(
-        this.client,
-        {
-          query,
-          maxResults: threshold,
-        },
-        this.logger,
-      );
-      const count = response.messages?.length ?? 0;
+      // queryBatchMessages returns at most 20 messages a page, so page until
+      // the threshold is reached.
+      let count = 0;
+      let pageToken: string | undefined;
+      do {
+        const response = await queryBatchMessages(
+          this.client,
+          {
+            fromEmail: senderEmail,
+            maxResults: threshold - count,
+            pageToken,
+          },
+          this.logger,
+        );
+        count += response.messages.length;
+        pageToken = response.messages.length
+          ? response.nextPageToken
+          : undefined;
+      } while (pageToken && count < threshold);
+      count = Math.min(count, threshold);
 
       this.logger.info("Received message count check result", {
         senderEmail,
@@ -1945,6 +1964,7 @@ export class OutlookProvider implements EmailProvider {
     maxResults?: number;
     pageToken?: string;
     messageFormat?: "full" | "metadata";
+    skipParticipantMessages?: boolean;
   }): Promise<{
     threads: EmailThread[];
     nextPageToken?: string;
@@ -2215,7 +2235,10 @@ export class OutlookProvider implements EmailProvider {
 
     threads = threads.slice(0, maxResults);
 
-    if (options.messageFormat === "metadata") {
+    if (
+      options.messageFormat === "metadata" &&
+      !options.skipParticipantMessages
+    ) {
       threads = await addOutlookThreadParticipantMessages({
         client: this.client,
         threads,
@@ -2360,7 +2383,7 @@ export class OutlookProvider implements EmailProvider {
         this.client
           .getClient()
           .api("/me/messages")
-          .search(`"to:@${escapedKqlDomain}"`)
+          .search(encodeURIComponent(`"to:@${escapedKqlDomain}"`))
           .top(5)
           .select("id,sentDateTime")
           .get(),
@@ -2368,7 +2391,7 @@ export class OutlookProvider implements EmailProvider {
         this.client
           .getClient()
           .api("/me/messages")
-          .search(`"from:@${escapedKqlDomain}"`)
+          .search(encodeURIComponent(`"from:@${escapedKqlDomain}"`))
           .top(5)
           .select("id,receivedDateTime")
           .get(),
@@ -2407,7 +2430,7 @@ export class OutlookProvider implements EmailProvider {
       this.client
         .getClient()
         .api("/me/messages")
-        .search(sentSearch)
+        .search(encodeURIComponent(sentSearch))
         .top(5) // Increase top to account for potential future messages we filter out
         .select("id,sentDateTime")
         .get(),
@@ -2566,7 +2589,8 @@ export class OutlookProvider implements EmailProvider {
   ): Promise<void> {
     await mapWithConcurrency([...new Set(messageIds)], 4, async (messageId) => {
       try {
-        await withMicrosoftGraphWriteRetry(
+        // Idempotent absolute write: safe to retry on conflicts and network errors.
+        await withMicrosoftGraphRetry(
           () =>
             this.client
               .getClient()
@@ -3324,7 +3348,8 @@ async function fetchOutlookSearchPage({
   // Graph forbids combining $search with $filter/$orderby and caps page size at 25.
   let request = client.api(apiPath).select(selectFields);
   if (compiled.search) {
-    request = request.search(compiled.search);
+    // The Graph SDK does not URL-encode $search, so a raw "#" or "&" would cut the query off.
+    request = request.search(encodeURIComponent(compiled.search));
   } else {
     const filters: string[] = [];
     if (compiled.flagged) filters.push("flag/flagStatus eq 'flagged'");

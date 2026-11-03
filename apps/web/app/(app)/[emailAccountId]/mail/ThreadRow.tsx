@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useMemo, type Ref } from "react";
-import { PaperclipIcon } from "lucide-react";
+import { CopyIcon, PaperclipIcon } from "lucide-react";
 import { MailThreadRow } from "@inboxzero/mail-ui/MailThreadRow";
 import { isThreadStarred } from "@/app/(app)/[emailAccountId]/mail/star-state";
 import { MailLabelChip } from "@/app/(app)/[emailAccountId]/mail/MailLabelChip";
@@ -11,9 +11,9 @@ import type {
   ListThread,
   MailLayoutMode,
 } from "@/app/(app)/[emailAccountId]/mail/types";
-import { EmailDate } from "@/components/email-list/EmailDate";
 import { SentMessageOpenStatus } from "@/components/email-list/SentMessageOpenStatus";
 import { getEmailThreadLabels } from "@/components/EmailMessageCellLabels";
+import { toastError, toastSuccess } from "@/components/Toast";
 import { Tooltip } from "@/components/Tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
 import { mailCheckboxClassName } from "@/app/(app)/[emailAccountId]/mail/SelectAllCheckbox";
@@ -24,9 +24,15 @@ import {
 } from "@/components/ui/avatar";
 import type { EmailLabels } from "@/providers/email-label-types";
 import { cn } from "@/utils";
-import { internalDateToDate } from "@/utils/date";
+import { formatShortDate, internalDateToDate } from "@/utils/date";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { GmailLabel } from "@/utils/gmail/label";
+import { getConversationSubject } from "@/utils/email/subject";
+import { extractOtpCode, isOtpSubject } from "@/utils/otp";
+import { getRuleLabel } from "@/utils/rule/consts";
+import { SystemType } from "@/generated/prisma/enums";
+
+const OTP_LABEL = getRuleLabel(SystemType.OTP).toLowerCase();
 
 export type ThreadRowProps = {
   thread: ListThread;
@@ -101,6 +107,11 @@ export const ThreadRow = memo(function ThreadRow({
   const hasAttachment = thread.messages.some(
     (message) => message.hasAttachment,
   );
+  const snippet = decodeSnippet(thread.snippet || message.snippet);
+  const isOtp =
+    labels.some((label) => label.name.toLowerCase() === OTP_LABEL) ||
+    isOtpSubject(message.subject);
+  const otpCode = isOtp ? extractOtpCode([message.subject, snippet]) : null;
 
   return (
     <MailThreadRow
@@ -120,10 +131,11 @@ export const ThreadRow = memo(function ThreadRow({
           {sentMessageOpen ? (
             <SentMessageOpenStatus compact open={sentMessageOpen} />
           ) : null}
-          <EmailDate
-            className="font-normal text-xs"
-            date={internalDateToDate(message.internalDate)}
-          />
+          <span className="text-muted-foreground text-xs">
+            {formatShortDate(internalDateToDate(message.internalDate), {
+              lowercase: true,
+            })}
+          </span>
         </div>
       }
       expandedPreview={expandedPreview}
@@ -134,9 +146,12 @@ export const ThreadRow = memo(function ThreadRow({
       isSelected={isSelected}
       isStarred={isThreadStarred(thread.messages)}
       isUnread={isThreadUnread(thread.messages)}
-      labels={chips.map((label) => (
-        <MailLabelChip color={label.color} key={label.id} name={label.name} />
-      ))}
+      labels={[
+        ...chips.map((label) => (
+          <MailLabelChip color={label.color} key={label.id} name={label.name} />
+        )),
+        ...(otpCode ? [<OtpCodeButton code={otpCode} key="otp-code" />] : []),
+      ]}
       layout={layout}
       messageCount={thread.messages.length}
       onOpen={onOpen}
@@ -162,11 +177,35 @@ export const ThreadRow = memo(function ThreadRow({
       )}
       rowRef={rowRef}
       selectionEnabled={selectionEnabled}
-      snippet={decodeSnippet(thread.snippet || message.snippet)}
-      subject={message.headers.subject}
+      snippet={snippet}
+      subject={getConversationSubject(thread.messages)}
     />
   );
 });
+
+function OtpCodeButton({ code }: { code: string }) {
+  return (
+    <button
+      aria-label={`Copy code ${code}`}
+      className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border bg-background px-1.5 py-px font-medium text-foreground text-xs tabular-nums leading-4 hover:bg-muted"
+      onClick={async (event) => {
+        event.stopPropagation();
+        try {
+          await navigator.clipboard.writeText(code);
+          toastSuccess({ description: "Code copied" });
+        } catch {
+          toastError({ description: "Failed to copy code" });
+        }
+      }}
+      // Enter would otherwise bubble to the row and open the thread.
+      onKeyDown={(event) => event.stopPropagation()}
+      type="button"
+    >
+      {code}
+      <CopyIcon aria-hidden className="size-3 text-muted-foreground" />
+    </button>
+  );
+}
 
 function AccountAvatar({
   account,

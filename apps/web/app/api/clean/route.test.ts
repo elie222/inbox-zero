@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { NextRequest } from "next/server";
 import { GmailLabel } from "@/utils/gmail/label";
 import type { ParsedMessage } from "@/utils/types";
@@ -80,6 +80,7 @@ vi.mock("@/utils/parse/calender-event", () => ({
   getCalendarEventStatus: vi.fn().mockReturnValue({ isEvent: false }),
 }));
 
+import { getCalendarEventStatus } from "@/utils/parse/calender-event";
 import { cleanThread } from "./controller";
 import { POST } from "./route";
 
@@ -127,6 +128,104 @@ describe("cleanThread", () => {
 
     mockPublishToQstash.mockResolvedValue(undefined);
     mockAiClean.mockResolvedValue({ archive: true });
+  });
+
+  describe("keep signals later in the thread win over archive shortcuts", () => {
+    afterEach(() => {
+      vi.mocked(getCalendarEventStatus).mockReturnValue({ isEvent: false });
+    });
+
+    const newsletterBase = getMockMessage({
+      id: "msg-1",
+      from: "Weekly Digest <digest@news.example.com>",
+      subject: "This week's top stories",
+      labelIds: [],
+    });
+    const newsletter = {
+      ...newsletterBase,
+      headers: {
+        ...newsletterBase.headers,
+        "list-unsubscribe": "<https://news.example.com/unsubscribe?u=1>",
+      },
+    };
+
+    it("keeps a newsletter thread the user replied to", async () => {
+      mockGetThreadMessages.mockResolvedValue([
+        newsletter,
+        getMockMessage({
+          id: "msg-2",
+          from: "user@example.com",
+          to: "digest@news.example.com",
+          subject: "Re: This week's top stories",
+          labelIds: [GmailLabel.SENT],
+        }),
+      ]);
+
+      await cleanThread(getDefaultParams());
+
+      expect(mockPublishToQstash).toHaveBeenCalledWith(
+        "/api/clean/gmail",
+        expect.objectContaining({ markDone: false }),
+        expect.any(Object),
+      );
+    });
+
+    it("keeps a newsletter thread with a starred message", async () => {
+      mockGetThreadMessages.mockResolvedValue([
+        newsletter,
+        getMockMessage({
+          id: "msg-2",
+          from: "Weekly Digest <digest@news.example.com>",
+          subject: "Re: This week's top stories",
+          labelIds: [GmailLabel.STARRED],
+        }),
+      ]);
+
+      await cleanThread(getDefaultParams());
+
+      expect(mockPublishToQstash).toHaveBeenCalledWith(
+        "/api/clean/gmail",
+        expect.objectContaining({ markDone: false }),
+        expect.any(Object),
+      );
+    });
+
+    it("keeps a past calendar invite thread with a starred message", async () => {
+      vi.mocked(getCalendarEventStatus).mockImplementation((message) =>
+        message.id === "msg-1"
+          ? { isEvent: true, timing: "past" }
+          : { isEvent: false },
+      );
+      mockGetThreadMessages.mockResolvedValue([
+        getMockMessage({ id: "msg-1", subject: "Invitation: Sync" }),
+        getMockMessage({
+          id: "msg-2",
+          subject: "Re: Invitation: Sync",
+          labelIds: [GmailLabel.STARRED],
+        }),
+      ]);
+
+      await cleanThread(getDefaultParams());
+
+      expect(mockPublishToQstash).toHaveBeenCalledWith(
+        "/api/clean/gmail",
+        expect.objectContaining({ markDone: false }),
+        expect.any(Object),
+      );
+    });
+
+    it("still archives a newsletter thread with nothing to keep", async () => {
+      mockGetThreadMessages.mockResolvedValue([newsletter]);
+
+      await cleanThread(getDefaultParams());
+
+      expect(mockPublishToQstash).toHaveBeenCalledWith(
+        "/api/clean/gmail",
+        expect.objectContaining({ markDone: true }),
+        expect.any(Object),
+      );
+      expect(mockAiClean).not.toHaveBeenCalled();
+    });
   });
 
   describe("maybe-receipt should not break loop early", () => {

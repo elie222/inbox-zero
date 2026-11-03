@@ -18,6 +18,7 @@ overrides:
   "@types/react-dom": "19.2.4"
   "@xmldom/xmldom": "0.8.13"
   axios: "1.16.1"
+  dompurify: "3.4.17"
   fast-xml-parser: "5.8.0"
   # One ioredis copy for BullMQ and @chat-adapter/state-ioredis. The adapter
   # still declares ^5.4.1, but v6 keeps legacy reply mapping and closing the
@@ -25,7 +26,6 @@ overrides:
   ioredis: "6.0.0"
   js-yaml: "3.14.2"
   jws: "4.0.1"
-  linkify-it: "5.0.2"
   lodash: "4.18.1"
   next: "16.4.1"
   postcss: "8.5.14"
@@ -36,12 +36,11 @@ overrides:
   prosemirror-model: "1.25.11"
   prosemirror-view: "1.42.2"
   svelte: "5.55.5"
-  # @actions/* and node-gyp resolve undici 6. 6.25.0 is outside CVE-2026-84961,
-  # which is already covered by 7.29.1 and the direct 8.10.2 pin, but it is
-  # inside the other undici advisories fixed in 6.28.1. 6.29.0 is the latest
-  # 6.x those caret ranges allow.
-  "undici@>=6.0.0 <7.0.0": "6.29.0"
-  "undici@>=7.0.0 <8.0.0": "7.29.1"
+  # @actions/* and node-gyp resolve undici 6; other deps resolve undici 7.
+  # 6.29.1 and 7.30.1 are the first patched releases for the undici advisories
+  # fixed alongside 8.12.2 (TLS validation bypass, cache poisoning, DoS).
+  "undici@>=6.0.0 <7.0.0": "6.29.1"
+  "undici@>=7.0.0 <8.0.0": "7.30.1"
   vite: "7.3.6"
   webpack: "5.106.2"
 

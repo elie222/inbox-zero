@@ -29,6 +29,7 @@ export async function processDueSnoozedThreads(logger: Logger) {
   const snoozedThreads = await prisma.snoozedThread.findMany({
     where: {
       scheduledFor: { lte: now },
+      emailAccount: { account: { disconnectedAt: null } },
       OR: [
         { status: SnoozedThreadStatus.PENDING },
         {

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
+import { Prisma } from "@/generated/prisma/client";
 import { ActionType } from "@/generated/prisma/enums";
 import { createRuleHistory } from "./rule-history";
 import type { RuleWithRelations } from "./types";
@@ -106,4 +107,56 @@ describe("createRuleHistory", () => {
       }),
     );
   });
+
+  it("retries with the next version when a concurrent write took it", async () => {
+    vi.mocked(prisma.ruleHistory.findFirst)
+      .mockResolvedValueOnce({ version: 4 } as any)
+      .mockResolvedValueOnce({ version: 5 } as any);
+    vi.mocked(prisma.ruleHistory.create)
+      .mockRejectedValueOnce(versionConflictError())
+      .mockResolvedValueOnce({ id: "history-6" } as any);
+
+    const result = await createRuleHistory({
+      rule: sampleRule(),
+      triggerType: "updated",
+    });
+
+    expect(result).toEqual({ id: "history-6" });
+    expect(prisma.ruleHistory.create).toHaveBeenCalledTimes(2);
+    expect(prisma.ruleHistory.create).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ version: 6 }),
+      }),
+    );
+  });
+
+  it("gives up after repeated version conflicts", async () => {
+    vi.mocked(prisma.ruleHistory.findFirst).mockResolvedValue({
+      version: 4,
+    } as any);
+    vi.mocked(prisma.ruleHistory.create).mockRejectedValue(
+      versionConflictError(),
+    );
+
+    await expect(
+      createRuleHistory({ rule: sampleRule(), triggerType: "updated" }),
+    ).rejects.toThrow("Unique constraint failed");
+    expect(prisma.ruleHistory.create).toHaveBeenCalledTimes(3);
+  });
 });
+
+function versionConflictError() {
+  return new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+    code: "P2002",
+    clientVersion: "test",
+    meta: {
+      modelName: "RuleHistory",
+      driverAdapterError: {
+        cause: {
+          kind: "UniqueConstraintViolation",
+          constraint: { index: "RuleHistory_ruleId_version_key" },
+        },
+      },
+    },
+  });
+}

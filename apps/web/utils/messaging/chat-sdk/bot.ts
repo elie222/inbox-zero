@@ -2713,7 +2713,13 @@ async function postMessagingThreadMessage({
   logMeta?: Record<string, unknown>;
 }): Promise<void> {
   try {
-    await thread.post(message);
+    await thread.post(
+      thread.adapter.name === "teams"
+        ? Card({
+            children: [CardText(message)],
+          })
+        : message,
+    );
   } catch (error) {
     logger.error(errorLogMessage, {
       ...logMeta,
@@ -2943,7 +2949,7 @@ function getMessagingAssistantPostPayload({
     return { raw: markdownToSlackMrkdwn(text) };
   }
 
-  return { markdown: text };
+  return Card({ children: [CardText(text)] });
 }
 
 export function getMessagingAiGeneratedPostPayload({

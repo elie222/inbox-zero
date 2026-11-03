@@ -1,4 +1,7 @@
 import { lookup } from "node:dns/promises";
+import { EventEmitter } from "node:events";
+import { request as httpsRequest } from "node:https";
+import { Readable } from "node:stream";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   isSafeExternalHttpUrl,
@@ -8,6 +11,10 @@ import { createSafeImageProxyFetch } from "./node-safe-fetch";
 
 vi.mock("node:dns/promises", () => ({
   lookup: vi.fn(),
+}));
+
+vi.mock("node:https", () => ({
+  request: vi.fn(),
 }));
 
 describe("isSafeExternalHttpUrl", () => {
@@ -104,4 +111,91 @@ describe("isSafeExternalHttpUrl", () => {
     expect(response.status).toBe(502);
     await expect(response.text()).resolves.toBe("Upstream host lookup failed");
   });
+
+  it("returns upstream responses that must not have a body", async () => {
+    vi.mocked(lookup).mockResolvedValue([
+      { address: "93.184.216.34", family: 4 },
+    ] as never);
+    vi.mocked(httpsRequest).mockImplementation(((
+      _url: URL,
+      _options: unknown,
+      onResponse: (response: Readable) => void,
+    ) => {
+      const upstreamResponse = Object.assign(Readable.from([]), {
+        statusCode: 204,
+        statusMessage: "No Content",
+        headers: {},
+      });
+      setImmediate(() => onResponse(upstreamResponse));
+      return { on: vi.fn(), end: vi.fn() };
+    }) as never);
+
+    const response = await createSafeImageProxyFetch(
+      "https://news.example.com/photo.png",
+    );
+
+    expect(response.status).toBe(204);
+    expect(response.body).toBeNull();
+  });
+  it.each([
+    ["read ETIMEDOUT", "ETIMEDOUT", 504],
+    ["socket hang up", "ECONNRESET", 502],
+    [
+      "Hostname/IP does not match certificate's altnames",
+      "ERR_TLS_CERT_ALTNAME_INVALID",
+      502,
+    ],
+  ])("returns a gateway status when the upstream request fails with %s", async (message, code, expectedStatus) => {
+    vi.mocked(lookup).mockResolvedValue([
+      { address: "93.184.216.34", family: 4 },
+    ] as never);
+    vi.mocked(httpsRequest).mockImplementation((() => {
+      const request = createFakeRequest();
+      setImmediate(() =>
+        request.emit("error", Object.assign(new Error(message), { code })),
+      );
+      return request;
+    }) as never);
+
+    const response = await createSafeImageProxyFetch(
+      "https://news.example.com/photo.png",
+    );
+
+    expect(response.status).toBe(expectedStatus);
+    expect(response.statusText).toContain(code);
+  });
+
+  it("returns 504 and aborts the request when the upstream stalls", async () => {
+    vi.mocked(lookup).mockResolvedValue([
+      { address: "93.184.216.34", family: 4 },
+    ] as never);
+    const request = createFakeRequest();
+    vi.mocked(httpsRequest).mockImplementation(((
+      _url: URL,
+      options: { timeout?: number },
+    ) => {
+      expect(options.timeout).toBeGreaterThan(0);
+      setImmediate(() => request.emit("timeout"));
+      return request;
+    }) as never);
+
+    const response = await createSafeImageProxyFetch(
+      "https://news.example.com/photo.png",
+    );
+
+    expect(response.status).toBe(504);
+    expect(request.destroy).toHaveBeenCalled();
+  });
 });
+
+function createFakeRequest() {
+  const request = Object.assign(new EventEmitter(), {
+    end: vi.fn(),
+    destroy: vi.fn(),
+  });
+  request.destroy.mockImplementation((error?: Error) => {
+    if (error) setImmediate(() => request.emit("error", error));
+    return request;
+  });
+  return request;
+}

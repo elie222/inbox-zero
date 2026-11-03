@@ -21,14 +21,11 @@ export default function NotFound() {
     <BasicLayout>
       <ErrorPage
         title="Page Not Found"
-        description="The requested page does not exist. Return home, read the agent instructions, or search the documentation."
+        description="The page you are looking for could not be found."
         button={
           <div className="flex flex-wrap justify-center gap-2">
             <Button asChild>
               <Link href="/">Return Home</Link>
-            </Button>
-            <Button variant="outline" asChild>
-              <Link href="/llms.txt">Agent Instructions</Link>
             </Button>
             <Button variant="outline" asChild>
               <Link href="https://docs.getinboxzero.com">Documentation</Link>

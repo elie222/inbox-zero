@@ -5,7 +5,7 @@ import { translateThreadBody } from "@/utils/actions/translate.validation";
 import { aiTranslateEmails } from "@/utils/ai/translate-email";
 import { createEmailProvider } from "@/utils/email/provider";
 import { SafeError } from "@/utils/error";
-import { getLatestNonDraftMessage } from "@/utils/email/latest-message";
+import { getConversationSubject } from "@/utils/email/subject";
 import { getMessageTimestamp } from "@/utils/email/message-timestamp";
 import { emailToContent } from "@/utils/mail";
 import { assertHasAiAccess } from "@/utils/premium/limits";
@@ -36,10 +36,11 @@ export const translateThreadAction = actionClient
       if (!messages.length) throw new SafeError("Email not found");
 
       const subject =
-        getLatestNonDraftMessage({
-          messages,
-          getTimestamp: getMessageTimestamp,
-        })?.headers.subject ?? "";
+        getConversationSubject(
+          [...messages].sort(
+            (a, b) => getMessageTimestamp(a) - getMessageTimestamp(b),
+          ),
+        ) ?? "";
       const [subjectTranslation, ...messageTranslations] =
         await aiTranslateEmails({
           texts: [

@@ -14,11 +14,11 @@ test("applies an existing label from the reader menu and keeps the conversation 
   const conversation = conversationWithSubject(
     page,
     conversations,
-    "Re: Reader Navigation Message",
+    "Reader Navigation Message",
   );
   await conversation.click();
   await expect(
-    page.getByRole("heading", { name: "Re: Reader Navigation Message" }),
+    page.getByRole("heading", { name: "Reader Navigation Message" }),
   ).toBeVisible();
 
   await page.getByRole("button", { name: /^More actions/ }).click();

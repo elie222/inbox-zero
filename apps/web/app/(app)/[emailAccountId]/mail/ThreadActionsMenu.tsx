@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   ArchiveIcon,
   ArrowBigUpIcon,
@@ -10,12 +11,15 @@ import {
   MailXIcon,
   MessageSquareIcon,
   MoreHorizontalIcon,
+  PrinterIcon,
   ShieldAlertIcon,
   StarIcon,
   StarOffIcon,
   Trash2Icon,
   TagIcon,
+  WandSparklesIcon,
 } from "lucide-react";
+import { RuleDialog } from "@/app/(app)/[emailAccountId]/assistant/RuleDialog";
 import { useSenderCommands } from "@/app/(app)/[emailAccountId]/mail/use-sender-commands";
 import { getEmailMessageCellActions } from "@/components/EmailMessageCellActions";
 import { Kbd } from "@/components/Kbd";
@@ -34,11 +38,15 @@ import {
   type ShortcutId,
 } from "@/lib/shortcuts/registry";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { ConditionType } from "@/utils/config";
+import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
 import { getOpenInMailboxLabel } from "@/utils/url";
 import type { ParsedMessage } from "@/utils/types";
 
 export type ThreadActionsMenuProps = {
   message: ParsedMessage | null;
+  /** The newest message someone else sent, whose sender a new rule targets. */
+  receivedMessage: ParsedMessage | null;
   isStarred: boolean;
   onToggleStar: () => void;
   onMarkSpam: () => void;
@@ -47,6 +55,7 @@ export type ThreadActionsMenuProps = {
   onMove?: () => void;
   onTranslate?: () => void;
   onComment?: () => void;
+  onPrint?: () => void;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 };
@@ -56,6 +65,7 @@ export type ThreadActionsMenuProps = {
  */
 export function ThreadActionsMenu({
   message,
+  receivedMessage,
   isStarred,
   onToggleStar,
   onMarkSpam,
@@ -64,11 +74,16 @@ export function ThreadActionsMenu({
   onMove,
   onTranslate,
   onComment,
+  onPrint,
   open,
   onOpenChange,
 }: ThreadActionsMenuProps) {
   const { provider, userEmail } = useAccount();
+  const [isRuleDialogOpen, setIsRuleDialogOpen] = useState(false);
+  const senderFrom = receivedMessage?.headers.from ?? "";
+  const senderEmail = extractEmailAddress(senderFrom);
   const {
+    canUnsubscribe,
     canManageAutoArchive,
     isUnsubscribeDisabled,
     unsubscribeLabel,
@@ -78,7 +93,7 @@ export function ThreadActionsMenu({
     onToggleAutoArchive,
     onUnsubscribe,
     PremiumModal,
-  } = useSenderCommands(message);
+  } = useSenderCommands(receivedMessage ?? message);
   const openUrl = message
     ? getEmailMessageCellActions({
         externalUrl: message.externalUrl,
@@ -91,10 +106,24 @@ export function ThreadActionsMenu({
 
   return (
     <>
+      {canUnsubscribe ? (
+        <Tooltip shortcuts={["unsubscribe"]}>
+          <Button
+            disabled={isUnsubscribeDisabled}
+            onClick={onUnsubscribe}
+            size="xs-2"
+            variant="outline"
+          >
+            <MailXIcon className="mr-1.5 size-3.5" />
+            Unsubscribe
+          </Button>
+        </Tooltip>
+      ) : null}
+
       <DropdownMenu onOpenChange={onOpenChange} open={open}>
         <Tooltip shortcuts={["moreActions"]}>
           <DropdownMenuTrigger asChild>
-            <Button aria-label="More actions" size="iconXs" variant="outline">
+            <Button aria-label="More actions" size="iconXs" variant="ghost">
               <MoreHorizontalIcon className="size-3.5" />
             </Button>
           </DropdownMenuTrigger>
@@ -156,17 +185,11 @@ export function ThreadActionsMenu({
             </DropdownMenuItem>
           ) : null}
 
-          {(onTranslate || onComment || canManageAutoArchive) && (
-            <DropdownMenuSeparator />
-          )}
-
-          {onTranslate && (
-            <DropdownMenuItem onSelect={onTranslate}>
-              <LanguagesIcon className="mr-2 size-4" />
-              Translate
-              <MenuShortcut id="translate" />
-            </DropdownMenuItem>
-          )}
+          {(onTranslate ||
+            onComment ||
+            onPrint ||
+            canManageAutoArchive ||
+            senderEmail) && <DropdownMenuSeparator />}
 
           {onComment && (
             <DropdownMenuItem onSelect={onComment}>
@@ -193,6 +216,28 @@ export function ThreadActionsMenu({
             </DropdownMenuItem>
           ) : null}
 
+          {senderEmail ? (
+            <DropdownMenuItem onSelect={() => setIsRuleDialogOpen(true)}>
+              <WandSparklesIcon className="mr-2 size-4" />
+              Create rule for sender
+            </DropdownMenuItem>
+          ) : null}
+
+          {onTranslate && (
+            <DropdownMenuItem onSelect={onTranslate}>
+              <LanguagesIcon className="mr-2 size-4" />
+              Translate
+              <MenuShortcut id="translate" />
+            </DropdownMenuItem>
+          )}
+
+          {onPrint && (
+            <DropdownMenuItem onSelect={onPrint}>
+              <PrinterIcon className="mr-2 size-4" />
+              Print
+            </DropdownMenuItem>
+          )}
+
           {openUrl ? <DropdownMenuSeparator /> : null}
 
           {openUrl ? (
@@ -208,6 +253,17 @@ export function ThreadActionsMenu({
       </DropdownMenu>
 
       <PremiumModal />
+
+      {senderEmail ? (
+        <RuleDialog
+          isOpen={isRuleDialogOpen}
+          onClose={() => setIsRuleDialogOpen(false)}
+          initialRule={{
+            name: `Emails from ${extractNameFromEmail(senderFrom)}`,
+            conditions: [{ type: ConditionType.STATIC, from: senderEmail }],
+          }}
+        />
+      ) : null}
     </>
   );
 }

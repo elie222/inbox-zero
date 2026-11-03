@@ -8,6 +8,7 @@ import {
 } from "react";
 import dynamic from "next/dynamic";
 import { AlertCircleIcon, Loader2Icon, MailIcon } from "lucide-react";
+import { latestShownMessage } from "@/app/(app)/[emailAccountId]/mail/latest-shown-message";
 import { ReaderToolbar } from "@/app/(app)/[emailAccountId]/mail/ReaderToolbar";
 import { MailReaderSurface } from "@inboxzero/mail-ui/MailReaderSurface";
 import { isThreadStarred } from "@/app/(app)/[emailAccountId]/mail/star-state";
@@ -28,6 +29,7 @@ import { useHiddenDraftMessageIds } from "@/hooks/useHiddenDraftMessageIds";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
 import { PublisherDiscussion } from "@/components/team-comments/PublisherDiscussion";
 import type { OutgoingThreadMessage } from "@/utils/mail-engine/conversation-thread";
+import { getConversationSubject } from "@/utils/email/subject";
 
 const SenderContextPanel = dynamic(
   () =>
@@ -89,6 +91,7 @@ export type ThreadReaderProps = {
    */
   autoOpenReplyForMessageId?: string;
   autoOpenForwardForMessageId?: string;
+  showChat?: boolean;
   /** The ⋯ dropdown, i.e. `ThreadActionsMenu`, composed by the shell. */
   menu?: ReactNode;
   renderMessageMenu?: (message: ThreadMessage) => ReactNode;
@@ -118,6 +121,7 @@ export function ThreadReader({
   autoOpenReplyForMessageId,
   autoOpenForwardForMessageId,
   menu,
+  showChat = true,
   renderMessageMenu,
 }: ThreadReaderProps) {
   const [senderContext, setSenderContext] = useState<{
@@ -187,6 +191,7 @@ export function ThreadReader({
       labelHref={labelHref}
       labels={labels}
       menu={menu}
+      showChat={showChat}
       onArchive={onArchive}
       onMoveToInbox={onMoveToInbox}
       onMarkRead={onMarkRead}
@@ -194,7 +199,11 @@ export function ThreadReader({
       onBackToInbox={onBackToInbox}
       onRemoveLabel={onRemoveLabel}
       subject={
-        translatedSubject ?? headerMessage?.headers.subject ?? "Conversation"
+        translatedSubject ??
+        getConversationSubject(
+          thread?.messages.length ? thread.messages : messages,
+        ) ??
+        "Conversation"
       }
     />
   );
@@ -320,15 +329,4 @@ function useElementWidth() {
   }, []);
 
   return [ref, width] as const;
-}
-
-// A draft that a pending send stands in for isn't shown, so it doesn't title
-// the thread either.
-function latestShownMessage<T extends { id: string }>(
-  messages: T[],
-  hiddenDraftMessageIds: string[],
-) {
-  return messages.findLast(
-    (message) => !hiddenDraftMessageIds.includes(message.id),
-  );
 }

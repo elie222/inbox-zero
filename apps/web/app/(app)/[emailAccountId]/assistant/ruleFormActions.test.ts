@@ -127,6 +127,69 @@ describe("rule form action conversion", () => {
     );
   });
 
+  it("keeps notifications on other channels when saving the form", () => {
+    const slack = "cmessagingchannel1234567890123";
+    const telegram = "cmessagingchannel1234567890456";
+    const originalActions = [
+      {
+        id: "action-label",
+        type: ActionType.LABEL,
+        label: { value: "Urgent" },
+      },
+      {
+        id: "notify-slack",
+        type: ActionType.NOTIFY_MESSAGING_CHANNEL,
+        messagingChannelId: slack,
+      },
+      {
+        id: "notify-telegram",
+        type: ActionType.NOTIFY_MESSAGING_CHANNEL,
+        messagingChannelId: telegram,
+      },
+    ];
+    const state = getRuleFormActionState({
+      actions: originalActions,
+      webhookActionsEnabled: true,
+    });
+
+    const persist = (notifyMessagingChannelId: string | null) =>
+      buildPersistedRuleActions({
+        formActions: state.actions,
+        originalActions,
+        includeDigestAction: state.digest,
+        notifyMessagingChannelId,
+        webhookActionsEnabled: true,
+      }).filter(
+        (action) => action.type === ActionType.NOTIFY_MESSAGING_CHANNEL,
+      );
+
+    expect(state.notifyMessagingChannelId).toBe(slack);
+    expect(persist(slack)).toEqual([
+      expect.objectContaining({
+        id: "notify-slack",
+        messagingChannelId: slack,
+      }),
+      expect.objectContaining({
+        id: "notify-telegram",
+        messagingChannelId: telegram,
+      }),
+    ]);
+    // Turning off the channel shown in the form leaves the other one alone.
+    expect(persist(null)).toEqual([
+      expect.objectContaining({
+        id: "notify-telegram",
+        messagingChannelId: telegram,
+      }),
+    ]);
+    // Switching the form to a channel that already notifies doesn't duplicate it.
+    expect(persist(telegram)).toEqual([
+      expect.objectContaining({
+        id: "notify-telegram",
+        messagingChannelId: telegram,
+      }),
+    ]);
+  });
+
   it("creates newly added draft destinations without duplicating a persisted id", () => {
     const draftAction = {
       id: "action-draft",

@@ -10,7 +10,9 @@ const {
   createRuleHistoryMock,
   mockEnv,
   mockIsIntegrationActionEnabledForEmailAccountId,
+  trackRuleEventMock,
 } = vi.hoisted(() => ({
+  trackRuleEventMock: vi.fn(),
   createRuleHistoryMock: vi.fn(),
   mockEnv: {
     webhookActionsEnabled: true,
@@ -28,6 +30,10 @@ vi.mock("@/utils/risk", () => ({
 vi.mock("@/utils/rule/rule-history", () => ({
   createRuleHistory: createRuleHistoryMock,
   ruleHistoryRuleInclude: { actions: true, group: true },
+}));
+vi.mock("@/utils/analytics/rule-events.server", () => ({
+  RULE_ANALYTICS_EVENTS: { ruleChanged: "Rule changed" },
+  trackRuleEvent: trackRuleEventMock,
 }));
 vi.mock("@/utils/email/provider-types", () => ({
   isMicrosoftProvider: vi.fn(() => false),
@@ -696,6 +702,40 @@ describe("rule history snapshots", () => {
   });
 });
 
+describe("rule analytics", () => {
+  beforeEach(resetRuleMocks);
+
+  it("reports rule changes with their trigger", async () => {
+    prisma.rule.update.mockResolvedValue({
+      id: RULE_ID,
+      emailAccountId: EMAIL_ACCOUNT_ID,
+      enabled: false,
+      systemType: null,
+      actions: [],
+      group: null,
+    } as any);
+
+    await setRuleEnabled({
+      ruleId: RULE_ID,
+      emailAccountId: EMAIL_ACCOUNT_ID,
+      enabled: false,
+    });
+
+    await vi.waitFor(() =>
+      expect(trackRuleEventMock).toHaveBeenCalledWith({
+        emailAccountId: EMAIL_ACCOUNT_ID,
+        event: "Rule changed",
+        properties: {
+          ruleId: RULE_ID,
+          triggerType: "enabled_updated",
+          systemType: null,
+          enabled: false,
+        },
+      }),
+    );
+  });
+});
+
 describe("webhook URL validation at save time", () => {
   beforeEach(resetRuleMocks);
 
@@ -835,6 +875,47 @@ describe("integration action access", () => {
 
     expect(prisma.mcpConnection.findMany).not.toHaveBeenCalled();
     expect(prisma.rule.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("unsupported action delays", () => {
+  beforeEach(resetRuleMocks);
+
+  it("saves a delay on an action that can't be delayed as no delay", async () => {
+    prisma.rule.findFirst.mockResolvedValue({
+      from: null,
+      actions: [],
+    } as never);
+    prisma.rule.update.mockResolvedValue({
+      id: RULE_ID,
+      actions: [],
+      group: null,
+    } as never);
+
+    await updateRuleActions({
+      ruleId: RULE_ID,
+      actions: [
+        {
+          ...webhookRuleAction("https://example.com/hook"),
+          delayInMinutes: 30,
+        },
+        { ...archiveAction(), delayInMinutes: 30 },
+      ],
+      provider: "gmail",
+      emailAccountId: EMAIL_ACCOUNT_ID,
+      logger,
+    });
+
+    const savedActions = (
+      prisma.rule.update.mock.calls[0][0].data.actions as any
+    ).createMany.data;
+    expect(savedActions).toEqual([
+      expect.objectContaining({
+        type: ActionType.CALL_WEBHOOK,
+        delayInMinutes: null,
+      }),
+      expect.objectContaining({ type: ActionType.ARCHIVE, delayInMinutes: 30 }),
+    ]);
   });
 });
 

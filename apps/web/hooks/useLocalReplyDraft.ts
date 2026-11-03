@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   dropReplyDraftDeletedFromMailbox,
   getReplyDraftForSession,
@@ -13,9 +13,12 @@ export function useLocalReplyDraft(
   legacyIdentity?: ReplyDraftIdentity,
   mode?: "reply" | "forward",
 ) {
-  const key = identity
-    ? JSON.stringify({ identity, legacyIdentity, mode })
-    : "";
+  // The legacy identity only seeds a draft that has none yet. It follows the
+  // reply target, which changes when a sent reply's optimistic copy is
+  // confirmed, and reloading then would remount the open composer.
+  const key = identity ? JSON.stringify({ identity, mode }) : "";
+  const legacyIdentityRef = useRef(legacyIdentity);
+  legacyIdentityRef.current = legacyIdentity;
   const [loaded, setLoaded] = useState<{
     key: string;
     draft?: StoredReplyDraft;
@@ -26,12 +29,11 @@ export function useLocalReplyDraft(
     let cancelled = false;
     const identities = JSON.parse(key) as {
       identity: ReplyDraftIdentity;
-      legacyIdentity?: ReplyDraftIdentity;
       mode?: "reply" | "forward";
     };
     getReplyDraftForSession(
       identities.identity,
-      identities.legacyIdentity,
+      legacyIdentityRef.current,
       identities.mode,
     )
       .then(dropReplyDraftDeletedFromMailbox)

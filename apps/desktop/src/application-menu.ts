@@ -97,7 +97,7 @@ export function configureDesktopApplicationMenu({
             ]),
       ],
     },
-    { role: "editMenu" },
+    platform === "darwin" ? macEditMenu : { role: "editMenu" },
     {
       label: "View",
       submenu: [
@@ -129,6 +129,38 @@ export function configureDesktopApplicationMenu({
 
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
+
+// Electron's macOS Edit menu, except Paste and Match Style: Electron binds it
+// to ⌘⌥⇧V, but browsers use ⌘⇧V.
+const macEditMenu: MenuItemConstructorOptions = {
+  label: "Edit",
+  submenu: [
+    { role: "undo" },
+    { role: "redo" },
+    { type: "separator" },
+    { role: "cut" },
+    { role: "copy" },
+    { role: "paste" },
+    { role: "pasteAndMatchStyle", accelerator: "CommandOrControl+Shift+V" },
+    { role: "delete" },
+    { role: "selectAll" },
+    { type: "separator" },
+    {
+      label: "Substitutions",
+      submenu: [
+        { role: "showSubstitutions" },
+        { type: "separator" },
+        { role: "toggleSmartQuotes" },
+        { role: "toggleSmartDashes" },
+        { role: "toggleTextReplacement" },
+      ],
+    },
+    {
+      label: "Speech",
+      submenu: [{ role: "startSpeaking" }, { role: "stopSpeaking" }],
+    },
+  ],
+};
 
 function updateMenuLabel(updateReady: boolean, downloadPercent: number | null) {
   if (updateReady) return "Restart to Update";

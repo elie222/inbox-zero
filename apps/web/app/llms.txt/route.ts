@@ -10,7 +10,10 @@ export function GET() {
       brandName: BRAND_NAME,
       supportEmail: SUPPORT_EMAIL,
     },
-    isMcpServerAvailable(),
+    {
+      externalApiEnabled: env.NEXT_PUBLIC_EXTERNAL_API_ENABLED,
+      mcpServerAvailable: isMcpServerAvailable(),
+    },
   );
 
   return new Response(body, {

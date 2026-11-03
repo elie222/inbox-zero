@@ -53,7 +53,6 @@ export function parsedMessageMetadata(message: ParsedMessage): MessageMetadata {
       !(label in ROLE_LABELS) &&
       label !== "UNREAD" &&
       label !== "STARRED" &&
-      label !== "IMPORTANT" &&
       !label.startsWith("CATEGORY_"),
   );
   // Sender-controlled text is cut to fit rather than rejected, so the message

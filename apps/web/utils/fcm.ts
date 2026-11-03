@@ -16,6 +16,7 @@ export type FcmAlert = {
   body: string;
   channelId?: string;
   expiration?: number;
+  category?: string;
   data?: Record<string, string>;
 };
 
@@ -181,14 +182,32 @@ function fcmMessage(token: string, notification: FcmNotification): FcmMessage {
       ? undefined
       : Math.max(0, notification.expiration - Math.floor(Date.now() / 1000));
 
+  const title = notification.title;
+  const body = notification.subtitle
+    ? `${notification.subtitle}\n${notification.body}`
+    : notification.body;
+
+  // A notification message is drawn by the system while the app is in the
+  // background, so only a data message lets the app add the category's actions.
+  if (notification.category) {
+    return {
+      token,
+      data: {
+        ...notification.data,
+        title,
+        body,
+        category: notification.category,
+      },
+      android: {
+        priority: "HIGH",
+        ...(ttlSeconds === undefined ? {} : { ttl: `${ttlSeconds}s` }),
+      },
+    };
+  }
+
   return {
     token,
-    notification: {
-      title: notification.title,
-      body: notification.subtitle
-        ? `${notification.subtitle}\n${notification.body}`
-        : notification.body,
-    },
+    notification: { title, body },
     ...(notification.data ? { data: notification.data } : {}),
     android: {
       priority: "HIGH",

@@ -476,9 +476,10 @@ async function readConversationSummaries(
     const message = conversationMembers.at(-1);
     if (!message)
       throw new Error("Conversation query has no effective message");
-    // A draft must not rename the conversation, including after it moves to trash.
+    // Titled by its first message, as Gmail and Outlook do, so a "Re:" reply
+    // does not rename it. A draft must not either, even after it moves to trash.
     const subjectMessage =
-      [...conversationMembers].reverse().find((member) => {
+      conversationMembers.find((member) => {
         const roles = jsonStringArray(member.roles_json);
         return !roles.includes("draft") && !roles.includes("trash");
       }) ?? message;

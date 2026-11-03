@@ -1,5 +1,6 @@
 import type { people_v1 } from "@googleapis/people";
 import {
+  ContactsAccessDeniedError,
   MAX_CONTACT_RESULTS,
   normalizeContactCandidates,
 } from "@/utils/email/contact";
@@ -19,14 +20,27 @@ const PHOTO_PAGE_SIZE = 1000;
 const MAX_PHOTO_PAGES = 5;
 // Bounds the cached map and the payload sent to the browser.
 const MAX_CONTACT_PHOTOS = 2000;
+// The People API rejects longer queries, and no name or address prefix is that long.
+const MAX_PEOPLE_QUERY_LENGTH = 100;
 
 export async function searchContacts(
   client: people_v1.People,
   query: string,
   logger: Logger,
 ) {
+  if (query.length > MAX_PEOPLE_QUERY_LENGTH) return [];
+
   if (!env.NEXT_PUBLIC_GMAIL_OTHER_CONTACTS_ENABLED) {
-    return normalizeContactCandidates(await searchSavedContacts(client, query));
+    const onlySource = await loadContactSource(
+      () => searchSavedContacts(client, query),
+      "contacts",
+      logger,
+    );
+    if (onlySource.deniedError) {
+      throw new ContactsAccessDeniedError({ cause: onlySource.deniedError });
+    }
+
+    return normalizeContactCandidates(onlySource.contacts ?? []);
   }
 
   // Saved Google Contacts are only the address book the user curated. Gmail's
@@ -45,7 +59,9 @@ export async function searchContacts(
     ),
   ]);
 
-  if (saved.deniedError && other.deniedError) throw saved.deniedError;
+  if (saved.deniedError && other.deniedError) {
+    throw new ContactsAccessDeniedError({ cause: saved.deniedError });
+  }
 
   return normalizeContactCandidates([
     ...(saved.contacts ?? []),

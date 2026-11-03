@@ -51,6 +51,8 @@ type ChatMessagePart =
 type PendingChatRequest = {
   attachmentCount: number;
   chatId: string;
+  // Set by onError when the message never reached the server.
+  sendError?: Error;
   textLength: number;
 };
 
@@ -67,6 +69,7 @@ type ChatContextType = {
   stop: () => Promise<void>;
   context: MessageContext | null;
   setContext: (context: MessageContext | null) => void;
+  setAmbientContext: (context: MessageContext | null) => void;
   attachments: Attachment[];
   setAttachments: React.Dispatch<React.SetStateAction<Attachment[]>>;
 };
@@ -80,6 +83,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [input, setInput] = useState<string>("");
   const [chatId, setChatId] = useQueryState("chatId", parseAsString);
   const [context, setContext] = useState<MessageContext | null>(null);
+  const [ambientContext, setAmbientContext] = useState<MessageContext | null>(
+    null,
+  );
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [inlineActions, setInlineActions] = useState<InlineEmailAction[]>([]);
   const inlineActionsRef = useRef(inlineActions);
@@ -95,6 +101,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const resumingRef = useRef(false);
   const resumedStreamIdRef = useRef<string | null>(null);
   const messagesAtHideRef = useRef<unknown>(null);
+
+  // useChat replaces (and stops) its Chat whenever `id` changes, so a new chat
+  // needs its id before the first send adopts it into the URL. Rotate once
+  // adopted so clearing chatId later starts a fresh chat.
+  const [draftChatId, setDraftChatId] = useState(generateUUID);
+  if (chatId === draftChatId) setDraftChatId(generateUUID());
 
   const { data } = useChatMessages(chatId);
   const persistedMessageIds = useMemo(
@@ -116,7 +128,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   );
 
   const chat = useAiChat<ChatMessage>({
-    id: chatId ?? undefined,
+    id: chatId ?? draftChatId,
     transport: new DefaultChatTransport({
       api: "/api/chat",
       headers: {
@@ -177,7 +189,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       const pendingRequest = pendingRequestRef.current;
       const pendingInlineActions = pendingInlineActionsRef.current;
       const pendingContext = pendingRequestContextRef.current;
-      if (pendingContext) {
+      if (pendingContext?.type === "fix-rule") {
         setContext((current) => current ?? pendingContext);
       }
       if (pendingInlineActions?.length) {
@@ -190,6 +202,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         pendingInlineActionsRef.current = null;
       }
 
+      if (pendingRequest) pendingRequest.sendError = error;
       reportChatRequestError({
         emailAccountId,
         error,
@@ -302,9 +315,15 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     chat.setMessages([]);
     setInput("");
     setContext(null);
+    setAmbientContext(null);
     setAttachments([]);
     setInlineActions([]);
   }, [chat.setMessages, emailAccountId, setChatId]);
+
+  const setDisplayedContext = useCallback((next: MessageContext | null) => {
+    setContext(next);
+    if (!next) setAmbientContext(null);
+  }, []);
 
   const sendMessageParts = useCallback(
     (parts: ChatMessagePart[]) => {
@@ -333,12 +352,13 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       interruptedRef.current = false;
 
       const requestChatId = chatId ?? chat.id;
-      const requestContext = context;
-      pendingRequestRef.current = {
+      const requestContext = context ?? ambientContext;
+      const request: PendingChatRequest = {
         attachmentCount,
         chatId: requestChatId,
         textLength,
       };
+      pendingRequestRef.current = request;
       pendingRequestContextRef.current = requestContext;
       pendingInlineActionsRef.current = inlineActionsRef.current.length
         ? inlineActionsRef.current
@@ -348,17 +368,32 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         setInlineActions([]);
       }
 
-      const sendPromise = chat.sendMessage(
-        { role: "user", parts },
-        requestContext ? { body: { context: requestContext } } : undefined,
-      );
+      // sendMessage resolves even when the request fails (it reports through
+      // onError), so reject here to let callers keep the unsent message.
+      // Aborts and drops after streaming began are not send failures.
+      const sendPromise = chat
+        .sendMessage(
+          { role: "user", parts },
+          requestContext ? { body: { context: requestContext } } : undefined,
+        )
+        .then(() => {
+          if (request.sendError) throw request.sendError;
+        });
       if (requestContext) {
         setContext((current) => (current === requestContext ? null : current));
       }
 
       return sendPromise;
     },
-    [chat.id, chat.sendMessage, chatId, context, emailAccountId, setChatId],
+    [
+      chat.id,
+      chat.sendMessage,
+      chatId,
+      context,
+      ambientContext,
+      emailAccountId,
+      setChatId,
+    ],
   );
 
   const submitTextMessage = useCallback(
@@ -477,8 +512,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         submitTextMessage,
         handleSubmit,
         stop,
-        context,
-        setContext,
+        context: context ?? ambientContext,
+        setContext: setDisplayedContext,
+        setAmbientContext,
         attachments,
         setAttachments,
       }}

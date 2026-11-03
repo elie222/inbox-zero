@@ -27,7 +27,7 @@ import {
   isMicrosoftProvider,
 } from "@/utils/email/provider-types";
 import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
-import { captureException } from "@/utils/error";
+import { captureException, SafeError } from "@/utils/error";
 import { SCOPES as GMAIL_SCOPES } from "@/utils/gmail/scopes";
 import {
   fetchGoogleOpenIdProfile,
@@ -224,6 +224,9 @@ const socialProviders = {
   ...(appleSocialProvider ? { apple: appleSocialProvider } : {}),
 };
 
+const OAUTH_RESOURCE_SEED_RETRY_MESSAGE =
+  "oauth-provider: could not seed `resources` at startup";
+
 export const betterAuthConfig = betterAuth({
   advanced: {
     database: {
@@ -237,7 +240,16 @@ export const betterAuthConfig = betterAuth({
         case "info":
           logger.info(message, { args });
           break;
+        case "warn":
+          logger.warn(message, { args });
+          break;
         case "error":
+          // The OAuth provider retries resource seeding on first use, so a
+          // failed startup seed (usually a cold-start DB timeout) is not fatal.
+          if (message.startsWith(OAUTH_RESOURCE_SEED_RETRY_MESSAGE)) {
+            logger.warn(message, { args });
+            break;
+          }
           logger.error(message, { args });
           break;
       }
@@ -585,12 +597,16 @@ export async function handleReferralOnSignUp({
       referralCode,
     });
   } catch (error) {
+    // Don't throw error - referral failure shouldn't prevent sign up
+    if (error instanceof SafeError) {
+      logger.warn("Skipping referral on sign up", { error, userId, email });
+      return;
+    }
     logger.error("Error processing referral on sign up", {
       error,
       userId,
       email,
     });
-    // Don't throw error - referral failure shouldn't prevent sign up
     captureException(error, {
       extra: { userId, email, location: "handleReferralOnSignUp" },
     });

@@ -96,9 +96,13 @@ test("toggles stars with shortcuts, the palette and the list toolbar while prese
   );
 
   await row.click();
-  const readerStarStatus = page
-    .getByTestId("thread-reader")
-    .getByRole("img", { name: "Starred conversation", exact: true });
+  const reader = page.getByTestId("thread-reader");
+  // The absent star does not prove the reader is ready to accept shortcuts.
+  await expect(reader).toHaveAttribute("data-detail-selection-settled", "true");
+  const readerStarStatus = reader.getByRole("img", {
+    name: "Starred conversation",
+    exact: true,
+  });
   await expect(readerStarStatus).toHaveCount(0);
   await page.keyboard.press("s");
   await expect(readerStarStatus).toBeVisible();

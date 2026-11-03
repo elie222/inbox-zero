@@ -1,4 +1,5 @@
 import type { Message } from "@microsoft/microsoft-graph-types";
+import chunk from "lodash/chunk";
 import type { Logger } from "@/utils/logger";
 import type { OutlookClient } from "@/utils/outlook/client";
 import type { BulkArchiveResult, BulkArchiveThread } from "@/utils/email/types";
@@ -12,6 +13,8 @@ import {
 
 const GRAPH_JSON_BATCH_LIMIT = 20; // Microsoft Graph JSON batching limit
 const GRAPH_MOVE_BATCH_LIMIT = 4;
+const SENDER_MOVE_CHUNK_SIZE = 100;
+const SENDER_LIST_PAGE_SIZE = 100;
 const THREAD_PARTICIPANT_SELECT_FIELDS =
   "id,conversationId,from,toRecipients,receivedDateTime";
 
@@ -69,16 +72,16 @@ async function batch<TRequestBody = unknown, TResponseBody = unknown>({
   );
 
   for (let start = 0; start < requests.length; start += effectiveChunkSize) {
-    const chunk = requests.slice(start, start + effectiveChunkSize);
+    const requestChunk = requests.slice(start, start + effectiveChunkSize);
 
     try {
       const response = (await graphClient
         .api("/$batch")
-        .post({ requests: chunk })) as GraphBatchResponse<TResponseBody>;
+        .post({ requests: requestChunk })) as GraphBatchResponse<TResponseBody>;
 
       const responses = response?.responses ?? [];
       const requestsById = new Map(
-        chunk.map((request) => [request.id, request]),
+        requestChunk.map((request) => [request.id, request]),
       );
 
       responses.forEach((res) => {
@@ -94,7 +97,7 @@ async function batch<TRequestBody = unknown, TResponseBody = unknown>({
     } catch (error) {
       logger.error("Graph batch request failed", {
         ...context,
-        chunkSize: chunk.length,
+        chunkSize: requestChunk.length,
         error,
       });
       throw error;
@@ -377,138 +380,93 @@ export async function moveMessagesForSenders({
   for (const sender of senders) {
     if (!sender) continue;
 
-    const processedMessageIds = new Set<string>();
-    const publishedThreadIds = new Set<string>();
     const fromFilter = `from/emailAddress/address eq '${escapeODataString(sender)}'`;
     const filterExpression = inboxFolderId
       ? `${fromFilter} and parentFolderId eq '${escapeODataString(inboxFolderId)}'`
       : fromFilter;
 
-    // Use @odata.nextLink directly for pagination instead of extracting $skiptoken
-    // This is more reliable as Microsoft Graph may use different token formats
-    // See: https://learn.microsoft.com/en-us/graph/paging
-    let nextLink: string | undefined;
+    // Graph's nextLink for /me/messages is offset-based ($skip). Archiving
+    // removes messages from the inbox-filtered set, so moving while paging
+    // shifts every later page and skips a page for every page moved.
+    // Finish enumeration first, then move.
+    const messages = await listSenderMessages({
+      client,
+      filterExpression,
+      sender,
+      action,
+      continueOnError,
+      logger,
+    });
 
-    // Helper to fetch a page of messages
-    const fetchPage = async (url?: string) => {
-      if (url) {
-        // Use the full @odata.nextLink URL for subsequent pages
-        return client.getClient().api(url).get();
-      }
-      // First page: use fluent API
-      return client
-        .getClient()
-        .api("/me/messages")
-        .filter(filterExpression)
-        .top(100)
-        .select("id,conversationId")
-        .get();
-    };
+    const publishedThreadIds = new Set<string>();
 
-    // Process all pages
-    do {
+    for (const chunkMessages of chunk(messages, SENDER_MOVE_CHUNK_SIZE)) {
+      const messageIds = chunkMessages.map((msg) => msg.id);
+
       try {
-        const response: {
-          value?: Array<{ id?: string | null; conversationId?: string | null }>;
-          "@odata.nextLink"?: string;
-        } = await fetchPage(nextLink);
+        const { movedMessageIds, hasErrors } = await moveMessagesInBatches({
+          client,
+          messageIds,
+          destinationId,
+          action,
+          stopOnError: !continueOnError,
+          logger,
+        });
 
-        const allMessages = (response.value ?? []).filter(
-          (message): message is { id: string; conversationId: string } =>
-            !!message.id &&
-            !!message.conversationId &&
-            !processedMessageIds.has(message.id),
+        const movedMessageIdSet = new Set(movedMessageIds);
+        const batchThreadIds = new Set(
+          chunkMessages
+            .filter((message) => movedMessageIdSet.has(message.id))
+            .map((message) => message.conversationId),
         );
 
-        const messageIds = allMessages.map((msg) => msg.id);
+        const newThreadIds = Array.from(batchThreadIds).filter(
+          (threadId) => !publishedThreadIds.has(threadId),
+        );
 
-        if (messageIds.length > 0) {
-          try {
-            const { movedMessageIds, hasErrors } = await moveMessagesInBatches({
-              client,
-              messageIds,
-              destinationId,
-              action,
-              stopOnError: !continueOnError,
-              logger,
-            });
+        const promises: Promise<unknown>[] = [];
 
-            const movedMessageIdSet = new Set(movedMessageIds);
-            const batchThreadIds = new Set(
-              allMessages
-                .filter((message) => movedMessageIdSet.has(message.id))
-                .map((message) => message.conversationId),
-            );
-
-            const newThreadIds = Array.from(batchThreadIds).filter(
-              (threadId) => !publishedThreadIds.has(threadId),
-            );
-
-            const promises: Promise<unknown>[] = [];
-
-            if (movedMessageIds.length > 0) {
-              movedMessagesCount += movedMessageIds.length;
-              promises.push(
-                updateEmailMessagesForSender({
-                  sender,
-                  messageIds: movedMessageIds,
-                  emailAccountId,
-                  action,
-                }),
-              );
-            }
-
-            if (newThreadIds.length > 0) {
-              promises.push(
-                publishBulkActionToTinybird({
-                  threadIds: newThreadIds,
-                  action,
-                  ownerEmail,
-                }),
-              );
-            }
-
-            await Promise.all(promises);
-
-            newThreadIds.forEach((threadId) =>
-              publishedThreadIds.add(threadId),
-            );
-
-            if (hasErrors && !continueOnError) {
-              throw new Error(
-                "Graph batch returned one or more error responses.",
-              );
-            }
-          } catch (error) {
-            logger.error("Failed to move or track messages", {
-              action,
+        if (movedMessageIds.length > 0) {
+          movedMessagesCount += movedMessageIds.length;
+          promises.push(
+            updateEmailMessagesForSender({
               sender,
-              ownerEmail,
-              destinationId,
-              messageIds,
-              error,
-            });
-            if (!continueOnError) throw error;
-          } finally {
-            messageIds.forEach((id) => processedMessageIds.add(id));
-          }
+              messageIds: movedMessageIds,
+              emailAccountId,
+              action,
+            }),
+          );
         }
 
-        nextLink = response["@odata.nextLink"];
-        logger.info("Pagination status", {
-          processedCount: processedMessageIds.size,
-          hasNextLink: !!nextLink,
-        });
+        if (newThreadIds.length > 0) {
+          promises.push(
+            publishBulkActionToTinybird({
+              threadIds: newThreadIds,
+              action,
+              ownerEmail,
+            }),
+          );
+        }
+
+        await Promise.all(promises);
+
+        newThreadIds.forEach((threadId) => publishedThreadIds.add(threadId));
+
+        if (hasErrors && !continueOnError) {
+          throw new Error("Graph batch returned one or more error responses.");
+        }
       } catch (error) {
-        logger.error("Failed to fetch messages from sender", {
-          sender,
+        logger.error("Failed to move or track messages", {
           action,
+          sender,
+          ownerEmail,
+          destinationId,
+          messageIds,
           error,
         });
         if (!continueOnError) throw error;
-        nextLink = undefined;
       }
-    } while (nextLink);
+    }
   }
 
   return movedMessagesCount;
@@ -523,4 +481,67 @@ function toGraphBatchUrl(nextLink: string): string {
   const url = new URL(resolvedNextLink);
   const pathname = url.pathname.replace(/^\/(?:v1\.0|beta)(?=\/)/, "");
   return `${pathname}${url.search}`;
+}
+
+async function listSenderMessages({
+  client,
+  filterExpression,
+  sender,
+  action,
+  continueOnError,
+  logger,
+}: {
+  client: OutlookClient;
+  filterExpression: string;
+  sender: string;
+  action: "archive" | "trash";
+  continueOnError: boolean;
+  logger: Logger;
+}): Promise<{ id: string; conversationId: string }[]> {
+  const messages = new Map<string, { id: string; conversationId: string }>();
+  const visitedLinks = new Set<string>();
+  let nextLink: string | undefined;
+
+  try {
+    do {
+      const response: {
+        value?: Array<{ id?: string | null; conversationId?: string | null }>;
+        "@odata.nextLink"?: string;
+      } = nextLink
+        ? await client.getClient().api(nextLink).get()
+        : await client
+            .getClient()
+            .api("/me/messages")
+            .filter(filterExpression)
+            .top(SENDER_LIST_PAGE_SIZE)
+            .select("id,conversationId")
+            .get();
+
+      for (const message of response.value ?? []) {
+        if (message.id && message.conversationId) {
+          messages.set(message.id, {
+            id: message.id,
+            conversationId: message.conversationId,
+          });
+        }
+      }
+
+      nextLink = response["@odata.nextLink"];
+      if (nextLink && visitedLinks.has(nextLink)) {
+        throw new Error("Outlook sender pagination returned a repeated page");
+      }
+      if (nextLink) visitedLinks.add(nextLink);
+    } while (nextLink);
+  } catch (error) {
+    logger.error("Failed to fetch messages from sender", {
+      sender,
+      action,
+      fetchedCount: messages.size,
+      error,
+    });
+    // With continueOnError, still act on what was listed before the failure.
+    if (!continueOnError) throw error;
+  }
+
+  return [...messages.values()];
 }

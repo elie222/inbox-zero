@@ -141,13 +141,12 @@ async function learnColdEmailFromSpam({
 
   // Don't overwrite existing patterns (e.g., AI classification)
   if (coldEmailRule.groupId) {
-    const existing = await prisma.groupItem.findUnique({
+    const existing = await prisma.groupItem.findFirst({
       where: {
-        groupId_type_value: {
-          groupId: coldEmailRule.groupId,
-          type: GroupItemType.FROM,
-          value: sender,
-        },
+        groupId: coldEmailRule.groupId,
+        type: GroupItemType.FROM,
+        // Patterns are stored lowercased; the From header keeps its casing.
+        value: { equals: sender, mode: "insensitive" },
       },
       select: { id: true },
     });

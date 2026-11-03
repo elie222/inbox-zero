@@ -12,7 +12,7 @@ description: Cursor Cloud VM setup and service startup instructions for local de
 ## Starting services
 1. Start Docker daemon if needed: `sudo dockerd &>/dev/null &`, then confirm with `docker info` (or `sudo docker info` if the client cannot reach the daemon yet).
 2. Start databases from repo root: `docker compose -f docker-compose.dev.yml up -d`. If you get permission denied on `/var/run/docker.sock`, run the same command with `sudo docker compose` instead of making the socket world-writable.
-3. Run Prisma migrations: `cd apps/web && pnpm prisma:migrate:local` (uses `dotenv -e .env.local`; do NOT use bare `prisma migrate dev` — it won't load `.env.local`).
+3. Run Prisma migrations: `cd apps/web && pnpm prisma:migrate:local` (uses `dotenv run -f .env.local`; do NOT use bare `prisma migrate dev` — it won't load `.env.local`).
 4. Start dev server: `pnpm dev` from repo root.
 
 ## Environment file

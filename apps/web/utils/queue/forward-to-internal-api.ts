@@ -36,7 +36,11 @@ export async function forwardQueueMessageToInternalApi<T>({
 
   const responseBody = await getResponseBody(response);
 
-  logger.error("Failed to forward Vercel queue callback to internal API", {
+  // 4xx responses are known request or account states the route already
+  // handled and logged (for example expired provider access).
+  const level =
+    response.status >= 400 && response.status < 500 ? "warn" : "error";
+  logger[level]("Failed to forward Vercel queue callback to internal API", {
     path,
     status: response.status,
     responseBody,

@@ -129,6 +129,13 @@ const SHORTCUT_DEFINITIONS = [
     label: "Next split",
   },
   {
+    id: "previousSplit",
+    keys: ["shift+tab"],
+    scope: "mail",
+    group: "Navigate",
+    label: "Previous split",
+  },
+  {
     id: "switchAccount",
     keys: [
       "mod+1",
@@ -446,6 +453,14 @@ const SHORTCUT_DEFINITIONS = [
     label: "Discard draft",
     allowWhileTyping: true,
     capture: true,
+  },
+  {
+    id: "toggleAssistant",
+    keys: ["mod+j"],
+    scope: "mail",
+    group: "Assistant & rules",
+    label: "Assistant",
+    allowWhileTyping: true,
   },
 ] as const satisfies readonly ShortcutEntry[];
 

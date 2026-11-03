@@ -75,6 +75,8 @@ import { useComposeSend } from "./useComposeSend";
 import type { ComposeAttachment } from "./compose-attachments";
 import { ComposeAttachmentList } from "./ComposeAttachmentList";
 import { ComposeHeaderFields } from "./ComposeHeaderFields";
+import { ComposeSignaturePicker } from "./ComposeSignaturePicker";
+import { findSignatureId, getDraftSignatureHtml } from "./find-signature-id";
 import {
   createInitialComposeContent,
   findSelectableSendAs,
@@ -124,6 +126,8 @@ type ComposeEmailFormProps = {
   refetch?: () => void;
   onSuccess?: (messageId: string, threadId: string) => void;
   onMarkDone?: () => void;
+  /** Given the send's operation id just before it is queued to the outbox. */
+  onSubmitting?: (operationId: string) => () => void;
   onClose?: (queuedOperationId?: string) => void;
   onRestore?: () => void;
   onDiscard?: (draftId?: string) => boolean | Promise<boolean>;
@@ -249,6 +253,7 @@ function ComposeEmailFormWithEngine(props: ComposeEmailFormProps) {
             sendingAddress={sendingAddress}
             sendAsAddresses={sendAs?.addresses ?? []}
             sentWithFooterHtml={composeSignature?.footerHtml ?? ""}
+            signatures={composeSignature?.signatures ?? []}
             key={composeSessionKey}
             onSelectEmailAccount={setSelectedEmailAccountId}
             selectedEmailAccountId={selectedEmailAccountId}
@@ -273,11 +278,13 @@ function ComposeEmailFormContent({
   sendingAddress,
   sendAsAddresses,
   sentWithFooterHtml,
+  signatures,
   selectedEmailAccountId,
   onSelectEmailAccount,
   refetch,
   onSuccess,
   onMarkDone,
+  onSubmitting,
   onClose,
   onRestore,
   onDiscard,
@@ -300,6 +307,7 @@ function ComposeEmailFormContent({
   sendingAddress: string;
   sendAsAddresses: SendAsAddress[];
   sentWithFooterHtml: string;
+  signatures: GetSignatureResponse["signatures"];
   selectedEmailAccountId: string;
   onSelectEmailAccount: (emailAccountId: string) => void;
 }) {
@@ -335,6 +343,9 @@ function ComposeEmailFormContent({
     }),
   );
   const { draft: initialDraft, preservedBlocks } = initialComposer;
+  const [signatureId, setSignatureId] = useState(() =>
+    findSignatureId(signatures, getDraftSignatureHtml(initialDraft)),
+  );
   const pendingRecipientsRef = useRef<Record<ComposeRecipientField, string>>({
     to: "",
     cc: "",
@@ -409,6 +420,7 @@ function ComposeEmailFormContent({
     draftSaveError,
     providerAutosaveError,
     discard,
+    isDiscarding,
   } = draft;
   const {
     forwardedAttachments,
@@ -472,6 +484,7 @@ function ComposeEmailFormContent({
       refetch,
       onSuccess,
       onMarkDone,
+      onSubmitting,
       onClose,
       onRestore,
     });
@@ -502,10 +515,12 @@ function ComposeEmailFormContent({
       accountSignatureHtml,
     );
     setValue("from", formatSendAsAddress(address));
-    if (nextSignature !== previousSignature)
+    if (nextSignature !== previousSignature) {
       editorRef.current?.replaceSignature(
         withSentWithFooter(nextSignature, sentWithFooterHtml),
       );
+      setSignatureId(findSignatureId(signatures, nextSignature));
+    }
   };
   const handleSendAtChange = (value: string) => {
     const nextRemindAt = getReminderAfterSendTimeChange(value, remindAt);
@@ -612,6 +627,7 @@ function ComposeEmailFormContent({
         sendingAddress={sendingAddress}
         sendAsAddresses={sendAsAddresses}
         selectedSendAs={selectedSendAs}
+        sendAsDisabled={!editorReady}
         onChangeSendAs={changeSendAs}
         recipients={{ to: watch("to"), cc: watch("cc"), bcc: watch("bcc") }}
         onRecipientsChange={(field, recipients) => setValue(field, recipients)}
@@ -676,6 +692,7 @@ function ComposeEmailFormContent({
         <div className="flex flex-wrap items-center gap-1">
           <Tooltip
             shortcuts={onMarkDone ? ["send", "sendAndMarkDone"] : ["send"]}
+            showShortcutLabels={!!onMarkDone}
           >
             <Button disabled={isSubmitting} type="submit" variant="gradient">
               {isSubmitting && <ButtonLoader />}
@@ -704,6 +721,22 @@ function ComposeEmailFormContent({
 
         <div className="flex items-center gap-0.5 text-muted-foreground">
           {snippetToolbar}
+          <ComposeSignaturePicker
+            signatures={signatures}
+            selectedId={signatureId}
+            disabled={isSubmitting || !editorReady}
+            onSelect={(signature) => {
+              if (
+                editorRef.current?.replaceSignature(
+                  withSentWithFooter(
+                    signature.signatureHtml,
+                    sentWithFooterHtml,
+                  ),
+                )
+              )
+                setSignatureId(signature.id);
+            }}
+          />
           <VoiceInput
             onInsert={(text) => {
               editorRef.current?.insertText(
@@ -762,7 +795,7 @@ function ComposeEmailFormContent({
               <Button
                 aria-label="Discard draft"
                 className="hover:bg-transparent"
-                disabled={isSubmitting}
+                disabled={isSubmitting || isDiscarding}
                 onClick={handleDiscard}
                 size="icon"
                 type="button"

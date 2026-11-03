@@ -155,6 +155,68 @@ describe("executor", () => {
       expectExecutedRuleStatus(ExecutedRuleStatus.APPLIED);
     });
 
+    it.each([
+      {
+        name: "move to folder",
+        fields: {
+          actionType: ActionType.MOVE_FOLDER,
+          folderName: "Receipts",
+          folderId: "folder-receipts",
+        },
+        expected: { folderName: "Receipts", folderId: "folder-receipts" },
+      },
+      {
+        name: "label",
+        fields: {
+          actionType: ActionType.LABEL,
+          label: "Receipts",
+          labelId: "Label_42",
+        },
+        expected: { label: "Receipts", labelId: "Label_42" },
+      },
+    ])("runs a delayed $name action with its saved target", async ({
+      fields,
+      expected,
+    }) => {
+      const scheduledAction = {
+        ...mockScheduledAction,
+        labelId: null,
+        folderName: null,
+        folderId: null,
+        ...fields,
+      };
+      mockScheduledActionUpdate(
+        ScheduledActionStatus.COMPLETED,
+        scheduledAction,
+      );
+      // Echo what the executor stores, since that row is what the action runs on.
+      prisma.executedAction.create.mockImplementation(
+        ({ data }: { data: object }) =>
+          ({ id: "executed-action-123", ...data }) as any,
+      );
+      mockExecutedRuleFind();
+      mockCompletionCounts({ pendingActions: 0, failedActions: 0 });
+      mockExecutedRuleUpdate(ExecutedRuleStatus.APPLIED);
+
+      await executeScheduledAction(
+        scheduledAction,
+        await getMockEmailProvider(),
+        logger,
+      );
+
+      expect(prisma.executedAction.create).toHaveBeenCalledWith({
+        data: expect.objectContaining(expected),
+      });
+      expect(runActionFunction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: expect.objectContaining({
+            type: fields.actionType,
+            ...expected,
+          }),
+        }),
+      );
+    });
+
     it("forwards selectedAttachments into the executed action", async () => {
       const selectedAttachments = [
         {

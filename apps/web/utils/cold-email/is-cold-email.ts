@@ -88,8 +88,12 @@ export async function checkColdEmailGuards({
       where: {
         groupId,
         type: GroupItemType.FROM,
-        value: normalizedFrom,
+        // Learned patterns are stored lowercased, but older rows may not be.
+        value: { equals: normalizedFrom, mode: "insensitive" },
       },
+      // If casing left both a block and an exclusion, the user's
+      // "not a cold email" wins.
+      orderBy: { exclude: "desc" },
       select: {
         id: true,
         type: true,

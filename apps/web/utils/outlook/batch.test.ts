@@ -226,6 +226,59 @@ describe("moveMessagesForSenders", () => {
   });
 });
 
+describe("moveMessagesForSenders with offset paging", () => {
+  beforeEach(() => {
+    mockGetFolderIds.mockReset();
+    mockUpdateEmailMessagesForSender.mockReset();
+    mockPublishBulkActionToTinybird.mockReset();
+  });
+
+  it("archives every message from a sender even though archiving shrinks the paged inbox", async () => {
+    mockGetFolderIds.mockResolvedValue({ inbox: "inbox-folder-id" });
+    const { client, inbox } = createOffsetPagedInbox(250);
+
+    const movedCount = await moveMessagesForSenders({
+      client,
+      senders: ["sender@example.com"],
+      destinationId: "archive",
+      action: "archive",
+      ownerEmail: "owner@example.com",
+      emailAccountId: "account-1",
+      logger: createTestLogger(),
+    });
+
+    expect(inbox).toHaveLength(0);
+    expect(movedCount).toBe(250);
+  });
+
+  it("moves nothing and surfaces the error when listing fails and errors should stop the job", async () => {
+    mockGetFolderIds.mockResolvedValue({ inbox: "inbox-folder-id" });
+    const batchPost = vi.fn();
+    const client = createMockOutlookClient({
+      listMessages: async () => {
+        throw new Error("Graph unavailable");
+      },
+      batchPost,
+    });
+
+    await expect(
+      moveMessagesForSenders({
+        client,
+        senders: ["sender@example.com"],
+        destinationId: "archive",
+        action: "archive",
+        ownerEmail: "owner@example.com",
+        emailAccountId: "account-1",
+        continueOnError: false,
+        logger: createTestLogger(),
+      }),
+    ).rejects.toThrow("Graph unavailable");
+
+    expect(batchPost).not.toHaveBeenCalled();
+    expect(mockUpdateEmailMessagesForSender).not.toHaveBeenCalled();
+  });
+});
+
 describe("moveThreadsInBatches", () => {
   beforeEach(() => {
     mockPublishBulkActionToTinybird.mockReset();
@@ -342,4 +395,56 @@ function createMockOutlookClient({
   return {
     getClient: vi.fn(() => ({ api })),
   } as unknown as OutlookClient;
+}
+
+// Graph pages /me/messages with an offset ($skip) nextLink, and an archive
+// move takes the message out of the inbox-filtered result set, like Graph.
+function createOffsetPagedInbox(messageCount: number) {
+  const pageSize = 100;
+  const inbox = Array.from({ length: messageCount }, (_, index) => ({
+    id: `message-${index}`,
+    conversationId: `thread-${index}`,
+  }));
+
+  const listPage = (skip: number) => ({
+    value: inbox.slice(skip, skip + pageSize),
+    ...(skip + pageSize < inbox.length
+      ? {
+          "@odata.nextLink": `https://graph.microsoft.com/v1.0/me/messages?$skip=${skip + pageSize}`,
+        }
+      : {}),
+  });
+
+  const api = vi.fn((path: string) => {
+    if (path === "/me/messages") {
+      return {
+        filter: () => ({
+          top: () => ({ select: () => ({ get: async () => listPage(0) }) }),
+        }),
+      };
+    }
+
+    if (path === "/$batch") {
+      return {
+        post: async (body: {
+          requests: Array<{ id: string; url: string }>;
+        }) => ({
+          responses: body.requests.map((request) => {
+            const messageId = request.url.split("/")[3];
+            const index = inbox.findIndex((m) => m.id === messageId);
+            if (index !== -1) inbox.splice(index, 1);
+            return { id: request.id, status: 201, body: {} };
+          }),
+        }),
+      };
+    }
+
+    const skip = Number(new URL(path).searchParams.get("$skip"));
+    return { get: async () => listPage(skip) };
+  });
+
+  return {
+    client: { getClient: vi.fn(() => ({ api })) } as unknown as OutlookClient,
+    inbox,
+  };
 }

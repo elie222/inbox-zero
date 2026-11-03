@@ -4,8 +4,14 @@ import * as Sentry from "@sentry/nextjs";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import { cleanupInvalidTokens } from "@/utils/auth/cleanup-invalid-tokens";
 import { GmailLabel } from "@/utils/gmail/label";
-import { captureException, isInvalidGrantError } from "@/utils/error";
+import {
+  captureException,
+  isHandledUserKeyError,
+  isInvalidGrantError,
+  isKnownApiError,
+} from "@/utils/error";
 import { isEmailProviderRateLimitError } from "@/utils/email/is-provider-rate-limit-error";
+import { classifyEmailAccountProviderIssue } from "@/utils/email/provider-health";
 import {
   HistoryEventType,
   type ProcessHistoryOptions,
@@ -22,6 +28,7 @@ import {
   withRateLimitRecording,
 } from "@/utils/email/rate-limit";
 import prisma from "@/utils/prisma";
+import { getBulkRemovedLabelIds } from "@/utils/rule/record-label-removal-learning";
 import {
   clearGmailHistoryCatchUp,
   getGmailHistoryCatchUp,
@@ -191,7 +198,7 @@ export async function processHistoryForUser(
             historyItemCount: historyResult.historyItemCount,
           });
 
-          await processHistory(
+          const completed = await processHistory(
             {
               history: historyEntries,
               spamLearnedThreadIds: new Set<string>(),
@@ -209,6 +216,8 @@ export async function processHistoryForUser(
             },
             logger,
           );
+          // Keep the wider catch-up window so the retry reaches the unprocessed mail.
+          if (!completed) return NextResponse.json({ ok: true });
         } else {
           // When we truncate a large gap, Gmail can return an empty recent window.
           // We still need to advance to the webhook historyId so we don't stay
@@ -272,11 +281,20 @@ export async function processHistoryForUser(
   }
 }
 
-async function processHistory(options: ProcessHistoryOptions, logger: Logger) {
+async function processHistory(
+  options: ProcessHistoryOptions,
+  logger: Logger,
+): Promise<boolean> {
   const { history, emailAccount } = options;
   const { email: userEmail, id: emailAccountId } = emailAccount;
 
-  if (!history?.length) return;
+  if (!history?.length) return true;
+
+  // Gmail splits one user action across many history records, so count
+  // removals over the whole batch rather than per record.
+  const bulkRemovedLabelIds = getBulkRemovedLabelIds(
+    history.flatMap((h) => h.labelsRemoved || []),
+  );
 
   for (const h of history) {
     const historyMessages = [
@@ -307,6 +325,7 @@ async function processHistory(options: ProcessHistoryOptions, logger: Logger) {
       ...(h.labelsRemoved || []).map((m) => ({
         type: HistoryEventType.LABEL_REMOVED,
         item: m,
+        bulkRemovedLabelIds,
       })),
     ];
 
@@ -329,11 +348,27 @@ async function processHistory(options: ProcessHistoryOptions, logger: Logger) {
         if (isEmailProviderRateLimitError({ error, provider: "google" })) {
           throw error;
         }
+        // Every remaining item would fail the same way once the account needs
+        // reconnecting or was deleted mid-run, so stop instead of failing each.
+        const providerIssue = classifyEmailAccountProviderIssue({
+          error,
+          provider: "google",
+        });
+        if (providerIssue) {
+          logger.warn("Stopping history processing: account unavailable", {
+            reason: providerIssue.reason,
+          });
+          return false;
+        }
         captureException(error, {
           userEmail,
           extra: { messageId: event.item.message?.id },
         });
-        logger.error("Error processing history item", { error });
+        if (isKnownApiError(error) || isHandledUserKeyError(error)) {
+          logger.warn("Error processing history item", { error });
+        } else {
+          logger.error("Error processing history item", { error });
+        }
       }
     }
 
@@ -350,6 +385,8 @@ async function processHistory(options: ProcessHistoryOptions, logger: Logger) {
     emailAccountId,
     lastSyncedHistoryId,
   });
+
+  return true;
 }
 
 /**

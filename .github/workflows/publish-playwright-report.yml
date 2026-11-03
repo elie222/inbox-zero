@@ -51,18 +51,30 @@ jobs:
           RUN_ID: ${{ github.event.workflow_run.id }}
         shell: bash
         run: |
-          result="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/jobs?per_page=100" \
-            --jq '[.jobs[] | select(.name == "Web E2E") | .conclusion] | unique | if length == 1 then .[0] else error("expected exactly one Playwright job") end')"
+          jobs="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/jobs?per_page=100")"
+          result="$(jq -r '[.jobs[] | select(.name == "Web E2E")] | if length == 0 then "" elif length == 1 then .[0].conclusion else error("expected at most one Web E2E job") end' <<<"$jobs")"
+          # A run that never started (for example a pull request closed while
+          # its run waited for approval) still completes as a failure, but it
+          # has no jobs and nothing to publish.
+          if [[ -z "$result" ]]; then
+            echo "::notice::Playwright run ${RUN_ID} has no Web E2E job, so there is no report to publish."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           case "$result" in
             success|failure) ;;
             timed_out) ;;
             *) echo "Unexpected Playwright job conclusion: $result" >&2; exit 1 ;;
           esac
+          specs_ran="$(jq '[.jobs[] | select((.name | startswith("E2E ")) and .conclusion != "skipped")] | length > 0' <<<"$jobs")"
+          echo "specs_ran=$specs_ran" >> "$GITHUB_OUTPUT"
           echo "job_result=$result" >> "$GITHUB_OUTPUT"
           if [[ "$result" == "timed_out" ]]; then result="failure"; fi
           echo "result=$result" >> "$GITHUB_OUTPUT"
       - name: Resolve pull request
-        if: github.event.workflow_run.event == 'pull_request'
+        if: >-
+          steps.playwright.outputs.skip != 'true' &&
+          github.event.workflow_run.event == 'pull_request'
         id: pull_request
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -83,11 +95,13 @@ jobs:
           fi
           echo "number=$number" >> "$GITHUB_OUTPUT"
       - name: Check for Playwright artifact
+        if: steps.playwright.outputs.skip != 'true'
         id: artifact
         env:
           ARTIFACT_NAME: playwright-artifacts-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PLAYWRIGHT_JOB_RESULT: ${{ steps.playwright.outputs.job_result }}
+          PLAYWRIGHT_SPECS_RAN: ${{ steps.playwright.outputs.specs_ran }}
           RUN_ID: ${{ github.event.workflow_run.id }}
         shell: bash
         run: |
@@ -101,6 +115,11 @@ jobs:
           elif [[ "$count" == "0" && "$PLAYWRIGHT_JOB_RESULT" == "timed_out" ]]; then
             echo "::warning::The timed-out Playwright job ended before it uploaded an artifact. Publishing an empty gallery."
             echo "exists=false" >> "$GITHUB_OUTPUT"
+          elif [[ "$count" == "0" && "$PLAYWRIGHT_SPECS_RAN" == "false" ]]; then
+            # The browser report only uploads files from specs that ran, so a
+            # change that selects no specs leaves no artifact to publish.
+            echo "::notice::No browser specs ran in this Playwright run, so there is no report to publish."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
           else
             echo "Expected exactly one unexpired Playwright artifact; found $count." >&2
             exit 1
@@ -114,6 +133,9 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ github.event.workflow_run.id }}
       - name: Publish trusted Playwright screenshot gallery
+        if: >-
+          steps.playwright.outputs.skip != 'true' &&
+          steps.artifact.outputs.skip != 'true'
         id: publish
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}

@@ -3,7 +3,6 @@ import type { CSSProperties, ReactNode, Ref } from "react";
 export type MailProductFrameProps = {
   sidebar?: ReactNode;
   children: ReactNode;
-  accountSwitcher?: ReactNode;
   floating?: ReactNode;
   dialogs?: ReactNode;
   className?: string;
@@ -18,7 +17,6 @@ export type MailProductFrameProps = {
 export function MailProductFrame({
   sidebar,
   children,
-  accountSwitcher,
   floating,
   dialogs,
   className = "flex min-h-0 flex-1 flex-col bg-background",
@@ -43,7 +41,6 @@ export function MailProductFrame({
         ) : null}
         {children}
       </div>
-      {accountSwitcher}
       {floating}
       {dialogs}
     </div>

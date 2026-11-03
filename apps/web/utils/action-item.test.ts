@@ -1,20 +1,6 @@
 import { describe, it, expect } from "vitest";
-import {
-  getActionFields,
-  sanitizeActionFields,
-  actionInputs,
-} from "./action-item";
+import { getActionFields, sanitizeActionFields } from "./action-item";
 import { ActionType, AttachmentSourceType } from "@/generated/prisma/enums";
-
-describe("actionInputs", () => {
-  it("has configuration for all action types", () => {
-    const actionTypes = Object.values(ActionType);
-    for (const type of actionTypes) {
-      expect(actionInputs[type]).toBeDefined();
-      expect(actionInputs[type].fields).toBeDefined();
-    }
-  });
-});
 
 describe("getActionFields", () => {
   it("returns empty object for undefined input", () => {
@@ -23,14 +9,14 @@ describe("getActionFields", () => {
 
   it("returns only fields with values", () => {
     const action = {
-      label: "Test Label",
+      label: "",
       subject: null,
       content: "",
+      cc: undefined,
       to: "test@example.com",
     } as any;
     const result = getActionFields(action);
     expect(result).toEqual({
-      label: "Test Label",
       to: "test@example.com",
     });
     expect(result).not.toHaveProperty("subject");
@@ -125,17 +111,6 @@ describe("getActionFields", () => {
     } as any;
 
     expect(getActionFields(action)["Due date"]).toBe("next Friday");
-  });
-
-  it("excludes falsy values except for defined nulls", () => {
-    const action = {
-      label: "",
-      subject: null,
-      content: undefined,
-      to: "test@example.com",
-    } as any;
-    const result = getActionFields(action);
-    expect(result).toEqual({ to: "test@example.com" });
   });
 });
 

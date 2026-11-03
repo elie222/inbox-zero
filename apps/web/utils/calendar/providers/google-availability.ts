@@ -1,4 +1,5 @@
 import type { calendar_v3 } from "@googleapis/calendar";
+import chunk from "lodash/chunk";
 import type { Logger } from "@/utils/logger";
 import { getCalendarClientWithRefresh } from "../client";
 import type {
@@ -9,6 +10,11 @@ import {
   CalendarAvailabilityError,
   getCalendarAvailabilityErrorLogContext,
 } from "../availability-error";
+
+// Google answers only this many calendars per free/busy request and returns
+// tooManyCalendarsRequested for the rest, even though the documented
+// calendarExpansionMax is 50.
+const MAX_FREEBUSY_CALENDARS = 20;
 
 async function fetchGoogleCalendarBusyPeriods({
   calendarClient,
@@ -26,19 +32,23 @@ async function fetchGoogleCalendarBusyPeriods({
   failOnCalendarError?: boolean;
 }): Promise<BusyPeriod[]> {
   try {
-    const response = await calendarClient.freebusy.query({
-      requestBody: {
-        timeMin,
-        timeMax,
-        items: calendarIds.map((id) => ({ id })),
-      },
-    });
+    const responses = await Promise.all(
+      chunk(calendarIds, MAX_FREEBUSY_CALENDARS).map((ids) =>
+        calendarClient.freebusy.query({
+          requestBody: {
+            timeMin,
+            timeMax,
+            items: ids.map((id) => ({ id })),
+          },
+        }),
+      ),
+    );
 
     const busyPeriods: BusyPeriod[] = [];
 
-    if (response.data.calendars) {
+    for (const response of responses) {
       for (const [_calendarId, calendar] of Object.entries(
-        response.data.calendars,
+        response.data.calendars ?? {},
       )) {
         if (calendar.errors?.length) {
           const availabilityError = new CalendarAvailabilityError({

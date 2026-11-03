@@ -80,6 +80,33 @@ describe("MicrosoftCalendarEventProvider", () => {
     );
   });
 
+  it("flags an event the connected calendar declined", async () => {
+    graphMocks.get.mockResolvedValue({
+      value: [
+        {
+          id: "declined-event",
+          subject: "Sales call",
+          responseStatus: { response: "declined" },
+          start: { dateTime: "2026-05-04T09:00:00.000Z" },
+          end: { dateTime: "2026-05-04T09:30:00.000Z" },
+          attendees: [
+            {
+              emailAddress: { address: "buyer@acme.com" },
+              status: { response: "none" },
+            },
+          ],
+        },
+      ],
+    });
+
+    const events = await createProvider().fetchEvents({
+      timeMin: new Date("2026-05-04T00:00:00.000Z"),
+      timeMax: new Date("2026-05-05T00:00:00.000Z"),
+    });
+
+    expect(events[0]?.userDeclined).toBe(true);
+  });
+
   it("finds the video link for an accepted invitation", async () => {
     const joinUrl =
       "https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0?context=%7b%22Tid%22%3a%22tenant%22%7d";

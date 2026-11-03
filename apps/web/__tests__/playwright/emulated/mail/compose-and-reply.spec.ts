@@ -799,7 +799,7 @@ test("shows the files a forward carries", async ({ page }, testInfo) => {
   await conversationWithSubject(
     page,
     conversations,
-    "Re: Reader Visual Message",
+    "Reader Visual Message",
   ).click();
   const sourceMessage = page
     .locator("[data-thread-message-id]")

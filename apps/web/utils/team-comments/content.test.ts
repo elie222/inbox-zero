@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { createEmailProvider } from "@/utils/email/provider";
 import { createScopedLogger } from "@/utils/logger";
@@ -169,4 +170,20 @@ describe("shared conversation content safety", () => {
       reason,
     });
   });
+});
+
+// Vercel's Node runtime runs with require(esm) disabled, and Next loads the
+// externalized jsdom package with require().
+test("server jsdom loads without require(esm)", () => {
+  const result = spawnSync(
+    process.execPath,
+    [
+      "--no-experimental-require-module",
+      "-e",
+      "const { JSDOM } = require('jsdom-cjs'); new JSDOM('<p>ok</p>');",
+    ],
+    { encoding: "utf8" },
+  );
+  expect(result.stderr).toBe("");
+  expect(result.status).toBe(0);
 });

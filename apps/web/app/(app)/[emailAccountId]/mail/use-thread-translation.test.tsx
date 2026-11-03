@@ -94,6 +94,38 @@ describe("useTranslateThread", () => {
     });
   });
 
+  it("keeps the conversation's title when newer messages are translated", async () => {
+    const { result } = renderHook(
+      () => ({
+        translate: useTranslateThread(),
+        translation: useThreadTranslation("account-1", "thread-1"),
+      }),
+      { wrapper },
+    );
+    await act(() =>
+      result.current.translate({
+        emailAccountId: "account-1",
+        threadId: "thread-1",
+        messageIds: ["m1", "m2"],
+      }),
+    );
+    mockTranslateThreadAction.mockResolvedValueOnce({
+      data: {
+        subject: "Re: Thanks for your message",
+        messages: [{ id: "m3", text: "Reply", sourceLanguage: "de" }],
+      },
+    });
+    await act(() =>
+      result.current.translate({
+        emailAccountId: "account-1",
+        threadId: "thread-1",
+        messageIds: ["m1", "m2", "m3"],
+      }),
+    );
+
+    expect(result.current.translation?.subject).toBe("Thanks for your message");
+  });
+
   it("allows a retry after the request throws", async () => {
     mockTranslateThreadAction.mockRejectedValueOnce(new Error("network"));
     const { result } = renderHook(() => useTranslateThread(), { wrapper });

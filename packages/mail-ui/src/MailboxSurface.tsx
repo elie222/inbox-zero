@@ -40,6 +40,8 @@ export type MailboxThreadListProps<T> = {
   onOpen: (index: number) => void;
   onToggleSelect: (index: number) => void;
   onSelectRangeTo: (index: number) => void;
+  /** Fires when the list moves off, or back to, its top. */
+  onScrolledChange?: (scrolled: boolean) => void;
   showLoadMore: boolean;
   isLoadingMore: boolean;
   onLoadMore: () => void;
@@ -72,6 +74,7 @@ export function MailboxThreadList<T>({
   onOpen,
   onToggleSelect,
   onSelectRangeTo,
+  onScrolledChange,
   showLoadMore,
   isLoadingMore,
   onLoadMore,
@@ -97,6 +100,9 @@ export function MailboxThreadList<T>({
   const prefetchListKey = useRef(listKey);
   const onLoadMoreRef = useRef(onLoadMore);
   onLoadMoreRef.current = onLoadMore;
+  const scrolledRef = useRef(false);
+  const onScrolledChangeRef = useRef(onScrolledChange);
+  onScrolledChangeRef.current = onScrolledChange;
 
   const focusedKey = items[focusedIndex]
     ? getKey(items[focusedIndex])
@@ -150,9 +156,26 @@ export function MailboxThreadList<T>({
     return () => observer.disconnect();
   }, [scrollRoot, showLoadMore, items.length]);
 
+  useEffect(
+    () => () => {
+      if (scrolledRef.current) onScrolledChangeRef.current?.(false);
+    },
+    [],
+  );
+
   return (
     <div className={className} style={style}>
-      <div className={scrollClassName} ref={setScrollRoot} style={scrollStyle}>
+      <div
+        className={scrollClassName}
+        onScroll={(event) => {
+          const scrolled = event.currentTarget.scrollTop > 0;
+          if (scrolled === scrolledRef.current) return;
+          scrolledRef.current = scrolled;
+          onScrolledChangeRef.current?.(scrolled);
+        }}
+        ref={setScrollRoot}
+        style={scrollStyle}
+      >
         {items.length === 0 && !showLoadMore ? (
           <div className={emptyClassName} style={emptyStyle}>
             {emptyMessage}

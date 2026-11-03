@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { linkifyPlainText } from "./linkify-plain-text";
+import { linkifyPlainText } from "./linkify";
 
 describe("linkifyPlainText", () => {
   it("finds web and email links while preserving the surrounding text", () => {
@@ -28,6 +28,23 @@ describe("linkifyPlainText", () => {
         href: "mailto:support@example.com",
       },
       { type: "text", text: "." },
+    ]);
+  });
+
+  it("links bare domains and addresses on any TLD, but not bare file-like names", () => {
+    const text =
+      "See example.com, mail person@example.zip, or open report.final.";
+
+    expect(linkifyPlainText(text)).toEqual([
+      { type: "text", text: "See " },
+      { type: "link", text: "example.com", href: "http://example.com/" },
+      { type: "text", text: ", mail " },
+      {
+        type: "link",
+        text: "person@example.zip",
+        href: "mailto:person@example.zip",
+      },
+      { type: "text", text: ", or open report.final." },
     ]);
   });
 

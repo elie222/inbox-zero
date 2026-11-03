@@ -21,7 +21,12 @@ import type { ParsedMessage, RuleWithActions } from "@/utils/types";
 import type { EmailAccountForDrafting } from "@/utils/ai/choose-rule/choose-args";
 import type { Logger } from "@/utils/logger";
 import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";
-import { captureException, SafeError } from "@/utils/error";
+import {
+  captureException,
+  isHandledUserKeyError,
+  isKnownApiError,
+  SafeError,
+} from "@/utils/error";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
 import { sendToReplyPushNotification } from "@/utils/to-reply-push";
 import { sendOtpPushNotification } from "@/utils/otp-push";
@@ -364,6 +369,10 @@ export async function processHistoryItem(
       logger,
       message: "Error processing message",
       error,
+      level:
+        isKnownApiError(error) || isHandledUserKeyError(error)
+          ? "warn"
+          : "error",
       dedupeKeyParts: {
         scope: "webhook/process-history-item",
         emailAccountId,

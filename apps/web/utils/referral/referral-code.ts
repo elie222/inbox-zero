@@ -133,18 +133,18 @@ export async function createReferral(
   const validation = await validateReferralCode(referralCodeString);
 
   if (!validation.valid || !validation.referrer) {
-    throw new Error(validation.error || "Invalid referral code");
+    throw new SafeError(validation.error || "Invalid referral code");
   }
 
   // Check if user was already referred
   const existingReferral = await checkUserReferral(referredUserId);
   if (existingReferral) {
-    throw new Error("User was already referred");
+    throw new SafeError("User was already referred");
   }
 
   // Check if user is trying to refer themselves
   if (validation.referrer.id === referredUserId) {
-    throw new Error("You cannot refer yourself");
+    throw new SafeError("You cannot refer yourself");
   }
 
   // Create the referral

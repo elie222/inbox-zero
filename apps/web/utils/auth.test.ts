@@ -4,7 +4,7 @@ import type { Account } from "better-auth";
 import { setSessionCookie } from "better-auth/cookies";
 import { cookies } from "next/headers";
 import { createReferral } from "@/utils/referral/referral-code";
-import { captureException } from "@/utils/error";
+import { captureException, SafeError } from "@/utils/error";
 import { saveTokens } from "@/utils/auth/save-tokens";
 import { createOutlookClient } from "@/utils/outlook/client";
 import { fetchGoogleOpenIdProfile } from "@/utils/gmail/oauth";
@@ -99,7 +99,8 @@ vi.mock("@/utils/referral/referral-code", () => ({
   createReferral: vi.fn(),
 }));
 
-vi.mock("@/utils/error", () => ({
+vi.mock("@/utils/error", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/error")>()),
   captureException: vi.fn(),
 }));
 
@@ -221,6 +222,21 @@ describe("handleReferralOnSignUp", () => {
     expect(mockCaptureException).toHaveBeenCalledWith(error, {
       extra: { userId, email, location: "handleReferralOnSignUp" },
     });
+  });
+
+  it("does not report an invalid referral code as an error", async () => {
+    mockCookies.mockResolvedValue({
+      get: vi.fn().mockReturnValue({ value: "ABC123" }),
+    } as any);
+    mockCreateReferral.mockRejectedValue(
+      new SafeError("Invalid referral code"),
+    );
+
+    await expect(
+      handleReferralOnSignUp({ userId: "user123", email: "user@example.com" }),
+    ).resolves.toBeUndefined();
+
+    expect(mockCaptureException).not.toHaveBeenCalled();
   });
 
   it("should not create referral when referral code cookie has empty value", async () => {

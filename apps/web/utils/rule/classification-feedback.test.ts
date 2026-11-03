@@ -12,7 +12,12 @@ import { createTestLogger } from "@/__tests__/helpers";
 vi.mock("@/utils/prisma", () => ({
   default: {
     classificationFeedback: {
-      upsert: vi.fn().mockResolvedValue({}),
+      upsert: vi
+        .fn()
+        .mockResolvedValue({ createdAt: new Date("2026-01-01T12:00:00Z") }),
+      findUniqueOrThrow: vi
+        .fn()
+        .mockResolvedValue({ createdAt: new Date("2026-01-01T12:00:00Z") }),
       findMany: vi.fn().mockResolvedValue([]),
     },
     rule: {
@@ -63,7 +68,7 @@ describe("saveClassificationFeedback", () => {
         eventType: ClassificationFeedbackEventType.LABEL_REMOVED,
         logger,
       }),
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual({ createdAt: new Date("2026-01-01T12:00:00Z") });
   });
 });
 

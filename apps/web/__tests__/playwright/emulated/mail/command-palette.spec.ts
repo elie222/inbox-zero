@@ -355,7 +355,7 @@ test("sender actions are available for a selected list row and match the reader"
   const row = conversationWithSubject(
     page,
     conversations,
-    "Re: Reader Visual Message",
+    "Reader Visual Message",
   );
   await row.getByRole("checkbox").click();
   await page.keyboard.press(`${commandModifier}+KeyK`);
@@ -400,10 +400,10 @@ test("the open reader exposes its actions in Command K and forwards with F", asy
   await conversationWithSubject(
     page,
     conversations,
-    "Re: Reader Visual Message",
+    "Reader Visual Message",
   ).click();
   await expect(
-    page.getByRole("heading", { name: "Re: Reader Visual Message" }),
+    page.getByRole("heading", { name: "Reader Visual Message" }),
   ).toBeVisible();
 
   await page.keyboard.press(`${commandModifier}+KeyK`);
@@ -418,7 +418,7 @@ test("the open reader exposes its actions in Command K and forwards with F", asy
   ).toBeVisible();
   await expect(
     palette.getByRole("option", {
-      name: /Unsubscribe from sender|Block sender|Sender blocked/,
+      name: /^(Unsubscribe|Block sender|Sender blocked) ⇧U$/,
     }),
   ).toBeVisible();
   await expect(
