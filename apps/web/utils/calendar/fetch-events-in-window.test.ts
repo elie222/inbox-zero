@@ -107,6 +107,7 @@ function connections(count: number) {
   return Array.from({ length: count }, (_, index) => ({
     id: `connection-${index}`,
     provider: "google",
+    email: "user@example.com",
     accessToken: "access-token",
     refreshToken: "refresh-token",
     expiresAt: null,

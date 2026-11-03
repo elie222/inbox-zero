@@ -154,6 +154,7 @@ async function getWritableProviderForExistingEvent({
     select: {
       id: true,
       provider: true,
+      email: true,
       accessToken: true,
       refreshToken: true,
       expiresAt: true,
@@ -208,6 +209,7 @@ async function getWritableCalendar({
         select: {
           id: true,
           provider: true,
+          email: true,
           accessToken: true,
           refreshToken: true,
           expiresAt: true,

@@ -3,6 +3,7 @@ import { createTestLogger } from "@/__tests__/helpers";
 import prisma from "@/utils/__mocks__/prisma";
 import { cleanupInvalidTokens } from "@/utils/auth/cleanup-invalid-tokens";
 import { createEmailProvider } from "@/utils/email/provider";
+import { createManagedOutlookSubscription } from "@/utils/outlook/subscription-manager";
 import { captureException } from "@/utils/error";
 import {
   clearWatchErrorsIfResolved,
@@ -16,6 +17,9 @@ import {
 } from "./watch-manager";
 
 vi.mock("@/utils/prisma");
+vi.mock("@/utils/outlook/subscription-manager", () => ({
+  createManagedOutlookSubscription: vi.fn(),
+}));
 
 vi.mock("@/utils/error-messages", async (importActual) => ({
   ...(await importActual<typeof import("@/utils/error-messages")>()),
@@ -67,6 +71,28 @@ describe("ensureEmailAccountsWatched", () => {
       hd: "example.com",
       sub: "google-subject",
     });
+  });
+
+  it.each([
+    ["google", "error"],
+    ["microsoft", "warn"],
+  ])("logs an empty %s watch result at %s level", async (provider, level) => {
+    const account = getWatchedEmailAccount({});
+    account.account.provider = provider;
+    vi.mocked(prisma.emailAccount.findMany).mockResolvedValue([account] as any);
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      name: provider,
+      getAccessToken: () => "access-token",
+      watchEmails: vi.fn().mockResolvedValue(null),
+    } as any);
+    vi.mocked(createManagedOutlookSubscription).mockResolvedValue(null);
+
+    const results = await ensureEmailAccountsWatched({ userIds: null, logger });
+
+    expect(results[0]?.status).toBe("error");
+    expect(logErrorWithDedupe).toHaveBeenCalledWith(
+      expect.objectContaining({ level }),
+    );
   });
 
   it("cleans up invalid tokens when watch setup reports a detailed invalid_grant error", async () => {
