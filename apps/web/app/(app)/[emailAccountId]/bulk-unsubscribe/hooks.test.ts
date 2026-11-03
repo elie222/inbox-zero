@@ -18,6 +18,8 @@ const {
   fetchAllSenderThreadsMock,
   toastErrorMock,
   captureExceptionMock,
+  bulkActionMock,
+  toastPromiseMock,
 } = vi.hoisted(() => ({
   setSenderStatusActionMock: vi.fn(),
   unsubscribeSenderActionMock: vi.fn(),
@@ -28,6 +30,8 @@ const {
   fetchAllSenderThreadsMock: vi.fn(),
   toastErrorMock: vi.fn(),
   captureExceptionMock: vi.fn(),
+  bulkActionMock: vi.fn(),
+  toastPromiseMock: vi.fn(),
 }));
 
 vi.mock("@/utils/actions/unsubscriber", () => ({
@@ -64,7 +68,14 @@ vi.mock("@/hooks/useProductAnalytics", () => ({
 }));
 
 vi.mock("next-safe-action/hooks", () => ({
-  useAction: () => ({ executeAsync: vi.fn(), isExecuting: false }),
+  useAction: (_action: unknown, callbacks?: { onSuccess?: () => unknown }) => ({
+    executeAsync: async (input: unknown) => {
+      const result = await bulkActionMock(input);
+      await callbacks?.onSuccess?.();
+      return result;
+    },
+    isExecuting: false,
+  }),
 }));
 
 vi.mock("@/utils/error", async (importOriginal) => {
@@ -82,7 +93,7 @@ vi.mock("sonner", () => ({
     success: vi.fn(),
     error: toastErrorMock,
     loading: vi.fn(),
-    promise: vi.fn(),
+    promise: toastPromiseMock,
   },
 }));
 
@@ -90,6 +101,8 @@ import {
   useApproveButton,
   useAutoArchive,
   useBulkAutoArchive,
+  useBulkArchive,
+  useBulkDelete,
   useBulkUnsubscribe,
   useDeleteAllFromSender,
   useUnsubscribe,
@@ -124,6 +137,51 @@ describe("bulk unsubscribe hooks", () => {
       mutations: [],
     });
     fetchAllSenderThreadsMock.mockResolvedValue({ threads: [] });
+  });
+
+  it.each([
+    "archive",
+    "delete",
+  ])("does not revalidate after unmount when bulk %s finishes", async (operation) => {
+    const pending = Promise.withResolvers<unknown>();
+    bulkActionMock.mockReturnValueOnce(pending.promise);
+    const mutate = vi.fn().mockResolvedValue(undefined);
+    const { result, unmount } = renderHook(() => {
+      const archive = useBulkArchive({ ...sharedHookArgs, mutate });
+      const deletion = useBulkDelete({ ...sharedHookArgs, mutate });
+      return operation === "archive"
+        ? archive.onBulkArchive
+        : deletion.onBulkDelete;
+    });
+    act(() => result.current([getRow()]));
+    const operationPromise = toastPromiseMock.mock.calls.at(-1)?.[0];
+    unmount();
+    await act(async () => {
+      pending.resolve({ data: {} });
+      await expect(operationPromise).resolves.toBeDefined();
+    });
+    expect(mutate).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "archive",
+    "delete",
+  ])("revalidates mounted bulk %s after success", async (operation) => {
+    bulkActionMock.mockResolvedValueOnce({ data: {} });
+    const mutate = vi.fn().mockResolvedValue(undefined);
+    const { result, unmount } = renderHook(() => {
+      const archive = useBulkArchive({ ...sharedHookArgs, mutate });
+      const deletion = useBulkDelete({ ...sharedHookArgs, mutate });
+      return operation === "archive"
+        ? archive.onBulkArchive
+        : deletion.onBulkDelete;
+    });
+    await act(async () => {
+      result.current([getRow()]);
+      await toastPromiseMock.mock.calls.at(-1)?.[0];
+    });
+    expect(mutate).toHaveBeenCalledTimes(1);
+    unmount();
   });
 
   describe("useDeleteAllFromSender", () => {

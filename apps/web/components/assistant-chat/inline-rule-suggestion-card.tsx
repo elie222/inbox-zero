@@ -88,6 +88,8 @@ export function InlineRuleSuggestionCard({
           .join("\n"),
       );
       setIsRuleCreated(true);
+    } catch {
+      // ChatProvider already reports send failures; keep approval available for retry.
     } finally {
       setIsSubmitting(false);
     }

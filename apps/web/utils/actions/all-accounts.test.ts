@@ -79,6 +79,30 @@ describe("reorderEmailAccountsAction", () => {
     prisma.$transaction.mockResolvedValue([]);
   });
 
+  it("acquires account rows in the same order for opposite submitted orders", async () => {
+    for (const emailAccountIds of [
+      ["account-3", "account-2", "account-1"],
+      ["account-1", "account-2", "account-3"],
+    ]) {
+      prisma.emailAccount.updateMany.mockClear();
+      const result = await reorderEmailAccountsAction({ emailAccountIds });
+      expect(result?.serverError).toBeUndefined();
+      const updates = prisma.emailAccount.updateMany.mock.calls.map(
+        ([update]) => update,
+      );
+      expect(updates.map((update) => update.where.id)).toEqual([
+        "account-1",
+        "account-2",
+        "account-3",
+      ]);
+      for (const update of updates) {
+        expect(update.data.sortOrder).toBe(
+          emailAccountIds.indexOf(update.where.id as string),
+        );
+      }
+    }
+  });
+
   it("saves each account's new position, scoped to the user", async () => {
     const result = await reorderEmailAccountsAction({
       emailAccountIds: ["account-3", "account-1", "account-2"],
@@ -89,26 +113,29 @@ describe("reorderEmailAccountsAction", () => {
       where: { userId: "user-1" },
       select: { id: true },
     });
-    expect(prisma.emailAccount.updateMany.mock.calls).toEqual([
-      [
-        {
-          where: { id: "account-3", userId: "user-1" },
-          data: { sortOrder: 0 },
-        },
-      ],
-      [
-        {
-          where: { id: "account-1", userId: "user-1" },
-          data: { sortOrder: 1 },
-        },
-      ],
-      [
-        {
-          where: { id: "account-2", userId: "user-1" },
-          data: { sortOrder: 2 },
-        },
-      ],
-    ]);
+    expect(prisma.emailAccount.updateMany.mock.calls).toEqual(
+      expect.arrayContaining([
+        [
+          {
+            where: { id: "account-3", userId: "user-1" },
+            data: { sortOrder: 0 },
+          },
+        ],
+        [
+          {
+            where: { id: "account-1", userId: "user-1" },
+            data: { sortOrder: 1 },
+          },
+        ],
+        [
+          {
+            where: { id: "account-2", userId: "user-1" },
+            data: { sortOrder: 2 },
+          },
+        ],
+      ]),
+    );
+    expect(prisma.emailAccount.updateMany).toHaveBeenCalledTimes(3);
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
   });
 

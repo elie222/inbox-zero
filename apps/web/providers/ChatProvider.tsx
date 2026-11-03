@@ -64,7 +64,10 @@ type ChatContextType = {
   setInput: (input: string) => void;
   setChatId: (chatId: string | null) => void;
   setNewChat: () => void;
-  submitTextMessage: (text: string) => Promise<void>;
+  submitTextMessage: (
+    text: string,
+    options?: { restoreDraftOnError?: boolean },
+  ) => Promise<void>;
   handleSubmit: () => void;
   stop: () => Promise<void>;
   context: MessageContext | null;
@@ -396,15 +399,26 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     ],
   );
 
+  const restoreInput = useCallback((submittedInput: string) => {
+    setInput((current) =>
+      current ? `${submittedInput}\n\n${current}` : submittedInput,
+    );
+  }, []);
+
   const submitTextMessage = useCallback(
-    async (text: string) => {
+    async (text: string, options?: { restoreDraftOnError?: boolean }) => {
       const trimmedText = text.trim();
       if (!trimmedText) return;
 
-      await sendMessageParts([{ type: "text", text: trimmedText }]);
-      setInput("");
+      try {
+        await sendMessageParts([{ type: "text", text: trimmedText }]);
+        setInput("");
+      } catch (error) {
+        if (options?.restoreDraftOnError) restoreInput(text);
+        throw error;
+      }
     },
-    [sendMessageParts],
+    [restoreInput, sendMessageParts],
   );
 
   const stop = useCallback(async () => {
@@ -490,14 +504,20 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     setAttachments([]);
     setInput("");
     sendPromise.catch(() => {
-      setInput((current) =>
-        current ? `${submittedInput}\n\n${current}` : submittedInput,
-      );
+      restoreInput(submittedInput);
       setAttachments((current) =>
         mergeAttachments(submittedAttachments, current),
       );
     });
-  }, [attachments, chat.id, chatId, emailAccountId, input, sendMessageParts]);
+  }, [
+    attachments,
+    chat.id,
+    chatId,
+    emailAccountId,
+    input,
+    restoreInput,
+    sendMessageParts,
+  ]);
 
   return (
     <ChatContext.Provider

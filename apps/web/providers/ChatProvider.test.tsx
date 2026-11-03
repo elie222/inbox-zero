@@ -516,6 +516,47 @@ describe("ChatProvider", () => {
     expect(mockToastError).not.toHaveBeenCalled();
   });
 
+  it("restores failed voice text to the draft without discarding text entered during the request", async () => {
+    let current: ReturnType<typeof useChat> | undefined;
+    function Consumer() {
+      current = useChat();
+      return null;
+    }
+    renderWithProvider(<Consumer />);
+    const pending = Promise.withResolvers<void>();
+    mockSendMessage.mockReturnValueOnce(pending.promise);
+    let sent!: Promise<unknown>;
+    act(() => {
+      sent = current!
+        .submitTextMessage("Voice transcript", { restoreDraftOnError: true })
+        .catch(() => undefined);
+    });
+    act(() => current!.setInput("New draft"));
+    await act(async () => {
+      pending.reject(new Error("Network request failed"));
+      await sent;
+    });
+    expect(current?.input).toBe("Voice transcript\n\nNew draft");
+    expect(mockToastError).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves the draft unchanged when a programmatic send fails without restoration", async () => {
+    let current: ReturnType<typeof useChat> | undefined;
+    function Consumer() {
+      current = useChat();
+      return null;
+    }
+    renderWithProvider(<Consumer />);
+    act(() => current!.setInput("Existing draft"));
+    mockSendMessage.mockRejectedValueOnce(new Error("Network request failed"));
+    await act(async () => {
+      await expect(
+        current!.submitTextMessage("Create a suggested rule"),
+      ).rejects.toThrow("Network request failed");
+    });
+    expect(current?.input).toBe("Existing draft");
+  });
+
   it("rejects oversized drafts before sending and keeps their content", async () => {
     const draft = "a".repeat(ASSISTANT_CHAT_MAX_TEXT_LENGTH + 1);
     let latestContext: ReturnType<typeof useChat> | undefined;

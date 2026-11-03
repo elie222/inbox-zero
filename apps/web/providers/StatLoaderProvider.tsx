@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import { toastError, toastSuccess } from "@/components/Toast";
@@ -75,7 +76,7 @@ export function StatLoaderProvider(props: { children: React.ReactNode }) {
   const [loadingCounts, setLoadingCounts] = useState<Record<string, number>>(
     {},
   );
-  const [stopLoading, setStopLoading] = useState(false);
+  const cancellationGenerationRef = useRef(0);
   const { emailAccountId } = useAccount();
   const isLoading = Boolean(loadingCounts[emailAccountId]);
 
@@ -108,25 +109,25 @@ export function StatLoaderProvider(props: { children: React.ReactNode }) {
   const onLoadBatch = useCallback(
     async (options: { loadBefore: boolean; showToast: boolean }) => {
       const batchSize = 50;
+      const generation = cancellationGenerationRef.current;
       try {
         for (let i = 0; i < batchSize; i++) {
-          if (stopLoading) return;
+          if (generation !== cancellationGenerationRef.current) return;
           console.log("Loading batch", i);
           await onLoad({ ...options, showToast: false });
         }
+        if (generation !== cancellationGenerationRef.current) return;
         if (options.showToast) toastSuccess({ description: "Stats loaded!" });
       } catch {
         if (options.showToast)
           toastError({ description: "Error loading stats." });
-      } finally {
-        setStopLoading(false);
       }
     },
-    [onLoad, stopLoading],
+    [onLoad],
   );
 
   const onCancelLoadBatch = useCallback(() => {
-    setStopLoading(true);
+    cancellationGenerationRef.current += 1;
   }, []);
 
   return (
