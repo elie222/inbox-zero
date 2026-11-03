@@ -157,11 +157,29 @@ function filterMatchesSender(filter: EmailFilter, fromEmail: string) {
   const rawFilterFrom = filter.criteria?.from?.trim().toLowerCase();
   if (!rawFilterFrom) return false;
 
-  // A filter's from can list several senders ("a@x.com OR b@x.com",
-  // "a@x.com|b@x.com", "{a@x.com b@x.com}") or include a display name. Compare whole addresses:
-  // a substring check made a filter for newsletter@shop.com match
-  // letter@shop.com, so acting on one sender removed another's filter.
-  return rawFilterFrom
-    .split(/[\s,{}()|]+/)
-    .some((token) => extractEmailAddress(token).toLowerCase() === from);
+  return getSenderFilterAddresses(rawFilterFrom).some(
+    (address) => extractEmailAddress(address).toLowerCase() === from,
+  );
+}
+
+function getSenderFilterAddresses(criterion: string): string[] {
+  const addresses: string[] = [];
+  let pending: string[] = [];
+  const tokens =
+    criterion.match(/"[^"]*"|<[^<>]+>|[,;{}()|]|[^\s,;{}()|<>"]+/g) ?? [];
+
+  for (const token of tokens) {
+    if (token.startsWith("<")) {
+      // Everything before the bracketed address in this entry is its display name.
+      pending = [];
+      addresses.push(token);
+    } else if (/^(?:OR|[,;{}()|])$/i.test(token)) {
+      addresses.push(...pending);
+      pending = [];
+    } else {
+      pending.push(token);
+    }
+  }
+
+  return [...addresses, ...pending];
 }

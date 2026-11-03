@@ -151,6 +151,49 @@ describe("findAutoArchiveFilters", () => {
     };
   }
 
+  it.each([
+    "Forwarded other@example.com <actual@example.com>",
+    '"Forwarded other@example.com, updates" <actual@example.com>',
+    '"Forwarded other@example.com OR updates" <actual@example.com>',
+  ])("ignores email addresses in a display name: %s", (criterion) => {
+    const filters = [archiveFilter("named", criterion)];
+
+    expect(findAutoArchiveFilters(filters, "other@example.com", gmail)).toEqual(
+      [],
+    );
+    expect(
+      findAutoArchiveFilters(filters, "actual@example.com", gmail),
+    ).toEqual(filters);
+  });
+
+  it("matches each semicolon-separated sender", () => {
+    const filters = [
+      archiveFilter("list", "first@example.com;second@example.com"),
+    ];
+
+    for (const sender of ["first@example.com", "second@example.com"]) {
+      expect(findAutoArchiveFilters(filters, sender, gmail)).toEqual(filters);
+    }
+  });
+
+  it.each([
+    '"first@example.com"',
+    "first@example.com;Forwarded other@example.com <actual@example.com>",
+    "Forwarded other@example.com <actual@example.com>,first@example.com",
+    "first@example.com, Forwarded other@example.com <actual@example.com>",
+    "{first@example.com OR Forwarded other@example.com <actual@example.com>}",
+    "first@example.com|Forwarded other@example.com <actual@example.com>",
+  ])("preserves bare senders in %s", (criterion) => {
+    const filters = [archiveFilter("list", criterion)];
+
+    expect(findAutoArchiveFilters(filters, "first@example.com", gmail)).toEqual(
+      filters,
+    );
+    expect(findAutoArchiveFilters(filters, "irst@example.com", gmail)).toEqual(
+      [],
+    );
+  });
+
   it("does not match a sender whose address is part of another sender's", () => {
     const filters = [
       archiveFilter("newsletter", "newsletter@shop.com"),
