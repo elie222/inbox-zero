@@ -6,6 +6,7 @@ import { test } from "../playwright-test";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 import type { ThreadsResponse } from "@/app/api/threads/route";
 import {
+  clearWorkflowMailboxDrafts,
   conversationWithSubject,
   openMail,
   openMailboxFromSidebar,
@@ -352,13 +353,18 @@ test("schedules a new message from the composer", async ({
     await expect(
       page.getByText("Email scheduled.", { exact: true }),
     ).toBeVisible();
-    const scheduled = await withClient((client) =>
-      client.query(
-        `SELECT status, "threadId" FROM "ScheduledEmail" WHERE "emailAccountId" = $1 AND payload->'email'->>'subject' = $2`,
-        [emailAccountId, subject],
-      ),
-    );
-    expect(scheduled.rows).toEqual([{ status: "PENDING", threadId: null }]);
+    // The composer closes before the server confirms, so the row follows.
+    await expect
+      .poll(async () => {
+        const scheduled = await withClient((client) =>
+          client.query(
+            `SELECT status, "threadId" FROM "ScheduledEmail" WHERE "emailAccountId" = $1 AND payload->'email'->>'subject' = $2`,
+            [emailAccountId, subject],
+          ),
+        );
+        return scheduled.rows;
+      })
+      .toEqual([{ status: "PENDING", threadId: null }]);
   } finally {
     await withClient((client) =>
       client.query(
@@ -409,13 +415,16 @@ test("hides a scheduled new message's mailbox draft from Drafts until it's cance
       page.getByText("Email scheduled.", { exact: true }),
     ).toBeVisible();
 
-    const scheduled = await withClient((client) =>
-      client.query<{ status: string; draftMessageIds: string[] }>(
-        `SELECT status, "draftMessageIds" FROM "ScheduledEmail" WHERE "emailAccountId" = $1 AND payload->'email'->>'subject' = $2`,
-        [emailAccountId, subject],
-      ),
-    );
-    expect(scheduled.rows).toHaveLength(1);
+    // The composer closes before the server confirms, so the row follows.
+    const readScheduled = () =>
+      withClient((client) =>
+        client.query<{ status: string; draftMessageIds: string[] }>(
+          `SELECT status, "draftMessageIds" FROM "ScheduledEmail" WHERE "emailAccountId" = $1 AND payload->'email'->>'subject' = $2`,
+          [emailAccountId, subject],
+        ),
+      );
+    await expect.poll(async () => (await readScheduled()).rows.length).toBe(1);
+    const scheduled = await readScheduled();
     expect(scheduled.rows[0].status).toBe("PENDING");
     expect(scheduled.rows[0].draftMessageIds.length).toBeGreaterThan(0);
 
@@ -512,6 +521,50 @@ test("adds a newly scheduled message to the Scheduled view already on screen", a
         [emailAccountId, subject],
       ),
     );
+  }
+});
+
+// The reply shows as scheduling before the server confirms, so a refusal
+// must hand the reply back rather than leave it looking scheduled.
+test("reopens a reply whose scheduling failed", async ({ page }) => {
+  const emailAccountId = await openReply(page);
+  const delivery = page.getByRole("region", { name: "Reply delivery status" });
+  try {
+    await page.getByRole("button", { name: "Send later", exact: true }).click();
+    await page
+      .getByRole("dialog", { name: "Send later" })
+      .getByRole("button", { name: /Tomorrow morning/ })
+      .click();
+    await page.route("**/*", async (route) => {
+      const request = route.request();
+      if (
+        request.headers()["next-action"] &&
+        request.postData()?.includes("clientMutationId")
+      ) {
+        await route.abort("failed");
+        return;
+      }
+      await route.fallback();
+    });
+    await page.getByRole("button", { name: "Send", exact: true }).click();
+
+    await expect(
+      page.getByText(/^Could not schedule this email/).first(),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("textbox", { name: "Email message" }),
+    ).toContainText("Thanks Leslie, Thursday works.");
+    await expect(delivery.getByText(/^Schedul/)).toHaveCount(0);
+  } finally {
+    await page.unrouteAll({ behavior: "ignoreErrors" });
+    await withClient((client) =>
+      client.query(
+        'DELETE FROM "ScheduledEmail" WHERE "emailAccountId" = $1 AND "threadId" = $2',
+        [emailAccountId, THREAD_ID],
+      ),
+    );
+    // Nothing was scheduled, so the reply's mailbox draft is still there.
+    await clearWorkflowMailboxDrafts(page);
   }
 });
 

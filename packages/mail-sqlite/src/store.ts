@@ -430,6 +430,13 @@ export async function createSqliteMailStore(
     },
     async claimWork(input) {
       return driver.write(async (tx) => {
+        // A body someone is waiting to read goes before everything else;
+        // commands already show their result locally.
+        const interactive = await claimHydration(tx, input, {
+          interactiveOnly: true,
+          attemptId: runtime.randomId(),
+        });
+        if (interactive) return interactive;
         const preparing = await tx.query(
           `SELECT o.account_id, o.command_id, c.conversation_id, c.resolution_id, c.next_page, a.generation
            FROM operations o
@@ -560,50 +567,11 @@ export async function createSqliteMailStore(
             operation: prepared,
           };
         }
-        const hydrate = await tx.query(
-          `SELECT j.*, a.generation
-           FROM sync_jobs j
-           JOIN accounts a ON a.account_id = j.account_id
-           WHERE j.kind = 'hydrate'
-             AND (j.retry_at_ms IS NULL OR j.retry_at_ms <= ?)
-             AND (j.claimed_by IS NULL OR j.claimed_until_ms < ?)
-           LIMIT 1`,
-          [input.nowMs, input.nowMs],
-        );
-        if (hydrate[0]) {
-          const attemptId = runtime.randomId();
-          const claimed = await tx.execute(
-            `UPDATE sync_jobs SET claimed_by = ?, claimed_until_ms = ?, attempt_id = ?
-             WHERE job_id = ?
-               AND (retry_at_ms IS NULL OR retry_at_ms <= ?)
-               AND (claimed_by IS NULL OR claimed_until_ms < ?)`,
-            [
-              input.ownerId,
-              input.nowMs + input.leaseMs,
-              attemptId,
-              hydrate[0].job_id,
-              input.nowMs,
-              input.nowMs,
-            ],
-          );
-          if (claimed.changedRows > 0) {
-            const payload = JSON.parse(String(hydrate[0].payload_json)) as {
-              keys: MessageKey[];
-              purpose: "metadata" | "body";
-            };
-            return {
-              kind: "hydrate" as const,
-              jobId: String(hydrate[0].job_id),
-              attemptId,
-              session: {
-                accountId: String(hydrate[0].account_id),
-                generation: String(hydrate[0].generation),
-              },
-              keys: payload.keys,
-              purpose: payload.purpose,
-            };
-          }
-        }
+        const hydrate = await claimHydration(tx, input, {
+          interactiveOnly: false,
+          attemptId: runtime.randomId(),
+        });
+        if (hydrate) return hydrate;
         const search = await tx.query(
           `SELECT j.*, a.generation
            FROM sync_jobs j
@@ -1804,6 +1772,7 @@ export async function createSqliteMailStore(
         await enqueueHydrationJobs(tx, {
           keys: input.keys,
           purpose: input.purpose,
+          priority: input.priority,
           digest,
         });
         return bumpRevision(tx);
@@ -2456,11 +2425,123 @@ async function applyPageFacts(
   });
 }
 
+/**
+ * Claims the next hydration job, together with other waiting jobs for the
+ * same account and purpose up to one request's worth of keys, so a
+ * conversation's missing bodies arrive in one round trip instead of one each.
+ * Interactive jobs are found through their id prefix, so neither pass sorts
+ * or scans the queue.
+ */
+async function claimHydration(
+  tx: SqlTransaction,
+  input: { ownerId: string; nowMs: number; leaseMs: number },
+  options: { interactiveOnly: boolean; attemptId: string },
+) {
+  const eligible = `(j.retry_at_ms IS NULL OR j.retry_at_ms <= ?)
+       AND (j.claimed_by IS NULL OR j.claimed_until_ms < ?)`;
+  const [first] = await tx.query(
+    `SELECT j.*, a.generation
+     FROM sync_jobs j
+     JOIN accounts a ON a.account_id = j.account_id
+     WHERE ${
+       options.interactiveOnly
+         ? `j.job_id >= '${INTERACTIVE_HYDRATION_PREFIX}' AND j.job_id < '${INTERACTIVE_HYDRATION_PREFIX_END}'`
+         : "j.kind = 'hydrate'"
+}
+       AND ${eligible}
+     LIMIT 1`,
+    [input.nowMs, input.nowMs],
+  );
+  if (!first) return null;
+  const firstPayload = parseHydrationPayload(first.payload_json);
+  const jobs = [{ jobId: String(first.job_id), keys: firstPayload.keys }];
+  const seen = new Set(firstPayload.keys.map(messageKeyIdentity));
+  if (seen.size < HYDRATION_JOB_KEY_LIMIT) {
+    // Bodies someone is waiting for join the batch before background ones.
+    const interactiveRange = `j.job_id >= '${INTERACTIVE_HYDRATION_PREFIX}' AND j.job_id < '${INTERACTIVE_HYDRATION_PREFIX_END}'`;
+    const companionsWhere = (range: string) =>
+      tx.query(
+        `SELECT j.job_id, j.payload_json
+         FROM sync_jobs j
+         WHERE ${range} AND j.account_id = ? AND j.job_id != ?
+           AND ${eligible}
+         LIMIT ${HYDRATION_JOB_KEY_LIMIT}`,
+        [first.account_id, first.job_id, input.nowMs, input.nowMs],
+      );
+    const companions = [
+      ...(await companionsWhere(interactiveRange)),
+      ...(await companionsWhere(
+        `j.kind = 'hydrate' AND NOT (${interactiveRange})`,
+      )),
+    ];
+    for (const companion of companions) {
+      const payload = parseHydrationPayload(companion.payload_json);
+      if (payload.purpose !== firstPayload.purpose) continue;
+      const fresh = payload.keys.filter(
+        (key) => !seen.has(messageKeyIdentity(key)),
+      );
+      if (seen.size + fresh.length > HYDRATION_JOB_KEY_LIMIT) continue;
+      for (const key of fresh) seen.add(messageKeyIdentity(key));
+      jobs.push({ jobId: String(companion.job_id), keys: fresh });
+      if (seen.size >= HYDRATION_JOB_KEY_LIMIT) break;
+    }
+  }
+  const { attemptId } = options;
+  const claimed: typeof jobs = [];
+  for (const job of jobs) {
+    const result = await tx.execute(
+      `UPDATE sync_jobs SET claimed_by = ?, claimed_until_ms = ?, attempt_id = ?
+       WHERE job_id = ?
+         AND (retry_at_ms IS NULL OR retry_at_ms <= ?)
+         AND (claimed_by IS NULL OR claimed_until_ms < ?)`,
+      [
+        input.ownerId,
+        input.nowMs + input.leaseMs,
+        attemptId,
+        job.jobId,
+        input.nowMs,
+        input.nowMs,
+      ],
+    );
+    if (result.changedRows > 0) claimed.push(job);
+  }
+  if (claimed[0]?.jobId !== String(first.job_id)) return null;
+  return {
+    kind: "hydrate" as const,
+    jobId: String(first.job_id),
+    jobIds: claimed.map((job) => job.jobId),
+    attemptId,
+    session: {
+      accountId: String(first.account_id),
+      generation: String(first.generation),
+    },
+    keys: claimed.flatMap((job) => job.keys),
+    purpose: firstPayload.purpose,
+  };
+}
+
+// A body someone is waiting to read. The prefix lets claims find these jobs
+// with a primary-key range instead of reading every payload.
+const INTERACTIVE_HYDRATION_PREFIX = "hydrate-now:";
+const INTERACTIVE_HYDRATION_PREFIX_END = "hydrate-now;";
+
+function parseHydrationPayload(payload: unknown) {
+  return JSON.parse(String(payload)) as {
+    keys: MessageKey[];
+    purpose: "metadata" | "body";
+  };
+}
+
+function messageKeyIdentity(key: MessageKey) {
+  return `${key.accountId}\0${key.messageId}`;
+}
+
 async function enqueueHydrationJobs(
   tx: SqlTransaction,
   input: {
     keys: MessageKey[];
     purpose: "metadata" | "body";
+    priority?: "interactive";
     skipFreshContent?: boolean;
     digest: (value: unknown) => Promise<string>;
   },
@@ -2487,7 +2568,11 @@ async function enqueueHydrationJobs(
       );
     }
     for (const keys of chunkMessageKeys(sortedKeys, HYDRATION_JOB_KEY_LIMIT)) {
-      const jobId = `hydrate:${accountId}:${input.purpose}:${await input.digest(keys)}`;
+      const prefix =
+        input.priority === "interactive"
+          ? INTERACTIVE_HYDRATION_PREFIX
+          : "hydrate:";
+      const jobId = `${prefix}${accountId}:${input.purpose}:${await input.digest(keys)}`;
       await tx.execute(
         `INSERT OR IGNORE INTO sync_jobs(job_id, account_id, kind, payload_json)
          VALUES (?, ?, 'hydrate', ?)`,

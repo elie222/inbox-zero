@@ -253,5 +253,21 @@
     "components/email-list/EmailThread.tsx",
     "components/email-list/EmailContents.tsx",
     "utils/email/prepare-html.client.ts"
+  ],
+  "latency-compose.spec.ts": [
+    "app/(app)/[emailAccountId]/compose/useComposeSend.ts",
+    "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
+    "components/email-list/ThreadDeliveryStatus.tsx"
+  ],
+  "latency-triage.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/use-thread-actions.ts",
+    "app/(app)/[emailAccountId]/mail/use-optimistic-archive.ts",
+    "app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx",
+    "app/(app)/[emailAccountId]/mail/ThreadReader.tsx"
+  ],
+  "latency-reading.spec.ts": [
+    "hooks/useThread.ts",
+    "utils/mail-engine/conversation-thread.ts",
+    "components/email-list/EmailContents.tsx"
   ]
 }
