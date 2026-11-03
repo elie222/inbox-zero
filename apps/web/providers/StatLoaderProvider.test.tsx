@@ -56,6 +56,47 @@ describe("statistics request lifecycle", () => {
     expect(mocks.fetch).toHaveBeenCalledTimes(51);
   });
 
+  it("keeps overlapping batches canceled when the first finishes and a new batch starts", async () => {
+    const first = Promise.withResolvers<Response>();
+    const second = Promise.withResolvers<Response>();
+    mocks.fetch
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise)
+      .mockImplementation(() => Promise.resolve(new Response("{}")));
+    const { result, rerender } = renderHook(useStatLoader, {
+      wrapper: StatLoaderProvider,
+    });
+    let oldBatch!: Promise<void>, currentBatch!: Promise<void>;
+    act(() => {
+      oldBatch = result.current.onLoadBatch({ ...options, showToast: true });
+    });
+    mocks.accountId = "account-2";
+    rerender();
+    act(() => {
+      currentBatch = result.current.onLoadBatch({
+        ...options,
+        showToast: true,
+      });
+      result.current.onCancelLoadBatch();
+    });
+    await act(async () => {
+      first.resolve(new Response("{}"));
+      await oldBatch;
+    });
+    expect(result.current.isLoading).toBe(true);
+    // A fresh batch must run without reviving either canceled batch.
+    await act(async () =>
+      result.current.onLoadBatch({ ...options, loadBefore: true }),
+    );
+    await act(async () => {
+      second.resolve(new Response("{}"));
+      await currentBatch;
+    });
+    expect(mocks.fetch).toHaveBeenCalledTimes(52);
+    expect(mocks.toastSuccess).not.toHaveBeenCalled();
+    expect(result.current.isLoading).toBe(false);
+  });
+
   it("uses the independent account-scoped HTTP route", async () => {
     mocks.fetch.mockResolvedValue(new Response("{}"));
     const { result } = renderHook(useStatLoader, {

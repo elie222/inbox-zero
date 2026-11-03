@@ -1,13 +1,20 @@
 // @vitest-environment jsdom
 
-import type { PointerEvent as ReactPointerEvent } from "react";
-import { act, cleanup, renderHook } from "@testing-library/react";
+import { createElement, type PointerEvent as ReactPointerEvent } from "react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  renderHook,
+} from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { useDragReorder } from "./use-drag-reorder";
 
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 
 it.each([
@@ -33,8 +40,8 @@ it.each([
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })),
   );
   expect(result.current.drag).toBeNull();
-  expect(result.current.suppressClickRef.current).toBe(false);
-  for (const name of ["pointermove", "pointerup", "pointercancel", "keydown"]) {
+  expect(result.current.suppressClickRef.current).toBe(active);
+  for (const name of ["pointermove", "keydown"]) {
     expect(remove).toHaveBeenCalledWith(name, expect.any(Function));
   }
   act(() => {
@@ -43,6 +50,45 @@ it.each([
   });
   expect(start).toHaveBeenCalledTimes(active ? 1 : 0);
   expect(commit).not.toHaveBeenCalled();
+});
+
+it("Escape during an active drag suppresses selection on release and allows the next click", () => {
+  vi.useFakeTimers();
+  const select = vi.fn();
+  const commit = vi.fn();
+  function Item() {
+    const { trackPress, suppressClickRef } = useDragReorder();
+    return createElement(
+      "button",
+      {
+        type: "button",
+        onPointerDown: (event: ReactPointerEvent<HTMLElement>) =>
+          trackPress(event, {
+            start: () => ({ id: "item-1", order: ["item-1"] }),
+            orderForPointer: () => null,
+            commit,
+          }),
+        onClick: () => {
+          if (!suppressClickRef.current) select();
+        },
+      },
+      "Account",
+    );
+  }
+  const { getByRole } = render(createElement(Item));
+  const item = getByRole("button", { name: "Account" });
+  // jsdom has no native PointerEvent constructor.
+  fireEvent(item, new MouseEvent("pointerdown", { bubbles: true, button: 0 }));
+  act(() => dispatchPointer("pointermove", 10));
+  fireEvent.keyDown(window, { key: "Escape" });
+  act(() => dispatchPointer("pointermove", 20));
+  act(() => dispatchPointer("pointerup", 20));
+  fireEvent.click(item);
+  expect(select).not.toHaveBeenCalled();
+  expect(commit).not.toHaveBeenCalled();
+  act(() => vi.runAllTimers());
+  fireEvent.click(item);
+  expect(select).toHaveBeenCalledOnce();
 });
 
 it("commits a completed drag and suppresses the release click", () => {

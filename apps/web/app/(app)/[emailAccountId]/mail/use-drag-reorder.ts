@@ -85,7 +85,14 @@ export function useDragReorder<DragState extends BaseDragState>() {
     };
     const onKeyDown = (keyEvent: KeyboardEvent) => {
       if (keyEvent.key !== "Escape") return;
-      onPointerCancel();
+      if (!dragRef.current) {
+        onPointerCancel();
+        return;
+      }
+      endDrag(false);
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("keydown", onKeyDown);
+      // Keep release handling so Escape cannot turn a drag into a selection.
     };
 
     const stop = () => {

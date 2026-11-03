@@ -1,9 +1,17 @@
 // @vitest-environment jsdom
 
-import type { ReactElement } from "react";
-import { act, cleanup, renderHook } from "@testing-library/react";
+import React from "react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { InlineRuleSuggestionCard } from "./inline-rule-suggestion-card";
+
+(globalThis as { React?: typeof React }).React = React;
 
 const { submitTextMessage } = vi.hoisted(() => ({
   submitTextMessage: vi.fn(),
@@ -21,21 +29,19 @@ it("contains approval send failures and permits retry without marking the rule c
   submitTextMessage
     .mockRejectedValueOnce(new Error("Network request failed"))
     .mockResolvedValueOnce(undefined);
-  const { result } = renderHook(() =>
-    InlineRuleSuggestionCard({ name: "Archive newsletters", archive: "true" }),
+  render(
+    <InlineRuleSuggestionCard name="Archive newsletters" archive="true" />,
   );
-  const approve = () =>
-    result.current.props.actions as ReactElement<{
-      onClick: () => Promise<void>;
-      disabled: boolean;
-    }>;
   await act(async () => {
-    await expect(approve().props.onClick()).resolves.toBeUndefined();
+    fireEvent.click(screen.getByRole("button", { name: "Approve" }));
   });
-  expect(approve().props.disabled).toBe(false);
+  expect(
+    screen.getByRole("button", { name: "Approve" }).hasAttribute("disabled"),
+  ).toBe(false);
+  expect(screen.queryByText("Rule created")).toBeNull();
   await act(async () => {
-    await approve().props.onClick();
+    fireEvent.click(screen.getByRole("button", { name: "Approve" }));
   });
   expect(submitTextMessage).toHaveBeenCalledTimes(2);
-  expect(result.current.props.actions.props.children).toContain("Rule created");
+  expect(screen.getByText("Rule created")).toBeTruthy();
 });
