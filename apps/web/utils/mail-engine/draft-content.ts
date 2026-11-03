@@ -21,6 +21,9 @@ export function sendEmailToDraftContent(
     ...(email.providerDraftId
       ? { providerDraftId: email.providerDraftId }
       : {}),
+    ...(email.replacesDraftOfSession
+      ? { replacesDraftOfSession: email.replacesDraftOfSession }
+      : {}),
     ...(providerDraftMessageIds.length
       ? { providerDraftMessageIds: providerDraftMessageIds.slice(-50) }
       : {}),

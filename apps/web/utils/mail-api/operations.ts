@@ -814,6 +814,9 @@ function sendRequest(intent: SendIntent) {
       ...(intent.providerDraftId
         ? { providerDraftId: intent.providerDraftId }
         : {}),
+      ...(intent.replacesDraftOfSession
+        ? { replacesDraftOfSession: intent.replacesDraftOfSession }
+        : {}),
     },
   };
 }

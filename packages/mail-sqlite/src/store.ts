@@ -1122,6 +1122,9 @@ export async function createSqliteMailStore(
           ...(content.providerDraftId
             ? { providerDraftId: content.providerDraftId }
             : {}),
+          ...(content.replacesDraftOfSession
+            ? { replacesDraftOfSession: content.replacesDraftOfSession }
+            : {}),
           replyToMessageId: input.replyTo?.messageId ?? null,
           replyToConversationId,
           queuedAtMs: nowMs,

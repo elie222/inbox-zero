@@ -17,6 +17,8 @@ const QUINT_CLI = path.join(
 
 describe("compose send model", { timeout: 60_000 }, () => {
   it.each([
+    "serverSend",
+    "serverSendTabCloses",
     "reconcileSend",
     "waitForSave",
   ])("%s keeps every send property", (main) => {
@@ -28,8 +30,8 @@ describe("compose send model", { timeout: 60_000 }, () => {
   it.each([
     ["naiveSend", "deliversWhatWasSent"],
     ["naiveSend", "noDraftLeftAfterSend"],
-    // Accepted trade-off: a tab closed before a draft save answers cannot
-    // remove the draft that save created.
+    // Why cleanup moved to the server: a tab closed before a draft save
+    // answers cannot remove the draft that save created.
     ["reconcileSendTabCloses", "noDraftLeftAfterSend"],
   ])("%s violates %s", (main, invariant) => {
     // A run stops at the first violation, so a large budget costs little.

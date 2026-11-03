@@ -237,11 +237,13 @@ export function useComposeDraft({
           ...content,
           replyToEmail: getReplyToEmailPayload(getValues("replyToEmail")),
         },
+        composeSessionId: requestId,
       });
       if (!created?.data)
         throw new Error(
           "Mailbox draft creation could not be confirmed. Check Drafts in Gmail or Outlook; your message is still saved on this device.",
         );
+      if (created.data.sessionSent) throw sessionAlreadySent();
       draftId = created.data.draftId;
       createdMessageId = created.data.messageId;
     }
@@ -274,8 +276,10 @@ export function useComposeDraft({
       const result = await saveComposeDraftAction(emailAccountId, {
         draftId,
         content,
+        composeSessionId: requestId,
       });
       if (!result?.data) throw new Error(getDraftSyncErrorMessage(result));
+      if (result.data.sessionSent) throw sessionAlreadySent();
       await followDraftMessage(result.data.messageId);
       return;
     }
@@ -417,6 +421,14 @@ export function useComposeDraft({
     discard,
     isDiscarding,
   };
+}
+
+// A save that landed after its reply was sent; the server removed the draft
+// it wrote, so there is nothing left to save to.
+function sessionAlreadySent() {
+  return new DraftAutosaveHaltedError(
+    "This reply was already sent, so edits here are no longer saved to your mailbox.",
+  );
 }
 
 // Gmail rebuilds the whole message on each save, files included.

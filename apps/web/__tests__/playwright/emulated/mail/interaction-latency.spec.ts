@@ -2,9 +2,10 @@ import type { BrowserContext, Page, TestInfo } from "@playwright/test";
 import { expect } from "@playwright/test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
-import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import {
   clearWorkflowMailboxDrafts,
+  countReplyThreadDrafts,
+  countReplyThreadSentCopies,
   deleteProviderMessage,
   expectThreadReaderBody,
   insertInboxMailInConversation,
@@ -57,9 +58,9 @@ test("sends a reply without waiting on the network", async ({
   // The send did not wait for the draft save, so the draft that save wrote
   // has to be gone once the reply is delivered.
   await expectReplyDelivered(page, emailAccountId);
-  await expect.poll(() => countThreadDrafts(page, emailAccountId)).toBe(0);
+  await expect.poll(() => countReplyThreadDrafts(page, emailAccountId)).toBe(0);
   await expect
-    .poll(() => countSentCopies(page, emailAccountId, replyBody))
+    .poll(() => countReplyThreadSentCopies(page, emailAccountId, replyBody))
     .toBe(1);
   await expectThreadReaderBody(page, `${replyBody}.`);
 });
@@ -83,9 +84,9 @@ test("undoes a reply sent while its draft was saving", async ({
 
   // Undo hands back a composer that keeps the draft its save created, rather
   // than one pointing at a draft that was removed.
-  await expect.poll(() => countThreadDrafts(page, emailAccountId)).toBe(1);
+  await expect.poll(() => countReplyThreadDrafts(page, emailAccountId)).toBe(1);
   await editor.pressSequentially(" Edited after undo.");
-  await expect.poll(() => countThreadDrafts(page, emailAccountId)).toBe(1);
+  await expect.poll(() => countReplyThreadDrafts(page, emailAccountId)).toBe(1);
   await expect(page.getByText(/no longer saved to your mailbox/)).toHaveCount(
     0,
   );
@@ -94,10 +95,10 @@ test("undoes a reply sent while its draft was saving", async ({
     .getByRole("button", { name: "Send", exact: true })
     .click();
   await expectReplyDelivered(page, emailAccountId);
-  await expect.poll(() => countThreadDrafts(page, emailAccountId)).toBe(0);
+  await expect.poll(() => countReplyThreadDrafts(page, emailAccountId)).toBe(0);
   // Only the resend arrives; the undone send never went out.
   await expect
-    .poll(() => countSentCopies(page, emailAccountId, replyBody))
+    .poll(() => countReplyThreadSentCopies(page, emailAccountId, replyBody))
     .toBe(1);
   await expectThreadReaderBody(page, "Edited after undo.");
 });
@@ -560,35 +561,4 @@ async function expectReplyDelivered(page: Page, emailAccountId: string) {
       { timeout: UNDO_WINDOW_SEND_TIMEOUT_MS },
     )
     .toMatchObject({ status: "succeeded" });
-}
-
-async function countThreadDrafts(page: Page, emailAccountId: string) {
-  const messages = await readReplyThreadMessages(page, emailAccountId);
-  return messages.filter((message) => message.labelIds?.includes("DRAFT"))
-    .length;
-}
-
-async function countSentCopies(
-  page: Page,
-  emailAccountId: string,
-  text: string,
-) {
-  const messages = await readReplyThreadMessages(page, emailAccountId);
-  // Outlook discards a draft by moving it to Deleted Items, so only the Sent
-  // copy counts as delivered.
-  return messages.filter(
-    (message) =>
-      message.labelIds?.includes("SENT") &&
-      `${message.textPlain ?? ""}${message.textHtml ?? ""}`.includes(text),
-  ).length;
-}
-
-async function readReplyThreadMessages(page: Page, emailAccountId: string) {
-  const response = await page.request.get(
-    "/api/threads/thr_playwright_reply?includeDrafts=true",
-    { headers: { "X-Email-Account-ID": emailAccountId } },
-  );
-  expect(response.ok(), await response.text()).toBe(true);
-  const { thread }: ThreadResponse = await response.json();
-  return thread.messages;
 }

@@ -402,3 +402,38 @@ export async function deleteProviderMessage(page: Page, messageId: string) {
   });
   expect(response.ok(), await response.text()).toBe(true);
 }
+
+/** Drafts in the seeded reply conversation, as the mailbox reports them. */
+export async function countReplyThreadDrafts(
+  page: Page,
+  emailAccountId: string,
+) {
+  const messages = await readReplyThreadMessages(page, emailAccountId);
+  return messages.filter((message) => message.labelIds?.includes("DRAFT"))
+    .length;
+}
+
+export async function countReplyThreadSentCopies(
+  page: Page,
+  emailAccountId: string,
+  text: string,
+) {
+  const messages = await readReplyThreadMessages(page, emailAccountId);
+  // Outlook discards a draft by moving it to Deleted Items, so only the Sent
+  // copy counts as delivered.
+  return messages.filter(
+    (message) =>
+      message.labelIds?.includes("SENT") &&
+      `${message.textPlain ?? ""}${message.textHtml ?? ""}`.includes(text),
+  ).length;
+}
+
+async function readReplyThreadMessages(page: Page, emailAccountId: string) {
+  const response = await page.request.get(
+    "/api/threads/thr_playwright_reply?includeDrafts=true",
+    { headers: { "X-Email-Account-ID": emailAccountId } },
+  );
+  expect(response.ok(), await response.text()).toBe(true);
+  const { thread }: ThreadResponse = await response.json();
+  return thread.messages;
+}
