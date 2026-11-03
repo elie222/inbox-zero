@@ -1,14 +1,9 @@
 import {
   captureException,
   isHandledUserKeyError,
-  isContentFilterRefusal,
-  isGmailInsufficientPermissionsError,
-  isGmailQuotaExceededError,
-  isGmailRateLimitExceededError,
-  isKnownOutlookError,
+  isKnownProviderError,
   SafeError,
 } from "@/utils/error";
-import { isProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
 import type { Logger } from "@/utils/logger";
 
@@ -39,12 +34,7 @@ export async function logReplyTrackerError({
   // the user's own broken AI key or model. None are bugs to report.
   const isExpected =
     error instanceof SafeError ||
-    isProviderRateLimitModeError(error) ||
-    isGmailInsufficientPermissionsError(error) ||
-    isGmailQuotaExceededError(error) ||
-    isGmailRateLimitExceededError(error) ||
-    isKnownOutlookError(error) ||
-    isContentFilterRefusal(error) ||
+    isKnownProviderError(error) ||
     isHandledUserKeyError(error);
 
   await logErrorWithDedupe({

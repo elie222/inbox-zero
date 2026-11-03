@@ -29,6 +29,7 @@ import {
   isHandledUserKeyError,
   isAiQuotaExceededError,
   isKnownApiError,
+  isKnownProviderError,
   isInvalidAIModelError,
   isKnownOutlookError,
   isOutlookAccessDeniedError,
@@ -644,8 +645,81 @@ describe("isKnownOutlookError", () => {
   });
 });
 
+describe("isKnownProviderError", () => {
+  it.each([
+    ["provider rate-limit mode", createProviderRateLimitError("google")],
+    [
+      "Gmail insufficient permissions",
+      createGmailApiError(
+        "insufficientPermissions",
+        "Insufficient permissions",
+      ),
+    ],
+    [
+      "Gmail rate limits",
+      createGmailApiError("rateLimitExceeded", "Rate limit exceeded"),
+    ],
+    [
+      "Gmail quota limits",
+      createGmailApiError("quotaExceeded", "Quota exceeded"),
+    ],
+    ["Outlook access denied", { code: "ErrorAccessDenied" }],
+    [
+      "content-filter refusals",
+      createNoObjectGeneratedError({
+        finishReason: "content-filter",
+        text: "",
+      }),
+    ],
+  ])("keeps %s known to both classifiers", (_name, error) => {
+    expect(isKnownProviderError(error)).toBe(true);
+    expect(isKnownApiError(error)).toBe(true);
+  });
+
+  it.each([
+    ["invalid key", 401, "Incorrect API key provided"],
+    ["unavailable model", 400, "model is not available"],
+    ["deactivated key", 400, "this API key has been deactivated"],
+    [
+      "exhausted balance",
+      400,
+      "Your credit balance is too low to access the Anthropic API",
+    ],
+  ])("leaves %s recognition to the API classifier", (_name, statusCode, message) => {
+    const error = createAPICallError({ message, statusCode });
+    expect(isKnownProviderError(error)).toBe(false);
+    expect(isKnownApiError(error)).toBe(true);
+  });
+
+  it.each([
+    ["SafeErrors", new SafeError("Usage limit reached")],
+    ["unexpected errors", new Error("Unexpected failure")],
+    ["null", null],
+    ["undefined", undefined],
+  ])("does not classify %s as provider or API errors", (_name, error) => {
+    expect(isKnownProviderError(error)).toBe(false);
+    expect(isKnownApiError(error)).toBe(false);
+  });
+});
+
 describe("isKnownApiError", () => {
   it.each([
+    [
+      "Gemini spending caps despite their 429 status",
+      createGeminiResourceExhaustedError("Monthly spending cap reached"),
+      false,
+    ],
+    [
+      "retried Gemini spending caps",
+      new RetryError({
+        message: "Quota exceeded",
+        reason: "maxRetriesExceeded",
+        errors: [
+          createGeminiResourceExhaustedError("Monthly spending cap reached"),
+        ],
+      }),
+      false,
+    ],
     [
       "HTTP 402 errors",
       createAPICallError({
