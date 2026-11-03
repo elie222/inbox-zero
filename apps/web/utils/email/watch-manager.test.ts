@@ -77,7 +77,9 @@ describe("ensureEmailAccountsWatched", () => {
     ["google", "error"],
     ["microsoft", "warn"],
   ])("logs an empty %s watch result at %s level", async (provider, level) => {
-    const account = getWatchedEmailAccount({});
+    const account = getWatchedEmailAccount({
+      watchEmailsExpirationDate: new Date(Date.now() - 3_600_000),
+    });
     account.account.provider = provider;
     vi.mocked(prisma.emailAccount.findMany).mockResolvedValue([account] as any);
     vi.mocked(createEmailProvider).mockResolvedValue({

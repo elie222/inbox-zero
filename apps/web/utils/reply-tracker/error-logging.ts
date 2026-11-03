@@ -1,7 +1,7 @@
 import {
   captureException,
   isHandledUserKeyError,
-  isKnownProviderError,
+  isKnownApiError,
   SafeError,
 } from "@/utils/error";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
@@ -34,7 +34,7 @@ export async function logReplyTrackerError({
   // the user's own broken AI key or model. None are bugs to report.
   const isExpected =
     error instanceof SafeError ||
-    isKnownProviderError(error) ||
+    isKnownApiError(error) ||
     isHandledUserKeyError(error);
 
   await logErrorWithDedupe({

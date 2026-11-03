@@ -1325,51 +1325,6 @@ describe("processAccountFollowUps - dedup logic", () => {
     );
   });
 
-  it.each([
-    "body fetch",
-    "notification send",
-  ])("propagates throttling from %s and stops later threads", async (stage) => {
-    const throttled = Object.assign(
-      new Error("Application is over its MailboxConcurrency limit."),
-      { statusCode: 429, code: "ApplicationThrottled" },
-    );
-    const message = {
-      ...mockAwaitingMessage("message-1", OLD_DATE),
-      textPlain: undefined,
-      textHtml: undefined,
-    };
-    const provider = createMockProvider({
-      name: "microsoft",
-      getThreadsWithLabel: vi.fn().mockResolvedValue([
-        { id: "thread-1", messages: [], snippet: "" },
-        { id: "thread-2", messages: [], snippet: "" },
-      ]),
-      getLatestMessageInThread: vi.fn().mockResolvedValue(message),
-      getMessage:
-        stage === "body fetch"
-          ? vi.fn().mockRejectedValue(throttled)
-          : vi.fn().mockResolvedValue(message),
-    });
-    vi.mocked(createEmailProvider).mockResolvedValue(provider);
-    vi.mocked(getFollowUpNotificationChannels).mockResolvedValue([
-      { id: "channel-1" } as any,
-    ]);
-    vi.mocked(prisma.threadTracker.findMany).mockResolvedValue([]);
-    vi.mocked(prisma.threadTracker.findFirst).mockResolvedValue(null);
-    vi.mocked(prisma.threadTracker.create).mockResolvedValue({
-      id: "tracker-1",
-    } as any);
-    if (stage === "notification send")
-      vi.mocked(sendFollowUpNotification).mockRejectedValueOnce(throttled);
-
-    await expect(
-      processAccountFollowUps({ emailAccount: createMockAccount(), logger }),
-    ).rejects.toBe(throttled);
-    expect(provider.getLatestMessageInThread).toHaveBeenCalledTimes(1);
-    if (stage === "body fetch")
-      expect(sendFollowUpNotification).not.toHaveBeenCalled();
-  });
-
   it("appends notification deliveries to existing tracker handles", async () => {
     const provider = createMockProvider({
       getThreadsWithLabel: vi

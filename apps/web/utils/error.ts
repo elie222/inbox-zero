@@ -441,17 +441,6 @@ export function isContentFilterRefusal(error: unknown): boolean {
   );
 }
 
-export function isKnownProviderError(error: unknown): boolean {
-  return (
-    isProviderRateLimitModeError(error) ||
-    isGmailInsufficientPermissionsError(error) ||
-    isGmailRateLimitExceededError(error) ||
-    isGmailQuotaExceededError(error) ||
-    isKnownOutlookError(error) ||
-    isContentFilterRefusal(error)
-  );
-}
-
 // we don't want to capture these errors in Sentry
 export function isKnownApiError(error: unknown): boolean {
   // A spent budget on our key needs someone to raise it, unlike the rate
@@ -460,7 +449,12 @@ export function isKnownApiError(error: unknown): boolean {
   if (apiError && isGeminiSpendingCapError(apiError)) return false;
 
   return (
-    isKnownProviderError(error) ||
+    isProviderRateLimitModeError(error) ||
+    isGmailInsufficientPermissionsError(error) ||
+    isGmailRateLimitExceededError(error) ||
+    isGmailQuotaExceededError(error) ||
+    isKnownOutlookError(error) ||
+    isContentFilterRefusal(error) ||
     (APICallError.isInstance(error) &&
       (isIncorrectAPIKeyError(error) ||
         isInvalidAIModelError(error) ||

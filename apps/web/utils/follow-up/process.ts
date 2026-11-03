@@ -664,14 +664,6 @@ async function processFollowUpsForType({
               },
             );
           } catch (notifyError) {
-            if (
-              isEmailProviderRateLimitError({
-                error: notifyError,
-                provider: providerName,
-              })
-            ) {
-              throw notifyError;
-            }
             threadLogger.error(
               "Follow-up notification failed, label still applied",
               { error: notifyError },
@@ -941,9 +933,6 @@ async function getNotificationMessage({
   try {
     return await provider.getMessage(message.id);
   } catch (error) {
-    if (isEmailProviderRateLimitError({ error, provider: provider.name })) {
-      throw error;
-    }
     logger.warn("Failed to fetch follow-up notification body", { error });
     return message;
   }
