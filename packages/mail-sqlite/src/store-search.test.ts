@@ -134,6 +134,38 @@ describe("local text search", () => {
     await close();
   });
 
+  it("treats _ and % in an address search as literal characters", async () => {
+    const { store, close } = await searchableMailbox([
+      {
+        id: "underscore",
+        subject: "Roadmap",
+        from: "Ada <ada_lovelace@example.com>",
+        to: ["ops_team@example.com"],
+        read: false,
+        text: null,
+        html: null,
+      },
+      {
+        id: "lookalike",
+        subject: "Roadmap",
+        from: "adaxlovelace@example.com",
+        to: ["opsxteam@example.com"],
+        read: false,
+        text: null,
+        html: null,
+      },
+    ]);
+
+    expect(
+      await search(store, address("from", "ada_lovelace@example.com")),
+    ).toEqual(["underscore"]);
+    expect(await search(store, address("to", "ops_team@example.com"))).toEqual([
+      "underscore",
+    ]);
+    expect(await search(store, address("from", "%"))).toEqual([]);
+    await close();
+  });
+
   it("finds mail synced without a body by its current subject", async () => {
     const { store, close } = await searchableMailbox();
     expect(await search(store, text("any", "parking"))).toEqual(["bare"]);
@@ -228,7 +260,7 @@ function query(predicate: MailPredicate) {
   };
 }
 
-async function searchableMailbox(): Promise<{
+async function searchableMailbox(messages = MESSAGES): Promise<{
   store: MailStore;
   driver: SqliteDriver;
   close: () => Promise<void>;
@@ -247,18 +279,18 @@ async function searchableMailbox(): Promise<{
       requestId: "bootstrap",
       from: { streamId: "primary", generation: "g1", checkpoint: null },
       to: { streamId: "primary", generation: "g1", checkpoint: "1" },
-      changes: MESSAGES.map((message, index) => messagePatch(message, index)),
+      changes: messages.map((message, index) => messagePatch(message, index)),
       requiredHydration: [],
       roundComplete: true,
     },
-    bodies: MESSAGES.filter(
-      (message) => message.text !== null || message.html !== null,
-    ).map((message) => ({
-      key: { accountId: "acc-1", messageId: message.id },
-      version: "1",
-      text: message.text,
-      html: message.html,
-    })),
+    bodies: messages
+      .filter((message) => message.text !== null || message.html !== null)
+      .map((message) => ({
+        key: { accountId: "acc-1", messageId: message.id },
+        version: "1",
+        text: message.text,
+        html: message.html,
+      })),
   });
   await drainBacklog(store);
   return { store, driver, close: () => store.close() };
