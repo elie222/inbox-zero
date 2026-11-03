@@ -92,7 +92,10 @@ describe("getComposeSignature", () => {
     ]);
   });
 
-  it("signs with the provider's default signature when none is saved", async () => {
+  it.each([
+    null,
+    "",
+  ])("signs with the provider default when saved=%s", async (signature) => {
     vi.mocked(createEmailProvider).mockResolvedValue(
       createMockEmailProvider({
         getSendAsAddresses: vi.fn().mockResolvedValue([
@@ -106,7 +109,7 @@ describe("getComposeSignature", () => {
       }),
     );
     prisma.emailAccount.findUnique.mockResolvedValue({
-      signature: null,
+      signature,
       includeSentWithSignature: false,
       account: { provider: "google" },
       emailSignatures: [],
@@ -129,7 +132,7 @@ describe("getComposeSignature", () => {
   });
 
   it.each([
-    { saved: "", alias: false, expected: "" },
+    { saved: "", alias: true, expected: "" },
     { saved: null, alias: true, expected: "" },
     { saved: null, alias: false, expected: "Provider default" },
     { saved: "<p>Saved</p>", alias: true, expected: "Saved" },
@@ -164,10 +167,6 @@ describe("getComposeSignature", () => {
       logger,
     });
     expect(result.savedSignatureHtml).toBe(saved ?? "");
-    if (saved === "") {
-      expect(result.signatureHtml).toBe("");
-      expect(createEmailProvider).not.toHaveBeenCalled();
-    }
     const content = createInitialComposeContent({
       initialAttachments: [],
       initialSendAs: alias ? addresses[1] : addresses[0],

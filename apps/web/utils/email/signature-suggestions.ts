@@ -9,12 +9,14 @@ import {
 import type { Logger } from "@/utils/logger";
 
 const SCAN_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+const FAILED_SCAN_MAX_AGE_MS = 60 * 60 * 1000;
 // A signature seen once may be a one-off sign-off rather than one they reuse.
 const MIN_USES = 2;
 
 const sentSignatureScanSchema = z.object({
   signatures: z.array(z.object({ html: z.string(), count: z.number() })),
   providerSignature: z.boolean(),
+  failed: z.boolean().optional(),
 });
 type SentSignatureScan = z.infer<typeof sentSignatureScanSchema>;
 
@@ -50,10 +52,13 @@ export async function getSignatureSuggestions({
   const cached = sentSignatureScanSchema.safeParse(
     emailAccount.sentSignatureScan,
   );
+  const maxAge =
+    cached.success && cached.data.failed
+      ? FAILED_SCAN_MAX_AGE_MS
+      : SCAN_MAX_AGE_MS;
   const isFresh =
     emailAccount.sentSignatureScannedAt &&
-    Date.now() - emailAccount.sentSignatureScannedAt.getTime() <
-      SCAN_MAX_AGE_MS;
+    Date.now() - emailAccount.sentSignatureScannedAt.getTime() < maxAge;
   const savedSignatures = [
     emailAccount.signature ?? "",
     ...emailAccount.emailSignatures.map(({ html }) => html),
@@ -118,7 +123,7 @@ async function scanSentSignatures({
     };
   } catch (error) {
     logger.warn("Could not scan sent mail for signatures", { error });
-    return scan;
+    scan.failed = true;
   }
 
   await prisma.emailAccount.update({

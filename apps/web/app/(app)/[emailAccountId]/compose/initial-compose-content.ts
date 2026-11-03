@@ -125,7 +125,7 @@ export function getSendAsSignatureHtml(
   const sendAs = address ?? addresses.find((item) => item.isDefault);
   if (!sendAs || sendAs.isDefault)
     return (
-      defaultSignatureHtml ?? (accountSignatureHtml || sendAs?.signature || "")
+      defaultSignatureHtml || accountSignatureHtml || sendAs?.signature || ""
     );
   return sendAs?.signature || accountSignatureHtml;
 }

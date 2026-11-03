@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { createMockEmailProvider } from "@/utils/__mocks__/email-provider";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -33,6 +33,10 @@ function account(overrides: Record<string, unknown> = {}) {
 describe("getSignatureSuggestions", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("scans sent mail once and suggests a signature used more than once", async () => {
@@ -131,7 +135,14 @@ describe("getSignatureSuggestions", () => {
     expect(createEmailProvider).not.toHaveBeenCalled();
   });
 
-  it("retries a failed scan once the mailbox recovers", async () => {
+  it.each([
+    { elapsed: 0, retries: false },
+    { elapsed: 60 * 60 * 1000, retries: true },
+  ])("retries=$retries a failed scan after $elapsed ms", async ({
+    elapsed,
+    retries,
+  }) => {
+    vi.useFakeTimers();
     const state: Record<string, unknown> = account();
     prisma.emailAccount.findUnique.mockImplementation(
       async () => state as never,
@@ -154,12 +165,14 @@ describe("getSignatureSuggestions", () => {
     expect(
       await getSignatureSuggestions({ emailAccountId: "account", logger }),
     ).toEqual({ suggestions: [], needsDefault: false });
+    await vi.advanceTimersByTimeAsync(elapsed);
     expect(
       await getSignatureSuggestions({ emailAccountId: "account", logger }),
     ).toEqual({
-      suggestions: [{ html: german, count: 2 }],
+      suggestions: retries ? [{ html: german, count: 2 }] : [],
       needsDefault: false,
     });
+    expect(createEmailProvider).toHaveBeenCalledTimes(retries ? 2 : 1);
   });
 
   it("suggests a deleted saved signature from the cached scan", async () => {

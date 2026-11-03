@@ -37,7 +37,7 @@ export async function getComposeSignature({
   if (!emailAccount) throw new SafeError("Email account not found");
 
   const signatureHtml =
-    emailAccount.signature ??
+    emailAccount.signature ||
     (await getProviderDefaultSignature({
       emailAccountId,
       provider: emailAccount.account.provider,
