@@ -56,4 +56,15 @@ describe("buildPrintDocument", () => {
     expect(document).toContain("Attachments: ticket.pdf");
     expect(document).not.toContain("To:");
   });
+
+  it("keeps sender images from loading when the proxy could not prepare them", () => {
+    const document = buildPrintDocument({
+      subject: "Subject",
+      messages: [],
+      allowRemoteImages: false,
+    });
+
+    const policy = document.match(/img-src([^;]*);/)?.[1] ?? "";
+    expect(policy).not.toContain("https:");
+  });
 });

@@ -228,8 +228,19 @@ describe("HtmlEmail", () => {
       />,
     );
 
+    // The pending document also blocks images; wait for the one shown after
+    // the proxy failed, which blocks them without hiding them.
+    await waitFor(() =>
+      expect(
+        document.querySelector(
+          'iframe[title="Preparing email content preview"]',
+        ),
+      ).not.toBeNull(),
+    );
     const frame = await showLoadedEmailDocument("img-src data:;");
-    expect(frame.getAttribute("srcdoc")).not.toContain("img-src data: https:");
+    expect(frame.getAttribute("srcdoc")).not.toContain(
+      'img:not([src^="data:" i])',
+    );
   });
 
   it("keeps remote loads blocked for html shown without the proxy", () => {
