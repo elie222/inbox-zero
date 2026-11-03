@@ -4,7 +4,11 @@ import { type RefObject, useCallback, useRef, useState } from "react";
 import type { SubmitHandler } from "react-hook-form";
 import { useSWRConfig } from "swr";
 import type { ScopedMutator } from "swr";
-import { threadScheduledEmailsKey } from "@/components/email-list/ThreadDeliveryStatus";
+import type { ScheduledEmailsResponse } from "@/app/api/user/scheduled-emails/route";
+import {
+  threadScheduledEmailsKey,
+  UNCONFIRMED_SCHEDULED_EMAIL_PREFIX,
+} from "@/components/email-list/ThreadDeliveryStatus";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 import {
@@ -241,6 +245,37 @@ export function useComposeSend({
       const draftSaveSettled = stopProviderAutosave().then(() =>
         waitForDraftOperations(draftQueueKey),
       );
+      // Scheduling is confirmed by the server, so the composer closes and the
+      // thread shows it being scheduled at once; a refusal reopens it.
+      const schedulesAtOnce =
+        Boolean(deliveryTimes.sendAt) &&
+        (isInlineReply
+          ? deliveryPath.current !== "outbox"
+          : canScheduleDelivery);
+      const scheduledThreadId = replyingToEmail?.threadId ?? null;
+      let withdrawSchedule = () => {};
+      if (schedulesAtOnce) {
+        withdrawSchedule = showScheduledEmail(
+          mutate,
+          selectedEmailAccountId,
+          scheduledThreadId,
+          {
+            id: `${UNCONFIRMED_SCHEDULED_EMAIL_PREFIX}${requestId}`,
+            sendAt: deliveryTimes.sendAt,
+            remindAt: deliveryTimes.remindAt,
+          },
+        );
+        if (!scheduledThreadId)
+          toastSuccess({ description: "Email scheduled." });
+        onClose?.();
+      }
+      const failSchedule = (description: string) => {
+        withdrawSchedule();
+        setSubmissionError(description);
+        if (!schedulesAtOnce) return;
+        toastError({ description });
+        onRestore?.();
+      };
       if (!replacesSavingDraft) await draftSaveSettled;
       let deliveryAccepted = false;
       try {
@@ -255,10 +290,10 @@ export function useComposeSend({
             );
         // The mailbox draft is what carries the files to the recipient.
         if (attachmentsRef.current.length && !enrichedData.providerDraftId) {
-          toastError({
-            description:
-              "Could not find this draft in your mailbox to send its attachments. Reopen it and try again.",
-          });
+          const description =
+            "Could not find this draft in your mailbox to send its attachments. Reopen it and try again.";
+          if (schedulesAtOnce) failSchedule(description);
+          else toastError({ description });
           return;
         }
         if (isInlineReply) {
@@ -285,7 +320,6 @@ export function useComposeSend({
           ? deliveryPath.current === "scheduled"
           : canScheduleDelivery && Boolean(sendAt || remindAt);
         if (isScheduled) {
-          const scheduledThreadId = replyingToEmail?.threadId ?? null;
           const result = await scheduleEmailAction(selectedEmailAccountId, {
             clientMutationId: requestId,
             threadId: scheduledThreadId,
@@ -296,7 +330,7 @@ export function useComposeSend({
             remindAt: deliveryTimes.remindAt,
           });
           if (!result?.data) {
-            setSubmissionError(
+            failSchedule(
               getActionErrorMessage(result ?? {}, {
                 prefix: scheduledThreadId
                   ? "Could not schedule this reply"
@@ -325,10 +359,11 @@ export function useComposeSend({
             selectedEmailAccountId,
             scheduledThreadId,
           );
-          if (!scheduledThreadId) {
-            toastSuccess({ description: "Email scheduled." });
+          if (!schedulesAtOnce) {
+            if (!scheduledThreadId)
+              toastSuccess({ description: "Email scheduled." });
+            onClose?.();
           }
-          onClose?.();
           refetch?.();
           return;
         }
@@ -531,6 +566,12 @@ export function useComposeSend({
       } catch (error) {
         // biome-ignore lint/suspicious/noConsole: send failures stay visible in the browser console
         console.error(error);
+        if (schedulesAtOnce) {
+          failSchedule(
+            "Could not schedule this email. Check the thread status before trying again.",
+          );
+          return;
+        }
         setSubmissionError(
           "Could not confirm delivery. Check the thread status before trying again.",
         );
@@ -623,4 +664,47 @@ async function refreshScheduledEmails(
     ...(threadId ? [threadScheduledEmailsKey(emailAccountId, threadId)] : []),
   ];
   await Promise.all(keys.map((key) => mutate(key).catch(() => {})));
+}
+
+/**
+ * Shows a scheduled email in its thread before the server confirms it. The
+ * server's row replaces it on the next refresh; the returned function takes
+ * it back out if scheduling fails.
+ */
+function showScheduledEmail(
+  mutate: ScopedMutator,
+  emailAccountId: string,
+  threadId: string | null,
+  pending: { id: string; sendAt: string | null; remindAt: string | null },
+) {
+  if (!threadId || !pending.sendAt) return () => {};
+  const key = threadScheduledEmailsKey(emailAccountId, threadId);
+  const row: ScheduledEmailsResponse["scheduledEmails"][number] = {
+    id: pending.id,
+    status: "PENDING",
+    sendAt: new Date(pending.sendAt),
+    remindAt: pending.remindAt ? new Date(pending.remindAt) : null,
+    reminderStatus: pending.remindAt ? "PENDING" : "NONE",
+    sentAt: null,
+    error: null,
+    draftMessageIds: [],
+  };
+  mutate<ScheduledEmailsResponse>(
+    key,
+    (current) => ({
+      scheduledEmails: [row, ...(current?.scheduledEmails ?? [])],
+    }),
+    { revalidate: false },
+  );
+  return () => {
+    mutate<ScheduledEmailsResponse>(
+      key,
+      (current) => ({
+        scheduledEmails: (current?.scheduledEmails ?? []).filter(
+          (scheduled) => scheduled.id !== row.id,
+        ),
+      }),
+      { revalidate: false },
+    );
+  };
 }
