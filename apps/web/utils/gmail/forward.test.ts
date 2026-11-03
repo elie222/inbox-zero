@@ -252,6 +252,27 @@ ${message.textHtml}
     );
   });
 
+  it("keeps recipients after a display name with an unbalanced quote", () => {
+    const message: Pick<ParsedMessage, "headers" | "textHtml"> = {
+      headers: {
+        from: "Sender <sender@example.com>",
+        date: testDate.toISOString(),
+        subject: "Test",
+        to: 'Sales 12" <sales@example.com>, Bob <bob@example.com>',
+      },
+      textHtml: "<p>Email</p>",
+    };
+
+    const html = forwardEmailHtml({
+      content: "",
+      message: message as ParsedMessage,
+    });
+
+    expect(html).toContain(
+      "To: Sales 12&quot; &lt;sales@example.com&gt;, Bob &lt;bob@example.com&gt;<br>",
+    );
+  });
+
   it("omits the Cc line when the forwarded message has no Cc", () => {
     const message: Pick<ParsedMessage, "headers" | "textHtml"> = {
       headers: {
