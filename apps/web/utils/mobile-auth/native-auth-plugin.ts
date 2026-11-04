@@ -1,30 +1,34 @@
-import { expo } from "@better-auth/expo";
-import { HIDE_METADATA } from "better-auth";
+import { type BetterAuthPlugin, HIDE_METADATA } from "better-auth";
 import { APIError, createAuthEndpoint } from "better-auth/api";
 import { z } from "zod";
 
-// Preserve the Expo proxy/origin behavior, but omit the redirect hook that
-// appends session cookies to custom-scheme callback URLs.
-export function safeExpo() {
-  const plugin = expo();
-  const { after: _after, ...hooks } = plugin.hooks ?? {};
+// The native iOS and Android clients call the `/expo-authorization-proxy` path
+// and send `expo-origin`, names inherited from the Expo plugin. Keep them stable
+// so those clients keep working without the Expo package.
+export function nativeAuthPlugin() {
   return {
-    ...plugin,
-    hooks,
-    endpoints: {
-      ...plugin.endpoints,
-      expoAuthorizationProxy: localExpoAuthorizationProxy(),
+    id: "native-auth",
+    onRequest: async (request) => {
+      if (request.headers.get("origin")) return;
+      const nativeOrigin = request.headers.get("expo-origin");
+      if (!nativeOrigin) return;
+      const headers = new Headers(request.headers);
+      headers.set("origin", nativeOrigin);
+      return { request: new Request(request, { headers }) };
     },
-  };
+    endpoints: {
+      nativeAuthorizationProxy: nativeAuthorizationProxy(),
+    },
+  } satisfies BetterAuthPlugin;
 }
 
-const EXPO_AUTHORIZATION_HOSTS = new Set([
+const AUTHORIZATION_HOSTS = new Set([
   "accounts.google.com",
   "appleid.apple.com",
   "login.microsoftonline.com",
 ]);
 
-export function isAllowedExpoAuthorizationUrl(
+export function isAllowedNativeAuthorizationUrl(
   url: URL,
   baseURL: string,
   allowLocalHttp: boolean,
@@ -33,7 +37,7 @@ export function isAllowedExpoAuthorizationUrl(
   if (url.origin === new URL(baseURL).origin) return false;
   if (configuredEmulatorOrigins(emulatorOrigins).has(url.origin)) return true;
   if (url.protocol === "https:") {
-    return EXPO_AUTHORIZATION_HOSTS.has(url.hostname);
+    return AUTHORIZATION_HOSTS.has(url.hostname);
   }
   if (!allowLocalHttp || url.protocol !== "http:") return false;
   return isLocalEmulatorHost(url.hostname);
@@ -67,14 +71,14 @@ function isLocalEmulatorHost(hostname: string) {
   );
 }
 
-function localExpoAuthorizationProxy() {
+function nativeAuthorizationProxy() {
   return createAuthEndpoint(
     "/expo-authorization-proxy",
     {
       method: "GET",
       query: z.object({
         authorizationURL: z.string(),
-        oauthState: z.string().optional(),
+        oauthState: z.string().min(1),
       }),
       metadata: HIDE_METADATA,
     },
@@ -94,7 +98,7 @@ function localExpoAuthorizationProxy() {
         });
       }
       if (
-        !isAllowedExpoAuthorizationUrl(
+        !isAllowedNativeAuthorizationUrl(
           url,
           ctx.context.baseURL,
           process.env.NODE_ENV === "development",
@@ -107,30 +111,15 @@ function localExpoAuthorizationProxy() {
           message: "Invalid authorizationURL",
         });
       }
-      const { oauthState } = ctx.query;
-      if (oauthState) {
-        const oauthStateCookie = ctx.context.createAuthCookie("oauth_state", {
-          maxAge: 600,
-        });
-        ctx.setCookie(
-          oauthStateCookie.name,
-          oauthState,
-          oauthStateCookie.attributes,
-        );
-        return ctx.redirect(authorizationURL);
-      }
-      const state = url.searchParams.get("state");
-      if (!state) {
-        throw new APIError("BAD_REQUEST", { message: "Unexpected error" });
-      }
-      const stateCookie = ctx.context.createAuthCookie("state", {
-        maxAge: 300,
+      // Sets the encrypted state cookie in the browser session started by the
+      // native app. Never sign a provider-supplied `state` value here.
+      const oauthStateCookie = ctx.context.createAuthCookie("oauth_state", {
+        maxAge: 600,
       });
-      await ctx.setSignedCookie(
-        stateCookie.name,
-        state,
-        ctx.context.secret,
-        stateCookie.attributes,
+      ctx.setCookie(
+        oauthStateCookie.name,
+        ctx.query.oauthState,
+        oauthStateCookie.attributes,
       );
       return ctx.redirect(authorizationURL);
     },
