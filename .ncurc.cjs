@@ -75,6 +75,9 @@ module.exports = {
 
     "@types/node",
 
+    // pnpm 12's ESM resolver hook breaks Next's TypeScript config loader in Serwist.
+    "pnpm",
+
     // Ultracite 7.10+/Biome 2.5.6 enable mass useSortedKeys failures across the repo.
     // Stay pinned until a dedicated formatting migration.
     "ultracite",
