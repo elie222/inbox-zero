@@ -10,6 +10,20 @@ minimumReleaseAge: 1440
 minimumReleaseAgeExclude:
   - "@inboxzero/*"
   - "@inbox-zero/emulate"
+  # Security release (GHSA-4wq4-2ppv-q3hg et al.); remove once older than 24h.
+  - "better-auth@1.7.16"
+  - "@better-auth/core@1.7.16"
+  - "@better-auth/drizzle-adapter@1.7.16"
+  - "@better-auth/expo@1.7.16"
+  - "@better-auth/kysely-adapter@1.7.16"
+  - "@better-auth/memory-adapter@1.7.16"
+  - "@better-auth/mongo-adapter@1.7.16"
+  - "@better-auth/oauth-provider@1.7.16"
+  - "@better-auth/prisma-adapter@1.7.16"
+  - "@better-auth/scim@1.7.16"
+  - "@better-auth/sso@1.7.16"
+  - "@better-auth/telemetry@1.7.16"
+  - "better-call@1.4.5"
 
 overrides:
   "@hono/node-server": "1.19.14"
