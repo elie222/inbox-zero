@@ -26,7 +26,7 @@ describe("compilePredicate", () => {
         { fts5: true, complete: true },
       ),
     ).toEqual({
-      sql: "(e.account_id = ? AND EXISTS (SELECT 1 FROM json_each(e.label_ids_json) WHERE value = ?))",
+      sql: "(e.account_id = ? AND e.in_trash = 0 AND e.in_spam = 0 AND EXISTS (SELECT 1 FROM json_each(e.label_ids_json) WHERE value = ?))",
       bindings: ["acc-1", "shared-id"],
     });
 
@@ -56,7 +56,7 @@ describe("compilePredicate", () => {
         { fts5: true, complete: true },
       ),
     ).toEqual({
-      sql: "(e.account_id = ? AND EXISTS (SELECT 1 FROM json_each(e.category_ids_json) WHERE value = ?))",
+      sql: "(e.account_id = ? AND e.in_trash = 0 AND e.in_spam = 0 AND EXISTS (SELECT 1 FROM json_each(e.category_ids_json) WHERE value = ?))",
       bindings: ["acc-1", "CATEGORY_PROMOTIONS"],
     });
   });
