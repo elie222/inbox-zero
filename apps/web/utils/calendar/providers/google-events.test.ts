@@ -63,6 +63,37 @@ describe("GoogleCalendarEventProvider", () => {
     );
   });
 
+  it("marks all-day events, which Google sends with a date and no time", async () => {
+    calendarMocks.list.mockResolvedValue({
+      data: {
+        items: [
+          {
+            id: "offsite",
+            summary: "Offsite",
+            start: { date: "2026-05-04" },
+            end: { date: "2026-05-05" },
+          },
+          {
+            id: "sync",
+            summary: "Sync",
+            start: { dateTime: "2026-05-04T09:00:00.000Z" },
+            end: { dateTime: "2026-05-04T09:30:00.000Z" },
+          },
+        ],
+      },
+    });
+
+    const events = await createProvider().fetchEvents({
+      timeMin: new Date("2026-05-04T00:00:00.000Z"),
+      timeMax: new Date("2026-05-05T00:00:00.000Z"),
+    });
+
+    expect(events.map((event) => [event.id, event.isAllDay])).toEqual([
+      ["offsite", true],
+      ["sync", undefined],
+    ]);
+  });
+
   it("flags an event the connected calendar declined", async () => {
     calendarMocks.list.mockResolvedValue({
       data: {
