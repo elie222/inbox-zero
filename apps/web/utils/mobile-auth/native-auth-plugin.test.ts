@@ -1,3 +1,4 @@
+import { betterAuth } from "better-auth";
 import { describe, expect, it } from "vitest";
 import {
   isAllowedNativeAuthorizationUrl,
@@ -34,6 +35,53 @@ describe("native auth Better Auth plugin", () => {
     expect(nativeAuthPlugin().endpoints.nativeAuthorizationProxy.path).toBe(
       "/expo-authorization-proxy",
     );
+  });
+});
+
+describe("native authorization proxy endpoint", () => {
+  const baseURL = "https://app.example";
+  const auth = betterAuth({
+    baseURL,
+    secret: "test-secret-that-is-long-enough-for-better-auth",
+    plugins: [nativeAuthPlugin()],
+  });
+  const googleUrl = "https://accounts.google.com/o/oauth2/v2/auth?state=abc";
+
+  function callProxy(query: Record<string, string>) {
+    const params = new URLSearchParams(query);
+    return auth.handler(
+      new Request(`${baseURL}/api/auth/expo-authorization-proxy?${params}`),
+    );
+  }
+
+  it("rejects a request without oauthState and sets no cookie", async () => {
+    const response = await callProxy({ authorizationURL: googleUrl });
+
+    expect(response.status).toBe(400);
+    expect(response.headers.get("set-cookie")).toBeNull();
+  });
+
+  it("stores oauthState and redirects to an allowed provider", async () => {
+    const response = await callProxy({
+      authorizationURL: googleUrl,
+      oauthState: "encrypted-state",
+    });
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe(googleUrl);
+    expect(response.headers.get("set-cookie")).toContain(
+      "oauth_state=encrypted-state",
+    );
+  });
+
+  it("rejects a provider host outside the allowlist", async () => {
+    const response = await callProxy({
+      authorizationURL: "https://evil.example/o/oauth2/v2/auth?state=abc",
+      oauthState: "encrypted-state",
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.headers.get("set-cookie")).toBeNull();
   });
 });
 
