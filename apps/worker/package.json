@@ -6,7 +6,7 @@
     "start": "node src/index.mjs"
   },
   "dependencies": {
-    "bullmq": "6.3.17",
+    "bullmq": "6.5.4",
     "ioredis": "6.0.0"
   }
 }

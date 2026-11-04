@@ -40,7 +40,7 @@
   "devDependencies": {
     "@types/node": "24.10.1",
     "typescript": "6.0.3",
-    "vitest": "5.0.5"
+    "vitest": "5.1.0"
   },
   "engines": {
     "node": ">=22.12.0"

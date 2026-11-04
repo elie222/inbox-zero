@@ -20,6 +20,9 @@ module.exports = {
     "autoprefixer",
 
     // Major upgrades have heavy breaking changes
+    // Keep Tiptap packages together while @tiptap/pm remains pinned.
+    "@tiptap/core",
+    "@tiptap/markdown",
     "@tiptap/extension-mention",
     "@tiptap/extension-placeholder",
     "@tiptap/pm",
@@ -72,6 +75,9 @@ module.exports = {
 
     "@types/node",
 
+    // pnpm 12's ESM resolver hook breaks Next's TypeScript config loader in Serwist.
+    "pnpm",
+
     // Ultracite 7.10+/Biome 2.5.6 enable mass useSortedKeys failures across the repo.
     // Stay pinned until a dedicated formatting migration.
     "ultracite",
@@ -82,6 +88,9 @@ module.exports = {
     // with an explicit dataCollection config.
     "@sentry/nextjs",
     "@sentry/electron",
+
+    // Electron 45 writes protobuf traces; diagnostics currently redacts JSON.
+    "electron",
 
     // 1.64's Chromium breaks the offline mailbox reconnect spec when it runs
     // after other specs in the same CI batch.
