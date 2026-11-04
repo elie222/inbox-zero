@@ -23,10 +23,10 @@
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "electron": "44.9.0",
-    "electron-builder": "26.15.3",
+    "electron-builder": "26.18.0",
     "esbuild": "0.28.2",
     "typescript": "6.0.3",
-    "vitest": "5.0.5"
+    "vitest": "5.1.0"
   },
   "dependencies": {
     "@inboxzero/mail-core": "workspace:*",
@@ -34,7 +34,7 @@
     "@inboxzero/mail-sqlite": "workspace:*",
     "@inboxzero/mail-ui": "workspace:*",
     "@sentry/electron": "7.20.1",
-    "electron-updater": "6.8.9",
+    "electron-updater": "6.8.11",
     "react": "19.3.1",
     "react-dom": "19.3.1"
   }

@@ -32,14 +32,14 @@
   "devDependencies": {
     "@biomejs/biome": "2.5.2",
     "@clack/prompts": "1.8.1",
-    "@turbo/gen": "2.11.9",
+    "@turbo/gen": "2.11.10",
     "commander": "15.0.0",
     "husky": "9.1.7",
-    "konsistent": "1.0.0-beta.12",
+    "konsistent": "1.0.0-beta.13",
     "lint-staged": "17.6.0",
     "tsconfig-paths": "4.2.0",
     "tsx": "4.23.15",
-    "turbo": "2.11.9",
+    "turbo": "2.11.10",
     "ultracite": "7.8.4"
   },
   "packageManager": "pnpm@11.19.0",
