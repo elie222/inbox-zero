@@ -22,7 +22,7 @@
     "@types/node": "24.10.1",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
-    "electron": "45.2.1",
+    "electron": "44.9.0",
     "electron-builder": "26.18.0",
     "esbuild": "0.28.2",
     "typescript": "6.0.3",

@@ -89,6 +89,9 @@ module.exports = {
     "@sentry/nextjs",
     "@sentry/electron",
 
+    // Electron 45 writes protobuf traces; diagnostics currently redacts JSON.
+    "electron",
+
     // 1.64's Chromium breaks the offline mailbox reconnect spec when it runs
     // after other specs in the same CI batch.
     "@playwright/test",
