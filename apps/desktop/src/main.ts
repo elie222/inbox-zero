@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   app,
-  BrowserWindow,
+  BaseWindow,
   dialog,
   ipcMain,
   nativeTheme,
@@ -15,6 +15,7 @@ import {
   session,
   shell,
   utilityProcess,
+  WebContentsView,
   type Session,
   type WebContents,
   type IpcMainEvent,
@@ -86,15 +87,23 @@ const PENDING_CALLBACK_PATH_FILE = "pending-auth-callback-path";
 const LAST_APP_URL_FILE = "last-app-url";
 const WINDOWS_STATE_FILE = "windows.json";
 
-const windows: BrowserWindow[] = [];
-const lastUrlByWindow = new WeakMap<BrowserWindow, string>();
+// A tab owns one page. Every window currently holds exactly one tab.
+type AppTab = {
+  view: WebContentsView;
+  contents: WebContents;
+  // Last URL worth restoring on the next launch; unset on the login page.
+  restoreUrl?: string;
+};
+type AppWindow = { window: BaseWindow; tabs: AppTab[]; activeTab: AppTab };
+
+const appWindows: AppWindow[] = [];
 const unreadByContents = new Map<number, number>();
 const loadRecoveryByContents = new Map<
   number,
   ReturnType<typeof installDesktopLoadRecovery>
 >();
 let lastResumedAt: number | null = null;
-let lastFocused: BrowserWindow | null = null;
+let lastFocused: AppWindow | null = null;
 let persistWindowsTimer: ReturnType<typeof setTimeout> | undefined;
 let pendingAuthProof: { verifier: string; expiresAt: number } | null = null;
 const handledAuthStates = new Set<string>();
@@ -112,7 +121,7 @@ const localMailUrl = shouldUseLocalMailRenderer()
   : null;
 const mailNotifier = createMailNotifier({
   origin: appOrigin,
-  isFocused: () => windows.some((window) => window.isFocused()),
+  isFocused: () => appWindows.some(({ window }) => window.isFocused()),
   isSupported: () => Notification.isSupported(),
   createNotification: (options) => new Notification(options),
   openWindow: openAppWindow,
@@ -270,7 +279,7 @@ function startDesktopApp() {
   app.on("before-quit", () => {
     isQuitting = true;
     // Skip if windows already closed; last-window `close` already wrote the snapshot.
-    if (windows.length > 0) persistWindowsNow();
+    if (appWindows.length > 0) persistWindowsNow();
     closeDesktopMailOwner().catch(() => undefined);
   });
 
@@ -293,8 +302,11 @@ function startDesktopApp() {
           ).catch(logDesktopUpdateError);
         },
         createWindow: () => createAppWindow(),
+        getActiveContents: (window) =>
+          appWindows.find((appWindow) => appWindow.window === window)?.activeTab
+            .contents,
         openSettings: () => {
-          focusAppWindow().webContents.send("desktop:open-settings");
+          focusAppWindow().activeTab.contents.send("desktop:open-settings");
         },
         recordDiagnostics: () => {
           recordDesktopDiagnostics({
@@ -396,37 +408,42 @@ function subscribeToUpdateStatus(contents: WebContents) {
 // On macOS the last window hides instead of closing, so a toast there would
 // go unseen.
 function hasVisibleUpdateStatusSubscriber() {
-  return [...updateStatusSubscribers.keys()].some((contents) =>
-    BrowserWindow.fromWebContents(contents)?.isVisible(),
-  );
+  return [...updateStatusSubscribers.keys()].some((contents) => {
+    const match = findTab((tab) => tab.contents === contents);
+    return (
+      match?.appWindow.activeTab === match?.tab &&
+      match?.appWindow.window.isVisible()
+    );
+  });
 }
 
 function syncUpdateProgressBar() {
-  const onView = windows.some(
-    (window) => window.isFocused() && window.isVisible(),
+  const onView = appWindows.some(
+    ({ window }) => window.isFocused() && window.isVisible(),
   );
   const progress =
     downloadPercent === null || !onView
       ? -1
       : Math.min(1, Math.max(0, downloadPercent / 100));
-  for (const window of windows) {
+  for (const { window } of appWindows) {
     if (!window.isDestroyed()) window.setProgressBar(progress);
   }
 }
 
 function restoreAppWindows() {
   for (const state of readStoredWindowStates()) createAppWindow(state);
-  if (windows.length === 0) createAppWindow();
+  if (appWindows.length === 0) createAppWindow();
 }
 
 function createAppWindow(options?: {
   url?: string;
   bounds?: DesktopWindowBounds;
   isMaximized?: boolean;
-}) {
-  const existing = windows[0];
-  if (windows.length === 1 && existing && !existing.isVisible()) {
-    if (options?.url) existing.loadURL(options.url).catch(() => {});
+}): AppWindow {
+  const existing = appWindows[0];
+  if (appWindows.length === 1 && existing && !existing.window.isVisible()) {
+    if (options?.url)
+      existing.activeTab.contents.loadURL(options.url).catch(() => {});
     showWindow(existing);
     return existing;
   }
@@ -438,7 +455,7 @@ function createAppWindow(options?: {
     rendererFile: localMailRendererFile,
   });
   const bounds = resolveWindowBounds(options?.bounds);
-  const window = new BrowserWindow({
+  const window = new BaseWindow({
     width: bounds?.width ?? DEFAULT_DESKTOP_WINDOW_WIDTH,
     height: bounds?.height ?? DEFAULT_DESKTOP_WINDOW_HEIGHT,
     ...(bounds ? { x: bounds.x, y: bounds.y } : {}),
@@ -446,33 +463,26 @@ function createAppWindow(options?: {
     minHeight: MIN_DESKTOP_WINDOW_HEIGHT,
     title: "Inbox Zero",
     ...getDesktopWindowChrome(),
-    webPreferences: {
-      preload: path.join(import.meta.dirname, "preload.cjs"),
-      partition: PARTITION,
-      contextIsolation: true,
-      sandbox: true,
-      nodeIntegration: false,
-      backgroundThrottling: false,
-    },
   });
-
-  // `closed` fires after the window is destroyed, when its webContents can no
-  // longer be read.
-  const contentsId = window.webContents.id;
-  windows.push(window);
-  lastFocused = window;
+  const tab = createAppTab(startUrl);
+  const appWindow: AppWindow = { window, tabs: [tab], activeTab: tab };
+  appWindows.push(appWindow);
+  lastFocused = appWindow;
+  window.contentView.addChildView(tab.view);
+  layoutActiveTab(appWindow);
   applyUnreadBadge();
-  rememberWindowUrl(window, startUrl);
-  if (options?.isMaximized) window.maximize();
 
-  window.on("page-title-updated", (event) => {
-    event.preventDefault();
-  });
+  window.on("resize", () => layoutActiveTab(appWindow));
   window.on("focus", () => {
-    lastFocused = window;
+    lastFocused = appWindow;
+    // A BaseWindow does not hand keyboard focus to its views by itself.
+    appWindow.activeTab.contents.focus();
     applyUnreadBadge();
     syncUpdateProgressBar();
   });
+  // The window can take focus before the listener above exists.
+  if (window.isFocused()) tab.contents.focus();
+  if (options?.isMaximized) window.maximize();
   window.on("blur", () => {
     syncUpdateProgressBar();
   });
@@ -483,48 +493,85 @@ function createAppWindow(options?: {
   // Keep the last window alive on macOS so reopening from the dock is instant
   // instead of a cold page load. Extra windows close for real.
   window.on("close", (event) => {
-    if (process.platform === "darwin" && !isQuitting && windows.length <= 1) {
+    if (
+      process.platform === "darwin" &&
+      !isQuitting &&
+      appWindows.length <= 1
+    ) {
       event.preventDefault();
       window.hide();
-    } else if (!isQuitting && windows.length === 1) {
+    } else if (!isQuitting && appWindows.length === 1) {
       // Persist before the last window is removed so quit/close cannot write [].
       persistWindowsNow();
     }
   });
   window.on("closed", () => {
-    const index = windows.indexOf(window);
-    if (index !== -1) windows.splice(index, 1);
-    unreadByContents.delete(contentsId);
-    loadRecoveryByContents.delete(contentsId);
-    if (lastFocused === window) lastFocused = windows.at(-1) ?? null;
+    const index = appWindows.indexOf(appWindow);
+    if (index !== -1) appWindows.splice(index, 1);
+    for (const tab of appWindow.tabs) destroyAppTab(tab);
+    if (lastFocused === appWindow) lastFocused = appWindows.at(-1) ?? null;
     applyUnreadBadge();
-    if (!isQuitting && windows.length > 0) persistWindowsNow();
+    if (!isQuitting && appWindows.length > 0) persistWindowsNow();
   });
 
-  applyNavigationPolicy(window.webContents);
-  applyDesktopWindowDragRegion(window.webContents);
-  installDesktopContextMenu(window.webContents, {
+  tab.contents.loadURL(startUrl).catch(() => {});
+  return appWindow;
+}
+
+function createAppTab(startUrl: string): AppTab {
+  const view = new WebContentsView({
+    webPreferences: {
+      preload: path.join(import.meta.dirname, "preload.cjs"),
+      partition: PARTITION,
+      contextIsolation: true,
+      sandbox: true,
+      nodeIntegration: false,
+      backgroundThrottling: false,
+    },
+  });
+  view.setBackgroundColor(getDesktopWindowChrome().backgroundColor);
+  const contents = view.webContents;
+  const tab: AppTab = { view, contents };
+  rememberTabUrl(tab, startUrl);
+
+  applyNavigationPolicy(contents);
+  applyDesktopWindowDragRegion(contents);
+  installDesktopContextMenu(contents, {
+    getWindow: () =>
+      findTab((candidate) => candidate === tab)?.appWindow.window,
     openExternal: (url) => {
       openExternal(url).catch(() => {});
     },
   });
-  window.webContents.on("did-navigate", (_event, url) => {
-    rememberWindowUrl(window, url);
+  contents.on("did-navigate", (_event, url) => {
+    rememberTabUrl(tab, url);
   });
-  window.webContents.on("did-navigate-in-page", (_event, url, isMainFrame) => {
-    if (isMainFrame) rememberWindowUrl(window, url);
+  contents.on("did-navigate-in-page", (_event, url, isMainFrame) => {
+    if (isMainFrame) rememberTabUrl(tab, url);
   });
   loadRecoveryByContents.set(
-    contentsId,
-    installDesktopLoadRecovery(window.webContents, {
+    contents.id,
+    installDesktopLoadRecovery(contents, {
       appOrigin,
-      getStartUrl: () => lastUrlByWindow.get(window) ?? startUrl,
+      getStartUrl: () => tab.restoreUrl ?? startUrl,
       onBootFailure: reportBootFailure,
     }),
   );
-  if (shouldSmokeLocalMail()) installLocalMailSmoke(window);
-  window.loadURL(startUrl).catch(() => {});
-  return window;
+  if (shouldSmokeLocalMail()) installLocalMailSmoke(contents);
+  return tab;
+}
+
+// Unlike a BrowserWindow, a BaseWindow does not destroy its views' pages when
+// it closes.
+function destroyAppTab(tab: AppTab) {
+  unreadByContents.delete(tab.contents.id);
+  loadRecoveryByContents.delete(tab.contents.id);
+  if (!tab.contents.isDestroyed()) tab.contents.close();
+}
+
+function layoutActiveTab({ window, activeTab }: AppWindow) {
+  const [width, height] = window.getContentSize();
+  activeTab.view.setBounds({ x: 0, y: 0, width, height });
 }
 
 function reportBootFailure(failure: DesktopBootFailure) {
@@ -551,7 +598,10 @@ function resolveWindowBounds(
       screen.getDisplayMatching(stored).workArea,
     );
   }
-  const source = lastFocused && !lastFocused.isDestroyed() ? lastFocused : null;
+  const source =
+    lastFocused && !lastFocused.window.isDestroyed()
+      ? lastFocused.window
+      : null;
   if (!source) return;
   const bounds = source.getNormalBounds();
   return fitWindowBoundsToWorkArea(
@@ -560,16 +610,16 @@ function resolveWindowBounds(
   );
 }
 
-function rememberWindowUrl(window: BrowserWindow, url: string) {
+function rememberTabUrl(tab: AppTab, url: string) {
   if (url.startsWith("data:") || url === "about:blank") return;
   if (URL.parse(url)?.pathname === "/login") {
-    lastUrlByWindow.delete(window);
+    tab.restoreUrl = undefined;
     clearMailIndicators();
     schedulePersistWindows();
     return;
   }
   if (getDesktopSessionRestoreUrl(appOrigin, url)) {
-    lastUrlByWindow.set(window, url);
+    tab.restoreUrl = url;
     schedulePersistWindows();
   }
 }
@@ -593,10 +643,10 @@ function schedulePersistWindows() {
 function persistWindowsNow() {
   clearTimeout(persistWindowsTimer);
   persistWindowsTimer = undefined;
-  const states = windows
-    .flatMap((window) => {
+  const states = appWindows
+    .flatMap(({ window, activeTab }) => {
       if (window.isDestroyed()) return [];
-      const url = lastUrlByWindow.get(window);
+      const url = activeTab.restoreUrl;
       if (!url) return [];
       return [
         {
@@ -621,7 +671,7 @@ function persistWindowsNow() {
 
 function isTrustedDesktopEvent(event: IpcMainEvent | IpcMainInvokeEvent) {
   if (
-    !windows.some((window) => event.sender === window.webContents) ||
+    !findTab((tab) => tab.contents === event.sender) ||
     event.senderFrame !== event.sender.mainFrame
   ) {
     return false;
@@ -632,8 +682,8 @@ function isTrustedDesktopEvent(event: IpcMainEvent | IpcMainInvokeEvent) {
 
 function applyUnreadBadge() {
   const count =
-    lastFocused && !lastFocused.isDestroyed()
-      ? (unreadByContents.get(lastFocused.webContents.id) ?? 0)
+    lastFocused && !lastFocused.window.isDestroyed()
+      ? (unreadByContents.get(lastFocused.activeTab.contents.id) ?? 0)
       : 0;
   setUnreadBadge(count);
 }
@@ -693,43 +743,51 @@ function guardNavigation(event: { preventDefault: () => void }, url: string) {
 function openAppWindow(url: string, options?: { navigate?: boolean }) {
   const accountId = getDesktopMailAccountId(url, appOrigin);
   const existing = accountId
-    ? windows.find((window) => windowAccountId(window) === accountId)
+    ? findTab((tab) => tabAccountId(tab) === accountId)
     : undefined;
   if (existing) {
+    const { appWindow, tab } = existing;
     if (options?.navigate) {
-      const current =
-        lastUrlByWindow.get(existing) ?? existing.webContents.getURL();
-      if (current !== url) existing.loadURL(url).catch(() => {});
+      const current = tab.restoreUrl ?? tab.contents.getURL();
+      if (current !== url) tab.contents.loadURL(url).catch(() => {});
     }
-    showWindow(existing);
-    return existing;
+    showWindow(appWindow);
+    return appWindow;
   }
   return createAppWindow({ url });
 }
 
-function windowAccountId(window: BrowserWindow) {
+function findTab(predicate: (tab: AppTab) => boolean) {
+  for (const appWindow of appWindows) {
+    const tab = appWindow.tabs.find(predicate);
+    if (tab) return { appWindow, tab };
+  }
+}
+
+function tabAccountId(tab: AppTab) {
   return getDesktopMailAccountId(
-    lastUrlByWindow.get(window) ?? window.webContents.getURL(),
+    tab.restoreUrl ?? tab.contents.getURL(),
     appOrigin,
   );
 }
 
-function focusAppWindow(): BrowserWindow {
-  const window =
-    (lastFocused && !lastFocused.isDestroyed() ? lastFocused : windows[0]) ??
-    createAppWindow();
-  showWindow(window);
-  return window;
+function focusAppWindow(): AppWindow {
+  const appWindow =
+    (lastFocused && !lastFocused.window.isDestroyed()
+      ? lastFocused
+      : appWindows[0]) ?? createAppWindow();
+  showWindow(appWindow);
+  return appWindow;
 }
 
-function showWindow(window: BrowserWindow) {
+function showWindow({ window }: AppWindow) {
   if (window.isMinimized()) window.restore();
   window.show();
   window.focus();
 }
 
 async function handleAuthCallbackUrl(url: string) {
-  const window = focusAppWindow();
+  const contents = focusAppWindow().activeTab.contents;
   const callback = parseDesktopAuthCallback(url);
   if (!callback.ok) {
     // The callback text comes from the URL, so keep it out of telemetry.
@@ -750,13 +808,13 @@ async function handleAuthCallbackUrl(url: string) {
       throw new Error("Start signing in again from the desktop app");
     }
     await exchangeAuthCode(
-      window.webContents.session,
+      contents.session,
       callback.code,
       callback.state,
       proof.verifier,
     );
     if (pendingAuthProof === proof) pendingAuthProof = null;
-    await window.loadURL(consumePostAuthUrl()).catch(() => {});
+    await contents.loadURL(consumePostAuthUrl()).catch(() => {});
   } catch (error) {
     handledAuthStates.delete(callback.state);
     reportSignInError(error);
@@ -905,21 +963,21 @@ function readMailboxBytes() {
   return bytes;
 }
 
-function installLocalMailSmoke(window: BrowserWindow) {
+function installLocalMailSmoke(contents: WebContents) {
   const deadline = setTimeout(() => {
     writeLocalMailSmoke({
-      url: window.isDestroyed() ? "" : window.webContents.getURL(),
+      url: contents.isDestroyed() ? "" : contents.getURL(),
       ready: false,
     });
     finishLocalMailSmoke(1);
   }, 20_000);
 
   const onFinish = () => {
-    if (window.isDestroyed()) return;
-    const url = window.webContents.getURL();
+    if (contents.isDestroyed()) return;
+    const url = contents.getURL();
     if (!url.startsWith("file:")) return;
-    window.webContents.off("did-finish-load", onFinish);
-    waitForLocalMailReady(window)
+    contents.off("did-finish-load", onFinish);
+    waitForLocalMailReady(contents)
       .then(async (ready) => {
         const engine = ready && (await isLocalMailEngineReady());
         clearTimeout(deadline);
@@ -932,14 +990,14 @@ function installLocalMailSmoke(window: BrowserWindow) {
         finishLocalMailSmoke(1);
       });
   };
-  window.webContents.on("did-finish-load", onFinish);
+  contents.on("did-finish-load", onFinish);
 }
 
-async function waitForLocalMailReady(window: BrowserWindow) {
+async function waitForLocalMailReady(contents: WebContents) {
   for (let attempt = 0; attempt < 40; attempt++) {
-    if (window.isDestroyed()) return false;
+    if (contents.isDestroyed()) return false;
     const text = String(
-      await window.webContents
+      await contents
         .executeJavaScript('document.body ? document.body.innerText : ""')
         .catch(() => ""),
     );
