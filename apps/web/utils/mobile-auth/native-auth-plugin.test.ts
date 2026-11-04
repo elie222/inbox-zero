@@ -1,35 +1,43 @@
 import { describe, expect, it } from "vitest";
-import { isAllowedExpoAuthorizationUrl, safeExpo } from "./expo";
+import {
+  isAllowedNativeAuthorizationUrl,
+  nativeAuthPlugin,
+} from "./native-auth-plugin";
 
-describe("safe Expo Better Auth plugin", () => {
-  it("does not install the stock cookie-in-callback redirect hook", () => {
-    expect(safeExpo()).not.toHaveProperty("hooks.after");
+describe("native auth Better Auth plugin", () => {
+  it("copies expo-origin into origin for native client requests", async () => {
+    const request = new Request(
+      "https://www.getinboxzero.com/api/auth/session",
+      { headers: { "expo-origin": "inboxzero://" } },
+    );
+
+    const result = await nativeAuthPlugin().onRequest(request);
+
+    expect(result?.request.headers.get("origin")).toBe("inboxzero://");
   });
 
-  it("copies expo-origin into origin for mobile Better Auth requests", async () => {
-    const plugin = safeExpo();
+  it("keeps an origin the request already has", async () => {
     const request = new Request(
       "https://www.getinboxzero.com/api/auth/session",
       {
         headers: {
+          origin: "https://www.getinboxzero.com",
           "expo-origin": "inboxzero://",
         },
       },
     );
 
-    const result = await plugin.onRequest(request);
-
-    expect(result?.request.headers.get("origin")).toBe("inboxzero://");
+    expect(await nativeAuthPlugin().onRequest(request)).toBeUndefined();
   });
 
-  it("keeps the Expo authorization proxy path", () => {
-    expect(safeExpo().endpoints.expoAuthorizationProxy.path).toBe(
+  it("keeps the authorization proxy path the native clients call", () => {
+    expect(nativeAuthPlugin().endpoints.nativeAuthorizationProxy.path).toBe(
       "/expo-authorization-proxy",
     );
   });
 });
 
-describe("Expo authorization URL allowlist", () => {
+describe("native authorization URL allowlist", () => {
   const baseURL = "http://localhost:3001";
 
   it("allows the local emulator only when local http is enabled", () => {
@@ -39,8 +47,8 @@ describe("Expo authorization URL allowlist", () => {
       "http://google.localhost:3003/o/oauth2/v2/auth",
     ]) {
       const url = new URL(emulator);
-      expect(isAllowedExpoAuthorizationUrl(url, baseURL, true)).toBe(true);
-      expect(isAllowedExpoAuthorizationUrl(url, baseURL, false)).toBe(false);
+      expect(isAllowedNativeAuthorizationUrl(url, baseURL, true)).toBe(true);
+      expect(isAllowedNativeAuthorizationUrl(url, baseURL, false)).toBe(false);
     }
   });
 
@@ -51,7 +59,7 @@ describe("Expo authorization URL allowlist", () => {
       "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
     ]) {
       expect(
-        isAllowedExpoAuthorizationUrl(new URL(provider), baseURL, false),
+        isAllowedNativeAuthorizationUrl(new URL(provider), baseURL, false),
       ).toBe(true);
     }
     for (const rejected of [
@@ -61,7 +69,7 @@ describe("Expo authorization URL allowlist", () => {
       "http://evil.example/o/oauth2/v2/auth",
     ]) {
       expect(
-        isAllowedExpoAuthorizationUrl(new URL(rejected), baseURL, true),
+        isAllowedNativeAuthorizationUrl(new URL(rejected), baseURL, true),
       ).toBe(false);
     }
   });
@@ -76,20 +84,20 @@ describe("Expo authorization URL allowlist", () => {
       "https://mail.example:8444",
       "http://evil.example:3003",
     ];
-    expect(isAllowedExpoAuthorizationUrl(google, baseURL, false, origins)).toBe(
-      true,
-    );
     expect(
-      isAllowedExpoAuthorizationUrl(microsoft, baseURL, false, origins),
+      isAllowedNativeAuthorizationUrl(google, baseURL, false, origins),
     ).toBe(true);
     expect(
-      isAllowedExpoAuthorizationUrl(
+      isAllowedNativeAuthorizationUrl(microsoft, baseURL, false, origins),
+    ).toBe(true);
+    expect(
+      isAllowedNativeAuthorizationUrl(
         new URL("http://evil.example:3003/o/oauth2/v2/auth"),
         baseURL,
         true,
         origins,
       ),
     ).toBe(false);
-    expect(isAllowedExpoAuthorizationUrl(google, baseURL, false)).toBe(false);
+    expect(isAllowedNativeAuthorizationUrl(google, baseURL, false)).toBe(false);
   });
 });
