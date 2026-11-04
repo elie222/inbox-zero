@@ -15,6 +15,9 @@ export interface CalendarEvent {
   endTime: Date;
   eventUrl?: string;
   id: string;
+  // Set for all-day events (holidays, offsites, OOO). Their start and end are
+  // date boundaries rather than a meeting time.
+  isAllDay?: boolean;
   // True when the connected calendar's own account organizes the event. This is
   // relative to the calendar connection, which is not always the EmailAccount.
   isOrganizer?: boolean;
