@@ -11,12 +11,12 @@
   },
   "dependencies": {
     "@react-email/components": "1.0.12",
-    "@react-email/render": "2.1.1",
+    "@react-email/render": "2.2.0",
     "nanoid": "6.0.2",
     "react": "19.3.1",
     "react-dom": "19.3.1",
-    "react-email": "6.11.3",
-    "resend": "6.34.1"
+    "react-email": "6.11.6",
+    "resend": "6.37.0"
   },
   "devDependencies": {
     "@react-email/preview-server": "5.2.10",
@@ -25,6 +25,6 @@
     "@types/react-dom": "19.3.0",
     "tsconfig": "workspace:*",
     "typescript": "6.0.3",
-    "vitest": "5.0.5"
+    "vitest": "5.1.0"
   }
 }

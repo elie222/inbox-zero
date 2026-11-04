@@ -36,13 +36,13 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "parse5": "8.0.1"
+    "parse5": "8.1.0"
   },
   "peerDependencies": {
     "dompurify": "3.4.17",
     "react": ">=19",
     "react-dom": ">=19",
-    "squire-rte": "2.4.9"
+    "squire-rte": "^2.4.9"
   },
   "peerDependenciesMeta": {
     "dompurify": {
@@ -66,9 +66,9 @@
     "jsdom": "27.3.0",
     "react": "19.3.1",
     "react-dom": "19.3.1",
-    "squire-rte": "2.4.9",
+    "squire-rte": "2.4.10",
     "typescript": "6.0.3",
-    "vitest": "5.0.5"
+    "vitest": "5.1.0"
   },
   "publishConfig": {
     "access": "public"

@@ -20,6 +20,9 @@ module.exports = {
     "autoprefixer",
 
     // Major upgrades have heavy breaking changes
+    // Keep Tiptap packages together while @tiptap/pm remains pinned.
+    "@tiptap/core",
+    "@tiptap/markdown",
     "@tiptap/extension-mention",
     "@tiptap/extension-placeholder",
     "@tiptap/pm",
