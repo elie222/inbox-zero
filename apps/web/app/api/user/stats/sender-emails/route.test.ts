@@ -18,7 +18,7 @@ describe("GET /api/user/stats/sender-emails", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(prisma.$queryRaw).mockResolvedValue([
-      { startOfPeriod: new Date("2026-10-05T00:00:00.000Z"), count: 3n },
+      { startOfPeriod: new Date(2026, 9, 5), count: 3n },
     ]);
   });
 
