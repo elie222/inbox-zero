@@ -471,7 +471,6 @@ function createAppWindow(options?: {
   window.contentView.addChildView(tab.view);
   layoutActiveTab(appWindow);
   applyUnreadBadge();
-  if (options?.isMaximized) window.maximize();
 
   window.on("resize", () => layoutActiveTab(appWindow));
   window.on("focus", () => {
@@ -481,6 +480,9 @@ function createAppWindow(options?: {
     applyUnreadBadge();
     syncUpdateProgressBar();
   });
+  // The window can take focus before the listener above exists.
+  if (window.isFocused()) tab.contents.focus();
+  if (options?.isMaximized) window.maximize();
   window.on("blur", () => {
     syncUpdateProgressBar();
   });
