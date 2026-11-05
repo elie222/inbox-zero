@@ -111,7 +111,9 @@ describe("bundleInboxThreads", () => {
       ],
     };
     const threads = [
+      thread("news1", ["Label_newsletter"]),
       thread("unrelated1", ["UNREAD"]),
+      thread("news2", ["Label_newsletter"]),
       thread("unrelated2", ["UNREAD"]),
     ];
     const { rows, rowBundles } = bundleInboxThreads({
