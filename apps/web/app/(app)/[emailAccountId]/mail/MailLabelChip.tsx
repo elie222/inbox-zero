@@ -76,21 +76,22 @@ export function MailLabelChip({
  * `CHIP_COLORS` both derive from these keys, so a new colour is picked up by the
  * hash the moment it is added here.
  *
- * bg / border / text, light-scoped: the Mail palette has no dark variant.
+ * bg / border / text. The Mail palette only has light shades, so dark mode
+ * switches to a faint tint of the hue with light text to stay readable.
  */
 const CHIP_CLASSES = {
-  blue: "text-primary before:border-new-blue-150 before:bg-new-blue-50",
+  blue: "text-primary before:border-new-blue-150 before:bg-new-blue-50 dark:text-blue-300 dark:before:border-blue-400/25 dark:before:bg-blue-400/15",
   green:
-    "text-new-green-600 before:border-new-green-150 before:bg-new-green-50",
+    "text-new-green-600 before:border-new-green-150 before:bg-new-green-50 dark:text-green-300 dark:before:border-green-400/25 dark:before:bg-green-400/15",
   purple:
-    "text-new-purple-600 before:border-new-purple-200 before:bg-new-purple-50",
+    "text-new-purple-600 before:border-new-purple-200 before:bg-new-purple-50 dark:text-purple-300 dark:before:border-purple-400/25 dark:before:bg-purple-400/15",
   orange:
-    "text-new-orange-600 before:border-new-orange-150 before:bg-new-orange-50",
-  red: "text-new-red-500 before:border-new-red-150 before:bg-new-red-50",
-  gray: "text-new-gray-550 before:border-new-gray-150 before:bg-new-gray-100",
-  cyan: "text-new-cyan-700 before:border-new-cyan-200 before:bg-new-cyan-100",
+    "text-new-orange-600 before:border-new-orange-150 before:bg-new-orange-50 dark:text-orange-300 dark:before:border-orange-400/25 dark:before:bg-orange-400/15",
+  red: "text-new-red-500 before:border-new-red-150 before:bg-new-red-50 dark:text-red-300 dark:before:border-red-400/25 dark:before:bg-red-400/15",
+  gray: "text-new-gray-550 before:border-new-gray-150 before:bg-new-gray-100 dark:text-gray-300 dark:before:border-gray-400/25 dark:before:bg-gray-400/15",
+  cyan: "text-new-cyan-700 before:border-new-cyan-200 before:bg-new-cyan-100 dark:text-cyan-300 dark:before:border-cyan-400/25 dark:before:bg-cyan-400/15",
   yellow:
-    "text-new-yellow-600 before:border-new-yellow-150 before:bg-new-yellow-50",
+    "text-new-yellow-600 before:border-new-yellow-150 before:bg-new-yellow-50 dark:text-yellow-200 dark:before:border-yellow-400/25 dark:before:bg-yellow-400/15",
 };
 
 type ChipColor = keyof typeof CHIP_CLASSES;

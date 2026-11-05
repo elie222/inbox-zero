@@ -197,6 +197,9 @@ model EmailAccount {
 
   mailLayout          MailLayout @default(LIST)
   mailExpandedPreview Boolean    @default(false)
+  /// Collapses threads from bundled splits into one row each in the inbox.
+  /// Null until first turned on, which is when default bundles are chosen.
+  mailBundleInbox     Boolean?
 
   includeInAllAccounts Boolean @default(true)
 
@@ -292,6 +295,8 @@ model MailSplit {
   /// Whether every filter must match, or any one of them ("Show mail matching
   /// all/any of these conditions"). A split with no filters is the plain inbox.
   matchAll  Boolean  @default(true)
+  /// Shown as one collapsed row in the inbox when the account bundles its inbox.
+  bundleInInbox Boolean @default(false)
 
   emailAccountId String
   emailAccount   EmailAccount      @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)

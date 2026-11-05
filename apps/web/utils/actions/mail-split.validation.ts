@@ -66,10 +66,16 @@ export const reorderMailSplitsBody = z.object({
 export const deleteMailSplitBody = z.object({ id: z.string() });
 export type DeleteMailSplitBody = z.infer<typeof deleteMailSplitBody>;
 
+export const setMailSplitBundleBody = z.object({
+  id: z.string(),
+  bundleInInbox: z.boolean(),
+});
+
 export const updateMailPreferencesBody = z
   .object({
     layout: z.nativeEnum(MailLayout).optional(),
     expandedPreview: z.boolean().optional(),
+    bundleInbox: z.boolean().optional(),
   })
   // Every field is optional so a caller can update one preference without
   // restating the others, which would otherwise also accept an empty update.

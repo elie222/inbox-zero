@@ -13,6 +13,7 @@ import {
 import { createPortal } from "react-dom";
 import {
   ContextMenu,
+  ContextMenuCheckboxItem,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
@@ -27,6 +28,10 @@ export type MailSplitTab = {
   deletable: boolean;
   /** Saved splits can be dragged into a new position; synthetic ones stay put. */
   reorderable?: boolean;
+  /** Collapsed into one row in the inbox when bundling is on. */
+  bundleInInbox?: boolean;
+  /** Whether this split can be bundled at all; see `isBundleEligibleSplit`. */
+  bundleEligible?: boolean;
 };
 
 export type SplitTabsProps = {
@@ -37,6 +42,8 @@ export type SplitTabsProps = {
   onSelect: (splitId: string) => void;
   onDelete: (splitId: string) => void;
   onEdit?: (splitId: string) => void;
+  /** Offered only while inbox bundling is on. */
+  onToggleBundle?: (splitId: string, bundleInInbox: boolean) => void;
   /** Receives every reorderable split id in its new order. */
   onReorder?: (ids: string[]) => void;
   onNewSplit: () => void;
@@ -54,6 +61,7 @@ export function SplitTabs({
   onSelect,
   onDelete,
   onEdit,
+  onToggleBundle,
   onReorder,
   onNewSplit,
   canCreateSplits,
@@ -218,6 +226,16 @@ export function SplitTabs({
                   <ContextMenuItem onSelect={() => onEdit(split.id)}>
                     Edit filters and name
                   </ContextMenuItem>
+                )}
+                {onToggleBundle && split.bundleEligible && (
+                  <ContextMenuCheckboxItem
+                    checked={!!split.bundleInInbox}
+                    onCheckedChange={(checked) =>
+                      onToggleBundle(split.id, checked)
+                    }
+                  >
+                    Bundle in Inbox
+                  </ContextMenuCheckboxItem>
                 )}
                 <ContextMenuItem
                   className="text-destructive focus:text-destructive"

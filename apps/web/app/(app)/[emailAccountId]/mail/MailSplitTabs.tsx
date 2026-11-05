@@ -21,6 +21,7 @@ import {
   createMailSplitAction,
   deleteMailSplitAction,
   reorderMailSplitsAction,
+  setMailSplitBundleAction,
   updateMailSplitAction,
 } from "@/utils/actions/mail-split";
 import { toggleRuleAction } from "@/utils/actions/rule";
@@ -223,6 +224,48 @@ export const MailSplitTabs = memo(function MailSplitTabs({
     [activeSplitId, emailAccountId, mutateSettings, onSelectSplit],
   );
 
+  const onToggleBundle = useCallback(
+    async (splitId: string, bundleInInbox: boolean) => {
+      if (!settings) return;
+      const loadedSettings = settings;
+      await mutateSettings(
+        async (current) => {
+          const result = await setMailSplitBundleAction(emailAccountId, {
+            id: splitId,
+            bundleInInbox,
+          });
+          if (result?.serverError || result?.validationErrors)
+            throw new Error(getActionErrorMessage(result));
+          const base = current ?? loadedSettings;
+          return {
+            ...base,
+            splits: base.splits.map((split) =>
+              split.id === splitId ? { ...split, bundleInInbox } : split,
+            ),
+          };
+        },
+        {
+          optimisticData: (current) => {
+            const base = current ?? loadedSettings;
+            return {
+              ...base,
+              splits: base.splits.map((split) =>
+                split.id === splitId ? { ...split, bundleInInbox } : split,
+              ),
+            };
+          },
+          revalidate: true,
+          rollbackOnError: true,
+        },
+      ).catch((error) => {
+        toast.error(
+          error instanceof Error ? error.message : "Couldn't save that",
+        );
+      });
+    },
+    [emailAccountId, mutateSettings, settings],
+  );
+
   const onToggleSystemType = useCallback(
     async (systemType: SystemType, enabled: boolean) => {
       const result = await toggleRuleAction(emailAccountId, {
@@ -249,6 +292,9 @@ export const MailSplitTabs = memo(function MailSplitTabs({
         activeSplitId={activeSplitId}
         onSelect={onSelectSplit}
         onDelete={onDelete}
+        onToggleBundle={
+          settings?.bundleInbox && !isAllAccounts ? onToggleBundle : undefined
+        }
         onReorder={isAllAccounts ? undefined : onReorder}
         onEdit={
           isAllAccounts

@@ -7,12 +7,14 @@ import { MailLayout, MailSplitFilterKind } from "@/generated/prisma/enums";
 const mailSettingsSchema = z.object({
   layout: z.enum(MailLayout).nullable(),
   expandedPreview: z.boolean(),
+  bundleInbox: z.boolean(),
   splits: z.array(
     z.object({
       id: z.string(),
       name: z.string(),
       order: z.number(),
       matchAll: z.boolean(),
+      bundleInInbox: z.boolean(),
       filters: z.array(
         z.object({
           kind: z.enum(MailSplitFilterKind),

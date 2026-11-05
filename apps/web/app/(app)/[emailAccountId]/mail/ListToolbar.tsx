@@ -17,6 +17,7 @@ import {
   ArchiveRestoreIcon,
   ChevronDownIcon,
   ColumnsIcon,
+  LayersIcon,
   MailIcon,
   MailOpenIcon,
   PanelLeftIcon,
@@ -72,6 +73,9 @@ export type ListToolbarProps = {
   searchVariant?: "gmail" | "outlook" | "common";
   onToggleLayout: () => void;
   onTogglePreview: () => void;
+  bundleInbox: boolean;
+  /** Omitted outside the single-account inbox, where bundling never applies. */
+  onToggleBundleInbox?: () => void;
   onToggleAssistant: () => void;
   /** Rendered here only when the split tabs row isn't showing to hold it. */
   selectAll?: ReactNode;
@@ -106,6 +110,8 @@ export const ListToolbar = memo(function ListToolbar({
   searchVariant = "gmail",
   onToggleLayout,
   onTogglePreview,
+  bundleInbox,
+  onToggleBundleInbox,
   onToggleAssistant,
   selectAll,
   selectedCount,
@@ -264,6 +270,30 @@ export const ListToolbar = memo(function ListToolbar({
           searchVariant={searchVariant}
         />
       )}
+
+      {selectedCount === 0 && onToggleBundleInbox ? (
+        <Tooltip
+          content={
+            bundleInbox
+              ? "Show every email on its own row"
+              : "Bundle low-priority emails in the inbox"
+          }
+        >
+          <button
+            type="button"
+            onClick={onToggleBundleInbox}
+            aria-label="Bundle low-priority emails"
+            aria-pressed={bundleInbox}
+            className={cn(
+              toolbarButton,
+              "w-8 justify-center px-0",
+              bundleInbox && "bg-muted text-foreground",
+            )}
+          >
+            <LayersIcon className="size-3.5" />
+          </button>
+        </Tooltip>
+      ) : null}
 
       {selectedCount === 0 ? (
         <Tooltip
