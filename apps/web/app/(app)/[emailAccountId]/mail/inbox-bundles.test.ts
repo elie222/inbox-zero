@@ -79,6 +79,28 @@ describe("bundleInboxThreads", () => {
     expect(rowBundles.get("n1")?.bundle.threads).toHaveLength(2);
   });
 
+  it("keeps mail from a sender the user split out of bundles", () => {
+    const boss = {
+      id: "boss",
+      name: "Boss",
+      matchAll: true,
+      bundleInInbox: false,
+      filters: [{ kind: "FROM" as const, value: "boss@example.com" }],
+    };
+    const { rows } = bundleInboxThreads({
+      threads: [
+        thread("from-boss", ["Label_notification"], "boss@example.com"),
+        thread("n1", ["Label_notification"]),
+        thread("n2", ["Label_notification"]),
+      ],
+      splits: [notifications, boss],
+      expandedBundleIds: new Set(),
+      keepVisible: () => false,
+    });
+
+    expect(rows.map((row) => row.id)).toEqual(["from-boss", "n1"]);
+  });
+
   it("leaves a lone match as an ordinary row", () => {
     const threads = [
       thread("n1", ["Label_notification"]),
@@ -106,7 +128,11 @@ function split(id: string, labelId: string, bundleInInbox: boolean) {
   };
 }
 
-function thread(id: string, labelIds: string[]) {
+let nextTimestamp = 1_767_225_600_000;
+
+/** Each call is older than the last, matching the inbox's newest-first order. */
+function thread(id: string, labelIds: string[], from = "sender@example.com") {
+  nextTimestamp -= 60_000;
   return {
     id,
     snippet: "",
@@ -115,8 +141,8 @@ function thread(id: string, labelIds: string[]) {
         id: `${id}-message`,
         threadId: id,
         labelIds: ["INBOX", ...labelIds],
-        internalDate: "1767225600000",
-        headers: { from: "sender@example.com", to: "me@example.com" },
+        internalDate: String(nextTimestamp),
+        headers: { from, to: "me@example.com" },
       },
     ],
   } as unknown as ListThread;

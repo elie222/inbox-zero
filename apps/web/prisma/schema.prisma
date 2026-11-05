@@ -198,7 +198,8 @@ model EmailAccount {
   mailLayout          MailLayout @default(LIST)
   mailExpandedPreview Boolean    @default(false)
   /// Collapses threads from bundled splits into one row each in the inbox.
-  mailBundleInbox     Boolean    @default(false)
+  /// Null until first turned on, which is when default bundles are chosen.
+  mailBundleInbox     Boolean?
 
   includeInAllAccounts Boolean @default(true)
 

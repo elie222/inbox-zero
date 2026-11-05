@@ -75,8 +75,11 @@ import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider"
 import { MailProductFrame } from "@inboxzero/mail-ui/MailProductFrame";
 import { MailEngineConnectionBanner } from "@/utils/mail-engine/MailEngineConnectionBanner";
 import { useThreadSelection } from "@/app/(app)/[emailAccountId]/mail/use-thread-selection";
-import { bundleInboxThreads } from "@/app/(app)/[emailAccountId]/mail/inbox-bundles";
-import { getThreadOtpCode } from "@/app/(app)/[emailAccountId]/mail/otp-code";
+import {
+  bundleInboxThreads,
+  isBundleEligibleSplit,
+} from "@/app/(app)/[emailAccountId]/mail/inbox-bundles";
+import { isOtpThread } from "@/app/(app)/[emailAccountId]/mail/otp-code";
 import {
   copySelectedThreadText,
   findSelectAllReader,
@@ -394,6 +397,8 @@ export function MailShell() {
         ...split,
         deletable: split.filters.length > 0,
         reorderable: split.id !== "all" && split.id !== OTHER_SPLIT_ID,
+        bundleEligible:
+          split.id !== OTHER_SPLIT_ID && isBundleEligibleSplit(split),
       })),
     [splits],
   );
@@ -484,7 +489,7 @@ export function MailShell() {
             splits: settings?.splits ?? [],
             expandedBundleIds,
             // A sign-in code is wanted now, so it never waits inside a bundle.
-            keepVisible: (thread) => !!getThreadOtpCode(thread, userLabels),
+            keepVisible: (thread) => isOtpThread(thread, userLabels),
           })
         : { rows: listedThreads, rowBundles: undefined },
     [
@@ -925,10 +930,14 @@ export function MailShell() {
       const nextRow = threads.find(
         (thread) => getListThreadKey(thread) === nextThread?.id,
       );
+      // A bundle row is not one email, so the reader closes on it.
+      const opensRow =
+        nextRow &&
+        rowBundles?.get(getListThreadKey(nextRow))?.kind !== "collapsed";
       setOpenThread(
-        nextRow ? getListThreadSelection(nextRow, emailAccountId) : null,
+        opensRow ? getListThreadSelection(nextRow, emailAccountId) : null,
       );
-      return nextRow ? getListThreadKey(nextRow) : null;
+      return opensRow ? getListThreadKey(nextRow) : null;
     },
   );
   const runOn = useStableCallback(
@@ -993,6 +1002,9 @@ export function MailShell() {
     if (!thread) return;
     const bundleRow = rowBundles?.get(getListThreadKey(thread));
     if (bundleRow?.kind === "collapsed") {
+      // The selection held the bundle; once expanded it would mean one member.
+      selection.clear();
+      setOpenThread(null);
       setFocusedIndex(index);
       toggleBundle(bundleRow.bundle.id);
       return;
@@ -1002,6 +1014,24 @@ export function MailShell() {
     setForwardToMessageId(undefined);
     selection.clear();
     setOpenThread(getListThreadSelection(thread, emailAccountId));
+  });
+
+  const collapseBundle = useStableCallback((bundleId: string) => {
+    const members = [...(rowBundles?.values() ?? [])].find(
+      (row) => row.bundle.id === bundleId,
+    )?.bundle.threads;
+    const leadIndex = members?.[0]
+      ? orderedIds.indexOf(getListThreadKey(members[0]))
+      : -1;
+    // The members are about to be hidden, so the reader can't stay on one.
+    if (
+      openThreadKey &&
+      members?.some((thread) => getListThreadKey(thread) === openThreadKey)
+    )
+      setOpenThread(null);
+    selection.clear();
+    if (leadIndex >= 0) setFocusedIndex(leadIndex);
+    toggleBundle(bundleId);
   });
 
   const move = useCallback(
@@ -1491,7 +1521,7 @@ export function MailShell() {
   // person's name into an address instead of guessing a domain.
   const getSplitSenders = useStableCallback(() => {
     const seen = new Set<string>();
-    for (const thread of threads) {
+    for (const thread of listedThreads) {
       const from = thread.messages.at(-1)?.headers.from;
       const address = from ? extractEmailAddress(from) : null;
       if (address && address !== userEmail) seen.add(address);
@@ -1721,7 +1751,9 @@ export function MailShell() {
                 expandedPreview={expandedPreview}
                 onTogglePreview={togglePreview}
                 bundleInbox={bundleInbox}
-                onToggleBundleInbox={toggleBundleInbox}
+                onToggleBundleInbox={
+                  isInboxView ? toggleBundleInbox : undefined
+                }
                 onToggleAssistant={onToggleAssistant}
                 selectAll={showSplitTabs ? null : selectAllCheckbox}
                 selectedCount={selection.selectedCount}
@@ -1825,7 +1857,7 @@ export function MailShell() {
                         }
                         onScrolledChange={setIsListScrolled}
                         rowBundles={rowBundles}
-                        onToggleBundle={toggleBundle}
+                        onToggleBundle={collapseBundle}
                         listKey={
                           isAllAccounts
                             ? `all-accounts:${searchQuery ?? displayedActiveSplitId}`

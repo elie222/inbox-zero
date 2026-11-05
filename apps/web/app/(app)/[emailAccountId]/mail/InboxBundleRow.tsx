@@ -10,8 +10,9 @@ import { getThreadParticipantNames } from "@/app/(app)/[emailAccountId]/mail/thr
 import type { MailLayoutMode } from "@/app/(app)/[emailAccountId]/mail/types";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/utils";
-import { formatShortDate, internalDateToDate } from "@/utils/date";
+import { formatShortDate } from "@/utils/date";
 import { getConversationSubject } from "@/utils/email/subject";
+import { getThreadTimestamp } from "@/utils/threads/sort";
 
 /** One collapsed row standing in for every inbox thread in a bundled split. */
 export const InboxBundleRow = memo(function InboxBundleRow({
@@ -23,6 +24,7 @@ export const InboxBundleRow = memo(function InboxBundleRow({
   isSelected,
   hasAnySelection,
   compact,
+  expandedPreview,
   selectionEnabled,
   onOpen,
   onToggleSelect,
@@ -37,6 +39,7 @@ export const InboxBundleRow = memo(function InboxBundleRow({
   isSelected: boolean;
   hasAnySelection: boolean;
   compact: boolean;
+  expandedPreview: boolean;
   selectionEnabled: boolean;
   onOpen: (index: number) => void;
   onToggleSelect: (index: number) => void;
@@ -56,8 +59,7 @@ export const InboxBundleRow = memo(function InboxBundleRow({
     [bundle.threads, userEmail],
   );
   const newest = bundle.threads[0];
-  const newestMessage = newest?.messages.at(-1);
-  if (!newest || !newestMessage) return null;
+  if (!newest) return null;
 
   return (
     <MailThreadRow
@@ -65,9 +67,10 @@ export const InboxBundleRow = memo(function InboxBundleRow({
         <LayersIcon aria-hidden className="size-3.5 shrink-0 text-primary" />
       }
       compact={compact}
+      expandedPreview={expandedPreview}
       date={
         <span className="text-muted-foreground text-xs">
-          {formatShortDate(internalDateToDate(newestMessage.internalDate), {
+          {formatShortDate(new Date(getThreadTimestamp(newest)), {
             lowercase: true,
           })}
         </span>

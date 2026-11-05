@@ -153,10 +153,15 @@ export const ThreadList = memo(function ThreadList({
         const bundleRow = rowBundles.get(row.rowKey);
         if (bundleRow?.kind === "collapsed") {
           return (
-            <div data-mail-thread-key={row.rowKey} key={row.rowKey}>
+            <div
+              data-mail-thread-key={row.rowKey}
+              key={row.rowKey}
+              onPointerEnter={() => onHoverThread?.(row.item)}
+            >
               <InboxBundleRow
                 bundle={bundleRow.bundle}
                 compact={isMobile}
+                expandedPreview={expandedPreview}
                 hasAnySelection={row.hasAnySelection}
                 index={row.index}
                 isFocused={row.isFocused}

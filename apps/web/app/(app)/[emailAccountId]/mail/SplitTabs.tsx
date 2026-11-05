@@ -30,6 +30,8 @@ export type MailSplitTab = {
   reorderable?: boolean;
   /** Collapsed into one row in the inbox when bundling is on. */
   bundleInInbox?: boolean;
+  /** Whether this split can be bundled at all; see `isBundleEligibleSplit`. */
+  bundleEligible?: boolean;
 };
 
 export type SplitTabsProps = {
@@ -225,7 +227,7 @@ export function SplitTabs({
                     Edit filters and name
                   </ContextMenuItem>
                 )}
-                {onToggleBundle && (
+                {onToggleBundle && split.bundleEligible && (
                   <ContextMenuCheckboxItem
                     checked={!!split.bundleInInbox}
                     onCheckedChange={(checked) =>

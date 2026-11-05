@@ -74,7 +74,8 @@ export type ListToolbarProps = {
   onToggleLayout: () => void;
   onTogglePreview: () => void;
   bundleInbox: boolean;
-  onToggleBundleInbox: () => void;
+  /** Omitted outside the single-account inbox, where bundling never applies. */
+  onToggleBundleInbox?: () => void;
   onToggleAssistant: () => void;
   /** Rendered here only when the split tabs row isn't showing to hold it. */
   selectAll?: ReactNode;
@@ -270,7 +271,7 @@ export const ListToolbar = memo(function ListToolbar({
         />
       )}
 
-      {selectedCount === 0 ? (
+      {selectedCount === 0 && onToggleBundleInbox ? (
         <Tooltip
           content={
             bundleInbox

@@ -236,7 +236,13 @@ export const MailSplitTabs = memo(function MailSplitTabs({
           });
           if (result?.serverError || result?.validationErrors)
             throw new Error(getActionErrorMessage(result));
-          return current ?? loadedSettings;
+          const base = current ?? loadedSettings;
+          return {
+            ...base,
+            splits: base.splits.map((split) =>
+              split.id === splitId ? { ...split, bundleInInbox } : split,
+            ),
+          };
         },
         {
           optimisticData: (current) => {

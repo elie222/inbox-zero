@@ -45,7 +45,9 @@ export function bundleInboxThreads({
   const matchable = splits
     .filter((split) => split.filters.length && isMatchableOnClient(split))
     .map((split) => ({ split, matches: createSplitMatcher(split, now) }));
-  const bundled = matchable.filter(({ split }) => split.bundleInInbox);
+  const bundled = matchable.filter(
+    ({ split }) => split.bundleInInbox && isBundleEligibleSplit(split),
+  );
   // A thread that also belongs to a split the user did not bundle, like To
   // Reply, needs attention, so it never hides inside a bundle.
   const protectedSplits = matchable.filter(
@@ -117,6 +119,17 @@ const CONTENT_FILTER_KINDS = new Set<MailSplitFilterKind>([
   MailSplitFilterKind.CATEGORY,
   MailSplitFilterKind.FROM,
 ]);
+
+/**
+ * Splits defined by what mail is (a label, category or sender) can bundle.
+ * State-only splits like Unread or Starred would sweep up everything.
+ */
+export function isBundleEligibleSplit(split: MailSplit) {
+  return (
+    split.filters.some((filter) => CONTENT_FILTER_KINDS.has(filter.kind)) &&
+    isMatchableOnClient(split)
+  );
+}
 
 /** Outlook's Focused/Other sections aren't visible on a loaded thread. */
 function isMatchableOnClient(split: MailSplit) {
