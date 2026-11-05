@@ -11,6 +11,7 @@ export async function getMailSettings({
     select: {
       mailLayout: true,
       mailExpandedPreview: true,
+      mailBundleInbox: true,
       mailSplits: {
         // createdAt breaks ties so tab order can't shuffle between requests
         orderBy: [{ order: "asc" }, { createdAt: "asc" }],
@@ -19,6 +20,7 @@ export async function getMailSettings({
           name: true,
           order: true,
           matchAll: true,
+          bundleInInbox: true,
           filters: {
             orderBy: { order: "asc" },
             select: { kind: true, value: true },
@@ -31,6 +33,7 @@ export async function getMailSettings({
   return {
     layout: emailAccount?.mailLayout ?? null,
     expandedPreview: emailAccount?.mailExpandedPreview ?? false,
+    bundleInbox: emailAccount?.mailBundleInbox ?? false,
     splits: ensureAllMailSplit(emailAccount?.mailSplits ?? []),
   };
 }

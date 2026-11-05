@@ -12,12 +12,21 @@ export const INITIAL_MAIL_SPLITS = [
   },
 ];
 
-export function ensureAllMailSplit(splits: (MailSplit & { order: number })[]) {
+export function ensureAllMailSplit(
+  splits: (MailSplit & { order: number; bundleInInbox: boolean })[],
+) {
   if (splits.some((split) => split.filters.length === 0)) return splits;
 
   // Older accounts may have deleted All before the default tab was protected.
   return [
-    { id: "all", name: "All", order: -1, matchAll: true, filters: [] },
+    {
+      id: "all",
+      name: "All",
+      order: -1,
+      matchAll: true,
+      bundleInInbox: false,
+      filters: [],
+    },
     ...splits,
   ];
 }

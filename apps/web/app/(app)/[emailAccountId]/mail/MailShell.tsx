@@ -75,6 +75,8 @@ import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider"
 import { MailProductFrame } from "@inboxzero/mail-ui/MailProductFrame";
 import { MailEngineConnectionBanner } from "@/utils/mail-engine/MailEngineConnectionBanner";
 import { useThreadSelection } from "@/app/(app)/[emailAccountId]/mail/use-thread-selection";
+import { bundleInboxThreads } from "@/app/(app)/[emailAccountId]/mail/inbox-bundles";
+import { getThreadOtpCode } from "@/app/(app)/[emailAccountId]/mail/otp-code";
 import {
   copySelectedThreadText,
   findSelectAllReader,
@@ -236,6 +238,7 @@ export function MailShell() {
   const layout: MailLayoutMode =
     settings?.layout === MailLayout.SPLIT ? "split" : "list";
   const expandedPreview = settings?.expandedPreview ?? false;
+  const bundleInbox = settings?.bundleInbox ?? false;
 
   // Written through the SWR cache rather than mirrored in local state, so the
   // preference has one source of truth and every reader sees the new value.
@@ -244,7 +247,7 @@ export function MailShell() {
       if (!settings) return;
       const loadedSettings = settings;
 
-      mutateSettings(
+      return mutateSettings(
         async (current) => {
           const result = await updateMailPreferencesAction(
             emailAccountId,
@@ -285,6 +288,13 @@ export function MailShell() {
     () => updatePreferences({ expandedPreview: !expandedPreview }),
     [expandedPreview, updatePreferences],
   );
+
+  const toggleBundleInbox = useCallback(async () => {
+    const enabling = !bundleInbox;
+    await updatePreferences({ bundleInbox: enabling });
+    // Turning bundling on picks default splits on the server.
+    if (enabling) mutateSettings();
+  }, [bundleInbox, mutateSettings, updatePreferences]);
 
   // A sidebar selection scopes the whole list, which replaces the split tabs —
   // splits are a way of slicing the inbox, not of slicing an arbitrary view.
@@ -443,10 +453,48 @@ export function MailShell() {
   const { isSyncing } = isAllAccounts
     ? combinedThreadState
     : accountThreadState;
-  const { threads, archive: optimisticArchive } = useOptimisticArchive(
-    searchSettled ? remoteThreads : EMPTY_SEARCH_THREADS,
-    isAllAccounts ? !searchQuery : threadListQueryRequiresInbox(query),
-    JSON.stringify([emailAccountId, isAllAccounts]),
+  const { threads: listedThreads, archive: optimisticArchive } =
+    useOptimisticArchive(
+      searchSettled ? remoteThreads : EMPTY_SEARCH_THREADS,
+      isAllAccounts ? !searchQuery : threadListQueryRequiresInbox(query),
+      JSON.stringify([emailAccountId, isAllAccounts]),
+    );
+  const isInboxView =
+    !isAllAccounts &&
+    !searchQuery &&
+    !scopeQuery &&
+    !!activeSplit &&
+    !activeSplit.filters.length &&
+    activeSplit.id !== OTHER_SPLIT_ID;
+  const [expandedBundleIds, setExpandedBundleIds] = useState<
+    ReadonlySet<string>
+  >(() => new Set());
+  const toggleBundle = useCallback((bundleId: string) => {
+    setExpandedBundleIds((current) => {
+      const next = new Set(current);
+      if (!next.delete(bundleId)) next.add(bundleId);
+      return next;
+    });
+  }, []);
+  const { rows: threads, rowBundles } = useMemo(
+    () =>
+      bundleInbox && isInboxView
+        ? bundleInboxThreads({
+            threads: listedThreads,
+            splits: settings?.splits ?? [],
+            expandedBundleIds,
+            // A sign-in code is wanted now, so it never waits inside a bundle.
+            keepVisible: (thread) => !!getThreadOtpCode(thread, userLabels),
+          })
+        : { rows: listedThreads, rowBundles: undefined },
+    [
+      bundleInbox,
+      isInboxView,
+      listedThreads,
+      settings?.splits,
+      expandedBundleIds,
+      userLabels,
+    ],
   );
   const searchViewIdentity = JSON.stringify([
     emailAccountId,
@@ -524,7 +572,7 @@ export function MailShell() {
   });
   const focusedThread = threads[clampedIndex];
   const openThread = openThreadKey
-    ? threads.find((thread) => getListThreadKey(thread) === openThreadKey)
+    ? listedThreads.find((thread) => getListThreadKey(thread) === openThreadKey)
     : undefined;
   const readAttemptedForOpenThread = useRef<string | null>(null);
   const warmThread = useWarmNeighbourThreads({
@@ -675,7 +723,7 @@ export function MailShell() {
       !selection.hasSelection
     )
       return [];
-    const listTargets = threads.map((thread) => ({
+    const listTargets = listedThreads.map((thread) => ({
       key: getListThreadKey(thread),
       messages: thread.messages,
       selection: getListThreadSelection(thread, emailAccountId),
@@ -689,13 +737,35 @@ export function MailShell() {
           }
         : undefined;
 
-    return resolveThreadActionTargets({
+    const targets = resolveThreadActionTargets({
       focusedKey: focusedThread ? getListThreadKey(focusedThread) : undefined,
       listTargets,
       openTarget,
       selectedKeys: [...selection.selectedIds],
     });
+    if (!rowBundles) return targets;
+    // A collapsed bundle row acts on every thread it stands for.
+    const targetsByKey = new Map(
+      listTargets.map((target) => [target.key, target]),
+    );
+    return [
+      ...new Map(
+        targets
+          .flatMap((target) => {
+            const bundleRow = rowBundles.get(target.key);
+            if (bundleRow?.kind !== "collapsed" || target.key === openThreadKey)
+              return [target];
+            return bundleRow.bundle.threads.flatMap((thread) => {
+              const memberTarget = targetsByKey.get(getListThreadKey(thread));
+              return memberTarget ? [memberTarget] : [];
+            });
+          })
+          .map((target) => [target.key, target]),
+      ).values(),
+    ];
   }, [
+    listedThreads,
+    rowBundles,
     emailAccountId,
     focusedThread,
     openReaderThreadKey,
@@ -707,7 +777,6 @@ export function MailShell() {
     openThreadSelection,
     readerTarget,
     selection.selectedIds,
-    threads,
   ]);
   // Undo brings the thread back into the list, so return focus to it, and to
   // the reader if one is showing, rather than leaving it where archive advanced.
@@ -759,7 +828,8 @@ export function MailShell() {
     emailAccountId,
     onRestore: focusRestoredThread,
     readerTarget,
-    threads,
+    // Collapsed bundles hide their threads from the rows, not from actions.
+    threads: listedThreads,
   });
   const markRead = useCallback(
     (threadKeys: string[]) => setReadState(threadKeys, true, false),
@@ -921,6 +991,12 @@ export function MailShell() {
   const openAt = useStableCallback((index: number) => {
     const thread = threads[index];
     if (!thread) return;
+    const bundleRow = rowBundles?.get(getListThreadKey(thread));
+    if (bundleRow?.kind === "collapsed") {
+      setFocusedIndex(index);
+      toggleBundle(bundleRow.bundle.id);
+      return;
+    }
     setFocusedIndex(index);
     setReplyToMessageId(undefined);
     setForwardToMessageId(undefined);
@@ -939,10 +1015,18 @@ export function MailShell() {
       if ((layout === "split" || openThreadId) && nextThread) {
         setReplyToMessageId(undefined);
         setForwardToMessageId(undefined);
-        setOpenThread(getListThreadSelection(nextThread, emailAccountId));
+        // A bundle row is not one email, so the reader shows nothing for it.
+        const isBundleRow =
+          rowBundles?.get(getListThreadKey(nextThread))?.kind === "collapsed";
+        setOpenThread(
+          isBundleRow
+            ? null
+            : getListThreadSelection(nextThread, emailAccountId),
+        );
       }
     },
     [
+      rowBundles,
       clampIndex,
       clampedIndex,
       threads,
@@ -1636,6 +1720,8 @@ export function MailShell() {
                 onToggleLayout={toggleLayout}
                 expandedPreview={expandedPreview}
                 onTogglePreview={togglePreview}
+                bundleInbox={bundleInbox}
+                onToggleBundleInbox={toggleBundleInbox}
                 onToggleAssistant={onToggleAssistant}
                 selectAll={showSplitTabs ? null : selectAllCheckbox}
                 selectedCount={selection.selectedCount}
@@ -1738,6 +1824,8 @@ export function MailShell() {
                           scopeType === "sent" && !isAllAccounts
                         }
                         onScrolledChange={setIsListScrolled}
+                        rowBundles={rowBundles}
+                        onToggleBundle={toggleBundle}
                         listKey={
                           isAllAccounts
                             ? `all-accounts:${searchQuery ?? displayedActiveSplitId}`

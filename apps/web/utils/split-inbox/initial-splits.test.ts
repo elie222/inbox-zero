@@ -8,10 +8,18 @@ describe("ensureAllMailSplit", () => {
       name: "Unread",
       order: 1,
       matchAll: true,
+      bundleInInbox: false,
       filters: [{ kind: "UNREAD" as const, value: null }],
     };
     expect(ensureAllMailSplit([unread])).toEqual([
-      { id: "all", name: "All", order: -1, matchAll: true, filters: [] },
+      {
+        id: "all",
+        name: "All",
+        order: -1,
+        matchAll: true,
+        bundleInInbox: false,
+        filters: [],
+      },
       unread,
     ]);
   });
@@ -23,6 +31,7 @@ describe("ensureAllMailSplit", () => {
         name: "Everything",
         order: 2,
         matchAll: true,
+        bundleInInbox: false,
         filters: [],
       },
     ];

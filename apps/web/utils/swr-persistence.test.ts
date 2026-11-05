@@ -65,18 +65,27 @@ describe("swr-persistence", () => {
     const settings: MailSettingsResponse = {
       layout: "SPLIT",
       expandedPreview: true,
+      bundleInbox: false,
       splits: [
         {
           id: "split-1",
           name: "Saved",
           order: 0,
           matchAll: false,
+          bundleInInbox: false,
           filters: [
             { kind: "LABEL", value: "label-1" },
             { kind: "LABEL", value: "label-2" },
           ],
         },
-        { id: "split-2", name: "Inbox", order: 1, matchAll: true, filters: [] },
+        {
+          id: "split-2",
+          name: "Inbox",
+          order: 1,
+          matchAll: true,
+          bundleInInbox: false,
+          filters: [],
+        },
       ],
     };
     persistSwrEntries(ACCOUNT_A, cacheWith({ "/api/mail/settings": settings }));
