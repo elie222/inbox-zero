@@ -758,7 +758,12 @@ export function MailShell() {
         targets
           .flatMap((target) => {
             const bundleRow = rowBundles.get(target.key);
-            if (bundleRow?.kind !== "collapsed" || target.key === openThreadKey)
+            // An open email acts alone only when it's the implicit target;
+            // a selected bundle row always means the whole bundle.
+            if (
+              bundleRow?.kind !== "collapsed" ||
+              (target.key === openThreadKey && !selection.hasSelection)
+            )
               return [target];
             return bundleRow.bundle.threads.flatMap((thread) => {
               const memberTarget = targetsByKey.get(getListThreadKey(thread));
