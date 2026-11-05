@@ -6,7 +6,9 @@ import {
   memo,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -90,6 +92,19 @@ export const ThreadList = memo(function ThreadList({
   onToggleBundle,
 }: ThreadListProps) {
   const isMobile = useIsMobile();
+  // Collapsing removes the focused header, so a keyboard user's focus moves
+  // to the collapsed row once it renders.
+  const pendingFocusKeyRef = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    const key = pendingFocusKeyRef.current;
+    if (!key || rowBundles.get(key)?.kind !== "collapsed") return;
+    pendingFocusKeyRef.current = null;
+    document
+      .querySelector<HTMLElement>(
+        `[data-mail-thread-key="${CSS.escape(key)}"] [role="option"]`,
+      )
+      ?.focus();
+  }, [rowBundles]);
   const dayStart = useDayStart();
   const sentThreadIds = useMemo(
     () =>
@@ -191,7 +206,10 @@ export const ThreadList = memo(function ThreadList({
             onToggleBundle ? (
               <InboxBundleHeader
                 bundle={bundleRow.bundle}
-                onCollapse={onToggleBundle}
+                onCollapse={(fromKeyboard) => {
+                  if (fromKeyboard) pendingFocusKeyRef.current = row.rowKey;
+                  onToggleBundle(bundleRow.bundle.id);
+                }}
               />
             ) : null}
             <ThreadRow

@@ -125,10 +125,13 @@ const CONTENT_FILTER_KINDS = new Set<MailSplitFilterKind>([
  * State-only splits like Unread or Starred would sweep up everything.
  */
 export function isBundleEligibleSplit(split: MailSplit) {
-  return (
-    split.filters.some((filter) => CONTENT_FILTER_KINDS.has(filter.kind)) &&
-    isMatchableOnClient(split)
-  );
+  const isContent = (filter: MailSplit["filters"][number]) =>
+    CONTENT_FILTER_KINDS.has(filter.kind);
+  // With "match any", one state condition like Unread would admit all mail.
+  const narrowsToContent = split.matchAll
+    ? split.filters.some(isContent)
+    : split.filters.length > 0 && split.filters.every(isContent);
+  return narrowsToContent && isMatchableOnClient(split);
 }
 
 /** Outlook's Focused/Other sections aren't visible on a loaded thread. */

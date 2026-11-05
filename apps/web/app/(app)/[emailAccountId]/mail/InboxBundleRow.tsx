@@ -120,12 +120,14 @@ export function InboxBundleHeader({
   onCollapse,
 }: {
   bundle: InboxBundle;
-  onCollapse: (bundleId: string) => void;
+  /** Told whether the keyboard did it, so focus can follow to the row. */
+  onCollapse: (fromKeyboard: boolean) => void;
 }) {
   return (
     <button
       className="flex w-full items-center gap-1.5 border-border/40 border-b bg-muted/40 py-1.5 pr-5 pl-3 text-left text-muted-foreground text-xs hover:bg-muted"
-      onClick={() => onCollapse(bundle.id)}
+      // A keyboard activation reports no clicks.
+      onClick={(event) => onCollapse(event.detail === 0)}
       type="button"
     >
       <ChevronDownIcon aria-hidden className="size-3.5" />

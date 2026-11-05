@@ -101,6 +101,30 @@ describe("bundleInboxThreads", () => {
     expect(rows.map((row) => row.id)).toEqual(["from-boss", "n1"]);
   });
 
+  it("never bundles a match-any split that a state condition widens", () => {
+    const newsletterOrUnread = {
+      ...split("newsletter-or-unread", "Label_newsletter", true),
+      matchAll: false,
+      filters: [
+        { kind: "LABEL" as const, value: "Label_newsletter" },
+        { kind: "UNREAD" as const, value: null },
+      ],
+    };
+    const threads = [
+      thread("unrelated1", ["UNREAD"]),
+      thread("unrelated2", ["UNREAD"]),
+    ];
+    const { rows, rowBundles } = bundleInboxThreads({
+      threads,
+      splits: [newsletterOrUnread],
+      expandedBundleIds: new Set(),
+      keepVisible: () => false,
+    });
+
+    expect(rows).toEqual(threads);
+    expect(rowBundles.size).toBe(0);
+  });
+
   it("leaves a lone match as an ordinary row", () => {
     const threads = [
       thread("n1", ["Label_notification"]),
