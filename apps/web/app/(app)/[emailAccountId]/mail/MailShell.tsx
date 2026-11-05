@@ -918,8 +918,13 @@ export function MailShell() {
   );
 
   const getOpenThreadKey = useStableCallback(() => openThreadKey);
+  const getFocusedIndex = useStableCallback(() => focusedIndex);
+  /** Where the reader landed: an opened row, a bundle row it closed on, or nothing. */
   const advanceReaderPast = useStableCallback(
-    (currentThreadKey: string, removedThreadKeys: string[]) => {
+    (
+      currentThreadKey: string,
+      removedThreadKeys: string[],
+    ): { openedKey: string } | { bundleIndex: number } | null => {
       const nextThread = getNextThreadAfterRemoval({
         threadIds: orderedIds,
         currentThreadId: currentThreadKey,
@@ -937,7 +942,8 @@ export function MailShell() {
       setOpenThread(
         opensRow ? getListThreadSelection(nextRow, emailAccountId) : null,
       );
-      return opensRow ? getListThreadKey(nextRow) : null;
+      if (opensRow) return { openedKey: getListThreadKey(nextRow) };
+      return nextRow && nextThread ? { bundleIndex: nextThread.index } : null;
     },
   );
   const runOn = useStableCallback(
@@ -958,22 +964,24 @@ export function MailShell() {
       }
       // Advance before the list drops the row, so focus moves straight to
       // the next row instead of briefly landing on none.
-      const advancedToKey =
+      const advancedTo =
         removedOpenThreadKey && autoAdvanceReader
           ? advanceReaderPast(removedOpenThreadKey, ids)
-          : undefined;
+          : null;
       const queuedThreadKeys = await action(ids);
       const queuedOpenThread =
         removedOpenThreadKey !== null &&
         queuedThreadKeys.includes(removedOpenThreadKey);
       // If it didn't queue, go back, unless the user has since moved on.
-      // A closed reader can't tell staying put from navigating away.
-      if (
-        removedOpenThreadKey &&
-        advancedToKey &&
-        !queuedOpenThread &&
-        getOpenThreadKey() === advancedToKey
-      ) {
+      // A reader closed on a bundle row has stayed put while focus has too;
+      // one closed for any other reason can't tell staying from leaving.
+      const stayedWhereAdvanced =
+        advancedTo !== null &&
+        ("openedKey" in advancedTo
+          ? getOpenThreadKey() === advancedTo.openedKey
+          : getOpenThreadKey() === null &&
+            getFocusedIndex() === advancedTo.bundleIndex);
+      if (removedOpenThreadKey && !queuedOpenThread && stayedWhereAdvanced) {
         setFocusedIndex(focusedIndex);
         setOpenThread(openThreadSelection);
       }

@@ -60,6 +60,8 @@ export const InboxBundleRow = memo(function InboxBundleRow({
   );
   const newest = bundle.threads[0];
   if (!newest) return null;
+  // Zero means no message had a readable date.
+  const timestamp = getThreadTimestamp(newest);
 
   return (
     <MailThreadRow
@@ -70,9 +72,9 @@ export const InboxBundleRow = memo(function InboxBundleRow({
       expandedPreview={expandedPreview}
       date={
         <span className="text-muted-foreground text-xs">
-          {formatShortDate(new Date(getThreadTimestamp(newest)), {
-            lowercase: true,
-          })}
+          {timestamp
+            ? formatShortDate(new Date(timestamp), { lowercase: true })
+            : null}
         </span>
       }
       hasAnySelection={hasAnySelection}
