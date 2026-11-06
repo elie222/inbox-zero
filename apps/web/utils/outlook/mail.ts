@@ -16,6 +16,7 @@ import {
   withMicrosoftGraphWriteRetry,
 } from "@/utils/outlook/retry";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
+import { formatRecipientsList } from "@/utils/outlook/message";
 import { isOutlookItemNotFoundError, SafeError } from "@/utils/error";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
 import { uploadResumableChunks } from "@/utils/outlook/upload-session";
@@ -183,7 +184,8 @@ export async function forwardEmail(
     textHtml: originalMessage.body?.content || "",
     headers: {
       from: originalMessage.from?.emailAddress?.address || "",
-      to: originalMessage.toRecipients?.[0]?.emailAddress?.address || "",
+      to: formatRecipientsList(originalMessage.toRecipients) || "",
+      cc: formatRecipientsList(originalMessage.ccRecipients),
       subject: originalMessage.subject || "",
       date: originalMessage.receivedDateTime || new Date().toISOString(),
     },
