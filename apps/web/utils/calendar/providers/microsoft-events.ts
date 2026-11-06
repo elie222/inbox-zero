@@ -29,6 +29,7 @@ const MICROSOFT_TEAMS_PROVIDER = "teamsForBusiness";
 
 export interface MicrosoftCalendarConnectionParams {
   accessToken: string | null;
+  email: string;
   emailAccountId: string;
   expiresAt: number | null;
   refreshToken: string | null;
@@ -400,6 +401,10 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
           email: attendee.emailAddress?.address || "",
           name: attendee.emailAddress?.name ?? undefined,
           declined: attendee.status?.response === "declined",
+          ...(attendee.emailAddress?.address?.trim().toLowerCase() ===
+          this.connection.email.trim().toLowerCase()
+            ? { self: true }
+            : {}),
         })) || [],
     };
   }
