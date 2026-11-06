@@ -36,6 +36,41 @@ describe("runAiRules", () => {
     });
   });
 
+  it("retries only the email that failed, keeping it queued until it finishes", async () => {
+    vi.mocked(runRulesAction)
+      .mockResolvedValueOnce({ serverError: "Rate limited" })
+      .mockResolvedValue({ data: [] });
+    const runWithRetry = vi.fn(
+      async <T>(operation: () => Promise<T>): Promise<T> => {
+        try {
+          return await operation();
+        } catch {
+          expect(removeFromAiQueueAtom).not.toHaveBeenCalledWith("thread-a");
+          return operation();
+        }
+      },
+    );
+
+    await runAiRules(
+      "account-id",
+      createThreads("thread-a", "thread-b"),
+      false,
+      {
+        runWithRetry,
+      },
+    );
+
+    const processedThreadIds = vi
+      .mocked(runRulesAction)
+      .mock.calls.map(([, input]) => input.threadId);
+    expect(processedThreadIds.sort()).toEqual([
+      "thread-a",
+      "thread-a",
+      "thread-b",
+    ]);
+    expect(removeFromAiQueueAtom).toHaveBeenCalledWith("thread-a");
+  });
+
   it("rejects when rule processing returns a server error", async () => {
     vi.mocked(runRulesAction).mockResolvedValue({
       serverError: "AI automation is unavailable.",

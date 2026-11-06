@@ -21,6 +21,15 @@ machine; first-route compilation is included in cold-view measurements. Supply
 local Redis to exercise account cooldowns; without it the application's shared
 rate-limit protection is disabled. Each run has a fresh synthetic account.
 
+## Bulk run under rate limits
+
+`pnpm -F inbox-zero-ai test:bulk-run-rate-limits` (same setup as above) seeds
+300 unread single-message threads, a trial account, and a labelling rule, then
+runs "Process Past Emails" with a per-user budget well below what the run needs.
+It checks that the run pauses with a visible notice, resumes, and runs rules
+on every thread exactly once. It takes 10 to 25 minutes, mostly waiting on the
+simulated quota.
+
 ## Workload and evidence
 
 The seed contains 1,000 threads: short messages, eight-message conversations, a

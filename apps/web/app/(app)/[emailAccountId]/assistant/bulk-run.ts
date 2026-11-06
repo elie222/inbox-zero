@@ -3,11 +3,21 @@ import { startOfDay } from "date-fns/startOfDay";
 import type { ThreadsResponse } from "@/app/api/threads/route";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 import { runAiRules } from "@/utils/queue/email-actions";
+import {
+  resetAiQueueConcurrency,
+  slowDownAiQueue,
+} from "@/utils/queue/ai-queue";
 import { sleep } from "@/utils/sleep";
 import { toastError } from "@/components/Toast";
 import { captureException } from "@/utils/error";
 import { fetchWithAccount } from "@/utils/fetch";
 import { createSearchParams } from "@/utils/url";
+import { getRetryAfterDelayMs } from "@/utils/retry/provider-retry";
+import {
+  BulkRunRateLimitGiveUpError,
+  BulkRunRequestError,
+  createBulkRunRetrier,
+} from "@/app/(app)/[emailAccountId]/assistant/bulk-run-retry";
 
 const BATCH_SIZE = 25;
 
@@ -33,60 +43,79 @@ export async function onRun(
     status: "success" | "error" | "cancelled",
     count: number,
   ) => void,
+  onRateLimitWait?: (resumeAt: Date | null) => void,
 ) {
   let nextPageToken = "";
   let totalProcessed = 0;
+  let completedInBatch = 0;
   let aborted = false;
   const abortController = new AbortController();
   // Provider "before" filters are exclusive; the selected calendar day is inclusive.
   const before = endDate ? startOfDay(addDays(endDate, 1)) : undefined;
+  const retrier = createBulkRunRetrier({
+    onWaiting: (resumeAt) => onRateLimitWait?.(resumeAt),
+    // Fewer emails in flight keeps the run from immediately re-triggering the limit.
+    onRateLimited: slowDownAiQueue,
+  });
 
   function abort() {
     aborted = true;
     abortController.abort();
   }
 
+  async function fetchThreadsPage(): Promise<ThreadsResponse> {
+    const query: ThreadsQuery = {
+      type: "inbox",
+      limit: BATCH_SIZE,
+      after: startDate,
+      ...(before ? { before } : {}),
+      ...(!includeRead ? { isUnread: true } : {}),
+      ...(nextPageToken ? { nextPageToken } : {}),
+    };
+
+    const response = await fetchWithAccount({
+      url: `/api/threads?${createSearchParams(query).toString()}`,
+      emailAccountId,
+      init: { signal: abortController.signal },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new BulkRunRequestError({
+        status: response.status,
+        message:
+          typeof errorData.error === "string"
+            ? errorData.error
+            : `Error: ${response.status}`,
+        retryAfterMs: getRetryAfterDelayMs(
+          response.headers?.get("Retry-After") ?? undefined,
+        ),
+      });
+    }
+
+    return response.json();
+  }
+
   async function run() {
     while (true) {
       if (completeIfCancelled()) return;
 
-      const query: ThreadsQuery = {
-        type: "inbox",
-        limit: BATCH_SIZE,
-        after: startDate,
-        ...(before ? { before } : {}),
-        ...(!includeRead ? { isUnread: true } : {}),
-        ...(nextPageToken ? { nextPageToken } : {}),
-      };
-
-      let response: Response;
+      let data: ThreadsResponse;
       try {
-        response = await fetchWithAccount({
-          url: `/api/threads?${createSearchParams(query).toString()}`,
-          emailAccountId,
-          init: { signal: abortController.signal },
-        });
+        data = await retrier.run(fetchThreadsPage, abortController.signal);
       } catch (error) {
         if (completeIfCancelled()) return;
+        if (error instanceof BulkRunRequestError) {
+          toastError({
+            title: "Failed to fetch emails",
+            description: error.message,
+          });
+          onComplete("error", totalProcessed);
+          return;
+        }
         throw error;
       }
 
-      if (completeIfCancelled()) return;
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        toastError({
-          title: "Failed to fetch emails",
-          description:
-            typeof errorData.error === "string"
-              ? errorData.error
-              : `Error: ${response.status}`,
-        });
-        onComplete("error", totalProcessed);
-        return;
-      }
-
-      const data: ThreadsResponse = await response.json();
       if (completeIfCancelled()) return;
 
       if (!data.threads) {
@@ -118,8 +147,14 @@ export async function onRun(
       await runAiRules(emailAccountId, threadsToQueue, !!rerun, {
         signal: abortController.signal,
         skipDraftReplies: !generateDraftReplies,
+        runWithRetry: async (operation, signal) => {
+          const result = await retrier.run(operation, signal);
+          completedInBatch += 1;
+          return result;
+        },
       });
       totalProcessed += threadsToQueue.length;
+      completedInBatch = 0;
 
       if (maxEmails !== undefined && totalProcessed >= maxEmails) break;
       if (!nextPageToken) break;
@@ -138,17 +173,30 @@ export async function onRun(
     return true;
   }
 
-  run().catch((error) => {
-    if (completeIfCancelled()) return;
+  run()
+    .catch((error) => {
+      if (completeIfCancelled()) return;
 
-    abortController.abort();
-    captureException(error);
-    toastError({
-      title: "Failed to process emails",
-      description: error instanceof Error ? error.message : "Please try again.",
+      abortController.abort();
+      if (error instanceof BulkRunRateLimitGiveUpError) {
+        toastError({
+          title: "Processing stopped",
+          description: `Your email provider kept limiting requests, so processing stopped after ${totalProcessed + completedInBatch} emails. Run it again later to ${rerun ? "try again" : "continue with the rest"}.`,
+        });
+      } else {
+        captureException(error);
+        toastError({
+          title: "Failed to process emails",
+          description:
+            error instanceof Error ? error.message : "Please try again.",
+        });
+      }
+      onComplete("error", totalProcessed);
+    })
+    .finally(() => {
+      onRateLimitWait?.(null);
+      resetAiQueueConcurrency();
     });
-    onComplete("error", totalProcessed);
-  });
 
   return abort;
 }

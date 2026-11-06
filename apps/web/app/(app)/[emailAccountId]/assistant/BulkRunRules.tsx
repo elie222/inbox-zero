@@ -44,7 +44,7 @@ import { EndTrialButton } from "@/components/EndTrialButton";
 import { onRun } from "@/app/(app)/[emailAccountId]/assistant/bulk-run";
 import { useAiAutomationStatus } from "@/hooks/useAiAutomationStatus";
 
-const TRIAL_BULK_PROCESS_EMAIL_LIMIT = 200;
+const TRIAL_BULK_PROCESS_EMAIL_LIMIT = 2000;
 
 export function BulkRunRules() {
   const { emailAccountId } = useAccount();
@@ -143,6 +143,9 @@ export function BulkRunRules() {
 
           dispatch({ type: "COMPLETE", count });
         },
+        (resumeAt) => {
+          dispatch({ type: "RATE_LIMIT_WAIT", resumeAt });
+        },
       );
     } catch (error) {
       console.error("Failed to start bulk processing:", error);
@@ -191,6 +194,16 @@ export function BulkRunRules() {
               <SectionDescription className="mt-0">
                 {progressMessage}
               </SectionDescription>
+            </div>
+          )}
+          {state.rateLimitResumeAt && (
+            <div
+              role="status"
+              className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100"
+            >
+              Your email provider is limiting requests, so processing is paused.
+              It will continue automatically around{" "}
+              {state.rateLimitResumeAt.toLocaleTimeString()}.
             </div>
           )}
           <LoadingContent loading={isLoadingPremium}>
@@ -247,7 +260,7 @@ export function BulkRunRules() {
                 <div className="flex flex-col gap-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200 sm:flex-row sm:items-center sm:justify-between">
                   <span>
                     {trialAiLimitMessage ??
-                      `Trials can process up to ${TRIAL_BULK_PROCESS_EMAIL_LIMIT} past emails at a time.`}
+                      `Trials can process up to ${TRIAL_BULK_PROCESS_EMAIL_LIMIT.toLocaleString()} past emails at a time.`}
                   </span>
                   <EndTrialButton
                     size="sm"

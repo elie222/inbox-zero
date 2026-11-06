@@ -349,6 +349,7 @@ describe("bulkRunReducer", () => {
         fetchedThreads: new Map([["t1", thread]]),
         stoppedCount: 5,
         runResult: { count: 10 },
+        rateLimitResumeAt: new Date(),
       };
 
       const result = bulkRunReducer(state, { type: "RESET" });
@@ -358,6 +359,64 @@ describe("bulkRunReducer", () => {
       expect(result.fetchedThreads.size).toBe(0);
       expect(result.stoppedCount).toBeNull();
       expect(result.runResult).toBeNull();
+      expect(result.rateLimitResumeAt).toBeNull();
+    });
+  });
+
+  describe("RATE_LIMIT_WAIT action", () => {
+    const resumeAt = new Date("2026-01-01T10:00:00.000Z");
+
+    it.each([
+      "processing",
+      "paused",
+    ] as const)("records when a %s run will resume", (status) => {
+      const result = bulkRunReducer(
+        { ...initialBulkRunState, status },
+        { type: "RATE_LIMIT_WAIT", resumeAt },
+      );
+
+      expect(result.status).toBe(status);
+      expect(result.rateLimitResumeAt).toBe(resumeAt);
+    });
+
+    it("clears the wait once requests succeed again", () => {
+      const result = bulkRunReducer(
+        {
+          ...initialBulkRunState,
+          status: "processing",
+          rateLimitResumeAt: resumeAt,
+        },
+        { type: "RATE_LIMIT_WAIT", resumeAt: null },
+      );
+
+      expect(result.rateLimitResumeAt).toBeNull();
+    });
+
+    it("ignores a wait reported after the run ended", () => {
+      const state: BulkRunState = { ...initialBulkRunState, status: "stopped" };
+
+      const result = bulkRunReducer(state, {
+        type: "RATE_LIMIT_WAIT",
+        resumeAt,
+      });
+
+      expect(result.rateLimitResumeAt).toBeNull();
+    });
+
+    it.each([
+      { type: "STOP", completedCount: 3 },
+      { type: "COMPLETE", count: 3 },
+    ] as const)("clears the wait when the run ends ($type)", (action) => {
+      const result = bulkRunReducer(
+        {
+          ...initialBulkRunState,
+          status: "processing",
+          rateLimitResumeAt: resumeAt,
+        },
+        action,
+      );
+
+      expect(result.rateLimitResumeAt).toBeNull();
     });
   });
 });

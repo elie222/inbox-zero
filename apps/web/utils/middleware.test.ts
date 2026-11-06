@@ -20,7 +20,10 @@ import { getEmailAccount } from "@/utils/redis/account-validation";
 import { captureException, checkCommonErrors, SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
 import { isProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
-import { recordRateLimitFromApiError } from "@/utils/email/rate-limit";
+import {
+  getProviderRateLimitRetryAfterSeconds,
+  recordRateLimitFromApiError,
+} from "@/utils/email/rate-limit";
 import { getAuditContext } from "@/utils/audit/context";
 
 vi.mock("better-auth", () => {
@@ -48,6 +51,7 @@ vi.mock("@/utils/email/provider", () => ({
 }));
 vi.mock("@/utils/email/rate-limit", () => ({
   recordRateLimitFromApiError: vi.fn(),
+  getProviderRateLimitRetryAfterSeconds: vi.fn(),
 }));
 vi.mock("@/utils/email/rate-limit-mode-error", () => ({
   isProviderRateLimitModeError: vi.fn(),
@@ -660,6 +664,8 @@ describe("Middleware", () => {
         (error) => error === rateLimitError,
       );
       mockCheckCommonErrors.mockReturnValue(commonError);
+      mockRecordRateLimitFromApiError.mockResolvedValueOnce(provider);
+      vi.mocked(getProviderRateLimitRetryAfterSeconds).mockReturnValueOnce(120);
 
       const handler = vi.fn(async () => NextResponse.json({ ok: true }));
       const wrappedHandler = withEmailProvider("labels", handler);
@@ -682,6 +688,11 @@ describe("Middleware", () => {
         }),
       );
       expect(response.status).toBe(429);
+      expect(response.headers.get("Retry-After")).toBe("120");
+      expect(getProviderRateLimitRetryAfterSeconds).toHaveBeenCalledWith({
+        error: rateLimitError,
+        provider,
+      });
       expect(responseBody).toEqual({
         error: commonError.message,
         isKnownError: true,
