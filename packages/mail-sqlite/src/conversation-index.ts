@@ -151,6 +151,14 @@ export async function migrateMembershipIndex(tx: SqlTransaction) {
     CREATE INDEX message_memberships_by_message
       ON effective_message_memberships(account_id, message_id);
     ${insertMemberships("m")}
+    ${MEMBERSHIP_TRIGGERS_SQL}
+  `);
+  await tx.execute(
+    "INSERT INTO schema_migrations(id, name) VALUES (3, '0003-message-membership-index')",
+  );
+}
+
+const MEMBERSHIP_TRIGGERS_SQL = `
     CREATE TRIGGER effective_memberships_after_insert
     AFTER INSERT ON effective_messages
     BEGIN
@@ -163,19 +171,40 @@ export async function migrateMembershipIndex(tx: SqlTransaction) {
     END;
     CREATE TRIGGER effective_memberships_after_update
     AFTER UPDATE OF account_id, message_id, conversation_id, received_at_ms,
-      read, starred, folder_id, label_ids_json, category_ids_json
+      read, starred, folder_id, label_ids_json, category_ids_json,
+      in_trash, in_spam
     ON effective_messages
     BEGIN
       ${DELETE_OLD_MEMBERSHIPS}
       ${insertMemberships("NEW")}
-    END;
+    END;`;
+
+// The index used to include trashed and spam messages and its update trigger
+// ignored in_trash/in_spam, so label and category views kept showing mail the
+// user had already deleted. Rebuild it under the corrected rule.
+export async function migrateMembershipsExcludeTrash(tx: SqlTransaction) {
+  const applied = await tx.query(
+    "SELECT 1 FROM schema_migrations WHERE id = 11",
+  );
+  if (applied.length) return;
+
+  await tx.exec(`
+    DROP TRIGGER IF EXISTS effective_memberships_after_insert;
+    DROP TRIGGER IF EXISTS effective_memberships_after_delete;
+    DROP TRIGGER IF EXISTS effective_memberships_after_update;
+    DELETE FROM effective_message_memberships;
+    ${insertMemberships("m")}
+    ${MEMBERSHIP_TRIGGERS_SQL}
   `);
   await tx.execute(
-    "INSERT INTO schema_migrations(id, name) VALUES (3, '0003-message-membership-index')",
+    "INSERT INTO schema_migrations(id, name) VALUES (11, '0011-memberships-exclude-trash')",
   );
 }
 
 // Backfill reads every stored message; triggers read the changed row.
+// A trashed Gmail message keeps its labels, but label and category views
+// exclude trash and spam (matching the composed predicate in queries.ts);
+// folders are physical locations, so the trash folder itself stays listed.
 function insertMemberships(row: "m" | "NEW") {
   const from = row === "m" ? "effective_messages AS m, " : "";
   const folderFrom = row === "m" ? "FROM effective_messages AS m" : "";
@@ -186,9 +215,11 @@ function insertMemberships(row: "m" | "NEW") {
     )
     SELECT ${columns}, 'label', labels.value
     FROM ${from}json_each(${row}.label_ids_json) AS labels
+    WHERE ${row}.in_trash = 0 AND ${row}.in_spam = 0
     UNION ALL
     SELECT ${columns}, 'category', categories.value
     FROM ${from}json_each(${row}.category_ids_json) AS categories
+    WHERE ${row}.in_trash = 0 AND ${row}.in_spam = 0
     UNION ALL
     SELECT ${columns}, 'folder', ${row}.folder_id
     ${folderFrom}
