@@ -134,7 +134,12 @@ export function MailThreadRow({
           "before:absolute before:inset-y-1 before:left-0 before:w-0.5 before:rounded-full before:bg-primary before:content-['']",
       )}
       onClick={(event) => {
-        if (selectionEnabled && event.shiftKey) onSelectRangeTo(index);
+        if (!selectionEnabled) onOpen(index);
+        else if (event.shiftKey) onSelectRangeTo(index);
+        // Once anything is selected, a stray click on the row body should
+        // extend the selection rather than open a thread and discard it.
+        else if (event.metaKey || event.ctrlKey || hasAnySelection)
+          onToggleSelect(index);
         else onOpen(index);
       }}
       onKeyDown={(event) => {

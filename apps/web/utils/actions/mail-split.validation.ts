@@ -2,6 +2,7 @@ import { z } from "zod";
 import { MAX_MAIL_SPLITS } from "@/utils/split-inbox/split-constants";
 import { MailLayout } from "@/generated/prisma/enums";
 import {
+  MAX_SPLIT_FILTERS,
   mailSplitFiltersSchema,
   mailSplitNameSchema,
 } from "@/utils/split-inbox/split-filters";
@@ -61,6 +62,14 @@ export const reorderMailSplitsBody = z.object({
       (ids) => new Set(ids).size === ids.length,
       "Split IDs must be unique",
     ),
+});
+
+export const addSendersToMailSplitBody = z.object({
+  id: z.string(),
+  senders: z
+    .array(z.string().trim().max(320).pipe(z.email()))
+    .min(1)
+    .max(MAX_SPLIT_FILTERS),
 });
 
 export const deleteMailSplitBody = z.object({ id: z.string() });

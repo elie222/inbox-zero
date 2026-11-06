@@ -7,10 +7,14 @@ import type {
 import { randomUUID } from "node:crypto";
 import type { MailSplit } from "@/generated/prisma/client";
 import { MailSplitFilterKind } from "@/generated/prisma/enums";
-import type { MailSplitFilterDraft } from "@/utils/split-inbox/split-filters";
+import {
+  MAX_SPLIT_FILTERS,
+  type MailSplitFilterDraft,
+} from "@/utils/split-inbox/split-filters";
 import prisma from "@/utils/prisma";
 import { lockMailSplits } from "@/utils/split-inbox/split-lock";
 import { MAX_MAIL_SPLITS } from "@/utils/split-inbox/split-constants";
+import { addSendersToSplitFilters } from "@/utils/split-inbox/split-senders";
 
 type CreateMailSplitResult =
   | ({ status: "created" } & MailSplit)
@@ -215,6 +219,52 @@ export async function createMailSplitOrThrow({
     }
     throw error;
   }
+}
+
+export async function addSendersToMailSplit({
+  emailAccountId,
+  id,
+  senders,
+}: {
+  emailAccountId: string;
+  id: string;
+  senders: string[];
+}) {
+  const split = await prisma.mailSplit.findFirst({
+    where: { id, emailAccountId },
+    select: {
+      name: true,
+      matchAll: true,
+      filters: {
+        select: { kind: true, value: true },
+        orderBy: { order: "asc" },
+      },
+    },
+  });
+  if (!split) throw new SafeError("Split not found");
+
+  const result = addSendersToSplitFilters(split, senders);
+  if (result.status === "incompatible") {
+    throw new SafeError(
+      `"${split.name}" only shows mail matching all of its conditions, so edit it to add senders.`,
+    );
+  }
+  if (result.status === "limit") {
+    throw new SafeError(
+      `A split can have at most ${MAX_SPLIT_FILTERS} conditions.`,
+    );
+  }
+  if (result.added.length) {
+    await updateMailSplit({
+      emailAccountId,
+      id,
+      name: split.name,
+      matchAll: result.matchAll,
+      filters: result.filters,
+    });
+  }
+
+  return { added: result.added.length };
 }
 
 export async function updateMailSplit({

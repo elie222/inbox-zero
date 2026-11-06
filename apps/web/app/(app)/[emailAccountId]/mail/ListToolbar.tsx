@@ -20,10 +20,12 @@ import {
   LayersIcon,
   MailIcon,
   MailOpenIcon,
+  MoreHorizontalIcon,
   PanelLeftIcon,
   RowsIcon,
   SearchIcon,
   SparklesIcon,
+  SplitIcon,
   StarIcon,
   StarOffIcon,
   TagIcon,
@@ -48,6 +50,12 @@ import { parseOutlookSearchQuery } from "@/app/(app)/[emailAccountId]/mail/outlo
 import type { MailLayoutMode } from "@/app/(app)/[emailAccountId]/mail/types";
 import { Tooltip } from "@/components/Tooltip";
 import { useSidebar } from "@/components/ui/sidebar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Popover,
   PopoverAnchor,
@@ -92,6 +100,8 @@ export type ListToolbarProps = {
   onStarSelected: () => void;
   /** Omitted when the current view can't label (combined inboxes). */
   onLabelSelected?: () => void;
+  /** Omitted when there's no split the senders could join. */
+  onAddToSplitSelected?: () => void;
   onClearSelection: () => void;
   /** Opens the mail navigation panel on screens too narrow for the rail. */
   onOpenMailNav: () => void;
@@ -124,6 +134,7 @@ export const ListToolbar = memo(function ListToolbar({
   isStarredSelected,
   onStarSelected,
   onLabelSelected,
+  onAddToSplitSelected,
   onClearSelection,
   onOpenMailNav,
 }: ListToolbarProps) {
@@ -243,6 +254,28 @@ export const ListToolbar = memo(function ListToolbar({
                 <TagIcon className="size-3.5" />
               </button>
             </Tooltip>
+          ) : null}
+
+          {onAddToSplitSelected ? (
+            <DropdownMenu>
+              <Tooltip content="More actions">
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="More selection actions"
+                    className={cn(toolbarButton, "w-8 justify-center px-0")}
+                  >
+                    <MoreHorizontalIcon className="size-3.5" />
+                  </button>
+                </DropdownMenuTrigger>
+              </Tooltip>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onSelect={onAddToSplitSelected}>
+                  <SplitIcon className="mr-2 size-4" />
+                  Add senders to split
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           ) : null}
 
           <Tooltip shortcuts={[{ id: "backToList", label: "Clear selection" }]}>

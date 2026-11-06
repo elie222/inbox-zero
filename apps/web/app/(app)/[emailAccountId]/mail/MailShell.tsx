@@ -39,6 +39,7 @@ import type { MailboxItem } from "@/app/(app)/[emailAccountId]/mail/MailboxItemC
 import { ListSenderCommands } from "@/app/(app)/[emailAccountId]/mail/ListSenderCommands";
 import { extractEmailAddress, isSameEmailAddress } from "@/utils/email";
 import { LabelPickerDialog } from "@/app/(app)/[emailAccountId]/mail/LabelPickerDialog";
+import { SplitPickerDialog } from "@/app/(app)/[emailAccountId]/mail/SplitPickerDialog";
 import { InboxZeroCelebration } from "@/app/(app)/[emailAccountId]/mail/InboxZeroCelebration";
 import { ThreadList } from "@/app/(app)/[emailAccountId]/mail/ThreadList";
 import { useStableCallback } from "@/app/(app)/[emailAccountId]/mail/use-stable-callback";
@@ -197,6 +198,9 @@ export function MailShell() {
     mode: "label" | "move";
     targets: ThreadSelection[];
   } | null>(null);
+  const [splitPickerSenders, setSplitPickerSenders] = useState<string[] | null>(
+    null,
+  );
   const [replyToMessageId, setReplyToMessageId] = useState<string>();
   const [forwardToMessageId, setForwardToMessageId] = useState<string>();
   const pendingComposeRequest = useRef<{
@@ -1189,6 +1193,21 @@ export function MailShell() {
     if (canLabel)
       setLabelPicker({ mode: "move", targets: currentLabelTargets });
   });
+  const senderSplits = useMemo(
+    () => (settings?.splits ?? []).filter((split) => split.filters.length > 0),
+    [settings?.splits],
+  );
+  const canAddToSplit =
+    !isAllAccounts && senderSplits.length > 0 && actionTargets.length > 0;
+  const openSplitPicker = useStableCallback(() => {
+    if (!canAddToSplit) return;
+    const senders = getThreadSenders(
+      actionTargets.map((target) => target.messages),
+      userEmail,
+    );
+    if (senders.length) setSplitPickerSenders(senders);
+    else toast.error("No senders to add");
+  });
   const singleActionTarget =
     actionTargets.length === 1 ? actionTargets.at(0) : undefined;
   const requestForwardTarget = useStableCallback(() => {
@@ -1236,6 +1255,7 @@ export function MailShell() {
         moveToInbox: targetsArchived ? moveToInboxTargets : undefined,
         forward: singleActionTarget ? requestForwardTarget : undefined,
         label: canLabel ? openLabelPicker : undefined,
+        addToSplit: canAddToSplit ? openSplitPicker : undefined,
         star: starTargets,
         markRead: markReadTargets,
         markSpam: markSpamTargets,
@@ -1275,6 +1295,8 @@ export function MailShell() {
       targetsArchived,
       actionTargets,
       canLabel,
+      canAddToSplit,
+      openSplitPicker,
       isReaderTarget,
       allStarred,
       starTargets,
@@ -1305,6 +1327,7 @@ export function MailShell() {
     isHelpOpen ||
     isPaletteOpen ||
     Boolean(labelPicker) ||
+    Boolean(splitPickerSenders) ||
     (isMenuOpen && Boolean(openThreadId));
 
   const selectAccount = useCallback((accountId: string) => {
@@ -1408,7 +1431,7 @@ export function MailShell() {
     if (target) setActiveSplitId(target.id);
   };
   const handlers: ShortcutHandlers = (() => {
-    if (sidePanelThreadId || labelPicker) return {};
+    if (sidePanelThreadId || labelPicker || splitPickerSenders) return {};
     return {
       unsubscribe:
         !isMailOverlayOpen && !senderCommands?.isUnsubscribeDisabled
@@ -1720,10 +1743,29 @@ export function MailShell() {
       </EmailAccountScopeProvider>
     ) : null;
 
+  const splitPickerDialog = splitPickerSenders ? (
+    <SplitPickerDialog
+      splits={senderSplits}
+      senders={splitPickerSenders}
+      onClose={() => setSplitPickerSenders(null)}
+      onApplied={() => {
+        setSplitPickerSenders(null);
+        selection.clear();
+        mutateSettings();
+        refetchThreadList();
+      }}
+    />
+  ) : null;
+
   return (
     <MailProductFrame
       floating={senderCommandsPanel}
-      dialogs={labelPickerDialog}
+      dialogs={
+        <>
+          {labelPickerDialog}
+          {splitPickerDialog}
+        </>
+      }
     >
       <MailShellSidebar
         activeType={
@@ -1783,6 +1825,9 @@ export function MailShell() {
                 isStarredSelected={allStarred}
                 onStarSelected={starTargets}
                 onLabelSelected={canLabel ? openLabelPicker : undefined}
+                onAddToSplitSelected={
+                  canAddToSplit ? openSplitPicker : undefined
+                }
                 onClearSelection={selection.clear}
               />
               <div data-split-cycle-zone className="contents">
@@ -2016,3 +2061,19 @@ function useStableOrderedIds(threads: ListThread[]) {
 
 const EMPTY_SEARCH_THREADS: ListThread[] = [];
 const NO_SEARCH_OPTIONS: { name: string }[] = [];
+
+/** The other party on each thread: its latest message not sent by the user. */
+function getThreadSenders(
+  threads: { headers: { from: string } }[][],
+  userEmail: string,
+) {
+  const senders = new Set<string>();
+  for (const messages of threads) {
+    const from = messages.findLast(
+      (message) => !isSameEmailAddress(message.headers.from, userEmail),
+    )?.headers.from;
+    const address = from ? extractEmailAddress(from).toLowerCase() : "";
+    if (address) senders.add(address);
+  }
+  return [...senders];
+}

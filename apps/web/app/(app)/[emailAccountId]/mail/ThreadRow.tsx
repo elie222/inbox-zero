@@ -16,14 +16,13 @@ import { getEmailThreadLabels } from "@/components/EmailMessageCellLabels";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Tooltip } from "@/components/Tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
-import { mailCheckboxClassName } from "@/app/(app)/[emailAccountId]/mail/SelectAllCheckbox";
+import { getMailRowCheckboxClassName } from "@/app/(app)/[emailAccountId]/mail/SelectAllCheckbox";
 import {
   Avatar,
   AvatarFallbackColor,
   AvatarImage,
 } from "@/components/ui/avatar";
 import type { EmailLabels } from "@/providers/email-label-types";
-import { cn } from "@/utils";
 import { formatShortDate, internalDateToDate } from "@/utils/date";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { GmailLabel } from "@/utils/gmail/label";
@@ -157,13 +156,7 @@ export const ThreadRow = memo(function ThreadRow({
           <Checkbox
             aria-label={ariaLabel}
             checked={checked}
-            className={cn(
-              mailCheckboxClassName,
-              "transition-opacity",
-              visible
-                ? "opacity-100"
-                : "opacity-0 group-focus-within:opacity-100 group-hover:opacity-100",
-            )}
+            className={getMailRowCheckboxClassName(visible)}
             onClick={onClick}
           />
         </Tooltip>

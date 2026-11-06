@@ -47,6 +47,46 @@ describe("ThreadRow", () => {
     expect(onOpen).not.toHaveBeenCalled();
   });
 
+  it("toggles selection instead of opening when the list already has a selection", () => {
+    const onOpen = vi.fn();
+    const onToggleSelect = vi.fn();
+    render(
+      row(thread([undefined]), {
+        hasAnySelection: true,
+        onOpen,
+        onToggleSelect,
+      }),
+    );
+
+    fireEvent.click(screen.getByRole("option"));
+
+    expect(onToggleSelect).toHaveBeenCalledWith(0);
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
+  it("toggles selection on Cmd/Ctrl-click without opening", () => {
+    const onOpen = vi.fn();
+    const onToggleSelect = vi.fn();
+    render(row(thread([undefined]), { onOpen, onToggleSelect }));
+
+    fireEvent.click(screen.getByRole("option"), { metaKey: true });
+    fireEvent.click(screen.getByRole("option"), { ctrlKey: true });
+
+    expect(onToggleSelect).toHaveBeenCalledTimes(2);
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
+  it("opens the thread on a plain click when nothing is selected", () => {
+    const onOpen = vi.fn();
+    const onToggleSelect = vi.fn();
+    render(row(thread([undefined]), { onOpen, onToggleSelect }));
+
+    fireEvent.click(screen.getByRole("option"));
+
+    expect(onOpen).toHaveBeenCalledWith(0);
+    expect(onToggleSelect).not.toHaveBeenCalled();
+  });
+
   it("does not offer a code to copy on ordinary mail with numbers", () => {
     render(row(thread([undefined], "Invoice 482913 for October")));
 
@@ -57,21 +97,28 @@ describe("ThreadRow", () => {
 function row(
   listThread: ListThread,
   {
+    hasAnySelection = false,
     onOpen = () => {},
+    onToggleSelect,
     userLabels = {},
-  }: { onOpen?: (index: number) => void; userLabels?: EmailLabels } = {},
+  }: {
+    hasAnySelection?: boolean;
+    onOpen?: (index: number) => void;
+    onToggleSelect?: (index: number) => void;
+    userLabels?: EmailLabels;
+  } = {},
 ) {
   return (
     <ThreadRow
-      hasAnySelection={false}
+      hasAnySelection={hasAnySelection}
       index={0}
       isFocused={false}
       isSelected={false}
       layout="list"
       onOpen={onOpen}
       onSelectRangeTo={() => {}}
-      onToggleSelect={() => {}}
-      selectionEnabled={false}
+      onToggleSelect={onToggleSelect ?? (() => {})}
+      selectionEnabled={Boolean(onToggleSelect)}
       thread={listThread}
       userEmail="me@example.com"
       userLabels={userLabels}
