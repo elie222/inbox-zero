@@ -151,6 +151,7 @@ import { searchContacts } from "@/utils/outlook/contact";
 import { mapWithConcurrency } from "@/utils/async";
 
 const REPLY_SEARCH_MAX_PAGES = 3;
+export const OUTLOOK_GET_MESSAGES_BATCH_CONCURRENCY = 4;
 
 export class OutlookProvider implements EmailProvider {
   readonly name = "microsoft";
@@ -1706,23 +1707,50 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async getMessagesBatch(messageIds: string[]): Promise<ParsedMessage[]> {
-    // Outlook has no batch endpoint, so messages are fetched individually.
+    if (messageIds.length === 0) return [];
+
+    // Preload well-known folder IDs and category map once so concurrent
+    // getMessage workers hit the in-memory cache instead of fanning out
+    // duplicate folder and category requests on a cold cache.
+    await Promise.all([
+      getFolderIds(this.client, this.logger, { includeDrafts: false }),
+      getCategoryMap(this.client, this.logger),
+    ]);
+
+    // Throttle concurrent message requests to stay within Microsoft Graph's
+    // per-mailbox concurrency limit (4) to prevent ErrorAccessDenied and burst throttling.
     // Like Gmail's batch, skip messages that no longer exist instead of
     // failing the whole batch on one stale ID.
-    const messages = await Promise.all(
-      messageIds.map(async (messageId) => {
+    let firstError: unknown = null;
+    const messages = await mapWithConcurrency(
+      messageIds,
+      OUTLOOK_GET_MESSAGES_BATCH_CONCURRENCY,
+      async (messageId) => {
+        if (firstError) return null;
         try {
           return await this.getMessage(messageId);
         } catch (error) {
-          if (!isOutlookItemNotFoundError(error)) throw error;
+          if (!isOutlookItemNotFoundError(error)) {
+            if (!firstError) {
+              firstError = error;
+            }
+            return null;
+          }
           this.logger.warn("Skipping message missing from Outlook", {
             messageId,
           });
           return null;
         }
-      }),
+      },
     );
-    return messages.filter((message) => message !== null);
+
+    if (firstError) {
+      throw firstError;
+    }
+
+    return messages.filter(
+      (message): message is ParsedMessage => message !== null,
+    );
   }
 
   async syncLocalMail(
