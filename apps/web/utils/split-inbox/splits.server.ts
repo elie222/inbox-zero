@@ -230,30 +230,7 @@ export async function addSendersToMailSplit({
   id: string;
   senders: string[];
 }) {
-  const split = await prisma.mailSplit.findFirst({
-    where: { id, emailAccountId },
-    select: {
-      name: true,
-      matchAll: true,
-      filters: {
-        select: { kind: true, value: true },
-        orderBy: { order: "asc" },
-      },
-    },
-  });
-  if (!split) throw new SafeError("Split not found");
-
-  const result = addSendersToSplitFilters(split, senders);
-  if (result.status === "incompatible") {
-    throw new SafeError(
-      `"${split.name}" only shows mail matching all of its conditions, so edit it to add senders.`,
-    );
-  }
-  if (result.status === "limit") {
-    throw new SafeError(
-      `A split can have at most ${MAX_SPLIT_FILTERS} conditions.`,
-    );
-  }
+  const result = await planSenderAdditions({ emailAccountId, id, senders });
   if (!result.added.length) return { added: 0 };
 
   // Appended under the account lock rather than replacing the list read above,
@@ -324,7 +301,46 @@ export async function addSendersToMailSplit({
     `,
   ]);
 
+  // The locked guards skipped everything: re-plan against the split as it is
+  // now, so a split edited in between reports why rather than "already added".
+  if (!added) await planSenderAdditions({ emailAccountId, id, senders });
   return { added };
+}
+
+async function planSenderAdditions({
+  emailAccountId,
+  id,
+  senders,
+}: {
+  emailAccountId: string;
+  id: string;
+  senders: string[];
+}) {
+  const split = await prisma.mailSplit.findFirst({
+    where: { id, emailAccountId },
+    select: {
+      name: true,
+      matchAll: true,
+      filters: {
+        select: { kind: true, value: true },
+        orderBy: { order: "asc" },
+      },
+    },
+  });
+  if (!split) throw new SafeError("Split not found");
+
+  const result = addSendersToSplitFilters(split, senders);
+  if (result.status === "incompatible") {
+    throw new SafeError(
+      `"${split.name}" only shows mail matching all of its conditions, so edit it to add senders.`,
+    );
+  }
+  if (result.status === "limit") {
+    throw new SafeError(
+      `A split can have at most ${MAX_SPLIT_FILTERS} conditions.`,
+    );
+  }
+  return result;
 }
 
 export async function updateMailSplit({

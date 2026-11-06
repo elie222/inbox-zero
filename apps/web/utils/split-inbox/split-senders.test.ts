@@ -124,6 +124,20 @@ describe("getThreadSenders", () => {
     ).toEqual(["leah@x.com", "sam@y.com"]);
   });
 
+  it("goes by message date rather than array order", () => {
+    expect(
+      getThreadSenders(
+        [
+          [
+            { headers: { from: "new@x.com" }, internalDate: "2000" },
+            { headers: { from: "old@y.com" }, internalDate: "1000" },
+          ],
+        ],
+        ["me@example.com"],
+      ),
+    ).toEqual(["new@x.com"]);
+  });
+
   it("skips malformed addresses and deduplicates", () => {
     expect(
       getThreadSenders(
