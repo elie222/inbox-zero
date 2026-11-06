@@ -83,21 +83,26 @@ export function compilePredicate(
       };
     }
     case "address": {
-      const column =
-        predicate.field === "from"
-          ? `${alias}.from_address`
-          : predicate.field === "to"
-            ? `${alias}.to_json`
-            : `${alias}.cc_json`;
-      if (predicate.field === "from" && predicate.match === "address") {
+      const pattern = `%${escapeLike(predicate.value)}%`;
+      if (predicate.field !== "from") {
+        const column =
+          predicate.field === "to" ? `${alias}.to_json` : `${alias}.cc_json`;
+        // Match decoded recipients: the stored JSON escapes quotes in display names.
         return {
-          sql: `(LOWER(${column}) = LOWER(?) OR LOWER(${column}) LIKE '%' || LOWER(?) || '%')`,
-          bindings: [predicate.value, predicate.value],
+          sql: `EXISTS (SELECT 1 FROM json_each(${column}) WHERE LOWER(value) LIKE LOWER(?) ESCAPE '\\')`,
+          bindings: [pattern],
+        };
+      }
+      const column = `${alias}.from_address`;
+      if (predicate.match === "address") {
+        return {
+          sql: `(LOWER(${column}) = LOWER(?) OR LOWER(${column}) LIKE LOWER(?) ESCAPE '\\')`,
+          bindings: [predicate.value, pattern],
         };
       }
       return {
-        sql: `LOWER(${column}) LIKE '%' || LOWER(?) || '%'`,
-        bindings: [predicate.value],
+        sql: `LOWER(${column}) LIKE LOWER(?) ESCAPE '\\'`,
+        bindings: [pattern],
       };
     }
     case "received": {
