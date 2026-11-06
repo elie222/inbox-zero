@@ -188,6 +188,102 @@ describe("transactional conversation index", () => {
     }
   });
 
+  it("hides trashed and spam mail from label and category views, matching the unindexed filter", async () => {
+    const driver = createNodeSqliteDriver();
+    const store = await createSqliteMailStore(driver);
+    try {
+      await store.ensureAccount({
+        accountId: "a",
+        provider: "google",
+        generation: "g",
+      });
+      await driver.write(async (tx) => {
+        await insertMessage(tx, "kept", "c1", 1, 0, {
+          labels: ["Label_1"],
+          categories: ["CATEGORY_UPDATES"],
+        });
+        // A trashed Gmail message keeps its labels.
+        await insertMessage(tx, "trashed", "c2", 2, 0, {
+          labels: ["Label_1"],
+          categories: ["CATEGORY_UPDATES"],
+          roles: ["trash"],
+        });
+        await insertMessage(tx, "spammed", "c3", 3, 0, {
+          labels: ["Label_1"],
+          roles: ["spam"],
+        });
+        // Folders are physical locations, so the trash folder stays readable.
+        await insertMessage(tx, "foldered", "c4", 4, 0, {
+          folder: "trash-folder",
+          roles: ["trash"],
+        });
+      });
+      const labelQuery = {
+        accountIds: ["a"],
+        predicate: {
+          kind: "membership",
+          membership: "label",
+          id: "Label_1",
+        } as const,
+        order: "newest_first" as const,
+        pageSize: 25,
+        after: null,
+      };
+      const composed = await store.readMailboxView({
+        ...labelQuery,
+        predicate: { kind: "all", predicates: [labelQuery.predicate] },
+      });
+      expect(await store.readMailboxView(labelQuery)).toEqual(composed);
+      const label = await store.readMailboxView(labelQuery);
+      expect(label.view.counts).toMatchObject({
+        matchingConversations: 1,
+        unreadConversations: 1,
+      });
+      const category = await store.readMailboxView({
+        ...labelQuery,
+        predicate: {
+          kind: "membership",
+          membership: "category",
+          id: "CATEGORY_UPDATES",
+        },
+      });
+      expect(category.view.counts.matchingConversations).toBe(1);
+      const folder = await store.readMailboxView({
+        ...labelQuery,
+        predicate: {
+          kind: "membership",
+          membership: "folder",
+          id: "trash-folder",
+        },
+      });
+      expect(folder.view.counts.matchingConversations).toBe(1);
+
+      // Trashing and restoring a message must update the index in place.
+      await driver.write((tx) =>
+        tx.execute(
+          `UPDATE effective_messages SET in_trash = 1, roles_json = '["trash"]'
+           WHERE message_id = 'kept'`,
+        ),
+      );
+      expect(
+        (await store.readMailboxView(labelQuery)).view.counts
+          .matchingConversations,
+      ).toBe(0);
+      await driver.write((tx) =>
+        tx.execute(
+          `UPDATE effective_messages SET in_trash = 0, roles_json = '["inbox"]'
+           WHERE message_id = 'kept'`,
+        ),
+      );
+      expect(
+        (await store.readMailboxView(labelQuery)).view.counts
+          .matchingConversations,
+      ).toBe(1);
+    } finally {
+      await store.close();
+    }
+  });
+
   it("counts every target for all requested accounts in one read", async () => {
     const driver = createNodeSqliteDriver();
     const store = await createSqliteMailStore(driver);
@@ -421,6 +517,8 @@ async function insertMessage(
   const roles = options.roles ?? (options.draft ? ["draft"] : ["inbox"]);
   const inInbox = roles.includes("inbox") ? 1 : 0;
   const inDraft = roles.includes("draft") ? 1 : 0;
+  const inTrash = roles.includes("trash") ? 1 : 0;
+  const inSpam = roles.includes("spam") ? 1 : 0;
   await tx.execute(
     `INSERT INTO effective_messages(
       account_id, message_id, conversation_id, subject, preview, from_address, to_json,
@@ -428,7 +526,7 @@ async function insertMessage(
       in_inbox, in_sent, in_draft, in_trash, in_spam, has_attachments, snoozed_until_ms,
       pending_operation_ids_json
     ) VALUES (?, ?, ?, 'Subject', 'Preview', 'sender@example.com', '[]', ?, ?, 0,
-      ?, ?, ?, ?, ?, 0, ?, 0, 0, 0, ?, '[]')`,
+      ?, ?, ?, ?, ?, 0, ?, ?, ?, 0, ?, '[]')`,
     [
       options.account ?? "a",
       id,
@@ -441,6 +539,8 @@ async function insertMessage(
       JSON.stringify(roles),
       inInbox,
       inDraft,
+      inTrash,
+      inSpam,
       options.snoozedUntil ?? null,
     ],
   );

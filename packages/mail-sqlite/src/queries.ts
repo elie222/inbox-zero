@@ -71,14 +71,16 @@ export function compilePredicate(
           bindings: [...accountBindings, predicate.id],
         };
       }
+      // A trashed Gmail message keeps its labels, but label and category
+      // views exclude trash and spam, like `label:X` in Gmail search.
       if (predicate.membership === "label") {
         return {
-          sql: `(${accountSql}EXISTS (SELECT 1 FROM json_each(${alias}.label_ids_json) WHERE value = ?))`,
+          sql: `(${accountSql}${alias}.in_trash = 0 AND ${alias}.in_spam = 0 AND EXISTS (SELECT 1 FROM json_each(${alias}.label_ids_json) WHERE value = ?))`,
           bindings: [...accountBindings, predicate.id],
         };
       }
       return {
-        sql: `(${accountSql}EXISTS (SELECT 1 FROM json_each(${alias}.category_ids_json) WHERE value = ?))`,
+        sql: `(${accountSql}${alias}.in_trash = 0 AND ${alias}.in_spam = 0 AND EXISTS (SELECT 1 FROM json_each(${alias}.category_ids_json) WHERE value = ?))`,
         bindings: [...accountBindings, predicate.id],
       };
     }
