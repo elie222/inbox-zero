@@ -112,6 +112,30 @@ describe("getOrCreateOutlookFolderIdByName", () => {
   });
 });
 
+describe("getOrCreateOutlookFolderIdByName conflict recovery", () => {
+  it("rethrows the original conflict when the fallback listing fails", async () => {
+    const { client } = createGraphClient((request) => {
+      if (request.method === "POST") {
+        return Response.json(
+          { error: { code: "ErrorFolderExists", message: "exists" } },
+          { status: 409 },
+        );
+      }
+      if (new URL(request.url).searchParams.has("$filter")) {
+        return Response.json({ value: [] });
+      }
+      return Response.json(
+        { error: { code: "ServiceUnavailable", message: "down" } },
+        { status: 503 },
+      );
+    });
+
+    await expect(
+      getOrCreateOutlookFolderIdByName(client, "Bills & Receipts", logger),
+    ).rejects.toMatchObject({ code: "ErrorFolderExists" });
+  });
+});
+
 function createGraphClient(handler: (request: Request) => Response) {
   const requests: Request[] = [];
   const graph = Client.initWithMiddleware({
