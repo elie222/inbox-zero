@@ -153,10 +153,14 @@ async function startBrowserMailEngine(
     // An identical query already being observed, such as a conversation warmed
     // ahead of opening, has the answer the worker is about to send. Starting
     // from it lets the new observer render without waiting for the round trip.
-    const seed = [...observations.values()].find(
-      (other) =>
-        other.queryKey === queryKey && other.snapshot.status === "ready",
-    );
+    // Mailbox windows have independent pagination state in the worker.
+    const seed =
+      kind === "mailboxWindow"
+        ? undefined
+        : [...observations.values()].find(
+            (other) =>
+              other.queryKey === queryKey && other.snapshot.status === "ready",
+          );
     const observation = {
       queryKey,
       snapshot:
