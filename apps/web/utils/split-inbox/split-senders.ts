@@ -1,10 +1,12 @@
 import { MailSplitFilterKind } from "@/generated/prisma/enums";
-import { canonicalizeEmailAddress } from "@/utils/email";
+import { canonicalizeEmailAddress, isValidEmail } from "@/utils/email";
 import { matchesSenderFilter } from "@/utils/split-inbox/sender-filter";
 import {
   MAX_SPLIT_FILTERS,
   type MailSplitFilterDraft,
 } from "@/utils/split-inbox/split-filters";
+
+export type SenderThread = { headers: { from: string } }[];
 
 type SplitConditions = {
   matchAll: boolean;
@@ -65,4 +67,26 @@ export function addSendersToSplitFilters(
     matchAll: split.matchAll && filters.length <= 1,
     filters,
   };
+}
+
+/**
+ * The other party on each thread: its latest message not sent from one of the
+ * user's own addresses. List messages carry the conversation's labels rather
+ * than their own, so a SENT label can't tell the user's messages apart.
+ */
+export function getThreadSenders(
+  threads: SenderThread[],
+  ownAddresses: string[],
+) {
+  const own = new Set(ownAddresses.map(canonicalizeEmailAddress));
+  const senders = new Set<string>();
+  for (const messages of threads) {
+    const address = messages
+      .map((message) => canonicalizeEmailAddress(message.headers.from))
+      .findLast((address) => address && !own.has(address));
+    // The action rejects the whole request over one malformed address.
+    if (address && address.length <= 320 && isValidEmail(address))
+      senders.add(address);
+  }
+  return [...senders];
 }

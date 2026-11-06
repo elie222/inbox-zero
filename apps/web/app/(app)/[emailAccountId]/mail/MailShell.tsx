@@ -37,14 +37,13 @@ import { MailReaderPane } from "@/app/(app)/[emailAccountId]/mail/MailReaderPane
 import { ScheduledEmailList } from "@/app/(app)/[emailAccountId]/mail/ScheduledEmailList";
 import type { MailboxItem } from "@/app/(app)/[emailAccountId]/mail/MailboxItemContextMenu";
 import { ListSenderCommands } from "@/app/(app)/[emailAccountId]/mail/ListSenderCommands";
-import {
-  extractEmailAddress,
-  isSameEmailAddress,
-  isValidEmail,
-} from "@/utils/email";
+import { extractEmailAddress, isSameEmailAddress } from "@/utils/email";
 import { LabelPickerDialog } from "@/app/(app)/[emailAccountId]/mail/LabelPickerDialog";
 import { SplitPickerDialog } from "@/app/(app)/[emailAccountId]/mail/SplitPickerDialog";
-import { canAddSendersToSplit } from "@/utils/split-inbox/split-senders";
+import {
+  canAddSendersToSplit,
+  type SenderThread,
+} from "@/utils/split-inbox/split-senders";
 import { InboxZeroCelebration } from "@/app/(app)/[emailAccountId]/mail/InboxZeroCelebration";
 import { ThreadList } from "@/app/(app)/[emailAccountId]/mail/ThreadList";
 import { useStableCallback } from "@/app/(app)/[emailAccountId]/mail/use-stable-callback";
@@ -203,9 +202,9 @@ export function MailShell() {
     mode: "label" | "move";
     targets: ThreadSelection[];
   } | null>(null);
-  const [splitPickerSenders, setSplitPickerSenders] = useState<string[] | null>(
-    null,
-  );
+  const [splitPickerThreads, setSplitPickerThreads] = useState<
+    SenderThread[] | null
+  >(null);
   const [replyToMessageId, setReplyToMessageId] = useState<string>();
   const [forwardToMessageId, setForwardToMessageId] = useState<string>();
   const pendingComposeRequest = useRef<{
@@ -1207,13 +1206,8 @@ export function MailShell() {
     actionTargets.length > 0 &&
     senderSplits.some(canAddSendersToSplit);
   const openSplitPicker = useStableCallback(() => {
-    if (!canAddToSplit) return;
-    const senders = getThreadSenders(
-      actionTargets.map((target) => target.messages),
-      userEmail,
-    );
-    if (senders.length) setSplitPickerSenders(senders);
-    else toast.error("No senders to add");
+    if (canAddToSplit)
+      setSplitPickerThreads(actionTargets.map((target) => target.messages));
   });
   const singleActionTarget =
     actionTargets.length === 1 ? actionTargets.at(0) : undefined;
@@ -1334,7 +1328,7 @@ export function MailShell() {
     isHelpOpen ||
     isPaletteOpen ||
     Boolean(labelPicker) ||
-    Boolean(splitPickerSenders) ||
+    Boolean(splitPickerThreads) ||
     (isMenuOpen && Boolean(openThreadId));
 
   const selectAccount = useCallback((accountId: string) => {
@@ -1438,7 +1432,7 @@ export function MailShell() {
     if (target) setActiveSplitId(target.id);
   };
   const handlers: ShortcutHandlers = (() => {
-    if (sidePanelThreadId || labelPicker || splitPickerSenders) return {};
+    if (sidePanelThreadId || labelPicker || splitPickerThreads) return {};
     return {
       unsubscribe:
         !isMailOverlayOpen && !senderCommands?.isUnsubscribeDisabled
@@ -1750,13 +1744,13 @@ export function MailShell() {
       </EmailAccountScopeProvider>
     ) : null;
 
-  const splitPickerDialog = splitPickerSenders ? (
+  const splitPickerDialog = splitPickerThreads ? (
     <SplitPickerDialog
       splits={senderSplits}
-      senders={splitPickerSenders}
-      onClose={() => setSplitPickerSenders(null)}
+      threads={splitPickerThreads}
+      onClose={() => setSplitPickerThreads(null)}
       onApplied={() => {
-        setSplitPickerSenders(null);
+        setSplitPickerThreads(null);
         selection.clear();
         mutateSettings();
         refetchThreadList();
@@ -2068,23 +2062,3 @@ function useStableOrderedIds(threads: ListThread[]) {
 
 const EMPTY_SEARCH_THREADS: ListThread[] = [];
 const NO_SEARCH_OPTIONS: { name: string }[] = [];
-
-/** The other party on each thread: its latest message not sent by the user. */
-function getThreadSenders(
-  threads: { headers: { from: string }; labelIds?: string[] | null }[][],
-  userEmail: string,
-) {
-  const senders = new Set<string>();
-  for (const messages of threads) {
-    const from = messages.findLast(
-      (message) =>
-        // SENT also catches replies sent from one of the user's aliases.
-        !message.labelIds?.includes(GmailLabel.SENT) &&
-        !isSameEmailAddress(message.headers.from, userEmail),
-    )?.headers.from;
-    const address = from ? extractEmailAddress(from).toLowerCase() : "";
-    // The action rejects the whole request over one malformed address.
-    if (address.length <= 320 && isValidEmail(address)) senders.add(address);
-  }
-  return [...senders];
-}

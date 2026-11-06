@@ -1,8 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Loader2Icon } from "lucide-react";
 import { toast } from "sonner";
+import useSWR from "swr";
+import type { GetSendAsResponse } from "@/app/api/user/send-as/route";
 import {
   Command,
   CommandEmpty,
@@ -16,21 +18,39 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { addSendersToMailSplitAction } from "@/utils/actions/mail-split";
 import { getActionErrorMessage } from "@/utils/error";
 import type { MailSplit } from "@/utils/split-inbox/split-query";
-import { canAddSendersToSplit } from "@/utils/split-inbox/split-senders";
+import {
+  canAddSendersToSplit,
+  getThreadSenders,
+  type SenderThread,
+} from "@/utils/split-inbox/split-senders";
+import { getAccountScopedKey } from "@/utils/swr";
 
 /** Adds the senders of the selected conversations to one of the account's splits. */
 export function SplitPickerDialog({
   splits,
-  senders,
+  threads,
   onClose,
   onApplied,
 }: {
   splits: MailSplit[];
-  senders: string[];
+  threads: SenderThread[];
   onClose: () => void;
   onApplied: (splitId: string) => void;
 }) {
-  const { emailAccountId } = useAccount();
+  const { emailAccountId, userEmail } = useAccount();
+  // Loaded on open rather than with the list, since only this action needs it.
+  const { data: sendAs, isLoading: isLoadingSendAs } =
+    useSWR<GetSendAsResponse>(
+      getAccountScopedKey("/api/user/send-as", emailAccountId),
+    );
+  const senders = useMemo(
+    () =>
+      getThreadSenders(threads, [
+        userEmail,
+        ...(sendAs?.addresses.map((address) => address.email) ?? []),
+      ]),
+    [threads, userEmail, sendAs],
+  );
   const [isPending, setIsPending] = useState(false);
   const pending = useRef(false);
   const senderCount = senders.length;
@@ -84,17 +104,23 @@ export function SplitPickerDialog({
           <CommandInput
             aria-label="Search splits"
             className="pr-8"
-            disabled={isPending}
-            placeholder={`Add ${pluralSenders(senderCount)} to…`}
+            disabled={isPending || isLoadingSendAs || !senderCount}
+            placeholder={
+              isLoadingSendAs || senderCount
+                ? `Add ${pluralSenders(senderCount)} to…`
+                : "No senders to add"
+            }
           />
-          <CommandList aria-busy={isPending}>
+          <CommandList aria-busy={isPending || isLoadingSendAs}>
             <CommandEmpty>No matching splits.</CommandEmpty>
             <CommandGroup>
               {splits.map((split) => {
                 const eligible = canAddSendersToSplit(split);
                 return (
                   <CommandItem
-                    disabled={isPending || !eligible}
+                    disabled={
+                      isPending || isLoadingSendAs || !senderCount || !eligible
+                    }
                     key={split.id}
                     keywords={[split.name]}
                     onSelect={() => apply(split)}

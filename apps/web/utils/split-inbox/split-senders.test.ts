@@ -4,6 +4,7 @@ import { MAX_SPLIT_FILTERS } from "@/utils/split-inbox/split-filters";
 import {
   addSendersToSplitFilters,
   canAddSendersToSplit,
+  getThreadSenders,
 } from "@/utils/split-inbox/split-senders";
 
 const from = (value: string) => ({ kind: MailSplitFilterKind.FROM, value });
@@ -103,5 +104,32 @@ describe("addSendersToSplitFilters", () => {
         "new2@y.com",
       ]),
     ).toEqual({ status: "limit" });
+  });
+});
+
+describe("getThreadSenders", () => {
+  const thread = (...senders: string[]) =>
+    senders.map((from) => ({ headers: { from } }));
+
+  it("picks the latest sender who isn't the user or one of their aliases", () => {
+    expect(
+      getThreadSenders(
+        [
+          thread("Leah <leah@x.com>", "Me <me@example.com>"),
+          thread("Sam <sam@y.com>", "Alias <sales@example.com>"),
+          thread("me@example.com"),
+        ],
+        ["me@example.com", "Sales@example.com"],
+      ),
+    ).toEqual(["leah@x.com", "sam@y.com"]);
+  });
+
+  it("skips malformed addresses and deduplicates", () => {
+    expect(
+      getThreadSenders(
+        [thread("not an address"), thread("A@x.com"), thread("a@x.com")],
+        ["me@example.com"],
+      ),
+    ).toEqual(["a@x.com"]);
   });
 });

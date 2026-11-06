@@ -262,6 +262,7 @@ export async function addSendersToMailSplit({
   const rows = toFilterRows(
     result.added.map((value) => ({ kind: MailSplitFilterKind.FROM, value })),
   );
+  const addedIds = (JSON.parse(rows) as { id: string }[]).map((row) => row.id);
   const [, added] = await prisma.$transaction([
     lockMailSplits(emailAccountId),
     prisma.$executeRaw`
@@ -291,17 +292,34 @@ export async function addSendersToMailSplit({
         split_state.next_order + ROW_NUMBER() OVER (ORDER BY additions."order") - 1, ${id}
       FROM additions CROSS JOIN split_state
       WHERE EXISTS (
-          SELECT 1 FROM "MailSplit"
-          WHERE "id" = ${id} AND "emailAccountId" = ${emailAccountId}
+          -- Mirrors canAddSendersToSplit against the locked rows, so a split
+          -- changed to "match all" of several conditions since the read above
+          -- isn't widened into "match any".
+          SELECT 1 FROM "MailSplit" split
+          WHERE split."id" = ${id} AND split."emailAccountId" = ${emailAccountId}
+            AND split_state.count > 0
+            AND (
+              NOT split."matchAll"
+              OR split_state.count = 1
+              OR NOT EXISTS (
+                SELECT 1 FROM "MailSplitFilter" other
+                WHERE other."mailSplitId" = ${id} AND other."kind" <> 'FROM'
+              )
+            )
         )
         AND split_state.count + (SELECT COUNT(*) FROM additions) <= ${MAX_SPLIT_FILTERS}
     `,
-    // Several conditions under "match all" would match nothing.
+    // Several conditions under "match all" would match nothing. Only applies
+    // when this request added a sender, so a skipped insert changes nothing.
     prisma.$executeRaw`
       UPDATE "MailSplit"
       SET "matchAll" = false, "updatedAt" = CURRENT_TIMESTAMP
       WHERE "id" = ${id}
         AND "emailAccountId" = ${emailAccountId}
+        AND EXISTS (
+          SELECT 1 FROM "MailSplitFilter"
+          WHERE "mailSplitId" = ${id} AND "id" = ANY(${addedIds}::text[])
+        )
         AND (SELECT COUNT(*) FROM "MailSplitFilter" WHERE "mailSplitId" = ${id}) > 1
     `,
   ]);
