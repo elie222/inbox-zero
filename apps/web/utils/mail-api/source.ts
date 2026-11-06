@@ -1,6 +1,7 @@
 import { messageMatchesPredicate } from "@inboxzero/mail-core/query-semantics";
 import type { MailPredicate } from "@inboxzero/mail-core/queries";
 import type {
+  ConversationMembershipResult,
   MailboxSource,
   ScopeDescriptor,
 } from "@inboxzero/mail-core/ports/mailbox-source";
@@ -21,7 +22,7 @@ import {
   parsedMessageBodyObservation,
   parsedMessagePatch,
 } from "@/utils/mail-api/observations";
-import { isProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
+import { isEmailProviderRateLimitError } from "@/utils/email/is-provider-rate-limit-error";
 import { extractErrorInfo as extractGmailErrorInfo } from "@/utils/gmail/retry";
 import { extractErrorInfo as extractOutlookErrorInfo } from "@/utils/outlook/retry";
 import type { ParsedMessage } from "@/utils/types";
@@ -29,8 +30,8 @@ import { mapWithConcurrency } from "@/utils/async";
 import { convertEmailHtmlToText } from "@/utils/mail";
 
 // Outlook allows four concurrent Graph requests per mailbox, shared with
-// webhook processing, so batched folder reads stay below that.
-const CHANGES_BATCH_CONCURRENCY = 3;
+// webhook processing, so batched reads stay below that.
+const BATCH_READ_CONCURRENCY = 3;
 
 const SUPPORTED_CHANGES = [
   "archive",
@@ -62,7 +63,10 @@ type BootstrapToken = {
 export function createEmailProviderMailboxSource(input: {
   provider: EmailProvider;
   accountId: string;
-}): MailboxSource & Required<Pick<MailboxSource, "readChangesBatch">> {
+}): MailboxSource &
+  Required<
+    Pick<MailboxSource, "readChangesBatch" | "readConversationMembershipBatch">
+  > {
   const { provider, accountId } = input;
   const maxPageSize = provider.name === "microsoft" ? 20 : 50;
   const source: MailboxSource = {
@@ -126,7 +130,7 @@ export function createEmailProviderMailboxSource(input: {
           },
         };
       } catch (error) {
-        return mapProviderError(error);
+        return mapProviderError(error, provider.name);
       }
     },
     async enumerate({ page, session, pageSize }) {
@@ -184,7 +188,7 @@ export function createEmailProviderMailboxSource(input: {
         if (error instanceof InvalidMailboxSyncCursorError) {
           return { status: "reset_required", scopeId: "primary" };
         }
-        return mapProviderError(error);
+        return mapProviderError(error, provider.name);
       }
     },
     async readChanges({ position, session, requestId, pageSize }) {
@@ -240,7 +244,7 @@ export function createEmailProviderMailboxSource(input: {
         if (error instanceof InvalidMailboxSyncCursorError) {
           return { status: "reset_required", scopeId: position.streamId };
         }
-        return mapProviderError(error);
+        return mapProviderError(error, provider.name);
       }
     },
     async hydrate({ keys, purpose }) {
@@ -268,7 +272,7 @@ export function createEmailProviderMailboxSource(input: {
           value: { changes, bodies, unresolved },
         };
       } catch (error) {
-        return mapProviderError(error);
+        return mapProviderError(error, provider.name);
       }
     },
     async readConversationMembership({
@@ -310,7 +314,8 @@ export function createEmailProviderMailboxSource(input: {
           },
         };
       } catch (error) {
-        if (!isMissingProviderResource(error)) return mapProviderError(error);
+        if (!isMissingProviderResource(error))
+          return mapProviderError(error, provider.name);
         return { status: "ok", value: { status: "not_found" } };
       }
     },
@@ -329,7 +334,7 @@ export function createEmailProviderMailboxSource(input: {
         // A rejected query fails the same way every time, so the client
         // must drop it rather than retry it.
         if (isRejectedProviderRequest(error)) return { status: "unsupported" };
-        return mapProviderError(error);
+        return mapProviderError(error, provider.name);
       }
       const candidates = await mapWithConcurrency(
         result.messages,
@@ -385,7 +390,7 @@ export function createEmailProviderMailboxSource(input: {
         if (isMissingProviderResource(error)) {
           return { status: "not_found" as const };
         }
-        return mapProviderError(error);
+        return mapProviderError(error, provider.name);
       }
     },
   };
@@ -407,8 +412,39 @@ export function createEmailProviderMailboxSource(input: {
       const firstResult = await read(first);
       return [
         firstResult,
-        ...(await mapWithConcurrency(rest, CHANGES_BATCH_CONCURRENCY, read)),
+        ...(await mapWithConcurrency(rest, BATCH_READ_CONCURRENCY, read)),
       ];
+    },
+    async readConversationMembershipBatch({
+      session,
+      requestId,
+      reads,
+      pageSize,
+      signal,
+    }) {
+      let stopped: ConversationMembershipResult | null = null;
+      return mapWithConcurrency(
+        reads,
+        BATCH_READ_CONCURRENCY,
+        async (read): Promise<ConversationMembershipResult> => {
+          // Once the provider pushes back, the remaining reads would only
+          // spend more of the same quota.
+          if (stopped) return stopped;
+          const result = await source.readConversationMembership({
+            session,
+            requestId,
+            signal,
+            pageSize,
+            ...read,
+          });
+          if (
+            result.status === "blocked_auth" ||
+            (result.status === "paused" && result.reason === "throttled")
+          )
+            stopped = result;
+          return result;
+        },
+      );
     },
   };
 }
@@ -555,8 +591,8 @@ function isRejectedProviderRequest(error: unknown) {
   );
 }
 
-function mapProviderError(error: unknown) {
-  if (isProviderRateLimitModeError(error)) {
+function mapProviderError(error: unknown, providerName: EmailProvider["name"]) {
+  if (isEmailProviderRateLimitError({ error, provider: providerName })) {
     return {
       status: "paused" as const,
       retryAfterMs: 15_000,
