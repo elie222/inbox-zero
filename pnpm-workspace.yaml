@@ -3,6 +3,10 @@ packages:
   - apps/*
 
 enableGlobalVirtualStore: true
+# With the global virtual store, pnpm 12 otherwise injects a NODE_OPTIONS resolve
+# hook into scripts. That hook bypasses Next's require hook for next.config.ts, so
+# tsconfig "@/" imports fail when `serwist build` loads the Next config.
+extendNodePath: false
 
 # Supply-chain hardening: block versions published <24h ago. Malicious npm releases
 # are typically yanked within hours, so the cooldown blocks the attack window.
