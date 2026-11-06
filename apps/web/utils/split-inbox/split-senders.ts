@@ -12,15 +12,16 @@ type SplitConditions = {
 };
 
 /**
- * Adding a sender means "also show mail from them". That only holds for a split
- * that matches any condition, or one defined by senders alone; adding a sender to
- * "label X and from A" would narrow it instead. A split with no conditions is the
- * plain inbox, which already holds every sender.
+ * Adding a sender means "also show mail from them". That holds for a split that
+ * matches any condition, has a single condition, or is defined by senders alone;
+ * adding a sender to "label X and from A" would narrow it instead. A split with
+ * no conditions is the plain inbox, which already holds every sender.
  */
 export function canAddSendersToSplit(split: SplitConditions) {
   if (!split.filters.length) return false;
   return (
     !split.matchAll ||
+    split.filters.length === 1 ||
     split.filters.every((filter) => filter.kind === MailSplitFilterKind.FROM)
   );
 }

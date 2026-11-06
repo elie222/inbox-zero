@@ -39,12 +39,19 @@ export function SplitPickerDialog({
     if (pending.current) return;
     pending.current = true;
     setIsPending(true);
-    const result = await addSendersToMailSplitAction(emailAccountId, {
-      id: split.id,
-      senders,
-    });
-    pending.current = false;
-    setIsPending(false);
+    let result: Awaited<ReturnType<typeof addSendersToMailSplitAction>>;
+    try {
+      result = await addSendersToMailSplitAction(emailAccountId, {
+        id: split.id,
+        senders,
+      });
+    } catch {
+      toast.error("Couldn't add senders. Please try again.");
+      return;
+    } finally {
+      pending.current = false;
+      setIsPending(false);
+    }
 
     if (result?.serverError || result?.validationErrors) {
       toast.error(getActionErrorMessage(result));

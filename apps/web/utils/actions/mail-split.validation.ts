@@ -2,7 +2,6 @@ import { z } from "zod";
 import { MAX_MAIL_SPLITS } from "@/utils/split-inbox/split-constants";
 import { MailLayout } from "@/generated/prisma/enums";
 import {
-  MAX_SPLIT_FILTERS,
   mailSplitFiltersSchema,
   mailSplitNameSchema,
 } from "@/utils/split-inbox/split-filters";
@@ -69,7 +68,9 @@ export const addSendersToMailSplitBody = z.object({
   senders: z
     .array(z.string().trim().max(320).pipe(z.email()))
     .min(1)
-    .max(MAX_SPLIT_FILTERS),
+    // The split's condition cap is enforced after senders it already covers
+    // are dropped, so this only bounds the request.
+    .max(500),
 });
 
 export const deleteMailSplitBody = z.object({ id: z.string() });

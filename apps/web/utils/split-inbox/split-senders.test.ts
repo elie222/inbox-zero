@@ -10,7 +10,10 @@ const from = (value: string) => ({ kind: MailSplitFilterKind.FROM, value });
 const label = (value: string) => ({ kind: MailSplitFilterKind.LABEL, value });
 
 describe("canAddSendersToSplit", () => {
-  it("accepts match-any splits and sender-only splits", () => {
+  it("accepts match-any, single-condition, and sender-only splits", () => {
+    expect(
+      canAddSendersToSplit({ matchAll: true, filters: [label("Label_1")] }),
+    ).toBe(true);
     expect(
       canAddSendersToSplit({ matchAll: false, filters: [label("Label_1")] }),
     ).toBe(true);
@@ -68,13 +71,25 @@ describe("addSendersToSplitFilters", () => {
     });
   });
 
-  it("refuses to change a match-all split that has other conditions", () => {
+  it("refuses to change a match-all split that has several other conditions", () => {
+    expect(
+      addSendersToSplitFilters(
+        {
+          matchAll: true,
+          filters: [label("Label_1"), { kind: "UNREAD", value: null }],
+        },
+        ["a@x.com"],
+      ),
+    ).toEqual({ status: "incompatible" });
+  });
+
+  it("widens a single-label split to also match the new sender", () => {
     expect(
       addSendersToSplitFilters(
         { matchAll: true, filters: [label("Label_1")] },
         ["a@x.com"],
       ),
-    ).toEqual({ status: "incompatible" });
+    ).toMatchObject({ status: "ok", matchAll: false });
   });
 
   it("refuses to go past the condition limit", () => {

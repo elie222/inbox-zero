@@ -40,6 +40,7 @@ import { ListSenderCommands } from "@/app/(app)/[emailAccountId]/mail/ListSender
 import { extractEmailAddress, isSameEmailAddress } from "@/utils/email";
 import { LabelPickerDialog } from "@/app/(app)/[emailAccountId]/mail/LabelPickerDialog";
 import { SplitPickerDialog } from "@/app/(app)/[emailAccountId]/mail/SplitPickerDialog";
+import { canAddSendersToSplit } from "@/utils/split-inbox/split-senders";
 import { InboxZeroCelebration } from "@/app/(app)/[emailAccountId]/mail/InboxZeroCelebration";
 import { ThreadList } from "@/app/(app)/[emailAccountId]/mail/ThreadList";
 import { useStableCallback } from "@/app/(app)/[emailAccountId]/mail/use-stable-callback";
@@ -1198,7 +1199,9 @@ export function MailShell() {
     [settings?.splits],
   );
   const canAddToSplit =
-    !isAllAccounts && senderSplits.length > 0 && actionTargets.length > 0;
+    !isAllAccounts &&
+    actionTargets.length > 0 &&
+    senderSplits.some(canAddSendersToSplit);
   const openSplitPicker = useStableCallback(() => {
     if (!canAddToSplit) return;
     const senders = getThreadSenders(
@@ -2064,13 +2067,16 @@ const NO_SEARCH_OPTIONS: { name: string }[] = [];
 
 /** The other party on each thread: its latest message not sent by the user. */
 function getThreadSenders(
-  threads: { headers: { from: string } }[][],
+  threads: { headers: { from: string }; labelIds?: string[] | null }[][],
   userEmail: string,
 ) {
   const senders = new Set<string>();
   for (const messages of threads) {
     const from = messages.findLast(
-      (message) => !isSameEmailAddress(message.headers.from, userEmail),
+      (message) =>
+        // SENT also catches replies sent from one of the user's aliases.
+        !message.labelIds?.includes(GmailLabel.SENT) &&
+        !isSameEmailAddress(message.headers.from, userEmail),
     )?.headers.from;
     const address = from ? extractEmailAddress(from).toLowerCase() : "";
     if (address) senders.add(address);
