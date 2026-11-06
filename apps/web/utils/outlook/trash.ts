@@ -6,6 +6,8 @@ import {
   listThreadMessages,
   runThreadMessageMutation,
 } from "@/utils/outlook/thread-helpers";
+import { getOrCreateOutlookFolderIdByName } from "@/utils/outlook/folders";
+import { getReviewBeforeDeleteLabel } from "@/utils/review-before-delete";
 
 export async function trashThread(options: {
   client: OutlookClient;
@@ -13,8 +15,20 @@ export async function trashThread(options: {
   ownerEmail: string;
   actionSource: TinybirdEmailAction["actionSource"];
   logger: Logger;
+  reviewLabel?: string;
 }) {
   const { client, threadId, ownerEmail, actionSource, logger } = options;
+  const reviewLabel = options.reviewLabel ?? getReviewBeforeDeleteLabel();
+
+  let destinationId = "deleteditems";
+  if (reviewLabel) {
+    destinationId = await getOrCreateOutlookFolderIdByName(
+      client,
+      reviewLabel,
+      logger,
+    );
+  }
+
   const messages = await listThreadMessages({
     client,
     threadId,
@@ -32,7 +46,7 @@ export async function trashThread(options: {
       withMicrosoftGraphWriteRetry(
         () =>
           client.getClient().api(`/me/messages/${messageId}/move`).post({
-            destinationId: "deleteditems",
+            destinationId,
           }),
         logger,
       ),
