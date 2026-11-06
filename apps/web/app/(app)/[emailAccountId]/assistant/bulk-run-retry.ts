@@ -1,6 +1,5 @@
 import {
   EMAIL_PROVIDER_RATE_LIMIT_MESSAGE,
-  GMAIL_SERVICE_UNAVAILABLE_MESSAGE,
   UNEXPECTED_ACTION_ERROR_MESSAGE,
 } from "@/utils/error";
 
@@ -63,7 +62,7 @@ export function createBulkRunRetrier({
     // Requests already in flight when the cooldown began are part of the same
     // burst: they wait it out without escalating the backoff.
     if (requestStartedAt <= cooldownStartedAt) {
-      if (retryAfterMs) resumeAt = Math.max(resumeAt, now + retryAfterMs);
+      if (retryAfterMs) extendCooldown(now + retryAfterMs, waitingSince);
       return;
     }
 
@@ -77,18 +76,24 @@ export function createBulkRunRetrier({
         ),
       ),
     );
-    if (now + delayMs - waitingSince > MAX_RATE_LIMIT_WAIT_MS) {
+    cooldownStartedAt = now;
+    extendCooldown(now + delayMs, waitingSince);
+  }
+
+  function extendCooldown(until: number, waitStartedAt: number) {
+    if (until <= resumeAt) return;
+    if (until - waitStartedAt > MAX_RATE_LIMIT_WAIT_MS) {
       throw new BulkRunRateLimitGiveUpError();
     }
-
-    resumeAt = now + delayMs;
-    cooldownStartedAt = now;
+    resumeAt = until;
     onWaiting(new Date(resumeAt));
   }
 
   function recordSuccess() {
     rateLimitStreak = 0;
-    if (waitingSince === null) return;
+    // A request that was already in flight can succeed while the others are
+    // still waiting out the cooldown, so the run stays paused until it ends.
+    if (waitingSince === null || Date.now() < resumeAt) return;
     waitingSince = null;
     onWaiting(null);
   }
@@ -144,7 +149,6 @@ function classifyError(error: unknown): "rate-limit" | "transient" | "fatal" {
   if (error.message === EMAIL_PROVIDER_RATE_LIMIT_MESSAGE) return "rate-limit";
   if (
     error.message === UNEXPECTED_ACTION_ERROR_MESSAGE ||
-    error.message === GMAIL_SERVICE_UNAVAILABLE_MESSAGE ||
     // fetch and server action calls reject with a TypeError on network failure
     error instanceof TypeError
   ) {

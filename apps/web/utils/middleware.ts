@@ -224,26 +224,29 @@ function withMiddleware<T extends NextRequest>(
               reqLogger,
             ); // TODO: add emailAccountId
 
-            if (publicApiRequest) {
-              return publicApiErrorResponse({
-                status: apiError.code,
-                message: apiError.message || "Request failed",
-              });
-            }
-
             const retryAfterSeconds = rateLimitProvider
               ? getProviderRateLimitRetryAfterSeconds({
                   error,
                   provider: rateLimitProvider,
                 })
               : undefined;
+            const headers = retryAfterSeconds
+              ? { "Retry-After": String(retryAfterSeconds) }
+              : undefined;
+
+            if (publicApiRequest) {
+              return publicApiErrorResponse({
+                status: apiError.code,
+                message: apiError.message || "Request failed",
+                headers,
+              });
+            }
+
             return NextResponse.json(
               { error: apiError.message, isKnownError: true },
               {
                 status: apiError.code,
-                headers: retryAfterSeconds
-                  ? { "Retry-After": String(retryAfterSeconds) }
-                  : undefined,
+                headers,
               },
             );
           }

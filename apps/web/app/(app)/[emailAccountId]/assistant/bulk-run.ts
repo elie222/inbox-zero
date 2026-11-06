@@ -178,10 +178,11 @@ export async function onRun(
       if (completeIfCancelled()) return;
 
       abortController.abort();
+      const processedCount = totalProcessed + completedInBatch;
       if (error instanceof BulkRunRateLimitGiveUpError) {
         toastError({
           title: "Processing stopped",
-          description: `Your email provider kept limiting requests, so processing stopped after ${totalProcessed + completedInBatch} emails. Run it again later to ${rerun ? "try again" : "continue with the rest"}.`,
+          description: `Your email provider kept limiting requests, so processing stopped after ${processedCount} emails. Run it again later to ${rerun ? "try again" : "continue with the rest"}.`,
         });
       } else {
         captureException(error);
@@ -191,7 +192,7 @@ export async function onRun(
             error instanceof Error ? error.message : "Please try again.",
         });
       }
-      onComplete("error", totalProcessed);
+      onComplete("error", processedCount);
     })
     .finally(() => {
       onRateLimitWait?.(null);

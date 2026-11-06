@@ -123,6 +123,78 @@ describe("createBulkRunRetrier", () => {
     expect(operation).toHaveBeenCalledTimes(1);
   });
 
+  it("gives up when an in-flight request extends the cooldown past the bound", async () => {
+    const onWaiting = vi.fn();
+    const retrier = createBulkRunRetrier({ onWaiting });
+    const signal = new AbortController().signal;
+    const first = vi
+      .fn()
+      .mockRejectedValueOnce(rateLimitResponse(30))
+      .mockResolvedValue("first");
+    const second = vi.fn().mockRejectedValue(rateLimitResponse(60 * 60));
+
+    const results = Promise.allSettled([
+      retrier.run(first, signal),
+      retrier.run(second, signal),
+    ]);
+    await vi.advanceTimersByTimeAsync(30_000);
+
+    const [, secondResult] = await results;
+    expect(secondResult).toMatchObject({
+      status: "rejected",
+      reason: expect.any(BulkRunRateLimitGiveUpError),
+    });
+  });
+
+  it("shows a longer wait when an in-flight request extends the cooldown", async () => {
+    const onWaiting = vi.fn();
+    const retrier = createBulkRunRetrier({ onWaiting });
+    const signal = new AbortController().signal;
+    const first = vi
+      .fn()
+      .mockRejectedValueOnce(rateLimitResponse(30))
+      .mockResolvedValue("first");
+    const second = vi
+      .fn()
+      .mockRejectedValueOnce(rateLimitResponse(90))
+      .mockResolvedValue("second");
+
+    const results = Promise.all([
+      retrier.run(first, signal),
+      retrier.run(second, signal),
+    ]);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(onWaiting).toHaveBeenLastCalledWith(new Date(Date.now() + 90_000));
+
+    await vi.advanceTimersByTimeAsync(89_000);
+    expect(first).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1000);
+    await expect(results).resolves.toEqual(["first", "second"]);
+  });
+
+  it("stays paused when an in-flight request succeeds during the cooldown", async () => {
+    const onWaiting = vi.fn();
+    const retrier = createBulkRunRetrier({ onWaiting });
+    const signal = new AbortController().signal;
+    const inFlight = createDeferred<string>();
+    const limited = vi
+      .fn()
+      .mockRejectedValueOnce(rateLimitResponse(30))
+      .mockResolvedValue("limited");
+
+    const slowResult = retrier.run(() => inFlight.promise, signal);
+    const limitedResult = retrier.run(limited, signal);
+    await vi.advanceTimersByTimeAsync(0);
+    inFlight.resolve("slow");
+    await expect(slowResult).resolves.toBe("slow");
+
+    expect(onWaiting).not.toHaveBeenCalledWith(null);
+
+    await vi.advanceTimersByTimeAsync(30_000);
+    await expect(limitedResult).resolves.toBe("limited");
+    expect(onWaiting).toHaveBeenLastCalledWith(null);
+  });
+
   it("resets the wait bound after a request succeeds", async () => {
     const retrier = createBulkRunRetrier({ onWaiting: vi.fn() });
     const signal = new AbortController().signal;
@@ -200,4 +272,12 @@ function rateLimitResponse(retryAfterSeconds: number) {
     message: EMAIL_PROVIDER_RATE_LIMIT_MESSAGE,
     retryAfterMs: retryAfterSeconds * 1000,
   });
+}
+
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
 }

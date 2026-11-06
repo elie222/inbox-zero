@@ -123,6 +123,12 @@ async function prepareTrialAccountWithRule(emailAccountId: string) {
        WHERE id = (SELECT "userId" FROM "EmailAccount" WHERE id = $1)`,
       [emailAccountId, premiumId],
     );
+    // A Playwright retry reuses the mailbox, so clear the previous attempt's
+    // results before counting this one's.
+    await client.query(
+      `DELETE FROM "ExecutedRule" WHERE "emailAccountId" = $1 AND "threadId" LIKE 'bulk_thread_%'`,
+      [emailAccountId],
+    );
     await client.query(
       `DELETE FROM "Rule" WHERE "emailAccountId" = $1 AND name = $2`,
       [emailAccountId, RULE_NAME],

@@ -55,11 +55,17 @@ export const runAiRules = async (
               const message = thread.messages.at(-1);
               if (!message) return;
 
+              let isRetry = false;
               await runWithRetry(async () => {
+                // A failed attempt may already have saved a result and run
+                // some actions. Retrying as a rerun would discard it and run
+                // them again, so retries keep whatever the attempt saved.
+                const rerunThisAttempt = rerun && !isRetry;
+                isRetry = true;
                 const result = await runRulesAction(emailAccountId, {
                   messageId: message.id,
                   threadId: thread.id,
-                  rerun,
+                  rerun: rerunThisAttempt,
                   isTest: false,
                   skipDraftReplies,
                 });

@@ -154,7 +154,9 @@ describe("bulk processing under provider rate limits", () => {
     expect(onComplete).not.toHaveBeenCalled();
     expect(toastError).not.toHaveBeenCalled();
 
-    await vi.advanceTimersByTimeAsync(30_000);
+    await vi.advanceTimersByTimeAsync(29_999);
+    expect(onComplete).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
 
     expect(onComplete).toHaveBeenCalledWith("success", 3);
     expect(onWaiting).toHaveBeenLastCalledWith(null);

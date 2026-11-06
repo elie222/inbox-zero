@@ -71,6 +71,26 @@ describe("runAiRules", () => {
     expect(removeFromAiQueueAtom).toHaveBeenCalledWith("thread-a");
   });
 
+  it("does not rerun an email again when retrying it", async () => {
+    vi.mocked(runRulesAction)
+      .mockResolvedValueOnce({ serverError: "Rate limited" })
+      .mockResolvedValue({ data: [] });
+
+    await runAiRules("account-id", createThreads("thread-a"), true, {
+      runWithRetry: async (operation) => {
+        try {
+          return await operation();
+        } catch {
+          return operation();
+        }
+      },
+    });
+
+    expect(
+      vi.mocked(runRulesAction).mock.calls.map(([, input]) => input.rerun),
+    ).toEqual([true, false]);
+  });
+
   it("rejects when rule processing returns a server error", async () => {
     vi.mocked(runRulesAction).mockResolvedValue({
       serverError: "AI automation is unavailable.",

@@ -93,6 +93,9 @@ export function BulkRunRules() {
   const isProcessing = queue.size > 0;
   const isPaused = state.status === "paused";
   const isBusy = isProcessing || state.status === "processing";
+  // A run can be waiting out a rate limit with nothing queued, so inputs that
+  // reset the run stay locked until it actually ends.
+  const isRunActive = isBusy || isPaused;
   // Access can drop while a toggle is still on (the tier is revalidated in
   // the background), so everything reads the gated values rather than the raw
   // toggle state.
@@ -218,7 +221,7 @@ export function BulkRunRules() {
                   }}
                   value={startDate}
                   placeholder="Set start date"
-                  disabled={isProcessing}
+                  disabled={isRunActive}
                 />
                 <SetDateDropdown
                   onChange={(date) => {
@@ -227,7 +230,7 @@ export function BulkRunRules() {
                   }}
                   value={endDate}
                   placeholder="Set end date (optional)"
-                  disabled={isProcessing}
+                  disabled={isRunActive}
                 />
               </div>
 
@@ -236,7 +239,7 @@ export function BulkRunRules() {
                   title="Include read emails"
                   checked={isIncludeReadEnabled}
                   onCheckedChange={setIncludeRead}
-                  disabled={isProcessing}
+                  disabled={isRunActive}
                   onUpgrade={isBusinessPlusTier ? undefined : openPremiumModal}
                 />
                 <ItemSeparator />
@@ -244,7 +247,7 @@ export function BulkRunRules() {
                   title="Rerun rules on already processed emails"
                   checked={isRerunEnabled}
                   onCheckedChange={setRerun}
-                  disabled={isProcessing}
+                  disabled={isRunActive}
                   onUpgrade={hasRerunAccess ? undefined : openPremiumModal}
                 />
                 <ItemSeparator />
@@ -285,7 +288,7 @@ export function BulkRunRules() {
               )}
 
               {(state.status === "idle" || state.status === "stopped") &&
-                !isProcessing && (
+                !isRunActive && (
                   <Button
                     type="button"
                     disabled={
