@@ -63,6 +63,16 @@ export const reorderMailSplitsBody = z.object({
     ),
 });
 
+export const addSendersToMailSplitBody = z.object({
+  id: z.string(),
+  senders: z
+    .array(z.string().trim().max(320).pipe(z.email()))
+    .min(1)
+    // The split's condition cap is enforced after senders it already covers
+    // are dropped, so this only bounds the request.
+    .max(500),
+});
+
 export const deleteMailSplitBody = z.object({ id: z.string() });
 export type DeleteMailSplitBody = z.infer<typeof deleteMailSplitBody>;
 

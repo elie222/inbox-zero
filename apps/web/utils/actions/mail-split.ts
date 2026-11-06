@@ -4,6 +4,7 @@ import prisma from "@/utils/prisma";
 import { actionClient } from "@/utils/actions/safe-action";
 import { SafeError } from "@/utils/error";
 import {
+  addSendersToMailSplitBody,
   buildMailSplitFromPromptBody,
   createMailSplitBody,
   deleteMailSplitBody,
@@ -15,6 +16,7 @@ import {
 import { aiPromptToSplitFilters } from "@/utils/ai/split/prompt-to-split";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import {
+  addSendersToMailSplit,
   createMailSplitOrThrow,
   updateMailSplit,
   deleteMailSplit,
@@ -50,6 +52,13 @@ export const updateMailSplitAction = actionClient
     }) => {
       await updateMailSplit({ emailAccountId, id, name, filters, matchAll });
     },
+  );
+
+export const addSendersToMailSplitAction = actionClient
+  .metadata({ name: "addSendersToMailSplit" })
+  .inputSchema(addSendersToMailSplitBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { id, senders } }) =>
+    addSendersToMailSplit({ emailAccountId, id, senders }),
   );
 
 /**

@@ -7,10 +7,14 @@ import type {
 import { randomUUID } from "node:crypto";
 import type { MailSplit } from "@/generated/prisma/client";
 import { MailSplitFilterKind } from "@/generated/prisma/enums";
-import type { MailSplitFilterDraft } from "@/utils/split-inbox/split-filters";
+import {
+  MAX_SPLIT_FILTERS,
+  type MailSplitFilterDraft,
+} from "@/utils/split-inbox/split-filters";
 import prisma from "@/utils/prisma";
 import { lockMailSplits } from "@/utils/split-inbox/split-lock";
 import { MAX_MAIL_SPLITS } from "@/utils/split-inbox/split-constants";
+import { addSendersToSplitFilters } from "@/utils/split-inbox/split-senders";
 
 type CreateMailSplitResult =
   | ({ status: "created" } & MailSplit)
@@ -215,6 +219,128 @@ export async function createMailSplitOrThrow({
     }
     throw error;
   }
+}
+
+export async function addSendersToMailSplit({
+  emailAccountId,
+  id,
+  senders,
+}: {
+  emailAccountId: string;
+  id: string;
+  senders: string[];
+}) {
+  const result = await planSenderAdditions({ emailAccountId, id, senders });
+  if (!result.added.length) return { added: 0 };
+
+  // Appended under the account lock rather than replacing the list read above,
+  // so an edit that lands in between (a builder save, another add) isn't undone.
+  // The duplicate and limit guards are re-checked against the locked rows.
+  const rows = toFilterRows(
+    result.added.map((value) => ({ kind: MailSplitFilterKind.FROM, value })),
+  );
+  const addedIds = (JSON.parse(rows) as { id: string }[]).map((row) => row.id);
+  const [, added] = await prisma.$transaction([
+    lockMailSplits(emailAccountId),
+    prisma.$executeRaw`
+      WITH split_state AS (
+        SELECT COUNT(*)::integer AS count, COALESCE(MAX("order"), -1)::integer + 1 AS next_order
+        FROM "MailSplitFilter" WHERE "mailSplitId" = ${id}
+      ), additions AS (
+        SELECT additions.*
+        FROM jsonb_to_recordset(${rows}::jsonb)
+          AS additions("id" text, "kind" text, "value" text, "order" integer)
+        WHERE NOT EXISTS (
+          SELECT 1 FROM "MailSplitFilter" existing
+          WHERE existing."mailSplitId" = ${id}
+            AND existing."kind" = 'FROM'
+            AND (
+              lower(existing."value") = additions."value"
+              -- Mirrors matchesSenderFilter: "@domain" covers every address there.
+              OR (
+                left(existing."value", 1) = '@'
+                AND right(additions."value", length(existing."value")) = lower(existing."value")
+              )
+            )
+        )
+      )
+      INSERT INTO "MailSplitFilter" ("id", "kind", "value", "order", "mailSplitId")
+      SELECT additions."id", 'FROM'::"MailSplitFilterKind", additions."value",
+        split_state.next_order + ROW_NUMBER() OVER (ORDER BY additions."order") - 1, ${id}
+      FROM additions CROSS JOIN split_state
+      WHERE EXISTS (
+          -- Mirrors canAddSendersToSplit against the locked rows, so a split
+          -- changed to "match all" of several conditions since the read above
+          -- isn't widened into "match any".
+          SELECT 1 FROM "MailSplit" split
+          WHERE split."id" = ${id} AND split."emailAccountId" = ${emailAccountId}
+            AND split_state.count > 0
+            AND (
+              NOT split."matchAll"
+              OR split_state.count = 1
+              OR NOT EXISTS (
+                SELECT 1 FROM "MailSplitFilter" other
+                WHERE other."mailSplitId" = ${id} AND other."kind" <> 'FROM'
+              )
+            )
+        )
+        AND split_state.count + (SELECT COUNT(*) FROM additions) <= ${MAX_SPLIT_FILTERS}
+    `,
+    // Several conditions under "match all" would match nothing. Only applies
+    // when this request added a sender, so a skipped insert changes nothing.
+    prisma.$executeRaw`
+      UPDATE "MailSplit"
+      SET "matchAll" = false, "updatedAt" = CURRENT_TIMESTAMP
+      WHERE "id" = ${id}
+        AND "emailAccountId" = ${emailAccountId}
+        AND EXISTS (
+          SELECT 1 FROM "MailSplitFilter"
+          WHERE "mailSplitId" = ${id} AND "id" = ANY(${addedIds}::text[])
+        )
+        AND (SELECT COUNT(*) FROM "MailSplitFilter" WHERE "mailSplitId" = ${id}) > 1
+    `,
+  ]);
+
+  // The locked guards skipped everything: re-plan against the split as it is
+  // now, so a split edited in between reports why rather than "already added".
+  if (!added) await planSenderAdditions({ emailAccountId, id, senders });
+  return { added };
+}
+
+async function planSenderAdditions({
+  emailAccountId,
+  id,
+  senders,
+}: {
+  emailAccountId: string;
+  id: string;
+  senders: string[];
+}) {
+  const split = await prisma.mailSplit.findFirst({
+    where: { id, emailAccountId },
+    select: {
+      name: true,
+      matchAll: true,
+      filters: {
+        select: { kind: true, value: true },
+        orderBy: { order: "asc" },
+      },
+    },
+  });
+  if (!split) throw new SafeError("Split not found");
+
+  const result = addSendersToSplitFilters(split, senders);
+  if (result.status === "incompatible") {
+    throw new SafeError(
+      `"${split.name}" only shows mail matching all of its conditions, so edit it to add senders.`,
+    );
+  }
+  if (result.status === "limit") {
+    throw new SafeError(
+      `A split can have at most ${MAX_SPLIT_FILTERS} conditions.`,
+    );
+  }
+  return result;
 }
 
 export async function updateMailSplit({

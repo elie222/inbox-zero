@@ -5,11 +5,10 @@ import { ChevronDownIcon, LayersIcon } from "lucide-react";
 import { MailThreadRow } from "@inboxzero/mail-ui/MailThreadRow";
 import type { InboxBundle } from "@/app/(app)/[emailAccountId]/mail/inbox-bundles";
 import { isThreadUnread } from "@/app/(app)/[emailAccountId]/mail/read-state";
-import { mailCheckboxClassName } from "@/app/(app)/[emailAccountId]/mail/SelectAllCheckbox";
+import { getMailRowCheckboxClassName } from "@/app/(app)/[emailAccountId]/mail/SelectAllCheckbox";
 import { getThreadParticipantNames } from "@/app/(app)/[emailAccountId]/mail/thread-participants";
 import type { MailLayoutMode } from "@/app/(app)/[emailAccountId]/mail/types";
 import { Checkbox } from "@/components/ui/checkbox";
-import { cn } from "@/utils";
 import { formatShortDate } from "@/utils/date";
 import { getConversationSubject } from "@/utils/email/subject";
 import { getThreadTimestamp } from "@/utils/threads/sort";
@@ -96,13 +95,7 @@ export const InboxBundleRow = memo(function InboxBundleRow({
         <Checkbox
           aria-label={ariaLabel.replace("conversation", "bundle")}
           checked={checked}
-          className={cn(
-            mailCheckboxClassName,
-            "transition-opacity",
-            visible
-              ? "opacity-100"
-              : "opacity-0 group-focus-within:opacity-100 group-hover:opacity-100",
-          )}
+          className={getMailRowCheckboxClassName(visible)}
           onClick={onClick}
         />
       )}

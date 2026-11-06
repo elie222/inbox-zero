@@ -39,6 +39,11 @@ import type { MailboxItem } from "@/app/(app)/[emailAccountId]/mail/MailboxItemC
 import { ListSenderCommands } from "@/app/(app)/[emailAccountId]/mail/ListSenderCommands";
 import { extractEmailAddress, isSameEmailAddress } from "@/utils/email";
 import { LabelPickerDialog } from "@/app/(app)/[emailAccountId]/mail/LabelPickerDialog";
+import { SplitPickerDialog } from "@/app/(app)/[emailAccountId]/mail/SplitPickerDialog";
+import {
+  canAddSendersToSplit,
+  type SenderThread,
+} from "@/utils/split-inbox/split-senders";
 import { InboxZeroCelebration } from "@/app/(app)/[emailAccountId]/mail/InboxZeroCelebration";
 import { ThreadList } from "@/app/(app)/[emailAccountId]/mail/ThreadList";
 import { useStableCallback } from "@/app/(app)/[emailAccountId]/mail/use-stable-callback";
@@ -197,6 +202,9 @@ export function MailShell() {
     mode: "label" | "move";
     targets: ThreadSelection[];
   } | null>(null);
+  const [splitPickerThreads, setSplitPickerThreads] = useState<
+    SenderThread[] | null
+  >(null);
   const [replyToMessageId, setReplyToMessageId] = useState<string>();
   const [forwardToMessageId, setForwardToMessageId] = useState<string>();
   const pendingComposeRequest = useRef<{
@@ -1189,6 +1197,18 @@ export function MailShell() {
     if (canLabel)
       setLabelPicker({ mode: "move", targets: currentLabelTargets });
   });
+  const senderSplits = useMemo(
+    () => (settings?.splits ?? []).filter((split) => split.filters.length > 0),
+    [settings?.splits],
+  );
+  const canAddToSplit =
+    !isAllAccounts &&
+    actionTargets.length > 0 &&
+    senderSplits.some(canAddSendersToSplit);
+  const openSplitPicker = useStableCallback(() => {
+    if (canAddToSplit)
+      setSplitPickerThreads(actionTargets.map((target) => target.messages));
+  });
   const singleActionTarget =
     actionTargets.length === 1 ? actionTargets.at(0) : undefined;
   const requestForwardTarget = useStableCallback(() => {
@@ -1236,6 +1256,7 @@ export function MailShell() {
         moveToInbox: targetsArchived ? moveToInboxTargets : undefined,
         forward: singleActionTarget ? requestForwardTarget : undefined,
         label: canLabel ? openLabelPicker : undefined,
+        addToSplit: canAddToSplit ? openSplitPicker : undefined,
         star: starTargets,
         markRead: markReadTargets,
         markSpam: markSpamTargets,
@@ -1275,6 +1296,8 @@ export function MailShell() {
       targetsArchived,
       actionTargets,
       canLabel,
+      canAddToSplit,
+      openSplitPicker,
       isReaderTarget,
       allStarred,
       starTargets,
@@ -1305,6 +1328,7 @@ export function MailShell() {
     isHelpOpen ||
     isPaletteOpen ||
     Boolean(labelPicker) ||
+    Boolean(splitPickerThreads) ||
     (isMenuOpen && Boolean(openThreadId));
 
   const selectAccount = useCallback((accountId: string) => {
@@ -1408,7 +1432,7 @@ export function MailShell() {
     if (target) setActiveSplitId(target.id);
   };
   const handlers: ShortcutHandlers = (() => {
-    if (sidePanelThreadId || labelPicker) return {};
+    if (sidePanelThreadId || labelPicker || splitPickerThreads) return {};
     return {
       unsubscribe:
         !isMailOverlayOpen && !senderCommands?.isUnsubscribeDisabled
@@ -1720,10 +1744,29 @@ export function MailShell() {
       </EmailAccountScopeProvider>
     ) : null;
 
+  const splitPickerDialog = splitPickerThreads ? (
+    <SplitPickerDialog
+      splits={senderSplits}
+      threads={splitPickerThreads}
+      onClose={() => setSplitPickerThreads(null)}
+      onApplied={() => {
+        setSplitPickerThreads(null);
+        selection.clear();
+        mutateSettings();
+        refetchThreadList();
+      }}
+    />
+  ) : null;
+
   return (
     <MailProductFrame
       floating={senderCommandsPanel}
-      dialogs={labelPickerDialog}
+      dialogs={
+        <>
+          {labelPickerDialog}
+          {splitPickerDialog}
+        </>
+      }
     >
       <MailShellSidebar
         activeType={
@@ -1783,6 +1826,9 @@ export function MailShell() {
                 isStarredSelected={allStarred}
                 onStarSelected={starTargets}
                 onLabelSelected={canLabel ? openLabelPicker : undefined}
+                onAddToSplitSelected={
+                  canAddToSplit ? openSplitPicker : undefined
+                }
                 onClearSelection={selection.clear}
               />
               <div data-split-cycle-zone className="contents">

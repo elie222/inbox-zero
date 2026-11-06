@@ -44,7 +44,7 @@ export const mailSplitFilterSchema = z
 export type MailSplitFilterDraft = z.infer<typeof mailSplitFilterSchema>;
 
 /** One condition row per filter, so the cap matches what the builder can show. */
-export const MAX_SPLIT_FILTERS = 10;
+export const MAX_SPLIT_FILTERS = 25;
 
 export const mailSplitFiltersSchema = z
   .array(mailSplitFilterSchema)

@@ -266,6 +266,7 @@ function CommandPaletteContent({
           moveToInbox: mailCommandContext.actions.moveToInbox,
           forward: mailCommandContext.actions.forward,
           label: mailCommandContext.actions.label,
+          addToSplit: mailCommandContext.actions.addToSplit,
           star: mailCommandContext.actions.star,
           markRead: mailCommandContext.actions.markRead,
           markSpam: mailCommandContext.actions.markSpam,

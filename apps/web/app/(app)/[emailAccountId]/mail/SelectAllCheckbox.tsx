@@ -16,12 +16,6 @@ export function SelectAllCheckbox({
   onClearSelection: () => void;
 }) {
   const allSelected = threadCount > 0 && selectedCount === threadCount;
-  let checked: boolean | "indeterminate" = false;
-  if (allSelected) {
-    checked = true;
-  } else if (selectedCount > 0) {
-    checked = "indeterminate";
-  }
 
   return (
     <Tooltip
@@ -34,7 +28,7 @@ export function SelectAllCheckbox({
     >
       <Checkbox
         aria-label="Select all conversations"
-        checked={checked}
+        checked={allSelected}
         className={cn(mailCheckboxClassName, "shrink-0")}
         disabled={threadCount === 0}
         onCheckedChange={(value) => {
@@ -49,6 +43,24 @@ export function SelectAllCheckbox({
   );
 }
 
-/** Shared by the row checkboxes so select-all lines up with them and matches. */
+/**
+ * Shared by the row checkboxes so select-all lines up with them and matches.
+ * Keyed on `aria-checked` because a wrapping tooltip trigger overwrites
+ * `data-state`. Checked is a blue outline and tick, not a fill, to stay light.
+ */
 export const mailCheckboxClassName =
-  "size-3.5 rounded border-input data-[state=checked]:border-primary data-[state=indeterminate]:border-primary [&_svg]:size-2.5";
+  "size-3.5 rounded border-input aria-checked:border-primary aria-checked:bg-transparent aria-checked:text-primary data-[state=checked]:bg-transparent data-[state=checked]:text-primary [&_svg]:size-2.5";
+
+/**
+ * Row checkboxes are revealed on hover and get an invisible hit area that
+ * reaches past the box, so a near miss selects instead of opening the thread.
+ */
+export function getMailRowCheckboxClassName(visible: boolean) {
+  return cn(
+    mailCheckboxClassName,
+    "relative transition-opacity after:absolute after:-inset-3 after:content-['']",
+    visible
+      ? "opacity-100"
+      : "opacity-0 group-focus-within:opacity-100 group-hover:opacity-100",
+  );
+}
