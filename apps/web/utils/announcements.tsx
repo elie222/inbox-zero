@@ -7,6 +7,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { AnnouncementVideo } from "@/components/feature-announcements/AnnouncementVideo";
+import { env } from "@/env";
 
 const DETAIL_ICON_CLASS = "size-4";
 export const EMAIL_CLIENT_LAUNCH_VIDEO_ID =
@@ -34,6 +35,8 @@ export interface Announcement {
 export const ANNOUNCEMENTS: Announcement[] = [
   {
     id: "email-client-launch",
+    // The launch pitches sending and native apps; hide it where sending is off.
+    enabled: env.NEXT_PUBLIC_EMAIL_SEND_ENABLED,
     title: "The email app is live",
     description:
       "A fast email app for web, desktop, and iPhone, with your AI assistant built in.",
