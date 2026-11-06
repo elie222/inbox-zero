@@ -37,7 +37,11 @@ import { MailReaderPane } from "@/app/(app)/[emailAccountId]/mail/MailReaderPane
 import { ScheduledEmailList } from "@/app/(app)/[emailAccountId]/mail/ScheduledEmailList";
 import type { MailboxItem } from "@/app/(app)/[emailAccountId]/mail/MailboxItemContextMenu";
 import { ListSenderCommands } from "@/app/(app)/[emailAccountId]/mail/ListSenderCommands";
-import { extractEmailAddress, isSameEmailAddress } from "@/utils/email";
+import {
+  extractEmailAddress,
+  isSameEmailAddress,
+  isValidEmail,
+} from "@/utils/email";
 import { LabelPickerDialog } from "@/app/(app)/[emailAccountId]/mail/LabelPickerDialog";
 import { SplitPickerDialog } from "@/app/(app)/[emailAccountId]/mail/SplitPickerDialog";
 import { canAddSendersToSplit } from "@/utils/split-inbox/split-senders";
@@ -2079,7 +2083,8 @@ function getThreadSenders(
         !isSameEmailAddress(message.headers.from, userEmail),
     )?.headers.from;
     const address = from ? extractEmailAddress(from).toLowerCase() : "";
-    if (address) senders.add(address);
+    // The action rejects the whole request over one malformed address.
+    if (address.length <= 320 && isValidEmail(address)) senders.add(address);
   }
   return [...senders];
 }
