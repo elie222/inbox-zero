@@ -45,6 +45,19 @@ describe("findSentSignatures", () => {
     expect(found).toEqual([{ html: english, count: 1 }]);
   });
 
+  it("deduplicates saved signatures across block whitespace variants", async () => {
+    const emailProvider = providerWithSent([
+      gmailMessage("Hello", "<div>Example</div><div>Team</div>"),
+      gmailMessage("Hello", "<p>Example</p> <p>Team</p>"),
+    ]);
+    expect(
+      await findSentSignatures({
+        emailProvider,
+        knownSignatures: ["<p>Example</p> <p>Team</p>"],
+      }),
+    ).toEqual([]);
+  });
+
   it("keeps the Inbox Zero footer and blank spacer out of a signature", async () => {
     const emailProvider = providerWithSent([
       getMockMessage({
