@@ -1454,38 +1454,28 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     );
   });
 
-  it("searchInbox forwards explicit Outlook sender filters across pages", async () => {
-    const searchMessages = vi.fn().mockResolvedValue({
-      messages: [],
-      nextPageToken: undefined,
-    });
-
-    (createEmailProvider as any).mockResolvedValue({
+  it.each([
+    "google",
+    "microsoft",
+  ])("searchInbox rejects a bare %s provider page token instead of continuing without the original filters", async (provider) => {
+    const searchMessages = vi.fn();
+    vi.mocked(createEmailProvider).mockResolvedValue({
       searchMessages,
       getLabels: vi.fn().mockResolvedValue([]),
-    });
-
-    const toolInstance = searchInboxTool({
+    } as any);
+    const search = searchInboxTool({
       email: TEST_EMAIL,
       emailAccountId: "email-account-1",
-      provider: "microsoft",
+      provider,
       logger,
     });
 
-    await (toolInstance.execute as any)({
-      fromEmail: "sender@example.com",
-      limit: 20,
-      pageToken: "PAGE_TOKEN_2",
-    });
+    const result: any = await (search.execute as any)(
+      (search.inputSchema as any).parse({ pageToken: "PAGE_TOKEN_2" }),
+    );
 
-    expect(searchMessages).toHaveBeenCalledWith({
-      query: "",
-      fromEmail: "sender@example.com",
-      maxResults: 20,
-      pageToken: "PAGE_TOKEN_2",
-      readState: undefined,
-      labelName: undefined,
-    });
+    expect(searchMessages).not.toHaveBeenCalled();
+    expect(result.error).toBe("Failed to search inbox");
   });
 
   it("searchInbox preserves structured Outlook sender filters when skipping empty pages", async () => {

@@ -496,7 +496,7 @@ const gmailSearchQuerySchema = z
   .trim()
   .max(500)
   .describe(
-    "Gmail search query. Use from:person@example.com for an exact sender search. Also supports: to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, older_than:.",
+    "Gmail search query. Required unless pageToken is set. Use from:person@example.com for an exact sender search. Also supports: to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, older_than:.",
   );
 
 const gmailSearchInboxInputSchema = z
@@ -599,7 +599,6 @@ const gmailSearchInboxTool = ({
           gmailSearchPageStateSchema,
         );
         if (page) query = page.query;
-        const pageToken = page ? page.pageToken : input.pageToken;
 
         const emailProvider = await createEmailProvider({
           emailAccountId,
@@ -611,7 +610,7 @@ const gmailSearchInboxTool = ({
           emailProvider.searchMessages({
             query,
             maxResults: limit ?? SEARCH_INBOX_MAX_RESULTS,
-            pageToken: pageToken ?? undefined,
+            pageToken: page?.pageToken,
           }),
           getLabelsForSearchResults({ emailProvider, logger }),
         ]);
@@ -1555,7 +1554,8 @@ type SearchMessagesResult = Awaited<
 >;
 
 // The model often sends only the token for the next page, so the token carries
-// the original search; continuation pages must re-apply the same filters.
+// the original search; continuation pages must re-apply the same filters. Bare
+// provider tokens are rejected because they would continue without them.
 function encodeSearchInboxPageToken(
   search: Record<string, unknown>,
   providerPageToken: string | undefined,
@@ -1571,10 +1571,13 @@ function decodeSearchInboxPageToken<T extends z.ZodType>(
   pageToken: string | null | undefined,
   schema: T,
 ): z.infer<T> | undefined {
-  if (!pageToken?.startsWith(SEARCH_INBOX_PAGE_TOKEN_PREFIX)) return;
+  if (!pageToken) return;
 
-  const encoded = pageToken.slice(SEARCH_INBOX_PAGE_TOKEN_PREFIX.length);
   try {
+    if (!pageToken.startsWith(SEARCH_INBOX_PAGE_TOKEN_PREFIX)) {
+      throw new Error("Not a searchInbox page token");
+    }
+    const encoded = pageToken.slice(SEARCH_INBOX_PAGE_TOKEN_PREFIX.length);
     return schema.parse(
       JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")),
     );
