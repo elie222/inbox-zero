@@ -258,7 +258,7 @@ function createListClient(
   for (const page of pages) get.mockResolvedValueOnce(page);
   const builder = {
     filter: (value: string) => {
-      filters.push(value);
+      filters.push(decodeURIComponent(value));
       return builder;
     },
     select: () => builder,

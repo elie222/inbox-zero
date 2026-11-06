@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { Client } from "@microsoft/microsoft-graph-client";
 import {
+  getOrCreateOutlookFolderIdByName,
   getOutlookFolderTree,
   getOutlookRootFolders,
   getOutlookChildFolders,
@@ -45,6 +47,80 @@ describe("Outlook folder mutations", () => {
     expect(deleteFolder).toHaveBeenCalledOnce();
   });
 });
+
+describe("getOrCreateOutlookFolderIdByName", () => {
+  it.each([
+    "Bills & Receipts",
+    "Partner's Invoices",
+    "Ticket #42 + 50% / Q?",
+    "Reçus & Factures",
+  ])("finds the existing folder %s without breaking the Graph URL", async (name) => {
+    const { client, requests } = createGraphClient((request) =>
+      request.method === "GET"
+        ? Response.json({ value: [{ id: "existing-id", displayName: name }] })
+        : Response.json({ error: { code: "Unexpected" } }, { status: 500 }),
+    );
+
+    const id = await getOrCreateOutlookFolderIdByName(client, name, logger);
+
+    expect(id).toBe("existing-id");
+    expect(requests).toHaveLength(1);
+    const url = new URL(requests[0].url);
+    expect(url.hash).toBe("");
+    expect([...url.searchParams.keys()].sort()).toEqual([
+      "$filter",
+      "$select",
+      "$top",
+    ]);
+    expect(url.searchParams.get("$filter")).toBe(
+      `displayName eq '${name.replaceAll("'", "''")}'`,
+    );
+  });
+
+  it("uses the existing folder when creation reports it already exists", async () => {
+    const name = "Bills & Receipts";
+    const { client, requests } = createGraphClient((request) => {
+      if (request.method === "POST") {
+        return Response.json(
+          { error: { code: "ErrorFolderExists", message: "exists" } },
+          { status: 409 },
+        );
+      }
+      if (new URL(request.url).searchParams.has("$filter")) {
+        return Response.json({ value: [] });
+      }
+      return Response.json({
+        value: [
+          { id: "inbox-id", displayName: "Inbox" },
+          { id: "existing-id", displayName: "bills & receipts" },
+        ],
+      });
+    });
+
+    const id = await getOrCreateOutlookFolderIdByName(client, name, logger);
+
+    expect(id).toBe("existing-id");
+    expect(requests.map((request) => request.method)).toContain("POST");
+  });
+});
+
+function createGraphClient(handler: (request: Request) => Response) {
+  const requests: Request[] = [];
+  const graph = Client.initWithMiddleware({
+    middleware: {
+      execute: async (context) => {
+        const request = new Request(
+          context.request as string,
+          context.options as RequestInit,
+        );
+        requests.push(request);
+        context.response = handler(request);
+      },
+    },
+  });
+  const client = { getClient: () => graph } as unknown as OutlookClient;
+  return { client, requests };
+}
 
 function createMockClient(
   mockResponses: Record<string, { value: unknown[] }>,

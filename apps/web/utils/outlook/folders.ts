@@ -2,6 +2,10 @@ import type { MailFolder } from "@microsoft/microsoft-graph-types";
 import type { OutlookClient } from "./client-types";
 import type { Logger } from "@/utils/logger";
 import {
+  encodeODataFilter,
+  escapeODataString,
+} from "@/utils/outlook/odata-escape";
+import {
   withMicrosoftGraphRetry,
   withMicrosoftGraphWriteRetry,
 } from "@/utils/outlook/retry";
@@ -97,7 +101,11 @@ async function findOutlookFolderByName(
         client
           .getClient()
           .api("/me/mailFolders")
-          .filter(`displayName eq '${folderName.replace(/'/g, "''")}'`)
+          .filter(
+            encodeODataFilter(
+              `displayName eq '${escapeODataString(folderName)}'`,
+            ),
+          )
           .select("id,displayName")
           .top(1)
           .get(),
@@ -228,15 +236,16 @@ export async function getOrCreateOutlookFolderIdByName(
 
     return response.id;
   } catch (error) {
-    // If folder already exists (race condition or created between check and create),
-    // fetch folders again and return the existing folder ID
+    // The folder can appear between the lookup and the create, or the lookup itself can fail.
     // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
     const err = error as any;
     if (err?.code === "ErrorFolderExists" || err?.statusCode === 409) {
       logger.info("Folder already exists, fetching existing folder", {
         folderName,
       });
-      const folder = await findOutlookFolderByName(client, folderName, logger);
+      const folder =
+        (await findOutlookFolderByName(client, folderName, logger)) ??
+        (await findRootOutlookFolderByListing(client, folderName, logger));
       if (folder) {
         return folder.id;
       }
@@ -289,4 +298,17 @@ export function flattenOutlookFolders(
       ...flattenOutlookFolders(folder.childFolders, path),
     ];
   });
+}
+
+// Outlook folder names are unique case-insensitively among siblings.
+async function findRootOutlookFolderByListing(
+  client: OutlookClient,
+  folderName: string,
+  logger: Logger,
+): Promise<OutlookFolder | undefined> {
+  const normalizedName = folderName.trim().toLowerCase();
+  const folders = await getOutlookRootFolders(client, logger);
+  return folders.find(
+    (folder) => folder.displayName.trim().toLowerCase() === normalizedName,
+  );
 }
