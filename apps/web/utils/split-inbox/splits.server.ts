@@ -276,7 +276,14 @@ export async function addSendersToMailSplit({
           SELECT 1 FROM "MailSplitFilter" existing
           WHERE existing."mailSplitId" = ${id}
             AND existing."kind" = 'FROM'
-            AND lower(existing."value") = additions."value"
+            AND (
+              lower(existing."value") = additions."value"
+              -- Mirrors matchesSenderFilter: "@domain" covers every address there.
+              OR (
+                left(existing."value", 1) = '@'
+                AND right(additions."value", length(existing."value")) = lower(existing."value")
+              )
+            )
         )
       )
       INSERT INTO "MailSplitFilter" ("id", "kind", "value", "order", "mailSplitId")
