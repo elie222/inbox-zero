@@ -231,7 +231,7 @@ const Sidebar = React.forwardRef<
       return (
         <div
           className={cn(
-            "flex h-full w-[--sidebar-width] flex-col bg-sidebar text-sidebar-foreground",
+            "flex h-full w-[--sidebar-width] select-none flex-col bg-sidebar text-sidebar-foreground",
             className,
           )}
           ref={ref}
@@ -256,7 +256,7 @@ const Sidebar = React.forwardRef<
           <SheetContent
             data-sidebar="sidebar"
             data-mobile="true"
-            className="w-[--sidebar-width] bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
+            className="w-[--sidebar-width] select-none bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
             style={
               {
                 "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
@@ -273,9 +273,10 @@ const Sidebar = React.forwardRef<
     const isDesktopOpen = state.includes(name) && !forceCollapsed;
 
     return (
+      // Navigation chrome: a mouse drag should not highlight its labels.
       <div
         ref={ref}
-        className="group peer hidden text-sidebar-foreground md:block"
+        className="group peer hidden select-none text-sidebar-foreground md:block"
         data-state={isDesktopOpen ? "expanded" : "collapsed"}
         data-collapsible={isDesktopOpen ? "" : collapsible}
         data-variant={variant}

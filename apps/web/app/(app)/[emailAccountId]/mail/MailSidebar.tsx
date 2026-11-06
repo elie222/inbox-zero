@@ -269,7 +269,8 @@ export function MailSidebar({
     <aside
       className={cn(
         // The padding matches the app sidebar so the shared header lines up.
-        "flex w-[256px] shrink-0 flex-col overflow-hidden border-border border-r bg-sidebar px-2 pt-2 pb-2.5",
+        // Navigation chrome, so a mouse drag never highlights its labels.
+        "flex w-[256px] shrink-0 select-none flex-col overflow-hidden border-border border-r bg-sidebar px-2 pt-2 pb-2.5",
         className,
       )}
     >
@@ -537,7 +538,7 @@ export function MailSidebar({
                     placeholder={`${labelSingular} name`}
                     aria-label={`New ${labelSingular} name`}
                     autoFocus
-                    className="h-7 min-w-0 flex-1 px-2 text-xs"
+                    className="h-7 min-w-0 flex-1 select-text px-2 text-xs"
                   />
                   <Button
                     type="submit"
