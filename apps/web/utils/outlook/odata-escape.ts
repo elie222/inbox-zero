@@ -22,5 +22,9 @@ export function escapeODataString(value: string): string {
 // The Graph SDK puts $filter into the URL as-is, so a raw "&", "#", "+" or "%"
 // in a value would split the query or cut the expression off.
 export function encodeODataFilter(filter: string): string {
-  return encodeURIComponent(filter);
+  // encodeURIComponent throws on lone surrogates, e.g. from a truncated subject.
+  return encodeURIComponent(filter.replace(LONE_SURROGATE, "\uFFFD"));
 }
+
+const LONE_SURROGATE =
+  /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;

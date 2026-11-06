@@ -86,14 +86,22 @@ describe("getOrCreateOutlookFolderIdByName", () => {
           { status: 409 },
         );
       }
-      if (new URL(request.url).searchParams.has("$filter")) {
+      const url = new URL(request.url);
+      if (url.searchParams.has("$filter")) {
         return Response.json({ value: [] });
       }
+      if (!url.searchParams.has("$skiptoken")) {
+        return Response.json({
+          value: [
+            { id: "inbox-id", displayName: "Inbox" },
+            { id: "trailing-space-id", displayName: "Bills & Receipts " },
+          ],
+          "@odata.nextLink":
+            "https://graph.microsoft.com/v1.0/me/mailFolders?$skiptoken=page2",
+        });
+      }
       return Response.json({
-        value: [
-          { id: "inbox-id", displayName: "Inbox" },
-          { id: "existing-id", displayName: "bills & receipts" },
-        ],
+        value: [{ id: "existing-id", displayName: "bills & receipts" }],
       });
     });
 

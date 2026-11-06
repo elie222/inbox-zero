@@ -5,6 +5,7 @@ import {
   encodeODataFilter,
   escapeODataString,
 } from "@/utils/outlook/odata-escape";
+import { resolveMicrosoftGraphNextLink } from "@/utils/outlook/page-token";
 import {
   withMicrosoftGraphRetry,
   withMicrosoftGraphWriteRetry,
@@ -306,9 +307,28 @@ async function findRootOutlookFolderByListing(
   folderName: string,
   logger: Logger,
 ): Promise<OutlookFolder | undefined> {
-  const normalizedName = folderName.trim().toLowerCase();
-  const folders = await getOutlookRootFolders(client, logger);
-  return folders.find(
-    (folder) => folder.displayName.trim().toLowerCase() === normalizedName,
-  );
+  const normalizedName = folderName.toLowerCase();
+  let nextLink: string | undefined;
+  do {
+    const link = nextLink;
+    const response: { value: MailFolder[]; "@odata.nextLink"?: string } =
+      await withMicrosoftGraphRetry(
+        () =>
+          link
+            ? client.getClient().api(link).get()
+            : client
+                .getClient()
+                .api("/me/mailFolders")
+                .select("id,displayName")
+                .top(999)
+                .get(),
+        logger,
+      );
+    const folder = response.value.find(
+      (folder) => folder.displayName?.toLowerCase() === normalizedName,
+    );
+    if (folder) return convertMailFolderToOutlookFolder(folder);
+    nextLink =
+      resolveMicrosoftGraphNextLink(response["@odata.nextLink"]) ?? undefined;
+  } while (nextLink);
 }

@@ -36,7 +36,9 @@ describe("listThreadMessages", () => {
     expect(messages.map((message) => message.id)).toEqual(["m1", "m2", "m3"]);
     expect(get).toHaveBeenCalledTimes(2);
     expect(filters).toEqual([
-      "conversationId eq 'conv''1' and parentFolderId eq 'inbox-id'",
+      encodeURIComponent(
+        "conversationId eq 'conv''1' and parentFolderId eq 'inbox-id'",
+      ),
     ]);
   });
 
@@ -258,7 +260,7 @@ function createListClient(
   for (const page of pages) get.mockResolvedValueOnce(page);
   const builder = {
     filter: (value: string) => {
-      filters.push(decodeURIComponent(value));
+      filters.push(value);
       return builder;
     },
     select: () => builder,
