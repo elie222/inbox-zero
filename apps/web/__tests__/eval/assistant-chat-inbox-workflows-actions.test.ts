@@ -213,7 +213,8 @@ describe.runIf(shouldRunEval)(
             !!bulkSearchCall &&
             isBulkArchiveSearchQuery(bulkSearchCall, provider) &&
             hasSearchBeforeFirstWrite(toolCalls) &&
-            searchCalls.length >= 2 &&
+            toolCalls.filter((toolCall) => toolCall.toolName === "searchInbox")
+              .length >= 2 &&
             searchCalls.some(
               (call) =>
                 isBulkArchiveSearchQuery(call, provider) && !call.pageToken,
