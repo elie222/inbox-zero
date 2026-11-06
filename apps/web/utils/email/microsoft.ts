@@ -1706,11 +1706,23 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async getMessagesBatch(messageIds: string[]): Promise<ParsedMessage[]> {
-    // Outlook has no batch endpoint, so messages are fetched individually.
+    if (messageIds.length === 0) return [];
+
+    // Fill the folder and category caches once. Cold, each worker below would
+    // start its own lookups on top of its message request.
+    await Promise.all([
+      getFolderIds(this.client, this.logger, { includeDrafts: false }),
+      getCategoryMap(this.client, this.logger),
+    ]);
+
+    // Graph limits concurrent requests per mailbox to 4; a larger burst can
+    // fail with ErrorAccessDenied rather than a retryable 429.
     // Like Gmail's batch, skip messages that no longer exist instead of
     // failing the whole batch on one stale ID.
-    const messages = await Promise.all(
-      messageIds.map(async (messageId) => {
+    const messages = await mapWithConcurrency(
+      messageIds,
+      4,
+      async (messageId) => {
         try {
           return await this.getMessage(messageId);
         } catch (error) {
@@ -1720,7 +1732,7 @@ export class OutlookProvider implements EmailProvider {
           });
           return null;
         }
-      }),
+      },
     );
     return messages.filter((message) => message !== null);
   }
