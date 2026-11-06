@@ -15,7 +15,10 @@ import { flushLoggerSafely } from "@/utils/logger-flush";
 import { auth } from "@/utils/auth";
 import { getEmailAccount } from "@/utils/redis/account-validation";
 import { getCallerEmailAccount } from "@/utils/organizations/access";
-import { recordRateLimitFromApiError } from "@/utils/email/rate-limit";
+import {
+  getProviderRateLimitRetryAfterSeconds,
+  recordRateLimitFromApiError,
+} from "@/utils/email/rate-limit";
 import { isProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
 import {
   EMAIL_ACCOUNT_HEADER,
@@ -205,7 +208,7 @@ function withMiddleware<T extends NextRequest>(
 
           const apiError = checkCommonErrors(error, requestPath, reqLogger);
           if (apiError) {
-            await recordRateLimitFromApiError({
+            const rateLimitProvider = await recordRateLimitFromApiError({
               apiErrorType: apiError.type,
               error,
               emailAccountId: getEmailAccountId(requestForError),
@@ -221,16 +224,30 @@ function withMiddleware<T extends NextRequest>(
               reqLogger,
             ); // TODO: add emailAccountId
 
+            const retryAfterSeconds = rateLimitProvider
+              ? getProviderRateLimitRetryAfterSeconds({
+                  error,
+                  provider: rateLimitProvider,
+                })
+              : undefined;
+            const headers = retryAfterSeconds
+              ? { "Retry-After": String(retryAfterSeconds) }
+              : undefined;
+
             if (publicApiRequest) {
               return publicApiErrorResponse({
                 status: apiError.code,
                 message: apiError.message || "Request failed",
+                headers,
               });
             }
 
             return NextResponse.json(
               { error: apiError.message, isKnownError: true },
-              { status: apiError.code },
+              {
+                status: apiError.code,
+                headers,
+              },
             );
           }
 
