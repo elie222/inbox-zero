@@ -302,7 +302,7 @@ export function BulkRunRules() {
                     Process Emails
                   </Button>
                 )}
-              {isBusy && (
+              {isRunActive && (
                 <div className="flex justify-end gap-2">
                   <Button size="sm" onClick={handlePauseResume}>
                     {isPaused ? (

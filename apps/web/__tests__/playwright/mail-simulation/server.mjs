@@ -6,6 +6,8 @@ const port = Number(process.argv[2]);
 const email = process.env.PLAYWRIGHT_TEST_EMAIL;
 if (!email || !port)
   throw new Error("Simulation requires a port and PLAYWRIGHT_TEST_EMAIL");
+// Harness-only switch (set by `test:bulk-run-rate-limits`), like
+// MAIL_SIMULATION_PROFILE; the app never reads it.
 const messages =
   process.env.MAIL_SIMULATION_SEED === "bulk-run"
     ? bulkRunMessages(email)
