@@ -352,7 +352,7 @@ test("selects and clears all conversations from the split tabs row", async ({
 
   await options.first().hover();
   await options.first().getByRole("checkbox").click();
-  await expect(selectAll).not.toBeChecked();
+  await expect(selectAll).toHaveAttribute("aria-checked", "false");
 
   await selectAll.click();
 
@@ -368,7 +368,7 @@ test("selects and clears all conversations from the split tabs row", async ({
   await expect(
     page.getByText(`${conversationCount - 1} selected`, { exact: true }),
   ).toBeVisible();
-  await expect(selectAll).not.toBeChecked();
+  await expect(selectAll).toHaveAttribute("aria-checked", "false");
 
   await selectAll.click();
   await expect(selectAll).toBeChecked();

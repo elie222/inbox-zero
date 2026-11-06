@@ -87,6 +87,25 @@ describe("ThreadRow", () => {
     expect(onToggleSelect).not.toHaveBeenCalled();
   });
 
+  it("extends a range on Shift-click and opens on Enter", () => {
+    const onOpen = vi.fn();
+    const onSelectRangeTo = vi.fn();
+    render(
+      row(thread([undefined]), {
+        hasAnySelection: true,
+        onOpen,
+        onSelectRangeTo,
+        onToggleSelect: () => {},
+      }),
+    );
+
+    fireEvent.click(screen.getByRole("option"), { shiftKey: true });
+    fireEvent.keyDown(screen.getByRole("option"), { key: "Enter" });
+
+    expect(onSelectRangeTo).toHaveBeenCalledWith(0);
+    expect(onOpen).toHaveBeenCalledWith(0);
+  });
+
   it("does not offer a code to copy on ordinary mail with numbers", () => {
     render(row(thread([undefined], "Invoice 482913 for October")));
 
@@ -99,11 +118,13 @@ function row(
   {
     hasAnySelection = false,
     onOpen = () => {},
+    onSelectRangeTo = () => {},
     onToggleSelect,
     userLabels = {},
   }: {
     hasAnySelection?: boolean;
     onOpen?: (index: number) => void;
+    onSelectRangeTo?: (index: number) => void;
     onToggleSelect?: (index: number) => void;
     userLabels?: EmailLabels;
   } = {},
@@ -116,7 +137,7 @@ function row(
       isSelected={false}
       layout="list"
       onOpen={onOpen}
-      onSelectRangeTo={() => {}}
+      onSelectRangeTo={onSelectRangeTo}
       onToggleSelect={onToggleSelect ?? (() => {})}
       selectionEnabled={Boolean(onToggleSelect)}
       thread={listThread}

@@ -254,17 +254,52 @@ export async function addSendersToMailSplit({
       `A split can have at most ${MAX_SPLIT_FILTERS} conditions.`,
     );
   }
-  if (result.added.length) {
-    await updateMailSplit({
-      emailAccountId,
-      id,
-      name: split.name,
-      matchAll: result.matchAll,
-      filters: result.filters,
-    });
-  }
+  if (!result.added.length) return { added: 0 };
 
-  return { added: result.added.length };
+  // Appended under the account lock rather than replacing the list read above,
+  // so an edit that lands in between (a builder save, another add) isn't undone.
+  // The duplicate and limit guards are re-checked against the locked rows.
+  const rows = toFilterRows(
+    result.added.map((value) => ({ kind: MailSplitFilterKind.FROM, value })),
+  );
+  const [, added] = await prisma.$transaction([
+    lockMailSplits(emailAccountId),
+    prisma.$executeRaw`
+      WITH split_state AS (
+        SELECT COUNT(*)::integer AS count, COALESCE(MAX("order"), -1)::integer + 1 AS next_order
+        FROM "MailSplitFilter" WHERE "mailSplitId" = ${id}
+      ), additions AS (
+        SELECT additions.*
+        FROM jsonb_to_recordset(${rows}::jsonb)
+          AS additions("id" text, "kind" text, "value" text, "order" integer)
+        WHERE NOT EXISTS (
+          SELECT 1 FROM "MailSplitFilter" existing
+          WHERE existing."mailSplitId" = ${id}
+            AND existing."kind" = 'FROM'
+            AND lower(existing."value") = additions."value"
+        )
+      )
+      INSERT INTO "MailSplitFilter" ("id", "kind", "value", "order", "mailSplitId")
+      SELECT additions."id", 'FROM'::"MailSplitFilterKind", additions."value",
+        split_state.next_order + ROW_NUMBER() OVER (ORDER BY additions."order") - 1, ${id}
+      FROM additions CROSS JOIN split_state
+      WHERE EXISTS (
+          SELECT 1 FROM "MailSplit"
+          WHERE "id" = ${id} AND "emailAccountId" = ${emailAccountId}
+        )
+        AND split_state.count + (SELECT COUNT(*) FROM additions) <= ${MAX_SPLIT_FILTERS}
+    `,
+    // Several conditions under "match all" would match nothing.
+    prisma.$executeRaw`
+      UPDATE "MailSplit"
+      SET "matchAll" = false, "updatedAt" = CURRENT_TIMESTAMP
+      WHERE "id" = ${id}
+        AND "emailAccountId" = ${emailAccountId}
+        AND (SELECT COUNT(*) FROM "MailSplitFilter" WHERE "mailSplitId" = ${id}) > 1
+    `,
+  ]);
+
+  return { added };
 }
 
 export async function updateMailSplit({
