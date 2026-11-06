@@ -246,7 +246,15 @@ export async function getOrCreateOutlookFolderIdByName(
       });
       const folder =
         (await findOutlookFolderByName(client, folderName, logger)) ??
-        (await findRootOutlookFolderByListing(client, folderName, logger));
+        (await findRootOutlookFolderByListing(client, folderName, logger).catch(
+          (listingError) => {
+            logger.warn("Error listing folders to find existing folder", {
+              folderName,
+              error: listingError,
+            });
+            return;
+          },
+        ));
       if (folder) {
         return folder.id;
       }
