@@ -24,6 +24,7 @@ import {
 import { isGmailLabelColor } from "@/utils/gmail/label-colors";
 import { getOutlookCategoryPreset } from "@/utils/outlook/category-colors";
 import { markTrackedDraftDeleted } from "@/utils/ai/draft-cleanup";
+import { resetDefaultLabelColors } from "@/utils/label/reset-label-colors";
 
 import {
   saveComposeDraft,
@@ -319,6 +320,25 @@ export const updateMailboxItemAction = actionClient
       }
     },
   );
+
+export const resetLabelColorsAction = actionClient
+  .metadata({ name: "resetLabelColors" })
+  .action(async ({ ctx: { emailAccountId, provider, logger } }) => {
+    const emailProvider = await createEmailProvider({
+      emailAccountId,
+      provider,
+      logger,
+    });
+    const result = await resetDefaultLabelColors({
+      emailAccountId,
+      emailProvider,
+      provider,
+      logger,
+    });
+    if (result.failed > 0 && result.updated === 0)
+      throw new SafeError("Failed to reset label colors. Please try again.");
+    return result;
+  });
 
 export const deleteMailboxItemAction = actionClient
   .metadata({ name: "deleteMailboxItem" })
