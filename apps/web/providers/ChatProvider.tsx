@@ -83,7 +83,7 @@ type ChatContextType = {
   chatId: string | null;
   persistedMessageIds: Set<string>;
   sendError: Omit<ChatSendError, "chatId"> | null;
-  setInput: (input: string) => void;
+  setInput: React.Dispatch<React.SetStateAction<string>>;
   setChatId: (chatId: string | null) => void;
   setNewChat: () => void;
   submitTextMessage: (text: string) => Promise<void>;

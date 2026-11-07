@@ -322,8 +322,12 @@ describe("Chat voice send", () => {
     voiceState.onSend?.("Find the SAFE I need to pay");
 
     await waitFor(() => {
-      expect(mockSetInput).toHaveBeenCalledWith("Find the SAFE I need to pay");
+      expect(mockSetInput).toHaveBeenCalled();
     });
+    const restore = mockSetInput.mock.calls.at(-1)?.[0];
+    expect(restore("Typed while sending")).toBe(
+      "Find the SAFE I need to pay\n\nTyped while sending",
+    );
   });
 });
 

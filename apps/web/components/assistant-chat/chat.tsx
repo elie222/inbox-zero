@@ -272,7 +272,9 @@ export function Chat({
             });
             // A dictated message has no draft, so keep it for a retry.
             submitTextMessage(text).catch(() => {
-              setInput(input.trim() ? `${text}\n\n${input}` : text);
+              setInput((current) =>
+                current.trim() ? `${text}\n\n${current}` : text,
+              );
             });
           }}
         />
