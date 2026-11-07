@@ -31,6 +31,7 @@ import { ModelSection } from "@/app/(app)/[emailAccountId]/settings/ModelSection
 import { DecisionModelSection } from "@/app/(app)/[emailAccountId]/settings/DecisionModelSection";
 import { OrgAnalyticsConsentSection } from "@/app/(app)/[emailAccountId]/settings/OrgAnalyticsConsentSection";
 import { ResetAnalyticsSection } from "@/app/(app)/[emailAccountId]/settings/ResetAnalyticsSection";
+import { ResetLabelColorsSection } from "@/app/(app)/[emailAccountId]/settings/ResetLabelColorsSection";
 import { WebhookSection } from "@/app/(app)/[emailAccountId]/settings/WebhookSection";
 import { CopyRulesSection } from "@/app/(app)/[emailAccountId]/settings/CopyRulesSection";
 import { RuleImportExportSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/RuleImportExportSetting";
@@ -306,6 +307,7 @@ function EmailAccountSettingsCard({
             allAccounts={allAccounts}
           />
           <CleanupDraftsSection emailAccountId={emailAccount.id} />
+          <ResetLabelColorsSection emailAccountId={emailAccount.id} />
           <ResetAnalyticsSection emailAccountId={emailAccount.id} />
         </>
       )}
