@@ -71,10 +71,11 @@ function getView({
 }): MailViewContext["view"] {
   if (searchQuery) return { kind: "search", query: searchQuery };
   if (scope) {
-    const name = scope.title ?? scope.labelId ?? scope.folderId ?? scope.type;
-    if (scope.labelId) return { kind: "label", name: name ?? "" };
-    if (scope.folderId) return { kind: "folder", name: name ?? "" };
-    return { kind: "mailbox", name: name ?? "" };
+    const name =
+      scope.title ?? scope.labelId ?? scope.folderId ?? scope.type ?? "";
+    if (scope.labelId) return { kind: "label", name };
+    if (scope.folderId) return { kind: "folder", name };
+    return { kind: "mailbox", name };
   }
   if (!activeSplit) return { kind: "mailbox", name: "Inbox" };
 

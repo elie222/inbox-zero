@@ -40,9 +40,7 @@ export function getStoredMailView(
 ): MailViewContext | null | undefined {
   if (!metadata || typeof metadata !== "object" || !("mailView" in metadata))
     return;
-  const parsed = mailViewContextSchema
-    .nullable()
-    .safeParse((metadata as { mailView: unknown }).mailView);
+  const parsed = mailViewContextSchema.nullable().safeParse(metadata.mailView);
   return parsed.success ? parsed.data : undefined;
 }
 
