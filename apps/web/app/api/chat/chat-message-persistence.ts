@@ -2,6 +2,7 @@ import type { UIMessage } from "ai";
 import type { Prisma } from "@/generated/prisma/client";
 import { trimToNonEmptyString } from "@/utils/string";
 import type { AssistantInput } from "@/utils/actions/assistant-chat.validation";
+import type { MailViewContext } from "@/utils/ai/assistant/chat-context-validation";
 
 const CHAT_MESSAGE_METADATA_SCHEMA_VERSION = 1;
 
@@ -42,10 +43,13 @@ export function buildUserChatMessageMetadata({
   runId,
   context,
   inlineActions,
+  mailView,
 }: {
   runId: string;
   context?: AssistantInput["context"];
   inlineActions?: AssistantInput["inlineActions"];
+  /** Undefined when the mail screen state is unchanged since it was last stored. */
+  mailView?: MailViewContext | null;
 }): Prisma.InputJsonObject {
   const hiddenContext = context
     ? {
@@ -73,6 +77,7 @@ export function buildUserChatMessageMetadata({
     runId,
     ...(hiddenContext ? { hiddenContext } : {}),
     ...(inlineActionMetadata ? { inlineActions: inlineActionMetadata } : {}),
+    ...(mailView !== undefined ? { mailView } : {}),
   };
 }
 

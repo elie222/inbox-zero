@@ -41,6 +41,7 @@ import {
 import type { DeleteRuleOutput } from "@/utils/ai/assistant/tools/rules/delete-rule-tool";
 import { getUserVisibleToolFailureMessage } from "@/utils/ai/assistant/chat-response-guard";
 import { pluralize } from "@/utils/string";
+import { parseMailScreenAction } from "@/utils/ai/assistant/mail-screen-action";
 
 interface MessagePartProps {
   disableConfirm: boolean;
@@ -256,6 +257,19 @@ export function MessagePart({
     if (state === "output-available") {
       return <SearchInboxResult key={toolCallId} outputs={[part.output]} />;
     }
+  }
+
+  if (part.type === "tool-controlMailScreen") {
+    return renderToolStatus({
+      part,
+      loadingText: "Updating your mail screen...",
+      renderSuccess: ({ toolCallId }) => (
+        <BasicToolInfo
+          key={toolCallId}
+          text={getMailScreenActionLabel(part.input)}
+        />
+      ),
+    });
   }
 
   if (part.type === "tool-readEmail") {
@@ -907,6 +921,19 @@ function normalizeManageInboxActionForDisplay(action: unknown) {
   if (action === "categorize_threads") return "label_threads";
   if (action === "remove_category_threads") return "remove_label_threads";
   return isManageInboxAction(action) ? action : undefined;
+}
+
+function getMailScreenActionLabel(input: unknown) {
+  const action = parseMailScreenAction(input);
+  if ("error" in action) return "Updated your mail screen";
+  switch (action.action) {
+    case "select_threads":
+      return `Selected ${action.threadIds.length} ${pluralize(action.threadIds.length, "email")}`;
+    case "open_thread":
+      return "Opened the email";
+    case "search":
+      return `Searched for "${action.query}"`;
+  }
 }
 
 function getOptionalString(value: unknown) {
