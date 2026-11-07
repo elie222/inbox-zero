@@ -41,6 +41,7 @@ import {
 import type { DeleteRuleOutput } from "@/utils/ai/assistant/tools/rules/delete-rule-tool";
 import { getUserVisibleToolFailureMessage } from "@/utils/ai/assistant/chat-response-guard";
 import { pluralize } from "@/utils/string";
+import { parseMailScreenAction } from "@/utils/ai/assistant/mail-screen-action";
 
 interface MessagePartProps {
   disableConfirm: boolean;
@@ -256,6 +257,19 @@ export function MessagePart({
     if (state === "output-available") {
       return <SearchInboxResult key={toolCallId} outputs={[part.output]} />;
     }
+  }
+
+  if (part.type === "tool-controlMailScreen") {
+    return renderToolStatus({
+      part,
+      loadingText: "Updating your mail screen...",
+      renderSuccess: ({ toolCallId }) => (
+        <BasicToolInfo
+          key={toolCallId}
+          text={getMailScreenActionLabel(part.input)}
+        />
+      ),
+    });
   }
 
   if (part.type === "tool-readEmail") {
@@ -907,6 +921,21 @@ function normalizeManageInboxActionForDisplay(action: unknown) {
   if (action === "categorize_threads") return "label_threads";
   if (action === "remove_category_threads") return "remove_label_threads";
   return isManageInboxAction(action) ? action : undefined;
+}
+
+// The browser applies these on its own and never reports back, so the labels
+// describe the request rather than claim the result.
+function getMailScreenActionLabel(input: unknown) {
+  const action = parseMailScreenAction(input);
+  if ("error" in action) return "Updating your mail screen";
+  switch (action.action) {
+    case "select_threads":
+      return `Selecting ${action.threadIds.length} ${pluralize(action.threadIds.length, "email")} on screen`;
+    case "open_thread":
+      return "Opening the email on screen";
+    case "search":
+      return `Searching for "${action.query}" on screen`;
+  }
 }
 
 function getOptionalString(value: unknown) {

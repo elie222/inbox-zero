@@ -440,6 +440,90 @@ describe("chat route rule freshness persistence", () => {
     });
   });
 
+  it("records the mail screen state with the message that brings it and shows it to the model", async () => {
+    await POST(createRequest("Archive these", { mailView: inboxMailView }));
+
+    expect(prisma.chatMessage.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        metadata: expect.objectContaining({ mailView: inboxMailView }),
+      }),
+    });
+    expect(mockAiProcessAssistantChat).toHaveBeenCalledWith(
+      expect.objectContaining({ mailScreen: true }),
+    );
+    const [currentMessage] =
+      mockConvertToModelMessages.mock.calls[0][0].slice(-1);
+    expect(currentMessage.parts[0].text).toContain('inbox split "Newsletters"');
+    expect(currentMessage.parts[0].text).toContain("threadId thread-1");
+    expect(currentMessage.parts[1]).toEqual({
+      type: "text",
+      text: "Archive these",
+    });
+  });
+
+  it("does not repeat an unchanged mail screen state but keeps it in history", async () => {
+    prisma.chat.findUnique.mockResolvedValueOnce({
+      id: "chat-1",
+      emailAccountId: "email-account-id",
+      lastSeenRulesRevision: null,
+      messages: [
+        {
+          id: "earlier-user-message",
+          role: "user",
+          parts: [{ type: "text", text: "What's here?" }],
+          metadata: { mailView: inboxMailView },
+          createdAt: new Date("2026-03-27T10:00:00.000Z"),
+        },
+      ],
+      compactions: [],
+    });
+
+    await POST(createRequest("Archive these", { mailView: inboxMailView }));
+
+    const metadata =
+      prisma.chatMessage.create.mock.calls[0][0].data.metadata ?? {};
+    expect(metadata).not.toHaveProperty("mailView");
+    const [historyMessage] = mockConvertToUIMessages.mock.calls[0][0].messages;
+    expect(historyMessage.parts[0].text).toContain("<mail_screen>");
+    const [currentMessage] =
+      mockConvertToModelMessages.mock.calls[0][0].slice(-1);
+    expect(currentMessage.parts).toEqual([
+      { type: "text", text: "Archive these" },
+    ]);
+  });
+
+  it("tells the model when the user has left the mail screen", async () => {
+    prisma.chat.findUnique.mockResolvedValueOnce({
+      id: "chat-1",
+      emailAccountId: "email-account-id",
+      lastSeenRulesRevision: null,
+      messages: [
+        {
+          id: "earlier-user-message",
+          role: "user",
+          parts: [{ type: "text", text: "What's here?" }],
+          metadata: { mailView: inboxMailView },
+          createdAt: new Date("2026-03-27T10:00:00.000Z"),
+        },
+      ],
+      compactions: [],
+    });
+
+    await POST(createRequest("Any new rules?"));
+
+    expect(mockAiProcessAssistantChat).toHaveBeenCalledWith(
+      expect.objectContaining({ mailScreen: false }),
+    );
+    expect(prisma.chatMessage.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        metadata: expect.objectContaining({ mailView: null }),
+      }),
+    });
+    const [currentMessage] =
+      mockConvertToModelMessages.mock.calls[0][0].slice(-1);
+    expect(currentMessage.parts[0].text).toContain("left the mail screen");
+  });
+
   it("marks chats with prior messages as having history", async () => {
     prisma.chat.findUnique.mockResolvedValueOnce({
       id: "chat-1",
@@ -730,6 +814,18 @@ describe("chat route rule freshness persistence", () => {
     }
   });
 });
+
+const inboxMailView = {
+  view: {
+    kind: "split",
+    name: "Newsletters",
+    matchAll: true,
+    filters: [{ kind: "LABEL", value: "Newsletters" }],
+  },
+  allAccounts: false,
+  selectedCount: 1,
+  selectedThreads: [{ threadId: "thread-1", messageId: "message-1" }],
+};
 
 function getClaimedStreamId() {
   return prisma.chat.updateMany.mock.calls.find(

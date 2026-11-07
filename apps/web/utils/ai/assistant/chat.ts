@@ -39,6 +39,7 @@ import {
 } from "./chat-inbox-tools";
 import { saveMemoryTool, searchMemoriesTool } from "./chat-memory-tools";
 import { getCalendarEventsTool } from "./chat-calendar-tools";
+import { controlMailScreenTool } from "./chat-mail-screen-tool";
 import { hasUsableCalendarConnection } from "@/utils/calendar/event-provider";
 import type { MessagingPlatform } from "@/utils/messaging/platforms";
 import type { SerializedMatchReason } from "@/utils/ai/choose-rule/types";
@@ -55,7 +56,7 @@ import { trimStaleToolResults } from "@/utils/ai/assistant/trim-stale-tool-resul
 
 export const maxDuration = 800;
 // Increment when chat prompts, tools, or routing change so run quality remains attributable.
-export const ASSISTANT_CHAT_PIPELINE_VERSION = 16;
+export const ASSISTANT_CHAT_PIPELINE_VERSION = 17;
 const ASSISTANT_CHAT_TOOL_BUDGET_MS = {
   web: 720_000,
   messaging: 60_000,
@@ -88,6 +89,7 @@ export async function aiProcessAssistantChat({
   inboxStats,
   responseSurface = "web",
   supportsInlineEmailCards = false,
+  mailScreen = false,
   messagingPlatform,
   onRulesStateExposed,
   onStepEnd,
@@ -108,6 +110,8 @@ export async function aiProcessAssistantChat({
   inboxStats?: { total: number; unread: number } | null;
   responseSurface?: "web" | "messaging";
   supportsInlineEmailCards?: boolean;
+  /** The user is chatting from the web mail screen, which the assistant can drive. */
+  mailScreen?: boolean;
   messagingPlatform?: MessagingPlatform;
   onRulesStateExposed?: (rulesRevision: number) => void;
   onStepEnd?: AssistantChatOnStepEnd;
@@ -344,6 +348,9 @@ export async function aiProcessAssistantChat({
     // Forward
     ...(emailSendToolsEnabled
       ? { forwardEmail: forwardEmailTool(toolOptions) }
+      : {}),
+    ...(mailScreen
+      ? { controlMailScreen: controlMailScreenTool(toolOptions) }
       : {}),
   };
 

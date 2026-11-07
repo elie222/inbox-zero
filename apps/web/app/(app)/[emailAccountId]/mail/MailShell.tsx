@@ -18,6 +18,8 @@ import { emailMessageContextSchema } from "@/utils/ai/assistant/chat-context-val
 import { latestShownMessage } from "@/app/(app)/[emailAccountId]/mail/latest-shown-message";
 import { useHiddenDraftMessageIds } from "@/hooks/useHiddenDraftMessageIds";
 import { useChat } from "@/providers/ChatProvider";
+import { buildChatMailView } from "@/app/(app)/[emailAccountId]/mail/chat-mail-view";
+import type { MailScreenAction } from "@/utils/ai/assistant/mail-screen-action";
 import { parseAsString, useQueryState, useQueryStates } from "nuqs";
 import { ChevronLeftIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -152,6 +154,7 @@ import { printMessages } from "@/app/(app)/[emailAccountId]/mail/print-messages"
 
 // Module-level so an "empty" reader doesn't hand children a new array each render.
 const NO_MESSAGES: ThreadMessage[] = [];
+const ASSISTANT_SELECTION_WAIT_MS = 15_000;
 const NO_LABELS = {};
 
 /**
@@ -628,7 +631,8 @@ export function MailShell() {
   const openMessages = readerSelectionSettled
     ? (openThreadData?.thread.messages ?? NO_MESSAGES)
     : NO_MESSAGES;
-  const { setAmbientContext } = useChat();
+  const { setAmbientContext, setMailView, setMailScreenActionHandler } =
+    useChat();
   const hiddenDraftMessageIds = useHiddenDraftMessageIds(emailAccountId);
   const currentChatMessage =
     openThreadSelection?.emailAccountId === emailAccountId && !openThreadError
@@ -1683,6 +1687,124 @@ export function MailShell() {
           isOutlook,
         })
       : null;
+  const chatMailView = useMemo(
+    () =>
+      buildChatMailView({
+        emailAccountId,
+        isAllAccounts,
+        searchQuery,
+        scope: isScoped
+          ? {
+              labelId: scopeLabelId,
+              folderId: scopeFolderId,
+              type: scopeType,
+              title: scopeTitle,
+            }
+          : null,
+        activeSplit,
+        userLabels,
+        selectedTargets: selection.hasSelection ? actionTargets : [],
+        hiddenDraftMessageIds,
+      }),
+    [
+      emailAccountId,
+      isAllAccounts,
+      searchQuery,
+      isScoped,
+      scopeLabelId,
+      scopeFolderId,
+      scopeType,
+      scopeTitle,
+      activeSplit,
+      userLabels,
+      selection.hasSelection,
+      actionTargets,
+      hiddenDraftMessageIds,
+    ],
+  );
+  useEffect(() => {
+    setMailView(chatMailView);
+    return () => setMailView(null);
+  }, [chatMailView, setMailView]);
+
+  // Threads the assistant asked to select, held until they show up in the list
+  // (e.g. after a search it just ran), the wait runs out, or the user changes
+  // the selection themselves.
+  const [assistantSelection, setAssistantSelection] = useState<string[] | null>(
+    null,
+  );
+  const appliedAssistantKeys = useRef<ReadonlySet<string>>(new Set());
+  const applyMailScreenAction = useStableCallback(
+    (action: MailScreenAction) => {
+      switch (action.action) {
+        case "open_thread":
+          setOpenThread({ emailAccountId, threadId: action.threadId });
+          return;
+        case "search":
+          setSearch(action.query);
+          return;
+        case "select_threads":
+          // Replaces the selection outright, so an older one can't be left
+          // looking like the assistant's pick if no requested row shows up.
+          appliedAssistantKeys.current = new Set();
+          selection.clear();
+          setAssistantSelection(action.threadIds);
+          return;
+      }
+    },
+  );
+  useEffect(() => {
+    setMailScreenActionHandler(applyMailScreenAction);
+    return () => setMailScreenActionHandler(null);
+  }, [applyMailScreenAction, setMailScreenActionHandler]);
+  useEffect(() => {
+    if (!assistantSelection) return;
+    const timeout = setTimeout(
+      () => setAssistantSelection(null),
+      ASSISTANT_SELECTION_WAIT_MS,
+    );
+    return () => clearTimeout(timeout);
+  }, [assistantSelection]);
+  const { replace: replaceSelection, selectedIds } = selection;
+  useEffect(() => {
+    if (!assistantSelection) return;
+    const applied = appliedAssistantKeys.current;
+    const visibleKeys = new Set(orderedIds);
+    // Rows that leave the list (e.g. into a collapsed bundle) drop out of the
+    // selection on their own, so only the visible part shows a user's edit.
+    if (
+      !hasSameKeys(
+        onlyKeys(applied, visibleKeys),
+        onlyKeys(selectedIds, visibleKeys),
+      )
+    ) {
+      setAssistantSelection(null);
+      return;
+    }
+    const wanted = new Set(assistantSelection);
+    const keys = listedThreads
+      .filter(
+        (thread) =>
+          wanted.has(thread.id) &&
+          getListThreadSelection(thread, emailAccountId).emailAccountId ===
+            emailAccountId,
+      )
+      .map(getListThreadKey)
+      .filter((key) => visibleKeys.has(key));
+    const keySet = new Set(keys);
+    if (keys.length && !hasSameKeys(keySet, applied)) {
+      appliedAssistantKeys.current = keySet;
+      replaceSelection(keys);
+    }
+    if (keys.length === wanted.size) setAssistantSelection(null);
+  }, [
+    assistantSelection,
+    emailAccountId,
+    listedThreads,
+    orderedIds,
+    replaceSelection,
+    selectedIds,
+  ]);
   const threadCount = threads.length;
   const { selectedCount, selectAll, clear: clearSelection } = selection;
   // Only offered once something is selected, so the tabs sit flush otherwise.
@@ -2062,3 +2184,11 @@ function useStableOrderedIds(threads: ListThread[]) {
 
 const EMPTY_SEARCH_THREADS: ListThread[] = [];
 const NO_SEARCH_OPTIONS: { name: string }[] = [];
+
+function onlyKeys(keys: ReadonlySet<string>, allowed: ReadonlySet<string>) {
+  return new Set([...keys].filter((key) => allowed.has(key)));
+}
+
+function hasSameKeys(a: ReadonlySet<string>, b: ReadonlySet<string>) {
+  return a.size === b.size && [...a].every((key) => b.has(key));
+}

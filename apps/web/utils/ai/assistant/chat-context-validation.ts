@@ -1,6 +1,12 @@
 import { z } from "zod";
 import { sliceHead } from "@/utils/string";
-import { GroupItemType, SystemType } from "@/generated/prisma/enums";
+import {
+  GroupItemType,
+  MailSplitFilterKind,
+  SystemType,
+} from "@/generated/prisma/enums";
+
+export const MAX_MAIL_VIEW_SELECTED_THREADS = 50;
 
 const parsedMessageSchema = z.object({
   id: z.string(),
@@ -99,6 +105,46 @@ export const messageContextSchema = z.discriminatedUnion("type", [
   emailMessageContextSchema,
 ]);
 export type MessageContext = z.infer<typeof messageContextSchema>;
+
+// What the mail screen shows when a chat message is sent. The list itself is
+// left out; the assistant can search the mailbox when it needs the contents.
+export const mailViewContextSchema = z.object({
+  view: z.union([
+    z.object({
+      kind: z.literal("split"),
+      name: boundedString(100),
+      matchAll: z.boolean(),
+      // Label filters carry the label's name, not its id.
+      filters: z
+        .array(
+          z.object({
+            kind: z.nativeEnum(MailSplitFilterKind),
+            value: boundedString(320).nullish(),
+          }),
+        )
+        .max(25),
+      // The "Other" split: inbox mail that no other split matches.
+      isRemainder: z.boolean().optional(),
+    }),
+    z.object({ kind: z.literal("search"), query: boundedString(500) }),
+    z.object({
+      kind: z.enum(["label", "folder", "mailbox"]),
+      name: boundedString(200),
+    }),
+  ]),
+  allAccounts: z.boolean(),
+  selectedCount: z.number().int().min(0),
+  // Only threads in the chat's own account, which its tools can act on.
+  selectedThreads: z
+    .array(
+      z.object({
+        threadId: boundedString(1000),
+        messageId: boundedString(1000),
+      }),
+    )
+    .max(MAX_MAIL_VIEW_SELECTED_THREADS),
+});
+export type MailViewContext = z.infer<typeof mailViewContextSchema>;
 
 function boundedString(maxLength: number) {
   return z.string().transform((value) => sliceHead(value, maxLength));

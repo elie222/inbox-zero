@@ -20,7 +20,10 @@ import type { ChatMessage } from "@/components/assistant-chat/types";
 import { useChatMessages } from "@/hooks/useChatMessages";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
-import type { MessageContext } from "@/utils/ai/assistant/chat-context-validation";
+import type {
+  MailViewContext,
+  MessageContext,
+} from "@/utils/ai/assistant/chat-context-validation";
 import { InlineEmailActionProvider } from "@/components/assistant-chat/inline-email-action-context";
 import {
   mergeInlineEmailActions,
@@ -32,6 +35,10 @@ import {
   ASSISTANT_CHAT_MAX_TEXT_LENGTH_MESSAGE,
 } from "@/utils/actions/assistant-chat.validation";
 import { createClientLogger } from "@/utils/logger-client";
+import {
+  type MailScreenAction,
+  parseMailScreenAction,
+} from "@/utils/ai/assistant/mail-screen-action";
 
 const logger = createClientLogger("assistant-chat");
 
@@ -70,6 +77,10 @@ type ChatContextType = {
   context: MessageContext | null;
   setContext: (context: MessageContext | null) => void;
   setAmbientContext: (context: MessageContext | null) => void;
+  setMailView: (mailView: MailViewContext | null) => void;
+  setMailScreenActionHandler: (
+    handler: ((action: MailScreenAction) => void) | null,
+  ) => void;
   attachments: Attachment[];
   setAttachments: React.Dispatch<React.SetStateAction<Attachment[]>>;
 };
@@ -90,6 +101,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [inlineActions, setInlineActions] = useState<InlineEmailAction[]>([]);
   const inlineActionsRef = useRef(inlineActions);
   const pendingInlineActionsRef = useRef<InlineEmailAction[] | null>(null);
+  // Read at send time only, so screen changes don't re-render the chat.
+  const mailViewRef = useRef<MailViewContext | null>(null);
+  const mailScreenActionHandlerRef = useRef<
+    ((action: MailScreenAction) => void) | null
+  >(null);
   const pendingRequestRef = useRef<PendingChatRequest | null>(null);
   const pendingRequestContextRef = useRef<MessageContext | null>(null);
   const previousChatIdRef = useRef(chatId);
@@ -141,6 +157,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             message: messages.at(-1),
             supportsInlineEmailCards: true,
             inlineActions: pendingInlineActionsRef.current ?? undefined,
+            mailView: mailViewRef.current ?? undefined,
             ...body,
           },
         };
@@ -149,6 +166,16 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     // messages: initialMessages, // NOTE: couldn't get this to work
     experimental_throttle: 100,
     generateId: generateUUID,
+    // Fires only for streamed calls, not for history. A resumed run replays
+    // from its first chunk, so its calls are skipped rather than re-applied
+    // over whatever the user did on the screen since.
+    onToolCall: ({ toolCall }) => {
+      if (toolCall.dynamic || toolCall.toolName !== "controlMailScreen") return;
+      if (resumingRef.current) return;
+      const action = parseMailScreenAction(toolCall.input);
+      if ("error" in action) return;
+      mailScreenActionHandlerRef.current?.(action);
+    },
     onFinish: async ({ isAbort }) => {
       pendingInlineActionsRef.current = null;
       pendingRequestRef.current = null;
@@ -319,6 +346,17 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     setAttachments([]);
     setInlineActions([]);
   }, [chat.setMessages, emailAccountId, setChatId]);
+
+  const setMailView = useCallback((mailView: MailViewContext | null) => {
+    mailViewRef.current = mailView;
+  }, []);
+
+  const setMailScreenActionHandler = useCallback(
+    (handler: ((action: MailScreenAction) => void) | null) => {
+      mailScreenActionHandlerRef.current = handler;
+    },
+    [],
+  );
 
   const setDisplayedContext = useCallback((next: MessageContext | null) => {
     setContext(next);
@@ -515,6 +553,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         context: context ?? ambientContext,
         setContext: setDisplayedContext,
         setAmbientContext,
+        setMailView,
+        setMailScreenActionHandler,
         attachments,
         setAttachments,
       }}
