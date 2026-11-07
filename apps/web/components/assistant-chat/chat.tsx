@@ -3,6 +3,7 @@
 import type { ChangeEvent } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  AlertCircleIcon,
   HistoryIcon,
   Loader2,
   MailIcon,
@@ -69,6 +70,7 @@ export function Chat({
     chatId,
     input,
     persistedMessageIds,
+    sendError,
     setInput,
     handleSubmit,
     setNewChat,
@@ -202,6 +204,12 @@ export function Chat({
         }
       }}
     >
+      {sendError ? (
+        <ChatSendError
+          message={sendError.message}
+          onNewChat={sendError.offerNewChat ? setNewChat : undefined}
+        />
+      ) : null}
       {context ? (
         <ChatContextChip context={context} onRemove={() => setContext(null)} />
       ) : null}
@@ -584,6 +592,38 @@ function ChatHistoryDropdown() {
         }}
       />
     </>
+  );
+}
+
+function ChatSendError({
+  message,
+  onNewChat,
+}: {
+  message: string;
+  onNewChat?: () => void;
+}) {
+  return (
+    <div className="px-2 pt-2">
+      <div
+        role="alert"
+        data-testid="chat-send-error"
+        className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-2.5 py-1.5 text-sm text-destructive"
+      >
+        <AlertCircleIcon className="mt-0.5 size-4 shrink-0" />
+        <span className="min-w-0 flex-1">{message}</span>
+        {onNewChat ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            className="h-auto shrink-0 px-1.5 py-0.5 text-destructive hover:text-destructive"
+            onClick={onNewChat}
+          >
+            New chat
+          </Button>
+        ) : null}
+      </div>
+    </div>
   );
 }
 

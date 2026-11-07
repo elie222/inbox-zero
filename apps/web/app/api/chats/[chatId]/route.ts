@@ -3,6 +3,7 @@ import { z } from "zod";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
 import { softDeleteChat } from "@/utils/chat/soft-delete";
+import { CHAT_ACCOUNT_MISMATCH_ERROR_CODE } from "@/utils/config";
 
 export type GetChatResponse = Awaited<ReturnType<typeof getChat>>;
 const updateChatSchema = z.object({
@@ -22,7 +23,22 @@ export const GET = withEmailAccount(
       );
     }
 
-    const chat = await getChat({ chatId, emailAccountId });
+    const chat = await getChat(chatId);
+
+    // A new chat has no row until its first message, so a missing chat is empty.
+    if (!chat || chat.deletedAt) return NextResponse.json(null);
+
+    if (chat.emailAccountId !== emailAccountId) {
+      request.logger.warn("Chat belongs to another email account", { chatId });
+      return NextResponse.json(
+        {
+          error: "This chat belongs to a different email account.",
+          errorCode: CHAT_ACCOUNT_MISMATCH_ERROR_CODE,
+          isKnownError: true,
+        },
+        { status: 403 },
+      );
+    }
 
     return NextResponse.json(chat);
   },
@@ -99,19 +115,9 @@ export const DELETE = withEmailAccount(
   },
 );
 
-async function getChat({
-  chatId,
-  emailAccountId,
-}: {
-  chatId: string;
-  emailAccountId: string;
-}) {
-  const chat = await prisma.chat.findFirst({
-    where: {
-      id: chatId,
-      emailAccountId,
-      deletedAt: null,
-    },
+async function getChat(chatId: string) {
+  const chat = await prisma.chat.findUnique({
+    where: { id: chatId },
     include: {
       messages: {
         orderBy: {

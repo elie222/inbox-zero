@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getEmailAccount } from "@/__tests__/helpers";
 import { ASSISTANT_CHAT_MAX_TEXT_LENGTH } from "@/utils/actions/assistant-chat.validation";
+import { CHAT_ACCOUNT_MISMATCH_ERROR_CODE } from "@/utils/config";
 import prisma from "@/utils/__mocks__/prisma";
 
 const {
@@ -249,6 +250,24 @@ describe("chat route rule freshness persistence", () => {
       error: "Email account not found",
     });
     expect(mockGetInboxStatsForChatContext).not.toHaveBeenCalled();
+    expect(mockAiProcessAssistantChat).not.toHaveBeenCalled();
+  });
+
+  it("tells the client when the chat belongs to another email account", async () => {
+    prisma.chat.findUnique.mockResolvedValueOnce({
+      id: "chat-1",
+      emailAccountId: "other-email-account-id",
+      messages: [],
+      compactions: [],
+    } as any);
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({
+      errorCode: CHAT_ACCOUNT_MISMATCH_ERROR_CODE,
+    });
+    expect(prisma.chatMessage.create).not.toHaveBeenCalled();
     expect(mockAiProcessAssistantChat).not.toHaveBeenCalled();
   });
 

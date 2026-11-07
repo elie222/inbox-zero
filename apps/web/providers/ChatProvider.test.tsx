@@ -7,7 +7,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChatMessage } from "@/components/assistant-chat/types";
 import { ASSISTANT_CHAT_MAX_TEXT_LENGTH } from "@/utils/actions/assistant-chat.validation";
 import type { MessageContext } from "@/utils/ai/assistant/chat-context-validation";
-import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
+import {
+  CHAT_ACCOUNT_MISMATCH_ERROR_CODE,
+  EMAIL_ACCOUNT_HEADER,
+} from "@/utils/config";
 import { ChatProvider, useChat } from "./ChatProvider";
 
 const {
@@ -439,6 +442,80 @@ describe("ChatProvider", () => {
       description: "We couldn't send your message. Please try again.",
     });
     expect(mockCaptureException).toHaveBeenCalledWith(error);
+    expect(latestContext?.sendError).toEqual({
+      message: "We couldn't send your message. Please try again.",
+      offerNewChat: true,
+    });
+  });
+
+  it("starts a new chat when the open chat belongs to another email account", async () => {
+    mockUseChatMessages.mockImplementation((chatId: string | null) =>
+      chatId === "chat-from-account-a"
+        ? {
+            data: undefined,
+            error: Object.assign(new Error("Forbidden"), {
+              info: { errorCode: CHAT_ACCOUNT_MISMATCH_ERROR_CODE },
+            }),
+          }
+        : { data: undefined },
+    );
+    let latestContext: ReturnType<typeof useChat> | undefined;
+
+    function Consumer() {
+      latestContext = useChat();
+      return null;
+    }
+
+    renderWithProvider(<Consumer />);
+
+    await waitFor(() => {
+      expect(latestContext?.chatId).not.toBe("chat-from-account-a");
+    });
+    expect(latestContext?.chatId).toEqual(expect.any(String));
+    expect(latestContext?.sendError).toBeNull();
+  });
+
+  it("moves an unsent message to a new chat when the chat belongs to another email account", async () => {
+    const draft = "Find the SAFE I need to pay";
+    mockSendMessage.mockRejectedValueOnce(
+      Object.assign(new Error("Forbidden"), {
+        statusCode: 403,
+        responseBody: JSON.stringify({
+          error: "This chat belongs to a different email account.",
+          errorCode: CHAT_ACCOUNT_MISMATCH_ERROR_CODE,
+        }),
+      }),
+    );
+    let latestContext: ReturnType<typeof useChat> | undefined;
+
+    function Consumer() {
+      latestContext = useChat();
+      return null;
+    }
+
+    renderWithProvider(<Consumer />);
+
+    act(() => {
+      latestContext?.setInput(draft);
+    });
+    await waitFor(() => {
+      expect(latestContext?.input).toBe(draft);
+    });
+
+    act(() => {
+      latestContext?.handleSubmit();
+    });
+
+    await waitFor(() => {
+      expect(latestContext?.input).toBe(draft);
+    });
+    expect(latestContext?.chatId).not.toBe("chat-from-account-a");
+    expect(latestContext?.sendError).toEqual({
+      message: expect.stringContaining("another email account"),
+      offerNewChat: false,
+    });
+    expect(mockResumeStream).not.toHaveBeenCalled();
+    expect(mockCaptureException).not.toHaveBeenCalled();
   });
 
   it("sends the current reader email on every turn and follows navigation", async () => {
