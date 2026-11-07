@@ -1744,8 +1744,10 @@ export function MailShell() {
           setSearch(action.query);
           return;
         case "select_threads":
-          // Baseline for spotting a manual change before any row shows up.
-          appliedAssistantKeys.current = selection.selectedIds;
+          // Replaces the selection outright, so an older one can't be left
+          // looking like the assistant's pick if no requested row shows up.
+          appliedAssistantKeys.current = new Set();
+          selection.clear();
           setAssistantSelection(action.threadIds);
           return;
       }
