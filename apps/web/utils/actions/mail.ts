@@ -332,7 +332,6 @@ export const resetLabelColorsAction = actionClient
     const result = await resetDefaultLabelColors({
       emailAccountId,
       emailProvider,
-      provider,
       logger,
     });
     if (result.failed > 0 && result.updated === 0)

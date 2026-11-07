@@ -35,7 +35,7 @@ import {
   getLabelById,
   OUTLOOK_COLOR_MAP,
 } from "@/utils/outlook/label";
-import type { InboxZeroLabel } from "@/utils/label";
+import type { InboxZeroLabel, LabelColorName } from "@/utils/label";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 import {
   compileOutlookThreadSearch,
@@ -97,6 +97,7 @@ import type {
   SentMessagePage,
   BulkArchiveThread,
   BulkArchiveResult,
+  EmailLabelColor,
   EmailLabelUpdate,
   GetThreadOptions,
   SendEmailOptions,
@@ -112,7 +113,10 @@ import {
   removeOutlookDraftAttachment,
 } from "@/utils/outlook/draft-attachments";
 import type { SendEmailBody } from "@/utils/types/mail";
-import { getOutlookCategoryPreset } from "@/utils/outlook/category-colors";
+import {
+  getDefaultOutlookCategoryColor,
+  getOutlookCategoryPreset,
+} from "@/utils/outlook/category-colors";
 import { unwatchOutlook, watchOutlook } from "@/utils/outlook/watch";
 import {
   encodeODataFilter,
@@ -1237,6 +1241,14 @@ export class OutlookProvider implements EmailProvider {
       this.logger.info("Category was already deleted", { labelId });
     }
     this.client.invalidateCategoryMapCache();
+  }
+
+  getDefaultLabelColor(colorName: LabelColorName): EmailLabelColor {
+    return {
+      backgroundColor:
+        OUTLOOK_COLOR_MAP[getDefaultOutlookCategoryColor(colorName)],
+      textColor: "#000000",
+    };
   }
 
   async updateLabel(labelId: string, update: EmailLabelUpdate): Promise<void> {
