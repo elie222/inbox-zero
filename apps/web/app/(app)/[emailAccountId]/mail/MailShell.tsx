@@ -1733,7 +1733,7 @@ export function MailShell() {
   const [assistantSelection, setAssistantSelection] = useState<string[] | null>(
     null,
   );
-  const appliedAssistantKeys = useRef<ReadonlySet<string> | null>(null);
+  const appliedAssistantKeys = useRef<ReadonlySet<string>>(new Set());
   const applyMailScreenAction = useStableCallback(
     (action: MailScreenAction) => {
       switch (action.action) {
@@ -1744,7 +1744,8 @@ export function MailShell() {
           setSearch(action.query);
           return;
         case "select_threads":
-          appliedAssistantKeys.current = null;
+          // Baseline for spotting a manual change before any row shows up.
+          appliedAssistantKeys.current = selection.selectedIds;
           setAssistantSelection(action.threadIds);
           return;
       }
@@ -1766,7 +1767,7 @@ export function MailShell() {
   useEffect(() => {
     if (!assistantSelection) return;
     const applied = appliedAssistantKeys.current;
-    if (applied && !hasSameKeys(applied, selectedIds)) {
+    if (!hasSameKeys(applied, selectedIds)) {
       setAssistantSelection(null);
       return;
     }
@@ -1781,8 +1782,9 @@ export function MailShell() {
       )
       .map(getListThreadKey)
       .filter((key) => visibleKeys.has(key));
-    if (keys.length > (applied?.size ?? 0)) {
-      appliedAssistantKeys.current = new Set(keys);
+    const keySet = new Set(keys);
+    if (keys.length && !hasSameKeys(keySet, applied)) {
+      appliedAssistantKeys.current = keySet;
       replaceSelection(keys);
     }
     if (keys.length === wanted.size) setAssistantSelection(null);
