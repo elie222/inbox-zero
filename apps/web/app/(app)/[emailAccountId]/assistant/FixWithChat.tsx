@@ -1,6 +1,6 @@
 import { MessageCircleIcon } from "lucide-react";
 import type { ChangeEvent } from "react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { ParsedMessage } from "@/utils/types";
 import type { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
@@ -24,6 +24,7 @@ import { useSidebar } from "@/components/ui/sidebar";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useChat } from "@/providers/ChatProvider";
+import { captureException } from "@/utils/error";
 import {
   NEW_RULE_ID as CONST_NEW_RULE_ID,
   NONE_RULE_ID as CONST_NONE_RULE_ID,
@@ -54,7 +55,8 @@ export function FixWithChat({
   const [showExplanation, setShowExplanation] = useState(false);
 
   const { setOpen } = useSidebar();
-  const { setContext } = useChat();
+  const { setContext, submitTextMessage, chat } = useChat();
+  const isSubmittingRef = useRef(false);
 
   const selectedRuleName = useMemo(() => {
     if (!data) return null;
@@ -68,8 +70,11 @@ export function FixWithChat({
     setShowExplanation(true);
   };
 
-  const handleSubmit = () => {
-    if (!selectedRuleId) return;
+  const handleSubmit = async () => {
+    // Guard against repeated submits while the async send is in flight (the
+    // modal closes asynchronously, so the button can be clicked again briefly).
+    if (!selectedRuleId || isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
 
     let input: string;
 
@@ -126,14 +131,29 @@ export function FixWithChat({
     };
     setContext(context);
 
-    setInput(input);
     setOpen((arr) => [...arr, "chat-sidebar"]);
     setIsModalOpen(false);
+
+    // Auto-send the message instead of only populating the input. If the chat
+    // is mid-response, fall back to populating the input so we don't interleave
+    // with an in-flight message. If the send fails, also fall back to
+    // populating the input so the generated text isn't lost.
+    if (chat.status === "ready") {
+      try {
+        await submitTextMessage(input);
+      } catch (error) {
+        captureException(error);
+        setInput(input);
+      }
+    } else {
+      setInput(input);
+    }
 
     // Reset state
     setSelectedRuleId(null);
     setExplanation("");
     setShowExplanation(false);
+    isSubmittingRef.current = false;
   };
 
   const handleClose = (open: boolean) => {
