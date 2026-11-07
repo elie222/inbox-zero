@@ -36,6 +36,7 @@ import { cn } from "@/utils";
 import { ManageSubscription } from "@/app/(app)/premium/ManageSubscription";
 import { captureException } from "@/utils/error";
 import { redirectToSafeUrl } from "@/utils/redirect";
+import { isOrganizationAdmin } from "@/utils/organizations/roles";
 
 export type PricingProps = {
   header?: React.ReactNode;
@@ -124,13 +125,25 @@ export default function Pricing(props: PricingProps) {
   ]);
 
   if (isLoggedIn && !canManageBilling) {
+    // An org owner/admin is only blocked when their plan was bought by someone
+    // outside their organization, so the role-based explanation would be wrong.
+    const isPlanManagedElsewhere = isOrganizationAdmin(data?.members);
+
     return (
       <div className="mx-auto max-w-2xl px-6 py-12">
-        <AlertBasic
-          variant="blue"
-          title="Billing access restricted"
-          description="Only organization owners and admins can manage billing."
-        />
+        {isPlanManagedElsewhere ? (
+          <AlertBasic
+            variant="blue"
+            title="Your plan is managed by another account"
+            description={`Your access comes from a plan someone else set up, so only they can change its billing. To manage billing yourself, contact ${env.NEXT_PUBLIC_SUPPORT_EMAIL}.`}
+          />
+        ) : (
+          <AlertBasic
+            variant="blue"
+            title="Billing access restricted"
+            description="Only organization owners and admins can manage billing."
+          />
+        )}
       </div>
     );
   }
