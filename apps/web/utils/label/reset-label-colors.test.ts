@@ -17,7 +17,7 @@ describe("resetDefaultLabelColors", () => {
   });
 
   it("resets built-in labels, including renamed ones, and leaves user labels alone", async () => {
-    const emailProvider = createGmailProvider();
+    const emailProvider = createMockEmailProvider();
     vi.mocked(emailProvider.getLabels).mockResolvedValue([
       {
         id: "renamed-to-reply",
@@ -54,7 +54,7 @@ describe("resetDefaultLabelColors", () => {
   });
 
   it("does not recolor extra labels a user added to a system rule", async () => {
-    const emailProvider = createGmailProvider();
+    const emailProvider = createMockEmailProvider();
     vi.mocked(emailProvider.getLabels).mockResolvedValue([
       { id: "to-reply", name: "To Reply", type: "user", color: red },
       { id: "personal", name: "Personal", type: "user", color: red },
@@ -82,7 +82,7 @@ describe("resetDefaultLabelColors", () => {
   });
 
   it("repairs a label whose background matches but text color does not", async () => {
-    const emailProvider = createGmailProvider();
+    const emailProvider = createMockEmailProvider();
     vi.mocked(emailProvider.getLabels).mockResolvedValue([
       {
         id: "to-reply",
@@ -103,7 +103,7 @@ describe("resetDefaultLabelColors", () => {
   });
 
   it("counts failed updates without stopping the rest", async () => {
-    const emailProvider = createGmailProvider();
+    const emailProvider = createMockEmailProvider();
     vi.mocked(emailProvider.getLabels).mockResolvedValue([
       { id: "to-reply", name: "To Reply", type: "user", color: red },
       { id: "fyi", name: "FYI", type: "user", color: red },
@@ -122,9 +122,3 @@ describe("resetDefaultLabelColors", () => {
     expect(result).toEqual({ updated: 1, failed: 1 });
   });
 });
-
-function createGmailProvider() {
-  return createMockEmailProvider({
-    getDefaultLabelColor: vi.fn(getGmailDefaultLabelColor),
-  });
-}
