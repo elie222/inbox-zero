@@ -166,10 +166,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     // messages: initialMessages, // NOTE: couldn't get this to work
     experimental_throttle: 100,
     generateId: generateUUID,
-    // Fires only for calls streamed live, not for history, so reopening a chat
-    // doesn't replay old screen changes.
+    // Fires only for streamed calls, not for history. A resumed run replays
+    // from its first chunk, so its calls are skipped rather than re-applied
+    // over whatever the user did on the screen since.
     onToolCall: ({ toolCall }) => {
       if (toolCall.dynamic || toolCall.toolName !== "controlMailScreen") return;
+      if (resumingRef.current) return;
       const action = parseMailScreenAction(toolCall.input);
       if ("error" in action) return;
       mailScreenActionHandlerRef.current?.(action);

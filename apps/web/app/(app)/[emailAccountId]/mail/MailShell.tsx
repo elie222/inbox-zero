@@ -1728,10 +1728,12 @@ export function MailShell() {
   }, [chatMailView, setMailView]);
 
   // Threads the assistant asked to select, held until they show up in the list
-  // (e.g. after a search it just ran) or the wait runs out.
+  // (e.g. after a search it just ran), the wait runs out, or the user changes
+  // the selection themselves.
   const [assistantSelection, setAssistantSelection] = useState<string[] | null>(
     null,
   );
+  const appliedAssistantKeys = useRef<ReadonlySet<string> | null>(null);
   const applyMailScreenAction = useStableCallback(
     (action: MailScreenAction) => {
       switch (action.action) {
@@ -1742,6 +1744,7 @@ export function MailShell() {
           setSearch(action.query);
           return;
         case "select_threads":
+          appliedAssistantKeys.current = null;
           setAssistantSelection(action.threadIds);
           return;
       }
@@ -1759,9 +1762,14 @@ export function MailShell() {
     );
     return () => clearTimeout(timeout);
   }, [assistantSelection]);
-  const { replace: replaceSelection } = selection;
+  const { replace: replaceSelection, selectedIds } = selection;
   useEffect(() => {
     if (!assistantSelection) return;
+    const applied = appliedAssistantKeys.current;
+    if (applied && !hasSameKeys(applied, selectedIds)) {
+      setAssistantSelection(null);
+      return;
+    }
     const wanted = new Set(assistantSelection);
     const visibleKeys = new Set(orderedIds);
     const keys = listedThreads
@@ -1773,7 +1781,10 @@ export function MailShell() {
       )
       .map(getListThreadKey)
       .filter((key) => visibleKeys.has(key));
-    if (keys.length) replaceSelection(keys);
+    if (keys.length > (applied?.size ?? 0)) {
+      appliedAssistantKeys.current = new Set(keys);
+      replaceSelection(keys);
+    }
     if (keys.length === wanted.size) setAssistantSelection(null);
   }, [
     assistantSelection,
@@ -1781,6 +1792,7 @@ export function MailShell() {
     listedThreads,
     orderedIds,
     replaceSelection,
+    selectedIds,
   ]);
   const threadCount = threads.length;
   const { selectedCount, selectAll, clear: clearSelection } = selection;
@@ -2161,3 +2173,7 @@ function useStableOrderedIds(threads: ListThread[]) {
 
 const EMPTY_SEARCH_THREADS: ListThread[] = [];
 const NO_SEARCH_OPTIONS: { name: string }[] = [];
+
+function hasSameKeys(a: ReadonlySet<string>, b: ReadonlySet<string>) {
+  return a.size === b.size && [...a].every((key) => b.has(key));
+}

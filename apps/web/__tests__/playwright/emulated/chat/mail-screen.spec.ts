@@ -60,7 +60,7 @@ test("the assistant knows the mail screen and selects emails on it", async ({
     },
   });
   await scriptReply({
-    match: "shownOnScreen",
+    match: "sentToScreen",
     text: "I selected 3 newsletters. Review them and archive when you're ready.",
   });
   await sendChatMessage(page, "Select the newsletters I should archive");

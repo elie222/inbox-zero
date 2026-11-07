@@ -27,7 +27,12 @@ export const controlMailScreenTool = ({
         action: action.action,
       });
 
-      return { success: true, shownOnScreen: action.action };
+      // The browser applies this on its own, so success means sent, not seen.
+      return {
+        success: true,
+        sentToScreen: action.action,
+        note: "Takes effect only on the user's open mail screen; threads not in the list on screen are not selected.",
+      };
     },
   });
 

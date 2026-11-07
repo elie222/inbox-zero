@@ -138,8 +138,8 @@ export const mailViewContextSchema = z.object({
   selectedThreads: z
     .array(
       z.object({
-        threadId: boundedString(200),
-        messageId: boundedString(200),
+        threadId: boundedString(1000),
+        messageId: boundedString(1000),
       }),
     )
     .max(MAX_MAIL_VIEW_SELECTED_THREADS),
