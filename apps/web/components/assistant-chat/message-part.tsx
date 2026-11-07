@@ -923,16 +923,18 @@ function normalizeManageInboxActionForDisplay(action: unknown) {
   return isManageInboxAction(action) ? action : undefined;
 }
 
+// The browser applies these on its own and never reports back, so the labels
+// describe the request rather than claim the result.
 function getMailScreenActionLabel(input: unknown) {
   const action = parseMailScreenAction(input);
-  if ("error" in action) return "Updated your mail screen";
+  if ("error" in action) return "Updating your mail screen";
   switch (action.action) {
     case "select_threads":
-      return `Selected ${action.threadIds.length} ${pluralize(action.threadIds.length, "email")}`;
+      return `Selecting ${action.threadIds.length} ${pluralize(action.threadIds.length, "email")} on screen`;
     case "open_thread":
-      return "Opened the email";
+      return "Opening the email on screen";
     case "search":
-      return `Searched for "${action.query}"`;
+      return `Searching for "${action.query}" on screen`;
   }
 }
 

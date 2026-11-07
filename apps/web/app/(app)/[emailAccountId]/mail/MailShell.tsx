@@ -1767,12 +1767,19 @@ export function MailShell() {
   useEffect(() => {
     if (!assistantSelection) return;
     const applied = appliedAssistantKeys.current;
-    if (!hasSameKeys(applied, selectedIds)) {
+    const visibleKeys = new Set(orderedIds);
+    // Rows that leave the list (e.g. into a collapsed bundle) drop out of the
+    // selection on their own, so only the visible part shows a user's edit.
+    if (
+      !hasSameKeys(
+        onlyKeys(applied, visibleKeys),
+        onlyKeys(selectedIds, visibleKeys),
+      )
+    ) {
       setAssistantSelection(null);
       return;
     }
     const wanted = new Set(assistantSelection);
-    const visibleKeys = new Set(orderedIds);
     const keys = listedThreads
       .filter(
         (thread) =>
@@ -2175,6 +2182,10 @@ function useStableOrderedIds(threads: ListThread[]) {
 
 const EMPTY_SEARCH_THREADS: ListThread[] = [];
 const NO_SEARCH_OPTIONS: { name: string }[] = [];
+
+function onlyKeys(keys: ReadonlySet<string>, allowed: ReadonlySet<string>) {
+  return new Set([...keys].filter((key) => allowed.has(key)));
+}
 
 function hasSameKeys(a: ReadonlySet<string>, b: ReadonlySet<string>) {
   return a.size === b.size && [...a].every((key) => b.has(key));

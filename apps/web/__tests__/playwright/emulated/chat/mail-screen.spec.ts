@@ -75,7 +75,7 @@ test("the assistant knows the mail screen and selects emails on it", async ({
       }),
     ).toBeChecked();
   }
-  await expect(page.getByText("Selected 3 emails")).toBeVisible();
+  await expect(page.getByText("Selecting 3 emails on screen")).toBeVisible();
   await expect(page.getByText("I selected 3 newsletters.")).toBeVisible();
   await capturePlaywrightCheckpoint(page, testInfo, "chat-selects-emails");
 });
