@@ -270,7 +270,10 @@ export function Chat({
               message_count: messages.length,
               via_voice: true,
             });
-            submitTextMessage(text).catch(() => undefined);
+            // A dictated message has no draft, so keep it for a retry.
+            submitTextMessage(text).catch(() => {
+              setInput(input.trim() ? `${text}\n\n${input}` : text);
+            });
           }}
         />
         <Tooltip content="Attach images">
