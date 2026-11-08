@@ -16,7 +16,6 @@ import {
 } from "@/hooks/useProviderDraftAutosave";
 import { useReplyDraftPersistence } from "@/hooks/useReplyDraftPersistence";
 import {
-  discardComposeDraftAction,
   saveComposeDraftAction,
   updateDraftAction,
 } from "@/utils/actions/mail";
@@ -35,6 +34,7 @@ import {
   updateReplyDraftProviderState,
 } from "@/utils/mail-engine/reply-drafts";
 import { randomUuid } from "@/utils/uuid";
+import { discardMailboxDraft } from "@/utils/mail-engine/discard-mailbox-draft";
 import type { ComposeFormValues } from "./ComposeEmailForm";
 import {
   type ComposeAttachment,
@@ -352,12 +352,12 @@ export function useComposeDraft({
           providerDraftId.current =
             local?.content?.providerDraftId ?? providerDraftId.current;
           if (providerDraftId.current) {
-            const result = await discardComposeDraftAction(emailAccountId, {
+            await discardMailboxDraft({
+              client,
+              emailAccountId,
+              messageIds: local?.content?.providerDraftMessageIds ?? [],
               draftId: providerDraftId.current,
             });
-            if (!result?.data)
-              throw new Error(getActionErrorMessage(result ?? {}));
-            await client?.requestSync([emailAccountId]);
           }
           if (
             !providerDraftId.current &&

@@ -693,6 +693,75 @@ describe("engine plus sqlite archive slice", () => {
     await engine.close();
   });
 
+  it("hides a discarded draft at once and keeps it gone once the provider confirms", async () => {
+    const messages = new Map<string, ProviderChange>([
+      ["m1", messagePatch("m1", "c1", 1000, ["inbox"])],
+      ["d1", messagePatch("d1", "c1", 2000, ["draft"])],
+    ]);
+    const executor: OperationExecutor = {
+      async execute({ operation }) {
+        if (operation.intent.kind !== "metadata") {
+          return { status: "rejected", code: "unsupported", targets: [] };
+        }
+        return {
+          status: "confirmed",
+          receiptId: "r1",
+          observations: [],
+          targets: operation.intent.targets.map((key) => ({
+            key,
+            outcome: "applied" as const,
+            code: null,
+          })),
+        };
+      },
+      async inspect(input) {
+        return this.execute({ ...input, attemptId: "inspect" });
+      },
+    };
+    const { engine, store } = await draftEngine(messages, executor);
+    expect(await conversationMessageIds(store)).toEqual(["m1", "d1"]);
+
+    await engine.submitMetadata({
+      accountId: "acc-1",
+      commandId: "discard",
+      targets: [{ accountId: "acc-1", messageId: "d1" }],
+      change: { kind: "discard_draft" },
+    });
+    expect(await conversationMessageIds(store)).toEqual(["m1"]);
+
+    await engine.runUntil(Date.now() + 2000);
+    expect(await conversationMessageIds(store)).toEqual(["m1"]);
+    await engine.close();
+  });
+
+  it("brings a discarded draft back when the provider rejects the discard", async () => {
+    const messages = new Map<string, ProviderChange>([
+      ["m1", messagePatch("m1", "c1", 1000, ["inbox"])],
+      ["d1", messagePatch("d1", "c1", 2000, ["draft"])],
+    ]);
+    const executor: OperationExecutor = {
+      async execute() {
+        return { status: "rejected", code: "draft_changed", targets: [] };
+      },
+      async inspect(input) {
+        return this.execute({ ...input, attemptId: "inspect" });
+      },
+    };
+    const { engine, store } = await draftEngine(messages, executor);
+
+    await engine.submitMetadata({
+      accountId: "acc-1",
+      commandId: "discard",
+      targets: [{ accountId: "acc-1", messageId: "d1" }],
+      change: { kind: "discard_draft" },
+    });
+    expect(await conversationMessageIds(store)).toEqual(["m1"]);
+
+    await engine.runUntil(Date.now() + 2000);
+    expect(await conversationMessageIds(store)).toEqual(["m1", "d1"]);
+    await engine.close();
+  });
+
   it("rebuilds from bootstrap when catch-up reports an expired position", async () => {
     const messages = new Map([
       ["m1", messagePatch("m1", "c1", 1000, ["inbox"])],
@@ -5315,4 +5384,33 @@ async function parkSendOnBlockedAuth(commandId: string) {
     },
   });
   return store;
+}
+
+async function draftEngine(
+  messages: Map<string, ProviderChange>,
+  executor: OperationExecutor,
+) {
+  const store = await createSqliteMailStore(createNodeSqliteDriver());
+  await store.ensureAccount({
+    accountId: "acc-1",
+    provider: "google",
+    generation: "g1",
+  });
+  const engine = createMailEngine({
+    store,
+    source: fixtureSource(messages),
+    executor,
+    runtime: createHostRuntime(),
+  });
+  await engine.requestSync(["acc-1"]);
+  await engine.runUntil(Date.now() + 2000);
+  return { engine, store };
+}
+
+async function conversationMessageIds(store: MailStore) {
+  const { view } = await store.readConversation(
+    { accountId: "acc-1", conversationId: "c1" },
+    { after: null, pageSize: 10 },
+  );
+  return view.messages.map((message) => message.key.messageId);
 }

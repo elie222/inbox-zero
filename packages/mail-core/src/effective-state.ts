@@ -77,6 +77,10 @@ export function applyMetadataChange(
         ...withRoles(metadata, withoutRole(metadata.roles, "inbox")),
         snoozedUntilMs: change.untilMs,
       };
+    // Removes the message rather than changing its metadata; see
+    // deriveEffectiveMessage.
+    case "discard_draft":
+      return metadata;
     default: {
       const exhaustive: never = change;
       return exhaustive;
@@ -92,6 +96,7 @@ export function deriveEffectiveMessage(
     return { ...confirmed, pendingOperationIds: [] };
   }
   let metadata: MessageMetadata = confirmed;
+  let deleted = false;
   const pendingOperationIds: string[] = [];
   for (const effect of pending) {
     if (
@@ -104,11 +109,20 @@ export function deriveEffectiveMessage(
       continue;
     }
     metadata = applyMetadataChange(metadata, effect.change);
+    // A draft that sync has seen sent elsewhere is no longer the discard's
+    // to hide.
+    if (
+      effect.change.kind === "discard_draft" &&
+      confirmed.roles.includes("draft")
+    ) {
+      deleted = true;
+    }
     pendingOperationIds.push(effect.operationId);
   }
   return {
     ...confirmed,
     ...metadata,
+    deleted,
     pendingOperationIds,
   };
 }

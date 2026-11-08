@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { markTrackedDraftDeleted } from "@/utils/ai/draft-cleanup";
 import prisma from "@/utils/prisma";
 import { removeLabelFromMailSplits } from "@/utils/split-inbox/splits.server";
 import { sendEmailBody } from "@/utils/types/mail";
@@ -23,7 +24,6 @@ import {
 } from "@/utils/email/provider-types";
 import { isGmailLabelColor } from "@/utils/gmail/label-colors";
 import { getOutlookCategoryPreset } from "@/utils/outlook/category-colors";
-import { markTrackedDraftDeleted } from "@/utils/ai/draft-cleanup";
 import { resetDefaultLabelColors } from "@/utils/label/reset-label-colors";
 
 import {
@@ -484,48 +484,6 @@ export const updateDraftAction = actionClient
     },
   );
 
-export const deleteDraftAction = actionClient
-  .metadata({ name: "deleteDraft" })
-  .inputSchema(
-    z.object({ draftMessageId: z.string(), draftId: z.string().optional() }),
-  )
-  .action(
-    async ({
-      ctx: { emailAccountId, provider: providerName, logger },
-      parsedInput: { draftMessageId, draftId },
-    }) => {
-      const provider = await createEmailProvider({
-        emailAccountId,
-        provider: providerName,
-        logger,
-      });
-      const draft = draftId
-        ? await provider
-            .getDraft(draftId)
-            .then((message) =>
-              message ? provider.getDraftReferenceForMessage(message.id) : null,
-            )
-        : await provider.getDraftReferenceForMessage(draftMessageId);
-      // Already sent, deleted, or replaced elsewhere: nothing left to discard.
-      if (!draft) return;
-
-      const wasDeleted = await provider.deleteDraft(draft.id, draft.version);
-      if (!wasDeleted) return;
-
-      try {
-        await markTrackedDraftDeleted({
-          draftId: draft.id,
-          emailAccountId,
-          logger,
-        });
-      } catch (error) {
-        logger.error("Failed to update tracking after deleting draft", {
-          error,
-        });
-      }
-    },
-  );
-
 function assertMailboxItemMutationSupported({
   kind,
   provider,
@@ -579,6 +537,16 @@ export const discardComposeDraftAction = actionClient
         logger,
       });
       await discardComposeDraft({ provider, ...parsedInput });
+      // An AI draft discarded here mustn't stay listed for cleanup.
+      await markTrackedDraftDeleted({
+        draftId: parsedInput.draftId,
+        emailAccountId,
+        logger,
+      }).catch((error) => {
+        logger.error("Failed to update tracking after deleting draft", {
+          error,
+        });
+      });
       return { success: true };
     },
   );

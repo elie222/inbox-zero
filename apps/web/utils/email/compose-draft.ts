@@ -103,9 +103,13 @@ export async function discardComposeDraft({
   if (!message) return;
   const reference = await provider.getDraftReferenceForMessage(message.id);
   if (
-    !reference ||
-    !(await provider.deleteDraft(reference.id, reference.version))
+    reference &&
+    (await provider.deleteDraft(reference.id, reference.version))
   )
+    return;
+  // Something else, such as the mail engine's own discard, may have deleted
+  // it meanwhile; only a draft that is still there has really changed.
+  if (await provider.getDraft(draftId))
     throw new SafeError(
       "The mailbox draft changed. Reopen it before discarding.",
     );

@@ -12,14 +12,14 @@ import type { ThreadMessage } from "@/components/email-list/types";
 import { EmailMessage } from "@/components/email-list/EmailMessage";
 
 const mocks = vi.hoisted(() => ({
-  executeAsync: vi.fn(),
+  discardMailboxDraft: vi.fn(),
   toastError: vi.fn(),
   popOutReply: vi.fn(),
   poppedOutDraftSessionId: undefined as string | undefined,
 }));
 
-vi.mock("next-safe-action/hooks", () => ({
-  useAction: () => ({ executeAsync: mocks.executeAsync }),
+vi.mock("@/utils/mail-engine/discard-mailbox-draft", () => ({
+  discardMailboxDraft: mocks.discardMailboxDraft,
 }));
 vi.mock("swr", () => ({
   default: () => ({ data: undefined }),
@@ -54,7 +54,6 @@ vi.mock("@/components/email-list/EmailDetails", () => ({
   EmailDetails: () => null,
 }));
 vi.mock("@/components/Toast", () => ({ toastError: mocks.toastError }));
-vi.mock("@/utils/actions/mail", () => ({ deleteDraftAction: vi.fn() }));
 vi.mock("@/app/(app)/[emailAccountId]/compose/ComposeEmailFormLazy", () => ({
   ComposeEmailFormLazy: ({
     onDiscard,
@@ -124,11 +123,11 @@ describe("EmailMessage draft recovery", () => {
     expect(screen.getByTestId("composer")).toBeTruthy();
   });
 
-  it("restores a provider draft when discard returns an empty server error", async () => {
-    let resolveDiscard: (result: { serverError: string }) => void = () => {};
-    mocks.executeAsync.mockReturnValue(
-      new Promise((resolve) => {
-        resolveDiscard = resolve;
+  it("restores a provider draft when the mail engine refuses the discard", async () => {
+    let refuseDiscard: (error: Error) => void = () => {};
+    mocks.discardMailboxDraft.mockReturnValue(
+      new Promise((_, reject) => {
+        refuseDiscard = reject;
       }),
     );
     const refetch = vi.fn();
@@ -148,19 +147,18 @@ describe("EmailMessage draft recovery", () => {
     expect(screen.queryByTestId("composer")).toBeNull();
 
     await act(async () => {
-      resolveDiscard({ serverError: "" });
+      refuseDiscard(new Error("Mail is full of pending actions."));
     });
 
     expect(screen.getByTestId("composer")).toBeTruthy();
     expect(mocks.toastError).toHaveBeenCalledWith({
-      description: "Failed to discard draft",
+      description: "Mail is full of pending actions.",
     });
-    expect(refetch).toHaveBeenCalledTimes(1);
   });
 
   it("keeps a newer compose mode open when an earlier discard fails", async () => {
     let rejectDiscard: (error: Error) => void = () => {};
-    mocks.executeAsync.mockReturnValue(
+    mocks.discardMailboxDraft.mockReturnValue(
       new Promise((_, reject) => {
         rejectDiscard = reject;
       }),
@@ -197,9 +195,8 @@ describe("EmailMessage draft recovery", () => {
       screen.getAllByTestId("composer").map((composer) => composer.textContent),
     ).toEqual(["replyDiscard draft"]);
     expect(mocks.toastError).toHaveBeenCalledWith({
-      description: "Failed to discard draft",
+      description: "Request failed",
     });
-    expect(refetch).toHaveBeenCalledTimes(1);
   });
 });
 

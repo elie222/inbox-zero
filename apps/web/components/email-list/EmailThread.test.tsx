@@ -8,7 +8,7 @@ import {
   screen,
 } from "@testing-library/react";
 import { useState } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ThreadMessage } from "@/components/email-list/types";
 import {
   rememberReplacedDraftMessage,
@@ -30,9 +30,14 @@ vi.stubGlobal("ResizeObserver", MockResizeObserver);
 
 const { discardDraft } = vi.hoisted(() => ({ discardDraft: vi.fn() }));
 
-vi.mock("next-safe-action/hooks", () => ({
-  useAction: () => ({ executeAsync: discardDraft }),
+vi.mock("@/utils/mail-engine/discard-mailbox-draft", () => ({
+  discardMailboxDraft: discardDraft,
 }));
+// Every describe that discards relies on success unless it says otherwise.
+beforeEach(() => {
+  discardDraft.mockReset();
+  discardDraft.mockResolvedValue(undefined);
+});
 const { scheduledEmails } = vi.hoisted(() => ({
   scheduledEmails: {
     current: [] as { status: string; draftMessageIds: string[] }[],
@@ -104,7 +109,6 @@ vi.mock("@/hooks/useSentMessageOpens", () => ({
   useSentMessageOpens: () => ({ data: undefined }),
 }));
 vi.mock("@/components/Toast", () => ({ toastError: vi.fn() }));
-vi.mock("@/utils/actions/mail", () => ({ deleteDraftAction: vi.fn() }));
 vi.mock("@/app/(app)/[emailAccountId]/compose/ComposeEmailFormLazy", () => ({
   ComposeEmailFormLazy: MockComposer,
 }));
@@ -830,10 +834,7 @@ describe("EmailThread scheduled send drafts", () => {
 });
 
 describe("EmailThread draft discard", () => {
-  afterEach(() => {
-    cleanup();
-    discardDraft.mockReset();
-  });
+  afterEach(cleanup);
 
   // A draft opened from the Drafts folder is the entire conversation, so once
   // it is discarded there is nothing left to read and the reader has to leave.
@@ -854,15 +855,8 @@ describe("EmailThread draft discard", () => {
     expect(onThreadDiscarded).toHaveBeenCalledTimes(1);
   });
 
-  it.each([
-    "action error",
-    "exception",
-  ])("keeps the conversation and restores its draft after a deletion %s", async (failure) => {
-    if (failure === "action error") {
-      discardDraft.mockResolvedValue({ serverError: "Deletion failed" });
-    } else {
-      discardDraft.mockRejectedValue(new Error("Deletion failed"));
-    }
+  it("keeps the conversation and restores its draft when the discard fails", async () => {
+    discardDraft.mockRejectedValue(new Error("Deletion failed"));
     const onThreadDiscarded = vi.fn();
     render(
       <EmailThread
