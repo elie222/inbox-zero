@@ -224,7 +224,11 @@ export async function aiProcessAssistantChat({
         })
       : null;
 
-  const isFirstMessage = messages.filter((m) => m.role === "user").length <= 1;
+  // Hidden context also goes in as user messages, so prefer the stored history.
+  const isFirstMessage =
+    chatHasHistory === undefined
+      ? messages.filter((m) => m.role === "user").length <= 1
+      : !chatHasHistory;
 
   const snapshotMessage = isFirstMessage
     ? buildInboxSnapshotMessage(inboxStats)

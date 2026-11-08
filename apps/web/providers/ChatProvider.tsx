@@ -70,6 +70,9 @@ type ChatSendError = {
 };
 
 type PendingChatRequest = {
+  // The server saved the message once it answered OK; a later failure is
+  // shown in the reply rather than reported as unsent.
+  accepted?: boolean;
   attachmentCount: number;
   chatId: string;
   // Set by onError when the message never reached the server.
@@ -171,6 +174,14 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       headers: {
         [EMAIL_ACCOUNT_HEADER]: emailAccountId,
       },
+      fetch: async (input, init) => {
+        const request = pendingRequestRef.current;
+        const response = await fetch(input, init);
+        // Reconnects share this fetch; only the send POST saves the message.
+        if (response.ok && request && init?.method === "POST")
+          request.accepted = true;
+        return response;
+      },
       prepareSendMessagesRequest({ messages, id, body }) {
         return {
           body: {
@@ -223,9 +234,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       if (document.visibilityState === "visible" && !isAccountMismatch)
         resumeActiveRun();
 
-      // The server already has the message once the reply starts streaming,
-      // so a dropped connection is reattached rather than reported as unsent.
-      if (chat.status === "streaming") {
+      // The server already has the message once it accepts the request, so a
+      // dropped connection is reattached rather than reported as unsent.
+      if (chat.status === "streaming" || pendingRequestRef.current?.accepted) {
         pendingInlineActionsRef.current = null;
         pendingRequestRef.current = null;
         pendingRequestContextRef.current = null;
