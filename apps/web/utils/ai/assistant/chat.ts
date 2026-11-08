@@ -53,6 +53,7 @@ import { getAssistantChatProvider } from "./chat-provider-shared";
 import { LlmUseCase } from "@/utils/llms/use-cases";
 import { isIntegrationActionEnabledForUserId } from "@/utils/integration-action.server";
 import { trimStaleToolResults } from "@/utils/ai/assistant/trim-stale-tool-results";
+import { guardChatTools } from "@/utils/ai/assistant/chat-tool-guards";
 
 export const maxDuration = 800;
 // Increment when chat prompts, tools, or routing change so run quality remains attributable.
@@ -379,6 +380,17 @@ export async function aiProcessAssistantChat({
         text: step.text,
         toolCalls: step.toolCalls,
       });
+      for (const part of step.content) {
+        if (part.type !== "tool-error") continue;
+        logger.warn("Assistant chat tool call errored", {
+          toolName: part.toolName,
+          errorName: part.error instanceof Error ? part.error.name : undefined,
+        });
+        logger.trace("Assistant chat tool error details", {
+          toolName: part.toolName,
+          error: part.error,
+        });
+      }
       await onStepEnd?.(step);
     },
     onModelResolved: (resolvedModel) => {
@@ -409,7 +421,7 @@ export async function aiProcessAssistantChat({
         toolChoice: "none",
       };
     },
-    tools: allTools,
+    tools: guardChatTools(allTools),
     abortSignal,
   });
 

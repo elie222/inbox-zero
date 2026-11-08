@@ -1112,20 +1112,7 @@ const buildManageInboxTool = ({
     execute: async (input) => {
       trackToolCall({ tool: "manage_inbox", email, logger });
 
-      const parsedInputResult = inputSchema.safeParse(input);
-      if (!parsedInputResult.success) {
-        const errorMessage = getManageInboxValidationError(
-          parsedInputResult.error,
-        );
-        logger.warn("Invalid manageInbox input", {
-          issues: parsedInputResult.error.issues,
-        });
-        return { error: errorMessage };
-      }
-
-      const parsedInput = normalizeInput(
-        parsedInputResult.data as Record<string, unknown>,
-      );
+      const parsedInput = normalizeInput(input as Record<string, unknown>);
       const { action, labelName, originalAction } = parsedInput;
       const isSenderAction = requiresSenderEmails(action);
 
@@ -1319,11 +1306,6 @@ export const sendEmailTool = ({
     execute: async (input) => {
       trackToolCall({ tool: "send_email", email, logger });
 
-      const parsedInput = sendEmailToolInputSchema.safeParse(input);
-      if (!parsedInput.success) {
-        return { error: getSendEmailValidationError(parsedInput.error) };
-      }
-
       try {
         const from =
           (await getFormattedSenderAddress({
@@ -1331,7 +1313,7 @@ export const sendEmailTool = ({
             fallbackEmail: email,
           })) || email;
         return createPendingSendEmailOutput(
-          parsedInput.data,
+          input,
           from || null,
           provider,
           emailAccountId,
@@ -1363,26 +1345,15 @@ export const replyEmailTool = ({
     execute: async (input) => {
       trackToolCall({ tool: "reply_email", email, logger });
 
-      const parsedInput = replyEmailToolInputSchema.safeParse(input);
-      if (!parsedInput.success) {
-        return { error: getReplyEmailValidationError(parsedInput.error) };
-      }
-
       try {
         const emailProvider = await createEmailProvider({
           emailAccountId,
           provider,
           logger,
         });
-        const message = await emailProvider.getMessage(
-          parsedInput.data.messageId,
-        );
+        const message = await emailProvider.getMessage(input.messageId);
 
-        return createPendingReplyEmailOutput(
-          parsedInput.data,
-          message,
-          emailAccountId,
-        );
+        return createPendingReplyEmailOutput(input, message, emailAccountId);
       } catch (error) {
         logger.error("Failed to prepare reply from chat", { error });
         return { error: "Failed to prepare reply" };
@@ -1410,25 +1381,14 @@ export const forwardEmailTool = ({
     execute: async (input) => {
       trackToolCall({ tool: "forward_email", email, logger });
 
-      const parsedInput = forwardEmailToolInputSchema.safeParse(input);
-      if (!parsedInput.success) {
-        return { error: getForwardEmailValidationError(parsedInput.error) };
-      }
-
       try {
         const emailProvider = await createEmailProvider({
           emailAccountId,
           provider,
           logger,
         });
-        const message = await emailProvider.getMessage(
-          parsedInput.data.messageId,
-        );
-        return createPendingForwardEmailOutput(
-          parsedInput.data,
-          message,
-          emailAccountId,
-        );
+        const message = await emailProvider.getMessage(input.messageId);
+        return createPendingForwardEmailOutput(input, message, emailAccountId);
       } catch (error) {
         logger.error("Failed to prepare email forward from chat", { error });
         return { error: "Failed to prepare email forward" };
@@ -1953,40 +1913,13 @@ function validateManageInboxInput(
       context.addIssue({
         code: "custom",
         path: [field],
-        message: `is required for ${action}`,
+        message:
+          field === "fromEmails"
+            ? `is required for ${action}. No sender-level action was taken. If you only meant the emails already shown, use archive_threads with threadIds instead.`
+            : `is required for ${action}`,
       });
     }
   }
-}
-
-function getManageInboxValidationError(error: z.ZodError) {
-  const firstIssue = error.issues[0];
-  if (!firstIssue) return "Invalid manageInbox input";
-
-  if (firstIssue.path[0] === "fromEmails") {
-    return 'No sender-level action was taken. "fromEmails" is required for bulk_archive_senders and unsubscribe_senders. If you only meant the emails already shown, use archive_threads with threadIds instead.';
-  }
-
-  if (firstIssue.code === "too_small" && firstIssue.path[0] === "threadIds") {
-    return "Invalid manageInbox input: threadIds must include at least one thread ID";
-  }
-
-  const field = firstIssue.path.map(String).join(".");
-  if (!field) return `Invalid manageInbox input: ${firstIssue.message}`;
-
-  return `Invalid manageInbox input: ${field} ${firstIssue.message}`;
-}
-
-function getSendEmailValidationError(error: z.ZodError) {
-  return getValidationErrorMessage("sendEmail", error);
-}
-
-function getForwardEmailValidationError(error: z.ZodError) {
-  return getValidationErrorMessage("forwardEmail", error);
-}
-
-function getReplyEmailValidationError(error: z.ZodError) {
-  return getValidationErrorMessage("replyEmail", error);
 }
 
 function hasOnlyValidRecipients(recipientList: string) {
@@ -2054,24 +1987,6 @@ function isThreadLabelAction(
 
 const LABEL_MESSAGE_CONCURRENCY = 1;
 const THREAD_ACTION_CONCURRENCY = 3;
-
-function getValidationErrorMessage(toolName: string, error: z.ZodError) {
-  const firstIssue = error.issues[0];
-  if (!firstIssue) return `Invalid ${toolName} input`;
-
-  if (firstIssue.code === "unrecognized_keys") {
-    const firstKey = firstIssue.keys[0];
-    if (firstKey) {
-      return `Invalid ${toolName} input: unsupported field "${firstKey}"`;
-    }
-    return `Invalid ${toolName} input: unsupported fields`;
-  }
-
-  const field = firstIssue.path.map(String).join(".");
-  if (!field) return `Invalid ${toolName} input: ${firstIssue.message}`;
-
-  return `Invalid ${toolName} input: ${field} ${firstIssue.message}`;
-}
 
 const MAX_ATTACHMENT_TEXT_LENGTH = 8000;
 
