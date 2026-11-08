@@ -42,8 +42,7 @@ test("asks to reconnect at the next step when Gmail access is missing", async ({
       !!response.request().headers()["next-action"] &&
       (await response.text()).includes("hasAllPermissions"),
   );
-  await openControlOnboarding(page);
-  await firstStepCheck;
+  await Promise.all([firstStepCheck, openControlOnboarding(page)]);
 
   restoreScope = await revokeGmailScopes();
 
