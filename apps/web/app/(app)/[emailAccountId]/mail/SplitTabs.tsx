@@ -176,7 +176,13 @@ export function SplitTabs({
       if (event.ctrlKey || event.metaKey) return;
       if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
       const max = tabs.scrollWidth - tabs.clientWidth;
-      const next = Math.min(max, Math.max(0, tabs.scrollLeft + event.deltaY));
+      // Firefox reports wheel notches in lines (or pages), not pixels.
+      // Indexed by deltaMode: pixel, line, page.
+      const scale = [1, 16, tabs.clientWidth][event.deltaMode] ?? 1;
+      const next = Math.min(
+        max,
+        Math.max(0, tabs.scrollLeft + event.deltaY * scale),
+      );
       // At either end the wheel goes back to scrolling the page.
       if (Math.abs(next - tabs.scrollLeft) < 1) return;
       event.preventDefault();
