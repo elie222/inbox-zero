@@ -159,14 +159,12 @@ function findPreviousFailureInTurn({
     for (const part of message.content) {
       if (part.type !== "tool-result") continue;
 
-      const failure = isRetryableFailure(part.output)
-        ? null
-        : getToolResultFailure(part.output);
+      const failure = getToolResultFailure(part.output);
       if (!matchingCallIds.has(part.toolCallId)) {
         if (failureCount && !failure) recoveredSinceFailure = true;
         continue;
       }
-      if (!failure) continue;
+      if (!failure || isRetryableFailure(part.output)) continue;
 
       firstFailure ??= failure;
       failureCount++;

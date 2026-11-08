@@ -109,6 +109,28 @@ describe("guardChatTools", () => {
     expect(execute).not.toHaveBeenCalled();
   });
 
+  it("does not count another tool's retryable failure as recovery", async () => {
+    const { tools, execute } = buildTools();
+    const input = { threadIds: ["t1"] };
+
+    await runArchive(tools, input, [
+      { role: "user", content: "archive t1" },
+      toolCall("call-1", input),
+      toolResult("call-1", { error: "Thread is locked" }),
+      otherToolCall("call-2"),
+      toolResult(
+        "call-2",
+        {
+          error: "Failed to search inbox",
+          searchFeedback: { retryable: true },
+        },
+        "getRules",
+      ),
+    ]);
+
+    expect(execute).not.toHaveBeenCalled();
+  });
+
   it("blocks a second identical failure even after a recovery step", async () => {
     const { tools, execute } = buildTools();
     const input = { threadIds: ["t1"] };
@@ -118,11 +140,11 @@ describe("guardChatTools", () => {
       toolCall("call-1", input),
       toolResult("call-1", { error: "Rule state is stale" }),
       otherToolCall("call-2"),
-      otherToolResult("call-2", { rules: [] }),
+      toolResult("call-2", { rules: [] }, "getRules"),
       toolCall("call-3", input),
       toolResult("call-3", { error: "Rule state is stale" }),
       otherToolCall("call-4"),
-      otherToolResult("call-4", { rules: [] }),
+      toolResult("call-4", { rules: [] }, "getRules"),
     ]);
 
     expect(result).toMatchObject({
@@ -166,7 +188,7 @@ describe("guardChatTools", () => {
         toolCall("call-1", { threadIds: ["t1"] }),
         toolResult("call-1", { error: "Rule state is stale" }),
         otherToolCall("call-2"),
-        otherToolResult("call-2", { rules: [] }),
+        toolResult("call-2", { rules: [] }, "getRules"),
       ],
     },
     {
@@ -206,26 +228,10 @@ function otherToolCall(toolCallId: string): ModelMessage {
   };
 }
 
-function otherToolResult(
-  toolCallId: string,
-  value: Record<string, unknown>,
-): ModelMessage {
-  return {
-    role: "tool",
-    content: [
-      {
-        type: "tool-result",
-        toolCallId,
-        toolName: "getRules",
-        output: { type: "json", value: value as never },
-      },
-    ],
-  };
-}
-
 function toolResult(
   toolCallId: string,
   value: Record<string, unknown>,
+  toolName = "archive",
 ): ModelMessage {
   return {
     role: "tool",
@@ -233,7 +239,7 @@ function toolResult(
       {
         type: "tool-result",
         toolCallId,
-        toolName: "archive",
+        toolName,
         output: { type: "json", value: value as never },
       },
     ],
