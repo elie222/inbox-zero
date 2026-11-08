@@ -61,11 +61,18 @@ describe("engine catch-up after a long gap", () => {
       runtime: createHostRuntime({ nowMs: () => nowMs }),
     });
 
+    const errors: unknown[] = [];
     for (let run = 0; run < 6; run += 1) {
       // A thrown read fails the sync lane, which retries after a backoff.
       nowMs += 60_000;
-      await engine.runUntil(Date.now() + 2000).catch(() => undefined);
+      await engine.runUntil(Date.now() + 2000).catch((error) => {
+        errors.push(error);
+      });
     }
+
+    expect(errors.map((error) => (error as Error).message)).toEqual(
+      failure === "thrown" ? ["network down"] : [],
+    );
 
     expect(source.newestPageReads()).toBe(2);
     expect(await inboxSubjects(store)).toContain("newest");
