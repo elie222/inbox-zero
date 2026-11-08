@@ -44,6 +44,17 @@ export function allMailSplitQuery(splits: MailSplit[]): ThreadsQuery {
   return hidden.length ? otherMailSplitQuery(hidden) : { type: "inbox" };
 }
 
+/** The list query for a tab, shared by the thread list and its count. */
+export function splitToThreadsQuery(
+  split: MailSplit,
+  splits: MailSplit[],
+  now: Date = new Date(),
+): ThreadsQuery {
+  if (split.id === OTHER_SPLIT_ID) return otherMailSplitQuery(splits);
+  if (!split.filters.length) return allMailSplitQuery(splits);
+  return mailSplitToThreadsQuery(split, now);
+}
+
 export type PortableLabelSplit = MailSplit & { labelNames: string[] };
 
 /** Tokens the "Older than" condition offers, and how far back each one reaches. */

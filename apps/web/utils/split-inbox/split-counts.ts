@@ -1,10 +1,7 @@
 import type { MailPredicate } from "@inboxzero/mail-core/queries";
 import { threadsQueryToPredicate } from "@/utils/mail-engine/threads-query";
 import {
-  OTHER_SPLIT_ID,
-  allMailSplitQuery,
-  mailSplitToThreadsQuery,
-  otherMailSplitQuery,
+  splitToThreadsQuery,
   type MailSplit,
 } from "@/utils/split-inbox/split-query";
 
@@ -50,9 +47,5 @@ function predicateForSplit(
   splits: MailSplit[],
   now: Date,
 ): MailPredicate {
-  if (split.id === OTHER_SPLIT_ID)
-    return threadsQueryToPredicate(otherMailSplitQuery(splits));
-  if (!split.filters.length)
-    return threadsQueryToPredicate(allMailSplitQuery(splits));
-  return threadsQueryToPredicate(mailSplitToThreadsQuery(split, now));
+  return threadsQueryToPredicate(splitToThreadsQuery(split, splits, now));
 }

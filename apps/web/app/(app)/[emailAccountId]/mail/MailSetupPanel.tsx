@@ -23,10 +23,6 @@ import {
 } from "@/utils/actions/mail-split";
 import type { UpdateMailPreferencesBody } from "@/utils/actions/mail-split.validation";
 import { cn } from "@/utils";
-import {
-  isGoogleProvider,
-  isMicrosoftProvider,
-} from "@/utils/email/provider-types";
 import { getActionErrorMessage } from "@/utils/error";
 import { getDefaultMailSplitDrafts } from "@/utils/split-inbox/default-splits";
 import {
@@ -57,6 +53,8 @@ export function MailSetupPanel({
   onToggleBundleInbox,
   onSelectSplit,
   onClose,
+  canHideFromAll,
+  supportsStarred,
 }: {
   /** The tabs as shown, including Other. */
   splits: MailSplit[];
@@ -64,18 +62,20 @@ export function MailSetupPanel({
   bundleInbox: boolean;
   defaultSplitId: string | null;
   onUpdatePreferences: (preferences: UpdateMailPreferencesBody) => void;
-  onToggleBundleInbox: () => void;
+  onToggleBundleInbox: () => Promise<void>;
   onSelectSplit: (splitId: string | null) => void;
   onClose: () => void;
+  canHideFromAll: boolean;
+  supportsStarred: boolean;
 }) {
-  const { emailAccountId, provider } = useAccount();
-  const isGoogle = isGoogleProvider(provider);
+  const { emailAccountId } = useAccount();
   const { data: rules } = useRules();
   const { data: settings, mutate: mutateSettings } = useMailSettings();
   const [stepIndex, setStepIndex] = useState(0);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [isBundlePending, setIsBundlePending] = useState(false);
 
-  const steps: Step[] = isGoogle
+  const steps: Step[] = canHideFromAll
     ? ["layout", "tabs", "all", "default", "bundles"]
     : ["layout", "tabs", "default", "bundles"];
   const step = steps[stepIndex];
@@ -102,20 +102,24 @@ export function MailSetupPanel({
         name: "Unread",
         filters: [{ kind: MailSplitFilterKind.UNREAD, value: null }],
       },
-      ...(isMicrosoftProvider(provider)
-        ? []
-        : [
+      ...(supportsStarred
+        ? [
             {
               name: "Starred",
               filters: [{ kind: MailSplitFilterKind.STARRED, value: null }],
             },
-          ]),
+          ]
+        : []),
     ],
-    [provider, rules],
+    [rules, supportsStarred],
   );
-  const findTabSplit = (filters: MailSplit["filters"]) =>
+  // Name and matchAll must match too, so a custom tab that happens to share
+  // the filters is never the one a switch deletes.
+  const findTabSplit = ({ name, filters }: (typeof tabChoices)[number]) =>
     settings?.splits.find(
       (split) =>
+        split.name.toLowerCase() === name.toLowerCase() &&
+        split.matchAll &&
         split.filters.length === filters.length &&
         filters.every((filter) =>
           split.filters.some(
@@ -151,7 +155,7 @@ export function MailSetupPanel({
   };
 
   const toggleTab = (choice: (typeof tabChoices)[number]) => {
-    const existing = findTabSplit(choice.filters);
+    const existing = findTabSplit(choice);
     return runSplitChange(choice.name, () =>
       existing
         ? deleteMailSplitAction(emailAccountId, { id: existing.id })
@@ -163,6 +167,7 @@ export function MailSetupPanel({
     id: string,
     patch: { hideFromAll: boolean } | { bundleInInbox: boolean },
   ) => {
+    if (busyId) return;
     if (settings) {
       mutateSettings(
         {
@@ -242,7 +247,7 @@ export function MailSetupPanel({
             <SwitchRow
               key={choice.name}
               label={choice.name}
-              checked={!!findTabSplit(choice.filters)}
+              checked={!!findTabSplit(choice)}
               disabled={!!busyId}
               onCheckedChange={() => toggleTab(choice)}
             />
@@ -255,7 +260,7 @@ export function MailSetupPanel({
                 key={split.id}
                 label={split.name}
                 checked={!split.hideFromAll}
-                disabled={busyId === split.id}
+                disabled={!!busyId}
                 onCheckedChange={(checked) =>
                   setSplitFlag(split.id, { hideFromAll: !checked })
                 }
@@ -292,7 +297,15 @@ export function MailSetupPanel({
             <SwitchRow
               label="Bundle my inbox"
               checked={bundleInbox}
-              onCheckedChange={onToggleBundleInbox}
+              disabled={isBundlePending}
+              onCheckedChange={async () => {
+                setIsBundlePending(true);
+                try {
+                  await onToggleBundleInbox();
+                } finally {
+                  setIsBundlePending(false);
+                }
+              }}
             />
             {bundleInbox &&
               (settings?.splits ?? [])
@@ -303,7 +316,7 @@ export function MailSetupPanel({
                     label={split.name}
                     inset
                     checked={split.bundleInInbox}
-                    disabled={busyId === split.id}
+                    disabled={!!busyId}
                     onCheckedChange={(checked) =>
                       setSplitFlag(split.id, { bundleInInbox: checked })
                     }

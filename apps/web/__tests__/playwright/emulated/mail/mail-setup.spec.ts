@@ -1,3 +1,4 @@
+import { INITIAL_MAIL_SPLITS } from "@/utils/split-inbox/initial-splits";
 import { expect, type Page } from "@playwright/test";
 import { test } from "../playwright-test";
 import { playwrightMailProvider } from "../mail-provider";
@@ -85,6 +86,22 @@ test.afterEach(async ({ page }) => {
   const emailAccountId = await getEmailAccountId(page);
   await withClient(async (client) => {
     await deleteCategoryRules(client, emailAccountId);
+    // Back to the tabs a fresh account starts with, for the specs that follow.
+    await client.query('DELETE FROM "MailSplit" WHERE "emailAccountId" = $1', [
+      emailAccountId,
+    ]);
+    for (const [order, split] of INITIAL_MAIL_SPLITS.entries()) {
+      const { rows } = await client.query(
+        `INSERT INTO "MailSplit" (id, "updatedAt", "emailAccountId", name, "matchAll", "order")
+         VALUES (gen_random_uuid()::text, NOW(), $1, $2, true, $3) RETURNING id`,
+        [emailAccountId, split.name, order],
+      );
+      for (const filter of split.filters.create)
+        await client.query(
+          `INSERT INTO "MailSplitFilter" (id, "mailSplitId", kind, value, "order") VALUES (gen_random_uuid()::text, $1, $2, $3, $4)`,
+          [rows[0].id, filter.kind, filter.value, filter.order],
+        );
+    }
     await client.query(
       `UPDATE "EmailAccount" SET "mailSetup" = 'DONE', "mailDefaultSplitId" = NULL,
          "mailLayout" = 'LIST', "mailBundleInbox" = NULL WHERE id = $1`,
@@ -124,6 +141,7 @@ test("walks a new mail user through setup with a live preview", async ({
     .getByRole("listbox", { name: "Conversations" })
     .getByRole("option")
     .filter({ hasText: "Project Alpha" });
+  await expect(projectThread).toHaveCount(1);
   await panel.getByRole("switch", { name: "Project Alpha" }).click();
   await expect(projectThread).toHaveCount(0);
   await shot(page, testInfo, "4-show-in-all");

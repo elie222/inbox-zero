@@ -322,7 +322,7 @@ export const ListToolbar = memo(function ListToolbar({
             <SlidersHorizontalIcon className="size-3.5" />
             {isSetupSuggested && (
               <span className="absolute top-1 right-1 flex size-2">
-                <span className="absolute inline-flex size-full animate-ping rounded-full bg-blue-500 opacity-75" />
+                <span className="absolute inline-flex size-full animate-ping rounded-full bg-blue-500 opacity-75 motion-reduce:animate-none" />
                 <span className="relative inline-flex size-2 rounded-full bg-blue-500" />
               </span>
             )}

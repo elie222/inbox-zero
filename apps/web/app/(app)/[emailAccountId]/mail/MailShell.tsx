@@ -139,9 +139,7 @@ import { admissionRejectionCopy } from "@/utils/mail-engine/admission-notice";
 import {
   getPortableLabelSplits,
   OTHER_SPLIT_ID,
-  otherMailSplitQuery,
-  allMailSplitQuery,
-  mailSplitToThreadsQuery,
+  splitToThreadsQuery,
   mailTypeToThreadsQuery,
   threadListQueryRequiresInbox,
 } from "@/utils/split-inbox/split-query";
@@ -436,9 +434,9 @@ export function MailShell() {
     if (searchQuery) return { q: searchQuery };
     if (scopeQuery) return scopeQuery;
 
-    if (activeSplit?.id === OTHER_SPLIT_ID) return otherMailSplitQuery(splits);
-    if (!activeSplit?.filters.length) return allMailSplitQuery(splits);
-    return mailSplitToThreadsQuery(activeSplit);
+    return activeSplit
+      ? splitToThreadsQuery(activeSplit, splits)
+      : { type: "inbox" };
   }, [searchQuery, scopeQuery, activeSplit, splits]);
 
   const accountThreadState = useMailThreads({
@@ -1916,6 +1914,8 @@ export function MailShell() {
               onToggleBundleInbox={toggleBundleInbox}
               onSelectSplit={setActiveSplitId}
               onClose={closeSetup}
+              canHideFromAll={isGoogle}
+              supportsStarred={!isOutlook}
             />
           )}
         </>
