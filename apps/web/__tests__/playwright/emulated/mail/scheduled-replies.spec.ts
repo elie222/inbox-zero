@@ -1,4 +1,4 @@
-import { expect, type Page, type Response } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { isMicrosoftPlaywright } from "../mail-provider";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
@@ -54,19 +54,22 @@ test("schedules a reply with a reminder, persists it and cancels both", async ({
       testInfo,
       "18-scheduled-after-reload",
     );
-    // Each change shows at once; reloading before the server answers would
-    // abort it, so the test waits for each one's response in turn.
-    const reminderCancelled = page.waitForResponse(isServerActionResponse);
+    // Each change shows at once, and leaving the page straight away must not
+    // lose it.
     await delivery.getByRole("button", { name: "Cancel reminder" }).click();
     await expect(
       delivery.getByRole("button", { name: "Cancel reminder" }),
     ).toHaveCount(0);
     await expect(delivery.getByText(/^Scheduled for/)).toBeVisible();
-    await reminderCancelled;
-    const cancelled = page.waitForResponse(isServerActionResponse);
+    // Cancelling the send also cancels its reminder, so the reminder's own
+    // cancel is checked before that.
+    await expect
+      .poll(() => readReminderStatus(emailAccountId))
+      .toBe("CANCELLED");
     await delivery.getByRole("button", { name: "Cancel send" }).click();
     await expect(delivery.getByText(/^Scheduled for/)).toHaveCount(0);
-    await cancelled;
+    await page.reload();
+    await expect.poll(() => readScheduledReply(emailAccountId)).toBeUndefined();
     await page.reload();
     await expect(
       page.getByRole("heading", { name: "Reply Workflow Message" }),
@@ -293,6 +296,8 @@ test("schedules a reply with a file from its mailbox draft and hides that draft"
     // (after autosave has had its chance to write) keeps that text.
     await delivery.getByRole("button", { name: "Cancel send" }).click();
     await expect(delivery.getByText(/^Scheduled for/)).toHaveCount(0);
+    // A page loaded before the cancel lands would still hide the draft.
+    await expect.poll(() => readScheduledReply(emailAccountId)).toBeUndefined();
     for (let reopen = 0; reopen < 2; reopen++) {
       await page.reload();
       await expect(editor).toContainText(reopenedText);
@@ -641,6 +646,16 @@ async function readScheduledReply(emailAccountId: string) {
   return result.rows[0];
 }
 
+async function readReminderStatus(emailAccountId: string) {
+  const result = await withClient((client) =>
+    client.query<{ reminderStatus: string }>(
+      'SELECT "reminderStatus" FROM "ScheduledEmail" WHERE "emailAccountId" = $1 AND "threadId" = $2 AND status != \'CANCELLED\'',
+      [emailAccountId, THREAD_ID],
+    ),
+  );
+  return result.rows[0]?.reminderStatus;
+}
+
 function setScheduledStatus(
   emailAccountId: string,
   status: "FAILED" | "UNCERTAIN",
@@ -651,12 +666,5 @@ function setScheduledStatus(
       'UPDATE "ScheduledEmail" SET status = $1, error = $2 WHERE "emailAccountId" = $3 AND "threadId" = $4 AND status != \'CANCELLED\'',
       [status, error, emailAccountId, THREAD_ID],
     ),
-  );
-}
-
-function isServerActionResponse(response: Response) {
-  return (
-    response.request().method() === "POST" &&
-    Boolean(response.request().headers()["next-action"])
   );
 }
