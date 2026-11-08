@@ -632,8 +632,11 @@ function notifyReplyDraftChange(identity: ReplyDraftIdentity) {
     threadId: identity.threadId,
   };
   for (const listener of listeners) listener(scope);
+  // Only the identity: callers may pass a whole stored draft, whose content
+  // other tabs don't need.
   channel?.postMessage({
-    ...identity,
+    ...scope,
+    messageId: identity.messageId,
     present: Boolean(drafts.get(draftKey(identity))?.content),
   });
 }
