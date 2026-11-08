@@ -1,4 +1,5 @@
 import { betterAuth } from "better-auth";
+import { Request as UndiciRequest } from "undici";
 import { describe, expect, it } from "vitest";
 import {
   isAllowedNativeAuthorizationUrl,
@@ -15,6 +16,23 @@ describe("native auth Better Auth plugin", () => {
     const result = await nativeAuthPlugin().onRequest(request);
 
     expect(result?.request.headers.get("origin")).toBe("inboxzero://");
+  });
+
+  it("handles a request created by a different fetch implementation", async () => {
+    const request = new UndiciRequest(
+      "https://www.getinboxzero.com/api/auth/sign-in/social",
+      {
+        method: "POST",
+        headers: { "expo-origin": "inboxzero://" },
+        body: JSON.stringify({ provider: "google" }),
+      },
+    ) as unknown as Request;
+
+    const result = await nativeAuthPlugin().onRequest(request);
+
+    expect(result?.request.headers.get("origin")).toBe("inboxzero://");
+    expect(result?.request.method).toBe("POST");
+    expect(await result?.request.json()).toEqual({ provider: "google" });
   });
 
   it("keeps an origin the request already has", async () => {
