@@ -302,7 +302,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       chatId,
       emailAccountId,
     });
-    setChatId(generateUUID());
+    const newChatId = generateUUID();
+    setChatId(newChatId);
+    // Keep showing why a send that just ended failed.
+    setSendError((current) =>
+      current?.chatId === chatId ? { ...current, chatId: newChatId } : current,
+    );
   }, [
     chatId,
     emailAccountId,

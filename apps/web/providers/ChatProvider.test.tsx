@@ -475,7 +475,7 @@ describe("ChatProvider", () => {
     expect(latestContext?.sendError).toBeNull();
   });
 
-  it("leaves a send in flight to fail and recover when the chat belongs to another email account", () => {
+  it("keeps the chat id while a send is in flight even if the chat belongs to another email account", () => {
     chatState.status = "submitted";
     mockUseChatMessages.mockImplementation((chatId: string | null) =>
       chatId === "chat-from-account-a"
@@ -498,6 +498,54 @@ describe("ChatProvider", () => {
 
     expect(latestContext?.chatId).toBe("chat-from-account-a");
     expect(mockSetQueryState).not.toHaveBeenCalled();
+  });
+
+  it("keeps showing a send failure after moving off another account's chat", async () => {
+    chatState.status = "submitted";
+    mockUseChatMessages.mockImplementation((chatId: string | null) =>
+      chatId === "chat-from-account-a"
+        ? {
+            data: undefined,
+            error: Object.assign(new Error("Forbidden"), {
+              info: { errorCode: CHAT_ACCOUNT_MISMATCH_ERROR_CODE },
+            }),
+          }
+        : { data: undefined },
+    );
+    mockSendMessage.mockRejectedValueOnce(new Error("Network request failed"));
+    let latestContext: ReturnType<typeof useChat> | undefined;
+
+    function Consumer() {
+      latestContext = useChat();
+      return null;
+    }
+
+    const { rerender } = renderWithProvider(<Consumer />);
+
+    act(() => {
+      latestContext?.setInput("Pay the SAFE");
+    });
+    act(() => {
+      latestContext?.handleSubmit();
+    });
+    await waitFor(() => {
+      expect(latestContext?.sendError).not.toBeNull();
+    });
+
+    chatState.status = "error";
+    rerender(
+      <ChatProvider>
+        <Consumer />
+      </ChatProvider>,
+    );
+
+    await waitFor(() => {
+      expect(latestContext?.chatId).not.toBe("chat-from-account-a");
+    });
+    expect(latestContext?.sendError).toEqual({
+      message: "We couldn't send your message. Please try again.",
+      offerNewChat: true,
+    });
   });
 
   it("moves an unsent message to a new chat when the chat belongs to another email account", async () => {
