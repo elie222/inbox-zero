@@ -24,7 +24,6 @@ import {
   compactMessages,
   buildCompactionSummaryMessage,
   extractMemories,
-  RECENT_MESSAGES_TO_KEEP,
 } from "@/utils/ai/assistant/compact";
 import { getInboxStatsForChatContext } from "@/utils/ai/assistant/get-inbox-stats-for-chat-context";
 import { formatUtcDate } from "@/utils/date";
@@ -192,7 +191,7 @@ export const POST = withEmailAccount("chat", async (request) => {
       incoming: data.mailView,
     });
 
-    await saveChatMessage({
+    const savedUserMessage = await saveChatMessage({
       chat: { connect: { id: chat.id } },
       id: message.id,
       role: "user",
@@ -246,25 +245,28 @@ export const POST = withEmailAccount("chat", async (request) => {
 
     if (shouldCompact(modelMessages)) {
       try {
-        const { compactedMessages, summary, compactedCount } =
-          await compactMessages({
-            messages: modelMessages,
-            user,
-            logger: request.logger,
-          });
+        const {
+          compactedMessages,
+          summary,
+          compactedCount,
+          recentUserMessageCount,
+        } = await compactMessages({
+          messages: modelMessages,
+          user,
+          logger: request.logger,
+        });
 
         if (compactedCount > 0 && summary.trim().length > 0) {
           modelMessages = compactedMessages;
 
-          // Compute boundary: keep at least RECENT_MESSAGES_TO_KEEP DB messages.
-          // messagesForModel doesn't include the new user message (saved after query),
-          // so we keep RECENT_MESSAGES_TO_KEEP from the existing set.
-          const keepFromIndex = Math.max(
-            0,
-            messagesForModel.length - RECENT_MESSAGES_TO_KEEP,
-          );
-          const compactedBeforeCreatedAt =
-            messagesForModel[keepFromIndex]?.createdAt ?? new Date();
+          // The new message and the hidden inline-action message are kept
+          // but not among the stored messages loaded for this run.
+          const compactedBeforeCreatedAt = getCompactionBoundary({
+            storedMessages: messagesForModel,
+            keptStoredUserMessageCount:
+              recentUserMessageCount - 1 - (hiddenInlineActionMessage ? 1 : 0),
+            newMessageCreatedAt: savedUserMessage.createdAt,
+          });
 
           const [, memories] = await Promise.all([
             prisma.$transaction([
@@ -661,6 +663,28 @@ function hasVisibleAssistantText(messages: UIMessage[]) {
         (part) => part.type === "text" && part.text.trim().length > 0,
       ),
   );
+}
+
+// The stored message where the kept history starts, so the next run replays
+// exactly what the summary left out.
+function getCompactionBoundary({
+  storedMessages,
+  keptStoredUserMessageCount,
+  newMessageCreatedAt,
+}: {
+  storedMessages: { role: string; createdAt: Date }[];
+  keptStoredUserMessageCount: number;
+  newMessageCreatedAt: Date;
+}) {
+  if (keptStoredUserMessageCount <= 0) return newMessageCreatedAt;
+
+  let remaining = keptStoredUserMessageCount;
+  for (let index = storedMessages.length - 1; index >= 0; index--) {
+    if (storedMessages[index].role !== "user") continue;
+    remaining--;
+    if (remaining === 0) return storedMessages[index].createdAt;
+  }
+  return storedMessages[0]?.createdAt ?? newMessageCreatedAt;
 }
 
 function getToolCallIdsFromUiParts(parts: UIMessage["parts"] | undefined) {
