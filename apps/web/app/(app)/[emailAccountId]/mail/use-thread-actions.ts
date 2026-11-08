@@ -327,7 +327,11 @@ export function useThreadActions({
 
   const runUndoable = useCallback(
     (action: UndoableAction, threadKeys: string[]) => {
-      const admission = admitUndoable(action, threadKeys);
+      // Queued one after another, so the Undo toast and `z` always belong to
+      // the action that finished last, even when one is still being queued.
+      const admission = pendingUndoable.current.then(() =>
+        admitUndoable(action, threadKeys),
+      );
       pendingUndoable.current = admission.catch(() => undefined);
       return admission;
     },

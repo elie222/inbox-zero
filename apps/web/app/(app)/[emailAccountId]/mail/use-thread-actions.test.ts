@@ -363,6 +363,31 @@ describe("useThreadActions", () => {
     expect(toasts.toastUndo).not.toHaveBeenCalled();
   });
 
+  it("doesn't let an archive still being queued become undoable after a later folder move", async () => {
+    let admitArchive = (_admission: { status: "queued" }) => {};
+    mail.client.submitConversations.mockReturnValueOnce(
+      new Promise((resolve) => {
+        admitArchive = resolve;
+      }),
+    );
+    const { result } = renderActions();
+    await act(async () => {
+      const archived = result.current.archive(["thread"]);
+      const moved = result.current.moveToFolder(["thread"], "folder-1");
+      await vi.waitFor(() =>
+        expect(mail.client.submitConversations).toHaveBeenCalledTimes(1),
+      );
+      admitArchive({ status: "queued" });
+      await Promise.all([archived, moved]);
+    });
+
+    expect(
+      mail.client.submitConversations.mock.calls.map(([call]) => call.change),
+    ).toEqual([{ kind: "archive" }, { kind: "move", folderId: "folder-1" }]);
+    await act(() => result.current.undo());
+    expect(mail.client.cancelOperation).not.toHaveBeenCalled();
+  });
+
   it("moves into a folder without offering an undo it can't honour", async () => {
     const { result } = renderActions();
     await act(() => result.current.moveToFolder(["thread"], "folder-1"));
