@@ -18,6 +18,7 @@ const mail = vi.hoisted(() => ({
     cancelOperation: vi.fn(),
     getDiagnostics: vi.fn(),
     submitConversations: vi.fn(),
+    submitMetadata: vi.fn(),
   },
 }));
 
@@ -37,6 +38,7 @@ describe("useThreadActions", () => {
     vi.clearAllMocks();
     mail.client.getDiagnostics.mockResolvedValue({ revision: 1 });
     mail.client.submitConversations.mockResolvedValue({ status: "queued" });
+    mail.client.submitMetadata.mockResolvedValue({ status: "queued" });
     mail.client.cancelOperation.mockResolvedValue({ status: "cancelled" });
   });
 
@@ -326,6 +328,38 @@ describe("useThreadActions", () => {
     );
     // Labeling never took the threads out of view, so the reader stays put.
     expect(onRestore).not.toHaveBeenCalled();
+  });
+
+  it("undoes a label only on the messages that didn't already have it", async () => {
+    mail.client.cancelOperation.mockResolvedValue({ status: "too_late" });
+    const thread = createThread(["INBOX"], "mixed");
+    thread.messageIds = ["mixed-old", "mixed-new"];
+    thread.messages = [
+      {
+        ...thread.messages[0],
+        id: "mixed-old",
+        labelIds: ["INBOX", "label-1"],
+      },
+      { ...thread.messages[0], id: "mixed-new", labelIds: ["INBOX"] },
+    ];
+    const { result } = renderActions({ threads: [thread] });
+    await act(() => result.current.applyLabel(["mixed"], "label-1"));
+    mail.client.submitConversations.mockClear();
+
+    await act(() => result.current.undo());
+
+    expect(mail.client.submitConversations).not.toHaveBeenCalled();
+    expect(mail.client.submitMetadata).toHaveBeenCalledWith(
+      expect.objectContaining({
+        targets: [{ accountId: "account", messageId: "mixed-new" }],
+        change: {
+          kind: "set_membership",
+          membership: "label",
+          id: "label-1",
+          present: false,
+        },
+      }),
+    );
   });
 
   it("puts the label back off a thread whose move couldn't archive it", async () => {

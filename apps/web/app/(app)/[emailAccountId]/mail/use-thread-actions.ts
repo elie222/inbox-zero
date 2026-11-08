@@ -23,8 +23,11 @@ type UndoableAction = {
   steps: Array<{
     change: MetadataChange;
     compensation?: MetadataChange;
-    /** Leaves out threads the change didn't alter, such as a label they already had. */
-    compensates?: (target: ThreadActionTarget) => boolean;
+    /**
+     * The messages the change altered, when that's only some of the thread
+     * (such as those without a label it added); undo reverses just those.
+     */
+    changedMessageIds?: (target: ThreadActionTarget) => string[];
   }>;
   done: (count: number) => string;
   noun: string;
@@ -35,8 +38,8 @@ type UndoableAction = {
 type ThreadSnapshot = {
   emailAccountId: string;
   key: string;
-  /** Labels any of the thread's loaded messages carries. */
-  labelIds: string[];
+  /** Labels on each of the thread's loaded messages. */
+  messageLabelIds: Record<string, string[]>;
   messageIds: string[];
   mutationId: string;
   threadId: string;
@@ -44,7 +47,11 @@ type ThreadSnapshot = {
 
 export type ThreadActionTarget = Omit<ThreadSnapshot, "mutationId">;
 
-type UndoStep = { compensation: MetadataChange; snapshots: ThreadSnapshot[] };
+type UndoStep = {
+  compensation: MetadataChange;
+  /** `onlyMessageIds` limits the reversal to those messages of the thread. */
+  snapshots: Array<ThreadSnapshot & { onlyMessageIds?: string[] }>;
+};
 
 type UndoableBatch = {
   removesFromView: boolean;
@@ -86,11 +93,7 @@ export function useThreadActions({
       listTargetsByKey.current.set(key, {
         emailAccountId: getListThreadEmailAccountId(thread, emailAccountId),
         key,
-        labelIds: [
-          ...new Set(
-            thread.messages.flatMap((message) => message.labelIds ?? []),
-          ),
-        ],
+        messageLabelIds: getMessageLabelIds(thread.messages),
         messageIds,
         threadId: thread.id,
       });
@@ -172,19 +175,47 @@ export function useThreadActions({
               });
               if (cancelled.status === "cancelled") return;
             }
-            const diagnostics = await client.getDiagnostics(emailAccountId);
-            const admission = await client.submitConversations({
-              accountId: emailAccountId,
-              commandId: randomUuid(),
-              conversations: snapshots.map((snapshot) => ({
-                accountId: emailAccountId,
-                conversationId: snapshot.threadId,
-              })),
-              change: step.compensation,
-              observedRevision: diagnostics.revision,
-            });
-            if (admission.status === "rejected") {
-              throw new Error(admission.code);
+            const partial = snapshots.filter(
+              (snapshot) => snapshot.onlyMessageIds,
+            );
+            const whole = snapshots.filter(
+              (snapshot) => !snapshot.onlyMessageIds,
+            );
+            const admissions = [];
+            if (whole.length) {
+              const diagnostics = await client.getDiagnostics(emailAccountId);
+              admissions.push(
+                await client.submitConversations({
+                  accountId: emailAccountId,
+                  commandId: randomUuid(),
+                  conversations: whole.map((snapshot) => ({
+                    accountId: emailAccountId,
+                    conversationId: snapshot.threadId,
+                  })),
+                  change: step.compensation,
+                  observedRevision: diagnostics.revision,
+                }),
+              );
+            }
+            if (partial.length) {
+              admissions.push(
+                await client.submitMetadata({
+                  accountId: emailAccountId,
+                  commandId: randomUuid(),
+                  targets: partial.flatMap((snapshot) =>
+                    (snapshot.onlyMessageIds ?? []).map((messageId) => ({
+                      accountId: emailAccountId,
+                      messageId,
+                    })),
+                  ),
+                  change: step.compensation,
+                }),
+              );
+            }
+            for (const admission of admissions) {
+              if (admission.status === "rejected") {
+                throw new Error(admission.code);
+              }
             }
           }),
         );
@@ -252,9 +283,14 @@ export function useThreadActions({
         if (step.compensation) {
           steps.push({
             compensation: step.compensation,
-            snapshots: result.snapshots.filter(
-              (snapshot) => step.compensates?.(snapshot) ?? true,
-            ),
+            snapshots: result.snapshots.flatMap((snapshot) => {
+              const changed = step.changedMessageIds?.(snapshot);
+              if (!changed || changed.length === snapshot.messageIds.length)
+                return [snapshot];
+              return changed.length
+                ? [{ ...snapshot, onlyMessageIds: changed }]
+                : [];
+            }),
           });
         }
         const queuedKeys = new Set(result.snapshots.map(({ key }) => key));
@@ -541,7 +577,10 @@ function labelAction(labelId: string, archive: boolean): UndoableAction {
     {
       change: label(true),
       compensation: label(false),
-      compensates: (target) => !target.labelIds.includes(labelId),
+      changedMessageIds: (target) =>
+        target.messageIds.filter(
+          (messageId) => !target.messageLabelIds[messageId]?.includes(labelId),
+        ),
     },
   ];
   if (!archive) {
@@ -572,4 +611,12 @@ function summarise(verb: string, count: number) {
 
 function enqueueFailureCopy(generic: string, rejectionCodes: string[]) {
   return admissionRejectionCopy(rejectionCodes[0]) ?? generic;
+}
+
+export function getMessageLabelIds(
+  messages: readonly { id: string; labelIds?: string[] }[],
+) {
+  return Object.fromEntries(
+    messages.map((message) => [message.id, message.labelIds ?? []]),
+  );
 }

@@ -74,6 +74,7 @@ import type { ThreadMessage } from "@/components/email-list/types";
 import { useMailThreads } from "@/app/(app)/[emailAccountId]/mail/use-mail-threads";
 import { useCombinedMailThreads } from "@/app/(app)/[emailAccountId]/mail/use-combined-mail-threads";
 import {
+  getMessageLabelIds,
   type ThreadActionTarget,
   useThreadActions,
 } from "@/app/(app)/[emailAccountId]/mail/use-thread-actions";
@@ -724,9 +725,7 @@ export function MailShell() {
     return {
       emailAccountId: openThreadSelection.emailAccountId,
       key: openThreadKey,
-      labelIds: [
-        ...new Set(openMessages.flatMap((message) => message.labelIds ?? [])),
-      ],
+      messageLabelIds: getMessageLabelIds(openMessages),
       messageIds,
       threadId: openThreadSelection.threadId,
     };
