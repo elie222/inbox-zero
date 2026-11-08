@@ -131,69 +131,145 @@ export const MailShellSidebar = memo(function MailShellSidebar({
     [emailAccountId],
   );
 
+  // Label and folder lists come from the provider rather than the mailbox, so
+  // these skip the mail engine. Each change shows at once and stays until the
+  // list reloads from the provider; a refused change rolls back with an error.
+  // A label shows under a placeholder id until the provider creates it; an
+  // edit or delete made meanwhile waits for the real id.
+  const creatingLabels = useRef(new Map<string, Promise<string>>());
+  const resolveLabelId = useCallback(
+    async (id: string) => (await creatingLabels.current.get(id)) ?? id,
+    [],
+  );
+
   const onCreateLabel = useCallback(
-    async (name: string) => {
-      const result = await createLabelAction(emailAccountId, { name });
-      if (result?.serverError || result?.validationErrors) {
-        toast.error(getActionErrorMessage(result));
-        return;
-      }
-      // Without this the label the user just typed doesn't appear until an
-      // unrelated revalidation happens to run.
-      await mutateLabels();
-      toast.success(
-        `${terminology.label.singularCapitalized} "${name}" created`,
+    (name: string) => {
+      const placeholderId = `pending:${name}`;
+      const created = createLabelAction(emailAccountId, { name }).then(
+        (result) => {
+          if (!result?.data?.id)
+            throw new Error(getActionErrorMessage(result ?? {}));
+          return result.data.id;
+        },
       );
+      creatingLabels.current.set(placeholderId, created);
+      mutateLabels(
+        async (current) => {
+          const id = await created;
+          return {
+            labels: [
+              ...(current?.labels ?? []).filter(
+                (label) => label.id !== placeholderId,
+              ),
+              { id, name, type: "user" },
+            ],
+          };
+        },
+        {
+          optimisticData: (current) => ({
+            labels: [
+              ...(current?.labels ?? []),
+              { id: placeholderId, name, type: "user" },
+            ],
+          }),
+          rollbackOnError: true,
+        },
+      )
+        .catch(toastMailboxItemFailure)
+        .finally(() => creatingLabels.current.delete(placeholderId));
     },
-    [emailAccountId, mutateLabels, terminology.label.singularCapitalized],
+    [emailAccountId, mutateLabels],
   );
 
   const onEditMailboxItem = useCallback(
     async (edit: MailboxItemEdit) => {
-      const result = await updateMailboxItemAction(emailAccountId, edit);
-
-      if (result?.serverError || result?.validationErrors) {
-        toast.error(getActionErrorMessage(result));
-        return false;
-      }
-
-      await Promise.all([
-        edit.kind === "folder" ? mutateFolders() : mutateLabels(),
-        mutateCounts(),
-      ]);
-      toast.success(
-        `${edit.kind === "folder" ? "Folder" : terminology.label.singularCapitalized} updated`,
-      );
+      const request = async () =>
+        updateMailboxItemAction(emailAccountId, {
+          ...edit,
+          id: await resolveLabelId(edit.id),
+        });
+      const update =
+        edit.kind === "folder"
+          ? mutateFolders(
+              async (current) => {
+                await runMailboxItemAction(request);
+                return current;
+              },
+              {
+                optimisticData: (current) =>
+                  mapFolders(current ?? [], (folder) =>
+                    folder.id === edit.id
+                      ? { ...folder, displayName: edit.name }
+                      : folder,
+                  ),
+                populateCache: false,
+                rollbackOnError: true,
+              },
+            )
+          : mutateLabels(
+              async (current) => {
+                await runMailboxItemAction(request);
+                return current;
+              },
+              {
+                optimisticData: (current) => ({
+                  labels: (current?.labels ?? []).map((label) =>
+                    label.id === edit.id ? { ...label, ...edit } : label,
+                  ),
+                }),
+                populateCache: false,
+                rollbackOnError: true,
+              },
+            );
+      update.catch(toastMailboxItemFailure);
       return true;
     },
-    [
-      emailAccountId,
-      mutateCounts,
-      mutateFolders,
-      mutateLabels,
-      terminology.label.singularCapitalized,
-    ],
+    [emailAccountId, mutateFolders, mutateLabels, resolveLabelId],
   );
 
   const onDeleteMailboxItem = useCallback(
     async (item: MailboxItem) => {
-      const result = await deleteMailboxItemAction(emailAccountId, {
-        kind: item.kind,
-        id: item.id,
-      });
-      if (result?.serverError || result?.validationErrors) {
-        toast.error(getActionErrorMessage(result));
-        return false;
-      }
-
-      await Promise.all([
-        onMailboxItemDeleted(item),
-        item.kind === "folder" ? mutateFolders() : mutateLabels(),
-        mutateCounts(),
-      ]);
-      toast.success(
-        `${item.kind === "folder" ? "Folder" : terminology.label.singularCapitalized} deleted`,
-      );
+      const request = async () => {
+        await runMailboxItemAction(async () =>
+          deleteMailboxItemAction(emailAccountId, {
+            kind: item.kind,
+            id: await resolveLabelId(item.id),
+          }),
+        );
+        // Deleting takes the label off its messages on the provider's side.
+        mutateCounts().catch(() => {});
+      };
+      const update =
+        item.kind === "folder"
+          ? mutateFolders(
+              async (current) => {
+                await request();
+                return current;
+              },
+              {
+                optimisticData: (current) =>
+                  withoutFolder(current ?? [], item.id),
+                populateCache: false,
+                rollbackOnError: true,
+              },
+            )
+          : mutateLabels(
+              async (current) => {
+                await request();
+                return current;
+              },
+              {
+                optimisticData: (current) => ({
+                  labels: (current?.labels ?? []).filter(
+                    (label) => label.id !== item.id,
+                  ),
+                }),
+                populateCache: false,
+                rollbackOnError: true,
+              },
+            );
+      update.catch(toastMailboxItemFailure);
+      await onMailboxItemDeleted(item);
       return true;
     },
     [
@@ -202,7 +278,7 @@ export const MailShellSidebar = memo(function MailShellSidebar({
       mutateFolders,
       mutateLabels,
       onMailboxItemDeleted,
-      terminology.label.singularCapitalized,
+      resolveLabelId,
     ],
   );
 
@@ -359,4 +435,44 @@ export const MailShellSidebar = memo(function MailShellSidebar({
 
 function persistSidebarWidth(width: number) {
   persistPanelWidth(MAIL_SIDEBAR_WIDTH_COOKIE, width);
+}
+
+async function runMailboxItemAction(
+  request: () => Promise<
+    Parameters<typeof getActionErrorMessage>[0] | undefined
+  >,
+) {
+  const result = await request();
+  if (result?.serverError || result?.validationErrors)
+    throw new Error(getActionErrorMessage(result));
+}
+
+function toastMailboxItemFailure(error: unknown) {
+  toast.error(
+    error instanceof Error ? error.message : "Something went wrong. Try again.",
+  );
+}
+
+function mapFolders(
+  folders: OutlookFolder[],
+  update: (folder: OutlookFolder) => OutlookFolder,
+): OutlookFolder[] {
+  return folders.map((folder) =>
+    update({
+      ...folder,
+      childFolders: mapFolders(folder.childFolders, update),
+    }),
+  );
+}
+
+function withoutFolder(
+  folders: OutlookFolder[],
+  folderId: string,
+): OutlookFolder[] {
+  return folders
+    .filter((folder) => folder.id !== folderId)
+    .map((folder) => ({
+      ...folder,
+      childFolders: withoutFolder(folder.childFolders, folderId),
+    }));
 }

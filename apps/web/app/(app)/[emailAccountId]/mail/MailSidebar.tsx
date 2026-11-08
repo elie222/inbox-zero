@@ -469,7 +469,9 @@ export function MailSidebar({
               <nav className="flex flex-col gap-px">
                 {labelTree.map((node) => (
                   <LabelBranch
-                    key={node.label.id}
+                    // A new label swaps its placeholder id for the provider's;
+                    // keying by its unique name keeps an open menu mounted.
+                    key={node.label.name}
                     node={node}
                     hasNestedLabels={hasNestedLabels}
                     collapsed={collapsed}
@@ -502,7 +504,7 @@ export function MailSidebar({
                     <nav className="flex flex-col gap-px">
                       {hiddenLabelNodes.map((node) => (
                         <LabelBranch
-                          key={node.label.id}
+                          key={node.label.name}
                           node={node}
                           hasNestedLabels={false}
                           collapsed={collapsed}
@@ -691,7 +693,7 @@ function LabelBranch({
         >
           {children.map((child) => (
             <LabelBranch
-              key={child.label.id}
+              key={child.label.name}
               node={child}
               hasNestedLabels={hasNestedLabels}
               collapsed={collapsed}

@@ -13,10 +13,13 @@ import { cancelScheduledEmailAction } from "@/utils/actions/scheduled-email";
 import { ThreadDeliveryStatus } from "./ThreadDeliveryStatus";
 import type { MailClient } from "@inboxzero/mail-core/engine";
 
-const { mailClient, restoreDraft } = vi.hoisted(() => ({
+const { mailClient, restoreDraft, toastError } = vi.hoisted(() => ({
   mailClient: { current: null as MailClient | null },
   restoreDraft: vi.fn(),
+  toastError: vi.fn(),
 }));
+
+vi.mock("@/components/Toast", () => ({ toastError }));
 
 vi.mock("@inboxzero/mail-react/MailEngineProvider", () => ({
   useOptionalMailClient: () => mailClient.current,
@@ -127,9 +130,12 @@ describe("offline scheduled delivery status", () => {
     expect(screen.getByText(/Scheduled for/)).toBeTruthy();
   });
 
-  it("keeps failed delivery actions visible as errors", async () => {
-    vi.mocked(cancelScheduledEmailAction).mockRejectedValueOnce(
-      new Error("Could not cancel send."),
+  it("hides a cancelled send at once and brings it back when the server refuses", async () => {
+    let refuse: (error: Error) => void = () => {};
+    vi.mocked(cancelScheduledEmailAction).mockReturnValueOnce(
+      new Promise((_, reject) => {
+        refuse = reject;
+      }) as ReturnType<typeof cancelScheduledEmailAction>,
     );
     renderStatus(
       vi.fn().mockResolvedValue({
@@ -144,10 +150,16 @@ describe("offline scheduled delivery status", () => {
       }),
     );
     fireEvent.click(await screen.findByRole("button", { name: "Cancel send" }));
-    expect(await screen.findByRole("alert")).toHaveProperty(
-      "textContent",
-      "Could not cancel send.",
-    );
+
+    await waitFor(() => expect(screen.queryByText(/Scheduled for/)).toBeNull());
+
+    await act(async () => {
+      refuse(new Error("Could not cancel send."));
+    });
+    expect(await screen.findByText(/Scheduled for/)).toBeTruthy();
+    expect(toastError).toHaveBeenCalledWith({
+      description: "Could not cancel send.",
+    });
   });
 });
 
