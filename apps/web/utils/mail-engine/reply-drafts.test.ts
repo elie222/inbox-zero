@@ -79,12 +79,15 @@ describe("local reply drafts", () => {
     const unsubscribe = subscribeToReplyDrafts(listener);
 
     const saved = createReplyDraftWriter(replyIdentity).save(content);
-    await vi.waitFor(() => expect(listener).toHaveBeenCalled());
-    expect(getReplyDraftThreadKeys()).toBe("account:thread");
-
-    finishSave();
-    await saved;
-    unsubscribe();
+    try {
+      await vi.waitFor(() => expect(listener).toHaveBeenCalled());
+      expect(getReplyDraftThreadKeys()).toBe("account:thread");
+    } finally {
+      // Left blocked, the save would hold up every later test's writes.
+      finishSave();
+      await saved;
+      unsubscribe();
+    }
   });
 
   it("loads saved reply and forward sessions when a thread opens", async () => {
