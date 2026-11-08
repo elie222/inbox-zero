@@ -13,19 +13,19 @@ const REPLY_EXAMPLE_BODY_MAX_LENGTH = 600;
 
 /**
  * Messages from the user's other threads with this sender, newest first.
- * Messages in the thread being drafted are left out.
+ * The thread being drafted is left out.
  */
 export async function getSenderHistoryMessages({
   emailAccount,
   emailProvider,
   senderEmail,
-  currentMessageIds,
+  currentThreadId,
   logger,
 }: {
   emailAccount: EmailAccountWithAI;
   emailProvider: EmailProvider;
   senderEmail: string;
-  currentMessageIds: Set<string>;
+  currentThreadId: string;
   logger: Logger;
 }): Promise<ParsedMessage[]> {
   if (!senderEmail) return [];
@@ -38,8 +38,8 @@ export async function getSenderHistoryMessages({
     });
 
     return threads
+      .filter((thread) => thread.id !== currentThreadId)
       .flatMap((thread) => thread.messages)
-      .filter((message) => !currentMessageIds.has(message.id))
       .sort(
         (left, right) =>
           internalDateToDate(right.internalDate).getTime() -

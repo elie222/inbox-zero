@@ -187,33 +187,16 @@ async function generateDraftContent(
     }),
   }));
 
-  const currentMessageIds = new Set(threadMessages.map((msg) => msg.id));
   const senderEmail = extractEmailAddress(lastMessage.headers.from);
-
-  // 1. Get knowledge base entries and past mail with this sender
-  const [knowledgeBase, senderHistoryMessages] = await Promise.all([
-    prisma.knowledge.findMany({
-      where: { emailAccountId: emailAccount.id },
-      orderBy: { updatedAt: "desc" },
-    }),
-    getSenderHistoryMessages({
-      emailAccount,
-      emailProvider,
-      senderEmail,
-      currentMessageIds,
-      logger,
-    }),
-  ]);
-
-  // If we have knowledge base entries, extract relevant knowledge and draft with it
-  // 2a. Extract relevant knowledge
-  const lastMessageContent = stringifyEmail(
-    messages[messages.length - 1],
-    10_000,
-  );
-  const historicalMessagesForLLM = senderHistoryMessages
-    .slice(0, MAX_HISTORICAL_MESSAGES)
-    .map((msg) =>
+  const senderHistoryPromise = getSenderHistoryMessages({
+    emailAccount,
+    emailProvider,
+    senderEmail,
+    currentThreadId: lastMessage.threadId,
+    logger,
+  });
+  const historicalMessagesPromise = senderHistoryPromise.then((history) =>
+    history.slice(0, MAX_HISTORICAL_MESSAGES).map((msg) =>
       getEmailForLLM(msg, {
         maxLength: 1000,
         extractReply: true,
@@ -221,14 +204,21 @@ async function generateDraftContent(
         includeLinkUrls: true,
         includeImageAltText: true,
       }),
-    );
+    ),
+  );
 
-  if (historicalMessagesForLLM.length) {
-    logger.info("Fetching historical messages from sender");
-    logger.trace("Fetching historical messages from sender", {
-      sender: lastMessage.headers.from,
-    });
-  }
+  // 1. Get knowledge base entries
+  const knowledgeBase = await prisma.knowledge.findMany({
+    where: { emailAccountId: emailAccount.id },
+    orderBy: { updatedAt: "desc" },
+  });
+
+  // If we have knowledge base entries, extract relevant knowledge and draft with it
+  // 2a. Extract relevant knowledge
+  const lastMessageContent = stringifyEmail(
+    messages[messages.length - 1],
+    10_000,
+  );
   const attachmentSelectionPromise = selectedRuleId
     ? selectDraftAttachmentsForRule({
         emailAccount,
@@ -324,21 +314,25 @@ async function generateDraftContent(
       additionalRecipients,
       logger,
     }),
-    historicalMessagesForLLM.length
-      ? aiExtractFromEmailHistory({
-          currentThreadMessages: messages,
-          historicalMessages: historicalMessagesForLLM,
-          emailAccount,
-          logger,
-        })
-      : Promise.resolve(null),
+    historicalMessagesPromise.then((historicalMessages) =>
+      historicalMessages.length
+        ? aiExtractFromEmailHistory({
+            currentThreadMessages: messages,
+            historicalMessages,
+            emailAccount,
+            logger,
+          })
+        : null,
+    ),
     attachmentSelectionPromise,
     activeBookingLinksPromise,
-    collectSenderReplyExamples({
-      emailProvider,
-      senderEmail,
-      senderHistoryMessages,
-    }),
+    senderHistoryPromise.then((senderHistoryMessages) =>
+      collectSenderReplyExamples({
+        emailProvider,
+        senderEmail,
+        senderHistoryMessages,
+      }),
+    ),
   ]);
   const {
     content: replyMemoryContent,
@@ -366,7 +360,7 @@ async function generateDraftContent(
     },
     senderHistory: {
       summaryInjected: !!emailHistorySummary,
-      summarySourceMessageCount: historicalMessagesForLLM.length,
+      summarySourceMessageCount: (await historicalMessagesPromise).length,
       precedentThreadsInjected: precedentThreadCount > 0,
       precedentThreadCount,
       sameSenderReplyExamplesInjected: !!senderReplyExamples?.content,

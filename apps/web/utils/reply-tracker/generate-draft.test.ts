@@ -600,6 +600,38 @@ describe("fetchMessagesAndGenerateDraft - thread ordering", () => {
     );
   });
 
+  it("does not treat the rest of the current thread as history when drafting for a test message", async () => {
+    vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
+      reply: "Draft reply",
+      confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
+    });
+
+    const testMessage = createMockMessage();
+    const earlierInSameThread: ParsedMessage = {
+      ...createMockMessage(),
+      id: "msg-0",
+      internalDate: "1703980800000",
+    };
+    const client = createMockClient();
+    vi.mocked(client.getThreadsWithParticipant).mockResolvedValue([
+      {
+        id: "thread-1",
+        messages: [earlierInSameThread, testMessage],
+        snippet: "",
+      },
+    ]);
+
+    await fetchMessagesAndGenerateDraft(
+      createMockEmailAccount(),
+      "thread-1",
+      client,
+      testMessage,
+      logger,
+    );
+
+    expect(aiExtractFromEmailHistory).not.toHaveBeenCalled();
+  });
+
   it("skips historical email extraction when the sender has no other threads", async () => {
     vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
       reply: "Draft reply",
