@@ -46,10 +46,10 @@ export function SelectAllCheckbox({
 /**
  * Shared by the row checkboxes so select-all lines up with them and matches.
  * Keyed on `aria-checked` because a wrapping tooltip trigger overwrites
- * `data-state`. Checked is a blue outline and tick, not a fill, to stay light.
+ * `data-state`. Checked is a blue tick on the plain box, not a fill, to stay light.
  */
 export const mailCheckboxClassName =
-  "size-3.5 rounded border-input aria-checked:border-primary aria-checked:bg-transparent aria-checked:text-primary data-[state=checked]:bg-transparent data-[state=checked]:text-primary [&_svg]:size-2.5";
+  "size-3.5 rounded border-input aria-checked:bg-transparent aria-checked:text-primary data-[state=checked]:bg-transparent data-[state=checked]:text-primary [&_svg]:size-2.5";
 
 /**
  * Row checkboxes are revealed on hover and get an invisible hit area that
