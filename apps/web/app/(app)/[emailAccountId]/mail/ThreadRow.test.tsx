@@ -1,13 +1,7 @@
 /** @vitest-environment jsdom */
 
 import React from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-} from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ThreadRow } from "./ThreadRow";
 import type { ListThread } from "./types";
@@ -15,26 +9,9 @@ import type { EmailLabels } from "@/providers/email-label-types";
 
 (globalThis as { React?: typeof React }).React = React;
 
-const localDrafts = vi.hoisted(() => ({
-  threadIds: "",
-  listeners: new Set<() => void>(),
-}));
-
-vi.mock("@/providers/EmailAccountProvider", () => ({
-  useAccount: () => ({ emailAccountId: "account-1" }),
-}));
-vi.mock("@/utils/mail-engine/reply-drafts", () => ({
-  getLocalReplyDraftThreadIds: () => localDrafts.threadIds,
-  subscribeToReplyDrafts: (listener: () => void) => {
-    localDrafts.listeners.add(listener);
-    return () => localDrafts.listeners.delete(listener);
-  },
-}));
-
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
-  localDrafts.threadIds = "";
 });
 
 describe("ThreadRow", () => {
@@ -129,14 +106,11 @@ describe("ThreadRow", () => {
     expect(onOpen).toHaveBeenCalledWith(0);
   });
 
-  it("marks the row as a draft as soon as a reply is typed, before any save", () => {
-    render(row(thread([undefined])));
+  it("marks the row as a draft while a local reply is unsent", () => {
+    const { rerender } = render(row(thread([undefined])));
     expect(screen.queryByText("Draft")).toBeNull();
 
-    act(() => {
-      localDrafts.threadIds = "other-thread,thread-1";
-      for (const listener of localDrafts.listeners) listener();
-    });
+    rerender(row(thread([undefined]), { hasLocalDraft: true }));
 
     expect(screen.getByText("Draft")).toBeTruthy();
   });
@@ -152,12 +126,14 @@ function row(
   listThread: ListThread,
   {
     hasAnySelection = false,
+    hasLocalDraft = false,
     onOpen = () => {},
     onSelectRangeTo = () => {},
     onToggleSelect,
     userLabels = {},
   }: {
     hasAnySelection?: boolean;
+    hasLocalDraft?: boolean;
     onOpen?: (index: number) => void;
     onSelectRangeTo?: (index: number) => void;
     onToggleSelect?: (index: number) => void;
@@ -167,6 +143,7 @@ function row(
   return (
     <ThreadRow
       hasAnySelection={hasAnySelection}
+      hasLocalDraft={hasLocalDraft}
       index={0}
       isFocused={false}
       isSelected={false}

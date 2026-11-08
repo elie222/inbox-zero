@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useMemo, useSyncExternalStore, type Ref } from "react";
+import { memo, useMemo, type Ref } from "react";
 import { CopyIcon, PaperclipIcon } from "lucide-react";
 import { MailThreadRow } from "@inboxzero/mail-ui/MailThreadRow";
 import { isThreadStarred } from "@/app/(app)/[emailAccountId]/mail/star-state";
@@ -28,11 +28,6 @@ import { decodeSnippet } from "@/utils/gmail/decode";
 import { GmailLabel } from "@/utils/gmail/label";
 import { getConversationSubject } from "@/utils/email/subject";
 import { getThreadOtpCode } from "./otp-code";
-import { useAccount } from "@/providers/EmailAccountProvider";
-import {
-  getLocalReplyDraftThreadIds,
-  subscribeToReplyDrafts,
-} from "@/utils/mail-engine/reply-drafts";
 
 export type ThreadRowProps = {
   thread: ListThread;
@@ -53,6 +48,8 @@ export type ThreadRowProps = {
   onToggleSelect: (index: number) => void;
   onSelectRangeTo: (index: number) => void;
   rowRef?: Ref<HTMLDivElement>;
+  /** This tab, or another, holds an unsent reply for the thread. */
+  hasLocalDraft?: boolean;
   sentMessageOpen?: {
     firstOpenedAt: string | null;
     lastOpenedAt: string | null;
@@ -76,6 +73,7 @@ export const ThreadRow = memo(function ThreadRow({
   onToggleSelect,
   onSelectRangeTo,
   rowRef,
+  hasLocalDraft = false,
   sentMessageOpen,
 }: ThreadRowProps) {
   const message = thread.messages.at(-1);
@@ -88,17 +86,6 @@ export const ThreadRow = memo(function ThreadRow({
     [thread.messages, userLabels],
   );
   const account = "account" in thread ? thread.account : null;
-  const { emailAccountId } = useAccount();
-  // A reply shows as a draft from the first keystroke, not from its first
-  // provider save.
-  const hasLocalDraft = useSyncExternalStore(
-    subscribeToReplyDrafts,
-    () =>
-      getLocalReplyDraftThreadIds(account?.id ?? emailAccountId)
-        .split(",")
-        .includes(thread.id),
-    () => false,
-  );
   const accountEmail = account?.email ?? userEmail;
   const participantSummary = useMemo(
     () =>

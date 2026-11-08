@@ -6,7 +6,7 @@ import {
   createReplyDraftWriter,
   dropReplyDraftDeletedFromMailbox,
   getDraftSessionMessageIds,
-  getLocalReplyDraftThreadIds,
+  getReplyDraftThreadKeys,
   rememberReplacedDraftMessage,
   getReplyDraft,
   getReplyDraftForSession,
@@ -55,14 +55,36 @@ describe("local reply drafts", () => {
 
   it("lists a thread with an unsent reply until the reply is cleared", async () => {
     const writer = createReplyDraftWriter(replyIdentity);
-    expect(getLocalReplyDraftThreadIds("account")).toBe("");
+    expect(getReplyDraftThreadKeys()).toBe("");
 
     await writer.save(content);
-    expect(getLocalReplyDraftThreadIds("account")).toBe("thread");
-    expect(getLocalReplyDraftThreadIds("other-account")).toBe("");
+    expect(getReplyDraftThreadKeys()).toBe("account:thread");
 
     await writer.clear();
-    expect(getLocalReplyDraftThreadIds("account")).toBe("");
+    expect(getReplyDraftThreadKeys()).toBe("");
+  });
+
+  it("tells subscribers about a new draft before its local save finishes", async () => {
+    const client = createRevisionCheckingClient();
+    let finishSave: () => void = () => {};
+    const saveDraft = client.saveDraft.bind(client);
+    client.saveDraft = vi.fn(async (input) => {
+      await new Promise<void>((resolve) => {
+        finishSave = resolve;
+      });
+      return saveDraft(input);
+    }) as typeof client.saveDraft;
+    setActiveMailClient(client as never);
+    const listener = vi.fn();
+    const unsubscribe = subscribeToReplyDrafts(listener);
+
+    const saved = createReplyDraftWriter(replyIdentity).save(content);
+    await vi.waitFor(() => expect(listener).toHaveBeenCalled());
+    expect(getReplyDraftThreadKeys()).toBe("account:thread");
+
+    finishSave();
+    await saved;
+    unsubscribe();
   });
 
   it("loads saved reply and forward sessions when a thread opens", async () => {

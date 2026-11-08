@@ -61,6 +61,9 @@ const engineRevisions = new Map<string, number>();
 const draftSessionMessageIds = new Map<string, Map<string, string>>();
 const latestDraftMessageIds = new Map<string, Map<string, string>>();
 const listeners = new Set<(scope: ReplyDraftScope) => void>();
+// Drafts other tabs hold aren't loaded here, but their threads still show as
+// drafts in this tab's list.
+const otherTabDraftThreads = new Map<string, string>();
 const accountEpoch = new Map<string, number>();
 const channel =
   typeof window !== "undefined" && typeof BroadcastChannel !== "undefined"
@@ -136,6 +139,15 @@ channel?.addEventListener("message", (event) => {
     typeof scope?.threadId !== "string"
   )
     return;
+  if (typeof scope.messageId === "string") {
+    const key = draftKey(scope);
+    if (scope.present === true)
+      otherTabDraftThreads.set(
+        key,
+        `${scope.emailAccountId}:${scope.threadId}`,
+      );
+    else otherTabDraftThreads.delete(key);
+  }
   for (const listener of listeners) listener(scope);
 });
 
@@ -149,18 +161,16 @@ export function subscribeToReplyDrafts(
 }
 
 /**
- * Threads this tab holds an unsent reply draft for, whether or not a provider
- * save has put it in the mailbox yet. Joined with commas so the value is
- * stable between changes.
+ * `accountId:threadId` keys of threads with an unsent reply draft in this tab
+ * or another, whether or not a provider save has put it in the mailbox yet.
+ * Joined with newlines so the value is stable between changes.
  */
-export function getLocalReplyDraftThreadIds(emailAccountId: string) {
-  const threadIds = new Set<string>();
+export function getReplyDraftThreadKeys() {
+  const keys = new Set(otherTabDraftThreads.values());
   for (const draft of drafts.values()) {
-    if (draft.emailAccountId === emailAccountId && draft.content) {
-      threadIds.add(draft.threadId);
-    }
+    if (draft.content) keys.add(`${draft.emailAccountId}:${draft.threadId}`);
   }
-  return [...threadIds].sort().join(",");
+  return [...keys].sort().join("\n");
 }
 
 export async function getReplyDraft(identity: ReplyDraftIdentity) {
@@ -376,10 +386,12 @@ export function createReplyDraftWriter(
           updatedAt: Date.now(),
         });
         revision += 1;
-        await persistEngineReplyDraft(identity, nextContent).catch(() => {});
+        // The list marks the thread as a draft from this change, so it
+        // mustn't wait on the local save.
         if (Boolean(previous?.content) !== Boolean(content)) {
           notifyReplyDraftChange(identity);
         }
+        await persistEngineReplyDraft(identity, nextContent).catch(() => {});
       });
     pending = operation;
     const identityKey = draftKey(identity);
@@ -490,6 +502,7 @@ export async function dropReplyDraftDeletedFromMailbox(
 export function clearLocalReplyDrafts(emailAccountId?: string) {
   if (!emailAccountId) {
     drafts.clear();
+    otherTabDraftThreads.clear();
     engineRevisions.clear();
     draftSessionMessageIds.clear();
     latestDraftMessageIds.clear();
@@ -506,6 +519,10 @@ export function clearLocalReplyDrafts(emailAccountId?: string) {
   }
   draftSessionMessageIds.delete(emailAccountId);
   latestDraftMessageIds.delete(emailAccountId);
+  for (const [key, thread] of otherTabDraftThreads) {
+    if (thread.startsWith(`${emailAccountId}:`))
+      otherTabDraftThreads.delete(key);
+  }
 }
 
 function accountMap(
@@ -600,9 +617,16 @@ function clearPendingWrite(identityKey: string, operation: Promise<unknown>) {
   }
 }
 
-function notifyReplyDraftChange(scope: ReplyDraftScope) {
+function notifyReplyDraftChange(identity: ReplyDraftIdentity) {
+  const scope = {
+    emailAccountId: identity.emailAccountId,
+    threadId: identity.threadId,
+  };
   for (const listener of listeners) listener(scope);
-  channel?.postMessage(scope);
+  channel?.postMessage({
+    ...identity,
+    present: Boolean(drafts.get(draftKey(identity))?.content),
+  });
 }
 
 function getComposeMode(
@@ -699,6 +723,7 @@ async function loadEngineReplyDraft(identity: ReplyDraftIdentity) {
       updatedAt: typeof updatedAt === "number" ? updatedAt : 0,
     };
     drafts.set(draftKey(identity), restored);
+    notifyReplyDraftChange(identity);
     return restored;
   } catch {
     return;
