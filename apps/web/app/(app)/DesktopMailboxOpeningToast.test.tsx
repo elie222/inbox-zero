@@ -41,6 +41,15 @@ describe("DesktopMailboxOpeningToast", () => {
     expect(toast.dismiss).toHaveBeenCalledWith("desktop-mailbox-opening");
   });
 
+  it("stops listening and drops a pending toast on unmount", () => {
+    const push = renderWithBridge();
+    act(() => push(true));
+    cleanup();
+    act(() => push(true));
+    act(() => vi.advanceTimersByTime(5000));
+    expect(toast.loading).not.toHaveBeenCalled();
+  });
+
   it("renders nothing outside the desktop app", () => {
     render(<DesktopMailboxOpeningToast />);
     act(() => vi.advanceTimersByTime(5000));
@@ -54,7 +63,9 @@ function renderWithBridge() {
     startAuth: async () => {},
     onMailEngineOpening: (listener) => {
       push = listener;
-      return () => {};
+      return () => {
+        push = () => {};
+      };
     },
   };
   render(<DesktopMailboxOpeningToast />);

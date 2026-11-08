@@ -85,14 +85,15 @@ class HeldStartChild extends EventEmitter implements MailChildProcess {
   private startId: string | undefined;
   postMessage(message: MainToChildMessage) {
     if (message.type === "start") this.startId = message.id;
+    if (message.type === "close") this.reply(message.id);
   }
   finishStart() {
-    this.emit("message", {
-      type: "reply",
-      id: this.startId,
-      status: "ok",
-      result: null,
-    });
+    if (this.startId) this.reply(this.startId);
+  }
+  private reply(id: string) {
+    queueMicrotask(() =>
+      this.emit("message", { type: "reply", id, status: "ok", result: null }),
+    );
   }
   kill() {
     this.emit("exit", 0);
