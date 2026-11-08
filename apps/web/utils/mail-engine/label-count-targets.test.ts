@@ -201,6 +201,11 @@ describe("mailboxCountTargets", () => {
           matchingConversations: 1,
           unreadConversations: 1,
         });
+        expect(
+          view.view.conversations.map(
+            (conversation) => conversation.key.conversationId,
+          ),
+        ).toEqual(["c-kept"]);
       }
     } finally {
       await store.close();

@@ -165,18 +165,19 @@ function filteredScope(scope: CountScope) {
   const mailbox =
     scope.predicate.kind === "mailbox" ? scope.predicate.mailbox : null;
   const searched = searchDrivenSource(scope.predicate, scope.search);
-  const roleScoped = searched
+  const scoped = searched
     ? null
-    : roleDrivenSource(scope.predicate, scope.accountIds);
-  const source = searched ?? roleScoped;
+    : (roleDrivenSource(scope.predicate, scope.accountIds) ??
+      membershipDrivenSource(scope.predicate, scope.accountIds));
+  const source = searched ?? scoped;
   const compiled =
     mailbox === "archive" || mailbox === "all" || mailbox === "snoozed"
       ? { sql: "1=1", bindings: [] as SqlValue[] }
       : compilePredicate(searched?.rest ?? scope.predicate, scope.search);
-  // The role index already limits the accounts. Repeating the filter on
-  // messages leads SQLite to look each conversation up by account alone,
-  // rescanning the account once per conversation.
-  const accounts = roleScoped
+  // The role or membership index already limits the accounts. Repeating the
+  // filter on messages leads SQLite to look each conversation up by account
+  // alone, rescanning the account once per conversation.
+  const accounts = scoped
     ? null
     : {
         sql: `e.account_id IN (${scope.accountIds.map(() => "?").join(",")}) AND `,
@@ -337,6 +338,33 @@ function roleDrivenSource(
           CROSS JOIN effective_messages e
             ON e.account_id = scoped.account_id AND e.conversation_id = scoped.conversation_id`,
     bindings: [...accountIds, role],
+  };
+}
+
+// Same idea for a filter within one label or folder, such as a label's view
+// without Trash and Spam: start from that membership's conversations.
+function membershipDrivenSource(
+  predicate: MailPredicate,
+  accountIds: string[],
+): { from: string; bindings: SqlValue[] } | null {
+  if (predicate.kind !== "all") return null;
+  const membership = predicate.predicates.find(
+    (clause) => clause.kind === "membership",
+  );
+  if (membership?.kind !== "membership") return null;
+  const account = membership.accountId ? " AND account_id = ?" : "";
+  return {
+    from: `(SELECT DISTINCT account_id, conversation_id FROM effective_message_memberships
+            WHERE account_id IN (${accountIds.map(() => "?").join(",")})
+              AND kind = ? AND membership_id = ?${account}) scoped
+          CROSS JOIN effective_messages e
+            ON e.account_id = scoped.account_id AND e.conversation_id = scoped.conversation_id`,
+    bindings: [
+      ...accountIds,
+      membership.membership,
+      membership.id,
+      ...(membership.accountId ? [membership.accountId] : []),
+    ],
   };
 }
 
