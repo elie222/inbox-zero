@@ -151,9 +151,9 @@ export function MailSetupPanel({
     } catch {
       toast.error("Couldn't save that");
     } finally {
-      // Also drops an optimistic switch state the server never saved.
-      await mutateSettings();
       setBusyId(null);
+      // Also drops an optimistic switch state the server never saved.
+      await mutateSettings().catch(() => undefined);
     }
   };
 
@@ -286,12 +286,14 @@ export function MailSetupPanel({
                   name="default-tab"
                   value={split.id}
                   checked={split.id === defaultId}
-                  onChange={() =>
-                    onUpdatePreferences({ defaultSplitId: split.id })
-                  }
-                  // Click also fires for the already-checked option, which
-                  // onChange skips, so picking it still shows that tab.
-                  onClick={() => onSelectSplit(split.id)}
+                  // Handled on click, which also fires for the option already
+                  // shown as checked (the fallback when nothing is saved yet).
+                  onChange={() => undefined}
+                  onClick={() => {
+                    if (defaultSplitId !== split.id)
+                      onUpdatePreferences({ defaultSplitId: split.id });
+                    onSelectSplit(split.id);
+                  }}
                   className="sr-only"
                 />
                 <span className="flex-1 truncate">{split.name}</span>
