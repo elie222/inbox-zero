@@ -1351,14 +1351,15 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     expect(result[key]).toEqual(["Newsletter"]);
   });
 
-  it("searchInbox omits available labels when there are matches or more pages", async () => {
+  it("searchInbox omits available labels unless a first page matched nothing", async () => {
     const searchMessages = vi
       .fn()
       .mockResolvedValueOnce({
         messages: [getMockMessage({ id: "message-1" })],
         nextPageToken: undefined,
       })
-      .mockResolvedValueOnce({ messages: [], nextPageToken: "NEXT_PAGE" });
+      .mockResolvedValueOnce({ messages: [], nextPageToken: "NEXT_PAGE" })
+      .mockResolvedValueOnce({ messages: [], nextPageToken: undefined });
     (createEmailProvider as any).mockResolvedValue({
       searchMessages,
       getLabels: vi
@@ -1376,9 +1377,14 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
 
     const withMatches = await execute({ query: "newsletter", limit: 20 });
     const emptyPageWithMore = await execute({ query: "newsletter", limit: 20 });
+    const emptyLastPage = await execute({
+      pageToken: emptyPageWithMore.nextPageToken,
+    });
 
+    expect(emptyLastPage.totalReturned).toBe(0);
     expect(withMatches).not.toHaveProperty("availableLabelNames");
     expect(emptyPageWithMore).not.toHaveProperty("availableLabelNames");
+    expect(emptyLastPage).not.toHaveProperty("availableLabelNames");
   });
 
   it("searchInbox omits available labels when labels fail to load", async () => {
