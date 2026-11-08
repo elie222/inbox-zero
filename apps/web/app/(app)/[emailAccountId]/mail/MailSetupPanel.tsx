@@ -151,9 +151,10 @@ export function MailSetupPanel({
     } catch {
       toast.error("Couldn't save that");
     } finally {
-      setBusyId(null);
-      // Also drops an optimistic switch state the server never saved.
+      // Also drops an optimistic switch state the server never saved. The
+      // lock holds until then so the next click reads fresh settings.
       await mutateSettings().catch(() => undefined);
+      setBusyId(null);
     }
   };
 
