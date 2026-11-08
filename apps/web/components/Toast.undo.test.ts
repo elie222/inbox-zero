@@ -1,7 +1,12 @@
 // @vitest-environment jsdom
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { toastSuccess, toastUndo, undoLatestToast } from "./Toast";
+import {
+  releaseLatestToastUndo,
+  toastSuccess,
+  toastUndo,
+  undoLatestToast,
+} from "./Toast";
 
 const sonner = vi.hoisted(() => ({
   dismiss: vi.fn(),
@@ -54,6 +59,18 @@ describe("toast undo", () => {
     toastUndo({ id: "undo-send", message: "Email sent!", onUndo });
     toastSuccess({ id: "undo-send", description: "Email sent!" });
 
+    await expect(undoLatestToast()).resolves.toBe(false);
+    expect(onUndo).not.toHaveBeenCalled();
+  });
+
+  // An action with no undo retires the toast before it, so the shortcut
+  // can't reach back to an older action.
+  it("stops handling keyboard undo once released", async () => {
+    const onUndo = vi.fn();
+    toastUndo({ message: "Archived", onUndo });
+    releaseLatestToastUndo();
+
+    expect(sonner.dismiss).toHaveBeenCalledWith(toastId(0));
     await expect(undoLatestToast()).resolves.toBe(false);
     expect(onUndo).not.toHaveBeenCalled();
   });

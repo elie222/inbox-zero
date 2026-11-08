@@ -169,7 +169,7 @@ export function MailShell() {
   const isGoogle = isGoogleProvider(provider);
   const isOutlook = isMicrosoftProvider(provider);
   const { userLabels } = useEmailLabels();
-  const { userLabels: allLabels, mutate: mutateLabels } = useLabels();
+  const { userLabels: allLabels } = useLabels();
   const { folders } = useFolders(provider);
   const { data: settings, mutate: mutateSettings } = useMailSettings();
   const { toggleSidebar, state: sidebarState } = useSidebar();
@@ -203,6 +203,7 @@ export function MailShell() {
   const [isListScrolled, setIsListScrolled] = useState(false);
   const [labelPicker, setLabelPicker] = useState<{
     mode: "label" | "move";
+    threadKeys: string[];
     targets: ThreadSelection[];
   } | null>(null);
   const [splitPickerThreads, setSplitPickerThreads] = useState<
@@ -723,6 +724,9 @@ export function MailShell() {
     return {
       emailAccountId: openThreadSelection.emailAccountId,
       key: openThreadKey,
+      labelIds: [
+        ...new Set(openMessages.flatMap((message) => message.labelIds ?? [])),
+      ],
       messageIds,
       threadId: openThreadSelection.threadId,
     };
@@ -837,7 +841,9 @@ export function MailShell() {
     setRestoredFocusKey(undefined);
   }, [orderedIds, restoredFocusKey]);
   const {
+    applyLabel,
     archive,
+    moveToFolder,
     moveToInbox,
     trash,
     markSpam,
@@ -1195,11 +1201,19 @@ export function MailShell() {
     );
   const openLabelPicker = useStableCallback(() => {
     if (canLabel)
-      setLabelPicker({ mode: "label", targets: currentLabelTargets });
+      setLabelPicker({
+        mode: "label",
+        threadKeys: actionTargets.map((target) => target.key),
+        targets: currentLabelTargets,
+      });
   });
   const openMovePicker = useStableCallback(() => {
     if (canLabel)
-      setLabelPicker({ mode: "move", targets: currentLabelTargets });
+      setLabelPicker({
+        mode: "move",
+        threadKeys: actionTargets.map((target) => target.key),
+        targets: currentLabelTargets,
+      });
   });
   const senderSplits = useMemo(
     () => (settings?.splits ?? []).filter((split) => split.filters.length > 0),
@@ -1843,24 +1857,28 @@ export function MailShell() {
     labelPicker && pickerAccount ? (
       <EmailAccountScopeProvider emailAccount={pickerAccount}>
         <LabelPickerDialog
-          threadIds={labelPicker.targets.map((target) => target.threadId)}
+          threadKeys={labelPicker.threadKeys}
           mode={labelPicker.mode}
           onClose={() => setLabelPicker(null)}
-          onApplied={(threadIds, _labelId) => {
-            const keys = threadIds.map((threadId) =>
-              isAllAccounts ? `${pickerAccount.id}:${threadId}` : threadId,
-            );
-            // Also refreshes the sidebar's label counts.
-            client?.requestSync([pickerAccount.id]).catch(() => undefined);
-            refetchOpenThread();
-            refetchThreadList();
-            if (labelPicker.mode === "move") {
-              if (openThreadKey && keys.includes(openThreadKey)) {
-                advanceReaderPast(openThreadKey, keys);
+          onApply={async (threadKeys, target) => {
+            const isMove = labelPicker.mode === "move";
+            const applied =
+              target.kind === "folder"
+                ? await moveToFolder(threadKeys, target.id)
+                : await applyLabel(threadKeys, target.id, { archive: isMove });
+            if (isMove && applied.length) {
+              // Undo reopens the reader only on a thread it was showing and
+              // that this move actually took away.
+              removedOpenThreadKeyRef.current =
+                openThreadKey && applied.includes(openThreadKey)
+                  ? openThreadKey
+                  : null;
+              if (openThreadKey && applied.includes(openThreadKey)) {
+                advanceReaderPast(openThreadKey, applied);
               }
               selection.clear();
             }
-            mutateLabels();
+            return applied;
           }}
         />
       </EmailAccountScopeProvider>
