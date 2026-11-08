@@ -43,18 +43,28 @@ describe("engine catch-up after a long gap", () => {
     await engine.close();
   });
 
-  it("retries the newest page after a failed fetch", async () => {
+  it.each([
+    "paused",
+    "thrown",
+  ] as const)("retries the newest page after a %s fetch", async (failure) => {
     const store = await storeWithCheckpoint("h-0");
-    const source = historySource({ historyPages: 40, failedNewestReads: 1 });
+    const source = historySource({
+      historyPages: 40,
+      failedNewestReads: 1,
+      failure,
+    });
+    let nowMs = 1000;
     const engine = createMailEngine({
       store,
       source: source.port,
       executor: idleExecutor(),
-      runtime: createHostRuntime({ nowMs: () => 1000 }),
+      runtime: createHostRuntime({ nowMs: () => nowMs }),
     });
 
     for (let run = 0; run < 6; run += 1) {
-      await engine.runUntil(Date.now() + 2000);
+      // A thrown read fails the sync lane, which retries after a backoff.
+      nowMs += 60_000;
+      await engine.runUntil(Date.now() + 2000).catch(() => undefined);
     }
 
     expect(source.newestPageReads()).toBe(2);
@@ -132,9 +142,11 @@ async function streamCheckpoint(
 function historySource({
   historyPages,
   failedNewestReads = 0,
+  failure = "paused",
 }: {
   historyPages: number;
   failedNewestReads?: number;
+  failure?: "paused" | "thrown";
 }) {
   let historyReads = 0;
   let newestPageReads = 0;
@@ -172,6 +184,7 @@ function historySource({
     async enumerate() {
       newestPageReads += 1;
       if (newestPageReads <= failedNewestReads) {
+        if (failure === "thrown") throw new Error("network down");
         return { status: "paused", retryAfterMs: 0, reason: "unavailable" };
       }
       return {

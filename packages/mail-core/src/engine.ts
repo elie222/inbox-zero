@@ -1287,6 +1287,7 @@ export function createMailEngine(input: {
   ) {
     const requestId = runtime.randomId();
     const readFence = openChangeRead();
+    let ingested = false;
     try {
       const bootstrap = await source.beginBootstrap({
         session,
@@ -1296,7 +1297,7 @@ export function createMailEngine(input: {
         afterMs: null,
       });
       if (bootstrap.status !== "ok") {
-        await failNewestPage(bootstrap.status);
+        await noteConnection(session.accountId, bootstrap.status);
         return;
       }
       const newest = await source.enumerate({
@@ -1308,7 +1309,7 @@ export function createMailEngine(input: {
         pageSize: 50,
       });
       if (newest.status !== "ok") {
-        await failNewestPage(newest.status);
+        await noteConnection(session.accountId, newest.status);
         return;
       }
       const page = withoutMessagesSettledSince(
@@ -1329,16 +1330,16 @@ export function createMailEngine(input: {
         ownerId,
         bodies: page.bodies,
       });
-      if (applied.status === "committed") await queries.refreshAll();
+      if (applied.status === "committed") {
+        ingested = true;
+        await queries.refreshAll();
+      }
     } finally {
       closeChangeRead(readFence);
-    }
-
-    // Re-arms the trigger, so a stream still behind tries again after the
-    // same number of replay pages instead of waiting out the whole replay.
-    async function failNewestPage(status: string) {
-      idleGate.streamBacklogPages.delete(position.streamId);
-      await noteConnection(session.accountId, status);
+      // Any outcome short of a committed page, including a thrown error,
+      // re-arms the trigger so a stream still behind tries again after the
+      // same number of replay pages instead of waiting out the whole replay.
+      if (!ingested) idleGate.streamBacklogPages.delete(position.streamId);
     }
   }
 
