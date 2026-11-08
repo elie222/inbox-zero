@@ -12,9 +12,11 @@ export function nativeAuthPlugin() {
       if (request.headers.get("origin")) return;
       const nativeOrigin = request.headers.get("expo-origin");
       if (!nativeOrigin) return;
-      const headers = new Headers(request.headers);
-      headers.set("origin", nativeOrigin);
-      return { request: new Request(request, { headers }) };
+      // Mutate in place rather than `new Request(request)`: in production the
+      // incoming request comes from a different fetch implementation than the
+      // global `Request`, whose constructor throws reading its private state.
+      request.headers.set("origin", nativeOrigin);
+      return { request };
     },
     endpoints: {
       nativeAuthorizationProxy: nativeAuthorizationProxy(),
