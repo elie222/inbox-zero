@@ -818,7 +818,7 @@ export function MessagePart({
       renderSuccess: ({ toolCallId, output }) =>
         getOutputField<boolean>(output, "upgradeRequired") ? (
           <div key={toolCallId}>
-            <BasicToolInfo text="Sender categorization needs an upgrade" />
+            <BasicToolInfo text="Sender categorization needs AI access" />
             <PremiumAlertWithData className="my-2" />
           </div>
         ) : (
