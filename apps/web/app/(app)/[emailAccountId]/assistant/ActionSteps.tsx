@@ -451,10 +451,14 @@ function ActionCard({
                         id: value,
                         name: fieldValue?.name || null,
                       }}
-                      onChangeValue={(newValue: string) => {
+                      onChangeValue={(label) => {
                         setValue(
                           `actions.${index}.${field.name}.value`,
-                          newValue,
+                          label.id,
+                        );
+                        setValue(
+                          `actions.${index}.${field.name}.name`,
+                          label.name,
                         );
                       }}
                       emailAccountId={emailAccountId}
