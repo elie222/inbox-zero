@@ -823,7 +823,13 @@ export async function createSqliteMailStore(
                 confirmed,
                 input.operation.intent.change,
               );
-              await upsertConfirmed(tx, { ...confirmed, ...next });
+              await upsertConfirmed(tx, {
+                ...confirmed,
+                ...next,
+                deleted:
+                  confirmed.deleted ||
+                  input.operation.intent.change.kind === "discard_draft",
+              });
             }
           }
           await tx.execute(
@@ -2884,6 +2890,13 @@ async function recomputeTargets(tx: SqlTransaction, targets: MessageKey[]) {
         };
       });
     const effective = deriveEffectiveMessage(confirmed, pending);
+    if (effective.deleted) {
+      await tx.execute(
+        "DELETE FROM effective_messages WHERE account_id = ? AND message_id = ?",
+        [target.accountId, target.messageId],
+      );
+      continue;
+    }
     const flags = roleFlags(effective.roles);
     await tx.execute(
       `INSERT INTO effective_messages(

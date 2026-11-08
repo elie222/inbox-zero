@@ -38,6 +38,7 @@ import prisma from "@/utils/prisma";
 import { EmailSendOperationStatus } from "@/generated/prisma/enums";
 import type { ParsedMessage } from "@/utils/types";
 import { scheduleEmailBody } from "@/utils/actions/scheduled-email.validation";
+import { markTrackedDraftDeleted } from "@/utils/ai/draft-cleanup";
 
 const logger = createScopedLogger("mail-api/operations");
 const HELD_SEND_POLL_MS = 2000;
@@ -72,6 +73,9 @@ export function createEmailProviderOperationExecutor(input: {
         });
       }
       const metadataOperation = { ...operation, intent: operation.intent };
+      if (operation.intent.change.kind === "discard_draft") {
+        return executeDiscardDraft(provider, accountId, metadataOperation);
+      }
       try {
         await applyChange(
           provider,
@@ -98,6 +102,14 @@ export function createEmailProviderOperationExecutor(input: {
       }
       if (operation.intent.kind !== "metadata") {
         return { status: "uncertain", receiptId: operation.key.operationId };
+      }
+      // Discarding is idempotent: a draft that is already gone settles as
+      // applied, and one that changed since is rejected by its version.
+      if (operation.intent.change.kind === "discard_draft") {
+        return executeDiscardDraft(provider, accountId, {
+          ...operation,
+          intent: operation.intent,
+        });
       }
       return inspectMetadataOperation(provider, accountId, {
         ...operation,
@@ -145,6 +157,104 @@ async function executeMetadataPerTarget(
     }
   }
   return metadataResult(accountId, operation, targets, observations);
+}
+
+async function executeDiscardDraft(
+  provider: EmailProvider,
+  accountId: string,
+  operation: PreparedMetadataOperation,
+): Promise<ExecutionResult> {
+  const { change, targets } = operation.intent;
+  const draftId = change.kind === "discard_draft" ? change.draftId : undefined;
+  try {
+    const references = draftId
+      ? [await draftReferenceById(provider, draftId)]
+      : await Promise.all(
+          targets.map((target) =>
+            provider.getDraftReferenceForMessage(target.messageId),
+          ),
+        );
+    const drafts = new Map(
+      references.flatMap((reference) =>
+        reference ? [[reference.id, reference] as const] : [],
+      ),
+    );
+    for (const draft of drafts.values()) {
+      if (!(await provider.deleteDraft(draft.id, draft.version))) {
+        return {
+          status: "rejected",
+          code: "draft_changed",
+          targets: targets.map((key) => ({
+            key,
+            outcome: "rejected" as const,
+            code: "draft_changed",
+          })),
+        };
+      }
+      await markTrackedDraftDeleted({
+        draftId: draft.id,
+        emailAccountId: accountId,
+        logger,
+      }).catch((error) => {
+        logger.error("Failed to update tracking after deleting draft", {
+          error,
+        });
+      });
+    }
+  } catch (error) {
+    if (isAuthError(error)) {
+      return {
+        status: "not_dispatched",
+        reason: "blocked_auth",
+        retryAfterMs: null,
+      };
+    }
+    return metadataResult(
+      accountId,
+      operation,
+      targets.map((target) => failedTargetOutcome(target, error)),
+      [],
+    );
+  }
+  // A draft that was already sent elsewhere is observed as the sent message.
+  const observations = await Promise.all(
+    targets.map((target) =>
+      observeMessageAfterDiscard(provider, accountId, target),
+    ),
+  );
+  return metadataResult(
+    accountId,
+    operation,
+    targets.map((key) => ({ key, outcome: "applied" as const, code: null })),
+    observations,
+  );
+}
+
+async function draftReferenceById(provider: EmailProvider, draftId: string) {
+  const message = await provider.getDraft(draftId);
+  return message ? provider.getDraftReferenceForMessage(message.id) : null;
+}
+
+async function observeMessageAfterDiscard(
+  provider: EmailProvider,
+  accountId: string,
+  target: TargetOutcome["key"],
+): Promise<ProviderChange> {
+  try {
+    const message = await provider.getMessage(target.messageId);
+    return (
+      parsedMessagePatch(accountId, provider.name, message) ??
+      discardedDraftObservation(target)
+    );
+  } catch {
+    return discardedDraftObservation(target);
+  }
+}
+
+function discardedDraftObservation(
+  target: TargetOutcome["key"],
+): ProviderChange {
+  return { kind: "message_deleted", key: target, evidence: "discard_draft" };
 }
 
 async function observeAppliedMetadata(
@@ -872,6 +982,9 @@ function metadataChangeSatisfied(
     }
     case "snooze":
       return !metadata.roles.includes("inbox");
+    // A message that can still be read has not been discarded.
+    case "discard_draft":
+      return false;
   }
 }
 

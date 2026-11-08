@@ -14,10 +14,12 @@ import { useAccounts } from "@/hooks/useAccounts";
 import { ComposeEmailFormLazy } from "@/app/(app)/[emailAccountId]/compose/ComposeEmailFormLazy";
 import type { ReplyingToEmail } from "@/app/(app)/[emailAccountId]/compose/ComposeEmailForm";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { deleteDraftAction } from "@/utils/actions/mail";
 import { getActiveMailClient } from "@/utils/mail-engine/active-client";
-import type { ReplyDraftMode } from "@/utils/mail-engine/reply-drafts";
-import { getActionErrorMessage } from "@/utils/error";
+import { discardMailboxDraft } from "@/utils/mail-engine/discard-mailbox-draft";
+import {
+  getDraftSessionMessageIds,
+  type ReplyDraftMode,
+} from "@/utils/mail-engine/reply-drafts";
 import { toastError } from "@/components/Toast";
 import {
   Dialog,
@@ -101,25 +103,19 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
   const discardReply = useCallback(
     async (draftId?: string) => {
       if (reply?.providerDraftMessageId) {
-        const result = await deleteDraftAction(reply.emailAccountId, {
-          draftMessageId: reply.providerDraftMessageId,
+        const discarded = await discardMailboxDraft({
+          client: getActiveMailClient(),
+          emailAccountId: reply.emailAccountId,
+          messageIds: getDraftSessionMessageIds(
+            reply.emailAccountId,
+            reply.providerDraftMessageId,
+          ),
           draftId,
-        }).catch(() => undefined);
-        if (
-          !result ||
-          result.serverError !== undefined ||
-          result.validationErrors !== undefined
-        ) {
-          toastError({
-            description: getActionErrorMessage(result ?? {}, {
-              prefix: "Failed to discard draft",
-            }),
-          });
+        }).catch(() => false);
+        if (!discarded) {
+          toastError({ description: "Failed to discard draft" });
           return false;
         }
-        getActiveMailClient()
-          ?.requestSync([reply.emailAccountId])
-          .catch(() => {});
       }
       closeCompose();
       return true;

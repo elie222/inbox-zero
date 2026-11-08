@@ -3,10 +3,10 @@ import { test } from "../playwright-test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { conversationWithSubject, openMail } from "./mail-test-helpers";
 
-test("updates the draft indicator after deletion and retains remaining drafts", async ({
+test("updates the draft indicator at once after deletion and retains remaining drafts", async ({
   page,
 }, testInfo) => {
-  // Keep background sync from repairing a stale list during this assertion.
+  // Without background sync, only the local discard can update the list.
   await page.route("**/api/mobile/mailbox-sync", (route) => route.abort());
   const { conversations } = await openMail(page);
   if (
@@ -30,17 +30,10 @@ test("updates the draft indicator after deletion and retains remaining drafts", 
   await expect(discardButtons).toHaveCount(2);
   const discard = discardButtons.first();
   await expect(discard).toBeVisible({ timeout: 60_000 });
-  await page.route("**/mail**", async (route) => {
-    if (route.request().method() === "POST") await route.abort();
-    else await route.continue();
-  });
-  await discard.click();
-  await expect(
-    page.getByText("Failed to discard draft", { exact: true }),
-  ).toBeVisible();
-  await expect(discard).toBeVisible();
-  await expect(row.getByText("Draft", { exact: true })).toBeVisible();
-  await page.unroute("**/mail**");
+  // A click while the lazily loaded editors mount can be lost.
+  const editors = page.getByRole("textbox", { name: "Email message" });
+  await expect(editors.nth(0)).toContainText("First draft reply.");
+  await expect(editors.nth(1)).toContainText("Second draft reply.");
   await discard.click();
   await expect(discardButtons).toHaveCount(1);
   await expect(row.getByText("Draft", { exact: true })).toBeVisible();

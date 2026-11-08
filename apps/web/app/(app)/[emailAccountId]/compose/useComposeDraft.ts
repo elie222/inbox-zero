@@ -35,6 +35,7 @@ import {
   updateReplyDraftProviderState,
 } from "@/utils/mail-engine/reply-drafts";
 import { randomUuid } from "@/utils/uuid";
+import { discardMailboxDraft } from "@/utils/mail-engine/discard-mailbox-draft";
 import type { ComposeFormValues } from "./ComposeEmailForm";
 import {
   type ComposeAttachment,
@@ -352,12 +353,21 @@ export function useComposeDraft({
           providerDraftId.current =
             local?.content?.providerDraftId ?? providerDraftId.current;
           if (providerDraftId.current) {
-            const result = await discardComposeDraftAction(emailAccountId, {
+            const discarded = await discardMailboxDraft({
+              client,
+              emailAccountId,
+              messageIds: local?.content?.providerDraftMessageIds ?? [],
               draftId: providerDraftId.current,
             });
-            if (!result?.data)
-              throw new Error(getActionErrorMessage(result ?? {}));
-            await client?.requestSync([emailAccountId]);
+            // Before a save reports its mailbox message there is nothing to
+            // hide locally, so the provider draft is deleted directly.
+            if (!discarded) {
+              const result = await discardComposeDraftAction(emailAccountId, {
+                draftId: providerDraftId.current,
+              });
+              if (!result?.data)
+                throw new Error(getActionErrorMessage(result ?? {}));
+            }
           }
           if (
             !providerDraftId.current &&

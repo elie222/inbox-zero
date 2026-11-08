@@ -8,7 +8,7 @@ import {
   screen,
 } from "@testing-library/react";
 import { useState } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ThreadMessage } from "@/components/email-list/types";
 import {
   rememberReplacedDraftMessage,
@@ -30,8 +30,8 @@ vi.stubGlobal("ResizeObserver", MockResizeObserver);
 
 const { discardDraft } = vi.hoisted(() => ({ discardDraft: vi.fn() }));
 
-vi.mock("next-safe-action/hooks", () => ({
-  useAction: () => ({ executeAsync: discardDraft }),
+vi.mock("@/utils/mail-engine/discard-mailbox-draft", () => ({
+  discardMailboxDraft: discardDraft,
 }));
 const { scheduledEmails } = vi.hoisted(() => ({
   scheduledEmails: {
@@ -104,7 +104,6 @@ vi.mock("@/hooks/useSentMessageOpens", () => ({
   useSentMessageOpens: () => ({ data: undefined }),
 }));
 vi.mock("@/components/Toast", () => ({ toastError: vi.fn() }));
-vi.mock("@/utils/actions/mail", () => ({ deleteDraftAction: vi.fn() }));
 vi.mock("@/app/(app)/[emailAccountId]/compose/ComposeEmailFormLazy", () => ({
   ComposeEmailFormLazy: MockComposer,
 }));
@@ -830,10 +829,11 @@ describe("EmailThread scheduled send drafts", () => {
 });
 
 describe("EmailThread draft discard", () => {
-  afterEach(() => {
-    cleanup();
+  beforeEach(() => {
     discardDraft.mockReset();
+    discardDraft.mockResolvedValue(true);
   });
+  afterEach(cleanup);
 
   // A draft opened from the Drafts folder is the entire conversation, so once
   // it is discarded there is nothing left to read and the reader has to leave.
@@ -855,11 +855,11 @@ describe("EmailThread draft discard", () => {
   });
 
   it.each([
-    "action error",
+    "refusal",
     "exception",
-  ])("keeps the conversation and restores its draft after a deletion %s", async (failure) => {
-    if (failure === "action error") {
-      discardDraft.mockResolvedValue({ serverError: "Deletion failed" });
+  ])("keeps the conversation and restores its draft after a discard %s", async (failure) => {
+    if (failure === "refusal") {
+      discardDraft.mockResolvedValue(false);
     } else {
       discardDraft.mockRejectedValue(new Error("Deletion failed"));
     }
