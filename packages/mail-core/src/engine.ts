@@ -5,6 +5,7 @@ import type {
 } from "./commands";
 import type {
   DraftReadResult,
+  StoredDraft,
   DraftSaveResult,
   SaveDraft,
   SubmitSend,
@@ -130,6 +131,7 @@ export type MailClient = {
   submitConversations(input: SubmitConversationCommand): Promise<Admission>;
   saveDraft(input: SaveDraft): Promise<DraftSaveResult>;
   readDraft(key: DraftKey): Promise<DraftReadResult>;
+  listDrafts(accountId: string): Promise<StoredDraft[]>;
   submitSend(input: SubmitSend): Promise<Admission>;
   cancelOperation(
     key: OperationKey,
@@ -282,6 +284,9 @@ export function createMailEngine(input: {
     },
     readDraft(key) {
       return store.readDraft(key);
+    },
+    listDrafts(accountId) {
+      return store.listDrafts(accountId);
     },
     async submitSend(send) {
       const admission = await store.admitSend(send);

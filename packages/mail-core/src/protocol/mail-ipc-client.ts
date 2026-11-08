@@ -62,6 +62,7 @@ export function createMailIpcClient(
     submitConversations: (payload) => call("submitConversations", payload),
     saveDraft: (payload) => call("saveDraft", payload),
     readDraft: (payload) => call("readDraft", payload),
+    listDrafts: (accountId) => call("listDrafts", { accountId }),
     submitSend: (payload) => call("submitSend", payload),
     cancelOperation: (payload) => call("cancelOperation", payload),
     requestSync: (accountIds) =>

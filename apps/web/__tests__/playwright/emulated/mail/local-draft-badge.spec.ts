@@ -1,4 +1,4 @@
-import { expect } from "@playwright/test";
+import { expect, type Route } from "@playwright/test";
 import { test } from "../playwright-test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { conversationWithSubject, openMail } from "./mail-test-helpers";
@@ -28,10 +28,11 @@ test("marks a conversation as a draft as soon as a reply is typed", async ({
     '[data-thread-message-id="msg_playwright_reply"]',
   );
   await expect(message).toBeVisible({ timeout: 60_000 });
-  await page.route("**/mail**", async (route) => {
+  const abortProviderSaves = async (route: Route) => {
     if (route.request().method() === "POST") await route.abort();
     else await route.continue();
-  });
+  };
+  await page.route("**/mail**", abortProviderSaves);
 
   await message.getByRole("button", { name: "Reply", exact: true }).click();
   const editor = page.getByRole("textbox", { name: "Email message" });
@@ -39,4 +40,27 @@ test("marks a conversation as a draft as soon as a reply is typed", async ({
 
   await expect(row.getByText("Draft", { exact: true })).toBeVisible();
   await capturePlaywrightCheckpoint(page, testInfo, "local-draft-badge");
+
+  // After a reload only this device's store holds the draft, and the thread
+  // stays closed, so the list has to mark it from the store. The closed
+  // composer saves nothing, and aborted page-load actions would fail the test.
+  await page.unroute("**/mail**", abortProviderSaves);
+  await expect(async () => {
+    const reloaded = await openMail(page);
+    const reloadedRow = conversationWithSubject(
+      page,
+      reloaded.conversations,
+      "Reply Workflow Message",
+    );
+    await reloadedRow.scrollIntoViewIfNeeded();
+    await expect(reloadedRow.getByText("Draft", { exact: true })).toBeVisible({
+      timeout: 10_000,
+    });
+  }).toPass({ timeout: 60_000 });
+  await expect(editor).toHaveCount(0);
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "local-draft-badge-after-reload",
+  );
 });
