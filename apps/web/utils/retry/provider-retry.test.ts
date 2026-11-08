@@ -1,5 +1,39 @@
-import { describe, expect, it } from "vitest";
-import { getRetryAfterDelayMs } from "./provider-retry";
+import { describe, expect, it, vi } from "vitest";
+import { createScopedLogger } from "@/utils/logger";
+import { sleep } from "@/utils/sleep";
+import { getRetryAfterDelayMs, withProviderRetry } from "./provider-retry";
+
+vi.mock("@/utils/sleep", () => ({ sleep: vi.fn(async () => {}) }));
+
+describe("withProviderRetry", () => {
+  it("does not wait out the backoff after the last failed attempt", async () => {
+    const rateLimited = new Error("rate limited");
+    let attempts = 0;
+    await expect(
+      withProviderRetry(
+        async () => {
+          attempts++;
+          throw rateLimited;
+        },
+        {
+          classify: (attempt) => ({
+            delayMs: attempt.attemptNumber === 1 ? 10 : 5000,
+            isRateLimit: true,
+            logFields: {},
+            retryable: true,
+          }),
+          logger: createScopedLogger("provider-retry-test"),
+          maxBlockingDelayMs: 10_000,
+          maxRetries: 1,
+          providerName: "Test",
+          retryPolicy: "all",
+        },
+      ),
+    ).rejects.toBe(rateLimited);
+    expect(attempts).toBe(2);
+    expect(vi.mocked(sleep).mock.calls).toEqual([[10]]);
+  });
+});
 
 describe("getRetryAfterDelayMs", () => {
   it("uses Retry-After header in seconds", () => {

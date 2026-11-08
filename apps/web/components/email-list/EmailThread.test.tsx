@@ -238,7 +238,7 @@ describe("EmailThread reply composer", () => {
     rememberReplacedDraftMessage("account-1", "race-v1", "race-v2");
     act(() => endSave());
 
-    expect(screen.queryByText("Loading message…")).toBeNull();
+    expect(screen.queryByText("Loading…")).toBeNull();
     const current = screen.getByRole("textbox", { name: "Email message" });
     expect(current.dataset.draftSessionId).toBe("race-v1:reply");
     expect(current.dataset.providerDraftMessageId).toBe("race-v2");
@@ -276,7 +276,7 @@ describe("EmailThread reply composer", () => {
         />,
       );
 
-      expect(screen.queryByText("Loading message…")).toBeNull();
+      expect(screen.queryByText("Loading…")).toBeNull();
       const current = screen.getByRole("textbox", { name: "Email message" });
       expect(current.dataset.draftSessionId).toBe("draft-v1:reply");
       expect(current.dataset.providerDraftMessageId).toBe("draft-v2");
