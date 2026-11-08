@@ -57,10 +57,15 @@ test("starts a trial from the post-onboarding upgrade page", async ({
   ).toHaveText("Current plan", { timeout: 60_000 });
 
   await page.goto("/settings");
-  await expect(
-    page.getByRole("button", { name: "Switch to monthly" }),
-  ).toBeVisible({ timeout: 60_000 });
-  await capturePlaywrightCheckpoint(page, test.info(), "billing-settings");
+  await page
+    .getByRole("button", { name: "Switch to monthly" })
+    .click({ timeout: 60_000 });
+  await expect(page.getByRole("alertdialog")).toContainText("per user");
+  await capturePlaywrightCheckpoint(
+    page,
+    test.info(),
+    "billing-interval-switch",
+  );
 });
 
 test("records the paid conversion once the first invoice is paid", async ({

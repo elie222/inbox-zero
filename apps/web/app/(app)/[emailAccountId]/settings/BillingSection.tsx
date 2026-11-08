@@ -8,6 +8,7 @@ import {
   ManageSubscription,
   ViewInvoicesButton,
 } from "@/app/(app)/premium/ManageSubscription";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -48,7 +49,7 @@ export function BillingSection() {
   const intervalSwitch =
     premium?.stripeSubscriptionId &&
     ["active", "trialing"].includes(premium.stripeSubscriptionStatus ?? "")
-      ? getBillingIntervalSwitch(tier)
+      ? getBillingIntervalSwitch(premium.stripePriceId)
       : null;
   const hasAppleSubscription = hasActiveAppleSubscription(
     premium?.appleExpiresAt || null,
@@ -164,34 +165,47 @@ export function BillingSection() {
 function SwitchBillingIntervalButton({
   tier,
   label,
+  description,
 }: {
   tier: PremiumTier;
   label: string;
+  description: string;
 }) {
   const [loading, setLoading] = useState(false);
 
   return (
-    <Button
-      variant="outline"
-      size="sm"
-      loading={loading}
-      onClick={async () => {
+    <ConfirmDialog
+      trigger={
+        <Button variant="outline" size="sm" loading={loading}>
+          {label}
+        </Button>
+      }
+      title={`${label}?`}
+      description={description}
+      confirmText={label}
+      onConfirm={async () => {
         setLoading(true);
-        const result = await getBillingPortalUrlAction({ tier });
-        const url = result?.data?.url;
-        if (result?.serverError || !url) {
-          setLoading(false);
+        try {
+          const result = await getBillingPortalUrlAction({ tier });
+          const url = result?.data?.url;
+          if (result?.serverError || !url) {
+            toastError({
+              description:
+                result?.serverError ||
+                "We couldn't change your billing. Your subscription has not been changed.",
+            });
+            return;
+          }
+          redirectToSafeUrl(url, { allowExternal: true });
+        } catch {
           toastError({
             description:
-              result?.serverError ||
-              "We couldn't open the plan change page. Your subscription has not been changed.",
+              "We couldn't change your billing. Your subscription has not been changed.",
           });
-          return;
+        } finally {
+          setLoading(false);
         }
-        redirectToSafeUrl(url, { allowExternal: true });
       }}
-    >
-      {label}
-    </Button>
+    />
   );
 }

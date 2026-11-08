@@ -272,20 +272,30 @@ describe("getAppleSubscriptionTier", () => {
 });
 
 describe("getBillingIntervalSwitch", () => {
-  it("offers the same plan on the other billing interval", () => {
-    expect(getBillingIntervalSwitch("PLUS_MONTHLY")).toEqual({
+  it("offers the subscribed plan on the other billing interval", () => {
+    expect(
+      getBillingIntervalSwitch("price_current_plus_monthly"),
+    ).toMatchObject({
       tier: "PLUS_ANNUALLY",
       label: "Switch to annual",
+      description: expect.stringContaining("$28/mo, billed annually"),
     });
-    expect(getBillingIntervalSwitch("PROFESSIONAL_ANNUALLY")).toEqual({
-      tier: "PROFESSIONAL_MONTHLY",
-      label: "Switch to monthly",
-    });
+    expect(
+      getBillingIntervalSwitch("price_current_starter_annual"),
+    ).toMatchObject({ tier: "STARTER_MONTHLY", label: "Switch to monthly" });
   });
 
-  it("offers nothing for plans that are no longer sold", () => {
-    expect(getBillingIntervalSwitch("PRO_MONTHLY")).toBeNull();
-    expect(getBillingIntervalSwitch("LIFETIME")).toBeNull();
+  it("keeps a legacy subscription on its own plan", () => {
+    expect(
+      getBillingIntervalSwitch("price_1S5u6NKGf8mwZWHnZCfy4D5n"),
+    ).toMatchObject({ tier: "PROFESSIONAL_ANNUALLY" });
+  });
+
+  it("offers nothing for prices outside the current plans", () => {
+    expect(
+      getBillingIntervalSwitch("price_1RfeDLKGf8mwZWHn6UW8wJcY"),
+    ).toBeNull();
+    expect(getBillingIntervalSwitch("price_unknown")).toBeNull();
     expect(getBillingIntervalSwitch(null)).toBeNull();
   });
 });
