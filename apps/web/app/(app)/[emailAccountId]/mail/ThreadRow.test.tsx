@@ -106,6 +106,15 @@ describe("ThreadRow", () => {
     expect(onOpen).toHaveBeenCalledWith(0);
   });
 
+  it("marks the row as a draft while a local reply is unsent", () => {
+    const { rerender } = render(row(thread([undefined])));
+    expect(screen.queryByText("Draft")).toBeNull();
+
+    rerender(row(thread([undefined]), { hasLocalDraft: true }));
+
+    expect(screen.getByText("Draft")).toBeTruthy();
+  });
+
   it("does not offer a code to copy on ordinary mail with numbers", () => {
     render(row(thread([undefined], "Invoice 482913 for October")));
 
@@ -117,12 +126,14 @@ function row(
   listThread: ListThread,
   {
     hasAnySelection = false,
+    hasLocalDraft = false,
     onOpen = () => {},
     onSelectRangeTo = () => {},
     onToggleSelect,
     userLabels = {},
   }: {
     hasAnySelection?: boolean;
+    hasLocalDraft?: boolean;
     onOpen?: (index: number) => void;
     onSelectRangeTo?: (index: number) => void;
     onToggleSelect?: (index: number) => void;
@@ -132,6 +143,7 @@ function row(
   return (
     <ThreadRow
       hasAnySelection={hasAnySelection}
+      hasLocalDraft={hasLocalDraft}
       index={0}
       isFocused={false}
       isSelected={false}

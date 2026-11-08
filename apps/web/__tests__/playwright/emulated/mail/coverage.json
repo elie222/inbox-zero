@@ -95,6 +95,10 @@
     "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
     "components/email-list/ThreadDeliveryStatus.tsx"
   ],
+  "local-draft-badge.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/ThreadRow.tsx",
+    "utils/mail-engine/reply-drafts.ts"
+  ],
   "inline-image-send.spec.ts": [
     "app/(app)/[emailAccountId]/compose/useComposeSend.ts",
     "components/email-list/EmailContents.tsx",

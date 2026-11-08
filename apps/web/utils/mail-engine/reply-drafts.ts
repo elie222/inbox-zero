@@ -9,6 +9,7 @@ import { splitRecipientList } from "@/utils/email";
 import { fetchWithAccount } from "@/utils/fetch";
 import { getActiveMailClient } from "@/utils/mail-engine/active-client";
 import type { SendEmailBody } from "@/utils/types/mail";
+import { randomUuid } from "@/utils/uuid";
 
 /**
  * A file already on the mailbox draft. Only the reference is stored locally;
@@ -61,6 +62,12 @@ const engineRevisions = new Map<string, number>();
 const draftSessionMessageIds = new Map<string, Map<string, string>>();
 const latestDraftMessageIds = new Map<string, Map<string, string>>();
 const listeners = new Set<(scope: ReplyDraftScope) => void>();
+// Drafts other tabs hold aren't loaded here, but their threads still show as
+// drafts in this tab's list.
+const otherTabDraftThreads = new Map<string, string>();
+const PRESENCE_REQUEST = "reply-draft-presence-request";
+const TAB_GONE = "reply-draft-tab-gone";
+const TAB_ID = randomUuid();
 const accountEpoch = new Map<string, number>();
 const channel =
   typeof window !== "undefined" && typeof BroadcastChannel !== "undefined"
@@ -131,13 +138,57 @@ export function getLatestDraftMessageId(
 
 channel?.addEventListener("message", (event) => {
   const scope = event.data;
+  // A tab that opens after others started replies asks them for their drafts.
+  if (scope?.type === PRESENCE_REQUEST) {
+    announceLocalDrafts();
+    return;
+  }
+  // A closing or reloading tab takes its drafts with it; a reload comes back
+  // under a new id and announces them again.
+  if (scope?.type === TAB_GONE && typeof scope.tabId === "string") {
+    for (const [key, thread] of otherTabDraftThreads) {
+      if (!key.startsWith(`${scope.tabId}:`)) continue;
+      otherTabDraftThreads.delete(key);
+      const separator = thread.indexOf(":");
+      const removed = {
+        emailAccountId: thread.slice(0, separator),
+        threadId: thread.slice(separator + 1),
+      };
+      for (const listener of listeners) listener(removed);
+    }
+    return;
+  }
   if (
     typeof scope?.emailAccountId !== "string" ||
     typeof scope?.threadId !== "string"
   )
     return;
+  if (typeof scope.messageId === "string" && typeof scope.tabId === "string") {
+    // Two tabs can hold the same draft; one clearing it mustn't drop the other's.
+    const key = `${scope.tabId}:${draftKey(scope)}`;
+    if (scope.present === true)
+      otherTabDraftThreads.set(
+        key,
+        `${scope.emailAccountId}:${scope.threadId}`,
+      );
+    else otherTabDraftThreads.delete(key);
+  }
   for (const listener of listeners) listener(scope);
 });
+channel?.postMessage({ type: PRESENCE_REQUEST });
+if (channel) {
+  window.addEventListener("pagehide", (event) => {
+    // A page kept in the back/forward cache still holds its drafts.
+    if (!event.persisted)
+      channel.postMessage({ type: TAB_GONE, tabId: TAB_ID });
+  });
+}
+
+function announceLocalDrafts() {
+  for (const draft of drafts.values()) {
+    if (draft.content) notifyReplyDraftChange(draft);
+  }
+}
 
 export function subscribeToReplyDrafts(
   listener: (scope: ReplyDraftScope) => void,
@@ -146,6 +197,19 @@ export function subscribeToReplyDrafts(
   return () => {
     listeners.delete(listener);
   };
+}
+
+/**
+ * `accountId:threadId` keys of threads with an unsent reply draft in this tab
+ * or another, whether or not a provider save has put it in the mailbox yet.
+ * Joined with newlines so the value is stable between changes.
+ */
+export function getReplyDraftThreadKeys() {
+  const keys = new Set(otherTabDraftThreads.values());
+  for (const draft of drafts.values()) {
+    if (draft.content) keys.add(`${draft.emailAccountId}:${draft.threadId}`);
+  }
+  return [...keys].sort().join("\n");
 }
 
 export async function getReplyDraft(identity: ReplyDraftIdentity) {
@@ -361,10 +425,12 @@ export function createReplyDraftWriter(
           updatedAt: Date.now(),
         });
         revision += 1;
-        await persistEngineReplyDraft(identity, nextContent).catch(() => {});
+        // The list marks the thread as a draft from this change, so it
+        // mustn't wait on the local save.
         if (Boolean(previous?.content) !== Boolean(content)) {
           notifyReplyDraftChange(identity);
         }
+        await persistEngineReplyDraft(identity, nextContent).catch(() => {});
       });
     pending = operation;
     const identityKey = draftKey(identity);
@@ -475,6 +541,7 @@ export async function dropReplyDraftDeletedFromMailbox(
 export function clearLocalReplyDrafts(emailAccountId?: string) {
   if (!emailAccountId) {
     drafts.clear();
+    otherTabDraftThreads.clear();
     engineRevisions.clear();
     draftSessionMessageIds.clear();
     latestDraftMessageIds.clear();
@@ -491,6 +558,10 @@ export function clearLocalReplyDrafts(emailAccountId?: string) {
   }
   draftSessionMessageIds.delete(emailAccountId);
   latestDraftMessageIds.delete(emailAccountId);
+  for (const [key, thread] of otherTabDraftThreads) {
+    if (thread.startsWith(`${emailAccountId}:`))
+      otherTabDraftThreads.delete(key);
+  }
 }
 
 function accountMap(
@@ -585,9 +656,20 @@ function clearPendingWrite(identityKey: string, operation: Promise<unknown>) {
   }
 }
 
-function notifyReplyDraftChange(scope: ReplyDraftScope) {
+function notifyReplyDraftChange(identity: ReplyDraftIdentity) {
+  const scope = {
+    emailAccountId: identity.emailAccountId,
+    threadId: identity.threadId,
+  };
   for (const listener of listeners) listener(scope);
-  channel?.postMessage(scope);
+  // Only the identity: callers may pass a whole stored draft, whose content
+  // other tabs don't need.
+  channel?.postMessage({
+    ...scope,
+    messageId: identity.messageId,
+    tabId: TAB_ID,
+    present: Boolean(drafts.get(draftKey(identity))?.content),
+  });
 }
 
 function getComposeMode(
@@ -684,6 +766,7 @@ async function loadEngineReplyDraft(identity: ReplyDraftIdentity) {
       updatedAt: typeof updatedAt === "number" ? updatedAt : 0,
     };
     drafts.set(draftKey(identity), restored);
+    notifyReplyDraftChange(identity);
     return restored;
   } catch {
     return;

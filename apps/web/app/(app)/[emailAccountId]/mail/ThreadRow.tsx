@@ -48,6 +48,8 @@ export type ThreadRowProps = {
   onToggleSelect: (index: number) => void;
   onSelectRangeTo: (index: number) => void;
   rowRef?: Ref<HTMLDivElement>;
+  /** This tab, or another, holds an unsent reply for the thread. */
+  hasLocalDraft?: boolean;
   sentMessageOpen?: {
     firstOpenedAt: string | null;
     lastOpenedAt: string | null;
@@ -71,6 +73,7 @@ export const ThreadRow = memo(function ThreadRow({
   onToggleSelect,
   onSelectRangeTo,
   rowRef,
+  hasLocalDraft = false,
   sentMessageOpen,
 }: ThreadRowProps) {
   const message = thread.messages.at(-1);
@@ -96,9 +99,11 @@ export const ThreadRow = memo(function ThreadRow({
   if (!message) return null;
 
   const chips = labels.slice(0, layout === "list" && !compact ? 3 : 2);
-  const isDraft = thread.messages.some((message) =>
-    message.labelIds?.includes(GmailLabel.DRAFT),
-  );
+  const isDraft =
+    hasLocalDraft ||
+    thread.messages.some((message) =>
+      message.labelIds?.includes(GmailLabel.DRAFT),
+    );
   const hasAttachment = thread.messages.some(
     (message) => message.hasAttachment,
   );

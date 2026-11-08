@@ -10,10 +10,16 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import { MailboxThreadList } from "@inboxzero/mail-ui/MailboxSurface";
 import { ThreadRow } from "@/app/(app)/[emailAccountId]/mail/ThreadRow";
+import { useAccount } from "@/providers/EmailAccountProvider";
+import {
+  getReplyDraftThreadKeys,
+  subscribeToReplyDrafts,
+} from "@/utils/mail-engine/reply-drafts";
 import {
   InboxBundleHeader,
   InboxBundleRow,
@@ -92,6 +98,18 @@ export const ThreadList = memo(function ThreadList({
   onToggleBundle,
 }: ThreadListProps) {
   const isMobile = useIsMobile();
+  const { emailAccountId } = useAccount();
+  // One subscription for the list: a reply shows as a draft from its first
+  // keystroke, not from its first provider save.
+  const draftThreadKeys = useSyncExternalStore(
+    subscribeToReplyDrafts,
+    getReplyDraftThreadKeys,
+    () => "",
+  );
+  const draftThreads = useMemo(
+    () => new Set(draftThreadKeys.split("\n")),
+    [draftThreadKeys],
+  );
   // Collapsing removes the focused header, so a keyboard user's focus moves
   // to the collapsed row once it renders.
   const pendingFocusKeyRef = useRef<string | null>(null);
@@ -230,6 +248,9 @@ export const ThreadList = memo(function ThreadList({
                   ? sentMessageOpens?.opens[row.item.messages.at(-1)?.id ?? ""]
                   : undefined
               }
+              hasLocalDraft={draftThreads.has(
+                `${"account" in row.item ? row.item.account.id : emailAccountId}:${row.item.id}`,
+              )}
               thread={row.item}
               userEmail={userEmail}
               userLabels={
