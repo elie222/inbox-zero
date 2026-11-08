@@ -353,14 +353,16 @@ export function getBillingIntervalSwitch(
     const tier = plan.tiers[toAnnual ? "annually" : "monthly"];
     const price = formatPrice(plan.price[toAnnual ? "annually" : "monthly"]);
     const newPrice = toAnnual ? `${price}/mo, billed annually` : `${price}/mo`;
-    const accountBilling = getAddAccountBillingText({
-      tier,
-      stripePriceId: getStripePriceId({ tier }),
-    });
+    const stripePriceId = getStripePriceId({ tier });
+    const unit =
+      getStripeSeatModel(stripePriceId) === "per_person"
+        ? "per user"
+        : "per email account";
+    const accountBilling = getAddAccountBillingText({ tier, stripePriceId });
     return {
       tier,
       label: toAnnual ? "Switch to annual" : "Switch to monthly",
-      description: `Your ${plan.name} plan will cost ${newPrice} per user. ${accountBilling} The change applies right away, and Stripe prorates your current billing period.`,
+      description: `Your ${plan.name} plan will cost ${newPrice} ${unit}. ${accountBilling} The change applies right away, and Stripe prorates your current billing period.`,
     };
   }
   return null;

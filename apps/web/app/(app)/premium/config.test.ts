@@ -284,7 +284,14 @@ describe("getBillingIntervalSwitch", () => {
     });
     expect(
       getBillingIntervalSwitch("price_current_starter_annual"),
-    ).toMatchObject({ tier: "STARTER_MONTHLY", label: "Switch to monthly" });
+    ).toMatchObject({
+      tier: "STARTER_MONTHLY",
+      label: "Switch to monthly",
+      // The test env points Starter monthly at a legacy per-account price.
+      description: expect.stringContaining(
+        "$25/mo per email account. You will be billed for each account.",
+      ),
+    });
   });
 
   it("keeps a legacy subscription on its own plan", () => {
