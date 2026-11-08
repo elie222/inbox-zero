@@ -1600,7 +1600,8 @@ export function MailShell() {
         ]);
       }
       if (deletedActiveSplit) setActiveSplitId(null);
-      // The provider drops the label from saved splits only once it's gone.
+      // The delete action drops the label from saved splits once the
+      // provider has deleted it, so splits reload only after that.
       if (item.kind === "label" && (await deleted)) await mutateSettings();
     },
     [
