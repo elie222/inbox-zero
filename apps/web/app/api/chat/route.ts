@@ -15,6 +15,7 @@ import {
 } from "@/utils/ai/assistant/chat";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
+import { CHAT_ACCOUNT_MISMATCH_ERROR_CODE } from "@/utils/config";
 import type { Prisma } from "@/generated/prisma/client";
 import { convertToUIMessages } from "@/components/assistant-chat/helpers";
 import { captureException } from "@/utils/error";
@@ -131,8 +132,15 @@ export const POST = withEmailAccount("chat", async (request) => {
   }
 
   if (chat.emailAccountId !== emailAccountId) {
+    request.logger.warn("Chat belongs to another email account", {
+      chatId: data.id,
+    });
     return NextResponse.json(
-      { error: "You are not authorized to access this chat" },
+      {
+        error: "This chat belongs to a different email account.",
+        errorCode: CHAT_ACCOUNT_MISMATCH_ERROR_CODE,
+        isKnownError: true,
+      },
       { status: 403 },
     );
   }

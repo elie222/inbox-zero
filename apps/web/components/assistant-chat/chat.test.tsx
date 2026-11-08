@@ -36,8 +36,10 @@ const {
   mockSetMessages,
   mockSetNewChat,
   mockStop,
+  mockSubmitTextMessage,
   mockUseChats,
   chatState,
+  voiceState,
 } = vi.hoisted(() => ({
   mockCaptureAction: vi.fn(),
   mockHandleSubmit: vi.fn(),
@@ -51,8 +53,10 @@ const {
   mockSetMessages: vi.fn(),
   mockSetNewChat: vi.fn(),
   mockStop: vi.fn(),
+  mockSubmitTextMessage: vi.fn(),
   mockUseChats: vi.fn(),
   chatState: { status: "ready" as ChatHelpers["status"] },
+  voiceState: { onSend: undefined as ((text: string) => void) | undefined },
 }));
 
 vi.mock("@/components/assistant-chat/messages", () => ({
@@ -74,7 +78,10 @@ vi.mock("@/components/assistant-chat/DeleteChatDialog", () => ({
 }));
 
 vi.mock("@/components/voice/VoiceInput", () => ({
-  VoiceInput: () => null,
+  VoiceInput: ({ onSend }: { onSend: (text: string) => void }) => {
+    voiceState.onSend = onSend;
+    return null;
+  },
 }));
 
 vi.mock("next-safe-action/hooks", () => ({
@@ -191,7 +198,7 @@ vi.mock("@/providers/ChatProvider", () => ({
     attachments: [],
     setAttachments: mockSetAttachments,
     setChatId: mockSetChatId,
-    submitTextMessage: vi.fn(),
+    submitTextMessage: mockSubmitTextMessage,
     stop: mockStop,
   }),
 }));
@@ -293,6 +300,34 @@ describe("Chat input draft", () => {
     render(<Chat open />);
 
     expect(mockSetInput).toHaveBeenCalledWith("Saved draft");
+  });
+});
+
+describe("Chat voice send", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseChats.mockReturnValue({
+      data: undefined,
+      error: undefined,
+      isLoading: false,
+      mutate: mockMutate,
+    });
+  });
+
+  it("keeps a dictated message in the input when sending it fails", async () => {
+    mockSubmitTextMessage.mockRejectedValueOnce(new Error("Forbidden"));
+    const { Chat } = await import("@/components/assistant-chat/chat");
+    render(<Chat open />);
+
+    voiceState.onSend?.("Find the SAFE I need to pay");
+
+    await waitFor(() => {
+      expect(mockSetInput).toHaveBeenCalled();
+    });
+    const restore = mockSetInput.mock.calls.at(-1)?.[0];
+    expect(restore("Typed while sending")).toBe(
+      "Find the SAFE I need to pay\n\nTyped while sending",
+    );
   });
 });
 
