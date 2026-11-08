@@ -102,7 +102,7 @@ describe("local reply drafts", () => {
     }).save(content);
     // A send's draft and a discarded reply aren't drafts the list should mark.
     await client.saveDraft({
-      key: { draftId: "send-operation" },
+      key: { accountId: "account", draftId: "send-operation" },
       expectedRevision: null,
       content: sendEmailToDraftContent(
         { ...content.values, messageHtml: "<p>Sending</p>" },
@@ -148,6 +148,17 @@ describe("local reply drafts", () => {
     expect(getReplyDraftThreadKeys()).toBe("account:thread");
     const draft = await getReplyDraft(longIdentity);
     await createReplyDraftWriter(longIdentity, draft?.revision).clear();
+
+    expect(getReplyDraftThreadKeys()).toBe("");
+  });
+
+  it("leaves a draft from before reply sessions for its thread to migrate", async () => {
+    const client = createRevisionCheckingClient();
+    setActiveMailClient(client as never);
+    await createReplyDraftWriter(identity).save(content);
+    clearLocalReplyDrafts();
+
+    await hydrateReplyDrafts("account");
 
     expect(getReplyDraftThreadKeys()).toBe("");
   });
@@ -311,6 +322,7 @@ describe("local reply drafts", () => {
     await createReplyDraftWriter(replyIdentity).save(content);
     clearLocalReplyDrafts();
     const snapshot = await client.readDraft({
+      accountId: "account",
       draftId: replyIdentity.messageId,
     });
     let resolveRead!: (value: typeof snapshot) => void;
@@ -825,8 +837,12 @@ describe("drafts deleted from the mailbox", () => {
       requestId: "compose-2",
     });
     expect(
-      (await client.readDraft({ draftId: identity.messageId })).content
-        ?.subject,
+      (
+        await client.readDraft({
+          accountId: "account",
+          draftId: identity.messageId,
+        })
+      ).content?.subject,
     ).toBe(content.values.subject);
   });
 
@@ -840,8 +856,12 @@ describe("drafts deleted from the mailbox", () => {
 
     expect(await dropReplyDraftDeletedFromMailbox(stored)).toBe(stored);
     expect(
-      (await client.readDraft({ draftId: identity.messageId })).content
-        ?.subject,
+      (
+        await client.readDraft({
+          accountId: "account",
+          draftId: identity.messageId,
+        })
+      ).content?.subject,
     ).toBe(content.values.subject);
   });
 
@@ -853,7 +873,10 @@ describe("drafts deleted from the mailbox", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockImplementation(async () => {
-        const current = await client.readDraft({ draftId: identity.messageId });
+        const current = await client.readDraft({
+          accountId: "account",
+          draftId: identity.messageId,
+        });
         const newer = {
           ...content,
           requestId: "compose-2",
@@ -861,7 +884,7 @@ describe("drafts deleted from the mailbox", () => {
           values: { ...content.values, subject: "Newer edits" },
         };
         await client.saveDraft({
-          key: { draftId: identity.messageId },
+          key: { accountId: "account", draftId: identity.messageId },
           expectedRevision: current.draftRevision ?? null,
           content: {
             ...current.content,
@@ -878,8 +901,12 @@ describe("drafts deleted from the mailbox", () => {
 
     expect(reconciled?.content?.values.subject).toBe("Newer edits");
     expect(
-      (await client.readDraft({ draftId: identity.messageId })).content
-        ?.subject,
+      (
+        await client.readDraft({
+          accountId: "account",
+          draftId: identity.messageId,
+        })
+      ).content?.subject,
     ).toBe("Newer edits");
   });
 
@@ -1015,19 +1042,27 @@ function stubMailboxDraftLookup(exists: boolean) {
 }
 
 function createRevisionCheckingClient() {
+  // Keyed like the real store, by account and draft.
   const drafts = new Map<
     string,
-    { revision: number; content: Record<string, unknown> }
+    {
+      accountId: string;
+      draftId: string;
+      revision: number;
+      content: Record<string, unknown>;
+    }
   >();
+  const keyOf = (key: { accountId: string; draftId: string }) =>
+    `${key.accountId}:${key.draftId}`;
   const client = {
     conflicts: 0,
     saveDraft: vi.fn(
       async (input: {
-        key: { draftId: string };
+        key: { accountId: string; draftId: string };
         expectedRevision: number | null;
         content: Record<string, unknown>;
       }) => {
-        const currentRevision = drafts.get(input.key.draftId)?.revision ?? null;
+        const currentRevision = drafts.get(keyOf(input.key))?.revision ?? null;
         if (input.expectedRevision !== currentRevision) {
           client.conflicts += 1;
           return {
@@ -1036,7 +1071,8 @@ function createRevisionCheckingClient() {
           };
         }
         const next = (currentRevision ?? 0) + 1;
-        drafts.set(input.key.draftId, {
+        drafts.set(keyOf(input.key), {
+          ...input.key,
           revision: next,
           content: input.content,
         });
@@ -1047,8 +1083,8 @@ function createRevisionCheckingClient() {
         };
       },
     ),
-    async readDraft(key: { draftId: string }) {
-      const stored = drafts.get(key.draftId);
+    async readDraft(key: { accountId: string; draftId: string }) {
+      const stored = drafts.get(keyOf(key));
       if (!stored) return { status: "missing" as const, content: undefined };
       return {
         status: "found" as const,
@@ -1057,11 +1093,13 @@ function createRevisionCheckingClient() {
       };
     },
     async listDrafts(accountId: string) {
-      return [...drafts].map(([draftId, stored]) => ({
-        key: { accountId, draftId },
-        draftRevision: stored.revision,
-        content: stored.content,
-      }));
+      return [...drafts.values()]
+        .filter((stored) => stored.accountId === accountId)
+        .map((stored) => ({
+          key: { accountId, draftId: stored.draftId },
+          draftRevision: stored.revision,
+          content: stored.content,
+        }));
     },
   };
   return client;

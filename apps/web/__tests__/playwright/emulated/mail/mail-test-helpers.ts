@@ -428,7 +428,10 @@ export async function countReplyThreadSentCopies(
   ).length;
 }
 
-async function readReplyThreadMessages(page: Page, emailAccountId: string) {
+export async function readReplyThreadMessages(
+  page: Page,
+  emailAccountId: string,
+) {
   const response = await page.request.get(
     "/api/threads/thr_playwright_reply?includeDrafts=true",
     { headers: { "X-Email-Account-ID": emailAccountId } },

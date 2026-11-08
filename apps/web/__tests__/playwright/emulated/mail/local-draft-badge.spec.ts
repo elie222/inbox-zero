@@ -1,7 +1,12 @@
 import { expect, type Route } from "@playwright/test";
 import { test } from "../playwright-test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
-import { conversationWithSubject, openMail } from "./mail-test-helpers";
+import {
+  clearWorkflowMailboxDrafts,
+  conversationWithSubject,
+  openMail,
+  readReplyThreadMessages,
+} from "./mail-test-helpers";
 
 test("marks a conversation as a draft as soon as a reply is typed", async ({
   page,
@@ -9,7 +14,8 @@ test("marks a conversation as a draft as soon as a reply is typed", async ({
   // Neither a provider save nor a sync can put the draft in the list, so only
   // the local draft can show it.
   await page.route("**/api/mobile/mailbox-sync", (route) => route.abort());
-  const { conversations } = await openMail(page);
+  const { conversations, emailAccountId } = await openMail(page);
+  await clearWorkflowMailboxDrafts(page);
   if (
     !(await page.getByText("Nothing selected", { exact: true }).isVisible())
   ) {
@@ -58,6 +64,12 @@ test("marks a conversation as a draft as soon as a reply is typed", async ({
     });
   }).toPass({ timeout: 60_000 });
   await expect(editor).toHaveCount(0);
+  // Had the reply reached the mailbox, its own Draft label could have marked
+  // the row; this proves the mark came from the local store.
+  const mailboxDrafts = (
+    await readReplyThreadMessages(page, emailAccountId)
+  ).filter((message) => message.labelIds?.includes("DRAFT"));
+  expect(mailboxDrafts).toHaveLength(0);
   await capturePlaywrightCheckpoint(
     page,
     testInfo,

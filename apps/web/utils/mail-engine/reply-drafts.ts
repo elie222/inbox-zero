@@ -77,6 +77,10 @@ const channel =
     ? new BroadcastChannel("inbox-zero-reply-drafts")
     : null;
 
+function isReplyDraftSessionId(messageId: string) {
+  return messageId.endsWith(":reply") || messageId.endsWith(":forward");
+}
+
 export function getReplyDraftSessionId(
   messageId: string,
   mode: ReplyDraftMode,
@@ -236,12 +240,15 @@ export async function hydrateReplyDrafts(emailAccountId: string) {
     const state = parseReplyDraftState(content);
     const threadId =
       content.conversationId ?? state?.content.values.replyToEmail?.threadId;
-    if (!state || !threadId) continue;
+    // Drafts from before replies and forwards had their own sessions are
+    // migrated when their thread opens, not adopted here as a session.
+    const messageId = state?.sessionMessageId ?? key.draftId;
+    if (!state || !threadId || !isReplyDraftSessionId(messageId)) continue;
     restoreReplyDraft(
       {
         emailAccountId,
         threadId,
-        messageId: state.sessionMessageId ?? key.draftId,
+        messageId,
       },
       draftRevision,
       state,
