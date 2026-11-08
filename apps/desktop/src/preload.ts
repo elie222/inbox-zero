@@ -53,6 +53,18 @@ contextBridge.exposeInMainWorld("inboxZeroDesktop", {
       ipcRenderer.send("desktop:update-status-unsubscribe");
     };
   },
+  onMailEngineOpening: (listener: (opening: boolean) => void) => {
+    let subscribed = true;
+    const handler = (_event: unknown, opening: boolean) => listener(opening);
+    ipcRenderer.on("desktop:mail-engine-opening", handler);
+    ipcRenderer.invoke("desktop:mail-engine-opening").then((opening) => {
+      if (subscribed) listener(opening);
+    });
+    return () => {
+      subscribed = false;
+      ipcRenderer.removeListener("desktop:mail-engine-opening", handler);
+    };
+  },
   installUpdate: () => ipcRenderer.invoke("desktop:install-update"),
   wipeMailbox: () => ipcRenderer.invoke("mail-engine-wipe"),
   getDesktopHealth: () => ipcRenderer.invoke("desktop:health"),
