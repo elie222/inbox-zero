@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { MailClient } from "@inboxzero/mail-core/engine";
+import { admissionRejectionCopy } from "./admission-notice";
 import { discardMailboxDraft } from "./discard-mailbox-draft";
 
 const { discardComposeDraftAction } = vi.hoisted(() => ({
@@ -63,6 +64,47 @@ describe("discardMailboxDraft", () => {
     expect(discardComposeDraftAction).toHaveBeenCalledWith("account", {
       draftId: "d1",
     });
+  });
+
+  it("deletes the provider draft directly when the engine fails to answer", async () => {
+    const client = engineClient({ status: "queued" });
+    client.submitMetadata.mockRejectedValue(new Error("Engine worker crashed"));
+
+    await discardMailboxDraft({
+      client,
+      emailAccountId: "account",
+      messageIds: ["m1"],
+      draftId: "d1",
+    });
+
+    expect(discardComposeDraftAction).toHaveBeenCalledWith("account", {
+      draftId: "d1",
+    });
+  });
+
+  it("explains an engine refusal when there's no provider draft to fall back on", async () => {
+    await expect(
+      discardMailboxDraft({
+        client: engineClient({ status: "rejected", code: "queue_full" }),
+        emailAccountId: "account",
+        messageIds: ["m1"],
+      }),
+    ).rejects.toThrow(admissionRejectionCopy("queue_full") ?? "");
+  });
+
+  it("reports why the direct delete failed", async () => {
+    discardComposeDraftAction.mockResolvedValue({
+      serverError: "Draft not found",
+    });
+
+    await expect(
+      discardMailboxDraft({
+        client: null,
+        emailAccountId: "account",
+        messageIds: ["m1"],
+        draftId: "d1",
+      }),
+    ).rejects.toThrow("Draft not found");
   });
 
   it("fails when there is neither an engine nor a provider draft to delete", async () => {

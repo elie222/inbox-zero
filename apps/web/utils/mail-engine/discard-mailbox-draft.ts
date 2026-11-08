@@ -26,17 +26,24 @@ export async function discardMailboxDraft({
 }) {
   let rejection: string | undefined;
   if (client && messageIds.length > 0) {
-    const admission = await client.submitMetadata({
-      accountId: emailAccountId,
-      commandId: randomUuid(),
-      targets: messageIds.map((messageId) => ({
+    try {
+      const admission = await client.submitMetadata({
         accountId: emailAccountId,
-        messageId,
-      })),
-      change: { kind: "discard_draft", ...(draftId ? { draftId } : {}) },
-    });
-    if (admission.status !== "rejected") return;
-    rejection = admissionRejectionCopy(admission.code) ?? undefined;
+        commandId: randomUuid(),
+        targets: messageIds.map((messageId) => ({
+          accountId: emailAccountId,
+          messageId,
+        })),
+        change: { kind: "discard_draft", ...(draftId ? { draftId } : {}) },
+      });
+      if (admission.status !== "rejected") return;
+      rejection = admissionRejectionCopy(admission.code) ?? undefined;
+    } catch (error) {
+      // The engine may have admitted the discard before failing; deleting
+      // directly is still safe, because its own delete then finds the draft
+      // gone and settles as applied.
+      if (!draftId) throw error;
+    }
   }
   if (!draftId) throw new Error(rejection ?? "Failed to discard draft");
 
