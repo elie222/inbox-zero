@@ -43,6 +43,26 @@ describe("engine catch-up after a long gap", () => {
     await engine.close();
   });
 
+  it("retries the newest page after a failed fetch", async () => {
+    const store = await storeWithCheckpoint("h-0");
+    const source = historySource({ historyPages: 40, failedNewestReads: 1 });
+    const engine = createMailEngine({
+      store,
+      source: source.port,
+      executor: idleExecutor(),
+      runtime: createHostRuntime({ nowMs: () => 1000 }),
+    });
+
+    for (let run = 0; run < 6; run += 1) {
+      await engine.runUntil(Date.now() + 2000);
+    }
+
+    expect(source.newestPageReads()).toBe(2);
+    expect(await inboxSubjects(store)).toContain("newest");
+    expect(source.historyReads()).toBeLessThan(40);
+    await engine.close();
+  });
+
   it("replays a short backlog without fetching the newest page", async () => {
     const store = await storeWithCheckpoint("h-0");
     const source = historySource({ historyPages: 2 });
@@ -109,7 +129,13 @@ async function streamCheckpoint(
 
 // Change history replays oldest first: each page holds one older change, and
 // the newest message only arrives on the last page.
-function historySource({ historyPages }: { historyPages: number }) {
+function historySource({
+  historyPages,
+  failedNewestReads = 0,
+}: {
+  historyPages: number;
+  failedNewestReads?: number;
+}) {
   let historyReads = 0;
   let newestPageReads = 0;
   const port: MailboxSource = {
@@ -145,6 +171,9 @@ function historySource({ historyPages }: { historyPages: number }) {
     },
     async enumerate() {
       newestPageReads += 1;
+      if (newestPageReads <= failedNewestReads) {
+        return { status: "paused", retryAfterMs: 0, reason: "unavailable" };
+      }
       return {
         status: "ok",
         value: {

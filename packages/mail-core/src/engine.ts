@@ -1194,7 +1194,7 @@ export function createMailEngine(input: {
     for (const position of behindStreams) {
       if (signal.aborted) return;
       await yieldToHost();
-      await ingestNewestPage(session, position, signal);
+      await ingestNewestPage(session, idleGate, position, signal);
     }
     await catchUpAssistantIfDue(idleGate, account, signal);
   }
@@ -1281,6 +1281,7 @@ export function createMailEngine(input: {
   // the replay still covers every older change behind them.
   async function ingestNewestPage(
     session: { accountId: string; generation: string },
+    idleGate: IdleCatchUpGate,
     position: SyncStreamPosition,
     signal: AbortSignal,
   ) {
@@ -1295,7 +1296,7 @@ export function createMailEngine(input: {
         afterMs: null,
       });
       if (bootstrap.status !== "ok") {
-        await noteConnection(session.accountId, bootstrap.status);
+        await failNewestPage(bootstrap.status);
         return;
       }
       const newest = await source.enumerate({
@@ -1307,7 +1308,7 @@ export function createMailEngine(input: {
         pageSize: 50,
       });
       if (newest.status !== "ok") {
-        await noteConnection(session.accountId, newest.status);
+        await failNewestPage(newest.status);
         return;
       }
       const page = withoutMessagesSettledSince(
@@ -1331,6 +1332,13 @@ export function createMailEngine(input: {
       if (applied.status === "committed") await queries.refreshAll();
     } finally {
       closeChangeRead(readFence);
+    }
+
+    // Re-arms the trigger, so a stream still behind tries again after the
+    // same number of replay pages instead of waiting out the whole replay.
+    async function failNewestPage(status: string) {
+      idleGate.streamBacklogPages.delete(position.streamId);
+      await noteConnection(session.accountId, status);
     }
   }
 
