@@ -39,6 +39,7 @@ import {
   requiresThreadIds,
 } from "@/utils/ai/assistant/manage-inbox-actions";
 import type { DeleteRuleOutput } from "@/utils/ai/assistant/tools/rules/delete-rule-tool";
+import { PremiumAlertWithData } from "@/components/PremiumAlert";
 import { getUserVisibleToolFailureMessage } from "@/utils/ai/assistant/chat-response-guard";
 import { pluralize } from "@/utils/string";
 import { parseMailScreenAction } from "@/utils/ai/assistant/mail-screen-action";
@@ -814,12 +815,15 @@ export function MessagePart({
     return renderToolStatus({
       part,
       loadingText: "Starting sender categorization...",
-      renderSuccess: ({ toolCallId, output }) => (
-        <BasicToolInfo
-          key={toolCallId}
-          text={getStartSenderCategorizationSuccessText(output)}
-        />
-      ),
+      renderSuccess: ({ toolCallId, output }) =>
+        getOutputField<boolean>(output, "upgradeRequired") ? (
+          <PremiumAlertWithData key={toolCallId} className="my-2" />
+        ) : (
+          <BasicToolInfo
+            key={toolCallId}
+            text={getStartSenderCategorizationSuccessText(output)}
+          />
+        ),
     });
   }
 

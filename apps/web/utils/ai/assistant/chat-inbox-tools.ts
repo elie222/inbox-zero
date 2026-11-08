@@ -368,6 +368,15 @@ export const startSenderCategorizationTool = ({
           logger,
         });
       } catch (error) {
+        if (error instanceof SafeError && error.statusCode === 403) {
+          logger.info("Sender categorization needs an upgrade");
+          return {
+            upgradeRequired: true as const,
+            message:
+              "Nothing was started. Sender categorization needs a plan with AI access, and the chat is showing the user an upgrade option.",
+          };
+        }
+
         if (error instanceof SafeError) {
           logger.warn("Unable to start sender categorization", { error });
           return { error: error.message };
