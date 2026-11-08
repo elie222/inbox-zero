@@ -286,10 +286,12 @@ export function MailSetupPanel({
                   name="default-tab"
                   value={split.id}
                   checked={split.id === defaultId}
-                  onChange={() => {
-                    onUpdatePreferences({ defaultSplitId: split.id });
-                    onSelectSplit(split.id);
-                  }}
+                  onChange={() =>
+                    onUpdatePreferences({ defaultSplitId: split.id })
+                  }
+                  // Click also fires for the already-checked option, which
+                  // onChange skips, so picking it still shows that tab.
+                  onClick={() => onSelectSplit(split.id)}
                   className="sr-only"
                 />
                 <span className="flex-1 truncate">{split.name}</span>
