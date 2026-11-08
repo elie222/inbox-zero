@@ -9,6 +9,7 @@ import { splitRecipientList } from "@/utils/email";
 import { fetchWithAccount } from "@/utils/fetch";
 import { getActiveMailClient } from "@/utils/mail-engine/active-client";
 import type { SendEmailBody } from "@/utils/types/mail";
+import { randomUuid } from "@/utils/uuid";
 
 /**
  * A file already on the mailbox draft. Only the reference is stored locally;
@@ -65,6 +66,7 @@ const listeners = new Set<(scope: ReplyDraftScope) => void>();
 // drafts in this tab's list.
 const otherTabDraftThreads = new Map<string, string>();
 const PRESENCE_REQUEST = "reply-draft-presence-request";
+const TAB_ID = randomUuid();
 const accountEpoch = new Map<string, number>();
 const channel =
   typeof window !== "undefined" && typeof BroadcastChannel !== "undefined"
@@ -147,8 +149,9 @@ channel?.addEventListener("message", (event) => {
     typeof scope?.threadId !== "string"
   )
     return;
-  if (typeof scope.messageId === "string") {
-    const key = draftKey(scope);
+  if (typeof scope.messageId === "string" && typeof scope.tabId === "string") {
+    // Two tabs can hold the same draft; one clearing it mustn't drop the other's.
+    const key = `${scope.tabId}:${draftKey(scope)}`;
     if (scope.present === true)
       otherTabDraftThreads.set(
         key,
@@ -637,6 +640,7 @@ function notifyReplyDraftChange(identity: ReplyDraftIdentity) {
   channel?.postMessage({
     ...scope,
     messageId: identity.messageId,
+    tabId: TAB_ID,
     present: Boolean(drafts.get(draftKey(identity))?.content),
   });
 }
