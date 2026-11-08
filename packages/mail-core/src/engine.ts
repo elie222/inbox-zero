@@ -1335,7 +1335,9 @@ export function createMailEngine(input: {
         bodies: page.bodies,
       });
       if (applied.status === "committed") {
-        idleGate.newestPageIngested.add(position.streamId);
+        // A stopped lane may have been replaced, and its late result must not
+        // mark a newer backlog as already shown.
+        if (!signal.aborted) idleGate.newestPageIngested.add(position.streamId);
         await queries.refreshAll();
       }
     } finally {
