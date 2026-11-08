@@ -108,7 +108,8 @@ async function markOnboardingComplete(email: string) {
           `UPDATE "EmailAccount"
            SET "behaviorProfile" = '{}'::jsonb,
                "personaAnalysis" = '{}'::jsonb,
-               "writingStyle" = 'Playwright seeded writing style'
+               "writingStyle" = 'Playwright seeded writing style',
+               "mailSetup" = 'DONE'
            WHERE email = $1`,
           [email],
         );

@@ -200,6 +200,8 @@ model EmailAccount {
   /// Collapses threads from bundled splits into one row each in the inbox.
   /// Null until first turned on, which is when default bundles are chosen.
   mailBundleInbox     Boolean?
+  mailDefaultSplitId  String?
+  mailSetup           MailSetupState @default(PENDING)
 
   includeInAllAccounts Boolean @default(true)
 
@@ -297,6 +299,7 @@ model MailSplit {
   matchAll  Boolean  @default(true)
   /// Shown as one collapsed row in the inbox when the account bundles its inbox.
   bundleInInbox Boolean @default(false)
+  hideFromAll   Boolean @default(false)
 
   emailAccountId String
   emailAccount   EmailAccount      @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
@@ -2231,6 +2234,12 @@ enum Frequency {
 enum MailLayout {
   LIST
   SPLIT
+}
+
+enum MailSetupState {
+  PENDING
+  SUGGESTED
+  DONE
 }
 
 enum MailSplitFilterKind {

@@ -7,6 +7,8 @@ export function getMailAccountUrl(accountId: string, search: string) {
   params.delete("thread-id");
   params.delete("thread-account-id");
   params.delete("side-panel-thread-id");
+  // Setup state is per account, so the next account decides whether it shows.
+  params.delete("setup");
   // A chat belongs to one account, so it cannot follow the user to another.
   params.delete("chatId");
   params.delete("labelId");

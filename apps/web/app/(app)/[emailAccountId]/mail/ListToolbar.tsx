@@ -24,6 +24,7 @@ import {
   PanelLeftIcon,
   RowsIcon,
   SearchIcon,
+  SlidersHorizontalIcon,
   SparklesIcon,
   SplitIcon,
   StarIcon,
@@ -85,6 +86,10 @@ export type ListToolbarProps = {
   /** Omitted outside the single-account inbox, where bundling never applies. */
   onToggleBundleInbox?: () => void;
   onToggleAssistant: () => void;
+  /** Omitted where the setup card can't apply, or while it's open. */
+  onOpenSetup?: () => void;
+  /** Marks the setup button until the reader has been through setup once. */
+  isSetupSuggested: boolean;
   /** Rendered here only when the split tabs row isn't showing to hold it. */
   selectAll?: ReactNode;
   selectedCount: number;
@@ -123,6 +128,8 @@ export const ListToolbar = memo(function ListToolbar({
   bundleInbox,
   onToggleBundleInbox,
   onToggleAssistant,
+  onOpenSetup,
+  isSetupSuggested,
   selectAll,
   selectedCount,
   onArchiveSelected,
@@ -303,6 +310,25 @@ export const ListToolbar = memo(function ListToolbar({
           searchVariant={searchVariant}
         />
       )}
+
+      {selectedCount === 0 && onOpenSetup ? (
+        <Tooltip content="Mail setup">
+          <button
+            type="button"
+            onClick={onOpenSetup}
+            aria-label="Mail setup"
+            className={cn(toolbarButton, "relative w-8 justify-center px-0")}
+          >
+            <SlidersHorizontalIcon className="size-3.5" />
+            {isSetupSuggested && (
+              <span className="absolute top-1 right-1 flex size-2">
+                <span className="absolute inline-flex size-full animate-ping rounded-full bg-blue-500 opacity-75 motion-reduce:animate-none" />
+                <span className="relative inline-flex size-2 rounded-full bg-blue-500" />
+              </span>
+            )}
+          </button>
+        </Tooltip>
+      ) : null}
 
       {selectedCount === 0 && onToggleBundleInbox ? (
         <Tooltip
