@@ -421,7 +421,11 @@ export async function aiProcessAssistantChat({
         toolChoice: "none",
       };
     },
-    tools: guardChatTools(allTools, logger),
+    tools: guardChatTools(allTools, logger, {
+      // The client applies mail screen actions as the call streams in, so a
+      // server-side rejection would arrive after the screen already changed.
+      skipEmailIdCheck: ["controlMailScreen"],
+    }),
     abortSignal,
   });
 

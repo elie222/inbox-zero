@@ -1767,7 +1767,13 @@ describe("aiProcessAssistantChat", () => {
   });
 
   it("returns exact rule execution history for a specific message", async () => {
-    const tools = await captureToolSet(true, "google");
+    const tools = await captureToolSet(
+      true,
+      "google",
+      conversationWithSearchResults([
+        { messageId: "message-1", threadId: "thread-1" },
+      ]),
+    );
 
     mockPrisma.executedRule.findMany.mockResolvedValue([
       {
@@ -1926,7 +1932,13 @@ describe("aiProcessAssistantChat", () => {
   });
 
   it("marks an empty rule execution history as missing evidence", async () => {
-    const tools = await captureToolSet(true, "google");
+    const tools = await captureToolSet(
+      true,
+      "google",
+      conversationWithSearchResults([
+        { messageId: "message-without-history", threadId: "thread-1" },
+      ]),
+    );
 
     mockPrisma.executedRule.findMany.mockResolvedValue([]);
 
@@ -1948,7 +1960,13 @@ describe("aiProcessAssistantChat", () => {
   });
 
   it("marks ambiguous skipped execution history as inconclusive", async () => {
-    const tools = await captureToolSet(true, "google");
+    const tools = await captureToolSet(
+      true,
+      "google",
+      conversationWithSearchResults([
+        { messageId: "message-fallback", threadId: "thread-1" },
+      ]),
+    );
 
     mockPrisma.executedRule.findMany.mockResolvedValue([
       {
@@ -1982,7 +2000,13 @@ describe("aiProcessAssistantChat", () => {
   });
 
   it("keeps applied execution evidence when the original rule is unavailable", async () => {
-    const tools = await captureToolSet(true, "google");
+    const tools = await captureToolSet(
+      true,
+      "google",
+      conversationWithSearchResults([
+        { messageId: "message-deleted-rule", threadId: "thread-1" },
+      ]),
+    );
 
     mockPrisma.executedRule.findMany.mockResolvedValue([
       {
@@ -2183,7 +2207,13 @@ describe("aiProcessAssistantChat", () => {
   });
 
   it("forwards email with allowlisted chat params only", async () => {
-    const tools = await captureToolSet(true, "google");
+    const tools = await captureToolSet(
+      true,
+      "google",
+      conversationWithSearchResults([
+        { messageId: "message-1", threadId: "thread-1" },
+      ]),
+    );
     const message = getMockMessage({ id: "message-1", threadId: "thread-1" });
     const getMessage = vi.fn().mockResolvedValue(message);
     const forwardEmail = vi.fn().mockResolvedValue(undefined);
@@ -2776,7 +2806,14 @@ describe("aiProcessAssistantChat", () => {
   });
 
   it("executes searchInbox and manageInbox tools with resilient behavior", async () => {
-    const tools = await captureToolSet(true, "microsoft");
+    const tools = await captureToolSet(
+      true,
+      "microsoft",
+      conversationWithSearchResults([
+        { messageId: "message-1", threadId: "thread-1" },
+        { messageId: "message-2", threadId: "thread-2" },
+      ]),
+    );
 
     const archiveThreadWithLabel = vi
       .fn()
@@ -2870,6 +2907,37 @@ describe("aiProcessAssistantChat", () => {
     );
   });
 });
+
+// The chat only acts on email IDs that earlier tool results returned.
+function conversationWithSearchResults(
+  results: Array<{ messageId: string; threadId: string }>,
+): ModelMessage[] {
+  return [
+    ...baseMessages,
+    {
+      role: "assistant",
+      content: [
+        {
+          type: "tool-call",
+          toolCallId: "search-1",
+          toolName: "searchInbox",
+          input: { query: "in:inbox" },
+        },
+      ],
+    },
+    {
+      role: "tool",
+      content: [
+        {
+          type: "tool-result",
+          toolCallId: "search-1",
+          toolName: "searchInbox",
+          output: { type: "json", value: { messages: results } },
+        },
+      ],
+    },
+  ];
+}
 
 // Mirrors what the AI SDK passes to execute, so chat tool guards see the
 // conversation the call was made in.

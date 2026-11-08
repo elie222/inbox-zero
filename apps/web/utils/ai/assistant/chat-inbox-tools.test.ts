@@ -878,6 +878,72 @@ describe("chat inbox tools", () => {
       failedThreadIds: ["thread-1"],
     });
   });
+
+  it("retries a thread action with the thread ID when given a message ID", async () => {
+    const markReadThread = vi.fn(async (threadId: string) => {
+      if (threadId !== "thread-1") {
+        throw new Error("Requested entity was not found.");
+      }
+    });
+    const getMessage = vi
+      .fn()
+      .mockResolvedValue({ id: "message-2", threadId: "thread-1" });
+
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      markReadThread,
+      getMessage,
+    } as any);
+
+    const result = await (
+      manageInboxTool({
+        email: TEST_EMAIL,
+        emailAccountId: "email-account-1",
+        provider: "google",
+        logger,
+      }).execute as any
+    )({
+      action: "mark_read_threads",
+      read: true,
+      threadIds: ["message-2"],
+    });
+
+    expect(getMessage).toHaveBeenCalledWith("message-2");
+    expect(markReadThread).toHaveBeenLastCalledWith("thread-1", true);
+    expect(result).toMatchObject({ success: true, successCount: 1 });
+  });
+
+  it("reports a missing thread as failed when the ID is not a message either", async () => {
+    const markReadThread = vi
+      .fn()
+      .mockRejectedValue(new Error("Requested entity was not found."));
+    const getMessage = vi
+      .fn()
+      .mockRejectedValue(new Error("Requested entity was not found."));
+
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      markReadThread,
+      getMessage,
+    } as any);
+
+    const result = await (
+      manageInboxTool({
+        email: TEST_EMAIL,
+        emailAccountId: "email-account-1",
+        provider: "google",
+        logger,
+      }).execute as any
+    )({
+      action: "mark_read_threads",
+      read: true,
+      threadIds: ["missing-1"],
+    });
+
+    expect(markReadThread).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({
+      success: false,
+      failedThreadIds: ["missing-1"],
+    });
+  });
 });
 
 function serializeToolContract(toolInstance: {
