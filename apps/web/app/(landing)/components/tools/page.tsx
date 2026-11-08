@@ -493,9 +493,7 @@ export default function ToolsPage() {
             }}
           />
 
-          <MutedText>
-            Category already cleaned up (no inbox mail left):
-          </MutedText>
+          <MutedText>Category with no messages archived:</MutedText>
           <ManageSenderCategoryResult
             output={{
               success: true,
@@ -505,7 +503,7 @@ export default function ToolsPage() {
               archivedMessagesCount: 0,
               senders: ["status@example.com", "billing@example.com"],
               message:
-                'No inbox mail was left to archive from the 2 senders in "Updates".',
+                'No messages were archived from the 2 senders in "Updates".',
             }}
           />
 

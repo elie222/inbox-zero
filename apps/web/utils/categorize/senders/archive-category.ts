@@ -87,7 +87,7 @@ export async function archiveCategory({
     message:
       archivedMessagesCount > 0
         ? `Archived ${archivedMessagesCount} ${pluralize(archivedMessagesCount, "message")} from ${sendersCount} ${pluralize(sendersCount, "sender")} in "${resolvedName}".`
-        : `No inbox mail was left to archive from the ${sendersCount} ${pluralize(sendersCount, "sender")} in "${resolvedName}".`,
+        : `No messages were archived from the ${sendersCount} ${pluralize(sendersCount, "sender")} in "${resolvedName}".`,
   };
 }
 

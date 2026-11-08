@@ -121,7 +121,7 @@ describe("archiveCategory", () => {
     });
   });
 
-  it("says nothing was archived when the senders had no inbox mail left", async () => {
+  it("says no messages were archived when the provider moved none", async () => {
     prisma.category.findFirst.mockResolvedValue({
       id: "cat-1",
       name: "Newsletters",
@@ -130,21 +130,25 @@ describe("archiveCategory", () => {
       { email: "sender@example.com" },
     ] as never);
 
+    const bulkArchiveFromSenders = vi.fn().mockResolvedValue(0);
+
     const result = await archiveCategory({
       email: "owner@example.com",
       emailAccountId: "account-1",
-      emailProvider: {
-        bulkArchiveFromSenders: vi.fn().mockResolvedValue(0),
-      } as never,
+      emailProvider: { bulkArchiveFromSenders } as never,
       logger,
       categoryId: "cat-1",
     });
 
+    expect(bulkArchiveFromSenders).toHaveBeenCalledWith(
+      ["sender@example.com"],
+      "owner@example.com",
+      "account-1",
+    );
     expect(result).toMatchObject({
       sendersCount: 1,
       archivedMessagesCount: 0,
-      message:
-        'No inbox mail was left to archive from the 1 sender in "Newsletters".',
+      message: 'No messages were archived from the 1 sender in "Newsletters".',
     });
   });
 

@@ -402,7 +402,11 @@ export function ManageSenderCategoryResult({ output }: { output: unknown }) {
 
   return (
     <CollapsibleToolCard
-      title={`Archived "${categoryName}" category`}
+      title={
+        archivedMessagesCount === 0
+          ? `No messages archived in "${categoryName}"`
+          : `Archived "${categoryName}" category`
+      }
       badge={
         typeof archivedMessagesCount === "number" ? (
           <Badge

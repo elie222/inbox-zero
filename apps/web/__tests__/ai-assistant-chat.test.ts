@@ -2565,7 +2565,7 @@ describe("aiProcessAssistantChat", () => {
 
   it("reports how many messages sender archiving actually moved", async () => {
     const tools = await captureToolSet();
-    const bulkArchiveFromSenders = vi.fn().mockResolvedValue(0);
+    const bulkArchiveFromSenders = vi.fn().mockResolvedValue(7);
     mockCreateEmailProvider.mockResolvedValue({ bulkArchiveFromSenders });
 
     const result = await tools.manageInbox.execute({
@@ -2573,11 +2573,16 @@ describe("aiProcessAssistantChat", () => {
       fromEmails: ["done@example.com", "also-done@example.com"],
     });
 
+    expect(bulkArchiveFromSenders).toHaveBeenCalledWith(
+      ["done@example.com", "also-done@example.com"],
+      expect.any(String),
+      "email-account-id",
+    );
     expect(result).toEqual(
       expect.objectContaining({
         success: true,
         sendersCount: 2,
-        archivedMessagesCount: 0,
+        archivedMessagesCount: 7,
       }),
     );
   });

@@ -1,6 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/prisma";
 import { getCategoryOverview } from "@/utils/categorize/senders/get-category-overview";
+import { updateEmailMessagesForSender } from "@/utils/email/bulk-action-tracking";
 
 vi.mock("@/utils/redis/categorization-progress", () => ({
   getCategorizationProgress: vi.fn(async () => null),
@@ -62,6 +63,26 @@ describe.skipIf(!process.env.RUN_DB_TESTS)(
       expect(
         result.categories[0].sampleSenders.map((sender) => sender.email).sort(),
       ).toEqual(["mixed.case@example.com", "still@example.com"]);
+    });
+
+    it("stops counting a mixed-case sender once its mail is archived", async () => {
+      const category = await prisma.category.create({
+        data: { emailAccountId, name: "Newsletters" },
+      });
+      await createSender("Mixed.Case@example.com", category.id, [true, true]);
+
+      await updateEmailMessagesForSender({
+        sender: "mixed.case@example.com",
+        messageIds: [
+          "Mixed.Case@example.com-message-0",
+          "Mixed.Case@example.com-message-1",
+        ],
+        emailAccountId,
+        action: "archive",
+      });
+
+      const result = await getCategoryOverview({ emailAccountId });
+      expect(result.categorizedSenderCount).toBe(0);
     });
 
     it("keeps categories whose senders are all cleaned up, with a zero count", async () => {
