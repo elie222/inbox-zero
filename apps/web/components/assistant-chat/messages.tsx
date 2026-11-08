@@ -66,7 +66,13 @@ export function Messages({
                           message.parts,
                           partIndex,
                         );
-                        if (!outputs.length) return null;
+                        if (
+                          !outputs.length &&
+                          "output" in part &&
+                          isToolErrorHiddenFromUser(part.output)
+                        ) {
+                          return null;
+                        }
                         if (
                           outputs.length > 1 ||
                           ("output" in part &&

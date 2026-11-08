@@ -148,22 +148,39 @@ function findPreviousFailureInTurn({
   }
   if (!matchingCallIds.size) return null;
 
+  // A failed call may be repeated once after another tool call succeeds, since
+  // that is how the model recovers (refreshing stale rule state, creating a
+  // missing label). A second identical failure is always final.
+  let firstFailure: string | null = null;
+  let failureCount = 0;
+  let recoveredSinceFailure = false;
   for (const message of turnMessages) {
     if (message.role !== "tool") continue;
     for (const part of message.content) {
-      if (part.type !== "tool-result" || !matchingCallIds.has(part.toolCallId))
-        continue;
+      if (part.type !== "tool-result") continue;
 
-      if (isRetryableFailure(part.output)) continue;
-      const failure = getToolResultFailure(part.output);
-      if (failure) return failure;
+      const failure = isRetryableFailure(part.output)
+        ? null
+        : getToolResultFailure(part.output);
+      if (!matchingCallIds.has(part.toolCallId)) {
+        if (failureCount && !failure) recoveredSinceFailure = true;
+        continue;
+      }
+      if (!failure) continue;
+
+      firstFailure ??= failure;
+      failureCount++;
+      recoveredSinceFailure = false;
     }
   }
 
-  return null;
+  if (!failureCount) return null;
+  if (failureCount === 1 && recoveredSinceFailure) return null;
+  return firstFailure;
 }
 
-// Tools flag transient provider failures as retryable; repeating those is fine.
+// Some tools (such as Gmail search) flag transient failures as retryable;
+// repeating those unchanged is fine.
 function isRetryableFailure(output: ToolResultPart["output"]) {
   if (output.type !== "json" || !isObject(output.value)) return false;
   const value = output.value as Record<string, unknown>;

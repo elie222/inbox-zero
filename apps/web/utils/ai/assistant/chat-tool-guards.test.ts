@@ -109,6 +109,28 @@ describe("guardChatTools", () => {
     expect(execute).not.toHaveBeenCalled();
   });
 
+  it("blocks a second identical failure even after a recovery step", async () => {
+    const { tools, execute } = buildTools();
+    const input = { threadIds: ["t1"] };
+
+    const result = await runArchive(tools, input, [
+      { role: "user", content: "archive t1" },
+      toolCall("call-1", input),
+      toolResult("call-1", { error: "Rule state is stale" }),
+      otherToolCall("call-2"),
+      otherToolResult("call-2", { rules: [] }),
+      toolCall("call-3", input),
+      toolResult("call-3", { error: "Rule state is stale" }),
+      otherToolCall("call-4"),
+      otherToolResult("call-4", { rules: [] }),
+    ]);
+
+    expect(result).toMatchObject({
+      error: expect.stringContaining("already failed"),
+    });
+    expect(execute).not.toHaveBeenCalled();
+  });
+
   it.each([
     {
       name: "the earlier call succeeded",
@@ -138,6 +160,16 @@ describe("guardChatTools", () => {
       ],
     },
     {
+      name: "another tool call succeeded after the failure",
+      messages: [
+        { role: "user", content: "archive t1" },
+        toolCall("call-1", { threadIds: ["t1"] }),
+        toolResult("call-1", { error: "Rule state is stale" }),
+        otherToolCall("call-2"),
+        otherToolResult("call-2", { rules: [] }),
+      ],
+    },
+    {
       name: "the failure was in an earlier turn",
       messages: [
         { role: "user", content: "archive these" },
@@ -162,6 +194,32 @@ function toolCall(toolCallId: string, input: unknown): ModelMessage {
   return {
     role: "assistant",
     content: [{ type: "tool-call", toolCallId, toolName: "archive", input }],
+  };
+}
+
+function otherToolCall(toolCallId: string): ModelMessage {
+  return {
+    role: "assistant",
+    content: [
+      { type: "tool-call", toolCallId, toolName: "getRules", input: {} },
+    ],
+  };
+}
+
+function otherToolResult(
+  toolCallId: string,
+  value: Record<string, unknown>,
+): ModelMessage {
+  return {
+    role: "tool",
+    content: [
+      {
+        type: "tool-result",
+        toolCallId,
+        toolName: "getRules",
+        output: { type: "json", value: value as never },
+      },
+    ],
   };
 }
 
