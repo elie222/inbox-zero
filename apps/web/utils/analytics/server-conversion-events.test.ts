@@ -7,6 +7,7 @@ const { envMock, publishToQstashMock } = vi.hoisted(() => ({
     NEXT_PUBLIC_BASE_URL: "https://example.com",
     CONVERSION_ANALYTICS_SERVER_URL: "/rill",
     CONVERSION_ANALYTICS_SERVER_SECRET: undefined as string | undefined,
+    NEXT_PUBLIC_STRIPE_BUSINESS_ANNUALLY_PRICE_ID: "price_starter_annual",
   },
   publishToQstashMock: vi.fn(),
 }));
@@ -268,6 +269,30 @@ describe("getStripeSubscriptionConversionProperties", () => {
         currency: "USD",
       },
     });
+  });
+
+  it("values graduated per-person prices at their list price", () => {
+    // Graduated prices have no unit_amount: $240/yr for the first 2 accounts,
+    // then $120/yr for each further one.
+    const subscription = {
+      metadata: {},
+      items: {
+        data: [
+          {
+            quantity: 3,
+            price: {
+              id: "price_starter_annual",
+              unit_amount: null,
+              currency: "usd",
+            },
+          },
+        ],
+      },
+    } as unknown as Stripe.Subscription;
+
+    expect(
+      getStripeSubscriptionConversionProperties(subscription).properties.amount,
+    ).toBe(36_000);
   });
 
   it("extracts conversion click metadata from stored UTMs", () => {
