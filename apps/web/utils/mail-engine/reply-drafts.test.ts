@@ -6,6 +6,7 @@ import {
   createReplyDraftWriter,
   dropReplyDraftDeletedFromMailbox,
   getDraftSessionMessageIds,
+  getLocalReplyDraftThreadIds,
   rememberReplacedDraftMessage,
   getReplyDraft,
   getReplyDraftForSession,
@@ -51,6 +52,18 @@ describe("local reply drafts", () => {
   });
 
   afterEach(() => setActiveMailClient(null));
+
+  it("lists a thread with an unsent reply until the reply is cleared", async () => {
+    const writer = createReplyDraftWriter(replyIdentity);
+    expect(getLocalReplyDraftThreadIds("account")).toBe("");
+
+    await writer.save(content);
+    expect(getLocalReplyDraftThreadIds("account")).toBe("thread");
+    expect(getLocalReplyDraftThreadIds("other-account")).toBe("");
+
+    await writer.clear();
+    expect(getLocalReplyDraftThreadIds("account")).toBe("");
+  });
 
   it("loads saved reply and forward sessions when a thread opens", async () => {
     const client = createRevisionCheckingClient();

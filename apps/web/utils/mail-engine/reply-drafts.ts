@@ -148,6 +148,21 @@ export function subscribeToReplyDrafts(
   };
 }
 
+/**
+ * Threads this tab holds an unsent reply draft for, whether or not a provider
+ * save has put it in the mailbox yet. Joined with commas so the value is
+ * stable between changes.
+ */
+export function getLocalReplyDraftThreadIds(emailAccountId: string) {
+  const threadIds = new Set<string>();
+  for (const draft of drafts.values()) {
+    if (draft.emailAccountId === emailAccountId && draft.content) {
+      threadIds.add(draft.threadId);
+    }
+  }
+  return [...threadIds].sort().join(",");
+}
+
 export async function getReplyDraft(identity: ReplyDraftIdentity) {
   await pendingWrites.get(draftKey(identity))?.catch(() => {});
   assertAccountEpoch(identity.emailAccountId);

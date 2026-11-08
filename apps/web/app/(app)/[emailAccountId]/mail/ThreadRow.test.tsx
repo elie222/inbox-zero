@@ -1,7 +1,13 @@
 /** @vitest-environment jsdom */
 
 import React from "react";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ThreadRow } from "./ThreadRow";
 import type { ListThread } from "./types";
@@ -9,9 +15,26 @@ import type { EmailLabels } from "@/providers/email-label-types";
 
 (globalThis as { React?: typeof React }).React = React;
 
+const localDrafts = vi.hoisted(() => ({
+  threadIds: "",
+  listeners: new Set<() => void>(),
+}));
+
+vi.mock("@/providers/EmailAccountProvider", () => ({
+  useAccount: () => ({ emailAccountId: "account-1" }),
+}));
+vi.mock("@/utils/mail-engine/reply-drafts", () => ({
+  getLocalReplyDraftThreadIds: () => localDrafts.threadIds,
+  subscribeToReplyDrafts: (listener: () => void) => {
+    localDrafts.listeners.add(listener);
+    return () => localDrafts.listeners.delete(listener);
+  },
+}));
+
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  localDrafts.threadIds = "";
 });
 
 describe("ThreadRow", () => {
@@ -104,6 +127,18 @@ describe("ThreadRow", () => {
 
     expect(onSelectRangeTo).toHaveBeenCalledWith(0);
     expect(onOpen).toHaveBeenCalledWith(0);
+  });
+
+  it("marks the row as a draft as soon as a reply is typed, before any save", () => {
+    render(row(thread([undefined])));
+    expect(screen.queryByText("Draft")).toBeNull();
+
+    act(() => {
+      localDrafts.threadIds = "other-thread,thread-1";
+      for (const listener of localDrafts.listeners) listener();
+    });
+
+    expect(screen.getByText("Draft")).toBeTruthy();
   });
 
   it("does not offer a code to copy on ordinary mail with numbers", () => {
