@@ -1,15 +1,10 @@
 "use client";
 
-import { useState } from "react";
 import { AlertCircleIcon, ClockIcon, LoaderCircleIcon } from "lucide-react";
 import type { UpcomingScheduledEmailsResponse } from "@/app/api/user/scheduled-emails/route";
 import { InlineActionButton } from "@/components/InlineActionButton";
 import { LoadingContent } from "@/components/LoadingContent";
-import {
-  cancelScheduledEmailAction,
-  retryScheduledEmailAction,
-} from "@/utils/actions/scheduled-email";
-import { getActionErrorMessage } from "@/utils/error";
+import { useScheduledEmailActions } from "@/hooks/useScheduledEmailActions";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { useUpcomingScheduledEmails } from "@/hooks/useHiddenDraftMessageIds";
@@ -19,46 +14,13 @@ type ScheduledEmail =
 
 export function ScheduledEmailList() {
   const { emailAccountId } = useAccount();
-  const [actionError, setActionError] = useState("");
-  const [busy, setBusy] = useState(false);
-  const { data, isLoading, error, mutate } =
-    useUpcomingScheduledEmails(emailAccountId);
-
-  const runScheduledAction = async (
-    action: typeof cancelScheduledEmailAction,
-    id: string,
-  ) => {
-    const result = await action(emailAccountId, { id });
-    if (result?.serverError || result?.validationErrors)
-      throw new Error(getActionErrorMessage(result));
-  };
-
-  const act = async (action: () => Promise<unknown>) => {
-    setBusy(true);
-    setActionError("");
-    try {
-      await action();
-      // The action already succeeded; a refresh that fails is stale data, not a
-      // failed cancel, and SWR retries on its own.
-      await mutate().catch(() => {});
-    } catch (failure) {
-      setActionError(
-        failure instanceof Error ? failure.message : "Something went wrong",
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
+  const { data, isLoading, error } = useUpcomingScheduledEmails(emailAccountId);
+  const { cancelSend, retrySend } = useScheduledEmailActions(emailAccountId);
 
   const rows = data?.scheduledEmails ?? [];
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      {actionError && (
-        <p role="alert" className="px-4 py-2 text-destructive text-xs">
-          {actionError}
-        </p>
-      )}
       <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
         <LoadingContent loading={isLoading} error={error}>
           {rows.length === 0 ? (
@@ -92,17 +54,7 @@ export function ScheduledEmailList() {
                     {["PENDING", "BLOCKED_AUTH", "FAILED"].includes(
                       row.status,
                     ) && (
-                      <InlineActionButton
-                        disabled={busy}
-                        onClick={() =>
-                          act(() =>
-                            runScheduledAction(
-                              cancelScheduledEmailAction,
-                              row.id,
-                            ),
-                          )
-                        }
-                      >
+                      <InlineActionButton onClick={() => cancelSend(row.id)}>
                         Cancel send
                       </InlineActionButton>
                     )}
@@ -117,17 +69,7 @@ export function ScheduledEmailList() {
                       </a>
                     )}
                     {["BLOCKED_AUTH", "FAILED"].includes(row.status) && (
-                      <InlineActionButton
-                        disabled={busy}
-                        onClick={() =>
-                          act(() =>
-                            runScheduledAction(
-                              retryScheduledEmailAction,
-                              row.id,
-                            ),
-                          )
-                        }
-                      >
+                      <InlineActionButton onClick={() => retrySend(row.id)}>
                         Retry send
                       </InlineActionButton>
                     )}

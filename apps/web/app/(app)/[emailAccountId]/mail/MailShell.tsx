@@ -1586,7 +1586,7 @@ export function MailShell() {
   });
 
   const onMailboxItemDeleted = useCallback(
-    async (item: MailboxItem) => {
+    async (item: MailboxItem, deleted: Promise<boolean>) => {
       const isActive =
         item.kind === "folder"
           ? scopeFolderId === item.id
@@ -1614,7 +1614,9 @@ export function MailShell() {
         ]);
       }
       if (deletedActiveSplit) setActiveSplitId(null);
-      if (item.kind === "label") await mutateSettings();
+      // The delete action drops the label from saved splits once the
+      // provider has deleted it, so splits reload only after that.
+      if (item.kind === "label" && (await deleted)) await mutateSettings();
     },
     [
       mutateSettings,

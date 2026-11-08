@@ -6,8 +6,10 @@ import {
   useCallback,
   useEffect,
   useRef,
+  useState,
 } from "react";
 import { toast } from "sonner";
+import type { KeyedMutator } from "swr";
 import { MailAccountSwitcher } from "@/app/(app)/[emailAccountId]/mail/MailAccountSwitcher";
 import { SidebarCards } from "@/components/sidebar-cards/SidebarCards";
 import {
@@ -55,6 +57,7 @@ import type { MailboxLabelCount } from "@/utils/mail-engine/label-count-targets"
 import { OUTLOOK_CATEGORY_COLORS } from "@/utils/outlook/category-colors";
 import { prefixPath } from "@/utils/path";
 import { getEmailTerminology } from "@/utils/terminology";
+import { randomUuid } from "@/utils/uuid";
 
 const OUTLOOK_LABEL_COLOR_OPTIONS = OUTLOOK_CATEGORY_COLORS.map((option) => ({
   name: option.name,
@@ -91,8 +94,14 @@ export const MailShellSidebar = memo(function MailShellSidebar({
   isDesktopApp: boolean;
   onSelectAccount: (accountId: string) => void;
   onSelectAllAccounts: () => void;
-  /** Leaves a view or split that the deleted label or folder defined. */
-  onMailboxItemDeleted: (item: MailboxItem) => Promise<unknown>;
+  /**
+   * Leaves a view or split that the deleted label or folder defined.
+   * `deleted` resolves to whether the provider confirmed the delete.
+   */
+  onMailboxItemDeleted: (
+    item: MailboxItem,
+    deleted: Promise<boolean>,
+  ) => Promise<unknown>;
   onNavigate: () => void;
   isMobileNavOpen: boolean;
   onMobileNavOpenChange: (open: boolean) => void;
@@ -131,69 +140,118 @@ export const MailShellSidebar = memo(function MailShellSidebar({
     [emailAccountId],
   );
 
+  // Label and folder lists come from the provider rather than the mailbox, so
+  // these skip the mail engine. Each change shows at once and stays until the
+  // list reloads from the provider; a refused change rolls back with an error.
+  // A label shows under a placeholder id until the provider creates it; an
+  // edit or delete made meanwhile waits for the real id, and the sidebar keeps
+  // keying the row by its placeholder so it isn't remounted.
+  const creatingLabels = useRef(new Map<string, Promise<string>>());
+  const [labelKeys, setLabelKeys] = useState<ReadonlyMap<string, string>>(
+    () => new Map(),
+  );
+  const resolveLabelId = useCallback(
+    async (id: string) => (await creatingLabels.current.get(id)) ?? id,
+    [],
+  );
+
   const onCreateLabel = useCallback(
-    async (name: string) => {
-      const result = await createLabelAction(emailAccountId, { name });
-      if (result?.serverError || result?.validationErrors) {
-        toast.error(getActionErrorMessage(result));
-        return;
-      }
-      // Without this the label the user just typed doesn't appear until an
-      // unrelated revalidation happens to run.
-      await mutateLabels();
-      toast.success(
-        `${terminology.label.singularCapitalized} "${name}" created`,
+    (name: string) => {
+      const placeholderId = `pending:${randomUuid()}`;
+      const created = createLabelAction(emailAccountId, { name }).then(
+        (result) => {
+          if (!result?.data?.id)
+            throw new Error(getActionErrorMessage(result ?? {}));
+          return result.data.id;
+        },
       );
+      creatingLabels.current.set(placeholderId, created);
+      mutateLabels(
+        async (current) => {
+          const id = await created;
+          setLabelKeys((keys) => new Map(keys).set(id, placeholderId));
+          return {
+            labels: [
+              ...(current?.labels ?? []).filter(
+                (label) => label.id !== placeholderId,
+              ),
+              { id, name, type: "user" },
+            ],
+          };
+        },
+        {
+          optimisticData: (committed, displayed) => ({
+            labels: [
+              ...((displayed ?? committed)?.labels ?? []),
+              { id: placeholderId, name, type: "user" },
+            ],
+          }),
+          rollbackOnError: true,
+        },
+      )
+        .catch(toastMailboxItemFailure)
+        .finally(() => {
+          creatingLabels.current.delete(placeholderId);
+          // A sidebar change made meanwhile supersedes this result in SWR, so
+          // reload to be sure the new label is listed.
+          mutateLabels().catch(() => {});
+        });
     },
-    [emailAccountId, mutateLabels, terminology.label.singularCapitalized],
+    [emailAccountId, mutateLabels],
   );
 
   const onEditMailboxItem = useCallback(
     async (edit: MailboxItemEdit) => {
-      const result = await updateMailboxItemAction(emailAccountId, edit);
-
-      if (result?.serverError || result?.validationErrors) {
-        toast.error(getActionErrorMessage(result));
-        return false;
+      const request = async () =>
+        runMailboxItemAction(async () =>
+          updateMailboxItemAction(emailAccountId, {
+            ...edit,
+            id: await resolveLabelId(edit.id),
+          }),
+        );
+      if (edit.kind === "folder") {
+        updateOptimistically(mutateFolders, request, (folders) =>
+          mapFolders(folders ?? [], (folder) =>
+            folder.id === edit.id
+              ? { ...folder, displayName: edit.name }
+              : folder,
+          ),
+        );
+      } else {
+        updateOptimistically(mutateLabels, request, (current) => ({
+          labels: (current?.labels ?? []).map((label) =>
+            label.id === edit.id ? { ...label, ...edit } : label,
+          ),
+        }));
       }
-
-      await Promise.all([
-        edit.kind === "folder" ? mutateFolders() : mutateLabels(),
-        mutateCounts(),
-      ]);
-      toast.success(
-        `${edit.kind === "folder" ? "Folder" : terminology.label.singularCapitalized} updated`,
-      );
       return true;
     },
-    [
-      emailAccountId,
-      mutateCounts,
-      mutateFolders,
-      mutateLabels,
-      terminology.label.singularCapitalized,
-    ],
+    [emailAccountId, mutateFolders, mutateLabels, resolveLabelId],
   );
 
   const onDeleteMailboxItem = useCallback(
     async (item: MailboxItem) => {
-      const result = await deleteMailboxItemAction(emailAccountId, {
-        kind: item.kind,
-        id: item.id,
-      });
-      if (result?.serverError || result?.validationErrors) {
-        toast.error(getActionErrorMessage(result));
-        return false;
-      }
-
-      await Promise.all([
-        onMailboxItemDeleted(item),
-        item.kind === "folder" ? mutateFolders() : mutateLabels(),
-        mutateCounts(),
-      ]);
-      toast.success(
-        `${item.kind === "folder" ? "Folder" : terminology.label.singularCapitalized} deleted`,
-      );
+      const request = async () => {
+        await runMailboxItemAction(async () =>
+          deleteMailboxItemAction(emailAccountId, {
+            kind: item.kind,
+            id: await resolveLabelId(item.id),
+          }),
+        );
+        // Deleting takes the label off its messages on the provider's side.
+        mutateCounts().catch(() => {});
+      };
+      const deleted =
+        item.kind === "folder"
+          ? updateOptimistically(mutateFolders, request, (folders) =>
+              withoutFolder(folders ?? [], item.id),
+            )
+          : updateOptimistically(mutateLabels, request, (current) => ({
+              labels: (current?.labels ?? []).filter(
+                (label) => label.id !== item.id,
+              ),
+            }));
+      await onMailboxItemDeleted(item, deleted);
       return true;
     },
     [
@@ -202,7 +260,7 @@ export const MailShellSidebar = memo(function MailShellSidebar({
       mutateFolders,
       mutateLabels,
       onMailboxItemDeleted,
-      terminology.label.singularCapitalized,
+      resolveLabelId,
     ],
   );
 
@@ -271,6 +329,7 @@ export const MailShellSidebar = memo(function MailShellSidebar({
       onCompose={inSheet ? composeFromSheet : openCompose}
       onOpenSettings={inSheet ? openSettingsFromSheet : openSettings}
       onCreateLabel={onCreateLabel}
+      labelKeys={labelKeys}
       onEditMailboxItem={onEditMailboxItem}
       onDeleteMailboxItem={onDeleteMailboxItem}
       labelEditMode={isOutlook ? "color" : "name-and-color"}
@@ -359,4 +418,74 @@ export const MailShellSidebar = memo(function MailShellSidebar({
 
 function persistSidebarWidth(width: number) {
   persistPanelWidth(MAIL_SIDEBAR_WIDTH_COOKIE, width);
+}
+
+async function runMailboxItemAction(
+  request: () => Promise<
+    Parameters<typeof getActionErrorMessage>[0] | undefined
+  >,
+) {
+  const result = await request();
+  if (result?.serverError || result?.validationErrors)
+    throw new Error(getActionErrorMessage(result));
+}
+
+/**
+ * Shows `apply` at once, runs `request`, then reloads the list; a refused
+ * request rolls back and shows why. Resolves to whether it succeeded.
+ */
+function updateOptimistically<T>(
+  mutate: KeyedMutator<T>,
+  request: () => Promise<void>,
+  apply: (current: T | undefined) => T,
+) {
+  return mutate(
+    async (current) => {
+      await request();
+      return current;
+    },
+    {
+      // The list on screen may hold other pending changes, such as a label
+      // still being created; build on it rather than on the last saved list.
+      optimisticData: (committed, displayed) => apply(displayed ?? committed),
+      populateCache: false,
+      rollbackOnError: true,
+    },
+  ).then(
+    () => true,
+    (error: unknown) => {
+      toastMailboxItemFailure(error);
+      return false;
+    },
+  );
+}
+
+function toastMailboxItemFailure(error: unknown) {
+  toast.error(
+    error instanceof Error ? error.message : "Something went wrong. Try again.",
+  );
+}
+
+function mapFolders(
+  folders: OutlookFolder[],
+  update: (folder: OutlookFolder) => OutlookFolder,
+): OutlookFolder[] {
+  return folders.map((folder) =>
+    update({
+      ...folder,
+      childFolders: mapFolders(folder.childFolders, update),
+    }),
+  );
+}
+
+function withoutFolder(
+  folders: OutlookFolder[],
+  folderId: string,
+): OutlookFolder[] {
+  return folders
+    .filter((folder) => folder.id !== folderId)
+    .map((folder) => ({
+      ...folder,
+      childFolders: withoutFolder(folder.childFolders, folderId),
+    }));
 }
