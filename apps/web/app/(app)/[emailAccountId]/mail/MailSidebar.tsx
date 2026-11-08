@@ -85,6 +85,8 @@ export type MailSidebarProps = {
   onCompose: () => void;
   onOpenSettings: () => void;
   onCreateLabel: (name: string) => void;
+  /** Rows to keep keyed by an earlier id, such as a new label's placeholder. */
+  labelKeys?: ReadonlyMap<string, string>;
   onEditMailboxItem: (edit: MailboxItemEdit) => Promise<boolean>;
   onDeleteMailboxItem: (item: MailboxItem) => Promise<boolean>;
   labelEditMode: "color" | "name-and-color";
@@ -186,6 +188,7 @@ export function MailSidebar({
   onCompose,
   onOpenSettings,
   onCreateLabel,
+  labelKeys,
   onEditMailboxItem,
   onDeleteMailboxItem,
   labelEditMode,
@@ -469,13 +472,12 @@ export function MailSidebar({
               <nav className="flex flex-col gap-px">
                 {labelTree.map((node) => (
                   <LabelBranch
-                    // A new label swaps its placeholder id for the provider's;
-                    // keying by its unique name keeps an open menu mounted.
-                    key={node.label.name}
+                    key={labelKeys?.get(node.label.id) ?? node.label.id}
                     node={node}
                     hasNestedLabels={hasNestedLabels}
                     collapsed={collapsed}
                     activeLabelId={activeLabelId}
+                    labelKeys={labelKeys}
                     hrefFor={hrefFor}
                     onNavigate={onNavigate}
                     countsById={countsById}
@@ -504,11 +506,12 @@ export function MailSidebar({
                     <nav className="flex flex-col gap-px">
                       {hiddenLabelNodes.map((node) => (
                         <LabelBranch
-                          key={node.label.name}
+                          key={labelKeys?.get(node.label.id) ?? node.label.id}
                           node={node}
                           hasNestedLabels={false}
                           collapsed={collapsed}
                           activeLabelId={activeLabelId}
+                          labelKeys={labelKeys}
                           hrefFor={hrefFor}
                           onNavigate={onNavigate}
                           countsById={countsById}
@@ -591,6 +594,7 @@ function LabelBranch({
 }: Pick<
   MailSidebarProps,
   | "activeLabelId"
+  | "labelKeys"
   | "hrefFor"
   | "onNavigate"
   | "countsById"
@@ -693,7 +697,7 @@ function LabelBranch({
         >
           {children.map((child) => (
             <LabelBranch
-              key={child.label.name}
+              key={props.labelKeys?.get(child.label.id) ?? child.label.id}
               node={child}
               hasNestedLabels={hasNestedLabels}
               collapsed={collapsed}

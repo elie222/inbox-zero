@@ -59,8 +59,16 @@ test("schedules a reply with a reminder, persists it and cancels both", async ({
       delivery.getByRole("button", { name: "Cancel reminder" }),
     ).toHaveCount(0);
     await expect(delivery.getByText(/^Scheduled for/)).toBeVisible();
+    // The send hides at once; reloading before the server answers would
+    // abort the cancel itself.
+    const cancelled = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        Boolean(response.request().headers()["next-action"]),
+    );
     await delivery.getByRole("button", { name: "Cancel send" }).click();
     await expect(delivery.getByText(/^Scheduled for/)).toHaveCount(0);
+    await cancelled;
     await page.reload();
     await expect(
       page.getByRole("heading", { name: "Reply Workflow Message" }),

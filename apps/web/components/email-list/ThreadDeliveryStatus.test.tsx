@@ -9,7 +9,10 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SWRConfig } from "swr";
-import { cancelScheduledEmailAction } from "@/utils/actions/scheduled-email";
+import {
+  cancelScheduledEmailAction,
+  retryScheduledEmailAction,
+} from "@/utils/actions/scheduled-email";
 import { ThreadDeliveryStatus } from "./ThreadDeliveryStatus";
 import type { MailClient } from "@inboxzero/mail-core/engine";
 
@@ -160,6 +163,35 @@ describe("offline scheduled delivery status", () => {
     expect(toastError).toHaveBeenCalledWith({
       description: "Could not cancel send.",
     });
+  });
+});
+
+describe("scheduled send retry", () => {
+  afterEach(cleanup);
+
+  it("sends one retry however often Retry is clicked while it's out", async () => {
+    vi.mocked(retryScheduledEmailAction).mockReturnValue(
+      new Promise(() => {}) as ReturnType<typeof retryScheduledEmailAction>,
+    );
+    renderStatus(
+      vi.fn().mockResolvedValue({
+        scheduledEmails: [
+          {
+            id: "scheduled-1",
+            status: "FAILED",
+            sendAt: "2027-01-01T12:00:00Z",
+            reminderStatus: "NONE",
+          },
+        ],
+      }),
+    );
+    const retry = await screen.findByRole("button", { name: "Retry send" });
+    fireEvent.click(retry);
+    fireEvent.click(retry);
+
+    await waitFor(() =>
+      expect(retryScheduledEmailAction).toHaveBeenCalledTimes(1),
+    );
   });
 });
 

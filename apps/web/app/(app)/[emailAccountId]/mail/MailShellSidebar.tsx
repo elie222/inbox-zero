@@ -6,8 +6,10 @@ import {
   useCallback,
   useEffect,
   useRef,
+  useState,
 } from "react";
 import { toast } from "sonner";
+import type { KeyedMutator } from "swr";
 import { MailAccountSwitcher } from "@/app/(app)/[emailAccountId]/mail/MailAccountSwitcher";
 import { SidebarCards } from "@/components/sidebar-cards/SidebarCards";
 import {
@@ -55,6 +57,7 @@ import type { MailboxLabelCount } from "@/utils/mail-engine/label-count-targets"
 import { OUTLOOK_CATEGORY_COLORS } from "@/utils/outlook/category-colors";
 import { prefixPath } from "@/utils/path";
 import { getEmailTerminology } from "@/utils/terminology";
+import { randomUuid } from "@/utils/uuid";
 
 const OUTLOOK_LABEL_COLOR_OPTIONS = OUTLOOK_CATEGORY_COLORS.map((option) => ({
   name: option.name,
@@ -91,8 +94,14 @@ export const MailShellSidebar = memo(function MailShellSidebar({
   isDesktopApp: boolean;
   onSelectAccount: (accountId: string) => void;
   onSelectAllAccounts: () => void;
-  /** Leaves a view or split that the deleted label or folder defined. */
-  onMailboxItemDeleted: (item: MailboxItem) => Promise<unknown>;
+  /**
+   * Leaves a view or split that the deleted label or folder defined.
+   * `deleted` resolves to whether the provider confirmed the delete.
+   */
+  onMailboxItemDeleted: (
+    item: MailboxItem,
+    deleted: Promise<boolean>,
+  ) => Promise<unknown>;
   onNavigate: () => void;
   isMobileNavOpen: boolean;
   onMobileNavOpenChange: (open: boolean) => void;
@@ -135,8 +144,12 @@ export const MailShellSidebar = memo(function MailShellSidebar({
   // these skip the mail engine. Each change shows at once and stays until the
   // list reloads from the provider; a refused change rolls back with an error.
   // A label shows under a placeholder id until the provider creates it; an
-  // edit or delete made meanwhile waits for the real id.
+  // edit or delete made meanwhile waits for the real id, and the sidebar keeps
+  // keying the row by its placeholder so it isn't remounted.
   const creatingLabels = useRef(new Map<string, Promise<string>>());
+  const [labelKeys, setLabelKeys] = useState<ReadonlyMap<string, string>>(
+    () => new Map(),
+  );
   const resolveLabelId = useCallback(
     async (id: string) => (await creatingLabels.current.get(id)) ?? id,
     [],
@@ -144,7 +157,7 @@ export const MailShellSidebar = memo(function MailShellSidebar({
 
   const onCreateLabel = useCallback(
     (name: string) => {
-      const placeholderId = `pending:${name}`;
+      const placeholderId = `pending:${randomUuid()}`;
       const created = createLabelAction(emailAccountId, { name }).then(
         (result) => {
           if (!result?.data?.id)
@@ -156,6 +169,7 @@ export const MailShellSidebar = memo(function MailShellSidebar({
       mutateLabels(
         async (current) => {
           const id = await created;
+          setLabelKeys((keys) => new Map(keys).set(id, placeholderId));
           return {
             labels: [
               ...(current?.labels ?? []).filter(
@@ -166,9 +180,9 @@ export const MailShellSidebar = memo(function MailShellSidebar({
           };
         },
         {
-          optimisticData: (current) => ({
+          optimisticData: (committed, displayed) => ({
             labels: [
-              ...(current?.labels ?? []),
+              ...((displayed ?? committed)?.labels ?? []),
               { id: placeholderId, name, type: "user" },
             ],
           }),
@@ -176,7 +190,12 @@ export const MailShellSidebar = memo(function MailShellSidebar({
         },
       )
         .catch(toastMailboxItemFailure)
-        .finally(() => creatingLabels.current.delete(placeholderId));
+        .finally(() => {
+          creatingLabels.current.delete(placeholderId);
+          // A sidebar change made meanwhile supersedes this result in SWR, so
+          // reload to be sure the new label is listed.
+          mutateLabels().catch(() => {});
+        });
     },
     [emailAccountId, mutateLabels],
   );
@@ -184,44 +203,27 @@ export const MailShellSidebar = memo(function MailShellSidebar({
   const onEditMailboxItem = useCallback(
     async (edit: MailboxItemEdit) => {
       const request = async () =>
-        updateMailboxItemAction(emailAccountId, {
-          ...edit,
-          id: await resolveLabelId(edit.id),
-        });
-      const update =
-        edit.kind === "folder"
-          ? mutateFolders(
-              async (current) => {
-                await runMailboxItemAction(request);
-                return current;
-              },
-              {
-                optimisticData: (current) =>
-                  mapFolders(current ?? [], (folder) =>
-                    folder.id === edit.id
-                      ? { ...folder, displayName: edit.name }
-                      : folder,
-                  ),
-                populateCache: false,
-                rollbackOnError: true,
-              },
-            )
-          : mutateLabels(
-              async (current) => {
-                await runMailboxItemAction(request);
-                return current;
-              },
-              {
-                optimisticData: (current) => ({
-                  labels: (current?.labels ?? []).map((label) =>
-                    label.id === edit.id ? { ...label, ...edit } : label,
-                  ),
-                }),
-                populateCache: false,
-                rollbackOnError: true,
-              },
-            );
-      update.catch(toastMailboxItemFailure);
+        runMailboxItemAction(async () =>
+          updateMailboxItemAction(emailAccountId, {
+            ...edit,
+            id: await resolveLabelId(edit.id),
+          }),
+        );
+      if (edit.kind === "folder") {
+        updateOptimistically(mutateFolders, request, (folders) =>
+          mapFolders(folders ?? [], (folder) =>
+            folder.id === edit.id
+              ? { ...folder, displayName: edit.name }
+              : folder,
+          ),
+        );
+      } else {
+        updateOptimistically(mutateLabels, request, (current) => ({
+          labels: (current?.labels ?? []).map((label) =>
+            label.id === edit.id ? { ...label, ...edit } : label,
+          ),
+        }));
+      }
       return true;
     },
     [emailAccountId, mutateFolders, mutateLabels, resolveLabelId],
@@ -239,37 +241,17 @@ export const MailShellSidebar = memo(function MailShellSidebar({
         // Deleting takes the label off its messages on the provider's side.
         mutateCounts().catch(() => {});
       };
-      const update =
+      const deleted =
         item.kind === "folder"
-          ? mutateFolders(
-              async (current) => {
-                await request();
-                return current;
-              },
-              {
-                optimisticData: (current) =>
-                  withoutFolder(current ?? [], item.id),
-                populateCache: false,
-                rollbackOnError: true,
-              },
+          ? updateOptimistically(mutateFolders, request, (folders) =>
+              withoutFolder(folders ?? [], item.id),
             )
-          : mutateLabels(
-              async (current) => {
-                await request();
-                return current;
-              },
-              {
-                optimisticData: (current) => ({
-                  labels: (current?.labels ?? []).filter(
-                    (label) => label.id !== item.id,
-                  ),
-                }),
-                populateCache: false,
-                rollbackOnError: true,
-              },
-            );
-      update.catch(toastMailboxItemFailure);
-      await onMailboxItemDeleted(item);
+          : updateOptimistically(mutateLabels, request, (current) => ({
+              labels: (current?.labels ?? []).filter(
+                (label) => label.id !== item.id,
+              ),
+            }));
+      await onMailboxItemDeleted(item, deleted);
       return true;
     },
     [
@@ -347,6 +329,7 @@ export const MailShellSidebar = memo(function MailShellSidebar({
       onCompose={inSheet ? composeFromSheet : openCompose}
       onOpenSettings={inSheet ? openSettingsFromSheet : openSettings}
       onCreateLabel={onCreateLabel}
+      labelKeys={labelKeys}
       onEditMailboxItem={onEditMailboxItem}
       onDeleteMailboxItem={onDeleteMailboxItem}
       labelEditMode={isOutlook ? "color" : "name-and-color"}
@@ -445,6 +428,36 @@ async function runMailboxItemAction(
   const result = await request();
   if (result?.serverError || result?.validationErrors)
     throw new Error(getActionErrorMessage(result));
+}
+
+/**
+ * Shows `apply` at once, runs `request`, then reloads the list; a refused
+ * request rolls back and shows why. Resolves to whether it succeeded.
+ */
+function updateOptimistically<T>(
+  mutate: KeyedMutator<T>,
+  request: () => Promise<void>,
+  apply: (current: T | undefined) => T,
+) {
+  return mutate(
+    async (current) => {
+      await request();
+      return current;
+    },
+    {
+      // The list on screen may hold other pending changes, such as a label
+      // still being created; build on it rather than on the last saved list.
+      optimisticData: (committed, displayed) => apply(displayed ?? committed),
+      populateCache: false,
+      rollbackOnError: true,
+    },
+  ).then(
+    () => true,
+    (error: unknown) => {
+      toastMailboxItemFailure(error);
+      return false;
+    },
+  );
 }
 
 function toastMailboxItemFailure(error: unknown) {
