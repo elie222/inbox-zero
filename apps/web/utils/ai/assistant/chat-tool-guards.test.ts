@@ -5,7 +5,7 @@ import { guardChatTools } from "@/utils/ai/assistant/chat-tool-guards";
 
 const archiveInputSchema = z.strictObject({
   threadIds: z.array(z.string()).min(1),
-  label: z.string().optional(),
+  label: z.string().trim().optional(),
 });
 
 function buildTools() {
@@ -44,15 +44,29 @@ describe("guardChatTools", () => {
     );
   });
 
+  it("hands the SDK the parsed input when it is valid", async () => {
+    const { tools } = buildTools();
+    const schema = asSchema(tools.archive.inputSchema);
+
+    // The SDK stores this value as the tool call's input, and later flows
+    // (such as rule confirmation) replay it, so it must be sanitized.
+    expect(
+      await schema.validate?.({ threadIds: ["t1"], label: "  Done " }),
+    ).toEqual({ success: true, value: { threadIds: ["t1"], label: "Done" } });
+  });
+
   it("lets invalid input reach execute so the model gets a readable error", async () => {
     const { tools, execute } = buildTools();
     const schema = asSchema(tools.archive.inputSchema);
+    const input = { threadIds: [], folder: "x" };
 
-    expect(await schema.validate?.({ threadIds: [] })).toMatchObject({
-      success: true,
-    });
+    const sdkValidation = await schema.validate?.(input);
+    expect(sdkValidation).toMatchObject({ success: true });
 
-    const result = await runArchive(tools, { threadIds: [], folder: "x" });
+    const result = await runArchive(
+      tools,
+      sdkValidation?.success ? sdkValidation.value : input,
+    );
 
     expect(result).toMatchObject({
       error: expect.stringMatching(

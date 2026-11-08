@@ -22,16 +22,45 @@ export function guardChatTools<TTools extends ToolSet>(tools: TTools): TTools {
     if (!execute || !toolDefinition.inputSchema) continue;
 
     const schema = asSchema(toolDefinition.inputSchema);
+    const validate = async (value: unknown) =>
+      schema.validate
+        ? await schema.validate(value)
+        : { success: true as const, value };
+    const invalidInputErrors = new WeakMap<object, unknown>();
+    const validatedInputs = new WeakSet<object>();
 
     guardedTools[toolName] = {
       ...toolDefinition,
-      // The SDK validates input before execute and hands the model a raw dump
-      // of the failure. Keep the JSON schema the model sees, but defer
-      // validation to execute so the model gets a message it can act on.
+      // A failed SDK validation hands the model a raw dump of the schema
+      // error. Keep the JSON schema the model sees, but let invalid input
+      // through to execute so it can return a message the model can act on.
+      // Valid input is still replaced by its parsed value, because the SDK
+      // stores it as the call's input and later flows replay it.
       inputSchema: jsonSchema(() => schema.jsonSchema, {
-        validate: (value) => ({ success: true, value }),
+        validate: async (value) => {
+          const result = await validate(value);
+          if (result.success) {
+            if (isObject(result.value)) validatedInputs.add(result.value);
+            return result;
+          }
+          if (isObject(value)) invalidInputErrors.set(value, result.error);
+          return { success: true, value };
+        },
       }),
       execute: async (input: unknown, options: ToolExecutionOptions<never>) => {
+        const getValidation = async (value: unknown) => {
+          if (isObject(value) && invalidInputErrors.has(value)) {
+            return {
+              success: false as const,
+              error: invalidInputErrors.get(value),
+            };
+          }
+          if (isObject(value) && validatedInputs.has(value)) {
+            return { success: true as const, value };
+          }
+          return validate(value);
+        };
+
         const previousFailure = findPreviousFailureInTurn({
           toolName,
           input,
@@ -43,9 +72,7 @@ export function guardChatTools<TTools extends ToolSet>(tools: TTools): TTools {
           });
         }
 
-        const validation = schema.validate
-          ? await schema.validate(input)
-          : { success: true as const, value: input };
+        const validation = await getValidation(input);
         if (!validation.success) {
           return hideToolErrorFromUser({
             error: formatToolInputError(toolName, validation.error),
@@ -70,6 +97,10 @@ export function formatToolInputError(toolName: string, error: unknown) {
     .join("; ");
 
   return `Invalid ${toolName} input: ${details}`;
+}
+
+function isObject(value: unknown): value is object {
+  return typeof value === "object" && value !== null;
 }
 
 function findPreviousFailureInTurn({
