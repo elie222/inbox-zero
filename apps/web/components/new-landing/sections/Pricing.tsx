@@ -28,7 +28,13 @@ import {
   type BadgeVariant,
 } from "@/components/new-landing/common/Badge";
 import { Chat } from "@/components/new-landing/icons/Chat";
-import { formatPrice, type Tier, tiers } from "@/app/(app)/premium/config";
+import {
+  formatPrice,
+  getExtraAccountPrice,
+  INCLUDED_EMAIL_ACCOUNTS_PER_PERSON,
+  type Tier,
+  tiers,
+} from "@/app/(app)/premium/config";
 import { Briefcase } from "@/components/new-landing/icons/Briefcase";
 import { Mail } from "@/components/new-landing/icons/Mail";
 import { landingPageAnalytics } from "@/hooks/useAnalytics";
@@ -54,7 +60,7 @@ type PricingTier = Tier & {
 const pricingTiers: PricingTier[] = [
   {
     ...tiers[0],
-    badges: [{ message: "Save 10%", annualOnly: true }],
+    badges: [annualSavingsBadge(tiers[0])],
     button: {
       variant: "secondary-two",
       content: "Try free for 7 days",
@@ -65,7 +71,7 @@ const pricingTiers: PricingTier[] = [
   {
     ...tiers[1],
     badges: [
-      { message: "Save 20%", annualOnly: true },
+      annualSavingsBadge(tiers[1]),
       { message: "Popular", variant: "green" },
     ],
     button: {
@@ -76,7 +82,7 @@ const pricingTiers: PricingTier[] = [
   },
   {
     ...tiers[2],
-    badges: [{ message: "Save 16%", annualOnly: true }],
+    badges: [annualSavingsBadge(tiers[2])],
     button: {
       variant: "secondary-two",
       content: "Try free for 7 days",
@@ -289,6 +295,12 @@ function PricingCard({
               </div>
             )}
           </div>
+          {!!price && (
+            <Paragraph size="xs" color="light" className="-mt-4">
+              {INCLUDED_EMAIL_ACCOUNTS_PER_PERSON} email accounts included, then{" "}
+              {formatPrice(getExtraAccountPrice(price))}/mo each
+            </Paragraph>
+          )}
           <Button auto size="lg" variant={tier.button.variant} asChild>
             <Link
               href={tier.button.href}
@@ -334,4 +346,11 @@ function PricingCard({
       </CardContent>
     </Card>
   );
+}
+
+function annualSavingsBadge(tier: Tier) {
+  return {
+    message: `Save ${Math.round(tier.discount.annually)}%`,
+    annualOnly: true,
+  };
 }
