@@ -134,6 +134,8 @@ type DesktopUpdateStatus =
 let downloadPercent: number | null = null;
 let updateStatus: DesktopUpdateStatus = null;
 const updateStatusSubscribers = new Map<WebContents, () => void>();
+let mailEngineOpening = false;
+const mailEngineOpeningSubscribers = new Set<WebContents>();
 let refreshDesktopMenu: (() => void) | undefined;
 
 const gotTheLock = app.requestSingleInstanceLock();
@@ -200,6 +202,17 @@ function startDesktopApp() {
   ipcMain.on("desktop:update-status-unsubscribe", (event) => {
     if (!isTrustedDesktopEvent(event)) return;
     updateStatusSubscribers.get(event.sender)?.();
+  });
+  ipcMain.handle("desktop:mail-engine-opening", (event) => {
+    if (!isTrustedDesktopEvent(event)) return false;
+    const contents = event.sender;
+    if (!mailEngineOpeningSubscribers.has(contents)) {
+      mailEngineOpeningSubscribers.add(contents);
+      contents.once("destroyed", () =>
+        mailEngineOpeningSubscribers.delete(contents),
+      );
+    }
+    return mailEngineOpening;
   });
   ipcMain.handle("desktop:install-update", (event) => {
     if (!isTrustedDesktopEvent(event)) return;
@@ -930,6 +943,12 @@ function createDesktopMailProcess() {
         .join("; ");
     },
     onNewMail: mailNotifier.notify,
+    onOpeningChange: (opening) => {
+      mailEngineOpening = opening;
+      for (const contents of mailEngineOpeningSubscribers) {
+        contents.send("desktop:mail-engine-opening", opening);
+      }
+    },
     onEngineError: (error) =>
       captureDesktopError(error, { area: "mail-engine" }),
   });

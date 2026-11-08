@@ -21,6 +21,8 @@ export type InboxZeroDesktopApi = {
   onUpdateStatus?: (
     listener: (status: DesktopUpdateStatus) => void,
   ) => () => void;
+  /** True while the app opens the local mailbox, including any migrations. */
+  onMailEngineOpening?: (listener: (opening: boolean) => void) => () => void;
   installUpdate?: () => Promise<void>;
   wipeMailbox?: () => Promise<unknown>;
   getDesktopHealth?: () => Promise<DesktopHealth | null>;
