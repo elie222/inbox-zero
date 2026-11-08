@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { format } from "date-fns";
 import groupBy from "lodash/groupBy";
 import { toast } from "sonner";
-import { toastUndo } from "@/components/Toast";
+import { releaseLatestToastUndo, toastUndo } from "@/components/Toast";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
 import { randomUuid } from "@/utils/uuid";
 import {
@@ -270,7 +270,12 @@ export function useThreadActions({
         }))
         .filter((step) => step.snapshots.length);
       if (partial.length) {
-        await revertSteps(partial, { cancelPending: false });
+        const unreverted = await revertSteps(partial, { cancelPending: false });
+        if (unreverted.size) {
+          toast.error(
+            `Couldn't fully reverse ${unreverted.size} conversation${unreverted.size === 1 ? "" : "s"} that only partly changed. Check them and try again.`,
+          );
+        }
       }
 
       if (!queued.length) {
@@ -303,6 +308,7 @@ export function useThreadActions({
       } else {
         // Undo must not reach past this action to the one before it.
         lastAction.current = null;
+        releaseLatestToastUndo();
         toast.success(action.done(queued.length));
       }
       const failedCount = threadKeys.length - queued.length;

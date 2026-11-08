@@ -1862,6 +1862,10 @@ export function MailShell() {
           onClose={() => setLabelPicker(null)}
           onApply={async (threadKeys, target) => {
             const isMove = labelPicker.mode === "move";
+            // Undo reopens the reader only on a thread it was showing.
+            if (isMove && openThreadKey && threadKeys.includes(openThreadKey)) {
+              removedOpenThreadKeyRef.current = openThreadKey;
+            }
             const applied =
               target.kind === "folder"
                 ? await moveToFolder(threadKeys, target.id)

@@ -22,7 +22,10 @@ const mail = vi.hoisted(() => ({
 }));
 
 vi.mock("sonner", () => ({ toast: notifications }));
-const toasts = vi.hoisted(() => ({ toastUndo: vi.fn() }));
+const toasts = vi.hoisted(() => ({
+  releaseLatestToastUndo: vi.fn(),
+  toastUndo: vi.fn(),
+}));
 
 vi.mock("@/components/Toast", () => toasts);
 vi.mock("@inboxzero/mail-react/MailEngineProvider", () => ({
@@ -285,8 +288,21 @@ describe("useThreadActions", () => {
       expect.objectContaining({ message: "Moved" }),
     );
 
+    mail.client.cancelOperation.mockResolvedValue({ status: "too_late" });
+    mail.client.submitConversations.mockClear();
     await act(() => result.current.undo());
     expect(mail.client.cancelOperation).toHaveBeenCalledTimes(2);
+    expect(
+      mail.client.submitConversations.mock.calls.map(([call]) => call.change),
+    ).toEqual([
+      { kind: "unarchive" },
+      {
+        kind: "set_membership",
+        membership: "label",
+        id: "label-1",
+        present: false,
+      },
+    ]);
   });
 
   it("keeps a label the thread already had when the label is undone", async () => {
@@ -356,6 +372,7 @@ describe("useThreadActions", () => {
       }),
     );
     expect(toasts.toastUndo).not.toHaveBeenCalled();
+    expect(toasts.releaseLatestToastUndo).toHaveBeenCalled();
     expect(notifications.success).toHaveBeenCalledWith("Moved");
 
     await act(() => result.current.undo());
