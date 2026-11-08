@@ -281,12 +281,24 @@ export function ManageInboxResult({
     labelApplied,
     inProgress: isInProgress,
   });
+  const archivedMessagesCount = getOutputField<number>(
+    output,
+    "archivedMessagesCount",
+  );
   const isSenderAction =
     action === "bulk_archive_senders" || action === "unsubscribe_senders";
-  const completedCount = isSenderAction
-    ? (sendersCount ?? senders?.length)
-    : (successCount ?? requestedCount);
-  const countLabel = isSenderAction ? "sender" : "item";
+  let completedCount = successCount ?? requestedCount;
+  let countLabel = "item";
+  if (
+    action === "bulk_archive_senders" &&
+    typeof archivedMessagesCount === "number"
+  ) {
+    completedCount = archivedMessagesCount;
+    countLabel = "message";
+  } else if (isSenderAction) {
+    completedCount = sendersCount ?? senders?.length;
+    countLabel = "sender";
+  }
 
   const resolvedThreads = threadIds
     ? threadIds
@@ -373,6 +385,10 @@ export function ManageSenderCategoryResult({ output }: { output: unknown }) {
     "category",
   );
   const sendersCount = getOutputField<number>(output, "sendersCount") ?? 0;
+  const archivedMessagesCount = getOutputField<number>(
+    output,
+    "archivedMessagesCount",
+  );
   const senders = getOutputField<string[]>(output, "senders") ?? [];
   const categoryName = category?.name?.trim() || "Category";
 
@@ -388,9 +404,19 @@ export function ManageSenderCategoryResult({ output }: { output: unknown }) {
     <CollapsibleToolCard
       title={`Archived "${categoryName}" category`}
       badge={
-        <Badge color="green" className="text-[10px]">
-          {sendersCount} sender{sendersCount === 1 ? "" : "s"}
-        </Badge>
+        typeof archivedMessagesCount === "number" ? (
+          <Badge
+            color={archivedMessagesCount > 0 ? "green" : "gray"}
+            className="text-[10px]"
+          >
+            {archivedMessagesCount} message
+            {archivedMessagesCount === 1 ? "" : "s"}
+          </Badge>
+        ) : (
+          <Badge color="green" className="text-[10px]">
+            {sendersCount} sender{sendersCount === 1 ? "" : "s"}
+          </Badge>
+        )
       }
     >
       <ToolSection label="Senders">

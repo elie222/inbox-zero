@@ -1159,16 +1159,18 @@ const buildManageInboxTool = ({
               (result) => result.unsubscribe.attempted,
             ).length;
 
-            await emailProvider.bulkArchiveFromSenders(
-              normalizedFromEmails,
-              email,
-              emailAccountId,
-            );
+            const archivedMessagesCount =
+              await emailProvider.bulkArchiveFromSenders(
+                normalizedFromEmails,
+                email,
+                emailAccountId,
+              );
 
             return {
               success: failedSenders.length === 0,
               action: originalAction,
               sendersCount: normalizedFromEmails.length,
+              archivedMessagesCount,
               senders: normalizedFromEmails,
               successCount,
               failedCount: failedSenders.length,
@@ -1178,16 +1180,18 @@ const buildManageInboxTool = ({
             };
           }
 
-          await emailProvider.bulkArchiveFromSenders(
-            normalizedFromEmails,
-            email,
-            emailAccountId,
-          );
+          const archivedMessagesCount =
+            await emailProvider.bulkArchiveFromSenders(
+              normalizedFromEmails,
+              email,
+              emailAccountId,
+            );
 
           return {
             success: true,
             action: originalAction,
             sendersCount: normalizedFromEmails.length,
+            archivedMessagesCount,
             senders: normalizedFromEmails,
           };
         }

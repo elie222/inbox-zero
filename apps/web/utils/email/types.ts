@@ -187,11 +187,12 @@ export interface EmailProvider {
     labelId?: string,
   ): Promise<void>;
   blockUnsubscribedEmail(messageId: string): Promise<void>;
+  /** Returns the number of messages actually moved out of the inbox. */
   bulkArchiveFromSenders(
     fromEmails: string[],
     ownerEmail: string,
     emailAccountId: string,
-  ): Promise<void>;
+  ): Promise<number>;
   bulkArchiveSenderOrThrow(
     fromEmail: string,
     ownerEmail: string,

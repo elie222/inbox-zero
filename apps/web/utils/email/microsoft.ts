@@ -2647,8 +2647,8 @@ export class OutlookProvider implements EmailProvider {
     fromEmails: string[],
     ownerEmail: string,
     emailAccountId: string,
-  ): Promise<void> {
-    await moveMessagesForSenders({
+  ): Promise<number> {
+    return moveMessagesForSenders({
       client: this.client,
       senders: fromEmails,
       destinationId: "archive",

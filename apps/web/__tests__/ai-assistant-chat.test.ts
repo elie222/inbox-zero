@@ -2563,6 +2563,25 @@ describe("aiProcessAssistantChat", () => {
     expect(result.updated).toBe("First instructions");
   });
 
+  it("reports how many messages sender archiving actually moved", async () => {
+    const tools = await captureToolSet();
+    const bulkArchiveFromSenders = vi.fn().mockResolvedValue(0);
+    mockCreateEmailProvider.mockResolvedValue({ bulkArchiveFromSenders });
+
+    const result = await tools.manageInbox.execute({
+      action: "bulk_archive_senders",
+      fromEmails: ["done@example.com", "also-done@example.com"],
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        success: true,
+        sendersCount: 2,
+        archivedMessagesCount: 0,
+      }),
+    );
+  });
+
   it("blocks sender actions without sender emails before provider calls", async () => {
     const tools = await captureToolSet();
     mockCreateEmailProvider.mockClear();
