@@ -148,8 +148,11 @@ export function MailSetupPanel({
       const result = await change();
       if (result?.serverError || result?.validationErrors)
         toast.error(getActionErrorMessage(result));
-      await mutateSettings();
+    } catch {
+      toast.error("Couldn't save that");
     } finally {
+      // Also drops an optimistic switch state the server never saved.
+      await mutateSettings();
       setBusyId(null);
     }
   };
@@ -271,24 +274,29 @@ export function MailSetupPanel({
           ))}
 
         {step === "default" && (
-          <div role="radiogroup" aria-label="Default tab">
+          <fieldset>
+            <legend className="sr-only">Default tab</legend>
             {splits.map((split) => (
-              <button
+              <label
                 key={split.id}
-                type="button"
-                role="radio"
-                aria-checked={split.id === defaultId}
-                onClick={() => {
-                  onUpdatePreferences({ defaultSplitId: split.id });
-                  onSelectSplit(split.id);
-                }}
-                className="flex w-full items-center rounded-md px-2 py-1.5 text-left hover:bg-muted"
+                className="flex cursor-pointer items-center rounded-md px-2 py-1.5 hover:bg-muted has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring"
               >
+                <input
+                  type="radio"
+                  name="default-tab"
+                  value={split.id}
+                  checked={split.id === defaultId}
+                  onChange={() => {
+                    onUpdatePreferences({ defaultSplitId: split.id });
+                    onSelectSplit(split.id);
+                  }}
+                  className="sr-only"
+                />
                 <span className="flex-1 truncate">{split.name}</span>
                 {split.id === defaultId && <CheckIcon className="size-4" />}
-              </button>
+              </label>
             ))}
-          </div>
+          </fieldset>
         )}
 
         {step === "bundles" && (

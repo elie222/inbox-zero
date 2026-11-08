@@ -147,7 +147,8 @@ test("walks a new mail user through setup with a live preview", async ({
   await shot(page, testInfo, "4-show-in-all");
 
   await panel.getByRole("button", { name: "Next" }).click();
-  await panel.getByRole("radio", { name: "Unread" }).click();
+  await panel.getByText("Unread", { exact: true }).click();
+  await expect(panel.getByRole("radio", { name: "Unread" })).toBeChecked();
   await expect(page.locator('button[aria-current="true"]')).toContainText(
     "Unread",
   );
