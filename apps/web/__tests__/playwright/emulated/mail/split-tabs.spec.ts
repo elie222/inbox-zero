@@ -171,6 +171,10 @@ test("keeps many split tabs in one scrolling row", async ({
   await layoutToggle.click();
   await expect(emptyReader).toBeVisible();
   await expect(newSplit).toBeInViewport();
+  const splitLayoutTops = await tabs.evaluateAll((buttons) =>
+    buttons.map((button) => Math.round(button.getBoundingClientRect().top)),
+  );
+  expect(new Set(splitLayoutTops).size).toBe(1);
   await capturePlaywrightCheckpoint(
     page,
     testInfo,
@@ -200,6 +204,17 @@ test("keeps many split tabs in one scrolling row", async ({
   const activeTab = page.locator('button[data-split-tab][aria-current="true"]');
   await expect(lastTab).not.toHaveAttribute("aria-current", "true");
   await expect(activeTab).toBeInViewport({ ratio: 1 });
+
+  // Select-all sits before the scrolling tabs, so it stays put while they scroll.
+  await lastTab.evaluate((button: HTMLElement) => button.click());
+  const conversations = page.getByRole("listbox", { name: "Conversations" });
+  await conversations.getByRole("option").first().hover();
+  await conversations.getByRole("option").first().getByRole("checkbox").click();
+  const selectAll = page.getByRole("checkbox", {
+    name: "Select all conversations",
+  });
+  await expect(selectAll).toBeInViewport({ ratio: 1 });
+  await expect(lastTab).toBeInViewport({ ratio: 1 });
 });
 
 test("moves focus with the active split when cycling by keyboard", async ({

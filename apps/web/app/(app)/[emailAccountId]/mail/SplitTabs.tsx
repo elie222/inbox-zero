@@ -85,7 +85,8 @@ export function SplitTabs({
   const orderedSplits = drag
     ? drag.order.flatMap((id) => splitsById.get(id) ?? [])
     : splits;
-  const splitCount = splits.length;
+  // The saved order, so a reorder that moves the active tab keeps it in view.
+  const splitOrder = splits.map((split) => split.id).join();
   const draggedSplit = drag ? splitsById.get(drag.id) : undefined;
   const draggedCountLabel = draggedSplit
     ? splitCountLabel(countsById?.get(draggedSplit.id))
@@ -168,10 +169,12 @@ export function SplitTabs({
     };
     update();
     tabs.addEventListener("scroll", update, { passive: true });
-    // Layout switches remount or resize the strip, and tabs settle after
-    // mount, so keep the active tab where it can be seen.
-    const observer = new ResizeObserver(() => {
-      revealActiveTab(tabs, "instant");
+    // A layout switch resizes the visible strip, so bring the active tab back.
+    // The track also grows when a count changes width; that only moves the
+    // fades, so it doesn't undo where the reader has scrolled to.
+    const observer = new ResizeObserver((entries) => {
+      if (entries.some((entry) => entry.target === tabs))
+        revealActiveTab(tabs, "instant");
       update();
     });
     observer.observe(tabs);
@@ -184,9 +187,9 @@ export function SplitTabs({
 
   useEffect(() => {
     const tabs = tabsRef.current;
-    if (!activeSplitId || !tabs || splitCount === 0) return;
+    if (!activeSplitId || !tabs || !splitOrder) return;
     revealActiveTab(tabs, reduceMotion ? "instant" : "smooth");
-  }, [activeSplitId, splitCount, reduceMotion]);
+  }, [activeSplitId, splitOrder, reduceMotion]);
 
   return (
     <div
