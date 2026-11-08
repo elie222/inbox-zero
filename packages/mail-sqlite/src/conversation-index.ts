@@ -126,31 +126,50 @@ function clearArchiveInboxRole(table: string) {
 const DELETE_OLD_MEMBERSHIPS = `DELETE FROM effective_message_memberships
   WHERE account_id = OLD.account_id AND message_id = OLD.message_id;`;
 
+// Label, category, and folder views otherwise scan every message and parse
+// its label JSON, which made sidebar counts cost seconds per refresh. Rows are
+// per message so each write only touches that message's rows. They are stored
+// in conversation order within each membership, so a view or count reads one
+// contiguous range and never visits the messages, even to leave out Trash and
+// Spam. Replaces the first version of this index (migration 3), which needed a
+// message lookup per row.
 export async function migrateMembershipIndex(tx: SqlTransaction) {
   const applied = await tx.query(
-    "SELECT 1 FROM schema_migrations WHERE id = 3",
+    "SELECT 1 FROM schema_migrations WHERE id = 11",
   );
   if (applied.length) return;
 
-  // Label, category, and folder views otherwise scan every message and parse
-  // its label JSON, which made sidebar counts cost seconds per refresh. Rows
-  // are per message so each write only touches that message's rows.
+  for (const event of ["insert", "delete", "update"]) {
+    await tx.exec(
+      `DROP TRIGGER IF EXISTS effective_memberships_after_${event}`,
+    );
+  }
+  const previous = await tx.query(
+    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'effective_message_memberships'",
+  );
+  if (previous.length) {
+    await tx.exec(`
+      ALTER TABLE effective_message_memberships RENAME TO previous_message_memberships;
+      DROP INDEX message_memberships_by_message;
+    `);
+  }
   await tx.exec(`
     CREATE TABLE effective_message_memberships (
       account_id TEXT NOT NULL,
       kind TEXT NOT NULL,
       membership_id TEXT NOT NULL,
-      message_id TEXT NOT NULL,
       conversation_id TEXT NOT NULL,
+      message_id TEXT NOT NULL,
       received_at_ms INTEGER NOT NULL,
       read INTEGER NOT NULL,
       starred INTEGER NOT NULL,
-      PRIMARY KEY (account_id, kind, membership_id, message_id),
+      in_trash_or_spam INTEGER NOT NULL,
+      PRIMARY KEY (account_id, kind, membership_id, conversation_id, message_id),
       FOREIGN KEY (account_id) REFERENCES accounts(account_id) ON DELETE CASCADE
-    );
+    ) WITHOUT ROWID;
+    ${previous.length ? COPY_PREVIOUS_MEMBERSHIPS : insertMemberships("m")}
     CREATE INDEX message_memberships_by_message
       ON effective_message_memberships(account_id, message_id);
-    ${insertMemberships("m")}
     CREATE TRIGGER effective_memberships_after_insert
     AFTER INSERT ON effective_messages
     BEGIN
@@ -163,7 +182,8 @@ export async function migrateMembershipIndex(tx: SqlTransaction) {
     END;
     CREATE TRIGGER effective_memberships_after_update
     AFTER UPDATE OF account_id, message_id, conversation_id, received_at_ms,
-      read, starred, folder_id, label_ids_json, category_ids_json
+      read, starred, in_trash, in_spam, folder_id, label_ids_json,
+      category_ids_json
     ON effective_messages
     BEGIN
       ${DELETE_OLD_MEMBERSHIPS}
@@ -171,18 +191,39 @@ export async function migrateMembershipIndex(tx: SqlTransaction) {
     END;
   `);
   await tx.execute(
-    "INSERT INTO schema_migrations(id, name) VALUES (3, '0003-message-membership-index')",
+    "INSERT INTO schema_migrations(id, name) VALUES (11, '0011-membership-index-by-conversation')",
   );
 }
+
+// Copying the first index avoids reading every message, which took most of a
+// minute on a large mailbox. Trashed and spam messages are found through the
+// role index for the same reason.
+const COPY_PREVIOUS_MEMBERSHIPS = `
+  INSERT INTO effective_message_memberships(
+    account_id, kind, membership_id, conversation_id, message_id,
+    received_at_ms, read, starred, in_trash_or_spam
+  )
+  SELECT account_id, kind, membership_id, conversation_id, message_id,
+         received_at_ms, read, starred, 0
+  FROM previous_message_memberships;
+  DROP TABLE previous_message_memberships;
+  UPDATE effective_message_memberships SET in_trash_or_spam = 1
+  WHERE (account_id, message_id) IN (
+    SELECT e.account_id, e.message_id
+    FROM effective_role_conversations r
+    CROSS JOIN effective_messages e
+      ON e.account_id = r.account_id AND e.conversation_id = r.conversation_id
+    WHERE r.role IN ('trash', 'spam') AND (e.in_trash = 1 OR e.in_spam = 1)
+  );`;
 
 // Backfill reads every stored message; triggers read the changed row.
 function insertMemberships(row: "m" | "NEW") {
   const from = row === "m" ? "effective_messages AS m, " : "";
   const folderFrom = row === "m" ? "FROM effective_messages AS m" : "";
-  const columns = `${row}.account_id, ${row}.message_id, ${row}.conversation_id, ${row}.received_at_ms, ${row}.read, ${row}.starred`;
+  const columns = `${row}.account_id, ${row}.message_id, ${row}.conversation_id, ${row}.received_at_ms, ${row}.read, ${row}.starred, MAX(${row}.in_trash, ${row}.in_spam)`;
   return `INSERT OR IGNORE INTO effective_message_memberships(
       account_id, message_id, conversation_id, received_at_ms, read, starred,
-      kind, membership_id
+      in_trash_or_spam, kind, membership_id
     )
     SELECT ${columns}, 'label', labels.value
     FROM ${from}json_each(${row}.label_ids_json) AS labels

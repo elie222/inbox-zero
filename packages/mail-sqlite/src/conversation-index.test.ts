@@ -6,7 +6,10 @@ import {
   migrateMembershipIndex,
 } from "./conversation-index";
 import type { SqlTransaction } from "./driver";
-import type { MailboxCountsQuery } from "@inboxzero/mail-core/queries";
+import type {
+  MailboxCountsQuery,
+  MailPredicate,
+} from "@inboxzero/mail-core/queries";
 
 describe("transactional conversation index", () => {
   it("shows the same conversation preview for equivalent inbox filters", async () => {
@@ -148,7 +151,14 @@ describe("transactional conversation index", () => {
         { kind: "membership", membership: "category", id: "CATEGORY_UPDATES" },
         { kind: "membership", membership: "folder", id: "f1" },
         { kind: "role", role: "draft" },
-      ] as const;
+        {
+          kind: "all",
+          predicates: [
+            { kind: "membership", membership: "label", id: "Label_1" },
+            { kind: "mailbox", mailbox: "all" },
+          ],
+        },
+      ] satisfies MailPredicate[];
       const compare = async () => {
         for (const predicate of predicates) {
           const query = {
@@ -183,6 +193,97 @@ describe("transactional conversation index", () => {
         matchingConversations: 2,
         unreadConversations: 0,
       });
+    } finally {
+      await store.close();
+    }
+  });
+
+  it("drops a trashed or spam message from a label's view and restores it", async () => {
+    const driver = createNodeSqliteDriver();
+    const store = await createSqliteMailStore(driver);
+    try {
+      await store.ensureAccount({
+        accountId: "a",
+        provider: "google",
+        generation: "g",
+      });
+      await driver.write(async (tx) => {
+        await insertMessage(tx, "m1", "c1", 1, 0, { labels: ["Label_1"] });
+        await insertMessage(tx, "m2", "c1", 3, 1, { labels: ["Label_1"] });
+        await insertMessage(tx, "m3", "c2", 2, 0, { labels: ["Label_1"] });
+      });
+      const predicate: MailPredicate = {
+        kind: "all",
+        predicates: [
+          { kind: "membership", membership: "label", id: "Label_1" },
+          { kind: "mailbox", mailbox: "all" },
+        ],
+      };
+      const query = {
+        accountIds: ["a"],
+        predicate,
+        order: "newest_first" as const,
+        pageSize: 25,
+        after: null,
+      };
+      const read = async () => {
+        const indexed = await store.readMailboxView(query);
+        // Nesting the predicate keeps it off the index, so this compares
+        // against filtering every message.
+        expect(indexed).toEqual(
+          await store.readMailboxView({
+            ...query,
+            predicate: { kind: "all", predicates: [predicate] },
+          }),
+        );
+        const counts = await store.readMailboxCounts({
+          accountIds: ["a"],
+          targets: [{ id: "label", predicate }],
+        });
+        expect(counts.view.counts[0]).toMatchObject({
+          matchingConversations: indexed.view.counts.matchingConversations,
+          unreadConversations: indexed.view.counts.unreadConversations,
+        });
+        return {
+          conversations: indexed.view.conversations.map((conversation) => ({
+            id: conversation.key.conversationId,
+            latest: conversation.latestMessageAtMs,
+            unread: conversation.unread,
+          })),
+          counts: indexed.view.counts,
+        };
+      };
+      const move = (
+        message: string,
+        column: "in_trash" | "in_spam",
+        value: 0 | 1,
+      ) =>
+        driver.write((tx) =>
+          tx.execute(
+            `UPDATE effective_messages SET ${column} = ? WHERE message_id = ?`,
+            [value, message],
+          ),
+        );
+
+      const before = await read();
+      expect(before).toMatchObject({
+        conversations: [
+          { id: "c1", latest: 3, unread: true },
+          { id: "c2", latest: 2, unread: true },
+        ],
+        counts: { matchingConversations: 2, unreadConversations: 2 },
+      });
+
+      await move("m3", "in_trash", 1);
+      await move("m1", "in_spam", 1);
+      expect(await read()).toMatchObject({
+        conversations: [{ id: "c1", latest: 3, unread: false }],
+        counts: { matchingConversations: 1, unreadConversations: 0 },
+      });
+
+      await move("m3", "in_trash", 0);
+      await move("m1", "in_spam", 0);
+      expect(await read()).toEqual(before);
     } finally {
       await store.close();
     }
@@ -294,7 +395,10 @@ describe("transactional conversation index", () => {
     }
   });
 
-  it("backfills memberships for an existing mailbox once", async () => {
+  it.each([
+    "the first version of the index",
+    "no index",
+  ])("builds the membership index once from %s", async (existing) => {
     const driver = createNodeSqliteDriver();
     const store = await createSqliteMailStore(driver);
     try {
@@ -308,15 +412,40 @@ describe("transactional conversation index", () => {
           await tx.exec(`DROP TRIGGER effective_memberships_after_${event}`);
         }
         await tx.exec(
-          "DROP TABLE effective_message_memberships; DELETE FROM schema_migrations WHERE id = 3;",
+          "DROP TABLE effective_message_memberships; DELETE FROM schema_migrations WHERE id = 11;",
         );
         await insertMessage(tx, "m1", "c1", 1, 0, { labels: ["Label_1"] });
+        await insertMessage(tx, "m2", "c2", 2, 1, {
+          labels: ["Label_1"],
+          roles: ["trash"],
+        });
+        if (existing === "the first version of the index") {
+          await tx.exec(
+            `CREATE TABLE effective_message_memberships (
+               account_id TEXT NOT NULL,
+               kind TEXT NOT NULL,
+               membership_id TEXT NOT NULL,
+               message_id TEXT NOT NULL,
+               conversation_id TEXT NOT NULL,
+               received_at_ms INTEGER NOT NULL,
+               read INTEGER NOT NULL,
+               starred INTEGER NOT NULL,
+               PRIMARY KEY (account_id, kind, membership_id, message_id)
+             );
+             CREATE INDEX message_memberships_by_message
+               ON effective_message_memberships(account_id, message_id);
+             INSERT INTO effective_message_memberships
+               SELECT account_id, 'label', 'Label_1', message_id, conversation_id,
+                      received_at_ms, read, starred
+               FROM effective_messages;`,
+          );
+        }
         await migrateMembershipIndex(tx);
         await migrateMembershipIndex(tx);
       });
       const rows = await driver.read((tx) =>
         tx.query(
-          "SELECT kind, membership_id, message_id, read FROM effective_message_memberships",
+          "SELECT kind, membership_id, message_id, read, in_trash_or_spam FROM effective_message_memberships",
         ),
       );
       expect(rows).toEqual([
@@ -325,6 +454,14 @@ describe("transactional conversation index", () => {
           membership_id: "Label_1",
           message_id: "m1",
           read: 0,
+          in_trash_or_spam: 0,
+        },
+        {
+          kind: "label",
+          membership_id: "Label_1",
+          message_id: "m2",
+          read: 1,
+          in_trash_or_spam: 1,
         },
       ]);
     } finally {
@@ -421,6 +558,7 @@ async function insertMessage(
   const roles = options.roles ?? (options.draft ? ["draft"] : ["inbox"]);
   const inInbox = roles.includes("inbox") ? 1 : 0;
   const inDraft = roles.includes("draft") ? 1 : 0;
+  const inTrash = roles.includes("trash") ? 1 : 0;
   await tx.execute(
     `INSERT INTO effective_messages(
       account_id, message_id, conversation_id, subject, preview, from_address, to_json,
@@ -428,7 +566,7 @@ async function insertMessage(
       in_inbox, in_sent, in_draft, in_trash, in_spam, has_attachments, snoozed_until_ms,
       pending_operation_ids_json
     ) VALUES (?, ?, ?, 'Subject', 'Preview', 'sender@example.com', '[]', ?, ?, 0,
-      ?, ?, ?, ?, ?, 0, ?, 0, 0, 0, ?, '[]')`,
+      ?, ?, ?, ?, ?, 0, ?, ?, 0, 0, ?, '[]')`,
     [
       options.account ?? "a",
       id,
@@ -441,6 +579,7 @@ async function insertMessage(
       JSON.stringify(roles),
       inInbox,
       inDraft,
+      inTrash,
       options.snoozedUntil ?? null,
     ],
   );
