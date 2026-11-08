@@ -10,6 +10,8 @@ const settings: MailSettingsResponse = {
   layout: "LIST",
   expandedPreview: false,
   bundleInbox: false,
+  defaultSplitId: null,
+  setup: "DONE",
   splits: [
     {
       id: "split-1",
@@ -17,6 +19,7 @@ const settings: MailSettingsResponse = {
       order: 0,
       matchAll: true,
       bundleInInbox: false,
+      hideFromAll: false,
       filters: [{ kind: "UNREAD", value: null }],
     },
   ],

@@ -1,4 +1,8 @@
 {
+  "mail-setup.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx",
+    "utils/split-inbox/split-query.ts"
+  ],
   "account-selection.spec.ts": [
     "app/(app)/[emailAccountId]/mail/MailSidebar.tsx",
     "app/(app)/[emailAccountId]/mail/use-combined-mail-threads.ts"

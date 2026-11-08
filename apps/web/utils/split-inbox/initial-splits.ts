@@ -13,7 +13,11 @@ export const INITIAL_MAIL_SPLITS = [
 ];
 
 export function ensureAllMailSplit(
-  splits: (MailSplit & { order: number; bundleInInbox: boolean })[],
+  splits: (MailSplit & {
+    order: number;
+    bundleInInbox: boolean;
+    hideFromAll: boolean;
+  })[],
 ) {
   if (splits.some((split) => split.filters.length === 0)) return splits;
 
@@ -25,6 +29,7 @@ export function ensureAllMailSplit(
       order: -1,
       matchAll: true,
       bundleInInbox: false,
+      hideFromAll: false,
       filters: [],
     },
     ...splits,

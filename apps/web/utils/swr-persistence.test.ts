@@ -66,6 +66,8 @@ describe("swr-persistence", () => {
       layout: "SPLIT",
       expandedPreview: true,
       bundleInbox: false,
+      defaultSplitId: null,
+      setup: "DONE",
       splits: [
         {
           id: "split-1",
@@ -73,6 +75,7 @@ describe("swr-persistence", () => {
           order: 0,
           matchAll: false,
           bundleInInbox: false,
+          hideFromAll: false,
           filters: [
             { kind: "LABEL", value: "label-1" },
             { kind: "LABEL", value: "label-2" },
@@ -84,6 +87,7 @@ describe("swr-persistence", () => {
           order: 1,
           matchAll: true,
           bundleInInbox: false,
+          hideFromAll: false,
           filters: [],
         },
       ],

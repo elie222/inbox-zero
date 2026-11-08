@@ -98,7 +98,12 @@ import {
   isThreadArchived,
   isThreadUnread,
 } from "@/app/(app)/[emailAccountId]/mail/read-state";
-import { MailLayout, MailSplitFilterKind } from "@/generated/prisma/enums";
+import {
+  MailLayout,
+  MailSetupState,
+  MailSplitFilterKind,
+} from "@/generated/prisma/enums";
+import { MailSetupPanel } from "@/app/(app)/[emailAccountId]/mail/MailSetupPanel";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useAtomValue, useSetAtom } from "jotai";
 import {
@@ -135,6 +140,7 @@ import {
   getPortableLabelSplits,
   OTHER_SPLIT_ID,
   otherMailSplitQuery,
+  allMailSplitQuery,
   mailSplitToThreadsQuery,
   mailTypeToThreadsQuery,
   threadListQueryRequiresInbox,
@@ -195,6 +201,7 @@ export function MailShell() {
   const [scopeLabelId, setScopeLabelId] = useQueryState("labelId");
   const [scopeFolderId, setScopeFolderId] = useQueryState("folderId");
   const [searchParam, setSearchParam] = useQueryState("q");
+  const [setupParam, setSetupParam] = useQueryState("setup");
 
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [isDesktopApp, setIsDesktopApp] = useState(false);
@@ -381,6 +388,8 @@ export function MailShell() {
             isGoogle && split.name.trim().toLowerCase() === "other"
               ? `${split.name} (custom)`
               : split.name,
+          // Exclusions are served for Gmail only, the same limit as Other.
+          hideFromAll: isGoogle && !isAllAccounts && split.hideFromAll,
         })),
         ...(isGoogle && !isAllAccounts
           ? [
@@ -414,7 +423,9 @@ export function MailShell() {
     [splits],
   );
   const activeSplit =
-    splits.find((split) => split.id === activeSplitId) ?? splits[0];
+    splits.find((split) => split.id === activeSplitId) ??
+    splits.find((split) => split.id === settings?.defaultSplitId) ??
+    splits[0];
   const displayedActiveSplitId = activeSplit?.id ?? null;
   const activeCombinedLabelNames = combinedLabelSplits.find(
     (split) => split.id === displayedActiveSplitId,
@@ -426,9 +437,8 @@ export function MailShell() {
     if (scopeQuery) return scopeQuery;
 
     if (activeSplit?.id === OTHER_SPLIT_ID) return otherMailSplitQuery(splits);
-    return activeSplit
-      ? mailSplitToThreadsQuery(activeSplit)
-      : { type: "inbox" };
+    if (!activeSplit?.filters.length) return allMailSplitQuery(splits);
+    return mailSplitToThreadsQuery(activeSplit);
   }, [searchQuery, scopeQuery, activeSplit, splits]);
 
   const accountThreadState = useMailThreads({
@@ -1427,6 +1437,15 @@ export function MailShell() {
   const showList =
     layout === "split" || !openThreadSelection || readerPreparing;
   const showSplitTabs = !isScoped && !searchQuery;
+  const canShowSetup = showSplitTabs && !isAllAccounts && !!settings;
+  const isSetupOpen =
+    canShowSetup &&
+    (setupParam !== null || settings.setup === MailSetupState.PENDING);
+  const closeSetup = () => {
+    setSetupParam(null);
+    if (settings?.setup !== MailSetupState.DONE)
+      updatePreferences({ setup: MailSetupState.DONE });
+  };
   const canCycleSplits = showSplitTabs && showList;
   const cycleSplit = (step: 1 | -1) => {
     const index = splits.findIndex(
@@ -1887,6 +1906,18 @@ export function MailShell() {
         <>
           {labelPickerDialog}
           {splitPickerDialog}
+          {isSetupOpen && (
+            <MailSetupPanel
+              splits={splits}
+              layout={layout}
+              bundleInbox={bundleInbox}
+              defaultSplitId={settings.defaultSplitId}
+              onUpdatePreferences={updatePreferences}
+              onToggleBundleInbox={toggleBundleInbox}
+              onSelectSplit={setActiveSplitId}
+              onClose={closeSetup}
+            />
+          )}
         </>
       }
     >
@@ -1933,6 +1964,12 @@ export function MailShell() {
                   isInboxView ? toggleBundleInbox : undefined
                 }
                 onToggleAssistant={onToggleAssistant}
+                onOpenSetup={
+                  canShowSetup && !isSetupOpen
+                    ? () => setSetupParam("1")
+                    : undefined
+                }
+                isSetupSuggested={settings?.setup !== MailSetupState.DONE}
                 selectAll={showSplitTabs ? null : selectAllCheckbox}
                 selectedCount={selection.selectedCount}
                 onArchiveSelected={archiveTargets}
