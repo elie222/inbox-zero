@@ -371,6 +371,7 @@ describe("createEmailProviderOperationExecutor", () => {
           version: "v1",
         })),
         deleteDraft: vi.fn(async () => false),
+        getDraft: vi.fn(async () => ({ id: "m1" })),
       } as unknown as EmailProvider,
     });
 
@@ -381,6 +382,30 @@ describe("createEmailProviderOperationExecutor", () => {
     });
 
     expect(result).toMatchObject({ status: "rejected", code: "draft_changed" });
+  });
+
+  it("settles a refused discard as applied when the draft is already gone", async () => {
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        getDraftReferenceForMessage: vi.fn(async () => ({
+          id: "d1",
+          version: "v1",
+        })),
+        deleteDraft: vi.fn(async () => false),
+        getDraft: vi.fn(async () => null),
+        getMessage: vi.fn(async () => null),
+      } as unknown as EmailProvider,
+    });
+
+    const result = await executor.execute({
+      operation: discardOperation(["m1"]),
+      attemptId: "attempt-1",
+      signal: new AbortController().signal,
+    });
+
+    expect(result).toMatchObject({ status: "confirmed" });
   });
 
   it("keeps a draft that was sent elsewhere as the sent message", async () => {

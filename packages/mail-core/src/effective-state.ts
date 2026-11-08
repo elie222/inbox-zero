@@ -109,7 +109,14 @@ export function deriveEffectiveMessage(
       continue;
     }
     metadata = applyMetadataChange(metadata, effect.change);
-    if (effect.change.kind === "discard_draft") deleted = true;
+    // A draft that sync has seen sent elsewhere is no longer the discard's
+    // to hide.
+    if (
+      effect.change.kind === "discard_draft" &&
+      confirmed.roles.includes("draft")
+    ) {
+      deleted = true;
+    }
     pendingOperationIds.push(effect.operationId);
   }
   return {

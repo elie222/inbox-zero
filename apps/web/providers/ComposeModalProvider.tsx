@@ -103,17 +103,23 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
   const discardReply = useCallback(
     async (draftId?: string) => {
       if (reply?.providerDraftMessageId) {
-        const discarded = await discardMailboxDraft({
-          client: getActiveMailClient(),
-          emailAccountId: reply.emailAccountId,
-          messageIds: getDraftSessionMessageIds(
-            reply.emailAccountId,
-            reply.providerDraftMessageId,
-          ),
-          draftId,
-        }).catch(() => false);
-        if (!discarded) {
-          toastError({ description: "Failed to discard draft" });
+        try {
+          await discardMailboxDraft({
+            client: getActiveMailClient(),
+            emailAccountId: reply.emailAccountId,
+            messageIds: getDraftSessionMessageIds(
+              reply.emailAccountId,
+              reply.providerDraftMessageId,
+            ),
+            draftId,
+          });
+        } catch (error) {
+          toastError({
+            description:
+              error instanceof Error
+                ? error.message
+                : "Failed to discard draft",
+          });
           return false;
         }
       }

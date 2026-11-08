@@ -104,7 +104,8 @@ export function createEmailProviderOperationExecutor(input: {
         return { status: "uncertain", receiptId: operation.key.operationId };
       }
       // Discarding is idempotent: a draft that is already gone settles as
-      // applied, and one that changed since is rejected by its version.
+      // applied. Its version is read just before deleting, so draft_changed
+      // only covers an edit in that short window.
       if (operation.intent.change.kind === "discard_draft") {
         return executeDiscardDraft(provider, accountId, {
           ...operation,
@@ -180,7 +181,10 @@ async function executeDiscardDraft(
       ),
     );
     for (const draft of drafts.values()) {
-      if (!(await provider.deleteDraft(draft.id, draft.version))) {
+      const deleted = await provider.deleteDraft(draft.id, draft.version);
+      // A refused delete is only an edit if the draft is still there; one
+      // that was sent or deleted elsewhere meanwhile is gone either way.
+      if (!deleted && (await draftReferenceById(provider, draft.id))) {
         return {
           status: "rejected",
           code: "draft_changed",

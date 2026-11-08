@@ -33,6 +33,11 @@ const { discardDraft } = vi.hoisted(() => ({ discardDraft: vi.fn() }));
 vi.mock("@/utils/mail-engine/discard-mailbox-draft", () => ({
   discardMailboxDraft: discardDraft,
 }));
+// Every describe that discards relies on success unless it says otherwise.
+beforeEach(() => {
+  discardDraft.mockReset();
+  discardDraft.mockResolvedValue(undefined);
+});
 const { scheduledEmails } = vi.hoisted(() => ({
   scheduledEmails: {
     current: [] as { status: string; draftMessageIds: string[] }[],
@@ -829,10 +834,6 @@ describe("EmailThread scheduled send drafts", () => {
 });
 
 describe("EmailThread draft discard", () => {
-  beforeEach(() => {
-    discardDraft.mockReset();
-    discardDraft.mockResolvedValue(true);
-  });
   afterEach(cleanup);
 
   // A draft opened from the Drafts folder is the entire conversation, so once
@@ -854,15 +855,8 @@ describe("EmailThread draft discard", () => {
     expect(onThreadDiscarded).toHaveBeenCalledTimes(1);
   });
 
-  it.each([
-    "refusal",
-    "exception",
-  ])("keeps the conversation and restores its draft after a discard %s", async (failure) => {
-    if (failure === "refusal") {
-      discardDraft.mockResolvedValue(false);
-    } else {
-      discardDraft.mockRejectedValue(new Error("Deletion failed"));
-    }
+  it("keeps the conversation and restores its draft when the discard fails", async () => {
+    discardDraft.mockRejectedValue(new Error("Deletion failed"));
     const onThreadDiscarded = vi.fn();
     render(
       <EmailThread

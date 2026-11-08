@@ -876,17 +876,22 @@ function ReplyPanel({
         return true;
       }
 
-      const discardPromise = discardMailboxDraft({
+      const discardFailure = discardMailboxDraft({
         client,
         emailAccountId,
         messageIds: getDraftSessionMessageIds(emailAccountId, draftMessage.id),
         draftId,
-      }).catch(() => false);
+      }).then(
+        () => null,
+        (error: unknown) =>
+          error instanceof Error ? error.message : "Failed to discard draft",
+      );
       const composeSession = onStartDiscard();
       if (!composeSession) return false;
 
-      if (!(await discardPromise)) {
-        toastError({ description: "Failed to discard draft" });
+      const failure = await discardFailure;
+      if (failure) {
+        toastError({ description: failure });
         onRestoreCompose(composeSession);
         return false;
       }

@@ -16,7 +16,6 @@ import {
 } from "@/hooks/useProviderDraftAutosave";
 import { useReplyDraftPersistence } from "@/hooks/useReplyDraftPersistence";
 import {
-  discardComposeDraftAction,
   saveComposeDraftAction,
   updateDraftAction,
 } from "@/utils/actions/mail";
@@ -353,21 +352,12 @@ export function useComposeDraft({
           providerDraftId.current =
             local?.content?.providerDraftId ?? providerDraftId.current;
           if (providerDraftId.current) {
-            const discarded = await discardMailboxDraft({
+            await discardMailboxDraft({
               client,
               emailAccountId,
               messageIds: local?.content?.providerDraftMessageIds ?? [],
               draftId: providerDraftId.current,
             });
-            // Before a save reports its mailbox message there is nothing to
-            // hide locally, so the provider draft is deleted directly.
-            if (!discarded) {
-              const result = await discardComposeDraftAction(emailAccountId, {
-                draftId: providerDraftId.current,
-              });
-              if (!result?.data)
-                throw new Error(getActionErrorMessage(result ?? {}));
-            }
           }
           if (
             !providerDraftId.current &&

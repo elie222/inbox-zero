@@ -124,10 +124,10 @@ describe("EmailMessage draft recovery", () => {
   });
 
   it("restores a provider draft when the mail engine refuses the discard", async () => {
-    let resolveDiscard: (discarded: boolean) => void = () => {};
+    let refuseDiscard: (error: Error) => void = () => {};
     mocks.discardMailboxDraft.mockReturnValue(
-      new Promise((resolve) => {
-        resolveDiscard = resolve;
+      new Promise((_, reject) => {
+        refuseDiscard = reject;
       }),
     );
     const refetch = vi.fn();
@@ -147,12 +147,12 @@ describe("EmailMessage draft recovery", () => {
     expect(screen.queryByTestId("composer")).toBeNull();
 
     await act(async () => {
-      resolveDiscard(false);
+      refuseDiscard(new Error("Mail is full of pending actions."));
     });
 
     expect(screen.getByTestId("composer")).toBeTruthy();
     expect(mocks.toastError).toHaveBeenCalledWith({
-      description: "Failed to discard draft",
+      description: "Mail is full of pending actions.",
     });
   });
 
@@ -195,7 +195,7 @@ describe("EmailMessage draft recovery", () => {
       screen.getAllByTestId("composer").map((composer) => composer.textContent),
     ).toEqual(["replyDiscard draft"]);
     expect(mocks.toastError).toHaveBeenCalledWith({
-      description: "Failed to discard draft",
+      description: "Request failed",
     });
   });
 });
