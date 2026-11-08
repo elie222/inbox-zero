@@ -1604,6 +1604,11 @@ function formatSearchInboxResult({
     mapMessageForSearchResult(message, labelsById, taxonomyNamesKey),
   );
 
+  // An empty search often means the user's term names one of their own labels
+  // or categories rather than text in the messages, so give the model the
+  // names it can filter by instead of leaving it to guess.
+  const noMatches = items.length === 0 && !searchResult.nextPageToken;
+
   return {
     queryUsed,
     totalReturned: items.length,
@@ -1611,8 +1616,23 @@ function formatSearchInboxResult({
     hasMore: Boolean(searchResult.nextPageToken),
     summary: summarizeSearchResults(items),
     messages: items,
+    ...(noMatches && {
+      [taxonomyNamesKey === "categoryNames"
+        ? "availableCategoryNames"
+        : "availableLabelNames"]: getUserLabelNames(labels),
+    }),
   };
 }
+
+function getUserLabelNames(labels: Array<{ id: string; name: string }>) {
+  return labels
+    .filter((label) => !SYSTEM_LABEL_ID_PATTERN.test(label.id))
+    .map((label) => label.name)
+    .slice(0, MAX_AVAILABLE_LABEL_NAMES);
+}
+
+const SYSTEM_LABEL_ID_PATTERN = /^[A-Z_]+$/;
+const MAX_AVAILABLE_LABEL_NAMES = 50;
 
 function mapMessageForSearchResult(
   message: ParsedMessage,

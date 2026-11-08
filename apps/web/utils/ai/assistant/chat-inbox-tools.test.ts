@@ -1320,6 +1320,67 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     expect(result.hasMore).toBe(false);
   });
 
+  it.each([
+    ["google", "availableLabelNames"],
+    ["microsoft", "availableCategoryNames"],
+  ])("searchInbox lists the user's %s labels when nothing matches", async (provider, key) => {
+    (createEmailProvider as any).mockResolvedValue({
+      searchMessages: vi.fn().mockResolvedValue({
+        messages: [],
+        nextPageToken: undefined,
+      }),
+      getLabels: vi.fn().mockResolvedValue([
+        { id: "INBOX", name: "INBOX" },
+        { id: "CATEGORY_PROMOTIONS", name: "CATEGORY_PROMOTIONS" },
+        { id: "Label_1", name: "Newsletter" },
+      ]),
+    });
+
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider,
+      logger,
+    });
+
+    const result: any = await (toolInstance.execute as any)({
+      query: "newsletter",
+      limit: 20,
+    });
+
+    expect(result[key]).toEqual(["Newsletter"]);
+  });
+
+  it("searchInbox omits available labels when there are matches or more pages", async () => {
+    const searchMessages = vi
+      .fn()
+      .mockResolvedValueOnce({
+        messages: [getMockMessage({ id: "message-1" })],
+        nextPageToken: undefined,
+      })
+      .mockResolvedValueOnce({ messages: [], nextPageToken: "NEXT_PAGE" });
+    (createEmailProvider as any).mockResolvedValue({
+      searchMessages,
+      getLabels: vi
+        .fn()
+        .mockResolvedValue([{ id: "Label_1", name: "Newsletter" }]),
+    });
+
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+    const execute = toolInstance.execute as any;
+
+    const withMatches = await execute({ query: "newsletter", limit: 20 });
+    const emptyPageWithMore = await execute({ query: "newsletter", limit: 20 });
+
+    expect(withMatches).not.toHaveProperty("availableLabelNames");
+    expect(emptyPageWithMore).not.toHaveProperty("availableLabelNames");
+  });
+
   it("searchInbox uses exact Outlook sender filtering for fielded sender queries", async () => {
     const searchMessages = vi.fn().mockResolvedValue({
       messages: [
