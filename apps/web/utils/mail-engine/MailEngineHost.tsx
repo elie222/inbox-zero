@@ -45,6 +45,7 @@ import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { fetchEmailAccounts } from "@/utils/fetch-email-accounts";
 import { followMailboxChanges } from "@/utils/mail-engine/follow-mailbox-changes";
 import { hydrateReplyDrafts } from "@/utils/mail-engine/reply-drafts";
+import { captureException } from "@/utils/error";
 import { browserMailEngineCapabilities } from "@/utils/mail-engine/worker-protocol";
 import {
   MAIL_ENGINE_TAB_CHANNEL,
@@ -222,7 +223,7 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
       setClient(visible);
       // The list marks unsaved replies as drafts from this, not only once
       // their threads are opened.
-      hydrateReplyDrafts(emailAccountId).catch(() => {});
+      hydrateReplyDrafts(emailAccountId).catch(captureException);
     }
 
     if (mode === "desktop-ipc") {

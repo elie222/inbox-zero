@@ -226,14 +226,23 @@ export async function hydrateReplyDrafts(emailAccountId: string) {
   // Registered so that clearing every account also invalidates this read.
   accountEpoch.set(emailAccountId, epoch);
   const stored = await client.listDrafts(emailAccountId);
-  if (currentEpoch(emailAccountId) !== epoch) return;
+  // A read from a client replaced meanwhile must not win over the new one's.
+  if (
+    currentEpoch(emailAccountId) !== epoch ||
+    getActiveMailClient() !== client
+  )
+    return;
   for (const { key, draftRevision, content } of stored) {
     const state = parseReplyDraftState(content);
     const threadId =
       content.conversationId ?? state?.content.values.replyToEmail?.threadId;
     if (!state || !threadId) continue;
     restoreReplyDraft(
-      { emailAccountId, threadId, messageId: key.draftId },
+      {
+        emailAccountId,
+        threadId,
+        messageId: state.sessionMessageId ?? key.draftId,
+      },
       draftRevision,
       state,
     );
@@ -751,6 +760,9 @@ async function persistEngineReplyDraft(
         clientState: JSON.stringify({
           ...content,
           updatedAt: drafts.get(draftKey(identity))?.updatedAt,
+          // The engine's draft id is cut to 128 characters, so startup reads
+          // the full session id from here.
+          sessionMessageId: identity.messageId,
         }).slice(0, 1_000_000),
         ...(content.providerDraftId
           ? { providerDraftId: content.providerDraftId }
@@ -808,12 +820,14 @@ function restoreReplyDraft(
 function parseReplyDraftState(stored: DraftContent) {
   if (!stored.clientState) return null;
   try {
-    const { updatedAt, ...content } = JSON.parse(
+    const { updatedAt, sessionMessageId, ...content } = JSON.parse(
       stored.clientState,
-    ) as ReplyDraftContent & { updatedAt?: number };
+    ) as ReplyDraftContent & { updatedAt?: number; sessionMessageId?: string };
     if (!content?.draft || !content.values) return null;
     return {
       content,
+      sessionMessageId:
+        typeof sessionMessageId === "string" ? sessionMessageId : undefined,
       // Older persisted drafts have no edit time; reading them isn't an edit.
       updatedAt: typeof updatedAt === "number" ? updatedAt : 0,
     };

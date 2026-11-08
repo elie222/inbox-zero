@@ -131,6 +131,43 @@ describe("local reply drafts", () => {
     expect((await getReplyDraft(replyIdentity))?.content).toEqual(content);
   });
 
+  it("hydrates a draft under its full session id when that's longer than the engine's key", async () => {
+    const client = createRevisionCheckingClient();
+    setActiveMailClient(client as never);
+    const longIdentity = {
+      ...identity,
+      messageId: getReplyDraftSessionId(
+        `<${"x".repeat(200)}@example.com>`,
+        "reply",
+      ),
+    };
+    await createReplyDraftWriter(longIdentity).save(content);
+    clearLocalReplyDrafts();
+
+    await hydrateReplyDrafts("account");
+    expect(getReplyDraftThreadKeys()).toBe("account:thread");
+    const draft = await getReplyDraft(longIdentity);
+    await createReplyDraftWriter(longIdentity, draft?.revision).clear();
+
+    expect(getReplyDraftThreadKeys()).toBe("");
+  });
+
+  it("ignores a draft read from a client that was replaced meanwhile", async () => {
+    const client = createRevisionCheckingClient();
+    setActiveMailClient(client as never);
+    await createReplyDraftWriter(replyIdentity).save(content);
+    clearLocalReplyDrafts();
+    const listDrafts = client.listDrafts.bind(client);
+    client.listDrafts = vi.fn(async (accountId: string) => {
+      setActiveMailClient(createRevisionCheckingClient() as never);
+      return listDrafts(accountId);
+    }) as typeof client.listDrafts;
+
+    await hydrateReplyDrafts("account");
+
+    expect(getReplyDraftThreadKeys()).toBe("");
+  });
+
   it("keeps the draft in memory over the stored copy when hydrating", async () => {
     const client = createRevisionCheckingClient();
     setActiveMailClient(client as never);
