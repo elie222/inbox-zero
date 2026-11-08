@@ -198,7 +198,9 @@ describe("query corpora", () => {
       const labelled = (
         messageId: string,
         conversationId: string,
-        options: { labels?: string[]; trash?: boolean } = { labels: ["Cold"] },
+        options: { labels?: string[]; hiddenIn?: "trash" | "spam" } = {
+          labels: ["Cold"],
+        },
       ) =>
         messagePatch({
           accountId: "acc-1",
@@ -210,10 +212,14 @@ describe("query corpora", () => {
         });
       await applyInboxPage(store, "acc-1", [
         labelled("m-live", "c-live"),
-        labelled("m-trashed", "c-trashed", { labels: ["Cold"], trash: true }),
+        labelled("m-trashed", "c-trashed", {
+          labels: ["Cold"],
+          hiddenIn: "trash",
+        }),
+        labelled("m-spam", "c-spam", { labels: ["Cold"], hiddenIn: "spam" }),
         labelled("m-mixed-trashed", "c-mixed", {
           labels: ["Cold"],
-          trash: true,
+          hiddenIn: "trash",
         }),
         labelled("m-mixed-live", "c-mixed"),
         labelled("m-unlabelled", "c-unlabelled", {}),
@@ -552,10 +558,10 @@ function messagePatch(input: {
   subject: string;
   preview?: string;
   draft?: boolean;
-  trash?: boolean;
+  hiddenIn?: "trash" | "spam";
   labels?: string[];
 }): Extract<ProviderChange, { kind: "message_patch" }> {
-  const role = input.draft ? "draft" : input.trash ? "trash" : "inbox";
+  const role = input.draft ? "draft" : (input.hiddenIn ?? "inbox");
   return {
     kind: "message_patch",
     key: { accountId: input.accountId, messageId: input.messageId },
