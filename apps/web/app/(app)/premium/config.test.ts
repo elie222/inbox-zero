@@ -278,7 +278,9 @@ describe("getBillingIntervalSwitch", () => {
     ).toMatchObject({
       tier: "PLUS_ANNUALLY",
       label: "Switch to annual",
-      description: expect.stringContaining("$28/mo, billed annually"),
+      description: expect.stringContaining(
+        "$28/mo, billed annually per user. Your plan includes 2 email accounts. Each extra account is $14/mo, billed annually.",
+      ),
     });
     expect(
       getBillingIntervalSwitch("price_current_starter_annual"),

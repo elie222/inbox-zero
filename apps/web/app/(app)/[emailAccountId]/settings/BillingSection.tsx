@@ -190,18 +190,16 @@ function SwitchBillingIntervalButton({
           const url = result?.data?.url;
           if (result?.serverError || !url) {
             toastError({
-              description:
-                result?.serverError ||
-                "We couldn't change your billing. Your subscription has not been changed.",
+              description: getActionErrorMessage(
+                result ?? {},
+                SWITCH_INTERVAL_ERROR,
+              ),
             });
             return;
           }
           redirectToSafeUrl(url, { allowExternal: true });
         } catch {
-          toastError({
-            description:
-              "We couldn't change your billing. Your subscription has not been changed.",
-          });
+          toastError({ description: SWITCH_INTERVAL_ERROR });
         } finally {
           setLoading(false);
         }
@@ -209,3 +207,6 @@ function SwitchBillingIntervalButton({
     />
   );
 }
+
+const SWITCH_INTERVAL_ERROR =
+  "We couldn't change your billing. Your subscription has not been changed.";
