@@ -335,7 +335,7 @@ export function ManageInboxResult({
       {typeof failedCount === "number" && failedCount > 0 && (
         <ToolPanel className="border-red-200 bg-red-50/60 text-red-700 dark:border-red-900 dark:bg-red-950/20 dark:text-red-200">
           <div className="text-sm">
-            Failed on {failedCount} {countLabel}
+            Failed on {failedCount} {isSenderAction ? "sender" : "item"}
             {failedCount === 1 ? "" : "s"}.
           </div>
         </ToolPanel>
