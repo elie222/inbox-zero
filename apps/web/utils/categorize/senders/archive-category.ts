@@ -2,6 +2,7 @@ import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { extractUniqueEmailAddresses } from "@/utils/email";
 import type { EmailProvider } from "@/utils/email/types";
+import { pluralize } from "@/utils/string";
 
 const UNCATEGORIZED_CATEGORY_NAME = "Uncategorized";
 const MAX_SENDERS_IN_OUTPUT = 100;
@@ -56,29 +57,37 @@ export async function archiveCategory({
       action: "archive_category" as const,
       category: resolvedCategory.category,
       sendersCount: 0,
+      archivedMessagesCount: 0,
       senders: [],
       message: `No senders are currently assigned to "${resolvedCategory.category.name}".`,
     };
   }
 
-  await emailProvider.bulkArchiveFromSenders(
+  const archivedMessagesCount = await emailProvider.bulkArchiveFromSenders(
     normalizedSenderEmails,
     email,
     emailAccountId,
   );
+  const sendersCount = normalizedSenderEmails.length;
+  const resolvedName = resolvedCategory.category.name;
 
   logger.info("Archived sender category", {
-    categoryName: resolvedCategory.category.name,
-    sendersCount: normalizedSenderEmails.length,
+    categoryName: resolvedName,
+    sendersCount,
+    archivedMessagesCount,
   });
 
   return {
     success: true,
     action: "archive_category" as const,
     category: resolvedCategory.category,
-    sendersCount: normalizedSenderEmails.length,
+    sendersCount,
+    archivedMessagesCount,
     senders: normalizedSenderEmails.slice(0, MAX_SENDERS_IN_OUTPUT),
-    message: `Archived mail from ${normalizedSenderEmails.length} senders in "${resolvedCategory.category.name}".`,
+    message:
+      archivedMessagesCount > 0
+        ? `Archived ${archivedMessagesCount} ${pluralize(archivedMessagesCount, "message")} from ${sendersCount} ${pluralize(sendersCount, "sender")} in "${resolvedName}".`
+        : `No messages were archived from the ${sendersCount} ${pluralize(sendersCount, "sender")} in "${resolvedName}".`,
   };
 }
 

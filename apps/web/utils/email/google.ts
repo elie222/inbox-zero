@@ -847,8 +847,8 @@ export class GmailProvider implements EmailProvider {
     fromEmails: string[],
     ownerEmail: string,
     emailAccountId: string,
-  ): Promise<void> {
-    await this.archiveMessagesFromSenders(
+  ): Promise<number> {
+    return this.archiveMessagesFromSenders(
       fromEmails,
       ownerEmail,
       emailAccountId,
