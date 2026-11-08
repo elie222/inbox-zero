@@ -187,6 +187,71 @@ describe("query corpora", () => {
     }
   });
 
+  it("scopes a label view without Trash and Spam to that label's live messages", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    try {
+      await store.ensureAccount({
+        accountId: "acc-1",
+        provider: "google",
+        generation: "g1",
+      });
+      const labelled = (
+        messageId: string,
+        conversationId: string,
+        options: { labels?: string[]; hiddenIn?: "trash" | "spam" } = {
+          labels: ["Cold"],
+        },
+      ) =>
+        messagePatch({
+          accountId: "acc-1",
+          messageId,
+          conversationId,
+          receivedAtMs: 1,
+          subject: conversationId,
+          ...options,
+        });
+      await applyInboxPage(store, "acc-1", [
+        labelled("m-live", "c-live"),
+        labelled("m-trashed", "c-trashed", {
+          labels: ["Cold"],
+          hiddenIn: "trash",
+        }),
+        labelled("m-spam", "c-spam", { labels: ["Cold"], hiddenIn: "spam" }),
+        labelled("m-mixed-trashed", "c-mixed", {
+          labels: ["Cold"],
+          hiddenIn: "trash",
+        }),
+        labelled("m-mixed-live", "c-mixed"),
+        labelled("m-unlabelled", "c-unlabelled", {}),
+      ]);
+      const predicate = {
+        kind: "all" as const,
+        predicates: [
+          {
+            kind: "membership" as const,
+            membership: "label" as const,
+            id: "Cold",
+          },
+          { kind: "mailbox" as const, mailbox: "all" as const },
+        ],
+      };
+
+      const list = await store.readMailboxView({
+        ...inboxQuery(["acc-1"]),
+        predicate,
+      });
+      const counts = await store.readMailboxCounts({
+        accountIds: ["acc-1"],
+        targets: [{ id: "cold", predicate }],
+      });
+
+      expect(conversationIds(list).sort()).toEqual(["c-live", "c-mixed"]);
+      expect(counts.view.counts[0]?.matchingConversations).toBe(2);
+    } finally {
+      await store.close();
+    }
+  });
+
   it("lists one conversation for a long thread and paginates every message", async () => {
     const store = await createSqliteMailStore(createNodeSqliteDriver());
     await store.ensureAccount({
@@ -493,8 +558,10 @@ function messagePatch(input: {
   subject: string;
   preview?: string;
   draft?: boolean;
+  hiddenIn?: "trash" | "spam";
   labels?: string[];
 }): Extract<ProviderChange, { kind: "message_patch" }> {
+  const role = input.draft ? "draft" : (input.hiddenIn ?? "inbox");
   return {
     kind: "message_patch",
     key: { accountId: input.accountId, messageId: input.messageId },
@@ -513,10 +580,10 @@ function messagePatch(input: {
       receivedAtMs: input.receivedAtMs,
       read: false,
       starred: false,
-      folderId: input.draft ? "drafts" : "inbox",
-      labelIds: [input.draft ? "DRAFT" : "INBOX", ...(input.labels ?? [])],
+      folderId: input.draft ? "drafts" : role,
+      labelIds: [role.toUpperCase(), ...(input.labels ?? [])],
       categoryIds: [],
-      roles: [input.draft ? "draft" : "inbox"],
+      roles: [role],
       hasAttachments: false,
     },
   };
