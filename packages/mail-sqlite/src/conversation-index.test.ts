@@ -170,7 +170,7 @@ describe("transactional conversation index", () => {
           };
           const composed = await store.readMailboxView({
             ...query,
-            predicate: { kind: "all", predicates: [predicate] },
+            predicate: filteredPath(predicate),
           });
           expect(await store.readMailboxView(query)).toEqual(composed);
         }
@@ -228,12 +228,10 @@ describe("transactional conversation index", () => {
       };
       const read = async () => {
         const indexed = await store.readMailboxView(query);
-        // Nesting the predicate keeps it off the index, so this compares
-        // against filtering every message.
         expect(indexed).toEqual(
           await store.readMailboxView({
             ...query,
-            predicate: { kind: "all", predicates: [predicate] },
+            predicate: filteredPath(predicate),
           }),
         );
         const counts = await store.readMailboxCounts({
@@ -284,6 +282,144 @@ describe("transactional conversation index", () => {
       await move("m3", "in_trash", 0);
       await move("m1", "in_spam", 0);
       expect(await read()).toEqual(before);
+    } finally {
+      await store.close();
+    }
+  });
+
+  it("serves a label's read and starred filters like filtering every message", async () => {
+    const driver = createNodeSqliteDriver();
+    const store = await createSqliteMailStore(driver);
+    try {
+      for (const accountId of ["a", "b"]) {
+        await store.ensureAccount({
+          accountId,
+          provider: "google",
+          generation: "g",
+        });
+      }
+      await driver.write(async (tx) => {
+        const label = { labels: ["Label_1"] };
+        // Unread and starred only through an older message.
+        await insertMessage(tx, "m1", "c1", 1, 0, { ...label, starred: true });
+        await insertMessage(tx, "m2", "c1", 9, 1, label);
+        // Its newest message is unread but in Trash.
+        await insertMessage(tx, "m3", "c2", 2, 1, label);
+        await insertMessage(tx, "m4", "c2", 8, 0, {
+          ...label,
+          roles: ["trash"],
+        });
+        // Starred and unread only in Spam.
+        await insertMessage(tx, "m5", "c3", 3, 1, label);
+        await insertMessage(tx, "m6", "c3", 7, 0, {
+          ...label,
+          roles: ["spam"],
+          starred: true,
+        });
+        // Unread through a message outside the label.
+        await insertMessage(tx, "m7", "c4", 4, 1, label);
+        await insertMessage(tx, "m8", "c4", 6, 0);
+        // Entirely in Trash.
+        await insertMessage(tx, "m9", "c5", 5, 0, {
+          ...label,
+          roles: ["trash"],
+        });
+        await insertMessage(tx, "m10", "c6", 10, 0, {
+          ...label,
+          account: "b",
+          starred: true,
+          folder: "f1",
+        });
+        await insertMessage(tx, "m11", "c7", 11, 1, {
+          ...label,
+          account: "b",
+          folder: "f1",
+        });
+      });
+      const labelMembership: MailPredicate = {
+        kind: "membership",
+        membership: "label",
+        id: "Label_1",
+      };
+      const labelView: MailPredicate = {
+        kind: "all",
+        predicates: [labelMembership, { kind: "mailbox", mailbox: "all" }],
+      };
+      const unread: MailPredicate = { kind: "read", value: false };
+      const starred: MailPredicate = { kind: "starred", value: true };
+      // The shapes threadsQueryToPredicate builds in apps/web: a label's view
+      // nested after the other conditions, and labelIds as flat clauses.
+      const predicates: MailPredicate[] = [
+        labelView,
+        { kind: "all", predicates: [unread, labelView] },
+        { kind: "all", predicates: [{ kind: "read", value: true }, labelView] },
+        {
+          kind: "all",
+          predicates: [{ kind: "mailbox", mailbox: "starred" }, labelView],
+        },
+        { kind: "all", predicates: [unread, starred, labelView] },
+        { kind: "all", predicates: [labelMembership, unread] },
+        { kind: "all", predicates: [labelMembership, starred] },
+        {
+          kind: "all",
+          predicates: [
+            unread,
+            { kind: "membership", membership: "folder", id: "f1" },
+          ],
+        },
+        {
+          kind: "all",
+          predicates: [unread, { ...labelMembership, accountId: "b" }],
+        },
+      ];
+      for (const predicate of predicates) {
+        const counts = async (path: MailPredicate) =>
+          (
+            await store.readMailboxCounts({
+              accountIds: ["a", "b"],
+              targets: [{ id: "label", predicate: path }],
+            })
+          ).view.counts;
+        expect(await counts(predicate)).toEqual(
+          await counts(filteredPath(predicate)),
+        );
+        const pages = async (path: MailPredicate) => {
+          const read = [];
+          let after: string | null = null;
+          do {
+            const page = await store.readMailboxView({
+              accountIds: ["a", "b"],
+              predicate: path,
+              order: "newest_first",
+              pageSize: 2,
+              after,
+            });
+            read.push(page.view);
+            after = page.view.nextPage;
+          } while (after);
+          return read;
+        };
+        expect(await pages(predicate)).toEqual(
+          await pages(filteredPath(predicate)),
+        );
+      }
+      const unreadLabel = await store.readMailboxView({
+        accountIds: ["a", "b"],
+        predicate: { kind: "all", predicates: [unread, labelView] },
+        order: "newest_first",
+        pageSize: 25,
+        after: null,
+      });
+      expect(
+        unreadLabel.view.conversations.map((conversation) => ({
+          id: conversation.key.conversationId,
+          latest: conversation.latestMessageAtMs,
+          starred: conversation.starred,
+        })),
+      ).toEqual([
+        { id: "c6", latest: 10, starred: true },
+        { id: "c1", latest: 1, starred: true },
+      ]);
     } finally {
       await store.close();
     }
@@ -553,26 +689,29 @@ async function insertMessage(
     draft?: boolean;
     snoozedUntil?: number;
     roles?: string[];
+    starred?: boolean;
   } = {},
 ) {
   const roles = options.roles ?? (options.draft ? ["draft"] : ["inbox"]);
   const inInbox = roles.includes("inbox") ? 1 : 0;
   const inDraft = roles.includes("draft") ? 1 : 0;
   const inTrash = roles.includes("trash") ? 1 : 0;
+  const inSpam = roles.includes("spam") ? 1 : 0;
   await tx.execute(
     `INSERT INTO effective_messages(
       account_id, message_id, conversation_id, subject, preview, from_address, to_json,
       received_at_ms, read, starred, folder_id, label_ids_json, category_ids_json, roles_json,
       in_inbox, in_sent, in_draft, in_trash, in_spam, has_attachments, snoozed_until_ms,
       pending_operation_ids_json
-    ) VALUES (?, ?, ?, 'Subject', 'Preview', 'sender@example.com', '[]', ?, ?, 0,
-      ?, ?, ?, ?, ?, 0, ?, ?, 0, 0, ?, '[]')`,
+    ) VALUES (?, ?, ?, 'Subject', 'Preview', 'sender@example.com', '[]', ?, ?, ?,
+      ?, ?, ?, ?, ?, 0, ?, ?, ?, 0, ?, '[]')`,
     [
       options.account ?? "a",
       id,
       conversation,
       received,
       read,
+      options.starred ? 1 : 0,
       options.folder ?? null,
       JSON.stringify(options.labels ?? []),
       JSON.stringify(options.categories ?? []),
@@ -580,7 +719,20 @@ async function insertMessage(
       inInbox,
       inDraft,
       inTrash,
+      inSpam,
       options.snoozedUntil ?? null,
     ],
   );
+}
+
+// An always-true clause no index recognizes, so the read filters every message.
+// Nesting keeps a top-level membership or role from choosing a narrower source.
+function filteredPath(predicate: MailPredicate): MailPredicate {
+  return {
+    kind: "all",
+    predicates: [
+      { kind: "all", predicates: [predicate] },
+      { kind: "not", predicate: { kind: "message", ids: [] } },
+    ],
+  };
 }
