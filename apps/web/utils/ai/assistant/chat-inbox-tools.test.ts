@@ -1122,8 +1122,86 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
       limit: 20,
     });
 
-    expect(result.nextPageToken).toBe("PAGE_TOKEN_2");
+    expect(result.nextPageToken).toEqual(expect.any(String));
     expect(result.hasMore).toBe(true);
+  });
+
+  it.each([
+    {
+      provider: "microsoft",
+      firstInput: {
+        query: "invoice",
+        fromEmail: "billing@example.com",
+        readState: "unread",
+        folderName: "Receipts",
+      },
+      expectedSearch: {
+        query: "invoice",
+        fromEmail: "billing@example.com",
+        readState: "unread",
+        labelName: undefined,
+        folderId: "receipts-folder",
+      },
+    },
+    {
+      provider: "google",
+      firstInput: { query: "from:billing@example.com is:unread" },
+      expectedSearch: { query: "from:billing@example.com is:unread" },
+    },
+  ])("searchInbox continues the same $provider search when the next call only passes the page token", async ({
+    provider,
+    firstInput,
+    expectedSearch,
+  }) => {
+    const searchMessages = vi.fn().mockImplementation(async (options) =>
+      options.pageToken
+        ? { messages: [getMockMessage({ id: "m2", threadId: "t2" })] }
+        : {
+            messages: [getMockMessage({ id: "m1", threadId: "t1" })],
+            nextPageToken: "PROVIDER_PAGE_2",
+          },
+    );
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      searchMessages,
+      getFolders: vi
+        .fn()
+        .mockResolvedValue([
+          { id: "receipts-folder", displayName: "Receipts", childFolders: [] },
+        ]),
+      getLabels: vi.fn().mockResolvedValue([]),
+      countMessages: vi.fn(),
+    } as any);
+    const search = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider,
+      logger,
+    });
+    const schema = search.inputSchema as any;
+
+    const firstPage: any = await (search.execute as any)(
+      schema.parse(firstInput),
+    );
+    expect(firstPage.hasMore).toBe(true);
+
+    const nextPageInput = schema.safeParse({
+      pageToken: firstPage.nextPageToken,
+      limit: 20,
+    });
+    expect(nextPageInput.success).toBe(true);
+
+    const secondPage: any = await (search.execute as any)(nextPageInput.data);
+
+    expect(secondPage.error).toBeUndefined();
+    expect(secondPage.messages.map((m: any) => m.threadId)).toEqual(["t2"]);
+    expect(secondPage.hasMore).toBe(false);
+    expect(searchMessages).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        ...expectedSearch,
+        maxResults: 20,
+        pageToken: "PROVIDER_PAGE_2",
+      }),
+    );
   });
 
   it("searchInbox uses the capped default page size when limit is omitted", async () => {
@@ -1347,7 +1425,7 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
       labelName: undefined,
     });
     expect(result.queryUsed).toBe("from:sender@example.com");
-    expect(result.nextPageToken).toBe("PAGE_TOKEN_2");
+    expect(result.nextPageToken).toEqual(expect.any(String));
     expect(result.hasMore).toBe(true);
   });
 
@@ -1376,38 +1454,28 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     );
   });
 
-  it("searchInbox forwards explicit Outlook sender filters across pages", async () => {
-    const searchMessages = vi.fn().mockResolvedValue({
-      messages: [],
-      nextPageToken: undefined,
-    });
-
-    (createEmailProvider as any).mockResolvedValue({
+  it.each([
+    "google",
+    "microsoft",
+  ])("searchInbox rejects a bare %s provider page token instead of continuing without the original filters", async (provider) => {
+    const searchMessages = vi.fn();
+    vi.mocked(createEmailProvider).mockResolvedValue({
       searchMessages,
       getLabels: vi.fn().mockResolvedValue([]),
-    });
-
-    const toolInstance = searchInboxTool({
+    } as any);
+    const search = searchInboxTool({
       email: TEST_EMAIL,
       emailAccountId: "email-account-1",
-      provider: "microsoft",
+      provider,
       logger,
     });
 
-    await (toolInstance.execute as any)({
-      fromEmail: "sender@example.com",
-      limit: 20,
-      pageToken: "PAGE_TOKEN_2",
-    });
+    const result: any = await (search.execute as any)(
+      (search.inputSchema as any).parse({ pageToken: "PAGE_TOKEN_2" }),
+    );
 
-    expect(searchMessages).toHaveBeenCalledWith({
-      query: "",
-      fromEmail: "sender@example.com",
-      maxResults: 20,
-      pageToken: "PAGE_TOKEN_2",
-      readState: undefined,
-      labelName: undefined,
-    });
+    expect(searchMessages).not.toHaveBeenCalled();
+    expect(result.error).toBe("Failed to search inbox");
   });
 
   it("searchInbox preserves structured Outlook sender filters when skipping empty pages", async () => {
