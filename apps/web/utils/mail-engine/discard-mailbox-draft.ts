@@ -1,6 +1,6 @@
 import type { MailClient } from "@inboxzero/mail-core/engine";
 import { discardComposeDraftAction } from "@/utils/actions/mail";
-import { getActionErrorMessage } from "@/utils/error";
+import { captureException, getActionErrorMessage } from "@/utils/error";
 import { admissionRejectionCopy } from "@/utils/mail-engine/admission-notice";
 import { randomUuid } from "@/utils/uuid";
 
@@ -39,9 +39,10 @@ export async function discardMailboxDraft({
       if (admission.status !== "rejected") return;
       rejection = admissionRejectionCopy(admission.code) ?? undefined;
     } catch (error) {
-      // The engine may have admitted the discard before failing; deleting
-      // directly is still safe, because its own delete then finds the draft
-      // gone and settles as applied.
+      // The engine may have admitted the discard before failing. Both paths
+      // treat a draft the other already deleted as discarded, so deleting
+      // directly is still safe.
+      captureException(error);
       if (!draftId) throw error;
     }
   }

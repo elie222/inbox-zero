@@ -8,6 +8,10 @@ const { discardComposeDraftAction } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/utils/actions/mail", () => ({ discardComposeDraftAction }));
+vi.mock("@/utils/error", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/error")>()),
+  captureException: vi.fn(),
+}));
 
 describe("discardMailboxDraft", () => {
   beforeEach(() => {

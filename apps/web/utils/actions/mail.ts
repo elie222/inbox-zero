@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { markTrackedDraftDeleted } from "@/utils/ai/draft-cleanup";
 import prisma from "@/utils/prisma";
 import { removeLabelFromMailSplits } from "@/utils/split-inbox/splits.server";
 import { sendEmailBody } from "@/utils/types/mail";
@@ -536,6 +537,16 @@ export const discardComposeDraftAction = actionClient
         logger,
       });
       await discardComposeDraft({ provider, ...parsedInput });
+      // An AI draft discarded here mustn't stay listed for cleanup.
+      await markTrackedDraftDeleted({
+        draftId: parsedInput.draftId,
+        emailAccountId,
+        logger,
+      }).catch((error) => {
+        logger.error("Failed to update tracking after deleting draft", {
+          error,
+        });
+      });
       return { success: true };
     },
   );

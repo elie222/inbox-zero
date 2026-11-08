@@ -133,6 +133,13 @@ it("keeps local recovery possible when the provider rejects deletion", async () 
     discardComposeDraft({ provider, draftId: "draft-1" }),
   ).rejects.toThrow("changed");
 });
+it("accepts a refused delete when the draft was removed meanwhile", async () => {
+  vi.mocked(provider.deleteDraft).mockResolvedValue(false);
+  vi.mocked(provider.getDraft)
+    .mockResolvedValueOnce({ id: "message-1" } as never)
+    .mockResolvedValueOnce(null);
+  await discardComposeDraft({ provider, draftId: "draft-1" });
+});
 it("accepts discarding a draft already removed in the mailbox", async () => {
   vi.mocked(provider.getDraft).mockResolvedValue(null);
   await discardComposeDraft({ provider, draftId: "draft-1" });
