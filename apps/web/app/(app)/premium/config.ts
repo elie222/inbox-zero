@@ -337,6 +337,20 @@ export function getPremiumTierName(
   return tierMap[tier] ?? "Premium";
 }
 
+export function getBillingIntervalSwitch(
+  tier: PremiumTier | null | undefined,
+): { tier: PremiumTier; label: string } | null {
+  for (const { tiers: planTiers } of tiers) {
+    if (planTiers.monthly === tier) {
+      return { tier: planTiers.annually, label: "Switch to annual" };
+    }
+    if (planTiers.annually === tier) {
+      return { tier: planTiers.monthly, label: "Switch to monthly" };
+    }
+  }
+  return null;
+}
+
 function discount(monthly: number, annually: number) {
   return ((monthly - annually) / monthly) * 100;
 }

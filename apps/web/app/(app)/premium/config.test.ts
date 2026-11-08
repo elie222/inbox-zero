@@ -26,6 +26,7 @@ vi.mock("@/env", () => ({
 
 import {
   getAppleSubscriptionTier,
+  getBillingIntervalSwitch,
   getStripePriceId,
   hasLegacyStripePriceId,
   getAddAccountBillingText,
@@ -267,5 +268,24 @@ describe("getAppleSubscriptionTier", () => {
     expect(getAppleSubscriptionTier({ productId: "unknown.apple.plan" })).toBe(
       null,
     );
+  });
+});
+
+describe("getBillingIntervalSwitch", () => {
+  it("offers the same plan on the other billing interval", () => {
+    expect(getBillingIntervalSwitch("PLUS_MONTHLY")).toEqual({
+      tier: "PLUS_ANNUALLY",
+      label: "Switch to annual",
+    });
+    expect(getBillingIntervalSwitch("PROFESSIONAL_ANNUALLY")).toEqual({
+      tier: "PROFESSIONAL_MONTHLY",
+      label: "Switch to monthly",
+    });
+  });
+
+  it("offers nothing for plans that are no longer sold", () => {
+    expect(getBillingIntervalSwitch("PRO_MONTHLY")).toBeNull();
+    expect(getBillingIntervalSwitch("LIFETIME")).toBeNull();
+    expect(getBillingIntervalSwitch(null)).toBeNull();
   });
 });

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useAction } from "next-safe-action/hooks";
 import { usePremium } from "@/hooks/usePremium";
@@ -20,12 +21,18 @@ import {
   ItemSeparator,
 } from "@/components/ui/item";
 import {
+  getBillingIntervalSwitch,
   getPremiumTierName,
   shouldShowLegacyStripePricingNotice,
 } from "@/app/(app)/premium/config";
 import { hasActiveAppleSubscription } from "@/utils/premium";
 import { getActionErrorMessage } from "@/utils/error";
-import { updateStripeInvoiceEmailsAction } from "@/utils/actions/premium";
+import type { PremiumTier } from "@/generated/prisma/enums";
+import {
+  getBillingPortalUrlAction,
+  updateStripeInvoiceEmailsAction,
+} from "@/utils/actions/premium";
+import { redirectToSafeUrl } from "@/utils/redirect";
 
 export function BillingSection() {
   const {
@@ -38,6 +45,11 @@ export function BillingSection() {
     canManageBilling,
   } = usePremium();
   const isLegacyStripePlan = shouldShowLegacyStripePricingNotice(premium);
+  const intervalSwitch =
+    premium?.stripeSubscriptionId &&
+    ["active", "trialing"].includes(premium.stripeSubscriptionStatus ?? "")
+      ? getBillingIntervalSwitch(tier)
+      : null;
   const hasAppleSubscription = hasActiveAppleSubscription(
     premium?.appleExpiresAt || null,
     premium?.appleRevokedAt || null,
@@ -100,6 +112,9 @@ export function BillingSection() {
                 <Link href="/premium">Change plan</Link>
               </Button>
             )}
+            {intervalSwitch && !hasAppleSubscription && (
+              <SwitchBillingIntervalButton {...intervalSwitch} />
+            )}
             <ManageSubscription premium={premium} compact />
             {!premium.stripeSubscriptionId &&
               !premium.lemonSqueezyCustomerId && (
@@ -143,5 +158,40 @@ export function BillingSection() {
         </>
       )}
     </LoadingContent>
+  );
+}
+
+function SwitchBillingIntervalButton({
+  tier,
+  label,
+}: {
+  tier: PremiumTier;
+  label: string;
+}) {
+  const [loading, setLoading] = useState(false);
+
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      loading={loading}
+      onClick={async () => {
+        setLoading(true);
+        const result = await getBillingPortalUrlAction({ tier });
+        const url = result?.data?.url;
+        if (result?.serverError || !url) {
+          setLoading(false);
+          toastError({
+            description:
+              result?.serverError ||
+              "We couldn't open the plan change page. Your subscription has not been changed.",
+          });
+          return;
+        }
+        redirectToSafeUrl(url, { allowExternal: true });
+      }}
+    >
+      {label}
+    </Button>
   );
 }
