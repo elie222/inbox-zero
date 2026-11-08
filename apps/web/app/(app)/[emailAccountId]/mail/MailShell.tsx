@@ -334,6 +334,8 @@ export function MailShell() {
     scopeType,
     scopeLabelId,
     scopeFolderId,
+    // Opening setup drops a typed search, which would hide the tabs it previews.
+    setupParam,
   ]);
   const [searchDraft, setSearchDraft] = useState<{
     identity: string;
