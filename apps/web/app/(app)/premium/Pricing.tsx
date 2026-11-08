@@ -124,13 +124,24 @@ export default function Pricing(props: PricingProps) {
   ]);
 
   if (isLoggedIn && !canManageBilling) {
+    const isPlanManagedElsewhere =
+      data?.billingAccessDenial === "plan_managed_elsewhere";
+
     return (
       <div className="mx-auto max-w-2xl px-6 py-12">
-        <AlertBasic
-          variant="blue"
-          title="Billing access restricted"
-          description="Only organization owners and admins can manage billing."
-        />
+        {isPlanManagedElsewhere ? (
+          <AlertBasic
+            variant="blue"
+            title="Your plan is managed by another account"
+            description={`Your access comes from a plan someone else set up. To manage billing yourself, contact ${env.NEXT_PUBLIC_SUPPORT_EMAIL}.`}
+          />
+        ) : (
+          <AlertBasic
+            variant="blue"
+            title="Billing access restricted"
+            description="Only organization owners and admins can manage billing."
+          />
+        )}
       </div>
     );
   }

@@ -13,7 +13,7 @@ import {
 } from "@/utils/premium";
 import {
   billingAccessPremiumSelect,
-  canManageBilling,
+  getBillingAccessDenial,
   organizationBillingPrincipalsSelect,
 } from "@/utils/premium/billing-access";
 
@@ -90,7 +90,8 @@ async function getUser({
   );
 
   const { aiApiKey, webhookSecret, emailAccounts } = user;
-  const canManageBillingAccess = canManageBilling(user.id, user);
+  const billingAccessDenial = getBillingAccessDenial(user.id, user);
+  const canManageBillingAccess = billingAccessDenial === null;
   let premium = null;
   if (user.premium) {
     const { admins: _admins, id: _premiumId, ...premiumData } = user.premium;
@@ -120,6 +121,7 @@ async function getUser({
     hasAiApiKey: !!aiApiKey,
     hasWebhookSecret: !!webhookSecret,
     canManageBilling: canManageBillingAccess,
+    billingAccessDenial,
     members,
   };
 }
