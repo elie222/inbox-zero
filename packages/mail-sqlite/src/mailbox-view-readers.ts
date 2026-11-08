@@ -303,40 +303,60 @@ function conversationIndexFor(
   }
   const view = membershipView(predicate);
   if (!view) return null;
-  const { membership, excludesTrashAndSpam } = view;
+  const { membership, filters } = view;
   const account = membership.accountId ? " AND account_id = ?" : "";
-  const visible = excludesTrashAndSpam ? " AND in_trash_or_spam = 0" : "";
   return {
     source: `(SELECT account_id, conversation_id, MAX(received_at_ms) AS latest_at_ms,
                      MAX(1 - read) AS unread, MAX(starred) AS starred
               FROM effective_message_memberships
-              WHERE kind = ? AND membership_id = ?${account}${visible}
+              WHERE kind = ? AND membership_id = ?${account}${filters.map((filter) => ` AND ${filter.sql}`).join("")}
               GROUP BY account_id, conversation_id)`,
     sourceBindings: [
       membership.membership,
       membership.id,
       ...(membership.accountId ? [membership.accountId] : []),
+      ...filters.flatMap((filter) => filter.bindings),
     ],
   };
 }
 
-// A label, category, or folder on its own, or a Gmail label's view, which
-// leaves out Trash and Spam like Gmail does.
+// A label, category, or folder, alone or ANDed with conditions its index rows
+// carry: leaving out Trash and Spam (a Gmail label's view), read state, and
+// starring. Like the message filter, each condition applies to each message,
+// so a conversation's latest time, unread, and starred come from its matching
+// messages only.
 function membershipView(predicate: MailPredicate) {
-  if (predicate.kind === "membership") {
-    return { membership: predicate, excludesTrashAndSpam: false };
-  }
-  if (predicate.kind !== "all" || predicate.predicates.length !== 2) {
+  const clauses = andClauses(predicate);
+  const memberships = clauses.filter((clause) => clause.kind === "membership");
+  const membership = memberships[0];
+  if (memberships.length !== 1 || membership?.kind !== "membership") {
     return null;
   }
-  const membership = predicate.predicates.find(
-    (clause) => clause.kind === "membership",
-  );
-  const allMail = predicate.predicates.some(
-    (clause) => clause.kind === "mailbox" && clause.mailbox === "all",
-  );
-  if (membership?.kind !== "membership" || !allMail) return null;
-  return { membership, excludesTrashAndSpam: true };
+  const filters: Array<{ sql: string; bindings: SqlValue[] }> = [];
+  for (const clause of clauses) {
+    if (clause.kind === "membership") continue;
+    if (clause.kind === "mailbox" && clause.mailbox === "all") {
+      filters.push({ sql: "in_trash_or_spam = 0", bindings: [] });
+    } else if (clause.kind === "mailbox" && clause.mailbox === "starred") {
+      filters.push({ sql: "starred = 1", bindings: [] });
+    } else if (clause.kind === "read" || clause.kind === "starred") {
+      filters.push({
+        sql: `${clause.kind} = ?`,
+        bindings: [clause.value ? 1 : 0],
+      });
+    } else {
+      return null;
+    }
+  }
+  return { membership, filters };
+}
+
+// The web nests a label's view inside the other conditions, as in
+// unread AND (label AND not Trash or Spam).
+function andClauses(predicate: MailPredicate): MailPredicate[] {
+  return predicate.kind === "all"
+    ? predicate.predicates.flatMap(andClauses)
+    : [predicate];
 }
 
 // A filter within one role, such as a split's "inbox and this label", would
