@@ -134,6 +134,12 @@ test("keeps many split tabs in one scrolling row", async ({
     "Waiting on reply",
   ];
   await withClient(async (client) => {
+    // Other specs on this shared account can leave it in split layout, and the
+    // layout toggles below assume they start from list.
+    await client.query(
+      `UPDATE "EmailAccount" SET "mailLayout" = 'LIST' WHERE id = $1`,
+      [emailAccountId],
+    );
     for (const [index, name] of extraNames.entries()) {
       await client.query(
         `WITH split AS (
