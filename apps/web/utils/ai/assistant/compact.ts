@@ -84,7 +84,8 @@ export async function compactMessages({
     }
   }
 
-  if (conversationMessages.length <= RECENT_MESSAGES_TO_KEEP) {
+  const recentStartIndex = findRecentHistoryStart(conversationMessages);
+  if (recentStartIndex <= 0) {
     return {
       compactedMessages: messages,
       summary: "",
@@ -92,11 +93,8 @@ export async function compactMessages({
     };
   }
 
-  const messagesToCompact = conversationMessages.slice(
-    0,
-    -RECENT_MESSAGES_TO_KEEP,
-  );
-  const recentMessages = conversationMessages.slice(-RECENT_MESSAGES_TO_KEEP);
+  const messagesToCompact = conversationMessages.slice(0, recentStartIndex);
+  const recentMessages = conversationMessages.slice(recentStartIndex);
 
   const serialized = serializeMessages(messagesToCompact);
 
@@ -187,6 +185,20 @@ export async function extractMemories({
         conversationMessages: userMessages,
       }).pass,
   );
+}
+
+// The kept history starts at a user message so every tool result stays with
+// the assistant message that called it; an orphaned result fails the request.
+function findRecentHistoryStart(messages: ModelMessage[]): number {
+  const earliestStart = Math.max(0, messages.length - RECENT_MESSAGES_TO_KEEP);
+
+  for (let index = earliestStart; index < messages.length; index++) {
+    if (messages[index].role === "user") return index;
+  }
+  for (let index = earliestStart - 1; index >= 0; index--) {
+    if (messages[index].role === "user") return index;
+  }
+  return -1;
 }
 
 function buildMemoryExtractionPrompt(messages: ModelMessage[]): string {
