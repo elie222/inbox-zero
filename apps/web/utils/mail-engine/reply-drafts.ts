@@ -177,12 +177,10 @@ channel?.addEventListener("message", (event) => {
 });
 channel?.postMessage({ type: PRESENCE_REQUEST });
 if (channel) {
-  window.addEventListener("pagehide", () => {
-    channel.postMessage({ type: TAB_GONE, tabId: TAB_ID });
-  });
-  // A page restored from the back/forward cache keeps its id and drafts.
-  window.addEventListener("pageshow", (event) => {
-    if (event.persisted) announceLocalDrafts();
+  window.addEventListener("pagehide", (event) => {
+    // A page kept in the back/forward cache still holds its drafts.
+    if (!event.persisted)
+      channel.postMessage({ type: TAB_GONE, tabId: TAB_ID });
   });
 }
 
