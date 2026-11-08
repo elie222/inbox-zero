@@ -1381,6 +1381,31 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     expect(emptyPageWithMore).not.toHaveProperty("availableLabelNames");
   });
 
+  it("searchInbox omits available labels when labels fail to load", async () => {
+    (createEmailProvider as any).mockResolvedValue({
+      searchMessages: vi.fn().mockResolvedValue({
+        messages: [],
+        nextPageToken: undefined,
+      }),
+      getLabels: vi.fn().mockRejectedValue(new Error("labels unavailable")),
+    });
+
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const result = await (toolInstance.execute as any)({
+      query: "newsletter",
+      limit: 20,
+    });
+
+    expect(result.totalReturned).toBe(0);
+    expect(result).not.toHaveProperty("availableLabelNames");
+  });
+
   it("searchInbox uses exact Outlook sender filtering for fielded sender queries", async () => {
     const searchMessages = vi.fn().mockResolvedValue({
       messages: [

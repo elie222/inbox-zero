@@ -1543,9 +1543,9 @@ async function getLabelsForSearchResults({
   emailProvider: EmailProvider;
   logger: Logger;
 }) {
-  return emailProvider.getLabels().catch((error) => {
+  return emailProvider.getLabels({ includeHidden: true }).catch((error) => {
     logger.warn("Failed to load labels for search results", { error });
-    return [] as Array<{ id: string; name: string }>;
+    return null;
   });
 }
 
@@ -1596,10 +1596,10 @@ function formatSearchInboxResult({
 }: {
   searchResult: SearchMessagesResult;
   queryUsed: string;
-  labels: Array<{ id: string; name: string }>;
+  labels: Array<{ id: string; name: string }> | null;
   taxonomyNamesKey: "categoryNames" | "labelNames";
 }) {
-  const labelsById = createLabelLookupMap(labels);
+  const labelsById = createLabelLookupMap(labels ?? []);
   const items = searchResult.messages.map((message) =>
     mapMessageForSearchResult(message, labelsById, taxonomyNamesKey),
   );
@@ -1607,7 +1607,9 @@ function formatSearchInboxResult({
   // An empty search often means the user's term names one of their own labels
   // or categories rather than text in the messages, so give the model the
   // names it can filter by instead of leaving it to guess.
-  const noMatches = items.length === 0 && !searchResult.nextPageToken;
+  // Omitted when labels failed to load, so it never reads as "no labels".
+  const noMatches =
+    items.length === 0 && !searchResult.nextPageToken && labels !== null;
 
   return {
     queryUsed,
@@ -1619,7 +1621,7 @@ function formatSearchInboxResult({
     ...(noMatches && {
       [taxonomyNamesKey === "categoryNames"
         ? "availableCategoryNames"
-        : "availableLabelNames"]: getUserLabelNames(labels),
+        : "availableLabelNames"]: getUserLabelNames(labels ?? []),
     }),
   };
 }
