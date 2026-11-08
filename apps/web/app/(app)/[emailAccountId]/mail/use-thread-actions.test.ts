@@ -289,6 +289,64 @@ describe("useThreadActions", () => {
     expect(mail.client.cancelOperation).toHaveBeenCalledTimes(2);
   });
 
+  it("keeps a label the thread already had when the label is undone", async () => {
+    mail.client.cancelOperation.mockResolvedValue({ status: "too_late" });
+    const onRestore = vi.fn();
+    const threads = [
+      createThread(["INBOX", "label-1"], "had"),
+      createThread(["INBOX"], "new"),
+    ];
+    const { result } = renderActions({ onRestore, threads });
+    await act(() => result.current.applyLabel(["had", "new"], "label-1"));
+    mail.client.submitConversations.mockClear();
+
+    await act(() => result.current.undo());
+
+    expect(mail.client.submitConversations).toHaveBeenCalledTimes(1);
+    expect(mail.client.submitConversations).toHaveBeenCalledWith(
+      expect.objectContaining({
+        conversations: [{ accountId: "account", conversationId: "new" }],
+      }),
+    );
+    // Labeling never took the threads out of view, so the reader stays put.
+    expect(onRestore).not.toHaveBeenCalled();
+  });
+
+  it("puts the label back off a thread whose move couldn't archive it", async () => {
+    mail.client.submitConversations
+      .mockResolvedValueOnce({ status: "queued" })
+      .mockResolvedValueOnce({ status: "rejected", code: "queue_full" });
+    const { result } = renderActions();
+    let moved: string[] = [];
+    await act(async () => {
+      moved = await result.current.applyLabel(["thread"], "label-1", {
+        archive: true,
+      });
+    });
+
+    expect(moved).toEqual([]);
+    expect(
+      mail.client.submitConversations.mock.calls.map(([call]) => call.change),
+    ).toEqual([
+      {
+        kind: "set_membership",
+        membership: "label",
+        id: "label-1",
+        present: true,
+      },
+      { kind: "archive" },
+      {
+        kind: "set_membership",
+        membership: "label",
+        id: "label-1",
+        present: false,
+      },
+    ]);
+    // The label command may hold other threads, so it isn't cancelled.
+    expect(mail.client.cancelOperation).not.toHaveBeenCalled();
+    expect(toasts.toastUndo).not.toHaveBeenCalled();
+  });
+
   it("moves into a folder without offering an undo it can't honour", async () => {
     const { result } = renderActions();
     await act(() => result.current.moveToFolder(["thread"], "folder-1"));

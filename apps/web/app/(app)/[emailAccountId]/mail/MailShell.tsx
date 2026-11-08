@@ -724,6 +724,9 @@ export function MailShell() {
     return {
       emailAccountId: openThreadSelection.emailAccountId,
       key: openThreadKey,
+      labelIds: [
+        ...new Set(openMessages.flatMap((message) => message.labelIds ?? [])),
+      ],
       messageIds,
       threadId: openThreadSelection.threadId,
     };
