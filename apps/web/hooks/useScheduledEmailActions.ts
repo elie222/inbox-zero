@@ -3,12 +3,7 @@
 import { useMemo } from "react";
 import { useSWRConfig } from "swr";
 import { toastError } from "@/components/Toast";
-import {
-  cancelEmailReminderAction,
-  cancelScheduledEmailAction,
-  retryScheduledEmailAction,
-} from "@/utils/actions/scheduled-email";
-import { getActionErrorMessage } from "@/utils/error";
+import { fetchWithAccount } from "@/utils/fetch";
 
 // The thread and upcoming lists hold different row shapes; both key rows by id.
 type ScheduledEmailRow = { id: string };
@@ -21,6 +16,8 @@ const inFlight = new Set<string>();
  * engine. Each action still shows its result at once, in every list of the
  * account's scheduled emails (which also decides which drafts are hidden), and
  * the lists then reload from the server, which also undoes a refused change.
+ * Requests use `keepalive` so a change made just before a reload or a closed
+ * tab still reaches the server.
  */
 export function useScheduledEmailActions(emailAccountId: string) {
   const { mutate } = useSWRConfig();
@@ -35,7 +32,7 @@ export function useScheduledEmailActions(emailAccountId: string) {
       kind: "cancel" | "retry" | "cancelReminder",
       id: string,
       expected: (row: ScheduledEmailRow) => ScheduledEmailRow | null,
-      action: typeof cancelScheduledEmailAction,
+      request: { method: "POST" | "DELETE"; path: string },
     ) {
       // A second click while the first is out would be refused by the server
       // and report an error for a change that succeeded. Different actions on
@@ -62,9 +59,12 @@ export function useScheduledEmailActions(emailAccountId: string) {
         { revalidate: false },
       );
       try {
-        const result = await action(emailAccountId, { id });
-        if (result?.serverError || result?.validationErrors)
-          throw new Error(getActionErrorMessage(result));
+        const response = await fetchWithAccount({
+          url: `/api/user/scheduled-emails/${encodeURIComponent(id)}${request.path}`,
+          emailAccountId,
+          init: { method: request.method, keepalive: true },
+        });
+        if (!response.ok) throw new Error(await responseError(response));
       } catch (error) {
         // Put the lists back now rather than trusting the reload below, which
         // can fail too; a list changed since keeps its newer state.
@@ -94,7 +94,7 @@ export function useScheduledEmailActions(emailAccountId: string) {
 
     return {
       cancelSend: (id: string) =>
-        run("cancel", id, () => null, cancelScheduledEmailAction),
+        run("cancel", id, () => null, { method: "DELETE", path: "" }),
       retrySend: (id: string) =>
         run(
           "retry",
@@ -107,15 +107,24 @@ export function useScheduledEmailActions(emailAccountId: string) {
             sendAt: new Date().toISOString(),
             error: null,
           }),
-          retryScheduledEmailAction,
+          { method: "POST", path: "/retry" },
         ),
       cancelReminder: (id: string) =>
         run(
           "cancelReminder",
           id,
           (row) => ({ ...row, reminderStatus: "CANCELLED" }),
-          cancelEmailReminderAction,
+          { method: "DELETE", path: "/reminder" },
         ),
     };
   }, [emailAccountId, mutate]);
+}
+
+async function responseError(response: Response) {
+  const body = (await response.json().catch(() => null)) as {
+    error?: unknown;
+  } | null;
+  return typeof body?.error === "string"
+    ? body.error
+    : "Could not update delivery.";
 }

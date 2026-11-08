@@ -7,9 +7,16 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  onTestFinished,
+  vi,
+} from "vitest";
 import { SWRConfig } from "swr";
-import { cancelScheduledEmailAction } from "@/utils/actions/scheduled-email";
 import { ThreadDeliveryStatus } from "./ThreadDeliveryStatus";
 import type { MailClient } from "@inboxzero/mail-core/engine";
 
@@ -26,11 +33,6 @@ vi.mock("@inboxzero/mail-react/MailEngineProvider", () => ({
 }));
 vi.mock("@/utils/mail-engine/reply-drafts", () => ({
   restoreUnsentReplyDraft: restoreDraft,
-}));
-vi.mock("@/utils/actions/scheduled-email", () => ({
-  cancelScheduledEmailAction: vi.fn(),
-  cancelEmailReminderAction: vi.fn(),
-  retryScheduledEmailAction: vi.fn(),
 }));
 vi.mock("@/providers/EmailAccountProvider", () => ({
   useAccount: () => ({ userEmail: "user@example.com" }),
@@ -131,12 +133,14 @@ describe("offline scheduled delivery status", () => {
   });
 
   it("hides a cancelled send at once and brings it back when the server refuses", async () => {
-    let refuse: (error: Error) => void = () => {};
-    vi.mocked(cancelScheduledEmailAction).mockReturnValueOnce(
-      new Promise((_, reject) => {
-        refuse = reject;
-      }) as ReturnType<typeof cancelScheduledEmailAction>,
+    let refuse: (response: Response) => void = () => {};
+    const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(
+      () =>
+        new Promise<Response>((resolve) => {
+          refuse = resolve;
+        }),
     );
+    onTestFinished(() => fetch.mockRestore());
     renderStatus(
       vi.fn().mockResolvedValue({
         scheduledEmails: [
@@ -154,7 +158,9 @@ describe("offline scheduled delivery status", () => {
     await waitFor(() => expect(screen.queryByText(/Scheduled for/)).toBeNull());
 
     await act(async () => {
-      refuse(new Error("Could not cancel send."));
+      refuse(
+        Response.json({ error: "Could not cancel send." }, { status: 400 }),
+      );
     });
     expect(await screen.findByText(/Scheduled for/)).toBeTruthy();
     expect(toastError).toHaveBeenCalledWith({
