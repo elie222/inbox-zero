@@ -26,7 +26,8 @@ const pricing: Record<PremiumTier, number> = {
   PLUS_MONTHLY: 35,
   PLUS_ANNUALLY: 28,
   PROFESSIONAL_MONTHLY: 50,
-  PROFESSIONAL_ANNUALLY: 42,
+  // Stripe bills $500/yr; the UI rounds this to $42/mo.
+  PROFESSIONAL_ANNUALLY: 500 / 12,
   COPILOT_MONTHLY: 500,
   LIFETIME: 299,
 };
@@ -245,6 +246,11 @@ export function getAddAccountBillingText(
 }
 
 export function formatPrice(amount: number): string {
+  const cents = amount * 100;
+  // Fractions of a cent come from spreading an annual price over 12 months.
+  if (Math.abs(cents - Math.round(cents)) > 1e-6) {
+    return `$${Math.round(amount)}`;
+  }
   return Number.isInteger(amount) ? `$${amount}` : `$${amount.toFixed(2)}`;
 }
 

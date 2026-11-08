@@ -29,7 +29,9 @@ import {
   getStripePriceId,
   hasLegacyStripePriceId,
   getAddAccountBillingText,
+  getStripePerPersonAmount,
   getStripeSeatModel,
+  formatPrice,
   shouldShowLegacyStripePricingNotice,
 } from "./config";
 
@@ -171,6 +173,29 @@ describe("monthly pricing config", () => {
     expect(getStripeSeatModel("price_1RfeDLKGf8mwZWHn6UW8wJcY")).toBe(
       "per_account",
     );
+  });
+});
+
+describe("getStripePerPersonAmount", () => {
+  it("uses Stripe's exact annual amount rather than the rounded monthly price", () => {
+    expect(
+      getStripePerPersonAmount({
+        priceId: "price_current_professional_annual",
+        quantity: 3,
+      }),
+    ).toBe(75_000);
+  });
+});
+
+describe("formatPrice", () => {
+  it("rounds monthly equivalents of annual prices to whole dollars", () => {
+    expect(formatPrice(500 / 12)).toBe("$42");
+    expect(formatPrice(250 / 12)).toBe("$21");
+  });
+
+  it("keeps cents on exact prices", () => {
+    expect(formatPrice(12.5)).toBe("$12.50");
+    expect(formatPrice(25)).toBe("$25");
   });
 });
 

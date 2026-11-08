@@ -28,7 +28,7 @@ import {
   type BadgeVariant,
 } from "@/components/new-landing/common/Badge";
 import { Chat } from "@/components/new-landing/icons/Chat";
-import { type Tier, tiers } from "@/app/(app)/premium/config";
+import { formatPrice, type Tier, tiers } from "@/app/(app)/premium/config";
 import { Briefcase } from "@/components/new-landing/icons/Briefcase";
 import { Mail } from "@/components/new-landing/icons/Mail";
 import { landingPageAnalytics } from "@/hooks/useAnalytics";
@@ -277,7 +277,7 @@ function PricingCard({
             {price ? (
               <>
                 <div className="font-title text-[#242424] text-[1.7rem] md:text-[2.5rem] leading-tight">
-                  ${price}
+                  {formatPrice(price)}
                 </div>
                 <Paragraph size="xs" color="light" className="-translate-y-1">
                   /user /month

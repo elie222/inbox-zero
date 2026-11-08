@@ -1,4 +1,4 @@
-import { tiers } from "@/app/(app)/premium/config";
+import { formatPrice, tiers } from "@/app/(app)/premium/config";
 
 const DOCS_ORIGIN = "https://docs.getinboxzero.com";
 const GITHUB_URL = "https://github.com/elie222/inbox-zero";
@@ -58,7 +58,7 @@ ${tiers
 ${tier.description}
 
 - Monthly: $${tier.price.monthly} USD per user per month, billed monthly.
-- Annual: $${tier.price.annually} USD per user per month, billed annually ($${tier.price.annually * 12} USD per user per year).
+- Annual: ${formatPrice(tier.price.annually)} USD per user per month, billed annually (${formatPrice(tier.price.annually * 12)} USD per user per year).
 ${tier.features.map((feature) => `- ${feature.text}`).join("\n")}`,
   )
   .join("\n\n")}
