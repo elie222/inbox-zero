@@ -64,6 +64,7 @@ const listeners = new Set<(scope: ReplyDraftScope) => void>();
 // Drafts other tabs hold aren't loaded here, but their threads still show as
 // drafts in this tab's list.
 const otherTabDraftThreads = new Map<string, string>();
+const PRESENCE_REQUEST = "reply-draft-presence-request";
 const accountEpoch = new Map<string, number>();
 const channel =
   typeof window !== "undefined" && typeof BroadcastChannel !== "undefined"
@@ -134,6 +135,13 @@ export function getLatestDraftMessageId(
 
 channel?.addEventListener("message", (event) => {
   const scope = event.data;
+  // A tab that opens after others started replies asks them for their drafts.
+  if (scope?.type === PRESENCE_REQUEST) {
+    for (const draft of drafts.values()) {
+      if (draft.content) notifyReplyDraftChange(draft);
+    }
+    return;
+  }
   if (
     typeof scope?.emailAccountId !== "string" ||
     typeof scope?.threadId !== "string"
@@ -150,6 +158,7 @@ channel?.addEventListener("message", (event) => {
   }
   for (const listener of listeners) listener(scope);
 });
+channel?.postMessage({ type: PRESENCE_REQUEST });
 
 export function subscribeToReplyDrafts(
   listener: (scope: ReplyDraftScope) => void,
