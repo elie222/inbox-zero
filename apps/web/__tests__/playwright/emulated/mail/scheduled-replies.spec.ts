@@ -61,6 +61,11 @@ test("schedules a reply with a reminder, persists it and cancels both", async ({
       delivery.getByRole("button", { name: "Cancel reminder" }),
     ).toHaveCount(0);
     await expect(delivery.getByText(/^Scheduled for/)).toBeVisible();
+    // Cancelling the send also cancels its reminder, so the reminder's own
+    // cancel is checked before that.
+    await expect
+      .poll(() => readReminderStatus(emailAccountId))
+      .toBe("CANCELLED");
     await delivery.getByRole("button", { name: "Cancel send" }).click();
     await expect(delivery.getByText(/^Scheduled for/)).toHaveCount(0);
     await page.reload();
@@ -639,6 +644,16 @@ async function readScheduledReply(emailAccountId: string) {
     ),
   );
   return result.rows[0];
+}
+
+async function readReminderStatus(emailAccountId: string) {
+  const result = await withClient((client) =>
+    client.query<{ reminderStatus: string }>(
+      'SELECT "reminderStatus" FROM "ScheduledEmail" WHERE "emailAccountId" = $1 AND "threadId" = $2 AND status != \'CANCELLED\'',
+      [emailAccountId, THREAD_ID],
+    ),
+  );
+  return result.rows[0]?.reminderStatus;
 }
 
 function setScheduledStatus(
