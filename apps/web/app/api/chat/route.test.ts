@@ -43,10 +43,12 @@ const {
       parts: Array<Record<string, unknown>>;
     }>,
     isAborted: false,
+    writtenChunks: [] as Array<Record<string, unknown>>,
   },
 }));
 
-vi.mock("ai", () => ({
+vi.mock("ai", async (importActual) => ({
+  ...(await importActual<typeof import("ai")>()),
   consumeStream: mockConsumeStream,
   convertToModelMessages: mockConvertToModelMessages,
   createUIMessageStream: mockCreateUIMessageStream,
@@ -157,7 +159,11 @@ describe("chat route rule freshness persistence", () => {
     mockGetToolFailureWarning.mockReturnValue(null);
     mockCreateUIMessageStream.mockImplementation((options) => options);
     mockCreateUIMessageStreamResponse.mockImplementation(async ({ stream }) => {
-      const writer = { write: vi.fn() };
+      const writer = {
+        write: vi.fn((chunk: Record<string, unknown>) => {
+          streamState.writtenChunks.push(chunk);
+        }),
+      };
       await stream.execute({ writer });
       await stream.onEnd({
         messages: streamState.finishMessages,
@@ -166,6 +172,7 @@ describe("chat route rule freshness persistence", () => {
       return new Response(JSON.stringify({ ok: true }), { status: 200 });
     });
     streamState.isAborted = false;
+    streamState.writtenChunks = [];
     mockGetChatStreamContext.mockReturnValue(null);
 
     prisma.chat.findUnique.mockResolvedValue({
@@ -773,6 +780,88 @@ describe("chat route rule freshness persistence", () => {
     expect(prisma.chatMessage.createMany).not.toHaveBeenCalled();
   });
 
+  it("sends inline actions to the model as a hidden user message", async () => {
+    mockBuildInlineEmailActionSystemMessage.mockReturnValue(
+      "Archived threads (1): thread-1",
+    );
+
+    await POST(
+      createRequest("Thanks", {
+        inlineActions: [{ type: "archive_threads", threadIds: ["thread-1"] }],
+      }),
+    );
+
+    const modelInputs = mockConvertToModelMessages.mock.calls.map(
+      ([messages]) => messages as Array<{ role: string; parts: unknown }>,
+    );
+    const hiddenMessage = modelInputs
+      .flat()
+      .find((message) => JSON.stringify(message.parts).includes("thread-1"));
+    expect(hiddenMessage?.role).toBe("user");
+    expect(modelInputs.flat().some((m) => m.role === "system")).toBe(false);
+  });
+
+  it("logs a provider error and shows a notice in the chat instead of a bare error", async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    streamState.finishMessages = [
+      { id: "assistant-1", role: "assistant", parts: [] },
+    ];
+    mockAiProcessAssistantChat.mockResolvedValueOnce(
+      createAssistantStreamResult({
+        finishMessage: streamState.finishMessages[0],
+        streamError: new Error("model not found: example-model"),
+      }),
+    );
+
+    try {
+      await POST(createRequest());
+
+      expect(consoleErrorSpy.mock.calls.flat().join("\n")).toContain(
+        "model not found: example-model",
+      );
+      expect(
+        streamState.writtenChunks.some((chunk) => chunk.type === "error"),
+      ).toBe(false);
+      expect(getWrittenText()).toMatch(/\S/);
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
+  it("shows a notice in the chat when a run ends without any reply", async () => {
+    const consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    streamState.finishMessages = [
+      { id: "assistant-1", role: "assistant", parts: [] },
+    ];
+    mockAiProcessAssistantChat.mockResolvedValueOnce(
+      createAssistantStreamResult({
+        finishMessage: streamState.finishMessages[0],
+        textChunks: false,
+      }),
+    );
+
+    try {
+      await POST(createRequest());
+
+      expect(getWrittenText()).toMatch(/\S/);
+      expect(consoleLogSpy.mock.calls.flat()).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining('"visibleTextProduced": false'),
+        ]),
+      );
+    } finally {
+      consoleLogSpy.mockRestore();
+    }
+  });
+
+  it("does not add a notice to a run that replied", async () => {
+    await POST(createRequest());
+
+    expect(getWrittenText()).toBe("");
+  });
+
   it("persists and logs correlated assistant run metadata", async () => {
     vi.stubEnv("VERCEL_GIT_COMMIT_SHA", "commit-123");
     const consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => {});
@@ -873,23 +962,44 @@ function createRequest(
   });
 }
 
+function getWrittenText() {
+  return streamState.writtenChunks
+    .filter((chunk) => chunk.type === "text-delta")
+    .map((chunk) => chunk.delta)
+    .join("");
+}
+
 function createAssistantStreamResult({
   finishMessage = streamState.finishMessages[0] ?? null,
+  streamError,
+  textChunks = true,
 }: {
   finishMessage?: (typeof streamState.finishMessages)[number] | null;
+  streamError?: Error;
+  textChunks?: boolean;
 } = {}) {
   return {
     toUIMessageStream: ({
       onEnd,
+      onError,
     }: {
       onEnd?: (event: {
         responseMessage: (typeof streamState.finishMessages)[number] | null;
       }) => void;
+      onError?: (error: unknown) => string;
     }) =>
       (async function* () {
         onEnd?.({
           responseMessage: finishMessage,
         });
+        if (streamError) {
+          yield {
+            type: "error",
+            errorText: onError ? onError(streamError) : "An error occurred.",
+          };
+          return;
+        }
+        if (!textChunks) return;
         yield { type: "text-start", id: "part-1" };
         yield { type: "text-end", id: "part-1" };
       })(),

@@ -60,6 +60,9 @@ import {
 
 export const maxDuration = 800;
 
+const RUN_FAILED_NOTICE =
+  "Sorry, something went wrong and I couldn't finish my reply. Please try again.";
+
 export const POST = withEmailAccount("chat", async (request) => {
   const emailAccountId = request.auth.emailAccountId;
 
@@ -373,35 +376,63 @@ export const POST = withEmailAccount("chat", async (request) => {
       logger: runLogger,
     });
 
+    const handleRunError = (error: unknown) => {
+      runLogger.error("Assistant chat run failed", { error });
+      captureException(error, { extra: { chatId: chat.id } });
+      return RUN_FAILED_NOTICE;
+    };
+
     const stream = createUIMessageStream({
       generateId: () => streamId,
+      onError: handleRunError,
       execute: async ({ writer }) => {
         let responseMessage: UIMessage | null = null;
+        let runFailed = false;
 
         for await (const chunk of result.toUIMessageStream({
           sendFinish: false,
+          onError: handleRunError,
           onEnd: ({ responseMessage: finishedResponseMessage }) => {
             responseMessage = finishedResponseMessage;
           },
         })) {
+          // The client treats an error chunk as an unsent message, but the
+          // user message is already saved, so the failure is shown as a reply.
+          if (chunk.type === "error") {
+            runFailed = true;
+            continue;
+          }
           writer.write(chunk);
         }
 
+        assistantRun.visibleTextProduced = hasVisibleAssistantText(
+          responseMessage ? [responseMessage] : [],
+        );
+
         if (chatRun.abortSignal.aborted) return;
 
-        const warning = getToolFailureWarning(responseMessage);
-        if (!warning) return;
+        const notice =
+          runFailed || !hasRenderableAssistantResponse(responseMessage)
+            ? RUN_FAILED_NOTICE
+            : getToolFailureWarning(responseMessage);
+        if (!notice) return;
 
-        runLogger.warn("Assistant chat completed with tool failures");
+        if (notice === RUN_FAILED_NOTICE) {
+          runLogger.warn("Assistant chat run ended without a reply", {
+            runFailed,
+          });
+        } else {
+          runLogger.warn("Assistant chat completed with tool failures");
+        }
 
-        const warningPartId = crypto.randomUUID();
-        writer.write({ type: "text-start", id: warningPartId });
+        const noticePartId = crypto.randomUUID();
+        writer.write({ type: "text-start", id: noticePartId });
         writer.write({
           type: "text-delta",
-          id: warningPartId,
-          delta: `\n\n${warning}`,
+          id: noticePartId,
+          delta: `\n\n${notice}`,
         });
-        writer.write({ type: "text-end", id: warningPartId });
+        writer.write({ type: "text-end", id: noticePartId });
       },
       onEnd: async ({ messages: endMessages, isAborted }) => {
         try {
@@ -410,7 +441,6 @@ export const POST = withEmailAccount("chat", async (request) => {
           const messages = isAborted
             ? endMessages.map(removeIncompleteToolParts)
             : endMessages;
-          assistantRun.visibleTextProduced = hasVisibleAssistantText(messages);
           const persistableMessages = messages.filter(
             isPersistableAssistantMessage,
           );
@@ -590,7 +620,7 @@ function buildHiddenInlineActionMessage(
 
   return {
     id: crypto.randomUUID(),
-    role: "system" as const,
+    role: "user" as const,
     parts: [{ type: "text" as const, text }],
   } satisfies UIMessage;
 }
