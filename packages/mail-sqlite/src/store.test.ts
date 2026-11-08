@@ -923,6 +923,48 @@ describe("engine plus sqlite archive slice", () => {
 });
 
 describe("drafts, freeze, and uncertain settlement", () => {
+  it("lists only the given account's drafts at their latest revision", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    for (const accountId of ["acc-1", "acc-2"]) {
+      await store.ensureAccount({
+        accountId,
+        provider: "google",
+        generation: "g1",
+      });
+    }
+    const content = {
+      to: ["ada@example.com"],
+      cc: [],
+      bcc: [],
+      subject: "Hi",
+      editableHtml: "<p>Hi</p>",
+      quotedHtml: "",
+    };
+    await store.saveDraft({
+      key: { accountId: "acc-1", draftId: "d1" },
+      expectedRevision: null,
+      content,
+    });
+    await store.saveDraft({
+      key: { accountId: "acc-1", draftId: "d1" },
+      expectedRevision: 1,
+      content: { ...content, subject: "Hi again", conversationId: "t1" },
+    });
+    await store.saveDraft({
+      key: { accountId: "acc-2", draftId: "d2" },
+      expectedRevision: null,
+      content,
+    });
+
+    expect(await store.listDrafts("acc-1")).toEqual([
+      {
+        key: { accountId: "acc-1", draftId: "d1" },
+        draftRevision: 2,
+        content: { ...content, subject: "Hi again", conversationId: "t1" },
+      },
+    ]);
+  });
+
   it("rejects edits to a frozen draft and keeps uncertain operations after reopen", async () => {
     const directory = await mkdtemp(join(tmpdir(), "mail-sqlite-drafts-"));
     const path = join(directory, "mailbox.sqlite");

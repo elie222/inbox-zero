@@ -225,6 +225,8 @@ async function startBrowserMailEngine(
       callWorker(worker, pending, "submitConversations", [payload]),
     saveDraft: (payload) => callWorker(worker, pending, "saveDraft", [payload]),
     readDraft: (payload) => callWorker(worker, pending, "readDraft", [payload]),
+    listDrafts: (accountId) =>
+      callWorker(worker, pending, "listDrafts", [accountId]),
     submitSend: (payload) =>
       callWorker(worker, pending, "submitSend", [payload]),
     cancelOperation: (payload) =>

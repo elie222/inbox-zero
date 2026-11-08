@@ -1,4 +1,7 @@
-import type { DraftSaveResult } from "@inboxzero/mail-core/drafts";
+import type {
+  DraftContent,
+  DraftSaveResult,
+} from "@inboxzero/mail-core/drafts";
 import type { MailClient } from "@inboxzero/mail-core/engine";
 import type {
   EmailAttachmentMetadata,
@@ -73,6 +76,10 @@ const channel =
   typeof window !== "undefined" && typeof BroadcastChannel !== "undefined"
     ? new BroadcastChannel("inbox-zero-reply-drafts")
     : null;
+
+function isReplyDraftSessionId(messageId: string) {
+  return messageId.endsWith(":reply") || messageId.endsWith(":forward");
+}
 
 export function getReplyDraftSessionId(
   messageId: string,
@@ -210,6 +217,43 @@ export function getReplyDraftThreadKeys() {
     if (draft.content) keys.add(`${draft.emailAccountId}:${draft.threadId}`);
   }
   return [...keys].sort().join("\n");
+}
+
+/**
+ * Loads the reply drafts this device already holds, so the list marks their
+ * threads before they're opened. Drafts already loaded here win.
+ */
+export async function hydrateReplyDrafts(emailAccountId: string) {
+  const client = getActiveMailClient();
+  if (!client) return;
+  const epoch = currentEpoch(emailAccountId);
+  // Registered so that clearing every account also invalidates this read.
+  accountEpoch.set(emailAccountId, epoch);
+  const stored = await client.listDrafts(emailAccountId);
+  // A read from a client replaced meanwhile must not win over the new one's.
+  if (
+    currentEpoch(emailAccountId) !== epoch ||
+    getActiveMailClient() !== client
+  )
+    return;
+  for (const { key, draftRevision, content } of stored) {
+    const state = parseReplyDraftState(content);
+    const threadId =
+      content.conversationId ?? state?.content.values.replyToEmail?.threadId;
+    // Drafts from before replies and forwards had their own sessions are
+    // migrated when their thread opens, not adopted here as a session.
+    const messageId = state?.sessionMessageId ?? key.draftId;
+    if (!state || !threadId || !isReplyDraftSessionId(messageId)) continue;
+    restoreReplyDraft(
+      {
+        emailAccountId,
+        threadId,
+        messageId,
+      },
+      draftRevision,
+      state,
+    );
+  }
 }
 
 export async function getReplyDraft(identity: ReplyDraftIdentity) {
@@ -718,9 +762,14 @@ async function persistEngineReplyDraft(
         subject: content.values.subject,
         editableHtml: content.draft.editableHtml,
         quotedHtml: content.draft.quotedHtml,
+        // Lets startup mark the thread as a draft before it's opened.
+        conversationId: identity.threadId,
         clientState: JSON.stringify({
           ...content,
           updatedAt: drafts.get(draftKey(identity))?.updatedAt,
+          // The engine's draft id is cut to 128 characters, so startup reads
+          // the full session id from here.
+          sessionMessageId: identity.messageId,
         }).slice(0, 1_000_000),
         ...(content.providerDraftId
           ? { providerDraftId: content.providerDraftId }
@@ -746,30 +795,51 @@ async function loadEngineReplyDraft(identity: ReplyDraftIdentity) {
     accountId: identity.emailAccountId,
     draftId: engineDraftId(identity),
   });
-  if (stored.status !== "found" || !stored.content.clientState) return;
+  if (stored.status !== "found") return;
   // The account may have been cleared, or a composer may have saved, while
   // the read was in flight.
   if (currentEpoch(identity.emailAccountId) !== epoch) return;
+  const state = parseReplyDraftState(stored.content);
+  if (!state) return;
+  return restoreReplyDraft(identity, stored.draftRevision, state);
+}
+
+function restoreReplyDraft(
+  identity: ReplyDraftIdentity,
+  revision: number,
+  state: NonNullable<ReturnType<typeof parseReplyDraftState>>,
+) {
   const current = drafts.get(draftKey(identity));
   if (current) return current;
+  engineRevisions.set(draftKey(identity), revision);
+  const restored: StoredReplyDraft = {
+    ...identity,
+    content: state.content,
+    revision,
+    updatedAt: state.updatedAt,
+  };
+  drafts.set(draftKey(identity), restored);
+  notifyReplyDraftChange(identity);
+  return restored;
+}
+
+/** Null for anything that isn't a reply draft: a cleared one or a send's. */
+function parseReplyDraftState(stored: DraftContent) {
+  if (!stored.clientState) return null;
   try {
-    const { updatedAt, ...content } = JSON.parse(
-      stored.content.clientState,
-    ) as ReplyDraftContent & { updatedAt?: number };
-    if (!content?.draft || !content.values) return;
-    engineRevisions.set(draftKey(identity), stored.draftRevision);
-    const restored: StoredReplyDraft = {
-      ...identity,
+    const { updatedAt, sessionMessageId, ...content } = JSON.parse(
+      stored.clientState,
+    ) as ReplyDraftContent & { updatedAt?: number; sessionMessageId?: string };
+    if (!content?.draft || !content.values) return null;
+    return {
       content,
-      revision: stored.draftRevision,
+      sessionMessageId:
+        typeof sessionMessageId === "string" ? sessionMessageId : undefined,
       // Older persisted drafts have no edit time; reading them isn't an edit.
       updatedAt: typeof updatedAt === "number" ? updatedAt : 0,
     };
-    drafts.set(draftKey(identity), restored);
-    notifyReplyDraftChange(identity);
-    return restored;
   } catch {
-    return;
+    return null;
   }
 }
 

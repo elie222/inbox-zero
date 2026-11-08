@@ -72,3 +72,10 @@ export const draftReadResultSchema = z.discriminatedUnion("status", [
   z.object({ status: z.literal("missing") }),
 ]);
 export type DraftReadResult = z.infer<typeof draftReadResultSchema>;
+
+export const storedDraftSchema = z.object({
+  key: draftKeySchema,
+  draftRevision: z.number().int().nonnegative(),
+  content: draftContentSchema,
+});
+export type StoredDraft = z.infer<typeof storedDraftSchema>;
