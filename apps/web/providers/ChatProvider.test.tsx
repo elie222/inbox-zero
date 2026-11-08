@@ -713,6 +713,54 @@ describe("ChatProvider", () => {
     ]);
   });
 
+  it("still reports a failed send when only a reconnect request succeeded", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response(null, { status: 200 })),
+    );
+    const sentInlineActions: unknown[] = [];
+    mockSendMessage.mockImplementation(async () => {
+      const transportOptions = mockChatTransport.mock.calls.at(-1)?.[0];
+      const request = transportOptions.prepareSendMessagesRequest({
+        id: "chat-from-account-a",
+        messages: [],
+        body: {},
+      });
+      sentInlineActions.push(request.body.inlineActions);
+      if (sentInlineActions.length > 1) return;
+      await transportOptions.fetch("/api/chat/chat-from-account-a/stream", {
+        method: "GET",
+      });
+      throw new Error("Failed to fetch");
+    });
+    let latestContext: ReturnType<typeof useChat> | undefined;
+    let inlineActions: ReturnType<typeof useInlineEmailActionContext>;
+
+    function Consumer() {
+      latestContext = useChat();
+      inlineActions = useInlineEmailActionContext();
+      return null;
+    }
+
+    renderWithProvider(<Consumer />);
+    act(() => inlineActions?.queueAction("archive_threads", ["thread-1"]));
+
+    await act(async () => {
+      await expect(
+        latestContext?.submitTextMessage("Thanks"),
+      ).rejects.toThrow();
+    });
+    await act(async () => {
+      await latestContext?.submitTextMessage("Thanks again");
+    });
+
+    expect(mockToastError).toHaveBeenCalled();
+    expect(sentInlineActions).toEqual([
+      [{ type: "archive_threads", threadIds: ["thread-1"] }],
+      [{ type: "archive_threads", threadIds: ["thread-1"] }],
+    ]);
+  });
+
   it("rejects oversized drafts before sending and keeps their content", async () => {
     const draft = "a".repeat(ASSISTANT_CHAT_MAX_TEXT_LENGTH + 1);
     let latestContext: ReturnType<typeof useChat> | undefined;

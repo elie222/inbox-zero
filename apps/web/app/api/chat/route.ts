@@ -412,7 +412,7 @@ export const POST = withEmailAccount("chat", async (request) => {
         if (chatRun.abortSignal.aborted) return;
 
         const notice =
-          runFailed || !hasRenderableAssistantResponse(responseMessage)
+          runFailed || !hasAssistantReply(responseMessage)
             ? RUN_FAILED_NOTICE
             : getToolFailureWarning(responseMessage);
         if (!notice) return;
@@ -638,9 +638,19 @@ function hasRenderableAssistantResponse(
   if (!parts?.length) return false;
 
   return parts.some((part) => {
+    if (part.type === "step-start") return false;
     if (part.type !== "text") return true;
     return part.text.trim().length > 0;
   });
+}
+
+// Reasoning alone is not an answer; tool results show as cards.
+function hasAssistantReply(message: UIMessage | null) {
+  return !!message?.parts.some(
+    (part) =>
+      (part.type === "text" && part.text.trim().length > 0) ||
+      "toolCallId" in part,
+  );
 }
 
 function hasVisibleAssistantText(messages: UIMessage[]) {

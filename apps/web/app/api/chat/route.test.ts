@@ -856,6 +856,70 @@ describe("chat route rule freshness persistence", () => {
     }
   });
 
+  it.each([
+    { name: "only step markers", parts: [{ type: "step-start" }] },
+    {
+      name: "only reasoning",
+      parts: [
+        { type: "step-start" },
+        { type: "reasoning", text: "All archived." },
+      ],
+    },
+  ])("shows a notice when a run ends with $name", async ({ parts }) => {
+    streamState.finishMessages = [
+      { id: "assistant-1", role: "assistant", parts },
+    ];
+    mockAiProcessAssistantChat.mockResolvedValueOnce(
+      createAssistantStreamResult({
+        finishMessage: streamState.finishMessages[0],
+        textChunks: false,
+      }),
+    );
+
+    await POST(createRequest());
+
+    expect(getWrittenText()).toMatch(/\S/);
+  });
+
+  it("does not add a notice to a run that only shows tool results", async () => {
+    streamState.finishMessages = [
+      {
+        id: "assistant-1",
+        role: "assistant",
+        parts: [
+          { type: "step-start" },
+          {
+            type: "tool-manageInbox",
+            toolCallId: "call-1",
+            state: "output-available",
+            input: {},
+            output: { success: true },
+          },
+        ],
+      },
+    ];
+    mockAiProcessAssistantChat.mockResolvedValueOnce(
+      createAssistantStreamResult({
+        finishMessage: streamState.finishMessages[0],
+        textChunks: false,
+      }),
+    );
+
+    await POST(createRequest());
+
+    expect(getWrittenText()).toBe("");
+  });
+
+  it("does not save an assistant message that has only step markers", async () => {
+    streamState.finishMessages = [
+      { id: "assistant-1", role: "assistant", parts: [{ type: "step-start" }] },
+    ];
+
+    await POST(createRequest());
+
+    expect(prisma.chatMessage.createMany).not.toHaveBeenCalled();
+  });
+
   it("does not add a notice to a run that replied", async () => {
     await POST(createRequest());
 

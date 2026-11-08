@@ -177,7 +177,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       fetch: async (input, init) => {
         const request = pendingRequestRef.current;
         const response = await fetch(input, init);
-        if (response.ok && request) request.accepted = true;
+        // Reconnects share this fetch; only the send POST saves the message.
+        if (response.ok && request && init?.method === "POST")
+          request.accepted = true;
         return response;
       },
       prepareSendMessagesRequest({ messages, id, body }) {
