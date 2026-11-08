@@ -7,6 +7,7 @@ import { getEmailForLLM } from "@/utils/get-email-from-message";
 import type { ParsedMessage } from "@/utils/types";
 import { env } from "@/env";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
+import { createFinalReplyStep } from "@/utils/ai/assistant/final-reply-step";
 import { toolCallAgentStream } from "@/utils/llms";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
 import prisma from "@/utils/prisma";
@@ -364,6 +365,8 @@ export async function aiProcessAssistantChat({
     systemPrompt: system,
   });
 
+  const finalReply = createFinalReplyStep();
+
   const result = toolCallAgentStream({
     userAi: user.user,
     userId: user.userId,
@@ -391,6 +394,7 @@ export async function aiProcessAssistantChat({
           error: part.error,
         });
       }
+      finalReply.onStepEnd(step);
       await onStepEnd?.(step);
     },
     onModelResolved: (resolvedModel) => {
@@ -404,14 +408,18 @@ export async function aiProcessAssistantChat({
     },
     onEnd,
     stopWhen: () => false,
-    prepareStep: ({ messages: stepMessages }) => {
+    steering: finalReply.steering,
+    prepareStep: ({
+      messages: stepMessages,
+      experimental_steeringMessages: steeringMessages,
+    }) => {
       const trimmedMessages = trimStaleToolResults(stepMessages);
       const messages =
         trimmedMessages === stepMessages ? undefined : trimmedMessages;
 
       if (
-        Date.now() - startedAt <
-        ASSISTANT_CHAT_TOOL_BUDGET_MS[responseSurface]
+        !finalReply.isFinalReplyStep(steeringMessages) &&
+        Date.now() - startedAt < ASSISTANT_CHAT_TOOL_BUDGET_MS[responseSurface]
       )
         return messages && { messages };
 
