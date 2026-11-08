@@ -342,7 +342,10 @@ function roleDrivenSource(
 }
 
 // Same idea for a filter within one label or folder, such as a label's view
-// without Trash and Spam: start from that membership's conversations.
+// without Trash and Spam: start from that membership's messages. The
+// membership is one of the AND clauses, so only its own messages can match;
+// joining whole conversations instead re-filters every message in them and
+// made large labels take tens of seconds.
 function membershipDrivenSource(
   predicate: MailPredicate,
   accountIds: string[],
@@ -354,11 +357,11 @@ function membershipDrivenSource(
   if (membership?.kind !== "membership") return null;
   const account = membership.accountId ? " AND account_id = ?" : "";
   return {
-    from: `(SELECT DISTINCT account_id, conversation_id FROM effective_message_memberships
+    from: `(SELECT account_id, message_id FROM effective_message_memberships
             WHERE account_id IN (${accountIds.map(() => "?").join(",")})
               AND kind = ? AND membership_id = ?${account}) scoped
           CROSS JOIN effective_messages e
-            ON e.account_id = scoped.account_id AND e.conversation_id = scoped.conversation_id`,
+            ON e.account_id = scoped.account_id AND e.message_id = scoped.message_id`,
     bindings: [
       ...accountIds,
       membership.membership,
