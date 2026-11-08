@@ -39,7 +39,7 @@ test("changing a rule's label to a newly created one saves its name with its ID"
     throw new Error("Emulated inbox has no user label to start from");
   const replacementName = `Playwright vendors ${Date.now()}`;
 
-  await seedLabelRule({ emailAccountId, label: original });
+  const ruleId = await seedLabelRule({ emailAccountId, label: original });
 
   await page.goto(`/${emailAccountId}/automation`);
   await expectVisibleAfterTransientFetch(
@@ -67,7 +67,7 @@ test("changing a rule's label to a newly created one saves its name with its ID"
   await editDialog.getByRole("button", { name: "Save" }).click();
 
   await expect
-    .poll(() => getLabelAction(emailAccountId), { timeout: 60_000 })
+    .poll(() => getLabelAction(ruleId), { timeout: 60_000 })
     .toMatchObject({ label: replacementName });
   const refreshedLabels = await page.request.get("/api/labels", {
     headers: { "X-Email-Account-ID": emailAccountId },
@@ -75,7 +75,7 @@ test("changing a rule's label to a newly created one saves its name with its ID"
   const replacement = (
     (await refreshedLabels.json()) as { labels: { id: string; name: string }[] }
   ).labels.find((label) => label.name === replacementName);
-  expect(await getLabelAction(emailAccountId)).toEqual({
+  expect(await getLabelAction(ruleId)).toEqual({
     labelId: replacement?.id,
     label: replacementName,
   });
@@ -107,16 +107,14 @@ async function seedLabelRule({
       ],
     );
   });
+  return ruleId;
 }
 
-async function getLabelAction(emailAccountId: string) {
+async function getLabelAction(ruleId: string) {
   return withClient(async (client) => {
     const result = await client.query<{ labelId: string; label: string }>(
-      `SELECT a."labelId", a.label
-       FROM "Action" a
-       JOIN "Rule" r ON r.id = a."ruleId"
-       WHERE r."emailAccountId" = $1 AND r.name = $2 AND a.type = 'LABEL'`,
-      [emailAccountId, RULE_NAME],
+      `SELECT "labelId", label FROM "Action" WHERE "ruleId" = $1 AND type = 'LABEL'`,
+      [ruleId],
     );
     return result.rows[0];
   });
