@@ -301,22 +301,42 @@ function conversationIndexFor(
   if (predicate.kind === "mailbox" && predicate.mailbox === "inbox") {
     return roleIndex("inbox");
   }
+  const view = membershipView(predicate);
+  if (!view) return null;
+  const { membership, excludesTrashAndSpam } = view;
+  const account = membership.accountId ? " AND account_id = ?" : "";
+  const visible = excludesTrashAndSpam ? " AND in_trash_or_spam = 0" : "";
+  return {
+    source: `(SELECT account_id, conversation_id, MAX(received_at_ms) AS latest_at_ms,
+                     MAX(1 - read) AS unread, MAX(starred) AS starred
+              FROM effective_message_memberships
+              WHERE kind = ? AND membership_id = ?${account}${visible}
+              GROUP BY account_id, conversation_id)`,
+    sourceBindings: [
+      membership.membership,
+      membership.id,
+      ...(membership.accountId ? [membership.accountId] : []),
+    ],
+  };
+}
+
+// A label, category, or folder on its own, or a Gmail label's view, which
+// leaves out Trash and Spam like Gmail does.
+function membershipView(predicate: MailPredicate) {
   if (predicate.kind === "membership") {
-    const account = predicate.accountId ? " AND account_id = ?" : "";
-    return {
-      source: `(SELECT account_id, conversation_id, MAX(received_at_ms) AS latest_at_ms,
-                       MAX(1 - read) AS unread, MAX(starred) AS starred
-                FROM effective_message_memberships
-                WHERE kind = ? AND membership_id = ?${account}
-                GROUP BY account_id, conversation_id)`,
-      sourceBindings: [
-        predicate.membership,
-        predicate.id,
-        ...(predicate.accountId ? [predicate.accountId] : []),
-      ],
-    };
+    return { membership: predicate, excludesTrashAndSpam: false };
   }
-  return null;
+  if (predicate.kind !== "all" || predicate.predicates.length !== 2) {
+    return null;
+  }
+  const membership = predicate.predicates.find(
+    (clause) => clause.kind === "membership",
+  );
+  const allMail = predicate.predicates.some(
+    (clause) => clause.kind === "mailbox" && clause.mailbox === "all",
+  );
+  if (membership?.kind !== "membership" || !allMail) return null;
+  return { membership, excludesTrashAndSpam: true };
 }
 
 // A filter within one role, such as a split's "inbox and this label", would
@@ -341,11 +361,9 @@ function roleDrivenSource(
   };
 }
 
-// Same idea for a filter within one label or folder, such as a label's view
-// without Trash and Spam: start from that membership's messages. The
-// membership is one of the AND clauses, so only its own messages can match;
-// joining whole conversations instead re-filters every message in them and
-// made large labels take tens of seconds.
+// Same idea for a filter within one label or folder, such as a label's unread
+// mail: start from the messages carrying it. Only those can match, since the
+// membership must hold for every matching message.
 function membershipDrivenSource(
   predicate: MailPredicate,
   accountIds: string[],
