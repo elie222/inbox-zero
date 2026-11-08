@@ -172,10 +172,15 @@ export function SplitTabs({
     // A plain mouse wheel only scrolls vertically, so turn it into sideways
     // movement over the strip; otherwise hidden tabs are out of reach.
     const onWheel = (event: WheelEvent) => {
+      // Ctrl-wheel is zoom, including trackpad pinch.
+      if (event.ctrlKey || event.metaKey) return;
       if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
-      if (tabs.scrollWidth <= tabs.clientWidth) return;
+      const max = tabs.scrollWidth - tabs.clientWidth;
+      const next = Math.min(max, Math.max(0, tabs.scrollLeft + event.deltaY));
+      // At either end the wheel goes back to scrolling the page.
+      if (Math.abs(next - tabs.scrollLeft) < 1) return;
       event.preventDefault();
-      tabs.scrollLeft += event.deltaY;
+      tabs.scrollLeft = next;
     };
     tabs.addEventListener("wheel", onWheel, { passive: false });
     // A layout switch resizes the visible strip, so bring the active tab back.
