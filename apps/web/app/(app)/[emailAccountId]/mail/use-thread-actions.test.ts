@@ -221,6 +221,88 @@ describe("useThreadActions", () => {
     });
     expect(restored).toEqual(["thread"]);
   });
+
+  it("labels a selection as one command and undoes it by removing the label", async () => {
+    mail.client.cancelOperation.mockResolvedValue({ status: "too_late" });
+    const threads = [
+      createThread(["INBOX"], "one"),
+      createThread(["INBOX"], "two"),
+    ];
+    const { result } = renderActions({ threads });
+    let labeled: string[] = [];
+    await act(async () => {
+      labeled = await result.current.applyLabel(["one", "two"], "label-1");
+    });
+    expect(labeled).toEqual(["one", "two"]);
+    expect(mail.client.submitConversations).toHaveBeenCalledTimes(1);
+    expect(mail.client.submitConversations).toHaveBeenCalledWith(
+      expect.objectContaining({
+        change: {
+          kind: "set_membership",
+          membership: "label",
+          id: "label-1",
+          present: true,
+        },
+      }),
+    );
+    expect(toasts.toastUndo).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: "Label applied to 2 conversations",
+      }),
+    );
+
+    mail.client.submitConversations.mockClear();
+    await act(() => result.current.undo());
+    expect(
+      mail.client.submitConversations.mock.calls.map(([call]) => call.change),
+    ).toEqual([
+      {
+        kind: "set_membership",
+        membership: "label",
+        id: "label-1",
+        present: false,
+      },
+    ]);
+  });
+
+  it("moves with a label and an archive, and undo reverses both", async () => {
+    const { result } = renderActions();
+    await act(() =>
+      result.current.applyLabel(["thread"], "label-1", { archive: true }),
+    );
+    expect(
+      mail.client.submitConversations.mock.calls.map(([call]) => call.change),
+    ).toEqual([
+      {
+        kind: "set_membership",
+        membership: "label",
+        id: "label-1",
+        present: true,
+      },
+      { kind: "archive" },
+    ]);
+    expect(toasts.toastUndo).toHaveBeenCalledWith(
+      expect.objectContaining({ message: "Moved" }),
+    );
+
+    await act(() => result.current.undo());
+    expect(mail.client.cancelOperation).toHaveBeenCalledTimes(2);
+  });
+
+  it("moves into a folder without offering an undo it can't honour", async () => {
+    const { result } = renderActions();
+    await act(() => result.current.moveToFolder(["thread"], "folder-1"));
+    expect(mail.client.submitConversations).toHaveBeenCalledWith(
+      expect.objectContaining({
+        change: { kind: "move", folderId: "folder-1" },
+      }),
+    );
+    expect(toasts.toastUndo).not.toHaveBeenCalled();
+    expect(notifications.success).toHaveBeenCalledWith("Moved");
+
+    await act(() => result.current.undo());
+    expect(mail.client.cancelOperation).not.toHaveBeenCalled();
+  });
 });
 
 function renderActions({

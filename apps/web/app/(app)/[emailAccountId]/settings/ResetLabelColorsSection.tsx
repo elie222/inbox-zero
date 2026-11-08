@@ -12,6 +12,7 @@ import {
   ItemSeparator,
   ItemTitle,
 } from "@/components/ui/item";
+import { isLabelsKey } from "@/hooks/useLabels";
 import { resetLabelColorsAction } from "@/utils/actions/mail";
 import { getActionErrorMessage } from "@/utils/error";
 import { pluralize } from "@/utils/string";
@@ -71,12 +72,6 @@ export function ResetLabelColorsSection({
         </ItemActions>
       </Item>
     </>
-  );
-}
-
-function isLabelsKey(key: unknown) {
-  return (
-    key === "/api/labels" || (Array.isArray(key) && key[0] === "/api/labels")
   );
 }
 

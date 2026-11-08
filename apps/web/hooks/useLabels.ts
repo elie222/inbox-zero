@@ -97,6 +97,13 @@ export function useLabels(emailAccountId?: string) {
   };
 }
 
+/** Matches every account's label list, for revalidating after a label change. */
+export function isLabelsKey(key: unknown) {
+  return (
+    key === "/api/labels" || (Array.isArray(key) && key[0] === "/api/labels")
+  );
+}
+
 export function useSplitLabels() {
   const { userLabels, isLoading, error, mutate } = useLabels();
 

@@ -14,14 +14,16 @@ import {
   type ListThread,
 } from "./types";
 import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
-import {
-  mutationPayloadToChange,
-  type ThreadMutationPayload,
-} from "@/utils/mail-engine/mutation-change";
+import type { MetadataChange } from "@inboxzero/mail-core/commands";
 import { submitConversationChanges } from "@/utils/mail-engine/submit-conversations";
 import { admissionRejectionCopy } from "@/utils/mail-engine/admission-notice";
 
-type UndoableAction = "archive" | "unarchive" | "trash";
+/** Engine changes queued in order; an action is undoable when every step has a compensation. */
+type UndoableAction = {
+  steps: Array<{ change: MetadataChange; compensation?: MetadataChange }>;
+  done: (count: number) => string;
+  noun: string;
+};
 
 type ThreadSnapshot = {
   emailAccountId: string;
@@ -34,8 +36,8 @@ type ThreadSnapshot = {
 export type ThreadActionTarget = Omit<ThreadSnapshot, "mutationId">;
 
 type UndoableBatch = {
-  action: UndoableAction;
-  snapshots: ThreadSnapshot[];
+  steps: Array<{ compensation: MetadataChange; snapshots: ThreadSnapshot[] }>;
+  targets: ThreadSnapshot[];
   undone: boolean;
 };
 
@@ -95,15 +97,11 @@ export function useThreadActions({
   const enqueueTargets = useCallback(
     async (
       targets: ReturnType<typeof resolveTargets>,
-      payload: ThreadMutationPayload,
+      change: MetadataChange,
     ) => {
-      if (!targets.length || !client) {
-        return { snapshots: [], rejectionCodes: [] };
-      }
-      const change = mutationPayloadToChange(payload);
-      if (!change) return { snapshots: [], rejectionCodes: [] };
       const snapshots: ThreadSnapshot[] = [];
       const rejectionCodes: string[] = [];
+      if (!targets.length || !client) return { snapshots, rejectionCodes };
       for (const [accountId, accountTargets] of Object.entries(
         groupBy(targets, (target) => target.emailAccountId),
       )) {
@@ -133,23 +131,24 @@ export function useThreadActions({
       batch.undone = true;
       if (lastAction.current === batch) lastAction.current = null;
 
-      const compensation = mutationPayloadToChange({
-        kind: UNDOABLE_COPY[batch.action].compensation,
-      });
-      if (!compensation) return [];
-      const results = await Promise.allSettled(
-        Object.values(
-          groupBy(batch.snapshots, (snapshot) => snapshot.mutationId),
-        ).map(async (snapshots) => {
-          const { emailAccountId, mutationId } = snapshots[0];
-          const cancelled =
-            (
-              await client.cancelOperation({
-                accountId: emailAccountId,
-                operationId: mutationId,
-              })
-            ).status === "cancelled";
-          if (!cancelled) {
+      const failedKeys = new Set<string>();
+      // Later steps were queued against the result of earlier ones, so they
+      // are reversed first.
+      for (const step of [...batch.steps].reverse()) {
+        const groups = Object.values(
+          groupBy(step.snapshots, (snapshot) => snapshot.mutationId),
+        );
+        const results = await Promise.allSettled(
+          groups.map(async (snapshots) => {
+            const { emailAccountId, mutationId } = snapshots[0];
+            const cancelled =
+              (
+                await client.cancelOperation({
+                  accountId: emailAccountId,
+                  operationId: mutationId,
+                })
+              ).status === "cancelled";
+            if (cancelled) return;
             const diagnostics = await client.getDiagnostics(emailAccountId);
             const admission = await client.submitConversations({
               accountId: emailAccountId,
@@ -158,40 +157,40 @@ export function useThreadActions({
                 accountId: emailAccountId,
                 conversationId: snapshot.threadId,
               })),
-              change: compensation,
+              change: step.compensation,
               observedRevision: diagnostics.revision,
             });
             if (admission.status === "rejected") {
               throw new Error(admission.code);
             }
-          }
-          return snapshots.map((snapshot) => snapshot.key);
-        }),
-      );
-      const restoredKeys = results.flatMap((result) =>
-        result.status === "fulfilled" ? result.value : [],
-      );
-      const failedCount = batch.snapshots.length - restoredKeys.length;
-
-      if (restoredKeys.length) {
-        toast.success(summarise("Restored", restoredKeys.length));
-        const restored = new Set(restoredKeys);
-        onRestore?.(
-          batch.snapshots.filter((snapshot) => restored.has(snapshot.key)),
+          }),
         );
+        results.forEach((result, index) => {
+          if (result.status === "fulfilled") return;
+          for (const snapshot of groups[index]) failedKeys.add(snapshot.key);
+        });
+      }
+      const restored = batch.targets.filter(
+        (target) => !failedKeys.has(target.key),
+      );
+      const failedCount = batch.targets.length - restored.length;
+
+      if (restored.length) {
+        toast.success(summarise("Restored", restored.length));
+        onRestore?.(restored);
       }
       if (failedCount) {
         toast.error(
-          failedCount === batch.snapshots.length
+          failedCount === batch.targets.length
             ? "Couldn't restore"
-            : `Couldn't restore ${failedCount} of ${batch.snapshots.length}`,
+            : `Couldn't restore ${failedCount} of ${batch.targets.length}`,
         );
       }
-      if (!restoredKeys.length) {
+      if (!restored.length) {
         batch.undone = false;
         lastAction.current = batch;
       }
-      return restoredKeys;
+      return restored.map((target) => target.key);
     },
     [client, onRestore],
   );
@@ -203,41 +202,53 @@ export function useThreadActions({
 
   const admitUndoable = useCallback(
     async (action: UndoableAction, threadKeys: string[]) => {
-      const targets = resolveTargets(threadKeys);
-      const { snapshots, rejectionCodes } = await enqueueTargets(targets, {
-        kind: action,
-      });
-      if (!snapshots.length) {
+      let queued = resolveTargets(threadKeys);
+      const steps: UndoableBatch["steps"] = [];
+      const rejectionCodes: string[] = [];
+      for (const { change, compensation } of action.steps) {
+        if (!queued.length) break;
+        const result = await enqueueTargets(queued, change);
+        rejectionCodes.push(...result.rejectionCodes);
+        if (compensation) {
+          steps.push({ compensation, snapshots: result.snapshots });
+        }
+        const queuedKeys = new Set(result.snapshots.map(({ key }) => key));
+        queued = queued.filter((target) => queuedKeys.has(target.key));
+      }
+      if (!queued.length) {
         if (threadKeys.length) {
           toast.error(
-            enqueueFailureCopy(
-              `Couldn't queue ${UNDOABLE_COPY[action].noun}`,
-              rejectionCodes,
-            ),
+            enqueueFailureCopy(`Couldn't queue ${action.noun}`, rejectionCodes),
           );
         }
         return [];
       }
 
-      const batch: UndoableBatch = { action, snapshots, undone: false };
-      lastAction.current = batch;
-      const failedCount = threadKeys.length - snapshots.length;
-      toastUndo({
-        message: UNDOABLE_COPY[action].done(snapshots.length),
-        shortcut: getShortcutHint("undo"),
-        onUndo: () => {
-          undoBatch(batch);
-        },
-      });
+      if (action.steps.every((step) => step.compensation)) {
+        const batch: UndoableBatch = { steps, targets: queued, undone: false };
+        lastAction.current = batch;
+        toastUndo({
+          message: action.done(queued.length),
+          shortcut: getShortcutHint("undo"),
+          onUndo: () => {
+            undoBatch(batch);
+          },
+        });
+      } else {
+        // Undo must not reach past this action to the one before it.
+        lastAction.current = null;
+        toast.success(action.done(queued.length));
+      }
+      const failedCount = threadKeys.length - queued.length;
       if (failedCount) {
         toast.error(
           enqueueFailureCopy(
-            `Couldn't queue ${failedCount} of ${threadKeys.length} for ${UNDOABLE_COPY[action].noun}`,
+            `Couldn't queue ${failedCount} of ${threadKeys.length} for ${action.noun}`,
             rejectionCodes,
           ),
         );
       }
-      return snapshots.map((snapshot) => snapshot.key);
+      return queued.map((target) => target.key);
     },
     [enqueueTargets, resolveTargets, undoBatch],
   );
@@ -260,7 +271,7 @@ export function useThreadActions({
     async (threadKeys: string[], read: boolean, notifySuccess = true) => {
       const targets = resolveTargets(threadKeys);
       const { snapshots, rejectionCodes } = await enqueueTargets(targets, {
-        kind: "set_read_state",
+        kind: "set_read",
         read,
       });
       const failedCount = threadKeys.length - snapshots.length;
@@ -290,10 +301,7 @@ export function useThreadActions({
     async (threadKeys: string[], starred: boolean) => {
       const { snapshots, rejectionCodes } = await enqueueTargets(
         resolveTargets(threadKeys),
-        {
-          kind: "set_starred_state",
-          starred,
-        },
+        { kind: "set_starred", starred },
       );
       if (snapshots.length < threadKeys.length) {
         toast.error(
@@ -313,7 +321,7 @@ export function useThreadActions({
       const targets = resolveTargets(threadKeys);
       const { snapshots, rejectionCodes } = await enqueueTargets(targets, {
         kind: "snooze",
-        scheduledFor: snoozedUntil.toISOString(),
+        untilMs: snoozedUntil.getTime(),
       });
       const failedCount = threadKeys.length - snapshots.length;
       if (snapshots.length) {
@@ -344,7 +352,8 @@ export function useThreadActions({
     async (threadKeys: string[]) => {
       const targets = resolveTargets(threadKeys);
       const { snapshots, rejectionCodes } = await enqueueTargets(targets, {
-        kind: "spam",
+        kind: "set_spam",
+        spam: true,
       });
       const failedCount = threadKeys.length - snapshots.length;
       if (snapshots.length) {
@@ -371,15 +380,37 @@ export function useThreadActions({
 
   return {
     archive: useCallback(
-      (threadKeys: string[]) => runUndoable("archive", threadKeys),
+      (threadKeys: string[]) => runUndoable(ARCHIVE, threadKeys),
       [runUndoable],
     ),
     moveToInbox: useCallback(
-      (threadKeys: string[]) => runUndoable("unarchive", threadKeys),
+      (threadKeys: string[]) => runUndoable(MOVE_TO_INBOX, threadKeys),
       [runUndoable],
     ),
     trash: useCallback(
-      (threadKeys: string[]) => runUndoable("trash", threadKeys),
+      (threadKeys: string[]) => runUndoable(TRASH, threadKeys),
+      [runUndoable],
+    ),
+    applyLabel: useCallback(
+      (
+        threadKeys: string[],
+        labelId: string,
+        { archive = false }: { archive?: boolean } = {},
+      ) => runUndoable(labelAction(labelId, archive), threadKeys),
+      [runUndoable],
+    ),
+    moveToFolder: useCallback(
+      (threadKeys: string[], folderId: string) =>
+        runUndoable(
+          {
+            // Undo would need each message's previous folder, which the
+            // list doesn't carry.
+            steps: [{ change: { kind: "move", folderId } }],
+            done: (count) => summarise("Moved", count),
+            noun: "moving",
+          },
+          threadKeys,
+        ),
       [runUndoable],
     ),
     markRead: useCallback(
@@ -395,31 +426,59 @@ export function useThreadActions({
   };
 }
 
-const UNDOABLE_COPY: Record<
-  UndoableAction,
-  {
-    compensation: "archive" | "unarchive" | "untrash";
-    done: (count: number) => string;
-    noun: string;
-  }
-> = {
-  archive: {
-    compensation: "unarchive",
-    done: (count) => summarise("Archived", count),
-    noun: "archiving",
-  },
-  unarchive: {
-    compensation: "archive",
-    done: (count) =>
-      count === 1 ? "Moved to inbox" : `Moved ${count} conversations to inbox`,
-    noun: "moving to inbox",
-  },
-  trash: {
-    compensation: "untrash",
-    done: (count) => summarise("Deleted", count),
-    noun: "deletion",
-  },
+const ARCHIVE: UndoableAction = {
+  steps: [{ change: { kind: "archive" }, compensation: { kind: "unarchive" } }],
+  done: (count) => summarise("Archived", count),
+  noun: "archiving",
 };
+
+const MOVE_TO_INBOX: UndoableAction = {
+  steps: [{ change: { kind: "unarchive" }, compensation: { kind: "archive" } }],
+  done: (count) =>
+    count === 1 ? "Moved to inbox" : `Moved ${count} conversations to inbox`,
+  noun: "moving to inbox",
+};
+
+const TRASH: UndoableAction = {
+  steps: [
+    {
+      change: { kind: "trash" },
+      compensation: { kind: "restore_from_trash" },
+    },
+  ],
+  done: (count) => summarise("Deleted", count),
+  noun: "deletion",
+};
+
+function labelAction(labelId: string, archive: boolean): UndoableAction {
+  const label = (present: boolean): MetadataChange => ({
+    kind: "set_membership",
+    membership: "label",
+    id: labelId,
+    present,
+  });
+  const steps: UndoableAction["steps"] = [
+    { change: label(true), compensation: label(false) },
+  ];
+  if (!archive) {
+    return {
+      steps,
+      done: (count) =>
+        count === 1
+          ? "Label applied"
+          : `Label applied to ${count} conversations`,
+      noun: "labeling",
+    };
+  }
+  return {
+    steps: [
+      ...steps,
+      { change: { kind: "archive" }, compensation: { kind: "unarchive" } },
+    ],
+    done: (count) => summarise("Moved", count),
+    noun: "moving",
+  };
+}
 
 function summarise(verb: string, count: number) {
   return count === 1 ? verb : `${verb} ${count} conversations`;
