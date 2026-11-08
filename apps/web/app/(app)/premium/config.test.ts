@@ -28,7 +28,8 @@ import {
   getAppleSubscriptionTier,
   getStripePriceId,
   hasLegacyStripePriceId,
-  hasIncludedEmailAccountsStripePriceId,
+  getAddAccountBillingText,
+  getStripeSeatModel,
   shouldShowLegacyStripePricingNotice,
 } from "./config";
 
@@ -141,24 +142,71 @@ describe("monthly pricing config", () => {
     );
   });
 
-  it("marks only the active monthly prices for special seat billing", () => {
+  it("bills current plan prices per person", () => {
+    expect(getStripeSeatModel("price_current_plus_monthly")).toBe("per_person");
+    expect(getStripeSeatModel("price_current_starter_annual")).toBe(
+      "per_person",
+    );
+  });
+
+  it("keeps grandfathered prices on their old seat billing", () => {
+    expect(getStripeSeatModel("price_1SzNImKGf8mwZWHnlYWXLNC4")).toBe(
+      "legacy_included",
+    );
+    expect(getStripeSeatModel("price_1S5u6NKGf8mwZWHnZCfy4D5n")).toBe(
+      "legacy_included",
+    );
+    expect(getStripeSeatModel("price_1SzNJEKGf8mwZWHndmH3lYxf")).toBe(
+      "legacy_included",
+    );
+    // Still the configured Starter price in this env, but a legacy one.
+    expect(getStripeSeatModel("price_1S5u73KGf8mwZWHn8VYFdALA")).toBe(
+      "per_account",
+    );
+    expect(getStripeSeatModel("price_1RfeDLKGf8mwZWHn6UW8wJcY")).toBe(
+      "per_account",
+    );
+  });
+});
+
+describe("getAddAccountBillingText", () => {
+  it("quotes the extra account price on current plans", () => {
     expect(
-      hasIncludedEmailAccountsStripePriceId("price_1S5u73KGf8mwZWHn8VYFdALA"),
-    ).toBe(false);
+      getAddAccountBillingText({
+        tier: "PLUS_MONTHLY",
+        stripePriceId: "price_current_plus_monthly",
+      }),
+    ).toBe(
+      "Your plan includes 2 email accounts. Each extra account is $17.50/mo.",
+    );
     expect(
-      hasIncludedEmailAccountsStripePriceId("price_current_plus_monthly"),
-    ).toBe(true);
+      getAddAccountBillingText({
+        tier: "STARTER_ANNUALLY",
+        stripePriceId: "price_current_starter_annual",
+      }),
+    ).toBe(
+      "Your plan includes 2 email accounts. Each extra account is $10/mo.",
+    );
+  });
+
+  it("does not promise included accounts on per-account legacy plans", () => {
     expect(
-      hasIncludedEmailAccountsStripePriceId(
-        "price_current_professional_monthly",
-      ),
-    ).toBe(true);
+      getAddAccountBillingText({
+        tier: "STARTER_MONTHLY",
+        stripePriceId: "price_1S5u73KGf8mwZWHn8VYFdALA",
+      }),
+    ).toBe("You will be billed for each account.");
+  });
+
+  it("explains included accounts on grandfathered included-account plans", () => {
     expect(
-      hasIncludedEmailAccountsStripePriceId("price_current_starter_annual"),
-    ).toBe(false);
-    expect(
-      hasIncludedEmailAccountsStripePriceId("price_1S5u6NKGf8mwZWHnZCfy4D5n"),
-    ).toBe(false);
+      getAddAccountBillingText({
+        tier: "PLUS_MONTHLY",
+        stripePriceId: "price_1SzNImKGf8mwZWHnlYWXLNC4",
+      }),
+    ).toBe(
+      "Your plan includes 2 email accounts. Each extra account is billed at your plan's per-account price.",
+    );
   });
 });
 
