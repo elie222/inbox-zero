@@ -941,9 +941,17 @@ const threadIdsSchema = z
   .max(100)
   .transform((ids) => [...new Set(ids)]);
 
+const SENDER_EMAILS_HINT =
+  "No sender-level action was taken. If you only meant the emails already shown, use archive_threads with threadIds instead.";
+
 const senderEmailsSchema = z
-  .array(z.string().trim().min(3))
-  .min(1)
+  .array(
+    z
+      .string()
+      .trim()
+      .min(3, `must be a sender email address. ${SENDER_EMAILS_HINT}`),
+  )
+  .min(1, `must list at least one sender. ${SENDER_EMAILS_HINT}`)
   .max(100)
   .transform((emails) => [...new Set(emails)]);
 
@@ -1915,7 +1923,7 @@ function validateManageInboxInput(
         path: [field],
         message:
           field === "fromEmails"
-            ? `is required for ${action}. No sender-level action was taken. If you only meant the emails already shown, use archive_threads with threadIds instead.`
+            ? `is required for ${action}. ${SENDER_EMAILS_HINT}`
             : `is required for ${action}`,
       });
     }

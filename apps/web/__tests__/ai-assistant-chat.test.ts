@@ -2598,6 +2598,20 @@ describe("aiProcessAssistantChat", () => {
     );
   });
 
+  it("explains how to fix an empty sender list for sender actions", async () => {
+    const tools = await captureToolSet();
+    mockCreateEmailProvider.mockClear();
+
+    const result = await tools.manageInbox.execute({
+      action: "bulk_archive_senders",
+      fromEmails: [],
+    });
+
+    expect(result.error).toContain("No sender-level action was taken.");
+    expect(result.error).toContain("archive_threads");
+    expect(mockCreateEmailProvider).not.toHaveBeenCalled();
+  });
+
   it("blocks sender actions without sender emails before provider calls", async () => {
     const tools = await captureToolSet();
     mockCreateEmailProvider.mockClear();

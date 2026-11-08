@@ -2,11 +2,11 @@ import {
   asSchema,
   jsonSchema,
   type ModelMessage,
-  type ToolExecutionOptions,
   type ToolResultPart,
   type ToolSet,
 } from "ai";
 import isEqual from "lodash/isEqual";
+import type { Logger } from "@/utils/logger";
 import { getToolFailureMessage } from "@/utils/ai/assistant/chat-response-guard";
 import { hideToolErrorFromUser } from "@/utils/ai/assistant/tool-error-visibility";
 
@@ -14,7 +14,10 @@ const MAX_REPORTED_ISSUES = 3;
 
 // Wraps every chat tool so that mistakes the model can fix come back as
 // readable tool results instead of opaque SDK errors or repeated side effects.
-export function guardChatTools<TTools extends ToolSet>(tools: TTools): TTools {
+export function guardChatTools<TTools extends ToolSet>(
+  tools: TTools,
+  logger: Logger,
+): TTools {
   const guardedTools: ToolSet = { ...tools };
 
   for (const [toolName, toolDefinition] of Object.entries(tools)) {
@@ -47,7 +50,10 @@ export function guardChatTools<TTools extends ToolSet>(tools: TTools): TTools {
           return { success: true, value };
         },
       }),
-      execute: async (input: unknown, options: ToolExecutionOptions<never>) => {
+      execute: async (
+        input: unknown,
+        options: Parameters<NonNullable<typeof execute>>[1],
+      ) => {
         const getValidation = async (value: unknown) => {
           if (isObject(value) && invalidInputErrors.has(value)) {
             return {
@@ -67,6 +73,9 @@ export function guardChatTools<TTools extends ToolSet>(tools: TTools): TTools {
           messages: options.messages,
         });
         if (previousFailure) {
+          logger.warn("Blocked repeat of a failed chat tool call", {
+            toolName,
+          });
           return hideToolErrorFromUser({
             error: `This exact ${toolName} call already failed earlier in this response: ${previousFailure} Do not repeat it unchanged. Change the input, try a different approach, or tell the user why it could not be done.`,
           });
@@ -74,6 +83,11 @@ export function guardChatTools<TTools extends ToolSet>(tools: TTools): TTools {
 
         const validation = await getValidation(input);
         if (!validation.success) {
+          logger.warn("Invalid chat tool input", { toolName });
+          logger.trace("Invalid chat tool input details", {
+            toolName,
+            error: validation.error,
+          });
           return hideToolErrorFromUser({
             error: formatToolInputError(toolName, validation.error),
           });
@@ -87,7 +101,7 @@ export function guardChatTools<TTools extends ToolSet>(tools: TTools): TTools {
   return guardedTools as TTools;
 }
 
-export function formatToolInputError(toolName: string, error: unknown) {
+function formatToolInputError(toolName: string, error: unknown) {
   const issues = getValidationIssues(error);
   if (!issues.length) return `Invalid ${toolName} input`;
 
@@ -140,12 +154,25 @@ function findPreviousFailureInTurn({
       if (part.type !== "tool-result" || !matchingCallIds.has(part.toolCallId))
         continue;
 
+      if (isRetryableFailure(part.output)) continue;
       const failure = getToolResultFailure(part.output);
       if (failure) return failure;
     }
   }
 
   return null;
+}
+
+// Tools flag transient provider failures as retryable; repeating those is fine.
+function isRetryableFailure(output: ToolResultPart["output"]) {
+  if (output.type !== "json" || !isObject(output.value)) return false;
+  const value = output.value as Record<string, unknown>;
+  const feedback = value.searchFeedback;
+  return (
+    value.retryable === true ||
+    (isObject(feedback) &&
+      (feedback as Record<string, unknown>).retryable === true)
+  );
 }
 
 function getToolResultFailure(output: ToolResultPart["output"]) {

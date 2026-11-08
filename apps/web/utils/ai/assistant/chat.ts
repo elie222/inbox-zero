@@ -421,7 +421,7 @@ export async function aiProcessAssistantChat({
         toolChoice: "none",
       };
     },
-    tools: guardChatTools(allTools),
+    tools: guardChatTools(allTools, logger),
     abortSignal,
   });
 

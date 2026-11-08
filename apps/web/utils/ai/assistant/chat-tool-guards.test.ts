@@ -1,6 +1,7 @@
 import { asSchema, type ModelMessage, tool } from "ai";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
+import { createTestLogger } from "@/__tests__/helpers";
 import { guardChatTools } from "@/utils/ai/assistant/chat-tool-guards";
 
 const archiveInputSchema = z.strictObject({
@@ -13,13 +14,16 @@ function buildTools() {
     success: true,
     archived: input.threadIds.length,
   }));
-  const tools = guardChatTools({
-    archive: tool({
-      description: "Archive threads",
-      inputSchema: archiveInputSchema,
-      execute,
-    }),
-  });
+  const tools = guardChatTools(
+    {
+      archive: tool({
+        description: "Archive threads",
+        inputSchema: archiveInputSchema,
+        execute,
+      }),
+    },
+    createTestLogger(),
+  );
   return { tools, execute };
 }
 
@@ -72,6 +76,7 @@ describe("guardChatTools", () => {
       error: expect.stringMatching(
         /^Invalid archive input: .*threadIds.*unsupported field "folder"/,
       ),
+      toolErrorVisibility: "hidden",
     });
     expect(execute).not.toHaveBeenCalled();
   });
@@ -119,6 +124,17 @@ describe("guardChatTools", () => {
         { role: "user", content: "archive these" },
         toolCall("call-1", { threadIds: ["t2"] }),
         toolResult("call-1", { error: "Thread is locked" }),
+      ],
+    },
+    {
+      name: "the earlier failure was marked retryable",
+      messages: [
+        { role: "user", content: "archive t1" },
+        toolCall("call-1", { threadIds: ["t1"] }),
+        toolResult("call-1", {
+          error: "Failed to search inbox",
+          searchFeedback: { retryable: true },
+        }),
       ],
     },
     {

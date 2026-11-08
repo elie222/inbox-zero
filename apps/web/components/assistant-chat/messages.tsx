@@ -16,6 +16,7 @@ import {
 import { Message, MessageContent } from "@/components/ai-elements/message";
 import { Loader } from "@/components/ai-elements/loader";
 import { SearchInboxResult } from "@/components/assistant-chat/tools";
+import { isToolErrorHiddenFromUser } from "@/utils/ai/assistant/tool-error-visibility";
 
 interface MessagesProps {
   footer?: ReactNode;
@@ -65,7 +66,12 @@ export function Messages({
                           message.parts,
                           partIndex,
                         );
-                        if (outputs.length > 1) {
+                        if (!outputs.length) return null;
+                        if (
+                          outputs.length > 1 ||
+                          ("output" in part &&
+                            isToolErrorHiddenFromUser(part.output))
+                        ) {
                           return (
                             <SearchInboxResult
                               key={`${message.id}-${partIndex}`}
@@ -202,7 +208,10 @@ function getToolRunOutputs(
     const part = parts[i];
     if (part.type === "step-start") continue;
     if (i > start && !isToolRunContinuation(parts, i)) break;
-    if ("output" in part) outputs.push(part.output);
+    // Hidden errors are for the model to correct, not for the user's card.
+    if ("output" in part && !isToolErrorHiddenFromUser(part.output)) {
+      outputs.push(part.output);
+    }
   }
   return outputs;
 }
