@@ -726,11 +726,12 @@ async function insertMessage(
 }
 
 // An always-true clause no index recognizes, so the read filters every message.
+// Nesting keeps a top-level membership or role from choosing a narrower source.
 function filteredPath(predicate: MailPredicate): MailPredicate {
   return {
     kind: "all",
     predicates: [
-      predicate,
+      { kind: "all", predicates: [predicate] },
       { kind: "not", predicate: { kind: "message", ids: [] } },
     ],
   };
