@@ -205,6 +205,13 @@ test("keeps many split tabs in one scrolling row", async ({
   await expect(lastTab).not.toHaveAttribute("aria-current", "true");
   await expect(activeTab).toBeInViewport({ ratio: 1 });
 
+  // A plain vertical wheel over the strip reaches tabs hidden at the end.
+  await tabs.first().evaluate((button: HTMLElement) => button.click());
+  await expect(lastTab).not.toBeInViewport({ ratio: 1 });
+  await tabs.first().hover();
+  await page.mouse.wheel(0, 2000);
+  await expect(lastTab).toBeInViewport({ ratio: 1 });
+
   // Select-all sits before the scrolling tabs, so it stays put while they scroll.
   await lastTab.evaluate((button: HTMLElement) => button.click());
   const conversations = page.getByRole("listbox", { name: "Conversations" });

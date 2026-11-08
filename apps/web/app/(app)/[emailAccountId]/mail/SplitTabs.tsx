@@ -169,6 +169,15 @@ export function SplitTabs({
     };
     update();
     tabs.addEventListener("scroll", update, { passive: true });
+    // A plain mouse wheel only scrolls vertically, so turn it into sideways
+    // movement over the strip; otherwise hidden tabs are out of reach.
+    const onWheel = (event: WheelEvent) => {
+      if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+      if (tabs.scrollWidth <= tabs.clientWidth) return;
+      event.preventDefault();
+      tabs.scrollLeft += event.deltaY;
+    };
+    tabs.addEventListener("wheel", onWheel, { passive: false });
     // A layout switch resizes the visible strip, so bring the active tab back.
     // The track also grows when a count changes width; that only moves the
     // fades, so it doesn't undo where the reader has scrolled to.
@@ -181,6 +190,7 @@ export function SplitTabs({
     if (trackRef.current) observer.observe(trackRef.current);
     return () => {
       tabs.removeEventListener("scroll", update);
+      tabs.removeEventListener("wheel", onWheel);
       observer.disconnect();
     };
   }, []);
