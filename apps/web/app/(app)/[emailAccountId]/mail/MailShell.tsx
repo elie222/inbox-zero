@@ -1968,7 +1968,12 @@ export function MailShell() {
                 onToggleAssistant={onToggleAssistant}
                 onOpenSetup={
                   canShowSetup && !isSetupOpen
-                    ? () => setSetupParam("1")
+                    ? () => {
+                        // An emptied box can still hold a submitted search,
+                        // which would come back and hide the setup preview.
+                        setSearchParam(null);
+                        setSetupParam("1");
+                      }
                     : undefined
                 }
                 isSetupSuggested={settings?.setup !== MailSetupState.DONE}
