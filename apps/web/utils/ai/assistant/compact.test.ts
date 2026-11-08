@@ -98,6 +98,7 @@ describe("chat compaction", () => {
     });
     expect(getOrphanedToolResultIds(kept)).toEqual([]);
     expect(result.compactedCount).toBe(messages.length - kept.length);
+    expect(result.recentUserMessageCount).toBe(2);
   });
 
   it("does not compact when no user message can start the kept history", async () => {
@@ -118,6 +119,7 @@ describe("chat compaction", () => {
       compactedMessages: messages,
       summary: "",
       compactedCount: 0,
+      recentUserMessageCount: 0,
     });
     expect(mockGenerateText).not.toHaveBeenCalled();
   });

@@ -9,7 +9,7 @@ import {
   validateUserMemoryEvidence,
 } from "./chat-memory-policy";
 
-export const RECENT_MESSAGES_TO_KEEP = 6;
+const RECENT_MESSAGES_TO_KEEP = 6;
 const COMPACTION_TOKEN_THRESHOLD = 80_000;
 const COMPACTION_TOOL_RESULT_CHAR_LIMIT = 4000;
 const MEMORY_EXTRACTION_MESSAGE_CHAR_LIMIT = 2000;
@@ -72,6 +72,9 @@ export async function compactMessages({
   compactedMessages: ModelMessage[];
   summary: string;
   compactedCount: number;
+  // Lets the caller persist the same boundary: each stored user message is one
+  // user model message.
+  recentUserMessageCount: number;
 }> {
   const systemMessages: ModelMessage[] = [];
   const conversationMessages: ModelMessage[] = [];
@@ -90,6 +93,7 @@ export async function compactMessages({
       compactedMessages: messages,
       summary: "",
       compactedCount: 0,
+      recentUserMessageCount: 0,
     };
   }
 
@@ -135,6 +139,9 @@ ${serialized}
     compactedMessages: [...systemMessages, summaryMessage, ...recentMessages],
     summary: result.text,
     compactedCount: messagesToCompact.length,
+    recentUserMessageCount: recentMessages.filter(
+      (message) => message.role === "user",
+    ).length,
   };
 }
 
