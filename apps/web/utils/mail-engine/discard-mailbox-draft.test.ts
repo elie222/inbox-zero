@@ -72,7 +72,8 @@ describe("discardMailboxDraft", () => {
 
   it("deletes the provider draft directly when the engine fails to answer", async () => {
     const client = engineClient({ status: "queued" });
-    client.submitMetadata.mockRejectedValue(new Error("Engine worker crashed"));
+    const crash = new Error("Engine worker crashed");
+    client.submitMetadata.mockRejectedValue(crash);
 
     await discardMailboxDraft({
       client,
