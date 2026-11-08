@@ -2373,6 +2373,24 @@ describe("chat inbox tools - sender categories", () => {
     expect(mockStartBulkCategorization).not.toHaveBeenCalled();
   });
 
+  it("startSenderCategorization reports other access failures as errors", async () => {
+    mockValidateUserAndAiAccess.mockRejectedValue(
+      new SafeError("User not found"),
+    );
+
+    const result = await (
+      startSenderCategorizationTool({
+        email: TEST_EMAIL,
+        emailAccountId: "email-account-1",
+        provider: "google",
+        logger,
+      }).execute as any
+    )({});
+
+    expect(result).toEqual({ error: "User not found" });
+    expect(mockStartBulkCategorization).not.toHaveBeenCalled();
+  });
+
   it("getSenderCategorizationStatus waits briefly before reading progress", async () => {
     vi.useFakeTimers();
     mockGetCategorizationProgress.mockResolvedValue({

@@ -817,7 +817,10 @@ export function MessagePart({
       loadingText: "Starting sender categorization...",
       renderSuccess: ({ toolCallId, output }) =>
         getOutputField<boolean>(output, "upgradeRequired") ? (
-          <PremiumAlertWithData key={toolCallId} className="my-2" />
+          <div key={toolCallId}>
+            <BasicToolInfo text="Sender categorization needs an upgrade" />
+            <PremiumAlertWithData className="my-2" />
+          </div>
         ) : (
           <BasicToolInfo
             key={toolCallId}
