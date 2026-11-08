@@ -340,7 +340,7 @@ async function assertAiModelAvailable({
   aiApiKey: string;
   logger: Logger;
 }) {
-  const { model, modelName } = getModel(
+  const { model, modelName, providerOptions } = getModel(
     { aiProvider, aiModel: aiModel || null, aiApiKey },
     "default",
   );
@@ -348,6 +348,7 @@ async function assertAiModelAvailable({
   try {
     await generateText({
       model,
+      providerOptions,
       prompt: "Reply with OK.",
       maxOutputTokens: 16,
       maxRetries: 0,

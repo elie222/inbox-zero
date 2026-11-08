@@ -6,6 +6,7 @@ import {
 } from "./settings";
 import { APICallError } from "ai";
 import { DEFAULT_PROVIDER, Provider } from "@/utils/llms/config";
+import { getModel } from "@/utils/llms/model";
 
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/auth", () => ({
@@ -31,6 +32,11 @@ vi.mock("ai", async (importActual) => ({
   ...(await importActual<typeof import("ai")>()),
   generateText: mockGenerateText,
 }));
+
+vi.mock("@/utils/llms/model", async (importActual) => {
+  const actual = await importActual<typeof import("@/utils/llms/model")>();
+  return { ...actual, getModel: vi.fn(actual.getModel) };
+});
 
 vi.mock("@/env", () => ({
   env: mockEnv,
@@ -66,6 +72,21 @@ describe("updateAiSettingsAction", () => {
     const result = await updateAiSettingsAction({
       aiProvider: Provider.OPEN_AI,
       aiModel: "gpt-typo",
+      aiApiKey: "new-api-key",
+    });
+
+    expect(result?.serverError).toMatch(/model/i);
+    expect(prisma.user.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects a model ID OpenRouter says is not valid", async () => {
+    mockGenerateText.mockRejectedValueOnce(
+      createApiCallError(400, "openai/gpt-typo is not a valid model ID"),
+    );
+
+    const result = await updateAiSettingsAction({
+      aiProvider: Provider.OPENROUTER,
+      aiModel: "openai/gpt-typo",
       aiApiKey: "new-api-key",
     });
 
@@ -110,8 +131,19 @@ describe("updateAiSettingsAction", () => {
       aiApiKey: undefined,
     });
 
+    expect(getModel).toHaveBeenCalledWith(
+      {
+        aiProvider: Provider.OPEN_AI,
+        aiModel: "gpt-5.1",
+        aiApiKey: "stored-api-key",
+      },
+      "default",
+    );
     expect(mockGenerateText).toHaveBeenCalledTimes(1);
-    expect(mockGenerateText.mock.calls[0]?.[0].model.modelId).toBe("gpt-5.1");
+    expect(mockGenerateText.mock.calls[0]?.[0]).toMatchObject({
+      model: { modelId: "gpt-5.1" },
+      providerOptions: { openai: expect.objectContaining({ store: false }) },
+    });
   });
 
   it("does not check the model when switching back to the default provider", async () => {
