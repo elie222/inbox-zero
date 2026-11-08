@@ -650,6 +650,9 @@ function isSearchInboxInput(input: unknown): input is SearchInboxInput {
 }
 
 function buildBulkArchiveMessages(count: number, startIndex: number) {
+  const fourYearsAgo = new Date();
+  fourYearsAgo.setFullYear(fourYearsAgo.getFullYear() - 4);
+
   return Array.from({ length: count }, (_, index) => {
     const messageNumber = startIndex + index + 1;
 
@@ -660,6 +663,7 @@ function buildBulkArchiveMessages(count: number, startIndex: number) {
       subject: `Unread archive candidate ${messageNumber}`,
       snippet: `Unread archive candidate ${messageNumber}`,
       labelIds: ["UNREAD", "INBOX"],
+      date: fourYearsAgo.toISOString(),
     });
   });
 }

@@ -621,6 +621,7 @@ const gmailSearchInboxTool = ({
             queryUsed: query,
             labels,
             taxonomyNamesKey: "labelNames",
+            isContinuation: Boolean(page?.pageToken),
           }),
           nextPageToken: encodeSearchInboxPageToken(
             { query },
@@ -710,6 +711,7 @@ const outlookSearchInboxTool = ({
             queryUsed: searchResult.queryUsed,
             labels,
             taxonomyNamesKey: "categoryNames",
+            isContinuation: Boolean(pageToken),
           }),
           nextPageToken: encodeSearchInboxPageToken(
             { query, fromEmail, readState, categoryName, folderName },
@@ -1543,9 +1545,9 @@ async function getLabelsForSearchResults({
   emailProvider: EmailProvider;
   logger: Logger;
 }) {
-  return emailProvider.getLabels().catch((error) => {
+  return emailProvider.getLabels({ includeHidden: true }).catch((error) => {
     logger.warn("Failed to load labels for search results", { error });
-    return [] as Array<{ id: string; name: string }>;
+    return null;
   });
 }
 
@@ -1593,16 +1595,29 @@ function formatSearchInboxResult({
   queryUsed,
   labels,
   taxonomyNamesKey,
+  isContinuation,
 }: {
   searchResult: SearchMessagesResult;
   queryUsed: string;
-  labels: Array<{ id: string; name: string }>;
+  labels: Array<{ id: string; name: string }> | null;
   taxonomyNamesKey: "categoryNames" | "labelNames";
+  isContinuation: boolean;
 }) {
-  const labelsById = createLabelLookupMap(labels);
+  const labelsById = createLabelLookupMap(labels ?? []);
   const items = searchResult.messages.map((message) =>
     mapMessageForSearchResult(message, labelsById, taxonomyNamesKey),
   );
+
+  // An empty search often means the user's term names one of their own labels
+  // or categories rather than text in the messages, so give the model the
+  // names it can filter by instead of leaving it to guess.
+  // Only a first page can show the search matched nothing, and the hint is
+  // omitted when labels failed to load so it never reads as "no labels".
+  const noMatches =
+    items.length === 0 &&
+    !searchResult.nextPageToken &&
+    !isContinuation &&
+    labels !== null;
 
   return {
     queryUsed,
@@ -1611,8 +1626,23 @@ function formatSearchInboxResult({
     hasMore: Boolean(searchResult.nextPageToken),
     summary: summarizeSearchResults(items),
     messages: items,
+    ...(noMatches && {
+      [taxonomyNamesKey === "categoryNames"
+        ? "availableCategoryNames"
+        : "availableLabelNames"]: getUserLabelNames(labels ?? []),
+    }),
   };
 }
+
+function getUserLabelNames(labels: Array<{ id: string; name: string }>) {
+  return labels
+    .filter((label) => !SYSTEM_LABEL_ID_PATTERN.test(label.id))
+    .map((label) => label.name)
+    .slice(0, MAX_AVAILABLE_LABEL_NAMES);
+}
+
+const SYSTEM_LABEL_ID_PATTERN = /^[A-Z_]+$/;
+const MAX_AVAILABLE_LABEL_NAMES = 50;
 
 function mapMessageForSearchResult(
   message: ParsedMessage,

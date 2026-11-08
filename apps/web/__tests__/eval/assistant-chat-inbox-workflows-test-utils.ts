@@ -460,11 +460,18 @@ function getDefaultLabels() {
     { id: "UNREAD", name: "UNREAD" },
     { id: "Label_To Reply", name: "To Reply" },
     { id: "Label_FYI", name: "FYI" },
+    { id: "Label_Newsletter", name: "Newsletter" },
   ];
 }
 
 function getDefaultFolders() {
   return [
+    {
+      id: "folder-inbox",
+      displayName: "Inbox",
+      childFolderCount: 0,
+      childFolders: [],
+    },
     {
       id: "folder-operations",
       displayName: "Operations",
