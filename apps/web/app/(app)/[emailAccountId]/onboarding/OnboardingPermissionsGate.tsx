@@ -25,16 +25,15 @@ export function OnboardingPermissionsGate({
   useEffect(() => {
     if (!isAccountOwner) return;
 
-    let cancelled = false;
-    checkPermissionsAction(emailAccountId).then((result) => {
-      if (!cancelled && needsPermissionsReconnect(result?.data)) {
-        setMissingPermissions(true);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
+    // Results are not discarded when the step changes, so a user who clicks
+    // ahead is still stopped by an earlier step's check. Failed checks fail open.
+    checkPermissionsAction(emailAccountId)
+      .then((result) => {
+        if (needsPermissionsReconnect(result?.data)) {
+          setMissingPermissions(true);
+        }
+      })
+      .catch(() => {});
   }, [emailAccountId, isAccountOwner, step]);
 
   // Rendered in place of the step rather than redirecting to the consent

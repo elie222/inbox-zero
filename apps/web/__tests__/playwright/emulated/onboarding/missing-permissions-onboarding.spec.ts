@@ -1,5 +1,6 @@
 import { expect } from "@playwright/test";
 import { test } from "../playwright-test";
+import { isMicrosoftPlaywright } from "../mail-provider";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import {
   openControlOnboarding,
@@ -11,18 +12,27 @@ import {
 let restoreScope: (() => Promise<unknown>) | undefined;
 
 test.beforeEach(async () => {
+  restoreScope = undefined;
   await setupOnboardingTestState();
 });
 
 test.afterEach(async () => {
-  await restoreScope?.();
-  restoreScope = undefined;
-  await resetOnboardingTestState();
+  try {
+    await restoreScope?.();
+  } finally {
+    restoreScope = undefined;
+    await resetOnboardingTestState();
+  }
 });
 
 test("asks to reconnect at the next step when Gmail access is missing", async ({
   page,
 }, testInfo) => {
+  test.skip(
+    isMicrosoftPlaywright(),
+    "Revokes Gmail scopes; the Outlook check reads the profile instead.",
+  );
+
   await openControlOnboarding(page);
 
   restoreScope = await revokeGmailScopes();
