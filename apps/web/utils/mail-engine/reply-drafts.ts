@@ -66,6 +66,7 @@ const listeners = new Set<(scope: ReplyDraftScope) => void>();
 // drafts in this tab's list.
 const otherTabDraftThreads = new Map<string, string>();
 const PRESENCE_REQUEST = "reply-draft-presence-request";
+const TAB_GONE = "reply-draft-tab-gone";
 const TAB_ID = randomUuid();
 const accountEpoch = new Map<string, number>();
 const channel =
@@ -139,8 +140,21 @@ channel?.addEventListener("message", (event) => {
   const scope = event.data;
   // A tab that opens after others started replies asks them for their drafts.
   if (scope?.type === PRESENCE_REQUEST) {
-    for (const draft of drafts.values()) {
-      if (draft.content) notifyReplyDraftChange(draft);
+    announceLocalDrafts();
+    return;
+  }
+  // A closing or reloading tab takes its drafts with it; a reload comes back
+  // under a new id and announces them again.
+  if (scope?.type === TAB_GONE && typeof scope.tabId === "string") {
+    for (const [key, thread] of otherTabDraftThreads) {
+      if (!key.startsWith(`${scope.tabId}:`)) continue;
+      otherTabDraftThreads.delete(key);
+      const separator = thread.indexOf(":");
+      const removed = {
+        emailAccountId: thread.slice(0, separator),
+        threadId: thread.slice(separator + 1),
+      };
+      for (const listener of listeners) listener(removed);
     }
     return;
   }
@@ -162,6 +176,21 @@ channel?.addEventListener("message", (event) => {
   for (const listener of listeners) listener(scope);
 });
 channel?.postMessage({ type: PRESENCE_REQUEST });
+if (channel) {
+  window.addEventListener("pagehide", () => {
+    channel.postMessage({ type: TAB_GONE, tabId: TAB_ID });
+  });
+  // A page restored from the back/forward cache keeps its id and drafts.
+  window.addEventListener("pageshow", (event) => {
+    if (event.persisted) announceLocalDrafts();
+  });
+}
+
+function announceLocalDrafts() {
+  for (const draft of drafts.values()) {
+    if (draft.content) notifyReplyDraftChange(draft);
+  }
+}
 
 export function subscribeToReplyDrafts(
   listener: (scope: ReplyDraftScope) => void,
