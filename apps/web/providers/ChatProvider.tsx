@@ -146,19 +146,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     [data?.messages],
   );
 
-  // The URL can carry a chat from another account (e.g. an old link). Sending
-  // to it can never succeed, so start a fresh chat in its place.
-  const isLoadedChatFromOtherAccount =
-    chatLoadError?.info?.errorCode === CHAT_ACCOUNT_MISMATCH_ERROR_CODE;
-  useEffect(() => {
-    if (!chatId || !isLoadedChatFromOtherAccount) return;
-    logger.warn("Assistant chat belongs to another email account", {
-      chatId,
-      emailAccountId,
-    });
-    setChatId(generateUUID());
-  }, [chatId, emailAccountId, isLoadedChatFromOtherAccount, setChatId]);
-
   const setNewChat = useCallback(() => {
     setChatId(generateUUID());
   }, [setChatId]);
@@ -302,6 +289,28 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
   const isRunActive =
     chat.status === "submitted" || chat.status === "streaming";
+
+  // The URL can carry a chat from another account (e.g. an old link). Sending
+  // to it can never succeed, so start a fresh chat in its place.
+  const isLoadedChatFromOtherAccount =
+    chatLoadError?.info?.errorCode === CHAT_ACCOUNT_MISMATCH_ERROR_CODE;
+  useEffect(() => {
+    // A send already in flight fails with the same mismatch and recovers in
+    // onError; switching chats now would abort it and drop the unsent message.
+    if (!chatId || !isLoadedChatFromOtherAccount || isRunActive) return;
+    logger.warn("Assistant chat belongs to another email account", {
+      chatId,
+      emailAccountId,
+    });
+    setChatId(generateUUID());
+  }, [
+    chatId,
+    emailAccountId,
+    isLoadedChatFromOtherAccount,
+    isRunActive,
+    setChatId,
+  ]);
+
   const handledDataRef = useRef<{ chatId: string; data: typeof data } | null>(
     null,
   );
