@@ -54,6 +54,10 @@ const LEGACY_INCLUDED_EMAIL_ACCOUNT_PRICE_IDS = [
   "price_1S5u6NKGf8mwZWHnZCfy4D5n",
 ];
 
+// Current prices are graduated in Stripe to match: the first units up to this
+// count cost the plan price, and each further unit costs `getExtraAccountPrice`.
+export const INCLUDED_EMAIL_ACCOUNTS_PER_PERSON = 2;
+
 const PER_PERSON_PRICE_IDS = [
   env.NEXT_PUBLIC_STRIPE_BUSINESS_MONTHLY_PRICE_ID,
   env.NEXT_PUBLIC_STRIPE_BUSINESS_ANNUALLY_PRICE_ID,
@@ -206,7 +210,12 @@ export function getStripePerPersonAmount({
 
   const months = tier.endsWith("_ANNUALLY") ? 12 : 1;
   const planAmount = pricing[tier] * months * 100;
-  return planAmount + (Math.max(0, quantity - 2) * planAmount) / 2;
+  const extraUnits = Math.max(0, quantity - INCLUDED_EMAIL_ACCOUNTS_PER_PERSON);
+  return planAmount + extraUnits * getExtraAccountPrice(planAmount);
+}
+
+export function getExtraAccountPrice(planPrice: number): number {
+  return planPrice / 2;
 }
 
 export function getAddAccountBillingText(
@@ -221,8 +230,13 @@ export function getAddAccountBillingText(
   const seatModel = getStripeSeatModel(premium?.stripePriceId);
 
   if (seatModel === "per_person" && premium?.tier) {
-    const extraAccountPrice = formatPrice(pricing[premium.tier] / 2);
-    return `Your plan includes 2 email accounts. Each extra account is ${extraAccountPrice}/mo.`;
+    const extraAccountPrice = formatPrice(
+      getExtraAccountPrice(pricing[premium.tier]),
+    );
+    const cadence = premium.tier.endsWith("_ANNUALLY")
+      ? "/mo, billed annually"
+      : "/mo";
+    return `Your plan includes ${INCLUDED_EMAIL_ACCOUNTS_PER_PERSON} email accounts. Each extra account is ${extraAccountPrice}${cadence}.`;
   }
   if (seatModel === "legacy_included") {
     return "Your plan includes 2 email accounts. Each extra account is billed at your plan's per-account price.";

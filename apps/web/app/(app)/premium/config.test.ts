@@ -143,10 +143,15 @@ describe("monthly pricing config", () => {
   });
 
   it("bills current plan prices per person", () => {
-    expect(getStripeSeatModel("price_current_plus_monthly")).toBe("per_person");
-    expect(getStripeSeatModel("price_current_starter_annual")).toBe(
-      "per_person",
-    );
+    for (const priceId of [
+      "price_current_starter_annual",
+      "price_current_plus_monthly",
+      "price_current_plus_annual",
+      "price_current_professional_monthly",
+      "price_current_professional_annual",
+    ]) {
+      expect(getStripeSeatModel(priceId)).toBe("per_person");
+    }
   });
 
   it("keeps grandfathered prices on their old seat billing", () => {
@@ -185,7 +190,7 @@ describe("getAddAccountBillingText", () => {
         stripePriceId: "price_current_starter_annual",
       }),
     ).toBe(
-      "Your plan includes 2 email accounts. Each extra account is $10/mo.",
+      "Your plan includes 2 email accounts. Each extra account is $10/mo, billed annually.",
     );
   });
 

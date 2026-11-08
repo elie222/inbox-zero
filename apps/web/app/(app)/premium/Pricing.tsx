@@ -19,7 +19,9 @@ import {
 import { getUserTier, hasActiveAppleSubscription } from "@/utils/premium";
 import {
   formatPrice,
+  getExtraAccountPrice,
   getPremiumTierName,
+  INCLUDED_EMAIL_ACCOUNTS_PER_PERSON,
   shouldShowLegacyStripePricingNotice,
   type Tier,
   tiers,
@@ -471,11 +473,12 @@ function PriceTier({
 }
 
 function ExtraAccountPricing({ price }: { price: number }) {
-  const extraAccountPrice = `${formatPrice(price / 2)}/mo`;
+  const extraAccountPrice = `${formatPrice(getExtraAccountPrice(price))}/mo`;
 
   return (
     <p className="mt-1 flex items-center gap-2 text-sm leading-6 text-gray-600">
-      2 email accounts included, then {extraAccountPrice} each
+      {INCLUDED_EMAIL_ACCOUNTS_PER_PERSON} email accounts included, then{" "}
+      {extraAccountPrice} each
       <TooltipExplanation
         text={`Connect your personal and work email at no extra cost. Each extra email account is ${extraAccountPrice}. Each team member is billed as a separate user.`}
       />

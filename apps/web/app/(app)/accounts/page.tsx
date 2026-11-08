@@ -46,7 +46,7 @@ import { clearOfflineMailCacheForAccount } from "@/utils/offline/clear-mail-cach
 
 export default function AccountsPage() {
   const { data, isLoading, error, mutate } = useAccounts();
-  const { premium } = usePremium();
+  const { premium, isPremium, isLoading: isPremiumLoading } = usePremium();
   const notification = useAccountNotifications();
 
   return (
@@ -69,7 +69,13 @@ export default function AccountsPage() {
               onAccountDeleted={mutate}
             />
           ))}
-          <AddAccount helperText={getAddAccountBillingText(premium)} />
+          <AddAccount
+            helperText={
+              isPremiumLoading
+                ? null
+                : getAddAccountBillingText(isPremium ? premium : null)
+            }
+          />
         </div>
       </LoadingContent>
     </PageWrapper>

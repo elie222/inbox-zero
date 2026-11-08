@@ -1,5 +1,8 @@
 import sumBy from "lodash/sumBy";
-import { getStripeSeatModel } from "@/app/(app)/premium/config";
+import {
+  getStripeSeatModel,
+  INCLUDED_EMAIL_ACCOUNTS_PER_PERSON,
+} from "@/app/(app)/premium/config";
 import { updateSubscriptionItemQuantity } from "@/ee/billing/lemon/index";
 import { updateStripeSubscriptionItemQuantity } from "@/ee/billing/stripe/index";
 import prisma from "@/utils/prisma";
@@ -153,9 +156,11 @@ export function getStripeBillingQuantity({
     case "per_person":
       // A lone person's quantity is just their account count, which reads
       // naturally on invoices. With several people, counting each as at least
-      // 2 units charges every extra person the full plan price.
+      // the included units charges every extra person the full plan price.
       if (accountCounts.length <= 1) return Math.max(1, accountCounts[0] ?? 0);
-      return sumBy(accountCounts, (count) => Math.max(2, count));
+      return sumBy(accountCounts, (count) =>
+        Math.max(INCLUDED_EMAIL_ACCOUNTS_PER_PERSON, count),
+      );
     case "legacy_included":
       return Math.max(
         1,
