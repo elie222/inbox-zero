@@ -1233,6 +1233,7 @@ export function createMailEngine(input: {
             runtime.nowMs() + streamCatchUpInterval(idleGate, stream.streamId),
           );
           idleGate.streamBacklogPages.delete(stream.streamId);
+          idleGate.newestPageIngested.delete(stream.streamId);
         } else {
           idleGate.nextStreamCatchUpAtMs.delete(stream.streamId);
           backlogPages =
@@ -1242,7 +1243,10 @@ export function createMailEngine(input: {
         await queries.refreshAll();
         await noteConnection(session.accountId, "ok");
         notifySyncPageCommitted(page);
-        return backlogPages === NEWEST_PAGE_AFTER_BACKLOG_PAGES
+        // Asked again on every later page until it lands, so a failed or
+        // interrupted fetch is retried rather than waiting out the replay.
+        return backlogPages >= NEWEST_PAGE_AFTER_BACKLOG_PAGES &&
+          !idleGate.newestPageIngested.has(stream.streamId)
           ? page.to
           : null;
       } else {
@@ -1256,6 +1260,7 @@ export function createMailEngine(input: {
         runtime.nowMs() + streamCatchUpInterval(idleGate, stream.streamId),
       );
       idleGate.streamBacklogPages.delete(stream.streamId);
+      idleGate.newestPageIngested.delete(stream.streamId);
       const resetStream = { ...stream, streamId: changes.scopeId };
       await ingestBootstrap({
         session,
@@ -1287,7 +1292,6 @@ export function createMailEngine(input: {
   ) {
     const requestId = runtime.randomId();
     const readFence = openChangeRead();
-    let ingested = false;
     try {
       const bootstrap = await source.beginBootstrap({
         session,
@@ -1331,15 +1335,11 @@ export function createMailEngine(input: {
         bodies: page.bodies,
       });
       if (applied.status === "committed") {
-        ingested = true;
+        idleGate.newestPageIngested.add(position.streamId);
         await queries.refreshAll();
       }
     } finally {
       closeChangeRead(readFence);
-      // Any outcome short of a committed page, including a thrown error,
-      // re-arms the trigger so a stream still behind tries again after the
-      // same number of replay pages instead of waiting out the whole replay.
-      if (!ingested) idleGate.streamBacklogPages.delete(position.streamId);
     }
   }
 
@@ -1398,6 +1398,7 @@ export function createMailEngine(input: {
       scopesDiscoveredAt: null,
       streamCheckedAt: new Map(),
       streamBacklogPages: new Map(),
+      newestPageIngested: new Set(),
     };
     idleCatchUpGates.set(accountId, created);
     return created;
@@ -1617,6 +1618,8 @@ type IdleCatchUpGate = {
   scopesDiscoveredAt: CheckStamp | null;
   streamCheckedAt: Map<string, CheckStamp>;
   streamBacklogPages: Map<string, number>;
+  /** Streams whose current backlog already has its newest page in. */
+  newestPageIngested: Set<string>;
 };
 
 type CheckStamp = { atMs: number; requestCount: number };
