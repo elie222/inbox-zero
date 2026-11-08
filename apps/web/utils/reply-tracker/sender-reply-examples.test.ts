@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { collectSenderReplyExamples } from "./sender-reply-examples";
+import {
+  collectSenderReplyExamples,
+  getSenderHistoryMessages,
+} from "./sender-reply-examples";
 import type { EmailProvider } from "@/utils/email/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createTestLogger } from "@/__tests__/helpers";
@@ -70,12 +73,17 @@ describe("collectSenderReplyExamples", () => {
       ],
     });
 
-    const result = await collectSenderReplyExamples({
+    const senderHistoryMessages = await getSenderHistoryMessages({
       emailAccount: createEmailAccount(),
       emailProvider: provider,
       senderEmail: "sender@example.com",
       currentMessageIds: new Set(["current-message"]),
       logger,
+    });
+    const result = collectSenderReplyExamples({
+      emailProvider: provider,
+      senderEmail: "sender@example.com",
+      senderHistoryMessages,
     });
 
     expect(provider.getThreadsWithParticipant).toHaveBeenCalledWith({

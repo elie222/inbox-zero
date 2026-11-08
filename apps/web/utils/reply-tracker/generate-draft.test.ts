@@ -158,7 +158,6 @@ const createMockMessage = (): ParsedMessage =>
 const createMockClient = (): EmailProvider =>
   ({
     getThreadMessages: vi.fn(),
-    getPreviousConversationMessages: vi.fn().mockResolvedValue([]),
     getThreadsWithParticipant: vi.fn().mockResolvedValue([]),
     isSentMessage: vi.fn((message: ParsedMessage) =>
       message.labelIds?.includes("SENT"),
@@ -554,7 +553,7 @@ describe("fetchMessagesAndGenerateDraft - thread ordering", () => {
     ]);
   });
 
-  it("does not summarize the current thread as historical email context", async () => {
+  it("summarizes the sender's other threads as historical email context", async () => {
     vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
       reply: "Draft reply",
       confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
@@ -572,9 +571,9 @@ describe("fetchMessagesAndGenerateDraft - thread ordering", () => {
 
     const client = createMockClient();
     vi.mocked(client.getThreadMessages).mockResolvedValue([currentMessage]);
-    vi.mocked(client.getPreviousConversationMessages).mockResolvedValue([
-      currentMessage,
-      olderMessage,
+    vi.mocked(client.getThreadsWithParticipant).mockResolvedValue([
+      { id: "thread-1", messages: [currentMessage], snippet: "" },
+      { id: "thread-previous", messages: [olderMessage], snippet: "" },
     ]);
 
     await fetchMessagesAndGenerateDraft(
@@ -585,6 +584,10 @@ describe("fetchMessagesAndGenerateDraft - thread ordering", () => {
       logger,
     );
 
+    expect(client.getThreadsWithParticipant).toHaveBeenCalledTimes(1);
+    expect(client.getThreadsWithParticipant).toHaveBeenCalledWith(
+      expect.objectContaining({ participantEmail: "sender@example.com" }),
+    );
     expect(aiExtractFromEmailHistory).toHaveBeenCalledWith(
       expect.objectContaining({
         historicalMessages: [
@@ -597,7 +600,7 @@ describe("fetchMessagesAndGenerateDraft - thread ordering", () => {
     );
   });
 
-  it("skips historical email extraction when only current-thread messages are returned", async () => {
+  it("skips historical email extraction when the sender has no other threads", async () => {
     vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
       reply: "Draft reply",
       confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
@@ -606,8 +609,8 @@ describe("fetchMessagesAndGenerateDraft - thread ordering", () => {
     const currentMessage = createMockMessage();
     const client = createMockClient();
     vi.mocked(client.getThreadMessages).mockResolvedValue([currentMessage]);
-    vi.mocked(client.getPreviousConversationMessages).mockResolvedValue([
-      currentMessage,
+    vi.mocked(client.getThreadsWithParticipant).mockResolvedValue([
+      { id: "thread-1", messages: [currentMessage], snippet: "" },
     ]);
 
     await fetchMessagesAndGenerateDraft(

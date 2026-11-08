@@ -354,9 +354,6 @@ export interface EmailProvider {
   getOriginalMessage(
     originalMessageId: string | undefined,
   ): Promise<ParsedMessage | null>;
-  getPreviousConversationMessages(
-    messageIds: string[],
-  ): Promise<ParsedMessage[]>;
   /**
    * The addresses the user can send from. Empty when the provider doesn't
    * offer a choice, so mail goes out from the account address.
