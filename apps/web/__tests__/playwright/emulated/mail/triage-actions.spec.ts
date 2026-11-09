@@ -8,6 +8,7 @@ import {
   openMail,
   openMailboxFromSidebar,
   readLatestMailMutation,
+  toggleMailLayout,
 } from "./mail-test-helpers";
 
 const commandModifier = process.platform === "darwin" ? "Meta" : "Control";
@@ -195,9 +196,7 @@ test("advances the split reader after archiving an open conversation", async ({
   if (settings.layout === "SPLIT") {
     await expect(emptyReader).toBeVisible();
   } else {
-    await page
-      .getByRole("button", { name: "Switch list or split view" })
-      .click();
+    await toggleMailLayout(page);
     await expect(emptyReader).toBeVisible();
   }
   const conversation = conversationWithSubject(

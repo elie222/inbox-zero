@@ -440,3 +440,18 @@ export async function readReplyThreadMessages(
   const { thread }: ThreadResponse = await response.json();
   return thread.messages;
 }
+
+/**
+ * Waits for the preference save, since the layout outlives the test and a
+ * save aborted by the next navigation would leak into the following spec.
+ */
+export async function toggleMailLayout(page: Page) {
+  await page.getByRole("button", { name: "View options" }).click();
+  const saved = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response.request().headers()["next-action"] !== undefined,
+  );
+  await page.getByRole("menuitemcheckbox", { name: /^Split view/ }).click();
+  await saved;
+}
