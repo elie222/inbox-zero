@@ -167,7 +167,10 @@ test("walks a new mail user through setup with a live preview", async ({
     "Unread",
   );
   await expect(panel).toBeHidden();
-  await expect(page.getByRole("button", { name: "Mail setup" })).toBeVisible();
+  await page.getByRole("button", { name: "View options" }).click();
+  await expect(
+    page.getByRole("menuitem", { name: "Run mail setup again" }),
+  ).toBeVisible();
   await shot(page, testInfo, "7-after-setup");
 });
 
@@ -189,7 +192,8 @@ test("suggests setup to existing users without opening it", async ({
   await expect(panel).toBeHidden();
   await shot(page, testInfo, "8-suggested-button");
 
-  await page.getByRole("button", { name: "Mail setup" }).click();
+  await page.getByRole("button", { name: "View options" }).click();
+  await page.getByRole("menuitem", { name: "Set up your inbox" }).click();
   await expect(panel).toBeVisible();
   await expect(page).toHaveURL(/setup=1/);
 });

@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import { Client } from "pg";
+import type { MailSettingsResponse } from "@/app/api/mail/settings/route";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import type { ReadComposeDraftResponse } from "@/app/api/user/drafts/route";
 import { getEmailAccountId } from "../account-test-helpers";
@@ -10,6 +11,7 @@ import {
   inspectCommandToMutation,
   type InspectCommand,
 } from "@/utils/playwright/mail-inspect-command";
+import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 
 // A send goes out once its 30-second undo window closes.
 export const UNDO_WINDOW_SEND_TIMEOUT_MS = 60_000;
@@ -439,4 +441,27 @@ export async function readReplyThreadMessages(
   expect(response.ok(), await response.text()).toBe(true);
   const { thread }: ThreadResponse = await response.json();
   return thread.messages;
+}
+
+/**
+ * Waits for the stored layout to flip, since the preference outlives the test
+ * and a save aborted by the next navigation would leak into the following spec.
+ */
+export async function toggleMailLayout(page: Page) {
+  const [emailAccountId] = new URL(page.url()).pathname
+    .split("/")
+    .filter(Boolean);
+  const readLayout = async () => {
+    const response = await page.request.get("/api/mail/settings", {
+      headers: { [EMAIL_ACCOUNT_HEADER]: emailAccountId },
+    });
+    if (!response.ok()) {
+      throw new Error(`Mail settings request failed: ${response.status()}`);
+    }
+    return ((await response.json()) as MailSettingsResponse).layout;
+  };
+  const before = await readLayout();
+  await page.getByRole("button", { name: "View options" }).click();
+  await page.getByRole("menuitemcheckbox", { name: /^Split view/ }).click();
+  await expect.poll(readLayout).not.toBe(before);
 }

@@ -6,6 +6,7 @@ import {
   conversationWithSubject,
   openMail,
   readReplyThreadMessages,
+  toggleMailLayout,
 } from "./mail-test-helpers";
 
 test("marks a conversation as a draft as soon as a reply is typed", async ({
@@ -19,9 +20,7 @@ test("marks a conversation as a draft as soon as a reply is typed", async ({
   if (
     !(await page.getByText("Nothing selected", { exact: true }).isVisible())
   ) {
-    await page
-      .getByRole("button", { name: "Switch list or split view" })
-      .click();
+    await toggleMailLayout(page);
   }
   const row = conversationWithSubject(
     page,

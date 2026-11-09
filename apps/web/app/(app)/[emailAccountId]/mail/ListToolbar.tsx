@@ -16,21 +16,18 @@ import {
   ArchiveIcon,
   ArchiveRestoreIcon,
   ChevronDownIcon,
-  ColumnsIcon,
-  LayersIcon,
   MailIcon,
   MailOpenIcon,
   MoreHorizontalIcon,
   PanelLeftIcon,
-  RowsIcon,
   SearchIcon,
+  SettingsIcon,
   SlidersHorizontalIcon,
   SparklesIcon,
   SplitIcon,
   StarIcon,
   StarOffIcon,
   TagIcon,
-  TextIcon,
   Trash2Icon,
   XIcon,
 } from "lucide-react";
@@ -51,10 +48,14 @@ import { parseOutlookSearchQuery } from "@/app/(app)/[emailAccountId]/mail/outlo
 import type { MailLayoutMode } from "@/app/(app)/[emailAccountId]/mail/types";
 import { Tooltip } from "@/components/Tooltip";
 import { useSidebar } from "@/components/ui/sidebar";
+import { getShortcutHint } from "@/lib/shortcuts/registry";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -88,7 +89,7 @@ export type ListToolbarProps = {
   onToggleAssistant: () => void;
   /** Omitted where the setup card can't apply, or while it's open. */
   onOpenSetup?: () => void;
-  /** Marks the setup button until the reader has been through setup once. */
+  /** Marks the view options menu until the reader has been through setup once. */
   isSetupSuggested: boolean;
   /** Rendered here only when the split tabs row isn't showing to hold it. */
   selectAll?: ReactNode;
@@ -145,7 +146,6 @@ export const ListToolbar = memo(function ListToolbar({
   onClearSelection,
   onOpenMailNav,
 }: ListToolbarProps) {
-  const LayoutIcon = layout === "split" ? ColumnsIcon : RowsIcon;
   const { state } = useSidebar();
   const isSidebarCollapsed = !state.includes("left-sidebar");
 
@@ -311,91 +311,17 @@ export const ListToolbar = memo(function ListToolbar({
         />
       )}
 
-      {selectedCount === 0 && onOpenSetup ? (
-        <Tooltip content="Mail setup">
-          <button
-            type="button"
-            onClick={onOpenSetup}
-            aria-label="Mail setup"
-            className={cn(toolbarButton, "relative w-8 justify-center px-0")}
-          >
-            <SlidersHorizontalIcon className="size-3.5" />
-            {isSetupSuggested && (
-              <span className="absolute top-1 right-1 flex size-2">
-                <span className="absolute inline-flex size-full animate-ping rounded-full bg-blue-500 opacity-75 motion-reduce:animate-none" />
-                <span className="relative inline-flex size-2 rounded-full bg-blue-500" />
-              </span>
-            )}
-          </button>
-        </Tooltip>
-      ) : null}
-
-      {selectedCount === 0 && onToggleBundleInbox ? (
-        <Tooltip
-          content={
-            bundleInbox
-              ? "Show every email on its own row"
-              : "Bundle low-priority emails in the inbox"
-          }
-        >
-          <button
-            type="button"
-            onClick={onToggleBundleInbox}
-            aria-label="Bundle low-priority emails"
-            aria-pressed={bundleInbox}
-            className={cn(
-              toolbarButton,
-              "w-8 justify-center px-0",
-              bundleInbox && "bg-muted text-foreground",
-            )}
-          >
-            <LayersIcon className="size-3.5" />
-          </button>
-        </Tooltip>
-      ) : null}
-
       {selectedCount === 0 ? (
-        <Tooltip
-          shortcuts={[
-            {
-              id: "togglePreview",
-              label: expandedPreview
-                ? "Shorten preview text"
-                : "Expand preview text",
-            },
-          ]}
-        >
-          <button
-            type="button"
-            onClick={onTogglePreview}
-            aria-label="Expand or shorten preview text"
-            aria-pressed={expandedPreview}
-            className={cn(
-              toolbarButton,
-              "w-8 justify-center px-0",
-              expandedPreview && "bg-muted text-foreground",
-            )}
-          >
-            <TextIcon className="size-3.5" />
-          </button>
-        </Tooltip>
-      ) : null}
-
-      {selectedCount === 0 ? (
-        <Tooltip
-          shortcuts={[
-            { id: "toggleLayout", label: "Switch list / split view" },
-          ]}
-        >
-          <button
-            type="button"
-            onClick={onToggleLayout}
-            aria-label="Switch list or split view"
-            className={cn(toolbarButton, "w-8 justify-center px-0")}
-          >
-            <LayoutIcon className="size-3.5" />
-          </button>
-        </Tooltip>
+        <ViewOptionsMenu
+          layout={layout}
+          expandedPreview={expandedPreview}
+          onToggleLayout={onToggleLayout}
+          onTogglePreview={onTogglePreview}
+          bundleInbox={bundleInbox}
+          onToggleBundleInbox={onToggleBundleInbox}
+          onOpenSetup={onOpenSetup}
+          isSetupSuggested={isSetupSuggested}
+        />
       ) : null}
 
       {selectedCount === 0 ? (
@@ -404,9 +330,12 @@ export const ListToolbar = memo(function ListToolbar({
             type="button"
             onClick={onToggleAssistant}
             aria-label="Toggle the assistant"
-            className={cn(toolbarButton, "w-8 justify-center px-0")}
+            className={cn(
+              toolbarButton,
+              "w-8 justify-center bg-blue-500/10 px-0 text-blue-600 hover:bg-blue-500/20 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300",
+            )}
           >
-            <SparklesIcon className="size-3.5" />
+            <SparklesIcon className="size-4" />
           </button>
         </Tooltip>
       ) : null}
@@ -660,6 +589,86 @@ function AdvancedSearchForm({
       variant={searchVariant === "common" ? "common" : "gmail"}
       onSearch={onSearch}
     />
+  );
+}
+
+function ViewOptionsMenu({
+  layout,
+  expandedPreview,
+  onToggleLayout,
+  onTogglePreview,
+  bundleInbox,
+  onToggleBundleInbox,
+  onOpenSetup,
+  isSetupSuggested,
+}: Pick<
+  ListToolbarProps,
+  | "layout"
+  | "expandedPreview"
+  | "onToggleLayout"
+  | "onTogglePreview"
+  | "bundleInbox"
+  | "onToggleBundleInbox"
+  | "onOpenSetup"
+  | "isSetupSuggested"
+>) {
+  return (
+    <DropdownMenu>
+      <Tooltip content="View options">
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-label="View options"
+            className={cn(toolbarButton, "relative w-8 justify-center px-0")}
+          >
+            <SlidersHorizontalIcon className="size-3.5" />
+            {isSetupSuggested && onOpenSetup ? (
+              <span className="absolute top-1 right-1 flex size-2">
+                <span className="absolute inline-flex size-full animate-ping rounded-full bg-blue-500 opacity-75 motion-reduce:animate-none" />
+                <span className="relative inline-flex size-2 rounded-full bg-blue-500" />
+              </span>
+            ) : null}
+          </button>
+        </DropdownMenuTrigger>
+      </Tooltip>
+      <DropdownMenuContent align="end" className="w-64">
+        {onToggleBundleInbox ? (
+          <DropdownMenuCheckboxItem
+            checked={bundleInbox}
+            onCheckedChange={onToggleBundleInbox}
+          >
+            Bundle low-priority emails
+          </DropdownMenuCheckboxItem>
+        ) : null}
+        <DropdownMenuCheckboxItem
+          checked={expandedPreview}
+          onCheckedChange={onTogglePreview}
+        >
+          Expanded preview text
+          <DropdownMenuShortcut>
+            {getShortcutHint("togglePreview")}
+          </DropdownMenuShortcut>
+        </DropdownMenuCheckboxItem>
+        <DropdownMenuCheckboxItem
+          checked={layout === "split"}
+          onCheckedChange={onToggleLayout}
+        >
+          Split view
+          <DropdownMenuShortcut>
+            {getShortcutHint("toggleLayout")}
+          </DropdownMenuShortcut>
+        </DropdownMenuCheckboxItem>
+        {onOpenSetup ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={onOpenSetup}>
+              <SettingsIcon className="mr-2 size-4" />
+              {isSetupSuggested ? "Set up your inbox" : "Run mail setup again"}
+            </DropdownMenuItem>
+          </>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
