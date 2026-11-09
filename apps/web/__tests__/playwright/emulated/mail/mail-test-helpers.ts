@@ -455,6 +455,9 @@ export async function toggleMailLayout(page: Page) {
     const response = await page.request.get("/api/mail/settings", {
       headers: { [EMAIL_ACCOUNT_HEADER]: emailAccountId },
     });
+    if (!response.ok()) {
+      throw new Error(`Mail settings request failed: ${response.status()}`);
+    }
     return ((await response.json()) as MailSettingsResponse).layout;
   };
   const before = await readLayout();
