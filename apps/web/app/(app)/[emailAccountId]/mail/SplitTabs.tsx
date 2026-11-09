@@ -72,6 +72,9 @@ export function SplitTabs({
   const tabsRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
+  // Follow the active tab as tabs settle (counts load, layouts switch) until
+  // the reader scrolls the strip themselves; picking a tab follows it again.
+  const followActiveRef = useRef(true);
   const { drag, suppressClickRef, trackPress } = useDragReorder<DragState>();
   // Scopes the sliding underline so two mounted tab bars never trade it.
   const underlineGroupId = useId();
@@ -174,6 +177,7 @@ export function SplitTabs({
     const onWheel = (event: WheelEvent) => {
       // Ctrl-wheel is zoom, including trackpad pinch.
       if (event.ctrlKey || event.metaKey) return;
+      followActiveRef.current = false;
       if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
       const max = tabs.scrollWidth - tabs.clientWidth;
       // Firefox reports wheel notches in lines (or pages), not pixels.
@@ -189,12 +193,12 @@ export function SplitTabs({
       tabs.scrollLeft = next;
     };
     tabs.addEventListener("wheel", onWheel, { passive: false });
-    // A layout switch resizes the visible strip, so bring the active tab back.
-    // The track also grows when a count changes width; that only moves the
-    // fades, so it doesn't undo where the reader has scrolled to.
-    const observer = new ResizeObserver((entries) => {
-      if (entries.some((entry) => entry.target === tabs))
-        revealActiveTab(tabs, "instant");
+    const stopFollowing = () => {
+      followActiveRef.current = false;
+    };
+    tabs.addEventListener("touchstart", stopFollowing, { passive: true });
+    const observer = new ResizeObserver(() => {
+      if (followActiveRef.current) revealActiveTab(tabs, "instant");
       update();
     });
     observer.observe(tabs);
@@ -202,6 +206,7 @@ export function SplitTabs({
     return () => {
       tabs.removeEventListener("scroll", update);
       tabs.removeEventListener("wheel", onWheel);
+      tabs.removeEventListener("touchstart", stopFollowing);
       observer.disconnect();
     };
   }, []);
@@ -209,6 +214,7 @@ export function SplitTabs({
   useEffect(() => {
     const tabs = tabsRef.current;
     if (!activeSplitId || !tabs || !splitOrder) return;
+    followActiveRef.current = true;
     revealActiveTab(tabs, reduceMotion ? "instant" : "smooth");
   }, [activeSplitId, splitOrder, reduceMotion]);
 
