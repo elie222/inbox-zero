@@ -6,6 +6,8 @@ import type { UseChatHelpers } from "@ai-sdk/react";
 import type { ChatMessage } from "@/components/assistant-chat/types";
 import {
   EmailLookupProvider,
+  KnownThreadIdsProvider,
+  collectToolThreadIds,
   type EmailLookup,
 } from "@/components/assistant-chat/email-lookup-context";
 import {
@@ -38,6 +40,10 @@ export function Messages({
 }: MessagesProps) {
   const disableConfirm = status === "streaming" || status === "submitted";
   const emailLookup = useMemo(() => buildEmailLookup(messages), [messages]);
+  const knownThreadIds = useMemo(
+    () => collectToolThreadIds(messages),
+    [messages],
+  );
   const firstAssistantIndex = useMemo(
     () => messages.findIndex((m) => m.role === "assistant"),
     [messages],
@@ -45,95 +51,97 @@ export function Messages({
 
   return (
     <EmailLookupProvider value={emailLookup}>
-      <Conversation className="flex min-w-0 flex-1">
-        <ConversationContent
-          className="mx-auto flex min-h-full flex-col max-w-[calc(var(--chat-max-w)+var(--chat-px)*2)] px-[var(--chat-px)] pt-0 pb-0"
-          scrollClassName="![scrollbar-gutter:auto] scrollbar-thin"
-        >
-          <div className="flex flex-1 flex-col gap-4">
-            {messages.length === 0 && <Overview setInput={setInput} />}
+      <KnownThreadIdsProvider value={knownThreadIds}>
+        <Conversation className="flex min-w-0 flex-1">
+          <ConversationContent
+            className="mx-auto flex min-h-full flex-col max-w-[calc(var(--chat-max-w)+var(--chat-px)*2)] px-[var(--chat-px)] pt-0 pb-0"
+            scrollClassName="![scrollbar-gutter:auto] scrollbar-thin"
+          >
+            <div className="flex flex-1 flex-col gap-4">
+              {messages.length === 0 && <Overview setInput={setInput} />}
 
-            {messages.map((message, index) => (
-              <Fragment key={message.id}>
-                <Message from={message.role}>
-                  <MessageContent variant="flat">
-                    {message.parts?.map((part, partIndex) => {
-                      if (isToolRunContinuation(message.parts, partIndex)) {
-                        return null;
-                      }
-                      if (part.type === "tool-searchInbox") {
-                        const outputs = getToolRunOutputs(
-                          message.parts,
-                          partIndex,
-                        );
-                        if (
-                          !outputs.length &&
-                          "output" in part &&
-                          isToolErrorHiddenFromUser(part.output)
-                        ) {
+              {messages.map((message, index) => (
+                <Fragment key={message.id}>
+                  <Message from={message.role}>
+                    <MessageContent variant="flat">
+                      {message.parts?.map((part, partIndex) => {
+                        if (isToolRunContinuation(message.parts, partIndex)) {
                           return null;
                         }
-                        if (
-                          outputs.length > 1 ||
-                          ("output" in part &&
-                            isToolErrorHiddenFromUser(part.output))
-                        ) {
-                          return (
-                            <SearchInboxResult
-                              key={`${message.id}-${partIndex}`}
-                              outputs={outputs}
-                            />
+                        if (part.type === "tool-searchInbox") {
+                          const outputs = getToolRunOutputs(
+                            message.parts,
+                            partIndex,
                           );
-                        }
-                      }
-                      return (
-                        <MessagePart
-                          key={`${message.id}-${partIndex}`}
-                          part={part}
-                          isStreaming={
-                            status === "streaming" &&
-                            partIndex === message.parts.length - 1
+                          if (
+                            !outputs.length &&
+                            "output" in part &&
+                            isToolErrorHiddenFromUser(part.output)
+                          ) {
+                            return null;
                           }
-                          disableConfirm={disableConfirm}
-                          isPersistedMessage={persistedMessageIds.has(
-                            message.id,
-                          )}
-                          messageId={message.id}
-                          partIndex={partIndex}
-                          threadLookup={emailLookup}
-                        />
-                      );
-                    })}
-                  </MessageContent>
-                </Message>
-                {index === firstAssistantIndex && <MessagingChannelHint />}
-              </Fragment>
-            ))}
+                          if (
+                            outputs.length > 1 ||
+                            ("output" in part &&
+                              isToolErrorHiddenFromUser(part.output))
+                          ) {
+                            return (
+                              <SearchInboxResult
+                                key={`${message.id}-${partIndex}`}
+                                outputs={outputs}
+                              />
+                            );
+                          }
+                        }
+                        return (
+                          <MessagePart
+                            key={`${message.id}-${partIndex}`}
+                            part={part}
+                            isStreaming={
+                              status === "streaming" &&
+                              partIndex === message.parts.length - 1
+                            }
+                            disableConfirm={disableConfirm}
+                            isPersistedMessage={persistedMessageIds.has(
+                              message.id,
+                            )}
+                            messageId={message.id}
+                            partIndex={partIndex}
+                            threadLookup={emailLookup}
+                          />
+                        );
+                      })}
+                    </MessageContent>
+                  </Message>
+                  {index === firstAssistantIndex && <MessagingChannelHint />}
+                </Fragment>
+              ))}
 
-            {status === "submitted" &&
-              messages.length > 0 &&
-              messages[messages.length - 1].role === "user" && (
-                <Message from="assistant">
-                  <MessageContent variant="flat">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Loader />
-                      <span>Thinking...</span>
-                    </div>
-                  </MessageContent>
-                </Message>
-              )}
-          </div>
-
-          <div className="h-8 shrink-0" />
-
-          {footer && (
-            <div className="sticky bottom-0 z-10 pb-4 md:pb-6 pointer-events-none [&>*]:pointer-events-auto relative">
-              <ConversationScrollButton wrapperClassName="absolute bottom-full left-1/2 -translate-x-1/2 mb-2" />
-              {footer}
+              {status === "submitted" &&
+                messages.length > 0 &&
+                messages[messages.length - 1].role === "user" && (
+                  <Message from="assistant">
+                    <MessageContent variant="flat">
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Loader />
+                        <span>Thinking...</span>
+                      </div>
+                    </MessageContent>
+                  </Message>
+                )}
             </div>
-          )}
-        </ConversationContent>
-      </Conversation>
+
+            <div className="h-8 shrink-0" />
+
+            {footer && (
+              <div className="sticky bottom-0 z-10 pb-4 md:pb-6 pointer-events-none [&>*]:pointer-events-auto relative">
+                <ConversationScrollButton wrapperClassName="absolute bottom-full left-1/2 -translate-x-1/2 mb-2" />
+                {footer}
+              </div>
+            )}
+          </ConversationContent>
+        </Conversation>
+      </KnownThreadIdsProvider>
     </EmailLookupProvider>
   );
 }

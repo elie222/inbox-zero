@@ -36,6 +36,7 @@ import {
   requiresSenderEmails,
 } from "@/utils/ai/assistant/manage-inbox-actions";
 import { hideToolErrorFromUser } from "@/utils/ai/assistant/tool-error-visibility";
+import { isThreadNotFoundError } from "@/utils/email/thread-not-found";
 import {
   type AutomaticUnsubscribeResult,
   unsubscribeSenderAndMark,
@@ -1237,6 +1238,7 @@ const buildManageInboxTool = ({
 
         const threadActionResults = await runThreadActionsInParallel({
           threadIds,
+          emailProvider,
           concurrency: THREAD_ACTION_CONCURRENCY,
           runAction: async (threadId) => {
             if (action === "archive_threads") {
@@ -1734,16 +1736,27 @@ async function runThreadActionsInParallel({
   threadIds,
   concurrency,
   runAction,
+  emailProvider,
 }: {
   threadIds: string[];
   concurrency: number;
   runAction: (threadId: string) => Promise<void>;
+  emailProvider: EmailProvider;
 }) {
   const results = await runWithBoundedConcurrency({
     items: threadIds,
     concurrency,
     run: async (threadId) => {
-      await runAction(threadId);
+      try {
+        await runAction(threadId);
+      } catch (error) {
+        // Models often pass a message ID where a thread ID belongs.
+        const resolvedThreadId = isThreadNotFoundError(error)
+          ? await findThreadIdForMessageId(emailProvider, threadId)
+          : null;
+        if (!resolvedThreadId) throw error;
+        await runAction(resolvedThreadId);
+      }
     },
   });
 
@@ -1751,6 +1764,20 @@ async function runThreadActionsInParallel({
     threadId,
     success: result.status === "fulfilled",
   }));
+}
+
+async function findThreadIdForMessageId(
+  emailProvider: EmailProvider,
+  messageId: string,
+) {
+  try {
+    const message = await emailProvider.getMessage(messageId);
+    return message.threadId && message.threadId !== messageId
+      ? message.threadId
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 async function applyLabelToThread({
